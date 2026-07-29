@@ -17,6 +17,7 @@ All notable changes to MetAPI-Go will be documented in this file.
 - P12 scheduler spec updated with scheduler #13b (video retention) + #16 (OAuth refresh)
 
 ### Fixed / Honesty
+- **vulncheck GO-2026-5970**: bump `golang.org/x/text` v0.38.0 → v0.39.0 (infinite loop on invalid input; reached via `store.DB.ExecContext` → `sql.DB.ExecContext` → `norm.Form.Properties/Span/Transform`). govulncheck clean.
 - **CI regression fix**: `DownstreamKeyEditorModal` allow-credential list rendered `item.title`/`item.subtitle` (not on `DownstreamCredentialOption`); restored `item.label`/`item.detail` so `npm run typecheck:web` passes (b6bee3c #579 introduced the regression; caught by CI `frontend` job)
 - **staticcheck SA5011**: `dispatchUpstream` #514 estimate dropped the now-redundant `if ctx != nil` guard (ctx is constructed non-nil by `PrepareCtx`, which returns a `SurfResult` on failure); comment documents the invariant so the lint cannot regress
 - **dual-dialect encapsulation**: `store.DB` now exposes `ExecContext/QueryxContext/QueryRowxContext/GetContext/SelectContext` (mirroring the non-Context helpers, rebinding `?`→`$N` for PG internally); `app/proxy_upstream.go` and `handler/proxy/proxy_log.go` delegate to them, removing 4 manual `if db.Dialect == Postgres` branches from the business layer. Remaining dialect branches are true semantic splits (PG `RETURNING id` vs SQLite `LastInsertId`; advisory lock vs local mutex; `ON CONFLICT` vs `INSERT OR IGNORE`) and stay where the SQL diverges
