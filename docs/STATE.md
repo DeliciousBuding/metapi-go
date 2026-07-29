@@ -1,6 +1,6 @@
 # STATE.md — MetAPI Go product status
 
-**Last verified**: 2026-07-21
+**Last verified**: 2026-07-30
 
 > **现状 SSOT**（产品仓库）。只记当前事实与指针，不写流水账。  
 > 运维主机/compose/镜像 pin / PG role LIMIT 以 **server 仓** `projects/metapi/STATE.md` 为准（可能与本 tip 不同步）。  
@@ -14,7 +14,7 @@
 | Fact | Value |
 |:-----|:------|
 | Latest release tag | **[v0.8.45](https://github.com/TokenDanceLab/metapi-go/releases/tag/v0.8.45)** (2026-07-20) — RE2-safe + UI tip |
-| Tip | `d0288f3` — #557 cascade procedure + probe script; P0-585 HTTP e2e; M53 board |
+| Tip | `c0d98fc` — fable fleet review + CI unblock (typecheck/SA5011) + dual-dialect Context helpers + docs SSOT sweep; prior `146c538` CI unblock, `d0288f3` #557 procedure |
 | Production pin (ops) | server `projects/metapi/STATE.md` — hk3 still **0.8.44 Exited(2)** until authorized pin/up of **0.8.45** + 15min soak; pool/role **1/1**; restart=no |
 | Standby us1 pin | compose **0.8.42** + image pulled (#528); cold stack not auto-started |
 | Active milestone | **[53 REL-HONESTY](https://github.com/TokenDanceLab/metapi-go/milestone/53)** — #557 prod e2e + #558 runtime probes open; M52 UI-POLISH closed (0 open) |
