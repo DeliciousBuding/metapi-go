@@ -88,10 +88,7 @@ func InsertProxyLog(ctx context.Context, db *store.DB, entry proxy.ProxyLogEntry
 	}
 
 	if ctx != nil {
-		if db.Dialect == store.DialectPostgres {
-			query = db.Rebind(query)
-		}
-		_, err := db.DB.ExecContext(ctx, query, args...)
+		_, err := db.ExecContext(ctx, query, args...)
 		return err
 	}
 	_, err := db.Exec(query, args...)

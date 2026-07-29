@@ -1,6 +1,6 @@
 # docs/ — MetAPI Go documentation map
 
-**Last updated**: 2026-07-18  
+**Last updated**: 2026-07-21  
 **Purpose**: one-screen orientation so humans and agents do not dig 180+ markdown files blindly.
 
 ## Progress SSOT roles
@@ -72,12 +72,13 @@ docs/
 6. **One Issue per topic**; close duplicates the same day.
 7. **HANDOFF is temporary** — never leave it as the only status file.
 
-## Residual board (post v0.8.43 / M50)
+## Residual board (post v0.8.45 / M53)
 
-- **STATE**: [`STATE.md`](STATE.md) — latest tag **v0.8.44**.
+- **STATE**: [`STATE.md`](STATE.md) — latest tag **v0.8.45**.
 - **Next shortlist**: [`analysis/high-value-next.md`](analysis/high-value-next.md).
 - **Residual SSOT**: [`analysis/residual-next-candidates.md`](analysis/residual-next-candidates.md).
-- **Still not product without ACs**: WS-1, STICKY-B, UC-1.
+- **Still not product without ACs**: STICKY-B (design-only deferred).
+- **Present with residual**: WS-1 (C1+C2+C3 present; single-instance honesty); UC-1 (hide/external present; API residual 501).
 - **Keep partial**: P0-585 (production e2e load-proof); P0-555 present-with-residual.
 
 ## Hygiene rules (short)

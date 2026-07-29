@@ -41,7 +41,7 @@
 
 | Order | Wave | Work | Status |
 |------:|:-----|:-----|:-------|
-| 0 | DOC | Truth: #534/#520 present; matrix/MASTER/high-value | **this session** |
+| 0 | DOC | Truth: #534/#520 present; matrix/MASTER/high-value | done (2026-07-21) |
 | 1 | KEYS | **#547** present · **#584** present · **#579** present | allow-list bind shipped |
 | 2 | WS | **C1** upgrade+HTTP bridge → **C2** multi-turn → **C3** upstream wss | **C1+C2+C3 present** |
 | 3 | ROUTE | **#514** multi-tier ctx | **present** |

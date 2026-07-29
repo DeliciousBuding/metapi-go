@@ -142,4 +142,4 @@ Give the next residual / product wave a single honest backlog of high-leverage l
 
 - 现状: [`docs/STATE.md`](../STATE.md) · 开放门禁: [`docs/progress/MASTER.md`](../progress/MASTER.md) · 日志: [`docs/log.md`](../log.md)
 - Next shortlist: [`high-value-next.md`](./high-value-next.md)
-- Release: [v0.8.43](https://github.com/TokenDanceLab/metapi-go/releases/tag/v0.8.43) · [v0.8.42](https://github.com/TokenDanceLab/metapi-go/releases/tag/v0.8.42) · optional residual only with ACs
+- Release: [v0.8.45](https://github.com/TokenDanceLab/metapi-go/releases/tag/v0.8.45) · [v0.8.44](https://github.com/TokenDanceLab/metapi-go/releases/tag/v0.8.44) · [v0.8.43](https://github.com/TokenDanceLab/metapi-go/releases/tag/v0.8.43) · [v0.8.42](https://github.com/TokenDanceLab/metapi-go/releases/tag/v0.8.42) · optional residual only with ACs

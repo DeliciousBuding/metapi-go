@@ -1,5 +1,7 @@
 # Project Overview
 
+> **Status: historical** — describes the original TS MetAPI architecture pre-rewrite, captured 2026-07-07 during the Go rewrite planning phase. Go 侧现状以 [`../STATE.md`](../STATE.md) / [`../README.md`](../README.md) / [`../architecture.md`](../architecture.md) 为准（Go 1.26.5 · React 19 · Vite 8 · Tailwind 4）。下文 “Target (Go)” 的版本号已被实际仓库超越，仅保留作重写规划期快照。
+
 ## Preliminary Direction
 
 将 MetAPI 从 Node.js/TypeScript (Fastify + Drizzle ORM + React SPA) 完整重写为 **Go 单体二进制**，保持 SQLite/PostgreSQL 双方言、14 个上游平台适配器、4 个 AI 协议转换器（OpenAI/Anthropic/Gemini/Codex）、全量后台调度器的功能对等。React 前端编译为静态文件通过 `embed` 内嵌，单二进制部署。

@@ -589,25 +589,20 @@ func (s *proxyRoutingStore) loadChannelAccountRoute(ctx context.Context, channel
 	}{Channel: channel, Account: account, Route: route}, rows.Err()
 }
 
+// queryxContext/selectContext/execContext delegate to store.DB's Context
+// helpers, which rebind ? to $N for PostgreSQL internally. Keeping the dialect
+// branch out of the routing store means callers never branch on dialect here.
+
 func (s *proxyRoutingStore) queryxContext(ctx context.Context, query string, args ...interface{}) (*sqlx.Rows, error) {
-	if s.db.Dialect == store.DialectPostgres {
-		query = s.db.Rebind(query)
-	}
-	return s.db.DB.QueryxContext(ctx, query, args...)
+	return s.db.QueryxContext(ctx, query, args...)
 }
 
 func (s *proxyRoutingStore) selectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
-	if s.db.Dialect == store.DialectPostgres {
-		query = s.db.Rebind(query)
-	}
-	return s.db.DB.SelectContext(ctx, dest, query, args...)
+	return s.db.SelectContext(ctx, dest, query, args...)
 }
 
 func (s *proxyRoutingStore) execContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
-	if s.db.Dialect == store.DialectPostgres {
-		query = s.db.Rebind(query)
-	}
-	return s.db.DB.ExecContext(ctx, query, args...)
+	return s.db.ExecContext(ctx, query, args...)
 }
 
 func scanRouteChannelJoin(rows *sqlx.Rows) (struct {

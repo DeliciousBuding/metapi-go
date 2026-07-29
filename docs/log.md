@@ -1,3 +1,16 @@
+# log.md — MetAPI Go progress log
+
+> **进度日志**（append-only）。不是现状 SSOT。  
+> 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
+
+## [2026-07-30] fable fleet review + CI unblock + dual-dialect encapsulation
+
+- **Fable 6-dimension audit fleet** (Workflow): backend-correctness/arch, frontend-parity/quality, docs-ssot, security-config → 14 raw findings → adversarial verify → 9 confirmed, 3 rejected. 4 reviewer agents + 2 verifiers hit fable 429 rate-limit (incomplete dims: backend-correctness, frontend-parity/quality, security-config) — those dims not landed; re-run later if needed.
+- **CI unblock** (`146c538`): `DownstreamKeyEditorModal` `item.title/subtitle`→`item.label/detail` (TS2339, #579 regression, CI `frontend` job red); `dispatchUpstream` dropped redundant `if ctx != nil` (staticcheck SA5011, CI `lint` job red). CI was failing since 2026-07-20 across `lint`+`frontend`.
+- **dual-dialect encapsulation**: `store.DB` gains `ExecContext/QueryxContext/QueryRowxContext/GetContext/SelectContext` (rebind `?`→`$N` for PG); `app/proxy_upstream.go` + `handler/proxy/proxy_log.go` delegate, removing 4 manual dialect branches. Semantic splits (RETURNING id, advisory lock, ON CONFLICT) kept.
+- **docs SSOT sweep**: docs/README residual board v0.8.43/M50→v0.8.45/M53; STATE active milestone M52→M53; deployment/migration Go 1.26.4+→1.26.5+; project-overview tagged historical; residual-next release links +v0.8.44/45; log.md header moved to top; MASTER "this session"→date.
+- Pre-push: go vet ./..., golangci-lint, go test ./... -race, tsc web/test, vitest 155/155, docs-hygiene all green.
+
 ## [2026-07-21] rebuild embed SPA for About honesty
 
 - Rebuild `web/dist` via `npm run build:web` so embed About shows v0.8.45, Go stack, TokenDanceLab links (drop Fastify 1.3.0 theater).
@@ -180,10 +193,6 @@
 - Admin create/update + DownstreamKeys UI "密钥权重".
 - Tests: normalize helper + weighted amplification; schema column count 24.
 
-# log.md — MetAPI Go progress log
-
-> **进度日志**（append-only）。不是现状 SSOT。  
-> 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
 ## [2026-07-20] neat-freak + SDD: original parity program (ex-Electron)
 
