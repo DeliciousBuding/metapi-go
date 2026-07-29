@@ -778,8 +778,8 @@ export default function DownstreamKeyEditorModal({
                           }))}
                         />
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ color: 'var(--color-text-primary)', fontSize: 13, fontWeight: 600 }}>{item.title}</div>
-                          <div style={{ marginTop: 4, fontSize: 11, color: 'var(--color-text-muted)' }}>{item.subtitle}</div>
+                          <div style={{ color: 'var(--color-text-primary)', fontSize: 13, fontWeight: 600 }}>{item.label}</div>
+                          <div style={{ marginTop: 4, fontSize: 11, color: 'var(--color-text-muted)' }}>{item.detail}</div>
                         </div>
                       </label>
                     );

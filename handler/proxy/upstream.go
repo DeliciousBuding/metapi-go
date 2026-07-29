@@ -95,9 +95,9 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 	maxRetries := ctx.MaxRetries
 	downstreamPolicy := routingPolicyFromAuth(ctx.Policy)
 	// #514 multi-tier: best-effort request context estimate for route tier pick.
-	if ctx != nil {
-		downstreamPolicy.RequestedContextTokens = routing.EstimateRequestContextTokens(ctx.Body)
-	}
+	// ctx is constructed non-nil by PrepareCtx (which returns a SurfResult on
+	// failure instead of a nil Ctx), so it is safe to dereference unguarded.
+	downstreamPolicy.RequestedContextTokens = routing.EstimateRequestContextTokens(ctx.Body)
 	upstreamPath := ctx.DownstreamPath
 	if upstreamPath == "" {
 		upstreamPath = r.URL.Path
