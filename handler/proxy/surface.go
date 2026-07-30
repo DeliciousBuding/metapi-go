@@ -120,6 +120,32 @@ func PrepareCtx(r *http.Request, cfg SurfConfig) (*Ctx, *SurfResult) {
 		return nil, &SurfResult{OK: false, Status: 400, Error: "model is required", ErrorType: "invalid_request_error"}
 	}
 
+	// N3 reasoning suffix (New API borrow): a suffix like -thinking/-high/
+	// -medium/-low requests a reasoning variant. Strip it so routing matches
+	// the base model; inject OpenAI reasoning_effort on OpenAI surfaces when
+	// the client didn't already set it. Non-OpenAI dialects strip for routing
+	// only (cross-dialect injection is a documented follow-up).
+	if requestedModel != "" {
+		if base, effort := ParseReasoningSuffix(requestedModel); effort != "" {
+			requestedModel = base
+			body["model"] = base
+			if cfg.SurfaceFormat == "openai" {
+				if _, hasEffort := body["reasoning_effort"]; !hasEffort {
+					if _, hasReasoning := body["reasoning"]; !hasReasoning {
+						body["reasoning_effort"] = effort
+					}
+				}
+				// Re-serialize RawBody so the injected field survives the
+				// zero-copy model-swap in the upstream construction path.
+				if !isMultipart {
+					if b, err := json.Marshal(body); err == nil {
+						bodyBytes = b
+					}
+				}
+			}
+		}
+	}
+
 	// Downstream policy check: ensure the requested model is allowed
 	if requestedModel != "" && !IsModelAllowedByPolicy(requestedModel, authCtx.Policy) {
 		return nil, &SurfResult{OK: false, Status: 403, Error: "model not allowed by downstream policy", ErrorType: "invalid_request_error"}
