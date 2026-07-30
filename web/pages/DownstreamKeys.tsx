@@ -18,6 +18,7 @@ import DownstreamKeyEditorModal, {
   type DownstreamSiteOption,
 } from './downstream-keys/DownstreamKeyEditorModal.js';
 import DownstreamKeyDrawer from './downstream-keys/DownstreamKeyDrawer.js';
+import { ConsumptionDistribution } from './downstream-keys/ConsumptionDistribution.js';
 import {
   formatCompactTokens,
   formatIso,
@@ -1236,6 +1237,12 @@ export default function DownstreamKeys() {
               </div>
             )}
           </div>
+          <details className="info-tip consumption-distribution-wrap" style={{ marginBottom: 12 }}>
+            <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>{tr('消费分布（基于当前可见密钥）')}</summary>
+            <div style={{ marginTop: 8 }}>
+              <ConsumptionDistribution items={visibleItems} />
+            </div>
+          </details>
           <ResponsiveFilterPanel
             isMobile={isMobile}
             mobileOpen={showFilters}

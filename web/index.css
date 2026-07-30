@@ -5610,6 +5610,121 @@ textarea.form-input {
   background: var(--color-danger-soft);
 }
 
+/* ===== Consumption Distribution (N5) ===== */
+.consumption-distribution {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.consumption-distribution-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.consumption-distribution-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary, var(--color-text-muted));
+}
+
+.consumption-distribution-toggle {
+  display: inline-flex;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.consumption-distribution-tab {
+  border: none;
+  background: none;
+  padding: 3px 10px;
+  font-size: 11px;
+  color: var(--color-text-secondary, var(--color-text-muted));
+  cursor: pointer;
+  transition: background var(--duration-fast, 0.15s) var(--ease-standard, ease);
+}
+
+.consumption-distribution-tab.is-active {
+  background: var(--color-primary-light, var(--color-bg-secondary));
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.consumption-distribution-empty {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  padding: 12px 0;
+  text-align: center;
+}
+
+.consumption-distribution-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.consumption-distribution-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 1.4fr) minmax(60px, 2fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.consumption-distribution-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-primary);
+}
+
+.consumption-distribution-bar-track {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--color-bg-secondary, var(--color-bg));
+  overflow: hidden;
+}
+
+.consumption-distribution-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--color-primary, var(--color-accent, #4f8cff));
+  transition: width var(--motion-soft, 0.25s) var(--ease-standard, ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .consumption-distribution-bar-fill {
+    transition: none;
+  }
+}
+
+.consumption-distribution-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+.consumption-distribution-pct {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  min-width: 44px;
+  text-align: right;
+}
+
+.consumption-distribution-foot {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  padding-top: 2px;
+}
+
 /* ===== Search Result Items ===== */
 .search-result-item {
   display: flex;
