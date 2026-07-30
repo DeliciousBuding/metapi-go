@@ -79,9 +79,9 @@ const DEFAULT_WEBDAV_SNAPSHOT: WebdavConfigSnapshot = {
 };
 
 const WEBDAV_EXPORT_TYPE_OPTIONS = [
-  { value: 'all', label: '全部' },
-  { value: 'accounts', label: '连接与路由策略' },
-  { value: 'preferences', label: '系统设置' },
+  { value: 'all', label: tr('全部') },
+  { value: 'accounts', label: tr('连接与路由策略') },
+  { value: 'preferences', label: tr('系统设置') },
 ] as const;
 
 const formFieldLabelStyle: React.CSSProperties = {
@@ -130,7 +130,7 @@ function parseImportSummary(raw: string): ParsedSummary | null {
   const invalidSummary = (): ParsedSummary => ({
     valid: false,
     version: '-',
-    timestampLabel: '未知',
+    timestampLabel: tr('未知'),
     hasAccounts: false,
     hasPreferences: false,
     hasLegacyData: false,
@@ -217,7 +217,7 @@ function parseImportSummary(raw: string): ParsedSummary | null {
     const ts = data.timestamp !== undefined && data.timestamp !== null
       ? new Date(data.timestamp)
       : null;
-    const timestampLabel = ts && !Number.isNaN(ts.getTime()) ? ts.toLocaleString() : '未知';
+    const timestampLabel = ts && !Number.isNaN(ts.getTime()) ? ts.toLocaleString() : tr('未知');
 
     return {
       valid: hasAccounts || hasPreferences,
@@ -247,29 +247,29 @@ function parseImportSummary(raw: string): ParsedSummary | null {
 
 function buildImportSuccessMessage(result: any): string {
   const sections: string[] = [];
-  if (result?.sections?.accounts) sections.push('连接与路由策略');
-  if (result?.sections?.preferences) sections.push('系统设置');
+  if (result?.sections?.accounts) sections.push(tr('连接与路由策略'));
+  if (result?.sections?.preferences) sections.push(tr('系统设置'));
 
-  const parts = [`导入完成：${sections.length ? sections.join('、') : '无有效数据'}`];
+  const parts = [tr(`导入完成：${sections.length ? sections.join('、') : '无有效数据'}`)];
   if (result?.summary) {
     const summary = result.summary;
     parts.push(
       [
-        `站点 ${summary.importedSites ?? 0}`,
-        `账号 ${summary.importedAccounts ?? 0}`,
-        `API Key 连接 ${summary.importedApiKeyConnections ?? summary.importedProfiles ?? 0}`,
-        `跳过 ${summary.skippedAccounts ?? 0}`,
+        tr(`站点 ${summary.importedSites ?? 0}`),
+        tr(`账号 ${summary.importedAccounts ?? 0}`),
+        tr(`API Key 连接 ${summary.importedApiKeyConnections ?? summary.importedProfiles ?? 0}`),
+        tr(`跳过 ${summary.skippedAccounts ?? 0}`),
       ].join(' / '),
     );
 
     if (Array.isArray(summary.ignoredSections) && summary.ignoredSections.length > 0) {
-      parts.push(`未原生导入 ${summary.ignoredSections.join('、')}`);
+      parts.push(tr(`未原生导入 ${summary.ignoredSections.join('、')}`));
     }
   }
 
   if (Array.isArray(result?.warnings) && result.warnings.length > 0) {
     const preview = result.warnings.slice(0, 2).join('；');
-    parts.push(`提示：${preview}${result.warnings.length > 2 ? ` 等 ${result.warnings.length} 项` : ''}`);
+    parts.push(tr(`提示：${preview}${result.warnings.length > 2 ? ` 等 ${result.warnings.length} 项` : ''}`));
   }
 
   return parts.join('；');
@@ -352,7 +352,7 @@ export default function ImportExport() {
       })
       .catch((err: any) => {
         if (!alive) return;
-        toast.error(err?.message || '加载 WebDAV 配置失败');
+        toast.error(err?.message || tr('加载 WebDAV 配置失败'));
       });
     return () => {
       alive = false;
@@ -370,9 +370,9 @@ export default function ImportExport() {
         preferences: `metapi-preferences-${date}.json`,
       };
       downloadJsonFile(data, fileName[type]);
-      toast.success('导出成功');
+      toast.success(tr('导出成功'));
     } catch (err: any) {
-      toast.error(err?.message || '导出失败');
+      toast.error(err?.message || tr('导出失败'));
     } finally {
       setExportingType('');
     }
@@ -380,7 +380,7 @@ export default function ImportExport() {
 
   const readFile = (file: File) => {
     if (!file.name.endsWith('.json') && file.type !== 'application/json') {
-      toast.error('请选择 JSON 格式的备份文件');
+      toast.error(tr('请选择 JSON 格式的备份文件'));
       return;
     }
     setSelectedFileName(file.name);
@@ -388,7 +388,7 @@ export default function ImportExport() {
     reader.onload = (e) => {
       setImportData(String(e.target?.result || ''));
     };
-    reader.onerror = () => toast.error('读取文件失败');
+    reader.onerror = () => toast.error(tr('读取文件失败'));
     reader.readAsText(file);
   };
 
@@ -420,16 +420,16 @@ export default function ImportExport() {
 
   const handleImport = async () => {
     if (!importData.trim()) {
-      toast.error('请先选择或粘贴 JSON 备份内容');
+      toast.error(tr('请先选择或粘贴 JSON 备份内容'));
       return;
     }
     if (!summary?.valid) {
-      toast.error('当前 JSON 结构无法识别');
+      toast.error(tr('当前 JSON 结构无法识别'));
       return;
     }
     const confirmed = typeof window === 'undefined' || typeof window.confirm !== 'function'
       ? true
-      : window.confirm('导入会覆盖备份中的连接/路由/策略配置或系统设置，但会保留本机日志、公告、缓存和统计，确认继续？');
+      : window.confirm(tr('导入会覆盖备份中的连接/路由/策略配置或系统设置，但会保留本机日志、公告、缓存和统计，确认继续？'));
     if (!confirmed) {
       return;
     }
@@ -442,7 +442,7 @@ export default function ImportExport() {
       setImportData('');
       setSelectedFileName('');
     } catch (err: any) {
-      toast.error(err?.message || '导入失败');
+      toast.error(err?.message || tr('导入失败'));
     } finally {
       setImporting(false);
     }
@@ -467,9 +467,9 @@ export default function ImportExport() {
       }
       const result = await api.saveBackupWebdavConfig(payload as any);
       applyWebdavResponse(result);
-      toast.success('WebDAV 配置已保存');
+      toast.success(tr('WebDAV 配置已保存'));
     } catch (err: any) {
-      toast.error(err?.message || '保存 WebDAV 配置失败');
+      toast.error(err?.message || tr('保存 WebDAV 配置失败'));
     } finally {
       setWebdavSaving(false);
     }

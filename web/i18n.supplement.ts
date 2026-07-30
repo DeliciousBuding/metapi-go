@@ -663,6 +663,7 @@ export const zhToEnSupplemental: Record<string, string> = {
   '运行状态正常': 'Running status is normal',
   '再次输入新 Token': 'Enter the new Token again',
   '在新窗口直接打开目标站点': 'Open the target site directly in a new window',
+  '在 Playground 测试': 'Test in Playground',
   '暂未识别到明确错误类型，可根据原始信息进一步排查。': 'No clear error type has been identified yet, and further investigation can be based on the original information.',
   '暂无标签': 'No tags yet',
   '暂无价格元数据': 'No price metadata yet',
