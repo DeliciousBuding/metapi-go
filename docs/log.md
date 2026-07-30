@@ -3,6 +3,12 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-07-31] N7 admin 可配 prompt-cache 倍率 + N8/N9 deferred
+
+- **N7**（`10384ee`）: `routing.DefaultCacheRatio`/`ClaudeCacheRatio`（及 creation 对应项）改成 runtime-overridable（`atomic.Pointer` + `SetCacheRatioDefaults`，非正/NaN/Inf 重置回代码默认）。端到端：config 字段 → `store.ApplyRuntimeSettings`（cache_ratio_default/claude）→ `app.ApplyCacheRatioOverrides` 启动 apply → admin settings getRuntime 暴露/updateRuntime 持久化+即时 apply。测试：override 生效、坏值重置、显式 per-row 倍率仍优先（ResolveCacheRatio）。
+- **N8/N9 deferred**（M 级）: N8 单渠道多密钥轮询需改 `routing/selector.go` 令牌解析算法（从列表 round-robin 选 key）+ candidate 加载——触及负载均衡选路核心，须专项会话+完整算法测试，不仓促尾段。N9 倍率管理后台需新倍率表+CRUD+UI。两项仍记于 `product-parity-and-newapi-borrow-2026-07-30.md` §4（P3）。
+- CHANGELOG `N7` + `N8/N9 deferred` 条目；STATE tip `10384ee`。
+
 ## [2026-07-31] 产品化批次 N2-N6 + G1（New API borrow）
 
 - **N2 下游 key 可见价格端点**（`d22b808`）: 新 `/v1/pricing`（+ `/v1/models/price-compare` 别名）mount 在 /v1 ProxyAuth 组——持 managed key 的下游消费者可查跨站模型有效价格（复用 admin.modelPriceCompare，无独立 catalog 漂移）。非世界公开（匿名不泄露成本）。router 测试 401-without-key。

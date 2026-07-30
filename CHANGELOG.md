@@ -73,6 +73,14 @@ All notable changes to MetAPI-Go will be documented in this file.
 - **N6 CSV export** (`18e9066`): CheckinLog / ProgramLogs / DownstreamKeys gain 导出 CSV (reuses csvExport helper; DownstreamKeys never exports the raw key, only keyMasked + accounting).
 - **G1 real-time low-balance alert** (`09a619e`): `alert.ReportLowBalance` fires when a balance refresh observes balance < 1.0 (TS parity threshold), deduped per account per 24h via the events table. Hooked into `balance.RefreshBalance` success path so scheduled + manual refresh both land it in real-time — TS only counted lowBalanceAccounts in a daily summary (promise unfulfilled); metapi-go does better.
 
+### N7 — admin-configurable prompt-cache ratio fallbacks (2026-07-31)
+- **routing** (`10384ee`): `DefaultCacheRatio` / `ClaudeCacheRatio` (and creation counterparts) become runtime-overridable via `atomic.Pointer` + `SetCacheRatioDefaults`. Non-positive/NaN/Inf overrides reset to the code default. Wired end-to-end: config fields → `store.ApplyRuntimeSettings` (cache_ratio_default/claude settings) → `app.ApplyCacheRatioOverrides` at boot → `handler/admin` settings getRuntime exposes effective values / updateRuntime persists + applies immediately. Tests: override applies, bad values reset, explicit per-row ratio still wins.
+
+### N8 / N9 — deferred (M-size, scheduler/billing core)
+- **N8 single-channel multi-key rotation**: requires a `route_channels` multi-key schema + a change to `routing/selector.go` token resolution (pick round-robin from a list) + candidate/loading changes. Touches the load-balancing selection core; deferred to a dedicated session with full algorithm-test coverage rather than a rushed tail.
+- **N9 model/group multiplier admin UI**: new ratio table + admin CRUD + Settings UI. M-size; deferred alongside N8.
+- Both remain tracked in `docs/analysis/product-parity-and-newapi-borrow-2026-07-30.md` §4 (P3).
+
 ## [v0.8.45] — 2026-07-20
 
 ### Fixed / Reliability
