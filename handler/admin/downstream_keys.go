@@ -135,6 +135,8 @@ func (h *downstreamKeysHandler) createKey(w http.ResponseWriter, r *http.Request
 		AllowedSiteIds         []int64  `json:"allowedSiteIds"`
 		AllowedCredentialRefs  []any    `json:"allowedCredentialRefs"`
 		ProxyURL               *string  `json:"proxyUrl"`
+		IPAllowlist            *string  `json:"ipAllowlist"`
+		IPBlocklist            *string  `json:"ipBlocklist"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
@@ -215,18 +217,22 @@ func (h *downstreamKeysHandler) createKey(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Per-key IP allow/block (N1 security). NULL = unrestricted.
+	ipAllowlist := normalizeIPListPtr(body.IPAllowlist)
+	ipBlocklist := normalizeIPListPtr(body.IPBlocklist)
+
 	id, err := execInsertID(h.db,
 		`INSERT INTO downstream_api_keys
 		(name, key, description, group_name, tags, enabled, expires_at, max_cost, used_cost, max_requests, used_requests,
 		 supported_models, allowed_route_ids, site_weight_multipliers, key_weight, excluded_site_ids, excluded_credential_refs,
 		 allowed_site_ids, allowed_credential_refs,
-		 proxy_url, max_rpm, max_tpm, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 proxy_url, max_rpm, max_tpm, ip_allowlist, ip_blocklist, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		body.Name, body.Key, desc, normalizedGroupName, tagsJSON, enabled, body.ExpiresAt,
 		maxCost, maxRequests,
 		modelsJSON, routeIdsJSON, swmJSON, keyWeight, excludedSitesJSON, credRefsJSON,
 		allowedSitesJSON, allowedCredRefsJSON,
-		proxyURL, maxRpm, maxTpm, now, now,
+		proxyURL, maxRpm, maxTpm, ipAllowlist, ipBlocklist, now, now,
 	)
 	if err != nil {
 		if isUniqueConstraintError(err) {
@@ -284,6 +290,8 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 		AllowedSiteIds         []int64  `json:"allowedSiteIds"`
 		AllowedCredentialRefs  []any    `json:"allowedCredentialRefs"`
 		ProxyURL               *string  `json:"proxyUrl"`
+		IPAllowlist            *string  `json:"ipAllowlist"`
+		IPBlocklist            *string  `json:"ipBlocklist"`
 	}
 
 	bodyBytes, err := decodeJSONRequestRaw(r, &body)
@@ -360,6 +368,12 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 	}
 	if _, ok := rawBody["proxyUrl"]; ok {
 		hasField["proxyUrl"] = true
+	}
+	if _, ok := rawBody["ipAllowlist"]; ok {
+		hasField["ipAllowlist"] = true
+	}
+	if _, ok := rawBody["ipBlocklist"]; ok {
+		hasField["ipBlocklist"] = true
 	}
 
 	// Merge: present fields from body, missing fields from existing record.
@@ -482,6 +496,16 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 		proxyURL = normalized
 	}
 
+	// IP allow/block (N1): absent keeps existing; present empty/null clears to unrestricted.
+	ipAllowlist := existingStringPtr(existing, "ip_allowlist")
+	if hasField["ipAllowlist"] {
+		ipAllowlist = normalizeIPListPtr(body.IPAllowlist)
+	}
+	ipBlocklist := existingStringPtr(existing, "ip_blocklist")
+	if hasField["ipBlocklist"] {
+		ipBlocklist = normalizeIPListPtr(body.IPBlocklist)
+	}
+
 	// Validate.
 	if name == "" {
 		writeError(w, http.StatusBadRequest, "name 不能为空")
@@ -528,13 +552,13 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 			enabled = ?, expires_at = ?, max_cost = ?, max_requests = ?, max_rpm = ?, max_tpm = ?,
 			supported_models = ?, allowed_route_ids = ?, site_weight_multipliers = ?, key_weight = ?,
 			excluded_site_ids = ?, excluded_credential_refs = ?,
-				allowed_site_ids = ?, allowed_credential_refs = ?, proxy_url = ?, updated_at = ?
+				allowed_site_ids = ?, allowed_credential_refs = ?, proxy_url = ?, ip_allowlist = ?, ip_blocklist = ?, updated_at = ?
 		WHERE id = ?`),
 		name, key, description, groupName, tagsJSON,
 		enabled, expiresAt, maxCost, maxRequests, maxRpm, maxTpm,
 		modelsJSON, routeIdsJSON, swmJSON, keyWeight,
 		excludedSitesJSON, credRefsJSON,
-			allowedSitesJSON, allowedCredRefsJSON, proxyURL, now, id,
+			allowedSitesJSON, allowedCredRefsJSON, proxyURL, ipAllowlist, ipBlocklist, now, id,
 	)
 	if err != nil {
 		if isUniqueConstraintError(err) {
@@ -1194,6 +1218,21 @@ func normalizeDownstreamProxyURL(input *string) (*string, string) {
 		return nil, "proxyUrl 必须以 http://、https:// 或 socks 代理 scheme 开头"
 	}
 	return &v, ""
+}
+
+// normalizeIPListPtr trims an IP allowlist/blocklist TEXT input. Returns nil
+// for nil/empty/whitespace (NULL = unrestricted). Invalid entries are not
+// validated here — auth.parseAllowlist silently skips them at enforcement time
+// (matches the admin IP-allowlist behavior in auth/admin.go).
+func normalizeIPListPtr(input *string) *string {
+	if input == nil {
+		return nil
+	}
+	v := strings.TrimSpace(*input)
+	if v == "" {
+		return nil
+	}
+	return &v
 }
 
 func normalizeExpiresAt(input *string) *string {

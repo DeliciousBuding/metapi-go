@@ -455,6 +455,10 @@ type DownstreamAPIKey struct {
 	ProxyURL   *string `db:"proxy_url" json:"proxyUrl"`
 	LastUsedAt *string `db:"last_used_at" json:"lastUsedAt"`
 	CreatedAt  string  `db:"created_at" json:"createdAt"`
+	// IPAllowlist / IPBlocklist (N1 security, New API borrow): newline/comma-
+	// separated CIDR or exact IPs. Empty/NULL = unrestricted. Blocklist wins.
+	IPAllowlist  *string `db:"ip_allowlist" json:"ipAllowlist"`
+	IPBlocklist  *string `db:"ip_blocklist" json:"ipBlocklist"`
 	UpdatedAt  string  `db:"updated_at" json:"updatedAt"`
 }
 

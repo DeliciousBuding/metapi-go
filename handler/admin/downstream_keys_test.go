@@ -924,3 +924,60 @@ func TestNormalizeKeyWeightInput(t *testing.T) {
 		t.Fatalf(`"3" -> 3, got %v`, got)
 	}
 }
+
+func TestDownstreamKeysIPAllowBlockListCRUD(t *testing.T) {
+	db, r := setupDownstreamKeysTest(t)
+
+	// Create with both IP allow + block lists.
+	resp := doPostJSON(t, r, "/api/downstream-keys", map[string]any{
+		"name":        "ip-client",
+		"key":         "sk-ip-client",
+		"ipAllowlist": "10.0.0.0/8\n192.168.1.5",
+		"ipBlocklist": "10.0.0.99",
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("create returned %d: %s", resp.Code, resp.Body.String())
+	}
+	var createBody map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &createBody); err != nil {
+		t.Fatalf("unmarshal create: %v", err)
+	}
+	item := createBody["item"].(map[string]any)
+	// snakeToCamel response transform yields camelCase keys.
+	if got := item["ipAllowlist"]; got == nil || got.(string) != "10.0.0.0/8\n192.168.1.5" {
+		t.Fatalf("ipAllowlist round-trip: got %v", got)
+	}
+	if got := item["ipBlocklist"]; got == nil || got.(string) != "10.0.0.99" {
+		t.Fatalf("ipBlocklist round-trip: got %v", got)
+	}
+
+	// Verify persisted columns.
+	var allow, block sql.NullString
+	if err := db.QueryRow("SELECT ip_allowlist, ip_blocklist FROM downstream_api_keys WHERE key = 'sk-ip-client'").Scan(&allow, &block); err != nil {
+		t.Fatalf("select ip columns: %v", err)
+	}
+	if !allow.Valid || allow.String != "10.0.0.0/8\n192.168.1.5" {
+		t.Fatalf("stored ip_allowlist = %q", allow.String)
+	}
+	if !block.Valid || block.String != "10.0.0.99" {
+		t.Fatalf("stored ip_blocklist = %q", block.String)
+	}
+
+	// Update: clear allowlist (empty string → NULL/unrestricted), set a CIDR block.
+	resp2 := doPutJSON(t, r, "/api/downstream-keys/"+strconv.FormatInt(int64(item["id"].(float64)), 10), map[string]any{
+		"ipAllowlist": "",
+		"ipBlocklist": "172.16.0.0/12",
+	})
+	if resp2.Code != http.StatusOK {
+		t.Fatalf("update returned %d: %s", resp2.Code, resp2.Body.String())
+	}
+	if err := db.QueryRow("SELECT ip_allowlist, ip_blocklist FROM downstream_api_keys WHERE key = 'sk-ip-client'").Scan(&allow, &block); err != nil {
+		t.Fatalf("select ip columns after update: %v", err)
+	}
+	if allow.Valid {
+		t.Fatalf("ip_allowlist should be NULL after clearing, got %q", allow.String)
+	}
+	if !block.Valid || block.String != "172.16.0.0/12" {
+		t.Fatalf("stored ip_blocklist after update = %q", block.String)
+	}
+}

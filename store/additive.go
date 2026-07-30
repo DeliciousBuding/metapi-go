@@ -117,6 +117,20 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "downstream_api_keys", "allowed_credential_refs", "TEXT", "TEXT", "")
 		},
 	},
+	{
+		// N1 security: per-downstream-key IP allowlist/blocklist (New API borrow).
+		// ip_allowlist: newline/comma-separated CIDR or exact IPs; empty = unrestricted.
+		// ip_blocklist: same format; deny first (blocklist wins over allowlist).
+		// Enforced at the ProxyAuth edge via auth.parseAllowlist/isIPAllowed.
+		Version:     "sc2_010_downstream_key_ip_lists",
+		Description: "downstream_api_keys.ip_allowlist / ip_blocklist TEXT NULL — per-key IP allow/block; empty means unrestricted",
+		Apply: func(db *DB) error {
+			if err := EnsureColumn(db, "downstream_api_keys", "ip_allowlist", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			return EnsureColumn(db, "downstream_api_keys", "ip_blocklist", "TEXT", "TEXT", "")
+		},
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.

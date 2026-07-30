@@ -58,6 +58,11 @@ type managedKeyView struct {
 	ExcludedCredentialRefs []ExcludedCredentialRef
 	AllowedSiteIDs         []int64
 	AllowedCredentialRefs  []ExcludedCredentialRef
+	// IPAllowlist / IPBlocklist raw TEXT (N1 security). nil/empty = unrestricted.
+	// Parsed lazily at enforcement time via parseAllowlist (shared with admin IP
+	// guard). Blocklist wins over allowlist.
+	IPAllowlist *string
+	IPBlocklist *string
 }
 
 // ---------------------------------------------------------------------------
@@ -189,7 +194,8 @@ func getManagedKeyByToken(token string) (*managedKeyView, error) {
 		        max_requests, used_requests, proxy_url, max_rpm, max_tpm,
 		        supported_models, allowed_route_ids,
 		        site_weight_multipliers, key_weight, excluded_site_ids,
-		        excluded_credential_refs, allowed_site_ids, allowed_credential_refs
+		        excluded_credential_refs, allowed_site_ids, allowed_credential_refs,
+		        ip_allowlist, ip_blocklist
 		 FROM downstream_api_keys
 		 WHERE key = ?`, token,
 	)
@@ -208,6 +214,7 @@ func getManagedKeyByToken(token string) (*managedKeyView, error) {
 		&supportedModelsJSON, &allowedRouteIDsJSON,
 		&siteWeightMultiJSON, &keyWeight, &excludedSiteIDsJSON,
 		&excludedCredRefsJSON, &allowedSiteIDsJSON, &allowedCredRefsJSON,
+		&v.IPAllowlist, &v.IPBlocklist,
 	)
 	if err != nil {
 		// sql.ErrNoRows → return nil, nil (not found)
@@ -349,6 +356,73 @@ func toPolicyFromView(v *managedKeyView) DownstreamRoutingPolicy {
 		AllowedCredentialRefs:  normalizeExcludedRefs(v.AllowedCredentialRefs),
 		DenyAllWhenEmpty:       true, // managed keys default to deny-all
 	}
+}
+
+// ---------------------------------------------------------------------------
+// IP allowlist / blocklist enforcement (N1 security, New API borrow).
+// ---------------------------------------------------------------------------
+
+// splitIPList splits a TEXT blob of newline/comma-separated IP/CIDR entries
+// into a clean []string (empty/whitespace entries dropped). Mirrors the format
+// the admin UI stores; parseAllowlist then validates each into exact/CIDR.
+func splitIPList(raw *string) []string {
+	if raw == nil {
+		return nil
+	}
+	s := strings.TrimSpace(*raw)
+	if s == "" {
+		return nil
+	}
+	s = strings.ReplaceAll(s, "\r", "\n")
+	parts := strings.Split(s, "\n")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		// Allow comma-separated within a single line too.
+		for _, entry := range strings.Split(p, ",") {
+			entry = strings.TrimSpace(entry)
+			if entry != "" {
+				out = append(out, entry)
+			}
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// CheckDownstreamKeyIP reports whether a managed key permits a client IP.
+// Returns (allowed, denyReason). Empty clientIP (e.g. test/global path)
+// is treated as "no restriction": the caller is responsible for passing a
+// real RemoteAddr-derived IP at the proxy edge.
+//
+// Semantics (matches admin IP allowlist + New API token IP rules):
+//   - Blocklist wins: any match → deny ("ip_blocked").
+//   - Allowlist non-empty: must match → else deny ("ip_not_allowed").
+//   - Both empty: unrestricted → allow.
+func CheckDownstreamKeyIP(key *managedKeyView, clientIP string) (bool, string) {
+	if key == nil {
+		return true, ""
+	}
+	ip := strings.TrimSpace(clientIP)
+	if ip == "" {
+		return true, "" // caller did not surface a client IP; do not block
+	}
+	blockEntries := splitIPList(key.IPBlocklist)
+	if len(blockEntries) > 0 {
+		parsed := parseAllowlist(blockEntries)
+		if isIPAllowed(ip, parsed) {
+			return false, "ip_blocked"
+		}
+	}
+	allowEntries := splitIPList(key.IPAllowlist)
+	if len(allowEntries) > 0 {
+		parsed := parseAllowlist(allowEntries)
+		if !isIPAllowed(ip, parsed) {
+			return false, "ip_not_allowed"
+		}
+	}
+	return true, ""
 }
 
 // ---------------------------------------------------------------------------

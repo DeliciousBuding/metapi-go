@@ -51,6 +51,20 @@ func ProxyAuth(cfg *config.Config) func(http.Handler) http.Handler {
 				return
 			}
 
+			// ---- Managed key IP allowlist/blocklist (N1 security) ----
+			// Blocklist wins; allowlist non-empty requires a match. Empty clientIP
+			// (should not happen at the edge) is treated as unrestricted.
+			if result.Source == "managed" && result.Key != nil {
+				if ok, denyReason := CheckDownstreamKeyIP(result.Key, extractClientIP(r)); !ok {
+					msg := "IP address not allowed for this API key"
+					if denyReason == "ip_blocked" {
+						msg = "IP address is blocked for this API key"
+					}
+					writeJSON(w, http.StatusForbidden, jsonError(msg))
+					return
+				}
+			}
+
 			// ---- Managed key soft admission then request quota (#512) ----
 			// RPM/TPM admission MUST run before consumeManagedKeyRequest so a
 			// 429 over_rpm/over_tpm does not permanently burn used_requests.
