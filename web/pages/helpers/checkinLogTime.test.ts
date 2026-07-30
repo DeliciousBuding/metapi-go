@@ -3,6 +3,7 @@ import {
   formatCheckinLogTime,
   formatDateLocal,
   formatDateTimeMinuteLocal,
+  toLocalDatetimeInputValue,
 } from './checkinLogTime.js';
 
 describe('formatCheckinLogTime', () => {
@@ -27,5 +28,17 @@ describe('formatCheckinLogTime', () => {
 
   it('supports unix timestamp strings', () => {
     expect(formatDateTimeMinuteLocal('1709640000', 'en-US', 'UTC')).toBe('03/05/2024, 12:00');
+  });
+});
+
+describe('toLocalDatetimeInputValue', () => {
+  it('renders YYYY-MM-DDTHH:mm for a known local instant', () => {
+    const d = new Date(2026, 6, 30, 9, 5); // local 2026-07-30 09:05
+    expect(toLocalDatetimeInputValue(d)).toBe('2026-07-30T09:05');
+  });
+
+  it('zero-pads single-digit fields', () => {
+    const d = new Date(2026, 0, 1, 2, 3); // local 2026-01-01 02:03
+    expect(toLocalDatetimeInputValue(d)).toBe('2026-01-01T02:03');
   });
 });

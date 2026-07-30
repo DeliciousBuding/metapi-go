@@ -30,7 +30,7 @@ import { MobileCard, MobileField } from "../components/MobileCard.js";
 import ResponsiveFilterPanel from "../components/ResponsiveFilterPanel.js";
 import { useIsMobile } from "../components/useIsMobile.js";
 import { EmptyState, Button as DsButton } from "../design-system/index.js";
-import { formatDateTimeLocal } from "./helpers/checkinLogTime.js";
+import { formatDateTimeLocal, toLocalDatetimeInputValue } from "./helpers/checkinLogTime.js";
 import ModernSelect from "../components/ModernSelect.js";
 import { parseProxyLogPathMeta } from "./helpers/proxyLogPathMeta.js";
 import { tr } from "../i18n.js";
@@ -580,6 +580,55 @@ function toApiTimeBoundary(value: string): string | undefined {
   return parsed.toISOString();
 }
 
+type TimePresetKey = "15m" | "1h" | "today" | "7d";
+interface TimePreset {
+  key: TimePresetKey;
+  label: string;
+  /** Returns [from, to] datetime-local values for the preset, or null to clear. */
+  range: () => [string, string];
+}
+
+// Relative-to-now presets so users don't hand-type datetime values.
+// `today` floors to local midnight; others subtract a duration from now.
+const TIME_PRESETS: TimePreset[] = [
+  {
+    key: "15m",
+    label: "近15分钟",
+    range: () => {
+      const to = new Date();
+      const from = new Date(to.getTime() - 15 * 60_000);
+      return [toLocalDatetimeInputValue(from), toLocalDatetimeInputValue(to)];
+    },
+  },
+  {
+    key: "1h",
+    label: "近1小时",
+    range: () => {
+      const to = new Date();
+      const from = new Date(to.getTime() - 60 * 60_000);
+      return [toLocalDatetimeInputValue(from), toLocalDatetimeInputValue(to)];
+    },
+  },
+  {
+    key: "today",
+    label: "今天",
+    range: () => {
+      const to = new Date();
+      const from = new Date(to.getFullYear(), to.getMonth(), to.getDate(), 0, 0);
+      return [toLocalDatetimeInputValue(from), toLocalDatetimeInputValue(to)];
+    },
+  },
+  {
+    key: "7d",
+    label: "近7天",
+    range: () => {
+      const to = new Date();
+      const from = new Date(to.getTime() - 7 * 24 * 60 * 60_000);
+      return [toLocalDatetimeInputValue(from), toLocalDatetimeInputValue(to)];
+    },
+  },
+];
+
 function normalizeProxyDebugSettings(value: any): ProxyDebugSettingsState {
   return {
     proxyDebugTraceEnabled: !!value?.proxyDebugTraceEnabled,
@@ -828,6 +877,13 @@ export default function ProxyLogs() {
     new Date(fromApiBoundary).getTime() >=
       new Date(toApiBoundaryValue).getTime(),
   );
+
+  const applyTimePreset = (preset: TimePreset) => {
+    const [from, to] = preset.range();
+    setFromInput(from);
+    setToInput(to);
+    setPage(1);
+  };
 
   useEffect(() => {
     const next = readProxyLogsRouteState(location.search);
@@ -1728,6 +1784,18 @@ export default function ProxyLogs() {
           }}
         />
       </label>
+      <div className="proxy-logs-time-presets" role="group" aria-label={tr("时间预设")}>
+        {TIME_PRESETS.map((preset) => (
+          <button
+            key={preset.key}
+            type="button"
+            className="proxy-logs-time-preset"
+            onClick={() => applyTimePreset(preset)}
+          >
+            {tr(preset.label)}
+          </button>
+        ))}
+      </div>
       <div className="toolbar-search" style={{ maxWidth: 280 }}>
         <svg
           width="14"
