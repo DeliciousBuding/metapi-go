@@ -23,6 +23,11 @@ import (
 	"github.com/tokendancelab/metapi-go/store"
 )
 
+// lowBalanceAlertThreshold is the per-account balance floor that triggers a
+// real-time low-balance alert after a successful refresh (G1). Matches the TS
+// lowBalanceAccounts threshold (balance < 1). Tunable: raise to alert sooner.
+const lowBalanceAlertThreshold = 1.0
+
 // IsSiteDisabled checks if a site is disabled.
 func IsSiteDisabled(status string) bool {
 	normalized := strings.TrimSpace(status)
@@ -575,6 +580,19 @@ afterRetry:
 	} else {
 		service.SetAccountRuntimeHealth(db, account.ID, service.RuntimeHealthEntry{
 			State: service.HealthHealthy, Reason: "余额刷新成功", Source: service.HealthSourceBalance,
+		})
+	}
+
+	// G1: real-time low-balance alert (better than TS daily-summary count).
+	// Deduped per account per 24h inside ReportLowBalance so sustained-low
+	// balances don't spam. Threshold 1.0 matches TS lowBalanceAccounts.
+	if balanceInfo.Balance < lowBalanceAlertThreshold {
+		alert.ReportLowBalance(cfg, db, alert.LowBalanceParams{
+			AccountID: account.ID,
+			Username:  account.Username,
+			SiteName:  &site.Name,
+			Balance:   balanceInfo.Balance,
+			Threshold: lowBalanceAlertThreshold,
 		})
 	}
 

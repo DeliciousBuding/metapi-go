@@ -77,7 +77,60 @@ func ReportTokenExpired(cfg *config.Config, db *sqlx.DB, params TokenExpiredPara
 		"error", nil)
 }
 
-// ProxyAllFailedParams holds parameters for reportProxyAllFailed.
+// LowBalanceParams holds parameters for reportLowBalance.
+type LowBalanceParams struct {
+	AccountID int64
+	Username  *string
+	SiteName  *string
+	Balance   float64 // current balance after refresh
+	Threshold float64 // alert when Balance < Threshold
+}
+
+// lowBalanceEventWindow is the dedup window: at most one low-balance alert
+// per account per window to avoid spamming on every refresh while the balance
+// stays low. Matches the "real-time on first crossing" intent (TS only counted
+// lowBalanceAccounts in a daily summary; this fires immediately on refresh).
+const lowBalanceEventWindow = 24 * time.Hour
+
+// ReportLowBalance fires a real-time low-balance alert when an account's
+// balance drops below a threshold right after a refresh. Deduped per account
+// per lowBalanceEventWindow via the events table (no spam while low).
+//
+// G1: the TS original only counted lowBalanceAccounts in a daily summary
+// (balance < 1) — it never fired a real-time trigger. metapi-go does better:
+// the alert lands as soon as the refresh observes the low balance.
+func ReportLowBalance(cfg *config.Config, db *sqlx.DB, params LowBalanceParams) {
+	if db == nil || params.Balance >= params.Threshold {
+		return
+	}
+
+	// Dedup: skip if a low-balance event for this account was logged recently.
+	since := time.Now().UTC().Add(-lowBalanceEventWindow).Format(time.RFC3339)
+	var recent int
+	if err := db.Get(&recent,
+		`SELECT COUNT(*) FROM events
+		 WHERE type = 'balance' AND related_id = ? AND related_type = 'account'
+		   AND created_at >= ?`,
+		params.AccountID, since); err == nil && recent > 0 {
+		return
+	}
+
+	accountLabel := orID(params.Username, params.AccountID)
+	siteLabel := "unknown-site"
+	if params.SiteName != nil {
+		siteLabel = *params.SiteName
+	}
+
+	msg := fmt.Sprintf("%s @ %s 余额不足：当前 $%.2f（阈值 $%.2f）",
+		accountLabel, siteLabel, params.Balance, params.Threshold)
+
+	service.CreateEvent(db, "balance", "余额不足", msg, "warning",
+		params.AccountID, "account")
+
+	notifypkg.SendNotification(cfg, "余额不足", msg, "warning", nil)
+}
+
+
 type ProxyAllFailedParams struct {
 	Model  string
 	Reason string
