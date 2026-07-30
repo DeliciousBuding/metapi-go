@@ -33,6 +33,7 @@ import { EmptyState, Button as DsButton } from "../design-system/index.js";
 import { formatDateTimeLocal, toLocalDatetimeInputValue } from "./helpers/checkinLogTime.js";
 import ModernSelect from "../components/ModernSelect.js";
 import { parseProxyLogPathMeta } from "./helpers/proxyLogPathMeta.js";
+import { toCSV, downloadCSV } from "./helpers/csvExport.js";
 import { tr } from "../i18n.js";
 
 type ProxyLogRenderItem = ProxyLogListItem & {
@@ -2135,6 +2136,42 @@ export default function ProxyLogs() {
               />
             </svg>
             {autoRefresh ? "自动刷新中" : "自动刷新"}
+          </button>
+          <button
+            onClick={() => {
+              if (logs.length === 0) return;
+              const csv = toCSV(logs, [
+                { key: "createdAt", header: tr("时间") },
+                { key: "siteName", header: tr("站点") },
+                { key: "username", header: tr("账号") },
+                { key: "modelRequested", header: tr("请求模型") },
+                { key: "modelActual", header: tr("实际模型") },
+                { key: "status", header: tr("状态") },
+                { key: "latencyMs", header: tr("延迟(ms)") },
+                { key: "isStream", header: tr("流式") },
+                { key: "totalTokens", header: tr("总Tokens") },
+                { key: "promptTokens", header: tr("提示Tokens") },
+                { key: "completionTokens", header: tr("补全Tokens") },
+                { key: "estimatedCost", header: tr("估算成本") },
+                { key: "retryCount", header: tr("重试") },
+                { key: "downstreamKeyName", header: tr("下游Key") },
+                { key: "clientAppName", header: tr("客户端") },
+                { key: "errorMessage", header: tr("错误") },
+              ]);
+              const ts = new Date();
+              const pad = (n: number) => String(n).padStart(2, "0");
+              const stamp = `${ts.getFullYear()}${pad(ts.getMonth() + 1)}${pad(ts.getDate())}-${pad(ts.getHours())}${pad(ts.getMinutes())}`;
+              downloadCSV(`proxy-logs-${stamp}.csv`, csv);
+            }}
+            disabled={loading || logs.length === 0}
+            className="btn btn-ghost"
+            style={{ border: "1px solid var(--color-border)", padding: "6px 14px" }}
+            title={tr("导出当前页为 CSV")}
+          >
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" />
+            </svg>
+            {tr("导出 CSV")}
           </button>
           <button
             onClick={() => {
