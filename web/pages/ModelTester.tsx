@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { clearAuthSession, getAuthToken } from '../authSession.js';
 import {
@@ -664,6 +665,8 @@ export default function ModelTester() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [inputs, setInputs] = useState<ModelTesterInputs>(DEFAULT_INPUTS);
+  const [searchParams] = useSearchParams();
+  const urlModelRef = useRef(searchParams.get('model') || '');
   const [modeState, setModeState] = useState<ModelTesterModeState>(DEFAULT_MODE_STATE);
   const [parameterEnabled, setParameterEnabled] = useState<ParameterEnabled>(DEFAULT_PARAMETER_ENABLED);
   const [forcedChannelId, setForcedChannelId] = useState<number | null>(null);
@@ -816,11 +819,14 @@ export default function ModelTester() {
 
         const restoredModel = restoredSessionRef.current?.inputs.model || '';
         const currentModel = inputs.model || '';
-        const nextModel = restoredModel && names.includes(restoredModel)
-          ? restoredModel
-          : currentModel && names.includes(currentModel)
-            ? currentModel
-            : names[0] || '';
+        const urlModel = urlModelRef.current;
+        const nextModel = urlModel && names.includes(urlModel)
+          ? urlModel
+          : restoredModel && names.includes(restoredModel)
+            ? restoredModel
+            : currentModel && names.includes(currentModel)
+              ? currentModel
+              : names[0] || '';
 
         if (nextModel) {
           setInputs((prev) => ({ ...prev, model: nextModel }));

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
+import { MemoryRouter } from 'react-router-dom';
 import ModelTester from './ModelTester.js';
 import {
   DEBUG_TABS,
@@ -139,7 +140,11 @@ describe('ModelTester fixed channel behavior', () => {
 
     try {
       await act(async () => {
-        root = create(<ModelTester />);
+        root = create(
+          <MemoryRouter initialEntries={['/playground']}>
+            <ModelTester />
+          </MemoryRouter>,
+        );
       });
       await vi.waitFor(async () => {
         await flushMicrotasks();

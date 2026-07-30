@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { BrandGlyph, getBrand, hashColor, BrandIcon, type BrandInfo } from '../components/BrandIcon.js';
 import SiteBadgeLink from '../components/SiteBadgeLink.js';
@@ -222,6 +222,7 @@ export default function Models() {
   const latestPrimaryRequestRef = useRef(0);
   const latestMetadataRequestRef = useRef(0);
   const location = useLocation();
+  const navigate = useNavigate();
   const siteIdByName = useMemo(() => {
     const index = new Map<string, number>();
     for (const model of data.models) {
@@ -469,6 +470,10 @@ export default function Models() {
     navigator.clipboard.writeText(name).catch(() => { });
     setCopied(name);
     setTimeout(() => setCopied(null), 1500);
+  };
+
+  const openInPlayground = (name: string) => {
+    navigate(`/playground?model=${encodeURIComponent(name)}`);
   };
 
   const filterControls = (
@@ -871,6 +876,14 @@ export default function Models() {
                     </button>
                     <button
                       className="model-card-action-btn"
+                      data-tooltip={tr('在 Playground 测试')}
+                      aria-label={tr('在 Playground 测试')}
+                      onClick={() => openInPlayground(m.name)}
+                    >
+                      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.75 6.75a4 4 0 11-5.5 5.5L4 17.5 6.5 20l5.25-5.25a4 4 0 010-8z M19 5l-2 2m2-2l-2-2" /></svg>
+                    </button>
+                    <button
+                      className="model-card-action-btn"
                       data-tooltip={isExpanded ? tr('收起') : tr('展开')}
                       aria-label={isExpanded ? tr('收起') : tr('展开')}
                     >
@@ -1095,6 +1108,14 @@ export default function Models() {
                           ) : (
                             <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                           )}
+                        </button>
+                        <button
+                          className="model-card-action-btn"
+                          data-tooltip={tr('在 Playground 测试')}
+                          aria-label={tr('在 Playground 测试')}
+                          onClick={() => openInPlayground(m.name)}
+                        >
+                          <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.75 6.75a4 4 0 11-5.5 5.5L4 17.5 6.5 20l5.25-5.25a4 4 0 010-8z M19 5l-2 2m2-2l-2-2" /></svg>
                         </button>
                       </td>
                     </tr>
