@@ -5883,6 +5883,7 @@ textarea.form-input {
 .model-card:hover {
   border-color: var(--color-border);
   box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
 
 .model-card+.model-card {

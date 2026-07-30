@@ -833,10 +833,10 @@ export default function Models() {
         ) : viewMode === 'card' ? (
           /* ====== Card View ====== */
           <div>
-            {paged.map((m) => {
+            {paged.map((m, i) => {
               const isExpanded = expanded === m.name;
               return (
-              <div key={m.name} className="model-card" onClick={() => setExpanded(isExpanded ? null : m.name)}>
+              <div key={m.name} className={`model-card animate-slide-up stagger-${(i % 8) + 1}`} onClick={() => setExpanded(isExpanded ? null : m.name)}>
                 <div className="model-card-header">
                   <BrandIcon model={m.name} size={44} />
                   <div className="model-card-info">
