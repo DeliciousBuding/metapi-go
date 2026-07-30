@@ -88,6 +88,15 @@ type SiteRow = {
   }>;
 };
 
+// Inline row speed-test state (N4 UX). Mirrors the Dashboard per-site probe.
+type SpeedTestState = { status: 'loading' | 'done' | 'timeout'; ms?: number };
+
+async function probeSiteSpeed(siteUrl: string): Promise<number> {
+  const start = performance.now();
+  await fetch(`${siteUrl}/v1/models`, { method: 'GET', mode: 'no-cors' });
+  return Math.round(performance.now() - start);
+}
+
 function hasConfiguredCustomHeaders(customHeaders?: string | null): boolean {
   return typeof customHeaders === 'string' && customHeaders.trim().length > 0;
 }
@@ -293,6 +302,9 @@ export default function Sites() {
   const [togglingSiteId, setTogglingSiteId] = useState<number | null>(null);
   const [orderingSiteId, setOrderingSiteId] = useState<number | null>(null);
   const [pinningSiteId, setPinningSiteId] = useState<number | null>(null);
+  // Inline row speed test (N4 UX): client-side latency probe to site.url/v1/models,
+  // mirrors the Dashboard per-site speed test. Avoids opening the editor just to test.
+  const [speedStates, setSpeedStates] = useState<Record<number, SpeedTestState>>({});
   const [selectedSiteIds, setSelectedSiteIds] = useState<number[]>([]);
   const [expandedSiteIds, setExpandedSiteIds] = useState<number[]>([]);
   const [createdSiteForChoice, setCreatedSiteForChoice] = useState<{
@@ -1066,6 +1078,22 @@ export default function Sites() {
       toast.error(e.message || '切换置顶失败');
     } finally {
       setPinningSiteId(null);
+    }
+  };
+
+  const handleTestSiteSpeed = async (site: SiteRow) => {
+    if (!site.url) {
+      toast.info('站点未配置 URL');
+      return;
+    }
+    setSpeedStates((prev) => ({ ...prev, [site.id]: { status: 'loading' } }));
+    try {
+      const ms = await probeSiteSpeed(site.url);
+      setSpeedStates((prev) => ({ ...prev, [site.id]: { status: 'done', ms } }));
+      toast.success(`${site.name}: ${ms}ms`);
+    } catch {
+      setSpeedStates((prev) => ({ ...prev, [site.id]: { status: 'timeout' } }));
+      toast.error(`${site.name}: 测速失败`);
     }
   };
 
@@ -2362,6 +2390,18 @@ export default function Sites() {
                           className={`btn btn-link ${site.isPinned ? 'btn-link-warning' : 'btn-link-primary'}`}
                         >
                           {pinningSiteId === site.id ? <span className="spinner spinner-sm" /> : (site.isPinned ? '取消置顶' : '置顶')}
+                        </button>
+                        <button
+                          onClick={() => handleTestSiteSpeed(site)}
+                          disabled={speedStates[site.id]?.status === 'loading'}
+                          className="btn btn-link btn-link-muted"
+                          aria-label={`测速 ${site.name}`}
+                        >
+                          {speedStates[site.id]?.status === 'loading'
+                            ? <span className="spinner spinner-sm" />
+                            : (speedStates[site.id]?.status === 'done'
+                                ? `${speedStates[site.id]?.ms}ms`
+                                : speedStates[site.id]?.status === 'timeout' ? '超时' : '测速')}
                         </button>
                         {sortMode === 'custom' && (
                           <>
