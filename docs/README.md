@@ -57,6 +57,7 @@ docs/
     original-gap-sources.md       ← upstream snapshot 2026-07-16
     engineering-optimization-2026-07-30.md ← codeg 对标工程优化拆解
     product-parity-and-newapi-borrow-2026-07-30.md ← 原版 parity + New API 借鉴综合
+    uiux-newapi-borrow-2026-07-30.md ← 前端 UIUX 借鉴（New API 对标）
     competitive/                  ← peer learning inventory
   archives/                ← archived one-shot analysis files (provenance; not live)
   plan/                     ← program / lane / roadmap (historical / closed)

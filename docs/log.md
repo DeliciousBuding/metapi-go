@@ -3,6 +3,14 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-07-30] UIUX/产品化借鉴综合（New API 前端对标）
+
+- **Synthesis**: `docs/analysis/uiux-newapi-borrow-2026-07-30.md` — 两路 Explore（metapi-go web 审计 + New API 前端深度调研）综合。本轮聚焦前端 UIUX/产品化，参考 New API `reference/competitors/new-api/web/default/src`（TanStack+base-ui+VChart+cmdk+oxlint），借鉴**模式与组件抽象**（不引入 TanStack 全家桶，保持手写 React 栈）。
+- **metapi-go web 短板（审计实证）**: 无 ErrorBoundary（lazy 抛错=白屏）；`SearchModal.tsx:321-325` 显示键盘提示但 0 实现（诚实性 bug）；`Toast.tsx:66` 无 aria-live；ImportExport 884 行仅 1 个 tr()；列表页无 CSV 导出；filter 不进 URL；design-system Button 全 pages/ 仅 1 处采用；巨石页面（ProxyLogs 3605 等）。
+- **New API 可借鉴 12 项**: B1 标准化 Loading/Error/Empty · B2 受控 ConfirmDialog · B3 可复制 StatusBadge · B4 stringToColor · B5 IME 感知 debounce · B6 URL 同步表状态 · B7 浮动批量栏 · B8 Cmd+K 面板 · B9 扁平 JSON i18n+static-keys · B10 motion+reduced-motion · B11 Section Registry · B12 masked-value reveal+copy。
+- **优先级**: Wave 1 防御性+诚实性+a11y（ErrorBoundary/SearchModal 真键盘导航/Toast aria-live，A 类直接执行）；Wave 2 design-system 状态三件套+i18n；Wave 3 列表体验（CSV 导出/URL 状态/内联 test/日期预设）；Wave 4 借鉴优化。后端产品功能 N1-N9 不重叠（见 product-parity 文档，B 类需拍板）。
+- docs SSOT: STATE.md Next-wave + docs/README.md layout + log 指针；`doc_hygiene_test` 通过。
+
 ## [2026-07-30] product parity & New API 借鉴综合
 
 - **Synthesis**: `docs/analysis/product-parity-and-newapi-borrow-2026-07-30.md` — 合并 metapi-ts 原版对标 + New API 上游借鉴调研（子代理产出经 leader 源码交叉复核）。
