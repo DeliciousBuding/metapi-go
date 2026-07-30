@@ -3,6 +3,16 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-07-31] 产品化批次 N2-N6 + G1（New API borrow）
+
+- **N2 下游 key 可见价格端点**（`d22b808`）: 新 `/v1/pricing`（+ `/v1/models/price-compare` 别名）mount 在 /v1 ProxyAuth 组——持 managed key 的下游消费者可查跨站模型有效价格（复用 admin.modelPriceCompare，无独立 catalog 漂移）。非世界公开（匿名不泄露成本）。router 测试 401-without-key。
+- **N3 推理后缀解析**（`9c056a4`）: `ParseReasoningSuffix` 剥离 `-thinking`/`-high`/`-medium`/`-low` 使路由命中 base model；OpenAI 表面注入 `reasoning_effort`（客户端已设不覆盖）+ 重序列化 RawBody。非 OpenAI 方言仅 strip 用于路由（跨方言注入 deferred）。
+- **N4 Sites 行内测速**（`6ed798d`）: Sites 列表行加内联测速按钮（client-side `fetch(site.url/v1/models)` no-cors，同 Dashboard），免开编辑器即测。
+- **N5 下游 key 消费分布看板**（`05e10a7`）: 新 `ConsumptionDistribution` 组件——按 usedCost/usedRequests 切换的 top-10 跨 key 分布（bar+% 占比），聚合自可见 key，DownstreamKeys 顶部可折叠面板。纯前端。
+- **N6 列表 CSV 导出**（`18e9066`）: CheckinLog/ProgramLogs/DownstreamKeys 加导出 CSV（复用 csvExport helper；DownstreamKeys 仅导出 keyMasked+计费字段，不导出原 key）。
+- **G1 余额不足实时告警**（`09a619e`）: `alert.ReportLowBalance` 在 balance 刷新观察到 <1.0 时触发（TS parity 阈值），per account per 24h events 去重防刷。hook 在 `balance.RefreshBalance` 成功路径——定时+手动刷新都实时落地。TS 仅每日摘要 count（承诺未落地），metapi-go 做得更好。
+- CHANGELOG `N2/N3/N4/N5/N6/G1` 条目；STATE tip `9c056a4`。
+
 ## [2026-07-31] N1 下游 key IP 白名单/黑名单 + §5.11 包边界 leaf 抽取
 
 - **N1 安全缺口（New API borrow）**（backend `9e9cad1` + UI `d4633f1`）: 聚合网关公开暴露 managed 下游 key 却无 per-key IP 限制。新增 `downstream_api_keys.ip_allowlist`/`ip_blocklist` TEXT NULL（base DDL + AdditiveStep `sc2_010`）；`auth.CheckDownstreamKeyIP` 在 `ProxyAuth` 边缘 managed-key 鉴权后拦截——blocklist 优先、allowlist 非空须命中、皆空=不限；复用 `auth/admin.go` `parseAllowlist`/`isIPAllowed`（IPv4-mapped-IPv6 + `::1` 归一、非法条目静默跳过）。`AuthorizeDownstreamToken` 签名不变（无 test ripple）。admin CRUD（create + 部分更新，空串清为 NULL）+ DownstreamKey 编辑器 textarea。测试：`auth/downstream_ip_test`（split/check/block-wins/CIDR/IPv4-mapped/loopback）、`handler/admin TestDownstreamKeysIPAllowBlockListCRUD`、`DownstreamKeys.test` IP 字段渲染+保存。闭合 `product-parity-and-newapi-borrow-2026-07-30.md` §N1（P0）。

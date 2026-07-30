@@ -14,7 +14,7 @@
 | Fact | Value |
 |:-----|:------|
 | Latest release tag | **[v0.8.45](https://github.com/TokenDanceLab/metapi-go/releases/tag/v0.8.45)** (2026-07-20) — RE2-safe + UI tip |
-| Tip | `d4633f1` — N1 下游 key IP 白名单/黑名单（New API borrow）: schema `ip_allowlist`/`ip_blocklist` + `auth.CheckDownstreamKeyIP` 边缘拦截（blocklist 优先，复用 admin parseAllowlist/isIPAllowed）+ admin CRUD + DownstreamKey 编辑器 textarea; prior `9e9cad1` N1 backend, `0879652` §5.11 leaf extraction（scheduler→app/observability，包边界例外移除）, `a352ab4` UIUX wave 2/3+视觉质感, `0c10296` Wave 1, `828d489` product parity 综合 |
+| Tip | `9c056a4` — 产品化批次 N2-N6 + G1（New API borrow）: N2 下游 key 可见价格端点 `/v1/pricing` · N3 推理后缀(-thinking/-high/-medium/-low)解析+OpenAI reasoning_effort 注入 · N4 Sites 行内测速 · N5 下游 key 消费分布看板 · N6 列表 CSV 导出 · G1 余额不足实时告警(dedup 24h); prior `d4633f1` N1 IP 白名单, `0879652` §5.11 leaf, `a352ab4` UIUX wave 2/3, `828d489` product parity 综合 |
 | Production pin (ops) | server `projects/metapi/STATE.md` — hk3 still **0.8.44 Exited(2)** until authorized pin/up of **0.8.45** + 15min soak; pool/role **1/1**; restart=no |
 | Standby us1 pin | compose **0.8.42** + image pulled (#528); cold stack not auto-started |
 | Active milestone | **[53 REL-HONESTY](https://github.com/TokenDanceLab/metapi-go/milestone/53)** — #557 prod e2e + #558 runtime probes open; M52 UI-POLISH closed (0 open) |

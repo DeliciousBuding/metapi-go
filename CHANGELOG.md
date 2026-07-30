@@ -65,6 +65,14 @@ All notable changes to MetAPI-Go will be documented in this file.
 - **UI** (`d4633f1`): DownstreamKey editor gains IP allowlist + IP blocklist textareas (after the proxy field) with help text; buildEditorForm hydrates + submit payload carries `ipAllowlist`/`ipBlocklist` (empty → null). Tests: `auth/downstream_ip_test` (split + check, block-wins, CIDR, IPv4-mapped, loopback), `handler/admin TestDownstreamKeysIPAllowBlockListCRUD` (create round-trip + update clears), `DownstreamKeys.test` IP-field render + save.
 - Closes the P0 security gap from `docs/analysis/product-parity-and-newapi-borrow-2026-07-30.md` §N1 (aggregator exposed managed keys publicly with no per-key IP restriction).
 
+### N2 / N3 / N4 / N5 / N6 / G1 — productization batch (New API borrow, 2026-07-31)
+- **N2 downstream-key pricing catalog** (`d22b808`): new `/v1/pricing` (+ `/v1/models/price-compare` alias) mounted in the /v1 ProxyAuth group — a downstream consumer with a managed key can query effective cross-site model pricing (reuses admin.modelPriceCompare; no separate catalog to drift). Not world-public (no anonymous business-cost leak). Test: router 401-without-key.
+- **N3 reasoning suffix** (`9c056a4`): `ParseReasoningSuffix` strips `-thinking`/`-high`/`-medium`/`-low` so routing matches the base model; OpenAI surfaces inject `reasoning_effort` (client value not overwritten) + re-serialize RawBody. Non-OpenAI dialects strip for routing only (cross-dialect injection deferred).
+- **N4 inline speed-test** (`6ed798d`): Sites list row gains an inline 测速 button (client-side `fetch(site.url/v1/models)` no-cors, same as Dashboard) — no more open-editor-to-test.
+- **N5 consumption distribution** (`05e10a7`): new `ConsumptionDistribution` component — top-10 cross-key breakdown by usedCost / usedRequests (toggle) with bars + % share, aggregated from visible keys; collapsible panel above the DownstreamKeys list. Pure frontend.
+- **N6 CSV export** (`18e9066`): CheckinLog / ProgramLogs / DownstreamKeys gain 导出 CSV (reuses csvExport helper; DownstreamKeys never exports the raw key, only keyMasked + accounting).
+- **G1 real-time low-balance alert** (`09a619e`): `alert.ReportLowBalance` fires when a balance refresh observes balance < 1.0 (TS parity threshold), deduped per account per 24h via the events table. Hooked into `balance.RefreshBalance` success path so scheduled + manual refresh both land it in real-time — TS only counted lowBalanceAccounts in a daily summary (promise unfulfilled); metapi-go does better.
+
 ## [v0.8.45] — 2026-07-20
 
 ### Fixed / Reliability
