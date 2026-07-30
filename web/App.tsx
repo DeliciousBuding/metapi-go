@@ -19,6 +19,7 @@ import { useAnimatedVisibility } from './components/useAnimatedVisibility.js';
 import { useIsMobile } from './components/useIsMobile.js';
 import { MobileDrawer } from './components/MobileDrawer.js';
 import CenteredModal from './components/CenteredModal.js';
+import { RouteErrorBoundary } from './components/RouteErrorBoundary.js';
 const Dashboard = lazy(() => import('./pages/Dashboard.js'));
 const Sites = lazy(() => import('./pages/Sites.js'));
 const Accounts = lazy(() => import('./pages/Accounts.js'));
@@ -944,6 +945,7 @@ function AppShell() {
 
         <main id="main-content" className="main-content" tabIndex={-1}>
           <PageTransition>
+            <RouteErrorBoundary>
             <Suspense fallback={<RouteLoadingFallback />}>
               <Routes>
                 <Route path="/" element={<Dashboard adminName={displayName} />} />
@@ -970,6 +972,7 @@ function AppShell() {
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </Suspense>
+            </RouteErrorBoundary>
           </PageTransition>
         </main>
       </div>

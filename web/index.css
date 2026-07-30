@@ -5636,6 +5636,33 @@ textarea.form-input {
   background: var(--color-primary-light);
 }
 
+.search-result-item[data-active="true"] {
+  background: var(--color-primary-light);
+}
+
+.route-error-boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 16px;
+  text-align: center;
+}
+
+.route-error-title {
+  font-size: var(--text-lg, 1.125rem);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.route-error-message {
+  font-size: var(--text-sm, 0.875rem);
+  color: var(--color-text-muted);
+  max-width: 560px;
+  word-break: break-word;
+}
+
 .notification-event-item:hover {
   background: color-mix(in srgb, var(--color-primary) 8%, var(--color-bg-card));
 }

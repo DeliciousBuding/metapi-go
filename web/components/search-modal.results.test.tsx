@@ -165,4 +165,62 @@ describe('SearchModal results', () => {
       root?.unmount();
     }
   });
+
+  it('keyboard navigation: ArrowDown selects first result and Enter navigates', async () => {
+    apiMock.search.mockResolvedValue({
+      models: [],
+      sites: [{ id: 2, name: 'kbd-site', url: 'https://kbd.example' }],
+      checkinLogs: [],
+      proxyLogs: [],
+      accounts: [],
+      accountTokens: [],
+    });
+
+    const onClose = vi.fn();
+    let root!: WebTestRenderer;
+    try {
+      await act(async () => {
+        root = create(
+          <MemoryRouter initialEntries={['/']}>
+            <LocationProbe />
+            <SearchModal open onClose={onClose} />
+          </MemoryRouter>,
+        );
+      });
+
+      const input = root.root.findByType('input');
+      await act(async () => {
+        input.props.onChange({ target: { value: 'kbd' } });
+        vi.advanceTimersByTime(300);
+        await Promise.resolve();
+      });
+      await flushMicrotasks();
+
+      // The footer hint advertises ↑↓ navigation; it must actually work.
+      await act(async () => {
+        input.props.onKeyDown({ key: 'ArrowDown', preventDefault: () => {} });
+      });
+      await flushMicrotasks();
+
+      const buttons = root.root.findAll((node) => (
+        node.type === 'button' && collectText(node).includes('kbd-site')
+      ));
+      expect(buttons.length).toBe(1);
+      expect(buttons[0].props['data-active']).toBe('true');
+      expect(buttons[0].props['aria-selected']).toBe(true);
+
+      // Re-fetch input so the closure sees the updated activeIndex.
+      const inputAfterNav = root.root.findByType('input');
+      await act(async () => {
+        inputAfterNav.props.onKeyDown({ key: 'Enter', preventDefault: () => {} });
+      });
+      await flushMicrotasks();
+
+      const locationAfterEnter = root.root.find((node) => node.props?.id === 'location-probe');
+      expect(collectText(locationAfterEnter)).toContain('/sites');
+      expect(onClose).toHaveBeenCalled();
+    } finally {
+      root?.unmount();
+    }
+  });
 });

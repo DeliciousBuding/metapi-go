@@ -46,6 +46,13 @@ All notable changes to MetAPI-Go will be documented in this file.
 - **Original parity**: Go lost no TS README head feature; 14 platform adapters TS=Go aligned; Go exceeds TS on slow-req / heatmap / brand bucket / cross-site price compare. G1 balance-low alert = real gap but TS also only counts in daily summary (README promise unfulfilled on both sides) — metapi-go can do better.
 - **Borrow shortlist (9 confirmed)**: N1 downstream-key IP allowlist/blocklist (P0 security gap) · N2 public/downstream-visible pricing page (P1 aggregator differentiator) · N3 reasoning suffix + thinking_to_content · N4 per-channel test button · N5 downstream-key consumption dashboard · N6 log CSV export · N7 prompt-cache-ratio config · N8 single-channel multi-key rotation · N9 model/group multiplier admin UI. Out-of-scope: multi-user/pay/redemption/invite/subscription (conflicts with aggregator positioning).
 
+### UIUX wave 1 — defensive + honesty + a11y (New API frontend benchmark, 2026-07-30)
+- **RouteErrorBoundary** (`web/components/RouteErrorBoundary.tsx`): new class-component boundary wrapping all lazy `<Routes>` in `App.tsx`. Previously zero error boundaries existed — a single thrown render error in any lazy page blank-screened the entire SPA. Mirrors New API per-route `errorComponent` without adopting TanStack. Keyed on `location.pathname` so navigating away auto-clears the boundary; fallback shows message + retry. Test: `RouteErrorBoundary.test.tsx`.
+- **SearchModal real keyboard navigation** (`web/components/SearchModal.tsx`): the footer advertised `↑↓`/`Enter` hints but no handler existed — a honesty bug. Refactored the six result sections into a single ordered `flat` list with a global `activeIndex`; `ArrowDown`/`ArrowUp` move + wrap, `Enter` opens the active item, `scrollIntoView` tracks the active row. Input is now a `combobox` with `aria-activedescendant`/`aria-expanded`, results are a `role="listbox"`, items carry `aria-selected`. Test extended in `search-modal.results.test.tsx`.
+- **Toast a11y** (`web/components/Toast.tsx`): container is `role="status" aria-live="polite" aria-atomic="true"`; error toasts are `role="alert"` (assertive), success/info stay `status`. Test: `toast.a11y.test.tsx`.
+- **Docs**: `analysis/uiux-newapi-borrow-2026-07-30.md` synthesis (metapi-go web audit + New API 12 borrowable patterns B1–B12); STATE/README/log pointers.
+- Pre-push: `npm run typecheck` clean; vitest 515/515 (1 non-failing jsdom focus-trap teardown flake in `tokens.edit-and-select.test.tsx`, pre-existing, unrelated — `useFocusTrap.ts` untouched).
+
 ## [v0.8.45] — 2026-07-20
 
 ### Fixed / Reliability

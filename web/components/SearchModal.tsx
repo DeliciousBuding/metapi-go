@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { formatDateLocal, formatDateTimeMinuteLocal } from '../pages/helpers/checkinLogTime.js';
@@ -66,6 +66,36 @@ interface SearchResult {
   models: ModelSearchResult[];
 }
 
+type SectionKey = 'models' | 'sites' | 'accounts' | 'accountTokens' | 'checkinLogs' | 'proxyLogs';
+
+interface FlatItem {
+  key: string;
+  path: string;
+  sectionKey: SectionKey;
+  icon: ReactNode;
+  title: string;
+  meta: string;
+}
+
+// Section icons (kept out of render to keep the flat-map lean).
+const ICON: Record<SectionKey, ReactNode> = {
+  models: <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L4 12l5.75-5M14.25 7L20 12l-5.75 5M14 4l-4 16" /></svg>,
+  sites: <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9" /></svg>,
+  accounts: <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>,
+  accountTokens: <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>,
+  checkinLogs: <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  proxyLogs: <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" /></svg>,
+};
+
+const SECTION_TITLE_KEY: Record<SectionKey, string> = {
+  models: '模型广场',
+  sites: '站点',
+  accounts: '账号',
+  accountTokens: '账号令牌',
+  checkinLogs: '签到记录',
+  proxyLogs: '使用日志',
+};
+
 export default function SearchModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useI18n();
   const presence = useAnimatedVisibility(open, 180);
@@ -87,6 +117,96 @@ export default function SearchModal({ open, onClose }: { open: boolean; onClose:
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [open]);
+
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // Flat, ordered list of all result items (preserves section order:
+  // models → sites → accounts → accountTokens → checkinLogs → proxyLogs)
+  // so a single global index can drive keyboard navigation.
+  const flat = useMemo<FlatItem[]>(() => {
+    if (!results) return [];
+    const out: FlatItem[] = [];
+    for (const m of results.models) {
+      out.push({
+        key: `m-${m.name}`,
+        path: `/models?q=${encodeURIComponent(m.name)}`,
+        sectionKey: 'models',
+        icon: ICON.models,
+        title: m.name,
+        meta: `${m.accountCount} ${t('个账号')} · ${m.tokenCount} ${t('个令牌')} · ${m.siteCount} ${t('个站点')}`,
+      });
+    }
+    for (const s of results.sites) {
+      out.push({ key: `s-${s.id}`, path: buildSiteFocusPath(s.id), sectionKey: 'sites', icon: ICON.sites, title: s.name, meta: s.url });
+    }
+    for (const a of results.accounts) {
+      out.push({
+        key: `a-${a.id}`,
+        path: buildAccountFocusPath(a.id, { openRebind: a.status === 'expired', segment: a.segment }),
+        sectionKey: 'accounts',
+        icon: ICON.accounts,
+        title: a.username?.trim() || (a.segment === 'apikey' ? t('API Key 连接') : `ID:${a.id}`),
+        meta: `${a.site?.name || t('未关联站点')}${a.segment === 'apikey' ? ` · ${t('API Key 连接')}` : ''} · ${t('余额')} $${(a.balance || 0).toFixed(2)}`,
+      });
+    }
+    for (const token of results.accountTokens) {
+      out.push({
+        key: `t-${token.id}`,
+        path: buildTokenFocusPath(token.id),
+        sectionKey: 'accountTokens',
+        icon: ICON.accountTokens,
+        title: token.name,
+        meta: `${token.account?.username?.trim() || (token.account?.segment === 'apikey' ? t('API Key 连接') : t('未命名'))} · ${token.site?.name || t('未关联站点')}${token.tokenGroup ? ` · ${token.tokenGroup}` : ''}`,
+      });
+    }
+    for (const l of results.checkinLogs) {
+      out.push({
+        key: `c-${l.id}`,
+        path: '/checkin',
+        sectionKey: 'checkinLogs',
+        icon: ICON.checkinLogs,
+        title: l.account?.username || `ID:${l.accountId}`,
+        meta: `${l.message || '-'} · ${formatDateLocal(l.createdAt)}`,
+      });
+    }
+    for (const l of results.proxyLogs) {
+      out.push({
+        key: `p-${l.id}`,
+        path: '/logs',
+        sectionKey: 'proxyLogs',
+        icon: ICON.proxyLogs,
+        title: l.modelRequested || '-',
+        meta: `${l.status || '-'} · ${l.latencyMs || 0}ms · ${formatDateTimeMinuteLocal(l.createdAt)}`,
+      });
+    }
+    return out;
+  }, [results, t]);
+
+  // Keep the active row scrolled into view as the user moves with arrow keys.
+  useEffect(() => {
+    const el = itemRefs.current[activeIndex];
+    if (el && typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ block: 'nearest' });
+    }
+  }, [activeIndex]);
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const n = flat.length;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (n) setActiveIndex(i => (i + 1) % n);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (n) setActiveIndex(i => (i <= 0 ? n - 1 : i - 1));
+    } else if (e.key === 'Enter') {
+      const item = flat[activeIndex] ?? (n === 1 ? flat[0] : null);
+      if (item) {
+        e.preventDefault();
+        goTo(item.path);
+      }
+    }
+  };
 
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) {
@@ -114,6 +234,7 @@ export default function SearchModal({ open, onClose }: { open: boolean; onClose:
 
   const handleInput = (val: string) => {
     setQuery(val);
+    setActiveIndex(-1);
     clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(() => doSearch(val), 300);
   };
@@ -163,9 +284,14 @@ export default function SearchModal({ open, onClose }: { open: boolean; onClose:
             ref={inputRef}
             value={query}
             onChange={e => handleInput(e.target.value)}
+            onKeyDown={handleInputKeyDown}
             placeholder={t('搜索站点、账号、模型、日志...')}
             className="search-modal-input"
             aria-label={t('搜索')}
+            role="combobox"
+            aria-expanded={hasResults ? 'true' : 'false'}
+            aria-controls="search-modal-listbox"
+            aria-activedescendant={activeIndex >= 0 ? `search-item-${activeIndex}` : undefined}
           />
           {loading && <span className="spinner spinner-sm" aria-hidden="true" />}
           <kbd className="search-modal-kbd" aria-hidden="true">ESC</kbd>
@@ -179,143 +305,39 @@ export default function SearchModal({ open, onClose }: { open: boolean; onClose:
           </button>
         </div>
 
-        <div className="search-modal-body">
-          {query && !loading && !hasResults && (
+        <div className="search-modal-body" id="search-modal-listbox" role="listbox" aria-label={t('搜索结果')}>
+          {query && !loading && flat.length === 0 && (
             <div className="search-modal-empty">
               {t('没有找到匹配结果')}
             </div>
           )}
 
-          {results?.models.length ? (
-            <div>
-              <div className="search-modal-section-title">{t('模型广场')}</div>
-              {results.models.map((m) => (
-                <button key={m.name} className="search-result-item" onClick={() => goTo(`/models?q=${encodeURIComponent(m.name)}`)}>
-                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L4 12l5.75-5M14.25 7L20 12l-5.75 5M14 4l-4 16" />
-                  </svg>
-                  <div>
-                    <div style={{ fontWeight: 500 }}>{m.name}</div>
-                    <div className="search-result-meta">
-                      {m.accountCount} {t('个账号')} · {m.tokenCount} {t('个令牌')} · {m.siteCount} {t('个站点')}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          {results?.sites.length ? (
-            <div>
-              <div className="search-modal-section-title">{t('站点')}</div>
-              {results.sites.map((s) => (
-                <button key={s.id} className="search-result-item" onClick={() => goTo(buildSiteFocusPath(s.id))}>
-                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9" />
-                  </svg>
-                  <div>
-                    <div style={{ fontWeight: 500 }}>{s.name}</div>
-                    <div className="search-result-meta">{s.url}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          {results?.accounts.length ? (
-            <div>
-              <div className="search-modal-section-title">{t('账号')}</div>
-              {results.accounts.map((a) => (
+          {flat.map((item, idx) => {
+            const prev = idx > 0 ? flat[idx - 1].sectionKey : null;
+            const showTitle = prev !== item.sectionKey;
+            return (
+              <div key={item.key}>
+                {showTitle && (
+                  <div className="search-modal-section-title">{t(SECTION_TITLE_KEY[item.sectionKey])}</div>
+                )}
                 <button
-                  key={a.id}
+                  ref={el => { itemRefs.current[idx] = el; }}
+                  id={`search-item-${idx}`}
                   className="search-result-item"
-                  onClick={() => goTo(buildAccountFocusPath(a.id, {
-                    openRebind: a.status === 'expired',
-                    segment: a.segment,
-                  }))}
+                  data-active={idx === activeIndex ? 'true' : undefined}
+                  aria-selected={idx === activeIndex}
+                  onMouseEnter={() => setActiveIndex(idx)}
+                  onClick={() => goTo(item.path)}
                 >
-                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
+                  {item.icon}
                   <div>
-                    <div style={{ fontWeight: 500 }}>
-                      {a.username?.trim() || (a.segment === 'apikey' ? t('API Key 连接') : `ID:${a.id}`)}
-                    </div>
-                    <div className="search-result-meta">
-                      {a.site?.name || t('未关联站点')}
-                      {a.segment === 'apikey' ? ` · ${t('API Key 连接')}` : ''}
-                      {' · '}
-                      {t('余额')} ${(a.balance || 0).toFixed(2)}
-                    </div>
+                    <div style={{ fontWeight: 500 }}>{item.title}</div>
+                    <div className="search-result-meta">{item.meta}</div>
                   </div>
                 </button>
-              ))}
-            </div>
-          ) : null}
-
-          {results?.accountTokens.length ? (
-            <div>
-              <div className="search-modal-section-title">{t('账号令牌')}</div>
-              {results.accountTokens.map((token) => (
-                <button
-                  key={token.id}
-                  className="search-result-item"
-                  onClick={() => goTo(buildTokenFocusPath(token.id))}
-                >
-                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                  </svg>
-                  <div>
-                    <div style={{ fontWeight: 500 }}>{token.name}</div>
-                    <div className="search-result-meta">
-                      {(token.account?.username?.trim() || (token.account?.segment === 'apikey' ? t('API Key 连接') : t('未命名')))}
-                      {' · '}
-                      {token.site?.name || t('未关联站点')}
-                      {token.tokenGroup ? ` · ${token.tokenGroup}` : ''}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          {results?.checkinLogs.length ? (
-            <div>
-              <div className="search-modal-section-title">{t('签到记录')}</div>
-              {results.checkinLogs.map((l) => (
-                <button key={l.id} className="search-result-item" onClick={() => goTo('/checkin')}>
-                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <div>
-                    <div style={{ fontWeight: 500 }}>{l.account?.username || `ID:${l.accountId}`}</div>
-                    <div className="search-result-meta">
-                      {l.message || '-'} · {formatDateLocal(l.createdAt)}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          {results?.proxyLogs.length ? (
-            <div>
-              <div className="search-modal-section-title">{t('使用日志')}</div>
-              {results.proxyLogs.map((l) => (
-                <button key={l.id} className="search-result-item" onClick={() => goTo('/logs')}>
-                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
-                  </svg>
-                  <div>
-                    <div style={{ fontWeight: 500 }}>{l.modelRequested || '-'}</div>
-                    <div className="search-result-meta">
-                      {l.status || '-'} · {l.latencyMs || 0}ms · {formatDateTimeMinuteLocal(l.createdAt)}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : null}
+              </div>
+            );
+          })}
         </div>
 
         <div style={{ padding: '8px 16px', borderTop: '1px solid var(--color-border-light)', fontSize: 11, color: 'var(--color-text-muted)', display: 'flex', gap: 12 }}>
