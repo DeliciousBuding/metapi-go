@@ -71,6 +71,10 @@ type DownstreamApiKeyItem = {
   allowedCredentialRefs: DownstreamExcludedCredentialRef[];
   /** Per-key egress proxy; null/empty inherits site/account/system. */
   proxyUrl?: string | null;
+  /** Per-key IP allowlist (N1); newline/comma-separated; null/empty = unrestricted. */
+  ipAllowlist?: string | null;
+  /** Per-key IP blocklist (N1); blocklist wins; null/empty = no denies. */
+  ipBlocklist?: string | null;
   lastUsedAt: string | null;
 };
 
@@ -373,6 +377,8 @@ function buildEditorForm(
     expiresAt: toDateTimeLocal(item?.expiresAt),
     enabled: item?.enabled ?? true,
     proxyUrl: item?.proxyUrl ?? '',
+    ipAllowlist: item?.ipAllowlist ?? '',
+    ipBlocklist: item?.ipBlocklist ?? '',
     selectedModels: uniqStrings(selectedModels),
     selectedGroupRouteIds: uniqIds(selectedGroupRouteIds),
     siteWeightMultipliersText: JSON.stringify(item?.siteWeightMultipliers || {}, null, 2),
@@ -903,6 +909,8 @@ export default function DownstreamKeys() {
         maxTpm: parsedMaxTpm.value,
         keyWeight: parsedKeyWeight.value,
         proxyUrl: parsedProxy.value,
+        ipAllowlist: editorForm.ipAllowlist.trim() ? editorForm.ipAllowlist.trim() : null,
+        ipBlocklist: editorForm.ipBlocklist.trim() ? editorForm.ipBlocklist.trim() : null,
         supportedModels: uniqStrings(editorForm.selectedModels),
         allowedRouteIds: uniqIds(editorForm.selectedGroupRouteIds).filter((id) => routeMap.has(id) && isGroupRouteOption(routeMap.get(id)!)),
         siteWeightMultipliers,

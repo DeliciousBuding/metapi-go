@@ -1038,6 +1038,64 @@ describe('DownstreamKeys page', () => {
     }
   });
 
+  it('saves ipAllowlist / ipBlocklist on create and clears with empty as null', async () => {
+    let root!: WebTestRenderer;
+    try {
+      await act(async () => {
+        root = create(
+          <MemoryRouter initialEntries={['/downstream-keys']}>
+            <ToastProvider>
+              <DownstreamKeys />
+            </ToastProvider>
+          </MemoryRouter>,
+        );
+      });
+      await flushMicrotasks();
+
+      const createBtn = root!.root.findAll((node) => node.type === 'button' && collectText(node).includes('新增下游密钥'))[0];
+      await act(async () => {
+        createBtn.props.onClick();
+      });
+      await flushMicrotasks();
+
+      const inputs = root!.root.findAllByType('input');
+      const nameInput = inputs.find((node) => node.props.placeholder === '例如：项目 A / 移动端');
+      const keyInput = inputs.find((node) => node.props.placeholder === 'sk-...');
+
+      // IP fields render as textareas with the expected placeholders.
+      const textareas = root!.root.findAllByType('textarea');
+      const allowTA = textareas.find((node) =>
+        String(node.props.placeholder || '').includes('留空 = 不限制'),
+      );
+      const blockTA = textareas.find((node) =>
+        String(node.props.placeholder || '').includes('留空 = 不拦截'),
+      );
+      expect(allowTA).toBeTruthy();
+      expect(blockTA).toBeTruthy();
+
+      await act(async () => {
+        nameInput!.props.onChange({ target: { value: 'ip-key' } });
+        keyInput!.props.onChange({ target: { value: 'sk-ip-key-0466' } });
+        allowTA!.props.onChange({ target: { value: '10.0.0.0/8\n192.168.1.5' } });
+        blockTA!.props.onChange({ target: { value: '8.8.8.8' } });
+      });
+      await flushMicrotasks();
+
+      const saveBtn = root!.root.findAll((node) => node.type === 'button' && collectText(node).includes('创建密钥'))[0];
+      await act(async () => {
+        saveBtn.props.onClick();
+      });
+      await flushMicrotasks();
+
+      expect(apiMock.createDownstreamApiKey).toHaveBeenCalledWith(expect.objectContaining({
+        ipAllowlist: '10.0.0.0/8\n192.168.1.5',
+        ipBlocklist: '8.8.8.8',
+      }));
+    } finally {
+      root?.unmount();
+    }
+  });
+
   it('rejects invalid proxyUrl scheme before calling create API', async () => {
     let root!: WebTestRenderer;
     try {

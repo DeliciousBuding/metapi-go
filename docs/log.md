@@ -3,6 +3,12 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-07-31] N1 下游 key IP 白名单/黑名单 + §5.11 包边界 leaf 抽取
+
+- **N1 安全缺口（New API borrow）**（backend `9e9cad1` + UI `d4633f1`）: 聚合网关公开暴露 managed 下游 key 却无 per-key IP 限制。新增 `downstream_api_keys.ip_allowlist`/`ip_blocklist` TEXT NULL（base DDL + AdditiveStep `sc2_010`）；`auth.CheckDownstreamKeyIP` 在 `ProxyAuth` 边缘 managed-key 鉴权后拦截——blocklist 优先、allowlist 非空须命中、皆空=不限；复用 `auth/admin.go` `parseAllowlist`/`isIPAllowed`（IPv4-mapped-IPv6 + `::1` 归一、非法条目静默跳过）。`AuthorizeDownstreamToken` 签名不变（无 test ripple）。admin CRUD（create + 部分更新，空串清为 NULL）+ DownstreamKey 编辑器 textarea。测试：`auth/downstream_ip_test`（split/check/block-wins/CIDR/IPv4-mapped/loopback）、`handler/admin TestDownstreamKeysIPAllowBlockListCRUD`、`DownstreamKeys.test` IP 字段渲染+保存。闭合 `product-parity-and-newapi-borrow-2026-07-30.md` §N1（P0）。
+- **§5.11 包边界例外移除**（`0879652`）: `scheduler/lease.go` 曾 import `handler/shared`（唯一包边界例外）。抽 `app/observability` **叶子子包**（stdlib-only，≠ app 包故无环——scheduler 在依赖链 app→handler/proxy→scheduler 之下，无法 import app）承载 `dbConnErrorsTotal` 计数器；`handler/shared` 委托 Record/Read/Reset；scheduler 改 import leaf。boundary gate 删除 §5.11 例外，scheduler→handler/* 现硬拒绝。`package-boundaries.md` §5.11+§6 标 RESOLVED。
+- CHANGELOG `N1` + `UIUX wave 2/3` 条目；STATE tip `d4633f1`。
+
 ## [2026-07-31] UIUX wave 2/3 + 视觉质感（New API 前端对标）
 
 - **Wave 2 design-system 三件套**（`28ce05a`）: 新增 `design-system/ErrorState.tsx`（EmptyState tone=danger + 默认告警 icon + 自动 Retry，role=alert）+ `LoadingState.tsx`（block 变体 N 行 skeleton + inline 变体 spinner+label，均 role=status aria-live=polite），补齐 Empty/Loading/Error 三件套（对齐 New API B1）。ProgramLogs 落地 LoadingState 替换 bare skeleton。测试 `design-system/states.test.tsx` 4 例。

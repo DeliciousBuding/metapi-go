@@ -35,6 +35,10 @@ export type SummaryItem = {
   >;
   /** Per-key egress proxy; null/empty inherits site/account/system. */
   proxyUrl?: string | null;
+  /** Per-key IP allowlist (N1); null/empty = unrestricted. */
+  ipAllowlist?: string | null;
+  /** Per-key IP blocklist (N1); blocklist wins; null/empty = no denies. */
+  ipBlocklist?: string | null;
   lastUsedAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;

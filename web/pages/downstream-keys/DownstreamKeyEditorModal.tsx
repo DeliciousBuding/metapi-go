@@ -35,6 +35,10 @@ export type DownstreamKeyEditorForm = {
   enabled: boolean;
   /** Per-key egress proxy; empty = inherit site/account/system. */
   proxyUrl: string;
+  /** Per-key IP allowlist (N1 security); newline/comma-separated CIDR/exact; empty = unrestricted. */
+  ipAllowlist: string;
+  /** Per-key IP blocklist (N1 security); blocklist wins over allowlist; empty = no denies. */
+  ipBlocklist: string;
   selectedModels: string[];
   selectedGroupRouteIds: number[];
   siteWeightMultipliersText: string;
@@ -468,6 +472,34 @@ export default function DownstreamKeyEditorModal({
           />
           <div className="downstream-key-modal-help">
             仅影响此密钥的上游出口。填写后优先使用密钥代理；留空则继承站点 / 账号 / 系统代理链路。
+          </div>
+        </div>
+        <div className="downstream-key-modal-field downstream-key-modal-field-full">
+          <div className="downstream-key-modal-label">IP 白名单（可选）</div>
+          <textarea
+            value={form.ipAllowlist}
+            onChange={(e) => onChange((prev) => ({ ...prev, ipAllowlist: e.target.value }))}
+            placeholder="留空 = 不限制。每行一个 IP 或 CIDR，如 10.0.0.0/8 或 192.168.1.5"
+            style={{ ...inputStyle, minHeight: 64, resize: 'vertical', fontFamily: 'var(--font-mono, monospace)' }}
+            rows={3}
+            spellCheck={false}
+          />
+          <div className="downstream-key-modal-help">
+            仅允许列出的来源 IP 访问此密钥。支持精确 IP 与 IPv4 CIDR；非法条目自动忽略。留空表示不限来源。
+          </div>
+        </div>
+        <div className="downstream-key-modal-field downstream-key-modal-field-full">
+          <div className="downstream-key-modal-label">IP 黑名单（可选）</div>
+          <textarea
+            value={form.ipBlocklist}
+            onChange={(e) => onChange((prev) => ({ ...prev, ipBlocklist: e.target.value }))}
+            placeholder="留空 = 不拦截。黑名单优先于白名单。"
+            style={{ ...inputStyle, minHeight: 64, resize: 'vertical', fontFamily: 'var(--font-mono, monospace)' }}
+            rows={3}
+            spellCheck={false}
+          />
+          <div className="downstream-key-modal-help">
+            命中即拒绝，优先级高于白名单。用于封禁滥用来源。
           </div>
         </div>
         <div className="downstream-key-modal-field downstream-key-modal-field-full">

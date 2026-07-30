@@ -14,7 +14,7 @@
 | Fact | Value |
 |:-----|:------|
 | Latest release tag | **[v0.8.45](https://github.com/TokenDanceLab/metapi-go/releases/tag/v0.8.45)** (2026-07-20) — RE2-safe + UI tip |
-| Tip | `a352ab4` — UIUX wave 2/3 + 视觉质感（New API 前端对标）: design-system ErrorState/LoadingState 三件套(B1) + ImportExport i18n 全量 tr() + Models→Playground `?model=` 快跳 + ProxyLogs 日期预设(15m/1h/今天/7d) + Models 卡片网格 stagger 入场 + hover 上浮; 借鉴综合 `uiux-newapi-borrow-2026-07-30.md`; prior `0c10296` Wave 1(RouteErrorBoundary+SearchModal 真键盘导航+Toast a11y), `24e285a` UIUX 综合文档, `828d489` product parity 综合, `314e729` engineering optimization wave |
+| Tip | `d4633f1` — N1 下游 key IP 白名单/黑名单（New API borrow）: schema `ip_allowlist`/`ip_blocklist` + `auth.CheckDownstreamKeyIP` 边缘拦截（blocklist 优先，复用 admin parseAllowlist/isIPAllowed）+ admin CRUD + DownstreamKey 编辑器 textarea; prior `9e9cad1` N1 backend, `0879652` §5.11 leaf extraction（scheduler→app/observability，包边界例外移除）, `a352ab4` UIUX wave 2/3+视觉质感, `0c10296` Wave 1, `828d489` product parity 综合 |
 | Production pin (ops) | server `projects/metapi/STATE.md` — hk3 still **0.8.44 Exited(2)** until authorized pin/up of **0.8.45** + 15min soak; pool/role **1/1**; restart=no |
 | Standby us1 pin | compose **0.8.42** + image pulled (#528); cold stack not auto-started |
 | Active milestone | **[53 REL-HONESTY](https://github.com/TokenDanceLab/metapi-go/milestone/53)** — #557 prod e2e + #558 runtime probes open; M52 UI-POLISH closed (0 open) |

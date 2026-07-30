@@ -60,6 +60,11 @@ All notable changes to MetAPI-Go will be documented in this file.
 - **ProxyLogs date-range presets** (`2da7401`): filter area gains 15m / 1h / Today / 7d preset buttons that set the datetime range and trigger load. EN mappings added.
 - **Visual motion** (`a352ab4`): Models card grid gains `animate-slide-up stagger-N` (mirrors New API `CARD_STAGGER_VARIANTS`, capped at stagger-8 = 0.32s) + `model-card:hover` translateY(-2px) lift micro-interaction. `page-enter` intentionally left opacity-only — a transform on the page wrapper would disable descendant sticky table headers.
 
+### N1 — per-downstream-key IP allowlist/blocklist (New API borrow, 2026-07-31)
+- **Backend** (`9e9cad1`): `downstream_api_keys` + `ip_allowlist` / `ip_blocklist` TEXT NULL (base DDL + AdditiveStep `sc2_010`). `auth.CheckDownstreamKeyIP` enforces at the `ProxyAuth` edge after managed-key auth: blocklist wins, allowlist non-empty requires a match, both empty = unrestricted. Reuses `auth/admin.go` `parseAllowlist`/`isIPAllowed` (IPv4-mapped-IPv6 + `::1` normalization, invalid entries silently skipped). `AuthorizeDownstreamToken` signature unchanged (no test ripple). Admin CRUD carries the columns on create + partial update (empty string clears to NULL).
+- **UI** (`d4633f1`): DownstreamKey editor gains IP allowlist + IP blocklist textareas (after the proxy field) with help text; buildEditorForm hydrates + submit payload carries `ipAllowlist`/`ipBlocklist` (empty → null). Tests: `auth/downstream_ip_test` (split + check, block-wins, CIDR, IPv4-mapped, loopback), `handler/admin TestDownstreamKeysIPAllowBlockListCRUD` (create round-trip + update clears), `DownstreamKeys.test` IP-field render + save.
+- Closes the P0 security gap from `docs/analysis/product-parity-and-newapi-borrow-2026-07-30.md` §N1 (aggregator exposed managed keys publicly with no per-key IP restriction).
+
 ## [v0.8.45] — 2026-07-20
 
 ### Fixed / Reliability
