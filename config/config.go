@@ -143,6 +143,11 @@ type Config struct {
 	// Proxy: Core (2 fields)
 	RequestBodyLimit        int
 	RoutingFallbackUnitCost float64
+	// CacheRatioDefault / CacheRatioClaude (N7) override the prompt-cache ratio
+	// fallbacks used when an upstream pricing row omits cache_ratio. 0/missing =
+	// use the code defaults (DefaultCacheRatio=1.0, ClaudeCacheRatio=0.1).
+	CacheRatioDefault float64
+	CacheRatioClaude  float64
 	// ProxyFirstByteTimeoutSec is the operator-facing first-byte / first-token
 	// timeout in SECONDS (env PROXY_FIRST_BYTE_TIMEOUT_SEC). Internal dispatch
 	// converts to milliseconds via proxy.FirstByteTimeoutMs (sec * 1000).

@@ -3,6 +3,7 @@ package routing
 import (
 	"math"
 	"strings"
+	"sync/atomic"
 )
 
 // Claude / Anthropic official prompt-cache multipliers used when an upstream
@@ -35,6 +36,42 @@ const (
 	// oneHubPerCallRatio mirrors TS ONE_HUB_PER_CALL_RATIO for times pricing.
 	oneHubPerCallRatio = 0.002
 )
+
+// N7: admin-overridable cache-ratio fallbacks. The consts above remain the
+// code defaults; an operator can tune these via settings (keys
+// cache_ratio_default / cache_ratio_claude) without a code change. NaN/Inf
+// and non-positive overrides are ignored (fall back to the const).
+var (
+	cacheRatioOverride       atomic.Pointer[float64]
+	cacheCreationRatioOverride atomic.Pointer[float64]
+	claudeCacheRatioOverride    atomic.Pointer[float64]
+	claudeCacheCreationRatioOverride atomic.Pointer[float64]
+)
+
+// SetCacheRatioDefaults overrides the cache-ratio fallbacks at runtime.
+// Any value <= 0, NaN, or Inf resets that ratio to its code default.
+// Called by the admin settings handler when cache_ratio_* settings change.
+func SetCacheRatioDefaults(defaultRatio, defaultCreation, claudeRatio, claudeCreation float64) {
+	set := func(p *atomic.Pointer[float64], v, fallback float64) {
+		if !(v > 0 && !math.IsNaN(v) && !math.IsInf(v, 0)) {
+			p.Store(nil)
+			return
+		}
+		vv := v
+		p.Store(&vv)
+	}
+	set(&cacheRatioOverride, defaultRatio, DefaultCacheRatio)
+	set(&cacheCreationRatioOverride, defaultCreation, DefaultCacheCreationRatio)
+	set(&claudeCacheRatioOverride, claudeRatio, ClaudeCacheRatio)
+	set(&claudeCacheCreationRatioOverride, claudeCreation, ClaudeCacheCreationRatio)
+}
+
+func overriddenOr(p *atomic.Pointer[float64], fallback float64) float64 {
+	if v := p.Load(); v != nil {
+		return *v
+	}
+	return fallback
+}
 
 // PricingModel is a normalized upstream pricing row used for cost estimation.
 // Pointer ratios distinguish "missing" from an explicit zero.
@@ -130,21 +167,22 @@ func IsClaudeModel(modelName string) bool {
 
 // DefaultCacheRatioForModel returns the intentional cache_ratio fallback when
 // an upstream pricing row omits the field. Claude models use Anthropic public
-// ratios; everything else keeps the historical MetAPI 1.0 fallback.
+// ratios; everything else keeps the historical MetAPI 1.0 fallback. Both are
+// admin-overridable via SetCacheRatioDefaults (N7).
 func DefaultCacheRatioForModel(modelName string) float64 {
 	if IsClaudeModel(modelName) {
-		return ClaudeCacheRatio
+		return overriddenOr(&claudeCacheRatioOverride, ClaudeCacheRatio)
 	}
-	return DefaultCacheRatio
+	return overriddenOr(&cacheRatioOverride, DefaultCacheRatio)
 }
 
 // DefaultCacheCreationRatioForModel returns the intentional
 // cache_creation_ratio fallback when the field is missing.
 func DefaultCacheCreationRatioForModel(modelName string) float64 {
 	if IsClaudeModel(modelName) {
-		return ClaudeCacheCreationRatio
+		return overriddenOr(&claudeCacheCreationRatioOverride, ClaudeCacheCreationRatio)
 	}
-	return DefaultCacheCreationRatio
+	return overriddenOr(&cacheCreationRatioOverride, DefaultCacheCreationRatio)
 }
 
 // ResolveCacheRatio picks an explicit ratio when present and finite (>= 0),

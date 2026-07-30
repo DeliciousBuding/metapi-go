@@ -12,6 +12,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/tokendancelab/metapi-go/config"
 	"github.com/tokendancelab/metapi-go/platform"
+	"github.com/tokendancelab/metapi-go/routing"
 	"github.com/tokendancelab/metapi-go/service"
 )
 
@@ -118,6 +119,9 @@ func (h *settingsHandler) getRuntime(w http.ResponseWriter, r *http.Request) {
 		// Global filters (always JSON arrays; never null)
 		"globalBlockedBrands": stringSliceOrEmpty(cfg.GlobalBlockedBrands),
 		"globalAllowedModels": stringSliceOrEmpty(cfg.GlobalAllowedModels),
+		// N7: effective prompt-cache ratio fallbacks (reflect overrides).
+		"cacheRatioDefault": routing.DefaultCacheRatioForModel("gpt-4o"),
+		"cacheRatioClaude":  routing.DefaultCacheRatioForModel("claude-3-5-sonnet"),
 	})
 }
 
@@ -642,6 +646,22 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 		cfg.PayloadRules = v
 		upsertSettingDB(h.db, "payload_rules", v)
 	}
+
+	// N7: prompt-cache ratio fallback overrides.
+	if v, ok := body["cacheRatioDefault"]; ok {
+		if val, err := toFloat64Strict(v); err == nil && val >= 0 {
+			cfg.CacheRatioDefault = val
+			upsertSettingDB(h.db, "cache_ratio_default", val)
+		}
+	}
+	if v, ok := body["cacheRatioClaude"]; ok {
+		if val, err := toFloat64Strict(v); err == nil && val >= 0 {
+			cfg.CacheRatioClaude = val
+			upsertSettingDB(h.db, "cache_ratio_claude", val)
+		}
+	}
+	// Apply to routing runtime immediately (0 / non-positive falls back to code default).
+	routing.SetCacheRatioDefaults(cfg.CacheRatioDefault, 0, cfg.CacheRatioClaude, 0)
 
 	// Log the event
 	logSettingsEvent(h.db, "status", "运行时设置已更新", "运行时设置已更新", "info", now)

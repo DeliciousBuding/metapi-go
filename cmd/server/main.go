@@ -54,6 +54,8 @@ func main() {
 		slog.Error("startup bootstrap failed", "error", err)
 		os.Exit(1)
 	}
+	// N7: apply operator-configured cache-ratio fallback overrides to routing.
+	app.ApplyCacheRatioOverrides(cfg)
 	if err := app.ConfigureProxyUpstream(cfg); err != nil {
 		slog.Error("proxy upstream wiring failed", "error", err)
 		os.Exit(1)

@@ -201,6 +201,12 @@ func ApplyRuntimeSettings(cfg *config.Config, settingsMap map[string]string) {
 		case "openai_service_tier_rules":
 			cfg.OpenAiServiceTierRules = config.ParseJsonValue(value)
 
+		// N7: prompt-cache ratio fallback overrides (0 = use code default).
+		case "cache_ratio_default":
+			cfg.CacheRatioDefault = parseFloatSetting(value, 0)
+		case "cache_ratio_claude":
+			cfg.CacheRatioClaude = parseFloatSetting(value, 0)
+
 		default:
 			// Unknown setting — silently skip.
 			// Future: system_proxy_url, routing weights, admin_ip_allowlist, etc.
@@ -319,6 +325,20 @@ func parseInt(value string, fallback int) int {
 		return fallback
 	}
 	return v
+}
+
+// parseFloatSetting parses a non-negative float setting; returns fallback on
+// parse error, NaN, Inf, or negative. 0 is preserved (free cache read).
+func parseFloatSetting(value string, fallback float64) float64 {
+	v, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+	if err != nil || !(v >= 0) || isNaNOrInf(v) {
+		return fallback
+	}
+	return v
+}
+
+func isNaNOrInf(v float64) bool {
+	return v != v || v > 1e308 || v < -1e308
 }
 
 // parseOptionalString returns the value if non-empty, empty string otherwise.
