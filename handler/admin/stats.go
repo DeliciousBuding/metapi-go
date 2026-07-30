@@ -40,6 +40,20 @@ func RegisterStatsRoutes(r chi.Router, db *sqlx.DB) {
 	r.Post("/api/models/probe", handler.modelProbe)
 }
 
+// RegisterDownstreamPricingRoutes mounts the cross-site price catalog behind
+// downstream-key (ProxyAuth) auth, NOT admin auth. N2 productization: a
+// downstream consumer (中转站) holding a managed key can query effective
+// cross-site model pricing for its own planning — the aggregator's
+// transparent-pricing differentiator. Reuses modelPriceCompare so the data
+// surface is identical to the admin view; no separate catalog to drift.
+//
+// Mounted under /v1/* so it inherits ProxyAuth + CORS from the /v1 route group.
+func RegisterDownstreamPricingRoutes(r chi.Router, db *sqlx.DB) {
+	handler := &statsHandler{db: db}
+	r.Get("/v1/pricing", handler.modelPriceCompare)
+	r.Get("/v1/models/price-compare", handler.modelPriceCompare)
+}
+
 type statsHandler struct {
 	db *sqlx.DB
 }

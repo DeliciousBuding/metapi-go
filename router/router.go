@@ -100,6 +100,12 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		r.Use(CORS())
 		r.Use(auth.ProxyAuth(cfg))
 		proxyhandler.RegisterProxyRoutes(r)
+		// N2: downstream-key-visible cross-site price catalog (not admin auth).
+		// Mounted under /v1 so it inherits ProxyAuth; reuses the admin
+		// modelPriceCompare data surface (no separate catalog to drift).
+		if db := store.GetDB(); db != nil {
+			admin.RegisterDownstreamPricingRoutes(r, db.DB)
+		}
 	})
 
 	// Non-/v1 proxy routes (chat alias, responses aliases, Gemini native paths).

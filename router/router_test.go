@@ -246,3 +246,21 @@ func TestHealthCORSRemainsWildcard(t *testing.T) {
 		t.Fatalf("health CORS allow origin = %q, want *", got)
 	}
 }
+
+func TestDownstreamPricingRequiresProxyAuth(t *testing.T) {
+	cfg := &config.Config{
+		AuthToken:        "admin-token",
+		ProxyToken:       "proxy-token",
+		RequestBodyLimit: config.DefaultRequestBodyLimit,
+	}
+	r := New(cfg, web.Dist)
+
+	// No Authorization header → must be rejected at the proxy-auth edge
+	// (the pricing catalog is downstream-key-gated, not public).
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/v1/pricing", nil)
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("/v1/pricing without downstream key status = %d, want 401", rec.Code)
+	}
+}
