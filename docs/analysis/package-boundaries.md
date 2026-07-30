@@ -266,13 +266,14 @@ Examples:
 
 Test imports may be wider than production; do not “fix” production packages solely to satisfy tests.
 
-### 5.11 [P2] `scheduler` → `handler/shared` (metrics counter)
+### 5.11 [RESOLVED 2026-07-31] `scheduler` → `handler/shared` (metrics counter)
 
-- **Where**: `scheduler/lease.go:17` imports `handler/shared`; `lease.go:185` calls `shared.RecordDBConnError()`.
-- **BACKEND.md §2.3 rule 6**: `scheduler` must not import `handler`. This edge violates the letter of the rule.
-- **Root cause**: `handler/shared/metrics.go` is a cross-cutting observability surface (Prometheus counters) that BACKEND.md §3.3 says should live under `app`, but it was placed under `handler/shared` historically. The metrics registry is used by `handler/shared` error helpers too, so it was not split out.
-- **Decision (2026-07-30)**: document as an **approved exception** in `docs/package_boundary_test.go` (scheduler may import `handler/shared` for metrics, NOT `handler/admin`/`handler/proxy`). The clean fix — extracting the metrics registry to an `app/observability` leaf package — is an M-level refactor tracked as a follow-up; it is **not** relaxed silently.
-- **Cleanup**: move `handler/shared/metrics.go` counters to a new `app/metrics` (or `internal/metrics`) leaf package; have `handler/shared` re-export thin wrappers for backward compat, and let `scheduler`/`proxy`/`routing` import the leaf directly. Removes the `scheduler → handler/shared` tension and the `app → handler/shared` metrics-export edge at once.
+- **Was**: `scheduler/lease.go:17` imported `handler/shared` to call `shared.RecordDBConnError()`, violating rule 6 (`scheduler ↛ handler`).
+- **Root cause**: `handler/shared/metrics.go` held the DB-connection error counter, but `scheduler` sits below `app` in the dependency chain (`app → handler/proxy → scheduler`), so it could not import `app` either — the only reachable metrics surface was `handler/shared`.
+- **Fix (landed `f1bfdaa`→this)**: extracted the DB-conn-error counter to a new **`app/observability`** leaf subpackage (stdlib-only, no internal imports). `handler/shared` delegates `RecordDBConnError`/`DBConnErrorsTotal`/reset to the leaf (the `/metrics` exposition and `ResetMetricsForTest` are unchanged). `scheduler/lease.go` now imports `app/observability` directly.
+- **Why a leaf, not the `app` facade**: `scheduler → app` is a real import cycle (`app` imports `handler/proxy` which imports `scheduler`). `app/observability` is a *separate package* from `app` and imports nothing internal, so `scheduler → app/observability` is cycle-free. The boundary gate allows it (rule 6 forbids only `handler`/`router`/`proxy`).
+- **Boundary test**: the §5.11 exception in `docs/package_boundary_test.go` was **removed** — `scheduler` no longer imports `handler/shared`; the denylist now rejects any `scheduler → handler/*` edge outright.
+- **Scope note**: only the DB-conn-error counter moved (the one that scheduler needs). The rest of `handler/shared/metrics.go` (proxy outcomes, histograms, gauges) stays where it is; a fuller registry extraction remains optional, not required by any current edge.
 
 ---
 
@@ -290,7 +291,7 @@ Test imports may be wider than production; do not “fix” production packages 
 | `transform` ↛ handler/store/proxy/routing/service/auth | **Pass** | leaf cluster |
 | `routing` ↛ proxy/handler | **Pass** | only config/store |
 | `service` ↛ handler/router/proxy | **Pass** | |
-| `scheduler` ↛ handler/router/proxy | **Exception** | `scheduler/lease.go` imports `handler/shared` for the `RecordDBConnError` metrics counter only (§5.11). The `handler → scheduler` admin-ops edge is covered by §5.1. |
+| `scheduler` ↛ handler/router/proxy | **Resolved** | §5.11 `scheduler → handler/shared` exception **removed 2026-07-31**: DB-conn-error counter extracted to `app/observability` leaf; `scheduler/lease.go` now imports the leaf (no `handler/*` import). The `handler → scheduler` admin-ops edge is covered by §5.1. |
 | `handler` ↛ router | **Pass** | |
 | `handler` ↛ scheduler (except admin job ops) | **Exception** | §5.1 checkin schedule validation |
 | No import cycles | **Pass** | |

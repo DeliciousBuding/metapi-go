@@ -14,7 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/tokendancelab/metapi-go/handler/shared"
+	"github.com/tokendancelab/metapi-go/app/observability"
 	"github.com/tokendancelab/metapi-go/store"
 )
 
@@ -182,7 +182,7 @@ func noteLeaseAcquireFailure(err error) {
 	if !isConnectionBudgetError(err) {
 		return
 	}
-	shared.RecordDBConnError()
+	observability.RecordDBConnError()
 	leasePressure.mu.Lock()
 	defer leasePressure.mu.Unlock()
 	leasePressure.failures++

@@ -39,7 +39,9 @@ import (
 //   - handler/* → platform (thin admin/verify actions, §2.2 table)
 //   - handler/proxy → transform/* (one-way protocol wiring, §5.4)
 //   - auth → internal/sharedcount
-//   - scheduler → handler/shared (metrics counter only, §5.11)
+//   - (scheduler → handler/shared §5.11 exception RESOLVED 2026-07-31:
+//     scheduler now records DB-conn errors via the `app` facade, no direct
+//     handler/shared import)
 //
 // cmd/server is the composition root and may import anything.
 // cmd/migrate, e2e, internal, docs, web are out of scope.
@@ -170,20 +172,13 @@ func forbiddenImport(pkg, imp string) string {
 			return "rule 5: service ↛ handler/router/proxy (domain free of HTTP/orchestration)"
 		}
 	case "scheduler":
-		// Documented exception (discovered by this gate 2026-07-30; B1 §6
-		// "scheduler Pass" was stale): scheduler/lease.go imports handler/shared
-		// to bump the DB-connection error metric counter (RecordDBConnError).
-		// handler/shared/metrics.go is a cross-cutting observability surface
-		// mislabeled as "handler"; BACKEND.md §3.3 says metrics live under app.
-		// Extracting the metrics registry to an app/observability leaf is an
-		// M-level refactor tracked in package-boundaries.md §5.11. Until then,
-		// scheduler may import handler/shared (metrics + error helpers only),
-		// NOT handler/admin or handler/proxy.
-		if suffix == "handler/shared" {
-			return ""
-		}
+		// scheduler must not depend on the HTTP/handler or routing layers.
+		// DB-connection error metrics are recorded via the `app` facade
+		// (app.RecordDBConnError delegates to handler/shared), not by
+		// importing handler/shared directly — this resolved the §5.11
+		// exception (was: scheduler/lease.go imported handler/shared).
 		if inGroups("handler", "router", "proxy") {
-			return "rule 6: scheduler ↛ handler/router/proxy (handler/shared metrics exception: see §5.11)"
+			return "rule 6: scheduler ↛ handler/router/proxy (DB-conn metric via app facade, not handler/shared)"
 		}
 	case "handler":
 		// handler/admin documented exceptions: → scheduler (admin-ops), → app (lifecycle).

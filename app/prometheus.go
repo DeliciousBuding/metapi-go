@@ -27,6 +27,11 @@ func SetActiveChannels(n int64) { shared.SetActiveChannels(n) }
 // SetDBConnections sets the DB connection gauge.
 func SetDBConnections(n int64) { shared.SetDBConnections(n) }
 
+// RecordDBConnError increments the DB connection-budget / open error counter.
+// Exposed on the app facade so lower layers (e.g. scheduler) can record without
+// importing handler/shared — resolves package-boundaries §5.11 exception.
+func RecordDBConnError() { shared.RecordDBConnError() }
+
 // RecordRouteRebuildCompleted increments successful route rebuild/cache-invalidate counter.
 func RecordRouteRebuildCompleted() { shared.RecordRouteRebuildCompleted() }
 
