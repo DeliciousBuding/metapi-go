@@ -53,6 +53,13 @@ All notable changes to MetAPI-Go will be documented in this file.
 - **Docs**: `analysis/uiux-newapi-borrow-2026-07-30.md` synthesis (metapi-go web audit + New API 12 borrowable patterns B1–B12); STATE/README/log pointers.
 - Pre-push: `npm run typecheck` clean; vitest 515/515 (1 non-failing jsdom focus-trap teardown flake in `tokens.edit-and-select.test.tsx`, pre-existing, unrelated — `useFocusTrap.ts` untouched).
 
+### UIUX wave 2/3 + visual polish (New API frontend benchmark, 2026-07-31)
+- **design-system triad** (`28ce05a`): new `ErrorState` (EmptyState tone=danger + alert icon + auto Retry, role=alert) + `LoadingState` (block: N skeleton lines; inline: spinner+label; both role=status aria-live=polite). Completes Empty/Loading/Error (New API B1). Adopted LoadingState in ProgramLogs. Test: `design-system/states.test.tsx` (4 cases).
+- **ImportExport i18n** (`3cd2525`): the worst-i18n'd page (884 lines, 1 `tr()` call) → all user-facing strings wrapped in `tr()` (toast/confirm/dynamic-join + module-level option labels); EN mappings added to `i18n.supplement.ts`.
+- **Models → Playground quick-launch** (`df94e72`): Models card/table-row action button → `/playground?model=<name>`; ModelTester reads `?model=` and pre-fills the model selector (takes precedence over restored session). Fixed ModelTester test missing `MemoryRouter` (`useSearchParams` requires Router context).
+- **ProxyLogs date-range presets** (`2da7401`): filter area gains 15m / 1h / Today / 7d preset buttons that set the datetime range and trigger load. EN mappings added.
+- **Visual motion** (`a352ab4`): Models card grid gains `animate-slide-up stagger-N` (mirrors New API `CARD_STAGGER_VARIANTS`, capped at stagger-8 = 0.32s) + `model-card:hover` translateY(-2px) lift micro-interaction. `page-enter` intentionally left opacity-only — a transform on the page wrapper would disable descendant sticky table headers.
+
 ## [v0.8.45] — 2026-07-20
 
 ### Fixed / Reliability

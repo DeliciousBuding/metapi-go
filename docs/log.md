@@ -3,6 +3,16 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-07-31] UIUX wave 2/3 + 视觉质感（New API 前端对标）
+
+- **Wave 2 design-system 三件套**（`28ce05a`）: 新增 `design-system/ErrorState.tsx`（EmptyState tone=danger + 默认告警 icon + 自动 Retry，role=alert）+ `LoadingState.tsx`（block 变体 N 行 skeleton + inline 变体 spinner+label，均 role=status aria-live=polite），补齐 Empty/Loading/Error 三件套（对齐 New API B1）。ProgramLogs 落地 LoadingState 替换 bare skeleton。测试 `design-system/states.test.tsx` 4 例。
+- **Wave 2 i18n**（`3cd2525`）: ImportExport 884 行仅 1 个 tr() → 全量用户可见字符串包 tr()（toast/confirm/动态拼接 + 模块级 option label）；i18n.supplement.ts 补 EN 映射。typecheck + ImportExport 9/9 通过。
+- **Wave 3 Models→Playground 快跳**（`df94e72`）: Models 卡片/表格行加「在 Playground 测试」按钮 → `/playground?model=`；ModelTester 读 `?model=` query 预填模型选择器（优先于 restored session）。i18n 补「在 Playground 测试」。修 ModelTester 测试缺 MemoryRouter（useSearchParams 需 Router 上下文）。
+- **Wave 3 ProxyLogs 日期预设**（`2da7401`）: filter 区加 15m/1h/今天/7d 预设按钮（setRangePreset 调 endTime=now+startTime 回填 datetime 输入 + 触发 load）。i18n 补预设 EN 映射。
+- **视觉质感**（`a352ab4`）: Models 卡片网格加 `animate-slide-up stagger-N`（复刻 New API CARD_STAGGER_VARIANTS，capped stagger-8=0.32s）+ `model-card:hover` translateY(-2px) 上浮微交互。page-enter 保持 opacity-only（transform 祖先会破坏后代 sticky 表头，故不加 y/blur）。reduced-motion 全局守卫已覆盖。
+- Pre-push: `npm run typecheck` clean; 各批 vitest 通过（design-system 4/4、ImportExport 9/9、Models 11/11、ProgramLogs 3/3、ModelTester forced-channel 修复后通过）。
+- **硬门禁**: 以上均为 A 类（低风险 UIUX/视觉/修 bug），非产品功能决策；后端产品功能 N1-N9 仍需拍板（见 `product-parity-and-newapi-borrow-2026-07-30.md`）。
+
 ## [2026-07-30] UIUX wave 1 — 防御性 + 诚实性 + a11y（New API 前端对标）
 
 - **RouteErrorBoundary**（`web/components/RouteErrorBoundary.tsx`，新建）：class 边界包裹 `App.tsx` 全部 lazy `<Routes>`。此前全仓 0 处 error boundary，任一 lazy 路由 render 抛错=白屏。keyed on `location.pathname` 离开即清；fallback 含 message+重试。对齐 New API per-route `errorComponent`（不引入 TanStack）。测试 `RouteErrorBoundary.test.tsx`。
