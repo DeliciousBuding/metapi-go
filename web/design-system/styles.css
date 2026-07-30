@@ -389,6 +389,34 @@
   margin-top: var(--space-3);
 }
 
+/* ===== LoadingState ===== */
+.ds-loading {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  min-width: 0;
+}
+
+.ds-loading__line {
+  height: 14px;
+  border-radius: var(--radius-sm, 4px);
+}
+
+.ds-loading-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--color-text-secondary, var(--color-text-muted));
+  font-size: var(--text-sm, 0.875rem);
+}
+
+.ds-loading-inline__label {
+  line-height: 1;
+}
+
 /* ===== Input ===== */
 .ds-input-field {
   display: flex;

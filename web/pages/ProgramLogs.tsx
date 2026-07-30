@@ -4,7 +4,7 @@ import { MobileCard, MobileField } from '../components/MobileCard.js';
 import ResponsiveFilterPanel from '../components/ResponsiveFilterPanel.js';
 import { useToast } from '../components/Toast.js';
 import { useIsMobile } from '../components/useIsMobile.js';
-import { EmptyState, Button as DsButton } from '../design-system/index.js';
+import { EmptyState, Button as DsButton, LoadingState } from '../design-system/index.js';
 import { formatDateTimeLocal } from './helpers/checkinLogTime.js';
 import ModernSelect from '../components/ModernSelect.js';
 import { tr } from '../i18n.js';
@@ -286,11 +286,7 @@ export default function ProgramLogs() {
 
       <div className="card" style={{ overflowX: 'auto' }}>
         {loading ? (
-          <div style={{ padding: 20 }}>
-            <div className="skeleton" style={{ width: '100%', height: 34, marginBottom: 8 }} />
-            <div className="skeleton" style={{ width: '100%', height: 34, marginBottom: 8 }} />
-            <div className="skeleton" style={{ width: '100%', height: 34 }} />
-          </div>
+          <LoadingState lines={5} label={tr('加载中')} />
         ) : isMobile ? (
           <div className="mobile-card-list">
             {visibleRows.length > 0 ? visibleRows.map((row) => {
