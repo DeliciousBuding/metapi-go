@@ -266,9 +266,22 @@ Examples:
 
 Test imports may be wider than production; do not “fix” production packages solely to satisfy tests.
 
+### 5.11 [P2] `scheduler` → `handler/shared` (metrics counter)
+
+- **Where**: `scheduler/lease.go:17` imports `handler/shared`; `lease.go:185` calls `shared.RecordDBConnError()`.
+- **BACKEND.md §2.3 rule 6**: `scheduler` must not import `handler`. This edge violates the letter of the rule.
+- **Root cause**: `handler/shared/metrics.go` is a cross-cutting observability surface (Prometheus counters) that BACKEND.md §3.3 says should live under `app`, but it was placed under `handler/shared` historically. The metrics registry is used by `handler/shared` error helpers too, so it was not split out.
+- **Decision (2026-07-30)**: document as an **approved exception** in `docs/package_boundary_test.go` (scheduler may import `handler/shared` for metrics, NOT `handler/admin`/`handler/proxy`). The clean fix — extracting the metrics registry to an `app/observability` leaf package — is an M-level refactor tracked as a follow-up; it is **not** relaxed silently.
+- **Cleanup**: move `handler/shared/metrics.go` counters to a new `app/metrics` (or `internal/metrics`) leaf package; have `handler/shared` re-export thin wrappers for backward compat, and let `scheduler`/`proxy`/`routing` import the leaf directly. Removes the `scheduler → handler/shared` tension and the `app → handler/shared` metrics-export edge at once.
+
 ---
 
 ## 6. Conformance vs `BACKEND.md` forbidden imports
+
+> **Machine-enforced since 2026-07-30**: `docs/package_boundary_test.go` runs
+> in CI (`docs-hygiene`-adjacent) and asserts every rule below as a `go test`.
+> The §5 exceptions are encoded in the test. When the test fails, do NOT relax
+> it — move the import or document a new exception in BACKEND.md §2 + §5 here.
 
 | Rule | Status | Notes |
 |------|--------|-------|
@@ -277,7 +290,7 @@ Test imports may be wider than production; do not “fix” production packages 
 | `transform` ↛ handler/store/proxy/routing/service/auth | **Pass** | leaf cluster |
 | `routing` ↛ proxy/handler | **Pass** | only config/store |
 | `service` ↛ handler/router/proxy | **Pass** | |
-| `scheduler` ↛ handler/router/proxy | **Pass** | |
+| `scheduler` ↛ handler/router/proxy | **Exception** | `scheduler/lease.go` imports `handler/shared` for the `RecordDBConnError` metrics counter only (§5.11). The `handler → scheduler` admin-ops edge is covered by §5.1. |
 | `handler` ↛ router | **Pass** | |
 | `handler` ↛ scheduler (except admin job ops) | **Exception** | §5.1 checkin schedule validation |
 | No import cycles | **Pass** | |
@@ -298,7 +311,7 @@ Do **not** batch these into B1 unless marked tiny/safe.
 | 5 | Converge error writers on `handler/shared` | code | low–med | B3 / R2 |
 | 6 | Reduce raw SQL in `handler/admin` via `service` | incremental | med | feature touch points |
 | 7 | Optional `bootstrap` package for composition-only imports | structural | med | only if `app` keeps growing |
-| 8 | Lint rule (e.g. `depguard` / custom `go list` check) enforcing §4 table in CI | tooling | low | later M-BACKEND |
+| 8 | Lint rule (e.g. `depguard` / custom `go list` check) enforcing §4 table in CI | tooling | low | **DONE 2026-07-30** — `docs/package_boundary_test.go` encodes BACKEND.md §2.3 eight hard rules + §5 exceptions as a `go test` assertion |
 
 ### 7.1 Explicit non-goals for B1
 
