@@ -14,7 +14,7 @@
 | Fact | Value |
 |:-----|:------|
 | Latest release tag | **[v0.8.45](https://github.com/TokenDanceLab/metapi-go/releases/tag/v0.8.45)** (2026-07-20) — RE2-safe + UI tip |
-| Tip | `c0d98fc` — fable fleet review + CI unblock (typecheck/SA5011) + dual-dialect Context helpers + docs SSOT sweep; prior `146c538` CI unblock, `d0288f3` #557 procedure |
+| Tip | `<pending commit>` — engineering optimization wave (codeg 对标): package boundary CI test + neat-freak archive (7 files → `docs/archives/2026-07/`) + `handler/admin/stats.go` 1544→826 split; prior `90636b1` deps bump, `3b8e756`/`c0d98fc` fable fleet review + CI unblock + dual-dialect Context helpers |
 | Production pin (ops) | server `projects/metapi/STATE.md` — hk3 still **0.8.44 Exited(2)** until authorized pin/up of **0.8.45** + 15min soak; pool/role **1/1**; restart=no |
 | Standby us1 pin | compose **0.8.42** + image pulled (#528); cold stack not auto-started |
 | Active milestone | **[53 REL-HONESTY](https://github.com/TokenDanceLab/metapi-go/milestone/53)** — #557 prod e2e + #558 runtime probes open; M52 UI-POLISH closed (0 open) |
@@ -46,6 +46,7 @@ UI wave SSOT: [`analysis/ui-ux-refresh.md`](analysis/ui-ux-refresh.md) · **clou
 Full residual inventory: [`analysis/residual-next-candidates.md`](analysis/residual-next-candidates.md)  
 Original parity evidence: [`analysis/original-gap-matrix.md`](analysis/original-gap-matrix.md)  
 WS residual: [`analysis/responses-websocket-residual.md`](analysis/responses-websocket-residual.md)
+Engineering optimization (codeg 对标): [`analysis/engineering-optimization-2026-07-30.md`](analysis/engineering-optimization-2026-07-30.md)
 
 ## Entry points
 

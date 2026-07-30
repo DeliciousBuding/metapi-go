@@ -35,6 +35,12 @@ All notable changes to MetAPI-Go will be documented in this file.
 - **P0-585** remains **partial** until production e2e (unit load-proof does not flip present)
 - **OPS-PIN** 0.8.45 requires admin auth + soak (do not auto pin)
 
+### Engineering — codeg 对标 optimization wave (2026-07-30)
+- **Package boundary CI assertion**: `docs/package_boundary_test.go` encodes `BACKEND.md` §2.3 eight hard rules + §5 documented exceptions as a `go test` machine gate (codeg `test.yml:134-148` grep-gate analogue). The test surfaced a stale `scheduler → handler/shared` edge (B1 §6 "scheduler Pass" was outdated) → recorded as §5.11 exception + follow-up (extract metrics registry to an `app/observability` leaf), not silently relaxed.
+- **neat-freak archive**: 7 one-shot analysis files → `docs/archives/2026-07/` (p4-account-verify / p4-settings-proxy-test / p4-token-adapter-wiring / ui-score-2026-07-19 / ui-score-shell-2026-07-19 / ui-score-shell-mock-2026-07-19 / ui-pm-empty-state-2026-07-19); `p4-admin-test-routes.md` + `ui-score-pages-2026-07-19.md` kept live (active refs). New `docs/archives/2026-07/README.md` records archive policy.
+- **Monolith split**: `handler/admin/stats.go` 1544 → 826 lines; extracted `stats_helpers.go` (pure value-coercion/query/time helpers) + `stats_marketplace.go` (marketplace/token-candidate/without-token/missing-group/endpoint-type builders). Behavior-neutral (same package, same exported surface).
+- **Docs**: `package-boundaries.md` §6 marked machine-enforced + §5.11 new exception + §7#8 DONE; new `engineering-optimization-2026-07-30.md` synthesis.
+
 ## [v0.8.45] — 2026-07-20
 
 ### Fixed / Reliability

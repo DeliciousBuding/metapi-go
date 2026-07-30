@@ -55,7 +55,9 @@ docs/
     ui-ux-refresh.md              ← UI 重构方向（GCP/glass/Apple）
     original-gap-matrix.md        ← parity evidence (historical; see banner)
     original-gap-sources.md       ← upstream snapshot 2026-07-16
+    engineering-optimization-2026-07-30.md ← codeg 对标工程优化拆解
     competitive/                  ← peer learning inventory
+  archives/                ← archived one-shot analysis files (provenance; not live)
   plan/                     ← program / lane / roadmap (historical / closed)
   progress/                 ← MASTER only (open gates)
   specs/                    ← rewrite-era implementation specs (large; archival)

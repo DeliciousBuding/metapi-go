@@ -3,6 +3,16 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-07-30] engineering optimization wave (codeg 对标)
+
+- **Synthesis**: `docs/analysis/engineering-optimization-2026-07-30.md` — 6-dim fable fleet (中断后 leader 源码重证) 对标 codeg 工程纪律（非产品功能 parity）。结论：边界已守干净（BACKEND.md §2.3 八条 0 违规，`go vet` rc=0 无 cycle），缺口在**未固化成机器断言**。
+- **P0 包边界 CI 断言**: 新增 `docs/package_boundary_test.go`（`docs_test` 包，`go list -deps`/AST 解析）把 BACKEND.md §2.3 八条硬规则落成 `go test` 机器门禁，对标 codeg `test.yml:134-148` grep-gate。运行中**当场发现**一处 stale 例外：`scheduler/lease.go:17` import `handler/shared`（B1 §6 "scheduler Pass" 过时）→ 记录为 §5.11 例外 + 治理 follow-up（metrics 抽到 `app/observability` leaf），非静默放行。
+- **P1 neat-freak 归档**: 7 个过期一次性文件 → `docs/archives/2026-07/`（p4-account-verify / p4-settings-proxy-test / p4-token-adapter-wiring / ui-score-2026-07-19 / ui-score-shell-2026-07-19 / ui-score-shell-mock-2026-07-19 / ui-pm-empty-state-2026-07-19）；逐文件确认全仓 0 活跃引用（`p4-admin-test-routes.md` + `ui-score-pages-2026-07-19.md` 因被引用而保留）。新增 `docs/archives/2026-07/README.md` 记录归档策略与「未归档」清单。
+- **P2 巨石拆分**: `handler/admin/stats.go` 1544→826 行，抽出 `stats_helpers.go`（modelAllowed/parseTruthyQuery/queryRow/nowUTC/roundMicro/coerce* 纯工具）+ `stats_marketplace.go`（marketplace/token-candidate/without-token/missing-group/endpoint-type builder + infer/resolve helpers）。行为中性（同包、同导出面），`model_price_compare.go` 的 coerce* 调用不受影响。
+- **docs SSOT**: `package-boundaries.md` §6 标注机器化 + §5.11 新例外 + §7#8 DONE；`engineering-optimization-2026-07-30.md` 路径脱敏（去掉本地临时目录路径，过 `doc_hygiene_test`）。
+- Pre-push: `go vet ./...` rc=0 · `go test ./... -count=1 -race` 全绿 · `docs` hygiene+boundary 测试通过。
+- **非目标（硬门禁内）**: 不动 wire 契约；不自动 pin 0.8.45（需管理员授权）；错误码注册表/测试巨石拆分/decoupling 测试锁记录为 Issue 候选，本轮不开。
+
 ## [2026-07-30] fable fleet review + CI unblock + dual-dialect encapsulation
 
 - **Fable 6-dimension audit fleet** (Workflow): backend-correctness/arch, frontend-parity/quality, docs-ssot, security-config → 14 raw findings → adversarial verify → 9 confirmed, 3 rejected. 4 reviewer agents + 2 verifiers hit fable 429 rate-limit (incomplete dims: backend-correctness, frontend-parity/quality, security-config) — those dims not landed; re-run later if needed.
