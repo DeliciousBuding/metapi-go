@@ -8,6 +8,7 @@ import { EmptyState, Button as DsButton, LoadingState } from '../design-system/i
 import { formatDateTimeLocal } from './helpers/checkinLogTime.js';
 import ModernSelect from '../components/ModernSelect.js';
 import { tr } from '../i18n.js';
+import { toCSV, downloadCSV } from './helpers/csvExport.js';
 
 type ProgramEvent = {
   id: number;
@@ -183,6 +184,29 @@ export default function ProgramLogs() {
     }
   };
 
+  const handleExportCSV = () => {
+    if (visibleRows.length === 0) {
+      toast.info('暂无程序日志可导出');
+      return;
+    }
+    const rows = visibleRows.map((r) => ({
+      time: formatDateTimeLocal(r.createdAt),
+      level: r.level,
+      type: r.type,
+      title: r.title || '',
+      message: r.message || '',
+    }));
+    const csv = toCSV(rows, [
+      { key: 'time', header: '时间' },
+      { key: 'level', header: '级别' },
+      { key: 'type', header: '类型' },
+      { key: 'title', header: '标题' },
+      { key: 'message', header: '内容' },
+    ]);
+    downloadCSV(`program-logs-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+    toast.success(`已导出 ${rows.length} 条程序日志`);
+  };
+
   return (
     <div className="animate-fade-in">
       <div className="page-header">
@@ -210,6 +234,9 @@ export default function ProgramLogs() {
             className="btn btn-link btn-link-danger"
           >
             {clearing ? <><span className="spinner spinner-sm" /> 清空中...</> : '清空日志'}
+          </button>
+          <button onClick={handleExportCSV} disabled={visibleRows.length === 0} className="btn btn-ghost">
+            导出 CSV
           </button>
         </div>
       </div>

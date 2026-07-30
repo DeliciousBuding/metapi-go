@@ -9,6 +9,7 @@ import {
   formatCheckinLogTime,
   parseServerUtcDateTime,
 } from "./helpers/checkinLogTime.js";
+import { toCSV, downloadCSV } from "./helpers/csvExport.js";
 import { tr } from "../i18n.js";
 import { safeExternalHref } from "../shared/sitePrimaryUrl.js";
 
@@ -185,6 +186,29 @@ export default function CheckinLog() {
     return "badge-error";
   };
 
+  const handleExportCSV = () => {
+    if (filtered.length === 0) {
+      toast.info("暂无签到记录可导出");
+      return;
+    }
+    const rows = filtered.map((log: any) => ({
+      account: log.accounts?.username || "未知",
+      status: statusLabel(getStatus(log)),
+      createdAt: formatCheckinLogTime(log.checkin_logs?.createdAt || log.createdAt),
+      reward: log.checkin_logs?.reward ?? "",
+      message: log.checkin_logs?.message || log.message || "",
+    }));
+    const csv = toCSV(rows, [
+      { key: "account", header: "账号" },
+      { key: "status", header: "状态" },
+      { key: "createdAt", header: "签到时间" },
+      { key: "reward", header: "奖励" },
+      { key: "message", header: "消息" },
+    ]);
+    downloadCSV(`checkin-logs-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+    toast.success(`已导出 ${rows.length} 条签到记录`);
+  };
+
   const getFailureReason = (log: any): FailureReason | null => {
     const reason = log.failureReason as FailureReason | undefined;
     if (!reason || !reason.code) return null;
@@ -267,6 +291,9 @@ export default function CheckinLog() {
           ) : (
             "运行所有签到"
           )}
+        </button>
+        <button onClick={handleExportCSV} disabled={filtered.length === 0} className="btn btn-ghost">
+          导出 CSV
         </button>
       </div>
 

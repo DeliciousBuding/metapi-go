@@ -28,6 +28,7 @@ import {
   type Range,
   type SummaryItem,
 } from './downstream-keys/shared.js';
+import { toCSV, downloadCSV } from './helpers/csvExport.js';
 import {
   formatDownstreamKeyProxyIndicator,
   hasCustomDownstreamKeyProxy,
@@ -803,6 +804,43 @@ export default function DownstreamKeys() {
     setEditorOpen(true);
   };
 
+  // CSV export of the currently-visible keys' metadata. Sensitive: never export
+  // the raw key — only keyMasked + non-sensitive accounting fields (N6).
+  const handleExportCSV = () => {
+    if (visibleItems.length === 0) {
+      toast.info('暂无下游密钥可导出');
+      return;
+    }
+    const rows = visibleItems.map((item) => ({
+      id: item.id,
+      name: item.name,
+      key: item.keyMasked,
+      group: item.groupName || '',
+      tags: (item.tags || []).join('; '),
+      enabled: item.enabled ? '是' : '否',
+      expiresAt: item.expiresAt || '',
+      usedCost: item.usedCost,
+      usedRequests: item.usedRequests,
+      maxCost: item.maxCost ?? '',
+      maxRequests: item.maxRequests ?? '',
+    }));
+    const csv = toCSV(rows, [
+      { key: 'id', header: 'ID' },
+      { key: 'name', header: '名称' },
+      { key: 'key', header: '密钥(掩码)' },
+      { key: 'group', header: '分组' },
+      { key: 'tags', header: '标签' },
+      { key: 'enabled', header: '启用' },
+      { key: 'expiresAt', header: '过期时间' },
+      { key: 'usedCost', header: '已用费用' },
+      { key: 'usedRequests', header: '已用请求' },
+      { key: 'maxCost', header: '费用上限' },
+      { key: 'maxRequests', header: '请求上限' },
+    ]);
+    downloadCSV(`downstream-keys-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+    toast.success(`已导出 ${rows.length} 个下游密钥`);
+  };
+
   const resetBatchMetadataForm = () => {
     setBatchMetadataForm({
       groupOperation: 'keep',
@@ -1126,6 +1164,9 @@ export default function DownstreamKeys() {
           <RangeToggle range={range} onChange={setRange} />
           <button className="btn btn-ghost" style={{ border: '1px solid var(--color-border)' }} onClick={() => void load()} disabled={loading}>
             {loading ? <><span className="spinner spinner-sm" /> 刷新中...</> : '刷新'}
+          </button>
+          <button className="btn btn-ghost" style={{ border: '1px solid var(--color-border)' }} onClick={handleExportCSV} disabled={visibleItems.length === 0}>
+            导出 CSV
           </button>
           <button className="btn btn-primary" onClick={openCreate}>+ 新增下游密钥</button>
         </div>
