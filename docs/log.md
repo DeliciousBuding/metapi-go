@@ -3,6 +3,14 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-07-30] UIUX wave 1 — 防御性 + 诚实性 + a11y（New API 前端对标）
+
+- **RouteErrorBoundary**（`web/components/RouteErrorBoundary.tsx`，新建）：class 边界包裹 `App.tsx` 全部 lazy `<Routes>`。此前全仓 0 处 error boundary，任一 lazy 路由 render 抛错=白屏。keyed on `location.pathname` 离开即清；fallback 含 message+重试。对齐 New API per-route `errorComponent`（不引入 TanStack）。测试 `RouteErrorBoundary.test.tsx`。
+- **SearchModal 真键盘导航**（`web/components/SearchModal.tsx`）：footer 一直显示 `↑↓`/`Enter` 提示但 0 实现（诚实性 bug）。重构 6 section 为单一有序 `flat` 列表 + 全局 `activeIndex`；ArrowDown/Up 移动+wrap、Enter 打开活动项、`scrollIntoView` 跟随。input 升级 `combobox`+`aria-activedescendant`/`aria-expanded`，结果 `role="listbox"`，项 `aria-selected`。`search-modal.results.test.tsx` 增键盘用例。
+- **Toast a11y**（`web/components/Toast.tsx`）：容器 `role="status" aria-live="polite" aria-atomic`；error toast `role="alert"`（assertive），success/info 保持 status。测试 `toast.a11y.test.tsx`。
+- Pre-push: `npm run typecheck` clean；vitest 515/515（`tokens.edit-and-select.test.tsx` 有 1 个非失败 jsdom focus-trap teardown flake，预先存在，`useFocusTrap.ts` 未动）。
+- CHANGELOG `UIUX wave 1` 条目；STATE tip `0c10296`。
+
 ## [2026-07-30] UIUX/产品化借鉴综合（New API 前端对标）
 
 - **Synthesis**: `docs/analysis/uiux-newapi-borrow-2026-07-30.md` — 两路 Explore（metapi-go web 审计 + New API 前端深度调研）综合。本轮聚焦前端 UIUX/产品化，参考 New API `reference/competitors/new-api/web/default/src`（TanStack+base-ui+VChart+cmdk+oxlint），借鉴**模式与组件抽象**（不引入 TanStack 全家桶，保持手写 React 栈）。
