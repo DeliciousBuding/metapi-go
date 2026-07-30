@@ -47,6 +47,7 @@ Full residual inventory: [`analysis/residual-next-candidates.md`](analysis/resid
 Original parity evidence: [`analysis/original-gap-matrix.md`](analysis/original-gap-matrix.md)  
 WS residual: [`analysis/responses-websocket-residual.md`](analysis/responses-websocket-residual.md)
 Engineering optimization (codeg 对标): [`analysis/engineering-optimization-2026-07-30.md`](analysis/engineering-optimization-2026-07-30.md)
+Product parity & New API 借鉴: [`analysis/product-parity-and-newapi-borrow-2026-07-30.md`](analysis/product-parity-and-newapi-borrow-2026-07-30.md)
 
 ## Entry points
 

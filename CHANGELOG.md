@@ -41,6 +41,11 @@ All notable changes to MetAPI-Go will be documented in this file.
 - **Monolith split**: `handler/admin/stats.go` 1544 → 826 lines; extracted `stats_helpers.go` (pure value-coercion/query/time helpers) + `stats_marketplace.go` (marketplace/token-candidate/without-token/missing-group/endpoint-type builders). Behavior-neutral (same package, same exported surface).
 - **Docs**: `package-boundaries.md` §6 marked machine-enforced + §5.11 new exception + §7#8 DONE; new `engineering-optimization-2026-07-30.md` synthesis.
 
+### Product parity & New API 借鉴 — decision input (2026-07-30, docs-only)
+- **Synthesis**: `docs/analysis/product-parity-and-newapi-borrow-2026-07-30.md` — metapi-ts original parity audit (cross-verified) + New API borrow research (cross-verified, 1 false positive removed). **Decision input only — no product code this round** (hard gate: needs Issue discussion / user sign-off before implementation).
+- **Original parity**: Go lost no TS README head feature; 14 platform adapters TS=Go aligned; Go exceeds TS on slow-req / heatmap / brand bucket / cross-site price compare. G1 balance-low alert = real gap but TS also only counts in daily summary (README promise unfulfilled on both sides) — metapi-go can do better.
+- **Borrow shortlist (9 confirmed)**: N1 downstream-key IP allowlist/blocklist (P0 security gap) · N2 public/downstream-visible pricing page (P1 aggregator differentiator) · N3 reasoning suffix + thinking_to_content · N4 per-channel test button · N5 downstream-key consumption dashboard · N6 log CSV export · N7 prompt-cache-ratio config · N8 single-channel multi-key rotation · N9 model/group multiplier admin UI. Out-of-scope: multi-user/pay/redemption/invite/subscription (conflicts with aggregator positioning).
+
 ## [v0.8.45] — 2026-07-20
 
 ### Fixed / Reliability

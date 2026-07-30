@@ -3,6 +3,14 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-07-30] product parity & New API 借鉴综合
+
+- **Synthesis**: `docs/analysis/product-parity-and-newapi-borrow-2026-07-30.md` — 合并 metapi-ts 原版对标 + New API 上游借鉴调研（子代理产出经 leader 源码交叉复核）。
+- **原版对标结论**: Go 重写未丢任何 TS README 头部产品功能；14 平台适配器 TS=Go 对齐；慢请求/热力图/品牌分类/跨站比价 Go 超出 TS。子代理 4 报告缺口经复核：G3 代理调试 trace = 误报（`stats.go:23-24` 已实现）；G2 workflow stub = 降级为文档叙事问题；G1 余额告警 = 真缺口但 TS 也只在每日摘要 count 未实时落地（README 写了双边都未做）→ 可做得比原版好；G4 WS residual 已诚实声明。
+- **New API 借鉴**: 子代理 10 项 → leader 复核剔除 1 误报（#8 Playground 已有 `ModelTester.tsx`+`test.go:26-37`），确认 9 项：N1 下游 key IP 白名单/黑名单（P0 安全缺口）、N2 公开价格目录页（P1 聚合网关卖点）、N3-N9 借鉴优化（推理参数后缀/渠道测试/下游 key 看板/CSV 导出/cache ratio/单渠道多 key/倍率可视化）。明确不适用：多用户/支付/兑换码/邀请/订阅（与聚合网关定位冲突）。
+- **硬门禁**: 以上均为产品功能（非工程纪律），按门禁需先开 Issue 讨论 / 用户拍板再动，**本轮不自动实现**。本文件是决策输入，不是执行令。
+- docs SSOT: STATE.md Next-wave + docs/README.md layout 增 product-parity 指针；`doc_hygiene_test` 通过。
+
 ## [2026-07-30] engineering optimization wave (codeg 对标)
 
 - **Synthesis**: `docs/analysis/engineering-optimization-2026-07-30.md` — 6-dim fable fleet (中断后 leader 源码重证) 对标 codeg 工程纪律（非产品功能 parity）。结论：边界已守干净（BACKEND.md §2.3 八条 0 违规，`go vet` rc=0 无 cycle），缺口在**未固化成机器断言**。
