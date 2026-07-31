@@ -3,6 +3,15 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-08-01] New API deferred 项评估 + N9a 交付
+
+- **评估文档** `n8-n9-deferred-assessment-2026-08-01.md`:
+  - **N8 关闭**: metapi-go 架构下「渠道」= route 的 channel 行、「密钥」= account，多 key 轮询已由 `round_robin`/`weighted` 策略 + 每通道独立冷却（ApplyRoundRobinCooldown/Fibonacci + cooldown_until）+ model-probe 健康记录 + OAuth route unit 多成员轮询完整覆盖。实现「渠道内多 key」= 平行凭证模型（维护成本 + 门禁冲突）——诚实评估后**不立项**。
+  - **N9 拆两期**: N9a（S 只读）直接做；N9b（M 写入面，改 unit_cost/weight 批量入口）触及计费语义需设计 + 拍板。
+- **N9a 倍率总览**（`c2d7cb8`）: `GET /api/models/rates` 聚合 5 个倍率面（账号 unit_cost+通道足迹、通道 weight、站点 global_weight、下游 key_weight、模型 30 天观测成本）+ summary（有单价账号数/通道启用数）；Settings「倍率与权重总览」区只读表格。纯读零风险。
+- **验证**: `go vet` + `go test` 全绿；`npm test`（553 测试）全绿；SPA rebuild。
+- SSOT 同步: STATE tip `c2d7cb8` / MASTER / CHANGELOG / 评估文档。
+
 ## [2026-08-01] all-api-hub borrow 收官（K1a 模型重定向映射）
 
 - **K1a 模型重定向映射**（`7597a07`）: 先写设计文档 `k1-model-redirect-design-2026-08-01.md`（问题/规则/边界/验收/K1b 风险面）再实现——
