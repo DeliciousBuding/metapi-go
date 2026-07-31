@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { tr } from '../../i18n.js';
 import { VChart } from '@visactor/react-vchart';
 import { api } from '../../api.js';
 import { EmptyState as DsEmptyState } from '../../design-system/index.js';
@@ -89,8 +90,8 @@ export default function IncomeOutcomeChart({ days = 30 }: IncomeOutcomeChartProp
   const flatData = useMemo(() => {
     const out: Array<{ day: string; type: string; value: number }> = [];
     for (const p of points) {
-      out.push({ day: p.day, type: '收入', value: p.income });
-      out.push({ day: p.day, type: '消费', value: p.outcome });
+      out.push({ day: p.day, type: tr('收入'), value: p.income });
+      out.push({ day: p.day, type: tr('消费'), value: p.outcome });
     }
     return out;
   }, [points]);

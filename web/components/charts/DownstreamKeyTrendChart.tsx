@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { tr } from '../../i18n.js';
 import { VChart } from '@visactor/react-vchart';
 import { formatDateTimeMinuteLocal } from '../../pages/helpers/checkinLogTime.js';
 
@@ -128,7 +129,7 @@ export default function DownstreamKeyTrendChart({
         title: { value: (datum: Record<string, unknown>) => String(datum?.tooltipDate || datum?.date || '') },
         content: [
           {
-            key: () => METRIC_OPTIONS.find((opt) => opt.key === metric)?.label || 'Value',
+            key: () => tr(METRIC_OPTIONS.find((opt) => opt.key === metric)?.label || 'Value'),
             value: (datum: Record<string, unknown>) => {
               const value = Number(datum?.value ?? 0);
               if (metric === 'cost') return `$${value.toFixed(6)}`;

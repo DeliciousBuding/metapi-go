@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { tr } from '../../i18n.js';
 import { VChart } from '@visactor/react-vchart';
 import { api, type ModelCostDistributionResponse } from '../../api.js';
 import { EmptyState as DsEmptyState } from '../../design-system/index.js';
@@ -133,12 +134,12 @@ export default function CostDistributionChart({
         title: { value: (datum: Record<string, unknown>) => datum?.label ?? '' },
         content: [
           {
-            key: '成本',
+            key: tr('成本'),
             value: (datum: Record<string, unknown>) =>
               `$${Number(datum?.cost ?? 0).toFixed(4)}`,
           },
           {
-            key: '请求',
+            key: tr('请求'),
             value: (datum: Record<string, unknown>) => `${datum?.calls ?? 0}`,
           },
           {
@@ -149,7 +150,7 @@ export default function CostDistributionChart({
           ...(totalCost > 0
             ? [
                 {
-                  key: '占比',
+                  key: tr('占比'),
                   value: (datum: Record<string, unknown>) =>
                     `${((Number(datum?.cost ?? 0) / totalCost) * 100).toFixed(1)}%`,
                 },

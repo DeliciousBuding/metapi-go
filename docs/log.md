@@ -699,3 +699,12 @@
 - 效果：EN 模式下导出的快照 PNG 全英文；zh 模式 tr() 原样返回，行为不变
 
 **验证**：574 vitest（174 文件）零 Unhandled · typecheck exit=0 · SPA rebuild
+
+## [2026-08-01] VChart 图表 EN 化（canvas 图例/tooltip + 第四门禁）
+
+- 8 个图表组件审计：VChart spec 中的系列名/图例/tooltip key 渲染到 canvas（MutationObserver 够不着）——6 组件 canvas 字符串包 `tr()`（收入/消费/余额/成本/请求/占比/平均延迟/延迟/请求数）；DownstreamKeyTrendChart 的 tooltip key 惰性求值（模块级常量不能模块加载时 tr()）
+- 模块级 `METRIC_OPTIONS` 常量（SiteTrend/DownstreamKeyTrend）label 仅进 JSX DOM——MutationObserver 兜底，无需改
+- zhToEn 补 36 条（chart 系列/空态/说明句/碎片：总成本/次请求/余额分布 + 单位词：秒/分钟/小时/天 + About/监控 spec 字面量 12 条）
+- `i18n.coverage.test.ts` 第四用例「chart spec literals」（key/type/label/metric/title 对象字面量）——canvas 面纳入门禁
+
+**验证**：575 vitest（174 文件）零 Unhandled · typecheck exit=0 · SPA rebuild

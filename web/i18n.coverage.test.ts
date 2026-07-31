@@ -89,6 +89,23 @@ function collectInterpolatedJSX(): string[] {
   return [...literals];
 }
 
+/**
+ * VChart/canvas spec literals (`key: '中文'`, `type: '中文'`, `label: '中文'`
+ * in chart config objects) — these render to canvas, out of reach of the
+ * MutationObserver; components must wrap them in tr() and the dictionary must
+ * cover them.
+ */
+function collectChartSpecLiterals(): string[] {
+  const literals = new Set<string>();
+  const re = /\b(?:key|type|label|metric|title):\s*'([^']*[㐀-鿿][^']*)'/g;
+  for (const file of walk('.')) {
+    const src = stripComments(readFileSync(file, 'utf8'));
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(src))) literals.add(m[1]);
+  }
+  return [...literals];
+}
+
 describe('i18n coverage gate', () => {
   it('every t() Chinese literal has a usable English translation', () => {
     const bad: Array<[string, string]> = [];
@@ -115,6 +132,17 @@ describe('i18n coverage gate', () => {
   it('interpolated JSX text fragments are covered (React text-node splits)', () => {
     const bad: Array<[string, string]> = [];
     for (const literal of collectInterpolatedJSX()) {
+      const out = translateText(literal, 'en');
+      if (out === 'Untranslated' || CJK_RE.test(out)) {
+        bad.push([literal, out]);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('chart spec literals are covered (VChart renders to canvas)', () => {
+    const bad: Array<[string, string]> = [];
+    for (const literal of collectChartSpecLiterals()) {
       const out = translateText(literal, 'en');
       if (out === 'Untranslated' || CJK_RE.test(out)) {
         bad.push([literal, out]);

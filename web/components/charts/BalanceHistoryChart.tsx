@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { tr } from '../../i18n.js';
 import { VChart } from '@visactor/react-vchart';
 import { api } from '../../api.js';
 import { EmptyState as DsEmptyState } from '../../design-system/index.js';
@@ -144,7 +145,7 @@ export default function BalanceHistoryChart({
         title: { value: (datum: Record<string, unknown>) => datum?.day ?? '' },
         content: [
           {
-            key: '余额',
+            key: tr('余额'),
             value: (datum: Record<string, unknown>) =>
               `$${Number(datum?.balance ?? 0).toFixed(2)}`,
           },

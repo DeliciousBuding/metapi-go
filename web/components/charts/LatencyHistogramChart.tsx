@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { tr } from '../../i18n.js';
 import { VChart } from '@visactor/react-vchart';
 import { api, type LatencyHistogramResponse } from '../../api.js';
 import { EmptyState as DsEmptyState } from '../../design-system/index.js';
@@ -111,12 +112,12 @@ export default function LatencyHistogramChart({
         title: { value: (datum: Record<string, unknown>) => datum?.label ?? '' },
         content: [
           {
-            key: '请求数',
+            key: tr('请求数'),
             value: (datum: Record<string, unknown>) =>
               Number(datum?.count ?? 0).toLocaleString(),
           },
           {
-            key: '占比',
+            key: tr('占比'),
             value: (datum: Record<string, unknown>) =>
               `${Number(datum?.percent ?? 0).toFixed(1)}%`,
           },

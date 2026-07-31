@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { tr } from '../../i18n.js';
 import { VChart } from '@visactor/react-vchart';
 import { api, type LatencyTrendResponse } from '../../api.js';
 import { EmptyState as DsEmptyState } from '../../design-system/index.js';
@@ -55,7 +56,7 @@ export default function LatencyTrendChart({ days = 7 }: LatencyTrendChartProps) 
     return points.flatMap((p) => {
       const rows: Array<{ date: string; metric: string; latency: number }> = [];
       if (p.avgLatencyMs != null) {
-        rows.push({ date: p.date, metric: '平均延迟', latency: p.avgLatencyMs });
+        rows.push({ date: p.date, metric: tr('平均延迟'), latency: p.avgLatencyMs });
       }
       if (p.p95LatencyMs != null) {
         rows.push({ date: p.date, metric: 'P95', latency: p.p95LatencyMs });
@@ -119,7 +120,7 @@ export default function LatencyTrendChart({ days = 7 }: LatencyTrendChartProps) 
         title: { value: (datum: Record<string, unknown>) => datum?.date ?? '' },
         content: [
           {
-            key: '延迟',
+            key: tr('延迟'),
             value: (datum: Record<string, unknown>) =>
               `${Number(datum?.latency ?? 0).toFixed(0)} ms`,
           },
