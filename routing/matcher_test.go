@@ -467,15 +467,72 @@ func TestResolveActualModelForSelectedChannel(t *testing.T) {
 	srcModel := "claude-3-opus"
 
 	// Display name match → use source model
-	result := ResolveActualModelForSelectedChannel("My Display Name", &dn, "claude-sonnet", &srcModel)
+	result := ResolveActualModelForSelectedChannel("My Display Name", &dn, "claude-sonnet", &srcModel, 7)
 	if result != "claude-3-opus" {
 		t.Errorf("expected source model 'claude-3-opus', got %q", result)
 	}
 
 	// Non-display-name match → use mapped model
-	result = ResolveActualModelForSelectedChannel("gpt-4", &dn, "gpt-4-0613", &srcModel)
+	result = ResolveActualModelForSelectedChannel("gpt-4", &dn, "gpt-4-0613", &srcModel, 7)
 	if result != "gpt-4-0613" {
 		t.Errorf("expected mapped model 'gpt-4-0613', got %q", result)
+	}
+
+	// K1b: per-account redirect rewrites canonical → actual when no route
+	// mapping rewrote the name (mapped == requested).
+	srcActual := "claude-3-5-sonnet-20241022"
+	SetModelRedirects(map[int64]map[string]string{
+		7: {"claude-3-5-sonnet": "claude-3-5-sonnet-20241022"},
+	})
+	t.Cleanup(func() { SetModelRedirects(nil) })
+	result = ResolveActualModelForSelectedChannel("claude-3-5-sonnet", &dn, "claude-3-5-sonnet", &srcActual, 7)
+	if result != "claude-3-5-sonnet-20241022" {
+		t.Errorf("expected redirect actual, got %q", result)
+	}
+	// Route-level mapping (mapped != requested) wins over the redirect.
+	result = ResolveActualModelForSelectedChannel("claude-3-5-sonnet", &dn, "claude-sonnet-custom", &srcActual, 7)
+	if result != "claude-sonnet-custom" {
+		t.Errorf("expected route mapping to win, got %q", result)
+	}
+	// Different account without a redirect → unchanged.
+	result = ResolveActualModelForSelectedChannel("claude-3-5-sonnet", &dn, "claude-3-5-sonnet", &srcActual, 99)
+	if result != "claude-3-5-sonnet" {
+		t.Errorf("expected unchanged for account without redirect, got %q", result)
+	}
+}
+
+func TestChannelSupportsRequestedModelWithRedirects(t *testing.T) {
+	srcActual := "claude-3-5-sonnet-20241022"
+
+	// Without registry: no match (existing behavior).
+	if ChannelSupportsRequestedModelWithRedirects(&srcActual, "claude-3-5-sonnet", 7) {
+		t.Errorf("must not match without registry")
+	}
+
+	SetModelRedirects(map[int64]map[string]string{
+		7: {"claude-3-5-sonnet": "claude-3-5-sonnet-20241022"},
+	})
+	t.Cleanup(func() { SetModelRedirects(nil) })
+
+	// Same account: actual channel now supports the canonical request.
+	if !ChannelSupportsRequestedModelWithRedirects(&srcActual, "claude-3-5-sonnet", 7) {
+		t.Errorf("expected redirect match on account 7")
+	}
+	// Exact source still matches regardless of registry.
+	if !ChannelSupportsRequestedModelWithRedirects(&srcActual, "claude-3-5-sonnet-20241022", 7) {
+		t.Errorf("exact match must hold")
+	}
+	// Other account: still rejected.
+	if ChannelSupportsRequestedModelWithRedirects(&srcActual, "claude-3-5-sonnet", 99) {
+		t.Errorf("must not match on other account")
+	}
+	// Unrelated requested model: rejected.
+	if ChannelSupportsRequestedModelWithRedirects(&srcActual, "gpt-4o", 7) {
+		t.Errorf("unrelated model must not match")
+	}
+	// nil source: unchanged (always supported).
+	if !ChannelSupportsRequestedModelWithRedirects(nil, "claude-3-5-sonnet", 7) {
+		t.Errorf("nil source must be supported")
 	}
 }
 

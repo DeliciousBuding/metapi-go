@@ -1047,7 +1047,10 @@ func writeSuccessProxyLog(
 	if selected.Site.Platform != "" {
 		platformName = selected.Site.Platform
 	}
-	billing := EstimateBillingCostFromUsage(upstreamModel, platformName, usage)
+	// K1b: billing attribution uses the requested (canonical) name so a
+	// redirect/rewrite to the upstream actual name never changes cost
+	// accounting — ratio lookups stay on the canonical model.
+	billing := EstimateBillingCostFromUsage(requestedModel, platformName, usage)
 	entry := proxy.ProxyLogEntry{
 		RouteID:            routeIDPtr,
 		ChannelID:          &channelID,
@@ -1154,11 +1157,12 @@ func writeFailureProxyLog(
 		platformName = selected.Site.Platform
 	}
 	// Only attach cost when usage was found; avoid inventing spend on pure
-	// network/timeout failures with zero tokens.
+	// network/timeout failures with zero tokens. Attribution name, not the
+	// upstream rewritten name (K1b).
 	var estimatedCost float64
 	var billingDetails any
 	if usage.Found {
-		billing := EstimateBillingCostFromUsage(upstreamModel, platformName, usage)
+		billing := EstimateBillingCostFromUsage(requestedModel, platformName, usage)
 		estimatedCost = billing.EstimatedCost
 		billingDetails = billing.BillingDetails
 	}

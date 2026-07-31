@@ -591,3 +591,12 @@
 - Rates 总览页行内编辑：账号单价 / 通道权重 ✎ → input → 保存（Enter 提交 / Esc 取消），负值拒绝。
 - 测试：后端 SQLite 3 例 + PG 奇偶 1 例；前端 vitest 4 例（编辑保存 / Enter 提交 / 负值拒绝 / Esc 取消）；全量 557 vitest + go vet/test 绿。
 - N9b-b 正式关闭（unit_cost 不参与 estimated_cost，ratio-based 计费口径不变）；N9 系列全部收口。
+
+## [2026-08-01] K1b: 路由匹配 canonical 化（all-api-hub borrow 收口）
+
+- A eligibility: `routing/redirects.go` 进程内 per-account 注册表（canonical→actual + 反向索引，原子替换）；`ChannelSupportsRequestedModelWithRedirects` 在两个 eligibility 点启用——actual 名通道对 canonical 请求开放。
+- B 转发改写: `ResolveActualModelForSelectedChannel` + redirect 步（路由 model_mapping 优先）→ `selected.ActualModel` → `swapModelInJSON` 出站体改写（既有归因/出站分离骨架）。
+- C 计费归因: `upstream.go` 两处 `EstimateBillingCostFromUsage` 改归因名（canonical）；`proxy_logs.model_requested` 保持 canonical、`model_actual` 如实记录 actual——ratio 计费口径不变。
+- 数据流: `service.ReloadRedirectRegistry` 启动加载（router.New）+ K1a 全部变更点（PUT/DELETE/generate/apply/同步生成）后重建。
+- 测试: routing 3 例（注册表/eligibility/selector 集成）+ service 重载 1 例；全量 go vet/test 绿。
+- K1 系列全部收口；deferred 清单清空（N9b-b 关闭 + K1b 落地）。

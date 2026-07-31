@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"embed"
 	"io/fs"
 	"log/slog"
@@ -13,6 +14,7 @@ import (
 	"github.com/tokendancelab/metapi-go/config"
 	"github.com/tokendancelab/metapi-go/handler/admin"
 	"github.com/tokendancelab/metapi-go/handler/proxy"
+	"github.com/tokendancelab/metapi-go/service"
 	"github.com/tokendancelab/metapi-go/store"
 )
 
@@ -56,6 +58,9 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		// P3: Sites + Accounts + AccountTokens CRUD API
 		db := store.GetDB()
 		if db != nil {
+			// K1b: load the in-process redirect registry so routing eligibility
+			// and forward rewriting see canonical→actual mappings from boot.
+			service.ReloadRedirectRegistry(context.Background(), db.DB)
 			admin.RegisterSitesRoutes(r, db.DB)
 			admin.RegisterAccountsRoutes(r, db.DB, cfg)
 			admin.RegisterAccountTokensRoutes(r, db.DB)

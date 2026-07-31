@@ -416,7 +416,7 @@ func getCandidateEligibilityReasonsExplain(
 ) []string {
 	var reasons []string
 
-	if !bypassSourceModelCheck && !ChannelSupportsRequestedModel(candidate.Channel.SourceModel, requestedModel) {
+	if !bypassSourceModelCheck && !ChannelSupportsRequestedModelWithRedirects(candidate.Channel.SourceModel, requestedModel, candidate.Account.ID) {
 		src := ""
 		if candidate.Channel.SourceModel != nil {
 			src = *candidate.Channel.SourceModel

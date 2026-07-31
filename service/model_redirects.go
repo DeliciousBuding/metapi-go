@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+
+	"github.com/tokendancelab/metapi-go/routing"
 )
 
 // ---- Model Name Redirects (all-api-hub borrow K1a) ----
@@ -218,4 +220,36 @@ func ApplyRedirectFixes(ctx context.Context, db *sqlx.DB, candidates []RedirectF
 		}
 	}
 	return removed, nil
+}
+
+// ReloadRedirectRegistry (K1b) reloads the in-process redirect registry from
+// model_name_redirects so the routing hot path sees the latest canonical→actual
+// mappings. Call at startup and after any redirect mutation (sync generation,
+// manual edits, deletes). Best-effort: on query failure it logs and leaves the
+// previous registry intact.
+func ReloadRedirectRegistry(ctx context.Context, db *sqlx.DB) {
+	if db == nil {
+		return
+	}
+	rows, err := db.QueryContext(ctx, `SELECT account_id, canonical, actual FROM model_name_redirects`)
+	if err != nil {
+		slog.Warn("reload redirect registry: query failed", "err", err)
+		return
+	}
+	defer rows.Close()
+	byAccount := make(map[int64]map[string]string)
+	for rows.Next() {
+		var accountID int64
+		var canonical, actual string
+		if err := rows.Scan(&accountID, &canonical, &actual); err != nil {
+			slog.Warn("reload redirect registry: scan failed", "err", err)
+			return
+		}
+		if byAccount[accountID] == nil {
+			byAccount[accountID] = make(map[string]string)
+		}
+		byAccount[accountID][canonical] = actual
+	}
+	routing.SetModelRedirects(byAccount)
+	slog.Debug("redirect registry reloaded", "accounts", len(byAccount))
 }

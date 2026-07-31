@@ -141,6 +141,26 @@ func ChannelSupportsRequestedModel(channelSourceModel *string, requestedModel st
 	return false
 }
 
+// ChannelSupportsRequestedModelWithRedirects is the K1b variant: besides the
+// base checks it consults the in-process redirect registry, so a channel whose
+// source_model is an upstream `actual` name (e.g. claude-3-5-sonnet-20241022)
+// becomes eligible for a request of its `canonical` (claude-3-5-sonnet) on the
+// same account. Pure function over the registry; no DB access.
+func ChannelSupportsRequestedModelWithRedirects(channelSourceModel *string, requestedModel string, accountID int64) bool {
+	if ChannelSupportsRequestedModel(channelSourceModel, requestedModel) {
+		return true
+	}
+	if channelSourceModel == nil {
+		return false
+	}
+	source := strings.TrimSpace(*channelSourceModel)
+	if source == "" {
+		return false
+	}
+	canonical := ModelRedirectCanonical(accountID, source)
+	return canonical != "" && canonical == requestedModel
+}
+
 // NormalizeRouteDisplayName trims whitespace from a display name.
 func NormalizeRouteDisplayName(displayName *string) string {
 	if displayName == nil {
@@ -327,15 +347,28 @@ func NormalizeChannelSourceModel(channelSourceModel *string) string {
 }
 
 // ResolveActualModelForSelectedChannel resolves the actual model to forward.
+// Resolution order (first match wins):
+//  1. display-name hit → the channel's own source model (existing behavior);
+//  2. K1b: per-account redirect (canonical → actual) when no route-level
+//     model mapping already rewrote the name — the upstream only knows the
+//     dated/versioned actual name;
+//  3. route-level model mapping (existing fallback).
 func ResolveActualModelForSelectedChannel(
 	requestedModel string,
 	routeDisplayName *string,
 	mappedModel string,
 	channelSourceModel *string,
+	accountID int64,
 ) string {
 	sourceModel := NormalizeChannelSourceModel(channelSourceModel)
 	if IsRouteDisplayNameMatch(requestedModel, routeDisplayName) && sourceModel != "" {
 		return sourceModel
+	}
+	// Route-level mapping wins over redirects when it rewrote the name.
+	if mappedModel == requestedModel {
+		if actual := ModelRedirectActual(accountID, requestedModel); actual != "" {
+			return actual
+		}
 	}
 	return mappedModel
 }

@@ -129,6 +129,7 @@ func (h *modelRedirectHandler) update(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"message": "redirect not found"})
 		return
 	}
+	service.ReloadRedirectRegistry(r.Context(), h.db) // K1b: keep hot-path registry fresh
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
@@ -148,6 +149,7 @@ func (h *modelRedirectHandler) remove(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"message": "redirect not found"})
 		return
 	}
+	service.ReloadRedirectRegistry(r.Context(), h.db) // K1b: keep hot-path registry fresh
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
@@ -179,6 +181,7 @@ func (h *modelRedirectHandler) generate(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"success": true, "created": created})
+		service.ReloadRedirectRegistry(r.Context(), h.db) // K1b: keep hot-path registry fresh
 		return
 	}
 
@@ -205,6 +208,7 @@ func (h *modelRedirectHandler) generate(w http.ResponseWriter, r *http.Request) 
 		}
 		total += n
 	}
+	service.ReloadRedirectRegistry(r.Context(), h.db) // K1b: keep hot-path registry fresh
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "created": total, "accounts": len(byAccount)})
 }
 
@@ -249,6 +253,7 @@ func (h *modelRedirectHandler) apply(w http.ResponseWriter, r *http.Request) {
 	for _, c := range candidates {
 		_ = recordRedirectEvent(h.db, c)
 	}
+	service.ReloadRedirectRegistry(r.Context(), h.db) // K1b: keep hot-path registry fresh
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success": true,
 		"dryRun":  false,

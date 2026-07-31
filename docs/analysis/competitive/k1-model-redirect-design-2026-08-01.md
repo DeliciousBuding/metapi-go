@@ -1,6 +1,6 @@
 # K1 模型重定向映射（all-api-hub borrow）设计文档
 
-**日期**: 2026-08-01 · **状态**: 设计 + K1a 实现 · **量级**: M（拆分为 K1a S-M + K1b M）
+**日期**: 2026-08-01 · **状态**: 设计 + K1a 已实现 + **K1b 已实现**（同日）· **量级**: M（K1a S-M + K1b M）
 
 > 决策输入: `docs/analysis/competitive/all-api-hub-product-borrow-2026-07-31.md` 第 154 行。
 > all-api-hub 证据: `modelRedirect` 资源映射 writer + 同步后 auto-apply。
@@ -89,7 +89,7 @@ model_name_redirects (
 - 修复触发：`POST /api/model-redirects/apply` 手动触发（**不自动删**——删除是
   破坏性写，需 operator 确认；generate 的自动部分只写映射表，不删禁用）。
 
-## 7. K1b（拍板后再动，不静默实现）
+## 7. K1b（已实现 2026-08-01，落地方式见下）
 
 路由匹配 canonical 化——**设计深化（2026-08-01，基于 K1a 落地后的代码勘察）**。
 
@@ -143,11 +143,34 @@ eligibility 检查仍会拒绝。必须动匹配侧。
 - 注册表重建后热路径无 stale；误映射不产生（规则复用 K1a）；
 - 性能：routing benchmark 增量 < 5%。
 
-### 7.5 建议
+### 7.5 建议（已执行）
 
-K1b 是**真实但可控**的 M 级项：核心风险在 B/C（改写 + 归因分离）。若拍板执行，
-建议按 A → C（数据流字段）→ B（改写）顺序，单 PR 内完成 5 路径 e2e。
-不做的话，K1a 已提供 disabled_models 修复 + 映射可视化，收益已部分落地。
+K1b 是**真实但可控**的 M 级项：核心风险在 B/C（改写 + 归因分离）。已按
+A → C（数据流字段）→ B（改写）顺序在单次实现中落地，勘察发现系统已具备
+「归因名/出站名分离」的既有骨架（`ctx.RequestedModel` 归因 vs
+`swapModelInJSON(ctx.RawBody, upstreamModel)` 出站改写），因此实现比设计
+预期的侵入面更小：
+
+**落地清单（2026-08-01）**：
+- **A. eligibility**：`routing/redirects.go` 进程内注册表（per-account
+  canonical→actual + 反向索引，原子替换）；`ChannelSupportsRequestedModelWithRedirects`
+  在 `router.go:419` / `selector.go:732` 两个 eligibility 点启用——actual 通道
+  对 canonical 请求开放（同一账号）。
+- **B. 转发改写**：`ResolveActualModelForSelectedChannel` 增加 redirect 步骤
+  （路由级 model_mapping 已改写时 redirect 不覆盖）；`selected.ActualModel`
+  即出站名，`upstream.go:232` 直接消费 → `swapModelInJSON` 出站体改写。
+- **C. 计费归因**：`upstream.go` 两处 `EstimateBillingCostFromUsage` 改用
+  `requestedModel`（归因名）——改写不再影响 ratio-based 计费；
+  `proxy_logs.model_requested` 保持 canonical、`model_actual` 如实记录 actual。
+- **数据流**：`service.ReloadRedirectRegistry`（DB → 注册表）启动时
+  （`router.New`）+ 全部 K1a 变更点（PUT/DELETE/generate/apply + 同步生成）后重建。
+- **测试**：注册表单测、eligibility 单测、selector 集成（canonical 请求选中
+  actual 通道 + ActualModel 改写）、service 重载测试；全量 go vet/test 绿。
+
+**验收对照（§7.4）**：eligibility ✓（selector 集成测试）；出站体 model=actual、
+proxy_logs.model_requested=canonical ✓（归因分离既有骨架 + 单测）；注册表
+重建无 stale ✓（delete+reload 测试）；误映射不产生 ✓（规则复用 K1a，反向索引
+首个命中）。
 
 ## 8. 验收（K1a）
 

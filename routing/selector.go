@@ -729,7 +729,7 @@ func (s *ChannelSelector) getCandidateEligibilityReasons(
 ) []string {
 	var reasons []string
 
-	if !bypassSourceModelCheck && !ChannelSupportsRequestedModel(candidate.Channel.SourceModel, requestedModel) {
+	if !bypassSourceModelCheck && !ChannelSupportsRequestedModelWithRedirects(candidate.Channel.SourceModel, requestedModel, candidate.Account.ID) {
 		srcModel := ""
 		if candidate.Channel.SourceModel != nil {
 			srcModel = *candidate.Channel.SourceModel
@@ -1006,7 +1006,7 @@ func (s *ChannelSelector) finalizeDispatch(
 		})
 	}
 
-	actualModel := ResolveActualModelForSelectedChannel(requestedModel, match.Route.DisplayName, mappedModel, selected.Channel.SourceModel)
+	actualModel := ResolveActualModelForSelectedChannel(requestedModel, match.Route.DisplayName, mappedModel, selected.Channel.SourceModel, selected.Channel.AccountID)
 
 	tokenName := "default"
 	if dispatchCandidate.Token != nil {

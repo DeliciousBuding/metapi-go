@@ -208,6 +208,9 @@ func refreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, all
 	redirectsCreated, redirectErr := service.GenerateModelRedirects(context.Background(), db, accountID, clean)
 	if redirectErr != nil {
 		slog.Warn("model-refresh: redirect generation failed", "account_id", accountID, "error", redirectErr)
+	} else {
+		// K1b: keep the in-process hot-path registry in sync after generation.
+		service.ReloadRedirectRegistry(context.Background(), db)
 	}
 
 	return map[string]any{
