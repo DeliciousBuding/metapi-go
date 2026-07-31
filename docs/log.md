@@ -729,3 +729,10 @@
 **③ UI visual（Playwright 基线）**：toHaveScreenshot diff——DENSE-1 表格密度（10px→8px）是预期视觉变化，待更新基线（--update-snapshots）
 
 **验证**：go vet + handler/admin + scheduler 全绿 · 575 vitest 零 Unhandled · typecheck exit=0
+
+## [2026-08-01] CI 修复第三轮：resolveStorage 最底层防御（Node 25 坏 localStorage 根治）
+
+- 前两轮修复后 Dashboard 3 文件与 RealtimeOpsPanel 单测交替失败——根因：`resolveStorage` 在 storage 为 null 时 fallback 回裸 `localStorage`（Node 25 实验性全局、--localstorage-file 无效时 getItem 缺失）——RealtimeOpsPanel 防御传 null 反而把坏对象捞回 getAuthToken
+- 治本：`resolveStorage` 验证 `localStorage.getItem` 是函数才 fallback——getAuthToken/persistAuthSession/clearAuthSession 全链路对坏全局免疫
+- 双保险保留：RealtimeOpsPanel 防御（坏对象传 null）+ resolveStorage 验证
+- 验证：12 相关测试全过 · typecheck exit=0 · SPA rebuild

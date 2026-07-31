@@ -26,7 +26,15 @@ type CookieWriter = {
 
 function resolveStorage(storage?: StorageLike | null): StorageLike | null {
   if (storage) return storage;
-  if (typeof localStorage !== 'undefined') return localStorage;
+  // Node 25+ exposes an experimental global localStorage that, with an invalid
+  // --localstorage-file, exists without a working getItem — validate before
+  // falling back so getAuthToken/persist/clear never throw on it.
+  if (
+    typeof localStorage !== 'undefined'
+    && typeof (localStorage as { getItem?: unknown }).getItem === 'function'
+  ) {
+    return localStorage;
+  }
   return null;
 }
 
