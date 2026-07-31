@@ -9,7 +9,7 @@
 - **最高 ROI 缺口**（P0）: A1 余额历史快照表 + 趋势图（metapi-go 只存当前余额，无历史；`site_day_usage` 只有 spend/calls 无 balance 列——核验确认真缺口）/ B1 需关注看板（events 表有底座，缺 severity 排序深链聚合面板）/ D1 per-task 通知开关 + feishu/dingtalk/wecom/ntfy 4 渠道（现有 5 渠道无 per-task toggle）。
 - **与既有借鉴文档不重叠**: New API N1-N9 归 `product-parity-and-newapi-borrow`；前端 UI 模式归 `uiux-newapi-borrow`；本文件聚焦 all-api-hub 独有且 metapi-go 缺的产品能力。
 - **硬门禁遵守**: 本文件是决策输入非执行令——13 项均为产品功能，需用户拍板/开 Issue 再动，不静默自动实现。已对齐项（签到/检测/比价/导出/OAuth/热力图/公告）不重复立项；扩展专属项（网页嗅探/popup/permissions/PostHog 遥测）剔除。
-- SSOT 同步: STATE/MASTER/competitive/README 指针更新；tip 仍 `5a54072`（本批纯 docs 不改代码，提交后刷 tip）。
+- SSOT 同步: STATE/MASTER/competitive/README 指针更新；tip `97c54b1`。
 
 ## [2026-07-31] N7 admin 可配 prompt-cache 倍率 + N8/N9 deferred
 
