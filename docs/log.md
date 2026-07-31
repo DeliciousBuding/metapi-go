@@ -3,6 +3,15 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-08-01] all-api-hub borrow Wave D 收官（J1 快照 PNG）
+
+- **J1 可分享看板快照 PNG**（`d9f915a`）:
+  - Dashboard header「导出快照」按钮（lazy `SnapshotExportButton`）：并行拉 `getDashboardSnapshot` + `getSiteDistribution` → 原生 canvas 绘制 1200x630（@2x 2400x1260）摘要卡——品牌蓝顶部条 + 标题/生成时间 + 6 指标卡（总余额/今日消耗/24h 请求/成功率（<90% 红色强调）/Token/活跃账号）+ 站点消耗 Top5 条形 + 底部来源注；`toBlob` → object URL 下载 `metapi-snapshot-YYYYMMDD.png`。
+  - 关键决策: **canvas 无 CSS 变量** → 固定品牌 hex 调色板（primary #1a73e8 取自 tokens.css）；零新依赖（不引 html2canvas）；toBlob 缺失/API 失败 → toast 诚实报错。
+  - 测试: 组件 2 用例（stub canvas：导出流 + toBlob 缺失回退）；dashboard 测试不受影响（lazy 挂载）。
+- **验证**: `go vet ./...` + `go test ./...` 全绿；`npm run typecheck` + `npm test`（549 测试）全绿；SPA rebuild。
+- SSOT 同步: STATE tip `d9f915a` / MASTER / CHANGELOG / borrow doc J1 行 ✅。**borrow 清单 12/13 全发，余 K1（M 级）待拍板。**
+
 ## [2026-08-01] all-api-hub borrow Wave D 交付（H1 风险横幅）
 
 - **H1 产品级风险横幅**（`5da5656`）:

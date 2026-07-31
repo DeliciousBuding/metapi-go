@@ -7,9 +7,10 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
-### Added — all-api-hub borrow Wave D (tags + banners)
+### Added — all-api-hub borrow Wave D (tags + banners + snapshot)
 - **I1 accounts/sites 全局标签系统**: `accounts.tags` / `sites.tags` JSON 数组列（AdditiveStep sc2_011）；`GET /api/tags` 全局索引（按使用量排序 + account/site 计数）；`PUT /api/accounts/{id}/tags` / `PUT /api/sites/{id}/tags`（去重校验写入）；Accounts/Sites 页彩色标签 chips（点击即过滤）、过滤 chips 行、共享 TagEditorDialog（快捷添加/删除/Enter 保存）
 - **H1 产品级风险横幅**: `product_announcements` + `announcement_dismissals` 表（severity info/warning/critical + enabled + link；内容编辑重置 dismiss = 新 revision 重新展示）；`GET /api/announcements`（管理视图）/ `GET /api/announcements/active`（未关闭，critical 优先）；POST/PUT/DELETE + dismiss 端点；Dashboard 顶部 severity 配色横幅（dismiss × + 详情链接）；Settings「产品公告」手发 CRUD 区
+- **J1 可分享看板快照 PNG**: Dashboard「导出快照」— 原生 canvas 绘制 1200x630 摘要卡（总余额/今日消耗/24h 请求/成功率/Token/活跃账号 + 站点消耗 Top5 + 生成时间戳）下载 `metapi-snapshot-YYYYMMDD.png`，零新依赖（toBlob 缺失时诚实报错）
 
 ### Added — all-api-hub borrow Wave C (analytics + verification)
 - **A2 模型成本分布 + 延迟图表画廊**: `GET /api/stats/model-cost-distribution`（topN-with-Other 成本桶 + totals）、`GET /api/stats/latency-histogram`（双方言整数除法延迟桶）、`GET /api/stats/latency-trend`（每日 avg/max/first-byte + 成功率 + 有界降序采样 p95，超采样上限天数以 truncatedDays 诚实标记）；Dashboard「模型成本分布 / 延迟直方图 / 延迟趋势」三卡
