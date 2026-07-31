@@ -634,3 +634,10 @@
 - themeBootstrap `resolveInitialAccent` + `THEME_ACCENT_KEY`；index.html FOUC inline 同步（防 flash）；App 主题菜单加 3 色点切换（localStorage + 立即应用）
 - 修复：Dashboard 新卡（IncomeOutcomeChart）导致 dashboard.site-speed-button 测试 api mock 缺失 → 补 mock；App 测试环境 documentElement mock 缺 removeAttribute → 组件防御
 - 测试：themeBootstrap 2 例 + 全量 567 vitest 绿
+
+## [2026-08-01] NAV-1: first-run 侧栏渐进披露（ui-original-parity 收官）
+
+- 无站点（first-run，App 挂载轻量 getSites 判定）时侧栏只强调核心导航（仪表盘/站点管理/连接管理/设置），其余折叠到「更多功能」区（desktop 点击展开/收起，mobile 归组）——降 onboarding 噪音；API 失败或已有站点时保持全量导航（不误折叠）
+- 修复：App 渲染类测试 api mock 缺 getSites → 补 mock（mobile-layout/sidebar-mobile）
+- 测试：NAV-1 折叠断言 1 例 + 全量 568 vitest 绿
+- **ui-original-parity 全部 UI 待办收官**（VIS-1 + NAV-1 + 此前 CONSOLE-1/MOCK-NAV）

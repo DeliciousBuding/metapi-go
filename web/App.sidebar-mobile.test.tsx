@@ -7,6 +7,7 @@ import App from './App.js';
 const { apiMock, authSessionMock } = vi.hoisted(() => ({
   apiMock: {
     getEvents: vi.fn(),
+    getSites: vi.fn().mockResolvedValue([]),
   },
   authSessionMock: {
     hasValidAuthSession: vi.fn(),
@@ -189,6 +190,47 @@ describe('App mobile sidebar', () => {
       await flushMicrotasks();
 
       expect(collectText(root.root)).not.toContain('导航菜单');
+    } finally {
+      if (root) {
+        await act(async () => {
+          root.unmount();
+        });
+      }
+    }
+  });
+
+  it('folds non-core nav behind 更多功能 on first run (NAV-1)', async () => {
+    setupRuntime(768);
+    apiMock.getSites.mockResolvedValue([]); // no sites → first run
+    let root!: WebTestRenderer;
+
+    try {
+      await act(async () => {
+        root = create(
+          <MemoryRouter initialEntries={['/']}>
+            <App />
+          </MemoryRouter>,
+        );
+      });
+      await flushMicrotasks();
+
+      const openButton = root.root.find((node) => (
+        node.type === 'button'
+        && node.props['aria-label'] === '打开导航'
+      ));
+      await act(async () => {
+        openButton.props.onClick();
+      });
+      await flushMicrotasks();
+
+      const text = collectText(root.root);
+      // Core onboarding paths stay directly visible.
+      expect(text).toContain('仪表盘');
+      expect(text).toContain('站点管理');
+      expect(text).toContain('连接管理');
+      // The rest folds under 更多功能 instead of cluttering first-run nav.
+      expect(text).toContain('更多功能');
+      expect(text).toContain('路由');
     } finally {
       if (root) {
         await act(async () => {

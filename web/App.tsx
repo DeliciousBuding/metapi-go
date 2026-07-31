@@ -487,6 +487,11 @@ const topNavItems = [
   { label: '关于', to: '/about' },
 ];
 
+// NAV-1 (ui-original-parity): first-run sidebar progressive disclosure — with
+// no sites yet, only the onboarding-critical paths stay visible; the rest fold
+// behind a "更多功能" toggle to cut first-run navigation noise.
+const CORE_NAV_PATHS = new Set(['/', '/sites', '/accounts', '/settings']);
+
 function PageTransition({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   return <div key={location.pathname} className="page-enter">{children}</div>;
@@ -514,6 +519,9 @@ function AppShell() {
   const [accent, setAccent] = useState<AccentPreset>(() =>
     resolveInitialAccent((k) => localStorage.getItem(k)),
   );
+  // NAV-1: true = no sites yet (onboarding); null = not loaded (no folding).
+  const [firstRun, setFirstRun] = useState<boolean | null>(null);
+  const [navExpanded, setNavExpanded] = useState(false);
   const [systemPrefersDark, setSystemPrefersDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches);
   const [userProfile, setUserProfile] = useState<UserProfile>(() => resolveStoredProfile());
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -530,6 +538,16 @@ function AppShell() {
   const resolvedTheme: 'light' | 'dark' = themeMode === 'system'
     ? (systemPrefersDark ? 'dark' : 'light')
     : themeMode;
+  // NAV-1: fold non-core nav when first-run and not expanded.
+  const foldingNav = firstRun === true && !navExpanded;
+  const visibleGroups = foldingNav
+    ? sidebarGroups
+        .map((g) => ({ ...g, items: g.items.filter((i) => CORE_NAV_PATHS.has(i.to)) }))
+        .filter((g) => g.items.length > 0)
+    : sidebarGroups;
+  const moreNavItems = firstRun === true
+    ? sidebarGroups.flatMap((g) => g.items).filter((i) => !CORE_NAV_PATHS.has(i.to))
+    : [];
   // Design gallery is intentionally reachable without auth for Vite/Playwright
   // visual acceptance (#533 / #534). Still gated by DEV or localStorage flag.
   const showDesignGallery =
@@ -587,6 +605,23 @@ function AppShell() {
     }
     localStorage.setItem(THEME_ACCENT_KEY, accent);
   }, [accent]);
+
+  // NAV-1: detect first-run (no sites) for sidebar progressive disclosure.
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getSites()
+      .then((sites: unknown) => {
+        if (cancelled) return;
+        setFirstRun(Array.isArray(sites) && sites.length === 0);
+      })
+      .catch(() => {
+        if (!cancelled) setFirstRun(false); // API failure → show full nav
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-layout', isMobile ? 'mobile' : 'desktop');
@@ -937,7 +972,7 @@ function AppShell() {
               <span>Metapi</span>
             </div>
             <nav className="mobile-nav">
-              {sidebarGroups.map((group) => (
+              {visibleGroups.map((group) => (
                 <div key={group.label} className="mobile-nav-group">
                   <div className="mobile-nav-label">{t(group.label)}</div>
                   {group.items.map((item) => (
@@ -954,6 +989,23 @@ function AppShell() {
                   ))}
                 </div>
               ))}
+              {firstRun === true && moreNavItems.length > 0 && (
+                <div className="mobile-nav-group">
+                  <div className="mobile-nav-label">{t('更多功能')}</div>
+                  {moreNavItems.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end={item.to === '/settings'}
+                      className={({ isActive }) => `mobile-nav-item ${isActive ? 'active' : ''}`}
+                      onClick={() => setDrawerOpen(false)}
+                    >
+                      {item.icon}
+                      <span>{t(item.label)}</span>
+                    </NavLink>
+                  ))}
+                </div>
+              )}
               <div className="mobile-nav-group">
                 <div className="mobile-nav-label">{t('更多')}</div>
                 {topNavItems.filter((n) => n.to !== '/').map((item) => (
@@ -971,7 +1023,7 @@ function AppShell() {
           </MobileDrawer>
         ) : (
           <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
-            {sidebarGroups.map((group) => (
+            {visibleGroups.map((group) => (
               <div key={group.label} className="sidebar-group">
                 {!sidebarCollapsed && <div className="sidebar-group-label">{t(group.label)}</div>}
                 {group.items.map((item) => (
@@ -989,6 +1041,46 @@ function AppShell() {
                 ))}
               </div>
             ))}
+            {firstRun === true && !sidebarCollapsed && moreNavItems.length > 0 && (
+              <div className="sidebar-group">
+                <button
+                  type="button"
+                  className="sidebar-group-label"
+                  onClick={() => setNavExpanded((v) => !v)}
+                  aria-expanded={navExpanded}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    width: '100%',
+                    border: 'none',
+                    background: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--color-text-muted)',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    padding: '8px 16px 4px',
+                  }}
+                >
+                  <span>{t('更多功能')}</span>
+                  <span style={{ transition: 'transform 0.2s ease', transform: navExpanded ? 'rotate(180deg)' : 'none' }}>▾</span>
+                </button>
+                {navExpanded &&
+                  moreNavItems.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end={item.to === '/settings'}
+                      className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}
+                    >
+                      {item.icon}
+                      <span>{t(item.label)}</span>
+                    </NavLink>
+                  ))}
+              </div>
+            )}
             <button
               type="button"
               className="sidebar-collapse-btn"

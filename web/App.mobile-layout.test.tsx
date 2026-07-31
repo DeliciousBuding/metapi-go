@@ -7,6 +7,7 @@ import App from './App.js';
 const { apiMock, authSessionMock } = vi.hoisted(() => ({
   apiMock: {
     getEvents: vi.fn(),
+    getSites: vi.fn().mockResolvedValue([]),
   },
   authSessionMock: {
     hasValidAuthSession: vi.fn(),
