@@ -3,6 +3,19 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-08-01] all-api-hub borrow 收官（K1a 模型重定向映射）
+
+- **K1a 模型重定向映射**（`7597a07`）: 先写设计文档 `k1-model-redirect-design-2026-08-01.md`（问题/规则/边界/验收/K1b 风险面）再实现——
+  - `model_name_redirects` 表（Table 33: account_id/canonical/actual/source(sync|manual)/last_seen_at，UNIQUE(account_id, canonical) + (account_id, actual) 索引）。
+  - `service.CanonicalFromActual`：精确（大小写归一）→ 日期后缀 `-YYYYMMDD`/`-YYYYMMDD-vN` → 版本后缀 `-latest` 等；候选 = global allowed models + token_routes 精确 pattern（无通配符）。
+  - **稳定性优先**：同一 canonical 首个命中的 actual 固定，后续不同 actual 只 touch last_seen 不覆盖；manual 永不被同步覆盖；幂等（ON CONFLICT 只刷 last_seen）。
+  - `refreshAccountModels` 同步后 best-effort 生成（不阻断刷新，结果进 redirects.generated）。
+  - 端点: GET（join 账号/站点名 + 过滤）/ PUT（转 manual / 修 actual）/ DELETE / POST generate（单账号或全量，ORDER BY id ASC 保证确定性）/ POST apply {dryRun}——dry-run 列「canonical 在 disabled_models 且 actual 可用」的候选不删除；确认后删 + events(type=model_redirect_applied)。
+  - 前端: Settings「模型重定向映射」区（表格 + 生成映射 + 预览可修复项 + 确认修复 + 转手动/删除）。
+  - 测试: 生成规则矩阵（8 用例：精确不映射/日期/日期+revision/版本/大小写折叠合并/稳定性）+ e2e（generate→list→幂等→转手动不被覆盖→dry-run 不删→apply 删+event→delete）+ 400/404；前端 section 2 用例。
+- **验证**: `go vet ./...` + `go test ./...` 全绿；`npm run typecheck` + `npm test`（551 测试）全绿；SPA rebuild。
+- SSOT 同步: STATE tip `7597a07` / MASTER / CHANGELOG / borrow doc K1 行（K1a ✅ K1b deferred）。**borrow 清单 13/13 立项全发；K1b/N8/N9 为 M 级 deferred，需拍板。**
+
 ## [2026-08-01] all-api-hub borrow Wave D 收官（J1 快照 PNG）
 
 - **J1 可分享看板快照 PNG**（`d9f915a`）:

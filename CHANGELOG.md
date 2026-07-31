@@ -7,6 +7,9 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Added — all-api-hub borrow K1a (model redirects)
+- **K1a 模型重定向映射**: `model_name_redirects` 表（per-account 标准名 → 上游实际名，UNIQUE(account_id, canonical)）；同步后自动生成（匹配规则：精确 → 日期后缀 `-YYYYMMDD(-vN)` → 版本后缀，首个命中的实际名稳定保留、手动映射不被覆盖、幂等）；`GET/PUT/DELETE /api/model-redirects` + `POST generate`（单账号/全量）+ `POST apply {dryRun}`——dry-run 预览可修复的 `site_disabled_models`（canonical 被禁用但 actual 可用），确认后删除并记录 events；Settings「模型重定向映射」区（列表/生成/预览/确认修复/转手动/删除）。设计文档 `docs/analysis/competitive/k1-model-redirect-design-2026-08-01.md`；**K1b 路由匹配 canonical 化 deferred（M 级触及核心热路径，待拍板）**
+
 ### Added — all-api-hub borrow Wave D (tags + banners + snapshot)
 - **I1 accounts/sites 全局标签系统**: `accounts.tags` / `sites.tags` JSON 数组列（AdditiveStep sc2_011）；`GET /api/tags` 全局索引（按使用量排序 + account/site 计数）；`PUT /api/accounts/{id}/tags` / `PUT /api/sites/{id}/tags`（去重校验写入）；Accounts/Sites 页彩色标签 chips（点击即过滤）、过滤 chips 行、共享 TagEditorDialog（快捷添加/删除/Enter 保存）
 - **H1 产品级风险横幅**: `product_announcements` + `announcement_dismissals` 表（severity info/warning/critical + enabled + link；内容编辑重置 dismiss = 新 revision 重新展示）；`GET /api/announcements`（管理视图）/ `GET /api/announcements/active`（未关闭，critical 优先）；POST/PUT/DELETE + dismiss 端点；Dashboard 顶部 severity 配色横幅（dismiss × + 详情链接）；Settings「产品公告」手发 CRUD 区
