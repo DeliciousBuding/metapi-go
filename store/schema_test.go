@@ -9,10 +9,10 @@ import (
 // TableColumnCount maps table name (Go struct name) to expected column count.
 // Counts are verified against the actual struct field count in schema.go.
 var tableColumnCount = map[string]int{
-	"Site":                          21,
+	"Site":                          22, // +tags (I1)
 	"SiteAPIEndpoint":               11,
 	"SiteDisabledModel":             4,
-	"Account":                       22,
+	"Account":                       23, // +tags (I1)
 	"AccountToken":                  11,
 	"CheckinLog":                    6,
 	"ModelAvailability":             7,

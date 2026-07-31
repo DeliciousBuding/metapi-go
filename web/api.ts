@@ -284,6 +284,16 @@ export type VerifyBatchResponse = {
 
 export type VerifyHistoryResponse = { items: ModelVerifyItem[] };
 
+// I1 (all-api-hub borrow): accounts/sites global tag system.
+export type TagIndexItem = {
+  name: string;
+  accounts: number;
+  sites: number;
+  total: number;
+};
+
+export type TagIndexResponse = { items: TagIndexItem[] };
+
 async function streamSse(
   url: string,
   handlers: {
@@ -1255,6 +1265,18 @@ export const api = {
         model ? `&model=${encodeURIComponent(model)}` : ""
       }`,
     ) as Promise<VerifyHistoryResponse>,
+  // I1 (all-api-hub borrow): accounts/sites global tag system.
+  getTags: () => request("/api/tags") as Promise<TagIndexResponse>,
+  updateAccountTags: (accountId: number, tags: string[]) =>
+    request(`/api/accounts/${accountId}/tags`, {
+      method: "PUT",
+      body: JSON.stringify({ tags }),
+    }) as Promise<{ success: boolean; tags: string[] }>,
+  updateSiteTags: (siteId: number, tags: string[]) =>
+    request(`/api/sites/${siteId}/tags`, {
+      method: "PUT",
+      body: JSON.stringify({ tags }),
+    }) as Promise<{ success: boolean; tags: string[] }>,
   // C1 (all-api-hub borrow): unified recurring-scheduler run history.
   getSchedulerStatus: () =>
     request<{ items: SchedulerRunStatus[]; generatedAt: string }>(

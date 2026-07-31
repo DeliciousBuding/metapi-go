@@ -131,6 +131,20 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "downstream_api_keys", "ip_blocklist", "TEXT", "TEXT", "")
 		},
 	},
+	{
+		// I1 (all-api-hub borrow): accounts/sites global tag system.
+		// tags holds a JSON array text like ["prod","priority"]; NULL = none.
+		// Filtering is done client-side on the full snapshot; the column is
+		// for storage + the /api/tags aggregation endpoint.
+		Version:     "sc2_011_account_site_tags",
+		Description: "accounts.tags / sites.tags TEXT NULL — JSON array of operator labels for classification and filtering",
+		Apply: func(db *DB) error {
+			if err := EnsureColumn(db, "accounts", "tags", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			return EnsureColumn(db, "sites", "tags", "TEXT", "TEXT", "")
+		},
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.

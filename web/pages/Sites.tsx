@@ -18,6 +18,8 @@ import ResponsiveFormGrid from '../components/ResponsiveFormGrid.js';
 import { useIsMobile } from '../components/useIsMobile.js';
 import DeleteConfirmModal from '../components/DeleteConfirmModal.js';
 import SiteCreatedModal from '../components/SiteCreatedModal.js';
+import TagEditorDialog from '../components/TagEditorDialog.js';
+import { collectTags, parseTags, tagColor } from './helpers/tags.js';
 import { EmptyState, Button as DsButton } from '../design-system/index.js';
 import { formatDateTimeLocal } from './helpers/checkinLogTime.js';
 import { clearFocusParams, readFocusSiteId } from './helpers/navigationFocus.js';
@@ -86,6 +88,8 @@ type SiteRow = {
     cooldownUntil?: string | null;
     lastFailureReason?: string | null;
   }>;
+  /** JSON array text of operator labels (I1 tag system). */
+  tags?: unknown;
 };
 
 // Inline row speed-test state (N4 UX). Mirrors the Dashboard per-site probe.
@@ -441,6 +445,17 @@ export default function Sites() {
     [sites, sortMode],
   );
   const allVisibleSitesSelected = sortedSites.length > 0 && sortedSites.every((site) => selectedSiteIds.includes(site.id));
+  // I1 (all-api-hub borrow): tag filter + per-site tag editor.
+  const [siteTagFilter, setSiteTagFilter] = useState<string | null>(null);
+  const [siteTagEditor, setSiteTagEditor] = useState<{ id: number; tags: unknown } | null>(null);
+  const allSiteTags = useMemo(() => collectTags(sites), [sites]);
+  const visibleSites = useMemo(
+    () =>
+      siteTagFilter
+        ? sortedSites.filter((site) => parseTags(site.tags).includes(siteTagFilter))
+        : sortedSites,
+    [sortedSites, siteTagFilter],
+  );
 
   const platformOptions = useMemo(() => {
     const current = form.platform.trim();
@@ -2026,11 +2041,63 @@ export default function Sites() {
         </CenteredModal>
       )}
 
+      {/* I1 (all-api-hub borrow): tag filter chips */}
+      {allSiteTags.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            gap: 6,
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            marginBottom: 12,
+          }}
+        >
+          <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
+            {tr('标签')}:
+          </span>
+          {allSiteTags.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => setSiteTagFilter(siteTagFilter === tag ? null : tag)}
+              title={tr('点击切换过滤')}
+              className={siteTagFilter === tag ? 'tag-chip-active' : ''}
+              style={{
+                border: siteTagFilter === tag ? '1px solid var(--color-text)' : '1px solid var(--color-border-light)',
+                borderRadius: 999,
+                padding: '2px 10px',
+                fontSize: 12,
+                cursor: 'pointer',
+                color: 'var(--color-text)',
+                background: siteTagFilter === tag ? tagColor(tag) : 'var(--color-bg-card)',
+              }}
+            >
+              {tag}
+            </button>
+          ))}
+          {siteTagFilter && (
+            <button
+              type="button"
+              onClick={() => setSiteTagFilter(null)}
+              style={{
+                border: 'none',
+                background: 'none',
+                cursor: 'pointer',
+                fontSize: 12,
+                color: 'var(--color-text-muted)',
+              }}
+            >
+              {tr('清除过滤')}
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="card" style={{ overflowX: 'auto' }}>
         {sites.length > 0 ? (
           isMobile ? (
             <div className="mobile-card-list">
-              {sortedSites.map((site) => {
+              {visibleSites.map((site) => {
                 const isExpanded = expandedSiteIds.includes(site.id);
                 return (
                   <MobileCard
@@ -2085,6 +2152,12 @@ export default function Sites() {
                           className="btn btn-link btn-link-primary"
                         >
                           编辑
+                        </button>
+                        <button
+                          onClick={() => setSiteTagEditor({ id: site.id, tags: site.tags })}
+                          className="btn btn-link btn-link-primary"
+                        >
+                          标签
                         </button>
                         <button
                           onClick={() => handleToggleStatus(site)}
@@ -2271,7 +2344,7 @@ export default function Sites() {
                 </tr>
               </thead>
               <tbody>
-                {sortedSites.map((site, i) => (
+                {visibleSites.map((site, i) => (
                   <tr
                     key={site.id}
                     data-testid={`site-row-${site.id}`}
@@ -2311,6 +2384,29 @@ export default function Sites() {
                         <span className={`badge ${getConfiguredSiteApiEndpoints(site).length > 0 ? 'badge-warning' : 'badge-muted'}`} style={{ fontSize: 11 }}>
                           API 地址: {buildSiteApiEndpointSummary(site)}
                         </span>
+                        {parseTags(site.tags).map((tag) => (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSiteTagFilter(siteTagFilter === tag ? null : tag);
+                            }}
+                            title="点击按标签过滤"
+                            className={siteTagFilter === tag ? 'tag-chip-active' : ''}
+                            style={{
+                              border: siteTagFilter === tag ? '1px solid var(--color-text)' : 'none',
+                              borderRadius: 999,
+                              padding: '1px 8px',
+                              fontSize: 10,
+                              cursor: 'pointer',
+                              color: 'var(--color-text)',
+                              background: tagColor(tag),
+                            }}
+                          >
+                            {tag}
+                          </button>
+                        ))}
                       </div>
                     </td>
                     <td className="sites-url-cell" style={{ maxWidth: 300 }}>
@@ -2434,6 +2530,12 @@ export default function Sites() {
                           编辑
                         </button>
                         <button
+                          onClick={() => setSiteTagEditor({ id: site.id, tags: site.tags })}
+                          className="btn btn-link btn-link-primary"
+                        >
+                          标签
+                        </button>
+                        <button
                           onClick={() => handleToggleStatus(site)}
                           disabled={togglingSiteId === site.id}
                           className={`btn btn-link ${site.status === 'disabled' ? 'btn-link-primary' : 'btn-link-warning'}`}
@@ -2469,6 +2571,21 @@ export default function Sites() {
           />
         )}
       </div>
+
+      {/* I1 (all-api-hub borrow): per-site tag editor */}
+      <TagEditorDialog
+        open={!!siteTagEditor}
+        onClose={() => setSiteTagEditor(null)}
+        title={tr('站点标签')}
+        initialTags={siteTagEditor?.tags}
+        allTags={allSiteTags}
+        onSave={async (tags) => {
+          if (!siteTagEditor) return;
+          await api.updateSiteTags(siteTagEditor.id, tags);
+          toast.success(tr('标签已保存'));
+          await load();
+        }}
+      />
     </div>
   );
 }

@@ -160,7 +160,7 @@ func LoadSiteAPIEndpoints(db *sqlx.DB, siteIDs []int64) (map[int64][]store.SiteA
 const SiteSelectColumns = `id, name, url, external_checkin_url, platform, proxy_url, use_system_proxy,
 	custom_headers, custom_headers_override_request_headers, status, is_pinned, sort_order, global_weight, api_key, max_concurrency,
 	post_refresh_probe_enabled, post_refresh_probe_model, post_refresh_probe_scope,
-	post_refresh_probe_latency_threshold_ms, created_at, updated_at`
+	post_refresh_probe_latency_threshold_ms, tags, created_at, updated_at`
 
 // LoadSiteWithEndpoints loads a single site with its apiEndpoints attached.
 func LoadSiteWithEndpoints(db *sqlx.DB, siteID int64) (map[string]any, error) {

@@ -11,6 +11,8 @@ import { MobileCard, MobileField } from "../components/MobileCard.js";
 import { useIsMobile } from "../components/useIsMobile.js";
 import DeleteConfirmModal from "../components/DeleteConfirmModal.js";
 import SiteBadgeLink from "../components/SiteBadgeLink.js";
+import TagEditorDialog from "../components/TagEditorDialog.js";
+import { collectTags, parseTags, tagColor } from "./helpers/tags.js";
 import AccountModelsModal from "./accounts/AccountModelsModal.js";
 import {
   buildAddAccountPrereqHint,
@@ -192,6 +194,9 @@ export default function Accounts() {
     addingManualModels: false,
   });
   const rowRefs = useRef<Map<number, HTMLTableRowElement>>(new Map());
+  // I1 (all-api-hub borrow): tag filter + per-row tag editor.
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [tagEditor, setTagEditor] = useState<{ id: number; tags: unknown } | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastRebindTargetRef = useRef<any | null>(null);
   const modelModalRequestSeqRef = useRef(0);
@@ -299,9 +304,12 @@ export default function Accounts() {
   const visibleAccounts = useMemo(() => {
     if (activeSegment === "tokens") return [];
     return sortedAccounts.filter(
-      (account) => resolveAccountCredentialMode(account) === activeSegment,
+      (account) =>
+        resolveAccountCredentialMode(account) === activeSegment &&
+        (!tagFilter || parseTags(account.tags).includes(tagFilter)),
     );
-  }, [activeSegment, sortedAccounts]);
+  }, [activeSegment, sortedAccounts, tagFilter]);
+  const allAccountTags = useMemo(() => collectTags(accounts), [accounts]);
   const allVisibleAccountsSelected =
     visibleAccounts.length > 0 &&
     visibleAccounts.every((account) => selectedAccountIds.includes(account.id));
@@ -1422,6 +1430,58 @@ export default function Accounts() {
           </div>
         }
       />
+
+      {/* I1 (all-api-hub borrow): tag filter chips */}
+      {allAccountTags.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            gap: 6,
+            flexWrap: "wrap",
+            alignItems: "center",
+            marginBottom: 12,
+          }}
+        >
+          <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
+            {tr("标签")}:
+          </span>
+          {allAccountTags.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
+              title={tr("点击切换过滤")}
+              className={tagFilter === tag ? "tag-chip-active" : ""}
+              style={{
+                border: tagFilter === tag ? "1px solid var(--color-text)" : "1px solid var(--color-border-light)",
+                borderRadius: 999,
+                padding: "2px 10px",
+                fontSize: 12,
+                cursor: "pointer",
+                color: "var(--color-text)",
+                background: tagFilter === tag ? tagColor(tag) : "var(--color-bg-card)",
+              }}
+            >
+              {tag}
+            </button>
+          ))}
+          {tagFilter && (
+            <button
+              type="button"
+              onClick={() => setTagFilter(null)}
+              style={{
+                border: "none",
+                background: "none",
+                cursor: "pointer",
+                fontSize: 12,
+                color: "var(--color-text-muted)",
+              }}
+            >
+              {tr("清除过滤")}
+            </button>
+          )}
+        </div>
+      )}
 
       <div
         style={{
@@ -3031,6 +3091,12 @@ export default function Accounts() {
                                   </button>
                                 )}
                               <button
+                                onClick={() => setTagEditor({ id: a.id, tags: a.tags })}
+                                className="btn btn-link btn-link-primary"
+                              >
+                                标签
+                              </button>
+                              <button
                                 onClick={() =>
                                   setDeleteConfirm({
                                     mode: "single",
@@ -3131,6 +3197,29 @@ export default function Accounts() {
                                   代理
                                 </span>
                               )}
+                              {parseTags(a.tags).map((tag) => (
+                                <button
+                                  key={tag}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setTagFilter(tagFilter === tag ? null : tag);
+                                  }}
+                                  title="点击按标签过滤"
+                                  className={tagFilter === tag ? "tag-chip-active" : ""}
+                                  style={{
+                                    border: tagFilter === tag ? "1px solid var(--color-text)" : "none",
+                                    borderRadius: 999,
+                                    padding: "1px 8px",
+                                    fontSize: 10,
+                                    cursor: "pointer",
+                                    color: "var(--color-text)",
+                                    background: tagColor(tag),
+                                  }}
+                                >
+                                  {tag}
+                                </button>
+                              ))}
                             </div>
                           </td>
                           <td>
@@ -3456,6 +3545,21 @@ export default function Accounts() {
           setModelModal((state) => ({ ...state, manualModelsInput: value }))
         }
         onAddManualModels={handleAddManualModels}
+      />
+
+      {/* I1 (all-api-hub borrow): per-account tag editor */}
+      <TagEditorDialog
+        open={!!tagEditor}
+        onClose={() => setTagEditor(null)}
+        title={tr("账号标签")}
+        initialTags={tagEditor?.tags}
+        allTags={allAccountTags}
+        onSave={async (tags) => {
+          if (!tagEditor) return;
+          await api.updateAccountTags(tagEditor.id, tags);
+          toast.success(tr("标签已保存"));
+          await load(true);
+        }}
       />
     </div>
   );

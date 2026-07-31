@@ -28,6 +28,8 @@ type Site struct {
 	PostRefreshProbeLatencyThresholdMs int64  `db:"post_refresh_probe_latency_threshold_ms" json:"postRefreshProbeLatencyThresholdMs"`
 	CreatedAt                          string `db:"created_at" json:"createdAt"`
 	UpdatedAt                          string `db:"updated_at" json:"updatedAt"`
+	// Tags holds a JSON array of operator labels (all-api-hub borrow I1).
+	Tags *string `db:"tags" json:"tags"`
 }
 
 // ---- Table 2: site_api_endpoints ----
@@ -77,6 +79,9 @@ type Account struct {
 	ExtraConfig        *string  `db:"extra_config" json:"extraConfig"`
 	CreatedAt          string   `db:"created_at" json:"createdAt"`
 	UpdatedAt          string   `db:"updated_at" json:"updatedAt"`
+	// Tags holds a JSON array of operator labels (all-api-hub borrow I1).
+	// NULL/empty means no tags; JSON array text like ["prod","priority"].
+	Tags *string `db:"tags" json:"tags"`
 }
 
 // ---- Table 5: account_tokens ----
