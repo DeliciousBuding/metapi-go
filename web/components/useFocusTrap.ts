@@ -10,6 +10,9 @@ const FOCUSABLE_SELECTOR = [
 ].join(',');
 
 function listFocusable(root: HTMLElement): HTMLElement[] {
+  // Defensive: some jsdom-based test renderers expose the element without the
+  // full DOM surface (querySelectorAll missing) — treat as no focusable items.
+  if (typeof root.querySelectorAll !== 'function') return [];
   return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter((el) => {
     if (el.getAttribute('aria-hidden') === 'true') return false;
     if (el.tabIndex < 0) return false;
@@ -43,7 +46,13 @@ export function useFocusTrap(
     const focusInitial = () => {
       const focusables = listFocusable(container);
       const target = focusables[0] ?? container;
-      if (!target.hasAttribute('tabindex') && target === container) {
+      // Same defensive guard as listFocusable: jsdom test elements may lack
+      // the full DOM surface (hasAttribute missing) — skip the tabindex tweak.
+      if (
+        typeof target.hasAttribute === 'function'
+        && !target.hasAttribute('tabindex')
+        && target === container
+      ) {
         container.tabIndex = -1;
       }
       try {

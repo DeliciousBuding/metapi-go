@@ -667,3 +667,11 @@
 - 接通此前死开关 `html[data-density="compact"]`：themeBootstrap 加 `DENSITY_STORAGE_KEY`/`DensityMode`/`resolveInitialDensity`（未知回退 comfortable）
 - 主题菜单加「表格密度」舒适/紧凑切换（与 VIS-1 主题色同构：data-density 属性 + localStorage 持久化，documentElement 双 guard 兼容测试渲染器）
 - 测试：resolveInitialDensity 2 例 + App 集成 1 例（切换闭环 + 持久化断言，fixture 补 removeAttribute）
+
+## [2026-08-01] i18n 完整性门禁 + focus-trap 测试健壮性
+
+- 工程巡检发现 10 条 t() 文案在 EN 严格模式下显示 `Untranslated`（VIS-1 主题色 3 条 / DENSE-1 密度 5 条 / NAV-1 更多功能 2 条）——补 zhToEn 精确翻译
+- 新增 `web/i18n.coverage.test.ts` 门禁：扫描全部 `t('中文')` 字面量，断言 EN 翻译无中文残留/非 Untranslated（防后续 wave 漏补字典）
+- useFocusTrap 两处 jsdom 防御（listFocusable 缺 querySelectorAll / focusInitial 缺 hasAttribute 时跳过）——消除全量测试偶发 Uncaught Exception（tokens.edit-and-select 时序竞争）
+
+**验证**：572 vitest（174 文件）零 Unhandled · typecheck exit=0 · SPA rebuild

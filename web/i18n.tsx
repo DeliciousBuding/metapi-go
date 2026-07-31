@@ -314,6 +314,20 @@ const zhToEn: Record<string, string> = {
   '项目链接': 'Project Links',
   '数据与隐私': 'Data & Privacy',
   'Metapi 完全自托管，所有数据（账号、令牌、路由、日志）均存储在本地 SQLite 数据库中，不会向任何第三方发送数据。代理请求仅在你的服务器与上游站点之间直连传输。': 'Metapi is fully self-hosted. All data (accounts, tokens, routes, logs) is stored in a local SQLite database and never sent to any third party. Proxy requests travel directly between your server and upstream sites.',
+  /* VIS-1 theme accent presets (theme menu) */
+  '主题色': 'Accent color',
+  '蓝色（默认）': 'Blue (default)',
+  '靛蓝（原版）': 'Indigo (original)',
+  '青绿（冷静）': 'Teal (calm)',
+  /* DENSE-1 table density (theme menu) */
+  '表格密度': 'Table density',
+  '舒适': 'Comfortable',
+  '紧凑': 'Compact',
+  '舒适密度': 'Comfortable density',
+  '紧凑密度': 'Compact density',
+  /* NAV-1 first-run sidebar folding */
+  '更多功能': 'More features',
+  '更多': 'More',
 };
 
 for (const [source, target] of Object.entries(zhToEnSupplemental)) {
