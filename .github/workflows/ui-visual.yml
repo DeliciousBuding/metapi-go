@@ -49,6 +49,19 @@ jobs:
       - name: Run e2e + visual suite
         run: npm run test:e2e
 
+      # TEMP baseline refresh (DENSE-1 density shift): regenerate linux
+      # baselines and upload them for download; revert to plain test:e2e after.
+      - name: Refresh linux visual baselines
+        run: npx playwright test e2e/visual-gallery.spec.ts --update-snapshots
+
+      - name: Upload refreshed baselines
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-baselines
+          path: web/e2e/visual-gallery.spec.ts-snapshots/
+          retention-days: 14
+
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4

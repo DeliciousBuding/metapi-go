@@ -34,7 +34,16 @@ export default function RealtimeOpsPanel() {
   const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const token = getAuthToken(localStorage);
+    // Node 25+ exposes an experimental global localStorage that, with an
+    // invalid --localstorage-file, exists without a working getItem. The
+    // browser always has a real one — guard so a broken global (or a jsdom
+    // test env) degrades to "no token → no WebSocket" instead of throwing.
+    const storage =
+      typeof localStorage !== 'undefined'
+      && typeof (localStorage as { getItem?: unknown } | null)?.getItem === 'function'
+        ? localStorage
+        : null;
+    const token = storage ? getAuthToken(storage) : null;
     if (!token) return;
 
     let disposed = false;

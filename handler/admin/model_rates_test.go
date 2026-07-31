@@ -39,7 +39,7 @@ func TestModelRates_AggregatesAllSurfaces(t *testing.T) {
 	routeID, _ := res.LastInsertId()
 
 	if _, err := db.Exec(`INSERT INTO route_channels (route_id, account_id, source_model, priority, weight, enabled)
-		VALUES (?, ?, ?, 10, 30, 1)`, routeID, accountID, "gpt-4o"); err != nil {
+		VALUES (?, ?, ?, 10, 30, TRUE)`, routeID, accountID, "gpt-4o"); err != nil {
 		t.Fatalf("insert channel: %v", err)
 	}
 	if _, err := db.Exec(`INSERT INTO downstream_api_keys (name, key, key_weight)
@@ -138,7 +138,7 @@ func seedRateFixture(t *testing.T, db *store.DB) (siteID, accountID, channelID i
 	}
 
 	_, err = db.Exec(`INSERT INTO route_channels (route_id, account_id, source_model, priority, weight, enabled)
-		VALUES (?, ?, ?, 10, 30, 1)`, routeID, accountID, "gpt-4o")
+		VALUES (?, ?, ?, 10, 30, TRUE)`, routeID, accountID, "gpt-4o")
 	if err != nil {
 		t.Fatalf("insert channel: %v", err)
 	}
