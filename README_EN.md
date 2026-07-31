@@ -2,7 +2,7 @@
 
 <div align="center">
 
-**The proxy for proxies — aggregate all your AI API中转站 into one unified gateway**
+**The proxy for proxies — aggregate all your AI API resellers into one unified gateway**
 
 Go rewrite of [MetAPI](https://github.com/cita-777/metapi). Single binary, no Node.js runtime, full feature parity.
 
@@ -30,14 +30,14 @@ docker run -d -p 4000:4000 \
 
 Open `http://localhost:4000`.
 
-> **Unreleased tip (master)**: parity KEYS/WS/#514/UC-1 and P0-555 residual observability (OrphanLogs / stream missing-usage metric) are on tip; production pin may still lag at 0.8.44 (see ops STATE). P0-585 remains partial until production e2e.
+> **Unreleased tip (master)**: parity KEYS/WS/#514/UC-1, 14 all-api-hub borrows (A1–K1 incl. A3 balance analysis), New API N1–N9b, sub2api/cliproxyapi B1 audit / B2 realtime panel, UI wrap-up (theme presets / first-run sidebar / table density), and full i18n (EN everywhere, 4-layer coverage gate) are on tip (2026-08-01); production pin may still lag at 0.8.44 (see ops STATE). P0-585 remains partial until production e2e.
 
 ## Features
 
 - **Protocol proxy**: OpenAI, Anthropic, Gemini, Codex — with real-time format conversion
 - **Routing engine**: Weighted random, round-robin, stable-first. Fibonacci backoff cooldown. Circuit breaker.
 - **Account management**: 14 platform adapters, auto check-in, balance tracking, OAuth PKCE
-- **Operations**: 5-channel notifications, backup/restore, rate limiting, 15 background schedulers
+- **Operations**: 9-channel notifications (Webhook/Bark/ServerChan/Telegram/SMTP/Feishu/DingTalk/WeCom/ntfy), audit log, realtime ops panel, backup/restore, rate limiting, 15 background schedulers
 - **Performance**: 20MB memory, 15MB Docker image, <0.1s startup
 
 ## Why Go?

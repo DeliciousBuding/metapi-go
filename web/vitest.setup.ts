@@ -5,6 +5,14 @@ import type {
   TestRendererOptions,
 } from 'react-test-renderer';
 
+// jsdom does not implement window.scrollTo/scrollBy — every call prints
+// "Not implemented: Window's scrollTo() method" to stderr. Stub them so the
+// full-suite output stays clean and failures are easy to spot.
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'scrollTo', { value: () => {}, writable: true });
+  Object.defineProperty(window, 'scrollBy', { value: () => {}, writable: true });
+}
+
 // React 19 concurrent mode needs an act-enabled environment; without it RTR
 // trees unmount before tests can read `.root`.
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

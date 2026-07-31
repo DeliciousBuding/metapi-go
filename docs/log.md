@@ -708,3 +708,10 @@
 - `i18n.coverage.test.ts` 第四用例「chart spec literals」（key/type/label/metric/title 对象字面量）——canvas 面纳入门禁
 
 **验证**：575 vitest（174 文件）零 Unhandled · typecheck exit=0 · SPA rebuild
+
+## [2026-08-01] README_EN 门面同步 + vitest 噪音清零
+
+- README_EN.md 三处过时修正：unreleased 提示覆盖 14 项 borrow + i18n 收官（此前停在 parity KEYS/WS）；「5-channel notifications」→ 9 渠道（含 Feishu/DingTalk/WeCom/ntfy + 审计 + 实时面板）；标题「AI API中转站」→ resellers
+- vitest.setup.ts stub window.scrollTo/scrollBy——全量跑 18 条 jsdom "Not implemented" stderr 噪音清零（输出干净，失败易查）
+
+**验证**：575 vitest（174 文件）零 Unhandled + 零 Not implemented 噪音
