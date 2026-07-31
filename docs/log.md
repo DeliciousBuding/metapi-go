@@ -675,3 +675,11 @@
 - useFocusTrap 两处 jsdom 防御（listFocusable 缺 querySelectorAll / focusInitial 缺 hasAttribute 时跳过）——消除全量测试偶发 Uncaught Exception（tokens.edit-and-select 时序竞争）
 
 **验证**：572 vitest（174 文件）零 Unhandled · typecheck exit=0 · SPA rebuild
+
+## [2026-08-01] JSX 硬编码中文全量补译（181 条）+ 门禁盲区修复
+
+- 扩展审计发现 i18n 门禁盲区：t() 门禁只覆盖包裹调用，**未包 t() 的 JSX 可见中文**（属性 + 文本节点）靠运行时 MutationObserver 兜底，其中 **181 条 EN 模式显示 `Untranslated`**（Dashboard 指标卡/设置表单/下游密钥/调试追踪/迁移工具/通知渠道等全 UI 面）
+- zhToEn 主字典补 181 条精确翻译（含产品名官方名：飞书→Feishu、钉钉→DingTalk、企业微信→WeCom）
+- `i18n.coverage.test.ts` 门禁升级：新增第二用例「raw JSX Chinese is covered by the dictionary」——扫描所有 .tsx 的属性/文本节点中文，断言 EN 无残留（防未来硬编码中文漏补字典）
+
+**验证**：573 vitest（174 文件）零 Unhandled · typecheck exit=0 · SPA rebuild
