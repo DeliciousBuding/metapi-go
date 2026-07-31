@@ -1,6 +1,6 @@
 # STATE.md — MetAPI Go product status
 
-**Last verified**: 2026-07-30
+**Last verified**: 2026-07-31
 
 > **现状 SSOT**（产品仓库）。只记当前事实与指针，不写流水账。  
 > 运维主机/compose/镜像 pin / PG role LIMIT 以 **server 仓** `projects/metapi/STATE.md` 为准（可能与本 tip 不同步）。  
@@ -49,6 +49,7 @@ WS residual: [`analysis/responses-websocket-residual.md`](analysis/responses-web
 Engineering optimization (codeg 对标): [`analysis/engineering-optimization-2026-07-30.md`](analysis/engineering-optimization-2026-07-30.md)
 Product parity & New API 借鉴: [`analysis/product-parity-and-newapi-borrow-2026-07-30.md`](analysis/product-parity-and-newapi-borrow-2026-07-30.md)
 UIUX/产品化借鉴（New API 前端对标）: [`analysis/uiux-newapi-borrow-2026-07-30.md`](analysis/uiux-newapi-borrow-2026-07-30.md)
+all-api-hub 全面产品面借鉴（A1-J1，13 项决策输入）: [`analysis/competitive/all-api-hub-product-borrow-2026-07-31.md`](analysis/competitive/all-api-hub-product-borrow-2026-07-31.md)
 
 ## Entry points
 

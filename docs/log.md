@@ -3,6 +3,14 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-07-31] all-api-hub 全面产品面借鉴 synthesis
+
+- **决策输入文档**（未提交，待 commit）: 新 `docs/analysis/competitive/all-api-hub-product-borrow-2026-07-31.md`（241 行）。Explore 子代理全量审计 all-api-hub @ `a1ef3e9`（v3.52.0）23 feature + 60+ service，leader 用 metapi-go 源码逐条复核，得 13 项可借鉴产品能力（A1-J1）。
+- **最高 ROI 缺口**（P0）: A1 余额历史快照表 + 趋势图（metapi-go 只存当前余额，无历史；`site_day_usage` 只有 spend/calls 无 balance 列——核验确认真缺口）/ B1 需关注看板（events 表有底座，缺 severity 排序深链聚合面板）/ D1 per-task 通知开关 + feishu/dingtalk/wecom/ntfy 4 渠道（现有 5 渠道无 per-task toggle）。
+- **与既有借鉴文档不重叠**: New API N1-N9 归 `product-parity-and-newapi-borrow`；前端 UI 模式归 `uiux-newapi-borrow`；本文件聚焦 all-api-hub 独有且 metapi-go 缺的产品能力。
+- **硬门禁遵守**: 本文件是决策输入非执行令——13 项均为产品功能，需用户拍板/开 Issue 再动，不静默自动实现。已对齐项（签到/检测/比价/导出/OAuth/热力图/公告）不重复立项；扩展专属项（网页嗅探/popup/permissions/PostHog 遥测）剔除。
+- SSOT 同步: STATE/MASTER/competitive/README 指针更新；tip 仍 `5a54072`（本批纯 docs 不改代码，提交后刷 tip）。
+
 ## [2026-07-31] N7 admin 可配 prompt-cache 倍率 + N8/N9 deferred
 
 - **N7**（`10384ee`）: `routing.DefaultCacheRatio`/`ClaudeCacheRatio`（及 creation 对应项）改成 runtime-overridable（`atomic.Pointer` + `SetCacheRatioDefaults`，非正/NaN/Inf 重置回代码默认）。端到端：config 字段 → `store.ApplyRuntimeSettings`（cache_ratio_default/claude）→ `app.ApplyCacheRatioOverrides` 启动 apply → admin settings getRuntime 暴露/updateRuntime 持久化+即时 apply。测试：override 生效、坏值重置、显式 per-row 倍率仍优先（ResolveCacheRatio）。

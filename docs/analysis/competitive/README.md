@@ -15,6 +15,7 @@ Docs-first competitive learning for **metapi-go** against four peers:
 | --- | --- |
 | [sources.md](./sources.md) | Peer set, method, product-shape boundaries, citation rules |
 | [matrix.md](./matrix.md) | Capability matrix, strengths, ranked learn backlog (L1–L12) |
+| [all-api-hub-product-borrow-2026-07-31.md](./all-api-hub-product-borrow-2026-07-31.md) | all-api-hub 全面产品面借鉴（A1-J1，13 项，决策输入非执行令） |
 
 Related program docs:
 
