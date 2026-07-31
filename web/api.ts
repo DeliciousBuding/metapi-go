@@ -1428,6 +1428,16 @@ export const api = {
   // N9a (New API borrow): read-only multiplier/rate overview.
   getRateOverview: () =>
     request("/api/models/rates") as Promise<RateOverviewResponse>,
+  // N9b-a (New API borrow): batch rate editing — unit_cost + weight only,
+  // pure config writes; never touches billing (ratio-based) semantics.
+  updateRates: (body: {
+    accounts?: Array<{ id: number; unitCost: number }>;
+    channels?: Array<{ id: number; weight: number }>;
+  }) =>
+    request<{ success: boolean; updatedAccounts: number; updatedChannels: number }>(
+      "/api/models/rates",
+      { method: "PUT", body: JSON.stringify(body) },
+    ),
   // C1 (all-api-hub borrow): unified recurring-scheduler run history.
   getSchedulerStatus: () =>
     request<{ items: SchedulerRunStatus[]; generatedAt: string }>(

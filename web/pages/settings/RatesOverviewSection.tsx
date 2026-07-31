@@ -5,15 +5,23 @@ import { useToast } from '../../components/Toast.js';
 import { tr } from '../../i18n.js';
 
 /**
- * N9a (New API borrow): rate/multiplier overview — read-only aggregation of
- * every multiplier surface (account unit cost, channel weight, site global
- * weight, downstream key weight, observed model costs) in one table.
- * Never mutates billing or routing; the write surface (N9b) stays out.
+ * N9a/N9b-a (New API borrow): rate/multiplier overview + batch editing.
+ * Read-only aggregation of every multiplier surface (account unit cost,
+ * channel weight, site global weight, downstream key weight, observed model
+ * costs). N9b-a adds inline editing for accounts.unit_cost + channels.weight
+ * — pure config writes; estimated_cost stays ratio-based (N9b-b closed).
  */
 export default function RatesOverviewSection() {
   const toast = useToast();
   const [data, setData] = useState<RateOverviewResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  // Inline edit state: which cell is being edited and its current input.
+  const [editing, setEditing] = useState<{
+    kind: 'account' | 'channel';
+    id: number;
+    value: string;
+  } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -33,12 +41,122 @@ export default function RatesOverviewSection() {
   const fmtWeight = (v?: number | null): string =>
     v == null ? '—' : Number(v).toFixed(2);
 
+  const startEdit = (kind: 'account' | 'channel', id: number, current?: number | null) => {
+    setEditing({ kind, id, value: current != null ? String(current) : '' });
+  };
+
+  const commitEdit = async () => {
+    if (!editing || saving) return;
+    const parsed = Number(editing.value);
+    if (!editing.value.trim() || !Number.isFinite(parsed) || parsed < 0) {
+      toast.error(tr('请输入不小于 0 的数值'));
+      return;
+    }
+    setSaving(true);
+    try {
+      const body =
+        editing.kind === 'account'
+          ? { accounts: [{ id: editing.id, unitCost: parsed }] }
+          : { channels: [{ id: editing.id, weight: parsed }] };
+      const res = await api.updateRates(body);
+      if (!res.success) {
+        toast.error(tr('保存失败'));
+        return;
+      }
+      toast.success(
+        editing.kind === 'account' ? tr('账号单价已更新') : tr('通道权重已更新'),
+      );
+      setEditing(null);
+      await load();
+    } catch (error: any) {
+      toast.error(error?.message || tr('保存失败'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const cancelEdit = () => setEditing(null);
+
+  const editCell = (
+    kind: 'account' | 'channel',
+    id: number,
+    current: number | null | undefined,
+    renderDisplay: () => React.ReactNode,
+  ) => {
+    if (editing && editing.kind === kind && editing.id === id) {
+      return (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <input
+            type="number"
+            min={0}
+            step="any"
+            autoFocus
+            value={editing.value}
+            onChange={(e) => setEditing({ ...editing, value: e.target.value })}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void commitEdit();
+              if (e.key === 'Escape') cancelEdit();
+            }}
+            style={{
+              width: 84,
+              padding: '2px 6px',
+              fontSize: 12,
+              borderRadius: 4,
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-bg)',
+              color: 'var(--color-text-primary)',
+            }}
+          />
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={saving}
+            onClick={() => void commitEdit()}
+            style={{ padding: '1px 8px', fontSize: 11, lineHeight: '18px' }}
+          >
+            {tr('保存')}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            disabled={saving}
+            onClick={cancelEdit}
+            style={{ padding: '1px 8px', fontSize: 11, lineHeight: '18px' }}
+          >
+            {tr('取消')}
+          </button>
+        </span>
+      );
+    }
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        {renderDisplay()}
+        <button
+          type="button"
+          className="btn btn-ghost"
+          title={tr('编辑')}
+          onClick={() => startEdit(kind, id, current)}
+          style={{
+            padding: '0 4px',
+            fontSize: 12,
+            lineHeight: '18px',
+            border: '1px solid var(--color-border)',
+          }}
+        >
+          ✎
+        </button>
+      </span>
+    );
+  };
+
   return (
     <div className="card" style={{ padding: 20 }}>
       <div style={{ marginBottom: 12 }}>
         <div style={{ fontWeight: 600, fontSize: 14 }}>{tr('倍率与权重总览')}</div>
         <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 2 }}>
-          {tr('账号单价 / 通道权重 / 站点全局权重 / 下游 key 权重 / 观测成本——只读视图')}
+          {tr('账号单价 / 通道权重 / 站点全局权重 / 下游 key 权重 / 观测成本')}
+          {' — '}
+          {tr('点击 ✎ 编辑单价与权重（不影响计费口径）')}
         </div>
       </div>
 
@@ -69,7 +187,11 @@ export default function RatesOverviewSection() {
                 <tbody>
                   {data.accounts.map((a) => (
                     <tr key={a.accountId}>
-                      <td style={{ fontWeight: 600 }}>{a.unitCost != null ? `$${Number(a.unitCost).toFixed(4)}` : '—'}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        {editCell('account', a.accountId, a.unitCost, () =>
+                          a.unitCost != null ? `$${Number(a.unitCost).toFixed(4)}` : '—',
+                        )}
+                      </td>
                       <td style={{ fontSize: 12 }}>{a.username || `#${a.accountId}`}</td>
                       <td style={{ fontSize: 12 }}>{a.siteName || '—'}</td>
                       <td style={{ fontSize: 12 }}>{a.channelCount}</td>
@@ -96,7 +218,9 @@ export default function RatesOverviewSection() {
                 <tbody>
                   {data.channels.map((c) => (
                     <tr key={c.channelId}>
-                      <td style={{ fontWeight: 600 }}>{fmtWeight(c.weight)}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        {editCell('channel', c.channelId, c.weight, () => fmtWeight(c.weight))}
+                      </td>
                       <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{c.routePattern || '—'}</td>
                       <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{c.modelName || '—'}</td>
                       <td style={{ fontSize: 12 }}>{c.username || `#${c.accountId}`}</td>

@@ -6,6 +6,7 @@ import RatesOverviewSection from './RatesOverviewSection.js';
 const { apiMock } = vi.hoisted(() => ({
   apiMock: {
     getRateOverview: vi.fn(),
+    updateRates: vi.fn(),
   },
 }));
 
@@ -111,6 +112,153 @@ describe('RatesOverviewSection', () => {
 
     const text = collectText(renderer!.root);
     expect(text).toContain('倍率与权重总览');
+
+    renderer!.unmount();
+  });
+
+  // ---- N9b-a (New API borrow): inline batch editing ----
+
+  function findEditButtons(renderer: ReactTestRenderer) {
+    return renderer.root.findAllByProps({ title: '编辑' });
+  }
+
+  it('edits an account unit cost inline and saves', async () => {
+    apiMock.updateRates.mockResolvedValue({ success: true, updatedAccounts: 1, updatedChannels: 0 });
+    let renderer!: ReactTestRenderer;
+
+    await expect(act(async () => {
+      renderer = create(
+        <ToastProvider>
+          <RatesOverviewSection />
+        </ToastProvider>,
+      );
+    })).resolves.toBeUndefined();
+    await flushMicrotasks();
+
+    // First ✎ belongs to the account table (unit cost cell).
+    const buttons = findEditButtons(renderer!);
+    expect(buttons.length).toBeGreaterThanOrEqual(2);
+    await act(async () => {
+      buttons[0].props.onClick();
+    });
+
+    const input = renderer!.root.findByType('input');
+    await act(async () => {
+      input.props.onChange({ target: { value: '0.009' } });
+    });
+
+    const saveButton = renderer!.root
+      .findAllByType('button')
+      .find((b) => b.props.children === '保存')!;
+    await act(async () => {
+      saveButton.props.onClick();
+    });
+    await flushMicrotasks();
+
+    expect(apiMock.updateRates).toHaveBeenCalledWith({
+      accounts: [{ id: 1, unitCost: 0.009 }],
+    });
+    // Reloaded after save.
+    expect(apiMock.getRateOverview).toHaveBeenCalledTimes(2);
+
+    renderer!.unmount();
+  });
+
+  it('edits a channel weight inline and saves', async () => {
+    apiMock.updateRates.mockResolvedValue({ success: true, updatedAccounts: 0, updatedChannels: 1 });
+    let renderer!: ReactTestRenderer;
+
+    await expect(act(async () => {
+      renderer = create(
+        <ToastProvider>
+          <RatesOverviewSection />
+        </ToastProvider>,
+      );
+    })).resolves.toBeUndefined();
+    await flushMicrotasks();
+
+    // Third ✎ belongs to the channel weight cell (2 accounts first).
+    const buttons = findEditButtons(renderer!);
+    await act(async () => {
+      buttons[2].props.onClick();
+    });
+
+    const input = renderer!.root.findByType('input');
+    await act(async () => {
+      input.props.onChange({ target: { value: '12' } });
+    });
+    // Enter commits.
+    await act(async () => {
+      input.props.onKeyDown({ key: 'Enter' });
+    });
+    await flushMicrotasks();
+
+    expect(apiMock.updateRates).toHaveBeenCalledWith({
+      channels: [{ id: 1, weight: 12 }],
+    });
+
+    renderer!.unmount();
+  });
+
+  it('rejects negative values without calling the API', async () => {
+    let renderer!: ReactTestRenderer;
+
+    await expect(act(async () => {
+      renderer = create(
+        <ToastProvider>
+          <RatesOverviewSection />
+        </ToastProvider>,
+      );
+    })).resolves.toBeUndefined();
+    await flushMicrotasks();
+
+    const buttons = findEditButtons(renderer!);
+    await act(async () => {
+      buttons[0].props.onClick();
+    });
+    const input = renderer!.root.findByType('input');
+    await act(async () => {
+      input.props.onChange({ target: { value: '-1' } });
+    });
+    const saveButton = renderer!.root
+      .findAllByType('button')
+      .find((b) => b.props.children === '保存')!;
+    await act(async () => {
+      saveButton.props.onClick();
+    });
+    await flushMicrotasks();
+
+    expect(apiMock.updateRates).not.toHaveBeenCalled();
+
+    renderer!.unmount();
+  });
+
+  it('cancels inline editing with Escape', async () => {
+    let renderer!: ReactTestRenderer;
+
+    await expect(act(async () => {
+      renderer = create(
+        <ToastProvider>
+          <RatesOverviewSection />
+        </ToastProvider>,
+      );
+    })).resolves.toBeUndefined();
+    await flushMicrotasks();
+
+    const buttons = findEditButtons(renderer!);
+    await act(async () => {
+      buttons[0].props.onClick();
+    });
+    const input = renderer!.root.findByType('input');
+    await act(async () => {
+      input.props.onKeyDown({ key: 'Escape' });
+    });
+    await flushMicrotasks();
+
+    // Input is gone, all ✎ buttons are back (2 accounts + 1 channel).
+    expect(renderer!.root.findAllByType('input')).toHaveLength(0);
+    expect(findEditButtons(renderer!)).toHaveLength(3);
+    expect(apiMock.updateRates).not.toHaveBeenCalled();
 
     renderer!.unmount();
   });

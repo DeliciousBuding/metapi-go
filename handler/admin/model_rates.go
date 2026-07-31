@@ -1,28 +1,106 @@
 package admin
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
+
+	"github.com/tokendancelab/metapi-go/routing"
 )
 
-// ---- Model Rate Overview (New API borrow N9a) ----
+// ---- Model Rate Overview (New API borrow N9a/N9b-a) ----
 //
-// Read-only aggregation of every multiplier/rate surface so an operator sees
-// "which account costs most / which channel weighs most" in one table.
-// Pure read — never mutates billing or routing. See
-// docs/analysis/competitive/n8-n9-deferred-assessment-2026-08-01.md.
+// N9a: read-only aggregation of every multiplier/rate surface.
+// N9b-a: batch update of accounts.unit_cost + route_channels.weight — pure
+// config writes; unit_cost stays a display/planning field (estimated_cost is
+// ratio-based, never account-priced; N9b-b explicitly closed).
+// See docs/analysis/competitive/n8-n9-deferred-assessment-2026-08-01.md.
 
 // RegisterModelRatesRoutes mounts the rate overview endpoint.
 func RegisterModelRatesRoutes(r chi.Router, db *sqlx.DB) {
 	h := &modelRatesHandler{db: db}
 	r.Get("/api/models/rates", h.rates)
+	r.Put("/api/models/rates", h.updateRates)
 }
 
 type modelRatesHandler struct {
 	db *sqlx.DB
+}
+
+// PUT /api/models/rates — batch update body:
+// {"accounts": [{"id": 1, "unitCost": 0.003}], "channels": [{"id": 5, "weight": 20}]}
+// unitCost/weight must be >= 0. Missing arrays are no-ops.
+func (h *modelRatesHandler) updateRates(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Accounts []struct {
+			ID       int64    `json:"id"`
+			UnitCost *float64 `json:"unitCost"`
+		} `json:"accounts"`
+		Channels []struct {
+			ID     int64    `json:"id"`
+			Weight *float64 `json:"weight"`
+		} `json:"channels"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid JSON body"})
+		return
+	}
+	if len(body.Accounts) == 0 && len(body.Channels) == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "nothing to update"})
+		return
+	}
+
+	updatedAccounts := 0
+	for _, acc := range body.Accounts {
+		if acc.ID <= 0 || acc.UnitCost == nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"message": "account entries need id and unitCost"})
+			return
+		}
+		if *acc.UnitCost < 0 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"message": "unitCost must be >= 0"})
+			return
+		}
+		res, err := h.db.Exec(rebindAdminQuery(h.db, "UPDATE accounts SET unit_cost = ? WHERE id = ?"), *acc.UnitCost, acc.ID)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to update account unit cost"})
+			return
+		}
+		if n, _ := res.RowsAffected(); n > 0 {
+			updatedAccounts++
+		}
+	}
+
+	updatedChannels := 0
+	for _, ch := range body.Channels {
+		if ch.ID <= 0 || ch.Weight == nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"message": "channel entries need id and weight"})
+			return
+		}
+		if *ch.Weight < 0 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"message": "weight must be >= 0"})
+			return
+		}
+		res, err := h.db.Exec(rebindAdminQuery(h.db, "UPDATE route_channels SET weight = ? WHERE id = ?"), *ch.Weight, ch.ID)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to update channel weight"})
+			return
+		}
+		if n, _ := res.RowsAffected(); n > 0 {
+			updatedChannels++
+		}
+	}
+
+	// Weights feed routing cache — invalidate so changes apply immediately.
+	routing.InvalidateCache()
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success":         true,
+		"updatedAccounts": updatedAccounts,
+		"updatedChannels": updatedChannels,
+	})
 }
 
 // GET /api/models/rates
