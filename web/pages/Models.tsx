@@ -9,6 +9,7 @@ import ResponsiveFilterPanel from '../components/ResponsiveFilterPanel.js';
 import { useAnimatedVisibility } from '../components/useAnimatedVisibility.js';
 import { useIsMobile } from '../components/useIsMobile.js';
 import { EmptyState, Button as DsButton } from '../design-system/index.js';
+import ModelVerifyDialog from '../components/ModelVerifyDialog.js';
 import { mergeMarketplaceMetadata, shouldHydrateMarketplaceMetadata } from './helpers/modelsMarketplaceMetadata.js';
 import { tr } from '../i18n.js';
 
@@ -217,6 +218,8 @@ export default function Models() {
   const [priceItems, setPriceItems] = useState<PriceCompareItem[]>([]);
   const [priceError, setPriceError] = useState<string | null>(null);
   const [priceLoaded, setPriceLoaded] = useState(false);
+  // G1 (all-api-hub borrow): batch model verification dialog.
+  const [verifyOpen, setVerifyOpen] = useState(false);
   const isMobile = useIsMobile();
   const filterPanelPresence = useAnimatedVisibility(!isMobile && !filterCollapsed, 220);
   const latestPrimaryRequestRef = useRef(0);
@@ -663,6 +666,18 @@ export default function Models() {
               <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
+            </button>
+            {/* G1 (all-api-hub borrow): batch model verification */}
+            <button
+              onClick={() => setVerifyOpen(true)}
+              className="btn btn-ghost"
+              style={{ border: '1px solid var(--color-border)', padding: '6px 12px' }}
+              data-testid="open-model-verify"
+            >
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ marginRight: 4, verticalAlign: '-2px' }}>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              {tr('批量验证')}
             </button>
             {metadataHydrating && (
               <span className="badge badge-muted" style={{ fontSize: 11 }}>{tr('加载元数据中...')}</span>
@@ -1256,6 +1271,13 @@ export default function Models() {
           </div>
         )}
       </div>
+
+      {/* G1 (all-api-hub borrow): batch model verification + history */}
+      <ModelVerifyDialog
+        open={verifyOpen}
+        onClose={() => setVerifyOpen(false)}
+        models={filteredModels.map((m) => m.name)}
+      />
     </div>
   );
 }

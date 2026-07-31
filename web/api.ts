@@ -258,6 +258,32 @@ export type LatencyTrendResponse = {
   truncatedDays: string[];
 };
 
+// G1 (all-api-hub borrow): batch model verification + history.
+export type ModelVerifyItem = {
+  model: string;
+  channelId?: number | null;
+  accountId?: number | null;
+  siteId?: number | null;
+  siteName?: string;
+  status: "success" | "failure" | "inconclusive" | "skipped";
+  latencyMs?: number | null;
+  httpStatus?: number | null;
+  errorText?: string | null;
+  healthApplied?: boolean;
+  createdAt?: string;
+};
+
+export type VerifyBatchResponse = {
+  success: boolean;
+  batchId: string;
+  probed: number;
+  summary: { success: number; failure: number; inconclusive: number; skipped: number };
+  items: ModelVerifyItem[];
+  note?: string;
+};
+
+export type VerifyHistoryResponse = { items: ModelVerifyItem[] };
+
 async function streamSse(
   url: string,
   handlers: {
@@ -1217,6 +1243,18 @@ export const api = {
     request(
       `/api/stats/latency-trend?days=${days}`,
     ) as Promise<LatencyTrendResponse>,
+  // G1 (all-api-hub borrow): batch model verification + history.
+  verifyModelsBatch: (models: string[], accountId = 0, limit = 50) =>
+    request("/api/models/verify-batch", {
+      method: "POST",
+      body: JSON.stringify({ models, accountId, limit }),
+    }) as Promise<VerifyBatchResponse>,
+  getModelVerifyHistory: (limit = 50, model = "") =>
+    request(
+      `/api/models/verify-history?limit=${limit}${
+        model ? `&model=${encodeURIComponent(model)}` : ""
+      }`,
+    ) as Promise<VerifyHistoryResponse>,
   // C1 (all-api-hub borrow): unified recurring-scheduler run history.
   getSchedulerStatus: () =>
     request<{ items: SchedulerRunStatus[]; generatedAt: string }>(

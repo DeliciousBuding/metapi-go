@@ -434,6 +434,21 @@ type BalanceHistory struct {
 	CreatedAt    string  `db:"created_at" json:"createdAt"`
 }
 
+// ---- Table 30: model_verify_history (all-api-hub borrow G1) ----
+type ModelVerifyRecord struct {
+	ID          int64    `db:"id" json:"id"`
+	BatchID     string   `db:"batch_id" json:"batchId"`
+	ModelName   string   `db:"model_name" json:"modelName"`
+	ChannelID   *int64   `db:"channel_id" json:"channelId"`
+	AccountID   *int64   `db:"account_id" json:"accountId"`
+	SiteID      *int64   `db:"site_id" json:"siteId"`
+	Status      string   `db:"status" json:"status"`
+	LatencyMs   *float64 `db:"latency_ms" json:"latencyMs"`
+	HTTPStatus  *int64   `db:"http_status" json:"httpStatus"`
+	ErrorText   *string  `db:"error_text" json:"errorText"`
+	CreatedAt   string   `db:"created_at" json:"createdAt"`
+}
+
 // ---- Table 25: downstream_api_keys ----
 type DownstreamAPIKey struct {
 	ID           int64    `db:"id" json:"id"`

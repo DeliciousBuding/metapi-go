@@ -47,6 +47,9 @@ func RegisterStatsRoutes(r chi.Router, db *sqlx.DB) {
 	r.Get("/api/models/token-candidates", handler.tokenCandidates)
 	r.Post("/api/models/check/{accountId}", handler.modelCheck)
 	r.Post("/api/models/probe", handler.modelProbe)
+	// G1 (all-api-hub borrow): batch model verification + history.
+	r.Post("/api/models/verify-batch", handler.verifyBatch)
+	r.Get("/api/models/verify-history", handler.verifyHistory)
 }
 
 // RegisterDownstreamPricingRoutes mounts the cross-site price catalog behind

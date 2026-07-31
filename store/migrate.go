@@ -77,6 +77,8 @@ func AutoMigrate(db *DB) error {
 		{"admin_background_tasks", buildAdminBackgroundTasksDDL(dialect)},
 		// Table 29: balance_history (all-api-hub borrow A1)
 		{"balance_history", buildBalanceHistoryDDL(dialect)},
+		// Table 30: model_verify_history (all-api-hub borrow G1)
+		{"model_verify_history", buildModelVerifyHistoryDDL(dialect)},
 	}
 
 	// Non-UNIQUE indexes are created separately via CREATE INDEX IF NOT EXISTS
@@ -1217,6 +1219,43 @@ func buildBalanceHistoryDDL(d string) string {
 	)`
 }
 
+// buildModelVerifyHistoryDDL creates the model_verify_history table
+// (all-api-hub borrow G1). One row per model/channel probe result from an
+// operator-initiated batch verification pass (POST /api/models/verify-batch).
+// batch_id groups one operator action; status is success | failure |
+// inconclusive | skipped (same vocabulary as the background model probe).
+func buildModelVerifyHistoryDDL(d string) string {
+	if isPG(d) {
+		return `CREATE TABLE IF NOT EXISTS model_verify_history (
+			id SERIAL PRIMARY KEY,
+			batch_id TEXT NOT NULL,
+			model_name TEXT NOT NULL,
+			channel_id INTEGER,
+			account_id INTEGER REFERENCES accounts(id) ON DELETE CASCADE,
+			site_id INTEGER,
+			status TEXT NOT NULL,
+			latency_ms DOUBLE PRECISION,
+			http_status INTEGER,
+			error_text TEXT,
+			created_at TEXT NOT NULL
+		)`
+	}
+	return `CREATE TABLE IF NOT EXISTS model_verify_history (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		batch_id TEXT NOT NULL,
+		model_name TEXT NOT NULL,
+		channel_id INTEGER,
+		account_id INTEGER,
+		site_id INTEGER,
+		status TEXT NOT NULL,
+		latency_ms REAL,
+		http_status INTEGER,
+		error_text TEXT,
+		created_at TEXT NOT NULL,
+		FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+	)`
+}
+
 func buildEventsDDL(d string) string {
 	if isPG(d) {
 		return `CREATE TABLE IF NOT EXISTS events (
@@ -1342,6 +1381,9 @@ func buildIndexes() []struct {
 		// balance_history (all-api-hub borrow A1)
 		{"balance_history_day_idx", `CREATE INDEX IF NOT EXISTS balance_history_day_idx ON balance_history (local_day)`},
 		{"balance_history_account_idx", `CREATE INDEX IF NOT EXISTS balance_history_account_idx ON balance_history (account_id)`},
+		// model_verify_history (all-api-hub borrow G1)
+		{"model_verify_history_batch_idx", `CREATE INDEX IF NOT EXISTS model_verify_history_batch_idx ON model_verify_history (batch_id, created_at)`},
+		{"model_verify_history_model_idx", `CREATE INDEX IF NOT EXISTS model_verify_history_model_idx ON model_verify_history (model_name, created_at)`},
 		// downstream_api_keys
 		{"downstream_api_keys_name_idx", `CREATE INDEX IF NOT EXISTS downstream_api_keys_name_idx ON downstream_api_keys (name)`},
 		{"downstream_api_keys_enabled_idx", `CREATE INDEX IF NOT EXISTS downstream_api_keys_enabled_idx ON downstream_api_keys (enabled)`},

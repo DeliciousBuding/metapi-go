@@ -188,6 +188,64 @@ func (s *ModelProbeScheduler) LastRunSummary() ProbeRunSummary {
 	return s.lastRunSummary
 }
 
+// BatchProbeResult is one row of an operator-initiated batch verification
+// (all-api-hub borrow G1). HealthApplied reports whether the outcome was
+// recorded into routing health/cooldown; a nil recorder leaves it false.
+type BatchProbeResult struct {
+	Target        ProbeTarget
+	Outcome       ProbeOutcome
+	HealthApplied bool
+}
+
+// ProbeBatch runs immediate lightweight probes for explicit targets (admin
+// batch model verification, all-api-hub borrow G1). It reuses the injected
+// probe executor and, when a recorder is wired, applies health outcomes —
+// but never acquires account leases: this is a one-shot operator action,
+// not a background pass. A nil scheduler or missing executor yields skipped
+// results with no health mutation.
+func (s *ModelProbeScheduler) ProbeBatch(ctx context.Context, targets []ProbeTarget, timeoutMs int) []BatchProbeResult {
+	if s == nil {
+		out := make([]BatchProbeResult, 0, len(targets))
+		for _, t := range targets {
+			out = append(out, BatchProbeResult{Target: t, Outcome: ProbeOutcome{Status: "skipped"}})
+		}
+		return out
+	}
+	s.mu.Lock()
+	probe := s.probe
+	recorder := s.recorder
+	s.mu.Unlock()
+
+	if timeoutMs < 3000 {
+		timeoutMs = 3000
+	}
+
+	out := make([]BatchProbeResult, 0, len(targets))
+	for _, target := range targets {
+		res := BatchProbeResult{Target: target, Outcome: ProbeOutcome{Status: "skipped"}}
+		if probe == nil {
+			out = append(out, res)
+			continue
+		}
+		probeCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutMs)*time.Millisecond)
+		outcome, err := probe.ProbeChannel(probeCtx, target)
+		cancel()
+		if err != nil {
+			res.Outcome = ProbeOutcome{Status: "inconclusive", ErrorText: err.Error()}
+			out = append(out, res)
+			continue
+		}
+		res.Outcome = outcome
+		if recorder != nil {
+			if _, applyErr := ApplyProbeOutcome(ctx, recorder, target, outcome); applyErr == nil {
+				res.HealthApplied = true
+			}
+		}
+		out = append(out, res)
+	}
+	return out
+}
+
 // TriggerNow runs one probe pass asynchronously (or sync if sync=true).
 // Used by admin /api/models/probe and site probe-now (#154).
 func (s *ModelProbeScheduler) TriggerNow(sync bool) ProbeRunSummary {
