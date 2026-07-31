@@ -7,6 +7,11 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Added — all-api-hub borrow Wave A (product surface)
+- **A1 余额历史快照表 + 趋势图**: 新 `balance_history` 表（per UTC day per account，同日 UPSERT 覆盖）；`RefreshBalance` 成功路径自动写快照（best-effort，不阻断刷新）；`GET /api/stats/balance-history?accountId=&days=`；Dashboard「余额趋势」卡（跨账号聚合总余额近 30 天）
+- **B1 需关注看板**: `GET /api/stats/attention` severity 排序深链项（expired accounts critical → low-balance <1.0 warning → disabled sites warning → 近 24h warning/error events）；Dashboard 顶部「需要关注」面板，点击直达对应页面
+- **D1 per-task 通知 + 4 新渠道**: feishu/dingtalk（HMAC-SHA256 加签）/wecom/ntfy 四专用 channel（共享有界 client + SSRF 校验）；`notify_task_toggles` 按告警类型静音（token_expired / low_balance / proxy_all_failed，缺省全开向后兼容）；NotificationSettings 扩展渠道卡 + 静音行
+
 ### Added — original parity program (ex-Electron)
 - **KEYS**: per-downstream-key weight (#547); site custom header override priority (#584); allow-list bind sites/credentials on downstream keys (#579)
 - **WS-1 C1–C3**: Responses WebSocket via `coder/websocket` — upgrade + HTTP SSE bridge + multi-turn/quota (C2) + Codex upstream wss runtime with dial→HTTP fallback (C3); status `c3_codex_upstream_wss`

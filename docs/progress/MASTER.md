@@ -4,7 +4,7 @@
 **Repo**: https://github.com/TokenDanceLab/metapi-go  
 **Mode**: **GITHUB_FULL** · product **parity core shipped**; active M53 REL-HONESTY  
 **Project**: https://github.com/orgs/TokenDanceLab/projects/1  
-**Tip**: `97c54b1` · tag **v0.8.45** · unreleased: parity core + P0-555 obs + P0-585 HTTP e2e + #557 procedure + CI unblock + dual-dialect Context helpers + engineering optimization wave + N2-N7/G1 productization batch + all-api-hub product borrow synthesis (A1-J1, decision-input)  
+**Tip**: `6e0312b` · tag **v0.8.45** · unreleased: parity core + P0-555 obs + P0-585 HTTP e2e + #557 procedure + CI unblock + dual-dialect Context helpers + engineering optimization wave + N2-N7/G1 productization batch + all-api-hub borrow Wave A (A1 余额历史 / B1 需关注看板 / D1 per-task 通知+4 渠道)  
 **Program plan**: [`../plan/original-parity-complete-2026-07-20.md`](../plan/original-parity-complete-2026-07-20.md)
 
 > **开放项 + 硬门禁**。现状 → [`../STATE.md`](../STATE.md) · 日志 → [`../log.md`](../log.md) · shortlist → [`../analysis/high-value-next.md`](../analysis/high-value-next.md)
@@ -72,4 +72,4 @@ gh project view 1 --owner TokenDanceLab
 2. REL: P0-585 needs **production/live e2e** per [`../analysis/p0585-production-e2e-procedure.md`](../analysis/p0585-production-e2e-procedure.md) (#557); HTTP e2e already on tip.  
 3. Ops pin **0.8.45** only with admin auth + ≥15min soak.  
 4. Do **not** invent UC registry / STICKY-B / fake WS terminals.  
-5. Product borrow backlog（决策输入，未立项）: [`../analysis/competitive/all-api-hub-product-borrow-2026-07-31.md`](../analysis/competitive/all-api-hub-product-borrow-2026-07-31.md) — A1 余额历史 / B1 需关注看板 / D1 per-task 通知 为 P0 候选；需用户拍板再动，不静默实现。
+5. Product borrow backlog（决策输入，未立项）: [`../analysis/competitive/all-api-hub-product-borrow-2026-07-31.md`](../analysis/competitive/all-api-hub-product-borrow-2026-07-31.md) — **Wave A 已发（A1/B1/D1）**；余 P1-P3 候选（C1 统一运行历史 / A2 模型成本分布 / G1 批量验证 / E1 随机窗口 / F1 导入预览 / I1 标签 / H1 风险横幅 / K1 模型映射 / J1 快照 PNG）需拍板再动，不静默实现。

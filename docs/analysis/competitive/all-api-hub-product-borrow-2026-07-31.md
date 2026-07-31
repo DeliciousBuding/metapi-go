@@ -141,9 +141,9 @@ all-api-hub `ManagedSiteChannels`: TanStack 表（排序 / faceted filter / 列�
 
 | 优先级 | # | 借鉴项 | all-api-hub 证据 | metapi-go 落点 | 量 | 价值 |
 |:------:|:--|:-------|:----------------|:--------------|:--|:-----|
-| **P0** | **A1** | **余额历史快照表 + 趋势图** | `BalanceHistory` 每日 per-account 快照 + income/outcome 分离 + 7/30/90/180/365d | 新 `balance_history` 表（AdditiveStep）+ `scheduler/balance.go` 刷新时写快照 + Dashboard 余额趋势卡 + Accounts 余额历史抽屉 | **M** | 高（聚合网关独有数据底座，补上即超越原版 TS 也未做的承诺） |
-| **P0** | **B1** | **需关注看板（severity 排序 + 深链）** | `OptionsOverview` attention list + status cards + automation overview | Dashboard 加 attention 面板，聚合 events 表 + unhealthy accounts/channels + 缺配置，severity 排序深链 | **S-M** | 高（日常驾驶，复用现有 events 底座） |
-| **P0** | **D1** | **per-task 通知开关 + feishu/dingtalk/wecom/ntfy 渠道** | notifications per-task toggles + 6 外部渠道 | `settings_notify.go` 扩 per-task toggle；新 `service/notify/feishu.go`/`dingtalk.go`/`wecom.go`/`ntfy.go`；NotificationSettings UI 扩 | **M** | 高（LLM 网关高频请求特性） |
+| **P0** | **A1** | **余额历史快照表 + 趋势图** ✅ 已发 | `BalanceHistory` 每日 per-account 快照 + income/outcome 分离 + 7/30/90/180/365d | 新 `balance_history` 表（AdditiveStep）+ `scheduler/balance.go` 刷新时写快照 + Dashboard 余额趋势卡 + Accounts 余额历史抽屉 | **M** | 高（聚合网关独有数据底座，补上即超越原版 TS 也未做的承诺） |
+| **P0** | **B1** | **需关注看板（severity 排序 + 深链）** ✅ 已发 | `OptionsOverview` attention list + status cards + automation overview | Dashboard 加 attention 面板，聚合 events 表 + unhealthy accounts/channels + 缺配置，severity 排序深链 | **S-M** | 高（日常驾驶，复用现有 events 底座） |
+| **P0** | **D1** | **per-task 通知开关 + feishu/dingtalk/wecom/ntfy 渠道** ✅ 已发 | notifications per-task toggles + 6 外部渠道 | `settings_notify.go` 扩 per-task toggle；新 `service/notify/feishu.go`/`dingtalk.go`/`wecom.go`/`ntfy.go`；NotificationSettings UI 扩 | **M** | 高（LLM 网关高频请求特性） |
 | **P1** | **C1** | **调度任务统一运行历史 UI** | 签到/余额/模型同步/公告共用 per-item 结果表 + 统计卡 + next-run | 泛化 checkin_logs → 通用 job_runs 视图（或各任务表 + 统一前端页），前端 JobHistory 页复用 | **M** | 中高（11+ 周期任务可观察性统一） |
 | **P1** | **A2** | **模型成本分布 + 延迟直方图/趋势图表画廊** | `UsageAnalytics` 8 图 + 跨图联动 + topN-Other | `stats.go` 加 cost-distribution / latency-histogram / latency-trend 端点；Dashboard/Models 加图 | **M** | 中高（数据已齐，只差视图） |
 | **P1** | **G1** | **批量模型验证 + 验证历史** | `BatchVerifyModelsDialog` + verification-result history | 复用 modelProbe 逻辑做批量 N 模型 per-row + 延迟 + history 表；Models 页批量验证 dialog | **M** | 中（运维 UX） |

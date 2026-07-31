@@ -3,6 +3,14 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-07-31] all-api-hub borrow Wave A 交付（A1/B1/D1）
+
+- **A1 余额历史快照表 + 趋势图**（`34d3371`）: 新 `balance_history` 表（Table 29，per (local_day, account_id) UPSERT 同日覆盖）+ `RefreshBalance` 成功路径 `recordBalanceSnapshot`（dialect-unified ON CONFLICT DO UPDATE，best-effort 不阻断刷新）+ `/api/stats/balance-history?accountId=&days=`（per-account per-day 系列）+ Dashboard `BalanceHistoryChart`（跨账号聚合 per-day 总余额趋势）。测试：RefreshBalance 两次→1 行 UPSERT；端点两天快照 + ASC 排序。
+- **B1 需关注看板**（`9d0c5ab`）: `/api/stats/attention?limit=` 聚合 expired accounts（critical）→ low-balance <1.0（warning）→ disabled sites（warning）→ 近 24h warning/error events，每项 category/label/target（深链）/createdAt。Dashboard 顶部 `AttentionPanel`（severity dot + navigate 深链 + EmptyState）。只查 plain columns（runtime health 已由 alert.go 写 events，避免 json_extract 跨方言）。4 个 dashboard 测试补 mock；site-speed-button 测试补 MemoryRouter。
+- **D1 per-task 通知 + 4 新渠道**（`6e0312b`）: 新 `service/notify/{feishu,dingtalk,wecom,ntfy}.go`——飞书 HMAC-SHA256 签名（key=ts+"\n"+secret, msg=""→base64）、钉钉 HMAC-SHA256（key=secret, msg=ts+"\n"+secret→base64）+ URL query 追加、企业微信 text msgtype、ntfy POST + Title/Priority/Tags/Bearer；全部走共享 `doNotifyRequest`。`SendNotificationOptions.TaskTag` + `cfg.NotifyTaskToggles` 静音门（空 TaskTag=不门控）；alert 3 调用带 tag（token_expired/low_balance/proxy_all_failed）；config/store/settings/handler 全链持久化；NotificationSettings 扩展渠道卡 + 按告警类型静音行。测试：签名确定性 + 4 渠道 send + 静音门 3 场景（10 个新测试）。
+- **验证**: `go vet ./...` + `go test ./...` 全绿；`npm run typecheck` + `vitest` 159 文件/526 测试全绿；SPA rebuild 三次。
+- SSOT 同步: STATE tip `6e0312b` / MASTER 未发布清单 / log 本条目；borrow doc P0 三行标 ✅。
+
 ## [2026-07-31] all-api-hub 全面产品面借鉴 synthesis
 
 - **决策输入文档**（未提交，待 commit）: 新 `docs/analysis/competitive/all-api-hub-product-borrow-2026-07-31.md`（241 行）。Explore 子代理全量审计 all-api-hub @ `a1ef3e9`（v3.52.0）23 feature + 60+ service，leader 用 metapi-go 源码逐条复核，得 13 项可借鉴产品能力（A1-J1）。

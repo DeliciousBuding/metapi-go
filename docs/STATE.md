@@ -14,7 +14,7 @@
 | Fact | Value |
 |:-----|:------|
 | Latest release tag | **[v0.8.45](https://github.com/TokenDanceLab/metapi-go/releases/tag/v0.8.45)** (2026-07-20) — RE2-safe + UI tip |
-| Tip | `10384ee` — N7 admin 可配 prompt-cache 倍率 fallback（routing atomic override + config + settings 持久化 + 启动 apply）; prior `9c056a4` N2-N6+G1 批次, `d4633f1` N1 IP 白名单, `0879652` §5.11 leaf, `a352ab4` UIUX wave 2/3; **N8/N9 deferred（M 级，触及调度/计费核心）** |
+| Tip | `6e0312b` — all-api-hub borrow Wave A：A1 余额历史快照表+趋势图 / B1 需关注看板 / D1 per-task 通知+feishu/dingtalk/wecom/ntfy; prior `10384ee` N7, `9c056a4` N2-N6+G1, `d4633f1` N1 IP 白名单, `0879652` §5.11 leaf, `a352ab4` UIUX wave 2/3; **N8/N9 deferred（M 级，触及调度/计费核心）** |
 | Production pin (ops) | server `projects/metapi/STATE.md` — hk3 still **0.8.44 Exited(2)** until authorized pin/up of **0.8.45** + 15min soak; pool/role **1/1**; restart=no |
 | Standby us1 pin | compose **0.8.42** + image pulled (#528); cold stack not auto-started |
 | Active milestone | **[53 REL-HONESTY](https://github.com/TokenDanceLab/metapi-go/milestone/53)** — #557 prod e2e + #558 runtime probes open; M52 UI-POLISH closed (0 open) |
