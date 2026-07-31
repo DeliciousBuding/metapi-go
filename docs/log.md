@@ -683,3 +683,11 @@
 - `i18n.coverage.test.ts` 门禁升级：新增第二用例「raw JSX Chinese is covered by the dictionary」——扫描所有 .tsx 的属性/文本节点中文，断言 EN 无残留（防未来硬编码中文漏补字典）
 
 **验证**：573 vitest（174 文件）零 Unhandled · typecheck exit=0 · SPA rebuild
+
+## [2026-08-01] i18n 第三面：JSX 插值碎片补译 + toast 面验证
+
+- 插值行文本节点（React 拆分为独立片段，如「确认删除 {n} 个连接吗？」拆出「个连接吗？」）补 4 条碎片翻译（个连接吗？/获取。/访问/之类的参数。）——此前 EN 下残留中文
+- toast/confirm/alert 直接调用的 91 条中文审计：全部已覆盖（无 Untranslated）——此面干净
+- `i18n.coverage.test.ts` 加第三用例「interpolated JSX text fragments」——插值片段纳入门禁
+
+**验证**：574 vitest（174 文件）零 Unhandled · typecheck exit=0 · SPA rebuild

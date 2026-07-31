@@ -69,6 +69,26 @@ function collectRawJSX(): string[] {
   return [...literals];
 }
 
+/**
+ * JSX text nodes that contain interpolation (`{expr}`) — React splits these
+ * into separate text-node fragments that the runtime DOM translator handles
+ * individually; the dictionary must cover the Chinese fragments.
+ */
+function collectInterpolatedJSX(): string[] {
+  const literals = new Set<string>();
+  for (const file of walk('.')) {
+    const src = stripComments(readFileSync(file, 'utf8'));
+    const re = />([^<]*[㐀-鿿][^<]*)<\//g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(src))) {
+      const lit = m[1].trim();
+      if (!lit.includes('{')) continue;
+      literals.add(lit);
+    }
+  }
+  return [...literals];
+}
+
 describe('i18n coverage gate', () => {
   it('every t() Chinese literal has a usable English translation', () => {
     const bad: Array<[string, string]> = [];
@@ -84,6 +104,17 @@ describe('i18n coverage gate', () => {
   it('raw JSX Chinese is covered by the dictionary (runtime DOM translation)', () => {
     const bad: Array<[string, string]> = [];
     for (const literal of collectRawJSX()) {
+      const out = translateText(literal, 'en');
+      if (out === 'Untranslated' || CJK_RE.test(out)) {
+        bad.push([literal, out]);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('interpolated JSX text fragments are covered (React text-node splits)', () => {
+    const bad: Array<[string, string]> = [];
+    for (const literal of collectInterpolatedJSX()) {
       const out = translateText(literal, 'en');
       if (out === 'Untranslated' || CJK_RE.test(out)) {
         bad.push([literal, out]);

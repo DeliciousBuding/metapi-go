@@ -329,7 +329,7 @@ const zhToEn: Record<string, string> = {
   '更多功能': 'More features',
   '更多': 'More',
   /* JSX hardcoded CJK — runtime MutationObserver translates these in EN mode (2026-08-01 sweep) */
-'需要关注': 'Needs attention',
+  '需要关注': 'Needs attention',
   '暂无趋势数据': 'No trend data yet',
   '总消耗': 'Total spend',
   '总调用': 'Total calls',
@@ -510,6 +510,11 @@ const zhToEn: Record<string, string> = {
   '分组': 'Group',
   '不限额度': 'Unlimited quota',
   '待补全': 'Pending',
+  /* JSX interpolation text-node fragments (2026-08-01 sweep) */
+  '个连接吗？': 'connections?',
+  '获取。': 'to fetch.',
+  '访问': 'access',
+  '之类的参数。': 'parameters like these.',
 };
 
 for (const [source, target] of Object.entries(zhToEnSupplemental)) {
