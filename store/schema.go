@@ -473,6 +473,9 @@ type AnnouncementDismissal struct {
 }
 
 // ---- Table 33: model_name_redirects (all-api-hub borrow K1) ----
+// Maps a canonical route model name to the actual upstream name per account
+// (e.g. claude-3-5-sonnet → claude-3-5-sonnet-20241022). source is sync
+// (auto-generated) or manual (operator-authored, never overwritten).
 type ModelNameRedirect struct {
 	ID          int64    `db:"id" json:"id"`
 	AccountID   int64    `db:"account_id" json:"accountId"`
@@ -482,6 +485,22 @@ type ModelNameRedirect struct {
 	LastSeenAt  *string  `db:"last_seen_at" json:"lastSeenAt"`
 	CreatedAt   string   `db:"created_at" json:"createdAt"`
 	UpdatedAt   string   `db:"updated_at" json:"updatedAt"`
+}
+
+// ---- Table 34: admin_audit_logs (sub2api/cliproxyapi borrow B1) ----
+// One row per authenticated admin write operation (POST/PUT/PATCH/DELETE).
+// actor is a sha256 prefix of the admin bearer token; the raw token is never
+// stored. status 0 means the handler panicked before writing (recoverer
+// catches it — the row is still useful as evidence the request arrived).
+type AdminAuditLog struct {
+	ID        int64  `db:"id" json:"id"`
+	Actor     string `db:"actor" json:"actor"`
+	Method    string `db:"method" json:"method"`
+	Path      string `db:"path" json:"path"`
+	Status    int    `db:"status" json:"status"`
+	RequestID string `db:"request_id" json:"requestId"`
+	RemoteIP  string `db:"remote_ip" json:"remoteIp"`
+	CreatedAt string `db:"created_at" json:"createdAt"`
 }
 
 // ---- Table 25: downstream_api_keys ----

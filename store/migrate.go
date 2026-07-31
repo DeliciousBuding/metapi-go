@@ -85,6 +85,8 @@ func AutoMigrate(db *DB) error {
 		{"announcement_dismissals", buildAnnouncementDismissalsDDL(dialect)},
 		// Table 33: model_name_redirects (all-api-hub borrow K1)
 		{"model_name_redirects", buildModelNameRedirectsDDL(dialect)},
+		// Table 34: admin_audit_logs (sub2api/cliproxyapi borrow B1)
+		{"admin_audit_logs", buildAdminAuditLogsDDL(dialect)},
 	}
 
 	// Non-UNIQUE indexes are created separately via CREATE INDEX IF NOT EXISTS
@@ -1368,6 +1370,35 @@ func buildEventsDDL(d string) string {
 	)`
 }
 
+// buildAdminAuditLogsDDL creates the admin_audit_logs table
+// (sub2api/cliproxyapi borrow B1). Records authenticated admin write
+// operations (POST/PUT/PATCH/DELETE) for traceability and compliance.
+// actor is a sha256 prefix of the admin bearer token — never the raw token.
+func buildAdminAuditLogsDDL(d string) string {
+	if isPG(d) {
+		return `CREATE TABLE IF NOT EXISTS admin_audit_logs (
+			id BIGSERIAL PRIMARY KEY,
+			actor TEXT NOT NULL,
+			method TEXT NOT NULL,
+			path TEXT NOT NULL,
+			status INTEGER NOT NULL DEFAULT 0,
+			request_id TEXT,
+			remote_ip TEXT,
+			created_at TEXT NOT NULL
+		)`
+	}
+	return `CREATE TABLE IF NOT EXISTS admin_audit_logs (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		actor TEXT NOT NULL,
+		method TEXT NOT NULL,
+		path TEXT NOT NULL,
+		status INTEGER NOT NULL DEFAULT 0,
+		request_id TEXT,
+		remote_ip TEXT,
+		created_at TEXT NOT NULL
+	)`
+}
+
 // buildIndexes returns all 67 non-UNIQUE index creation statements.
 // Both SQLite and PostgreSQL support CREATE INDEX IF NOT EXISTS syntax.
 // UNIQUE constraints are already handled inside CREATE TABLE via CONSTRAINT ... UNIQUE.
@@ -1471,6 +1502,9 @@ func buildIndexes() []struct {
 		{"model_verify_history_model_idx", `CREATE INDEX IF NOT EXISTS model_verify_history_model_idx ON model_verify_history (model_name, created_at)`},
 		// model_name_redirects (all-api-hub borrow K1)
 		{"model_name_redirects_account_actual_idx", `CREATE INDEX IF NOT EXISTS model_name_redirects_account_actual_idx ON model_name_redirects (account_id, actual)`},
+		// admin_audit_logs (sub2api/cliproxyapi borrow B1)
+		{"admin_audit_logs_created_at_idx", `CREATE INDEX IF NOT EXISTS admin_audit_logs_created_at_idx ON admin_audit_logs (created_at)`},
+		{"admin_audit_logs_method_idx", `CREATE INDEX IF NOT EXISTS admin_audit_logs_method_idx ON admin_audit_logs (method)`},
 		// downstream_api_keys
 		{"downstream_api_keys_name_idx", `CREATE INDEX IF NOT EXISTS downstream_api_keys_name_idx ON downstream_api_keys (name)`},
 		{"downstream_api_keys_enabled_idx", `CREATE INDEX IF NOT EXISTS downstream_api_keys_enabled_idx ON downstream_api_keys (enabled)`},

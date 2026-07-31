@@ -51,6 +51,10 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		r.Use(auth.AdminRateLimit(100, 200))
 		// Stricter OAuth rate limit: 10 req/s, burst 20 (only /api/oauth/*)
 		r.Use(auth.OAuthRateLimit(10, 20))
+		// B1 (sub2api/cliproxyapi borrow): audit admin write operations.
+		if db := store.GetDB(); db != nil {
+			r.Use(admin.AuditMiddleware(db.DB))
+		}
 
 		// /debug/vars moved behind admin auth
 		r.Get("/api/debug/vars", app.MetricsHandler)
@@ -84,6 +88,8 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 			admin.RegisterModelRedirectRoutes(r, db.DB)
 			// N9a (New API borrow): read-only multiplier/rate overview.
 			admin.RegisterModelRatesRoutes(r, db.DB)
+			// B1 (sub2api/cliproxyapi borrow): admin write-operation audit log.
+			admin.RegisterAuditLogsRoutes(r, db.DB)
 			// C1 (all-api-hub borrow): unified recurring-scheduler run history.
 			admin.RegisterSchedulerStatusRoutes(r, db.DB)
 			admin.RegisterTestRoutes(r, db.DB, cfg)

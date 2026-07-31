@@ -1323,6 +1323,9 @@ export const api = {
   // A3 (all-api-hub borrow): income vs outcome balance analysis.
   getBalanceIncomeOutcome: (days = 30) =>
     request(`/api/stats/balance-income-outcome?days=${days}`),
+  // B1 (sub2api/cliproxyapi borrow): admin write-operation audit log.
+  getAdminAuditLogs: (params?: URLSearchParams) =>
+    request(`/api/admin/audit-logs${params ? `?${params.toString()}` : ''}`),
   getAttention: (limit = 20) =>
     request(`/api/stats/attention?limit=${limit}`),
   // A2 (all-api-hub borrow): model cost distribution + latency chart gallery.

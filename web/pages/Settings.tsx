@@ -23,6 +23,7 @@ import UpdateCenterSection from './settings/UpdateCenterSection.js';
 import AnnouncementsSection from './settings/AnnouncementsSection.js';
 import ModelRedirectsSection from './settings/ModelRedirectsSection.js';
 import RatesOverviewSection from './settings/RatesOverviewSection.js';
+import AuditLogsSection from './settings/AuditLogsSection.js';
 import {
   applyRoutingProfilePreset,
   resolveRoutingProfilePreset,
@@ -2540,6 +2541,9 @@ export default function Settings() {
 
         {/* N9a (New API borrow): read-only rate overview */}
         <RatesOverviewSection />
+
+        {/* B1 (sub2api/cliproxyapi borrow): admin write-operation audit log */}
+        <AuditLogsSection />
 
         <div className="card animate-slide-up stagger-6" style={{ padding: 20 }}>
           <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12 }}>维护工具</div>

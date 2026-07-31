@@ -607,3 +607,9 @@
 - Dashboard 新卡「余额流入 vs 消费」：VChart 分组柱（收入/消费 per day）+ 汇总（总收入/总消费/净，净值颜色区分）。
 - 测试：后端恒等式/多账号聚合/PG 奇偶 3 例 + 前端 3 例；全量 560 vitest + go vet/test 绿。
 - **all-api-hub borrow A1-J1 全部 14/14 立项项收官**（A3 为最后一项）；MASTER 第 5 条 backlog 状态同步。
+
+## [2026-08-01] B1: 管理操作审计日志（sub2api/cliproxyapi borrow）
+
+- 竞品对标收官：sub2api + cliproxyapi 系统勘察（决策文档 `sub2api-cliproxyapi-borrow-2026-08-01.md`）——17 项对照，10 项等价/非目标关闭（S1 额度探测≈RefreshBalance+G1、C1 冷却黑窗≈DB cooldown_until、C2 粘性≈stable_first、C4 别名池≈pattern+多通道 等），4 项 deferred（QPS WS / 周期额度 / 批量媒体 / 登录 2FA），1 项立项。
+- B1 落地：`admin_audit_logs` 表（Table 34，actor=token sha256 前缀 8 位，永不存明文）+ `AuditMiddleware`（admin auth 后，POST/PUT/PATCH/DELETE 记录，GET 不记，best-effort 不阻断）+ `GET /api/admin/audit-logs`（method/path 过滤 + limit）+ Settings「管理操作审计」页（方法 badge/状态着色/actor/IP/request_id）。
+- 测试：中间件 3 例（写记录/读跳过/status 捕获）+ 端点过滤 1 例 + nil-db noop 1 例 + 前端 2 例；全量 562 vitest + go vet/test + docs 卫生绿。
