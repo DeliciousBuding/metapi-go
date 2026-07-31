@@ -50,8 +50,8 @@ QPS WS/错误聚合）→ 合规（TOTP 2FA + step-up + 全量审计日志 + 风
 
 | 项 | 量级 | 决定 |
 |:--|:--|:--|
-| **B1 admin 操作审计日志** | S | **本轮已实现**（表 + 中间件 + 查询端点 + 前端页） |
-| B2 实时 QPS 运维 WS | S-M | deferred（P2，`coder/websocket` 就绪，待排期） |
+| **B1 admin 操作审计日志** | S | **已发**（表 + 中间件 + 查询端点 + 前端页） |
+| **B2 实时 QPS 运维 WS** | S-M | **已发**（`/api/admin/ops/ws?token=` 每秒推流 + Dashboard 实时面板） |
 | B3 自然周期平台额度（S2） | M | deferred（计费语义分叉，需拍板） |
 | B4 批量媒体任务（S7） | M | deferred |
 | B5 登录/2FA 体系（S3a） | M | deferred（需先建会话体系） |

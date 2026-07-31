@@ -25,6 +25,9 @@ const IncomeOutcomeChart = lazy(
 const AttentionPanel = lazy(
   () => import("../components/AttentionPanel.js"),
 );
+const RealtimeOpsPanel = lazy(
+  () => import("../components/RealtimeOpsPanel.js"),
+);
 const SchedulerStatusPanel = lazy(
   () => import("../components/SchedulerStatusPanel.js"),
 );
@@ -1162,6 +1165,13 @@ export default function Dashboard({
       >
         <Suspense fallback={<ChartFallback height={160} />}>
           <AttentionPanel limit={10} />
+        </Suspense>
+      </div>
+
+      {/* B2 (sub2api/cliproxyapi borrow): live traffic ops panel */}
+      <div style={{ marginBottom: 24 }}>
+        <Suspense fallback={null}>
+          <RealtimeOpsPanel />
         </Suspense>
       </div>
 

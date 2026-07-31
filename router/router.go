@@ -141,6 +141,11 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 	// ---- SPA static file fallback ----
 	setupSPAFallback(r, webFS)
 
+	// B2 (sub2api/cliproxyapi borrow): live ops WebSocket. Mounted after the
+	// admin auth group because browser WS cannot send the Authorization
+	// header — the endpoint verifies the token via ?token= itself.
+	admin.RegisterOpsWSRoutes(r, cfg)
+
 	return r
 }
 

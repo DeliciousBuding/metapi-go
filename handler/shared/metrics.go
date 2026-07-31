@@ -190,6 +190,9 @@ func ObserveProxyOutcome(obs ProxyObservation) {
 	globalMetrics.outcomes[key]++
 	globalMetrics.outcomesMu.Unlock()
 
+	// B2: feed the live ops ring buffer (per-second total vs success).
+	RecordRealtimeOutcome(status == OutcomeSuccess)
+
 	observeLatency(endpoint, status, obs.Latency)
 
 	if status != OutcomeSuccess {

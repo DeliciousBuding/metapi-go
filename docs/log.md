@@ -613,3 +613,17 @@
 - 竞品对标收官：sub2api + cliproxyapi 系统勘察（决策文档 `sub2api-cliproxyapi-borrow-2026-08-01.md`）——17 项对照，10 项等价/非目标关闭（S1 额度探测≈RefreshBalance+G1、C1 冷却黑窗≈DB cooldown_until、C2 粘性≈stable_first、C4 别名池≈pattern+多通道 等），4 项 deferred（QPS WS / 周期额度 / 批量媒体 / 登录 2FA），1 项立项。
 - B1 落地：`admin_audit_logs` 表（Table 34，actor=token sha256 前缀 8 位，永不存明文）+ `AuditMiddleware`（admin auth 后，POST/PUT/PATCH/DELETE 记录，GET 不记，best-effort 不阻断）+ `GET /api/admin/audit-logs`（method/path 过滤 + limit）+ Settings「管理操作审计」页（方法 badge/状态着色/actor/IP/request_id）。
 - 测试：中间件 3 例（写记录/读跳过/status 捕获）+ 端点过滤 1 例 + nil-db noop 1 例 + 前端 2 例；全量 562 vitest + go vet/test + docs 卫生绿。
+
+## [2026-08-01] B2: 实时 QPS 运维 WS + Dashboard 实时面板（sub2api borrow）
+
+- `handler/shared/realtime.go`：1s 粒度 300s 环形缓冲（总/成功两个 atomic 数组），
+  `ObserveProxyOutcome`（统一终态观测点）接入，热路径两个原子加，零锁
+- `GET /api/admin/ops/ws?token=`：browser WS 无法带 header，token 走 query +
+  常量时间校验（与 AdminAuth 同一 AuthToken）；`coder/websocket` upgrade +
+  1s tick 推 `{lifetime, points[300]}`；挂在 admin auth 组外
+- Dashboard「实时流量」面板：当前 QPS + 近 1s 成功率（≥95% 绿）+ 累计请求 +
+  60s 零依赖柱状 sparkline；断线指数退避自动重连（2s→15s 封顶）；
+  多实例诚实声明「本实例流量」
+- 测试：ring buffer 3 例（记录/零填充/并发）+ WS 端点 1 例（403 无/错 token、
+  upgrade + 首帧）+ 前端 3 例（token query/空 token 不连/断线重连）；
+  全量 565 vitest + go vet/test 绿
