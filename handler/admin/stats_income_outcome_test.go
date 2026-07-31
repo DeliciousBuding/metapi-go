@@ -32,7 +32,7 @@ func seedIncomeOutcomeFixture(t *testing.T, db *store.DB, days []string) int64 {
 		t.Fatalf("site id: %v", err)
 	}
 	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at)
-		VALUES (?, ?, 'tok', 'active', 1, ?, ?)`, siteID, "income-user", now, now)
+		VALUES (?, ?, 'tok', 'active', TRUE, ?, ?)`, siteID, "income-user", now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestStats_BalanceIncomeOutcome_MultiAccountAggregates(t *testing.T) {
 		t.Fatalf("site b id: %v", err)
 	}
 	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at)
-		VALUES (?, ?, 'tok', 'active', 1, ?, ?)`, siteID, "income-user-b", nowStr, nowStr)
+		VALUES (?, ?, 'tok', 'active', TRUE, ?, ?)`, siteID, "income-user-b", nowStr, nowStr)
 	if err != nil {
 		t.Fatalf("insert account b: %v", err)
 	}
@@ -194,7 +194,7 @@ func TestStats_BalanceIncomeOutcome_RefundKeepsIdentity(t *testing.T) {
 		t.Fatalf("site id: %v", err)
 	}
 	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at)
-		VALUES (?, ?, 'tok', 'active', 1, ?, ?)`, siteID, "refund-user", nowStr, nowStr)
+		VALUES (?, ?, 'tok', 'active', TRUE, ?, ?)`, siteID, "refund-user", nowStr, nowStr)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}

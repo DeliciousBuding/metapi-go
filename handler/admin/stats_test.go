@@ -170,7 +170,7 @@ func TestStats_SQLiteDashboardProxy24hTokens(t *testing.T) {
 		t.Fatalf("site id: %v", err)
 	}
 	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, balance, checkin_enabled, created_at, updated_at)
-		VALUES (?, ?, ?, 'active', ?, 0, ?, ?)`, siteID, "stats-user", "sk-stats", 12.5, now, now)
+		VALUES (?, ?, ?, 'active', ?, FALSE, ?, ?)`, siteID, "stats-user", "sk-stats", 12.5, now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}
@@ -565,7 +565,7 @@ func TestStats_SQLiteSlowRequestsRanking(t *testing.T) {
 		t.Fatalf("site id: %v", err)
 	}
 	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, balance, checkin_enabled, created_at, updated_at)
-		VALUES (?, ?, ?, 'active', ?, 0, ?, ?)`, siteID, "slow-user", "sk-slow", 1.0, nowStr, nowStr)
+		VALUES (?, ?, ?, 'active', ?, FALSE, ?, ?)`, siteID, "slow-user", "sk-slow", 1.0, nowStr, nowStr)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}
@@ -686,7 +686,7 @@ func seedModelsSurfacesFixture(t *testing.T, db *store.DB) (siteID, accountWithT
 	}
 
 	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, balance, checkin_enabled, created_at, updated_at)
-		VALUES (?, ?, ?, 'active', ?, 0, ?, ?)`, siteID, "ms-token-user", "sk-ms-token", 9.5, now, now)
+		VALUES (?, ?, ?, 'active', ?, FALSE, ?, ?)`, siteID, "ms-token-user", "sk-ms-token", 9.5, now, now)
 	if err != nil {
 		t.Fatalf("insert account with token: %v", err)
 	}
@@ -695,7 +695,7 @@ func seedModelsSurfacesFixture(t *testing.T, db *store.DB) (siteID, accountWithT
 	}
 
 	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, balance, checkin_enabled, created_at, updated_at)
-		VALUES (?, ?, ?, 'active', ?, 0, ?, ?)`, siteID, "ms-bare-user", "sk-ms-bare", 1.25, now, now)
+		VALUES (?, ?, ?, 'active', ?, FALSE, ?, ?)`, siteID, "ms-bare-user", "sk-ms-bare", 1.25, now, now)
 	if err != nil {
 		t.Fatalf("insert bare account: %v", err)
 	}
@@ -920,7 +920,7 @@ func TestStats_SQLiteModelCheckNoFakeSuccess(t *testing.T) {
 		t.Fatalf("site id: %v", err)
 	}
 	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at)
-		VALUES (?, ?, ?, 'active', 0, ?, ?)`, siteID, "check-user", "sk-check", now, now)
+		VALUES (?, ?, ?, 'active', FALSE, ?, ?)`, siteID, "check-user", "sk-check", now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}

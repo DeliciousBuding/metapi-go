@@ -715,3 +715,17 @@
 - vitest.setup.ts stub window.scrollTo/scrollBy——全量跑 18 条 jsdom "Not implemented" stderr 噪音清零（输出干净，失败易查）
 
 **验证**：575 vitest（174 文件）零 Unhandled + 零 Not implemented 噪音
+
+## [2026-08-01] CI 红修复：三路失败全根因修复
+
+**背景**：健康巡检发现 GitHub Actions 最近 5 次 push 全红（CI frontend / UI visual / CD release-gate）——本地全绿远程红的经典环境差异。
+
+**① CI frontend（Node 25）**：4 个 Dashboard 测试失败——根因双因素：
+- Node 25 实验性全局 `localStorage`（`--localstorage-file` 无效路径时存在但缺 getItem）与 jsdom 冲突 → RealtimeOpsPanel 的 `getAuthToken(localStorage)` 崩；vitest.setup.ts 加兼容（globalThis.localStorage 缺 getItem 时替换为 window.localStorage）
+- React.lazy 图表组件在测试中**时序性**加载完成（Node 25 模块解析更快）→ IncomeOutcomeChart 挂载调 `api.getBalanceIncomeOutcome` 而 apiMock 缺该方法；testApiCompat 补 getBalanceIncomeOutcome 空 fixture + performance-card/dashboardHookOrder 的 hoisted mock 补字段（本地 Node 24 lazy 从不完成所以一直没暴露——预存 flaky）
+
+**② CD release-gate（PG 集成）**：`TestModelRates_UpdateBatchPostgres` + `TestStats_PostgresBalanceIncomeOutcome` 失败——测试 fixture 给 boolean 列 checkin_enabled 插整数 0/1（SQLite 宽松接受、PG 严格 42804 拒绝）；seedRateFixture/seedIncomeOutcomeFixture 改 SQL 标准 FALSE/TRUE；stats_test.go 5 处字面量 0 防御性改 FALSE；其余 PG 变体（usage/checkin/downstream_keys）核实已做方言处理或 Go bool 绑定
+
+**③ UI visual（Playwright 基线）**：toHaveScreenshot diff——DENSE-1 表格密度（10px→8px）是预期视觉变化，待更新基线（--update-snapshots）
+
+**验证**：go vet + handler/admin + scheduler 全绿 · 575 vitest 零 Unhandled · typecheck exit=0

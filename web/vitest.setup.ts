@@ -13,6 +13,26 @@ if (typeof window !== 'undefined') {
   Object.defineProperty(window, 'scrollBy', { value: () => {}, writable: true });
 }
 
+// Node 25+ ships an experimental global `localStorage` (`--localstorage-file`).
+// When the file path is invalid the global exists but has no working getItem —
+// that breaks components reading `localStorage` directly (e.g. RealtimeOpsPanel
+// → getAuthToken). jsdom's window.localStorage is always complete; prefer it.
+if (
+  typeof globalThis !== 'undefined'
+  && typeof window !== 'undefined'
+  && typeof (globalThis as { localStorage?: Storage }).localStorage !== 'undefined'
+  && typeof (globalThis as { localStorage?: Storage }).localStorage?.getItem !== 'function'
+) {
+  try {
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: window.localStorage,
+      configurable: true,
+    });
+  } catch {
+    /* non-configurable global in some environments — jsdom path still fine */
+  }
+}
+
 // React 19 concurrent mode needs an act-enabled environment; without it RTR
 // trees unmount before tests can read `.root`.
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

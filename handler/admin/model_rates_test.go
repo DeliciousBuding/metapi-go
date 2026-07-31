@@ -119,7 +119,7 @@ func seedRateFixture(t *testing.T, db *store.DB) (siteID, accountID, channelID i
 	}
 
 	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, api_token, status, unit_cost, checkin_enabled, created_at, updated_at)
-		VALUES (?, ?, ?, ?, 'active', 0.0042, 0, ?, ?)`, siteID, "rate-edit-user", "sess", "sk-edit", now, now)
+		VALUES (?, ?, ?, ?, 'active', 0.0042, FALSE, ?, ?)`, siteID, "rate-edit-user", "sess", "sk-edit", now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}
@@ -128,7 +128,7 @@ func seedRateFixture(t *testing.T, db *store.DB) (siteID, accountID, channelID i
 	}
 
 	_, err = db.Exec(`INSERT INTO token_routes (model_pattern, display_name, route_mode, routing_strategy, enabled, created_at, updated_at)
-		VALUES (?, ?, 'standard', 'weighted', 1, ?, ?)`, "gpt-4o", "Rate Edit Route", now, now)
+		VALUES (?, ?, 'standard', 'weighted', TRUE, ?, ?)`, "gpt-4o", "Rate Edit Route", now, now)
 	if err != nil {
 		t.Fatalf("insert route: %v", err)
 	}

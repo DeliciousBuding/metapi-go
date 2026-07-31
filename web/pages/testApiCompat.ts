@@ -16,6 +16,7 @@ type DashboardCompatApiMock = {
   getSiteTrend?: MockLike;
   getSites?: MockLike;
   getSiteSnapshot?: MockLike;
+  getBalanceIncomeOutcome?: MockLike;
 };
 
 const FIXTURE_GENERATED_AT = '2026-04-09T00:00:00.000Z';
@@ -91,4 +92,13 @@ export function installDashboardSnapshotCompat(apiMock: DashboardCompatApiMock) 
       sites: Array.isArray(sitesResult) ? sitesResult : [],
     };
   });
+
+  // A3: IncomeOutcomeChart may mount when React.lazy resolves mid-test
+  // (timing-dependent across Node versions) — always provide a stable
+  // empty fixture so dashboard suites never see "not a function".
+  apiMock.getBalanceIncomeOutcome?.mockImplementation?.(async () => ({
+    days: 30,
+    points: [],
+    summary: { totalIncome: 0, totalOutcome: 0, net: 0, accounts: 0 },
+  }));
 }
