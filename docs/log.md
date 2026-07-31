@@ -3,6 +3,16 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-08-01] all-api-hub borrow Wave D 交付（H1 风险横幅）
+
+- **H1 产品级风险横幅**（`5da5656`）:
+  - Schema: `product_announcements`（Table 31: title/message/severity/link/enabled + 时间戳）+ `announcement_dismissals`（Table 32: announcement_id PK + ON DELETE CASCADE）。
+  - 端点: `GET /api/announcements`（管理视图带 dismissed 状态）/ `GET /api/announcements/active`（enabled + 未关闭，critical→warning→info 排序）；`POST`（校验 title/message/severity）/ `PUT`（**内容变更重置 dismissal** = dismiss-revision 语义，事务内删除关闭记录；severity/enabled-only 变更不重置）/ `DELETE` / `POST {id}/dismiss`（ON CONFLICT upsert 双方言）。
+  - 前端: `AnnouncementBanner`（Dashboard 顶部，severity 配色 critical 红/warning 黄/info 蓝 + dismiss × + 详情外链，API 失败静默降级）；Settings「产品公告」区（AnnouncementsSection：列表 + 新建/编辑表单 + 删除 + 已关闭徽标）。
+  - 测试: 后端 e2e（CRUD + active 排序 + dismiss + 内容编辑重置 + 400/404）；banner 组件 3 用例（渲染/dismiss 移除/空不渲染）；section 组件 2 用例（创建表单提交/删除）。
+- **验证**: `go vet ./...` + `go test ./...` 全绿；`npm run typecheck` + `npm test`（547 测试）全绿；SPA rebuild。
+- SSOT 同步: STATE tip `5da5656` / MASTER / CHANGELOG / borrow doc H1 行 ✅。
+
 ## [2026-08-01] all-api-hub borrow Wave D 交付（I1 标签系统）
 
 - **I1 accounts/sites 全局标签系统**（`ba74242`）:

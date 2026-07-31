@@ -14,7 +14,7 @@
 | Fact | Value |
 |:-----|:------|
 | Latest release tag | **[v0.8.45](https://github.com/TokenDanceLab/metapi-go/releases/tag/v0.8.45)** (2026-07-20) — RE2-safe + UI tip |
-| Tip | `ba74242` — all-api-hub borrow Wave D：I1 accounts/sites 全局标签系统（tags 列 + /api/tags + 双页 chips/过滤/编辑）; prior `0047c72` Wave C（A2 图表画廊 / G1 批量验证）, `37d6a70` Wave B（E1 随机窗口调度 / F1 备份导入预览+契约修复 / C1 调度统一运行历史）, `6e0312b` Wave A（A1 余额历史/B1 需关注看板/D1 per-task 通知+4 渠道）, `10384ee` N7, `9c056a4` N2-N6+G1, `d4633f1` N1 IP 白名单; **N8/N9 deferred（M 级，触及调度/计费核心）** |
+| Tip | `5da5656` — all-api-hub borrow Wave D：H1 产品级风险横幅（公告表 + Dashboard 横幅 + Settings 手发）; prior `ba74242` I1 标签系统, `0047c72` Wave C（A2 图表画廊 / G1 批量验证）, `37d6a70` Wave B（E1 随机窗口调度 / F1 备份导入预览+契约修复 / C1 调度统一运行历史）, `6e0312b` Wave A（A1 余额历史/B1 需关注看板/D1 per-task 通知+4 渠道）, `10384ee` N7, `9c056a4` N2-N6+G1, `d4633f1` N1 IP 白名单; **N8/N9 deferred（M 级，触及调度/计费核心）** |
 | Production pin (ops) | server `projects/metapi/STATE.md` — hk3 still **0.8.44 Exited(2)** until authorized pin/up of **0.8.45** + 15min soak; pool/role **1/1**; restart=no |
 | Standby us1 pin | compose **0.8.42** + image pulled (#528); cold stack not auto-started |
 | Active milestone | **[53 REL-HONESTY](https://github.com/TokenDanceLab/metapi-go/milestone/53)** — #557 prod e2e + #558 runtime probes open; M52 UI-POLISH closed (0 open) |

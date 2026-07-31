@@ -150,7 +150,7 @@ all-api-hub `ManagedSiteChannels`: TanStack 表（排序 / faceted filter / 列�
 | **P1** | **E1** | **调度模式：随机窗口抖动** ✅ 已发 | deterministic OR random-within-window + pre-trigger + 日历守卫 | `checkin_schedule.go` 加 windowStart/windowEnd 模式；泛化到 balance/cache-warm | **S** | 中（负载扩散 + 反指纹） |
 | **P1** | **F1** | **备份导入预览（计划确认）** ✅ 已发 | ImportExport 校验 → 计划 → commit | 新 `/api/settings/backup/import/preview`（rows/toInsert/duplicates/skipped，不写行）+ ImportExport confirm 前展示计划；顺带修复前端 `{data}` 契约 bug | **S** | 中（#534 批量导入天然补强） |
 | **P2** | **I1** | **accounts/sites 全局标签系统** ✅ 已发 | 全局 tag store + 多选过滤 + 彩色 | accounts/sites 加 tags 列（AdditiveStep）+ admin tag CRUD + Accounts/Sites 多选过滤 | **S-M** | 中（多站点分类管理） |
-| **P2** | **H1** | **产品级风险横幅（severity 分级）** | `ProductAnnouncements` semver 定向 + severity + dismiss-revision | 新 `product_announcements` 表 + 远程 feed（可选）或 admin 手发；Dashboard 顶部横幅 | **S-M** | 中（替代邮件群发） |
+| **P2** | **H1** | **产品级风险横幅（severity 分级）** ✅ 已发 | `ProductAnnouncements` semver 定向 + severity + dismiss-revision | 新 `product_announcements` 表 + 远程 feed（可选）或 admin 手发；Dashboard 顶部横幅 | **S-M** | 中（替代邮件群发） |
 | **P2** | **K1** | **模型重定向映射生成 + auto-apply** | `modelRedirect` 资源映射 writer + 同步后 auto-apply | 站点模型同步后生成「标准名 → 上游实际名」映射 + 自动写入 disabled_models/路由 | **M** | 中（路由修复自动化） |
 | **P3** | **J1** | **可分享看板快照 PNG + 文案** | `ShareSnapshots` 1200x1200 + mesh-gradient + 本地化文案 | 服务端 canvas/headless 渲染 PNG + 文案；Dashboard 分享按钮 | **M** | 低-中（轻量营销） |
 | **P3** | **A3** | **income vs outcome 余额分析** | BalanceHistory 分免费额度收入 vs 消费 | 依赖 A1 表，加 income/outcome 分离视图 | **S** | 低-中（依赖 A1） |
