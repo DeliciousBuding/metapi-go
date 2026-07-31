@@ -197,6 +197,17 @@ export type BackupWebdavResponse = BackupWebdavConfig & {
   appliedSettings?: unknown[];
 };
 
+// C1 (all-api-hub borrow): unified recurring-scheduler run history.
+export type SchedulerRunStatus = {
+  job: string;
+  enabled: boolean;
+  lastRunAt?: string;
+  lastStatus?: string;
+  runs24h: number;
+  success24h: number;
+  note?: string;
+};
+
 async function streamSse(
   url: string,
   handlers: {
@@ -1143,6 +1154,11 @@ export const api = {
     request(`/api/stats/balance-history?accountId=${accountId}&days=${days}`),
   getAttention: (limit = 20) =>
     request(`/api/stats/attention?limit=${limit}`),
+  // C1 (all-api-hub borrow): unified recurring-scheduler run history.
+  getSchedulerStatus: () =>
+    request<{ items: SchedulerRunStatus[]; generatedAt: string }>(
+      "/api/scheduler/status",
+    ),
   getSiteSnapshot: async (days = 7, options?: { refresh?: boolean }) => {
     const query = buildQueryString({
       days,

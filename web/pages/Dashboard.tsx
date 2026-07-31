@@ -22,6 +22,9 @@ const BalanceHistoryChart = lazy(
 const AttentionPanel = lazy(
   () => import("../components/AttentionPanel.js"),
 );
+const SchedulerStatusPanel = lazy(
+  () => import("../components/SchedulerStatusPanel.js"),
+);
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -1132,6 +1135,16 @@ export default function Dashboard({
       >
         <Suspense fallback={<ChartFallback height={160} />}>
           <AttentionPanel limit={10} />
+        </Suspense>
+      </div>
+
+      {/* C1 (all-api-hub borrow): unified scheduler run history */}
+      <div
+        className="chart-panel-enter animate-slide-up stagger-6"
+        style={{ marginBottom: 24 }}
+      >
+        <Suspense fallback={<ChartFallback height={200} />}>
+          <SchedulerStatusPanel />
         </Suspense>
       </div>
 

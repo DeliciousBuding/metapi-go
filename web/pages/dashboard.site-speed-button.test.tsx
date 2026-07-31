@@ -16,6 +16,7 @@ const { apiMock } = vi.hoisted(() => ({
     getSites: vi.fn(),
     getBalanceHistory: vi.fn().mockResolvedValue({ series: [], days: 30 }),
     getAttention: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+    getSchedulerStatus: vi.fn().mockResolvedValue({ items: [], generatedAt: new Date().toISOString() }),
   },
 }));
 
