@@ -7,6 +7,11 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Added — i18n 全面收官（2026-08-01）
+- **EN 模式全链路可读**：六波 wave 消除所有「EN 界面显示中文/Untranslated」——t() 字面量 10 条漏译补齐、裸 JSX 硬编码中文 181 条全量补译、插值文本碎片 4 条、canvas 快照 PNG 11 条 tr() 化、VChart 图表 spec（系列名/图例/tooltip）tr() 化 + 36 条补译、toast/confirm/alert 面审计全覆盖
+- **四层 i18n 门禁**（`web/i18n.coverage.test.ts`）：t() 字面量 / 裸 JSX 属性+文本 / 插值片段 / chart spec 对象字面量——任何新中文文案漏补字典即 CI 红
+- 字典 zhToEn 扩至 200+ 条（含产品名官方名 Feishu/DingTalk/WeCom、单位词、图表说明句）
+
 ### Added — UI 收官 + review 修复 + 密度（2026-08-01）
 - **DENSE-1 表格密度**: 默认表格行高 10px → 8px（运营态「满」感）；主题菜单新增「表格密度」舒适/紧凑切换（接通既有 `html[data-density="compact"]` 开关：data-density 属性 + localStorage 持久化）
 - **Review 11 项核实缺陷修复**（双 agent 对抗审查）: 后端——`recordUpstreamSuccess` 计费改归因名（K1b 口径统一，channel 成本不再按 actual 名查倍率）、redirects 反向索引字典序确定性（map 迭代随机不再影响 eligibility）、`ReloadRedirectRegistry` 补 `rows.Err()`、A3 退款保留负 outcome（会计恒等式始终成立）、B1 panic 路径补记 500 + statusRecorder 首次写入为准；前端——AuditLogsSection 提交态触发 + 请求序号丢弃过期响应、RealtimeOpsPanel 连续失败 5 次停止重连、NAV-1 expanded 隐藏更多功能区、firstRun 探测加 authed 门控、Dashboard 挂载去重、快照 PNG 主色随 data-accent

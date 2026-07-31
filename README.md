@@ -54,7 +54,7 @@ MetAPI 作为中转站之上的**元聚合层**，把多个站点统一到一个
 
 ---
 
-> **Unreleased tip（master）**：parity KEYS/WS/#514/UC-1、all-api-hub borrow 14 项（A1–K1，含 A3 余额分析）、New API N1–N9b、sub2api/cliproxyapi B1 审计/B2 实时面板、UI 收官（主题 preset / first-run 侧栏 / 表格密度）均在 tip（2026-08-01）；生产 pin 可能仍为 0.8.44，以 ops STATE 为准。P0-585 仍 partial（需生产 e2e）。
+> **Unreleased tip（master）**：parity KEYS/WS/#514/UC-1、all-api-hub borrow 14 项（A1–K1，含 A3 余额分析）、New API N1–N9b、sub2api/cliproxyapi B1 审计/B2 实时面板、UI 收官（主题 preset / first-run 侧栏 / 表格密度）+ **i18n 全面收官（EN 全链路可读 + 四层门禁）**均在 tip（2026-08-01）；生产 pin 可能仍为 0.8.44，以 ops STATE 为准。P0-585 仍 partial（需生产 e2e）。
 
 ## 快速开始
 
