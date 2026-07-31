@@ -427,16 +427,53 @@ export default function ImportExport() {
       toast.error(tr('当前 JSON 结构无法识别'));
       return;
     }
-    const confirmed = typeof window === 'undefined' || typeof window.confirm !== 'function'
-      ? true
-      : window.confirm(tr('导入会覆盖备份中的连接/路由/策略配置或系统设置，但会保留本机日志、公告、缓存和统计，确认继续？'));
-    if (!confirmed) {
+
+    setImporting(true);
+    let parsed: any;
+    try {
+      parsed = JSON.parse(importData);
+    } catch {
+      setImporting(false);
+      toast.error(tr('JSON 解析失败'));
       return;
     }
 
-    setImporting(true);
+    // F1 (all-api-hub borrow): show an import plan preview before committing.
+    let planText = '';
     try {
-      const parsed = JSON.parse(importData);
+      const previewRes = await api.previewBackupImport(parsed);
+      const plan = previewRes?.plan as Record<string, {
+        rows: number;
+        toInsert: number;
+        duplicates: number;
+        skippedRows: number;
+      }> | undefined;
+      if (plan) {
+        const parts: string[] = [];
+        for (const [table, p] of Object.entries(plan)) {
+          if (p.rows <= 0) continue;
+          parts.push(`${table}: 新增 ${p.toInsert}${p.duplicates > 0 ? `，跳过重复 ${p.duplicates}` : ''}${p.skippedRows > 0 ? `，忽略 ${p.skippedRows}` : ''}`);
+        }
+        if (parts.length > 0) {
+          planText = parts.join('\n');
+        }
+      }
+    } catch {
+      // Preview is best-effort; fall through to the existing confirm flow.
+    }
+
+    const message = planText
+      ? `导入计划预览：\n${planText}\n\n确认继续导入？`
+      : tr('导入会覆盖备份中的连接/路由/策略配置或系统设置，但会保留本机日志、公告、缓存和统计，确认继续？');
+    const confirmed = typeof window === 'undefined' || typeof window.confirm !== 'function'
+      ? true
+      : window.confirm(message);
+    if (!confirmed) {
+      setImporting(false);
+      return;
+    }
+
+    try {
       const result = await api.importBackup(parsed);
       toast.success(buildImportSuccessMessage(result));
       setImportData('');

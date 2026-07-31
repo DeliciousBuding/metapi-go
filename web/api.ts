@@ -1421,6 +1421,12 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ data }),
     }),
+  // F1 (all-api-hub borrow): import plan preview before commit.
+  previewBackupImport: (data: any) =>
+    request("/api/settings/backup/import/preview", {
+      method: "POST",
+      body: JSON.stringify({ data }),
+    }),
   getBackupWebdavConfig: () =>
     request<BackupWebdavResponse>("/api/settings/backup/webdav"),
   saveBackupWebdavConfig: (data: {

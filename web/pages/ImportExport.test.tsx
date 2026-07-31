@@ -8,6 +8,7 @@ const { apiMock, toastMock } = vi.hoisted(() => ({
   apiMock: {
     exportBackup: vi.fn(),
     importBackup: vi.fn(),
+    previewBackupImport: vi.fn(),
     getBackupWebdavConfig: vi.fn(),
     saveBackupWebdavConfig: vi.fn(),
     exportBackupToWebdav: vi.fn(),
@@ -275,6 +276,12 @@ describe('ImportExport', () => {
         ignoredSections: ['accounts.bookmarks', 'channelConfigs', 'tagStore'],
       },
       warnings: ['跳过 ALL-API-Hub 账号 skipped-account：authType=none 不支持离线迁移'],
+    });
+    // F1: preview resolves with an empty plan by default so the confirm flow
+    // falls through to the normal import path in tests.
+    apiMock.previewBackupImport.mockResolvedValue({
+      success: true,
+      plan: {},
     });
   });
 

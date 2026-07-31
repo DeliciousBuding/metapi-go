@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	backupsvc "github.com/tokendancelab/metapi-go/service/backup"
 	"github.com/tokendancelab/metapi-go/store"
@@ -187,6 +188,100 @@ func TestExportBackupRejectsPayloadOverLimit(t *testing.T) {
 
 	if rec.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("status = %d, want 413; body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+// F1 (all-api-hub borrow): import plan preview reports toInsert/duplicates
+// and writes nothing.
+func TestPreviewBackupImportReportsPlanWithoutWriting(t *testing.T) {
+	db := setupBackupTestDB(t)
+	handler := &backupHandler{db: db.DB}
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	// Seed one existing site (id 1) and one existing settings key.
+	if _, err := db.Exec(
+		"INSERT INTO sites (name, url, platform, status, created_at, updated_at) VALUES (?, ?, ?, 'active', ?, ?)",
+		"existing-site", "https://existing.test", "new-api", now, now); err != nil {
+		t.Fatalf("seed site: %v", err)
+	}
+	if _, err := db.Exec(
+		"INSERT INTO settings (key, value) VALUES (?, ?)", "theme", `"dark"`); err != nil {
+		t.Fatalf("seed setting: %v", err)
+	}
+
+	// Backup contains: site id 1 (duplicate), site id 2 (new), theme key
+	// (duplicate), auth_token key (skipped runtime-local).
+	payload := `{"tables":{
+		"sites":[
+			{"id":1,"name":"existing-site","url":"https://existing.test","platform":"new-api","status":"active","created_at":"` + now + `","updated_at":"` + now + `"},
+			{"id":2,"name":"new-site","url":"https://new.test","platform":"new-api","status":"active","created_at":"` + now + `","updated_at":"` + now + `"}
+		],
+		"settings":[
+			{"key":"theme","value":"\"dark\""},
+			{"key":"auth_token","value":"\"secret\""}
+		]
+	}}`
+	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import/preview", strings.NewReader(payload))
+	rec := httptest.NewRecorder()
+	handler.previewBackupImport(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	plan, ok := body["plan"].(map[string]any)
+	if !ok {
+		t.Fatalf("plan missing: %v", body)
+	}
+	sites := plan["sites"].(map[string]any)
+	if sites["rows"].(float64) != 2 || sites["toInsert"].(float64) != 1 || sites["duplicates"].(float64) != 1 {
+		t.Fatalf("sites preview = %v, want rows=2 toInsert=1 duplicates=1", sites)
+	}
+	settings := plan["settings"].(map[string]any)
+	if settings["rows"].(float64) != 2 || settings["toInsert"].(float64) != 0 ||
+		settings["duplicates"].(float64) != 1 || settings["skippedRows"].(float64) != 1 {
+		t.Fatalf("settings preview = %v, want rows=2 toInsert=0 duplicates=1 skipped=1", settings)
+	}
+
+	// Preview must not have written anything: still exactly 1 site, no new settings.
+	var siteCount int
+	if err := db.Get(&siteCount, "SELECT COUNT(*) FROM sites"); err != nil {
+		t.Fatalf("count sites: %v", err)
+	}
+	if siteCount != 1 {
+		t.Fatalf("preview wrote %d sites, want 1", siteCount)
+	}
+	var authToken string
+	if err := db.Get(&authToken, "SELECT value FROM settings WHERE key = 'auth_token'"); err == nil {
+		t.Fatalf("preview wrote auth_token (%q), want untouched", authToken)
+	}
+}
+
+// Regression: the frontend api.importBackup wraps the pasted export as
+// {"data": {"tables": ...}} — the handler must accept that shape (previously
+// always 400'd because the top-level key was "data" not "tables").
+func TestImportBackupAcceptsFrontendDataWrapper(t *testing.T) {
+	db := setupBackupTestDB(t)
+	handler := &backupHandler{db: db.DB}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(
+		`{"data":{"tables":{"settings":[{"key":"theme","value":"\"dark\""}]}}}`,
+	))
+	rec := httptest.NewRecorder()
+	handler.importBackup(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("data-wrapper status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	var value string
+	if err := db.Get(&value, "SELECT value FROM settings WHERE key = ?", "theme"); err != nil {
+		t.Fatalf("get imported setting: %v", err)
+	}
+	if value != `"dark"` {
+		t.Fatalf("value = %q, want dark JSON string", value)
 	}
 }
 

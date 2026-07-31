@@ -27,6 +27,8 @@ func RegisterBackupRoutes(r chi.Router, db *sqlx.DB) {
 
 	r.Get("/api/settings/backup/export", handler.exportBackup)
 	r.Post("/api/settings/backup/import", handler.importBackup)
+	// F1 (all-api-hub borrow): import plan preview before commit.
+	r.Post("/api/settings/backup/import/preview", handler.previewBackupImport)
 	r.Get("/api/settings/backup/webdav", handler.getWebdavConfig)
 	r.Put("/api/settings/backup/webdav", handler.saveWebdavConfig)
 	r.Post("/api/settings/backup/webdav/export", handler.exportToWebdav)
@@ -119,10 +121,8 @@ func isKnownTable(name string) bool {
 
 // POST /api/settings/backup/import
 func (h *backupHandler) importBackup(w http.ResponseWriter, r *http.Request) {
-	var body struct {
-		Tables map[string]json.RawMessage `json:"tables"`
-	}
-	if err := decodeBackupImportRequest(r, &body); err != nil || body.Tables == nil {
+	body, err := decodeBackupImportBody(r)
+	if err != nil {
 		status := http.StatusBadRequest
 		message := "导入数据格式错误：需要 JSON 对象且包含 tables 字段"
 		var tooLarge webdavImportTooLargeError
@@ -137,7 +137,7 @@ func (h *backupHandler) importBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	imported, err := importBackupTables(h.db, body.Tables)
+	imported, err := importBackupTables(h.db, body)
 	if err != nil {
 		writeJSON(w, backupImportErrorStatus(err), map[string]any{
 			"success": false,
@@ -151,6 +151,182 @@ func (h *backupHandler) importBackup(w http.ResponseWriter, r *http.Request) {
 		"message":  "导入完成",
 		"imported": imported,
 	})
+}
+
+// F1 (all-api-hub borrow): preview backup import BEFORE committing. Reuses the
+// same decode + validate path as importBackup but returns a plan — per-table
+// rows to insert, rows that would be skipped (runtime-local settings), and
+// rows whose PK (id, or key for settings) already exists in the target DB
+// (ON CONFLICT DO NOTHING would drop them). No rows are written.
+func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Request) {
+	body, err := decodeBackupImportBody(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "导入数据格式错误：需要 JSON 对象且包含 tables 字段",
+		})
+		return
+	}
+	if err := validateBackupImportTableKeys(body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+		return
+	}
+
+	plan, err := previewBackupImportTables(h.db, body)
+	if err != nil {
+		writeJSON(w, backupImportErrorStatus(err), map[string]any{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"plan":    plan,
+	})
+}
+
+// decodeBackupImportBody decodes a backup import request body and returns the
+// tables map. Accepts both shapes:
+//   - {"tables": {...}}          (backend/webdav canonical)
+//   - {"data": {"tables": {...}}} (legacy frontend wrapper — api.importBackup
+//     sends JSON.stringify({data}) around the pasted export which itself is
+//     {"tables": ...})
+//
+// Normalizing here fixes the manual JSON-import path that previously always
+// 400'd because the top-level key was "data" not "tables".
+func decodeBackupImportBody(r *http.Request) (map[string]json.RawMessage, error) {
+	var body struct {
+		Tables map[string]json.RawMessage `json:"tables"`
+		Data   *struct {
+			Tables map[string]json.RawMessage `json:"tables"`
+		} `json:"data"`
+	}
+	if err := decodeBackupImportRequest(r, &body); err != nil {
+		return nil, err
+	}
+	if body.Tables != nil {
+		return body.Tables, nil
+	}
+	if body.Data != nil && body.Data.Tables != nil {
+		return body.Data.Tables, nil
+	}
+	return nil, fmt.Errorf("导入数据格式错误：需要 JSON 对象且包含 tables 字段")
+}
+
+// backupImportPreview is the per-table preview summary.
+type backupImportPreview struct {
+	Rows        int64 `json:"rows"`        // total rows present in the backup for this table
+	ToInsert    int64 `json:"toInsert"`    // rows that would actually be inserted
+	Duplicates  int64 `json:"duplicates"`  // rows whose PK already exists (ON CONFLICT DO NOTHING drops them)
+	SkippedRows int64 `json:"skippedRows"` // rows skipped by policy (runtime-local settings)
+}
+
+// previewBackupImportTables computes the import plan without writing anything.
+// PK detection: "id" for every table except "settings" which uses "key".
+func previewBackupImportTables(db *sqlx.DB, tables map[string]json.RawMessage) (map[string]backupImportPreview, error) {
+	plan := make(map[string]backupImportPreview, len(tables))
+	for _, table := range allTables {
+		raw, ok := tables[table]
+		if !ok {
+			continue
+		}
+		var rows []map[string]any
+		if err := json.Unmarshal(raw, &rows); err != nil {
+			return nil, backupImportClientError{message: fmt.Sprintf("导入失败：表 %s 数据格式错误：%v", table, err)}
+		}
+		if backupImportMaxRowsPerTable > 0 && len(rows) > backupImportMaxRowsPerTable {
+			return nil, backupImportClientError{
+				message: fmt.Sprintf("导入失败：表 %s 行数超过上限 %d", table, backupImportMaxRowsPerTable),
+			}
+		}
+
+		preview := backupImportPreview{Rows: int64(len(rows))}
+		pkCol := "id"
+		if table == "settings" {
+			pkCol = "key"
+		}
+
+		// Collect candidate PK values for the exists-check. Rows without a PK
+		// value can't be deduped — count them as insert immediately. Duplicate
+		// PKs within the backup itself are dropped by ON CONFLICT DO NOTHING.
+		existing := map[string]bool{}
+		var pkVals []string
+		hasPKCol := false
+		for _, row := range rows {
+			if shouldSkipBackupImportRow(table, row) {
+				preview.SkippedRows++
+				continue
+			}
+			rawVal, present := row[pkCol]
+			if !present {
+				preview.ToInsert++
+				continue
+			}
+			hasPKCol = true
+			key := fmt.Sprintf("%v", rawVal)
+			if _, dup := existing[key]; dup {
+				preview.Duplicates++
+				continue
+			}
+			existing[key] = true
+			pkVals = append(pkVals, key)
+		}
+
+		// Query which PKs already exist in the target table.
+		if hasPKCol && len(pkVals) > 0 {
+			existingInDB := queryExistingPKs(db, table, pkCol, pkVals)
+			for _, key := range pkVals {
+				if existingInDB[key] {
+					preview.Duplicates++
+				} else {
+					preview.ToInsert++
+				}
+			}
+		}
+		plan[table] = preview
+	}
+	return plan, nil
+}
+
+// queryExistingPKs returns the set of PK values already present in the table,
+// chunked to stay under SQL variable limits (SQLite 999 / PG 65535).
+func queryExistingPKs(db *sqlx.DB, table, pkCol string, values []string) map[string]bool {
+	out := map[string]bool{}
+	if len(values) == 0 {
+		return out
+	}
+	const chunkSize = 500
+	for start := 0; start < len(values); start += chunkSize {
+		end := start + chunkSize
+		if end > len(values) {
+			end = len(values)
+		}
+		chunk := values[start:end]
+		placeholders := make([]string, len(chunk))
+		args := make([]any, len(chunk))
+		for i, v := range chunk {
+			placeholders[i] = "?"
+			args[i] = v
+		}
+		query := fmt.Sprintf("SELECT %s FROM %s WHERE %s IN (%s)",
+			quoteIdentifier(pkCol), quoteIdentifier(table), quoteIdentifier(pkCol), strings.Join(placeholders, ","))
+		rows, err := db.Queryx(db.Rebind(query), args...)
+		if err != nil {
+			// Preview is best-effort: a read failure degrades to "no existing
+			// PKs known" rather than blocking the import flow.
+			return out
+		}
+		for rows.Next() {
+			var val string
+			if err := rows.Scan(&val); err == nil {
+				out[val] = true
+			}
+		}
+		_ = rows.Close()
+	}
+	return out
 }
 
 func decodeBackupImportRequest(r *http.Request, dst any) error {
