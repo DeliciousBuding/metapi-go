@@ -106,12 +106,13 @@ func StopBackgroundServices() {
 
 // UpdateCheckinSchedule applies a persisted checkin schedule to the running
 // scheduler. It is a no-op before background services have started.
-func UpdateCheckinSchedule(mode, cronExpr string, intervalHours int) error {
+// windowStart/windowEnd are HH:mm bounds for E1 window mode (ignored otherwise).
+func UpdateCheckinSchedule(mode, cronExpr string, intervalHours int, windowStart, windowEnd string) error {
 	servicesMu.RLock()
 	activeScheduler := checkinScheduler
 	servicesMu.RUnlock()
 	if activeScheduler == nil {
 		return nil
 	}
-	return activeScheduler.UpdateCheckinSchedule(mode, cronExpr, intervalHours)
+	return activeScheduler.UpdateCheckinSchedule(mode, cronExpr, intervalHours, windowStart, windowEnd)
 }

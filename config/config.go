@@ -90,6 +90,10 @@ type Config struct {
 	CheckinCron          string
 	CheckinScheduleMode  string
 	CheckinIntervalHours int
+	// all-api-hub borrow E1: window mode — random HH:mm inside [start, end]
+	// re-rolled per start/setting change (load spreading + anti-fingerprint).
+	CheckinWindowStart string
+	CheckinWindowEnd   string
 	BalanceRefreshCron   string
 	LogCleanupCron       string
 
@@ -464,9 +468,14 @@ func Load(env map[string]string) *Config {
 	checkinMode := strings.ToLower(strings.TrimSpace(get("CHECKIN_SCHEDULE_MODE")))
 	if checkinMode == "interval" {
 		cfg.CheckinScheduleMode = "interval"
+	} else if checkinMode == "window" {
+		cfg.CheckinScheduleMode = "window"
 	} else {
 		cfg.CheckinScheduleMode = "cron"
 	}
+	// E1: window bounds (HH:mm, 24h). Defaults: 00:00-23:59 = any time of day.
+	cfg.CheckinWindowStart = firstNonEmpty(get("CHECKIN_WINDOW_START"), "00:00")
+	cfg.CheckinWindowEnd = firstNonEmpty(get("CHECKIN_WINDOW_END"), "23:59")
 	cfg.CheckinIntervalHours = clampInt(
 		int(math.Trunc(parseNumber(get("CHECKIN_INTERVAL_HOURS"), DefaultCheckinIntervalHours))),
 		1, 24,

@@ -104,6 +104,9 @@ func (h *checkinHandler) updateSchedule(w http.ResponseWriter, r *http.Request) 
 		Mode          *string `json:"mode,omitempty"`
 		Cron          *string `json:"cron,omitempty"`
 		IntervalHours *int    `json:"intervalHours,omitempty"`
+		// E1 (all-api-hub borrow): random-window mode bounds (HH:mm, 24h).
+		WindowStart *string `json:"windowStart,omitempty"`
+		WindowEnd   *string `json:"windowEnd,omitempty"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid body"})
@@ -114,6 +117,8 @@ func (h *checkinHandler) updateSchedule(w http.ResponseWriter, r *http.Request) 
 		Mode:          body.Mode,
 		Cron:          body.Cron,
 		IntervalHours: body.IntervalHours,
+		WindowStart:   body.WindowStart,
+		WindowEnd:     body.WindowEnd,
 	})
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -125,6 +130,8 @@ func (h *checkinHandler) updateSchedule(w http.ResponseWriter, r *http.Request) 
 		"mode":          state.Mode,
 		"cron":          state.Cron,
 		"intervalHours": state.IntervalHours,
+		"windowStart":   state.WindowStart,
+		"windowEnd":     state.WindowEnd,
 	})
 }
 

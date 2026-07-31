@@ -3,10 +3,55 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"strings"
 
 	"github.com/robfig/cron/v3"
 )
+
+// RandomCronInWindow picks a random HH:mm inside [start, end] and returns a
+// daily cron expression "m h * * *" (5-field). Bounds are "HH:mm" in 24h
+// format; start must be <= end. E1 (all-api-hub borrow): the roll is re-done
+// per scheduler start / schedule update, giving load spreading + anti-
+// fingerprint behavior for daily tasks like check-in without a re-roll job.
+func RandomCronInWindow(start, end string) (string, error) {
+	startMin, err := parseHHMM(start)
+	if err != nil {
+		return "", fmt.Errorf("invalid window start %q: %w", start, err)
+	}
+	endMin, err := parseHHMM(end)
+	if err != nil {
+		return "", fmt.Errorf("invalid window end %q: %w", end, err)
+	}
+	if startMin > endMin {
+		return "", fmt.Errorf("window start %s is after end %s", start, end)
+	}
+
+	span := endMin - startMin + 1 // inclusive
+	roll := startMin + rand.Intn(span)
+	return fmt.Sprintf("%d %d * * *", roll%60, roll/60), nil
+}
+
+// parseHHMM parses "HH:mm" (24h) into minutes since midnight. Zero-padded
+// hours/minutes are expected but single digits are tolerated.
+func parseHHMM(raw string) (int, error) {
+	raw = strings.TrimSpace(raw)
+	parts := strings.Split(raw, ":")
+	if len(parts) != 2 {
+		return 0, fmt.Errorf("expected HH:mm, got %q", raw)
+	}
+	var h, m int
+	if _, err := fmt.Sscanf(parts[0], "%d", &h); err != nil {
+		return 0, fmt.Errorf("bad hour %q", parts[0])
+	}
+	if _, err := fmt.Sscanf(parts[1], "%d", &m); err != nil {
+		return 0, fmt.Errorf("bad minute %q", parts[1])
+	}
+	if h < 0 || h > 23 || m < 0 || m > 59 {
+		return 0, fmt.Errorf("out of range %q", raw)
+	}
+	return h*60 + m, nil
+}
 
 // normalizeCronExpr auto-detects 5-field cron expressions (minute hour dom month dow)
 // and prepends "0 " to make them 6-field (second minute hour dom month dow).

@@ -15,12 +15,18 @@ type checkinSchedulePatch struct {
 	Mode          *string
 	Cron          *string
 	IntervalHours *int
+	// E1 (all-api-hub borrow): random-window mode bounds (HH:mm, 24h).
+	WindowStart *string
+	WindowEnd   *string
 }
 
 type checkinScheduleState struct {
 	Mode          string
 	Cron          string
 	IntervalHours int
+	// E1
+	WindowStart string
+	WindowEnd   string
 }
 
 func applyCheckinScheduleSettings(db *sqlx.DB, cfg *config.Config, patch checkinSchedulePatch) (checkinScheduleState, error) {
@@ -41,6 +47,12 @@ func applyCheckinScheduleSettings(db *sqlx.DB, cfg *config.Config, patch checkin
 			return checkinScheduleState{}, fmt.Errorf("intervalHours must be between 1 and 24")
 		}
 	}
+	// E1: window mode requires valid HH:mm bounds with start <= end.
+	if patch.WindowStart != nil || patch.WindowEnd != nil || state.Mode == "window" {
+		if _, err := scheduler.RandomCronInWindow(state.WindowStart, state.WindowEnd); err != nil {
+			return checkinScheduleState{}, err
+		}
+	}
 
 	tx, err := db.Beginx()
 	if err != nil {
@@ -57,6 +69,15 @@ func applyCheckinScheduleSettings(db *sqlx.DB, cfg *config.Config, patch checkin
 	if err := upsertSettingTx(db, tx, "checkin_interval_hours", state.IntervalHours); err != nil {
 		return checkinScheduleState{}, err
 	}
+	// E1: persist window bounds whenever window mode is involved.
+	if state.Mode == "window" {
+		if err := upsertSettingTx(db, tx, "checkin_window_start", state.WindowStart); err != nil {
+			return checkinScheduleState{}, err
+		}
+		if err := upsertSettingTx(db, tx, "checkin_window_end", state.WindowEnd); err != nil {
+			return checkinScheduleState{}, err
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return checkinScheduleState{}, fmt.Errorf("settings: commit checkin schedule update: %w", err)
 	}
@@ -64,7 +85,9 @@ func applyCheckinScheduleSettings(db *sqlx.DB, cfg *config.Config, patch checkin
 	cfg.CheckinScheduleMode = state.Mode
 	cfg.CheckinCron = state.Cron
 	cfg.CheckinIntervalHours = state.IntervalHours
-	if err := app.UpdateCheckinSchedule(state.Mode, state.Cron, state.IntervalHours); err != nil {
+	cfg.CheckinWindowStart = state.WindowStart
+	cfg.CheckinWindowEnd = state.WindowEnd
+	if err := app.UpdateCheckinSchedule(state.Mode, state.Cron, state.IntervalHours, state.WindowStart, state.WindowEnd); err != nil {
 		return checkinScheduleState{}, fmt.Errorf("settings: apply checkin schedule runtime update: %w", err)
 	}
 	return state, nil
@@ -92,10 +115,28 @@ func resolveCheckinScheduleState(cfg *config.Config, patch checkinSchedulePatch)
 		intervalHours = *patch.IntervalHours
 	}
 
+	// E1: window bounds (HH:mm), env defaults when unset.
+	windowStart := strings.TrimSpace(cfg.CheckinWindowStart)
+	if windowStart == "" {
+		windowStart = "00:00"
+	}
+	if patch.WindowStart != nil {
+		windowStart = strings.TrimSpace(*patch.WindowStart)
+	}
+	windowEnd := strings.TrimSpace(cfg.CheckinWindowEnd)
+	if windowEnd == "" {
+		windowEnd = "23:59"
+	}
+	if patch.WindowEnd != nil {
+		windowEnd = strings.TrimSpace(*patch.WindowEnd)
+	}
+
 	return checkinScheduleState{
 		Mode:          mode,
 		Cron:          cron,
 		IntervalHours: intervalHours,
+		WindowStart:   windowStart,
+		WindowEnd:     windowEnd,
 	}
 }
 
@@ -105,6 +146,8 @@ func normalizeCheckinScheduleMode(mode string) string {
 		return "cron"
 	case "interval":
 		return "interval"
+	case "window":
+		return "window"
 	default:
 		return ""
 	}

@@ -491,35 +491,35 @@ func TestCheckinScheduler_UpdateCheckinSchedule(t *testing.T) {
 	s := NewCheckinScheduler(cfg)
 
 	t.Run("invalid mode", func(t *testing.T) {
-		err := s.UpdateCheckinSchedule("bogus", "* * * * *", 6)
+		err := s.UpdateCheckinSchedule("bogus", "* * * * *", 6, "00:00", "23:59")
 		if err == nil {
 			t.Error("expected error for invalid mode")
 		}
 	})
 
 	t.Run("invalid cron", func(t *testing.T) {
-		err := s.UpdateCheckinSchedule("cron", "not-a-cron", 6)
+		err := s.UpdateCheckinSchedule("cron", "not-a-cron", 6, "00:00", "23:59")
 		if err == nil {
 			t.Error("expected error for invalid cron expression")
 		}
 	})
 
 	t.Run("interval too low", func(t *testing.T) {
-		err := s.UpdateCheckinSchedule("interval", "* * * * *", 0)
+		err := s.UpdateCheckinSchedule("interval", "* * * * *", 0, "00:00", "23:59")
 		if err == nil {
 			t.Error("expected error for interval hours < 1")
 		}
 	})
 
 	t.Run("interval too high", func(t *testing.T) {
-		err := s.UpdateCheckinSchedule("interval", "* * * * *", 25)
+		err := s.UpdateCheckinSchedule("interval", "* * * * *", 25, "00:00", "23:59")
 		if err == nil {
 			t.Error("expected error for interval hours > 24")
 		}
 	})
 
 	t.Run("valid cron mode", func(t *testing.T) {
-		err := s.UpdateCheckinSchedule("cron", "0 0 */6 * * *", 12)
+		err := s.UpdateCheckinSchedule("cron", "0 0 */6 * * *", 12, "00:00", "23:59")
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
@@ -532,12 +532,41 @@ func TestCheckinScheduler_UpdateCheckinSchedule(t *testing.T) {
 	})
 
 	t.Run("valid interval mode", func(t *testing.T) {
-		err := s.UpdateCheckinSchedule("interval", "* * * * *", 6)
+		err := s.UpdateCheckinSchedule("interval", "* * * * *", 6, "00:00", "23:59")
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
 		if s.mode != "interval" {
 			t.Errorf("mode = %q, want interval", s.mode)
+		}
+	})
+
+	t.Run("invalid window bounds", func(t *testing.T) {
+		err := s.UpdateCheckinSchedule("window", "* * * * *", 6, "13:00", "08:00")
+		if err == nil {
+			t.Error("expected error for window start after end")
+		}
+	})
+
+	t.Run("valid window mode arms daily cron inside bounds", func(t *testing.T) {
+		err := s.UpdateCheckinSchedule("window", "* * * * *", 6, "02:00", "03:30")
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		if s.mode != "window" {
+			t.Fatalf("mode = %q, want window", s.mode)
+		}
+		if !ValidateCronExpr(cfg.CheckinCron) {
+			t.Fatalf("window rolled cron %q is not a valid cron expression", cfg.CheckinCron)
+		}
+		// "m h * * *" → minutes since midnight must be in [120, 210].
+		var h, m int
+		if _, err := fmt.Sscanf(cfg.CheckinCron, "%d %d", &m, &h); err != nil {
+			t.Fatalf("unexpected cron shape %q: %v", cfg.CheckinCron, err)
+		}
+		rolled := h*60 + m
+		if rolled < 120 || rolled > 210 {
+			t.Fatalf("rolled %d minutes (cron %q), want inside [02:00, 03:30]", rolled, cfg.CheckinCron)
 		}
 	})
 }

@@ -57,6 +57,10 @@ func (s *CheckinScheduler) Start(ctx context.Context) error {
 		1, 24,
 	)
 
+	// E1: window bounds (HH:mm) hydrate from settings with env defaults.
+	s.cfg.CheckinWindowStart = resolveStringSetting("checkin_window_start", s.cfg.CheckinWindowStart)
+	s.cfg.CheckinWindowEnd = resolveStringSetting("checkin_window_end", s.cfg.CheckinWindowEnd)
+
 	s.cfg.CheckinCron = activeCron
 	s.cfg.CheckinScheduleMode = activeMode
 	s.cfg.CheckinIntervalHours = activeIntervalHours
@@ -99,6 +103,29 @@ func (s *CheckinScheduler) startLocked() {
 		return
 	}
 
+	// E1 (all-api-hub borrow): window mode — pick a random HH:mm inside the
+	// configured window and schedule as a daily cron. The roll is re-done per
+	// start/setting change, giving load spreading + anti-fingerprint without
+	// a separate re-roll job. Bounds are HH:mm in 24h format.
+	if s.mode == "window" {
+		expr, err := RandomCronInWindow(s.cfg.CheckinWindowStart, s.cfg.CheckinWindowEnd)
+		if err != nil {
+			slog.Error("checkin: invalid window bounds, falling back to cron", "error", err, "start", s.cfg.CheckinWindowStart, "end", s.cfg.CheckinWindowEnd)
+			s.mode = "cron"
+		} else {
+			s.cfg.CheckinCron = expr
+			s.cronRunner = newCronRunner()
+			_, err := s.cronRunner.addJob(expr, s.runCronJob)
+			if err != nil {
+				slog.Error("checkin: failed to add window cron job", "error", err)
+				return
+			}
+			s.cronRunner.start()
+			slog.Info("checkin: window mode armed", "cron", expr, "windowStart", s.cfg.CheckinWindowStart, "windowEnd", s.cfg.CheckinWindowEnd)
+			return
+		}
+	}
+
 	// Cron mode
 	s.cronRunner = newCronRunner()
 	_, err := s.cronRunner.addJob(s.cfg.CheckinCron, s.runCronJob)
@@ -132,10 +159,11 @@ func (s *CheckinScheduler) stopLocked() {
 }
 
 // UpdateCheckinSchedule updates the checkin configuration at runtime.
-// Mirrors TS updateCheckinSchedule().
-func (s *CheckinScheduler) UpdateCheckinSchedule(mode, cronExpr string, intervalHours int) error {
+// Mirrors TS updateCheckinSchedule(). windowStart/windowEnd are HH:mm bounds
+// for E1 window mode (ignored in cron/interval modes).
+func (s *CheckinScheduler) UpdateCheckinSchedule(mode, cronExpr string, intervalHours int, windowStart, windowEnd string) error {
 	mode = stringsTrimLower(mode)
-	if mode != "cron" && mode != "interval" {
+	if mode != "cron" && mode != "interval" && mode != "window" {
 		return formatErr("invalid checkin schedule mode: %s", mode)
 	}
 	if mode == "cron" && !ValidateCronExpr(cronExpr) {
@@ -144,6 +172,11 @@ func (s *CheckinScheduler) UpdateCheckinSchedule(mode, cronExpr string, interval
 	if mode == "interval" && (intervalHours < 1 || intervalHours > 24) {
 		return formatErr("invalid interval hours: %d (must be 1-24)", intervalHours)
 	}
+	if mode == "window" {
+		if _, err := RandomCronInWindow(windowStart, windowEnd); err != nil {
+			return err
+		}
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -151,6 +184,10 @@ func (s *CheckinScheduler) UpdateCheckinSchedule(mode, cronExpr string, interval
 	s.mode = mode
 	if mode == "cron" {
 		s.cfg.CheckinCron = cronExpr
+	}
+	if mode == "window" {
+		s.cfg.CheckinWindowStart = windowStart
+		s.cfg.CheckinWindowEnd = windowEnd
 	}
 	s.cfg.CheckinScheduleMode = mode
 	s.cfg.CheckinIntervalHours = clampInt(intervalHours, 1, 24)

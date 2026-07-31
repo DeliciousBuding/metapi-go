@@ -62,6 +62,30 @@ func resolveBooleanSetting(settingKey string, fallback bool) bool {
 	return value
 }
 
+// resolveStringSetting reads a string value from DB settings.
+// E1: window bounds hydration (checkin_window_start/end).
+func resolveStringSetting(settingKey string, fallback string) string {
+	db := store.GetDB()
+	if db == nil {
+		return fallback
+	}
+
+	settingsStore := store.NewSettingsStore(db)
+	raw, err := settingsStore.Get(settingKey)
+	if err != nil || raw == "" {
+		return fallback
+	}
+
+	var value string
+	if err := json.Unmarshal([]byte(raw), &value); err != nil {
+		return fallback
+	}
+	if value == "" {
+		return fallback
+	}
+	return value
+}
+
 // resolvePositiveIntegerSetting reads a positive integer (>=1) from DB settings.
 func resolvePositiveIntegerSetting(settingKey string, fallback int) int {
 	db := store.GetDB()
@@ -130,7 +154,7 @@ func toISOTime(t time.Time) string {
 }
 
 // resolveCheckinScheduleMode reads the checkin schedule mode from config and DB.
-// Returns "cron" or "interval".
+// Returns "cron", "interval", or "window" (E1).
 func resolveCheckinScheduleMode(cfg *config.Config) string {
 	db := store.GetDB()
 	if db == nil {
@@ -149,8 +173,11 @@ func resolveCheckinScheduleMode(cfg *config.Config) string {
 	}
 
 	value = strings.TrimSpace(strings.ToLower(value))
-	if value == "interval" {
+	switch value {
+	case "interval":
 		return "interval"
+	case "window":
+		return "window"
 	}
 	return "cron"
 }

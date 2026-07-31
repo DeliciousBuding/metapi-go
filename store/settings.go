@@ -112,13 +112,22 @@ func ApplyRuntimeSettings(cfg *config.Config, settingsMap map[string]string) {
 			}
 		case "checkin_schedule_mode":
 			switch strings.ToLower(parseJSONSettingString(value)) {
-			case "cron", "interval":
+			case "cron", "interval", "window":
 				cfg.CheckinScheduleMode = strings.ToLower(parseJSONSettingString(value))
 			}
 		case "checkin_interval_hours":
 			hours := parseInt(value, cfg.CheckinIntervalHours)
 			if hours >= 1 && hours <= 24 {
 				cfg.CheckinIntervalHours = hours
+			}
+		// E1: random-window mode bounds (HH:mm, 24h).
+		case "checkin_window_start":
+			if v := parseJSONSettingString(value); v != "" {
+				cfg.CheckinWindowStart = v
+			}
+		case "checkin_window_end":
+			if v := parseJSONSettingString(value); v != "" {
+				cfg.CheckinWindowEnd = v
 			}
 
 		// Notify
