@@ -25,6 +25,15 @@ const AttentionPanel = lazy(
 const SchedulerStatusPanel = lazy(
   () => import("../components/SchedulerStatusPanel.js"),
 );
+const CostDistributionChart = lazy(
+  () => import("../components/charts/CostDistributionChart.js"),
+);
+const LatencyHistogramChart = lazy(
+  () => import("../components/charts/LatencyHistogramChart.js"),
+);
+const LatencyTrendChart = lazy(
+  () => import("../components/charts/LatencyTrendChart.js"),
+);
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -1186,6 +1195,32 @@ export default function Dashboard({
         <div className="chart-panel-enter animate-slide-up stagger-7">
           <Suspense fallback={<ChartFallback height={320} />}>
             <BalanceHistoryChart days={30} />
+          </Suspense>
+        </div>
+      </div>
+
+      {/* A2 (all-api-hub borrow): model cost + latency chart gallery */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+          gap: 16,
+          marginBottom: 24,
+        }}
+      >
+        <div className="chart-panel-enter animate-slide-up stagger-7">
+          <Suspense fallback={<ChartFallback height={320} />}>
+            <CostDistributionChart days={30} topN={8} />
+          </Suspense>
+        </div>
+        <div className="chart-panel-enter animate-slide-up stagger-8">
+          <Suspense fallback={<ChartFallback height={320} />}>
+            <LatencyHistogramChart days={7} bucketMs={500} />
+          </Suspense>
+        </div>
+        <div className="chart-panel-enter animate-slide-up stagger-8">
+          <Suspense fallback={<ChartFallback height={320} />}>
+            <LatencyTrendChart days={7} />
           </Suspense>
         </div>
       </div>

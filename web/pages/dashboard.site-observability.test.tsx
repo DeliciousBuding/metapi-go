@@ -17,6 +17,9 @@ const { apiMock } = vi.hoisted(() => ({
     getBalanceHistory: vi.fn().mockResolvedValue({ series: [], days: 30 }),
     getAttention: vi.fn().mockResolvedValue({ items: [], total: 0 }),
     getSchedulerStatus: vi.fn().mockResolvedValue({ items: [], generatedAt: new Date().toISOString() }),
+    getModelCostDistribution: vi.fn().mockResolvedValue({ days: 30, since: '', topN: 8, items: [], totals: { cost: 0, calls: 0, tokens: 0 } }),
+    getLatencyHistogram: vi.fn().mockResolvedValue({ days: 7, since: '', bucketMs: 500, total: 0, buckets: [] }),
+    getLatencyTrend: vi.fn().mockResolvedValue({ days: 7, points: [], p95SampleCap: 10000, truncatedDays: [] }),
   },
 }));
 

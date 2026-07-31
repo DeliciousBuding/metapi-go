@@ -208,6 +208,56 @@ export type SchedulerRunStatus = {
   note?: string;
 };
 
+// A2 (all-api-hub borrow): model cost distribution + latency chart gallery.
+export type ModelCostItem = {
+  model: string;
+  label: string;
+  cost: number;
+  calls: number;
+  tokens: number;
+};
+
+export type ModelCostDistributionResponse = {
+  days: number;
+  since: string;
+  topN: number;
+  items: ModelCostItem[];
+  totals: { cost: number; calls: number; tokens: number };
+};
+
+export type LatencyBucket = {
+  bucketStartMs: number;
+  bucketEndMs: number;
+  label: string;
+  count: number;
+  percent: number;
+};
+
+export type LatencyHistogramResponse = {
+  days: number;
+  since: string;
+  bucketMs: number;
+  total: number;
+  buckets: LatencyBucket[];
+};
+
+export type LatencyTrendPoint = {
+  date: string;
+  requests: number;
+  avgLatencyMs: number | null;
+  maxLatencyMs: number | null;
+  avgFirstByteMs: number | null;
+  p95LatencyMs: number | null;
+  successRate: number;
+};
+
+export type LatencyTrendResponse = {
+  days: number;
+  points: LatencyTrendPoint[];
+  p95SampleCap: number;
+  truncatedDays: string[];
+};
+
 async function streamSse(
   url: string,
   handlers: {
@@ -1154,6 +1204,19 @@ export const api = {
     request(`/api/stats/balance-history?accountId=${accountId}&days=${days}`),
   getAttention: (limit = 20) =>
     request(`/api/stats/attention?limit=${limit}`),
+  // A2 (all-api-hub borrow): model cost distribution + latency chart gallery.
+  getModelCostDistribution: (days = 30, topN = 8) =>
+    request(
+      `/api/stats/model-cost-distribution?days=${days}&topN=${topN}`,
+    ) as Promise<ModelCostDistributionResponse>,
+  getLatencyHistogram: (days = 7, bucketMs = 500) =>
+    request(
+      `/api/stats/latency-histogram?days=${days}&bucketMs=${bucketMs}`,
+    ) as Promise<LatencyHistogramResponse>,
+  getLatencyTrend: (days = 7) =>
+    request(
+      `/api/stats/latency-trend?days=${days}`,
+    ) as Promise<LatencyTrendResponse>,
   // C1 (all-api-hub borrow): unified recurring-scheduler run history.
   getSchedulerStatus: () =>
     request<{ items: SchedulerRunStatus[]; generatedAt: string }>(
