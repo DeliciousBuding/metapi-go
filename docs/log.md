@@ -584,3 +584,10 @@
 ## Earlier residual train
 
 - v0.8.18–v0.8.38 narrative: root `CHANGELOG.md` + GitHub Releases (do not duplicate here).
+
+## [2026-08-01] N9b-a: 倍率批量编辑入口（New API borrow 收口）
+
+- N9b-a shipped: `PUT /api/models/rates` 批量更新 accounts.unit_cost + route_channels.weight（校验 >= 0，空 body 400；写后 `routing.InvalidateCache` 立即生效）。
+- Rates 总览页行内编辑：账号单价 / 通道权重 ✎ → input → 保存（Enter 提交 / Esc 取消），负值拒绝。
+- 测试：后端 SQLite 3 例 + PG 奇偶 1 例；前端 vitest 4 例（编辑保存 / Enter 提交 / 负值拒绝 / Esc 取消）；全量 557 vitest + go vet/test 绿。
+- N9b-b 正式关闭（unit_cost 不参与 estimated_cost，ratio-based 计费口径不变）；N9 系列全部收口。

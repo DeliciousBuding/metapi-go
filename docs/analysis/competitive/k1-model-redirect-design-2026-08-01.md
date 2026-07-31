@@ -91,11 +91,63 @@ model_name_redirects (
 
 ## 7. K1b（拍板后再动，不静默实现）
 
-路由匹配 canonical 化：`routing.MatchesModelPattern` 增加映射感知——需要
-（a）映射缓存（避免热路径 DB 查询）；（b）语义确认：实际名 `claude-3-5-sonnet-20241022`
-挂到 pattern `claude-3-5-sonnet` 的路由后，upstream 发送时用哪个名？（现有
-`source_model` 语义是「该通道对应上游哪个模型」，改名会影响计费归因/日志）——
-**此点在 K1a 落地后基于真实数据再评估**。
+路由匹配 canonical 化——**设计深化（2026-08-01，基于 K1a 落地后的代码勘察）**。
+
+### 7.1 问题确认（热路径证据）
+
+`routing/matcher.go:124 ChannelSupportsRequestedModel(source, requested)`：
+- `MatchesModelPattern(requested, source)` 对无通配符的 requested（canonical）是**精确比较**
+  → source=actual（`claude-3-5-sonnet-20241022`）不匹配 requested=canonical（`claude-3-5-sonnet`）
+  → 通道被 eligibility 拒绝（`routing/router.go:419`），即使通道已挂在该路由下。
+
+**结论**：仅把 actual 通道挂进 canonical 路由（rebuild 侧）不够——请求时的
+eligibility 检查仍会拒绝。必须动匹配侧。
+
+### 7.2 实现设计（三件套，全部触及核心）
+
+**A. Eligibility 匹配（热路径，进程内注册表）**
+- `routing` 包加进程内 redirect 注册表：`routing.SetModelRedirects(map[string]string)`
+  （canonical→actual）+ 反向索引（actual→canonical），map 替换引用重建（读无锁）。
+- `ChannelSupportsRequestedModel` 加一步：source 命中反向索引且 canonical == requested
+  → 匹配。O(1) 查，无 DB。
+- 注册表数据源：`model_name_redirects` 表，启动时加载 + 同步/管理变更后重建
+  （K1a 已有变更点）。
+
+**B. 转发改写（canonical → actual）**
+- eligibility 通过后，upstream 请求体的 model 必须改写为 actual（上游只认实际名
+  ——anthropic 的 `claude-3-5-sonnet-20241022` 类名；不改写上游 404）。
+- 改写点：PrepareCtx 之后、dispatch 之前（handler/proxy 层）。
+- **风险**：改写影响 proxy_logs 的 model_requested/model_actual 归因 + billing
+  lookup（`EstimateBillingCostFromUsage(modelName, ...)` 用请求侧 model 查 ratio）——
+  归因需以 requested（canonical）为准，改写只作用于 upstream 出站体。
+
+**C. 计费归因确认**
+- `billing_cost.go` 用传入 modelName（归因名）→ ratio lookup。改写后归因名必须
+  保持 canonical，出站名才是 actual——需要拆「归因名」与「出站名」两个字段，
+  贯穿 proxy 数据流（Ctx 增加 UpstreamModelOverride）。
+
+### 7.3 风险清单（拍板输入）
+
+| 风险 | 等级 | 缓解 |
+|:--|:--|:--|
+| 热路径新增 map 查（每请求） | 低 | O(1) 引用替换，无锁 |
+| 改写遗漏某些出站路径（chat/completions/embeddings/gemini/codex-ws） | 高 | 统一在 PrepareCtx 产出 override，各 dispatch 消费；e2e 覆盖 5 路径 |
+| 计费归因漂移（model_actual 显示改写名） | 中 | 归因名/出站名分离，测试断言 proxy_logs 两列 |
+| 映射误判（前缀误匹配） | 低 | K1a 规则已验证（日期/版本后缀） |
+| 进程内注册表与 DB 漂移 | 低 | 同步/管理变更后必重建 + 启动加载 |
+
+### 7.4 验收（K1b）
+
+- eligibility：canonical 请求选中 actual 通道（5 路径 e2e）；
+- 出站体 model = actual，proxy_logs.model_requested = canonical（归因不漂移）；
+- 注册表重建后热路径无 stale；误映射不产生（规则复用 K1a）；
+- 性能：routing benchmark 增量 < 5%。
+
+### 7.5 建议
+
+K1b 是**真实但可控**的 M 级项：核心风险在 B/C（改写 + 归因分离）。若拍板执行，
+建议按 A → C（数据流字段）→ B（改写）顺序，单 PR 内完成 5 路径 e2e。
+不做的话，K1a 已提供 disabled_models 修复 + 映射可视化，收益已部分落地。
 
 ## 8. 验收（K1a）
 

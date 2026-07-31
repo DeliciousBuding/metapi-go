@@ -1,6 +1,6 @@
 # N8/N9 deferred 项评估（New API borrow）
 
-**日期**: 2026-08-01 · **状态**: N8 = 架构已等价（建议关闭）；N9 = 真实缺口（S 级读取面可做，M 级写入面待拍板）
+**日期**: 2026-08-01 · **状态**: N8 = 关闭（架构等价）；N9a + N9b-a = 已发；N9b-b = 关闭（计费口径不变）
 
 > 上游: New API 的渠道倍率/密钥模型。评估基于当前 tip `7597a07` 的代码证据，
 > 遵循「不发明、不静默实现、不重复造轮子」硬门禁。
@@ -52,8 +52,28 @@ metapi-go 的计费/倍率事实分散在多处：
 入口）——触及计费语义（unit_cost 如何参与 estimated_cost 计算需先确认），
 需设计文档 + 拍板。
 
+### N9b 设计深化（2026-08-01，基于计费路径勘察）
+
+**关键事实**（`handler/proxy/billing_cost.go:15 EstimateBillingCostFromUsage`）：
+`estimated_cost` 由 `routing.FallbackTokenCost(total, platform)` +
+`CalculateModelUsageBreakdown(PricingModel{ModelRatio...})` 计算——**accounts.unit_cost
+完全不参与**（纯展示/规划字段，`service/account_service.go` 仅暴露给列表/表单）。
+
+由此 N9b 有两个选项：
+
+| 选项 | 内容 | 影响 | 建议 |
+|:--|:--|:--|:--|
+| **N9b-a（已发）** | 批量编辑 unit_cost / weight 的集中入口（不改计费逻辑）——`PUT /api/models/rates` 批量更新 + 倍率总览页行内编辑（✎ → input → 保存，Enter/Esc） | unit_cost 仍是展示/规划字段；weight 改动即生效（路由用 weight，写后 `routing.InvalidateCache`） | 安全，S-M，已实现（本文件同日） |
+| **N9b-b（关闭）** | 让 unit_cost 参与 estimated_cost（按账号单价计费） | 计费语义变更：同模型不同账号单价不同 → proxy_logs 成本不同；破坏现有 ratio-based 计费可解释性 | 高风险，明确不做 |
+
+**结论**：N9b-a 已拍板实现（管理便利，零计费风险）；N9b-b 关闭（ratio-based 计费
+已自洽，引入账号单价会破坏可解释性）。
+
 ## 建议
 
 1. N8: **关闭**（架构等价，证据如上）；MASTER 标记 `n8_closed_architecture_equivalent`。
-2. N9a: 直接实现（S 级只读聚合 + Settings/Models 页展示）。
-3. N9b: 设计文档 → 拍板 → 实现（M 级触及计费）。
+2. N9a: 直接实现（S 级只读聚合 + Settings/Models 页展示）— **已发（c2d7cb8）**。
+3. N9b: 设计已深化（上表）；**N9b-a 已拍板并实现**（批量编辑 + 行内编辑 UI）；
+   **N9b-b 关闭**（计费口径不变）。
+4. K1b: 设计已深化（k1-model-redirect-design-2026-08-01.md §7）；三件套 A/B/C
+   已拆解 + 风险清单 + 验收；建议拍板执行或维持 deferred。
