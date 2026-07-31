@@ -641,3 +641,22 @@
 - 修复：App 渲染类测试 api mock 缺 getSites → 补 mock（mobile-layout/sidebar-mobile）
 - 测试：NAV-1 折叠断言 1 例 + 全量 568 vitest 绿
 - **ui-original-parity 全部 UI 待办收官**（VIS-1 + NAV-1 + 此前 CONSOLE-1/MOCK-NAV）
+
+## [2026-08-01] 综合 review 修复：11 项核实缺陷（双 agent 对抗审查）
+
+**后端 5 项**：
+1. K1b 计费口径统一——`recordUpstreamSuccess` 第三处计费路径改归因名（此前 channel 累计成本按 actual 名查倍率，与 proxy_logs 分叉）
+2. redirects 反向索引确定性——Go map 迭代随机导致「首个命中」不稳定，改 canonical 字典序最小
+3. ReloadRedirectRegistry 补 `rows.Err()`——中途断连不再换入截断注册表
+4. A3 退款场景——used 回退保留负 outcome（钳 0 破坏恒等式 income-outcome=Δbalance），新增退款恒等式测试
+5. B1 审计——panic 路径补记（中间件内 recover 记 500 后 re-panic）+ statusRecorder 首次写入为准 + Write 隐式 200
+
+**前端 6 项**：
+6. AuditLogsSection 提交态触发（Enter/查询按钮）+ 请求序号丢弃过期响应（原来每 keystroke 一发）
+7. RealtimeOpsPanel 连续失败 5 次停止重连（403/token 轮换不再无限重试）
+8. NAV-1 expanded 时隐藏更多功能区（防侧栏项重复）
+9. firstRun 探测加 authed 门控（登录前 401 → false 导致整个首次会话折叠失效）
+10. Dashboard 挂载去重（load + poll 首轮双请求）
+11. SnapshotExportButton 主色随 data-accent
+
+**验证**：新增后端 2 测试（退款恒等式/panic 审计）+ 前端相关 9 例；全量 568 vitest + go vet/test 绿

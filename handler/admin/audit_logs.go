@@ -26,6 +26,8 @@ import (
 
 // AuditMiddleware wraps admin handlers and records write operations.
 // It must be mounted after AdminAuth so only authenticated requests pass.
+// Panics inside the handler are recorded as status 500 before re-panicking,
+// so chi's outer Recoverer still renders the standard error page.
 func AuditMiddleware(db *sqlx.DB) func(http.Handler) http.Handler {
 	if db == nil {
 		return func(next http.Handler) http.Handler { return next }
@@ -37,8 +39,16 @@ func AuditMiddleware(db *sqlx.DB) func(http.Handler) http.Handler {
 				next.ServeHTTP(w, r)
 				return
 			}
-			rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
-			next.ServeHTTP(rec, r)
+			rec := &statusRecorder{ResponseWriter: w}
+			func() {
+				defer func() {
+					if p := recover(); p != nil {
+						recordAuditLog(db, r, http.StatusInternalServerError)
+						panic(p) // re-panic: outer Recoverer renders the 500 page
+					}
+				}()
+				next.ServeHTTP(rec, r)
+			}()
 			recordAuditLog(db, r, rec.status)
 		})
 	}
@@ -46,12 +56,26 @@ func AuditMiddleware(db *sqlx.DB) func(http.Handler) http.Handler {
 
 type statusRecorder struct {
 	http.ResponseWriter
-	status int
+	status      int
+	wroteHeader bool
 }
 
 func (r *statusRecorder) WriteHeader(code int) {
+	if r.wroteHeader {
+		return // net/http ignores repeat calls; audit must record the first
+	}
+	r.wroteHeader = true
 	r.status = code
 	r.ResponseWriter.WriteHeader(code)
+}
+
+// Write records the implicit 200 when the handler never calls WriteHeader.
+func (r *statusRecorder) Write(b []byte) (int, error) {
+	if !r.wroteHeader {
+		r.wroteHeader = true
+		r.status = http.StatusOK
+	}
+	return r.ResponseWriter.Write(b)
 }
 
 // actorFromToken derives a stable, non-reversible actor id from the admin

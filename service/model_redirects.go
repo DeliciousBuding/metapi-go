@@ -250,6 +250,12 @@ func ReloadRedirectRegistry(ctx context.Context, db *sqlx.DB) {
 		}
 		byAccount[accountID][canonical] = actual
 	}
+	// A mid-iteration connection error would otherwise swap in a truncated
+	// registry; keep the previous one instead (best-effort contract).
+	if err := rows.Err(); err != nil {
+		slog.Warn("reload redirect registry: iteration failed", "err", err)
+		return
+	}
 	routing.SetModelRedirects(byAccount)
 	slog.Debug("redirect registry reloaded", "accounts", len(byAccount))
 }

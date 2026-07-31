@@ -1,6 +1,9 @@
 package routing
 
-import "sync"
+import (
+	"sort"
+	"sync"
+)
 
 // ---- K1b (all-api-hub borrow): in-process model redirect registry ----
 //
@@ -32,13 +35,20 @@ func SetModelRedirects(byAccount map[int64]map[string]string) {
 	for accountID, entries := range byAccount {
 		fwd := make(map[string]string, len(entries))
 		rev := make(map[string]string, len(entries))
-		for canonical, actual := range entries {
-			if canonical == "" || actual == "" {
-				continue
+		// Deterministic reverse-index selection: when several canonicals map
+		// to the same actual (manual rows can collide), the lexicographically
+		// smallest canonical wins — map iteration order is random in Go and
+		// must never decide eligibility.
+		canonicals := make([]string, 0, len(entries))
+		for canonical := range entries {
+			if canonical != "" && entries[canonical] != "" {
+				canonicals = append(canonicals, canonical)
 			}
+		}
+		sort.Strings(canonicals)
+		for _, canonical := range canonicals {
+			actual := entries[canonical]
 			fwd[canonical] = actual
-			// Keep the first canonical that maps to this actual (stable,
-			// mirrors K1a generation: one canonical per actual).
 			if _, exists := rev[actual]; !exists {
 				rev[actual] = canonical
 			}

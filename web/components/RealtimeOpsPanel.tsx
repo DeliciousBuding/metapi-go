@@ -28,6 +28,7 @@ export default function RealtimeOpsPanel() {
   const [lifetime, setLifetime] = useState(0);
   const [spark, setSpark] = useState<number[]>([]);
   const [connected, setConnected] = useState(false);
+  const [gaveUp, setGaveUp] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
   const retryRef = useRef(0);
   const timerRef = useRef<number | null>(null);
@@ -37,6 +38,10 @@ export default function RealtimeOpsPanel() {
     if (!token) return;
 
     let disposed = false;
+    // A 403 (token rotated/revoked) must not retry forever: after MAX_FAILS
+    // consecutive failures the panel gives up and shows the error state.
+    const MAX_FAILS = 5;
+    let fails = 0;
     const loc = typeof window !== 'undefined' ? window.location : null;
     const protocol = loc && loc.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = loc ? loc.host : 'localhost';
@@ -50,6 +55,8 @@ export default function RealtimeOpsPanel() {
 
         ws.onopen = () => {
           retryRef.current = 0;
+          fails = 0;
+          setGaveUp(false);
           setConnected(true);
         };
         ws.onmessage = (ev) => {
@@ -70,6 +77,11 @@ export default function RealtimeOpsPanel() {
         ws.onclose = () => {
           setConnected(false);
           if (disposed) return;
+          fails += 1;
+          if (fails >= MAX_FAILS) {
+            setGaveUp(true);
+            return;
+          }
           const delay = Math.min(1000 * 2 ** retryRef.current, 15000);
           retryRef.current += 1;
           timerRef.current = window.setTimeout(connect, delay);
@@ -120,11 +132,11 @@ export default function RealtimeOpsPanel() {
             style={{
               marginLeft: 8,
               fontSize: 11,
-              background: connected ? 'rgba(52,168,83,0.15)' : 'rgba(234,67,53,0.15)',
-              color: connected ? '#34a853' : '#ea4335',
+              background: connected ? 'rgba(52,168,83,0.15)' : gaveUp ? 'rgba(217,48,37,0.15)' : 'rgba(234,67,53,0.15)',
+              color: connected ? '#34a853' : gaveUp ? '#d93025' : '#ea4335',
             }}
           >
-            {connected ? tr('在线') : tr('重连中…')}
+            {connected ? tr('在线') : gaveUp ? tr('已断开（鉴权失败）') : tr('重连中…')}
           </span>
         </div>
         <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>

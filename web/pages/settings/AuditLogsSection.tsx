@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { api } from '../../api.js';
 import { useToast } from '../../components/Toast.js';
@@ -40,26 +40,36 @@ export default function AuditLogsSection() {
   const [loading, setLoading] = useState(true);
   const [method, setMethod] = useState('');
   const [pathQuery, setPathQuery] = useState('');
+  // Submitted filters — typing updates pathQuery but only Enter/查询 refetch.
+  const [submitted, setSubmitted] = useState({ method: '', path: '' });
+  const requestSeq = useRef(0);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (m: string, p: string) => {
+    const seq = ++requestSeq.current;
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (method) params.set('method', method);
-      if (pathQuery.trim()) params.set('path', pathQuery.trim());
+      if (m) params.set('method', m);
+      if (p.trim()) params.set('path', p.trim());
       const res = await api.getAdminAuditLogs(params);
+      if (seq !== requestSeq.current) return; // stale response — drop it
       setItems(res.items);
       setTotal(res.total);
     } catch (error: any) {
+      if (seq !== requestSeq.current) return;
       toast.error(error?.message || tr('加载审计日志失败'));
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
-  }, [toast, method, pathQuery]);
+  }, [toast]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void load(submitted.method, submitted.path);
+  }, [load, submitted]);
+
+  const applyFilters = () => {
+    setSubmitted({ method, path: pathQuery });
+  };
 
   return (
     <div className="card animate-slide-up stagger-5" style={{ padding: 20 }}>
@@ -102,7 +112,7 @@ export default function AuditLogsSection() {
           value={pathQuery}
           onChange={(e) => setPathQuery(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') void load();
+            if (e.key === 'Enter') applyFilters();
           }}
           style={{
             flex: 1,
@@ -119,7 +129,7 @@ export default function AuditLogsSection() {
           type="button"
           className="btn btn-ghost"
           style={{ padding: '3px 12px', fontSize: 12, border: '1px solid var(--color-border)' }}
-          onClick={() => void load()}
+          onClick={applyFilters}
         >
           {tr('查询')}
         </button>

@@ -174,6 +174,79 @@ func TestStats_BalanceIncomeOutcome_MultiAccountAggregates(t *testing.T) {
 	}
 }
 
+// Refund scenario (review fix): balance_used drops without balance changing —
+// outcome goes negative, and the identity income - outcome = Δbalance still
+// holds (clamping would break it).
+func TestStats_BalanceIncomeOutcome_RefundKeepsIdentity(t *testing.T) {
+	db, r := setupStatsSQLiteTest(t)
+	now := time.Now().UTC()
+	day1 := now.AddDate(0, 0, -1).Format("2006-01-02")
+	day2 := now.Format("2006-01-02")
+	nowStr := now.Format(time.RFC3339)
+
+	_, err := db.Exec(`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
+		VALUES (?, ?, 'new-api', 'active', ?, ?)`, "refund-site", "https://refund.example.test", nowStr, nowStr)
+	if err != nil {
+		t.Fatalf("insert site: %v", err)
+	}
+	var siteID int64
+	if err := db.Get(&siteID, "SELECT id FROM sites WHERE name = ?", "refund-site"); err != nil {
+		t.Fatalf("site id: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at)
+		VALUES (?, ?, 'tok', 'active', 1, ?, ?)`, siteID, "refund-user", nowStr, nowStr)
+	if err != nil {
+		t.Fatalf("insert account: %v", err)
+	}
+	var accountID int64
+	if err := db.Get(&accountID, "SELECT id FROM accounts WHERE username = ?", "refund-user"); err != nil {
+		t.Fatalf("account id: %v", err)
+	}
+	// day1: balance 10, used 5 → initial income 15, outcome 0.
+	// day2: balance 10, used 2 (refund of 3) → Δused -3 → outcome -3,
+	//       income = Δbal(0) + Δused(-3) = -3 → identity: -3 - (-3) = 0 = Δbalance ✓
+	for i, d := range []struct {
+		day   string
+		bal   float64
+		used  float64
+	}{{day1, 10, 5}, {day2, 10, 2}} {
+		if _, err := db.Exec(`INSERT INTO balance_history (account_id, balance, balance_used, quota, local_day, captured_at, created_at)
+			VALUES (?, ?, ?, 20, ?, ?, ?)`, accountID, d.bal, d.used, d.day, nowStr, nowStr); err != nil {
+			t.Fatalf("insert balance_history %d: %v", i, err)
+		}
+	}
+
+	resp := doGet(t, r, "/api/stats/balance-income-outcome?days=7")
+	if resp.Code != 200 {
+		t.Fatalf("returned %d: %s", resp.Code, resp.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	points := body["points"].([]any)
+	if len(points) != 2 {
+		t.Fatalf("points = %#v, want 2", points)
+	}
+	byDay := make(map[string]map[string]any, 2)
+	for _, p := range points {
+		pm := p.(map[string]any)
+		byDay[pm["day"].(string)] = pm
+	}
+	d2 := byDay[day2]
+	if d2["outcome"].(float64) != -3.0 {
+		t.Fatalf("day2 outcome = %v, want -3 (refund reflected honestly)", d2["outcome"])
+	}
+	summary := body["summary"].(map[string]any)
+	// Total: income 15 + (-3) = 12; outcome 0 + (-3) = -3; net 15.
+	if summary["totalIncome"].(float64) != 12.0 || summary["totalOutcome"].(float64) != -3.0 {
+		t.Fatalf("summary = %#v, want income 12 outcome -3", summary)
+	}
+	if summary["net"].(float64) != 15.0 {
+		t.Fatalf("net = %v, want 15 (identity holds: 12 - (-3) = 15)", summary["net"])
+	}
+}
+
 // PostgreSQL dialect parity for A3 (skipped without PG_TEST_DSN).
 func TestStats_PostgresBalanceIncomeOutcome(t *testing.T) {
 	dsn := strings.TrimSpace(os.Getenv("PG_TEST_DSN"))

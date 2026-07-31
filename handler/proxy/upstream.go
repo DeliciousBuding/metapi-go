@@ -733,7 +733,7 @@ func dispatchEndpointAttemptWithContinue(
 		if expectStreamUsage {
 			warnMissingStreamUsageAfterIncludeUsage(upstreamModel, upstreamPath, streamUsage)
 		}
-		recordUpstreamSuccess(r.Context(), cfg, selected, upstreamModel, latencyMs, streamUsage)
+		recordUpstreamSuccess(r.Context(), cfg, selected, ctx.RequestedModel, upstreamModel, latencyMs, streamUsage)
 		writeSuccessProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, resp.StatusCode, true, streamUsage, retry, requestID)
 		observeProxyTerminal(ctx, shared.OutcomeSuccess, true, time.Duration(latencyMs)*time.Millisecond)
 		return true, nil, false
@@ -801,7 +801,7 @@ func dispatchEndpointAttemptWithContinue(
 		observeProxyTerminal(ctx, shared.StatusFromHTTP(failure.Status), false, time.Duration(latencyMs)*time.Millisecond)
 		return true, nil, false
 	}
-	recordUpstreamSuccess(r.Context(), cfg, selected, upstreamModel, latencyMs, usage)
+	recordUpstreamSuccess(r.Context(), cfg, selected, ctx.RequestedModel, upstreamModel, latencyMs, usage)
 	writeSuccessProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, latencyMs, resp.StatusCode, false, usage, retry, requestID)
 	// Videos create (#235): map upstream id → publicId before the client sees the body.
 	respBody = maybeRewriteVideosCreateResponse(ctx, selected, upstreamPath, respBody)
@@ -971,7 +971,11 @@ func recordUpstreamFailure(ctx context.Context, cfg *UpstreamConfig, selected *r
 	}
 }
 
-func recordUpstreamSuccess(ctx context.Context, cfg *UpstreamConfig, selected *routing.SelectedChannel, modelName string, latencyMs int64, usage ParsedUsage) {
+// recordUpstreamSuccess feeds routing success stats. billingCostName is the
+// attribution (requested/canonical) model — the same name proxy_logs and
+// billing use, so a K1b redirect (canonical→actual) never skews channel cost
+// accumulation; modelName (actual) stays the health-stat label.
+func recordUpstreamSuccess(ctx context.Context, cfg *UpstreamConfig, selected *routing.SelectedChannel, billingCostName, modelName string, latencyMs int64, usage ParsedUsage) {
 	if cfg == nil || cfg.Router == nil || selected == nil {
 		return
 	}
@@ -979,7 +983,7 @@ func recordUpstreamSuccess(ctx context.Context, cfg *UpstreamConfig, selected *r
 	if selected.Site.Platform != "" {
 		platformName = selected.Site.Platform
 	}
-	billing := EstimateBillingCostFromUsage(modelName, platformName, usage)
+	billing := EstimateBillingCostFromUsage(billingCostName, platformName, usage)
 	if err := cfg.Router.RecordSuccess(ctx, selected.Channel.ID, float64(latencyMs), billing.EstimatedCost, &modelName, nil); err != nil {
 		slog.Warn("RecordSuccess failed", "err", err, "channel_id", selected.Channel.ID, "model", modelName)
 	}

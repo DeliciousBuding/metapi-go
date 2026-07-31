@@ -607,7 +607,11 @@ function AppShell() {
   }, [accent]);
 
   // NAV-1: detect first-run (no sites) for sidebar progressive disclosure.
+  // Gated on authed: the pre-login getSites would 401 (→ firstRun=false) and
+  // the effect never re-ran, silently disabling the fold for the whole first
+  // authenticated session.
   useEffect(() => {
+    if (!authed) return;
     let cancelled = false;
     api
       .getSites()
@@ -621,7 +625,7 @@ function AppShell() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [authed]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-layout', isMobile ? 'mobile' : 'desktop');
@@ -1041,7 +1045,7 @@ function AppShell() {
                 ))}
               </div>
             ))}
-            {firstRun === true && !sidebarCollapsed && moreNavItems.length > 0 && (
+            {firstRun === true && !sidebarCollapsed && !navExpanded && moreNavItems.length > 0 && (
               <div className="sidebar-group">
                 <button
                   type="button"

@@ -448,21 +448,23 @@ export default function Dashboard({
       timer = null;
     };
 
-    const handleVisibilityChange = () => {
+    const handleVisibilityChange = (skipImmediate = false) => {
       if (
         typeof document !== "undefined" &&
         document.visibilityState === "visible"
       ) {
-        void pollDashboard();
+        if (!skipImmediate) void pollDashboard();
         start();
       } else {
         stop();
       }
     };
 
-    handleVisibilityChange();
+    // Mount already triggered load() (full snapshot) — don't double-fetch;
+    // subsequent visibility restores do an immediate refresh.
+    handleVisibilityChange(true);
     if (typeof document !== "undefined") {
-      document.addEventListener("visibilitychange", handleVisibilityChange);
+      document.addEventListener("visibilitychange", () => handleVisibilityChange(false));
     }
 
     return () => {
@@ -471,7 +473,7 @@ export default function Dashboard({
       if (typeof document !== "undefined") {
         document.removeEventListener(
           "visibilitychange",
-          handleVisibilityChange,
+          () => handleVisibilityChange(false),
         );
       }
     };

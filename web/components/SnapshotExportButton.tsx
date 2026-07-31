@@ -19,6 +19,26 @@ const PALETTE = {
   warn: '#f59e0b',
 };
 
+// Accent presets (VIS-1) mapped to their light-theme primary, so the exported
+// PNG matches the operator's chosen brand color. Falls back to blue.
+const ACCENT_PRIMARY: Record<string, string> = {
+  blue: '#1a73e8',
+  indigo: '#3949ab',
+  teal: '#00897b',
+};
+
+function currentAccentPrimary(): string {
+  try {
+    const accent =
+      typeof document !== 'undefined'
+        ? document.documentElement.getAttribute('data-accent')
+        : null;
+    return (accent && ACCENT_PRIMARY[accent]) || PALETTE.primary;
+  } catch {
+    return PALETTE.primary;
+  }
+}
+
 const W = 1200;
 const H = 630;
 
@@ -159,7 +179,8 @@ function drawSnapshotCanvas(
   /* background */
   ctx.fillStyle = PALETTE.bg;
   ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = PALETTE.primary;
+  const primary = currentAccentPrimary();
+  ctx.fillStyle = primary;
   ctx.fillRect(0, 0, W, 6);
 
   /* header */
@@ -172,7 +193,7 @@ function drawSnapshotCanvas(
 
   /* metric cards */
   const metrics = [
-    { label: '总余额', value: fmtMoney(snap.totalBalance ?? 0), accent: PALETTE.primary },
+    { label: '总余额', value: fmtMoney(snap.totalBalance ?? 0), accent: primary },
     { label: '今日消耗', value: fmtMoney(snap.todaySpend ?? 0), accent: PALETTE.warn },
     { label: '24h 请求', value: fmtNum(total), accent: PALETTE.text },
     { label: '24h 成功率', value: `${successRate.toFixed(1)}%`, accent: total > 0 && successRate < 90 ? PALETTE.danger : PALETTE.success },
@@ -224,7 +245,7 @@ function drawSnapshotCanvas(
       ctx.fillStyle = PALETTE.border;
       roundRect(ctx, 320, y + 6, barMaxW, 18, 9);
       ctx.fill();
-      ctx.fillStyle = PALETTE.primary;
+      ctx.fillStyle = primary;
       roundRect(ctx, 320, y + 6, barW, 18, 9);
       ctx.fill();
       ctx.fillStyle = PALETTE.text;

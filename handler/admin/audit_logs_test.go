@@ -194,3 +194,44 @@ func TestAuditMiddleware_NilDBIsNoop(t *testing.T) {
 		t.Fatalf("nil-db middleware must pass through, got %d", rr.Code)
 	}
 }
+
+func TestAuditMiddleware_RecordsPanicsAs500(t *testing.T) {
+	db, _ := setupStatsSQLiteTest(t)
+
+	r := chi.NewRouter()
+	// Recoverer outside AuditMiddleware (real production ordering) — the
+	// audit row must still be written for a panicking handler.
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			defer func() {
+				if p := recover(); p != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+				}
+			}()
+			next.ServeHTTP(w, req)
+		})
+	})
+	r.Use(AuditMiddleware(db.DB))
+	r.Post("/api/test/boom", func(_ http.ResponseWriter, _ *http.Request) {
+		panic("boom")
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/test/boom", nil)
+	req.Header.Set("Authorization", "Bearer admin-token-abc")
+	r.ServeHTTP(httptest.NewRecorder(), req)
+
+	var status int
+	var path string
+	if err := db.Get(&status, "SELECT status FROM admin_audit_logs LIMIT 1"); err != nil {
+		t.Fatalf("panic path must still be audited: %v", err)
+	}
+	if status != http.StatusInternalServerError {
+		t.Fatalf("panic status = %d, want 500", status)
+	}
+	if err := db.Get(&path, "SELECT path FROM admin_audit_logs LIMIT 1"); err != nil {
+		t.Fatalf("read path: %v", err)
+	}
+	if path != "/api/test/boom" {
+		t.Fatalf("path = %q, want /api/test/boom", path)
+	}
+}

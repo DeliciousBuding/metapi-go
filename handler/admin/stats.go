@@ -620,10 +620,10 @@ func (h *statsHandler) balanceIncomeOutcome(w http.ResponseWriter, r *http.Reque
 			} else {
 				prev := points[i-1]
 				deltaUsed := p.balanceUsed - prev.balanceUsed
+				// Keep negative deltas: a refund/remap that lowers balance_used
+				// is negative consumption (outcome < 0) — clamping it to 0 would
+				// break the accounting identity income - outcome = Δbalance.
 				outcome = deltaUsed
-				if outcome < 0 {
-					outcome = 0 // used-reset (refund/remap); identity below absorbs it
-				}
 				income = (p.balance - prev.balance) + deltaUsed
 			}
 			entry := byDay[p.day]
