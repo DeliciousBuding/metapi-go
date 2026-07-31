@@ -378,6 +378,65 @@ func TestStats_SQLiteBalanceHistorySeries(t *testing.T) {
 	}
 }
 
+func TestStats_SQLiteAttentionAggregatesExpiredLowBalanceDisabled(t *testing.T) {
+	db, r := setupStatsSQLiteTest(t)
+	now := time.Now().UTC()
+	nowStr := now.Format(time.RFC3339)
+
+	_, err := db.Exec(`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
+		VALUES (?, ?, ?, 'disabled', ?, ?)`, "att-site", "https://att.example.test", "new-api", nowStr, nowStr)
+	if err != nil {
+		t.Fatalf("insert site: %v", err)
+	}
+	var siteID int64
+	if err := db.Get(&siteID, "SELECT id FROM sites WHERE name = ?", "att-site"); err != nil {
+		t.Fatalf("site id: %v", err)
+	}
+	// expired account + low-balance active account
+	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, balance, created_at, updated_at)
+		VALUES (?, ?, ?, 'expired', ?, 0, ?, ?)`, siteID, "expired-user", "tok", true, nowStr, nowStr)
+	if err != nil {
+		t.Fatalf("insert expired account: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, balance, created_at, updated_at)
+		VALUES (?, ?, ?, 'active', ?, 0.3, ?, ?)`, siteID, "lowbal-user", "tok", true, nowStr, nowStr)
+	if err != nil {
+		t.Fatalf("insert lowbal account: %v", err)
+	}
+	// recent warning event
+	_, err = db.Exec(`INSERT INTO events (type, title, message, level, read, created_at)
+		VALUES (?, ?, ?, 'warning', 0, ?)`, "balance", "余额不足", "x", nowStr)
+	if err != nil {
+		t.Fatalf("insert event: %v", err)
+	}
+
+	resp := doGet(t, r, "/api/stats/attention?limit=20")
+	if resp.Code != 200 {
+		t.Fatalf("attention returned %d: %s", resp.Code, resp.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	items, ok := body["items"].([]any)
+	if !ok || len(items) < 3 {
+		t.Fatalf("items = %#v, want >= 3 categories", body["items"])
+	}
+	// First item should be the critical expired account.
+	first := items[0].(map[string]any)
+	if first["severity"] != "critical" || first["category"] != "expired_account" {
+		t.Fatalf("first item = %+v, want critical/expired_account", first)
+	}
+	// Expect a low_balance warning and a disabled_site warning somewhere.
+	cats := map[string]bool{}
+	for _, it := range items {
+		cats[it.(map[string]any)["category"].(string)] = true
+	}
+	if !cats["low_balance"] || !cats["disabled_site"] {
+		t.Fatalf("missing categories: %v", cats)
+	}
+}
+
 func TestStats_SQLiteUsageHeatmapFromSiteHourUsage(t *testing.T) {
 	db, r := setupStatsSQLiteTest(t)
 	now := time.Now().UTC().Truncate(time.Hour)

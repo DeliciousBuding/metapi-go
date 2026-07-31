@@ -19,6 +19,9 @@ const SiteTrendChart = lazy(
 const BalanceHistoryChart = lazy(
   () => import("../components/charts/BalanceHistoryChart.js"),
 );
+const AttentionPanel = lazy(
+  () => import("../components/AttentionPanel.js"),
+);
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -1120,6 +1123,16 @@ export default function Dashboard({
             </button>
           ))}
         </div>
+      </div>
+
+      {/* B1 (all-api-hub borrow): severity-ranked attention panel */}
+      <div
+        className="chart-panel-enter animate-slide-up stagger-6"
+        style={{ marginBottom: 24 }}
+      >
+        <Suspense fallback={<ChartFallback height={160} />}>
+          <AttentionPanel limit={10} />
+        </Suspense>
       </div>
 
       <div

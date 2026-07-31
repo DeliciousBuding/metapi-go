@@ -18,6 +18,8 @@ const { apiMock } = vi.hoisted(() => ({
     getAccountTokens: vi.fn(),
     getRoutes: vi.fn(),
     startTestChatJob: vi.fn(),
+    getBalanceHistory: vi.fn().mockResolvedValue({ series: [], days: 30 }),
+    getAttention: vi.fn().mockResolvedValue({ items: [], total: 0 }),
     getTestChatJob: vi.fn(),
   },
 }));

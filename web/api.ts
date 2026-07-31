@@ -1124,6 +1124,8 @@ export const api = {
   getSiteTrend: (days = 7) => request(`/api/stats/site-trend?days=${days}`),
   getBalanceHistory: (accountId: number, days = 30) =>
     request(`/api/stats/balance-history?accountId=${accountId}&days=${days}`),
+  getAttention: (limit = 20) =>
+    request(`/api/stats/attention?limit=${limit}`),
   getSiteSnapshot: async (days = 7, options?: { refresh?: boolean }) => {
     const query = buildQueryString({
       days,

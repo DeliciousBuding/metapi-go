@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, create, type ReactTestInstance } from 'react-test-renderer';
+import { MemoryRouter } from 'react-router-dom';
 import { ToastProvider } from '../components/Toast.js';
 import Dashboard from './Dashboard.js';
 import { installDashboardSnapshotCompat } from './testApiCompat.js';
@@ -13,6 +14,8 @@ const { apiMock } = vi.hoisted(() => ({
     getSiteDistribution: vi.fn(),
     getSiteTrend: vi.fn(),
     getSites: vi.fn(),
+    getBalanceHistory: vi.fn().mockResolvedValue({ series: [], days: 30 }),
+    getAttention: vi.fn().mockResolvedValue({ items: [], total: 0 }),
   },
 }));
 
@@ -80,7 +83,9 @@ describe('Dashboard site speed buttons', () => {
       await act(async () => {
         root = create(
           <ToastProvider>
-            <Dashboard />
+            <MemoryRouter>
+              <Dashboard />
+            </MemoryRouter>
           </ToastProvider>,
         );
       });
@@ -110,7 +115,9 @@ describe('Dashboard site speed buttons', () => {
       await act(async () => {
         root = create(
           <ToastProvider>
-            <Dashboard />
+            <MemoryRouter>
+              <Dashboard />
+            </MemoryRouter>
           </ToastProvider>,
         );
       });
