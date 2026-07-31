@@ -3,6 +3,18 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-08-01] all-api-hub borrow Wave C 交付（G1 批量验证）
+
+- **G1 批量模型验证 + 验证历史**（`0047c72`）: 
+  - 新表 `model_verify_history`（Table 30，batch_id/model_name/channel/account/site/status/latency/http_status/error_text + 2 索引）。
+  - `scheduler.ProbeBatch(ctx, targets, timeoutMs)`：一次性操作者验证——复用注入的 `ChannelHealthProbe` 执行器 + 有 recorder 时经 `ApplyProbeOutcome` 同步路由健康；**不碰账号租约**（区别于后台 pass）；无 executor 时诚实 skipped。
+  - `POST /api/models/verify-batch`：body `{models?, accountId?, limit?}`（models 空 = 全部启用 route_channels，IN 过滤 + account 过滤，limit 默认 50 cap 200）；scheduler 未启动 → 503；空匹配 → probed 0 + note。逐行写 history（best-effort，不阻断验证）。
+  - `GET /api/models/verify-history?limit=&model=`：join sites 出 siteName，newest-first。
+  - 前端：Models 页 page-actions「批量验证」按钮（data-testid=open-model-verify）→ `ModelVerifyDialog`（CenteredModal）：验证 tab（说明 + 开始验证 + summary badges + per-row 表格）+ 验证历史 tab；api.ts `verifyModelsBatch`/`getModelVerifyHistory` + 类型。
+  - 测试：后端 e2e（503 / 双模型行结果 + summary / history 持久化 + siteName / account 过滤 / 空匹配 / 行数 4）；前端 dialog 2 用例（验证运行 + 历史 tab 切换）。
+- **验证**: `go vet ./...` + `go test ./...` 全绿；`npm run typecheck` + `npm test`（534 测试）全绿；SPA rebuild。
+- SSOT 同步: STATE tip `0047c72` / MASTER / CHANGELOG / borrow doc G1 行 + Wave B 全绿。
+
 ## [2026-08-01] all-api-hub borrow Wave C 交付（A2 图表画廊）
 
 - **A2 模型成本分布 + 延迟图表画廊**（`439b6dd`）: 数据全在 proxy_logs，只差视图——

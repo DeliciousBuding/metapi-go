@@ -146,7 +146,7 @@ all-api-hub `ManagedSiteChannels`: TanStack 表（排序 / faceted filter / 列�
 | **P0** | **D1** | **per-task 通知开关 + feishu/dingtalk/wecom/ntfy 渠道** ✅ 已发 | notifications per-task toggles + 6 外部渠道 | `settings_notify.go` 扩 per-task toggle；新 `service/notify/feishu.go`/`dingtalk.go`/`wecom.go`/`ntfy.go`；NotificationSettings UI 扩 | **M** | 高（LLM 网关高频请求特性） |
 | **P1** | **C1** | **调度任务统一运行历史 UI** ✅ 已发 | 签到/余额/模型同步/公告共用 per-item 结果表 + 统计卡 + next-run | 新 `/api/scheduler/status`（聚合 checkin_logs/accounts.last_*/probe 内存/events）+ Dashboard「调度任务状态」面板 | **M** | 中高（11+ 周期任务可观察性统一） |
 | **P1** | **A2** | **模型成本分布 + 延迟直方图/趋势图表画廊** ✅ 已发 | `UsageAnalytics` 8 图 + 跨图联动 + topN-Other | `stats.go` 加 cost-distribution / latency-histogram / latency-trend 端点；Dashboard/Models 加图 | **M** | 中高（数据已齐，只差视图） |
-| **P1** | **G1** | **批量模型验证 + 验证历史** | `BatchVerifyModelsDialog` + verification-result history | 复用 modelProbe 逻辑做批量 N 模型 per-row + 延迟 + history 表；Models 页批量验证 dialog | **M** | 中（运维 UX） |
+| **P1** | **G1** | **批量模型验证 + 验证历史** ✅ 已发 | `BatchVerifyModelsDialog` + verification-result history | 复用 modelProbe 逻辑做批量 N 模型 per-row + 延迟 + history 表；Models 页批量验证 dialog | **M** | 中（运维 UX） |
 | **P1** | **E1** | **调度模式：随机窗口抖动** ✅ 已发 | deterministic OR random-within-window + pre-trigger + 日历守卫 | `checkin_schedule.go` 加 windowStart/windowEnd 模式；泛化到 balance/cache-warm | **S** | 中（负载扩散 + 反指纹） |
 | **P1** | **F1** | **备份导入预览（计划确认）** ✅ 已发 | ImportExport 校验 → 计划 → commit | 新 `/api/settings/backup/import/preview`（rows/toInsert/duplicates/skipped，不写行）+ ImportExport confirm 前展示计划；顺带修复前端 `{data}` 契约 bug | **S** | 中（#534 批量导入天然补强） |
 | **P2** | **I1** | **accounts/sites 全局标签系统** | 全局 tag store + 多选过滤 + 彩色 | accounts/sites 加 tags 列（AdditiveStep）+ admin tag CRUD + Accounts/Sites 多选过滤 | **S-M** | 中（多站点分类管理） |
@@ -214,7 +214,7 @@ Wave A（数据底座，最高 ROI，互相独立可并行）
 Wave B（可观察性 + 验证，依赖 A1/A2 数据底座）
   C1 调度任务统一运行历史             ← 泛化 checkin_logs ✅ 已发
   A2 模型成本分布 + 延迟图表画廊      ← stats 端点 + 前端图 ✅ 已发
-  G1 批量模型验证 + 验证历史           ← 复用 modelProbe（余项）
+  G1 批量模型验证 + 验证历史           ← 复用 modelProbe ✅ 已发
 
 Wave C（调度 + 导入 + 分类，独立小项）
   E1 随机窗口调度模式                 ← checkin_schedule 扩展
