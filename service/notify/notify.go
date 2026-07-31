@@ -28,6 +28,10 @@ const (
 	ChannelServerChan NotificationChannel = "serverchan"
 	ChannelTelegram  NotificationChannel = "telegram"
 	ChannelSMTP      NotificationChannel = "smtp"
+	ChannelFeishu    NotificationChannel = "feishu"    // all-api-hub borrow D1
+	ChannelDingTalk  NotificationChannel = "dingtalk" // all-api-hub borrow D1
+	ChannelWeCom     NotificationChannel = "wecom"    // all-api-hub borrow D1
+	ChannelNtfy      NotificationChannel = "ntfy"      // all-api-hub borrow D1
 )
 
 // Channel is the interface for notification channels.
@@ -41,6 +45,11 @@ type SendNotificationOptions struct {
 	BypassThrottle bool
 	RequireChannel bool
 	ThrowOnFailure bool
+	// TaskTag labels the alert type (all-api-hub borrow D1). When set and
+	// cfg.NotifyTaskToggles[TaskTag] is false, the notification is skipped so
+	// operators can mute a specific alert type (e.g. "low_balance") while
+	// still receiving others. Empty TaskTag = no gating (backward-compatible).
+	TaskTag string
 }
 
 // DispatchResult is the result of a notification dispatch.
@@ -59,6 +68,10 @@ var channels = []Channel{
 	&ServerChanChannel{},
 	&TelegramChannel{},
 	&SMTPChannel{},
+	&FeishuChannel{},   // all-api-hub borrow D1
+	&DingtalkChannel{}, // all-api-hub borrow D1
+	&WecomChannel{},    // all-api-hub borrow D1
+	&NtfyChannel{},     // all-api-hub borrow D1
 }
 
 // SendNotification dispatches a notification through all configured channels.
@@ -66,6 +79,13 @@ var channels = []Channel{
 func SendNotification(cfg *config.Config, title, message, level string, options *SendNotificationOptions) (*DispatchResult, error) {
 	if options == nil {
 		options = &SendNotificationOptions{}
+	}
+
+	// all-api-hub borrow D1: per-task mute gate. Empty TaskTag = no gate.
+	if options.TaskTag != "" {
+		if enabled, ok := cfg.NotifyTaskToggles[options.TaskTag]; ok && !enabled {
+			return &DispatchResult{Throttled: false, Attempted: 0, Succeeded: 0, Failed: 0}, nil
+		}
 	}
 
 	now := time.Now()
@@ -147,6 +167,36 @@ func SendNotification(cfg *config.Config, title, message, level string, options 
 		tasks = append(tasks, task{
 			channel: ChannelSMTP,
 			run:     func() error { return smtpCh.Send(cfg, title, resolvedMessage, level, timeFootnote) },
+		})
+	}
+
+	// all-api-hub borrow D1: Feishu / DingTalk / WeCom / Ntfy dedicated channels.
+	if cfg.FeishuEnabled && cfg.FeishuWebhook != "" {
+		fc := &FeishuChannel{}
+		tasks = append(tasks, task{
+			channel: ChannelFeishu,
+			run:     func() error { return fc.Send(cfg, title, resolvedMessage, level, timeFootnote) },
+		})
+	}
+	if cfg.DingtalkEnabled && cfg.DingtalkWebhook != "" {
+		dc := &DingtalkChannel{}
+		tasks = append(tasks, task{
+			channel: ChannelDingTalk,
+			run:     func() error { return dc.Send(cfg, title, resolvedMessage, level, timeFootnote) },
+		})
+	}
+	if cfg.WecomEnabled && cfg.WecomWebhook != "" {
+		wc := &WecomChannel{}
+		tasks = append(tasks, task{
+			channel: ChannelWeCom,
+			run:     func() error { return wc.Send(cfg, title, resolvedMessage, level, timeFootnote) },
+		})
+	}
+	if cfg.NtfyEnabled && cfg.NtfyUrl != "" && cfg.NtfyTopic != "" {
+		nc := &NtfyChannel{}
+		tasks = append(tasks, task{
+			channel: ChannelNtfy,
+			run:     func() error { return nc.Send(cfg, title, resolvedMessage, level, timeFootnote) },
 		})
 	}
 

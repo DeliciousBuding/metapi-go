@@ -207,6 +207,48 @@ func ApplyRuntimeSettings(cfg *config.Config, settingsMap map[string]string) {
 		case "cache_ratio_claude":
 			cfg.CacheRatioClaude = parseFloatSetting(value, 0)
 
+		// all-api-hub borrow D1: Feishu / DingTalk / WeCom / Ntfy dedicated channels.
+		case "feishu_enabled":
+			cfg.FeishuEnabled = parseBoolSetting(value, cfg.FeishuEnabled)
+		case "feishu_webhook":
+			cfg.FeishuWebhook = value
+		case "feishu_secret":
+			cfg.FeishuSecret = value
+		case "dingtalk_enabled":
+			cfg.DingtalkEnabled = parseBoolSetting(value, cfg.DingtalkEnabled)
+		case "dingtalk_webhook":
+			cfg.DingtalkWebhook = value
+		case "dingtalk_secret":
+			cfg.DingtalkSecret = value
+		case "wecom_enabled":
+			cfg.WecomEnabled = parseBoolSetting(value, cfg.WecomEnabled)
+		case "wecom_webhook":
+			cfg.WecomWebhook = value
+		case "ntfy_enabled":
+			cfg.NtfyEnabled = parseBoolSetting(value, cfg.NtfyEnabled)
+		case "ntfy_url":
+			cfg.NtfyUrl = value
+		case "ntfy_topic":
+			cfg.NtfyTopic = value
+		case "ntfy_token":
+			cfg.NtfyToken = value
+
+		// all-api-hub borrow D1: per-alert-type mute toggles (JSON object).
+		// Stored as {"token_expired":true,"low_balance":false,...}; missing
+		// keys default to enabled (backward-compatible). nil/empty = all enabled.
+		case "notify_task_toggles":
+			if value != "" {
+				toggles := map[string]bool{}
+				if err := json.Unmarshal([]byte(value), &toggles); err == nil {
+					if cfg.NotifyTaskToggles == nil {
+						cfg.NotifyTaskToggles = map[string]bool{}
+					}
+					for k, v := range toggles {
+						cfg.NotifyTaskToggles[k] = v
+					}
+				}
+			}
+
 		default:
 			// Unknown setting — silently skip.
 			// Future: system_proxy_url, routing weights, admin_ip_allowlist, etc.

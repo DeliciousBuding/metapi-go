@@ -103,6 +103,20 @@ func (h *settingsHandler) getRuntime(w http.ResponseWriter, r *http.Request) {
 		"smtpPassMasked": maskValue(cfg.SmtpPass),
 		"smtpFrom":       cfg.SmtpFrom,
 		"smtpTo":         cfg.SmtpTo,
+		// Notify: Feishu / DingTalk / WeCom / Ntfy (all-api-hub borrow D1)
+		"feishuEnabled":      cfg.FeishuEnabled,
+		"feishuWebhook":      cfg.FeishuWebhook,
+		"feishuSecretMasked": maskValue(cfg.FeishuSecret),
+		"dingtalkEnabled":    cfg.DingtalkEnabled,
+		"dingtalkWebhook":    cfg.DingtalkWebhook,
+		"dingtalkSecretMasked": maskValue(cfg.DingtalkSecret),
+		"wecomEnabled":       cfg.WecomEnabled,
+		"wecomWebhook":       cfg.WecomWebhook,
+		"ntfyEnabled":        cfg.NtfyEnabled,
+		"ntfyUrl":            cfg.NtfyUrl,
+		"ntfyTopic":          cfg.NtfyTopic,
+		"ntfyTokenMasked":    maskValue(cfg.NtfyToken),
+		"notifyTaskToggles":  cfg.NotifyTaskToggles,
 		// Notify: cooldown
 		"notifyCooldownSec": cfg.NotifyCooldownSec,
 		// Admin
@@ -499,6 +513,70 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["smtpTo"]; ok {
 		cfg.SmtpTo = normalizeString(v)
 		upsertSettingDB(h.db, "smtp_to", cfg.SmtpTo)
+	}
+
+	// Notify: Feishu / DingTalk / WeCom / Ntfy (all-api-hub borrow D1)
+	if err := applyBoolSettingDB(h.db, body, "feishuEnabled", &cfg.FeishuEnabled, "feishu_enabled"); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+		return
+	}
+	if v, ok := body["feishuWebhook"]; ok {
+		cfg.FeishuWebhook = normalizeString(v)
+		upsertSettingDB(h.db, "feishu_webhook", cfg.FeishuWebhook)
+	}
+	if v, ok := body["feishuSecret"]; ok {
+		cfg.FeishuSecret = normalizeString(v)
+		upsertSettingDB(h.db, "feishu_secret", cfg.FeishuSecret)
+	}
+	if err := applyBoolSettingDB(h.db, body, "dingtalkEnabled", &cfg.DingtalkEnabled, "dingtalk_enabled"); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+		return
+	}
+	if v, ok := body["dingtalkWebhook"]; ok {
+		cfg.DingtalkWebhook = normalizeString(v)
+		upsertSettingDB(h.db, "dingtalk_webhook", cfg.DingtalkWebhook)
+	}
+	if v, ok := body["dingtalkSecret"]; ok {
+		cfg.DingtalkSecret = normalizeString(v)
+		upsertSettingDB(h.db, "dingtalk_secret", cfg.DingtalkSecret)
+	}
+	if err := applyBoolSettingDB(h.db, body, "wecomEnabled", &cfg.WecomEnabled, "wecom_enabled"); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+		return
+	}
+	if v, ok := body["wecomWebhook"]; ok {
+		cfg.WecomWebhook = normalizeString(v)
+		upsertSettingDB(h.db, "wecom_webhook", cfg.WecomWebhook)
+	}
+	if err := applyBoolSettingDB(h.db, body, "ntfyEnabled", &cfg.NtfyEnabled, "ntfy_enabled"); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+		return
+	}
+	if v, ok := body["ntfyUrl"]; ok {
+		cfg.NtfyUrl = normalizeString(v)
+		upsertSettingDB(h.db, "ntfy_url", cfg.NtfyUrl)
+	}
+	if v, ok := body["ntfyTopic"]; ok {
+		cfg.NtfyTopic = normalizeString(v)
+		upsertSettingDB(h.db, "ntfy_topic", cfg.NtfyTopic)
+	}
+	if v, ok := body["ntfyToken"]; ok {
+		cfg.NtfyToken = normalizeString(v)
+		upsertSettingDB(h.db, "ntfy_token", cfg.NtfyToken)
+	}
+	// Per-alert-type mute toggles (JSON object).
+	if v, ok := body["notifyTaskToggles"]; ok {
+		if cfg.NotifyTaskToggles == nil {
+			cfg.NotifyTaskToggles = map[string]bool{}
+		}
+		if raw, mErr := json.Marshal(v); mErr == nil {
+			upsertSettingDB(h.db, "notify_task_toggles", string(raw))
+			// Re-hydrate from the marshaled value so runtime matches persisted.
+			fresh := map[string]bool{}
+			if uErr := json.Unmarshal(raw, &fresh); uErr == nil {
+				cfg.NotifyTaskToggles = fresh
+			}
+		}
 	}
 
 	// Notify cooldown

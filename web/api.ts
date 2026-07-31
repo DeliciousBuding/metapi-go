@@ -436,6 +436,23 @@ export type RuntimeSettingsPayload = {
   smtpPass?: string;
   smtpFrom?: string;
   smtpTo?: string;
+  // all-api-hub borrow D1: extended notification channels + per-task toggles
+  feishuEnabled?: boolean;
+  feishuWebhook?: string;
+  feishuSecret?: string;
+  feishuSecretMasked?: string;
+  dingtalkEnabled?: boolean;
+  dingtalkWebhook?: string;
+  dingtalkSecret?: string;
+  dingtalkSecretMasked?: string;
+  wecomEnabled?: boolean;
+  wecomWebhook?: string;
+  ntfyEnabled?: boolean;
+  ntfyUrl?: string;
+  ntfyTopic?: string;
+  ntfyToken?: string;
+  ntfyTokenMasked?: string;
+  notifyTaskToggles?: Record<string, boolean>;
   notifyCooldownSec?: number;
   adminIpAllowlist?: string[] | string;
   routingFallbackUnitCost?: number;

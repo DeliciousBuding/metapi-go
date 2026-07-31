@@ -129,9 +129,36 @@ type Config struct {
 	SmtpFrom    string
 	SmtpTo      string
 
+	// Notify: Feishu (3 fields) — all-api-hub borrow D1
+	FeishuEnabled bool
+	FeishuWebhook string
+	FeishuSecret  string
+
+	// Notify: DingTalk (3 fields) — all-api-hub borrow D1
+	DingtalkEnabled bool
+	DingtalkWebhook string
+	DingtalkSecret  string
+
+	// Notify: WeCom (2 fields) — all-api-hub borrow D1
+	WecomEnabled bool
+	WecomWebhook string
+
+	// Notify: Ntfy (4 fields) — all-api-hub borrow D1
+	NtfyEnabled bool
+	NtfyUrl     string
+	NtfyTopic   string
+	NtfyToken   string
+
 	// Notify: General (2 fields)
 	NotifyCooldownSec int
 	SystemProxyUrl    string
+
+	// NotifyTaskToggles gates per-alert-type notifications (all-api-hub borrow D1).
+	// Keys are alert task slugs ("token_expired", "low_balance", "proxy_all_failed").
+	// Default nil = all enabled (backward-compatible). When a key is present and
+	// false, SendNotification skips that task type so operators can mute, e.g.,
+	// low_balance while still receiving token_expired alerts.
+	NotifyTaskToggles map[string]bool
 	// RedisURL enables optional shared admission counters (#118).
 	RedisURL string
 
@@ -486,6 +513,20 @@ func Load(env map[string]string) *Config {
 	// ---- §3.11 Notify: General ----
 	cfg.NotifyCooldownSec = maxInt(0, int(math.Trunc(parseNumber(get("NOTIFY_COOLDOWN_SEC"), DefaultNotifyCooldownSec))))
 	cfg.SystemProxyUrl = firstNonEmpty(get("SYSTEM_PROXY_URL"), "")
+
+	// ---- §3.12 Notify: Feishu / DingTalk / WeCom / Ntfy (all-api-hub borrow D1) ----
+	cfg.FeishuEnabled = parseBoolean(get("FEISHU_ENABLED"), false)
+	cfg.FeishuWebhook = firstNonEmpty(get("FEISHU_WEBHOOK"), "")
+	cfg.FeishuSecret = firstNonEmpty(get("FEISHU_SECRET"), "")
+	cfg.DingtalkEnabled = parseBoolean(get("DINGTALK_ENABLED"), false)
+	cfg.DingtalkWebhook = firstNonEmpty(get("DINGTALK_WEBHOOK"), "")
+	cfg.DingtalkSecret = firstNonEmpty(get("DINGTALK_SECRET"), "")
+	cfg.WecomEnabled = parseBoolean(get("WECOM_ENABLED"), false)
+	cfg.WecomWebhook = firstNonEmpty(get("WECOM_WEBHOOK"), "")
+	cfg.NtfyEnabled = parseBoolean(get("NTFY_ENABLED"), false)
+	cfg.NtfyUrl = firstNonEmpty(get("NTFY_URL"), "")
+	cfg.NtfyTopic = firstNonEmpty(get("NTFY_TOPIC"), "")
+	cfg.NtfyToken = firstNonEmpty(get("NTFY_TOKEN"), "")
 	cfg.RedisURL = firstNonEmpty(get("REDIS_URL"), get("METAPI_REDIS_URL"))
 
 	// ---- §3.12 Admin ----

@@ -24,6 +24,20 @@ type RuntimeSettings = {
     smtpTo: string;
     serverChanKeyMasked?: string;
     telegramBotTokenMasked?: string;
+    // all-api-hub borrow D1: extended channels
+    feishuEnabled: boolean;
+    feishuWebhook: string;
+    feishuSecretMasked?: string;
+    dingtalkEnabled: boolean;
+    dingtalkWebhook: string;
+    dingtalkSecretMasked?: string;
+    wecomEnabled: boolean;
+    wecomWebhook: string;
+    ntfyEnabled: boolean;
+    ntfyUrl: string;
+    ntfyTopic: string;
+    ntfyTokenMasked?: string;
+    notifyTaskToggles?: Record<string, boolean>;
     notifyCooldownSec: number;
 };
 
@@ -46,12 +60,27 @@ export default function NotificationSettings() {
         smtpUser: '',
         smtpFrom: '',
         smtpTo: '',
+        // all-api-hub borrow D1
+        feishuEnabled: false,
+        feishuWebhook: '',
+        dingtalkEnabled: false,
+        dingtalkWebhook: '',
+        wecomEnabled: false,
+        wecomWebhook: '',
+        ntfyEnabled: false,
+        ntfyUrl: '',
+        ntfyTopic: '',
+        notifyTaskToggles: {},
         notifyCooldownSec: 300,
     });
 
     const [serverChanKey, setServerChanKey] = useState('');
     const [telegramBotToken, setTelegramBotToken] = useState('');
     const [smtpPass, setSmtpPass] = useState('');
+    // all-api-hub borrow D1: secret inputs (only sent when user types a new value)
+    const [feishuSecret, setFeishuSecret] = useState('');
+    const [dingtalkSecret, setDingtalkSecret] = useState('');
+    const [ntfyToken, setNtfyToken] = useState('');
     const [loading, setLoading] = useState(true);
     const [savingNotify, setSavingNotify] = useState(false);
     const [testingNotify, setTestingNotify] = useState(false);
@@ -94,6 +123,20 @@ export default function NotificationSettings() {
                 smtpTo: runtimeInfo.smtpTo || '',
                 serverChanKeyMasked: runtimeInfo.serverChanKeyMasked || '',
                 telegramBotTokenMasked: runtimeInfo.telegramBotTokenMasked || '',
+                // all-api-hub borrow D1
+                feishuEnabled: !!runtimeInfo.feishuEnabled,
+                feishuWebhook: runtimeInfo.feishuWebhook || '',
+                feishuSecretMasked: runtimeInfo.feishuSecretMasked || '',
+                dingtalkEnabled: !!runtimeInfo.dingtalkEnabled,
+                dingtalkWebhook: runtimeInfo.dingtalkWebhook || '',
+                dingtalkSecretMasked: runtimeInfo.dingtalkSecretMasked || '',
+                wecomEnabled: !!runtimeInfo.wecomEnabled,
+                wecomWebhook: runtimeInfo.wecomWebhook || '',
+                ntfyEnabled: !!runtimeInfo.ntfyEnabled,
+                ntfyUrl: runtimeInfo.ntfyUrl || '',
+                ntfyTopic: runtimeInfo.ntfyTopic || '',
+                ntfyTokenMasked: runtimeInfo.ntfyTokenMasked || '',
+                notifyTaskToggles: (runtimeInfo.notifyTaskToggles as Record<string, boolean>) || {},
                 notifyCooldownSec: Number.isFinite(Number(runtimeInfo.notifyCooldownSec))
                     ? Math.max(0, Math.trunc(Number(runtimeInfo.notifyCooldownSec)))
                     : 300,
@@ -130,11 +173,26 @@ export default function NotificationSettings() {
                 smtpUser: runtime.smtpUser,
                 smtpFrom: runtime.smtpFrom,
                 smtpTo: runtime.smtpTo,
+                // all-api-hub borrow D1
+                feishuEnabled: runtime.feishuEnabled,
+                feishuWebhook: runtime.feishuWebhook,
+                dingtalkEnabled: runtime.dingtalkEnabled,
+                dingtalkWebhook: runtime.dingtalkWebhook,
+                wecomEnabled: runtime.wecomEnabled,
+                wecomWebhook: runtime.wecomWebhook,
+                ntfyEnabled: runtime.ntfyEnabled,
+                ntfyUrl: runtime.ntfyUrl,
+                ntfyTopic: runtime.ntfyTopic,
+                notifyTaskToggles: runtime.notifyTaskToggles,
                 notifyCooldownSec: Math.max(0, Math.trunc(Number(runtime.notifyCooldownSec) || 0)),
             };
             if (serverChanKey.trim()) payload.serverChanKey = serverChanKey.trim();
             if (telegramBotToken.trim()) payload.telegramBotToken = telegramBotToken.trim();
             if (smtpPass.trim()) payload.smtpPass = smtpPass.trim();
+            // all-api-hub borrow D1: secrets only sent when user types a fresh value
+            if (feishuSecret.trim()) payload.feishuSecret = feishuSecret.trim();
+            if (dingtalkSecret.trim()) payload.dingtalkSecret = dingtalkSecret.trim();
+            if (ntfyToken.trim()) payload.ntfyToken = ntfyToken.trim();
 
             const res = await api.updateRuntimeSettings(payload);
             setRuntime((prev) => ({
@@ -142,10 +200,16 @@ export default function NotificationSettings() {
                 serverChanKeyMasked: res.serverChanKeyMasked || prev.serverChanKeyMasked,
                 telegramBotTokenMasked: res.telegramBotTokenMasked || prev.telegramBotTokenMasked,
                 smtpPassMasked: res.smtpPassMasked || prev.smtpPassMasked,
+                feishuSecretMasked: res.feishuSecretMasked || prev.feishuSecretMasked,
+                dingtalkSecretMasked: res.dingtalkSecretMasked || prev.dingtalkSecretMasked,
+                ntfyTokenMasked: res.ntfyTokenMasked || prev.ntfyTokenMasked,
             }));
             setServerChanKey('');
             setTelegramBotToken('');
             setSmtpPass('');
+            setFeishuSecret('');
+            setDingtalkSecret('');
+            setNtfyToken('');
             toast.success('通知设置已保存');
         } catch (err: any) {
             toast.error(err?.message || '保存失败');
@@ -506,6 +570,82 @@ export default function NotificationSettings() {
                             />
                         </div>
 
+                    </div>
+                </div>
+
+                {/* all-api-hub borrow D1: extended channels (Feishu/DingTalk/WeCom/Ntfy) + per-task mute */}
+                <div className="card animate-slide-up stagger-5" style={{ padding: 24, border: (runtime.feishuEnabled || runtime.dingtalkEnabled || runtime.wecomEnabled || runtime.ntfyEnabled) ? '1px solid var(--color-primary)' : '1px solid var(--color-border-light)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                        <div>
+                            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)' }}>扩展渠道</div>
+                            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>飞书 / 钉钉 / 企业微信 / Ntfy（可选签名验证）</div>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                        {/* Feishu */}
+                        <div style={{ opacity: runtime.feishuEnabled ? 1 : 0.6, transition: 'opacity 0.2s' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 13, fontWeight: 500, color: 'var(--color-text-secondary)' }}>
+                                <input type="checkbox" checked={runtime.feishuEnabled} onChange={(e) => setRuntime((prev) => ({ ...prev, feishuEnabled: e.target.checked }))} />
+                                飞书
+                            </label>
+                            <input value={runtime.feishuWebhook} onChange={(e) => setRuntime((prev) => ({ ...prev, feishuWebhook: e.target.value }))} placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/..." style={inputStyle} disabled={!runtime.feishuEnabled} />
+                            <input value={feishuSecret} onChange={(e) => setFeishuSecret(e.target.value)} placeholder={runtime.feishuSecretMasked ? `已配置（${runtime.feishuSecretMasked}）` : '签名密钥（可选）'} style={{ ...inputStyle, marginTop: 8 }} disabled={!runtime.feishuEnabled} />
+                        </div>
+                        {/* DingTalk */}
+                        <div style={{ opacity: runtime.dingtalkEnabled ? 1 : 0.6, transition: 'opacity 0.2s' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 13, fontWeight: 500, color: 'var(--color-text-secondary)' }}>
+                                <input type="checkbox" checked={runtime.dingtalkEnabled} onChange={(e) => setRuntime((prev) => ({ ...prev, dingtalkEnabled: e.target.checked }))} />
+                                钉钉
+                            </label>
+                            <input value={runtime.dingtalkWebhook} onChange={(e) => setRuntime((prev) => ({ ...prev, dingtalkWebhook: e.target.value }))} placeholder="https://oapi.dingtalk.com/robot/send?access_token=..." style={inputStyle} disabled={!runtime.dingtalkEnabled} />
+                            <input value={dingtalkSecret} onChange={(e) => setDingtalkSecret(e.target.value)} placeholder={runtime.dingtalkSecretMasked ? `已配置（${runtime.dingtalkSecretMasked}）` : '加签密钥（可选）'} style={{ ...inputStyle, marginTop: 8 }} disabled={!runtime.dingtalkEnabled} />
+                        </div>
+                        {/* WeCom */}
+                        <div style={{ opacity: runtime.wecomEnabled ? 1 : 0.6, transition: 'opacity 0.2s' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 13, fontWeight: 500, color: 'var(--color-text-secondary)' }}>
+                                <input type="checkbox" checked={runtime.wecomEnabled} onChange={(e) => setRuntime((prev) => ({ ...prev, wecomEnabled: e.target.checked }))} />
+                                企业微信
+                            </label>
+                            <input value={runtime.wecomWebhook} onChange={(e) => setRuntime((prev) => ({ ...prev, wecomWebhook: e.target.value }))} placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..." style={inputStyle} disabled={!runtime.wecomEnabled} />
+                        </div>
+                        {/* Ntfy */}
+                        <div style={{ opacity: runtime.ntfyEnabled ? 1 : 0.6, transition: 'opacity 0.2s' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 13, fontWeight: 500, color: 'var(--color-text-secondary)' }}>
+                                <input type="checkbox" checked={runtime.ntfyEnabled} onChange={(e) => setRuntime((prev) => ({ ...prev, ntfyEnabled: e.target.checked }))} />
+                                Ntfy
+                            </label>
+                            <input value={runtime.ntfyUrl} onChange={(e) => setRuntime((prev) => ({ ...prev, ntfyUrl: e.target.value }))} placeholder="https://ntfy.sh" style={inputStyle} disabled={!runtime.ntfyEnabled} />
+                            <input value={runtime.ntfyTopic} onChange={(e) => setRuntime((prev) => ({ ...prev, ntfyTopic: e.target.value }))} placeholder="topic 名称" style={{ ...inputStyle, marginTop: 8 }} disabled={!runtime.ntfyEnabled} />
+                            <input value={ntfyToken} onChange={(e) => setNtfyToken(e.target.value)} placeholder={runtime.ntfyTokenMasked ? `已配置（${runtime.ntfyTokenMasked}）` : '访问令牌（可选）'} style={{ ...inputStyle, marginTop: 8 }} disabled={!runtime.ntfyEnabled} />
+                        </div>
+                    </div>
+
+                    {/* per-task mute toggles */}
+                    <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--color-border-light)' }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8, color: 'var(--color-text-secondary)' }}>按告警类型静音（关闭后该类告警不再推送，但仍记入事件表）</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+                            {[
+                                { key: 'token_expired', label: 'Token 失效' },
+                                { key: 'low_balance', label: '余额不足' },
+                                { key: 'proxy_all_failed', label: '代理全部失败' },
+                            ].map((task) => {
+                                const enabled = runtime.notifyTaskToggles?.[task.key] ?? true;
+                                return (
+                                    <label key={task.key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={enabled}
+                                            onChange={(e) => setRuntime((prev) => ({
+                                                ...prev,
+                                                notifyTaskToggles: { ...(prev.notifyTaskToggles || {}), [task.key]: e.target.checked },
+                                            }))}
+                                        />
+                                        {task.label}
+                                    </label>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
 

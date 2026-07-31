@@ -74,7 +74,7 @@ func ReportTokenExpired(cfg *config.Config, db *sqlx.DB, params TokenExpiredPara
 	// Send notification
 	notifypkg.SendNotification(cfg, "Token 已失效",
 		fmt.Sprintf("%s @ %s 的 Token 无效或已过期%s", accountLabel, siteLabel, detail),
-		"error", nil)
+		"error", &notifypkg.SendNotificationOptions{TaskTag: "token_expired"})
 }
 
 // LowBalanceParams holds parameters for reportLowBalance.
@@ -127,7 +127,8 @@ func ReportLowBalance(cfg *config.Config, db *sqlx.DB, params LowBalanceParams) 
 	service.CreateEvent(db, "balance", "余额不足", msg, "warning",
 		params.AccountID, "account")
 
-	notifypkg.SendNotification(cfg, "余额不足", msg, "warning", nil)
+	notifypkg.SendNotification(cfg, "余额不足", msg, "warning",
+		&notifypkg.SendNotificationOptions{TaskTag: "low_balance"})
 }
 
 
@@ -147,7 +148,7 @@ func ReportProxyAllFailed(cfg *config.Config, db *sqlx.DB, params ProxyAllFailed
 
 	notifypkg.SendNotification(cfg, "代理全部失败",
 		fmt.Sprintf("模型=%s, 原因=%s", params.Model, params.Reason),
-		"error", nil)
+		"error", &notifypkg.SendNotificationOptions{TaskTag: "proxy_all_failed"})
 
 	_ = createdAt // already used above
 }
