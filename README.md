@@ -54,7 +54,7 @@ MetAPI 作为中转站之上的**元聚合层**，把多个站点统一到一个
 
 ---
 
-> **Unreleased tip（master）**：parity KEYS/WS/#514/UC-1、P0-555 residual 可观测性（OrphanLogs / stream missing-usage metric）已在 tip；生产 pin 可能仍为 0.8.44，以 ops STATE 为准。P0-585 仍 partial（需生产 e2e）。
+> **Unreleased tip（master）**：parity KEYS/WS/#514/UC-1、all-api-hub borrow 14 项（A1–K1，含 A3 余额分析）、New API N1–N9b、sub2api/cliproxyapi B1 审计/B2 实时面板、UI 收官（主题 preset / first-run 侧栏 / 表格密度）均在 tip（2026-08-01）；生产 pin 可能仍为 0.8.44，以 ops STATE 为准。P0-585 仍 partial（需生产 e2e）。
 
 ## 快速开始
 
@@ -148,11 +148,15 @@ Cron 定时执行（默认每日 08:00），智能解析奖励金额，签到失
 
 ### 余额管理
 
-定时余额刷新（默认每小时），批量更新所有活跃账号。收入追踪：每日/累计收入与消费趋势分析。凭证过期自动重新登录。
+定时余额刷新（默认每小时），批量更新所有活跃账号。收入追踪：每日/累计收入与消费趋势分析（含余额流入 vs 消费的会计恒等式推导）。凭证过期自动重新登录。
 
 ### 告警通知
 
-支持五种通知渠道：Webhook、Bark、Server酱、Telegram Bot、SMTP 邮件。告警场景包括余额不足预警、站点/账号异常、签到失败、代理请求失败、Token 过期提醒、每日摘要报告。
+支持九种通知渠道：Webhook、Bark、Server酱、Telegram Bot、SMTP 邮件、飞书（HMAC 加签）、钉钉（HMAC 加签）、企业微信、ntfy。告警场景包括余额不足预警、站点/账号异常、签到失败、代理请求失败、Token 过期提醒、每日摘要报告。可按告警类型逐项静音。
+
+### 运营与审计
+
+管理操作审计日志（写入操作留痕，管理员可查）。实时 QPS/成功率运维面板（WebSocket 推流，自动重连）。批量模型验证、模型倍率总览与行内编辑、模型重定向映射（canonical→actual 自动生成与修复）、账号/站点标签系统。余额流入 vs 消费分析（按快照日推导收入与支出）。可分享仪表盘快照 PNG 导出。
 
 ### 轻量部署
 

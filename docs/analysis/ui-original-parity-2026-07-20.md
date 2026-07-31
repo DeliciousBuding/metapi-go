@@ -102,12 +102,12 @@ P0-585 partial、P0-555 residual、#579/#547/#584 partial 等是 **协议/计费
 | **SHOT-1** | 空库重录 `page-dashboard/sites/settings-*-win32.png`（含 #553/#554） | 文档/评分诚实；需 `METAPI_UI_AUTH_TOKEN` + 空库 |
 | **MOCK-NAV** | Shell mock 侧栏对齐生产 14 项 | **done tip** |
 | **MOCK-PARITY-AUDIT** | 四路并行原版齐平研究（前端/后端/平台/gap） | **done 2026-07-20** — 结论：Track A 对内可用，Track B 未完备 |
-| **VIS-1** | 可选：primary 回 indigo 或提供主题 preset（GCP / Classic） | 缓解「不像原版」 |
-| **NAV-1** | first-run 侧栏强调 站点/连接/设置（progressive） | 降 onboarding 噪音 |
-| **DENSE-1** | 有数据页（Sites/Accounts 表格）再做一 denser pass | 运营态「满」感 |
+| **VIS-1** | 可选：primary 回 indigo 或提供主题 preset（GCP / Classic） | **done tip** — 3 preset（blue/indigo/teal）× light/dark |
+| **NAV-1** | first-run 侧栏强调 站点/连接/设置（progressive） | **done tip** |
+| **DENSE-1** | 有数据页（Sites/Accounts 表格）再做一 denser pass | **done tip** — 默认 8px + 舒适/紧凑开关 |
 | **CONSOLE-1** | 系统字体 + pill 导航 + 冷静标题 + 高分屏 content max-width | **done tip** |
 
-**默认建议**：v0.8.45 已 tagged → 优先 **ops pin/up soak** + **SHOT-1**；主题 preset（VIS-1）仍可选。
+**默认建议**：v0.8.45 已 tagged → 优先 **ops pin/up soak** + **SHOT-1**；UI 待办（VIS-1/NAV-1/DENSE-1）已全部收官。
 
 ---
 

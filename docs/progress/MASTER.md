@@ -1,10 +1,10 @@
 # MASTER.md — MetAPI Go open gates + parity program
 
-**Last verified**: 2026-07-31  
+**Last verified**: 2026-08-01  
 **Repo**: https://github.com/TokenDanceLab/metapi-go  
 **Mode**: **GITHUB_FULL** · product **parity core shipped**; active M53 REL-HONESTY  
 **Project**: https://github.com/orgs/TokenDanceLab/projects/1  
-**Tip**: `c2d7cb8` · tag **v0.8.45** · unreleased: parity core + P0-555 obs + P0-585 HTTP e2e + #557 procedure + CI unblock + dual-dialect Context helpers + engineering optimization wave + N2-N7/G1 productization batch + all-api-hub borrow Wave A (A1 余额历史 / B1 需关注看板 / D1 per-task 通知+4 渠道) + Wave B (E1 随机窗口 / F1 导入预览 / C1 调度统一运行历史) + Wave C (A2 图表画廊 / G1 批量验证) + Wave D (I1 标签系统 / H1 风险横幅 / J1 快照 PNG) + K1a 模型重定向映射 + N9a 倍率总览  
+**Tip**: `4b89fb5` · tag **v0.8.45** · unreleased: parity core + P0-555 obs + P0-585 HTTP e2e + #557 procedure + CI unblock + dual-dialect Context helpers + engineering optimization wave + N2-N7/G1 productization batch + all-api-hub borrow Wave A–D (A1 余额历史 / B1 需关注看板 / D1 通知 / E1 随机窗口 / F1 导入预览 / C1 调度历史 / A2 图表画廊 / G1 批量验证 / I1 标签 / H1 横幅 / J1 快照 PNG) + K1a 重定向映射 + K1b 路由 canonical 化 + N9a/N9b-a 倍率 + A3 余额流入流出 + B1 审计日志 + B2 实时运维 WS + VIS-1 主题 preset + NAV-1 first-run 侧栏 + review 修复 + DENSE-1 表格密度  
 **Program plan**: [`../plan/original-parity-complete-2026-07-20.md`](../plan/original-parity-complete-2026-07-20.md)
 
 > **开放项 + 硬门禁**。现状 → [`../STATE.md`](../STATE.md) · 日志 → [`../log.md`](../log.md) · shortlist → [`../analysis/high-value-next.md`](../analysis/high-value-next.md)
@@ -13,7 +13,7 @@
 
 | Fact | Value |
 |:-----|:------|
-| Active work | fable fleet review landed (CI unblock + dual-dialect Context helpers + docs SSOT); #557 live soak pending; ops pin gated |
+| Active work | UI 待办收官（VIS-1/NAV-1/DENSE-1）+ 双 agent 对抗 review 修复；#557 live soak pending; ops pin gated |
 | User decisions | WS = **full TS parity**; sticky = **single-instance honesty**; UC = **hide/external deploy** |
 | Ops | hk3 pin still **0.8.44 Exited** until authorized **0.8.45** soak (server STATE) |
 | Board | M53 REL-HONESTY · open [#557](https://github.com/TokenDanceLab/metapi-go/issues/557) P0-585 prod e2e · [#558](https://github.com/TokenDanceLab/metapi-go/issues/558) runtime probes |
@@ -53,8 +53,7 @@
 
 | Priority | Candidate |
 |:---------|:----------|
-| Docs/visual | Empty-DB page shot recapture (`METAPI_UI_AUTH_TOKEN`) |
-| UX | VIS-1 theme preset / NAV-1 first-run sidebar |
+| Docs/visual | Empty-DB page shot recapture (`METAPI_UI_AUTH_TOKEN`) — SHOT-1 |
 | Runtime | #571 Codex OAuth gpt-5.5 · #577 AnyRouter live |
 
 ## Quick status

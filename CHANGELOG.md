@@ -7,6 +7,17 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Added — UI 收官 + review 修复 + 密度（2026-08-01）
+- **DENSE-1 表格密度**: 默认表格行高 10px → 8px（运营态「满」感）；主题菜单新增「表格密度」舒适/紧凑切换（接通既有 `html[data-density="compact"]` 开关：data-density 属性 + localStorage 持久化）
+- **Review 11 项核实缺陷修复**（双 agent 对抗审查）: 后端——`recordUpstreamSuccess` 计费改归因名（K1b 口径统一，channel 成本不再按 actual 名查倍率）、redirects 反向索引字典序确定性（map 迭代随机不再影响 eligibility）、`ReloadRedirectRegistry` 补 `rows.Err()`、A3 退款保留负 outcome（会计恒等式始终成立）、B1 panic 路径补记 500 + statusRecorder 首次写入为准；前端——AuditLogsSection 提交态触发 + 请求序号丢弃过期响应、RealtimeOpsPanel 连续失败 5 次停止重连、NAV-1 expanded 隐藏更多功能区、firstRun 探测加 authed 门控、Dashboard 挂载去重、快照 PNG 主色随 data-accent
+- **NAV-1 first-run 侧栏**: 无站点时侧栏只显示核心 onboarding 路径（仪表盘/站点管理/连接管理/设置），其余折叠「更多功能」（desktop 展开 toggle + mobile 归组）
+- **VIS-1 主题 preset**: `data-accent` 3 预设（blue 默认 GCP / indigo 原版亲和 / teal 冷静）× light/dark 双套 --color-primary 族覆盖；主题菜单 3 色点切换 + FOUC 同步
+- **B2 实时 QPS 运维面板**: 1s×300 环形缓冲（total/success）+ `GET /api/admin/ops/ws?token=` 每秒推流（browser WS 无法带 header，token 走 query 常量时间校验）+ Dashboard 实时流量面板（QPS/成功率/sparkline/指数退避重连）
+- **B1 管理操作审计日志**: `admin_audit_logs` 表 + AuditMiddleware 记录 POST/PUT/PATCH/DELETE（actor = token sha256 前缀 8 位，永不存原文；panic 也补记 500）；Settings「审计日志」区（方法/路径/actor/IP/状态过滤 + 分页）
+- **A3 余额流入 vs 消费**: `GET /api/stats/balance-income-outcome` — 会计恒等式 income - outcome = Δbalance 推导（首日视为初始入账；退款如实反映为负 outcome）；Dashboard「余额流入 vs 消费」分组柱卡
+- **K1b 路由匹配 canonical 化**: per-account 进程内 redirect 注册表（canonical→actual + 字典序确定性反向索引）；actual 通道对 canonical 请求开放 eligibility；转发改写（swapModelInJSON 出站体）+ 计费归因名（proxy_logs model_requested=canonical / model_actual=actual）
+- **N9b-a 倍率批量编辑**: `PUT /api/models/rates` 批量更新 accounts.unit_cost + route_channels.weight（校验 ≥0、写后路由缓存失效）+ 总览页行内编辑（✎ → input → 保存，Enter/Esc）；N9b-b 关闭（unit_cost 不参与 estimated_cost，ratio 计费口径不变）
+
 ### Added — New API borrow N9a (rate overview) + N8 assessment
 - **N9a 倍率与权重总览**: `GET /api/models/rates` 只读聚合全部倍率面——账号 unit_cost + 通道权重足迹、通道 weight、站点 global_weight、下游 key_weight、模型 30 天观测成本 + 汇总；Settings「倍率与权重总览」区（只读表格）。评估文档 `docs/analysis/competitive/n8-n9-deferred-assessment-2026-08-01.md`
 - **N8 关闭（架构等价）**: 多密钥轮询已由 route_channels 多行 + round_robin/weighted + 每通道冷却 + OAuth route unit 原生覆盖；实现渠道内多 key 会重复凭证模型——不立项
