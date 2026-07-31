@@ -600,3 +600,10 @@
 - 数据流: `service.ReloadRedirectRegistry` 启动加载（router.New）+ K1a 全部变更点（PUT/DELETE/generate/apply/同步生成）后重建。
 - 测试: routing 3 例（注册表/eligibility/selector 集成）+ service 重载 1 例；全量 go vet/test 绿。
 - K1 系列全部收口；deferred 清单清空（N9b-b 关闭 + K1b 落地）。
+
+## [2026-08-01] A3: income vs outcome 余额分析（all-api-hub borrow 收官）
+
+- `GET /api/stats/balance-income-outcome?days=&accountId=`：基于 A1 快照按会计恒等式 income - outcome = Δbalance 推导——outcome = max(0, Δbalance_used)，income = Δbalance + Δused；首日快照视为初始入账；只输出有快照的日（缺失日 ≠ 零活动）。
+- Dashboard 新卡「余额流入 vs 消费」：VChart 分组柱（收入/消费 per day）+ 汇总（总收入/总消费/净，净值颜色区分）。
+- 测试：后端恒等式/多账号聚合/PG 奇偶 3 例 + 前端 3 例；全量 560 vitest + go vet/test 绿。
+- **all-api-hub borrow A1-J1 全部 14/14 立项项收官**（A3 为最后一项）；MASTER 第 5 条 backlog 状态同步。

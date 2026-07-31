@@ -19,6 +19,9 @@ const SiteTrendChart = lazy(
 const BalanceHistoryChart = lazy(
   () => import("../components/charts/BalanceHistoryChart.js"),
 );
+const IncomeOutcomeChart = lazy(
+  () => import("../components/charts/IncomeOutcomeChart.js"),
+);
 const AttentionPanel = lazy(
   () => import("../components/AttentionPanel.js"),
 );
@@ -1210,6 +1213,12 @@ export default function Dashboard({
         <div className="chart-panel-enter animate-slide-up stagger-7">
           <Suspense fallback={<ChartFallback height={320} />}>
             <BalanceHistoryChart days={30} />
+          </Suspense>
+        </div>
+        {/* A3 (all-api-hub borrow): income vs consumption card */}
+        <div className="chart-panel-enter animate-slide-up stagger-7">
+          <Suspense fallback={<ChartFallback height={320} />}>
+            <IncomeOutcomeChart days={30} />
           </Suspense>
         </div>
       </div>

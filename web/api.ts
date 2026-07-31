@@ -1320,6 +1320,9 @@ export const api = {
   getSiteTrend: (days = 7) => request(`/api/stats/site-trend?days=${days}`),
   getBalanceHistory: (accountId: number, days = 30) =>
     request(`/api/stats/balance-history?accountId=${accountId}&days=${days}`),
+  // A3 (all-api-hub borrow): income vs outcome balance analysis.
+  getBalanceIncomeOutcome: (days = 30) =>
+    request(`/api/stats/balance-income-outcome?days=${days}`),
   getAttention: (limit = 20) =>
     request(`/api/stats/attention?limit=${limit}`),
   // A2 (all-api-hub borrow): model cost distribution + latency chart gallery.

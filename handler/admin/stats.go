@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -31,6 +32,8 @@ func RegisterStatsRoutes(r chi.Router, db *sqlx.DB) {
 	r.Get("/api/stats/slow-requests", handler.slowRequests)
 	// A1 (all-api-hub borrow): per-account daily balance history series.
 	r.Get("/api/stats/balance-history", handler.balanceHistory)
+	// A3 (all-api-hub borrow): income vs outcome balance analysis.
+	r.Get("/api/stats/balance-income-outcome", handler.balanceIncomeOutcome)
 	// B1 (all-api-hub borrow): severity-ranked actionable attention items.
 	r.Get("/api/stats/attention", handler.attention)
 	// A2 (all-api-hub borrow): model cost distribution + latency chart gallery.
@@ -555,6 +558,115 @@ func (h *statsHandler) balanceHistory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"series": series,
 		"days":   days,
+	})
+}
+
+// GET /api/stats/balance-income-outcome?days=30&accountId=
+// A3 (all-api-hub borrow): income vs outcome balance analysis, derived from
+// the A1 snapshots via the accounting identity income - outcome = Δbalance:
+//   - outcome(day) = max(0, Δ balance_used) — consumption (chargeable spend);
+//   - income(day)   = Δ balance + Δ balance_used — whatever refilled the
+//     balance (free quota top-ups, recharges), so the identity always holds;
+//   - the first snapshot day of an account has no previous value: its balance
+//     + balance_used is treated as initial income (no consumption before it).
+//
+// Only days with actual snapshots are emitted (missing day ≠ zero activity).
+func (h *statsHandler) balanceIncomeOutcome(w http.ResponseWriter, r *http.Request) {
+	days := clampInt(getQueryInt(r, "days", 30), 1, 365)
+	fromDay := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format("2006-01-02")
+	accountID := getQueryInt(r, "accountId", 0)
+
+	args := []any{fromDay}
+	q := `SELECT account_id, balance, balance_used, local_day
+		FROM balance_history
+		WHERE local_day >= ?`
+	if accountID > 0 {
+		q += ` AND account_id = ?`
+		args = append(args, accountID)
+	}
+	q += ` ORDER BY account_id ASC, local_day ASC`
+
+	rows := queryRows(h.db, q, args...)
+
+	// Per-account chronological snapshots (already ordered).
+	type snapshot struct {
+		day         string
+		balance     float64
+		balanceUsed float64
+	}
+	byAccount := make(map[int64][]snapshot)
+	accountOrder := make([]int64, 0, len(byAccount))
+	for _, row := range rows {
+		accID := coerceInt64(row["accountId"])
+		if _, seen := byAccount[accID]; !seen {
+			accountOrder = append(accountOrder, accID)
+		}
+		byAccount[accID] = append(byAccount[accID], snapshot{
+			day:         coerceString(row["localDay"]),
+			balance:     coerceFloat(row["balance"]),
+			balanceUsed: coerceFloat(row["balanceUsed"]),
+		})
+	}
+
+	byDay := make(map[string]map[string]float64) // day → {"income", "outcome"}
+	for _, accID := range accountOrder {
+		points := byAccount[accID]
+		for i := range points {
+			p := points[i]
+			var income, outcome float64
+			if i == 0 {
+				// First snapshot: everything credited so far is initial income.
+				income = p.balance + p.balanceUsed
+			} else {
+				prev := points[i-1]
+				deltaUsed := p.balanceUsed - prev.balanceUsed
+				outcome = deltaUsed
+				if outcome < 0 {
+					outcome = 0 // used-reset (refund/remap); identity below absorbs it
+				}
+				income = (p.balance - prev.balance) + deltaUsed
+			}
+			entry := byDay[p.day]
+			if entry == nil {
+				entry = map[string]float64{"income": 0, "outcome": 0}
+				byDay[p.day] = entry
+			}
+			entry["income"] += income
+			entry["outcome"] += outcome
+		}
+	}
+
+	// Sort days ascending for a stable series.
+	dayKeys := make([]string, 0, len(byDay))
+	for day := range byDay {
+		dayKeys = append(dayKeys, day)
+	}
+	sort.Strings(dayKeys)
+
+	points := make([]map[string]any, 0, len(dayKeys))
+	var totalIncome, totalOutcome float64
+	for _, day := range dayKeys {
+		entry := byDay[day]
+		points = append(points, map[string]any{
+			"day":     day,
+			"income":  round4(entry["income"]),
+			"outcome": round4(entry["outcome"]),
+			"net":     round4(entry["income"] - entry["outcome"]),
+		})
+		totalIncome += entry["income"]
+		totalOutcome += entry["outcome"]
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"generatedAt": time.Now().UTC().Format(time.RFC3339),
+		"days":        days,
+		"points":      points,
+		"summary": map[string]any{
+			"totalIncome":  round4(totalIncome),
+			"totalOutcome": round4(totalOutcome),
+			"net":          round4(totalIncome - totalOutcome),
+			"accounts":     len(accountOrder),
+		},
 	})
 }
 

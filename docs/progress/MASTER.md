@@ -72,4 +72,4 @@ gh project view 1 --owner TokenDanceLab
 2. REL: P0-585 needs **production/live e2e** per [`../analysis/p0585-production-e2e-procedure.md`](../analysis/p0585-production-e2e-procedure.md) (#557); HTTP e2e already on tip.  
 3. Ops pin **0.8.45** only with admin auth + ≥15min soak.  
 4. Do **not** invent UC registry / STICKY-B / fake WS terminals.  
-5. Product borrow backlog（决策输入，未立项）: [`../analysis/competitive/all-api-hub-product-borrow-2026-07-31.md`](../analysis/competitive/all-api-hub-product-borrow-2026-07-31.md) — **A1-J1 全部立项项已发（13/13，K1 拆分 K1a 已发 + K1b deferred）**；N8 关闭（架构等价，[评估文档](../analysis/competitive/n8-n9-deferred-assessment-2026-08-01.md)）；deferred 需拍板: **N9b 倍率写入面 / K1b 路由匹配 canonical 化**（均 M 级触及核心），不静默实现。
+5. Product borrow backlog（决策输入，未立项）: [`../analysis/competitive/all-api-hub-product-borrow-2026-07-31.md`](../analysis/competitive/all-api-hub-product-borrow-2026-07-31.md) — **A1-J1 全部立项项已发（14/14，含 A3 收官；K1 拆分 K1a + K1b 均已发）**；N8 关闭（架构等价，[评估文档](../analysis/competitive/n8-n9-deferred-assessment-2026-08-01.md)）；**N9a + N9b-a 已发，N9b-b 关闭**；deferred 清单已清空（2026-08-01）。
