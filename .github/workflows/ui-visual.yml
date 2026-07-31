@@ -46,19 +46,8 @@ jobs:
       - name: List Playwright tests
         run: npx playwright test --list
 
-      # TEMP baseline refresh (DENSE-1 density shift): run with update so the
-      # step itself regenerates linux baselines; upload them, then revert to
-      # plain `npm run test:e2e` after committing the refreshed snapshots.
       - name: Run e2e + visual suite
-        run: npm run test:e2e -- --update-snapshots
-
-      - name: Upload refreshed baselines
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: visual-baselines
-          path: web/e2e/visual-gallery.spec.ts-snapshots/
-          retention-days: 14
+        run: npm run test:e2e
 
       - name: Upload Playwright report
         if: failure()
