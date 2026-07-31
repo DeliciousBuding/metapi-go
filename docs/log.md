@@ -3,6 +3,14 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-07-31] all-api-hub borrow Wave B 交付（E1/F1/C1）
+
+- **E1 随机窗口调度**（`ea8991f`）: checkin 新 `window` 模式——`RandomCronInWindow(start,end)` 解析 HH:mm 边界、窗口内均匀随机生成 "m h * * *" 每日 cron（每次启动/设置变更重 roll = 负载扩散 + 反指纹）；scheduler window 分支 + 校验（start<=end、坏边界降级 cron）；config `CHECKIN_WINDOW_START/END`（默认 00:00-23:59）；store/settings 水合；`PUT /api/checkin/schedule` 接受 windowStart/windowEnd。测试：5 边界组 × 50 次滚动全落窗口 + cron 合法、重 roll 变化性、7 组坏边界、parseHHMM 容错。
+- **F1 备份导入预览**（`d197c76`）: 新 `POST /api/settings/backup/import/preview`——decodeBackupImportBody 同时接受 `{tables}` 与 `{data:{tables}}`（**顺带修复前端 {data} 包装契约 bug**：手动 JSON 粘贴导入此前恒 400）；per-table plan rows/toInsert/duplicates（PK 已存在）/skippedRows（runtime-local settings），不写任何行；ImportExport confirm 弹窗展示「导入计划预览」。测试：preview 报告 + 不写入验证 + {data} 回归。
+- **C1 调度任务统一运行历史**（`37d6a70`）: 新 `GET /api/scheduler/status` 聚合 7 个周期任务的 last-run/24h 活动/成功数（checkin_logs、accounts.last_balance_refresh、model-probe 内存 summary、site_announcements、events type 计数）；Dashboard「调度任务状态」面板（severity dot + 相对时间）。零 scheduler 代码改动，纯聚合。测试：checkin 近/远日志 → lastStatus/runs24h/success24h。
+- **验证**: `go vet ./...` + `go test ./...` 全绿；`vitest` 159 文件/526 测试全绿；SPA rebuild。
+- SSOT 同步: STATE tip `37d6a70` / MASTER / CHANGELOG / borrow doc P1 三行标 ✅。
+
 ## [2026-07-31] all-api-hub borrow Wave A 交付（A1/B1/D1）
 
 - **A1 余额历史快照表 + 趋势图**（`34d3371`）: 新 `balance_history` 表（Table 29，per (local_day, account_id) UPSERT 同日覆盖）+ `RefreshBalance` 成功路径 `recordBalanceSnapshot`（dialect-unified ON CONFLICT DO UPDATE，best-effort 不阻断刷新）+ `/api/stats/balance-history?accountId=&days=`（per-account per-day 系列）+ Dashboard `BalanceHistoryChart`（跨账号聚合 per-day 总余额趋势）。测试：RefreshBalance 两次→1 行 UPSERT；端点两天快照 + ASC 排序。

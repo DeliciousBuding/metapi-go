@@ -7,6 +7,11 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Added — all-api-hub borrow Wave B (scheduling / backup / observability)
+- **E1 随机窗口调度模式**: checkin 支持 `window` 模式 — 启动/设置变更时在 `CHECKIN_WINDOW_START`~`END`（HH:mm）内随机生成每日 cron（负载扩散 + 反指纹）；`PUT /api/checkin/schedule` 接受 windowStart/windowEnd
+- **F1 备份导入预览**: `POST /api/settings/backup/import/preview` 返回 per-table rows/toInsert/duplicates/skipped 计划且不写行；ImportExport confirm 前展示计划；顺带修复前端 `{data}` 包装与后端 `{tables}` 契约不匹配 bug（手动 JSON 粘贴导入此前恒 400）
+- **C1 调度任务统一运行历史**: `GET /api/scheduler/status` 聚合 checkin/balance-refresh/model-probe/site-announcements/daily-summary/log-cleanup/usage-aggregation 的 last-run + 24h 活动；Dashboard「调度任务状态」面板
+
 ### Added — all-api-hub borrow Wave A (product surface)
 - **A1 余额历史快照表 + 趋势图**: 新 `balance_history` 表（per UTC day per account，同日 UPSERT 覆盖）；`RefreshBalance` 成功路径自动写快照（best-effort，不阻断刷新）；`GET /api/stats/balance-history?accountId=&days=`；Dashboard「余额趋势」卡（跨账号聚合总余额近 30 天）
 - **B1 需关注看板**: `GET /api/stats/attention` severity 排序深链项（expired accounts critical → low-balance <1.0 warning → disabled sites warning → 近 24h warning/error events）；Dashboard 顶部「需要关注」面板，点击直达对应页面
