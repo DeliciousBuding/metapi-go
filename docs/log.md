@@ -627,3 +627,10 @@
 - 测试：ring buffer 3 例（记录/零填充/并发）+ WS 端点 1 例（403 无/错 token、
   upgrade + 首帧）+ 前端 3 例（token query/空 token 不连/断线重连）；
   全量 565 vitest + go vet/test 绿
+
+## [2026-08-01] VIS-1: 主题 preset（可选主色）+ 补齐测试
+
+- `data-accent` 属性（blue 默认 / indigo 原版亲和 Material Indigo / teal 冷静运维 Material Teal）× light/dark 双套 `--color-primary` 族覆盖（tokens.css，衍生 token 全联动：info/focus-ring/gradient）
+- themeBootstrap `resolveInitialAccent` + `THEME_ACCENT_KEY`；index.html FOUC inline 同步（防 flash）；App 主题菜单加 3 色点切换（localStorage + 立即应用）
+- 修复：Dashboard 新卡（IncomeOutcomeChart）导致 dashboard.site-speed-button 测试 api mock 缺失 → 补 mock；App 测试环境 documentElement mock 缺 removeAttribute → 组件防御
+- 测试：themeBootstrap 2 例 + 全量 567 vitest 绿

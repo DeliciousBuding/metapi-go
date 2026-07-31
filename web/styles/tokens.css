@@ -219,6 +219,63 @@
   --z-tooltip: 380;
 }
 
+/* ===== Accent presets (VIS-1) =====
+   data-accent on <html> selects an alternate brand-primary family for both
+   themes. blue (default, above) is the cloud-ops GCP blue; indigo restores
+   the original MetAPI affinity; teal is the calm ops alternative.
+   Every token below is derived from the primary family: text-link and
+   focus-ring follow var(--color-primary) automatically. */
+
+/* indigo — Material Indigo (light) */
+[data-accent="indigo"] {
+  --color-primary: #3949ab;
+  --color-primary-light: rgba(57, 73, 171, 0.08);
+  --color-primary-hover: #283593;
+  --color-primary-soft: rgba(57, 73, 171, 0.08);
+  --color-info: #3949ab;
+  --color-info-soft: rgba(57, 73, 171, 0.08);
+  --color-info-ink: #3949ab;
+  --color-focus-ring: rgba(57, 73, 171, 0.42);
+  --color-brand-gradient: linear-gradient(135deg, #3949ab 0%, #5c6bc0 55%, #7986cb 100%);
+}
+
+/* teal — Material Teal (light) */
+[data-accent="teal"] {
+  --color-primary: #00897b;
+  --color-primary-light: rgba(0, 137, 123, 0.08);
+  --color-primary-hover: #00695c;
+  --color-primary-soft: rgba(0, 137, 123, 0.08);
+  --color-info: #00897b;
+  --color-info-soft: rgba(0, 137, 123, 0.08);
+  --color-info-ink: #00897b;
+  --color-focus-ring: rgba(0, 137, 123, 0.42);
+  --color-brand-gradient: linear-gradient(135deg, #00897b 0%, #26a69a 55%, #4db6ac 100%);
+}
+
+/* indigo — dark elevated */
+[data-theme="dark"][data-accent="indigo"] {
+  --color-primary: #9fa8da;
+  --color-primary-light: rgba(159, 168, 218, 0.14);
+  --color-primary-hover: #b3bce6;
+  --color-primary-soft: rgba(159, 168, 218, 0.14);
+  --color-info: #9fa8da;
+  --color-info-soft: rgba(159, 168, 218, 0.14);
+  --color-focus-ring: rgba(159, 168, 218, 0.42);
+  --color-brand-gradient: linear-gradient(135deg, #9fa8da 0%, #7986cb 55%, #5c6bc0 100%);
+}
+
+/* teal — dark elevated */
+[data-theme="dark"][data-accent="teal"] {
+  --color-primary: #80cbc4;
+  --color-primary-light: rgba(128, 203, 196, 0.14);
+  --color-primary-hover: #a5d6cf;
+  --color-primary-soft: rgba(128, 203, 196, 0.14);
+  --color-info: #80cbc4;
+  --color-info-soft: rgba(128, 203, 196, 0.14);
+  --color-focus-ring: rgba(128, 203, 196, 0.42);
+  --color-brand-gradient: linear-gradient(135deg, #80cbc4 0%, #4db6ac 55%, #26a69a 100%);
+}
+
 /* ===== Dark — cloud-ops / GCP dark console ===== */
 [data-theme="dark"] {
   color-scheme: dark;

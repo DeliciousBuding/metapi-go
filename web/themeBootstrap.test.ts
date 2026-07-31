@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   THEME_MODE_KEY,
   LEGACY_THEME_KEY,
+  THEME_ACCENT_KEY,
   canvasBackgroundForTheme,
+  resolveInitialAccent,
   resolveInitialDataTheme,
 } from './themeBootstrap.js';
 
@@ -79,6 +81,19 @@ describe('themeBootstrap', () => {
     it('returns design canvas colors for light and dark', () => {
       expect(canvasBackgroundForTheme('light')).toBe('#f8f9fa');
       expect(canvasBackgroundForTheme('dark')).toBe('#202124');
+    });
+  });
+
+  describe('resolveInitialAccent (VIS-1)', () => {
+    it('returns stored preset', () => {
+      const getItem = storageFrom({ [THEME_ACCENT_KEY]: 'indigo' });
+      expect(resolveInitialAccent(getItem)).toBe('indigo');
+      expect(resolveInitialAccent(storageFrom({ [THEME_ACCENT_KEY]: 'teal' }))).toBe('teal');
+    });
+
+    it('falls back to blue for missing or unknown values', () => {
+      expect(resolveInitialAccent(storageFrom({}))).toBe('blue');
+      expect(resolveInitialAccent(storageFrom({ [THEME_ACCENT_KEY]: 'pink' }))).toBe('blue');
     });
   });
 });

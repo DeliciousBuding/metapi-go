@@ -27,6 +27,12 @@
         }
         var root = document.documentElement;
         root.setAttribute('data-theme', theme);
+        // VIS-1: accent preset (blue default / indigo / teal) — same key and
+        // values as web/themeBootstrap.ts resolveInitialAccent.
+        var accent = localStorage.getItem('theme_accent');
+        if (accent === 'indigo' || accent === 'teal') {
+          root.setAttribute('data-accent', accent);
+        }
         root.style.colorScheme = theme;
         var bg = theme === 'dark' ? '#202124' : '#f8f9fa';
         root.style.backgroundColor = bg;
@@ -43,10 +49,10 @@
     })();
   </script>
   <!-- System fonts only — no Google Fonts CDN (ops console / CSP-friendly) -->
-  <script type="module" crossorigin src="/assets/index-BrRjOusy.js"></script>
+  <script type="module" crossorigin src="/assets/index-yjngiyHT.js"></script>
   <link rel="modulepreload" crossorigin href="/assets/jsx-runtime-CZcjcDnw.js">
   <link rel="modulepreload" crossorigin href="/assets/vchart-vendor-C149A-YZ.js">
-  <link rel="stylesheet" crossorigin href="/assets/index-thdZPnZm.css">
+  <link rel="stylesheet" crossorigin href="/assets/index-hYn8twpE.css">
 </head>
 <body class="min-h-screen">
   <div id="root"></div>

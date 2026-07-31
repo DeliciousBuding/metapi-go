@@ -5,9 +5,14 @@
 
 export const THEME_MODE_KEY = 'theme_mode';
 export const LEGACY_THEME_KEY = 'theme';
+export const THEME_ACCENT_KEY = 'theme_accent';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type DataTheme = 'light' | 'dark';
+
+/** VIS-1: selectable brand-primary families (see tokens.css data-accent). */
+export type AccentPreset = 'blue' | 'indigo' | 'teal';
+export const ACCENT_PRESETS: AccentPreset[] = ['blue', 'indigo', 'teal'];
 
 export type ThemeStorageGetItem = (key: string) => string | null;
 
@@ -17,6 +22,19 @@ const CANVAS_BG_DARK = '#202124';
 
 function isDataTheme(value: string | null | undefined): value is DataTheme {
   return value === 'light' || value === 'dark';
+}
+
+function isAccentPreset(value: string | null | undefined): value is AccentPreset {
+  return value === 'blue' || value === 'indigo' || value === 'teal';
+}
+
+/**
+ * Resolve the initial `data-accent` value before React hydrates.
+ * Unknown values fall back to the default 'blue'.
+ */
+export function resolveInitialAccent(getItem: ThemeStorageGetItem): AccentPreset {
+  const value = getItem(THEME_ACCENT_KEY);
+  return isAccentPreset(value) ? value : 'blue';
 }
 
 /**

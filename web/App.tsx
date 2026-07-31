@@ -15,6 +15,11 @@ import {
 import { I18nProvider, useI18n } from './i18n.js';
 import { resolveLoginErrorMessage } from './loginError.js';
 import { SITE_DOCS_URL, SITE_GITHUB_URL } from './docsLink.js';
+import {
+  THEME_ACCENT_KEY,
+  type AccentPreset,
+  resolveInitialAccent,
+} from './themeBootstrap.js';
 import { useAnimatedVisibility } from './components/useAnimatedVisibility.js';
 import { useIsMobile } from './components/useIsMobile.js';
 import { MobileDrawer } from './components/MobileDrawer.js';
@@ -506,6 +511,9 @@ function AppShell() {
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const themeMenuRef = useRef<HTMLDivElement>(null);
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => resolveStoredThemeMode());
+  const [accent, setAccent] = useState<AccentPreset>(() =>
+    resolveInitialAccent((k) => localStorage.getItem(k)),
+  );
   const [systemPrefersDark, setSystemPrefersDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches);
   const [userProfile, setUserProfile] = useState<UserProfile>(() => resolveStoredProfile());
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -563,6 +571,22 @@ function AppShell() {
       localStorage.setItem(LEGACY_THEME_STORAGE_KEY, themeMode);
     }
   }, [resolvedTheme, themeMode]);
+
+  // VIS-1: apply the accent preset (blue default needs no attribute, mirroring
+  // the index.html FOUC inline script). Guard for test renderers that mock
+  // documentElement without the full DOM surface.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (typeof root.setAttribute !== 'function' || typeof root.removeAttribute !== 'function') {
+      return;
+    }
+    if (accent === 'blue') {
+      root.removeAttribute('data-accent');
+    } else {
+      root.setAttribute('data-accent', accent);
+    }
+    localStorage.setItem(THEME_ACCENT_KEY, accent);
+  }, [accent]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-layout', isMobile ? 'mobile' : 'desktop');
@@ -676,6 +700,12 @@ function AppShell() {
 
   const handleSelectThemeMode = (nextMode: ThemeMode) => {
     setThemeMode(nextMode);
+    setShowThemeMenu(false);
+  };
+
+  const handleSelectAccent = (nextAccent: AccentPreset) => {
+    setAccent(nextAccent);
+    localStorage.setItem(THEME_ACCENT_KEY, nextAccent);
     setShowThemeMenu(false);
   };
 
@@ -809,6 +839,37 @@ function AppShell() {
                 >
                   {t('深色模式')}
                 </button>
+                {/* VIS-1: accent preset picker (blue default / indigo / teal) */}
+                <div
+                  className="user-dropdown-item"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'default', gap: 8 }}
+                >
+                  <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{t('主题色')}</span>
+                  <span style={{ display: 'inline-flex', gap: 6 }}>
+                    {([
+                      { value: 'blue', color: '#1a73e8' },
+                      { value: 'indigo', color: '#3949ab' },
+                      { value: 'teal', color: '#00897b' },
+                    ] as const).map((p) => (
+                      <button
+                        key={p.value}
+                        type="button"
+                        aria-label={p.value}
+                        title={p.value === 'blue' ? t('蓝色（默认）') : p.value === 'indigo' ? t('靛蓝（原版）') : t('青绿（冷静）')}
+                        onClick={() => handleSelectAccent(p.value)}
+                        style={{
+                          width: 16,
+                          height: 16,
+                          borderRadius: '50%',
+                          border: accent === p.value ? '2px solid var(--color-text-primary)' : '1px solid var(--color-border-strong)',
+                          background: p.color,
+                          cursor: 'pointer',
+                          padding: 0,
+                        }}
+                      />
+                    ))}
+                  </span>
+                </div>
               </div>
             )}
           </div>
