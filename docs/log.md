@@ -3,6 +3,16 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-08-01] all-api-hub borrow Wave D 交付（I1 标签系统）
+
+- **I1 accounts/sites 全局标签系统**（`ba74242`）:
+  - Schema: `accounts.tags` / `sites.tags` TEXT（JSON 数组文本，NULL=无）；AdditiveStep `sc2_011_account_site_tags`（EnsureColumn 双方言）；SiteSelectColumns + 两个 struct 加字段；列数断言 +2。
+  - 端点: `GET /api/tags`（union 聚合 + account/site 计数 + total 降序稳定排序）；`PUT /api/accounts/{id}/tags` / `PUT /api/sites/{id}/tags`（body 校验 400 / 不存在 404 / 去重 + trim / 空列表=清空）。
+  - 前端: `helpers/tags.ts`（parseTags 容错 JSON 文本/数组/逗号、tagColor 稳定哈希到 chart 调色板、collectTags 频次排序 union）；共享 `TagEditorDialog`（chips + 删除 × + 自由输入 + 常用标签快捷添加 + Enter 保存）；Accounts/Sites 双页：行内彩色 chips（点击切换过滤）、列表上方过滤 chips 行（清除过滤）、行操作「标签」按钮 → dialog → PUT → 重载。
+  - 测试: 后端 e2e（聚合计数/去重/清空后索引消失/400/404/坏 id）；helpers 单测；dialog 组件 2 用例（快捷添加+保存、× 删除）。
+- **验证**: `go vet ./...` + `go test ./...` 全绿；`npm run typecheck` + `npm test`（542 测试）全绿；SPA rebuild。
+- SSOT 同步: STATE tip `ba74242` / MASTER / CHANGELOG / borrow doc I1 行 ✅。
+
 ## [2026-08-01] all-api-hub borrow Wave C 交付（G1 批量验证）
 
 - **G1 批量模型验证 + 验证历史**（`0047c72`）: 
