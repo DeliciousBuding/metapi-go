@@ -37,6 +37,9 @@ const LatencyTrendChart = lazy(
 const AnnouncementBanner = lazy(
   () => import("../components/AnnouncementBanner.js"),
 );
+const SnapshotExportButton = lazy(
+  () => import("../components/SnapshotExportButton.js"),
+);
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -691,7 +694,11 @@ export default function Dashboard({
         <h2 className="greeting">
           {getGreeting() + "\uFF0C" + normalizedAdminName}
         </h2>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {/* J1 (all-api-hub borrow): shareable dashboard snapshot PNG */}
+          <Suspense fallback={null}>
+            <SnapshotExportButton />
+          </Suspense>
           <button
             onClick={() => {
               void load(true);
