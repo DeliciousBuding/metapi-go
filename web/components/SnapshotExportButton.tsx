@@ -183,22 +183,23 @@ function drawSnapshotCanvas(
   ctx.fillStyle = primary;
   ctx.fillRect(0, 0, W, 6);
 
-  /* header */
+  /* header — canvas text is not DOM-reachable by the i18n MutationObserver,
+   * so every copy string goes through tr() explicitly */
   ctx.fillStyle = PALETTE.text;
   ctx.font = '700 40px system-ui, -apple-system, "Segoe UI", sans-serif';
-  ctx.fillText('MetAPI 网关快照', 48, 92);
+  ctx.fillText(tr('MetAPI 网关快照'), 48, 92);
   ctx.fillStyle = PALETTE.muted;
   ctx.font = '400 22px system-ui, -apple-system, "Segoe UI", sans-serif';
-  ctx.fillText(`生成时间：${generatedAt}`, 48, 128);
+  ctx.fillText(`${tr('生成时间：')}${generatedAt}`, 48, 128);
 
   /* metric cards */
   const metrics = [
-    { label: '总余额', value: fmtMoney(snap.totalBalance ?? 0), accent: primary },
-    { label: '今日消耗', value: fmtMoney(snap.todaySpend ?? 0), accent: PALETTE.warn },
-    { label: '24h 请求', value: fmtNum(total), accent: PALETTE.text },
-    { label: '24h 成功率', value: `${successRate.toFixed(1)}%`, accent: total > 0 && successRate < 90 ? PALETTE.danger : PALETTE.success },
-    { label: '24h Token', value: fmtNum(snap.proxy24h?.totalTokens ?? 0), accent: PALETTE.text },
-    { label: '活跃账号', value: String(snap.activeAccounts ?? 0), accent: PALETTE.text },
+    { label: tr('总余额'), value: fmtMoney(snap.totalBalance ?? 0), accent: primary },
+    { label: tr('今日消耗'), value: fmtMoney(snap.todaySpend ?? 0), accent: PALETTE.warn },
+    { label: tr('24h 请求'), value: fmtNum(total), accent: PALETTE.text },
+    { label: tr('24h 成功率'), value: `${successRate.toFixed(1)}%`, accent: total > 0 && successRate < 90 ? PALETTE.danger : PALETTE.success },
+    { label: tr('24h Token'), value: fmtNum(snap.proxy24h?.totalTokens ?? 0), accent: PALETTE.text },
+    { label: tr('活跃账号'), value: String(snap.activeAccounts ?? 0), accent: PALETTE.text },
   ];
   const cardW = (W - 48 * 2 - 16 * 5) / 6;
   metrics.forEach((m, i) => {
@@ -225,12 +226,12 @@ function drawSnapshotCanvas(
 
   ctx.fillStyle = PALETTE.text;
   ctx.font = '600 24px system-ui, -apple-system, "Segoe UI", sans-serif';
-  ctx.fillText('站点消耗 Top', 48, 384);
+  ctx.fillText(tr('站点消耗 Top'), 48, 384);
 
   if (sites.length === 0) {
     ctx.fillStyle = PALETTE.muted;
     ctx.font = '400 20px system-ui, -apple-system, "Segoe UI", sans-serif';
-    ctx.fillText('暂无站点消耗数据', 48, 424);
+    ctx.fillText(tr('暂无站点消耗数据'), 48, 424);
   } else {
     const maxSpend = Math.max(...sites.map((s) => s.totalSpend ?? 0));
     const barMaxW = 900;
@@ -257,7 +258,7 @@ function drawSnapshotCanvas(
   /* footer */
   ctx.fillStyle = PALETTE.muted;
   ctx.font = '400 18px system-ui, -apple-system, "Segoe UI", sans-serif';
-  ctx.fillText('MetAPI 聚合网关 · TokenDanceLab/metapi-go', 48, 590);
+  ctx.fillText(tr('MetAPI 聚合网关 · TokenDanceLab/metapi-go'), 48, 590);
 
   return new Promise((resolve) => {
     if (typeof canvas.toBlob !== 'function') {

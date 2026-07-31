@@ -691,3 +691,11 @@
 - `i18n.coverage.test.ts` 加第三用例「interpolated JSX text fragments」——插值片段纳入门禁
 
 **验证**：574 vitest（174 文件）零 Unhandled · typecheck exit=0 · SPA rebuild
+
+## [2026-08-01] canvas 快照 EN 化（快照 PNG 不再硬编码中文）
+
+- `drawSnapshotCanvas` 7 处 canvas 文案包 `tr()`（canvas 文本不在 DOM，MutationObserver 无法到达）：MetAPI 网关快照 / 生成时间：/ 总余额 / 今日消耗 / 24h 请求 / 24h 成功率 / 24h Token / 活跃账号 / 站点消耗 Top / 暂无站点消耗数据 / footer
+- zhToEn 补 11 条 canvas 文案（此前全 MISSING）
+- 效果：EN 模式下导出的快照 PNG 全英文；zh 模式 tr() 原样返回，行为不变
+
+**验证**：574 vitest（174 文件）零 Unhandled · typecheck exit=0 · SPA rebuild

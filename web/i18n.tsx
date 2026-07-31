@@ -515,6 +515,18 @@ const zhToEn: Record<string, string> = {
   '获取。': 'to fetch.',
   '访问': 'access',
   '之类的参数。': 'parameters like these.',
+  /* SnapshotExportButton canvas copy — canvas text is not DOM, MutationObserver cannot reach it (2026-08-01) */
+  'MetAPI 网关快照': 'MetAPI Gateway Snapshot',
+  '生成时间：': 'Generated at: ',
+  '总余额': 'Total balance',
+  '今日消耗': "Today's spend",
+  '24h 请求': '24h requests',
+  '24h 成功率': '24h success rate',
+  '24h Token': '24h tokens',
+  '活跃账号': 'Active accounts',
+  '站点消耗 Top': 'Top sites by spend',
+  '暂无站点消耗数据': 'No site spend data yet',
+  'MetAPI 聚合网关 · TokenDanceLab/metapi-go': 'MetAPI Aggregate Gateway · TokenDanceLab/metapi-go',
 };
 
 for (const [source, target] of Object.entries(zhToEnSupplemental)) {
