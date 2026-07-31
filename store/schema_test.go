@@ -37,6 +37,7 @@ var tableColumnCount = map[string]int{
 	"DownstreamAPIKey":              28,
 	"SiteAnnouncement":              17,
 	"Event":                         9,
+	"BalanceHistory":                8,
 }
 
 // allStructs returns a list of all 27 table structs for reflection-based testing.
@@ -69,14 +70,15 @@ func allStructs() []any {
 		DownstreamAPIKey{},
 		SiteAnnouncement{},
 		Event{},
+		BalanceHistory{},
 	}
 }
 
-// TestTableCount verifies that there are exactly 27 table structs.
+// TestTableCount verifies that there are exactly 28 table structs.
 func TestTableCount(t *testing.T) {
 	structs := allStructs()
-	if len(structs) != 27 {
-		t.Errorf("expected 27 table structs, got %d", len(structs))
+	if len(structs) != 28 {
+		t.Errorf("expected 28 table structs, got %d", len(structs))
 	}
 }
 

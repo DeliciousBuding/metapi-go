@@ -1122,6 +1122,8 @@ export const api = {
     request(`/api/models/check/${accountId}`, { method: "POST" }),
   getSiteDistribution: () => request("/api/stats/site-distribution"),
   getSiteTrend: (days = 7) => request(`/api/stats/site-trend?days=${days}`),
+  getBalanceHistory: (accountId: number, days = 30) =>
+    request(`/api/stats/balance-history?accountId=${accountId}&days=${days}`),
   getSiteSnapshot: async (days = 7, options?: { refresh?: boolean }) => {
     const query = buildQueryString({
       days,

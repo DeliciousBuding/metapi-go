@@ -28,6 +28,8 @@ func RegisterStatsRoutes(r chi.Router, db *sqlx.DB) {
 	// Usage density heatmap + slow-request ranking (learn #121).
 	r.Get("/api/stats/usage-heatmap", handler.usageHeatmap)
 	r.Get("/api/stats/slow-requests", handler.slowRequests)
+	// A1 (all-api-hub borrow): per-account daily balance history series.
+	r.Get("/api/stats/balance-history", handler.balanceHistory)
 	// Cross-site effective model price comparison (admin).
 	// Both paths are registered for discoverability; they share one handler.
 	r.Get("/api/stats/model-prices", handler.modelPriceCompare)
@@ -499,6 +501,51 @@ func (h *statsHandler) siteTrend(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"trend": trend})
+}
+
+// ---- Balance History (all-api-hub borrow A1) ----
+// GET /api/stats/balance-history?accountId=&days=30
+// Returns per-day balance snapshots for one account (latest-known of each day).
+// If accountId is omitted, returns all accounts' series keyed by accountId.
+func (h *statsHandler) balanceHistory(w http.ResponseWriter, r *http.Request) {
+	days := clampInt(getQueryInt(r, "days", 30), 1, 365)
+	fromDay := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format("2006-01-02")
+	accountID := getQueryInt(r, "accountId", 0)
+
+	args := []any{fromDay}
+	q := `SELECT account_id, balance, balance_used, quota, local_day, captured_at
+		FROM balance_history
+		WHERE local_day >= ?`
+	if accountID > 0 {
+		q += ` AND account_id = ?`
+		args = append(args, accountID)
+	}
+	q += ` ORDER BY local_day ASC, account_id ASC`
+
+	rows := queryRows(h.db, q, args...)
+	byAccount := make(map[int64][]map[string]any)
+	for _, row := range rows {
+		accID := coerceInt64(row["accountId"])
+		byAccount[accID] = append(byAccount[accID], map[string]any{
+			"day":        coerceString(row["localDay"]),
+			"balance":    coerceFloat(row["balance"]),
+			"balanceUsed": coerceFloat(row["balanceUsed"]),
+			"quota":      coerceFloat(row["quota"]),
+			"capturedAt": coerceString(row["capturedAt"]),
+		})
+	}
+
+	series := make([]map[string]any, 0, len(byAccount))
+	for accID, points := range byAccount {
+		series = append(series, map[string]any{
+			"accountId": accID,
+			"points":    points,
+		})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"series": series,
+		"days":   days,
+	})
 }
 
 // ---- Model by Site ----

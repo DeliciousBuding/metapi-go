@@ -419,6 +419,21 @@ type ModelDayUsage struct {
 	UpdatedAt      string  `db:"updated_at" json:"updatedAt"`
 }
 
+// ---- Table 29: balance_history (all-api-hub borrow A1) ----
+// One snapshot per account per UTC day (UPSERT on local_day+account_id).
+// Captured by RefreshBalance on success so operators get a balance trend
+// without a separate capture job. Replaces the "current balance only" gap.
+type BalanceHistory struct {
+	ID          int64   `db:"id" json:"id"`
+	AccountID   int64   `db:"account_id" json:"accountId"`
+	Balance      float64 `db:"balance" json:"balance"`
+	BalanceUsed  float64 `db:"balance_used" json:"balanceUsed"`
+	Quota        float64 `db:"quota" json:"quota"`
+	LocalDay     string  `db:"local_day" json:"localDay"`
+	CapturedAt   string  `db:"captured_at" json:"capturedAt"`
+	CreatedAt    string  `db:"created_at" json:"createdAt"`
+}
+
 // ---- Table 25: downstream_api_keys ----
 type DownstreamAPIKey struct {
 	ID           int64    `db:"id" json:"id"`

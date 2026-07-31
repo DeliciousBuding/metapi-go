@@ -564,6 +564,13 @@ afterRetry:
 		return nil, err
 	}
 
+	// A1 (all-api-hub borrow): snapshot balance to balance_history so operators
+	// get a balance trend. UPSERT per (local_day, account_id): a same-day
+	// re-refresh overwrites the earlier snapshot (latest-known balance of the
+	// day, not a noisy multi-point curve). Best-effort — a snapshot failure
+	// must not break the refresh path.
+	recordBalanceSnapshot(db, accountID, balanceInfo.Balance, balanceInfo.Used, balanceInfo.Quota)
+
 	// Set runtime health
 	if keepUnsupportedCheckinDegraded {
 		reason := "站点不支持签到接口"
@@ -603,6 +610,33 @@ afterRetry:
 		Skipped:     false,
 		BalanceInfo: balanceInfo,
 	}, nil
+}
+
+// recordBalanceSnapshot UPSERTs a per-day balance snapshot (all-api-hub borrow A1).
+// One row per (local_day, account_id); same-day re-refresh overwrites so the
+// trend reflects the latest-known balance of the day. Best-effort: errors are
+// logged, never returned, so a history write cannot break the refresh path.
+// SQL is dialect-unified — both Postgres and SQLite ≥3.24 support
+// ON CONFLICT (...) DO UPDATE with the excluded pseudo-row.
+func recordBalanceSnapshot(db *sqlx.DB, accountID int64, balance, used, quota float64) {
+	if db == nil {
+		return
+	}
+	now := time.Now().UTC()
+	day := now.Format("2006-01-02")
+	ts := now.Format(time.RFC3339)
+	const q = `INSERT INTO balance_history (account_id, balance, balance_used, quota, local_day, captured_at, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT (local_day, account_id) DO UPDATE SET
+			balance = excluded.balance,
+			balance_used = excluded.balance_used,
+			quota = excluded.quota,
+			captured_at = excluded.captured_at,
+			created_at = excluded.created_at`
+	if _, err := db.Exec(q, accountID, balance, used, quota, day, ts, ts); err != nil {
+		slog.Warn("balance_history: snapshot upsert failed (non-fatal)",
+			"accountID", accountID, "day", day, "error", err)
+	}
 }
 
 // RefreshAllBalances refreshes balances for all active accounts.

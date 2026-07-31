@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/tokendancelab/metapi-go/config"
 	"github.com/tokendancelab/metapi-go/store"
 )
@@ -581,4 +582,83 @@ func TestParseIncomeFromContent(t *testing.T) {
 	_ = parseIncomeFromContent("some content with 100")
 	_ = parseIncomeFromContent("")
 	_ = parseIncomeFromContent("no numbers here")
+}
+
+// ---- A1: balance_history snapshot Tests ----
+
+// TestRecordBalanceSnapshot_UPSERT verifies that RefreshBalance's success
+// path writes a balance_history row, and a same-day re-refresh overwrites it
+// (latest-known balance of the day, not a duplicate row).
+func TestRecordBalanceSnapshot_UPSERT(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path != "/api/user/self" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"success": true,
+			"data": map[string]any{
+				"id":         7,
+				"username":   "snap-user",
+				"quota":      1_000_000,
+				"used_quota": 250_000,
+			},
+		})
+	}))
+	defer server.Close()
+
+	db, err := store.Open(store.DialectSQLite, ":memory:", false)
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if err := store.AutoMigrate(db); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	siteRes, err := db.Exec(
+		"INSERT INTO sites (name, url, platform, status, created_at, updated_at) VALUES (?, ?, ?, 'active', ?, ?)",
+		"Snap Test", server.URL, "new-api", now, now,
+	)
+	if err != nil {
+		t.Fatalf("insert site: %v", err)
+	}
+	siteID, _ := siteRes.LastInsertId()
+	accRes, err := db.Exec(
+		"INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, ?, ?, 'active', ?, ?, ?)",
+		siteID, "snap-user", "tok", true, now, now,
+	)
+	if err != nil {
+		t.Fatalf("insert account: %v", err)
+	}
+	accountID, _ := accRes.LastInsertId()
+
+	// First refresh → one snapshot row.
+	if _, err := RefreshBalance(&config.Config{}, db.DB, accountID); err != nil {
+		t.Fatalf("first RefreshBalance: %v", err)
+	}
+	count1 := countBalanceHistoryRows(t, db.DB, accountID)
+	if count1 != 1 {
+		t.Fatalf("after first refresh: balance_history rows = %d, want 1", count1)
+	}
+
+	// Second refresh same day → UPSERT overwrites, still one row.
+	if _, err := RefreshBalance(&config.Config{}, db.DB, accountID); err != nil {
+		t.Fatalf("second RefreshBalance: %v", err)
+	}
+	count2 := countBalanceHistoryRows(t, db.DB, accountID)
+	if count2 != 1 {
+		t.Fatalf("after second refresh: balance_history rows = %d, want 1 (UPSERT)", count2)
+	}
+}
+
+func countBalanceHistoryRows(t *testing.T, db *sqlx.DB, accountID int64) int {
+	t.Helper()
+	var n int
+	if err := db.Get(&n, "SELECT COUNT(*) FROM balance_history WHERE account_id = ?", accountID); err != nil {
+		t.Fatalf("count balance_history: %v", err)
+	}
+	return n
 }

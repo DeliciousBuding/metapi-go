@@ -16,6 +16,9 @@ const SiteDistributionChart = lazy(
 const SiteTrendChart = lazy(
   () => import("../components/charts/SiteTrendChart.js"),
 );
+const BalanceHistoryChart = lazy(
+  () => import("../components/charts/BalanceHistoryChart.js"),
+);
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -1151,6 +1154,12 @@ export default function Dashboard({
                 ) : undefined
               }
             />
+          </Suspense>
+        </div>
+        {/* A1 (all-api-hub borrow): daily balance trend card */}
+        <div className="chart-panel-enter animate-slide-up stagger-7">
+          <Suspense fallback={<ChartFallback height={320} />}>
+            <BalanceHistoryChart days={30} />
           </Suspense>
         </div>
       </div>

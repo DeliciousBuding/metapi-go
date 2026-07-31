@@ -309,6 +309,75 @@ func TestStats_SQLiteSiteTrendFromProjectedUsage(t *testing.T) {
 	}
 }
 
+func TestStats_SQLiteBalanceHistorySeries(t *testing.T) {
+	db, r := setupStatsSQLiteTest(t)
+	now := time.Now().UTC()
+	nowStr := now.Format(time.RFC3339)
+	today := now.Format("2006-01-02")
+	yesterday := now.AddDate(0, 0, -1).Format("2006-01-02")
+
+	_, err := db.Exec(`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
+		VALUES (?, ?, ?, 'active', ?, ?)`, "bal-site", "https://bal.example.test", "new-api", nowStr, nowStr)
+	if err != nil {
+		t.Fatalf("insert site: %v", err)
+	}
+	var siteID int64
+	if err := db.Get(&siteID, "SELECT id FROM sites WHERE name = ?", "bal-site"); err != nil {
+		t.Fatalf("site id: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at)
+		VALUES (?, ?, ?, 'active', ?, ?, ?)`, siteID, "bal-user", "tok", true, nowStr, nowStr)
+	if err != nil {
+		t.Fatalf("insert account: %v", err)
+	}
+	var accountID int64
+	if err := db.Get(&accountID, "SELECT id FROM accounts WHERE username = ?", "bal-user"); err != nil {
+		t.Fatalf("account id: %v", err)
+	}
+
+	// Two daily snapshots: yesterday 5.0, today 7.5 (latest-known of today).
+	_, err = db.Exec(`INSERT INTO balance_history (account_id, balance, balance_used, quota, local_day, captured_at, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?)`,
+		accountID, 5.0, 1.0, 10.0, yesterday, nowStr, nowStr,
+		accountID, 7.5, 2.5, 10.0, today, nowStr, nowStr)
+	if err != nil {
+		t.Fatalf("insert balance_history: %v", err)
+	}
+
+	resp := doGet(t, r, "/api/stats/balance-history?accountId="+strconv.FormatInt(accountID, 10)+"&days=7")
+	if resp.Code != 200 {
+		t.Fatalf("balance-history returned %d: %s", resp.Code, resp.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	series, ok := body["series"].([]any)
+	if !ok || len(series) != 1 {
+		t.Fatalf("series = %#v, want one account series", body["series"])
+	}
+	entry := series[0].(map[string]any)
+	if int64(entry["accountId"].(float64)) != accountID {
+		t.Fatalf("accountId = %v, want %d", entry["accountId"], accountID)
+	}
+	points := entry["points"].([]any)
+	if len(points) != 2 {
+		t.Fatalf("points len = %d, want 2", len(points))
+	}
+	// Ordered ASC by day; yesterday first.
+	first := points[0].(map[string]any)
+	if first["day"] != yesterday {
+		t.Fatalf("first day = %v, want %s", first["day"], yesterday)
+	}
+	if first["balance"].(float64) != 5.0 {
+		t.Fatalf("first balance = %v, want 5.0", first["balance"])
+	}
+	second := points[1].(map[string]any)
+	if second["balance"].(float64) != 7.5 {
+		t.Fatalf("second balance = %v, want 7.5", second["balance"])
+	}
+}
+
 func TestStats_SQLiteUsageHeatmapFromSiteHourUsage(t *testing.T) {
 	db, r := setupStatsSQLiteTest(t)
 	now := time.Now().UTC().Truncate(time.Hour)

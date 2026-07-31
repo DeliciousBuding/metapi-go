@@ -75,6 +75,8 @@ func AutoMigrate(db *DB) error {
 		{"events", buildEventsDDL(dialect)},
 		// Table 28: admin_background_tasks
 		{"admin_background_tasks", buildAdminBackgroundTasksDDL(dialect)},
+		// Table 29: balance_history (all-api-hub borrow A1)
+		{"balance_history", buildBalanceHistoryDDL(dialect)},
 	}
 
 	// Non-UNIQUE indexes are created separately via CREATE INDEX IF NOT EXISTS
@@ -1182,6 +1184,39 @@ func buildAdminBackgroundTasksDDL(d string) string {
 	)`
 }
 
+// buildBalanceHistoryDDL creates the balance_history table (all-api-hub borrow A1).
+// One row per account per UTC day, UPSERTed by RefreshBalance on success.
+// UNIQUE (local_day, account_id) lets a same-day re-refresh overwrite the
+// earlier snapshot so the trend shows the latest-known balance of the day,
+// not a noisy multi-point curve.
+func buildBalanceHistoryDDL(d string) string {
+	if isPG(d) {
+		return `CREATE TABLE IF NOT EXISTS balance_history (
+			id SERIAL PRIMARY KEY,
+			account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+			balance DOUBLE PRECISION NOT NULL DEFAULT 0,
+			balance_used DOUBLE PRECISION NOT NULL DEFAULT 0,
+			quota DOUBLE PRECISION NOT NULL DEFAULT 0,
+			local_day TEXT NOT NULL,
+			captured_at TEXT NOT NULL,
+			created_at TEXT NOT NULL,
+			CONSTRAINT balance_history_day_account_unique UNIQUE (local_day, account_id)
+		)`
+	}
+	return `CREATE TABLE IF NOT EXISTS balance_history (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		account_id INTEGER NOT NULL,
+		balance REAL NOT NULL DEFAULT 0,
+		balance_used REAL NOT NULL DEFAULT 0,
+		quota REAL NOT NULL DEFAULT 0,
+		local_day TEXT NOT NULL,
+		captured_at TEXT NOT NULL,
+		created_at TEXT NOT NULL,
+		CONSTRAINT balance_history_day_account_unique UNIQUE (local_day, account_id),
+		FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+	)`
+}
+
 func buildEventsDDL(d string) string {
 	if isPG(d) {
 		return `CREATE TABLE IF NOT EXISTS events (
@@ -1304,6 +1339,9 @@ func buildIndexes() []struct {
 		{"model_day_usage_day_idx", `CREATE INDEX IF NOT EXISTS model_day_usage_day_idx ON model_day_usage (local_day)`},
 		{"model_day_usage_site_id_idx", `CREATE INDEX IF NOT EXISTS model_day_usage_site_id_idx ON model_day_usage (site_id)`},
 		{"model_day_usage_model_idx", `CREATE INDEX IF NOT EXISTS model_day_usage_model_idx ON model_day_usage (model)`},
+		// balance_history (all-api-hub borrow A1)
+		{"balance_history_day_idx", `CREATE INDEX IF NOT EXISTS balance_history_day_idx ON balance_history (local_day)`},
+		{"balance_history_account_idx", `CREATE INDEX IF NOT EXISTS balance_history_account_idx ON balance_history (account_id)`},
 		// downstream_api_keys
 		{"downstream_api_keys_name_idx", `CREATE INDEX IF NOT EXISTS downstream_api_keys_name_idx ON downstream_api_keys (name)`},
 		{"downstream_api_keys_enabled_idx", `CREATE INDEX IF NOT EXISTS downstream_api_keys_enabled_idx ON downstream_api_keys (enabled)`},
