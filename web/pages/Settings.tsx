@@ -20,6 +20,7 @@ import {
 } from './settings/payloadRulesVisual.js';
 import { PAYLOAD_RULE_PROTOCOL_OPTIONS } from './settings/payloadRuleProtocolOptions.js';
 import UpdateCenterSection from './settings/UpdateCenterSection.js';
+import AnnouncementsSection from './settings/AnnouncementsSection.js';
 import {
   applyRoutingProfilePreset,
   resolveRoutingProfilePreset,
@@ -2528,6 +2529,9 @@ export default function Settings() {
         </div>
 
         <UpdateCenterSection />
+
+        {/* H1 (all-api-hub borrow): product risk banners authoring */}
+        <AnnouncementsSection />
 
         <div className="card animate-slide-up stagger-6" style={{ padding: 20 }}>
           <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12 }}>维护工具</div>

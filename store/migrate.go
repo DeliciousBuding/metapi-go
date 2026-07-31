@@ -79,6 +79,10 @@ func AutoMigrate(db *DB) error {
 		{"balance_history", buildBalanceHistoryDDL(dialect)},
 		// Table 30: model_verify_history (all-api-hub borrow G1)
 		{"model_verify_history", buildModelVerifyHistoryDDL(dialect)},
+		// Table 31: product_announcements (all-api-hub borrow H1)
+		{"product_announcements", buildProductAnnouncementsDDL(dialect)},
+		// Table 32: announcement_dismissals (all-api-hub borrow H1)
+		{"announcement_dismissals", buildAnnouncementDismissalsDDL(dialect)},
 	}
 
 	// Non-UNIQUE indexes are created separately via CREATE INDEX IF NOT EXISTS
@@ -1253,6 +1257,52 @@ func buildModelVerifyHistoryDDL(d string) string {
 		error_text TEXT,
 		created_at TEXT NOT NULL,
 		FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+	)`
+}
+
+// buildProductAnnouncementsDDL creates the product_announcements table
+// (all-api-hub borrow H1). Operator-authored severity-ranked banners shown on
+// the Dashboard. Content edits (PUT) reset any dismissal so a new revision is
+// seen again (dismiss-revision semantics).
+func buildProductAnnouncementsDDL(d string) string {
+	if isPG(d) {
+		return `CREATE TABLE IF NOT EXISTS product_announcements (
+			id SERIAL PRIMARY KEY,
+			title TEXT NOT NULL,
+			message TEXT NOT NULL,
+			severity TEXT NOT NULL DEFAULT 'info',
+			link TEXT,
+			enabled BOOLEAN NOT NULL DEFAULT TRUE,
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)`
+	}
+	return `CREATE TABLE IF NOT EXISTS product_announcements (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		title TEXT NOT NULL,
+		message TEXT NOT NULL,
+		severity TEXT NOT NULL DEFAULT 'info',
+		link TEXT,
+		enabled INTEGER NOT NULL DEFAULT 1,
+		created_at TEXT NOT NULL,
+		updated_at TEXT NOT NULL
+	)`
+}
+
+// buildAnnouncementDismissalsDDL creates the announcement_dismissals table
+// (all-api-hub borrow H1). One row per dismissed announcement; content
+// revisions delete the row so the new revision surfaces again.
+func buildAnnouncementDismissalsDDL(d string) string {
+	if isPG(d) {
+		return `CREATE TABLE IF NOT EXISTS announcement_dismissals (
+			announcement_id INTEGER PRIMARY KEY REFERENCES product_announcements(id) ON DELETE CASCADE,
+			dismissed_at TEXT NOT NULL
+		)`
+	}
+	return `CREATE TABLE IF NOT EXISTS announcement_dismissals (
+		announcement_id INTEGER PRIMARY KEY,
+		dismissed_at TEXT NOT NULL,
+		FOREIGN KEY (announcement_id) REFERENCES product_announcements(id) ON DELETE CASCADE
 	)`
 }
 

@@ -294,6 +294,22 @@ export type TagIndexItem = {
 
 export type TagIndexResponse = { items: TagIndexItem[] };
 
+// H1 (all-api-hub borrow): product risk banners.
+export type Announcement = {
+  id: number;
+  title: string;
+  message: string;
+  severity: "info" | "warning" | "critical";
+  link?: string | null;
+  enabled: boolean;
+  dismissed?: boolean;
+  dismissedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AnnouncementsResponse = { items: Announcement[] };
+
 async function streamSse(
   url: string,
   handlers: {
@@ -1277,6 +1293,45 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ tags }),
     }) as Promise<{ success: boolean; tags: string[] }>,
+  // H1 (all-api-hub borrow): product risk banners.
+  getActiveAnnouncements: () =>
+    request("/api/announcements/active") as Promise<AnnouncementsResponse>,
+  getAnnouncements: () =>
+    request("/api/announcements") as Promise<AnnouncementsResponse>,
+  createAnnouncement: (payload: {
+    title: string;
+    message: string;
+    severity: Announcement["severity"];
+    link?: string | null;
+    enabled?: boolean;
+  }) =>
+    request("/api/announcements", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }) as Promise<AnnouncementsResponse>,
+  updateAnnouncement: (
+    id: number,
+    payload: {
+      title: string;
+      message: string;
+      severity: Announcement["severity"];
+      link?: string | null;
+      enabled?: boolean;
+    },
+  ) =>
+    request(`/api/announcements/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }) as Promise<{ success: boolean; revision: boolean }>,
+  deleteAnnouncement: (id: number) =>
+    request(`/api/announcements/${id}`, { method: "DELETE" }) as Promise<{
+      success: boolean;
+    }>,
+  dismissAnnouncement: (id: number) =>
+    request(`/api/announcements/${id}/dismiss`, {
+      method: "POST",
+      body: "{}",
+    }) as Promise<{ success: boolean }>,
   // C1 (all-api-hub borrow): unified recurring-scheduler run history.
   getSchedulerStatus: () =>
     request<{ items: SchedulerRunStatus[]; generatedAt: string }>(

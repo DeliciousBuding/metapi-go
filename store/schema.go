@@ -454,6 +454,24 @@ type ModelVerifyRecord struct {
 	CreatedAt   string   `db:"created_at" json:"createdAt"`
 }
 
+// ---- Table 31: product_announcements (all-api-hub borrow H1) ----
+type ProductAnnouncement struct {
+	ID        int64   `db:"id" json:"id"`
+	Title     string  `db:"title" json:"title"`
+	Message   string  `db:"message" json:"message"`
+	Severity  string  `db:"severity" json:"severity"` // info | warning | critical
+	Link      *string `db:"link" json:"link"`
+	Enabled   bool    `db:"enabled" json:"enabled"`
+	CreatedAt string  `db:"created_at" json:"createdAt"`
+	UpdatedAt string  `db:"updated_at" json:"updatedAt"`
+}
+
+// ---- Table 32: announcement_dismissals (all-api-hub borrow H1) ----
+type AnnouncementDismissal struct {
+	AnnouncementID int64  `db:"announcement_id" json:"announcementId"`
+	DismissedAt    string `db:"dismissed_at" json:"dismissedAt"`
+}
+
 // ---- Table 25: downstream_api_keys ----
 type DownstreamAPIKey struct {
 	ID           int64    `db:"id" json:"id"`

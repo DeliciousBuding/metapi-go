@@ -24,6 +24,7 @@ const { apiMock } = vi.hoisted(() => ({
     getModelCostDistribution: vi.fn().mockResolvedValue({ days: 30, since: '', topN: 8, items: [], totals: { cost: 0, calls: 0, tokens: 0 } }),
     getLatencyHistogram: vi.fn().mockResolvedValue({ days: 7, since: '', bucketMs: 500, total: 0, buckets: [] }),
     getLatencyTrend: vi.fn().mockResolvedValue({ days: 7, points: [], p95SampleCap: 10000, truncatedDays: [] }),
+    getActiveAnnouncements: vi.fn().mockResolvedValue({ items: [] }),
     getTestChatJob: vi.fn(),
   },
 }));

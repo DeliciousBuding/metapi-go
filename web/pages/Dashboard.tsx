@@ -34,6 +34,9 @@ const LatencyHistogramChart = lazy(
 const LatencyTrendChart = lazy(
   () => import("../components/charts/LatencyTrendChart.js"),
 );
+const AnnouncementBanner = lazy(
+  () => import("../components/AnnouncementBanner.js"),
+);
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -1136,6 +1139,11 @@ export default function Dashboard({
           ))}
         </div>
       </div>
+
+      {/* H1 (all-api-hub borrow): product risk banners */}
+      <Suspense fallback={null}>
+        <AnnouncementBanner />
+      </Suspense>
 
       {/* B1 (all-api-hub borrow): severity-ranked attention panel */}
       <div
