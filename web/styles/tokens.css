@@ -157,7 +157,8 @@
   --gap-default: 12px;
   --gap-section: 16px;
   --pad-card: 16px;
-  --table-pad-y: 10px;
+  /* DENSE-1: default table density 8px (operational "full" feel); compact 6px via data-density */
+  --table-pad-y: 8px;
   --table-pad-x: 12px;
   --metric-value: 28px;
 

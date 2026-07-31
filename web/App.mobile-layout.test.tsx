@@ -107,6 +107,9 @@ function setupRuntime(width: number) {
     setAttribute: (name: string, value: string) => {
       documentElementAttributes.set(name, value);
     },
+    removeAttribute: (name: string) => {
+      documentElementAttributes.delete(name);
+    },
     getAttribute: (name: string) => documentElementAttributes.get(name) ?? null,
   };
 
@@ -184,4 +187,73 @@ describe('App mobile layout', () => {
       }
     },
   );
+
+  // DENSE-1: theme menu table-density toggle applies data-density + persists.
+  it('toggles table density from the theme menu', async () => {
+    setupRuntime(1280);
+    let root!: WebTestRenderer;
+
+    try {
+      await act(async () => {
+        root = create(
+          <MemoryRouter initialEntries={['/']}>
+            <App />
+          </MemoryRouter>,
+        );
+      });
+      await flushMicrotasks();
+
+      // Default: comfortable — no data-density attribute.
+      expect(document.documentElement.getAttribute('data-density')).toBeNull();
+
+      // Open the theme menu and switch to compact. The fixture stores no
+      // theme_mode key, so the mode resolves to system (label prefix 跟随系统).
+      const themeButton = root.root.findAll((node) => (
+        node.type === 'button'
+        && typeof node.props['aria-label'] === 'string'
+        && node.props['aria-label'].startsWith('跟随系统')
+      ));
+      expect(themeButton.length).toBe(1);
+      await act(async () => {
+        themeButton[0].props.onClick();
+      });
+      await flushMicrotasks();
+
+      const compactButton = root.root.findAll((node) => (
+        node.type === 'button' && node.props['aria-label'] === '紧凑密度'
+      ));
+      expect(compactButton.length).toBe(1);
+      await act(async () => {
+        compactButton[0].props.onClick();
+      });
+      await flushMicrotasks();
+
+      expect(document.documentElement.getAttribute('data-density')).toBe('compact');
+      expect(localStorage.getItem('table_density')).toBe('compact');
+
+      // Reopen the menu (density switch closes it) and switch back to comfortable.
+      await act(async () => {
+        themeButton[0].props.onClick();
+      });
+      await flushMicrotasks();
+
+      const comfortableButton = root.root.findAll((node) => (
+        node.type === 'button' && node.props['aria-label'] === '舒适密度'
+      ));
+      expect(comfortableButton.length).toBe(1);
+      await act(async () => {
+        comfortableButton[0].props.onClick();
+      });
+      await flushMicrotasks();
+
+      expect(document.documentElement.getAttribute('data-density')).toBeNull();
+      expect(localStorage.getItem('table_density')).toBe('comfortable');
+    } finally {
+      if (root) {
+        await act(async () => {
+          root.unmount();
+        });
+      }
+    }
+  });
 });

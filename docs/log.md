@@ -660,3 +660,10 @@
 11. SnapshotExportButton 主色随 data-accent
 
 **验证**：新增后端 2 测试（退款恒等式/panic 审计）+ 前端相关 9 例；全量 568 vitest + go vet/test 绿
+
+## [2026-08-01] DENSE-1：有数据页表格密度（ui-original-parity 收官项）
+
+- 默认表格密度 10px → 8px（tokens `--table-pad-y`，运营态「满」感；compact 6px 不变）
+- 接通此前死开关 `html[data-density="compact"]`：themeBootstrap 加 `DENSITY_STORAGE_KEY`/`DensityMode`/`resolveInitialDensity`（未知回退 comfortable）
+- 主题菜单加「表格密度」舒适/紧凑切换（与 VIS-1 主题色同构：data-density 属性 + localStorage 持久化，documentElement 双 guard 兼容测试渲染器）
+- 测试：resolveInitialDensity 2 例 + App 集成 1 例（切换闭环 + 持久化断言，fixture 补 removeAttribute）

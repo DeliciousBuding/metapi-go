@@ -16,9 +16,12 @@ import { I18nProvider, useI18n } from './i18n.js';
 import { resolveLoginErrorMessage } from './loginError.js';
 import { SITE_DOCS_URL, SITE_GITHUB_URL } from './docsLink.js';
 import {
+  DENSITY_STORAGE_KEY,
   THEME_ACCENT_KEY,
   type AccentPreset,
+  type DensityMode,
   resolveInitialAccent,
+  resolveInitialDensity,
 } from './themeBootstrap.js';
 import { useAnimatedVisibility } from './components/useAnimatedVisibility.js';
 import { useIsMobile } from './components/useIsMobile.js';
@@ -519,6 +522,10 @@ function AppShell() {
   const [accent, setAccent] = useState<AccentPreset>(() =>
     resolveInitialAccent((k) => localStorage.getItem(k)),
   );
+  // DENSE-1: table density (comfortable default / compact via data-density).
+  const [density, setDensity] = useState<DensityMode>(() =>
+    resolveInitialDensity((k) => localStorage.getItem(k)),
+  );
   // NAV-1: true = no sites yet (onboarding); null = not loaded (no folding).
   const [firstRun, setFirstRun] = useState<boolean | null>(null);
   const [navExpanded, setNavExpanded] = useState(false);
@@ -605,6 +612,21 @@ function AppShell() {
     }
     localStorage.setItem(THEME_ACCENT_KEY, accent);
   }, [accent]);
+
+  // DENSE-1: apply table density (comfortable = default, no attribute). Same
+  // documentElement guard as the accent effect above.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (typeof root.setAttribute !== 'function' || typeof root.removeAttribute !== 'function') {
+      return;
+    }
+    if (density === 'compact') {
+      root.setAttribute('data-density', 'compact');
+    } else {
+      root.removeAttribute('data-density');
+    }
+    localStorage.setItem(DENSITY_STORAGE_KEY, density);
+  }, [density]);
 
   // NAV-1: detect first-run (no sites) for sidebar progressive disclosure.
   // Gated on authed: the pre-login getSites would 401 (→ firstRun=false) and
@@ -745,6 +767,12 @@ function AppShell() {
   const handleSelectAccent = (nextAccent: AccentPreset) => {
     setAccent(nextAccent);
     localStorage.setItem(THEME_ACCENT_KEY, nextAccent);
+    setShowThemeMenu(false);
+  };
+
+  const handleSelectDensity = (nextDensity: DensityMode) => {
+    setDensity(nextDensity);
+    localStorage.setItem(DENSITY_STORAGE_KEY, nextDensity);
     setShowThemeMenu(false);
   };
 
@@ -906,6 +934,35 @@ function AppShell() {
                           padding: 0,
                         }}
                       />
+                    ))}
+                  </span>
+                </div>
+                {/* DENSE-1: table density toggle (comfortable 8px / compact 6px) */}
+                <div
+                  className="user-dropdown-item"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'default', gap: 8 }}
+                >
+                  <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{t('表格密度')}</span>
+                  <span style={{ display: 'inline-flex', gap: 4 }}>
+                    {(['comfortable', 'compact'] as const).map((d) => (
+                      <button
+                        key={d}
+                        type="button"
+                        aria-label={d === 'comfortable' ? t('舒适密度') : t('紧凑密度')}
+                        aria-pressed={density === d}
+                        onClick={() => handleSelectDensity(d)}
+                        style={{
+                          fontSize: 12,
+                          padding: '2px 8px',
+                          borderRadius: 4,
+                          border: '1px solid var(--color-border-strong)',
+                          background: density === d ? 'var(--color-primary-light)' : 'transparent',
+                          color: density === d ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {d === 'comfortable' ? t('舒适') : t('紧凑')}
+                      </button>
                     ))}
                   </span>
                 </div>

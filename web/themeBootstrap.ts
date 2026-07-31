@@ -6,6 +6,8 @@
 export const THEME_MODE_KEY = 'theme_mode';
 export const LEGACY_THEME_KEY = 'theme';
 export const THEME_ACCENT_KEY = 'theme_accent';
+/** DENSE-1: table density preference (see tokens.css html[data-density="compact"]). */
+export const DENSITY_STORAGE_KEY = 'table_density';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type DataTheme = 'light' | 'dark';
@@ -13,6 +15,10 @@ export type DataTheme = 'light' | 'dark';
 /** VIS-1: selectable brand-primary families (see tokens.css data-accent). */
 export type AccentPreset = 'blue' | 'indigo' | 'teal';
 export const ACCENT_PRESETS: AccentPreset[] = ['blue', 'indigo', 'teal'];
+
+/** DENSE-1: table density — comfortable (default, 8px) vs compact (6px). */
+export type DensityMode = 'comfortable' | 'compact';
+export const DENSITY_MODES: DensityMode[] = ['comfortable', 'compact'];
 
 export type ThemeStorageGetItem = (key: string) => string | null;
 
@@ -28,6 +34,10 @@ function isAccentPreset(value: string | null | undefined): value is AccentPreset
   return value === 'blue' || value === 'indigo' || value === 'teal';
 }
 
+function isDensityMode(value: string | null | undefined): value is DensityMode {
+  return value === 'comfortable' || value === 'compact';
+}
+
 /**
  * Resolve the initial `data-accent` value before React hydrates.
  * Unknown values fall back to the default 'blue'.
@@ -35,6 +45,16 @@ function isAccentPreset(value: string | null | undefined): value is AccentPreset
 export function resolveInitialAccent(getItem: ThemeStorageGetItem): AccentPreset {
   const value = getItem(THEME_ACCENT_KEY);
   return isAccentPreset(value) ? value : 'blue';
+}
+
+/**
+ * DENSE-1: resolve the initial `data-density` value. Unknown values fall back
+ * to 'comfortable' (the default 8px density — no attribute needed, mirroring
+ * the blue accent).
+ */
+export function resolveInitialDensity(getItem: ThemeStorageGetItem): DensityMode {
+  const value = getItem(DENSITY_STORAGE_KEY);
+  return isDensityMode(value) ? value : 'comfortable';
 }
 
 /**

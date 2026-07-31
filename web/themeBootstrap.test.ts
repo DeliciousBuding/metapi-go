@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DENSITY_STORAGE_KEY,
   THEME_MODE_KEY,
   LEGACY_THEME_KEY,
   THEME_ACCENT_KEY,
   canvasBackgroundForTheme,
   resolveInitialAccent,
   resolveInitialDataTheme,
+  resolveInitialDensity,
 } from './themeBootstrap.js';
 
 function storageFrom(map: Record<string, string | null | undefined>) {
@@ -94,6 +96,18 @@ describe('themeBootstrap', () => {
     it('falls back to blue for missing or unknown values', () => {
       expect(resolveInitialAccent(storageFrom({}))).toBe('blue');
       expect(resolveInitialAccent(storageFrom({ [THEME_ACCENT_KEY]: 'pink' }))).toBe('blue');
+    });
+  });
+
+  describe('resolveInitialDensity (DENSE-1)', () => {
+    it('returns stored mode', () => {
+      expect(resolveInitialDensity(storageFrom({ [DENSITY_STORAGE_KEY]: 'compact' }))).toBe('compact');
+      expect(resolveInitialDensity(storageFrom({ [DENSITY_STORAGE_KEY]: 'comfortable' }))).toBe('comfortable');
+    });
+
+    it('falls back to comfortable for missing or unknown values', () => {
+      expect(resolveInitialDensity(storageFrom({}))).toBe('comfortable');
+      expect(resolveInitialDensity(storageFrom({ [DENSITY_STORAGE_KEY]: 'ultra' }))).toBe('comfortable');
     });
   });
 });
