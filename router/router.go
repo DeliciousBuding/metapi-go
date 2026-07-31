@@ -75,6 +75,8 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 			admin.RegisterTagsRoutes(r, db.DB)
 			// H1 (all-api-hub borrow): product risk banners.
 			admin.RegisterAnnouncementsRoutes(r, db.DB)
+			// K1a (all-api-hub borrow): model name redirects.
+			admin.RegisterModelRedirectRoutes(r, db.DB)
 			// C1 (all-api-hub borrow): unified recurring-scheduler run history.
 			admin.RegisterSchedulerStatusRoutes(r, db.DB)
 			admin.RegisterTestRoutes(r, db.DB, cfg)

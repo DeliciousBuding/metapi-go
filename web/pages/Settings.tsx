@@ -21,6 +21,7 @@ import {
 import { PAYLOAD_RULE_PROTOCOL_OPTIONS } from './settings/payloadRuleProtocolOptions.js';
 import UpdateCenterSection from './settings/UpdateCenterSection.js';
 import AnnouncementsSection from './settings/AnnouncementsSection.js';
+import ModelRedirectsSection from './settings/ModelRedirectsSection.js';
 import {
   applyRoutingProfilePreset,
   resolveRoutingProfilePreset,
@@ -2532,6 +2533,9 @@ export default function Settings() {
 
         {/* H1 (all-api-hub borrow): product risk banners authoring */}
         <AnnouncementsSection />
+
+        {/* K1a (all-api-hub borrow): model name redirects */}
+        <ModelRedirectsSection />
 
         <div className="card animate-slide-up stagger-6" style={{ padding: 20 }}>
           <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12 }}>维护工具</div>

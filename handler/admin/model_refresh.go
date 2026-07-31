@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -202,6 +203,13 @@ func refreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, all
 	}
 	routing.InvalidateCache()
 
+	// K1a (all-api-hub borrow): best-effort sync generation of model name
+	// redirects (canonical → actual). Never blocks the refresh outcome.
+	redirectsCreated, redirectErr := service.GenerateModelRedirects(context.Background(), db, accountID, clean)
+	if redirectErr != nil {
+		slog.Warn("model-refresh: redirect generation failed", "account_id", accountID, "error", redirectErr)
+	}
+
 	return map[string]any{
 		"success": true,
 		"refresh": map[string]any{
@@ -212,6 +220,9 @@ func refreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, all
 			"checkedAt":  now,
 		},
 		"rebuild": rebuildPayload,
+		"redirects": map[string]any{
+			"generated": redirectsCreated,
+		},
 	}
 }
 

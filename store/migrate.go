@@ -83,6 +83,8 @@ func AutoMigrate(db *DB) error {
 		{"product_announcements", buildProductAnnouncementsDDL(dialect)},
 		// Table 32: announcement_dismissals (all-api-hub borrow H1)
 		{"announcement_dismissals", buildAnnouncementDismissalsDDL(dialect)},
+		// Table 33: model_name_redirects (all-api-hub borrow K1)
+		{"model_name_redirects", buildModelNameRedirectsDDL(dialect)},
 	}
 
 	// Non-UNIQUE indexes are created separately via CREATE INDEX IF NOT EXISTS
@@ -1306,6 +1308,39 @@ func buildAnnouncementDismissalsDDL(d string) string {
 	)`
 }
 
+// buildModelNameRedirectsDDL creates the model_name_redirects table
+// (all-api-hub borrow K1). Maps a canonical route model name to the actual
+// upstream name per account (e.g. claude-3-5-sonnet → claude-3-5-sonnet-20241022).
+// source is sync (auto-generated) or manual (operator-authored, never
+// overwritten by sync generation).
+func buildModelNameRedirectsDDL(d string) string {
+	if isPG(d) {
+		return `CREATE TABLE IF NOT EXISTS model_name_redirects (
+			id SERIAL PRIMARY KEY,
+			account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+			canonical TEXT NOT NULL,
+			actual TEXT NOT NULL,
+			source TEXT NOT NULL DEFAULT 'sync',
+			last_seen_at TEXT,
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL,
+			CONSTRAINT model_name_redirects_account_canonical_unique UNIQUE (account_id, canonical)
+		)`
+	}
+	return `CREATE TABLE IF NOT EXISTS model_name_redirects (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		account_id INTEGER NOT NULL,
+		canonical TEXT NOT NULL,
+		actual TEXT NOT NULL,
+		source TEXT NOT NULL DEFAULT 'sync',
+		last_seen_at TEXT,
+		created_at TEXT NOT NULL,
+		updated_at TEXT NOT NULL,
+		CONSTRAINT model_name_redirects_account_canonical_unique UNIQUE (account_id, canonical),
+		FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+	)`
+}
+
 func buildEventsDDL(d string) string {
 	if isPG(d) {
 		return `CREATE TABLE IF NOT EXISTS events (
@@ -1434,6 +1469,8 @@ func buildIndexes() []struct {
 		// model_verify_history (all-api-hub borrow G1)
 		{"model_verify_history_batch_idx", `CREATE INDEX IF NOT EXISTS model_verify_history_batch_idx ON model_verify_history (batch_id, created_at)`},
 		{"model_verify_history_model_idx", `CREATE INDEX IF NOT EXISTS model_verify_history_model_idx ON model_verify_history (model_name, created_at)`},
+		// model_name_redirects (all-api-hub borrow K1)
+		{"model_name_redirects_account_actual_idx", `CREATE INDEX IF NOT EXISTS model_name_redirects_account_actual_idx ON model_name_redirects (account_id, actual)`},
 		// downstream_api_keys
 		{"downstream_api_keys_name_idx", `CREATE INDEX IF NOT EXISTS downstream_api_keys_name_idx ON downstream_api_keys (name)`},
 		{"downstream_api_keys_enabled_idx", `CREATE INDEX IF NOT EXISTS downstream_api_keys_enabled_idx ON downstream_api_keys (enabled)`},

@@ -472,6 +472,18 @@ type AnnouncementDismissal struct {
 	DismissedAt    string `db:"dismissed_at" json:"dismissedAt"`
 }
 
+// ---- Table 33: model_name_redirects (all-api-hub borrow K1) ----
+type ModelNameRedirect struct {
+	ID          int64    `db:"id" json:"id"`
+	AccountID   int64    `db:"account_id" json:"accountId"`
+	Canonical   string   `db:"canonical" json:"canonical"`
+	Actual      string   `db:"actual" json:"actual"`
+	Source      string   `db:"source" json:"source"` // sync | manual
+	LastSeenAt  *string  `db:"last_seen_at" json:"lastSeenAt"`
+	CreatedAt   string   `db:"created_at" json:"createdAt"`
+	UpdatedAt   string   `db:"updated_at" json:"updatedAt"`
+}
+
 // ---- Table 25: downstream_api_keys ----
 type DownstreamAPIKey struct {
 	ID           int64    `db:"id" json:"id"`

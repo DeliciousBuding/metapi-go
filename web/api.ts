@@ -310,6 +310,39 @@ export type Announcement = {
 
 export type AnnouncementsResponse = { items: Announcement[] };
 
+// K1a (all-api-hub borrow): model name redirects.
+export type ModelRedirect = {
+  id: number;
+  accountId: number;
+  username?: string;
+  siteName?: string;
+  canonical: string;
+  actual: string;
+  source: "sync" | "manual";
+  lastSeenAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ModelRedirectsResponse = { items: ModelRedirect[] };
+
+export type RedirectFixCandidate = {
+  siteId: number;
+  siteName: string;
+  accountId: number;
+  modelName: string;
+  canonical: string;
+  actual: string;
+};
+
+export type RedirectApplyResponse = {
+  success: boolean;
+  dryRun: boolean;
+  candidates?: RedirectFixCandidate[];
+  count: number;
+  removed?: number;
+};
+
 async function streamSse(
   url: string,
   handlers: {
@@ -1332,6 +1365,33 @@ export const api = {
       method: "POST",
       body: "{}",
     }) as Promise<{ success: boolean }>,
+  // K1a (all-api-hub borrow): model name redirects.
+  getModelRedirects: (params?: { accountId?: number; source?: string }) =>
+    request(
+      `/api/model-redirects${buildQueryString(params)}`,
+    ) as Promise<ModelRedirectsResponse>,
+  updateModelRedirect: (
+    id: number,
+    payload: { actual?: string; source?: string },
+  ) =>
+    request(`/api/model-redirects/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }) as Promise<{ success: boolean }>,
+  deleteModelRedirect: (id: number) =>
+    request(`/api/model-redirects/${id}`, { method: "DELETE" }) as Promise<{
+      success: boolean;
+    }>,
+  generateModelRedirects: (accountId = 0) =>
+    request("/api/model-redirects/generate", {
+      method: "POST",
+      body: JSON.stringify({ accountId }),
+    }) as Promise<{ success: boolean; created: number; accounts?: number }>,
+  applyModelRedirects: (dryRun: boolean) =>
+    request("/api/model-redirects/apply", {
+      method: "POST",
+      body: JSON.stringify({ dryRun }),
+    }) as Promise<RedirectApplyResponse>,
   // C1 (all-api-hub borrow): unified recurring-scheduler run history.
   getSchedulerStatus: () =>
     request<{ items: SchedulerRunStatus[]; generatedAt: string }>(
