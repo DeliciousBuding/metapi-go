@@ -3,6 +3,17 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-08-01] all-api-hub borrow Wave C 交付（A2 图表画廊）
+
+- **A2 模型成本分布 + 延迟图表画廊**（`439b6dd`）: 数据全在 proxy_logs，只差视图——
+  - `GET /api/stats/model-cost-distribution?days=&topN=`: model_actual>model_requested>unknown 归组，topN 按成本降序 + 余量折叠「其他模型」桶，附 totals；无 LIMIT 全量分组后 Go 端折叠（模型数有限）。
+  - `GET /api/stats/latency-histogram?days=&bucketMs=`: `(latency_ms / ?) * ?` 整数除法双方言同语义，桶含 count + percent；空桶省略。
+  - `GET /api/stats/latency-trend?days=`: 每日 avg/max/first-byte + successRate；p95 用 `ORDER BY latency_ms DESC LIMIT 10000` + `COUNT(*) OVER ()` 拿真实行数，`floor(0.05*n)` 落采样内（n<200k 安全），超限天进 truncatedDays 诚实标记；新增 `dayBucketSQLExpr` 双方言日期桶。
+  - 前端: `CostDistributionChart`（环形图 + 总成本头）/ `LatencyHistogramChart`（柱状）/ `LatencyTrendChart`（avg+P95 双线 + 截断提示）三卡挂 Dashboard（lazy）；api.ts 类型 + 3 方法；4 个 dashboard 测试补 mock。
+  - 测试: stats_gallery_test.go 3 组 SQLite 用例（topN-Other 折叠、桶边界、per-day profile + p95 值）+ 1 组 PG 方言奇偶（PG_TEST_DSN 缺省跳过）；3 个前端图表组件测试（spec 断言 + header 文本）。
+- **验证**: `go vet ./...` + `go test ./...` 全绿；`npm run typecheck` + `npm test`（162 文件/532 测试）全绿；SPA rebuild（注意：vitest 必须从 `web/` 下以 `npm test` 跑，从仓库根 `npx vitest run` 会误收集 `web/e2e/*.spec.ts`）。
+- SSOT 同步: STATE tip `439b6dd` / MASTER / CHANGELOG / borrow doc A2 行 + Wave B 余项标注。
+
 ## [2026-07-31] all-api-hub borrow Wave B 交付（E1/F1/C1）
 
 - **E1 随机窗口调度**（`ea8991f`）: checkin 新 `window` 模式——`RandomCronInWindow(start,end)` 解析 HH:mm 边界、窗口内均匀随机生成 "m h * * *" 每日 cron（每次启动/设置变更重 roll = 负载扩散 + 反指纹）；scheduler window 分支 + 校验（start<=end、坏边界降级 cron）；config `CHECKIN_WINDOW_START/END`（默认 00:00-23:59）；store/settings 水合；`PUT /api/checkin/schedule` 接受 windowStart/windowEnd。测试：5 边界组 × 50 次滚动全落窗口 + cron 合法、重 roll 变化性、7 组坏边界、parseHHMM 容错。

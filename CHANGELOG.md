@@ -7,6 +7,9 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Added — all-api-hub borrow Wave C (analytics gallery)
+- **A2 模型成本分布 + 延迟图表画廊**: `GET /api/stats/model-cost-distribution`（topN-with-Other 成本桶 + totals）、`GET /api/stats/latency-histogram`（双方言整数除法延迟桶）、`GET /api/stats/latency-trend`（每日 avg/max/first-byte + 成功率 + 有界降序采样 p95，超采样上限天数以 truncatedDays 诚实标记）；Dashboard「模型成本分布 / 延迟直方图 / 延迟趋势」三卡
+
 ### Added — all-api-hub borrow Wave B (scheduling / backup / observability)
 - **E1 随机窗口调度模式**: checkin 支持 `window` 模式 — 启动/设置变更时在 `CHECKIN_WINDOW_START`~`END`（HH:mm）内随机生成每日 cron（负载扩散 + 反指纹）；`PUT /api/checkin/schedule` 接受 windowStart/windowEnd
 - **F1 备份导入预览**: `POST /api/settings/backup/import/preview` 返回 per-table rows/toInsert/duplicates/skipped 计划且不写行；ImportExport confirm 前展示计划；顺带修复前端 `{data}` 包装与后端 `{tables}` 契约不匹配 bug（手动 JSON 粘贴导入此前恒 400）
