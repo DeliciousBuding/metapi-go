@@ -22,6 +22,7 @@ import { PAYLOAD_RULE_PROTOCOL_OPTIONS } from './settings/payloadRuleProtocolOpt
 import UpdateCenterSection from './settings/UpdateCenterSection.js';
 import AnnouncementsSection from './settings/AnnouncementsSection.js';
 import ModelRedirectsSection from './settings/ModelRedirectsSection.js';
+import RatesOverviewSection from './settings/RatesOverviewSection.js';
 import {
   applyRoutingProfilePreset,
   resolveRoutingProfilePreset,
@@ -2536,6 +2537,9 @@ export default function Settings() {
 
         {/* K1a (all-api-hub borrow): model name redirects */}
         <ModelRedirectsSection />
+
+        {/* N9a (New API borrow): read-only rate overview */}
+        <RatesOverviewSection />
 
         <div className="card animate-slide-up stagger-6" style={{ padding: 20 }}>
           <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12 }}>维护工具</div>

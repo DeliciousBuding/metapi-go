@@ -343,6 +343,39 @@ export type RedirectApplyResponse = {
   removed?: number;
 };
 
+// N9a (New API borrow): read-only multiplier/rate overview.
+export type RateOverviewResponse = {
+  generatedAt: string;
+  summary: {
+    accountsWithUnitCost: number;
+    accountsTotal: number;
+    channelsTotal: number;
+    channelsEnabled: number;
+  };
+  accounts: Array<{
+    accountId: number;
+    username: string;
+    siteId?: number | null;
+    siteName: string;
+    unitCost?: number | null;
+    channelCount: number;
+    totalWeight: number;
+  }>;
+  channels: Array<{
+    channelId: number;
+    routeId?: number | null;
+    routePattern: string;
+    accountId?: number | null;
+    username: string;
+    modelName: string;
+    weight: number;
+    enabled: boolean;
+  }>;
+  sites: Array<{ siteId: number; siteName: string; globalWeight: number }>;
+  keys: Array<{ keyId: number; name: string; keyWeight?: number | null }>;
+  models: Array<{ model: string; calls: number; spend: number; tokens: number }>;
+};
+
 async function streamSse(
   url: string,
   handlers: {
@@ -1392,6 +1425,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ dryRun }),
     }) as Promise<RedirectApplyResponse>,
+  // N9a (New API borrow): read-only multiplier/rate overview.
+  getRateOverview: () =>
+    request("/api/models/rates") as Promise<RateOverviewResponse>,
   // C1 (all-api-hub borrow): unified recurring-scheduler run history.
   getSchedulerStatus: () =>
     request<{ items: SchedulerRunStatus[]; generatedAt: string }>(

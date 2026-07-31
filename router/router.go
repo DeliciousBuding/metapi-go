@@ -77,6 +77,8 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 			admin.RegisterAnnouncementsRoutes(r, db.DB)
 			// K1a (all-api-hub borrow): model name redirects.
 			admin.RegisterModelRedirectRoutes(r, db.DB)
+			// N9a (New API borrow): read-only multiplier/rate overview.
+			admin.RegisterModelRatesRoutes(r, db.DB)
 			// C1 (all-api-hub borrow): unified recurring-scheduler run history.
 			admin.RegisterSchedulerStatusRoutes(r, db.DB)
 			admin.RegisterTestRoutes(r, db.DB, cfg)
