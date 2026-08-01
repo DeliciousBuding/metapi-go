@@ -1461,7 +1461,61 @@ const zhToEn: Record<string, string> = {
     '配置白名单后，路由重建和候选生成将只针对白名单中的模型。留空表示允许所有模型（向后兼容）。保存后自动触发路由重建。': 'With an allowlist configured, route rebuild and candidate generation only consider allowlisted models. Empty means all models are allowed (backward compatible). Saving triggers route rebuild automatically.',
     '这里只是 HTTP/SOCKS 代理地址，不是上游 API 请求地址。填写后优先使用站点代理；留空则使用系统代理或直连(取决于设置开关状态)。': 'This is only the HTTP/SOCKS proxy address, not the upstream API request address. When filled, the site proxy takes priority; empty falls back to the system proxy or direct connection (depending on the setting toggle).',
     '可选，正整数 token（如 128000）；留空表示未知/不强制': 'Optional, a positive token count (e.g. 128000); empty means unknown / not enforced',
-    '4. 建议先导出一份"全部备份"再执行导入操作。': '4. Export a "full backup" before importing.',};
+    '4. 建议先导出一份"全部备份"再执行导入操作。': '4. Export a "full backup" before importing.',
+
+    'GitHub 稳定版：': 'GitHub stable:',
+    '推荐模型：': 'Recommended model:',
+    '个 API Key': 'API Key',
+    '秒请求': 'req/s',
+    '秒 Tokens': 'Tokens/s',
+    '个群组': 'groups',
+    '个密钥批量设置主分组，并追加标签。不会改动模型白名单、群组范围、额度和倍率。': 'Set a main group for these keys at once and append tags. Model allowlist, group scope, quota and rates are unchanged.',
+    '统计：账号': 'Stats: accounts',
+    '/ 独立 API 凭据': '/ independent API credentials',
+    '不会原生导入：': 'Not imported natively:',
+    '统计：站点': 'Stats: sites',
+    '/ 账号': '/ accounts',
+    '/ 令牌': '/ tokens',
+    '/ 路由': '/ routes',
+    '/ 通道': '/ channels',
+    '/ 站点禁用模型': '/ site disabled models',
+    '/ 手工模型': '/ manual models',
+    '/ 下游 Key': '/ downstream keys',
+    '/ 设置': '/ settings',
+    '上次成功同步：': 'Last successful sync:',
+    '最近错误：': 'Recent error:',
+    '当前模型已被筛选：': 'Current model filtered:',
+    '下次刷新': 'Next refresh',
+    'OAuth 账号以后只在这里维护。连接管理页默认只保留普通 Session / API Key / Token 连接。': 'OAuth accounts are maintained only here. The connections page keeps only ordinary Session / API Key / Token connections.',
+    '个 OAuth 账号，当前筛选后显示': 'OAuth accounts, currently filtered to show',
+    '份 JSON，点击可重新选择': 'JSON file(s), click to reselect',
+    '份 JSON，其中 ': 'JSON file(s), of which ',
+    '账号：': 'Accounts:',
+    '降级原因：': 'Downgrade reason:',
+    '目标 Session ID': 'Target session ID',
+    '消耗总额 ': 'Total spend ',
+    '记录内容：': 'Recorded content:',
+    '用量来源：': 'Usage source:',
+    '已选模型': 'Selected models',
+    '个，已禁用': ', disabled',
+    '个，已选群组': ', groups selected',
+    '选择结果会保存到当前下游 API Key：精确模型用于模型白名单，群组用于路由范围限制。': 'The selection is saved to the current downstream API key: exact models go to the model allowlist, groups to the route scope.',
+    '更新时间：': 'Updated at:',
+    '回退到 revision ': 'Roll back to revision ',
+    '运行时 residual：': 'Runtime residual:',
+    '个品牌：': 'brands:',
+    '个模型：': 'models:',
+    '当前运行：': 'Currently running:',
+    '已保存待生效：': 'Saved, pending effect:',
+    '迁移结果：站点 ': 'Migration result: sites ',
+    '保存或自动检测时会将主站点 URL 规范化为': 'On save or auto-detection the main-site URL is normalized to',
+    'API 地址:': 'API address:',
+    '账号:': 'Accounts:',
+    '，时间：': ', time:',
+
+    '+ 创建令牌': '+ Create token',
+    '回退到 revision': 'Roll back to revision',
+    '迁移结果：站点': 'Migration result: sites',};
 
 for (const [source, target] of Object.entries(zhToEnSupplemental)) {
   if (!zhToEn[source]) {
@@ -1530,7 +1584,7 @@ const CJK_PUNCT_TO_ASCII: Record<string, string> = {
   '’': '\'',
   '、': ', ',
 
-    '+ 创建令牌': '+ Create token',};
+};
 
 function enforceStrictEnglish(text: string): string {
   const normalizedPunctuation = text.replace(/[，。：；！？（）【】“”‘’、]/g, (ch) => CJK_PUNCT_TO_ASCII[ch] ?? ch);
@@ -1539,6 +1593,13 @@ function enforceStrictEnglish(text: string): string {
   if (!compacted) return 'Untranslated';
   if (!LATIN_OR_DIGIT_RE.test(compacted)) return 'Untranslated';
   return compacted;
+}
+
+/** Punctuation-only normalization for fully-translated output — CJK punctuation
+ * must never leak into EN text even when no Han residue remains (e.g. phrase
+ * replacement of '个，已禁用' leaves '，'). */
+function normalizePunctuationOnly(text: string): string {
+  return text.replace(/[，。：；！？（）【】“”‘’、]/g, (ch) => CJK_PUNCT_TO_ASCII[ch] ?? ch);
 }
 
 function resolveStoredLanguage(): Language {
@@ -1569,7 +1630,7 @@ export function translateText(text: string, language: Language): string {
     translated = translated.split(source).join(target);
   }
   if (HAS_HAN_RE.test(translated)) return enforceStrictEnglish(translated);
-  return translated;
+  return normalizePunctuationOnly(translated);
 }
 
 export function tr(text: string): string {
@@ -1581,6 +1642,7 @@ type I18nContextValue = {
   setLanguage: (next: Language) => void;
   toggleLanguage: () => void;
   t: (text: string) => string;
+
 };
 
 const I18nContext = createContext<I18nContextValue | null>(null);

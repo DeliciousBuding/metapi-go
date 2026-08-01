@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { translateText } from './i18n.js';
 
 describe('translateText', () => {
@@ -91,5 +92,45 @@ describe('translateText review-wave regressions (2026-08-01)', () => {
     expect(translateText('通道', 'en')).toBe('Channel');
     expect(translateText('消耗趋势', 'en')).toBe('Spend trend');
     expect(translateText('调用趋势', 'en')).toBe('Calls trend');
+  });
+});
+
+describe('translateText quality-audit regressions (2026-08-01 batch 4)', () => {
+  it('interpolated segment keys have exact translations (no glued/missing words)', () => {
+    expect(translateText('个，已禁用', 'en')).toBe(', disabled');
+    expect(translateText('个，已选群组', 'en')).toBe(', groups selected');
+    expect(translateText('秒请求', 'en')).toBe('req/s');
+    expect(translateText('秒 Tokens', 'en')).toBe('Tokens/s');
+    expect(translateText('个 API Key', 'en')).toBe('API Key');
+    expect(translateText('推荐模型：', 'en')).toBe('Recommended model:');
+    expect(translateText('GitHub 稳定版：', 'en')).toBe('GitHub stable:');
+    expect(translateText('上次成功同步：', 'en')).toBe('Last successful sync:');
+    expect(translateText('下次刷新', 'en')).toBe('Next refresh');
+    expect(translateText('已选模型', 'en')).toBe('Selected models');
+    expect(translateText('目标 Session ID', 'en')).toBe('Target session ID');
+    expect(translateText('账号：', 'en')).toBe('Accounts:');
+    expect(translateText('回退到 revision', 'en')).toBe('Roll back to revision');
+    expect(translateText('迁移结果：站点', 'en')).toBe('Migration result: sites');
+  });
+
+  it('no CJK punctuation leaks into EN output even without Han residue', () => {
+    // Phrase replacement of '个' leaves '，' — punctuation must be normalized.
+    expect(translateText('个，已禁用', 'en')).not.toContain('，');
+    expect(translateText('个，已禁用', 'en')).not.toContain('：');
+    // A fully-translated phrase with CJK colon still normalizes.
+    const out = translateText('账号：', 'en');
+    expect(out).not.toContain('：');
+    expect(out).toBe('Accounts:');
+  });
+
+  it('every EN dictionary value is Han-free', () => {
+    // Static scan of the raw source: values must never contain Han chars.
+    const src = readFileSync('i18n.tsx', 'utf8');
+    const HAN = /[㐀-鿿]/;
+    const bad: string[] = [];
+    for (const m of src.matchAll(/(?:^|\n)\s*'([^']+)':\s*'([^']*)'/g)) {
+      if (HAN.test(m[2])) bad.push(`${m[1]} => ${m[2]}`);
+    }
+    expect(bad).toEqual([]);
   });
 });
