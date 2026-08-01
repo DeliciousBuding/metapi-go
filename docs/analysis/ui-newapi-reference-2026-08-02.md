@@ -1,6 +1,6 @@
 # New API 新 UI 设计参考（2026-08-02 研究）
 
-**Source**: `D:\Code\Temp\newapi-ui-study`（Calcium-Ion/new-api `web/`，2026-08-02 clone，研究用）
+**Source**: Calcium-Ion/new-api upstream `web/` directory（2026-08-02 研究；本地临时 clone 仅作只读研究，不引用本地路径）
 **Scope**: 只提炼设计哲学/细节/token，不照搬功能；落地前按 MetAPI DESIGN.md 语言评估。
 
 ---
