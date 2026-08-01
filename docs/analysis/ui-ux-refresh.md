@@ -197,10 +197,10 @@
 
 | Work | AC |
 |:-----|:---|
-| reduced-motion | 非必要动画关闭 |
-| 对比度抽检 | a11y-checklist 双主题 |
-| 残留 hex 清扫 | hygiene / lint 可循序 |
-| 文档 | DESIGN.md 全面改写视觉章；README 不吹未做动效 |
+| reduced-motion | 非必要动画关闭 —— **done**（CSS 全局硬切 #540 + VChart canvas 动画门控 `e58ba25`：`animation: !prefersReducedMotion()`，motion.ts + 门禁 + emulateMedia 验证） |
+| 对比度抽检 | a11y-checklist 双主题 —— **done**（Charts 轴/图例色 `be19866`：light 6.05:1 / dark 6.09:1 AA + 像素验收；CSS 层 token 已有对比度审计） |
+| 残留 hex 清扫 | hygiene / lint 可循序 —— residual（CSS 层随用随清） |
+| 文档 | DESIGN.md 全面改写视觉章；README 不吹未做动效 —— residual |
 
 ---
 

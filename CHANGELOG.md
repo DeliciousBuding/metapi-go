@@ -7,6 +7,9 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Changed — Charts 动画遵循 prefers-reduced-motion（2026-08-01）
+- canvas 动画无法用 CSS 关闭 → `animation: !prefersReducedMotion()` 门控 8 图表（WCAG 2.3.3）；门禁防硬编码回归
+
 ### Fixed — Charts 轴/图例色 dark 模式不可读（2026-08-01）
 - 根因：VChart canvas 不解析 CSS `var()` → 轴标签/图例静默回退默认深色，dark 主题深字深底
 - `useChartColors()` JS 取色（getComputedStyle + data-theme 监听）——7 图表轴色 + 4 图例 label 全部解析具体色值

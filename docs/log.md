@@ -3,6 +3,14 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-08-01] Charts 动画门控 prefers-reduced-motion（Phase 5 a11y 收官）
+
+- **缺口**: CSS 层 reduced-motion 已实现（#540 token 降级 + index.css 全局硬切），但 **VChart canvas 动画 CSS 管不到**——8 图表 spec `animation: true`（或默认开启）在用户系统开启 reduced-motion 时仍播放入场动画（clipIn/fadeIn 装饰性运动，WCAG 2.3.3 违规）。
+- **修复**（`e58ba25`）: `web/components/motion.ts` `prefersReducedMotion()` 共享 util（matchMedia 同步判断，与 TokenRoutes 先例一致）→ 8 图表全部显式 `animation: !prefersReducedMotion()`（消除 VChart 默认开启依赖）。
+- **门禁**（chart-colors.gate 扩展）: animation 禁止硬编码 `true` + 必须显式门控——防回归。
+- **验证**: motion 单测 3 个；**Playwright emulateMedia reducedMotion → 图表无动画且渲染正常**（65855 轴标签像素 / 0 fallback）；595 vitest + typecheck + build 全绿。
+- **Phase 5 状态**: reduced-motion ✓（CSS + canvas 双面）、对比度抽检 ✓（chart 轴色 wave）——a11y 项全部收官；残留 hex 清扫 / DESIGN.md 改写为文档性 residual。
+
 ## [2026-08-01] Charts 轴色对比度校验（ui-ux-refresh residual 收官）
 
 - **根因**（`be19866`）: VChart 渲染 canvas，`fill: 'var(--color-text-muted)'` 非法 CSS 颜色 → 静默回退 VChart 默认深色 → **dark 主题轴标签/图例深字深底不可读**（vrender 无 CSS 变量解析代码证实）。
