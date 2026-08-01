@@ -4,7 +4,7 @@
 **对照面**:
 - **metapi-go** tip `98b6aff` / product pages under `web/`
 - **原版 TokenDance/metapi**（同 monorepo sibling web；与 cita-777 同源 web 壳；含 Electron desktop）
-- **截图**: `docs/analysis/ui-shots/page-*-win32.png`（空库，**早于 #553/#554**，已过期）vs `shell-*-win32.png`（dense mock）
+- **截图**: `docs/analysis/ui-shots/page-*-win32.png`（空库，**2026-08-01 重录**——含 #553/#554 first-run 与 NAV-1 折叠后的当前 tip）vs `shell-*-win32.png`（dense mock）
 
 > 结论先说：**侧栏路由与页面按钮面基本齐平，没有「原版功能整页被删」**。  
 > 用户体感来自 **空库稀疏 + 主题换肤 + 截图/线上 pin 落后 tip**，不是功能缺失矩阵。
@@ -99,7 +99,7 @@ P0-585 partial、P0-555 residual、#579/#547/#584 partial 等是 **协议/计费
 | ID | 动作 | 价值 |
 |:---|:-----|:-----|
 | **UI-REL-1** | ~~决定 tip 是否打 v0.8.45 发版~~ → **v0.8.45 已 tagged**（RE2+UI）；ops pin/up 仍需授权 soak | 用户看到「功能在」 |
-| **SHOT-1** | 空库重录 `page-dashboard/sites/settings-*-win32.png`（含 #553/#554） | 文档/评分诚实；需 `METAPI_UI_AUTH_TOKEN` + 空库 |
+| **SHOT-1** | 空库重录 `page-dashboard/sites/settings-*-win32.png`（含 #553/#554） | **done 2026-08-01** — 本地空库 + `METAPI_UI_AUTH_TOKEN` 实拍（page/shell/gallery 全套更新） |
 | **MOCK-NAV** | Shell mock 侧栏对齐生产 14 项 | **done tip** |
 | **MOCK-PARITY-AUDIT** | 四路并行原版齐平研究（前端/后端/平台/gap） | **done 2026-07-20** — 结论：Track A 对内可用，Track B 未完备 |
 | **VIS-1** | 可选：primary 回 indigo 或提供主题 preset（GCP / Classic） | **done tip** — 3 preset（blue/indigo/teal）× light/dark |
