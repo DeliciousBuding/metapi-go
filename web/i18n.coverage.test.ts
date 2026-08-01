@@ -61,6 +61,7 @@ function collectTLiterals(): string[] {
 function collectRawJSX(): string[] {
   const literals = new Set<string>();
   for (const file of walk('.')) {
+    if (file.includes('i18n') || file.includes('charts')) continue;
     const src = stripComments(readFileSync(file, 'utf8'));
     const attrRe = /\b(placeholder|title|aria-label|alt|description)="([^"]*[㐀-鿿][^"]*)"/g;
     let m: RegExpExecArray | null;
@@ -80,6 +81,12 @@ function collectRawJSX(): string[] {
       let lm: RegExpExecArray | null;
       while ((lm = litRe.exec(expr))) literals.add(lm[1]);
     }
+    // Object-literal values (`label: '站点公告'`, `site_notice: '站点公告'`
+    // in nav configs / option maps / status maps). These render as DOM text
+    // and are translated by the observer — e2e found 200+ keys this scanner
+    // had been missing entirely (2026-08-01).
+    const objRe = /:\s*'([^']*[㐀-鿿][^']*)'/g;
+    while ((m = objRe.exec(src))) literals.add(m[1]);
     const textRe = />([^<>{}]*[㐀-鿿][^<>{}]*)<\//g;
     while ((m = textRe.exec(src))) {
       const lit = m[1].trim();
