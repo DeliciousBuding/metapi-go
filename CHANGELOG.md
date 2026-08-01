@@ -7,6 +7,11 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed — EN 验收扩 18 路由 + 中文标点断言（2026-08-01）
+- **verify-en-pages.mjs 11 → 18 路由**：新增 /oauth /playground /tokens /site-announcements /about /settings/notify /settings/import-export（质量审计覆盖的深层面此前无 CI 验证）+ **中文标点断言**（EN 输出零 `：，。（）` 残留，质量审计成果持久化）
+- **扩面抓 3 处真问题**：① NotificationSettings `当前配置: {key || '未设置'}` 在 code 容器内被 SKIP 豁免（Settings '当前：' 案例重演）——标签与 fallback 移出容器 + tr() 包裹；② `或 '/'或`/`无`/`当前配置: ` 4 键此前落在 zhToEn 对象外（顶层垃圾，translateText 查不到）——移回对象；③ 纯中文标点节点（`（`）被 shouldTranslateTextNode 无汉字过滤跳过——加 CJK_PUNCT_RE 检查
+- 回归测试 +1（8 断言）；本地 18/18 clean
+
 ### Fixed — i18n 反向审计 + 插值片段质量（2026-08-01）
 - **插值 JSX 片段输出质量**：`>text {expr} text<` 运行期片段的碎英文/缺词/粘词（'个，已禁用'→'items，Disabled'、'推荐模型：'→'RecommendedModel：'、'回退到 revision'→'revision' 等）清零——**51 键补译**（统计/迁移/同步行、JSON 导入提示、OAuth 维护说明、下次刷新/已选模型/目标 Session ID 等）
 - **中文标点归一化**：短语替换后无汉字残留时也归一化中文标点（此前 '，'/'：' 泄漏进 EN 输出）——normalizePunctuationOnly 提取复用
