@@ -253,6 +253,28 @@ func SendNotification(cfg *config.Config, title, message, level string, options 
 		failedChannels = append(failedChannels, fr.channel)
 	}
 
+	// Observability (2026-08-01): every dispatch leaves a log line so
+	// production can answer "did the notification go out, and why not"
+	// without guessing — hk3 had 3 channels enabled with empty credentials
+	// and zero log trace of the silent failures.
+	if len(tasks) > 0 {
+		attrs := []any{
+			"title", title,
+			"level", level,
+			"attempted", len(tasks),
+			"succeeded", succeeded,
+			"failed", len(failedResults),
+		}
+		for _, fr := range failedResults {
+			attrs = append(attrs, "channel_"+string(fr.channel), truncateErr(fr.err, 100))
+		}
+		if len(failedResults) > 0 {
+			slog.Warn("notify: dispatch partial/failed", attrs...)
+		} else {
+			slog.Info("notify: dispatch ok", attrs...)
+		}
+	}
+
 	if options.ThrowOnFailure && succeeded == 0 && len(failedResults) > 0 {
 		firstErr := failedResults[0].err
 		slog.Error("SendNotification: all channels failed",
@@ -267,4 +289,17 @@ func SendNotification(cfg *config.Config, title, message, level string, options 
 		Failed:         len(failedResults),
 		FailedChannels: failedChannels,
 	}, nil
+}
+
+// truncateErr bounds an error message for logging — channel errors may embed
+// URLs/upstream responses, so cap length (never log credentials).
+func truncateErr(err error, max int) string {
+	if err == nil {
+		return ""
+	}
+	s := err.Error()
+	if len(s) > max {
+		return s[:max] + "..."
+	}
+	return s
 }
