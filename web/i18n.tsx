@@ -579,6 +579,7 @@ const zhToEn: Record<string, string> = {
      text fragments; the fragment keys must exist for the observer (2026-08-01) */
   '模型成本分布（近 ': 'Model cost distribution (last ',
   '延迟直方图（近 ': 'Latency histogram (last ',
+  '延迟趋势（近 ': 'Latency trend (last ',
   'P95 采样截断（': 'P95 truncated (',
   '余额趋势（近 ': 'Balance trend (last ',
   '该 Key 在所选时间范围内没有可用的 tokens 记录': 'No tokens recorded for this key in the selected range',
@@ -591,6 +592,7 @@ const zhToEn: Record<string, string> = {
   '共探测': 'Probed',
   '条': 'items',
   '实时流量': 'Live traffic',
+  '非流': 'Non-streaming',
   '在线': 'Online',
   '重连中…': 'Reconnecting…',
   '合计': 'Total',

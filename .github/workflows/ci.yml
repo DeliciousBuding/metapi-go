@@ -141,8 +141,9 @@ jobs:
           PG_DATABASE: metapi_test
 
   # EN-mode main-surface verification (2026-08-01): boots the real single
-  # process (embedded SPA, fresh SQLite) and walks all 11 admin routes
-  # asserting no `Untranslated` fallback and no Han residue in EN mode.
+  # process (embedded SPA, fresh SQLite) and walks all 18 admin routes,
+  # including seeded Dashboard data-state charts, asserting no untranslated
+  # fallback and no Han residue in EN mode.
   en-verify:
     runs-on: ubuntu-latest
     steps:
@@ -174,10 +175,10 @@ jobs:
             sleep 1
           done
           cd web
-          METAPI_UI_AUTH_TOKEN=ci-en-verify METAPI_UI_SHOT_BASE=http://127.0.0.1:4182 node scripts/verify-en-pages.mjs --with-data
+          DB_URL=/tmp/enverify.db METAPI_UI_AUTH_TOKEN=ci-en-verify METAPI_UI_SHOT_BASE=http://127.0.0.1:4182 node scripts/verify-en-pages.mjs --with-data
           # zh mode: no Untranslated fallback + known zh labels in place
           # (guards en→zh restore pollution across all 18 routes).
-          METAPI_UI_AUTH_TOKEN=ci-en-verify METAPI_UI_SHOT_BASE=http://127.0.0.1:4182 node scripts/verify-en-pages.mjs --with-data --zh
+          DB_URL=/tmp/enverify.db METAPI_UI_AUTH_TOKEN=ci-en-verify METAPI_UI_SHOT_BASE=http://127.0.0.1:4182 node scripts/verify-en-pages.mjs --with-data --zh
 
   build:
     runs-on: ubuntu-latest

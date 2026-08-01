@@ -25,7 +25,8 @@ COPY --from=build /app/metapi /usr/local/bin/metapi
 COPY --from=build /app/metapi-migrate /usr/local/bin/metapi-migrate
 USER appuser
 EXPOSE 4000
-ENV DATA_DIR=/app/data
+ENV HOST=0.0.0.0 \
+    DATA_DIR=/app/data
 VOLUME ["/app/data"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD ["/usr/local/bin/metapi", "healthcheck"]

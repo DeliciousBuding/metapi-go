@@ -16,8 +16,8 @@ echo "  ✓ vet passed"
 
 # 2. full test suite with race detector
 echo ""
-echo "[2/2] go test ./... -count=1 -race"
-go test ./... -count=1 -race -timeout 300s
+echo "[2/2] race gate (native Unix, WSL-backed on Windows)"
+bash ./scripts/go-race.sh
 echo "  ✓ tests passed (-race clean)"
 
 echo ""

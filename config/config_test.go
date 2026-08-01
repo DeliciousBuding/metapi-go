@@ -21,6 +21,28 @@ func TestLoadParsesAdminCorsAllowedOrigins(t *testing.T) {
 	}
 }
 
+func TestParseListenHostDefaultsByOS(t *testing.T) {
+	tests := []struct {
+		name string
+		env  map[string]string
+		goos string
+		want string
+	}{
+		{name: "windows missing", env: map[string]string{}, goos: "windows", want: "127.0.0.1"},
+		{name: "windows blank", env: map[string]string{"HOST": "  "}, goos: "windows", want: "127.0.0.1"},
+		{name: "linux missing", env: map[string]string{}, goos: "linux", want: "0.0.0.0"},
+		{name: "darwin blank", env: map[string]string{"HOST": "\t"}, goos: "darwin", want: "0.0.0.0"},
+		{name: "explicit override", env: map[string]string{"HOST": " 192.0.2.10 "}, goos: "windows", want: "192.0.2.10"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := parseListenHostForOS(tt.env, tt.goos); got != tt.want {
+				t.Fatalf("parseListenHostForOS(%v, %q) = %q, want %q", tt.env, tt.goos, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestLoadParsesTrustedProxyCidrs(t *testing.T) {
 	cfg := Load(map[string]string{
 		"TRUSTED_PROXY_CIDRS": " 127.0.0.1/32,10.0.0.0/8 ,, ",
@@ -322,4 +344,3 @@ func TestLoadExplicitPoolOverridesProfile(t *testing.T) {
 		t.Fatalf("explicit override = %d/%d, want 50/10", cfg.DbMaxOpenConns, cfg.DbMaxIdleConns)
 	}
 }
-

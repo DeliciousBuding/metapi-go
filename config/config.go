@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"math"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -94,8 +95,8 @@ type Config struct {
 	// re-rolled per start/setting change (load spreading + anti-fingerprint).
 	CheckinWindowStart string
 	CheckinWindowEnd   string
-	BalanceRefreshCron   string
-	LogCleanupCron       string
+	BalanceRefreshCron string
+	LogCleanupCron     string
 
 	// Log Cleanup (4 fields)
 	LogCleanupUsageLogsEnabled   bool
@@ -367,17 +368,24 @@ func normalizeTokenRouterFailureCooldownMaxSec(value float64) (int, bool) {
 	return clamped, true
 }
 
-// §1.8 parseListenHost: env["HOST"] empty → "0.0.0.0"; trim → empty → "0.0.0.0".
+// §1.8 parseListenHost: explicit HOST always wins. Local Windows binaries
+// default to loopback so changing go-build/go-run executable paths does not
+// trigger recurring inbound firewall prompts. Server/container platforms keep
+// the historical all-interface default.
 func parseListenHost(env map[string]string) string {
+	return parseListenHostForOS(env, runtime.GOOS)
+}
+
+func parseListenHostForOS(env map[string]string, goos string) string {
 	host := env["HOST"]
-	if host == "" {
-		return "0.0.0.0"
-	}
 	trimmed := strings.TrimSpace(host)
-	if trimmed == "" {
-		return "0.0.0.0"
+	if trimmed != "" {
+		return trimmed
 	}
-	return trimmed
+	if goos == "windows" {
+		return "127.0.0.1"
+	}
+	return "0.0.0.0"
 }
 
 // ---------------------------------------------------------------------------

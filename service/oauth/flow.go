@@ -78,6 +78,8 @@ type ManualCallbackInput struct {
 	CallbackURL string `json:"callbackUrl"`
 }
 
+var startLoopbackCallbackServerForFlow = StartLoopbackCallbackServer
+
 // ---- Flow Functions ----
 
 // StartFlow initiates an OAuth flow for the given provider.
@@ -87,9 +89,17 @@ func StartFlow(input StartFlowInput) (*FlowStartResult, error) {
 		return nil, fmt.Errorf("unsupported oauth provider: %s", input.Provider)
 	}
 
-	callbackState := GetLoopbackCallbackServerState(input.Provider)
-	if callbackState != nil && callbackState.Attempted && !callbackState.Ready {
-		return nil, fmt.Errorf("%s oauth callback listener is unavailable: %s", input.Provider, callbackState.Error)
+	callbackState, callbackErr := startLoopbackCallbackServerForFlow(input.Provider)
+	if callbackErr != nil || callbackState == nil || !callbackState.Ready {
+		callbackError := "listener did not become ready"
+		if callbackErr != nil {
+			callbackError = callbackErr.Error()
+		} else if callbackState != nil && callbackState.Error != "" {
+			callbackError = callbackState.Error
+		}
+		slog.Warn("oauth callback listener unavailable; manual callback remains available",
+			"provider", input.Provider,
+			"error", callbackError)
 	}
 
 	redirectURI := def.Loopback.RedirectURI

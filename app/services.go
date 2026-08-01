@@ -7,6 +7,7 @@ import (
 
 	"github.com/tokendancelab/metapi-go/config"
 	"github.com/tokendancelab/metapi-go/scheduler"
+	"github.com/tokendancelab/metapi-go/service/oauth"
 )
 
 var (
@@ -73,9 +74,7 @@ func StartBackgroundServices() {
 	// ---- Scheduler 14: Proxy Log Retention (legacy fallback) ----
 	newRegistry.Register(scheduler.NewProxyLogRetentionScheduler(cfg))
 
-	// ---- Scheduler 15: OAuth Loopback ----
-	newRegistry.Register(scheduler.NewOAuthLoopbackScheduler(cfg))
-	// ---- Scheduler 16: OAuth Token Refresh ----
+	// ---- Scheduler 15: OAuth Token Refresh ----
 	newRegistry.Register(scheduler.NewOAuthRefreshScheduler(cfg))
 
 	servicesMu.Lock()
@@ -102,6 +101,7 @@ func StopBackgroundServices() {
 	if activeRegistry != nil {
 		activeRegistry.StopAll()
 	}
+	oauth.StopLoopbackCallbackServers()
 }
 
 // UpdateCheckinSchedule applies a persisted checkin schedule to the running

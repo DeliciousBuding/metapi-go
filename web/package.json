@@ -13,13 +13,13 @@
     "claude",
     "aggregator"
   ],
-  "homepage": "https://github.com/TokenDanceLab/metapi-go#readme",
+  "homepage": "https://github.com/DeliciousBuding/metapi-go#readme",
   "bugs": {
-    "url": "https://github.com/TokenDanceLab/metapi-go/issues"
+    "url": "https://github.com/DeliciousBuding/metapi-go/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/TokenDanceLab/metapi-go.git"
+    "url": "git+https://github.com/DeliciousBuding/metapi-go.git"
   },
   "license": "MIT",
   "engines": {
@@ -76,7 +76,7 @@
     "minimist": "^1.2.8"
   },
   "author": {
-    "name": "TokenDanceLab",
-    "url": "https://github.com/TokenDanceLab"
+    "name": "DeliciousBuding",
+    "url": "https://github.com/DeliciousBuding"
   }
 }

@@ -24,10 +24,10 @@ type LoopbackCallbackServerState struct {
 }
 
 var (
-	callbackServers     = make(map[string]*http.Server)
-	callbackStates      = make(map[string]*LoopbackCallbackServerState)
+	callbackServers       = make(map[string]*http.Server)
+	callbackStates        = make(map[string]*LoopbackCallbackServerState)
 	callbackStartPromises = make(map[string]chan struct{})
-	callbackMu          sync.Mutex
+	callbackMu            sync.Mutex
 )
 
 // ---- HTML helpers ----
@@ -130,6 +130,12 @@ func StartLoopbackCallbackServer(provider string) (*LoopbackCallbackServerState,
 
 	callbackMu.Lock()
 	if _, hasServer := callbackServers[provider]; hasServer {
+		if _, hasState := callbackStates[provider]; !hasState {
+			readyState := createDefaultState(provider)
+			readyState.Attempted = true
+			readyState.Ready = true
+			callbackStates[provider] = readyState
+		}
 		callbackMu.Unlock()
 		return GetLoopbackCallbackServerState(provider), nil
 	}
@@ -137,7 +143,15 @@ func StartLoopbackCallbackServer(provider string) (*LoopbackCallbackServerState,
 	if ch, inFlight := callbackStartPromises[provider]; inFlight {
 		callbackMu.Unlock()
 		<-ch
-		return GetLoopbackCallbackServerState(provider), nil
+		state := GetLoopbackCallbackServerState(provider)
+		if state == nil || !state.Ready {
+			callbackError := "listener did not become ready"
+			if state != nil && state.Error != "" {
+				callbackError = state.Error
+			}
+			return state, fmt.Errorf("failed to start %s oauth callback server: %s", provider, callbackError)
+		}
+		return state, nil
 	}
 
 	ch := make(chan struct{})

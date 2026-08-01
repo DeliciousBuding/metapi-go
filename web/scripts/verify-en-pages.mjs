@@ -10,10 +10,11 @@
  *   - no CJK punctuation residue (`：` `，` etc. — translateText normalizes
  *     it, so any occurrence is a real regression; quality-audit wave 2026-08-01)
  *
- * `--with-data` additionally seeds a fake site + account via the admin API
- * before walking, so table rows, row actions and dialogs are exercised
- * (empty-DB surfaces only cover EmptyStates). Every route then also probes
- * the first Add/New/Create button and asserts the opened dialog is clean.
+ * `--with-data` additionally seeds a fake site via the admin API and chart
+ * fixtures directly into the SQLite database before walking, so table rows,
+ * row actions, dialogs, and Dashboard data-state charts are exercised. Every
+ * route then also probes the first Add/New/Create button and asserts the
+ * opened dialog is clean.
  *
  * Usage (from web/):
  *   METAPI_UI_AUTH_TOKEN=<bearer> METAPI_UI_SHOT_BASE=http://127.0.0.1:4000 \
@@ -61,24 +62,135 @@ const routes = [
 const failures = [];
 const details = [];
 
-/** Seed a fake site + account via the admin API (--with-data mode). */
+/** Seed deterministic chart data via direct SQLite writes (--with-data mode).
+ * The account API verifies upstream tokens, which is intentionally unavailable
+ * in this hermetic UI job. Direct fixtures keep the test offline while still
+ * exercising the real backend queries and rendered Dashboard data states.
+ */
+async function seedChartData(siteId) {
+  const dbPath = (process.env.METAPI_UI_DB_URL || process.env.DB_URL || '').trim();
+  if (!dbPath) {
+    throw new Error('--with-data requires METAPI_UI_DB_URL or DB_URL for the SQLite fixture database');
+  }
+  if (dbPath.includes('://')) {
+    throw new Error(`--with-data chart fixtures require a SQLite path, got: ${dbPath}`);
+  }
+  let db;
+  try {
+    const { DatabaseSync } = await import('node:sqlite');
+    db = new DatabaseSync(dbPath, { timeout: 10_000 });
+    db.exec('BEGIN');
+    const nowMs = Date.now();
+    const now = new Date(nowMs).toISOString();
+    const fixtureKey = `enverify-${nowMs}-${process.pid}`;
+
+    const accRes = db.prepare(
+      `INSERT INTO accounts (site_id, username, access_token, api_token, balance, balance_used, quota, status, created_at, updated_at)
+       VALUES (?, ?, 'sk-demo-token', 'sk-demo-token', 100, 25.5, 200, 'healthy', ?, ?)`,
+    ).run(siteId, `${fixtureKey}-user`, now, now);
+    const accountId = Number(accRes.lastInsertRowid);
+
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(nowMs - i * 86_400_000);
+      const day = d.toISOString().slice(0, 10);
+      const elapsedDays = 13 - i;
+      const bal = 100 - elapsedDays * 2;
+      db.prepare(
+        `INSERT INTO balance_history (account_id, balance, balance_used, quota, local_day, captured_at, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ).run(accountId, bal, 25.5 + elapsedDays * 2, 200, day, d.toISOString(), d.toISOString());
+    }
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(nowMs - i * 86_400_000);
+      const day = d.toISOString().slice(0, 10);
+      db.prepare(
+        `INSERT INTO site_day_usage (local_day, site_id, total_calls, success_calls, failed_calls, total_tokens,
+           total_summary_spend, total_site_spend, total_latency_ms, latency_count, created_at, updated_at)
+         VALUES (?, ?, 3, 3, 0, 4020, 0.042, 0.042, 1380, 3, ?, ?)`,
+      ).run(day, siteId, d.toISOString(), d.toISOString());
+
+      for (let k = 0; k < 3; k++) {
+        db.prepare(
+          `INSERT INTO proxy_logs (route_id, channel_id, account_id, model_requested, model_actual, status, http_status,
+             is_stream, latency_ms, prompt_tokens, completion_tokens, total_tokens, estimated_cost, request_id, created_at)
+           VALUES (NULL, NULL, ?, 'gpt-4o-mini', 'gpt-4o-mini', 'success', 200, 0, ?, ?, ?, ?, ?, ?, ?)`,
+        ).run(accountId, 400 + k * 60, 800 + k * 100, 400 + k * 40, 1200 + k * 140,
+          0.01 + k * 0.004, `${fixtureKey}-${i}-${k}`, d.toISOString());
+      }
+    }
+
+    const accountCount = Number(db.prepare('SELECT COUNT(*) AS count FROM accounts WHERE id = ?').get(accountId).count);
+    const balanceCount = Number(db.prepare('SELECT COUNT(*) AS count FROM balance_history WHERE account_id = ?').get(accountId).count);
+    const siteUsageCount = Number(db.prepare('SELECT COUNT(*) AS count FROM site_day_usage WHERE site_id = ?').get(siteId).count);
+    const proxyLogCount = Number(db.prepare('SELECT COUNT(*) AS count FROM proxy_logs WHERE request_id LIKE ?').get(`${fixtureKey}-%`).count);
+    if (accountCount !== 1 || balanceCount !== 14 || siteUsageCount !== 7 || proxyLogCount !== 21) {
+      throw new Error(
+        `fixture count mismatch: account=${accountCount}, balance=${balanceCount}, siteUsage=${siteUsageCount}, proxyLogs=${proxyLogCount}`,
+      );
+    }
+
+    db.exec('COMMIT');
+    console.log(`chart fixture seeded: account=${accountId}, balance=14, siteUsage=7, proxyLogs=21 (${dbPath})`);
+  } catch (err) {
+    try { db?.exec('ROLLBACK'); } catch { /* already closed */ }
+    throw new Error(`chart fixture failed: ${err?.message ?? err}`, { cause: err });
+  } finally {
+    try { db?.close(); } catch { /* ignore */ }
+  }
+}
+
+/** Seed a fake site and its offline data fixtures (--with-data mode). */
 async function seedData() {
   const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` };
+  const siteFixtureKey = `en-verify-${Date.now()}-${process.pid}`;
   const siteRes = await fetch(`${base}/api/sites`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ name: 'en-verify-demo', url: 'https://example.com', platform: 'new-api', status: 'disabled' }),
+    body: JSON.stringify({
+      name: siteFixtureKey,
+      url: `https://${siteFixtureKey}.invalid`,
+      platform: 'new-api',
+      status: 'disabled',
+    }),
   });
   const site = await siteRes.json().catch(() => ({}));
   const siteId = site.site?.id ?? site.id;
-  if (siteId) {
-    await fetch(`${base}/api/accounts`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ siteId, username: 'demo-user', apiToken: 'sk-demo-token', skipModelFetch: true }),
-    }).catch(() => {});
+  if (!siteRes.ok || !siteId) {
+    throw new Error(`site fixture failed (${siteRes.status}): ${JSON.stringify(site).slice(0, 300)}`);
   }
+  await seedChartData(siteId);
   console.log(`seeded site id=${siteId ?? 'n/a'} (${siteRes.status})`);
+}
+
+/** Assert selected Dashboard charts reached their real data state, not EmptyState. */
+async function checkDashboardDataState(page) {
+  const titlePrefixes = zhMode
+    ? ['余额趋势', '模型成本分布', '延迟直方图', '延迟趋势']
+    : ['Balance trend', 'Model cost distribution', 'Latency histogram', 'Latency trend'];
+  return page.evaluate((prefixes) => {
+    const issues = [];
+    const elements = Array.from(document.querySelectorAll('span, button'));
+    for (const prefix of prefixes) {
+      const title = elements.find((el) => (el.textContent || '').trim().startsWith(prefix));
+      if (!title) {
+        issues.push(`${prefix}: title missing`);
+        continue;
+      }
+      let card = title.parentElement;
+      while (card && !card.querySelector('canvas') && !card.querySelector('.dashboard-chart-empty')) {
+        card = card.parentElement;
+      }
+      if (!card) {
+        issues.push(`${prefix}: chart container missing`);
+      } else if (card.querySelector('.dashboard-chart-empty')) {
+        issues.push(`${prefix}: still rendered EmptyState`);
+      } else if (!card.querySelector('canvas')) {
+        issues.push(`${prefix}: canvas missing`);
+      }
+    }
+    return issues;
+  }, titlePrefixes);
 }
 
 /** Probe the first Add/New/Create button and assert its dialog is clean. */
@@ -167,6 +279,15 @@ for (const route of routes) {
     }
     let status = untranslated === 0 && attrBad.length === 0 && !zhMissing && (zhMode || (!hanRuns && !cjkPunctRuns)) ? 'PASS' : 'FAIL';
     let dialogNote = '';
+    if (status === 'PASS') {
+      if (withData && route.id === 'dashboard') {
+        const dataStateIssues = await checkDashboardDataState(page).catch((err) => [String(err)]);
+        if (dataStateIssues.length > 0) {
+          status = 'FAIL';
+          dialogNote += ` | data-state: ${dataStateIssues.join(' || ')}`;
+        }
+      }
+    }
     if (status === 'PASS') {
       const dialogIssue = await checkDialogs(page).catch(() => null);
       if (dialogIssue) {

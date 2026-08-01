@@ -14,25 +14,25 @@ import (
 
 // OauthConnectionItem represents an OAuth connection in list responses.
 type OauthConnectionItem struct {
-	AccountID           int64                       `json:"accountId"`
-	SiteID              int64                       `json:"siteId"`
-	Provider            string                      `json:"provider"`
-	Username            string                      `json:"username"`
-	Email               string                      `json:"email"`
-	AccountKey          string                      `json:"accountKey"`
-	PlanType            string                      `json:"planType,omitempty"`
-	ProjectID           string                      `json:"projectId,omitempty"`
-	ModelCount          int                         `json:"modelCount"`
-	ModelsPreview       []string                    `json:"modelsPreview"`
-	Quota               *OauthQuotaSnapshot         `json:"quota,omitempty"`
-	Status              string                      `json:"status"`
-	RouteChannelCount   int                         `json:"routeChannelCount"`
-	LastModelSyncAt     string                      `json:"lastModelSyncAt,omitempty"`
-	LastModelSyncError  string                      `json:"lastModelSyncError,omitempty"`
-	ProxyURL            string                      `json:"proxyUrl,omitempty"`
-	UseSystemProxy      bool                        `json:"useSystemProxy"`
-	RouteParticipation  *RouteParticipation         `json:"routeParticipation,omitempty"`
-	Site                *ConnectionSite             `json:"site,omitempty"`
+	AccountID          int64               `json:"accountId"`
+	SiteID             int64               `json:"siteId"`
+	Provider           string              `json:"provider"`
+	Username           string              `json:"username"`
+	Email              string              `json:"email"`
+	AccountKey         string              `json:"accountKey"`
+	PlanType           string              `json:"planType,omitempty"`
+	ProjectID          string              `json:"projectId,omitempty"`
+	ModelCount         int                 `json:"modelCount"`
+	ModelsPreview      []string            `json:"modelsPreview"`
+	Quota              *OauthQuotaSnapshot `json:"quota,omitempty"`
+	Status             string              `json:"status"`
+	RouteChannelCount  int                 `json:"routeChannelCount"`
+	LastModelSyncAt    string              `json:"lastModelSyncAt,omitempty"`
+	LastModelSyncError string              `json:"lastModelSyncError,omitempty"`
+	ProxyURL           string              `json:"proxyUrl,omitempty"`
+	UseSystemProxy     bool                `json:"useSystemProxy"`
+	RouteParticipation *RouteParticipation `json:"routeParticipation,omitempty"`
+	Site               *ConnectionSite     `json:"site,omitempty"`
 }
 
 // RouteParticipation represents a route unit participation.
@@ -83,17 +83,7 @@ func ListOauthConnections(input ListConnectionsInput) (*ListConnectionsResult, e
 	var total int64
 	_ = db.Get(&total, "SELECT COUNT(*) FROM accounts WHERE oauth_provider IS NOT NULL")
 
-	var rows []struct {
-		Account store.Account `db:"accounts"`
-		Site    store.Site    `db:"sites"`
-	}
-
-	err := db.Select(&rows,
-		`SELECT a.*, s.* FROM accounts a
-		 INNER JOIN sites s ON a.site_id = s.id
-		 WHERE a.oauth_provider IS NOT NULL
-		 ORDER BY a.id DESC LIMIT ? OFFSET ?`,
-		limit, offset)
+	rows, err := selectOAuthAccountSiteRows(db, "ORDER BY a.id DESC LIMIT ? OFFSET ?", limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -120,30 +110,30 @@ func ListOauthConnections(input ListConnectionsInput) (*ListConnectionsResult, e
 		status := "healthy"
 		if oauth.ModelDiscoveryStatus == OauthModelDiscoveryAbnormal ||
 			row.Account.Status != "active" ||
-			row.Site.Status != "active" {
+			row.SiteStatus != "active" {
 			status = "abnormal"
 		}
 
 		item := OauthConnectionItem{
-			AccountID:  row.Account.ID,
-			SiteID:     row.Site.ID,
-			Provider:   oauth.Provider,
-			Username:   strPtr(row.Account.Username),
-			Email:      oauth.Email,
-			AccountKey: oauth.AccountKey,
-			PlanType:   oauth.PlanType,
-			ProjectID:  oauth.ProjectID,
-			Quota:      oauth.Quota,
-			Status:     status,
+			AccountID:          row.Account.ID,
+			SiteID:             row.Account.SiteID,
+			Provider:           oauth.Provider,
+			Username:           strPtr(row.Account.Username),
+			Email:              oauth.Email,
+			AccountKey:         oauth.AccountKey,
+			PlanType:           oauth.PlanType,
+			ProjectID:          oauth.ProjectID,
+			Quota:              oauth.Quota,
+			Status:             status,
 			LastModelSyncAt:    oauth.LastModelSyncAt,
 			LastModelSyncError: oauth.LastModelSyncError,
-			ProxyURL:       GetProxyURLFromExtraConfig(row.Account.ExtraConfig),
-			UseSystemProxy: GetUseSystemProxyFromExtraConfig(row.Account.ExtraConfig),
+			ProxyURL:           GetProxyURLFromExtraConfig(row.Account.ExtraConfig),
+			UseSystemProxy:     GetUseSystemProxyFromExtraConfig(row.Account.ExtraConfig),
 			Site: &ConnectionSite{
-				ID:       row.Site.ID,
-				Name:     row.Site.Name,
-				URL:      row.Site.URL,
-				Platform: row.Site.Platform,
+				ID:       row.Account.SiteID,
+				Name:     row.SiteName,
+				URL:      row.SiteURL,
+				Platform: row.SitePlatform,
 			},
 		}
 
@@ -375,11 +365,11 @@ func ensureOauthIdentityBackfill(db *store.DB) {
 	defer rows.Close()
 
 	type backfillRow struct {
-		ID               int64   `db:"id"`
-		OAuthProvider    *string `db:"oauth_provider"`
-		OAuthAccountKey  *string `db:"oauth_account_key"`
-		OAuthProjectID   *string `db:"oauth_project_id"`
-		ExtraConfig      *string `db:"extra_config"`
+		ID              int64   `db:"id"`
+		OAuthProvider   *string `db:"oauth_provider"`
+		OAuthAccountKey *string `db:"oauth_account_key"`
+		OAuthProjectID  *string `db:"oauth_project_id"`
+		ExtraConfig     *string `db:"extra_config"`
 	}
 
 	for rows.Next() {

@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"context"
+	"errors"
 	"os"
 	"strconv"
 	"strings"
@@ -11,6 +12,13 @@ import (
 	"github.com/tokendancelab/metapi-go/config"
 	"github.com/tokendancelab/metapi-go/store"
 )
+
+func TestMain(m *testing.M) {
+	StopLoopbackCallbackServers()
+	code := m.Run()
+	StopLoopbackCallbackServers()
+	os.Exit(code)
+}
 
 // ---- StartFlow Tests ----
 
@@ -51,6 +59,10 @@ func TestStartFlow_ValidProvider(t *testing.T) {
 	if result.Instructions.CallbackPort <= 0 {
 		t.Errorf("instructions should have valid callbackPort, got %d", result.Instructions.CallbackPort)
 	}
+	callbackState := GetLoopbackCallbackServerState("codex")
+	if callbackState == nil || !callbackState.Attempted || !callbackState.Ready {
+		t.Fatalf("callback listener was not started lazily: %+v", callbackState)
+	}
 }
 
 func TestStartFlow_InvalidProvider(t *testing.T) {
@@ -63,30 +75,25 @@ func TestStartFlow_InvalidProvider(t *testing.T) {
 	}
 }
 
-func TestStartFlow_CheckCallbackServerState_Unavailable(t *testing.T) {
-	// Simulate a failed callback server state.
-	callbackMu.Lock()
-	callbackStates["codex"] = &LoopbackCallbackServerState{
-		Provider:  "codex",
-		Attempted: true,
-		Ready:     false,
-		Error:     "port already in use",
-		Port:      1455,
+func TestStartFlow_ManualFallbackWhenCallbackServerUnavailable(t *testing.T) {
+	originalStart := startLoopbackCallbackServerForFlow
+	startLoopbackCallbackServerForFlow = func(provider string) (*LoopbackCallbackServerState, error) {
+		return &LoopbackCallbackServerState{
+			Provider:  provider,
+			Attempted: true,
+			Ready:     false,
+			Error:     "port already in use",
+		}, errors.New("port already in use")
 	}
-	callbackMu.Unlock()
+	t.Cleanup(func() { startLoopbackCallbackServerForFlow = originalStart })
 
-	_, err := StartFlow(StartFlowInput{Provider: "codex"})
-	if err == nil {
-		t.Fatal("expected error when callback server is unavailable")
+	result, err := StartFlow(StartFlowInput{Provider: "codex"})
+	if err != nil {
+		t.Fatalf("manual callback fallback should keep the flow usable: %v", err)
 	}
-	if !strings.Contains(err.Error(), "callback listener is unavailable") {
-		t.Errorf("expected callback listener unavailable error, got %q", err.Error())
+	if result == nil || result.Instructions == nil || result.Instructions.ManualCallbackDelayMs <= 0 {
+		t.Fatalf("manual callback instructions missing: %+v", result)
 	}
-
-	// Clean up.
-	callbackMu.Lock()
-	delete(callbackStates, "codex")
-	callbackMu.Unlock()
 }
 
 func TestStartFlow_AllFourProviders(t *testing.T) {

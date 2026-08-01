@@ -10,7 +10,7 @@ test:
 
 # Run tests with the Go race detector
 race:
-	go test ./... -count=1 -race -timeout=120s
+	bash ./scripts/go-race.sh
 
 # Run integration tests with the Go race detector (requires PG_TEST_DSN)
 race-integration:

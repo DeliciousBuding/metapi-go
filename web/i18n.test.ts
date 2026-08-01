@@ -55,6 +55,7 @@ describe('translateText review-wave regressions (2026-08-01)', () => {
     expect(translateText('导出快照失败', 'en')).toBe('Failed to export snapshot');
     expect(translateText('当前浏览器不支持导出 PNG', 'en')).toBe('PNG export is not supported in this browser');
     expect(translateText('实时流量', 'en')).toBe('Live traffic');
+    expect(translateText('非流', 'en')).toBe('Non-streaming');
     expect(translateText('详情', 'en')).toBe('Details');
     expect(translateText('不确定', 'en')).toBe('Inconclusive');
   });
@@ -79,6 +80,7 @@ describe('translateText review-wave regressions (2026-08-01)', () => {
   it('interpolated chart title fragments translate independently', () => {
     expect(translateText('模型成本分布（近 ', 'en')).toBe('Model cost distribution (last ');
     expect(translateText('延迟直方图（近 ', 'en')).toBe('Latency histogram (last ');
+    expect(translateText('延迟趋势（近 ', 'en')).toBe('Latency trend (last ');
     expect(translateText('P95 采样截断（', 'en')).toBe('P95 truncated (');
     expect(translateText('天）', 'en')).toBe(' days)');
     expect(translateText('余额趋势（近 ', 'en')).toBe('Balance trend (last ');

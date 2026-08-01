@@ -1713,58 +1713,7 @@ func TestNewBackupWebdavScheduler(t *testing.T) {
 }
 
 // =============================================================================
-// §13 OAuthLoopbackScheduler Tests
-// =============================================================================
-
-func TestNewOAuthLoopbackScheduler(t *testing.T) {
-	cfg := testConfig()
-	s := NewOAuthLoopbackScheduler(cfg)
-	if s == nil {
-		t.Fatal("NewOAuthLoopbackScheduler returned nil")
-	}
-	if s.Name() != "oauth-loopback" {
-		t.Errorf("Name() = %q, want oauth-loopback", s.Name())
-	}
-}
-
-func TestIntToStr(t *testing.T) {
-	tests := []struct {
-		n        int
-		expected string
-	}{
-		{0, "0"},
-		{1, "1"},
-		{9, "9"},
-		{10, "10"},
-		{42, "42"},
-		{100, "100"},
-		{9844, "9844"},
-		{9845, "9845"},
-		{9846, "9846"},
-		{65535, "65535"},
-		{-1, "-1"},
-		{-100, "-100"},
-	}
-
-	for _, tc := range tests {
-		got := intToStr(tc.n)
-		if got != tc.expected {
-			t.Errorf("intToStr(%d) = %q, want %q", tc.n, got, tc.expected)
-		}
-	}
-}
-
-func TestOAuthLoopbackScheduler_Stop_NoPanic(t *testing.T) {
-	cfg := testConfig()
-	s := NewOAuthLoopbackScheduler(cfg)
-	err := s.Stop()
-	if err != nil {
-		t.Errorf("Stop before Start returned error: %v", err)
-	}
-}
-
-// =============================================================================
-// §14 ProxyFileRetentionScheduler Tests
+// §13 ProxyFileRetentionScheduler Tests
 // =============================================================================
 
 func TestNewProxyFileRetentionScheduler(t *testing.T) {
@@ -1992,7 +1941,6 @@ func TestAllSchedulersImplementInterface(t *testing.T) {
 		NewUsageAggregationScheduler(cfg),
 		NewAdminSnapshotScheduler(cfg, usage),
 		NewBackupWebdavScheduler(cfg),
-		NewOAuthLoopbackScheduler(cfg),
 		NewProxyFileRetentionScheduler(cfg),
 		NewProxyLogRetentionScheduler(cfg),
 		NewSub2APIRefreshScheduler(cfg),
@@ -2015,7 +1963,7 @@ func TestAllSchedulersImplementInterface(t *testing.T) {
 	expectedNames := []string{
 		"checkin", "balance-refresh", "channel-recovery", "model-probe",
 		"log-cleanup", "daily-summary", "usage-aggregation", "admin-snapshot",
-		"backup-webdav", "oauth-loopback", "proxy-file-retention",
+		"backup-webdav", "proxy-file-retention",
 		"proxy-log-retention", "sub2api-refresh", "update-center", "site-announcement",
 	}
 

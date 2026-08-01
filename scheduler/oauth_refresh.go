@@ -8,7 +8,6 @@ import (
 
 	"github.com/tokendancelab/metapi-go/config"
 	"github.com/tokendancelab/metapi-go/service/oauth"
-	"github.com/tokendancelab/metapi-go/store"
 )
 
 const (
@@ -22,10 +21,10 @@ const (
 // leadMsByProvider mirrors OAUTH_REFRESH_LEAD_BY_PROVIDER in the TS original.
 // Tokens are refreshed when tokenExpiresAt - now <= lead time.
 var leadMsByProvider = map[string]int64{
-	"codex":        5 * 24 * 60 * 60 * 1000, // 5 days
-	"claude":       4 * 60 * 60 * 1000,      // 4 hours
-	"gemini-cli":   5 * 60 * 1000,           // 5 minutes
-	"antigravity":  5 * 60 * 1000,           // 5 minutes
+	"codex":       5 * 24 * 60 * 60 * 1000, // 5 days
+	"claude":      4 * 60 * 60 * 1000,      // 4 hours
+	"gemini-cli":  5 * 60 * 1000,           // 5 minutes
+	"antigravity": 5 * 60 * 1000,           // 5 minutes
 }
 
 // OAuthRefreshScheduler periodically scans OAuth accounts and refreshes
@@ -125,23 +124,8 @@ func (s *OAuthRefreshScheduler) runPass() {
 		s.mu.Unlock()
 	}()
 
-	dbw := store.GetDB()
-	if dbw == nil {
-		slog.Warn("oauth-refresh: database not initialized, skipping pass")
-		return
-	}
-
 	nowMs := time.Now().UnixMilli()
-
-	var rows []struct {
-		Account store.Account `db:"a"`
-		Site    store.Site    `db:"s"`
-	}
-
-	err := dbw.Select(&rows,
-		`SELECT a.*, s.* FROM accounts a
-		 INNER JOIN sites s ON a.site_id = s.id
-		 WHERE a.oauth_provider IS NOT NULL`)
+	rows, err := oauth.ListOAuthRefreshCandidates()
 	if err != nil {
 		slog.Warn("oauth-refresh: query failed", "error", err)
 		return
@@ -153,7 +137,7 @@ func (s *OAuthRefreshScheduler) runPass() {
 
 	for _, row := range rows {
 		// Skip if account or site is not active.
-		if row.Account.Status != "active" || row.Site.Status != "active" {
+		if row.Account.Status != "active" || row.SiteStatus != "active" {
 			result.Skipped++
 			continue
 		}
