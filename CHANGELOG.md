@@ -7,6 +7,18 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed — i18n review wave（2026-08-01）
+- **tr() 门禁盲区清零**：649 处 tr() 调用此前从不被扫描——SnapshotExportButton 按钮/toast 5 串 + 76 处 tr() 文案在 EN 模式显示 `Untranslated`；门禁同扫 t()/tr()，字典补 103 键
+- **单字键不再拆碎词**：`'中'/'天'/'净'` 等单字键做子串替换曾把 `'导出中...'` 变 `'ZH...'`——改汉字边界匹配（孤立才替换），`'登录中...'/'模型同步中'/'立即导出到 WebDAV'` 等补精确键
+- **en→zh 回切不再滞留英文**：zh 模式此前把英文值写回原文 map（WeakMap 污染、中文永久丢失）——现只恢复原文、不更新 map
+- **用户数据豁免**：站点名/账号名/模型名/公告正文等中文数据在 EN 模式不再被剥离——新增 `data-i18n-skip` 豁免机制（Sites/Accounts/Models/公告容器 4 处标记）
+- **chart tooltip key 强制 tr()**：SiteDistributionChart 补包；门禁升级为 raw `key: '中文'` 直接报错
+- **插值 JSX 片段门禁**：按运行期片段逐个校验（此前按整串，运行期 React 拆片段后逐段翻译）——60 条片段键 + translateText trim-exact 查找（覆盖 JSX 空格节点）
+- **表达式 placeholder 入门禁**：`placeholder={cond ? '中文' : …}` 此前完全逃逸扫描——现 tr() 包裹 + 门禁表达式分支
+- **词典错误修正**：跳过→Skipped、重试→Retry、豆包→Doubao、路由不存在→Route not found、通道→Channel、错误→Error、代理→Proxy
+- **门禁扫描器修复**：stripComments 不再截断 `https://` URL 字符串（行注释正则要求行首或前置空白）
+- 全量 580 vitest + typecheck 双配置 + build:web 绿
+
 ### Added — i18n 全面收官（2026-08-01）
 - **EN 模式全链路可读**：六波 wave 消除所有「EN 界面显示中文/Untranslated」——t() 字面量 10 条漏译补齐、裸 JSX 硬编码中文 181 条全量补译、插值文本碎片 4 条、canvas 快照 PNG 11 条 tr() 化、VChart 图表 spec（系列名/图例/tooltip）tr() 化 + 36 条补译、toast/confirm/alert 面审计全覆盖
 - **四层 i18n 门禁**（`web/i18n.coverage.test.ts`）：t() 字面量 / 裸 JSX 属性+文本 / 插值片段 / chart spec 对象字面量——任何新中文文案漏补字典即 CI 红
