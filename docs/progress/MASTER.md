@@ -4,7 +4,7 @@
 **Repo**: https://github.com/TokenDanceLab/metapi-go  
 **Mode**: **GITHUB_FULL** · product **parity core shipped**; active M53 REL-HONESTY  
 **Project**: https://github.com/orgs/TokenDanceLab/projects/1  
-**Tip**: `b508b84` · tag **v0.8.45** · unreleased: parity core + P0-555 obs + P0-585 HTTP e2e + #557 procedure + CI unblock + dual-dialect Context helpers + engineering optimization wave + N2-N7/G1 productization batch + all-api-hub borrow Wave A–D + K1a/K1b + N9a/N9b-a + A3 + B1 审计 + B2 实时运维 WS + VIS-1/NAV-1/DENSE-1 + review 修复 + **i18n 全面收官（t() 门禁 / 181 条裸 JSX 补译 / 插值碎片 / canvas 快照 EN 化）**
+**Tip**: `c3a2ed0` · tag **v0.8.45** · unreleased: 通知防护闭环（dispatch 日志 + 保存校验）+ **Charts 双 wave（轴/图例色 JS 解析 + reduced-motion 门控）** + a11y Phase 5 收官；prior `b508b84` · unreleased: parity core + P0-555 obs + P0-585 HTTP e2e + #557 procedure + CI unblock + dual-dialect Context helpers + engineering optimization wave + N2-N7/G1 productization batch + all-api-hub borrow Wave A–D + K1a/K1b + N9a/N9b-a + A3 + B1 审计 + B2 实时运维 WS + VIS-1/NAV-1/DENSE-1 + review 修复 + **i18n 全面收官（t() 门禁 / 181 条裸 JSX 补译 / 插值碎片 / canvas 快照 EN 化）**
 **Program plan**: [`../plan/original-parity-complete-2026-07-20.md`](../plan/original-parity-complete-2026-07-20.md)
 
 > **开放项 + 硬门禁**。现状 → [`../STATE.md`](../STATE.md) · 日志 → [`../log.md`](../log.md) · shortlist → [`../analysis/high-value-next.md`](../analysis/high-value-next.md)
@@ -13,7 +13,7 @@
 
 | Fact | Value |
 |:-----|:------|
-| Active work | UI 待办收官（VIS-1/NAV-1/DENSE-1）+ 双 agent 对抗 review 修复；#557 live soak pending; ops pin gated |
+| Active work | 通知防护闭环 + charts 对比度/reduced-motion 收官；ui-ux Phase 1-5 a11y 全绿；#557 live soak pending; ops pin gated |
 | User decisions | WS = **full TS parity**; sticky = **single-instance honesty**; UC = **hide/external deploy** |
 | Ops | hk3 pin still **0.8.44 Exited** until authorized **0.8.45** soak (server STATE) |
 | Board | M53 REL-HONESTY · open [#557](https://github.com/TokenDanceLab/metapi-go/issues/557) P0-585 prod e2e · [#558](https://github.com/TokenDanceLab/metapi-go/issues/558) runtime probes |

@@ -30,7 +30,7 @@ docker run -d -p 4000:4000 \
 
 Open `http://localhost:4000`.
 
-> **Unreleased tip (master)**: parity KEYS/WS/#514/UC-1, 14 all-api-hub borrows (A1–K1 incl. A3 balance analysis), New API N1–N9b, sub2api/cliproxyapi B1 audit / B2 realtime panel, UI wrap-up (theme presets / first-run sidebar / table density), and full i18n (EN everywhere, 4-layer coverage gate) are on tip (2026-08-01); production pin may still lag at 0.8.44 (see ops STATE). P0-585 remains partial until production e2e.
+> **Unreleased tip (master)**: parity KEYS/WS/#514/UC-1, 14 all-api-hub borrows (A1–K1 incl. A3 balance analysis), New API N1–N9b, sub2api/cliproxyapi B1 audit / B2 realtime panel, UI wrap-up (theme presets / first-run sidebar / table density), full i18n (EN everywhere, 4-layer coverage gate), the notify guard loop (dispatch logging + save-time validation), and the Charts contrast/reduced-motion pass (JS-resolved axis colors, motion-gated canvas animation — a11y Phase 5 closed) are on tip (2026-08-01); production pin may still lag at 0.8.44 (see ops STATE). P0-585 remains partial until production e2e.
 
 ## Features
 
