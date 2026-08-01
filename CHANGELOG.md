@@ -7,6 +7,18 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Added — 签到可靠性：错过窗口 catch-up（E1b，2026-08-01）
+- **重启不漏签**：window/cron 模式下实例在当天触发时刻后重启 → 启动时检测「今日触发已过 + 今日未跑 + 存在启用账号」→ 立即补跑（租约保护、幂等无双签）——签到系统核心可靠性
+- `scheduler/checkin_catchup.go` 纯函数判定 + 8 测试
+
+### Changed — bundle 拆分（2026-08-01）
+- manualChunks 拆 react-vendor（react/react-dom/router 独立缓存 chunk）——**index 461KB → 240KB**（-48%）
+- vchart-vendor（2MB）确认异步-only（图表全 React.lazy，不阻塞首屏）——chunkSizeWarningLimit 2100 消除警告
+
+### Added — metapi-migrate PG→SQLite 反向迁移（2026-08-01）
+- 方向判定 + SQLite 方言 DDL 转换（BIGSERIAL→AUTOINCREMENT、BOOLEAN→INTEGER+DEFAULT 1/0、JSONB→TEXT 等）+ `?` 占位插入——备用能力（部署定案为保持 Azure PG，勿增实体）
+- 单测 +3；sqlite→sqlite 全链路验证（18 表 + 数据 + checksum）
+
 ### Fixed — EN 验收扩 18 路由 + 中文标点断言（2026-08-01）
 - **verify-en-pages.mjs 11 → 18 路由**：新增 /oauth /playground /tokens /site-announcements /about /settings/notify /settings/import-export（质量审计覆盖的深层面此前无 CI 验证）+ **中文标点断言**（EN 输出零 `：，。（）` 残留，质量审计成果持久化）
 - **扩面抓 3 处真问题**：① NotificationSettings `当前配置: {key || '未设置'}` 在 code 容器内被 SKIP 豁免（Settings '当前：' 案例重演）——标签与 fallback 移出容器 + tr() 包裹；② `或 '/'或`/`无`/`当前配置: ` 4 键此前落在 zhToEn 对象外（顶层垃圾，translateText 查不到）——移回对象；③ 纯中文标点节点（`（`）被 shouldTranslateTextNode 无汉字过滤跳过——加 CJK_PUNCT_RE 检查
