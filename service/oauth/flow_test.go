@@ -23,7 +23,24 @@ func TestMain(m *testing.M) {
 // ---- StartFlow Tests ----
 
 func TestStartFlow_ValidProvider(t *testing.T) {
-	// Reset callback state so StartFlow doesn't find a failed server.
+	// StartFlow owns orchestration, not the operating system's well-known OAuth
+	// callback ports. Those ports are commonly reserved by installed CLI tools
+	// on Windows, so keep this unit test deterministic with the existing seam.
+	originalStart := startLoopbackCallbackServerForFlow
+	startCalls := 0
+	startLoopbackCallbackServerForFlow = func(provider string) (*LoopbackCallbackServerState, error) {
+		startCalls++
+		state := createDefaultState(provider)
+		state.Attempted = true
+		state.Ready = true
+		callbackMu.Lock()
+		callbackStates[provider] = state
+		callbackMu.Unlock()
+		return GetLoopbackCallbackServerState(provider), nil
+	}
+	t.Cleanup(func() { startLoopbackCallbackServerForFlow = originalStart })
+
+	// Reset callback state so StartFlow doesn't find stale state from another test.
 	callbackMu.Lock()
 	delete(callbackStates, "codex")
 	callbackMu.Unlock()
@@ -62,6 +79,9 @@ func TestStartFlow_ValidProvider(t *testing.T) {
 	callbackState := GetLoopbackCallbackServerState("codex")
 	if callbackState == nil || !callbackState.Attempted || !callbackState.Ready {
 		t.Fatalf("callback listener was not started lazily: %+v", callbackState)
+	}
+	if startCalls != 1 {
+		t.Fatalf("expected one lazy callback start, got %d", startCalls)
 	}
 }
 
