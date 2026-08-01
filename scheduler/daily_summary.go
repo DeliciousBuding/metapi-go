@@ -61,15 +61,15 @@ func (s *DailySummaryScheduler) runJob() {
 
 func (s *DailySummaryScheduler) runJobLocked(dbw *store.DB) {
 	now := time.Now()
-	metrics := daily.CollectDailySummaryMetrics(s.cfg, dbw.DB, now)
-	if metrics == nil {
-		slog.Error("daily-summary: failed to collect metrics")
+	metrics, err := daily.CollectDailySummaryMetrics(dbw.DB, now)
+	if err != nil {
+		slog.Error("daily-summary: failed to collect metrics", "error", err)
 		return
 	}
 
 	title, message := daily.BuildDailySummaryNotification(metrics)
 
-	_, err := notifypkg.SendNotification(s.cfg, title, message, string(notifypkg.LevelInfo),
+	_, err = notifypkg.SendNotification(s.cfg, title, message, string(notifypkg.LevelInfo),
 		&notifypkg.SendNotificationOptions{
 			BypassThrottle: true,
 			RequireChannel: true,

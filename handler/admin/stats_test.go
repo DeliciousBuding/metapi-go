@@ -207,6 +207,193 @@ func TestStats_SQLiteDashboardProxy24hTokens(t *testing.T) {
 	}
 }
 
+func TestStats_SQLiteDashboardUsesLocalDayRewardAndCheckinTruth(t *testing.T) {
+	db, r := setupStatsSQLiteTest(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	_, err := db.Exec(`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
+		VALUES (?, ?, ?, 'active', ?, ?)`, "daily-truth-site", "https://daily-truth.example.test", "openai", now, now)
+	if err != nil {
+		t.Fatalf("insert site: %v", err)
+	}
+	var siteID int64
+	if err := db.Get(&siteID, "SELECT id FROM sites WHERE name = ?", "daily-truth-site"); err != nil {
+		t.Fatalf("site id: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, balance, checkin_enabled, created_at, updated_at)
+		VALUES (?, ?, ?, 'active', ?, TRUE, ?, ?)`, siteID, "daily-truth-user", "sk-daily-truth", 12.5, now, now)
+	if err != nil {
+		t.Fatalf("insert account: %v", err)
+	}
+	var accountID int64
+	if err := db.Get(&accountID, "SELECT id FROM accounts WHERE username = ?", "daily-truth-user"); err != nil {
+		t.Fatalf("account id: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO checkin_logs (account_id, status, reward, created_at)
+		VALUES (?, 'success', ?, ?)`, accountID, "1.25", now)
+	if err != nil {
+		t.Fatalf("insert checkin log: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO proxy_logs (account_id, model_requested, model_actual, status, total_tokens, estimated_cost, created_at)
+		VALUES (?, ?, ?, 'success', ?, ?, ?)`, accountID, "gpt-daily", "gpt-daily", 50, 0.2, now)
+	if err != nil {
+		t.Fatalf("insert proxy log: %v", err)
+	}
+
+	resp := doGet(t, r, "/api/stats/dashboard?view=summary")
+	if resp.Code != 200 {
+		t.Fatalf("dashboard returned %d: %s", resp.Code, resp.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got := body["todayReward"].(float64); got != 1.25 {
+		t.Fatalf("todayReward = %v, want 1.25", got)
+	}
+	if got := body["todaySpend"].(float64); got != 0.2 {
+		t.Fatalf("todaySpend = %v, want 0.2", got)
+	}
+	checkin := body["todayCheckin"].(map[string]any)
+	if got := int(checkin["total"].(float64)); got != 1 {
+		t.Fatalf("todayCheckin.total = %d, want 1", got)
+	}
+	if got := int(checkin["success"].(float64)); got != 1 {
+		t.Fatalf("todayCheckin.success = %d, want 1", got)
+	}
+	status := body["todayMetricStatus"].(map[string]any)
+	if status["status"] != "complete" || status["localDay"] == "" || status["windowStart"] == "" || status["windowEnd"] == "" {
+		t.Fatalf("todayMetricStatus = %#v, want complete local-day window", status)
+	}
+	truthMetrics := status["metrics"].(map[string]any)
+	if truthMetrics["spend"].(map[string]any)["status"] != "complete" || truthMetrics["proxy"].(map[string]any)["status"] != "complete" {
+		t.Fatalf("metric truth = %#v, want complete spend/proxy", truthMetrics)
+	}
+
+	_, err = db.Exec(`INSERT INTO checkin_logs (account_id, status, created_at)
+		VALUES (?, 'success', ?)`, accountID, now)
+	if err != nil {
+		t.Fatalf("insert checkin log without reward: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO proxy_logs (account_id, model_requested, model_actual, status, total_tokens, estimated_cost, created_at)
+		VALUES (?, 'gpt-unknown', 'gpt-unknown', NULL, 5, NULL, ?)`, accountID, now)
+	if err != nil {
+		t.Fatalf("insert proxy log with unknown cost/status: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO proxy_logs (account_id, model_requested, model_actual, status, total_tokens, estimated_cost, created_at)
+		VALUES (NULL, 'gpt-unattributed', 'gpt-unattributed', 'failed', 0, NULL, ?)`, now)
+	if err != nil {
+		t.Fatalf("insert unattributed proxy log: %v", err)
+	}
+	resp = doGet(t, r, "/api/stats/dashboard?view=summary")
+	if resp.Code != 200 {
+		t.Fatalf("partial dashboard returned %d: %s", resp.Code, resp.Body.String())
+	}
+	body = map[string]any{}
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal partial response: %v", err)
+	}
+	status = body["todayMetricStatus"].(map[string]any)
+	if status["status"] != "partial" {
+		t.Fatalf("todayMetricStatus.status = %v, want partial", status["status"])
+	}
+	metrics := status["metrics"].(map[string]any)
+	rewardTruth := metrics["reward"].(map[string]any)
+	if rewardTruth["status"] != "partial" || rewardTruth["reason"] != "source_partial" {
+		t.Fatalf("reward truth = %#v, want source_partial", rewardTruth)
+	}
+	spendTruth := metrics["spend"].(map[string]any)
+	if spendTruth["status"] != "partial" || spendTruth["reason"] != "unattributed" || int(spendTruth["missingCostCount"].(float64)) != 1 {
+		t.Fatalf("spend truth = %#v, want partial coverage counts", spendTruth)
+	}
+	proxyTruth := metrics["proxy"].(map[string]any)
+	if proxyTruth["status"] != "partial" || proxyTruth["reason"] != "unattributed" || int(proxyTruth["unknownStatusCount"].(float64)) != 1 || int(proxyTruth["unattributedCount"].(float64)) != 1 {
+		t.Fatalf("proxy truth = %#v, want explicit unknown/unattributed coverage", proxyTruth)
+	}
+}
+
+func TestStats_SQLiteDashboardAvailabilityIgnoresEmptyJoinAndDisabledSites(t *testing.T) {
+	db, r := setupStatsSQLiteTest(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	for _, site := range []struct {
+		name   string
+		status string
+	}{
+		{name: "active-empty-site", status: "active"},
+		{name: "disabled-failed-site", status: "disabled"},
+	} {
+		_, err := db.Exec(`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
+			VALUES (?, ?, 'openai', ?, ?, ?)`, site.name, "https://"+site.name+".example.test", site.status, now, now)
+		if err != nil {
+			t.Fatalf("insert %s: %v", site.name, err)
+		}
+	}
+	var disabledSiteID int64
+	if err := db.Get(&disabledSiteID, "SELECT id FROM sites WHERE name = ?", "disabled-failed-site"); err != nil {
+		t.Fatalf("disabled site id: %v", err)
+	}
+	_, err := db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, balance, checkin_enabled, created_at, updated_at)
+		VALUES (?, 'disabled-user', 'sk-disabled', 'active', 1, FALSE, ?, ?)`, disabledSiteID, now, now)
+	if err != nil {
+		t.Fatalf("insert disabled site account: %v", err)
+	}
+	var accountID int64
+	if err := db.Get(&accountID, "SELECT id FROM accounts WHERE username = 'disabled-user'"); err != nil {
+		t.Fatalf("disabled account id: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO proxy_logs (account_id, model_requested, model_actual, status, total_tokens, estimated_cost, created_at)
+		VALUES (?, 'gpt-disabled', 'gpt-disabled', 'failed', 99, 1.5, ?)`, accountID, now)
+	if err != nil {
+		t.Fatalf("insert disabled site log: %v", err)
+	}
+
+	resp := doGet(t, r, "/api/stats/dashboard?view=full")
+	if resp.Code != 200 {
+		t.Fatalf("dashboard returned %d: %s", resp.Code, resp.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	items := body["siteAvailability"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("siteAvailability = %#v, want only active site", items)
+	}
+	item := items[0].(map[string]any)
+	if item["siteName"] != "active-empty-site" {
+		t.Fatalf("siteName = %v, want active-empty-site", item["siteName"])
+	}
+	if got := int(item["totalRequests"].(float64)); got != 0 {
+		t.Fatalf("totalRequests = %d, want 0", got)
+	}
+	if got := int(item["failedCount"].(float64)); got != 0 {
+		t.Fatalf("failedCount = %d, want 0 for empty LEFT JOIN", got)
+	}
+	proxy24h := body["proxy24h"].(map[string]any)
+	if got := int(proxy24h["total"].(float64)); got != 0 {
+		t.Fatalf("proxy24h.total = %d, want disabled-site logs excluded", got)
+	}
+	if got := int(body["totalTokens"].(float64)); got != 0 {
+		t.Fatalf("totalTokens = %d, want disabled-site logs excluded", got)
+	}
+	if got := body["totalCost"].(float64); got != 0 {
+		t.Fatalf("totalCost = %v, want disabled-site logs excluded", got)
+	}
+}
+
+func TestStats_SQLiteDashboardReturns500OnQueryFailure(t *testing.T) {
+	db, r := setupStatsSQLiteTest(t)
+	if err := db.Close(); err != nil {
+		t.Fatalf("close db: %v", err)
+	}
+
+	resp := doGet(t, r, "/api/stats/dashboard?view=summary")
+	if resp.Code != 500 {
+		t.Fatalf("dashboard returned %d: %s, want 500", resp.Code, resp.Body.String())
+	}
+}
+
 func TestStats_SQLiteModelBySiteRespectsDaysFilter(t *testing.T) {
 	db, r := setupStatsSQLiteTest(t)
 	now := time.Now().UTC()

@@ -181,7 +181,7 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 
 	// 2. Disabled checks
 	if isAccountDisabled(account.Status) {
-		createdAt := service.FormatUtcSqlDateTime(time.Now())
+		createdAt := time.Now().UTC().Format(time.RFC3339)
 		if err := service.SetAccountRuntimeHealth(db, account.ID, service.RuntimeHealthEntry{
 			State: service.HealthDisabled, Reason: "账号已禁用", Source: service.HealthSourceCheckin,
 		}); err != nil {
@@ -207,7 +207,7 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 	}
 
 	if IsSiteDisabled(site.Status) {
-		createdAt := service.FormatUtcSqlDateTime(time.Now())
+		createdAt := time.Now().UTC().Format(time.RFC3339)
 		if err := service.SetAccountRuntimeHealth(db, account.ID, service.RuntimeHealthEntry{
 			State: service.HealthDisabled, Reason: "站点已禁用", Source: service.HealthSourceCheckin,
 		}); err != nil {
@@ -233,7 +233,7 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 	}
 
 	if !service.BuildCapabilitiesForAccount(account).CanCheckin {
-		createdAt := service.FormatUtcSqlDateTime(time.Now())
+		createdAt := time.Now().UTC().Format(time.RFC3339)
 		message := "account credential mode does not support checkin"
 		if _, err := db.Exec(db.Rebind("INSERT INTO checkin_logs (account_id, status, message, created_at) VALUES (?, ?, ?, ?)"),
 			accountID, "skipped", message, createdAt); err != nil {
@@ -400,7 +400,7 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 	}
 
 	// 9. Write checkin_logs
-	createdAt := service.FormatUtcSqlDateTime(time.Now())
+	createdAt := time.Now().UTC().Format(time.RFC3339)
 	if _, err := db.Exec(db.Rebind("INSERT INTO checkin_logs (account_id, status, message, reward, created_at) VALUES (?, ?, ?, ?, ?)"),
 		accountID, string(normalizedStatus), logMessage, logReward, createdAt); err != nil {
 		return CheckinResult{Success: false, Status: CheckinFailed, Message: "failed to persist checkin log: " + err.Error()}

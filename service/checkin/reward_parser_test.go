@@ -65,6 +65,17 @@ func TestParseCheckinRewardAmount_StringInputs(t *testing.T) {
 	}
 }
 
+func TestParseCheckinRewardAmount_NullableDatabaseString(t *testing.T) {
+	reward := "1.25"
+	if got := ParseCheckinRewardAmount(&reward); got != 1.25 {
+		t.Fatalf("ParseCheckinRewardAmount(*string) = %v, want 1.25", got)
+	}
+	var missing *string
+	if got := ParseCheckinRewardAmount(missing); got != 0 {
+		t.Fatalf("ParseCheckinRewardAmount(nil *string) = %v, want 0", got)
+	}
+}
+
 func TestParseCheckinRewardAmount_NonStringNonNumber(t *testing.T) {
 	// bool, nil, map etc should return 0
 	got := ParseCheckinRewardAmount(true)
@@ -81,10 +92,10 @@ func TestParseCheckinRewardAmount_NonStringNonNumber(t *testing.T) {
 
 func TestInferRewardFromBalanceDelta(t *testing.T) {
 	tests := []struct {
-		name         string
-		previous     float64
-		latest       float64
-		want         float64
+		name     string
+		previous float64
+		latest   float64
+		want     float64
 	}{
 		{"positive delta", 0, 100, 100},
 		{"zero delta", 50, 50, 0},

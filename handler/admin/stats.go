@@ -3,6 +3,7 @@ package admin
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"math"
 	"net/http"
 	"sort"
@@ -13,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 	"github.com/tokendancelab/metapi-go/scheduler"
+	dailyservice "github.com/tokendancelab/metapi-go/service/daily"
 )
 
 // RegisterStatsRoutes registers all /api/stats and /api/models routes.
@@ -93,20 +95,50 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("x-dashboard-summary-cache", "miss")
 	w.Header().Set("x-dashboard-insights-cache", "miss")
 
-	generatedAt := nowUTC()
+	now := time.Now()
+	generatedAt := now.UTC().Format(time.RFC3339)
 	result := map[string]any{
 		"generatedAt": generatedAt,
 	}
 
 	if view == "summary" || view == "full" {
 		var siteCount, accountCount, activeAccounts int
-		_ = h.db.Get(&siteCount, "SELECT COUNT(*) FROM sites")
-		_ = h.db.Get(&accountCount, "SELECT COUNT(*) FROM accounts")
-		_ = h.db.Get(&activeAccounts, "SELECT COUNT(*) FROM accounts WHERE status = 'active'")
+		if err := h.db.Get(&siteCount, "SELECT COUNT(*) FROM sites"); err != nil {
+			h.dashboardError(w, "load site count", err)
+			return
+		}
+		if err := h.db.Get(&accountCount, "SELECT COUNT(*) FROM accounts"); err != nil {
+			h.dashboardError(w, "load account count", err)
+			return
+		}
+		if err := h.db.Get(&activeAccounts, `
+			SELECT COUNT(*) FROM accounts a
+			INNER JOIN sites s ON s.id = a.site_id
+			WHERE a.status = 'active' AND s.status = 'active'
+		`); err != nil {
+			h.dashboardError(w, "load active account count", err)
+			return
+		}
 
 		var totalBalance, totalUsed float64
-		_ = h.db.Get(&totalBalance, "SELECT COALESCE(SUM(COALESCE(balance, 0)), 0) FROM accounts")
-		_ = h.db.Get(&totalUsed, "SELECT COALESCE(SUM(COALESCE(balance_used, 0)), 0) FROM accounts")
+		if err := h.db.Get(&totalBalance, `
+			SELECT COALESCE(SUM(COALESCE(a.balance, 0)), 0)
+			FROM accounts a
+			INNER JOIN sites s ON s.id = a.site_id
+			WHERE s.status = 'active'
+		`); err != nil {
+			h.dashboardError(w, "load total balance", err)
+			return
+		}
+		if err := h.db.Get(&totalUsed, `
+			SELECT COALESCE(SUM(COALESCE(a.balance_used, 0)), 0)
+			FROM accounts a
+			INNER JOIN sites s ON s.id = a.site_id
+			WHERE s.status = 'active'
+		`); err != nil {
+			h.dashboardError(w, "load total used", err)
+			return
+		}
 
 		// 24h proxy window (UTC) — single-pass aggregate with effective tokens.
 		since24h := time.Now().UTC().Add(-24 * time.Hour).Format(time.RFC3339)
@@ -116,25 +148,26 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 			TotalTokens int64   `db:"total_tokens"`
 			TotalCost   float64 `db:"total_cost"`
 		}
-		_ = h.db.Get(&proxy24h, rebindAdminQuery(h.db, `
+		if err := h.db.Get(&proxy24h, rebindAdminQuery(h.db, `
 			SELECT
 				COUNT(*) AS total,
 				COALESCE(SUM(CASE WHEN pl.status = 'success' THEN 1 ELSE 0 END), 0) AS success,
 				COALESCE(SUM(`+effectiveProxyTokensSQL+`), 0) AS total_tokens,
 				COALESCE(SUM(COALESCE(pl.estimated_cost, 0)), 0) AS total_cost
 			FROM proxy_logs pl
-			WHERE pl.created_at >= ?
-		`), since24h)
+			INNER JOIN accounts a ON a.id = pl.account_id
+			INNER JOIN sites s ON s.id = a.site_id
+			WHERE pl.created_at >= ? AND s.status = 'active'
+		`), since24h); err != nil {
+			h.dashboardError(w, "load 24h proxy metrics", err)
+			return
+		}
 
-		// Today spend uses UTC day start for single-instance correctness
-		// (matches aggregation local_day = UTC day).
-		todayStart := time.Now().UTC().Truncate(24 * time.Hour).Format(time.RFC3339)
-		var todaySpend float64
-		_ = h.db.Get(&todaySpend, rebindAdminQuery(h.db, `
-			SELECT COALESCE(SUM(COALESCE(estimated_cost, 0)), 0)
-			FROM proxy_logs
-			WHERE created_at >= ?
-		`), todayStart)
+		dailyMetrics, err := dailyservice.CollectDailySummaryMetrics(h.db, now)
+		if err != nil {
+			h.dashboardError(w, "load local-day metrics", err)
+			return
+		}
 
 		// Performance window: last 60s request/token rate from proxy_logs.
 		windowSeconds := 60
@@ -143,13 +176,18 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 			Requests int64 `db:"requests"`
 			Tokens   int64 `db:"tokens"`
 		}
-		_ = h.db.Get(&perf, rebindAdminQuery(h.db, `
+		if err := h.db.Get(&perf, rebindAdminQuery(h.db, `
 			SELECT
 				COUNT(*) AS requests,
 				COALESCE(SUM(`+effectiveProxyTokensSQL+`), 0) AS tokens
 			FROM proxy_logs pl
-			WHERE pl.created_at >= ?
-		`), sincePerf)
+			INNER JOIN accounts a ON a.id = pl.account_id
+			INNER JOIN sites s ON s.id = a.site_id
+			WHERE pl.created_at >= ? AND s.status = 'active'
+		`), sincePerf); err != nil {
+			h.dashboardError(w, "load performance metrics", err)
+			return
+		}
 
 		rpm := float64(perf.Requests) * 60 / float64(windowSeconds)
 		tpm := float64(perf.Tokens) * 60 / float64(windowSeconds)
@@ -160,8 +198,46 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 		result["activeAccounts"] = activeAccounts
 		result["totalBalance"] = roundMicro(totalBalance)
 		result["totalUsed"] = roundMicro(totalUsed)
-		result["todaySpend"] = roundMicro(todaySpend)
-		result["todayReward"] = 0.0
+		result["todaySpend"] = roundMicro(dailyMetrics.TodaySpend)
+		result["todayReward"] = roundMicro(dailyMetrics.TodayReward)
+		result["todayCheckin"] = map[string]any{
+			"total":   dailyMetrics.CheckinTotal,
+			"success": dailyMetrics.CheckinSuccess,
+			"skipped": dailyMetrics.CheckinSkipped,
+			"failed":  dailyMetrics.CheckinFailed,
+		}
+		overallTodayStatus := "complete"
+		if dailyMetrics.TodayRewardStatus != "complete" ||
+			dailyMetrics.TodaySpendStatus != "complete" ||
+			dailyMetrics.ProxyMetricStatus != "complete" {
+			overallTodayStatus = "partial"
+		}
+		result["todayMetricStatus"] = map[string]any{
+			"status":      overallTodayStatus,
+			"localDay":    dailyMetrics.LocalDay,
+			"timeZone":    dailyMetrics.TimeZone,
+			"windowStart": dailyMetrics.WindowStartUTC,
+			"windowEnd":   dailyMetrics.WindowEndUTC,
+			"metrics": map[string]any{
+				"checkin": map[string]any{"status": "complete"},
+				"spend": map[string]any{
+					"status":            dailyMetrics.TodaySpendStatus,
+					"reason":            dailyMetrics.TodaySpendReason,
+					"missingCostCount": dailyMetrics.ProxyMissingCost,
+					"unattributedCount": dailyMetrics.ProxyUnattributed,
+				},
+				"reward": map[string]any{
+					"status": dailyMetrics.TodayRewardStatus,
+					"reason": dailyMetrics.TodayRewardReason,
+				},
+				"proxy": map[string]any{
+					"status":             dailyMetrics.ProxyMetricStatus,
+					"reason":             dailyMetrics.ProxyMetricReason,
+					"unknownStatusCount": dailyMetrics.ProxyUnknown,
+					"unattributedCount":  dailyMetrics.ProxyUnattributed,
+				},
+			},
+		}
 		result["proxy24h"] = map[string]any{
 			"total":       proxy24h.Total,
 			"success":     proxy24h.Success,
@@ -181,17 +257,33 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 	if view == "insights" || view == "full" {
 		// All-time totals with effective token expression (no double count).
 		var totalTokens int64
-		_ = h.db.Get(&totalTokens, rebindAdminQuery(h.db, `
-			SELECT COALESCE(SUM(`+effectiveProxyTokensSQL+`), 0) FROM proxy_logs pl
-		`))
+		if err := h.db.Get(&totalTokens, rebindAdminQuery(h.db, `
+			SELECT COALESCE(SUM(`+effectiveProxyTokensSQL+`), 0)
+			FROM proxy_logs pl
+			INNER JOIN accounts a ON a.id = pl.account_id
+			INNER JOIN sites s ON s.id = a.site_id
+			WHERE s.status = 'active'
+		`)); err != nil {
+			h.dashboardError(w, "load total tokens", err)
+			return
+		}
 		var totalCost float64
-		_ = h.db.Get(&totalCost, "SELECT COALESCE(SUM(COALESCE(estimated_cost, 0)), 0) FROM proxy_logs")
+		if err := h.db.Get(&totalCost, `
+			SELECT COALESCE(SUM(COALESCE(pl.estimated_cost, 0)), 0)
+			FROM proxy_logs pl
+			INNER JOIN accounts a ON a.id = pl.account_id
+			INNER JOIN sites s ON s.id = a.site_id
+			WHERE s.status = 'active'
+		`); err != nil {
+			h.dashboardError(w, "load total cost", err)
+			return
+		}
 		result["totalTokens"] = totalTokens
 		result["totalCost"] = roundMicro(totalCost)
 
 		// Site availability over last 24h from proxy_logs join path.
 		since24h := time.Now().UTC().Add(-24 * time.Hour).Format(time.RFC3339)
-		rows := queryRows(h.db, `
+		rows, err := queryRowsErr(h.db, `
 			SELECT
 				s.id AS site_id,
 				s.name AS site_name,
@@ -199,7 +291,7 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 				s.platform AS platform,
 				COUNT(pl.id) AS total_requests,
 				COALESCE(SUM(CASE WHEN pl.status = 'success' THEN 1 ELSE 0 END), 0) AS success_count,
-				COALESCE(SUM(CASE WHEN COALESCE(pl.status, '') <> 'success' THEN 1 ELSE 0 END), 0) AS failed_count,
+				COALESCE(SUM(CASE WHEN pl.id IS NOT NULL AND COALESCE(pl.status, '') <> 'success' THEN 1 ELSE 0 END), 0) AS failed_count,
 				CASE
 					WHEN COUNT(pl.id) = 0 THEN NULL
 					ELSE ROUND(100.0 * SUM(CASE WHEN pl.status = 'success' THEN 1 ELSE 0 END) / COUNT(pl.id), 2)
@@ -212,9 +304,14 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 			FROM sites s
 			LEFT JOIN accounts a ON a.site_id = s.id
 			LEFT JOIN proxy_logs pl ON pl.account_id = a.id AND pl.created_at >= ?
+			WHERE s.status = 'active'
 			GROUP BY s.id, s.name, s.url, s.platform
 			ORDER BY total_requests DESC, s.name ASC
 		`, since24h)
+		if err != nil {
+			h.dashboardError(w, "load site availability", err)
+			return
+		}
 
 		siteAvailability := make([]map[string]any, 0, len(rows))
 		for _, row := range rows {
@@ -236,6 +333,11 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, result)
+}
+
+func (h *statsHandler) dashboardError(w http.ResponseWriter, operation string, err error) {
+	slog.Error("dashboard stats query failed", "operation", operation, "error", err)
+	writeError(w, http.StatusInternalServerError, "Failed to load dashboard statistics")
 }
 
 // ---- Proxy Logs ----
@@ -540,11 +642,11 @@ func (h *statsHandler) balanceHistory(w http.ResponseWriter, r *http.Request) {
 	for _, row := range rows {
 		accID := coerceInt64(row["accountId"])
 		byAccount[accID] = append(byAccount[accID], map[string]any{
-			"day":        coerceString(row["localDay"]),
-			"balance":    coerceFloat(row["balance"]),
+			"day":         coerceString(row["localDay"]),
+			"balance":     coerceFloat(row["balance"]),
 			"balanceUsed": coerceFloat(row["balanceUsed"]),
-			"quota":      coerceFloat(row["quota"]),
-			"capturedAt": coerceString(row["capturedAt"]),
+			"quota":       coerceFloat(row["quota"]),
+			"capturedAt":  coerceString(row["capturedAt"]),
 		})
 	}
 
@@ -567,8 +669,8 @@ func (h *statsHandler) balanceHistory(w http.ResponseWriter, r *http.Request) {
 //   - outcome(day) = max(0, Δ balance_used) — consumption (chargeable spend);
 //   - income(day)   = Δ balance + Δ balance_used — whatever refilled the
 //     balance (free quota top-ups, recharges), so the identity always holds;
-//   - the first snapshot day of an account has no previous value: its balance
-//     + balance_used is treated as initial income (no consumption before it).
+//   - the first snapshot day of an account has no previous value: its combined
+//     balance and balance_used is treated as initial income (no consumption before it).
 //
 // Only days with actual snapshots are emitted (missing day ≠ zero activity).
 func (h *statsHandler) balanceIncomeOutcome(w http.ResponseWriter, r *http.Request) {
@@ -680,7 +782,7 @@ func (h *statsHandler) balanceIncomeOutcome(w http.ResponseWriter, r *http.Reque
 type attentionItem struct {
 	Severity  string `json:"severity"`  // critical | warning | info
 	Category  string `json:"category"`  // expired_account | low_balance | disabled_site | event
-	Label     string `json:"label"`      // human-readable
+	Label     string `json:"label"`     // human-readable
 	Target    string `json:"target"`    // deep-link target (route + query)
 	CreatedAt string `json:"createdAt"` // most recent signal time
 }
@@ -1013,10 +1115,10 @@ func (h *statsHandler) modelCostDistribution(w http.ResponseWriter, r *http.Requ
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"days":   days,
-		"since":  since,
-		"topN":   topN,
-		"items":  items,
+		"days":  days,
+		"since": since,
+		"topN":  topN,
+		"items": items,
 		"totals": map[string]any{
 			"cost":   roundMicro(totalCost),
 			"calls":  int64(totalCalls),
@@ -1112,13 +1214,13 @@ func (h *statsHandler) latencyTrend(w http.ResponseWriter, r *http.Request) {
 		successCount := coerceInt64(row["successCount"])
 
 		point := map[string]any{
-			"date":         day,
-			"requests":     requests,
-			"avgLatencyMs": round1(coerceFloat(row["avgLatency"])),
-			"maxLatencyMs": coerceInt64(row["maxLatency"]),
+			"date":           day,
+			"requests":       requests,
+			"avgLatencyMs":   round1(coerceFloat(row["avgLatency"])),
+			"maxLatencyMs":   coerceInt64(row["maxLatency"]),
 			"avgFirstByteMs": round1(coerceFloat(row["avgFirstByte"])),
-			"p95LatencyMs": nil,
-			"successRate":  0.0,
+			"p95LatencyMs":   nil,
+			"successRate":    0.0,
 		}
 		if requests > 0 {
 			point["successRate"] = round4(float64(successCount) / float64(requests))
@@ -1326,5 +1428,3 @@ func (h *statsHandler) modelProbe(w http.ResponseWriter, r *http.Request) {
 		"message": "已开始模型可用性探测，请稍后查看任务列表或 LastRunSummary",
 	})
 }
-
-

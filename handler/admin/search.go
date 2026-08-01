@@ -159,9 +159,14 @@ func redactSearchTokenSecrets(row map[string]any) {
 }
 
 func queryRows(db *sqlx.DB, query string, args ...any) []map[string]any {
+	result, _ := queryRowsErr(db, query, args...)
+	return result
+}
+
+func queryRowsErr(db *sqlx.DB, query string, args ...any) ([]map[string]any, error) {
 	rows, err := db.Queryx(rebindAdminQuery(db, query), args...)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -169,11 +174,14 @@ func queryRows(db *sqlx.DB, query string, args ...any) []map[string]any {
 	for rows.Next() {
 		row := make(map[string]any)
 		if err := rows.MapScan(row); err != nil {
-			continue
+			return nil, err
 		}
 		result = append(result, mapKeysToCamel(row))
 	}
-	return result
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func rebindAdminQuery(db *sqlx.DB, query string) string {

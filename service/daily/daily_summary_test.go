@@ -1,6 +1,7 @@
 package daily
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -13,7 +14,7 @@ func TestBuildDailySummaryNotification(t *testing.T) {
 		TimeZone:           "Asia/Shanghai",
 		TotalAccounts:      10,
 		ActiveAccounts:     8,
-		LowBalanceAccounts:  2,
+		LowBalanceAccounts: 2,
 		CheckinTotal:       10,
 		CheckinSuccess:     7,
 		CheckinSkipped:     2,
@@ -24,6 +25,7 @@ func TestBuildDailySummaryNotification(t *testing.T) {
 		ProxyTotalTokens:   1234567,
 		TodaySpend:         0.123456,
 		TodayReward:        0.500000,
+		TodayRewardStatus:  "complete",
 	}
 
 	title, message := BuildDailySummaryNotification(metrics)
@@ -32,7 +34,7 @@ func TestBuildDailySummaryNotification(t *testing.T) {
 		t.Errorf("title = %q, want '每日总结 2026-07-04'", title)
 	}
 
-	// Verify key parts are present in the message
+	// Verify key parts are present in the message.
 	if len(message) == 0 {
 		t.Fatal("message is empty")
 	}
@@ -49,7 +51,7 @@ func TestBuildDailySummaryNotification(t *testing.T) {
 		"失败 1",
 		"成功 95",
 		"失败 5",
-		"1,234,567", // formatted tokens
+		"1,234,567",
 	}
 	for _, check := range checks {
 		if !contains(message, check) {
@@ -60,22 +62,23 @@ func TestBuildDailySummaryNotification(t *testing.T) {
 
 func TestBuildDailySummaryNotification_ZeroValues(t *testing.T) {
 	metrics := &DailySummaryMetrics{
-		LocalDay:          "2026-07-04",
-		GeneratedAtLocal:  "2026-07-04 00:00:00",
-		TimeZone:          "UTC",
-		TotalAccounts:     0,
-		ActiveAccounts:    0,
+		LocalDay:           "2026-07-04",
+		GeneratedAtLocal:   "2026-07-04 00:00:00",
+		TimeZone:           "UTC",
+		TotalAccounts:      0,
+		ActiveAccounts:     0,
 		LowBalanceAccounts: 0,
-		CheckinTotal:      0,
-		CheckinSuccess:    0,
-		CheckinSkipped:    0,
-		CheckinFailed:     0,
-		ProxyTotal:        0,
-		ProxySuccess:      0,
-		ProxyFailed:       0,
-		ProxyTotalTokens:  0,
-		TodaySpend:        0,
-		TodayReward:       0,
+		CheckinTotal:       0,
+		CheckinSuccess:     0,
+		CheckinSkipped:     0,
+		CheckinFailed:      0,
+		ProxyTotal:         0,
+		ProxySuccess:       0,
+		ProxyFailed:        0,
+		ProxyTotalTokens:   0,
+		TodaySpend:         0,
+		TodayReward:        0,
+		TodayRewardStatus:  "complete",
 	}
 
 	title, message := BuildDailySummaryNotification(metrics)
@@ -85,34 +88,48 @@ func TestBuildDailySummaryNotification_ZeroValues(t *testing.T) {
 	if len(message) == 0 {
 		t.Fatal("message is empty")
 	}
-	// Should not panic with all zeros
+	// Should not panic with all zeros.
 }
 
 func TestBuildDailySummaryNotification_NegativeNet(t *testing.T) {
 	metrics := &DailySummaryMetrics{
-		LocalDay:          "2026-07-04",
-		GeneratedAtLocal:  "2026-07-04 23:58:00",
-		TimeZone:          "UTC",
-		TotalAccounts:     5,
-		ActiveAccounts:    5,
+		LocalDay:           "2026-07-04",
+		GeneratedAtLocal:   "2026-07-04 23:58:00",
+		TimeZone:           "UTC",
+		TotalAccounts:      5,
+		ActiveAccounts:     5,
 		LowBalanceAccounts: 0,
-		CheckinTotal:      5,
-		CheckinSuccess:    5,
-		CheckinSkipped:    0,
-		CheckinFailed:     0,
-		ProxyTotal:        50,
-		ProxySuccess:      48,
-		ProxyFailed:       2,
-		ProxyTotalTokens:  500000,
-		TodaySpend:        10.000000,
-		TodayReward:       5.000000,
+		CheckinTotal:       5,
+		CheckinSuccess:     5,
+		CheckinSkipped:     0,
+		CheckinFailed:      0,
+		ProxyTotal:         50,
+		ProxySuccess:       48,
+		ProxyFailed:        2,
+		ProxyTotalTokens:   500000,
+		TodaySpend:         10.000000,
+		TodayReward:        5.000000,
+		TodayRewardStatus:  "complete",
 	}
 
 	_, message := BuildDailySummaryNotification(metrics)
-	// Net should be -5.000000
+	// Net should be -5.000000.
 	if !contains(message, "$-5.000000") {
 		t.Logf("message: %s", message)
 		t.Error("expected negative net value in message")
+	}
+}
+
+func TestBuildDailySummaryNotificationLabelsPartialRewardTruth(t *testing.T) {
+	_, message := BuildDailySummaryNotification(&DailySummaryMetrics{
+		LocalDay:          "2026-08-01",
+		TodaySpend:        1,
+		TodayReward:       2,
+		TodayRewardStatus: "partial",
+	})
+
+	if count := strings.Count(message, "(部分可观测)"); count != 2 {
+		t.Fatalf("partial marker count = %d, want reward and net markers; message=%q", count, message)
 	}
 }
 
@@ -173,7 +190,7 @@ func TestDailySummaryMetrics_Fields(t *testing.T) {
 		TimeZone:           "Asia/Shanghai",
 		TotalAccounts:      10,
 		ActiveAccounts:     8,
-		LowBalanceAccounts:  2,
+		LowBalanceAccounts: 2,
 		CheckinTotal:       10,
 		CheckinSuccess:     7,
 		CheckinSkipped:     2,
@@ -201,7 +218,7 @@ func TestDailySummaryMetrics_Fields(t *testing.T) {
 // ---- Net Value Calculation ----
 
 func TestNetValue(t *testing.T) {
-	// 净值 = TodayReward - TodaySpend
+	// 净值 = TodayReward - TodaySpend.
 	reward := 100.0
 	spend := 30.5
 	net := Round6(reward - spend)
@@ -210,7 +227,7 @@ func TestNetValue(t *testing.T) {
 	}
 }
 
-// Helper
+// Helper.
 func contains(s, substr string) bool {
 	for i := 0; i <= len(s)-len(substr); i++ {
 		if s[i:i+len(substr)] == substr {

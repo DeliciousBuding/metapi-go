@@ -47,7 +47,9 @@ func GetLocalDayRangeUTC(t time.Time) LocalDayRange {
 	// Start of local day in local time
 	y, m, d := t.Date()
 	startLocal := time.Date(y, m, d, 0, 0, 0, 0, t.Location())
-	endLocal := time.Date(y, m, d, 23, 59, 59, 999999999, t.Location())
+	// EndUTC is an exclusive boundary. Using the next local midnight avoids
+	// losing the final second when formatting without fractional seconds.
+	endLocal := startLocal.AddDate(0, 0, 1)
 
 	return LocalDayRange{
 		LocalDay: localDay,

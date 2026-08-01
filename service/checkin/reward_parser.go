@@ -11,6 +11,15 @@ import (
 // Returns 0 if the value is not a valid positive number.
 // Mirrors TS parseCheckinRewardAmount().
 func ParseCheckinRewardAmount(value any) float64 {
+	// Database rows expose nullable TEXT as *string. Normalize the storage
+	// representation before applying the same parser used for upstream values.
+	if ptr, ok := value.(*string); ok {
+		if ptr == nil {
+			return 0
+		}
+		value = *ptr
+	}
+
 	// Try direct number
 	if num := toFiniteNumber(value); num != nil {
 		if *num > 0 {
