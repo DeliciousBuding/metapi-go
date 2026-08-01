@@ -1,5 +1,6 @@
 import React from 'react';
 import type { ConversationDraftFile } from '../helpers/modelTesterSession.js';
+import { tr } from '../../i18n.js';
 
 type ConversationCapability = {
   supported: boolean;
@@ -159,9 +160,9 @@ export default function ConversationComposer({
               void onSend();
             }
           }}
-          placeholder={customRequestMode
+          placeholder={tr(customRequestMode
             ? '自定义模式下输入可选。回车发送时将优先使用右侧自定义请求体。'
-            : '输入提示词，或只上传文件后直接发送…（回车发送，Shift+回车换行）'}
+            : '输入提示词，或只上传文件后直接发送…（回车发送，Shift+回车换行）')}
           rows={3}
           style={{ ...inputBaseStyle, resize: 'none', flex: 1 }}
         />

@@ -2104,7 +2104,7 @@ export default function Sites() {
                     key={site.id}
                     title={(
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <span>{site.name || '-'}</span>
+                        <span data-i18n-skip>{site.name || '-'}</span>
                         {site.url ? (
                           <a
                             href={safeExternalHref(site.url) || undefined}
@@ -2369,6 +2369,7 @@ export default function Sites() {
                           href={safeExternalHref(site.url) || undefined}
                           target="_blank"
                           rel="noopener noreferrer"
+                          data-i18n-skip
                           style={{
                             color: 'var(--color-text-primary)',
                             textDecoration: 'underline',

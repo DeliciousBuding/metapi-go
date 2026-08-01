@@ -2,6 +2,7 @@ import { useState, useMemo, type ReactNode } from 'react';
 import { VChart } from '@visactor/react-vchart';
 import { useThemeLabelColor } from '../useThemeLabelColor.js';
 import { EmptyState as DsEmptyState } from '../../design-system/index.js';
+import { tr } from '../../i18n.js';
 
 interface SiteDistributionData {
   siteName: string;
@@ -122,7 +123,7 @@ export default function SiteDistributionChart({
               },
             },
             {
-              key: '占比',
+              key: tr('占比'),
               value: (datum: unknown) => {
                 const item = coerceDatumRecord(datum);
                 const pct = safeNumber(item._percent_);
@@ -130,7 +131,7 @@ export default function SiteDistributionChart({
               },
             },
             {
-              key: '账户数',
+              key: tr('账户数'),
               value: (datum: unknown) => {
                 const item = coerceDatumRecord(datum);
                 return String(item.accountCount || 0);

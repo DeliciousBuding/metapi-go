@@ -378,6 +378,7 @@ export function SiteAnnouncementContent({ content }: { content: string }) {
   return (
     <div
       className="announcement-rich-content"
+      data-i18n-skip
       dangerouslySetInnerHTML={{ __html: renderSiteAnnouncementHtml(content) }}
     />
   );

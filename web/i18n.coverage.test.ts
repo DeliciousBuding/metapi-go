@@ -33,13 +33,22 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 
 function stripComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+  // Line comments: require a line start or preceding whitespace so URLs like
+  // `https://api.example.com` inside string literals are NOT truncated at `//`.
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\/\/[^\n]*|\s\/\/[^\n]*/gm, '');
 }
 
-/** t('…中文…') literals (wrapped — must translate cleanly). */
+/**
+ * t('…') / tr('…') literals (wrapped — must translate cleanly).
+ * tr() was a blind spot of the gate: canvas/button copy that only used tr()
+ * shipped as `Untranslated` (SnapshotExportButton); both call sites are now
+ * scanned.
+ */
 function collectTLiterals(): string[] {
   const literals = new Set<string>();
-  const re = /\bt\(\s*'([^']*[㐀-鿿][^']*)'\s*\)/g;
+  const re = /\b(?:t|tr)\(\s*'([^']*[㐀-鿿][^']*)'\s*\)/g;
   for (const file of walk('.')) {
     const src = readFileSync(file, 'utf8');
     let m: RegExpExecArray | null;
@@ -57,8 +66,19 @@ function collectRawJSX(): string[] {
     let m: RegExpExecArray | null;
     while ((m = attrRe.exec(src))) {
       const before = src.slice(Math.max(0, m.index - 40), m.index);
-      if (/\bt\(\s*$/.test(before)) continue;
+      if (/\b(?:t|tr)\(\s*$/.test(before)) continue;
       literals.add(m[2]);
+    }
+    // Expression-bound attributes (`placeholder={cond ? '中文' : '…'}`) —
+    // not matched by the `attr="…"` form; extract any bare Chinese string
+    // literals inside them (t()/tr()-wrapped ones are covered above).
+    const exprRe = /\b(placeholder|title|aria-label)=\{([^}]*[㐀-鿿][^}]*)\}/g;
+    while ((m = exprRe.exec(src))) {
+      const expr = m[2];
+      if (/\b(?:t|tr)\(\s*'/.test(expr)) continue;
+      const litRe = /'([^']*[㐀-鿿][^']*)'/g;
+      let lm: RegExpExecArray | null;
+      while ((lm = litRe.exec(expr))) literals.add(lm[1]);
     }
     const textRe = />([^<>{}]*[㐀-鿿][^<>{}]*)<\//g;
     while ((m = textRe.exec(src))) {
@@ -90,20 +110,29 @@ function collectInterpolatedJSX(): string[] {
 }
 
 /**
- * VChart/canvas spec literals (`key: '中文'`, `type: '中文'`, `label: '中文'`
- * in chart config objects) — these render to canvas, out of reach of the
- * MutationObserver; components must wrap them in tr() and the dictionary must
- * cover them.
+ * VChart/canvas spec literals — these can render to canvas, out of reach of
+ * the MutationObserver:
+ * - `key: '中文'` (tooltip keys) MUST be wrapped in tr() — raw keys are an
+ *   error (canvas shows Chinese otherwise).
+ * - `type|label|metric|title` may render to DOM buttons the observer can
+ *   translate, so they are only required to be dictionary-covered.
+ *
+ * Scope is limited to web/components/charts/ — object literals elsewhere
+ * (e.g. nav menu `label: '中文'`) render as DOM and are covered by the raw
+ * JSX gate instead.
  */
-function collectChartSpecLiterals(): string[] {
-  const literals = new Set<string>();
-  const re = /\b(?:key|type|label|metric|title):\s*'([^']*[㐀-鿿][^']*)'/g;
-  for (const file of walk('.')) {
+function collectChartSpecLiterals(): { raw: string[]; covered: string[] } {
+  const raw = new Set<string>();
+  const covered = new Set<string>();
+  const rawRe = /\bkey:\s*'([^']*[㐀-鿿][^']*)'/g;
+  const coveredRe = /\b(?:key|type|label|metric|title):\s*(?:tr\(\s*)?'([^']*[㐀-鿿][^']*)'/g;
+  for (const file of walk('components/charts')) {
     const src = stripComments(readFileSync(file, 'utf8'));
     let m: RegExpExecArray | null;
-    while ((m = re.exec(src))) literals.add(m[1]);
+    while ((m = rawRe.exec(src))) raw.add(m[1]);
+    while ((m = coveredRe.exec(src))) covered.add(m[1]);
   }
-  return [...literals];
+  return { raw: [...raw], covered: [...covered] };
 }
 
 describe('i18n coverage gate', () => {
@@ -132,17 +161,25 @@ describe('i18n coverage gate', () => {
   it('interpolated JSX text fragments are covered (React text-node splits)', () => {
     const bad: Array<[string, string]> = [];
     for (const literal of collectInterpolatedJSX()) {
-      const out = translateText(literal, 'en');
-      if (out === 'Untranslated' || CJK_RE.test(out)) {
-        bad.push([literal, out]);
+      // Runtime splits `标题（近 {days} 天）` into fragments; each non-expression
+      // fragment is its own text node and must translate independently.
+      const fragments = literal.split(/\{[^}]*\}/).filter((s) => s.trim());
+      for (const fragment of fragments) {
+        const out = translateText(fragment.trim(), 'en');
+        if (out === 'Untranslated' || CJK_RE.test(out)) {
+          bad.push([fragment, out]);
+        }
       }
     }
     expect(bad).toEqual([]);
   });
 
-  it('chart spec literals are covered (VChart renders to canvas)', () => {
+  it('chart spec literals are wrapped in tr() and covered by the dictionary', () => {
+    const { raw, covered } = collectChartSpecLiterals();
+    // Raw tooltip keys render Chinese to canvas — the observer cannot reach them.
+    expect(raw, 'chart spec key must be wrapped in tr(): ' + raw.join(', ')).toEqual([]);
     const bad: Array<[string, string]> = [];
-    for (const literal of collectChartSpecLiterals()) {
+    for (const literal of covered) {
       const out = translateText(literal, 'en');
       if (out === 'Untranslated' || CJK_RE.test(out)) {
         bad.push([literal, out]);

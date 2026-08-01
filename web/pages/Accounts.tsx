@@ -3175,7 +3175,7 @@ export default function Accounts() {
                             />
                           </td>
                           <td style={{ color: "var(--color-text-primary)" }}>
-                            <div style={{ fontWeight: 600 }}>
+                            <div style={{ fontWeight: 600 }} data-i18n-skip>
                               {resolveAccountDisplayName(a)}
                             </div>
                             <div

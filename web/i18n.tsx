@@ -182,7 +182,7 @@ const zhToEn: Record<string, string> = {
   '映射预览': 'Mapping preview',
   '启用': 'Enabled',
   '禁用': 'Disabled',
-  '通道': 'channels',
+  '通道': 'Channel',
   '按模型过滤': 'Filter by model',
   '排序保存中': 'Saving order',
   '删除路由': 'Delete Route',
@@ -566,6 +566,131 @@ const zhToEn: Record<string, string> = {
   '天': 'Days',
   '强制覆盖': 'Force overwrite',
   '文本': 'Text',
+  /* SnapshotExportButton button/toast copy (tr() — EN showed Untranslated) */
+  '导出快照': 'Export Snapshot',
+  '导出中...': 'Exporting...',
+  '快照已导出': 'Snapshot exported',
+  '导出快照失败': 'Failed to export snapshot',
+  '当前浏览器不支持导出 PNG': 'PNG export is not supported in this browser',
+  '登录中...': 'Signing in...',
+  '模型同步中': 'Syncing models',
+  '立即导出到 WebDAV': 'Export to WebDAV now',
+  /* JSX interpolation fragments — React splits `title（近 {days} 天）` into
+     text fragments; the fragment keys must exist for the observer (2026-08-01) */
+  '模型成本分布（近 ': 'Model cost distribution (last ',
+  '延迟直方图（近 ': 'Latency histogram (last ',
+  'P95 采样截断（': 'P95 truncated (',
+  '余额趋势（近 ': 'Balance trend (last ',
+  '该 Key 在所选时间范围内没有可用的 tokens 记录': 'No tokens recorded for this key in the selected range',
+  '站点分布': 'Site distribution',
+  '自定义模式下输入可选。回车发送时将优先使用右侧自定义请求体。': 'Optional in custom mode. Press Enter to send using the custom request body on the right.',
+  '输入提示词，或只上传文件后直接发送…（回车发送，Shift+回车换行）': 'Type a prompt, or upload files and send… (Enter to send, Shift+Enter for newline)',
+  /* review-wave 2026-08-01: tr()/raw/插值碎片补键（EN 此前显示 Untranslated） */
+  '详情': 'Details',
+  '不确定': 'Inconclusive',
+  '共探测': 'Probed',
+  '条': 'items',
+  '实时流量': 'Live traffic',
+  '在线': 'Online',
+  '重连中…': 'Reconnecting…',
+  '合计': 'Total',
+  '基于当前可见密钥': 'Based on visible keys',
+  '账单明细': 'Billing details',
+  '回退估算': 'Fallback estimate',
+  '覆盖档位': 'Coverage tier',
+  '跨站有效价格对比': 'Cross-site price comparison',
+  '对比中...': 'Comparing...',
+  '对比价格': 'Compare prices',
+  '来源': 'Source',
+  '缺少真实价格': 'No real price',
+  '有效': 'Valid',
+  '加载中': 'Loading',
+  '严重': 'Severe',
+  '公告已发布': 'Announcement published',
+  '公告已更新': 'Announcement updated',
+  '产品公告': 'Product announcements',
+  '+ 新建公告': '+ New announcement',
+  '加载中…': 'Loading…',
+  '停用': 'Disable',
+  '新建公告': 'New announcement',
+  '详情链接（可选）': 'Detail link (optional)',
+  '查询': 'Search',
+  '方法': 'Method',
+  '路径': 'Path',
+  '映射已生成': 'Mappings generated',
+  '条新建': 'created',
+  '已修复': 'Fixed',
+  '生成映射': 'Generate mappings',
+  '标准名': 'Canonical name',
+  '上游实际名': 'Actual upstream name',
+  '修复中...': 'Fixing...',
+  '确认修复': 'Confirm fix',
+  '点击切换过滤': 'Click to toggle filter',
+  '已选': 'Selected',
+  '选择绑定方式': 'Choose binding method',
+  '改用高级规则': 'Switch to advanced rules',
+  '上下文长度': 'Context length',
+  '能力': 'Capabilities',
+  '已选中': 'Selected',
+  '可选择': 'Selectable',
+  '放到新档位': 'Move to new tier',
+  '未生成': 'Not generated',
+  '退出批量': 'Exit batch',
+  '已选择': 'Selected',
+  '处理中...': 'Processing...',
+  '选择': 'Select',
+  '暂无调度任务': 'No scheduled tasks',
+  '绑定中...': 'Binding...',
+  '触发中...': 'Triggering...',
+  '命中即拒绝，优先级高于白名单。用于封禁滥用来源。': 'Rejected immediately, above the allowlist. Use to ban abusive sources.',
+  '非空时仅允许列表中的凭证；空列表表示不限制（仍可叠加排除凭证）。': 'When set, only listed credentials are allowed; an empty list means no restriction (exclusions can still apply).',
+  '可留空': 'Can be left empty',
+  '附件': 'Attachments',
+  '加载追踪详情中...': 'Loading trace details...',
+  '加载详情中...': 'Loading details...',
+  '测试中...': 'Testing...',
+  '清理中...': 'Cleaning...',
+  '探测中...': 'Probing...',
+  '选中概率': 'Selection probability',
+  '永久有效': 'Never expires',
+  '已识别': 'Detected ',
+  '个': 'items',
+  '包含:': 'Contains: ',
+  '连接:': 'Connection: ',
+  '用户:': 'User: ',
+  '最近': 'Recent ',
+  '次': 'times',
+  '已排除': 'Excluded',
+  '个凭证': 'credentials',
+  '已允许': 'Allowed ',
+  '本次会对已选中的': 'This will apply to the selected ',
+  '结构有效，版本：': 'Structure valid, version: ',
+  '包含分区：': 'Contains partitions: ',
+  '/ 书签': '/ bookmarks',
+  '最近尝试：': 'Last attempt: ',
+  '· 共 $': '· total $',
+  '个成员': 'members',
+  '已连接': 'Connected ',
+  '个。': 'items.',
+  '邮箱：': 'Email: ',
+  '到期：': 'Expires: ',
+  '过滤范围：': 'Filter range: ',
+  '显示第': 'Showing ',
+  '条，共': ' of ',
+  '外置部署 ·': 'External deployment · ',
+  '规则': 'Rules ',
+  '当前：': 'Current: ',
+  '已屏蔽': 'Blocked ',
+  '目标：': 'Target: ',
+  '版本：': 'Version: ',
+  '首次发现：': 'First seen: ',
+  '已应用官方预设 ·': 'Official preset applied · ',
+  '当前生效：': 'Active: ',
+  '个成员 ·': 'members · ',
+  '成员摘要（': 'Member summary (',
+  '成员': 'members',
+  '消耗趋势': 'Spend trend',
+  '调用趋势': 'Calls trend',
 };
 
 for (const [source, target] of Object.entries(zhToEnSupplemental)) {
@@ -578,8 +703,20 @@ const HAS_HAN_RE = /[\u3400-\u9fff]/;
 const HAN_BLOCK_RE = /[\u3400-\u9fff]+/g;
 const LATIN_OR_DIGIT_RE = /[A-Za-z0-9]/;
 const TRANSLATABLE_ATTRS = ['placeholder', 'title', 'aria-label'] as const;
-const SKIP_PARENT_SELECTOR = 'script, style, code, pre, kbd, samp';
+const SKIP_PARENT_SELECTOR = 'script, style, code, pre, kbd, samp, [data-i18n-skip]';
+/**
+ * Phrase-level replacement table. Single-char keys are matched with a Han
+ * boundary check (replaced only when neither neighbour is a Han char), so a
+ * bare '\u5171' in '\u5171 12 \u4e2a\u6a21\u578b' translates while '\u4e2d' inside '\u5bfc\u51fa\u4e2d' never
+ * shreds the word. Exact whole-string lookup in translateText always applies.
+ */
 const zhToEnPhrases = Object.entries(zhToEn).sort((a, b) => b[0].length - a[0].length);
+function replaceSingleCharPhrase(text: string, source: string, target: string): string {
+  // Guard: replaced only when both neighbours are non-Han, so a bare '\u5171' in
+  // '\u5171 12 \u4e2a\u6a21\u578b' translates while '\u4e2d' inside '\u5bfc\u51fa\u4e2d' never shreds a word.
+  const re = new RegExp(`(?<![\u3400-\u9fff])${source}(?![\u3400-\u9fff])`);
+  return text.replace(re, () => target);
+}
 const textNodeOriginalMap = new WeakMap<Text, string>();
 const elementAttrOriginalMap = new WeakMap<Element, Map<string, string>>();
 
@@ -622,13 +759,20 @@ export function translateText(text: string, language: Language): string {
   if (language === 'zh') return text;
   if (!text) return text;
   if (!HAS_HAN_RE.test(text)) return zhToEn[text] ?? text;
-  const exact = zhToEn[text];
+  // Runtime text nodes keep JSX whitespace (`显示第 {n} 条` → fragment
+  // '条，共 '); dictionary keys are stored trimmed, so fall back to the
+  // trimmed form for exact lookup.
+  const exact = zhToEn[text] ?? (text.trim() ? zhToEn[text.trim()] : undefined);
   if (exact) return exact;
 
   let translated = text;
   for (const [source, target] of zhToEnPhrases) {
     if (!source || source === target) continue;
     if (!translated.includes(source)) continue;
+    if (source.length === 1) {
+      translated = replaceSingleCharPhrase(translated, source, target);
+      continue;
+    }
     translated = translated.split(source).join(target);
   }
   if (HAS_HAN_RE.test(translated)) return enforceStrictEnglish(translated);
@@ -676,6 +820,14 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     };
 
     const processTextNode = (node: Text) => {
+      if (language === 'zh') {
+        // Restore the original text when switching back. This must not update
+        // the original map: otherwise the EN-translated value gets recorded as
+        // the original and the Chinese copy is permanently lost (map poisoning).
+        const stored = textNodeOriginalMap.get(node);
+        if (stored && node.nodeValue !== stored) node.nodeValue = stored;
+        return;
+      }
       if (!shouldTranslateTextNode(node)) return;
       const current = node.nodeValue || '';
       const stored = textNodeOriginalMap.get(node);
@@ -695,6 +847,15 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     };
 
     const processElementAttrs = (el: Element) => {
+      if (language === 'zh') {
+        const attrMap = elementAttrOriginalMap.get(el);
+        if (attrMap) {
+          for (const [attr, original] of attrMap) {
+            if (el.getAttribute(attr) !== original) el.setAttribute(attr, original);
+          }
+        }
+        return;
+      }
       if (el.matches(SKIP_PARENT_SELECTOR)) return;
       let attrMap = elementAttrOriginalMap.get(el);
       if (!attrMap) {
