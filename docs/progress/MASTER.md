@@ -67,5 +67,5 @@ gh project view 1 --owner TokenDanceLab
 
 1. Finish the maintenance-wave local gates and commit in small, reviewable units.
 2. Keep production untouched; #557 needs explicit live authorization and its documented procedure.
-3. Reconcile or close historical PR #542 after confirming the RE2 fix is already on `master`.
+3. ~~Reconcile or close historical PR #542~~ — **done 2026-08-02**: RE2 fix confirmed on master (`af2749c`), PR closed.
 4. Do not introduce duplicate callback listeners, wildcard local binds, or dialect-specific scan shortcuts.
