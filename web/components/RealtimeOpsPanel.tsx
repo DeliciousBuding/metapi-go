@@ -143,8 +143,8 @@ export default function RealtimeOpsPanel() {
             style={{
               marginLeft: 8,
               fontSize: 11,
-              background: connected ? 'rgba(52,168,83,0.15)' : gaveUp ? 'rgba(217,48,37,0.15)' : 'rgba(234,67,53,0.15)',
-              color: connected ? '#34a853' : gaveUp ? '#d93025' : '#ea4335',
+              background: connected ? 'var(--color-success-soft)' : gaveUp ? 'var(--color-danger-soft)' : 'var(--color-danger-soft)',
+              color: connected ? 'var(--color-success)' : gaveUp ? 'var(--color-danger)' : 'var(--color-danger)',
             }}
           >
             {connected ? tr('在线') : gaveUp ? tr('已断开（鉴权失败）') : tr('重连中…')}
