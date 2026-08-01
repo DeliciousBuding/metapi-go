@@ -763,3 +763,15 @@
 - 模型无图像输入环境，改用像素级程序化复核：144x90 降采样独特色计数 + 列/行亮度曲线 + 侧栏深色像素行分布
 - 验收证据：三页 unique colors 598/341/500（非空白/非登录页）；侧栏恰好 4 项核心导航 + 「更多功能」折叠区（NAV-1 生效）；dashboard 开始使用条 / sites EmptyState / settings 表单卡在位；14 张 mtime 08-01 全套重录
 - 方法记录于 ui-original-parity-2026-07-20.md §5（commit 15801e9）
+
+## [2026-08-01] i18n review wave：156 处 EN Untranslated + 4 个机制级缺陷（eab0db7）
+
+- 双 agent 对抗审查（i18n 六波改动面）实测 60+ 运行期串，发现门禁宣称 EN 全绿与实际严重不符
+- **S1 tr() 门禁盲区**：649 处 tr() 调用从不被扫描——SnapshotExportButton 按钮/toast 5 串 + 76 处 tr() 文案 EN 显示 Untranslated；门禁 collectTLiterals 同扫 t()/tr() + 103 条字典补键
+- **S2 单字键拆碎词**：'中'/'天'/'净' 等单字键做子串替换把 '导出中...' 变成 'ZH...'——改汉字边界匹配（孤立才替换）+ 登录中/模型同步中/立即导出到 WebDAV 等精确键
+- **S3 en→zh 回切滞留英文**：zh 模式 processTextNode 把英文值写回 WeakMap 原文（map 污染，中文永久丢失）——zh 模式只恢复 stored 不更新 map
+- **S4 用户数据被翻译**：站点名/账号名/模型名/公告正文在 EN 被剥离成 Untranslated——data-i18n-skip 豁免机制 + Sites/Accounts/Models/公告容器 4 处标记
+- **H2/H3/H4**：chart tooltip key 裸中文→tr()（门禁 raw key 强制 tr()）；表达式 placeholder 逃逸门禁→tr() 包裹 + 门禁表达式分支；插值片段门禁按整串 vs 运行期逐片段→改按片段校验 + 60 条片段键 + translateText trim-exact 查找（覆盖 JSX 空格节点）
+- **M1-M5**：跳过/重试/豆包/路由不存在/通道/错误/代理 词典错误修正；stripComments 行注释截断 URL 修复
+- 门禁从 4 用例升级为更严口径（raw key 必 tr()、插值分段、tr 扫描、表达式分支）；i18n.test.ts +5 回归测试
+- 验证：580 vitest（+5）· typecheck 双配置 · build:web 全绿
