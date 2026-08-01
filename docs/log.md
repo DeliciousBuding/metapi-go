@@ -867,3 +867,8 @@
 - 方向判定 + 双方言 open；SQLite DDL 转换（BIGSERIAL→INTEGER PK AUTOINCREMENT/BOOLEAN→INTEGER + DEFAULT 1/0/JSONB→TEXT 等）；? 占位 insert；sequence 仅 PG
 - sqlite→sqlite 全链路验证（18 表 DDL + 数据 + 布尔/JSON + checksum）；单测 +3；全量 go test 绿
 - 部署方案 C 解锁：未来可从 Azure PG 平滑迁 SQLite（方案 B 前提）
+
+## [2026-08-01] metapi-migrate 反向迁移（4436552）+ 部署定案
+
+- **工具**：metapi-migrate 支持 PG→SQLite 反向（方向判定 + SQLite 方言 DDL 转换 + ? 占位 insert；sqlite→sqlite 全链路验证 + 单测 3）——**备用能力**
+- **部署定案**（管理员 2026-08-01 拍板，server 仓 deployment-checkin-design）：**保持现状**——统一 Azure PG、不新增部署实体（如非必要勿增实体 / 单一数据源 / 托管服务优先）；方案 B（SQLite 独立）与方案 C（迁移部署）不采用；healthcheck/logging 微增强保留为随时可拍板项
