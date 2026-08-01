@@ -853,3 +853,10 @@
 - manualChunks 拆 **react-vendor**（react/react-dom/scheduler/react-router/react-is/use-sync-external-store）——index 461KB → 240KB（-48%），react 运行时独立 chunk 浏览器长期缓存
 - vchart-vendor（2MB，唯一 >500KB chunk）确认异步-only（全部图表组件 React.lazy，不阻塞首屏/页面 shell）——chunkSizeWarningLimit 2100 消除构建警告（注明理由）
 - 验证：双模式 18/18 clean（真实浏览器 chunk 结构无回归）· 584 vitest · typecheck · build 无警告
+
+## [2026-08-01] E1b 错过窗口 catch-up：重启不漏签（3e4de36）
+
+- **缺口**（签到系统核心可靠性）：window/cron 模式实例在当天触发时刻后重启 → cron 不补跑 → 当天漏签（interval 模式按 last_checkin_at 判定无此问题）
+- 实现：startLocked 后 maybeCatchUpCheckin——今日触发已过（robfig Next(今日0点)<now 且同日）+ 今日 checkin_logs 无记录 + 存在 enabled 账号 → 立即异步补跑（runWithSchedulerLease 租约保护）
+- 幂等：CheckinAll 对 already-checked-in 响应分类成功不重复推进——补跑无双签
+- 纯函数判定 8 测试；全量 go test 绿
