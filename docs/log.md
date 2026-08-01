@@ -3,6 +3,12 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-08-01] SSOT 收口 + hex 清扫（Phase 5 收官）
+
+- **SSOT 收口**（`a4d3b5a`）: STATE/MASTER tip 同步 3 wave 漂移（通知防护 + charts 双 wave）+ README/README_EN unreleased 补段。
+- **hex 清扫审计**（`eec77da`）: CSS 硬编码 hex 扫描——发现 topbar logo 文字 `#ffffff` 硬编码（dark 下亮底白字对比度缺陷）→ 改 `--color-on-primary`（light #fff / dark #202124 主题感知）；其余硬编码均为有意保留（BrandIcon 品牌色板 / RealtimeOpsPanel 状态色 / var() fallback 链）；注释 issue 编号（#540 等）grep 误报排除。
+- **Phase 5 全收官**: reduced-motion ✓ 对比度 ✓ hex 清扫 ✓ —— 仅剩 DESIGN.md 改写（文档性）。
+
 ## [2026-08-01] Charts 动画门控 prefers-reduced-motion（Phase 5 a11y 收官）
 
 - **缺口**: CSS 层 reduced-motion 已实现（#540 token 降级 + index.css 全局硬切），但 **VChart canvas 动画 CSS 管不到**——8 图表 spec `animation: true`（或默认开启）在用户系统开启 reduced-motion 时仍播放入场动画（clipIn/fadeIn 装饰性运动，WCAG 2.3.3 违规）。
