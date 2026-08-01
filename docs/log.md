@@ -826,3 +826,12 @@
 - 回归 +3（片段精确键 14 断言 / 标点归一化 / EN 值无汉字静态门禁）
 - 踩坑：python 插入锚点 `src.index('\n};')` 在 `};` 被挤成 `',};` 同行时静默落到 type I18nContextValue / CJK_PUNCT_TO_ASCII 对象——TS2740 暴露；三次修复（`};` 换行规范化 + 块移动 + Edit 修正）
 - 验证：583 vitest（+3）· typecheck · build 绿
+
+## [2026-08-01] EN 验收扩 18 路由 + 中文标点断言（2016aba）
+
+- **verify-en-pages.mjs 升级**：11 → **18 路由**（新增 /oauth /playground /tokens /site-announcements /about /settings/notify /settings/import-export——质量审计覆盖的深层面此前无 CI 验证）；新增**中文标点断言**（EN 输出零：，。（）等残留——质量审计成果持久化）+ han snippet
+- **扩面立刻抓 3 处真问题**：
+  ① NotificationSettings `当前配置: {key || '未设置'}` 在 code 容器内被 SKIP 豁免（Settings '当前：' 案例**重演**——code 容器内 UI 标签需与数据分离 + tr() 包裹）
+  ② '或 '/'或'（React JSX 尾随空格保留不定——双形态键）/ '无' / '当前配置: ' 4 键此前**落在 zhToEn 对象外**（顶层垃圾语句，translateText 查不到→Untranslated）——移回对象（python 锚点 `\n};` 在 `};` 挤同行时静默落到对象外——第三次同类事故）
+  ③ 纯中文标点节点（'（'）被 shouldTranslateTextNode 的 `!HAS_HAN_RE` 过滤跳过（不调 translateText→不归一化）——加 CJK_PUNCT_RE 检查
+- 回归测试 +1（8 断言）；本地 **18/18 clean** · 583 vitest · typecheck · build 绿
