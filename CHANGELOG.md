@@ -7,6 +7,12 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed — i18n 反向审计 + 插值片段质量（2026-08-01）
+- **插值 JSX 片段输出质量**：`>text {expr} text<` 运行期片段的碎英文/缺词/粘词（'个，已禁用'→'items，Disabled'、'推荐模型：'→'RecommendedModel：'、'回退到 revision'→'revision' 等）清零——**51 键补译**（统计/迁移/同步行、JSON 导入提示、OAuth 维护说明、下次刷新/已选模型/目标 Session ID 等）
+- **中文标点归一化**：短语替换后无汉字残留时也归一化中文标点（此前 '，'/'：' 泄漏进 EN 输出）——normalizePunctuationOnly 提取复用
+- **EN 值无汉字静态门禁**：字典值含中文即 CI 红（反向审计 HAN-VALUE=0 固化）
+- 回归测试 +3（片段精确键 14 断言 / 标点归一化 / EN 值静态扫描）
+
 ### Fixed — 门禁输出质量审计（2026-08-01）
 - **门禁「无汉字」标准放行的碎英文垃圾清零**：精确键之外的短语替换/strict fallback 输出（'Startverify'/'AllEnabled'/'RemoveTag'/'Sites AddSuccess'/'Save Retry'/'Sign In( )' 等）经探针审计——**三批 534 键补译**（通知渠道 Webhook/Bark/ServerChan/Telegram/SMTP、OAuth 管理 JSON 导入/SSH 隧道/路由池、调试追踪、公告/审计日志/重置系统/批量测活门槛、模型映射/倍率总览/路由高级参数 Codex WS/会话并发/首字超时/冷却上限、站点主站点 URL 校验/API 地址池/延迟阈值/品牌屏蔽/白名单、账号令牌创建/绑定/默认令牌/同步站点令牌等）
 - 收敛：suspicious **586 → 72**（剩余全为多行 JSX 折叠探针误报，运行期单行已覆盖；真实浏览器验收 verify-en-pages/e2e 为最终裁决）
