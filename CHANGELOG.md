@@ -5,6 +5,15 @@ All notable changes to MetAPI-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [Unreleased]
+
+### Fixed — i18n EN 主界面实拍验收 11/11（2026-08-01）
+- **单字键替换顺序 bug**：'启用'→'Enabled' 后 '中' 的汉字邻居变 'd'，边界检查误判 → 'EnabledZH'——单字键重构为基于原文邻界判断（先单字后多字）
+- **调度任务面板**：后端 Job 用英文 eventType id（原把中文显示名当日 id 用）；model-probe note 中文改英文
+- **Settings 代理令牌区**：'当前：' 移出 code 容器（SKIP 豁免面误伤 UI 标签）
+- 补键：启用中/从未运行/可见密钥/筛选状态/已开启/暂无/进程内版本占位：/OPS_NOTE；修正 '签到'→'Check-in'
+- 新增 `web/scripts/verify-en-pages.mjs`：11 条主路由 EN 模式无 Untranslated/无汉字残留验收
+
 ### Fixed — i18n e2e wave：对象字面量盲区（2026-08-01）
 - **EN 模式 e2e 测试**（`web/e2e/i18n-en.spec.ts`，真实浏览器 MutationObserver 全链路）：登录页无汉字/无 Untranslated + design gallery 组件面 + 会话内切换语言——首跑即抓真 bug
 - **第四类门禁盲区清零**：对象字面量值侧中文（`label: '站点公告'`、`site_notice: '…'`、option/状态映射）此前 attr/text/表达式三面全扫不到——生产侧栏「连接管理/OAuth 管理」等在 EN 显示 Untranslated；补键 212 条（字典达 ~700 键），门禁新增对象字面量值侧收集
