@@ -1,6 +1,6 @@
 # STATE.md — MetAPI Go product status
 
-**Last verified**: 2026-08-01
+**Last verified**: 2026-08-02
 
 > **现状 SSOT**（产品仓库）。只记当前事实与指针，不写流水账。
 > 运维主机、compose、镜像 pin 与 PG role LIMIT 以 server 仓 `projects/metapi/STATE.md` 为准。
