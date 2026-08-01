@@ -1,0 +1,1 @@
+import"./rolldown-runtime-CNC7AqOf.js";import{h as e,n as t}from"./react-vendor-CfBuf-Ky.js";e();var n=t();function r({columns:e=2,children:t,className:r}){return(0,n.jsx)(`div`,{className:[`responsive-form-grid`,`responsive-form-grid-${e}`,r].filter(Boolean).join(` `),children:t})}export{r as t};
