@@ -7,6 +7,11 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed — Charts 轴/图例色 dark 模式不可读（2026-08-01）
+- 根因：VChart canvas 不解析 CSS `var()` → 轴标签/图例静默回退默认深色，dark 主题深字深底
+- `useChartColors()` JS 取色（getComputedStyle + data-theme 监听）——7 图表轴色 + 4 图例 label 全部解析具体色值
+- 对比度达 WCAG AA：light 6.05:1 / dark 6.09:1；静态门禁防回归（fill/stroke 无 var() 残留）
+
 ### Changed — 通知可观测性与保存校验（2026-08-01）
 - dispatch 每次派发留日志（`notify: dispatch ok/partial/failed`，含每失败渠道 + 错误截断 100 字符）——生产可回答「通知为什么没发」
 - Settings 通知渠道保存校验：**启用但凭据空 → 拦截 + 列出缺失项**（9 渠道）——防配置缺陷静默丢失告警

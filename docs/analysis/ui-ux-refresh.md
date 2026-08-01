@@ -183,7 +183,7 @@
 | 通用 Table / Filter bar / Pagination | token 化 | **done** (`data-table` sticky thead no row blur; filter-chip / pill-tab / pagination tokens) |
 | KPI cards | 轻玻璃或实色二选一（性能：表多页可实色） | **done** solid KPI in gallery (perf-safe) |
 | Status badges / alerts / toasts | 语义 soft 全暗可用 | **done** `*-ink` dual-theme + purple/danger/primary aliases |
-| Charts 轴色 | 已有 theme hook；校验新底色对比度 | residual (theme hook exists; explicit chart contrast pass deferred) |
+| Charts 轴色 | 已有 theme hook；校验新底色对比度 | **done**（2026-08-01 `be19866`：canvas 无法解析 CSS var() → useChartColors JS 取色；light 6.05:1 / dark 6.09:1 AA；像素验收 + 静态门禁） |
 
 ### Phase 4 — Forms & density（P1）
 

@@ -3,6 +3,15 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-08-01] Charts 轴色对比度校验（ui-ux-refresh residual 收官）
+
+- **根因**（`be19866`）: VChart 渲染 canvas，`fill: 'var(--color-text-muted)'` 非法 CSS 颜色 → 静默回退 VChart 默认深色 → **dark 主题轴标签/图例深字深底不可读**（vrender 无 CSS 变量解析代码证实）。
+- **修复**: `useChartColors()` hook——getComputedStyle 解析 `--color-text-secondary`/`--color-border-light` 具体色值（MutationObserver 监听 data-theme），7 个图表轴 label/grid/tick/domainLine + 4 个 legend label 全部改用 JS 色值。
+- **对比度**（WCAG AA）: light `#5f6368` on #fff = **6.05:1** ✓ · dark `#9aa0a6` on #202124 = **6.09:1** ✓（text-muted 在 light 仅 3.69:1 不达标 → 轴标签用 text-secondary）。
+- **验收**: 真实浏览器像素断言（`verify-chart-contrast.mjs`——seed site + SQL fixture 数据 → Dashboard 7 canvas 统计目标色像素）：light 71864 px / dark 73095 px ✓；静态门禁 `chart-colors.gate.test.tsx`（fill/stroke 无 var() 残留 + hook 引用 + 轴色引用，防回归）+ hook 单测 4 个。
+- **验证**: 591 vitest + typecheck + build 全绿。
+- **踩坑记录**: ①python 批量插 hook 落在条件早退之后 → React「Rendered more hooks」（7 图表逐一核对修复）；②verify 脚本 `page.evaluate` 在 about:blank（origin null）设 localStorage 抛异常被吞 → light 假 0 像素——**改 addInitScript**；③dark 目标色 #9aa0a6 与 fallback #9ca3af 容差重叠 → 像素统计需同时数 fallback 区分。
+
 ## [2026-08-01] 通知渠道保存校验 —— 生产缺陷防护闭环
 
 - **问题**（hk3 运行观测 #557 发现）：bark/serverChan/webhook 三渠道 enabled 但凭据空 → 告警静默丢失，dispatch 无日志痕迹。
