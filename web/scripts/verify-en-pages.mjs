@@ -8,9 +8,14 @@
  *   - no Han residue in UI containers (page body; user-data cells are
  *     data-i18n-skip exempt by design and not asserted here)
  *
+ * `--with-data` additionally seeds a fake site + account via the admin API
+ * before walking, so table rows, row actions and dialogs are exercised
+ * (empty-DB surfaces only cover EmptyStates). Every route then also probes
+ * the first Add/New/Create button and asserts the opened dialog is clean.
+ *
  * Usage (from web/):
  *   METAPI_UI_AUTH_TOKEN=<bearer> METAPI_UI_SHOT_BASE=http://127.0.0.1:4000 \
- *     node scripts/verify-en-pages.mjs
+ *     node scripts/verify-en-pages.mjs [--with-data]
  *
  * Exit code 0 = all routes clean; 1 = at least one route had residue.
  */
@@ -19,6 +24,7 @@ import { chromium } from '@playwright/test';
 const HAN_RE = /[㐀-鿿]/;
 const base = (process.env.METAPI_UI_SHOT_BASE || '').trim().replace(/\/$/, '');
 const authToken = (process.env.METAPI_UI_AUTH_TOKEN || '').trim();
+const withData = process.argv.includes('--with-data');
 if (!base || !authToken) {
   console.error('METAPI_UI_SHOT_BASE and METAPI_UI_AUTH_TOKEN are required');
   process.exit(2);
@@ -40,6 +46,43 @@ const routes = [
 
 const failures = [];
 const details = [];
+
+/** Seed a fake site + account via the admin API (--with-data mode). */
+async function seedData() {
+  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` };
+  const siteRes = await fetch(`${base}/api/sites`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ name: 'en-verify-demo', url: 'https://example.com', platform: 'new-api', status: 'disabled' }),
+  });
+  const site = await siteRes.json().catch(() => ({}));
+  const siteId = site.site?.id ?? site.id;
+  if (siteId) {
+    await fetch(`${base}/api/accounts`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ siteId, username: 'demo-user', apiToken: 'sk-demo-token', skipModelFetch: true }),
+    }).catch(() => {});
+  }
+  console.log(`seeded site id=${siteId ?? 'n/a'} (${siteRes.status})`);
+}
+
+/** Probe the first Add/New/Create button and assert its dialog is clean. */
+async function checkDialogs(page) {
+  const btn = page.locator('button:has-text("Add"), button:has-text("New"), button:has-text("Create")').first();
+  if (!(await btn.isVisible().catch(() => false))) return null;
+  await btn.click();
+  await page.waitForTimeout(800);
+  const text = await page.locator('body').innerText().catch(() => '');
+  const hasUntranslated = text.includes('Untranslated');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(400);
+  return hasUntranslated ? 'dialog contains Untranslated' : null;
+}
+
+if (withData) {
+  await seedData();
+}
 
 const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -81,11 +124,19 @@ for (const route of routes) {
       }
       untranslatedSnippets = ' | ' + [...new Set(snips)].join(' || ');
     }
-    const status = untranslated === 0 && !hanRuns ? 'PASS' : 'FAIL';
+    let status = untranslated === 0 && !hanRuns ? 'PASS' : 'FAIL';
+    let dialogNote = '';
+    if (status === 'PASS') {
+      const dialogIssue = await checkDialogs(page).catch(() => null);
+      if (dialogIssue) {
+        status = 'FAIL';
+        dialogNote = ` | dialog: ${dialogIssue}`;
+      }
+    }
     if (status === 'FAIL') {
       failures.push(route.id);
     }
-    console.log(`${status}  ${route.id.padEnd(18)} untranslated=${untranslated}${hanRuns ? ` han=${hanRuns.length}` : ''}${untranslatedSnippets}`);
+    console.log(`${status}  ${route.id.padEnd(18)} untranslated=${untranslated}${hanRuns ? ` han=${hanRuns.length}` : ''}${untranslatedSnippets}${dialogNote}`);
   } catch (err) {
     failures.push(route.id);
     console.log(`ERROR ${route.id.padEnd(18)} ${String(err).slice(0, 160)}`);
