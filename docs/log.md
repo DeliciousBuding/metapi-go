@@ -11,6 +11,12 @@
 - **门禁**（`69d8905`）: OAuth flow 测试注入 callback start seam，不再依赖 Windows 保留端口；新增 service 测试 4 个（含 legacy 时间/禁用站点排除/partial 语义/未归属行隔离）+ handler 列表测试 1 个 + 前端 3 个（complete 显示真值 / partial 显示 — / 降级显示 —）。
 - **运行边界**: hk3 仍 v0.8.45 healthy；本轮全部为 master 改动，无生产部署。
 
+## [2026-08-02] 收口 —— #542 关闭 + proxy token SQL 三处归一
+
+- **#542 关闭**: `codex/metapi-regex-crash` 的 RE2-safe 修复确认已在 master（`af2749c`，预编译正则 + 8 位长度上限 + 回归测试，比 PR 更完整）；PR 基于旧 TokenDanceLab 仓库已过时，2026-08-02 评论后关闭。
+- **proxy token SQL 归一**: `service.EffectiveProxyTokensSQL`（基础版）+ `service.EffectiveProxyTokensOnActiveSitesSQL`（LEFT JOIN 路径禁用站点行置 0）取代 stats.go/daily_summary/account_metrics 三份内联 CASE；中间踩到 `s.status` 误入无 JOIN 查询（model-cost-distribution、heatmap model 视角）导致 SQL 报错静默空结果——被测试当场抓住并纠正，行为保持原样。
+- **SSOT 漂移修正**: STATE Product honesty 的 Daily metric truth 行同步为「Dashboard + Accounts closed」（上一波收口后未同步的残留）。
+
 ## [2026-08-01] 维护成本收敛 —— real-data 验收、SQLite OAuth、Windows 防火墙与 callback 所有权
 
 - **验收去假绿**：`verify-en-pages.mjs --with-data` 使用 `node:sqlite` 严格播种 account / balance_history / site_day_usage / proxy_logs，并核对插入数；DB URL、建库或数据态不完整即失败。EN/zh 均覆盖 18 路由，Dashboard 的余额、成本与延迟图必须进入真实 canvas 数据态。

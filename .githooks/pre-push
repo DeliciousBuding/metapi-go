@@ -4,6 +4,23 @@
 # Skip with:      git push --no-verify
 set -euo pipefail
 
+# A push that only deletes refs changes no branch content, so it does not
+# need the full CI gate. Deletes arrive on stdin as:
+#   <local-ref> <40-zero-oid> <remote-ref> <remote-oid>
+while read -r _local_ref local_oid _remote_ref _remote_oid; do
+	if [ "$local_oid" != "0000000000000000000000000000000000000000" ]; then
+		delete_only=0
+		break
+	fi
+	delete_only=1
+done
+if [ "${delete_only:-0}" = "1" ]; then
+	echo "=============================================="
+	echo "pre-push: only ref deletions — skipping local CI"
+	echo "=============================================="
+	exit 0
+fi
+
 echo "=============================================="
 echo "pre-push: running local CI (vet + test -race)"
 echo "=============================================="
