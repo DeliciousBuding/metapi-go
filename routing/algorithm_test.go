@@ -548,9 +548,22 @@ func TestFallbackCostPenalty(t *testing.T) {
 		t.Fatal("fallback penalty: expected a selection")
 	}
 
-	// c2 should win because c1 has fallback cost penalty (1/100)
-	if result.Selected.Channel.ID != 2 {
-		t.Errorf("fallback penalty: expected channel 2 (observed cost), got channel %d", result.Selected.Channel.ID)
+	// c2 should win because c1 has fallback cost penalty (1/100).
+	// Weighted selection is stochastic (global rand, not injectable), so a
+	// single draw is flaky — assert statistically over 200 draws instead.
+	selected2 := 0
+	const draws = 200
+	for i := 0; i < draws; i++ {
+		r := CalculateWeightedSelection(
+			[]RouteChannelCandidate{c1, c2}, staticModel("gpt-4"), defaultRoutingWeights(),
+			nil, 1.0, nil, 0, WeightedMode, "", nil, 100.0,
+		)
+		if r.Selected != nil && r.Selected.Channel.ID == 2 {
+			selected2++
+		}
+	}
+	if selected2 < draws*95/100 {
+		t.Errorf("fallback penalty: expected channel 2 (observed cost) in >=95%% of %d draws, got %d", draws, selected2)
 	}
 
 	// Verify c1 got a severe penalty
