@@ -793,3 +793,10 @@
 - Settings：'当前：' 移出 code 容器（SKIP 豁免面误伤 UI 标签）+ tr() 包裹
 - 补键 8 条（启用中/从未运行/可见密钥/筛选状态/已开启/暂无/进程内版本占位：/OPS_NOTE）+ 修正 '签到'→'Check-in' 词典错误
 - 验证：11/11 clean · 580 vitest · typecheck · go build/vet/test 绿
+
+## [2026-08-01] EN 验收进 CI（en-verify job）+ zh 回归 e2e（87f9711/f216c73）
+
+- ci.yml 新增 **en-verify job**：npm ci → playwright chromium → build:web（embed dist）→ go build 单进程 → 全新 SQLite 起服（端口 4182）→ verify-en-pages.mjs 遍历 11 条主路由断言 EN 无 Untranslated/无汉字——EN 11 路由验收从一次性变**持续 CI 防护**
+- 踩坑：playwright install 必须在 npm ci 之后（node_modules 不存在时浏览器装不上）——顺序修复 f216c73
+- i18n-en.spec.ts 补 **zh 模式回归**：zh 模式正常显示中文 + en→zh 回切恢复中文（WeakMap 原文污染回归防线，验证 S3 修复）；e2e 本地 4/4 + CI 绿
+- 状态：CI 12 job 全绿（含 en-verify）· UI visual 绿 · CD release-gate 绿（build-and-push 仍阻塞 ghcr 权限）
