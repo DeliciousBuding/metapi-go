@@ -600,6 +600,10 @@ export default function Dashboard({
   const totalUsed = safeNumber(data?.totalUsed || 0);
   const todaySpend = safeNumber(data?.todaySpend || 0);
   const todayReward = safeNumber(data?.todayReward || 0);
+  const todayRewardStatus = String(
+    data?.todayMetricStatus?.metrics?.reward?.status || 'unavailable',
+  );
+  const isTodayRewardComplete = todayRewardStatus === 'complete';
   const activeAccounts = safeNumber(data?.activeAccounts);
   const totalAccounts = safeNumber(data?.totalAccounts);
   const todaySuccess = safeNumber(data?.todayCheckin?.success);
@@ -785,14 +789,14 @@ export default function Dashboard({
                 style={{
                   fontSize: 11,
                   color:
-                    todayReward > 0
+                    isTodayRewardComplete && todayReward > 0
                       ? "var(--color-success)"
                       : "var(--color-text-muted)",
                   fontWeight: 500,
                   marginTop: 2,
                 }}
               >
-                今日 +{todayReward.toFixed(2)}
+                {isTodayRewardComplete ? `今日 +${todayReward.toFixed(2)}` : '今日 —'}
               </div>
             </div>
           </div>

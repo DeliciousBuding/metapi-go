@@ -925,6 +925,7 @@ const zhToEn: Record<string, string> = {
   '使用': 'Use ',
   '（已禁用）': ' (disabled)',
   '今日 +': 'Today +',
+  '今日 —': 'Today —',
   '今日 -': 'Today -',
   '不限制': 'Unlimited',
   '项': 'items',

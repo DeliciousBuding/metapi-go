@@ -168,4 +168,39 @@ describe('Dashboard performance stat card', () => {
       root?.unmount();
     }
   });
+
+  it('does not render a reward without truth metadata as a measured zero', async () => {
+    apiMock.getDashboard.mockResolvedValue({
+      totalBalance: 12,
+      totalUsed: 0,
+      todaySpend: 0,
+      todayReward: 0,
+      activeAccounts: 1,
+      totalAccounts: 1,
+      todayCheckin: { success: 1, total: 1 },
+      proxy24h: { success: 1, total: 1, totalTokens: 1 },
+      performance: { windowSeconds: 60, requestsPerMinute: 0, tokensPerMinute: 0 },
+      modelAnalysis: null,
+    });
+
+    let root!: WebTestRenderer;
+    try {
+      await act(async () => {
+        root = create(
+          <MemoryRouter initialEntries={['/']}>
+            <ToastProvider>
+              <Dashboard />
+            </ToastProvider>
+          </MemoryRouter>,
+        );
+      });
+      await flushMicrotasks();
+
+      const text = collectText(root.root);
+      expect(text).toContain('今日 —');
+      expect(text).not.toContain('今日 +0.00');
+    } finally {
+      root?.unmount();
+    }
+  });
 });
