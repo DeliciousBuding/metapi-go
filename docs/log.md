@@ -3,6 +3,15 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-08-01] 通知渠道保存校验 —— 生产缺陷防护闭环
+
+- **问题**（hk3 运行观测 #557 发现）：bark/serverChan/webhook 三渠道 enabled 但凭据空 → 告警静默丢失，dispatch 无日志痕迹。
+- **修复闭环**：
+  - `service/notify/notify.go`（`c55f21b`）: dispatch 结果日志——每次派发留痕 `notify: dispatch ok / partial/failed`（attempted/succeeded/failed + 每失败渠道 channel_xxx + 错误截断 100 字符防凭据泄漏）。
+  - `web/pages/NotificationSettings.tsx`（`528bce4`）: saveNotify 前置校验——9 渠道 enabled-but-empty 拦截 + toast.error 列出缺失凭据项（webhook/bark/serverchan/telegram/smtp/飞书/钉钉/企微/ntfy）。
+- **验证**: 584 vitest + typecheck + go vet + build 全绿；NotificationSettings 测试 fixture 修正（telegram 用例无关渠道开关置 false）。
+- **用户侧待办**（已记 server STATE）：UI 补配至少一个渠道凭据；升级后自查 `notify: dispatch` 日志。
+
 ## [2026-08-01] New API deferred 项评估 + N9a 交付
 
 - **评估文档** `n8-n9-deferred-assessment-2026-08-01.md`:

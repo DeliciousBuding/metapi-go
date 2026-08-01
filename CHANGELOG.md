@@ -7,6 +7,10 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Changed — 通知可观测性与保存校验（2026-08-01）
+- dispatch 每次派发留日志（`notify: dispatch ok/partial/failed`，含每失败渠道 + 错误截断 100 字符）——生产可回答「通知为什么没发」
+- Settings 通知渠道保存校验：**启用但凭据空 → 拦截 + 列出缺失项**（9 渠道）——防配置缺陷静默丢失告警
+
 ### Added — 签到可靠性：错过窗口 catch-up（E1b，2026-08-01）
 - **重启不漏签**：window/cron 模式下实例在当天触发时刻后重启 → 启动时检测「今日触发已过 + 今日未跑 + 存在启用账号」→ 立即补跑（租约保护、幂等无双签）——签到系统核心可靠性
 - `scheduler/checkin_catchup.go` 纯函数判定 + 8 测试
