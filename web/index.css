@@ -444,7 +444,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
+  color: var(--color-on-primary);
   font-weight: 700;
   font-size: 13px;
 }
