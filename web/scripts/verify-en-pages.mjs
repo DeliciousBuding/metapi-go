@@ -128,6 +128,23 @@ for (const route of routes) {
     const hanSnippet = hanRuns ? text.slice(Math.max(0, text.search(HAN_RE) - 40), text.search(HAN_RE) + 40).replace(/\s+/g, ' ') : '';
     const cjkPunctRuns = text.match(CJK_PUNCT_RE);
     const cjkPunctSnippet = cjkPunctRuns ? text.slice(Math.max(0, text.search(CJK_PUNCT_RE) - 40), text.search(CJK_PUNCT_RE) + 40).replace(/\s+/g, ' ') : '';
+    // Attribute surface: placeholder / title / aria-label values are translated
+    // by the observer but invisible to innerText — assert them separately
+    // (2026-08-01 attr-surface wave).
+    const attrBad = await page.evaluate(() => {
+      const bad = [];
+      const sel = '[placeholder], [title], [aria-label]';
+      for (const el of document.querySelectorAll(sel)) {
+        for (const attr of ['placeholder', 'title', 'aria-label']) {
+          const v = el.getAttribute(attr);
+          if (!v) continue;
+          if (v.includes('Untranslated') || /[㐀-鿿]/.test(v) || /[：，。（）]/.test(v)) {
+            bad.push(`${attr}="${v.slice(0, 70)}"`);
+          }
+        }
+      }
+      return bad;
+    }).catch(() => []);
     // Context around each Untranslated occurrence for triage.
     let untranslatedSnippets = '';
     if (untranslated > 0) {
@@ -139,7 +156,7 @@ for (const route of routes) {
       }
       untranslatedSnippets = ' | ' + [...new Set(snips)].join(' || ');
     }
-    let status = untranslated === 0 && !hanRuns && !cjkPunctRuns ? 'PASS' : 'FAIL';
+    let status = untranslated === 0 && !hanRuns && !cjkPunctRuns && attrBad.length === 0 ? 'PASS' : 'FAIL';
     let dialogNote = '';
     if (status === 'PASS') {
       const dialogIssue = await checkDialogs(page).catch(() => null);
@@ -151,7 +168,7 @@ for (const route of routes) {
     if (status === 'FAIL') {
       failures.push(route.id);
     }
-    console.log(`${status}  ${route.id.padEnd(18)} untranslated=${untranslated}${hanRuns ? ` han=${hanRuns.length} [${hanSnippet}]` : ''}${cjkPunctRuns ? ` cjkPunct=${cjkPunctRuns.length} [${cjkPunctSnippet}]` : ''}${untranslatedSnippets}${dialogNote}`);
+    console.log(`${status}  ${route.id.padEnd(18)} untranslated=${untranslated}${hanRuns ? ` han=${hanRuns.length} [${hanSnippet}]` : ''}${cjkPunctRuns ? ` cjkPunct=${cjkPunctRuns.length} [${cjkPunctSnippet}]` : ''}${attrBad.length ? ` attr=${attrBad.length} [${attrBad.slice(0, 3).join(' || ')}]` : ''}${untranslatedSnippets}${dialogNote}`);
   } catch (err) {
     failures.push(route.id);
     console.log(`ERROR ${route.id.padEnd(18)} ${String(err).slice(0, 160)}`);
