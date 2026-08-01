@@ -860,3 +860,10 @@
 - 实现：startLocked 后 maybeCatchUpCheckin——今日触发已过（robfig Next(今日0点)<now 且同日）+ 今日 checkin_logs 无记录 + 存在 enabled 账号 → 立即异步补跑（runWithSchedulerLease 租约保护）
 - 幂等：CheckinAll 对 already-checked-in 响应分类成功不重复推进——补跑无双签
 - 纯函数判定 8 测试；全量 go test 绿
+
+## [2026-08-01] metapi-migrate 反向迁移：PG→SQLite（4436552）
+
+- 部署设计（server 仓 deployment-checkin-design）指出方案 C 依赖 PG→SQLite 迁移——落地
+- 方向判定 + 双方言 open；SQLite DDL 转换（BIGSERIAL→INTEGER PK AUTOINCREMENT/BOOLEAN→INTEGER + DEFAULT 1/0/JSONB→TEXT 等）；? 占位 insert；sequence 仅 PG
+- sqlite→sqlite 全链路验证（18 表 DDL + 数据 + 布尔/JSON + checksum）；单测 +3；全量 go test 绿
+- 部署方案 C 解锁：未来可从 Azure PG 平滑迁 SQLite（方案 B 前提）
