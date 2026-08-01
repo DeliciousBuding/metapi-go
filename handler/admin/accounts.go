@@ -22,6 +22,7 @@ import (
 	"github.com/tokendancelab/metapi-go/service"
 	"github.com/tokendancelab/metapi-go/service/alert"
 	balanceService "github.com/tokendancelab/metapi-go/service/balance"
+	dailyservice "github.com/tokendancelab/metapi-go/service/daily"
 	"github.com/tokendancelab/metapi-go/store"
 )
 
@@ -117,6 +118,49 @@ func (h *accountsHandler) listAccounts(w http.ResponseWriter, r *http.Request) {
 		slog.Error("Failed to load accounts", "err", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to load accounts"})
 		return
+	}
+
+	// Per-account today truth. Failure degrades to "no metrics" (frontend shows
+	// — instead of fake zeros) and is logged; the account list itself must not
+	// fail because an auxiliary aggregation query broke.
+	todayMetrics, metricsErr := dailyservice.CollectPerAccountTodayMetrics(h.db, time.Now())
+	if metricsErr != nil {
+		slog.Error("Failed to load per-account today metrics", "err", metricsErr)
+	} else {
+		for _, account := range accounts {
+			accountID := coerceInt64(account["id"])
+			if accountID <= 0 {
+				continue
+			}
+			if m, exists := todayMetrics[accountID]; exists {
+				account["todayReward"] = m.Reward
+				account["todayRewardStatus"] = m.RewardStatus
+				account["todayRewardReason"] = m.RewardReason
+				account["todaySpend"] = m.Spend
+				account["todaySpendStatus"] = m.SpendStatus
+				account["todaySpendReason"] = m.SpendReason
+				account["todayTokens"] = m.Tokens
+				account["todayProxy"] = map[string]any{
+					"total":   m.ProxyTotal,
+					"success": m.ProxySuccess,
+					"failed":  m.ProxyFailed,
+					"unknown": m.ProxyUnknown,
+				}
+			} else {
+				// Real zero, not missing: account had no rows within the local day.
+				account["todayReward"] = 0.0
+				account["todayRewardStatus"] = "complete"
+				account["todaySpend"] = 0.0
+				account["todaySpendStatus"] = "complete"
+				account["todayTokens"] = int64(0)
+				account["todayProxy"] = map[string]any{
+					"total":   0,
+					"success": 0,
+					"failed":  0,
+					"unknown": 0,
+				}
+			}
+		}
 	}
 
 	// Also fetch sites for the response

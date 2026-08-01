@@ -84,20 +84,8 @@ func CollectDailySummaryMetrics(db *sqlx.DB, now time.Time) (*DailySummaryMetric
 		SELECT cl.* FROM checkin_logs cl
 		INNER JOIN accounts a ON cl.account_id = a.id
 		INNER JOIN sites s ON a.site_id = s.id
-		WHERE (
-			CASE
-				WHEN SUBSTR(cl.created_at, 11, 1) = ' '
-					THEN REPLACE(SUBSTR(cl.created_at, 1, 19), ' ', 'T') || 'Z'
-				ELSE cl.created_at
-			END
-		) >= ?
-		AND (
-			CASE
-				WHEN SUBSTR(cl.created_at, 11, 1) = ' '
-					THEN REPLACE(SUBSTR(cl.created_at, 1, 19), ' ', 'T') || 'Z'
-				ELSE cl.created_at
-			END
-		) < ?
+		WHERE `+legacyCreatedAtExpr("cl")+` >= ?
+		AND `+legacyCreatedAtExpr("cl")+` < ?
 		AND s.status = 'active'
 	`), dayRange.StartUTC, dayRange.EndUTC)
 	if err != nil {

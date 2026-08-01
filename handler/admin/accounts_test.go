@@ -2462,3 +2462,81 @@ func TestListAccounts_RedactsAccessTokenAndAPIToken(t *testing.T) {
 		t.Fatalf("apiTokenMasked = %#v", found["apiTokenMasked"])
 	}
 }
+
+func TestAccounts_List_IncludesPerAccountTodayMetrics(t *testing.T) {
+	db, r, _ := setupAccountsTest(t)
+	siteID, accountID := setupAccountFixture(t, r)
+
+	// Second account on the same active site, no rows today (real zero).
+	nowInsert := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+	res, err := db.Exec(
+		"INSERT INTO accounts (site_id, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, 'sk-clean', 'active', 1, ?, ?)",
+		siteID, nowInsert, nowInsert,
+	)
+	if err != nil {
+		t.Fatalf("insert clean account: %v", err)
+	}
+	cleanAccountID, _ := res.LastInsertId()
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := db.Exec(`INSERT INTO checkin_logs (account_id, status, reward, created_at)
+		VALUES (?, 'success', '1.25', ?)`, accountID, now); err != nil {
+		t.Fatalf("insert checkin: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO proxy_logs
+		(account_id, model_requested, model_actual, status, total_tokens, estimated_cost, created_at)
+		VALUES (?, 'gpt-1', 'gpt-1', 'success', 50, 0.2, ?)`, accountID, now); err != nil {
+		t.Fatalf("insert proxy: %v", err)
+	}
+
+	resp := doGet(t, r, "/api/accounts?refresh=true")
+	if resp.Code != http.StatusOK {
+		t.Fatalf("list accounts: %d %s", resp.Code, resp.Body.String())
+	}
+
+	var result struct {
+		Accounts []map[string]any `json:"accounts"`
+	}
+	if err := json.Unmarshal(resp.Body.Bytes(), &result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	var rewardRow, cleanRow map[string]any
+	for _, a := range result.Accounts {
+		switch coerceInt64(a["id"]) {
+		case accountID:
+			rewardRow = a
+		case cleanAccountID:
+			cleanRow = a
+		}
+	}
+	if rewardRow == nil || cleanRow == nil {
+		t.Fatalf("rows missing: reward=%v clean=%v", rewardRow != nil, cleanRow != nil)
+	}
+
+	if got := coerceFloat(rewardRow["todayReward"]); got != 1.25 {
+		t.Fatalf("todayReward = %v, want 1.25", got)
+	}
+	if got := coerceString(rewardRow["todayRewardStatus"]); got != "complete" {
+		t.Fatalf("todayRewardStatus = %q, want complete", got)
+	}
+	if got := coerceFloat(rewardRow["todaySpend"]); got != 0.2 {
+		t.Fatalf("todaySpend = %v, want 0.2", got)
+	}
+	if got := coerceString(rewardRow["todaySpendStatus"]); got != "complete" {
+		t.Fatalf("todaySpendStatus = %q, want complete", got)
+	}
+	if got := coerceInt64(rewardRow["todayTokens"]); got != 50 {
+		t.Fatalf("todayTokens = %d, want 50", got)
+	}
+
+	// Clean account with no rows today is a real zero, not unknown.
+	if got := coerceFloat(cleanRow["todayReward"]); got != 0 {
+		t.Fatalf("clean todayReward = %v, want 0", got)
+	}
+	if got := coerceString(cleanRow["todayRewardStatus"]); got != "complete" {
+		t.Fatalf("clean todayRewardStatus = %q, want complete", got)
+	}
+	if got := coerceString(cleanRow["todaySpendStatus"]); got != "complete" {
+		t.Fatalf("clean todaySpendStatus = %q, want complete", got)
+	}
+}
