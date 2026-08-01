@@ -736,3 +736,10 @@
 - 治本：`resolveStorage` 验证 `localStorage.getItem` 是函数才 fallback——getAuthToken/persistAuthSession/clearAuthSession 全链路对坏全局免疫
 - 双保险保留：RealtimeOpsPanel 防御（坏对象传 null）+ resolveStorage 验证
 - 验证：12 相关测试全过 · typecheck exit=0 · SPA rebuild
+
+## [2026-08-01] CI 全绿收官（三轮迭代）+ CD ghcr 权限问题留待管理员
+
+**最终状态**：
+- ✅ **CI**（frontend）：success——Node 25 三层防御（vitest.setup global 替换 + RealtimeOpsPanel 坏对象传 null + **resolveStorage 验证 getItem**——最后这层是根治：storage=null fallback 裸 localStorage 会把坏全局捞回 getAuthToken）+ lazy 时序 mock 补齐
+- ✅ **UI visual + UX e2e**：success——linux 基线更新（DENSE-1 密度变化：页高 3919→3874px；流程：test:e2e 命令内 --update-snapshots → artifact 下载 → commit → 恢复普通命令）
+- ⚠️ **CD**：release-gate（PG 集成测试）通过 ✓；失败在 build-and-push `ghcr.io/tokendancelab/metapi-go:latest denied: permission_denied: The requested installation does not exist`——仓库/组织 token 对 ghcr 的权限配置问题，**非代码缺陷，需管理员处理**
