@@ -800,3 +800,11 @@
 - 踩坑：playwright install 必须在 npm ci 之后（node_modules 不存在时浏览器装不上）——顺序修复 f216c73
 - i18n-en.spec.ts 补 **zh 模式回归**：zh 模式正常显示中文 + en→zh 回切恢复中文（WeakMap 原文污染回归防线，验证 S3 修复）；e2e 本地 4/4 + CI 绿
 - 状态：CI 12 job 全绿（含 en-verify）· UI visual 绿 · CD release-gate 绿（build-and-push 仍阻塞 ghcr 权限）
+
+## [2026-08-01] EN 验收 --with-data 模式 11/11 全绿（193dd5e）
+
+- verify-en-pages.mjs 扩展 --with-data：API 造 site+account 后遍历——覆盖**数据面**（表格行/行内操作/编辑对话框，空库模式够不着）；每路由探测首个 Add/New/Create 按钮断言对话框无 Untranslated
+- 数据面暴露 18 键缺失（首跑 9/11）：当前余额/成功请求/今日签到/可用性×2/代理端点可用/尚未配置站点/先添加上游站点…/使用/（已禁用）/今日 +/今日 -/不限制/项/顺序 #/冷却至/最近失败:/上移/下移
+- 修复：Today's 键引号转义（单引号包裹字符串内裸 ' 破坏 rolldown 构建——报错 917 行 `,` or `}` expected）、脚本 const status 重赋值 bug
+- CI en-verify 切换 --with-data（数据面验收进持续防护）
+- 验证：--with-data 11/11 clean · 门禁 14 · typecheck · go build 绿
