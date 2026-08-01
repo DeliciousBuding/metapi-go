@@ -4,7 +4,7 @@
 **Repo**: https://github.com/TokenDanceLab/metapi-go  
 **Mode**: **GITHUB_FULL** · product **parity core shipped**; active M53 REL-HONESTY  
 **Project**: https://github.com/orgs/TokenDanceLab/projects/1  
-**Tip**: `caaf422` · tag **v0.8.45** · unreleased: parity core + P0-555 obs + P0-585 HTTP e2e + #557 procedure + CI unblock + dual-dialect Context helpers + engineering optimization wave + N2-N7/G1 productization batch + all-api-hub borrow Wave A–D + K1a/K1b + N9a/N9b-a + A3 + B1 审计 + B2 实时运维 WS + VIS-1/NAV-1/DENSE-1 + review 修复 + **i18n 全面收官（t() 门禁 / 181 条裸 JSX 补译 / 插值碎片 / canvas 快照 EN 化）**
+**Tip**: `b508b84` · tag **v0.8.45** · unreleased: parity core + P0-555 obs + P0-585 HTTP e2e + #557 procedure + CI unblock + dual-dialect Context helpers + engineering optimization wave + N2-N7/G1 productization batch + all-api-hub borrow Wave A–D + K1a/K1b + N9a/N9b-a + A3 + B1 审计 + B2 实时运维 WS + VIS-1/NAV-1/DENSE-1 + review 修复 + **i18n 全面收官（t() 门禁 / 181 条裸 JSX 补译 / 插值碎片 / canvas 快照 EN 化）**
 **Program plan**: [`../plan/original-parity-complete-2026-07-20.md`](../plan/original-parity-complete-2026-07-20.md)
 
 > **开放项 + 硬门禁**。现状 → [`../STATE.md`](../STATE.md) · 日志 → [`../log.md`](../log.md) · shortlist → [`../analysis/high-value-next.md`](../analysis/high-value-next.md)
