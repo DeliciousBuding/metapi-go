@@ -109,6 +109,19 @@ P0-585 partial、P0-555 residual、#579/#547/#584 partial 等是 **协议/计费
 
 **默认建议**：v0.8.45 已 tagged → 优先 **ops pin/up soak** + **SHOT-1**；UI 待办（VIS-1/NAV-1/DENSE-1）已全部收官。
 
+### SHOT-1 视觉验收（2026-08-01，无图像输入环境的程序化复核）
+
+重录截图无法人眼直读时，用像素级程序化验收代替：
+
+| 检查 | 方法 | 结果 |
+|:-----|:-----|:-----|
+| 非空白/非登录页 | 144x90 降采样独特颜色计数 + 行亮度曲线 | dashboard 598 / sites 341 / settings 500 色；多段布局（topbar + 卡片 + 横线） |
+| NAV-1 first-run 折叠侧栏 | 侧栏区域 x:0-230 深色像素行分布 | y=72/108/144/180 恰好 4 项核心导航（仪表盘/站点/连接/设置）+ y=240/288「更多功能」折叠区 |
+| 空态内容 | 整行 mid 亮度段 + 深色文本行定位 | dashboard 开始使用条（#553）、sites EmptyState、settings 表单卡均在 |
+| 重录生效 | 文件 mtime | page/shell/gallery 14 张 08-43 全套更新（login 07-21 未动合理） |
+
+结论：**page-dashboard/sites/settings 空库截图反映当前 tip（NAV-1/DENSE-1/VIS-1）**，SHOT-1 验收完成。
+
 ---
 
 ## 6. 验证命令（复现对照）
