@@ -98,4 +98,41 @@ test.describe('i18n EN mode', () => {
       expect(text).not.toContain('Untranslated');
     }
   });
+
+  test('zh mode shows Chinese and en→zh switch restores it (S3 regression)', async ({ page }) => {
+    // zh mode: gallery must render Chinese (no EN leakage).
+    await page.addInitScript(() => {
+      try {
+        localStorage.setItem('app_language', 'zh');
+        localStorage.setItem('metapi_design_gallery', '1');
+      } catch {
+        /* ignore */
+      }
+    });
+    await gotoRobust(page, '/__design__');
+
+    const body = page.locator('body');
+    await expect(body).toContainText('仪表盘', { timeout: 15_000 });
+
+    // Flip EN → zh and assert Chinese copy comes back (WeakMap poisoning
+    // regression: en values must never become the recorded originals).
+    const enToggle = page.getByRole('button', { name: 'EN' }).first();
+    await enToggle.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {
+      /* layout without topbar — skip rest */
+    });
+    if (await enToggle.isVisible().catch(() => false)) {
+      await enToggle.click();
+      await expect(page.locator('html')).toHaveAttribute('lang', 'en', { timeout: 15_000 });
+      await expect(body).not.toContainText('Untranslated', { timeout: 15_000 });
+
+      const zhToggle = page.getByRole('button', { name: '中' }).first();
+      await zhToggle.waitFor({ state: 'visible', timeout: 15_000 });
+      await zhToggle.click();
+      await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN', { timeout: 15_000 });
+      // The gallery sidebar/shell copy must return to Chinese — the observer
+      // restores recorded originals and must not have been poisoned by EN.
+      await expect(body).toContainText('仪表盘', { timeout: 15_000 });
+      await expect(body).not.toContainText('Untranslated');
+    }
+  });
 });
