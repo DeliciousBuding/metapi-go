@@ -37,7 +37,7 @@ Open `http://localhost:4000`.
 - **Protocol proxy**: OpenAI, Anthropic, Gemini, Codex — with real-time format conversion
 - **Routing engine**: Weighted random, round-robin, stable-first. Fibonacci backoff cooldown. Circuit breaker.
 - **Account management**: 14 platform adapters, auto check-in, balance tracking, OAuth PKCE
-- **Operations**: 9-channel notifications (Webhook/Bark/ServerChan/Telegram/SMTP/Feishu/DingTalk/WeCom/ntfy), audit log, realtime ops panel, backup/restore, rate limiting, 15 background schedulers
+- **Operations**: 9-channel notifications (Webhook/Bark/ServerChan/Telegram/SMTP/Feishu/DingTalk/WeCom/ntfy), audit log, realtime ops panel, backup/restore, rate limiting, 16 background schedulers
 - **Performance**: 20MB memory, 15MB Docker image, <0.1s startup
 
 ## Why Go?
