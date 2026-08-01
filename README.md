@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/TokenDanceLab/metapi-go/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/TokenDanceLab/metapi-go/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/DeliciousBuding/metapi-go/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/DeliciousBuding/metapi-go/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Go" src="https://img.shields.io/badge/Go-1.26.5-00ADD8?logo=go">
   <a href="https://github.com/TokenDanceLab/metapi-go/pkgs/container/metapi-go"><img alt="Docker" src="https://img.shields.io/badge/ghcr-v0.8.45-blue?logo=docker"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-green"></a>
@@ -54,7 +54,7 @@ MetAPI 作为中转站之上的**元聚合层**，把多个站点统一到一个
 
 ---
 
-> **Unreleased tip（master）**：parity KEYS/WS/#514/UC-1、all-api-hub borrow 14 项（A1–K1，含 A3 余额分析）、New API N1–N9b、sub2api/cliproxyapi B1 审计/B2 实时面板、UI 收官（主题 preset / first-run 侧栏 / 表格密度）+ **i18n 全面收官（EN 全链路可读 + 四层门禁）**+ 通知防护闭环（dispatch 日志 + 保存校验）+ **Charts 轴色 JS 解析 + reduced-motion 门控（a11y Phase 5 收官）**均在 tip（2026-08-01）；生产 pin 可能仍为 0.8.44，以 ops STATE 为准。P0-585 仍 partial（需生产 e2e）。
+> **Unreleased tip（master）**：当前维护波次补强真实数据态 EN/zh 18 路由验收、SQLite OAuth refresh 查询、Windows 本地监听/防火墙卫生，以及 OAuth 回调监听器所有权。生产 hk3 已运行 v0.8.45 且健康；本波次不包含生产变更。P0-585 仍 partial（需生产多通道 e2e）。
 
 ## 快速开始
 
@@ -105,10 +105,17 @@ docker compose up -d
 ### 从源码
 
 ```bash
-git clone https://github.com/TokenDanceLab/metapi-go.git
+git clone https://github.com/DeliciousBuding/metapi-go.git
 cd metapi-go
 go build -o metapi ./cmd/server
 AUTH_TOKEN=admin PROXY_TOKEN=proxy-token ./metapi
+```
+
+Windows 本地运行且未设置 `HOST` 时，默认仅监听 `127.0.0.1`，避免 `go run` 或临时构建路径反复触发入站防火墙提示。需要局域网访问时显式设置 `HOST=0.0.0.0`，并自行收紧防火墙范围。历史临时二进制遗留规则可先审计，再精确清理：
+
+```powershell
+.\scripts\windows-firewall-maintenance.ps1 -Mode Audit
+.\scripts\windows-firewall-maintenance.ps1 -Mode Cleanup -Elevate
 ```
 
 ---
@@ -175,6 +182,7 @@ Cron 定时执行（默认每日 08:00），智能解析奖励金额，签到失
 | `PROXY_MAX_BUFFERED_RESPONSE_BYTES` | `20971520` | 非流式上游响应的最大缓冲字节数，默认 20 MiB，超限返回 502 |
 | `METAPI_ENABLE_PROXY_STUB` | 空 | 测试/演示用本地代理 stub 开关；生产保持为空，未配置上游转发时返回 503 |
 | `PORT` | `4000` | 监听端口 |
+| `HOST` | Windows: `127.0.0.1`；其他平台: `0.0.0.0` | 显式值总是优先；容器配置固定为 `0.0.0.0` |
 | `DB_TYPE` | `sqlite` | 数据库类型（`sqlite` / `postgres`）；提供 PostgreSQL URL 时可自动推断为 `postgres` |
 | `DATABASE_URL` / `DB_URL` | 空 | PostgreSQL 连接串或 SQLite 文件路径；`DB_URL` 优先，`DATABASE_URL` 用于兼容部署平台 |
 | `DB_SSLMODE` | 空 | PostgreSQL TLS 模式；支持 `disable`、`allow`、`prefer`、`require`、`verify-ca`、`verify-full`；非空时覆盖连接串中的 `sslmode` |

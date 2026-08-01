@@ -1,7 +1,7 @@
 # Design system components
 
 > Last updated: 2026-07-19
-> Issue: [#533](https://github.com/TokenDanceLab/metapi-go/issues/533)
+> Issue: [#533](https://github.com/DeliciousBuding/metapi-go/issues/533)
 > Source of truth for primitives: `web/design-system/**`
 > Tokens: `web/styles/tokens.css` + `docs/design/DESIGN.md`
 

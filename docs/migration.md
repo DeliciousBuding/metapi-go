@@ -208,9 +208,11 @@ The SQLite database is never modified by the migration tool (it only reads). You
 
 ## Additive enterprise upgrades
 
-**Issue:** [SC1 #21](https://github.com/TokenDanceLab/metapi-go/issues/21)  
-**Depends on:** [SC0 #20](https://github.com/TokenDanceLab/metapi-go/issues/20) (`docs/analysis/schema-parity.md`)  
-**Implements product columns:** [SC2 #22](https://github.com/TokenDanceLab/metapi-go/issues/22)
+**Issue:** [SC1 #21](https://github.com/DeliciousBuding/metapi-go/issues/21)
+
+**Depends on:** [SC0 #20](https://github.com/DeliciousBuding/metapi-go/issues/20) (`docs/analysis/schema-parity.md`)
+
+**Implements product columns:** [SC2 #22](https://github.com/DeliciousBuding/metapi-go/issues/22)
 
 This section is the operator-facing contract for **forward-only schema upgrades**
 on existing SQLite and PostgreSQL installs. It complements the one-shot

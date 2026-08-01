@@ -91,9 +91,12 @@ trunc → clamp[1, 30*24*60*60] → (int, true)
 
 #### 1.8 `parseListenHost(env map[string]string) string`
 ```
-env["HOST"] 为空 → "0.0.0.0"
-trim → 为空 → "0.0.0.0"
+trim(env["HOST"]) 非空 → 显式值（所有平台优先）
+HOST 缺失/空白 + Windows → "127.0.0.1"
+HOST 缺失/空白 + 非 Windows → "0.0.0.0"
 ```
+
+容器镜像与 compose 显式注入 `HOST=0.0.0.0`，因此平台默认差异只影响直接运行的本地二进制。Windows 采用 loopback 是为了避免临时 `go run`/构建路径反复触发入站防火墙提示；需要 LAN 暴露时必须显式配置。
 
 ---
 
@@ -677,7 +680,7 @@ TS 包裹整个 settings-load block 在 try/catch 中，失败只 `console.warn`
 第一个 SIGTERM → 开始 graceful shutdown (5s timeout)。第二个 SIGTERM → Go 默认行为 `os.Exit` 立即退出。P0 不做特殊处理；P12 可考虑优雅重置 `signal.Notify` channel。
 
 ### E9. 后台服务启动失败
-TS `startOAuthLoopbackCallbackServers` 包裹在 try/catch → 失败只 warn 不阻止启动。其他后台服务（scheduler, polling, probe）未包裹 try/catch -- 假设不会失败或 panic。Go: 每个后台服务启动包裹在 goroutine + recover 中；失败只 `log.Warn`。
+Go 不再在 scheduler 启动阶段永久占用 OAuth loopback 端口。真实 provider callback server 只在 `StartFlow` 时懒启动，并由 app shutdown 统一停止；固定端口不可用时记录 warning，保留手工 callback/SSH tunnel 流程，不阻断授权 URL 的创建。其他后台服务启动失败按各自契约记录 warning 或 recover，不能让无关任务拖垮进程。
 
 ### E10. Empty string vs undefined
 Go 中 `map[string]string` 不存在 key 时返回 `""`。需要在 parse 函数中区分 "key not present" 和 "key set to empty string"。TS `parseOptionalSecret` 返回 `""` for undefined, 与 `""` for empty string 行为一致 -- 不需要区分。Go 统一处理即可。

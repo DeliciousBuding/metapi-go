@@ -3,6 +3,16 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-08-01] 维护成本收敛 —— real-data 验收、SQLite OAuth、Windows 防火墙与 callback 所有权
+
+- **验收去假绿**：`verify-en-pages.mjs --with-data` 使用 `node:sqlite` 严格播种 account / balance_history / site_day_usage / proxy_logs，并核对插入数；DB URL、建库或数据态不完整即失败。EN/zh 均覆盖 18 路由，Dashboard 的余额、成本与延迟图必须进入真实 canvas 数据态。
+- **SQLite OAuth refresh**：connection list 与 refresh scheduler 改用共享显式 account/site projection，移除 `SELECT a.*, s.*` 的重复列与嵌套 scan 歧义；本地新库启动不再出现 `missing destination name id`。
+- **Windows 默认收口**：直接运行的 Windows 二进制在 `HOST` 缺失/空白时绑定 `127.0.0.1`；非 Windows 保持历史默认，Dockerfile/compose 显式 `0.0.0.0`。维护脚本只命中过期可执行文件、临时目录和旧 checkout 的 MetAPI 入站规则。
+- **Windows race 门禁**：本机 Go 1.26 race runtime 原生执行会因 ThreadSanitizer 地址空间分配报 error 87；`scripts/go-race.sh` 在 Windows Git Bash 自动使用 WSL，其他平台保持原生，pre-push/Makefile 共用同一入口。
+- **OAuth listener 单一所有者**：移除启动即占用 9844–9846 的旧 scheduler；真实 callback server 按 provider flow 懒启动并由 app shutdown 回收，固定端口不可用时 warning + 手工 callback/SSH tunnel fallback。
+- **运行边界**：hk3 仍为 v0.8.45 healthy、PG pool/role 1/1、restart=no；本轮未执行生产变更。
+- **来源同步**：源码、CI、issues 与 releases 指向 `DeliciousBuding/metapi-go`；GHCR package 仍保留 `TokenDanceLab/metapi-go`。
+
 ## [2026-08-01] SSOT 收口 + hex 清扫（Phase 5 收官）
 
 - **SSOT 收口**（`a4d3b5a`）: STATE/MASTER tip 同步 3 wave 漂移（通知防护 + charts 双 wave）+ README/README_EN unreleased 补段。

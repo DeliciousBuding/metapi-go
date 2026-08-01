@@ -11,7 +11,7 @@ Go rewrite of [MetAPI](https://github.com/cita-777/metapi). Single binary, no No
   <a href="README_EN.md">English</a>
 </p>
 
-[![CI](https://github.com/TokenDanceLab/metapi-go/actions/workflows/ci.yml/badge.svg)](https://github.com/TokenDanceLab/metapi-go/actions/workflows/ci.yml)
+[![CI](https://github.com/DeliciousBuding/metapi-go/actions/workflows/ci.yml/badge.svg)](https://github.com/DeliciousBuding/metapi-go/actions/workflows/ci.yml)
 [![Go](https://img.shields.io/badge/Go-1.26.5-00ADD8?logo=go)](https://go.dev/)
 [![Docker](https://img.shields.io/badge/ghcr-v0.8.45-blue?logo=docker)](https://github.com/TokenDanceLab/metapi-go/pkgs/container/metapi-go)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -30,7 +30,7 @@ docker run -d -p 4000:4000 \
 
 Open `http://localhost:4000`.
 
-> **Unreleased tip (master)**: parity KEYS/WS/#514/UC-1, 14 all-api-hub borrows (A1–K1 incl. A3 balance analysis), New API N1–N9b, sub2api/cliproxyapi B1 audit / B2 realtime panel, UI wrap-up (theme presets / first-run sidebar / table density), full i18n (EN everywhere, 4-layer coverage gate), the notify guard loop (dispatch logging + save-time validation), and the Charts contrast/reduced-motion pass (JS-resolved axis colors, motion-gated canvas animation — a11y Phase 5 closed) are on tip (2026-08-01); production pin may still lag at 0.8.44 (see ops STATE). P0-585 remains partial until production e2e.
+> **Unreleased tip (master)**: the current maintenance wave hardens seeded real-data EN/zh verification across 18 routes, SQLite OAuth refresh queries, Windows local listen/firewall hygiene, and OAuth callback-listener ownership. Production hk3 is healthy on v0.8.45; this wave makes no production changes. P0-585 remains partial until production multi-channel e2e.
 
 ## Features
 
@@ -67,6 +67,7 @@ All env vars are identical to the TypeScript version.
 | `PROXY_MAX_BUFFERED_RESPONSE_BYTES` | `20971520`; maximum buffered non-streaming upstream response size |
 | `METAPI_ENABLE_PROXY_STUB` | empty; test/demo-only local proxy stub. Keep empty in production so unconfigured upstream forwarding returns 503. |
 | `PORT` | `4000` |
+| `HOST` | `127.0.0.1` on Windows when unset; `0.0.0.0` elsewhere. Explicit values always win; containers set `0.0.0.0`. |
 | `DB_TYPE` | `sqlite`; `postgres` is inferred when a PostgreSQL URL is provided |
 | `DATABASE_URL` / `DB_URL` | empty; PostgreSQL connection string or SQLite file path. `DB_URL` takes precedence. |
 | `DB_SSLMODE` | empty; PostgreSQL TLS mode. Supports `disable`, `allow`, `prefer`, `require`, `verify-ca`, and `verify-full`; non-empty values override `sslmode` in the connection string. |
@@ -77,6 +78,13 @@ All env vars are identical to the TypeScript version.
 | `ADMIN_CORS_ALLOWED_ORIGINS` | empty; comma-separated exact `http(s)` admin browser origins allowed to call `/api/*`; `*` is rejected |
 
 Full list: [`.env.example`](.env.example).
+
+On Windows, the loopback default avoids repeated inbound-firewall prompts from changing `go run` or temporary build paths. Set `HOST=0.0.0.0` only for intentional LAN exposure. Audit and precisely remove stale MetAPI executable rules with:
+
+```powershell
+.\scripts\windows-firewall-maintenance.ps1 -Mode Audit
+.\scripts\windows-firewall-maintenance.ps1 -Mode Cleanup -Elevate
+```
 
 The runtime supports two database modes: single-process SQLite and PostgreSQL for production deployments. In PostgreSQL mode, side-effecting schedulers such as external requests, notifications, uploads, cleanup, and sync jobs use PG advisory locks so multiple replicas do not run the same job batch at the same time. Optional `REDIS_URL` / `METAPI_REDIS_URL` enables multi-instance shared **RPM/TPM admission** counters only (`auth.ConfigureSharedAdmissionFromRedisURL` + `internal/sharedcount`; fail-open to process-local windows if Redis is unreachable). Leave empty for single-node — no Redis process required. Sticky sessions remain process-local and are **not** shared across instances via Redis today (STICKY-B is residual, not product). See [`docs/analysis/redis-shared-state.md`](docs/analysis/redis-shared-state.md).
 

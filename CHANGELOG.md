@@ -7,6 +7,17 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Changed — 本地运行与 OAuth 维护成本收敛（2026-08-01）
+- Windows 未设置 `HOST` 时默认监听 `127.0.0.1`，避免临时构建路径反复触发入站防火墙提示；Linux/macOS 保持 `0.0.0.0`，容器显式固定 `HOST=0.0.0.0`
+- 新增 `scripts/windows-firewall-maintenance.ps1`，只审计/清理已丢失、临时目录或旧 checkout 下的 MetAPI 入站规则
+- Windows pre-push race 门禁自动转入 WSL 执行，避免原生 ThreadSanitizer 地址空间分配失败导致误报或人工 `--no-verify`
+- 删除永久占用 9844–9846 的旧 OAuth loopback scheduler；provider callback server 改为按 flow 懒启动、由 app shutdown 统一回收，端口不可用时保留手工 callback/SSH tunnel 路径
+
+### Fixed — SQLite OAuth refresh 与真实数据态验收（2026-08-01）
+- OAuth connection list / refresh scheduler 共享显式 account-site projection，移除 `SELECT a.*, s.*` 对 SQLite/sqlx 嵌套扫描的依赖
+- EN/zh 18 路由验收改为严格 seeded data-state：账号、余额历史、日用量和代理日志缺一即失败，不再以 warning 继续产生假绿
+- 补齐数据态暴露的 `Latency trend (last …)` 与 `Non-streaming` 翻译回归
+
 ### Changed — Charts 动画遵循 prefers-reduced-motion（2026-08-01）
 - canvas 动画无法用 CSS 关闭 → `animation: !prefersReducedMotion()` 门控 8 图表（WCAG 2.3.3）；门禁防硬编码回归
 
