@@ -847,3 +847,9 @@
 - verify-en-pages.mjs 加 `--zh`：全 18 路由断言 ①无 Untranslated（tr() zh 模式返回原文）②已知中文 UI 标签在位（站点/设置/仪表盘/路由/账号/通知——防 EN 滞留/WeakMap 污染）③属性面只查 Untranslated（zh 汉字属性为正常态）
 - CI en-verify job **双模式**（EN --with-data + zh --with-data）；本地/CI 双模式 18/18 clean
 - **i18n 验收体系收官**：EN（无 Untranslated/无汉字/无中文标点/属性面）× zh（无滞留/中文在位）× 18 路由 × 双模式数据面——全部持续化进 CI
+
+## [2026-08-01] bundle 拆分：index 461→240KB + react-vendor（74064f2）
+
+- manualChunks 拆 **react-vendor**（react/react-dom/scheduler/react-router/react-is/use-sync-external-store）——index 461KB → 240KB（-48%），react 运行时独立 chunk 浏览器长期缓存
+- vchart-vendor（2MB，唯一 >500KB chunk）确认异步-only（全部图表组件 React.lazy，不阻塞首屏/页面 shell）——chunkSizeWarningLimit 2100 消除构建警告（注明理由）
+- 验证：双模式 18/18 clean（真实浏览器 chunk 结构无回归）· 584 vitest · typecheck · build 无警告
