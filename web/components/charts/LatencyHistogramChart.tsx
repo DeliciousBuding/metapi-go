@@ -4,6 +4,7 @@ import { VChart } from '@visactor/react-vchart';
 import { api, type LatencyHistogramResponse } from '../../api.js';
 import { EmptyState as DsEmptyState } from '../../design-system/index.js';
 import { useChartColors } from '../useThemeLabelColor.js';
+import { prefersReducedMotion } from '../motion.js';
 
 /* ------------------------------------------------------------------ */
 /*  Props                                                              */
@@ -104,6 +105,7 @@ export default function LatencyHistogramChart({
 
   const spec: Record<string, unknown> = {
     type: 'bar' as const,
+    animation: !prefersReducedMotion(),
     data: [{ id: 'data', values: buckets }],
     xField: 'label',
     yField: 'count',

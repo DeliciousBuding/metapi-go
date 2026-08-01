@@ -4,6 +4,7 @@ import { VChart } from '@visactor/react-vchart';
 import { api } from '../../api.js';
 import { EmptyState as DsEmptyState } from '../../design-system/index.js';
 import { useChartColors } from '../useThemeLabelColor.js';
+import { prefersReducedMotion } from '../motion.js';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -160,7 +161,7 @@ export default function IncomeOutcomeChart({ days = 30 }: IncomeOutcomeChartProp
         ],
       },
     },
-    animation: true,
+    animation: !prefersReducedMotion(),
     animationAppear: {
       bar: { type: 'growHeightIn', duration: 800, easing: 'cubicOut' },
     },

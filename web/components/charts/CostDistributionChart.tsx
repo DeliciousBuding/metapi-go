@@ -4,6 +4,7 @@ import { VChart } from '@visactor/react-vchart';
 import { api, type ModelCostDistributionResponse } from '../../api.js';
 import { EmptyState as DsEmptyState } from '../../design-system/index.js';
 import { useChartColors } from '../useThemeLabelColor.js';
+import { prefersReducedMotion } from '../motion.js';
 
 /* ------------------------------------------------------------------ */
 /*  Props                                                              */
@@ -116,6 +117,7 @@ export default function CostDistributionChart({
   const totalCost = data?.totals?.cost ?? 0;
   const spec: Record<string, unknown> = {
     type: 'pie' as const,
+    animation: !prefersReducedMotion(),
     data: [{ id: 'data', values: items }],
     valueField: 'cost',
     categoryField: 'label',

@@ -4,6 +4,7 @@ import { VChart } from '@visactor/react-vchart';
 import { api } from '../../api.js';
 import { EmptyState as DsEmptyState } from '../../design-system/index.js';
 import { useChartColors } from '../useThemeLabelColor.js';
+import { prefersReducedMotion } from '../motion.js';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -154,7 +155,7 @@ export default function BalanceHistoryChart({
         ],
       },
     },
-    animation: true,
+    animation: !prefersReducedMotion(),
     animationAppear: {
       line: { type: 'clipIn', duration: 800, easing: 'cubicOut' },
       point: { type: 'fadeIn', duration: 600, delay: 400, easing: 'cubicOut' },

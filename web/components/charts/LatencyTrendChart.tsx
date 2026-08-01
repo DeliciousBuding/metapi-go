@@ -4,6 +4,7 @@ import { VChart } from '@visactor/react-vchart';
 import { api, type LatencyTrendResponse } from '../../api.js';
 import { EmptyState as DsEmptyState } from '../../design-system/index.js';
 import { useChartColors } from '../useThemeLabelColor.js';
+import { prefersReducedMotion } from '../motion.js';
 
 /* ------------------------------------------------------------------ */
 /*  Props                                                              */
@@ -110,6 +111,7 @@ export default function LatencyTrendChart({ days = 7 }: LatencyTrendChartProps) 
   const truncatedCount = data?.truncatedDays?.length ?? 0;
   const spec: Record<string, unknown> = {
     type: 'line' as const,
+    animation: !prefersReducedMotion(),
     data: [{ id: 'data', values: flatData }],
     xField: 'date',
     yField: 'latency',

@@ -3,6 +3,7 @@ import { VChart } from '@visactor/react-vchart';
 import { useThemeLabelColor } from '../useThemeLabelColor.js';
 import { EmptyState as DsEmptyState } from '../../design-system/index.js';
 import { tr } from '../../i18n.js';
+import { prefersReducedMotion } from '../motion.js';
 
 interface SiteDistributionData {
   siteName: string;
@@ -141,7 +142,7 @@ export default function SiteDistributionChart({
         },
       },
       color: PIE_COLORS,
-      animation: true,
+      animation: !prefersReducedMotion(),
       background: 'transparent',
     };
   }, [chartData, hasData, labelColor]);

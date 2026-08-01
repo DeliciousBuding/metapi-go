@@ -3,6 +3,7 @@ import { tr } from '../../i18n.js';
 import { VChart } from '@visactor/react-vchart';
 import { formatDateTimeMinuteLocal } from '../../pages/helpers/checkinLogTime.js';
 import { useChartColors } from '../useThemeLabelColor.js';
+import { prefersReducedMotion } from '../motion.js';
 
 type Metric = 'tokens' | 'requests' | 'cost';
 
@@ -143,6 +144,7 @@ export default function DownstreamKeyTrendChart({
     },
     color: ['var(--color-primary)'],
     background: 'transparent',
+    animation: !prefersReducedMotion(),
     animationAppear: {
       area: { type: 'fadeIn', duration: 500, easing: 'cubicOut' },
       line: { type: 'clipIn', duration: 700, easing: 'cubicOut' },

@@ -47,6 +47,18 @@ describe('chart canvas color gate', () => {
     expect(missing).toEqual([]);
   });
 
+  it('chart animation is gated on prefers-reduced-motion (never hardcoded)', () => {
+    const hardcoded: string[] = [];
+    for (const f of files) {
+      const src = readFileSync(join(CHARTS_DIR, f), 'utf-8');
+      if (/\banimation:\s*true\b/.test(src)) hardcoded.push(f);
+      // Every chart must explicitly gate animation (VChart defaults to on;
+      // CSS media queries cannot reach the canvas).
+      if (!src.includes('animation: !prefersReducedMotion()')) hardcoded.push(`${f}: no motion gate`);
+    }
+    expect(hardcoded).toEqual([]);
+  });
+
   it('axis-bearing charts reference the resolved label/grid colors', () => {
     const missing: string[] = [];
     for (const f of files) {
