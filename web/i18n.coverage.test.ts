@@ -165,6 +165,8 @@ describe('i18n coverage gate', () => {
     expect(bad).toEqual([]);
   });
 
+  // Dict grew to ~1500 keys; each fragment runs the full phrase-replacement
+  // pass, which is slow on CI runners — budget generously.
   it('interpolated JSX text fragments are covered (React text-node splits)', () => {
     const bad: Array<[string, string]> = [];
     for (const literal of collectInterpolatedJSX()) {
@@ -179,7 +181,7 @@ describe('i18n coverage gate', () => {
       }
     }
     expect(bad).toEqual([]);
-  });
+  }, 20_000);
 
   it('chart spec literals are wrapped in tr() and covered by the dictionary', () => {
     const { raw, covered } = collectChartSpecLiterals();
