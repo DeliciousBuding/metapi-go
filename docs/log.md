@@ -841,3 +841,9 @@
 - verify-en-pages.mjs 每路由 evaluate 扫描 placeholder/title/aria-label 属性值——MutationObserver 翻译但 innerText 不可见的面此前零 CI 验证
 - 本地 18/18 clean（属性面全绿——门禁 attr 面 + 补键已覆盖，验收固化）
 - 验收四断言齐备：无 Untranslated / 无汉字 / 无中文标点 / 属性面零残留
+
+## [2026-08-01] zh 模式 18 路由验收（e10190f）
+
+- verify-en-pages.mjs 加 `--zh`：全 18 路由断言 ①无 Untranslated（tr() zh 模式返回原文）②已知中文 UI 标签在位（站点/设置/仪表盘/路由/账号/通知——防 EN 滞留/WeakMap 污染）③属性面只查 Untranslated（zh 汉字属性为正常态）
+- CI en-verify job **双模式**（EN --with-data + zh --with-data）；本地/CI 双模式 18/18 clean
+- **i18n 验收体系收官**：EN（无 Untranslated/无汉字/无中文标点/属性面）× zh（无滞留/中文在位）× 18 路由 × 双模式数据面——全部持续化进 CI
