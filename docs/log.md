@@ -775,3 +775,12 @@
 - **M1-M5**：跳过/重试/豆包/路由不存在/通道/错误/代理 词典错误修正；stripComments 行注释截断 URL 修复
 - 门禁从 4 用例升级为更严口径（raw key 必 tr()、插值分段、tr 扫描、表达式分支）；i18n.test.ts +5 回归测试
 - 验证：580 vitest（+5）· typecheck 双配置 · build:web 全绿
+
+## [2026-08-01] e2e wave：212 条对象字面量中文补键 + 门禁第四面 + EN e2e 三测（3769ac8）
+
+- 新增 `web/e2e/i18n-en.spec.ts`（真实浏览器 MutationObserver 全链路验证）首跑即抓真 bug：gallery 侧栏「站点公告」显示 Untranslated
+- 根因 = **第四类门禁盲区**：对象字面量值侧中文（`label: '站点公告'`、`site_notice: '...'`、option/状态映射）——collectRawJSX 的 attr/text/表达式三面全扫不到；生产侧栏「连接管理/OAuth 管理」同病
+- 补键 212 条（DownstreamKeys/Sites/OAuthManagement/Settings/updateCenter/ModelTester/About/初始化预设描述/品牌名百川智能/百炼等），字典达 ~700 键
+- 门禁升级：collectRawJSX 增加对象字面量值侧收集（排除 i18n/charts 文件，防未来 wave 再漏）
+- e2e 三测：登录页 html[lang=en] + 无汉字无 Untranslated、gallery 组件面无 Untranslated、会话内切换语言
+- 验证：580 vitest · 门禁 4/4 · e2e 3/3 · typecheck 双配置 · build 绿
