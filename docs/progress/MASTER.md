@@ -50,7 +50,8 @@
 | 1 | MAINT | OAuth refresh account/site query shared across connection and scheduler | implemented; see log for validation evidence |
 | 2 | MAINT | Windows loopback default + targeted stale firewall-rule maintenance | implemented and locally audited |
 | 3 | MAINT | Remove dormant OAuth loopback scheduler; start provider callbacks lazily | implemented; see log for validation evidence |
-| 4 | REL | P0-585 production multi-channel e2e | partial; no production write authorized |
+| 4 | MAINT | Daily metric truth: Dashboard + Accounts unknown-vs-zero, partial status, fail-closed SQL | implemented; see log for validation evidence |
+| 5 | REL | P0-585 production multi-channel e2e | partial; no production write authorized |
 | ops | — | hk3 v0.8.45 pin/up + soak | **done and healthy**; no deployment in this wave |
 
 ## Quick status

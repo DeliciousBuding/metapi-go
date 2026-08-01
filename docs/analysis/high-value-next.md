@@ -25,7 +25,7 @@
 
 | Rank | ID | Title | Status | Next | Risk if skip |
 |-----:|:---|:------|:-------|:-----|:-------------|
-| 1 | **METRIC-TRUTH** | Daily metric truth | **Dashboard present in master** | Accounts per-row unknown-vs-zero + coverage metadata remain | Silent fake-zero decisions |
+| 1 | **METRIC-TRUTH** | Daily metric truth | **Dashboard + Accounts closed in master** | — | Silent fake-zero decisions |
 | 2 | **WS-1** | Responses WebSocket Codex | **C1+C2+C3 present** | Full TS parity shipped (C3 Codex upstream wss flagged); sticky single-instance honesty | multi-instance pin only |
 | 3 | **#547** | Per-downstream-key weight | **present** | shipped key_weight + selector + UI | — |
 | 4 | **#584** | Site header override priority | **present** | shipped override flag + ApplyCustomHeadersWithOptions + Sites UI | — |

@@ -12,6 +12,8 @@ All notable changes to MetAPI-Go will be documented in this file.
 - 修复 nullable DB `*string` 签到奖励无法解析；奖励源不完整时标记 `partial/source_partial`，Dashboard 显示 `—`，每日通知标注「部分可观测」
 - Dashboard 核心 SQL 失败改为 HTTP 500 + 结构化日志，不再以 HTTP 200 和零值假绿；禁用站点不再污染余额/流量聚合
 - 修复站点可用性 LEFT JOIN 空行被计为失败，以及本地日结束边界丢失最后 1 秒
+- `/api/accounts` 每行返回 per-account 今日奖励/支出真值（`todayReward` / `todaySpend` / `todayRewardStatus` 等），无行账号为真实 0；Accounts 页不再渲染 `+0.00 / -0.00` 假零，指标不可观测时显示 `—`
+- 新增 `service/daily.CollectPerAccountTodayMetrics`，与 Dashboard 同一日界线与奖励解析语义；legacy TEXT 时间规范化提取为公共 SQL 片段，消除查询间重复
 
 ### Fixed — GHCR 所有权与 CD 发布（2026-08-01）
 - 自动构建镜像改为 `ghcr.io/deliciousbuding/metapi-go`，与源码仓所有者一致，避免个人仓 `GITHUB_TOKEN` 跨所有者写入未关联的 TokenDanceLab 包时失败

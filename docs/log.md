@@ -3,6 +3,14 @@
 > **进度日志**（append-only）。不是现状 SSOT。  
 > 现状 → [`STATE.md`](STATE.md) · 开放项 → [`progress/MASTER.md`](progress/MASTER.md)
 
+## [2026-08-01] 每日指标真值 —— Dashboard + Accounts 双面收口
+
+- **Dashboard 假零根除**（`c09a741`）: `CollectDailySummaryMetrics` 查询失败显式 error（不再返回 nil/静默 0）；proxy 统计拆分 unknown/unattributed/missing-cost；`todayReward` 来自真实签到奖励解析（含 `*string` 行归一化）；SQLite legacy TEXT 时间在窗口比较处规范化为 ISO 8601；本地日界线改为独占边界（`endLocal = startLocal.AddDate(0,0,1)`）；统计只 join active 站点。
+- **前端诚实显示**（`90431fd`）: Dashboard 奖励行由 `todayMetricStatus.metrics.reward.status` 门控——complete 显示数字（0 也显示），否则 `今日 —`；`今日 —` 补进 i18n。
+- **Accounts 每行真值**（本波）: 新增 `service/daily/account_metrics.go` `CollectPerAccountTodayMetrics`——与 Dashboard 同一日界线/reward 解析器/income fallback，per-account 奖励+支出+status；`/api/accounts` 每行附 `todayReward/todaySpend/todayRewardStatus/todaySpendStatus/todayTokens/todayProxy`；无行账号 = 真实 0/complete，指标查询失败降级为「—」并记日志（不阻断列表）；`legacyCreatedAtExpr` 提取公共 SQL 片段消除 6 处重复；Accounts 页两处 `(a.todayReward || 0)` 假零改 status 门控渲染。
+- **门禁**（`69d8905`）: OAuth flow 测试注入 callback start seam，不再依赖 Windows 保留端口；新增 service 测试 4 个（含 legacy 时间/禁用站点排除/partial 语义/未归属行隔离）+ handler 列表测试 1 个 + 前端 3 个（complete 显示真值 / partial 显示 — / 降级显示 —）。
+- **运行边界**: hk3 仍 v0.8.45 healthy；本轮全部为 master 改动，无生产部署。
+
 ## [2026-08-01] 维护成本收敛 —— real-data 验收、SQLite OAuth、Windows 防火墙与 callback 所有权
 
 - **验收去假绿**：`verify-en-pages.mjs --with-data` 使用 `node:sqlite` 严格播种 account / balance_history / site_day_usage / proxy_logs，并核对插入数；DB URL、建库或数据态不完整即失败。EN/zh 均覆盖 18 路由，Dashboard 的余额、成本与延迟图必须进入真实 canvas 数据态。
