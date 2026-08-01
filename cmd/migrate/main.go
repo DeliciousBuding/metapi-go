@@ -1,9 +1,10 @@
 // Command metapi-migrate is a standalone tool that transfers all 18 application
-// tables from a SQLite source database to a PostgreSQL target database.
+// tables between a SQLite database and a PostgreSQL database (either direction).
 //
 // Usage:
 //
 //	metapi-migrate --from sqlite://data/hub.db --to postgres://user:pass@host:5432/db
+//	metapi-migrate --from postgres://user:pass@host:5432/db --to sqlite://data/hub.db
 //	metapi-migrate --from sqlite://data/hub.db --to postgres://user:pass@host:5432/db --dry-run
 //	metapi-migrate --from sqlite://data/hub.db --to postgres://user:pass@host:5432/db --overwrite --progress --verify
 //
@@ -11,7 +12,8 @@
 //   - Per-column type coercion with fallback defaults
 //   - JSON column serialization (13 columns across 5 tables)
 //   - FK-safe DELETE order during overwrite
-//   - PostgreSQL sequence synchronization after insert
+//   - PostgreSQL sequence synchronization after insert (PG targets only;
+//     SQLite AUTOINCREMENT handles itself)
 //   - Single-transaction boundary with rollback on error
 //   - Settings key filtering (skips db_type, db_url, db_ssl)
 package main
@@ -233,26 +235,28 @@ func maskPassword(connStr string) string {
 // ---- Migration flow ----
 
 func runMigration(fromPath, toURL string, overwrite, dryRun, progress, verify bool, batchSize int) (*MigrationSummary, error) {
-	// 1. Normalize source path
-	sourcePath, err := normalizeSQLitePath(fromPath)
-	if err != nil {
-		return nil, fmt.Errorf("invalid --from: %w", err)
+	fromPG := isPostgresURL(fromPath)
+	toSQLite := isSQLiteTarget(toURL)
+	switch {
+	case fromPG && !toSQLite:
+		return nil, fmt.Errorf("unsupported direction: PostgreSQL source to PostgreSQL target")
+	case !fromPG && toSQLite:
+		fmt.Fprintf(os.Stderr, "Direction: SQLite → SQLite (copy / dialect check)\n")
+	case fromPG && toSQLite:
+		fmt.Fprintf(os.Stderr, "Direction: PostgreSQL → SQLite (reverse migration, 2026-08-01)\n")
+	default:
+		fmt.Fprintf(os.Stderr, "Direction: SQLite → PostgreSQL (forward migration)\n")
 	}
 
-	// 2. Validate target URL
-	if err := validatePGURL(toURL); err != nil {
-		return nil, fmt.Errorf("invalid --to: %w", err)
-	}
-
-	// 3. Open source SQLite
-	srcDB, err := sql.Open("sqlite", sourcePath+"?_journal_mode=WAL")
+	// 1. Open source (SQLite path or PostgreSQL URL)
+	srcDB, err := openSourceDB(fromPath)
 	if err != nil {
-		return nil, fmt.Errorf("open source SQLite: %w", err)
+		return nil, fmt.Errorf("open source: %w", err)
 	}
 	defer srcDB.Close()
 
-	// 4. Read all 18 tables into memory (matching TS toBackupSnapshot)
-	fmt.Fprintf(os.Stderr, "Reading source SQLite database...\n")
+	// 2. Read all 18 tables into memory (matching TS toBackupSnapshot)
+	fmt.Fprintf(os.Stderr, "Reading source database...\n")
 	snapshot, err := readAllTables(srcDB)
 	if err != nil {
 		return nil, fmt.Errorf("read source: %w", err)
@@ -263,7 +267,7 @@ func runMigration(fromPath, toURL string, overwrite, dryRun, progress, verify bo
 		fmt.Fprintf(os.Stderr, "  %-28s %d rows\n", t+":", len(snapshot[t]))
 	}
 
-	// 5. Build insert statements with full type coercion (matching TS buildStatements)
+	// 3. Build insert statements with full type coercion (matching TS buildStatements)
 	inserts := buildStatements(snapshot)
 
 	if dryRun {
@@ -272,23 +276,23 @@ func runMigration(fromPath, toURL string, overwrite, dryRun, progress, verify bo
 		return buildSummary(snapshot, toURL, overwrite), nil
 	}
 
-	// 6. Open target PG
-	tgtDB, err := sql.Open("pgx", toURL)
+	// 4. Open target (SQLite path or PostgreSQL URL)
+	tgtDB, err := openTargetDB(toURL)
 	if err != nil {
-		return nil, fmt.Errorf("open target PG: %w", err)
+		return nil, fmt.Errorf("open target: %w", err)
 	}
 	defer tgtDB.Close()
 
 	if err := tgtDB.Ping(); err != nil {
-		return nil, fmt.Errorf("ping target PG: %w", err)
+		return nil, fmt.Errorf("ping target: %w", err)
 	}
 
-	// 7. Ensure schema exists in target
-	if err := ensureTargetSchema(tgtDB); err != nil {
+	// 5. Ensure schema exists in target (dialect-specific DDL)
+	if err := ensureTargetSchema(tgtDB, toSQLite); err != nil {
 		return nil, fmt.Errorf("ensure target schema: %w", err)
 	}
 
-	// 8. Check target state (reject if data exists and !overwrite, matching TS ensureTargetState)
+	// 6. Check target state (reject if data exists and !overwrite, matching TS ensureTargetState)
 	if !overwrite {
 		var count int
 		if err := tgtDB.QueryRow(`SELECT COUNT(*) FROM "sites"`).Scan(&count); err == nil && count > 0 {
@@ -296,14 +300,14 @@ func runMigration(fromPath, toURL string, overwrite, dryRun, progress, verify bo
 		}
 	}
 
-	// 9. Begin transaction
+	// 7. Begin transaction
 	tx, err := tgtDB.Begin()
 	if err != nil {
 		return nil, fmt.Errorf("begin transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }() // safe no-op after commit
 
-	// 10. Clear target data in FK-safe order (if overwrite)
+	// 8. Clear target data in FK-safe order (if overwrite)
 	if overwrite {
 		fmt.Fprintf(os.Stderr, "\nClearing target data (FK-safe order)...\n")
 		for _, table := range clearOrder {
@@ -313,13 +317,19 @@ func runMigration(fromPath, toURL string, overwrite, dryRun, progress, verify bo
 		}
 	}
 
-	// 11. Insert all rows
+	// 9. Insert all rows (dialect-specific placeholders)
 	fmt.Fprintf(os.Stderr, "\nInserting %d rows...\n", len(inserts))
 	inserted := 0
 	start := time.Now()
 
 	for _, stmt := range inserts {
-		sqlText, args := buildInsertPG(stmt)
+		var sqlText string
+		var args []interface{}
+		if toSQLite {
+			sqlText, args = buildInsertSQLite(stmt)
+		} else {
+			sqlText, args = buildInsertPG(stmt)
+		}
 		if _, err := tx.Exec(sqlText, args...); err != nil {
 			return nil, fmt.Errorf("insert into %s: %w", stmt.table, err)
 		}
@@ -335,24 +345,26 @@ func runMigration(fromPath, toURL string, overwrite, dryRun, progress, verify bo
 		fmt.Fprintf(os.Stderr, "  Done: %d rows in %s\n", inserted, elapsed.Round(time.Millisecond))
 	}
 
-	// 12. Sync PostgreSQL sequences
-	fmt.Fprintf(os.Stderr, "\nSyncing PostgreSQL sequences...\n")
-	for _, table := range sequenceTables {
-		q := fmt.Sprintf(`SELECT setval(pg_get_serial_sequence('%s', 'id'), COALESCE((SELECT MAX("id") FROM "%s"), 1), TRUE)`, table, table)
-		if _, err := tx.Exec(q); err != nil {
-			// Table might not exist if migrations haven't run; warn but continue
-			fmt.Fprintf(os.Stderr, "  Warning: sync sequence for %s: %v\n", table, err)
+	// 10. Sync sequences (PostgreSQL only; SQLite AUTOINCREMENT handles itself)
+	if !toSQLite {
+		fmt.Fprintf(os.Stderr, "\nSyncing PostgreSQL sequences...\n")
+		for _, table := range sequenceTables {
+			q := fmt.Sprintf(`SELECT setval(pg_get_serial_sequence('%s', 'id'), COALESCE((SELECT MAX("id") FROM "%s"), 1), TRUE)`, table, table)
+			if _, err := tx.Exec(q); err != nil {
+				// Table might not exist if migrations haven't run; warn but continue
+				fmt.Fprintf(os.Stderr, "  Warning: sync sequence for %s: %v\n", table, err)
+			}
 		}
 	}
 
-	// 13. Commit
+	// 11. Commit
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit: %w", err)
 	}
 
 	summary := buildSummary(snapshot, toURL, overwrite)
 
-	// 14. Verify checksums (if requested)
+	// 12. Verify checksums (if requested)
 	if verify {
 		fmt.Fprintf(os.Stderr, "\nVerifying checksums...\n")
 		if err := verifyChecksums(srcDB, tgtDB, snapshot); err != nil {
@@ -363,6 +375,52 @@ func runMigration(fromPath, toURL string, overwrite, dryRun, progress, verify bo
 	}
 
 	return summary, nil
+}
+
+// ---- Dialect helpers (reverse-migration support, 2026-08-01) ----
+
+func isPostgresURL(raw string) bool {
+	return strings.HasPrefix(raw, "postgres://") || strings.HasPrefix(raw, "postgresql://")
+}
+
+// isSQLiteTarget treats "sqlite://path" and plain paths as SQLite targets.
+func isSQLiteTarget(raw string) bool {
+	if isPostgresURL(raw) {
+		return false
+	}
+	return true
+}
+
+// openSourceDB opens a SQLite path or a PostgreSQL URL as the source.
+func openSourceDB(raw string) (*sql.DB, error) {
+	if isPostgresURL(raw) {
+		db, err := sql.Open("pgx", raw)
+		if err != nil {
+			return nil, err
+		}
+		if err := db.Ping(); err != nil {
+			_ = db.Close()
+			return nil, err
+		}
+		return db, nil
+	}
+	sourcePath, err := normalizeSQLitePath(raw)
+	if err != nil {
+		return nil, err
+	}
+	return sql.Open("sqlite", sourcePath+"?_journal_mode=WAL")
+}
+
+// openTargetDB opens a SQLite path or a PostgreSQL URL as the target.
+func openTargetDB(raw string) (*sql.DB, error) {
+	if isPostgresURL(raw) {
+		return sql.Open("pgx", raw)
+	}
+	sourcePath, err := normalizeSQLitePath(raw)
+	if err != nil {
+		return nil, err
+	}
+	return sql.Open("sqlite", sourcePath+"?_journal_mode=WAL")
 }
 
 // normalizeSQLitePath handles sqlite:// prefix and plain paths (matching TS normalizeSqliteTarget).
@@ -1022,7 +1080,7 @@ func buildInsertPG(s insertStmt) (string, []interface{}) {
 
 // ---- Ensure target schema (matching TS ensureRuntimeDatabaseSchema) ----
 
-func ensureTargetSchema(db *sql.DB) error {
+func ensureTargetSchema(db *sql.DB, sqlite bool) error {
 	// Minimal DDL: CREATE TABLE IF NOT EXISTS for the 18 migration-target tables.
 	// The full schema is handled by store.Migrate() in the server binary.
 	// Here we only need the tables to exist for data insertion.
@@ -1048,12 +1106,52 @@ func ensureTargetSchema(db *sql.DB) error {
 	}
 
 	for table, ddl := range tables {
+		if sqlite {
+			ddl = sqliteDDLFromPG(ddl)
+		}
 		if _, err := db.Exec(ddl); err != nil {
 			return fmt.Errorf("create table %s: %w", table, err)
 		}
 		_ = table // used in error message
 	}
 	return nil
+}
+
+// sqliteDDLFromPG converts a PostgreSQL CREATE TABLE statement to the SQLite
+// dialect (reverse-migration support). Type mapping:
+//
+//	BIGSERIAL PRIMARY KEY → INTEGER PRIMARY KEY AUTOINCREMENT
+//	BOOLEAN → INTEGER (DEFAULT TRUE/FALSE → DEFAULT 1/0 — SQLite has no bool literal)
+//	BIGINT → INTEGER · DOUBLE PRECISION → REAL · JSONB → TEXT
+func sqliteDDLFromPG(pgDDL string) string {
+	r := strings.NewReplacer(
+		"DEFAULT FALSE", "DEFAULT 0",
+		"DEFAULT TRUE", "DEFAULT 1",
+		"BIGSERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT",
+		"JSONB", "TEXT",
+		"BOOLEAN", "INTEGER",
+		"BIGINT", "INTEGER",
+		"DOUBLE PRECISION", "REAL",
+	)
+	return r.Replace(pgDDL)
+}
+
+// buildInsertSQLite builds an INSERT with `?` placeholders (SQLite dialect).
+func buildInsertSQLite(s insertStmt) (string, []interface{}) {
+	quotedCols := make([]string, len(s.columns))
+	for i, c := range s.columns {
+		quotedCols[i] = `"` + c + `"`
+	}
+	placeholders := make([]string, len(s.columns))
+	for i := range s.columns {
+		placeholders[i] = "?"
+	}
+	sqlText := fmt.Sprintf("INSERT INTO \"%s\" (%s) VALUES (%s)",
+		s.table,
+		strings.Join(quotedCols, ", "),
+		strings.Join(placeholders, ", "),
+	)
+	return sqlText, s.values
 }
 
 // ---- Checksum verification ----
@@ -1169,7 +1267,10 @@ func main() {
 	flag.Parse()
 
 	if *flagFrom == "" || *flagTo == "" {
-		fmt.Fprintf(os.Stderr, "Usage: metapi-migrate --from <sqlite_path> --to <postgres_url> [flags]\n\n")
+		fmt.Fprintf(os.Stderr, "Usage: metapi-migrate --from <sqlite_path|postgres_url> --to <postgres_url|sqlite_path> [flags]\n\n")
+		fmt.Fprintf(os.Stderr, "Directions:\n")
+		fmt.Fprintf(os.Stderr, "  SQLite → PostgreSQL : --from sqlite://data/hub.db --to postgres://user:pass@host:5432/db\n")
+		fmt.Fprintf(os.Stderr, "  PostgreSQL → SQLite : --from postgres://user:pass@host:5432/db --to sqlite://data/hub.db\n\n")
 		fmt.Fprintf(os.Stderr, "Flags:\n")
 		flag.PrintDefaults()
 		os.Exit(1)
