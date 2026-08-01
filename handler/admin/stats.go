@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 	"github.com/tokendancelab/metapi-go/scheduler"
+	"github.com/tokendancelab/metapi-go/service"
 	dailyservice "github.com/tokendancelab/metapi-go/service/daily"
 )
 
@@ -74,14 +75,6 @@ func RegisterDownstreamPricingRoutes(r chi.Router, db *sqlx.DB) {
 type statsHandler struct {
 	db *sqlx.DB
 }
-
-// effectiveProxyTokensSQL returns a SQL expression that prefers total_tokens
-// and falls back to prompt_tokens + completion_tokens. Avoids under-counting
-// partial upstream usage payloads and avoids double-counting when both are set.
-const effectiveProxyTokensSQL = `CASE
-	WHEN COALESCE(pl.total_tokens, 0) > 0 THEN COALESCE(pl.total_tokens, 0)
-	ELSE COALESCE(pl.prompt_tokens, 0) + COALESCE(pl.completion_tokens, 0)
-END`
 
 // ---- Dashboard ----
 // GET /api/stats/dashboard?refresh=&view=
@@ -152,7 +145,7 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 			SELECT
 				COUNT(*) AS total,
 				COALESCE(SUM(CASE WHEN pl.status = 'success' THEN 1 ELSE 0 END), 0) AS success,
-				COALESCE(SUM(`+effectiveProxyTokensSQL+`), 0) AS total_tokens,
+				COALESCE(SUM(`+service.EffectiveProxyTokensSQL+`), 0) AS total_tokens,
 				COALESCE(SUM(COALESCE(pl.estimated_cost, 0)), 0) AS total_cost
 			FROM proxy_logs pl
 			INNER JOIN accounts a ON a.id = pl.account_id
@@ -179,7 +172,7 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 		if err := h.db.Get(&perf, rebindAdminQuery(h.db, `
 			SELECT
 				COUNT(*) AS requests,
-				COALESCE(SUM(`+effectiveProxyTokensSQL+`), 0) AS tokens
+				COALESCE(SUM(`+service.EffectiveProxyTokensSQL+`), 0) AS tokens
 			FROM proxy_logs pl
 			INNER JOIN accounts a ON a.id = pl.account_id
 			INNER JOIN sites s ON s.id = a.site_id
@@ -258,7 +251,7 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 		// All-time totals with effective token expression (no double count).
 		var totalTokens int64
 		if err := h.db.Get(&totalTokens, rebindAdminQuery(h.db, `
-			SELECT COALESCE(SUM(`+effectiveProxyTokensSQL+`), 0)
+			SELECT COALESCE(SUM(`+service.EffectiveProxyTokensSQL+`), 0)
 			FROM proxy_logs pl
 			INNER JOIN accounts a ON a.id = pl.account_id
 			INNER JOIN sites s ON s.id = a.site_id
@@ -420,7 +413,7 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 			COALESCE(SUM(CASE WHEN pl.status = 'success' THEN 1 ELSE 0 END), 0) as success_count,
 			COALESCE(SUM(CASE WHEN COALESCE(pl.status, '') <> 'success' THEN 1 ELSE 0 END), 0) as failed_count,
 			COALESCE(SUM(COALESCE(pl.estimated_cost, 0)), 0) as total_cost,
-			COALESCE(SUM(` + effectiveProxyTokensSQL + `), 0) as total_tokens_all
+			COALESCE(SUM(` + service.EffectiveProxyTokensSQL + `), 0) as total_tokens_all
 			FROM proxy_logs pl
 			LEFT JOIN accounts a ON pl.account_id = a.id
 			LEFT JOIN sites s ON a.site_id = s.id` + where
@@ -947,7 +940,7 @@ func (h *statsHandler) usageHeatmap(w http.ResponseWriter, r *http.Request) {
 					CAST(s.id AS TEXT) AS key,
 					COALESCE(s.name, '') AS label,
 					COUNT(*) AS calls,
-					COALESCE(SUM(`+effectiveProxyTokensSQL+`), 0) AS tokens,
+					COALESCE(SUM(`+service.EffectiveProxyTokensSQL+`), 0) AS tokens,
 					COALESCE(SUM(COALESCE(pl.estimated_cost, 0)), 0) AS spend
 				FROM proxy_logs pl
 				INNER JOIN accounts a ON a.id = pl.account_id
@@ -969,7 +962,7 @@ func (h *statsHandler) usageHeatmap(w http.ResponseWriter, r *http.Request) {
 				`+modelExpr+` AS key,
 				`+modelExpr+` AS label,
 				COUNT(*) AS calls,
-				COALESCE(SUM(`+effectiveProxyTokensSQL+`), 0) AS tokens,
+				COALESCE(SUM(`+service.EffectiveProxyTokensSQL+`), 0) AS tokens,
 				COALESCE(SUM(COALESCE(pl.estimated_cost, 0)), 0) AS spend
 			FROM proxy_logs pl
 			WHERE pl.created_at >= ?
@@ -1072,7 +1065,7 @@ func (h *statsHandler) modelCostDistribution(w http.ResponseWriter, r *http.Requ
 		SELECT `+modelExpr+` AS model,
 			COUNT(*) AS calls,
 			COALESCE(SUM(COALESCE(pl.estimated_cost, 0)), 0) AS cost,
-			COALESCE(SUM(`+effectiveProxyTokensSQL+`), 0) AS tokens
+			COALESCE(SUM(`+service.EffectiveProxyTokensSQL+`), 0) AS tokens
 		FROM proxy_logs pl
 		WHERE pl.created_at >= ?
 		GROUP BY `+modelExpr+`

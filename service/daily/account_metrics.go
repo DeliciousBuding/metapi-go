@@ -124,12 +124,7 @@ func CollectPerAccountTodayMetrics(db *sqlx.DB, now time.Time) (map[int64]*Accou
 			COALESCE(SUM(CASE WHEN pl.status IS NOT NULL AND pl.status != 'success' THEN 1 ELSE 0 END), 0) AS failed,
 			COALESCE(SUM(CASE WHEN pl.status IS NULL THEN 1 ELSE 0 END), 0) AS unknown,
 			COALESCE(SUM(CASE WHEN pl.estimated_cost IS NULL THEN 1 ELSE 0 END), 0) AS missing_cost,
-			COALESCE(SUM(
-				CASE
-					WHEN COALESCE(pl.total_tokens, 0) > 0 THEN COALESCE(pl.total_tokens, 0)
-					ELSE COALESCE(pl.prompt_tokens, 0) + COALESCE(pl.completion_tokens, 0)
-				END
-			), 0) AS total_tokens,
+			COALESCE(SUM(`+service.EffectiveProxyTokensSQL+`), 0) AS total_tokens,
 			COALESCE(SUM(COALESCE(pl.estimated_cost, 0)), 0) AS total_cost
 		FROM proxy_logs pl
 		INNER JOIN accounts a ON a.id = pl.account_id

@@ -156,13 +156,7 @@ func CollectDailySummaryMetrics(db *sqlx.DB, now time.Time) (*DailySummaryMetric
 					AND pl.estimated_cost IS NULL
 					AND (COALESCE(pl.total_tokens, 0) > 0 OR COALESCE(pl.prompt_tokens, 0) > 0 OR COALESCE(pl.completion_tokens, 0) > 0)
 				THEN 1 ELSE 0 END), 0) AS missing_cost_count,
-			COALESCE(SUM(
-					CASE
-						WHEN s.status != 'active' THEN 0
-						WHEN COALESCE(pl.total_tokens, 0) > 0 THEN COALESCE(pl.total_tokens, 0)
-						ELSE COALESCE(pl.prompt_tokens, 0) + COALESCE(pl.completion_tokens, 0)
-					END
-				), 0) AS total_tokens,
+			COALESCE(SUM(`+service.EffectiveProxyTokensOnActiveSitesSQL+`), 0) AS total_tokens,
 			COALESCE(SUM(CASE WHEN s.status = 'active' THEN COALESCE(pl.estimated_cost, 0) ELSE 0 END), 0.0) AS total_cost
 		FROM proxy_logs pl
 		LEFT JOIN accounts a ON a.id = pl.account_id
