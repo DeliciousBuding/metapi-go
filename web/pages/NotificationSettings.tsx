@@ -153,6 +153,22 @@ export default function NotificationSettings() {
     }, []);
 
     const saveNotify = async () => {
+        // 启用但凭据空的渠道 —— 拦截（2026-08-01 生产发现：三渠道 enabled 但
+        // 凭据空，签到失败/token 过期告警静默丢失——让正确状态成为唯一可保存状态）
+        const missingCreds: string[] = [];
+        if (runtime.webhookEnabled && !runtime.webhookUrl.trim()) missingCreds.push('Webhook URL');
+        if (runtime.barkEnabled && !runtime.barkUrl.trim()) missingCreds.push('Bark URL');
+        if (runtime.serverChanEnabled && !serverChanKey.trim() && !runtime.serverChanKeyMasked) missingCreds.push('Server酱 SendKey');
+        if (runtime.telegramEnabled && !telegramBotToken.trim() && !runtime.telegramBotTokenMasked) missingCreds.push('Telegram Bot Token');
+        if (runtime.smtpEnabled && (!runtime.smtpHost.trim() || !runtime.smtpFrom.trim() || !runtime.smtpTo.trim())) missingCreds.push('SMTP 服务器 / 发件人 / 收件人');
+        if (runtime.feishuEnabled && !runtime.feishuWebhook.trim()) missingCreds.push('飞书 Webhook');
+        if (runtime.dingtalkEnabled && !runtime.dingtalkWebhook.trim()) missingCreds.push('钉钉 Webhook');
+        if (runtime.wecomEnabled && !runtime.wecomWebhook.trim()) missingCreds.push('企业微信 Webhook');
+        if (runtime.ntfyEnabled && (!runtime.ntfyUrl.trim() || !runtime.ntfyTopic.trim())) missingCreds.push('Ntfy URL / Topic');
+        if (missingCreds.length > 0) {
+            toast.error(`已启用但缺少配置：${missingCreds.join('、')}`);
+            return;
+        }
         setSavingNotify(true);
         try {
             const payload: RuntimeSettingsPayload = {

@@ -36,8 +36,8 @@ describe('NotificationSettings', () => {
     apiMock.getRuntimeSettings.mockResolvedValue({
       webhookUrl: '',
       barkUrl: '',
-      webhookEnabled: true,
-      barkEnabled: true,
+      webhookEnabled: false,
+      barkEnabled: false,
       serverChanEnabled: false,
       telegramEnabled: true,
       telegramApiBaseUrl: 'https://tg-proxy.example.com',
@@ -121,8 +121,8 @@ describe('NotificationSettings', () => {
     apiMock.getRuntimeSettings.mockResolvedValue({
       webhookUrl: '',
       barkUrl: '',
-      webhookEnabled: true,
-      barkEnabled: true,
+      webhookEnabled: false,
+      barkEnabled: false,
       serverChanEnabled: false,
       telegramEnabled: true,
       telegramApiBaseUrl: 'https://api.telegram.org',
