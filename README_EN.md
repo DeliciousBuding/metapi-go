@@ -30,7 +30,7 @@ docker run -d -p 4000:4000 \
 
 Open `http://localhost:4000`.
 
-> **Unreleased tip (master)**: the current maintenance wave hardens seeded real-data EN/zh verification across 18 routes, SQLite OAuth refresh queries, Windows local listen/firewall hygiene, and OAuth callback-listener ownership. Automated images now share the `DeliciousBuding` owner with the source repository; production hk3 remains on the legacy TokenDanceLab GHCR v0.8.45 image, and this wave makes no production changes. P0-585 remains partial until production multi-channel e2e.
+> **Unreleased tip (master)**: the current maintenance wave hardens seeded real-data EN/zh verification across 18 routes, SQLite OAuth refresh, Windows local listen/firewall hygiene, OAuth callback ownership, and truthful local-day check-in/reward metrics. Automated images now share the `DeliciousBuding` owner with the source repository; production hk3 remains on the legacy TokenDanceLab GHCR v0.8.45 image, and this wave makes no production changes. P0-585 remains partial until production multi-channel e2e.
 
 ## Features
 

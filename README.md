@@ -54,7 +54,7 @@ MetAPI 作为中转站之上的**元聚合层**，把多个站点统一到一个
 
 ---
 
-> **Unreleased tip（master）**：当前维护波次补强真实数据态 EN/zh 18 路由验收、SQLite OAuth refresh 查询、Windows 本地监听/防火墙卫生，以及 OAuth 回调监听器所有权。自动构建镜像与源码仓统一归属 `DeliciousBuding`；生产 hk3 仍运行旧 TokenDanceLab GHCR 的 v0.8.45，本波次不包含生产变更。P0-585 仍 partial（需生产多通道 e2e）。
+> **Unreleased tip（master）**：当前维护波次补强真实数据态 EN/zh 18 路由验收、SQLite OAuth refresh、Windows 本地监听/防火墙卫生、OAuth 回调所有权，以及 Dashboard 今日签到/奖励真值。自动构建镜像与源码仓统一归属 `DeliciousBuding`；生产 hk3 仍运行旧 TokenDanceLab GHCR 的 v0.8.45，本波次不包含生产变更。P0-585 仍 partial（需生产多通道 e2e）。
 
 ## 快速开始
 

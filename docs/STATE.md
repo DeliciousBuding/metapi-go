@@ -12,7 +12,7 @@
 |:-----|:------|
 | Source | **[DeliciousBuding/metapi-go](https://github.com/DeliciousBuding/metapi-go)** · default branch `master` |
 | Latest release | **[v0.8.45](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.8.45)** (2026-07-20); master CD publishes `ghcr.io/deliciousbuding/metapi-go` |
-| Product tip | current maintenance wave hardens seeded EN/zh verification, SQLite OAuth refresh queries, Windows listen/firewall behavior, and OAuth callback ownership |
+| Product tip | current maintenance wave hardens seeded EN/zh verification, SQLite OAuth refresh, Windows listen/firewall behavior, OAuth callback ownership, GHCR ownership, and local-day metric truth |
 | Production pin (ops) | hk3 `td-metapi` **0.8.45 Up healthy** since 2026-07-20 on legacy `ghcr.io/tokendancelab/metapi-go`; Azure PG pool/role **1/1**; `restart=no` |
 | Standby | us1 cold stack; must not connect to the production PG concurrently with hk3 |
 | Active milestone | **[53 REL-HONESTY](https://github.com/DeliciousBuding/metapi-go/milestone/53)** — #557 production e2e + #558 optional runtime probes open |
@@ -33,6 +33,7 @@
 | OPS-RE2-USERID | **fixed and deployed** | v0.8.45 is healthy on hk3; the 0.8.44 crash state is historical |
 | OPS-OAUTH-REFRESH | **present** | shared explicit account/site projection supports SQLite and PostgreSQL |
 | UI i18n verification | **present** | EN and zh cover 18 routes with seeded real data-state assertions |
+| Daily metric truth | **Dashboard present in master** | shared local-day aggregation, real reward/check-in, partial truth metadata, query errors fail closed; Accounts per-row unknown-vs-zero remains a follow-up |
 | Windows local development | **loopback by default** | empty `HOST` binds `127.0.0.1`; containers/server platforms explicitly retain `0.0.0.0` |
 
 ## Current pointers

@@ -7,6 +7,12 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed — 今日指标真值与签到奖励（2026-08-01）
+- Dashboard 与每日总结复用同一本地日界线聚合，真实返回 `todayCheckin` / `todayReward`，不再固定伪造 `todayReward=0`
+- 修复 nullable DB `*string` 签到奖励无法解析；奖励源不完整时标记 `partial/source_partial`，Dashboard 显示 `—`，每日通知标注「部分可观测」
+- Dashboard 核心 SQL 失败改为 HTTP 500 + 结构化日志，不再以 HTTP 200 和零值假绿；禁用站点不再污染余额/流量聚合
+- 修复站点可用性 LEFT JOIN 空行被计为失败，以及本地日结束边界丢失最后 1 秒
+
 ### Fixed — GHCR 所有权与 CD 发布（2026-08-01）
 - 自动构建镜像改为 `ghcr.io/deliciousbuding/metapi-go`，与源码仓所有者一致，避免个人仓 `GITHUB_TOKEN` 跨所有者写入未关联的 TokenDanceLab 包时失败
 - 生产 hk3 仍保持旧 TokenDanceLab GHCR v0.8.45 pin，本变更仅修复后续镜像发布所有权，不触发生产迁移

@@ -1,7 +1,8 @@
 # Competitive Capability Matrix (metapi-go vs peers)
 
-> Snapshot date: 2026-07-17  
-> Milestone: [M-COMPETE](https://github.com/TokenDanceLab/metapi-go/milestone/8)  
+> Historical baseline snapshot: 2026-07-17
+> 2026-08-01 delta and current shortlist: [`../high-value-next.md`](../high-value-next.md)
+> Milestone: [M-COMPETE](https://github.com/DeliciousBuding/metapi-go/milestone/8)
 > Sources: `docs/analysis/competitive/sources.md`  
 > Status enum is **planning only** — not an implementation commitment.
 

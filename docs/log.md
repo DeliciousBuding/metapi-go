@@ -919,3 +919,9 @@
 
 - `07b100f` 的 release gate、Docker build、smoke 和 SBOM 均通过；推送 `ghcr.io/tokendancelab/metapi-go` 时因个人仓 `GITHUB_TOKEN` 不能跨所有者写入未关联组织包而失败。
 - master CD 改为与源码仓同所有者的 `ghcr.io/deliciousbuding/metapi-go`；生产 hk3 仍使用旧 TokenDanceLab GHCR v0.8.45，未变更运行时。
+
+## [2026-08-01] Dashboard 今日指标真值
+
+- 竞品增量审计确认 all-api-hub 的 complete/partial/unavailable 思路适合 MetAPI；首个垂直切片落在 Dashboard。
+- Dashboard 复用 daily summary 的本地日窗口，返回真实签到/奖励；nullable reward 解析修复，不完整奖励源显式标记 partial，查询失败返回 500。
+- 同步修复禁用站点污染、可用性 LEFT JOIN 假失败和本地日最后 1 秒边界；Accounts 页每账号 unknown-vs-zero 仍为后续。
