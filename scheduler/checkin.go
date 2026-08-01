@@ -122,6 +122,7 @@ func (s *CheckinScheduler) startLocked() {
 			}
 			s.cronRunner.start()
 			slog.Info("checkin: window mode armed", "cron", expr, "windowStart", s.cfg.CheckinWindowStart, "windowEnd", s.cfg.CheckinWindowEnd)
+			s.maybeCatchUpCheckin()
 			return
 		}
 	}
@@ -134,6 +135,39 @@ func (s *CheckinScheduler) startLocked() {
 		return
 	}
 	s.cronRunner.start()
+
+	// E1b: if the instance started after today's scheduled time and nothing
+	// has run today, compensate immediately — a restart must not lose the day.
+	s.maybeCatchUpCheckin()
+}
+
+// maybeCatchUpCheckin queries whether today's scheduled check-in already
+// passed without a run and, if so, triggers an immediate run (guarded by the
+// scheduler lease like every other run). Idempotent by construction.
+func (s *CheckinScheduler) maybeCatchUpCheckin() {
+	dbw := store.GetDB()
+	if dbw == nil {
+		return
+	}
+	now := time.Now()
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+
+	var ranToday int
+	if err := dbw.QueryRow(`SELECT COUNT(*) FROM checkin_logs WHERE created_at >= ?`, startOfDay.Format(time.RFC3339)).Scan(&ranToday); err != nil {
+		slog.Warn("checkin catch-up: ran-today query failed", "error", err)
+		return
+	}
+	var enabled int
+	if err := dbw.QueryRow(`SELECT COUNT(*) FROM accounts WHERE checkin_enabled = TRUE AND status = 'active'`).Scan(&enabled); err != nil {
+		slog.Warn("checkin catch-up: enabled-count query failed", "error", err)
+		return
+	}
+
+	if !shouldCatchUpCheckin(now, s.cfg.CheckinCron, ranToday > 0, enabled) {
+		return
+	}
+	slog.Info("checkin: missed today's scheduled time, compensating with immediate run", "spec", s.cfg.CheckinCron)
+	go s.runCronJob()
 }
 
 func (s *CheckinScheduler) stopLocked() {
