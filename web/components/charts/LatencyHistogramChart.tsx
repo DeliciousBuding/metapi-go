@@ -128,7 +128,7 @@ export default function LatencyHistogramChart({
         ],
       },
     },
-    color: ['var(--color-chart-2)'],
+    color: [colors.series[1]],
     background: 'transparent',
     padding: { left: 8, right: 16, top: 8, bottom: 8 },
     axes: [

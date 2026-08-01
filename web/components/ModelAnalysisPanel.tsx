@@ -3,7 +3,7 @@ import { tr } from '../i18n.js';
 import { VChart } from '@visactor/react-vchart';
 import { InlineBrandIcon } from './BrandIcon.js';
 import { formatCompactTokenMetric } from '../numberFormat.js';
-import { useThemeLabelColor } from './useThemeLabelColor.js';
+import { useChartColors, useThemeLabelColor } from './useThemeLabelColor.js';
 
 type TabKey = 'spend' | 'trend' | 'calls' | 'rank';
 
@@ -58,6 +58,7 @@ function EmptyBlock() {
 
 export default function ModelAnalysisPanel({ data }: ModelAnalysisPanelProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('spend');
+  const colors = useChartColors();
   const labelColor = useThemeLabelColor();
 
   const totals = {
@@ -79,7 +80,7 @@ export default function ModelAnalysisPanel({ data }: ModelAnalysisPanelProps) {
     type: 'bar' as const,
     data: [{ id: 'data', values: spendDistribution.map(d => ({ model: d.model.length > 25 ? d.model.slice(0, 25) + '...' : d.model, value: toSafeNumber(d.spend) })).reverse() }],
     xField: 'value', yField: 'model', direction: 'horizontal' as const,
-    bar: { style: { cornerRadius: [0, 6, 6, 0], fill: { gradient: 'linear' as const, x0: 0, y0: 0, x1: 1, y1: 0, stops: [{ offset: 0, color: 'var(--color-chart-1)' }, { offset: 1, color: 'color-mix(in srgb, var(--color-chart-1) 55%, white)' }] } } },
+    bar: { style: { cornerRadius: [0, 6, 6, 0], fill: { gradient: 'linear' as const, x0: 0, y0: 0, x1: 1, y1: 0, stops: [{ offset: 0, color: colors.series[0] }, { offset: 1, color: colors.series[0] }] } } },
     label: { visible: true, position: 'right', formatter: '{value}', style: { fontSize: 11, fill: labelColor, stroke: 'transparent' } },
     axes: [{ orient: 'left', label: { style: { fontSize: 11, fill: labelColor } } }, { orient: 'bottom', visible: false }],
     animation: true, background: 'transparent',
@@ -89,9 +90,9 @@ export default function ModelAnalysisPanel({ data }: ModelAnalysisPanelProps) {
     type: 'area' as const,
     data: [{ id: 'data', values: spendTrend.map(d => ({ day: d.day, spend: toSafeNumber(d.spend) })) }],
     xField: 'day', yField: 'spend',
-    line: { style: { lineWidth: 2.5, curveType: 'monotone' as const, stroke: 'var(--color-chart-1)' } },
-    area: { style: { fill: { gradient: 'linear' as const, x0: 0, y0: 0, x1: 0, y1: 1, stops: [{ offset: 0, color: 'var(--color-chart-1-soft)' }, { offset: 1, color: 'var(--color-chart-1-faint)' }] }, curveType: 'monotone' as const } },
-    point: { visible: true, style: { size: 7, fill: 'var(--color-chart-1)', stroke: 'var(--color-on-primary)', lineWidth: 2 } },
+    line: { style: { lineWidth: 2.5, curveType: 'monotone' as const, stroke: colors.series[0] } },
+    area: { style: { fill: { gradient: 'linear' as const, x0: 0, y0: 0, x1: 0, y1: 1, stops: [{ offset: 0, color: colors.seriesSoft[0] }, { offset: 1, color: colors.seriesFaint[0] }] }, curveType: 'monotone' as const } },
+    point: { visible: true, style: { size: 7, fill: colors.series[0], stroke: colors.onPrimary, lineWidth: 2 } },
     axes: [{ orient: 'bottom' as const, label: { style: { fontSize: 11, fill: labelColor } } }, { orient: 'left' as const, label: { style: { fontSize: 11, fill: labelColor } } }],
     tooltip: { mark: { content: [{ key: () => '消耗', value: (datum: any) => formatCurrency(datum?.spend ?? 0) }] } },
     animation: true, background: 'transparent',
@@ -106,7 +107,7 @@ export default function ModelAnalysisPanel({ data }: ModelAnalysisPanelProps) {
     label: { visible: true, position: 'outside', formatter: '{_percent_}%', style: { fill: labelColor } },
     legends: { visible: false },
     animation: true,
-    color: ['var(--color-chart-1)', 'var(--color-chart-2)', 'var(--color-chart-3)', 'var(--color-chart-4)', 'var(--color-chart-5)', 'var(--color-chart-6)', 'var(--color-chart-7)', 'var(--color-chart-8)'],
+    color: colors.series,
     background: 'transparent',
   }), [callsDistribution, labelColor]);
 
@@ -176,7 +177,7 @@ export default function ModelAnalysisPanel({ data }: ModelAnalysisPanelProps) {
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 10, padding: '0 4px' }}>
             {callsDistribution.map((d, idx) => {
-              const pieColors = ['var(--color-chart-1)', 'var(--color-chart-2)', 'var(--color-chart-3)', 'var(--color-chart-4)', 'var(--color-chart-5)', 'var(--color-chart-6)', 'var(--color-chart-7)', 'var(--color-chart-8)'];
+              const pieColors = colors.series;
               return (
                 <span key={d.model} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--color-text-secondary)' }}>
                   <span style={{ width: 8, height: 8, borderRadius: 2, background: pieColors[idx % pieColors.length], flexShrink: 0 }} />

@@ -17,16 +17,6 @@ interface CostDistributionChartProps {
   topN?: number;
 }
 
-const PIE_COLORS = [
-  'var(--color-chart-1)',
-  'var(--color-chart-2)',
-  'var(--color-chart-3)',
-  'var(--color-chart-4)',
-  'var(--color-chart-5)',
-  'var(--color-chart-6)',
-  'var(--color-chart-7)',
-  'var(--color-chart-8)',
-];
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
@@ -166,7 +156,7 @@ export default function CostDistributionChart({
         ],
       },
     },
-    color: PIE_COLORS,
+    color: colors.series,
     background: 'transparent',
     padding: { left: 8, right: 8, top: 8, bottom: 8 },
   };

@@ -174,7 +174,7 @@ export default function BalanceHistoryChart({
         domainLine: { visible: false },
       },
     ],
-    color: ['var(--color-chart-1)'],
+    color: [colors.series[0]],
     background: 'transparent',
     padding: { left: 8, right: 16, top: 8, bottom: 8 },
   };

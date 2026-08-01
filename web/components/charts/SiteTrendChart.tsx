@@ -31,16 +31,7 @@ const METRIC_OPTIONS: { key: Metric; label: string }[] = [
   { key: 'calls', label: '调用趋势' },
 ];
 
-const COLOR_PALETTE = [
-  'var(--color-chart-1)',
-  'var(--color-chart-2)',
-  'var(--color-chart-3)',
-  'var(--color-chart-4)',
-  'var(--color-chart-5)',
-  'var(--color-chart-6)',
-  'var(--color-chart-7)',
-  'var(--color-chart-8)',
-];
+
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
@@ -171,7 +162,7 @@ export default function SiteTrendChart({
         domainLine: { visible: false },
       },
     ],
-    color: COLOR_PALETTE,
+    color: colors.series,
     background: 'transparent',
     padding: { left: 8, right: 16, top: 8, bottom: 8 },
   };

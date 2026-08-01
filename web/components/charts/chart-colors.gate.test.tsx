@@ -70,4 +70,22 @@ describe('chart canvas color gate', () => {
     }
     expect(missing).toEqual([]);
   });
+
+  it('series colors are resolved via useChartColors, never raw var() strings', () => {
+    const offenders: string[] = [];
+    for (const f of files) {
+      const src = readFileSync(join(CHARTS_DIR, f), 'utf-8');
+      // Canvas series palette: array form (color: ['var(--color-chart-1)'])
+      // and gradient stops (color: 'var(--color-chart-1)').
+      const m = src.match(/color:\s*\[\s*'var\(--color-chart/g)
+        || src.match(/color:\s*'var\(--color-chart[^)]*\)'/g);
+      if (m) offenders.push(`${f}: ${m.join(', ')}`);
+      // Any chart that sets a series palette array must resolve it via
+      // colors.series (hard-coded hex arrays would bypass the tokens).
+      if (/color:\s*\[/.test(src) && !src.includes('colors.series')) {
+        offenders.push(`${f}: series color array without colors.series`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
 });

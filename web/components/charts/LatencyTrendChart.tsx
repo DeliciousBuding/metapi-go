@@ -132,7 +132,7 @@ export default function LatencyTrendChart({ days = 7 }: LatencyTrendChartProps) 
         ],
       },
     },
-    color: ['var(--color-chart-1)', 'var(--color-chart-3)'],
+    color: [colors.series[0], colors.series[2]],
     background: 'transparent',
     padding: { left: 8, right: 16, top: 8, bottom: 8 },
     axes: [

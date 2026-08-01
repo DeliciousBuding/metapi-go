@@ -39,7 +39,17 @@ describe('useChartColors', () => {
     await act(async () => {
       renderer = create(<ProbeColors />);
     });
-    expect(readJson(renderer)).toEqual({ axisLabel: '#5f6368', grid: '#f1f3f4' });
+    document.documentElement.style.setProperty('--color-chart-1', '#1a73e8');
+    document.documentElement.style.setProperty('--color-chart-2', '#12b5cb');
+    document.documentElement.style.setProperty('--color-on-primary', '#ffffff');
+    expect(readJson(renderer)).toEqual({
+      axisLabel: '#5f6368',
+      grid: '#f1f3f4',
+      series: ['#1a73e8', '#12b5cb', '#1e8e3e', '#f9ab00', '#d93025', '#a142f4', '#e52592', '#e8710a'],
+      seriesSoft: ['#1a73e833', '#12b5cb33', '#1e8e3e33', '#f9ab0033', '#d9302533', '#a142f433', '#e5259233', '#e8710a33'],
+      seriesFaint: ['#1a73e808', '#12b5cb08', '#1e8e3e08', '#f9ab0008', '#d9302508', '#a142f408', '#e5259208', '#e8710a08'],
+      onPrimary: '#ffffff',
+    });
   });
 
   it('keeps previous values when a token is missing', async () => {

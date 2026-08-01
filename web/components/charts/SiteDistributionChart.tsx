@@ -1,6 +1,6 @@
 import { useState, useMemo, type ReactNode } from 'react';
 import { VChart } from '@visactor/react-vchart';
-import { useThemeLabelColor } from '../useThemeLabelColor.js';
+import { useChartColors, useThemeLabelColor } from '../useThemeLabelColor.js';
 import { EmptyState as DsEmptyState } from '../../design-system/index.js';
 import { tr } from '../../i18n.js';
 import { prefersReducedMotion } from '../motion.js';
@@ -81,6 +81,7 @@ export default function SiteDistributionChart({
 }: SiteDistributionChartProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('balance');
   const labelColor = useThemeLabelColor();
+  const colors = useChartColors();
 
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return [];
@@ -94,7 +95,6 @@ export default function SiteDistributionChart({
 
   const hasData = chartData.length > 0 && chartData.some((d) => d.value > 0);
 
-  const PIE_COLORS = ['var(--color-chart-1)', 'var(--color-chart-2)', 'var(--color-chart-3)', 'var(--color-chart-4)', 'var(--color-chart-5)', 'var(--color-chart-6)', 'var(--color-chart-7)', 'var(--color-chart-8)'];
 
   const spec = useMemo(() => {
     if (!hasData) return null;
@@ -141,7 +141,7 @@ export default function SiteDistributionChart({
           ] as any,
         },
       },
-      color: PIE_COLORS,
+      color: colors.series,
       animation: !prefersReducedMotion(),
       background: 'transparent',
     };
@@ -261,7 +261,7 @@ export default function SiteDistributionChart({
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px', marginTop: 10, padding: '0 4px' }}>
             {chartData.map((d, idx) => (
               <span key={d.siteName} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--color-text-secondary)' }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: PIE_COLORS[idx % PIE_COLORS.length], flexShrink: 0 }} />
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: colors.series[idx % colors.series.length], flexShrink: 0 }} />
                 <span style={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.siteName}</span>
                 <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: 'var(--color-text-primary)' }}>
                   {formatValue(d.value)}

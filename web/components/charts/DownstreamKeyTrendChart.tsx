@@ -142,7 +142,7 @@ export default function DownstreamKeyTrendChart({
         ],
       },
     },
-    color: ['var(--color-primary)'],
+    color: [colors.series[0]],
     background: 'transparent',
     animation: !prefersReducedMotion(),
     animationAppear: {
