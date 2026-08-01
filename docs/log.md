@@ -808,3 +808,12 @@
 - 修复：Today's 键引号转义（单引号包裹字符串内裸 ' 破坏 rolldown 构建——报错 917 行 `,` or `}` expected）、脚本 const status 重赋值 bug
 - CI en-verify 切换 --with-data（数据面验收进持续防护）
 - 验证：--with-data 11/11 clean · 门禁 14 · typecheck · go build 绿
+
+## [2026-08-01] 门禁输出质量审计（H1 遗留收官，f43f004）
+
+- 背景：门禁「无汉字」标准放行碎英文垃圾（'Startverify'/'AllEnabled'/'RemoveTag'/'Sites AddSuccess' 等）——t()/tr() 精确键之外的短语替换/strict fallback 输出需人工审计
+- 工具：临时探针 vitest（walk 全部 tsx → stripComments → 收集 t/tr 字面量 + 对象字面量值侧 + JSX 文本 → 排除精确键命中后输出 suspicious 清单）
+- **三批补键 534 条**（第一批 74：导航/验证历史/批量验证/QPS/调度状态/API Key 连接等；第二批 116：外观/余额/检查/时间线/观测成本/请求体映射等；第三批 336：通知渠道（Webhook/Bark/ServerChan/Telegram/SMTP/冷静期合并）、OAuth 管理（JSON 导入/SSH 隧道/路由池）、调试追踪、公告/审计日志/重置系统/批量测活门槛、模型映射/倍率总览/路由高级参数（Codex WS、会话并发、首字超时、冷却上限）、站点（主站点 URL 校验/API 地址池/延迟阈值/品牌屏蔽/白名单）、账号令牌（创建/绑定/默认令牌/同步站点令牌）等）
+- 收敛：suspicious **586 → 408 → 82 → 72**（剩余 72 条全为多行 JSX 折叠误报——探针按源码跨行收集、运行期是折叠单行且键已覆盖；真实浏览器验收 verify-en-pages/e2e 才是最终裁决）
+- 踩坑：插入点误用 `const zhToEnPhrases` 锚点导致键落在对象外（parse error）——修复移到 zhToEn 对象 `};` 前；python 字符串 `\'` 经 heredoc 转义丢失（'Today\'s spend' 变裸引号破坏构建）——Edit 工具修复
+- 验证：580 vitest（门禁全绿）· typecheck · build 绿；CI en-verify --with-data 待跑
