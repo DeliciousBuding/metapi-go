@@ -2907,13 +2907,13 @@ export default function Accounts() {
                                 style={{
                                   fontSize: 11,
                                   color:
-                                    (a.todayReward || 0) > 0
+                                    a.todayRewardStatus === "complete" && (a.todayReward || 0) > 0
                                       ? "var(--color-success)"
                                       : "var(--color-text-muted)",
                                   fontWeight: 500,
                                 }}
                               >
-                                +{(a.todayReward || 0).toFixed(2)}
+                                {a.todayRewardStatus === "complete" ? `+${(a.todayReward || 0).toFixed(2)}` : "—"}
                               </div>
                             </div>
                           }
@@ -2927,13 +2927,13 @@ export default function Accounts() {
                                 style={{
                                   fontSize: 11,
                                   color:
-                                    (a.todaySpend || 0) > 0
+                                    a.todaySpendStatus === "complete" && (a.todaySpend || 0) > 0
                                       ? "var(--color-danger)"
                                       : "var(--color-text-muted)",
                                   fontWeight: 500,
                                 }}
                               >
-                                -{(a.todaySpend || 0).toFixed(2)}
+                                {a.todaySpendStatus === "complete" ? `-${(a.todaySpend || 0).toFixed(2)}` : "—"}
                               </div>
                             </div>
                           }
@@ -3286,13 +3286,13 @@ export default function Accounts() {
                               style={{
                                 fontSize: 11,
                                 color:
-                                  (a.todayReward || 0) > 0
+                                  a.todayRewardStatus === "complete" && (a.todayReward || 0) > 0
                                     ? "var(--color-success)"
                                     : "var(--color-text-muted)",
                                 fontWeight: 500,
                               }}
                             >
-                              +{(a.todayReward || 0).toFixed(2)}
+                              {a.todayRewardStatus === "complete" ? `+${(a.todayReward || 0).toFixed(2)}` : "—"}
                             </div>
                           </td>
                           <td
@@ -3306,13 +3306,13 @@ export default function Accounts() {
                               style={{
                                 fontSize: 11,
                                 color:
-                                  (a.todaySpend || 0) > 0
+                                  a.todaySpendStatus === "complete" && (a.todaySpend || 0) > 0
                                     ? "var(--color-danger)"
                                     : "var(--color-text-muted)",
                                 fontWeight: 500,
                               }}
                             >
-                              -{(a.todaySpend || 0).toFixed(2)}
+                              {a.todaySpendStatus === "complete" ? `-${(a.todaySpend || 0).toFixed(2)}` : "—"}
                             </div>
                           </td>
                           <td>
