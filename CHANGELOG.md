@@ -7,6 +7,10 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed — 门禁输出质量审计（2026-08-01）
+- **门禁「无汉字」标准放行的碎英文垃圾清零**：精确键之外的短语替换/strict fallback 输出（'Startverify'/'AllEnabled'/'RemoveTag'/'Sites AddSuccess'/'Save Retry'/'Sign In( )' 等）经探针审计——**三批 534 键补译**（通知渠道 Webhook/Bark/ServerChan/Telegram/SMTP、OAuth 管理 JSON 导入/SSH 隧道/路由池、调试追踪、公告/审计日志/重置系统/批量测活门槛、模型映射/倍率总览/路由高级参数 Codex WS/会话并发/首字超时/冷却上限、站点主站点 URL 校验/API 地址池/延迟阈值/品牌屏蔽/白名单、账号令牌创建/绑定/默认令牌/同步站点令牌等）
+- 收敛：suspicious **586 → 72**（剩余全为多行 JSX 折叠探针误报，运行期单行已覆盖；真实浏览器验收 verify-en-pages/e2e 为最终裁决）
+
 ### Fixed — i18n EN 主界面实拍验收 11/11（2026-08-01）
 - **单字键替换顺序 bug**：'启用'→'Enabled' 后 '中' 的汉字邻居变 'd'，边界检查误判 → 'EnabledZH'——单字键重构为基于原文邻界判断（先单字后多字）
 - **调度任务面板**：后端 Job 用英文 eventType id（原把中文显示名当日 id 用）；model-probe note 中文改英文
