@@ -2,11 +2,13 @@
  * EN-mode main-surface verification (2026-08-01 e2e wave).
  *
  * Connects to a live single-process backend (embedded SPA, same origin —
- * same pattern as capture-ui-shots.mjs SHOT-1) and walks the main admin
- * routes in EN mode, asserting:
+ * same pattern as capture-ui-shots.mjs SHOT-1) and walks the admin routes
+ * in EN mode, asserting:
  *   - no `Untranslated` fallback text anywhere in the body
  *   - no Han residue in UI containers (page body; user-data cells are
  *     data-i18n-skip exempt by design and not asserted here)
+ *   - no CJK punctuation residue (`：` `，` etc. — translateText normalizes
+ *     it, so any occurrence is a real regression; quality-audit wave 2026-08-01)
  *
  * `--with-data` additionally seeds a fake site + account via the admin API
  * before walking, so table rows, row actions and dialogs are exercised
@@ -22,6 +24,9 @@
 import { chromium } from '@playwright/test';
 
 const HAN_RE = /[㐀-鿿]/;
+// CJK punctuation must never leak into EN output (quality-audit wave:
+// translateText normalizes it, so any residue here is a real regression).
+const CJK_PUNCT_RE = /[：，。；！？（）【】“”‘’、…]/;
 const base = (process.env.METAPI_UI_SHOT_BASE || '').trim().replace(/\/$/, '');
 const authToken = (process.env.METAPI_UI_AUTH_TOKEN || '').trim();
 const withData = process.argv.includes('--with-data');
@@ -42,6 +47,14 @@ const routes = [
   { id: 'monitor', path: '/monitor' },
   { id: 'settings', path: '/settings' },
   { id: 'events', path: '/events' },
+  // Deep surfaces added 2026-08-01 (quality-audit coverage):
+  { id: 'oauth', path: '/oauth' },
+  { id: 'playground', path: '/playground' },
+  { id: 'tokens', path: '/tokens' },
+  { id: 'site-announcements', path: '/site-announcements' },
+  { id: 'about', path: '/about' },
+  { id: 'settings-notify', path: '/settings/notify' },
+  { id: 'settings-import-export', path: '/settings/import-export' },
 ];
 
 const failures = [];
@@ -113,6 +126,8 @@ for (const route of routes) {
     const untranslated = (text.match(/Untranslated/g) || []).length;
     const hanRuns = text.match(HAN_RE);
     const hanSnippet = hanRuns ? text.slice(Math.max(0, text.search(HAN_RE) - 40), text.search(HAN_RE) + 40).replace(/\s+/g, ' ') : '';
+    const cjkPunctRuns = text.match(CJK_PUNCT_RE);
+    const cjkPunctSnippet = cjkPunctRuns ? text.slice(Math.max(0, text.search(CJK_PUNCT_RE) - 40), text.search(CJK_PUNCT_RE) + 40).replace(/\s+/g, ' ') : '';
     // Context around each Untranslated occurrence for triage.
     let untranslatedSnippets = '';
     if (untranslated > 0) {
@@ -124,7 +139,7 @@ for (const route of routes) {
       }
       untranslatedSnippets = ' | ' + [...new Set(snips)].join(' || ');
     }
-    let status = untranslated === 0 && !hanRuns ? 'PASS' : 'FAIL';
+    let status = untranslated === 0 && !hanRuns && !cjkPunctRuns ? 'PASS' : 'FAIL';
     let dialogNote = '';
     if (status === 'PASS') {
       const dialogIssue = await checkDialogs(page).catch(() => null);
@@ -136,7 +151,7 @@ for (const route of routes) {
     if (status === 'FAIL') {
       failures.push(route.id);
     }
-    console.log(`${status}  ${route.id.padEnd(18)} untranslated=${untranslated}${hanRuns ? ` han=${hanRuns.length}` : ''}${untranslatedSnippets}${dialogNote}`);
+    console.log(`${status}  ${route.id.padEnd(18)} untranslated=${untranslated}${hanRuns ? ` han=${hanRuns.length} [${hanSnippet}]` : ''}${cjkPunctRuns ? ` cjkPunct=${cjkPunctRuns.length} [${cjkPunctSnippet}]` : ''}${untranslatedSnippets}${dialogNote}`);
   } catch (err) {
     failures.push(route.id);
     console.log(`ERROR ${route.id.padEnd(18)} ${String(err).slice(0, 160)}`);

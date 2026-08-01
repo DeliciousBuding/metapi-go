@@ -362,9 +362,12 @@ export default function NotificationSettings() {
                     </div>
 
                     <div style={{ opacity: runtime.serverChanEnabled ? 1 : 0.6, transition: 'opacity 0.2s' }}>
-                        <code style={{ display: 'block', padding: '10px 14px', background: 'var(--color-bg)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border-light)', marginBottom: 10 }}>
-                            当前配置: {runtime.serverChanKeyMasked || '未设置'}
-                        </code>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10 }}>
+                            <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{tr('当前配置: ')}</span>
+                            <code style={{ padding: '4px 10px', background: 'var(--color-bg)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border-light)' }}>
+                                {runtime.serverChanKeyMasked || tr('未设置')}
+                            </code>
+                        </div>
                         <input
                             type="password"
                             value={serverChanKey}

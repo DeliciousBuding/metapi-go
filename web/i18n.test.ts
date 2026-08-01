@@ -123,6 +123,22 @@ describe('translateText quality-audit regressions (2026-08-01 batch 4)', () => {
     expect(out).toBe('Accounts:');
   });
 
+  it('extended-route fixes (verify-en-pages 18-route sweep)', () => {
+    // NotificationSettings `当前配置: {key || '未设置'}` — label + fallback
+    // split out of the code container and tr()-wrapped.
+    expect(translateText('当前配置: ', 'en')).toBe('Current config: ');
+    expect(translateText('未设置', 'en')).toBe('Not Set');
+    expect(translateText('无', 'en')).toBe('N/A');
+    // ImportExport `或 <span>点击选择文件</span>` — React may or may not
+    // preserve the trailing space, so both forms must resolve.
+    expect(translateText('或 ', 'en')).toBe('or ');
+    expect(translateText('或', 'en')).toBe('or ');
+    // Pure CJK-punctuation nodes ('（' in `当前运行：sqlite（path）`) must
+    // normalize to ASCII even with no Han chars.
+    expect(translateText('（', 'en')).toBe('(');
+    expect(translateText('）', 'en')).toBe(')');
+  });
+
   it('every EN dictionary value is Han-free', () => {
     // Static scan of the raw source: values must never contain Han chars.
     const src = readFileSync('i18n.tsx', 'utf8');

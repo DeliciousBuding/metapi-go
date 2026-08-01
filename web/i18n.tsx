@@ -1515,7 +1515,12 @@ const zhToEn: Record<string, string> = {
 
     '+ 创建令牌': '+ Create token',
     '回退到 revision': 'Roll back to revision',
-    '迁移结果：站点': 'Migration result: sites',};
+    '迁移结果：站点': 'Migration result: sites',
+
+    '当前配置: ': 'Current config: ',
+    '或 ': 'or ',
+    '或': 'or ',
+    '无': 'N/A',};
 
 for (const [source, target] of Object.entries(zhToEnSupplemental)) {
   if (!zhToEn[source]) {
@@ -1524,6 +1529,7 @@ for (const [source, target] of Object.entries(zhToEnSupplemental)) {
 }
 
 const HAS_HAN_RE = /[\u3400-\u9fff]/;
+const CJK_PUNCT_RE = /[\uff0c\u3002\uff1a\uff1b\uff01\uff1f\uff08\uff09\u3010\u3011\u201c\u201d\u2018\u2019\u3001\u2026]/;
 const HAN_BLOCK_RE = /[\u3400-\u9fff]+/g;
 const LATIN_OR_DIGIT_RE = /[A-Za-z0-9]/;
 const TRANSLATABLE_ATTRS = ['placeholder', 'title', 'aria-label'] as const;
@@ -1584,6 +1590,7 @@ const CJK_PUNCT_TO_ASCII: Record<string, string> = {
   '’': '\'',
   '、': ', ',
 
+
 };
 
 function enforceStrictEnglish(text: string): string {
@@ -1613,7 +1620,7 @@ let runtimeLanguage: Language = 'zh';
 export function translateText(text: string, language: Language): string {
   if (language === 'zh') return text;
   if (!text) return text;
-  if (!HAS_HAN_RE.test(text)) return zhToEn[text] ?? text;
+  if (!HAS_HAN_RE.test(text)) return zhToEn[text] ?? normalizePunctuationOnly(text);
   // Runtime text nodes keep JSX whitespace (`显示第 {n} 条` → fragment
   // '条，共 '); dictionary keys are stored trimmed, so fall back to the
   // trimmed form for exact lookup.
@@ -1670,7 +1677,9 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       if (parent.isContentEditable) return false;
       const value = node.nodeValue || '';
       if (!value.trim()) return false;
-      if (!HAS_HAN_RE.test(value) && language !== 'zh') return false;
+      // Pure CJK-punctuation nodes (e.g. '（' in `当前运行：sqlite（path）`) carry
+      // no Han chars but must still be normalized (translateText handles them).
+      if (!HAS_HAN_RE.test(value) && !CJK_PUNCT_RE.test(value) && language !== 'zh') return false;
       return true;
     };
 
