@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { tr } from '../i18n.js';
 import { create } from 'react-test-renderer';
 import MobileBatchBar from './MobileBatchBar.js';
 
@@ -6,7 +7,7 @@ describe('MobileBatchBar', () => {
   it('renders info text and action content inside the shared batch bar shell', () => {
     const root = create(
       <MobileBatchBar info="已选 2 项">
-        <button type="button">批量删除</button>
+        <button type="button">{tr('批量删除')}</button>
       </MobileBatchBar>,
     );
 

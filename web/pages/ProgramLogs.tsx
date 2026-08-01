@@ -268,9 +268,7 @@ export default function ProgramLogs() {
                   setHasMore(true);
                   setOnlyUnread(e.target.checked);
                 }}
-              />
-              仅看未读
-            </label>
+              />{tr('仅看未读')}</label>
             <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
               共 {visibleRows.length} 条
             </div>
@@ -300,9 +298,7 @@ export default function ProgramLogs() {
                   setHasMore(true);
                   setOnlyUnread(e.target.checked);
                 }}
-              />
-              仅看未读
-            </label>
+              />{tr('仅看未读')}</label>
 
             <div style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--color-text-muted)' }}>
               共 {visibleRows.length} 条
@@ -330,7 +326,7 @@ export default function ProgramLogs() {
                   )}
                   footerActions={(
                     row.read ? (
-                      <span className="badge badge-muted" style={{ fontSize: 11 }}>已读</span>
+                      <span className="badge badge-muted" style={{ fontSize: 11 }}>{tr('已读')}</span>
                     ) : (
                       <button
                         type="button"
@@ -377,13 +373,13 @@ export default function ProgramLogs() {
             </colgroup>
             <thead>
               <tr>
-                <th>时间</th>
-                <th>类型</th>
-                <th>级别</th>
-                <th>标题</th>
-                <th>内容</th>
-                <th>状态</th>
-                <th style={{ textAlign: 'right' }}>操作</th>
+                <th>{tr('时间')}</th>
+                <th>{tr('类型')}</th>
+                <th>{tr('级别')}</th>
+                <th>{tr('标题')}</th>
+                <th>{tr('内容')}</th>
+                <th>{tr('状态')}</th>
+                <th style={{ textAlign: 'right' }}>{tr('操作')}</th>
               </tr>
             </thead>
             <tbody>
@@ -419,9 +415,9 @@ export default function ProgramLogs() {
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
                         {row.read ? (
-                          <span className="badge badge-muted" style={{ fontSize: 11 }}>已读</span>
+                          <span className="badge badge-muted" style={{ fontSize: 11 }}>{tr('已读')}</span>
                         ) : (
-                          <span className="badge badge-warning" style={{ fontSize: 11 }}>未读</span>
+                          <span className="badge badge-warning" style={{ fontSize: 11 }}>{tr('未读')}</span>
                         )}
                         {!row.read && (
                           <button

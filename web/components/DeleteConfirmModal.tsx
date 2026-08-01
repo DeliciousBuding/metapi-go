@@ -1,4 +1,5 @@
 import React from 'react';
+import { tr } from '../i18n.js';
 import CenteredModal from './CenteredModal.js';
 
 type DeleteConfirmModalProps = {
@@ -41,7 +42,7 @@ export default function DeleteConfirmModal({
       )}
     >
       <div className="alert alert-error" style={{ margin: 0 }}>
-        <div className="alert-title">此操作不可撤销</div>
+        <div className="alert-title">{tr('此操作不可撤销')}</div>
         <div style={{ marginTop: 6, fontSize: 'var(--text-md)' }}>{description}</div>
       </div>
     </CenteredModal>

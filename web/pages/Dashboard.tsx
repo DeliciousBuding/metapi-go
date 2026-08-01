@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useState, useCallback, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api.js";
+import { tr } from '../i18n.js';
 import { useToast } from "../components/Toast.js";
 import { useIsMobile } from "../components/useIsMobile.js";
 import { EmptyState } from "../design-system/index.js";
@@ -113,7 +114,7 @@ function DashboardGettingStartedStrip() {
       aria-label="首次使用引导"
     >
       <div className="dashboard-getting-started__intro">
-        <div className="dashboard-getting-started__title">开始使用</div>
+        <div className="dashboard-getting-started__title">{tr('开始使用')}</div>
         <p className="dashboard-getting-started__desc">
           按顺序完成站点、账号与令牌配置后，仪表盘将自动展示余额与流量。
         </p>
@@ -578,7 +579,7 @@ export default function Dashboard({
               />
             </svg>
           </div>
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>加载失败</div>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>{tr('加载失败')}</div>
           <div
             style={{
               fontSize: 13,
@@ -588,9 +589,7 @@ export default function Dashboard({
           >
             {error}
           </div>
-          <button onClick={() => load()} className="btn btn-soft-primary">
-            重试
-          </button>
+          <button onClick={() => load()} className="btn btn-soft-primary">{tr('重试')}</button>
         </div>
       </div>
     );
@@ -760,9 +759,7 @@ export default function Dashboard({
                 strokeWidth={2}
                 d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
               />
-            </svg>
-            账户数据
-          </div>
+            </svg>{tr('账户数据')}</div>
           <div className="stat-card-row">
             <div className="stat-icon stat-icon-blue">
               <svg
@@ -781,7 +778,7 @@ export default function Dashboard({
               </svg>
             </div>
             <div className="dashboard-stat-content">
-              <div className="stat-label">当前余额</div>
+              <div className="stat-label">{tr('当前余额')}</div>
               <div className="stat-value animate-count-up">
                 ${totalBalance.toFixed(2)}
               </div>
@@ -818,7 +815,7 @@ export default function Dashboard({
               </svg>
             </div>
             <div className="dashboard-stat-content">
-              <div className="stat-label">累计消耗</div>
+              <div className="stat-label">{tr('累计消耗')}</div>
               <div className="stat-value animate-count-up">
                 ${totalUsed.toFixed(2)}
               </div>
@@ -848,9 +845,7 @@ export default function Dashboard({
                 strokeWidth={2}
                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
               />
-            </svg>
-            使用统计
-          </div>
+            </svg>{tr('使用统计')}</div>
           <div className="stat-card-row">
             <div className="stat-icon stat-icon-yellow">
               <svg
@@ -893,7 +888,7 @@ export default function Dashboard({
               </svg>
             </div>
             <div className="dashboard-stat-content">
-              <div className="stat-label">成功请求</div>
+              <div className="stat-label">{tr('成功请求')}</div>
               <div className="stat-value animate-count-up">
                 {Math.round(proxy24hSuccess).toLocaleString()}
               </div>
@@ -910,9 +905,7 @@ export default function Dashboard({
                 strokeWidth={2}
                 d="M13 10V3L4 14h7v7l9-11h-7z"
               />
-            </svg>
-            资源消耗
-          </div>
+            </svg>{tr('资源消耗')}</div>
           <div className="stat-card-row">
             <div className="stat-icon stat-icon-pink">
               <svg
@@ -931,7 +924,7 @@ export default function Dashboard({
               </svg>
             </div>
             <div className="dashboard-stat-content">
-              <div className="stat-label">活跃账户</div>
+              <div className="stat-label">{tr('活跃账户')}</div>
               <div className="stat-value animate-count-up">
                 {Math.round(activeAccounts)}/{Math.round(totalAccounts)}
               </div>
@@ -972,9 +965,7 @@ export default function Dashboard({
                 strokeWidth={2}
                 d="M13 10V3L4 14h7v7l9-11h-7z"
               />
-            </svg>
-            签到状态
-          </div>
+            </svg>{tr('签到状态')}</div>
           <div className="stat-card-row">
             <div className="stat-icon stat-icon-purple">
               <svg
@@ -993,7 +984,7 @@ export default function Dashboard({
               </svg>
             </div>
             <div className="dashboard-stat-content">
-              <div className="stat-label">今日签到</div>
+              <div className="stat-label">{tr('今日签到')}</div>
               <div className="stat-value animate-count-up">
                 {Math.round(todaySuccess)}/{Math.round(todayTotal)}
               </div>
@@ -1017,7 +1008,7 @@ export default function Dashboard({
               </svg>
             </div>
             <div className="dashboard-stat-content">
-              <div className="stat-label">成功率</div>
+              <div className="stat-label">{tr('成功率')}</div>
               <div className="stat-value animate-count-up">
                 {todayTotal > 0
                   ? Math.round((todaySuccess / todayTotal) * 100)
@@ -1037,9 +1028,7 @@ export default function Dashboard({
                 strokeWidth={2}
                 d="M13 3v10h8M5 12h3m-3 4h6m-6 4h10a2 2 0 002-2V8.828a2 2 0 00-.586-1.414l-4.828-4.828A2 2 0 0010.172 2H5a2 2 0 00-2 2v14a2 2 0 002 2z"
               />
-            </svg>
-            性能指标
-          </div>
+            </svg>{tr('性能指标')}</div>
           <div className="stat-card-row">
             <div className="stat-icon stat-icon-blue">
               <svg
@@ -1131,9 +1120,7 @@ export default function Dashboard({
               strokeWidth={2}
               d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
             />
-          </svg>
-          站点分析
-        </div>
+          </svg>{tr('站点分析')}</div>
         <div style={{ display: "flex", gap: 4 }}>
           {[7, 30, 90].map((d) => (
             <button
@@ -1282,9 +1269,7 @@ export default function Dashboard({
                   strokeWidth={2}
                   d="M3 12h4l3 8 4-16 3 8h4"
                 />
-              </svg>
-              站点可用性观测
-              <span className="site-observability-count-badge">
+              </svg>{tr('站点可用性观测')}<span className="site-observability-count-badge">
                 {activeSites.length}/{rawSiteAvailability.length}
               </span>
             </div>
@@ -1294,7 +1279,7 @@ export default function Dashboard({
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div className="site-observability-legend">
-              <span className="site-observability-legend-text">低</span>
+              <span className="site-observability-legend-text">{tr('低')}</span>
               <span
                 className="site-observability-legend-chip"
                 style={{ background: getAvailabilityColor(0) }}
@@ -1307,7 +1292,7 @@ export default function Dashboard({
                 className="site-observability-legend-chip"
                 style={{ background: getAvailabilityColor(100) }}
               />
-              <span className="site-observability-legend-text">高</span>
+              <span className="site-observability-legend-text">{tr('高')}</span>
             </div>
             {inactiveSites.length > 0 && (
               <button
@@ -1509,9 +1494,7 @@ export default function Dashboard({
                   strokeWidth={2}
                   d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
-              </svg>
-              模型数据分析
-            </div>
+              </svg>{tr('模型数据分析')}</div>
           </div>
           {insightsLoading && !insightsData ? (
             <ChartFallback height={260} />
@@ -1551,9 +1534,7 @@ export default function Dashboard({
                   strokeWidth={2}
                   d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"
                 />
-              </svg>
-              站点信息
-            </span>
+              </svg>{tr('站点信息')}</span>
             {sites.length > 0 && (
               <button
                 className="btn btn-ghost"
@@ -1600,9 +1581,7 @@ export default function Dashboard({
                     strokeWidth={2}
                     d="M13 10V3L4 14h7v7l9-11h-7z"
                   />
-                </svg>
-                一键测速
-              </button>
+                </svg>{tr('一键测速')}</button>
             )}
           </div>
           <div
@@ -1710,9 +1689,7 @@ export default function Dashboard({
                           strokeWidth={2}
                           d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
                         />
-                      </svg>
-                      跳转
-                    </a>
+                      </svg>{tr('跳转')}</a>
                   </div>
                   <a
                     href={safeExternalHref(site.url) || undefined}

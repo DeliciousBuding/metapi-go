@@ -273,14 +273,12 @@ export default function NotificationSettings() {
             <div style={{ maxWidth: 860, display: 'flex', flexDirection: 'column', gap: 20 }}>
 
                 <div className="card animate-slide-up stagger-1" style={{ padding: 20 }}>
-                    <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>告警去噪与冷静期</div>
+                    <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>{tr('告警去噪与冷静期')}</div>
                     <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 12 }}>
                         相同告警在冷静期内不会重复推送；冷静期结束后会自动合并重复条数。
                     </div>
                     <div style={{ maxWidth: 260 }}>
-                        <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8, color: 'var(--color-text-secondary)' }}>
-                            冷静期（秒）
-                        </div>
+                        <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8, color: 'var(--color-text-secondary)' }}>{tr('冷静期（秒）')}</div>
                         <input
                             type="number"
                             min={0}
@@ -362,7 +360,7 @@ export default function NotificationSettings() {
                             </div>
                             <div>
                                 <div style={{ fontWeight: 600, fontSize: 15 }}>Server酱 (SendKey)</div>
-                                <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>微信推送消息支持</div>
+                                <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{tr('微信推送消息支持')}</div>
                             </div>
                         </div>
 
@@ -410,7 +408,7 @@ export default function NotificationSettings() {
 
                         <div style={{ display: 'flex', gap: 16 }}>
                             <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                                <span style={{ fontSize: 13, fontWeight: 500, color: runtime.telegramUseSystemProxy ? 'var(--color-primary)' : 'var(--color-text-muted)' }}>使用系统代理</span>
+                                <span style={{ fontSize: 13, fontWeight: 500, color: runtime.telegramUseSystemProxy ? 'var(--color-primary)' : 'var(--color-text-muted)' }}>{tr('使用系统代理')}</span>
                                 <input
                                     type="checkbox"
                                     style={{ width: 16, height: 16, cursor: 'pointer' }}
@@ -490,7 +488,7 @@ export default function NotificationSettings() {
                             </div>
                             <div>
                                 <div style={{ fontWeight: 600, fontSize: 15 }}>邮件服务 (SMTP)</div>
-                                <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>通过电子邮件推送提醒</div>
+                                <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{tr('通过电子邮件推送提醒')}</div>
                             </div>
                         </div>
 
@@ -520,7 +518,7 @@ export default function NotificationSettings() {
                         {/* Port & Secure */}
                         <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end' }}>
                             <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8, color: 'var(--color-text-secondary)' }}>端口</div>
+                                <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8, color: 'var(--color-text-secondary)' }}>{tr('端口')}</div>
                                 <input
                                     type="number"
                                     min={1}
@@ -542,7 +540,7 @@ export default function NotificationSettings() {
                         </div>
                         {/* User */}
                         <div>
-                            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8, color: 'var(--color-text-secondary)' }}>账号用户</div>
+                            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8, color: 'var(--color-text-secondary)' }}>{tr('账号用户')}</div>
                             <input
                                 value={runtime.smtpUser}
                                 onChange={(e) => setRuntime((prev) => ({ ...prev, smtpUser: e.target.value }))}
@@ -568,7 +566,7 @@ export default function NotificationSettings() {
                         </div>
                         {/* From */}
                         <div>
-                            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8, color: 'var(--color-text-secondary)' }}>发件人地址</div>
+                            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8, color: 'var(--color-text-secondary)' }}>{tr('发件人地址')}</div>
                             <input
                                 value={runtime.smtpFrom}
                                 onChange={(e) => setRuntime((prev) => ({ ...prev, smtpFrom: e.target.value }))}
@@ -579,7 +577,7 @@ export default function NotificationSettings() {
                         </div>
                         {/* To */}
                         <div>
-                            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8, color: 'var(--color-text-secondary)' }}>接收地址</div>
+                            <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 8, color: 'var(--color-text-secondary)' }}>{tr('接收地址')}</div>
                             <input
                                 value={runtime.smtpTo}
                                 onChange={(e) => setRuntime((prev) => ({ ...prev, smtpTo: e.target.value }))}
@@ -596,7 +594,7 @@ export default function NotificationSettings() {
                 <div className="card animate-slide-up stagger-5" style={{ padding: 24, border: (runtime.feishuEnabled || runtime.dingtalkEnabled || runtime.wecomEnabled || runtime.ntfyEnabled) ? '1px solid var(--color-primary)' : '1px solid var(--color-border-light)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                         <div>
-                            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)' }}>扩展渠道</div>
+                            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-text-primary)' }}>{tr('扩展渠道')}</div>
                             <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>飞书 / 钉钉 / 企业微信 / Ntfy（可选签名验证）</div>
                         </div>
                     </div>
@@ -605,27 +603,21 @@ export default function NotificationSettings() {
                         {/* Feishu */}
                         <div style={{ opacity: runtime.feishuEnabled ? 1 : 0.6, transition: 'opacity 0.2s' }}>
                             <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 13, fontWeight: 500, color: 'var(--color-text-secondary)' }}>
-                                <input type="checkbox" checked={runtime.feishuEnabled} onChange={(e) => setRuntime((prev) => ({ ...prev, feishuEnabled: e.target.checked }))} />
-                                飞书
-                            </label>
+                                <input type="checkbox" checked={runtime.feishuEnabled} onChange={(e) => setRuntime((prev) => ({ ...prev, feishuEnabled: e.target.checked }))} />{tr('飞书')}</label>
                             <input value={runtime.feishuWebhook} onChange={(e) => setRuntime((prev) => ({ ...prev, feishuWebhook: e.target.value }))} placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/..." style={inputStyle} disabled={!runtime.feishuEnabled} />
                             <input value={feishuSecret} onChange={(e) => setFeishuSecret(e.target.value)} placeholder={runtime.feishuSecretMasked ? `已配置（${runtime.feishuSecretMasked}）` : '签名密钥（可选）'} style={{ ...inputStyle, marginTop: 8 }} disabled={!runtime.feishuEnabled} />
                         </div>
                         {/* DingTalk */}
                         <div style={{ opacity: runtime.dingtalkEnabled ? 1 : 0.6, transition: 'opacity 0.2s' }}>
                             <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 13, fontWeight: 500, color: 'var(--color-text-secondary)' }}>
-                                <input type="checkbox" checked={runtime.dingtalkEnabled} onChange={(e) => setRuntime((prev) => ({ ...prev, dingtalkEnabled: e.target.checked }))} />
-                                钉钉
-                            </label>
+                                <input type="checkbox" checked={runtime.dingtalkEnabled} onChange={(e) => setRuntime((prev) => ({ ...prev, dingtalkEnabled: e.target.checked }))} />{tr('钉钉')}</label>
                             <input value={runtime.dingtalkWebhook} onChange={(e) => setRuntime((prev) => ({ ...prev, dingtalkWebhook: e.target.value }))} placeholder="https://oapi.dingtalk.com/robot/send?access_token=..." style={inputStyle} disabled={!runtime.dingtalkEnabled} />
                             <input value={dingtalkSecret} onChange={(e) => setDingtalkSecret(e.target.value)} placeholder={runtime.dingtalkSecretMasked ? `已配置（${runtime.dingtalkSecretMasked}）` : '加签密钥（可选）'} style={{ ...inputStyle, marginTop: 8 }} disabled={!runtime.dingtalkEnabled} />
                         </div>
                         {/* WeCom */}
                         <div style={{ opacity: runtime.wecomEnabled ? 1 : 0.6, transition: 'opacity 0.2s' }}>
                             <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 13, fontWeight: 500, color: 'var(--color-text-secondary)' }}>
-                                <input type="checkbox" checked={runtime.wecomEnabled} onChange={(e) => setRuntime((prev) => ({ ...prev, wecomEnabled: e.target.checked }))} />
-                                企业微信
-                            </label>
+                                <input type="checkbox" checked={runtime.wecomEnabled} onChange={(e) => setRuntime((prev) => ({ ...prev, wecomEnabled: e.target.checked }))} />{tr('企业微信')}</label>
                             <input value={runtime.wecomWebhook} onChange={(e) => setRuntime((prev) => ({ ...prev, wecomWebhook: e.target.value }))} placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..." style={inputStyle} disabled={!runtime.wecomEnabled} />
                         </div>
                         {/* Ntfy */}

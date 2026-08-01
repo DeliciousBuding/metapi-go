@@ -786,9 +786,7 @@ export function TokensPanel({ embedded = false, onEmbeddedActionsChange }: Token
             onClick={() => setShowMobileTools(true)}
             className="btn btn-ghost"
             style={{ border: '1px solid var(--color-border)' }}
-          >
-            同步与筛选
-          </button>
+          >{tr('同步与筛选')}</button>
           <button
             type="button"
             data-testid="tokens-mobile-select-all"
@@ -867,7 +865,7 @@ export function TokensPanel({ embedded = false, onEmbeddedActionsChange }: Token
         mobileContent={(
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>同步账号</div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{tr('同步账号')}</div>
               <ModernSelect
                 value={String(syncingAccountId || 0)}
                 onChange={(nextValue) => setSyncingAccountId(Number.parseInt(nextValue, 10) || 0)}
@@ -912,8 +910,8 @@ export function TokensPanel({ embedded = false, onEmbeddedActionsChange }: Token
         confirmText="确认删除"
         loading={batchActionLoading || (deleteConfirm?.mode === 'single' && !!rowLoading[`token-${deleteConfirm?.tokenId}-delete`])}
         description={deleteConfirm?.mode === 'single'
-          ? <>确定要删除令牌 <strong>{deleteConfirm.tokenName || `#${deleteConfirm.tokenId}`}</strong> 吗？</>
-          : <>确定要删除选中的 <strong>{deleteConfirm?.count || 0}</strong> 个令牌吗？</>}
+          ? <>{tr('确定要删除令牌')}<strong>{deleteConfirm.tokenName || `#${deleteConfirm.tokenId}`}</strong> 吗？</>
+          : <>{tr('确定要删除选中的')}<strong>{deleteConfirm?.count || 0}</strong> 个令牌吗？</>}
       />
 
       <CenteredModal
@@ -924,7 +922,7 @@ export function TokensPanel({ embedded = false, onEmbeddedActionsChange }: Token
         bodyStyle={{ display: 'flex', flexDirection: 'column', gap: 12 }}
         footer={(
           <>
-            <button onClick={closeEditPanel} className="btn btn-ghost">取消</button>
+            <button onClick={closeEditPanel} className="btn btn-ghost">{tr('取消')}</button>
             <button onClick={saveEditPanel} disabled={savingEdit || editingTokenValueLoading} className="btn btn-primary">
               {savingEdit ? <><span className="spinner spinner-sm" /> 保存中...</> : '保存修改'}
             </button>
@@ -960,10 +958,10 @@ export function TokensPanel({ embedded = false, onEmbeddedActionsChange }: Token
               </div>
             ) : null}
             <div style={sectionCardStyle}>
-              <div style={sectionLabelStyle}>基本信息</div>
+              <div style={sectionLabelStyle}>{tr('基本信息')}</div>
               <ResponsiveFormGrid>
                 <div>
-                  <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>令牌名称</div>
+                  <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>{tr('令牌名称')}</div>
                   <input
                     placeholder="令牌名称"
                     value={editForm.name}
@@ -972,7 +970,7 @@ export function TokensPanel({ embedded = false, onEmbeddedActionsChange }: Token
                   />
                 </div>
                 <div>
-                  <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>分组</div>
+                  <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>{tr('分组')}</div>
                   <ModernSelect
                     value={editForm.group || 'default'}
                     onChange={(nextValue) => setEditForm((prev) => ({ ...prev, group: nextValue || 'default' }))}
@@ -985,7 +983,7 @@ export function TokensPanel({ embedded = false, onEmbeddedActionsChange }: Token
                   />
                 </div>
                 <div style={{ gridColumn: '1 / -1' }}>
-                  <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>令牌值</div>
+                  <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>{tr('令牌值')}</div>
                   <textarea
                     placeholder={editingTokenValueLoading ? '令牌加载中...' : '令牌值'}
                     value={editForm.token}
@@ -1003,7 +1001,7 @@ export function TokensPanel({ embedded = false, onEmbeddedActionsChange }: Token
               </ResponsiveFormGrid>
             </div>
             <div style={sectionCardStyle}>
-              <div style={sectionLabelStyle}>状态设置</div>
+              <div style={sectionLabelStyle}>{tr('状态设置')}</div>
               <ResponsiveFormGrid>
                 <label style={toggleCardStyle}>
                   <input
@@ -1013,8 +1011,8 @@ export function TokensPanel({ embedded = false, onEmbeddedActionsChange }: Token
                     style={{ marginTop: 2 }}
                   />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>启用令牌</span>
-                    <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>关闭后令牌不会参与分发</span>
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{tr('启用令牌')}</span>
+                    <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{tr('关闭后令牌不会参与分发')}</span>
                   </div>
                 </label>
                 <label style={toggleCardStyle}>
@@ -1025,7 +1023,7 @@ export function TokensPanel({ embedded = false, onEmbeddedActionsChange }: Token
                     style={{ marginTop: 2 }}
                   />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>设为默认令牌</span>
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{tr('设为默认令牌')}</span>
                     <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>优先作为该账号的默认转发令牌</span>
                   </div>
                 </label>
@@ -1041,15 +1039,9 @@ export function TokensPanel({ embedded = false, onEmbeddedActionsChange }: Token
           info={`已选 ${selectedTokenIds.length} 项`}
           desktopStyle={{ marginBottom: 12 }}
         >
-          <button onClick={() => runBatchTokenAction('enable')} disabled={batchActionLoading} className="btn btn-ghost" style={{ border: '1px solid var(--color-border)' }}>
-            批量启用
-          </button>
-          <button onClick={() => runBatchTokenAction('disable')} disabled={batchActionLoading} className="btn btn-ghost" style={{ border: '1px solid var(--color-border)' }}>
-            批量禁用
-          </button>
-          <button data-testid="tokens-batch-delete" onClick={() => runBatchTokenAction('delete')} disabled={batchActionLoading} className="btn btn-link btn-link-danger">
-            批量删除
-          </button>
+          <button onClick={() => runBatchTokenAction('enable')} disabled={batchActionLoading} className="btn btn-ghost" style={{ border: '1px solid var(--color-border)' }}>{tr('批量启用')}</button>
+          <button onClick={() => runBatchTokenAction('disable')} disabled={batchActionLoading} className="btn btn-ghost" style={{ border: '1px solid var(--color-border)' }}>{tr('批量禁用')}</button>
+          <button data-testid="tokens-batch-delete" onClick={() => runBatchTokenAction('delete')} disabled={batchActionLoading} className="btn btn-link btn-link-danger">{tr('批量删除')}</button>
         </ResponsiveBatchActionBar>
       )}
 
@@ -1062,7 +1054,7 @@ export function TokensPanel({ embedded = false, onEmbeddedActionsChange }: Token
       >
         <ResponsiveFormGrid>
           <div style={{ gridColumn: '1 / -1' }}>
-            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>所属账号</div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>{tr('所属账号')}</div>
             <ModernSelect
               value={String(form.accountId || 0)}
               onChange={(nextValue) => {
@@ -1097,7 +1089,7 @@ export function TokensPanel({ embedded = false, onEmbeddedActionsChange }: Token
             </div>
           ) : null}
           <div>
-            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>令牌名称（可选）</div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>{tr('令牌名称（可选）')}</div>
             <input
               value={form.name}
               onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
@@ -1106,7 +1098,7 @@ export function TokensPanel({ embedded = false, onEmbeddedActionsChange }: Token
             />
           </div>
           <div>
-            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>分组</div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>{tr('分组')}</div>
             <ModernSelect
               value={form.group || ''}
               onChange={(nextValue) => setForm((prev) => ({ ...prev, group: nextValue }))}
@@ -1124,9 +1116,7 @@ export function TokensPanel({ embedded = false, onEmbeddedActionsChange }: Token
                 type="checkbox"
                 checked={form.unlimitedQuota}
                 onChange={(e) => setForm((prev) => ({ ...prev, unlimitedQuota: e.target.checked }))}
-              />
-              不限额度
-            </label>
+              />{tr('不限额度')}</label>
             {!form.unlimitedQuota && (
               <input
                 value={form.remainQuota}
@@ -1137,7 +1127,7 @@ export function TokensPanel({ embedded = false, onEmbeddedActionsChange }: Token
             )}
           </div>
           <div>
-            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>过期时间（可选）</div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>{tr('过期时间（可选）')}</div>
             <input
               type="datetime-local"
               value={form.expiredTime}
@@ -1160,7 +1150,7 @@ export function TokensPanel({ embedded = false, onEmbeddedActionsChange }: Token
         </ResponsiveFormGrid>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginTop: 8 }}>
-          <button onClick={handleToggleAdd} className="btn btn-ghost">取消</button>
+          <button onClick={handleToggleAdd} className="btn btn-ghost">{tr('取消')}</button>
           <button
             onClick={handleAddToken}
             disabled={saving || !form.accountId}
@@ -1263,7 +1253,7 @@ export function TokensPanel({ embedded = false, onEmbeddedActionsChange }: Token
                         />
                         <MobileField
                           label="默认"
-                          value={token.isDefault ? <span className="badge badge-warning" style={{ fontSize: 11 }}>默认</span> : '-'}
+                          value={token.isDefault ? <span className="badge badge-warning" style={{ fontSize: 11 }}>{tr('默认')}</span> : '-'}
                         />
                         <MobileField label="更新时间" value={formatDateTimeLocal(token.updatedAt)} />
                         <div className="mobile-card-actions">
@@ -1318,15 +1308,15 @@ export function TokensPanel({ embedded = false, onEmbeddedActionsChange }: Token
                     onChange={(e) => toggleSelectAllTokens(e.target.checked)}
                   />
                 </th>
-                <th>令牌名称</th>
-                <th>令牌值</th>
-                <th>来源站点</th>
-                <th>账号</th>
-                <th>分组</th>
-                <th>状态</th>
-                <th>默认</th>
-                <th>更新时间</th>
-                <th className="token-table-actions-col" style={{ textAlign: 'right' }}>操作</th>
+                <th>{tr('令牌名称')}</th>
+                <th>{tr('令牌值')}</th>
+                <th>{tr('来源站点')}</th>
+                <th>{tr('账号')}</th>
+                <th>{tr('分组')}</th>
+                <th>{tr('状态')}</th>
+                <th>{tr('默认')}</th>
+                <th>{tr('更新时间')}</th>
+                <th className="token-table-actions-col" style={{ textAlign: 'right' }}>{tr('操作')}</th>
               </tr>
             </thead>
             <tbody>
@@ -1378,14 +1368,14 @@ export function TokensPanel({ embedded = false, onEmbeddedActionsChange }: Token
                     <td>{token.tokenGroup || 'default'}</td>
                     <td>
                       {isPending ? (
-                        <span className="badge badge-warning" style={{ fontSize: 11 }}>待补全</span>
+                        <span className="badge badge-warning" style={{ fontSize: 11 }}>{tr('待补全')}</span>
                       ) : (
                         <span className={`badge ${token.enabled ? 'badge-success' : 'badge-muted'}`} style={{ fontSize: 11 }}>
                           {token.enabled ? '启用' : '禁用'}
                         </span>
                       )}
                     </td>
-                    <td>{token.isDefault ? <span className="badge badge-warning" style={{ fontSize: 11 }}>默认</span> : '-'}</td>
+                    <td>{token.isDefault ? <span className="badge badge-warning" style={{ fontSize: 11 }}>{tr('默认')}</span> : '-'}</td>
                     <td style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{formatDateTimeLocal(token.updatedAt)}</td>
                     <td className="token-actions-cell" style={{ textAlign: 'right' }}>
                       <div className="token-table-actions">

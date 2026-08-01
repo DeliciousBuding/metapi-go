@@ -1069,16 +1069,15 @@ export default function TokenRoutes() {
         const dialog = document.createElement('div');
         dialog.style.cssText = 'background:var(--color-bg-card);border-radius:var(--radius-md);padding:24px;max-width:420px;width:90%;box-shadow:var(--shadow-lg)';
         dialog.innerHTML = `
-          <div style="font-weight:600;font-size:15px;margin-bottom:12px">确认移除通道</div>
+          <div style="font-weight:600;font-size:15px;margin-bottom:12px">{tr('确认移除通道')}</div>
           <div style="font-size:13px;color:var(--color-text-secondary);line-height:1.6;margin-bottom:16px">
-            移除的通道会在定时模型刷新时被自动重建恢复。<br/>如果只是想临时停用通道，建议使用<b>禁用开关</b>。
+            移除的通道会在定时模型刷新时被自动重建恢复。<br/>如果只是想临时停用通道，建议使用<b>{tr('禁用开关')}</b>。
           </div>
           <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-muted);margin-bottom:16px;cursor:pointer">
-            <input type="checkbox" id="__ch_del_dismiss" /> 以后不再提示
-          </label>
+            <input type="checkbox" id="__ch_del_dismiss" />{tr('以后不再提示')}</label>
           <div style="display:flex;justify-content:flex-end;gap:8px">
-            <button id="__ch_del_cancel" class="btn btn-ghost" style="padding:6px 16px">取消</button>
-            <button id="__ch_del_confirm" class="btn btn-danger" style="padding:6px 16px">确认移除</button>
+            <button id="__ch_del_cancel" class="btn btn-ghost" style="padding:6px 16px">{tr('取消')}</button>
+            <button id="__ch_del_confirm" class="btn btn-danger" style="padding:6px 16px">{tr('确认移除')}</button>
           </div>
         `;
         overlay.appendChild(dialog);
@@ -1244,13 +1243,13 @@ export default function TokenRoutes() {
       const dialog = document.createElement('div');
       dialog.style.cssText = 'background:var(--color-bg-card);border-radius:var(--radius-md);padding:24px;max-width:420px;width:90%;box-shadow:var(--shadow-lg)';
       dialog.innerHTML = `
-        <div style="font-weight:600;font-size:15px;margin-bottom:12px">确认站点屏蔽</div>
+        <div style="font-weight:600;font-size:15px;margin-bottom:12px">{tr('确认站点屏蔽')}</div>
         <div style="font-size:13px;color:var(--color-text-secondary);line-height:1.6;margin-bottom:16px">
           将模型「<b>${escapeHtml(modelName)}</b>」加入站点「<b>${escapeHtml(siteName)}</b>」的禁用列表。<br/>执行后将自动触发路由重建，该站点下此模型的通道将不再生成。
         </div>
         <div style="display:flex;justify-content:flex-end;gap:8px">
-          <button id="__sb_cancel" class="btn btn-ghost" style="padding:6px 16px">取消</button>
-          <button id="__sb_confirm" class="btn btn-warning" style="padding:6px 16px">确认屏蔽</button>
+          <button id="__sb_cancel" class="btn btn-ghost" style="padding:6px 16px">{tr('取消')}</button>
+          <button id="__sb_confirm" class="btn btn-warning" style="padding:6px 16px">{tr('确认屏蔽')}</button>
         </div>
       `;
       overlay.appendChild(dialog);

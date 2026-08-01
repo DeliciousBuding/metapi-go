@@ -559,9 +559,7 @@ function renderProxyLogClientCell(
               color: "var(--color-text-muted)",
               borderColor: "var(--color-border)",
             }}
-          >
-            推测
-          </span>
+          >{tr('推测')}</span>
         ) : null}
       </div>
       {display.secondary ? (
@@ -1506,7 +1504,7 @@ export default function ProxyLogs() {
         <div style={{ padding: 12, display: "grid", gap: 12 }}>
           <div style={detailInfoGridStyle}>
             <div style={detailInfoItemStyle}>
-              <div style={detailInfoLabelStyle}>目标地址</div>
+              <div style={detailInfoLabelStyle}>{tr('目标地址')}</div>
               <div
                 style={{
                   ...detailInfoValueStyle,
@@ -1518,19 +1516,19 @@ export default function ProxyLogs() {
               </div>
             </div>
             <div style={detailInfoItemStyle}>
-              <div style={detailInfoLabelStyle}>执行器</div>
+              <div style={detailInfoLabelStyle}>{tr('执行器')}</div>
               <div style={detailInfoValueStyle}>
                 {attempt.runtimeExecutor || "-"}
               </div>
             </div>
             <div style={detailInfoItemStyle}>
-              <div style={detailInfoLabelStyle}>恢复逻辑</div>
+              <div style={detailInfoLabelStyle}>{tr('恢复逻辑')}</div>
               <div style={detailInfoValueStyle}>
                 {attempt.recoverApplied ? "已应用" : "未应用"}
               </div>
             </div>
             <div style={detailInfoItemStyle}>
-              <div style={detailInfoLabelStyle}>降级决策</div>
+              <div style={detailInfoLabelStyle}>{tr('降级决策')}</div>
               <div style={detailInfoValueStyle}>
                 {attempt.downgradeDecision ? "已触发" : "未触发"}
               </div>
@@ -1572,9 +1570,7 @@ export default function ProxyLogs() {
                 event.stopPropagation();
                 void handleCopyStoredDebugValue(copyLabel, value);
               }}
-            >
-              复制当前保存内容
-            </button>
+            >{tr('复制当前保存内容')}</button>
           </div>
           {normalized.note ? (
             <div style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
@@ -1625,10 +1621,10 @@ export default function ProxyLogs() {
     return (
       <div style={{ display: "grid", gap: 12 }}>
         <div style={{ ...formSectionStyle, gap: 10 }}>
-          <div style={detailSectionTitleStyle}>基础信息</div>
+          <div style={detailSectionTitleStyle}>{tr('基础信息')}</div>
           <div style={detailInfoGridStyle}>
             <div style={detailInfoItemStyle}>
-              <div style={detailInfoLabelStyle}>下游路径</div>
+              <div style={detailInfoLabelStyle}>{tr('下游路径')}</div>
               <div style={detailInfoValueStyle}>
                 {traceDetail.downstreamPath || "-"}
               </div>
@@ -1640,13 +1636,13 @@ export default function ProxyLogs() {
               </div>
             </div>
             <div style={detailInfoItemStyle}>
-              <div style={detailInfoLabelStyle}>模型</div>
+              <div style={detailInfoLabelStyle}>{tr('模型')}</div>
               <div style={detailInfoValueStyle}>
                 {traceDetail.requestedModel || "-"}
               </div>
             </div>
             <div style={detailInfoItemStyle}>
-              <div style={detailInfoLabelStyle}>最终上游路径</div>
+              <div style={detailInfoLabelStyle}>{tr('最终上游路径')}</div>
               <div style={detailInfoValueStyle}>
                 {traceDetail.finalUpstreamPath || "-"}
               </div>
@@ -1762,7 +1758,7 @@ export default function ProxyLogs() {
         />
       </div>
       <label className="proxy-logs-time-field">
-        <span>开始</span>
+        <span>{tr('开始')}</span>
         <input
           type="datetime-local"
           value={fromInput}
@@ -1774,7 +1770,7 @@ export default function ProxyLogs() {
         />
       </label>
       <label className="proxy-logs-time-field">
-        <span>结束</span>
+        <span>{tr('结束')}</span>
         <input
           type="datetime-local"
           value={toInput}
@@ -1833,9 +1829,7 @@ export default function ProxyLogs() {
           setSearchInput("");
           setPage(1);
         }}
-      >
-        清空筛选
-      </button>
+      >{tr('清空筛选')}</button>
     </>
   );
 
@@ -1853,9 +1847,7 @@ export default function ProxyLogs() {
         type="button"
         className="btn btn-ghost"
         onClick={() => setDebugDraftSettings(DEFAULT_PROXY_DEBUG_SETTINGS)}
-      >
-        重置为默认值
-      </button>
+      >{tr('重置为默认值')}</button>
       <button
         type="button"
         className="btn btn-primary"
@@ -1874,7 +1866,7 @@ export default function ProxyLogs() {
       </div>
 
       <div style={formSectionStyle}>
-        <div style={formSectionLabelStyle}>记录内容</div>
+        <div style={formSectionLabelStyle}>{tr('记录内容')}</div>
         <div style={{ display: "grid", gap: 10 }}>
           <div style={{ display: "grid", gap: 4 }}>
             <label style={debugCheckboxRowStyle}>
@@ -1888,9 +1880,7 @@ export default function ProxyLogs() {
                     proxyDebugTraceEnabled: !!e.target.checked,
                   }))
                 }
-              />
-              开启调试追踪
-            </label>
+              />{tr('开启调试追踪')}</label>
             <div
               style={{
                 fontSize: 12,
@@ -1938,9 +1928,7 @@ export default function ProxyLogs() {
                     proxyDebugCaptureBodies: !!e.target.checked,
                   }))
                 }
-              />
-              采集请求体和响应体
-            </label>
+              />{tr('采集请求体和响应体')}</label>
             <div
               style={{
                 fontSize: 12,
@@ -1963,9 +1951,7 @@ export default function ProxyLogs() {
                     proxyDebugCaptureStreamChunks: !!e.target.checked,
                   }))
                 }
-              />
-              采集流式原始分片
-            </label>
+              />{tr('采集流式原始分片')}</label>
             <div
               style={{
                 fontSize: 12,
@@ -1981,7 +1967,7 @@ export default function ProxyLogs() {
 
       <ResponsiveFormGrid columns={2}>
         <div style={formSectionStyle}>
-          <div style={formSectionLabelStyle}>定向过滤</div>
+          <div style={formSectionLabelStyle}>{tr('定向过滤')}</div>
           <label style={{ display: "grid", gap: 6 }}>
             <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
               目标 Session ID
@@ -2001,9 +1987,7 @@ export default function ProxyLogs() {
             />
           </label>
           <label style={{ display: "grid", gap: 6 }}>
-            <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
-              目标客户端
-            </span>
+            <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>{tr('目标客户端')}</span>
             <input
               type="text"
               value={debugDraftSettings.proxyDebugTargetClientKind}
@@ -2019,9 +2003,7 @@ export default function ProxyLogs() {
             />
           </label>
           <label style={{ display: "grid", gap: 6 }}>
-            <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
-              目标模型
-            </span>
+            <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>{tr('目标模型')}</span>
             <input
               type="text"
               value={debugDraftSettings.proxyDebugTargetModel}
@@ -2039,11 +2021,9 @@ export default function ProxyLogs() {
         </div>
 
         <div style={formSectionStyle}>
-          <div style={formSectionLabelStyle}>保留策略</div>
+          <div style={formSectionLabelStyle}>{tr('保留策略')}</div>
           <label style={{ display: "grid", gap: 6 }}>
-            <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
-              保留时长（小时）
-            </span>
+            <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>{tr('保留时长（小时）')}</span>
             <input
               type="number"
               min={1}
@@ -2059,9 +2039,7 @@ export default function ProxyLogs() {
             />
           </label>
           <label style={{ display: "grid", gap: 6 }}>
-            <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
-              抓取体积上限（字节）
-            </span>
+            <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>{tr('抓取体积上限（字节）')}</span>
             <input
               type="number"
               min={1024}
@@ -2247,9 +2225,7 @@ export default function ProxyLogs() {
                 fontWeight: 600,
                 color: "var(--color-text-primary)",
               }}
-            >
-              代理调试追踪
-            </div>
+            >{tr('代理调试追踪')}</div>
             <div
               style={{
                 fontSize: 12,
@@ -2312,9 +2288,7 @@ export default function ProxyLogs() {
                 setDebugDraftSettings(debugSettings);
                 setShowDebugSettingsModal(true);
               }}
-            >
-              调试设置
-            </button>
+            >{tr('调试设置')}</button>
             <button
               type="button"
               className="btn btn-ghost"
@@ -2387,9 +2361,7 @@ export default function ProxyLogs() {
                     fontWeight: 600,
                     color: "var(--color-text-primary)",
                   }}
-                >
-                  最近调试追踪
-                </div>
+                >{tr('最近调试追踪')}</div>
                 <div
                   style={{
                     fontSize: 12,
@@ -2448,9 +2420,7 @@ export default function ProxyLogs() {
                         type="button"
                         className="btn btn-link"
                         onClick={() => openDebugTraceDetailModal(trace.id)}
-                      >
-                        查看详情
-                      </button>
+                      >{tr('查看详情')}</button>
                     }
                   >
                     <MobileField
@@ -2476,14 +2446,14 @@ export default function ProxyLogs() {
               <table className="data-table" style={{ width: "100%" }}>
                 <thead>
                   <tr>
-                    <th>时间</th>
+                    <th>{tr('时间')}</th>
                     <th>Session</th>
-                    <th>模型</th>
-                    <th>下游路径</th>
-                    <th>上游路径</th>
-                    <th>客户端</th>
+                    <th>{tr('模型')}</th>
+                    <th>{tr('下游路径')}</th>
+                    <th>{tr('上游路径')}</th>
+                    <th>{tr('客户端')}</th>
                     <th>{tr("状态")}</th>
-                    <th style={{ textAlign: "right" }}>操作</th>
+                    <th style={{ textAlign: "right" }}>{tr('操作')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2535,9 +2505,7 @@ export default function ProxyLogs() {
                           type="button"
                           className="btn btn-link"
                           onClick={() => openDebugTraceDetailModal(trace.id)}
-                        >
-                          查看详情
-                        </button>
+                        >{tr('查看详情')}</button>
                       </td>
                     </tr>
                   ))}
@@ -2674,9 +2642,7 @@ export default function ProxyLogs() {
       )}
 
       {hasInvalidTimeRange && (
-        <div className="alert alert-error" style={{ marginBottom: 12 }}>
-          结束时间必须晚于开始时间
-        </div>
+        <div className="alert alert-error" style={{ marginBottom: 12 }}>{tr('结束时间必须晚于开始时间')}</div>
       )}
 
       <div className="card" style={{ overflowX: "auto" }}>
@@ -2802,25 +2768,25 @@ export default function ProxyLogs() {
                   </div>
                   <div className="mobile-summary-grid">
                     <div className="mobile-summary-metric">
-                      <div className="mobile-summary-metric-label">用时</div>
+                      <div className="mobile-summary-metric-label">{tr('用时')}</div>
                       <div className="mobile-summary-metric-value">
                         {formatLatency(log.latencyMs)}
                       </div>
                     </div>
                     <div className="mobile-summary-metric">
-                      <div className="mobile-summary-metric-label">输入</div>
+                      <div className="mobile-summary-metric-label">{tr('输入')}</div>
                       <div className="mobile-summary-metric-value">
                         {formatProxyLogTokenValue(log.promptTokens)}
                       </div>
                     </div>
                     <div className="mobile-summary-metric">
-                      <div className="mobile-summary-metric-label">输出</div>
+                      <div className="mobile-summary-metric-label">{tr('输出')}</div>
                       <div className="mobile-summary-metric-value">
                         {formatProxyLogTokenValue(log.completionTokens)}
                       </div>
                     </div>
                     <div className="mobile-summary-metric">
-                      <div className="mobile-summary-metric-label">花费</div>
+                      <div className="mobile-summary-metric-label">{tr('花费')}</div>
                       <div className="mobile-summary-metric-value">
                         {typeof log.estimatedCost === "number"
                           ? `$${log.estimatedCost.toFixed(6)}`
@@ -2924,16 +2890,16 @@ export default function ProxyLogs() {
             <thead>
               <tr>
                 <th style={{ width: 28 }} />
-                <th>时间</th>
-                <th>模型</th>
-                <th>站点</th>
-                <th>客户端</th>
+                <th>{tr('时间')}</th>
+                <th>{tr('模型')}</th>
+                <th>{tr('站点')}</th>
+                <th>{tr('客户端')}</th>
                 <th>{tr("状态")}</th>
-                <th style={{ textAlign: "center" }}>用时</th>
-                <th style={{ textAlign: "right" }}>输入</th>
-                <th style={{ textAlign: "right" }}>输出</th>
-                <th style={{ textAlign: "right" }}>花费</th>
-                <th style={{ textAlign: "center" }}>重试</th>
+                <th style={{ textAlign: "center" }}>{tr('用时')}</th>
+                <th style={{ textAlign: "right" }}>{tr('输入')}</th>
+                <th style={{ textAlign: "right" }}>{tr('输出')}</th>
+                <th style={{ textAlign: "right" }}>{tr('花费')}</th>
+                <th style={{ textAlign: "center" }}>{tr('重试')}</th>
               </tr>
             </thead>
             <tbody>
@@ -3200,9 +3166,7 @@ export default function ProxyLogs() {
                                       color: "var(--color-warning)",
                                       flexShrink: 0,
                                     }}
-                                  >
-                                    日志详情
-                                  </span>
+                                  >{tr('日志详情')}</span>
                                   <div>
                                     <div>
                                       请求模型:{" "}
@@ -3352,9 +3316,7 @@ export default function ProxyLogs() {
                                           color: "var(--color-text-muted)",
                                           flexShrink: 0,
                                         }}
-                                      >
-                                        客户端
-                                      </span>
+                                      >{tr('客户端')}</span>
                                       <div style={{ minWidth: 0 }}>
                                         {renderProxyLogClientCell(detailLog, {
                                           includeGeneric: true,
@@ -3418,9 +3380,7 @@ export default function ProxyLogs() {
                                       color: "var(--color-info)",
                                       flexShrink: 0,
                                     }}
-                                  >
-                                    计费过程
-                                  </span>
+                                  >{tr('计费过程')}</span>
                                   {billingProcessLines.length > 0 ? (
                                     <div
                                       style={{
@@ -3442,9 +3402,7 @@ export default function ProxyLogs() {
                                         style={{
                                           color: "var(--color-text-muted)",
                                         }}
-                                      >
-                                        仅供参考，以实际扣费为准
-                                      </span>
+                                      >{tr('仅供参考，以实际扣费为准')}</span>
                                     </div>
                                   ) : (
                                     <span>
@@ -3495,9 +3453,7 @@ export default function ProxyLogs() {
                                       color: "var(--color-primary)",
                                       flexShrink: 0,
                                     }}
-                                  >
-                                    下游请求路径
-                                  </span>
+                                  >{tr('下游请求路径')}</span>
                                   {detail && pathMeta.downstreamPath ? (
                                     <code
                                       style={{
@@ -3517,9 +3473,7 @@ export default function ProxyLogs() {
                                       style={{
                                         color: "var(--color-text-muted)",
                                       }}
-                                    >
-                                      未记录
-                                    </span>
+                                    >{tr('未记录')}</span>
                                   )}
                                 </div>
 
@@ -3536,9 +3490,7 @@ export default function ProxyLogs() {
                                       color: "var(--color-primary)",
                                       flexShrink: 0,
                                     }}
-                                  >
-                                    上游请求路径
-                                  </span>
+                                  >{tr('上游请求路径')}</span>
                                   {detail && pathMeta.upstreamPath ? (
                                     <code
                                       style={{
@@ -3558,9 +3510,7 @@ export default function ProxyLogs() {
                                       style={{
                                         color: "var(--color-text-muted)",
                                       }}
-                                    >
-                                      未记录
-                                    </span>
+                                    >{tr('未记录')}</span>
                                   )}
                                 </div>
 
@@ -3573,9 +3523,7 @@ export default function ProxyLogs() {
                                           color: "var(--color-danger)",
                                           flexShrink: 0,
                                         }}
-                                      >
-                                        错误信息
-                                      </span>
+                                      >{tr('错误信息')}</span>
                                       <span
                                         style={{
                                           color: "var(--color-danger)",
@@ -3617,9 +3565,7 @@ export default function ProxyLogs() {
                   setSearchInput("");
                   setPage(1);
                 }}
-              >
-                清空筛选
-              </DsButton>
+              >{tr('清空筛选')}</DsButton>
             )}
           />
         )}
@@ -3685,9 +3631,7 @@ export default function ProxyLogs() {
               />
             </svg>
           </button>
-          <div className="pagination-size">
-            每页条数:
-            <div style={{ minWidth: 86 }}>
+          <div className="pagination-size">{tr('每页条数:')}<div style={{ minWidth: 86 }}>
               <ModernSelect
                 size="sm"
                 value={String(pageSize)}

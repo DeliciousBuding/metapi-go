@@ -124,7 +124,7 @@ export default function About() {
       </div>
 
       <div className="card animate-slide-up stagger-1" style={{ padding: 22, marginBottom: 14 }}>
-        <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>更新与部署</h3>
+        <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>{tr('更新与部署')}</h3>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
           <span className={`${updateReminder.badgeClassName} ${updateReminder.highlight ? 'stat-value-glow' : ''}`.trim()}>
             {updateReminder.label}
@@ -142,9 +142,7 @@ export default function About() {
             </>
           ) : null}
           <div>
-            <Link to="/settings" style={{ color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 600 }}>
-              设置 · 更新与部署说明
-            </Link>
+            <Link to="/settings" style={{ color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 600 }}>{tr('设置 · 更新与部署说明')}</Link>
           </div>
         </div>
       </div>

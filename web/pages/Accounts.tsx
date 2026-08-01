@@ -1271,9 +1271,7 @@ export default function Accounts() {
                   onClick={() => setShowMobileTools(true)}
                   className="btn btn-ghost"
                   style={{ border: "1px solid var(--color-border)" }}
-                >
-                  排序与操作
-                </button>
+                >{tr('排序与操作')}</button>
                 <button
                   type="button"
                   data-testid="accounts-mobile-select-all"
@@ -1371,9 +1369,7 @@ export default function Accounts() {
         mobileContent={
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <div style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
-                排序方式
-              </div>
+              <div style={{ fontSize: 12, color: "var(--color-text-muted)" }}>{tr('排序方式')}</div>
               <ModernSelect
                 value={sortMode}
                 onChange={(nextValue) => setSortMode(nextValue as SortMode)}
@@ -1548,8 +1544,7 @@ export default function Accounts() {
               吗？
             </>
           ) : (
-            <>
-              确定要删除选中的 <strong>{deleteConfirm?.count || 0}</strong>{" "}
+            <>{tr('确定要删除选中的')}<strong>{deleteConfirm?.count || 0}</strong>{" "}
               个连接吗？
             </>
           )
@@ -1568,32 +1563,24 @@ export default function Accounts() {
             disabled={batchActionLoading}
             className="btn btn-ghost"
             style={{ border: "1px solid var(--color-border)" }}
-          >
-            批量刷新余额
-          </button>
+          >{tr('批量刷新余额')}</button>
           <button
             onClick={() => runBatchAccountAction("enable")}
             disabled={batchActionLoading}
             className="btn btn-ghost"
             style={{ border: "1px solid var(--color-border)" }}
-          >
-            批量启用
-          </button>
+          >{tr('批量启用')}</button>
           <button
             onClick={() => runBatchAccountAction("disable")}
             disabled={batchActionLoading}
             className="btn btn-ghost"
             style={{ border: "1px solid var(--color-border)" }}
-          >
-            批量禁用
-          </button>
+          >{tr('批量禁用')}</button>
           <button
             onClick={() => runBatchAccountAction("delete")}
             disabled={batchActionLoading}
             className="btn btn-link btn-link-danger"
-          >
-            批量删除
-          </button>
+          >{tr('批量删除')}</button>
         </ResponsiveBatchActionBar>
       )}
 
@@ -1617,9 +1604,7 @@ export default function Accounts() {
             maxWidth={860}
             bodyStyle={{ display: "flex", flexDirection: "column", gap: 12 }}
             footer={
-              <button onClick={closeAddPanel} className="btn btn-ghost">
-                取消
-              </button>
+              <button onClick={closeAddPanel} className="btn btn-ghost">{tr('取消')}</button>
             }
           >
             {activeSegment === "session" ? (
@@ -1687,9 +1672,7 @@ export default function Accounts() {
                       boxShadow:
                         addMode === "login" ? "var(--shadow-sm)" : "none",
                     }}
-                  >
-                    账号密码登录
-                  </button>
+                  >{tr('账号密码登录')}</button>
                 </div>
 
                 {addMode === "token" ? (
@@ -1706,7 +1689,7 @@ export default function Accounts() {
                           当前分段仅创建 Session 连接
                         </div>
                         <div>
-                          <strong>推荐</strong> 使用系统访问令牌（Access
+                          <strong>{tr('推荐')}</strong> 使用系统访问令牌（Access
                           Token）；浏览器 Cookie 仅用于兼容场景。
                         </div>
                         <div style={{ marginTop: 2 }}>
@@ -2431,9 +2414,7 @@ export default function Accounts() {
               maxWidth={820}
               bodyStyle={{ display: "flex", flexDirection: "column", gap: 12 }}
               footer={
-                <button onClick={closeRebindPanel} className="btn btn-ghost">
-                  取消
-                </button>
+                <button onClick={closeRebindPanel} className="btn btn-ghost">{tr('取消')}</button>
               }
             >
               {activeRebindTarget ? (
@@ -2620,9 +2601,7 @@ export default function Accounts() {
             bodyStyle={{ display: "flex", flexDirection: "column", gap: 12 }}
             footer={
               <>
-                <button onClick={closeEditPanel} className="btn btn-ghost">
-                  取消
-                </button>
+                <button onClick={closeEditPanel} className="btn btn-ghost">{tr('取消')}</button>
                 <button
                   onClick={saveEditPanel}
                   disabled={savingEdit}
@@ -2693,9 +2672,7 @@ export default function Accounts() {
                         checkinEnabled: e.target.checked,
                       }))
                     }
-                  />
-                  启用签到
-                </label>
+                  />{tr('启用签到')}</label>
                 <input
                   placeholder="Access Token"
                   value={editForm.accessToken}
@@ -2818,9 +2795,7 @@ export default function Accounts() {
                               <span
                                 className="badge badge-purple"
                                 style={{ fontSize: 10 }}
-                              >
-                                代理
-                              </span>
+                              >{tr('代理')}</span>
                             )}
                           </div>
                         }
@@ -2836,16 +2811,12 @@ export default function Accounts() {
                             <button
                               onClick={() => openEditPanel(a)}
                               className="btn btn-link btn-link-info"
-                            >
-                              编辑
-                            </button>
+                            >{tr('编辑')}</button>
                             <button
                               onClick={() => openModelModal(a)}
                               disabled={actionLoading[`models-${a.id}`]}
                               className="btn btn-link btn-link-info"
-                            >
-                              模型
-                            </button>
+                            >{tr('模型')}</button>
                           </>
                         }
                       >
@@ -2984,9 +2955,7 @@ export default function Accounts() {
                                   <span
                                     className="badge badge-muted"
                                     style={{ fontSize: 11 }}
-                                  >
-                                    不支持
-                                  </span>
+                                  >{tr('不支持')}</span>
                                 )
                               }
                             />
@@ -3086,16 +3055,12 @@ export default function Accounts() {
                                   <button
                                     onClick={() => openRebindPanel(a)}
                                     className="btn btn-link btn-link-warning"
-                                  >
-                                    重新绑定
-                                  </button>
+                                  >{tr('重新绑定')}</button>
                                 )}
                               <button
                                 onClick={() => setTagEditor({ id: a.id, tags: a.tags })}
                                 className="btn btn-link btn-link-primary"
-                              >
-                                标签
-                              </button>
+                              >{tr('标签')}</button>
                               <button
                                 onClick={() =>
                                   setDeleteConfirm({
@@ -3133,18 +3098,16 @@ export default function Accounts() {
                           }
                         />
                       </th>
-                      <th>连接名称</th>
-                      <th>站点</th>
-                      <th>运行健康状态</th>
-                      <th>余额</th>
-                      <th>已用</th>
-                      <th>签到</th>
+                      <th>{tr('连接名称')}</th>
+                      <th>{tr('站点')}</th>
+                      <th>{tr('运行健康状态')}</th>
+                      <th>{tr('余额')}</th>
+                      <th>{tr('已用')}</th>
+                      <th>{tr('签到')}</th>
                       <th
                         className="accounts-actions-col"
                         style={{ textAlign: "right" }}
-                      >
-                        操作
-                      </th>
+                      >{tr('操作')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3193,9 +3156,7 @@ export default function Accounts() {
                                 <span
                                   className="badge badge-purple"
                                   style={{ fontSize: 10 }}
-                                >
-                                  代理
-                                </span>
+                                >{tr('代理')}</span>
                               )}
                               {parseTags(a.tags).map((tag) => (
                                 <button
@@ -3347,9 +3308,7 @@ export default function Accounts() {
                               <span
                                 className="badge badge-muted"
                                 style={{ fontSize: 11 }}
-                              >
-                                不支持
-                              </span>
+                              >{tr('不支持')}</span>
                             )}
                           </td>
                           <td
@@ -3419,9 +3378,7 @@ export default function Accounts() {
                                 onClick={() => openModelModal(a)}
                                 disabled={actionLoading[`models-${a.id}`]}
                                 className="btn btn-link btn-link-info"
-                              >
-                                模型
-                              </button>
+                              >{tr('模型')}</button>
                               {capabilities.canCheckin && (
                                 <button
                                   onClick={() =>
@@ -3446,16 +3403,12 @@ export default function Accounts() {
                                   <button
                                     onClick={() => openRebindPanel(a)}
                                     className="btn btn-link btn-link-warning"
-                                  >
-                                    重新绑定
-                                  </button>
+                                  >{tr('重新绑定')}</button>
                                 )}
                               <button
                                 onClick={() => openEditPanel(a)}
                                 className="btn btn-link btn-link-info"
-                              >
-                                编辑
-                              </button>
+                              >{tr('编辑')}</button>
                               <button
                                 onClick={() =>
                                   setDeleteConfirm({
@@ -3513,9 +3466,7 @@ export default function Accounts() {
                       size="sm"
                       variant="primary"
                       onClick={() => navigate("/sites")}
-                    >
-                      前往站点
-                    </DsButton>
+                    >{tr('前往站点')}</DsButton>
                   )
                 }
               />

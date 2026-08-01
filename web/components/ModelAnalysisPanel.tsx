@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { tr } from '../i18n.js';
 import { VChart } from '@visactor/react-vchart';
 import { InlineBrandIcon } from './BrandIcon.js';
 import { formatCompactTokenMetric } from '../numberFormat.js';
@@ -49,7 +50,7 @@ function formatPercent(value: number): string {
 function EmptyBlock() {
   return (
     <div className="empty-state" style={{ padding: 28 }}>
-      <div className="empty-state-title">暂无模型调用数据</div>
+      <div className="empty-state-title">{tr('暂无模型调用数据')}</div>
       <div className="empty-state-desc">等待代理流量进入后会自动生成统计图表</div>
     </div>
   );
@@ -116,11 +117,11 @@ export default function ModelAnalysisPanel({ data }: ModelAnalysisPanelProps) {
       {/* Summary Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
         <div className="stat-summary-card stat-summary-purple">
-          <div className="stat-summary-card-label">总消耗</div>
+          <div className="stat-summary-card-label">{tr('总消耗')}</div>
           <div className="stat-summary-card-value">{formatCurrency(totals.spend)}</div>
         </div>
         <div className="stat-summary-card stat-summary-blue">
-          <div className="stat-summary-card-label">总调用</div>
+          <div className="stat-summary-card-label">{tr('总调用')}</div>
           <div className="stat-summary-card-value">{Math.round(totals.calls).toLocaleString()}</div>
         </div>
         <div className="stat-summary-card stat-summary-green">
@@ -195,11 +196,11 @@ export default function ModelAnalysisPanel({ data }: ModelAnalysisPanelProps) {
             <thead>
               <tr>
                 <th style={{ width: 36, textAlign: 'center' }}>#</th>
-                <th>模型</th>
-                <th style={{ textAlign: 'center' }}>调用</th>
-                <th style={{ textAlign: 'center' }}>成功率</th>
-                <th style={{ textAlign: 'center' }}>平均延迟</th>
-                <th style={{ textAlign: 'right' }}>消耗</th>
+                <th>{tr('模型')}</th>
+                <th style={{ textAlign: 'center' }}>{tr('调用')}</th>
+                <th style={{ textAlign: 'center' }}>{tr('成功率')}</th>
+                <th style={{ textAlign: 'center' }}>{tr('平均延迟')}</th>
+                <th style={{ textAlign: 'right' }}>{tr('消耗')}</th>
               </tr>
             </thead>
             <tbody>

@@ -553,7 +553,7 @@ export default function ImportExport() {
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <span className="badge badge-muted" style={{ fontSize: 11 }}>Schema v2.1</span>
-          <span className="badge badge-warning" style={{ fontSize: 11 }}>敏感数据请离线保管</span>
+          <span className="badge badge-warning" style={{ fontSize: 11 }}>{tr('敏感数据请离线保管')}</span>
         </div>
       </div>
 
@@ -564,7 +564,7 @@ export default function ImportExport() {
             <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="var(--color-primary)">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
             </svg>
-            <span style={{ fontSize: 15, fontWeight: 700 }}>导出数据</span>
+            <span style={{ fontSize: 15, fontWeight: 700 }}>{tr('导出数据')}</span>
           </div>
           <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 14 }}>
             将连接、路由策略与设置导出为 JSON 文件进行备份
@@ -586,7 +586,7 @@ export default function ImportExport() {
               className="btn btn-ghost"
               style={{ border: '1px solid var(--color-border)', justifyContent: 'space-between' }}
             >
-              <span>仅导出连接与路由策略</span>
+              <span>{tr('仅导出连接与路由策略')}</span>
               {exportingType === 'accounts' ? <span className="spinner spinner-sm" /> : null}
             </button>
             <button
@@ -595,7 +595,7 @@ export default function ImportExport() {
               className="btn btn-ghost"
               style={{ border: '1px solid var(--color-border)', justifyContent: 'space-between' }}
             >
-              <span>仅导出系统设置</span>
+              <span>{tr('仅导出系统设置')}</span>
               {exportingType === 'preferences' ? <span className="spinner spinner-sm" /> : null}
             </button>
           </div>
@@ -607,11 +607,9 @@ export default function ImportExport() {
             <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="var(--color-primary)">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            <span style={{ fontSize: 15, fontWeight: 700 }}>导入数据</span>
+            <span style={{ fontSize: 15, fontWeight: 700 }}>{tr('导入数据')}</span>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 14 }}>
-            从备份文件恢复数据
-          </div>
+          <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 14 }}>{tr('从备份文件恢复数据')}</div>
 
           <div style={{ display: 'grid', gap: 12 }}>
             {/* ---- 拖拽上传区 ---- */}
@@ -645,9 +643,7 @@ export default function ImportExport() {
                   <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)' }}>
                     {selectedFileName}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
-                    点击重新选择文件
-                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{tr('点击重新选择文件')}</div>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
@@ -657,8 +653,7 @@ export default function ImportExport() {
                   <div style={{ fontSize: 13, fontWeight: 600, color: dragOver ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}>
                     {dragOver ? '松开以导入文件' : '拖拽 JSON 备份文件到此处'}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
-                    或 <span style={{ color: 'var(--color-primary)', fontWeight: 500 }}>点击选择文件</span>
+                  <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{tr('或')}<span style={{ color: 'var(--color-primary)', fontWeight: 500 }}>{tr('点击选择文件')}</span>
                   </div>
                 </div>
               )}
@@ -666,7 +661,7 @@ export default function ImportExport() {
 
             {/* ---- 数据预览 ---- */}
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 6 }}>数据预览</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)', marginBottom: 6 }}>{tr('数据预览')}</div>
               <textarea
                 value={importData}
                 onChange={(e) => setImportData(e.target.value)}
@@ -774,7 +769,7 @@ export default function ImportExport() {
             />
           </div>
           <div>
-            <div style={formFieldLabelStyle}>用户名</div>
+            <div style={formFieldLabelStyle}>{tr('用户名')}</div>
             <input
               value={webdavConfig.username}
               onChange={(e) => setWebdavConfig((prev) => ({ ...prev, username: e.target.value }))}
@@ -783,7 +778,7 @@ export default function ImportExport() {
             />
           </div>
           <div>
-            <div style={formFieldLabelStyle}>密码</div>
+            <div style={formFieldLabelStyle}>{tr('密码')}</div>
             <input
               type="password"
               value={webdavConfig.password}
@@ -813,13 +808,11 @@ export default function ImportExport() {
                     }
                   }}
                   style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--color-primary)' }}
-                />
-                清空已保存密码
-              </label>
+                />{tr('清空已保存密码')}</label>
             ) : null}
           </div>
           <div>
-            <div style={formFieldLabelStyle}>导出分区</div>
+            <div style={formFieldLabelStyle}>{tr('导出分区')}</div>
             <ModernSelect
               value={webdavConfig.exportType}
               onChange={(value) => setWebdavConfig((prev) => ({ ...prev, exportType: value as BackupType }))}
@@ -863,9 +856,7 @@ export default function ImportExport() {
               checked={webdavConfig.autoSyncEnabled}
               onChange={(e) => setWebdavConfig((prev) => ({ ...prev, autoSyncEnabled: e.target.checked }))}
               style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--color-primary)' }}
-            />
-            自动同步
-          </label>
+            />{tr('自动同步')}</label>
         </div>
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
@@ -908,7 +899,7 @@ export default function ImportExport() {
       </div>
 
       <div className="card animate-slide-up stagger-4" style={{ marginTop: 14, padding: 16 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>注意事项</div>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>{tr('注意事项')}</div>
         <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', lineHeight: 1.75 }}>
           <div>1. 导入连接分区会覆盖备份中的站点、账号、令牌、路由、禁用模型、手工模型和下游 Key 配置。</div>
           <div>2. 覆盖备份中的连接/路由/策略配置，但会保留本机日志、公告、缓存和统计。</div>

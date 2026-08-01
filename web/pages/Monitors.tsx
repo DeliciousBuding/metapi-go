@@ -120,18 +120,14 @@ export default function Monitors() {
             onClick={() => setReloadSeed((prev) => prev + 1)}
             data-tooltip="重新加载当前站点"
             aria-label="重新加载当前站点"
-          >
-            刷新
-          </button>
+          >{tr('刷新')}</button>
           <button
             type="button"
             className="btn btn-primary"
             onClick={() => window.open(directSiteUrl, '_blank', 'noopener,noreferrer')}
             data-tooltip="在新窗口直接打开目标站点"
             aria-label="在新窗口直接打开目标站点"
-          >
-            新窗口打开
-          </button>
+          >{tr('新窗口打开')}</button>
         </div>
       </div>
 
@@ -193,18 +189,14 @@ export default function Monitors() {
               className="btn btn-ghost"
               style={{ border: '1px solid var(--color-border)' }}
               onClick={() => window.open(ldohOauthUrl, '_blank', 'noopener,noreferrer')}
-            >
-              授权登录（新窗口）
-            </button>
+            >{tr('授权登录（新窗口）')}</button>
             {usingCookieProxy && (
               <button
                 type="button"
                 className="btn btn-ghost"
                 style={{ border: '1px solid var(--color-border)' }}
                 onClick={() => window.open('/monitor-proxy/ldoh/', '_blank', 'noopener,noreferrer')}
-              >
-                通过代理打开
-              </button>
+              >{tr('通过代理打开')}</button>
             )}
           </div>
         </div>

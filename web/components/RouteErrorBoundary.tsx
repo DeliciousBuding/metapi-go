@@ -1,4 +1,5 @@
 import React from 'react';
+import { tr } from '../i18n.js';
 import { useLocation } from 'react-router-dom';
 
 interface ErrorBoundaryProps {
@@ -50,11 +51,9 @@ function RouteErrorView({ error, onRetry }: { error: Error; onRetry: () => void 
       <svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="var(--color-text-muted)" aria-hidden="true">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
       </svg>
-      <div className="route-error-title">页面渲染出错</div>
+      <div className="route-error-title">{tr('页面渲染出错')}</div>
       <div className="route-error-message">{error.message || String(error)}</div>
-      <button type="button" className="btn btn-primary" onClick={onRetry}>
-        重试
-      </button>
+      <button type="button" className="btn btn-primary" onClick={onRetry}>{tr('重试')}</button>
     </div>
   );
 }

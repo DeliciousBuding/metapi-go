@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { tr } from '../i18n.js';
 import { api, type SchedulerRunStatus } from '../api.js';
 import { EmptyState as DsEmptyState } from '../design-system/index.js';
 
@@ -43,7 +44,7 @@ export default function SchedulerStatusPanel() {
     return (
       <div style={containerStyle}>
         <div style={headerStyle}>
-          <span style={titleStyle}>调度任务状态</span>
+          <span style={titleStyle}>{tr('调度任务状态')}</span>
         </div>
         <div
           className="skeleton"
@@ -57,7 +58,7 @@ export default function SchedulerStatusPanel() {
     return (
       <div style={containerStyle}>
         <div style={headerStyle}>
-          <span style={titleStyle}>调度任务状态</span>
+          <span style={titleStyle}>{tr('调度任务状态')}</span>
         </div>
         <DsEmptyState
           className="dashboard-chart-empty"
@@ -73,7 +74,7 @@ export default function SchedulerStatusPanel() {
   return (
     <div style={containerStyle}>
       <div style={headerStyle}>
-        <span style={titleStyle}>调度任务状态</span>
+        <span style={titleStyle}>{tr('调度任务状态')}</span>
       </div>
       <ul style={listStyle}>
         {items.map((item) => (

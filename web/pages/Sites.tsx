@@ -1220,9 +1220,7 @@ export default function Sites() {
                 onClick={() => setShowMobileTools(true)}
                 className="btn btn-ghost"
                 style={{ border: '1px solid var(--color-border)' }}
-              >
-                排序与操作
-              </button>
+              >{tr('排序与操作')}</button>
               <button
                 type="button"
                 data-testid="sites-mobile-select-all"
@@ -1262,7 +1260,7 @@ export default function Sites() {
         mobileContent={(
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>排序方式</div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{tr('排序方式')}</div>
               <ModernSelect
                 value={sortMode}
                 onChange={(nextValue) => setSortMode(nextValue as SortMode)}
@@ -1301,35 +1299,23 @@ export default function Sites() {
             disabled={batchActionLoading}
             className="btn btn-ghost"
             style={{ border: '1px solid var(--color-border)' }}
-          >
-            批量开启系统代理
-          </button>
+          >{tr('批量开启系统代理')}</button>
           <button
             onClick={() => runBatchAction('disableSystemProxy')}
             disabled={batchActionLoading}
             className="btn btn-ghost"
             style={{ border: '1px solid var(--color-border)' }}
-          >
-            批量关闭系统代理
-          </button>
-          <button onClick={() => runBatchAction('enable')} disabled={batchActionLoading} className="btn btn-ghost" style={{ border: '1px solid var(--color-border)' }}>
-            批量启用
-          </button>
-          <button onClick={() => runBatchAction('disable')} disabled={batchActionLoading} className="btn btn-ghost" style={{ border: '1px solid var(--color-border)' }}>
-            批量禁用
-          </button>
-          <button onClick={() => runBatchAction('delete')} disabled={batchActionLoading} className="btn btn-link btn-link-danger">
-            批量删除
-          </button>
+          >{tr('批量关闭系统代理')}</button>
+          <button onClick={() => runBatchAction('enable')} disabled={batchActionLoading} className="btn btn-ghost" style={{ border: '1px solid var(--color-border)' }}>{tr('批量启用')}</button>
+          <button onClick={() => runBatchAction('disable')} disabled={batchActionLoading} className="btn btn-ghost" style={{ border: '1px solid var(--color-border)' }}>{tr('批量禁用')}</button>
+          <button onClick={() => runBatchAction('delete')} disabled={batchActionLoading} className="btn btn-link btn-link-danger">{tr('批量删除')}</button>
         </ResponsiveBatchActionBar>
       )}
 
       {/* #554: defer weight-formula education until at least one site exists so EmptyState CTA stays primary */}
       {sites.length > 0 ? (
         <details className="info-tip sites-weight-tip" style={{ marginBottom: 12 }} data-testid="sites-weight-tip">
-          <summary style={{ cursor: 'pointer', fontWeight: 600, listStylePosition: 'outside' }}>
-            了解站点权重
-          </summary>
+          <summary style={{ cursor: 'pointer', fontWeight: 600, listStylePosition: 'outside' }}>{tr('了解站点权重')}</summary>
           <div style={{ marginTop: 8 }}>
             站点权重说明：最终站点倍率 = 站点全局权重 × 设置页中下游 API Key 的站点倍率。它会与路由策略因子（基础权重、价值分、成本、余额、使用频次）共同作用。数值越大，该站点在同优先级下越容易被选中。建议范围 0.5-3，默认 1；长期不建议超过 5。
           </div>
@@ -1344,8 +1330,8 @@ export default function Sites() {
         confirmText="确认删除"
         loading={batchActionLoading || (deleteConfirm?.mode === 'single' && deleting === deleteConfirm?.siteId)}
         description={deleteConfirm?.mode === 'single'
-          ? <>确定要删除站点 <strong>{deleteConfirm.siteName || `#${deleteConfirm.siteId}`}</strong> 吗？</>
-          : <>确定要删除选中的 <strong>{deleteConfirm?.count || 0}</strong> 个站点吗？</>}
+          ? <>{tr('确定要删除站点')}<strong>{deleteConfirm.siteName || `#${deleteConfirm.siteId}`}</strong> 吗？</>
+          : <>{tr('确定要删除选中的')}<strong>{deleteConfirm?.count || 0}</strong> 个站点吗？</>}
       />
 
       {createdSiteForChoice && (
@@ -1385,9 +1371,7 @@ export default function Sites() {
           }}
           footer={(
             <>
-              <button onClick={closeEditor} className="btn btn-ghost" style={{ border: '1px solid var(--color-border)' }}>
-                取消
-              </button>
+              <button onClick={closeEditor} className="btn btn-ghost" style={{ border: '1px solid var(--color-border)' }}>{tr('取消')}</button>
               <button
                 onClick={handleSave}
                 disabled={saving || !form.name.trim() || !form.url.trim()}
@@ -1424,7 +1408,7 @@ export default function Sites() {
                 className="btn btn-ghost"
                 style={{ padding: '10px 14px', minWidth: 96, border: '1px solid var(--color-border)' }}
               >
-                {detecting ? <><span className="spinner spinner-sm" /> 检测中</> : '自动检测'}
+                {detecting ? <><span className="spinner spinner-sm" />{tr('检测中')}</> : '自动检测'}
               </button>
             </div>
             <div
@@ -1561,9 +1545,7 @@ export default function Sites() {
                       type="checkbox"
                       checked={endpoint.enabled !== false}
                       onChange={(e) => updateApiEndpointRow(index, { enabled: e.target.checked })}
-                    />
-                    启用
-                  </label>
+                    />{tr('启用')}</label>
                 </div>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 11, color: 'var(--color-text-muted)' }}>
@@ -1577,24 +1559,18 @@ export default function Sites() {
                       onClick={() => moveApiEndpointRow(index, 'up')}
                       disabled={index === 0}
                       className="btn btn-link btn-link-muted"
-                    >
-                      上移
-                    </button>
+                    >{tr('上移')}</button>
                     <button
                       type="button"
                       onClick={() => moveApiEndpointRow(index, 'down')}
                       disabled={index >= form.apiEndpoints.length - 1}
                       className="btn btn-link btn-link-muted"
-                    >
-                      下移
-                    </button>
+                    >{tr('下移')}</button>
                     <button
                       type="button"
                       onClick={() => removeApiEndpointRow(index)}
                       className="btn btn-link btn-link-danger"
-                    >
-                      删除
-                    </button>
+                    >{tr('删除')}</button>
                   </div>
                 </div>
               </div>
@@ -1612,9 +1588,7 @@ export default function Sites() {
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>
-                站点自定义请求头
-              </div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{tr('站点自定义请求头')}</div>
               <button
                 type="button"
                 onClick={addCustomHeaderRow}
@@ -1651,9 +1625,7 @@ export default function Sites() {
                   onClick={() => removeCustomHeaderRow(index)}
                   className="btn btn-link btn-link-danger"
                   style={isMobile ? { alignSelf: 'flex-end' } : undefined}
-                >
-                  删除
-                </button>
+                >{tr('删除')}</button>
               </div>
             ))}
             <div style={{ fontSize: 12, color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
@@ -1675,7 +1647,7 @@ export default function Sites() {
             </label>
             {isEditing && (
               <div style={{ marginTop: 16, padding: '14px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg)' }}>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>禁用模型管理</div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{tr('禁用模型管理')}</div>
                 <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 10 }}>
                   在此站点禁用指定模型后，路由重建时将不为该站点的这些模型创建通道。勾选表示禁用该模型。
                 </div>
@@ -1700,7 +1672,7 @@ export default function Sites() {
                         />
                         {/* Brand group quick actions */}
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
-                          <span style={{ fontSize: 11, color: 'var(--color-text-muted)', lineHeight: '24px' }}>按品牌全选：</span>
+                          <span style={{ fontSize: 11, color: 'var(--color-text-muted)', lineHeight: '24px' }}>{tr('按品牌全选：')}</span>
                           {brandGroups.map(([brandName, models]) => {
                             const allDisabled = models.every((m) => disabledModelSet.has(m));
                             return (
@@ -1727,7 +1699,7 @@ export default function Sites() {
                         {/* Checkbox list */}
                         <div style={{ maxHeight: 280, overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', padding: '4px 0' }}>
                           {filteredBrandGroups.length === 0 ? (
-                            <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--color-text-muted)' }}>无匹配模型</div>
+                            <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--color-text-muted)' }}>{tr('无匹配模型')}</div>
                           ) : filteredBrandGroups.map(([brandName, models]) => (
                             <div key={brandName}>
                               <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', padding: '4px 12px', background: 'var(--color-bg)', borderBottom: '1px solid var(--color-border-light)' }}>
@@ -1792,9 +1764,7 @@ export default function Sites() {
                         onClick={handleAddDisabledModel}
                         className="btn btn-ghost"
                         style={{ padding: '8px 14px', fontSize: 12, border: '1px solid var(--color-border)' }}
-                      >
-                        添加模型
-                      </button>
+                      >{tr('添加模型')}</button>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
@@ -1818,7 +1788,7 @@ export default function Sites() {
 
           {isEditing && (
             <div style={{ marginTop: 16, padding: '14px', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg)' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>刷新后自动测试请求</div>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{tr('刷新后自动测试请求')}</div>
               <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 10 }}>
                 开启后，每次自动获取模型列表成功后，会对指定模型发送一次真实测试请求。若判定不可用，自动加入站点禁用列表并重建路由。
               </div>
@@ -1829,7 +1799,7 @@ export default function Sites() {
                   onChange={(e) => setProbeEnabled(e.target.checked)}
                   style={{ width: 15, height: 15, marginTop: 2, flexShrink: 0 }}
                 />
-                <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>开启刷新后自动探测</span>
+                <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{tr('开启刷新后自动探测')}</span>
               </label>
               <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap', opacity: probeEnabled ? 1 : 0.5 }}>
                 {([['single', '指定模型'] , ['all', '全部模型']] as const).map(([val, label]) => (
@@ -1874,7 +1844,7 @@ export default function Sites() {
                 />
               )}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>延迟阈值</span>
+                <span style={{ fontSize: 12, color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>{tr('延迟阈值')}</span>
                 <input
                   type="number"
                   min="0"
@@ -1912,9 +1882,7 @@ export default function Sites() {
                     onClick={() => { probeAbortRef.current?.abort(); }}
                     className="btn btn-ghost"
                     style={{ fontSize: 12, padding: '6px 16px', border: '1px solid var(--color-danger)', color: 'var(--color-danger)' }}
-                  >
-                    停止
-                  </button>
+                  >{tr('停止')}</button>
                 )}
                 <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
                   {probeEnabled ? '实际探测超时复用「批量测活超时」设置' : '当前已关闭'}
@@ -1939,9 +1907,7 @@ export default function Sites() {
               )}
               {probeCompleted && brandGroups.length > 0 && (
                 <div style={{ marginTop: 10 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--color-text-secondary)' }}>
-                    探测后模型状态
-                    <span style={{ fontWeight: 400, marginLeft: 6, color: 'var(--color-text-muted)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, color: 'var(--color-text-secondary)' }}>{tr('探测后模型状态')}<span style={{ fontWeight: 400, marginLeft: 6, color: 'var(--color-text-muted)' }}>
                       — 可用 {availableModels.filter((m) => !disabledModelSet.has(m)).length} 个，已禁用 {disabledModels.length} 个
                     </span>
                   </div>
@@ -2007,9 +1973,7 @@ export default function Sites() {
                 type="checkbox"
                 checked={form.useSystemProxy}
                 onChange={(e) => setForm((prev) => ({ ...prev, useSystemProxy: e.target.checked }))}
-              />
-              使用系统代理
-            </label>
+              />{tr('使用系统代理')}</label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <input
                 placeholder="站点全局权重（默认 1）"
@@ -2150,15 +2114,11 @@ export default function Sites() {
                         <button
                           onClick={() => openEdit(site)}
                           className="btn btn-link btn-link-primary"
-                        >
-                          编辑
-                        </button>
+                        >{tr('编辑')}</button>
                         <button
                           onClick={() => setSiteTagEditor({ id: site.id, tags: site.tags })}
                           className="btn btn-link btn-link-primary"
-                        >
-                          标签
-                        </button>
+                        >{tr('标签')}</button>
                         <button
                           onClick={() => handleToggleStatus(site)}
                           disabled={togglingSiteId === site.id}
@@ -2331,16 +2291,16 @@ export default function Sites() {
                       onChange={(e) => toggleSelectAllVisible(e.target.checked)}
                     />
                   </th>
-                  <th>名称</th>
+                  <th>{tr('名称')}</th>
                   <th>外部签到站URL</th>
-                  <th>总余额</th>
-                  <th>状态</th>
-                  <th>系统代理</th>
-                  <th>权重</th>
-                  <th>最大并发</th>
-                  <th>平台</th>
-                  <th>创建时间</th>
-                  <th className="sites-actions-col" style={{ textAlign: 'right' }}>操作</th>
+                  <th>{tr('总余额')}</th>
+                  <th>{tr('状态')}</th>
+                  <th>{tr('系统代理')}</th>
+                  <th>{tr('权重')}</th>
+                  <th>{tr('最大并发')}</th>
+                  <th>{tr('平台')}</th>
+                  <th>{tr('创建时间')}</th>
+                  <th className="sites-actions-col" style={{ textAlign: 'right' }}>{tr('操作')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -2378,9 +2338,7 @@ export default function Sites() {
                           {site.name}
                         </a>
                         {hasConfiguredCustomHeaders(site.customHeaders) ? (
-                          <span className="badge badge-info" style={{ fontSize: 11 }}>
-                            自定义头
-                          </span>
+                          <span className="badge badge-info" style={{ fontSize: 11 }}>{tr('自定义头')}</span>
                         ) : null}
                         <span className={`badge ${getConfiguredSiteApiEndpoints(site).length > 0 ? 'badge-warning' : 'badge-muted'}`} style={{ fontSize: 11 }}>
                           API 地址: {buildSiteApiEndpointSummary(site)}
@@ -2527,15 +2485,11 @@ export default function Sites() {
                         <button
                           onClick={() => openEdit(site)}
                           className="btn btn-link btn-link-primary"
-                        >
-                          编辑
-                        </button>
+                        >{tr('编辑')}</button>
                         <button
                           onClick={() => setSiteTagEditor({ id: site.id, tags: site.tags })}
                           className="btn btn-link btn-link-primary"
-                        >
-                          标签
-                        </button>
+                        >{tr('标签')}</button>
                         <button
                           onClick={() => handleToggleStatus(site)}
                           disabled={togglingSiteId === site.id}

@@ -15,6 +15,7 @@ import ResponsiveBatchActionBar from '../components/ResponsiveBatchActionBar.js'
 import ResponsiveFilterPanel from '../components/ResponsiveFilterPanel.js';
 import { MobileCard, MobileField } from '../components/MobileCard.js';
 import ModernSelect from '../components/ModernSelect.js';
+import { tr } from '../i18n.js';
 import { useToast } from '../components/Toast.js';
 import { useAnimatedVisibility } from '../components/useAnimatedVisibility.js';
 import { useIsMobile } from '../components/useIsMobile.js';
@@ -1641,9 +1642,7 @@ export default function OAuthManagement() {
                 type="button"
                 className="btn btn-ghost oauth-outline-button"
                 onClick={() => setShowColumnMenu((current) => !current)}
-              >
-                列设置
-              </button>
+              >{tr('列设置')}</button>
               {showColumnMenu ? (
                 <div className="oauth-column-menu">
                   {COLUMN_OPTIONS.map((column) => (
@@ -1733,12 +1732,12 @@ export default function OAuthManagement() {
               onChange={(event) => toggleSelectAllVisible(event.target.checked)}
             />
           </th>
-          {visibleColumns.identity ? <th className="oauth-col-identity">账号</th> : null}
-          {visibleColumns.site ? <th className="oauth-col-site">站点</th> : null}
-          {visibleColumns.status ? <th className="oauth-col-status">状态</th> : null}
-          {visibleColumns.quota ? <th className="oauth-col-quota">额度</th> : null}
+          {visibleColumns.identity ? <th className="oauth-col-identity">{tr('账号')}</th> : null}
+          {visibleColumns.site ? <th className="oauth-col-site">{tr('站点')}</th> : null}
+          {visibleColumns.status ? <th className="oauth-col-status">{tr('状态')}</th> : null}
+          {visibleColumns.quota ? <th className="oauth-col-quota">{tr('额度')}</th> : null}
           {visibleColumns.proxy ? <th className="oauth-col-proxy">计划 / 代理</th> : null}
-          <th className="oauth-table-actions-col">操作</th>
+          <th className="oauth-table-actions-col">{tr('操作')}</th>
         </tr>
       </thead>
       <tbody>
@@ -1810,7 +1809,7 @@ export default function OAuthManagement() {
                   <div className="oauth-status-stack">
                     <div className="oauth-status-item">
                       <div className="oauth-status-line">
-                        <div className="oauth-status-label">模型</div>
+                        <div className="oauth-status-label">{tr('模型')}</div>
                         <div className="oauth-cell-secondary oauth-status-value" title={modelSyncDetail || resolveModelSyncStatusText(connection)}>
                           {resolveModelSyncStatusText(connection)}
                         </div>
@@ -1821,7 +1820,7 @@ export default function OAuthManagement() {
                     </div>
                     <div className="oauth-status-item">
                       <div className="oauth-status-line">
-                        <div className="oauth-status-label">额度</div>
+                        <div className="oauth-status-label">{tr('额度')}</div>
                         <div className="oauth-cell-tertiary oauth-status-value" title={quotaSyncDetail || resolveQuotaSyncStatusText(quota)}>
                           {resolveQuotaSyncStatusText(quota)}
                         </div>
@@ -1888,9 +1887,7 @@ export default function OAuthManagement() {
                     type="button"
                     className="btn btn-link btn-link-info"
                     onClick={() => openRebindDrawer(connection)}
-                  >
-                    重新授权
-                  </button>
+                  >{tr('重新授权')}</button>
                   <button
                     type="button"
                     className="btn btn-link btn-link-danger"
@@ -1956,7 +1953,7 @@ export default function OAuthManagement() {
                 <div className="oauth-status-stack">
                   <div className="oauth-status-item">
                     <div className="oauth-status-line">
-                      <div className="oauth-status-label">模型</div>
+                      <div className="oauth-status-label">{tr('模型')}</div>
                       <div className="oauth-cell-secondary">{resolveModelSyncStatusText(connection)}</div>
                     </div>
                     {resolveModelSyncDetail(connection) ? (
@@ -1965,7 +1962,7 @@ export default function OAuthManagement() {
                   </div>
                   <div className="oauth-status-item">
                     <div className="oauth-status-line">
-                      <div className="oauth-status-label">额度</div>
+                      <div className="oauth-status-label">{tr('额度')}</div>
                       <div className="oauth-cell-tertiary">{resolveQuotaSyncStatusText(quota)}</div>
                     </div>
                     {resolveQuotaSyncDetail(quota) ? (
@@ -1997,18 +1994,10 @@ export default function OAuthManagement() {
               <button type="button" className="btn btn-link btn-link-info" onClick={() => void openModelsModal(connection)}>
                 {connection.modelCount} 个模型
               </button>
-              <button type="button" className="btn btn-link btn-link-primary" onClick={() => handleRefreshQuota(connection.accountId)}>
-                刷新额度
-              </button>
-              <button type="button" className="btn btn-link btn-link-info" onClick={() => openProxySettingsDrawer(connection)}>
-                代理设置
-              </button>
-              <button type="button" className="btn btn-link btn-link-info" onClick={() => openRebindDrawer(connection)}>
-                重新授权
-              </button>
-              <button type="button" className="btn btn-link btn-link-danger" onClick={() => handleDelete(connection.accountId)}>
-                删除连接
-              </button>
+              <button type="button" className="btn btn-link btn-link-primary" onClick={() => handleRefreshQuota(connection.accountId)}>{tr('刷新额度')}</button>
+              <button type="button" className="btn btn-link btn-link-info" onClick={() => openProxySettingsDrawer(connection)}>{tr('代理设置')}</button>
+              <button type="button" className="btn btn-link btn-link-info" onClick={() => openRebindDrawer(connection)}>{tr('重新授权')}</button>
+              <button type="button" className="btn btn-link btn-link-danger" onClick={() => handleDelete(connection.accountId)}>{tr('删除连接')}</button>
             </div>
           </MobileCard>
         );
@@ -2074,9 +2063,7 @@ export default function OAuthManagement() {
               type="button"
               className="btn btn-ghost oauth-outline-button"
               onClick={() => setShowMobileFilters(true)}
-            >
-              筛选与操作
-            </button>
+            >{tr('筛选与操作')}</button>
             <button type="button" className="btn btn-primary" onClick={() => openCreateDrawer()}>
               新建 OAuth 连接
             </button>
@@ -2109,9 +2096,7 @@ export default function OAuthManagement() {
                 type="button"
                 className="btn btn-ghost oauth-outline-button"
                 onClick={openRouteUnitModal}
-              >
-                合并参与路由
-              </button>
+              >{tr('合并参与路由')}</button>
             ) : null}
             {canSplitSelectedRouteUnit ? (
               <button
@@ -2184,7 +2169,7 @@ export default function OAuthManagement() {
                 </div>
               ) : (
                 <div className="oauth-cell-stack">
-                  <div className="oauth-field-label">当前连接</div>
+                  <div className="oauth-field-label">{tr('当前连接')}</div>
                   <div className="oauth-cell-primary">
                     {resolveConnectionPrimaryTitle(drawerIntent.account)}
                   </div>
@@ -2232,7 +2217,7 @@ export default function OAuthManagement() {
                       }
                     }}
                   />
-                  <span>使用系统级代理</span>
+                  <span>{tr('使用系统级代理')}</span>
                 </label>
                 <label className="oauth-toggle">
                   <input
@@ -2245,12 +2230,12 @@ export default function OAuthManagement() {
                       if (checked) setOauthSystemProxyEnabled(false);
                     }}
                   />
-                  <span>使用自定义代理</span>
+                  <span>{tr('使用自定义代理')}</span>
                 </label>
               </div>
 
               <div className="oauth-form-field">
-                <div className="oauth-field-label">代理地址</div>
+                <div className="oauth-field-label">{tr('代理地址')}</div>
                 <input
                   type="text"
                   className="oauth-input"
@@ -2308,10 +2293,10 @@ export default function OAuthManagement() {
 
           {activeSession ? (
             <div className="card oauth-drawer-panel">
-              <div className="oauth-panel-title">授权指引</div>
+              <div className="oauth-panel-title">{tr('授权指引')}</div>
               <div className="oauth-guide-grid">
                 <div className="oauth-guide-highlight">
-                  <div className="oauth-guide-block-label oauth-guide-block-label-spaced">固定回调地址</div>
+                  <div className="oauth-guide-block-label oauth-guide-block-label-spaced">{tr('固定回调地址')}</div>
                   {renderCodeBlock(activeSession.instructions.redirectUri)}
                 </div>
 
@@ -2368,9 +2353,7 @@ export default function OAuthManagement() {
                           type="button"
                           className="btn btn-ghost"
                           onClick={() => openOAuthPopup(activeSession.provider, activeSession.authorizationUrl)}
-                        >
-                          重新打开授权页
-                        </button>
+                        >{tr('重新打开授权页')}</button>
                       </div>
                     </div>
                   ) : (
@@ -2407,9 +2390,7 @@ export default function OAuthManagement() {
         bodyStyle={{ display: 'grid', gap: 16 }}
         footer={(
           <>
-            <button type="button" className="btn btn-ghost" onClick={closeImportModal}>
-              关闭
-            </button>
+            <button type="button" className="btn btn-ghost" onClick={closeImportModal}>{tr('关闭')}</button>
             <button type="button" className="btn btn-primary" onClick={handleImport} disabled={importing || !importPreviewSummary?.canImport}>
               {importing ? '添加中...' : '添加'}
             </button>
@@ -2477,7 +2458,7 @@ export default function OAuthManagement() {
                 }
               }}
             />
-            <span>使用系统级代理</span>
+            <span>{tr('使用系统级代理')}</span>
           </label>
           <label className="oauth-toggle">
             <input
@@ -2490,11 +2471,11 @@ export default function OAuthManagement() {
                 if (checked) setImportSystemProxyEnabled(false);
               }}
             />
-            <span>使用自定义代理</span>
+            <span>{tr('使用自定义代理')}</span>
           </label>
         </div>
         <div className="oauth-form-field">
-          <div className="oauth-field-label">代理地址</div>
+          <div className="oauth-field-label">{tr('代理地址')}</div>
           <input
             type="text"
             className="oauth-input"
@@ -2515,7 +2496,7 @@ export default function OAuthManagement() {
         />
         {importPreviewSummary ? (
           <div className={`oauth-import-preview ${importPreviewSummary.canImport ? 'is-valid' : 'is-invalid'}`.trim()}>
-            <div className="oauth-import-preview-title">识别结果</div>
+            <div className="oauth-import-preview-title">{tr('识别结果')}</div>
             <div className="oauth-import-preview-summary">
               {importPreviewSummary.canImport
                 ? `已识别 ${importPreviewSummary.totalCount} 份 JSON，均可添加。`
@@ -2559,9 +2540,7 @@ export default function OAuthManagement() {
         bodyStyle={{ display: 'grid', gap: 16 }}
         footer={(
           <>
-            <button type="button" className="btn btn-ghost" onClick={closeRouteUnitModal}>
-              取消
-            </button>
+            <button type="button" className="btn btn-ghost" onClick={closeRouteUnitModal}>{tr('取消')}</button>
             <button
               type="button"
               className="btn btn-primary"
@@ -2574,7 +2553,7 @@ export default function OAuthManagement() {
         )}
       >
         <div className="oauth-form-field">
-          <div className="oauth-field-label">路由池名称</div>
+          <div className="oauth-field-label">{tr('路由池名称')}</div>
           <input
             type="text"
             className="oauth-input"
@@ -2585,7 +2564,7 @@ export default function OAuthManagement() {
           />
         </div>
         <div className="oauth-form-field">
-          <div className="oauth-field-label">策略</div>
+          <div className="oauth-field-label">{tr('策略')}</div>
           <ModernSelect
             value={routeUnitModal.strategy}
             onChange={(value) => setRouteUnitModal((current) => ({

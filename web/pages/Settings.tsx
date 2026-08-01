@@ -1281,16 +1281,16 @@ export default function Settings() {
   return (
     <div className="animate-fade-in">
       <div className="page-header">
-        <h2 className="page-title">系统设置</h2>
+        <h2 className="page-title">{tr('系统设置')}</h2>
       </div>
 
       <div style={{ maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div className="card animate-slide-up stagger-1" style={{ padding: 20 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12 }}>管理员登录令牌</div>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12 }}>{tr('管理员登录令牌')}</div>
           <code style={{ display: 'block', padding: '10px 14px', background: 'var(--color-bg)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border-light)', marginBottom: 12 }}>
             {maskedToken || '****'}
           </code>
-          <button onClick={() => setShowChangeKey(true)} className="btn btn-primary">修改登录令牌</button>
+          <button onClick={() => setShowChangeKey(true)} className="btn btn-primary">{tr('修改登录令牌')}</button>
           <ChangeKeyModal
             open={showChangeKey}
             onClose={() => {
@@ -1301,10 +1301,10 @@ export default function Settings() {
         </div>
 
         <div className="card animate-slide-up stagger-2" style={{ padding: 20 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12 }}>定时任务</div>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12 }}>{tr('定时任务')}</div>
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '180px 180px auto', gap: 12, alignItems: 'end', marginBottom: 12 }}>
             <div>
-              <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>签到方式</div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>{tr('签到方式')}</div>
               <ModernSelect
                 value={runtime.checkinScheduleMode}
                 onChange={(value) => setRuntime((prev) => ({
@@ -1315,7 +1315,7 @@ export default function Settings() {
               />
             </div>
             <div>
-              <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>签到间隔</div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>{tr('签到间隔')}</div>
               <ModernSelect
                 value={String(runtime.checkinIntervalHours)}
                 onChange={(value) => setRuntime((prev) => ({
@@ -1363,7 +1363,7 @@ export default function Settings() {
               gap: 12,
             }}
           >
-            <div style={{ fontWeight: 600, fontSize: 13 }}>自动清理日志</div>
+            <div style={{ fontWeight: 600, fontSize: 13 }}>{tr('自动清理日志')}</div>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 160px', gap: 12 }}>
               <div>
                 <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>清理 Cron</div>
@@ -1374,7 +1374,7 @@ export default function Settings() {
                 />
               </div>
               <div>
-                <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>保留天数</div>
+                <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>{tr('保留天数')}</div>
                 <input
                   type="number"
                   min={1}
@@ -1398,17 +1398,13 @@ export default function Settings() {
                   type="checkbox"
                   checked={runtime.logCleanupUsageLogsEnabled}
                   onChange={(e) => setRuntime((prev) => ({ ...prev, logCleanupUsageLogsEnabled: e.target.checked }))}
-                />
-                清理使用日志
-              </label>
+                />{tr('清理使用日志')}</label>
               <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--color-text-secondary)' }}>
                 <input
                   type="checkbox"
                   checked={runtime.logCleanupProgramLogsEnabled}
                   onChange={(e) => setRuntime((prev) => ({ ...prev, logCleanupProgramLogsEnabled: e.target.checked }))}
-                />
-                清理程序日志
-              </label>
+                />{tr('清理程序日志')}</label>
             </div>
             <div style={{ fontSize: 12, color: 'var(--color-text-muted)', lineHeight: 1.6 }}>
               默认每天早上 6 点执行。按每次定时任务执行时间，清理早于“保留天数”的日志；两个选项都不勾选时不会实际删除日志。
@@ -1422,7 +1418,7 @@ export default function Settings() {
         </div>
 
         <div className="card animate-slide-up stagger-3" style={{ padding: 20 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>系统代理</div>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>{tr('系统代理')}</div>
           <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 12 }}>
             配置一个全局出站代理地址，站点页可按站点决定是否启用系统代理。
           </div>
@@ -1464,7 +1460,7 @@ export default function Settings() {
         </div>
 
         <div className="card animate-slide-up stagger-4" style={{ padding: 20 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>代理失败判定</div>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>{tr('代理失败判定')}</div>
           <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 12 }}>
             命中任一关键词或空内容时判定失败，可触发重试。
           </div>
@@ -1519,7 +1515,7 @@ export default function Settings() {
           <div style={settingsModernFieldCardStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
               <div style={{ display: 'grid', gap: 6, minWidth: 0 }}>
-                <div style={settingsModernFieldLabelStyle}>常用预设</div>
+                <div style={settingsModernFieldLabelStyle}>{tr('常用预设')}</div>
                 <div style={settingsModernFieldHintStyle}>
                   先用预设快速填充，再通过下面的可视化规则编辑器细调。复杂场景仍可回退到高级 JSON。
                 </div>
@@ -1538,9 +1534,7 @@ export default function Settings() {
                   className="btn btn-ghost"
                   style={{ border: '1px solid var(--color-border)' }}
                   onClick={addPayloadVisualRule}
-                >
-                  新增规则
-                </button>
+                >{tr('新增规则')}</button>
                 <button
                   type="button"
                   className="btn btn-ghost"
@@ -1554,7 +1548,7 @@ export default function Settings() {
           </div>
           {payloadVisualRules.length <= 0 ? (
             <div style={settingsModernFieldCardStyle}>
-              <div style={settingsModernFieldLabelStyle}>还没有可视化规则</div>
+              <div style={settingsModernFieldLabelStyle}>{tr('还没有可视化规则')}</div>
               <div style={settingsModernFieldHintStyle}>
                 可以先点上面的预设，也可以直接新增一条规则：选择动作、协议、模型匹配、字段路径和值即可。
               </div>
@@ -1573,13 +1567,11 @@ export default function Settings() {
                       className="btn btn-ghost"
                       style={{ border: '1px solid var(--color-border)', color: 'var(--color-danger)' }}
                       onClick={() => removePayloadVisualRule(rule.id)}
-                    >
-                      删除
-                    </button>
+                    >{tr('删除')}</button>
                   </div>
                   <ResponsiveFormGrid columns={2}>
                     <div>
-                      <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>动作</div>
+                      <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>{tr('动作')}</div>
                       <ModernSelect
                         size="sm"
                         data-testid={`payload-rule-action-${index + 1}`}
@@ -1590,7 +1582,7 @@ export default function Settings() {
                       />
                     </div>
                     <div>
-                      <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>协议</div>
+                      <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>{tr('协议')}</div>
                       <ModernSelect
                         size="sm"
                         data-testid={`payload-rule-protocol-${index + 1}`}
@@ -1601,7 +1593,7 @@ export default function Settings() {
                       />
                     </div>
                     <div>
-                      <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>模型匹配</div>
+                      <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>{tr('模型匹配')}</div>
                       <input
                         type="text"
                         aria-label={`Payload 规则可视化模型 ${index + 1}`}
@@ -1612,7 +1604,7 @@ export default function Settings() {
                       />
                     </div>
                     <div>
-                      <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>字段路径</div>
+                      <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>{tr('字段路径')}</div>
                       <input
                         type="text"
                         aria-label={`Payload 规则可视化路径 ${index + 1}`}
@@ -1631,7 +1623,7 @@ export default function Settings() {
                     <div style={{ display: 'grid', gap: 8 }}>
                       {(rule.action === 'default' || rule.action === 'override') && (
                         <div style={{ width: isMobile ? '100%' : 180 }}>
-                          <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>值类型</div>
+                          <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>{tr('值类型')}</div>
                           <ModernSelect
                             size="sm"
                             data-testid={`payload-rule-value-mode-${index + 1}`}
@@ -1702,9 +1694,7 @@ export default function Settings() {
                     className="btn btn-ghost"
                     style={{ border: '1px solid var(--color-border)' }}
                     onClick={syncVisualRulesFromAdvancedJson}
-                  >
-                    同步到可视化规则
-                  </button>
+                  >{tr('同步到可视化规则')}</button>
                 </div>
               </div>
               <ResponsiveFormGrid columns={2}>
@@ -1792,7 +1782,7 @@ export default function Settings() {
           </label>
           <ResponsiveFormGrid columns={2}>
             <div style={settingsModernFieldCardStyle}>
-              <div style={settingsModernFieldLabelStyle}>会话通道并发上限</div>
+              <div style={settingsModernFieldLabelStyle}>{tr('会话通道并发上限')}</div>
               <input
                 type="number"
                 min={0}
@@ -1813,7 +1803,7 @@ export default function Settings() {
               </div>
             </div>
             <div style={settingsModernFieldCardStyle}>
-              <div style={settingsModernFieldLabelStyle}>排队等待时间（毫秒）</div>
+              <div style={settingsModernFieldLabelStyle}>{tr('排队等待时间（毫秒）')}</div>
               <input
                 type="number"
                 min={0}
@@ -1845,7 +1835,7 @@ export default function Settings() {
         <div className="card animate-slide-up stagger-4" style={settingsModernDangerCardStyle} data-settings-card="model-availability-probe">
           <div style={settingsModernHeaderStyle}>
             <div style={settingsModernTitleBlockStyle}>
-              <div style={{ ...settingsModernTitleStyle, color: 'var(--color-danger)' }}>批量测活</div>
+              <div style={{ ...settingsModernTitleStyle, color: 'var(--color-danger)' }}>{tr('批量测活')}</div>
               <div style={settingsModernDescriptionStyle}>
                 默认关闭。开启后，metapi 会在后台定时对活跃账号模型发送最小化探测请求，用来校正“/models 能看到但实际不可用”的假阳性。
               </div>
@@ -1854,9 +1844,7 @@ export default function Settings() {
               <span style={getSettingsPillStyle(modelAvailabilityProbeStatusTone)}>
                 {modelAvailabilityProbeStatusLabel}
               </span>
-              <span style={getSettingsPillStyle('danger')}>
-                高风险操作
-              </span>
+              <span style={getSettingsPillStyle('danger')}>{tr('高风险操作')}</span>
             </div>
           </div>
           <div
@@ -1866,7 +1854,7 @@ export default function Settings() {
               background: 'color-mix(in srgb, var(--color-danger-soft) 38%, var(--color-bg-card))',
             }}
           >
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-danger)' }}>风险提示</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-danger)' }}>{tr('风险提示')}</div>
             <div style={{ fontSize: 12, lineHeight: 1.75, color: 'var(--color-text-secondary)' }}>
               只有在你确认自己使用的中转站明确允许批量测活时才应该开启。若上游不允许，这类探测可能带来封号或风控风险。
             </div>
@@ -1887,7 +1875,7 @@ export default function Settings() {
           </label>
           <ResponsiveFormGrid columns={2}>
             <div style={settingsModernFieldCardStyle}>
-              <div style={settingsModernFieldLabelStyle}>当前生效状态</div>
+              <div style={settingsModernFieldLabelStyle}>{tr('当前生效状态')}</div>
               <div style={settingsModernPillRowStyle}>
                 <span style={getSettingsPillStyle(modelAvailabilityProbeStatusTone)}>
                   {modelAvailabilityProbeStatusLabel}
@@ -1900,7 +1888,7 @@ export default function Settings() {
               </div>
             </div>
             <div style={settingsModernFieldCardStyle}>
-              <div style={settingsModernFieldLabelStyle}>启用门槛</div>
+              <div style={settingsModernFieldLabelStyle}>{tr('启用门槛')}</div>
               <div style={{ ...settingsModernFieldHintStyle, marginTop: 0 }}>
                 首次开启必须手动输入确认语句，避免误把高风险探测当成普通开关。
               </div>
@@ -2000,9 +1988,7 @@ export default function Settings() {
                   strokeLinejoin="round"
                   d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
                 />
-              </svg>
-              随机生成
-            </button>
+              </svg>{tr('随机生成')}</button>
           </div>
           <button onClick={saveProxyToken} disabled={savingToken} className="btn btn-primary">
             {savingToken ? <><span className="spinner spinner-sm" /> 保存中...</> : '更新下游访问令牌'}
@@ -2010,7 +1996,7 @@ export default function Settings() {
         </div>
 
         <div className="card animate-slide-up stagger-5" style={{ padding: 20 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10 }}>路由策略</div>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10 }}>{tr('路由策略')}</div>
           <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 12 }}>
             先选择预设策略，只有需要精调时再展开高级参数。
           </div>
@@ -2034,9 +2020,7 @@ export default function Settings() {
             />
           </div>
           <div style={{ marginBottom: 12, maxWidth: 420 }}>
-            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>
-              普通失败冷却上限
-            </div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>{tr('普通失败冷却上限')}</div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'stretch', flexWrap: 'wrap' }}>
               <input
                 type="number"
@@ -2085,9 +2069,7 @@ export default function Settings() {
                 border: activeRoutingProfile === 'balanced' ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
                 color: activeRoutingProfile === 'balanced' ? 'var(--color-primary)' : undefined,
               }}
-            >
-              均衡
-            </button>
+            >{tr('均衡')}</button>
             <button
               onClick={() => applyRoutingPreset('stable')}
               className="btn btn-ghost"
@@ -2095,9 +2077,7 @@ export default function Settings() {
                 border: activeRoutingProfile === 'stable' ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
                 color: activeRoutingProfile === 'stable' ? 'var(--color-primary)' : undefined,
               }}
-            >
-              稳定优先
-            </button>
+            >{tr('稳定优先')}</button>
             <button
               onClick={() => applyRoutingPreset('cost')}
               className="btn btn-ghost"
@@ -2105,9 +2085,7 @@ export default function Settings() {
                 border: activeRoutingProfile === 'cost' ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
                 color: activeRoutingProfile === 'cost' ? 'var(--color-primary)' : undefined,
               }}
-            >
-              成本优先
-            </button>
+            >{tr('成本优先')}</button>
             <button
               onClick={() => setShowAdvancedRouting((prev) => !prev)}
               className="btn btn-ghost"
@@ -2128,9 +2106,7 @@ export default function Settings() {
               style={{ marginTop: 2 }}
             />
             <span>
-              <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)' }}>
-                失败时不尝试其他协议
-              </span>
+              <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--color-text-primary)' }}>{tr('失败时不尝试其他协议')}</span>
               <span style={{ display: 'block', fontSize: 12, color: 'var(--color-text-muted)', lineHeight: 1.7 }}>
                 仅影响 chat / messages / responses 之间的协议切换；不会关闭同协议兼容重试、OAuth 刷新或通道级重试。
               </span>
@@ -2207,7 +2183,7 @@ export default function Settings() {
 
         {/* Global Brand Filter */}
         <div className="card animate-slide-up stagger-6" style={{ padding: 20 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>全局品牌屏蔽</div>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>{tr('全局品牌屏蔽')}</div>
           <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
             屏蔽选定品牌后，路由重建时将自动跳过匹配该品牌的所有模型。点击品牌切换屏蔽状态，保存后自动触发路由重建。
           </div>
@@ -2241,7 +2217,7 @@ export default function Settings() {
               <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>加载品牌列表中...</span>
             )}
             {allBrandNames !== null && allBrandNames.length === 0 && (
-              <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>暂无可用品牌</span>
+              <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{tr('暂无可用品牌')}</span>
             )}
           </div>
           {blockedBrands.length > 0 && (
@@ -2256,7 +2232,7 @@ export default function Settings() {
 
         {/* Global Allowed Models Whitelist */}
         <div className="card animate-slide-up stagger-7" style={{ padding: 20 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>全局模型白名单</div>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>{tr('全局模型白名单')}</div>
           <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 12, lineHeight: 1.6 }}>
             配置白名单后，路由重建和候选生成将只针对白名单中的模型。留空表示允许所有模型（向后兼容）。保存后自动触发路由重建。
           </div>
@@ -2290,15 +2266,11 @@ export default function Settings() {
                 }}
                 className="btn btn-ghost"
                 style={{ border: '1px solid var(--color-border)', fontSize: 12, padding: '6px 12px' }}
-              >
-                添加
-              </button>
+              >{tr('添加')}</button>
             </div>
             {availableModels && availableModels.length > 0 && (
               <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>
-                  或从当前可用模型中选择：
-                </div>
+                <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6 }}>{tr('或从当前可用模型中选择：')}</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 120, overflowY: 'auto', border: '1px solid var(--color-border)', padding: 8, borderRadius: 4 }}>
                   {availableModels.map((model) => {
                     const isAllowed = allowedModels.includes(model);
@@ -2497,9 +2469,7 @@ export default function Settings() {
               disabled
               className="btn btn-primary"
               title={DATABASE_MIGRATION_UNAVAILABLE_MESSAGE}
-            >
-              开始迁移
-            </button>
+            >{tr('开始迁移')}</button>
             <button
               onClick={handleSaveRuntimeDatabaseConfig}
               disabled={savingRuntimeDatabase || testingMigrationConnection}
@@ -2549,7 +2519,7 @@ export default function Settings() {
         <AuditLogsSection />
 
         <div className="card animate-slide-up stagger-6" style={{ padding: 20 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12 }}>维护工具</div>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12 }}>{tr('维护工具')}</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button onClick={handleClearCache} disabled={clearingCache} className="btn btn-ghost" style={{ border: '1px solid var(--color-border)' }}>
               {clearingCache ? <><span className="spinner spinner-sm" /> 清理中...</> : '清除缓存并重建路由'}
@@ -2561,20 +2531,18 @@ export default function Settings() {
         </div>
 
         <div className="card animate-slide-up stagger-7" style={{ padding: 20, border: '1px solid color-mix(in srgb, var(--color-danger) 30%, var(--color-border))' }}>
-          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10, color: 'var(--color-danger)' }}>危险操作</div>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10, color: 'var(--color-danger)' }}>{tr('危险操作')}</div>
           <div style={{ fontSize: 12, color: 'var(--color-text-muted)', lineHeight: 1.8, marginBottom: 12 }}>
             重新初始化系统会清空当前 metapi 使用中的全部数据库内容；若当前运行在外部 PostgreSQL，也会先清空该外部库中的 metapi 数据，然后切回默认 SQLite。
           </div>
           <div style={{ fontSize: 12, color: 'var(--color-text-muted)', lineHeight: 1.8, marginBottom: 14 }}>
             完成后管理员 Token 会重置为 <code style={{ fontFamily: 'var(--font-mono)' }}>{FACTORY_RESET_ADMIN_TOKEN}</code>，当前会话会立即退出并刷新页面。
           </div>
-          <button onClick={() => setFactoryResetOpen(true)} className="btn btn-danger">
-            重新初始化系统
-          </button>
+          <button onClick={() => setFactoryResetOpen(true)} className="btn btn-danger">{tr('重新初始化系统')}</button>
         </div>
 
         <div className="card animate-slide-up stagger-7" style={{ padding: 20 }}>
-          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10 }}>会话与安全</div>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 10 }}>{tr('会话与安全')}</div>
           <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 12 }}>
             登录会话默认 12 小时自动过期。可选配置管理端 IP 白名单，支持每行一个 IP 或 IPv4 CIDR 网段。
           </div>
@@ -2607,9 +2575,7 @@ export default function Settings() {
                   });
               }}
               className="btn btn-danger"
-            >
-              退出登录
-            </button>
+            >{tr('退出登录')}</button>
           </div>
         </div>
       </div>

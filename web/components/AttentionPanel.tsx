@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { tr } from '../i18n.js';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { EmptyState as DsEmptyState } from '../design-system/index.js';
@@ -63,7 +64,7 @@ export default function AttentionPanel({ limit = 10 }: { limit?: number }) {
     return (
       <div style={containerStyle}>
         <div style={headerStyle}>
-          <span style={titleStyle}>需要关注</span>
+          <span style={titleStyle}>{tr('需要关注')}</span>
         </div>
         <div
           className="skeleton"
@@ -77,7 +78,7 @@ export default function AttentionPanel({ limit = 10 }: { limit?: number }) {
     return (
       <div style={containerStyle}>
         <div style={headerStyle}>
-          <span style={titleStyle}>需要关注</span>
+          <span style={titleStyle}>{tr('需要关注')}</span>
         </div>
         <DsEmptyState
           className="dashboard-chart-empty"
@@ -93,7 +94,7 @@ export default function AttentionPanel({ limit = 10 }: { limit?: number }) {
   return (
     <div style={containerStyle}>
       <div style={headerStyle}>
-        <span style={titleStyle}>需要关注</span>
+        <span style={titleStyle}>{tr('需要关注')}</span>
         <span style={countStyle}>{items.length}</span>
       </div>
       <ul style={listStyle}>

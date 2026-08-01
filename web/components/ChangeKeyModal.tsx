@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../api.js';
+import { tr } from '../i18n.js';
 import { useToast } from './Toast.js';
 import { persistAuthSession } from '../authSession.js';
 import { useAnimatedVisibility } from './useAnimatedVisibility.js';
@@ -105,7 +106,7 @@ export default function ChangeKeyModal({ open, onClose }: { open: boolean; onClo
         </div>
 
         <div className="modal-footer">
-          <button onClick={onClose} className="btn btn-ghost">取消</button>
+          <button onClick={onClose} className="btn btn-ghost">{tr('取消')}</button>
           <button onClick={handleSubmit} disabled={saving} className={`btn btn-primary ${saving ? 'is-loading' : ''}`.trim()}>
             {saving ? <><span className="spinner spinner-sm spinner-on-primary" />更新中...</> : '确认修改'}
           </button>

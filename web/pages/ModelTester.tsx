@@ -650,8 +650,7 @@ function ParameterRow(props: {
           {valueText && <span style={{ marginLeft: 6, color: 'var(--color-primary)' }}>{valueText}</span>}
         </div>
         <label style={{ fontSize: 12 }}>
-          <input type="checkbox" checked={enabled} onChange={onToggle} disabled={disabled} /> 启用
-        </label>
+          <input type="checkbox" checked={enabled} onChange={onToggle} disabled={disabled} />{tr('启用')}</label>
       </div>
       {children}
     </div>
@@ -2331,43 +2330,37 @@ export default function ModelTester() {
             className="btn btn-ghost"
             style={{ border: '1px solid var(--color-border)', padding: '8px 14px' }}
             disabled={sending || !!pendingJobId || !pendingPayload}
-          >
-            重试
-          </button>
+          >{tr('重试')}</button>
           <button
             onClick={() => { void stopGenerating(); }}
             className="btn btn-ghost"
             style={{ border: '1px solid var(--color-border)', padding: '8px 14px' }}
             disabled={!pendingJobId && !streamAbortRef.current}
-          >
-            停止
-          </button>
+          >{tr('停止')}</button>
           <button
             onClick={clearChat}
             className="btn btn-ghost"
             style={{ border: '1px solid var(--color-border)', padding: '8px 14px' }}
             disabled={messages.length === 0 && !pendingPayload && !pendingJobId}
-          >
-            清除
-          </button>
+          >{tr('清除')}</button>
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, 1fr)', gap: 12, marginBottom: 16 }} className="animate-slide-up stagger-1">
         <div className="stat-summary-card stat-summary-purple">
-          <div className="stat-summary-card-label">模型数量</div>
+          <div className="stat-summary-card-label">{tr('模型数量')}</div>
           <div className="stat-summary-card-value">{models.length}</div>
         </div>
         <div className="stat-summary-card stat-summary-blue">
-          <div className="stat-summary-card-label">当前模型</div>
+          <div className="stat-summary-card-label">{tr('当前模型')}</div>
           <div className="stat-summary-card-value" style={{ fontSize: 14, wordBreak: 'break-all' }}>{inputs.model || '未选择'}</div>
         </div>
         <div className="stat-summary-card stat-summary-green">
-          <div className="stat-summary-card-label">对话轮数</div>
+          <div className="stat-summary-card-label">{tr('对话轮数')}</div>
           <div className="stat-summary-card-value">{turnCount}</div>
         </div>
         <div className="stat-summary-card stat-summary-orange">
-          <div className="stat-summary-card-label">模式</div>
+          <div className="stat-summary-card-label">{tr('模式')}</div>
           <div className="stat-summary-card-value" style={{ fontSize: 14 }}>
             {inputs.mode === 'conversation'
               ? (customRequestMode ? '自定义请求' : (inputs.stream ? '流式' : '任务模式'))
@@ -2394,12 +2387,10 @@ export default function ModelTester() {
         }}
       >
         <div className="card" style={{ padding: 16, minHeight: isMobile ? 'auto' : 680, maxHeight: isMobile ? 'none' : 740, overflowY: isMobile ? 'visible' : 'auto', order: isMobile ? 2 : 0 }}>
-          <h3 style={{ margin: '0 0 12px', fontSize: 15 }}>设置</h3>
+          <h3 style={{ margin: '0 0 12px', fontSize: 15 }}>{tr('设置')}</h3>
 
           <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6, fontWeight: 600 }}>
-              测试模式
-            </div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6, fontWeight: 600 }}>{tr('测试模式')}</div>
             <ModernSelect
               value={inputs.mode}
               onChange={(next) => {
@@ -2412,7 +2403,7 @@ export default function ModelTester() {
           </div>
 
           <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6, fontWeight: 600 }}>模型</div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6, fontWeight: 600 }}>{tr('模型')}</div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 6, flexDirection: isMobile ? 'column' : 'row' }}>
               <input
                 value={modelSearch}
@@ -2431,9 +2422,7 @@ export default function ModelTester() {
                 style={{ border: '1px solid var(--color-border)', whiteSpace: 'nowrap' }}
                 onClick={() => setModelSearch('')}
                 disabled={!modelSearch}
-              >
-                清空
-              </button>
+              >{tr('清空')}</button>
             </div>
             <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 6 }}>
               {modelCountText}
@@ -2487,9 +2476,7 @@ export default function ModelTester() {
           </div>
 
           <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6, fontWeight: 600 }}>
-              固定通道
-            </div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 6, fontWeight: 600 }}>{tr('固定通道')}</div>
             <ModernSelect
               value={typeof forcedChannelId === 'number' ? String(forcedChannelId) : '__auto__'}
               onChange={(next) => {
@@ -2535,16 +2522,14 @@ export default function ModelTester() {
           )}
 
           <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>流式输出</div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{tr('流式输出')}</div>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--color-text-secondary)' }}>
               <input
                 type="checkbox"
                 checked={inputs.stream}
                 onChange={(event) => updateInput('stream', event.target.checked)}
                 disabled={customRequestMode || inputs.mode !== 'conversation'}
-              />
-              启用
-            </label>
+              />{tr('启用')}</label>
           </div>
 
           {inputs.mode !== 'conversation' && (
@@ -2554,15 +2539,13 @@ export default function ModelTester() {
           )}
 
           <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>自定义请求体</div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{tr('自定义请求体')}</div>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--color-text-secondary)' }}>
               <input
                 type="checkbox"
                 checked={customRequestMode}
                 onChange={(event) => setCustomRequestMode(event.target.checked)}
-              />
-              启用
-            </label>
+              />{tr('启用')}</label>
           </div>
 
           <div className={`anim-collapse ${customRequestMode ? 'is-open' : ''}`.trim()} style={{ marginBottom: 14 }}>
@@ -2597,9 +2580,7 @@ export default function ModelTester() {
             </div>
           </div>
 
-            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 8, fontWeight: 600 }}>
-              采样参数
-            </div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 8, fontWeight: 600 }}>{tr('采样参数')}</div>
 
           <ParameterRow
             title="温度"
@@ -2726,7 +2707,7 @@ export default function ModelTester() {
             justifyContent: 'space-between',
             background: 'var(--color-bg-card)',
           }}>
-            <div style={{ fontSize: 14, fontWeight: 700 }}>对话</div>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>{tr('对话')}</div>
             <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
               {sending ? '生成中...' : '就绪'}
             </div>
@@ -2908,12 +2889,10 @@ export default function ModelTester() {
                               />
                               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                                 {message.role === 'user' && (
-                                  <button className="btn btn-ghost" style={{ border: '1px solid var(--color-border)' }} onClick={() => saveEditMessage(true)}>
-                                    保存并重试
-                                  </button>
+                                  <button className="btn btn-ghost" style={{ border: '1px solid var(--color-border)' }} onClick={() => saveEditMessage(true)}>{tr('保存并重试')}</button>
                                 )}
-                                <button className="btn btn-primary" onClick={() => saveEditMessage(false)}>保存</button>
-                                <button className="btn btn-ghost" style={{ border: '1px solid var(--color-border)' }} onClick={cancelEditMessage}>取消</button>
+                                <button className="btn btn-primary" onClick={() => saveEditMessage(false)}>{tr('保存')}</button>
+                                <button className="btn btn-ghost" style={{ border: '1px solid var(--color-border)' }} onClick={cancelEditMessage}>{tr('取消')}</button>
                               </div>
                             </div>
                           ) : (
@@ -2955,22 +2934,14 @@ export default function ModelTester() {
                         {!isEditing && (
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             {!isLoading && (
-                              <button className="btn btn-ghost" style={{ border: '1px solid var(--color-border)', padding: '4px 8px', fontSize: 11 }} onClick={() => resetFromMessage(message)} disabled={sending || Boolean(pendingJobId)}>
-                                重试
-                              </button>
+                              <button className="btn btn-ghost" style={{ border: '1px solid var(--color-border)', padding: '4px 8px', fontSize: 11 }} onClick={() => resetFromMessage(message)} disabled={sending || Boolean(pendingJobId)}>{tr('重试')}</button>
                             )}
-                            <button className="btn btn-ghost" style={{ border: '1px solid var(--color-border)', padding: '4px 8px', fontSize: 11 }} onClick={() => { void copyMessage(message); }}>
-                              复制
-                            </button>
+                            <button className="btn btn-ghost" style={{ border: '1px solid var(--color-border)', padding: '4px 8px', fontSize: 11 }} onClick={() => { void copyMessage(message); }}>{tr('复制')}</button>
                             {!isLoading && (
-                              <button className="btn btn-ghost" style={{ border: '1px solid var(--color-border)', padding: '4px 8px', fontSize: 11 }} onClick={() => startEditMessage(message)} disabled={sending}>
-                                编辑
-                              </button>
+                              <button className="btn btn-ghost" style={{ border: '1px solid var(--color-border)', padding: '4px 8px', fontSize: 11 }} onClick={() => startEditMessage(message)} disabled={sending}>{tr('编辑')}</button>
                             )}
                             {!isLoading && (
-                              <button className="btn btn-ghost" style={{ border: '1px solid var(--color-border)', padding: '4px 8px', fontSize: 11 }} onClick={() => deleteMessage(message)} disabled={sending}>
-                                删除
-                              </button>
+                              <button className="btn btn-ghost" style={{ border: '1px solid var(--color-border)', padding: '4px 8px', fontSize: 11 }} onClick={() => deleteMessage(message)} disabled={sending}>{tr('删除')}</button>
                             )}
                             {(message.role === 'assistant' || message.role === 'system') && !isLoading && (
                               <button className="btn btn-ghost" style={{ border: '1px solid var(--color-border)', padding: '4px 8px', fontSize: 11 }} onClick={() => toggleAssistantRole(message)} disabled={sending}>
@@ -3095,9 +3066,7 @@ export default function ModelTester() {
                     disabled={!canSend}
                     className="btn btn-primary"
                     style={{ minWidth: 120, height: 42 }}
-                  >
-                    发送请求
-                  </button>
+                  >{tr('发送请求')}</button>
                 </div>
               </div>
             )}

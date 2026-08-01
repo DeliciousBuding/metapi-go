@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { tr } from '../i18n.js';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { formatDateTimeMinuteLocal } from '../pages/helpers/checkinLogTime.js';

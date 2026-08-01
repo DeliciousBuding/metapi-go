@@ -225,7 +225,7 @@ export default function CheckinLog() {
       }}
     >
       <label className="proxy-logs-time-field">
-        <span>开始</span>
+        <span>{tr('开始')}</span>
         <input
           type="datetime-local"
           value={fromInput}
@@ -234,7 +234,7 @@ export default function CheckinLog() {
         />
       </label>
       <label className="proxy-logs-time-field">
-        <span>结束</span>
+        <span>{tr('结束')}</span>
         <input
           type="datetime-local"
           value={toInput}
@@ -246,9 +246,7 @@ export default function CheckinLog() {
         type="button"
         className="btn btn-ghost proxy-logs-filter-reset"
         onClick={clearTimeRange}
-      >
-        清空筛选
-      </button>
+      >{tr('清空筛选')}</button>
     </div>
   );
 
@@ -307,9 +305,7 @@ export default function CheckinLog() {
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {timeRangeControls}
             {hasInvalidTimeRange && (
-              <div className="alert alert-error">
-                结束时间必须晚于开始时间
-              </div>
+              <div className="alert alert-error">{tr('结束时间必须晚于开始时间')}</div>
             )}
             {filterTabs}
           </div>
@@ -328,9 +324,7 @@ export default function CheckinLog() {
               {timeRangeControls}
             </div>
             {hasInvalidTimeRange && (
-              <div className="alert alert-error" style={{ width: "100%" }}>
-                结束时间必须晚于开始时间
-              </div>
+              <div className="alert alert-error" style={{ width: "100%" }}>{tr('结束时间必须晚于开始时间')}</div>
             )}
           </div>
         )}
@@ -470,14 +464,14 @@ export default function CheckinLog() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>时间</th>
-                <th>账号</th>
-                <th>站点</th>
-                <th>状态</th>
-                <th>分类</th>
-                <th>信息</th>
-                <th>建议</th>
-                <th>奖励</th>
+                <th>{tr('时间')}</th>
+                <th>{tr('账号')}</th>
+                <th>{tr('站点')}</th>
+                <th>{tr('状态')}</th>
+                <th>{tr('分类')}</th>
+                <th>{tr('信息')}</th>
+                <th>{tr('建议')}</th>
+                <th>{tr('奖励')}</th>
               </tr>
             </thead>
             <tbody>
