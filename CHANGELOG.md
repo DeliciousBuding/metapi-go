@@ -7,6 +7,14 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed — EN 模式 i18n 漏翻译收口（2026-08-02）
+- 414 处 JSX 裸中文文本节点（表头/标签/按钮/确认语，26 个文件）包裹 `tr()`，EN 模式不再原样显示中文；zh 模式渲染不变
+- 新增 22 个高频翻译键（模型/客户端/默认/签到/删除确认等）；9 个文件补 `tr` import
+- 实时流量徽标状态色从 rgba 硬编码改为 `--color-success-soft` / `--color-danger-soft` token（dark 主题自动适配）
+- 新增 `i18n.gate.test.tsx` 静态门禁：任何 ≤8 字符的裸中文 JSX 文本节点未包 `tr()` 即失败（防回归，注入验证过会响）
+
+## [Unreleased]
+
 ### Fixed — 今日指标真值与签到奖励（2026-08-01）
 - Dashboard 与每日总结复用同一本地日界线聚合，真实返回 `todayCheckin` / `todayReward`，不再固定伪造 `todayReward=0`
 - 修复 nullable DB `*string` 签到奖励无法解析；奖励源不完整时标记 `partial/source_partial`，Dashboard 显示 `—`，每日通知标注「部分可观测」

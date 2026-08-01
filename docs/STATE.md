@@ -32,7 +32,8 @@
 | OPS-PG-BUDGET | **present** | profiles + lease backoff; deployment must still respect role LIMIT |
 | OPS-RE2-USERID | **fixed and deployed** | v0.8.45 is healthy on hk3; the 0.8.44 crash state is historical |
 | OPS-OAUTH-REFRESH | **present** | shared explicit account/site projection supports SQLite and PostgreSQL |
-| UI i18n verification | **present** | EN and zh cover 18 routes with seeded real data-state assertions |
+| UI i18n verification | **present** | EN and zh cover 18 routes with seeded real data-state assertions; static gate rejects unwrapped han text nodes |
+| EN label coverage | **swept 2026-08-02** | 414 JSX text nodes wrapped in tr(); 22 keys added; live status badge colors tokenized |
 | Daily metric truth | **Dashboard + Accounts closed in master** | shared local-day aggregation, real reward/check-in, partial truth metadata, query errors fail closed; per-account today reward/spend with status gate on Accounts rows (no fake zeros) |
 | Windows local development | **loopback by default** | empty `HOST` binds `127.0.0.1`; containers/server platforms explicitly retain `0.0.0.0` |
 

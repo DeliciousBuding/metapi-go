@@ -11,6 +11,13 @@
 - **门禁**（`69d8905`）: OAuth flow 测试注入 callback start seam，不再依赖 Windows 保留端口；新增 service 测试 4 个（含 legacy 时间/禁用站点排除/partial 语义/未归属行隔离）+ handler 列表测试 1 个 + 前端 3 个（complete 显示真值 / partial 显示 — / 降级显示 —）。
 - **运行边界**: hk3 仍 v0.8.45 healthy；本轮全部为 master 改动，无生产部署。
 
+## [2026-08-02] 前端 i18n 系统性收口 + 设计 token 归一
+
+- **i18n 漏翻译 414 处**: 审计发现大量 JSX 裸中文文本节点（表头/标签/按钮/确认语）未经 `tr()` 包裹，EN 模式原样显示中文——已全部包裹（26 个页面/组件文件），补 22 个高频翻译键 + 9 个文件补 `tr` import；zh 模式渲染不变，599 vitest + typecheck + build 全绿。
+- **防回归门禁**: 新增 `web/i18n.gate.test.tsx` 静态扫描——任何 ≤8 字符裸中文 JSX 文本节点未包 `tr()` 即失败；注入「测试标签」验证门禁确实触发（防静默事故），还原后通过。
+- **设计 token 归一**: RealtimeOpsPanel 实时流量徽标 3 组 rgba 状态色硬编码 → `--color-success-soft` / `--color-danger-soft`（dark 自动适配）；BrandIcon 品牌色板与动态生成色确认为有意保留。
+- 提交: `b9226be`（i18n 收口）· `389569c`（token + gate）。
+
 ## [2026-08-02] 收口 —— #542 关闭 + proxy token SQL 三处归一
 
 - **#542 关闭**: `codex/metapi-regex-crash` 的 RE2-safe 修复确认已在 master（`af2749c`，预编译正则 + 8 位长度上限 + 回归测试，比 PR 更完整）；PR 基于旧 TokenDanceLab 仓库已过时，2026-08-02 评论后关闭。
