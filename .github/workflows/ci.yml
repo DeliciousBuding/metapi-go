@@ -155,12 +155,15 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26.5"
+      - name: Install web deps
+        working-directory: web
+        run: npm ci --ignore-scripts
       - name: Install Playwright Chromium
         working-directory: web
         run: npx playwright install chromium --with-deps
       - name: Build web (embed dist)
         working-directory: web
-        run: npm ci --ignore-scripts && npm run build:web
+        run: npm run build:web
       - name: Build server binary
         run: go build -trimpath -o /tmp/metapi-enverify ./cmd/server
       - name: Boot backend + run EN verification
