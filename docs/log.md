@@ -817,3 +817,12 @@
 - 收敛：suspicious **586 → 408 → 82 → 72**（剩余 72 条全为多行 JSX 折叠误报——探针按源码跨行收集、运行期是折叠单行且键已覆盖；真实浏览器验收 verify-en-pages/e2e 才是最终裁决）
 - 踩坑：插入点误用 `const zhToEnPhrases` 锚点导致键落在对象外（parse error）——修复移到 zhToEn 对象 `};` 前；python 字符串 `\'` 经 heredoc 转义丢失（'Today\'s spend' 变裸引号破坏构建）——Edit 工具修复
 - 验证：580 vitest（门禁全绿）· typecheck · build 绿；CI en-verify --with-data 待跑
+
+## [2026-08-01] i18n 反向审计 + 插值片段质量（1193ce6）
+
+- **反向审计**：zhToEn 值侧 0 汉字残留（HAN-VALUE 断言入 i18n.test.ts 静态门禁——字典值含中文即 CI 红）
+- **插值 JSX 片段输出质量审计**（上一轮 re3 排除 `{}` 的盲区）：re4 收集 `>text {expr} text<` 节点 → split 运行期片段 → translateText 输出检查——**51 键补译**（个，已禁用/个，已选群组/秒请求/秒 Tokens/推荐模型：/GitHub 稳定版：/上次成功同步：/下次刷新/已选模型/目标 Session ID/统计·迁移行/JSON 导入提示/OAuth 维护说明/回退 revision 等）
+- **中文标点归一化**：translateText 短语替换后无汉字残留时也执行标点转换（此前 '个，已禁用' → 'items，Disabled' 的 '，' 泄漏 EN 输出——enforceStrictEnglish 只在有汉字残留时归一化）——提取 normalizePunctuationOnly 复用
+- 回归 +3（片段精确键 14 断言 / 标点归一化 / EN 值无汉字静态门禁）
+- 踩坑：python 插入锚点 `src.index('\n};')` 在 `};` 被挤成 `',};` 同行时静默落到 type I18nContextValue / CJK_PUNCT_TO_ASCII 对象——TS2740 暴露；三次修复（`};` 换行规范化 + 块移动 + Edit 修正）
+- 验证：583 vitest（+3）· typecheck · build 绿
