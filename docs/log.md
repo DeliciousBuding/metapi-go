@@ -11,6 +11,14 @@
 - **门禁**（`69d8905`）: OAuth flow 测试注入 callback start seam，不再依赖 Windows 保留端口；新增 service 测试 4 个（含 legacy 时间/禁用站点排除/partial 语义/未归属行隔离）+ handler 列表测试 1 个 + 前端 3 个（complete 显示真值 / partial 显示 — / 降级显示 —）。
 - **运行边界**: hk3 仍 v0.8.45 healthy；本轮全部为 master 改动，无生产部署。
 
+## [2026-08-02] 图表系列色 token 接线（New API 设计参考第 3 波）
+
+- **问题**: VChart canvas 不解析 CSS var()——此前仅轴/图例色解析（两波），**系列色 27 处 var(--color-chart-N)（7 图表文件）静默回退 VChart 默认色板**；图表颜色与设计系统无关、不随主题。
+- **修复**: `useChartColors()` 扩展解析 chart-1..8 + -soft/-faint 衍生 + onPrimary；7 图表系列色/gradient/point/pie 全部改用解析值；DOM 图例色块保留 var()（合法）。
+- **门禁**: chart-colors.gate 新增系列色规则（raw var 数组/字面量报错 + palette 数组必须 colors.series）；注入验证会响。
+- **参考**: New API 新 UI 研究（`docs/analysis/ui-newapi-reference-2026-08-02.md`）——差距矩阵 6 项、落地 1 项、暂缓 4 项（主题预设/oklch/字体轴/Tailwind 迁移，均附理由）；不照搬功能。
+- 提交 `3442b6e`；601 vitest + typecheck + build 全绿。
+
 ## [2026-08-02] 前端 i18n 系统性收口 + 设计 token 归一
 
 - **i18n 漏翻译 414 处**: 审计发现大量 JSX 裸中文文本节点（表头/标签/按钮/确认语）未经 `tr()` 包裹，EN 模式原样显示中文——已全部包裹（26 个页面/组件文件），补 22 个高频翻译键 + 9 个文件补 `tr` import；zh 模式渲染不变，599 vitest + typecheck + build 全绿。

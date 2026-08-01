@@ -42,6 +42,7 @@
 - High-value next: [`analysis/high-value-next.md`](analysis/high-value-next.md)
 - Parity plan: [`plan/original-parity-complete-2026-07-20.md`](plan/original-parity-complete-2026-07-20.md)
 - UI acceptance: [`analysis/ui-visual-acceptance.md`](analysis/ui-visual-acceptance.md)
+- New API UI reference: [`analysis/ui-newapi-reference-2026-08-02.md`](analysis/ui-newapi-reference-2026-08-02.md)
 - Residual inventory: [`analysis/residual-next-candidates.md`](analysis/residual-next-candidates.md)
 - Engineering optimization: [`analysis/engineering-optimization-2026-07-30.md`](analysis/engineering-optimization-2026-07-30.md)
 - Deployment vars: [`deployment.md`](deployment.md)
