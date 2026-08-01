@@ -784,3 +784,12 @@
 - 门禁升级：collectRawJSX 增加对象字面量值侧收集（排除 i18n/charts 文件，防未来 wave 再漏）
 - e2e 三测：登录页 html[lang=en] + 无汉字无 Untranslated、gallery 组件面无 Untranslated、会话内切换语言
 - 验证：580 vitest · 门禁 4/4 · e2e 3/3 · typecheck 双配置 · build 绿
+
+## [2026-08-01] EN 主界面实拍验收 11/11 全绿（8c70209）
+
+- 新增 `web/scripts/verify-en-pages.mjs`（本地单进程后端 + token 直拍，遍历 11 条主路由断言 EN 无 Untranslated/无汉字）——首跑 7/11，逐轮清零 4 处
+- **单字键替换顺序 bug（EnabledZH）**：'启用'→'Enabled' 后 '中' 的汉字邻居变 'd' → 边界检查误判——重构：单字键基于**原文**邻界判断（先单字后多字）
+- 后端 scheduler_status：Job 改 eventType 英文 id（原把中文显示名当日 id 用，面板显示 Untranslated）；model-probe note 中文改英文
+- Settings：'当前：' 移出 code 容器（SKIP 豁免面误伤 UI 标签）+ tr() 包裹
+- 补键 8 条（启用中/从未运行/可见密钥/筛选状态/已开启/暂无/进程内版本占位：/OPS_NOTE）+ 修正 '签到'→'Check-in' 词典错误
+- 验证：11/11 clean · 580 vitest · typecheck · go build/vet/test 绿
