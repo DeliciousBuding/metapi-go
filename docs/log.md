@@ -835,3 +835,9 @@
   ② '或 '/'或'（React JSX 尾随空格保留不定——双形态键）/ '无' / '当前配置: ' 4 键此前**落在 zhToEn 对象外**（顶层垃圾语句，translateText 查不到→Untranslated）——移回对象（python 锚点 `\n};` 在 `};` 挤同行时静默落到对象外——第三次同类事故）
   ③ 纯中文标点节点（'（'）被 shouldTranslateTextNode 的 `!HAS_HAN_RE` 过滤跳过（不调 translateText→不归一化）——加 CJK_PUNCT_RE 检查
 - 回归测试 +1（8 断言）；本地 **18/18 clean** · 583 vitest · typecheck · build 绿
+
+## [2026-08-01] 验收属性面断言（c0e0520）
+
+- verify-en-pages.mjs 每路由 evaluate 扫描 placeholder/title/aria-label 属性值——MutationObserver 翻译但 innerText 不可见的面此前零 CI 验证
+- 本地 18/18 clean（属性面全绿——门禁 attr 面 + 补键已覆盖，验收固化）
+- 验收四断言齐备：无 Untranslated / 无汉字 / 无中文标点 / 属性面零残留
