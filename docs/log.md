@@ -750,3 +750,16 @@
 - 全套重录：page-dashboard/sites/settings + shell-* + gallery + login（light/dark，1440x900）
 - 截图反映当前 tip：first-run 折叠侧栏（NAV-1）、密度 8px（DENSE-1）、主题 preset（VIS-1）
 - ui-original-parity 文档 SHOT-1 标 done + 头部「已过期」标注修正——**全部待办收官**
+
+## [2026-08-01] B3/B4/B5 拍板决策包（sub2api/cliproxyapi borrow §7-§9）
+
+- B3 周期平台额度 → 推荐**关闭**：售卖场景 = S5 非目标，内部 key 已被限流窗/权重覆盖
+- B4 批量媒体任务 → 推荐**关闭**：同上
+- B5 登录/2FA → 推荐**保持现状**：Bearer + IP 白名单双重防护
+- 决策包写全拍板输入（commit cc4578d / 1ddf697），管理员一句话可拍板，文档即决策记录
+
+## [2026-08-01] SHOT-1 截图视觉验收（程序化像素复核）
+
+- 模型无图像输入环境，改用像素级程序化复核：144x90 降采样独特色计数 + 列/行亮度曲线 + 侧栏深色像素行分布
+- 验收证据：三页 unique colors 598/341/500（非空白/非登录页）；侧栏恰好 4 项核心导航 + 「更多功能」折叠区（NAV-1 生效）；dashboard 开始使用条 / sites EmptyState / settings 表单卡在位；14 张 mtime 08-01 全套重录
+- 方法记录于 ui-original-parity-2026-07-20.md §5（commit 15801e9）

@@ -48,13 +48,14 @@
 | 4 | REL | P0-585 HTTP e2e load-proof **present**; prod e2e still pending · P0-555 residual | partial |
 | 5 | UC | Hide/external Update Center honesty | **present** (UI external card + API residual) |
 | ops | — | Pin/up **0.8.45** + ≥15min soak | needs admin auth |
+| borrow | — | sub2api/cliproxyapi **B3/B4/B5 拍板**（决策包 §7-§9：推荐 B3/B4 关闭、B5 保持现状） | needs admin decision |
 
 ## Optional / not blockers
 
 | Priority | Candidate |
 |:---------|:----------|
-| Docs/visual | Empty-DB page shot recapture (`METAPI_UI_AUTH_TOKEN`) — SHOT-1 |
-| Runtime | #571 Codex OAuth gpt-5.5 · #577 AnyRouter live |
+| Docs/visual | Empty-DB page shot recapture — **SHOT-1 done（2026-08-01 重录 + 视觉验收）** |
+| Runtime | #571 Codex OAuth gpt-5.5 · #577 AnyRouter live · #557/#558 prod probes |
 
 ## Quick status
 
