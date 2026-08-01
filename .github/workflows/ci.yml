@@ -175,6 +175,9 @@ jobs:
           done
           cd web
           METAPI_UI_AUTH_TOKEN=ci-en-verify METAPI_UI_SHOT_BASE=http://127.0.0.1:4182 node scripts/verify-en-pages.mjs --with-data
+          # zh mode: no Untranslated fallback + known zh labels in place
+          # (guards en→zh restore pollution across all 18 routes).
+          METAPI_UI_AUTH_TOKEN=ci-en-verify METAPI_UI_SHOT_BASE=http://127.0.0.1:4182 node scripts/verify-en-pages.mjs --with-data --zh
 
   build:
     runs-on: ubuntu-latest

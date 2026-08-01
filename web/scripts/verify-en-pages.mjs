@@ -30,6 +30,7 @@ const CJK_PUNCT_RE = /[：，。；！？（）【】“”‘’、…]/;
 const base = (process.env.METAPI_UI_SHOT_BASE || '').trim().replace(/\/$/, '');
 const authToken = (process.env.METAPI_UI_AUTH_TOKEN || '').trim();
 const withData = process.argv.includes('--with-data');
+const zhMode = process.argv.includes('--zh');
 if (!base || !authToken) {
   console.error('METAPI_UI_SHOT_BASE and METAPI_UI_AUTH_TOKEN are required');
   process.exit(2);
@@ -99,14 +100,14 @@ if (withData) {
 
 const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-await context.addInitScript(({ token }) => {
+await context.addInitScript(({ token, lang }) => {
   try {
-    localStorage.setItem('app_language', 'en');
+    localStorage.setItem('app_language', lang);
     localStorage.setItem('theme_mode', 'light');
     localStorage.setItem('auth_token', token);
     localStorage.setItem('auth_token_expires_at', String(Date.now() + 12 * 60 * 60 * 1000));
   } catch { /* ignore */ }
-}, { token: authToken });
+}, { token: authToken, lang: zhMode ? 'zh' : 'en' });
 
 const page = await context.newPage();
 page.on('pageerror', (err) => {
@@ -130,21 +131,21 @@ for (const route of routes) {
     const cjkPunctSnippet = cjkPunctRuns ? text.slice(Math.max(0, text.search(CJK_PUNCT_RE) - 40), text.search(CJK_PUNCT_RE) + 40).replace(/\s+/g, ' ') : '';
     // Attribute surface: placeholder / title / aria-label values are translated
     // by the observer but invisible to innerText — assert them separately
-    // (2026-08-01 attr-surface wave).
-    const attrBad = await page.evaluate(() => {
+    // (2026-08-01 attr-surface wave). zh mode: only Untranslated matters
+    // (Han/CJK-punct attributes are the normal zh state).
+    const attrBad = await page.evaluate(({ zh }) => {
       const bad = [];
       const sel = '[placeholder], [title], [aria-label]';
       for (const el of document.querySelectorAll(sel)) {
         for (const attr of ['placeholder', 'title', 'aria-label']) {
           const v = el.getAttribute(attr);
           if (!v) continue;
-          if (v.includes('Untranslated') || /[㐀-鿿]/.test(v) || /[：，。（）]/.test(v)) {
-            bad.push(`${attr}="${v.slice(0, 70)}"`);
-          }
+          if (v.includes('Untranslated')) bad.push(`${attr}="${v.slice(0, 70)}"`);
+          if (!zh && (/[㐀-鿿]/.test(v) || /[：，。（）]/.test(v))) bad.push(`${attr}="${v.slice(0, 70)}"`);
         }
       }
       return bad;
-    }).catch(() => []);
+    }, { zh: zhMode }).catch(() => []);
     // Context around each Untranslated occurrence for triage.
     let untranslatedSnippets = '';
     if (untranslated > 0) {
@@ -156,7 +157,15 @@ for (const route of routes) {
       }
       untranslatedSnippets = ' | ' + [...new Set(snips)].join(' || ');
     }
-    let status = untranslated === 0 && !hanRuns && !cjkPunctRuns && attrBad.length === 0 ? 'PASS' : 'FAIL';
+    // zh mode: no Untranslated fallback + known zh UI labels must be present
+    // (guards against en→zh restore pollution / English residue).
+    let zhMissing = null;
+    if (zhMode) {
+      const known = ['站点', '设置', '仪表盘', '路由', '账号', '通知'];
+      const hits = known.filter((k) => text.includes(k));
+      if (hits.length === 0) zhMissing = `no known zh labels (of ${known.join('/')})`;
+    }
+    let status = untranslated === 0 && attrBad.length === 0 && !zhMissing && (zhMode || (!hanRuns && !cjkPunctRuns)) ? 'PASS' : 'FAIL';
     let dialogNote = '';
     if (status === 'PASS') {
       const dialogIssue = await checkDialogs(page).catch(() => null);
@@ -168,7 +177,7 @@ for (const route of routes) {
     if (status === 'FAIL') {
       failures.push(route.id);
     }
-    console.log(`${status}  ${route.id.padEnd(18)} untranslated=${untranslated}${hanRuns ? ` han=${hanRuns.length} [${hanSnippet}]` : ''}${cjkPunctRuns ? ` cjkPunct=${cjkPunctRuns.length} [${cjkPunctSnippet}]` : ''}${attrBad.length ? ` attr=${attrBad.length} [${attrBad.slice(0, 3).join(' || ')}]` : ''}${untranslatedSnippets}${dialogNote}`);
+    console.log(`${status}  ${route.id.padEnd(18)} untranslated=${untranslated}${zhMode ? '' : `${hanRuns ? ` han=${hanRuns.length} [${hanSnippet}]` : ''}${cjkPunctRuns ? ` cjkPunct=${cjkPunctRuns.length} [${cjkPunctSnippet}]` : ''}`}${attrBad.length ? ` attr=${attrBad.length} [${attrBad.slice(0, 3).join(' || ')}]` : ''}${zhMissing ? ` zh=${zhMissing}` : ''}${untranslatedSnippets}${dialogNote}`);
   } catch (err) {
     failures.push(route.id);
     console.log(`ERROR ${route.id.padEnd(18)} ${String(err).slice(0, 160)}`);
