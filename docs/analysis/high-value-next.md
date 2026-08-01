@@ -78,7 +78,7 @@ Out-of-product: Electron · MySQL · k3s · noise issues.
 | 2 | Cache read/create and hit-rate by downstream key/day | New API | Next observability candidate; typed columns + dual-dialect queries, admin-only |
 | 3 | Declarative provider capabilities | all-api-hub native adapters | Next adapter-foundation candidate; separate check-in, balance, token and mutation support |
 | 4 | State-aware onboarding with recovery deep links | all-api-hub #1237 | UX candidate after metric truth; do not add another static checklist |
-| 5 | Partial streaming usage survives abnormal termination | Sub2API #5154 | Audit MetAPI stream accounting first; retry/failover must prevent double charge |
+| 5 | Partial streaming usage survives abnormal termination | Sub2API #5154 | **Audited 2026-08-01: no code change needed** — ctx-cancel returns already-parsed usage (best-effort partial), never invents tokens (`usage_source` explicit), every failure path logs a row; residual is failure-row cost in spend aggregates (P0-555, retry double-count only if upstream actually consumed twice) |
 | 6 | Grok CLI / Hermes export profiles | all-api-hub #1204 | Small P1/P2 export extension after capability truth |
 | 7 | Typed announcement CTA | all-api-hub #1241 | Validate internal SPA routes separately from external HTTPS URLs |
 
