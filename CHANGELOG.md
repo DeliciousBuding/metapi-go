@@ -5,7 +5,9 @@ All notable changes to MetAPI-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
-## [Unreleased]
+### Fixed — i18n e2e wave：对象字面量盲区（2026-08-01）
+- **EN 模式 e2e 测试**（`web/e2e/i18n-en.spec.ts`，真实浏览器 MutationObserver 全链路）：登录页无汉字/无 Untranslated + design gallery 组件面 + 会话内切换语言——首跑即抓真 bug
+- **第四类门禁盲区清零**：对象字面量值侧中文（`label: '站点公告'`、`site_notice: '…'`、option/状态映射）此前 attr/text/表达式三面全扫不到——生产侧栏「连接管理/OAuth 管理」等在 EN 显示 Untranslated；补键 212 条（字典达 ~700 键），门禁新增对象字面量值侧收集
 
 ### Fixed — i18n review wave（2026-08-01）
 - **tr() 门禁盲区清零**：649 处 tr() 调用此前从不被扫描——SnapshotExportButton 按钮/toast 5 串 + 76 处 tr() 文案在 EN 模式显示 `Untranslated`；门禁同扫 t()/tr()，字典补 103 键
