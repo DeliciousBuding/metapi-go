@@ -13,7 +13,7 @@ Go rewrite of [MetAPI](https://github.com/cita-777/metapi). Single binary, no No
 
 [![CI](https://github.com/DeliciousBuding/metapi-go/actions/workflows/ci.yml/badge.svg)](https://github.com/DeliciousBuding/metapi-go/actions/workflows/ci.yml)
 [![Go](https://img.shields.io/badge/Go-1.26.5-00ADD8?logo=go)](https://go.dev/)
-[![Docker](https://img.shields.io/badge/ghcr-v0.8.45-blue?logo=docker)](https://github.com/TokenDanceLab/metapi-go/pkgs/container/metapi-go)
+[![Docker](https://img.shields.io/badge/ghcr-master-blue?logo=docker)](https://github.com/DeliciousBuding/metapi-go/pkgs/container/metapi-go)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 </div>
@@ -25,12 +25,12 @@ docker run -d -p 4000:4000 \
   -v ./data:/app/data \
   -e AUTH_TOKEN=your-token \
   -e PROXY_TOKEN=sk-your-token \
-  ghcr.io/tokendancelab/metapi-go:latest
+  ghcr.io/deliciousbuding/metapi-go:latest
 ```
 
 Open `http://localhost:4000`.
 
-> **Unreleased tip (master)**: the current maintenance wave hardens seeded real-data EN/zh verification across 18 routes, SQLite OAuth refresh queries, Windows local listen/firewall hygiene, and OAuth callback-listener ownership. Production hk3 is healthy on v0.8.45; this wave makes no production changes. P0-585 remains partial until production multi-channel e2e.
+> **Unreleased tip (master)**: the current maintenance wave hardens seeded real-data EN/zh verification across 18 routes, SQLite OAuth refresh queries, Windows local listen/firewall hygiene, and OAuth callback-listener ownership. Automated images now share the `DeliciousBuding` owner with the source repository; production hk3 remains on the legacy TokenDanceLab GHCR v0.8.45 image, and this wave makes no production changes. P0-585 remains partial until production multi-channel e2e.
 
 ## Features
 

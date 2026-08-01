@@ -10,7 +10,7 @@
 
 services:
   metapi:
-    image: ghcr.io/tokendancelab/metapi-go:latest
+    image: ghcr.io/deliciousbuding/metapi-go:latest
     ports:
       - "127.0.0.1:4000:4000"
     volumes:

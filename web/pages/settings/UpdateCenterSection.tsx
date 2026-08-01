@@ -16,7 +16,7 @@ type ResidualStatus = {
   mode?: string;
 };
 
-const GHCR = 'https://github.com/TokenDanceLab/metapi-go/pkgs/container/metapi-go';
+const GHCR = 'https://github.com/DeliciousBuding/metapi-go/pkgs/container/metapi-go';
 const RELEASES = 'https://github.com/DeliciousBuding/metapi-go/releases';
 const OPS_NOTE = '部署与 pin 由运维/compose/GHCR 完成；本进程不内置远程 registry 与 helper 部署。';
 

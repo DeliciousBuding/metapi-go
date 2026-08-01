@@ -14,7 +14,7 @@
 <p align="center">
   <a href="https://github.com/DeliciousBuding/metapi-go/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/DeliciousBuding/metapi-go/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Go" src="https://img.shields.io/badge/Go-1.26.5-00ADD8?logo=go">
-  <a href="https://github.com/TokenDanceLab/metapi-go/pkgs/container/metapi-go"><img alt="Docker" src="https://img.shields.io/badge/ghcr-v0.8.45-blue?logo=docker"></a>
+  <a href="https://github.com/DeliciousBuding/metapi-go/pkgs/container/metapi-go"><img alt="Docker" src="https://img.shields.io/badge/ghcr-master-blue?logo=docker"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-green"></a>
 </p>
 
@@ -54,7 +54,7 @@ MetAPI 作为中转站之上的**元聚合层**，把多个站点统一到一个
 
 ---
 
-> **Unreleased tip（master）**：当前维护波次补强真实数据态 EN/zh 18 路由验收、SQLite OAuth refresh 查询、Windows 本地监听/防火墙卫生，以及 OAuth 回调监听器所有权。生产 hk3 已运行 v0.8.45 且健康；本波次不包含生产变更。P0-585 仍 partial（需生产多通道 e2e）。
+> **Unreleased tip（master）**：当前维护波次补强真实数据态 EN/zh 18 路由验收、SQLite OAuth refresh 查询、Windows 本地监听/防火墙卫生，以及 OAuth 回调监听器所有权。自动构建镜像与源码仓统一归属 `DeliciousBuding`；生产 hk3 仍运行旧 TokenDanceLab GHCR 的 v0.8.45，本波次不包含生产变更。P0-585 仍 partial（需生产多通道 e2e）。
 
 ## 快速开始
 
@@ -68,7 +68,7 @@ docker run -d --name metapi \
   -e TZ=Asia/Shanghai \
   -v ./data:/app/data \
   --restart unless-stopped \
-  ghcr.io/tokendancelab/metapi-go:latest
+  ghcr.io/deliciousbuding/metapi-go:latest
 ```
 
 启动后访问 `http://localhost:4000`，用 `AUTH_TOKEN` 登录。
@@ -83,7 +83,7 @@ mkdir metapi && cd metapi
 cat > docker-compose.yml << 'EOF'
 services:
   metapi:
-    image: ghcr.io/tokendancelab/metapi-go:latest
+    image: ghcr.io/deliciousbuding/metapi-go:latest
     ports:
       - "4000:4000"
     volumes:

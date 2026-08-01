@@ -8,7 +8,7 @@
 
 **Project**: https://github.com/orgs/TokenDanceLab/projects/1
 
-**Release**: v0.8.45 · GHCR remains `ghcr.io/tokendancelab/metapi-go`
+**Release**: v0.8.45 · master CD `ghcr.io/deliciousbuding/metapi-go` · production still pinned to legacy TokenDanceLab GHCR
 
 **Program plan**: [`../plan/original-parity-complete-2026-07-20.md`](../plan/original-parity-complete-2026-07-20.md)
 

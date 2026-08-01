@@ -7,6 +7,10 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed — GHCR 所有权与 CD 发布（2026-08-01）
+- 自动构建镜像改为 `ghcr.io/deliciousbuding/metapi-go`，与源码仓所有者一致，避免个人仓 `GITHUB_TOKEN` 跨所有者写入未关联的 TokenDanceLab 包时失败
+- 生产 hk3 仍保持旧 TokenDanceLab GHCR v0.8.45 pin，本变更仅修复后续镜像发布所有权，不触发生产迁移
+
 ### Changed — 本地运行与 OAuth 维护成本收敛（2026-08-01）
 - Windows 未设置 `HOST` 时默认监听 `127.0.0.1`，避免临时构建路径反复触发入站防火墙提示；Linux/macOS 保持 `0.0.0.0`，容器显式固定 `HOST=0.0.0.0`
 - 新增 `scripts/windows-firewall-maintenance.ps1`，只审计/清理已丢失、临时目录或旧 checkout 下的 MetAPI 入站规则

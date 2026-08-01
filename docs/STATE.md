@@ -11,9 +11,9 @@
 | Fact | Value |
 |:-----|:------|
 | Source | **[DeliciousBuding/metapi-go](https://github.com/DeliciousBuding/metapi-go)** · default branch `master` |
-| Latest release | **[v0.8.45](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.8.45)** (2026-07-20); GHCR remains `ghcr.io/tokendancelab/metapi-go` |
+| Latest release | **[v0.8.45](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.8.45)** (2026-07-20); master CD publishes `ghcr.io/deliciousbuding/metapi-go` |
 | Product tip | current maintenance wave hardens seeded EN/zh verification, SQLite OAuth refresh queries, Windows listen/firewall behavior, and OAuth callback ownership |
-| Production pin (ops) | hk3 `td-metapi` **0.8.45 Up healthy** since 2026-07-20; Azure PG pool/role **1/1**; `restart=no` |
+| Production pin (ops) | hk3 `td-metapi` **0.8.45 Up healthy** since 2026-07-20 on legacy `ghcr.io/tokendancelab/metapi-go`; Azure PG pool/role **1/1**; `restart=no` |
 | Standby | us1 cold stack; must not connect to the production PG concurrently with hk3 |
 | Active milestone | **[53 REL-HONESTY](https://github.com/DeliciousBuding/metapi-go/milestone/53)** — #557 production e2e + #558 optional runtime probes open |
 | Open issues / PRs | [#557](https://github.com/DeliciousBuding/metapi-go/issues/557) · [#558](https://github.com/DeliciousBuding/metapi-go/issues/558) · historical open PR [#542](https://github.com/DeliciousBuding/metapi-go/pull/542) |

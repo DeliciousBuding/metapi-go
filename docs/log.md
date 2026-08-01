@@ -914,3 +914,8 @@
 
 - **工具**：metapi-migrate 支持 PG→SQLite 反向（方向判定 + SQLite 方言 DDL 转换 + ? 占位 insert；sqlite→sqlite 全链路验证 + 单测 3）——**备用能力**
 - **部署定案**（管理员 2026-08-01 拍板，server 仓 deployment-checkin-design）：**保持现状**——统一 Azure PG、不新增部署实体（如非必要勿增实体 / 单一数据源 / 托管服务优先）；方案 B（SQLite 独立）与方案 C（迁移部署）不采用；healthcheck/logging 微增强保留为随时可拍板项
+
+## [2026-08-01] CD GHCR 所有权归一
+
+- `07b100f` 的 release gate、Docker build、smoke 和 SBOM 均通过；推送 `ghcr.io/tokendancelab/metapi-go` 时因个人仓 `GITHUB_TOKEN` 不能跨所有者写入未关联组织包而失败。
+- master CD 改为与源码仓同所有者的 `ghcr.io/deliciousbuding/metapi-go`；生产 hk3 仍使用旧 TokenDanceLab GHCR v0.8.45，未变更运行时。

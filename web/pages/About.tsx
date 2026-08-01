@@ -30,7 +30,7 @@ const TECH_STACK = [
 
 const LINKS = [
   { label: 'GitHub', href: 'https://github.com/DeliciousBuding/metapi-go', icon: '📂' },
-  { label: 'GHCR', href: 'https://github.com/TokenDanceLab/metapi-go/pkgs/container/metapi-go', icon: '🐳' },
+  { label: 'GHCR', href: 'https://github.com/DeliciousBuding/metapi-go/pkgs/container/metapi-go', icon: '🐳' },
   { label: 'Releases', href: 'https://github.com/DeliciousBuding/metapi-go/releases', icon: '🏷️' },
   { label: '站点文档', href: SITE_DOCS_URL, icon: '📚' },
 ];

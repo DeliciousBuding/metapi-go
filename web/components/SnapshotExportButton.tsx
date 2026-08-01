@@ -258,7 +258,7 @@ function drawSnapshotCanvas(
   /* footer */
   ctx.fillStyle = PALETTE.muted;
   ctx.font = '400 18px system-ui, -apple-system, "Segoe UI", sans-serif';
-  ctx.fillText(tr('MetAPI 聚合网关 · TokenDanceLab/metapi-go'), 48, 590);
+  ctx.fillText(tr('MetAPI 聚合网关 · DeliciousBuding/metapi-go'), 48, 590);
 
   return new Promise((resolve) => {
     if (typeof canvas.toBlob !== 'function') {

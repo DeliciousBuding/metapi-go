@@ -526,7 +526,7 @@ const zhToEn: Record<string, string> = {
   '活跃账号': 'Active accounts',
   '站点消耗 Top': 'Top sites by spend',
   '暂无站点消耗数据': 'No site spend data yet',
-  'MetAPI 聚合网关 · TokenDanceLab/metapi-go': 'MetAPI Aggregate Gateway · TokenDanceLab/metapi-go',
+  'MetAPI 聚合网关 · DeliciousBuding/metapi-go': 'MetAPI Aggregate Gateway · DeliciousBuding/metapi-go',
 /* VChart canvas charts — chart copy renders to canvas, not DOM (2026-08-01) */
   '收入': 'Income',
   '消费': 'Spend',

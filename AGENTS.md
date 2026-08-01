@@ -61,7 +61,7 @@ golangci-lint run --timeout=3m        # Lint check
 2. 更新 `CHANGELOG.md`（按 Keep a Changelog 格式）
 3. Tag + push：`git tag -a vX.Y.Z -m "vX.Y.Z — 简述"` → `git push origin vX.Y.Z`
 4. Tag push 触发 GitHub Actions `release.yml` → 自动创建 GitHub Release
-5. CD 自动构建 Docker 镜像推送到 `ghcr.io/tokendancelab/metapi-go:vX.Y.Z`
+5. CD 自动构建 Docker 镜像推送到 `ghcr.io/deliciousbuding/metapi-go:vX.Y.Z`
 
 **版本号**：`vMAJOR.MINOR.PATCH`（SemVer 2.0）
 - PATCH：bug 修复
