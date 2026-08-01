@@ -3,6 +3,7 @@ import { tr } from '../../i18n.js';
 import { VChart } from '@visactor/react-vchart';
 import { api, type ModelCostDistributionResponse } from '../../api.js';
 import { EmptyState as DsEmptyState } from '../../design-system/index.js';
+import { useChartColors } from '../useThemeLabelColor.js';
 
 /* ------------------------------------------------------------------ */
 /*  Props                                                              */
@@ -42,6 +43,7 @@ export default function CostDistributionChart({
   const [data, setData] = useState<ModelCostDistributionResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const colors = useChartColors();
 
   useEffect(() => {
     let cancelled = false;
@@ -127,7 +129,10 @@ export default function CostDistributionChart({
       position: 'bottom',
       orient: 'bottom',
       layout: 'horizontal',
-      item: { maxWidth: 160 },
+      item: {
+        maxWidth: 160,
+        label: { style: { fill: colors.axisLabel } },
+      },
     },
     tooltip: {
       mark: {

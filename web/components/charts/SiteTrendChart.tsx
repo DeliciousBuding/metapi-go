@@ -1,6 +1,7 @@
 import React, { useMemo, useState, type ReactNode } from 'react';
 import { VChart } from '@visactor/react-vchart';
 import { EmptyState as DsEmptyState } from '../../design-system/index.js';
+import { useChartColors } from '../useThemeLabelColor.js';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -50,6 +51,7 @@ export default function SiteTrendChart({
   emptyAction,
 }: SiteTrendChartProps) {
   const [metric, setMetric] = useState<Metric>('spend');
+  const colors = useChartColors();
 
   /* ---------- data transform ---------- */
 
@@ -118,7 +120,7 @@ export default function SiteTrendChart({
       padding: { top: 12 },
       item: {
         shape: { style: { symbolType: 'circle' } },
-        label: { style: { fontSize: 12 } },
+        label: { style: { fontSize: 12, fill: colors.axisLabel } },
       },
     },
     tooltip: {
@@ -155,16 +157,16 @@ export default function SiteTrendChart({
     axes: [
       {
         orient: 'bottom',
-        label: { style: { fontSize: 11, fill: 'var(--color-text-muted)' } },
-        domainLine: { style: { stroke: 'var(--color-border-light)' } },
-        tick: { style: { stroke: 'var(--color-border-light)' } },
+        label: { style: { fontSize: 11, fill: colors.axisLabel } },
+        domainLine: { style: { stroke: colors.grid } },
+        tick: { style: { stroke: colors.grid } },
       },
       {
         orient: 'left',
         label: {
-          style: { fontSize: 11, fill: 'var(--color-text-muted)' },
+          style: { fontSize: 11, fill: colors.axisLabel },
         },
-        grid: { style: { stroke: 'var(--color-border-light)', lineDash: [4, 4] } },
+        grid: { style: { stroke: colors.grid, lineDash: [4, 4] } },
         domainLine: { visible: false },
       },
     ],

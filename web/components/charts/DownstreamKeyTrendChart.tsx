@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { tr } from '../../i18n.js';
 import { VChart } from '@visactor/react-vchart';
 import { formatDateTimeMinuteLocal } from '../../pages/helpers/checkinLogTime.js';
+import { useChartColors } from '../useThemeLabelColor.js';
 
 type Metric = 'tokens' | 'requests' | 'cost';
 
@@ -44,6 +45,7 @@ export default function DownstreamKeyTrendChart({
   height?: number;
 }) {
   const [metric, setMetric] = useState<Metric>('tokens');
+  const colors = useChartColors();
 
   const flatData = useMemo(() => {
     if (!Array.isArray(buckets) || buckets.length === 0) return [];
@@ -111,16 +113,16 @@ export default function DownstreamKeyTrendChart({
       {
         orient: 'bottom',
         label: {
-          style: { fontSize: 11, fill: 'var(--color-text-muted)' },
+          style: { fontSize: 11, fill: colors.axisLabel },
           formatMethod: (value: string) => formatTrendAxisLabel(String(value || ''), bucketSeconds),
         },
-        domainLine: { style: { stroke: 'var(--color-border-light)' } },
-        tick: { style: { stroke: 'var(--color-border-light)' } },
+        domainLine: { style: { stroke: colors.grid } },
+        tick: { style: { stroke: colors.grid } },
       },
       {
         orient: 'left',
-        label: { style: { fontSize: 11, fill: 'var(--color-text-muted)' } },
-        grid: { style: { stroke: 'var(--color-border-light)', lineDash: [4, 4] } },
+        label: { style: { fontSize: 11, fill: colors.axisLabel } },
+        grid: { style: { stroke: colors.grid, lineDash: [4, 4] } },
         domainLine: { visible: false },
       },
     ],

@@ -3,6 +3,7 @@ import { tr } from '../../i18n.js';
 import { VChart } from '@visactor/react-vchart';
 import { api, type LatencyTrendResponse } from '../../api.js';
 import { EmptyState as DsEmptyState } from '../../design-system/index.js';
+import { useChartColors } from '../useThemeLabelColor.js';
 
 /* ------------------------------------------------------------------ */
 /*  Props                                                              */
@@ -27,6 +28,7 @@ export default function LatencyTrendChart({ days = 7 }: LatencyTrendChartProps) 
   const [data, setData] = useState<LatencyTrendResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const colors = useChartColors();
 
   useEffect(() => {
     let cancelled = false;
@@ -114,7 +116,8 @@ export default function LatencyTrendChart({ days = 7 }: LatencyTrendChartProps) 
     seriesField: 'metric',
     point: { visible: false },
     line: { style: { lineWidth: 2, curveType: 'monotone' } },
-    legends: { visible: true, position: 'bottom', orient: 'bottom' },
+    legends: { visible: true, position: 'bottom', orient: 'bottom',
+      item: { label: { style: { fill: colors.axisLabel } } } },
     tooltip: {
       mark: {
         title: { value: (datum: Record<string, unknown>) => datum?.date ?? '' },
@@ -133,17 +136,17 @@ export default function LatencyTrendChart({ days = 7 }: LatencyTrendChartProps) 
     axes: [
       {
         orient: 'bottom',
-        label: { style: { fontSize: 11, fill: 'var(--color-text-muted)' } },
-        domainLine: { style: { stroke: 'var(--color-border-light)' } },
-        tick: { style: { stroke: 'var(--color-border-light)' } },
+        label: { style: { fontSize: 11, fill: colors.axisLabel } },
+        domainLine: { style: { stroke: colors.grid } },
+        tick: { style: { stroke: colors.grid } },
       },
       {
         orient: 'left',
         label: {
-          style: { fontSize: 11, fill: 'var(--color-text-muted)' },
+          style: { fontSize: 11, fill: colors.axisLabel },
           formatMethod: (value: unknown) => `${value} ms`,
         },
-        grid: { style: { stroke: 'var(--color-border-light)', lineDash: [4, 4] } },
+        grid: { style: { stroke: colors.grid, lineDash: [4, 4] } },
         domainLine: { visible: false },
       },
     ],

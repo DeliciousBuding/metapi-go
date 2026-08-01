@@ -3,6 +3,7 @@ import { tr } from '../../i18n.js';
 import { VChart } from '@visactor/react-vchart';
 import { api } from '../../api.js';
 import { EmptyState as DsEmptyState } from '../../design-system/index.js';
+import { useChartColors } from '../useThemeLabelColor.js';
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -59,6 +60,7 @@ export default function IncomeOutcomeChart({ days = 30 }: IncomeOutcomeChartProp
   const [summary, setSummary] = useState<IncomeOutcomeResponse['summary'] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const colors = useChartColors();
 
   useEffect(() => {
     let cancelled = false;
@@ -144,7 +146,8 @@ export default function IncomeOutcomeChart({ days = 30 }: IncomeOutcomeChartProp
     seriesField: 'type',
     stack: false,
     bar: { style: { maxWidth: 14 } },
-    legends: { visible: true, orient: 'top' },
+    legends: { visible: true, orient: 'top',
+      item: { label: { style: { fill: colors.axisLabel } } } },
     tooltip: {
       mark: {
         title: { value: (datum: Record<string, unknown>) => datum?.day ?? '' },
@@ -164,15 +167,15 @@ export default function IncomeOutcomeChart({ days = 30 }: IncomeOutcomeChartProp
     axes: [
       {
         orient: 'bottom',
-        label: { style: { fontSize: 11, fill: 'var(--color-text-muted)' } },
+        label: { style: { fontSize: 11, fill: colors.axisLabel } },
         tick: { visible: false },
-        domainLine: { style: { stroke: 'var(--color-border)' } },
+        domainLine: { style: { stroke: colors.grid } },
       },
       {
         orient: 'left',
-        label: { style: { fontSize: 11, fill: 'var(--color-text-muted)' } },
+        label: { style: { fontSize: 11, fill: colors.axisLabel } },
         domainLine: { visible: false },
-        grid: { style: { stroke: 'var(--color-border-light)' } },
+        grid: { style: { stroke: colors.grid } },
         tick: { visible: false },
       },
     ],

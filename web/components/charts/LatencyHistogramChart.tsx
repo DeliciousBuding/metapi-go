@@ -3,6 +3,7 @@ import { tr } from '../../i18n.js';
 import { VChart } from '@visactor/react-vchart';
 import { api, type LatencyHistogramResponse } from '../../api.js';
 import { EmptyState as DsEmptyState } from '../../design-system/index.js';
+import { useChartColors } from '../useThemeLabelColor.js';
 
 /* ------------------------------------------------------------------ */
 /*  Props                                                              */
@@ -31,6 +32,7 @@ export default function LatencyHistogramChart({
   const [data, setData] = useState<LatencyHistogramResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const colors = useChartColors();
 
   useEffect(() => {
     let cancelled = false;
@@ -131,16 +133,16 @@ export default function LatencyHistogramChart({
       {
         orient: 'bottom',
         label: {
-          style: { fontSize: 10, fill: 'var(--color-text-muted)' },
+          style: { fontSize: 10, fill: colors.axisLabel },
           rotate: buckets.length > 8 ? -30 : 0,
         },
-        domainLine: { style: { stroke: 'var(--color-border-light)' } },
-        tick: { style: { stroke: 'var(--color-border-light)' } },
+        domainLine: { style: { stroke: colors.grid } },
+        tick: { style: { stroke: colors.grid } },
       },
       {
         orient: 'left',
-        label: { style: { fontSize: 11, fill: 'var(--color-text-muted)' } },
-        grid: { style: { stroke: 'var(--color-border-light)', lineDash: [4, 4] } },
+        label: { style: { fontSize: 11, fill: colors.axisLabel } },
+        grid: { style: { stroke: colors.grid, lineDash: [4, 4] } },
         domainLine: { visible: false },
       },
     ],
