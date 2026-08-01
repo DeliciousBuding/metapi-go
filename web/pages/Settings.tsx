@@ -1915,12 +1915,15 @@ export default function Settings() {
 
         <div className="card animate-slide-up stagger-4" style={{ padding: 20 }}>
           <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>下游访问令牌（PROXY_TOKEN）</div>
-          <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginBottom: 12 }}>
-            用于下游站点或客户端访问本服务代理接口。前缀 sk- 固定不可修改，只需填写后缀。
+          <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 12 }}>
+            <span>{tr('用于下游站点或客户端访问本服务代理接口。前缀 sk- 固定不可修改，只需填写后缀。')}</span>
           </div>
-          <code style={{ display: 'block', padding: '10px 14px', background: 'var(--color-bg)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border-light)', marginBottom: 10 }}>
-            当前：{runtime.proxyTokenMasked || '未设置'}
-          </code>
+          <div style={{ fontSize: 13, marginBottom: 4 }}>
+            <span>{tr('当前：')}</span>
+            <code style={{ background: 'var(--color-bg)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border-light)', padding: '2px 8px' }}>
+              {runtime.proxyTokenMasked || tr('未设置')}
+            </code>
+          </div>
           <div
             style={{
               display: 'flex',

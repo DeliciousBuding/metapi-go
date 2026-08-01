@@ -905,6 +905,14 @@ const zhToEn: Record<string, string> = {
   '百川智能': 'Baichuan AI',
   '百炼': 'Bailian',
   '// 暂无结果': '// No results',
+  '启用中': 'Enabling',
+  '从未运行': 'Never run',
+  '可见密钥': 'Visible Keys',
+  '筛选状态': 'Filter Status',
+  '已开启': 'Enabled',
+  '暂无': 'None',
+  '进程内版本占位：': 'In-process version placeholder: ',
+  '部署与 pin 由运维/compose/GHCR 完成；本进程不内置远程 registry 与 helper 部署。': 'Deployment and pinning are handled by ops/compose/GHCR; this process ships no remote registry or helper deployer.',
 };
 
 for (const [source, target] of Object.entries(zhToEnSupplemental)) {
@@ -925,11 +933,33 @@ const SKIP_PARENT_SELECTOR = 'script, style, code, pre, kbd, samp, [data-i18n-sk
  * shreds the word. Exact whole-string lookup in translateText always applies.
  */
 const zhToEnPhrases = Object.entries(zhToEn).sort((a, b) => b[0].length - a[0].length);
-function replaceSingleCharPhrase(text: string, source: string, target: string): string {
-  // Guard: replaced only when both neighbours are non-Han, so a bare '\u5171' in
-  // '\u5171 12 \u4e2a\u6a21\u578b' translates while '\u4e2d' inside '\u5bfc\u51fa\u4e2d' never shreds a word.
-  const re = new RegExp(`(?<![\u3400-\u9fff])${source}(?![\u3400-\u9fff])`);
-  return text.replace(re, () => target);
+
+/**
+ * Single-char phrase keys (`\u4e2d`/`\u5171`/`\u5929`) are replaced only at occurrences
+ * whose neighbours in the ORIGINAL text are non-Han. The check must run
+ * against the original input: after multi-char replacement ('\u542f\u7528'\u2192'Enabled')
+ * the char's neighbour turns Latin and a naive check would wrongly replace
+ * '\u4e2d' inside '\u542f\u7528\u4e2d' \u2192 'EnabledZH'.
+ */
+function applySingleCharPhrases(text: string): string {
+  let result = text;
+  for (const [source, target] of zhToEnPhrases) {
+    if (source.length !== 1) continue;
+    if (!text.includes(source)) continue;
+    const re = new RegExp(`(?<![\u3400-\u9fff])${source}(?![\u3400-\u9fff])`, 'g');
+    const hits: Array<[number, string]> = [];
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      hits.push([m.index, target]);
+      re.lastIndex = m.index + 1;
+    }
+    // Apply from the end so earlier indices stay valid.
+    for (let i = hits.length - 1; i >= 0; i--) {
+      const [idx, tgt] = hits[i];
+      result = result.slice(0, idx) + tgt + result.slice(idx + 1);
+    }
+  }
+  return result;
 }
 const textNodeOriginalMap = new WeakMap<Text, string>();
 const elementAttrOriginalMap = new WeakMap<Element, Map<string, string>>();
@@ -979,14 +1009,13 @@ export function translateText(text: string, language: Language): string {
   const exact = zhToEn[text] ?? (text.trim() ? zhToEn[text.trim()] : undefined);
   if (exact) return exact;
 
-  let translated = text;
+  // Single-char keys first, judged against the ORIGINAL adjacency (see
+  // applySingleCharPhrases) — then multi-char phrase replacement.
+  let translated = applySingleCharPhrases(text);
   for (const [source, target] of zhToEnPhrases) {
+    if (source.length <= 1) continue;
     if (!source || source === target) continue;
     if (!translated.includes(source)) continue;
-    if (source.length === 1) {
-      translated = replaceSingleCharPhrase(translated, source, target);
-      continue;
-    }
     translated = translated.split(source).join(target);
   }
   if (HAS_HAN_RE.test(translated)) return enforceStrictEnglish(translated);

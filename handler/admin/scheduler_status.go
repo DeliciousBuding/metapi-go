@@ -113,7 +113,7 @@ func (h *schedulerStatusHandler) balanceRefreshStatus() schedulerRunStatus {
 func (h *schedulerStatusHandler) modelProbeStatus() schedulerRunStatus {
 	probe := scheduler.GetGlobalModelProbeScheduler()
 	if probe == nil {
-		return schedulerRunStatus{Job: "model-probe", Enabled: false, LastStatus: "never", Note: "未启用（MODEL_AVAILABILITY_PROBE_ENABLED）"}
+		return schedulerRunStatus{Job: "model-probe", Enabled: false, LastStatus: "never", Note: "not enabled (MODEL_AVAILABILITY_PROBE_ENABLED)"}
 	}
 	summary := probe.LastRunSummary()
 	status := "never"
@@ -154,7 +154,7 @@ func (h *schedulerStatusHandler) eventsStatus(eventType, label string) scheduler
 	_ = h.db.Get(&latest, `SELECT created_at FROM events WHERE type = ? ORDER BY created_at DESC LIMIT 1`, eventType)
 	_ = h.db.Get(&runs24h, `SELECT COUNT(*) FROM events WHERE type = ? AND created_at >= ?`, eventType, since24h())
 	return schedulerRunStatus{
-		Job:        label,
+		Job:        eventType,
 		Enabled:    true,
 		LastRunAt:  latest.CreatedAt,
 		LastStatus: mapRunStatus(""),

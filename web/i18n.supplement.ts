@@ -371,7 +371,7 @@ export const zhToEnSupplemental: Record<string, string> = {
   '启用': 'enable',
   '启用 SSL/TLS 加密连接': 'Enable SSL/TLS encrypted connection',
   '启用站点后再试': 'Try again after enabling the site',
-  '签到': 'Sign in',
+  '签到': 'Check-in',
   '签到 Cron': 'Sign in Cron',
   '签到 Cron 表达式无效': 'Check-in Cron expression is invalid',
   '签到记录': 'Sign-in record',
