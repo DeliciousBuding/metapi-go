@@ -133,7 +133,7 @@ jobs:
           go-version: "1.26.5"
       - run: |
           dsn="${PG_SCHEME}://${PG_USER}:${PG_PASSWORD}@localhost:5432/${PG_DATABASE}?sslmode=disable"
-          PG_TEST_DSN="$dsn" DATABASE_URL="$dsn" go test ./... -count=1 -tags=integration
+          PG_TEST_DSN="$dsn" DATABASE_URL="$dsn" go test ./... -count=1 -tags=integration -p 1 # -p 1: PG integration shares one database across packages; parallel packages race AutoMigrate/table state
         env:
           PG_SCHEME: postgres
           PG_USER: postgres
