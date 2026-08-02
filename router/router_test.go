@@ -212,6 +212,37 @@ func TestSPAFallbackRootBypassesProxyAuth(t *testing.T) {
 	}
 }
 
+// TestRootPublicFilesServedBeforeSPAFallback
+//
+// Regression for the 2026-08-02 v0.8.50 login observation: /logo.png answered
+// 200 text/html (SPA fallback) because only /assets/* was served statically, so
+// the login <img> rendered blank. Root public files copied by Vite into dist
+// root (logo, favicons) must be served as their real content type.
+func TestRootPublicFilesServedBeforeSPAFallback(t *testing.T) {
+	cfg := &config.Config{
+		AuthToken:        "admin-token",
+		ProxyToken:       "proxy-token",
+		RequestBodyLimit: config.DefaultRequestBodyLimit,
+	}
+	r := New(cfg, web.Dist)
+
+	for _, name := range []string{"/logo.png", "/favicon.png", "/favicon-64.png"} {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, name, nil)
+		r.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET %s status = %d, want 200", name, rec.Code)
+		}
+		if ct := rec.Header().Get("Content-Type"); ct != "image/png" {
+			t.Fatalf("GET %s content-type = %q, want image/png", name, ct)
+		}
+		if rec.Body.Len() == 0 {
+			t.Fatalf("GET %s body empty", name)
+		}
+	}
+}
+
 func TestNonV1ProxyAliasStillRequiresProxyAuth(t *testing.T) {
 	cfg := &config.Config{
 		AuthToken:        "admin-token",

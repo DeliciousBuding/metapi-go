@@ -4539,10 +4539,12 @@ textarea.form-input {
 }
 
 [data-theme="dark"] .login-shell {
-  background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--color-primary) 18%, transparent), transparent 34%),
-    radial-gradient(circle at right 18%, color-mix(in srgb, var(--color-accent) 12%, transparent), transparent 30%),
-    linear-gradient(180deg, var(--color-bg-secondary) 0%, var(--color-bg) 100%);
+  background: var(--color-bg);
+}
+
+[data-theme="dark"] .login-surface {
+  /* 深色下纯色卡片：不用渐变（color-mix 径向渐变在暗底上显脏） */
+  background: var(--color-bg-card);
 }
 .login-surface {
   width: min(440px, 100%);

@@ -183,6 +183,31 @@ func setupSPAFallback(r chi.Router, distFS fs.FS) {
 		slog.Warn("embedded web/dist/assets not found, asset serving disabled", "error", err)
 	}
 
+	// Root public files (logo, favicons) copied by Vite from web/public into
+	// dist root. They are NOT under /assets/, so serve them explicitly here —
+	// otherwise the SPA fallback answers 200 text/html and <img> renders blank.
+	rootFiles := map[string]string{
+		"logo.png":                  "image/png",
+		"favicon.png":               "image/png",
+		"favicon-64.png":            "image/png",
+		"desktop-icon.png":          "image/png",
+		"desktop-tray-template.png": "image/png",
+	}
+	for name, contentType := range rootFiles {
+		fileName := name
+		fileType := contentType
+		r.Get("/"+fileName, func(w http.ResponseWriter, r *http.Request) {
+			data, err := fs.ReadFile(distFS, fileName)
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", fileType)
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			w.Write(data)
+		})
+	}
+
 	// SPA fallback: non-API paths → index.html; API → 404 JSON
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/v1/") {
