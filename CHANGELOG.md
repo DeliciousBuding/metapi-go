@@ -5,6 +5,13 @@ All notable changes to MetAPI-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.8.47] — 2026-08-02
+
+### Fixed — PG 旧库升级：sc2_008 boolean 列默认值类型不匹配（部署事故修复）
+- v0.8.46 在 hk3 启动失败：`ALTER TABLE sites ADD COLUMN custom_headers_override_request_headers BOOLEAN DEFAULT 0` 在 PostgreSQL 报 SQLSTATE 42804（boolean 列配 integer 默认值）；SQLite 宽松接受、CI 全新库列已存在跳过了该迁移路径——旧库升级盲区
+- `DEFAULT 0` → `DEFAULT FALSE`（双方言兼容）；新增 PG integration 测试锁定旧 schema 升级路径
+- 部署已回滚至 0.8.45（compose 备份恢复，容器 healthy）；本版本为修复后重发
+
 ## [v0.8.46] — 2026-08-02
 
 ### Fixed — EN 模式 i18n 漏翻译收口（2026-08-02）
