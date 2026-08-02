@@ -94,7 +94,7 @@ golangci-lint run --timeout=3m        # Lint check
 | `docs/analysis/original-gap-matrix.md` | Upstream parity evidence (historical; see file banner) |
 | `docs/analysis/original-gap-sources.md` | Upstream issue/PR snapshot (2026-07-16; not live-synced) |
 | `docs/api.md` / `docs/deployment.md` / `docs/migration.md` | API · deploy · migration |
-| `docs/specs/` | Rewrite-era phase specs (large; historical) |
+| `docs/archives/2026-07/specs/` | Rewrite-era phase specs (large; historical; archived 2026-08-02) |
 | `CHANGELOG.md` | Version narrative |
 
 **Progress roles:** STATE = 现状 · MASTER = 开放门禁 · LOG = 时间线。Temporary HANDOFF/session summaries are **not** SSOT — archive or delete after use.  

@@ -48,6 +48,7 @@ docs/
   migration.md              ← SQLite → PG / schema upgrade
   design/                   ← living design SSOT (BACKEND, DESIGN, a11y)
   analysis/                 ← evidence audits, residuals, gap matrix
+    README.md                     ← index of every analysis file (start here)
     high-value-next.md            ← next-wave shortlist (ours vs original)
     residual-next-candidates.md   ← residual honesty SSOT (ours)
     db-pool-budget.md             ← PG pool profiles / #531
@@ -60,10 +61,9 @@ docs/
     uiux-newapi-borrow-2026-07-30.md ← 前端 UIUX 借鉴（New API 对标）
     competitive/                  ← peer learning inventory
   archives/                ← archived one-shot analysis files (provenance; not live)
-  plan/                     ← program / lane / roadmap (historical / closed)
+  plan/                     ← original-parity-complete-2026-07-20.md only (program plan)
   progress/                 ← MASTER only (open gates)
-  specs/                    ← rewrite-era implementation specs (large; archival)
-    review/                 ← historical audits/reviews
+  archives/2026-07/         ← archived analysis/specs/plan (provenance; not live)
 ```
 
 ## Mental model (reduce load)
@@ -92,13 +92,11 @@ docs/
 - Cross-link residual docs from `residual-next-candidates.md` / `high-value-next.md`.
 - `docs/doc_hygiene_test.go` enforces public markdown hygiene (no local paths / false Redis sticky claims).
 
-## Related program docs (historical)
+## Related program docs (archived 2026-08-02)
 
-| Doc | Role |
-|:----|:-----|
-| `plan/enterprise-program.md` | Closed enterprise program map |
-| `plan/lane-charters.md` | File ownership for parallel WFs (ownership rules still useful) |
-| `plan/feature-complete-roadmap.md` | F0 snapshot (closed / historical) |
-| `plan/gap-inventory-acceptance.md` | G4 acceptance (closed) |
+Rewrite-era specs (`specs/`), closed program/lane/roadmap plans (`plan/`), and
+isolated feature-analysis files are under `archives/2026-07/` (provenance kept,
+not live). Active surfaces only: `STATE.md` / `MASTER.md` / `log.md` /
+`analysis/high-value-next.md` / `analysis/residual-next-candidates.md`.
 
 - P0-585 live e2e procedure: [`analysis/p0585-production-e2e-procedure.md`](analysis/p0585-production-e2e-procedure.md) (#557)
