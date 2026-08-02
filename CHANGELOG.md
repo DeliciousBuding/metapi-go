@@ -5,6 +5,13 @@ All notable changes to MetAPI-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.8.49] — 2026-08-02
+
+### Fixed — CI PG integration 串行化（v0.8.48 构建阻断修复）
+- v0.8.48 的 CD 在 test-pg 阶段失败：PG integration 测试多包并行共享单库，包间 AutoMigrate/表状态竞态（新加入 service/balance PG 测试后触发既有 flaky）
+- test-pg 命令加 `-p 1`（包串行，已验证 store/handler/admin/service/balance 全绿）
+- 本版本同时含 v0.8.47（sc2_008 迁移）与 v0.8.48（balance UPSERT Rebind）修复
+
 ## [v0.8.48] — 2026-08-02
 
 ### Fixed — PG 方言盲区二连：balance_history 快照 UPSERT 缺 Rebind（部署修复）
