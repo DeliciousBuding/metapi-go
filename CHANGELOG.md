@@ -5,7 +5,7 @@ All notable changes to MetAPI-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
-## [Unreleased]
+## [0.8.46] - 2026-08-02
 
 ### Fixed — EN 模式 i18n 漏翻译收口（2026-08-02）
 - 414 处 JSX 裸中文文本节点（表头/标签/按钮/确认语，26 个文件）包裹 `tr()`，EN 模式不再原样显示中文；zh 模式渲染不变
