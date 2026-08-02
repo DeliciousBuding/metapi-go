@@ -11,9 +11,9 @@
 | Fact | Value |
 |:-----|:------|
 | Source | **[DeliciousBuding/metapi-go](https://github.com/DeliciousBuding/metapi-go)** · default branch `master` |
-| Latest release | **[v0.8.49](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.8.49)** (2026-08-02); master CD publishes `ghcr.io/deliciousbuding/metapi-go` |
-| Product tip | current maintenance wave hardens seeded EN/zh verification, SQLite OAuth refresh, Windows listen/firewall behavior, OAuth callback ownership, GHCR ownership, and closes daily-metric truth on Dashboard + Accounts (unknown vs zero, partial status) |
-| Production pin (ops) | hk3 `td-metapi` **0.8.49 Up healthy** since 2026-08-02 16:11Z on `ghcr.io/deliciousbuding/metapi-go`; Azure PG pool/role **1/1**; `restart=no` |
+| Latest release | **[v0.8.51](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.8.51)** (2026-08-02); master CD publishes `ghcr.io/deliciousbuding/metapi-go` |
+| Product tip | login page reworked to a single centered card (New API style, one-screen no-scroll on desktop + mobile); root public files (logo/favicon) served statically (SPA fallback no longer swallows them); dark-mode login gradients → solid tokens |
+| Production pin (ops) | hk3 `td-metapi` **0.8.51 Up healthy** since 2026-08-02 18:14Z on `ghcr.io/deliciousbuding/metapi-go`; Azure PG pool/role **1/1**; `restart=no` |
 | Standby | us1 cold stack; must not connect to the production PG concurrently with hk3 |
 | Active milestone | **[53 REL-HONESTY](https://github.com/DeliciousBuding/metapi-go/milestone/53)** — #557 production e2e + #558 optional runtime probes open |
 | Open issues / PRs | [#557](https://github.com/DeliciousBuding/metapi-go/issues/557) · [#558](https://github.com/DeliciousBuding/metapi-go/issues/558) |

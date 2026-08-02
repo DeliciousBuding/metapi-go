@@ -5,6 +5,26 @@ All notable changes to MetAPI-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.8.51] — 2026-08-02
+
+### Fixed — 登录页 logo/favicon 静态服务缺失（SPA fallback 吞图）
+- Vite 把 `web/public/` 文件拷到 dist 根，但静态路由只注册 `/assets/*`，`/logo.png` 等被 SPA fallback 以 **200 text/html** 应答 → 登录页 `<img>` 空白（自 logo 引入起存在，v0.8.50 部署后由生产观察发现）
+- router 增加根静态文件白名单服务（logo/favicon/desktop icons，正确 Content-Type + immutable 缓存）；新增 `TestRootPublicFilesServedBeforeSPAFallback` 回归锁定
+
+### Changed — 深色登录页去渐变
+- `[data-theme=dark]` 下 `.login-shell` / `.login-surface` 的 3 层 color-mix 径向渐变改为纯色 token（`--color-bg` / `--color-bg-card`），暗底不再显脏；浅色保留柔和渐变
+
+## [v0.8.50] — 2026-08-02
+
+### Changed — 登录页单卡片化（New API 风格）
+- 移除左侧品牌大卡片与三行能力列表（用户反馈冗余）；品牌（logo + 名称 + 副标题）收敛进居中单卡片顶部
+- 桌面 422×617 / 移动 352px 均一屏内零滚动；GitHub/部署文档链接收进卡片底部
+- 登录页 CSS 440 → 330 行；测试重写为新结构断言（含 capability 已删除的反回归断言）
+
+### Changed — 登录页比例重构（同日早先提交）
+- surface 总高 842 → 676px（一屏内）；左列 1.16fr → 1fr、右卡 392 → 420px、标题 42 → 34px
+- 修复移动端既有 bug：`login-shell` 缺 `flex-direction: column`，640px 断点下登录卡被挤压至 135px min-content
+
 ## [v0.8.49] — 2026-08-02
 
 ### Fixed — CI PG integration 串行化（v0.8.48 构建阻断修复）
