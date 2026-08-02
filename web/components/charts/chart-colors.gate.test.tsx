@@ -88,4 +88,16 @@ describe('chart canvas color gate', () => {
     }
     expect(offenders).toEqual([]);
   });
+
+  it('accent presets keep chart-1 in sync with the brand primary', () => {
+    const tokens = readFileSync(join(CHARTS_DIR, '../../styles/tokens.css'), 'utf-8');
+    // Every [data-accent=...] block (light + dark) must restate --color-chart-1
+    // so switching accent recolors charts, not just UI chrome.
+    const blocks = [...tokens.matchAll(/\[(?:data-theme="dark"\])?\[?data-accent="([a-z]+)"\] \{([^}]*)\}/g)];
+    const missing: string[] = [];
+    for (const m of blocks) {
+      if (!m[2].includes('--color-chart-1')) missing.push(m[0].slice(0, 40));
+    }
+    expect(missing).toEqual([]);
+  });
 });

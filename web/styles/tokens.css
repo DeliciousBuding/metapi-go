@@ -227,9 +227,13 @@
    Every token below is derived from the primary family: text-link and
    focus-ring follow var(--color-primary) automatically. */
 
+/* indigo — Material Indigo (light). chart-1 follows the brand primary so
+   charts stay in sync with the UI accent (series palette is resolved via
+   useChartColors; chart-2..8 remain the shared data palette). */
 /* indigo — Material Indigo (light) */
 [data-accent="indigo"] {
   --color-primary: #3949ab;
+  --color-chart-1: #3949ab;
   --color-primary-light: rgba(57, 73, 171, 0.08);
   --color-primary-hover: #283593;
   --color-primary-soft: rgba(57, 73, 171, 0.08);
@@ -243,6 +247,7 @@
 /* teal — Material Teal (light) */
 [data-accent="teal"] {
   --color-primary: #00897b;
+  --color-chart-1: #00897b;
   --color-primary-light: rgba(0, 137, 123, 0.08);
   --color-primary-hover: #00695c;
   --color-primary-soft: rgba(0, 137, 123, 0.08);
@@ -256,6 +261,7 @@
 /* indigo — dark elevated */
 [data-theme="dark"][data-accent="indigo"] {
   --color-primary: #9fa8da;
+  --color-chart-1: #9fa8da;
   --color-primary-light: rgba(159, 168, 218, 0.14);
   --color-primary-hover: #b3bce6;
   --color-primary-soft: rgba(159, 168, 218, 0.14);
@@ -268,6 +274,7 @@
 /* teal — dark elevated */
 [data-theme="dark"][data-accent="teal"] {
   --color-primary: #80cbc4;
+  --color-chart-1: #80cbc4;
   --color-primary-light: rgba(128, 203, 196, 0.14);
   --color-primary-hover: #a5d6cf;
   --color-primary-soft: rgba(128, 203, 196, 0.14);
