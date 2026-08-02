@@ -59,7 +59,7 @@ func ReportTokenExpired(cfg *config.Config, db *sqlx.DB, params TokenExpiredPara
 		"error", params.AccountID, "account")
 
 	// Update account status
-	db.Exec("UPDATE accounts SET status = 'expired', updated_at = ? WHERE id = ?",
+	db.Exec(db.Rebind("UPDATE accounts SET status = 'expired', updated_at = ? WHERE id = ?"),
 		time.Now().UTC().Format(time.RFC3339), params.AccountID)
 
 	// Set runtime health

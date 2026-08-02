@@ -151,8 +151,8 @@ func (h *schedulerStatusHandler) eventsStatus(eventType, label string) scheduler
 		CreatedAt string `db:"created_at"`
 	}
 	var runs24h int64
-	_ = h.db.Get(&latest, `SELECT created_at FROM events WHERE type = ? ORDER BY created_at DESC LIMIT 1`, eventType)
-	_ = h.db.Get(&runs24h, `SELECT COUNT(*) FROM events WHERE type = ? AND created_at >= ?`, eventType, since24h())
+	_ = h.db.Get(&latest, h.db.Rebind(`SELECT created_at FROM events WHERE type = ? ORDER BY created_at DESC LIMIT 1`), eventType)
+	_ = h.db.Get(&runs24h, h.db.Rebind(`SELECT COUNT(*) FROM events WHERE type = ? AND created_at >= ?`), eventType, since24h())
 	return schedulerRunStatus{
 		Job:        eventType,
 		Enabled:    true,

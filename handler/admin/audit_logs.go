@@ -108,8 +108,8 @@ func recordAuditLog(db *sqlx.DB, r *http.Request, status int) {
 		path = "/"
 	}
 	_, err := db.Exec(
-		`INSERT INTO admin_audit_logs (actor, method, path, status, request_id, remote_ip, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		db.Rebind(`INSERT INTO admin_audit_logs (actor, method, path, status, request_id, remote_ip, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`),
 		actorFromToken(r), r.Method, path, status,
 		proxy.RequestIDFromContext(r.Context()), remoteIPFrom(r), now,
 	)

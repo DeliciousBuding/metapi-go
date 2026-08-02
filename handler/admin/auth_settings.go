@@ -86,9 +86,9 @@ func (h *authSettingsHandler) changeToken(w http.ResponseWriter, r *http.Request
 	var existingCount int
 	h.db.Get(&existingCount, "SELECT COUNT(*) FROM settings WHERE key = 'auth_token'")
 	if existingCount > 0 {
-		h.db.Exec("UPDATE settings SET value = ? WHERE key = 'auth_token'", jsonQuote(body.NewToken))
+		h.db.Exec(h.db.Rebind("UPDATE settings SET value = ? WHERE key = 'auth_token'"), jsonQuote(body.NewToken))
 	} else {
-		h.db.Exec("INSERT INTO settings (key, value) VALUES (?, ?)", "auth_token", jsonQuote(body.NewToken))
+		h.db.Exec(h.db.Rebind("INSERT INTO settings (key, value) VALUES (?, ?)"), "auth_token", jsonQuote(body.NewToken))
 	}
 
 	// Update runtime config
