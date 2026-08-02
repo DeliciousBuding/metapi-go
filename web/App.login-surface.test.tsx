@@ -19,40 +19,49 @@ describe('Login surface', () => {
     expect(SITE_GITHUB_URL).toBe('https://github.com/cita-777');
   });
 
-  it('renders a poster-style hero with a floating admin login panel', () => {
+  it('renders a single centered card with brand head and admin token form', () => {
     const root = create(
       <Login onLogin={vi.fn()} t={(text) => text} />,
     );
 
     try {
       const pageText = collectText(root.root);
-      const lightBrandPanel = root.root.find((node) => (
-        node.type === 'section'
+
+      // Single centered card (no poster-style side panel anymore).
+      const surface = root.root.find((node) => (
+        node.type === 'div'
         && typeof node.props.className === 'string'
-        && node.props.className.includes('login-brand-panel-light')
+        && node.props.className.includes('login-surface')
       ));
-      const authStage = root.root.find((node) => (
+      expect(surface).toBeTruthy();
+      expect(root.root.findAll((node) => (
         node.type === 'section'
         && typeof node.props.className === 'string'
-        && node.props.className.includes('login-auth-stage')
+        && (node.props.className.includes('login-brand-panel')
+          || node.props.className.includes('login-auth-stage'))
+      ))).toHaveLength(0);
+
+      // Brand head collapsed into the card: logo + name + kicker.
+      const brandHead = root.root.find((node) => (
+        node.type === 'div'
+        && typeof node.props.className === 'string'
+        && node.props.className.includes('login-brand-head')
       ));
       const brandMarkCanvas = root.root.find((node) => (
         node.type === 'div'
         && typeof node.props.className === 'string'
         && node.props.className.includes('brand-mark-canvas')
       ));
-
+      expect(brandHead).toBeTruthy();
+      expect(brandMarkCanvas).toBeTruthy();
       expect(pageText).toContain('Metapi');
       expect(pageText).toContain('中转站的中转站');
-      expect(pageText).not.toContain('一个 API Key，一个入口');
+
+      // Value props kept, capability list removed with the side panel.
       expect(pageText).toContain('兼容 New API / One API / OneHub / DoneHub / Veloera / AnyRouter / Sub2API');
-      expect(pageText).toContain('统一代理网关');
-      expect(pageText).toContain('智能路由引擎');
-      expect(pageText).toContain('自动模型发现');
-      expect(pageText).toContain('部署文档');
-      expect(lightBrandPanel).toBeTruthy();
-      expect(authStage).toBeTruthy();
-      expect(brandMarkCanvas).toBeTruthy();
+      expect(pageText).not.toContain('统一代理网关');
+      expect(pageText).not.toContain('智能路由引擎');
+      expect(pageText).not.toContain('自动模型发现');
 
       const docsLink = root.root.find((node) => (
         node.type === 'a'
