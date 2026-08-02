@@ -4486,7 +4486,7 @@ textarea.form-input {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px;
+  padding: 24px;
   background:
     radial-gradient(circle at top left, color-mix(in srgb, var(--color-primary) 18%, transparent), transparent 34%),
     radial-gradient(circle at right 18%, color-mix(in srgb, var(--color-accent) 16%, transparent), transparent 30%),
@@ -4548,9 +4548,9 @@ textarea.form-input {
 .login-surface {
   width: min(1240px, 100%);
   display: grid;
-  grid-template-columns: minmax(0, 1.16fr) minmax(360px, 440px);
-  gap: 24px;
-  padding: 20px;
+  grid-template-columns: minmax(0, 1fr) minmax(400px, 480px);
+  gap: 20px;
+  padding: 18px;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: 36px;
@@ -4561,11 +4561,11 @@ textarea.form-input {
 
 .login-brand-panel {
   position: relative;
-  min-height: 760px;
-  padding: 56px 56px 44px;
+  min-height: 600px;
+  padding: 40px 40px 32px;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 18px;
   color: var(--color-text-primary);
   border-radius: 30px;
   overflow: hidden;
@@ -4603,7 +4603,7 @@ textarea.form-input {
 .login-brand-header {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 18px;
 }
 
 .login-brand-summary {
@@ -4634,9 +4634,9 @@ textarea.form-input {
 }
 
 .brand-mark-frame-hero {
-  width: 118px;
-  height: 118px;
-  border-radius: 36px;
+  width: 96px;
+  height: 96px;
+  border-radius: 30px;
 }
 
 .brand-mark-canvas {
@@ -4659,13 +4659,13 @@ textarea.form-input {
 
 .login-brand-name {
   font-family: 'Avenir Next', 'Segoe UI Variable Display', 'PingFang SC', 'Noto Sans SC', sans-serif;
-  font-size: clamp(34px, 3.2vw, 46px);
+  font-size: clamp(28px, 2.6vw, 38px);
   font-weight: 800;
   letter-spacing: -0.05em;
 }
 
 .login-brand-kicker {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -4680,15 +4680,15 @@ textarea.form-input {
 .login-brand-copy {
   max-width: 42ch;
   margin: 0;
-  font-size: 18px;
-  line-height: 1.92;
+  font-size: 15px;
+  line-height: 1.72;
   color: var(--color-text-secondary);
 }
 
 .login-compat-line {
   max-width: 42ch;
-  font-size: 13px;
-  line-height: 1.8;
+  font-size: 12px;
+  line-height: 1.7;
   color: var(--color-text-secondary);
 }
 
@@ -4705,7 +4705,7 @@ textarea.form-input {
   grid-template-columns: 36px minmax(0, 1fr);
   gap: 16px;
   align-items: start;
-  padding: 18px 0;
+  padding: 10px 0;
   border-bottom: 1px solid var(--color-border-light);
 }
 
@@ -4724,7 +4724,7 @@ textarea.form-input {
 
 .login-capability-title {
   font-family: 'Avenir Next', 'Segoe UI Variable Display', 'PingFang SC', 'Noto Sans SC', sans-serif;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.03em;
   color: var(--color-text-primary);
@@ -4733,8 +4733,8 @@ textarea.form-input {
 .login-capability-desc {
   margin: 0;
   max-width: 34ch;
-  font-size: 14px;
-  line-height: 1.75;
+  font-size: 13px;
+  line-height: 1.55;
   color: var(--color-text-secondary);
 }
 
@@ -4748,8 +4748,8 @@ textarea.form-input {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--color-primary) 12%, transparent);
   background: var(--glass-bg-strong);
@@ -4773,7 +4773,7 @@ textarea.form-input {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 10px 15px;
+  padding: 9px 14px;
   border-radius: 999px;
   background: var(--glass-bg-strong);
   color: var(--color-primary);
@@ -4793,7 +4793,7 @@ textarea.form-input {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 20px;
   border-radius: 30px;
   background:
     radial-gradient(circle at top, color-mix(in srgb, var(--color-accent) 16%, transparent), transparent 34%),
@@ -4801,8 +4801,8 @@ textarea.form-input {
 }
 
 .login-auth-panel {
-  width: min(100%, 392px);
-  padding: 40px 34px 28px;
+  width: min(100%, 420px);
+  padding: 44px 38px 30px;
   border-radius: 28px;
   border: 1px solid var(--glass-border);
   background: var(--glass-bg-strong);
@@ -4812,7 +4812,7 @@ textarea.form-input {
 }
 
 .login-auth-eyebrow {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -4823,21 +4823,21 @@ textarea.form-input {
 .login-auth-title {
   margin: 0 0 10px;
   font-family: 'Avenir Next', 'Segoe UI Variable Display', 'PingFang SC', 'Noto Sans SC', sans-serif;
-  font-size: 42px;
+  font-size: 34px;
   font-weight: 800;
-  line-height: 0.96;
-  letter-spacing: -0.05em;
+  line-height: 1.04;
+  letter-spacing: -0.04em;
 }
 
 .login-auth-copy {
-  margin: 0 0 24px;
+  margin: 0 0 26px;
   font-size: 14px;
   line-height: 1.7;
   color: var(--color-text-secondary);
 }
 
 .login-auth-label {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   font-size: 12px;
   font-weight: 700;
   color: var(--color-text-secondary);
@@ -4852,7 +4852,7 @@ textarea.form-input {
   outline: none;
   background: color-mix(in srgb, var(--color-bg-secondary) 92%, transparent);
   color: var(--color-text-primary);
-  margin-bottom: 14px;
+  margin-bottom: 16px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 
@@ -4864,7 +4864,7 @@ textarea.form-input {
 
 .login-auth-submit {
   width: 100%;
-  padding: 13px 0;
+  padding: 14px 0;
   font-size: 14px;
   font-weight: 700;
   border-radius: 16px;
@@ -4872,7 +4872,7 @@ textarea.form-input {
 }
 
 .login-auth-note {
-  margin-top: 16px;
+  margin-top: 18px;
   font-size: 12px;
   line-height: 1.7;
   color: var(--color-text-muted);
@@ -4933,6 +4933,7 @@ textarea.form-input {
 @media (max-width: 640px) {
   .login-shell {
     padding: 12px;
+    flex-direction: column;
   }
 
   .login-tools {
