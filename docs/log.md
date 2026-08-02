@@ -11,6 +11,13 @@
 - **门禁**（`69d8905`）: OAuth flow 测试注入 callback start seam，不再依赖 Windows 保留端口；新增 service 测试 4 个（含 legacy 时间/禁用站点排除/partial 语义/未归属行隔离）+ handler 列表测试 1 个 + 前端 3 个（complete 显示真值 / partial 显示 — / 降级显示 —）。
 - **运行边界**: hk3 仍 v0.8.45 healthy；本轮全部为 master 改动，无生产部署。
 
+## [2026-08-02] accent 主题预设闭环 —— chart-1 随品牌主色联动
+
+- **缺口**: VIS-1 accent 预设（blue/indigo/teal）只覆盖 primary 族，**chart 色板未联动**——切换靛蓝/青绿主题时图表仍是 GCP 蓝（半套预设）。
+- **修复**: 4 个 `[data-accent]` 块（light/dark × indigo/teal）补 `--color-chart-1` 跟随品牌主色；`-soft/-faint` 与 `-gradient` 由 color-mix 引用自动联动；useChartColors 解析新值 → 图表零代码联动。
+- **门禁**: chart-colors.gate 新断言——每个 accent 块必须重述 `--color-chart-1`（防回归）。
+- 提交 `64b1d41` + `17e4394`（dist）；602 vitest + typecheck + build 全绿。
+
 ## [2026-08-02] 图表系列色 token 接线（New API 设计参考第 3 波）
 
 - **问题**: VChart canvas 不解析 CSS var()——此前仅轴/图例色解析（两波），**系列色 27 处 var(--color-chart-N)（7 图表文件）静默回退 VChart 默认色板**；图表颜色与设计系统无关、不随主题。
