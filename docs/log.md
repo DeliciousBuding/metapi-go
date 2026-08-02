@@ -11,6 +11,14 @@
 - **门禁**（`69d8905`）: OAuth flow 测试注入 callback start seam，不再依赖 Windows 保留端口；新增 service 测试 4 个（含 legacy 时间/禁用站点排除/partial 语义/未归属行隔离）+ handler 列表测试 1 个 + 前端 3 个（complete 显示真值 / partial 显示 — / 降级显示 —）。
 - **运行边界**: hk3 仍 v0.8.45 healthy；本轮全部为 master 改动，无生产部署。
 
+## [2026-08-02] 部署 v0.8.46→v0.8.49（三连事故 + 修复 + 终部署 hk3）
+
+- **v0.8.46 失败回滚**（15:05）：sc2_008 迁移 `BOOLEAN DEFAULT 0` 在 PG 报 42804（旧库升级盲区——SQLite 宽松 + CI 全新库列已存在跳过该路径）→ 立即回滚 0.8.45；修 `DEFAULT FALSE` + PG integration 测试（本地 postgres:16 精确模拟旧库升级通过）
+- **v0.8.47 soak 失败回滚**（15:30）：迁移修复后 up，soak 抓 `balance_history` 快照 UPSERT 用 SQLite `?` 直连 PG → 42601 静默丢数据（A1 新功能仅 SQLite 测试）→ 回滚；修 `db.Rebind` + PG integration 测试
+- **v0.8.48 CD 阻断**（15:50）：新增 PG 测试暴露多包共享单库竞态（TestTokens/TestStats flaky）→ test-pg 加 `-p 1`（本地验证三包串行全绿）
+- **v0.8.49 部署成功**（16:11Z）：迁移幂等 · soak 15min 0 错误 · 调度器全启动 · 四层验证通过；镜像 `ghcr.io/deliciousbuding/metapi-go:0.8.49@sha256:d9ca13…`（GHCR 所有权从 TokenDanceLab 切换完成）
+- 教训：PG 方言盲区二连（迁移 + UPSERT）——CI 的 PG 集成测试覆盖面从 store 扩到 balance 包；测试库并行竞态已串行化
+
 ## [2026-08-02] accent 主题预设闭环 —— chart-1 随品牌主色联动
 
 - **缺口**: VIS-1 accent 预设（blue/indigo/teal）只覆盖 primary 族，**chart 色板未联动**——切换靛蓝/青绿主题时图表仍是 GCP 蓝（半套预设）。
