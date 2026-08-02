@@ -5,6 +5,27 @@ All notable changes to MetAPI-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.8.52] — 2026-08-02
+
+### Fixed — 4 处裸 `*sqlx.DB` `?` 占位符直连 PG（SQLSTATE 42601）
+- 配置飞书通知时暴露：admin audit 插入 42601 → 全仓排查发现绕过 `store.DB` 自动 Rebind 包装的裸 `*sqlx.DB` 雷区 4 处：
+  - `admin_audit_logs` 插入（**审计自切 PG 起静默丢失**，v0.8.52 恢复）
+  - `auth_token` 轮换 UPDATE/INSERT
+  - scheduler_status `events` 只读查询
+  - `service/alert` 账号过期标记（`status='expired'` 从未写入）
+- 修复：全部 `db.Rebind(...)` 显式包装
+- **静态门禁** `docs/pg_rebind_gate_test.go`：扫描 handler/service/scheduler 含 `*sqlx.DB` 文件的裸 `?` 调用（注入验证会响；Rebind 包装与 URL 查询串豁免）
+
+### Changed — 飞书通知聚合防轰炸
+- `SendNotification` 中 TaskTag 非空时签名 = `tag:任务类型:级别`（不含 message）→ 同类告警（如 20 个账号 token 过期）冷却窗口内合并为 1 条 + 合并计数，不再每账号刷屏
+- `DispatchResult` 增加 `MergedCount`；无 TaskTag 调用保持原签名（向后兼容）
+- 测试：同 Tag 不同 message 只发 1 条 / 不同 level 各自发送 / 无 Tag 不合并
+
+### Fixed — 资源完整性三层防线（随版本带上，dcd786b）
+- Dockerfile 构建后 `verify-dist.mjs` 产物自洽校验（入口 + 懒加载 chunk 存在才出镜像）
+- CI `dist-integrity.gate.test.ts` 同一校验；部署后 `verify-live-assets.sh` 运行实例资源图重放（200 + 非 text/html）
+- 背景：v0.8.51 生产观察 `/logo.png` 被 SPA fallback 吞（200 text/html）+ 升级后旧缓存 404
+
 ## [v0.8.51] — 2026-08-02
 
 ### Fixed — 登录页 logo/favicon 静态服务缺失（SPA fallback 吞图）
