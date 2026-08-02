@@ -206,3 +206,19 @@ docker compose -f docker-compose.prod.yml up -d
 ```
 
 Docker Compose will automatically recreate the container with the new image. Auto-migration runs at startup to apply any new schema changes.
+
+## Post-deploy asset smoke (mandatory)
+
+The image build verifies its own dist is self-consistent (`node scripts/verify-dist.mjs`
+runs inside the Dockerfile after `npm run build:web`; CI also gates it via
+`dist-integrity.gate.test.ts`). After every deploy, replay the browser asset
+graph against the running instance — this catches SPA-fallback-swallowed assets
+(200 text/html instead of the real file) and stale-cache 404s:
+
+```bash
+bash web/scripts/verify-live-assets.sh http://127.0.0.1:4000
+# verify-live-assets OK: N referenced assets all 200
+```
+
+On a machine without node the bash script works; `web/scripts/verify-live-assets.mjs`
+is the node equivalent for local use.

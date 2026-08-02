@@ -4,7 +4,7 @@ WORKDIR /app/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --ignore-scripts
 COPY web ./
-RUN npm run build:web
+RUN npm run build:web && node scripts/verify-dist.mjs
 
 # Stage 2: Go build
 FROM golang:1.26.5-alpine AS build
