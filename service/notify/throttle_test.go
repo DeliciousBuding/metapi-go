@@ -1,8 +1,14 @@
 package notify
 
 import (
+	"io"
+	"net/http"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/tokendancelab/metapi-go/config"
 )
 
 // ---- CreateNotificationSignature Tests ----
@@ -379,5 +385,70 @@ func TestSendNotificationOptions(t *testing.T) {
 	}
 	if !opts.ThrowOnFailure {
 		t.Error("ThrowOnFailure should be true")
+	}
+}
+
+// ---- SendNotification TaskTag aggregation (anti-spam) ----
+
+// A burst of per-account failures with the same TaskTag but different message
+// text must collapse into one delivered notification; the rest are throttled
+// with a merge count. Different levels remain separate signatures.
+func TestSendNotification_TaskTagAggregatesAcrossMessages(t *testing.T) {
+	var hits atomic.Int32
+	oldClient := notifyHTTPClient
+	t.Cleanup(func() { notifyHTTPClient = oldClient })
+	notifyHTTPClient = &http.Client{
+		Timeout: notifyHTTPTimeout,
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			hits.Add(1)
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(`{"code":200}`)),
+				Request:    req,
+			}, nil
+		}),
+	}
+
+	cfg := &config.Config{
+		BarkEnabled:       true,
+		BarkUrl:           "https://bark.example",
+		NotifyCooldownSec: 300,
+	}
+
+	res1, err := SendNotification(cfg, "账号 A token 失效", "msg A", "error", &SendNotificationOptions{TaskTag: "token_expired"})
+	if err != nil {
+		t.Fatalf("first send: %v", err)
+	}
+	if res1.Throttled || res1.Succeeded != 1 {
+		t.Fatalf("first send = %+v, want delivered 1/1", res1)
+	}
+
+	res2, err := SendNotification(cfg, "账号 B token 失效", "msg B", "error", &SendNotificationOptions{TaskTag: "token_expired"})
+	if err != nil {
+		t.Fatalf("second send: %v", err)
+	}
+	if !res2.Throttled {
+		t.Fatalf("second send = %+v, want throttled (suppressed)", res2)
+	}
+	if hits.Load() != 1 {
+		t.Fatalf("bark hits = %d, want 1 (aggregated)", hits.Load())
+	}
+
+	res3, err := SendNotification(cfg, "账号 C token 失效", "msg C", "warning", &SendNotificationOptions{TaskTag: "token_expired"})
+	if err != nil {
+		t.Fatalf("third send: %v", err)
+	}
+	if res3.Throttled {
+		t.Fatalf("different level must not be throttled: %+v", res3)
+	}
+
+	// Without TaskTag the full message still participates in the signature.
+	res4, err := SendNotification(cfg, "自由标题", "msg D", "error", nil)
+	if err != nil {
+		t.Fatalf("untagged send: %v", err)
+	}
+	if res4.Throttled {
+		t.Fatalf("untagged send must not be throttled: %+v", res4)
 	}
 }

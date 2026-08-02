@@ -55,6 +55,7 @@ type SendNotificationOptions struct {
 // DispatchResult is the result of a notification dispatch.
 type DispatchResult struct {
 	Throttled      bool
+	MergedCount    int // suppressed duplicates merged into the sent notification
 	Attempted      int
 	Succeeded      int
 	Failed         int
@@ -107,10 +108,18 @@ func SendNotification(cfg *config.Config, title, message, level string, options 
 		GlobalThrottle.PruneNotificationThrottleState(nowMs, staleMs)
 
 		signature := CreateNotificationSignature(title, message, level)
+		if options.TaskTag != "" {
+			// Aggregate by task type + level instead of the full message:
+			// a burst of per-account failures (same task, different message
+			// text) collapses into one notification with a merge count
+			// instead of one notification per account (anti-spam).
+			signature = "tag:" + options.TaskTag + ":" + level
+		}
 		decision := GlobalThrottle.EvaluateNotificationThrottle(signature, nowMs, cooldownMs)
 		if !decision.ShouldSend {
 			return &DispatchResult{
 				Throttled:      true,
+				MergedCount:    decision.MergedCount,
 				Attempted:      0,
 				Succeeded:      0,
 				Failed:         0,
