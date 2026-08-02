@@ -102,7 +102,7 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 		Version:     "sc2_008_site_custom_headers_override_request_headers",
 		Description: "sites.custom_headers_override_request_headers BOOL DEFAULT FALSE - when true site custom headers overwrite same-name request headers",
 		Apply: func(db *DB) error {
-			return EnsureColumn(db, "sites", "custom_headers_override_request_headers", "INTEGER", "BOOLEAN", "DEFAULT 0")
+			return EnsureColumn(db, "sites", "custom_headers_override_request_headers", "INTEGER", "BOOLEAN", "DEFAULT FALSE")
 		},
 	},
 	{

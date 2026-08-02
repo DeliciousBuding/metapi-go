@@ -360,3 +360,69 @@ func TestPostgresConcurrentAccess(t *testing.T) {
 		}
 	}
 }
+
+// TestPostgresEnsureColumnBooleanDefaultFALSE
+//
+// Regression for the 2026-08-02 v0.8.46 deployment failure: sc2_008 added
+// sites.custom_headers_override_request_headers as BOOLEAN with "DEFAULT 0".
+// PostgreSQL rejects an integer default on a boolean column (SQLSTATE 42804)
+// while SQLite accepts it — and CI only ever migrates fresh databases where
+// the column already exists, so the old-schema upgrade path was untested.
+//
+// This probe builds a legacy-shaped table without the column and runs the
+// same EnsureColumn call the migration uses; it must succeed with a boolean
+// default expression.
+func TestPostgresEnsureColumnBooleanDefaultFALSE(t *testing.T) {
+	skipIfNoPG(t)
+
+	db, err := Open(DialectPostgres, pgDSN(), false)
+	if err != nil {
+		t.Fatalf("open postgres: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	const table = "sites_upgrade_probe"
+	if _, err := db.Exec(`DROP TABLE IF EXISTS ` + table + ` CASCADE`); err != nil {
+		t.Fatalf("drop probe table: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = db.Exec(`DROP TABLE IF EXISTS ` + table + ` CASCADE`)
+	})
+
+	// Legacy shape: sites WITHOUT the sc2_008 column (pre-0.8.46 schema).
+	if _, err := db.Exec(`CREATE TABLE ` + table + ` (
+		id BIGSERIAL PRIMARY KEY,
+		name TEXT NOT NULL,
+		url TEXT NOT NULL,
+		platform TEXT NOT NULL DEFAULT '',
+		status TEXT NOT NULL DEFAULT 'active'
+	)`); err != nil {
+		t.Fatalf("create legacy table: %v", err)
+	}
+
+	// The exact call the sc2_008 migration makes (must stay in sync).
+	if err := EnsureColumn(db, table, "custom_headers_override_request_headers",
+		"INTEGER", "BOOLEAN", "DEFAULT FALSE"); err != nil {
+		t.Fatalf("EnsureColumn boolean + DEFAULT FALSE failed on PG: %v", err)
+	}
+
+	// Column must exist, be boolean, and default to false.
+	var colType string
+	if err := db.Get(&colType,
+		`SELECT data_type FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`,
+		table, "custom_headers_override_request_headers"); err != nil {
+		t.Fatalf("read column type: %v", err)
+	}
+	if colType != "boolean" {
+		t.Fatalf("column type = %q, want boolean", colType)
+	}
+	var def string
+	if err := db.Get(&def,
+		`SELECT column_default FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`,
+		table, "custom_headers_override_request_headers"); err != nil {
+		t.Fatalf("read column default: %v", err)
+	}
+	if def == "" {
+		t.Fatal("column default is empty")
+	}
+}
