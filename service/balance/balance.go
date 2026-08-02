@@ -633,7 +633,7 @@ func recordBalanceSnapshot(db *sqlx.DB, accountID int64, balance, used, quota fl
 			quota = excluded.quota,
 			captured_at = excluded.captured_at,
 			created_at = excluded.created_at`
-	if _, err := db.Exec(q, accountID, balance, used, quota, day, ts, ts); err != nil {
+	if _, err := db.Exec(db.Rebind(q), accountID, balance, used, quota, day, ts, ts); err != nil {
 		slog.Warn("balance_history: snapshot upsert failed (non-fatal)",
 			"accountID", accountID, "day", day, "error", err)
 	}

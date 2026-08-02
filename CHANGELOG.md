@@ -5,6 +5,14 @@ All notable changes to MetAPI-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.8.48] — 2026-08-02
+
+### Fixed — PG 方言盲区二连：balance_history 快照 UPSERT 缺 Rebind（部署修复）
+- v0.8.47 在 hk3 soak 抓到：`recordBalanceSnapshot`（A1 余额历史快照，master 新功能）用 SQLite `?` 占位符直连 PG → SQLSTATE 42601，快照静默不落库（WARN non-fatal，容器 healthy 但数据缺失）
+- 该功能仅 SQLite 测试覆盖（CI PG integration 未覆盖 balance 包）——第二个「PG 方言盲区」事故（首个为 sc2_008 迁移）
+- `db.Exec(db.Rebind(q), ...)`；新增 `TestRecordBalanceSnapshotPostgres`（PG integration，含 UPSERT 二次覆盖断言）
+- 已回滚 0.8.45；本版本为修复后重发
+
 ## [v0.8.47] — 2026-08-02
 
 ### Fixed — PG 旧库升级：sc2_008 boolean 列默认值类型不匹配（部署事故修复）
