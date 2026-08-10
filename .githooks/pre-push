@@ -1,0 +1,43 @@
+#!/bin/bash
+# MetAPI-Go pre-push hook — run full CI locally before pushing.
+# Installation: git config core.hooksPath .githooks
+# Skip with:      git push --no-verify
+set -euo pipefail
+
+# A push that only deletes refs changes no branch content, so it does not
+# need the full CI gate. Deletes arrive on stdin as:
+#   <local-ref> <40-zero-oid> <remote-ref> <remote-oid>
+while read -r _local_ref local_oid _remote_ref _remote_oid; do
+	if [ "$local_oid" != "0000000000000000000000000000000000000000" ]; then
+		delete_only=0
+		break
+	fi
+	delete_only=1
+done
+if [ "${delete_only:-0}" = "1" ]; then
+	echo "=============================================="
+	echo "pre-push: only ref deletions — skipping local CI"
+	echo "=============================================="
+	exit 0
+fi
+
+echo "=============================================="
+echo "pre-push: running local CI (vet + test -race)"
+echo "=============================================="
+
+# 1. go vet — fast static analysis
+echo ""
+echo "[1/2] go vet ./..."
+go vet ./...
+echo "  ✓ vet passed"
+
+# 2. full test suite with race detector
+echo ""
+echo "[2/2] race gate (native Unix, WSL-backed on Windows)"
+bash ./scripts/go-race.sh
+echo "  ✓ tests passed (-race clean)"
+
+echo ""
+echo "=============================================="
+echo "pre-push OK — all checks passed"
+echo "=============================================="

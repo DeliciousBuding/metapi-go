@@ -1,0 +1,656 @@
+# Changelog
+
+All notable changes to MetAPI-Go will be documented in this file.
+
+格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
+版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
+
+## [v0.8.54] — 2026-08-11
+
+### Fixed — Model redirect SQL placeholder binding
+- `loadRedirectCandidates` 在直连数据库时未对 PostgreSQL 占位符做 Rebind，导致模型刷新后 redirect 同步失败（主链路不受影响）。修复：显式 Rebind。
+- 新增回归测试覆盖 `ExecContext/GetContext/SelectContext/QueryContext` 等 Context 变体的占位符校验。
+
+## [v0.8.53] — 2026-08-11
+
+### Fixed — New-Api-User header 401 降级
+- `VerifyToken` 原先只在 HTTP 200 含 `New-Api-User` 时触发降级；部分上游站点直接返回 401，导致 session token 导入失败。修复：401 含 `New-Api-User` 时同样进入带 `New-Api-User`/`Veloera-User` 等头的重试路径。
+
+### Fixed — 模型刷新持久化类型不匹配
+- `persistAccountModelAvailability` 更新非手动行时布尔列类型不匹配，导致 `/api/models/check/:id` 写库失败。修复：改用 `NOT is_manual`（PostgreSQL/SQLite 双方言兼容）。
+
+## [v0.8.52] — 2026-08-02
+
+### Fixed — SQL placeholder binding
+- 修复 4 处绕过 store 包装直连 PostgreSQL 的裸占位符调用（admin audit 插入、auth token 轮换、scheduler 查询、账号过期标记），全部显式 Rebind。
+- 新增回归测试扫描 handler/service/scheduler 中的裸占位符调用。
+
+### Changed — 飞书通知聚合防轰炸
+- `SendNotification` 在带 TaskTag 时按 `tag:任务类型:级别` 签名聚合，同类告警冷却窗口内合并为 1 条并附合并计数，不再每账号刷屏。无 TaskTag 调用保持原签名向后兼容。
+
+### Fixed — Resource integrity checks
+- Dockerfile 构建后 `verify-dist.mjs` 产物自洽校验（入口 + 懒加载 chunk 存在才出镜像）；CI dist 完整性测试同一校验；部署后 `verify-live-assets.sh` 运行实例资源图重放（200 + 非 text/html）。
+
+## [v0.8.51] — 2026-08-02
+
+### Fixed — 登录页 logo/favicon 静态服务缺失
+- 静态路由只注册 `/assets/*`，`/logo.png` 等根静态文件被 SPA fallback 以 200 text/html 应答，登录页 `<img>` 空白。修复：router 增加根静态文件白名单服务（logo/favicon/desktop icons，正确 Content-Type + immutable 缓存）。
+
+### Changed — 深色登录页去渐变
+- 深色模式下登录页 3 层 color-mix 径向渐变改为纯色 token，暗底不再显脏；浅色保留柔和渐变。
+
+## [v0.8.50] — 2026-08-02
+
+### Changed — 登录页单卡片化
+- 移除左侧品牌大卡片与三行能力列表，品牌（logo + 名称 + 副标题）收敛进居中单卡片顶部；桌面/移动均一屏内零滚动；GitHub/部署文档链接收进卡片底部。
+- 登录页 CSS 440 → 330 行。
+
+### Changed — 登录页比例重构
+- surface 总高 842 → 676px（一屏内）；修复移动端 640px 断点下登录卡被挤压的既有 bug（补 `flex-direction: column`）。
+
+## [v0.8.49] — 2026-08-02
+
+### Fixed — CI PostgreSQL 集成测试串行化
+- PostgreSQL integration 测试多包并行共享单库时表状态竞态导致构建阻断。test-pg 命令加 `-p 1`（包串行）。
+
+## [v0.8.48] — 2026-08-02
+
+### Fixed — balance_history 快照 SQL placeholder binding
+- `recordBalanceSnapshot` 用 SQLite 占位符直连 PostgreSQL，快照静默不落库。修复 Rebind；新增 PostgreSQL integration 测试。
+
+## [v0.8.47] — 2026-08-02
+
+### Fixed — PostgreSQL 旧库升级 boolean 列默认值类型不匹配
+- `ALTER TABLE ... ADD COLUMN ... BOOLEAN DEFAULT 0` 在 PostgreSQL 报类型不匹配；SQLite 宽松接受、CI 全新库跳过了该迁移路径。修复：`DEFAULT FALSE`（双方言兼容）；新增 PostgreSQL integration 测试锁定旧 schema 升级路径。
+
+## [v0.8.46] — 2026-08-02
+
+### Added — Dashboard and analytics
+- **余额历史快照 + 趋势图**：新 `balance_history` 表（per UTC day per account，同日 UPSERT）；`RefreshBalance` 成功路径自动写快照；`GET /api/stats/balance-history`；Dashboard「余额趋势」卡。
+- **模型成本分布 + 延迟图表**：`GET /api/stats/model-cost-distribution`、`/latency-histogram`、`/latency-trend`（每日 avg/max/first-byte + 成功率 + p95）；Dashboard 三卡。
+- **批量模型验证 + 验证历史**：新 `model_verify_history` 表；`POST /api/models/verify-batch` + `GET /api/models/verify-history`；Models 页批量验证 dialog。
+- **余额流入 vs 消费**：`GET /api/stats/balance-income-outcome`（会计恒等式 income - outcome = Δbalance 推导，首日视为初始入账，退款如实反映为负 outcome）；Dashboard 分组柱卡。
+- **需关注看板**：`GET /api/stats/attention` severity 排序深链项（过期账号/低余额/禁用站点/近 24h 告警事件）；Dashboard 顶部面板点击直达。
+- **实时 QPS 运维面板**：1s×300 环形缓冲 + `GET /api/admin/ops/ws` 每秒推流 + Dashboard 实时流量面板（QPS/成功率/sparkline/指数退避重连）。
+
+### Added — Tags, banners, and notifications
+- **全局标签系统**：accounts/sites 支持彩色标签（JSON 数组列），`GET /api/tags` 全局索引（按使用量排序），`PUT /api/accounts/{id}/tags` / `PUT /api/sites/{id}/tags`；Accounts/Sites 页标签 chips 点击即过滤 + 共享 TagEditorDialog。
+- **产品级风险横幅**：`product_announcements` + `announcement_dismissals` 表（severity info/warning/critical）；Dashboard 顶部配色横幅（dismiss + 详情链接）；Settings「产品公告」CRUD 区。
+- **可分享看板快照 PNG**：Dashboard「导出快照」原生 canvas 绘制 1200×630 摘要卡（总余额/今日消耗/24h 请求/成功率/Token/活跃账号 + 站点消耗 Top5），下载 PNG，零新依赖。
+- **per-task 通知 + 4 新渠道**：feishu/dingtalk（HMAC-SHA256 加签）/wecom/ntfy 四专用 channel（SSRF 校验）；`notify_task_toggles` 按告警类型静音（缺省全开向后兼容）。
+- **实时低余额告警**：余额刷新发现 balance < 1.0 时触发 `ReportLowBalance`（per account per 24h 去重）。
+- **管理操作审计日志**：`admin_audit_logs` 表 + AuditMiddleware 记录 POST/PUT/PATCH/DELETE（actor = token 哈希前缀，永不存原文）；Settings「审计日志」区（方法/路径/actor/IP/状态过滤 + 分页）。
+
+### Added — Scheduling, backup, and observability
+- **随机窗口调度模式**：checkin 支持 `window` 模式，在 `CHECKIN_WINDOW_START`~`END`（HH:mm）内随机生成每日 cron（负载扩散 + 反指纹）。
+- **签到 catch-up**：window/cron 模式下实例在当天触发时刻后重启 → 启动时检测「今日触发已过 + 今日未跑 + 存在启用账号」→ 立即补跑（租约保护、幂等无双签）。
+- **备份导入预览**：`POST /api/settings/backup/import/preview` 返回 per-table rows/toInsert/duplicates/skipped 计划且不写行；ImportExport confirm 前展示计划。
+- **调度任务统一运行历史**：`GET /api/scheduler/status` 聚合 checkin/balance-refresh/model-probe/site-announcements/daily-summary/log-cleanup/usage-aggregation 的 last-run + 24h 活动；Dashboard 面板。
+- **OAuth token auto-refresh**：60s 间隔，per-provider lead times（codex=5d, claude=4h, gemini-cli/antigravity=5min），singleflight dedup。
+
+### Added — Routing, downstream keys, and WebSocket
+- **per-downstream-key 权重 / 自定义 header / allow-list**：下游 key 权重、站点自定义 header 覆盖优先级、allow-list 绑定 sites/credentials。
+- **IP allowlist/blocklist**：downstream key 支持 IP allowlist/blocklist（blocklist 优先，allowlist 非空要求匹配，两者空则不限）；DownstreamKey editor 文本区。
+- **downstream-key pricing catalog**：`/v1/pricing`（+ `/v1/models/price-compare` alias）— 持有 managed key 的下游消费者可查询跨站点模型定价（非匿名公开）。
+- **reasoning suffix**：`ParseReasoningSuffix` 剥离 `-thinking`/`-high`/`-medium`/`-low` 以匹配基础模型路由；OpenAI 注入 `reasoning_effort`。
+- **Responses WebSocket**：Responses WebSocket（upgrade + HTTP SSE bridge + multi-turn/quota + Codex upstream wss 运行时，dial→HTTP fallback）。
+- **multi-tier context**：同模型不同 `context_length` 路由按请求估算选最紧 fit；`LoadEnabledRoutes` 遵循 `sort_order`。
+- **model redirect canonicalization**：per-account redirect 注册表（canonical→actual + 字典序确定性反向索引）；转发改写出站体 + 计费归因名。
+- **rate overview + 倍率批量编辑**：`PUT /api/models/rates` 批量更新 unit_cost + weight（校验 ≥0、写后路由缓存失效）+ 总览页行内编辑。
+- **admin-configurable prompt-cache ratio**：`DefaultCacheRatio`/`ClaudeCacheRatio` 运行时可覆盖（config → boot apply → Settings 暴露/持久化生效）。
+
+### Added — UI and a11y improvements
+- **RouteErrorBoundary**：所有 lazy 路由包裹错误边界，单个 lazy 页渲染错误不再白屏整个 SPA；导航离开自动清除。
+- **SearchModal 键盘导航**：实现 ↑↓/Enter 真实键盘导航（combobox + `aria-activedescendant`/`aria-expanded`，results 为 `role="listbox"`）。
+- **Toast a11y**：container `role="status" aria-live="polite"`；error toast `role="alert"`。
+- **design-system triad**：新 `ErrorState`（+ auto Retry）+ `LoadingState`（skeleton/spinner），补齐 Empty/Loading/Error 三态。
+- **Models → Playground quick-launch**：Models 卡片/行操作按钮 → `/playground?model=<name>` 预填模型选择器。
+- **ProxyLogs date-range presets**：15m / 1h / Today / 7d 预设按钮。
+- **visual motion**：Models 卡片网格 `animate-slide-up stagger` + hover lift 微交互。
+- **表格密度切换**：默认行高 10px → 8px；主题菜单新增「表格密度」舒适/紧凑切换（localStorage 持久化）。
+- **first-run 侧栏**：无站点时侧栏只显示核心 onboarding 路径，其余折叠「更多功能」。
+- **主题 preset**：`data-accent` 3 预设（blue/indigo/teal）× light/dark 双套 --color-primary 族；主题菜单切换 + FOUC 同步。
+- **Update Center**：Settings ops note + GHCR/Releases 链接。
+- **Sites 内联测速**：Sites 列表行内测速按钮（client-side fetch，无需打开编辑器）。
+- **downstream-key 消耗分布**：top-10 跨 key breakdown（usedCost/usedRequests 切换）组件。
+- **CSV 导出**：CheckinLog / ProgramLogs / DownstreamKeys 支持导出 CSV（DownstreamKeys 不导出原始 key）。
+- **GCP Console design alignment**（palette/shell density）。
+
+### Added — i18n: English mode full coverage
+- **EN 模式全链路可读**：消除所有「EN 界面显示中文/Untranslated」——t() 字面量、裸 JSX 硬编码中文、插值文本碎片、canvas 快照 PNG、VChart 图表 spec（系列名/图例/tooltip）、toast/confirm/alert 全覆盖。字典 zhToEn 扩至 200+ 条（含产品名官方名 Feishu/DingTalk/WeCom）。
+- **四层 i18n 回归测试**：t() 字面量 / 裸 JSX 属性+文本 / 插值片段 / chart spec 对象字面量——任何新中文文案漏补字典即 CI 红。
+
+### Fixed — i18n: object literal translation gaps
+- EN 模式 e2e 测试（真实浏览器 MutationObserver 全链路）覆盖登录页、design gallery 组件面、会话内切换语言。
+- 对象字面量值侧中文（`label: '站点公告'`、option/状态映射）此前 attr/text/表达式三面全扫不到——补键 212 条（字典达 ~700 键），回归测试新增对象字面量值侧收集。
+
+### Fixed — i18n: review pass
+- `tr()` 调用盲区清零：649 处 tr() 此前从不被扫描，76 处文案在 EN 显示 Untranslated；回归测试同扫 t()/tr()，字典补 103 键。
+- 单字键不再拆碎词（汉字边界匹配，孤立才替换）；en→zh 回切不再滞留英文；用户数据豁免（站点名/账号名/模型名/公告正文新增 `data-i18n-skip`）；chart tooltip key 强制 tr()；插值 JSX 片段逐段校验；表达式 placeholder 入回归测试。
+
+### Fixed — i18n: 534 translation keys added
+- 精确键之外的短语替换/strict fallback 输出（'Startverify'/'AllEnabled'/'RemoveTag' 等）碎英文垃圾清零——三批 534 键补译（通知渠道、OAuth 管理、调试追踪、公告/审计日志、模型映射/倍率总览、路由高级参数、站点校验、账号令牌等）。
+
+### Fixed — i18n: interpolation fragment quality
+- 插值 JSX 片段输出质量清零（碎英文/缺词/粘词），51 键补译（统计/迁移/同步行、JSON 导入提示、OAuth 维护说明等）。
+- 中文标点归一化（短语替换后无汉字残留时也归一化中文标点）；EN 值无汉字静态校验。
+
+### Fixed — Today's metrics and checkin rewards
+- Dashboard 与每日总结复用同一本地日界线聚合，真实返回 `todayCheckin`/`todayReward`，不再固定伪造 `todayReward=0`。
+- nullable DB `*string` 签到奖励无法解析修复；奖励源不完整时标记 `partial`，Dashboard 显示 `—`。
+- `/api/accounts` 每行返回 per-account 今日奖励/支出真值，无行账号为真实 0；Accounts 页不再渲染 `+0.00/-0.00` 假零。
+- 修复站点可用性 LEFT JOIN 空行被计为失败，以及本地日结束边界丢失最后 1 秒。
+
+### Fixed — Reliability, correctness, and security
+- **GHCR 镜像所有权**：自动构建镜像改为 `ghcr.io/deliciousbuding/metapi-go`，与源码仓所有者一致。
+- **Windows 本地运行**：未设置 `HOST` 时默认监听 `127.0.0.1`，避免临时构建路径触发入站防火墙提示；Linux/macOS 保持 `0.0.0.0`。
+- **SQLite OAuth refresh**：OAuth connection list / refresh scheduler 移除 `SELECT a.*, s.*` 嵌套扫描依赖。
+- **Charts dark mode**：VChart canvas 不解析 CSS `var()` → 轴/图例回退默认深色；`useChartColors()` JS 取色，7 图表轴色 + 4 图例 label 全部解析具体色值，对比度达 WCAG AA（light 6.05:1 / dark 6.09:1）。
+- **Chart animations**：canvas 动画遵循 `prefers-reduced-motion`（WCAG 2.3.3）。
+- **通知可观测性**：dispatch 每次派发留日志（含每失败渠道 + 错误截断）；Settings 通知渠道保存校验：启用但凭据空 → 拦截 + 列出缺失项。
+- **dual-dialect encapsulation**：`store.DB` 暴露 `ExecContext/QueryxContext/QueryRowxContext/GetContext/SelectContext`（内部为 PostgreSQL 重绑占位符），业务层移除 4 处手动方言分支。
+- **Review-driven fixes**：upstream success 计费改归因名、redirect 索引字典序确定性、退款保留负 outcome、audit log 提交态守卫、realtime panel 重连退避。
+- **Security upgrade**：升级 `golang.org/x/text`（安全修复）。
+
+### Changed — Bundle and tooling
+- manualChunks 拆 react-vendor ——**index 461KB → 240KB**（-48%）；vchart-vendor 确认异步-only（图表全 React.lazy，不阻塞首屏）。
+- 新增 `metapi-migrate` PG→SQLite 反向迁移能力（方向判定 + SQLite 方言 DDL 转换 + 占位符插入）。
+
+## [v0.8.45] — 2026-07-20
+
+### Fixed — 用户 id 提取正则崩溃
+- NewAPI user-id discovery regex 改为 RE2-safe（移除 PCRE lookahead，Go regexp 下会 panic）。
+- User-id probe 循环尊重 context cancel；不可达主机 adapter 测试改用 closed-listener URL。
+
+### Changed — UI polish
+- 控制台密度 / 系统字体 / hi-res 内容列 / gallery baseline 对齐。
+
+## [v0.8.44] — 2026-07-19
+
+### Fixed — PostgreSQL connection pool profiles
+- configurable connection pool profiles via `DB_PROFILE`/`METAPI_DB_PROFILE`（`shared-tiny`/`normal` default/`dedicated`）；explicit `DB_MAX_*` always override.
+- Inject `application_name=metapi-<hostname>` when DSN omits it for `pg_stat_activity` attribution.
+- Scheduler advisory-lease: MaxOpen≤2 uses process-local lease; too-many-connections exponential backoff + log rate-limit + force-local after repeated pressure.
+- Metrics: `metapi_db_connections_in_use`, `metapi_db_conn_errors_total`.
+
+### Changed — Docs
+- Pool budget design + operator recipes; deployment/README/.env.example/compose aligned.
+
+## [v0.8.43] — 2026-07-19
+
+### Fixed — Reliability
+- multi-channel load-proof: 5xx storm channel-scoped exclude + MaxAttempts bound; 429 same-channel budget policy documented.
+- Gemini stream usageMetadata later-wins + empty/zero usage does not invent tokens.
+
+## [v0.8.42] — 2026-07-18
+
+### Fixed
+- Config validation accepts default 5-field cron expressions by auto-normalising to 6-field before parse.
+
+## [v0.8.41] — 2026-07-18
+
+### Fixed
+- Move `proxy_logs_request_id_created_at_idx` out of base bootstrap indexes so upgrades from pre-request_id schemas do not fail before additive `sc2_004` runs.
+
+## [v0.8.40] — 2026-07-18
+
+### Fixed
+- Explicit PostgreSQL pool budget: configurable `DB_MAX_OPEN_CONNS` / `DB_MAX_IDLE_CONNS` / lifetime/idle-time via env.
+
+## [v0.8.39] — 2026-07-18
+
+### Fixed
+- Round-robin `consecutiveFailCount` no longer double-increments (threshold 3 restored).
+- Managed-key `used_requests` not burned on RPM/TPM admission 429 (`Allow` before consume).
+- Optional Redis RPM/TPM admission rolls back window counters on deny (fail-open preserved).
+- Wire `RecordManagedKeyCostUsage` on proxy success so `max_cost` advances.
+- Gemini path model when body omits model; `streamGenerateContent` forces stream.
+- Retention cutoffs use RFC3339 comparable to `created_at` (same-day prune fixed).
+
+## [v0.8.38] — 2026-07-18
+
+### Changed — Docs
+- Public docs clarified: optional `REDIS_URL` for multi-instance RPM/TPM admission (sharedcount, fail-open); sticky session affinity is process-local.
+- ghcr public badge bumped to v0.8.37 series.
+
+## [v0.8.37] — 2026-07-18
+
+### Changed — Docs
+- Align README/README_EN stack badges to Go 1.26.5 + React 19 + Vite 8.
+
+### Fixed — Reliability
+- Best-effort TPM admission estimate when maxTPM is set (no invent; empty body skips).
+
+### Fixed — Tests
+- credential usage-limit multi-channel regression tests.
+
+## [v0.8.36] — 2026-07-18
+
+### Security
+- Clear meta_monitor_auth cookie on successful admin AuthToken change (defense-in-depth).
+
+### Changed — UI
+- Migrate monitor-hint / route-enable-disabled / stat-summary / topbar brand hex to design tokens.
+
+### Fixed — Tests
+- Claude/Anthropic stream message_delta usage merge regression tests (never invents tokens).
+
+## [v0.8.35] — 2026-07-18
+
+### Added — UI
+- Wire DownstreamKeys maxRpm/maxTpm create/edit/list.
+- Tokenize login-shell hard-coded hex to design tokens.
+
+### Fixed — Tests
+- empty-filter global full-set fallback regression tests.
+
+## [v0.8.34] — 2026-07-18
+
+### Added — UI
+- Wire DownstreamKeys proxyUrl create/edit/list.
+- Wire TokenRoutes contextLength create/edit/list badge.
+- Migrate hard-coded CSS hex clusters (checkin-toggle, route-enable, info-tip, model-tag-*, status-dot-*) to design tokens.
+
+## [v0.8.33] — 2026-07-18
+
+### Added — UI
+- Migrate hard-coded .stat-icon-* colors to design tokens for light/dark.
+- Wire Sites maxConcurrency in admin create/edit/list.
+
+### Fixed
+- Gemini generateContent/streamGenerateContent: reject maxOutputTokens above positive route context_length with honest 400.
+
+## [v0.8.32] — 2026-07-18
+
+### Security
+- system-proxy/test rejects non-empty targetUrl that fails IsValidHTTPURL / IsForbiddenSiteTargetURL before probe.
+
+### Fixed
+- OpenAI /v1/responses (+ /compact): reject max_output_tokens or max_tokens above positive route context_length with honest 400 (no silent clamp).
+
+## [v0.8.31] — 2026-07-18
+
+### Security
+- ProxyAwareHTTPClient shares RejectCrossOriginRedirect (HTTPGet/Post helpers inherit; Telegram patch idempotent).
+- SiteProxy buildClients + doWithExplicitProxy share RejectCrossOriginRedirect.
+- Downstream-keys update + reset-usage redact plaintext key (keyMasked only).
+
+## [v0.8.30] — 2026-07-18
+
+### Security
+- Share RejectCrossOriginRedirect on OAuth Codex HTTP client + Telegram notify clients; public-origin 302 to different host rejected.
+
+### Fixed
+- loadRouteMatch applies source route model_pattern as SourceModel fallback when channel SourceModel blank/nil.
+
+## [v0.8.29] — 2026-07-18
+
+### Fixed
+- Preferred/sticky channel selection respects open site/model breaker and falls through when healthy siblings exist.
+- CooldownUntil eligibility parses timestamps via `IsCooldownActive`.
+- Proxy conductor hard max attempt budget across same-channel + refresh + failover; cap RefreshAuth successes; nil/error RefreshAuth → sibling failover with channel-scoped exclude.
+
+## [v0.8.28] — 2026-07-18
+
+### Security
+- Share `RejectCrossOriginRedirect` on bare clients: channel health probe, channel test harness, and `defaultUpstreamClient` (no longer follow public-origin 302 → private/metadata).
+- Admin logout / session clear sets `Max-Age=0` for `meta_monitor_auth` with matching `Path=/monitor-proxy/`.
+
+### Fixed
+- Bare HTTP clients no longer inherit Go default redirect policy when site proxy is absent.
+
+## [v0.8.27] — 2026-07-18
+
+### Security
+- Monitor session cookie is opaque HMAC (never embeds live AUTH_TOKEN); constant-time compare; cookie scoped to `Path=/monitor-proxy/`.
+- Admin auth token change: constant-time `OldToken` compare.
+
+### Fixed
+- Claude `/v1/messages`: reject `max_tokens` above positive selected-route `context_length` with honest 400 (no silent clamp).
+
+## [v0.8.26] — 2026-07-18
+
+### Security
+- `IsValidAPIEndpointURL` rejects cloud metadata / link-local targets.
+
+### Fixed
+- OpenAI chat/completions (and legacy completions): reject `max_tokens` above positive route `context_length` with honest 400 (no silent clamp).
+- OpenAI chat/completions stream: warn once when stream ends without usable usage after `stream_options.include_usage`; never invent token counts.
+
+## [v0.8.25] — 2026-07-17
+
+### Security
+- `IsValidHTTPURL` rejects cloud metadata / link-local targets; site externalCheckin URL uses the hardened check.
+
+### Fixed
+- Admin `GET /api/routes` batch-loads route channels in one query and groups in memory (kills per-route N+1).
+
+## [v0.8.24] — 2026-07-17
+
+### Security
+- Admin routes channel list/get + `POST /api/search` redact plaintext `accessToken`/`apiToken`/`token` (masked only).
+- Site create/update + API endpoint upsert reject cloud metadata / link-local URLs; RFC1918 + localhost still allowed.
+
+## [v0.8.23] — 2026-07-17
+
+### Security
+- Admin account list/overview redacts `accessToken`/`apiToken` (masked only) and strips `passwordCipher` from list `extraConfig`; account-token list drops join credential fields.
+- Credential export remains intentional product path (create/update may still echo once outside list enrichment).
+
+### Fixed
+- Round-robin / stable_first / least_* soft-filter priority demotion: soft-empty higher priority tries next layer.
+
+## [v0.8.22] — 2026-07-17
+
+### Security
+- Redact plaintext `key` from admin downstream-keys list/summary/overview (`keyMasked` only).
+- Deny-list sensitive site `custom_headers` (Authorization/Host/Cookie/hop-by-hop/Proxy-*/Content-Type); Bearer set after custom so identity cannot be overridden.
+- RuntimeExecutor `CheckRedirect` rejects cross-origin and private/metadata redirect targets.
+
+### Fixed
+- Weighted routing: when soft-filter empties a priority layer, try the next priority instead of reselecting the unfiltered broken layer.
+
+## [v0.8.21] — 2026-07-17
+
+### Fixed
+- OpenAI legacy `/v1/completions` stream: same `stream_options.include_usage=true` inject as chat.
+
+## [v0.8.20] — 2026-07-17
+
+### Fixed
+- OpenAI-compatible chat/completions stream: inject/merge `stream_options.include_usage=true` on upstream body for final SSE usage chunks; skip codex/sub2api and non-chat paths.
+
+## [v0.8.19] — 2026-07-17
+
+### Fixed
+- Race-harden `scheduleSiteRuntimeHealthPersistence` / `persistSiteRuntimeHealthState`: timer + in-flight flags under `healthStateMu`; concurrent success/failure regression.
+
+## [v0.8.18] — 2026-07-17
+
+### Added
+- OpenAI `/v1/models` prefers positive `token_routes.context_length` (max per exposed model id) over `knownModelContextLength` heuristics.
+
+### Fixed
+- Admin test isolation: stop reassigning `globalAccountsCache` pointer; drain background health-refresh runners before registry reset (data race under full `-race` suite).
+- Race-safe `healthPersistTimer` clear under `healthStateMu`.
+
+## [v0.8.17] — 2026-07-17
+
+### Added
+- Admin `token_routes.contextLength` create/update + list/summary/lite surfaces (metadata-only; no proxy max-token enforcement).
+
+### Fixed
+- Usage aggregation projects `proxy_logs.status=failed` tokens into `failed_calls` + `total_tokens`.
+
+## [v0.8.16] — 2026-07-17
+
+### Fixed
+- Wire Gemini official tool-history `thought_signature` inject/preserve on generateContent / gemini-cli paths.
+- Harden multi-turn Responses reasoning content sanitize.
+- Persist failed upstream attempts to proxy_logs with best-effort usage from error bodies.
+
+## [v0.8.15] — 2026-07-17
+
+### Fixed
+- Gate `ReportTokenExpired` / checkin-balance mark paths with `ShouldMarkAccountExpired` (no bare/generic 401 over-expiry).
+- Channel-scoped cascade isolation: 429 fails over, same-channel timeout budget, multi-channel same-site isolation.
+- Preserve stream/partial usage on client disconnect when usage was already extracted.
+
+## [v0.8.13] — 2026-07-17
+
+### Added
+- token_routes.sort_order + PUT /api/routes/reorder bulk drag reorder.
+
+## [v0.8.12] — 2026-07-17
+
+### Fixed
+- Admin BackgroundTask snapshot under mutex (data race on get/list vs runner Result write).
+
+### Added
+- Site-announcement scheduler wires to real `SyncSiteAnnouncements` via SyncFunc.
+- Channel recovery active candidates via optional `ProxyChannelCoordinator` provider hook.
+
+## [v0.8.11] — 2026-07-17
+
+### Added
+- DB-backed durable admin BackgroundTask store (cross-instance list/get).
+
+### Fixed
+- Frontend CI EnvironmentTeardownError flake hardening.
+
+## [v0.8.10] — 2026-07-17
+
+### Added
+- Sub2API refresh scheduler wires to RefreshBalance.
+- Proxy video task age-based retention scheduler (config-gated, default off).
+
+## [v0.8.9] — 2026-07-17
+
+### Added
+- Videos GET/DELETE sticky pin via ForcedChannelID from mapping ChannelID.
+
+## [v0.8.8] — 2026-07-17
+
+### Added
+- Durable `proxy_video_tasks` dual-write for video publicId mapping (multi-instance / restart).
+- TPM multi-instance sharing via optional Redis sharedcount (fail-open, mirrors RPM).
+
+## [v0.8.7] — 2026-07-17
+
+### Added
+- Videos create: process-local publicId mapping + response `id` rewrite on successful POST /v1/videos.
+
+### Fixed
+- ResolveInputFile returns explicit error (no silent vault).
+
+## [v0.8.6] — 2026-07-17
+
+### Fixed
+- Videos GET/DELETE honest upstream passthrough without empty local-store 404 theater.
+
+### Added
+- Downstream key maxCost/maxRequests clear-to-NULL.
+- ParseInputFiles extracts OpenAI input_file/file body refs.
+
+## [v0.8.5] — 2026-07-17
+
+### Added
+- Site initialization preset registry + create/detect validation.
+- Gemini `/v1beta/models` from owned model catalog.
+- Site proxy cache invalidation hooks (routing + admin accounts snapshot).
+- Responses WebSocket boot wiring.
+
+### Fixed
+- Shared PG CI: prefer `SiteSelectColumns` over `SELECT * FROM sites`.
+
+## [v0.8.4] — 2026-07-17
+
+### Fixed
+- PostgreSQL CreateSite: RETURNING id + explicit sites column select.
+- Multipart `/v1/images/edits` forwards via dispatchUpstream.
+
+### Added
+- Expired API-key account recovery on credential update (allowInactive model refresh + reactivate).
+- Account token groups via platform.GetUserGroups with local fallback.
+
+## [v0.8.3] — 2026-07-17
+
+### Added — Admin features
+- sub2api managed auth merge on account update/rebind.
+- Real account health-refresh via balance probe.
+- OAuth start/rebind CSRF state tokens (server-stored, TTL).
+- Honest update-center deploy/rollback + real clear-cache invalidation.
+
+## [v0.8.2] — 2026-07-17
+
+### Added
+- Account token create/delete/sync via platform adapters + SyncTokensFromUpstream.
+- Account create fail-closed VerifyToken / GetModels.
+- Real system-proxy probe + brand list from platform registry.
+- `/api/test/proxy` + `/api/test/chat` wired to forced-channel harness; stream/jobs 501.
+
+### Known limitations
+- sub2api managed auth on update, expired API-key recovery model refresh, async health-refresh job, OAuth state stubs.
+
+## [v0.8.1] — 2026-07-17
+
+### Fixed
+- Go 1.26.5 toolchain; vulncheck green.
+
+### Added
+- Live /v1/models listing via TokenRouter.GetAvailableModels.
+- Boot-wired ModelProbeScheduler probe executor + health recorder.
+- Route decision admin APIs wired to ExplainSelection.
+
+## [v0.8.0] — 2026-07-17
+
+### Added
+- Request trace IDs across retries/failovers.
+- Per-request cost attribution + cache token types.
+- TTFT/first-byte signals in routing health.
+- Cross-site model price comparison APIs.
+- Background channel health probing.
+- Pluggable routing strategies: least_busy / lowest_latency / lowest_cost.
+- Downstream-key RPM/TPM soft admission + Retry-After.
+- Richer Prometheus histograms/labels + MetricsObserver export hook.
+- Optional Redis-backed shared RPM admission (fail-open).
+- Admin forced-channel test harness.
+- Client credential export adapters (openai/cherry/generic).
+- Usage heatmaps + slow-request ranking stats.
+
+### Known limitations
+- `vulncheck` may still flag Go 1.26.4 stdlib advisory until a Go patch is available; CI continues with continue-on-error.
+
+## [v0.7.0] — 2026-07-17
+
+### Added
+- Enterprise modernization program (stack TS7/React19/Vite8, UI tokens/a11y, backend boundaries, schema additive migrations, reliability source of truth).
+- Feature completeness from original metapi gap matrix: site max concurrency, per-key proxy, group route rebuild, `/v1/rerank`, usage/token accounting, failover/first-byte, protocol pack (Gemini thought_signature, Minimax thinking, models shape, previous_response_id, skill-call, responses multi-turn reasoning, responses-only sites), Codex OAuth gpt-5.5 + discovery soft-retry.
+
+### Fixed
+- Admin correctness: key refresh name/enable preserve, quota clear, model whitelist non-destructive parse, in-route model config preserve, expired account health.
+- Frontend CI flake: dashboard site-observability EnvironmentTeardownError hardening.
+
+### Known limitations
+- `vulncheck` may still flag Go 1.26.4 stdlib advisories; CI keeps continue-on-error until Go patch available.
+
+## [v0.6.5] — 2026-07-10
+
+### Fixed
+- 修复 Content-Security-Policy 缺少 `frame-src` 导致第三方 iframe 被拦截。
+
+## [v0.6.4] — 2026-07-10
+
+### Fixed
+- 修复 Content-Security-Policy 过紧导致 dicebear 头像图片和 Cloudflare Insights 脚本被浏览器拦截。
+- 新增 `img-src 'self' https://api.dicebear.com`、`connect-src 'self'` 和 `script-src https://static.cloudflareinsights.com` 指令。
+
+## [v0.6.3] — 2026-07-07
+
+### Fixed
+- 修复后台 Admin API 被重复挂载成 `/api/api/*` 的生产路由问题，恢复管理接口正常访问。
+- 登录页增加登录前明暗/跟随系统主题切换，并修复深色模式下品牌面板、链接和图标对比度。
+
+## [v0.6.2] — 2026-07-07
+
+### Fixed
+- 修复根路径 WebUI 被非 `/v1` 代理别名鉴权拦截的问题，确保嵌入式 SPA fallback 正常返回前端页面。
+- 修复嵌入式前端文件系统路径兼容性，支持 `web/dist` 作为 embed 根。
+- 稳定 routing golden 与加权随机测试，避免 Windows CRLF checkout 和单次随机抽样导致 CI 偶发失败。
+
+## [v0.6.1] — 2026-07-07
+
+### Fixed
+- CI/CD secret scan 改用开源 gitleaks CLI。
+
+## [v0.6.0] — 2026-07-07
+
+### Security
+- CI/CD 发布流程加入 gitleaks、Go module 校验、race 测试、PostgreSQL integration 测试、前端 typecheck/test/build 和生产依赖 audit。
+- CD 镜像发布前执行 Docker smoke test；发布镜像启用 provenance 和 SBOM。
+- 测试和文档中的 PostgreSQL DSN 改为运行时拼接，减少 secret scanner 噪声。
+- 站点自定义 headers 过滤保留头，避免覆盖运行时认证语义。
+
+### Fixed
+- `/v1/*` 数据面接入数据库路由和真实上游选择，不再停留在未配置 stub 行为。
+- 上游代理支持站点/账号代理、自定义 headers、失败记录和非流式可重试 failover。
+- AnyRouter 禁用 NewAPI 风格 token 管理端点，避免错误调用 `/api/token`。
+- API-key/proxy-only 账号不再执行签到或余额上游调用，禁用状态判断改为大小写不敏感。
+- 账号 session rebind、manual models、account token 默认值维护补齐事务和错误处理，失败路径回滚。
+
+### Added
+- 覆盖 SQLite 和 PostgreSQL 的回归测试。
+- 运行时说明明确支持 SQLite 单节点与 PostgreSQL 部署；Redis 尚未集成。
+
+## [v0.5.0] — 2026-07-05
+
+### Security
+- Admin/proxy token 比较改用 `crypto/subtle.ConstantTimeCompare`（防时序攻击）。
+- CI 启用 `errcheck`、`staticcheck`、`ineffassign` linter。
+- CI 测试启用 `-race`（data race 检测）。
+- `/debug/vars` 移至 admin auth 保护后。
+- 安全响应头中间件：`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `CSP`。
+- AES 密钥派生不再 fallback 到 `AUTH_TOKEN`（独立默认值）。
+
+### Fixed
+- 代理出口 `http.DefaultClient`（零超时）→ 接入 `RuntimeExecutor`（90s 超时 fallback）。
+- 6 处 OAuth `panic()` → `return error`。
+- SSE 流式响应 `WriteTimeout: 60s` 截断问题 → `SetWriteDeadline` 禁用。
+- 13 处 `log.Printf` → `slog.Warn/Error`。
+- DB 连接池补充 `ConnMaxLifetime`(5min) + `ConnMaxIdleTime`(2min)。
+- `usage_aggregation` goroutine re-panic 修复。
+- `CheckinScheduler.Stop()` data race 修复。
+- CI：`golangci-lint-action` Go 1.25 不兼容 → `go install` 最新版；全项目 zero warning。
+
+### Added
+- `/metrics` Prometheus 端点（零依赖 text format）。
+- `RequestID` 中间件（`X-Request-Id` header + 日志关联）。
+- `handler/shared/errors.go`：`APIError` 结构化错误类型。
+
+### Tests
+- 8 个零覆盖包全部补齐测试（最低 50%，最高 100%）。
+- 新增 3 个 e2e 场景：并发代理、auth 时序安全、rate limit 拒绝。
+- `e2e` 测试包总数：4 → 5 文件。
+
+## [v0.4.0] — 2026-07-05
+
+### Fixed
+- PG 兼容：`INSERT OR IGNORE` → `ON CONFLICT DO NOTHING`。
+- Cron 5 字段 → 6 字段自动转换。
+- `sqlx.BindDriver` 时序修复（`?` → `$N` 占位符重绑定）。
+
+## [v0.3.0] — 2026-07-04
+
+### Fixed
+- goroutine 泄漏修复。
+
+### Changed
+- JSON 性能优化；包命名规范化；`config.Validate()` 10 项启动校验。
+
+## [v0.2.0] — 2026-07-04
+
+### Added
+- 限流中间件（admin 100rps, OAuth 10rps）。
+- RWMutex 假桩替换为真实 `sync.RWMutex`。
+- DB 事务包裹 usage aggregation batch。
+- `store.Close()` 优雅关机。
+
+## [v0.1.0] — 2026-07-03
+
+### Added
+- MetAPI TypeScript → Go 完整重写初始发布。
+- 27 表双数据库（SQLite + PostgreSQL）。
+- 14 平台适配器。
+- 4 协议流式转换。
+- 15 后台调度任务。
+- 单二进制 + Docker 部署。
+
+[v0.6.3]: https://github.com/DeliciousBuding/metapi-go/compare/v0.6.2...v0.6.3
+[v0.6.2]: https://github.com/DeliciousBuding/metapi-go/compare/v0.6.1...v0.6.2
+[v0.6.1]: https://github.com/DeliciousBuding/metapi-go/compare/v0.6.0...v0.6.1
+[v0.6.0]: https://github.com/DeliciousBuding/metapi-go/compare/v0.5.0...v0.6.0
+[v0.5.0]: https://github.com/DeliciousBuding/metapi-go/compare/v0.4.0...v0.5.0
+[v0.4.0]: https://github.com/DeliciousBuding/metapi-go/compare/v0.3.0...v0.4.0
+[v0.3.0]: https://github.com/DeliciousBuding/metapi-go/compare/v0.2.0...v0.3.0
+[v0.2.0]: https://github.com/DeliciousBuding/metapi-go/compare/v0.1.0...v0.2.0
+[v0.1.0]: https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.1.0

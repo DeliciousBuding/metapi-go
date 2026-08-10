@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="google" content="notranslate" />
+
+    <!-- Primary Meta Tags -->
+    <title>Metapi</title>
+    <meta name="title" content="Metapi" />
+    <meta
+      name="description"
+      content="Meta-layer management and unified proxy for AI API aggregation platforms."
+    />
+    <meta name="theme-color" content="#f8f9fa" />
+
+    <!--
+      FOUC bootstrap: resolve theme BEFORE first paint to avoid flash.
+      Cookie-based (vite-ui-theme, 1y) to align with newapi next-themes cookie
+      storage; falls back to system preference. Legacy themeBootstrap.ts removed.
+      Tailwind 4 dark mode is class-based: <html class="dark"> / class="light".
+    -->
+    <script>
+      (function () {
+        try {
+          var COOKIE_NAME = 'vite-ui-theme'
+          var theme = null
+          // Read theme from cookie (matches next-themes cookieStorage convention)
+          var match = document.cookie.match(
+            '(?:^|; )' + COOKIE_NAME + '=([^;]*)'
+          )
+          var stored = match ? decodeURIComponent(match[1]) : ''
+          if (stored === 'light' || stored === 'dark') {
+            theme = stored
+          } else if (stored === 'system' || !stored) {
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light'
+          }
+          var root = document.documentElement
+          root.classList.remove('light', 'dark')
+          root.classList.add(theme)
+          root.style.colorScheme = theme
+          // Paint background immediately so white flash never appears
+          var bg = theme === 'dark' ? '#202124' : '#f8f9fa'
+          root.style.backgroundColor = bg
+          if (document.body) {
+            document.body.style.backgroundColor = bg
+          } else {
+            document.addEventListener('DOMContentLoaded', function () {
+              if (document.body) document.body.style.backgroundColor = bg
+            })
+          }
+        } catch (e) {
+          /* cookie / matchMedia unavailable — leave browser defaults */
+        }
+      })()
+    </script>
+    <!-- System fonts only — no Google Fonts CDN (ops console / CSP-friendly) -->
+  </head>
+
+  <body translate="no" class="notranslate min-h-screen">
+    <div id="root"></div>
+  </body>
+</html>

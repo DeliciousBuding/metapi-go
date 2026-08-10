@@ -1,0 +1,878 @@
+package admin
+
+import (
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/jmoiron/sqlx"
+	"github.com/deliciousbuding/metapi-go/handler/admin/payloads"
+	"github.com/deliciousbuding/metapi-go/routing"
+	"github.com/deliciousbuding/metapi-go/scheduler"
+	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/store"
+)
+
+// RegisterSitesRoutes registers all /api/sites routes.
+func RegisterSitesRoutes(r chi.Router, db *sqlx.DB) {
+	handler := &sitesHandler{db: db}
+
+	r.Get("/api/sites", handler.listSites)
+	r.Post("/api/sites", handler.createSite)
+	r.Put("/api/sites/{id}", handler.updateSite)
+	r.Delete("/api/sites/{id}", handler.deleteSite)
+	r.Post("/api/sites/batch", handler.batchSites)
+	r.Post("/api/sites/detect", handler.detectSite)
+
+	// Sub-resources
+	r.Get("/api/sites/{id}/disabled-models", handler.getDisabledModels)
+	r.Put("/api/sites/{id}/disabled-models", handler.updateDisabledModels)
+	r.Get("/api/sites/{id}/available-models", handler.getAvailableModels)
+	r.Post("/api/sites/{id}/probe-now", handler.probeNow)
+	r.Get("/api/sites/{id}/probe-stream", handler.probeStream)
+}
+
+type sitesHandler struct {
+	db *sqlx.DB
+}
+
+// ---- List Sites ----
+
+func (h *sitesHandler) listSites(w http.ResponseWriter, r *http.Request) {
+	sites, err := service.ListSites(h.db)
+	if err != nil {
+		slog.Error("Failed to load sites", "err", err)
+		writeError(w, http.StatusInternalServerError, "Failed to load sites")
+		return
+	}
+	writeJSON(w, http.StatusOK, sites)
+}
+
+// ---- Create Site ----
+
+func (h *sitesHandler) createSite(w http.ResponseWriter, r *http.Request) {
+	var body payloads.SiteCreatePayload
+	if err := decodeJSONRequest(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid site payload.")
+		return
+	}
+
+	// Validate name and url
+	if strings.TrimSpace(body.Name) == "" {
+		writeError(w, http.StatusBadRequest, "Invalid name. Expected non-empty string.")
+		return
+	}
+	if strings.TrimSpace(body.URL) == "" {
+		writeError(w, http.StatusBadRequest, "Invalid url. Expected non-empty string.")
+		return
+	}
+	if service.IsForbiddenSiteTargetURL(body.URL) {
+		writeError(w, http.StatusBadRequest, "Invalid url. Cloud metadata / link-local targets are not allowed.")
+		return
+	}
+
+	// Normalize values
+	normalizedStatus := normalizeSiteStatusString(body.Status)
+	if body.Status != nil && normalizedStatus == "" {
+		writeError(w, http.StatusBadRequest, "Invalid site status. Expected active or disabled.")
+		return
+	}
+	if body.UseSystemProxy != nil {
+		if !boolPtrValid(body.UseSystemProxy) {
+			writeError(w, http.StatusBadRequest, "Invalid useSystemProxy value. Expected boolean.")
+			return
+		}
+	}
+	if body.ProxyURL != nil && *body.ProxyURL != "" && !service.IsValidProxyURL(*body.ProxyURL) {
+		writeError(w, http.StatusBadRequest, "Invalid proxyUrl. Expected a valid http(s)/socks proxy URL.")
+		return
+	}
+	if body.ExternalCheckinURL != nil && *body.ExternalCheckinURL != "" && !service.IsValidHTTPURL(*body.ExternalCheckinURL) {
+		writeError(w, http.StatusBadRequest, "Invalid externalCheckinUrl. Expected a valid http(s) URL.")
+		return
+	}
+	normalizedPinned := body.IsPinned
+	if body.IsPinned != nil && !boolPtrValid(body.IsPinned) {
+		writeError(w, http.StatusBadRequest, "Invalid isPinned value. Expected boolean.")
+		return
+	}
+	normalizedSortOrder := service.NormalizeSortOrder(body.SortOrder)
+	if body.SortOrder != nil && normalizedSortOrder == nil {
+		writeError(w, http.StatusBadRequest, "Invalid sortOrder value. Expected non-negative integer.")
+		return
+	}
+	normalizedWeight := service.NormalizeGlobalWeight(body.GlobalWeight)
+	if body.GlobalWeight != nil && normalizedWeight == nil {
+		writeError(w, http.StatusBadRequest, "Invalid globalWeight value. Expected a positive number.")
+		return
+	}
+	if body.MaxConcurrency != nil && *body.MaxConcurrency < 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid maxConcurrency value. Expected non-negative integer (0 = unlimited)."})
+		return
+	}
+	if body.CustomHeaders != nil && *body.CustomHeaders != "" {
+		if !json.Valid([]byte(*body.CustomHeaders)) {
+			writeError(w, http.StatusBadRequest, "Invalid customHeaders.")
+			return
+		}
+	}
+
+	// Normalize API endpoints
+	eps, err := normalizeAPIEndpointsInput(body.APIEndpoints)
+	if err != "" {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	// Canonicalize URL and detect platform
+	canonicalURL := service.CanonicalizeSiteURL(body.URL)
+	platform := ""
+	if body.Platform != nil {
+		platform = strings.TrimSpace(strings.ToLower(*body.Platform))
+	}
+	if platform == "" {
+		detected := service.DetectSite(canonicalURL)
+		if detected != nil {
+			platform = detected.Platform
+		}
+	}
+	if platform == "" {
+		writeError(w, http.StatusBadRequest, "Could not detect platform. Please specify manually.")
+		return
+	}
+
+	// Validate initializationPresetId against registry (platform + URL match rules).
+	var initializationPresetID string
+	if body.InitializationPresetID != nil {
+		initializationPresetID = strings.TrimSpace(*body.InitializationPresetID)
+	}
+	if initializationPresetID != "" {
+		if err := service.ValidateSiteInitializationPreset(initializationPresetID, platform, body.URL); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	} else {
+		// Auto-detect preset when client omitted it but URL is a known vendor entry.
+		if preset := service.DetectSiteInitializationPreset(body.URL, platform); preset != nil {
+			initializationPresetID = preset.ID
+		} else if preset := service.DetectSiteInitializationPreset(canonicalURL, platform); preset != nil {
+			initializationPresetID = preset.ID
+		}
+	}
+
+	// Check for duplicate (platform, url)
+	var existingCount int
+	h.db.Get(&existingCount, h.db.Rebind("SELECT COUNT(*) FROM sites WHERE platform = ? AND url = ?"), platform, canonicalURL)
+	if existingCount > 0 {
+		writeError(w, http.StatusConflict, fmt.Sprintf("A %s site with URL %s already exists.", platform, canonicalURL))
+		return
+	}
+
+	// Build siteData map
+	now := time.Now().UTC().Format(time.RFC3339)
+	siteData := map[string]any{
+		"name":                               body.Name,
+		"url":                                canonicalURL,
+		"platform":                           platform,
+		"status":                             coalesce(normalizedStatus, "active"),
+		"isPinned":                           coalesceBool(normalizedPinned, false),
+		"globalWeight":                       coalesceFloat64(normalizedWeight, 1.0),
+		"maxConcurrency":                     coalesceInt64(body.MaxConcurrency, 0),
+		"postRefreshProbeEnabled":            false,
+		"postRefreshProbeModel":              "",
+		"postRefreshProbeScope":              "single",
+		"postRefreshProbeLatencyThresholdMs": 0,
+	}
+
+	if body.ProxyURL != nil {
+		siteData["proxyUrl"] = service.NormalizeNullable(body.ProxyURL)
+	} else {
+		siteData["proxyUrl"] = nil
+	}
+	if body.UseSystemProxy != nil {
+		siteData["useSystemProxy"] = *body.UseSystemProxy
+	} else {
+		siteData["useSystemProxy"] = false
+	}
+	if body.CustomHeaders != nil {
+		siteData["customHeaders"] = *body.CustomHeaders
+	} else {
+		siteData["customHeaders"] = nil
+	}
+	if body.CustomHeadersOverrideRequestHeaders != nil {
+		siteData["customHeadersOverrideRequestHeaders"] = *body.CustomHeadersOverrideRequestHeaders
+	} else {
+		siteData["customHeadersOverrideRequestHeaders"] = false
+	}
+	if body.ExternalCheckinURL != nil {
+		siteData["externalCheckinUrl"] = service.NormalizeNullable(body.ExternalCheckinURL)
+	} else {
+		siteData["externalCheckinUrl"] = nil
+	}
+
+	// Convert apiEndpoints
+	if eps != nil {
+		var storeEps []store.SiteAPIEndpoint
+		for _, ep := range eps {
+			storeEps = append(storeEps, store.SiteAPIEndpoint{
+				URL: ep.URL, Enabled: ep.Enabled, SortOrder: int64(ep.SortOrder),
+				CreatedAt: now, UpdatedAt: now,
+			})
+		}
+		siteData["apiEndpoints"] = storeEps
+	}
+
+	createdID, createErr := service.CreateSite(h.db, siteData)
+	if createErr != nil {
+		// Check for unique constraint violation
+		if isUniqueConstraintError(createErr) {
+			writeError(w, http.StatusConflict, fmt.Sprintf("A %s site with URL %s already exists.", platform, canonicalURL))
+			return
+		}
+		slog.Error("CreateSite failed", "err", createErr, "platform", platform, "url", canonicalURL)
+		writeError(w, http.StatusInternalServerError, "Create site failed")
+		return
+	}
+
+	result, loadErr := service.LoadSiteWithEndpoints(h.db, createdID)
+	if loadErr != nil {
+		slog.Error("LoadSiteWithEndpoints after create failed", "err", loadErr, "site_id", createdID)
+		writeError(w, http.StatusInternalServerError, "Create site failed")
+		return
+	}
+	if result == nil {
+		slog.Error("LoadSiteWithEndpoints returned nil after create", "site_id", createdID)
+		writeError(w, http.StatusInternalServerError, "Create site failed")
+		return
+	}
+	if initializationPresetID != "" {
+		result["initializationPresetId"] = initializationPresetID
+	}
+	routing.InvalidateCache()
+	writeJSON(w, http.StatusOK, result)
+}
+
+// ---- Update Site ----
+
+func (h *sitesHandler) updateSite(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid site id")
+		return
+	}
+
+	var existing store.Site
+	err = h.db.Get(&existing, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), id)
+	if err == sql.ErrNoRows {
+		writeError(w, http.StatusNotFound, "Site not found")
+		return
+	} else if err != nil {
+		slog.Error("Failed to load site for update", "err", err, "site_id", id)
+		writeError(w, http.StatusInternalServerError, "Failed to load site")
+		return
+	}
+
+	var body payloads.SiteUpdatePayload
+	if err := decodeJSONRequest(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid site payload.")
+		return
+	}
+
+	updates := map[string]any{}
+
+	// Validate each field
+	if body.Name != nil {
+		if strings.TrimSpace(*body.Name) == "" {
+			writeError(w, http.StatusBadRequest, "Invalid name. Expected non-empty string.")
+			return
+		}
+		updates["name"] = *body.Name
+	}
+	if body.URL != nil {
+		if strings.TrimSpace(*body.URL) == "" {
+			writeError(w, http.StatusBadRequest, "Invalid url. Expected non-empty string.")
+			return
+		}
+		if service.IsForbiddenSiteTargetURL(*body.URL) {
+			writeError(w, http.StatusBadRequest, "Invalid url. Cloud metadata / link-local targets are not allowed.")
+			return
+		}
+		updates["url"] = service.CanonicalizeSiteURL(*body.URL)
+	}
+	if body.Platform != nil {
+		p := strings.TrimSpace(strings.ToLower(*body.Platform))
+		if p == "" {
+			writeError(w, http.StatusBadRequest, "Invalid platform. Expected non-empty string.")
+			return
+		}
+		updates["platform"] = p
+	}
+	if body.ProxyURL != nil {
+		if *body.ProxyURL != "" && !service.IsValidProxyURL(*body.ProxyURL) {
+			writeError(w, http.StatusBadRequest, "Invalid proxyUrl. Expected a valid http(s)/socks proxy URL.")
+			return
+		}
+		updates["proxyUrl"] = service.NormalizeNullable(body.ProxyURL)
+	}
+	if body.UseSystemProxy != nil {
+		updates["useSystemProxy"] = *body.UseSystemProxy
+	}
+	if body.CustomHeaders != nil {
+		updates["customHeaders"] = *body.CustomHeaders
+	}
+	if body.CustomHeadersOverrideRequestHeaders != nil {
+		updates["customHeadersOverrideRequestHeaders"] = *body.CustomHeadersOverrideRequestHeaders
+	}
+	if body.ExternalCheckinURL != nil {
+		if *body.ExternalCheckinURL != "" && !service.IsValidHTTPURL(*body.ExternalCheckinURL) {
+			writeError(w, http.StatusBadRequest, "Invalid externalCheckinUrl. Expected a valid http(s) URL.")
+			return
+		}
+		updates["externalCheckinUrl"] = service.NormalizeNullable(body.ExternalCheckinURL)
+	}
+	if body.Status != nil {
+		ns := normalizeSiteStatusString(body.Status)
+		if ns == "" {
+			writeError(w, http.StatusBadRequest, "Invalid site status. Expected active or disabled.")
+			return
+		}
+		updates["status"] = ns
+	}
+	if body.IsPinned != nil {
+		updates["isPinned"] = *body.IsPinned
+	}
+	if body.SortOrder != nil {
+		so := service.NormalizeSortOrder(body.SortOrder)
+		if so == nil {
+			writeError(w, http.StatusBadRequest, "Invalid sortOrder value. Expected non-negative integer.")
+			return
+		}
+		updates["sortOrder"] = int64(*so)
+	}
+	if body.GlobalWeight != nil {
+		gw := service.NormalizeGlobalWeight(body.GlobalWeight)
+		if gw == nil {
+			writeError(w, http.StatusBadRequest, "Invalid globalWeight value. Expected a positive number.")
+			return
+		}
+		updates["globalWeight"] = *gw
+	}
+	if body.MaxConcurrency != nil {
+		if *body.MaxConcurrency < 0 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid maxConcurrency value. Expected non-negative integer (0 = unlimited)."})
+			return
+		}
+		updates["maxConcurrency"] = *body.MaxConcurrency
+	}
+	if body.PostRefreshProbeEnabled != nil {
+		updates["postRefreshProbeEnabled"] = *body.PostRefreshProbeEnabled
+	}
+	if body.PostRefreshProbeModel != nil {
+		updates["postRefreshProbeModel"] = strings.TrimSpace(*body.PostRefreshProbeModel)
+	}
+	if body.PostRefreshProbeScope != nil {
+		scope := strings.TrimSpace(strings.ToLower(*body.PostRefreshProbeScope))
+		if scope != "all" {
+			scope = "single"
+		}
+		updates["postRefreshProbeScope"] = scope
+	}
+	if body.PostRefreshProbeLatencyThresholdMs != nil {
+		ms := int64(*body.PostRefreshProbeLatencyThresholdMs)
+		if ms < 0 {
+			ms = 0
+		}
+		updates["postRefreshProbeLatencyThresholdMs"] = ms
+	}
+
+	// Handle API endpoints
+	if body.APIEndpoints != nil {
+		eps, errMsg := normalizeAPIEndpointsInput(body.APIEndpoints)
+		if errMsg != "" {
+			writeError(w, http.StatusBadRequest, errMsg)
+			return
+		}
+		now := time.Now().UTC().Format(time.RFC3339)
+		var storeEps []store.SiteAPIEndpoint
+		for _, ep := range eps {
+			storeEps = append(storeEps, store.SiteAPIEndpoint{
+				URL: ep.URL, Enabled: ep.Enabled, SortOrder: int64(ep.SortOrder),
+				CreatedAt: now, UpdatedAt: now,
+			})
+		}
+		updates["apiEndpoints"] = storeEps
+	}
+
+	// Check for unique conflict on (platform, url) change
+	nextURL := existing.URL
+	if v, ok := updates["url"]; ok {
+		nextURL = v.(string)
+	}
+	nextPlatform := existing.Platform
+	if v, ok := updates["platform"]; ok {
+		nextPlatform = v.(string)
+	}
+	if nextURL != existing.URL || nextPlatform != existing.Platform {
+		var conflictCount int
+		h.db.Get(&conflictCount, h.db.Rebind("SELECT COUNT(*) FROM sites WHERE platform = ? AND url = ? AND id != ?"), nextPlatform, nextURL, id)
+		if conflictCount > 0 {
+			writeError(w, http.StatusConflict, fmt.Sprintf("A %s site with URL %s already exists.", nextPlatform, nextURL))
+			return
+		}
+	}
+
+	if err := service.UpdateSite(h.db, id, updates); err != nil {
+		if isUniqueConstraintError(err) {
+			writeError(w, http.StatusConflict, fmt.Sprintf("A %s site with URL %s already exists.", nextPlatform, nextURL))
+			return
+		}
+		slog.Error("Failed to update site", "err", err, "site_id", id)
+		writeError(w, http.StatusInternalServerError, "Failed to update site")
+		return
+	}
+
+	// Apply status side effects
+	if newStatus, ok := updates["status"].(string); ok {
+		service.ApplySiteStatusSideEffects(h.db, id, existing.Name, newStatus)
+		service.InvalidateSiteCaches()
+	}
+
+	result, _ := service.LoadSiteWithEndpoints(h.db, id)
+	routing.InvalidateCache()
+	writeJSON(w, http.StatusOK, result)
+}
+
+// ---- Delete Site ----
+
+func (h *sitesHandler) deleteSite(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || id <= 0 {
+		writeError(w, http.StatusBadRequest, "Invalid site id")
+		return
+	}
+	if err := service.DeleteSite(h.db, id); err != nil {
+		slog.Error("Failed to delete site", "err", err, "site_id", id)
+		writeError(w, http.StatusInternalServerError, "Failed to delete site")
+		return
+	}
+	service.InvalidateSiteCaches()
+	routing.InvalidateCache()
+	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
+}
+
+// ---- Batch Sites ----
+
+func (h *sitesHandler) batchSites(w http.ResponseWriter, r *http.Request) {
+	var body payloads.SiteBatchPayload
+	if err := decodeJSONRequest(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid site payload.")
+		return
+	}
+
+	if len(body.IDs) == 0 {
+		writeError(w, http.StatusBadRequest, "ids is required")
+		return
+	}
+
+	action := strings.TrimSpace(body.Action)
+	validActions := map[string]bool{
+		"enable": true, "disable": true, "delete": true,
+		"enableSystemProxy": true, "disableSystemProxy": true,
+	}
+	if !validActions[action] {
+		writeError(w, http.StatusBadRequest, "Invalid action")
+		return
+	}
+
+	var successIDs []int64
+	var failedItems []map[string]any
+
+	for _, rawID := range body.IDs {
+		id := int64(rawID)
+		var existing store.Site
+		err := h.db.Get(&existing, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), id)
+		if err != nil {
+			failedItems = append(failedItems, map[string]any{"id": id, "message": "Site not found"})
+			continue
+		}
+
+		now := time.Now().UTC().Format(time.RFC3339)
+		switch action {
+		case "delete":
+			h.db.Exec(h.db.Rebind("DELETE FROM sites WHERE id = ?"), id)
+		case "enableSystemProxy":
+			h.db.Exec(h.db.Rebind("UPDATE sites SET use_system_proxy = 1, updated_at = ? WHERE id = ?"), now, id)
+		case "disableSystemProxy":
+			h.db.Exec(h.db.Rebind("UPDATE sites SET use_system_proxy = 0, updated_at = ? WHERE id = ?"), now, id)
+		case "enable":
+			h.db.Exec(h.db.Rebind("UPDATE sites SET status = 'active', updated_at = ? WHERE id = ?"), now, id)
+			service.ApplySiteStatusSideEffects(h.db, id, existing.Name, "active")
+		case "disable":
+			h.db.Exec(h.db.Rebind("UPDATE sites SET status = 'disabled', updated_at = ? WHERE id = ?"), now, id)
+			service.ApplySiteStatusSideEffects(h.db, id, existing.Name, "disabled")
+		}
+		successIDs = append(successIDs, id)
+	}
+
+	// Invalidate caches when batch action mutates site state
+	if action == "delete" || action == "enable" || action == "disable" ||
+		action == "enableSystemProxy" || action == "disableSystemProxy" {
+		service.InvalidateSiteCaches()
+		routing.InvalidateCache()
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success":     true,
+		"successIds":  successIDs,
+		"failedItems": failedItems,
+	})
+}
+
+// ---- Detect Platform ----
+
+func (h *sitesHandler) detectSite(w http.ResponseWriter, r *http.Request) {
+	var body payloads.SiteDetectPayload
+	if err := decodeJSONRequest(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid url. Expected non-empty string.")
+		return
+	}
+	if strings.TrimSpace(body.URL) == "" {
+		writeError(w, http.StatusBadRequest, "Invalid url. Expected non-empty string.")
+		return
+	}
+
+	result := service.DetectSite(body.URL)
+	if result != nil {
+		writeJSON(w, http.StatusOK, result)
+		return
+	}
+	// Failure must not use HTTP 200 with an error body.
+	writeError(w, http.StatusBadRequest, "Could not detect platform")
+}
+
+// ---- Disabled Models ----
+
+func (h *sitesHandler) getDisabledModels(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid site id")
+		return
+	}
+
+	var existing store.Site
+	if err := h.db.Get(&existing, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), id); err != nil {
+		writeError(w, http.StatusNotFound, "Site not found")
+		return
+	}
+
+	var models []string
+	h.db.Select(&models, h.db.Rebind("SELECT model_name FROM site_disabled_models WHERE site_id = ?"), id)
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"siteId": id,
+		"models": models,
+	})
+}
+
+func (h *sitesHandler) updateDisabledModels(w http.ResponseWriter, r *http.Request) {
+	var body payloads.SiteDisabledModelsPayload
+	if err := decodeJSONRequest(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid models. Expected string[].")
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid site id")
+		return
+	}
+
+	var existing store.Site
+	if err := h.db.Get(&existing, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), id); err != nil {
+		writeError(w, http.StatusNotFound, "Site not found")
+		return
+	}
+
+	// Normalize: deduplicate and trim
+	seen := map[string]bool{}
+	var uniqueModels []string
+	for _, m := range body.Models {
+		m = strings.TrimSpace(m)
+		if m != "" && !seen[m] {
+			seen[m] = true
+			uniqueModels = append(uniqueModels, m)
+		}
+	}
+
+	// Full replace
+	h.db.Exec(h.db.Rebind("DELETE FROM site_disabled_models WHERE site_id = ?"), id)
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	for _, m := range uniqueModels {
+		h.db.Exec(h.db.Rebind("INSERT INTO site_disabled_models (site_id, model_name, created_at) VALUES (?, ?, ?)"), id, m, now)
+	}
+
+	routing.InvalidateCache()
+	writeJSON(w, http.StatusOK, map[string]any{
+		"siteId": id,
+		"models": uniqueModels,
+	})
+}
+
+// ---- Available Models ----
+
+func (h *sitesHandler) getAvailableModels(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid site id")
+		return
+	}
+
+	var existing store.Site
+	if err := h.db.Get(&existing, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), id); err != nil {
+		writeError(w, http.StatusNotFound, "Site not found")
+		return
+	}
+
+	// Account-level models
+	var accountModels []string
+	h.db.Select(&accountModels,
+		h.db.Rebind(`SELECT DISTINCT ma.model_name FROM model_availability ma
+		 INNER JOIN accounts a ON ma.account_id = a.id
+		 WHERE a.site_id = ? AND ma.available = TRUE`), id,
+	)
+
+	// Token-level models
+	var tokenModels []string
+	h.db.Select(&tokenModels,
+		h.db.Rebind(`SELECT DISTINCT tma.model_name FROM token_model_availability tma
+		 INNER JOIN account_tokens at ON tma.token_id = at.id
+		 INNER JOIN accounts a ON at.account_id = a.id
+		 WHERE a.site_id = ? AND tma.available = TRUE`), id,
+	)
+
+	// Merge, deduplicate, sort
+	allModels := append(accountModels, tokenModels...)
+	seen := map[string]bool{}
+	result := []string{}
+	for _, m := range allModels {
+		m = strings.TrimSpace(m)
+		if m != "" && !seen[m] {
+			seen[m] = true
+			result = append(result, m)
+		}
+	}
+	// Case-insensitive sort
+	sortStringsCI(result)
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"siteId": id,
+		"models": result,
+	})
+}
+
+// ---- Probe Now ----
+
+func (h *sitesHandler) probeNow(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid site id")
+		return
+	}
+
+	var body payloads.ProbeNowBody
+	// Body is optional for probe-now.
+	_ = decodeJSONRequest(r, &body)
+
+	sched := scheduler.GetGlobalModelProbeScheduler()
+	if sched == nil {
+		// Fall back: create ephemeral scheduler for one-shot probe.
+		sched = scheduler.NewModelProbeScheduler(nil)
+	}
+	results, available, unavailable := sched.ProbeSite(id)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success":     true,
+		"totalModels": len(results),
+		"available":   available,
+		"unavailable": unavailable,
+		"results":     results,
+	})
+}
+
+// ---- Probe Stream (SSE) ----
+
+func (h *sitesHandler) probeStream(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid site id")
+		return
+	}
+
+	// SSE headers
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.WriteHeader(http.StatusOK)
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		return
+	}
+
+	scope := r.URL.Query().Get("scope")
+	modelName := r.URL.Query().Get("modelName")
+	latencyStr := r.URL.Query().Get("latencyThresholdMs")
+
+	_ = scope
+	_ = modelName
+	_ = latencyStr
+
+	sched := scheduler.GetGlobalModelProbeScheduler()
+	if sched == nil {
+		sched = scheduler.NewModelProbeScheduler(nil)
+	}
+	results, available, unavailable := sched.ProbeSite(id)
+	sseWrite(w, flusher, "probe-start", map[string]any{
+		"totalModels": len(results),
+		"startedAt":   time.Now().UTC().Format(time.RFC3339),
+	})
+	for _, res := range results {
+		sseWrite(w, flusher, "probe-result", res)
+	}
+	sseWrite(w, flusher, "complete", map[string]any{
+		"totalModels": len(results),
+		"available":   available,
+		"unavailable": unavailable,
+	})
+}
+
+// ---- Helpers ----
+
+func normalizeSiteStatusString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	status := strings.TrimSpace(strings.ToLower(*s))
+	if status == "active" || status == "disabled" {
+		return status
+	}
+	return ""
+}
+
+func boolPtrValid(b *bool) bool {
+	return b != nil
+}
+
+func coalesce(v string, fallback string) string {
+	if v == "" {
+		return fallback
+	}
+	return v
+}
+
+func coalesceBool(b *bool, fallback bool) bool {
+	if b == nil {
+		return fallback
+	}
+	return *b
+}
+
+func coalesceFloat64(f *float64, fallback float64) float64 {
+	if f == nil {
+		return fallback
+	}
+	return *f
+}
+
+func coalesceInt64(v *int64, fallback int64) int64 {
+	if v == nil {
+		return fallback
+	}
+	return *v
+}
+
+func normalizeAPIEndpointsInput(input []payloads.SiteAPIEndpointInput) ([]payloads.SiteAPIEndpointInput, string) {
+	if input == nil {
+		return nil, ""
+	}
+
+	seen := map[string]bool{}
+	var result []payloads.SiteAPIEndpointInput
+
+	for i, ep := range input {
+		normalizedURL := service.NormalizeSiteAPIEndpointBaseUrl(ep.URL)
+		if normalizedURL == "" {
+			return nil, "Invalid apiEndpoints url. Expected a valid http(s) URL."
+		}
+		// Prefer the specific metadata/link-local 400 before the generic
+		// scheme check. IsValidAPIEndpointURL also rejects these targets,
+		// so order only affects the error message (double-safe).
+		if service.IsForbiddenSiteTargetURL(normalizedURL) {
+			return nil, "Invalid apiEndpoints url. Cloud metadata / link-local targets are not allowed."
+		}
+		if !service.IsValidAPIEndpointURL(normalizedURL) {
+			return nil, "Invalid apiEndpoints url. Expected a valid http(s) URL."
+		}
+		if seen[normalizedURL] {
+			return nil, fmt.Sprintf("Duplicate apiEndpoints url: %s", normalizedURL)
+		}
+		seen[normalizedURL] = true
+		sortOrder := ep.SortOrder
+		if sortOrder == 0 {
+			sortOrder = i
+		}
+		result = append(result, payloads.SiteAPIEndpointInput{
+			URL: normalizedURL, Enabled: ep.Enabled, SortOrder: sortOrder,
+		})
+	}
+	return result, ""
+}
+
+func isUniqueConstraintError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "unique constraint") ||
+		strings.Contains(msg, "duplicate key") ||
+		strings.Contains(msg, "duplicate entry") ||
+		strings.Contains(msg, "unique") && strings.Contains(msg, "constraint")
+}
+
+func sseWrite(w http.ResponseWriter, flusher http.Flusher, event string, data any) {
+	jsonData, _ := json.Marshal(data)
+	fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, string(jsonData))
+	if flusher != nil {
+		flusher.Flush()
+	}
+}
+
+func sortStringsCI(strs []string) {
+	// Simple bubble sort for small cases; real impl would use sort.SliceStable
+	for i := 0; i < len(strs); i++ {
+		for j := i + 1; j < len(strs); j++ {
+			if strings.ToLower(strs[i]) > strings.ToLower(strs[j]) {
+				strs[i], strs[j] = strs[j], strs[i]
+			}
+		}
+	}
+}
+
+func writeJSON(w http.ResponseWriter, statusCode int, data any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(data)
+}

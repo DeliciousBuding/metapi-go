@@ -1,0 +1,5 @@
+[allowlist]
+description = "Repository-specific false positives"
+paths = [
+  '''web/dist/assets/vchart-vendor-.*\.js$''',
+]

@@ -1,0 +1,226 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, create, type ReactTestInstance } from 'react-test-renderer';
+import { MemoryRouter, useLocation } from 'react-router-dom';
+import SearchModal from './SearchModal.js';
+
+const { apiMock } = vi.hoisted(() => ({
+  apiMock: {
+    search: vi.fn(),
+  },
+}));
+
+vi.mock('../api.js', () => ({
+  api: apiMock,
+}));
+
+vi.mock('../i18n.js', () => ({
+  useI18n: () => ({
+    t: (value: string) => value,
+  }),
+}));
+
+function collectText(node: ReactTestInstance): string {
+  const children = node.children || [];
+  return children.map((child) => {
+    if (typeof child === 'string') return child;
+    return collectText(child);
+  }).join('');
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div id="location-probe">{`${location.pathname}${location.search}`}</div>;
+}
+
+async function flushMicrotasks() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+describe('SearchModal results', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+    Object.defineProperty(globalThis, 'window', {
+      value: globalThis,
+      configurable: true,
+      writable: true,
+    });
+    Object.defineProperty(globalThis, 'document', {
+      value: {
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      },
+      configurable: true,
+      writable: true,
+    });
+  });
+
+  afterEach(() => {
+    vi.runOnlyPendingTimers();
+    vi.useRealTimers();
+    vi.clearAllMocks();
+  });
+
+  it('exposes dialog semantics and a labeled close control', async () => {
+    const onClose = vi.fn();
+    let root!: WebTestRenderer;
+    try {
+      await act(async () => {
+        root = create(
+          <MemoryRouter initialEntries={['/']}>
+            <SearchModal open onClose={onClose} />
+          </MemoryRouter>,
+        );
+      });
+      await flushMicrotasks();
+
+      const dialog = root.root.find((node) => (
+        typeof node.props?.className === 'string'
+        && node.props.className.includes('search-modal-content')
+      ));
+      expect(dialog.props.role).toBe('dialog');
+      // react-test-renderer may string-coerce boolean aria props
+      expect(dialog.props['aria-modal'] === true || dialog.props['aria-modal'] === 'true').toBe(true);
+      expect(dialog.props['aria-label']).toBe('搜索');
+
+      const closeButton = root.root.find((node) => (
+        node.type === 'button'
+        && node.props['aria-label'] === '关闭'
+      ));
+
+      await act(async () => {
+        closeButton.props.onClick();
+      });
+      expect(onClose).toHaveBeenCalledTimes(1);
+    } finally {
+      root?.unmount();
+    }
+  });
+
+  it('renders account token results and navigates API key accounts to the apikey segment', async () => {
+    apiMock.search.mockResolvedValue({
+      models: [],
+      sites: [],
+      checkinLogs: [],
+      proxyLogs: [],
+      accounts: [
+        {
+          id: 8,
+          username: '',
+          balance: 0,
+          segment: 'apikey',
+          site: { name: 'Key Search Site' },
+        },
+      ],
+      accountTokens: [
+        {
+          id: 15,
+          name: 'search-token',
+          tokenGroup: 'default',
+          accountId: 8,
+          account: { username: '' },
+          site: { name: 'Key Search Site' },
+        },
+      ],
+    });
+
+    const onClose = vi.fn();
+    let root!: WebTestRenderer;
+    try {
+      await act(async () => {
+        root = create(
+          <MemoryRouter initialEntries={['/']}>
+            <LocationProbe />
+            <SearchModal open onClose={onClose} />
+          </MemoryRouter>,
+        );
+      });
+
+      const input = root.root.findByType('input');
+      await act(async () => {
+        input.props.onChange({ target: { value: 'search' } });
+        vi.advanceTimersByTime(300);
+        await Promise.resolve();
+      });
+      await flushMicrotasks();
+
+      const rendered = JSON.stringify(root.toJSON());
+      expect(rendered).toContain('账号令牌');
+      expect(rendered).toContain('search-token');
+      expect(rendered).toContain('API Key 连接');
+
+      const buttons = root.root.findAll((node) => node.type === 'button');
+      const accountButton = buttons.find((node) => collectText(node).includes('API Key 连接'));
+      expect(accountButton).toBeTruthy();
+
+      await act(async () => {
+        accountButton!.props.onClick();
+      });
+      const locationAfterAccountClick = root.root.find((node) => node.props?.id === 'location-probe');
+      expect(collectText(locationAfterAccountClick)).toBe('/accounts?segment=apikey&focusAccountId=8');
+    } finally {
+      root?.unmount();
+    }
+  });
+
+  it('keyboard navigation: ArrowDown selects first result and Enter navigates', async () => {
+    apiMock.search.mockResolvedValue({
+      models: [],
+      sites: [{ id: 2, name: 'kbd-site', url: 'https://kbd.example' }],
+      checkinLogs: [],
+      proxyLogs: [],
+      accounts: [],
+      accountTokens: [],
+    });
+
+    const onClose = vi.fn();
+    let root!: WebTestRenderer;
+    try {
+      await act(async () => {
+        root = create(
+          <MemoryRouter initialEntries={['/']}>
+            <LocationProbe />
+            <SearchModal open onClose={onClose} />
+          </MemoryRouter>,
+        );
+      });
+
+      const input = root.root.findByType('input');
+      await act(async () => {
+        input.props.onChange({ target: { value: 'kbd' } });
+        vi.advanceTimersByTime(300);
+        await Promise.resolve();
+      });
+      await flushMicrotasks();
+
+      // The footer hint advertises ↑↓ navigation; it must actually work.
+      await act(async () => {
+        input.props.onKeyDown({ key: 'ArrowDown', preventDefault: () => {} });
+      });
+      await flushMicrotasks();
+
+      const buttons = root.root.findAll((node) => (
+        node.type === 'button' && collectText(node).includes('kbd-site')
+      ));
+      expect(buttons.length).toBe(1);
+      expect(buttons[0].props['data-active']).toBe('true');
+      expect(buttons[0].props['aria-selected']).toBe(true);
+
+      // Re-fetch input so the closure sees the updated activeIndex.
+      const inputAfterNav = root.root.findByType('input');
+      await act(async () => {
+        inputAfterNav.props.onKeyDown({ key: 'Enter', preventDefault: () => {} });
+      });
+      await flushMicrotasks();
+
+      const locationAfterEnter = root.root.find((node) => node.props?.id === 'location-probe');
+      expect(collectText(locationAfterEnter)).toContain('/sites');
+      expect(onClose).toHaveBeenCalled();
+    } finally {
+      root?.unmount();
+    }
+  });
+});

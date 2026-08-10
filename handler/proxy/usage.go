@@ -1,0 +1,392 @@
+package proxyhandler
+
+import (
+	"encoding/json"
+	"strings"
+
+	"github.com/deliciousbuding/metapi-go/proxy"
+)
+
+const (
+	usageSourceUpstream = "upstream"
+	usageSourceUnknown  = "unknown"
+)
+
+// ParsedUsage is a normalized token usage snapshot extracted from an upstream body/SSE.
+type ParsedUsage struct {
+	PromptTokens        int64
+	CompletionTokens    int64
+	TotalTokens         int64
+	CacheReadTokens     int64
+	CacheCreationTokens int64
+	// ReasoningTokens captures Gemini thoughtsTokenCount / OpenAI reasoning_tokens
+	// when reported separately. Not persisted as its own proxy_logs column; it is
+	// folded into CompletionTokens / TotalTokens when total is missing.
+	ReasoningTokens int64
+	// Source is "upstream" when any token field was present, otherwise "unknown".
+	Source string
+	Found  bool
+}
+
+// ToUsageSummary converts ParsedUsage into the lightweight failure-detection summary.
+func (u ParsedUsage) ToUsageSummary() *proxy.UsageSummary {
+	return &proxy.UsageSummary{
+		PromptTokens:     int(u.PromptTokens),
+		CompletionTokens: int(u.CompletionTokens),
+		TotalTokens:      int(u.TotalTokens),
+	}
+}
+
+// ParseUsageFromBody extracts token usage from a non-stream JSON response body.
+// Supports OpenAI (prompt_tokens/completion_tokens/total_tokens), Anthropic
+// (input_tokens/output_tokens + cache_*_input_tokens), Gemini
+// (usageMetadata.*TokenCount including thoughtsTokenCount), nested
+// Responses / message_start shapes, and media-ish OpenAI details
+// (input_tokens_details text/image/audio; output audio/image) when present.
+
+// Does not invent usage when upstream omitted token fields.
+func ParseUsageFromBody(body []byte) ParsedUsage {
+	body = trimJSONNoise(body)
+	if len(body) == 0 {
+		return ParsedUsage{Source: usageSourceUnknown}
+	}
+	var payload any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return ParsedUsage{Source: usageSourceUnknown}
+	}
+	return extractUsageFromValue(payload)
+}
+
+// ParseUsageFromSSEEvents extracts the best-effort final usage from SSE data events.
+// Later events win when they carry usage so stream-end payloads (message_delta,
+// response.completed, final chat.completion.chunk) override partial early values.
+func ParseUsageFromSSEEvents(events []SseEvent) ParsedUsage {
+	var best ParsedUsage
+	best.Source = usageSourceUnknown
+	for _, ev := range events {
+		if ev.Data == "" || ev.Data == "[DONE]" {
+			continue
+		}
+		if !looksLikeJSONObject(ev.Data) {
+			continue
+		}
+		got := ParseUsageFromBody([]byte(ev.Data))
+		if !got.Found {
+			continue
+		}
+		best = mergeUsagePreferLater(best, got)
+	}
+	return best
+}
+
+func mergeUsagePreferLater(prev, next ParsedUsage) ParsedUsage {
+	if !next.Found {
+		return prev
+	}
+	out := prev
+	out.Found = true
+	out.Source = usageSourceUpstream
+	// Prefer non-zero fields from the later event; retain earlier values when
+	// the later payload is partial (e.g. Anthropic message_delta output only).
+	if next.PromptTokens > 0 {
+		out.PromptTokens = next.PromptTokens
+	} else if !prev.Found {
+		out.PromptTokens = next.PromptTokens
+	}
+	if next.CompletionTokens > 0 {
+		out.CompletionTokens = next.CompletionTokens
+	} else if !prev.Found {
+		out.CompletionTokens = next.CompletionTokens
+	}
+	if next.CacheReadTokens > 0 {
+		out.CacheReadTokens = next.CacheReadTokens
+	} else if !prev.Found {
+		out.CacheReadTokens = next.CacheReadTokens
+	}
+	if next.CacheCreationTokens > 0 {
+		out.CacheCreationTokens = next.CacheCreationTokens
+	} else if !prev.Found {
+		out.CacheCreationTokens = next.CacheCreationTokens
+	}
+	if next.ReasoningTokens > 0 {
+		out.ReasoningTokens = next.ReasoningTokens
+	} else if !prev.Found {
+		out.ReasoningTokens = next.ReasoningTokens
+	}
+	// Recompute total from merged prompt+completion unless the later event
+	// provides an explicit total that covers both sides (total >= sum).
+	sum := out.PromptTokens + out.CompletionTokens
+	if next.TotalTokens > 0 && next.TotalTokens >= sum {
+		out.TotalTokens = next.TotalTokens
+	} else if sum > 0 {
+		out.TotalTokens = sum
+	} else if next.TotalTokens > 0 {
+		out.TotalTokens = next.TotalTokens
+	} else if !prev.Found {
+		out.TotalTokens = next.TotalTokens
+	}
+	return out
+}
+
+func extractUsageFromValue(v any) ParsedUsage {
+	out := ParsedUsage{Source: usageSourceUnknown}
+	obj, ok := v.(map[string]any)
+	if !ok {
+		return out
+	}
+
+	// Direct usage object (OpenAI / Anthropic / Responses).
+	if usage, ok := obj["usage"].(map[string]any); ok {
+		applyUsageMap(&out, usage)
+	}
+	// Gemini-style usageMetadata.
+	if meta, ok := obj["usageMetadata"].(map[string]any); ok {
+		applyUsageMap(&out, meta)
+	}
+	// Nested response.usage (OpenAI Responses API stream events).
+	if resp, ok := obj["response"].(map[string]any); ok {
+		if usage, ok := resp["usage"].(map[string]any); ok {
+			applyUsageMap(&out, usage)
+		}
+	}
+	// Nested message.usage (Anthropic message_start).
+	if msg, ok := obj["message"].(map[string]any); ok {
+		if usage, ok := msg["usage"].(map[string]any); ok {
+			applyUsageMap(&out, usage)
+		}
+	}
+
+	finalizeParsedUsage(&out)
+	return out
+}
+
+func applyUsageMap(out *ParsedUsage, usage map[string]any) {
+	if out == nil || usage == nil {
+		return
+	}
+
+	// OpenAI chat.completions style
+	if n, ok := asInt64(usage["prompt_tokens"]); ok {
+		out.PromptTokens = n
+		out.Found = true
+	}
+	if n, ok := asInt64(usage["completion_tokens"]); ok {
+		out.CompletionTokens = n
+		out.Found = true
+	}
+	if n, ok := asInt64(usage["total_tokens"]); ok {
+		out.TotalTokens = n
+		out.Found = true
+	}
+
+	// Anthropic + OpenAI Responses style (input/output).
+	// Note: Anthropic input_tokens is the *non-cached* input portion; cache
+	// fields are exclusive and must be added for total prompt accounting.
+	// OpenAI Responses input_tokens already includes cached_tokens (subset).
+	if n, ok := asInt64(usage["input_tokens"]); ok {
+		out.PromptTokens = n
+		out.Found = true
+	}
+	if n, ok := asInt64(usage["output_tokens"]); ok {
+		out.CompletionTokens = n
+		out.Found = true
+	}
+
+	// Anthropic exclusive cache fields (not subsets of input_tokens).
+	sawAnthropicCacheKeys := false
+	if cacheRead, ok := asInt64(usage["cache_read_input_tokens"]); ok {
+		out.CacheReadTokens = cacheRead
+		out.Found = true
+		sawAnthropicCacheKeys = true
+	}
+	if cacheCreate, ok := asInt64(usage["cache_creation_input_tokens"]); ok {
+		out.CacheCreationTokens = cacheCreate
+		out.Found = true
+		sawAnthropicCacheKeys = true
+	}
+	if sawAnthropicCacheKeys {
+		// input_tokens (if present) is non-cached; expand prompt to include cache
+		// so total_tokens and billing breakdown billable-prompt math stay correct.
+		// When input_tokens was omitted (0) and only cache fields exist, this still
+		// yields prompt = cache_read + cache_creation.
+		out.PromptTokens = out.PromptTokens + out.CacheReadTokens + out.CacheCreationTokens
+	}
+
+	// OpenAI prompt_tokens_details.cached_tokens / input_tokens_details.cached_tokens
+	// are subsets of prompt/input tokens — record for cache pricing, do not add again.
+	// Media (): when top-level prompt/input is absent, sum text/image/audio
+	// detail leaves so images/audio endpoints that only emit details still count.
+	if details, ok := usage["prompt_tokens_details"].(map[string]any); ok {
+		if n, ok := asInt64(details["cached_tokens"]); ok {
+			out.CacheReadTokens = n
+			out.Found = true
+		}
+		applyOpenAIMediaDetailPrompt(out, details)
+	}
+	if details, ok := usage["input_tokens_details"].(map[string]any); ok {
+		if n, ok := asInt64(details["cached_tokens"]); ok {
+			out.CacheReadTokens = n
+			out.Found = true
+		}
+		applyOpenAIMediaDetailPrompt(out, details)
+	}
+
+	// OpenAI completion_tokens_details.reasoning_tokens is typically already inside
+	// completion_tokens / total_tokens. Record only; do not double-count when total present.
+	// Media: audio_tokens / image_tokens under completion/output details fill completion
+	// only when top-level completion/output is missing (no invent beyond reported leaves).
+	if details, ok := usage["completion_tokens_details"].(map[string]any); ok {
+		if n, ok := asInt64(details["reasoning_tokens"]); ok {
+			out.ReasoningTokens = n
+			out.Found = true
+		}
+		applyOpenAIMediaDetailCompletion(out, details)
+	}
+	if details, ok := usage["output_tokens_details"].(map[string]any); ok {
+		if n, ok := asInt64(details["reasoning_tokens"]); ok {
+			out.ReasoningTokens = n
+			out.Found = true
+		}
+		applyOpenAIMediaDetailCompletion(out, details)
+	}
+
+	// Gemini-style
+	if n, ok := asInt64(usage["promptTokenCount"]); ok {
+		out.PromptTokens = n
+		out.Found = true
+	}
+	if n, ok := asInt64(usage["candidatesTokenCount"]); ok {
+		out.CompletionTokens = n
+		out.Found = true
+	}
+	if n, ok := asInt64(usage["totalTokenCount"]); ok {
+		out.TotalTokens = n
+		out.Found = true
+	}
+	// thoughtsTokenCount is usually included in totalTokenCount when total is present.
+	// When total is omitted, fold thoughts into completion so stats do not under-count.
+	// Do not fold OpenAI reasoning_tokens the same way: those are already inside
+	// completion_tokens when reported.
+	if n, ok := asInt64(usage["thoughtsTokenCount"]); ok {
+		out.ReasoningTokens = n
+		out.Found = true
+		if _, hasTotal := asInt64(usage["totalTokenCount"]); !hasTotal && n > 0 {
+			out.CompletionTokens += n
+		}
+	}
+}
+
+// applyOpenAIMediaDetailPrompt folds text/image/audio detail leaves into PromptTokens
+// only when PromptTokens is still zero (top-level input/prompt missing). Details are
+// subsets when top-level is present — never double-add.
+func applyOpenAIMediaDetailPrompt(out *ParsedUsage, details map[string]any) {
+	if out == nil || details == nil {
+		return
+	}
+	var sum int64
+	var any bool
+	for _, key := range []string{"text_tokens", "image_tokens", "audio_tokens"} {
+		if n, ok := asInt64(details[key]); ok {
+			sum += n
+			any = true
+		}
+	}
+	if !any {
+		return
+	}
+	out.Found = true
+	if out.PromptTokens == 0 && sum > 0 {
+		out.PromptTokens = sum
+	}
+}
+
+// applyOpenAIMediaDetailCompletion folds image/audio/text detail leaves into
+// CompletionTokens only when CompletionTokens is still zero.
+func applyOpenAIMediaDetailCompletion(out *ParsedUsage, details map[string]any) {
+	if out == nil || details == nil {
+		return
+	}
+	var sum int64
+	var any bool
+	for _, key := range []string{"image_tokens", "audio_tokens", "text_tokens"} {
+		if n, ok := asInt64(details[key]); ok {
+			sum += n
+			any = true
+		}
+	}
+	if !any {
+		return
+	}
+	out.Found = true
+	if out.CompletionTokens == 0 && sum > 0 {
+		out.CompletionTokens = sum
+	}
+}
+
+func finalizeParsedUsage(out *ParsedUsage) {
+	if out == nil || !out.Found {
+		if out != nil && out.Source == "" {
+			out.Source = usageSourceUnknown
+		}
+		return
+	}
+
+	if out.TotalTokens == 0 && (out.PromptTokens > 0 || out.CompletionTokens > 0) {
+		out.TotalTokens = out.PromptTokens + out.CompletionTokens
+	}
+	// If total is present but still less than prompt+completion (partial upstream),
+	// prefer the explicit split sum rather than inventing beyond reported fields.
+	// Common after Anthropic cache fields expand prompt beyond a stale total.
+	if out.TotalTokens > 0 {
+		sum := out.PromptTokens + out.CompletionTokens
+		if sum > out.TotalTokens {
+			out.TotalTokens = sum
+		}
+	}
+
+	out.Source = usageSourceUpstream
+}
+
+func asInt64(v any) (int64, bool) {
+	switch n := v.(type) {
+	case float64:
+		return int64(n), true
+	case float32:
+		return int64(n), true
+	case int64:
+		return n, true
+	case int:
+		return int64(n), true
+	case int32:
+		return int64(n), true
+	case json.Number:
+		i, err := n.Int64()
+		if err != nil {
+			f, err2 := n.Float64()
+			if err2 != nil {
+				return 0, false
+			}
+			return int64(f), true
+		}
+		return i, true
+	case string:
+		s := strings.TrimSpace(n)
+		if s == "" {
+			return 0, false
+		}
+		var parsed int64
+		for _, ch := range s {
+			if ch < '0' || ch > '9' {
+				return 0, false
+			}
+			parsed = parsed*10 + int64(ch-'0')
+		}
+		return parsed, true
+	default:
+		return 0, false
+	}
+}
+
+func trimJSONNoise(body []byte) []byte {
+	return []byte(strings.TrimSpace(string(body)))
+}

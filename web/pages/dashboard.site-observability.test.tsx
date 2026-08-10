@@ -1,0 +1,179 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer';
+import { MemoryRouter } from 'react-router-dom';
+import { ToastProvider } from '../components/Toast.js';
+import Dashboard from './Dashboard.js';
+import { installDashboardSnapshotCompat } from './testApiCompat.js';
+
+const { apiMock } = vi.hoisted(() => ({
+  apiMock: {
+    getDashboard: vi.fn(),
+    getDashboardSnapshot: vi.fn(),
+    getDashboardInsights: vi.fn(),
+    getSiteSnapshot: vi.fn(),
+    getSiteDistribution: vi.fn(),
+    getSiteTrend: vi.fn(),
+    getSites: vi.fn(),
+    getBalanceHistory: vi.fn().mockResolvedValue({ series: [], days: 30 }),
+    getAttention: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+    getSchedulerStatus: vi.fn().mockResolvedValue({ items: [], generatedAt: new Date().toISOString() }),
+    getModelCostDistribution: vi.fn().mockResolvedValue({ days: 30, since: '', topN: 8, items: [], totals: { cost: 0, calls: 0, tokens: 0 } }),
+    getLatencyHistogram: vi.fn().mockResolvedValue({ days: 7, since: '', bucketMs: 500, total: 0, buckets: [] }),
+    getLatencyTrend: vi.fn().mockResolvedValue({ days: 7, points: [], p95SampleCap: 10000, truncatedDays: [] }),
+    getActiveAnnouncements: vi.fn().mockResolvedValue({ items: [] }),
+  },
+}));
+
+vi.mock('../api.js', () => ({
+  api: apiMock,
+}));
+
+function collectText(node: ReactTestInstance): string {
+  return (node.children || []).map((child) => {
+    if (typeof child === 'string') return child;
+    return collectText(child);
+  }).join('');
+}
+
+async function flushMicrotasks() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+describe('Dashboard site observability panel', () => {
+  // Prefer property spies over replacing globalThis.document wholesale.
+  // Replacing document mid-suite leaves pending jsdom console RPC during
+  // EnvironmentTeardown (CI flake: EnvironmentTeardownError / onUserConsoleLog).
+  let visibilityDescriptor: PropertyDescriptor | undefined;
+  let addEventListenerSpy: ReturnType<typeof vi.spyOn> | undefined;
+  let removeEventListenerSpy: ReturnType<typeof vi.spyOn> | undefined;
+  let getElementByIdSpy: ReturnType<typeof vi.spyOn> | undefined;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    installDashboardSnapshotCompat(apiMock);
+    apiMock.getDashboard.mockResolvedValue({
+      totalBalance: 0,
+      totalUsed: 0,
+      todaySpend: 0,
+      todayReward: 0,
+      activeAccounts: 0,
+      totalAccounts: 0,
+      todayCheckin: { success: 0, total: 0 },
+      proxy24h: { success: 0, total: 0, totalTokens: 0 },
+      performance: { windowSeconds: 60, requestsPerMinute: 0, tokensPerMinute: 0 },
+      siteAvailability: [{
+        siteId: 1,
+        siteName: 'Demo Site',
+        siteUrl: 'https://example.com',
+        platform: 'new-api',
+        totalRequests: 8,
+        successCount: 6,
+        failedCount: 2,
+        availabilityPercent: 75,
+        averageLatencyMs: 320,
+        buckets: Array.from({ length: 24 }, (_, index) => ({
+          startUtc: new Date(Date.UTC(2026, 2, 11, index, 0, 0)).toISOString(),
+          label: `2026-03-11 ${String(index).padStart(2, '0')}:00:00`,
+          totalRequests: index < 8 ? 1 : 0,
+          successCount: index < 6 ? 1 : 0,
+          failedCount: index >= 6 && index < 8 ? 1 : 0,
+          availabilityPercent: index < 6 ? 100 : index < 8 ? 0 : null,
+          averageLatencyMs: index < 8 ? 320 : null,
+        })),
+      }],
+      modelAnalysis: null,
+    });
+    apiMock.getSiteDistribution.mockResolvedValue({ distribution: [] });
+    apiMock.getSiteTrend.mockResolvedValue({ trend: [] });
+    apiMock.getSites.mockResolvedValue([]);
+
+    visibilityDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'visibilityState')
+      || Object.getOwnPropertyDescriptor(document, 'visibilityState');
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      enumerable: true,
+      get: () => 'visible',
+    });
+    addEventListenerSpy = vi.spyOn(document, 'addEventListener').mockImplementation(() => {});
+    removeEventListenerSpy = vi.spyOn(document, 'removeEventListener').mockImplementation(() => {});
+    getElementByIdSpy = vi.spyOn(document, 'getElementById').mockReturnValue(null);
+  });
+
+  afterEach(async () => {
+    addEventListenerSpy?.mockRestore();
+    removeEventListenerSpy?.mockRestore();
+    getElementByIdSpy?.mockRestore();
+    if (visibilityDescriptor) {
+      Object.defineProperty(document, 'visibilityState', visibilityDescriptor);
+    } else {
+      Object.defineProperty(document, 'visibilityState', {
+        configurable: true,
+        enumerable: true,
+        get: () => 'visible',
+      });
+    }
+    // Drain microtasks so worker teardown does not race pending console RPC.
+    await Promise.resolve();
+    await Promise.resolve();
+    try {
+      vi.clearAllMocks();
+    } catch {
+      // ignore mock cleanup races under single-worker vitest
+    }
+  });
+
+  it('renders site availability strips and summary metrics', async () => {
+    let root!: ReactTestRenderer;
+
+    try {
+      await act(async () => {
+        root = create(
+          <MemoryRouter initialEntries={['/']}>
+            <ToastProvider>
+              <Dashboard />
+            </ToastProvider>
+          </MemoryRouter>,
+        );
+      });
+      await flushMicrotasks();
+
+      const panel = root.root.find((node) => (
+        typeof node.props.className === 'string'
+        && node.props.className.includes('site-observability-panel')
+      ));
+
+      const cells = panel.findAll((node) => (
+        node.type === 'a'
+        && typeof node.props.className === 'string'
+        && node.props.className.includes('site-availability-cell')
+      ));
+
+      const logLink = panel.find((node) => (
+        node.type === 'a'
+        && typeof node.props.className === 'string'
+        && node.props.className.includes('site-observability-log-link')
+      ));
+
+      expect(collectText(panel)).toContain('站点可用性观测');
+      expect(collectText(panel)).toContain('Demo Site');
+      expect(collectText(panel)).toContain('75%');
+      expect(collectText(panel)).toContain('320ms');
+      expect(logLink.props.title).toBe('查看日志');
+      expect(cells).toHaveLength(24);
+      expect(String(cells[0]?.props.title || '')).toContain('可用性 100%');
+      expect(String(cells[7]?.props.title || '')).toContain('可用性 0%');
+      expect(String(cells[0]?.props['data-tooltip'] || '')).toContain('时间：');
+      expect(String(cells[0]?.props['data-tooltip'] || '')).toContain('可用性：100%');
+      expect(String(cells[0]?.props['data-tooltip'] || '')).toContain('成功/失败：1/0');
+      expect(String(logLink.props.href || logLink.props.to || '')).toContain('/logs?siteId=1');
+    } finally {
+      await act(async () => {
+        root?.unmount();
+      });
+      await flushMicrotasks();
+    }
+  });
+});
