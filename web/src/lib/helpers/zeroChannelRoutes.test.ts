@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildZeroChannelPlaceholderRoutes } from './zeroChannelRoutes.js';
 import type { MissingTokenModelsByName } from './routeMissingTokenHints.js';
-import type { RouteSummaryRow } from '../token-routes/types.js';
+import type { RouteSummaryRow } from '../../features/token-routes/types.js';
 
 describe('buildZeroChannelPlaceholderRoutes', () => {
   it('merges missing-token and missing-group models into exact zero-channel placeholders', () => {

@@ -27,7 +27,11 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": true,
+
+    /* Allow shared/ JS modules (legacy cross-end code) */
+    "allowJs": true,
+    "checkJs": false
   },
-  "include": ["src"]
+  "include": ["src", "shared"]
 }

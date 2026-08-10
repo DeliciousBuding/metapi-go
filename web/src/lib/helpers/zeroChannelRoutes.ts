@@ -1,6 +1,6 @@
 import type { MissingTokenModelsByName } from './routeMissingTokenHints.js';
-import type { RouteSummaryRow } from '../token-routes/types.js';
-import { isExactModelPattern } from '../token-routes/utils.js';
+import type { RouteSummaryRow } from '../../features/token-routes/types.js';
+import { isExactModelPattern } from '../../features/token-routes/utils.js';
 
 function buildStableVirtualRouteId(modelName: string): number {
   const normalized = modelName.trim().toLowerCase();

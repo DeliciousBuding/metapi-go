@@ -1,0 +1,31 @@
+{
+  "auth": {
+    "login": {
+      "title": "Sign in",
+      "subtitle": "Sign in to the admin console",
+      "brandName": "Metapi",
+      "brandTagline": "The relay station of relay stations",
+      "tokenLabel": "Admin Token",
+      "tokenPlaceholder": "Enter your admin token",
+      "tokenRequired": "Please enter the admin token",
+      "submit": "Sign in",
+      "submitting": "Signing in...",
+      "welcomeBack": "Welcome back!",
+      "note": "Only local server access is verified; the token is never sent to a third party."
+    }
+  },
+  "errors": {
+    "login": {
+      "invalidToken": "The login token is invalid.",
+      "ipNotAllowed": "Your IP is not in the admin whitelist.",
+      "serverError": "Server error, please try again later.",
+      "serverUnreachable": "Unable to connect to the server.",
+      "failed": "Login failed, please check the service status."
+    },
+    "internalServerError": "Internal Server Error!"
+  },
+  "common": {
+    "dashboardTbd": "Dashboard TBD",
+    "skipToMain": "Skip to main content"
+  }
+}

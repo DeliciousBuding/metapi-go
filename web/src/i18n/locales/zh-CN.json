@@ -1,0 +1,31 @@
+{
+  "auth": {
+    "login": {
+      "title": "登录",
+      "subtitle": "登录管理控制台",
+      "brandName": "Metapi",
+      "brandTagline": "中转站的中转站",
+      "tokenLabel": "管理员令牌",
+      "tokenPlaceholder": "请输入管理员令牌",
+      "tokenRequired": "请输入管理员令牌",
+      "submit": "登录",
+      "submitting": "登录中...",
+      "welcomeBack": "欢迎回来！",
+      "note": "仅校验本地服务访问权限，不会把令牌发送到第三方。"
+    }
+  },
+  "errors": {
+    "login": {
+      "invalidToken": "登录令牌无效。",
+      "ipNotAllowed": "当前 IP 不在管理白名单中。",
+      "serverError": "服务端异常，请稍后重试。",
+      "serverUnreachable": "无法连接到服务器。",
+      "failed": "登录失败，请检查服务状态。"
+    },
+    "internalServerError": "服务器内部错误！"
+  },
+  "common": {
+    "dashboardTbd": "仪表盘待定",
+    "skipToMain": "跳转到主要内容"
+  }
+}
