@@ -1,20 +1,19 @@
-// metapi-go/routes — dashboard index (stub).
-// Phase 2 replaces this with the real Dashboard (4-section overview).
+// metapi-go/routes — authenticated index (→ dashboard).
+//
+// `/` (the authenticated root) redirects to the dashboard's default section
+// (`/dashboard/overview`), replacing the phase-1 stub. The dashboard
+// `$section` route validates the section param, so an unknown section still
+// falls back to the default.
 
-import { createFileRoute } from '@tanstack/react-router'
-import { useTranslation } from 'react-i18next'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
-function DashboardStub() {
-  const { t } = useTranslation()
-  return (
-    <div className='flex h-full items-center justify-center p-8'>
-      <p className='text-muted-foreground text-lg'>
-        {t('common.dashboardTbd')}
-      </p>
-    </div>
-  )
-}
+import { DASHBOARD_DEFAULT_SECTION } from '@/features/dashboard'
 
 export const Route = createFileRoute('/_authenticated/')({
-  component: DashboardStub,
+  beforeLoad: () => {
+    throw redirect({
+      to: '/dashboard/$section',
+      params: { section: DASHBOARD_DEFAULT_SECTION },
+    })
+  },
 })
