@@ -1,0 +1,237 @@
+// metapi-go/features/dashboard/lib — VChart spec builders.
+//
+// Pure functions that turn stub data + resolved {@link ChartColors} into
+// VChart specs. Ported from the legacy web/components/charts/* family
+// (IncomeOutcome / SiteTrend / SiteDistribution / CostDistribution) per
+// research/06-motion-icons-charts-responsive.md §5.3. Every spec sets concrete
+// colors (never var()) and `background: 'transparent'` so the card chrome
+// shows through the VChart canvas.
+//
+// Phase 2: builders are wired but fed empty arrays (the sections pass []).
+// Phase 3: sections will pass real api.ts response rows (reshaped to the
+// types declared in features/dashboard/types.ts) — the spec builders stay
+// unchanged.
+
+import type {
+  ChartColors,
+} from '../hooks/use-chart-colors'
+import type {
+  IncomeOutcomePoint,
+  ModelCostRow,
+  SiteDistributionSlice,
+  SiteTrendPoint,
+  VChartSpec,
+} from '../types'
+
+/** Respect the OS-level reduced-motion preference (matches styles/index.css). */
+export function prefersReducedMotion(): boolean {
+  if (
+    typeof window === 'undefined' ||
+    typeof window.matchMedia !== 'function'
+  ) {
+    return false
+  }
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+/** Shared VChart runtime option — desktop-browser mode for all charts. */
+export const VCHART_OPTION = { mode: 'desktop-browser' as const }
+
+/** Common axis block reused across the line / bar specs. */
+function buildAxes(colors: ChartColors) {
+  return [
+    {
+      orient: 'bottom',
+      label: { style: { fontSize: 11, fill: colors.axisLabel } },
+      domainLine: { style: { stroke: colors.grid } },
+      tick: { style: { stroke: colors.grid } },
+    },
+    {
+      orient: 'left',
+      label: { style: { fontSize: 11, fill: colors.axisLabel } },
+      grid: { style: { stroke: colors.grid, lineDash: [4, 4] } },
+      domainLine: { visible: false },
+    },
+  ]
+}
+
+const ANIMATION_APPEAR = {
+  line: { type: 'clipIn', duration: 800, easing: 'cubicOut' },
+  area: { type: 'clipIn', duration: 800, easing: 'cubicOut' },
+  bar: { type: 'growUp', duration: 600, easing: 'cubicOut' },
+  pie: { type: 'growRadius', duration: 600, easing: 'cubicOut' },
+} as const
+
+const PADDING = { left: 8, right: 16, top: 8, bottom: 8 } as const
+
+/**
+ * Income vs outcome grouped bar chart (long-format rows: day/type/value).
+ * Ported from legacy IncomeOutcomeChart. Series colors come from the chart
+ * palette; bars are grouped (not stacked) with a maxWidth cap.
+ */
+export function buildIncomeOutcomeSpec(
+  colors: ChartColors,
+  data: IncomeOutcomePoint[],
+): VChartSpec {
+  return {
+    type: 'bar',
+    data: [{ id: 'income-outcome', values: data }],
+    xField: 'day',
+    yField: 'value',
+    seriesField: 'type',
+    stack: false,
+    bar: { style: { maxWidth: 14 } },
+    axes: buildAxes(colors),
+    color: colors.series,
+    legends: {
+      visible: true,
+      position: 'top',
+      item: {
+        label: { style: { fill: colors.axisLabel } },
+      },
+    },
+    animation: !prefersReducedMotion(),
+    animationAppear: ANIMATION_APPEAR.bar,
+    background: 'transparent',
+    padding: PADDING,
+  }
+}
+
+/**
+ * Per-site spend trend line chart (long-format rows: date/site/spend/calls).
+ * Ported from legacy SiteTrendChart. One series per site; legends at bottom.
+ */
+export function buildSiteTrendSpec(
+  colors: ChartColors,
+  data: SiteTrendPoint[],
+): VChartSpec {
+  return {
+    type: 'line',
+    data: [{ id: 'site-trend', values: data }],
+    xField: 'date',
+    yField: 'spend',
+    seriesField: 'site',
+    axes: buildAxes(colors),
+    color: colors.series,
+    legends: {
+      visible: true,
+      position: 'bottom',
+      item: {
+        shape: { style: { symbolType: 'circle' } },
+        label: { style: { fill: colors.axisLabel } },
+      },
+    },
+    line: { style: { curveType: 'monotone' } },
+    point: { style: { fill: colors.onPrimary, stroke: colors.series } },
+    animation: !prefersReducedMotion(),
+    animationAppear: ANIMATION_APPEAR.line,
+    background: 'transparent',
+    padding: PADDING,
+  }
+}
+
+/**
+ * Site balance distribution donut (slice per site). Ported from legacy
+ * SiteDistributionChart. `labelColor` is the outside-label fill (resolved via
+ * useThemeLabelColor in the legacy donut charts).
+ */
+export function buildSiteDistributionSpec(
+  colors: ChartColors,
+  labelColor: string,
+  data: SiteDistributionSlice[],
+): VChartSpec {
+  const values = data.map((slice) => ({
+    siteName: slice.siteName,
+    value: slice.totalBalance,
+    accountCount: slice.accountCount,
+    totalSpend: slice.totalSpend,
+  }))
+  return {
+    type: 'pie',
+    data: [{ id: 'site-distribution', values }],
+    valueField: 'value',
+    categoryField: 'siteName',
+    outerRadius: 0.8,
+    innerRadius: 0.55,
+    padAngle: 0.02,
+    cornerRadius: 4,
+    color: colors.series,
+    label: {
+      visible: true,
+      position: 'outside',
+      text: '{_percent_}%',
+      style: { fontSize: 11, fill: labelColor },
+    },
+    pie: {
+      style: {
+        cornerRadius: 4,
+        stroke: colors.grid,
+        lineWidth: 1,
+      },
+    },
+    legends: {
+      visible: true,
+      position: 'bottom',
+      item: {
+        label: { style: { fill: colors.axisLabel } },
+      },
+    },
+    animation: !prefersReducedMotion(),
+    animationAppear: ANIMATION_APPEAR.pie,
+    background: 'transparent',
+    padding: PADDING,
+  }
+}
+
+/**
+ * Model cost distribution donut (slice per model). Ported from legacy
+ * CostDistributionChart. Same donut shape as site distribution but keyed on
+ * model name and valued by cost; tooltip carries calls / tokens / share.
+ */
+export function buildModelCostSpec(
+  colors: ChartColors,
+  labelColor: string,
+  data: ModelCostRow[],
+): VChartSpec {
+  const values = data.map((row) => ({
+    model: row.label || row.model,
+    value: row.cost,
+    calls: row.calls,
+    tokens: row.tokens,
+  }))
+  return {
+    type: 'pie',
+    data: [{ id: 'model-cost', values }],
+    valueField: 'value',
+    categoryField: 'model',
+    outerRadius: 0.85,
+    innerRadius: 0.62,
+    padAngle: 0.6,
+    cornerRadius: 3,
+    color: colors.series,
+    label: {
+      visible: true,
+      position: 'outside',
+      text: '{_percent_}%',
+      style: { fontSize: 11, fill: labelColor },
+    },
+    pie: {
+      style: {
+        cornerRadius: 3,
+        stroke: colors.grid,
+        lineWidth: 1,
+      },
+    },
+    legends: {
+      visible: true,
+      position: 'bottom',
+      item: {
+        label: { style: { fill: colors.axisLabel } },
+      },
+    },
+    animation: !prefersReducedMotion(),
+    animationAppear: ANIMATION_APPEAR.pie,
+    background: 'transparent',
+    padding: PADDING,
+  }
+}

@@ -1,0 +1,271 @@
+// metapi-go features/accounts/api — TanStack Query hooks for the accounts
+// domain. Establishes the query-key conventions for the rewrite:
+//   ['accounts']               — snapshot list (GET /api/accounts)
+//   ['account-tokens', id]      — tokens for an account (see tokens/api.ts)
+//
+// Mutations wrap the flat `api` object from @/lib/api. The shared axios layer
+// in @/lib/http-client already toasts business errors ({success:false}) and
+// HTTP failures, so these hooks keep their own error handling minimal: the
+// mutationFn throws on a `success:false` body so useMutation transitions to
+// error state (and so mutateAsync rejects in the form handler), while
+// success-side cache invalidation + UI toasts live in the components.
+
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseQueryOptions,
+} from '@tanstack/react-query'
+import { toast } from 'sonner'
+
+import { api } from '@/lib/api'
+
+import {
+  type Account,
+  type AccountPayload,
+  type AccountStatus,
+  type AccountsSnapshot,
+} from './types'
+
+// ---------------------------------------------------------------------------
+// Query keys
+// ---------------------------------------------------------------------------
+
+export const accountQueryKeys = {
+  all: ['accounts'] as const,
+  snapshot: () => [...accountQueryKeys.all, 'snapshot'] as const,
+  detail: (id: number) => ['accounts', 'detail', id] as const,
+}
+
+// ---------------------------------------------------------------------------
+// Envelope helper — backend returns {success, message, data} for writes.
+// http-client already toasted the failure; we only throw to flip the mutation
+// to its error state and reject mutateAsync.
+// ---------------------------------------------------------------------------
+
+function assertBusinessOk<T>(result: unknown, fallback: string): T {
+  const envelope = result as { success?: unknown; message?: unknown; data?: unknown }
+  if (
+    envelope &&
+    typeof envelope.success === 'boolean' &&
+    !envelope.success
+  ) {
+    throw new Error(typeof envelope.message === 'string' ? envelope.message : fallback)
+  }
+  return (result as T) ?? (envelope?.data as T)
+}
+
+// ---------------------------------------------------------------------------
+// useAccounts — snapshot list (accounts + sites + generatedAt)
+// ---------------------------------------------------------------------------
+
+export function useAccounts(
+  options?: Omit<
+    UseQueryOptions<AccountsSnapshot>,
+    'queryKey' | 'queryFn'
+  >,
+) {
+  return useQuery({
+    queryKey: accountQueryKeys.snapshot(),
+    queryFn: async () => {
+      const snapshot = await api.getAccountsSnapshot()
+      if (!snapshot || !Array.isArray(snapshot.accounts)) {
+        throw new Error('Failed to load accounts snapshot')
+      }
+      return snapshot as AccountsSnapshot
+    },
+    staleTime: 10 * 1000,
+    ...options,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// useCreateAccount — POST /api/accounts
+// ---------------------------------------------------------------------------
+
+export interface CreateAccountResult {
+  success?: boolean
+  message?: string
+  data?: { id?: number; account?: { id?: number } } & Record<string, unknown>
+}
+
+export function useCreateAccount() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: AccountPayload) => {
+      const result = await api.addAccount(payload)
+      return assertBusinessOk<CreateAccountResult>(result, '添加账号失败')
+    },
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
+      // The create form owns the success surface — it fires the guided
+      // "next step: configure routes" toast (account-created-toast.tsx)
+      // rather than a plain confirmation, so this hook stays toast-free.
+      return data
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// useUpdateAccount — PUT /api/accounts/:id
+// ---------------------------------------------------------------------------
+
+export function useUpdateAccount() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      payload,
+    }: {
+      id: number
+      payload: AccountPayload
+    }) => {
+      const result = await api.updateAccount(id, payload)
+      return assertBusinessOk(result, '更新账号失败')
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
+      toast.success('账号已更新')
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// useRefreshAccount — POST /api/accounts/:id/balance (per-row 余额刷新)
+// ---------------------------------------------------------------------------
+
+export function useRefreshAccount() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const result = await api.refreshBalance(id)
+      return assertBusinessOk(result, '刷新余额失败')
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
+      toast.success('余额已刷新')
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// useDeleteAccount — DELETE /api/accounts/:id
+// ---------------------------------------------------------------------------
+
+export function useDeleteAccount() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const result = await api.deleteAccount(id)
+      return assertBusinessOk(result, '删除账号失败')
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
+      toast.success('账号已删除')
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// useBatchUpdateAccounts — POST /api/accounts/batch { ids, action }
+// action: 'enable' | 'disable' | 'delete' | 'refreshBalance'
+// ---------------------------------------------------------------------------
+
+export type BatchAccountAction =
+  | 'enable'
+  | 'disable'
+  | 'delete'
+  | 'refreshBalance'
+
+export interface BatchAccountResult {
+  successIds?: number[]
+  failedItems?: Array<{ id: number; message?: string }>
+}
+
+export function useBatchUpdateAccounts() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      ids,
+      action,
+    }: {
+      ids: number[]
+      action: BatchAccountAction
+    }) => {
+      const result = await api.batchUpdateAccounts({ ids, action })
+      return assertBusinessOk<BatchAccountResult>(result, '批量操作失败')
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Field-level toggle mutations — used by row actions (pin / status / checkin).
+// These send partial bodies to PUT /api/accounts/:id (the backend accepts
+// sparse updates) and only invalidate the snapshot cache.
+// ---------------------------------------------------------------------------
+
+export function useToggleAccountPin() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, isPinned }: { id: number; isPinned: boolean }) => {
+      const result = await api.updateAccount(id, { isPinned })
+      return assertBusinessOk(result, '更新置顶失败')
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
+    },
+  })
+}
+
+export function useToggleAccountStatus() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      status,
+    }: {
+      id: number
+      status: AccountStatus
+    }) => {
+      const result = await api.updateAccount(id, { status })
+      return assertBusinessOk(result, '更新状态失败')
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
+    },
+  })
+}
+
+export function useToggleAccountCheckin() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      checkinEnabled,
+    }: {
+      id: number
+      checkinEnabled: boolean
+    }) => {
+      const result = await api.updateAccount(id, { checkinEnabled })
+      return assertBusinessOk(result, '更新签到失败')
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Convenience selector — resolve a single account from the snapshot cache.
+// Useful for the detail sheet when navigating via ?accountId=.
+// ---------------------------------------------------------------------------
+
+export function selectAccountById(
+  snapshot: AccountsSnapshot | undefined,
+  id: number,
+): Account | undefined {
+  return snapshot?.accounts.find((account) => account.id === id)
+}

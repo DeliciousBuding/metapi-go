@@ -1,0 +1,111 @@
+// metapi-go/features/dashboard — shared types for the 4-section Dashboard
+// workspace (plan.md §5.5.1). The dashboard is split into overview / traffic /
+// models / availability; each section owns a lazy builder (`build`) returning
+// its content ReactNode. Phase 2 ships chart wiring + stub data; phase 3
+// swaps in real API data from lib/api.ts (getDashboardSnapshot /
+// getBalanceIncomeOutcome / getSiteTrend / getActiveAnnouncements etc.).
+
+import type { ReactNode } from 'react'
+
+/**
+ * The 4 dashboard sections, in main-sidebar / tab order.
+ */
+export type DashboardSectionId = 'overview' | 'traffic' | 'models' | 'availability'
+
+/**
+ * A single dashboard section — the leaf unit of the Dashboard workspace.
+ *
+ * `build` is a lazy content builder. Phase 2 sections render real chart
+ * wiring (useChartColors + VChart spec + shadcn chart container) fed by stub
+ * data arrays; phase 3 replaces the stub data with TanStack Query hooks over
+ * the stats/dashboard API surface.
+ */
+export type DashboardSection = {
+  /** Stable id used in the URL (`/dashboard/<id>`). */
+  id: string
+  /** Human label shown in the section tabs + page header. */
+  title: string
+  /** Short description shown under the page header (optional). */
+  description?: string
+  /** Lazy content builder. */
+  build: () => ReactNode
+}
+
+/**
+ * Nav item produced by the section registry for the dashboard tabs.
+ */
+export type DashboardSectionNavItem = {
+  title: string
+  url: string
+}
+
+// ---------------------------------------------------------------------------
+// Chart data shapes — stub contracts for phase 2. Phase 3 will align these
+// 1:1 with the response types of the corresponding api.ts methods
+// (getBalanceIncomeOutcome, getSiteTrend, getSiteDistribution,
+// getModelCostDistribution). Kept minimal so the VChart spec builders can be
+// wired now and fed real data later without reshaping.
+// ---------------------------------------------------------------------------
+
+/** Long-format row for the income vs outcome grouped bar chart. */
+export type IncomeOutcomePoint = {
+  day: string
+  /** 'income' | 'outcome' — the series discriminator. */
+  type: string
+  value: number
+}
+
+/** Long-format row for the per-site trend line chart. */
+export type SiteTrendPoint = {
+  date: string
+  site: string
+  spend: number
+  calls: number
+}
+
+/** Slice for the site distribution donut. */
+export type SiteDistributionSlice = {
+  siteName: string
+  platform: string
+  totalBalance: number
+  totalSpend: number
+  accountCount: number
+}
+
+/** Model cost row for the models-section distribution chart. */
+export type ModelCostRow = {
+  model: string
+  label: string
+  cost: number
+  calls: number
+  tokens: number
+}
+
+/** Realtime ops WebSocket frame — one point per second. */
+export type RealtimeOpsFrame = {
+  lifetime: number
+  points: Array<{ ts: number; total: number; success: number }>
+}
+
+/** Live traffic sparkline sample (rolling 60s window). */
+export type RealtimeOpsSample = {
+  qps: number
+  successRate: number
+  lifetime: number
+  spark: number[]
+  connected: boolean
+  gaveUp: boolean
+}
+
+/** Active announcement (product-risk banner). */
+export type AnnouncementItem = {
+  id: number
+  title: string
+  message: string
+  severity: 'info' | 'warning' | 'critical'
+  link?: string | null
+  dismissed?: boolean
+}
+
+/** VChart spec — opaque record; VChart accepts a broad spec shape. */
+export type VChartSpec = Record<string, unknown>
