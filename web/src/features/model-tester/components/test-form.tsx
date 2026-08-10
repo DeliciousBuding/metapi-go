@@ -142,7 +142,7 @@ export function TestForm({
           name='targetFormat'
           render={({ field }) => (
             <FormItem>
-              <FormLabel>{t('modelTester.form.targetFormat')}</FormLabel>
+              <FormLabel>{t('modelTester.form.targetFormatLabel')}</FormLabel>
               <Select
                 value={field.value}
                 onValueChange={field.onChange}

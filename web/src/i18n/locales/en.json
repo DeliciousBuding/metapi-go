@@ -1,31 +1,519 @@
 {
-  "auth": {
-    "login": {
-      "title": "Sign in",
-      "subtitle": "Sign in to the admin console",
-      "brandName": "Metapi",
-      "brandTagline": "The relay station of relay stations",
-      "tokenLabel": "Admin Token",
-      "tokenPlaceholder": "Enter your admin token",
-      "tokenRequired": "Please enter the admin token",
-      "submit": "Sign in",
-      "submitting": "Signing in...",
-      "welcomeBack": "Welcome back!",
-      "note": "Only local server access is verified; the token is never sent to a third party."
-    }
-  },
-  "errors": {
-    "login": {
-      "invalidToken": "The login token is invalid.",
-      "ipNotAllowed": "Your IP is not in the admin whitelist.",
-      "serverError": "Server error, please try again later.",
-      "serverUnreachable": "Unable to connect to the server.",
-      "failed": "Login failed, please check the service status."
+  "translation": {
+    "auth": {
+      "login": {
+        "title": "Sign in",
+        "subtitle": "Sign in to the admin console",
+        "brandName": "Metapi",
+        "brandTagline": "The relay station of relay stations",
+        "tokenLabel": "Admin Token",
+        "tokenPlaceholder": "Enter your admin token",
+        "tokenRequired": "Please enter the admin token",
+        "submit": "Sign in",
+        "submitting": "Signing in...",
+        "welcomeBack": "Welcome back!",
+        "note": "Only local server access is verified; the token is never sent to a third party."
+      }
     },
-    "internalServerError": "Internal Server Error!"
-  },
-  "common": {
-    "dashboardTbd": "Dashboard TBD",
-    "skipToMain": "Skip to main content"
+    "errors": {
+      "login": {
+        "invalidToken": "The login token is invalid.",
+        "ipNotAllowed": "Your IP is not in the admin whitelist.",
+        "serverError": "Server error, please try again later.",
+        "serverUnreachable": "Unable to connect to the server.",
+        "failed": "Login failed, please check the service status."
+      },
+      "internalServerError": "Internal Server Error!"
+    },
+    "common": {
+      "dashboardTbd": "Dashboard TBD",
+      "skipToMain": "Skip to main content",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "save": "Save",
+      "delete": "Delete",
+      "search": "Search",
+      "refresh": "Refresh",
+      "loading": "Loading...",
+      "noData": "No data",
+      "edit": "Edit",
+      "create": "Create",
+      "close": "Close",
+      "back": "Back",
+      "yes": "Yes",
+      "no": "No",
+      "actions": "Actions",
+      "status": "Status",
+      "name": "Name",
+      "optional": "Optional"
+    },
+    "about": {
+      "title": "About",
+      "description": "Project information, build details, and useful links.",
+      "sections": {
+        "projectInfo": "Project info",
+        "projectInfoDescription": "Basic metadata about this deployment.",
+        "buildInfo": "Build info",
+        "buildInfoDescription": "Version and build details of the running binary.",
+        "dependencies": "Dependencies",
+        "dependenciesDescription": "Key libraries that power this project.",
+        "links": "Links",
+        "linksDescription": "Repository, homepage, and issue tracker."
+      },
+      "fields": {
+        "projectName": "Project name",
+        "description": "Description",
+        "version": "Version",
+        "license": "License",
+        "author": "Author",
+        "buildTime": "Build time",
+        "commit": "Commit",
+        "goVersion": "Go version"
+      },
+      "deps": {
+        "framework": "Framework",
+        "build": "Build",
+        "data": "Data",
+        "ui": "UI",
+        "form": "Form",
+        "style": "Style"
+      },
+      "links": {
+        "repository": "Repository",
+        "homepage": "Homepage",
+        "issues": "Issues",
+        "author": "Author"
+      },
+      "footer": {
+        "copyright": "© {{year}} Metapi. All rights reserved."
+      }
+    },
+    "models": {
+      "toast": {
+        "refreshSucceeded": "Models refreshed.",
+        "refreshFailed": "Failed to refresh models."
+      },
+      "empty": {
+        "title": "No models",
+        "description": "Models will appear here once accounts are connected."
+      },
+      "toolbar": {
+        "searchPlaceholder": "Search models...",
+        "refresh": "Refresh"
+      },
+      "detail": {
+        "noDescription": "No description available.",
+        "accounts": "Accounts",
+        "tokens": "Tokens",
+        "latency": "Latency",
+        "successRate": "Success rate",
+        "capabilities": "Capabilities",
+        "pricing": "Pricing",
+        "unknownUser": "Unknown user",
+        "availableAccounts": "Available accounts",
+        "testModel": "Test model",
+        "openTester": "Open tester"
+      },
+      "columns": {
+        "brand": "Brand",
+        "unknownBrand": "Unknown brand",
+        "name": "Name",
+        "capabilities": "Capabilities",
+        "accountCount": "Accounts",
+        "latency": "Latency",
+        "successRate": "Success rate",
+        "priceInput": "Input price",
+        "actions": "Actions",
+        "rowActions": "Row actions"
+      },
+      "actions": {
+        "viewDetails": "View details",
+        "testModel": "Test model"
+      }
+    },
+    "modelTester": {
+      "form": {
+        "model": "Model",
+        "modelLoading": "Loading models...",
+        "modelPlaceholder": "Select a model",
+        "targetFormatLabel": "Target format",
+        "targetFormat": {
+          "openai": "OpenAI",
+          "claude": "Claude",
+          "responses": "Responses",
+          "gemini": "Gemini"
+        },
+        "systemPrompt": "System prompt",
+        "systemPromptPlaceholder": "Enter a system prompt (optional)",
+        "prompt": "Prompt",
+        "promptPlaceholder": "Enter a prompt",
+        "temperature": "Temperature",
+        "topP": "Top P",
+        "maxTokens": "Max tokens",
+        "maxTokensHint": "Maximum number of tokens to generate.",
+        "stream": "Stream",
+        "streamHint": "Stream the response token by token.",
+        "stop": "Stop",
+        "submit": "Send",
+        "errors": {
+          "modelRequired": "Please select a model.",
+          "systemTooLong": "System prompt must be at most 4000 characters.",
+          "promptRequired": "Please enter a prompt.",
+          "promptTooLong": "Prompt must be at most 16000 characters.",
+          "temperatureMin": "Temperature must be at least 0.",
+          "temperatureMax": "Temperature must be at most 2.",
+          "topPMin": "Top P must be at least 0.",
+          "topPMax": "Top P must be at most 1.",
+          "maxTokensInteger": "Max tokens must be an integer.",
+          "maxTokensMin": "Max tokens must be at least 0.",
+          "maxTokensMax": "Max tokens must be at most 128000."
+        }
+      },
+      "toast": {
+        "empty": "The response is empty.",
+        "succeeded": "Request succeeded.",
+        "stopped": "Request stopped.",
+        "failed": "Request failed."
+      },
+      "error": {
+        "stopped": "Request was stopped.",
+        "unknown": "An unknown error occurred."
+      },
+      "viewer": {
+        "title": "Response",
+        "streaming": "Streaming",
+        "empty": "Empty",
+        "done": "Done",
+        "latency": "Latency: {{value}}",
+        "chunks": "Chunks: {{value}}",
+        "noDone": "No done signal",
+        "error": "Error",
+        "emptyHint": "Send a request to see the response here.",
+        "tabContent": "Content",
+        "tabReasoning": "Reasoning",
+        "tabRaw": "Raw",
+        "awaitingContent": "Waiting for response...",
+        "noContent": "No content",
+        "noReasoning": "No reasoning",
+        "noRaw": "No raw events",
+        "hint": "Tip: reasoning and raw tabs show extra model output.",
+        "contentChars": "{{value}} chars"
+      }
+    },
+    "oauth": {
+      "form": {
+        "startTitle": "Start authorization",
+        "startDescription": "Connect an OAuth account to enable it for routing.",
+        "startSucceeded": "Authorization started.",
+        "startFailed": "Failed to start authorization.",
+        "provider": "Provider",
+        "providerPlaceholder": "Select a provider",
+        "projectId": "Project ID",
+        "projectIdPlaceholder": "Enter the project ID",
+        "projectIdDescription": "Required by providers that issue project-scoped credentials.",
+        "proxyUrl": "Proxy URL",
+        "optionalUrlPlaceholder": "Leave empty to use the system proxy",
+        "useSystemProxy": "Use system proxy",
+        "useSystemProxyDescription": "Route the OAuth flow through the system-configured proxy.",
+        "cancel": "Cancel",
+        "start": "Start",
+        "errors": {
+          "projectIdRequired": "Please enter the project ID.",
+          "invalidProxyUrl": "Please enter a valid http or https URL.",
+          "providerRequired": "Please select a provider."
+        }
+      },
+      "toast": {
+        "quotaRefreshed": "Quota refresh requested for #{{id}}.",
+        "quotaRefreshFailed": "Failed to refresh quota.",
+        "rebindStarted": "Rebind started for #{{id}}.",
+        "rebindFailed": "Failed to start rebind.",
+        "deleted": "Connection #{{id}} deleted.",
+        "deleteFailed": "Failed to delete the connection."
+      },
+      "empty": {
+        "title": "No connections",
+        "description": "Connect an OAuth account to get started.",
+        "startAuth": "Start authorization"
+      },
+      "toolbar": {
+        "searchPlaceholder": "Search connections...",
+        "startAuth": "Start authorization"
+      },
+      "delete": {
+        "title": "Delete connection",
+        "description": "This will remove the {{provider}} connection #{{id}}. This action cannot be undone.",
+        "cancel": "Cancel",
+        "confirm": "Delete"
+      },
+      "columns": {
+        "selectAll": "Select all",
+        "selectRow": "Select row",
+        "provider": "Provider",
+        "username": "Username",
+        "site": "Site",
+        "status": "Status",
+        "modelCount": "Models",
+        "lastSync": "Last sync",
+        "actions": "Actions",
+        "rowActions": "Row actions"
+      },
+      "actions": {
+        "refreshQuota": "Refresh quota",
+        "rebind": "Rebind",
+        "delete": "Delete"
+      },
+      "status": {
+        "healthy": "Healthy",
+        "abnormal": "Abnormal"
+      }
+    },
+    "siteAnnouncements": {
+      "toast": {
+        "deleted": "Announcement \"{{title}}\" deleted.",
+        "deleteFailed": "Failed to delete the announcement."
+      },
+      "empty": {
+        "title": "No announcements",
+        "description": "Announcements will appear here once created.",
+        "add": "Add announcement"
+      },
+      "toolbar": {
+        "searchPlaceholder": "Search announcements...",
+        "add": "Add announcement"
+      },
+      "delete": {
+        "title": "Delete announcement",
+        "description": "This will delete the announcement \"{{title}}\". This action cannot be undone.",
+        "cancel": "Cancel",
+        "confirm": "Delete"
+      },
+      "form": {
+        "addTitle": "Add announcement",
+        "editTitle": "Edit announcement",
+        "addDescription": "Create a new site announcement.",
+        "editDescription": "Update the announcement details.",
+        "title": "Title",
+        "titlePlaceholder": "Enter the title",
+        "message": "Message",
+        "messagePlaceholder": "Enter the message body",
+        "messageDescription": "Shown to users when the announcement is active.",
+        "severity": "Severity",
+        "severityPlaceholder": "Select a severity",
+        "link": "Link",
+        "linkPlaceholder": "https://example.com",
+        "linkDescription": "Optional URL for more details.",
+        "enabled": "Enabled",
+        "enabledDescription": "Whether this announcement is currently active.",
+        "cancel": "Cancel",
+        "save": "Save",
+        "create": "Create",
+        "createSucceeded": "Announcement \"{{title}}\" created.",
+        "updateSucceeded": "Announcement \"{{title}}\" updated.",
+        "createFailed": "Failed to create the announcement.",
+        "updateFailed": "Failed to update the announcement.",
+        "errors": {
+          "invalidLink": "Please enter a valid URL.",
+          "titleRequired": "Please enter a title.",
+          "titleTooLong": "Title must be at most 200 characters.",
+          "messageRequired": "Please enter a message.",
+          "messageTooLong": "Message must be at most 2000 characters."
+        }
+      },
+      "columns": {
+        "selectAll": "Select all",
+        "selectRow": "Select row",
+        "title": "Title",
+        "severity": "Severity",
+        "enabled": "Enabled",
+        "link": "Link",
+        "openLink": "Open link",
+        "createdAt": "Created at",
+        "actions": "Actions",
+        "rowActions": "Row actions"
+      },
+      "actions": {
+        "edit": "Edit",
+        "delete": "Delete"
+      },
+      "severity": {
+        "info": "Info",
+        "warning": "Warning",
+        "critical": "Critical"
+      },
+      "enabled": {
+        "on": "Enabled",
+        "off": "Disabled"
+      }
+    },
+    "sites": {
+      "toast": {
+        "statusToggled": "Site \"{{name}}\" updated.",
+        "statusToggleFailed": "Failed to update the site status.",
+        "pinToggled": "Pin updated for \"{{name}}\".",
+        "pinToggleFailed": "Failed to update the pin.",
+        "deleted": "Site \"{{name}}\" deleted.",
+        "deleteFailed": "Failed to delete the site.",
+        "bulkSucceeded": "{{count}} site(s) updated successfully.",
+        "bulkPartial": "{{success}} succeeded, {{failed}} failed.",
+        "bulkFailed": "Bulk operation failed."
+      },
+      "empty": {
+        "title": "No sites",
+        "description": "Add a site to start routing requests.",
+        "addSite": "Add site"
+      },
+      "toolbar": {
+        "searchPlaceholder": "Search sites...",
+        "addSite": "Add site"
+      },
+      "entityName": "Site",
+      "bulk": {
+        "enable": "Enable",
+        "disable": "Disable",
+        "delete": "Delete"
+      },
+      "deleteConfirm": {
+        "title": "Delete site",
+        "body": "This will delete the site \"{{name}}\". This action cannot be undone.",
+        "bodyFallback": "This will delete the selected site. This action cannot be undone.",
+        "cancel": "Cancel",
+        "confirm": "Delete"
+      },
+      "columns": {
+        "selectAll": "Select all",
+        "selectRow": "Select row",
+        "name": "Name",
+        "url": "URL",
+        "status": "Status",
+        "platform": "Platform",
+        "accountCount": "Accounts",
+        "globalWeight": "Weight",
+        "actions": "Actions",
+        "rowActions": "Row actions"
+      },
+      "actions": {
+        "viewDetails": "View details",
+        "edit": "Edit",
+        "disable": "Disable",
+        "enable": "Enable",
+        "unpin": "Unpin",
+        "pin": "Pin",
+        "delete": "Delete"
+      },
+      "status": {
+        "active": "Active",
+        "disabled": "Disabled"
+      },
+      "form": {
+        "addTitle": "Add site",
+        "editTitle": "Edit site",
+        "addDescription": "Register a new upstream site.",
+        "editDescription": "Update the site configuration.",
+        "name": "Name",
+        "namePlaceholder": "Enter a site name",
+        "platform": "Platform",
+        "platformPlaceholder": "Select a platform",
+        "url": "URL",
+        "detect": "Detect",
+        "detectRequiresUrl": "Enter a URL to auto-detect the platform.",
+        "detectSucceeded": "Platform detected.",
+        "detectFailed": "Could not detect the platform.",
+        "externalCheckinUrl": "External check-in URL",
+        "optionalUrlPlaceholder": "Leave empty to use the site URL",
+        "proxyUrl": "Proxy URL",
+        "globalWeight": "Global weight",
+        "maxConcurrency": "Max concurrency",
+        "maxConcurrencyHint": "Maximum concurrent requests (0 = unlimited).",
+        "useSystemProxy": "Use system proxy",
+        "useSystemProxyHint": "Route this site's traffic through the system-configured proxy.",
+        "customHeaders": "Custom headers",
+        "customHeadersHint": "JSON object of extra request headers.",
+        "postRefreshProbeEnabled": "Post-refresh probe",
+        "postRefreshProbeEnabledHint": "Send a probe request after each token refresh to verify the account.",
+        "postRefreshProbeModel": "Probe model",
+        "postRefreshProbeModelPlaceholder": "Enter a model name",
+        "scopePlaceholder": "Select a scope",
+        "scopeAll": "All accounts",
+        "scopeSingle": "Single account",
+        "cancel": "Cancel",
+        "save": "Save",
+        "create": "Create",
+        "createSucceeded": "Site \"{{name}}\" created.",
+        "updateSucceeded": "Site \"{{name}}\" updated.",
+        "createFailed": "Failed to create the site.",
+        "updateFailed": "Failed to update the site.",
+        "errors": {
+          "invalidUrl": "Please enter a valid URL.",
+          "invalidUrlOrEmpty": "Please enter a valid URL, or leave it empty.",
+          "invalidJson": "Please enter valid JSON.",
+          "nameRequired": "Please enter a name.",
+          "nameTooLong": "Name must be at most 100 characters.",
+          "urlRequired": "Please enter a URL.",
+          "platformTooLong": "Platform must be at most 50 characters.",
+          "globalWeightMin": "Weight must be at least 0.",
+          "maxConcurrencyInteger": "Max concurrency must be an integer.",
+          "maxConcurrencyMin": "Max concurrency must be at least 0.",
+          "latencyInteger": "Latency must be an integer.",
+          "latencyMin": "Latency must be at least 0."
+        }
+      },
+      "detail": {
+        "pinned": "Pinned",
+        "url": "URL",
+        "externalCheckinUrl": "External check-in URL",
+        "platform": "Platform",
+        "globalWeight": "Global weight",
+        "maxConcurrency": "Max concurrency",
+        "unlimited": "Unlimited",
+        "useSystemProxy": "Use system proxy",
+        "yes": "Yes",
+        "no": "No",
+        "proxyUrl": "Proxy URL",
+        "endpoints": "Endpoints",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "tags": "Tags",
+        "manageAccounts": "Manage accounts",
+        "manageRoutes": "Manage routes",
+        "editSite": "Edit site"
+      },
+      "created": {
+        "title": "Site created",
+        "description": "The site \"{{name}}\" was created successfully.",
+        "descriptionFallback": "The site was created successfully.",
+        "nextStepLabel": "Next step",
+        "nextStepBody": "Connect an account to start routing through this site.",
+        "dismiss": "Dismiss",
+        "goToAccounts": "Go to accounts"
+      }
+    },
+    "No Data": "No Data",
+    "No data available": "No data available",
+    "No records found. Try adjusting your filters.": "No records found. Try adjusting your filters.",
+    "Filter...": "Filter...",
+    "Reset": "Reset",
+    "Search": "Search",
+    "View": "View",
+    "Toggle columns": "Toggle columns",
+    "Card view": "Card view",
+    "Table view": "Table view",
+    "View mode": "View mode",
+    "selected": "selected",
+    "No results found.": "No results found.",
+    "Clear filters": "Clear filters",
+    "Clear selection": "Clear selection",
+    "Clear selection (Escape)": "Clear selection (Escape)",
+    "Resize column": "Resize column",
+    "Total:": "Total:",
+    "Rows per page": "Rows per page",
+    "Go to first page": "Go to first page",
+    "Go to previous page": "Go to previous page",
+    "Go to page {{page}}": "Go to page {{page}}",
+    "Go to next page": "Go to next page",
+    "Go to last page": "Go to last page",
+    "Asc": "Asc",
+    "Desc": "Desc",
+    "Hide": "Hide"
   }
 }

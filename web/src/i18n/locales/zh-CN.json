@@ -1,31 +1,519 @@
 {
-  "auth": {
-    "login": {
-      "title": "登录",
-      "subtitle": "登录管理控制台",
-      "brandName": "Metapi",
-      "brandTagline": "中转站的中转站",
-      "tokenLabel": "管理员令牌",
-      "tokenPlaceholder": "请输入管理员令牌",
-      "tokenRequired": "请输入管理员令牌",
-      "submit": "登录",
-      "submitting": "登录中...",
-      "welcomeBack": "欢迎回来！",
-      "note": "仅校验本地服务访问权限，不会把令牌发送到第三方。"
-    }
-  },
-  "errors": {
-    "login": {
-      "invalidToken": "登录令牌无效。",
-      "ipNotAllowed": "当前 IP 不在管理白名单中。",
-      "serverError": "服务端异常，请稍后重试。",
-      "serverUnreachable": "无法连接到服务器。",
-      "failed": "登录失败，请检查服务状态。"
+  "translation": {
+    "auth": {
+      "login": {
+        "title": "登录",
+        "subtitle": "登录管理控制台",
+        "brandName": "Metapi",
+        "brandTagline": "中转站的中转站",
+        "tokenLabel": "管理员令牌",
+        "tokenPlaceholder": "请输入管理员令牌",
+        "tokenRequired": "请输入管理员令牌",
+        "submit": "登录",
+        "submitting": "登录中...",
+        "welcomeBack": "欢迎回来！",
+        "note": "仅校验本地服务访问权限，不会把令牌发送给第三方。"
+      }
     },
-    "internalServerError": "服务器内部错误！"
-  },
-  "common": {
-    "dashboardTbd": "仪表盘待定",
-    "skipToMain": "跳转到主要内容"
+    "errors": {
+      "login": {
+        "invalidToken": "登录令牌无效。",
+        "ipNotAllowed": "当前 IP 不在管理白名单中。",
+        "serverError": "服务端异常，请稍后重试。",
+        "serverUnreachable": "无法连接到服务器。",
+        "failed": "登录失败，请检查服务状态。"
+      },
+      "internalServerError": "服务器内部错误！"
+    },
+    "common": {
+      "dashboardTbd": "仪表盘待定",
+      "skipToMain": "跳转到主要内容",
+      "confirm": "确定",
+      "cancel": "取消",
+      "save": "保存",
+      "delete": "删除",
+      "search": "搜索",
+      "refresh": "刷新",
+      "loading": "加载中...",
+      "noData": "暂无数据",
+      "edit": "编辑",
+      "create": "新建",
+      "close": "关闭",
+      "back": "返回",
+      "yes": "是",
+      "no": "否",
+      "actions": "操作",
+      "status": "状态",
+      "name": "名称",
+      "optional": "选填"
+    },
+    "about": {
+      "title": "关于",
+      "description": "项目信息、构建详情与相关链接。",
+      "sections": {
+        "projectInfo": "项目信息",
+        "projectInfoDescription": "当前部署的基本元数据。",
+        "buildInfo": "构建信息",
+        "buildInfoDescription": "运行中二进制的版本与构建详情。",
+        "dependencies": "依赖",
+        "dependenciesDescription": "驱动本项目的关键库。",
+        "links": "链接",
+        "linksDescription": "代码仓库、主页与问题追踪。"
+      },
+      "fields": {
+        "projectName": "项目名称",
+        "description": "描述",
+        "version": "版本",
+        "license": "许可证",
+        "author": "作者",
+        "buildTime": "构建时间",
+        "commit": "提交",
+        "goVersion": "Go 版本"
+      },
+      "deps": {
+        "framework": "框架",
+        "build": "构建",
+        "data": "数据",
+        "ui": "界面",
+        "form": "表单",
+        "style": "样式"
+      },
+      "links": {
+        "repository": "代码仓库",
+        "homepage": "主页",
+        "issues": "问题反馈",
+        "author": "作者"
+      },
+      "footer": {
+        "copyright": "© {{year}} Metapi. 保留所有权利。"
+      }
+    },
+    "models": {
+      "toast": {
+        "refreshSucceeded": "模型已刷新。",
+        "refreshFailed": "刷新模型失败。"
+      },
+      "empty": {
+        "title": "暂无模型",
+        "description": "连接账号后，模型会显示在这里。"
+      },
+      "toolbar": {
+        "searchPlaceholder": "搜索模型...",
+        "refresh": "刷新"
+      },
+      "detail": {
+        "noDescription": "暂无描述。",
+        "accounts": "账号",
+        "tokens": "令牌",
+        "latency": "延迟",
+        "successRate": "成功率",
+        "capabilities": "能力",
+        "pricing": "价格",
+        "unknownUser": "未知用户",
+        "availableAccounts": "可用账号",
+        "testModel": "测试模型",
+        "openTester": "打开测试器"
+      },
+      "columns": {
+        "brand": "品牌",
+        "unknownBrand": "未知品牌",
+        "name": "名称",
+        "capabilities": "能力",
+        "accountCount": "账号数",
+        "latency": "延迟",
+        "successRate": "成功率",
+        "priceInput": "输入价格",
+        "actions": "操作",
+        "rowActions": "行操作"
+      },
+      "actions": {
+        "viewDetails": "查看详情",
+        "testModel": "测试模型"
+      }
+    },
+    "modelTester": {
+      "form": {
+        "model": "模型",
+        "modelLoading": "加载模型中...",
+        "modelPlaceholder": "选择模型",
+        "targetFormatLabel": "目标格式",
+        "targetFormat": {
+          "openai": "OpenAI",
+          "claude": "Claude",
+          "responses": "Responses",
+          "gemini": "Gemini"
+        },
+        "systemPrompt": "系统提示词",
+        "systemPromptPlaceholder": "输入系统提示词（可选）",
+        "prompt": "提示词",
+        "promptPlaceholder": "输入提示词",
+        "temperature": "温度",
+        "topP": "Top P",
+        "maxTokens": "最大令牌数",
+        "maxTokensHint": "生成的最大令牌数。",
+        "stream": "流式输出",
+        "streamHint": "逐令牌流式返回响应。",
+        "stop": "停止",
+        "submit": "发送",
+        "errors": {
+          "modelRequired": "请选择模型。",
+          "systemTooLong": "系统提示词不能超过 4000 个字符。",
+          "promptRequired": "请输入提示词。",
+          "promptTooLong": "提示词不能超过 16000 个字符。",
+          "temperatureMin": "温度不能小于 0。",
+          "temperatureMax": "温度不能超过 2。",
+          "topPMin": "Top P 不能小于 0。",
+          "topPMax": "Top P 不能超过 1。",
+          "maxTokensInteger": "最大令牌数必须为整数。",
+          "maxTokensMin": "最大令牌数不能小于 0。",
+          "maxTokensMax": "最大令牌数不能超过 128000。"
+        }
+      },
+      "toast": {
+        "empty": "响应为空。",
+        "succeeded": "请求成功。",
+        "stopped": "请求已停止。",
+        "failed": "请求失败。"
+      },
+      "error": {
+        "stopped": "请求已停止。",
+        "unknown": "发生未知错误。"
+      },
+      "viewer": {
+        "title": "响应",
+        "streaming": "流式中",
+        "empty": "空响应",
+        "done": "完成",
+        "latency": "延迟：{{value}}",
+        "chunks": "分块：{{value}}",
+        "noDone": "未收到完成信号",
+        "error": "错误",
+        "emptyHint": "发送请求后可在此查看响应。",
+        "tabContent": "内容",
+        "tabReasoning": "推理",
+        "tabRaw": "原始",
+        "awaitingContent": "等待响应中...",
+        "noContent": "暂无内容",
+        "noReasoning": "暂无推理",
+        "noRaw": "暂无原始事件",
+        "hint": "提示：推理和原始选项卡显示额外的模型输出。",
+        "contentChars": "{{value}} 字符"
+      }
+    },
+    "oauth": {
+      "form": {
+        "startTitle": "开始授权",
+        "startDescription": "连接一个 OAuth 账号以启用路由。",
+        "startSucceeded": "授权已开始。",
+        "startFailed": "开始授权失败。",
+        "provider": "提供商",
+        "providerPlaceholder": "选择提供商",
+        "projectId": "项目 ID",
+        "projectIdPlaceholder": "输入项目 ID",
+        "projectIdDescription": "颁发项目级凭证的提供商需要填写。",
+        "proxyUrl": "代理地址",
+        "optionalUrlPlaceholder": "留空则使用系统代理",
+        "useSystemProxy": "使用系统代理",
+        "useSystemProxyDescription": "通过系统配置的代理路由 OAuth 流程。",
+        "cancel": "取消",
+        "start": "开始",
+        "errors": {
+          "projectIdRequired": "请输入项目 ID。",
+          "invalidProxyUrl": "请输入有效的 http 或 https 地址。",
+          "providerRequired": "请选择提供商。"
+        }
+      },
+      "toast": {
+        "quotaRefreshed": "已请求刷新 #{{id}} 的配额。",
+        "quotaRefreshFailed": "刷新配额失败。",
+        "rebindStarted": "已开始重新绑定 #{{id}}。",
+        "rebindFailed": "重新绑定失败。",
+        "deleted": "连接 #{{id}} 已删除。",
+        "deleteFailed": "删除连接失败。"
+      },
+      "empty": {
+        "title": "暂无连接",
+        "description": "连接一个 OAuth 账号即可开始。",
+        "startAuth": "开始授权"
+      },
+      "toolbar": {
+        "searchPlaceholder": "搜索连接...",
+        "startAuth": "开始授权"
+      },
+      "delete": {
+        "title": "删除连接",
+        "description": "将移除 {{provider}} 连接 #{{id}}，此操作不可撤销。",
+        "cancel": "取消",
+        "confirm": "删除"
+      },
+      "columns": {
+        "selectAll": "全选",
+        "selectRow": "选择行",
+        "provider": "提供商",
+        "username": "用户名",
+        "site": "站点",
+        "status": "状态",
+        "modelCount": "模型数",
+        "lastSync": "最近同步",
+        "actions": "操作",
+        "rowActions": "行操作"
+      },
+      "actions": {
+        "refreshQuota": "刷新配额",
+        "rebind": "重新绑定",
+        "delete": "删除"
+      },
+      "status": {
+        "healthy": "正常",
+        "abnormal": "异常"
+      }
+    },
+    "siteAnnouncements": {
+      "toast": {
+        "deleted": "公告「{{title}}」已删除。",
+        "deleteFailed": "删除公告失败。"
+      },
+      "empty": {
+        "title": "暂无公告",
+        "description": "创建后公告会显示在这里。",
+        "add": "添加公告"
+      },
+      "toolbar": {
+        "searchPlaceholder": "搜索公告...",
+        "add": "添加公告"
+      },
+      "delete": {
+        "title": "删除公告",
+        "description": "将删除公告「{{title}}」，此操作不可撤销。",
+        "cancel": "取消",
+        "confirm": "删除"
+      },
+      "form": {
+        "addTitle": "添加公告",
+        "editTitle": "编辑公告",
+        "addDescription": "创建一条新的站点公告。",
+        "editDescription": "更新公告详情。",
+        "title": "标题",
+        "titlePlaceholder": "输入标题",
+        "message": "内容",
+        "messagePlaceholder": "输入公告内容",
+        "messageDescription": "公告启用时向用户展示。",
+        "severity": "严重程度",
+        "severityPlaceholder": "选择严重程度",
+        "link": "链接",
+        "linkPlaceholder": "https://example.com",
+        "linkDescription": "可选，指向更多详情的地址。",
+        "enabled": "启用",
+        "enabledDescription": "该公告当前是否处于活动状态。",
+        "cancel": "取消",
+        "save": "保存",
+        "create": "创建",
+        "createSucceeded": "公告「{{title}}」已创建。",
+        "updateSucceeded": "公告「{{title}}」已更新。",
+        "createFailed": "创建公告失败。",
+        "updateFailed": "更新公告失败。",
+        "errors": {
+          "invalidLink": "请输入有效的地址。",
+          "titleRequired": "请输入标题。",
+          "titleTooLong": "标题不能超过 200 个字符。",
+          "messageRequired": "请输入内容。",
+          "messageTooLong": "内容不能超过 2000 个字符。"
+        }
+      },
+      "columns": {
+        "selectAll": "全选",
+        "selectRow": "选择行",
+        "title": "标题",
+        "severity": "严重程度",
+        "enabled": "启用",
+        "link": "链接",
+        "openLink": "打开链接",
+        "createdAt": "创建时间",
+        "actions": "操作",
+        "rowActions": "行操作"
+      },
+      "actions": {
+        "edit": "编辑",
+        "delete": "删除"
+      },
+      "severity": {
+        "info": "信息",
+        "warning": "警告",
+        "critical": "严重"
+      },
+      "enabled": {
+        "on": "启用",
+        "off": "禁用"
+      }
+    },
+    "sites": {
+      "toast": {
+        "statusToggled": "站点「{{name}}」已更新。",
+        "statusToggleFailed": "更新站点状态失败。",
+        "pinToggled": "「{{name}}」的置顶已更新。",
+        "pinToggleFailed": "更新置顶失败。",
+        "deleted": "站点「{{name}}」已删除。",
+        "deleteFailed": "删除站点失败。",
+        "bulkSucceeded": "已成功更新 {{count}} 个站点。",
+        "bulkPartial": "{{success}} 个成功，{{failed}} 个失败。",
+        "bulkFailed": "批量操作失败。"
+      },
+      "empty": {
+        "title": "暂无站点",
+        "description": "添加一个站点即可开始路由请求。",
+        "addSite": "添加站点"
+      },
+      "toolbar": {
+        "searchPlaceholder": "搜索站点...",
+        "addSite": "添加站点"
+      },
+      "entityName": "站点",
+      "bulk": {
+        "enable": "启用",
+        "disable": "禁用",
+        "delete": "删除"
+      },
+      "deleteConfirm": {
+        "title": "删除站点",
+        "body": "将删除站点「{{name}}」，此操作不可撤销。",
+        "bodyFallback": "将删除所选站点，此操作不可撤销。",
+        "cancel": "取消",
+        "confirm": "删除"
+      },
+      "columns": {
+        "selectAll": "全选",
+        "selectRow": "选择行",
+        "name": "名称",
+        "url": "地址",
+        "status": "状态",
+        "platform": "平台",
+        "accountCount": "账号数",
+        "globalWeight": "权重",
+        "actions": "操作",
+        "rowActions": "行操作"
+      },
+      "actions": {
+        "viewDetails": "查看详情",
+        "edit": "编辑",
+        "disable": "禁用",
+        "enable": "启用",
+        "unpin": "取消置顶",
+        "pin": "置顶",
+        "delete": "删除"
+      },
+      "status": {
+        "active": "启用中",
+        "disabled": "已禁用"
+      },
+      "form": {
+        "addTitle": "添加站点",
+        "editTitle": "编辑站点",
+        "addDescription": "注册一个新的上游站点。",
+        "editDescription": "更新站点配置。",
+        "name": "名称",
+        "namePlaceholder": "输入站点名称",
+        "platform": "平台",
+        "platformPlaceholder": "选择平台",
+        "url": "地址",
+        "detect": "自动检测",
+        "detectRequiresUrl": "输入地址后可自动检测平台。",
+        "detectSucceeded": "已检测到平台。",
+        "detectFailed": "无法检测平台。",
+        "externalCheckinUrl": "外部签到地址",
+        "optionalUrlPlaceholder": "留空则使用站点地址",
+        "proxyUrl": "代理地址",
+        "globalWeight": "全局权重",
+        "maxConcurrency": "最大并发",
+        "maxConcurrencyHint": "最大并发请求数（0 = 不限）。",
+        "useSystemProxy": "使用系统代理",
+        "useSystemProxyHint": "通过系统配置的代理路由该站点的流量。",
+        "customHeaders": "自定义请求头",
+        "customHeadersHint": "额外请求头的 JSON 对象。",
+        "postRefreshProbeEnabled": "刷新后探测",
+        "postRefreshProbeEnabledHint": "每次令牌刷新后发送探测请求以验证账号。",
+        "postRefreshProbeModel": "探测模型",
+        "postRefreshProbeModelPlaceholder": "输入模型名称",
+        "scopePlaceholder": "选择范围",
+        "scopeAll": "全部账号",
+        "scopeSingle": "单个账号",
+        "cancel": "取消",
+        "save": "保存",
+        "create": "创建",
+        "createSucceeded": "站点「{{name}}」已创建。",
+        "updateSucceeded": "站点「{{name}}」已更新。",
+        "createFailed": "创建站点失败。",
+        "updateFailed": "更新站点失败。",
+        "errors": {
+          "invalidUrl": "请输入有效的地址。",
+          "invalidUrlOrEmpty": "请输入有效的地址，或留空。",
+          "invalidJson": "请输入有效的 JSON。",
+          "nameRequired": "请输入名称。",
+          "nameTooLong": "名称不能超过 100 个字符。",
+          "urlRequired": "请输入地址。",
+          "platformTooLong": "平台不能超过 50 个字符。",
+          "globalWeightMin": "权重不能小于 0。",
+          "maxConcurrencyInteger": "最大并发必须为整数。",
+          "maxConcurrencyMin": "最大并发不能小于 0。",
+          "latencyInteger": "延迟必须为整数。",
+          "latencyMin": "延迟不能小于 0。"
+        }
+      },
+      "detail": {
+        "pinned": "已置顶",
+        "url": "地址",
+        "externalCheckinUrl": "外部签到地址",
+        "platform": "平台",
+        "globalWeight": "全局权重",
+        "maxConcurrency": "最大并发",
+        "unlimited": "不限",
+        "useSystemProxy": "使用系统代理",
+        "yes": "是",
+        "no": "否",
+        "proxyUrl": "代理地址",
+        "endpoints": "端点",
+        "enabled": "已启用",
+        "disabled": "已禁用",
+        "tags": "标签",
+        "manageAccounts": "管理账号",
+        "manageRoutes": "管理路由",
+        "editSite": "编辑站点"
+      },
+      "created": {
+        "title": "站点已创建",
+        "description": "站点「{{name}}」已成功创建。",
+        "descriptionFallback": "站点已成功创建。",
+        "nextStepLabel": "下一步",
+        "nextStepBody": "连接一个账号即可开始通过该站点路由。",
+        "dismiss": "知道了",
+        "goToAccounts": "前往账号"
+      }
+    },
+    "No Data": "暂无数据",
+    "No data available": "暂无可用数据",
+    "No records found. Try adjusting your filters.": "未找到记录，请尝试调整筛选条件。",
+    "Filter...": "筛选...",
+    "Reset": "重置",
+    "Search": "搜索",
+    "View": "查看",
+    "Toggle columns": "切换列",
+    "Card view": "卡片视图",
+    "Table view": "表格视图",
+    "View mode": "视图模式",
+    "selected": "已选",
+    "No results found.": "未找到结果。",
+    "Clear filters": "清除筛选",
+    "Clear selection": "清除选择",
+    "Clear selection (Escape)": "清除选择（Esc）",
+    "Resize column": "调整列宽",
+    "Total:": "共计：",
+    "Rows per page": "每页行数",
+    "Go to first page": "第一页",
+    "Go to previous page": "上一页",
+    "Go to page {{page}}": "前往第 {{page}} 页",
+    "Go to next page": "下一页",
+    "Go to last page": "最后一页",
+    "Asc": "升序",
+    "Desc": "降序",
+    "Hide": "隐藏"
   }
 }
