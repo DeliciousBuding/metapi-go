@@ -37,6 +37,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26.5"
+      # web/embed.go embeds web/dist, which is gitignored and absent on a
+      # fresh checkout. A placeholder file lets go vet type-check the embed
+      # package; production images build the real SPA in the Dockerfile.
+      - run: mkdir -p web/dist && touch web/dist/.gitkeep
       - run: go vet ./...
 
   vulncheck:
@@ -141,7 +145,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26.5"
-      - run: mkdir -p web/dist
+      - run: mkdir -p web/dist && touch web/dist/.gitkeep
       - run: go build -trimpath ./cmd/server
       - run: go build -trimpath ./cmd/migrate
 
