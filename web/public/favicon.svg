@@ -6,7 +6,9 @@
       <stop offset="1" stop-color="#1e3a8a"/>
     </linearGradient>
   </defs>
-  <path d="M12 20 H52" stroke="url(#metapi-favicon-gradient)" stroke-width="10" stroke-linecap="round"/>
-  <path d="M22 20 V46" stroke="url(#metapi-favicon-gradient)" stroke-width="10" stroke-linecap="round"/>
-  <path d="M42 20 V52" stroke="url(#metapi-favicon-gradient)" stroke-width="10" stroke-linecap="round"/>
+  <!-- Favicon: real π glyph (U+03C0) from the system serif font, gradient fill. -->
+  <text x="32" y="46" text-anchor="middle"
+        font-family="Georgia, 'Times New Roman', 'Noto Serif', serif"
+        font-size="40" font-style="italic"
+        fill="url(#metapi-favicon-gradient)">π</text>
 </svg>

@@ -6,10 +6,11 @@
       <stop offset="1" stop-color="#1e3a8a"/>
     </linearGradient>
   </defs>
-  <!-- Rounded-square brand badge, transparent background. The pi glyph is
-       drawn as strokes (not <text>) so rendering is font-independent. -->
+  <!-- Rounded-square brand badge, transparent background. The pi glyph is a
+       real π character (U+03C0) rendered with a serif fallback stack — the
+       glyph comes from the system font, not from hand-drawn strokes. -->
   <rect x="12" y="12" width="232" height="232" rx="56" fill="url(#metapi-brand-gradient)"/>
-  <path d="M64 92 H192" stroke="#ffffff" stroke-width="26" stroke-linecap="round"/>
-  <path d="M90 92 V170" stroke="#ffffff" stroke-width="26" stroke-linecap="round"/>
-  <path d="M166 92 V182" stroke="#ffffff" stroke-width="26" stroke-linecap="round"/>
+  <text x="128" y="182" text-anchor="middle"
+        font-family="Georgia, 'Times New Roman', 'Noto Serif', serif"
+        font-size="148" font-style="italic" fill="#ffffff">π</text>
 </svg>
