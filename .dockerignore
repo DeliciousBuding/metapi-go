@@ -7,7 +7,6 @@ web/build
 web/dist
 web/node_modules
 node_modules
-
 # Git
 .git
 .gitignore
@@ -21,6 +20,10 @@ docs
 # CI
 .githooks
 .github
+
+# Agent worktrees and scratch dirs
+.worktrees
+tmp
 
 # IDE
 .vscode
