@@ -315,12 +315,14 @@ export function ImportExportSection() {
           <p className='text-sm text-muted-foreground'>
             {t('settings.common.loading')}
           </p>
-        ) : webdavQuery.isError || !config ? (
+        ) : null}
+        {!webdavQuery.isLoading && (webdavQuery.isError || !config) ? (
           <SettingsSectionError
             title={t('settings.content.importExport.webdavGroup')}
             onRetry={() => void webdavQuery.refetch()}
           />
-        ) : (
+        ) : null}
+        {!webdavQuery.isLoading && !webdavQuery.isError && config ? (
           <Form {...form}>
             <form
               id={WEBDAV_FORM_ID}
@@ -533,7 +535,7 @@ export function ImportExportSection() {
               ) : null}
             </form>
           </Form>
-        )}
+        ) : null}
       </div>
       <FormNavigationGuard enabled={isWebdavDirty} />
       <ConfirmDialog
