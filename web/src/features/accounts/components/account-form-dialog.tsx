@@ -200,8 +200,8 @@ export function AccountFormDialog({
                 }
               >
                 <TabsList>
-                  <TabsTrigger value='session'>Session</TabsTrigger>
-                  <TabsTrigger value='apikey'>API Key</TabsTrigger>
+                  <TabsTrigger value='session'>{t('accounts.form.modeSession')}</TabsTrigger>
+                  <TabsTrigger value='apikey'>{t('accounts.form.modeApiKey')}</TabsTrigger>
                 </TabsList>
               </Tabs>
             </FormItem>

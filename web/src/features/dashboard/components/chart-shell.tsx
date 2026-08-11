@@ -53,7 +53,7 @@ export function ChartShell({
         </div>
         {actions ? <div className='flex items-center gap-1'>{actions}</div> : null}
       </CardHeader>
-      <CardContent className='flex-1'>
+      <CardContent className='flex-1' aria-busy={loading}>
         {loading ? (
           <Skeleton
             className='w-full rounded-md'

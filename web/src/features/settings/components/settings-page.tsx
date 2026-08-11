@@ -41,7 +41,7 @@ export function SettingsPage({
           </p>
         ) : null}
       </header>
-      <div className='flex gap-6'>
+      <div className='flex flex-col gap-6 lg:flex-row lg:items-start'>
         <SettingsSidebar items={navItems} title={t(subarea.title)} />
         <main className='min-w-0 flex-1'>
           {subarea.getSectionContent(activeSection)}

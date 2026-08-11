@@ -6,6 +6,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate } from '@tanstack/react-router'
+import { ArrowRight } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -78,16 +79,20 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
         />
         <Button
           type='submit'
+          size='lg'
           disabled={login.isPending}
           className='w-full'
         >
           {login.isPending ? (
             <>
-              <Spinner className='mr-2' />
+              <Spinner />
               {t('auth.login.submitting')}
             </>
           ) : (
-            t('auth.login.submit')
+            <>
+              {t('auth.login.submit')}
+              <ArrowRight data-icon='inline-end' className='size-4' />
+            </>
           )}
         </Button>
       </form>

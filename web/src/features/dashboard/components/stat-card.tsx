@@ -10,7 +10,7 @@
 // 3 will feed real snapshot metrics (activeAccounts / sites / checkin success
 // / proxy 24h) from api.getDashboardSnapshot.
 
-import { useMemo } from 'react'
+import { useId, useMemo } from 'react'
 import { Area, AreaChart } from 'recharts'
 import { useTranslation } from 'react-i18next'
 
@@ -24,6 +24,7 @@ import {
   ChartContainer,
   type ChartConfig,
 } from '@/components/ui/chart'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
 type StatCardProps = {
@@ -35,6 +36,8 @@ type StatCardProps = {
   spark?: number[]
   /** Tailwind class for the sparkline stroke (e.g. 'text-chart-1'). */
   accentClassName?: string
+  /** Render skeleton placeholders while the metric is still loading. */
+  loading?: boolean
   className?: string
 }
 
@@ -50,9 +53,12 @@ export function StatCard({
   hint,
   spark,
   accentClassName,
+  loading = false,
   className,
 }: StatCardProps) {
   const { t } = useTranslation()
+  // Unique per-card id so multiple sparklines never share an SVG gradient.
+  const gradientId = useId()
   const sparkConfig: ChartConfig = useMemo(
     () => ({
       ...SPARK_CONFIG_BASE,
@@ -80,46 +86,66 @@ export function StatCard({
         </CardTitle>
       </CardHeader>
       <CardContent className='space-y-2'>
-        <div className='flex items-end justify-between gap-2'>
-          <span className='text-2xl font-semibold tabular-nums'>
-            {value}
-          </span>
-          {hint ? (
-            <span className='text-muted-foreground text-xs'>{hint}</span>
-          ) : null}
-        </div>
-        {data.length > 1 ? (
-          <ChartContainer
-            config={sparkConfig}
-            className='h-10 w-full'
-            initialDimension={{ width: 200, height: 40 }}
-          >
-            <AreaChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
-              <defs>
-                <linearGradient id='stat-spark' x1='0' y1='0' x2='0' y2='1'>
-                  <stop
-                    offset='0%'
-                    stopColor='var(--color-value)'
-                    stopOpacity={0.4}
+        {loading ? (
+          <div className='space-y-2'>
+            <Skeleton className='h-7 w-20' />
+            <Skeleton className='h-4 w-32' />
+          </div>
+        ) : (
+          <>
+            <div className='flex items-end justify-between gap-2'>
+              <span className='text-2xl font-semibold tracking-tight tabular-nums'>
+                {value}
+              </span>
+              {hint ? (
+                <span className='text-muted-foreground text-xs tabular-nums'>
+                  {hint}
+                </span>
+              ) : null}
+            </div>
+            {data.length > 1 ? (
+              <ChartContainer
+                config={sparkConfig}
+                className='h-10 w-full'
+                initialDimension={{ width: 200, height: 40 }}
+              >
+                <AreaChart
+                  data={data}
+                  margin={{ top: 4, right: 0, bottom: 0, left: 0 }}
+                >
+                  <defs>
+                    <linearGradient
+                      id={gradientId}
+                      x1='0'
+                      y1='0'
+                      x2='0'
+                      y2='1'
+                    >
+                      <stop
+                        offset='0%'
+                        stopColor='var(--color-value)'
+                        stopOpacity={0.4}
+                      />
+                      <stop
+                        offset='100%'
+                        stopColor='var(--color-value)'
+                        stopOpacity={0}
+                      />
+                    </linearGradient>
+                  </defs>
+                  <Area
+                    dataKey='value'
+                    stroke='var(--color-value)'
+                    strokeWidth={1.5}
+                    fill={`url(#${gradientId})`}
+                    isAnimationActive={false}
+                    className={accentClassName}
                   />
-                  <stop
-                    offset='100%'
-                    stopColor='var(--color-value)'
-                    stopOpacity={0}
-                  />
-                </linearGradient>
-              </defs>
-              <Area
-                dataKey='value'
-                stroke='var(--color-value)'
-                strokeWidth={1.5}
-                fill='url(#stat-spark)'
-                isAnimationActive={false}
-                className={accentClassName}
-              />
-            </AreaChart>
-          </ChartContainer>
-        ) : null}
+                </AreaChart>
+              </ChartContainer>
+            ) : null}
+          </>
+        )}
       </CardContent>
     </Card>
   )

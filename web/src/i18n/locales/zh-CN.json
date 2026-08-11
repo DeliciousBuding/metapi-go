@@ -10,7 +10,7 @@
         "tokenPlaceholder": "请输入管理员令牌",
         "tokenRequired": "请输入管理员令牌",
         "submit": "登录",
-        "submitting": "登录中...",
+        "submitting": "登录中…",
         "welcomeBack": "欢迎回来！",
         "note": "仅校验本地服务访问权限，不会把令牌发送给第三方。"
       }
@@ -34,7 +34,7 @@
       "delete": "删除",
       "search": "搜索",
       "refresh": "刷新",
-      "loading": "加载中...",
+      "loading": "加载中…",
       "noData": "暂无数据",
       "edit": "编辑",
       "create": "新建",
@@ -90,7 +90,7 @@
         "author": "作者"
       },
       "footer": {
-        "copyright": "© {{year}} MetAPI. 保留所有权利。"
+        "copyright": "© {{year}} MetAPI。版权所有。"
       }
     },
     "models": {
@@ -103,7 +103,7 @@
         "description": "连接账号后，模型会显示在这里。"
       },
       "toolbar": {
-        "searchPlaceholder": "搜索模型...",
+        "searchPlaceholder": "搜索模型…",
         "refresh": "刷新"
       },
       "detail": {
@@ -139,7 +139,7 @@
     "modelTester": {
       "form": {
         "model": "模型",
-        "modelLoading": "加载模型中...",
+        "modelLoading": "加载模型中…",
         "modelPlaceholder": "选择模型",
         "targetFormatLabel": "目标格式",
         "targetFormat": {
@@ -197,7 +197,7 @@
         "tabContent": "内容",
         "tabReasoning": "推理",
         "tabRaw": "原始",
-        "awaitingContent": "等待响应中...",
+        "awaitingContent": "等待响应中…",
         "noContent": "暂无内容",
         "noReasoning": "暂无推理",
         "noRaw": "暂无原始事件",
@@ -229,8 +229,8 @@
         }
       },
       "toast": {
-        "quotaRefreshed": "已请求刷新 #{{id}} 的配额。",
-        "quotaRefreshFailed": "刷新配额失败。",
+        "quotaRefreshed": "已请求刷新 #{{id}} 的额度。",
+        "quotaRefreshFailed": "刷新额度失败。",
         "rebindStarted": "已开始重新绑定 #{{id}}。",
         "rebindFailed": "重新绑定失败。",
         "deleted": "连接 #{{id}} 已删除。",
@@ -242,7 +242,7 @@
         "startAuth": "开始授权"
       },
       "toolbar": {
-        "searchPlaceholder": "搜索连接...",
+        "searchPlaceholder": "搜索连接…",
         "startAuth": "开始授权"
       },
       "delete": {
@@ -253,7 +253,7 @@
       },
       "columns": {
         "selectAll": "全选",
-        "selectRow": "选择行",
+        "selectRow": "选择此行",
         "provider": "提供商",
         "username": "用户名",
         "site": "站点",
@@ -264,7 +264,7 @@
         "rowActions": "行操作"
       },
       "actions": {
-        "refreshQuota": "刷新配额",
+        "refreshQuota": "刷新额度",
         "rebind": "重新绑定",
         "delete": "删除"
       },
@@ -284,7 +284,7 @@
         "add": "添加公告"
       },
       "toolbar": {
-        "searchPlaceholder": "搜索公告...",
+        "searchPlaceholder": "搜索公告…",
         "add": "添加公告"
       },
       "delete": {
@@ -327,7 +327,7 @@
       },
       "columns": {
         "selectAll": "全选",
-        "selectRow": "选择行",
+        "selectRow": "选择此行",
         "title": "标题",
         "severity": "严重程度",
         "enabled": "启用",
@@ -348,7 +348,7 @@
       },
       "enabled": {
         "on": "启用",
-        "off": "禁用"
+        "off": "停用"
       }
     },
     "sites": {
@@ -369,13 +369,13 @@
         "addSite": "添加站点"
       },
       "toolbar": {
-        "searchPlaceholder": "搜索站点...",
+        "searchPlaceholder": "搜索站点…",
         "addSite": "添加站点"
       },
       "entityName": "站点",
       "bulk": {
         "enable": "启用",
-        "disable": "禁用",
+        "disable": "停用",
         "delete": "删除"
       },
       "deleteConfirm": {
@@ -387,7 +387,7 @@
       },
       "columns": {
         "selectAll": "全选",
-        "selectRow": "选择行",
+        "selectRow": "选择此行",
         "name": "名称",
         "url": "地址",
         "status": "状态",
@@ -400,7 +400,7 @@
       "actions": {
         "viewDetails": "查看详情",
         "edit": "编辑",
-        "disable": "禁用",
+        "disable": "停用",
         "enable": "启用",
         "unpin": "取消置顶",
         "pin": "置顶",
@@ -408,7 +408,7 @@
       },
       "status": {
         "active": "启用中",
-        "disabled": "已禁用"
+        "disabled": "已停用"
       },
       "form": {
         "addTitle": "添加站点",
@@ -478,7 +478,7 @@
         "proxyUrl": "代理地址",
         "endpoints": "端点",
         "enabled": "已启用",
-        "disabled": "已禁用",
+        "disabled": "已停用",
         "tags": "标签",
         "manageAccounts": "管理账号",
         "manageRoutes": "管理路由",
@@ -514,7 +514,7 @@
         },
         "scheduledTasks": {
           "title": "定时任务",
-          "description": "后台任务健康（合并自旧版 SchedulerStatusPanel）。",
+          "description": "后台任务健康（签到、余额刷新与日志清理）。",
           "colJob": "任务",
           "colEnabled": "启用",
           "colLastStatus": "上次状态",
@@ -598,12 +598,15 @@
           "fields": {
             "systemName": "系统名称",
             "systemNameHint": "显示在顶栏与浏览器标题。",
+            "systemNamePlaceholder": "我的 API 网关",
             "logo": "Logo URL",
             "logoHint": "品牌 Logo 图片的公开 URL。",
             "footer": "页脚文本",
+            "footerPlaceholder": "© 2026 公司名称",
             "about": "关于",
             "homePageContent": "首页内容",
             "homePageContentHint": "支持 Markdown；渲染在落地页。",
+            "homePageContentPlaceholder": "编写你的落地页内容…",
             "serverAddress": "服务器地址",
             "serverAddressHint": "用于外链与 OpenAPI 文档的公开基础 URL。"
           },
@@ -708,7 +711,7 @@
             "routingFallbackUnitCost": "兜底单价",
             "routingFallbackUnitCostHint": "无实测/配置值时的默认单价。",
             "routeFailureCooldown": "失败冷却（秒）",
-            "routeFailureCooldownHint": "封顶普通失败与分级冷却；429 限额类冷却仍遵循上游 reset。",
+            "routeFailureCooldownHint": "普通失败与分级冷却均设上限；429 额度类冷却仍遵循上游重置时间。",
             "proxyFirstByteTimeout": "首字超时（秒）",
             "proxyFirstByteTimeoutHint": "0 关闭；无首包/首 token 时中止。",
             "disableCrossProtocolFallback": "禁用跨协议回退",
@@ -772,7 +775,7 @@
       "models": {
         "redirects": {
           "title": "模型名称重定向",
-          "description": "规范名称到实际模型名的重定向（K1a）。",
+          "description": "规范名称到实际模型名的重定向。",
           "generate": "生成",
           "preview": "预览",
           "apply": "应用",
@@ -795,7 +798,7 @@
         },
         "rates": {
           "title": "费率与倍率",
-          "description": "所有倍率面的只读聚合（N9a）。",
+          "description": "所有倍率面的只读聚合。",
           "summary": "{{accounts}} 个账号（{{withCost}} 个设单价）· {{channels}} 个通道（{{channelsEnabled}} 个启用）。",
           "accountTable": "账号单价",
           "channelTable": "通道权重",
@@ -932,7 +935,7 @@
         },
         "announcements": {
           "title": "风险横幅公告",
-          "description": "产品风险横幅（H1）— 草稿 / 严重程度 / 启用。",
+          "description": "产品风险横幅 — 草稿 / 严重程度 / 启用状态。",
           "create": "新建公告",
           "createTitle": "创建公告",
           "editTitle": "编辑公告",
@@ -986,7 +989,7 @@
         },
         "auditLogs": {
           "title": "管理员审计日志",
-          "description": "只读管理员写操作审计（B1）。",
+          "description": "管理端写操作的只读审计。",
           "allMethods": "全部方法",
           "pathPlaceholder": "搜索路径…",
           "search": "查询",
@@ -995,7 +998,7 @@
         },
         "updateCenter": {
           "title": "更新中心",
-          "description": "版本 + 部署/回滚状态（UC-1，只读）。",
+          "description": "版本与部署/回滚状态（只读）。",
           "currentVersion": "当前版本",
           "latestVersion": "最新版本",
           "unknown": "未知",
@@ -1067,11 +1070,11 @@
         "addButton": "添加账号",
         "loadError": "加载账号失败：{{message}}",
         "emptyTitle": "暂无账号",
-        "emptyDescription": "添加一个站点账号以开始管理连接，或先到「站点」页添加站点。",
+        "emptyDescription": "添加一个账号以开始管理连接，或先到「站点」页添加站点。",
         "searchPlaceholder": "搜索账号名称 / 站点…",
         "filterStatusTitle": "状态",
         "filterStatusActive": "启用",
-        "filterStatusDisabled": "禁用",
+        "filterStatusDisabled": "停用",
         "filterStatusExpired": "过期",
         "filterSiteTitle": "站点",
         "deleteTitle": "删除账号",
@@ -1081,7 +1084,7 @@
         "entityName": "账号",
         "refreshBalance": "刷新余额",
         "enable": "启用",
-        "disable": "禁用",
+        "disable": "停用",
         "delete": "删除"
       },
       "form": {
@@ -1094,11 +1097,13 @@
         "sitePlaceholder": "选择站点",
         "siteEmpty": "暂无站点，请先添加站点",
         "credentialMode": "凭证模式",
+        "modeSession": "Session",
+        "modeApiKey": "API Key",
         "connectionName": "连接名称（可选）",
         "connectionNamePlaceholder": "留空则使用站点用户名",
         "status": "状态",
         "statusActive": "启用",
-        "statusDisabled": "禁用",
+        "statusDisabled": "停用",
         "statusExpired": "已过期",
         "checkinEnabled": "启用签到",
         "checkinEnabledHint": "每日自动签到维护余额",
@@ -1131,7 +1136,7 @@
         "healthHealthy": "健康",
         "healthDegraded": "降级",
         "healthUnhealthy": "异常",
-        "healthDisabled": "已禁用",
+        "healthDisabled": "已停用",
         "healthUnknown": "未知",
         "healthExpired": "已过期",
         "fallbackApiKey": "API Key 连接",
@@ -1144,7 +1149,7 @@
         "unpin": "取消置顶",
         "pin": "置顶",
         "enable": "启用",
-        "disable": "禁用",
+        "disable": "停用",
         "disableCheckin": "关闭签到",
         "enableCheckin": "开启签到",
         "edit": "编辑",
@@ -1273,13 +1278,13 @@
         "searchPlaceholder": "搜索模型 / 名称…",
         "filterStatusTitle": "状态",
         "filterStatusEnabled": "启用",
-        "filterStatusDisabled": "禁用",
+        "filterStatusDisabled": "停用",
         "showZeroChannel": "显示零通道模型（账号有模型但未生成路由）",
         "deleteTitle": "删除路由",
         "deleteDescription": "确定删除路由「{{name}}」？该操作不可撤销，相关通道将一并清除。",
         "bulkEntityName": "路由",
         "bulkEnable": "启用",
-        "bulkDisable": "禁用"
+        "bulkDisable": "停用"
       },
       "form": {
         "invalid": "请检查表单标红字段",
@@ -1349,7 +1354,7 @@
         "notEnabled": "未启用",
         "actions": "操作",
         "enable": "启用",
-        "disable": "禁用"
+        "disable": "停用"
       },
       "detail": {
         "badgeGroup": "分组",
@@ -1373,7 +1378,7 @@
         "rebuildRoutes": "自动重建路由",
         "rebuild": "自动重建",
         "channelTokenUnbound": "未绑定",
-        "channelUpstream": "· 上游:",
+        "channelUpstream": "· 上游：",
         "channelWeight": "· 权重:",
         "channelPriority": "· 优先级:",
         "cooldown": "冷却中",
@@ -1388,10 +1393,10 @@
       },
       "completion": {
         "title": "配置动线完成",
-        "chainComplete": "站点 → 账号 → 路由 配置动线已完成。",
+        "chainComplete": "站点 → 账号 → 路由配置动线已完成。",
         "flowComplete": "配置动线已完成。",
-        "withRouteId": "路由 #{{id}} 已创建，{{suffix}}返回 Dashboard 查看运行状态。",
-        "withoutRouteId": "路由已创建，{{suffix}}返回 Dashboard 查看运行状态。",
+        "withRouteId": "路由 #{{id}} 已创建。{{suffix}}",
+        "withoutRouteId": "路由已创建。{{suffix}}",
         "action": "返回 Dashboard"
       },
       "toast": {
@@ -1538,7 +1543,7 @@
         "latencyMin": "延迟 ≥",
         "latencyMax": "延迟 ≤",
         "latencyUnit": "ms",
-        "latencyExample": "示例:"
+        "latencyExample": "示例："
       },
       "columns": {
         "createdAt": "时间",
@@ -1584,7 +1589,7 @@
         "token": "令牌",
         "retry": "重试",
         "route": "路由",
-        "channel": "渠道",
+        "channel": "通道",
         "estimatedCost": "预估成本",
         "client": "客户端",
         "sessionId": "会话 ID",
@@ -1613,7 +1618,7 @@
     "No Data": "暂无数据",
     "No data available": "暂无可用数据",
     "No records found. Try adjusting your filters.": "未找到记录，请尝试调整筛选条件。",
-    "Filter...": "筛选...",
+    "Filter...": "筛选…",
     "Reset": "重置",
     "Search": "搜索",
     "View": "查看",
@@ -1624,7 +1629,7 @@
     "selected": "已选",
     "No results found.": "未找到结果。",
     "No option found.": "未找到选项。",
-    "Press Enter to use \"{{value}}\"": "按回车使用 \"{{value}}\"",
+    "Press Enter to use \"{{value}}\"": "按回车使用「{{value}}」",
     "Clear filters": "清除筛选",
     "Clear selection": "清除选择",
     "Clear selection (Escape)": "清除选择（Esc）",
@@ -1640,6 +1645,10 @@
     "Desc": "降序",
     "Collapse": "折叠",
     "Expand": "展开",
-    "Hide": "隐藏"
+    "Hide": "隐藏",
+    "Sidebar": "侧边栏",
+    "Displays the mobile sidebar.": "显示移动端侧边栏。",
+    "Toggle Sidebar": "切换侧边栏",
+    "Toggle theme": "切换主题"
   }
 }

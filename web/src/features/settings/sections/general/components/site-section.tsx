@@ -114,7 +114,7 @@ export function SiteSection() {
                   <Input
                     {...field}
                     value={field.value ?? ''}
-                    placeholder='TokenDance Gateway'
+                    placeholder={t('settings.general.site.fields.systemNamePlaceholder')}
                   />
                 </FormControl>
                 <FormDescription>
@@ -154,7 +154,7 @@ export function SiteSection() {
                   <Input
                     {...field}
                     value={field.value ?? ''}
-                    placeholder='© 2026 TokenDance'
+                    placeholder={t('settings.general.site.fields.footerPlaceholder')}
                   />
                 </FormControl>
                 <FormMessage />
@@ -191,7 +191,7 @@ export function SiteSection() {
                     {...field}
                     value={field.value ?? ''}
                     rows={6}
-                    placeholder='Markdown supported…'
+                    placeholder={t('settings.general.site.fields.homePageContentPlaceholder')}
                   />
                 </FormControl>
                 <FormDescription>

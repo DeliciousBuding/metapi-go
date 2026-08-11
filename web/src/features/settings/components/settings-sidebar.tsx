@@ -28,7 +28,7 @@ export function SettingsSidebar({ items, title }: SettingsSidebarProps) {
   const activeHref = normalizePath(href)
 
   return (
-    <aside className='w-56 shrink-0'>
+    <aside className='w-full shrink-0 lg:sticky lg:top-6 lg:w-56'>
       <nav className='flex flex-col gap-1'>
         {title ? (
           <p className='text-muted-foreground/70 px-3 pb-2 text-[11px] font-medium tracking-wider uppercase'>
@@ -43,9 +43,9 @@ export function SettingsSidebar({ items, title }: SettingsSidebarProps) {
               key={String(item.url)}
               to={item.url}
               className={cn(
-                'rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                'rounded-md px-3 py-2 text-sm transition-colors',
                 isActive
-                  ? 'bg-secondary text-secondary-foreground'
+                  ? 'bg-accent font-medium text-accent-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
               )}
             >

@@ -27,7 +27,7 @@ export function AuthenticatedLayout() {
           className={cn(
             '@container/content',
             'h-[calc(100svh-var(--app-header-height,0px))]',
-            'min-h-0 overflow-hidden',
+            'min-h-0 overflow-x-hidden overflow-y-auto',
             'peer-data-[variant=inset]:h-[calc(100svh-var(--app-header-height,0px)-(var(--spacing)*4))]'
           )}
         >

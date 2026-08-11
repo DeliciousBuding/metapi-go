@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { metapiIdentity } from '@/lib/identity-branding'
 
 import { LoginForm } from './login-form'
 
@@ -23,18 +24,29 @@ export function SignInPage({ redirectTo }: SignInPageProps) {
   const { t } = useTranslation()
 
   return (
-    <div className='flex min-h-svh items-center justify-center bg-background p-4'>
-      <Card className='w-full max-w-sm'>
-        <CardHeader className='text-center'>
-          <div className='mx-auto mb-2 flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground'>
-            <span className='text-lg font-bold'>M</span>
-          </div>
-          <CardTitle className='text-2xl'>{t('auth.login.brandName')}</CardTitle>
+    <div className='relative flex min-h-svh items-center justify-center bg-background p-4'>
+      {/* Soft brand-tinted glow behind the card (pointer-events-none, theme-safe). */}
+      <div
+        aria-hidden='true'
+        className='pointer-events-none fixed inset-0 overflow-hidden'
+      >
+        <div className='bg-primary/10 absolute -top-32 left-1/2 h-80 w-[42rem] -translate-x-1/2 rounded-full blur-3xl' />
+      </div>
+      <Card className='shadow-sm relative w-full max-w-sm'>
+        <CardHeader className='gap-2 text-center'>
+          <img
+            src={metapiIdentity.logoPath}
+            alt={metapiIdentity.name}
+            className='mx-auto size-12'
+          />
+          <CardTitle className='text-2xl tracking-tight'>
+            {t('auth.login.brandName')}
+          </CardTitle>
           <CardDescription>{t('auth.login.brandTagline')}</CardDescription>
         </CardHeader>
         <CardContent className='grid gap-4'>
           <LoginForm redirectTo={redirectTo} />
-          <p className='text-center text-xs text-muted-foreground'>
+          <p className='text-pretty text-center text-xs text-muted-foreground'>
             {t('auth.login.note')}
           </p>
         </CardContent>

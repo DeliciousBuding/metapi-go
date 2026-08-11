@@ -10,7 +10,7 @@
 // the scheduled-tasks table.
 
 import { useQuery } from '@tanstack/react-query'
-import { Activity } from 'lucide-react'
+import { Activity, ClipboardList } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -131,7 +131,8 @@ export function OverviewSection() {
     }
     if (schedulerRows.length === 0) {
       return (
-        <div className='flex min-h-24 flex-col items-center justify-center gap-1 rounded-lg border border-dashed py-8 text-center'>
+        <div className='flex min-h-24 flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center'>
+          <ClipboardList className='size-5 text-muted-foreground/60' />
           <p className='text-muted-foreground text-sm'>
             {t('dashboard.overview.scheduledTasks.empty')}
           </p>
@@ -216,28 +217,28 @@ export function OverviewSection() {
       <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4'>
         <StatCard
           title={t('dashboard.overview.statCards.accountCount')}
-          value={snapshotLoading ? '—' : formatInt(totalAccounts ?? null)}
+          value={formatInt(totalAccounts ?? null)}
           hint={accountHint}
           spark={accountSpark}
+          loading={snapshotLoading}
         />
         <StatCard
           title={t('dashboard.overview.statCards.siteCount')}
-          value={snapshotLoading ? '—' : formatInt(siteCount ?? null)}
+          value={formatInt(siteCount ?? null)}
           hint={t('dashboard.overview.statCards.siteCountHint')}
+          loading={snapshotLoading}
         />
         <StatCard
           title={t('dashboard.overview.statCards.todayCheckin')}
-          value={
-            snapshotLoading || !checkin
-              ? '—'
-              : formatRatio(checkin.success, checkin.total)
-          }
+          value={!checkin ? '—' : formatRatio(checkin.success, checkin.total)}
           hint={checkinHint}
+          loading={snapshotLoading}
         />
         <StatCard
           title={t('dashboard.overview.statCards.proxy24h')}
-          value={snapshotLoading || !proxy ? '—' : formatInt(proxy.total)}
+          value={!proxy ? '—' : formatInt(proxy.total)}
           hint={proxyHint}
+          loading={snapshotLoading}
         />
       </div>
 

@@ -6,7 +6,7 @@
 // renders api.getAttention() as a severity-ranked list of items needing
 // operator eyes — expired accounts, low balances, disabled sites, events).
 
-import { Radio, ShieldCheck } from 'lucide-react'
+import { Inbox, Radio, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 
@@ -121,7 +121,7 @@ function RealtimeOpsPanel() {
                   ? 'bg-success'
                   : sample.gaveUp
                     ? 'bg-destructive'
-                    : 'bg-muted-foreground/50',
+                    : 'animate-pulse bg-muted-foreground/50',
               )}
             />
             {sample.gaveUp
@@ -136,7 +136,7 @@ function RealtimeOpsPanel() {
         </CardDescription>
       </CardHeader>
       <CardContent className='space-y-3'>
-        <div className='flex items-end justify-between gap-4'>
+        <div className='flex flex-wrap items-end justify-between gap-x-4 gap-y-2'>
           <div>
             <div className='text-muted-foreground text-xs'>{t('dashboard.availability.realtime.metricQps')}</div>
             <div className='text-2xl font-semibold tabular-nums'>
@@ -186,13 +186,15 @@ function AttentionPanel() {
         {isLoading ? (
           <Skeleton className='h-48 w-full rounded-md' />
         ) : isError ? (
-          <div className='flex min-h-48 flex-col items-center justify-center gap-1 rounded-lg border border-dashed py-8 text-center'>
+          <div className='flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center'>
+            <TriangleAlert className='size-5 text-destructive/80' />
             <p className='text-destructive text-xs'>
               {t('dashboard.availability.monitors.loadError')}
             </p>
           </div>
         ) : items.length === 0 ? (
-          <div className='flex min-h-48 flex-col items-center justify-center gap-1 rounded-lg border border-dashed py-8 text-center'>
+          <div className='flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center'>
+            <Inbox className='size-5 text-muted-foreground/60' />
             <p className='text-muted-foreground text-sm'>
               {t('dashboard.availability.monitors.empty')}
             </p>

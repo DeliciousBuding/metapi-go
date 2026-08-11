@@ -10,6 +10,7 @@
 
 import { VChart } from '@visactor/react-vchart'
 import { useQuery } from '@tanstack/react-query'
+import { Inbox, TriangleAlert } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -28,7 +29,8 @@ import type { ModelCostRow } from '../../types'
 
 function ChartError({ message }: { message: string }) {
   return (
-    <div className='flex h-full w-full items-center justify-center'>
+    <div className='flex h-full w-full flex-col items-center justify-center gap-1.5'>
+      <TriangleAlert className='size-5 text-destructive/80' />
       <p className='text-destructive text-xs'>{message}</p>
     </div>
   )
@@ -36,7 +38,8 @@ function ChartError({ message }: { message: string }) {
 
 function ChartEmpty({ message }: { message: string }) {
   return (
-    <div className='flex h-full w-full items-center justify-center'>
+    <div className='flex h-full w-full flex-col items-center justify-center gap-1.5'>
+      <Inbox className='size-5 text-muted-foreground/60' />
       <p className='text-muted-foreground text-xs'>{message}</p>
     </div>
   )
