@@ -10,7 +10,7 @@
 | Fact | Value |
 |:-----|:------|
 | Source | **[DeliciousBuding/metapi-go](https://github.com/DeliciousBuding/metapi-go)** · default branch `master` |
-| Latest release | **[v0.9.0](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.9.0)** (2026-08-11); master CD publishes `ghcr.io/deliciousbuding/metapi-go` |
+| Latest release | **[v0.9.0](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.9.0)** (2026-08-11); master CD publishes `ghcr.io/deliciousbuding/metapi-go` — verified live: tags `latest`/`0.9.0`/`0.9`/sha |
 
 | Production pin (ops) | **v0.9.0** image on `ghcr.io/deliciousbuding/metapi-go`; runtime deployment facts live in the deployment docs |
 | Current focus | production hardening |
