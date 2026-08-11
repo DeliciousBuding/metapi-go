@@ -93,6 +93,7 @@ func applyCheckinScheduleSettings(db *sqlx.DB, cfg *config.Config, patch checkin
 			v2 = scheduler.CronToSchedule(state.Cron)
 		}
 	}
+	v2.Cron = state.Cron
 	if err := upsertSettingTx(db, tx, "checkin_schedule_v2", v2); err != nil {
 		return checkinScheduleState{}, err
 	}

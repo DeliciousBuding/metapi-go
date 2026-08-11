@@ -203,6 +203,9 @@ func buildCheckinItem(settings map[string]string) (MigrationItem, bool) {
 	mode := jsonString(settings["checkin_schedule_mode"], "cron")
 	cron := jsonString(settings["checkin_cron"], config.DefaultCheckinCron)
 	intervalHours := jsonInt(settings["checkin_interval_hours"], config.DefaultCheckinIntervalHours)
+	if intervalHours < 1 || intervalHours > 24 {
+		intervalHours = config.DefaultCheckinIntervalHours
+	}
 	windowStart := jsonString(settings["checkin_window_start"], "00:00")
 	windowEnd := jsonString(settings["checkin_window_end"], "23:59")
 
@@ -215,6 +218,10 @@ func buildCheckinItem(settings map[string]string) (MigrationItem, bool) {
 			WindowStart: windowStart,
 			WindowEnd:   windowEnd,
 			Cron:        cron,
+		}
+		if err := spec.Validate(); err != nil {
+			spec.WindowStart = "00:00"
+			spec.WindowEnd = "23:59"
 		}
 	case "interval":
 		spec = scheduler.ScheduleSpec{

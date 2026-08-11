@@ -400,3 +400,66 @@ func TestSettingsMigrationPreviewAndApply(t *testing.T) {
 		t.Fatalf("balance v2 = %q", v2)
 	}
 }
+
+func TestSettingsRuntimeScheduleMirrorUsesFinalCron(t *testing.T) {
+	db, r, _ := setupEdgeTest(t)
+	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
+		"checkinCron": "0 10 * * *",
+		"checkinSchedule": map[string]any{
+			"version": 1,
+			"kind":    "daily",
+			"time":    "10:00",
+			"cron":    "0 9 * * *",
+		},
+		"balanceRefreshCron": "0 11 * * *",
+		"balanceRefreshSchedule": map[string]any{
+			"version": 1,
+			"kind":    "daily",
+			"time":    "11:00",
+			"cron":    "0 8 * * *",
+		},
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", resp.Code, resp.Body.String())
+	}
+	for key, want := range map[string]string{
+		"checkin_schedule_v2":         "0 10 * * *",
+		"balance_refresh_schedule_v2": "0 11 * * *",
+	} {
+		var raw string
+		if err := db.Get(&raw, "SELECT value FROM settings WHERE key = ?", key); err != nil {
+			t.Fatalf("read %s: %v", key, err)
+		}
+		var spec map[string]any
+		if err := json.Unmarshal([]byte(raw), &spec); err != nil {
+			t.Fatalf("decode %s: %v", key, err)
+		}
+		if spec["cron"] != want {
+			t.Fatalf("%s cron = %v, want %q", key, spec["cron"], want)
+		}
+	}
+}
+
+func TestSettingsRuntimeNotifyTogglesPersistAsJSONObject(t *testing.T) {
+	db, r, _ := setupEdgeTest(t)
+	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
+		"notifyTaskToggles": map[string]any{
+			"token_expired": true,
+			"low_balance":   false,
+		},
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", resp.Code, resp.Body.String())
+	}
+	var raw string
+	if err := db.Get(&raw, "SELECT value FROM settings WHERE key = ?", "notify_task_toggles"); err != nil {
+		t.Fatalf("read notify_task_toggles: %v", err)
+	}
+	var toggles map[string]bool
+	if err := json.Unmarshal([]byte(raw), &toggles); err != nil {
+		t.Fatalf("stored value is not a JSON object: %q: %v", raw, err)
+	}
+	if !toggles["token_expired"] || toggles["low_balance"] {
+		t.Fatalf("stored toggles = %#v", toggles)
+	}
+}

@@ -220,3 +220,47 @@ func TestBuildPlanWindowCheckin(t *testing.T) {
 		t.Fatalf("window bounds = (%q, %q)", plan.Items[0].Schedule.WindowStart, plan.Items[0].Schedule.WindowEnd)
 	}
 }
+
+func TestPreviewNormalizesInvalidLegacyCheckinSchedule(t *testing.T) {
+	db := setupMigrationDB(t)
+	setSetting(t, db, "checkin_schedule_mode", `"interval"`)
+	setSetting(t, db, "checkin_cron", `"0 8 * * *"`)
+	setSetting(t, db, "checkin_interval_hours", `0`)
+
+	plan, err := BuildPlan(db.DB)
+	if err != nil {
+		t.Fatalf("Preview: %v", err)
+	}
+	if len(plan.Items) != 1 {
+		t.Fatalf("items = %#v, want one checkin item", plan.Items)
+	}
+	if plan.Items[0].Schedule.EveryHours != 6 {
+		t.Fatalf("everyHours = %d, want default 6", plan.Items[0].Schedule.EveryHours)
+	}
+	if err := plan.Items[0].Schedule.Validate(); err != nil {
+		t.Fatalf("normalized schedule invalid: %v", err)
+	}
+}
+
+func TestPreviewNormalizesInvalidLegacyCheckinWindow(t *testing.T) {
+	db := setupMigrationDB(t)
+	setSetting(t, db, "checkin_schedule_mode", `"window"`)
+	setSetting(t, db, "checkin_cron", `"0 8 * * *"`)
+	setSetting(t, db, "checkin_window_start", `"25:00"`)
+	setSetting(t, db, "checkin_window_end", `"01:00"`)
+
+	plan, err := BuildPlan(db.DB)
+	if err != nil {
+		t.Fatalf("Preview: %v", err)
+	}
+	if len(plan.Items) != 1 {
+		t.Fatalf("items = %#v, want one checkin item", plan.Items)
+	}
+	spec := plan.Items[0].Schedule
+	if spec.WindowStart != "00:00" || spec.WindowEnd != "23:59" {
+		t.Fatalf("window = %s-%s, want normalized full day", spec.WindowStart, spec.WindowEnd)
+	}
+	if err := spec.Validate(); err != nil {
+		t.Fatalf("normalized schedule invalid: %v", err)
+	}
+}

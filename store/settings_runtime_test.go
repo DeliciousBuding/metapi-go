@@ -148,3 +148,29 @@ func TestApplyRuntimeSettingsIgnoresEmptyBranding(t *testing.T) {
 		t.Fatalf("SystemName = %q, want preserved", cfg.SystemName)
 	}
 }
+
+func TestApplyRuntimeSettingsDecodesJSONEncodedNotificationStrings(t *testing.T) {
+	cfg := &config.Config{}
+	ApplyRuntimeSettings(cfg, map[string]string{
+		"webhook_url":        `"https://hooks.example.test/path"`,
+		"telegram_bot_token": `"bot-token"`,
+		"smtp_pass":          `"smtp-secret"`,
+		"ntfy_topic":         `"alerts"`,
+	})
+	if cfg.WebhookUrl != "https://hooks.example.test/path" || cfg.TelegramBotToken != "bot-token" {
+		t.Fatalf("decoded notification strings = %#v", cfg)
+	}
+	if cfg.SmtpPass != "smtp-secret" || cfg.NtfyTopic != "alerts" {
+		t.Fatalf("decoded notification secrets = %#v", cfg)
+	}
+}
+
+func TestApplyRuntimeSettingsDecodesNotifyTaskTogglesObject(t *testing.T) {
+	cfg := &config.Config{}
+	ApplyRuntimeSettings(cfg, map[string]string{
+		"notify_task_toggles": `{"token_expired":true,"low_balance":false}`,
+	})
+	if cfg.NotifyTaskToggles == nil || !cfg.NotifyTaskToggles["token_expired"] || cfg.NotifyTaskToggles["low_balance"] {
+		t.Fatalf("NotifyTaskToggles = %#v", cfg.NotifyTaskToggles)
+	}
+}

@@ -704,7 +704,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 			cfg.NotifyTaskToggles = map[string]bool{}
 		}
 		if raw, mErr := json.Marshal(v); mErr == nil {
-			upsertSettingDB(h.db, "notify_task_toggles", string(raw))
+			upsertSettingDB(h.db, "notify_task_toggles", v)
 			// Re-hydrate from the marshaled value so runtime matches persisted.
 			fresh := map[string]bool{}
 			if uErr := json.Unmarshal(raw, &fresh); uErr == nil {
@@ -1190,8 +1190,9 @@ func stringSliceOrEmpty(in []string) []string {
 
 func logSettingsEvent(db *sqlx.DB, eventType, title, message, level, createdAt string) {
 	// Silently ignore errors (matches TS behavior)
-	db.Exec(`INSERT INTO events (type, title, message, level, related_type, created_at, "read")
-		VALUES (?, ?, ?, ?, 'settings', ?, 0)`, eventType, title, message, level, createdAt)
+	query := db.Rebind(`INSERT INTO events (type, title, message, level, related_type, created_at, "read")
+		VALUES (?, ?, ?, ?, 'settings', ?, 0)`)
+	_, _ = db.Exec(query, eventType, title, message, level, createdAt)
 }
 
 // decodeScheduleSpec converts a decoded JSON body value into a ScheduleSpec.
@@ -1217,6 +1218,9 @@ func persistDualSchedule(db *sqlx.DB, legacyKey string, legacyValue any, v2Key s
 	defer tx.Rollback()
 	if err := upsertSettingTx(db, tx, legacyKey, legacyValue); err != nil {
 		return err
+	}
+	if cron, ok := legacyValue.(string); ok {
+		spec.Cron = cron
 	}
 	if err := upsertSettingTx(db, tx, v2Key, spec); err != nil {
 		return err
