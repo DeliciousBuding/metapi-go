@@ -71,7 +71,7 @@
     "react-dom": "^19.2.7",
     "react-hook-form": "^7.80.0",
     "react-i18next": "^17.0.8",
-    "recharts": "3.9.1",
+    "recharts": "3.10.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.2",
@@ -96,11 +96,11 @@
     "happy-dom": "^20.11.1",
     "jsdom": "^29.1.1",
     "knip": "^6.24.0",
-    "oxfmt": "^0.57.0",
+    "oxfmt": "^0.62.0",
     "oxlint": "^1.72.0",
     "react-test-renderer": "^19.2.7",
     "shadcn": "^4.12.0",
-    "sharp": "^0.34.5",
+    "sharp": "^0.35.3",
     "vitest": "^4.1.10"
   },
   "overrides": {
