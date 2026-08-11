@@ -14,6 +14,11 @@
 
 import { z } from 'zod'
 
+import {
+  parseSortingParam,
+  parseStringListParam,
+} from '@/lib/helpers/searchParams'
+
 const sortingItemSchema = z.object({
   id: z.string(),
   desc: z.boolean(),
@@ -24,37 +29,23 @@ const paginationSchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(200).default(20),
 })
 
-function decodeStringList(value: string | undefined): string[] {
-  if (!value) return []
-  return value
-    .split(',')
-    .map((segment) => segment.trim())
-    .filter((segment) => segment.length > 0)
-}
-
 export const modelsSearchSchema = z.object({
   q: z.string().optional(),
   page: z.coerce.number().int().min(0).optional(),
   pageSize: z.coerce.number().int().min(1).max(200).optional(),
   sort: z
-    .string()
+    .union([z.string(), z.array(sortingItemSchema)])
     .optional()
-    .transform((value) => {
-      if (!value) return [] as z.infer<typeof sortingItemSchema>[]
-      return value.split(',').map((segment) => {
-        const [id, direction] = segment.split(':')
-        return { id: id ?? '', desc: direction === 'desc' }
-      })
-    }),
+    .transform((value) => parseSortingParam(value)),
   // Multi-select faceted filters, URL-encoded as comma-separated strings.
   brand: z
-    .string()
+    .union([z.string(), z.array(z.string())])
     .optional()
-    .transform((value) => decodeStringList(value)),
+    .transform((value) => parseStringListParam(value)),
   capability: z
-    .string()
+    .union([z.string(), z.array(z.string())])
     .optional()
-    .transform((value) => decodeStringList(value)),
+    .transform((value) => parseStringListParam(value)),
 })
 
 

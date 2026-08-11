@@ -144,7 +144,7 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
   const hasSearch = props.onSearch != null
 
   const isFiltered =
-    props.table.getState().columnFilters.length > 0 ||
+    (props.table.getState().columnFilters ?? []).length > 0 ||
     !!props.table.getState().globalFilter ||
     !!props.hasAdditionalFilters
 

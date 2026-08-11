@@ -14,6 +14,8 @@
 
 import { z } from 'zod'
 
+import { parseSortingParam } from '@/lib/helpers/searchParams'
+
 const HTTP_OR_EMPTY_MESSAGE_KEY = 'oauth.form.errors.invalidProxyUrl'
 
 function isEmptyOrHttpUrl(value: string): boolean {
@@ -74,15 +76,9 @@ export const oauthSearchSchema = z.object({
   page: z.coerce.number().int().min(0).optional(),
   pageSize: z.coerce.number().int().min(1).max(200).optional(),
   sort: z
-    .string()
+    .union([z.string(), z.array(sortingItemSchema)])
     .optional()
-    .transform((value) => {
-      if (!value) return [] as z.infer<typeof sortingItemSchema>[]
-      return value.split(',').map((segment) => {
-        const [id, direction] = segment.split(':')
-        return { id: id ?? '', desc: direction === 'desc' }
-      })
-    }),
+    .transform((value) => parseSortingParam(value)),
   status: z.string().optional(),
 })
 
