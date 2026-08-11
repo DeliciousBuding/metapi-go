@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -211,5 +212,191 @@ func TestSettingsRuntimePartialUpdateDoesNotClobberWhitelist(t *testing.T) {
 	models, ok := got["globalAllowedModels"].([]any)
 	if !ok || len(models) != 2 {
 		t.Fatalf("GET globalAllowedModels = %#v", got["globalAllowedModels"])
+	}
+}
+
+func TestSettingsRuntimeUpdateBalanceCronRejectsInvalid(t *testing.T) {
+	_, r, _ := setupEdgeTest(t)
+	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
+		"balanceRefreshCron": "bad cron",
+	})
+	if resp.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s, want 400", resp.Code, resp.Body.String())
+	}
+}
+
+func TestSettingsRuntimeUpdateBalanceCronDualWrite(t *testing.T) {
+	db, r, cfg := setupEdgeTest(t)
+	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
+		"balanceRefreshCron": "0 9 * * *",
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", resp.Code, resp.Body.String())
+	}
+	if cfg.BalanceRefreshCron != "0 9 * * *" {
+		t.Fatalf("cfg.BalanceRefreshCron = %q", cfg.BalanceRefreshCron)
+	}
+	var legacy, v2 string
+	if err := db.Get(&legacy, "SELECT value FROM settings WHERE key = ?", "balance_refresh_cron"); err != nil {
+		t.Fatalf("read legacy: %v", err)
+	}
+	if err := db.Get(&v2, "SELECT value FROM settings WHERE key = ?", "balance_refresh_schedule_v2"); err != nil {
+		t.Fatalf("read v2: %v", err)
+	}
+	if legacy != `"0 9 * * *"` {
+		t.Fatalf("legacy = %q", legacy)
+	}
+	var spec map[string]any
+	if err := json.Unmarshal([]byte(v2), &spec); err != nil {
+		t.Fatalf("v2 not JSON: %v", err)
+	}
+	if spec["version"] != float64(1) || spec["type"] != "daily" || spec["cron"] != "0 9 * * *" {
+		t.Fatalf("v2 spec = %v", spec)
+	}
+}
+
+func TestSettingsRuntimeUpdateLogCleanupCronRejectsInvalid(t *testing.T) {
+	_, r, _ := setupEdgeTest(t)
+	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
+		"logCleanupCron": "nope",
+	})
+	if resp.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s, want 400", resp.Code, resp.Body.String())
+	}
+}
+
+func TestSettingsRuntimeUpdateCheckinScheduleObject(t *testing.T) {
+	db, r, cfg := setupEdgeTest(t)
+	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
+		"checkinSchedule": map[string]any{
+			"version": 1,
+			"type":    "daily",
+			"time":    "07:30",
+			"cron":    "30 7 * * *",
+		},
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", resp.Code, resp.Body.String())
+	}
+	if cfg.CheckinScheduleMode != "cron" || cfg.CheckinCron != "30 7 * * *" {
+		t.Fatalf("checkin cfg = (%q, %q)", cfg.CheckinScheduleMode, cfg.CheckinCron)
+	}
+	var v2 string
+	if err := db.Get(&v2, "SELECT value FROM settings WHERE key = ?", "checkin_schedule_v2"); err != nil {
+		t.Fatalf("read v2: %v", err)
+	}
+	var spec map[string]any
+	if err := json.Unmarshal([]byte(v2), &spec); err != nil {
+		t.Fatalf("v2 not JSON: %v", err)
+	}
+	if spec["type"] != "daily" || spec["cron"] != "30 7 * * *" {
+		t.Fatalf("v2 spec = %v", spec)
+	}
+}
+
+func TestSettingsRuntimeUpdateCheckinScheduleObjectRejectsBadVersion(t *testing.T) {
+	_, r, _ := setupEdgeTest(t)
+	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
+		"checkinSchedule": map[string]any{
+			"version": 99,
+			"type":    "daily",
+			"time":    "07:30",
+		},
+	})
+	if resp.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s, want 400", resp.Code, resp.Body.String())
+	}
+}
+
+func TestSettingsRuntimeUpdateBrandingPersists(t *testing.T) {
+	db, r, cfg := setupEdgeTest(t)
+	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
+		"systemName":      "My Gateway",
+		"logo":            "https://example.com/logo.png",
+		"footer":          "Powered by MetAPI",
+		"about":           "About copy",
+		"homePageContent": "Welcome",
+		"serverAddress":   "https://gw.example.com",
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", resp.Code, resp.Body.String())
+	}
+	if cfg.SystemName != "My Gateway" || cfg.Logo != "https://example.com/logo.png" || cfg.ServerAddress != "https://gw.example.com" {
+		t.Fatalf("cfg branding = %+v", cfg)
+	}
+	var stored string
+	if err := db.Get(&stored, "SELECT value FROM settings WHERE key = ?", "system_name"); err != nil {
+		t.Fatalf("read system_name: %v", err)
+	}
+	if stored != `"My Gateway"` {
+		t.Fatalf("stored system_name = %q", stored)
+	}
+}
+
+func TestSettingsRuntimeGetIncludesWindowAndScheduleFields(t *testing.T) {
+	_, r, cfg := setupEdgeTest(t)
+	cfg.CheckinWindowStart = "02:00"
+	cfg.CheckinWindowEnd = "03:30"
+	req := httptest.NewRequest("GET", "/api/settings/runtime", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode GET: %v", err)
+	}
+	for _, key := range []string{"checkinWindowStart", "checkinWindowEnd", "checkinSchedule", "balanceRefreshSchedule", "logCleanupSchedule", "systemName", "logo", "footer", "about", "homePageContent", "serverAddress"} {
+		if _, ok := body[key]; !ok {
+			t.Fatalf("GET runtime missing key %s", key)
+		}
+	}
+	if body["checkinWindowStart"] != "02:00" || body["checkinWindowEnd"] != "03:30" {
+		t.Fatalf("window fields = (%v, %v)", body["checkinWindowStart"], body["checkinWindowEnd"])
+	}
+}
+
+func TestSettingsMigrationPreviewAndApply(t *testing.T) {
+	db, r, _ := setupEdgeTest(t)
+	if _, err := db.Exec("INSERT INTO settings (key, value) VALUES (?, ?), (?, ?), (?, ?)",
+		"checkin_cron", `"0 8 * * *"`, "balance_refresh_cron", `"0 * * * *"`, "log_cleanup_cron", `"0 6 * * *"`); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	req := httptest.NewRequest("GET", "/api/settings/migration/preview", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("preview status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var prev map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &prev); err != nil {
+		t.Fatalf("decode preview: %v", err)
+	}
+	if prev["pending"] != float64(3) || prev["currentVersion"] != float64(0) || prev["targetVersion"] != float64(1) {
+		t.Fatalf("preview = %v", prev)
+	}
+	if prev["legacyFieldsPreserved"] != true {
+		t.Fatalf("legacyFieldsPreserved = %v", prev["legacyFieldsPreserved"])
+	}
+	req2 := httptest.NewRequest("POST", "/api/settings/migration/apply", nil)
+	rec2 := httptest.NewRecorder()
+	r.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("apply status = %d body=%s", rec2.Code, rec2.Body.String())
+	}
+	var res map[string]any
+	if err := json.Unmarshal(rec2.Body.Bytes(), &res); err != nil {
+		t.Fatalf("decode apply: %v", err)
+	}
+	if res["applied"] != float64(4) {
+		t.Fatalf("applied = %v, want 4", res["applied"])
+	}
+	var v2 string
+	if err := db.Get(&v2, "SELECT value FROM settings WHERE key = ?", "balance_refresh_schedule_v2"); err != nil {
+		t.Fatalf("read v2: %v", err)
+	}
+	if !strings.Contains(v2, `"type":"interval"`) {
+		t.Fatalf("balance v2 = %q", v2)
 	}
 }

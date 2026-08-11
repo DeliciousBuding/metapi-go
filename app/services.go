@@ -11,9 +11,15 @@ import (
 )
 
 var (
-	servicesMu       sync.RWMutex
-	registry         *scheduler.Registry
-	checkinScheduler *scheduler.CheckinScheduler
+	servicesMu sync.RWMutex
+	// updateMu serializes scheduler config updates against each other and
+	// against StopBackgroundServices so a hot reload cannot race a shutdown.
+	updateMu            sync.Mutex
+	registry            *scheduler.Registry
+	checkinScheduler    *scheduler.CheckinScheduler
+	balanceScheduler    *scheduler.BalanceScheduler
+	logCleanupScheduler *scheduler.LogCleanupScheduler
+	webdavScheduler     *scheduler.BackupWebdavScheduler
 )
 
 // StartBackgroundServices creates and starts all 16 background schedulers.
@@ -32,16 +38,16 @@ func StartBackgroundServices() {
 	newRegistry.Register(checkin)
 
 	// ---- Scheduler 2: Balance Refresh ----
-	newRegistry.Register(scheduler.NewBalanceScheduler(cfg, nil))
+	balance := scheduler.NewBalanceScheduler(cfg, nil)
 
 	// ---- Scheduler 3: Daily Summary ----
 	newRegistry.Register(scheduler.NewDailySummaryScheduler(cfg))
 
 	// ---- Scheduler 4: Log Cleanup ----
-	newRegistry.Register(scheduler.NewLogCleanupScheduler(cfg))
+	logCleanup := scheduler.NewLogCleanupScheduler(cfg)
 
 	// ---- Scheduler 5: Backup WebDAV ----
-	newRegistry.Register(scheduler.NewBackupWebdavScheduler(cfg))
+	webdav := scheduler.NewBackupWebdavScheduler(cfg)
 
 	// ---- Scheduler 6: Site Announcements ----
 	newRegistry.Register(scheduler.NewSiteAnnouncementScheduler(cfg))
@@ -77,13 +83,18 @@ func StartBackgroundServices() {
 	// ---- Scheduler 15: OAuth Token Refresh ----
 	newRegistry.Register(scheduler.NewOAuthRefreshScheduler(cfg))
 
+	// Start all
+	newRegistry.StartAll(context.Background())
+
+	// Publish scheduler pointers only after StartAll so a config update can
+	// never observe a half-started scheduler.
 	servicesMu.Lock()
 	registry = newRegistry
 	checkinScheduler = checkin
+	balanceScheduler = balance
+	logCleanupScheduler = logCleanup
+	webdavScheduler = webdav
 	servicesMu.Unlock()
-
-	// Start all
-	newRegistry.StartAll(context.Background())
 
 	slog.Info("all background schedulers registered",
 		"count", len(newRegistry.List()),
@@ -93,10 +104,15 @@ func StartBackgroundServices() {
 // StopBackgroundServices stops all background schedulers.
 func StopBackgroundServices() {
 	slog.Info("stopping background schedulers")
+	updateMu.Lock()
+	defer updateMu.Unlock()
 	servicesMu.Lock()
 	activeRegistry := registry
 	registry = nil
 	checkinScheduler = nil
+	balanceScheduler = nil
+	logCleanupScheduler = nil
+	webdavScheduler = nil
 	servicesMu.Unlock()
 	if activeRegistry != nil {
 		activeRegistry.StopAll()
@@ -108,6 +124,8 @@ func StopBackgroundServices() {
 // scheduler. It is a no-op before background services have started.
 // windowStart/windowEnd are HH:mm bounds for E1 window mode (ignored otherwise).
 func UpdateCheckinSchedule(mode, cronExpr string, intervalHours int, windowStart, windowEnd string) error {
+	updateMu.Lock()
+	defer updateMu.Unlock()
 	servicesMu.RLock()
 	activeScheduler := checkinScheduler
 	servicesMu.RUnlock()
@@ -115,4 +133,46 @@ func UpdateCheckinSchedule(mode, cronExpr string, intervalHours int, windowStart
 		return nil
 	}
 	return activeScheduler.UpdateCheckinSchedule(mode, cronExpr, intervalHours, windowStart, windowEnd)
+}
+
+// UpdateBalanceCron hot-reloads the running balance-refresh scheduler with a
+// newly persisted cron. It is a no-op before background services have started.
+func UpdateBalanceCron(cronExpr string) error {
+	updateMu.Lock()
+	defer updateMu.Unlock()
+	servicesMu.RLock()
+	activeScheduler := balanceScheduler
+	servicesMu.RUnlock()
+	if activeScheduler == nil {
+		return nil
+	}
+	return activeScheduler.UpdateCron(cronExpr)
+}
+
+// UpdateLogCleanupSettings hot-reloads the running log-cleanup scheduler.
+// It is a no-op before background services have started.
+func UpdateLogCleanupSettings(cronExpr string, usageEnabled, programEnabled bool, retentionDays int) error {
+	updateMu.Lock()
+	defer updateMu.Unlock()
+	servicesMu.RLock()
+	activeScheduler := logCleanupScheduler
+	servicesMu.RUnlock()
+	if activeScheduler == nil {
+		return nil
+	}
+	return activeScheduler.UpdateSettings(cronExpr, usageEnabled, programEnabled, retentionDays)
+}
+
+// ReloadWebdavBackup hot-reloads the running WebDAV backup scheduler after a
+// config save. It is a no-op before background services have started.
+func ReloadWebdavBackup() error {
+	updateMu.Lock()
+	defer updateMu.Unlock()
+	servicesMu.RLock()
+	activeScheduler := webdavScheduler
+	servicesMu.RUnlock()
+	if activeScheduler == nil {
+		return nil
+	}
+	return activeScheduler.Reload()
 }

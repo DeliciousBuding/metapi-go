@@ -120,3 +120,31 @@ func TestParseStringListSettingEmptyRawRejected(t *testing.T) {
 		t.Fatalf("empty raw should be rejected, got %#v ok=%v", list, ok)
 	}
 }
+
+func TestApplyRuntimeSettingsAppliesBranding(t *testing.T) {
+	cfg := &config.Config{}
+	ApplyRuntimeSettings(cfg, map[string]string{
+		"system_name":       `"My Gateway"`,
+		"logo":              `"https://example.com/logo.png"`,
+		"footer":            `"Powered by MetAPI"`,
+		"about":             `"About copy"`,
+		"home_page_content": `"Welcome"`,
+		"server_address":    `"https://gw.example.com"`,
+	})
+	if cfg.SystemName != "My Gateway" || cfg.Logo != "https://example.com/logo.png" || cfg.Footer != "Powered by MetAPI" {
+		t.Fatalf("branding = %+v", cfg)
+	}
+	if cfg.About != "About copy" || cfg.HomePageContent != "Welcome" || cfg.ServerAddress != "https://gw.example.com" {
+		t.Fatalf("branding = %+v", cfg)
+	}
+}
+
+func TestApplyRuntimeSettingsIgnoresEmptyBranding(t *testing.T) {
+	cfg := &config.Config{SystemName: "keep"}
+	ApplyRuntimeSettings(cfg, map[string]string{
+		"system_name": `""`,
+	})
+	if cfg.SystemName != "keep" {
+		t.Fatalf("SystemName = %q, want preserved", cfg.SystemName)
+	}
+}

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/netip"
@@ -16,9 +17,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/app"
+	"github.com/deliciousbuding/metapi-go/scheduler"
+	backupsvc "github.com/deliciousbuding/metapi-go/service/backup"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
-	backupsvc "github.com/deliciousbuding/metapi-go/service/backup"
 )
 
 // RegisterBackupRoutes registers all /api/settings/backup routes.
@@ -673,6 +676,13 @@ func (h *backupHandler) saveWebdavConfig(w http.ResponseWriter, r *http.Request)
 	}
 	normalizeWebdavBackupConfig(&cfg)
 
+	if cfg.AutoSyncEnabled && !scheduler.ValidateCronExpr(cfg.AutoSyncCron) {
+		writeJSON(w, http.StatusBadRequest, map[string]any{
+			"success": false,
+			"message": "自动同步 cron 表达式无效",
+		})
+		return
+	}
 	if err := validateWebdavBackupConfig(cfg, false); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{
 			"success": false,
@@ -686,6 +696,9 @@ func (h *backupHandler) saveWebdavConfig(w http.ResponseWriter, r *http.Request)
 			"message": "保存 WebDAV 配置失败",
 		})
 		return
+	}
+	if err := app.ReloadWebdavBackup(); err != nil {
+		slog.Warn("settings: webdav backup reload after save failed", "error", err)
 	}
 
 	writeWebdavConfigResponse(w, http.StatusOK, true, cfg, loadWebdavBackupState(h.db))

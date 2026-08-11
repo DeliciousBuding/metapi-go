@@ -130,6 +130,31 @@ func ApplyRuntimeSettings(cfg *config.Config, settingsMap map[string]string) {
 				cfg.CheckinWindowEnd = v
 			}
 
+		// Site & Branding (empty values keep the embedded defaults)
+		case "system_name":
+			if v := parseJSONSettingString(value); v != "" {
+				cfg.SystemName = v
+			}
+		case "logo":
+			if v := parseJSONSettingString(value); v != "" {
+				cfg.Logo = v
+			}
+		case "footer":
+			if v := parseJSONSettingString(value); v != "" {
+				cfg.Footer = v
+			}
+		case "about":
+			if v := parseJSONSettingString(value); v != "" {
+				cfg.About = v
+			}
+		case "home_page_content":
+			if v := parseJSONSettingString(value); v != "" {
+				cfg.HomePageContent = v
+			}
+		case "server_address":
+			if v := parseJSONSettingString(value); v != "" {
+				cfg.ServerAddress = v
+			}
 		// Notify
 		case "webhook_url":
 			cfg.WebhookUrl = value
