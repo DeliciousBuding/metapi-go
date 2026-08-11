@@ -1,17 +1,19 @@
 // metapi-go/features/settings/sections/content/components — import/export
-// section. Three export types, JSON paste import with preview, and a WebDAV
-// auto-backup config form. Mirrors the legacy ImportExport page, trimmed to
-// the actionable surfaces.
+// section. Three export types (now checked for non-OK responses), JSON paste
+// import with a preview + confirmation step, and a WebDAV auto-backup config
+// form using the shared semantic schedule editor.
 
-import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
-import { api,type BackupWebdavResponse } from '@/lib/api'
+import {
+  api,
+  type BackupWebdavExportType,
+  type BackupWebdavResponse,
+} from '@/lib/api'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -33,25 +35,67 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
+
+import { ConfirmDialog } from '../../../components/confirm-dialog'
+import { FormNavigationGuard } from '../../../components/form-navigation-guard'
+import { ScheduleEditor } from '../../../components/schedule-editor'
+import { SettingsFormActions } from '../../../components/settings-form-actions'
+import { SettingsSectionCard } from '../../../components/settings-section-card'
+import { useSettingsForm } from '../../../hooks/use-settings-form'
+import { collectChangedFields, hasChanges } from '../../../lib/collect-changed-fields'
+import { scheduleFromLegacy, scheduleToCron } from '../../../lib/schedule'
 
 const WEBDAV_FORM_ID = 'settings-content-import-export-webdav-form'
 
+type BackupImportPlan = Record<
+  string,
+  { rows: number; toInsert: number; duplicates: number; skippedRows: number }
+>
+
 const webdavSchema = z.object({
-  enabled: z.boolean().optional(),
+  enabled: z.boolean(),
   fileUrl: z.string().optional(),
   username: z.string().optional(),
   password: z.string().optional(),
-  clearPassword: z.boolean().optional(),
-  exportType: z.enum(['all', 'accounts', 'preferences']).optional(),
-  autoSyncEnabled: z.boolean().optional(),
-  autoSyncCron: z.string().optional(),
+  exportType: z.enum(['all', 'accounts', 'preferences']),
+  autoSyncEnabled: z.boolean(),
+  autoSyncSchedule: z
+    .discriminatedUnion('kind', [
+      z.object({
+        version: z.literal(1),
+        kind: z.literal('daily'),
+        time: z.string(),
+      }),
+      z.object({
+        version: z.literal(1),
+        kind: z.literal('interval'),
+        everyHours: z.number().int().min(1).max(24),
+      }),
+      z.object({
+        version: z.literal(1),
+        kind: z.literal('window'),
+        windowStart: z.string(),
+        windowEnd: z.string(),
+      }),
+      z.object({
+        version: z.literal(1),
+        kind: z.literal('custom'),
+        cron: z.string(),
+      }),
+    ]),
 })
 
 type WebdavFormValues = z.infer<typeof webdavSchema>
+
+const DEFAULT_WEBDAV_VALUES: WebdavFormValues = {
+  enabled: false,
+  fileUrl: '',
+  username: '',
+  password: '',
+  exportType: 'all',
+  autoSyncEnabled: false,
+  autoSyncSchedule: { version: 1, kind: 'interval', everyHours: 6 },
+}
 
 const webdavQueryKeys = {
   all: ['backup-webdav'] as const,
@@ -71,6 +115,8 @@ export function ImportExportSection() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [importText, setImportText] = useState('')
+  const [importPlan, setImportPlan] = useState<BackupImportPlan | null>(null)
+  const [confirmImportOpen, setConfirmImportOpen] = useState(false)
 
   const webdavQuery = useQuery<BackupWebdavResponse>({
     queryKey: webdavQueryKeys.all,
@@ -78,48 +124,27 @@ export function ImportExportSection() {
     staleTime: 30 * 1000,
   })
 
-  const form = useForm<WebdavFormValues>({
-    resolver: zodResolver(webdavSchema) as never,
-    defaultValues: {
-      enabled: false,
-      fileUrl: '',
-      username: '',
-      password: '',
-      clearPassword: false,
-      exportType: 'all',
-      autoSyncEnabled: false,
-      autoSyncCron: '',
-    },
+  const config = webdavQuery.data?.config
+
+  const { form, baseline, syncFromServer } = useSettingsForm<WebdavFormValues>({
+    schema: webdavSchema,
+    defaultValues: DEFAULT_WEBDAV_VALUES,
+    serverValues: config
+      ? {
+          enabled: config.enabled,
+          fileUrl: config.fileUrl,
+          username: config.username,
+          password: '',
+          exportType: config.exportType,
+          autoSyncEnabled: config.autoSyncEnabled,
+          autoSyncSchedule: scheduleFromLegacy({ cron: config.autoSyncCron }),
+        }
+      : null,
   })
 
-  useEffect(() => {
-    const config = webdavQuery.data?.config
-    if (!config) {
-      return
-    }
-    form.reset(
-      {
-        enabled: config.enabled,
-        fileUrl: config.fileUrl,
-        username: config.username,
-        password: '',
-        clearPassword: false,
-        exportType: config.exportType,
-        autoSyncEnabled: config.autoSyncEnabled,
-        autoSyncCron: config.autoSyncCron,
-      },
-      { keepDirtyValues: true },
-    )
-  }, [webdavQuery.data, form])
-
   const exportMutation = useMutation({
-    mutationFn: async (type: 'all' | 'accounts' | 'preferences') => {
-      const text = await (async () => {
-        const response = await fetch(
-          `/api/settings/backup/export?type=${encodeURIComponent(type)}`,
-        )
-        return response.text()
-      })()
+    mutationFn: async (type: BackupWebdavExportType) => {
+      const text = await api.exportBackupRaw(type)
       return { type, text }
     },
     onSuccess: ({ type, text }) => {
@@ -130,18 +155,39 @@ export function ImportExportSection() {
     onError: () => toast.error(t('settings.content.importExport.toast.exportFailed')),
   })
 
+  const previewMutation = useMutation({
+    mutationFn: async (raw: string) => {
+      const data = JSON.parse(raw) as unknown
+      const result = (await api.previewBackupImport(data)) as {
+        success?: boolean
+        plan?: BackupImportPlan
+      }
+      return result.plan ?? {}
+    },
+  })
+
   const importMutation = useMutation({
     mutationFn: async (raw: string) => {
       const data = JSON.parse(raw) as unknown
-      await api.previewBackupImport(data)
       return api.importBackup(data)
     },
     onSuccess: () => {
       toast.success(t('settings.content.importExport.toast.imported'))
       setImportText('')
+      setImportPlan(null)
     },
     onError: () => toast.error(t('settings.content.importExport.toast.importFailed')),
   })
+
+  async function handlePreviewImport() {
+    try {
+      const plan = await previewMutation.mutateAsync(importText)
+      setImportPlan(plan)
+      setConfirmImportOpen(true)
+    } catch {
+      toast.error(t('settings.content.importExport.toast.importFailed'))
+    }
+  }
 
   const saveWebdavMutation = useMutation({
     mutationFn: async (values: WebdavFormValues) =>
@@ -150,10 +196,12 @@ export function ImportExportSection() {
         fileUrl: values.fileUrl ?? '',
         username: values.username ?? '',
         password: values.password || undefined,
-        clearPassword: Boolean(values.clearPassword),
-        exportType: values.exportType ?? 'all',
+        exportType: values.exportType,
         autoSyncEnabled: Boolean(values.autoSyncEnabled),
-        autoSyncCron: values.autoSyncCron ?? '',
+        autoSyncCron:
+          scheduleToCron(values.autoSyncSchedule, config?.autoSyncCron)
+          ?? config?.autoSyncCron
+          ?? '0 */6 * * *',
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: webdavQueryKeys.all })
@@ -163,7 +211,7 @@ export function ImportExportSection() {
   })
 
   const exportWebdavMutation = useMutation({
-    mutationFn: async (type?: 'all' | 'accounts' | 'preferences') =>
+    mutationFn: async (type?: BackupWebdavExportType) =>
       api.exportBackupToWebdav(type),
     onSuccess: () => toast.success(t('settings.content.importExport.toast.webdavExported')),
     onError: () => toast.error(t('settings.content.importExport.toast.webdavExportFailed')),
@@ -176,12 +224,19 @@ export function ImportExportSection() {
   })
 
   function onWebdavSubmit(values: WebdavFormValues) {
+    const changed = collectChangedFields(
+      values as unknown as Record<string, unknown>,
+      baseline as unknown as Record<string, unknown> | null,
+    ) as Partial<WebdavFormValues>
+    if (!hasChanges(changed)) {
+      toast.info(t('settings.common.noChanges'))
+      return
+    }
     saveWebdavMutation.mutate(values)
   }
 
-  if (webdavQuery.isLoading) {
-    return <SettingsSectionSkeleton />
-  }
+  const planEntries = importPlan ? Object.entries(importPlan) : []
+  const isWebdavDirty = form.formState.isDirty
 
   return (
     <SettingsSectionCard
@@ -240,213 +295,268 @@ export function ImportExportSection() {
               type='button'
               variant='outline'
               size='sm'
-              disabled={importMutation.isPending || !importText.trim()}
-              onClick={() => importMutation.mutate(importText)}
+              disabled={previewMutation.isPending || !importText.trim()}
+              onClick={() => void handlePreviewImport()}
             >
-              {importMutation.isPending
+              {previewMutation.isPending
                 ? t('settings.common.saving')
-                : t('settings.content.importExport.import')}
+                : t('settings.content.importExport.importPreview')}
             </Button>
           </div>
         </div>
 
-        <Form {...form}>
-          <form
-            id={WEBDAV_FORM_ID}
-            onSubmit={form.handleSubmit(onWebdavSubmit)}
-            className='space-y-4 rounded-lg border p-4'
-          >
-            <h4 className='text-sm font-medium'>
-              {t('settings.content.importExport.webdavGroup')}
-            </h4>
-            <FormField
-              control={form.control}
-              name='enabled'
-              render={({ field }) => (
-                <FormItem className='flex flex-row items-center gap-3'>
-                  <FormControl>
-                    <Switch
-                      checked={Boolean(field.value)}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormLabel className='cursor-pointer'>
-                    {t('settings.content.importExport.fields.webdavEnabled')}
-                  </FormLabel>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name='fileUrl'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    {t('settings.content.importExport.fields.webdavFileUrl')}
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      value={field.value ?? ''}
-                      placeholder='https://dav.example.com/backups/metapi.json'
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className='grid grid-cols-2 gap-4'>
+        {webdavQuery.isLoading ? (
+          <p className='text-sm text-muted-foreground'>
+            {t('settings.common.loading')}
+          </p>
+        ) : (
+          <Form {...form}>
+            <form
+              id={WEBDAV_FORM_ID}
+              onSubmit={form.handleSubmit(onWebdavSubmit)}
+              className='space-y-4 rounded-lg border p-4'
+            >
+              <h4 className='text-sm font-medium'>
+                {t('settings.content.importExport.webdavGroup')}
+              </h4>
               <FormField
                 control={form.control}
-                name='username'
+                name='enabled'
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {t('settings.content.importExport.fields.webdavUsername')}
-                    </FormLabel>
+                  <FormItem className='flex flex-row items-center gap-3'>
                     <FormControl>
-                      <Input {...field} value={field.value ?? ''} />
+                      <Switch
+                        checked={Boolean(field.value)}
+                        onCheckedChange={field.onChange}
+                      />
                     </FormControl>
-                    <FormMessage />
+                    <FormLabel className='cursor-pointer'>
+                      {t('settings.content.importExport.fields.webdavEnabled')}
+                    </FormLabel>
                   </FormItem>
                 )}
               />
               <FormField
                 control={form.control}
-                name='password'
+                name='fileUrl'
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      {t('settings.content.importExport.fields.webdavPassword')}
+                      {t('settings.content.importExport.fields.webdavFileUrl')}
                     </FormLabel>
                     <FormControl>
                       <Input
                         {...field}
                         value={field.value ?? ''}
-                        type='password'
-                        placeholder={t('settings.content.importExport.fields.webdavPasswordHint')}
+                        placeholder='https://dav.example.com/backups/metapi.json'
                       />
                     </FormControl>
-                    <FormDescription>
-                      {t('settings.content.importExport.fields.webdavPasswordDescription')}
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </div>
-            <FormField
-              control={form.control}
-              name='exportType'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    {t('settings.content.importExport.fields.webdavExportType')}
-                  </FormLabel>
-                  <Select
-                    value={field.value ?? 'all'}
-                    onValueChange={field.onChange}
-                  >
+              <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
+                <FormField
+                  control={form.control}
+                  name='username'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {t('settings.content.importExport.fields.webdavUsername')}
+                      </FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value ?? ''} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name='password'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        {t('settings.content.importExport.fields.webdavPassword')}
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          value={field.value ?? ''}
+                          type='password'
+                          placeholder={t('settings.content.importExport.fields.webdavPasswordHint')}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        {t('settings.content.importExport.fields.webdavPasswordDescription')}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name='exportType'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {t('settings.content.importExport.fields.webdavExportType')}
+                    </FormLabel>
+                    <Select
+                      value={field.value ?? 'all'}
+                      onValueChange={field.onChange}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value='all'>
+                          {t('settings.content.importExport.exportAll')}
+                        </SelectItem>
+                        <SelectItem value='accounts'>
+                          {t('settings.content.importExport.exportAccounts')}
+                        </SelectItem>
+                        <SelectItem value='preferences'>
+                          {t('settings.content.importExport.exportPreferences')}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name='autoSyncEnabled'
+                render={({ field }) => (
+                  <FormItem className='flex flex-row items-center gap-3'>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
+                      <Switch
+                        checked={Boolean(field.value)}
+                        onCheckedChange={field.onChange}
+                      />
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value='all'>
-                        {t('settings.content.importExport.exportAll')}
-                      </SelectItem>
-                      <SelectItem value='accounts'>
-                        {t('settings.content.importExport.exportAccounts')}
-                      </SelectItem>
-                      <SelectItem value='preferences'>
-                        {t('settings.content.importExport.exportPreferences')}
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name='autoSyncEnabled'
-              render={({ field }) => (
-                <FormItem className='flex flex-row items-center gap-3'>
-                  <FormControl>
-                    <Switch
-                      checked={Boolean(field.value)}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormLabel className='cursor-pointer'>
-                    {t('settings.content.importExport.fields.webdavAutoSyncEnabled')}
-                  </FormLabel>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name='autoSyncCron'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    {t('settings.content.importExport.fields.webdavAutoSyncCron')}
-                  </FormLabel>
-                  <FormControl>
-                    <Input {...field} value={field.value ?? ''} placeholder='0 */6 * * *' />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className='flex flex-wrap gap-2'>
-              <Button
-                type='submit'
-                form={WEBDAV_FORM_ID}
-                size='sm'
-                disabled={saveWebdavMutation.isPending}
-              >
-                {saveWebdavMutation.isPending
-                  ? t('settings.common.saving')
-                  : t('settings.content.importExport.saveWebdav')}
-              </Button>
-              <Button
-                type='button'
-                variant='outline'
-                size='sm'
-                disabled={exportWebdavMutation.isPending}
-                onClick={() => exportWebdavMutation.mutate(undefined)}
-              >
-                {t('settings.content.importExport.exportToWebdav')}
-              </Button>
-              <Button
-                type='button'
-                variant='outline'
-                size='sm'
-                disabled={importWebdavMutation.isPending}
-                onClick={() => importWebdavMutation.mutate()}
-              >
-                {t('settings.content.importExport.importFromWebdav')}
-              </Button>
-            </div>
-            {webdavQuery.data?.state?.lastSyncAt ? (
-              <p className='text-xs text-muted-foreground'>
-                {t('settings.content.importExport.lastSync', {
-                  at: webdavQuery.data.state.lastSyncAt,
-                })}
-              </p>
-            ) : null}
-            {webdavQuery.data?.state?.lastError ? (
-              <p className='text-xs text-destructive'>
-                {t('settings.content.importExport.lastError', {
-                  error: webdavQuery.data.state.lastError,
-                })}
-              </p>
-            ) : null}
-          </form>
-        </Form>
+                    <FormLabel className='cursor-pointer'>
+                      {t('settings.content.importExport.fields.webdavAutoSyncEnabled')}
+                    </FormLabel>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name='autoSyncSchedule'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {t('settings.content.importExport.fields.webdavAutoSyncCron')}
+                    </FormLabel>
+                    <FormControl>
+                      <ScheduleEditor
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <SettingsFormActions
+                formId={WEBDAV_FORM_ID}
+                isDirty={isWebdavDirty}
+                isPending={saveWebdavMutation.isPending}
+                onReset={() =>
+                  syncFromServer(
+                    config
+                      ? {
+                          enabled: config.enabled,
+                          fileUrl: config.fileUrl,
+                          username: config.username,
+                          password: '',
+                          exportType: config.exportType,
+                          autoSyncEnabled: config.autoSyncEnabled,
+                          autoSyncSchedule: scheduleFromLegacy({
+                            cron: config.autoSyncCron,
+                          }),
+                        }
+                      : DEFAULT_WEBDAV_VALUES,
+                  )
+                }
+                saveLabel={t('settings.content.importExport.saveWebdav')}
+              />
+              <div className='flex flex-wrap gap-2'>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  disabled={exportWebdavMutation.isPending}
+                  onClick={() => exportWebdavMutation.mutate(undefined)}
+                >
+                  {t('settings.content.importExport.exportToWebdav')}
+                </Button>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  disabled={importWebdavMutation.isPending}
+                  onClick={() => importWebdavMutation.mutate()}
+                >
+                  {t('settings.content.importExport.importFromWebdav')}
+                </Button>
+              </div>
+              {webdavQuery.data?.state?.lastSyncAt ? (
+                <p className='text-xs text-muted-foreground'>
+                  {t('settings.content.importExport.lastSync', {
+                    at: webdavQuery.data.state.lastSyncAt,
+                  })}
+                </p>
+              ) : null}
+              {webdavQuery.data?.state?.lastError ? (
+                <p className='text-xs text-destructive'>
+                  {t('settings.content.importExport.lastError', {
+                    error: webdavQuery.data.state.lastError,
+                  })}
+                </p>
+              ) : null}
+            </form>
+          </Form>
+        )}
       </div>
+      <FormNavigationGuard enabled={isWebdavDirty} />
+      <ConfirmDialog
+        open={confirmImportOpen}
+        title={t('settings.content.importExport.importConfirmTitle')}
+        description={t('settings.content.importExport.importConfirmDescription')}
+        confirmLabel={t('settings.content.importExport.import')}
+        cancelLabel={t('settings.common.cancel')}
+        destructive
+        onConfirm={() => {
+          setConfirmImportOpen(false)
+          importMutation.mutate(importText)
+        }}
+        onCancel={() => setConfirmImportOpen(false)}
+      />
+      {importPlan && planEntries.length > 0 ? (
+        <div className='mt-4 space-y-2 rounded-lg border p-4'>
+          <h4 className='text-sm font-medium'>
+            {t('settings.content.importExport.importPreviewTitle')}
+          </h4>
+          <ul className='list-inside list-disc space-y-1 text-xs text-muted-foreground'>
+            {planEntries.map(([table, plan]) => (
+              <li key={table}>
+                {t('settings.content.importExport.importPreviewRow', {
+                  table,
+                  toInsert: plan.toInsert,
+                  duplicates: plan.duplicates,
+                  skipped: plan.skippedRows,
+                })}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </SettingsSectionCard>
   )
 }

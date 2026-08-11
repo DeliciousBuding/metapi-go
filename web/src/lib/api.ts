@@ -540,10 +540,15 @@ export type RuntimeSettingsPayload = {
   proxyDebugRetentionHours?: number
   proxyDebugMaxBodyBytes?: number
   checkinCron?: string
-  checkinScheduleMode?: 'cron' | 'interval'
+  checkinScheduleMode?: 'cron' | 'interval' | 'window'
   checkinIntervalHours?: number
+  checkinWindowStart?: string
+  checkinWindowEnd?: string
+  checkinSchedule?: ScheduleSpecV1
   balanceRefreshCron?: string
+  balanceRefreshSchedule?: ScheduleSpecV1
   logCleanupCron?: string
+  logCleanupSchedule?: ScheduleSpecV1
   logCleanupUsageLogsEnabled?: boolean
   logCleanupProgramLogsEnabled?: boolean
   logCleanupRetentionDays?: number
@@ -594,6 +599,39 @@ export type RuntimeSettingsPayload = {
   proxyEmptyContentFailEnabled?: boolean
   globalBlockedBrands?: string[]
   globalAllowedModels?: string[]
+}
+
+/**
+ * ScheduleSpec v1 — semantic scheduling description. The backend keeps the
+ * legacy `*_cron` field as the source of truth and derives/projects this
+ * object; `custom` carries the original cron expression verbatim when a
+ * semantic mapping is not possible.
+ */
+export type ScheduleSpecV1 =
+  | { version: 1; kind: 'daily'; time: string }
+  | { version: 1; kind: 'interval'; everyHours: number }
+  | { version: 1; kind: 'window'; windowStart: string; windowEnd: string }
+  | { version: 1; kind: 'custom'; cron: string }
+
+export type SettingsMigrationItem = {
+  job: string
+  cron: string
+  schedule?: ScheduleSpecV1
+  mapped: boolean
+}
+
+export type SettingsMigrationPreviewResponse = {
+  success: boolean
+  currentVersion: number
+  targetVersion: number
+  pending: number
+  customCount: number
+  legacyFieldsPreserved: boolean
+  items: SettingsMigrationItem[]
+}
+
+export type SettingsMigrationApplyResponse = SettingsMigrationPreviewResponse & {
+  applied: number
 }
 
 export type ProxyLogStatusFilter = 'all' | 'success' | 'failed'
@@ -1108,11 +1146,6 @@ export const api = {
     request(`/api/checkin/trigger/${id}`, { method: 'POST' }),
   getCheckinLogs: (params?: string) =>
     request(`/api/checkin/logs${params ? `?${  params}` : ''}`),
-  updateCheckinSchedule: (cron: string) =>
-    request('/api/checkin/schedule', {
-      method: 'PUT',
-      body: JSON.stringify({ cron }),
-    }),
 
   // Routes
   getRoutes: () => request('/api/routes'),
@@ -1694,6 +1727,25 @@ export const api = {
     ),
   exportBackup: (type: 'all' | 'accounts' | 'preferences' = 'all') =>
     request(`/api/settings/backup/export?type=${encodeURIComponent(type)}`),
+  /** Raw text export for file download; throws on non-OK responses. */
+  exportBackupRaw: async (type: 'all' | 'accounts' | 'preferences' = 'all') => {
+    const response = await fetchAuthenticatedResponse(
+      `/api/settings/backup/export?type=${encodeURIComponent(type)}`,
+    )
+    if (!response.ok) {
+      throw new Error(await extractResponseErrorMessage(response))
+    }
+    return response.text()
+  },
+  /** Semantic schedule migration preview (one-click upgrade). */
+  getSettingsMigrationPreview: () =>
+    request<SettingsMigrationPreviewResponse>('/api/settings/migration/preview'),
+  /** Apply the semantic schedule migration (append-only v2 keys). */
+  applySettingsMigration: () =>
+    request<SettingsMigrationApplyResponse>('/api/settings/migration/apply', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
   importBackup: (data: any) =>
     request('/api/settings/backup/import', {
       method: 'POST',

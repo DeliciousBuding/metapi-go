@@ -589,6 +589,28 @@
         "create": "Create",
         "enabled": "Enabled",
         "disabled": "Disabled",
+        "loading": "Loading…",
+        "saved": "All changes saved.",
+        "reset": "Reset",
+        "noChanges": "No changes to save.",
+        "loadFailed": "Failed to load settings. The form is disabled to avoid overwriting your configuration.",
+        "retry": "Retry",
+        "unsavedTitle": "Discard unsaved changes?",
+        "unsavedDescription": "You have unsaved changes in this section. Leaving now will discard them.",
+        "discardChanges": "Discard changes",
+        "keepEditing": "Keep editing",
+        "schedule": {
+          "kinds": {
+            "daily": "Daily at",
+            "interval": "Every N hours",
+            "window": "Random in window",
+            "custom": "Advanced cron",
+            "dailyHint": "Runs once per day at the selected time.",
+            "intervalHint": "Runs every selected number of hours.",
+            "windowHint": "Runs at a random time inside the window (check-in only).",
+            "customHint": "Raw cron expression; the original text is preserved exactly."
+          }
+        },
         "unlimited": "unlimited"
       },
       "general": {
@@ -648,6 +670,16 @@
           "modeCron": "Cron",
           "modeInterval": "Interval",
           "triggerCheckin": "Trigger check-in now",
+          "migration": {
+            "title": "Upgrade legacy schedules",
+            "summary": "v{{current}} → v{{target}}: {{pending}} schedule(s) can be migrated to the semantic format.",
+            "customCount": "{{count}} custom cron expression(s) kept verbatim.",
+            "legacyPreserved": "Legacy cron fields are kept; nothing is deleted.",
+            "apply": "Upgrade now",
+            "confirm": "This adds semantic schedule descriptors and keeps all existing cron fields. It is safe and repeatable.",
+            "applied": "Schedules upgraded.",
+            "applyFailed": "Failed to upgrade schedules."
+          },
           "triggering": "Triggering…",
           "fields": {
             "checkinScheduleMode": "Check-in schedule mode",
@@ -659,6 +691,12 @@
             "logCleanupCronHint": "Defaults to 06:00 daily.",
             "logCleanupRetentionDays": "Log retention (days)",
             "logCleanupUsageLogsEnabled": "Purge usage logs",
+            "checkinGroup": "Check-in",
+            "checkinSchedule": "Check-in schedule",
+            "balanceGroup": "Balance refresh",
+            "balanceRefreshSchedule": "Balance refresh schedule",
+            "logCleanupGroup": "Log cleanup",
+            "logCleanupSchedule": "Log cleanup schedule",
             "logCleanupUsageLogsEnabledHint": "Delete accumulated proxy usage logs on the cleanup schedule.",
             "logCleanupProgramLogsEnabled": "Purge program logs",
             "logCleanupProgramLogsEnabledHint": "Delete program events on the cleanup schedule. No-op if both cleanup toggles are off."
@@ -843,6 +881,11 @@
           "saveWebdav": "Save WebDAV config",
           "exportToWebdav": "Export to WebDAV",
           "importFromWebdav": "Import from WebDAV",
+          "importPreview": "Preview import",
+          "importConfirmTitle": "Confirm import?",
+          "importConfirmDescription": "Importing inserts or overwrites the rows shown in the preview. Review the plan before continuing.",
+          "importPreviewTitle": "Import plan",
+          "importPreviewRow": "{{table}}: {{toInsert}} insert(s), {{duplicates}} duplicate(s) skipped, {{skipped}} skipped by policy.",
           "lastSync": "Last sync: {{at}}",
           "lastError": "Last error: {{error}}",
           "fields": {

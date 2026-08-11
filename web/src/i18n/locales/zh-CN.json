@@ -589,6 +589,28 @@
         "create": "创建",
         "enabled": "已启用",
         "disabled": "已停用",
+        "loading": "加载中…",
+        "saved": "所有更改已保存。",
+        "reset": "重置",
+        "noChanges": "没有需要保存的更改。",
+        "loadFailed": "设置加载失败，表单已禁用，避免覆盖现有配置。",
+        "retry": "重试",
+        "unsavedTitle": "放弃未保存的更改？",
+        "unsavedDescription": "本分区有未保存的更改，离开将丢弃它们。",
+        "discardChanges": "放弃更改",
+        "keepEditing": "继续编辑",
+        "schedule": {
+          "kinds": {
+            "daily": "每天固定时间",
+            "interval": "每隔 N 小时",
+            "window": "时段内随机",
+            "custom": "高级 Cron",
+            "dailyHint": "每天在所选时间运行一次。",
+            "intervalHint": "每隔所选小时数运行一次。",
+            "windowHint": "在时段内随机时间运行（仅签到）。",
+            "customHint": "原始 Cron 表达式，原样保留。"
+          }
+        },
         "unlimited": "不限"
       },
       "general": {
@@ -649,6 +671,16 @@
           "modeInterval": "间隔",
           "triggerCheckin": "立即签到",
           "triggering": "触发中…",
+          "migration": {
+            "title": "升级旧版计划",
+            "summary": "v{{current}} → v{{target}}：{{pending}} 个计划可迁移为语义化格式。",
+            "customCount": "{{count}} 个自定义 Cron 表达式原样保留。",
+            "legacyPreserved": "旧 Cron 字段保留，不删除任何内容。",
+            "apply": "立即升级",
+            "confirm": "本次升级只追加语义化描述键，保留所有现有 Cron 字段，安全且可重复执行。",
+            "applied": "计划已升级。",
+            "applyFailed": "计划升级失败。"
+          },
           "fields": {
             "checkinScheduleMode": "签到调度模式",
             "checkinScheduleModeHint": "Cron 表达式或固定间隔。",
@@ -660,6 +692,12 @@
             "logCleanupRetentionDays": "保留天数",
             "logCleanupUsageLogsEnabled": "清理用量日志",
             "logCleanupUsageLogsEnabledHint": "按计划删除累积的代理用量日志。",
+            "checkinGroup": "签到",
+            "checkinSchedule": "签到计划",
+            "balanceGroup": "余额刷新",
+            "balanceRefreshSchedule": "余额刷新计划",
+            "logCleanupGroup": "日志清理",
+            "logCleanupSchedule": "日志清理计划",
             "logCleanupProgramLogsEnabled": "清理程序日志",
             "logCleanupProgramLogsEnabledHint": "按计划删除程序事件。两个清理开关均关闭时不执行删除。"
           },
@@ -844,6 +882,11 @@
           "exportToWebdav": "导出到 WebDAV",
           "importFromWebdav": "从 WebDAV 导入",
           "lastSync": "上次同步：{{at}}",
+          "importPreview": "预览导入",
+          "importConfirmTitle": "确认导入？",
+          "importConfirmDescription": "导入将按预览所示插入或覆盖行数据，请先核对计划。",
+          "importPreviewTitle": "导入计划",
+          "importPreviewRow": "{{table}}：插入 {{toInsert}} 行，跳过重复 {{duplicates}} 行，策略跳过 {{skipped}} 行。",
           "lastError": "上次错误：{{error}}",
           "fields": {
             "webdavEnabled": "启用 WebDAV 备份",

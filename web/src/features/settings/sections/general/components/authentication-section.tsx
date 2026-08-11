@@ -5,7 +5,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -24,16 +24,20 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
+
+import { FormNavigationGuard } from '../../../components/form-navigation-guard'
+import { SettingsFormActions } from '../../../components/settings-form-actions'
+import { SettingsSectionCard } from '../../../components/settings-section-card'
+import { SettingsSectionError } from '../../../components/settings-section-error'
+import { useSettingsForm } from '../../../hooks/use-settings-form'
+import { collectChangedFields, hasChanges } from '../../../lib/collect-changed-fields'
 import {
   asString,
   joinListField,
   splitListField,
   useRuntimeSettings,
   useUpdateRuntimeSettings,
+  type RuntimeSettings,
 } from '../../../lib/runtime-settings'
 
 const ALLOWLIST_FORM_ID = 'settings-general-auth-allowlist-form'
@@ -58,11 +62,24 @@ const allowlistSchema = z.object({
 
 type AllowlistFormValues = z.infer<typeof allowlistSchema>
 
+const DEFAULT_ALLOWLIST_VALUES: AllowlistFormValues = { adminIpAllowlist: '' }
+
 type AuthInfo = { masked?: string; currentAdminIp?: string }
+
+function deriveAllowlistServerValues(
+  data: RuntimeSettings | undefined,
+): AllowlistFormValues | null {
+  if (!data) {
+    return null
+  }
+  return {
+    adminIpAllowlist: joinListField(splitListField(data.adminIpAllowlist)),
+  }
+}
 
 export function AuthenticationSection() {
   const { t } = useTranslation()
-  const { data, isLoading } = useRuntimeSettings()
+  const { data, isLoading, isError, refetch } = useRuntimeSettings()
   const updateMutation = useUpdateRuntimeSettings()
   const [showTokenFields, setShowTokenFields] = useState(false)
 
@@ -91,27 +108,29 @@ export function AuthenticationSection() {
     defaultValues: { oldToken: '', newToken: '', confirmToken: '' },
   })
 
-  const allowlistForm = useForm<AllowlistFormValues>({
-    resolver: zodResolver(allowlistSchema) as never,
-    defaultValues: { adminIpAllowlist: '' },
+  const serverValues = deriveAllowlistServerValues(data)
+  const { form, baseline, syncFromServer } = useSettingsForm<AllowlistFormValues>({
+    schema: allowlistSchema,
+    defaultValues: DEFAULT_ALLOWLIST_VALUES,
+    serverValues,
   })
 
-  useEffect(() => {
-    if (!data) {
+  function onAllowlistSubmit(values: AllowlistFormValues) {
+    const changed = collectChangedFields(
+      values as unknown as Record<string, unknown>,
+      baseline as unknown as Record<string, unknown> | null,
+    ) as Partial<AllowlistFormValues>
+    if (!hasChanges(changed) || changed.adminIpAllowlist === undefined) {
+      toast.info(t('settings.common.noChanges'))
       return
     }
-    allowlistForm.reset(
-      { adminIpAllowlist: joinListField(splitListField(data.adminIpAllowlist)) },
-      { keepDirtyValues: true },
-    )
-  }, [data, allowlistForm])
-
-  function onAllowlistSubmit(values: AllowlistFormValues) {
     updateMutation.mutate(
-      { adminIpAllowlist: splitListField(values.adminIpAllowlist) },
+      { adminIpAllowlist: splitListField(changed.adminIpAllowlist) },
       {
-        onSuccess: () => toast.success(t('settings.general.authentication.toast.allowlistSaved')),
-        onError: () => toast.error(t('settings.general.authentication.toast.allowlistSaveFailed')),
+        onSuccess: () =>
+          toast.success(t('settings.general.authentication.toast.allowlistSaved')),
+        onError: () =>
+          toast.error(t('settings.general.authentication.toast.allowlistSaveFailed')),
       },
     )
   }
@@ -121,8 +140,28 @@ export function AuthenticationSection() {
   }
 
   if (isLoading) {
-    return <SettingsSectionSkeleton />
+    return (
+      <SettingsSectionCard
+        title={t('settings.general.authentication.title')}
+        description={t('settings.general.authentication.description')}
+      >
+        <p className='text-sm text-muted-foreground'>
+          {t('settings.common.loading')}
+        </p>
+      </SettingsSectionCard>
+    )
   }
+
+  if (isError || !data) {
+    return (
+      <SettingsSectionError
+        title={t('settings.general.authentication.title')}
+        onRetry={() => void refetch()}
+      />
+    )
+  }
+
+  const isDirty = form.formState.isDirty
 
   return (
     <SettingsSectionCard
@@ -228,14 +267,14 @@ export function AuthenticationSection() {
               </code>
             </div>
           ) : null}
-          <Form {...allowlistForm}>
+          <Form {...form}>
             <form
               id={ALLOWLIST_FORM_ID}
-              onSubmit={allowlistForm.handleSubmit(onAllowlistSubmit)}
+              onSubmit={form.handleSubmit(onAllowlistSubmit)}
               className='space-y-3'
             >
               <FormField
-                control={allowlistForm.control}
+                control={form.control}
                 name='adminIpAllowlist'
                 render={({ field }) => (
                   <FormItem>
@@ -258,19 +297,21 @@ export function AuthenticationSection() {
                   </FormItem>
                 )}
               />
-              <Button
-                type='submit'
-                form={ALLOWLIST_FORM_ID}
-                disabled={updateMutation.isPending}
-              >
-                {updateMutation.isPending
-                  ? t('settings.common.saving')
-                  : t('settings.common.save')}
-              </Button>
+              <SettingsFormActions
+                formId={ALLOWLIST_FORM_ID}
+                isDirty={isDirty}
+                isPending={updateMutation.isPending}
+                onReset={() =>
+                  syncFromServer(
+                    deriveAllowlistServerValues(data) ?? DEFAULT_ALLOWLIST_VALUES,
+                  )
+                }
+              />
             </form>
           </Form>
         </div>
       </div>
+      <FormNavigationGuard enabled={isDirty} />
     </SettingsSectionCard>
   )
 }

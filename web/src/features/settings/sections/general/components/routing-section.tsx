@@ -1,12 +1,9 @@
 // metapi-go/features/settings/sections/general/components — routing strategy
 // section. Fallback unit cost, cooldown (stored as seconds on the wire),
 // first-byte timeout, cross-protocol fallback toggle, and the five
-// routing-weight factors. Three presets (balanced / stable / cost) apply
-// canonical weight profiles.
+// routing-weight factors. Three presets (balanced / stable / cost) fill the
+// weight fields; saving is explicit through the shared actions row.
 
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
@@ -23,30 +20,34 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
+
+import { FormNavigationGuard } from '../../../components/form-navigation-guard'
+import { SettingsFormActions } from '../../../components/settings-form-actions'
+import { SettingsSectionCard } from '../../../components/settings-section-card'
+import { SettingsSectionError } from '../../../components/settings-section-error'
+import { useSettingsForm } from '../../../hooks/use-settings-form'
+import { collectChangedFields, hasChanges } from '../../../lib/collect-changed-fields'
 import {
   asBoolean,
   asNumber,
   useRuntimeSettings,
   useUpdateRuntimeSettings,
+  type RuntimeSettings,
 } from '../../../lib/runtime-settings'
 
 const FORM_ID = 'settings-general-routing-form'
 
 const routingSchema = z.object({
-  routingFallbackUnitCost: z.coerce.number().min(0).optional(),
-  tokenRouterFailureCooldownMaxSec: z.coerce.number().int().min(0).optional(),
-  proxyFirstByteTimeoutSec: z.coerce.number().int().min(0).optional(),
-  disableCrossProtocolFallback: z.boolean().optional(),
+  routingFallbackUnitCost: z.coerce.number().min(0),
+  tokenRouterFailureCooldownMaxSec: z.coerce.number().int().min(0),
+  proxyFirstByteTimeoutSec: z.coerce.number().int().min(0),
+  disableCrossProtocolFallback: z.boolean(),
   routingWeights: z.object({
-    baseWeightFactor: z.coerce.number().optional(),
-    valueScoreFactor: z.coerce.number().optional(),
-    costWeight: z.coerce.number().optional(),
-    balanceWeight: z.coerce.number().optional(),
-    usageWeight: z.coerce.number().optional(),
+    baseWeightFactor: z.coerce.number(),
+    valueScoreFactor: z.coerce.number(),
+    costWeight: z.coerce.number(),
+    balanceWeight: z.coerce.number(),
+    usageWeight: z.coerce.number(),
   }),
 })
 
@@ -92,45 +93,53 @@ const ROUTING_PRESETS: readonly RoutingPreset[] = [
 
 const DEFAULT_WEIGHTS: RoutingPreset['weights'] = ROUTING_PRESETS[0].weights
 
+const DEFAULT_VALUES: RoutingFormValues = {
+  routingFallbackUnitCost: 1,
+  tokenRouterFailureCooldownMaxSec: 30 * 24 * 60 * 60,
+  proxyFirstByteTimeoutSec: 0,
+  disableCrossProtocolFallback: false,
+  routingWeights: { ...DEFAULT_WEIGHTS },
+}
+
+function deriveServerValues(
+  data: RuntimeSettings | undefined,
+): RoutingFormValues | null {
+  if (!data) {
+    return null
+  }
+  const incomingWeights = (data.routingWeights ?? {}) as Record<string, unknown>
+  return {
+    routingFallbackUnitCost: asNumber(data.routingFallbackUnitCost) ?? 1,
+    tokenRouterFailureCooldownMaxSec:
+      asNumber(data.tokenRouterFailureCooldownMaxSec) ?? 30 * 24 * 60 * 60,
+    proxyFirstByteTimeoutSec: asNumber(data.proxyFirstByteTimeoutSec) ?? 0,
+    disableCrossProtocolFallback: asBoolean(data.disableCrossProtocolFallback),
+    routingWeights: {
+      baseWeightFactor:
+        asNumber(incomingWeights.baseWeightFactor) ?? DEFAULT_WEIGHTS.baseWeightFactor,
+      valueScoreFactor:
+        asNumber(incomingWeights.valueScoreFactor) ?? DEFAULT_WEIGHTS.valueScoreFactor,
+      costWeight:
+        asNumber(incomingWeights.costWeight) ?? DEFAULT_WEIGHTS.costWeight,
+      balanceWeight:
+        asNumber(incomingWeights.balanceWeight) ?? DEFAULT_WEIGHTS.balanceWeight,
+      usageWeight:
+        asNumber(incomingWeights.usageWeight) ?? DEFAULT_WEIGHTS.usageWeight,
+    },
+  }
+}
+
 export function RoutingSection() {
   const { t } = useTranslation()
-  const { data, isLoading } = useRuntimeSettings()
+  const { data, isLoading, isError, refetch } = useRuntimeSettings()
   const updateMutation = useUpdateRuntimeSettings()
 
-  const form = useForm<RoutingFormValues>({
-    resolver: zodResolver(routingSchema) as never,
-    defaultValues: {
-      routingFallbackUnitCost: 1,
-      tokenRouterFailureCooldownMaxSec: 30 * 24 * 60 * 60,
-      proxyFirstByteTimeoutSec: 0,
-      disableCrossProtocolFallback: false,
-      routingWeights: { ...DEFAULT_WEIGHTS },
-    },
+  const serverValues = deriveServerValues(data)
+  const { form, baseline, syncFromServer } = useSettingsForm<RoutingFormValues>({
+    schema: routingSchema,
+    defaultValues: DEFAULT_VALUES,
+    serverValues,
   })
-
-  useEffect(() => {
-    if (!data) {
-      return
-    }
-    const incomingWeights = (data.routingWeights ?? {}) as Record<string, unknown>
-    form.reset(
-      {
-        routingFallbackUnitCost: asNumber(data.routingFallbackUnitCost) ?? 1,
-        tokenRouterFailureCooldownMaxSec:
-          asNumber(data.tokenRouterFailureCooldownMaxSec) ?? 30 * 24 * 60 * 60,
-        proxyFirstByteTimeoutSec: asNumber(data.proxyFirstByteTimeoutSec) ?? 0,
-        disableCrossProtocolFallback: asBoolean(data.disableCrossProtocolFallback),
-        routingWeights: {
-          baseWeightFactor: asNumber(incomingWeights.baseWeightFactor) ?? DEFAULT_WEIGHTS.baseWeightFactor,
-          valueScoreFactor: asNumber(incomingWeights.valueScoreFactor) ?? DEFAULT_WEIGHTS.valueScoreFactor,
-          costWeight: asNumber(incomingWeights.costWeight) ?? DEFAULT_WEIGHTS.costWeight,
-          balanceWeight: asNumber(incomingWeights.balanceWeight) ?? DEFAULT_WEIGHTS.balanceWeight,
-          usageWeight: asNumber(incomingWeights.usageWeight) ?? DEFAULT_WEIGHTS.usageWeight,
-        },
-      },
-      { keepDirtyValues: true },
-    )
-  }, [data, form])
 
   function applyPreset(preset: RoutingPreset) {
     form.setValue('routingWeights', { ...preset.weights }, { shouldDirty: true })
@@ -138,15 +147,43 @@ export function RoutingSection() {
   }
 
   function onSubmit(values: RoutingFormValues) {
-    updateMutation.mutate(values as never, {
+    const changed = collectChangedFields(
+      values as unknown as Record<string, unknown>,
+      baseline as unknown as Record<string, unknown> | null,
+    ) as Partial<RoutingFormValues>
+    if (!hasChanges(changed)) {
+      toast.info(t('settings.common.noChanges'))
+      return
+    }
+    updateMutation.mutate(changed as never, {
       onSuccess: () => toast.success(t('settings.general.routing.toast.saved')),
       onError: () => toast.error(t('settings.general.routing.toast.saveFailed')),
     })
   }
 
   if (isLoading) {
-    return <SettingsSectionSkeleton />
+    return (
+      <SettingsSectionCard
+        title={t('settings.general.routing.title')}
+        description={t('settings.general.routing.description')}
+      >
+        <p className='text-sm text-muted-foreground'>
+          {t('settings.common.loading')}
+        </p>
+      </SettingsSectionCard>
+    )
   }
+
+  if (isError || !data) {
+    return (
+      <SettingsSectionError
+        title={t('settings.general.routing.title')}
+        onRetry={() => void refetch()}
+      />
+    )
+  }
+
+  const isDirty = form.formState.isDirty
 
   return (
     <SettingsSectionCard
@@ -159,7 +196,10 @@ export function RoutingSection() {
           onSubmit={form.handleSubmit(onSubmit)}
           className='space-y-4'
         >
-          <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
+          <div className='space-y-3 rounded-lg border p-4'>
+            <h4 className='text-sm font-medium'>
+              {t('settings.general.routing.fields.routingFallbackUnitCost')}
+            </h4>
             <FormField
               control={form.control}
               name='routingFallbackUnitCost'
@@ -169,13 +209,7 @@ export function RoutingSection() {
                     {t('settings.general.routing.fields.routingFallbackUnitCost')}
                   </FormLabel>
                   <FormControl>
-                    <Input
-                      {...field}
-                      value={field.value ?? ''}
-                      type='number'
-                      min={0}
-                      step={0.000001}
-                    />
+                    <Input {...field} value={field.value ?? ''} type='number' min={0} step={0.01} />
                   </FormControl>
                   <FormDescription>
                     {t('settings.general.routing.fields.routingFallbackUnitCostHint')}
@@ -184,6 +218,9 @@ export function RoutingSection() {
                 </FormItem>
               )}
             />
+          </div>
+
+          <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
             <FormField
               control={form.control}
               name='tokenRouterFailureCooldownMaxSec'
@@ -193,12 +230,7 @@ export function RoutingSection() {
                     {t('settings.general.routing.fields.routeFailureCooldown')}
                   </FormLabel>
                   <FormControl>
-                    <Input
-                      {...field}
-                      value={field.value ?? ''}
-                      type='number'
-                      min={0}
-                    />
+                    <Input {...field} value={field.value ?? ''} type='number' min={0} />
                   </FormControl>
                   <FormDescription>
                     {t('settings.general.routing.fields.routeFailureCooldownHint')}
@@ -216,12 +248,7 @@ export function RoutingSection() {
                     {t('settings.general.routing.fields.proxyFirstByteTimeout')}
                   </FormLabel>
                   <FormControl>
-                    <Input
-                      {...field}
-                      value={field.value ?? ''}
-                      type='number'
-                      min={0}
-                    />
+                    <Input {...field} value={field.value ?? ''} type='number' min={0} />
                   </FormControl>
                   <FormDescription>
                     {t('settings.general.routing.fields.proxyFirstByteTimeoutHint')}
@@ -230,29 +257,30 @@ export function RoutingSection() {
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name='disableCrossProtocolFallback'
-              render={({ field }) => (
-                <FormItem className='flex flex-row items-center gap-3 pt-6'>
-                  <FormControl>
-                    <Checkbox
-                      checked={Boolean(field.value)}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className='space-y-1'>
-                    <FormLabel className='cursor-pointer'>
-                      {t('settings.general.routing.fields.disableCrossProtocolFallback')}
-                    </FormLabel>
-                    <FormDescription>
-                      {t('settings.general.routing.fields.disableCrossProtocolFallbackHint')}
-                    </FormDescription>
-                  </div>
-                </FormItem>
-              )}
-            />
           </div>
+
+          <FormField
+            control={form.control}
+            name='disableCrossProtocolFallback'
+            render={({ field }) => (
+              <FormItem className='flex flex-row items-center gap-3'>
+                <FormControl>
+                  <Checkbox
+                    checked={Boolean(field.value)}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+                <div className='space-y-1'>
+                  <FormLabel className='cursor-pointer'>
+                    {t('settings.general.routing.fields.disableCrossProtocolFallback')}
+                  </FormLabel>
+                  <FormDescription>
+                    {t('settings.general.routing.fields.disableCrossProtocolFallbackHint')}
+                  </FormDescription>
+                </div>
+              </FormItem>
+            )}
+          />
 
           <div className='space-y-3 rounded-lg border p-4'>
             <div className='flex items-center justify-between gap-2'>
@@ -355,17 +383,17 @@ export function RoutingSection() {
             </p>
           </div>
 
-          <Button
-            type='submit'
-            form={FORM_ID}
-            disabled={updateMutation.isPending}
-          >
-            {updateMutation.isPending
-              ? t('settings.common.saving')
-              : t('settings.common.save')}
-          </Button>
+          <SettingsFormActions
+            formId={FORM_ID}
+            isDirty={isDirty}
+            isPending={updateMutation.isPending}
+            onReset={() =>
+              syncFromServer(deriveServerValues(data) ?? DEFAULT_VALUES)
+            }
+          />
         </form>
       </Form>
+      <FormNavigationGuard enabled={isDirty} />
     </SettingsSectionCard>
   )
 }

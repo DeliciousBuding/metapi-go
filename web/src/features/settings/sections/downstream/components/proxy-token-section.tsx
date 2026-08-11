@@ -2,11 +2,9 @@
 // section. The global downstream PROXY_TOKEN (sk- prefix fixed, random
 // suffix editable). Mirrors the legacy card 8: shows the masked current
 // value, a "random generate" button (does NOT auto-save), and a save button
-// that writes the full token via PUT /api/settings/runtime.
+// that writes the full token via PUT /api/settings/runtime. The input is
+// never prefilled from the server; a blank (unchanged) field is not sent.
 
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
@@ -22,10 +20,13 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
+
+import { FormNavigationGuard } from '../../../components/form-navigation-guard'
+import { SettingsFormActions } from '../../../components/settings-form-actions'
+import { SettingsSectionCard } from '../../../components/settings-section-card'
+import { SettingsSectionError } from '../../../components/settings-section-error'
+import { useSettingsForm } from '../../../hooks/use-settings-form'
+import { collectChangedFields, hasChanges } from '../../../lib/collect-changed-fields'
 import {
   asString,
   useRuntimeSettings,
@@ -42,6 +43,8 @@ const proxyTokenSchema = z.object({
 
 type ProxyTokenFormValues = z.infer<typeof proxyTokenSchema>
 
+const DEFAULT_VALUES: ProxyTokenFormValues = { proxyTokenSuffix: '' }
+
 function generateHighEntropySuffix(): string {
   const bytes = new Uint8Array(48)
   crypto.getRandomValues(bytes)
@@ -50,22 +53,17 @@ function generateHighEntropySuffix(): string {
 
 export function ProxyTokenSection() {
   const { t } = useTranslation()
-  const { data, isLoading } = useRuntimeSettings()
+  const { data, isLoading, isError, refetch } = useRuntimeSettings()
   const updateMutation = useUpdateRuntimeSettings()
 
-  const form = useForm<ProxyTokenFormValues>({
-    resolver: zodResolver(proxyTokenSchema) as never,
-    defaultValues: { proxyTokenSuffix: '' },
+  // The runtime response masks the suffix; we never prefill the input. The
+  // server snapshot is always the empty baseline so a typed value is always
+  // "dirty" and a blank value is never submitted.
+  const { form, baseline, syncFromServer } = useSettingsForm<ProxyTokenFormValues>({
+    schema: proxyTokenSchema,
+    defaultValues: DEFAULT_VALUES,
+    serverValues: data ? { proxyTokenSuffix: '' } : null,
   })
-
-  useEffect(() => {
-    if (!data) {
-      return
-    }
-    // The runtime response masks the suffix (proxyTokenMasked). We do not
-    // prefill the input — the user either generates a new token or types one.
-    form.reset({ proxyTokenSuffix: '' }, { keepDirtyValues: true })
-  }, [data, form])
 
   function generateNewSuffix() {
     form.setValue('proxyTokenSuffix', generateHighEntropySuffix(), {
@@ -74,23 +72,50 @@ export function ProxyTokenSection() {
   }
 
   function onSubmit(values: ProxyTokenFormValues) {
-    // The backend stores the full token; we prepend the fixed sk- prefix
-    // and strip any user-typed sk- prefix to keep the wire format stable.
-    const trimmed = values.proxyTokenSuffix.trim().replace(/^sk-/, '')
+    const changed = collectChangedFields(
+      values as unknown as Record<string, unknown>,
+      baseline as unknown as Record<string, unknown> | null,
+    ) as Partial<ProxyTokenFormValues>
+    if (!hasChanges(changed) || !changed.proxyTokenSuffix) {
+      toast.info(t('settings.common.noChanges'))
+      return
+    }
+    const trimmed = changed.proxyTokenSuffix.trim().replace(/^sk-/, '')
     updateMutation.mutate(
       { proxyToken: `sk-${trimmed}` },
       {
-        onSuccess: () => toast.success(t('settings.downstream.proxyToken.toast.saved')),
-        onError: () => toast.error(t('settings.downstream.proxyToken.toast.saveFailed')),
+        onSuccess: () =>
+          toast.success(t('settings.downstream.proxyToken.toast.saved')),
+        onError: () =>
+          toast.error(t('settings.downstream.proxyToken.toast.saveFailed')),
       },
     )
   }
 
   if (isLoading) {
-    return <SettingsSectionSkeleton />
+    return (
+      <SettingsSectionCard
+        title={t('settings.downstream.proxyToken.title')}
+        description={t('settings.downstream.proxyToken.description')}
+      >
+        <p className='text-sm text-muted-foreground'>
+          {t('settings.common.loading')}
+        </p>
+      </SettingsSectionCard>
+    )
   }
 
-  const masked = asString(data?.proxyTokenMasked)
+  if (isError || !data) {
+    return (
+      <SettingsSectionError
+        title={t('settings.downstream.proxyToken.title')}
+        onRetry={() => void refetch()}
+      />
+    )
+  }
+
+  const isDirty = form.formState.isDirty
+  const masked = asString(data.proxyTokenMasked)
 
   return (
     <SettingsSectionCard
@@ -142,17 +167,16 @@ export function ProxyTokenSection() {
               </FormItem>
             )}
           />
-          <Button
-            type='submit'
-            form={FORM_ID}
-            disabled={updateMutation.isPending}
-          >
-            {updateMutation.isPending
-              ? t('settings.common.saving')
-              : t('settings.downstream.proxyToken.save')}
-          </Button>
+          <SettingsFormActions
+            formId={FORM_ID}
+            isDirty={isDirty}
+            isPending={updateMutation.isPending}
+            onReset={() => syncFromServer(DEFAULT_VALUES)}
+            saveLabel={t('settings.downstream.proxyToken.save')}
+          />
         </form>
       </Form>
+      <FormNavigationGuard enabled={isDirty} />
     </SettingsSectionCard>
   )
 }
