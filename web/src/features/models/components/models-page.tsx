@@ -147,23 +147,31 @@ function useModelsUrlState() {
     return filters
   }, [search.brand, search.capability])
 
+  // URL-sync guard: table state callbacks can fire while the router is
+  // navigating away (the useLocation subscription re-renders this page with
+  // the *next* location's search string). Without the pathname check the
+  // callback would navigate straight back, hijacking the in-flight
+  // navigation. Only sync when we are still on this page.
+  function syncUrl(next: Partial<ResolvedSearch>) {
+    const href = buildHref(next)
+    if (!href.startsWith(window.location.pathname)) return
+    navigate({ href, replace: true })
+  }
+
   const onGlobalFilterChange = (updater: Updater<string>) => {
     const next = resolveUpdater(updater, search.q)
-    navigate({ href: buildHref({ q: next }), replace: true })
+    syncUrl({ q: next })
   }
   const onPaginationChange = (updater: Updater<PaginationState>) => {
     const next = resolveUpdater(updater, {
       pageIndex: search.pageIndex,
       pageSize: search.pageSize,
     })
-    navigate({
-      href: buildHref({ pageIndex: next.pageIndex, pageSize: next.pageSize }),
-      replace: true,
-    })
+    syncUrl({ pageIndex: next.pageIndex, pageSize: next.pageSize })
   }
   const onSortingChange = (updater: Updater<SortingState>) => {
     const next = resolveUpdater(updater, search.sorting)
-    navigate({ href: buildHref({ sorting: next }), replace: true })
+    syncUrl({ sorting: next })
   }
   const onColumnFiltersChange = (updater: Updater<ColumnFiltersState>) => {
     const next = resolveUpdater(updater, columnFilters)
@@ -175,10 +183,7 @@ function useModelsUrlState() {
     const capabilityValues = Array.isArray(capabilityEntry?.value)
       ? (capabilityEntry?.value as string[])
       : []
-    navigate({
-      href: buildHref({ brand: brandValues, capability: capabilityValues }),
-      replace: true,
-    })
+    syncUrl({ brand: brandValues, capability: capabilityValues })
   }
 
   return {

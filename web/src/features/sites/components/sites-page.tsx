@@ -130,23 +130,32 @@ function useSitesUrlState() {
     return [{ id: 'status', value: search.status }]
   }, [search.status])
 
+  // URL-sync guard: table state callbacks can fire while the router is
+  // navigating away (the useLocation subscription re-renders this page with
+  // the *next* location's search string). Without the pathname check the
+  // callback would navigate straight back, hijacking the in-flight
+  // navigation — the "clicked a sidebar link but the page snapped back"
+  // bug. Only sync when we are still on this page.
+  function syncUrl(next: Partial<ResolvedSearch>) {
+    const href = buildHref(next)
+    if (!href.startsWith(window.location.pathname)) return
+    navigate({ href, replace: true })
+  }
+
   const onGlobalFilterChange = (updater: Updater<string>) => {
     const next = resolveUpdater(updater, search.q)
-    navigate({ href: buildHref({ q: next }), replace: true })
+    syncUrl({ q: next })
   }
   const onPaginationChange = (updater: Updater<PaginationState>) => {
     const next = resolveUpdater(updater, {
       pageIndex: search.pageIndex,
       pageSize: search.pageSize,
     })
-    navigate({
-      href: buildHref({ pageIndex: next.pageIndex, pageSize: next.pageSize }),
-      replace: true,
-    })
+    syncUrl({ pageIndex: next.pageIndex, pageSize: next.pageSize })
   }
   const onSortingChange = (updater: Updater<SortingState>) => {
     const next = resolveUpdater(updater, search.sorting)
-    navigate({ href: buildHref({ sorting: next }), replace: true })
+    syncUrl({ sorting: next })
   }
   const onColumnFiltersChange = (updater: Updater<ColumnFiltersState>) => {
     const next = resolveUpdater(updater, columnFilters)
@@ -155,7 +164,7 @@ function useSitesUrlState() {
       statusEntry && Array.isArray(statusEntry.value)
         ? (statusEntry.value as string[])[0]
         : (statusEntry?.value as string | undefined)
-    navigate({ href: buildHref({ status: statusValue }), replace: true })
+    syncUrl({ status: statusValue })
   }
 
   return {
