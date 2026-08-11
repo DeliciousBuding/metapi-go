@@ -1,17 +1,13 @@
 name: CI
 
-# S1: 限 master/PR，避免所有分支全量 11 job
+# All checks run on every PR/push. Required status checks are enabled on
+# master, so `paths-ignore` must stay empty — a skipped workflow would leave
+# required checks permanently pending and block the PR.
 on:
   pull_request:
     branches: [master, main]
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
   push:
     branches: [master, main]
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
   workflow_dispatch:
 
 permissions:
