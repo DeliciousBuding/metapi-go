@@ -42,9 +42,11 @@ export const announcementFormSchema = z.object({
     .trim()
     .min(1, 'siteAnnouncements.form.errors.messageRequired')
     .max(5000, 'siteAnnouncements.form.errors.messageTooLong'),
-  severity: z.enum(
-    ['info', 'warning', 'critical'] as const satisfies readonly AnnouncementSeverity[],
-  ),
+  severity: z.enum([
+    'info',
+    'warning',
+    'critical',
+  ] as const satisfies readonly AnnouncementSeverity[]),
   link: z.string().refine(isEmptyOrHttpUrl, HTTP_OR_EMPTY_MESSAGE_KEY),
   enabled: z.boolean(),
 })
@@ -82,6 +84,5 @@ export const announcementsSearchSchema = z.object({
   severity: z.string().optional(),
   enabled: z.string().optional(),
 })
-
 
 export const ANNOUNCEMENTS_PAGINATION_SCHEMA = paginationSchema

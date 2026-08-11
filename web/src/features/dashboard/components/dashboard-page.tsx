@@ -35,13 +35,13 @@ export type DashboardPageProps = {
 }
 
 function resolveSectionId(
-  activeSection: string | undefined,
+  activeSection: string | undefined
 ): DashboardSectionId {
   if (!activeSection) return DASHBOARD_DEFAULT_SECTION
   const known = new Set<string>(
     (getDashboardSectionNavItems() as Array<{ url: string }>).map(
-      (item) => item.url.split('/').pop() ?? '',
-    ),
+      (item) => item.url.split('/').pop() ?? ''
+    )
   )
   return known.has(activeSection)
     ? (activeSection as DashboardSectionId)
@@ -65,9 +65,7 @@ export function DashboardPage({
           {t(meta.title)}
         </h1>
         {meta.description ? (
-          <p className='text-muted-foreground text-sm'>
-            {t(meta.description)}
-          </p>
+          <p className='text-muted-foreground text-sm'>{t(meta.description)}</p>
         ) : null}
       </header>
 

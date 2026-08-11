@@ -4,8 +4,8 @@
 
 import { createElement } from 'react'
 
-import { createSectionRegistry } from '../../utils/section-registry'
 import type { SettingsSubarea } from '../../types'
+import { createSectionRegistry } from '../../utils/section-registry'
 import { AnnouncementsSection } from './components/announcements-section'
 import { ImportExportSection } from './components/import-export-section'
 import { NotificationsSection } from './components/notifications-section'

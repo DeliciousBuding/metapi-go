@@ -7,10 +7,7 @@
 // with fresh capability/pricing data without a second network round-trip
 // when the list has already been loaded (TanStack dedups identical keys).
 
-import {
-  useQuery,
-  type UseQueryOptions,
-} from '@tanstack/react-query'
+import { useQuery, type UseQueryOptions } from '@tanstack/react-query'
 
 import { api } from '@/lib/api'
 
@@ -31,7 +28,7 @@ export function useModels(
   queryOptions?: Omit<
     UseQueryOptions<ModelRow[], Error, ModelRow[]>,
     'queryKey' | 'queryFn'
-  >,
+  >
 ) {
   const refresh = options?.refresh ?? false
   const includePricing = options?.includePricing ?? false
@@ -42,9 +39,7 @@ export function useModels(
         refresh,
         includePricing,
       })) as ModelsMarketplaceResponse | ModelRow[] | undefined
-      const models = Array.isArray(result)
-        ? result
-        : result?.models ?? []
+      const models = Array.isArray(result) ? result : (result?.models ?? [])
       return models as ModelRow[]
     },
     staleTime: 10 * 1000,

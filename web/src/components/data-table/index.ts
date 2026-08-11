@@ -3,9 +3,5 @@ export { DataTableColumnHeader } from './core/column-header'
 export { BadgeListCell } from './core/badge-list-cell'
 export { TruncatedCell } from './core/truncated-cell'
 export { DataTableBulkActions } from './toolbar/bulk-actions'
-export {
-  DataTablePage,
-} from './layout/data-table-page'
+export { DataTablePage } from './layout/data-table-page'
 export { useDataTable } from './hooks/use-data-table'
-
-

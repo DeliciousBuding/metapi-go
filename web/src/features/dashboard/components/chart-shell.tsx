@@ -46,24 +46,18 @@ export function ChartShell({
         <div className='space-y-1'>
           <CardTitle className='text-sm font-medium'>{title}</CardTitle>
           {description ? (
-            <CardDescription className='text-xs'>
-              {description}
-            </CardDescription>
+            <CardDescription className='text-xs'>{description}</CardDescription>
           ) : null}
         </div>
-        {actions ? <div className='flex items-center gap-1'>{actions}</div> : null}
+        {actions ? (
+          <div className='flex items-center gap-1'>{actions}</div>
+        ) : null}
       </CardHeader>
       <CardContent className='flex-1' aria-busy={loading}>
         {loading ? (
-          <Skeleton
-            className='w-full rounded-md'
-            style={{ height }}
-          />
+          <Skeleton className='w-full rounded-md' style={{ height }} />
         ) : (
-          <div
-            className='w-full'
-            style={{ height }}
-          >
+          <div className='w-full' style={{ height }}>
             {children}
           </div>
         )}

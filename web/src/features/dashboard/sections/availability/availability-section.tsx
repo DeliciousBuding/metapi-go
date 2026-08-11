@@ -6,8 +6,8 @@
 // renders api.getAttention() as a severity-ranked list of items needing
 // operator eyes — expired accounts, low balances, disabled sites, events).
 
-import { Inbox, Radio, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
+import { Inbox, Radio, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -62,15 +62,10 @@ function formatRate(rate: number): string {
 function RealtimeSparkline({ samples }: { samples: number[] }) {
   const max = Math.max(1, ...samples)
   const bars =
-    samples.length > 0
-      ? samples
-      : Array.from({ length: SPARK_BARS }, () => 0)
+    samples.length > 0 ? samples : Array.from({ length: SPARK_BARS }, () => 0)
 
   return (
-    <div
-      className='flex h-16 w-full items-end gap-px'
-      aria-hidden='true'
-    >
+    <div className='flex h-16 w-full items-end gap-px' aria-hidden='true'>
       {bars.map((sample, index) => {
         const ratio = Math.max(0.04, sample / max)
         return (
@@ -111,7 +106,7 @@ function RealtimeOpsPanel() {
                 ? 'text-success-foreground'
                 : sample.gaveUp
                   ? 'text-destructive'
-                  : 'text-muted-foreground',
+                  : 'text-muted-foreground'
             )}
           >
             <span
@@ -121,7 +116,7 @@ function RealtimeOpsPanel() {
                   ? 'bg-success'
                   : sample.gaveUp
                     ? 'bg-destructive'
-                    : 'animate-pulse bg-muted-foreground/50',
+                    : 'animate-pulse bg-muted-foreground/50'
               )}
             />
             {sample.gaveUp
@@ -138,19 +133,25 @@ function RealtimeOpsPanel() {
       <CardContent className='space-y-3'>
         <div className='flex flex-wrap items-end justify-between gap-x-4 gap-y-2'>
           <div>
-            <div className='text-muted-foreground text-xs'>{t('dashboard.availability.realtime.metricQps')}</div>
+            <div className='text-muted-foreground text-xs'>
+              {t('dashboard.availability.realtime.metricQps')}
+            </div>
             <div className='text-2xl font-semibold tabular-nums'>
               {sample.qps}
             </div>
           </div>
           <div>
-            <div className='text-muted-foreground text-xs'>{t('dashboard.availability.realtime.metricSuccess')}</div>
+            <div className='text-muted-foreground text-xs'>
+              {t('dashboard.availability.realtime.metricSuccess')}
+            </div>
             <div className='text-2xl font-semibold tabular-nums'>
               {formatRate(sample.successRate)}
             </div>
           </div>
           <div>
-            <div className='text-muted-foreground text-xs'>{t('dashboard.availability.realtime.metricUptime')}</div>
+            <div className='text-muted-foreground text-xs'>
+              {t('dashboard.availability.realtime.metricUptime')}
+            </div>
             <div className='text-2xl font-semibold tabular-nums'>
               {Math.floor(sample.lifetime / 60)}m
             </div>
@@ -187,14 +188,14 @@ function AttentionPanel() {
           <Skeleton className='h-48 w-full rounded-md' />
         ) : isError ? (
           <div className='flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center'>
-            <TriangleAlert className='size-5 text-destructive/80' />
+            <TriangleAlert className='text-destructive/80 size-5' />
             <p className='text-destructive text-xs'>
               {t('dashboard.availability.monitors.loadError')}
             </p>
           </div>
         ) : items.length === 0 ? (
           <div className='flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center'>
-            <Inbox className='size-5 text-muted-foreground/60' />
+            <Inbox className='text-muted-foreground/60 size-5' />
             <p className='text-muted-foreground text-sm'>
               {t('dashboard.availability.monitors.empty')}
             </p>
@@ -204,7 +205,7 @@ function AttentionPanel() {
             {items.map((item, index) => {
               const tone = SEVERITY_TONE[item.severity] ?? SEVERITY_TONE.info
               const label = t(
-                `dashboard.availability.monitors.severity.${item.severity}`,
+                `dashboard.availability.monitors.severity.${item.severity}`
               )
               return (
                 <li
@@ -215,7 +216,7 @@ function AttentionPanel() {
                   <span
                     className={cn(
                       'mt-1 inline-flex h-5 shrink-0 items-center gap-1 rounded-full border px-2 text-xs font-medium',
-                      tone.badge,
+                      tone.badge
                     )}
                   >
                     <span className={cn('size-1.5 rounded-full', tone.dot)} />

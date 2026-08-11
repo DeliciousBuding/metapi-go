@@ -19,10 +19,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import {
-  DataTablePage,
-  useDataTable,
-} from '@/components/data-table'
+import { DataTablePage, useDataTable } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -32,13 +29,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-
 import { parseSortingParam } from '@/lib/helpers/searchParams'
 
-import {
-  useAnnouncements,
-  useDeleteAnnouncement,
-} from '../api'
+import { useAnnouncements, useDeleteAnnouncement } from '../api'
 import { announcementsSearchSchema } from '../lib/announcements-schema'
 import type { SiteAnnouncement } from '../types'
 import { AnnouncementFormDialog } from './announcement-form-dialog'
@@ -62,7 +55,10 @@ type ResolvedSearch = {
   enabled: string | undefined
 }
 
-function resolveUpdater<TValue>(updater: Updater<TValue>, previous: TValue): TValue {
+function resolveUpdater<TValue>(
+  updater: Updater<TValue>,
+  previous: TValue
+): TValue {
   return typeof updater === 'function'
     ? (updater as (old: TValue) => TValue)(previous)
     : updater
@@ -127,7 +123,9 @@ function buildHref(next: Partial<ResolvedSearch>): string {
   if (merged.severity) params.set('severity', merged.severity)
   if (merged.enabled) params.set('enabled', merged.enabled)
   const queryString = params.toString()
-  return queryString ? `/site-announcements?${queryString}` : '/site-announcements'
+  return queryString
+    ? `/site-announcements?${queryString}`
+    : '/site-announcements'
 }
 
 function useAnnouncementsUrlState() {
@@ -140,7 +138,8 @@ function useAnnouncementsUrlState() {
 
   const columnFilters: ColumnFiltersState = useMemo(() => {
     const filters: ColumnFiltersState = []
-    if (search.severity) filters.push({ id: 'severity', value: search.severity })
+    if (search.severity)
+      filters.push({ id: 'severity', value: search.severity })
     if (search.enabled) filters.push({ id: 'enabled', value: search.enabled })
     return filters
   }, [search.severity, search.enabled])
@@ -258,10 +257,12 @@ export function AnnouncementsPage() {
     }
   }
 
-  const severityFilters = ANNOUNCEMENTS_SEVERITY_FILTER_OPTIONS.map((option) => ({
-    label: t(option.label),
-    value: option.value,
-  }))
+  const severityFilters = ANNOUNCEMENTS_SEVERITY_FILTER_OPTIONS.map(
+    (option) => ({
+      label: t(option.label),
+      value: option.value,
+    })
+  )
 
   const enabledFilters = ANNOUNCEMENTS_ENABLED_FILTER_OPTIONS.map((option) => ({
     label: t(option.label),

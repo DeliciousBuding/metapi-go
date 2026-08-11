@@ -21,10 +21,7 @@ type SettingsPageProps = {
   activeSection: string
 }
 
-export function SettingsPage({
-  subarea,
-  activeSection,
-}: SettingsPageProps) {
+export function SettingsPage({ subarea, activeSection }: SettingsPageProps) {
   const { t } = useTranslation()
   const meta = subarea.getSectionMeta(activeSection)
   const navItems = subarea.getSectionNavItems()
@@ -36,9 +33,7 @@ export function SettingsPage({
           {t(meta.title)}
         </h1>
         {meta.description ? (
-          <p className='text-muted-foreground text-sm'>
-            {t(meta.description)}
-          </p>
+          <p className='text-muted-foreground text-sm'>{t(meta.description)}</p>
         ) : null}
       </header>
       <div className='flex flex-col gap-6 lg:flex-row lg:items-start'>

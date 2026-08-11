@@ -21,12 +21,12 @@
 
 import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
 
-import { api } from '@/lib/api'
 import {
   proxyLogsKeys,
   proxyLogsSearchSchema,
   type ProxyLogsSearch,
 } from '@/features/proxy-logs'
+import { api } from '@/lib/api'
 
 const DEFAULT_PROXY_LOGS_PAGE_SIZE = 20
 
@@ -38,7 +38,7 @@ const DEFAULT_PROXY_LOGS_PAGE_SIZE = 20
 function readProxyLogsUrlSearch(): ProxyLogsSearch | null {
   if (typeof window === 'undefined') return null
   const entries = Object.fromEntries(
-    new URLSearchParams(window.location.search).entries(),
+    new URLSearchParams(window.location.search).entries()
   )
   const parsed = proxyLogsSearchSchema.safeParse(entries)
   return parsed.success ? parsed.data : null
@@ -84,6 +84,6 @@ export const Route = createFileRoute('/_authenticated/proxy-logs')({
   },
   component: lazyRouteComponent(
     () => import('@/features/proxy-logs/components/proxy-logs-page'),
-    'ProxyLogsPage',
+    'ProxyLogsPage'
   ),
 })

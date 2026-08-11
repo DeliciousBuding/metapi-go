@@ -2,9 +2,7 @@
 // Re-exports the auth-bundle shape from the lib layer (single SSOT) and
 // defines feature-local payloads/errors for the login flow.
 
-export type {
-  AuthBundle,
-} from '@/lib/auth-session'
+export type { AuthBundle } from '@/lib/auth-session'
 
 /**
  * Login form payload. metapi-go uses token-based admin auth: the operator
@@ -24,4 +22,3 @@ export interface LoginError {
   messageKey: string
   status: number
 }
-

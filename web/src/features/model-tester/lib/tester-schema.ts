@@ -20,10 +20,7 @@ const TARGET_FORMATS = [
 ] as const satisfies readonly TestTargetFormat[]
 
 export const testerSchema = z.object({
-  model: z
-    .string()
-    .trim()
-    .min(1, 'modelTester.form.errors.modelRequired'),
+  model: z.string().trim().min(1, 'modelTester.form.errors.modelRequired'),
   systemPrompt: z.string().max(4000, 'modelTester.form.errors.systemTooLong'),
   prompt: z
     .string()

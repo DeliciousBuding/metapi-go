@@ -7,8 +7,6 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { api } from '@/lib/api'
-
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -21,10 +19,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
-import {
   Table,
   TableBody,
   TableCell,
@@ -32,6 +26,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { api } from '@/lib/api'
+
+import {
+  SettingsSectionCard,
+  SettingsSectionSkeleton,
+} from '../../../components/settings-section-card'
 
 type ProgramEvent = {
   id: number
@@ -94,7 +94,8 @@ export function ProgramLogsSection() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: eventsQueryKeys.all })
     },
-    onError: () => toast.error(t('settings.systemInfo.programLogs.toast.markReadFailed')),
+    onError: () =>
+      toast.error(t('settings.systemInfo.programLogs.toast.markReadFailed')),
   })
 
   const markAllMutation = useMutation({
@@ -103,7 +104,8 @@ export function ProgramLogsSection() {
       void queryClient.invalidateQueries({ queryKey: eventsQueryKeys.all })
       toast.success(t('settings.systemInfo.programLogs.toast.allMarkedRead'))
     },
-    onError: () => toast.error(t('settings.systemInfo.programLogs.toast.markAllFailed')),
+    onError: () =>
+      toast.error(t('settings.systemInfo.programLogs.toast.markAllFailed')),
   })
 
   const clearMutation = useMutation({
@@ -112,7 +114,8 @@ export function ProgramLogsSection() {
       void queryClient.invalidateQueries({ queryKey: eventsQueryKeys.all })
       toast.success(t('settings.systemInfo.programLogs.toast.cleared'))
     },
-    onError: () => toast.error(t('settings.systemInfo.programLogs.toast.clearFailed')),
+    onError: () =>
+      toast.error(t('settings.systemInfo.programLogs.toast.clearFailed')),
   })
 
   function exportCsv() {
@@ -127,7 +130,7 @@ export function ProgramLogsSection() {
         (event.message ?? '').replaceAll('"', '""'),
       ]
         .map((field) => `"${field}"`)
-        .join(','),
+        .join(',')
     )
     const csv = [header, ...rows].join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
@@ -156,12 +159,7 @@ export function ProgramLogsSection() {
           >
             {t('settings.systemInfo.programLogs.markAllRead')}
           </Button>
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            onClick={exportCsv}
-          >
+          <Button type='button' variant='outline' size='sm' onClick={exportCsv}>
             {t('settings.systemInfo.programLogs.exportCsv')}
           </Button>
           <Button
@@ -211,7 +209,7 @@ export function ProgramLogsSection() {
       </div>
       {eventsQuery.isLoading ? <SettingsSectionSkeleton /> : null}
       {!eventsQuery.isLoading && items.length === 0 ? (
-        <p className='py-8 text-center text-sm text-muted-foreground'>
+        <p className='text-muted-foreground py-8 text-center text-sm'>
           {t('settings.systemInfo.programLogs.empty')}
         </p>
       ) : null}
@@ -219,10 +217,18 @@ export function ProgramLogsSection() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{t('settings.systemInfo.programLogs.columns.time')}</TableHead>
-              <TableHead>{t('settings.systemInfo.programLogs.columns.level')}</TableHead>
-              <TableHead>{t('settings.systemInfo.programLogs.columns.type')}</TableHead>
-              <TableHead>{t('settings.systemInfo.programLogs.columns.title')}</TableHead>
+              <TableHead>
+                {t('settings.systemInfo.programLogs.columns.time')}
+              </TableHead>
+              <TableHead>
+                {t('settings.systemInfo.programLogs.columns.level')}
+              </TableHead>
+              <TableHead>
+                {t('settings.systemInfo.programLogs.columns.type')}
+              </TableHead>
+              <TableHead>
+                {t('settings.systemInfo.programLogs.columns.title')}
+              </TableHead>
               <TableHead className='text-right'>
                 {t('settings.systemInfo.programLogs.columns.actions')}
               </TableHead>
@@ -231,7 +237,7 @@ export function ProgramLogsSection() {
           <TableBody>
             {items.map((event) => (
               <TableRow key={event.id}>
-                <TableCell className='text-xs text-muted-foreground'>
+                <TableCell className='text-muted-foreground text-xs'>
                   {event.createdAt ?? '—'}
                 </TableCell>
                 <TableCell>
@@ -242,11 +248,17 @@ export function ProgramLogsSection() {
                 <TableCell className='text-xs'>{event.type}</TableCell>
                 <TableCell>
                   <div className='flex flex-col'>
-                    <span className={event.read ? 'text-muted-foreground' : 'font-medium'}>
+                    <span
+                      className={
+                        event.read ? 'text-muted-foreground' : 'font-medium'
+                      }
+                    >
                       {event.title}
                     </span>
                     {event.message ? (
-                      <span className='text-xs text-muted-foreground'>{event.message}</span>
+                      <span className='text-muted-foreground text-xs'>
+                        {event.message}
+                      </span>
                     ) : null}
                   </div>
                 </TableCell>

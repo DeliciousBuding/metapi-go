@@ -14,10 +14,10 @@
 
 import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
 
-import { api } from '@/lib/api'
 import { accountQueryKeys } from '@/features/accounts'
 import { sitesKeys } from '@/features/sites'
 import { routeQueryKeys, routesSearchSchema } from '@/features/token-routes'
+import { api } from '@/lib/api'
 
 export const Route = createFileRoute('/_authenticated/token-routes')({
   validateSearch: routesSearchSchema,
@@ -39,6 +39,6 @@ export const Route = createFileRoute('/_authenticated/token-routes')({
   },
   component: lazyRouteComponent(
     () => import('@/features/token-routes/components/routes-page'),
-    'RoutesPage',
+    'RoutesPage'
   ),
 })

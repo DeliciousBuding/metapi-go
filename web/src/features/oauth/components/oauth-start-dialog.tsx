@@ -66,7 +66,7 @@ export function OAuthStartDialog({
 
   const enabledProviders = useMemo(
     () => (providersQuery.data ?? []).filter((provider) => provider.enabled),
-    [providersQuery.data],
+    [providersQuery.data]
   )
 
   const form = useForm<OAuthStartValues>({
@@ -81,8 +81,11 @@ export function OAuthStartDialog({
 
   const selectedProviderId = form.watch('provider')
   const selectedProvider = useMemo(
-    () => enabledProviders.find((provider) => provider.provider === selectedProviderId),
-    [enabledProviders, selectedProviderId],
+    () =>
+      enabledProviders.find(
+        (provider) => provider.provider === selectedProviderId
+      ),
+    [enabledProviders, selectedProviderId]
   )
   const requiresProjectId = selectedProvider?.requiresProjectId ?? false
 
@@ -118,7 +121,9 @@ export function OAuthStartDialog({
       <DialogContent className='sm:max-w-lg'>
         <DialogHeader>
           <DialogTitle>{t('oauth.form.startTitle')}</DialogTitle>
-          <DialogDescription>{t('oauth.form.startDescription')}</DialogDescription>
+          <DialogDescription>
+            {t('oauth.form.startDescription')}
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -129,13 +134,12 @@ export function OAuthStartDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t('oauth.form.provider')}</FormLabel>
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
-                  >
+                  <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder={t('oauth.form.providerPlaceholder')} />
+                        <SelectValue
+                          placeholder={t('oauth.form.providerPlaceholder')}
+                        />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -198,7 +202,7 @@ export function OAuthStartDialog({
               control={form.control}
               name='useSystemProxy'
               render={({ field }) => (
-                <FormItem className='flex flex-row items-center justify-between rounded-lg border border-border p-3'>
+                <FormItem className='border-border flex flex-row items-center justify-between rounded-lg border p-3'>
                   <div className='space-y-0.5'>
                     <FormLabel>{t('oauth.form.useSystemProxy')}</FormLabel>
                     <FormDescription>

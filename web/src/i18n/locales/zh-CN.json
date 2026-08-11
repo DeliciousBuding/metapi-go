@@ -496,10 +496,22 @@
     },
     "dashboard": {
       "sections": {
-        "overview": { "title": "概览", "description": "核心指标、公告与定时任务健康。" },
-        "traffic": { "title": "流量", "description": "收入/支出、站点趋势与分布图表。" },
-        "models": { "title": "模型", "description": "模型成本分布、可用性与延迟。" },
-        "availability": { "title": "可用性", "description": "实时流量（WebSocket）与可用性监控。" }
+        "overview": {
+          "title": "概览",
+          "description": "核心指标、公告与定时任务健康。"
+        },
+        "traffic": {
+          "title": "流量",
+          "description": "收入/支出、站点趋势与分布图表。"
+        },
+        "models": {
+          "title": "模型",
+          "description": "模型成本分布、可用性与延迟。"
+        },
+        "availability": {
+          "title": "可用性",
+          "description": "实时流量（WebSocket）与可用性监控。"
+        }
       },
       "overview": {
         "statCards": {
@@ -531,15 +543,41 @@
       },
       "traffic": {
         "loadError": "加载流量数据失败。",
-        "incomeOutcome": { "title": "收入 vs 支出", "description": "每日余额收入与支出（30 天）。", "empty": "所选区间暂无余额流动数据。" },
-        "siteTrend": { "title": "站点趋势", "description": "各站点支出随时间变化。", "empty": "暂无站点趋势数据。" },
-        "siteDistribution": { "title": "站点分布", "description": "按站点的余额占比。", "empty": "暂无站点分布数据。" }
+        "incomeOutcome": {
+          "title": "收入 vs 支出",
+          "description": "每日余额收入与支出（30 天）。",
+          "empty": "所选区间暂无余额流动数据。"
+        },
+        "siteTrend": {
+          "title": "站点趋势",
+          "description": "各站点支出随时间变化。",
+          "empty": "暂无站点趋势数据。"
+        },
+        "siteDistribution": {
+          "title": "站点分布",
+          "description": "按站点的余额占比。",
+          "empty": "暂无站点分布数据。"
+        }
       },
       "models": {
         "loadError": "加载模型/延迟数据失败。",
-        "costDistribution": { "title": "成本分布", "description": "按模型的支出占比（30 天）。", "empty": "所选区间暂无模型成本数据。" },
-        "latencyHistogram": { "title": "延迟直方图", "description": "按延迟桶的请求数（7 天）。", "empty": "暂无延迟采样。" },
-        "latencyTrend": { "title": "延迟趋势", "description": "平均与 p95 延迟随时间变化（7 天）。", "metricAvg": "平均", "metricP95": "P95", "empty": "暂无延迟趋势数据。" }
+        "costDistribution": {
+          "title": "成本分布",
+          "description": "按模型的支出占比（30 天）。",
+          "empty": "所选区间暂无模型成本数据。"
+        },
+        "latencyHistogram": {
+          "title": "延迟直方图",
+          "description": "按延迟桶的请求数（7 天）。",
+          "empty": "暂无延迟采样。"
+        },
+        "latencyTrend": {
+          "title": "延迟趋势",
+          "description": "平均与 p95 延迟随时间变化（7 天）。",
+          "metricAvg": "平均",
+          "metricP95": "P95",
+          "empty": "暂无延迟趋势数据。"
+        }
       },
       "availability": {
         "realtime": {
@@ -610,7 +648,10 @@
             "serverAddress": "服务器地址",
             "serverAddressHint": "用于外链与 OpenAPI 文档的公开基础 URL。"
           },
-          "toast": { "saved": "站点品牌已保存。", "saveFailed": "保存站点品牌失败。" }
+          "toast": {
+            "saved": "站点品牌已保存。",
+            "saveFailed": "保存站点品牌失败。"
+          }
         },
         "authentication": {
           "title": "认证",
@@ -692,7 +733,9 @@
             "modelAvailabilityProbeEnabled": "启用模型可用性探测",
             "modelAvailabilityProbeEnabledHint": "定期探测上游模型可用性，并将不可达模型标记为不可用。"
           },
-          "schema": { "payloadRulesInvalid": "负载规则必须是合法的 JSON 对象。" },
+          "schema": {
+            "payloadRulesInvalid": "负载规则必须是合法的 JSON 对象。"
+          },
           "toast": {
             "saved": "代理与传输设置已保存。",
             "saveFailed": "保存代理与传输设置失败。",
@@ -706,7 +749,11 @@
           "description": "兜底成本、权重、冷却与超时。",
           "weightsGroup": "路由权重",
           "weightsHint": "预设应用典型权重档位；可手动微调。",
-          "preset": { "balanced": "均衡", "stable": "稳定优先", "cost": "成本优先" },
+          "preset": {
+            "balanced": "均衡",
+            "stable": "稳定优先",
+            "cost": "成本优先"
+          },
           "fields": {
             "routingFallbackUnitCost": "兜底单价",
             "routingFallbackUnitCostHint": "无实测/配置值时的默认单价。",
@@ -722,7 +769,10 @@
             "balanceWeight": "余额权重",
             "usageWeight": "用量权重"
           },
-          "toast": { "saved": "路由策略已保存。", "saveFailed": "保存路由策略失败。" }
+          "toast": {
+            "saved": "路由策略已保存。",
+            "saveFailed": "保存路由策略失败。"
+          }
         }
       },
       "downstream": {
@@ -738,7 +788,13 @@
           "cost": "成本：{{used}} / {{max}}",
           "deleteTitle": "删除下游密钥",
           "deleteDescription": "删除密钥「{{name}}」？此操作不可撤销。",
-          "columns": { "name": "名称", "group": "分组", "enabled": "状态", "usage": "用量", "actions": "操作" },
+          "columns": {
+            "name": "名称",
+            "group": "分组",
+            "enabled": "状态",
+            "usage": "用量",
+            "actions": "操作"
+          },
           "fields": {
             "name": "名称",
             "key": "密钥",
@@ -750,7 +806,10 @@
             "enabled": "启用",
             "description": "备注"
           },
-          "schema": { "nameRequired": "请输入名称。", "keyMinLength": "密钥至少 8 个字符。" },
+          "schema": {
+            "nameRequired": "请输入名称。",
+            "keyMinLength": "密钥至少 8 个字符。"
+          },
           "toast": {
             "created": "下游密钥已创建。",
             "createFailed": "创建下游密钥失败。",
@@ -767,9 +826,15 @@
           "notSet": "未设置",
           "generate": "生成",
           "save": "更新令牌",
-          "fields": { "suffix": "令牌后缀", "suffixHint": "sk- 前缀固定。生成或输入新后缀。" },
+          "fields": {
+            "suffix": "令牌后缀",
+            "suffixHint": "sk- 前缀固定。生成或输入新后缀。"
+          },
           "schema": { "suffixMinLength": "后缀至少 8 个字符。" },
-          "toast": { "saved": "代理令牌已更新。", "saveFailed": "更新代理令牌失败。" }
+          "toast": {
+            "saved": "代理令牌已更新。",
+            "saveFailed": "更新代理令牌失败。"
+          }
         }
       },
       "models": {
@@ -781,7 +846,13 @@
           "apply": "应用",
           "promote": "转手动",
           "empty": "暂无模型重定向。点击「生成」扫描账号。",
-          "columns": { "canonical": "标准名", "actual": "实际名", "account": "账号", "source": "来源", "actions": "操作" },
+          "columns": {
+            "canonical": "标准名",
+            "actual": "实际名",
+            "account": "账号",
+            "source": "来源",
+            "actions": "操作"
+          },
           "source": { "sync": "自动", "manual": "手动" },
           "toast": {
             "generated": "已生成 {{created}} 条重定向，涉及 {{accounts}} 个账号。",
@@ -803,8 +874,20 @@
           "accountTable": "账号单价",
           "channelTable": "通道权重",
           "empty": "暂无费率数据。",
-          "columns": { "account": "账号", "site": "站点", "channels": "通道数", "unitCost": "单价", "route": "路由", "model": "模型", "enabled": "状态", "weight": "权重" },
-          "toast": { "updated": "已更新（账号：{{accounts}}，通道：{{channels}}）。", "updateFailed": "更新费率失败。" }
+          "columns": {
+            "account": "账号",
+            "site": "站点",
+            "channels": "通道数",
+            "unitCost": "单价",
+            "route": "路由",
+            "model": "模型",
+            "enabled": "状态",
+            "weight": "权重"
+          },
+          "toast": {
+            "updated": "已更新（账号：{{accounts}}，通道：{{channels}}）。",
+            "updateFailed": "更新费率失败。"
+          }
         },
         "allowlist": {
           "title": "全局白名单与品牌屏蔽",
@@ -943,7 +1026,12 @@
           "deleteTitle": "删除公告",
           "deleteDescription": "删除「{{title}}」？此操作不可撤销。",
           "empty": "暂无公告。创建一条以展示风险横幅。",
-          "columns": { "severity": "严重程度", "title": "标题", "enabled": "状态", "actions": "操作" },
+          "columns": {
+            "severity": "严重程度",
+            "title": "标题",
+            "enabled": "状态",
+            "actions": "操作"
+          },
           "severity": { "info": "信息", "warning": "警告", "critical": "严重" },
           "fields": {
             "title": "标题",
@@ -977,8 +1065,19 @@
           "exportCsv": "导出 CSV",
           "clear": "清空",
           "empty": "暂无程序事件。",
-          "type": { "checkin": "签到", "balance": "余额", "token": "令牌", "proxy": "代理" },
-          "columns": { "time": "时间", "level": "级别", "type": "类型", "title": "标题", "actions": "操作" },
+          "type": {
+            "checkin": "签到",
+            "balance": "余额",
+            "token": "令牌",
+            "proxy": "代理"
+          },
+          "columns": {
+            "time": "时间",
+            "level": "级别",
+            "type": "类型",
+            "title": "标题",
+            "actions": "操作"
+          },
           "toast": {
             "allMarkedRead": "所有事件已标记已读。",
             "markAllFailed": "标记已读失败。",
@@ -994,7 +1093,14 @@
           "pathPlaceholder": "搜索路径…",
           "search": "查询",
           "empty": "暂无审计记录。",
-          "columns": { "time": "时间", "method": "方法", "path": "路径", "status": "状态", "actor": "操作者", "ip": "IP" }
+          "columns": {
+            "time": "时间",
+            "method": "方法",
+            "path": "路径",
+            "status": "状态",
+            "actor": "操作者",
+            "ip": "IP"
+          }
         },
         "updateCenter": {
           "title": "更新中心",

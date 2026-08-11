@@ -22,6 +22,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+
 import {
   SettingsSectionCard,
   SettingsSectionSkeleton,
@@ -45,7 +46,9 @@ type ProxyTokenFormValues = z.infer<typeof proxyTokenSchema>
 function generateHighEntropySuffix(): string {
   const bytes = new Uint8Array(48)
   crypto.getRandomValues(bytes)
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join(
+    ''
+  )
 }
 
 export function ProxyTokenSection() {
@@ -80,9 +83,11 @@ export function ProxyTokenSection() {
     updateMutation.mutate(
       { proxyToken: `sk-${trimmed}` },
       {
-        onSuccess: () => toast.success(t('settings.downstream.proxyToken.toast.saved')),
-        onError: () => toast.error(t('settings.downstream.proxyToken.toast.saveFailed')),
-      },
+        onSuccess: () =>
+          toast.success(t('settings.downstream.proxyToken.toast.saved')),
+        onError: () =>
+          toast.error(t('settings.downstream.proxyToken.toast.saveFailed')),
+      }
     )
   }
 
@@ -97,9 +102,9 @@ export function ProxyTokenSection() {
       title={t('settings.downstream.proxyToken.title')}
       description={t('settings.downstream.proxyToken.description')}
     >
-      <div className='mb-4 text-sm text-muted-foreground'>
+      <div className='text-muted-foreground mb-4 text-sm'>
         <span>{t('settings.downstream.proxyToken.current')}</span>
-        <code className='ml-2 rounded bg-muted px-2 py-0.5 text-xs'>
+        <code className='bg-muted ml-2 rounded px-2 py-0.5 text-xs'>
           {masked || t('settings.downstream.proxyToken.notSet')}
         </code>
       </div>

@@ -11,8 +11,6 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
-import { api } from '@/lib/api'
-
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -32,6 +30,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { api } from '@/lib/api'
+
 import {
   SettingsSectionCard,
   SettingsSectionSkeleton,
@@ -59,7 +59,10 @@ const schedulingSchema = z.object({
 
 type SchedulingFormValues = z.infer<typeof schedulingSchema>
 
-const INTERVAL_HOURS_OPTIONS = Array.from({ length: 24 }, (_, index) => index + 1)
+const INTERVAL_HOURS_OPTIONS = Array.from(
+  { length: 24 },
+  (_, index) => index + 1
+)
 
 export function SchedulingSection() {
   const { t } = useTranslation()
@@ -96,22 +99,28 @@ export function SchedulingSection() {
         logCleanupCron: asString(data.logCleanupCron),
         logCleanupRetentionDays: asNumber(data.logCleanupRetentionDays) ?? 30,
         logCleanupUsageLogsEnabled: asBoolean(data.logCleanupUsageLogsEnabled),
-        logCleanupProgramLogsEnabled: asBoolean(data.logCleanupProgramLogsEnabled),
+        logCleanupProgramLogsEnabled: asBoolean(
+          data.logCleanupProgramLogsEnabled
+        ),
       },
-      { keepDirtyValues: true },
+      { keepDirtyValues: true }
     )
   }, [data, form])
 
   const triggerCheckinMutation = useMutation({
     mutationFn: async () => api.triggerCheckinAll(),
-    onSuccess: () => toast.success(t('settings.general.scheduling.toast.checkinTriggered')),
-    onError: () => toast.error(t('settings.general.scheduling.toast.checkinTriggerFailed')),
+    onSuccess: () =>
+      toast.success(t('settings.general.scheduling.toast.checkinTriggered')),
+    onError: () =>
+      toast.error(t('settings.general.scheduling.toast.checkinTriggerFailed')),
   })
 
   function onSubmit(values: SchedulingFormValues) {
     updateMutation.mutate(values as never, {
-      onSuccess: () => toast.success(t('settings.general.scheduling.toast.saved')),
-      onError: () => toast.error(t('settings.general.scheduling.toast.saveFailed')),
+      onSuccess: () =>
+        toast.success(t('settings.general.scheduling.toast.saved')),
+      onError: () =>
+        toast.error(t('settings.general.scheduling.toast.saveFailed')),
     })
   }
 
@@ -170,7 +179,9 @@ export function SchedulingSection() {
                   </SelectContent>
                 </Select>
                 <FormDescription>
-                  {t('settings.general.scheduling.fields.checkinScheduleModeHint')}
+                  {t(
+                    'settings.general.scheduling.fields.checkinScheduleModeHint'
+                  )}
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -183,7 +194,9 @@ export function SchedulingSection() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    {t('settings.general.scheduling.fields.checkinIntervalHours')}
+                    {t(
+                      'settings.general.scheduling.fields.checkinIntervalHours'
+                    )}
                   </FormLabel>
                   <Select
                     value={String(field.value ?? 6)}
@@ -217,7 +230,11 @@ export function SchedulingSection() {
                     {t('settings.general.scheduling.fields.checkinCron')}
                   </FormLabel>
                   <FormControl>
-                    <Input {...field} value={field.value ?? ''} placeholder='0 8 * * *' />
+                    <Input
+                      {...field}
+                      value={field.value ?? ''}
+                      placeholder='0 8 * * *'
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -233,7 +250,11 @@ export function SchedulingSection() {
                   {t('settings.general.scheduling.fields.balanceRefreshCron')}
                 </FormLabel>
                 <FormControl>
-                  <Input {...field} value={field.value ?? ''} placeholder='0 * * * *' />
+                  <Input
+                    {...field}
+                    value={field.value ?? ''}
+                    placeholder='0 * * * *'
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -248,7 +269,11 @@ export function SchedulingSection() {
                   {t('settings.general.scheduling.fields.logCleanupCron')}
                 </FormLabel>
                 <FormControl>
-                  <Input {...field} value={field.value ?? ''} placeholder='0 6 * * *' />
+                  <Input
+                    {...field}
+                    value={field.value ?? ''}
+                    placeholder='0 6 * * *'
+                  />
                 </FormControl>
                 <FormDescription>
                   {t('settings.general.scheduling.fields.logCleanupCronHint')}
@@ -263,7 +288,9 @@ export function SchedulingSection() {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>
-                  {t('settings.general.scheduling.fields.logCleanupRetentionDays')}
+                  {t(
+                    'settings.general.scheduling.fields.logCleanupRetentionDays'
+                  )}
                 </FormLabel>
                 <FormControl>
                   <Input
@@ -291,10 +318,14 @@ export function SchedulingSection() {
                 </FormControl>
                 <div className='space-y-1'>
                   <FormLabel className='cursor-pointer'>
-                    {t('settings.general.scheduling.fields.logCleanupUsageLogsEnabled')}
+                    {t(
+                      'settings.general.scheduling.fields.logCleanupUsageLogsEnabled'
+                    )}
                   </FormLabel>
                   <FormDescription>
-                    {t('settings.general.scheduling.fields.logCleanupUsageLogsEnabledHint')}
+                    {t(
+                      'settings.general.scheduling.fields.logCleanupUsageLogsEnabledHint'
+                    )}
                   </FormDescription>
                 </div>
               </FormItem>
@@ -313,10 +344,14 @@ export function SchedulingSection() {
                 </FormControl>
                 <div className='space-y-1'>
                   <FormLabel className='cursor-pointer'>
-                    {t('settings.general.scheduling.fields.logCleanupProgramLogsEnabled')}
+                    {t(
+                      'settings.general.scheduling.fields.logCleanupProgramLogsEnabled'
+                    )}
                   </FormLabel>
                   <FormDescription>
-                    {t('settings.general.scheduling.fields.logCleanupProgramLogsEnabledHint')}
+                    {t(
+                      'settings.general.scheduling.fields.logCleanupProgramLogsEnabledHint'
+                    )}
                   </FormDescription>
                 </div>
               </FormItem>

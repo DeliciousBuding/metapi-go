@@ -1,13 +1,14 @@
 // metapi-go/data-table — ported from newapi
 import * as React from 'react'
 
-import { StatusBadgeList } from './status-badge'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+
+import { StatusBadgeList } from './status-badge'
 
 interface BadgeListCellProps {
   items: React.ReactNode[]

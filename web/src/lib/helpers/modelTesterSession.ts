@@ -1,10 +1,8 @@
-
-
 /* eslint-disable no-nested-ternary -- session builder uses chained status ternaries */
 const buildConversationRequestEnvelope = (
   messages: ChatMessage[],
   inputs: ModelTesterInputs,
-  parameterEnabled: ParameterEnabled,
+  parameterEnabled: ParameterEnabled
 ): TesterProxyEnvelope => ({
   method: 'POST',
   path: getConversationPath(inputs.protocol, inputs.model),
@@ -13,10 +11,10 @@ const buildConversationRequestEnvelope = (
   jobMode: !inputs.stream,
   rawMode: false,
   jsonBody: buildConversationJsonBody(messages, inputs, parameterEnabled),
-});
+})
 
 const createConversationInputFilePart = (
-  file: ConversationUploadedFile,
+  file: ConversationUploadedFile
 ): ConversationContentPart => ({
   type: 'input_file',
   ...(typeof file.fileId === 'string' && file.fileId.trim()
@@ -31,102 +29,130 @@ const createConversationInputFilePart = (
   ...(typeof file.data === 'string' && file.data.trim()
     ? { data: file.data.trim() }
     : {}),
-});
+})
 
-const createMessage = (role: ChatRole, content: string, extra: Partial<ChatMessage> = {}): ChatMessage => ({
+const createMessage = (
+  role: ChatRole,
+  content: string,
+  extra: Partial<ChatMessage> = {}
+): ChatMessage => ({
   id: createMessageId(),
   role,
   content,
   createAt: Date.now(),
   ...extra,
-});
+})
 
 const finalizeIncompleteMessage = (message: ChatMessage): ChatMessage => {
-  if (message.status !== MESSAGE_STATUS.LOADING && message.status !== MESSAGE_STATUS.INCOMPLETE) {
-    return message;
+  if (
+    message.status !== MESSAGE_STATUS.LOADING &&
+    message.status !== MESSAGE_STATUS.INCOMPLETE
+  ) {
+    return message
   }
 
-  const processed = processIncompleteThinkTags(message.content || '', message.reasoningContent || '');
+  const processed = processIncompleteThinkTags(
+    message.content || '',
+    message.reasoningContent || ''
+  )
   return {
     ...message,
     content: processed.content || message.content,
     reasoningContent: processed.reasoningContent || null,
     status: MESSAGE_STATUS.COMPLETE,
     isThinkingComplete: true,
-  };
-};
+  }
+}
 
-const processThinkTags = (content: string, reasoningContent = ''): { content: string; reasoningContent: string } => {
+const processThinkTags = (
+  content: string,
+  reasoningContent = ''
+): { content: string; reasoningContent: string } => {
   if (!content || !content.includes('<think>')) {
-    return { content, reasoningContent };
+    return { content, reasoningContent }
   }
 
-  const thoughts: string[] = [];
-  const replyParts: string[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
+  const thoughts: string[] = []
+  const replyParts: string[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
 
-  THINK_TAG_REGEX.lastIndex = 0;
+  THINK_TAG_REGEX.lastIndex = 0
   while ((match = THINK_TAG_REGEX.exec(content)) !== null) {
-    replyParts.push(content.substring(lastIndex, match.index));
-    thoughts.push(match[1]);
-    lastIndex = match.index + match[0].length;
+    replyParts.push(content.substring(lastIndex, match.index))
+    thoughts.push(match[1])
+    lastIndex = match.index + match[0].length
   }
-  replyParts.push(content.substring(lastIndex));
+  replyParts.push(content.substring(lastIndex))
 
-  const processedContent = replyParts.join('').replaceAll(/<\/?think>/g, '').trim();
-  const thoughtsCombined = thoughts.join('\n\n---\n\n');
+  const processedContent = replyParts
+    .join('')
+    .replaceAll(/<\/?think>/g, '')
+    .trim()
+  const thoughtsCombined = thoughts.join('\n\n---\n\n')
 
   return {
     content: processedContent,
-    reasoningContent: reasoningContent && thoughtsCombined
-      ? `${reasoningContent}\n\n---\n\n${thoughtsCombined}`
-      : (reasoningContent || thoughtsCombined),
-  };
-};
+    reasoningContent:
+      reasoningContent && thoughtsCombined
+        ? `${reasoningContent}\n\n---\n\n${thoughtsCombined}`
+        : reasoningContent || thoughtsCombined,
+  }
+}
 
-const LOCAL_PROXY_FILE_ID_PREFIX = 'file-metapi-';
+const LOCAL_PROXY_FILE_ID_PREFIX = 'file-metapi-'
 
 export async function resolveConversationReplayFiles(
   files: ConversationUploadedFile[],
   protocol: PlaygroundProtocol,
-  loadLocalFile: (fileId: string) => Promise<{ filename?: string | null; mimeType?: string | null; data: string }>,
+  loadLocalFile: (fileId: string) => Promise<{
+    filename?: string | null
+    mimeType?: string | null
+    data: string
+  }>
 ): Promise<ConversationUploadedFile[]> {
   if (protocol !== 'claude' && protocol !== 'gemini') {
-    return files.map((file) => ({ ...file }));
+    return files.map((file) => ({ ...file }))
   }
 
-  return Promise.all(files.map(async (file) => {
-    const fileId = typeof file.fileId === 'string' && file.fileId.trim()
-      ? file.fileId.trim()
-      : '';
-    const data = typeof file.data === 'string' && file.data.trim()
-      ? file.data.trim()
-      : '';
-    if (!fileId || data) {
-      return { ...file };
-    }
-    if (!fileId.startsWith(LOCAL_PROXY_FILE_ID_PREFIX)) {
-      throw new Error(`会话附件 ${fileId} 只有 file_id，当前协议需要可重放的内联数据。`);
-    }
+  return Promise.all(
+    files.map(async (file) => {
+      const fileId =
+        typeof file.fileId === 'string' && file.fileId.trim()
+          ? file.fileId.trim()
+          : ''
+      const data =
+        typeof file.data === 'string' && file.data.trim()
+          ? file.data.trim()
+          : ''
+      if (!fileId || data) {
+        return { ...file }
+      }
+      if (!fileId.startsWith(LOCAL_PROXY_FILE_ID_PREFIX)) {
+        throw new Error(
+          `会话附件 ${fileId} 只有 file_id，当前协议需要可重放的内联数据。`
+        )
+      }
 
-    const resolved = await loadLocalFile(fileId);
-    const resolvedData = typeof resolved?.data === 'string' ? resolved.data.trim() : '';
-    if (!resolvedData) {
-      throw new Error(`会话附件 ${fileId} 缺少可重放的数据。`);
-    }
+      const resolved = await loadLocalFile(fileId)
+      const resolvedData =
+        typeof resolved?.data === 'string' ? resolved.data.trim() : ''
+      if (!resolvedData) {
+        throw new Error(`会话附件 ${fileId} 缺少可重放的数据。`)
+      }
 
-    return {
-      ...file,
-      ...(typeof resolved?.filename === 'string' && resolved.filename.trim()
-        ? { filename: resolved.filename.trim() }
-        : {}),
-      ...(typeof resolved?.mimeType === 'string' && resolved.mimeType.trim()
-        ? { mimeType: resolved.mimeType.trim() }
-        : {}),
-      data: resolvedData,
-    };
-  }));
+      return {
+        ...file,
+        ...(typeof resolved?.filename === 'string' && resolved.filename.trim()
+          ? { filename: resolved.filename.trim() }
+          : {}),
+        ...(typeof resolved?.mimeType === 'string' && resolved.mimeType.trim()
+          ? { mimeType: resolved.mimeType.trim() }
+          : {}),
+        data: resolvedData,
+      }
+    })
+  )
 }
 
 export const MESSAGE_STATUS = {
@@ -134,16 +160,16 @@ export const MESSAGE_STATUS = {
   INCOMPLETE: 'incomplete',
   COMPLETE: 'complete',
   ERROR: 'error',
-} as const;
+} as const
 
 export const DEBUG_TABS = {
   PREVIEW: 'preview',
   REQUEST: 'request',
   RESPONSE: 'response',
-} as const;
+} as const
 
-type MessageStatus = typeof MESSAGE_STATUS[keyof typeof MESSAGE_STATUS];
-type DebugTab = typeof DEBUG_TABS[keyof typeof DEBUG_TABS];
+type MessageStatus = (typeof MESSAGE_STATUS)[keyof typeof MESSAGE_STATUS]
+type DebugTab = (typeof DEBUG_TABS)[keyof typeof DEBUG_TABS]
 
 type PlaygroundMode =
   | 'conversation'
@@ -152,140 +178,146 @@ type PlaygroundMode =
   | 'images.generate'
   | 'images.edit'
   | 'videos.create'
-  | 'videos.inspect';
+  | 'videos.inspect'
 
-export type PlaygroundProtocol = 'openai' | 'responses' | 'claude' | 'gemini';
-export type ProxyRequestKind = 'json' | 'multipart' | 'empty';
-export type ProxyRequestMethod = 'POST' | 'GET' | 'DELETE';
-type VideoInspectAction = 'get' | 'delete';
-type ChatRole = 'user' | 'assistant' | 'system' | 'developer' | 'tool';
+export type PlaygroundProtocol = 'openai' | 'responses' | 'claude' | 'gemini'
+export type ProxyRequestKind = 'json' | 'multipart' | 'empty'
+export type ProxyRequestMethod = 'POST' | 'GET' | 'DELETE'
+type VideoInspectAction = 'get' | 'delete'
+type ChatRole = 'user' | 'assistant' | 'system' | 'developer' | 'tool'
 
 type ConversationContentPart =
   | { type: 'text'; text: string }
   | { type: 'image_url'; url: string }
   | { type: 'image_inline'; dataUrl: string; mimeType?: string | null }
   | { type: 'input_audio'; dataUrl: string; mimeType?: string | null }
-  | { type: 'input_file'; fileId?: string | null; filename?: string | null; mimeType?: string | null; data?: string | null }
+  | {
+      type: 'input_file'
+      fileId?: string | null
+      filename?: string | null
+      mimeType?: string | null
+      data?: string | null
+    }
   | { type: 'output_audio'; dataUrl: string; mimeType?: string | null }
   | { type: 'tool_call'; name?: string; argumentsText?: string }
   | { type: 'tool_result'; name?: string; outputText?: string }
   | { type: 'function_response'; name?: string; outputText?: string }
   | { type: 'reasoning'; text: string }
-  | { type: 'redacted_reasoning'; text: string };
+  | { type: 'redacted_reasoning'; text: string }
 
 export type ChatMessage = {
-  id: string;
-  role: ChatRole;
-  content: string;
-  createAt: number;
-  status?: MessageStatus;
-  reasoningContent?: string | null;
-  isReasoningExpanded?: boolean;
-  isThinkingComplete?: boolean;
-  hasAutoCollapsed?: boolean;
-  parts?: ConversationContentPart[] | null;
-};
+  id: string
+  role: ChatRole
+  content: string
+  createAt: number
+  status?: MessageStatus
+  reasoningContent?: string | null
+  isReasoningExpanded?: boolean
+  isThinkingComplete?: boolean
+  hasAutoCollapsed?: boolean
+  parts?: ConversationContentPart[] | null
+}
 
 type ApiChatMessage = {
-  role: ChatRole;
-  content: string;
-  parts?: ConversationContentPart[] | null;
-};
+  role: ChatRole
+  content: string
+  parts?: ConversationContentPart[] | null
+}
 
 export type PlaygroundMultipartFile = {
-  field: string;
-  name: string;
-  mimeType: string;
-  dataUrl: string;
-};
+  field: string
+  name: string
+  mimeType: string
+  dataUrl: string
+}
 
 export type ConversationUploadedFile = {
-  fileId?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  data?: string | null;
-};
+  fileId?: string | null
+  filename?: string | null
+  mimeType?: string | null
+  data?: string | null
+}
 
 type ConversationDraftFile = {
-  localId: string;
-  name: string;
-  mimeType: string;
-  dataUrl: string;
-  fileId?: string | null;
-  status: 'pending' | 'uploading' | 'uploaded' | 'error';
-  errorMessage?: string | null;
-};
+  localId: string
+  name: string
+  mimeType: string
+  dataUrl: string
+  fileId?: string | null
+  status: 'pending' | 'uploading' | 'uploaded' | 'error'
+  errorMessage?: string | null
+}
 
 export type TesterProxyEnvelope = {
-  method: ProxyRequestMethod;
-  path: string;
-  requestKind: ProxyRequestKind;
-  stream: boolean;
-  jobMode: boolean;
-  rawMode: boolean;
-  forcedChannelId?: number | null;
-  jsonBody?: unknown;
-  rawJsonText?: string;
-  multipartFields?: Record<string, string>;
-  multipartFiles?: PlaygroundMultipartFile[];
-};
+  method: ProxyRequestMethod
+  path: string
+  requestKind: ProxyRequestKind
+  stream: boolean
+  jobMode: boolean
+  rawMode: boolean
+  forcedChannelId?: number | null
+  jsonBody?: unknown
+  rawJsonText?: string
+  multipartFields?: Record<string, string>
+  multipartFiles?: PlaygroundMultipartFile[]
+}
 
 export type ModelTesterInputs = {
-  mode: PlaygroundMode;
-  protocol: PlaygroundProtocol;
-  targetFormat: PlaygroundProtocol;
-  model: string;
-  systemPrompt: string;
-  temperature: number;
-  top_p: number;
-  max_tokens: number;
-  frequency_penalty: number;
-  presence_penalty: number;
-  seed: number | null;
-  stream: boolean;
-  searchMaxResults: number;
-  videoInspectAction: VideoInspectAction;
-};
+  mode: PlaygroundMode
+  protocol: PlaygroundProtocol
+  targetFormat: PlaygroundProtocol
+  model: string
+  systemPrompt: string
+  temperature: number
+  top_p: number
+  max_tokens: number
+  frequency_penalty: number
+  presence_penalty: number
+  seed: number | null
+  stream: boolean
+  searchMaxResults: number
+  videoInspectAction: VideoInspectAction
+}
 
 export type ParameterEnabled = {
-  temperature: boolean;
-  top_p: boolean;
-  max_tokens: boolean;
-  frequency_penalty: boolean;
-  presence_penalty: boolean;
-  seed: boolean;
-};
+  temperature: boolean
+  top_p: boolean
+  max_tokens: boolean
+  frequency_penalty: boolean
+  presence_penalty: boolean
+  seed: boolean
+}
 
 export type ModelTesterModeState = {
-  embeddingsInput: string;
-  searchQuery: string;
-  searchAllowedDomains: string;
-  searchBlockedDomains: string;
-  imagesPrompt: string;
-  imagesMaskDataUrl: string;
-  videosPrompt: string;
-  videosInspectId: string;
-  extraJson: string;
-};
+  embeddingsInput: string
+  searchQuery: string
+  searchAllowedDomains: string
+  searchBlockedDomains: string
+  imagesPrompt: string
+  imagesMaskDataUrl: string
+  videosPrompt: string
+  videosInspectId: string
+  extraJson: string
+}
 
 export type ModelTesterSessionState = {
-  version?: number;
-  input: string;
-  inputs: ModelTesterInputs;
-  parameterEnabled: ParameterEnabled;
-  messages: ChatMessage[];
-  conversationFiles: ConversationDraftFile[];
-  pendingPayload: TesterProxyEnvelope | null;
-  pendingJobId?: string | null;
-  forcedChannelId?: number | null;
-  customRequestMode: boolean;
-  customRequestBody: string;
-  showDebugPanel: boolean;
-  activeDebugTab: DebugTab;
-  modeState: ModelTesterModeState;
-};
+  version?: number
+  input: string
+  inputs: ModelTesterInputs
+  parameterEnabled: ParameterEnabled
+  messages: ChatMessage[]
+  conversationFiles: ConversationDraftFile[]
+  pendingPayload: TesterProxyEnvelope | null
+  pendingJobId?: string | null
+  forcedChannelId?: number | null
+  customRequestMode: boolean
+  customRequestBody: string
+  showDebugPanel: boolean
+  activeDebugTab: DebugTab
+  modeState: ModelTesterModeState
+}
 
-export const MODEL_TESTER_SESSION_VERSION = 5;
+export const MODEL_TESTER_SESSION_VERSION = 5
 
 export const DEFAULT_INPUTS: ModelTesterInputs = {
   mode: 'conversation',
@@ -302,7 +334,7 @@ export const DEFAULT_INPUTS: ModelTesterInputs = {
   stream: false,
   searchMaxResults: 10,
   videoInspectAction: 'get',
-};
+}
 
 export const DEFAULT_PARAMETER_ENABLED: ParameterEnabled = {
   temperature: true,
@@ -311,7 +343,7 @@ export const DEFAULT_PARAMETER_ENABLED: ParameterEnabled = {
   frequency_penalty: true,
   presence_penalty: true,
   seed: false,
-};
+}
 
 export const DEFAULT_MODE_STATE: ModelTesterModeState = {
   embeddingsInput: '',
@@ -323,12 +355,18 @@ export const DEFAULT_MODE_STATE: ModelTesterModeState = {
   videosPrompt: '',
   videosInspectId: '',
   extraJson: '',
-};
+}
 
-const THINK_TAG_REGEX = /<think>([\s\S]*?)<\/think>/g;
-const VALID_ROLES: ReadonlySet<string> = new Set(['user', 'assistant', 'system', 'developer', 'tool']);
-const VALID_STATUS: ReadonlySet<string> = new Set(Object.values(MESSAGE_STATUS));
-const VALID_DEBUG_TABS: ReadonlySet<string> = new Set(Object.values(DEBUG_TABS));
+const THINK_TAG_REGEX = /<think>([\s\S]*?)<\/think>/g
+const VALID_ROLES: ReadonlySet<string> = new Set([
+  'user',
+  'assistant',
+  'system',
+  'developer',
+  'tool',
+])
+const VALID_STATUS: ReadonlySet<string> = new Set(Object.values(MESSAGE_STATUS))
+const VALID_DEBUG_TABS: ReadonlySet<string> = new Set(Object.values(DEBUG_TABS))
 const VALID_MODES: ReadonlySet<string> = new Set([
   'conversation',
   'embeddings',
@@ -337,182 +375,229 @@ const VALID_MODES: ReadonlySet<string> = new Set([
   'images.edit',
   'videos.create',
   'videos.inspect',
-]);
-const VALID_PROTOCOLS: ReadonlySet<string> = new Set(['openai', 'responses', 'claude', 'gemini']);
-const VALID_CONVERSATION_DRAFT_STATUSES: ReadonlySet<string> = new Set(['pending', 'uploading', 'uploaded', 'error']);
-const VALID_PROXY_METHODS: ReadonlySet<string> = new Set(['POST', 'GET', 'DELETE']);
-const VALID_REQUEST_KINDS: ReadonlySet<string> = new Set(['json', 'multipart', 'empty']);
+])
+const VALID_PROTOCOLS: ReadonlySet<string> = new Set([
+  'openai',
+  'responses',
+  'claude',
+  'gemini',
+])
+const VALID_CONVERSATION_DRAFT_STATUSES: ReadonlySet<string> = new Set([
+  'pending',
+  'uploading',
+  'uploaded',
+  'error',
+])
+const VALID_PROXY_METHODS: ReadonlySet<string> = new Set([
+  'POST',
+  'GET',
+  'DELETE',
+])
+const VALID_REQUEST_KINDS: ReadonlySet<string> = new Set([
+  'json',
+  'multipart',
+  'empty',
+])
 
-let messageCounter = 0;
+let messageCounter = 0
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
+  typeof value === 'object' && value !== null
 
 const toFiniteNumber = (value: unknown, fallback: number): number =>
-  typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  typeof value === 'number' && Number.isFinite(value) ? value : fallback
 
 const toBoolean = (value: unknown, fallback: boolean): boolean =>
-  typeof value === 'boolean' ? value : fallback;
+  typeof value === 'boolean' ? value : fallback
 
 const toNullableFiniteNumber = (value: unknown): number | null => {
-  if (value === null || value === undefined || value === '') return null;
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  return null;
-};
+  if (value === null || value === undefined || value === '') return null
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  return null
+}
 
 const toPositiveInteger = (value: unknown): number | null => {
-  const parsed = toNullableFiniteNumber(value);
-  if (parsed === null) return null;
-  const normalized = Math.trunc(parsed);
-  return normalized > 0 ? normalized : null;
-};
+  const parsed = toNullableFiniteNumber(value)
+  if (parsed === null) return null
+  const normalized = Math.trunc(parsed)
+  return normalized > 0 ? normalized : null
+}
 
 const sanitizeString = (value: unknown, fallback = ''): string =>
-  typeof value === 'string' ? value : fallback;
+  typeof value === 'string' ? value : fallback
 
 const isExactModelPattern = (modelPattern: string): boolean => {
-  const normalized = modelPattern.trim();
-  if (!normalized) return false;
-  if (normalized.toLowerCase().startsWith('re:')) return false;
-  return !/[*\?]/.test(normalized);
-};
+  const normalized = modelPattern.trim()
+  if (!normalized) return false
+  if (normalized.toLowerCase().startsWith('re:')) return false
+  return !/[*\?]/.test(normalized)
+}
 
 const splitCommaSeparated = (value: string): string[] =>
   value
     .split(',')
     .map((item) => item.trim())
-    .filter(Boolean);
+    .filter(Boolean)
 
 const createMessageId = (): string => {
-  messageCounter += 1;
-  return `msg-${Date.now()}-${messageCounter}`;
-};
+  messageCounter += 1
+  return `msg-${Date.now()}-${messageCounter}`
+}
 
-const getConversationPath = (protocol: PlaygroundProtocol, model: string): string => {
-  if (protocol === 'claude') return '/v1/messages';
-  if (protocol === 'responses') return '/v1/responses';
+const getConversationPath = (
+  protocol: PlaygroundProtocol,
+  model: string
+): string => {
+  if (protocol === 'claude') return '/v1/messages'
+  if (protocol === 'responses') return '/v1/responses'
   if (protocol === 'gemini') {
-    const encodedModel = encodeURIComponent(model);
-    return `/v1beta/models/${encodedModel}:generateContent`;
+    const encodedModel = encodeURIComponent(model)
+    return `/v1beta/models/${encodedModel}:generateContent`
   }
-  return '/v1/chat/completions';
-};
+  return '/v1/chat/completions'
+}
 
-const appendOptionalNumber = (target: Record<string, unknown>, key: string, enabled: boolean, value: number | null | undefined) => {
-  if (!enabled) return;
+const appendOptionalNumber = (
+  target: Record<string, unknown>,
+  key: string,
+  enabled: boolean,
+  value: number | null | undefined
+) => {
+  if (!enabled) return
   if (typeof value === 'number' && Number.isFinite(value)) {
-    target[key] = value;
+    target[key] = value
   }
-};
+}
 
-const parseDataUrl = (dataUrl: string): { mimeType: string; data: string } | null => {
-  const match = /^data:([^;,]+)?;base64,(.+)$/i.exec((dataUrl || '').trim());
-  if (!match) return null;
+const parseDataUrl = (
+  dataUrl: string
+): { mimeType: string; data: string } | null => {
+  const match = /^data:([^;,]+)?;base64,(.+)$/i.exec((dataUrl || '').trim())
+  if (!match) return null
   return {
     mimeType: match[1] || 'application/octet-stream',
     data: match[2],
-  };
-};
+  }
+}
 
-const toOpenAiContentPart = (part: ConversationContentPart): Record<string, unknown> | null => {
+const toOpenAiContentPart = (
+  part: ConversationContentPart
+): Record<string, unknown> | null => {
   if (part.type === 'image_url') {
     return {
       type: 'image_url',
       image_url: part.url,
-    };
+    }
   }
 
   if (part.type === 'image_inline') {
     return {
       type: 'image_url',
       image_url: part.dataUrl,
-    };
+    }
   }
 
   if (part.type === 'input_audio') {
-    const parsed = parseDataUrl(part.dataUrl);
-    if (!parsed) return null;
+    const parsed = parseDataUrl(part.dataUrl)
+    if (!parsed) return null
     return {
       type: 'input_audio',
       input_audio: {
         data: parsed.data,
-        format: (part.mimeType || parsed.mimeType || 'audio/wav').split('/').pop() || 'wav',
+        format:
+          (part.mimeType || parsed.mimeType || 'audio/wav').split('/').pop() ||
+          'wav',
       },
-    };
+    }
   }
 
   if (part.type === 'input_file') {
-    const filePayload: Record<string, unknown> = {};
-    const fileId = typeof part.fileId === 'string' && part.fileId.trim()
-      ? part.fileId.trim()
-      : '';
-    const rawData = typeof part.data === 'string' && part.data.trim()
-      ? part.data.trim()
-      : '';
-    const parsed = rawData
-      ? parseDataUrl(rawData)
-      : null;
-    if (fileId) filePayload.file_id = fileId;
-    else if (rawData) filePayload.file_data = parsed?.data || rawData;
-    if (typeof part.filename === 'string' && part.filename.trim()) filePayload.filename = part.filename.trim();
-    if (typeof part.mimeType === 'string' && part.mimeType.trim()) filePayload.mime_type = part.mimeType.trim();
-    else if (parsed?.mimeType) filePayload.mime_type = parsed.mimeType;
-    if (Object.keys(filePayload).length === 0) return null;
+    const filePayload: Record<string, unknown> = {}
+    const fileId =
+      typeof part.fileId === 'string' && part.fileId.trim()
+        ? part.fileId.trim()
+        : ''
+    const rawData =
+      typeof part.data === 'string' && part.data.trim() ? part.data.trim() : ''
+    const parsed = rawData ? parseDataUrl(rawData) : null
+    if (fileId) filePayload.file_id = fileId
+    else if (rawData) filePayload.file_data = parsed?.data || rawData
+    if (typeof part.filename === 'string' && part.filename.trim())
+      filePayload.filename = part.filename.trim()
+    if (typeof part.mimeType === 'string' && part.mimeType.trim())
+      filePayload.mime_type = part.mimeType.trim()
+    else if (parsed?.mimeType) filePayload.mime_type = parsed.mimeType
+    if (Object.keys(filePayload).length === 0) return null
     return {
       type: 'file',
       file: filePayload,
-    };
+    }
   }
 
-  return null;
-};
+  return null
+}
 
-const toResponsesContentPart = (part: ConversationContentPart): Record<string, unknown> | null => {
+const toResponsesContentPart = (
+  part: ConversationContentPart
+): Record<string, unknown> | null => {
   if (part.type === 'image_url') {
     return {
       type: 'input_image',
       image_url: part.url,
-    };
+    }
   }
 
   if (part.type === 'image_inline') {
     return {
       type: 'input_image',
       image_url: part.dataUrl,
-    };
+    }
   }
 
   if (part.type === 'input_audio') {
-    const parsed = parseDataUrl(part.dataUrl);
-    if (!parsed) return null;
+    const parsed = parseDataUrl(part.dataUrl)
+    if (!parsed) return null
     return {
       type: 'input_audio',
       input_audio: {
         data: parsed.data,
-        format: (part.mimeType || parsed.mimeType || 'audio/wav').split('/').pop() || 'wav',
+        format:
+          (part.mimeType || parsed.mimeType || 'audio/wav').split('/').pop() ||
+          'wav',
       },
-    };
+    }
   }
 
   if (part.type === 'input_file') {
     const fileBlock: Record<string, unknown> = {
       type: 'input_file',
-    };
-    if (typeof part.fileId === 'string' && part.fileId.trim()) fileBlock.file_id = part.fileId.trim();
-    else if (typeof part.data === 'string' && part.data.trim()) fileBlock.file_data = part.data.trim();
-    if (typeof part.filename === 'string' && part.filename.trim()) fileBlock.filename = part.filename.trim();
-    if (Object.keys(fileBlock).length === 1) return null;
-    return fileBlock;
+    }
+    if (typeof part.fileId === 'string' && part.fileId.trim())
+      fileBlock.file_id = part.fileId.trim()
+    else if (typeof part.data === 'string' && part.data.trim())
+      fileBlock.file_data = part.data.trim()
+    if (typeof part.filename === 'string' && part.filename.trim())
+      fileBlock.filename = part.filename.trim()
+    if (Object.keys(fileBlock).length === 1) return null
+    return fileBlock
   }
 
-  return null;
-};
+  return null
+}
 
-const toClaudeContentPart = (part: ConversationContentPart): Record<string, unknown> | null => {
-  if (part.type !== 'input_file' || typeof part.data !== 'string' || !part.data.trim()) return null;
-  const parsed = parseDataUrl(part.data);
-  if (!parsed) return null;
-  const mimeType = part.mimeType || parsed.mimeType || 'application/octet-stream';
+const toClaudeContentPart = (
+  part: ConversationContentPart
+): Record<string, unknown> | null => {
+  if (
+    part.type !== 'input_file' ||
+    typeof part.data !== 'string' ||
+    !part.data.trim()
+  )
+    return null
+  const parsed = parseDataUrl(part.data)
+  if (!parsed) return null
+  const mimeType =
+    part.mimeType || parsed.mimeType || 'application/octet-stream'
   if (mimeType.toLowerCase().startsWith('image/')) {
     return {
       type: 'image',
@@ -521,7 +606,7 @@ const toClaudeContentPart = (part: ConversationContentPart): Record<string, unkn
         media_type: mimeType,
         data: parsed.data,
       },
-    };
+    }
   }
   return {
     type: 'document',
@@ -533,56 +618,60 @@ const toClaudeContentPart = (part: ConversationContentPart): Record<string, unkn
     ...(typeof part.filename === 'string' && part.filename.trim()
       ? { title: part.filename.trim() }
       : {}),
-  };
-};
+  }
+}
 
-const toGeminiContentPart = (part: ConversationContentPart): Record<string, unknown> | null => {
+const toGeminiContentPart = (
+  part: ConversationContentPart
+): Record<string, unknown> | null => {
   if (part.type === 'image_url') {
     return {
       fileData: {
         fileUri: part.url,
       },
-    };
+    }
   }
 
   if (part.type === 'image_inline') {
-    const parsed = parseDataUrl(part.dataUrl);
-    if (!parsed) return null;
+    const parsed = parseDataUrl(part.dataUrl)
+    if (!parsed) return null
     return {
       inlineData: {
         mimeType: part.mimeType || parsed.mimeType,
         data: parsed.data,
       },
-    };
+    }
   }
 
   if (part.type === 'input_audio') {
-    const parsed = parseDataUrl(part.dataUrl);
-    if (!parsed) return null;
+    const parsed = parseDataUrl(part.dataUrl)
+    if (!parsed) return null
     return {
       inlineData: {
         mimeType: part.mimeType || parsed.mimeType,
         data: parsed.data,
       },
-    };
+    }
   }
 
   if (part.type === 'input_file') {
     if (typeof part.data === 'string' && part.data.trim()) {
-      const parsed = parseDataUrl(part.data);
-      if (!parsed) return null;
+      const parsed = parseDataUrl(part.data)
+      if (!parsed) return null
       return {
         inlineData: {
-          mimeType: part.mimeType || parsed.mimeType || 'application/octet-stream',
+          mimeType:
+            part.mimeType || parsed.mimeType || 'application/octet-stream',
           data: parsed.data,
         },
-      };
+      }
     }
 
-    const fileUri = typeof part.fileId === 'string' && part.fileId.trim()
-      ? part.fileId.trim()
-      : '';
-    if (!fileUri) return null;
+    const fileUri =
+      typeof part.fileId === 'string' && part.fileId.trim()
+        ? part.fileId.trim()
+        : ''
+    if (!fileUri) return null
     return {
       fileData: {
         fileUri,
@@ -590,114 +679,150 @@ const toGeminiContentPart = (part: ConversationContentPart): Record<string, unkn
           ? { mimeType: part.mimeType.trim() }
           : {}),
       },
-    };
+    }
   }
 
-  return null;
-};
+  return null
+}
 
 const toGeminiContents = (messages: ApiChatMessage[]) =>
-  messages.map((message) => ({
-    role: message.role === 'assistant' ? 'model' : 'user',
-    parts: [
-      ...(message.content.trim() ? [{ text: message.content }] : []),
-      ...((Array.isArray(message.parts)
-        ? message.parts
-          .map((part) => toGeminiContentPart(part))
-          .filter((item): item is Record<string, unknown> => !!item)
-        : [])),
-    ],
-  })).filter((message) => Array.isArray(message.parts) && message.parts.length > 0);
+  messages
+    .map((message) => ({
+      role: message.role === 'assistant' ? 'model' : 'user',
+      parts: [
+        ...(message.content.trim() ? [{ text: message.content }] : []),
+        ...(Array.isArray(message.parts)
+          ? message.parts
+              .map((part) => toGeminiContentPart(part))
+              .filter((item): item is Record<string, unknown> => !!item)
+          : []),
+      ],
+    }))
+    .filter(
+      (message) => Array.isArray(message.parts) && message.parts.length > 0
+    )
 
 const toOpenAiMessageContent = (message: ApiChatMessage): unknown => {
   const parts = Array.isArray(message.parts)
     ? message.parts
-      .map((part) => toOpenAiContentPart(part))
-      .filter((item): item is Record<string, unknown> => !!item)
-    : [];
+        .map((part) => toOpenAiContentPart(part))
+        .filter((item): item is Record<string, unknown> => !!item)
+    : []
 
   if (parts.length <= 0) {
-    return message.content;
+    return message.content
   }
 
   if (message.content.trim()) {
-    return [
-      { type: 'text', text: message.content },
-      ...parts,
-    ];
+    return [{ type: 'text', text: message.content }, ...parts]
   }
 
-  return parts;
-};
+  return parts
+}
 
 const toResponsesInput = (messages: ApiChatMessage[]) => {
-  const hasStructuredParts = messages.some((message) => Array.isArray(message.parts) && message.parts.length > 0);
-  if (!hasStructuredParts && messages.length === 1 && messages[0].role === 'user') {
-    return messages[0].content;
+  const hasStructuredParts = messages.some(
+    (message) => Array.isArray(message.parts) && message.parts.length > 0
+  )
+  if (
+    !hasStructuredParts &&
+    messages.length === 1 &&
+    messages[0].role === 'user'
+  ) {
+    return messages[0].content
   }
   const toResponsesTextType = (role: ApiChatMessage['role']) =>
-    role === 'assistant' ? 'output_text' : 'input_text';
+    role === 'assistant' ? 'output_text' : 'input_text'
   return messages.map((message) => ({
     role: message.role === 'assistant' ? 'assistant' : 'user',
-    content: [
-      ...(message.content.trim() ? [{ type: toResponsesTextType(message.role), text: message.content }] : []),
-      ...((Array.isArray(message.parts)
-        ? message.parts
-          .map((part) => toResponsesContentPart(part))
-          .filter((item): item is Record<string, unknown> => !!item)
-        : [])),
-    ].length > 0
-      ? [
-        ...(message.content.trim() ? [{ type: toResponsesTextType(message.role), text: message.content }] : []),
-        ...((Array.isArray(message.parts)
+    content:
+      [
+        ...(message.content.trim()
+          ? [{ type: toResponsesTextType(message.role), text: message.content }]
+          : []),
+        ...(Array.isArray(message.parts)
           ? message.parts
-            .map((part) => toResponsesContentPart(part))
-            .filter((item): item is Record<string, unknown> => !!item)
-          : [])),
-      ]
-      : message.content,
-  }));
-};
+              .map((part) => toResponsesContentPart(part))
+              .filter((item): item is Record<string, unknown> => !!item)
+          : []),
+      ].length > 0
+        ? [
+            ...(message.content.trim()
+              ? [
+                  {
+                    type: toResponsesTextType(message.role),
+                    text: message.content,
+                  },
+                ]
+              : []),
+            ...(Array.isArray(message.parts)
+              ? message.parts
+                  .map((part) => toResponsesContentPart(part))
+                  .filter((item): item is Record<string, unknown> => !!item)
+              : []),
+          ]
+        : message.content,
+  }))
+}
 
 const toClaudeMessages = (messages: ApiChatMessage[]) =>
   messages
-    .filter((message) => message.role !== 'system' && message.role !== 'developer')
+    .filter(
+      (message) => message.role !== 'system' && message.role !== 'developer'
+    )
     .map((message) => {
       const parts = [
-        ...(message.content.trim() ? [{ type: 'text', text: message.content }] : []),
-        ...((Array.isArray(message.parts)
+        ...(message.content.trim()
+          ? [{ type: 'text', text: message.content }]
+          : []),
+        ...(Array.isArray(message.parts)
           ? message.parts
-            .map((part) => toClaudeContentPart(part))
-            .filter((item): item is Record<string, unknown> => !!item)
-          : [])),
-      ];
+              .map((part) => toClaudeContentPart(part))
+              .filter((item): item is Record<string, unknown> => !!item)
+          : []),
+      ]
 
       return {
         role: message.role === 'assistant' ? 'assistant' : 'user',
         content: parts.length > 0 ? parts : message.content,
-      };
-    });
+      }
+    })
 
 const buildConversationJsonBody = (
   messages: ChatMessage[],
   inputs: ModelTesterInputs,
-  parameterEnabled: ParameterEnabled,
+  parameterEnabled: ParameterEnabled
 ): Record<string, unknown> => {
-  const apiMessages = toApiMessages(messages);
-  const systemPrompt = inputs.systemPrompt.trim();
+  const apiMessages = toApiMessages(messages)
+  const systemPrompt = inputs.systemPrompt.trim()
 
   if (inputs.protocol === 'responses') {
     const body: Record<string, unknown> = {
       model: inputs.model,
-      input: toResponsesInput(apiMessages.filter((message) => message.role !== 'system' && message.role !== 'developer')),
+      input: toResponsesInput(
+        apiMessages.filter(
+          (message) => message.role !== 'system' && message.role !== 'developer'
+        )
+      ),
       stream: inputs.stream,
-    };
-    if (systemPrompt) body.instructions = systemPrompt;
-    appendOptionalNumber(body, 'temperature', parameterEnabled.temperature, inputs.temperature);
-    appendOptionalNumber(body, 'top_p', parameterEnabled.top_p, inputs.top_p);
-    appendOptionalNumber(body, 'max_output_tokens', parameterEnabled.max_tokens, inputs.max_tokens);
-    if (parameterEnabled.seed && typeof inputs.seed === 'number') body.seed = inputs.seed;
-    return body;
+    }
+    if (systemPrompt) body.instructions = systemPrompt
+    appendOptionalNumber(
+      body,
+      'temperature',
+      parameterEnabled.temperature,
+      inputs.temperature
+    )
+    appendOptionalNumber(body, 'top_p', parameterEnabled.top_p, inputs.top_p)
+    appendOptionalNumber(
+      body,
+      'max_output_tokens',
+      parameterEnabled.max_tokens,
+      inputs.max_tokens
+    )
+    if (parameterEnabled.seed && typeof inputs.seed === 'number')
+      body.seed = inputs.seed
+    return body
   }
 
   if (inputs.protocol === 'claude') {
@@ -705,32 +830,59 @@ const buildConversationJsonBody = (
       model: inputs.model,
       stream: inputs.stream,
       messages: toClaudeMessages(apiMessages),
-      max_tokens: parameterEnabled.max_tokens ? inputs.max_tokens : DEFAULT_INPUTS.max_tokens,
-    };
-    if (systemPrompt) body.system = systemPrompt;
-    appendOptionalNumber(body, 'temperature', parameterEnabled.temperature, inputs.temperature);
-    appendOptionalNumber(body, 'top_p', parameterEnabled.top_p, inputs.top_p);
-    return body;
+      max_tokens: parameterEnabled.max_tokens
+        ? inputs.max_tokens
+        : DEFAULT_INPUTS.max_tokens,
+    }
+    if (systemPrompt) body.system = systemPrompt
+    appendOptionalNumber(
+      body,
+      'temperature',
+      parameterEnabled.temperature,
+      inputs.temperature
+    )
+    appendOptionalNumber(body, 'top_p', parameterEnabled.top_p, inputs.top_p)
+    return body
   }
 
   if (inputs.protocol === 'gemini') {
     const body: Record<string, unknown> = {
-      contents: toGeminiContents(apiMessages.filter((message) => message.role !== 'system' && message.role !== 'developer')),
-    };
+      contents: toGeminiContents(
+        apiMessages.filter(
+          (message) => message.role !== 'system' && message.role !== 'developer'
+        )
+      ),
+    }
     if (systemPrompt) {
       body.systemInstruction = {
         parts: [{ text: systemPrompt }],
-      };
+      }
     }
-    const generationConfig: Record<string, unknown> = {};
-    appendOptionalNumber(generationConfig, 'temperature', parameterEnabled.temperature, inputs.temperature);
-    appendOptionalNumber(generationConfig, 'topP', parameterEnabled.top_p, inputs.top_p);
-    appendOptionalNumber(generationConfig, 'maxOutputTokens', parameterEnabled.max_tokens, inputs.max_tokens);
-    if (parameterEnabled.seed && typeof inputs.seed === 'number') generationConfig.seed = inputs.seed;
+    const generationConfig: Record<string, unknown> = {}
+    appendOptionalNumber(
+      generationConfig,
+      'temperature',
+      parameterEnabled.temperature,
+      inputs.temperature
+    )
+    appendOptionalNumber(
+      generationConfig,
+      'topP',
+      parameterEnabled.top_p,
+      inputs.top_p
+    )
+    appendOptionalNumber(
+      generationConfig,
+      'maxOutputTokens',
+      parameterEnabled.max_tokens,
+      inputs.max_tokens
+    )
+    if (parameterEnabled.seed && typeof inputs.seed === 'number')
+      generationConfig.seed = inputs.seed
     if (Object.keys(generationConfig).length > 0) {
-      body.generationConfig = generationConfig;
+      body.generationConfig = generationConfig
     }
-    return body;
+    return body
   }
 
   const openAiMessages = [
@@ -739,164 +891,230 @@ const buildConversationJsonBody = (
       role: message.role === 'developer' ? 'system' : message.role,
       content: toOpenAiMessageContent(message),
     })),
-  ];
+  ]
 
   const body: Record<string, unknown> = {
     model: inputs.model,
     messages: openAiMessages,
     stream: inputs.stream,
-  };
-  appendOptionalNumber(body, 'temperature', parameterEnabled.temperature, inputs.temperature);
-  appendOptionalNumber(body, 'top_p', parameterEnabled.top_p, inputs.top_p);
-  appendOptionalNumber(body, 'max_tokens', parameterEnabled.max_tokens, inputs.max_tokens);
-  appendOptionalNumber(body, 'frequency_penalty', parameterEnabled.frequency_penalty, inputs.frequency_penalty);
-  appendOptionalNumber(body, 'presence_penalty', parameterEnabled.presence_penalty, inputs.presence_penalty);
-  if (parameterEnabled.seed && typeof inputs.seed === 'number') body.seed = inputs.seed;
-  return body;
-};
+  }
+  appendOptionalNumber(
+    body,
+    'temperature',
+    parameterEnabled.temperature,
+    inputs.temperature
+  )
+  appendOptionalNumber(body, 'top_p', parameterEnabled.top_p, inputs.top_p)
+  appendOptionalNumber(
+    body,
+    'max_tokens',
+    parameterEnabled.max_tokens,
+    inputs.max_tokens
+  )
+  appendOptionalNumber(
+    body,
+    'frequency_penalty',
+    parameterEnabled.frequency_penalty,
+    inputs.frequency_penalty
+  )
+  appendOptionalNumber(
+    body,
+    'presence_penalty',
+    parameterEnabled.presence_penalty,
+    inputs.presence_penalty
+  )
+  if (parameterEnabled.seed && typeof inputs.seed === 'number')
+    body.seed = inputs.seed
+  return body
+}
 
 const parseMessage = (value: unknown, index: number): ChatMessage | null => {
-  if (!isRecord(value)) return null;
-  if (typeof value.role !== 'string' || !VALID_ROLES.has(value.role)) return null;
-  if (typeof value.content !== 'string') return null;
+  if (!isRecord(value)) return null
+  if (typeof value.role !== 'string' || !VALID_ROLES.has(value.role))
+    return null
+  if (typeof value.content !== 'string') return null
 
   const parsed: ChatMessage = {
-    id: typeof value.id === 'string' && value.id.trim().length > 0
-      ? value.id
-      : `legacy-${index}-${Date.now()}`,
+    id:
+      typeof value.id === 'string' && value.id.trim().length > 0
+        ? value.id
+        : `legacy-${index}-${Date.now()}`,
     role: value.role as ChatRole,
     content: value.content,
-    createAt: typeof value.createAt === 'number' && Number.isFinite(value.createAt)
-      ? value.createAt
-      : Date.now(),
-  };
+    createAt:
+      typeof value.createAt === 'number' && Number.isFinite(value.createAt)
+        ? value.createAt
+        : Date.now(),
+  }
 
   if (typeof value.status === 'string' && VALID_STATUS.has(value.status)) {
-    parsed.status = value.status as MessageStatus;
+    parsed.status = value.status as MessageStatus
   }
   if (typeof value.reasoningContent === 'string') {
-    parsed.reasoningContent = value.reasoningContent;
+    parsed.reasoningContent = value.reasoningContent
   } else if (value.reasoningContent === null) {
-    parsed.reasoningContent = null;
+    parsed.reasoningContent = null
   }
   if (typeof value.isReasoningExpanded === 'boolean') {
-    parsed.isReasoningExpanded = value.isReasoningExpanded;
+    parsed.isReasoningExpanded = value.isReasoningExpanded
   }
   if (typeof value.isThinkingComplete === 'boolean') {
-    parsed.isThinkingComplete = value.isThinkingComplete;
+    parsed.isThinkingComplete = value.isThinkingComplete
   }
   if (typeof value.hasAutoCollapsed === 'boolean') {
-    parsed.hasAutoCollapsed = value.hasAutoCollapsed;
+    parsed.hasAutoCollapsed = value.hasAutoCollapsed
   }
   if (Array.isArray(value.parts)) {
-    parsed.parts = value.parts as ConversationContentPart[];
+    parsed.parts = value.parts as ConversationContentPart[]
   }
 
-  return parsed;
-};
+  return parsed
+}
 
 const sanitizeMessages = (value: unknown): ChatMessage[] => {
-  if (!Array.isArray(value)) return [];
+  if (!Array.isArray(value)) return []
   return value
     .map((item, index) => parseMessage(item, index))
-    .filter((item): item is ChatMessage => item !== null);
-};
+    .filter((item): item is ChatMessage => item !== null)
+}
 
 const parseInputs = (value: unknown, fallbackModel = ''): ModelTesterInputs => {
   if (!isRecord(value)) {
     return {
       ...DEFAULT_INPUTS,
       model: fallbackModel,
-    };
+    }
   }
 
-  const model = typeof value.model === 'string' && value.model.trim().length > 0
-    ? value.model
-    : fallbackModel;
+  const model =
+    typeof value.model === 'string' && value.model.trim().length > 0
+      ? value.model
+      : fallbackModel
 
-  const protocol = typeof value.protocol === 'string' && VALID_PROTOCOLS.has(value.protocol)
-    ? value.protocol as PlaygroundProtocol
-    : value.targetFormat === 'claude'
-      ? 'claude'
-      : value.targetFormat === 'responses'
-        ? 'responses'
-        : value.targetFormat === 'gemini'
-          ? 'gemini'
-          : DEFAULT_INPUTS.protocol;
+  const protocol =
+    typeof value.protocol === 'string' && VALID_PROTOCOLS.has(value.protocol)
+      ? (value.protocol as PlaygroundProtocol)
+      : value.targetFormat === 'claude'
+        ? 'claude'
+        : value.targetFormat === 'responses'
+          ? 'responses'
+          : value.targetFormat === 'gemini'
+            ? 'gemini'
+            : DEFAULT_INPUTS.protocol
 
   return {
     model,
-    mode: typeof value.mode === 'string' && VALID_MODES.has(value.mode)
-      ? value.mode as PlaygroundMode
-      : DEFAULT_INPUTS.mode,
+    mode:
+      typeof value.mode === 'string' && VALID_MODES.has(value.mode)
+        ? (value.mode as PlaygroundMode)
+        : DEFAULT_INPUTS.mode,
     protocol,
     targetFormat: protocol,
     systemPrompt: sanitizeString(value.systemPrompt),
     temperature: toFiniteNumber(value.temperature, DEFAULT_INPUTS.temperature),
     top_p: toFiniteNumber(value.top_p, DEFAULT_INPUTS.top_p),
     max_tokens: toFiniteNumber(value.max_tokens, DEFAULT_INPUTS.max_tokens),
-    frequency_penalty: toFiniteNumber(value.frequency_penalty, DEFAULT_INPUTS.frequency_penalty),
-    presence_penalty: toFiniteNumber(value.presence_penalty, DEFAULT_INPUTS.presence_penalty),
+    frequency_penalty: toFiniteNumber(
+      value.frequency_penalty,
+      DEFAULT_INPUTS.frequency_penalty
+    ),
+    presence_penalty: toFiniteNumber(
+      value.presence_penalty,
+      DEFAULT_INPUTS.presence_penalty
+    ),
     seed: toNullableFiniteNumber(value.seed),
     stream: toBoolean(value.stream, DEFAULT_INPUTS.stream),
-    searchMaxResults: Math.max(1, Math.min(20, Math.trunc(toFiniteNumber(value.searchMaxResults, DEFAULT_INPUTS.searchMaxResults)))),
-    videoInspectAction: value.videoInspectAction === 'delete' ? 'delete' : 'get',
-  };
-};
+    searchMaxResults: Math.max(
+      1,
+      Math.min(
+        20,
+        Math.trunc(
+          toFiniteNumber(
+            value.searchMaxResults,
+            DEFAULT_INPUTS.searchMaxResults
+          )
+        )
+      )
+    ),
+    videoInspectAction:
+      value.videoInspectAction === 'delete' ? 'delete' : 'get',
+  }
+}
 
 const parseParameterEnabled = (value: unknown): ParameterEnabled => {
   if (!isRecord(value)) {
-    return { ...DEFAULT_PARAMETER_ENABLED };
+    return { ...DEFAULT_PARAMETER_ENABLED }
   }
 
   return {
-    temperature: toBoolean(value.temperature, DEFAULT_PARAMETER_ENABLED.temperature),
+    temperature: toBoolean(
+      value.temperature,
+      DEFAULT_PARAMETER_ENABLED.temperature
+    ),
     top_p: toBoolean(value.top_p, DEFAULT_PARAMETER_ENABLED.top_p),
-    max_tokens: toBoolean(value.max_tokens, DEFAULT_PARAMETER_ENABLED.max_tokens),
-    frequency_penalty: toBoolean(value.frequency_penalty, DEFAULT_PARAMETER_ENABLED.frequency_penalty),
-    presence_penalty: toBoolean(value.presence_penalty, DEFAULT_PARAMETER_ENABLED.presence_penalty),
+    max_tokens: toBoolean(
+      value.max_tokens,
+      DEFAULT_PARAMETER_ENABLED.max_tokens
+    ),
+    frequency_penalty: toBoolean(
+      value.frequency_penalty,
+      DEFAULT_PARAMETER_ENABLED.frequency_penalty
+    ),
+    presence_penalty: toBoolean(
+      value.presence_penalty,
+      DEFAULT_PARAMETER_ENABLED.presence_penalty
+    ),
     seed: toBoolean(value.seed, DEFAULT_PARAMETER_ENABLED.seed),
-  };
-};
+  }
+}
 
-const parseConversationDraftFiles = (value: unknown): ConversationDraftFile[] => {
-  if (!Array.isArray(value)) return [];
+const parseConversationDraftFiles = (
+  value: unknown
+): ConversationDraftFile[] => {
+  if (!Array.isArray(value)) return []
   return value.flatMap((item, index) => {
-    if (!isRecord(item)) return [];
-    const localId = typeof item.localId === 'string' && item.localId.trim()
-      ? item.localId.trim()
-      : `draft-file-restored-${index}`;
-    const name = typeof item.name === 'string' && item.name.trim()
-      ? item.name.trim()
-      : 'upload.bin';
-    const mimeType = typeof item.mimeType === 'string' && item.mimeType.trim()
-      ? item.mimeType.trim()
-      : 'application/octet-stream';
-    const dataUrl = typeof item.dataUrl === 'string' && item.dataUrl.trim()
-      ? item.dataUrl.trim()
-      : '';
-    if (!dataUrl) return [];
+    if (!isRecord(item)) return []
+    const localId =
+      typeof item.localId === 'string' && item.localId.trim()
+        ? item.localId.trim()
+        : `draft-file-restored-${index}`
+    const name =
+      typeof item.name === 'string' && item.name.trim()
+        ? item.name.trim()
+        : 'upload.bin'
+    const mimeType =
+      typeof item.mimeType === 'string' && item.mimeType.trim()
+        ? item.mimeType.trim()
+        : 'application/octet-stream'
+    const dataUrl =
+      typeof item.dataUrl === 'string' && item.dataUrl.trim()
+        ? item.dataUrl.trim()
+        : ''
+    if (!dataUrl) return []
 
-    return [{
-      localId,
-      name,
-      mimeType,
-      dataUrl,
-      ...(typeof item.fileId === 'string' && item.fileId.trim()
-        ? { fileId: item.fileId.trim() }
-        : {}),
-      status: typeof item.status === 'string' && VALID_CONVERSATION_DRAFT_STATUSES.has(item.status)
-        ? item.status as ConversationDraftFile['status']
-        : 'pending',
-      errorMessage: typeof item.errorMessage === 'string'
-        ? item.errorMessage
-        : null,
-    }];
-  });
-};
+    return [
+      {
+        localId,
+        name,
+        mimeType,
+        dataUrl,
+        ...(typeof item.fileId === 'string' && item.fileId.trim()
+          ? { fileId: item.fileId.trim() }
+          : {}),
+        status:
+          typeof item.status === 'string' &&
+          VALID_CONVERSATION_DRAFT_STATUSES.has(item.status)
+            ? (item.status as ConversationDraftFile['status'])
+            : 'pending',
+        errorMessage:
+          typeof item.errorMessage === 'string' ? item.errorMessage : null,
+      },
+    ]
+  })
+}
 
 const parseModeState = (value: unknown): ModelTesterModeState => {
-  if (!isRecord(value)) return { ...DEFAULT_MODE_STATE };
+  if (!isRecord(value)) return { ...DEFAULT_MODE_STATE }
   return {
     embeddingsInput: sanitizeString(value.embeddingsInput),
     searchQuery: sanitizeString(value.searchQuery),
@@ -907,59 +1125,70 @@ const parseModeState = (value: unknown): ModelTesterModeState => {
     videosPrompt: sanitizeString(value.videosPrompt),
     videosInspectId: sanitizeString(value.videosInspectId),
     extraJson: sanitizeString(value.extraJson),
-  };
-};
+  }
+}
 
 const parseMultipartFiles = (value: unknown): PlaygroundMultipartFile[] => {
-  if (!Array.isArray(value)) return [];
+  if (!Array.isArray(value)) return []
   return value.flatMap((item) => {
-    if (!isRecord(item)) return [];
+    if (!isRecord(item)) return []
     if (
-      typeof item.field !== 'string'
-      || typeof item.name !== 'string'
-      || typeof item.mimeType !== 'string'
-      || typeof item.dataUrl !== 'string'
+      typeof item.field !== 'string' ||
+      typeof item.name !== 'string' ||
+      typeof item.mimeType !== 'string' ||
+      typeof item.dataUrl !== 'string'
     ) {
-      return [];
+      return []
     }
-    return [{
-      field: item.field,
-      name: item.name,
-      mimeType: item.mimeType,
-      dataUrl: item.dataUrl,
-    }];
-  });
-};
+    return [
+      {
+        field: item.field,
+        name: item.name,
+        mimeType: item.mimeType,
+        dataUrl: item.dataUrl,
+      },
+    ]
+  })
+}
 
-const buildFallbackInputsFromLegacy = (value: Record<string, unknown>): ModelTesterInputs => {
-  const legacyModel = typeof value.model === 'string' ? value.model : '';
-  const inputs = parseInputs(value.inputs, legacyModel);
+const buildFallbackInputsFromLegacy = (
+  value: Record<string, unknown>
+): ModelTesterInputs => {
+  const legacyModel = typeof value.model === 'string' ? value.model : ''
+  const inputs = parseInputs(value.inputs, legacyModel)
 
   if (!value.inputs) {
-    inputs.protocol = value.targetFormat === 'claude'
-      ? 'claude'
-      : value.targetFormat === 'responses'
-        ? 'responses'
-        : value.targetFormat === 'gemini'
-          ? 'gemini'
-          : inputs.protocol;
-    inputs.temperature = toFiniteNumber(value.temperature, inputs.temperature);
+    inputs.protocol =
+      value.targetFormat === 'claude'
+        ? 'claude'
+        : value.targetFormat === 'responses'
+          ? 'responses'
+          : value.targetFormat === 'gemini'
+            ? 'gemini'
+            : inputs.protocol
+    inputs.temperature = toFiniteNumber(value.temperature, inputs.temperature)
   }
 
-  return inputs;
-};
+  return inputs
+}
 
 const parsePendingPayload = (
   value: unknown,
   inputs: ModelTesterInputs,
-  parameterEnabled: ParameterEnabled,
+  parameterEnabled: ParameterEnabled
 ): TesterProxyEnvelope | null => {
-  if (!isRecord(value)) return null;
+  if (!isRecord(value)) return null
 
-  if (typeof value.path === 'string' && typeof value.method === 'string' && VALID_PROXY_METHODS.has(value.method)) {
-    const requestKind = typeof value.requestKind === 'string' && VALID_REQUEST_KINDS.has(value.requestKind)
-      ? value.requestKind as ProxyRequestKind
-      : 'json';
+  if (
+    typeof value.path === 'string' &&
+    typeof value.method === 'string' &&
+    VALID_PROXY_METHODS.has(value.method)
+  ) {
+    const requestKind =
+      typeof value.requestKind === 'string' &&
+      VALID_REQUEST_KINDS.has(value.requestKind)
+        ? (value.requestKind as ProxyRequestKind)
+        : 'json'
 
     const pending: TesterProxyEnvelope = {
       method: value.method as ProxyRequestMethod,
@@ -968,259 +1197,315 @@ const parsePendingPayload = (
       stream: toBoolean(value.stream, false),
       jobMode: toBoolean(value.jobMode, false),
       rawMode: toBoolean(value.rawMode, false),
-    };
+    }
 
-    if ('jsonBody' in value) pending.jsonBody = value.jsonBody;
-    if (typeof value.rawJsonText === 'string') pending.rawJsonText = value.rawJsonText;
-    const forcedChannelId = toPositiveInteger(value.forcedChannelId);
-    if (forcedChannelId !== null) pending.forcedChannelId = forcedChannelId;
+    if ('jsonBody' in value) pending.jsonBody = value.jsonBody
+    if (typeof value.rawJsonText === 'string')
+      pending.rawJsonText = value.rawJsonText
+    const forcedChannelId = toPositiveInteger(value.forcedChannelId)
+    if (forcedChannelId !== null) pending.forcedChannelId = forcedChannelId
     if (isRecord(value.multipartFields)) {
       pending.multipartFields = Object.fromEntries(
         Object.entries(value.multipartFields)
           .filter(([, item]) => typeof item === 'string')
-          .map(([key, item]) => [key, item as string]),
-      );
+          .map(([key, item]) => [key, item as string])
+      )
     }
-    const multipartFiles = parseMultipartFiles(value.multipartFiles);
-    if (multipartFiles.length > 0) pending.multipartFiles = multipartFiles;
-    return pending;
+    const multipartFiles = parseMultipartFiles(value.multipartFiles)
+    if (multipartFiles.length > 0) pending.multipartFiles = multipartFiles
+    return pending
   }
 
   if (typeof value.model === 'string') {
-    const legacyMessages = sanitizeMessages(value.messages);
-    if (legacyMessages.length === 0) return null;
+    const legacyMessages = sanitizeMessages(value.messages)
+    if (legacyMessages.length === 0) return null
     const legacyInputs: ModelTesterInputs = {
       ...inputs,
       model: value.model,
-      protocol: value.targetFormat === 'claude'
-        ? 'claude'
-        : value.targetFormat === 'responses'
-          ? 'responses'
-          : value.targetFormat === 'gemini'
-            ? 'gemini'
-            : inputs.protocol,
-      targetFormat: value.targetFormat === 'claude'
-        ? 'claude'
-        : value.targetFormat === 'responses'
-          ? 'responses'
-          : value.targetFormat === 'gemini'
-            ? 'gemini'
-            : inputs.targetFormat,
+      protocol:
+        value.targetFormat === 'claude'
+          ? 'claude'
+          : value.targetFormat === 'responses'
+            ? 'responses'
+            : value.targetFormat === 'gemini'
+              ? 'gemini'
+              : inputs.protocol,
+      targetFormat:
+        value.targetFormat === 'claude'
+          ? 'claude'
+          : value.targetFormat === 'responses'
+            ? 'responses'
+            : value.targetFormat === 'gemini'
+              ? 'gemini'
+              : inputs.targetFormat,
       stream: toBoolean(value.stream, inputs.stream),
       temperature: toFiniteNumber(value.temperature, inputs.temperature),
       top_p: toFiniteNumber(value.top_p, inputs.top_p),
       max_tokens: toFiniteNumber(value.max_tokens, inputs.max_tokens),
-      frequency_penalty: toFiniteNumber(value.frequency_penalty, inputs.frequency_penalty),
-      presence_penalty: toFiniteNumber(value.presence_penalty, inputs.presence_penalty),
+      frequency_penalty: toFiniteNumber(
+        value.frequency_penalty,
+        inputs.frequency_penalty
+      ),
+      presence_penalty: toFiniteNumber(
+        value.presence_penalty,
+        inputs.presence_penalty
+      ),
       seed: toNullableFiniteNumber(value.seed),
-    };
-    return buildConversationRequestEnvelope(legacyMessages, legacyInputs, parameterEnabled);
+    }
+    return buildConversationRequestEnvelope(
+      legacyMessages,
+      legacyInputs,
+      parameterEnabled
+    )
   }
 
-  return null;
-};
+  return null
+}
 
 export const collectModelTesterModelNames = (
-  marketplace: { models?: Array<{ name?: unknown }>; } | null | undefined,
-  routes: Array<{ modelPattern?: unknown; enabled?: unknown; }> | null | undefined,
+  marketplace: { models?: Array<{ name?: unknown }> } | null | undefined,
+  routes:
+    | Array<{ modelPattern?: unknown; enabled?: unknown }>
+    | null
+    | undefined
 ): string[] => {
-  const result: string[] = [];
-  const seen = new Set<string>();
+  const result: string[] = []
+  const seen = new Set<string>()
 
   const appendModel = (rawName: unknown) => {
-    if (typeof rawName !== 'string') return;
-    const name = rawName.trim();
-    if (!name || seen.has(name)) return;
-    seen.add(name);
-    result.push(name);
-  };
+    if (typeof rawName !== 'string') return
+    const name = rawName.trim()
+    if (!name || seen.has(name)) return
+    seen.add(name)
+    result.push(name)
+  }
 
   for (const item of marketplace?.models || []) {
-    appendModel(item?.name);
+    appendModel(item?.name)
   }
 
   for (const route of routes || []) {
-    if (!route || route.enabled === false) continue;
-    if (typeof route.modelPattern !== 'string') continue;
-    const modelPattern = route.modelPattern.trim();
-    if (!modelPattern || !isExactModelPattern(modelPattern)) continue;
-    appendModel(modelPattern);
+    if (!route || route.enabled === false) continue
+    if (typeof route.modelPattern !== 'string') continue
+    const modelPattern = route.modelPattern.trim()
+    if (!modelPattern || !isExactModelPattern(modelPattern)) continue
+    appendModel(modelPattern)
   }
 
-  return result;
-};
+  return result
+}
 
-export const filterModelTesterModelNames = (models: string[], query: string): string[] => {
-  const keyword = query.trim().toLowerCase();
-  if (!keyword) return [...models];
+export const filterModelTesterModelNames = (
+  models: string[],
+  query: string
+): string[] => {
+  const keyword = query.trim().toLowerCase()
+  if (!keyword) return [...models]
 
   return models
     .map((name, index) => {
-      const matchIndex = name.toLowerCase().indexOf(keyword);
-      if (matchIndex === -1) return null;
-      return { name, matchIndex, index };
+      const matchIndex = name.toLowerCase().indexOf(keyword)
+      if (matchIndex === -1) return null
+      return { name, matchIndex, index }
     })
-    .filter((item): item is { name: string; matchIndex: number; index: number } => item !== null)
+    .filter(
+      (item): item is { name: string; matchIndex: number; index: number } =>
+        item !== null
+    )
     .sort((a, b) => {
-      if (a.matchIndex !== b.matchIndex) return a.matchIndex - b.matchIndex;
-      if (a.name.length !== b.name.length) return a.name.length - b.name.length;
-      return a.index - b.index;
+      if (a.matchIndex !== b.matchIndex) return a.matchIndex - b.matchIndex
+      if (a.name.length !== b.name.length) return a.name.length - b.name.length
+      return a.index - b.index
     })
-    .map((item) => item.name);
-};
-
+    .map((item) => item.name)
+}
 
 export const createConversationUserMessage = (
   content: string,
   files: ConversationUploadedFile[] = [],
-  extra: Partial<ChatMessage> = {},
+  extra: Partial<ChatMessage> = {}
 ): ChatMessage => {
-  const parts = files.map((file) => createConversationInputFilePart(file));
+  const parts = files.map((file) => createConversationInputFilePart(file))
   return createMessage('user', content, {
     ...extra,
     ...(parts.length > 0 ? { parts } : {}),
-  });
-};
+  })
+}
 
 export const extractConversationUploadedFilesFromMessage = (
-  message: ChatMessage,
+  message: ChatMessage
 ): ConversationUploadedFile[] => {
-  const parts = Array.isArray(message.parts) ? message.parts : [];
+  const parts = Array.isArray(message.parts) ? message.parts : []
   return parts.flatMap((part) => {
-    if (part.type !== 'input_file') return [];
+    if (part.type !== 'input_file') return []
 
-    const fileId = typeof part.fileId === 'string' && part.fileId.trim()
-      ? part.fileId.trim()
-      : null;
-    const filename = typeof part.filename === 'string' && part.filename.trim()
-      ? part.filename.trim()
-      : null;
-    const mimeType = typeof part.mimeType === 'string' && part.mimeType.trim()
-      ? part.mimeType.trim()
-      : null;
-    const data = typeof part.data === 'string' && part.data.trim()
-      ? part.data.trim()
-      : null;
+    const fileId =
+      typeof part.fileId === 'string' && part.fileId.trim()
+        ? part.fileId.trim()
+        : null
+    const filename =
+      typeof part.filename === 'string' && part.filename.trim()
+        ? part.filename.trim()
+        : null
+    const mimeType =
+      typeof part.mimeType === 'string' && part.mimeType.trim()
+        ? part.mimeType.trim()
+        : null
+    const data =
+      typeof part.data === 'string' && part.data.trim()
+        ? part.data.trim()
+        : null
 
-    if (!fileId && !data) return [];
+    if (!fileId && !data) return []
 
-    return [{
-      ...(fileId ? { fileId } : {}),
-      ...(filename ? { filename } : {}),
-      ...(mimeType ? { mimeType } : {}),
-      ...(data ? { data } : {}),
-    }];
-  });
-};
+    return [
+      {
+        ...(fileId ? { fileId } : {}),
+        ...(filename ? { filename } : {}),
+        ...(mimeType ? { mimeType } : {}),
+        ...(data ? { data } : {}),
+      },
+    ]
+  })
+}
 
-
-export const serializeModelTesterSession = (state: ModelTesterSessionState): string =>
+export const serializeModelTesterSession = (
+  state: ModelTesterSessionState
+): string =>
   JSON.stringify({
     ...state,
     version: MODEL_TESTER_SESSION_VERSION,
-  });
+  })
 
+const processIncompleteThinkTags = (
+  content: string,
+  reasoningContent = ''
+): { content: string; reasoningContent: string } => {
+  if (!content) return { content: '', reasoningContent }
 
-const processIncompleteThinkTags = (content: string, reasoningContent = ''): { content: string; reasoningContent: string } => {
-  if (!content) return { content: '', reasoningContent };
-
-  const lastOpenThinkIndex = content.lastIndexOf('<think>');
+  const lastOpenThinkIndex = content.lastIndexOf('<think>')
   if (lastOpenThinkIndex === -1) {
-    return processThinkTags(content, reasoningContent);
+    return processThinkTags(content, reasoningContent)
   }
 
-  const fragmentAfterLastOpen = content.substring(lastOpenThinkIndex);
+  const fragmentAfterLastOpen = content.substring(lastOpenThinkIndex)
   if (!fragmentAfterLastOpen.includes('</think>')) {
-    const unclosedThought = fragmentAfterLastOpen.substring('<think>'.length).trim();
-    const cleanContent = content.substring(0, lastOpenThinkIndex);
+    const unclosedThought = fragmentAfterLastOpen
+      .substring('<think>'.length)
+      .trim()
+    const cleanContent = content.substring(0, lastOpenThinkIndex)
     const mergedReasoning = unclosedThought
-      ? (reasoningContent ? `${reasoningContent}\n\n---\n\n${unclosedThought}` : unclosedThought)
-      : reasoningContent;
-    return processThinkTags(cleanContent, mergedReasoning);
+      ? reasoningContent
+        ? `${reasoningContent}\n\n---\n\n${unclosedThought}`
+        : unclosedThought
+      : reasoningContent
+    return processThinkTags(cleanContent, mergedReasoning)
   }
 
-  return processThinkTags(content, reasoningContent);
-};
+  return processThinkTags(content, reasoningContent)
+}
 
+export const parseModelTesterSession = (
+  raw: string | null
+): ModelTesterSessionState | null => {
+  if (typeof raw !== 'string' || raw.trim().length === 0) return null
 
-export const parseModelTesterSession = (raw: string | null): ModelTesterSessionState | null => {
-  if (typeof raw !== 'string' || raw.trim().length === 0) return null;
-
-  let parsed: unknown;
+  let parsed: unknown
   try {
-    parsed = JSON.parse(raw);
+    parsed = JSON.parse(raw)
   } catch {
-    return null;
+    return null
   }
 
-  if (!isRecord(parsed)) return null;
+  if (!isRecord(parsed)) return null
 
-  const inputs = buildFallbackInputsFromLegacy(parsed);
-  if (!inputs.model) return null;
+  const inputs = buildFallbackInputsFromLegacy(parsed)
+  if (!inputs.model) return null
 
-  const parameterEnabled = parseParameterEnabled(parsed.parameterEnabled);
+  const parameterEnabled = parseParameterEnabled(parsed.parameterEnabled)
   const state: ModelTesterSessionState = {
-    version: typeof parsed.version === 'number' && Number.isFinite(parsed.version)
-      ? Math.trunc(parsed.version)
-      : MODEL_TESTER_SESSION_VERSION,
+    version:
+      typeof parsed.version === 'number' && Number.isFinite(parsed.version)
+        ? Math.trunc(parsed.version)
+        : MODEL_TESTER_SESSION_VERSION,
     input: typeof parsed.input === 'string' ? parsed.input : '',
     inputs,
     parameterEnabled,
     messages: sanitizeMessages(parsed.messages),
     conversationFiles: parseConversationDraftFiles(parsed.conversationFiles),
-    pendingPayload: parsePendingPayload(parsed.pendingPayload, inputs, parameterEnabled),
+    pendingPayload: parsePendingPayload(
+      parsed.pendingPayload,
+      inputs,
+      parameterEnabled
+    ),
     customRequestMode: toBoolean(parsed.customRequestMode, false),
-    customRequestBody: typeof parsed.customRequestBody === 'string' ? parsed.customRequestBody : '',
+    customRequestBody:
+      typeof parsed.customRequestBody === 'string'
+        ? parsed.customRequestBody
+        : '',
     forcedChannelId: toPositiveInteger(parsed.forcedChannelId),
     showDebugPanel: toBoolean(parsed.showDebugPanel, false),
-    activeDebugTab: typeof parsed.activeDebugTab === 'string' && VALID_DEBUG_TABS.has(parsed.activeDebugTab)
-      ? parsed.activeDebugTab as DebugTab
-      : DEBUG_TABS.PREVIEW,
+    activeDebugTab:
+      typeof parsed.activeDebugTab === 'string' &&
+      VALID_DEBUG_TABS.has(parsed.activeDebugTab)
+        ? (parsed.activeDebugTab as DebugTab)
+        : DEBUG_TABS.PREVIEW,
     modeState: parseModeState(parsed.modeState),
-  };
+  }
 
-  if (typeof parsed.pendingJobId === 'string' && parsed.pendingJobId.trim().length > 0) {
-    state.pendingJobId = parsed.pendingJobId;
+  if (
+    typeof parsed.pendingJobId === 'string' &&
+    parsed.pendingJobId.trim().length > 0
+  ) {
+    state.pendingJobId = parsed.pendingJobId
   } else if (parsed.pendingJobId === null) {
-    state.pendingJobId = null;
+    state.pendingJobId = null
   }
 
   if (!state.pendingJobId && state.messages.length > 0) {
-    state.messages = state.messages.map((message) => finalizeIncompleteMessage(message));
+    state.messages = state.messages.map((message) =>
+      finalizeIncompleteMessage(message)
+    )
   }
 
-  return state;
-};
+  return state
+}
 
 export const toApiMessages = (messages: ChatMessage[]): ApiChatMessage[] =>
   messages
     .filter((message) => {
-      if (message.role !== 'assistant') return true;
-      return message.status !== MESSAGE_STATUS.LOADING && message.status !== MESSAGE_STATUS.INCOMPLETE;
+      if (message.role !== 'assistant') return true
+      return (
+        message.status !== MESSAGE_STATUS.LOADING &&
+        message.status !== MESSAGE_STATUS.INCOMPLETE
+      )
     })
     .map((message) => ({
       role: message.role,
       content: message.content,
       parts: message.parts,
-    }));
-
+    }))
 
 export const buildGeminiNativeConversationProxyEnvelope = (
   messages: ChatMessage[],
   inputs: ModelTesterInputs,
-  parameterEnabled: ParameterEnabled,
+  parameterEnabled: ParameterEnabled
 ): TesterProxyEnvelope => {
-  const envelope = buildConversationRequestEnvelope(messages, { ...inputs, protocol: 'gemini' }, parameterEnabled);
+  const envelope = buildConversationRequestEnvelope(
+    messages,
+    { ...inputs, protocol: 'gemini' },
+    parameterEnabled
+  )
   return {
     ...envelope,
     path: `/gemini${envelope.path}${inputs.stream ? '?alt=sse' : ''}`,
     jobMode: false,
-  };
-};
+  }
+}
 
 export const buildEmbeddingsRequestEnvelope = (
   inputText: string,
-  inputs: ModelTesterInputs,
+  inputs: ModelTesterInputs
 ): TesterProxyEnvelope => ({
   method: 'POST',
   path: '/v1/embeddings',
@@ -1232,21 +1517,21 @@ export const buildEmbeddingsRequestEnvelope = (
     model: inputs.model,
     input: inputText,
   },
-});
+})
 
 export const buildSearchRequestEnvelope = (
   inputs: ModelTesterInputs,
-  modeState: ModelTesterModeState,
+  modeState: ModelTesterModeState
 ): TesterProxyEnvelope => {
   const jsonBody: Record<string, unknown> = {
     model: inputs.model || '__search',
     query: modeState.searchQuery,
     max_results: inputs.searchMaxResults,
-  };
-  const allowedDomains = splitCommaSeparated(modeState.searchAllowedDomains);
-  const blockedDomains = splitCommaSeparated(modeState.searchBlockedDomains);
-  if (allowedDomains.length > 0) jsonBody.allowed_domains = allowedDomains;
-  if (blockedDomains.length > 0) jsonBody.blocked_domains = blockedDomains;
+  }
+  const allowedDomains = splitCommaSeparated(modeState.searchAllowedDomains)
+  const blockedDomains = splitCommaSeparated(modeState.searchBlockedDomains)
+  if (allowedDomains.length > 0) jsonBody.allowed_domains = allowedDomains
+  if (blockedDomains.length > 0) jsonBody.blocked_domains = blockedDomains
   return {
     method: 'POST',
     path: '/v1/search',
@@ -1255,13 +1540,12 @@ export const buildSearchRequestEnvelope = (
     jobMode: false,
     rawMode: false,
     jsonBody,
-  };
-};
-
+  }
+}
 
 export const buildFileUploadRequestEnvelope = (
   file: Omit<PlaygroundMultipartFile, 'field'> & { field?: string },
-  purpose = 'assistants',
+  purpose = 'assistants'
 ): TesterProxyEnvelope => ({
   method: 'POST',
   path: '/v1/files',
@@ -1272,107 +1556,122 @@ export const buildFileUploadRequestEnvelope = (
   multipartFields: {
     purpose,
   },
-  multipartFiles: [{
-    field: file.field || 'file',
-    name: file.name,
-    mimeType: file.mimeType,
-    dataUrl: file.dataUrl,
-  }],
-});
-
+  multipartFiles: [
+    {
+      field: file.field || 'file',
+      name: file.name,
+      mimeType: file.mimeType,
+      dataUrl: file.dataUrl,
+    },
+  ],
+})
 
 export const buildApiPayload = (
   messages: ChatMessage[],
   inputs: ModelTesterInputs,
-  parameterEnabled: ParameterEnabled,
+  parameterEnabled: ParameterEnabled
 ): TesterProxyEnvelope =>
-  buildConversationRequestEnvelope(messages, inputs, parameterEnabled);
+  buildConversationRequestEnvelope(messages, inputs, parameterEnabled)
 
 export const attachForcedChannelToEnvelope = (
   envelope: TesterProxyEnvelope,
-  forcedChannelId?: number | null,
+  forcedChannelId?: number | null
 ): TesterProxyEnvelope => {
-  const normalizedForcedChannelId = toPositiveInteger(forcedChannelId);
+  const normalizedForcedChannelId = toPositiveInteger(forcedChannelId)
   if (normalizedForcedChannelId === null) {
-    if (!('forcedChannelId' in envelope)) return envelope;
-    const { forcedChannelId: _forcedChannelId, ...rest } = envelope;
-    return rest;
+    if (!('forcedChannelId' in envelope)) return envelope
+    const { forcedChannelId: _forcedChannelId, ...rest } = envelope
+    return rest
   }
 
   return {
     ...envelope,
     forcedChannelId: normalizedForcedChannelId,
-  };
-};
-
-export const parseCustomRequestBody = (raw: string): Record<string, unknown> | null => {
-  if (!raw.trim()) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    return isRecord(parsed) ? parsed : null;
-  } catch {
-    return null;
   }
-};
+}
+
+export const parseCustomRequestBody = (
+  raw: string
+): Record<string, unknown> | null => {
+  if (!raw.trim()) return null
+  try {
+    const parsed = JSON.parse(raw)
+    return isRecord(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
 
 export const syncMessagesToCustomRequestBody = (
   currentBody: string,
   messages: ChatMessage[],
-  inputs: ModelTesterInputs,
+  inputs: ModelTesterInputs
 ): string => {
-  let payload: Record<string, unknown>;
+  let payload: Record<string, unknown>
   try {
-    const parsed = JSON.parse(currentBody || '{}');
-    payload = isRecord(parsed) ? parsed : {};
+    const parsed = JSON.parse(currentBody || '{}')
+    payload = isRecord(parsed) ? parsed : {}
   } catch {
-    payload = {};
+    payload = {}
   }
 
-  const apiMessages = toApiMessages(messages);
-  const systemPrompt = inputs.systemPrompt.trim();
+  const apiMessages = toApiMessages(messages)
+  const systemPrompt = inputs.systemPrompt.trim()
   const conversationBody: Record<string, unknown> = {
     model: inputs.model,
     stream: payload.stream !== undefined ? payload.stream : inputs.stream,
-  };
-  if (typeof inputs.temperature === 'number' && Number.isFinite(inputs.temperature)) {
-    conversationBody.temperature = inputs.temperature;
+  }
+  if (
+    typeof inputs.temperature === 'number' &&
+    Number.isFinite(inputs.temperature)
+  ) {
+    conversationBody.temperature = inputs.temperature
   }
 
   if (inputs.protocol === 'responses') {
-    conversationBody.input = toResponsesInput(apiMessages.filter((message) => message.role !== 'system' && message.role !== 'developer'));
+    conversationBody.input = toResponsesInput(
+      apiMessages.filter(
+        (message) => message.role !== 'system' && message.role !== 'developer'
+      )
+    )
     if (!('instructions' in payload) && systemPrompt) {
-      conversationBody.instructions = systemPrompt;
+      conversationBody.instructions = systemPrompt
     }
   } else if (inputs.protocol === 'claude') {
-    conversationBody.messages = toClaudeMessages(apiMessages);
+    conversationBody.messages = toClaudeMessages(apiMessages)
     if (!('system' in payload) && systemPrompt) {
-      conversationBody.system = systemPrompt;
+      conversationBody.system = systemPrompt
     }
   } else if (inputs.protocol === 'gemini') {
-    conversationBody.contents = toGeminiContents(apiMessages.filter((message) => message.role !== 'system' && message.role !== 'developer'));
+    conversationBody.contents = toGeminiContents(
+      apiMessages.filter(
+        (message) => message.role !== 'system' && message.role !== 'developer'
+      )
+    )
     if (!('systemInstruction' in payload) && systemPrompt) {
-      conversationBody.systemInstruction = { parts: [{ text: systemPrompt }] };
+      conversationBody.systemInstruction = { parts: [{ text: systemPrompt }] }
     }
   } else {
     conversationBody.messages = [
-      ...((!('system' in payload) && systemPrompt) ? [{ role: 'system', content: systemPrompt }] : []),
+      ...(!('system' in payload) && systemPrompt
+        ? [{ role: 'system', content: systemPrompt }]
+        : []),
       ...apiMessages.map((message) => ({
         role: message.role === 'developer' ? 'system' : message.role,
         content: toOpenAiMessageContent(message),
       })),
-    ];
+    ]
   }
 
-  return JSON.stringify({ ...payload, ...conversationBody }, null, 2);
-};
-
+  return JSON.stringify({ ...payload, ...conversationBody }, null, 2)
+}
 
 export const buildRawProxyRequestEnvelope = (
   method: ProxyRequestMethod,
   path: string,
   requestKind: ProxyRequestKind,
   rawJsonText: string,
-  options?: Partial<Pick<TesterProxyEnvelope, 'stream' | 'jobMode'>>,
+  options?: Partial<Pick<TesterProxyEnvelope, 'stream' | 'jobMode'>>
 ): TesterProxyEnvelope => ({
   method,
   path,
@@ -1381,8 +1680,10 @@ export const buildRawProxyRequestEnvelope = (
   jobMode: options?.jobMode ?? false,
   rawMode: true,
   rawJsonText,
-});
-
+})
 
 export const countConversationTurns = (messages: ChatMessage[]): number =>
-  messages.reduce((turns, message) => turns + (message.role === 'user' ? 1 : 0), 0);
+  messages.reduce(
+    (turns, message) => turns + (message.role === 'user' ? 1 : 0),
+    0
+  )

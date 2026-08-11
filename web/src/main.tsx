@@ -27,6 +27,7 @@ import { ThemeProvider } from '@/context/theme-provider'
 import './i18n/config'
 // Generated route tree (TanStack Router plugin overwrites on dev/build)
 import { routeTree } from './routeTree.gen'
+
 // Global styles (Tailwind 4 entry + theme tokens)
 import './styles/index.css'
 

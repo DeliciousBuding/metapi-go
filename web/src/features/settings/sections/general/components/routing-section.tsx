@@ -23,6 +23,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+
 import {
   SettingsSectionCard,
   SettingsSectionSkeleton,
@@ -112,35 +113,54 @@ export function RoutingSection() {
     if (!data) {
       return
     }
-    const incomingWeights = (data.routingWeights ?? {}) as Record<string, unknown>
+    const incomingWeights = (data.routingWeights ?? {}) as Record<
+      string,
+      unknown
+    >
     form.reset(
       {
         routingFallbackUnitCost: asNumber(data.routingFallbackUnitCost) ?? 1,
         tokenRouterFailureCooldownMaxSec:
           asNumber(data.tokenRouterFailureCooldownMaxSec) ?? 30 * 24 * 60 * 60,
         proxyFirstByteTimeoutSec: asNumber(data.proxyFirstByteTimeoutSec) ?? 0,
-        disableCrossProtocolFallback: asBoolean(data.disableCrossProtocolFallback),
+        disableCrossProtocolFallback: asBoolean(
+          data.disableCrossProtocolFallback
+        ),
         routingWeights: {
-          baseWeightFactor: asNumber(incomingWeights.baseWeightFactor) ?? DEFAULT_WEIGHTS.baseWeightFactor,
-          valueScoreFactor: asNumber(incomingWeights.valueScoreFactor) ?? DEFAULT_WEIGHTS.valueScoreFactor,
-          costWeight: asNumber(incomingWeights.costWeight) ?? DEFAULT_WEIGHTS.costWeight,
-          balanceWeight: asNumber(incomingWeights.balanceWeight) ?? DEFAULT_WEIGHTS.balanceWeight,
-          usageWeight: asNumber(incomingWeights.usageWeight) ?? DEFAULT_WEIGHTS.usageWeight,
+          baseWeightFactor:
+            asNumber(incomingWeights.baseWeightFactor) ??
+            DEFAULT_WEIGHTS.baseWeightFactor,
+          valueScoreFactor:
+            asNumber(incomingWeights.valueScoreFactor) ??
+            DEFAULT_WEIGHTS.valueScoreFactor,
+          costWeight:
+            asNumber(incomingWeights.costWeight) ?? DEFAULT_WEIGHTS.costWeight,
+          balanceWeight:
+            asNumber(incomingWeights.balanceWeight) ??
+            DEFAULT_WEIGHTS.balanceWeight,
+          usageWeight:
+            asNumber(incomingWeights.usageWeight) ??
+            DEFAULT_WEIGHTS.usageWeight,
         },
       },
-      { keepDirtyValues: true },
+      { keepDirtyValues: true }
     )
   }, [data, form])
 
   function applyPreset(preset: RoutingPreset) {
-    form.setValue('routingWeights', { ...preset.weights }, { shouldDirty: true })
+    form.setValue(
+      'routingWeights',
+      { ...preset.weights },
+      { shouldDirty: true }
+    )
     toast.info(t(`settings.general.routing.preset.${preset.id}`))
   }
 
   function onSubmit(values: RoutingFormValues) {
     updateMutation.mutate(values as never, {
       onSuccess: () => toast.success(t('settings.general.routing.toast.saved')),
-      onError: () => toast.error(t('settings.general.routing.toast.saveFailed')),
+      onError: () =>
+        toast.error(t('settings.general.routing.toast.saveFailed')),
     })
   }
 
@@ -166,7 +186,9 @@ export function RoutingSection() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    {t('settings.general.routing.fields.routingFallbackUnitCost')}
+                    {t(
+                      'settings.general.routing.fields.routingFallbackUnitCost'
+                    )}
                   </FormLabel>
                   <FormControl>
                     <Input
@@ -178,7 +200,9 @@ export function RoutingSection() {
                     />
                   </FormControl>
                   <FormDescription>
-                    {t('settings.general.routing.fields.routingFallbackUnitCostHint')}
+                    {t(
+                      'settings.general.routing.fields.routingFallbackUnitCostHint'
+                    )}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -201,7 +225,9 @@ export function RoutingSection() {
                     />
                   </FormControl>
                   <FormDescription>
-                    {t('settings.general.routing.fields.routeFailureCooldownHint')}
+                    {t(
+                      'settings.general.routing.fields.routeFailureCooldownHint'
+                    )}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -224,7 +250,9 @@ export function RoutingSection() {
                     />
                   </FormControl>
                   <FormDescription>
-                    {t('settings.general.routing.fields.proxyFirstByteTimeoutHint')}
+                    {t(
+                      'settings.general.routing.fields.proxyFirstByteTimeoutHint'
+                    )}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -243,10 +271,14 @@ export function RoutingSection() {
                   </FormControl>
                   <div className='space-y-1'>
                     <FormLabel className='cursor-pointer'>
-                      {t('settings.general.routing.fields.disableCrossProtocolFallback')}
+                      {t(
+                        'settings.general.routing.fields.disableCrossProtocolFallback'
+                      )}
                     </FormLabel>
                     <FormDescription>
-                      {t('settings.general.routing.fields.disableCrossProtocolFallbackHint')}
+                      {t(
+                        'settings.general.routing.fields.disableCrossProtocolFallbackHint'
+                      )}
                     </FormDescription>
                   </div>
                 </FormItem>
@@ -283,7 +315,13 @@ export function RoutingSection() {
                       {t('settings.general.routing.fields.baseWeightFactor')}
                     </FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value ?? ''} type='number' min={0} step={0.05} />
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        type='number'
+                        min={0}
+                        step={0.05}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -298,7 +336,13 @@ export function RoutingSection() {
                       {t('settings.general.routing.fields.valueScoreFactor')}
                     </FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value ?? ''} type='number' min={0} step={0.05} />
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        type='number'
+                        min={0}
+                        step={0.05}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -313,7 +357,13 @@ export function RoutingSection() {
                       {t('settings.general.routing.fields.costWeight')}
                     </FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value ?? ''} type='number' min={0} step={0.05} />
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        type='number'
+                        min={0}
+                        step={0.05}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -328,7 +378,13 @@ export function RoutingSection() {
                       {t('settings.general.routing.fields.balanceWeight')}
                     </FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value ?? ''} type='number' min={0} step={0.05} />
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        type='number'
+                        min={0}
+                        step={0.05}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -343,14 +399,20 @@ export function RoutingSection() {
                       {t('settings.general.routing.fields.usageWeight')}
                     </FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value ?? ''} type='number' min={0} step={0.05} />
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        type='number'
+                        min={0}
+                        step={0.05}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
-            <p className='text-xs text-muted-foreground'>
+            <p className='text-muted-foreground text-xs'>
               {t('settings.general.routing.weightsHint')}
             </p>
           </div>

@@ -19,13 +19,13 @@
  * for now to keep the rewrite signature-stable. Search for `: any` to find them.
  */
 
+import { clearAuthSession, getAuthToken } from '@/lib/auth-session'
 import {
   apiClient,
   extractResponseErrorMessage,
   fetchAuthenticatedResponse,
   type ApiRequestConfig,
 } from '@/lib/http-client'
-import { clearAuthSession, getAuthToken } from '@/lib/auth-session'
 
 // ---------------------------------------------------------------------------
 // Transport helpers
@@ -46,15 +46,9 @@ type RequestOptions = {
  */
 async function request<T = any>(
   url: string,
-  options: RequestOptions = {},
+  options: RequestOptions = {}
 ): Promise<T> {
-  const {
-    method = 'GET',
-    body,
-    timeoutMs = 30_000,
-    signal,
-    headers,
-  } = options
+  const { method = 'GET', body, timeoutMs = 30_000, signal, headers } = options
 
   const requestHeaders: Record<string, string> | undefined = body
     ? { 'Content-Type': 'application/json', ...headers }
@@ -80,7 +74,7 @@ async function request<T = any>(
 }
 
 function buildQueryString(
-  params?: Record<string, string | number | boolean | null | undefined>,
+  params?: Record<string, string | number | boolean | null | undefined>
 ) {
   if (!params) return ''
   const searchParams = new URLSearchParams()
@@ -93,7 +87,7 @@ function buildQueryString(
 }
 
 function parseContentDispositionFilename(
-  headerValue: string | null,
+  headerValue: string | null
 ): string | null {
   if (!headerValue) return null
   const utf8Match = /filename\*=UTF-8''([^;]+)/i.exec(headerValue)
@@ -114,9 +108,8 @@ type BufferLike = {
   from(data: ArrayBuffer): { toString(encoding: 'base64'): string }
 }
 
-const nodeBuffer = (
-  globalThis as typeof globalThis & { Buffer?: BufferLike }
-).Buffer
+const nodeBuffer = (globalThis as typeof globalThis & { Buffer?: BufferLike })
+  .Buffer
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   if (nodeBuffer) {
@@ -138,7 +131,7 @@ async function streamSse(
     onLog?: (entry: any) => void
     onDone?: (payload: any) => void
     signal?: AbortSignal
-  },
+  }
 ) {
   const response = await fetchAuthenticatedResponse(url, {
     method: 'GET',
@@ -161,9 +154,7 @@ async function streamSse(
   let buffer = ''
 
   const flushBuffer = (final = false) => {
-    const chunks = final
-      ? [...buffer.split('\n\n'), '']
-      : buffer.split('\n\n')
+    const chunks = final ? [...buffer.split('\n\n'), ''] : buffer.split('\n\n')
     if (!final) buffer = chunks.pop() || ''
     else buffer = ''
 
@@ -496,7 +487,7 @@ function proxyTestRequest(data: ProxyTestRequestEnvelope) {
 
 async function proxyTestStreamRequest(
   data: ProxyTestRequestEnvelope,
-  signal?: AbortSignal,
+  signal?: AbortSignal
 ) {
   return fetchAuthenticatedResponse('/api/test/proxy/stream', {
     method: 'POST',
@@ -506,11 +497,9 @@ async function proxyTestStreamRequest(
   })
 }
 
-
 export type SystemProxyTestRequest = {
   proxyUrl?: string
 }
-
 
 type RuntimeRoutingWeightsPayload = {
   baseWeightFactor?: number
@@ -951,8 +940,7 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
-  deleteSite: (id: number) =>
-    request(`/api/sites/${id}`, { method: 'DELETE' }),
+  deleteSite: (id: number) => request(`/api/sites/${id}`, { method: 'DELETE' }),
   batchUpdateSites: (data: any) =>
     request('/api/sites/batch', {
       method: 'POST',
@@ -978,7 +966,7 @@ export const api = {
       scope?: 'single' | 'all'
       modelName?: string
       latencyThresholdMs?: number
-    },
+    }
   ) =>
     request(`/api/sites/${siteId}/probe-now`, {
       method: 'POST',
@@ -989,13 +977,13 @@ export const api = {
   // Accounts
   getAccounts: async (params?: { includeOauth?: boolean }) => {
     const result = await request<any>(
-      `/api/accounts${buildQueryString(params)}`,
+      `/api/accounts${buildQueryString(params)}`
     )
     return Array.isArray(result?.accounts) ? result.accounts : result
   },
   getAccountsSnapshot: (options?: { refresh?: boolean }) =>
     request(
-      `/api/accounts${buildQueryString(options?.refresh ? { refresh: 1 } : undefined)}`,
+      `/api/accounts${buildQueryString(options?.refresh ? { refresh: 1 } : undefined)}`
     ) as Promise<{
       generatedAt: string
       accounts: any[]
@@ -1029,7 +1017,7 @@ export const api = {
       platformUserId?: number
       refreshToken?: string
       tokenExpiresAt?: number
-    },
+    }
   ) =>
     request(`/api/accounts/${id}/rebind-session`, {
       method: 'POST',
@@ -1064,9 +1052,7 @@ export const api = {
 
   // Account tokens
   getAccountTokens: (accountId?: number) =>
-    request(
-      `/api/account-tokens${accountId ? `?accountId=${accountId}` : ''}`,
-    ),
+    request(`/api/account-tokens${accountId ? `?accountId=${accountId}` : ''}`),
   addAccountToken: (data: any) =>
     request('/api/account-tokens', {
       method: 'POST',
@@ -1107,7 +1093,7 @@ export const api = {
   triggerCheckin: (id: number) =>
     request(`/api/checkin/trigger/${id}`, { method: 'POST' }),
   getCheckinLogs: (params?: string) =>
-    request(`/api/checkin/logs${params ? `?${  params}` : ''}`),
+    request(`/api/checkin/logs${params ? `?${params}` : ''}`),
   updateCheckinSchedule: (cron: string) =>
     request('/api/checkin/schedule', {
       method: 'PUT',
@@ -1126,7 +1112,7 @@ export const api = {
       accountId: number
       tokenId?: number
       sourceModel?: string
-    }>,
+    }>
   ) =>
     request(`/api/routes/${routeId}/channels/batch`, {
       method: 'POST',
@@ -1139,13 +1125,11 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
-  deleteRoute: (id: number) => request(`/api/routes/${id}`, { method: 'DELETE' }),
+  deleteRoute: (id: number) =>
+    request(`/api/routes/${id}`, { method: 'DELETE' }),
   clearRouteCooldown: (id: number) =>
     request(`/api/routes/${id}/cooldown/clear`, { method: 'POST' }),
-  batchUpdateRoutes: (data: {
-    ids: number[]
-    action: 'enable' | 'disable'
-  }) =>
+  batchUpdateRoutes: (data: { ids: number[]; action: 'enable' | 'disable' }) =>
     request('/api/routes/batch', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -1185,7 +1169,7 @@ export const api = {
     request(`/api/routes/decision?model=${encodeURIComponent(model)}`),
   getRouteDecisionsBatch: (
     models: string[],
-    options?: { refreshPricingCatalog?: boolean; persistSnapshots?: boolean },
+    options?: { refreshPricingCatalog?: boolean; persistSnapshots?: boolean }
   ) =>
     request('/api/routes/decision/batch', {
       method: 'POST',
@@ -1199,7 +1183,7 @@ export const api = {
     }),
   getRouteDecisionsByRouteBatch: (
     items: Array<{ routeId: number; model: string }>,
-    options?: { refreshPricingCatalog?: boolean; persistSnapshots?: boolean },
+    options?: { refreshPricingCatalog?: boolean; persistSnapshots?: boolean }
   ) =>
     request('/api/routes/decision/by-route/batch', {
       method: 'POST',
@@ -1213,7 +1197,7 @@ export const api = {
     }),
   getRouteWideDecisionsBatch: (
     routeIds: number[],
-    options?: { refreshPricingCatalog?: boolean; persistSnapshots?: boolean },
+    options?: { refreshPricingCatalog?: boolean; persistSnapshots?: boolean }
   ) =>
     request('/api/routes/decision/route-wide/batch', {
       method: 'POST',
@@ -1233,22 +1217,22 @@ export const api = {
       `/api/stats/dashboard${buildQueryString({
         view: 'summary',
         ...(options?.refresh ? { refresh: 1 } : {}),
-      })}`,
+      })}`
     ),
   getDashboardInsights: (options?: { refresh?: boolean }) =>
     request(
       `/api/stats/dashboard${buildQueryString({
         view: 'insights',
         ...(options?.refresh ? { refresh: 1 } : {}),
-      })}`,
+      })}`
     ),
   getProxyLogs: (params?: ProxyLogsQuery) =>
-    request(`/api/stats/proxy-logs${buildQueryString(params)}`) as Promise<
-      ProxyLogsResponse
-    >,
+    request(
+      `/api/stats/proxy-logs${buildQueryString(params)}`
+    ) as Promise<ProxyLogsResponse>,
   getProxyLogsQuery: (params?: ProxyLogsQuery) =>
     request(
-      `/api/stats/proxy-logs${buildQueryString({ ...params, view: 'query' })}`,
+      `/api/stats/proxy-logs${buildQueryString({ ...params, view: 'query' })}`
     ) as Promise<{
       items: ProxyLogsResponse['items']
       total: number
@@ -1258,7 +1242,7 @@ export const api = {
   getProxyLogsMeta: (
     params?: Omit<ProxyLogsQuery, 'limit' | 'offset'> & {
       refresh?: number | boolean
-    },
+    }
   ) => {
     const refresh =
       params?.refresh === true
@@ -1273,7 +1257,7 @@ export const api = {
     } as Record<string, string | number | boolean | null | undefined>
     if (refresh === undefined) delete queryParams.refresh
     return request(
-      `/api/stats/proxy-logs${buildQueryString(queryParams)}`,
+      `/api/stats/proxy-logs${buildQueryString(queryParams)}`
     ) as Promise<{
       clientOptions: ProxyLogsResponse['clientOptions']
       summary: ProxyLogsResponse['summary']
@@ -1284,15 +1268,16 @@ export const api = {
     request(`/api/stats/proxy-logs/${id}`) as Promise<ProxyLogDetail>,
   getProxyDebugTraces: (params?: { limit?: number }) =>
     request(
-      `/api/stats/proxy-debug/traces${buildQueryString(params)}`,
+      `/api/stats/proxy-debug/traces${buildQueryString(params)}`
     ) as Promise<ProxyDebugTracesResponse>,
   getProxyDebugTraceDetail: (id: number) =>
-    request(`/api/stats/proxy-debug/traces/${id}`) as Promise<ProxyDebugTraceDetail>,
+    request(
+      `/api/stats/proxy-debug/traces/${id}`
+    ) as Promise<ProxyDebugTraceDetail>,
   checkModels: (accountId: number) =>
     request(`/api/models/check/${accountId}`, { method: 'POST' }),
   getSiteDistribution: () => request('/api/stats/site-distribution'),
-  getSiteTrend: (days = 7) =>
-    request(`/api/stats/site-trend?days=${days}`),
+  getSiteTrend: (days = 7) => request(`/api/stats/site-trend?days=${days}`),
   getBalanceHistory: (accountId: number, days = 30) =>
     request(`/api/stats/balance-history?accountId=${accountId}&days=${days}`),
   // A3: income vs outcome balance analysis.
@@ -1301,19 +1286,20 @@ export const api = {
   // B1: admin write-operation audit log.
   getAdminAuditLogs: (params?: URLSearchParams) =>
     request(`/api/admin/audit-logs${params ? `?${params.toString()}` : ''}`),
-  getAttention: (limit = 20) =>
-    request(`/api/stats/attention?limit=${limit}`),
+  getAttention: (limit = 20) => request(`/api/stats/attention?limit=${limit}`),
   // A2: model cost distribution + latency chart gallery.
   getModelCostDistribution: (days = 30, topN = 8) =>
     request(
-      `/api/stats/model-cost-distribution?days=${days}&topN=${topN}`,
+      `/api/stats/model-cost-distribution?days=${days}&topN=${topN}`
     ) as Promise<ModelCostDistributionResponse>,
   getLatencyHistogram: (days = 7, bucketMs = 500) =>
     request(
-      `/api/stats/latency-histogram?days=${days}&bucketMs=${bucketMs}`,
+      `/api/stats/latency-histogram?days=${days}&bucketMs=${bucketMs}`
     ) as Promise<LatencyHistogramResponse>,
   getLatencyTrend: (days = 7) =>
-    request(`/api/stats/latency-trend?days=${days}`) as Promise<LatencyTrendResponse>,
+    request(
+      `/api/stats/latency-trend?days=${days}`
+    ) as Promise<LatencyTrendResponse>,
   // G1: batch model verification + history.
   verifyModelsBatch: (models: string[], accountId = 0, limit = 50) =>
     request('/api/models/verify-batch', {
@@ -1322,7 +1308,7 @@ export const api = {
     }) as Promise<VerifyBatchResponse>,
   getModelVerifyHistory: (limit = 50, model = '') =>
     request(
-      `/api/models/verify-history?limit=${limit}${model ? `&model=${encodeURIComponent(model)}` : ''}`,
+      `/api/models/verify-history?limit=${limit}${model ? `&model=${encodeURIComponent(model)}` : ''}`
     ) as Promise<VerifyHistoryResponse>,
   // I1: accounts/sites global tag system.
   getTags: () => request('/api/tags') as Promise<TagIndexResponse>,
@@ -1360,7 +1346,7 @@ export const api = {
       severity: Announcement['severity']
       link?: string | null
       enabled?: boolean
-    },
+    }
   ) =>
     request(`/api/announcements/${id}`, {
       method: 'PUT',
@@ -1378,11 +1364,11 @@ export const api = {
   // K1a: model name redirects.
   getModelRedirects: (params?: { accountId?: number; source?: string }) =>
     request(
-      `/api/model-redirects${buildQueryString(params)}`,
+      `/api/model-redirects${buildQueryString(params)}`
     ) as Promise<ModelRedirectsResponse>,
   updateModelRedirect: (
     id: number,
-    payload: { actual?: string; source?: string },
+    payload: { actual?: string; source?: string }
   ) =>
     request(`/api/model-redirects/${id}`, {
       method: 'PUT',
@@ -1414,14 +1400,15 @@ export const api = {
     accounts?: Array<{ id: number; unitCost: number }>
     channels?: Array<{ id: number; weight: number }>
   }) =>
-    request<{ success: boolean; updatedAccounts: number; updatedChannels: number }>(
-      '/api/models/rates',
-      { method: 'PUT', body: JSON.stringify(body) },
-    ),
+    request<{
+      success: boolean
+      updatedAccounts: number
+      updatedChannels: number
+    }>('/api/models/rates', { method: 'PUT', body: JSON.stringify(body) }),
   // C1: unified recurring-scheduler run history.
   getSchedulerStatus: () =>
     request<{ items: SchedulerRunStatus[]; generatedAt: string }>(
-      '/api/scheduler/status',
+      '/api/scheduler/status'
     ),
   getSiteSnapshot: async (days = 7, options?: { refresh?: boolean }) => {
     const query = buildQueryString({
@@ -1429,9 +1416,7 @@ export const api = {
       ...(options?.refresh ? { refresh: 1 } : {}),
     })
     const [distribution, trend, sites] = await Promise.all([
-      request<{ distribution: any[] }>(
-        `/api/stats/site-distribution${query}`,
-      ),
+      request<{ distribution: any[] }>(`/api/stats/site-distribution${query}`),
       request<{ trend: any[] }>(`/api/stats/site-trend${query}`),
       request<any[]>('/api/sites'),
     ])
@@ -1446,7 +1431,7 @@ export const api = {
   },
   getModelBySite: (siteId?: number, days = 7) =>
     request(
-      `/api/stats/model-by-site?${siteId ? `siteId=${siteId}&` : ''}days=${days}`,
+      `/api/stats/model-by-site?${siteId ? `siteId=${siteId}&` : ''}days=${days}`
     ),
 
   // Search
@@ -1466,7 +1451,7 @@ export const api = {
       projectId?: string
       proxyUrl?: string | null
       useSystemProxy?: boolean
-    },
+    }
   ) =>
     request(`/api/oauth/providers/${encodeURIComponent(provider)}/start`, {
       method: 'POST',
@@ -1474,7 +1459,7 @@ export const api = {
     }) as Promise<OAuthStartResponse>,
   getOAuthSession: (state: string) =>
     request(
-      `/api/oauth/sessions/${encodeURIComponent(state)}`,
+      `/api/oauth/sessions/${encodeURIComponent(state)}`
     ) as Promise<OAuthSessionInfo>,
   submitOAuthManualCallback: (state: string, callbackUrl: string) =>
     request(
@@ -1482,11 +1467,11 @@ export const api = {
       {
         method: 'POST',
         body: JSON.stringify({ callbackUrl }),
-      },
+      }
     ) as Promise<{ success: true }>,
   getOAuthConnections: (params?: { limit?: number; offset?: number }) =>
     request(
-      `/api/oauth/connections${buildQueryString(params)}`,
+      `/api/oauth/connections${buildQueryString(params)}`
     ) as Promise<OAuthConnectionsResponse>,
   refreshOAuthConnectionQuota: (accountId: number) =>
     request(`/api/oauth/connections/${accountId}/quota/refresh`, {
@@ -1500,7 +1485,7 @@ export const api = {
     }) as Promise<OAuthQuotaBatchRefreshResponse>,
   updateOAuthConnectionProxy: (
     accountId: number,
-    data: { proxyUrl?: string | null; useSystemProxy?: boolean },
+    data: { proxyUrl?: string | null; useSystemProxy?: boolean }
   ) =>
     request(`/api/oauth/connections/${accountId}/proxy`, {
       method: 'PATCH',
@@ -1508,7 +1493,7 @@ export const api = {
     }) as Promise<{ success: true }>,
   rebindOAuthConnection: (
     accountId: number,
-    data?: { proxyUrl?: string | null; useSystemProxy?: boolean },
+    data?: { proxyUrl?: string | null; useSystemProxy?: boolean }
   ) =>
     request(`/api/oauth/connections/${accountId}/rebind`, {
       method: 'POST',
@@ -1539,15 +1524,14 @@ export const api = {
 
   // Events
   getEvents: (params?: string) =>
-    request(`/api/events${params ? `?${  params}` : ''}`),
+    request(`/api/events${params ? `?${params}` : ''}`),
   getEventCount: () => request('/api/events/count'),
   markEventRead: (id: number) =>
     request(`/api/events/${id}/read`, { method: 'POST' }),
-  markAllEventsRead: () =>
-    request('/api/events/read-all', { method: 'POST' }),
+  markAllEventsRead: () => request('/api/events/read-all', { method: 'POST' }),
   clearEvents: () => request('/api/events', { method: 'DELETE' }),
   getSiteAnnouncements: (params?: string) =>
-    request(`/api/site-announcements${params ? `?${  params}` : ''}`),
+    request(`/api/site-announcements${params ? `?${params}` : ''}`),
   markSiteAnnouncementRead: (id: number) =>
     request(`/api/site-announcements/${id}/read`, { method: 'POST' }),
   markAllSiteAnnouncementsRead: () =>
@@ -1560,7 +1544,9 @@ export const api = {
       body: JSON.stringify(payload || {}),
     }),
   getTasks: (limit = 50) =>
-    request(`/api/tasks?limit=${Math.max(1, Math.min(200, Math.trunc(limit)))}`),
+    request(
+      `/api/tasks?limit=${Math.max(1, Math.min(200, Math.trunc(limit)))}`
+    ),
   getTask: (id: string) => request(`/api/tasks/${encodeURIComponent(id)}`),
 
   // Auth management
@@ -1608,11 +1594,11 @@ export const api = {
       onLog?: (entry: any) => void
       onDone?: (payload: any) => void
       signal?: AbortSignal
-    },
+    }
   ) =>
     streamSse(
       `/api/update-center/tasks/${encodeURIComponent(taskId)}/stream`,
-      handlers,
+      handlers
     ),
   testSystemProxy: (data: SystemProxyTestRequest) =>
     request('/api/settings/system-proxy/test', {
@@ -1681,16 +1667,15 @@ export const api = {
     range?: '24h' | '7d' | 'all'
     status?: 'all' | 'enabled' | 'disabled'
     search?: string
-  }) =>
-    request(`/api/downstream-keys/summary${buildQueryString(params)}`),
+  }) => request(`/api/downstream-keys/summary${buildQueryString(params)}`),
   getDownstreamApiKeyOverview: (id: number) =>
     request(`/api/downstream-keys/${id}/overview`),
   getDownstreamApiKeyTrend: (
     id: number,
-    params?: { range?: '24h' | '7d' | 'all'; timeZone?: string },
+    params?: { range?: '24h' | '7d' | 'all'; timeZone?: string }
   ) =>
     request<DownstreamApiKeyTrendResponse>(
-      `/api/downstream-keys/${id}/trend${buildQueryString(params)}`,
+      `/api/downstream-keys/${id}/trend${buildQueryString(params)}`
     ),
   exportBackup: (type: 'all' | 'accounts' | 'preferences' = 'all') =>
     request(`/api/settings/backup/export?type=${encodeURIComponent(type)}`),
@@ -1749,8 +1734,7 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
-  initMonitorSession: () =>
-    request('/api/monitor/session', { method: 'POST' }),
+  initMonitorSession: () => request('/api/monitor/session', { method: 'POST' }),
   // Clears the HttpOnly `meta_monitor_auth` cookie (Path=/monitor-proxy/);
   // must be called while Bearer auth is still valid.
   clearMonitorSession: () =>
@@ -1816,14 +1800,14 @@ export const api = {
     }),
   getProxyFileContentDataUrl: async (
     fileId: string,
-    options: Pick<RequestOptions, 'signal' | 'timeoutMs'> = {},
+    options: Pick<RequestOptions, 'signal' | 'timeoutMs'> = {}
   ) => {
     const response = await fetchAuthenticatedResponse(
       `/v1/files/${encodeURIComponent(fileId)}/content`,
       {
         method: 'GET',
         ...options,
-      },
+      }
     )
     if (!response.ok) {
       throw new Error(await extractResponseErrorMessage(response))
@@ -1834,7 +1818,7 @@ export const api = {
         .split(';')[0]
         .trim() || 'application/octet-stream'
     const filename = parseContentDispositionFilename(
-      response.headers.get('content-disposition'),
+      response.headers.get('content-disposition')
     )
     const base64 = arrayBufferToBase64(await response.arrayBuffer())
     return {
@@ -1854,7 +1838,7 @@ export const api = {
   proxyTestStream: proxyTestStreamRequest,
   testChatStream: async (
     data: TestChatRequestPayload,
-    signal?: AbortSignal,
+    signal?: AbortSignal
   ) => {
     const token = getAuthToken(localStorage)
     if (!token) {

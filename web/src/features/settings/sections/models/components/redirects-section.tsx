@@ -6,14 +6,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { api,type ModelRedirectsResponse,type RedirectApplyResponse } from '@/lib/api'
-
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
 import {
   Table,
   TableBody,
@@ -22,6 +16,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  api,
+  type ModelRedirectsResponse,
+  type RedirectApplyResponse,
+} from '@/lib/api'
+
+import {
+  SettingsSectionCard,
+  SettingsSectionSkeleton,
+} from '../../../components/settings-section-card'
 
 const modelRedirectsQueryKeys = {
   all: ['model-redirects'] as const,
@@ -43,15 +47,18 @@ export function RedirectsSection() {
   const generateMutation = useMutation({
     mutationFn: async () => api.generateModelRedirects(0),
     onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: modelRedirectsQueryKeys.all })
+      void queryClient.invalidateQueries({
+        queryKey: modelRedirectsQueryKeys.all,
+      })
       toast.success(
         t('settings.models.redirects.toast.generated', {
           created: result.created,
           accounts: result.accounts ?? 0,
-        }),
+        })
       )
     },
-    onError: () => toast.error(t('settings.models.redirects.toast.generateFailed')),
+    onError: () =>
+      toast.error(t('settings.models.redirects.toast.generateFailed')),
   })
 
   const applyMutation = useMutation({
@@ -64,38 +71,49 @@ export function RedirectsSection() {
           toast.info(t('settings.models.redirects.toast.previewEmpty'))
         } else {
           toast.info(
-            t('settings.models.redirects.toast.preview', { count: candidateCount }),
+            t('settings.models.redirects.toast.preview', {
+              count: candidateCount,
+            })
           )
         }
       } else {
-        void queryClient.invalidateQueries({ queryKey: modelRedirectsQueryKeys.all })
+        void queryClient.invalidateQueries({
+          queryKey: modelRedirectsQueryKeys.all,
+        })
         toast.success(
           t('settings.models.redirects.toast.applied', {
             removed: result.removed ?? 0,
-          }),
+          })
         )
       }
     },
-    onError: () => toast.error(t('settings.models.redirects.toast.applyFailed')),
+    onError: () =>
+      toast.error(t('settings.models.redirects.toast.applyFailed')),
   })
 
   const promoteMutation = useMutation({
     mutationFn: async (id: number) =>
       api.updateModelRedirect(id, { source: 'manual' }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: modelRedirectsQueryKeys.all })
+      void queryClient.invalidateQueries({
+        queryKey: modelRedirectsQueryKeys.all,
+      })
       toast.success(t('settings.models.redirects.toast.promoted'))
     },
-    onError: () => toast.error(t('settings.models.redirects.toast.promoteFailed')),
+    onError: () =>
+      toast.error(t('settings.models.redirects.toast.promoteFailed')),
   })
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => api.deleteModelRedirect(id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: modelRedirectsQueryKeys.all })
+      void queryClient.invalidateQueries({
+        queryKey: modelRedirectsQueryKeys.all,
+      })
       toast.success(t('settings.models.redirects.toast.deleted'))
     },
-    onError: () => toast.error(t('settings.models.redirects.toast.deleteFailed')),
+    onError: () =>
+      toast.error(t('settings.models.redirects.toast.deleteFailed')),
   })
 
   const items = redirectsQuery.data?.items ?? []
@@ -138,17 +156,25 @@ export function RedirectsSection() {
       }
     >
       {items.length === 0 ? (
-        <p className='py-8 text-center text-sm text-muted-foreground'>
+        <p className='text-muted-foreground py-8 text-center text-sm'>
           {t('settings.models.redirects.empty')}
         </p>
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{t('settings.models.redirects.columns.canonical')}</TableHead>
-              <TableHead>{t('settings.models.redirects.columns.actual')}</TableHead>
-              <TableHead>{t('settings.models.redirects.columns.account')}</TableHead>
-              <TableHead>{t('settings.models.redirects.columns.source')}</TableHead>
+              <TableHead>
+                {t('settings.models.redirects.columns.canonical')}
+              </TableHead>
+              <TableHead>
+                {t('settings.models.redirects.columns.actual')}
+              </TableHead>
+              <TableHead>
+                {t('settings.models.redirects.columns.account')}
+              </TableHead>
+              <TableHead>
+                {t('settings.models.redirects.columns.source')}
+              </TableHead>
               <TableHead className='text-right'>
                 {t('settings.models.redirects.columns.actions')}
               </TableHead>
@@ -157,14 +183,24 @@ export function RedirectsSection() {
           <TableBody>
             {items.map((redirect: ModelRedirectsResponse['items'][number]) => (
               <TableRow key={redirect.id}>
-                <TableCell className='font-mono text-xs'>{redirect.canonical}</TableCell>
-                <TableCell className='font-mono text-xs'>{redirect.actual}</TableCell>
+                <TableCell className='font-mono text-xs'>
+                  {redirect.canonical}
+                </TableCell>
+                <TableCell className='font-mono text-xs'>
+                  {redirect.actual}
+                </TableCell>
                 <TableCell className='text-xs'>
-                  <div>{redirect.siteName ?? redirect.username ?? `#${redirect.accountId}`}</div>
+                  <div>
+                    {redirect.siteName ??
+                      redirect.username ??
+                      `#${redirect.accountId}`}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <Badge
-                    variant={redirect.source === 'manual' ? 'default' : 'secondary'}
+                    variant={
+                      redirect.source === 'manual' ? 'default' : 'secondary'
+                    }
                   >
                     {t(`settings.models.redirects.source.${redirect.source}`)}
                   </Badge>

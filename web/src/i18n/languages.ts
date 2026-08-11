@@ -1,8 +1,5 @@
-
-
 // metapi-go/i18n — language list + detection helpers.
 // Skeleton: 2 languages (en + zhCN). Phase 4 will add fr/ru/ja/vi/zhTW.
-
 
 /**
  * Map a browser-detected locale onto the interface language codes this project
@@ -41,4 +38,3 @@ export function normalizeInterfaceLanguage(language: string): string {
   const hyphenIndex = language.indexOf('-')
   return hyphenIndex === -1 ? language : language.slice(0, hyphenIndex)
 }
-

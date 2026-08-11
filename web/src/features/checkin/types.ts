@@ -17,7 +17,6 @@
 
 import { z } from 'zod'
 
-
 const FAILURE_REASON_CATEGORIES = [
   'verification',
   'auth',
@@ -68,9 +67,7 @@ const failureReasonSchema = z
 // Enums — mirror service/checkin/failure_reason.go
 // ---------------------------------------------------------------------------
 
-
 export type FailureReasonCategory = (typeof FAILURE_REASON_CATEGORIES)[number]
-
 
 // ---------------------------------------------------------------------------
 // FailureReason — classified by ClassifyFailureReason on the write side and
@@ -85,7 +82,6 @@ export type FailureReason = z.infer<typeof failureReasonSchema>
 // Inner projections — the nested sub-objects inside each log row.
 // ---------------------------------------------------------------------------
 
-
 export const checkinLogRowSchema = z.object({
   checkin_logs: checkinLogInnerSchema,
   accounts: checkinAccountInnerSchema.nullish(),
@@ -97,7 +93,6 @@ export type CheckinLogRow = z.infer<typeof checkinLogRowSchema>
 // ---------------------------------------------------------------------------
 // Trigger-all response — POST /api/checkin/trigger
 // ---------------------------------------------------------------------------
-
 
 export const triggerCheckinAllResultSchema = z.object({
   success: z.coerce.boolean().default(false),

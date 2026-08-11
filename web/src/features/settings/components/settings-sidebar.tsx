@@ -46,7 +46,7 @@ export function SettingsSidebar({ items, title }: SettingsSidebarProps) {
                 'rounded-md px-3 py-2 text-sm transition-colors',
                 isActive
                   ? 'bg-accent font-medium text-accent-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
               )}
             >
               {t(item.title)}
@@ -61,5 +61,7 @@ export function SettingsSidebar({ items, title }: SettingsSidebarProps) {
 /** Strip the query string and trailing slashes for stable active-state matching. */
 function normalizePath(href: string): string {
   const withoutQuery = href.split('?')[0]
-  return withoutQuery.length > 1 ? withoutQuery.replace(/\/+$/, '') : withoutQuery
+  return withoutQuery.length > 1
+    ? withoutQuery.replace(/\/+$/, '')
+    : withoutQuery
 }

@@ -7,10 +7,7 @@
 // OAuth-connected upstream account). `OAuthProvider` is an available
 // upstream provider (e.g. the platform whose OAuth flow can be started).
 
-import type {
-  OAuthConnectionInfo,
-  OAuthProviderInfo,
-} from '@/lib/api'
+import type { OAuthConnectionInfo, OAuthProviderInfo } from '@/lib/api'
 
 /** Row type for the OAuth connections table (an OAuth-connected account). */
 export type OAuthClient = OAuthConnectionInfo

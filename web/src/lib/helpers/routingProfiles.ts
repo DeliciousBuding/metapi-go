@@ -1,14 +1,17 @@
 export type RoutingWeights = {
-  baseWeightFactor: number;
-  valueScoreFactor: number;
-  costWeight: number;
-  balanceWeight: number;
-  usageWeight: number;
-};
+  baseWeightFactor: number
+  valueScoreFactor: number
+  costWeight: number
+  balanceWeight: number
+  usageWeight: number
+}
 
-type RoutingProfilePresetId = 'balanced' | 'stable' | 'cost' | 'custom';
+type RoutingProfilePresetId = 'balanced' | 'stable' | 'cost' | 'custom'
 
-export const ROUTING_PROFILE_PRESETS: Record<Exclude<RoutingProfilePresetId, 'custom'>, RoutingWeights> = {
+export const ROUTING_PROFILE_PRESETS: Record<
+  Exclude<RoutingProfilePresetId, 'custom'>,
+  RoutingWeights
+> = {
   balanced: {
     baseWeightFactor: 0.5,
     valueScoreFactor: 0.5,
@@ -30,29 +33,35 @@ export const ROUTING_PROFILE_PRESETS: Record<Exclude<RoutingProfilePresetId, 'cu
     balanceWeight: 0.15,
     usageWeight: 0.1,
   },
-};
+}
 
-const EPSILON = 1e-6;
+const EPSILON = 1e-6
 
-export function applyRoutingProfilePreset(presetId: Exclude<RoutingProfilePresetId, 'custom'>): RoutingWeights {
+export function applyRoutingProfilePreset(
+  presetId: Exclude<RoutingProfilePresetId, 'custom'>
+): RoutingWeights {
   return {
     ...ROUTING_PROFILE_PRESETS[presetId],
-  };
+  }
 }
 
 function weightsAlmostEqual(a: RoutingWeights, b: RoutingWeights): boolean {
   return (
-    Math.abs(a.baseWeightFactor - b.baseWeightFactor) <= EPSILON
-    && Math.abs(a.valueScoreFactor - b.valueScoreFactor) <= EPSILON
-    && Math.abs(a.costWeight - b.costWeight) <= EPSILON
-    && Math.abs(a.balanceWeight - b.balanceWeight) <= EPSILON
-    && Math.abs(a.usageWeight - b.usageWeight) <= EPSILON
-  );
+    Math.abs(a.baseWeightFactor - b.baseWeightFactor) <= EPSILON &&
+    Math.abs(a.valueScoreFactor - b.valueScoreFactor) <= EPSILON &&
+    Math.abs(a.costWeight - b.costWeight) <= EPSILON &&
+    Math.abs(a.balanceWeight - b.balanceWeight) <= EPSILON &&
+    Math.abs(a.usageWeight - b.usageWeight) <= EPSILON
+  )
 }
 
-export function resolveRoutingProfilePreset(weights: RoutingWeights): RoutingProfilePresetId {
-  if (weightsAlmostEqual(weights, ROUTING_PROFILE_PRESETS.balanced)) return 'balanced';
-  if (weightsAlmostEqual(weights, ROUTING_PROFILE_PRESETS.stable)) return 'stable';
-  if (weightsAlmostEqual(weights, ROUTING_PROFILE_PRESETS.cost)) return 'cost';
-  return 'custom';
+export function resolveRoutingProfilePreset(
+  weights: RoutingWeights
+): RoutingProfilePresetId {
+  if (weightsAlmostEqual(weights, ROUTING_PROFILE_PRESETS.balanced))
+    return 'balanced'
+  if (weightsAlmostEqual(weights, ROUTING_PROFILE_PRESETS.stable))
+    return 'stable'
+  if (weightsAlmostEqual(weights, ROUTING_PROFILE_PRESETS.cost)) return 'cost'
+  return 'custom'
 }

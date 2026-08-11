@@ -13,8 +13,8 @@
 
 import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
 
-import { api } from '@/lib/api'
 import { sitesKeys, sitesSearchSchema } from '@/features/sites'
+import { api } from '@/lib/api'
 
 export const Route = createFileRoute('/_authenticated/sites')({
   validateSearch: sitesSearchSchema,
@@ -26,6 +26,6 @@ export const Route = createFileRoute('/_authenticated/sites')({
   },
   component: lazyRouteComponent(
     () => import('@/features/sites/components/sites-page'),
-    'SitesPage',
+    'SitesPage'
   ),
 })

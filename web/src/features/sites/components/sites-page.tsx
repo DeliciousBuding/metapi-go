@@ -36,18 +36,20 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Spinner } from '@/components/ui/spinner'
-
-import { useBatchUpdateSites, useDeleteSite, useSites, useUpdateSite } from '../api'
-import { sitesSearchSchema } from '../lib/sites-schema'
 import { parseSortingParam } from '@/lib/helpers/searchParams'
+
+import {
+  useBatchUpdateSites,
+  useDeleteSite,
+  useSites,
+  useUpdateSite,
+} from '../api'
+import { sitesSearchSchema } from '../lib/sites-schema'
 import type { Site } from '../types'
 import { SiteCreatedModal } from './site-created-modal'
 import { SiteDetailSheet } from './site-detail-sheet'
 import { SiteFormDialog } from './site-form-dialog'
-import {
-  SITES_STATUS_FILTER_OPTIONS,
-  useSitesColumns,
-} from './sites-columns'
+import { SITES_STATUS_FILTER_OPTIONS, useSitesColumns } from './sites-columns'
 
 const SITES_COLUMN_VISIBILITY_STORAGE_KEY = 'metapi-go:sites:column-visibility'
 const SITES_COLUMN_SIZING_STORAGE_KEY = 'metapi-go:sites:column-sizing'
@@ -60,7 +62,10 @@ type ResolvedSearch = {
   status: string | undefined
 }
 
-function resolveUpdater<TValue>(updater: Updater<TValue>, previous: TValue): TValue {
+function resolveUpdater<TValue>(
+  updater: Updater<TValue>,
+  previous: TValue
+): TValue {
   return typeof updater === 'function'
     ? (updater as (old: TValue) => TValue)(previous)
     : updater
@@ -214,7 +219,7 @@ export function SitesPage() {
           onSuccess: () =>
             toast.success(t('sites.toast.statusToggled', { name: site.name })),
           onError: () => toast.error(t('sites.toast.statusToggleFailed')),
-        },
+        }
       )
     },
     onTogglePin: (site) => {
@@ -224,7 +229,7 @@ export function SitesPage() {
           onSuccess: () =>
             toast.success(t('sites.toast.pinToggled', { name: site.name })),
           onError: () => toast.error(t('sites.toast.pinToggleFailed')),
-        },
+        }
       )
     },
     onDelete: (site) => {
@@ -272,9 +277,7 @@ export function SitesPage() {
     }
   }
 
-  async function handleBulkAction(
-    action: 'enable' | 'disable' | 'delete',
-  ) {
+  async function handleBulkAction(action: 'enable' | 'disable' | 'delete') {
     const selectedRows = table.getFilteredSelectedRowModel().rows
     const ids = selectedRows.map((row) => row.original.id)
     if (ids.length === 0) return
@@ -283,15 +286,13 @@ export function SitesPage() {
       const successCount = result.successIds?.length ?? 0
       const failedCount = ids.length - successCount
       if (failedCount <= 0) {
-        toast.success(
-          t('sites.toast.bulkSucceeded', { count: successCount }),
-        )
+        toast.success(t('sites.toast.bulkSucceeded', { count: successCount }))
       } else {
         toast.warning(
           t('sites.toast.bulkPartial', {
             success: successCount,
             failed: failedCount,
-          }),
+          })
         )
       }
       table.resetRowSelection()
@@ -340,7 +341,10 @@ export function SitesPage() {
           ),
         }}
         bulkActions={
-          <DataTableBulkActions table={table} entityName={t('sites.entityName')}>
+          <DataTableBulkActions
+            table={table}
+            entityName={t('sites.entityName')}
+          >
             <Button
               variant='outline'
               size='sm'

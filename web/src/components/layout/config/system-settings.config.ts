@@ -4,13 +4,7 @@
 // Titles are i18n keys resolved via t() at render time (nav-group.tsx /
 // sidebar-view-header.tsx).
 
-import {
-  Boxes,
-  KeyRound,
-  Package,
-  ServerCog,
-  Settings,
-} from 'lucide-react'
+import { Boxes, KeyRound, Package, ServerCog, Settings } from 'lucide-react'
 
 import type { NavGroup, SidebarView } from '../types'
 

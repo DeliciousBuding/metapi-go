@@ -1,7 +1,6 @@
 const MONITOR_AUTH_COOKIE_NAME = 'meta_monitor_auth'
 const MONITOR_AUTH_COOKIE_PATH = '/monitor-proxy/'
 
-
 function clearMonitorAuthCookie(
   doc: CookieWriter | null | undefined = typeof document !== 'undefined'
     ? document
@@ -154,9 +153,7 @@ type CookieWriter = {
   cookie?: string
 }
 
-function resolveStorage(
-  storage?: StorageLike | null
-): StorageLike | null {
+function resolveStorage(storage?: StorageLike | null): StorageLike | null {
   if (storage) return storage
   if (
     typeof localStorage !== 'undefined' &&
@@ -170,7 +167,6 @@ function resolveStorage(
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object'
 }
-
 
 /**
  * Best-effort document.cookie clear for meta_monitor_auth.
@@ -231,7 +227,6 @@ export function hasValidAuthSession(
   return Boolean(getAuthToken(storage, nowMs))
 }
 
-
 /**
  * Persist an AuthBundle to storage. Converts the bundle's
  * access_expires_at (unix seconds) to the ms epoch the legacy keys expect.
@@ -241,10 +236,7 @@ export function setAuthBundle(
   storage?: StorageLike | null
 ): void {
   const nowMs = Date.now()
-  const ttlMs = Math.max(
-    1,
-    Math.trunc(bundle.access_expires_at * 1000) - nowMs
-  )
+  const ttlMs = Math.max(1, Math.trunc(bundle.access_expires_at * 1000) - nowMs)
   persistAuthSession(storage, bundle.access_token, ttlMs, nowMs)
 }
 
@@ -288,7 +280,6 @@ export function applyAuthRotation(value: unknown): void {
   authEpoch += 1
   publishAuthSessionEvent('authenticated')
 }
-
 
 // ---------------------------------------------------------------------------
 // refreshAuthentication — single-flight + backoff scaffold (STUB)
@@ -368,4 +359,3 @@ function resolveAuthSessionChannel(): BroadcastChannel | null {
   authSessionChannel = new BroadcastChannel(AUTH_SESSION_CHANNEL_NAME)
   return authSessionChannel
 }
-

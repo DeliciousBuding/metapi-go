@@ -116,8 +116,7 @@ apiClient.interceptors.response.use(
       typeof response.data?.success === 'boolean' &&
       !response.data.success
     ) {
-      const message =
-        resolveResponseMessage(response.data) || 'Request failed'
+      const message = resolveResponseMessage(response.data) || 'Request failed'
       toast.error(message)
     }
     return response

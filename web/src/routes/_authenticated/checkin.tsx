@@ -21,13 +21,13 @@
 
 import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
 
-import { api } from '@/lib/api'
 import {
   checkinLogRowSchema,
   checkinQueryKeys,
   checkinSearchSchema,
   readCheckinSearchFromUrl,
 } from '@/features/checkin'
+import { api } from '@/lib/api'
 
 const CHECKIN_PREFETCH_LIMIT = 500
 
@@ -52,6 +52,6 @@ export const Route = createFileRoute('/_authenticated/checkin')({
   },
   component: lazyRouteComponent(
     () => import('@/features/checkin/components/checkin-page'),
-    'CheckinPage',
+    'CheckinPage'
   ),
 })
