@@ -11,8 +11,6 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
-import { api,type BackupWebdavResponse } from '@/lib/api'
-
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -33,6 +31,8 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { api, type BackupWebdavResponse } from '@/lib/api'
+
 import {
   SettingsSectionCard,
   SettingsSectionSkeleton,
@@ -108,7 +108,7 @@ export function ImportExportSection() {
         autoSyncEnabled: config.autoSyncEnabled,
         autoSyncCron: config.autoSyncCron,
       },
-      { keepDirtyValues: true },
+      { keepDirtyValues: true }
     )
   }, [webdavQuery.data, form])
 
@@ -116,7 +116,7 @@ export function ImportExportSection() {
     mutationFn: async (type: 'all' | 'accounts' | 'preferences') => {
       const text = await (async () => {
         const response = await fetch(
-          `/api/settings/backup/export?type=${encodeURIComponent(type)}`,
+          `/api/settings/backup/export?type=${encodeURIComponent(type)}`
         )
         return response.text()
       })()
@@ -127,7 +127,8 @@ export function ImportExportSection() {
       downloadTextFile(`metapi-${type}-${today}.json`, text)
       toast.success(t('settings.content.importExport.toast.exported'))
     },
-    onError: () => toast.error(t('settings.content.importExport.toast.exportFailed')),
+    onError: () =>
+      toast.error(t('settings.content.importExport.toast.exportFailed')),
   })
 
   const importMutation = useMutation({
@@ -140,7 +141,8 @@ export function ImportExportSection() {
       toast.success(t('settings.content.importExport.toast.imported'))
       setImportText('')
     },
-    onError: () => toast.error(t('settings.content.importExport.toast.importFailed')),
+    onError: () =>
+      toast.error(t('settings.content.importExport.toast.importFailed')),
   })
 
   const saveWebdavMutation = useMutation({
@@ -159,20 +161,25 @@ export function ImportExportSection() {
       void queryClient.invalidateQueries({ queryKey: webdavQueryKeys.all })
       toast.success(t('settings.content.importExport.toast.webdavSaved'))
     },
-    onError: () => toast.error(t('settings.content.importExport.toast.webdavSaveFailed')),
+    onError: () =>
+      toast.error(t('settings.content.importExport.toast.webdavSaveFailed')),
   })
 
   const exportWebdavMutation = useMutation({
     mutationFn: async (type?: 'all' | 'accounts' | 'preferences') =>
       api.exportBackupToWebdav(type),
-    onSuccess: () => toast.success(t('settings.content.importExport.toast.webdavExported')),
-    onError: () => toast.error(t('settings.content.importExport.toast.webdavExportFailed')),
+    onSuccess: () =>
+      toast.success(t('settings.content.importExport.toast.webdavExported')),
+    onError: () =>
+      toast.error(t('settings.content.importExport.toast.webdavExportFailed')),
   })
 
   const importWebdavMutation = useMutation({
     mutationFn: async () => api.importBackupFromWebdav(),
-    onSuccess: () => toast.success(t('settings.content.importExport.toast.webdavImported')),
-    onError: () => toast.error(t('settings.content.importExport.toast.webdavImportFailed')),
+    onSuccess: () =>
+      toast.success(t('settings.content.importExport.toast.webdavImported')),
+    onError: () =>
+      toast.error(t('settings.content.importExport.toast.webdavImportFailed')),
   })
 
   function onWebdavSubmit(values: WebdavFormValues) {
@@ -324,11 +331,15 @@ export function ImportExportSection() {
                         {...field}
                         value={field.value ?? ''}
                         type='password'
-                        placeholder={t('settings.content.importExport.fields.webdavPasswordHint')}
+                        placeholder={t(
+                          'settings.content.importExport.fields.webdavPasswordHint'
+                        )}
                       />
                     </FormControl>
                     <FormDescription>
-                      {t('settings.content.importExport.fields.webdavPasswordDescription')}
+                      {t(
+                        'settings.content.importExport.fields.webdavPasswordDescription'
+                      )}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -380,7 +391,9 @@ export function ImportExportSection() {
                     />
                   </FormControl>
                   <FormLabel className='cursor-pointer'>
-                    {t('settings.content.importExport.fields.webdavAutoSyncEnabled')}
+                    {t(
+                      'settings.content.importExport.fields.webdavAutoSyncEnabled'
+                    )}
                   </FormLabel>
                 </FormItem>
               )}
@@ -391,10 +404,16 @@ export function ImportExportSection() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    {t('settings.content.importExport.fields.webdavAutoSyncCron')}
+                    {t(
+                      'settings.content.importExport.fields.webdavAutoSyncCron'
+                    )}
                   </FormLabel>
                   <FormControl>
-                    <Input {...field} value={field.value ?? ''} placeholder='0 */6 * * *' />
+                    <Input
+                      {...field}
+                      value={field.value ?? ''}
+                      placeholder='0 */6 * * *'
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -431,14 +450,14 @@ export function ImportExportSection() {
               </Button>
             </div>
             {webdavQuery.data?.state?.lastSyncAt ? (
-              <p className='text-xs text-muted-foreground'>
+              <p className='text-muted-foreground text-xs'>
                 {t('settings.content.importExport.lastSync', {
                   at: webdavQuery.data.state.lastSyncAt,
                 })}
               </p>
             ) : null}
             {webdavQuery.data?.state?.lastError ? (
-              <p className='text-xs text-destructive'>
+              <p className='text-destructive text-xs'>
                 {t('settings.content.importExport.lastError', {
                   error: webdavQuery.data.state.lastError,
                 })}

@@ -15,8 +15,8 @@
 import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
 import { z } from 'zod'
 
-import { api } from '@/lib/api'
 import { accountQueryKeys } from '@/features/accounts'
+import { api } from '@/lib/api'
 
 const accountsSearchSchema = z.object({
   page: z.coerce.number().int().positive().optional(),
@@ -36,6 +36,6 @@ export const Route = createFileRoute('/_authenticated/accounts')({
   },
   component: lazyRouteComponent(
     () => import('@/features/accounts/components/accounts-page'),
-    'AccountsPage',
+    'AccountsPage'
   ),
 })

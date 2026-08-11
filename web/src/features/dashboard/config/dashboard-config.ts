@@ -27,32 +27,28 @@ import { createSectionRegistry } from '../utils/section-registry'
 const LazyOverviewSection = lazy(() =>
   import('../sections/overview').then((module) => ({
     default: module.OverviewSection,
-  })),
+  }))
 )
 const LazyTrafficSection = lazy(() =>
   import('../sections/traffic').then((module) => ({
     default: module.TrafficSection,
-  })),
+  }))
 )
 const LazyModelsSection = lazy(() =>
   import('../sections/models').then((module) => ({
     default: module.ModelsSection,
-  })),
+  }))
 )
 const LazyAvailabilitySection = lazy(() =>
   import('../sections/availability').then((module) => ({
     default: module.AvailabilitySection,
-  })),
+  }))
 )
 
 /** Wrap a lazy section in a Suspense boundary so build() returns a ready node. */
 function mountSection(component: ComponentType): () => ReactNode {
   return () =>
-    createElement(
-      Suspense,
-      { fallback: null },
-      createElement(component),
-    )
+    createElement(Suspense, { fallback: null }, createElement(component))
 }
 
 const DASHBOARD_SECTIONS: readonly DashboardSection[] = [

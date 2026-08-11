@@ -1,42 +1,44 @@
-import type { MissingTokenModelsByName } from './routeMissingTokenHints.js';
-import type { RouteSummaryRow } from '../../features/token-routes/types.js';
-import { isExactModelPattern } from '../../features/token-routes/utils.js';
+import type { RouteSummaryRow } from '../../features/token-routes/types.js'
+import { isExactModelPattern } from '../../features/token-routes/utils.js'
+import type { MissingTokenModelsByName } from './routeMissingTokenHints.js'
 
 function buildStableVirtualRouteId(modelName: string): number {
-  const normalized = modelName.trim().toLowerCase();
-  let hash = 0;
+  const normalized = modelName.trim().toLowerCase()
+  let hash = 0
   for (let index = 0; index < normalized.length; index += 1) {
-    hash = ((hash * 131) + normalized.charCodeAt(index)) % 2_147_483_647;
+    hash = (hash * 131 + normalized.charCodeAt(index)) % 2_147_483_647
   }
-  return -Math.max(1, hash || normalized.length || 1);
+  return -Math.max(1, hash || normalized.length || 1)
 }
 
 export function buildZeroChannelPlaceholderRoutes(
   routes: RouteSummaryRow[],
   modelsWithoutToken: MissingTokenModelsByName,
-  modelsMissingTokenGroups: MissingTokenModelsByName,
+  modelsMissingTokenGroups: MissingTokenModelsByName
 ): RouteSummaryRow[] {
   const exactRouteNames = new Set(
     (routes || [])
       .filter((route) => isExactModelPattern(route.modelPattern))
       .map((route) => (route.modelPattern || '').trim().toLowerCase())
-      .filter(Boolean),
-  );
+      .filter(Boolean)
+  )
 
-  const placeholderByModel = new Map<string, RouteSummaryRow>();
+  const placeholderByModel = new Map<string, RouteSummaryRow>()
   const mergeMissingHints = (missingByModel: MissingTokenModelsByName) => {
-    for (const [rawModelName, accounts] of Object.entries(missingByModel || {})) {
-      const modelName = String(rawModelName || '').trim();
-      if (!modelName) continue;
-      if (!isExactModelPattern(modelName)) continue;
-      if (exactRouteNames.has(modelName.toLowerCase())) continue;
+    for (const [rawModelName, accounts] of Object.entries(
+      missingByModel || {}
+    )) {
+      const modelName = String(rawModelName || '').trim()
+      if (!modelName) continue
+      if (!isExactModelPattern(modelName)) continue
+      if (exactRouteNames.has(modelName.toLowerCase())) continue
 
-      const routeKey = modelName.toLowerCase();
-      const existing = placeholderByModel.get(routeKey);
-      const siteNames = new Set<string>(existing?.siteNames || []);
+      const routeKey = modelName.toLowerCase()
+      const existing = placeholderByModel.get(routeKey)
+      const siteNames = new Set<string>(existing?.siteNames || [])
       for (const account of accounts || []) {
-        const siteName = String(account?.siteName || '').trim();
-        if (siteName) siteNames.add(siteName);
+        const siteName = String(account?.siteName || '').trim()
+        if (siteName) siteNames.add(siteName)
       }
 
       placeholderByModel.set(routeKey, {
@@ -49,19 +51,24 @@ export function buildZeroChannelPlaceholderRoutes(
         enabled: false,
         channelCount: 0,
         enabledChannelCount: 0,
-        siteNames: [...siteNames].sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' })),
+        siteNames: [...siteNames].sort((left, right) =>
+          left.localeCompare(right, undefined, { sensitivity: 'base' })
+        ),
         decisionSnapshot: null,
         decisionRefreshedAt: null,
         kind: 'zero_channel',
         readOnly: true,
         isVirtual: true,
-      });
+      })
     }
-  };
+  }
 
-  mergeMissingHints(modelsWithoutToken);
-  mergeMissingHints(modelsMissingTokenGroups);
+  mergeMissingHints(modelsWithoutToken)
+  mergeMissingHints(modelsMissingTokenGroups)
 
-  return [...placeholderByModel.values()]
-    .sort((left, right) => left.modelPattern.localeCompare(right.modelPattern, undefined, { sensitivity: 'base' }));
+  return [...placeholderByModel.values()].sort((left, right) =>
+    left.modelPattern.localeCompare(right.modelPattern, undefined, {
+      sensitivity: 'base',
+    })
+  )
 }

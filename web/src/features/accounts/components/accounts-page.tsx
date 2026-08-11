@@ -8,7 +8,6 @@
 // TanStack Query mutation hooks; the create/edit form, detail sheet, and
 // delete confirm live as siblings of the table.
 
-import { useEffect, useMemo, useState } from 'react'
 import type {
   ColumnFiltersState,
   OnChangeFn,
@@ -16,6 +15,7 @@ import type {
   Table,
 } from '@tanstack/react-table'
 import { Loader2, Plus, Power, RefreshCw, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -43,14 +43,10 @@ import {
   useToggleAccountPin,
   useToggleAccountStatus,
 } from '../api'
-import {
-  type Account,
-  type AccountRowActions,
-  accountSchema,
-} from '../types'
-import { useAccountsColumns } from './accounts-columns'
+import { type Account, type AccountRowActions, accountSchema } from '../types'
 import { AccountDetailSheet } from './account-detail-sheet'
 import { AccountFormDialog } from './account-form-dialog'
+import { useAccountsColumns } from './accounts-columns'
 
 // ---------------------------------------------------------------------------
 // URL state helpers — read initial table state from the query string on mount
@@ -71,7 +67,13 @@ const DEFAULT_PAGE_SIZE = 20
 
 function readInitialFromUrl(): InitialUrlState {
   if (typeof window === 'undefined') {
-    return { page: 1, pageSize: DEFAULT_PAGE_SIZE, search: '', status: [], siteIds: [] }
+    return {
+      page: 1,
+      pageSize: DEFAULT_PAGE_SIZE,
+      search: '',
+      status: [],
+      siteIds: [],
+    }
   }
   const params = new URLSearchParams(window.location.search)
   const page = Math.max(1, Number(params.get('page')) || 1)
@@ -107,8 +109,12 @@ export function AccountsPage() {
   const [globalFilter, setGlobalFilter] = useState(initial.search)
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() => {
     const filters: ColumnFiltersState = []
-    if (initial.status.length) filters.push({ id: 'status', value: initial.status })
-    if (initial.siteIds.length) filters.push({ id: 'site', value: initial.siteIds })
+    if (initial.status.length) {
+      filters.push({ id: 'status', value: initial.status })
+    }
+    if (initial.siteIds.length) {
+      filters.push({ id: 'site', value: initial.siteIds })
+    }
     return filters
   })
 
@@ -116,21 +122,33 @@ export function AccountsPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams()
-    if (pagination.pageIndex > 0) params.set('page', String(pagination.pageIndex + 1))
+    if (pagination.pageIndex > 0) {
+      params.set('page', String(pagination.pageIndex + 1))
+    }
     if (pagination.pageSize !== DEFAULT_PAGE_SIZE) {
       params.set('pageSize', String(pagination.pageSize))
     }
     if (globalFilter) params.set('q', globalFilter)
     const statusFilter = columnFilters.find((filter) => filter.id === 'status')
-    if (statusFilter && Array.isArray(statusFilter.value) && statusFilter.value.length) {
+    if (
+      statusFilter &&
+      Array.isArray(statusFilter.value) &&
+      statusFilter.value.length
+    ) {
       params.set('status', statusFilter.value.join(','))
     }
     const siteFilter = columnFilters.find((filter) => filter.id === 'site')
-    if (siteFilter && Array.isArray(siteFilter.value) && siteFilter.value.length) {
+    if (
+      siteFilter &&
+      Array.isArray(siteFilter.value) &&
+      siteFilter.value.length
+    ) {
       params.set('site', siteFilter.value.join(','))
     }
     const query = params.toString()
-    const url = query ? `${window.location.pathname}?${query}` : window.location.pathname
+    const url = query
+      ? `${window.location.pathname}?${query}`
+      : window.location.pathname
     window.history.replaceState(null, '', url)
   }, [pagination, globalFilter, columnFilters])
 
@@ -138,20 +156,20 @@ export function AccountsPage() {
   const onGlobalFilterChange = useMemo<OnChangeFn<string>>(
     () => (updater) => {
       setGlobalFilter((prev) =>
-        updater instanceof Function ? updater(prev) : updater,
+        updater instanceof Function ? updater(prev) : updater
       )
       setPagination((prev) => ({ ...prev, pageIndex: 0 }))
     },
-    [],
+    []
   )
   const onColumnFiltersChange = useMemo<OnChangeFn<ColumnFiltersState>>(
     () => (updater) => {
       setColumnFilters((prev) =>
-        updater instanceof Function ? updater(prev) : updater,
+        updater instanceof Function ? updater(prev) : updater
       )
       setPagination((prev) => ({ ...prev, pageIndex: 0 }))
     },
-    [],
+    []
   )
 
   // --- dialog state ---
@@ -247,7 +265,7 @@ export function AccountsPage() {
       <div className='flex items-center justify-between'>
         <div>
           <h1 className='text-lg font-semibold'>{t('accounts.page.title')}</h1>
-          <p className='text-sm text-muted-foreground'>
+          <p className='text-muted-foreground text-sm'>
             {t('accounts.page.description')}
           </p>
         </div>
@@ -258,7 +276,7 @@ export function AccountsPage() {
       </div>
 
       {error && (
-        <div className='rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive'>
+        <div className='border-destructive/40 bg-destructive/10 text-destructive rounded-lg border p-3 text-sm'>
           {t('accounts.page.loadError', { message: (error as Error).message })}
         </div>
       )}
@@ -280,9 +298,18 @@ export function AccountsPage() {
               title: t('accounts.page.filterStatusTitle'),
               singleSelect: true,
               options: [
-                { label: t('accounts.page.filterStatusActive'), value: 'active' },
-                { label: t('accounts.page.filterStatusDisabled'), value: 'disabled' },
-                { label: t('accounts.page.filterStatusExpired'), value: 'expired' },
+                {
+                  label: t('accounts.page.filterStatusActive'),
+                  value: 'active',
+                },
+                {
+                  label: t('accounts.page.filterStatusDisabled'),
+                  value: 'disabled',
+                },
+                {
+                  label: t('accounts.page.filterStatusExpired'),
+                  value: 'expired',
+                },
               ],
             },
             ...(sites.length > 0
@@ -365,7 +392,7 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
       table
         .getFilteredSelectedRowModel()
         .rows.map((row) => accountSchema.parse(row.original).id),
-    [table],
+    [table]
   )
 
   const runBatch = async (action: BatchAccountAction) => {
@@ -379,7 +406,10 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
   }
 
   return (
-    <DataTableBulkActions table={table} entityName={t('accounts.bulk.entityName')}>
+    <DataTableBulkActions
+      table={table}
+      entityName={t('accounts.bulk.entityName')}
+    >
       <Button
         size='xs'
         variant='outline'

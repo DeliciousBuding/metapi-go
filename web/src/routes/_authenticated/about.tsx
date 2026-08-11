@@ -10,6 +10,6 @@ import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
 export const Route = createFileRoute('/_authenticated/about')({
   component: lazyRouteComponent(
     () => import('@/features/about/components/about-page'),
-    'AboutPage',
+    'AboutPage'
   ),
 })

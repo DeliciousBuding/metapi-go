@@ -11,12 +11,19 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/deliciousbuding/metapi-go/app"
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/version"
 	"github.com/deliciousbuding/metapi-go/router"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/deliciousbuding/metapi-go/web"
 )
 
 func main() {
+	// ---- Version flag (e.g. `metapi --version`) ----
+	if len(os.Args) > 1 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
+		fmt.Println(version.Version)
+		os.Exit(0)
+	}
+
 	// ---- Healthcheck subcommand (for Docker HEALTHCHECK without curl) ----
 	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
 		os.Exit(runHealthcheck())

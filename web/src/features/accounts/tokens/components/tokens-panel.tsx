@@ -125,12 +125,12 @@ export function TokensPanel({ accountId }: TokensPanelProps) {
       <Separator />
 
       {isLoading ? (
-        <div className='flex items-center justify-center py-6 text-muted-foreground text-sm'>
+        <div className='text-muted-foreground flex items-center justify-center py-6 text-sm'>
           <Loader2 className='size-4 animate-spin' />
           {t('accounts.tokens.loading')}
         </div>
       ) : tokens.length === 0 ? (
-        <p className='py-6 text-center text-muted-foreground text-sm'>
+        <p className='text-muted-foreground py-6 text-center text-sm'>
           {t('accounts.tokens.empty')}
         </p>
       ) : (
@@ -198,7 +198,7 @@ function TokenRow({
             </Badge>
           )}
         </div>
-        <span className='font-mono text-[11px] text-muted-foreground truncate'>
+        <span className='text-muted-foreground truncate font-mono text-[11px]'>
           {token.tokenMasked || token.token || '—'}
         </span>
       </div>
@@ -327,7 +327,7 @@ function AccountTokenForm({
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit, onInvalid)}
-        className='flex flex-col gap-3 rounded-lg border bg-muted/30 p-3'
+        className='bg-muted/30 flex flex-col gap-3 rounded-lg border p-3'
       >
         <FormField
           control={form.control}
@@ -356,7 +356,11 @@ function AccountTokenForm({
               <FormControl>
                 <Input
                   className='font-mono text-xs'
-                  placeholder={isEdit ? t('accounts.tokens.form.valuePlaceholder') : 'sk-...'}
+                  placeholder={
+                    isEdit
+                      ? t('accounts.tokens.form.valuePlaceholder')
+                      : 'sk-...'
+                  }
                   {...field}
                   value={field.value ?? ''}
                 />
@@ -404,7 +408,7 @@ function AccountTokenForm({
                       field.onChange(
                         event.target.value === ''
                           ? undefined
-                          : Number(event.target.value),
+                          : Number(event.target.value)
                       )
                     }
                     onBlur={field.onBlur}
@@ -423,7 +427,9 @@ function AccountTokenForm({
             <FormItem className='flex flex-row items-center justify-between rounded-lg border p-2.5'>
               <div className='space-y-0.5'>
                 <FormLabel>{t('accounts.tokens.form.unlimited')}</FormLabel>
-                <FormDescription>{t('accounts.tokens.form.unlimitedHint')}</FormDescription>
+                <FormDescription>
+                  {t('accounts.tokens.form.unlimitedHint')}
+                </FormDescription>
               </div>
               <FormControl>
                 <Switch
@@ -462,7 +468,9 @@ function AccountTokenForm({
                 <FormLabel>{t('accounts.tokens.form.allowedIps')}</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder={t('accounts.tokens.form.allowedIpsPlaceholder')}
+                    placeholder={t(
+                      'accounts.tokens.form.allowedIpsPlaceholder'
+                    )}
                     {...field}
                     value={field.value ?? ''}
                   />

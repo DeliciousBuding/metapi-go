@@ -30,7 +30,7 @@ import {
  * array for the table.
  */
 export function useAnnouncements(
-  options?: Omit<UseQueryOptions<SiteAnnouncement[]>, 'queryKey' | 'queryFn'>,
+  options?: Omit<UseQueryOptions<SiteAnnouncement[]>, 'queryKey' | 'queryFn'>
 ) {
   return useQuery<SiteAnnouncement[]>({
     queryKey: announcementsKeys.list(),
@@ -55,7 +55,7 @@ export function useCreateAnnouncement(
     Error,
     AnnouncementFormPayload,
     CreateAnnouncementContext
-  >,
+  >
 ) {
   const queryClient = useQueryClient()
   return useMutation<
@@ -65,13 +65,14 @@ export function useCreateAnnouncement(
     CreateAnnouncementContext
   >({
     mutationFn: async (payload) => {
-      const response: AnnouncementsResponse = await api.createAnnouncement(payload)
+      const response: AnnouncementsResponse =
+        await api.createAnnouncement(payload)
       return (response.items ?? []) as SiteAnnouncement[]
     },
     onMutate: async (payload) => {
       await queryClient.cancelQueries({ queryKey: announcementsKeys.list() })
       const previous = queryClient.getQueryData<SiteAnnouncement[]>(
-        announcementsKeys.list(),
+        announcementsKeys.list()
       )
       const optimistic: SiteAnnouncement = {
         id: Math.floor(Math.random() * -1_000_000),
@@ -85,10 +86,10 @@ export function useCreateAnnouncement(
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
-      queryClient.setQueryData<SiteAnnouncement[]>(announcementsKeys.list(), (current) => [
-        optimistic,
-        ...(current ?? []),
-      ])
+      queryClient.setQueryData<SiteAnnouncement[]>(
+        announcementsKeys.list(),
+        (current) => [optimistic, ...(current ?? [])]
+      )
       return { previous }
     },
     onError: (_error, _payload, context) => {
@@ -117,7 +118,7 @@ export function useUpdateAnnouncement(
     Error,
     { id: number; payload: AnnouncementFormPayload },
     UpdateAnnouncementContext
-  >,
+  >
 ) {
   const queryClient = useQueryClient()
   return useMutation<
@@ -132,22 +133,24 @@ export function useUpdateAnnouncement(
     onMutate: async ({ id, payload }) => {
       await queryClient.cancelQueries({ queryKey: announcementsKeys.list() })
       const previous = queryClient.getQueryData<SiteAnnouncement[]>(
-        announcementsKeys.list(),
+        announcementsKeys.list()
       )
-      queryClient.setQueryData<SiteAnnouncement[]>(announcementsKeys.list(), (current) =>
-        (current ?? []).map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                title: payload.title,
-                message: payload.message,
-                severity: payload.severity,
-                link: payload.link ?? null,
-                enabled: payload.enabled ?? item.enabled,
-                updatedAt: new Date().toISOString(),
-              }
-            : item,
-        ),
+      queryClient.setQueryData<SiteAnnouncement[]>(
+        announcementsKeys.list(),
+        (current) =>
+          (current ?? []).map((item) =>
+            item.id === id
+              ? {
+                  ...item,
+                  title: payload.title,
+                  message: payload.message,
+                  severity: payload.severity,
+                  link: payload.link ?? null,
+                  enabled: payload.enabled ?? item.enabled,
+                  updatedAt: new Date().toISOString(),
+                }
+              : item
+          )
       )
       return { previous }
     },
@@ -169,12 +172,7 @@ type DeleteAnnouncementContext = { previous: SiteAnnouncement[] | undefined }
  * Delete an announcement by id. Removes the row optimistically.
  */
 export function useDeleteAnnouncement(
-  options?: UseMutationOptions<
-    void,
-    Error,
-    number,
-    DeleteAnnouncementContext
-  >,
+  options?: UseMutationOptions<void, Error, number, DeleteAnnouncementContext>
 ) {
   const queryClient = useQueryClient()
   return useMutation<void, Error, number, DeleteAnnouncementContext>({
@@ -184,11 +182,11 @@ export function useDeleteAnnouncement(
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: announcementsKeys.list() })
       const previous = queryClient.getQueryData<SiteAnnouncement[]>(
-        announcementsKeys.list(),
+        announcementsKeys.list()
       )
       queryClient.setQueryData<SiteAnnouncement[]>(
         announcementsKeys.list(),
-        (current) => (current ?? []).filter((item) => item.id !== id),
+        (current) => (current ?? []).filter((item) => item.id !== id)
       )
       return { previous }
     },

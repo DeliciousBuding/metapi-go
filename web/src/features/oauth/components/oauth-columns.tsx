@@ -62,8 +62,15 @@ function StatusBadge({ status }: { status: OAuthClientStatus | undefined }) {
   )
 }
 
-function TruncatedText({ text, maxLength = 160 }: { text: string; maxLength?: number }) {
-  const display = text.length > maxLength ? `${text.slice(0, maxLength)}…` : text
+function TruncatedText({
+  text,
+  maxLength = 160,
+}: {
+  text: string
+  maxLength?: number
+}) {
+  const display =
+    text.length > maxLength ? `${text.slice(0, maxLength)}…` : text
   return (
     <span className='block max-w-[18rem] truncate text-sm' title={text}>
       {display}
@@ -83,7 +90,9 @@ function formatTimestamp(value?: string | null): string {
  * a hook because it reads i18n state). The `actions` callbacks are supplied
  * by the page so the columns stay free of mutation/query concerns.
  */
-export function useOAuthColumns(actions: OAuthColumnActions): ColumnDef<OAuthClient>[] {
+export function useOAuthColumns(
+  actions: OAuthColumnActions
+): ColumnDef<OAuthClient>[] {
   const { t } = useTranslation()
 
   const columns: ColumnDef<OAuthClient>[] = [
@@ -97,7 +106,9 @@ export function useOAuthColumns(actions: OAuthColumnActions): ColumnDef<OAuthCli
       header: ({ table }) => (
         <Checkbox
           checked={table.getIsAllRowsSelected()}
-          indeterminate={table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()}
+          indeterminate={
+            table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()
+          }
           onCheckedChange={(value) => table.toggleAllRowsSelected(!!value)}
           aria-label={t('oauth.columns.selectAll')}
         />
@@ -117,7 +128,10 @@ export function useOAuthColumns(actions: OAuthColumnActions): ColumnDef<OAuthCli
       size: 160,
       meta: { mobileTitle: true, mobileOrder: 0 },
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('oauth.columns.provider')} />
+        <DataTableColumnHeader
+          column={column}
+          title={t('oauth.columns.provider')}
+        />
       ),
       cell: ({ row }) => (
         <span className='font-medium'>{row.original.provider}</span>
@@ -129,7 +143,10 @@ export function useOAuthColumns(actions: OAuthColumnActions): ColumnDef<OAuthCli
       size: 200,
       meta: { mobileOrder: 1 },
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('oauth.columns.username')} />
+        <DataTableColumnHeader
+          column={column}
+          title={t('oauth.columns.username')}
+        />
       ),
       cell: ({ row }) => {
         const client = row.original
@@ -147,7 +164,10 @@ export function useOAuthColumns(actions: OAuthColumnActions): ColumnDef<OAuthCli
       size: 180,
       meta: { mobileHidden: true, mobileOrder: 10 },
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('oauth.columns.site')} />
+        <DataTableColumnHeader
+          column={column}
+          title={t('oauth.columns.site')}
+        />
       ),
       cell: ({ row }) => {
         const siteName = row.original.site?.name
@@ -164,7 +184,10 @@ export function useOAuthColumns(actions: OAuthColumnActions): ColumnDef<OAuthCli
       size: 120,
       meta: { mobileBadge: true, mobileOrder: 2 },
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('oauth.columns.status')} />
+        <DataTableColumnHeader
+          column={column}
+          title={t('oauth.columns.status')}
+        />
       ),
       cell: ({ row }) => <StatusBadge status={row.original.status} />,
       filterFn: (row, columnId, filterValue) => {
@@ -183,10 +206,15 @@ export function useOAuthColumns(actions: OAuthColumnActions): ColumnDef<OAuthCli
       size: 120,
       meta: { mobileOrder: 20 },
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('oauth.columns.modelCount')} />
+        <DataTableColumnHeader
+          column={column}
+          title={t('oauth.columns.modelCount')}
+        />
       ),
       cell: ({ row }) => (
-        <span className='text-sm tabular-nums'>{row.original.modelCount ?? 0}</span>
+        <span className='text-sm tabular-nums'>
+          {row.original.modelCount ?? 0}
+        </span>
       ),
     },
     {
@@ -195,7 +223,10 @@ export function useOAuthColumns(actions: OAuthColumnActions): ColumnDef<OAuthCli
       size: 180,
       meta: { mobileHidden: true, mobileOrder: 30 },
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('oauth.columns.lastSync')} />
+        <DataTableColumnHeader
+          column={column}
+          title={t('oauth.columns.lastSync')}
+        />
       ),
       cell: ({ row }) => (
         <span className='text-muted-foreground text-sm tabular-nums'>
@@ -211,7 +242,9 @@ export function useOAuthColumns(actions: OAuthColumnActions): ColumnDef<OAuthCli
       enableResizing: false,
       meta: { mobileHidden: false, mobileOrder: 5 },
       header: () => (
-        <span className='text-muted-foreground text-xs'>{t('oauth.columns.actions')}</span>
+        <span className='text-muted-foreground text-xs'>
+          {t('oauth.columns.actions')}
+        </span>
       ),
       cell: ({ row }) => {
         const client = row.original
@@ -231,7 +264,9 @@ export function useOAuthColumns(actions: OAuthColumnActions): ColumnDef<OAuthCli
                 <MoreHorizontalIcon className='size-4' />
               </DropdownMenuTrigger>
               <DropdownMenuContent align='end' className='w-48'>
-                <DropdownMenuItem onClick={() => actions.onRefreshQuota(client)}>
+                <DropdownMenuItem
+                  onClick={() => actions.onRefreshQuota(client)}
+                >
                   <RefreshCwIcon className='text-muted-foreground/70 size-3.5' />
                   {t('oauth.actions.refreshQuota')}
                 </DropdownMenuItem>

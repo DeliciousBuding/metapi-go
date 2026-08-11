@@ -44,7 +44,9 @@ function isEmptyOrValidJson(value: string): boolean {
   if (trimmed.length === 0) return true
   try {
     const parsed: unknown = JSON.parse(trimmed)
-    return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+    return (
+      parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+    )
   } catch {
     return false
   }
@@ -82,9 +84,10 @@ export const siteFormSchema = z.object({
     .min(0, 'sites.form.errors.maxConcurrencyMin'),
   postRefreshProbeEnabled: z.boolean(),
   postRefreshProbeModel: z.string().trim(),
-  postRefreshProbeScope: z.enum(
-    ['single', 'all'] as const satisfies readonly SiteProbeScope[],
-  ),
+  postRefreshProbeScope: z.enum([
+    'single',
+    'all',
+  ] as const satisfies readonly SiteProbeScope[]),
   postRefreshProbeLatencyThresholdMs: z
     .number()
     .int('sites.form.errors.latencyInteger')
@@ -143,7 +146,6 @@ export const sitesSearchSchema = z.object({
     .transform((value) => encodeSortingParam(value)),
   status: z.string().optional(),
 })
-
 
 export const SORTING_ITEM_SCHEMA = sortingItemSchema
 export const PAGINATION_SCHEMA = paginationSchema

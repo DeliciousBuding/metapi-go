@@ -14,8 +14,8 @@
 
 import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
 
-import { api } from '@/lib/api'
 import { oauthKeys, oauthSearchSchema } from '@/features/oauth'
+import { api } from '@/lib/api'
 
 export const Route = createFileRoute('/_authenticated/oauth')({
   validateSearch: oauthSearchSchema,
@@ -42,6 +42,6 @@ export const Route = createFileRoute('/_authenticated/oauth')({
   },
   component: lazyRouteComponent(
     () => import('@/features/oauth/components/oauth-page'),
-    'OAuthPage',
+    'OAuthPage'
   ),
 })

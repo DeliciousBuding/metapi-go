@@ -19,8 +19,6 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
-import { api } from '@/lib/api'
-
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -33,6 +31,8 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { api } from '@/lib/api'
+
 import {
   SettingsSectionCard,
   SettingsSectionSkeleton,
@@ -160,7 +160,8 @@ export function NotificationsSection() {
         serverChanKey: '',
         telegramEnabled: asBoolean(data.telegramEnabled),
         telegramUseSystemProxy: asBoolean(data.telegramUseSystemProxy),
-        telegramApiBaseUrl: asString(data.telegramApiBaseUrl) || 'https://api.telegram.org',
+        telegramApiBaseUrl:
+          asString(data.telegramApiBaseUrl) || 'https://api.telegram.org',
         telegramBotToken: '',
         telegramChatId: asString(data.telegramChatId),
         telegramMessageThreadId: asString(data.telegramMessageThreadId),
@@ -188,14 +189,16 @@ export function NotificationsSection() {
         muteLowBalance: asBoolean(toggles.low_balance),
         muteProxyAllFailed: asBoolean(toggles.proxy_all_failed),
       },
-      { keepDirtyValues: true },
+      { keepDirtyValues: true }
     )
   }, [data, form])
 
   const testMutation = useMutation({
     mutationFn: async () => api.testNotification(),
-    onSuccess: () => toast.success(t('settings.content.notifications.toast.testSent')),
-    onError: () => toast.error(t('settings.content.notifications.toast.testFailed')),
+    onSuccess: () =>
+      toast.success(t('settings.content.notifications.toast.testSent')),
+    onError: () =>
+      toast.error(t('settings.content.notifications.toast.testFailed')),
   })
 
   function onSubmit(values: NotifyFormValues) {
@@ -217,8 +220,10 @@ export function NotificationsSection() {
       }
     }
     updateMutation.mutate(payload as never, {
-      onSuccess: () => toast.success(t('settings.content.notifications.toast.saved')),
-      onError: () => toast.error(t('settings.content.notifications.toast.saveFailed')),
+      onSuccess: () =>
+        toast.success(t('settings.content.notifications.toast.saved')),
+      onError: () =>
+        toast.error(t('settings.content.notifications.toast.saveFailed')),
     })
   }
 
@@ -259,47 +264,87 @@ export function NotificationsSection() {
                   {t('settings.content.notifications.fields.notifyCooldownSec')}
                 </FormLabel>
                 <FormControl>
-                  <Input {...field} value={field.value ?? ''} type='number' min={0} />
+                  <Input
+                    {...field}
+                    value={field.value ?? ''}
+                    type='number'
+                    min={0}
+                  />
                 </FormControl>
                 <FormDescription>
-                  {t('settings.content.notifications.fields.notifyCooldownSecHint')}
+                  {t(
+                    'settings.content.notifications.fields.notifyCooldownSecHint'
+                  )}
                 </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
 
-          <ChannelGroup title={t('settings.content.notifications.channels.webhook')}>
+          <ChannelGroup
+            title={t('settings.content.notifications.channels.webhook')}
+          >
             <FormField
               control={form.control}
               name='webhookEnabled'
-              render={({ field }) => <ToggleField label='settings.content.notifications.fields.webhookEnabled' field={field} />}
+              render={({ field }) => (
+                <ToggleField
+                  label='settings.content.notifications.fields.webhookEnabled'
+                  field={field}
+                />
+              )}
             />
             <FormField
               control={form.control}
               name='webhookUrl'
-              render={({ field }) => <UrlField label='settings.content.notifications.fields.webhookUrl' field={field} placeholder='https://your-webhook-url' />}
+              render={({ field }) => (
+                <UrlField
+                  label='settings.content.notifications.fields.webhookUrl'
+                  field={field}
+                  placeholder='https://your-webhook-url'
+                />
+              )}
             />
           </ChannelGroup>
 
-          <ChannelGroup title={t('settings.content.notifications.channels.bark')}>
+          <ChannelGroup
+            title={t('settings.content.notifications.channels.bark')}
+          >
             <FormField
               control={form.control}
               name='barkEnabled'
-              render={({ field }) => <ToggleField label='settings.content.notifications.fields.barkEnabled' field={field} />}
+              render={({ field }) => (
+                <ToggleField
+                  label='settings.content.notifications.fields.barkEnabled'
+                  field={field}
+                />
+              )}
             />
             <FormField
               control={form.control}
               name='barkUrl'
-              render={({ field }) => <UrlField label='settings.content.notifications.fields.barkUrl' field={field} placeholder='https://api.day.app/your_key' />}
+              render={({ field }) => (
+                <UrlField
+                  label='settings.content.notifications.fields.barkUrl'
+                  field={field}
+                  placeholder='https://api.day.app/your_key'
+                />
+              )}
             />
           </ChannelGroup>
 
-          <ChannelGroup title={t('settings.content.notifications.channels.serverChan')}>
+          <ChannelGroup
+            title={t('settings.content.notifications.channels.serverChan')}
+          >
             <FormField
               control={form.control}
               name='serverChanEnabled'
-              render={({ field }) => <ToggleField label='settings.content.notifications.fields.serverChanEnabled' field={field} />}
+              render={({ field }) => (
+                <ToggleField
+                  label='settings.content.notifications.fields.serverChanEnabled'
+                  field={field}
+                />
+              )}
             />
             <FormField
               control={form.control}
@@ -314,31 +359,59 @@ export function NotificationsSection() {
             />
           </ChannelGroup>
 
-          <ChannelGroup title={t('settings.content.notifications.channels.telegram')}>
+          <ChannelGroup
+            title={t('settings.content.notifications.channels.telegram')}
+          >
             <FormField
               control={form.control}
               name='telegramEnabled'
-              render={({ field }) => <ToggleField label='settings.content.notifications.fields.telegramEnabled' field={field} />}
+              render={({ field }) => (
+                <ToggleField
+                  label='settings.content.notifications.fields.telegramEnabled'
+                  field={field}
+                />
+              )}
             />
             <FormField
               control={form.control}
               name='telegramChatId'
-              render={({ field }) => <TextField label='settings.content.notifications.fields.telegramChatId' field={field} />}
+              render={({ field }) => (
+                <TextField
+                  label='settings.content.notifications.fields.telegramChatId'
+                  field={field}
+                />
+              )}
             />
             <FormField
               control={form.control}
               name='telegramMessageThreadId'
-              render={({ field }) => <TextField label='settings.content.notifications.fields.telegramMessageThreadId' field={field} />}
+              render={({ field }) => (
+                <TextField
+                  label='settings.content.notifications.fields.telegramMessageThreadId'
+                  field={field}
+                />
+              )}
             />
             <FormField
               control={form.control}
               name='telegramApiBaseUrl'
-              render={({ field }) => <UrlField label='settings.content.notifications.fields.telegramApiBaseUrl' field={field} placeholder='https://api.telegram.org' />}
+              render={({ field }) => (
+                <UrlField
+                  label='settings.content.notifications.fields.telegramApiBaseUrl'
+                  field={field}
+                  placeholder='https://api.telegram.org'
+                />
+              )}
             />
             <FormField
               control={form.control}
               name='telegramUseSystemProxy'
-              render={({ field }) => <ToggleField label='settings.content.notifications.fields.telegramUseSystemProxy' field={field} />}
+              render={({ field }) => (
+                <ToggleField
+                  label='settings.content.notifications.fields.telegramUseSystemProxy'
+                  field={field}
+                />
+              )}
             />
             <FormField
               control={form.control}
@@ -353,26 +426,44 @@ export function NotificationsSection() {
             />
           </ChannelGroup>
 
-          <ChannelGroup title={t('settings.content.notifications.channels.smtp')}>
+          <ChannelGroup
+            title={t('settings.content.notifications.channels.smtp')}
+          >
             <FormField
               control={form.control}
               name='smtpEnabled'
-              render={({ field }) => <ToggleField label='settings.content.notifications.fields.smtpEnabled' field={field} />}
+              render={({ field }) => (
+                <ToggleField
+                  label='settings.content.notifications.fields.smtpEnabled'
+                  field={field}
+                />
+              )}
             />
             <div className='grid grid-cols-2 gap-4'>
               <FormField
                 control={form.control}
                 name='smtpHost'
-                render={({ field }) => <TextField label='settings.content.notifications.fields.smtpHost' field={field} />}
+                render={({ field }) => (
+                  <TextField
+                    label='settings.content.notifications.fields.smtpHost'
+                    field={field}
+                  />
+                )}
               />
               <FormField
                 control={form.control}
                 name='smtpPort'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('settings.content.notifications.fields.smtpPort')}</FormLabel>
+                    <FormLabel>
+                      {t('settings.content.notifications.fields.smtpPort')}
+                    </FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value ?? ''} type='number' />
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        type='number'
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -381,7 +472,12 @@ export function NotificationsSection() {
               <FormField
                 control={form.control}
                 name='smtpUser'
-                render={({ field }) => <TextField label='settings.content.notifications.fields.smtpUser' field={field} />}
+                render={({ field }) => (
+                  <TextField
+                    label='settings.content.notifications.fields.smtpUser'
+                    field={field}
+                  />
+                )}
               />
               <FormField
                 control={form.control}
@@ -397,31 +493,58 @@ export function NotificationsSection() {
               <FormField
                 control={form.control}
                 name='smtpFrom'
-                render={({ field }) => <TextField label='settings.content.notifications.fields.smtpFrom' field={field} />}
+                render={({ field }) => (
+                  <TextField
+                    label='settings.content.notifications.fields.smtpFrom'
+                    field={field}
+                  />
+                )}
               />
               <FormField
                 control={form.control}
                 name='smtpTo'
-                render={({ field }) => <TextField label='settings.content.notifications.fields.smtpTo' field={field} />}
+                render={({ field }) => (
+                  <TextField
+                    label='settings.content.notifications.fields.smtpTo'
+                    field={field}
+                  />
+                )}
               />
             </div>
             <FormField
               control={form.control}
               name='smtpSecure'
-              render={({ field }) => <ToggleField label='settings.content.notifications.fields.smtpSecure' field={field} />}
+              render={({ field }) => (
+                <ToggleField
+                  label='settings.content.notifications.fields.smtpSecure'
+                  field={field}
+                />
+              )}
             />
           </ChannelGroup>
 
-          <ChannelGroup title={t('settings.content.notifications.channels.feishu')}>
+          <ChannelGroup
+            title={t('settings.content.notifications.channels.feishu')}
+          >
             <FormField
               control={form.control}
               name='feishuEnabled'
-              render={({ field }) => <ToggleField label='settings.content.notifications.fields.feishuEnabled' field={field} />}
+              render={({ field }) => (
+                <ToggleField
+                  label='settings.content.notifications.fields.feishuEnabled'
+                  field={field}
+                />
+              )}
             />
             <FormField
               control={form.control}
               name='feishuWebhook'
-              render={({ field }) => <UrlField label='settings.content.notifications.fields.feishuWebhook' field={field} />}
+              render={({ field }) => (
+                <UrlField
+                  label='settings.content.notifications.fields.feishuWebhook'
+                  field={field}
+                />
+              )}
             />
             <FormField
               control={form.control}
@@ -436,16 +559,28 @@ export function NotificationsSection() {
             />
           </ChannelGroup>
 
-          <ChannelGroup title={t('settings.content.notifications.channels.dingtalk')}>
+          <ChannelGroup
+            title={t('settings.content.notifications.channels.dingtalk')}
+          >
             <FormField
               control={form.control}
               name='dingtalkEnabled'
-              render={({ field }) => <ToggleField label='settings.content.notifications.fields.dingtalkEnabled' field={field} />}
+              render={({ field }) => (
+                <ToggleField
+                  label='settings.content.notifications.fields.dingtalkEnabled'
+                  field={field}
+                />
+              )}
             />
             <FormField
               control={form.control}
               name='dingtalkWebhook'
-              render={({ field }) => <UrlField label='settings.content.notifications.fields.dingtalkWebhook' field={field} />}
+              render={({ field }) => (
+                <UrlField
+                  label='settings.content.notifications.fields.dingtalkWebhook'
+                  field={field}
+                />
+              )}
             />
             <FormField
               control={form.control}
@@ -460,34 +595,64 @@ export function NotificationsSection() {
             />
           </ChannelGroup>
 
-          <ChannelGroup title={t('settings.content.notifications.channels.wecom')}>
+          <ChannelGroup
+            title={t('settings.content.notifications.channels.wecom')}
+          >
             <FormField
               control={form.control}
               name='wecomEnabled'
-              render={({ field }) => <ToggleField label='settings.content.notifications.fields.wecomEnabled' field={field} />}
+              render={({ field }) => (
+                <ToggleField
+                  label='settings.content.notifications.fields.wecomEnabled'
+                  field={field}
+                />
+              )}
             />
             <FormField
               control={form.control}
               name='wecomWebhook'
-              render={({ field }) => <UrlField label='settings.content.notifications.fields.wecomWebhook' field={field} />}
+              render={({ field }) => (
+                <UrlField
+                  label='settings.content.notifications.fields.wecomWebhook'
+                  field={field}
+                />
+              )}
             />
           </ChannelGroup>
 
-          <ChannelGroup title={t('settings.content.notifications.channels.ntfy')}>
+          <ChannelGroup
+            title={t('settings.content.notifications.channels.ntfy')}
+          >
             <FormField
               control={form.control}
               name='ntfyEnabled'
-              render={({ field }) => <ToggleField label='settings.content.notifications.fields.ntfyEnabled' field={field} />}
+              render={({ field }) => (
+                <ToggleField
+                  label='settings.content.notifications.fields.ntfyEnabled'
+                  field={field}
+                />
+              )}
             />
             <FormField
               control={form.control}
               name='ntfyUrl'
-              render={({ field }) => <UrlField label='settings.content.notifications.fields.ntfyUrl' field={field} placeholder='https://ntfy.sh' />}
+              render={({ field }) => (
+                <UrlField
+                  label='settings.content.notifications.fields.ntfyUrl'
+                  field={field}
+                  placeholder='https://ntfy.sh'
+                />
+              )}
             />
             <FormField
               control={form.control}
               name='ntfyTopic'
-              render={({ field }) => <TextField label='settings.content.notifications.fields.ntfyTopic' field={field} />}
+              render={({ field }) => (
+                <TextField
+                  label='settings.content.notifications.fields.ntfyTopic'
+                  field={field}
+                />
+              )}
             />
             <FormField
               control={form.control}
@@ -509,17 +674,32 @@ export function NotificationsSection() {
             <FormField
               control={form.control}
               name='muteTokenExpired'
-              render={({ field }) => <MuteField label='settings.content.notifications.fields.muteTokenExpired' field={field} />}
+              render={({ field }) => (
+                <MuteField
+                  label='settings.content.notifications.fields.muteTokenExpired'
+                  field={field}
+                />
+              )}
             />
             <FormField
               control={form.control}
               name='muteLowBalance'
-              render={({ field }) => <MuteField label='settings.content.notifications.fields.muteLowBalance' field={field} />}
+              render={({ field }) => (
+                <MuteField
+                  label='settings.content.notifications.fields.muteLowBalance'
+                  field={field}
+                />
+              )}
             />
             <FormField
               control={form.control}
               name='muteProxyAllFailed'
-              render={({ field }) => <MuteField label='settings.content.notifications.fields.muteProxyAllFailed' field={field} />}
+              render={({ field }) => (
+                <MuteField
+                  label='settings.content.notifications.fields.muteProxyAllFailed'
+                  field={field}
+                />
+              )}
             />
           </div>
 
@@ -546,7 +726,13 @@ type FieldProps = {
   label: string
 }
 
-function ChannelGroup({ title, children }: { title: string; children: React.ReactNode }) {
+function ChannelGroup({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
   return (
     <div className='space-y-3 rounded-lg border p-4'>
       <h4 className='text-sm font-medium'>{title}</h4>
@@ -560,7 +746,10 @@ function ToggleField({ label, field }: FieldProps) {
   return (
     <FormItem className='flex flex-row items-center gap-3'>
       <FormControl>
-        <Checkbox checked={Boolean(field.value)} onCheckedChange={field.onChange} />
+        <Checkbox
+          checked={Boolean(field.value)}
+          onCheckedChange={field.onChange}
+        />
       </FormControl>
       <FormLabel className='cursor-pointer'>{t(label)}</FormLabel>
     </FormItem>
@@ -580,29 +769,49 @@ function TextField({ label, field }: FieldProps) {
   )
 }
 
-function UrlField({ label, field, placeholder }: FieldProps & { placeholder?: string }) {
+function UrlField({
+  label,
+  field,
+  placeholder,
+}: FieldProps & { placeholder?: string }) {
   const { t } = useTranslation()
   return (
     <FormItem>
       <FormLabel>{t(label)}</FormLabel>
       <FormControl>
-        <Input {...field} value={field.value ?? ''} placeholder={placeholder} className='font-mono' />
+        <Input
+          {...field}
+          value={field.value ?? ''}
+          placeholder={placeholder}
+          className='font-mono'
+        />
       </FormControl>
       <FormMessage />
     </FormItem>
   )
 }
 
-function SecretField({ label, field, masked }: FieldProps & { masked: string }) {
+function SecretField({
+  label,
+  field,
+  masked,
+}: FieldProps & { masked: string }) {
   const { t } = useTranslation()
   return (
     <FormItem>
       <FormLabel>{t(label)}</FormLabel>
       <FormControl>
-        <Input {...field} value={field.value ?? ''} type='password' placeholder={t('settings.content.notifications.secretPlaceholder')} />
+        <Input
+          {...field}
+          value={field.value ?? ''}
+          type='password'
+          placeholder={t('settings.content.notifications.secretPlaceholder')}
+        />
       </FormControl>
       {masked ? (
-        <FormDescription>{t('settings.content.notifications.masked', { masked })}</FormDescription>
+        <FormDescription>
+          {t('settings.content.notifications.masked', { masked })}
+        </FormDescription>
       ) : null}
       <FormMessage />
     </FormItem>
@@ -614,7 +823,10 @@ function MuteField({ label, field }: FieldProps) {
   return (
     <FormItem className='flex flex-row items-center gap-3'>
       <FormControl>
-        <Checkbox checked={Boolean(field.value)} onCheckedChange={field.onChange} />
+        <Checkbox
+          checked={Boolean(field.value)}
+          onCheckedChange={field.onChange}
+        />
       </FormControl>
       <FormLabel className='cursor-pointer'>{t(label)}</FormLabel>
     </FormItem>

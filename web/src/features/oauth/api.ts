@@ -20,13 +20,18 @@ import {
 
 import { api } from '@/lib/api'
 
-import { oauthKeys, type OAuthClient, type OAuthProvider, type OAuthStartPayload } from './types'
+import {
+  oauthKeys,
+  type OAuthClient,
+  type OAuthProvider,
+  type OAuthStartPayload,
+} from './types'
 
 /**
  * Fetch available OAuth providers. Used by the start-authorization dialog.
  */
 export function useOAuthProviders(
-  options?: Omit<UseQueryOptions<OAuthProvider[]>, 'queryKey' | 'queryFn'>,
+  options?: Omit<UseQueryOptions<OAuthProvider[]>, 'queryKey' | 'queryFn'>
 ) {
   return useQuery<OAuthProvider[]>({
     queryKey: oauthKeys.providers(),
@@ -43,7 +48,7 @@ export function useOAuthProviders(
  * with a large limit so the table can do client-side pagination/sorting.
  */
 export function useOAuthConnections(
-  options?: Omit<UseQueryOptions<OAuthClient[]>, 'queryKey' | 'queryFn'>,
+  options?: Omit<UseQueryOptions<OAuthClient[]>, 'queryKey' | 'queryFn'>
 ) {
   return useQuery<OAuthClient[]>({
     queryKey: oauthKeys.connections(),
@@ -65,7 +70,7 @@ export function useStartOAuth(
     Awaited<ReturnType<typeof api.startOAuthProvider>>,
     Error,
     OAuthStartPayload
-  >,
+  >
 ) {
   const queryClient = useQueryClient()
   return useMutation({
@@ -91,7 +96,7 @@ export function useDeleteOAuthConnection(
     Error,
     number,
     DeleteOAuthConnectionContext
-  >,
+  >
 ) {
   const queryClient = useQueryClient()
   return useMutation<void, Error, number, DeleteOAuthConnectionContext>({
@@ -101,10 +106,12 @@ export function useDeleteOAuthConnection(
     onMutate: async (accountId) => {
       await queryClient.cancelQueries({ queryKey: oauthKeys.connections() })
       const previous = queryClient.getQueryData<OAuthClient[]>(
-        oauthKeys.connections(),
+        oauthKeys.connections()
       )
-      queryClient.setQueryData<OAuthClient[]>(oauthKeys.connections(), (current) =>
-        (current ?? []).filter((client) => client.accountId !== accountId),
+      queryClient.setQueryData<OAuthClient[]>(
+        oauthKeys.connections(),
+        (current) =>
+          (current ?? []).filter((client) => client.accountId !== accountId)
       )
       return { previous }
     },
@@ -129,7 +136,7 @@ export function useRefreshOAuthQuota(
     Awaited<ReturnType<typeof api.refreshOAuthConnectionQuota>>,
     Error,
     number
-  >,
+  >
 ) {
   const queryClient = useQueryClient()
   return useMutation({
@@ -153,7 +160,7 @@ export function useRebindOAuthConnection(
     Awaited<ReturnType<typeof api.rebindOAuthConnection>>,
     Error,
     number
-  >,
+  >
 ) {
   const queryClient = useQueryClient()
   return useMutation({

@@ -5,8 +5,8 @@
 
 import { createElement } from 'react'
 
-import { createSectionRegistry } from '../../utils/section-registry'
 import type { SettingsSubarea } from '../../types'
+import { createSectionRegistry } from '../../utils/section-registry'
 import { AllowlistSection } from './components/allowlist-section'
 import { RatesSection } from './components/rates-section'
 import { RedirectsSection } from './components/redirects-section'

@@ -14,21 +14,13 @@
 import { useMutation } from '@tanstack/react-query'
 import axios from 'axios'
 
+import { AUTH_SESSION_DURATION_MS, setAuthBundle } from '@/lib/auth-session'
 import { apiClient } from '@/lib/http-client'
-import {
-  AUTH_SESSION_DURATION_MS,
-  setAuthBundle,
-} from '@/lib/auth-session'
 import { useAuthStore } from '@/stores/auth-store'
 
 import type { AuthBundle, LoginError, LoginPayload } from './types'
 
-
-
-function resolveLoginErrorMessageKey(
-  status: number,
-  reason: string
-): string {
+function resolveLoginErrorMessageKey(status: number, reason: string): string {
   const normalized = (reason || '').trim().toLowerCase()
   if (status === 403 && normalized.includes('ip not allowed')) {
     return 'errors.login.ipNotAllowed'
@@ -100,8 +92,7 @@ export function useLogin() {
           const reason =
             typeof data === 'object' && data !== null
               ? String(
-                  (data as { message?: unknown; error?: unknown })
-                    .message ??
+                  (data as { message?: unknown; error?: unknown }).message ??
                     (data as { error?: unknown }).error ??
                     ''
                 )

@@ -78,7 +78,7 @@ export function SiteSection() {
         homePageContent: asString(data.homePageContent),
         serverAddress: asString(data.serverAddress),
       },
-      { keepDirtyValues: true },
+      { keepDirtyValues: true }
     )
   }, [data, form])
 
@@ -109,12 +109,16 @@ export function SiteSection() {
             name='systemName'
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t('settings.general.site.fields.systemName')}</FormLabel>
+                <FormLabel>
+                  {t('settings.general.site.fields.systemName')}
+                </FormLabel>
                 <FormControl>
                   <Input
                     {...field}
                     value={field.value ?? ''}
-                    placeholder={t('settings.general.site.fields.systemNamePlaceholder')}
+                    placeholder={t(
+                      'settings.general.site.fields.systemNamePlaceholder'
+                    )}
                   />
                 </FormControl>
                 <FormDescription>
@@ -149,12 +153,16 @@ export function SiteSection() {
             name='footer'
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t('settings.general.site.fields.footer')}</FormLabel>
+                <FormLabel>
+                  {t('settings.general.site.fields.footer')}
+                </FormLabel>
                 <FormControl>
                   <Input
                     {...field}
                     value={field.value ?? ''}
-                    placeholder={t('settings.general.site.fields.footerPlaceholder')}
+                    placeholder={t(
+                      'settings.general.site.fields.footerPlaceholder'
+                    )}
                   />
                 </FormControl>
                 <FormMessage />
@@ -168,11 +176,7 @@ export function SiteSection() {
               <FormItem>
                 <FormLabel>{t('settings.general.site.fields.about')}</FormLabel>
                 <FormControl>
-                  <Textarea
-                    {...field}
-                    value={field.value ?? ''}
-                    rows={4}
-                  />
+                  <Textarea {...field} value={field.value ?? ''} rows={4} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -191,7 +195,9 @@ export function SiteSection() {
                     {...field}
                     value={field.value ?? ''}
                     rows={6}
-                    placeholder={t('settings.general.site.fields.homePageContentPlaceholder')}
+                    placeholder={t(
+                      'settings.general.site.fields.homePageContentPlaceholder'
+                    )}
                   />
                 </FormControl>
                 <FormDescription>

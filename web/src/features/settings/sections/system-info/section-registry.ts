@@ -5,8 +5,8 @@
 
 import { createElement } from 'react'
 
-import { createSectionRegistry } from '../../utils/section-registry'
 import type { SettingsSubarea } from '../../types'
+import { createSectionRegistry } from '../../utils/section-registry'
 import { AuditLogsSection } from './components/audit-logs-section'
 import { DatabaseSection } from './components/database-section'
 import { MaintenanceSection } from './components/maintenance-section'

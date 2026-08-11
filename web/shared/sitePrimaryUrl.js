@@ -1,39 +1,39 @@
 function normalizePathname(pathname) {
-  let normalized = typeof pathname === 'string' ? pathname.trim() : '';
-  if (!normalized || normalized === '/') return '/';
-  if (!normalized.startsWith('/')) normalized = `/${normalized}`;
+  let normalized = typeof pathname === 'string' ? pathname.trim() : ''
+  if (!normalized || normalized === '/') return '/'
+  if (!normalized.startsWith('/')) normalized = `/${normalized}`
   while (normalized.length > 1 && normalized.endsWith('/')) {
-    normalized = normalized.slice(0, -1);
+    normalized = normalized.slice(0, -1)
   }
-  return normalized;
+  return normalized
 }
 
 function parseUrlCandidate(url) {
-  const trimmed = typeof url === 'string' ? url.trim() : '';
-  if (!trimmed) return null;
+  const trimmed = typeof url === 'string' ? url.trim() : ''
+  if (!trimmed) return null
 
   const candidates = trimmed.includes('://')
     ? [trimmed]
-    : [`https://${trimmed}`];
+    : [`https://${trimmed}`]
 
   for (const candidate of candidates) {
     try {
-      const parsed = new URL(candidate);
-      if (isSafeExternalProtocol(parsed.protocol)) return parsed;
+      const parsed = new URL(candidate)
+      if (isSafeExternalProtocol(parsed.protocol)) return parsed
     } catch {}
   }
-  return null;
+  return null
 }
 
 function isSafeExternalProtocol(protocol) {
-  return protocol === 'http:' || protocol === 'https:';
+  return protocol === 'http:' || protocol === 'https:'
 }
 
 export function safeExternalHref(url) {
-  const trimmed = typeof url === 'string' ? url.trim() : '';
-  const parsed = parseUrlCandidate(url);
-  if (!parsed) return '';
-  return trimmed.includes('://') ? trimmed : parsed.href;
+  const trimmed = typeof url === 'string' ? url.trim() : ''
+  const parsed = parseUrlCandidate(url)
+  if (!parsed) return ''
+  return trimmed.includes('://') ? trimmed : parsed.href
 }
 
 const AUTO_STRIP_PRIMARY_SITE_PATHS = new Set([
@@ -44,7 +44,7 @@ const AUTO_STRIP_PRIMARY_SITE_PATHS = new Set([
   '/v1/responses',
   '/v1/messages',
   '/v1beta/models',
-]);
+])
 
 const SEMANTIC_PRIMARY_SITE_PATHS = new Set([
   '/backend-api/codex',
@@ -53,25 +53,24 @@ const SEMANTIC_PRIMARY_SITE_PATHS = new Set([
   '/api/anthropic',
   '/api/coding/paas/v4',
   '/v1beta/openai',
-]);
+])
 
 export function analyzePrimarySiteUrl(url) {
-  const parsed = parseUrlCandidate(url);
+  const parsed = parseUrlCandidate(url)
   if (!parsed) {
     return {
       canonicalUrl: '',
       persistedUrl: '',
       matchedPath: '',
       action: 'invalid_url',
-    };
+    }
   }
 
-  parsed.search = '';
-  parsed.hash = '';
-  const matchedPath = normalizePathname(parsed.pathname);
-  const canonicalUrl = matchedPath === '/'
-    ? parsed.origin
-    : `${parsed.origin}${matchedPath}`;
+  parsed.search = ''
+  parsed.hash = ''
+  const matchedPath = normalizePathname(parsed.pathname)
+  const canonicalUrl =
+    matchedPath === '/' ? parsed.origin : `${parsed.origin}${matchedPath}`
 
   if (matchedPath === '/') {
     return {
@@ -79,7 +78,7 @@ export function analyzePrimarySiteUrl(url) {
       persistedUrl: canonicalUrl,
       matchedPath,
       action: 'unchanged',
-    };
+    }
   }
 
   if (SEMANTIC_PRIMARY_SITE_PATHS.has(matchedPath)) {
@@ -88,7 +87,7 @@ export function analyzePrimarySiteUrl(url) {
       persistedUrl: canonicalUrl,
       matchedPath,
       action: 'preserve_semantic_path',
-    };
+    }
   }
 
   if (AUTO_STRIP_PRIMARY_SITE_PATHS.has(matchedPath)) {
@@ -97,7 +96,7 @@ export function analyzePrimarySiteUrl(url) {
       persistedUrl: parsed.origin,
       matchedPath,
       action: 'auto_strip_known_api_suffix',
-    };
+    }
   }
 
   if (matchedPath.startsWith('/api')) {
@@ -106,7 +105,7 @@ export function analyzePrimarySiteUrl(url) {
       persistedUrl: canonicalUrl,
       matchedPath,
       action: 'preserve_api_path',
-    };
+    }
   }
 
   return {
@@ -114,5 +113,5 @@ export function analyzePrimarySiteUrl(url) {
     persistedUrl: canonicalUrl,
     matchedPath,
     action: 'preserve_unknown_path',
-  };
+  }
 }

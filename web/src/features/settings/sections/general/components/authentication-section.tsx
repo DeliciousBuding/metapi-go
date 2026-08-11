@@ -11,8 +11,6 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
-import { api } from '@/lib/api'
-
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -24,6 +22,8 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { api } from '@/lib/api'
+
 import {
   SettingsSectionCard,
   SettingsSectionSkeleton,
@@ -41,9 +41,15 @@ const TOKEN_FORM_ID = 'settings-general-auth-token-form'
 
 const tokenSchema = z
   .object({
-    oldToken: z.string().min(1, 'settings.general.authentication.schema.oldRequired'),
-    newToken: z.string().min(6, 'settings.general.authentication.schema.newMinLength'),
-    confirmToken: z.string().min(1, 'settings.general.authentication.schema.confirmRequired'),
+    oldToken: z
+      .string()
+      .min(1, 'settings.general.authentication.schema.oldRequired'),
+    newToken: z
+      .string()
+      .min(6, 'settings.general.authentication.schema.newMinLength'),
+    confirmToken: z
+      .string()
+      .min(1, 'settings.general.authentication.schema.confirmRequired'),
   })
   .refine((values) => values.newToken === values.confirmToken, {
     path: ['confirmToken'],
@@ -83,7 +89,8 @@ export function AuthenticationSection() {
       toast.success(t('settings.general.authentication.toast.tokenChanged'))
       setShowTokenFields(false)
     },
-    onError: () => toast.error(t('settings.general.authentication.toast.tokenChangeFailed')),
+    onError: () =>
+      toast.error(t('settings.general.authentication.toast.tokenChangeFailed')),
   })
 
   const tokenForm = useForm<TokenFormValues>({
@@ -101,8 +108,10 @@ export function AuthenticationSection() {
       return
     }
     allowlistForm.reset(
-      { adminIpAllowlist: joinListField(splitListField(data.adminIpAllowlist)) },
-      { keepDirtyValues: true },
+      {
+        adminIpAllowlist: joinListField(splitListField(data.adminIpAllowlist)),
+      },
+      { keepDirtyValues: true }
     )
   }, [data, allowlistForm])
 
@@ -110,9 +119,15 @@ export function AuthenticationSection() {
     updateMutation.mutate(
       { adminIpAllowlist: splitListField(values.adminIpAllowlist) },
       {
-        onSuccess: () => toast.success(t('settings.general.authentication.toast.allowlistSaved')),
-        onError: () => toast.error(t('settings.general.authentication.toast.allowlistSaveFailed')),
-      },
+        onSuccess: () =>
+          toast.success(
+            t('settings.general.authentication.toast.allowlistSaved')
+          ),
+        onError: () =>
+          toast.error(
+            t('settings.general.authentication.toast.allowlistSaveFailed')
+          ),
+      }
     )
   }
 
@@ -132,10 +147,10 @@ export function AuthenticationSection() {
       <div className='space-y-6'>
         <div className='space-y-3'>
           <div className='flex items-center gap-3'>
-            <span className='text-sm text-muted-foreground'>
+            <span className='text-muted-foreground text-sm'>
               {t('settings.general.authentication.currentToken')}
             </span>
-            <code className='rounded bg-muted px-2 py-0.5 text-xs'>
+            <code className='bg-muted rounded px-2 py-0.5 text-xs'>
               {asString(authInfoQuery.data?.masked) ||
                 t('settings.general.authentication.notSet')}
             </code>
@@ -166,7 +181,11 @@ export function AuthenticationSection() {
                         {t('settings.general.authentication.fields.oldToken')}
                       </FormLabel>
                       <FormControl>
-                        <Input {...field} type='password' autoComplete='current-password' />
+                        <Input
+                          {...field}
+                          type='password'
+                          autoComplete='current-password'
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -181,10 +200,16 @@ export function AuthenticationSection() {
                         {t('settings.general.authentication.fields.newToken')}
                       </FormLabel>
                       <FormControl>
-                        <Input {...field} type='password' autoComplete='new-password' />
+                        <Input
+                          {...field}
+                          type='password'
+                          autoComplete='new-password'
+                        />
                       </FormControl>
                       <FormDescription>
-                        {t('settings.general.authentication.fields.newTokenHint')}
+                        {t(
+                          'settings.general.authentication.fields.newTokenHint'
+                        )}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -196,10 +221,16 @@ export function AuthenticationSection() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        {t('settings.general.authentication.fields.confirmToken')}
+                        {t(
+                          'settings.general.authentication.fields.confirmToken'
+                        )}
                       </FormLabel>
                       <FormControl>
-                        <Input {...field} type='password' autoComplete='new-password' />
+                        <Input
+                          {...field}
+                          type='password'
+                          autoComplete='new-password'
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -221,9 +252,9 @@ export function AuthenticationSection() {
 
         <div className='space-y-3'>
           {authInfoQuery.data?.currentAdminIp ? (
-            <div className='text-sm text-muted-foreground'>
+            <div className='text-muted-foreground text-sm'>
               <span>{t('settings.general.authentication.detectedIp')}</span>
-              <code className='ml-2 rounded bg-muted px-2 py-0.5 text-xs'>
+              <code className='bg-muted ml-2 rounded px-2 py-0.5 text-xs'>
                 {asString(authInfoQuery.data.currentAdminIp)}
               </code>
             </div>
@@ -240,7 +271,9 @@ export function AuthenticationSection() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      {t('settings.general.authentication.fields.adminIpAllowlist')}
+                      {t(
+                        'settings.general.authentication.fields.adminIpAllowlist'
+                      )}
                     </FormLabel>
                     <FormControl>
                       <textarea
@@ -248,11 +281,13 @@ export function AuthenticationSection() {
                         value={field.value ?? ''}
                         rows={4}
                         placeholder='127.0.0.1&#10;192.168.1.0/24'
-                        className='flex field-sizing-content w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50'
+                        className='border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex field-sizing-content w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]'
                       />
                     </FormControl>
                     <FormDescription>
-                      {t('settings.general.authentication.fields.adminIpAllowlistHint')}
+                      {t(
+                        'settings.general.authentication.fields.adminIpAllowlistHint'
+                      )}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

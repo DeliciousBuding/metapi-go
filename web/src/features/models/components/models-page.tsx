@@ -25,7 +25,6 @@ import { toast } from 'sonner'
 import { DataTablePage, useDataTable } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
-
 import { api } from '@/lib/api'
 import {
   parseSortingParam,
@@ -35,12 +34,12 @@ import {
 import { useModels } from '../api'
 import { modelsSearchSchema } from '../lib/models-schema'
 import type { ModelRow } from '../types'
+import { ModelDetailSheet } from './model-detail-sheet'
 import {
   buildBrandFilterOptions,
   buildCapabilityFilterOptions,
   useModelsColumns,
 } from './models-columns'
-import { ModelDetailSheet } from './model-detail-sheet'
 
 const MODELS_COLUMN_VISIBILITY_STORAGE_KEY =
   'metapi-go:models:column-visibility'
@@ -57,7 +56,7 @@ type ResolvedSearch = {
 
 function resolveUpdater<TValue>(
   updater: Updater<TValue>,
-  previous: TValue,
+  previous: TValue
 ): TValue {
   return typeof updater === 'function'
     ? (updater as (old: TValue) => TValue)(previous)
@@ -124,7 +123,9 @@ function buildHref(next: Partial<ResolvedSearch>): string {
   if (merged.pageSize !== 20) params.set('pageSize', String(merged.pageSize))
   const sortString = encodeSorting(merged.sorting)
   if (sortString) params.set('sort', sortString)
-  if (merged.brand.length > 0) params.set('brand', encodeStringList(merged.brand))
+  if (merged.brand.length > 0) {
+    params.set('brand', encodeStringList(merged.brand))
+  }
   if (merged.capability.length > 0) {
     params.set('capability', encodeStringList(merged.capability))
   }
@@ -259,11 +260,11 @@ export function ModelsPage() {
   const models = useMemo(() => modelsQuery.data ?? [], [modelsQuery.data])
   const brandFilterOptions = useMemo(
     () => buildBrandFilterOptions(models),
-    [models],
+    [models]
   )
   const capabilityFilterOptions = useMemo(
     () => buildCapabilityFilterOptions(models),
-    [models],
+    [models]
   )
 
   return (

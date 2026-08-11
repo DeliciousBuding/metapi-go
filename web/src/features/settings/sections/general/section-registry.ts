@@ -11,8 +11,8 @@
 
 import { createElement } from 'react'
 
-import { createSectionRegistry } from '../../utils/section-registry'
 import type { SettingsSubarea } from '../../types'
+import { createSectionRegistry } from '../../utils/section-registry'
 import { AuthenticationSection } from './components/authentication-section'
 import { ProxyTransportSection } from './components/proxy-transport-section'
 import { RoutingSection } from './components/routing-section'
@@ -59,7 +59,6 @@ const registry = createSectionRegistry<GeneralSectionId>({
   defaultSection: 'site',
   basePath: '/settings/general',
 })
-
 
 /**
  * String-typed adapter consumed by SettingsPage + settings-config.

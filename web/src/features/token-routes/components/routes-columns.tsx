@@ -53,18 +53,29 @@ function resolveModeBadge(route: RouteSummaryRow): {
   return { labelKey: 'tokenRoutes.columns.badgeMatch', variant: 'outline' }
 }
 
-function resolveChannelSummary(route: RouteSummaryRow, t: (key: string, params?: Record<string, unknown>) => string): {
+function resolveChannelSummary(
+  route: RouteSummaryRow,
+  t: (key: string, params?: Record<string, unknown>) => string
+): {
   label: string
   variant: 'default' | 'warning' | 'secondary'
   hint?: string
 } {
   if (isReadOnlyRoute(route)) {
-    return { label: t('tokenRoutes.columns.channelZeroGenerated'), variant: 'warning', hint: t('tokenRoutes.columns.channelZeroHint') }
+    return {
+      label: t('tokenRoutes.columns.channelZeroGenerated'),
+      variant: 'warning',
+      hint: t('tokenRoutes.columns.channelZeroHint'),
+    }
   }
   const total = route.channelCount ?? 0
   const enabled = route.enabledChannelCount ?? 0
   if (total === 0) {
-    return { label: t('tokenRoutes.columns.channelZeroNeedChannels'), variant: 'warning', hint: t('tokenRoutes.columns.channelZeroNeedChannelsHint') }
+    return {
+      label: t('tokenRoutes.columns.channelZeroNeedChannels'),
+      variant: 'warning',
+      hint: t('tokenRoutes.columns.channelZeroNeedChannelsHint'),
+    }
   }
   if (enabled === 0) {
     return {
@@ -76,7 +87,12 @@ function resolveChannelSummary(route: RouteSummaryRow, t: (key: string, params?:
   return {
     label: `${enabled}/${total}`,
     variant: 'default',
-    hint: enabled < total ? t('tokenRoutes.columns.channelDisabledCount', { count: total - enabled }) : undefined,
+    hint:
+      enabled < total
+        ? t('tokenRoutes.columns.channelDisabledCount', {
+            count: total - enabled,
+          })
+        : undefined,
   }
 }
 
@@ -92,7 +108,7 @@ function RoutesRowActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className='inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground'
+        className='text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 items-center justify-center rounded-md transition-colors outline-none'
         aria-label={t('tokenRoutes.columns.rowActions')}
       >
         <MoreHorizontal className='size-4' />
@@ -107,7 +123,9 @@ function RoutesRowActions({
           disabled={readOnly}
         >
           <Power />
-          {route.enabled ? t('tokenRoutes.columns.disable') : t('tokenRoutes.columns.enable')}
+          {route.enabled
+            ? t('tokenRoutes.columns.disable')
+            : t('tokenRoutes.columns.enable')}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => actions.onClearCooldown(route)}
@@ -145,7 +163,7 @@ function RoutesRowActions({
 }
 
 export function useRoutesColumns(
-  actions: RouteRowActions,
+  actions: RouteRowActions
 ): ColumnDef<RouteSummaryRow>[] {
   const { t } = useTranslation()
   return [
@@ -190,7 +208,10 @@ export function useRoutesColumns(
         return (
           <div className='flex flex-col gap-1'>
             <div className='flex items-center gap-2'>
-              <span className='font-medium truncate max-w-[240px]' title={title}>
+              <span
+                className='max-w-[240px] truncate font-medium'
+                title={title}
+              >
                 {title}
               </span>
               <Badge variant={modeBadge.variant}>{t(modeBadge.labelKey)}</Badge>
@@ -200,8 +221,8 @@ export function useRoutesColumns(
                 </Badge>
               )}
             </div>
-            <div className='flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground'>
-              <code className='rounded bg-muted px-1 py-0.5 font-mono text-[11px]'>
+            <div className='text-muted-foreground flex flex-wrap items-center gap-1.5 text-[11px]'>
+              <code className='bg-muted rounded px-1 py-0.5 font-mono text-[11px]'>
                 {route.modelPattern}
               </code>
               {contextLabel && (
@@ -210,7 +231,11 @@ export function useRoutesColumns(
                 </Badge>
               )}
               {route.decisionRefreshedAt && (
-                <span>{t('tokenRoutes.columns.decisionCachedAt', { time: route.decisionRefreshedAt })}</span>
+                <span>
+                  {t('tokenRoutes.columns.decisionCachedAt', {
+                    time: route.decisionRefreshedAt,
+                  })}
+                </span>
               )}
             </div>
           </div>
@@ -230,7 +255,7 @@ export function useRoutesColumns(
               <span className='tabular-nums'>{summary.label}</span>
             </Badge>
             {summary.hint && (
-              <span className='text-[11px] text-muted-foreground'>
+              <span className='text-muted-foreground text-[11px]'>
                 {summary.hint}
               </span>
             )}
@@ -247,7 +272,9 @@ export function useRoutesColumns(
         if (isReadOnlyRoute(route)) {
           return <span className='text-muted-foreground text-xs'>—</span>
         }
-        const label = routingStrategyLabel(route.routingStrategy as RouteRoutingStrategy | null)
+        const label = routingStrategyLabel(
+          route.routingStrategy as RouteRoutingStrategy | null
+        )
         return <Badge variant='outline'>{t(label)}</Badge>
       },
       meta: { mobileOrder: 3 },
@@ -286,7 +313,7 @@ export function useRoutesColumns(
         if (isReadOnlyRoute(route)) {
           return (
             <Badge variant='secondary'>
-              <span className='size-1.5 rounded-full bg-muted-foreground' />
+              <span className='bg-muted-foreground size-1.5 rounded-full' />
               {t('tokenRoutes.columns.notEnabled')}
             </Badge>
           )
@@ -296,10 +323,12 @@ export function useRoutesColumns(
             <span
               className={cn(
                 'size-1.5 rounded-full',
-                route.enabled ? 'bg-emerald-500' : 'bg-muted-foreground',
+                route.enabled ? 'bg-emerald-500' : 'bg-muted-foreground'
               )}
             />
-            {route.enabled ? t('tokenRoutes.columns.enable') : t('tokenRoutes.columns.disable')}
+            {route.enabled
+              ? t('tokenRoutes.columns.enable')
+              : t('tokenRoutes.columns.disable')}
           </Badge>
         )
       },

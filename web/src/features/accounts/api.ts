@@ -18,14 +18,10 @@ import {
 } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
-import { api } from '@/lib/api'
 import i18n from '@/i18n/config'
+import { api } from '@/lib/api'
 
-import type {
-  AccountPayload,
-  AccountStatus,
-  AccountsSnapshot,
-} from './types'
+import type { AccountPayload, AccountStatus, AccountsSnapshot } from './types'
 
 // ---------------------------------------------------------------------------
 // Query keys
@@ -44,13 +40,15 @@ export const accountQueryKeys = {
 // ---------------------------------------------------------------------------
 
 function assertBusinessOk<T>(result: unknown, fallback: string): T {
-  const envelope = result as { success?: unknown; message?: unknown; data?: unknown }
-  if (
-    envelope &&
-    typeof envelope.success === 'boolean' &&
-    !envelope.success
-  ) {
-    throw new Error(typeof envelope.message === 'string' ? envelope.message : i18n.t(fallback))
+  const envelope = result as {
+    success?: unknown
+    message?: unknown
+    data?: unknown
+  }
+  if (envelope && typeof envelope.success === 'boolean' && !envelope.success) {
+    throw new Error(
+      typeof envelope.message === 'string' ? envelope.message : i18n.t(fallback)
+    )
   }
   return (result as T) ?? (envelope?.data as T)
 }
@@ -60,10 +58,7 @@ function assertBusinessOk<T>(result: unknown, fallback: string): T {
 // ---------------------------------------------------------------------------
 
 export function useAccounts(
-  options?: Omit<
-    UseQueryOptions<AccountsSnapshot>,
-    'queryKey' | 'queryFn'
-  >,
+  options?: Omit<UseQueryOptions<AccountsSnapshot>, 'queryKey' | 'queryFn'>
 ) {
   return useQuery({
     queryKey: accountQueryKeys.snapshot(),
@@ -94,7 +89,10 @@ export function useCreateAccount() {
   return useMutation({
     mutationFn: async (payload: AccountPayload) => {
       const result = await api.addAccount(payload)
-      return assertBusinessOk<CreateAccountResult>(result, 'accounts.toast.createFailed')
+      return assertBusinessOk<CreateAccountResult>(
+        result,
+        'accounts.toast.createFailed'
+      )
     },
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
@@ -189,7 +187,10 @@ export function useBatchUpdateAccounts() {
       action: BatchAccountAction
     }) => {
       const result = await api.batchUpdateAccounts({ ids, action })
-      return assertBusinessOk<BatchAccountResult>(result, 'accounts.toast.batchFailed')
+      return assertBusinessOk<BatchAccountResult>(
+        result,
+        'accounts.toast.batchFailed'
+      )
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
@@ -255,4 +256,3 @@ export function useToggleAccountCheckin() {
 // ---------------------------------------------------------------------------
 // Convenience selector
 // ---------------------------------------------------------------------------
-

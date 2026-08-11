@@ -48,6 +48,5 @@ export const modelsSearchSchema = z.object({
     .transform((value) => encodeStringListParam(value)),
 })
 
-
 export const SORTING_ITEM_SCHEMA = sortingItemSchema
 export const PAGINATION_SCHEMA = paginationSchema

@@ -113,5 +113,6 @@ export const modelsKeys = {
         includePricing: options?.includePricing ?? false,
       },
     ] as const,
-  detail: (modelName: string) => [...modelsKeys.all, 'detail', modelName] as const,
+  detail: (modelName: string) =>
+    [...modelsKeys.all, 'detail', modelName] as const,
 }
