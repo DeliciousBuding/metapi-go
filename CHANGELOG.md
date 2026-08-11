@@ -5,6 +5,21 @@ All notable changes to MetAPI-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [Unreleased]
+
+### Added — 品牌与国际化完善
+- 品牌名统一 **MetAPI**（identity-branding / locales / About / index title）
+- 透明 SVG LOGO：`logo.svg`（渐变圆角徽标 + 真 π 字形 U+03C0）+ `favicon.svg`，替换白底 PNG；router 根文件白名单 + 表驱动回归测试扩展 `image/svg+xml`
+- 顶栏语言切换 `LanguageSwitcher`（en/zh-CN）：浏览器语言自动跟随（localStorage → navigator）+ `documentElement.lang`/`dir` 同步（`toBcp47`）；locale 各 1381 key 双向 0 缺失
+
+### Fixed — URL 同步与滚动裁切
+- sites/models/oauth/site-announcements 表格状态经 `useLocation()` 订阅 router location（`searchStr`），排序/分页立即在页面内生效（此前同路径 search 导航不重渲染，表格滞后）
+- authenticated-layout 内容区 `overflow-hidden` 裁切超视口内容 → `overflow-y-auto`（长页面不可滚动）
+
+### Changed — 文案与视觉润色
+- 文案术语统一（启用/停用、额度、Check-in、通道）、内部计划编号（K1a/N9a 等）移出用户可见文案、tokenRoutes toast/链式横幅拼接 bug 修复、9 处硬编码 → t()（含移除公开设置页的 TokenDance 品牌泄漏）
+- 登录页真实 logo 徽标 + 品牌光晕 + lg CTA；Dashboard 统计卡骨架屏 + 渐变 id 唯一化 + 空/错状态图标化 + WS 连接脉冲指示；设置页移动端响应式 drill-in + sticky 侧栏
+
 ## [v0.9.0] — 2026-08-11
 
 ### Added — 前端整体重写（newapi 栈 100% 对齐）

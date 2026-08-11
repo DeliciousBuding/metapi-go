@@ -1,6 +1,6 @@
 # MetAPI Design System
 
-**Product**: TokenDance / MetAPI admin
+**Product**: MetAPI admin
 **Scope**: Enterprise ops control plane (sites, accounts, tokens, routes, monitors, logs)
 **Visual language**: GCP cloud console density + frosted glass shell + Apple detail
 **Source of truth**: this document + `web/src/styles/theme.css` + `web/src/components/ui/**`
@@ -17,7 +17,7 @@
 | Personality | Calm GCP control room with Apple-grade materials — not consumer marketing |
 | Density default | Comfortable-dense (admin tables + KPI cards coexist) |
 | Brand color | **GCP Blue** `#1a73e8` (dark `#8ab4f8`) with cool gray accent |
-| Logo mark | Soft blue gradient chip (no neon indigo/cyan marketing pair) |
+| Logo mark | Transparent gradient badge `web/public/logo.svg` — rounded-square blue ramp (light `#4f7cff` → `#1e3a8a`) with white **π** glyph (real U+03C0, serif fallback, not hand-drawn strokes); `favicon.svg` = standalone gradient π for small sizes; both served from the embedded SPA root (`router.go` root-file whitelist, `image/svg+xml`) |
 | Fonts | **Public Sans + Lora** (locally embedded via `@fontsource-variable`) — no Google Fonts CDN |
 | High-res | Content column max-width ladder 1680 → 1920 → 2280 → 2600, centered |
 
@@ -134,6 +134,7 @@ Checklist: [`a11y-checklist.md`](./a11y-checklist.md).
 
 | Date | Change |
 |------|--------|
+| 2026-08-11 | MetAPI brand: transparent SVG badge (real π glyph) + favicon; product label cleanup |
 | 2026-07-16 | Initial token freeze (indigo era) |
 | 2026-07-19 | FOUC canvas, glass family, GCP primary, card density, shell glass |
 | 2026-07-19 | Dual-theme semantic ink, purple badge, table/filter/pagination/toast retokenize |

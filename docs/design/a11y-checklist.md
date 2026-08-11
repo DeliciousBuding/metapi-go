@@ -1,6 +1,6 @@
 # MetAPI Accessibility & Responsive Checklist
 
-**Product**: TokenDance / MetAPI admin
+**Product**: MetAPI admin
 **Scope**: accessibility checklist
 **Related source of truth**: `docs/design/DESIGN.md`, `web/src/styles/theme.css`
 **Last updated**: 2026-08-11

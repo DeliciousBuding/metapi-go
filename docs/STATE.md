@@ -17,6 +17,7 @@
 | Open issues / PRs | [#557](https://github.com/DeliciousBuding/metapi-go/issues/557) · [#558](https://github.com/DeliciousBuding/metapi-go/issues/558) |
 | Stack | Go 1.26.5 · React 19 + Bun + Rsbuild 2 + TanStack Router/Query/Table + Tailwind 4 + shadcn Base UI + OKLCH + i18next · dual dialect SQLite/PostgreSQL |
 | Runtime shape | single embedded SPA binary · **16** background schedulers · OAuth callback listeners start only with an active flow |
+| Brand | **MetAPI** · transparent SVG badge `web/public/logo.svg` (gradient pi, real U+03C0 glyph) + `favicon.svg` · served from the embedded SPA root by the router whitelist |
 
 ## Product honesty
 
@@ -30,8 +31,8 @@
 | PostgreSQL pool budget | **present** | profiles + lease backoff; deployment must still respect role LIMIT |
 | RE2 user-id extraction | **fixed and deployed** | v0.8.45 shipped; the 0.8.44 crash state is historical |
 | OAuth token refresh | **present** | shared explicit account/site projection supports SQLite and PostgreSQL |
-| UI i18n verification | **present (v0.9.0 rewrite)** | key-based i18n (i18next): en + zh-CN locales each 1369 keys; vitest i18n-keys gate keeps both key sets identical — bidirectional 0 missing |
-| EN label coverage | **present (v0.9.0 rewrite)** | all UI copy via t() (i18next); vitest i18n-keys gate scans 1151 unique keys with en/zh-CN identical; live status badge colors tokenized |
+| UI i18n verification | **present (v0.9.0 rewrite)** | key-based i18n (i18next): en + zh-CN locales each **1381** keys; vitest i18n-keys gate keeps both key sets identical — bidirectional 0 missing; header `LanguageSwitcher` (en/zh-CN) + browser-language auto-follow (localStorage → navigator) + `document.documentElement.lang` sync via `toBcp47` |
+| EN label coverage | **present (v0.9.0 rewrite)** | all UI copy via t() (i18next); vitest i18n-keys gate scans t() sites with en/zh-CN identical; live status badge colors tokenized |
 | Theme accent presets | **chart-synced (v0.9.0 rewrite)** | 3-axis theme (preset/radius/scale) + 10 presets; useChartColors() syncs chart series with OKLCH tokens (FOUC-safe) |
 | Daily metric truth | **Dashboard + Accounts closed in master** | shared local-day aggregation, real reward/check-in, partial truth metadata, query errors fail closed; per-account today reward/spend with status gate on Accounts rows (no fake zeros) |
 | Windows local development | **loopback by default** | empty `HOST` binds `127.0.0.1`; containers/server platforms explicitly retain `0.0.0.0` |

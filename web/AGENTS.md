@@ -143,7 +143,7 @@ bun run format:check   # 格式检查
 bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 ```
 
-**静态门禁（发布前必须全绿）**：tsgo 0 error + oxlint 0 error + knip exit 0 + `bun run build` pass + vitest 全绿（当前 351 tests / 36 files）。Dev proxy 默认指向 `http://localhost:4000`，可经 `DEV_PROXY_TARGET` / `VITE_DEV_PROXY_TARGET` / `PORT` / `VITE_BACKEND_PORT` 覆盖。
+**静态门禁（发布前必须全绿）**：tsgo 0 error + oxlint 0 error + knip exit 0 + `bun run build` pass + vitest 全绿（当前 369 tests / 38 files）。Dev proxy 默认指向 `http://localhost:4000`，可经 `DEV_PROXY_TARGET` / `VITE_DEV_PROXY_TARGET` / `PORT` / `VITE_BACKEND_PORT` 覆盖。
 
 ---
 
@@ -151,7 +151,8 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 
 ### 5.1 国际化
 
-- **页面文本**：所有面向用户文案需 i18n，使用 `useTranslation()` 的 `t()` 翻译。当前支持 2 语言（`en` + `zh-CN`，各 1369 key，双向 0 缺失），key 双向一致性由 `src/i18n/__tests__/i18n-keys.test.ts` 校验。
+- **页面文本**：所有面向用户文案需 i18n，使用 `useTranslation()` 的 `t()` 翻译。当前支持 2 语言（`en` + `zh-CN`，各 1381 key，双向 0 缺失），key 双向一致性由 `src/i18n/__tests__/i18n-keys.test.ts` 校验。
+- **语言切换**：顶栏 `LanguageSwitcher`（`components/layout/components/app-header.tsx`）提供 en/zh-CN 手动切换；`i18next-browser-languagedetector` 按 localStorage → navigator 顺序自动跟随浏览器语言；`languageChanged` 时经 `toBcp47()` 同步 `document.documentElement.lang`（zhCN → `zh-CN`）+ `dir`。
 - **使用场景**
   - **React 组件**：必须 `const { t } = useTranslation()`，保证语言切换时重渲染。
   - **非 React 环境**（工具函数、常量、类方法）：可 `import { t } from 'i18next'`；不随语言切换自动更新，仅在不依赖响应式更新场景使用。
@@ -247,7 +248,7 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 
 ### 5.14 测试
 
-- **栈**：vitest + @testing-library/react + jsdom（环境见 `vite.config.ts`）；当前 351 tests / 36 files 全绿。
+- **栈**：vitest + @testing-library/react + jsdom（环境见 `vite.config.ts`）；当前 369 tests / 38 files 全绿。
 - **范围**：工具函数与纯逻辑优先单元测试（`*.test.ts`）；组件用 React Testing Library 测交互与行为，避免测实现细节。
 - **位置**：测试必须放模块专属 `__tests__/`（如 `src/features/token-routes/components/__tests__/layout.test.ts`）；禁止与正式代码平铺。
 - **命名与组织**：按被测职责命名（`layout.test.ts`、`validation.test.ts`）；一个文件只覆盖一个明确模块；每用例只保护一个可描述行为，名称含触发条件与预期结果，优先 Arrange/Act/Assert。
