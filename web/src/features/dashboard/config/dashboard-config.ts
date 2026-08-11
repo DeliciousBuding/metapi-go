@@ -6,40 +6,79 @@
 // settings feature's per-subarea section-registry pattern (a .ts module so
 // the react/only-export-components fast-refresh rule does not apply — section
 // content is built with React.createElement, hooks-safe).
+//
+// Sections are loaded via React.lazy + dynamic import() so each section's
+// heavy dependencies (VChart for traffic/models, recharts for overview) land
+// in separate async chunks instead of the main sync bundle. The lazy
+// component references are created at module level so their identity is
+// stable across renders (React.lazy requires this to avoid remounting).
 
-import { createElement } from 'react'
+import {
+  createElement,
+  lazy,
+  Suspense,
+  type ComponentType,
+  type ReactNode,
+} from 'react'
 
-import { OverviewSection } from '../sections/overview'
-import { TrafficSection } from '../sections/traffic'
-import { ModelsSection } from '../sections/models'
-import { AvailabilitySection } from '../sections/availability'
 import type { DashboardSection, DashboardSectionId } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
+
+const LazyOverviewSection = lazy(() =>
+  import('../sections/overview').then((module) => ({
+    default: module.OverviewSection,
+  })),
+)
+const LazyTrafficSection = lazy(() =>
+  import('../sections/traffic').then((module) => ({
+    default: module.TrafficSection,
+  })),
+)
+const LazyModelsSection = lazy(() =>
+  import('../sections/models').then((module) => ({
+    default: module.ModelsSection,
+  })),
+)
+const LazyAvailabilitySection = lazy(() =>
+  import('../sections/availability').then((module) => ({
+    default: module.AvailabilitySection,
+  })),
+)
+
+/** Wrap a lazy section in a Suspense boundary so build() returns a ready node. */
+function mountSection(component: ComponentType): () => ReactNode {
+  return () =>
+    createElement(
+      Suspense,
+      { fallback: null },
+      createElement(component),
+    )
+}
 
 const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
   {
     id: 'overview',
     title: 'dashboard.sections.overview.title',
     description: 'dashboard.sections.overview.description',
-    build: () => createElement(OverviewSection),
+    build: mountSection(LazyOverviewSection),
   },
   {
     id: 'traffic',
     title: 'dashboard.sections.traffic.title',
     description: 'dashboard.sections.traffic.description',
-    build: () => createElement(TrafficSection),
+    build: mountSection(LazyTrafficSection),
   },
   {
     id: 'models',
     title: 'dashboard.sections.models.title',
     description: 'dashboard.sections.models.description',
-    build: () => createElement(ModelsSection),
+    build: mountSection(LazyModelsSection),
   },
   {
     id: 'availability',
     title: 'dashboard.sections.availability.title',
     description: 'dashboard.sections.availability.description',
-    build: () => createElement(AvailabilitySection),
+    build: mountSection(LazyAvailabilitySection),
   },
 ]
 

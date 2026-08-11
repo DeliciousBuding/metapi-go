@@ -71,6 +71,8 @@ jobs:
         run: |
           bun install --frozen-lockfile
           bun run typecheck
+          bun run lint
+          bun run knip
           bun run test
           bun run build:web
 
