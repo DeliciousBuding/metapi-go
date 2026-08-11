@@ -8,7 +8,10 @@
 // can skip — every page stays independently deep-linkable.
 
 import { useNavigate } from '@tanstack/react-router'
-import { ArrowRight as ArrowRightIcon, CheckCircle2 as CheckCircle2Icon } from 'lucide-react'
+import {
+  ArrowRight as ArrowRightIcon,
+  CheckCircle2 as CheckCircle2Icon,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -60,12 +63,10 @@ export function SiteCreatedModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <div className='text-primary mb-2 flex size-10 items-center justify-center rounded-full bg-primary/10'>
+          <div className='text-primary bg-primary/10 mb-2 flex size-10 items-center justify-center rounded-full'>
             <CheckCircle2Icon className='size-5' />
           </div>
-          <DialogTitle>
-            {t('sites.created.title')}
-          </DialogTitle>
+          <DialogTitle>{t('sites.created.title')}</DialogTitle>
           <DialogDescription>
             {site
               ? t('sites.created.description', { name: site.name })
@@ -77,16 +78,11 @@ export function SiteCreatedModal({
           <p className='text-muted-foreground mb-1'>
             {t('sites.created.nextStepLabel')}
           </p>
-          <p className='font-medium'>
-            {t('sites.created.nextStepBody')}
-          </p>
+          <p className='font-medium'>{t('sites.created.nextStepBody')}</p>
         </div>
 
         <DialogFooter>
-          <Button
-            variant='ghost'
-            onClick={() => onOpenChange(false)}
-          >
+          <Button variant='ghost' onClick={() => onOpenChange(false)}>
             {t('sites.created.dismiss')}
           </Button>
           <Button onClick={handleGoToAccounts} disabled={!site}>

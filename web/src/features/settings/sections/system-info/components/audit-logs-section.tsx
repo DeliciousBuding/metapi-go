@@ -6,8 +6,6 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api } from '@/lib/api'
-
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,10 +17,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
-import {
   Table,
   TableBody,
   TableCell,
@@ -30,6 +24,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { api } from '@/lib/api'
+
+import {
+  SettingsSectionCard,
+  SettingsSectionSkeleton,
+} from '../../../components/settings-section-card'
 
 type AuditLogItem = {
   id: number
@@ -42,7 +42,11 @@ type AuditLogItem = {
   createdAt: string
 }
 
-type AuditLogsResponse = { items: AuditLogItem[]; total?: number; limit?: number }
+type AuditLogsResponse = {
+  items: AuditLogItem[]
+  total?: number
+  limit?: number
+}
 
 const auditQueryKeys = {
   all: ['admin-audit-logs'] as const,
@@ -96,8 +100,14 @@ export function AuditLogsSection() {
       title={t('settings.systemInfo.auditLogs.title')}
       description={t('settings.systemInfo.auditLogs.description')}
     >
-      <form onSubmit={submitSearch} className='mb-4 flex flex-wrap items-center gap-3'>
-        <Select value={methodFilter} onValueChange={(value) => setMethodFilter(value ?? 'all')}>
+      <form
+        onSubmit={submitSearch}
+        className='mb-4 flex flex-wrap items-center gap-3'
+      >
+        <Select
+          value={methodFilter}
+          onValueChange={(value) => setMethodFilter(value ?? 'all')}
+        >
           <SelectTrigger className='w-32'>
             <SelectValue />
           </SelectTrigger>
@@ -123,7 +133,7 @@ export function AuditLogsSection() {
       </form>
       {auditQuery.isLoading ? <SettingsSectionSkeleton /> : null}
       {!auditQuery.isLoading && items.length === 0 ? (
-        <p className='py-8 text-center text-sm text-muted-foreground'>
+        <p className='text-muted-foreground py-8 text-center text-sm'>
           {t('settings.systemInfo.auditLogs.empty')}
         </p>
       ) : null}
@@ -131,37 +141,51 @@ export function AuditLogsSection() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{t('settings.systemInfo.auditLogs.columns.time')}</TableHead>
-              <TableHead>{t('settings.systemInfo.auditLogs.columns.method')}</TableHead>
-              <TableHead>{t('settings.systemInfo.auditLogs.columns.path')}</TableHead>
-              <TableHead>{t('settings.systemInfo.auditLogs.columns.status')}</TableHead>
-              <TableHead>{t('settings.systemInfo.auditLogs.columns.actor')}</TableHead>
-              <TableHead>{t('settings.systemInfo.auditLogs.columns.ip')}</TableHead>
+              <TableHead>
+                {t('settings.systemInfo.auditLogs.columns.time')}
+              </TableHead>
+              <TableHead>
+                {t('settings.systemInfo.auditLogs.columns.method')}
+              </TableHead>
+              <TableHead>
+                {t('settings.systemInfo.auditLogs.columns.path')}
+              </TableHead>
+              <TableHead>
+                {t('settings.systemInfo.auditLogs.columns.status')}
+              </TableHead>
+              <TableHead>
+                {t('settings.systemInfo.auditLogs.columns.actor')}
+              </TableHead>
+              <TableHead>
+                {t('settings.systemInfo.auditLogs.columns.ip')}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {items.map((entry) => (
               <TableRow key={entry.id}>
-                <TableCell className='text-xs text-muted-foreground'>
+                <TableCell className='text-muted-foreground text-xs'>
                   {entry.createdAt}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={methodVariant(entry.method)}>{entry.method}</Badge>
+                  <Badge variant={methodVariant(entry.method)}>
+                    {entry.method}
+                  </Badge>
                 </TableCell>
-                <TableCell className='font-mono text-xs'>{entry.path}</TableCell>
+                <TableCell className='font-mono text-xs'>
+                  {entry.path}
+                </TableCell>
                 <TableCell>
                   <span
                     className={
-                      entry.status >= 400
-                        ? 'text-destructive'
-                        : 'text-success'
+                      entry.status >= 400 ? 'text-destructive' : 'text-success'
                     }
                   >
                     {entry.status}
                   </span>
                 </TableCell>
                 <TableCell className='text-xs'>{entry.actor ?? '—'}</TableCell>
-                <TableCell className='text-xs text-muted-foreground'>
+                <TableCell className='text-muted-foreground text-xs'>
                   {entry.remoteIp ?? '—'}
                 </TableCell>
               </TableRow>
@@ -173,7 +197,9 @@ export function AuditLogsSection() {
   )
 }
 
-function methodVariant(method: string): 'default' | 'secondary' | 'destructive' {
+function methodVariant(
+  method: string
+): 'default' | 'secondary' | 'destructive' {
   if (method === 'DELETE') {
     return 'destructive'
   }

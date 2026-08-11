@@ -83,14 +83,14 @@ function siteToFormValues(site: Site): SiteFormValues {
 
 function buildPayload(
   values: SiteFormValues,
-  editingSite: Site | null,
+  editingSite: Site | null
 ): SiteFormPayload {
   const preservedEndpoints = (editingSite?.apiEndpoints ?? []).map(
     (endpoint) => ({
       url: endpoint.url,
       enabled: endpoint.enabled ?? true,
       sortOrder: endpoint.sortOrder ?? 0,
-    }),
+    })
   )
   return {
     name: values.name,
@@ -181,9 +181,7 @@ export function SiteFormDialog({
       }
     } catch {
       toast.error(
-        isEditing
-          ? t('sites.form.updateFailed')
-          : t('sites.form.createFailed'),
+        isEditing ? t('sites.form.updateFailed') : t('sites.form.createFailed')
       )
     }
   }
@@ -193,9 +191,7 @@ export function SiteFormDialog({
       <DialogContent className='sm:max-w-2xl'>
         <DialogHeader>
           <DialogTitle>
-            {isEditing
-              ? t('sites.form.editTitle')
-              : t('sites.form.addTitle')}
+            {isEditing ? t('sites.form.editTitle') : t('sites.form.addTitle')}
           </DialogTitle>
           <DialogDescription>
             {isEditing
@@ -205,10 +201,7 @@ export function SiteFormDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className='grid gap-4'
-          >
+          <form onSubmit={form.handleSubmit(onSubmit)} className='grid gap-4'>
             <div className='grid gap-4 sm:grid-cols-2'>
               <FormField
                 control={form.control}
@@ -331,7 +324,7 @@ export function SiteFormDialog({
                           field.onChange(
                             Number.isNaN(event.target.valueAsNumber)
                               ? 0
-                              : event.target.valueAsNumber,
+                              : event.target.valueAsNumber
                           )
                         }
                         onBlur={field.onBlur}
@@ -359,7 +352,7 @@ export function SiteFormDialog({
                           field.onChange(
                             Number.isNaN(event.target.valueAsNumber)
                               ? 0
-                              : event.target.valueAsNumber,
+                              : event.target.valueAsNumber
                           )
                         }
                         onBlur={field.onBlur}
@@ -449,10 +442,14 @@ export function SiteFormDialog({
                     name='postRefreshProbeModel'
                     render={({ field }) => (
                       <FormItem className='sm:col-span-2'>
-                        <FormLabel>{t('sites.form.postRefreshProbeModel')}</FormLabel>
+                        <FormLabel>
+                          {t('sites.form.postRefreshProbeModel')}
+                        </FormLabel>
                         <FormControl>
                           <Input
-                            placeholder={t('sites.form.postRefreshProbeModelPlaceholder')}
+                            placeholder={t(
+                              'sites.form.postRefreshProbeModelPlaceholder'
+                            )}
                             {...field}
                           />
                         </FormControl>
@@ -465,7 +462,9 @@ export function SiteFormDialog({
                     name='postRefreshProbeScope'
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>{t('sites.form.postRefreshProbeScope')}</FormLabel>
+                        <FormLabel>
+                          {t('sites.form.postRefreshProbeScope')}
+                        </FormLabel>
                         <Select
                           value={field.value}
                           onValueChange={(value) =>
@@ -511,9 +510,7 @@ export function SiteFormDialog({
               </Button>
               <Button type='submit' disabled={isSubmitting}>
                 {isSubmitting && <Spinner className='mr-2' />}
-                {isEditing
-                  ? t('sites.form.save')
-                  : t('sites.form.create')}
+                {isEditing ? t('sites.form.save') : t('sites.form.create')}
               </Button>
             </DialogFooter>
           </form>

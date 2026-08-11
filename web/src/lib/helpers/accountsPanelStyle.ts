@@ -5,5 +5,5 @@ export function getAccountsAddPanelStyle() {
     position: 'relative' as const,
     zIndex: 10,
     overflow: 'visible' as const,
-  };
+  }
 }

@@ -1,8 +1,4 @@
-
-
-const PRESET_DEFAULT_FONT: Partial<
-  Record<ThemePreset, ResolvedThemeFont>
-> = {
+const PRESET_DEFAULT_FONT: Partial<Record<ThemePreset, ResolvedThemeFont>> = {
   default: 'sans',
 }
 
@@ -64,7 +60,6 @@ export const THEME_PRESETS = [
 // metapi-go/lib — theme customization constants ported from newapi. AGPL header stripped.
 // Lives in lib/ (not context/) so it can be imported alongside the provider
 // without breaking React Fast Refresh boundaries.
-
 
 export type ThemePreset = (typeof THEME_PRESETS)[number]['value']
 export type ThemeRadius = 'default' | 'none' | 'sm' | 'md' | 'lg' | 'xl'

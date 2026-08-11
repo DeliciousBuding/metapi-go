@@ -12,8 +12,6 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
-import { api } from '@/lib/api'
-
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -51,6 +49,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { api } from '@/lib/api'
+
 import {
   SettingsSectionCard,
   SettingsSectionSkeleton,
@@ -81,7 +81,9 @@ const CREATE_FORM_ID = 'settings-downstream-keys-create-form'
 function generateDownstreamSkSuffix(): string {
   const bytes = new Uint8Array(48)
   crypto.getRandomValues(bytes)
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join(
+    ''
+  )
 }
 
 const createKeySchema = z.object({
@@ -101,11 +103,14 @@ export function KeysSection() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<DownstreamApiKeyItem | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<DownstreamApiKeyItem | null>(
+    null
+  )
 
   const keysQuery = useQuery<DownstreamKeysResponse>({
     queryKey: downstreamKeysQueryKeys.list(),
-    queryFn: async () => (await api.getDownstreamApiKeys()) as DownstreamKeysResponse,
+    queryFn: async () =>
+      (await api.getDownstreamApiKeys()) as DownstreamKeysResponse,
     staleTime: 15 * 1000,
   })
 
@@ -153,31 +158,40 @@ export function KeysSection() {
     mutationFn: async (values: CreateKeyFormValues) =>
       api.createDownstreamApiKey(values),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: downstreamKeysQueryKeys.all })
+      void queryClient.invalidateQueries({
+        queryKey: downstreamKeysQueryKeys.all,
+      })
       toast.success(t('settings.downstream.keys.toast.created'))
       onCreateOpenChange(false)
     },
-    onError: () => toast.error(t('settings.downstream.keys.toast.createFailed')),
+    onError: () =>
+      toast.error(t('settings.downstream.keys.toast.createFailed')),
   })
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, enabled }: { id: number; enabled: boolean }) =>
       api.updateDownstreamApiKey(id, { enabled }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: downstreamKeysQueryKeys.all })
+      void queryClient.invalidateQueries({
+        queryKey: downstreamKeysQueryKeys.all,
+      })
       toast.success(t('settings.downstream.keys.toast.updated'))
     },
-    onError: () => toast.error(t('settings.downstream.keys.toast.updateFailed')),
+    onError: () =>
+      toast.error(t('settings.downstream.keys.toast.updateFailed')),
   })
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => api.deleteDownstreamApiKey(id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: downstreamKeysQueryKeys.all })
+      void queryClient.invalidateQueries({
+        queryKey: downstreamKeysQueryKeys.all,
+      })
       toast.success(t('settings.downstream.keys.toast.deleted'))
       setDeleteTarget(null)
     },
-    onError: () => toast.error(t('settings.downstream.keys.toast.deleteFailed')),
+    onError: () =>
+      toast.error(t('settings.downstream.keys.toast.deleteFailed')),
   })
 
   function onCreateSubmit(values: CreateKeyFormValues) {
@@ -199,7 +213,7 @@ export function KeysSection() {
     >
       {isLoading ? <SettingsSectionSkeleton /> : null}
       {!isLoading && items.length === 0 ? (
-        <p className='py-8 text-center text-sm text-muted-foreground'>
+        <p className='text-muted-foreground py-8 text-center text-sm'>
           {t('settings.downstream.keys.empty')}
         </p>
       ) : null}
@@ -207,10 +221,18 @@ export function KeysSection() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{t('settings.downstream.keys.columns.name')}</TableHead>
-              <TableHead>{t('settings.downstream.keys.columns.group')}</TableHead>
-              <TableHead>{t('settings.downstream.keys.columns.enabled')}</TableHead>
-              <TableHead>{t('settings.downstream.keys.columns.usage')}</TableHead>
+              <TableHead>
+                {t('settings.downstream.keys.columns.name')}
+              </TableHead>
+              <TableHead>
+                {t('settings.downstream.keys.columns.group')}
+              </TableHead>
+              <TableHead>
+                {t('settings.downstream.keys.columns.enabled')}
+              </TableHead>
+              <TableHead>
+                {t('settings.downstream.keys.columns.usage')}
+              </TableHead>
               <TableHead className='text-right'>
                 {t('settings.downstream.keys.columns.actions')}
               </TableHead>
@@ -223,7 +245,7 @@ export function KeysSection() {
                   <div className='flex flex-col'>
                     <span className='font-medium'>{item.name}</span>
                     {item.keyMasked ? (
-                      <code className='text-xs text-muted-foreground'>
+                      <code className='text-muted-foreground text-xs'>
                         {item.keyMasked}
                       </code>
                     ) : null}
@@ -245,7 +267,7 @@ export function KeysSection() {
                     aria-label={t('settings.downstream.keys.columns.enabled')}
                   />
                 </TableCell>
-                <TableCell className='text-xs text-muted-foreground'>
+                <TableCell className='text-muted-foreground text-xs'>
                   <div>
                     {t('settings.downstream.keys.requests', {
                       used: item.usedRequests ?? 0,
@@ -294,7 +316,9 @@ export function KeysSection() {
                 name='name'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('settings.downstream.keys.fields.name')}</FormLabel>
+                    <FormLabel>
+                      {t('settings.downstream.keys.fields.name')}
+                    </FormLabel>
                     <FormControl>
                       <Input {...field} value={field.value ?? ''} />
                     </FormControl>
@@ -307,7 +331,9 @@ export function KeysSection() {
                 name='key'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('settings.downstream.keys.fields.key')}</FormLabel>
+                    <FormLabel>
+                      {t('settings.downstream.keys.fields.key')}
+                    </FormLabel>
                     <div className='flex gap-2'>
                       <FormControl>
                         <Input
@@ -317,7 +343,12 @@ export function KeysSection() {
                           placeholder='sk-…'
                         />
                       </FormControl>
-                      <Button type='button' variant='outline' size='sm' onClick={generateKey}>
+                      <Button
+                        type='button'
+                        variant='outline'
+                        size='sm'
+                        onClick={generateKey}
+                      >
                         {t('settings.downstream.keys.generate')}
                       </Button>
                     </div>
@@ -397,7 +428,11 @@ export function KeysSection() {
                       {t('settings.downstream.keys.fields.expiresAt')}
                     </FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value ?? ''} type='datetime-local' />
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        type='datetime-local'
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

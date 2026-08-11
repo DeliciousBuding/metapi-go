@@ -13,10 +13,7 @@
 
 import type { ReactNode } from 'react'
 
-import type {
-  DashboardSection,
-  DashboardSectionNavItem,
-} from '../types'
+import type { DashboardSection, DashboardSectionNavItem } from '../types'
 
 /**
  * Registry config supplied to {@link createSectionRegistry}.
@@ -53,18 +50,16 @@ export type SectionRegistry<TSectionId extends string> = {
  * safety at the call site.
  */
 export function createSectionRegistry<TSectionId extends string>(
-  config: SectionRegistryConfig<TSectionId>,
+  config: SectionRegistryConfig<TSectionId>
 ): SectionRegistry<TSectionId> {
   const { sections, defaultSection, basePath } = config
 
   const sectionIds = sections.map(
-    (section) => section.id,
+    (section) => section.id
   ) as unknown as readonly TSectionId[]
 
   function getSectionMeta(sectionId: TSectionId): DashboardSection {
-    return (
-      sections.find((section) => section.id === sectionId) ?? sections[0]
-    )
+    return sections.find((section) => section.id === sectionId) ?? sections[0]
   }
 
   function getSectionNavItems(): DashboardSectionNavItem[] {

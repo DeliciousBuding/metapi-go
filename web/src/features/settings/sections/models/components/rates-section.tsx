@@ -8,14 +8,8 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { api,type RateOverviewResponse } from '@/lib/api'
-
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
 import {
   Table,
   TableBody,
@@ -24,6 +18,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { api, type RateOverviewResponse } from '@/lib/api'
+
+import {
+  SettingsSectionCard,
+  SettingsSectionSkeleton,
+} from '../../../components/settings-section-card'
 
 const ratesQueryKeys = {
   all: ['model-rates'] as const,
@@ -64,7 +64,7 @@ export function RatesSection() {
         t('settings.models.rates.toast.updated', {
           accounts: result.updatedAccounts,
           channels: result.updatedChannels,
-        }),
+        })
       )
     },
     onError: () => toast.error(t('settings.models.rates.toast.updateFailed')),
@@ -75,9 +75,13 @@ export function RatesSection() {
       return
     }
     if (target.kind === 'account') {
-      updateMutation.mutate({ accounts: [{ id: target.id, unitCost: target.value }] })
+      updateMutation.mutate({
+        accounts: [{ id: target.id, unitCost: target.value }],
+      })
     } else {
-      updateMutation.mutate({ channels: [{ id: target.id, weight: target.value }] })
+      updateMutation.mutate({
+        channels: [{ id: target.id, weight: target.value }],
+      })
     }
   }
 
@@ -92,7 +96,7 @@ export function RatesSection() {
         title={t('settings.models.rates.title')}
         description={t('settings.models.rates.description')}
       >
-        <p className='py-8 text-center text-sm text-muted-foreground'>
+        <p className='text-muted-foreground py-8 text-center text-sm'>
           {t('settings.models.rates.empty')}
         </p>
       </SettingsSectionCard>
@@ -106,7 +110,7 @@ export function RatesSection() {
       title={t('settings.models.rates.title')}
       description={t('settings.models.rates.description')}
     >
-      <p className='mb-4 text-xs text-muted-foreground'>
+      <p className='text-muted-foreground mb-4 text-xs'>
         {t('settings.models.rates.summary', {
           accounts: summary.accountsTotal,
           withCost: summary.accountsWithUnitCost,
@@ -131,7 +135,7 @@ export function RatesSection() {
           {overview.accounts.map((account) => (
             <TableRow key={account.accountId}>
               <TableCell className='text-sm'>{account.username}</TableCell>
-              <TableCell className='text-xs text-muted-foreground'>
+              <TableCell className='text-muted-foreground text-xs'>
                 {account.siteName}
               </TableCell>
               <TableCell>{account.channelCount}</TableCell>
@@ -145,8 +149,14 @@ export function RatesSection() {
                     defaultValue={account.unitCost ?? 0}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') {
-                        const value = Number((event.target as HTMLInputElement).value)
-                        commitEdit({ kind: 'account', id: account.accountId, value })
+                        const value = Number(
+                          (event.target as HTMLInputElement).value
+                        )
+                        commitEdit({
+                          kind: 'account',
+                          id: account.accountId,
+                          value,
+                        })
                       }
                       if (event.key === 'Escape') {
                         setDraft(null)
@@ -167,7 +177,7 @@ export function RatesSection() {
                     }
                   >
                     {account.unitCost ?? '—'}
-                    <span className='text-xs text-muted-foreground'>✎</span>
+                    <span className='text-muted-foreground text-xs'>✎</span>
                   </button>
                 )}
               </TableCell>
@@ -192,8 +202,12 @@ export function RatesSection() {
         <TableBody>
           {overview.channels.map((channel) => (
             <TableRow key={channel.channelId}>
-              <TableCell className='font-mono text-xs'>{channel.routePattern}</TableCell>
-              <TableCell className='font-mono text-xs'>{channel.modelName}</TableCell>
+              <TableCell className='font-mono text-xs'>
+                {channel.routePattern}
+              </TableCell>
+              <TableCell className='font-mono text-xs'>
+                {channel.modelName}
+              </TableCell>
               <TableCell className='text-xs'>{channel.username}</TableCell>
               <TableCell>
                 <Badge variant={channel.enabled ? 'default' : 'secondary'}>
@@ -212,8 +226,14 @@ export function RatesSection() {
                     defaultValue={channel.weight}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') {
-                        const value = Number((event.target as HTMLInputElement).value)
-                        commitEdit({ kind: 'channel', id: channel.channelId, value })
+                        const value = Number(
+                          (event.target as HTMLInputElement).value
+                        )
+                        commitEdit({
+                          kind: 'channel',
+                          id: channel.channelId,
+                          value,
+                        })
                       }
                       if (event.key === 'Escape') {
                         setDraft(null)
@@ -234,7 +254,7 @@ export function RatesSection() {
                     }
                   >
                     {channel.weight}
-                    <span className='text-xs text-muted-foreground'>✎</span>
+                    <span className='text-muted-foreground text-xs'>✎</span>
                   </button>
                 )}
               </TableCell>

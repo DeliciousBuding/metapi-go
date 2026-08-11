@@ -190,7 +190,8 @@ export function ModelDetailSheet({
                           <div className='flex flex-wrap items-center gap-2 text-xs'>
                             <Badge variant='default'>{source.siteName}</Badge>
                             <span className='text-muted-foreground'>
-                              {source.username ?? t('models.detail.unknownUser')}
+                              {source.username ??
+                                t('models.detail.unknownUser')}
                             </span>
                           </div>
                           {groupKeys.length > 0 && (

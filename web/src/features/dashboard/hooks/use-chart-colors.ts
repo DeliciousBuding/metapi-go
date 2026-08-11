@@ -88,7 +88,7 @@ function withAlpha(color: string, alpha: number): string {
 /** Reads --chart-1..5 into concrete canvas colors. */
 function readChartSeries(
   style: CSSStyleDeclaration,
-  fallback: readonly string[],
+  fallback: readonly string[]
 ): string[] {
   const resolved: string[] = []
   for (let index = 1; index <= fallback.length; index += 1) {
@@ -146,10 +146,7 @@ export function useChartColors(): ChartColors {
   useEffect(() => {
     const root =
       typeof document !== 'undefined' ? document.documentElement : null
-    if (
-      !root ||
-      typeof globalThis.MutationObserver !== 'function'
-    ) {
+    if (!root || typeof globalThis.MutationObserver !== 'function') {
       return undefined
     }
     const observer = new globalThis.MutationObserver(() => {

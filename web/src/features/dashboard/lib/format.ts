@@ -13,7 +13,7 @@ export function formatInt(value: number | null | undefined): string {
 /** Format a 0..1 ratio as a percentage: 0.853 → "85.3%". */
 function formatPercent(
   rate: number | null | undefined,
-  fractionDigits = 1,
+  fractionDigits = 1
 ): string {
   if (rate === null || rate === undefined || !Number.isFinite(rate)) {
     return '—'
@@ -25,7 +25,7 @@ function formatPercent(
 export function formatRatio(
   numerator: number,
   denominator: number,
-  fractionDigits = 1,
+  fractionDigits = 1
 ): string {
   if (!denominator) return '—'
   return formatPercent(numerator / denominator, fractionDigits)

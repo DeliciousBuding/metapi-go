@@ -5,8 +5,8 @@
 // ChartShell. Phase 3 reshapes api.getBalanceIncomeOutcome /
 // getSiteTrend / getSiteDistribution responses into the chart data types.
 
-import { VChart } from '@visactor/react-vchart'
 import { useQuery } from '@tanstack/react-query'
+import { VChart } from '@visactor/react-vchart'
 import { Inbox, TriangleAlert } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -15,7 +15,10 @@ import { useTheme } from '@/context/theme-provider'
 import { api } from '@/lib/api'
 
 import { ChartShell } from '../../components/chart-shell'
-import { useChartColors, useThemeLabelColor } from '../../hooks/use-chart-colors'
+import {
+  useChartColors,
+  useThemeLabelColor,
+} from '../../hooks/use-chart-colors'
 import {
   VCHART_OPTION,
   buildIncomeOutcomeSpec,
@@ -58,7 +61,7 @@ type SiteDistributionResponse = {
 function ChartError({ message }: { message: string }) {
   return (
     <div className='flex h-full w-full flex-col items-center justify-center gap-1.5'>
-      <TriangleAlert className='size-5 text-destructive/80' />
+      <TriangleAlert className='text-destructive/80 size-5' />
       <p className='text-destructive text-xs'>{message}</p>
     </div>
   )
@@ -67,7 +70,7 @@ function ChartError({ message }: { message: string }) {
 function ChartEmpty({ message }: { message: string }) {
   return (
     <div className='flex h-full w-full flex-col items-center justify-center gap-1.5'>
-      <Inbox className='size-5 text-muted-foreground/60' />
+      <Inbox className='text-muted-foreground/60 size-5' />
       <p className='text-muted-foreground text-xs'>{message}</p>
     </div>
   )
@@ -81,7 +84,8 @@ export function TrafficSection() {
 
   const incomeOutcomeQuery = useQuery({
     queryKey: ['dashboard-balance-income-outcome', 30],
-    queryFn: () => api.getBalanceIncomeOutcome(30) as Promise<IncomeOutcomeResponse>,
+    queryFn: () =>
+      api.getBalanceIncomeOutcome(30) as Promise<IncomeOutcomeResponse>,
   })
 
   const siteTrendQuery = useQuery({
@@ -91,7 +95,8 @@ export function TrafficSection() {
 
   const siteDistributionQuery = useQuery({
     queryKey: ['dashboard-site-distribution'],
-    queryFn: () => api.getSiteDistribution() as Promise<SiteDistributionResponse>,
+    queryFn: () =>
+      api.getSiteDistribution() as Promise<SiteDistributionResponse>,
   })
 
   const incomeOutcomeData = useMemo<IncomeOutcomePoint[]>(() => {
@@ -136,15 +141,15 @@ export function TrafficSection() {
 
   const incomeOutcomeSpec = useMemo(
     () => buildIncomeOutcomeSpec(colors, incomeOutcomeData),
-    [colors, incomeOutcomeData],
+    [colors, incomeOutcomeData]
   )
   const siteTrendSpec = useMemo(
     () => buildSiteTrendSpec(colors, siteTrendData),
-    [colors, siteTrendData],
+    [colors, siteTrendData]
   )
   const siteDistributionSpec = useMemo(
     () => buildSiteDistributionSpec(colors, labelColor, siteDistributionData),
-    [colors, labelColor, siteDistributionData],
+    [colors, labelColor, siteDistributionData]
   )
 
   const remountKey = `traffic-${resolvedTheme}`
@@ -153,7 +158,7 @@ export function TrafficSection() {
     spec: Record<string, unknown>,
     suffix: string,
     query: { isLoading: boolean; isError: boolean },
-    emptyKey: string,
+    emptyKey: string
   ) => {
     if (query.isLoading) return null
     if (query.isError) {
@@ -186,7 +191,7 @@ export function TrafficSection() {
           incomeOutcomeSpec,
           'income',
           incomeOutcomeQuery,
-          'dashboard.traffic.incomeOutcome.empty',
+          'dashboard.traffic.incomeOutcome.empty'
         )}
       </ChartShell>
 
@@ -200,7 +205,7 @@ export function TrafficSection() {
           siteTrendSpec,
           'site-trend',
           siteTrendQuery,
-          'dashboard.traffic.siteTrend.empty',
+          'dashboard.traffic.siteTrend.empty'
         )}
       </ChartShell>
 
@@ -215,7 +220,7 @@ export function TrafficSection() {
           siteDistributionSpec,
           'site-dist',
           siteDistributionQuery,
-          'dashboard.traffic.siteDistribution.empty',
+          'dashboard.traffic.siteDistribution.empty'
         )}
       </ChartShell>
     </div>

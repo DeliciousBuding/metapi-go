@@ -59,10 +59,7 @@ function StatusBadge({ status }: { status: SiteStatus | undefined }) {
 
 function TruncatedUrl({ url }: { url: string }) {
   return (
-    <span
-      className='block max-w-[18rem] truncate text-sm'
-      title={url}
-    >
+    <span className='block max-w-[18rem] truncate text-sm' title={url}>
       {url}
     </span>
   )
@@ -73,7 +70,9 @@ function TruncatedUrl({ url }: { url: string }) {
  * because it reads i18n state). The `actions` callbacks are supplied by the
  * page so the columns stay free of mutation/query concerns.
  */
-export function useSitesColumns(actions: SitesColumnActions): ColumnDef<Site>[] {
+export function useSitesColumns(
+  actions: SitesColumnActions
+): ColumnDef<Site>[] {
   const { t } = useTranslation()
 
   const columns: ColumnDef<Site>[] = [
@@ -87,7 +86,9 @@ export function useSitesColumns(actions: SitesColumnActions): ColumnDef<Site>[] 
       header: ({ table }) => (
         <Checkbox
           checked={table.getIsAllRowsSelected()}
-          indeterminate={table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()}
+          indeterminate={
+            table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()
+          }
           onCheckedChange={(value) => table.toggleAllRowsSelected(!!value)}
           aria-label={t('sites.columns.selectAll')}
         />
@@ -107,7 +108,10 @@ export function useSitesColumns(actions: SitesColumnActions): ColumnDef<Site>[] 
       size: 200,
       meta: { mobileTitle: true, mobileOrder: 0 },
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('sites.columns.name')} />
+        <DataTableColumnHeader
+          column={column}
+          title={t('sites.columns.name')}
+        />
       ),
       cell: ({ row }) => {
         const site = row.original
@@ -137,12 +141,16 @@ export function useSitesColumns(actions: SitesColumnActions): ColumnDef<Site>[] 
       size: 120,
       meta: { mobileBadge: true, mobileOrder: 1 },
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('sites.columns.status')} />
+        <DataTableColumnHeader
+          column={column}
+          title={t('sites.columns.status')}
+        />
       ),
       cell: ({ row }) => <StatusBadge status={row.original.status} />,
       filterFn: (row, columnId, filterValue) => {
         const value = row.getValue(columnId) as SiteStatus | undefined
-        const resolved: SiteStatus = value === 'disabled' ? 'disabled' : 'active'
+        const resolved: SiteStatus =
+          value === 'disabled' ? 'disabled' : 'active'
         if (Array.isArray(filterValue)) {
           return filterValue.length === 0 || filterValue.includes(resolved)
         }
@@ -155,7 +163,10 @@ export function useSitesColumns(actions: SitesColumnActions): ColumnDef<Site>[] 
       size: 140,
       meta: { mobileHidden: true, mobileOrder: 20 },
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('sites.columns.platform')} />
+        <DataTableColumnHeader
+          column={column}
+          title={t('sites.columns.platform')}
+        />
       ),
       cell: ({ row }) => {
         const platform = row.original.platform
@@ -219,7 +230,9 @@ export function useSitesColumns(actions: SitesColumnActions): ColumnDef<Site>[] 
       enableResizing: false,
       meta: { mobileHidden: false, mobileOrder: 5 },
       header: () => (
-        <span className='text-muted-foreground text-xs'>{t('sites.columns.actions')}</span>
+        <span className='text-muted-foreground text-xs'>
+          {t('sites.columns.actions')}
+        </span>
       ),
       cell: ({ row }) => {
         const site = row.original

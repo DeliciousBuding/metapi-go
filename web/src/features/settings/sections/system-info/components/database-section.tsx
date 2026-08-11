@@ -13,8 +13,6 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
-import { api } from '@/lib/api'
-
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -34,6 +32,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { api } from '@/lib/api'
+
 import {
   SettingsSectionCard,
   SettingsSectionSkeleton,
@@ -43,7 +43,9 @@ const SAVE_FORM_ID = 'settings-system-info-database-form'
 
 const databaseSchema = z.object({
   dialect: z.enum(['sqlite', 'postgres']),
-  connectionString: z.string().min(1, 'settings.systemInfo.database.schema.connectionRequired'),
+  connectionString: z
+    .string()
+    .min(1, 'settings.systemInfo.database.schema.connectionRequired'),
   ssl: z.boolean().optional(),
   overwrite: z.boolean().optional(),
 })
@@ -70,7 +72,8 @@ export function DatabaseSection() {
 
   const configQuery = useQuery<RuntimeDatabaseConfig>({
     queryKey: runtimeDatabaseQueryKeys.all,
-    queryFn: async () => (await api.getRuntimeDatabaseConfig()) as RuntimeDatabaseConfig,
+    queryFn: async () =>
+      (await api.getRuntimeDatabaseConfig()) as RuntimeDatabaseConfig,
     staleTime: 30 * 1000,
   })
 
@@ -96,7 +99,7 @@ export function DatabaseSection() {
         ssl: Boolean(saved.ssl),
         overwrite: false,
       },
-      { keepDirtyValues: true },
+      { keepDirtyValues: true }
     )
   }, [configQuery.data, form])
 
@@ -109,8 +112,10 @@ export function DatabaseSection() {
         connectionString: values.connectionString,
         ssl: Boolean(values.ssl),
       }),
-    onSuccess: () => toast.success(t('settings.systemInfo.database.toast.testOk')),
-    onError: () => toast.error(t('settings.systemInfo.database.toast.testFailed')),
+    onSuccess: () =>
+      toast.success(t('settings.systemInfo.database.toast.testOk')),
+    onError: () =>
+      toast.error(t('settings.systemInfo.database.toast.testFailed')),
   })
 
   const migrateMutation = useMutation({
@@ -138,8 +143,10 @@ export function DatabaseSection() {
         connectionString: values.connectionString,
         ssl: Boolean(values.ssl),
       }),
-    onSuccess: () => toast.success(t('settings.systemInfo.database.toast.saved')),
-    onError: () => toast.error(t('settings.systemInfo.database.toast.saveFailed')),
+    onSuccess: () =>
+      toast.success(t('settings.systemInfo.database.toast.saved')),
+    onError: () =>
+      toast.error(t('settings.systemInfo.database.toast.saveFailed')),
   })
 
   function onSave(values: DatabaseFormValues) {
@@ -159,16 +166,16 @@ export function DatabaseSection() {
     >
       <div className='space-y-4'>
         {active ? (
-          <div className='text-xs text-muted-foreground'>
+          <div className='text-muted-foreground text-xs'>
             <span>{t('settings.systemInfo.database.currentRuntime')}</span>
-            <code className='ml-2 rounded bg-muted px-2 py-0.5'>
+            <code className='bg-muted ml-2 rounded px-2 py-0.5'>
               {active.dialect} · {active.connection}
               {active.ssl ? ' · SSL' : ''}
             </code>
           </div>
         ) : null}
         {configQuery.data?.restartRequired ? (
-          <p className='text-xs text-warning'>
+          <p className='text-warning text-xs'>
             {t('settings.systemInfo.database.restartRequired')}
           </p>
         ) : null}
@@ -184,7 +191,9 @@ export function DatabaseSection() {
               name='dialect'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('settings.systemInfo.database.fields.dialect')}</FormLabel>
+                  <FormLabel>
+                    {t('settings.systemInfo.database.fields.dialect')}
+                  </FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
                       <SelectTrigger>
@@ -221,7 +230,9 @@ export function DatabaseSection() {
                     />
                   </FormControl>
                   <FormDescription>
-                    {t('settings.systemInfo.database.fields.connectionStringHint')}
+                    {t(
+                      'settings.systemInfo.database.fields.connectionStringHint'
+                    )}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -284,7 +295,7 @@ export function DatabaseSection() {
         </Form>
 
         {confirmMigrateOpen ? (
-          <div className='space-y-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4'>
+          <div className='border-destructive/40 bg-destructive/5 space-y-3 rounded-lg border p-4'>
             <h4 className='text-sm font-medium'>
               {t('settings.systemInfo.database.migrateConfirmTitle')}
             </h4>

@@ -28,7 +28,7 @@ function buildRouteTarget(accountId?: number, siteId?: number): string {
  */
 export function showAccountCreatedToast(
   accountId?: number,
-  siteId?: number,
+  siteId?: number
 ): void {
   const target = buildRouteTarget(accountId, siteId)
   toast.success(i18n.t('accounts.created.title'), {

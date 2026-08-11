@@ -20,10 +20,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import {
-  DataTablePage,
-  useDataTable,
-} from '@/components/data-table'
+import { DataTablePage, useDataTable } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -33,7 +30,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-
 import { parseSortingParam } from '@/lib/helpers/searchParams'
 
 import {
@@ -44,10 +40,7 @@ import {
 } from '../api'
 import { oauthSearchSchema } from '../lib/oauth-schema'
 import type { OAuthClient } from '../types'
-import {
-  OAUTH_STATUS_FILTER_OPTIONS,
-  useOAuthColumns,
-} from './oauth-columns'
+import { OAUTH_STATUS_FILTER_OPTIONS, useOAuthColumns } from './oauth-columns'
 import { OAuthStartDialog } from './oauth-start-dialog'
 
 const OAUTH_COLUMN_VISIBILITY_STORAGE_KEY = 'metapi-go:oauth:column-visibility'
@@ -61,7 +54,10 @@ type ResolvedSearch = {
   status: string | undefined
 }
 
-function resolveUpdater<TValue>(updater: Updater<TValue>, previous: TValue): TValue {
+function resolveUpdater<TValue>(
+  updater: Updater<TValue>,
+  previous: TValue
+): TValue {
   return typeof updater === 'function'
     ? (updater as (old: TValue) => TValue)(previous)
     : updater
@@ -192,7 +188,9 @@ export function OAuthPage() {
     onRefreshQuota: (client) => {
       refreshQuota.mutate(client.accountId, {
         onSuccess: () =>
-          toast.success(t('oauth.toast.quotaRefreshed', { id: client.accountId })),
+          toast.success(
+            t('oauth.toast.quotaRefreshed', { id: client.accountId })
+          ),
         onError: () => toast.error(t('oauth.toast.quotaRefreshFailed')),
       })
     },
@@ -200,9 +198,15 @@ export function OAuthPage() {
       rebindConnection.mutate(client.accountId, {
         onSuccess: (result) => {
           if (result.authorizationUrl) {
-            window.open(result.authorizationUrl, '_blank', 'noopener,noreferrer')
+            window.open(
+              result.authorizationUrl,
+              '_blank',
+              'noopener,noreferrer'
+            )
           }
-          toast.success(t('oauth.toast.rebindStarted', { id: client.accountId }))
+          toast.success(
+            t('oauth.toast.rebindStarted', { id: client.accountId })
+          )
         },
         onError: () => toast.error(t('oauth.toast.rebindFailed')),
       })

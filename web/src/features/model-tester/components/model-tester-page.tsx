@@ -20,10 +20,10 @@ import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
 
 import { useTestModel } from '../api'
-import { TestForm } from './test-form'
-import { TestResponseViewer } from './test-response-viewer'
 import type { TesterFormValues } from '../lib/tester-schema'
 import type { TestResponse, TestStreamDelta } from '../types'
+import { TestForm } from './test-form'
+import { TestResponseViewer } from './test-response-viewer'
 
 function isAbortError(error: unknown): boolean {
   if (!(error instanceof Error)) return false
@@ -109,7 +109,7 @@ export function ModelTesterPage() {
         abortControllerRef.current = null
       }
     },
-    [handleDelta, testModel, t],
+    [handleDelta, testModel, t]
   )
 
   const isRunning = testModel.isPending

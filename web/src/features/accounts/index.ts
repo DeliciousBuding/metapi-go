@@ -8,10 +8,7 @@
 // --- page + components ---
 
 // --- account hooks + query keys ---
-export {
-  accountQueryKeys,
-  useAccounts,
-} from './api'
+export { accountQueryKeys, useAccounts } from './api'
 
 // --- account entity types + runtime schemas ---
 

@@ -130,11 +130,7 @@ function parseAnyStreamDelta(eventPayload: unknown): TestStreamDelta {
       const delta = payload.delta
       const text = payload.text
       const content =
-        typeof delta === 'string'
-          ? delta
-          : typeof text === 'string'
-            ? text
-            : ''
+        typeof delta === 'string' ? delta : typeof text === 'string' ? text : ''
       return { contentDelta: content || undefined }
     }
     if (
@@ -144,11 +140,7 @@ function parseAnyStreamDelta(eventPayload: unknown): TestStreamDelta {
       const delta = payload.delta
       const text = payload.text
       const reasoning =
-        typeof delta === 'string'
-          ? delta
-          : typeof text === 'string'
-            ? text
-            : ''
+        typeof delta === 'string' ? delta : typeof text === 'string' ? text : ''
       return { reasoningDelta: reasoning || undefined }
     }
     if (type === 'response.completed' || type === 'response.failed') {
@@ -184,7 +176,9 @@ function parseAnyStreamDelta(eventPayload: unknown): TestStreamDelta {
   }
 
   if (Array.isArray(payload.candidates)) {
-    const candidate = payload.candidates[0] as Record<string, unknown> | undefined
+    const candidate = payload.candidates[0] as
+      | Record<string, unknown>
+      | undefined
     const content = candidate?.content as Record<string, unknown> | undefined
     const parts = content?.parts as unknown[] | undefined
     if (Array.isArray(parts)) {
@@ -241,7 +235,7 @@ async function parseStreamErrorText(response: Response): Promise<string> {
  * closes. Throws on auth failure, non-ok responses, or caller abort.
  */
 async function runTestStream(
-  variables: TestModelVariables,
+  variables: TestModelVariables
 ): Promise<TestResponse> {
   const { payload, onDelta, onDone, signal } = variables
   const chatPayload = buildChatPayload(payload)
@@ -306,7 +300,11 @@ async function runTestStream(
       rawEvents,
       empty: !content && !reasoningContent,
     }
-    onDelta?.({ contentDelta: content, reasoningDelta: reasoningContent, done: true })
+    onDelta?.({
+      contentDelta: content,
+      reasoningDelta: reasoningContent,
+      done: true,
+    })
     onDone?.(summary)
     return summary
   }

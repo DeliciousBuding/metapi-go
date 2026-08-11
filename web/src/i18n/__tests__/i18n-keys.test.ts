@@ -3,9 +3,11 @@
 // BOTH en.json and zh-CN.json (translation namespace). Replaces the retired
 // MutationObserver-dictionary coverage test from the pre-rewrite i18n stack.
 
-import { describe, expect, it } from 'vitest'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+
+import { describe, expect, it } from 'vitest'
+
 import en from '../locales/en.json'
 import zhCN from '../locales/zh-CN.json'
 
@@ -64,8 +66,8 @@ function collectSourceFiles(): string[] {
       if (entry.isDirectory()) {
         if (!SKIP_DIRS.has(entry.name)) visit(join(dir, entry.name))
       } else if (
-        (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx'))
-        && !/\.(test|spec)\.(ts|tsx)$/.test(entry.name)
+        (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) &&
+        !/\.(test|spec)\.(ts|tsx)$/.test(entry.name)
       ) {
         files.push(join(dir, entry.name))
       }
@@ -85,9 +87,9 @@ function extractUsages(): Usage[] {
         // Skip doc examples inside comments (e.g. `// header: t('Name')`).
         const trimmed = line.trimStart()
         if (
-          trimmed.startsWith('*')
-          || trimmed.startsWith('//')
-          || beforeMatch.includes('//')
+          trimmed.startsWith('*') ||
+          trimmed.startsWith('//') ||
+          beforeMatch.includes('//')
         ) {
           continue
         }
@@ -161,7 +163,7 @@ describe('i18n key coverage', () => {
         // A fully dynamic template prefix (e.g. `${x}.title`) cannot be
         // verified statically — surface it so it gets an allowlist entry.
         expect.fail(
-          `unresolvable dynamic key ${JSON.stringify(rawKey)} at ${location}`,
+          `unresolvable dynamic key ${JSON.stringify(rawKey)} at ${location}`
         )
       }
       if (seen.has(key)) continue
@@ -183,8 +185,12 @@ describe('i18n key coverage', () => {
 
   it('keeps allowlisted dynamic keys defined in both locales', () => {
     for (const key of DYNAMIC_KEY_ALLOWLIST) {
-      expect(enKeys.has(key), `en.json missing allowlisted key ${key}`).toBe(true)
-      expect(zhKeys.has(key), `zh-CN.json missing allowlisted key ${key}`).toBe(true)
+      expect(enKeys.has(key), `en.json missing allowlisted key ${key}`).toBe(
+        true
+      )
+      expect(zhKeys.has(key), `zh-CN.json missing allowlisted key ${key}`).toBe(
+        true
+      )
     }
   })
 

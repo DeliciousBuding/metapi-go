@@ -48,7 +48,9 @@ describe('parseSortingParam', () => {
   })
 
   it('falls back to the comma form for invalid JSON', () => {
-    expect(parseSortingParam('[broken')).toEqual([{ id: '[broken', desc: false }])
+    expect(parseSortingParam('[broken')).toEqual([
+      { id: '[broken', desc: false },
+    ])
   })
 })
 

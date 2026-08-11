@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest'
+
 import {
   DEBUG_TABS,
   DEFAULT_INPUTS,
@@ -26,7 +27,7 @@ import {
   toApiMessages,
   type ChatMessage,
   type ModelTesterSessionState,
-} from './modelTesterSession.js';
+} from './modelTesterSession.js'
 
 describe('modelTesterSession', () => {
   it('counts only user messages as turns', () => {
@@ -35,9 +36,9 @@ describe('modelTesterSession', () => {
       { id: '2', role: 'assistant', content: 'hi', createAt: 2 },
       { id: '3', role: 'system', content: 'meta', createAt: 3 },
       { id: '4', role: 'user', content: 'again', createAt: 4 },
-    ]);
-    expect(turns).toBe(2);
-  });
+    ])
+    expect(turns).toBe(2)
+  })
 
   it('serializes and parses full playground session state', () => {
     const state: ModelTesterSessionState = {
@@ -66,7 +67,13 @@ describe('modelTesterSession', () => {
       },
       messages: [
         { id: 'm1', role: 'user', content: 'hello', createAt: 1 },
-        { id: 'm2', role: 'assistant', content: 'hi', createAt: 2, status: MESSAGE_STATUS.COMPLETE },
+        {
+          id: 'm2',
+          role: 'assistant',
+          content: 'hi',
+          createAt: 2,
+          status: MESSAGE_STATUS.COMPLETE,
+        },
       ],
       pendingPayload: {
         method: 'POST',
@@ -100,48 +107,62 @@ describe('modelTesterSession', () => {
         searchQuery: 'hello',
         searchAllowedDomains: 'openai.com, google.com',
       },
-    };
+    }
 
-    const serialized = serializeModelTesterSession(state);
-    const restored = parseModelTesterSession(serialized);
+    const serialized = serializeModelTesterSession(state)
+    const restored = parseModelTesterSession(serialized)
 
-    expect(restored).toEqual(state);
-  });
+    expect(restored).toEqual(state)
+  })
 
   it('supports parsing legacy session format into conversation/openai defaults', () => {
-    const restored = parseModelTesterSession(JSON.stringify({
-      model: 'gpt-4o',
-      temperature: 0.5,
-      input: 'legacy',
-      messages: [{ role: 'user', content: 'hello' }],
-      pendingPayload: null,
-    }));
+    const restored = parseModelTesterSession(
+      JSON.stringify({
+        model: 'gpt-4o',
+        temperature: 0.5,
+        input: 'legacy',
+        messages: [{ role: 'user', content: 'hello' }],
+        pendingPayload: null,
+      })
+    )
 
-    expect(restored?.inputs.model).toBe('gpt-4o');
-    expect(restored?.inputs.protocol).toBe('openai');
-    expect(restored?.inputs.mode).toBe('conversation');
-    expect(restored?.inputs.temperature).toBe(0.5);
-    expect(restored?.parameterEnabled).toEqual(DEFAULT_PARAMETER_ENABLED);
-  });
+    expect(restored?.inputs.model).toBe('gpt-4o')
+    expect(restored?.inputs.protocol).toBe('openai')
+    expect(restored?.inputs.mode).toBe('conversation')
+    expect(restored?.inputs.temperature).toBe(0.5)
+    expect(restored?.parameterEnabled).toEqual(DEFAULT_PARAMETER_ENABLED)
+  })
 
   it('returns null for malformed or missing session payload', () => {
-    expect(parseModelTesterSession(null)).toBeNull();
-    expect(parseModelTesterSession('not-json')).toBeNull();
-    expect(parseModelTesterSession(JSON.stringify({ messages: [] }))).toBeNull();
-  });
+    expect(parseModelTesterSession(null)).toBeNull()
+    expect(parseModelTesterSession('not-json')).toBeNull()
+    expect(parseModelTesterSession(JSON.stringify({ messages: [] }))).toBeNull()
+  })
 
   it('drops loading assistant placeholders when building API payload messages', () => {
     const payloadMessages = toApiMessages([
       { id: '1', role: 'user', content: 'hello', createAt: 1 },
-      { id: '2', role: 'assistant', content: '', createAt: 2, status: MESSAGE_STATUS.LOADING },
-      { id: '3', role: 'assistant', content: 'done', createAt: 3, status: MESSAGE_STATUS.COMPLETE },
-    ]);
+      {
+        id: '2',
+        role: 'assistant',
+        content: '',
+        createAt: 2,
+        status: MESSAGE_STATUS.LOADING,
+      },
+      {
+        id: '3',
+        role: 'assistant',
+        content: 'done',
+        createAt: 3,
+        status: MESSAGE_STATUS.COMPLETE,
+      },
+    ])
 
     expect(payloadMessages).toEqual([
       { role: 'user', content: 'hello' },
       { role: 'assistant', content: 'done' },
-    ]);
-  });
+    ])
+  })
 
   it('builds conversation payload as generic proxy envelope', () => {
     const payload = buildApiPayload(
@@ -166,8 +187,8 @@ describe('modelTesterSession', () => {
         frequency_penalty: true,
         presence_penalty: false,
         seed: true,
-      },
-    );
+      }
+    )
 
     expect(payload).toEqual({
       method: 'POST',
@@ -188,16 +209,16 @@ describe('modelTesterSession', () => {
         frequency_penalty: 0.2,
         seed: 42,
       },
-    });
-  });
+    })
+  })
 
   it('attaches a forced channel id to tester envelopes without mutating the request body', () => {
     const base = buildEmbeddingsRequestEnvelope('hello', {
       ...DEFAULT_INPUTS,
       model: 'text-embedding-3-small',
-    });
+    })
 
-    const payload = attachForcedChannelToEnvelope(base, 42);
+    const payload = attachForcedChannelToEnvelope(base, 42)
 
     expect(payload).toEqual({
       method: 'POST',
@@ -211,15 +232,17 @@ describe('modelTesterSession', () => {
         model: 'text-embedding-3-small',
         input: 'hello',
       },
-    });
-  });
+    })
+  })
 
   it('builds multipart upload envelopes for /v1/files', () => {
-    expect(buildFileUploadRequestEnvelope({
-      name: 'paper.pdf',
-      mimeType: 'application/pdf',
-      dataUrl: 'data:application/pdf;base64,JVBERi0xLjc=',
-    })).toEqual({
+    expect(
+      buildFileUploadRequestEnvelope({
+        name: 'paper.pdf',
+        mimeType: 'application/pdf',
+        dataUrl: 'data:application/pdf;base64,JVBERi0xLjc=',
+      })
+    ).toEqual({
       method: 'POST',
       path: '/v1/files',
       requestKind: 'multipart',
@@ -237,8 +260,8 @@ describe('modelTesterSession', () => {
           dataUrl: 'data:application/pdf;base64,JVBERi0xLjc=',
         },
       ],
-    });
-  });
+    })
+  })
 
   it('creates user conversation messages that preserve uploaded file references', () => {
     const message = createConversationUserMessage('请总结附件', [
@@ -247,10 +270,10 @@ describe('modelTesterSession', () => {
         filename: 'paper.pdf',
         mimeType: 'application/pdf',
       },
-    ]);
+    ])
 
-    expect(message.role).toBe('user');
-    expect(message.content).toBe('请总结附件');
+    expect(message.role).toBe('user')
+    expect(message.content).toBe('请总结附件')
     expect(message.parts).toEqual([
       {
         type: 'input_file',
@@ -258,8 +281,8 @@ describe('modelTesterSession', () => {
         filename: 'paper.pdf',
         mimeType: 'application/pdf',
       },
-    ]);
-  });
+    ])
+  })
 
   it('extracts inline conversation file data for retry flows', () => {
     const files = extractConversationUploadedFilesFromMessage({
@@ -275,7 +298,7 @@ describe('modelTesterSession', () => {
           data: 'data:application/pdf;base64,JVBERi0xLjQK',
         },
       ],
-    });
+    })
 
     expect(files).toEqual([
       {
@@ -283,8 +306,8 @@ describe('modelTesterSession', () => {
         mimeType: 'application/pdf',
         data: 'data:application/pdf;base64,JVBERi0xLjQK',
       },
-    ]);
-  });
+    ])
+  })
 
   it('extracts uploaded file references for retry flows', () => {
     const files = extractConversationUploadedFilesFromMessage({
@@ -300,7 +323,7 @@ describe('modelTesterSession', () => {
           mimeType: 'text/plain',
         },
       ],
-    });
+    })
 
     expect(files).toEqual([
       {
@@ -308,15 +331,15 @@ describe('modelTesterSession', () => {
         filename: 'appendix.txt',
         mimeType: 'text/plain',
       },
-    ]);
-  });
+    ])
+  })
 
   it('hydrates local file ids into inline replay files for claude', async () => {
     const loader = vi.fn(async () => ({
       filename: 'brief.pdf',
       mimeType: 'application/pdf',
       data: 'data:application/pdf;base64,JVBERi0x',
-    }));
+    }))
 
     const files = await resolveConversationReplayFiles?.(
       [
@@ -327,10 +350,10 @@ describe('modelTesterSession', () => {
         },
       ],
       'claude',
-      loader,
-    );
+      loader
+    )
 
-    expect(loader).toHaveBeenCalledWith('file-metapi-123');
+    expect(loader).toHaveBeenCalledWith('file-metapi-123')
     expect(files).toEqual([
       {
         fileId: 'file-metapi-123',
@@ -338,32 +361,34 @@ describe('modelTesterSession', () => {
         mimeType: 'application/pdf',
         data: 'data:application/pdf;base64,JVBERi0x',
       },
-    ]);
-  });
+    ])
+  })
 
   it('preserves file reference parts when building responses conversation payloads', () => {
     const payload = buildApiPayload(
-      [{
-        id: 'u1',
-        role: 'user',
-        content: '请总结上传文件',
-        createAt: 1,
-        parts: [
-          {
-            type: 'input_file',
-            fileId: 'file_123',
-            filename: 'notes.txt',
-            mimeType: 'text/plain',
-          },
-        ],
-      } as ChatMessage],
+      [
+        {
+          id: 'u1',
+          role: 'user',
+          content: '请总结上传文件',
+          createAt: 1,
+          parts: [
+            {
+              type: 'input_file',
+              fileId: 'file_123',
+              filename: 'notes.txt',
+              mimeType: 'text/plain',
+            },
+          ],
+        } as ChatMessage,
+      ],
       {
         ...DEFAULT_INPUTS,
         model: 'gpt-5',
         protocol: 'responses',
       },
-      DEFAULT_PARAMETER_ENABLED,
-    );
+      DEFAULT_PARAMETER_ENABLED
+    )
 
     expect(payload.jsonBody).toEqual({
       model: 'gpt-5',
@@ -378,8 +403,8 @@ describe('modelTesterSession', () => {
       ],
       stream: false,
       temperature: 0.7,
-    });
-  });
+    })
+  })
 
   it('serializes assistant history as output_text for responses payloads', () => {
     const payload = buildApiPayload(
@@ -392,29 +417,25 @@ describe('modelTesterSession', () => {
         model: 'gpt-5.2',
         protocol: 'responses',
       },
-      DEFAULT_PARAMETER_ENABLED,
-    );
+      DEFAULT_PARAMETER_ENABLED
+    )
 
     expect(payload.jsonBody).toEqual({
       model: 'gpt-5.2',
       input: [
         {
           role: 'user',
-          content: [
-            { type: 'input_text', text: '先看附件' },
-          ],
+          content: [{ type: 'input_text', text: '先看附件' }],
         },
         {
           role: 'assistant',
-          content: [
-            { type: 'output_text', text: '我已经看过摘要' },
-          ],
+          content: [{ type: 'output_text', text: '我已经看过摘要' }],
         },
       ],
       stream: false,
       temperature: 0.7,
-    });
-  });
+    })
+  })
 
   it('builds gemini conversation envelope with generationConfig', () => {
     const payload = buildApiPayload(
@@ -430,24 +451,42 @@ describe('modelTesterSession', () => {
       {
         ...DEFAULT_PARAMETER_ENABLED,
         max_tokens: true,
-      },
-    );
+      }
+    )
 
-    expect(payload.path).toBe('/v1beta/models/gemini-2.5-pro:generateContent');
+    expect(payload.path).toBe('/v1beta/models/gemini-2.5-pro:generateContent')
     expect(payload.jsonBody).toEqual({
       systemInstruction: { parts: [{ text: 'system text' }] },
       contents: [{ role: 'user', parts: [{ text: 'hello' }] }],
       generationConfig: { temperature: 0.2, maxOutputTokens: 300 },
-    });
-  });
+    })
+  })
 
   it('builds gemini native proxy envelope without loading assistant placeholders', () => {
     const payload = buildGeminiNativeConversationProxyEnvelope(
       [
         { id: 'u1', role: 'user', content: 'hello', createAt: 1 },
-        { id: 'a1', role: 'assistant', content: '', createAt: 2, status: MESSAGE_STATUS.LOADING },
-        { id: 'a2', role: 'assistant', content: 'partial', createAt: 3, status: MESSAGE_STATUS.INCOMPLETE },
-        { id: 'a3', role: 'assistant', content: 'done', createAt: 4, status: MESSAGE_STATUS.COMPLETE },
+        {
+          id: 'a1',
+          role: 'assistant',
+          content: '',
+          createAt: 2,
+          status: MESSAGE_STATUS.LOADING,
+        },
+        {
+          id: 'a2',
+          role: 'assistant',
+          content: 'partial',
+          createAt: 3,
+          status: MESSAGE_STATUS.INCOMPLETE,
+        },
+        {
+          id: 'a3',
+          role: 'assistant',
+          content: 'done',
+          createAt: 4,
+          status: MESSAGE_STATUS.COMPLETE,
+        },
       ],
       {
         ...DEFAULT_INPUTS,
@@ -459,11 +498,13 @@ describe('modelTesterSession', () => {
       {
         ...DEFAULT_PARAMETER_ENABLED,
         max_tokens: true,
-      },
-    );
+      }
+    )
 
-    expect(payload.path).toBe('/gemini/v1beta/models/gemini-2.5-pro:generateContent?alt=sse');
-    expect(payload.jobMode).toBe(false);
+    expect(payload.path).toBe(
+      '/gemini/v1beta/models/gemini-2.5-pro:generateContent?alt=sse'
+    )
+    expect(payload.jobMode).toBe(false)
     expect(payload.jsonBody).toEqual({
       systemInstruction: { parts: [{ text: 'system text' }] },
       contents: [
@@ -471,8 +512,8 @@ describe('modelTesterSession', () => {
         { role: 'model', parts: [{ text: 'done' }] },
       ],
       generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
-    });
-  });
+    })
+  })
 
   it('serializes conversation file parts into openai and responses payloads', () => {
     const message = {
@@ -488,7 +529,7 @@ describe('modelTesterSession', () => {
           mimeType: 'application/pdf',
         },
       ],
-    };
+    }
 
     const openaiPayload = buildApiPayload(
       [message],
@@ -497,8 +538,8 @@ describe('modelTesterSession', () => {
         model: 'gpt-4.1',
         protocol: 'openai',
       },
-      DEFAULT_PARAMETER_ENABLED,
-    );
+      DEFAULT_PARAMETER_ENABLED
+    )
 
     expect(openaiPayload.jsonBody).toEqual({
       model: 'gpt-4.1',
@@ -507,22 +548,22 @@ describe('modelTesterSession', () => {
           role: 'user',
           content: [
             { type: 'text', text: 'summarize this' },
-          {
-            type: 'file',
-            file: {
-              file_id: 'file_metapi_123',
-              filename: 'paper.pdf',
-              mime_type: 'application/pdf',
+            {
+              type: 'file',
+              file: {
+                file_id: 'file_metapi_123',
+                filename: 'paper.pdf',
+                mime_type: 'application/pdf',
+              },
             },
-          },
-        ],
-      },
+          ],
+        },
       ],
       stream: false,
       temperature: 0.7,
       frequency_penalty: 0,
       presence_penalty: 0,
-    });
+    })
 
     const responsesPayload = buildApiPayload(
       [message],
@@ -531,8 +572,8 @@ describe('modelTesterSession', () => {
         model: 'gpt-4.1',
         protocol: 'responses',
       },
-      DEFAULT_PARAMETER_ENABLED,
-    );
+      DEFAULT_PARAMETER_ENABLED
+    )
 
     expect(responsesPayload.jsonBody).toEqual({
       model: 'gpt-4.1',
@@ -551,8 +592,8 @@ describe('modelTesterSession', () => {
       ],
       stream: false,
       temperature: 0.7,
-    });
-  });
+    })
+  })
 
   it('prefers native file ids over inline backups for OpenAI and Responses payloads', () => {
     const message = {
@@ -569,7 +610,7 @@ describe('modelTesterSession', () => {
           data: 'data:application/pdf;base64,JVBERi0x',
         },
       ],
-    };
+    }
 
     const openAiPayload = buildApiPayload(
       [message],
@@ -578,8 +619,8 @@ describe('modelTesterSession', () => {
         model: 'gpt-4.1',
         protocol: 'openai',
       },
-      DEFAULT_PARAMETER_ENABLED,
-    );
+      DEFAULT_PARAMETER_ENABLED
+    )
 
     expect(openAiPayload.jsonBody).toEqual({
       model: 'gpt-4.1',
@@ -603,7 +644,7 @@ describe('modelTesterSession', () => {
       temperature: 0.7,
       frequency_penalty: 0,
       presence_penalty: 0,
-    });
+    })
 
     const responsesPayload = buildApiPayload(
       [message],
@@ -612,8 +653,8 @@ describe('modelTesterSession', () => {
         model: 'gpt-4.1',
         protocol: 'responses',
       },
-      DEFAULT_PARAMETER_ENABLED,
-    );
+      DEFAULT_PARAMETER_ENABLED
+    )
 
     expect(responsesPayload.jsonBody).toEqual({
       model: 'gpt-4.1',
@@ -632,32 +673,34 @@ describe('modelTesterSession', () => {
       ],
       stream: false,
       temperature: 0.7,
-    });
-  });
+    })
+  })
 
   it('strips data URL wrappers when replaying inline files into OpenAI chat payloads', () => {
     const payload = buildApiPayload(
-      [{
-        id: 'u1',
-        role: 'user',
-        content: 'summarize this inline file',
-        createAt: 1,
-        parts: [
-          {
-            type: 'input_file',
-            filename: 'brief.pdf',
-            mimeType: 'application/pdf',
-            data: 'data:application/pdf;base64,JVBERi0x',
-          },
-        ],
-      } as ChatMessage],
+      [
+        {
+          id: 'u1',
+          role: 'user',
+          content: 'summarize this inline file',
+          createAt: 1,
+          parts: [
+            {
+              type: 'input_file',
+              filename: 'brief.pdf',
+              mimeType: 'application/pdf',
+              data: 'data:application/pdf;base64,JVBERi0x',
+            },
+          ],
+        } as ChatMessage,
+      ],
       {
         ...DEFAULT_INPUTS,
         model: 'gpt-4.1',
         protocol: 'openai',
       },
-      DEFAULT_PARAMETER_ENABLED,
-    );
+      DEFAULT_PARAMETER_ENABLED
+    )
 
     expect(payload.jsonBody).toEqual({
       model: 'gpt-4.1',
@@ -681,32 +724,34 @@ describe('modelTesterSession', () => {
       temperature: 0.7,
       frequency_penalty: 0,
       presence_penalty: 0,
-    });
-  });
+    })
+  })
 
   it('builds Claude conversation payloads with inline document blocks for conversation files', () => {
     const payload = buildApiPayload(
-      [{
-        id: 'u1',
-        role: 'user',
-        content: 'summarize this',
-        createAt: 1,
-        parts: [
-          {
-            type: 'input_file',
-            filename: 'brief.pdf',
-            mimeType: 'application/pdf',
-            data: 'data:application/pdf;base64,JVBERi0xLjc=',
-          },
-        ],
-      } as ChatMessage],
+      [
+        {
+          id: 'u1',
+          role: 'user',
+          content: 'summarize this',
+          createAt: 1,
+          parts: [
+            {
+              type: 'input_file',
+              filename: 'brief.pdf',
+              mimeType: 'application/pdf',
+              data: 'data:application/pdf;base64,JVBERi0xLjc=',
+            },
+          ],
+        } as ChatMessage,
+      ],
       {
         ...DEFAULT_INPUTS,
         model: 'claude-opus-4-6',
         protocol: 'claude',
       },
-      DEFAULT_PARAMETER_ENABLED,
-    );
+      DEFAULT_PARAMETER_ENABLED
+    )
 
     expect(payload.jsonBody).toEqual({
       model: 'claude-opus-4-6',
@@ -730,32 +775,34 @@ describe('modelTesterSession', () => {
         },
       ],
       temperature: 0.7,
-    });
-  });
+    })
+  })
 
   it('builds Claude conversation payloads with image blocks for inline image attachments', () => {
     const payload = buildApiPayload(
-      [{
-        id: 'u1',
-        role: 'user',
-        content: 'describe this image',
-        createAt: 1,
-        parts: [
-          {
-            type: 'input_file',
-            filename: 'chart.png',
-            mimeType: 'image/png',
-            data: 'data:image/png;base64,QUFBQQ==',
-          },
-        ],
-      } as ChatMessage],
+      [
+        {
+          id: 'u1',
+          role: 'user',
+          content: 'describe this image',
+          createAt: 1,
+          parts: [
+            {
+              type: 'input_file',
+              filename: 'chart.png',
+              mimeType: 'image/png',
+              data: 'data:image/png;base64,QUFBQQ==',
+            },
+          ],
+        } as ChatMessage,
+      ],
       {
         ...DEFAULT_INPUTS,
         model: 'claude-opus-4-6',
         protocol: 'claude',
       },
-      DEFAULT_PARAMETER_ENABLED,
-    );
+      DEFAULT_PARAMETER_ENABLED
+    )
 
     expect(payload.jsonBody).toEqual({
       model: 'claude-opus-4-6',
@@ -778,32 +825,34 @@ describe('modelTesterSession', () => {
         },
       ],
       temperature: 0.7,
-    });
-  });
+    })
+  })
 
   it('builds Gemini conversation payloads with inlineData document parts for conversation files', () => {
     const payload = buildApiPayload(
-      [{
-        id: 'u1',
-        role: 'user',
-        content: 'summarize this',
-        createAt: 1,
-        parts: [
-          {
-            type: 'input_file',
-            filename: 'brief.pdf',
-            mimeType: 'application/pdf',
-            data: 'data:application/pdf;base64,JVBERi0xLjc=',
-          },
-        ],
-      } as ChatMessage],
+      [
+        {
+          id: 'u1',
+          role: 'user',
+          content: 'summarize this',
+          createAt: 1,
+          parts: [
+            {
+              type: 'input_file',
+              filename: 'brief.pdf',
+              mimeType: 'application/pdf',
+              data: 'data:application/pdf;base64,JVBERi0xLjc=',
+            },
+          ],
+        } as ChatMessage,
+      ],
       {
         ...DEFAULT_INPUTS,
         model: 'gemini-2.5-pro',
         protocol: 'gemini',
       },
-      DEFAULT_PARAMETER_ENABLED,
-    );
+      DEFAULT_PARAMETER_ENABLED
+    )
 
     expect(payload.jsonBody).toEqual({
       contents: [
@@ -821,11 +870,16 @@ describe('modelTesterSession', () => {
         },
       ],
       generationConfig: { temperature: 0.7 },
-    });
-  });
+    })
+  })
 
   it('builds embeddings and search envelopes', () => {
-    expect(buildEmbeddingsRequestEnvelope('hello', { ...DEFAULT_INPUTS, model: 'text-embedding-3-large' })).toEqual({
+    expect(
+      buildEmbeddingsRequestEnvelope('hello', {
+        ...DEFAULT_INPUTS,
+        model: 'text-embedding-3-large',
+      })
+    ).toEqual({
       method: 'POST',
       path: '/v1/embeddings',
       requestKind: 'json',
@@ -836,12 +890,19 @@ describe('modelTesterSession', () => {
         model: 'text-embedding-3-large',
         input: 'hello',
       },
-    });
+    })
 
-    expect(buildSearchRequestEnvelope(
-      { ...DEFAULT_INPUTS, model: '__search', searchMaxResults: 3 },
-      { ...DEFAULT_MODE_STATE, searchQuery: 'what is ai', searchAllowedDomains: 'openai.com', searchBlockedDomains: 'example.com' },
-    )).toEqual({
+    expect(
+      buildSearchRequestEnvelope(
+        { ...DEFAULT_INPUTS, model: '__search', searchMaxResults: 3 },
+        {
+          ...DEFAULT_MODE_STATE,
+          searchQuery: 'what is ai',
+          searchAllowedDomains: 'openai.com',
+          searchBlockedDomains: 'example.com',
+        }
+      )
+    ).toEqual({
       method: 'POST',
       path: '/v1/search',
       requestKind: 'json',
@@ -855,24 +916,31 @@ describe('modelTesterSession', () => {
         allowed_domains: ['openai.com'],
         blocked_domains: ['example.com'],
       },
-    });
-  });
+    })
+  })
 
   it('parses raw custom body without dropping unknown fields', () => {
-    const parsed = parseCustomRequestBody('{"model":"gpt-5","include":["foo"],"reasoning":{"effort":"high"}}');
+    const parsed = parseCustomRequestBody(
+      '{"model":"gpt-5","include":["foo"],"reasoning":{"effort":"high"}}'
+    )
     expect(parsed).toEqual({
       model: 'gpt-5',
       include: ['foo'],
       reasoning: { effort: 'high' },
-    });
-  });
+    })
+  })
 
   it('syncs messages into custom request body while preserving unknown fields', () => {
     const synced = syncMessagesToCustomRequestBody(
       '{"model":"legacy","metadata":{"trace":"keep"}}',
       [{ id: '1', role: 'user', content: 'new', createAt: 1 }],
-      { ...DEFAULT_INPUTS, model: 'gpt-4o', protocol: 'responses', systemPrompt: 'system' },
-    );
+      {
+        ...DEFAULT_INPUTS,
+        model: 'gpt-4o',
+        protocol: 'responses',
+        systemPrompt: 'system',
+      }
+    )
 
     expect(JSON.parse(synced)).toEqual({
       model: 'gpt-4o',
@@ -881,11 +949,19 @@ describe('modelTesterSession', () => {
       instructions: 'system',
       stream: false,
       temperature: 0.7,
-    });
-  });
+    })
+  })
 
   it('builds raw proxy envelope for passthrough mode', () => {
-    expect(buildRawProxyRequestEnvelope('POST', '/v1/responses', 'json', '{"foo":1}', { stream: true })).toEqual({
+    expect(
+      buildRawProxyRequestEnvelope(
+        'POST',
+        '/v1/responses',
+        'json',
+        '{"foo":1}',
+        { stream: true }
+      )
+    ).toEqual({
       method: 'POST',
       path: '/v1/responses',
       requestKind: 'json',
@@ -893,44 +969,34 @@ describe('modelTesterSession', () => {
       jobMode: false,
       rawMode: true,
       rawJsonText: '{"foo":1}',
-    });
-  });
+    })
+  })
 
   it('merges marketplace models with exact enabled route models for tester options', () => {
     const modelNames = collectModelTesterModelNames(
       {
-        models: [
-          { name: 'gpt-4o-mini' },
-          { name: 'bge-large-en-v1.5' },
-        ],
+        models: [{ name: 'gpt-4o-mini' }, { name: 'bge-large-en-v1.5' }],
       },
       [
         { modelPattern: 'BAAI/bge-large-en-v1.5', enabled: true },
         { modelPattern: 'claude-*', enabled: true },
         { modelPattern: 'gemini-2.5-pro', enabled: false },
-      ],
-    );
+      ]
+    )
 
     expect(modelNames).toEqual([
       'gpt-4o-mini',
       'bge-large-en-v1.5',
       'BAAI/bge-large-en-v1.5',
-    ]);
-  });
+    ])
+  })
 
   it('filters models by keyword and keeps best matches first', () => {
     const filtered = filterModelTesterModelNames(
-      [
-        'BAAI/bge-large-en-v1.5',
-        'text-embedding-3-large',
-        'bge-m3',
-      ],
-      'bge',
-    );
+      ['BAAI/bge-large-en-v1.5', 'text-embedding-3-large', 'bge-m3'],
+      'bge'
+    )
 
-    expect(filtered).toEqual([
-      'bge-m3',
-      'BAAI/bge-large-en-v1.5',
-    ]);
-  });
-});
+    expect(filtered).toEqual(['bge-m3', 'BAAI/bge-large-en-v1.5'])
+  })
+})
