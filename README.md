@@ -16,6 +16,8 @@
 <p align="center">
   <a href="https://github.com/DeliciousBuding/metapi-go/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/DeliciousBuding/metapi-go/actions/workflows/ci.yml/badge.svg?branch=master"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/DeliciousBuding/metapi-go?logo=github&label=release&color=blue"></a>
+  <a href="https://github.com/DeliciousBuding/metapi-go/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/DeliciousBuding/metapi-go?style=social"></a>
+  <a href="https://github.com/DeliciousBuding/metapi-go/forks"><img alt="Forks" src="https://img.shields.io/github/forks/DeliciousBuding/metapi-go?style=social"></a>
   <img alt="Go" src="https://img.shields.io/badge/Go-1.26.5-00ADD8?logo=go">
   <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?logo=react">
   <img alt="Bun" src="https://img.shields.io/badge/Bun-≥1.0-000000?logo=bun&logoColor=white">
@@ -120,12 +122,7 @@ go build -o metapi ./cmd/server
 AUTH_TOKEN=admin PROXY_TOKEN=proxy-token ./metapi
 ```
 
-Windows 本地运行且未设置 `HOST` 时，默认仅监听 `127.0.0.1`，避免 `go run` 或临时构建路径反复触发入站防火墙提示。需要局域网访问时显式设置 `HOST=0.0.0.0`，并自行收紧防火墙范围。历史临时二进制遗留规则可先审计，再精确清理：
-
-```powershell
-.\scripts\windows-firewall-maintenance.ps1 -Mode Audit
-.\scripts\windows-firewall-maintenance.ps1 -Mode Cleanup -Elevate
-```
+Windows 本地运行且未设置 `HOST` 时，默认仅监听 `127.0.0.1`，避免 `go run` 或临时构建路径反复触发入站防火墙提示。需要局域网访问时显式设置 `HOST=0.0.0.0`，并自行收紧防火墙范围。
 
 ---
 
@@ -240,7 +237,7 @@ v0.9.0 起前端 100% 对齐 [New API](https://github.com/QuantumNous/new-api) �
 - **13 个 feature 模块**：`auth`、`dashboard`（4 section + RealtimeOps WebSocket）、`sites`（引导式配置动线 站点→账号→路由）、`accounts`、`token-routes`（dnd-kit 拖拽）、`oauth`、`checkin`（嵌套响应解构 + 失败原因分类 badge）、`proxy-logs`（manual + 服务端分页 + 详情 Sheet）、`models`、`model-tester`（SSE 全协议流式）、`site-announcements`、`about`、`settings`（5 子区 drill-in）。
 - **data-table 四层架构**：`core`（TanStack table 渲染原语）+ `layout`（响应式页面组合）+ `toolbar`（filter/search/批量操作）+ `static`（本地数组轻量渲染）+ `hooks`（受控状态层，URL 三段式同步）。feature 经统一 `index.ts` 导入，专属列/动作留在各 feature 目录。
 - **OKLCH 设计系统**：三层 CSS（`theme.css` 语义 token + `theme-presets.css` 10 套预设 + `index.css` Tailwind 4 入口）；3 轴主题（preset/radius/scale）经 `<body data-theme-*>` 切换；暗色 class-based + cookie 持久化。图表取色用 JS 读 OKLCH token，MutationObserver 监听主题变化重采样。
-- **key-based i18n**：i18next + react-i18next，支持 `en` + `zh-CN`（各 ~900 key，双向 0 缺失）；React 组件 `useTranslation()` + `t()`，非 React 模块用 `i18n.t()`；key 双向一致性由 `web/src/i18n/__tests__/i18n-keys.test.ts` 校验。
+- **key-based i18n**：i18next + react-i18next，支持 `en` + `zh-CN`（各 1434 key，双向 0 缺失）；React 组件 `useTranslation()` + `t()`，非 React 模块用 `i18n.t()`；key 双向一致性由 `web/src/i18n/__tests__/i18n-keys.test.ts` 校验。
 
 ---
 
@@ -294,7 +291,7 @@ bun run dev            # 本地开发（rsbuild dev，/api /v1 代理到后端�
 bun run typecheck      # tsgo 类型检查
 bun run lint           # oxlint
 bun run lint:fix       # oxlint --fix
-bun run test           # vitest run（全量，当前 361 tests）
+bun run test           # vitest run（全量，当前 369 tests / 38 files）
 bun run knip           # 未使用代码检测
 bun run build          # rsbuild build（产物经 go:embed 打包进 Go 二进制）
 bun run build:check    # tsgo + build（发布前完整检查）
@@ -302,6 +299,24 @@ bun run format:check   # oxfmt 格式检查
 ```
 
 Dev proxy 默认指向 `http://localhost:4000`，可经 `DEV_PROXY_TARGET` / `VITE_DEV_PROXY_TARGET` / `PORT` / `VITE_BACKEND_PORT` 覆盖。
+
+### Windows 本地运行
+
+默认监听 `127.0.0.1`（避免 `go run` 或临时构建路径反复触发入站防火墙提示）。历史遗留的防火墙放行规则可先审计、再精确清理：
+
+```powershell
+.\scripts\windows-firewall-maintenance.ps1 -Mode Audit
+.\scripts\windows-firewall-maintenance.ps1 -Mode Cleanup -Elevate
+```
+
+---
+
+## 贡献与安全
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — 分支模型、PR 流程、本地门禁
+- [SECURITY.md](SECURITY.md) — 漏洞报告（Security Advisory）
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — 社区行为准则
+- [docs/git-workflow.md](docs/git-workflow.md) — Git 分支与保护规则
 
 ---
 

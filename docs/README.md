@@ -25,6 +25,7 @@
 | Deploy / ops vars | [`deployment.md`](deployment.md) |
 | HTTP API | [`api.md`](api.md) |
 | Git branch & PR workflow | [`git-workflow.md`](git-workflow.md) |
+| Contribute / report | root [`CONTRIBUTING.md`](../CONTRIBUTING.md) · [`SECURITY.md`](../SECURITY.md) |
 
 ## Layout
 
@@ -38,6 +39,7 @@ docs/
   deployment.md             ← run / Docker / ops vars
   git-workflow.md           ← branch model / PR / protection rules
   migration.md              ← SQLite → PG / schema upgrade
+  responses-websocket-residual.md ← Responses API WS transport (501 residual)
   design/                   ← living design source of truth
     BACKEND.md                backend design philosophy, dependency rules
     DESIGN.md                 design system, tokens, visual language

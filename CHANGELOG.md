@@ -5,6 +5,16 @@ All notable changes to MetAPI-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [Unreleased]
+
+### Added — 仓库产品化（社区健康 + CI/CD 硬化 + 多平台发布）
+- 社区文件补齐：CONTRIBUTING.md / SECURITY.md / CODE_OF_CONDUCT.md / issue 模板（bug + feature + config）/ dependabot（Go/npm/Actions/Docker 四通道）
+- 仓库规范化：.gitattributes（LF 统一 + 二进制声明）、.editorconfig、.gitignore 补密钥/证书/通用 exe 规则
+- README（中/英）修正过时数据（369 tests / 1434 i18n keys）、移除私有仓链接、下沉 Windows 防火墙细节、补 star/fork badge 与贡献/安全导航
+- CI 硬化：全 job 超时上限、cd 最小权限、Go 版本单一来源（go-version-file）、bun/govulncheck 版本钉扎、gitleaks 扫全历史、前端 dist 产物跨 job 复用、tag 匹配收紧为 SemVer
+- 发布产品化：Release 并入 CD 流程（镜像推送成功后才建 Release）、多平台二进制附件 + checksums、Docker 镜像 amd64+arm64 双架构、`--version` 版本注入
+- 文档：docs/api.md Update Center 标注 501 residual、docs/README.md 补 responses-websocket-residual.md、CHANGELOG 链接只引用真实 tag
+
 ## [v0.9.0] — 2026-08-11
 ### Added — 前端整体重写（newapi 栈 100% 对齐）
 - 技术栈：Bun + Rsbuild 2 + TanStack Router（文件路由 + validateSearch）+ TanStack Query + Zustand + Tailwind 4（CSS-first 无 config）+ shadcn Base UI + OKLCH 语义 token + HugeIcons/lucide + Public Sans/Lora（@fontsource 本地）+ VChart + recharts + RHF + Zod + i18next + motion/sonner/vaul/cmdk
@@ -717,12 +727,4 @@ All notable changes to MetAPI-Go will be documented in this file.
 - 15 后台调度任务。
 - 单二进制 + Docker 部署。
 
-[v0.6.3]: https://github.com/DeliciousBuding/metapi-go/compare/v0.6.2...v0.6.3
-[v0.6.2]: https://github.com/DeliciousBuding/metapi-go/compare/v0.6.1...v0.6.2
-[v0.6.1]: https://github.com/DeliciousBuding/metapi-go/compare/v0.6.0...v0.6.1
-[v0.6.0]: https://github.com/DeliciousBuding/metapi-go/compare/v0.5.0...v0.6.0
-[v0.5.0]: https://github.com/DeliciousBuding/metapi-go/compare/v0.4.0...v0.5.0
-[v0.4.0]: https://github.com/DeliciousBuding/metapi-go/compare/v0.3.0...v0.4.0
-[v0.3.0]: https://github.com/DeliciousBuding/metapi-go/compare/v0.2.0...v0.3.0
-[v0.2.0]: https://github.com/DeliciousBuding/metapi-go/compare/v0.1.0...v0.2.0
-[v0.1.0]: https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.1.0
+[v0.9.0]: https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.9.0
