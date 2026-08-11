@@ -11,6 +11,9 @@
 |:-----|:------|
 | Source | **[DeliciousBuding/metapi-go](https://github.com/DeliciousBuding/metapi-go)** · default branch `master` |
 | Latest release | **[v0.9.0](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.9.0)** (2026-08-11); master CD publishes `ghcr.io/deliciousbuding/metapi-go` — verified live: tags `latest`/`0.9.0`/`0.9`/sha |
+| Release pipeline | CD (`.github/workflows/cd.yml`) builds **linux/amd64 + linux/arm64** images (provenance + SBOM) then creates the GitHub Release with **5-platform binaries + checksums.txt** (linux/darwin/windows × amd64/arm64); `release.yml` merged into cd.yml; SemVer-only tags (`vX.Y.Z`) trigger it; release notes extracted from the matching `CHANGELOG.md` section |
+| Versioning | `metapi --version` reports the build version injected via `-ldflags -X .../internal/version.Version` (`dev` for local builds); Docker build arg `VERSION`; Makefile `VERSION` variable |
+| Dependency updates | Dependabot active (Go / npm / GitHub Actions / Docker) — weekly group PRs through the same 11-check CI; breaking major bumps are closed and need a manual migration PR |
 
 | Production pin (ops) | **v0.9.0** image on `ghcr.io/deliciousbuding/metapi-go`; runtime deployment facts live in the deployment docs |
 | Current focus | production hardening |
@@ -31,7 +34,7 @@
 | PostgreSQL pool budget | **present** | profiles + lease backoff; deployment must still respect role LIMIT |
 | RE2 user-id extraction | **fixed and deployed** | v0.8.45 shipped; the 0.8.44 crash state is historical |
 | OAuth token refresh | **present** | shared explicit account/site projection supports SQLite and PostgreSQL |
-| UI i18n verification | **present (v0.9.0 rewrite)** | key-based i18n (i18next): en + zh-CN locales each **1381** keys; vitest i18n-keys gate keeps both key sets identical — bidirectional 0 missing; header `LanguageSwitcher` (en/zh-CN) + browser-language auto-follow (localStorage → navigator) + `document.documentElement.lang` sync via `toBcp47`; sidebar nav fully key-based (sidebar.groups/items) |
+| UI i18n verification | **present (v0.9.0 rewrite)** | key-based i18n (i18next): en + zh-CN locales each **1434** keys; vitest i18n-keys gate keeps both key sets identical — bidirectional 0 missing; header `LanguageSwitcher` (en/zh-CN) + browser-language auto-follow (localStorage → navigator) + `document.documentElement.lang` sync via `toBcp47`; sidebar nav fully key-based (sidebar.groups/items) |
 | EN label coverage | **present (v0.9.0 rewrite)** | all UI copy via t() (i18next); vitest i18n-keys gate scans t() sites with en/zh-CN identical; live status badge colors tokenized |
 | Theme accent presets | **chart-synced (v0.9.0 rewrite)** | 3-axis theme (preset/radius/scale) + 10 presets; useChartColors() syncs chart series with OKLCH tokens (FOUC-safe); header ThemeCustomizer panel (preset swatches / font Auto-Sans-Serif / radius / scale + per-axis & global reset); **all presets default to sans-serif** (serif is an explicit font-axis choice, no preset inlines it) |
 | Daily metric truth | **Dashboard + Accounts closed in master** | shared local-day aggregation, real reward/check-in, partial truth metadata, query errors fail closed; per-account today reward/spend with status gate on Accounts rows (no fake zeros) |
