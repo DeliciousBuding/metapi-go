@@ -24,7 +24,7 @@ RUN CGO_ENABLED=0 go build -trimpath -buildvcs=false \
     -o metapi-migrate ./cmd/migrate
 
 # Stage 3: Runtime
-FROM alpine:3.21
+FROM alpine:3.24
 RUN apk add --no-cache ca-certificates tzdata
 RUN addgroup -g 1001 -S appgroup && adduser -u 1001 -S appuser -G appgroup
 RUN mkdir -p /app/data && chown -R appuser:appgroup /app/data
