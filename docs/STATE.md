@@ -10,9 +10,9 @@
 | Fact | Value |
 |:-----|:------|
 | Source | **[DeliciousBuding/metapi-go](https://github.com/DeliciousBuding/metapi-go)** · default branch `master` |
-| Latest release | **[v0.8.54](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.8.54)** (2026-08-11); master CD publishes `ghcr.io/deliciousbuding/metapi-go` |
+| Latest release | **[v0.9.0](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.9.0)** (2026-08-11); master CD publishes `ghcr.io/deliciousbuding/metapi-go` |
 
-| Production pin (ops) | **v0.8.54** image on `ghcr.io/deliciousbuding/metapi-go`; runtime deployment facts live in the deployment docs |
+| Production pin (ops) | **v0.9.0** image on `ghcr.io/deliciousbuding/metapi-go`; runtime deployment facts live in the deployment docs |
 | Current focus | production hardening |
 | Open issues / PRs | [#557](https://github.com/DeliciousBuding/metapi-go/issues/557) · [#558](https://github.com/DeliciousBuding/metapi-go/issues/558) |
 | Stack | Go 1.26.5 · React 19 + Bun + Rsbuild 2 + TanStack Router/Query/Table + Tailwind 4 + shadcn Base UI + OKLCH + i18next · dual dialect SQLite/PostgreSQL |

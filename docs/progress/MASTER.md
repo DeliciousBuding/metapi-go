@@ -4,7 +4,7 @@
 
 **Repo**: https://github.com/DeliciousBuding/metapi-go
 
-**Release**: v0.8.54 · master CD `ghcr.io/deliciousbuding/metapi-go`
+**Release**: v0.9.0 · master CD `ghcr.io/deliciousbuding/metapi-go`
 
 > Current status → [`../STATE.md`](../STATE.md) · Timeline → [`../log.md`](../log.md)
 

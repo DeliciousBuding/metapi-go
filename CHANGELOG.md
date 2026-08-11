@@ -25,6 +25,12 @@ All notable changes to MetAPI-Go will be documented in this file.
 - 后端 sc2_012 additive migration（checkin_logs.failure_reason TEXT，SQLite/PG dual dialect）+ checkin.go 调用 classifyAndMarshalFailureReason（4 个 INSERT 落库点）+ API 嵌套形状回归 {checkin_logs, accounts, sites, failureReason} + 前端 failureReason 分类着色 badge
 - 四层全断修复：DB 列存在 + 后端分类调用 + API 嵌套响应 + UI 渲染
 
+### Fixed — SPA fallback 吞掉 Rsbuild /static/* 静态资源（嵌入式白屏）
+- 根因：`setupSPAFallback` 只服务 Vite 布局的 `/assets/*` 子树 + 根静态文件；Rsbuild 2 产物输出到 `/static/{js,css,font}`，落入 200 text/html SPA fallback → 浏览器 MIME 拒绝 → 白屏
+- `mountStaticSubdir` helper：`fs.Sub(distFS, "static")` + `http.FileServer` 挂载 `/static/*`，content-hashed 文件名加 immutable 缓存头
+- 启动子树校验：embed.FS 不实现 fs.SubFS，fs.Sub 对缺失目录静默返回损坏子树 → ReadDir 校验 + warn 日志（顺带修复从未触发的 assets 分支日志）
+- 回归测试（真实 embedded dist + 动态 chunk 发现）：js→text/javascript、css→text/css、woff2→font/woff2、缺失资源→404（不再 SPA 200）、client 路由仍正常 fallback
+
 ### Removed — 旧前端代码清理
 - 删除 web/App.tsx + pages/ + components/ + styles/ + e2e/ + 5 个旧 i18n 文件（MutationObserver 字典）+ ~200 个旧测试（测试已删的旧代码）：~53 个遗留文件/目录，~101664 行删除
 
