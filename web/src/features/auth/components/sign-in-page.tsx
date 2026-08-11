@@ -5,6 +5,7 @@
 
 import { useTranslation } from 'react-i18next'
 
+import { InterfaceControls } from '@/components/layout/components/interface-controls'
 import {
   Card,
   CardContent,
@@ -24,7 +25,8 @@ export function SignInPage({ redirectTo }: SignInPageProps) {
   const { t } = useTranslation()
 
   return (
-    <div className='flex min-h-svh items-center justify-center bg-background p-4'>
+    <div className='relative flex min-h-svh items-center justify-center bg-background px-4 pt-16 pb-4'>
+      <InterfaceControls className='absolute top-3 right-3 sm:top-4 sm:right-4' />
       <Card className='shadow-sm relative w-full max-w-sm'>
         <CardHeader className='gap-2 text-center'>
           <img

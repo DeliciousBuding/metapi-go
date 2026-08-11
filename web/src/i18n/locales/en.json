@@ -1680,7 +1680,7 @@
       "preset": {
         "default": "Default",
         "anthropic": "Anthropic",
-        "simple-large": "Simple Large-font",
+        "simple-large": "Simple",
         "underground": "Underground",
         "rose-garden": "Rose Garden",
         "lake-view": "Lake View",

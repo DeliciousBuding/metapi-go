@@ -82,6 +82,14 @@ export function ThemeProvider({
       const nextResolvedTheme = theme === 'system' ? getSystemTheme() : theme
       root.classList.remove('light', 'dark')
       root.classList.add(nextResolvedTheme)
+      root.style.colorScheme = nextResolvedTheme
+      window.requestAnimationFrame(() => {
+        const background = getComputedStyle(document.body)
+          .getPropertyValue('--background')
+          .trim()
+        const themeColor = document.querySelector('meta[name="theme-color"]')
+        if (background) themeColor?.setAttribute('content', background)
+      })
       setResolvedTheme(nextResolvedTheme)
     }
 

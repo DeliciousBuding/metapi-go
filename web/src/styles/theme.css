@@ -2,7 +2,7 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-sans: 'Public Sans', sans-serif;
+  --font-sans: 'Public Sans Variable', 'Public Sans', sans-serif;
   /* Editorial serif token — the body face used by the `serif` font axis
    * (an explicit user choice; every preset defaults to sans). Lora carries
    * only Latin glyphs, so the stack walks through CJK serifs (Noto / Source
@@ -16,12 +16,9 @@
     'Songti SC', 'STSong', 'STSongti-SC-Regular', 'PingFang SC', 'SimSun',
     'NSimSun', '宋体', 'FangSong', '仿宋', 'KaiTi', '楷体', Georgia,
     'Times New Roman', Cambria, 'Liberation Serif', serif;
-  --font-inter:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
-    'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-  --font-manrope:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
-    'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  --font-mono:
+    'Cascadia Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo,
+    Monaco, monospace;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);

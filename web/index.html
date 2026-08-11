@@ -15,7 +15,7 @@
       name="description"
       content="Meta-layer management and unified proxy for AI API aggregation platforms."
     />
-    <meta name="theme-color" content="#f8f9fa" />
+    <meta name="theme-color" content="#ffffff" />
 
     <!--
       FOUC bootstrap: resolve theme BEFORE first paint to avoid flash.
@@ -44,25 +44,86 @@
           root.classList.remove('light', 'dark')
           root.classList.add(theme)
           root.style.colorScheme = theme
-          // Paint background immediately so white flash never appears
-          var bg = theme === 'dark' ? '#202124' : '#f8f9fa'
-          root.style.backgroundColor = bg
-          if (document.body) {
-            document.body.style.backgroundColor = bg
-          } else {
-            document.addEventListener('DOMContentLoaded', function () {
-              if (document.body) document.body.style.backgroundColor = bg
-            })
-          }
+          // Use the design token as soon as CSS is available, with a matching
+          // light/dark fallback before the stylesheet finishes loading.
+          var bg = theme === 'dark' ? '#111111' : '#ffffff'
+          root.style.setProperty('--bootstrap-background', bg)
+          root.style.backgroundColor =
+            'var(--background, var(--bootstrap-background))'
+          var themeColor = document.querySelector('meta[name="theme-color"]')
+          if (themeColor) themeColor.setAttribute('content', bg)
         } catch (e) {
           /* cookie / matchMedia unavailable — leave browser defaults */
         }
       })()
     </script>
-    <!-- System fonts only — no Google Fonts CDN (ops console / CSP-friendly) -->
+    <!-- Fonts are bundled locally — no Google Fonts CDN. -->
   </head>
 
   <body translate="no" class="notranslate min-h-screen">
+    <script>
+      ;(function () {
+        try {
+          function readCookie(name) {
+            var match = document.cookie.match(
+              '(?:^|; )' + name + '=([^;]*)'
+            )
+            return match ? decodeURIComponent(match[1]) : ''
+          }
+
+          var body = document.body
+          var preset = readCookie('theme_preset')
+          var presets = [
+            'anthropic',
+            'simple-large',
+            'underground',
+            'rose-garden',
+            'lake-view',
+            'sunset-glow',
+            'forest-whisper',
+            'ocean-breeze',
+            'lavender-dream',
+          ]
+          if (presets.indexOf(preset) !== -1) {
+            body.setAttribute('data-theme-preset', preset)
+          }
+
+          var font = readCookie('theme_font')
+          body.setAttribute(
+            'data-theme-font',
+            font === 'serif' ? 'serif' : 'sans'
+          )
+
+          var radius = readCookie('theme_radius')
+          if (['none', 'sm', 'md', 'lg', 'xl'].indexOf(radius) !== -1) {
+            body.setAttribute('data-theme-radius', radius)
+          }
+
+          var scale = readCookie('theme_scale')
+          if (['sm', 'lg', 'xl'].indexOf(scale) !== -1) {
+            body.setAttribute('data-theme-scale', scale)
+          }
+
+          var contentLayout = readCookie('theme_content_layout')
+          body.setAttribute(
+            'data-theme-content-layout',
+            contentLayout === 'centered' ? 'centered' : 'full'
+          )
+
+          window.requestAnimationFrame(function () {
+            var background = getComputedStyle(body)
+              .getPropertyValue('--background')
+              .trim()
+            var themeColor = document.querySelector('meta[name="theme-color"]')
+            if (background && themeColor) {
+              themeColor.setAttribute('content', background)
+            }
+          })
+        } catch (e) {
+          /* cookie access unavailable — providers apply defaults after boot */
+        }
+      })()
+    </script>
     <div id="root"></div>
   </body>
 </html>

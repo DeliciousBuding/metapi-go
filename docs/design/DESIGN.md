@@ -85,7 +85,7 @@ Unchanged roles: success / warning / danger / info with solid + soft pairs. Badg
 | Radius | `--radius-control` 10 · `--radius-card` 14 · `--radius-shell` 16 · `--radius-full` | Nav pills use full; buttons/inputs = control |
 | Shadow | `--shadow-sm/md/lg/card/elevated/glass` | Dual ambient+key; dark uses emissive border |
 | Motion | `--motion-swift`, `--motion-soft`, `--ease-emphasized` | Calm; honor `prefers-reduced-motion` |
-| Type | `--font-sans` Public Sans · `--tracking-*` · `--line-body/title` | No external font CDN |
+| Type | `--font-sans` Public Sans Variable · `--font-serif` Lora Variable + CJK serif fallbacks · `--font-mono` Cascadia/SFMono/Consolas stack · `--font-body` active axis | All fonts bundled locally or resolved from the OS stack; no external font CDN |
 | Content | `--content-max` + `--content-pad-x/y` | Hi-res breakpoints at 1920 / 2560 / 3200 |
 
 ---

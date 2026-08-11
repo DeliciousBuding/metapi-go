@@ -24,6 +24,8 @@ All notable changes to MetAPI-Go will be documented in this file.
 - 文案术语统一（启用/停用、额度、Check-in、通道）、内部计划编号（K1a/N9a 等）移出用户可见文案、tokenRoutes toast/链式横幅拼接 bug 修复、9 处硬编码 → t()（含移除公开设置页的 TokenDance 品牌泄漏）
 - 登录页真实 logo 徽标 + 纯色背景 + lg CTA；Dashboard 统计卡骨架屏 + 纯色半透明面积图 + 空/错状态图标化 + WS 连接脉冲指示；设置页移动端响应式 drill-in + sticky 侧栏
 - 全站移除渐变设计：主题色块、品牌 fallback、Logo/favicon、骨架屏、遮罩工具和流动边框统一改为纯色或删除；新增源码与 public 资产回归门禁
+- 登录页与认证后顶栏统一复用 `InterfaceControls`（语言 / 外观 / 明暗），明暗切换按 resolved theme 工作；Public Sans 修正为实际变量字体族名，补齐项目级 mono 栈，移除字体与密度双轨，并在首屏挂载前恢复持久化外观轴
+- 开发态 TanStack Query/Router Devtools 改为 `localStorage.metapi-devtools=1` 显式开启，默认界面与截图不再被第三方彩色浮层占用
 
 ### Chore — Git 工作流规范化（GitHub Flow）
 - **分支模型**：master 唯一长期分支（受保护），短命分支（`fix/*`/`feature/*`/`chore/*`/`docs/*`）→ PR → Squash merge；规则文档 `docs/git-workflow.md`

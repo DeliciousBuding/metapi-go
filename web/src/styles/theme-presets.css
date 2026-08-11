@@ -274,7 +274,7 @@
   --sidebar-ring: oklch(0.6359 0.1699 307.95);
 }
 
-/* ── Simple Large-font ────────────────────────────────────────────────── */
+/* ── Simple ───────────────────────────────────────────────────────────── */
 [data-theme-preset='simple-large'] {
   --background: oklch(0.99 0 0);
   --foreground: oklch(0.15 0 0);
@@ -326,14 +326,6 @@
   --skeleton-highlight: oklch(0.97 0 0);
 
   --radius: 0.5rem;
-  --text-xs: 0.9rem;
-  --text-sm: 1rem;
-  --text-base: 1.125rem;
-  --text-lg: 1.25rem;
-  --text-xl: 1.45rem;
-  --text-2xl: 1.75rem;
-  --text-3xl: 2.15rem;
-  --spacing: 0.3rem;
 }
 .dark [data-theme-preset='simple-large'] {
   --background: oklch(0.215 0 0);
