@@ -521,6 +521,12 @@ type RuntimeRoutingWeightsPayload = {
 }
 
 export type RuntimeSettingsPayload = {
+  systemName?: string
+  logo?: string
+  footer?: string
+  about?: string
+  homePageContent?: string
+  serverAddress?: string
   proxyToken?: string
   systemProxyUrl?: string
   payloadRules?: Record<string, unknown> | null

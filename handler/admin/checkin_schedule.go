@@ -33,7 +33,7 @@ type checkinScheduleState struct {
 func applyCheckinScheduleSettings(db *sqlx.DB, cfg *config.Config, patch checkinSchedulePatch) (checkinScheduleState, error) {
 	state := resolveCheckinScheduleState(cfg, patch)
 	if state.Mode == "" {
-		return checkinScheduleState{}, fmt.Errorf("mode must be cron or interval")
+		return checkinScheduleState{}, fmt.Errorf("mode must be cron, interval or window")
 	}
 	if patch.Cron != nil || state.Mode == "cron" {
 		if state.Cron == "" {

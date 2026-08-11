@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 func setupCheckinRoutesTest(t *testing.T) (*store.DB, chi.Router, *config.Config) {
@@ -160,8 +161,10 @@ func TestCheckinUpdateScheduleRejectsInvalidMode(t *testing.T) {
 	if resp.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d body=%s, want 400", resp.Code, resp.Body.String())
 	}
+	if !strings.Contains(resp.Body.String(), "mode must be cron, interval or window") {
+		t.Fatalf("body = %s, want supported mode list", resp.Body.String())
+	}
 }
-
 func TestCheckinUpdateScheduleRejectsInvalidInterval(t *testing.T) {
 	_, r, _ := setupCheckinRoutesTest(t)
 

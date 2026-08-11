@@ -91,7 +91,7 @@ export function SiteSection() {
       toast.info(t('settings.common.noChanges'))
       return
     }
-    updateMutation.mutate(changed as never, {
+    updateMutation.mutate(changed, {
       onSuccess: () => toast.success(t('settings.general.site.toast.saved')),
       onError: () => toast.error(t('settings.general.site.toast.saveFailed')),
     })
