@@ -3,7 +3,7 @@
 
 import { z } from 'zod'
 
-import { parseSortingParam } from '@/lib/helpers/searchParams'
+import { encodeSortingParam } from '@/lib/helpers/searchParams'
 
 const sortingItemSchema = z.object({ id: z.string(), desc: z.boolean() })
 
@@ -14,7 +14,7 @@ export const proxyLogsSearchSchema = z.object({
   sort: z
     .union([z.string(), z.array(sortingItemSchema)])
     .optional()
-    .transform((value) => parseSortingParam(value)),
+    .transform((value) => encodeSortingParam(value)),
   status: z.enum(['all', 'success', 'failed']).optional(),
   siteId: z.coerce.number().int().optional(),
   client: z.string().optional(),

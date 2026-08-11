@@ -33,6 +33,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 
+import { parseSortingParam } from '@/lib/helpers/searchParams'
+
 import {
   useAnnouncements,
   useDeleteAnnouncement,
@@ -107,7 +109,7 @@ function readSearch(searchString?: string): ResolvedSearch {
     q: data.q ?? '',
     pageIndex: data.page ?? 0,
     pageSize: data.pageSize ?? 20,
-    sorting: Array.isArray(data.sort) ? (data.sort as SortingState) : [],
+    sorting: parseSortingParam(data.sort),
     severity: data.severity,
     enabled: data.enabled,
   }

@@ -15,8 +15,8 @@
 import { z } from 'zod'
 
 import {
-  parseSortingParam,
-  parseStringListParam,
+  encodeSortingParam,
+  encodeStringListParam,
 } from '@/lib/helpers/searchParams'
 
 const sortingItemSchema = z.object({
@@ -36,16 +36,16 @@ export const modelsSearchSchema = z.object({
   sort: z
     .union([z.string(), z.array(sortingItemSchema)])
     .optional()
-    .transform((value) => parseSortingParam(value)),
+    .transform((value) => encodeSortingParam(value)),
   // Multi-select faceted filters, URL-encoded as comma-separated strings.
   brand: z
     .union([z.string(), z.array(z.string())])
     .optional()
-    .transform((value) => parseStringListParam(value)),
+    .transform((value) => encodeStringListParam(value)),
   capability: z
     .union([z.string(), z.array(z.string())])
     .optional()
-    .transform((value) => parseStringListParam(value)),
+    .transform((value) => encodeStringListParam(value)),
 })
 
 

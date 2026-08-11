@@ -2,12 +2,13 @@
 // Dropped ChatPresetsItem handling (metapi has no chat). Renders NavLink and
 // NavCollapsible items, with a collapsed-state dropdown for desktop icon mode.
 
-import { Link, useLocation } from '@tanstack/react-router'
+import { Link, useLocation, type LinkProps } from '@tanstack/react-router'
 import { ChevronRight } from 'lucide-react'
 import { type ReactNode, useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 import {
   Collapsible,
   CollapsibleContent,
@@ -99,17 +100,85 @@ function NavBadge({ children }: { children: ReactNode }) {
 }
 
 /**
+ * TanStack Router Link rendered through Base UI's `render` prop.
+ *
+ * Base UI's useRender clones the render element with its own props merged in
+ * (including `children` — a React element). TanStack Link then treats the
+ * whole props object as navigate options, so the Fiber-backed children leak
+ * into `router.navigate` and blow up when the router serializes options
+ * ("Converting circular structure to JSON"). This component picks out only
+ * the DOM-safe props Base UI injects (className / data-* / pointer events /
+ * ref) and keeps React elements (children) out of the prop bag entirely.
+ */
+const BASE_UI_SAFE_PROPS = [
+  'className',
+  'id',
+  'style',
+  'ref',
+  'data-slot',
+  'data-sidebar',
+  'data-size',
+  'data-trigger-disabled',
+  'data-base-ui-tooltip-trigger',
+  'onPointerDown',
+  'onPointerEnter',
+  'onPointerMove',
+  'onPointerUp',
+  'onMouseDown',
+  'onMouseMove',
+  'onMouseLeave',
+  'onFocus',
+  'onBlur',
+  'onMouseOver',
+  'onClick',
+] as const
+
+function SidebarNavLink({
+  to,
+  renderProps,
+}: {
+  to: LinkProps['to'] | (string & {})
+  renderProps: React.HTMLAttributes<HTMLAnchorElement> & {
+    ref?: React.Ref<HTMLAnchorElement>
+  }
+}) {
+  const { setOpenMobile } = useSidebar()
+  const propsBag = renderProps as unknown as Record<string, unknown>
+  const safeProps: Record<string, unknown> = {}
+  for (const key of BASE_UI_SAFE_PROPS) {
+    if (key in propsBag) safeProps[key] = propsBag[key]
+  }
+  const baseOnClick = propsBag.onClick as
+    | ((event: React.MouseEvent<HTMLAnchorElement>) => void)
+    | undefined
+  const children = propsBag.children as ReactNode
+  return (
+    <Link
+      to={to}
+      {...safeProps}
+      onClick={(event) => {
+        setOpenMobile(false)
+        baseOnClick?.(event)
+      }}
+    >
+      {children}
+    </Link>
+  )
+}
+
+/**
  * Sidebar menu link item
  */
 function SidebarMenuLink({ item, href }: { item: NavLink; href: string }) {
-  const { setOpenMobile } = useSidebar()
   const { t } = useTranslation()
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
         isActive={checkIsActive(href, item)}
         tooltip={t(item.title)}
-        render={<Link to={item.url} onClick={() => setOpenMobile(false)} />}
+        render={(props) => (
+          <SidebarNavLink to={item.url} renderProps={props} />
+        )}
       >
         {item.icon && <item.icon className='shrink-0' />}
         <span className='min-w-0 flex-1 truncate'>{t(item.title)}</span>
@@ -129,7 +198,6 @@ function SidebarMenuCollapsible({
   item: NavCollapsible
   href: string
 }) {
-  const { setOpenMobile } = useSidebar()
   const { t } = useTranslation()
   const isSubItemActive = checkIsActive(href, item)
   const [isOpen, setIsOpen] = useState(() => isSubItemActive)
@@ -163,9 +231,9 @@ function SidebarMenuCollapsible({
             <SidebarMenuSubItem key={subItem.title}>
               <SidebarMenuSubButton
                 isActive={checkIsActive(href, subItem)}
-                render={
-                  <Link to={subItem.url} onClick={() => setOpenMobile(false)} />
-                }
+                render={(props) => (
+                  <SidebarNavLink to={subItem.url} renderProps={props} />
+                )}
               >
                 {subItem.icon && <subItem.icon className='shrink-0' />}
                 <span className='min-w-0 flex-1 truncate'>
@@ -218,12 +286,18 @@ function SidebarMenuCollapsedDropdown({
             {item.items.map((sub) => (
               <DropdownMenuItem
                 key={`${sub.title}-${sub.url}`}
-                render={
-                  <Link
+                render={(props) => (
+                  <SidebarNavLink
                     to={sub.url}
-                    className={`${checkIsActive(href, sub) ? 'bg-secondary' : ''}`}
+                    renderProps={{
+                      ...props,
+                      className: cn(
+                        props.className as string | undefined,
+                        checkIsActive(href, sub) ? 'bg-secondary' : undefined,
+                      ),
+                    }}
                   />
-                }
+                )}
               >
                 {sub.icon && <sub.icon />}
                 <span className='max-w-52 text-wrap'>{t(sub.title)}</span>

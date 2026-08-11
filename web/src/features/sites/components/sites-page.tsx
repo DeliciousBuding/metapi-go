@@ -39,6 +39,7 @@ import { Spinner } from '@/components/ui/spinner'
 
 import { useBatchUpdateSites, useDeleteSite, useSites, useUpdateSite } from '../api'
 import { sitesSearchSchema } from '../lib/sites-schema'
+import { parseSortingParam } from '@/lib/helpers/searchParams'
 import type { Site } from '../types'
 import { SiteCreatedModal } from './site-created-modal'
 import { SiteDetailSheet } from './site-detail-sheet'
@@ -91,7 +92,7 @@ function readSearch(searchString?: string): ResolvedSearch {
     q: data.q ?? '',
     pageIndex: data.page ?? 0,
     pageSize: data.pageSize ?? 20,
-    sorting: Array.isArray(data.sort) ? (data.sort as SortingState) : [],
+    sorting: parseSortingParam(data.sort),
     status: data.status,
   }
 }

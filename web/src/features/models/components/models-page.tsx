@@ -27,6 +27,10 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 
 import { api } from '@/lib/api'
+import {
+  parseSortingParam,
+  parseStringListParam,
+} from '@/lib/helpers/searchParams'
 
 import { useModels } from '../api'
 import { modelsSearchSchema } from '../lib/models-schema'
@@ -105,9 +109,9 @@ function readSearch(searchString?: string): ResolvedSearch {
     q: data.q ?? '',
     pageIndex: data.page ?? 0,
     pageSize: data.pageSize ?? 20,
-    sorting: Array.isArray(data.sort) ? (data.sort as SortingState) : [],
-    brand: data.brand ?? [],
-    capability: data.capability ?? [],
+    sorting: parseSortingParam(data.sort),
+    brand: parseStringListParam(data.brand),
+    capability: parseStringListParam(data.capability),
   }
 }
 

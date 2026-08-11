@@ -11,28 +11,25 @@ import {
 // ---------------------------------------------------------------------------
 
 describe('proxyLogsSearchSchema — sort transform', () => {
-  it('splits multi-segment sort strings into ordered items', () => {
+  it('normalizes a multi-segment sort descriptor to a canonical string', () => {
     const result = proxyLogsSearchSchema.parse({ sort: 'created:desc,model:asc' });
-    expect(result.sort).toEqual([
-      { id: 'created', desc: true },
-      { id: 'model', desc: false },
-    ]);
+    expect(result.sort).toBe('created:desc,model:asc');
   });
 
-  it('defaults direction to asc when only the id is present', () => {
+  it('produces a single-segment string when only the id is present', () => {
     const result = proxyLogsSearchSchema.parse({ sort: 'model' });
-    expect(result.sort).toEqual([{ id: 'model', desc: false }]);
+    expect(result.sort).toBe('model:asc');
   });
 
-  it('returns an empty array when sort is missing or empty', () => {
-    expect(proxyLogsSearchSchema.parse({}).sort).toEqual([]);
-    expect(proxyLogsSearchSchema.parse({ sort: '' }).sort).toEqual([]);
-    expect(proxyLogsSearchSchema.parse({ sort: undefined }).sort).toEqual([]);
+  it('returns undefined when sort is missing or empty (no URL noise)', () => {
+    expect(proxyLogsSearchSchema.parse({}).sort).toBeUndefined();
+    expect(proxyLogsSearchSchema.parse({ sort: '' }).sort).toBeUndefined();
+    expect(proxyLogsSearchSchema.parse({ sort: '[]' }).sort).toBeUndefined();
   });
 
   it('keeps a bare direction token as an empty id', () => {
     const result = proxyLogsSearchSchema.parse({ sort: ':desc' });
-    expect(result.sort).toEqual([{ id: '', desc: true }]);
+    expect(result.sort).toBe(':desc');
   });
 });
 
