@@ -122,8 +122,8 @@ function useSitesUrlState() {
   // route component on same-path search-only navigation unless a hook
   // consumes the location, and readSearch() reads the URL on render — without
   // this the table would only catch up on the next unrelated re-render.
-  const location = useLocation()
-  const search = readSearch(location.searchStr)
+  const searchStr = useLocation({ select: (loc) => loc.searchStr })
+  const search = readSearch(searchStr)
 
   const columnFilters: ColumnFiltersState = useMemo(() => {
     if (!search.status) return []
