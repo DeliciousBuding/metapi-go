@@ -1,3 +1,134 @@
+
+
+/* eslint-disable no-nested-ternary -- session builder uses chained status ternaries */
+const buildConversationRequestEnvelope = (
+  messages: ChatMessage[],
+  inputs: ModelTesterInputs,
+  parameterEnabled: ParameterEnabled,
+): TesterProxyEnvelope => ({
+  method: 'POST',
+  path: getConversationPath(inputs.protocol, inputs.model),
+  requestKind: 'json',
+  stream: inputs.stream,
+  jobMode: !inputs.stream,
+  rawMode: false,
+  jsonBody: buildConversationJsonBody(messages, inputs, parameterEnabled),
+});
+
+const createConversationInputFilePart = (
+  file: ConversationUploadedFile,
+): ConversationContentPart => ({
+  type: 'input_file',
+  ...(typeof file.fileId === 'string' && file.fileId.trim()
+    ? { fileId: file.fileId.trim() }
+    : {}),
+  ...(typeof file.filename === 'string' && file.filename.trim()
+    ? { filename: file.filename.trim() }
+    : {}),
+  ...(typeof file.mimeType === 'string' && file.mimeType.trim()
+    ? { mimeType: file.mimeType.trim() }
+    : {}),
+  ...(typeof file.data === 'string' && file.data.trim()
+    ? { data: file.data.trim() }
+    : {}),
+});
+
+const createMessage = (role: ChatRole, content: string, extra: Partial<ChatMessage> = {}): ChatMessage => ({
+  id: createMessageId(),
+  role,
+  content,
+  createAt: Date.now(),
+  ...extra,
+});
+
+const finalizeIncompleteMessage = (message: ChatMessage): ChatMessage => {
+  if (message.status !== MESSAGE_STATUS.LOADING && message.status !== MESSAGE_STATUS.INCOMPLETE) {
+    return message;
+  }
+
+  const processed = processIncompleteThinkTags(message.content || '', message.reasoningContent || '');
+  return {
+    ...message,
+    content: processed.content || message.content,
+    reasoningContent: processed.reasoningContent || null,
+    status: MESSAGE_STATUS.COMPLETE,
+    isThinkingComplete: true,
+  };
+};
+
+const processThinkTags = (content: string, reasoningContent = ''): { content: string; reasoningContent: string } => {
+  if (!content || !content.includes('<think>')) {
+    return { content, reasoningContent };
+  }
+
+  const thoughts: string[] = [];
+  const replyParts: string[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  THINK_TAG_REGEX.lastIndex = 0;
+  while ((match = THINK_TAG_REGEX.exec(content)) !== null) {
+    replyParts.push(content.substring(lastIndex, match.index));
+    thoughts.push(match[1]);
+    lastIndex = match.index + match[0].length;
+  }
+  replyParts.push(content.substring(lastIndex));
+
+  const processedContent = replyParts.join('').replaceAll(/<\/?think>/g, '').trim();
+  const thoughtsCombined = thoughts.join('\n\n---\n\n');
+
+  return {
+    content: processedContent,
+    reasoningContent: reasoningContent && thoughtsCombined
+      ? `${reasoningContent}\n\n---\n\n${thoughtsCombined}`
+      : (reasoningContent || thoughtsCombined),
+  };
+};
+
+const LOCAL_PROXY_FILE_ID_PREFIX = 'file-metapi-';
+
+export async function resolveConversationReplayFiles(
+  files: ConversationUploadedFile[],
+  protocol: PlaygroundProtocol,
+  loadLocalFile: (fileId: string) => Promise<{ filename?: string | null; mimeType?: string | null; data: string }>,
+): Promise<ConversationUploadedFile[]> {
+  if (protocol !== 'claude' && protocol !== 'gemini') {
+    return files.map((file) => ({ ...file }));
+  }
+
+  return Promise.all(files.map(async (file) => {
+    const fileId = typeof file.fileId === 'string' && file.fileId.trim()
+      ? file.fileId.trim()
+      : '';
+    const data = typeof file.data === 'string' && file.data.trim()
+      ? file.data.trim()
+      : '';
+    if (!fileId || data) {
+      return { ...file };
+    }
+    if (!fileId.startsWith(LOCAL_PROXY_FILE_ID_PREFIX)) {
+      throw new Error(`会话附件 ${fileId} 只有 file_id，当前协议需要可重放的内联数据。`);
+    }
+
+    const resolved = await loadLocalFile(fileId);
+    const resolvedData = typeof resolved?.data === 'string' ? resolved.data.trim() : '';
+    if (!resolvedData) {
+      throw new Error(`会话附件 ${fileId} 缺少可重放的数据。`);
+    }
+
+    return {
+      ...file,
+      ...(typeof resolved?.filename === 'string' && resolved.filename.trim()
+        ? { filename: resolved.filename.trim() }
+        : {}),
+      ...(typeof resolved?.mimeType === 'string' && resolved.mimeType.trim()
+        ? { mimeType: resolved.mimeType.trim() }
+        : {}),
+      data: resolvedData,
+    };
+  }));
+}
+
 export const MESSAGE_STATUS = {
   LOADING: 'loading',
   INCOMPLETE: 'incomplete',
@@ -12,9 +143,9 @@ export const DEBUG_TABS = {
 } as const;
 
 type MessageStatus = typeof MESSAGE_STATUS[keyof typeof MESSAGE_STATUS];
-export type DebugTab = typeof DEBUG_TABS[keyof typeof DEBUG_TABS];
+type DebugTab = typeof DEBUG_TABS[keyof typeof DEBUG_TABS];
 
-export type PlaygroundMode =
+type PlaygroundMode =
   | 'conversation'
   | 'embeddings'
   | 'search'
@@ -24,13 +155,12 @@ export type PlaygroundMode =
   | 'videos.inspect';
 
 export type PlaygroundProtocol = 'openai' | 'responses' | 'claude' | 'gemini';
-export type TestTargetFormat = PlaygroundProtocol;
 export type ProxyRequestKind = 'json' | 'multipart' | 'empty';
 export type ProxyRequestMethod = 'POST' | 'GET' | 'DELETE';
-export type VideoInspectAction = 'get' | 'delete';
-export type ChatRole = 'user' | 'assistant' | 'system' | 'developer' | 'tool';
+type VideoInspectAction = 'get' | 'delete';
+type ChatRole = 'user' | 'assistant' | 'system' | 'developer' | 'tool';
 
-export type ConversationContentPart =
+type ConversationContentPart =
   | { type: 'text'; text: string }
   | { type: 'image_url'; url: string }
   | { type: 'image_inline'; dataUrl: string; mimeType?: string | null }
@@ -76,7 +206,7 @@ export type ConversationUploadedFile = {
   data?: string | null;
 };
 
-export type ConversationDraftFile = {
+type ConversationDraftFile = {
   localId: string;
   name: string;
   mimeType: string;
@@ -155,11 +285,7 @@ export type ModelTesterSessionState = {
   modeState: ModelTesterModeState;
 };
 
-export type TestChatPayload = TesterProxyEnvelope;
-export type ProxyTestEnvelope = TesterProxyEnvelope;
-
 export const MODEL_TESTER_SESSION_VERSION = 5;
-export const MODEL_TESTER_STORAGE_KEY = 'metapi:model-tester:session:v5';
 
 export const DEFAULT_INPUTS: ModelTesterInputs = {
   mode: 'conversation',
@@ -216,7 +342,6 @@ const VALID_PROTOCOLS: ReadonlySet<string> = new Set(['openai', 'responses', 'cl
 const VALID_CONVERSATION_DRAFT_STATUSES: ReadonlySet<string> = new Set(['pending', 'uploading', 'uploaded', 'error']);
 const VALID_PROXY_METHODS: ReadonlySet<string> = new Set(['POST', 'GET', 'DELETE']);
 const VALID_REQUEST_KINDS: ReadonlySet<string> = new Set(['json', 'multipart', 'empty']);
-const LOCAL_PROXY_FILE_ID_PREFIX = 'file-metapi-';
 
 let messageCounter = 0;
 
@@ -944,31 +1069,6 @@ export const filterModelTesterModelNames = (models: string[], query: string): st
     .map((item) => item.name);
 };
 
-export const createMessage = (role: ChatRole, content: string, extra: Partial<ChatMessage> = {}): ChatMessage => ({
-  id: createMessageId(),
-  role,
-  content,
-  createAt: Date.now(),
-  ...extra,
-});
-
-export const createConversationInputFilePart = (
-  file: ConversationUploadedFile,
-): ConversationContentPart => ({
-  type: 'input_file',
-  ...(typeof file.fileId === 'string' && file.fileId.trim()
-    ? { fileId: file.fileId.trim() }
-    : {}),
-  ...(typeof file.filename === 'string' && file.filename.trim()
-    ? { filename: file.filename.trim() }
-    : {}),
-  ...(typeof file.mimeType === 'string' && file.mimeType.trim()
-    ? { mimeType: file.mimeType.trim() }
-    : {}),
-  ...(typeof file.data === 'string' && file.data.trim()
-    ? { data: file.data.trim() }
-    : {}),
-});
 
 export const createConversationUserMessage = (
   content: string,
@@ -1013,56 +1113,6 @@ export const extractConversationUploadedFilesFromMessage = (
   });
 };
 
-export async function resolveConversationReplayFiles(
-  files: ConversationUploadedFile[],
-  protocol: PlaygroundProtocol,
-  loadLocalFile: (fileId: string) => Promise<{ filename?: string | null; mimeType?: string | null; data: string }>,
-): Promise<ConversationUploadedFile[]> {
-  if (protocol !== 'claude' && protocol !== 'gemini') {
-    return files.map((file) => ({ ...file }));
-  }
-
-  return Promise.all(files.map(async (file) => {
-    const fileId = typeof file.fileId === 'string' && file.fileId.trim()
-      ? file.fileId.trim()
-      : '';
-    const data = typeof file.data === 'string' && file.data.trim()
-      ? file.data.trim()
-      : '';
-    if (!fileId || data) {
-      return { ...file };
-    }
-    if (!fileId.startsWith(LOCAL_PROXY_FILE_ID_PREFIX)) {
-      throw new Error(`会话附件 ${fileId} 只有 file_id，当前协议需要可重放的内联数据。`);
-    }
-
-    const resolved = await loadLocalFile(fileId);
-    const resolvedData = typeof resolved?.data === 'string' ? resolved.data.trim() : '';
-    if (!resolvedData) {
-      throw new Error(`会话附件 ${fileId} 缺少可重放的数据。`);
-    }
-
-    return {
-      ...file,
-      ...(typeof resolved?.filename === 'string' && resolved.filename.trim()
-        ? { filename: resolved.filename.trim() }
-        : {}),
-      ...(typeof resolved?.mimeType === 'string' && resolved.mimeType.trim()
-        ? { mimeType: resolved.mimeType.trim() }
-        : {}),
-      data: resolvedData,
-    };
-  }));
-}
-
-export const createLoadingAssistantMessage = (): ChatMessage =>
-  createMessage('assistant', '', {
-    status: MESSAGE_STATUS.LOADING,
-    reasoningContent: '',
-    isReasoningExpanded: true,
-    isThinkingComplete: false,
-    hasAutoCollapsed: false,
-  });
 
 export const serializeModelTesterSession = (state: ModelTesterSessionState): string =>
   JSON.stringify({
@@ -1070,34 +1120,6 @@ export const serializeModelTesterSession = (state: ModelTesterSessionState): str
     version: MODEL_TESTER_SESSION_VERSION,
   });
 
-export const processThinkTags = (content: string, reasoningContent = ''): { content: string; reasoningContent: string } => {
-  if (!content || !content.includes('<think>')) {
-    return { content, reasoningContent };
-  }
-
-  const thoughts: string[] = [];
-  const replyParts: string[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  THINK_TAG_REGEX.lastIndex = 0;
-  while ((match = THINK_TAG_REGEX.exec(content)) !== null) {
-    replyParts.push(content.substring(lastIndex, match.index));
-    thoughts.push(match[1]);
-    lastIndex = match.index + match[0].length;
-  }
-  replyParts.push(content.substring(lastIndex));
-
-  const processedContent = replyParts.join('').replace(/<\/?think>/g, '').trim();
-  const thoughtsCombined = thoughts.join('\n\n---\n\n');
-
-  return {
-    content: processedContent,
-    reasoningContent: reasoningContent && thoughtsCombined
-      ? `${reasoningContent}\n\n---\n\n${thoughtsCombined}`
-      : (reasoningContent || thoughtsCombined),
-  };
-};
 
 const processIncompleteThinkTags = (content: string, reasoningContent = ''): { content: string; reasoningContent: string } => {
   if (!content) return { content: '', reasoningContent };
@@ -1120,20 +1142,6 @@ const processIncompleteThinkTags = (content: string, reasoningContent = ''): { c
   return processThinkTags(content, reasoningContent);
 };
 
-export const finalizeIncompleteMessage = (message: ChatMessage): ChatMessage => {
-  if (message.status !== MESSAGE_STATUS.LOADING && message.status !== MESSAGE_STATUS.INCOMPLETE) {
-    return message;
-  }
-
-  const processed = processIncompleteThinkTags(message.content || '', message.reasoningContent || '');
-  return {
-    ...message,
-    content: processed.content || message.content,
-    reasoningContent: processed.reasoningContent || null,
-    status: MESSAGE_STATUS.COMPLETE,
-    isThinkingComplete: true,
-  };
-};
 
 export const parseModelTesterSession = (raw: string | null): ModelTesterSessionState | null => {
   if (typeof raw !== 'string' || raw.trim().length === 0) return null;
@@ -1196,19 +1204,6 @@ export const toApiMessages = (messages: ChatMessage[]): ApiChatMessage[] =>
       parts: message.parts,
     }));
 
-export const buildConversationRequestEnvelope = (
-  messages: ChatMessage[],
-  inputs: ModelTesterInputs,
-  parameterEnabled: ParameterEnabled,
-): TesterProxyEnvelope => ({
-  method: 'POST',
-  path: getConversationPath(inputs.protocol, inputs.model),
-  requestKind: 'json',
-  stream: inputs.stream,
-  jobMode: !inputs.stream,
-  rawMode: false,
-  jsonBody: buildConversationJsonBody(messages, inputs, parameterEnabled),
-});
 
 export const buildGeminiNativeConversationProxyEnvelope = (
   messages: ChatMessage[],
@@ -1263,21 +1258,6 @@ export const buildSearchRequestEnvelope = (
   };
 };
 
-export const buildImagesGenerationsRequestEnvelope = (
-  inputs: ModelTesterInputs,
-  modeState: ModelTesterModeState,
-): TesterProxyEnvelope => ({
-  method: 'POST',
-  path: '/v1/images/generations',
-  requestKind: 'json',
-  stream: false,
-  jobMode: false,
-  rawMode: false,
-  jsonBody: {
-    model: inputs.model,
-    prompt: modeState.imagesPrompt,
-  },
-});
 
 export const buildFileUploadRequestEnvelope = (
   file: Omit<PlaygroundMultipartFile, 'field'> & { field?: string },
@@ -1300,51 +1280,6 @@ export const buildFileUploadRequestEnvelope = (
   }],
 });
 
-export const buildImagesEditRequestEnvelope = (
-  inputs: ModelTesterInputs,
-  modeState: ModelTesterModeState,
-  files: PlaygroundMultipartFile[],
-): TesterProxyEnvelope => ({
-  method: 'POST',
-  path: '/v1/images/edits',
-  requestKind: 'multipart',
-  stream: false,
-  jobMode: false,
-  rawMode: false,
-  multipartFields: {
-    model: inputs.model,
-    prompt: modeState.imagesPrompt,
-  },
-  multipartFiles: files,
-});
-
-export const buildVideoCreateRequestEnvelope = (
-  inputs: ModelTesterInputs,
-  modeState: ModelTesterModeState,
-  files: PlaygroundMultipartFile[],
-): TesterProxyEnvelope => ({
-  method: 'POST',
-  path: '/v1/videos',
-  requestKind: files.length > 0 ? 'multipart' : 'json',
-  stream: false,
-  jobMode: false,
-  rawMode: false,
-  jsonBody: files.length > 0 ? undefined : { model: inputs.model, prompt: modeState.videosPrompt },
-  multipartFields: files.length > 0 ? { model: inputs.model, prompt: modeState.videosPrompt } : undefined,
-  multipartFiles: files.length > 0 ? files : undefined,
-});
-
-export const buildVideoInspectRequestEnvelope = (
-  inputs: ModelTesterInputs,
-  modeState: ModelTesterModeState,
-): TesterProxyEnvelope => ({
-  method: inputs.videoInspectAction === 'delete' ? 'DELETE' : 'GET',
-  path: `/v1/videos/${encodeURIComponent(modeState.videosInspectId.trim())}`,
-  requestKind: 'empty',
-  stream: false,
-  jobMode: false,
-  rawMode: false,
-});
 
 export const buildApiPayload = (
   messages: ChatMessage[],
@@ -1431,68 +1366,6 @@ export const syncMessagesToCustomRequestBody = (
   return JSON.stringify({ ...payload, ...conversationBody }, null, 2);
 };
 
-export const syncCustomRequestBodyToMessages = (raw: string): ChatMessage[] | null => {
-  const parsed = parseCustomRequestBody(raw);
-  if (!parsed) return null;
-
-  const restored: Array<{ role: ChatRole; content: string }> = [];
-  const appendMessage = (role: ChatRole, content: string) => {
-    if (!content.trim()) return;
-    restored.push({ role, content });
-  };
-
-  if (typeof parsed.system === 'string') appendMessage('system', parsed.system);
-  if (typeof parsed.instructions === 'string') appendMessage('system', parsed.instructions);
-  if (isRecord(parsed.systemInstruction) && Array.isArray(parsed.systemInstruction.parts)) {
-    const systemText = parsed.systemInstruction.parts
-      .map((part) => (isRecord(part) && typeof part.text === 'string' ? part.text : ''))
-      .join('\n');
-    appendMessage('system', systemText);
-  }
-
-  if (Array.isArray(parsed.messages)) {
-    for (const item of parsed.messages) {
-      if (!isRecord(item) || typeof item.role !== 'string') continue;
-      if (typeof item.content === 'string') {
-        appendMessage(VALID_ROLES.has(item.role) ? item.role as ChatRole : 'user', item.content);
-        continue;
-      }
-      if (Array.isArray(item.content)) {
-        const text = item.content
-          .map((block) => {
-            if (isRecord(block) && typeof block.text === 'string') return block.text;
-            if (isRecord(block) && typeof block.content === 'string') return block.content;
-            return '';
-          })
-          .join('\n');
-        appendMessage(VALID_ROLES.has(item.role) ? item.role as ChatRole : 'user', text);
-      }
-    }
-  } else if (Array.isArray(parsed.input)) {
-    for (const item of parsed.input) {
-      if (!isRecord(item) || typeof item.role !== 'string') continue;
-      appendMessage(item.role === 'assistant' ? 'assistant' : 'user', sanitizeString(item.content));
-    }
-  } else if (typeof parsed.input === 'string') {
-    appendMessage('user', parsed.input);
-  } else if (Array.isArray(parsed.contents)) {
-    for (const item of parsed.contents) {
-      if (!isRecord(item)) continue;
-      const role = item.role === 'model' ? 'assistant' : 'user';
-      const text = Array.isArray(item.parts)
-        ? item.parts
-          .map((part) => (isRecord(part) && typeof part.text === 'string' ? part.text : ''))
-          .join('\n')
-        : '';
-      appendMessage(role, text);
-    }
-  }
-
-  if (restored.length === 0) return null;
-  return restored.map((item, index) => createMessage(item.role, item.content, {
-    id: `custom-${index}-${Date.now()}`,
-  }));
-};
 
 export const buildRawProxyRequestEnvelope = (
   method: ProxyRequestMethod,
@@ -1510,18 +1383,6 @@ export const buildRawProxyRequestEnvelope = (
   rawJsonText,
 });
 
-export const findLastLoadingAssistantIndex = (messages: ChatMessage[]): number => {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (
-      message.role === 'assistant' &&
-      (message.status === MESSAGE_STATUS.LOADING || message.status === MESSAGE_STATUS.INCOMPLETE)
-    ) {
-      return index;
-    }
-  }
-  return -1;
-};
 
 export const countConversationTurns = (messages: ChatMessage[]): number =>
   messages.reduce((turns, message) => turns + (message.role === 'user' ? 1 : 0), 0);

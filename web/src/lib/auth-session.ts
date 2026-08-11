@@ -1,4 +1,90 @@
-import type { QueryClient } from '@tanstack/react-query'
+const MONITOR_AUTH_COOKIE_NAME = 'meta_monitor_auth'
+const MONITOR_AUTH_COOKIE_PATH = '/monitor-proxy/'
+
+
+function clearMonitorAuthCookie(
+  doc: CookieWriter | null | undefined = typeof document !== 'undefined'
+    ? document
+    : null
+): void {
+  if (!doc) return
+  try {
+    const expire = 'Max-Age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+    doc.cookie = `${MONITOR_AUTH_COOKIE_NAME}=; Path=${MONITOR_AUTH_COOKIE_PATH}; ${expire}`
+    doc.cookie = `${MONITOR_AUTH_COOKIE_NAME}=; Path=/; ${expire}`
+  } catch {
+    // document may be restricted (sandboxed); ignore.
+  }
+}
+
+function currentValidAuthBundle(
+  storage?: StorageLike | null,
+  nowMs: number = Date.now()
+): AuthBundle | null {
+  const token = getAuthToken(storage, nowMs)
+  if (!token) return null
+  const target = resolveStorage(storage)
+  const expiresAtMs = Number(
+    target?.getItem(AUTH_TOKEN_EXPIRES_AT_STORAGE_KEY) ?? 0
+  )
+  if (!Number.isFinite(expiresAtMs) || expiresAtMs <= nowMs) return null
+  return {
+    access_token: token,
+    token_type: 'Bearer',
+    access_expires_at: Math.floor(expiresAtMs / 1000),
+    user: null,
+    session: null,
+  }
+}
+
+function isAuthBundle(value: unknown): value is AuthBundle {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.access_token === 'string' &&
+    value.access_token.length > 0 &&
+    typeof value.token_type === 'string' &&
+    value.token_type.length > 0 &&
+    typeof value.access_expires_at === 'number' &&
+    Number.isFinite(value.access_expires_at) &&
+    value.access_expires_at > 0
+  )
+}
+
+function persistAuthSession(
+  storage: StorageLike | null | undefined,
+  token: string,
+  ttlMs: number = AUTH_SESSION_DURATION_MS,
+  nowMs: number = Date.now()
+): void {
+  const target = resolveStorage(storage)
+  if (!target) return
+
+  const cleanToken = (token || '').trim()
+  if (!cleanToken) {
+    clearAuthSession(target)
+    return
+  }
+
+  const expiresAt = nowMs + Math.max(1, Math.trunc(ttlMs))
+  target.setItem(AUTH_TOKEN_STORAGE_KEY, cleanToken)
+  target.setItem(AUTH_TOKEN_EXPIRES_AT_STORAGE_KEY, String(expiresAt))
+}
+
+function publishAuthSessionEvent(
+  event: AuthSessionEventName,
+  _sid?: string
+): void {
+  // TODO(tab-sync): include the SID payload and have the store reconcile on
+  // receipt. Storage-only tokens don't need it yet, so this is a no-op-ish
+  // ping that at least wakes other tabs to re-read storage.
+  const channel = resolveAuthSessionChannel()
+  if (!channel) return
+  try {
+    channel.postMessage({ event })
+  } catch {
+    // channel closed / sandboxed; ignore.
+  }
+}
 
 /**
  * Authentication session module for metapi-go.
@@ -24,16 +110,6 @@ const AUTH_TOKEN_EXPIRES_AT_STORAGE_KEY = 'auth_token_expires_at'
 export const AUTH_SESSION_DURATION_MS = 12 * 60 * 60 * 1000
 
 /** Must match handler/admin/monitor.go monitorAuthCookie. */
-export const MONITOR_AUTH_COOKIE_NAME = 'meta_monitor_auth'
-
-/**
- * Must match handler/admin/monitor.go monitorCookiePath.
- * document.cookie can only clear non-HttpOnly cookies; HttpOnly is cleared
- * via DELETE /api/monitor/session. This helper is a best-effort residual
- * clear for any non-HttpOnly twin and documents the Path contract in tests.
- */
-export const MONITOR_AUTH_COOKIE_PATH = '/monitor-proxy/'
-
 export interface AuthUser {
   id: number
   username: string
@@ -95,43 +171,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object'
 }
 
-export function isAuthUser(value: unknown): value is AuthUser {
-  if (!isRecord(value)) return false
-  return (
-    Number.isInteger(value.id) &&
-    Number(value.id) > 0 &&
-    typeof value.username === 'string' &&
-    typeof value.role === 'number'
-  )
-}
-
-export function isLoginSession(value: unknown): value is LoginSession {
-  if (!isRecord(value)) return false
-  return (
-    typeof value.sid === 'string' &&
-    value.sid.length > 0 &&
-    typeof value.current === 'boolean' &&
-    typeof value.login_method === 'string' &&
-    typeof value.ip === 'string' &&
-    typeof value.user_agent === 'string' &&
-    typeof value.created_at === 'number' &&
-    typeof value.last_active_at === 'number' &&
-    typeof value.expires_at === 'number'
-  )
-}
-
-export function isAuthBundle(value: unknown): value is AuthBundle {
-  if (!isRecord(value)) return false
-  return (
-    typeof value.access_token === 'string' &&
-    value.access_token.length > 0 &&
-    typeof value.token_type === 'string' &&
-    value.token_type.length > 0 &&
-    typeof value.access_expires_at === 'number' &&
-    Number.isFinite(value.access_expires_at) &&
-    value.access_expires_at > 0
-  )
-}
 
 /**
  * Best-effort document.cookie clear for meta_monitor_auth.
@@ -139,20 +178,6 @@ export function isAuthBundle(value: unknown): value is AuthBundle {
  * Also clears legacy Path=/ in case an older mint used it.
  * Prefer DELETE /api/monitor/session for the HttpOnly cookie.
  */
-export function clearMonitorAuthCookie(
-  doc: CookieWriter | null | undefined = typeof document !== 'undefined'
-    ? document
-    : null
-): void {
-  if (!doc) return
-  try {
-    const expire = 'Max-Age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT'
-    doc.cookie = `${MONITOR_AUTH_COOKIE_NAME}=; Path=${MONITOR_AUTH_COOKIE_PATH}; ${expire}`
-    doc.cookie = `${MONITOR_AUTH_COOKIE_NAME}=; Path=/; ${expire}`
-  } catch {
-    // document may be restricted (sandboxed); ignore.
-  }
-}
 
 export function clearAuthSession(storage?: StorageLike | null): void {
   const target = resolveStorage(storage)
@@ -206,32 +231,6 @@ export function hasValidAuthSession(
   return Boolean(getAuthToken(storage, nowMs))
 }
 
-export function isAuthTokenValid(
-  storage?: StorageLike | null,
-  nowMs: number = Date.now()
-): boolean {
-  return hasValidAuthSession(storage, nowMs)
-}
-
-export function persistAuthSession(
-  storage: StorageLike | null | undefined,
-  token: string,
-  ttlMs: number = AUTH_SESSION_DURATION_MS,
-  nowMs: number = Date.now()
-): void {
-  const target = resolveStorage(storage)
-  if (!target) return
-
-  const cleanToken = (token || '').trim()
-  if (!cleanToken) {
-    clearAuthSession(target)
-    return
-  }
-
-  const expiresAt = nowMs + Math.max(1, Math.trunc(ttlMs))
-  target.setItem(AUTH_TOKEN_STORAGE_KEY, cleanToken)
-  target.setItem(AUTH_TOKEN_EXPIRES_AT_STORAGE_KEY, String(expiresAt))
-}
 
 /**
  * Persist an AuthBundle to storage. Converts the bundle's
@@ -254,25 +253,6 @@ export function setAuthBundle(
  * valid. user/session are unavailable from storage alone (TODO: hydrate from
  * /api/settings/auth/info once the auth-store bootstrap lands).
  */
-export function currentValidAuthBundle(
-  storage?: StorageLike | null,
-  nowMs: number = Date.now()
-): AuthBundle | null {
-  const token = getAuthToken(storage, nowMs)
-  if (!token) return null
-  const target = resolveStorage(storage)
-  const expiresAtMs = Number(
-    target?.getItem(AUTH_TOKEN_EXPIRES_AT_STORAGE_KEY) ?? 0
-  )
-  if (!Number.isFinite(expiresAtMs) || expiresAtMs <= nowMs) return null
-  return {
-    access_token: token,
-    token_type: 'Bearer',
-    access_expires_at: Math.floor(expiresAtMs / 1000),
-    user: null,
-    session: null,
-  }
-}
 
 export function getAuthSession(
   storage?: StorageLike | null,
@@ -309,34 +289,6 @@ export function applyAuthRotation(value: unknown): void {
   publishAuthSessionEvent('authenticated')
 }
 
-export function clearAuthenticatedClientState(
-  queryClient: QueryClient,
-  synchronizeTabs = true
-): void {
-  queryClient.clear()
-  clearAuthentication(synchronizeTabs)
-}
-
-export function getCommonHeaders(
-  storage?: StorageLike | null,
-  nowMs: number = Date.now()
-): Record<string, string> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  }
-  const accessToken = getAccessToken(storage, nowMs)
-  if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`
-  }
-  return headers
-}
-
-export async function getFreshAuthHeaders(): Promise<Record<string, string>> {
-  // TODO(refresh): if the current token expires within 60s, call
-  // refreshAuthentication() first. Until refresh is implemented we hand back
-  // the current headers directly.
-  return getCommonHeaders()
-}
 
 // ---------------------------------------------------------------------------
 // refreshAuthentication — single-flight + backoff scaffold (STUB)
@@ -417,35 +369,3 @@ function resolveAuthSessionChannel(): BroadcastChannel | null {
   return authSessionChannel
 }
 
-export function publishAuthSessionEvent(
-  event: AuthSessionEventName,
-  _sid?: string
-): void {
-  // TODO(tab-sync): include the SID payload and have the store reconcile on
-  // receipt. Storage-only tokens don't need it yet, so this is a no-op-ish
-  // ping that at least wakes other tabs to re-read storage.
-  const channel = resolveAuthSessionChannel()
-  if (!channel) return
-  try {
-    channel.postMessage({ event })
-  } catch {
-    // channel closed / sandboxed; ignore.
-  }
-}
-
-export function subscribeAuthSessionEvents(
-  handler: (event: AuthSessionEventName, sid?: string) => void
-): () => void {
-  const channel = resolveAuthSessionChannel()
-  if (!channel) return () => {}
-  const listener = (message: MessageEvent) => {
-    const payload = message?.data
-    if (isRecord(payload) && typeof payload.event === 'string') {
-      handler(payload.event as AuthSessionEventName)
-    }
-  }
-  channel.addEventListener('message', listener)
-  return () => channel.removeEventListener('message', listener)
-}
-
-export { AUTH_TOKEN_STORAGE_KEY, AUTH_TOKEN_EXPIRES_AT_STORAGE_KEY }

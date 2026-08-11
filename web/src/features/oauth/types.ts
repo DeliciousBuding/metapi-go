@@ -10,7 +10,6 @@
 import type {
   OAuthConnectionInfo,
   OAuthProviderInfo,
-  OAuthStartResponse,
 } from '@/lib/api'
 
 /** Row type for the OAuth connections table (an OAuth-connected account). */
@@ -20,9 +19,6 @@ export type OAuthClient = OAuthConnectionInfo
 export type OAuthProvider = OAuthProviderInfo
 
 /** Result of starting an OAuth flow — contains the URL to open. */
-export type OAuthStartResult = OAuthStartResponse
-
-/** Connection health status. */
 export type OAuthClientStatus = OAuthClient['status']
 
 /**

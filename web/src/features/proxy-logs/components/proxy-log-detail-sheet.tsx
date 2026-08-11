@@ -187,7 +187,7 @@ function JsonBlock({ value }: { value: unknown }) {
   const text = useMemo(() => prettyPrintJson(value), [value])
   function handleCopy() {
     if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return
-    navigator.clipboard.writeText(text).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1500) })
+    navigator.clipboard.writeText(text).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1500) }).catch(() => {})
   }
   return (
     <div className='relative'>

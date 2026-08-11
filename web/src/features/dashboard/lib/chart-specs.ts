@@ -24,7 +24,7 @@ import type {
 } from '../types'
 
 /** Respect the OS-level reduced-motion preference (matches styles/index.css). */
-export function prefersReducedMotion(): boolean {
+function prefersReducedMotion(): boolean {
   if (
     typeof window === 'undefined' ||
     typeof window.matchMedia !== 'function'

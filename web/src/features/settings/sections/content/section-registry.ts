@@ -52,19 +52,13 @@ const CONTENT_SECTIONS = [
   },
 ] as const
 
-export type ContentSectionId = (typeof CONTENT_SECTIONS)[number]['id']
+type ContentSectionId = (typeof CONTENT_SECTIONS)[number]['id']
 
 const registry = createSectionRegistry<ContentSectionId>({
   sections: CONTENT_SECTIONS,
   defaultSection: 'import-export',
   basePath: '/settings/content',
 })
-
-export const CONTENT_SECTION_IDS = registry.sectionIds
-export const CONTENT_DEFAULT_SECTION = registry.defaultSection
-export const getContentSectionNavItems = registry.getSectionNavItems
-export const getContentSectionContent = registry.getSectionContent
-export const getContentSectionMeta = registry.getSectionMeta
 
 export const contentSubarea: SettingsSubarea = {
   id: 'content',

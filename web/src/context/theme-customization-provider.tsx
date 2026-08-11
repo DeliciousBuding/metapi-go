@@ -5,7 +5,6 @@
 import {
   createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
@@ -235,6 +234,3 @@ export function ThemeCustomizationProvider(props: {
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
-export function useThemeCustomization() {
-  return useContext(ThemeCustomizationContext)
-}

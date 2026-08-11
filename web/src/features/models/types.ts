@@ -10,7 +10,7 @@
 /**
  * A downstream token identity configured for a model inside an account.
  */
-export type ModelTokenInfo = {
+type ModelTokenInfo = {
   id: number
   name: string
   isDefault: boolean
@@ -34,7 +34,7 @@ export type ModelGroupPricing = {
  * served by multiple accounts across sites, each exposing its own group
  * pricing matrix (keyed by downstream group name).
  */
-export type ModelPricingSource = {
+type ModelPricingSource = {
   siteId: number
   siteName: string
   accountId: number
@@ -49,7 +49,7 @@ export type ModelPricingSource = {
  * round-trip in ms (null when never probed). `tokens` lists the downstream
  * token entries that resolve to this model on that account.
  */
-export type ModelAccountInfo = {
+type ModelAccountInfo = {
   id: number
   site: string
   username: string | null
@@ -95,11 +95,6 @@ export type ModelsMarketplaceResponse = {
  * Derived capability view used by the detail sheet: the union of
  * `supportedEndpointTypes` and `tags`, deduped and sorted for display.
  */
-export type ModelCapabilitySummary = {
-  endpointTypes: string[]
-  tags: string[]
-  all: string[]
-}
 
 /**
  * TanStack Query key factory. Centralised so invalidation is grep-able and

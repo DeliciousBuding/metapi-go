@@ -77,19 +77,13 @@ const SYSTEM_INFO_SECTIONS = [
   },
 ] as const
 
-export type SystemInfoSectionId = (typeof SYSTEM_INFO_SECTIONS)[number]['id']
+type SystemInfoSectionId = (typeof SYSTEM_INFO_SECTIONS)[number]['id']
 
 const registry = createSectionRegistry<SystemInfoSectionId>({
   sections: SYSTEM_INFO_SECTIONS,
   defaultSection: 'program-logs',
   basePath: '/settings/system-info',
 })
-
-export const SYSTEM_INFO_SECTION_IDS = registry.sectionIds
-export const SYSTEM_INFO_DEFAULT_SECTION = registry.defaultSection
-export const getSystemInfoSectionNavItems = registry.getSectionNavItems
-export const getSystemInfoSectionContent = registry.getSectionContent
-export const getSystemInfoSectionMeta = registry.getSectionMeta
 
 export const systemInfoSubarea: SettingsSubarea = {
   id: 'system-info',

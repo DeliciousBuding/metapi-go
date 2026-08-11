@@ -18,7 +18,7 @@ import { tableHasCompactMeta } from './card-cell-utils'
 import { CardRowContent } from './card-row-content'
 
 /** Helpers passed to a custom {@link DataTableCardGridProps.renderCard}. */
-export type DataTableCardHelpers = {
+type DataTableCardHelpers = {
   /**
    * Whether the table declares compact card meta (`mobileTitle`/`mobileBadge`).
    * Provided so custom renderers can match the default layout decision.

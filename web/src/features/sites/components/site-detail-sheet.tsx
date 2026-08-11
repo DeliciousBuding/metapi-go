@@ -80,15 +80,16 @@ export function SiteDetailSheet({
   const status: SiteStatus = site.status === 'disabled' ? 'disabled' : 'active'
   const endpoints = site.apiEndpoints ?? []
   const tags = site.tags ?? []
+  const siteId = site.id
 
   function goToAccounts() {
     onOpenChange(false)
-    navigate({ href: buildPathWithSiteId('/accounts', site!.id), replace: true })
+    navigate({ href: buildPathWithSiteId('/accounts', siteId), replace: true })
   }
 
   function goToRoutes() {
     onOpenChange(false)
-    navigate({ href: buildPathWithSiteId('/routes', site!.id), replace: true })
+    navigate({ href: buildPathWithSiteId('/routes', siteId), replace: true })
   }
 
   return (
@@ -174,9 +175,9 @@ export function SiteDetailSheet({
                   {t('sites.detail.endpoints')}
                 </h3>
                 <ul className='mt-2 space-y-1'>
-                  {endpoints.map((endpoint, index) => (
+                  {endpoints.map((endpoint) => (
                     <li
-                      key={`${endpoint.url}-${index}`}
+                      key={endpoint.url}
                       className='flex items-center gap-2 text-sm'
                     >
                       <Badge

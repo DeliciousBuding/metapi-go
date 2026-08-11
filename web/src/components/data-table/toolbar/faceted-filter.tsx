@@ -1,5 +1,6 @@
+/* eslint-disable no-nested-ternary -- badge variant selection uses chained ternaries */
 // metapi-go/data-table — ported from newapi
-import { type Column } from '@tanstack/react-table'
+import type { Column } from '@tanstack/react-table'
 import { Check as CheckIcon, PlusCircle as PlusCircledIcon } from 'lucide-react'
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
@@ -192,5 +193,5 @@ function getNextSelectedValues(
     nextSelectedValues.add(optionValue)
   }
 
-  return Array.from(nextSelectedValues)
+  return [...nextSelectedValues]
 }

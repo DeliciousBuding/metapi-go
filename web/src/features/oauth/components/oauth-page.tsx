@@ -140,9 +140,10 @@ function useOAuthUrlState() {
   const onColumnFiltersChange = (updater: Updater<ColumnFiltersState>) => {
     const next = resolveUpdater(updater, columnFilters)
     const statusEntry = next.find((filter) => filter.id === 'status')
-    const statusValue = Array.isArray(statusEntry?.value)
-      ? (statusEntry!.value as string[])[0]
-      : (statusEntry?.value as string | undefined)
+    const statusValue =
+      statusEntry && Array.isArray(statusEntry.value)
+        ? (statusEntry.value as string[])[0]
+        : (statusEntry?.value as string | undefined)
     navigate({ href: buildHref({ status: statusValue }), replace: true })
   }
 

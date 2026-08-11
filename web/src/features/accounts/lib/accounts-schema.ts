@@ -13,10 +13,10 @@
 
 import { z } from 'zod'
 
-import {
-  type Account,
-  type AccountPayload,
-  type CredentialMode,
+import type {
+  Account,
+  AccountPayload,
+  CredentialMode,
 } from '../types'
 
 // ---------------------------------------------------------------------------

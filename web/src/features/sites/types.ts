@@ -11,7 +11,7 @@ export type SiteStatus = 'active' | 'disabled'
 
 export type SiteProbeScope = 'single' | 'all'
 
-export type SiteApiEndpoint = {
+type SiteApiEndpoint = {
   id?: number
   url: string
   enabled?: boolean
@@ -20,7 +20,7 @@ export type SiteApiEndpoint = {
   lastFailureReason?: string | null
 }
 
-export type SiteSubscriptionSummary = {
+type SiteSubscriptionSummary = {
   activeCount: number
   totalUsedUsd?: number
   totalMonthlyLimitUsd?: number | null

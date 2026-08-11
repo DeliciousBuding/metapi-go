@@ -22,11 +22,11 @@ import {
 } from '@/lib/helpers/routeMissingTokenHints'
 import i18n from '@/i18n/config'
 
-import {
-  type RouteChannel,
-  type RouteFormPayload,
-  type RouteRoutingStrategy,
-  type RouteSummaryRow,
+import type {
+  RouteChannel,
+  RouteFormPayload,
+  RouteRoutingStrategy,
+  RouteSummaryRow,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -365,9 +365,3 @@ export function useZeroChannelRoutes(
 // Convenience selectors
 // ---------------------------------------------------------------------------
 
-export function selectRouteById(
-  routes: RouteSummaryRow[] | undefined,
-  id: number,
-): RouteSummaryRow | undefined {
-  return routes?.find((route) => route.id === id)
-}

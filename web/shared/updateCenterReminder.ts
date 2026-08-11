@@ -1,3 +1,11 @@
+
+
+function normalizeStableVersion(value?: string | null): string {
+  const raw = clean(value).toLowerCase();
+  if (!raw || raw === 'latest') return '';
+  return raw.replace(/^v/, '').replace(/[^0-9.].*$/, '');
+}
+
 export type UpdateHelperRuntimeLike = {
   imageTag?: string | null;
   imageDigest?: string | null;
@@ -27,11 +35,6 @@ function cleanDigest(value?: string | null): string {
   return /^sha256:[a-f0-9]{64}$/i.test(digest) ? digest.toLowerCase() : '';
 }
 
-export function normalizeStableVersion(value?: string | null): string {
-  const raw = clean(value).toLowerCase();
-  if (!raw || raw === 'latest') return '';
-  return raw.replace(/^v/, '').replace(/[^0-9.].*$/, '');
-}
 
 export function compareStableVersions(a?: string | null, b?: string | null): -1 | 0 | 1 | null {
   const left = normalizeStableVersion(a);
@@ -67,9 +70,6 @@ export function isSameImageTarget(
   return Boolean(helperStable && targetStable && helperStable === targetStable);
 }
 
-export function buildUpdateReminderCandidateKey(candidate: UpdateReminderCandidate): string {
-  return `${candidate.source}:${candidate.kind}:${candidate.version}:${candidate.digest || ''}`;
-}
 
 export function resolveUpdateReminderCandidate(input: {
   currentVersion?: string | null;

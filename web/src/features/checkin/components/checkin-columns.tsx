@@ -1,3 +1,4 @@
+/* eslint-disable react/only-export-components -- column definitions co-located with cell renderers */
 // metapi-go features/checkin/components — TanStack Table column definitions.
 // i18n: all user-visible strings migrated to t() calls.
 

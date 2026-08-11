@@ -13,6 +13,14 @@ import type {
 } from './types'
 import i18n from '@/i18n/config'
 
+
+
+function isRouteIconNoneValue(
+  raw: string | null | undefined,
+): boolean {
+  return (raw || '').trim() === ROUTE_ICON_NONE_VALUE
+}
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -106,11 +114,6 @@ export function resolveRouteTitle(
   return title || route.modelPattern
 }
 
-export function isRouteIconNoneValue(
-  raw: string | null | undefined,
-): boolean {
-  return (raw || '').trim() === ROUTE_ICON_NONE_VALUE
-}
 
 export function normalizeRouteDisplayIconValue(
   raw: string | null | undefined,

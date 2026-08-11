@@ -30,7 +30,7 @@ import { MobileCardList } from './mobile-card-list'
  * Pass-through configuration for the default {@link DataTableToolbar}.
  * Pass `toolbar` (ReactNode) instead to fully replace the default toolbar.
  */
-export type DataTablePageToolbarProps<TData> = Omit<
+type DataTablePageToolbarProps<TData> = Omit<
   React.ComponentProps<typeof DataTableToolbar<TData>>,
   'table'
 >

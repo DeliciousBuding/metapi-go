@@ -1,3 +1,4 @@
+/* eslint-disable react/only-export-components -- column definitions co-located with cell renderers */
 // metapi-go/features/oauth — TanStack Table column definitions.
 //
 // `useOAuthColumns` is a hook (calls `useTranslation` during render) that

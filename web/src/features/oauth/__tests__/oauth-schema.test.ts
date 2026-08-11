@@ -7,8 +7,8 @@ import {
   OAUTH_START_DEFAULT_VALUES,
   oauthSearchSchema,
   oauthStartSchema,
+  type OAuthStartValues,
 } from '../lib/oauth-schema';
-import type { OAuthStartValues } from '../lib/oauth-schema';
 
 function validOAuthStart(): OAuthStartValues {
   return { ...OAUTH_START_DEFAULT_VALUES, provider: 'github' };

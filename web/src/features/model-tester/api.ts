@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary -- error-shape selection uses chained ternaries */
 // metapi-go/features/model-tester — TanStack Query mutation for the chat test.
 //
 // `useTestModel` is a `useMutation` whose `mutationFn` opens the SSE stream

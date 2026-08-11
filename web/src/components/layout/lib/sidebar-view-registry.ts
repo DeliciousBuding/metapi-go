@@ -1,7 +1,7 @@
 // metapi-go/layout — sidebar-view-registry ported from newapi. AGPL header stripped.
 // Resolves the active nested drill-in view for a given pathname.
 
-import type { NavGroup, SidebarView } from '../types'
+import type { SidebarView } from '../types'
 import { SYSTEM_SETTINGS_VIEW } from '../config/system-settings.config'
 
 /**
@@ -33,7 +33,3 @@ export function resolveSidebarView(pathname: string): SidebarView | null {
  * @returns Nav groups for the matched view, or `null` if no nested view
  *          matches (callers should then fall back to root nav groups).
  */
-export function getNavGroupsForPath(pathname: string): NavGroup[] | null {
-  const view = resolveSidebarView(pathname)
-  return view ? view.getNavGroups() : null
-}

@@ -60,6 +60,9 @@ export function AnnouncementBanner() {
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
+      .catch(() => {
+        // trailing catch — the .finally() returns a promise that must be handled
+      })
     return () => {
       cancelled = true
     }

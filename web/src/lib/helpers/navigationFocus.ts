@@ -1,5 +1,13 @@
 import { isTruthyFlag } from './accountConnection.js';
 
+
+
+function buildAnnouncementFocusPath(announcementId: number): string {
+  const normalizedId = normalizePositiveId(announcementId);
+  if (!normalizedId) return '/site-announcements';
+  return `/site-announcements?${FOCUS_ANNOUNCEMENT_ID_KEY}=${normalizedId}`;
+}
+
 const FOCUS_SITE_ID_KEY = 'focusSiteId';
 const FOCUS_ANNOUNCEMENT_ID_KEY = 'focusAnnouncementId';
 const FOCUS_ACCOUNT_ID_KEY = 'focusAccountId';
@@ -18,11 +26,6 @@ export function buildSiteFocusPath(siteId: number): string {
   return `/sites?${FOCUS_SITE_ID_KEY}=${normalizedId}`;
 }
 
-export function buildAnnouncementFocusPath(announcementId: number): string {
-  const normalizedId = normalizePositiveId(announcementId);
-  if (!normalizedId) return '/site-announcements';
-  return `/site-announcements?${FOCUS_ANNOUNCEMENT_ID_KEY}=${normalizedId}`;
-}
 
 export function buildAccountFocusPath(
   accountId: number,
@@ -37,14 +40,6 @@ export function buildAccountFocusPath(
   return `/accounts?${params.toString()}`;
 }
 
-export function buildTokenFocusPath(tokenId: number): string {
-  const normalizedId = normalizePositiveId(tokenId);
-  if (!normalizedId) return '/accounts?segment=tokens';
-  const params = new URLSearchParams();
-  params.set('segment', 'tokens');
-  params.set(FOCUS_TOKEN_ID_KEY, String(normalizedId));
-  return `/accounts?${params.toString()}`;
-}
 
 export function readFocusSiteId(search: string): number | null {
   const params = new URLSearchParams(search);
@@ -64,10 +59,6 @@ export function readFocusAccountIntent(search: string): { accountId: number | nu
   };
 }
 
-export function readFocusTokenId(search: string): number | null {
-  const params = new URLSearchParams(search);
-  return normalizePositiveId(params.get(FOCUS_TOKEN_ID_KEY));
-}
 
 export function clearFocusParams(search: string): string {
   const params = new URLSearchParams(search);

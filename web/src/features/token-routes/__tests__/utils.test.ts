@@ -114,7 +114,7 @@ describe('parseRegexModelPattern', () => {
     expect(parsed.regex).toBeNull();
     expect(parsed.error).not.toBeNull();
     expect(typeof parsed.error).toBe('string');
-    expect(parsed.error!.length).toBeGreaterThan(0);
+    expect((parsed.error ?? '').length).toBeGreaterThan(0);
   });
 });
 
@@ -164,7 +164,7 @@ describe('getModelPatternError', () => {
     expect(message).not.toBeNull();
     // The Chinese prefix is translated under the i18n layer; assert a
     // non-empty error string either way.
-    expect(message!.length).toBeGreaterThan(0);
+    expect((message ?? '').length).toBeGreaterThan(0);
   });
 });
 

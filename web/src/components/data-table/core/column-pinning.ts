@@ -3,15 +3,6 @@ import { cn } from '@/lib/utils'
 
 import type { DataTableColumnClassName, DataTablePinnedColumn } from './types'
 
-export function getResolvedColumnClassName(
-  getColumnClassName?: DataTableColumnClassName,
-  pinnedColumns?: DataTablePinnedColumn[]
-): DataTableColumnClassName {
-  return getResolvedColumnClassNameFromMap(
-    getColumnClassName,
-    getPinnedColumnMap(pinnedColumns)
-  )
-}
 
 export function getResolvedColumnClassNameFromMap(
   getColumnClassName?: DataTableColumnClassName,

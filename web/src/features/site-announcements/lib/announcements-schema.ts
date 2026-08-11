@@ -69,17 +69,6 @@ const paginationSchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(200).default(20),
 })
 
-const columnFilterValueSchema = z.union([
-  z.string(),
-  z.array(z.string()),
-  z.boolean(),
-])
-
-const columnFilterItemSchema = z.object({
-  id: z.string(),
-  value: columnFilterValueSchema,
-})
-
 export const announcementsSearchSchema = z.object({
   q: z.string().optional(),
   page: z.coerce.number().int().min(0).optional(),
@@ -98,8 +87,5 @@ export const announcementsSearchSchema = z.object({
   enabled: z.string().optional(),
 })
 
-export type AnnouncementsSearch = z.infer<typeof announcementsSearchSchema>
 
-export const ANNOUNCEMENTS_SORTING_ITEM_SCHEMA = sortingItemSchema
 export const ANNOUNCEMENTS_PAGINATION_SCHEMA = paginationSchema
-export const ANNOUNCEMENTS_COLUMN_FILTER_ITEM_SCHEMA = columnFilterItemSchema

@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary -- display-name fallback uses chained ternary */
 // metapi-go features/accounts/components — account detail side sheet.
 // Shows account metadata + the embedded TokensPanel (tokens sub-module).
 // Mirrors the legacy metapi design where tokens live inside account detail,
@@ -21,7 +22,7 @@ import {
 
 import { useRefreshAccount } from '../api'
 import { TokensPanel } from '../tokens/components/tokens-panel'
-import { type Account } from '../types'
+import type { Account } from '../types'
 
 interface AccountDetailSheetProps {
   account: Account | null

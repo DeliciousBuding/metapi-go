@@ -1,3 +1,4 @@
+/* eslint-disable react/only-export-components -- badge component co-located with category config */
 // metapi-go features/checkin/components — FailureReason badge.
 //
 // The centerpiece of the 签到幽灵功能修复 (plan §5.5.5): the backend's
@@ -16,9 +17,9 @@
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
-import {
-  type FailureReason,
-  type FailureReasonCategory,
+import type {
+  FailureReason,
+  FailureReasonCategory,
 } from '../types'
 
 export interface FailureCategoryConfig {
@@ -26,7 +27,7 @@ export interface FailureCategoryConfig {
   dotClassName: string
 }
 
-export const FAILURE_CATEGORY_CONFIG: Record<
+const FAILURE_CATEGORY_CONFIG: Record<
   FailureReasonCategory,
   FailureCategoryConfig
 > = {
@@ -37,6 +38,7 @@ export const FAILURE_CATEGORY_CONFIG: Record<
   state: { variant: 'secondary', dotClassName: 'bg-emerald-500' },
   unknown: { variant: 'outline', dotClassName: 'bg-muted-foreground' },
 }
+
 
 function resolveCategoryConfig(
   category: string,
@@ -79,8 +81,3 @@ export function FailureReasonBadge({
  * Convenience helper for consumers that need the badge variant for a given
  * category string (e.g. detail-sheet styling).
  */
-export function getFailureCategoryConfig(
-  category: string,
-): FailureCategoryConfig {
-  return resolveCategoryConfig(category)
-}

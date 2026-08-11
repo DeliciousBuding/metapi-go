@@ -23,32 +23,32 @@ describe('parseServerUtcDateTime', () => {
   it('parses a naive UTC string by appending the Z suffix', () => {
     const date = parseServerUtcDateTime('2026-02-25 03:51:58');
     expect(date).not.toBeNull();
-    expect(date!.toISOString()).toBe('2026-02-25T03:51:58.000Z');
+    expect(date?.toISOString()).toBe('2026-02-25T03:51:58.000Z');
   });
 
   it('parses an ISO string that already carries a Z', () => {
     const date = parseServerUtcDateTime('2026-02-25T03:51:58Z');
-    expect(date!.toISOString()).toBe('2026-02-25T03:51:58.000Z');
+    expect(date?.toISOString()).toBe('2026-02-25T03:51:58.000Z');
   });
 
   it('normalises a bare +0800 offset to +08:00', () => {
     const date = parseServerUtcDateTime('2026-03-05T20:14:39+0800');
-    expect(date!.toISOString()).toBe('2026-03-05T12:14:39.000Z');
+    expect(date?.toISOString()).toBe('2026-03-05T12:14:39.000Z');
   });
 
   it('normalises a bare +08 offset to +08:00 and a space separator to T', () => {
     const date = parseServerUtcDateTime('2026-03-05 20:14:39+08');
-    expect(date!.toISOString()).toBe('2026-03-05T12:14:39.000Z');
+    expect(date?.toISOString()).toBe('2026-03-05T12:14:39.000Z');
   });
 
   it('parses 10-digit epoch seconds', () => {
     const date = parseServerUtcDateTime('1709640000');
-    expect(date!.toISOString()).toBe('2024-03-05T12:00:00.000Z');
+    expect(date?.toISOString()).toBe('2024-03-05T12:00:00.000Z');
   });
 
   it('parses 13-digit epoch milliseconds', () => {
     const date = parseServerUtcDateTime('1709640000000');
-    expect(date!.toISOString()).toBe('2024-03-05T12:00:00.000Z');
+    expect(date?.toISOString()).toBe('2024-03-05T12:00:00.000Z');
   });
 
   it('returns null for unparseable strings', () => {
@@ -128,12 +128,12 @@ describe('localDatetimeInputToEpochMs', () => {
     const epochMs = localDatetimeInputToEpochMs('2026-07-30T09:05');
     expect(epochMs).not.toBeNull();
     expect(typeof epochMs).toBe('number');
-    expect(epochMs!).toBeGreaterThan(0);
+    expect(epochMs ?? 0).toBeGreaterThan(0);
   });
 
   it('extends to the end of the minute when endOfDay is true', () => {
-    const start = localDatetimeInputToEpochMs('2026-07-30T09:05')!;
-    const end = localDatetimeInputToEpochMs('2026-07-30T09:05', true)!;
+    const start = localDatetimeInputToEpochMs('2026-07-30T09:05') ?? 0;
+    const end = localDatetimeInputToEpochMs('2026-07-30T09:05', true) ?? 0;
     // ~59.999s later, timezone-independent.
     expect(end - start).toBeCloseTo(59_999, -2);
   });

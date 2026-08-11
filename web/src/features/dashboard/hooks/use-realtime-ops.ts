@@ -109,7 +109,7 @@ export function useRealtimeOps(): RealtimeOpsSample {
         }
         if (!frame || !Array.isArray(frame.points)) return
 
-        const latest = frame.points[frame.points.length - 1]
+        const latest = frame.points.at(-1)
         if (!latest) return
 
         const qps = computeQps(latest.total, previousTotalRef.current)

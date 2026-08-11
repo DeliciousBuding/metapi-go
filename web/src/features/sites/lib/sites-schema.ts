@@ -150,7 +150,6 @@ export const sitesSearchSchema = z.object({
   status: z.string().optional(),
 })
 
-export type SitesSearch = z.infer<typeof sitesSearchSchema>
 
 export const SORTING_ITEM_SCHEMA = sortingItemSchema
 export const PAGINATION_SCHEMA = paginationSchema

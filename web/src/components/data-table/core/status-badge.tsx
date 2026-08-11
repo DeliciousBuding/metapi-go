@@ -9,7 +9,7 @@ import * as React from 'react'
 
 import { cn } from '@/lib/utils'
 
-export const dotColorMap = {
+const dotColorMap = {
   success: 'bg-success',
   warning: 'bg-warning',
   danger: 'bg-destructive',
@@ -33,7 +33,7 @@ export const dotColorMap = {
   yellow: 'bg-warning',
 } as const
 
-export const textColorMap = {
+const textColorMap = {
   success: 'text-success',
   warning: 'text-warning',
   danger: 'text-destructive',
@@ -57,7 +57,7 @@ export const textColorMap = {
   yellow: 'text-warning',
 } as const
 
-export type StatusVariant = keyof typeof dotColorMap
+type StatusVariant = keyof typeof dotColorMap
 
 export type StatusBadgeType = 'badge' | 'text' | 'underline'
 
@@ -98,21 +98,20 @@ function useCopyToClipboard() {
       return
     }
 
-    navigator.clipboard.writeText(value).then(
-      () => {
+    navigator.clipboard.writeText(value)
+      .then(() => {
         setCopied(true)
         window.setTimeout(() => setCopied(false), 1500)
-      },
-      () => {
+      })
+      .catch(() => {
         // clipboard write rejected — controls still work, just no feedback
-      }
-    )
+      })
   }, [])
 
   return { copied, copyToClipboard }
 }
 
-export interface StatusBadgeProps extends Omit<
+interface StatusBadgeProps extends Omit<
   React.HTMLAttributes<HTMLSpanElement>,
   'children'
 > {
@@ -129,7 +128,7 @@ export interface StatusBadgeProps extends Omit<
   type?: StatusBadgeType
 }
 
-export function StatusBadge({
+function StatusBadge({
   label,
   children,
   icon: Icon,
@@ -265,28 +264,3 @@ export function StatusBadgeList<T>(props: StatusBadgeListProps<T>) {
   )
 }
 
-export const statusPresets = {
-  active: {
-    variant: 'success' as const,
-    label: 'Active',
-  },
-  inactive: {
-    variant: 'neutral' as const,
-    label: 'Inactive',
-  },
-  invited: {
-    variant: 'info' as const,
-    label: 'Invited',
-  },
-  suspended: {
-    variant: 'danger' as const,
-    label: 'Suspended',
-  },
-  pending: {
-    variant: 'warning' as const,
-    label: 'Pending',
-    pulse: true,
-  },
-} as const
-
-export type StatusPreset = keyof typeof statusPresets

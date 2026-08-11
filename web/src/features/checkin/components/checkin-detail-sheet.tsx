@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary -- status label selection uses chained ternaries */
 // metapi-go features/checkin/components — checkin log detail side sheet.
 // i18n: all user-visible strings migrated to t() calls.
 

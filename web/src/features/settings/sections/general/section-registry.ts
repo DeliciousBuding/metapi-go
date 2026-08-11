@@ -77,7 +77,7 @@ const GENERAL_SECTIONS = [
   },
 ] as const
 
-export type GeneralSectionId = (typeof GENERAL_SECTIONS)[number]['id']
+type GeneralSectionId = (typeof GENERAL_SECTIONS)[number]['id']
 
 const registry = createSectionRegistry<GeneralSectionId>({
   sections: GENERAL_SECTIONS,
@@ -85,11 +85,6 @@ const registry = createSectionRegistry<GeneralSectionId>({
   basePath: '/settings/general',
 })
 
-export const GENERAL_SECTION_IDS = registry.sectionIds
-export const GENERAL_DEFAULT_SECTION = registry.defaultSection
-export const getGeneralSectionNavItems = registry.getSectionNavItems
-export const getGeneralSectionContent = registry.getSectionContent
-export const getGeneralSectionMeta = registry.getSectionMeta
 
 /**
  * String-typed adapter consumed by SettingsPage + settings-config.

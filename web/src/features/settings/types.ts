@@ -44,7 +44,7 @@ export type SettingsSectionNavItem = {
  * entry in the main sidebar's Settings nested view
  * (components/layout/config/system-settings.config.ts).
  */
-export type SettingsSubareaId =
+type SettingsSubareaId =
   | 'general'
   | 'downstream'
   | 'models'

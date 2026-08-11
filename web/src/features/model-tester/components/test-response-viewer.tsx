@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary -- content-kind selection uses chained ternary */
 // metapi-go/features/model-tester — response viewer (right column).
 //
 // Renders the streaming assistant output as it arrives: a live content

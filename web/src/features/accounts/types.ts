@@ -12,10 +12,10 @@ import { z } from 'zod'
 // Status enums
 // ---------------------------------------------------------------------------
 
-export const ACCOUNT_STATUS_VALUES = ['active', 'disabled', 'expired'] as const
+const ACCOUNT_STATUS_VALUES = ['active', 'disabled', 'expired'] as const
 export type AccountStatus = (typeof ACCOUNT_STATUS_VALUES)[number]
 
-export const RUNTIME_HEALTH_STATES = [
+const RUNTIME_HEALTH_STATES = [
   'healthy',
   'unhealthy',
   'degraded',
@@ -24,14 +24,14 @@ export const RUNTIME_HEALTH_STATES = [
 ] as const
 export type RuntimeHealthState = (typeof RUNTIME_HEALTH_STATES)[number]
 
-export const CREDENTIAL_MODES = ['session', 'apikey'] as const
+const CREDENTIAL_MODES = ['session', 'apikey'] as const
 export type CredentialMode = (typeof CREDENTIAL_MODES)[number]
 
 // ---------------------------------------------------------------------------
 // Site (minimal projection carried on each account row)
 // ---------------------------------------------------------------------------
 
-export const siteSchema = z.object({
+const siteSchema = z.object({
   id: z.coerce.number(),
   name: z.string().nullish().default(''),
   url: z.string().nullish().default(''),
@@ -113,13 +113,6 @@ export type Account = z.infer<typeof accountSchema>
 // AccountToken
 // ---------------------------------------------------------------------------
 
-export const ACCOUNT_TOKEN_VALUE_STATUSES = [
-  'normal',
-  'masked_pending',
-  'expired',
-  'disabled',
-] as const
-
 export const accountTokenSchema = z.object({
   id: z.coerce.number(),
   accountId: z.coerce.number().nullish().default(0),
@@ -140,7 +133,7 @@ export type AccountToken = z.infer<typeof accountTokenSchema>
 // Snapshot (GET /api/accounts) — returned unwrapped by api.getAccountsSnapshot
 // ---------------------------------------------------------------------------
 
-export const accountsSnapshotSchema = z.object({
+const accountsSnapshotSchema = z.object({
   generatedAt: z.string().nullish().default(''),
   accounts: z.array(accountSchema).catch([]).default([]),
   sites: z.array(siteSchema).catch([]).default([]),
@@ -174,11 +167,6 @@ export interface AccountPayload {
 // Dialog state machine (mirrors the keys feature's union-typed provider state)
 // ---------------------------------------------------------------------------
 
-export type AccountsDialogType = 'create' | 'edit' | 'delete' | null
-
-// ---------------------------------------------------------------------------
-// Row action callbacks handed to the columns hook
-// ---------------------------------------------------------------------------
 
 export interface AccountRowActions {
   onEdit: (account: Account) => void

@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary -- status label selection uses chained ternary */
 // metapi-go features/token-routes/components — route detail side sheet.
 // i18n: all user-visible strings migrated to t() calls.
 // `routingStrategyLabel()` returns an i18n key; wrapped with `t()`.
@@ -28,10 +29,10 @@ import {
   useRefreshRouteDecisions,
   useRouteChannels,
 } from '../api'
-import {
-  type RouteChannel,
-  type RouteDecision,
-  type RouteSummaryRow,
+import type {
+  RouteChannel,
+  RouteDecision,
+  RouteSummaryRow,
 } from '../types'
 import {
   formatContextLength,

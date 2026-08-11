@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary -- status-icon selection uses chained ternaries */
 // metapi-go/features/proxy-logs/components — proxy logs list page.
 // i18n: all user-visible strings migrated to t() calls.
 
@@ -87,7 +88,7 @@ export function ProxyLogsPage() {
   const metaPayload = useMemo(() => ({ status: queryPayload.status, search: queryPayload.search, siteId: queryPayload.siteId, client: queryPayload.client, from: queryPayload.from, to: queryPayload.to }), [queryPayload])
   const logsQuery = useProxyLogs(queryPayload)
   const metaQuery = useProxyLogsMeta(metaPayload)
-  const rawItems = logsQuery.data?.items ?? []
+  const rawItems = useMemo(() => logsQuery.data?.items ?? [], [logsQuery.data])
   const total = logsQuery.data?.total ?? 0
 
   const items = useMemo(() => {

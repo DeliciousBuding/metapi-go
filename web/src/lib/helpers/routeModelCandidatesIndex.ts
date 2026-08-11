@@ -11,12 +11,12 @@ export type IndexedRouteModelCandidate = {
 
 export type RouteModelCandidatesByModelName = Record<string, IndexedRouteModelCandidate[]>;
 
-export type RouteAccountOption = {
+type RouteAccountOption = {
   id: number;
   label: string;
 };
 
-export type RouteTokenOption = {
+type RouteTokenOption = {
   id: number;
   name: string;
   isDefault: boolean;
@@ -73,7 +73,7 @@ export function buildRouteModelCandidatesIndex(
       }
     }
 
-    const routeCandidates = Array.from(deduped.values()).sort((a, b) => {
+    const routeCandidates = [...deduped.values()].sort((a, b) => {
       if (a.accountId === b.accountId) return a.tokenId - b.tokenId;
       return a.accountId - b.accountId;
     });
@@ -106,7 +106,7 @@ export function buildRouteModelCandidatesIndex(
       });
     }
 
-    const accountOptions = Array.from(accountMap.entries()).map(([id, label]) => ({ id, label }));
+    const accountOptions = [...accountMap.entries()].map(([id, label]) => ({ id, label }));
     index[route.id] = {
       routeCandidates,
       accountOptions,

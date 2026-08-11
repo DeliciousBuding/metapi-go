@@ -12,10 +12,9 @@ import {
   type UseQueryOptions,
 } from '@tanstack/react-query'
 
-import { api } from '@/lib/api'
-import type { ProxyLogsQuery } from '@/lib/api'
+import { type ProxyLogsQuery, api } from '@/lib/api'
 
-import { proxyLogsKeys, type ProxyLog, type ProxyLogDetail } from './types'
+import { proxyLogsKeys, type ProxyLogDetail } from './types'
 
 // Resolve the data type returned by each backend method. The methods return
 // `Promise<T>`; `Awaited<...>` unwraps the promise so the query data type is
@@ -79,4 +78,4 @@ export function useProxyLogsMeta(
   })
 }
 
-export type { ProxyLog, ProxyLogDetail }
+export type { ProxyLogDetail }

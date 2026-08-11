@@ -1,4 +1,4 @@
-export type MissingTokenModelAccount = {
+type MissingTokenModelAccount = {
   accountId: number;
   username: string | null;
   siteId: number;
@@ -34,9 +34,9 @@ export function normalizeMissingTokenModels(
       const accountName = (account.username || '').trim();
       const siteName = String(account.siteName || '').trim();
       const normalizeLabels = (labels: unknown): string[] => Array.isArray(labels)
-        ? Array.from(new Set(labels
+        ? [...new Set(labels
           .map((label) => String(label || '').trim())
-          .filter(Boolean)))
+          .filter(Boolean))]
           .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
         : [];
       accountMap.set(account.accountId, {
@@ -51,7 +51,7 @@ export function normalizeMissingTokenModels(
       });
     }
     if (accountMap.size > 0) {
-      normalized[normalizedModelName] = Array.from(accountMap.values()).sort((a, b) => a.accountId - b.accountId);
+      normalized[normalizedModelName] = [...accountMap.values()].sort((a, b) => a.accountId - b.accountId);
     }
   }
   return normalized;
@@ -82,7 +82,7 @@ export function buildRouteMissingTokenIndex(
 
       matchedHints.push({
         modelName,
-        accounts: Array.from(dedupedAccounts.values()).sort((a, b) => {
+        accounts: [...dedupedAccounts.values()].sort((a, b) => {
           const siteCompare = String(a.siteName || '').localeCompare(String(b.siteName || ''), undefined, { sensitivity: 'base' });
           if (siteCompare !== 0) return siteCompare;
           return a.accountId - b.accountId;

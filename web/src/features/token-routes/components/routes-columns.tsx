@@ -1,3 +1,4 @@
+/* eslint-disable react/only-export-components -- column definitions co-located with cell renderers */
 // metapi-go features/token-routes/components — TanStack Table column
 // definitions for the routes list.
 //
@@ -26,10 +27,10 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
-import {
-  type RouteRowActions,
-  type RouteRoutingStrategy,
-  type RouteSummaryRow,
+import type {
+  RouteRowActions,
+  RouteRoutingStrategy,
+  RouteSummaryRow,
 } from '../types'
 import {
   formatContextLength,

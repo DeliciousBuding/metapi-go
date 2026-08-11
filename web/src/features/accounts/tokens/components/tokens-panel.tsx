@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary -- badge variant selection uses chained ternary */
 // metapi-go features/accounts/tokens/components — tokens sub-panel embedded
 // inside the account detail sheet (not a standalone page, matching the
 // legacy metapi design). Shows the account's tokens + an inline add/edit
@@ -33,7 +34,7 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 
-import { type AccountToken } from '../../types'
+import type { AccountToken } from '../../types'
 import {
   useAccountTokens,
   useCreateAccountToken,

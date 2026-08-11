@@ -35,9 +35,6 @@ function parseServerUtcDate(value: string | null | undefined): { date: Date | nu
   return { date, raw };
 }
 
-export function parseServerUtcDateTime(value: string | null | undefined): Date | null {
-  return parseServerUtcDate(value).date;
-}
 
 function formatWithParts(
   value: string | null | undefined,

@@ -23,13 +23,29 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import type { AuthBundle, LoginError, LoginPayload } from './types'
 
-/**
- * Validate an admin token against the backend and build an AuthBundle on
- * success. The backend only confirms validity (200 OK); it does not rotate
- * the token or return a user profile in this response, so the bundle carries
- * the original token + a 12h expiry + null user/session.
- */
-export async function validateAdminToken(token: string): Promise<AuthBundle> {
+
+
+function resolveLoginErrorMessageKey(
+  status: number,
+  reason: string
+): string {
+  const normalized = (reason || '').trim().toLowerCase()
+  if (status === 403 && normalized.includes('ip not allowed')) {
+    return 'errors.login.ipNotAllowed'
+  }
+  if (
+    status === 401 ||
+    (status === 403 && normalized.includes('invalid token'))
+  ) {
+    return 'errors.login.invalidToken'
+  }
+  if (status >= 500) {
+    return 'errors.login.serverError'
+  }
+  return 'errors.login.failed'
+}
+
+async function validateAdminToken(token: string): Promise<AuthBundle> {
   await apiClient.get('/api/settings/auth/info', {
     headers: { Authorization: `Bearer ${token}` },
     skipAuthRefresh: true,
@@ -50,29 +66,17 @@ export async function validateAdminToken(token: string): Promise<AuthBundle> {
 }
 
 /**
+ * Validate an admin token against the backend and build an AuthBundle on
+ * success. The backend only confirms validity (200 OK); it does not rotate
+ * the token or return a user profile in this response, so the bundle carries
+ * the original token + a 12h expiry + null user/session.
+ */
+
+/**
  * Map an HTTP failure status + backend reason string to an i18next key.
  * Mirrors the legacy `loginError.ts` decision tree (IP whitelist 403 /
  * invalid token 401 / 5xx / generic).
  */
-export function resolveLoginErrorMessageKey(
-  status: number,
-  reason: string
-): string {
-  const normalized = (reason || '').trim().toLowerCase()
-  if (status === 403 && normalized.includes('ip not allowed')) {
-    return 'errors.login.ipNotAllowed'
-  }
-  if (
-    status === 401 ||
-    (status === 403 && normalized.includes('invalid token'))
-  ) {
-    return 'errors.login.invalidToken'
-  }
-  if (status >= 500) {
-    return 'errors.login.serverError'
-  }
-  return 'errors.login.failed'
-}
 
 /**
  * Login mutation. Validates the token, persists the session, hydrates the

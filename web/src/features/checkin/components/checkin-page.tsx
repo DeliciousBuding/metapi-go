@@ -2,7 +2,7 @@
 // i18n: all user-visible strings migrated to t() calls.
 
 import { useEffect, useMemo, useState } from 'react'
-import { type ColumnFiltersState, type OnChangeFn, type PaginationState } from '@tanstack/react-table'
+import type { ColumnFiltersState, OnChangeFn, PaginationState } from '@tanstack/react-table'
 import { CalendarRange, Loader2, RotateCw, Zap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -70,7 +70,7 @@ export function CheckinPage() {
       const name = row.sites?.name
       if (name && !seen.has(name)) seen.set(name, name)
     }
-    return Array.from(seen.entries()).map(([value, label]) => ({ value, label }))
+    return [...seen.entries()].map(([value, label]) => ({ value, label }))
   }, [rawLogs])
 
   useEffect(() => {
@@ -80,9 +80,9 @@ export function CheckinPage() {
     const siteFilter = columnFilters.find((filter) => filter.id === 'site')
     const query = buildCheckinSearchString({
       pageIndex: pagination.pageIndex, pageSize: pagination.pageSize, accountId,
-      statusValues: Array.isArray(statusFilter?.value) ? (statusFilter!.value as string[]) : [],
-      reasonValues: Array.isArray(reasonFilter?.value) ? (reasonFilter!.value as string[]) : [],
-      siteValues: Array.isArray(siteFilter?.value) ? (siteFilter!.value as string[]) : [],
+      statusValues: Array.isArray(statusFilter?.value) ? (statusFilter?.value as string[]) : [],
+      reasonValues: Array.isArray(reasonFilter?.value) ? (reasonFilter?.value as string[]) : [],
+      siteValues: Array.isArray(siteFilter?.value) ? (siteFilter?.value as string[]) : [],
       from: from || undefined, to: to || undefined, query: globalFilter || undefined,
     })
     window.history.replaceState(null, '', `${window.location.pathname}${query}`)

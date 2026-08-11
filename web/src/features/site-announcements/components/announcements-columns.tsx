@@ -1,3 +1,4 @@
+/* eslint-disable react/only-export-components -- column definitions co-located with cell renderers */
 // metapi-go/features/site-announcements — TanStack Table column definitions.
 //
 // `useAnnouncementsColumns` is a hook (calls `useTranslation` during render)

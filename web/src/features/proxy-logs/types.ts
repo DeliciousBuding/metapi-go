@@ -14,26 +14,15 @@
 
 import type {
   ProxyLogBillingDetails,
-  ProxyLogClientConfidence,
-  ProxyLogClientOption,
   ProxyLogDetail as BackendProxyLogDetail,
   ProxyLogListItem,
   ProxyLogStatusFilter,
-  ProxyLogUsageSource,
   ProxyLogsQuery,
-  ProxyLogsResponse,
-  ProxyLogsSummary,
 } from '@/lib/api'
 
 export {
   type ProxyLogBillingDetails,
-  type ProxyLogClientConfidence,
-  type ProxyLogClientOption,
-  type ProxyLogStatusFilter,
-  type ProxyLogUsageSource,
   type ProxyLogsQuery,
-  type ProxyLogsResponse,
-  type ProxyLogsSummary,
 }
 
 // --- List item + detail (feature contract) -------------------------------

@@ -53,19 +53,13 @@ const MODELS_SECTIONS = [
   },
 ] as const
 
-export type ModelsSectionId = (typeof MODELS_SECTIONS)[number]['id']
+type ModelsSectionId = (typeof MODELS_SECTIONS)[number]['id']
 
 const registry = createSectionRegistry<ModelsSectionId>({
   sections: MODELS_SECTIONS,
   defaultSection: 'redirects',
   basePath: '/settings/models',
 })
-
-export const MODELS_SECTION_IDS = registry.sectionIds
-export const MODELS_DEFAULT_SECTION = registry.defaultSection
-export const getModelsSectionNavItems = registry.getSectionNavItems
-export const getModelsSectionContent = registry.getSectionContent
-export const getModelsSectionMeta = registry.getSectionMeta
 
 export const modelsSubarea: SettingsSubarea = {
   id: 'models',

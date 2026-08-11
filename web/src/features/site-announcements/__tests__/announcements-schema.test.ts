@@ -5,8 +5,8 @@ import {
   ANNOUNCEMENTS_PAGINATION_SCHEMA,
   announcementFormSchema,
   announcementsSearchSchema,
+  type AnnouncementFormValues,
 } from '../lib/announcements-schema';
-import type { AnnouncementFormValues } from '../lib/announcements-schema';
 
 function validOverrides(): Partial<AnnouncementFormValues> {
   return { title: 'Notice', message: 'Hello everyone' };

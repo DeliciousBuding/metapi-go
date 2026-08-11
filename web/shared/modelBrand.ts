@@ -1,6 +1,37 @@
-export type BrandRuleMode = 'includes' | 'startsWith' | 'segment' | 'boundary';
 
-export type BrandRule = {
+
+function collectBrandCandidates(value: string): string[] {
+  const candidates: string[] = [];
+  const seen = new Set<string>();
+  const add = (candidate: string) => {
+    const normalized = normalize(candidate);
+    if (!normalized || seen.has(normalized)) return;
+    seen.add(normalized);
+    candidates.push(normalized);
+  };
+
+  add(value);
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidate = candidates[index]!;
+    const stripped = stripCommonWrappers(candidate);
+    add(stripped);
+    for (const part of stripped.split(/[/:,\s]+/g)) add(part);
+  }
+  return candidates;
+}
+
+function stripCommonWrappers(value: string): string {
+  return normalize(value)
+    .replace(/^(?:\[[^\]]+\]|【[^】]+】)\s*/g, '')
+    .replace(/^re:\s*/g, '')
+    .replace(/^\^+/, '')
+    .replace(/\$+$/, '')
+    .trim();
+}
+
+type BrandRuleMode = 'includes' | 'startsWith' | 'segment' | 'boundary';
+
+type BrandRule = {
   keyword: string;
   mode: BrandRuleMode | string;
 };
@@ -11,7 +42,7 @@ export type BrandInfo = {
   color: string;
 };
 
-export type BrandMatchContext = {
+type BrandMatchContext = {
   raw: string;
   cleaned: string;
   segments: string[];
@@ -84,34 +115,6 @@ function normalize(value: string | null | undefined): string {
   return String(value || '').trim().toLowerCase();
 }
 
-export function stripCommonWrappers(value: string): string {
-  return normalize(value)
-    .replace(/^(?:\[[^\]]+\]|【[^】]+】)\s*/g, '')
-    .replace(/^re:\s*/g, '')
-    .replace(/^\^+/, '')
-    .replace(/\$+$/, '')
-    .trim();
-}
-
-export function collectBrandCandidates(value: string): string[] {
-  const candidates: string[] = [];
-  const seen = new Set<string>();
-  const add = (candidate: string) => {
-    const normalized = normalize(candidate);
-    if (!normalized || seen.has(normalized)) return;
-    seen.add(normalized);
-    candidates.push(normalized);
-  };
-
-  add(value);
-  for (let index = 0; index < candidates.length; index += 1) {
-    const candidate = candidates[index]!;
-    const stripped = stripCommonWrappers(candidate);
-    add(stripped);
-    for (const part of stripped.split(/[/:,\s]+/g)) add(part);
-  }
-  return candidates;
-}
 
 function buildContext(value: string): BrandMatchContext {
   const candidates = collectBrandCandidates(value);
@@ -157,13 +160,6 @@ function toBrandInfo(definition: BrandDefinition): BrandInfo {
   };
 }
 
-export function getAllBrands(): BrandInfo[] {
-  return BRAND_DEFINITIONS.map(toBrandInfo);
-}
-
-export function getAllBrandNames(): string[] {
-  return BRAND_DEFINITIONS.map((brand) => brand.name);
-}
 
 export function getBrand(value: string | null | undefined): BrandInfo | null {
   const context = buildContext(String(value || ''));

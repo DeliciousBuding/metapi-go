@@ -1,3 +1,4 @@
+/* eslint-disable react/only-export-components -- dialog component co-located with exported type */
 // metapi-go features/token-routes/components — add/edit route form dialog.
 // i18n: all user-visible strings migrated to t() calls.
 // `getModelPatternError()` returns pre-translated strings via i18n.t().
@@ -20,11 +21,10 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 
-import i18n from '@/i18n/config'
-import { type BatchAddChannelsResult, useBatchAddChannels, useCreateRoute, useUpdateRoute } from '../api'
+import { useBatchAddChannels, useCreateRoute, useUpdateRoute } from '../api'
 import { showRouteCompletionToast } from './route-completion-toast'
 import { getRouteFormDefaultValues, getRouteFormSchema, transformFormToPayload, transformRouteToFormValues, type RouteFormValues } from '../lib/routes-schema'
-import { type RouteMode, type RouteRoutingStrategy, type RouteSummaryRow } from '../types'
+import type { RouteMode, RouteRoutingStrategy, RouteSummaryRow } from '../types'
 import { getModelPatternError, isRegexModelPattern } from '../utils'
 
 export type RouteAccountOption = { id: number; label: string }
@@ -238,10 +238,3 @@ function GroupModeFields({ form, availableRoutes }: { form: ReturnType<typeof us
   )
 }
 
-export function describeBatchAddChannelsResult(result: BatchAddChannelsResult | undefined): string {
-  if (!result) return i18n.t('tokenRoutes.utils.batchChannelsAdded')
-  const parts: string[] = [i18n.t('tokenRoutes.utils.batchAdded', { count: result.created ?? 0 })]
-  if ((result.skipped ?? 0) > 0) parts.push(i18n.t('tokenRoutes.utils.batchSkipped', { count: result.skipped }))
-  if ((result.errors?.length ?? 0) > 0) parts.push(i18n.t('tokenRoutes.utils.batchErrors', { count: result.errors?.length ?? 0 }))
-  return parts.join(i18n.t('common.cancel') === 'Cancel' ? ', ' : '，')
-}

@@ -3,7 +3,7 @@ function normalize(value: string): string {
 }
 
 function compact(value: string): string {
-  return normalize(value).replace(/[^a-z0-9]/g, '');
+  return normalize(value).replaceAll(/[^a-z0-9]/g, '');
 }
 
 function isSubsequence(text: string, query: string): boolean {

@@ -18,7 +18,9 @@
     ".tanstack",
     ".eslintrc.cjs",
     "src/components/ui",
-    "src/routeTree.gen.ts"
+    "src/routeTree.gen.ts",
+    "shared",
+    "scripts"
   ],
   "rules": {
     "curly": ["error", "multi-line"],

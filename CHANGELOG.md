@@ -5,6 +5,37 @@ All notable changes to MetAPI-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.9.0] — 2026-08-11
+
+### Added — 前端整体重写（newapi 栈 100% 对齐）
+- 技术栈：Bun + Rsbuild 2 + TanStack Router（文件路由 + validateSearch）+ TanStack Query + Zustand + Tailwind 4（CSS-first 无 config）+ shadcn Base UI + OKLCH 语义 token + HugeIcons/lucide + Public Sans/Lora（@fontsource 本地）+ VChart + recharts + RHF + Zod + i18next + motion/sonner/vaul/cmdk
+- 设计系统：三层 CSS（theme.css + theme-presets.css + index.css）、OKLCH 语义 token、3 轴主题（preset/radius/scale）、10 套预设、圆角单点缩放、Tailwind 4 @theme inline 桥接、cookie 持久化暗色模式
+- data-table 四层架构（core/layout/toolbar/static/hooks，~4910 行）：URL 状态同步三段式 + 移动端卡片降级 + 批量操作
+- Dashboard 4 section（overview/traffic/models/availability）：VChart + shadcn chart 双轨 + useChartColors JS OKLCH token 取色（MutationObserver 重新采样）+ RealtimeOps WebSocket
+- Sites/Accounts/Token-routes：data-table + 引导式配置动线（站点→账号→路由，SiteCreatedModal + 引导 toast）+ RHF/Zod 表单
+- Settings 5 子区 drill-in（general/downstream/models/content/system-info）：createSectionRegistry 泛型工厂 + SettingsPage 通用分发器
+- Checkin：嵌套 API 响应解构 + failureReason 分类着色 badge（6 分类）+ 手动签到
+- ProxyLogs：data-table（manual + 服务端分页）+ 详情 Sheet（会话路径 + 计费 JSON + 前向兼容）
+- Models + ModelTester：data-table + 品牌图标 + SSE 流式响应（parseAnyStreamDelta 全协议 OpenAI/Claude/Responses/Gemini）
+- About/OAuth/SiteAnnouncements：完整 CRUD + 静态信息
+- i18n：key-based（en + zh-CN 各 ~900 key，双向 0 缺失），React 组件 useTranslation()+t()，.ts 模块 i18n.t()
+- 测试：vitest + @testing-library/react + jsdom；361 tests 全绿（schema/utils/registry 就近 __tests__/）
+
+### Fixed — 签到 ClassifyFailureReason 幽灵功能
+- 后端 sc2_012 additive migration（checkin_logs.failure_reason TEXT，SQLite/PG dual dialect）+ checkin.go 调用 classifyAndMarshalFailureReason（4 个 INSERT 落库点）+ API 嵌套形状回归 {checkin_logs, accounts, sites, failureReason} + 前端 failureReason 分类着色 badge
+- 四层全断修复：DB 列存在 + 后端分类调用 + API 嵌套响应 + UI 渲染
+
+### Removed — 旧前端代码清理
+- 删除 web/App.tsx + pages/ + components/ + styles/ + e2e/ + 5 个旧 i18n 文件（MutationObserver 字典）+ ~200 个旧测试（测试已删的旧代码）：~53 个遗留文件/目录，~101664 行删除
+
+### Verified — 无缝迁移保证
+- go test ./... -race：31/32 包通过（1 预存 baseline bug，websocket doc-pointer，与本次无关）
+- SQLite dev 冒烟：health/ready/auth/SPA HTML 200 + sc2_012 failure_reason 列存在
+- PostgreSQL 生产冒烟（本地真实 PG 18.2）：12 migrations 全应用 + sc2_012 在 PG 下执行 + schema_migrations 版本记录
+- 前后端集成：bun build + go:embed 单二进制 + SPA HTML 200
+- sc2_012 dual-dialect 幂等三重保护（schema_migrations 簿记 + columnExists 预检 + ALTER 后再检）
+- 静态门禁：tsgo 0 error + oxlint 0 error + bun run build pass（4462.4 kB / 1385.8 kB gzip）+ vitest 361/361
+
 ## [v0.8.54] — 2026-08-11
 
 ### Fixed — Model redirect SQL placeholder binding

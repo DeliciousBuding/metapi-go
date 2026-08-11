@@ -1,3 +1,20 @@
+
+
+function isNetworkFailureMessage(message: unknown): boolean {
+  const lowered = normalizeMessageText(message).toLowerCase();
+  return lowered.includes('failed to fetch')
+    || lowered.includes('fetch failed')
+    || lowered.includes('networkerror')
+    || lowered.includes('load failed');
+}
+
+function isTimeoutFailureMessage(message: unknown): boolean {
+  const lowered = normalizeMessageText(message).toLowerCase();
+  return lowered.includes('timed out')
+    || lowered.includes('timeout')
+    || lowered.includes('请求超时');
+}
+
 type VerifyResultLike = {
   success?: boolean;
   needsUserId?: boolean;
@@ -9,20 +26,6 @@ function normalizeMessageText(message: unknown): string {
   return typeof message === 'string' ? message.trim() : '';
 }
 
-export function isNetworkFailureMessage(message: unknown): boolean {
-  const lowered = normalizeMessageText(message).toLowerCase();
-  return lowered.includes('failed to fetch')
-    || lowered.includes('fetch failed')
-    || lowered.includes('networkerror')
-    || lowered.includes('load failed');
-}
-
-export function isTimeoutFailureMessage(message: unknown): boolean {
-  const lowered = normalizeMessageText(message).toLowerCase();
-  return lowered.includes('timed out')
-    || lowered.includes('timeout')
-    || lowered.includes('请求超时');
-}
 
 export function normalizeVerifyFailureMessage(message: unknown): string {
   const text = normalizeMessageText(message);

@@ -12,7 +12,7 @@
 // in `@/lib/helpers/zeroChannelRoutes`) reuse `RouteSummaryRow` with
 // `kind: 'zero_channel'` and a stable negative id.
 
-export type RouteRowKind = 'persisted' | 'zero_channel'
+type RouteRowKind = 'persisted' | 'zero_channel'
 
 export type RouteMode = 'pattern' | 'explicit_group'
 
@@ -20,7 +20,7 @@ export type RouteRoutingStrategy = 'weighted' | 'round_robin' | 'stable_first'
 
 // Channel-level strategy for OAuth route units (re-exported for the detail
 // sheet; the canonical `OAuthRouteUnitStrategy` also lives in `@/lib/api`).
-export type OAuthRouteUnitStrategy = 'round_robin' | 'stick_until_unavailable'
+type OAuthRouteUnitStrategy = 'round_robin' | 'stick_until_unavailable'
 
 // ---------------------------------------------------------------------------
 // Decision snapshot — a defensive projection of the server's RouteDecision.
@@ -29,7 +29,7 @@ export type OAuthRouteUnitStrategy = 'round_robin' | 'stick_until_unavailable'
 // module lands, this can be replaced by `import type { RouteDecision }`.
 // ---------------------------------------------------------------------------
 
-export type RouteDecisionCandidate = {
+type RouteDecisionCandidate = {
   channelId?: number
   accountId?: number
   tokenId?: number | null
@@ -59,13 +59,13 @@ export type RouteDecision = {
 // Route channel — the per-route account+token binding (detail view + form)
 // ---------------------------------------------------------------------------
 
-export type RouteChannelRouteUnitMember = {
+type RouteChannelRouteUnitMember = {
   accountId: number
   username: string | null
   siteName: string | null
 }
 
-export type RouteChannelRouteUnit = {
+type RouteChannelRouteUnit = {
   id: number | string
   name: string | null
   strategy: OAuthRouteUnitStrategy
@@ -73,20 +73,20 @@ export type RouteChannelRouteUnit = {
   members?: RouteChannelRouteUnitMember[]
 }
 
-export type RouteChannelAccount = {
+type RouteChannelAccount = {
   username: string | null
   accessToken?: string | null
   extraConfig?: string | null
   credentialMode?: string | null
 }
 
-export type RouteChannelSite = {
+type RouteChannelSite = {
   id: number
   name: string | null
   platform: string | null
 }
 
-export type RouteChannelToken = {
+type RouteChannelToken = {
   id: number
   name: string
   accountId: number
@@ -164,21 +164,6 @@ export type RouteSummaryRow = {
 // "add channels" flow. Mirrors the backend `batchAddChannels` payload shape.
 // ---------------------------------------------------------------------------
 
-export type ChannelRef = {
-  accountId: number
-  tokenId?: number
-  sourceModel?: string
-}
-
-export type RouteChannelDraft = ChannelRef
-
-// ---------------------------------------------------------------------------
-// Create / update payload (POST/PUT /api/routes). The backend `addRoute` /
-// `updateRoute` accept sparse `any` bodies, so `routingStrategy` and
-// `modelMapping` are sent alongside the core legacy keys even though the
-// legacy UI only wrote them via separate partial updates — the server treats
-// unknown/extra keys gracefully.
-// ---------------------------------------------------------------------------
 
 export type RouteFormPayload = {
   routeMode: RouteMode
@@ -195,11 +180,6 @@ export type RouteFormPayload = {
 // Dialog state machine (mirrors the accounts feature's union-typed state)
 // ---------------------------------------------------------------------------
 
-export type RoutesDialogType = 'create' | 'edit' | 'delete' | null
-
-// ---------------------------------------------------------------------------
-// Row action callbacks handed to the columns hook
-// ---------------------------------------------------------------------------
 
 export interface RouteRowActions {
   onEdit: (route: RouteSummaryRow) => void

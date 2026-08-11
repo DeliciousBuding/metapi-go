@@ -2,18 +2,16 @@
 // Assembles each subarea's typed section-registry adapter into a single
 // string-typed list consumed by route guards + the generic SettingsPage.
 
-import type { SettingsSubarea, SettingsSubareaId } from '../types'
+import type { SettingsSubarea } from '../types'
 import { generalSubarea } from '../sections/general'
 import { downstreamSubarea } from '../sections/downstream'
 import { modelsSubarea } from '../sections/models'
 import { contentSubarea } from '../sections/content'
 import { systemInfoSubarea } from '../sections/system-info'
 
-/**
- * All 5 settings subareas in main-sidebar order
- * (matches components/layout/config/system-settings.config.ts).
- */
-export const SETTINGS_SUBAREAS: readonly SettingsSubarea[] = [
+
+
+const SETTINGS_SUBAREAS: readonly SettingsSubarea[] = [
   generalSubarea,
   downstreamSubarea,
   modelsSubarea,
@@ -22,9 +20,13 @@ export const SETTINGS_SUBAREAS: readonly SettingsSubarea[] = [
 ]
 
 /** Stable id list for route validation. */
-export const SETTINGS_SUBAREA_IDS = SETTINGS_SUBAREAS.map(
-  (subarea) => subarea.id,
-) as readonly SettingsSubareaId[]
+
+/**
+ * All 5 settings subareas in main-sidebar order
+ * (matches components/layout/config/system-settings.config.ts).
+ */
+
+/** Stable id list for route validation. */
 
 /**
  * Look up a subarea by id (e.g. from the `$subarea` route param).

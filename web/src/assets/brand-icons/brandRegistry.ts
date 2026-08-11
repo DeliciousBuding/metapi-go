@@ -1,11 +1,6 @@
 export {
-  collectBrandCandidates,
-  getAllBrandNames,
-  getAllBrands,
   getBrand,
-  stripCommonWrappers,
   type BrandInfo,
-  type BrandMatchContext,
 } from '../../../shared/modelBrand.js';
 
 const LEGACY_ICON_ALIASES: Record<string, string> = {
@@ -47,7 +42,7 @@ const FALLBACK_COLORS = [
 ];
 
 export function normalizeBrandIconKey(icon: string | null | undefined): string | null {
-  const normalized = normalizeInput(icon || '').replace(/\./g, '-');
+  const normalized = normalizeInput(icon || '').replaceAll('.', '-');
   if (!normalized) return null;
   return LEGACY_ICON_ALIASES[normalized] || normalized;
 }
@@ -61,11 +56,11 @@ export function getBrandIconUrl(icon: string | null | undefined, cdn: string): s
 export function hashColor(name: string): string {
   let h = 0;
   for (let i = 0; i < name.length; i += 1) h = (h * 31 + name.charCodeAt(i)) | 0;
-  return FALLBACK_COLORS[Math.abs(h) % FALLBACK_COLORS.length]!;
+  return FALLBACK_COLORS[Math.abs(h) % FALLBACK_COLORS.length];
 }
 
 export function avatarLetters(name: string): string {
-  const parts = name.replace(/[-_/.]/g, ' ').trim().split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) return (parts[0]![0] + parts[1]![0]).toUpperCase();
+  const parts = name.replaceAll(/[-_/.]/g, ' ').trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
   return name.slice(0, 2).toUpperCase();
 }

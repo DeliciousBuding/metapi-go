@@ -9,11 +9,11 @@
 // delete confirm live as siblings of the table.
 
 import { useEffect, useMemo, useState } from 'react'
-import {
-  type ColumnFiltersState,
-  type OnChangeFn,
-  type PaginationState,
-  type Table,
+import type {
+  ColumnFiltersState,
+  OnChangeFn,
+  PaginationState,
+  Table,
 } from '@tanstack/react-table'
 import { Loader2, Plus, Power, RefreshCw, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -117,15 +117,18 @@ export function AccountsPage() {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams()
     if (pagination.pageIndex > 0) params.set('page', String(pagination.pageIndex + 1))
-    if (pagination.pageSize !== DEFAULT_PAGE_SIZE)
+    if (pagination.pageSize !== DEFAULT_PAGE_SIZE) {
       params.set('pageSize', String(pagination.pageSize))
+    }
     if (globalFilter) params.set('q', globalFilter)
     const statusFilter = columnFilters.find((filter) => filter.id === 'status')
-    if (statusFilter && Array.isArray(statusFilter.value) && statusFilter.value.length)
+    if (statusFilter && Array.isArray(statusFilter.value) && statusFilter.value.length) {
       params.set('status', statusFilter.value.join(','))
+    }
     const siteFilter = columnFilters.find((filter) => filter.id === 'site')
-    if (siteFilter && Array.isArray(siteFilter.value) && siteFilter.value.length)
+    if (siteFilter && Array.isArray(siteFilter.value) && siteFilter.value.length) {
       params.set('site', siteFilter.value.join(','))
+    }
     const query = params.toString()
     const url = query ? `${window.location.pathname}?${query}` : window.location.pathname
     window.history.replaceState(null, '', url)

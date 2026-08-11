@@ -1,5 +1,24 @@
+/* eslint-disable react/only-export-components -- presentation helpers co-located with a small rendering component */
 import { marked } from 'marked';
 import { formatDateTimeLocal } from './checkinLogTime.js';
+
+
+
+function renderSiteAnnouncementHtml(content: string): string {
+  const raw = String(content || '').trim();
+  if (!raw) return '<p>-</p>';
+
+  if (isLikelyHtml(raw)) {
+    return sanitizeAnnouncementHtml(raw);
+  }
+
+  if (isLikelyMarkdown(raw)) {
+    const rendered = String(marked.parse(raw, { gfm: true, breaks: true }));
+    return sanitizeAnnouncementHtml(rendered || renderMarkdown(raw));
+  }
+
+  return renderPlainText(raw);
+}
 
 const VOID_TAGS = new Set(['br', 'hr', 'img']);
 const DROPPED_TAGS = new Set(['script', 'style', 'iframe', 'object', 'embed', 'link', 'meta']);
@@ -39,15 +58,15 @@ const ALLOWED_TAGS = new Set([
 
 function escapeHtml(value: string): string {
   return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
 }
 
 function normalizeLineEndings(value: string): string {
-  return String(value || '').replace(/\r\n?/g, '\n');
+  return String(value || '').replaceAll(/\r\n?/g, '\n');
 }
 
 function isLikelyHtml(content: string): boolean {
@@ -72,42 +91,42 @@ function sanitizeUrl(raw: string | null | undefined, allowDataImage = false): st
 
 function extractVisibleTextFallback(html: string): string {
   return normalizeLineEndings(html)
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
+    .replaceAll(/<script[\s\S]*?<\/script>/gi, '')
+    .replaceAll(/<style[\s\S]*?<\/style>/gi, '')
+    .replaceAll(/<[^>]+>/g, ' ')
+    .replaceAll(/[ \t]+\n/g, '\n')
+    .replaceAll(/\n{3,}/g, '\n\n')
     .trim();
 }
 
 function renderInlineMarkdown(text: string): string {
   const tokens: string[] = [];
   const pushToken = (html: string) => {
-    const key = `\u0000${tokens.length}\u0000`;
+    const key = `\uE000${tokens.length}\uE000`;
     tokens.push(html);
     return key;
   };
 
   let html = escapeHtml(text);
 
-  html = html.replace(/`([^`]+)`/g, (_, code) => pushToken(`<code>${escapeHtml(code)}</code>`));
-  html = html.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]+)")?\)/g, (_, alt, src, title) => {
+  html = html.replaceAll(/`([^`]+)`/g, (_, code) => pushToken(`<code>${escapeHtml(code)}</code>`));
+  html = html.replaceAll(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]+)")?\)/g, (_, alt, src, title) => {
     const safeSrc = sanitizeUrl(src, true);
     if (!safeSrc) return escapeHtml(String(alt || ''));
     const titleAttr = title ? ` title="${escapeHtml(String(title))}"` : '';
     return pushToken(`<img src="${escapeHtml(safeSrc)}" alt="${escapeHtml(String(alt || ''))}"${titleAttr}>`);
   });
-  html = html.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"([^"]+)")?\)/g, (_, label, href, title) => {
+  html = html.replaceAll(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"([^"]+)")?\)/g, (_, label, href, title) => {
     const safeHref = sanitizeUrl(href, false);
     if (!safeHref) return escapeHtml(String(label || ''));
     const titleAttr = title ? ` title="${escapeHtml(String(title))}"` : '';
     return pushToken(`<a href="${escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer"${titleAttr}>${escapeHtml(String(label || ''))}</a>`);
   });
-  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  html = html.replace(/~~([^~]+)~~/g, '<del>$1</del>');
-  html = html.replace(/(^|[^\*])\*([^*\n]+)\*(?=[^\*]|$)/g, '$1<em>$2</em>');
+  html = html.replaceAll(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replaceAll(/~~([^~]+)~~/g, '<del>$1</del>');
+  html = html.replaceAll(/(^|[^\*])\*([^*\n]+)\*(?=[^\*]|$)/g, '$1<em>$2</em>');
 
-  return html.replace(/\u0000(\d+)\u0000/g, (_, index) => tokens[Number(index)] || '');
+  return html.replaceAll(/\uE000(\d+)\uE000/g, (_, index) => tokens[Number(index)] || '');
 }
 
 function isMarkdownListLine(line: string, ordered: boolean): boolean {
@@ -264,7 +283,7 @@ function sanitizeNode(node: Node): string {
     return '';
   }
 
-  const childrenHtml = Array.from(element.childNodes).map((child) => sanitizeNode(child)).join('');
+  const childrenHtml = [...element.childNodes].map((child) => sanitizeNode(child)).join('');
   if (!ALLOWED_TAGS.has(tag)) {
     return childrenHtml;
   }
@@ -314,7 +333,7 @@ function sanitizeAnnouncementHtml(html: string): string {
 
   const parser = new DOMParser();
   const doc = parser.parseFromString(`<body>${html}</body>`, 'text/html');
-  return Array.from(doc.body.childNodes).map((node) => sanitizeNode(node)).join('');
+  return [...doc.body.childNodes].map((node) => sanitizeNode(node)).join('');
 }
 
 function renderPlainText(content: string): string {
@@ -328,7 +347,7 @@ function renderPlainText(content: string): string {
   }
 
   return paragraphs
-    .map((part) => `<p>${escapeHtml(part).replace(/\n/g, '<br />')}</p>`)
+    .map((part) => `<p>${escapeHtml(part).replaceAll('\n', '<br />')}</p>`)
     .join('');
 }
 
@@ -358,21 +377,6 @@ export function formatSiteAnnouncementSeenAt(
   return formatDateTimeLocal(value, 'zh-CN', timeZone);
 }
 
-export function renderSiteAnnouncementHtml(content: string): string {
-  const raw = String(content || '').trim();
-  if (!raw) return '<p>-</p>';
-
-  if (isLikelyHtml(raw)) {
-    return sanitizeAnnouncementHtml(raw);
-  }
-
-  if (isLikelyMarkdown(raw)) {
-    const rendered = String(marked.parse(raw, { gfm: true, breaks: true }));
-    return sanitizeAnnouncementHtml(rendered || renderMarkdown(raw));
-  }
-
-  return renderPlainText(raw);
-}
 
 export function SiteAnnouncementContent({ content }: { content: string }) {
   return (

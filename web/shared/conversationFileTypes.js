@@ -1,4 +1,4 @@
-export const CONVERSATION_DOCUMENT_ACCEPT_PARTS = ['.pdf', '.txt', '.md', '.markdown', '.json'];
+const CONVERSATION_DOCUMENT_ACCEPT_PARTS = ['.pdf', '.txt', '.md', '.markdown', '.json'];
 const GENERIC_MIME_TYPES = new Set([
   'application/octet-stream',
   'binary/octet-stream',
@@ -23,7 +23,7 @@ function normalizeMimeType(value) {
   return (essence || '').trim();
 }
 
-export function inferConversationFileMimeType(filename) {
+function inferConversationFileMimeType(filename) {
   const normalized = normalizeValue(filename);
   if (normalized.endsWith('.pdf')) return 'application/pdf';
   if (normalized.endsWith('.txt')) return 'text/plain';
@@ -46,7 +46,7 @@ export function inferConversationFileMimeType(filename) {
   return 'application/octet-stream';
 }
 
-export function resolveConversationFileMimeType(mimeType, filename) {
+function resolveConversationFileMimeType(mimeType, filename) {
   const normalizedMimeType = normalizeMimeType(mimeType);
   if (normalizedMimeType && !GENERIC_MIME_TYPES.has(normalizedMimeType)) {
     return normalizedMimeType;
@@ -54,7 +54,7 @@ export function resolveConversationFileMimeType(mimeType, filename) {
   return inferConversationFileMimeType(filename);
 }
 
-export function classifyConversationFileMimeType(mimeType) {
+function classifyConversationFileMimeType(mimeType) {
   const normalized = normalizeMimeType(mimeType);
   if (normalized.startsWith('image/')) return 'image';
   if (normalized.startsWith('audio/')) return 'audio';
@@ -78,7 +78,7 @@ export function detectConversationFileKind(file) {
   return 'unknown';
 }
 
-export function isSupportedConversationFileMimeType(mimeType) {
+function isSupportedConversationFileMimeType(mimeType) {
   const normalized = normalizeMimeType(mimeType);
   return DOCUMENT_MIME_TYPES.has(normalized)
     || normalized.startsWith('image/')

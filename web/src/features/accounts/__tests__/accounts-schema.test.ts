@@ -5,10 +5,9 @@ import {
   getAccountFormSchema,
   transformAccountToFormValues,
   transformFormToPayload,
+  type AccountFormValues,
 } from '../lib/accounts-schema';
-import type { AccountFormValues } from '../lib/accounts-schema';
-import { accountSchema } from '../types';
-import type { Account } from '../types';
+import { type Account, accountSchema } from '../types';
 
 // When the i18n runtime translation layer is active (the i18n.coverage suite
 // loads it first in the full run), Chinese-literal Zod messages are replaced

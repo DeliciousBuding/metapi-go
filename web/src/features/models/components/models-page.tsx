@@ -121,8 +121,9 @@ function buildHref(next: Partial<ResolvedSearch>): string {
   const sortString = encodeSorting(merged.sorting)
   if (sortString) params.set('sort', sortString)
   if (merged.brand.length > 0) params.set('brand', encodeStringList(merged.brand))
-  if (merged.capability.length > 0)
+  if (merged.capability.length > 0) {
     params.set('capability', encodeStringList(merged.capability))
+  }
   const queryString = params.toString()
   return queryString ? `/models?${queryString}` : '/models'
 }
@@ -165,10 +166,10 @@ function useModelsUrlState() {
     const brandEntry = next.find((filter) => filter.id === 'brand')
     const capabilityEntry = next.find((filter) => filter.id === 'capabilities')
     const brandValues = Array.isArray(brandEntry?.value)
-      ? (brandEntry!.value as string[])
+      ? (brandEntry?.value as string[])
       : []
     const capabilityValues = Array.isArray(capabilityEntry?.value)
-      ? (capabilityEntry!.value as string[])
+      ? (capabilityEntry?.value as string[])
       : []
     navigate({
       href: buildHref({ brand: brandValues, capability: capabilityValues }),
@@ -242,7 +243,7 @@ export function ModelsPage() {
   // The refresh call re-aggregates the marketplace server-side; the next
   // render re-reads the (now fresh) `useModels` cache via its 10s staleTime,
   // so no explicit query invalidation is needed for the list to update.
-  const models = modelsQuery.data ?? []
+  const models = useMemo(() => modelsQuery.data ?? [], [modelsQuery.data])
   const brandFilterOptions = useMemo(
     () => buildBrandFilterOptions(models),
     [models],

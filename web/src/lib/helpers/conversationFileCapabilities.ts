@@ -4,7 +4,7 @@ import {
   detectConversationFileKind,
 } from '../../../shared/conversationFileTypes.js';
 
-export type ConversationFileTransportMode = 'native' | 'inline_only' | 'unsupported';
+type ConversationFileTransportMode = 'native' | 'inline_only' | 'unsupported';
 
 export type ConversationFileCapability = {
   supported: boolean;

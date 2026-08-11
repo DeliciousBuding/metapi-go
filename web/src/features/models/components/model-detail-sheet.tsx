@@ -113,7 +113,7 @@ export function ModelDetailSheet({
 
   function goToTester() {
     onOpenChange(false)
-    const params = new URLSearchParams({ model: model!.name })
+    const params = new URLSearchParams({ model: model?.name ?? '' })
     navigate({ href: `/model-tester?${params.toString()}`, replace: true })
   }
 
@@ -199,7 +199,7 @@ export function ModelDetailSheet({
                                 <GroupPricingRow
                                   key={groupKey}
                                   groupKey={groupKey}
-                                  pricing={source.groupPricing[groupKey]!}
+                                  pricing={source.groupPricing[groupKey]}
                                 />
                               ))}
                             </ul>

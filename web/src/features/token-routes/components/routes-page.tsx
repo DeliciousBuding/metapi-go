@@ -1,12 +1,13 @@
+/* eslint-disable no-nested-ternary -- empty-state text uses chained ternary */
 // metapi-go features/token-routes/components — the routes list page.
 // i18n: all user-visible strings migrated to t() calls.
 
 import { useEffect, useMemo, useState } from 'react'
-import {
-  type ColumnFiltersState,
-  type OnChangeFn,
-  type PaginationState,
-  type Table,
+import type {
+  ColumnFiltersState,
+  OnChangeFn,
+  PaginationState,
+  Table,
 } from '@tanstack/react-table'
 import {
   Loader2,
@@ -45,9 +46,9 @@ import {
   useUpdateRoute,
   useZeroChannelRoutes,
 } from '../api'
-import {
-  type RouteRowActions,
-  type RouteSummaryRow,
+import type {
+  RouteRowActions,
+  RouteSummaryRow,
 } from '../types'
 import {
   isExplicitGroupRoute,
@@ -104,7 +105,7 @@ export function RoutesPage() {
   const rebuildMutation = useRebuildRoutes()
   const refreshDecisionsMutation = useRefreshRouteDecisions()
 
-  const routes = routesData ?? []
+  const routes = useMemo(() => routesData ?? [], [routesData])
   const candidates = candidatesQuery.data
 
   const [showZeroChannel, setShowZeroChannel] = useState(false)
@@ -128,12 +129,14 @@ export function RoutesPage() {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams()
     if (pagination.pageIndex > 0) params.set('page', String(pagination.pageIndex + 1))
-    if (pagination.pageSize !== DEFAULT_PAGE_SIZE)
+    if (pagination.pageSize !== DEFAULT_PAGE_SIZE) {
       params.set('pageSize', String(pagination.pageSize))
+    }
     if (globalFilter) params.set('q', globalFilter)
     const enabledFilter = columnFilters.find((filter) => filter.id === 'enabled')
-    if (enabledFilter && Array.isArray(enabledFilter.value) && enabledFilter.value.length)
+    if (enabledFilter && Array.isArray(enabledFilter.value) && enabledFilter.value.length) {
       params.set('enabled', enabledFilter.value.join(','))
+    }
     if (initial.accountId) params.set('accountId', String(initial.accountId))
     if (initial.siteId) params.set('siteId', String(initial.siteId))
     const query = params.toString()
@@ -482,7 +485,7 @@ function buildAccountOptions(
     }
   }
 
-  return Array.from(accountMap.entries())
+  return [...accountMap.entries()]
     .map(([id, label]) => ({ id, label }))
     .sort((left, right) => left.label.localeCompare(right.label, undefined, { sensitivity: 'base' }))
 }

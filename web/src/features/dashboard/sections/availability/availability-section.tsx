@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary -- connection-tone uses chained ternaries */
 // metapi-go/features/dashboard/sections/availability — availability section.
 //
 // Plan §5.5.1 availability: RealtimeOpsPanel（WebSocket 实时）+ Monitors
@@ -32,7 +33,7 @@ function RealtimeSparkline({ samples }: { samples: number[] }) {
   const bars =
     samples.length > 0
       ? samples
-      : new Array<number>(SPARK_BARS).fill(0)
+      : Array.from({ length: SPARK_BARS }, () => 0)
 
   return (
     <div
@@ -43,6 +44,7 @@ function RealtimeSparkline({ samples }: { samples: number[] }) {
         const ratio = Math.max(0.04, sample / max)
         return (
           <div
+            // eslint-disable-next-line react/no-array-index-key
             key={index}
             className='bg-primary/70 min-w-0 flex-1 rounded-sm'
             style={{ height: `${ratio * 100}%` }}

@@ -2,7 +2,7 @@
 // Toggles the `font-<name>` class on <html> and persists the choice in a cookie.
 // Font names come from @/config/fonts (Public Sans + Lora).
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useEffect, useState } from 'react'
 
 import { fonts } from '@/config/fonts'
 import { getCookie, removeCookie, setCookie } from '@/lib/cookies'
@@ -54,10 +54,3 @@ export function FontProvider({ children }: { children: React.ReactNode }) {
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
-export const useFont = () => {
-  const context = useContext(FontContext)
-  if (!context) {
-    throw new Error('useFont must be used within a FontProvider')
-  }
-  return context
-}

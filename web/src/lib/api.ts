@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary -- timeout fallback uses chained ternary */
 /**
  * metapi-go business API surface.
  *
@@ -213,7 +214,7 @@ async function streamSse(
 
 export type BackupWebdavExportType = 'all' | 'accounts' | 'preferences'
 
-export type BackupWebdavConfig = {
+type BackupWebdavConfig = {
   enabled: boolean
   fileUrl: string
   username: string
@@ -225,7 +226,7 @@ export type BackupWebdavConfig = {
   autoSyncCron: string
 }
 
-export type BackupWebdavState = {
+type BackupWebdavState = {
   lastSyncAt?: string | null
   lastAttemptAt?: string | null
   lastError?: string | null
@@ -253,7 +254,7 @@ export type SchedulerRunStatus = {
 }
 
 // A2: model cost distribution + latency chart gallery.
-export type ModelCostItem = {
+type ModelCostItem = {
   model: string
   label: string
   cost: number
@@ -269,7 +270,7 @@ export type ModelCostDistributionResponse = {
   totals: { cost: number; calls: number; tokens: number }
 }
 
-export type LatencyBucket = {
+type LatencyBucket = {
   bucketStartMs: number
   bucketEndMs: number
   label: string
@@ -285,7 +286,7 @@ export type LatencyHistogramResponse = {
   buckets: LatencyBucket[]
 }
 
-export type LatencyTrendPoint = {
+type LatencyTrendPoint = {
   date: string
   requests: number
   avgLatencyMs: number | null
@@ -303,7 +304,7 @@ export type LatencyTrendResponse = {
 }
 
 // G1: batch model verification + history.
-export type ModelVerifyItem = {
+type ModelVerifyItem = {
   model: string
   channelId?: number | null
   accountId?: number | null
@@ -334,7 +335,7 @@ export type VerifyBatchResponse = {
 export type VerifyHistoryResponse = { items: ModelVerifyItem[] }
 
 // I1: accounts/sites global tag system.
-export type TagIndexItem = {
+type TagIndexItem = {
   name: string
   accounts: number
   sites: number
@@ -360,7 +361,7 @@ export type Announcement = {
 export type AnnouncementsResponse = { items: Announcement[] }
 
 // K1a: model name redirects.
-export type ModelRedirect = {
+type ModelRedirect = {
   id: number
   accountId: number
   username?: string
@@ -375,7 +376,7 @@ export type ModelRedirect = {
 
 export type ModelRedirectsResponse = { items: ModelRedirect[] }
 
-export type RedirectFixCandidate = {
+type RedirectFixCandidate = {
   siteId: number
   siteName: string
   accountId: number
@@ -444,10 +445,10 @@ type TestChatRequestPayload = {
   seed?: number
 }
 
-export type ProxyTestMethod = 'POST' | 'GET' | 'DELETE'
-export type ProxyTestRequestKind = 'json' | 'multipart' | 'empty'
+type ProxyTestMethod = 'POST' | 'GET' | 'DELETE'
+type ProxyTestRequestKind = 'json' | 'multipart' | 'empty'
 
-export type ProxyTestMultipartFile = {
+type ProxyTestMultipartFile = {
   field: string
   name: string
   mimeType: string
@@ -473,12 +474,15 @@ const LONG_RUNNING_PROXY_TEST_TIMEOUT_MS = 150_000
 
 function resolveProxyTestTimeoutMs(data: ProxyTestRequestEnvelope) {
   if (data.jobMode) return LONG_RUNNING_PROXY_TEST_TIMEOUT_MS
-  if (data.path === '/v1/images/generations')
+  if (data.path === '/v1/images/generations') {
     return LONG_RUNNING_PROXY_TEST_TIMEOUT_MS
-  if (data.path === '/v1/images/edits')
+  }
+  if (data.path === '/v1/images/edits') {
     return LONG_RUNNING_PROXY_TEST_TIMEOUT_MS
-  if (data.path === '/v1/videos' && data.method === 'POST')
+  }
+  if (data.path === '/v1/videos' && data.method === 'POST') {
     return LONG_RUNNING_PROXY_TEST_TIMEOUT_MS
+  }
   return DEFAULT_PROXY_TEST_TIMEOUT_MS
 }
 
@@ -502,32 +506,13 @@ async function proxyTestStreamRequest(
   })
 }
 
-export type ProxyTestJobResponse = {
-  jobId: string
-  status: 'pending' | 'succeeded' | 'failed' | 'cancelled'
-  result?: unknown
-  error?: unknown
-  createdAt?: string
-  updatedAt?: string
-  expiresAt?: string
-}
 
 export type SystemProxyTestRequest = {
   proxyUrl?: string
 }
 
-export type SystemProxyTestResponse = {
-  success: true
-  proxyUrl: string
-  probeUrl: string
-  finalUrl: string
-  reachable: true
-  ok: boolean
-  statusCode: number
-  latencyMs: number
-}
 
-export type RuntimeRoutingWeightsPayload = {
+type RuntimeRoutingWeightsPayload = {
   baseWeightFactor?: number
   valueScoreFactor?: number
   costWeight?: number
@@ -612,8 +597,8 @@ export type RuntimeSettingsPayload = {
 }
 
 export type ProxyLogStatusFilter = 'all' | 'success' | 'failed'
-export type ProxyLogClientConfidence = 'exact' | 'heuristic' | 'unknown' | null
-export type ProxyLogUsageSource = 'upstream' | 'self-log' | 'unknown' | null
+type ProxyLogClientConfidence = 'exact' | 'heuristic' | 'unknown' | null
+type ProxyLogUsageSource = 'upstream' | 'self-log' | 'unknown' | null
 
 export type ProxyLogBillingDetails = {
   quotaType: number
@@ -684,7 +669,7 @@ export type ProxyLogDetail = ProxyLogListItem & {
   billingDetails?: ProxyLogBillingDetails
 }
 
-export type ProxyLogsSummary = {
+type ProxyLogsSummary = {
   totalCount: number
   successCount: number
   failedCount: number
@@ -703,7 +688,7 @@ export type ProxyLogsQuery = {
   to?: string
 }
 
-export type ProxyLogClientOption = {
+type ProxyLogClientOption = {
   value: string
   label: string
 }
@@ -717,7 +702,7 @@ export type ProxyLogsResponse = {
   summary: ProxyLogsSummary
 }
 
-export type ProxyDebugTraceListItem = {
+type ProxyDebugTraceListItem = {
   id: number
   createdAt: string
   downstreamPath: string
@@ -804,7 +789,7 @@ export type OAuthProvidersResponse = {
 
 export type OAuthRouteUnitStrategy = 'round_robin' | 'stick_until_unavailable'
 
-export type OAuthRouteUnitSummary = {
+type OAuthRouteUnitSummary = {
   id?: number
   routeUnitId?: number
   name: string
@@ -812,11 +797,11 @@ export type OAuthRouteUnitSummary = {
   memberCount: number
 }
 
-export type OAuthRouteParticipation =
+type OAuthRouteParticipation =
   | { kind: 'single' }
   | ({ kind: 'route_unit' } & OAuthRouteUnitSummary)
 
-export type OAuthStartInstructions = {
+type OAuthStartInstructions = {
   redirectUri: string
   callbackPort: number
   callbackPath: string
@@ -841,7 +826,7 @@ export type OAuthSessionInfo = {
   error?: string
 }
 
-export type OAuthQuotaWindowInfo = {
+type OAuthQuotaWindowInfo = {
   supported: boolean
   limit?: number | null
   used?: number | null
@@ -929,7 +914,7 @@ export type OAuthRouteUnitMutationResponse = {
   routeUnit?: OAuthRouteUnitSummary
 }
 
-export type DownstreamApiKeyTrendBucket = {
+type DownstreamApiKeyTrendBucket = {
   startUtc: string | null
   totalRequests: number
   successRequests: number
@@ -1795,8 +1780,9 @@ export const api = {
     if (options?.model) params.set('model', options.model)
     if (options?.days != null) params.set('days', String(options.days))
     if (options?.limit != null) params.set('limit', String(options.limit))
-    if (options?.topModels != null)
+    if (options?.topModels != null) {
       params.set('topModels', String(options.topModels))
+    }
     const query = params.toString()
     return request(`/api/models/price-compare${query ? `?${query}` : ''}`, {
       timeoutMs: 20_000,

@@ -11,7 +11,7 @@ import { convertDetectedLanguage } from './languages'
 import en from './locales/en.json'
 import zhCN from './locales/zh-CN.json'
 
-export const resources = {
+const resources = {
   en,
   zhCN,
 } as const

@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary -- presentation helpers use chained ternaries */
 import {
   compareStableVersions,
   isSameImageTarget,
@@ -31,85 +32,6 @@ function normalizeDigest(value?: string | null): string {
   return /^sha256:[a-f0-9]{64}$/i.test(digest) ? digest.toLowerCase() : '';
 }
 
-export function describeGitHubDeployState(input: {
-  enabled: boolean;
-  helperHealthy: boolean;
-  helperError?: string | null;
-  currentVersion?: string | null;
-  helperImageTag?: string | null;
-  candidate: UpdateVersionCandidateLike | null | undefined;
-}): UpdateDeployState {
-  if (!input.enabled) {
-    return {
-      kind: 'disabled',
-      badgeClassName: 'badge badge-muted',
-      badgeLabel: '已停用',
-      reason: '当前来源已停用，开启后才会参与检查和部署。',
-      canDeploy: false,
-      highlight: false,
-    };
-  }
-
-  const candidateVersion = normalizeString(input.candidate?.normalizedVersion);
-  const candidateTag = normalizeString(input.candidate?.tagName || candidateVersion);
-  if (!candidateVersion && !candidateTag) {
-    return {
-      kind: 'missing',
-      badgeClassName: 'badge badge-warning',
-      badgeLabel: '未发现版本',
-      reason: '当前来源还没有可部署版本。',
-      canDeploy: false,
-      highlight: false,
-    };
-  }
-
-  if (!input.helperHealthy) {
-    return {
-      kind: 'helper-unhealthy',
-      badgeClassName: 'badge badge-warning',
-      badgeLabel: '等待 helper',
-      reason: input.helperError || 'Deploy Helper 未健康，先修复 helper 再部署。',
-      canDeploy: false,
-      highlight: false,
-    };
-  }
-
-  const candidateTargetVersion = candidateVersion || candidateTag;
-  const versionCompare = compareStableVersions(input.currentVersion, candidateTargetVersion);
-  const helperVersionCompare = compareStableVersions(input.helperImageTag, candidateTargetVersion);
-  if (versionCompare === 0 || helperVersionCompare === 0 || helperVersionCompare === 1) {
-    return {
-      kind: 'same-version',
-      badgeClassName: 'badge badge-muted',
-      badgeLabel: '当前运行',
-      reason: helperVersionCompare === 1
-        ? 'Deploy Helper 已指向更高版本，无需回退到较旧的 GitHub 稳定版。'
-        : '当前已运行该版本，无需重复部署。',
-      canDeploy: false,
-      highlight: false,
-    };
-  }
-
-  if (versionCompare === -1) {
-    return {
-      kind: 'new-version',
-      badgeClassName: 'badge badge-success',
-      badgeLabel: '发现新版本',
-      reason: '检测到比当前运行版本更新的稳定版，可直接发起部署。',
-      canDeploy: true,
-      highlight: true,
-    };
-  }
-
-  return {
-    kind: 'available',
-    badgeClassName: 'badge badge-info',
-    badgeLabel: '可部署',
-    reason: '版本可用，点击按钮即可通过 helper 发起滚动更新。',
-    canDeploy: true,
-    highlight: false,
-  };
-}
 
 export function describeDockerDeployState(input: {
   enabled: boolean;

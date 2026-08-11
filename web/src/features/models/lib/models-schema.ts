@@ -57,7 +57,6 @@ export const modelsSearchSchema = z.object({
     .transform((value) => decodeStringList(value)),
 })
 
-export type ModelsSearch = z.infer<typeof modelsSearchSchema>
 
 export const SORTING_ITEM_SCHEMA = sortingItemSchema
 export const PAGINATION_SCHEMA = paginationSchema

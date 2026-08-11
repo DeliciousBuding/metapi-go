@@ -1,3 +1,4 @@
+/* eslint-disable react/only-export-components -- column definitions co-located with cell renderers */
 // metapi-go features/accounts/components — TanStack Table column definitions
 // for the accounts list. Column meta drives the mobile card layout
 // (mobileTitle / mobileBadge / mobileHidden / mobileOrder) so the data-table

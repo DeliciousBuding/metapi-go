@@ -7,8 +7,8 @@ import {
   SORTING_ITEM_SCHEMA,
   siteFormSchema,
   sitesSearchSchema,
+  type SiteFormValues,
 } from '../lib/sites-schema';
-import type { SiteFormValues } from '../lib/sites-schema';
 
 function validOverrides(): Partial<SiteFormValues> {
   return {

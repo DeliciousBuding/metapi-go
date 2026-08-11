@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createSectionRegistry } from '../utils/section-registry';
-import type { SectionRegistry } from '../utils/section-registry';
+import { type SectionRegistry, createSectionRegistry } from '../utils/section-registry';
 
 type TestSectionId = 'general' | 'appearance';
 

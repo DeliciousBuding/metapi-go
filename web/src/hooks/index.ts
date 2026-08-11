@@ -2,4 +2,3 @@
 // Add new hooks here as they land.
 
 export { useMediaQuery } from './use-media-query'
-export { useIsMobile } from './use-mobile'

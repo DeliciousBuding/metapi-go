@@ -59,7 +59,7 @@ import {
   transformFormToPayload,
   type AccountFormValues,
 } from '../lib/accounts-schema'
-import { type Account, type CredentialMode, type Site } from '../types'
+import type { Account, CredentialMode, Site } from '../types'
 
 interface AccountFormDialogProps {
   open: boolean

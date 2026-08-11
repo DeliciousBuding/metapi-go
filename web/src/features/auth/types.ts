@@ -4,10 +4,6 @@
 
 export type {
   AuthBundle,
-  AuthUser,
-  LoginSession,
-  AuthBootstrapState,
-  RefreshOutcome,
 } from '@/lib/auth-session'
 
 /**
@@ -29,7 +25,3 @@ export interface LoginError {
   status: number
 }
 
-export interface AuthFormProps {
-  redirectTo?: string
-  className?: string
-}

@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-import * as modelTesterSessionModule from './modelTesterSession.js';
 import {
   DEBUG_TABS,
   DEFAULT_INPUTS,
@@ -21,6 +20,7 @@ import {
   filterModelTesterModelNames,
   parseCustomRequestBody,
   parseModelTesterSession,
+  resolveConversationReplayFiles,
   serializeModelTesterSession,
   syncMessagesToCustomRequestBody,
   toApiMessages,
@@ -312,7 +312,6 @@ describe('modelTesterSession', () => {
   });
 
   it('hydrates local file ids into inline replay files for claude', async () => {
-    const resolveConversationReplayFiles = (modelTesterSessionModule as Record<string, any>).resolveConversationReplayFiles;
     const loader = vi.fn(async () => ({
       filename: 'brief.pdf',
       mimeType: 'application/pdf',

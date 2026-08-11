@@ -1,5 +1,6 @@
+/* eslint-disable no-nested-ternary -- sort-direction icon uses chained ternary */
 // metapi-go/data-table — ported from newapi
-import { type Column } from '@tanstack/react-table'
+import type { Column } from '@tanstack/react-table'
 import {
   ArrowDown as ArrowDownIcon,
   ArrowUp as ArrowUpIcon,

@@ -10,10 +10,10 @@ import {
   isRegexModelPattern,
   normalizeRouteDisplayIconValue,
 } from '../utils'
-import {
-  type RouteFormPayload,
-  type RouteMode,
-  type RouteSummaryRow,
+import type {
+  RouteFormPayload,
+  RouteMode,
+  RouteSummaryRow,
 } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -189,4 +189,3 @@ export const routesSearchSchema = z.object({
   pageSize: z.coerce.number().int().positive().optional(),
 })
 
-export type RoutesSearch = z.infer<typeof routesSearchSchema>

@@ -21,11 +21,10 @@ import { toast } from 'sonner'
 import { api } from '@/lib/api'
 import i18n from '@/i18n/config'
 
-import {
-  type Account,
-  type AccountPayload,
-  type AccountStatus,
-  type AccountsSnapshot,
+import type {
+  AccountPayload,
+  AccountStatus,
+  AccountsSnapshot,
 } from './types'
 
 // ---------------------------------------------------------------------------
@@ -257,9 +256,3 @@ export function useToggleAccountCheckin() {
 // Convenience selector
 // ---------------------------------------------------------------------------
 
-export function selectAccountById(
-  snapshot: AccountsSnapshot | undefined,
-  id: number,
-): Account | undefined {
-  return snapshot?.accounts.find((account) => account.id === id)
-}

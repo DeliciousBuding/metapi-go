@@ -86,7 +86,6 @@ export const oauthSearchSchema = z.object({
   status: z.string().optional(),
 })
 
-export type OAuthSearch = z.infer<typeof oauthSearchSchema>
 
 export const OAUTH_SORTING_ITEM_SCHEMA = sortingItemSchema
 export const OAUTH_PAGINATION_SCHEMA = paginationSchema

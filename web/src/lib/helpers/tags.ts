@@ -44,13 +44,13 @@ export function collectTags(rows: Array<{ tags?: unknown }>): string[] {
       counts.set(tag, (counts.get(tag) ?? 0) + 1);
     }
   }
-  return Array.from(counts.entries())
+  return [...counts.entries()]
     .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
     .map(([tag]) => tag);
 }
 
 /** Serialize a tag list to the JSON array text the backend stores. */
 export function encodeTags(tags: string[]): string {
-  const clean = Array.from(new Set(tags.map((t) => t.trim()).filter(Boolean)));
+  const clean = [...new Set(tags.map((t) => t.trim()).filter(Boolean))];
   return JSON.stringify(clean);
 }

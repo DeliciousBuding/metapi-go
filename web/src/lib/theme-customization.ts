@@ -1,8 +1,13 @@
-// metapi-go/lib — theme customization constants ported from newapi. AGPL header stripped.
-// Lives in lib/ (not context/) so it can be imported alongside the provider
-// without breaking React Fast Refresh boundaries.
 
-export const THEME_PRESETS = [
+
+const PRESET_DEFAULT_FONT: Partial<
+  Record<ThemePreset, ResolvedThemeFont>
+> = {
+  default: 'sans',
+  anthropic: 'serif',
+}
+
+const THEME_PRESETS = [
   {
     value: 'default',
     name: 'Default',
@@ -56,6 +61,11 @@ export const THEME_PRESETS = [
     swatches: ['oklch(0.5709 0.1808 306.89)', 'oklch(0.811 0.0589 201.14)'],
   },
 ] as const
+
+// metapi-go/lib — theme customization constants ported from newapi. AGPL header stripped.
+// Lives in lib/ (not context/) so it can be imported alongside the provider
+// without breaking React Fast Refresh boundaries.
+
 
 export type ThemePreset = (typeof THEME_PRESETS)[number]['value']
 export type ThemeRadius = 'default' | 'none' | 'sm' | 'md' | 'lg' | 'xl'
@@ -138,12 +148,6 @@ export const THEME_COOKIE_KEYS = {
  * Public Sans voice is the out-of-the-box experience; `anthropic` opts
  * into serif for the editorial Lora voice.
  */
-export const PRESET_DEFAULT_FONT: Partial<
-  Record<ThemePreset, ResolvedThemeFont>
-> = {
-  default: 'sans',
-  anthropic: 'serif',
-}
 
 export function resolveThemeFont(
   font: ThemeFont,

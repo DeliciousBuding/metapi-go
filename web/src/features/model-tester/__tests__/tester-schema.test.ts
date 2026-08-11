@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   TESTER_FORM_DEFAULT_VALUES,
   testerSchema,
+  type TesterFormValues,
 } from '../lib/tester-schema';
-import type { TesterFormValues } from '../lib/tester-schema';
 
 function validOverrides(): Partial<TesterFormValues> {
   return {

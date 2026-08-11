@@ -38,19 +38,13 @@ const DOWNSTREAM_SECTIONS = [
   },
 ] as const
 
-export type DownstreamSectionId = (typeof DOWNSTREAM_SECTIONS)[number]['id']
+type DownstreamSectionId = (typeof DOWNSTREAM_SECTIONS)[number]['id']
 
 const registry = createSectionRegistry<DownstreamSectionId>({
   sections: DOWNSTREAM_SECTIONS,
   defaultSection: 'keys',
   basePath: '/settings/downstream',
 })
-
-export const DOWNSTREAM_SECTION_IDS = registry.sectionIds
-export const DOWNSTREAM_DEFAULT_SECTION = registry.defaultSection
-export const getDownstreamSectionNavItems = registry.getSectionNavItems
-export const getDownstreamSectionContent = registry.getSectionContent
-export const getDownstreamSectionMeta = registry.getSectionMeta
 
 export const downstreamSubarea: SettingsSubarea = {
   id: 'downstream',

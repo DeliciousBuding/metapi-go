@@ -16,7 +16,6 @@ import { api } from '@/lib/api'
 
 import {
   modelsKeys,
-  type ModelCapabilitySummary,
   type ModelRow,
   type ModelsMarketplaceResponse,
 } from './types'
@@ -60,48 +59,8 @@ export function useModels(
  * avoid a dedicated per-model endpoint; because the query key matches a list
  * already fetched with `includePricing`, no extra network request fires.
  */
-export function useModelCapabilities(
-  modelName: string | undefined,
-  queryOptions?: Omit<
-    UseQueryOptions<ModelRow[]>,
-    'queryKey' | 'queryFn'
-  >,
-) {
-  const marketplace = useModels({ includePricing: true }, queryOptions)
-  const targetName = modelName?.trim() || undefined
-
-  const summary: ModelCapabilitySummary | undefined = (() => {
-    if (!targetName) return undefined
-    const row = (marketplace.data ?? []).find(
-      (model) => model.name === targetName,
-    )
-    if (!row) return undefined
-    const endpointTypes = [...row.supportedEndpointTypes].sort()
-    const tags = [...row.tags].sort()
-    const all = [...new Set([...endpointTypes, ...tags])].sort()
-    return { endpointTypes, tags, all }
-  })()
-
-  return {
-    ...marketplace,
-    data: summary,
-    model: targetName ? (marketplace.data ?? []).find((m) => m.name === targetName) : undefined,
-  }
-}
 
 /**
  * Collect the unique capability facets (endpoint types) across a model list,
  * sorted for a stable faceted-filter dropdown.
  */
-export function collectCapabilityFacets(models: ModelRow[]): string[] {
-  const set = new Set<string>()
-  for (const model of models) {
-    for (const endpointType of model.supportedEndpointTypes) {
-      set.add(endpointType)
-    }
-    for (const tag of model.tags) {
-      set.add(tag)
-    }
-  }
-  return [...set].sort()
-}

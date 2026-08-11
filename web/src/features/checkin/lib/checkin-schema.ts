@@ -11,6 +11,10 @@
 
 import { z } from 'zod'
 
+
+
+const DEFAULT_CHECKIN_PAGE_SIZE = 20
+
 // ---------------------------------------------------------------------------
 // URL search schema
 // ---------------------------------------------------------------------------
@@ -30,8 +34,6 @@ export const checkinSearchSchema = z.object({
   q: z.string().optional(),
 })
 export type CheckinSearch = z.infer<typeof checkinSearchSchema>
-
-export const DEFAULT_CHECKIN_PAGE_SIZE = 20
 
 export function getCheckinSearchDefaultValues(): CheckinSearch {
   return checkinSearchSchema.parse({})
@@ -80,15 +82,19 @@ export function buildCheckinSearchString(params: {
 }): string {
   const search = new URLSearchParams()
   if (params.pageIndex > 0) search.set('page', String(params.pageIndex + 1))
-  if (params.pageSize !== DEFAULT_CHECKIN_PAGE_SIZE)
+  if (params.pageSize !== DEFAULT_CHECKIN_PAGE_SIZE) {
     search.set('pageSize', String(params.pageSize))
+  }
   if (params.accountId) search.set('accountId', String(params.accountId))
-  if (params.statusValues.length)
+  if (params.statusValues.length) {
     search.set('status', params.statusValues.join(','))
-  if (params.reasonValues.length)
+  }
+  if (params.reasonValues.length) {
     search.set('reason', params.reasonValues.join(','))
-  if (params.siteValues.length)
+  }
+  if (params.siteValues.length) {
     search.set('site', params.siteValues.join(','))
+  }
   if (params.from) search.set('from', params.from)
   if (params.to) search.set('to', params.to)
   if (params.query) search.set('q', params.query)

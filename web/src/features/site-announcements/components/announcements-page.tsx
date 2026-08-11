@@ -161,11 +161,11 @@ function useAnnouncementsUrlState() {
     const next = resolveUpdater(updater, columnFilters)
     const severityEntry = next.find((filter) => filter.id === 'severity')
     const severityValue = Array.isArray(severityEntry?.value)
-      ? (severityEntry!.value as string[])[0]
+      ? (severityEntry?.value as string[] | undefined)?.[0]
       : (severityEntry?.value as string | undefined)
     const enabledEntry = next.find((filter) => filter.id === 'enabled')
     const enabledValue = Array.isArray(enabledEntry?.value)
-      ? (enabledEntry!.value as string[])[0]
+      ? (enabledEntry?.value as string[] | undefined)?.[0]
       : (enabledEntry?.value as string | undefined)
     navigate({
       href: buildHref({ severity: severityValue, enabled: enabledValue }),

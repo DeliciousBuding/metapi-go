@@ -49,7 +49,7 @@ export function buildZeroChannelPlaceholderRoutes(
         enabled: false,
         channelCount: 0,
         enabledChannelCount: 0,
-        siteNames: Array.from(siteNames).sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' })),
+        siteNames: [...siteNames].sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' })),
         decisionSnapshot: null,
         decisionRefreshedAt: null,
         kind: 'zero_channel',
@@ -62,6 +62,6 @@ export function buildZeroChannelPlaceholderRoutes(
   mergeMissingHints(modelsWithoutToken);
   mergeMissingHints(modelsMissingTokenGroups);
 
-  return Array.from(placeholderByModel.values())
+  return [...placeholderByModel.values()]
     .sort((left, right) => left.modelPattern.localeCompare(right.modelPattern, undefined, { sensitivity: 'base' }));
 }

@@ -22,16 +22,23 @@ import { accountQueryKeys } from '../api'
 import { type AccountToken, accountTokenSchema } from '../types'
 import type { AccountTokenPayload } from './lib/tokens-schema'
 
-// ---------------------------------------------------------------------------
-// Query keys
-// ---------------------------------------------------------------------------
 
-export const accountTokenQueryKeys = {
+
+const accountTokenQueryKeys = {
   all: ['account-tokens'] as const,
   list: (accountId?: number) =>
     ['account-tokens', 'list', accountId ?? 'all'] as const,
   value: (id: number) => ['account-tokens', 'value', id] as const,
 }
+
+// ---------------------------------------------------------------------------
+// Envelope helper
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Query keys
+// ---------------------------------------------------------------------------
+
 
 // ---------------------------------------------------------------------------
 // Envelope helper
@@ -94,27 +101,6 @@ export function useAccountTokens(
 // useAccountTokenValue — GET /api/account-tokens/:id/value (reveal)
 // ---------------------------------------------------------------------------
 
-export function useAccountTokenValue(
-  id: number | null,
-  options?: Omit<
-    UseQueryOptions<{ token?: string } & Record<string, unknown>>,
-    'queryKey' | 'queryFn'
-  >,
-) {
-  return useQuery({
-    queryKey: accountTokenQueryKeys.value(id ?? 0),
-    queryFn: async () => {
-      const raw = await api.getAccountTokenValue(id as number)
-      return assertBusinessOk<{ token?: string } & Record<string, unknown>>(
-        raw,
-        'accounts.tokens.toast.valueFailed',
-      )
-    },
-    enabled: id !== null && id > 0,
-    staleTime: 0,
-    ...options,
-  })
-}
 
 // ---------------------------------------------------------------------------
 // useCreateAccountToken — POST /api/account-tokens

@@ -1,3 +1,4 @@
+/* eslint-disable react/only-export-components */
 // metapi-go/features/sites — TanStack Table column definitions.
 //
 // `useSitesColumns` is a hook (calls `useTranslation` during render) that
@@ -180,12 +181,12 @@ export function useSitesColumns(actions: SitesColumnActions): ColumnDef<Site>[] 
         const count = row.original.accountCount
         const activeFromSubscription =
           row.original.subscriptionSummary?.activeCount
-        const resolved =
-          typeof count === 'number'
-            ? count
-            : typeof activeFromSubscription === 'number'
-              ? activeFromSubscription
-              : null
+        let resolved: number | null = null
+        if (typeof count === 'number') {
+          resolved = count
+        } else if (typeof activeFromSubscription === 'number') {
+          resolved = activeFromSubscription
+        }
         return (
           <span className='text-sm tabular-nums'>
             {resolved === null ? '—' : resolved}

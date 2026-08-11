@@ -25,12 +25,6 @@ function urlToString(url: LinkProps['to'] | (string & {})): string | null {
 /**
  * Normalize URL by removing query parameters and trailing slashes
  */
-export function normalizeHref(href: string): string {
-  const withoutQuery = href.split('?')[0]
-  return withoutQuery.length > 1
-    ? withoutQuery.replace(/\/+$/, '')
-    : withoutQuery
-}
 
 /**
  * Check if a navigation item is active
@@ -69,8 +63,9 @@ export function checkIsActive(
         }
         return false
       })
-    )
+    ) {
       return true
+    }
   }
 
   // For regular link items, check the item's URL

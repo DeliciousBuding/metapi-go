@@ -3,7 +3,7 @@
 // route-level guards enforce access). getNavGroups takes no TFunction — i18n lands in
 // phase 2, so nav builders return plain strings for now.
 
-import { type LinkProps } from '@tanstack/react-router'
+import type { LinkProps } from '@tanstack/react-router'
 
 /**
  * Base navigation item type
@@ -59,7 +59,7 @@ export type SidebarData = {
 /**
  * Back-navigation descriptor for a nested sidebar view
  */
-export type SidebarViewParent = {
+type SidebarViewParent = {
   /** Destination URL for the back button */
   to: LinkProps['to'] | (string & {})
   /** Visible label, e.g. "Back to Home" */
