@@ -7,6 +7,7 @@
 import { Check, Languages, Moon, Sun } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { ThemeCustomizer } from '@/components/theme-customizer'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -136,6 +137,7 @@ export function AppHeader({
       {rightContent ?? (
         <div className='ms-auto flex items-center gap-1'>
           <LanguageSwitcher />
+          <ThemeCustomizer />
           {showThemeToggle && (
             <Button
               variant='ghost'

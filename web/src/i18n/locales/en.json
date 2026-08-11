@@ -1650,6 +1650,46 @@
     "Displays the mobile sidebar.": "Displays the mobile sidebar.",
     "Toggle Sidebar": "Toggle Sidebar",
     "Toggle theme": "Toggle theme",
+    "theme": {
+      "title": "Appearance",
+      "reset": "Reset",
+      "appearance": "Customize appearance",
+      "colorPreset": "Color preset",
+      "font": "Font",
+      "fontOptions": {
+        "auto": "Auto",
+        "sans": "Sans",
+        "serif": "Serif"
+      },
+      "radius": "Border radius",
+      "radiusOptions": {
+        "auto": "Auto",
+        "none": "None",
+        "sm": "Small",
+        "md": "Medium",
+        "lg": "Large",
+        "xl": "Extra large"
+      },
+      "scale": "Scale",
+      "scaleOptions": {
+        "auto": "Auto",
+        "sm": "Small",
+        "lg": "Large",
+        "xl": "Extra large"
+      },
+      "preset": {
+        "default": "Default",
+        "anthropic": "Anthropic",
+        "simple-large": "Simple Large-font",
+        "underground": "Underground",
+        "rose-garden": "Rose Garden",
+        "lake-view": "Lake View",
+        "sunset-glow": "Sunset Glow",
+        "forest-whisper": "Forest Whisper",
+        "ocean-breeze": "Ocean Breeze",
+        "lavender-dream": "Lavender Dream"
+      }
+    },
     "sidebar": {
       "groups": {
         "console": "Console",

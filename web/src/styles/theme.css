@@ -4,10 +4,10 @@
 @theme inline {
   --font-sans: 'Public Sans', sans-serif;
   /* Editorial serif token — the body face used by the `serif` font axis
-   * and by presets that opt in (currently Anthropic). Lora carries only
-   * Latin glyphs, so the stack walks through CJK serifs (Noto / Source Han
-   * / Songti / SimSun) before the generic `serif` fallback. Without these
-   * explicit CJK fonts the browser's generic-serif pick on Windows is
+   * (an explicit user choice; every preset defaults to sans). Lora carries
+   * only Latin glyphs, so the stack walks through CJK serifs (Noto / Source
+   * Han / Songti / SimSun) before the generic `serif` fallback. Without
+   * these explicit CJK fonts the browser's generic-serif pick on Windows is
    * non-deterministic at small sizes and often appears sans-like. */
   --font-serif:
     'Lora Variable', 'Lora', 'Source Serif Pro', 'Source Serif 4',

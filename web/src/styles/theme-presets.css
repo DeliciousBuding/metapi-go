@@ -536,10 +536,9 @@
 
   --radius: 0.625rem;
 
-  /* Default typography for the Anthropic preset is the editorial serif.
-   * Users can override this with the Font axis (`data-theme-font='sans'`).
-   * The `--font-serif` token itself is declared once in theme.css. */
-  --font-body: var(--font-serif);
+  /* Typography follows the Font axis (`data-theme-font`): the default
+   * experience is the humanist sans, and serif is only an explicit user
+   * choice. `--font-serif` is declared once in theme.css. */
 }
 .dark [data-theme-preset='anthropic'] {
   /* Warm near-black product surfaces, not pure black — keeps the editorial
@@ -596,9 +595,10 @@
 }
 
 /* ── Font axis ────────────────────────────────────────────────────────────
- * Mirrors how `data-theme-radius` overrides a preset's default radius:
- * presets may set `--font-body` (Anthropic → serif), and the user's
- * explicit Font choice wins because these blocks sit AFTER preset blocks.
+ * The font axis is the single source of truth for the body face: presets
+ * no longer set `--font-body` themselves (the Anthropic preset previously
+ * defaulted to serif; every preset now starts from sans), so these blocks
+ * sit after the preset blocks purely as a defensive ordering guarantee.
  *
  * The provider resolves `font: 'default'` → `'sans' | 'serif'` against the
  * active preset before writing the attribute, so the DOM always carries a
@@ -620,13 +620,13 @@
  *      through Tailwind preflight's `button, input, ... { font: inherit }`
  *      rule plus natural HTML inheritance. We intentionally do NOT carry
  *      a per-slot opt-out list: it adds maintenance cost and only blunts
- *      the Anthropic editorial intent. Monospace contexts are excluded
+ *      the editorial intent. Monospace contexts are excluded
  *      automatically because:
  *        - `<code>`, `<kbd>`, `<pre>`, `<samp>` are typed monospace by
  *          Tailwind preflight (specificity wins over body inheritance).
  *        - `.font-mono` and `.tabular-nums` utilities declare their own
  *          font-family / font-variant-numeric on the element itself.
- *   3. Headings adopt the Anthropic display setting (medium weight, slight
+ *   3. Headings adopt the editorial display setting (medium weight, slight
  *      negative tracking).
  *
  * All keyed off `[data-theme-font='serif']` so they apply to any preset

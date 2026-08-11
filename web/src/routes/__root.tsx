@@ -1,7 +1,7 @@
 // metapi-go/routes — root route.
 // beforeLoad bootstraps auth (reads localStorage, hydrates the Zustand store
 // once). RootComponent renders the Outlet + global Toaster + devtools. The
-// 4 context providers (Theme/Font/Direction/ThemeCustomization) wrap the
+// 3 context providers (Theme/Direction/ThemeCustomization) wrap the
 // RouterProvider in main.tsx, so they are always mounted.
 
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'

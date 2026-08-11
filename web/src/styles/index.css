@@ -3,11 +3,11 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/public-sans';
-/* Editorial serif (Lora) backing the `serif` font axis and the Anthropic
- * preset's default typography. See `--font-serif` in theme.css for the
- * full Latin + CJK fallback stack and `theme-presets.css` for the cascade
- * that activates it. Loaded globally so font-switching is instantaneous
- * with no FOUT once the variable is fetched. */
+/* Editorial serif (Lora) backing the `serif` font axis — an explicit user
+ * choice; every preset defaults to sans. See `--font-serif` in theme.css
+ * for the full Latin + CJK fallback stack and `theme-presets.css` for the
+ * cascade that activates it. Loaded globally so font-switching is
+ * instantaneous with no FOUT once the variable is fetched. */
 @import '@fontsource-variable/lora';
 
 @import './theme.css';

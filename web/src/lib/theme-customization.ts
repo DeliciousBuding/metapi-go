@@ -4,10 +4,9 @@ const PRESET_DEFAULT_FONT: Partial<
   Record<ThemePreset, ResolvedThemeFont>
 > = {
   default: 'sans',
-  anthropic: 'serif',
 }
 
-const THEME_PRESETS = [
+export const THEME_PRESETS = [
   {
     value: 'default',
     name: 'Default',
@@ -76,12 +75,12 @@ export type ContentLayout = 'full' | 'centered'
  * Font axis for the theme.
  *
  * - `default` — resolve at runtime from the active preset
- *   (see PRESET_DEFAULT_FONT). The shipped `default` and `anthropic`
- *   presets resolve to serif; other named color presets fall back to
- *   sans unless they list a different choice.
+ *   (see PRESET_DEFAULT_FONT). Every shipped preset resolves to sans,
+ *   so the out-of-the-box experience is the humanist Public Sans voice;
+ *   serif only appears when the user explicitly selects it.
  * - `sans` — humanist sans (Public Sans), the project's UI fallback.
- * - `serif` — editorial serif (Lora + CJK fallbacks), the project's
- *   "soul" typography.
+ * - `serif` — editorial serif (Lora + CJK fallbacks), an explicit
+ *   opt-in typography.
  */
 export type ThemeFont = 'default' | 'sans' | 'serif'
 
@@ -143,10 +142,10 @@ export const THEME_COOKIE_KEYS = {
 } as const
 
 /**
- * Preset → default font mapping. Presets not listed here fall back to
- * `sans`. The shipped `default` preset opts into sans so the humanist
- * Public Sans voice is the out-of-the-box experience; `anthropic` opts
- * into serif for the editorial Lora voice.
+ * Preset → default font mapping. Every preset resolves to `sans` — the
+ * humanist Public Sans voice is the default experience everywhere, and
+ * serif is only ever an explicit user choice. The map exists so a future
+ * preset could opt into serif (or any other resolved face) by listing it.
  */
 
 export function resolveThemeFont(

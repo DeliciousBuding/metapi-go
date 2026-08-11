@@ -1,7 +1,7 @@
 // metapi-go — application entry (main.tsx).
 // Orchestrates: QueryClient (retry/401/403/500/staleTime) → RouterProvider
-// (TanStack Router, routeTree.gen.ts) → 4-layer Provider stack
-// (Theme → Font → Direction → ThemeCustomization).
+// (TanStack Router, routeTree.gen.ts) → 3-layer Provider stack
+// (Theme → Direction → ThemeCustomization).
 //
 // Adapted from newapi web/src/main.tsx. Dropped system-branding bootstrap
 // (status/favicon) and legacy-route resolver — phase 2 will wire those once
@@ -20,7 +20,6 @@ import ReactDOM from 'react-dom/client'
 import { toast } from 'sonner'
 
 import { DirectionProvider } from '@/context/direction-provider'
-import { FontProvider } from '@/context/font-provider'
 import { ThemeCustomizationProvider } from '@/context/theme-customization-provider'
 import { ThemeProvider } from '@/context/theme-provider'
 
@@ -92,13 +91,11 @@ if (!rootElement.innerHTML) {
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <FontProvider>
-            <DirectionProvider>
-              <ThemeCustomizationProvider>
-                <RouterProvider router={router} />
-              </ThemeCustomizationProvider>
-            </DirectionProvider>
-          </FontProvider>
+          <DirectionProvider>
+            <ThemeCustomizationProvider>
+              <RouterProvider router={router} />
+            </ThemeCustomizationProvider>
+          </DirectionProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </StrictMode>
