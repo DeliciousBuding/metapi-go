@@ -30,7 +30,7 @@ jobs:
       # web/embed.go embeds web/dist, which is gitignored and absent on a
       # fresh checkout. A placeholder file lets Go tooling type-check the
       # embed package; production images build the real SPA in the Dockerfile.
-      - run: mkdir -p web/dist && touch web/dist/.gitkeep
+      - run: mkdir -p web/dist && touch web/dist/placeholder.txt
       - name: Run golangci-lint
         run: golangci-lint run --timeout=3m
 
@@ -44,7 +44,7 @@ jobs:
       # web/embed.go embeds web/dist, which is gitignored and absent on a
       # fresh checkout. A placeholder file lets go vet type-check the embed
       # package; production images build the real SPA in the Dockerfile.
-      - run: mkdir -p web/dist && touch web/dist/.gitkeep
+      - run: mkdir -p web/dist && touch web/dist/placeholder.txt
       - run: go vet ./...
 
   vulncheck:
@@ -54,7 +54,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26.5"
-      - run: mkdir -p web/dist && touch web/dist/.gitkeep
+      - run: mkdir -p web/dist && touch web/dist/placeholder.txt
       - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
   mod-verify:
@@ -112,7 +112,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26.5"
-      - run: mkdir -p web/dist && touch web/dist/.gitkeep
+      - run: mkdir -p web/dist && touch web/dist/placeholder.txt
       - run: go test ./... -count=1 -race
 
   test-pg:
@@ -135,7 +135,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26.5"
-      - run: mkdir -p web/dist && touch web/dist/.gitkeep
+      - run: mkdir -p web/dist && touch web/dist/placeholder.txt
       - run: |
           dsn="${PG_SCHEME}://${PG_USER}:${PG_PASSWORD}@localhost:5432/${PG_DATABASE}?sslmode=disable"
           PG_TEST_DSN="$dsn" DATABASE_URL="$dsn" go test ./... -count=1 -tags=integration -p 1 # -p 1: PG integration shares one database across packages; parallel packages race AutoMigrate/table state
@@ -152,7 +152,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26.5"
-      - run: mkdir -p web/dist && touch web/dist/.gitkeep
+      - run: mkdir -p web/dist && touch web/dist/placeholder.txt
       - run: go build -trimpath ./cmd/server
       - run: go build -trimpath ./cmd/migrate
 
