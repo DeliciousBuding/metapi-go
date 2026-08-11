@@ -1766,7 +1766,7 @@ export const api = {
     }),
   getBackupWebdavConfig: () =>
     request<BackupWebdavResponse>('/api/settings/backup/webdav'),
-  saveBackupWebdavConfig: (data: {
+  saveBackupWebdavConfig: (data: Partial<{
     enabled: boolean
     fileUrl: string
     username: string
@@ -1775,7 +1775,7 @@ export const api = {
     exportType: BackupWebdavExportType
     autoSyncEnabled: boolean
     autoSyncCron: string
-  }) =>
+  }>) =>
     request<BackupWebdavResponse>('/api/settings/backup/webdav', {
       method: 'PUT',
       body: JSON.stringify(data),

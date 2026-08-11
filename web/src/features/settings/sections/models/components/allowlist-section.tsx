@@ -120,8 +120,10 @@ export function AllowlistSection() {
   )
 
   useEffect(() => {
-    setAllowedModels(initialAllowed)
-  }, [initialAllowed])
+    if (!form.formState.isDirty) {
+      setAllowedModels(initialAllowed)
+    }
+  }, [form.formState.isDirty, initialAllowed])
 
   const candidateModels = useMemo(
     () => Object.keys(candidatesQuery.data?.models ?? {}),

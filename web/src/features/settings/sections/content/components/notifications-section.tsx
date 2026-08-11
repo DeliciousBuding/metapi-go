@@ -188,6 +188,7 @@ function deriveServerValues(
 
 function notificationsToPayload(
   changed: Partial<NotifyFormValues>,
+  baseline: NotifyFormValues | null,
 ): Record<string, unknown> {
   const payload: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(changed)) {
@@ -207,11 +208,11 @@ function notificationsToPayload(
     || changed.muteLowBalance !== undefined
     || changed.muteProxyAllFailed !== undefined
   if (muteChanged) {
-    const current = changed as Partial<NotifyFormValues>
+    const current = { ...(baseline ?? DEFAULT_VALUES), ...changed }
     payload.notifyTaskToggles = {
-      token_expired: Boolean(current.muteTokenExpired),
-      low_balance: Boolean(current.muteLowBalance),
-      proxy_all_failed: Boolean(current.muteProxyAllFailed),
+      token_expired: current.muteTokenExpired,
+      low_balance: current.muteLowBalance,
+      proxy_all_failed: current.muteProxyAllFailed,
     }
   }
   delete payload.muteTokenExpired
@@ -249,7 +250,7 @@ export function NotificationsSection() {
       toast.info(t('settings.common.noChanges'))
       return
     }
-    updateMutation.mutate(notificationsToPayload(changed) as never, {
+    updateMutation.mutate(notificationsToPayload(changed, baseline) as never, {
       onSuccess: () =>
         toast.success(t('settings.content.notifications.toast.saved')),
       onError: () =>

@@ -84,8 +84,10 @@ export function ProxyTokenSection() {
     updateMutation.mutate(
       { proxyToken: `sk-${trimmed}` },
       {
-        onSuccess: () =>
-          toast.success(t('settings.downstream.proxyToken.toast.saved')),
+        onSuccess: () => {
+          syncFromServer({ proxyTokenSuffix: '' })
+          toast.success(t('settings.downstream.proxyToken.toast.saved'))
+        },
         onError: () =>
           toast.error(t('settings.downstream.proxyToken.toast.saveFailed')),
       },

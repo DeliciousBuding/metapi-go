@@ -41,6 +41,7 @@ import { FormNavigationGuard } from '../../../components/form-navigation-guard'
 import { ScheduleEditor } from '../../../components/schedule-editor'
 import { SettingsFormActions } from '../../../components/settings-form-actions'
 import { SettingsSectionCard } from '../../../components/settings-section-card'
+import { SettingsSectionError } from '../../../components/settings-section-error'
 import { useSettingsForm } from '../../../hooks/use-settings-form'
 import { collectChangedFields, hasChanges } from '../../../lib/collect-changed-fields'
 import { scheduleFromLegacy, scheduleToCron } from '../../../lib/schedule'
@@ -190,19 +191,24 @@ export function ImportExportSection() {
   }
 
   const saveWebdavMutation = useMutation({
-    mutationFn: async (values: WebdavFormValues) =>
-      api.saveBackupWebdavConfig({
-        enabled: Boolean(values.enabled),
-        fileUrl: values.fileUrl ?? '',
-        username: values.username ?? '',
-        password: values.password || undefined,
-        exportType: values.exportType,
-        autoSyncEnabled: Boolean(values.autoSyncEnabled),
-        autoSyncCron:
+    mutationFn: async (values: Partial<WebdavFormValues>) => {
+      const payload: Parameters<typeof api.saveBackupWebdavConfig>[0] = {}
+      if (values.enabled !== undefined) payload.enabled = values.enabled
+      if (values.fileUrl !== undefined) payload.fileUrl = values.fileUrl ?? ''
+      if (values.username !== undefined) payload.username = values.username ?? ''
+      if (values.password) payload.password = values.password
+      if (values.exportType !== undefined) payload.exportType = values.exportType
+      if (values.autoSyncEnabled !== undefined) {
+        payload.autoSyncEnabled = values.autoSyncEnabled
+      }
+      if (values.autoSyncSchedule !== undefined) {
+        payload.autoSyncCron =
           scheduleToCron(values.autoSyncSchedule, config?.autoSyncCron)
           ?? config?.autoSyncCron
-          ?? '0 */6 * * *',
-      }),
+          ?? '0 */6 * * *'
+      }
+      return api.saveBackupWebdavConfig(payload)
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: webdavQueryKeys.all })
       toast.success(t('settings.content.importExport.toast.webdavSaved'))
@@ -232,7 +238,7 @@ export function ImportExportSection() {
       toast.info(t('settings.common.noChanges'))
       return
     }
-    saveWebdavMutation.mutate(values)
+    saveWebdavMutation.mutate(changed)
   }
 
   const planEntries = importPlan ? Object.entries(importPlan) : []
@@ -309,6 +315,11 @@ export function ImportExportSection() {
           <p className='text-sm text-muted-foreground'>
             {t('settings.common.loading')}
           </p>
+        ) : webdavQuery.isError || !config ? (
+          <SettingsSectionError
+            title={t('settings.content.importExport.webdavGroup')}
+            onRetry={() => void webdavQuery.refetch()}
+          />
         ) : (
           <Form {...form}>
             <form
