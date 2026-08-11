@@ -63,11 +63,12 @@ master (唯一长期分支，受保护，随时可发布)
 - **subject**：一句话描述变更原因（why），中文或英文均可；Squash 时沿用 PR 标题
 - 示例：`fix(web): URL-synced tables round-trip sort params without JSON noise`
 
-## 6. Release 流程（不变）
+## 6. Release 流程
 
-1. 本地 CI 全绿 → `CHANGELOG.md` 更新 → `git tag -a vX.Y.Z` → `git push origin vX.Y.Z`
-2. Tag 推送触发 `cd.yml`（release-gate 全量验证 + 构建推送 `ghcr.io/deliciousbuding/metapi-go`）与 `release.yml`（创建 GitHub Release）
-3. Tag 只从 master 打（master 即发布线）
+1. 本地 CI 全绿 → `CHANGELOG.md` 更新（**必须包含 `## [vX.Y.Z]` 节**——Release 说明从该节提取，缺节 tag 推送会使 CD 失败）→ `git tag -a vX.Y.Z` → `git push origin vX.Y.Z`
+2. Tag 推送触发 `cd.yml`：release-gate 全量验证（gitleaks 历史扫描 + 真实前端构建 + `-race` + PG 集成）→ 构建推送 `ghcr.io/deliciousbuding/metapi-go`（**amd64 + arm64** 双架构，provenance + SBOM）→ 构建 5 平台二进制附件（linux/darwin/windows × amd64/arm64）+ `checksums.txt` → 创建 GitHub Release（body 取自 CHANGELOG 对应节）
+3. Tag 只从 master 打（master 即发布线）；SemVer 格式 `vX.Y.Z`（`v*` 之外的 tag 不触发发布）
+4. 版本号经 `-ldflags -X .../internal/version.Version` 注入二进制（`metapi --version` 可查）；发布时同步 `web/package.json` 的 version 字段
 
 ## 7. 紧急修复
 
@@ -82,8 +83,7 @@ master (唯一长期分支，受保护，随时可发布)
 | master 保护 | 仓库 Settings → Branches | 见 §3 |
 | PR 模板 | `.github/pull_request_template.md` | 自动填充 |
 | CI | `.github/workflows/ci.yml` | PR + master push 全量 11 job |
-| CD | `.github/workflows/cd.yml` | master push + tag 发布镜像 |
-| Release | `.github/workflows/release.yml` | tag 建 Release |
+| CD + Release | `.github/workflows/cd.yml` | master push 发布镜像；SemVer tag 推送：release-gate → 镜像（amd64+arm64）→ 多平台二进制 + GitHub Release |
 | 本地门禁 | `.githooks/pre-push` | `git config core.hooksPath .githooks` 安装后 push 前自动运行（build + vet + 前端 + race） |
 
 相关文档：[`deployment.md`](deployment.md)（部署）· [`STATE.md`](STATE.md)（当前状态）· `AGENTS.md`（工程规则）

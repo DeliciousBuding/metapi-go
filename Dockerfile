@@ -1,5 +1,7 @@
 # Stage 1: Frontend build
-FROM oven/bun:1-alpine AS web
+# ARG declared before the first FROM is visible to every stage.
+ARG VERSION=dev
+FROM oven/bun:1.3.14-alpine AS web
 WORKDIR /app/web
 COPY web/package.json web/bun.lock ./
 RUN bun install --frozen-lockfile
@@ -8,13 +10,18 @@ RUN bun run build:web
 
 # Stage 2: Go build
 FROM golang:1.26.5-alpine AS build
+ARG VERSION
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=web /app/web/dist ./web/dist
-RUN CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-s -w" -o metapi ./cmd/server
-RUN CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-s -w" -o metapi-migrate ./cmd/migrate
+RUN CGO_ENABLED=0 go build -trimpath -buildvcs=false \
+    -ldflags="-s -w -X github.com/deliciousbuding/metapi-go/internal/version.Version=${VERSION}" \
+    -o metapi ./cmd/server
+RUN CGO_ENABLED=0 go build -trimpath -buildvcs=false \
+    -ldflags="-s -w -X github.com/deliciousbuding/metapi-go/internal/version.Version=${VERSION}" \
+    -o metapi-migrate ./cmd/migrate
 
 # Stage 3: Runtime
 FROM alpine:3.21
