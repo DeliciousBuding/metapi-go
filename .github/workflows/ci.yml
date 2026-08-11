@@ -112,7 +112,14 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26.5"
-      - run: mkdir -p web/dist && touch web/dist/placeholder.txt
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      # SPA-fallback and static-asset tests exercise the real embedded dist,
+      # so build the frontend before running Go tests.
+      - name: Build frontend (real dist for SPA tests)
+        working-directory: web
+        run: bun install --frozen-lockfile && bun run build:web
       - run: go test ./... -count=1 -race
 
   test-pg:
@@ -135,7 +142,14 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26.5"
-      - run: mkdir -p web/dist && touch web/dist/placeholder.txt
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      # SPA-fallback and static-asset tests exercise the real embedded dist,
+      # so build the frontend before running Go tests.
+      - name: Build frontend (real dist for SPA tests)
+        working-directory: web
+        run: bun install --frozen-lockfile && bun run build:web
       - run: |
           dsn="${PG_SCHEME}://${PG_USER}:${PG_PASSWORD}@localhost:5432/${PG_DATABASE}?sslmode=disable"
           PG_TEST_DSN="$dsn" DATABASE_URL="$dsn" go test ./... -count=1 -tags=integration -p 1 # -p 1: PG integration shares one database across packages; parallel packages race AutoMigrate/table state
