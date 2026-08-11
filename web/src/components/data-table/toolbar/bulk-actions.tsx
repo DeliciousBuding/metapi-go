@@ -87,11 +87,11 @@ export function DataTableBulkActions<TData>({
       }
       case 'Home':
         event.preventDefault()
-        buttons.at(0)?.focus()
+        buttons[0]?.focus()
         break
       case 'End':
         event.preventDefault()
-        buttons.at(-1)?.focus()
+        ;[...buttons].at(-1)?.focus()
         break
       case 'Escape': {
         // Check if the Escape key came from a dropdown trigger or content

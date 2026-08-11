@@ -1,79 +1,48 @@
 // metapi-go/features/settings/sections/system-info — System Info subarea.
 // Scope (plan §5.5.2): program logs + audit logs + update center + database
-// migration + maintenance/danger zone.
-// Sections: program-logs, audit-logs, update-center, database, maintenance.
-// Phase 2 stubs; phase 3 migrates from the legacy /events page and the
-// appended sections + Settings.tsx cards 12-14.
-//
-// .ts (no JSX) so react/only-export-components does not apply; section content
-// is built with React.createElement (hooks-safe, phase-3 ready).
+// migration + maintenance/danger zone. All five sections wired to real
+// surfaces under ./components.
 
 import { createElement } from 'react'
 
-import { StubSection } from '../../components/stub-section'
 import { createSectionRegistry } from '../../utils/section-registry'
 import type { SettingsSubarea } from '../../types'
+import { AuditLogsSection } from './components/audit-logs-section'
+import { DatabaseSection } from './components/database-section'
+import { MaintenanceSection } from './components/maintenance-section'
+import { ProgramLogsSection } from './components/program-logs-section'
+import { UpdateCenterSection } from './components/update-center-section'
 
 const SYSTEM_INFO_SECTIONS = [
   {
     id: 'program-logs',
     title: 'settings.systemInfo.programLogs.title',
     description: 'settings.systemInfo.programLogs.description',
-    build: () =>
-      createElement(StubSection, {
-        title: 'settings.systemInfo.programLogs.title',
-        description: 'settings.systemInfo.programLogs.description',
-        legacyRef:
-          'legacy page: /events (ProgramLogs.tsx) + api.getEvents/getEventCount',
-      }),
+    build: () => createElement(ProgramLogsSection),
   },
   {
     id: 'audit-logs',
     title: 'settings.systemInfo.auditLogs.title',
     description: 'settings.systemInfo.auditLogs.description',
-    build: () =>
-      createElement(StubSection, {
-        title: 'settings.systemInfo.auditLogs.title',
-        description: 'settings.systemInfo.auditLogs.description',
-        legacyRef:
-          'legacy Settings.tsx: AuditLogsSection (B1) — method/path/actor/IP',
-      }),
+    build: () => createElement(AuditLogsSection),
   },
   {
     id: 'update-center',
     title: 'settings.systemInfo.updateCenter.title',
     description: 'settings.systemInfo.updateCenter.description',
-    build: () =>
-      createElement(StubSection, {
-        title: 'settings.systemInfo.updateCenter.title',
-        description: 'settings.systemInfo.updateCenter.description',
-        legacyRef:
-          'legacy Settings.tsx: UpdateCenterSection (UC-1) — getUpdateCenterStatus',
-      }),
+    build: () => createElement(UpdateCenterSection),
   },
   {
     id: 'database',
     title: 'settings.systemInfo.database.title',
     description: 'settings.systemInfo.database.description',
-    build: () =>
-      createElement(StubSection, {
-        title: 'settings.systemInfo.database.title',
-        description: 'settings.systemInfo.database.description',
-        legacyRef:
-          'legacy Settings.tsx: card 12 — dialect sqlite|postgres + connection + ssl + test/migrate',
-      }),
+    build: () => createElement(DatabaseSection),
   },
   {
     id: 'maintenance',
     title: 'settings.systemInfo.maintenance.title',
     description: 'settings.systemInfo.maintenance.description',
-    build: () =>
-      createElement(StubSection, {
-        title: 'settings.systemInfo.maintenance.title',
-        description: 'settings.systemInfo.maintenance.description',
-        legacyRef:
-          'legacy Settings.tsx: cards 13-14 — clear cache/routes + factory reset',
-      }),
+    build: () => createElement(MaintenanceSection),
   },
 ] as const
 

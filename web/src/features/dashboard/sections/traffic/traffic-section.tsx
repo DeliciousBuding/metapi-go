@@ -2,16 +2,16 @@
 //
 // Plan §5.5.1 traffic:流量趋势图（IncomeOutcome / SiteTrend）+
 // SiteDistribution 饼图. Three VChart charts wired with useChartColors +
-// ChartShell. Phase 2 feeds empty arrays (VChart renders an empty canvas);
-// phase 3 reshapes api.getBalanceIncomeOutcome / getSiteTrend /
-// getSiteDistribution responses into the chart data types.
+// ChartShell. Phase 3 reshapes api.getBalanceIncomeOutcome /
+// getSiteTrend / getSiteDistribution responses into the chart data types.
 
-import { useMemo } from 'react'
 import { VChart } from '@visactor/react-vchart'
-
+import { useQuery } from '@tanstack/react-query'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useTheme } from '@/context/theme-provider'
+import { api } from '@/lib/api'
 
 import { ChartShell } from '../../components/chart-shell'
 import { useChartColors, useThemeLabelColor } from '../../hooks/use-chart-colors'
@@ -27,13 +27,48 @@ import type {
   SiteTrendPoint,
 } from '../../types'
 
-// TODO phase 3: replace these empty arrays with TanStack Query data:
-//   api.getBalanceIncomeOutcome(days) → flatten to IncomeOutcomePoint[]
-//   api.getSiteTrend(days)            → flatten to SiteTrendPoint[]
-//   api.getSiteDistribution()         → map  to SiteDistributionSlice[]
-const INCOME_OUTCOME_DATA: IncomeOutcomePoint[] = []
-const SITE_TREND_DATA: SiteTrendPoint[] = []
-const SITE_DISTRIBUTION_DATA: SiteDistributionSlice[] = []
+/** Income vs outcome response (GET /api/stats/balance-income-outcome). */
+type IncomeOutcomeResponse = {
+  days: number
+  points: Array<{ day: string; income: number; outcome: number; net: number }>
+  summary: { totalIncome: number; totalOutcome: number; net: number }
+}
+
+/** Site trend response (GET /api/stats/site-trend). */
+type SiteTrendResponse = {
+  trend: Array<{
+    date: string
+    sites: Record<string, { spend: number; calls: number }>
+  }>
+}
+
+/** Site distribution response (GET /api/stats/site-distribution). */
+type SiteDistributionResponse = {
+  distribution: Array<{
+    siteId: number
+    siteName: string
+    platform: string
+    totalBalance: number
+    totalSpend: number
+    accountCount: number
+  }>
+}
+
+function ChartError({ message }: { message: string }) {
+  return (
+    <div className='flex h-full w-full items-center justify-center'>
+      <p className='text-destructive text-xs'>{message}</p>
+    </div>
+  )
+}
+
+function ChartEmpty({ message }: { message: string }) {
+  return (
+    <div className='flex h-full w-full items-center justify-center'>
+      <p className='text-muted-foreground text-xs'>{message}</p>
+    </div>
+  )
+}
 
 export function TrafficSection() {
   const { t } = useTranslation()
@@ -41,22 +76,100 @@ export function TrafficSection() {
   const labelColor = useThemeLabelColor()
   const { resolvedTheme } = useTheme()
 
+  const incomeOutcomeQuery = useQuery({
+    queryKey: ['dashboard-balance-income-outcome', 30],
+    queryFn: () => api.getBalanceIncomeOutcome(30) as Promise<IncomeOutcomeResponse>,
+  })
+
+  const siteTrendQuery = useQuery({
+    queryKey: ['dashboard-site-trend', 7],
+    queryFn: () => api.getSiteTrend(7) as Promise<SiteTrendResponse>,
+  })
+
+  const siteDistributionQuery = useQuery({
+    queryKey: ['dashboard-site-distribution'],
+    queryFn: () => api.getSiteDistribution() as Promise<SiteDistributionResponse>,
+  })
+
+  const incomeOutcomeData = useMemo<IncomeOutcomePoint[]>(() => {
+    const points = incomeOutcomeQuery.data?.points
+    if (!points) return []
+    const rows: IncomeOutcomePoint[] = []
+    for (const point of points) {
+      rows.push({ day: point.day, type: 'income', value: point.income })
+      rows.push({ day: point.day, type: 'outcome', value: point.outcome })
+    }
+    return rows
+  }, [incomeOutcomeQuery.data])
+
+  const siteTrendData = useMemo<SiteTrendPoint[]>(() => {
+    const trend = siteTrendQuery.data?.trend
+    if (!trend) return []
+    const rows: SiteTrendPoint[] = []
+    for (const entry of trend) {
+      for (const [siteName, metrics] of Object.entries(entry.sites)) {
+        rows.push({
+          date: entry.date,
+          site: siteName,
+          spend: metrics.spend,
+          calls: metrics.calls,
+        })
+      }
+    }
+    return rows
+  }, [siteTrendQuery.data])
+
+  const siteDistributionData = useMemo<SiteDistributionSlice[]>(() => {
+    const distribution = siteDistributionQuery.data?.distribution
+    if (!distribution) return []
+    return distribution.map((slice) => ({
+      siteName: slice.siteName,
+      platform: slice.platform,
+      totalBalance: slice.totalBalance,
+      totalSpend: slice.totalSpend,
+      accountCount: slice.accountCount,
+    }))
+  }, [siteDistributionQuery.data])
+
   const incomeOutcomeSpec = useMemo(
-    () => buildIncomeOutcomeSpec(colors, INCOME_OUTCOME_DATA),
-    [colors],
+    () => buildIncomeOutcomeSpec(colors, incomeOutcomeData),
+    [colors, incomeOutcomeData],
   )
   const siteTrendSpec = useMemo(
-    () => buildSiteTrendSpec(colors, SITE_TREND_DATA),
-    [colors],
+    () => buildSiteTrendSpec(colors, siteTrendData),
+    [colors, siteTrendData],
   )
   const siteDistributionSpec = useMemo(
-    () => buildSiteDistributionSpec(colors, labelColor, SITE_DISTRIBUTION_DATA),
-    [colors, labelColor],
+    () => buildSiteDistributionSpec(colors, labelColor, siteDistributionData),
+    [colors, labelColor, siteDistributionData],
   )
 
-  // Force a remount on theme flip so VChart redraws with the fresh palette
-  // (matches newapi's key-with-theme approach — avoids stale canvas state).
   const remountKey = `traffic-${resolvedTheme}`
+
+  const renderChart = (
+    spec: Record<string, unknown>,
+    suffix: string,
+    query: { isLoading: boolean; isError: boolean },
+    emptyKey: string,
+  ) => {
+    if (query.isLoading) return null
+    if (query.isError) {
+      return <ChartError message={t('dashboard.traffic.loadError')} />
+    }
+    const data = spec.data as Array<{ values: unknown[] }> | undefined
+    const values = data?.[0]?.values
+    if (!values || values.length === 0) {
+      return <ChartEmpty message={t(emptyKey)} />
+    }
+    return (
+      <VChart
+        key={`${remountKey}-${suffix}`}
+        spec={spec as never}
+        option={VCHART_OPTION}
+        style={{ width: '100%', height: '100%' }}
+      />
+    )
+  }
 
   return (
     <div className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
@@ -64,26 +177,28 @@ export function TrafficSection() {
         title={t('dashboard.traffic.incomeOutcome.title')}
         description={t('dashboard.traffic.incomeOutcome.description')}
         height={300}
+        loading={incomeOutcomeQuery.isLoading}
       >
-        <VChart
-          key={`${remountKey}-income`}
-          spec={incomeOutcomeSpec as never}
-          option={VCHART_OPTION}
-          style={{ width: '100%', height: '100%' }}
-        />
+        {renderChart(
+          incomeOutcomeSpec,
+          'income',
+          incomeOutcomeQuery,
+          'dashboard.traffic.incomeOutcome.empty',
+        )}
       </ChartShell>
 
       <ChartShell
         title={t('dashboard.traffic.siteTrend.title')}
         description={t('dashboard.traffic.siteTrend.description')}
         height={300}
+        loading={siteTrendQuery.isLoading}
       >
-        <VChart
-          key={`${remountKey}-site-trend`}
-          spec={siteTrendSpec as never}
-          option={VCHART_OPTION}
-          style={{ width: '100%', height: '100%' }}
-        />
+        {renderChart(
+          siteTrendSpec,
+          'site-trend',
+          siteTrendQuery,
+          'dashboard.traffic.siteTrend.empty',
+        )}
       </ChartShell>
 
       <ChartShell
@@ -91,13 +206,14 @@ export function TrafficSection() {
         description={t('dashboard.traffic.siteDistribution.description')}
         height={300}
         className='lg:col-span-2'
+        loading={siteDistributionQuery.isLoading}
       >
-        <VChart
-          key={`${remountKey}-site-dist`}
-          spec={siteDistributionSpec as never}
-          option={VCHART_OPTION}
-          style={{ width: '100%', height: '100%' }}
-        />
+        {renderChart(
+          siteDistributionSpec,
+          'site-dist',
+          siteDistributionQuery,
+          'dashboard.traffic.siteDistribution.empty',
+        )}
       </ChartShell>
     </div>
   )

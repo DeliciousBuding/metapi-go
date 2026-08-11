@@ -1,54 +1,33 @@
 // metapi-go/features/settings/sections/content — Content subarea.
 // Scope (plan §5.5.2): import/export + notification channels + risk-banner
-// announcements.
-// Sections: import-export, notifications, announcements.
-// Phase 2 stubs; phase 3 migrates from the legacy /settings/import-export,
-// /settings/notify pages, and AnnouncementsSection.
-//
-// .ts (no JSX) so react/only-export-components does not apply; section content
-// is built with React.createElement (hooks-safe, phase-3 ready).
+// announcements. All three sections wired to real forms under ./components.
 
 import { createElement } from 'react'
 
-import { StubSection } from '../../components/stub-section'
 import { createSectionRegistry } from '../../utils/section-registry'
 import type { SettingsSubarea } from '../../types'
+import { AnnouncementsSection } from './components/announcements-section'
+import { ImportExportSection } from './components/import-export-section'
+import { NotificationsSection } from './components/notifications-section'
 
 const CONTENT_SECTIONS = [
   {
     id: 'import-export',
     title: 'settings.content.importExport.title',
     description: 'settings.content.importExport.description',
-    build: () =>
-      createElement(StubSection, {
-        title: 'settings.content.importExport.title',
-        description: 'settings.content.importExport.description',
-        legacyRef: 'legacy page: /settings/import-export (ImportExport.tsx)',
-      }),
+    build: () => createElement(ImportExportSection),
   },
   {
     id: 'notifications',
     title: 'settings.content.notifications.title',
     description: 'settings.content.notifications.description',
-    build: () =>
-      createElement(StubSection, {
-        title: 'settings.content.notifications.title',
-        description: 'settings.content.notifications.description',
-        legacyRef:
-          'legacy page: /settings/notify (NotificationSettings.tsx) + RuntimeSettingsPayload notify fields',
-      }),
+    build: () => createElement(NotificationsSection),
   },
   {
     id: 'announcements',
     title: 'settings.content.announcements.title',
     description: 'settings.content.announcements.description',
-    build: () =>
-      createElement(StubSection, {
-        title: 'settings.content.announcements.title',
-        description: 'settings.content.announcements.description',
-        legacyRef:
-          'legacy Settings.tsx: AnnouncementsSection (H1) — CRUD + revision resets dismissals',
-      }),
+    build: () => createElement(AnnouncementsSection),
   },
 ] as const
 

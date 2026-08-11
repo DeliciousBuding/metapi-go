@@ -406,7 +406,7 @@ export function SiteFormDialog({
                   <FormControl>
                     <Textarea
                       rows={3}
-                      placeholder={'{"X-Custom-Header":"value"}'}
+                      placeholder='{"X-Custom-Header":"value"}'
                       className='font-mono text-xs'
                       {...field}
                     />

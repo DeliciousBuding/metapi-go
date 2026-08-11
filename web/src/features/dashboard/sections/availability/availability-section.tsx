@@ -1,14 +1,13 @@
 /* eslint-disable no-nested-ternary -- connection-tone uses chained ternaries */
 // metapi-go/features/dashboard/sections/availability — availability section.
 //
-// Plan §5.5.1 availability: RealtimeOpsPanel（WebSocket 实时）+ Monitors
-// 嵌入（不再 iframe，改组件化）. The realtime panel renders a live QPS /
-// success-rate readout + a zero-dependency CSS-bar sparkline (the legacy
-// panel used flex divs, not a chart lib, because the canvas var() problem
-// doesn't apply to DOM). The Monitors surface is a stub here — phase 3 will
-// embed the monitors feature inline (components) instead of an <iframe>.
+// Plan §5.5.1 availability: RealtimeOpsPanel（WebSocket 实时）+ an
+// actionable-items surface (the legacy Monitors iframe is retired; phase 3
+// renders api.getAttention() as a severity-ranked list of items needing
+// operator eyes — expired accounts, low balances, disabled sites, events).
 
 import { Radio, ShieldCheck } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -18,11 +17,43 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 import { useRealtimeOps } from '../../hooks/use-realtime-ops'
 
 const SPARK_BARS = 60
+
+/** Attention response (GET /api/stats/attention). */
+type AttentionResponse = {
+  items: Array<{
+    severity: 'critical' | 'warning' | 'info'
+    category: string
+    label: string
+    target: string
+    createdAt: string
+  }>
+  total: number
+}
+
+const SEVERITY_TONE: Record<
+  'critical' | 'warning' | 'info',
+  { dot: string; badge: string }
+> = {
+  critical: {
+    dot: 'bg-destructive',
+    badge: 'border-destructive/40 bg-destructive/10 text-destructive',
+  },
+  warning: {
+    dot: 'bg-warning',
+    badge: 'border-warning/40 bg-warning/10 text-warning',
+  },
+  info: {
+    dot: 'bg-info',
+    badge: 'border-info/40 bg-info/10 text-info-foreground',
+  },
+}
 
 function formatRate(rate: number): string {
   return `${(rate * 100).toFixed(1)}%`
@@ -58,12 +89,6 @@ function RealtimeSparkline({ samples }: { samples: number[] }) {
 function RealtimeOpsPanel() {
   const { t } = useTranslation()
   const sample = useRealtimeOps()
-
-  // Silently render nothing when there is no token (anonymous view) — matches
-  // the legacy panel's no-token guard.
-  if (!sample.connected && !sample.gaveUp) {
-    // Still mounting — keep the panel frame so the layout doesn't jump.
-  }
 
   const tone = sample.gaveUp
     ? 'border-destructive/40 bg-destructive/5'
@@ -137,30 +162,92 @@ function RealtimeOpsPanel() {
   )
 }
 
-export function AvailabilitySection() {
+function AttentionPanel() {
   const { t } = useTranslation()
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['dashboard-attention', 20],
+    queryFn: () => api.getAttention(20) as Promise<AttentionResponse>,
+  })
+
+  const items = data?.items ?? []
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className='flex items-center gap-2 text-sm font-medium'>
+          <ShieldCheck className='size-4' />
+          {t('dashboard.availability.monitors.title')}
+        </CardTitle>
+        <CardDescription className='text-xs'>
+          {t('dashboard.availability.monitors.description')}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <Skeleton className='h-48 w-full rounded-md' />
+        ) : isError ? (
+          <div className='flex min-h-48 flex-col items-center justify-center gap-1 rounded-lg border border-dashed py-8 text-center'>
+            <p className='text-destructive text-xs'>
+              {t('dashboard.availability.monitors.loadError')}
+            </p>
+          </div>
+        ) : items.length === 0 ? (
+          <div className='flex min-h-48 flex-col items-center justify-center gap-1 rounded-lg border border-dashed py-8 text-center'>
+            <p className='text-muted-foreground text-sm'>
+              {t('dashboard.availability.monitors.empty')}
+            </p>
+          </div>
+        ) : (
+          <ul className='space-y-2'>
+            {items.map((item, index) => {
+              const tone = SEVERITY_TONE[item.severity] ?? SEVERITY_TONE.info
+              const label = t(
+                `dashboard.availability.monitors.severity.${item.severity}`,
+              )
+              return (
+                <li
+                  // eslint-disable-next-line react/no-array-index-key
+                  key={`${item.target}-${index}`}
+                  className='flex items-start gap-3'
+                >
+                  <span
+                    className={cn(
+                      'mt-1 inline-flex h-5 shrink-0 items-center gap-1 rounded-full border px-2 text-xs font-medium',
+                      tone.badge,
+                    )}
+                  >
+                    <span className={cn('size-1.5 rounded-full', tone.dot)} />
+                    {label}
+                  </span>
+                  <div className='min-w-0 flex-1'>
+                    {item.target ? (
+                      <a
+                        href={item.target}
+                        className='block truncate text-sm hover:underline'
+                      >
+                        {item.label}
+                      </a>
+                    ) : (
+                      <span className='block truncate text-sm'>
+                        {item.label}
+                      </span>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+export function AvailabilitySection() {
   return (
     <div className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
       <RealtimeOpsPanel />
-
-      <Card>
-        <CardHeader>
-          <CardTitle className='flex items-center gap-2 text-sm font-medium'>
-            <ShieldCheck className='size-4' />
-            {t('dashboard.availability.monitors.title')}
-          </CardTitle>
-          <CardDescription className='text-xs'>
-            {t('dashboard.availability.monitors.description')}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className='flex min-h-64 flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center'>
-            <p className='text-muted-foreground text-sm'>
-              {t('dashboard.availability.monitors.placeholder')}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <AttentionPanel />
     </div>
   )
 }

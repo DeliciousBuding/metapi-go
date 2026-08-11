@@ -498,35 +498,42 @@
       "overview": {
         "statCards": {
           "accountCount": "账号",
-          "accountCountHint": "TODO phase 3",
+          "accountCountHint": "{{active}} 个活跃",
           "siteCount": "站点",
-          "siteCountHint": "TODO phase 3",
+          "siteCountHint": "已跟踪站点",
           "todayCheckin": "今日签到",
-          "todayCheckinHint": "成功率",
+          "todayCheckinHint": "{{success}} / {{total}} 成功",
           "proxy24h": "代理 24h",
-          "proxy24hHint": "请求数"
+          "proxy24hHint": "{{success}} 成功 · {{rpm}}/分"
         },
         "scheduledTasks": {
           "title": "定时任务",
           "description": "后台任务健康（合并自旧版 SchedulerStatusPanel）。",
-          "placeholder": "TODO phase 3: 从 api.getSchedulerStatus() 渲染定时任务运行状态行",
-          "legendSuccess": "成功",
-          "legendSites": "站点",
-          "legendAccounts": "账号"
+          "colJob": "任务",
+          "colEnabled": "启用",
+          "colLastStatus": "上次状态",
+          "colRuns24h": "24h 运行",
+          "colSuccess24h": "24h 成功",
+          "statusSuccess": "成功",
+          "statusFailed": "失败",
+          "statusRunning": "运行中",
+          "statusNever": "未运行",
+          "enabled": "已启用",
+          "disabled": "已停用",
+          "empty": "未配置定时任务。"
         }
       },
       "traffic": {
-        "incomeOutcome": { "title": "收入 vs 支出", "description": "每日余额收入与支出（30 天）。" },
-        "siteTrend": { "title": "站点趋势", "description": "各站点支出随时间变化。" },
-        "siteDistribution": { "title": "站点分布", "description": "按站点的余额占比。" }
+        "loadError": "加载流量数据失败。",
+        "incomeOutcome": { "title": "收入 vs 支出", "description": "每日余额收入与支出（30 天）。", "empty": "所选区间暂无余额流动数据。" },
+        "siteTrend": { "title": "站点趋势", "description": "各站点支出随时间变化。", "empty": "暂无站点趋势数据。" },
+        "siteDistribution": { "title": "站点分布", "description": "按站点的余额占比。", "empty": "暂无站点分布数据。" }
       },
       "models": {
-        "costDistribution": { "title": "成本分布", "description": "按模型的支出占比（30 天）。" },
-        "availability": {
-          "title": "模型可用性与延迟",
-          "description": "各模型成功率与平均/p95 延迟（合并自旧版 Cost 和 Latency 卡片）。",
-          "placeholder": "TODO phase 3: 从以下接口渲染模型可用性/延迟行"
-        }
+        "loadError": "加载模型/延迟数据失败。",
+        "costDistribution": { "title": "成本分布", "description": "按模型的支出占比（30 天）。", "empty": "所选区间暂无模型成本数据。" },
+        "latencyHistogram": { "title": "延迟直方图", "description": "按延迟桶的请求数（7 天）。", "empty": "暂无延迟采样。" },
+        "latencyTrend": { "title": "延迟趋势", "description": "平均与 p95 延迟随时间变化（7 天）。", "metricAvg": "平均", "metricP95": "P95", "empty": "暂无延迟趋势数据。" }
       },
       "availability": {
         "realtime": {
@@ -540,9 +547,15 @@
           "metricUptime": "运行时间"
         },
         "monitors": {
-          "title": "可用性监控",
-          "description": "嵌入式监控（组件化，非 iframe）。",
-          "placeholder": "TODO phase 3: 在此内嵌 features/monitors 界面（替换旧版 iframe）。"
+          "title": "需要关注",
+          "description": "按严重级别排列、需要运维介入的事项（账号、余额、站点）。",
+          "empty": "一切正常——暂无需要关注的事项。",
+          "loadError": "加载关注事项失败。",
+          "severity": {
+            "critical": "严重",
+            "warning": "警告",
+            "info": "信息"
+          }
         }
       },
       "announcement": {
@@ -559,33 +572,483 @@
         "content": "内容",
         "systemInfo": "系统信息"
       },
+      "common": {
+        "save": "保存",
+        "saving": "保存中…",
+        "testing": "测试中…",
+        "delete": "删除",
+        "cancel": "取消",
+        "edit": "编辑",
+        "add": "添加",
+        "create": "创建",
+        "enabled": "已启用",
+        "disabled": "已停用",
+        "unlimited": "不限"
+      },
       "general": {
-        "site": { "title": "站点与品牌", "description": "系统名称、Logo、页脚、关于与服务器地址。" },
-        "authentication": { "title": "认证", "description": "管理员令牌轮换与 IP 白名单。" },
-        "scheduling": { "title": "定时任务", "description": "签到、余额刷新与日志清理计划。" },
-        "proxyTransport": { "title": "代理与传输", "description": "系统代理、负载规则、上游并发与探测。" },
-        "routing": { "title": "路由策略", "description": "兜底成本、权重、冷却与超时。" }
+        "site": {
+          "title": "站点与品牌",
+          "description": "系统名称、Logo、页脚、关于与服务器地址。",
+          "fields": {
+            "systemName": "系统名称",
+            "systemNameHint": "显示在顶栏与浏览器标题。",
+            "logo": "Logo URL",
+            "logoHint": "品牌 Logo 图片的公开 URL。",
+            "footer": "页脚文本",
+            "about": "关于",
+            "homePageContent": "首页内容",
+            "homePageContentHint": "支持 Markdown；渲染在落地页。",
+            "serverAddress": "服务器地址",
+            "serverAddressHint": "用于外链与 OpenAPI 文档的公开基础 URL。"
+          },
+          "toast": { "saved": "站点品牌已保存。", "saveFailed": "保存站点品牌失败。" }
+        },
+        "authentication": {
+          "title": "认证",
+          "description": "管理员令牌轮换与 IP 白名单。",
+          "currentToken": "当前管理员令牌",
+          "notSet": "未设置",
+          "changeToken": "更换令牌",
+          "cancelChange": "取消",
+          "submitToken": "轮换令牌",
+          "detectedIp": "检测到的管理员 IP：",
+          "fields": {
+            "oldToken": "当前令牌",
+            "newToken": "新令牌",
+            "newTokenHint": "至少 6 个字符。",
+            "confirmToken": "确认新令牌",
+            "adminIpAllowlist": "管理员 IP 白名单",
+            "adminIpAllowlistHint": "每行一个 IP 或 CIDR（如 127.0.0.1、192.168.1.0/24）。留空 = 不限制。"
+          },
+          "schema": {
+            "oldRequired": "请输入当前令牌。",
+            "newMinLength": "新令牌至少 6 个字符。",
+            "confirmRequired": "请确认新令牌。",
+            "confirmMismatch": "两次输入的新令牌不一致。"
+          },
+          "toast": {
+            "tokenChanged": "管理员令牌已轮换。请用新令牌重新登录。",
+            "tokenChangeFailed": "轮换管理员令牌失败。",
+            "allowlistSaved": "IP 白名单已保存。",
+            "allowlistSaveFailed": "保存 IP 白名单失败。"
+          }
+        },
+        "scheduling": {
+          "title": "定时任务",
+          "description": "签到、余额刷新与日志清理计划。",
+          "modeCron": "Cron",
+          "modeInterval": "间隔",
+          "triggerCheckin": "立即签到",
+          "triggering": "触发中…",
+          "fields": {
+            "checkinScheduleMode": "签到调度模式",
+            "checkinScheduleModeHint": "Cron 表达式或固定间隔。",
+            "checkinIntervalHours": "签到间隔（小时）",
+            "checkinCron": "签到 Cron",
+            "balanceRefreshCron": "余额刷新 Cron",
+            "logCleanupCron": "日志清理 Cron",
+            "logCleanupCronHint": "默认每天 06:00 执行。",
+            "logCleanupRetentionDays": "保留天数",
+            "logCleanupUsageLogsEnabled": "清理用量日志",
+            "logCleanupUsageLogsEnabledHint": "按计划删除累积的代理用量日志。",
+            "logCleanupProgramLogsEnabled": "清理程序日志",
+            "logCleanupProgramLogsEnabledHint": "按计划删除程序事件。两个清理开关均关闭时不执行删除。"
+          },
+          "toast": {
+            "saved": "计划已保存。",
+            "saveFailed": "保存计划失败。",
+            "checkinTriggered": "已触发签到。",
+            "checkinTriggerFailed": "触发签到失败。"
+          }
+        },
+        "proxyTransport": {
+          "title": "代理与传输",
+          "description": "系统代理、负载规则、上游并发与探测。",
+          "testProxy": "测试",
+          "errorRulesGroup": "代理失败规则",
+          "codexUpstreamGroup": "Codex 上游并发",
+          "fields": {
+            "systemProxyUrl": "系统代理 URL",
+            "systemProxyUrlHint": "可选出站代理（http:// 或 socks5://）。留空则禁用。",
+            "proxyErrorKeywords": "代理错误关键词",
+            "proxyErrorKeywordsHint": "每行一个关键词；响应命中任一关键词即视为失败。",
+            "proxyEmptyContentFailEnabled": "空 completion 视为失败",
+            "proxyEmptyContentFailEnabledHint": "completion=0 的响应视为失败。",
+            "payloadRules": "负载规则（JSON）",
+            "payloadRulesHint": "原始 JSON 对象。复杂规则请用旧版可视化编辑器。",
+            "codexUpstreamWebsocketEnabled": "对 Codex 上游使用 WebSocket",
+            "responsesCompactFallbackEnabled": "Compact 回退到 Responses",
+            "proxySessionChannelConcurrencyLimit": "会话通道并发",
+            "proxySessionChannelQueueWaitMs": "队列等待（毫秒）"
+          },
+          "schema": { "payloadRulesInvalid": "负载规则必须是合法的 JSON 对象。" },
+          "toast": {
+            "saved": "代理与传输设置已保存。",
+            "saveFailed": "保存代理与传输设置失败。",
+            "proxyOk": "代理可达（{{ms}} ms）。",
+            "proxyOkGeneric": "代理可达。",
+            "proxyFailed": "代理测试失败。"
+          }
+        },
+        "routing": {
+          "title": "路由策略",
+          "description": "兜底成本、权重、冷却与超时。",
+          "weightsGroup": "路由权重",
+          "weightsHint": "预设应用典型权重档位；可手动微调。",
+          "preset": { "balanced": "均衡", "stable": "稳定优先", "cost": "成本优先" },
+          "fields": {
+            "routingFallbackUnitCost": "兜底单价",
+            "routingFallbackUnitCostHint": "无实测/配置值时的默认单价。",
+            "routeFailureCooldown": "失败冷却（秒）",
+            "routeFailureCooldownHint": "封顶普通失败与分级冷却；429 限额类冷却仍遵循上游 reset。",
+            "proxyFirstByteTimeout": "首字超时（秒）",
+            "proxyFirstByteTimeoutHint": "0 关闭；无首包/首 token 时中止。",
+            "disableCrossProtocolFallback": "禁用跨协议回退",
+            "disableCrossProtocolFallbackHint": "失败时不重试其他协议。",
+            "baseWeightFactor": "基础权重因子",
+            "valueScoreFactor": "价值评分因子",
+            "costWeight": "成本权重",
+            "balanceWeight": "余额权重",
+            "usageWeight": "用量权重"
+          },
+          "toast": { "saved": "路由策略已保存。", "saveFailed": "保存路由策略失败。" }
+        }
       },
       "downstream": {
-        "keys": { "title": "下游密钥", "description": "下游 API 密钥（按站点/按账号签发令牌）。" },
-        "proxyToken": { "title": "代理令牌", "description": "全局下游 PROXY_TOKEN（sk- 前缀，随机后缀）。" }
+        "keys": {
+          "title": "下游密钥",
+          "description": "下游 API 密钥（按站点/按账号签发令牌）。",
+          "create": "创建密钥",
+          "createTitle": "创建下游密钥",
+          "createDescription": "签发新的下游 API 密钥，含配额与元数据。",
+          "generate": "生成",
+          "empty": "暂无下游密钥。创建一个以开始签发令牌。",
+          "requests": "请求：{{used}} / {{max}}",
+          "cost": "成本：{{used}} / {{max}}",
+          "deleteTitle": "删除下游密钥",
+          "deleteDescription": "删除密钥「{{name}}」？此操作不可撤销。",
+          "columns": { "name": "名称", "group": "分组", "enabled": "状态", "usage": "用量", "actions": "操作" },
+          "fields": {
+            "name": "名称",
+            "key": "密钥",
+            "keyHint": "sk- 前缀。点击「生成」获取随机高熵密钥。",
+            "groupName": "分组名",
+            "maxRequests": "最大请求数",
+            "maxCost": "最大成本",
+            "expiresAt": "过期时间",
+            "enabled": "启用",
+            "description": "备注"
+          },
+          "schema": { "nameRequired": "请输入名称。", "keyMinLength": "密钥至少 8 个字符。" },
+          "toast": {
+            "created": "下游密钥已创建。",
+            "createFailed": "创建下游密钥失败。",
+            "updated": "下游密钥已更新。",
+            "updateFailed": "更新下游密钥失败。",
+            "deleted": "下游密钥已删除。",
+            "deleteFailed": "删除下游密钥失败。"
+          }
+        },
+        "proxyToken": {
+          "title": "代理令牌",
+          "description": "全局下游 PROXY_TOKEN（sk- 前缀，随机后缀）。",
+          "current": "当前令牌",
+          "notSet": "未设置",
+          "generate": "生成",
+          "save": "更新令牌",
+          "fields": { "suffix": "令牌后缀", "suffixHint": "sk- 前缀固定。生成或输入新后缀。" },
+          "schema": { "suffixMinLength": "后缀至少 8 个字符。" },
+          "toast": { "saved": "代理令牌已更新。", "saveFailed": "更新代理令牌失败。" }
+        }
       },
       "models": {
-        "redirects": { "title": "模型名称重定向", "description": "规范名称到实际模型名的重定向（K1a）。" },
-        "rates": { "title": "费率与倍率", "description": "所有倍率面的只读聚合（N9a）。" },
-        "allowlist": { "title": "全局白名单与品牌屏蔽", "description": "全局允许的模型与全局屏蔽的品牌。" }
+        "redirects": {
+          "title": "模型名称重定向",
+          "description": "规范名称到实际模型名的重定向（K1a）。",
+          "generate": "生成",
+          "preview": "预览",
+          "apply": "应用",
+          "promote": "转手动",
+          "empty": "暂无模型重定向。点击「生成」扫描账号。",
+          "columns": { "canonical": "标准名", "actual": "实际名", "account": "账号", "source": "来源", "actions": "操作" },
+          "source": { "sync": "自动", "manual": "手动" },
+          "toast": {
+            "generated": "已生成 {{created}} 条重定向，涉及 {{accounts}} 个账号。",
+            "generateFailed": "生成重定向失败。",
+            "preview": "{{count}} 个可修复候选项。",
+            "previewEmpty": "无可修复候选项。",
+            "applied": "已应用：移除 {{removed}} 条过期重定向。",
+            "applyFailed": "应用重定向失败。",
+            "promoted": "已转为手动。",
+            "promoteFailed": "转手动失败。",
+            "deleted": "重定向已删除。",
+            "deleteFailed": "删除重定向失败。"
+          }
+        },
+        "rates": {
+          "title": "费率与倍率",
+          "description": "所有倍率面的只读聚合（N9a）。",
+          "summary": "{{accounts}} 个账号（{{withCost}} 个设单价）· {{channels}} 个通道（{{channelsEnabled}} 个启用）。",
+          "accountTable": "账号单价",
+          "channelTable": "通道权重",
+          "empty": "暂无费率数据。",
+          "columns": { "account": "账号", "site": "站点", "channels": "通道数", "unitCost": "单价", "route": "路由", "model": "模型", "enabled": "状态", "weight": "权重" },
+          "toast": { "updated": "已更新（账号：{{accounts}}，通道：{{channels}}）。", "updateFailed": "更新费率失败。" }
+        },
+        "allowlist": {
+          "title": "全局白名单与品牌屏蔽",
+          "description": "全局允许的模型与全局屏蔽的品牌。",
+          "allowAll": "（留空 = 允许全部）",
+          "addPlaceholder": "输入模型名并回车添加",
+          "loadingBrands": "加载品牌列表…",
+          "noBrands": "无可用品牌。",
+          "blockedCount": "已屏蔽 {{count}} 个品牌。",
+          "fields": {
+            "globalAllowedModels": "全局允许的模型",
+            "globalAllowedModelsHint": "留空 = 允许全部。点击徽章移除。",
+            "globalBlockedBrands": "全局屏蔽的品牌",
+            "globalBlockedBrandsHint": "关闭某品牌的开关即全局屏蔽其所有模型。"
+          },
+          "toast": {
+            "saved": "白名单已保存；路由已重建。",
+            "saveFailed": "保存白名单失败。",
+            "rebuildFailed": "已保存，但路由重建失败——请手动重建。",
+            "brandsSaved": "品牌屏蔽已更新；路由已重建。",
+            "brandsSaveFailed": "更新品牌屏蔽失败。"
+          }
+        }
       },
       "content": {
-        "importExport": { "title": "导入 / 导出", "description": "备份与恢复运行时配置。" },
-        "notifications": { "title": "通知渠道", "description": "Webhook / Bark / Telegram / SMTP / 飞书 / 钉钉 / 企业微信 / NTFY。" },
-        "announcements": { "title": "风险横幅公告", "description": "产品风险横幅（H1）— 草稿 / 严重程度 / 启用。" }
+        "importExport": {
+          "title": "导入 / 导出",
+          "description": "备份与恢复运行时配置。",
+          "exportGroup": "导出数据",
+          "exportAll": "导出全部",
+          "exportAccounts": "导出连接",
+          "exportPreferences": "导出偏好",
+          "importGroup": "导入数据",
+          "import": "导入",
+          "webdavGroup": "WebDAV 自动备份",
+          "saveWebdav": "保存 WebDAV 配置",
+          "exportToWebdav": "导出到 WebDAV",
+          "importFromWebdav": "从 WebDAV 导入",
+          "lastSync": "上次同步：{{at}}",
+          "lastError": "上次错误：{{error}}",
+          "fields": {
+            "webdavEnabled": "启用 WebDAV 备份",
+            "webdavFileUrl": "文件 URL",
+            "webdavUsername": "用户名",
+            "webdavPassword": "密码",
+            "webdavPasswordHint": "留空则保留已存密码",
+            "webdavPasswordDescription": "仅当输入新值时才发送。",
+            "webdavExportType": "导出类型",
+            "webdavAutoSyncEnabled": "启用自动同步",
+            "webdavAutoSyncCron": "自动同步 Cron"
+          },
+          "toast": {
+            "exported": "备份已导出。",
+            "exportFailed": "导出失败。",
+            "imported": "备份已导入。",
+            "importFailed": "导入失败。",
+            "webdavSaved": "WebDAV 配置已保存。",
+            "webdavSaveFailed": "保存 WebDAV 配置失败。",
+            "webdavExported": "已导出到 WebDAV。",
+            "webdavExportFailed": "WebDAV 导出失败。",
+            "webdavImported": "已从 WebDAV 导入。",
+            "webdavImportFailed": "WebDAV 导入失败。"
+          }
+        },
+        "notifications": {
+          "title": "通知渠道",
+          "description": "Webhook / Bark / Telegram / SMTP / 飞书 / 钉钉 / 企业微信 / NTFY。",
+          "test": "发送测试",
+          "muteGroup": "按告警静音",
+          "secretPlaceholder": "留空则保留已存密钥",
+          "masked": "已存：{{masked}}",
+          "channels": {
+            "webhook": "Webhook",
+            "bark": "Bark",
+            "serverChan": "Server酱",
+            "telegram": "Telegram Bot",
+            "smtp": "SMTP",
+            "feishu": "飞书",
+            "dingtalk": "钉钉",
+            "wecom": "企业微信",
+            "ntfy": "NTFY"
+          },
+          "fields": {
+            "notifyCooldownSec": "冷却（秒）",
+            "notifyCooldownSecHint": "同一告警类型两次推送的最小间隔。",
+            "webhookEnabled": "启用 Webhook",
+            "webhookUrl": "Webhook URL",
+            "barkEnabled": "启用 Bark",
+            "barkUrl": "Bark URL",
+            "serverChanEnabled": "启用 Server酱",
+            "serverChanKey": "Server酱 SendKey",
+            "telegramEnabled": "启用 Telegram",
+            "telegramChatId": "Chat ID",
+            "telegramMessageThreadId": "消息话题 ID",
+            "telegramApiBaseUrl": "Telegram API 基址",
+            "telegramUseSystemProxy": "使用系统代理",
+            "telegramBotToken": "Bot Token",
+            "smtpEnabled": "启用 SMTP",
+            "smtpHost": "SMTP 主机",
+            "smtpPort": "SMTP 端口",
+            "smtpSecure": "启用 TLS/SSL",
+            "smtpUser": "SMTP 用户名",
+            "smtpPass": "SMTP 密码",
+            "smtpFrom": "发件地址",
+            "smtpTo": "收件地址",
+            "feishuEnabled": "启用飞书",
+            "feishuWebhook": "飞书 Webhook",
+            "feishuSecret": "飞书加签密钥",
+            "dingtalkEnabled": "启用钉钉",
+            "dingtalkWebhook": "钉钉 Webhook",
+            "dingtalkSecret": "钉钉加签密钥",
+            "wecomEnabled": "启用企业微信",
+            "wecomWebhook": "企业微信 Webhook",
+            "ntfyEnabled": "启用 NTFY",
+            "ntfyUrl": "NTFY URL",
+            "ntfyTopic": "NTFY Topic",
+            "ntfyToken": "NTFY Token（可选）",
+            "muteTokenExpired": "静音「令牌失效」",
+            "muteLowBalance": "静音「余额不足」",
+            "muteProxyAllFailed": "静音「代理全部失败」"
+          },
+          "toast": {
+            "saved": "通知渠道已保存。",
+            "saveFailed": "保存通知渠道失败。",
+            "testSent": "测试通知已发送。",
+            "testFailed": "测试通知失败。"
+          }
+        },
+        "announcements": {
+          "title": "风险横幅公告",
+          "description": "产品风险横幅（H1）— 草稿 / 严重程度 / 启用。",
+          "create": "新建公告",
+          "createTitle": "创建公告",
+          "editTitle": "编辑公告",
+          "editDescription": "编辑内容会重置所有用户的关闭状态。",
+          "deleteTitle": "删除公告",
+          "deleteDescription": "删除「{{title}}」？此操作不可撤销。",
+          "empty": "暂无公告。创建一条以展示风险横幅。",
+          "columns": { "severity": "严重程度", "title": "标题", "enabled": "状态", "actions": "操作" },
+          "severity": { "info": "信息", "warning": "警告", "critical": "严重" },
+          "fields": {
+            "title": "标题",
+            "message": "内容",
+            "severity": "严重程度",
+            "link": "链接",
+            "linkHint": "「了解更多」按钮的可选 URL。",
+            "enabled": "启用"
+          },
+          "schema": {
+            "titleRequired": "请输入标题。",
+            "messageRequired": "请输入内容。"
+          },
+          "toast": {
+            "saved": "公告已保存。",
+            "saveFailed": "保存公告失败。",
+            "deleted": "公告已删除。",
+            "deleteFailed": "删除公告失败。"
+          }
+        }
       },
       "systemInfo": {
-        "programLogs": { "title": "程序日志", "description": "操作事件日志（事件流）。" },
-        "auditLogs": { "title": "管理员审计日志", "description": "只读管理员写操作审计（B1）。" },
-        "updateCenter": { "title": "更新中心", "description": "版本 + 部署/回滚状态（UC-1，只读）。" },
-        "database": { "title": "数据库迁移", "description": "运行时 DB 方言 / 连接 / 迁移（仅 CLI）。" },
-        "maintenance": { "title": "维护与危险区", "description": "缓存重建、日志清理与恢复出厂。" }
+        "programLogs": {
+          "title": "程序日志",
+          "description": "操作事件日志（事件流）。",
+          "allTypes": "全部类型",
+          "unreadOnly": "只看未读",
+          "count": "数量",
+          "markRead": "标记已读",
+          "markAllRead": "全部标为已读",
+          "exportCsv": "导出 CSV",
+          "clear": "清空",
+          "empty": "暂无程序事件。",
+          "type": { "checkin": "签到", "balance": "余额", "token": "令牌", "proxy": "代理" },
+          "columns": { "time": "时间", "level": "级别", "type": "类型", "title": "标题", "actions": "操作" },
+          "toast": {
+            "allMarkedRead": "所有事件已标记已读。",
+            "markAllFailed": "标记已读失败。",
+            "markReadFailed": "标记事件已读失败。",
+            "cleared": "程序事件已清空。",
+            "clearFailed": "清空事件失败。"
+          }
+        },
+        "auditLogs": {
+          "title": "管理员审计日志",
+          "description": "只读管理员写操作审计（B1）。",
+          "allMethods": "全部方法",
+          "pathPlaceholder": "搜索路径…",
+          "search": "查询",
+          "empty": "暂无审计记录。",
+          "columns": { "time": "时间", "method": "方法", "path": "路径", "status": "状态", "actor": "操作者", "ip": "IP" }
+        },
+        "updateCenter": {
+          "title": "更新中心",
+          "description": "版本 + 部署/回滚状态（UC-1，只读）。",
+          "currentVersion": "当前版本",
+          "latestVersion": "最新版本",
+          "unknown": "未知",
+          "updateAvailable": "有新版本",
+          "upToDate": "已是最新",
+          "mode": "模式",
+          "repoLink": "GitHub 仓库",
+          "releasesLink": "Releases",
+          "ghcrLink": "GHCR 镜像",
+          "opsNote": "应用内部署已禁用；请使用 metapi-migrate CLI 或容器编排工具。"
+        },
+        "database": {
+          "title": "数据库迁移",
+          "description": "运行时 DB 方言 / 连接 / 迁移（仅 CLI）。",
+          "currentRuntime": "当前运行：",
+          "restartRequired": "已保存待生效——需重启以应用。",
+          "testConnection": "测试连接",
+          "migrate": "迁移",
+          "saveAsRuntime": "保存为运行数据库",
+          "migrateConfirmTitle": "确认迁移",
+          "migrateConfirm": "执行迁移",
+          "fields": {
+            "dialect": "方言",
+            "connectionString": "连接字符串",
+            "connectionStringHint": "sqlite 路径或 postgres URL。",
+            "ssl": "启用 SSL/TLS",
+            "sslHint": "仅 postgres。",
+            "overwrite": "允许覆盖目标数据库"
+          },
+          "schema": { "connectionRequired": "请输入连接字符串。" },
+          "toast": {
+            "saved": "运行时数据库配置已保存。",
+            "saveFailed": "保存数据库配置失败。",
+            "testOk": "连接正常。",
+            "testFailed": "连接测试失败。",
+            "migrated": "迁移完成。",
+            "migrateFailed": "迁移失败。"
+          }
+        },
+        "maintenance": {
+          "title": "维护与危险区",
+          "description": "缓存重建、日志清理与恢复出厂。",
+          "toolsGroup": "维护工具",
+          "clearCache": "清除缓存并重建路由",
+          "clearUsage": "清除用量日志",
+          "dangerZone": "危险区",
+          "factoryReset": "恢复出厂",
+          "factoryResetHint": "不可逆。清空数据库、回退默认 SQLite、重置管理员令牌并登出。",
+          "factoryResetTitle": "恢复出厂",
+          "factoryResetDescription": "将清空所有数据并回退默认值。管理员令牌将重置为默认值。您将被登出。",
+          "factoryResetCountdown": "等待 {{seconds}} 秒…",
+          "factoryResetConfirm": "全部清空",
+          "toast": {
+            "cacheCleared": "缓存已清理。",
+            "cacheClearFailed": "清理缓存失败。",
+            "usageCleared": "用量日志已清理。",
+            "usageClearFailed": "清理用量日志失败。",
+            "factoryResetDone": "恢复出厂完成。正在重新加载…",
+            "factoryResetFailed": "恢复出厂失败。"
+          }
+        }
       },
       "stub": { "placeholder": "TODO phase 3: 从旧版迁移内容" }
     },

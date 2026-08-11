@@ -117,7 +117,7 @@ export function ProxyLogsPage() {
     data: items, columns, manualPagination: true, manualFiltering: true, manualSorting: true,
     enableColumnResizing: true, columnVisibilityStorageKey: PROXY_LOGS_COLUMN_VISIBILITY_STORAGE_KEY,
     columnSizingStorageKey: PROXY_LOGS_COLUMN_SIZING_STORAGE_KEY,
-    globalFilter: search, onGlobalFilterChange, pagination, onPaginationChange: onPaginationChange,
+    globalFilter: search, onGlobalFilterChange, pagination, onPaginationChange,
     getRowId: (row) => String(row.id), totalCount: total,
   })
 

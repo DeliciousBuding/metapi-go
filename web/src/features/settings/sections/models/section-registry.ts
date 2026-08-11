@@ -1,55 +1,34 @@
 // metapi-go/features/settings/sections/models — Models subarea.
 // Scope (plan §5.5.2): model-name redirects + rates/multipliers + global
-// model allowlist & brand blocking.
-// Sections: redirects, rates, allowlist.
-// Phase 2 stubs; phase 3 migrates from the legacy appended sections +
-// Settings.tsx cards 10-11.
-//
-// .ts (no JSX) so react/only-export-components does not apply; section content
-// is built with React.createElement (hooks-safe, phase-3 ready).
+// model allowlist & brand blocking. All three sections wired to real forms
+// under ./components.
 
 import { createElement } from 'react'
 
-import { StubSection } from '../../components/stub-section'
 import { createSectionRegistry } from '../../utils/section-registry'
 import type { SettingsSubarea } from '../../types'
+import { AllowlistSection } from './components/allowlist-section'
+import { RatesSection } from './components/rates-section'
+import { RedirectsSection } from './components/redirects-section'
 
 const MODELS_SECTIONS = [
   {
     id: 'redirects',
     title: 'settings.models.redirects.title',
     description: 'settings.models.redirects.description',
-    build: () =>
-      createElement(StubSection, {
-        title: 'settings.models.redirects.title',
-        description: 'settings.models.redirects.description',
-        legacyRef:
-          'legacy Settings.tsx: ModelRedirectsSection (K1a) — generate / preview / apply / promote / delete',
-      }),
+    build: () => createElement(RedirectsSection),
   },
   {
     id: 'rates',
     title: 'settings.models.rates.title',
     description: 'settings.models.rates.description',
-    build: () =>
-      createElement(StubSection, {
-        title: 'settings.models.rates.title',
-        description: 'settings.models.rates.description',
-        legacyRef:
-          'legacy Settings.tsx: RatesOverviewSection (N9a) — accounts unitCost + channels weight inline edit',
-      }),
+    build: () => createElement(RatesSection),
   },
   {
     id: 'allowlist',
     title: 'settings.models.allowlist.title',
     description: 'settings.models.allowlist.description',
-    build: () =>
-      createElement(StubSection, {
-        title: 'settings.models.allowlist.title',
-        description: 'settings.models.allowlist.description',
-        legacyRef:
-          'legacy Settings.tsx: globalAllowedModels + globalBlockedBrands (cards 10-11)',
-      }),
+    build: () => createElement(AllowlistSection),
   },
 ] as const
 

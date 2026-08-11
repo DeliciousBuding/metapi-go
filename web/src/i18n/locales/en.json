@@ -498,35 +498,42 @@
       "overview": {
         "statCards": {
           "accountCount": "Accounts",
-          "accountCountHint": "TODO phase 3",
+          "accountCountHint": "{{active}} active",
           "siteCount": "Sites",
-          "siteCountHint": "TODO phase 3",
+          "siteCountHint": "tracked sites",
           "todayCheckin": "Today's checkin",
-          "todayCheckinHint": "success rate",
+          "todayCheckinHint": "{{success}} / {{total}} succeeded",
           "proxy24h": "Proxy 24h",
-          "proxy24hHint": "requests"
+          "proxy24hHint": "{{success}} ok · {{rpm}}/min"
         },
         "scheduledTasks": {
           "title": "Scheduled tasks",
           "description": "Background job health (merged from the legacy SchedulerStatusPanel).",
-          "placeholder": "TODO phase 3: render scheduler run status rows from api.getSchedulerStatus()",
-          "legendSuccess": "success",
-          "legendSites": "sites",
-          "legendAccounts": "accounts"
+          "colJob": "Job",
+          "colEnabled": "Enabled",
+          "colLastStatus": "Last status",
+          "colRuns24h": "Runs 24h",
+          "colSuccess24h": "Success 24h",
+          "statusSuccess": "success",
+          "statusFailed": "failed",
+          "statusRunning": "running",
+          "statusNever": "never",
+          "enabled": "enabled",
+          "disabled": "disabled",
+          "empty": "No scheduled jobs configured."
         }
       },
       "traffic": {
-        "incomeOutcome": { "title": "Income vs outcome", "description": "Daily balance inflow vs spend (30d)." },
-        "siteTrend": { "title": "Site trend", "description": "Per-site spend over time." },
-        "siteDistribution": { "title": "Site distribution", "description": "Balance share by site." }
+        "loadError": "Failed to load traffic data.",
+        "incomeOutcome": { "title": "Income vs outcome", "description": "Daily balance inflow vs spend (30d).", "empty": "No balance flow data for the selected range." },
+        "siteTrend": { "title": "Site trend", "description": "Per-site spend over time.", "empty": "No site trend data yet." },
+        "siteDistribution": { "title": "Site distribution", "description": "Balance share by site.", "empty": "No site distribution data yet." }
       },
       "models": {
-        "costDistribution": { "title": "Cost distribution", "description": "Spend share by model (30d)." },
-        "availability": {
-          "title": "Model availability & latency",
-          "description": "Per-model success rate and avg / p95 latency (folded from the legacy Cost and Latency cards).",
-          "placeholder": "TODO phase 3: render model availability / latency rows from"
-        }
+        "loadError": "Failed to load model / latency data.",
+        "costDistribution": { "title": "Cost distribution", "description": "Spend share by model (30d).", "empty": "No model cost data for the selected range." },
+        "latencyHistogram": { "title": "Latency histogram", "description": "Request count by latency bucket (7d).", "empty": "No latency samples yet." },
+        "latencyTrend": { "title": "Latency trend", "description": "Average and p95 latency over time (7d).", "metricAvg": "Average", "metricP95": "P95", "empty": "No latency trend data yet." }
       },
       "availability": {
         "realtime": {
@@ -540,9 +547,15 @@
           "metricUptime": "uptime"
         },
         "monitors": {
-          "title": "Uptime monitors",
-          "description": "Embedded monitors (component-based, not an iframe).",
-          "placeholder": "TODO phase 3: embed the features/monitors surface inline here (replace the legacy iframe)."
+          "title": "Attention required",
+          "description": "Severity-ranked items needing operator eyes (accounts, balances, sites).",
+          "empty": "All clear — nothing needs attention.",
+          "loadError": "Failed to load attention items.",
+          "severity": {
+            "critical": "critical",
+            "warning": "warning",
+            "info": "info"
+          }
         }
       },
       "announcement": {
@@ -559,33 +572,483 @@
         "content": "Content",
         "systemInfo": "System Info"
       },
+      "common": {
+        "save": "Save",
+        "saving": "Saving…",
+        "testing": "Testing…",
+        "delete": "Delete",
+        "cancel": "Cancel",
+        "edit": "Edit",
+        "add": "Add",
+        "create": "Create",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "unlimited": "unlimited"
+      },
       "general": {
-        "site": { "title": "Site & Branding", "description": "System name, logo, footer, about, and server address." },
-        "authentication": { "title": "Authentication", "description": "Admin token rotation and IP allowlist." },
-        "scheduling": { "title": "Scheduled Tasks", "description": "Checkin, balance refresh, and log cleanup schedules." },
-        "proxyTransport": { "title": "Proxy & Transport", "description": "System proxy, payload rules, upstream concurrency, and probe." },
-        "routing": { "title": "Routing Strategy", "description": "Fallback cost, weights, cooldown, and timeouts." }
+        "site": {
+          "title": "Site & Branding",
+          "description": "System name, logo, footer, about, and server address.",
+          "fields": {
+            "systemName": "System name",
+            "systemNameHint": "Displayed in the top bar and browser title.",
+            "logo": "Logo URL",
+            "logoHint": "Public URL of the brand logo image.",
+            "footer": "Footer text",
+            "about": "About",
+            "homePageContent": "Home page content",
+            "homePageContentHint": "Markdown supported; rendered on the landing page.",
+            "serverAddress": "Server address",
+            "serverAddressHint": "Public base URL used for outbound links and OpenAPI docs."
+          },
+          "toast": { "saved": "Site branding saved.", "saveFailed": "Failed to save site branding." }
+        },
+        "authentication": {
+          "title": "Authentication",
+          "description": "Admin token rotation and IP allowlist.",
+          "currentToken": "Current admin token",
+          "notSet": "not set",
+          "changeToken": "Change token",
+          "cancelChange": "Cancel",
+          "submitToken": "Rotate token",
+          "detectedIp": "Detected admin IP:",
+          "fields": {
+            "oldToken": "Current token",
+            "newToken": "New token",
+            "newTokenHint": "At least 6 characters.",
+            "confirmToken": "Confirm new token",
+            "adminIpAllowlist": "Admin IP allowlist",
+            "adminIpAllowlistHint": "One IP or CIDR per line (e.g. 127.0.0.1, 192.168.1.0/24). Empty = no restriction."
+          },
+          "schema": {
+            "oldRequired": "Current token is required.",
+            "newMinLength": "New token must be at least 6 characters.",
+            "confirmRequired": "Please confirm the new token.",
+            "confirmMismatch": "New token and confirmation do not match."
+          },
+          "toast": {
+            "tokenChanged": "Admin token rotated. Re-authenticate with the new token.",
+            "tokenChangeFailed": "Failed to rotate admin token.",
+            "allowlistSaved": "IP allowlist saved.",
+            "allowlistSaveFailed": "Failed to save IP allowlist."
+          }
+        },
+        "scheduling": {
+          "title": "Scheduled Tasks",
+          "description": "Checkin, balance refresh, and log cleanup schedules.",
+          "modeCron": "Cron",
+          "modeInterval": "Interval",
+          "triggerCheckin": "Trigger checkin now",
+          "triggering": "Triggering…",
+          "fields": {
+            "checkinScheduleMode": "Checkin schedule mode",
+            "checkinScheduleModeHint": "Cron expression or fixed interval.",
+            "checkinIntervalHours": "Checkin interval (hours)",
+            "checkinCron": "Checkin cron",
+            "balanceRefreshCron": "Balance refresh cron",
+            "logCleanupCron": "Log cleanup cron",
+            "logCleanupCronHint": "Defaults to 06:00 daily.",
+            "logCleanupRetentionDays": "Log retention (days)",
+            "logCleanupUsageLogsEnabled": "Purge usage logs",
+            "logCleanupUsageLogsEnabledHint": "Delete accumulated proxy usage logs on the cleanup schedule.",
+            "logCleanupProgramLogsEnabled": "Purge program logs",
+            "logCleanupProgramLogsEnabledHint": "Delete program events on the cleanup schedule. No-op if both cleanup toggles are off."
+          },
+          "toast": {
+            "saved": "Schedule saved.",
+            "saveFailed": "Failed to save schedule.",
+            "checkinTriggered": "Checkin triggered.",
+            "checkinTriggerFailed": "Failed to trigger checkin."
+          }
+        },
+        "proxyTransport": {
+          "title": "Proxy & Transport",
+          "description": "System proxy, payload rules, upstream concurrency, and probe.",
+          "testProxy": "Test",
+          "errorRulesGroup": "Proxy failure rules",
+          "codexUpstreamGroup": "Codex upstream concurrency",
+          "fields": {
+            "systemProxyUrl": "System proxy URL",
+            "systemProxyUrlHint": "Optional outbound proxy (http:// or socks5://). Leave empty to disable.",
+            "proxyErrorKeywords": "Proxy error keywords",
+            "proxyErrorKeywordsHint": "One keyword per line; a response matching any keyword is treated as failure.",
+            "proxyEmptyContentFailEnabled": "Treat empty completion as failure",
+            "proxyEmptyContentFailEnabledHint": "A response with zero completion tokens counts as failure.",
+            "payloadRules": "Payload rules (JSON)",
+            "payloadRulesHint": "Raw JSON object. Use the visual editor in the legacy UI for complex rules.",
+            "codexUpstreamWebsocketEnabled": "Use WebSocket to Codex upstream",
+            "responsesCompactFallbackEnabled": "Fallback Compact to Responses",
+            "proxySessionChannelConcurrencyLimit": "Session channel concurrency",
+            "proxySessionChannelQueueWaitMs": "Queue wait (ms)"
+          },
+          "schema": { "payloadRulesInvalid": "Payload rules must be a valid JSON object." },
+          "toast": {
+            "saved": "Proxy & transport settings saved.",
+            "saveFailed": "Failed to save proxy & transport settings.",
+            "proxyOk": "Proxy reachable ({{ms}} ms).",
+            "proxyOkGeneric": "Proxy reachable.",
+            "proxyFailed": "Proxy test failed."
+          }
+        },
+        "routing": {
+          "title": "Routing Strategy",
+          "description": "Fallback cost, weights, cooldown, and timeouts.",
+          "weightsGroup": "Routing weights",
+          "weightsHint": "Presets apply canonical weight profiles; fine-tune individually as needed.",
+          "preset": { "balanced": "Balanced", "stable": "Stable-first", "cost": "Cost-first" },
+          "fields": {
+            "routingFallbackUnitCost": "Fallback unit cost",
+            "routingFallbackUnitCostHint": "Default unit cost when no measured/configured value exists.",
+            "routeFailureCooldown": "Failure cooldown (seconds)",
+            "routeFailureCooldownHint": "Caps ordinary failure + tiered cooldown; 429 quota cooldowns still follow upstream reset.",
+            "proxyFirstByteTimeout": "First-byte timeout (seconds)",
+            "proxyFirstByteTimeoutHint": "0 disables; aborts when no first byte/token arrives in time.",
+            "disableCrossProtocolFallback": "Disable cross-protocol fallback",
+            "disableCrossProtocolFallbackHint": "On failure, do not retry with a different protocol.",
+            "baseWeightFactor": "Base weight factor",
+            "valueScoreFactor": "Value score factor",
+            "costWeight": "Cost weight",
+            "balanceWeight": "Balance weight",
+            "usageWeight": "Usage weight"
+          },
+          "toast": { "saved": "Routing strategy saved.", "saveFailed": "Failed to save routing strategy." }
+        }
       },
       "downstream": {
-        "keys": { "title": "Downstream Keys", "description": "Downstream API keys (per-site/per-account issue tokens)." },
-        "proxyToken": { "title": "Proxy Token", "description": "Global downstream PROXY_TOKEN (sk- prefix, random suffix)." }
+        "keys": {
+          "title": "Downstream Keys",
+          "description": "Downstream API keys (per-site/per-account issue tokens).",
+          "create": "Create key",
+          "createTitle": "Create downstream key",
+          "createDescription": "Issue a new downstream API key with quotas and metadata.",
+          "generate": "Generate",
+          "empty": "No downstream keys yet. Create one to start issuing tokens.",
+          "requests": "Requests: {{used}} / {{max}}",
+          "cost": "Cost: {{used}} / {{max}}",
+          "deleteTitle": "Delete downstream key",
+          "deleteDescription": "Delete key \"{{name}}\"? This action cannot be undone.",
+          "columns": { "name": "Name", "group": "Group", "enabled": "Enabled", "usage": "Usage", "actions": "Actions" },
+          "fields": {
+            "name": "Name",
+            "key": "Key",
+            "keyHint": "sk-prefixed. Click Generate for a random high-entropy key.",
+            "groupName": "Group name",
+            "maxRequests": "Max requests",
+            "maxCost": "Max cost",
+            "expiresAt": "Expires at",
+            "enabled": "Enabled",
+            "description": "Description"
+          },
+          "schema": { "nameRequired": "Name is required.", "keyMinLength": "Key must be at least 8 characters." },
+          "toast": {
+            "created": "Downstream key created.",
+            "createFailed": "Failed to create downstream key.",
+            "updated": "Downstream key updated.",
+            "updateFailed": "Failed to update downstream key.",
+            "deleted": "Downstream key deleted.",
+            "deleteFailed": "Failed to delete downstream key."
+          }
+        },
+        "proxyToken": {
+          "title": "Proxy Token",
+          "description": "Global downstream PROXY_TOKEN (sk- prefix, random suffix).",
+          "current": "Current token",
+          "notSet": "not set",
+          "generate": "Generate",
+          "save": "Update token",
+          "fields": { "suffix": "Token suffix", "suffixHint": "The sk- prefix is fixed. Generate or type a new suffix." },
+          "schema": { "suffixMinLength": "Suffix must be at least 8 characters." },
+          "toast": { "saved": "Proxy token updated.", "saveFailed": "Failed to update proxy token." }
+        }
       },
       "models": {
-        "redirects": { "title": "Model Name Redirects", "description": "Canonical-to-actual model name redirects (K1a)." },
-        "rates": { "title": "Rates & Multipliers", "description": "Read-only aggregation of all multiplier surfaces (N9a)." },
-        "allowlist": { "title": "Global Allowlist & Brand Blocking", "description": "Global allowed models and globally blocked brands." }
+        "redirects": {
+          "title": "Model Name Redirects",
+          "description": "Canonical-to-actual model name redirects (K1a).",
+          "generate": "Generate",
+          "preview": "Preview",
+          "apply": "Apply",
+          "promote": "To manual",
+          "empty": "No model redirects. Click Generate to scan accounts.",
+          "columns": { "canonical": "Canonical", "actual": "Actual", "account": "Account", "source": "Source", "actions": "Actions" },
+          "source": { "sync": "Auto", "manual": "Manual" },
+          "toast": {
+            "generated": "Generated {{created}} redirects across {{accounts}} accounts.",
+            "generateFailed": "Failed to generate redirects.",
+            "preview": "{{count}} fixable candidate(s).",
+            "previewEmpty": "No fixable candidates.",
+            "applied": "Applied: {{removed}} stale redirect(s) removed.",
+            "applyFailed": "Failed to apply redirects.",
+            "promoted": "Redirect promoted to manual.",
+            "promoteFailed": "Failed to promote redirect.",
+            "deleted": "Redirect deleted.",
+            "deleteFailed": "Failed to delete redirect."
+          }
+        },
+        "rates": {
+          "title": "Rates & Multipliers",
+          "description": "Read-only aggregation of all multiplier surfaces (N9a).",
+          "summary": "{{accounts}} accounts ({{withCost}} with unit cost) · {{channels}} channels ({{channelsEnabled}} enabled).",
+          "accountTable": "Account unit costs",
+          "channelTable": "Channel weights",
+          "empty": "No rate data available yet.",
+          "columns": { "account": "Account", "site": "Site", "channels": "Channels", "unitCost": "Unit cost", "route": "Route", "model": "Model", "enabled": "Enabled", "weight": "Weight" },
+          "toast": { "updated": "Updated (accounts: {{accounts}}, channels: {{channels}}).", "updateFailed": "Failed to update rates." }
+        },
+        "allowlist": {
+          "title": "Global Allowlist & Brand Blocking",
+          "description": "Global allowed models and globally blocked brands.",
+          "allowAll": "(empty = allow all)",
+          "addPlaceholder": "Add a model name and press Enter",
+          "loadingBrands": "Loading brand list…",
+          "noBrands": "No brands available.",
+          "blockedCount": "{{count}} brand(s) blocked.",
+          "fields": {
+            "globalAllowedModels": "Global allowed models",
+            "globalAllowedModelsHint": "Empty = allow all models. Click a badge to remove.",
+            "globalBlockedBrands": "Global blocked brands",
+            "globalBlockedBrandsHint": "Toggle a brand off to block all of its models globally."
+          },
+          "toast": {
+            "saved": "Allowlist saved; routes rebuilt.",
+            "saveFailed": "Failed to save allowlist.",
+            "rebuildFailed": "Saved, but route rebuild failed — rebuild manually.",
+            "brandsSaved": "Brand blocking updated; routes rebuilt.",
+            "brandsSaveFailed": "Failed to update brand blocking."
+          }
+        }
       },
       "content": {
-        "importExport": { "title": "Import / Export", "description": "Backup and restore runtime configuration." },
-        "notifications": { "title": "Notification Channels", "description": "Webhook / Bark / Telegram / SMTP / Feishu / DingTalk / WeCom / NTFY." },
-        "announcements": { "title": "Risk Banner Announcements", "description": "Product risk banners (H1) — draft / severity / enable." }
+        "importExport": {
+          "title": "Import / Export",
+          "description": "Backup and restore runtime configuration.",
+          "exportGroup": "Export data",
+          "exportAll": "Export all",
+          "exportAccounts": "Export connections",
+          "exportPreferences": "Export preferences",
+          "importGroup": "Import data",
+          "import": "Import",
+          "webdavGroup": "WebDAV auto-backup",
+          "saveWebdav": "Save WebDAV config",
+          "exportToWebdav": "Export to WebDAV",
+          "importFromWebdav": "Import from WebDAV",
+          "lastSync": "Last sync: {{at}}",
+          "lastError": "Last error: {{error}}",
+          "fields": {
+            "webdavEnabled": "Enable WebDAV backup",
+            "webdavFileUrl": "File URL",
+            "webdavUsername": "Username",
+            "webdavPassword": "Password",
+            "webdavPasswordHint": "Leave blank to keep stored password",
+            "webdavPasswordDescription": "Only sent when you type a new value.",
+            "webdavExportType": "Export type",
+            "webdavAutoSyncEnabled": "Enable auto-sync",
+            "webdavAutoSyncCron": "Auto-sync cron"
+          },
+          "toast": {
+            "exported": "Backup exported.",
+            "exportFailed": "Export failed.",
+            "imported": "Backup imported.",
+            "importFailed": "Import failed.",
+            "webdavSaved": "WebDAV config saved.",
+            "webdavSaveFailed": "Failed to save WebDAV config.",
+            "webdavExported": "Exported to WebDAV.",
+            "webdavExportFailed": "WebDAV export failed.",
+            "webdavImported": "Imported from WebDAV.",
+            "webdavImportFailed": "WebDAV import failed."
+          }
+        },
+        "notifications": {
+          "title": "Notification Channels",
+          "description": "Webhook / Bark / Telegram / SMTP / Feishu / DingTalk / WeCom / NTFY.",
+          "test": "Send test",
+          "muteGroup": "Per-alert mute",
+          "secretPlaceholder": "Leave blank to keep stored secret",
+          "masked": "Stored: {{masked}}",
+          "channels": {
+            "webhook": "Webhook",
+            "bark": "Bark",
+            "serverChan": "ServerChan",
+            "telegram": "Telegram Bot",
+            "smtp": "SMTP",
+            "feishu": "Feishu",
+            "dingtalk": "DingTalk",
+            "wecom": "WeCom",
+            "ntfy": "NTFY"
+          },
+          "fields": {
+            "notifyCooldownSec": "Cooldown (seconds)",
+            "notifyCooldownSecHint": "Minimum gap between notifications of the same alert type.",
+            "webhookEnabled": "Enable webhook",
+            "webhookUrl": "Webhook URL",
+            "barkEnabled": "Enable Bark",
+            "barkUrl": "Bark URL",
+            "serverChanEnabled": "Enable ServerChan",
+            "serverChanKey": "ServerChan key",
+            "telegramEnabled": "Enable Telegram",
+            "telegramChatId": "Chat ID",
+            "telegramMessageThreadId": "Message thread ID",
+            "telegramApiBaseUrl": "Telegram API base URL",
+            "telegramUseSystemProxy": "Use system proxy",
+            "telegramBotToken": "Bot token",
+            "smtpEnabled": "Enable SMTP",
+            "smtpHost": "SMTP host",
+            "smtpPort": "SMTP port",
+            "smtpSecure": "Enable TLS/SSL",
+            "smtpUser": "SMTP user",
+            "smtpPass": "SMTP password",
+            "smtpFrom": "From address",
+            "smtpTo": "To address",
+            "feishuEnabled": "Enable Feishu",
+            "feishuWebhook": "Feishu webhook",
+            "feishuSecret": "Feishu secret",
+            "dingtalkEnabled": "Enable DingTalk",
+            "dingtalkWebhook": "DingTalk webhook",
+            "dingtalkSecret": "DingTalk secret",
+            "wecomEnabled": "Enable WeCom",
+            "wecomWebhook": "WeCom webhook",
+            "ntfyEnabled": "Enable NTFY",
+            "ntfyUrl": "NTFY URL",
+            "ntfyTopic": "NTFY topic",
+            "ntfyToken": "NTFY token (optional)",
+            "muteTokenExpired": "Mute \"token expired\"",
+            "muteLowBalance": "Mute \"low balance\"",
+            "muteProxyAllFailed": "Mute \"proxy all failed\""
+          },
+          "toast": {
+            "saved": "Notification channels saved.",
+            "saveFailed": "Failed to save notification channels.",
+            "testSent": "Test notification sent.",
+            "testFailed": "Test notification failed."
+          }
+        },
+        "announcements": {
+          "title": "Risk Banner Announcements",
+          "description": "Product risk banners (H1) — draft / severity / enable.",
+          "create": "New announcement",
+          "createTitle": "Create announcement",
+          "editTitle": "Edit announcement",
+          "editDescription": "Editing content resets the dismissal state for all users.",
+          "deleteTitle": "Delete announcement",
+          "deleteDescription": "Delete \"{{title}}\"? This action cannot be undone.",
+          "empty": "No announcements. Create one to surface a risk banner.",
+          "columns": { "severity": "Severity", "title": "Title", "enabled": "Status", "actions": "Actions" },
+          "severity": { "info": "Info", "warning": "Warning", "critical": "Critical" },
+          "fields": {
+            "title": "Title",
+            "message": "Message",
+            "severity": "Severity",
+            "link": "Link",
+            "linkHint": "Optional URL for the \"learn more\" button.",
+            "enabled": "Enabled"
+          },
+          "schema": {
+            "titleRequired": "Title is required.",
+            "messageRequired": "Message is required."
+          },
+          "toast": {
+            "saved": "Announcement saved.",
+            "saveFailed": "Failed to save announcement.",
+            "deleted": "Announcement deleted.",
+            "deleteFailed": "Failed to delete announcement."
+          }
+        }
       },
       "systemInfo": {
-        "programLogs": { "title": "Program Logs", "description": "Operational event log (events stream)." },
-        "auditLogs": { "title": "Admin Audit Logs", "description": "Read-only admin write-operation audit (B1)." },
-        "updateCenter": { "title": "Update Center", "description": "Version + deploy/rollback status (UC-1, read-only)." },
-        "database": { "title": "Database Migration", "description": "Runtime DB dialect / connection / migrate (CLI-only)." },
-        "maintenance": { "title": "Maintenance & Danger Zone", "description": "Cache rebuild, log purge, and factory reset." }
+        "programLogs": {
+          "title": "Program Logs",
+          "description": "Operational event log (events stream).",
+          "allTypes": "All types",
+          "unreadOnly": "Unread only",
+          "count": "Count",
+          "markRead": "Mark read",
+          "markAllRead": "Mark all read",
+          "exportCsv": "Export CSV",
+          "clear": "Clear",
+          "empty": "No program events.",
+          "type": { "checkin": "Checkin", "balance": "Balance", "token": "Token", "proxy": "Proxy" },
+          "columns": { "time": "Time", "level": "Level", "type": "Type", "title": "Title", "actions": "Actions" },
+          "toast": {
+            "allMarkedRead": "All events marked read.",
+            "markAllFailed": "Failed to mark events read.",
+            "markReadFailed": "Failed to mark event read.",
+            "cleared": "Program events cleared.",
+            "clearFailed": "Failed to clear events."
+          }
+        },
+        "auditLogs": {
+          "title": "Admin Audit Logs",
+          "description": "Read-only admin write-operation audit (B1).",
+          "allMethods": "All methods",
+          "pathPlaceholder": "Search path…",
+          "search": "Search",
+          "empty": "No audit entries.",
+          "columns": { "time": "Time", "method": "Method", "path": "Path", "status": "Status", "actor": "Actor", "ip": "IP" }
+        },
+        "updateCenter": {
+          "title": "Update Center",
+          "description": "Version + deploy/rollback status (UC-1, read-only).",
+          "currentVersion": "Current version",
+          "latestVersion": "Latest version",
+          "unknown": "unknown",
+          "updateAvailable": "Update available",
+          "upToDate": "Up to date",
+          "mode": "Mode",
+          "repoLink": "GitHub repo",
+          "releasesLink": "Releases",
+          "ghcrLink": "GHCR package",
+          "opsNote": "In-app deploy is disabled; use the metapi-migrate CLI or your container orchestrator."
+        },
+        "database": {
+          "title": "Database Migration",
+          "description": "Runtime DB dialect / connection / migrate (CLI-only).",
+          "currentRuntime": "Current runtime:",
+          "restartRequired": "Saved config pending — restart required to apply.",
+          "testConnection": "Test connection",
+          "migrate": "Migrate",
+          "saveAsRuntime": "Save as runtime DB",
+          "migrateConfirmTitle": "Confirm migration",
+          "migrateConfirm": "Run migration",
+          "fields": {
+            "dialect": "Dialect",
+            "connectionString": "Connection string",
+            "connectionStringHint": "sqlite path or postgres URL.",
+            "ssl": "Enable SSL/TLS",
+            "sslHint": "postgres only.",
+            "overwrite": "Allow overwriting target database"
+          },
+          "schema": { "connectionRequired": "Connection string is required." },
+          "toast": {
+            "saved": "Runtime database config saved.",
+            "saveFailed": "Failed to save database config.",
+            "testOk": "Connection OK.",
+            "testFailed": "Connection test failed.",
+            "migrated": "Migration completed.",
+            "migrateFailed": "Migration failed."
+          }
+        },
+        "maintenance": {
+          "title": "Maintenance & Danger Zone",
+          "description": "Cache rebuild, log purge, and factory reset.",
+          "toolsGroup": "Maintenance tools",
+          "clearCache": "Clear cache & rebuild routes",
+          "clearUsage": "Clear usage logs",
+          "dangerZone": "Danger zone",
+          "factoryReset": "Factory reset",
+          "factoryResetHint": "Irreversible. Wipes the database, reverts to default SQLite, resets the admin token, and signs you out.",
+          "factoryResetTitle": "Factory reset",
+          "factoryResetDescription": "This wipes ALL data and reverts to defaults. The admin token will reset to the default. You will be signed out.",
+          "factoryResetCountdown": "Wait {{seconds}}s…",
+          "factoryResetConfirm": "Wipe everything",
+          "toast": {
+            "cacheCleared": "Cache cleared.",
+            "cacheClearFailed": "Failed to clear cache.",
+            "usageCleared": "Usage logs cleared.",
+            "usageClearFailed": "Failed to clear usage logs.",
+            "factoryResetDone": "Factory reset complete. Reloading…",
+            "factoryResetFailed": "Factory reset failed."
+          }
+        }
       },
       "stub": { "placeholder": "TODO phase 3: migrate content from legacy" }
     },

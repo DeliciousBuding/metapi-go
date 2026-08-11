@@ -184,6 +184,62 @@ export function buildSiteDistributionSpec(
 }
 
 /**
+ * Latency histogram bar chart (one bar per latency bucket). Fed by
+ * api.getLatencyHistogram(): each bucket is `{ label, count }`. Single-series
+ * bar chart in the first series color (no seriesField).
+ */
+export function buildLatencyHistogramSpec(
+  colors: ChartColors,
+  data: Array<{ label: string; count: number }>,
+): VChartSpec {
+  return {
+    type: 'bar',
+    data: [{ id: 'latency-histogram', values: data }],
+    xField: 'label',
+    yField: 'count',
+    bar: { style: { maxWidth: 24, fill: colors.series[0] } },
+    axes: buildAxes(colors),
+    animation: !prefersReducedMotion(),
+    animationAppear: ANIMATION_APPEAR.bar,
+    background: 'transparent',
+    padding: PADDING,
+  }
+}
+
+/**
+ * Latency trend dual-line chart (avg + p95 over time). Fed by
+ * api.getLatencyTrend(): flattened to `{ date, metric, latency }` rows.
+ */
+export function buildLatencyTrendSpec(
+  colors: ChartColors,
+  data: Array<{ date: string; metric: string; latency: number }>,
+): VChartSpec {
+  return {
+    type: 'line',
+    data: [{ id: 'latency-trend', values: data }],
+    xField: 'date',
+    yField: 'latency',
+    seriesField: 'metric',
+    axes: buildAxes(colors),
+    color: colors.series,
+    legends: {
+      visible: true,
+      position: 'bottom',
+      item: {
+        shape: { style: { symbolType: 'circle' } },
+        label: { style: { fill: colors.axisLabel } },
+      },
+    },
+    line: { style: { curveType: 'monotone' } },
+    point: { style: { fill: colors.onPrimary, stroke: colors.series } },
+    animation: !prefersReducedMotion(),
+    animationAppear: ANIMATION_APPEAR.line,
+    background: 'transparent',
+    padding: PADDING,
+  }
+}
+
+/**
  * Model cost distribution donut (slice per model). Ported from legacy
  * CostDistributionChart. Same donut shape as site distribution but keyed on
  * model name and valued by cost; tooltip carries calls / tokens / share.

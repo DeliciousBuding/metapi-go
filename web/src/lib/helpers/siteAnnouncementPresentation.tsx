@@ -124,7 +124,7 @@ function renderInlineMarkdown(text: string): string {
   });
   html = html.replaceAll(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   html = html.replaceAll(/~~([^~]+)~~/g, '<del>$1</del>');
-  html = html.replaceAll(/(^|[^\*])\*([^*\n]+)\*(?=[^\*]|$)/g, '$1<em>$2</em>');
+  html = html.replaceAll(/(^|[^*])\*([^*\n]+)\*(?=[^*]|$)/g, '$1<em>$2</em>');
 
   return html.replaceAll(/\uE000(\d+)\uE000/g, (_, index) => tokens[Number(index)] || '');
 }

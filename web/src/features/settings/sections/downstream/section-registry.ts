@@ -1,40 +1,26 @@
 // metapi-go/features/settings/sections/downstream — Downstream Keys subarea.
 // Scope (plan §5.5.2): downstream API keys + the global PROXY_TOKEN.
-// Sections: keys, proxy-token.
-// Phase 2 stubs; phase 3 migrates from the legacy /downstream-keys page +
-// Settings.tsx card 8.
-//
-// .ts (no JSX) so react/only-export-components does not apply; section content
-// is built with React.createElement (hooks-safe, phase-3 ready).
+// Sections: keys, proxy-token. Both wired to real forms under ./components.
 
 import { createElement } from 'react'
 
-import { StubSection } from '../../components/stub-section'
 import { createSectionRegistry } from '../../utils/section-registry'
 import type { SettingsSubarea } from '../../types'
+import { KeysSection } from './components/keys-section'
+import { ProxyTokenSection } from './components/proxy-token-section'
 
 const DOWNSTREAM_SECTIONS = [
   {
     id: 'keys',
     title: 'settings.downstream.keys.title',
     description: 'settings.downstream.keys.description',
-    build: () =>
-      createElement(StubSection, {
-        title: 'settings.downstream.keys.title',
-        description: 'settings.downstream.keys.description',
-        legacyRef: 'legacy page: /downstream-keys (DownstreamKeys.tsx)',
-      }),
+    build: () => createElement(KeysSection),
   },
   {
     id: 'proxy-token',
     title: 'settings.downstream.proxyToken.title',
     description: 'settings.downstream.proxyToken.description',
-    build: () =>
-      createElement(StubSection, {
-        title: 'settings.downstream.proxyToken.title',
-        description: 'settings.downstream.proxyToken.description',
-        legacyRef: 'legacy Settings.tsx: proxyToken (card 8)',
-      }),
+    build: () => createElement(ProxyTokenSection),
   },
 ] as const
 

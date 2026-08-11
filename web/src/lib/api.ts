@@ -57,7 +57,7 @@ async function request<T = any>(
   } = options
 
   const requestHeaders: Record<string, string> | undefined = body
-    ? { 'Content-Type': 'application/json', ...(headers ?? {}) }
+    ? { 'Content-Type': 'application/json', ...headers }
     : headers
 
   const baseConfig: ApiRequestConfig = {
@@ -1107,7 +1107,7 @@ export const api = {
   triggerCheckin: (id: number) =>
     request(`/api/checkin/trigger/${id}`, { method: 'POST' }),
   getCheckinLogs: (params?: string) =>
-    request(`/api/checkin/logs${params ? '?' + params : ''}`),
+    request(`/api/checkin/logs${params ? `?${  params}` : ''}`),
   updateCheckinSchedule: (cron: string) =>
     request('/api/checkin/schedule', {
       method: 'PUT',
@@ -1539,7 +1539,7 @@ export const api = {
 
   // Events
   getEvents: (params?: string) =>
-    request(`/api/events${params ? '?' + params : ''}`),
+    request(`/api/events${params ? `?${  params}` : ''}`),
   getEventCount: () => request('/api/events/count'),
   markEventRead: (id: number) =>
     request(`/api/events/${id}/read`, { method: 'POST' }),
@@ -1547,7 +1547,7 @@ export const api = {
     request('/api/events/read-all', { method: 'POST' }),
   clearEvents: () => request('/api/events', { method: 'DELETE' }),
   getSiteAnnouncements: (params?: string) =>
-    request(`/api/site-announcements${params ? '?' + params : ''}`),
+    request(`/api/site-announcements${params ? `?${  params}` : ''}`),
   markSiteAnnouncementRead: (id: number) =>
     request(`/api/site-announcements/${id}/read`, { method: 'POST' }),
   markAllSiteAnnouncementsRead: () =>
