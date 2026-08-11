@@ -1,0 +1,65 @@
+name: Bug report
+description: 提交缺陷报告（安全问题请走 Security Advisory，不要用此模板）
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: 感谢报告问题。请尽量完整填写，帮助快速定位。
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: 运行版本（镜像 tag、`metapi --version` 输出；源码运行请贴 commit）
+      placeholder: v0.9.0
+    validations:
+      required: true
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: 部署方式
+      options:
+        - Docker 镜像（ghcr.io/deliciousbuding/metapi-go）
+        - docker-compose
+        - 源码构建（go build）
+        - 其他
+    validations:
+      required: true
+  - type: dropdown
+    id: database
+    attributes:
+      label: 数据库
+      options:
+        - SQLite
+        - PostgreSQL
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 触发问题的完整步骤。日志请附在下方并涂抹密钥/Token。
+      placeholder: |
+        1. 打开「站点」页面
+        2. 点击「添加站点」
+        3. 看到报错：……
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期行为
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+      description: 错误信息、截图或日志片段（记得涂抹凭证）
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 相关日志
+      description: 服务端日志关键片段（无日志可留空）
+      render: shell

@@ -46,7 +46,7 @@ master (唯一长期分支，受保护，随时可发布)
 
 1. 从 master 切分支：`git checkout -b fix/xxx`
 2. 本地门禁全绿后提交（Conventional Commits 风格，见 §5），`git push -u origin fix/xxx`
-   - push 前 `.githooks/pre-push` 自动跑本地 CI（vet + 前端门禁 + race）；紧急跳过 `git push --no-verify`
+   - push 前 `.githooks/pre-push` 自动跑本地 CI（`go build` + `go vet` + 前端门禁 + `-race` 测试）；安装：`git config core.hooksPath .githooks`；紧急跳过 `git push --no-verify`
 3. 开 PR（`gh pr create`，模板自动填充），base = master
 4. CI 11 job 全绿（含 PG 集成测试）后 Squash merge
 5. 合并时把 PR 标题改写为最终提交信息（符合 Conventional Commits）
@@ -84,6 +84,6 @@ master (唯一长期分支，受保护，随时可发布)
 | PR 模板 | `.github/pull_request_template.md` | 自动填充 |
 | CI | `.github/workflows/ci.yml` | PR + master push 全量 11 job |
 | CD + Release | `.github/workflows/cd.yml` | master push 发布镜像；SemVer tag 推送：release-gate → 镜像（amd64+arm64）→ 多平台二进制 + GitHub Release |
-| 本地门禁 | `.githooks/pre-push` | push 前自动运行 |
+| 本地门禁 | `.githooks/pre-push` | `git config core.hooksPath .githooks` 安装后 push 前自动运行（build + vet + 前端 + race） |
 
 相关文档：[`deployment.md`](deployment.md)（部署）· [`STATE.md`](STATE.md)（当前状态）· `AGENTS.md`（工程规则）

@@ -16,6 +16,8 @@
 <p align="center">
   <a href="https://github.com/DeliciousBuding/metapi-go/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/DeliciousBuding/metapi-go/actions/workflows/ci.yml/badge.svg?branch=master"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/DeliciousBuding/metapi-go?logo=github&label=release&color=blue"></a>
+  <a href="https://github.com/DeliciousBuding/metapi-go/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/DeliciousBuding/metapi-go?style=social"></a>
+  <a href="https://github.com/DeliciousBuding/metapi-go/forks"><img alt="Forks" src="https://img.shields.io/github/forks/DeliciousBuding/metapi-go?style=social"></a>
   <img alt="Go" src="https://img.shields.io/badge/Go-1.26.5-00ADD8?logo=go">
   <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?logo=react">
   <img alt="Bun" src="https://img.shields.io/badge/Bun-≥1.0-000000?logo=bun&logoColor=white">
@@ -79,7 +81,7 @@ As of v0.9.0 the frontend is 100% aligned with the [New API](https://github.com/
 - **13 feature modules**: `auth`, `dashboard` (4 sections + RealtimeOps WebSocket), `sites` (guided setup: site→account→route), `accounts`, `token-routes` (dnd-kit drag), `oauth`, `checkin` (nested response destructuring + failure-reason badges), `proxy-logs` (manual + server pagination + detail Sheet), `models`, `model-tester` (SSE streaming, all protocols), `site-announcements`, `about`, `settings` (5 sub-areas).
 - **data-table four-layer architecture**: `core` (TanStack table primitives) + `layout` (responsive composition) + `toolbar` (filter/search/bulk actions) + `static` (local-array rendering) + `hooks` (controlled state, URL three-segment sync).
 - **OKLCH design system**: three-layer CSS (`theme.css` semantic tokens + `theme-presets.css` 10 presets + `index.css` Tailwind 4 entry); 3-axis theming (preset/radius/scale) via `<body data-theme-*>`; class-based dark mode with cookie persistence. Chart colors sampled from OKLCH tokens in JS with MutationObserver re-sampling on theme change.
-- **Key-based i18n**: i18next + react-i18next, supports `en` + `zh-CN` (~900 keys each, zero missing in either direction); React components use `useTranslation()` + `t()`, non-React modules use `i18n.t()`.
+- **Key-based i18n**: i18next + react-i18next, supports `en` + `zh-CN` (1434 keys each, zero missing in either direction); React components use `useTranslation()` + `t()`, non-React modules use `i18n.t()`.
 
 ## Proxy Usage
 
@@ -111,13 +113,6 @@ All env vars are identical to the TypeScript version.
 | `ADMIN_CORS_ALLOWED_ORIGINS` | empty; comma-separated exact `http(s)` admin browser origins allowed to call `/api/*`; `*` is rejected |
 
 Full list: [`.env.example`](.env.example).
-
-On Windows, the loopback default avoids repeated inbound-firewall prompts from changing `go run` or temporary build paths. Set `HOST=0.0.0.0` only for intentional LAN exposure. Audit and precisely remove stale MetAPI executable rules with:
-
-```powershell
-.\scripts\windows-firewall-maintenance.ps1 -Mode Audit
-.\scripts\windows-firewall-maintenance.ps1 -Mode Cleanup -Elevate
-```
 
 The runtime supports two database modes: single-process SQLite and PostgreSQL for production deployments. In PostgreSQL mode, side-effecting schedulers such as external requests, notifications, uploads, cleanup, and sync jobs use PG advisory locks so multiple replicas do not run the same job batch at the same time. Optional `REDIS_URL` / `METAPI_REDIS_URL` enables multi-instance shared **RPM/TPM admission** counters only (`auth.ConfigureSharedAdmissionFromRedisURL` + `internal/sharedcount`; fail-open to process-local windows if Redis is unreachable). Leave empty for single-node — no Redis process required. Sticky sessions remain process-local and are **not** shared across instances via Redis today (STICKY-B is residual, not product). See [`docs/analysis/redis-shared-state.md`](docs/analysis/redis-shared-state.md).
 
@@ -169,7 +164,7 @@ bun run dev            # local dev (rsbuild dev, /api /v1 proxied to backend, de
 bun run typecheck      # tsgo type check
 bun run lint           # oxlint
 bun run lint:fix       # oxlint --fix
-bun run test           # vitest run (currently 361 tests)
+bun run test           # vitest run (currently 369 tests / 38 files)
 bun run knip           # detect unused code
 bun run build          # rsbuild build (output embedded into Go binary via go:embed)
 bun run build:check    # tsgo + build (full pre-release check)
@@ -181,7 +176,12 @@ Dev proxy defaults to `http://localhost:4000`; override via `DEV_PROXY_TARGET` /
 ## Related Projects
 
 - [MetAPI (TypeScript)](https://github.com/cita-777/metapi) — Original Node.js implementation
-- [TokenDance Gateway](https://github.com/DeliciousBuding/tokendance-gateway) — Production NewAPI fork
+
+## Contributing & Security
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — branch model, PR flow, local gates
+- [SECURITY.md](SECURITY.md) — vulnerability reporting (Security Advisory)
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — community guidelines
 
 ## License
 

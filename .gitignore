@@ -17,6 +17,13 @@ web/dist/
 /dist/
 /metapi-go
 /metapi-go.exe
+*.exe
+
+# Certificates & private keys (never commit)
+*.pem
+*.key
+*.crt
+*.p12
 
 # IDE
 .idea/
