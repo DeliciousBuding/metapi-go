@@ -10,7 +10,7 @@
 // 3 will feed real snapshot metrics (activeAccounts / sites / checkin success
 // / proxy 24h) from api.getDashboardSnapshot.
 
-import { useId, useMemo } from 'react'
+import { useMemo } from 'react'
 import { Area, AreaChart } from 'recharts'
 import { useTranslation } from 'react-i18next'
 
@@ -57,8 +57,6 @@ export function StatCard({
   className,
 }: StatCardProps) {
   const { t } = useTranslation()
-  // Unique per-card id so multiple sparklines never share an SVG gradient.
-  const gradientId = useId()
   const sparkConfig: ChartConfig = useMemo(
     () => ({
       ...SPARK_CONFIG_BASE,
@@ -113,31 +111,12 @@ export function StatCard({
                   data={data}
                   margin={{ top: 4, right: 0, bottom: 0, left: 0 }}
                 >
-                  <defs>
-                    <linearGradient
-                      id={gradientId}
-                      x1='0'
-                      y1='0'
-                      x2='0'
-                      y2='1'
-                    >
-                      <stop
-                        offset='0%'
-                        stopColor='var(--color-value)'
-                        stopOpacity={0.4}
-                      />
-                      <stop
-                        offset='100%'
-                        stopColor='var(--color-value)'
-                        stopOpacity={0}
-                      />
-                    </linearGradient>
-                  </defs>
                   <Area
                     dataKey='value'
                     stroke='var(--color-value)'
                     strokeWidth={1.5}
-                    fill={`url(#${gradientId})`}
+                    fill='var(--color-value)'
+                    fillOpacity={0.16}
                     isAnimationActive={false}
                     className={accentClassName}
                   />

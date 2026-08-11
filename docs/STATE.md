@@ -17,7 +17,7 @@
 | Open issues / PRs | [#557](https://github.com/DeliciousBuding/metapi-go/issues/557) · [#558](https://github.com/DeliciousBuding/metapi-go/issues/558) |
 | Stack | Go 1.26.5 · React 19 + Bun + Rsbuild 2 + TanStack Router/Query/Table + Tailwind 4 + shadcn Base UI + OKLCH + i18next · dual dialect SQLite/PostgreSQL |
 | Runtime shape | single embedded SPA binary · **16** background schedulers · OAuth callback listeners start only with an active flow |
-| Brand | **MetAPI** · transparent SVG badge `web/public/logo.svg` (gradient pi, real U+03C0 glyph) + `favicon.svg` · served from the embedded SPA root by the router whitelist |
+| Brand | **MetAPI** · transparent solid-blue SVG badge `web/public/logo.svg` (real U+03C0 π glyph) + `favicon.svg` · served from the embedded SPA root by the router whitelist |
 
 ## Product honesty
 

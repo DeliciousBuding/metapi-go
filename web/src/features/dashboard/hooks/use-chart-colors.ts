@@ -48,7 +48,7 @@ export interface ChartColors {
   series: string[]
   /** derived soft fills (~20% alpha) for series accents. */
   seriesSoft: string[]
-  /** derived faint fills (~5% alpha) for gradient stops. */
+  /** Derived faint fills (~5% alpha) for translucent chart areas. */
   seriesFaint: string[]
 }
 

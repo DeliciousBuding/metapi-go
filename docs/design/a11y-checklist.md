@@ -217,7 +217,7 @@ Tracked for follow-up issues (not blocking U3 checklist doc):
 10. ~~**i18n entries** for newer chrome strings (e.g. `展开侧边栏`) if EN surface shows Chinese fallback.~~ **Partial** — skip-link + sidebar expand/nav open/close added; full inventory residual.
 11. **Automated axe a11y CI** gate — not wired.
 12. **Full 375 walkthrough** of every page table → card path (U2 density work residual).
-13. **Residual hex hygiene** in pages/components (brand logos, chart series, route-card dark gradients) — sequential; no new brand hex allowed.
+13. **Residual hex hygiene** in pages/components (brand logos, chart series, route-card dark surfaces) — sequential; no new brand hex allowed.
 
 ---
 

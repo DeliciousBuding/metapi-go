@@ -17,7 +17,7 @@
 | Personality | Calm GCP control room with Apple-grade materials — not consumer marketing |
 | Density default | Comfortable-dense (admin tables + KPI cards coexist) |
 | Brand color | **GCP Blue** `#1a73e8` (dark `#8ab4f8`) with cool gray accent |
-| Logo mark | Transparent gradient badge `web/public/logo.svg` — rounded-square blue ramp (light `#4f7cff` → `#1e3a8a`) with white **π** glyph (real U+03C0, serif fallback, not hand-drawn strokes); `favicon.svg` = standalone gradient π for small sizes; both served from the embedded SPA root (`router.go` root-file whitelist, `image/svg+xml`) |
+| Logo mark | Transparent solid-color badge `web/public/logo.svg` — rounded-square `#3b5bdb` field with white **π** glyph (real U+03C0, serif fallback, not hand-drawn strokes); `favicon.svg` = standalone solid blue π for small sizes; both served from the embedded SPA root (`router.go` root-file whitelist, `image/svg+xml`) |
 | Fonts | **Public Sans + Lora** (locally embedded via `@fontsource-variable`) — no Google Fonts CDN |
 | High-res | Content column max-width ladder 1680 → 1920 → 2280 → 2600, centered |
 
@@ -30,6 +30,7 @@
 5. **One glass system** — shell/modal/dropdown only; never blur table rows.
 6. **Progressive adoption** — primitives in `web/src/components/ui/**`; migrate pages gradually.
 7. **Console, not marketing** — pill nav, tabular nums, restrained card hover (no lift).
+8. **No gradients** — backgrounds, masks, charts, swatches, fallback avatars, and brand assets use solid colors only.
 
 ---
 
@@ -58,7 +59,6 @@ All values live in `web/src/styles/theme.css` under `:root` (light) and `[data-t
 | `--color-primary-hover` | `#1557b0` | `#aecbfa` | Hover on primary |
 | `--color-primary-light` | `#e8f0fe` | `#1a2b45` | Soft primary fill / active chip |
 | `--color-accent` | `#5f6368` | `#9aa0a6` | Cool gray secondary (not cyan neon) |
-| `--color-brand-gradient` | blue ramp | elevated blue ramp | Logo chip only |
 
 ### 2.3 Glass material
 

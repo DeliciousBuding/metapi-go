@@ -24,14 +24,7 @@ export function SignInPage({ redirectTo }: SignInPageProps) {
   const { t } = useTranslation()
 
   return (
-    <div className='relative flex min-h-svh items-center justify-center bg-background p-4'>
-      {/* Soft brand-tinted glow behind the card (pointer-events-none, theme-safe). */}
-      <div
-        aria-hidden='true'
-        className='pointer-events-none fixed inset-0 overflow-hidden'
-      >
-        <div className='bg-primary/10 absolute -top-32 left-1/2 h-80 w-[42rem] -translate-x-1/2 rounded-full blur-3xl' />
-      </div>
+    <div className='flex min-h-svh items-center justify-center bg-background p-4'>
       <Card className='shadow-sm relative w-full max-w-sm'>
         <CardHeader className='gap-2 text-center'>
           <img

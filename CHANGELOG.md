@@ -9,7 +9,7 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ### Added — 品牌与国际化完善
 - 品牌名统一 **MetAPI**（identity-branding / locales / About / index title）
-- 透明 SVG LOGO：`logo.svg`（渐变圆角徽标 + 真 π 字形 U+03C0）+ `favicon.svg`，替换白底 PNG；router 根文件白名单 + 表驱动回归测试扩展 `image/svg+xml`
+- 透明 SVG LOGO：`logo.svg`（纯色蓝圆角徽标 + 真 π 字形 U+03C0）+ `favicon.svg`，替换白底 PNG；router 根文件白名单 + 表驱动回归测试扩展 `image/svg+xml`
 - 顶栏语言切换 `LanguageSwitcher`（en/zh-CN）：浏览器语言自动跟随（localStorage → navigator）+ `documentElement.lang`/`dir` 同步（`toBcp47`）；locale 各 1381 key 双向 0 缺失
 - **主题定制面板**：顶栏 Palette 入口，4 轴（10 颜色预设 swatch / 字体 Auto-Sans-Serif / 圆角 6 档 / 缩放 4 档）+ 每轴独立重置 + 全局重置；**全部预设默认无衬线**（Anthropic 不再内联衬线，衬线仅显式选择）；移除遗留 FontProvider 双轨（html class → data-theme-font 单一机制）
 - **侧栏导航 i18n**：导航标题改为 i18n key（sidebar.groups/items/backToHome，en + zh-CN），侧栏随语言切换完整本地化
@@ -22,7 +22,8 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ### Changed — 文案与视觉润色
 - 文案术语统一（启用/停用、额度、Check-in、通道）、内部计划编号（K1a/N9a 等）移出用户可见文案、tokenRoutes toast/链式横幅拼接 bug 修复、9 处硬编码 → t()（含移除公开设置页的 TokenDance 品牌泄漏）
-- 登录页真实 logo 徽标 + 品牌光晕 + lg CTA；Dashboard 统计卡骨架屏 + 渐变 id 唯一化 + 空/错状态图标化 + WS 连接脉冲指示；设置页移动端响应式 drill-in + sticky 侧栏
+- 登录页真实 logo 徽标 + 纯色背景 + lg CTA；Dashboard 统计卡骨架屏 + 纯色半透明面积图 + 空/错状态图标化 + WS 连接脉冲指示；设置页移动端响应式 drill-in + sticky 侧栏
+- 全站移除渐变设计：主题色块、品牌 fallback、Logo/favicon、骨架屏、遮罩工具和流动边框统一改为纯色或删除；新增源码与 public 资产回归门禁
 
 ### Chore — Git 工作流规范化（GitHub Flow）
 - **分支模型**：master 唯一长期分支（受保护），短命分支（`fix/*`/`feature/*`/`chore/*`/`docs/*`）→ PR → Squash merge；规则文档 `docs/git-workflow.md`

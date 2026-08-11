@@ -31,14 +31,14 @@ function normalizeInput(value: string): string {
 }
 
 const FALLBACK_COLORS = [
-  'linear-gradient(135deg, var(--color-chart-1), color-mix(in srgb, var(--color-chart-1) 55%, white))',
-  'linear-gradient(135deg, var(--color-chart-3), color-mix(in srgb, var(--color-chart-3) 55%, white))',
-  'linear-gradient(135deg, var(--color-chart-2), color-mix(in srgb, var(--color-chart-2) 55%, white))',
-  'linear-gradient(135deg, var(--color-chart-7), color-mix(in srgb, var(--color-chart-7) 55%, white))',
-  'linear-gradient(135deg, var(--color-stat-orange-ink), color-mix(in srgb, var(--color-stat-orange-ink) 55%, white))',
-  'linear-gradient(135deg, var(--color-stat-cyan-ink), color-mix(in srgb, var(--color-stat-cyan-ink) 55%, white))',
-  'linear-gradient(135deg, var(--color-chart-6), color-mix(in srgb, var(--color-chart-6) 55%, white))',
-  'linear-gradient(135deg, var(--color-chart-5), color-mix(in srgb, var(--color-chart-5) 55%, white))',
+  'var(--color-chart-1)',
+  'var(--color-chart-3)',
+  'var(--color-chart-2)',
+  'var(--color-chart-7)',
+  'var(--color-stat-orange-ink)',
+  'var(--color-stat-cyan-ink)',
+  'var(--color-chart-6)',
+  'var(--color-chart-5)',
 ];
 
 export function normalizeBrandIconKey(icon: string | null | undefined): string | null {
