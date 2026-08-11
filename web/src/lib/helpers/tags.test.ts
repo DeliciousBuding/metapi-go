@@ -35,7 +35,9 @@ describe('collectTags', () => {
       { tags: null },
       { tags: '["backup"]' },
     ];
-    expect(collectTags(rows)).toEqual(['prod', 'backup', 'alpha']);
+    // prod (2) first; alpha + backup tie at 1 — implementation breaks ties by
+    // alphabetical ascending so the result is deterministic across engines.
+    expect(collectTags(rows)).toEqual(['prod', 'alpha', 'backup']);
   });
 });
 

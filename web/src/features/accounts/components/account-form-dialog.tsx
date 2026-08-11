@@ -17,6 +17,7 @@ import {
   type SubmitErrorHandler,
   type UseFormReturn,
 } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
@@ -75,6 +76,7 @@ export function AccountFormDialog({
   account,
   sites,
 }: AccountFormDialogProps) {
+  const { t } = useTranslation()
   const createMutation = useCreateAccount()
   const updateMutation = useUpdateAccount()
   const isEdit = mode === 'edit' && !!account
@@ -89,7 +91,6 @@ export function AccountFormDialog({
   const [initializedFor, setInitializedFor] = useState<string | null>(null)
   const isInitialized = initializedFor !== null
 
-  // Guarded one-time reset per open target (create vs edit:<id>).
   useEffect(() => {
     if (!open) {
       setInitializedFor(null)
@@ -126,7 +127,7 @@ export function AccountFormDialog({
   }
 
   const onInvalid: SubmitErrorHandler<AccountFormValues> = () => {
-    toast.error('请检查表单标红字段')
+    toast.error(t('accounts.form.invalid'))
   }
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending
@@ -136,11 +137,11 @@ export function AccountFormDialog({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side='right' className='flex w-full flex-col gap-0 sm:max-w-lg'>
         <SheetHeader>
-          <SheetTitle>{isEdit ? '编辑账号' : '添加账号'}</SheetTitle>
+          <SheetTitle>{isEdit ? t('accounts.form.editTitle') : t('accounts.form.addTitle')}</SheetTitle>
           <SheetDescription>
             {isEdit
-              ? '更新账号凭证与配置。留空的凭证字段将保持不变。'
-              : '连接一个站点账号：Session 模式用于签到/余额，API Key 模式用于代理转发。'}
+              ? t('accounts.form.editDescription')
+              : t('accounts.form.addDescription')}
           </SheetDescription>
         </SheetHeader>
 
@@ -158,20 +159,20 @@ export function AccountFormDialog({
               name='siteId'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>站点</FormLabel>
+                  <FormLabel>{t('accounts.form.site')}</FormLabel>
                   <Select
                     value={field.value ? String(field.value) : ''}
                     onValueChange={(value) => field.onChange(Number(value))}
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder='选择站点' />
+                        <SelectValue placeholder={t('accounts.form.sitePlaceholder')} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {siteOptions.length === 0 && (
                         <SelectItem value='__none' disabled>
-                          暂无站点，请先添加站点
+                          {t('accounts.form.siteEmpty')}
                         </SelectItem>
                       )}
                       {siteOptions.map((site) => (
@@ -189,7 +190,7 @@ export function AccountFormDialog({
 
             {/* Credential mode toggle */}
             <FormItem>
-              <FormLabel>凭证模式</FormLabel>
+              <FormLabel>{t('accounts.form.credentialMode')}</FormLabel>
               <Tabs
                 value={credentialMode}
                 onValueChange={(value) =>
@@ -211,10 +212,10 @@ export function AccountFormDialog({
               name='username'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>连接名称（可选）</FormLabel>
+                  <FormLabel>{t('accounts.form.connectionName')}</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder='留空则使用站点用户名'
+                      placeholder={t('accounts.form.connectionNamePlaceholder')}
                       {...field}
                       value={field.value ?? ''}
                     />
@@ -236,7 +237,7 @@ export function AccountFormDialog({
               name='status'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>状态</FormLabel>
+                  <FormLabel>{t('accounts.form.status')}</FormLabel>
                   <Select
                     value={field.value}
                     onValueChange={field.onChange}
@@ -247,9 +248,9 @@ export function AccountFormDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value='active'>启用</SelectItem>
-                      <SelectItem value='disabled'>禁用</SelectItem>
-                      <SelectItem value='expired'>已过期</SelectItem>
+                      <SelectItem value='active'>{t('accounts.form.statusActive')}</SelectItem>
+                      <SelectItem value='disabled'>{t('accounts.form.statusDisabled')}</SelectItem>
+                      <SelectItem value='expired'>{t('accounts.form.statusExpired')}</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -264,8 +265,8 @@ export function AccountFormDialog({
               render={({ field }) => (
                 <FormItem className='flex flex-row items-center justify-between rounded-lg border p-3'>
                   <div className='space-y-0.5'>
-                    <FormLabel>启用签到</FormLabel>
-                    <FormDescription>每日自动签到维护余额</FormDescription>
+                    <FormLabel>{t('accounts.form.checkinEnabled')}</FormLabel>
+                    <FormDescription>{t('accounts.form.checkinEnabledHint')}</FormDescription>
                   </div>
                   <FormControl>
                     <Switch
@@ -283,7 +284,7 @@ export function AccountFormDialog({
               name='unitCost'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>单位成本（可选）</FormLabel>
+                  <FormLabel>{t('accounts.form.unitCost')}</FormLabel>
                   <FormControl>
                     <Input
                       type='number'
@@ -311,7 +312,7 @@ export function AccountFormDialog({
               name='proxyUrl'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>代理地址（可选）</FormLabel>
+                  <FormLabel>{t('accounts.form.proxyUrl')}</FormLabel>
                   <FormControl>
                     <Input
                       placeholder='https://proxy.example.com'
@@ -330,7 +331,7 @@ export function AccountFormDialog({
               name='tags'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>标签（可选）</FormLabel>
+                  <FormLabel>{t('accounts.form.tags')}</FormLabel>
                   <FormControl>
                     <Input
                       placeholder='prod, priority'
@@ -338,7 +339,7 @@ export function AccountFormDialog({
                       value={field.value ?? ''}
                     />
                   </FormControl>
-                  <FormDescription>逗号分隔多个标签</FormDescription>
+                  <FormDescription>{t('accounts.form.tagsHint')}</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -352,7 +353,7 @@ export function AccountFormDialog({
             onClick={() => onOpenChange(false)}
             disabled={isSubmitting}
           >
-            取消
+            {t('common.cancel')}
           </Button>
           <Button
             type='submit'
@@ -360,7 +361,7 @@ export function AccountFormDialog({
             disabled={isSubmitting || !isInitialized}
           >
             {isSubmitting && <Loader2 className='animate-spin' />}
-            {isEdit ? '保存修改' : '添加账号'}
+            {isEdit ? t('accounts.form.save') : t('accounts.form.create')}
           </Button>
         </SheetFooter>
       </SheetContent>
@@ -377,6 +378,7 @@ interface SessionFieldsProps {
 }
 
 function SessionFields({ form }: SessionFieldsProps) {
+  const { t } = useTranslation()
   return (
     <>
       <FormField
@@ -384,17 +386,17 @@ function SessionFields({ form }: SessionFieldsProps) {
         name='accessToken'
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Access Token / Cookie</FormLabel>
+            <FormLabel>{t('accounts.formSession.accessToken')}</FormLabel>
             <FormControl>
               <Textarea
                 rows={4}
-                placeholder='粘贴站点的 Session Token 或 Cookie'
+                placeholder={t('accounts.formSession.accessTokenPlaceholder')}
                 className='font-mono text-xs'
                 {...field}
                 value={field.value ?? ''}
               />
             </FormControl>
-            <FormDescription>留空（编辑时）表示保持原有凭证</FormDescription>
+            <FormDescription>{t('accounts.formSession.accessTokenHint')}</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -405,11 +407,11 @@ function SessionFields({ form }: SessionFieldsProps) {
         name='platformUserId'
         render={({ field }) => (
           <FormItem>
-            <FormLabel>用户 ID（可选）</FormLabel>
+            <FormLabel>{t('accounts.formSession.platformUserId')}</FormLabel>
             <FormControl>
               <Input
                 type='number'
-                placeholder='部分站点需要'
+                placeholder={t('accounts.formSession.platformUserIdPlaceholder')}
                 value={field.value ?? ''}
                 onChange={(event) =>
                   field.onChange(
@@ -431,11 +433,11 @@ function SessionFields({ form }: SessionFieldsProps) {
         name='refreshToken'
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Refresh Token（Sub2API 可选）</FormLabel>
+            <FormLabel>{t('accounts.formSession.refreshToken')}</FormLabel>
             <FormControl>
               <Input
                 className='font-mono text-xs'
-                placeholder='留空将保持原有 refresh token'
+                placeholder={t('accounts.formSession.refreshTokenPlaceholder')}
                 {...field}
                 value={field.value ?? ''}
               />
@@ -450,11 +452,11 @@ function SessionFields({ form }: SessionFieldsProps) {
         name='tokenExpiresAt'
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Token 过期时间戳（ms，可选）</FormLabel>
+            <FormLabel>{t('accounts.formSession.tokenExpiresAt')}</FormLabel>
             <FormControl>
               <Input
                 type='number'
-                placeholder='毫秒时间戳'
+                placeholder={t('accounts.formSession.tokenExpiresAtPlaceholder')}
                 value={field.value ?? ''}
                 onChange={(event) =>
                   field.onChange(
@@ -479,6 +481,7 @@ function SessionFields({ form }: SessionFieldsProps) {
 // ---------------------------------------------------------------------------
 
 function ApiKeyFields({ form }: SessionFieldsProps) {
+  const { t } = useTranslation()
   return (
     <>
       <FormField
@@ -486,11 +489,11 @@ function ApiKeyFields({ form }: SessionFieldsProps) {
         name='apiToken'
         render={({ field }) => (
           <FormItem>
-            <FormLabel>API Key</FormLabel>
+            <FormLabel>{t('accounts.formApiKey.apiKey')}</FormLabel>
             <FormControl>
               <Textarea
                 rows={3}
-                placeholder='粘贴站点的 API Key（sk-...）'
+                placeholder={t('accounts.formApiKey.apiKeyPlaceholder')}
                 className='font-mono text-xs'
                 {...field}
                 value={field.value ?? ''}
@@ -507,8 +510,8 @@ function ApiKeyFields({ form }: SessionFieldsProps) {
         render={({ field }) => (
           <FormItem className='flex flex-row items-center justify-between rounded-lg border p-3'>
             <div className='space-y-0.5'>
-              <FormLabel>跳过模型获取</FormLabel>
-              <FormDescription>不验证 Key 的可用模型（快速添加）</FormDescription>
+              <FormLabel>{t('accounts.formApiKey.skipModelFetch')}</FormLabel>
+              <FormDescription>{t('accounts.formApiKey.skipModelFetchHint')}</FormDescription>
             </div>
             <FormControl>
               <Switch

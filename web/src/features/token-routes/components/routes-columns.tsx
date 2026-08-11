@@ -1,11 +1,7 @@
 // metapi-go features/token-routes/components — TanStack Table column
-// definitions for the routes list. Column meta drives the mobile card layout
-// (mobileTitle / mobileBadge / mobileHidden / mobileOrder) so the data-table
-// package's automatic mobile degradation needs zero per-feature card code.
+// definitions for the routes list.
 //
-// Zero-channel placeholder rows (kind: 'zero_channel' / readOnly) are rendered
-// with a muted "未生成" + "0 通道" badge and have their row actions disabled
-// (no edit/delete/toggle) — mirroring the legacy RouteCard readOnly treatment.
+// `routingStrategyLabel()` returns an i18n key; callers wrap with `t()`.
 
 import type { ColumnDef } from '@tanstack/react-table'
 import {
@@ -17,6 +13,7 @@ import {
   Snowflake,
   Trash2,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -41,54 +38,46 @@ import {
   routingStrategyLabel,
 } from '../utils'
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function isReadOnlyRoute(route: RouteSummaryRow): boolean {
   return route.kind === 'zero_channel' || route.readOnly === true
 }
 
 function resolveModeBadge(route: RouteSummaryRow): {
-  label: string
+  labelKey: string
   variant: 'default' | 'secondary' | 'outline'
 } {
   if (isExplicitGroupRoute(route)) {
-    return { label: '分组', variant: 'secondary' }
+    return { labelKey: 'tokenRoutes.columns.badgeGroup', variant: 'secondary' }
   }
-  return { label: '匹配', variant: 'outline' }
+  return { labelKey: 'tokenRoutes.columns.badgeMatch', variant: 'outline' }
 }
 
-function resolveChannelSummary(route: RouteSummaryRow): {
+function resolveChannelSummary(route: RouteSummaryRow, t: (key: string, params?: Record<string, unknown>) => string): {
   label: string
   variant: 'default' | 'warning' | 'secondary'
   hint?: string
 } {
   if (isReadOnlyRoute(route)) {
-    return { label: '0 通道', variant: 'warning', hint: '未生成' }
+    return { label: t('tokenRoutes.columns.channelZeroGenerated'), variant: 'warning', hint: t('tokenRoutes.columns.channelZeroHint') }
   }
   const total = route.channelCount ?? 0
   const enabled = route.enabledChannelCount ?? 0
   if (total === 0) {
-    return { label: '0 通道', variant: 'warning', hint: '需补齐通道' }
+    return { label: t('tokenRoutes.columns.channelZeroNeedChannels'), variant: 'warning', hint: t('tokenRoutes.columns.channelZeroNeedChannelsHint') }
   }
   if (enabled === 0) {
     return {
-      label: `${total} 通道`,
+      label: `${total} ${t('tokenRoutes.columns.channels')}`,
       variant: 'secondary',
-      hint: '全部禁用',
+      hint: t('tokenRoutes.columns.channelAllDisabled'),
     }
   }
   return {
     label: `${enabled}/${total}`,
     variant: 'default',
-    hint: enabled < total ? `${total - enabled} 个禁用` : undefined,
+    hint: enabled < total ? t('tokenRoutes.columns.channelDisabledCount', { count: total - enabled }) : undefined,
   }
 }
-
-// ---------------------------------------------------------------------------
-// Row actions cell
-// ---------------------------------------------------------------------------
 
 function RoutesRowActions({
   route,
@@ -97,41 +86,41 @@ function RoutesRowActions({
   route: RouteSummaryRow
   actions: RouteRowActions
 }) {
+  const { t } = useTranslation()
   const readOnly = isReadOnlyRoute(route)
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         className='inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground'
-        aria-label='路由操作'
+        aria-label={t('tokenRoutes.columns.rowActions')}
       >
         <MoreHorizontal className='size-4' />
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end' sideOffset={4}>
         <DropdownMenuItem onClick={() => actions.onViewDetail(route)}>
           <Eye />
-          查看详情
+          {t('tokenRoutes.columns.viewDetails')}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => actions.onToggleEnabled(route)}
           disabled={readOnly}
         >
           <Power />
-          {route.enabled ? '禁用' : '启用'}
+          {route.enabled ? t('tokenRoutes.columns.disable') : t('tokenRoutes.columns.enable')}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => actions.onClearCooldown(route)}
           disabled={readOnly}
         >
           <Snowflake />
-          清除冷却
+          {t('tokenRoutes.columns.clearCooldown')}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => actions.onRefreshDecision(route)}
           disabled={readOnly}
         >
           <RefreshCw />
-          刷新决策
+          {t('tokenRoutes.columns.refreshDecision')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -139,7 +128,7 @@ function RoutesRowActions({
           disabled={readOnly}
         >
           <Pencil />
-          编辑
+          {t('common.edit')}
         </DropdownMenuItem>
         <DropdownMenuItem
           variant='destructive'
@@ -147,20 +136,17 @@ function RoutesRowActions({
           disabled={readOnly}
         >
           <Trash2 />
-          删除
+          {t('common.delete')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )
 }
 
-// ---------------------------------------------------------------------------
-// Columns hook
-// ---------------------------------------------------------------------------
-
 export function useRoutesColumns(
   actions: RouteRowActions,
 ): ColumnDef<RouteSummaryRow>[] {
+  const { t } = useTranslation()
   return [
     {
       id: 'select',
@@ -173,7 +159,7 @@ export function useRoutesColumns(
           onCheckedChange={(value) =>
             table.toggleAllPageRowsSelected(Boolean(value))
           }
-          aria-label='全选'
+          aria-label={t('tokenRoutes.columns.selectAll')}
         />
       ),
       cell: ({ row }) => {
@@ -185,7 +171,7 @@ export function useRoutesColumns(
           <Checkbox
             checked={row.getIsSelected()}
             onCheckedChange={(value) => row.toggleSelected(Boolean(value))}
-            aria-label='选择此行'
+            aria-label={t('tokenRoutes.columns.selectRow')}
           />
         )
       },
@@ -193,7 +179,7 @@ export function useRoutesColumns(
     },
     {
       id: 'title',
-      header: '模型 / 名称',
+      header: t('tokenRoutes.columns.modelAndName'),
       cell: ({ row }) => {
         const route = row.original as RouteSummaryRow
         const title = resolveRouteTitle(route)
@@ -206,10 +192,10 @@ export function useRoutesColumns(
               <span className='font-medium truncate max-w-[240px]' title={title}>
                 {title}
               </span>
-              <Badge variant={modeBadge.variant}>{modeBadge.label}</Badge>
+              <Badge variant={modeBadge.variant}>{t(modeBadge.labelKey)}</Badge>
               {readOnly && (
                 <Badge variant='outline' className='text-muted-foreground'>
-                  未生成
+                  {t('tokenRoutes.columns.notGenerated')}
                 </Badge>
               )}
             </div>
@@ -223,7 +209,7 @@ export function useRoutesColumns(
                 </Badge>
               )}
               {route.decisionRefreshedAt && (
-                <span>决策缓存于 {route.decisionRefreshedAt}</span>
+                <span>{t('tokenRoutes.columns.decisionCachedAt', { time: route.decisionRefreshedAt })}</span>
               )}
             </div>
           </div>
@@ -233,10 +219,10 @@ export function useRoutesColumns(
     },
     {
       id: 'channels',
-      header: '通道',
+      header: t('tokenRoutes.columns.channels'),
       cell: ({ row }) => {
         const route = row.original as RouteSummaryRow
-        const summary = resolveChannelSummary(route)
+        const summary = resolveChannelSummary(route, t)
         return (
           <div className='flex flex-col'>
             <Badge variant={summary.variant}>
@@ -254,20 +240,20 @@ export function useRoutesColumns(
     },
     {
       id: 'strategy',
-      header: '策略',
+      header: t('tokenRoutes.columns.strategy'),
       cell: ({ row }) => {
         const route = row.original as RouteSummaryRow
         if (isReadOnlyRoute(route)) {
           return <span className='text-muted-foreground text-xs'>—</span>
         }
         const label = routingStrategyLabel(route.routingStrategy as RouteRoutingStrategy | null)
-        return <Badge variant='outline'>{label}</Badge>
+        return <Badge variant='outline'>{t(label)}</Badge>
       },
       meta: { mobileOrder: 3 },
     },
     {
       id: 'sites',
-      header: '站点',
+      header: t('tokenRoutes.columns.sites'),
       cell: ({ row }) => {
         const route = row.original as RouteSummaryRow
         const sites = route.siteNames ?? []
@@ -293,14 +279,14 @@ export function useRoutesColumns(
     },
     {
       id: 'enabled',
-      header: '状态',
+      header: t('tokenRoutes.columns.enabled'),
       cell: ({ row }) => {
         const route = row.original as RouteSummaryRow
         if (isReadOnlyRoute(route)) {
           return (
             <Badge variant='secondary'>
               <span className='size-1.5 rounded-full bg-muted-foreground' />
-              未启用
+              {t('tokenRoutes.columns.notEnabled')}
             </Badge>
           )
         }
@@ -312,7 +298,7 @@ export function useRoutesColumns(
                 route.enabled ? 'bg-emerald-500' : 'bg-muted-foreground',
               )}
             />
-            {route.enabled ? '启用' : '禁用'}
+            {route.enabled ? t('tokenRoutes.columns.enable') : t('tokenRoutes.columns.disable')}
           </Badge>
         )
       },
@@ -330,7 +316,7 @@ export function useRoutesColumns(
       size: 48,
       enableSorting: false,
       enableHiding: false,
-      header: () => <span className='sr-only'>操作</span>,
+      header: () => <span className='sr-only'>{t('common.actions')}</span>,
       cell: ({ row }) => {
         const route = row.original as RouteSummaryRow
         return <RoutesRowActions route={route} actions={actions} />

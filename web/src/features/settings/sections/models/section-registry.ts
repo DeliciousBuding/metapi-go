@@ -17,36 +17,36 @@ import type { SettingsSubarea } from '../../types'
 const MODELS_SECTIONS = [
   {
     id: 'redirects',
-    title: 'Model Name Redirects',
-    description: 'Canonical-to-actual model name redirects (K1a).',
+    title: 'settings.models.redirects.title',
+    description: 'settings.models.redirects.description',
     build: () =>
       createElement(StubSection, {
-        title: 'Model Name Redirects',
-        description: 'Canonical-to-actual model name redirects (K1a).',
+        title: 'settings.models.redirects.title',
+        description: 'settings.models.redirects.description',
         legacyRef:
           'legacy Settings.tsx: ModelRedirectsSection (K1a) — generate / preview / apply / promote / delete',
       }),
   },
   {
     id: 'rates',
-    title: 'Rates & Multipliers',
-    description: 'Read-only aggregation of all multiplier surfaces (N9a).',
+    title: 'settings.models.rates.title',
+    description: 'settings.models.rates.description',
     build: () =>
       createElement(StubSection, {
-        title: 'Rates & Multipliers',
-        description: 'Read-only aggregation of all multiplier surfaces (N9a).',
+        title: 'settings.models.rates.title',
+        description: 'settings.models.rates.description',
         legacyRef:
           'legacy Settings.tsx: RatesOverviewSection (N9a) — accounts unitCost + channels weight inline edit',
       }),
   },
   {
     id: 'allowlist',
-    title: 'Global Allowlist & Brand Blocking',
-    description: 'Global allowed models and globally blocked brands.',
+    title: 'settings.models.allowlist.title',
+    description: 'settings.models.allowlist.description',
     build: () =>
       createElement(StubSection, {
-        title: 'Global Allowlist & Brand Blocking',
-        description: 'Global allowed models and globally blocked brands.',
+        title: 'settings.models.allowlist.title',
+        description: 'settings.models.allowlist.description',
         legacyRef:
           'legacy Settings.tsx: globalAllowedModels + globalBlockedBrands (cards 10-11)',
       }),
@@ -69,7 +69,7 @@ export const getModelsSectionMeta = registry.getSectionMeta
 
 export const modelsSubarea: SettingsSubarea = {
   id: 'models',
-  title: 'Models',
+  title: 'settings.subareas.models',
   basePath: '/settings/models',
   defaultSection: registry.defaultSection,
   sectionIds: registry.sectionIds,

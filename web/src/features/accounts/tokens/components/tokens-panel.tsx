@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useForm, type SubmitErrorHandler } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
@@ -54,6 +55,7 @@ interface TokensPanelProps {
 }
 
 export function TokensPanel({ accountId }: TokensPanelProps) {
+  const { t } = useTranslation()
   const { data: tokens = [], isLoading } = useAccountTokens(accountId)
   const syncMutation = useSyncAccountTokens()
   const deleteMutation = useDeleteAccountToken()
@@ -89,7 +91,7 @@ export function TokensPanel({ accountId }: TokensPanelProps) {
   return (
     <div className='flex flex-col gap-3'>
       <div className='flex items-center justify-between'>
-        <h3 className='text-sm font-medium'>访问令牌</h3>
+        <h3 className='text-sm font-medium'>{t('accounts.tokens.title')}</h3>
         <div className='flex items-center gap-1'>
           <Button
             variant='outline'
@@ -102,11 +104,11 @@ export function TokensPanel({ accountId }: TokensPanelProps) {
             ) : (
               <RefreshCw />
             )}
-            同步站点令牌
+            {t('accounts.tokens.syncFromSite')}
           </Button>
           <Button size='xs' onClick={openCreateForm}>
             <Plus />
-            添加
+            {t('accounts.tokens.add')}
           </Button>
         </div>
       </div>
@@ -124,11 +126,11 @@ export function TokensPanel({ accountId }: TokensPanelProps) {
       {isLoading ? (
         <div className='flex items-center justify-center py-6 text-muted-foreground text-sm'>
           <Loader2 className='size-4 animate-spin' />
-          加载令牌…
+          {t('accounts.tokens.loading')}
         </div>
       ) : tokens.length === 0 ? (
         <p className='py-6 text-center text-muted-foreground text-sm'>
-          暂无令牌。点击「添加」手动新增，或「同步站点令牌」从站点拉取。
+          {t('accounts.tokens.empty')}
         </p>
       ) : (
         <ul className='flex flex-col divide-y rounded-lg border'>
@@ -175,22 +177,23 @@ function TokenRow({
   isDeleting,
   isToggling,
 }: TokenRowProps) {
+  const { t } = useTranslation()
   const isMaskedPending = token.valueStatus === 'masked_pending'
   return (
     <li className='flex items-center gap-3 px-3 py-2'>
       <div className='flex min-w-0 flex-1 flex-col gap-0.5'>
         <div className='flex items-center gap-1.5'>
           <span className='truncate text-sm font-medium'>
-            {token.name || '未命名令牌'}
+            {token.name || t('accounts.tokens.unnamed')}
           </span>
           {token.isDefault && (
             <Badge variant='default' className='text-[10px]'>
-              默认
+              {t('accounts.tokens.default')}
             </Badge>
           )}
           {isMaskedPending && (
             <Badge variant='warning' className='text-[10px]'>
-              待补全
+              {t('accounts.tokens.pendingComplete')}
             </Badge>
           )}
         </div>
@@ -205,8 +208,8 @@ function TokenRow({
             variant='ghost'
             size='icon-sm'
             onClick={onSetDefault}
-            title='设为默认'
-            aria-label='设为默认'
+            title={t('accounts.tokens.setAsDefault')}
+            aria-label={t('accounts.tokens.setAsDefault')}
           >
             <CheckCircle2 />
           </Button>
@@ -215,14 +218,14 @@ function TokenRow({
           checked={token.enabled ?? false}
           onCheckedChange={onToggleEnabled}
           disabled={isToggling}
-          aria-label='启用/禁用令牌'
+          aria-label={t('accounts.tokens.toggleEnabled')}
         />
         <Button
           variant='ghost'
           size='icon-sm'
           onClick={onEdit}
-          title='编辑'
-          aria-label='编辑'
+          title={t('accounts.tokens.edit')}
+          aria-label={t('accounts.tokens.edit')}
         >
           <Pencil />
         </Button>
@@ -232,8 +235,8 @@ function TokenRow({
           onClick={onDelete}
           disabled={isDeleting}
           className={cn('text-muted-foreground hover:text-destructive')}
-          title='删除'
-          aria-label='删除'
+          title={t('accounts.tokens.delete')}
+          aria-label={t('accounts.tokens.delete')}
         >
           <Trash2 />
         </Button>
@@ -257,6 +260,7 @@ function AccountTokenForm({
   token,
   onClose,
 }: AccountTokenFormProps) {
+  const { t } = useTranslation()
   const isEdit = !!token
   const createMutation = useCreateAccountToken()
   const updateMutation = useUpdateAccountToken()
@@ -300,7 +304,6 @@ function AccountTokenForm({
             unlimitedQuota: payload.unlimitedQuota,
             expiredTime: payload.expiredTime,
             allowedIps: payload.allowedIps,
-            // token value only sent when the operator re-enters it
             ...(values.token ? { token: values.token } : {}),
           },
         })
@@ -314,7 +317,7 @@ function AccountTokenForm({
   }
 
   const onInvalid: SubmitErrorHandler<AccountTokenFormValues> = () => {
-    toast.error('请检查令牌表单')
+    toast.error(t('accounts.tokens.form.invalid'))
   }
 
   const isSubmitting = createMutation.isPending || updateMutation.isPending
@@ -330,10 +333,10 @@ function AccountTokenForm({
           name='name'
           render={({ field }) => (
             <FormItem>
-              <FormLabel>令牌名称</FormLabel>
+              <FormLabel>{t('accounts.tokens.form.name')}</FormLabel>
               <FormControl>
                 <Input
-                  placeholder='生产令牌'
+                  placeholder={t('accounts.tokens.form.namePlaceholder')}
                   {...field}
                   value={field.value ?? ''}
                 />
@@ -348,17 +351,17 @@ function AccountTokenForm({
           name='token'
           render={({ field }) => (
             <FormItem>
-              <FormLabel>令牌值</FormLabel>
+              <FormLabel>{t('accounts.tokens.form.value')}</FormLabel>
               <FormControl>
                 <Input
                   className='font-mono text-xs'
-                  placeholder={isEdit ? '留空保持不变' : 'sk-...'}
+                  placeholder={isEdit ? t('accounts.tokens.form.valuePlaceholder') : 'sk-...'}
                   {...field}
                   value={field.value ?? ''}
                 />
               </FormControl>
               <FormDescription>
-                {isEdit ? '编辑时留空表示不修改令牌值' : undefined}
+                {isEdit ? t('accounts.tokens.form.valueHint') : undefined}
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -371,7 +374,7 @@ function AccountTokenForm({
             name='tokenGroup'
             render={({ field }) => (
               <FormItem>
-                <FormLabel>分组</FormLabel>
+                <FormLabel>{t('accounts.tokens.form.group')}</FormLabel>
                 <FormControl>
                   <Input
                     placeholder='default'
@@ -389,11 +392,11 @@ function AccountTokenForm({
             name='quota'
             render={({ field }) => (
               <FormItem>
-                <FormLabel>额度</FormLabel>
+                <FormLabel>{t('accounts.tokens.form.quota')}</FormLabel>
                 <FormControl>
                   <Input
                     type='number'
-                    placeholder='不限'
+                    placeholder={t('accounts.tokens.form.quotaPlaceholder')}
                     disabled={unlimited}
                     value={field.value ?? ''}
                     onChange={(event) =>
@@ -418,8 +421,8 @@ function AccountTokenForm({
           render={({ field }) => (
             <FormItem className='flex flex-row items-center justify-between rounded-lg border p-2.5'>
               <div className='space-y-0.5'>
-                <FormLabel>不限额度</FormLabel>
-                <FormDescription>勾选后忽略额度字段</FormDescription>
+                <FormLabel>{t('accounts.tokens.form.unlimited')}</FormLabel>
+                <FormDescription>{t('accounts.tokens.form.unlimitedHint')}</FormDescription>
               </div>
               <FormControl>
                 <Switch
@@ -437,7 +440,7 @@ function AccountTokenForm({
             name='expiresAt'
             render={({ field }) => (
               <FormItem>
-                <FormLabel>过期时间（可选）</FormLabel>
+                <FormLabel>{t('accounts.tokens.form.expiresAt')}</FormLabel>
                 <FormControl>
                   <Input
                     type='datetime-local'
@@ -455,10 +458,10 @@ function AccountTokenForm({
             name='allowedIps'
             render={({ field }) => (
               <FormItem>
-                <FormLabel>IP 白名单（可选）</FormLabel>
+                <FormLabel>{t('accounts.tokens.form.allowedIps')}</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder='逗号分隔'
+                    placeholder={t('accounts.tokens.form.allowedIpsPlaceholder')}
                     {...field}
                     value={field.value ?? ''}
                   />
@@ -477,11 +480,11 @@ function AccountTokenForm({
             onClick={onClose}
             disabled={isSubmitting}
           >
-            取消
+            {t('common.cancel')}
           </Button>
           <Button type='submit' size='sm' disabled={isSubmitting}>
             {isSubmitting && <Loader2 className='animate-spin' />}
-            {isEdit ? '保存' : '添加令牌'}
+            {isEdit ? t('common.save') : t('accounts.tokens.form.create')}
           </Button>
         </div>
       </form>

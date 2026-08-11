@@ -1,21 +1,7 @@
-// metapi-go features/token-routes/lib — RHF + Zod form schema for the
+// metapi-go/features/token-routes/lib — RHF + Zod form schema for the
 // add/edit route dialog, plus the URL-state schema for the routes list page.
 //
-// Mirrors the accounts feature's `lib/accounts-schema.ts` pattern: a schema
-// *factory* (so cross-field rules can run in `superRefine`), a default-values
-// factory, and two transformers (form → API payload, summary row → form
-// defaults). The form is mode-aware (pattern vs explicit_group) — conditional
-// required-field rules live in `superRefine` so the RHF field array stays
-// stable across mode switches.
-//
-// The legacy create payload (verified against master:
-// `web/pages/TokenRoutes.tsx:530-552`) carries `routeMode`, `modelPattern`
-// (pattern mode), `displayName`, `displayIcon`, `contextLength`, and
-// `sourceRouteIds` (explicit_group mode). The rewrite form additionally
-// exposes `routingStrategy` and `modelMapping` (sent alongside the core keys
-// — the backend `addRoute`/`updateRoute` accept sparse `any` bodies) and a
-// `channelDrafts` array that the form's submit handler forwards to
-// `api.batchAddChannels` after the route is created/updated.
+// Error messages are i18next keys (resolved by `<FormMessage>`).
 
 import { z } from 'zod'
 
@@ -35,9 +21,6 @@ import {
 // ---------------------------------------------------------------------------
 
 export function getRouteFormSchema() {
-  // `z.number()` (not `z.coerce.number()`) and no `.default()` so the schema's
-  // input and output types are identical — zodResolver + RHF otherwise infer a
-  // divergent input. Defaults are supplied by the form's default-values factory.
   return z
     .object({
       routeMode: z.enum(['pattern', 'explicit_group']),
@@ -65,7 +48,7 @@ export function getRouteFormSchema() {
           ctx.addIssue({
             code: 'custom',
             path: ['modelPattern'],
-            message: '请填写模型匹配规则',
+            message: 'tokenRoutes.schema.modelPatternRequired',
           })
         } else if (isRegexModelPattern(pattern)) {
           const error = getModelPatternError(pattern)
@@ -83,14 +66,14 @@ export function getRouteFormSchema() {
           ctx.addIssue({
             code: 'custom',
             path: ['displayName'],
-            message: '请填写对外模型名',
+            message: 'tokenRoutes.schema.displayNameRequired',
           })
         }
         if (!value.sourceRouteIds || value.sourceRouteIds.length === 0) {
           ctx.addIssue({
             code: 'custom',
             path: ['sourceRouteIds'],
-            message: '至少选择一个来源路由',
+            message: 'tokenRoutes.schema.sourceRoutesRequired',
           })
         }
       }
@@ -100,7 +83,7 @@ export function getRouteFormSchema() {
           ctx.addIssue({
             code: 'custom',
             path: ['contextLength'],
-            message: '上下文长度需为正整数',
+            message: 'tokenRoutes.schema.contextLengthPositive',
           })
         }
       }
@@ -144,14 +127,6 @@ function parseContextLength(
   return parsed
 }
 
-/**
- * Convert form values into the POST/PUT /api/routes payload. Pattern mode
- * sends `modelPattern`; explicit_group mode sends `sourceRouteIds`. Empty
- * `displayIcon` / `contextLength` / `modelMapping` are omitted
- * (JSON.stringify drops undefined keys, so the backend treats them as
- * "no change" / "unknown"). `routingStrategy` is forwarded when set so the
- * route is created/updated with the chosen strategy in one round-trip.
- */
 export function transformFormToPayload(
   values: RouteFormValues,
 ): RouteFormPayload {
@@ -183,14 +158,6 @@ export function transformFormToPayload(
   }
 }
 
-/**
- * Seed the form from an existing route (edit mode). The displayIcon sentinel
- * `__route_icon_none__` is preserved exactly so a "no icon" route does not
- * silently flip back to "auto" on save. `modelPattern` is only relevant for
- * pattern mode; `sourceRouteIds` only for explicit_group. Channel drafts start
- * empty on edit — the operator adds new channels via the form's channel
- * picker, and existing channels are managed in the detail sheet.
- */
 export function transformRouteToFormValues(
   route: RouteSummaryRow,
 ): Partial<RouteFormValues> {
@@ -209,7 +176,7 @@ export function transformRouteToFormValues(
 }
 
 // ---------------------------------------------------------------------------
-// URL state schema — routes list page (?q=&enabled=&site=&accountId=&page=&pageSize=)
+// URL state schema
 // ---------------------------------------------------------------------------
 
 export const routesSearchSchema = z.object({

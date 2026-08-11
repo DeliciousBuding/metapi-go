@@ -10,6 +10,7 @@
 // across browser back/forward and direct deep links.
 
 import { Link, useLocation } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/lib/utils'
 
@@ -22,6 +23,7 @@ type SettingsSidebarProps = {
 }
 
 export function SettingsSidebar({ items, title }: SettingsSidebarProps) {
+  const { t } = useTranslation()
   const href = useLocation({ select: (location) => location.href })
   const activeHref = normalizePath(href)
 
@@ -47,7 +49,7 @@ export function SettingsSidebar({ items, title }: SettingsSidebarProps) {
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
               )}
             >
-              {item.title}
+              {t(item.title)}
             </Link>
           )
         })}

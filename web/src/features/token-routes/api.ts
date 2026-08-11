@@ -1,20 +1,8 @@
 // metapi-go features/token-routes/api — TanStack Query hooks for the route
-// configuration domain. Establishes the query-key conventions for the rewrite:
-//   ['routes']                    — summary list (GET /api/routes/summary)
-//   ['routes', 'candidates']      — model token candidates (GET /api/models/token-candidates)
-//   ['routes', 'channels', id]    — channels for a route (GET /api/routes/:id/channels)
+// configuration domain.
 //
-// Mutations wrap the flat `api` object from @/lib/api. The shared axios layer
-// in @/lib/http-client already toasts business errors ({success:false}) and
-// HTTP failures, so these hooks keep their own error handling minimal: the
-// mutationFn throws on a `success:false` body so useMutation transitions to
-// error state (and so mutateAsync rejects in the form handler), while
-// success-side cache invalidation + UI toasts live in the components.
-//
-// The zero-channel placeholder adapter (`useZeroChannelRoutes`) merges the
-// summary list with the missing-token hints from the candidates endpoint via
-// the migrated `@/lib/helpers/zeroChannelRoutes` helper, producing the virtual
-// `RouteSummaryRow[]` the data-table renders (kind: 'zero_channel').
+// Toast messages use `i18n.t()` directly (mutations fire outside React
+// render cycle; toasts are ephemeral so language-change reactivity is moot).
 
 import {
   useMutation,
@@ -32,6 +20,7 @@ import {
   normalizeMissingTokenModels,
   type MissingTokenModelsByName,
 } from '@/lib/helpers/routeMissingTokenHints'
+import i18n from '@/i18n/config'
 
 import {
   type RouteChannel,
@@ -52,9 +41,7 @@ export const routeQueryKeys = {
 }
 
 // ---------------------------------------------------------------------------
-// Envelope helper — backend returns {success, message, data} for writes.
-// http-client already toasted the failure; we only throw to flip the mutation
-// to its error state and reject mutateAsync.
+// Envelope helper
 // ---------------------------------------------------------------------------
 
 function assertBusinessOk<T>(result: unknown, fallback: string): T {
@@ -64,14 +51,13 @@ function assertBusinessOk<T>(result: unknown, fallback: string): T {
     typeof envelope.success === 'boolean' &&
     !envelope.success
   ) {
-    throw new Error(typeof envelope.message === 'string' ? envelope.message : fallback)
+    throw new Error(typeof envelope.message === 'string' ? envelope.message : i18n.t(fallback))
   }
   return (result as T) ?? (envelope?.data as T)
 }
 
 // ---------------------------------------------------------------------------
-// Model token candidates — the shape returned by GET /api/models/token-candidates
-// (verified against legacy master:web/pages/TokenRoutes.tsx:264-273).
+// Model token candidates
 // ---------------------------------------------------------------------------
 
 export type ModelTokenCandidatesResponse = {
@@ -82,7 +68,7 @@ export type ModelTokenCandidatesResponse = {
 }
 
 // ---------------------------------------------------------------------------
-// useRoutes — summary list (GET /api/routes/summary)
+// useRoutes — summary list
 // ---------------------------------------------------------------------------
 
 export function useRoutes(
@@ -106,7 +92,7 @@ export function useRoutes(
 }
 
 // ---------------------------------------------------------------------------
-// useModelTokenCandidates — GET /api/models/token-candidates
+// useModelTokenCandidates
 // ---------------------------------------------------------------------------
 
 export function useModelTokenCandidates(
@@ -136,7 +122,7 @@ export function useModelTokenCandidates(
 }
 
 // ---------------------------------------------------------------------------
-// useRouteChannels — GET /api/routes/:id/channels (detail view)
+// useRouteChannels
 // ---------------------------------------------------------------------------
 
 export function useRouteChannels(
@@ -160,7 +146,7 @@ export function useRouteChannels(
 }
 
 // ---------------------------------------------------------------------------
-// useCreateRoute — POST /api/routes
+// useCreateRoute
 // ---------------------------------------------------------------------------
 
 export interface CreateRouteResult {
@@ -174,20 +160,16 @@ export function useCreateRoute() {
   return useMutation({
     mutationFn: async (payload: RouteFormPayload) => {
       const result = await api.addRoute(payload)
-      return assertBusinessOk<CreateRouteResult>(result, '添加路由失败')
+      return assertBusinessOk<CreateRouteResult>(result, 'tokenRoutes.toast.createFailed')
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
-      // The create form owns the success surface — it fires the guided
-      // "configuration complete" toast (route-completion-toast.tsx) rather
-      // than a plain confirmation, so this hook stays toast-free.
     },
   })
 }
 
 // ---------------------------------------------------------------------------
-// useUpdateRoute — PUT /api/routes/:id (sparse updates: enabled / strategy /
-// contextLength / full form payload)
+// useUpdateRoute
 // ---------------------------------------------------------------------------
 
 export function useUpdateRoute() {
@@ -204,17 +186,17 @@ export function useUpdateRoute() {
       }
     }) => {
       const result = await api.updateRoute(id, payload)
-      return assertBusinessOk(result, '更新路由失败')
+      return assertBusinessOk(result, 'tokenRoutes.toast.updateFailed')
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
-      toast.success('路由已更新')
+      toast.success(i18n.t('tokenRoutes.toast.updated'))
     },
   })
 }
 
 // ---------------------------------------------------------------------------
-// useDeleteRoute — DELETE /api/routes/:id
+// useDeleteRoute
 // ---------------------------------------------------------------------------
 
 export function useDeleteRoute() {
@@ -222,18 +204,17 @@ export function useDeleteRoute() {
   return useMutation({
     mutationFn: async (id: number) => {
       const result = await api.deleteRoute(id)
-      return assertBusinessOk(result, '删除路由失败')
+      return assertBusinessOk(result, 'tokenRoutes.toast.deleteFailed')
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
-      toast.success('路由已删除')
+      toast.success(i18n.t('tokenRoutes.toast.deleted'))
     },
   })
 }
 
 // ---------------------------------------------------------------------------
-// useBatchUpdateRoutes — POST /api/routes/batch { ids, action }
-// action: 'enable' | 'disable'
+// useBatchUpdateRoutes
 // ---------------------------------------------------------------------------
 
 export type BatchRouteAction = 'enable' | 'disable'
@@ -249,7 +230,7 @@ export function useBatchUpdateRoutes() {
       action: BatchRouteAction
     }) => {
       const result = await api.batchUpdateRoutes({ ids, action })
-      return assertBusinessOk(result, '批量操作失败')
+      return assertBusinessOk(result, 'tokenRoutes.toast.batchFailed')
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
@@ -258,7 +239,7 @@ export function useBatchUpdateRoutes() {
 }
 
 // ---------------------------------------------------------------------------
-// useClearRouteCooldown — POST /api/routes/:id/cooldown/clear
+// useClearRouteCooldown
 // ---------------------------------------------------------------------------
 
 export function useClearRouteCooldown() {
@@ -266,17 +247,17 @@ export function useClearRouteCooldown() {
   return useMutation({
     mutationFn: async (id: number) => {
       const result = await api.clearRouteCooldown(id)
-      return assertBusinessOk(result, '清除冷却失败')
+      return assertBusinessOk(result, 'tokenRoutes.toast.cooldownClearFailed')
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
-      toast.success('已清除冷却')
+      toast.success(i18n.t('tokenRoutes.toast.cooldownCleared'))
     },
   })
 }
 
 // ---------------------------------------------------------------------------
-// useBatchAddChannels — POST /api/routes/:id/channels/batch
+// useBatchAddChannels
 // ---------------------------------------------------------------------------
 
 export interface BatchAddChannelsResult {
@@ -296,7 +277,7 @@ export function useBatchAddChannels() {
       channels: Array<{ accountId: number; tokenId?: number; sourceModel?: string }>
     }) => {
       const result = await api.batchAddChannels(routeId, channels)
-      return assertBusinessOk<BatchAddChannelsResult>(result, '添加通道失败')
+      return assertBusinessOk<BatchAddChannelsResult>(result, 'tokenRoutes.toast.channelAddFailed')
     },
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
@@ -308,7 +289,7 @@ export function useBatchAddChannels() {
 }
 
 // ---------------------------------------------------------------------------
-// useRebuildRoutes — POST /api/routes/rebuild (async, server-side)
+// useRebuildRoutes
 // ---------------------------------------------------------------------------
 
 export interface RebuildRoutesResult {
@@ -325,15 +306,18 @@ export function useRebuildRoutes() {
         options?.refreshModels ?? true,
         options?.wait ?? false,
       )
-      return assertBusinessOk<RebuildRoutesResult>(result, '重建路由失败')
+      return assertBusinessOk<RebuildRoutesResult>(result, 'tokenRoutes.toast.rebuildFailed')
     },
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
       if (data?.queued) {
-        toast.info('已开始重建路由，请稍后查看日志')
+        toast.info(i18n.t('tokenRoutes.toast.rebuildStarted'))
       } else {
         toast.success(
-          `自动重建完成（新增 ${data?.created ?? 0} 条路由 / ${data?.channelCount ?? 0} 个通道）`,
+          i18n.t('tokenRoutes.toast.rebuildComplete', {
+            created: data?.created ?? 0,
+            channels: data?.channelCount ?? 0,
+          }),
         )
       }
     },
@@ -341,7 +325,7 @@ export function useRebuildRoutes() {
 }
 
 // ---------------------------------------------------------------------------
-// useRefreshRouteDecisions — POST /api/routes/decision/refresh (async job)
+// useRefreshRouteDecisions
 // ---------------------------------------------------------------------------
 
 export function useRefreshRouteDecisions() {
@@ -349,20 +333,17 @@ export function useRefreshRouteDecisions() {
   return useMutation({
     mutationFn: async () => {
       const result = await api.refreshRouteDecisionSnapshots()
-      return assertBusinessOk<{ jobId?: string }>(result, '刷新决策失败')
+      return assertBusinessOk<{ jobId?: string }>(result, 'tokenRoutes.toast.refreshFailed')
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
-      toast.info('已开始后台刷新路由选中概率，可稍后返回查看')
+      toast.info(i18n.t('tokenRoutes.toast.refreshStarted'))
     },
   })
 }
 
 // ---------------------------------------------------------------------------
-// useZeroChannelRoutes — selector hook that merges the summary list with the
-// missing-token hints (built by `buildZeroChannelPlaceholderRoutes`).
-// Returns the combined `RouteSummaryRow[]` the data-table renders. Toggle
-// `showZeroChannel` to include/exclude the virtual placeholder rows.
+// useZeroChannelRoutes
 // ---------------------------------------------------------------------------
 
 export function useZeroChannelRoutes(

@@ -9,6 +9,8 @@
 import { useMemo } from 'react'
 import { VChart } from '@visactor/react-vchart'
 
+import { useTranslation } from 'react-i18next'
+
 import { useTheme } from '@/context/theme-provider'
 
 import { ChartShell } from '../../components/chart-shell'
@@ -34,6 +36,7 @@ const SITE_TREND_DATA: SiteTrendPoint[] = []
 const SITE_DISTRIBUTION_DATA: SiteDistributionSlice[] = []
 
 export function TrafficSection() {
+  const { t } = useTranslation()
   const colors = useChartColors()
   const labelColor = useThemeLabelColor()
   const { resolvedTheme } = useTheme()
@@ -58,8 +61,8 @@ export function TrafficSection() {
   return (
     <div className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
       <ChartShell
-        title='Income vs outcome'
-        description='Daily balance inflow vs spend (30d).'
+        title={t('dashboard.traffic.incomeOutcome.title')}
+        description={t('dashboard.traffic.incomeOutcome.description')}
         height={300}
       >
         <VChart
@@ -71,8 +74,8 @@ export function TrafficSection() {
       </ChartShell>
 
       <ChartShell
-        title='Site trend'
-        description='Per-site spend over time.'
+        title={t('dashboard.traffic.siteTrend.title')}
+        description={t('dashboard.traffic.siteTrend.description')}
         height={300}
       >
         <VChart
@@ -84,8 +87,8 @@ export function TrafficSection() {
       </ChartShell>
 
       <ChartShell
-        title='Site distribution'
-        description='Balance share by site.'
+        title={t('dashboard.traffic.siteDistribution.title')}
+        description={t('dashboard.traffic.siteDistribution.description')}
         height={300}
         className='lg:col-span-2'
       >

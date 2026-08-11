@@ -1,5 +1,7 @@
-// metapi-go features/accounts/tokens/lib — RHF + Zod form schema for the
+// metapi-go/features/accounts/tokens/lib — RHF + Zod form schema for the
 // add/edit account-token dialog embedded inside the account detail sheet.
+//
+// Error messages are i18next keys (resolved by `<FormMessage>`).
 
 import { z } from 'zod'
 
@@ -10,20 +12,20 @@ import { z } from 'zod'
 export function getAccountTokenFormSchema() {
   return z.object({
     accountId: z
-      .number({ message: '请选择所属账号' })
-      .int({ message: '请选择所属账号' })
-      .positive({ message: '请选择所属账号' }),
+      .number({ message: 'accounts.tokens.schema.accountRequired' })
+      .int({ message: 'accounts.tokens.schema.accountRequired' })
+      .positive({ message: 'accounts.tokens.schema.accountRequired' }),
     name: z
-      .string({ message: '请填写令牌名称' })
+      .string({ message: 'accounts.tokens.schema.nameRequired' })
       .trim()
-      .min(1, { message: '请填写令牌名称' })
-      .max(120, { message: '令牌名称过长' }),
+      .min(1, { message: 'accounts.tokens.schema.nameRequired' })
+      .max(120, { message: 'accounts.tokens.schema.nameTooLong' }),
     token: z
-      .string({ message: '请填写令牌值' })
+      .string({ message: 'accounts.tokens.schema.valueRequired' })
       .trim()
-      .min(1, { message: '请填写令牌值' }),
+      .min(1, { message: 'accounts.tokens.schema.valueRequired' }),
     tokenGroup: z.string().trim().optional(),
-    quota: z.number().nonnegative({ message: '额度需为非负数' }).optional(),
+    quota: z.number().nonnegative({ message: 'accounts.tokens.schema.quotaNonNegative' }).optional(),
     unlimited: z.boolean(),
     expiresAt: z.string().trim().optional(),
     allowedIps: z.string().trim().optional(),

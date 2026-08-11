@@ -11,6 +11,8 @@
 
 import { Activity, CheckCircle2, Globe, Users } from 'lucide-react'
 
+import { useTranslation } from 'react-i18next'
+
 import {
   Card,
   CardContent,
@@ -28,6 +30,7 @@ const STUB_SPARK_ACCOUNTS = [3, 4, 4, 5, 5, 6, 6, 7]
 const STUB_SPARK_PROXY = [120, 140, 110, 160, 180, 150, 170, 190]
 
 export function OverviewSection() {
+  const { t } = useTranslation()
   // TODO phase 3: const { data } = useQuery({ queryKey: ['dashboard-snapshot'],
   //   queryFn: () => api.getDashboardSnapshot() }); then unpack:
   //   activeAccounts/totalAccounts, sites, todayMetricStatus.metrics.reward.status,
@@ -38,25 +41,25 @@ export function OverviewSection() {
 
       <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4'>
         <StatCard
-          title='Accounts'
+          title={t('dashboard.overview.statCards.accountCount')}
           value='—'
-          hint='TODO phase 3'
+          hint={t('dashboard.overview.statCards.accountCountHint')}
           spark={STUB_SPARK_ACCOUNTS}
         />
         <StatCard
-          title='Sites'
+          title={t('dashboard.overview.statCards.siteCount')}
           value='—'
-          hint='TODO phase 3'
+          hint={t('dashboard.overview.statCards.siteCountHint')}
         />
         <StatCard
-          title="Today's checkin"
+          title={t('dashboard.overview.statCards.todayCheckin')}
           value='—'
-          hint='success rate'
+          hint={t('dashboard.overview.statCards.todayCheckinHint')}
         />
         <StatCard
-          title='Proxy 24h'
+          title={t('dashboard.overview.statCards.proxy24h')}
           value='—'
-          hint='requests'
+          hint={t('dashboard.overview.statCards.proxy24hHint')}
           spark={STUB_SPARK_PROXY}
         />
       </div>
@@ -68,27 +71,26 @@ export function OverviewSection() {
         <CardHeader>
           <CardTitle className='flex items-center gap-2 text-sm font-medium'>
             <Activity className='size-4' />
-            Scheduled tasks
+            {t('dashboard.overview.scheduledTasks.title')}
           </CardTitle>
           <CardDescription className='text-xs'>
-            Background job health (merged from the legacy SchedulerStatusPanel).
+            {t('dashboard.overview.scheduledTasks.description')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className='flex min-h-24 flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center'>
             <p className='text-muted-foreground text-sm'>
-              TODO phase 3: render scheduler run status rows from
-              <code className='text-muted-foreground/70'> api.getSchedulerStatus()</code>
+              {t('dashboard.overview.scheduledTasks.placeholder')}
             </p>
             <div className='flex items-center gap-4 text-muted-foreground'>
               <span className='flex items-center gap-1 text-xs'>
-                <CheckCircle2 className='size-3' /> success
+                <CheckCircle2 className='size-3' /> {t('dashboard.overview.scheduledTasks.legendSuccess')}
               </span>
               <span className='flex items-center gap-1 text-xs'>
-                <Globe className='size-3' /> sites
+                <Globe className='size-3' /> {t('dashboard.overview.scheduledTasks.legendSites')}
               </span>
               <span className='flex items-center gap-1 text-xs'>
-                <Users className='size-3' /> accounts
+                <Users className='size-3' /> {t('dashboard.overview.scheduledTasks.legendAccounts')}
               </span>
             </div>
           </div>

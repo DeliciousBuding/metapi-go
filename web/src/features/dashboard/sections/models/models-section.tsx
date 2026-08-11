@@ -16,6 +16,8 @@ import { useMemo } from 'react'
 import { Cpu } from 'lucide-react'
 import { VChart } from '@visactor/react-vchart'
 
+import { useTranslation } from 'react-i18next'
+
 import { useTheme } from '@/context/theme-provider'
 import {
   Card,
@@ -34,6 +36,7 @@ import type { ModelCostRow } from '../../types'
 const MODEL_COST_DATA: ModelCostRow[] = []
 
 export function ModelsSection() {
+  const { t } = useTranslation()
   const colors = useChartColors()
   const labelColor = useThemeLabelColor()
   const { resolvedTheme } = useTheme()
@@ -46,8 +49,8 @@ export function ModelsSection() {
   return (
     <div className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
       <ChartShell
-        title='Cost distribution'
-        description='Spend share by model (30d).'
+        title={t('dashboard.models.costDistribution.title')}
+        description={t('dashboard.models.costDistribution.description')}
         height={320}
       >
         <VChart
@@ -62,17 +65,16 @@ export function ModelsSection() {
         <CardHeader>
           <CardTitle className='flex items-center gap-2 text-sm font-medium'>
             <Cpu className='size-4' />
-            Model availability & latency
+            {t('dashboard.models.availability.title')}
           </CardTitle>
           <CardDescription className='text-xs'>
-            Per-model success rate and avg / p95 latency (folded from the legacy
-            Cost and Latency cards).
+            {t('dashboard.models.availability.description')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className='flex min-h-64 flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center'>
             <p className='text-muted-foreground text-sm'>
-              TODO phase 3: render model availability / latency rows from
+              {t('dashboard.models.availability.placeholder')}
             </p>
             <code className='text-muted-foreground/70 text-xs'>
               api.getDashboardInsights() · api.getLatencyTrend()

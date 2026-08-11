@@ -11,6 +11,8 @@
 
 import { toast } from 'sonner'
 
+import i18n from '@/i18n/config'
+
 function buildRouteTarget(accountId?: number, siteId?: number): string {
   const params = new URLSearchParams()
   if (accountId) params.set('accountId', String(accountId))
@@ -29,11 +31,11 @@ export function showAccountCreatedToast(
   siteId?: number,
 ): void {
   const target = buildRouteTarget(accountId, siteId)
-  toast.success('账号已添加', {
-    description: '下一步：为这个账号配置路由，让它真正可用。',
+  toast.success(i18n.t('accounts.created.title'), {
+    description: i18n.t('accounts.created.description'),
     duration: 8000,
     action: {
-      label: '配置路由',
+      label: i18n.t('accounts.created.action'),
       onClick: () => window.location.assign(target),
     },
   })

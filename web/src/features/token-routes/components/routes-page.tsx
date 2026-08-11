@@ -1,20 +1,5 @@
 // metapi-go features/token-routes/components — the routes list page.
-//
-// Wires the data-table four-layer package (useDataTable + DataTablePage) to
-// the useRoutes summary query + useModelTokenCandidates query, with
-// client-side pagination/filtering/sorting and URL-synced table state
-// (page / pageSize / global search / enabled filter / accountId / siteId —
-// the last two support the deep-link from the accounts page's guided toast).
-// Mobile card degradation is handled automatically by DataTablePage.
-//
-// Zero-channel placeholder rows (kind: 'zero_channel') are merged in via the
-// `useZeroChannelRoutes` adapter when the operator toggles the "显示零通道"
-// header button — they render as muted, read-only rows with a "未生成" badge
-// and are excluded from selection / batch actions / the enabled filter.
-//
-// Header actions: add route (opens the form Sheet), rebuild routes, refresh
-// decision snapshots, toggle zero-channel visibility. Bulk actions: batch
-// enable / disable.
+// i18n: all user-visible strings migrated to t() calls.
 
 import { useEffect, useMemo, useState } from 'react'
 import {
@@ -30,6 +15,7 @@ import {
   RefreshCw,
   Zap,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import {
   DataTableBulkActions,
@@ -75,13 +61,6 @@ import {
   type RouteAccountOption,
 } from './route-form-dialog'
 
-// ---------------------------------------------------------------------------
-// URL state helpers — read initial table state from the query string on mount
-// and write subsequent changes back via history.replaceState. The `accountId`
-// and `siteId` params are the deep-link context from the accounts page guided
-// toast (step 2 → step 3 of the site → account → route chain).
-// ---------------------------------------------------------------------------
-
 interface InitialUrlState {
   page: number
   pageSize: number
@@ -114,11 +93,8 @@ function readInitialFromUrl(): InitialUrlState {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
-
 export function RoutesPage() {
+  const { t } = useTranslation()
   const { data: routesData, isLoading, isFetching, error } = useRoutes()
   const candidatesQuery = useModelTokenCandidates()
 
@@ -131,11 +107,9 @@ export function RoutesPage() {
   const routes = routesData ?? []
   const candidates = candidatesQuery.data
 
-  // --- zero-channel toggle ---
   const [showZeroChannel, setShowZeroChannel] = useState(false)
   const rows = useZeroChannelRoutes(routes, candidates, showZeroChannel)
 
-  // --- table state (client-side, URL-synced) ---
   const initial = useMemo(readInitialFromUrl, [])
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: initial.page - 1,
@@ -150,7 +124,6 @@ export function RoutesPage() {
     return filters
   })
 
-  // Write state back to the URL.
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams()
@@ -187,14 +160,13 @@ export function RoutesPage() {
     [],
   )
 
-  // --- dialog state ---
   const [formOpen, setFormOpen] = useState(false)
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create')
   const [editRoute, setEditRoute] = useState<RouteSummaryRow | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailRoute, setDetailRoute] = useState<RouteSummaryRow | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
-  const [deleteRoute, setDeleteRoute] = useState<RouteSummaryRow | null>(null)
+  const [deleteRouteState, setDeleteRoute] = useState<RouteSummaryRow | null>(null)
 
   const openCreate = () => {
     setFormMode('create')
@@ -208,7 +180,6 @@ export function RoutesPage() {
     setFormOpen(true)
   }
 
-  // --- row actions (handed to the columns hook) ---
   const rowActions: RouteRowActions = {
     onEdit: openEdit,
     onDelete: (route) => {
@@ -244,7 +215,6 @@ export function RoutesPage() {
     onColumnFiltersChange,
     pagination,
     onPaginationChange: setPagination,
-    // Client-side global search across modelPattern / displayName / siteNames.
     globalFilterFn: (row, _columnId, filterValue) => {
       const route = row.original as RouteSummaryRow
       const haystack = [
@@ -258,7 +228,6 @@ export function RoutesPage() {
     },
   })
 
-  // --- form helpers: available source routes (exact-model) + account options
   const availableRoutes = useMemo(
     () =>
       routes.filter(
@@ -284,9 +253,9 @@ export function RoutesPage() {
   )
 
   const confirmDelete = async () => {
-    if (!deleteRoute) return
+    if (!deleteRouteState) return
     try {
-      await deleteMutation.mutateAsync(deleteRoute.id)
+      await deleteMutation.mutateAsync(deleteRouteState.id)
       setDeleteOpen(false)
       setDeleteRoute(null)
     } catch {
@@ -298,9 +267,9 @@ export function RoutesPage() {
     <div className='flex h-full flex-col gap-3 p-4'>
       <div className='flex items-center justify-between gap-4'>
         <div>
-          <h1 className='text-lg font-semibold'>路由管理</h1>
+          <h1 className='text-lg font-semibold'>{t('tokenRoutes.page.title')}</h1>
           <p className='text-sm text-muted-foreground'>
-            配置模型路由：匹配规则 / 分组 / 通道策略，让请求按规则分发到账号通道。
+            {t('tokenRoutes.page.description')}
           </p>
         </div>
         <div className='flex items-center gap-2'>
@@ -315,7 +284,7 @@ export function RoutesPage() {
             ) : (
               <Zap />
             )}
-            自动重建
+            {t('tokenRoutes.page.rebuild')}
           </Button>
           <Button
             variant='outline'
@@ -326,28 +295,27 @@ export function RoutesPage() {
             <RefreshCw
               className={refreshDecisionsMutation.isPending ? 'animate-spin' : undefined}
             />
-            刷新决策
+            {t('tokenRoutes.page.refreshDecisions')}
           </Button>
           <Button onClick={openCreate}>
             <Plus />
-            添加路由
+            {t('tokenRoutes.page.addButton')}
           </Button>
         </div>
       </div>
 
-      {/* Chain context banner — shown when arrived from accounts guided toast */}
       {(initial.accountId || initial.siteId) && (
         <div className='rounded-lg border bg-muted/40 p-2 text-sm text-muted-foreground'>
-          正在为
-          {initial.accountId ? ` 账号 #${initial.accountId}` : ''}
-          {initial.siteId ? ` / 站点 #${initial.siteId}` : ''} 配置路由。
-          添加一条路由即可完成配置动线。
+          {t('tokenRoutes.page.chainContext')}
+          {initial.accountId ? ` ${t('tokenRoutes.page.chainContextAccount', { id: initial.accountId })}` : ''}
+          {initial.siteId ? ` / ${t('tokenRoutes.page.chainContextSite', { id: initial.siteId })} ` : ' '}
+          {t('tokenRoutes.page.chainContextSuffix')}
         </div>
       )}
 
       {error && (
         <div className='rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive'>
-          加载路由失败：{(error as Error).message}
+          {t('tokenRoutes.page.loadError', { message: (error as Error).message })}
         </div>
       )}
 
@@ -356,20 +324,20 @@ export function RoutesPage() {
         columns={columns}
         isLoading={isLoading}
         isFetching={isFetching}
-        emptyTitle='暂无路由'
-        emptyDescription='添加一条路由开始配置，或点击「自动重建」让系统按账号模型生成路由。'
+        emptyTitle={t('tokenRoutes.page.emptyTitle')}
+        emptyDescription={t('tokenRoutes.page.emptyDescription')}
         skeletonKeyPrefix='routes-skeleton'
         toolbarProps={{
-          searchPlaceholder: '搜索模型 / 名称…',
+          searchPlaceholder: t('tokenRoutes.page.searchPlaceholder'),
           searchDebounceMs: 300,
           filters: [
             {
               columnId: 'enabled',
-              title: '状态',
+              title: t('tokenRoutes.page.filterStatusTitle'),
               singleSelect: true,
               options: [
-                { label: '启用', value: 'enabled' },
-                { label: '禁用', value: 'disabled' },
+                { label: t('tokenRoutes.page.filterStatusEnabled'), value: 'enabled' },
+                { label: t('tokenRoutes.page.filterStatusDisabled'), value: 'disabled' },
               ],
             },
           ],
@@ -377,16 +345,14 @@ export function RoutesPage() {
         bulkActions={<RoutesBulkActions table={table} />}
       />
 
-      {/* Zero-channel toggle (below the table, above pagination) */}
       <label className='flex items-center gap-2 text-sm text-muted-foreground'>
         <Switch
           checked={showZeroChannel}
           onCheckedChange={setShowZeroChannel}
         />
-        显示零通道模型（账号有模型但未生成路由）
+        {t('tokenRoutes.page.showZeroChannel')}
       </label>
 
-      {/* Create / edit form (Sheet) */}
       <RouteFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
@@ -397,20 +363,20 @@ export function RoutesPage() {
         chainContext={chainContext}
       />
 
-      {/* Detail sheet (embeds the channels sub-query + decision snapshot) */}
       <RouteDetailSheet
         route={detailRoute}
         open={detailOpen}
         onOpenChange={setDetailOpen}
       />
 
-      {/* Delete confirmation (Dialog) */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>删除路由</DialogTitle>
+            <DialogTitle>{t('tokenRoutes.page.deleteTitle')}</DialogTitle>
             <DialogDescription>
-              确定删除路由「{deleteRoute ? resolveRouteTitle(deleteRoute) : ''}」？该操作不可撤销，相关通道将一并清除。
+              {t('tokenRoutes.page.deleteDescription', {
+                name: deleteRouteState ? resolveRouteTitle(deleteRouteState) : '',
+              })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -419,7 +385,7 @@ export function RoutesPage() {
               onClick={() => setDeleteOpen(false)}
               disabled={deleteMutation.isPending}
             >
-              取消
+              {t('common.cancel')}
             </Button>
             <Button
               variant='destructive'
@@ -427,7 +393,7 @@ export function RoutesPage() {
               disabled={deleteMutation.isPending}
             >
               {deleteMutation.isPending && <Loader2 className='animate-spin' />}
-              删除
+              {t('common.delete')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -436,11 +402,8 @@ export function RoutesPage() {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Bulk actions toolbar — batch enable / disable.
-// ---------------------------------------------------------------------------
-
 function RoutesBulkActions({ table }: { table: Table<RouteSummaryRow> }) {
+  const { t } = useTranslation()
   const batchMutation = useBatchUpdateRoutes()
 
   const selectedIds = useMemo(
@@ -463,7 +426,7 @@ function RoutesBulkActions({ table }: { table: Table<RouteSummaryRow> }) {
   }
 
   return (
-    <DataTableBulkActions table={table} entityName='路由'>
+    <DataTableBulkActions table={table} entityName={t('tokenRoutes.page.bulkEntityName')}>
       <Button
         size='xs'
         variant='outline'
@@ -471,7 +434,7 @@ function RoutesBulkActions({ table }: { table: Table<RouteSummaryRow> }) {
         disabled={batchMutation.isPending}
       >
         <Power />
-        启用
+        {t('tokenRoutes.page.bulkEnable')}
       </Button>
       <Button
         size='xs'
@@ -479,19 +442,11 @@ function RoutesBulkActions({ table }: { table: Table<RouteSummaryRow> }) {
         onClick={() => runBatch('disable')}
         disabled={batchMutation.isPending}
       >
-        禁用
+        {t('tokenRoutes.page.bulkDisable')}
       </Button>
     </DataTableBulkActions>
   )
 }
-
-// ---------------------------------------------------------------------------
-// Account options — derive the channel-draft picker source from the model
-// token candidates response. Aggregates all accounts that carry any token
-// (deduped by accountId). A follow-up can re-filter by the form's current
-// model pattern via `matchesModelPattern`; for v1 the operator picks from the
-// full account list.
-// ---------------------------------------------------------------------------
 
 type CandidateAccountLike = {
   accountId?: number

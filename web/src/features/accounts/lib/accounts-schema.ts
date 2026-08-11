@@ -1,4 +1,4 @@
-// metapi-go features/accounts/lib — RHF + Zod form schema for the add/edit
+// metapi-go/features/accounts/lib — RHF + Zod form schema for the add/edit
 // account dialog. Follows the keys feature's `lib/api-key-form.ts` pattern:
 // a schema *factory* (so cross-field rules can run), default-values factory,
 // and two transformers (form → API payload, entity → form defaults).
@@ -8,6 +8,8 @@
 // refresh token; apikey mode collects an API Key. Conditional required-field
 // rules live in `superRefine` rather than a discriminated union so the RHF
 // field array stays stable across mode switches.
+//
+// Error messages are i18next keys (resolved by `<FormMessage>`).
 
 import { z } from 'zod'
 
@@ -22,17 +24,12 @@ import {
 // ---------------------------------------------------------------------------
 
 export function getAccountFormSchema() {
-  // NOTE: use `z.number()` (not `z.coerce.number()`) and avoid `.default()`
-  // so the schema's input and output types are identical — zodResolver + RHF
-  // otherwise infer a divergent input (e.g. siteId: unknown) that won't satisfy
-  // `useForm<AccountFormValues>`. Default values are supplied by the form's
-  // `defaultValues` factory instead.
   return z
     .object({
       siteId: z
-        .number({ message: '请选择站点' })
-        .int({ message: '请选择站点' })
-        .positive({ message: '请选择站点' }),
+        .number({ message: 'accounts.schema.siteRequired' })
+        .int({ message: 'accounts.schema.siteRequired' })
+        .positive({ message: 'accounts.schema.siteRequired' }),
       credentialMode: z.enum(['session', 'apikey']),
       username: z.string().trim().optional(),
       accessToken: z.string().trim().optional(),
@@ -47,7 +44,7 @@ export function getAccountFormSchema() {
         .optional()
         .refine(
           (value) => !value || /^https?:\/\/.+/.test(value),
-          { message: '代理地址需为合法 URL' },
+          { message: 'accounts.schema.invalidProxyUrl' },
         ),
       refreshToken: z.string().trim().optional(),
       tokenExpiresAt: z.number().int().positive().optional(),
@@ -60,7 +57,7 @@ export function getAccountFormSchema() {
           ctx.addIssue({
             code: 'custom',
             path: ['accessToken'],
-            message: '请填写 Access Token / Cookie',
+            message: 'accounts.schema.accessTokenRequired',
           })
         }
       } else {
@@ -68,7 +65,7 @@ export function getAccountFormSchema() {
           ctx.addIssue({
             code: 'custom',
             path: ['apiToken'],
-            message: '请填写 API Key',
+            message: 'accounts.schema.apiKeyRequired',
           })
         }
       }
@@ -114,12 +111,6 @@ function parseTagsInput(raw: string | undefined): string[] | undefined {
     .filter(Boolean)
 }
 
-/**
- * Convert form values into the POST/PUT /api/accounts payload. Session mode
- * sends `accessToken`; apikey mode sends a single-key `accessTokens` array
- * (the backend creates one account per entry; we keep single-entry here,
- * batch paste is a follow-up). Proxy URL is folded into `extraConfig`.
- */
 export function transformFormToPayload(
   values: AccountFormValues,
 ): AccountPayload {
@@ -160,11 +151,6 @@ export function transformFormToPayload(
   }
 }
 
-/**
- * Seed the form from an existing account (edit mode). Secret fields are left
- * blank — the operator re-enters credentials only if they want to change them;
- * an empty accessToken/apiToken on edit means "keep existing" server-side.
- */
 export function transformAccountToFormValues(
   account: Account,
 ): Partial<AccountFormValues> {

@@ -19,26 +19,26 @@ import { createSectionRegistry } from '../utils/section-registry'
 const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
   {
     id: 'overview',
-    title: 'Overview',
-    description: 'Core metrics, announcements, and scheduled-task health.',
+    title: 'dashboard.sections.overview.title',
+    description: 'dashboard.sections.overview.description',
     build: () => createElement(OverviewSection),
   },
   {
     id: 'traffic',
-    title: 'Traffic',
-    description: 'Income / outcome, site trend, and distribution charts.',
+    title: 'dashboard.sections.traffic.title',
+    description: 'dashboard.sections.traffic.description',
     build: () => createElement(TrafficSection),
   },
   {
     id: 'models',
-    title: 'Models',
-    description: 'Model cost distribution, availability, and latency.',
+    title: 'dashboard.sections.models.title',
+    description: 'dashboard.sections.models.description',
     build: () => createElement(ModelsSection),
   },
   {
     id: 'availability',
-    title: 'Availability',
-    description: 'Realtime traffic (WebSocket) and uptime monitors.',
+    title: 'dashboard.sections.availability.title',
+    description: 'dashboard.sections.availability.description',
     build: () => createElement(AvailabilitySection),
   },
 ]

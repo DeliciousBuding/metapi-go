@@ -17,37 +17,35 @@ import type { SettingsSubarea } from '../../types'
 const CONTENT_SECTIONS = [
   {
     id: 'import-export',
-    title: 'Import / Export',
-    description: 'Backup and restore runtime configuration.',
+    title: 'settings.content.importExport.title',
+    description: 'settings.content.importExport.description',
     build: () =>
       createElement(StubSection, {
-        title: 'Import / Export',
-        description: 'Backup and restore runtime configuration.',
+        title: 'settings.content.importExport.title',
+        description: 'settings.content.importExport.description',
         legacyRef: 'legacy page: /settings/import-export (ImportExport.tsx)',
       }),
   },
   {
     id: 'notifications',
-    title: 'Notification Channels',
-    description:
-      'Webhook / Bark / Telegram / SMTP / Feishu / DingTalk / WeCom / NTFY.',
+    title: 'settings.content.notifications.title',
+    description: 'settings.content.notifications.description',
     build: () =>
       createElement(StubSection, {
-        title: 'Notification Channels',
-        description:
-          'Webhook / Bark / Telegram / SMTP / Feishu / DingTalk / WeCom / NTFY.',
+        title: 'settings.content.notifications.title',
+        description: 'settings.content.notifications.description',
         legacyRef:
           'legacy page: /settings/notify (NotificationSettings.tsx) + RuntimeSettingsPayload notify fields',
       }),
   },
   {
     id: 'announcements',
-    title: 'Risk Banner Announcements',
-    description: 'Product risk banners (H1) — draft / severity / enable.',
+    title: 'settings.content.announcements.title',
+    description: 'settings.content.announcements.description',
     build: () =>
       createElement(StubSection, {
-        title: 'Risk Banner Announcements',
-        description: 'Product risk banners (H1) — draft / severity / enable.',
+        title: 'settings.content.announcements.title',
+        description: 'settings.content.announcements.description',
         legacyRef:
           'legacy Settings.tsx: AnnouncementsSection (H1) — CRUD + revision resets dismissals',
       }),
@@ -70,7 +68,7 @@ export const getContentSectionMeta = registry.getSectionMeta
 
 export const contentSubarea: SettingsSubarea = {
   id: 'content',
-  title: 'Content',
+  title: 'settings.subareas.content',
   basePath: '/settings/content',
   defaultSection: registry.defaultSection,
   sectionIds: registry.sectionIds,

@@ -1,13 +1,6 @@
 // metapi-go features/token-routes/components — route detail side sheet.
-// Shows route metadata + the live channel list (fetched from
-// GET /api/routes/:id/channels) + a decision snapshot projection + a small
-// debug section. Mirrors the accounts feature's `account-detail-sheet.tsx`
-// structure: a Sheet with an overview dl, an embedded data section, and a
-// footer CTA row.
-//
-// For zero-channel placeholder routes (kind: 'zero_channel'), the channel
-// list is intentionally empty and the footer CTAs collapse to a single
-// "auto-rebuild" hint — mirroring the legacy RouteCard readOnly treatment.
+// i18n: all user-visible strings migrated to t() calls.
+// `routingStrategyLabel()` returns an i18n key; wrapped with `t()`.
 
 import {
   ExternalLink,
@@ -16,6 +9,7 @@ import {
   Snowflake,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -57,6 +51,7 @@ export function RouteDetailSheet({
   open,
   onOpenChange,
 }: RouteDetailSheetProps) {
+  const { t } = useTranslation()
   const channelsQuery = useRouteChannels(route?.id ?? null)
   const clearCooldownMutation = useClearRouteCooldown()
   const refreshDecisionMutation = useRefreshRouteDecisions()
@@ -79,129 +74,100 @@ export function RouteDetailSheet({
     if (!route) return
     try {
       await clearCooldownMutation.mutateAsync(route.id)
-    } catch {
-      // http-client toasted
-    }
+    } catch { }
   }
 
   const handleRefreshDecision = async () => {
     try {
       await refreshDecisionMutation.mutateAsync()
-    } catch {
-      // http-client toasted
-    }
+    } catch { }
   }
 
   const handleRebuild = async () => {
     try {
       await rebuildMutation.mutateAsync({ refreshModels: true })
-    } catch {
-      // http-client toasted
-    }
+    } catch { }
   }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side='right'
-        className='flex w-full flex-col gap-0 sm:max-w-md'
-      >
+      <SheetContent side='right' className='flex w-full flex-col gap-0 sm:max-w-md'>
         <SheetHeader>
           <SheetTitle className='flex items-center gap-2'>
             <span className='truncate'>{title}</span>
             {isExplicitGroupRoute(route) ? (
-              <Badge variant='secondary'>分组</Badge>
+              <Badge variant='secondary'>{t('tokenRoutes.detail.badgeGroup')}</Badge>
             ) : (
-              <Badge variant='outline'>匹配</Badge>
+              <Badge variant='outline'>{t('tokenRoutes.detail.badgeMatch')}</Badge>
             )}
             {isReadOnly && (
               <Badge variant='outline' className='text-muted-foreground'>
-                未生成
+                {t('tokenRoutes.detail.notGenerated')}
               </Badge>
             )}
           </SheetTitle>
         </SheetHeader>
 
         <div className='flex-1 space-y-4 overflow-y-auto p-4'>
-          {/* Overview grid */}
           <dl className='grid grid-cols-2 gap-x-3 gap-y-2 text-sm'>
-            <DetailField label='匹配规则'>
+            <DetailField label={t('tokenRoutes.detail.matchRule')}>
               <code className='font-mono text-xs'>{route.modelPattern}</code>
             </DetailField>
-            <DetailField label='显示名'>
+            <DetailField label={t('tokenRoutes.detail.displayName')}>
               {route.displayName || '—'}
             </DetailField>
-            <DetailField label='状态'>
-              {isReadOnly ? '未启用' : route.enabled ? '启用' : '禁用'}
+            <DetailField label={t('common.status')}>
+              {isReadOnly ? t('tokenRoutes.columns.notEnabled') : route.enabled ? t('tokenRoutes.columns.enable') : t('tokenRoutes.columns.disable')}
             </DetailField>
-            <DetailField label='策略'>
-              {isReadOnly ? '—' : routingStrategyLabel(route.routingStrategy)}
+            <DetailField label={t('tokenRoutes.detail.strategy')}>
+              {isReadOnly ? '—' : t(routingStrategyLabel(route.routingStrategy))}
             </DetailField>
-            <DetailField label='上下文'>
-              {formatContextLength(route.contextLength) || '未知'}
+            <DetailField label={t('tokenRoutes.detail.context')}>
+              {formatContextLength(route.contextLength) || '—'}
             </DetailField>
-            <DetailField label='通道'>
-              {route.channelCount}（启用 {route.enabledChannelCount}）
+            <DetailField label={t('tokenRoutes.detail.channels')}>
+              {t('tokenRoutes.detail.channelCount', { total: route.channelCount, enabled: route.enabledChannelCount })}
             </DetailField>
-            <DetailField label='站点'>
-              {route.siteNames?.length
-                ? route.siteNames.join(', ')
-                : '—'}
+            <DetailField label={t('tokenRoutes.detail.sites')}>
+              {route.siteNames?.length ? route.siteNames.join(', ') : '—'}
             </DetailField>
-            <DetailField label='决策刷新'>
+            <DetailField label={t('tokenRoutes.detail.decisionRefresh')}>
               {route.decisionRefreshedAt || '—'}
             </DetailField>
           </dl>
 
           {route.modelMapping && (
             <div className='rounded-lg border bg-muted/40 p-2'>
-              <div className='text-[11px] text-muted-foreground'>模型映射</div>
-              <code className='block break-all font-mono text-xs'>
-                {route.modelMapping}
-              </code>
+              <div className='text-[11px] text-muted-foreground'>{t('tokenRoutes.detail.modelMapping')}</div>
+              <code className='block break-all font-mono text-xs'>{route.modelMapping}</code>
             </div>
           )}
 
           <div className='flex flex-wrap justify-end gap-2'>
             {!isReadOnly && (
-              <Button
-                variant='outline'
-                size='sm'
-                onClick={handleClearCooldown}
-                disabled={clearCooldownMutation.isPending}
-              >
+              <Button variant='outline' size='sm' onClick={handleClearCooldown} disabled={clearCooldownMutation.isPending}>
                 <Snowflake />
-                清除冷却
+                {t('tokenRoutes.detail.clearCooldown')}
               </Button>
             )}
-            <Button
-              variant='outline'
-              size='sm'
-              onClick={handleRefreshDecision}
-              disabled={refreshDecisionMutation.isPending}
-            >
-              <RefreshCw
-                className={refreshDecisionMutation.isPending ? 'animate-spin' : undefined}
-              />
-              刷新决策
+            <Button variant='outline' size='sm' onClick={handleRefreshDecision} disabled={refreshDecisionMutation.isPending}>
+              <RefreshCw className={refreshDecisionMutation.isPending ? 'animate-spin' : undefined} />
+              {t('tokenRoutes.detail.refreshDecision')}
             </Button>
           </div>
 
           <Separator />
 
-          {/* Channel list */}
           <div className='space-y-2'>
             <div className='flex items-center justify-between'>
-              <h3 className='text-sm font-medium'>通道列表</h3>
+              <h3 className='text-sm font-medium'>{t('tokenRoutes.detail.channelList')}</h3>
               {channelsQuery.isFetching && (
                 <Loader2 className='size-3.5 animate-spin text-muted-foreground' />
               )}
             </div>
             {channels.length === 0 ? (
               <p className='rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground'>
-                {isReadOnly
-                  ? '暂无通道，先补齐连接配置后再重建路由。'
-                  : '暂无通道，编辑路由添加通道或等待自动重建。'}
+                {isReadOnly ? t('tokenRoutes.detail.channelEmptyReadOnly') : t('tokenRoutes.detail.channelEmptyEditable')}
               </p>
             ) : (
               <ul className='space-y-1.5'>
@@ -212,7 +178,6 @@ export function RouteDetailSheet({
             )}
           </div>
 
-          {/* Decision snapshot + debug */}
           <Separator />
           <DecisionSnapshotSection decision={decision} />
         </div>
@@ -221,12 +186,12 @@ export function RouteDetailSheet({
           {isReadOnly ? (
             <Button onClick={handleRebuild} variant='default'>
               <ExternalLink />
-              自动重建路由
+              {t('tokenRoutes.detail.rebuildRoutes')}
             </Button>
           ) : (
             <Button onClick={handleRebuild} variant='outline'>
               <RefreshCw className={rebuildMutation.isPending ? 'animate-spin' : undefined} />
-              自动重建
+              {t('tokenRoutes.detail.rebuild')}
             </Button>
           )}
         </SheetFooter>
@@ -235,114 +200,81 @@ export function RouteDetailSheet({
   )
 }
 
-// ---------------------------------------------------------------------------
-// Channel row — compact summary of one route channel
-// ---------------------------------------------------------------------------
-
 function ChannelRow({ channel }: { channel: RouteChannel }) {
+  const { t } = useTranslation()
   const accountLabel = channel.account?.username || `account-${channel.accountId}`
   const siteLabel = channel.site?.name || channel.site?.platform || ''
-  const tokenLabel = channel.token?.name || (channel.tokenId ? `token-${channel.tokenId}` : '未绑定')
+  const tokenLabel = channel.token?.name || (channel.tokenId ? `token-${channel.tokenId}` : t('tokenRoutes.detail.channelTokenUnbound'))
   const sourceModel = channel.sourceModel || '—'
-  const cooldownActive =
-    Boolean(channel.cooldownUntil) && new Date(channel.cooldownUntil as string) > new Date()
-
+  const cooldownActive = Boolean(channel.cooldownUntil) && new Date(channel.cooldownUntil as string) > new Date()
   return (
     <li className='flex items-center gap-2 rounded-lg border p-2 text-xs'>
       <div className='flex flex-1 flex-col gap-0.5'>
         <div className='flex items-center gap-1.5'>
           <span className='font-medium truncate'>{accountLabel}</span>
-          {siteLabel && (
-            <span className='text-muted-foreground'>@ {siteLabel}</span>
-          )}
+          {siteLabel && <span className='text-muted-foreground'>@ {siteLabel}</span>}
         </div>
         <div className='flex flex-wrap items-center gap-1.5 text-muted-foreground'>
           <span>token: {tokenLabel}</span>
-          <span>· 上游: {sourceModel}</span>
-          <span>· 权重: {channel.weight}</span>
-          <span>· 优先级: {channel.priority}</span>
+          <span>{t('tokenRoutes.detail.channelUpstream')} {sourceModel}</span>
+          <span>{t('tokenRoutes.detail.channelWeight')} {channel.weight}</span>
+          <span>{t('tokenRoutes.detail.channelPriority')} {channel.priority}</span>
         </div>
       </div>
       <div className='flex flex-col items-end gap-1'>
         <Badge variant={channel.enabled ? 'default' : 'secondary'}>
-          {channel.enabled ? '启用' : '禁用'}
+          {channel.enabled ? t('tokenRoutes.columns.enable') : t('tokenRoutes.columns.disable')}
         </Badge>
-        {cooldownActive && (
-          <Badge variant='warning'>冷却中</Badge>
-        )}
+        {cooldownActive && <Badge variant='warning'>{t('tokenRoutes.detail.cooldown')}</Badge>}
       </div>
     </li>
   )
 }
 
-// ---------------------------------------------------------------------------
-// Decision snapshot — defensive projection of the server's RouteDecision
-// ---------------------------------------------------------------------------
-
-function DecisionSnapshotSection({
-  decision,
-}: {
-  decision: RouteDecision | null
-}) {
+function DecisionSnapshotSection({ decision }: { decision: RouteDecision | null }) {
+  const { t } = useTranslation()
   if (!decision) {
     return (
       <div className='space-y-1'>
-        <h3 className='text-sm font-medium'>决策快照</h3>
-        <p className='text-xs text-muted-foreground'>
-          暂无缓存决策，点击上方「刷新决策」生成。
-        </p>
+        <h3 className='text-sm font-medium'>{t('tokenRoutes.detail.decisionSnapshot')}</h3>
+        <p className='text-xs text-muted-foreground'>{t('tokenRoutes.detail.decisionEmpty')}</p>
       </div>
     )
   }
-
   const candidates = decision.candidates ?? []
   const generatedAt = decision.generatedAt || '—'
   const reasonText = decision.reasonText || decision.matchedRoutePattern || ''
-
   return (
     <div className='space-y-2'>
-      <h3 className='text-sm font-medium'>决策快照</h3>
+      <h3 className='text-sm font-medium'>{t('tokenRoutes.detail.decisionSnapshot')}</h3>
       <dl className='grid grid-cols-2 gap-x-3 gap-y-1 text-xs'>
-        <DetailField label='匹配模型'>
-          {decision.model || '—'}
-        </DetailField>
-        <DetailField label='生成时间'>
-          {generatedAt}
-        </DetailField>
-        <DetailField label='候选数'>
-          {candidates.length}
-        </DetailField>
-        <DetailField label='选中通道'>
-          {decision.selectedChannelId ?? '—'}
-        </DetailField>
+        <DetailField label={t('tokenRoutes.detail.decisionModel')}>{decision.model || '—'}</DetailField>
+        <DetailField label={t('tokenRoutes.detail.decisionGeneratedAt')}>{generatedAt}</DetailField>
+        <DetailField label={t('tokenRoutes.detail.decisionCandidateCount')}>{candidates.length}</DetailField>
+        <DetailField label={t('tokenRoutes.detail.decisionSelectedChannel')}>{decision.selectedChannelId ?? '—'}</DetailField>
       </dl>
       {reasonText && (
         <div className='rounded-lg border bg-muted/40 p-2 text-xs'>
-          <div className='text-[11px] text-muted-foreground'>决策理由</div>
+          <div className='text-[11px] text-muted-foreground'>{t('tokenRoutes.detail.decisionReason')}</div>
           <p className='break-words'>{reasonText}</p>
         </div>
       )}
       {candidates.length > 0 && (
         <ul className='space-y-1'>
           {candidates.slice(0, 6).map((candidate, index) => (
-            <li
-              key={candidate.channelId ?? index}
-              className='flex items-center justify-between rounded border px-2 py-1 text-xs'
-            >
+            <li key={candidate.channelId ?? index} className='flex items-center justify-between rounded border px-2 py-1 text-xs'>
               <span className='truncate'>
                 {candidate.username || `account-${candidate.accountId}`}
                 {candidate.sourceModel ? ` · ${candidate.sourceModel}` : ''}
               </span>
               <span className='tabular-nums text-muted-foreground'>
-                {candidate.probability != null
-                  ? `${(candidate.probability * 100).toFixed(1)}%`
-                  : '—'}
+                {candidate.probability != null ? `${(candidate.probability * 100).toFixed(1)}%` : '—'}
               </span>
             </li>
           ))}
           {candidates.length > 6 && (
             <li className='px-2 text-[11px] text-muted-foreground'>
-              +{candidates.length - 6} 个候选
+              {t('tokenRoutes.detail.moreCandidates', { count: candidates.length - 6 })}
             </li>
           )}
         </ul>
@@ -351,17 +283,7 @@ function DecisionSnapshotSection({
   )
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function DetailField({
-  label,
-  children,
-}: {
-  label: string
-  children: ReactNode
-}) {
+function DetailField({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className='flex flex-col'>
       <dt className='text-[11px] text-muted-foreground'>{label}</dt>

@@ -12,6 +12,7 @@
 
 import { useMemo } from 'react'
 import { Area, AreaChart } from 'recharts'
+import { useTranslation } from 'react-i18next'
 
 import {
   Card,
@@ -37,9 +38,8 @@ type StatCardProps = {
   className?: string
 }
 
-const SPARK_CONFIG: ChartConfig = {
+const SPARK_CONFIG_BASE: ChartConfig = {
   value: {
-    label: 'Trend',
     color: 'var(--chart-1)',
   },
 }
@@ -52,6 +52,17 @@ export function StatCard({
   accentClassName,
   className,
 }: StatCardProps) {
+  const { t } = useTranslation()
+  const sparkConfig: ChartConfig = useMemo(
+    () => ({
+      ...SPARK_CONFIG_BASE,
+      value: {
+        ...SPARK_CONFIG_BASE.value,
+        label: t('dashboard.statCard.trendLabel'),
+      },
+    }),
+    [t],
+  )
   const data = useMemo(
     () =>
       (spark ?? []).map((sample, index) => ({
@@ -79,7 +90,7 @@ export function StatCard({
         </div>
         {data.length > 1 ? (
           <ChartContainer
-            config={SPARK_CONFIG}
+            config={sparkConfig}
             className='h-10 w-full'
             initialDimension={{ width: 200, height: 40 }}
           >

@@ -16,6 +16,7 @@ import {
   type Table,
 } from '@tanstack/react-table'
 import { Loader2, Plus, Power, RefreshCw, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import {
   DataTableBulkActions,
@@ -86,6 +87,7 @@ function readInitialFromUrl(): InitialUrlState {
 // ---------------------------------------------------------------------------
 
 export function AccountsPage() {
+  const { t } = useTranslation()
   const { data, isLoading, isFetching, error } = useAccounts()
   const accounts = data?.accounts ?? []
   const sites = data?.sites ?? []
@@ -241,20 +243,20 @@ export function AccountsPage() {
     <div className='flex h-full flex-col gap-3 p-4'>
       <div className='flex items-center justify-between'>
         <div>
-          <h1 className='text-lg font-semibold'>账号管理</h1>
+          <h1 className='text-lg font-semibold'>{t('accounts.page.title')}</h1>
           <p className='text-sm text-muted-foreground'>
-            管理站点连接：Session 账号用于签到/余额，API Key 账号用于代理转发。
+            {t('accounts.page.description')}
           </p>
         </div>
         <Button onClick={openCreate} disabled={sites.length === 0}>
           <Plus />
-          添加账号
+          {t('accounts.page.addButton')}
         </Button>
       </div>
 
       {error && (
         <div className='rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive'>
-          加载账号失败：{(error as Error).message}
+          {t('accounts.page.loadError', { message: (error as Error).message })}
         </div>
       )}
 
@@ -263,28 +265,28 @@ export function AccountsPage() {
         columns={columns}
         isLoading={isLoading}
         isFetching={isFetching}
-        emptyTitle='暂无账号'
-        emptyDescription='添加一个站点账号以开始管理连接，或先到「站点」页添加站点。'
+        emptyTitle={t('accounts.page.emptyTitle')}
+        emptyDescription={t('accounts.page.emptyDescription')}
         skeletonKeyPrefix='accounts-skeleton'
         toolbarProps={{
-          searchPlaceholder: '搜索账号名称 / 站点…',
+          searchPlaceholder: t('accounts.page.searchPlaceholder'),
           searchDebounceMs: 300,
           filters: [
             {
               columnId: 'status',
-              title: '状态',
+              title: t('accounts.page.filterStatusTitle'),
               singleSelect: true,
               options: [
-                { label: '启用', value: 'active' },
-                { label: '禁用', value: 'disabled' },
-                { label: '过期', value: 'expired' },
+                { label: t('accounts.page.filterStatusActive'), value: 'active' },
+                { label: t('accounts.page.filterStatusDisabled'), value: 'disabled' },
+                { label: t('accounts.page.filterStatusExpired'), value: 'expired' },
               ],
             },
             ...(sites.length > 0
               ? [
                   {
                     columnId: 'site',
-                    title: '站点',
+                    title: t('accounts.page.filterSiteTitle'),
                     options: sites.map((site) => ({
                       label: site.name || site.url || `#${site.id}`,
                       value: String(site.id),
@@ -317,9 +319,11 @@ export function AccountsPage() {
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>删除账号</DialogTitle>
+            <DialogTitle>{t('accounts.page.deleteTitle')}</DialogTitle>
             <DialogDescription>
-              确定删除账号「{deleteAccount?.username || `#${deleteAccount?.id}`}」？该操作不可撤销，相关令牌将一并清除。
+              {t('accounts.page.deleteDescription', {
+                name: deleteAccount?.username || `#${deleteAccount?.id}`,
+              })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -328,7 +332,7 @@ export function AccountsPage() {
               onClick={() => setDeleteOpen(false)}
               disabled={deleteMutation.isPending}
             >
-              取消
+              {t('common.cancel')}
             </Button>
             <Button
               variant='destructive'
@@ -336,7 +340,7 @@ export function AccountsPage() {
               disabled={deleteMutation.isPending}
             >
               {deleteMutation.isPending && <Loader2 className='animate-spin' />}
-              删除
+              {t('common.delete')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -350,6 +354,7 @@ export function AccountsPage() {
 // ---------------------------------------------------------------------------
 
 function AccountsBulkActions({ table }: { table: Table<Account> }) {
+  const { t } = useTranslation()
   const batchMutation = useBatchUpdateAccounts()
 
   const selectedIds = useMemo(
@@ -371,7 +376,7 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
   }
 
   return (
-    <DataTableBulkActions table={table} entityName='账号'>
+    <DataTableBulkActions table={table} entityName={t('accounts.bulk.entityName')}>
       <Button
         size='xs'
         variant='outline'
@@ -379,7 +384,7 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
         disabled={batchMutation.isPending}
       >
         <RefreshCw />
-        刷新余额
+        {t('accounts.bulk.refreshBalance')}
       </Button>
       <Button
         size='xs'
@@ -388,7 +393,7 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
         disabled={batchMutation.isPending}
       >
         <Power />
-        启用
+        {t('accounts.bulk.enable')}
       </Button>
       <Button
         size='xs'
@@ -396,7 +401,7 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
         onClick={() => runBatch('disable')}
         disabled={batchMutation.isPending}
       >
-        禁用
+        {t('accounts.bulk.disable')}
       </Button>
       <Button
         size='xs'
@@ -405,7 +410,7 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
         disabled={batchMutation.isPending}
       >
         <Trash2 />
-        删除
+        {t('accounts.bulk.delete')}
       </Button>
     </DataTableBulkActions>
   )

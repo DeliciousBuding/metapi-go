@@ -17,62 +17,60 @@ import type { SettingsSubarea } from '../../types'
 const GENERAL_SECTIONS = [
   {
     id: 'site',
-    title: 'Site & Branding',
-    description: 'System name, logo, footer, about, and server address.',
+    title: 'settings.general.site.title',
+    description: 'settings.general.site.description',
     build: () =>
       createElement(StubSection, {
-        title: 'Site & Branding',
-        description: 'System name, logo, footer, about, and server address.',
+        title: 'settings.general.site.title',
+        description: 'settings.general.site.description',
         legacyRef:
           'legacy Settings.tsx: SystemName / Logo / Footer / About / HomePageContent / ServerAddress',
       }),
   },
   {
     id: 'authentication',
-    title: 'Authentication',
-    description: 'Admin token rotation and IP allowlist.',
+    title: 'settings.general.authentication.title',
+    description: 'settings.general.authentication.description',
     build: () =>
       createElement(StubSection, {
-        title: 'Authentication',
-        description: 'Admin token rotation and IP allowlist.',
+        title: 'settings.general.authentication.title',
+        description: 'settings.general.authentication.description',
         legacyRef:
           'legacy Settings.tsx: changeAuthToken + adminIpAllowlist (cards 1 + 15)',
       }),
   },
   {
     id: 'scheduling',
-    title: 'Scheduled Tasks',
-    description: 'Checkin, balance refresh, and log cleanup schedules.',
+    title: 'settings.general.scheduling.title',
+    description: 'settings.general.scheduling.description',
     build: () =>
       createElement(StubSection, {
-        title: 'Scheduled Tasks',
-        description: 'Checkin, balance refresh, and log cleanup schedules.',
+        title: 'settings.general.scheduling.title',
+        description: 'settings.general.scheduling.description',
         legacyRef:
           'legacy Settings.tsx: checkinScheduleMode / checkinCron / balanceRefreshCron / logCleanupCron (card 2)',
       }),
   },
   {
     id: 'proxy-transport',
-    title: 'Proxy & Transport',
-    description:
-      'System proxy, payload rules, upstream concurrency, and probe.',
+    title: 'settings.general.proxyTransport.title',
+    description: 'settings.general.proxyTransport.description',
     build: () =>
       createElement(StubSection, {
-        title: 'Proxy & Transport',
-        description:
-          'System proxy, payload rules, upstream concurrency, and probe.',
+        title: 'settings.general.proxyTransport.title',
+        description: 'settings.general.proxyTransport.description',
         legacyRef:
           'legacy Settings.tsx: systemProxyUrl + payloadRules + codexUpstream concurrency + modelAvailabilityProbe (cards 3-7)',
       }),
   },
   {
     id: 'routing',
-    title: 'Routing Strategy',
-    description: 'Fallback cost, weights, cooldown, and timeouts.',
+    title: 'settings.general.routing.title',
+    description: 'settings.general.routing.description',
     build: () =>
       createElement(StubSection, {
-        title: 'Routing Strategy',
-        description: 'Fallback cost, weights, cooldown, and timeouts.',
+        title: 'settings.general.routing.title',
+        description: 'settings.general.routing.description',
         legacyRef:
           'legacy Settings.tsx: routingFallbackUnitCost + routingWeights + routeFailureCooldown + proxyFirstByteTimeout (card 9)',
       }),
@@ -100,7 +98,7 @@ export const getGeneralSectionMeta = registry.getSectionMeta
  */
 export const generalSubarea: SettingsSubarea = {
   id: 'general',
-  title: 'General',
+  title: 'settings.subareas.general',
   basePath: '/settings/general',
   defaultSection: registry.defaultSection,
   sectionIds: registry.sectionIds,

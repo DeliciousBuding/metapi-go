@@ -9,6 +9,8 @@
 // Phase 3 will extend this to fetch the runtime-settings map and pass it into
 // each section's `build` (mirroring newapi's SettingsPage + useSystemOptions).
 
+import { useTranslation } from 'react-i18next'
+
 import type { SettingsSubarea } from '../types'
 import { SettingsSidebar } from './settings-sidebar'
 
@@ -23,6 +25,7 @@ export function SettingsPage({
   subarea,
   activeSection,
 }: SettingsPageProps) {
+  const { t } = useTranslation()
   const meta = subarea.getSectionMeta(activeSection)
   const navItems = subarea.getSectionNavItems()
 
@@ -30,16 +33,16 @@ export function SettingsPage({
     <div className='flex flex-col gap-6 p-6'>
       <header className='flex flex-col gap-1'>
         <h1 className='text-2xl font-semibold tracking-tight'>
-          {meta.title}
+          {t(meta.title)}
         </h1>
         {meta.description ? (
           <p className='text-muted-foreground text-sm'>
-            {meta.description}
+            {t(meta.description)}
           </p>
         ) : null}
       </header>
       <div className='flex gap-6'>
-        <SettingsSidebar items={navItems} title={subarea.title} />
+        <SettingsSidebar items={navItems} title={t(subarea.title)} />
         <main className='min-w-0 flex-1'>
           {subarea.getSectionContent(activeSection)}
         </main>

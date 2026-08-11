@@ -16,6 +16,7 @@ import {
 import { toast } from 'sonner'
 
 import { api } from '@/lib/api'
+import i18n from '@/i18n/config'
 import { accountQueryKeys } from '../api'
 
 import { type AccountToken, accountTokenSchema } from '../types'
@@ -33,7 +34,7 @@ export const accountTokenQueryKeys = {
 }
 
 // ---------------------------------------------------------------------------
-// Envelope helper (mirrors accounts/api.assertBusinessOk)
+// Envelope helper
 // ---------------------------------------------------------------------------
 
 function assertBusinessOk<T>(result: unknown, fallback: string): T {
@@ -48,14 +49,12 @@ function assertBusinessOk<T>(result: unknown, fallback: string): T {
     !envelope.success
   ) {
     throw new Error(
-      typeof envelope.message === 'string' ? envelope.message : fallback,
+      typeof envelope.message === 'string' ? envelope.message : i18n.t(fallback),
     )
   }
   return (result as T) ?? (envelope?.data as T)
 }
 
-// Normalise the getAccountTokens response — backend has shipped both a bare
-// array and a {tokens: [...]} envelope across versions, so accept either.
 function normalizeTokenList(raw: unknown): AccountToken[] {
   if (Array.isArray(raw)) {
     return raw.map((item) => accountTokenSchema.parse(item))
@@ -108,7 +107,7 @@ export function useAccountTokenValue(
       const raw = await api.getAccountTokenValue(id as number)
       return assertBusinessOk<{ token?: string } & Record<string, unknown>>(
         raw,
-        '获取令牌值失败',
+        'accounts.tokens.toast.valueFailed',
       )
     },
     enabled: id !== null && id > 0,
@@ -126,12 +125,12 @@ export function useCreateAccountToken() {
   return useMutation({
     mutationFn: async (payload: AccountTokenPayload) => {
       const result = await api.addAccountToken(payload)
-      return assertBusinessOk(result, '添加令牌失败')
+      return assertBusinessOk(result, 'accounts.tokens.toast.createFailed')
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: accountTokenQueryKeys.all })
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
-      toast.success('令牌已添加')
+      toast.success(i18n.t('accounts.tokens.toast.created'))
     },
   })
 }
@@ -151,12 +150,12 @@ export function useUpdateAccountToken() {
       payload: Partial<AccountTokenPayload>
     }) => {
       const result = await api.updateAccountToken(id, payload)
-      return assertBusinessOk(result, '更新令牌失败')
+      return assertBusinessOk(result, 'accounts.tokens.toast.updateFailed')
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: accountTokenQueryKeys.all })
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
-      toast.success('令牌已更新')
+      toast.success(i18n.t('accounts.tokens.toast.updated'))
     },
   })
 }
@@ -170,12 +169,12 @@ export function useDeleteAccountToken() {
   return useMutation({
     mutationFn: async (id: number) => {
       const result = await api.deleteAccountToken(id)
-      return assertBusinessOk(result, '删除令牌失败')
+      return assertBusinessOk(result, 'accounts.tokens.toast.deleteFailed')
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: accountTokenQueryKeys.all })
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
-      toast.success('令牌已删除')
+      toast.success(i18n.t('accounts.tokens.toast.deleted'))
     },
   })
 }
@@ -189,11 +188,11 @@ export function useSetDefaultAccountToken() {
   return useMutation({
     mutationFn: async (id: number) => {
       const result = await api.setDefaultAccountToken(id)
-      return assertBusinessOk(result, '设置默认令牌失败')
+      return assertBusinessOk(result, 'accounts.tokens.toast.defaultFailed')
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: accountTokenQueryKeys.all })
-      toast.success('已设为默认令牌')
+      toast.success(i18n.t('accounts.tokens.toast.defaultSet'))
     },
   })
 }
@@ -207,19 +206,18 @@ export function useSyncAccountTokens() {
   return useMutation({
     mutationFn: async (accountId: number) => {
       const result = await api.syncAccountTokens(accountId)
-      return assertBusinessOk(result, '同步令牌失败')
+      return assertBusinessOk(result, 'accounts.tokens.toast.syncFailed')
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: accountTokenQueryKeys.all })
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
-      toast.success('令牌已同步')
+      toast.success(i18n.t('accounts.tokens.toast.synced'))
     },
   })
 }
 
 // ---------------------------------------------------------------------------
-// useToggleAccountTokenEnabled — convenience wrapper around
-// updateAccountToken that flips the `enabled` flag.
+// useToggleAccountTokenEnabled
 // ---------------------------------------------------------------------------
 
 export function useToggleAccountTokenEnabled() {
@@ -233,7 +231,7 @@ export function useToggleAccountTokenEnabled() {
       enabled: boolean
     }) => {
       const result = await api.updateAccountToken(id, { enabled })
-      return assertBusinessOk(result, '更新令牌状态失败')
+      return assertBusinessOk(result, 'accounts.tokens.toast.statusFailed')
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: accountTokenQueryKeys.all })

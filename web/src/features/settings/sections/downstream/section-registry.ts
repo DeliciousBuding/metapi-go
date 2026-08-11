@@ -16,23 +16,23 @@ import type { SettingsSubarea } from '../../types'
 const DOWNSTREAM_SECTIONS = [
   {
     id: 'keys',
-    title: 'Downstream Keys',
-    description: 'Downstream API keys (per-site/per-account issue tokens).',
+    title: 'settings.downstream.keys.title',
+    description: 'settings.downstream.keys.description',
     build: () =>
       createElement(StubSection, {
-        title: 'Downstream Keys',
-        description: 'Downstream API keys (per-site/per-account issue tokens).',
+        title: 'settings.downstream.keys.title',
+        description: 'settings.downstream.keys.description',
         legacyRef: 'legacy page: /downstream-keys (DownstreamKeys.tsx)',
       }),
   },
   {
     id: 'proxy-token',
-    title: 'Proxy Token',
-    description: 'Global downstream PROXY_TOKEN (sk- prefix, random suffix).',
+    title: 'settings.downstream.proxyToken.title',
+    description: 'settings.downstream.proxyToken.description',
     build: () =>
       createElement(StubSection, {
-        title: 'Proxy Token',
-        description: 'Global downstream PROXY_TOKEN (sk- prefix, random suffix).',
+        title: 'settings.downstream.proxyToken.title',
+        description: 'settings.downstream.proxyToken.description',
         legacyRef: 'legacy Settings.tsx: proxyToken (card 8)',
       }),
   },
@@ -54,7 +54,7 @@ export const getDownstreamSectionMeta = registry.getSectionMeta
 
 export const downstreamSubarea: SettingsSubarea = {
   id: 'downstream',
-  title: 'Downstream Keys',
+  title: 'settings.subareas.downstream',
   basePath: '/settings/downstream',
   defaultSection: registry.defaultSection,
   sectionIds: registry.sectionIds,

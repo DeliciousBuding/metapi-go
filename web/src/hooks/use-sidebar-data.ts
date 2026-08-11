@@ -98,7 +98,7 @@ export function useSidebarData(): SidebarData {
           },
           {
             title: 'Model Tester',
-            url: '/playground',
+            url: '/model-tester',
             icon: FlaskConical,
           },
         ],

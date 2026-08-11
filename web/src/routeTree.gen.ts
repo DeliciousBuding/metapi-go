@@ -12,6 +12,24 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedAboutRouteImport } from './routes/_authenticated/about'
+import { Route as AuthenticatedAccountsRouteImport } from './routes/_authenticated/accounts'
+import { Route as AuthenticatedCheckinRouteImport } from './routes/_authenticated/checkin'
+import { Route as AuthenticatedDashboardRouteRouteImport } from './routes/_authenticated/dashboard/route'
+import { Route as AuthenticatedModelTesterRouteImport } from './routes/_authenticated/model-tester'
+import { Route as AuthenticatedModelsRouteImport } from './routes/_authenticated/models'
+import { Route as AuthenticatedOauthRouteImport } from './routes/_authenticated/oauth'
+import { Route as AuthenticatedProxyLogsRouteImport } from './routes/_authenticated/proxy-logs'
+import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
+import { Route as AuthenticatedSiteAnnouncementsRouteImport } from './routes/_authenticated/site-announcements'
+import { Route as AuthenticatedSitesRouteImport } from './routes/_authenticated/sites'
+import { Route as AuthenticatedTokenRoutesRouteImport } from './routes/_authenticated/token-routes'
+import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard/index'
+import { Route as AuthenticatedDashboardSectionRouteImport } from './routes/_authenticated/dashboard/$section'
+import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
+import { Route as AuthenticatedSettingsSubareaRouteImport } from './routes/_authenticated/settings/$subarea'
+import { Route as AuthenticatedSettingsSubareaIndexRouteImport } from './routes/_authenticated/settings/$subarea.index'
+import { Route as AuthenticatedSettingsSubareaSectionRouteImport } from './routes/_authenticated/settings/$subarea.$section'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -27,27 +45,238 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAboutRoute = AuthenticatedAboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAccountsRoute = AuthenticatedAccountsRouteImport.update({
+  id: '/accounts',
+  path: '/accounts',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCheckinRoute = AuthenticatedCheckinRouteImport.update({
+  id: '/checkin',
+  path: '/checkin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDashboardRouteRoute =
+  AuthenticatedDashboardRouteRouteImport.update({
+    id: '/dashboard',
+    path: '/dashboard',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedModelTesterRoute =
+  AuthenticatedModelTesterRouteImport.update({
+    id: '/model-tester',
+    path: '/model-tester',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedModelsRoute = AuthenticatedModelsRouteImport.update({
+  id: '/models',
+  path: '/models',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedOauthRoute = AuthenticatedOauthRouteImport.update({
+  id: '/oauth',
+  path: '/oauth',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedProxyLogsRoute = AuthenticatedProxyLogsRouteImport.update({
+  id: '/proxy-logs',
+  path: '/proxy-logs',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSettingsRouteRoute =
+  AuthenticatedSettingsRouteRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedSiteAnnouncementsRoute =
+  AuthenticatedSiteAnnouncementsRouteImport.update({
+    id: '/site-announcements',
+    path: '/site-announcements',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedSitesRoute = AuthenticatedSitesRouteImport.update({
+  id: '/sites',
+  path: '/sites',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedTokenRoutesRoute =
+  AuthenticatedTokenRoutesRouteImport.update({
+    id: '/token-routes',
+    path: '/token-routes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedDashboardIndexRoute =
+  AuthenticatedDashboardIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedDashboardRouteRoute,
+  } as any)
+const AuthenticatedDashboardSectionRoute =
+  AuthenticatedDashboardSectionRouteImport.update({
+    id: '/$section',
+    path: '/$section',
+    getParentRoute: () => AuthenticatedDashboardRouteRoute,
+  } as any)
+const AuthenticatedSettingsIndexRoute =
+  AuthenticatedSettingsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsSubareaRoute =
+  AuthenticatedSettingsSubareaRouteImport.update({
+    id: '/$subarea',
+    path: '/$subarea',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsSubareaIndexRoute =
+  AuthenticatedSettingsSubareaIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedSettingsSubareaRoute,
+  } as any)
+const AuthenticatedSettingsSubareaSectionRoute =
+  AuthenticatedSettingsSubareaSectionRouteImport.update({
+    id: '/$section',
+    path: '/$section',
+    getParentRoute: () => AuthenticatedSettingsSubareaRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/sign-in': typeof SignInRoute
+  '/dashboard': typeof AuthenticatedDashboardRouteRouteWithChildren
+  '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
+  '/about': typeof AuthenticatedAboutRoute
+  '/accounts': typeof AuthenticatedAccountsRoute
+  '/checkin': typeof AuthenticatedCheckinRoute
+  '/model-tester': typeof AuthenticatedModelTesterRoute
+  '/models': typeof AuthenticatedModelsRoute
+  '/oauth': typeof AuthenticatedOauthRoute
+  '/proxy-logs': typeof AuthenticatedProxyLogsRoute
+  '/site-announcements': typeof AuthenticatedSiteAnnouncementsRoute
+  '/sites': typeof AuthenticatedSitesRoute
+  '/token-routes': typeof AuthenticatedTokenRoutesRoute
+  '/dashboard/$section': typeof AuthenticatedDashboardSectionRoute
+  '/settings/$subarea': typeof AuthenticatedSettingsSubareaRouteWithChildren
+  '/dashboard/': typeof AuthenticatedDashboardIndexRoute
+  '/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/settings/$subarea/$section': typeof AuthenticatedSettingsSubareaSectionRoute
+  '/settings/$subarea/': typeof AuthenticatedSettingsSubareaIndexRoute
 }
 export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
+  '/about': typeof AuthenticatedAboutRoute
+  '/accounts': typeof AuthenticatedAccountsRoute
+  '/checkin': typeof AuthenticatedCheckinRoute
+  '/model-tester': typeof AuthenticatedModelTesterRoute
+  '/models': typeof AuthenticatedModelsRoute
+  '/oauth': typeof AuthenticatedOauthRoute
+  '/proxy-logs': typeof AuthenticatedProxyLogsRoute
+  '/site-announcements': typeof AuthenticatedSiteAnnouncementsRoute
+  '/sites': typeof AuthenticatedSitesRoute
+  '/token-routes': typeof AuthenticatedTokenRoutesRoute
   '/': typeof AuthenticatedIndexRoute
+  '/dashboard/$section': typeof AuthenticatedDashboardSectionRoute
+  '/dashboard': typeof AuthenticatedDashboardIndexRoute
+  '/settings': typeof AuthenticatedSettingsIndexRoute
+  '/settings/$subarea/$section': typeof AuthenticatedSettingsSubareaSectionRoute
+  '/settings/$subarea': typeof AuthenticatedSettingsSubareaIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/sign-in': typeof SignInRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRouteRouteWithChildren
+  '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
+  '/_authenticated/about': typeof AuthenticatedAboutRoute
+  '/_authenticated/accounts': typeof AuthenticatedAccountsRoute
+  '/_authenticated/checkin': typeof AuthenticatedCheckinRoute
+  '/_authenticated/model-tester': typeof AuthenticatedModelTesterRoute
+  '/_authenticated/models': typeof AuthenticatedModelsRoute
+  '/_authenticated/oauth': typeof AuthenticatedOauthRoute
+  '/_authenticated/proxy-logs': typeof AuthenticatedProxyLogsRoute
+  '/_authenticated/site-announcements': typeof AuthenticatedSiteAnnouncementsRoute
+  '/_authenticated/sites': typeof AuthenticatedSitesRoute
+  '/_authenticated/token-routes': typeof AuthenticatedTokenRoutesRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/dashboard/$section': typeof AuthenticatedDashboardSectionRoute
+  '/_authenticated/settings/$subarea': typeof AuthenticatedSettingsSubareaRouteWithChildren
+  '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
+  '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/_authenticated/settings/$subarea/$section': typeof AuthenticatedSettingsSubareaSectionRoute
+  '/_authenticated/settings/$subarea/': typeof AuthenticatedSettingsSubareaIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/sign-in'
+  fullPaths:
+    | '/'
+    | '/sign-in'
+    | '/dashboard'
+    | '/settings'
+    | '/about'
+    | '/accounts'
+    | '/checkin'
+    | '/model-tester'
+    | '/models'
+    | '/oauth'
+    | '/proxy-logs'
+    | '/site-announcements'
+    | '/sites'
+    | '/token-routes'
+    | '/dashboard/$section'
+    | '/settings/$subarea'
+    | '/dashboard/'
+    | '/settings/'
+    | '/settings/$subarea/$section'
+    | '/settings/$subarea/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/sign-in' | '/'
-  id: '__root__' | '/_authenticated' | '/sign-in' | '/_authenticated/'
+  to:
+    | '/sign-in'
+    | '/about'
+    | '/accounts'
+    | '/checkin'
+    | '/model-tester'
+    | '/models'
+    | '/oauth'
+    | '/proxy-logs'
+    | '/site-announcements'
+    | '/sites'
+    | '/token-routes'
+    | '/'
+    | '/dashboard/$section'
+    | '/dashboard'
+    | '/settings'
+    | '/settings/$subarea/$section'
+    | '/settings/$subarea'
+  id:
+    | '__root__'
+    | '/_authenticated'
+    | '/sign-in'
+    | '/_authenticated/dashboard'
+    | '/_authenticated/settings'
+    | '/_authenticated/about'
+    | '/_authenticated/accounts'
+    | '/_authenticated/checkin'
+    | '/_authenticated/model-tester'
+    | '/_authenticated/models'
+    | '/_authenticated/oauth'
+    | '/_authenticated/proxy-logs'
+    | '/_authenticated/site-announcements'
+    | '/_authenticated/sites'
+    | '/_authenticated/token-routes'
+    | '/_authenticated/'
+    | '/_authenticated/dashboard/$section'
+    | '/_authenticated/settings/$subarea'
+    | '/_authenticated/dashboard/'
+    | '/_authenticated/settings/'
+    | '/_authenticated/settings/$subarea/$section'
+    | '/_authenticated/settings/$subarea/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -78,14 +307,216 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/about': {
+      id: '/_authenticated/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AuthenticatedAboutRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/accounts': {
+      id: '/_authenticated/accounts'
+      path: '/accounts'
+      fullPath: '/accounts'
+      preLoaderRoute: typeof AuthenticatedAccountsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/checkin': {
+      id: '/_authenticated/checkin'
+      path: '/checkin'
+      fullPath: '/checkin'
+      preLoaderRoute: typeof AuthenticatedCheckinRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/model-tester': {
+      id: '/_authenticated/model-tester'
+      path: '/model-tester'
+      fullPath: '/model-tester'
+      preLoaderRoute: typeof AuthenticatedModelTesterRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/models': {
+      id: '/_authenticated/models'
+      path: '/models'
+      fullPath: '/models'
+      preLoaderRoute: typeof AuthenticatedModelsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/oauth': {
+      id: '/_authenticated/oauth'
+      path: '/oauth'
+      fullPath: '/oauth'
+      preLoaderRoute: typeof AuthenticatedOauthRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/proxy-logs': {
+      id: '/_authenticated/proxy-logs'
+      path: '/proxy-logs'
+      fullPath: '/proxy-logs'
+      preLoaderRoute: typeof AuthenticatedProxyLogsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/site-announcements': {
+      id: '/_authenticated/site-announcements'
+      path: '/site-announcements'
+      fullPath: '/site-announcements'
+      preLoaderRoute: typeof AuthenticatedSiteAnnouncementsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/sites': {
+      id: '/_authenticated/sites'
+      path: '/sites'
+      fullPath: '/sites'
+      preLoaderRoute: typeof AuthenticatedSitesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/token-routes': {
+      id: '/_authenticated/token-routes'
+      path: '/token-routes'
+      fullPath: '/token-routes'
+      preLoaderRoute: typeof AuthenticatedTokenRoutesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard/': {
+      id: '/_authenticated/dashboard/'
+      path: '/'
+      fullPath: '/dashboard/'
+      preLoaderRoute: typeof AuthenticatedDashboardIndexRouteImport
+      parentRoute: typeof AuthenticatedDashboardRouteRoute
+    }
+    '/_authenticated/dashboard/$section': {
+      id: '/_authenticated/dashboard/$section'
+      path: '/$section'
+      fullPath: '/dashboard/$section'
+      preLoaderRoute: typeof AuthenticatedDashboardSectionRouteImport
+      parentRoute: typeof AuthenticatedDashboardRouteRoute
+    }
+    '/_authenticated/settings/': {
+      id: '/_authenticated/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/settings/$subarea': {
+      id: '/_authenticated/settings/$subarea'
+      path: '/$subarea'
+      fullPath: '/settings/$subarea'
+      preLoaderRoute: typeof AuthenticatedSettingsSubareaRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/settings/$subarea/': {
+      id: '/_authenticated/settings/$subarea/'
+      path: '/'
+      fullPath: '/settings/$subarea/'
+      preLoaderRoute: typeof AuthenticatedSettingsSubareaIndexRouteImport
+      parentRoute: typeof AuthenticatedSettingsSubareaRoute
+    }
+    '/_authenticated/settings/$subarea/$section': {
+      id: '/_authenticated/settings/$subarea/$section'
+      path: '/$section'
+      fullPath: '/settings/$subarea/$section'
+      preLoaderRoute: typeof AuthenticatedSettingsSubareaSectionRouteImport
+      parentRoute: typeof AuthenticatedSettingsSubareaRoute
+    }
   }
 }
 
+interface AuthenticatedDashboardRouteRouteChildren {
+  AuthenticatedDashboardSectionRoute: typeof AuthenticatedDashboardSectionRoute
+  AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
+}
+
+const AuthenticatedDashboardRouteRouteChildren: AuthenticatedDashboardRouteRouteChildren =
+  {
+    AuthenticatedDashboardSectionRoute: AuthenticatedDashboardSectionRoute,
+    AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
+  }
+
+const AuthenticatedDashboardRouteRouteWithChildren =
+  AuthenticatedDashboardRouteRoute._addFileChildren(
+    AuthenticatedDashboardRouteRouteChildren,
+  )
+
+interface AuthenticatedSettingsSubareaRouteChildren {
+  AuthenticatedSettingsSubareaSectionRoute: typeof AuthenticatedSettingsSubareaSectionRoute
+  AuthenticatedSettingsSubareaIndexRoute: typeof AuthenticatedSettingsSubareaIndexRoute
+}
+
+const AuthenticatedSettingsSubareaRouteChildren: AuthenticatedSettingsSubareaRouteChildren =
+  {
+    AuthenticatedSettingsSubareaSectionRoute:
+      AuthenticatedSettingsSubareaSectionRoute,
+    AuthenticatedSettingsSubareaIndexRoute:
+      AuthenticatedSettingsSubareaIndexRoute,
+  }
+
+const AuthenticatedSettingsSubareaRouteWithChildren =
+  AuthenticatedSettingsSubareaRoute._addFileChildren(
+    AuthenticatedSettingsSubareaRouteChildren,
+  )
+
+interface AuthenticatedSettingsRouteRouteChildren {
+  AuthenticatedSettingsSubareaRoute: typeof AuthenticatedSettingsSubareaRouteWithChildren
+  AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
+}
+
+const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteChildren =
+  {
+    AuthenticatedSettingsSubareaRoute:
+      AuthenticatedSettingsSubareaRouteWithChildren,
+    AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
+  }
+
+const AuthenticatedSettingsRouteRouteWithChildren =
+  AuthenticatedSettingsRouteRoute._addFileChildren(
+    AuthenticatedSettingsRouteRouteChildren,
+  )
+
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedDashboardRouteRoute: typeof AuthenticatedDashboardRouteRouteWithChildren
+  AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
+  AuthenticatedAboutRoute: typeof AuthenticatedAboutRoute
+  AuthenticatedAccountsRoute: typeof AuthenticatedAccountsRoute
+  AuthenticatedCheckinRoute: typeof AuthenticatedCheckinRoute
+  AuthenticatedModelTesterRoute: typeof AuthenticatedModelTesterRoute
+  AuthenticatedModelsRoute: typeof AuthenticatedModelsRoute
+  AuthenticatedOauthRoute: typeof AuthenticatedOauthRoute
+  AuthenticatedProxyLogsRoute: typeof AuthenticatedProxyLogsRoute
+  AuthenticatedSiteAnnouncementsRoute: typeof AuthenticatedSiteAnnouncementsRoute
+  AuthenticatedSitesRoute: typeof AuthenticatedSitesRoute
+  AuthenticatedTokenRoutesRoute: typeof AuthenticatedTokenRoutesRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedDashboardRouteRoute:
+    AuthenticatedDashboardRouteRouteWithChildren,
+  AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
+  AuthenticatedAboutRoute: AuthenticatedAboutRoute,
+  AuthenticatedAccountsRoute: AuthenticatedAccountsRoute,
+  AuthenticatedCheckinRoute: AuthenticatedCheckinRoute,
+  AuthenticatedModelTesterRoute: AuthenticatedModelTesterRoute,
+  AuthenticatedModelsRoute: AuthenticatedModelsRoute,
+  AuthenticatedOauthRoute: AuthenticatedOauthRoute,
+  AuthenticatedProxyLogsRoute: AuthenticatedProxyLogsRoute,
+  AuthenticatedSiteAnnouncementsRoute: AuthenticatedSiteAnnouncementsRoute,
+  AuthenticatedSitesRoute: AuthenticatedSitesRoute,
+  AuthenticatedTokenRoutesRoute: AuthenticatedTokenRoutesRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 

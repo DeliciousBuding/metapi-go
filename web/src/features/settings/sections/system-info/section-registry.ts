@@ -17,60 +17,60 @@ import type { SettingsSubarea } from '../../types'
 const SYSTEM_INFO_SECTIONS = [
   {
     id: 'program-logs',
-    title: 'Program Logs',
-    description: 'Operational event log (events stream).',
+    title: 'settings.systemInfo.programLogs.title',
+    description: 'settings.systemInfo.programLogs.description',
     build: () =>
       createElement(StubSection, {
-        title: 'Program Logs',
-        description: 'Operational event log (events stream).',
+        title: 'settings.systemInfo.programLogs.title',
+        description: 'settings.systemInfo.programLogs.description',
         legacyRef:
           'legacy page: /events (ProgramLogs.tsx) + api.getEvents/getEventCount',
       }),
   },
   {
     id: 'audit-logs',
-    title: 'Admin Audit Logs',
-    description: 'Read-only admin write-operation audit (B1).',
+    title: 'settings.systemInfo.auditLogs.title',
+    description: 'settings.systemInfo.auditLogs.description',
     build: () =>
       createElement(StubSection, {
-        title: 'Admin Audit Logs',
-        description: 'Read-only admin write-operation audit (B1).',
+        title: 'settings.systemInfo.auditLogs.title',
+        description: 'settings.systemInfo.auditLogs.description',
         legacyRef:
           'legacy Settings.tsx: AuditLogsSection (B1) — method/path/actor/IP',
       }),
   },
   {
     id: 'update-center',
-    title: 'Update Center',
-    description: 'Version + deploy/rollback status (UC-1, read-only).',
+    title: 'settings.systemInfo.updateCenter.title',
+    description: 'settings.systemInfo.updateCenter.description',
     build: () =>
       createElement(StubSection, {
-        title: 'Update Center',
-        description: 'Version + deploy/rollback status (UC-1, read-only).',
+        title: 'settings.systemInfo.updateCenter.title',
+        description: 'settings.systemInfo.updateCenter.description',
         legacyRef:
           'legacy Settings.tsx: UpdateCenterSection (UC-1) — getUpdateCenterStatus',
       }),
   },
   {
     id: 'database',
-    title: 'Database Migration',
-    description: 'Runtime DB dialect / connection / migrate (CLI-only).',
+    title: 'settings.systemInfo.database.title',
+    description: 'settings.systemInfo.database.description',
     build: () =>
       createElement(StubSection, {
-        title: 'Database Migration',
-        description: 'Runtime DB dialect / connection / migrate (CLI-only).',
+        title: 'settings.systemInfo.database.title',
+        description: 'settings.systemInfo.database.description',
         legacyRef:
           'legacy Settings.tsx: card 12 — dialect sqlite|postgres + connection + ssl + test/migrate',
       }),
   },
   {
     id: 'maintenance',
-    title: 'Maintenance & Danger Zone',
-    description: 'Cache rebuild, log purge, and factory reset.',
+    title: 'settings.systemInfo.maintenance.title',
+    description: 'settings.systemInfo.maintenance.description',
     build: () =>
       createElement(StubSection, {
-        title: 'Maintenance & Danger Zone',
-        description: 'Cache rebuild, log purge, and factory reset.',
+        title: 'settings.systemInfo.maintenance.title',
+        description: 'settings.systemInfo.maintenance.description',
         legacyRef:
           'legacy Settings.tsx: cards 13-14 — clear cache/routes + factory reset',
       }),
@@ -93,7 +93,7 @@ export const getSystemInfoSectionMeta = registry.getSectionMeta
 
 export const systemInfoSubarea: SettingsSubarea = {
   id: 'system-info',
-  title: 'System Info',
+  title: 'settings.subareas.systemInfo',
   basePath: '/settings/system-info',
   defaultSection: registry.defaultSection,
   sectionIds: registry.sectionIds,

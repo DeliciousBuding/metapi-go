@@ -1,17 +1,9 @@
-// metapi-go features/token-routes — pattern + presentation helpers.
+// metapi-go/features/token-routes — pattern + presentation helpers.
 //
 // Self-contained rewrite of the legacy `web/pages/token-routes/utils.ts`.
-// The legacy version imported a safe-regex parser from
-// `web/shared/tokenRoutePatterns.js`; that module is not yet ported into
-// `web/src/shared/`, so the pattern grammar is reimplemented here on top of
-// the native `RegExp` constructor with try/catch. This is fine for the
-// client-side preview/hit-sample UI — the server still owns the authoritative
-// safe-regex validation, so a client-side `RegExp` round-trip cannot escalate
-// privileges or bypass the backend.
-//
-// `isExactModelPattern` is also imported by the migrated
-// `@/lib/helpers/zeroChannelRoutes` helper, so its signature (string → boolean)
-// is preserved exactly.
+// i18n keys are returned by the label helpers; callers wrap with `t()`.
+// Error helpers use `i18n.t()` to return pre-translated strings (safe to
+// pass as zod messages — FormMessage's `t()` returns them as-is).
 
 import type {
   RouteMode,
@@ -19,9 +11,10 @@ import type {
   RouteRow,
   RouteSummaryRow,
 } from './types'
+import i18n from '@/i18n/config'
 
 // ---------------------------------------------------------------------------
-// Constants — kept in sync with the legacy utils + presentation module
+// Constants
 // ---------------------------------------------------------------------------
 
 export const ROUTE_BRAND_ICON_PREFIX = 'brand:'
@@ -44,7 +37,7 @@ export function isExplicitGroupRoute(
 }
 
 // ---------------------------------------------------------------------------
-// Pattern grammar — `re:` prefix = regex, anything else = exact literal match
+// Pattern grammar
 // ---------------------------------------------------------------------------
 
 export function isRegexModelPattern(modelPattern: string): boolean {
@@ -55,9 +48,6 @@ export function isExactModelPattern(modelPattern: string): boolean {
   const normalized = (modelPattern || '').trim()
   if (!normalized) return false
   if (isRegexModelPattern(normalized)) return false
-  // Treat any regex metacharacter as a signal that this is not a plain
-  // exact name (mirrors the legacy stub behavior so zero-channel placeholder
-  // dedup keeps working).
   return !/[*[\]()?{}|^$\\]/.test(normalized)
 }
 
@@ -73,7 +63,7 @@ export function parseRegexModelPattern(modelPattern: string): ParsedRegex {
   }
   const body = normalized.slice(3).trim()
   if (!body) {
-    return { regex: null, error: '正则体不能为空' }
+    return { regex: null, error: i18n.t('tokenRoutes.utils.regexEmpty') }
   }
   try {
     const regex = new RegExp(body)
@@ -102,7 +92,7 @@ export function getModelPatternError(modelPattern: string): string | null {
   if (!isRegexModelPattern(normalized)) return null
   const parsed = parseRegexModelPattern(normalized)
   if (!parsed.error) return null
-  return `模型匹配正则错误：${parsed.error}`
+  return i18n.t('tokenRoutes.utils.regexError', { error: parsed.error })
 }
 
 // ---------------------------------------------------------------------------
@@ -149,10 +139,6 @@ export function resolveRouteIcon(
   return { kind: 'text', value: normalized }
 }
 
-/**
- * Compact context-length label: `128000` → `128k`, `1000000` → `1M`.
- * `null` / `0` / empty → `''` (unknown, no enforce).
- */
 export function formatContextLength(
   contextLength: number | null | undefined,
 ): string {
@@ -169,13 +155,13 @@ export function formatContextLength(
 }
 
 // ---------------------------------------------------------------------------
-// Routing strategy label — used by the columns + detail sheet
+// Routing strategy label — returns i18n key; callers wrap with `t()`
 // ---------------------------------------------------------------------------
 
-const ROUTING_STRATEGY_LABELS: Record<RouteRoutingStrategy, string> = {
-  weighted: '权重随机',
-  round_robin: '轮询',
-  stable_first: '稳定优先',
+const ROUTING_STRATEGY_LABEL_KEYS: Record<RouteRoutingStrategy, string> = {
+  weighted: 'tokenRoutes.strategies.weighted',
+  round_robin: 'tokenRoutes.strategies.round_robin',
+  stable_first: 'tokenRoutes.strategies.stable_first',
 }
 
 export function normalizeRoutingStrategy(
@@ -188,12 +174,11 @@ export function normalizeRoutingStrategy(
 export function routingStrategyLabel(
   value: string | null | undefined,
 ): string {
-  return ROUTING_STRATEGY_LABELS[normalizeRoutingStrategy(value)]
+  return ROUTING_STRATEGY_LABEL_KEYS[normalizeRoutingStrategy(value)]
 }
 
 // ---------------------------------------------------------------------------
-// Channel draft helpers — convert the multi-select form value into the
-// backend `batchAddChannels` payload shape.
+// Channel draft helpers
 // ---------------------------------------------------------------------------
 
 export function dedupeChannelDrafts(

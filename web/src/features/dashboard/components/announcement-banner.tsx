@@ -10,6 +10,7 @@
 
 import { useEffect, useState } from 'react'
 import { Info, Megaphone, X } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -36,6 +37,7 @@ const SEVERITY_TONE: Record<
 }
 
 export function AnnouncementBanner() {
+  const { t } = useTranslation()
   const [items, setItems] = useState<AnnouncementItem[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -100,13 +102,13 @@ export function AnnouncementBanner() {
                 rel='noopener noreferrer'
                 className='text-xs underline underline-offset-2'
               >
-                learn more
+                {t('dashboard.announcement.learnMore')}
               </a>
             ) : null}
             <button
               type='button'
               onClick={() => dismiss(item.id)}
-              aria-label='Dismiss announcement'
+              aria-label={t('dashboard.announcement.dismiss')}
               className='text-muted-foreground hover:text-foreground -mr-1 shrink-0 rounded p-1'
             >
               <X className='size-3.5' />

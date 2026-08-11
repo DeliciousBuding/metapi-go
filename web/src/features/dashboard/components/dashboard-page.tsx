@@ -12,6 +12,8 @@
 // filters) once the traffic / models sections grow their own filter controls,
 // mirroring newapi's dashboard/index.tsx parent-owned state.
 
+import { useTranslation } from 'react-i18next'
+
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 import {
@@ -50,6 +52,7 @@ export function DashboardPage({
   activeSection,
   onSectionChange,
 }: DashboardPageProps) {
+  const { t } = useTranslation()
   const sectionId = resolveSectionId(activeSection)
   const meta = getDashboardSectionMeta(sectionId)
   const navItems = getDashboardSectionNavItems()
@@ -59,11 +62,11 @@ export function DashboardPage({
     <div className='flex flex-col gap-6 p-6'>
       <header className='flex flex-col gap-1'>
         <h1 className='text-2xl font-semibold tracking-tight'>
-          {meta.title}
+          {t(meta.title)}
         </h1>
         {meta.description ? (
           <p className='text-muted-foreground text-sm'>
-            {meta.description}
+            {t(meta.description)}
           </p>
         ) : null}
       </header>
@@ -79,7 +82,7 @@ export function DashboardPage({
             const id = item.url.split('/').pop() ?? item.title
             return (
               <TabsTrigger key={id} value={id}>
-                {item.title}
+                {t(item.title)}
               </TabsTrigger>
             )
           })}

@@ -19,6 +19,7 @@ import {
 import { toast } from 'sonner'
 
 import { api } from '@/lib/api'
+import i18n from '@/i18n/config'
 
 import {
   type Account,
@@ -50,7 +51,7 @@ function assertBusinessOk<T>(result: unknown, fallback: string): T {
     typeof envelope.success === 'boolean' &&
     !envelope.success
   ) {
-    throw new Error(typeof envelope.message === 'string' ? envelope.message : fallback)
+    throw new Error(typeof envelope.message === 'string' ? envelope.message : i18n.t(fallback))
   }
   return (result as T) ?? (envelope?.data as T)
 }
@@ -94,13 +95,10 @@ export function useCreateAccount() {
   return useMutation({
     mutationFn: async (payload: AccountPayload) => {
       const result = await api.addAccount(payload)
-      return assertBusinessOk<CreateAccountResult>(result, '添加账号失败')
+      return assertBusinessOk<CreateAccountResult>(result, 'accounts.toast.createFailed')
     },
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
-      // The create form owns the success surface — it fires the guided
-      // "next step: configure routes" toast (account-created-toast.tsx)
-      // rather than a plain confirmation, so this hook stays toast-free.
       return data
     },
   })
@@ -121,11 +119,11 @@ export function useUpdateAccount() {
       payload: AccountPayload
     }) => {
       const result = await api.updateAccount(id, payload)
-      return assertBusinessOk(result, '更新账号失败')
+      return assertBusinessOk(result, 'accounts.toast.updateFailed')
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
-      toast.success('账号已更新')
+      toast.success(i18n.t('accounts.toast.updated'))
     },
   })
 }
@@ -139,11 +137,11 @@ export function useRefreshAccount() {
   return useMutation({
     mutationFn: async (id: number) => {
       const result = await api.refreshBalance(id)
-      return assertBusinessOk(result, '刷新余额失败')
+      return assertBusinessOk(result, 'accounts.toast.refreshFailed')
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
-      toast.success('余额已刷新')
+      toast.success(i18n.t('accounts.toast.balanceRefreshed'))
     },
   })
 }
@@ -157,18 +155,17 @@ export function useDeleteAccount() {
   return useMutation({
     mutationFn: async (id: number) => {
       const result = await api.deleteAccount(id)
-      return assertBusinessOk(result, '删除账号失败')
+      return assertBusinessOk(result, 'accounts.toast.deleteFailed')
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
-      toast.success('账号已删除')
+      toast.success(i18n.t('accounts.toast.deleted'))
     },
   })
 }
 
 // ---------------------------------------------------------------------------
 // useBatchUpdateAccounts — POST /api/accounts/batch { ids, action }
-// action: 'enable' | 'disable' | 'delete' | 'refreshBalance'
 // ---------------------------------------------------------------------------
 
 export type BatchAccountAction =
@@ -193,7 +190,7 @@ export function useBatchUpdateAccounts() {
       action: BatchAccountAction
     }) => {
       const result = await api.batchUpdateAccounts({ ids, action })
-      return assertBusinessOk<BatchAccountResult>(result, '批量操作失败')
+      return assertBusinessOk<BatchAccountResult>(result, 'accounts.toast.batchFailed')
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
@@ -202,9 +199,7 @@ export function useBatchUpdateAccounts() {
 }
 
 // ---------------------------------------------------------------------------
-// Field-level toggle mutations — used by row actions (pin / status / checkin).
-// These send partial bodies to PUT /api/accounts/:id (the backend accepts
-// sparse updates) and only invalidate the snapshot cache.
+// Field-level toggle mutations
 // ---------------------------------------------------------------------------
 
 export function useToggleAccountPin() {
@@ -212,7 +207,7 @@ export function useToggleAccountPin() {
   return useMutation({
     mutationFn: async ({ id, isPinned }: { id: number; isPinned: boolean }) => {
       const result = await api.updateAccount(id, { isPinned })
-      return assertBusinessOk(result, '更新置顶失败')
+      return assertBusinessOk(result, 'accounts.toast.pinFailed')
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
@@ -231,7 +226,7 @@ export function useToggleAccountStatus() {
       status: AccountStatus
     }) => {
       const result = await api.updateAccount(id, { status })
-      return assertBusinessOk(result, '更新状态失败')
+      return assertBusinessOk(result, 'accounts.toast.statusFailed')
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
@@ -250,7 +245,7 @@ export function useToggleAccountCheckin() {
       checkinEnabled: boolean
     }) => {
       const result = await api.updateAccount(id, { checkinEnabled })
-      return assertBusinessOk(result, '更新签到失败')
+      return assertBusinessOk(result, 'accounts.toast.checkinFailed')
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
@@ -259,8 +254,7 @@ export function useToggleAccountCheckin() {
 }
 
 // ---------------------------------------------------------------------------
-// Convenience selector — resolve a single account from the snapshot cache.
-// Useful for the detail sheet when navigating via ?accountId=.
+// Convenience selector
 // ---------------------------------------------------------------------------
 
 export function selectAccountById(

@@ -6,6 +6,7 @@
 
 import { ExternalLink, RefreshCw } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -33,6 +34,7 @@ export function AccountDetailSheet({
   open,
   onOpenChange,
 }: AccountDetailSheetProps) {
+  const { t } = useTranslation()
   const refreshMutation = useRefreshAccount()
 
   if (!account) {
@@ -61,7 +63,7 @@ export function AccountDetailSheet({
   const site = account.site
   const displayName =
     account.username?.trim() ||
-    (account.credentialMode === 'apikey' ? 'API Key 连接' : '未命名连接')
+    (account.credentialMode === 'apikey' ? t('accounts.detail.fallbackApiKey') : t('accounts.detail.fallbackUnnamed'))
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -78,32 +80,32 @@ export function AccountDetailSheet({
         <div className='flex-1 space-y-4 overflow-y-auto p-4'>
           {/* Overview grid */}
           <dl className='grid grid-cols-2 gap-x-3 gap-y-2 text-sm'>
-            <DetailField label='站点'>
+            <DetailField label={t('accounts.detail.site')}>
               {site ? site.name || site.url || `#${site.id}` : `#${account.siteId}`}
             </DetailField>
-            <DetailField label='平台'>
+            <DetailField label={t('accounts.detail.platform')}>
               {site?.platform || '—'}
             </DetailField>
-            <DetailField label='余额'>
+            <DetailField label={t('accounts.detail.balance')}>
               ${formatNumber(account.balance)}
             </DetailField>
-            <DetailField label='已用'>
+            <DetailField label={t('accounts.detail.used')}>
               ${formatNumber(account.balanceUsed)}
             </DetailField>
-            <DetailField label='今日奖励'>
+            <DetailField label={t('accounts.detail.todayReward')}>
               +${formatNumber(account.todayReward)}
             </DetailField>
-            <DetailField label='今日消耗'>
+            <DetailField label={t('accounts.detail.todaySpend')}>
               ${formatNumber(account.todaySpend)}
             </DetailField>
-            <DetailField label='签到'>
+            <DetailField label={t('accounts.detail.checkin')}>
               {account.capabilities?.canCheckin
                 ? account.checkinEnabled
-                  ? '已开启'
-                  : '未开启'
-                : '不支持'}
+                  ? t('accounts.detail.checkinOn')
+                  : t('accounts.detail.checkinOff')
+                : t('accounts.detail.checkinUnsupported')}
             </DetailField>
-            <DetailField label='最近余额刷新'>
+            <DetailField label={t('accounts.detail.lastBalanceRefresh')}>
               {account.lastBalanceRefresh || '—'}
             </DetailField>
           </dl>
@@ -126,7 +128,7 @@ export function AccountDetailSheet({
               disabled={refreshMutation.isPending}
             >
               <RefreshCw className={refreshMutation.isPending ? 'animate-spin' : undefined} />
-              刷新余额
+              {t('accounts.detail.refreshBalance')}
             </Button>
           </div>
 
@@ -139,7 +141,7 @@ export function AccountDetailSheet({
         <SheetFooter>
           <Button onClick={handleConfigureRoutes} variant='default'>
             <ExternalLink />
-            下一步：配置路由
+            {t('accounts.detail.configureRoutes')}
           </Button>
         </SheetFooter>
       </SheetContent>

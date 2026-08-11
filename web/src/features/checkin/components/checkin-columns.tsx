@@ -1,183 +1,107 @@
-// metapi-go features/checkin/components — TanStack Table column definitions
-// for the checkin log list. Column meta drives the mobile card layout
-// (mobileTitle / mobileBadge / mobileHidden / mobileOrder) so the
-// data-table package's automatic mobile degradation needs zero per-feature
-// card code — same pattern as accounts-columns.tsx.
+// metapi-go features/checkin/components — TanStack Table column definitions.
+// i18n: all user-visible strings migrated to t() calls.
 
 import type { ColumnDef } from '@tanstack/react-table'
 import { Eye, MoreHorizontal, Play } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
-import {
-  type CheckinLogRow,
-  type CheckinRowActions,
-  checkinLogRowSchema,
-} from '../types'
+import { type CheckinLogRow, type CheckinRowActions, checkinLogRowSchema } from '../types'
 import { formatCheckinLogTime } from '../lib/checkin-time'
 import { FailureReasonBadge } from './failure-reason-badge'
 
-// ---------------------------------------------------------------------------
-// Status badge
-// ---------------------------------------------------------------------------
-
-interface StatusConfig {
-  variant: 'default' | 'secondary' | 'destructive'
-  dotClassName: string
-  label: string
-}
+interface StatusConfig { variant: 'default' | 'secondary' | 'destructive'; dotClassName: string; labelKey: string }
 
 function resolveStatusConfig(status: string): StatusConfig {
-  if (status === 'success') {
-    return { variant: 'default', dotClassName: 'bg-emerald-500', label: '成功' }
-  }
-  if (status === 'skipped') {
-    return {
-      variant: 'secondary',
-      dotClassName: 'bg-muted-foreground',
-      label: '跳过',
-    }
-  }
-  return { variant: 'destructive', dotClassName: 'bg-red-500', label: '失败' }
+  if (status === 'success') return { variant: 'default', dotClassName: 'bg-emerald-500', labelKey: 'checkin.columns.statusSuccess' }
+  if (status === 'skipped') return { variant: 'secondary', dotClassName: 'bg-muted-foreground', labelKey: 'checkin.columns.statusSkipped' }
+  return { variant: 'destructive', dotClassName: 'bg-red-500', labelKey: 'checkin.columns.statusFailed' }
 }
 
 function StatusBadge({ status }: { status: string }) {
+  const { t } = useTranslation()
   const config = resolveStatusConfig(status)
   return (
     <Badge variant={config.variant}>
       <span className={cn('size-1.5 rounded-full', config.dotClassName)} />
-      {config.label}
+      {t(config.labelKey)}
     </Badge>
   )
 }
 
-// ---------------------------------------------------------------------------
-// Row actions cell
-// ---------------------------------------------------------------------------
-
-function CheckinRowActions({
-  row,
-  actions,
-}: {
-  row: CheckinLogRow
-  actions: CheckinRowActions
-}) {
+function CheckinRowActions({ row, actions }: { row: CheckinLogRow; actions: CheckinRowActions }) {
+  const { t } = useTranslation()
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        className='inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground'
-        aria-label='签到记录操作'
-      >
+      <DropdownMenuTrigger className='inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground' aria-label={t('checkin.columns.rowActions')}>
         <MoreHorizontal className='size-4' />
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end' sideOffset={4}>
         <DropdownMenuItem onClick={() => actions.onViewDetail(row)}>
           <Eye />
-          查看详情
+          {t('checkin.columns.viewDetails')}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => actions.onTriggerAccount(row)}>
           <Play />
-          触发签到
+          {t('checkin.columns.triggerCheckin')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )
 }
 
-// ---------------------------------------------------------------------------
-// Columns hook
-// ---------------------------------------------------------------------------
-
-export function useCheckinColumns(
-  actions: CheckinRowActions,
-): ColumnDef<CheckinLogRow>[] {
+export function useCheckinColumns(actions: CheckinRowActions): ColumnDef<CheckinLogRow>[] {
+  const { t } = useTranslation()
   return [
     {
-      id: 'select',
-      size: 40,
-      enableSorting: false,
-      enableHiding: false,
+      id: 'select', size: 40, enableSorting: false, enableHiding: false,
       header: ({ table }) => (
-        <Checkbox
-          checked={table.getIsAllPageRowsSelected()}
-          onCheckedChange={(value) =>
-            table.toggleAllPageRowsSelected(Boolean(value))
-          }
-          aria-label='全选'
-        />
+        <Checkbox checked={table.getIsAllPageRowsSelected()} onCheckedChange={(value) => table.toggleAllPageRowsSelected(Boolean(value))} aria-label={t('checkin.columns.selectAll')} />
       ),
       cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(Boolean(value))}
-          aria-label='选择此行'
-        />
+        <Checkbox checked={row.getIsSelected()} onCheckedChange={(value) => row.toggleSelected(Boolean(value))} aria-label={t('checkin.columns.selectRow')} />
       ),
       meta: { mobileHidden: true },
     },
     {
-      accessorKey: 'checkin_logs.createdAt',
-      id: 'createdAt',
-      header: '签到时间',
+      accessorKey: 'checkin_logs.createdAt', id: 'createdAt',
+      header: t('checkin.columns.createdAt'),
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
-        const createdAt = log.checkin_logs.createdAt
-        return (
-          <span className='tabular-nums text-sm'>
-            {formatCheckinLogTime(createdAt)}
-          </span>
-        )
+        return <span className='tabular-nums text-sm'>{formatCheckinLogTime(log.checkin_logs.createdAt)}</span>
       },
       meta: { mobileTitle: true },
     },
     {
-      id: 'account',
-      header: '账号',
+      id: 'account', header: t('checkin.columns.account'),
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
         const username = log.accounts?.username
-        return (
-          <span className='truncate max-w-[160px]'>
-            {username || `#${log.checkin_logs.accountId}`}
-          </span>
-        )
+        return <span className='truncate max-w-[160px]'>{username || `#${log.checkin_logs.accountId}`}</span>
       },
       meta: { mobileOrder: 1 },
     },
     {
-      id: 'site',
-      header: '站点',
+      id: 'site', header: t('checkin.columns.site'),
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
         const site = log.sites
-        if (!site || (!site.name && !site.url)) {
-          return <span className='text-muted-foreground'>—</span>
-        }
-        return (
-          <span className='truncate max-w-[160px]'>
-            {site.name || site.url}
-          </span>
-        )
+        if (!site || (!site.name && !site.url)) return <span className='text-muted-foreground'>—</span>
+        return <span className='truncate max-w-[160px]'>{site.name || site.url}</span>
       },
       filterFn: (row, _columnId, filterValue: unknown) => {
         if (!Array.isArray(filterValue) || filterValue.length === 0) return true
         const log = checkinLogRowSchema.parse(row.original)
-        const siteName = log.sites?.name ?? ''
-        return filterValue.includes(siteName)
+        return filterValue.includes(log.sites?.name ?? '')
       },
       meta: { mobileOrder: 2 },
     },
     {
-      id: 'status',
-      header: '状态',
+      id: 'status', header: t('common.status'),
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
         return <StatusBadge status={log.checkin_logs.status} />
@@ -190,8 +114,7 @@ export function useCheckinColumns(
       meta: { mobileBadge: true },
     },
     {
-      id: 'reason',
-      header: '失败原因',
+      id: 'reason', header: t('checkin.columns.failureReason'),
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
         return <FailureReasonBadge reason={log.failureReason} />
@@ -206,26 +129,17 @@ export function useCheckinColumns(
       meta: { mobileOrder: 3 },
     },
     {
-      id: 'message',
-      header: '信息',
+      id: 'message', header: t('checkin.columns.message'),
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
         const message = log.checkin_logs.message
         if (!message) return <span className='text-muted-foreground'>—</span>
-        return (
-          <span
-            className='block max-w-[360px] truncate text-sm text-muted-foreground'
-            title={message}
-          >
-            {message}
-          </span>
-        )
+        return <span className='block max-w-[360px] truncate text-sm text-muted-foreground' title={message}>{message}</span>
       },
       meta: { mobileHidden: true },
     },
     {
-      id: 'reward',
-      header: '奖励',
+      id: 'reward', header: t('checkin.columns.reward'),
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
         const reward = log.checkin_logs.reward
@@ -235,11 +149,8 @@ export function useCheckinColumns(
       meta: { mobileHidden: true },
     },
     {
-      id: 'actions',
-      size: 48,
-      enableSorting: false,
-      enableHiding: false,
-      header: () => <span className='sr-only'>操作</span>,
+      id: 'actions', size: 48, enableSorting: false, enableHiding: false,
+      header: () => <span className='sr-only'>{t('common.actions')}</span>,
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
         return <CheckinRowActions row={log} actions={actions} />

@@ -1,4 +1,5 @@
 import { afterAll, vi } from 'vitest';
+import '@testing-library/jest-dom/vitest';
 import type { ReactElement, ReactNode } from 'react';
 import type {
   ReactTestRenderer,

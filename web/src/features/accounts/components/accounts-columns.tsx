@@ -15,6 +15,7 @@ import {
   CalendarCheck,
   Trash2,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -39,29 +40,34 @@ import {
 // ---------------------------------------------------------------------------
 
 interface HealthBadgeConfig {
-  label: string
+  labelKey: string
   variant: 'default' | 'secondary' | 'destructive' | 'warning' | 'outline'
   dotClassName: string
 }
 
 const HEALTH_BADGE_CONFIG: Record<RuntimeHealthState, HealthBadgeConfig> = {
-  healthy: { label: '健康', variant: 'default', dotClassName: 'bg-emerald-500' },
-  degraded: { label: '降级', variant: 'warning', dotClassName: 'bg-amber-500' },
-  unhealthy: { label: '异常', variant: 'destructive', dotClassName: 'bg-red-500' },
-  disabled: { label: '已禁用', variant: 'secondary', dotClassName: 'bg-muted-foreground' },
-  unknown: { label: '未知', variant: 'outline', dotClassName: 'bg-muted-foreground' },
+  healthy: { labelKey: 'accounts.columns.healthHealthy', variant: 'default', dotClassName: 'bg-emerald-500' },
+  degraded: { labelKey: 'accounts.columns.healthDegraded', variant: 'warning', dotClassName: 'bg-amber-500' },
+  unhealthy: { labelKey: 'accounts.columns.healthUnhealthy', variant: 'destructive', dotClassName: 'bg-red-500' },
+  disabled: { labelKey: 'accounts.columns.healthDisabled', variant: 'secondary', dotClassName: 'bg-muted-foreground' },
+  unknown: { labelKey: 'accounts.columns.healthUnknown', variant: 'outline', dotClassName: 'bg-muted-foreground' },
 }
 
-function resolveHealth(account: Account): HealthBadgeConfig {
-  if (account.status === 'expired') {
-    return {
-      label: '已过期',
-      variant: 'destructive',
-      dotClassName: 'bg-red-500',
+function useResolveHealth() {
+  const { t } = useTranslation()
+  return function resolveHealth(account: Account): HealthBadgeConfig & { label: string } {
+    if (account.status === 'expired') {
+      return {
+        labelKey: 'accounts.columns.healthExpired',
+        label: t('accounts.columns.healthExpired'),
+        variant: 'destructive',
+        dotClassName: 'bg-red-500',
+      }
     }
+    const state = account.runtimeHealth?.state ?? 'unknown'
+    const config = HEALTH_BADGE_CONFIG[state] ?? HEALTH_BADGE_CONFIG.unknown
+    return { ...config, label: t(config.labelKey) }
   }
-  const state = account.runtimeHealth?.state ?? 'unknown'
-  return HEALTH_BADGE_CONFIG[state] ?? HEALTH_BADGE_CONFIG.unknown
 }
 
 // ---------------------------------------------------------------------------
@@ -79,9 +85,12 @@ function formatPercent(used: number, total: number): string {
   return `${(ratio * 100).toFixed(1)}%`
 }
 
-function resolveDisplayName(account: Account): string {
-  if (account.username && account.username.trim()) return account.username
-  return account.credentialMode === 'apikey' ? 'API Key 连接' : '未命名连接'
+function useResolveDisplayName() {
+  const { t } = useTranslation()
+  return function resolveDisplayName(account: Account): string {
+    if (account.username && account.username.trim()) return account.username
+    return account.credentialMode === 'apikey' ? t('accounts.columns.fallbackApiKey') : t('accounts.columns.fallbackUnnamed')
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -95,51 +104,52 @@ function AccountsRowActions({
   account: Account
   actions: AccountRowActions
 }) {
+  const { t } = useTranslation()
   const canCheckin = account.capabilities?.canCheckin ?? false
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         className='inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground'
-        aria-label='账号操作'
+        aria-label={t('accounts.columns.rowActions')}
       >
         <MoreHorizontal className='size-4' />
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end' sideOffset={4}>
         <DropdownMenuItem onClick={() => actions.onViewDetail(account)}>
           <Eye />
-          查看详情
+          {t('accounts.columns.viewDetails')}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => actions.onRefresh(account)}>
           <RefreshCw />
-          刷新余额
+          {t('accounts.columns.refreshBalance')}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => actions.onTogglePin(account)}>
           {account.isPinned ? <PinOff /> : <Pin />}
-          {account.isPinned ? '取消置顶' : '置顶'}
+          {account.isPinned ? t('accounts.columns.unpin') : t('accounts.columns.pin')}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => actions.onToggleStatus(account)}
         >
           <Power />
-          {account.status === 'disabled' ? '启用' : '禁用'}
+          {account.status === 'disabled' ? t('accounts.columns.enable') : t('accounts.columns.disable')}
         </DropdownMenuItem>
         {canCheckin && (
           <DropdownMenuItem onClick={() => actions.onToggleCheckin(account)}>
             <CalendarCheck />
-            {account.checkinEnabled ? '关闭签到' : '开启签到'}
+            {account.checkinEnabled ? t('accounts.columns.disableCheckin') : t('accounts.columns.enableCheckin')}
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => actions.onEdit(account)}>
           <Pencil />
-          编辑
+          {t('common.edit')}
         </DropdownMenuItem>
         <DropdownMenuItem
           variant='destructive'
           onClick={() => actions.onDelete(account)}
         >
           <Trash2 />
-          删除
+          {t('common.delete')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -153,6 +163,9 @@ function AccountsRowActions({
 export function useAccountsColumns(
   actions: AccountRowActions,
 ): ColumnDef<Account>[] {
+  const { t } = useTranslation()
+  const resolveHealth = useResolveHealth()
+  const resolveDisplayName = useResolveDisplayName()
   return [
     {
       id: 'select',
@@ -165,21 +178,21 @@ export function useAccountsColumns(
           onCheckedChange={(value) =>
             table.toggleAllPageRowsSelected(Boolean(value))
           }
-          aria-label='全选'
+          aria-label={t('accounts.columns.selectAll')}
         />
       ),
       cell: ({ row }) => (
         <Checkbox
           checked={row.getIsSelected()}
           onCheckedChange={(value) => row.toggleSelected(Boolean(value))}
-          aria-label='选择此行'
+          aria-label={t('accounts.columns.selectRow')}
         />
       ),
       meta: { mobileHidden: true },
     },
     {
       id: 'name',
-      header: '连接名称',
+      header: t('accounts.columns.name'),
       cell: ({ row }) => {
         const account = accountSchema.parse(row.original)
         return (
@@ -208,7 +221,7 @@ export function useAccountsColumns(
     },
     {
       id: 'site',
-      header: '站点',
+      header: t('accounts.columns.site'),
       cell: ({ row }) => {
         const account = accountSchema.parse(row.original)
         const site = account.site
@@ -231,7 +244,7 @@ export function useAccountsColumns(
     },
     {
       id: 'status',
-      header: '状态',
+      header: t('common.status'),
       cell: ({ row }) => {
         const account = accountSchema.parse(row.original)
         const config = resolveHealth(account)
@@ -251,7 +264,7 @@ export function useAccountsColumns(
     },
     {
       accessorKey: 'balance',
-      header: '余额',
+      header: t('accounts.columns.balance'),
       cell: ({ row }) => {
         const account = accountSchema.parse(row.original)
         return (
@@ -269,7 +282,7 @@ export function useAccountsColumns(
     },
     {
       accessorKey: 'balanceUsed',
-      header: '已用',
+      header: t('accounts.columns.used'),
       cell: ({ row }) => {
         const account = accountSchema.parse(row.original)
         return (
@@ -285,15 +298,15 @@ export function useAccountsColumns(
     },
     {
       id: 'checkin',
-      header: '签到',
+      header: t('accounts.columns.checkin'),
       cell: ({ row }) => {
         const account = accountSchema.parse(row.original)
         if (!account.capabilities?.canCheckin) {
-          return <span className='text-muted-foreground text-xs'>不支持</span>
+          return <span className='text-muted-foreground text-xs'>{t('accounts.columns.checkinUnsupported')}</span>
         }
         return (
           <Badge variant={account.checkinEnabled ? 'default' : 'outline'}>
-            {account.checkinEnabled ? '已开启' : '未开启'}
+            {account.checkinEnabled ? t('accounts.columns.checkinOn') : t('accounts.columns.checkinOff')}
           </Badge>
         )
       },
@@ -304,7 +317,7 @@ export function useAccountsColumns(
       size: 48,
       enableSorting: false,
       enableHiding: false,
-      header: () => <span className='sr-only'>操作</span>,
+      header: () => <span className='sr-only'>{t('common.actions')}</span>,
       cell: ({ row }) => {
         const account = accountSchema.parse(row.original)
         return <AccountsRowActions account={account} actions={actions} />
