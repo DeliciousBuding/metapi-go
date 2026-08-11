@@ -1,7 +1,8 @@
 // metapi-go/layout — system-settings.config adapted from newapi per plan.md §5.5.2.
 // metapi Settings is a 5-subarea drill-in workspace (general / downstream / models /
 // content / system-info). The 7-section newapi registry is collapsed to metapi's 5.
-// TODO(phase 2): wrap labels in useTranslation once i18n is wired.
+// Titles are i18n keys resolved via t() at render time (nav-group.tsx /
+// sidebar-view-header.tsx).
 
 import {
   Boxes,
@@ -24,30 +25,30 @@ function getSettingsNavGroups(): NavGroup[] {
   return [
     {
       id: 'system-administration',
-      title: 'System Administration',
+      title: 'sidebar.groups.systemAdministration',
       items: [
         {
-          title: 'General',
+          title: 'sidebar.items.general',
           icon: Settings,
           url: '/settings/general',
         },
         {
-          title: 'Downstream Keys',
+          title: 'sidebar.items.downstreamKeys',
           icon: KeyRound,
           url: '/settings/downstream',
         },
         {
-          title: 'Models',
+          title: 'sidebar.items.models',
           icon: Boxes,
           url: '/settings/models',
         },
         {
-          title: 'Content',
+          title: 'sidebar.items.content',
           icon: Package,
           url: '/settings/content',
         },
         {
-          title: 'System Info',
+          title: 'sidebar.items.systemInfo',
           icon: ServerCog,
           url: '/settings/system-info',
         },
@@ -68,7 +69,7 @@ export const SYSTEM_SETTINGS_VIEW: SidebarView = {
   pathPattern: /^\/settings(\/|$)/,
   parent: {
     to: '/',
-    label: 'Back to Home',
+    label: 'sidebar.backToHome',
   },
   getNavGroups: getSettingsNavGroups,
 }

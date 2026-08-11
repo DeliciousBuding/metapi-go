@@ -1,9 +1,10 @@
 // metapi-go/layout — sidebar-view-header ported from newapi. AGPL header stripped.
 // Renders the back affordance for a nested drill-in sidebar view.
-// TODO(phase 2): wrap label in useTranslation once i18n is wired.
+// Labels are i18n keys resolved via t() at render time.
 
 import { Link } from '@tanstack/react-router'
 import { ChevronLeft } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import {
   SidebarHeader,
@@ -28,13 +29,14 @@ type SidebarViewHeaderProps = {
  */
 export function SidebarViewHeader(props: SidebarViewHeaderProps) {
   const { setOpenMobile } = useSidebar()
+  const { t } = useTranslation()
 
   return (
     <SidebarHeader className='border-sidebar-border border-b px-2 py-2'>
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton
-            tooltip={props.view.parent.label}
+            tooltip={t(props.view.parent.label)}
             className={cn(
               'text-muted-foreground hover:text-foreground',
               'gap-1.5 font-medium'
@@ -47,7 +49,7 @@ export function SidebarViewHeader(props: SidebarViewHeaderProps) {
             }
           >
             <ChevronLeft className='size-4 shrink-0' />
-            <span className='truncate'>{props.view.parent.label}</span>
+            <span className='truncate'>{t(props.view.parent.label)}</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>

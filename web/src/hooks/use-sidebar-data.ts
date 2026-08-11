@@ -1,7 +1,7 @@
 // metapi-go/hooks — use-sidebar-data adapted from newapi per plan.md §5.5.4.
 // 4 collapsible groups (Console / Configuration / Models / System) with lucide icons.
 // No NavChatPresets (metapi has no chat). No requiredRole (metapi is fully open).
-// TODO(phase 2): wrap titles in useTranslation once i18n is wired.
+// Titles are i18n keys resolved via t() at render time (nav-group.tsx).
 
 import {
   Activity,
@@ -32,35 +32,35 @@ export function useSidebarData(): SidebarData {
     navGroups: [
       {
         id: 'console',
-        title: 'Console',
+        title: 'sidebar.groups.console',
         items: [
           {
-            title: 'Dashboard',
+            title: 'sidebar.items.dashboard',
             url: '/',
             icon: LayoutDashboard,
           },
           {
-            title: 'Sites',
+            title: 'sidebar.items.sites',
             url: '/sites',
             icon: Server,
           },
           {
-            title: 'Accounts',
+            title: 'sidebar.items.accounts',
             url: '/accounts',
             icon: ShieldCheck,
           },
           {
-            title: 'Checkin',
+            title: 'sidebar.items.checkin',
             url: '/checkin',
             icon: CalendarCheck,
           },
           {
-            title: 'Proxy Logs',
+            title: 'sidebar.items.proxyLogs',
             url: '/proxy-logs',
             icon: ScrollText,
           },
           {
-            title: 'Monitors',
+            title: 'sidebar.items.monitors',
             url: '/monitors',
             icon: Activity,
           },
@@ -68,20 +68,20 @@ export function useSidebarData(): SidebarData {
       },
       {
         id: 'config',
-        title: 'Configuration',
+        title: 'sidebar.groups.configuration',
         items: [
           {
-            title: 'Token Routes',
+            title: 'sidebar.items.tokenRoutes',
             url: '/token-routes',
             icon: Route,
           },
           {
-            title: 'OAuth',
+            title: 'sidebar.items.oauth',
             url: '/oauth',
             icon: ShieldCheck,
           },
           {
-            title: 'Site Announcements',
+            title: 'sidebar.items.siteAnnouncements',
             url: '/site-announcements',
             icon: Megaphone,
           },
@@ -89,15 +89,15 @@ export function useSidebarData(): SidebarData {
       },
       {
         id: 'models',
-        title: 'Models',
+        title: 'sidebar.groups.models',
         items: [
           {
-            title: 'Models',
+            title: 'sidebar.items.models',
             url: '/models',
             icon: Boxes,
           },
           {
-            title: 'Model Tester',
+            title: 'sidebar.items.modelTester',
             url: '/model-tester',
             icon: FlaskConical,
           },
@@ -105,15 +105,15 @@ export function useSidebarData(): SidebarData {
       },
       {
         id: 'system',
-        title: 'System',
+        title: 'sidebar.groups.system',
         items: [
           {
-            title: 'Settings',
+            title: 'sidebar.items.settings',
             url: '/settings',
             icon: Settings,
           },
           {
-            title: 'About',
+            title: 'sidebar.items.about',
             url: '/about',
             icon: Info,
           },

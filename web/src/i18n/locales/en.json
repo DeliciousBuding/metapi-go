@@ -1649,6 +1649,35 @@
     "Sidebar": "Sidebar",
     "Displays the mobile sidebar.": "Displays the mobile sidebar.",
     "Toggle Sidebar": "Toggle Sidebar",
-    "Toggle theme": "Toggle theme"
+    "Toggle theme": "Toggle theme",
+    "sidebar": {
+      "groups": {
+        "console": "Console",
+        "configuration": "Configuration",
+        "models": "Models",
+        "system": "System",
+        "systemAdministration": "System Administration"
+      },
+      "items": {
+        "dashboard": "Dashboard",
+        "sites": "Sites",
+        "accounts": "Accounts",
+        "checkin": "Check-in",
+        "proxyLogs": "Proxy Logs",
+        "monitors": "Monitors",
+        "tokenRoutes": "Token Routes",
+        "oauth": "OAuth",
+        "siteAnnouncements": "Site Announcements",
+        "models": "Models",
+        "modelTester": "Model Tester",
+        "settings": "Settings",
+        "about": "About",
+        "general": "General",
+        "downstreamKeys": "Downstream Keys",
+        "content": "Content",
+        "systemInfo": "System Info"
+      },
+      "backToHome": "Back to Home"
+    }
   }
 }

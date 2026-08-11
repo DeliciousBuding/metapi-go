@@ -1649,6 +1649,35 @@
     "Sidebar": "侧边栏",
     "Displays the mobile sidebar.": "显示移动端侧边栏。",
     "Toggle Sidebar": "切换侧边栏",
-    "Toggle theme": "切换主题"
+    "Toggle theme": "切换主题",
+    "sidebar": {
+      "groups": {
+        "console": "控制台",
+        "configuration": "配置",
+        "models": "模型",
+        "system": "系统",
+        "systemAdministration": "系统管理"
+      },
+      "items": {
+        "dashboard": "仪表盘",
+        "sites": "站点",
+        "accounts": "账号",
+        "checkin": "签到",
+        "proxyLogs": "使用日志",
+        "monitors": "监控",
+        "tokenRoutes": "路由",
+        "oauth": "OAuth",
+        "siteAnnouncements": "站点公告",
+        "models": "模型",
+        "modelTester": "操练场",
+        "settings": "设置",
+        "about": "关于",
+        "general": "常规",
+        "downstreamKeys": "下游密钥",
+        "content": "内容",
+        "systemInfo": "系统信息"
+      },
+      "backToHome": "返回首页"
+    }
   }
 }
