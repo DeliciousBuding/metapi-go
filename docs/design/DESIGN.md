@@ -3,8 +3,8 @@
 **Product**: TokenDance / MetAPI admin
 **Scope**: Enterprise ops control plane (sites, accounts, tokens, routes, monitors, logs)
 **Visual language**: GCP cloud console density + frosted glass shell + Apple detail
-**Source of truth**: this document + `web/styles/tokens.css` + `web/design-system/**`
-**Last updated**: 2026-07-20
+**Source of truth**: this document + `web/src/styles/theme.css` + `web/src/components/ui/**`
+**Last updated**: 2026-08-11
 
 ---
 
@@ -28,14 +28,14 @@
 3. **Dual theme parity** — light and dark share the same semantic token names.
 4. **Dense but breathing** — 13px body, clear table rhythm, calm page titles (weight 400).
 5. **One glass system** — shell/modal/dropdown only; never blur table rows.
-6. **Progressive adoption** — primitives in `web/design-system`; migrate pages gradually.
+6. **Progressive adoption** — primitives in `web/src/components/ui/**`; migrate pages gradually.
 7. **Console, not marketing** — pill nav, tabular nums, restrained card hover (no lift).
 
 ---
 
 ## 2. Color tokens
 
-All values live in `web/styles/tokens.css` under `:root` (light) and `[data-theme="dark"]` (dark).
+All values live in `web/src/styles/theme.css` under `:root` (light) and `[data-theme="dark"]` (dark).
 
 ### 2.1 Surfaces
 
@@ -96,18 +96,18 @@ Primitive inventory and API: [`components.md`](./components.md).
 
 | Layer | Prefix / classes | Where |
 |-------|------------------|-------|
-| Design system | `ds-*` | `web/design-system/**` |
-| Legacy shell | `.topbar` `.sidebar` `.card` `.stat-card` | `web/index.css` |
-| Gallery | `/__design__` | DEV or `localStorage.metapi_design_gallery=1` |
+| Base UI (shadcn) | shadcn `ui-*` components | `web/src/components/ui/**` |
+| Shell layout | `app-header` / `app-sidebar` | `web/src/components/layout/**` |
+| Theme tokens | OKLCH CSS variables | `web/src/styles/theme.css` + `theme-presets.css` |
 
-New UI must start from design-system primitives when possible. Legacy classes are being retokenized in place.
+New UI must start from shadcn Base UI primitives when possible.
 
 ---
 
 ## 5. Visual acceptance
 
-1. `cd web && npm run test:visual` — gallery light/dark baselines
-2. `npm run test:e2e` — FOUC + theme UX
+1. `cd web && bun run test` — vitest unit/component suites
+2. `cd web && bun run build` — production bundle gate
 3. Manual score rubric (target ≥ 4/5 each):
    - Material (glass/solid hierarchy)
    - Brand calm (GCP blue, no neon)

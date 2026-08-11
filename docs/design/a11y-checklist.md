@@ -2,8 +2,8 @@
 
 **Product**: TokenDance / MetAPI admin
 **Scope**: accessibility checklist
-**Related source of truth**: `docs/design/DESIGN.md`, `web/styles/tokens.css`
-**Last updated**: 2026-07-19
+**Related source of truth**: `docs/design/DESIGN.md`, `web/src/styles/theme.css`
+**Last updated**: 2026-08-11
 **Status**: checklist + reduced-motion/transparency pass; page-level residual debt tracked below
 
 This document is the accessibility acceptance checklist. It records keyboard, name, contrast, and responsive expectations, plus residual debt that is intentionally out of scope for this issue.
@@ -72,19 +72,19 @@ This document is the accessibility acceptance checklist. It records keyboard, na
 
 | Control | Accessible name | Location |
 |---------|-----------------|----------|
-| Mobile hamburger | `打开导航` | `web/App.tsx` |
-| Language toggle | bilingual explicit labels | `web/App.tsx` |
-| Search trigger | `搜索 (Ctrl+K)` | `web/App.tsx` |
-| Notifications | `通知` | `web/App.tsx` |
-| Theme menu trigger | mode label (+ resolved system theme) | `web/App.tsx` |
-| Avatar menu | display name | `web/App.tsx` |
-| Sidebar item (collapsed) | item label | `web/App.tsx` |
-| Sidebar collapse | `收起侧边栏` / `展开侧边栏` | `web/App.tsx` |
-| Mobile drawer close | `关闭导航` (or `closeLabel`) | `MobileDrawer` |
-| Modal close (×) | `关闭弹框` | `CenteredModal` |
-| Search modal close | `关闭` | `SearchModal` |
-| Login GitHub icon link | `GitHub` | `web/App.tsx` |
-| Login theme tools group | `外观设置` | `web/App.tsx` |
+| Mobile hamburger | `打开导航` | `web/src/components/layout/components/app-header.tsx` |
+| Language toggle | bilingual explicit labels | `web/src/components/layout/components/app-header.tsx` |
+| Search trigger | `搜索 (Ctrl+K)` | `web/src/components/layout/components/app-header.tsx` |
+| Notifications | `通知` | `web/src/components/layout/components/app-header.tsx` |
+| Theme menu trigger | mode label (+ resolved system theme) | `web/src/components/layout/components/app-header.tsx` |
+| Avatar menu | display name | `web/src/components/layout/components/app-header.tsx` |
+| Sidebar item (collapsed) | item label | `web/src/components/layout/components/app-sidebar.tsx` |
+| Sidebar collapse | `收起侧边栏` / `展开侧边栏` | `web/src/components/layout/components/app-sidebar.tsx` |
+| Mobile drawer close | `关闭导航` (or `closeLabel`) | `web/src/components/ui/sheet.tsx` |
+| Modal close (×) | `关闭弹框` | `web/src/components/ui/dialog.tsx` |
+| Search modal close | `关闭` | `web/src/components/ui/command.tsx` |
+| Login GitHub icon link | `GitHub` | `web/src/features/auth/components/login-form.tsx` |
+| Login theme tools group | `外观设置` | `web/src/features/auth/components/login-form.tsx` |
 
 ### 3.2 Shared component rules
 
@@ -106,7 +106,7 @@ This document is the accessibility acceptance checklist. It records keyboard, na
 
 ## 4. Contrast notes (primary text / surfaces)
 
-Values from `web/styles/tokens.css` / `DESIGN.md`. Ratios are approximate WCAG 2.x relative luminance checks for operator review (not a lab measurement suite).
+Values from `web/src/styles/theme.css` / `DESIGN.md`. Ratios are approximate WCAG 2.x relative luminance checks for operator review (not a lab measurement suite).
 
 ### 4.1 Light theme
 
@@ -193,8 +193,8 @@ Breakpoints used by product:
 
 | Topic | Expectation | Status |
 |-------|-------------|--------|
-| `prefers-reduced-motion: reduce` | Collapse non-essential transitions/animations | **Pass** — token durations → ~0 in `tokens.css`; global hard-cut `animation/transition-duration` in `web/index.css` |
-| `prefers-reduced-transparency: reduce` | Glass → solid elevated; strip backdrop blur | **Pass** — glass family + sidebar/topbar tokens solidify; shell/login/toast/overlay blur stripped in `index.css` + design-system glass surfaces |
+| `prefers-reduced-motion: reduce` | Collapse non-essential transitions/animations | **Pass** — token durations → ~0 in `theme.css`; global hard-cut `animation/transition-duration` in `web/src/styles/index.css` |
+| `prefers-reduced-transparency: reduce` | Glass → solid elevated; strip backdrop blur | **Pass** — glass family + sidebar/topbar tokens solidify; shell/login/toast/overlay blur stripped in `web/src/styles/index.css` + shadcn Base UI glass surfaces |
 | Dialog semantics | `role="dialog"` + `aria-modal` for blocking overlays | Mobile drawer pass; SearchModal improved; not all legacy overlays |
 | Live regions | Toasts/errors announced | Residual |
 | Language | `t()` for user-visible chrome strings; `aria-label` included in i18n attr list | Pass pattern |
@@ -205,7 +205,7 @@ Breakpoints used by product:
 
 Tracked for follow-up issues (not blocking U3 checklist doc):
 
-1. ~~**Focus trap** inside SearchModal / CenteredModal / notification panel (Tab cycles within overlay).~~ **Done** — `web/components/useFocusTrap.ts` wired into SearchModal, CenteredModal, MobileDrawer, NotificationPanel.
+1. ~~**Focus trap** inside SearchModal / CenteredModal / notification panel (Tab cycles within overlay).~~ **Done** — `web/src/lib/helpers/navigationFocus.ts` + shadcn Base UI dialog primitives (`web/src/components/ui/dialog.tsx`, `command.tsx`).
 2. ~~**Global `:focus-visible`** utility applied to all `.btn`, `.sidebar-item`, topbar controls.~~ **Partial done** — `.sidebar-item:focus-visible` + existing chrome rings; remaining page-level action grids still mixed.
 3. ~~**`prefers-reduced-motion`** hard cutover for `fade-in` / `slide-up` / drawer transitions.~~ **Done in #540** (global + token collapse). Residual: intentional essential-motion exceptions only if product later needs them.
 4. **Page-level icon actions** (copy, open external, row kebab, route drag handles) — many labeled, inventory incomplete across Accounts/Sites/Routes/Logs.
@@ -259,9 +259,9 @@ Run against both light and dark themes.
 | Change | File | Why |
 |--------|------|-----|
 | Checklist source of truth | `docs/design/a11y-checklist.md` | U3 deliverable |
-| Search modal close + dialog semantics | `web/components/SearchModal.tsx` | Icon/header lacked explicit close control name |
-| Search modal test | `web/components/search-modal.results.test.tsx` | Guard close `aria-label` |
-| Sidebar collapse name | `web/App.tsx` | Icon-only when collapsed |
+| Search modal close + dialog semantics | `web/src/components/ui/command.tsx` / `dialog.tsx` | Icon/header lacked explicit close control name |
+| Search modal test | `web/src/components/ui/*.test.ts(x)` | Guard close `aria-label` |
+| Sidebar collapse name | `web/src/components/layout/components/app-sidebar.tsx` | Icon-only when collapsed |
 
 No package bumps. No Go changes. No wholesale page redesign.
 

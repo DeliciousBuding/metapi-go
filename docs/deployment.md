@@ -6,7 +6,7 @@
 
 - Docker (for containerized deployment)
 - Go 1.26.5+ (for bare-metal deployment)
-- Node.js 25+ (for frontend build)
+- Bun 1.x (for frontend build)
 - PostgreSQL 16+ (optional, for production database)
 - A reverse proxy (nginx or Caddy) with TLS
 
@@ -109,7 +109,7 @@ sudo certbot renew --dry-run
 
 ```bash
 # 1. Build frontend
-cd web && npm ci --ignore-scripts && npm run build:web && cd ..
+cd web && bun install --frozen-lockfile && bun run build:web && cd ..
 
 # 2. Build server
 go build -ldflags="-s -w" -o metapi ./cmd/server
@@ -123,7 +123,7 @@ export DATABASE_URL='postgres://<user>:<password>@<host>:5432/<db>?sslmode=requi
 ./metapi
 ```
 
-For container releases, the Dockerfile builds the React frontend inside a Node stage and copies `web/dist` into the Go build stage before `go:embed` runs. A clean checkout should pass `docker build -t metapi-go:ci .` without a pre-existing local `web/dist`.
+For container releases, the Dockerfile builds the React frontend inside a Bun stage and copies `web/dist` into the Go build stage before `go:embed` runs. A clean checkout should pass `docker build -t metapi-go:ci .` without a pre-existing local `web/dist`.
 
 ## Database
 
@@ -211,16 +211,13 @@ Docker Compose will automatically recreate the container with the new image. Aut
 
 ## Post-deploy asset smoke (mandatory)
 
-The image build verifies its own dist is self-consistent (`node scripts/verify-dist.mjs`
-runs inside the Dockerfile after `npm run build:web`; CI also gates it via
-`dist-integrity test`). After every deploy, replay the browser asset
-graph against the running instance — this catches SPA-fallback-swallowed assets
-(200 text/html instead of the real file) and stale-cache 404s:
+After every deploy, replay the browser asset graph against the running
+instance — this catches SPA-fallback-swallowed assets (200 text/html instead
+of the real file) and stale-cache 404s:
 
 ```bash
 bash web/scripts/verify-live-assets.sh http://127.0.0.1:4000
 # verify-live-assets OK: N referenced assets all 200
 ```
 
-On a machine without node the bash script works; `web/scripts/verify-live-assets.mjs`
-is the node equivalent for local use.
+The script needs only bash + curl (no node on the target).

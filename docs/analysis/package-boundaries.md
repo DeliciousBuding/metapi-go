@@ -20,7 +20,7 @@ This document is the **B1 ownership inventory**. It does **not** rewrite package
 | `docs/design/BACKEND.md` §2 | Allowed / forbidden edges |
 | Static call-site scan | Singletons, exception edges, unused leaves |
 
-**Scope**: Go packages under module `github.com/deliciousbuding/metapi-go` (excluding pure frontend under `web/*` and VitePress).
+**Scope**: Go packages under module `github.com/deliciousbuding/metapi-go` (excluding pure frontend under `web/*`).
 **Result snapshot**: 39 Go packages; **no import cycles**.
 
 ---

@@ -433,6 +433,7 @@
         "postRefreshProbeEnabledHint": "Send a probe request after each token refresh to verify the account.",
         "postRefreshProbeModel": "Probe model",
         "postRefreshProbeModelPlaceholder": "Enter a model name",
+        "postRefreshProbeScope": "Probe scope",
         "scopePlaceholder": "Select a scope",
         "scopeAll": "All accounts",
         "scopeSingle": "Single account",
@@ -679,7 +680,9 @@
             "codexUpstreamWebsocketEnabled": "Use WebSocket to Codex upstream",
             "responsesCompactFallbackEnabled": "Fallback Compact to Responses",
             "proxySessionChannelConcurrencyLimit": "Session channel concurrency",
-            "proxySessionChannelQueueWaitMs": "Queue wait (ms)"
+            "proxySessionChannelQueueWaitMs": "Queue wait (ms)",
+            "modelAvailabilityProbeEnabled": "Enable model availability probe",
+            "modelAvailabilityProbeEnabledHint": "Periodically probe upstream model availability and mark unreachable models."
           },
           "schema": { "payloadRulesInvalid": "Payload rules must be a valid JSON object." },
           "toast": {
@@ -1615,6 +1618,8 @@
     "View mode": "View mode",
     "selected": "selected",
     "No results found.": "No results found.",
+    "No option found.": "No option found.",
+    "Press Enter to use \"{{value}}\"": "Press Enter to use \"{{value}}\"",
     "Clear filters": "Clear filters",
     "Clear selection": "Clear selection",
     "Clear selection (Escape)": "Clear selection (Escape)",
@@ -1628,6 +1633,8 @@
     "Go to last page": "Go to last page",
     "Asc": "Asc",
     "Desc": "Desc",
+    "Collapse": "Collapse",
+    "Expand": "Expand",
     "Hide": "Hide"
   }
 }

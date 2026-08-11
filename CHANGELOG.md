@@ -18,8 +18,8 @@ All notable changes to MetAPI-Go will be documented in this file.
 - ProxyLogs：data-table（manual + 服务端分页）+ 详情 Sheet（会话路径 + 计费 JSON + 前向兼容）
 - Models + ModelTester：data-table + 品牌图标 + SSE 流式响应（parseAnyStreamDelta 全协议 OpenAI/Claude/Responses/Gemini）
 - About/OAuth/SiteAnnouncements：完整 CRUD + 静态信息
-- i18n：key-based（en + zh-CN 各 ~900 key，双向 0 缺失），React 组件 useTranslation()+t()，.ts 模块 i18n.t()
-- 测试：vitest + @testing-library/react + jsdom；361 tests 全绿（schema/utils/registry 就近 __tests__/）
+- i18n：key-based（en + zh-CN 各 1369 key，双向 0 缺失），React 组件 useTranslation()+t()，.ts 模块 i18n.t()
+- 测试：vitest + @testing-library/react + jsdom；351 tests 全绿（schema/utils/registry 就近 __tests__/）
 
 ### Fixed — 签到 ClassifyFailureReason 幽灵功能
 - 后端 sc2_012 additive migration（checkin_logs.failure_reason TEXT，SQLite/PG dual dialect）+ checkin.go 调用 classifyAndMarshalFailureReason（4 个 INSERT 落库点）+ API 嵌套形状回归 {checkin_logs, accounts, sites, failureReason} + 前端 failureReason 分类着色 badge
@@ -28,13 +28,24 @@ All notable changes to MetAPI-Go will be documented in this file.
 ### Removed — 旧前端代码清理
 - 删除 web/App.tsx + pages/ + components/ + styles/ + e2e/ + 5 个旧 i18n 文件（MutationObserver 字典）+ ~200 个旧测试（测试已删的旧代码）：~53 个遗留文件/目录，~101664 行删除
 
+### Changed — CI/构建迁移：npm → Bun
+- ci.yml frontend job：npm → Bun（oven-sh/setup-bun@v2 + `bun install --frozen-lockfile` + typecheck/test/build:web）；cd.yml release-gate 同步 npm → Bun
+- Dockerfile Stage 1：`node:25-alpine` → `oven/bun:1-alpine`（`bun install --frozen-lockfile` + `bun run build:web`，含 desktop icons；verify-dist.mjs 产物自洽校验移除）
+- Makefile：`web-build` npm ci → `bun install --frozen-lockfile` + `bun run build:web`；`ui-e2e`/`ui-visual` targets 删除
+- 删除 `ui-visual.yml`（Playwright 已砍）+ ci.yml `en-verify` job（Playwright + verify-en-pages.mjs 的 MutationObserver 字典验证由 key-based i18n 取代）
+- 新增 i18n key 覆盖测试（`web/src/i18n/__tests__/i18n-keys.test.ts`）：扫描全量 `t()`/`i18n.t()` 调用，验证每个 key 在 en.json + zh-CN.json 均定义且两 locale key 集合完全一致（防 key 缺失回归）
+
+### Chore — 运维整理：stash 恢复 + 死代码清理
+- stash 恢复（重写前挂起）：backend `docs/design/BACKEND.md` + `a11y-checklist.md` 更新、`platform/error_classification.go` + `site_proxy.go` 注释修正；10 个 backend 文件已在 HEAD（0 diff）
+- 死代码清理：`sitesEditor.ts`（313 行，重写后零引用）删除；knip cleanup 删除未使用的 `stub-section.tsx`（settings 18 个 stub 已全部实装）+ `format.ts` 3 个未用导出（formatCompactNumber/formatLatencyMs/formatCost）+ formatPercent 降级为内部函数
+
 ### Verified — 无缝迁移保证
 - go test ./... -race：31/32 包通过（1 预存 baseline bug，websocket doc-pointer，与本次无关）
 - SQLite dev 冒烟：health/ready/auth/SPA HTML 200 + sc2_012 failure_reason 列存在
 - PostgreSQL 生产冒烟（本地真实 PG 18.2）：12 migrations 全应用 + sc2_012 在 PG 下执行 + schema_migrations 版本记录
 - 前后端集成：bun build + go:embed 单二进制 + SPA HTML 200
 - sc2_012 dual-dialect 幂等三重保护（schema_migrations 簿记 + columnExists 预检 + ALTER 后再检）
-- 静态门禁：tsgo 0 error + oxlint 0 error + bun run build pass（4462.4 kB / 1385.8 kB gzip）+ vitest 361/361
+- 静态门禁：tsgo 0 error + oxlint 0 error + bun run build pass（4462.4 kB / 1385.8 kB gzip）+ vitest 351/351
 
 ## [v0.8.54] — 2026-08-11
 

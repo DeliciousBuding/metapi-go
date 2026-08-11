@@ -1,36 +1,25 @@
 # Design system components
 
-> Last updated: 2026-07-19
-> Source of truth for primitives: `web/design-system/**`
-> Tokens: `web/styles/tokens.css` + `docs/design/DESIGN.md`
+> Last updated: 2026-08-11
+> The legacy `ds-*` design system was replaced by **shadcn Base UI** components during the 2026-08 frontend rewrite (Bun + Rsbuild). New primitives live in `web/src/components/ui/**`; the inventory below documents the pre-rewrite system and is kept as a historical reference.
+> Source of truth for primitives: `web/src/components/ui/**`
+> Tokens: `web/src/styles/theme.css` + `docs/design/DESIGN.md`
 
 ## Purpose
 
-Unified React primitives for the admin UI. Prefer these over ad-hoc Tailwind / inline styles for new surfaces. Class prefix is always `ds-`; colors and elevation come from CSS variables (`var(--color-*)`, glass tokens).
+shadcn Base UI primitives for the admin UI. Prefer these over ad-hoc Tailwind / inline styles for new surfaces. Colors and elevation come from OKLCH CSS variables (`var(--color-*)`, theme tokens in `web/src/styles/theme.css`).
 
 ## Entry points
 
 | Path | Role |
 |------|------|
-| `web/design-system/index.ts` | Public exports |
-| `web/design-system/styles.css` | Primitive styles (imported by index) |
-| `web/pages/DesignSystemGallery.tsx` | Visual acceptance page |
-| `/__design__` | Dev gallery route (see Access) |
+| `web/src/components/ui/**` | shadcn Base UI primitives (button, dialog, table, …) |
+| `web/src/components/layout/**` | Shell chrome (app-header, app-sidebar, nav groups) |
+| `web/src/styles/index.css` | Tailwind 4 entry + global styles |
 
 ## Access (gallery)
 
-Route: `/__design__`
-
-Guard (in `web/App.tsx`):
-
-- `import.meta.env.DEV`, **or**
-- `localStorage.metapi_design_gallery === '1'`
-
-When enabled, the gallery renders **outside the auth shell** so Vite preview / Playwright can screenshot without a backend token. When the guard fails, the path is not registered and falls through to the normal app catch-all.
-
-Marker: `data-testid="design-system-gallery"`.
-
-Theme toggles on the gallery set `document.documentElement[data-theme]` to `light` or `dark`.
+The `/__design__` dev gallery and `DesignSystemGallery` page were removed with the Playwright visual suite (2026-08 rewrite). Theme toggles set `document.documentElement[data-theme]` to `light` or `dark`.
 
 ## Tokens used
 
@@ -171,20 +160,18 @@ Classes: `ds-inline`, plus gap/align/justify and `ds-wrap` / `ds-nowrap`.
 
 ## Conventions
 
-1. **Prefix**: only `ds-` for design-system classes.
-2. **Tokens**: no hard-coded brand hex in components; use `var(--color-*)` / glass vars.
+1. **Components**: import from `web/src/components/ui/**` (shadcn Base UI).
+2. **Tokens**: no hard-coded brand hex in components; use OKLCH theme vars (`var(--color-*)` from `web/src/styles/theme.css`).
 3. **Accessibility**: focus-visible rings, label associations, `aria-invalid` on errors, reduced-transparency fallbacks.
-4. **Imports**: from `web/design-system/index.js` (or package-relative path with `.js` extension for NodeNext).
-5. **Migration**: existing `.btn` / page CSS stays until page-level refresh issues land; new UI should start here.
+4. **Imports**: from `@/components/ui/*` (path alias) for new code.
 
 ## Visual acceptance
 
-1. Run Vite dev server.
-2. Open `/__design__` (DEV) or set `localStorage.metapi_design_gallery = '1'`.
-3. Toggle Light / Dark; confirm Button, Surface, Card, Badge, Input, Stack, Inline variants.
+1. `cd web && bun run dev` (Rsbuild dev server) or `bun run build && bun run preview`.
+2. Toggle Light / Dark; confirm primitives render correctly with the OKLCH theme tokens.
 
 ## Tests
 
-- `web/design-system/Button.test.tsx` — class composition + disabled click.
-- Typecheck: `cd web && npm run typecheck:web`
-- Unit: `cd web && npm test -- --run`
+- `web/src/**/*.test.ts(x)` — vitest unit/component tests.
+- Typecheck: `cd web && bun run typecheck`
+- Unit: `cd web && bun run test`

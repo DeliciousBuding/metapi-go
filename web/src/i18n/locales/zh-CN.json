@@ -433,6 +433,7 @@
         "postRefreshProbeEnabledHint": "每次令牌刷新后发送探测请求以验证账号。",
         "postRefreshProbeModel": "探测模型",
         "postRefreshProbeModelPlaceholder": "输入模型名称",
+        "postRefreshProbeScope": "探测范围",
         "scopePlaceholder": "选择范围",
         "scopeAll": "全部账号",
         "scopeSingle": "单个账号",
@@ -679,7 +680,9 @@
             "codexUpstreamWebsocketEnabled": "对 Codex 上游使用 WebSocket",
             "responsesCompactFallbackEnabled": "Compact 回退到 Responses",
             "proxySessionChannelConcurrencyLimit": "会话通道并发",
-            "proxySessionChannelQueueWaitMs": "队列等待（毫秒）"
+            "proxySessionChannelQueueWaitMs": "队列等待（毫秒）",
+            "modelAvailabilityProbeEnabled": "启用模型可用性探测",
+            "modelAvailabilityProbeEnabledHint": "定期探测上游模型可用性，并将不可达模型标记为不可用。"
           },
           "schema": { "payloadRulesInvalid": "负载规则必须是合法的 JSON 对象。" },
           "toast": {
@@ -1615,6 +1618,8 @@
     "View mode": "视图模式",
     "selected": "已选",
     "No results found.": "未找到结果。",
+    "No option found.": "未找到选项。",
+    "Press Enter to use \"{{value}}\"": "按回车使用 \"{{value}}\"",
     "Clear filters": "清除筛选",
     "Clear selection": "清除选择",
     "Clear selection (Escape)": "清除选择（Esc）",
@@ -1628,6 +1633,8 @@
     "Go to last page": "最后一页",
     "Asc": "升序",
     "Desc": "降序",
+    "Collapse": "折叠",
+    "Expand": "展开",
     "Hide": "隐藏"
   }
 }

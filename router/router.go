@@ -172,20 +172,20 @@ func setupSPAFallback(r chi.Router, distFS fs.FS) {
 		distFS = rootedFS
 	}
 
-	// /assets/* → immutable cache for 1 year
-	assetsFS, err := fs.Sub(distFS, "assets")
-	if err == nil {
-		r.Handle("/assets/*", http.StripPrefix("/assets/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-			http.FileServer(http.FS(assetsFS)).ServeHTTP(w, r)
-		})))
-	} else {
-		slog.Warn("embedded web/dist/assets not found, asset serving disabled", "error", err)
-	}
+	// /assets/* → legacy Vite asset layout, kept for compatibility with older
+	// builds that still emit dist/assets.
+	mountStaticSubdir(r, distFS, "assets", "/assets/*", "/assets/")
 
-	// Root public files (logo, favicons) copied by Vite from web/public into
-	// dist root. They are NOT under /assets/, so serve them explicitly here —
-	// otherwise the SPA fallback answers 200 text/html and <img> renders blank.
+	// /static/* → Rsbuild output: /static/js/*.js (incl. async chunks),
+	// /static/css/*.css and /static/font/*.woff2. index.html references these
+	// paths; without this mount the SPA fallback answered 200 text/html and
+	// nosniff browsers refused the assets (blank embedded UI).
+	mountStaticSubdir(r, distFS, "static", "/static/*", "/static/")
+
+	// Root public files (logo, favicons) copied from web/public into the dist
+	// root. They are NOT under /assets/ or /static/, so serve them explicitly
+	// here — otherwise the SPA fallback answers 200 text/html and <img>
+	// renders blank.
 	rootFiles := map[string]string{
 		"logo.png":                  "image/png",
 		"favicon.png":               "image/png",
@@ -227,4 +227,28 @@ func setupSPAFallback(r chi.Router, distFS fs.FS) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write(data)
 	})
+}
+
+// mountStaticSubdir serves a subtree of the embedded dist under route with an
+// immutable cache header (filenames are content-hashed).
+//
+// fs.Sub alone is not enough to detect a missing directory: embed.FS does not
+// implement fs.SubFS, and the generic fallback hands back a broken empty
+// subtree without an error. ReadDir here verifies the subtree is real so a
+// wrong layout is logged at startup instead of silently answering every
+// request with the SPA fallback HTML.
+func mountStaticSubdir(r chi.Router, distFS fs.FS, dir, route, stripPrefix string) {
+	subFS, err := fs.Sub(distFS, dir)
+	if err != nil {
+		slog.Warn("embedded web/dist subtree not available, serving disabled", "dir", dir, "error", err)
+		return
+	}
+	if _, err := fs.ReadDir(subFS, "."); err != nil {
+		slog.Warn("embedded web/dist subtree not readable, serving disabled", "dir", dir, "error", err)
+		return
+	}
+	r.Handle(route, http.StripPrefix(stripPrefix, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		http.FileServer(http.FS(subFS)).ServeHTTP(w, r)
+	})))
 }

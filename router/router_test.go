@@ -2,6 +2,7 @@ package router
 
 import (
 	"encoding/json"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -293,5 +294,128 @@ func TestDownstreamPricingRequiresProxyAuth(t *testing.T) {
 	r.ServeHTTP(rec, req)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("/v1/pricing without downstream key status = %d, want 401", rec.Code)
+	}
+}
+
+// findDistAsset returns a real built filename under web/dist for the given
+// subdirectory, preferring an "index*" entry so tests track the actual
+// Rsbuild output instead of hardcoding content-hash filenames.
+func findDistAsset(t *testing.T, dir string, suffix string) string {
+	t.Helper()
+	entries, err := fs.ReadDir(web.Dist, dir)
+	if err != nil {
+		t.Fatalf("fs.ReadDir(%s): %v", dir, err)
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "index") && strings.HasSuffix(entry.Name(), suffix) {
+			return entry.Name()
+		}
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), suffix) {
+			return entry.Name()
+		}
+	}
+	t.Fatalf("no %q asset found under web/dist/%s", suffix, dir)
+	return ""
+}
+
+// TestStaticAssetsServedWithRealContentType
+//
+// Regression for the Rsbuild migration: web/dist/static/js|css|font assets
+// fell through to the SPA fallback (200 text/html), so nosniff browsers
+// refused them and the embedded single-binary UI stayed blank.
+func TestStaticAssetsServedWithRealContentType(t *testing.T) {
+	cfg := &config.Config{
+		AuthToken:        "admin-token",
+		ProxyToken:       "proxy-token",
+		RequestBodyLimit: config.DefaultRequestBodyLimit,
+	}
+	r := New(cfg, web.Dist)
+
+	jsName := findDistAsset(t, "dist/static/js", ".js")
+	cssName := findDistAsset(t, "dist/static/css", ".css")
+	fontName := findDistAsset(t, "dist/static/font", ".woff2")
+
+	cases := []struct {
+		name   string
+		path   string
+		wantCT string
+	}{
+		{name: "js chunk", path: "/static/js/" + jsName, wantCT: "javascript"},
+		{name: "css", path: "/static/css/" + cssName, wantCT: "text/css"},
+		{name: "font", path: "/static/font/" + fontName, wantCT: "font/woff2"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			r.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("GET %s status = %d body=%s", tc.path, rec.Code, rec.Body.String())
+			}
+			ct := rec.Header().Get("Content-Type")
+			if !strings.Contains(ct, tc.wantCT) {
+				t.Fatalf("GET %s content-type = %q, want it to contain %q", tc.path, ct, tc.wantCT)
+			}
+			if strings.Contains(ct, "html") {
+				t.Fatalf("GET %s content-type = %q, SPA fallback answered for a static asset", tc.path, ct)
+			}
+			if got := rec.Header().Get("Cache-Control"); got != "public, max-age=31536000, immutable" {
+				t.Fatalf("GET %s cache-control = %q, want immutable", tc.path, got)
+			}
+			if rec.Body.Len() == 0 {
+				t.Fatalf("GET %s body is empty", tc.path)
+			}
+		})
+	}
+}
+
+// TestStaticAssetMissingReturns404NotSPAFallback
+//
+// Regression: a missing /static/* file must 404 from the file server instead
+// of being answered by the SPA fallback with 200 text/html.
+func TestStaticAssetMissingReturns404NotSPAFallback(t *testing.T) {
+	cfg := &config.Config{
+		AuthToken:        "admin-token",
+		ProxyToken:       "proxy-token",
+		RequestBodyLimit: config.DefaultRequestBodyLimit,
+	}
+	r := New(cfg, web.Dist)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/static/js/__missing_asset__.js", nil)
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("missing static asset status = %d, want 404 (SPA fallback would be 200 text/html)", rec.Code)
+	}
+}
+
+// TestSPAFallbackServesClientRoutesAfterStaticMount
+//
+// After the /static/ mount, non-API client routes must still fall back to
+// index.html.
+func TestSPAFallbackServesClientRoutesAfterStaticMount(t *testing.T) {
+	cfg := &config.Config{
+		AuthToken:        "admin-token",
+		ProxyToken:       "proxy-token",
+		RequestBodyLimit: config.DefaultRequestBodyLimit,
+	}
+	r := New(cfg, web.Dist)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/login", nil)
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("client route status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.Contains(ct, "text/html") {
+		t.Fatalf("client route content-type = %q, want text/html", ct)
+	}
+	if body := rec.Body.String(); !strings.Contains(body, "<html") {
+		t.Fatalf("client route body does not look like HTML: %q", body[:min(len(body), 120)])
 	}
 }
