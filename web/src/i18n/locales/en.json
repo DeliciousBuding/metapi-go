@@ -591,6 +591,7 @@
         "disabled": "Disabled",
         "loading": "Loading…",
         "saved": "All changes saved.",
+        "unsaved": "You have unsaved changes.",
         "reset": "Reset",
         "noChanges": "No changes to save.",
         "loadFailed": "Failed to load settings. The form is disabled to avoid overwriting your configuration.",
@@ -600,6 +601,9 @@
         "discardChanges": "Discard changes",
         "keepEditing": "Keep editing",
         "schedule": {
+          "everyHours": "Every {{count}} hours",
+          "everyHours_one": "Every {{count}} hour",
+          "everyHours_other": "Every {{count}} hours",
           "kinds": {
             "daily": "Daily at",
             "interval": "Every N hours",

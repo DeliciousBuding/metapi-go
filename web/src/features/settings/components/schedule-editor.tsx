@@ -98,7 +98,11 @@ export function ScheduleEditor({
           disabled={disabled}
         >
           <SelectTrigger className='w-44'>
-            <SelectValue />
+            <SelectValue>
+              {(selected) =>
+                t(`settings.common.schedule.kinds.${String(selected)}`)
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value='daily'>
@@ -145,12 +149,16 @@ export function ScheduleEditor({
             disabled={disabled}
           >
             <SelectTrigger className='w-32'>
-              <SelectValue />
+              <SelectValue>
+                {(selected) =>
+                  t('settings.common.schedule.everyHours', { count: Number(selected) })
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {INTERVAL_OPTIONS.map((hour) => (
                 <SelectItem key={hour} value={String(hour)}>
-                  {hour}h
+                  {t('settings.common.schedule.everyHours', { count: hour })}
                 </SelectItem>
               ))}
             </SelectContent>

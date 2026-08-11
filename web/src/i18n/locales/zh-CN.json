@@ -591,6 +591,7 @@
         "disabled": "已停用",
         "loading": "加载中…",
         "saved": "所有更改已保存。",
+        "unsaved": "有未保存的更改。",
         "reset": "重置",
         "noChanges": "没有需要保存的更改。",
         "loadFailed": "设置加载失败，表单已禁用，避免覆盖现有配置。",
@@ -600,6 +601,9 @@
         "discardChanges": "放弃更改",
         "keepEditing": "继续编辑",
         "schedule": {
+          "everyHours": "每 {{count}} 小时",
+          "everyHours_one": "每 {{count}} 小时",
+          "everyHours_other": "每 {{count}} 小时",
           "kinds": {
             "daily": "每天固定时间",
             "interval": "每隔 N 小时",

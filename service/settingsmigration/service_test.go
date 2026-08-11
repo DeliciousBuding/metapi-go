@@ -101,7 +101,7 @@ func TestBuildPlanAndApply(t *testing.T) {
 	if err := json.Unmarshal([]byte(checkinV2), &spec); err != nil {
 		t.Fatalf("checkin_schedule_v2 not valid JSON: %v", err)
 	}
-	if spec["version"] != float64(1) || spec["type"] != "daily" {
+	if spec["version"] != float64(1) || spec["kind"] != "daily" {
 		t.Fatalf("checkin_schedule_v2 = %v", spec)
 	}
 	if spec["cron"] != "0 8 * * *" {
@@ -188,7 +188,7 @@ func TestApplyRollbackOnInjectedFailure(t *testing.T) {
 func TestApplyDoesNotOverwriteExistingV2Key(t *testing.T) {
 	db := setupMigrationDB(t)
 	seedLegacySchedules(t, db)
-	setSetting(t, db, checkinScheduleV2Key, `{"version":1,"type":"custom","cron":"0 0 * * 1-5"}`)
+	setSetting(t, db, checkinScheduleV2Key, `{"version":1,"kind":"custom","cron":"0 0 * * 1-5"}`)
 
 	result, err := Apply(db.DB)
 	if err != nil {
@@ -198,7 +198,7 @@ func TestApplyDoesNotOverwriteExistingV2Key(t *testing.T) {
 		t.Fatalf("applied = %d, want 3 (checkin v2 already present)", result.Applied)
 	}
 	v := getSetting(t, db, checkinScheduleV2Key)
-	if v != `{"version":1,"type":"custom","cron":"0 0 * * 1-5"}` {
+	if v != `{"version":1,"kind":"custom","cron":"0 0 * * 1-5"}` {
 		t.Fatalf("existing v2 key overwritten: %q", v)
 	}
 }

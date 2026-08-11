@@ -614,10 +614,11 @@ export type ScheduleSpecV1 =
   | { version: 1; kind: 'custom'; cron: string }
 
 export type SettingsMigrationItem = {
-  job: string
-  cron: string
-  schedule?: ScheduleSpecV1
-  mapped: boolean
+  task: string
+  legacyKey: string
+  legacyValue: string
+  v2Key: string
+  schedule: ScheduleSpecV1
 }
 
 export type SettingsMigrationPreviewResponse = {

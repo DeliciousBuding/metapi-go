@@ -19,7 +19,7 @@ const ScheduleSpecVersion = 1
 // the raw expression as the single source of truth.
 type ScheduleSpec struct {
 	Version     int    `json:"version"`
-	Type        string `json:"type"` // daily | interval | window | custom
+	Type        string `json:"kind"` // daily | interval | window | custom
 	Time        string `json:"time,omitempty"`
 	EveryHours  int    `json:"everyHours,omitempty"`
 	WindowStart string `json:"windowStart,omitempty"`

@@ -30,11 +30,9 @@ export function SettingsFormActions({
   const pendingLabel = savingLabel ?? t('settings.common.saving')
   return (
     <div className='flex items-center gap-2'>
-      {!isDirty ? (
-        <span className='text-xs text-muted-foreground'>
-          {t('settings.common.saved')}
-        </span>
-      ) : null}
+      <span className='text-xs text-muted-foreground'>
+        {isDirty ? t('settings.common.unsaved') : t('settings.common.saved')}
+      </span>
       <Button
         type='button'
         variant='outline'

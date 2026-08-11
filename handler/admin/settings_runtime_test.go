@@ -250,7 +250,7 @@ func TestSettingsRuntimeUpdateBalanceCronDualWrite(t *testing.T) {
 	if err := json.Unmarshal([]byte(v2), &spec); err != nil {
 		t.Fatalf("v2 not JSON: %v", err)
 	}
-	if spec["version"] != float64(1) || spec["type"] != "daily" || spec["cron"] != "0 9 * * *" {
+	if spec["version"] != float64(1) || spec["kind"] != "daily" || spec["cron"] != "0 9 * * *" {
 		t.Fatalf("v2 spec = %v", spec)
 	}
 }
@@ -270,7 +270,7 @@ func TestSettingsRuntimeUpdateCheckinScheduleObject(t *testing.T) {
 	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
 		"checkinSchedule": map[string]any{
 			"version": 1,
-			"type":    "daily",
+			"kind":    "daily",
 			"time":    "07:30",
 			"cron":    "30 7 * * *",
 		},
@@ -289,7 +289,7 @@ func TestSettingsRuntimeUpdateCheckinScheduleObject(t *testing.T) {
 	if err := json.Unmarshal([]byte(v2), &spec); err != nil {
 		t.Fatalf("v2 not JSON: %v", err)
 	}
-	if spec["type"] != "daily" || spec["cron"] != "30 7 * * *" {
+	if spec["kind"] != "daily" || spec["cron"] != "30 7 * * *" {
 		t.Fatalf("v2 spec = %v", spec)
 	}
 }
@@ -299,7 +299,7 @@ func TestSettingsRuntimeUpdateCheckinScheduleObjectRejectsBadVersion(t *testing.
 	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
 		"checkinSchedule": map[string]any{
 			"version": 99,
-			"type":    "daily",
+			"kind":    "daily",
 			"time":    "07:30",
 		},
 	})
@@ -396,7 +396,7 @@ func TestSettingsMigrationPreviewAndApply(t *testing.T) {
 	if err := db.Get(&v2, "SELECT value FROM settings WHERE key = ?", "balance_refresh_schedule_v2"); err != nil {
 		t.Fatalf("read v2: %v", err)
 	}
-	if !strings.Contains(v2, `"type":"interval"`) {
+	if !strings.Contains(v2, `"kind":"interval"`) {
 		t.Fatalf("balance v2 = %q", v2)
 	}
 }
