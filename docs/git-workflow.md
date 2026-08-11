@@ -50,7 +50,7 @@ master (唯一长期分支，受保护，随时可发布)
 3. 开 PR（`gh pr create`，模板自动填充），base = master
 4. CI 11 job 全绿（含 PG 集成测试）后 Squash merge
 5. 合并时把 PR 标题改写为最终提交信息（符合 Conventional Commits）
-6. 删除已合并分支（`gh pr merge --delete-branch` 自动处理）
+6. 删除已合并分支（`gh pr merge --delete-branch` 自动处理；若远端分支残留——如合并时本地有未提交改动——手动 `git push origin --delete <branch>`）
 
 ## 5. 提交信息规范（Conventional Commits）
 
