@@ -7,10 +7,19 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Versioned `ScheduleSpec` v1 for daily, interval, random-window, and custom Cron schedules, with additive preview/apply migration endpoints that preserve every legacy key.
+- Unified settings form actions, load-error states, dirty navigation guards, semantic schedule controls, and responsive settings navigation.
+
+### Fixed
+- Kept legacy cron values and v1 schedule mirrors synchronized, including mixed legacy+semantic payloads.
+- Persisted notification strings and task mute maps in a restart-safe format; PostgreSQL settings audit inserts now use rebound placeholders.
+- Prevented partial settings edits from clearing untouched notification toggles, WebDAV fields, allowlist entries, or masked proxy-token inputs.
+
 ### Added — 品牌与国际化完善
 - 品牌名统一 **MetAPI**（identity-branding / locales / About / index title）
 - 透明 SVG LOGO：`logo.svg`（纯色蓝圆角徽标 + 真 π 字形 U+03C0）+ `favicon.svg`，替换白底 PNG；router 根文件白名单 + 表驱动回归测试扩展 `image/svg+xml`
-- 顶栏语言切换 `LanguageSwitcher`（en/zh-CN）：浏览器语言自动跟随（localStorage → navigator）+ `documentElement.lang`/`dir` 同步（`toBcp47`）；locale 各 1381 key 双向 0 缺失
+- 顶栏语言切换 `LanguageSwitcher`（en/zh-CN）：浏览器语言自动跟随（localStorage → navigator）+ `documentElement.lang`/`dir` 同步（`toBcp47`）；locale 各 1475 key 双向 0 缺失
 - **主题定制面板**：顶栏 Palette 入口，4 轴（10 颜色预设 swatch / 字体 Auto-Sans-Serif / 圆角 6 档 / 缩放 4 档）+ 每轴独立重置 + 全局重置；**全部预设默认无衬线**（Anthropic 不再内联衬线，衬线仅显式选择）；移除遗留 FontProvider 双轨（html class → data-theme-font 单一机制）
 - **侧栏导航 i18n**：导航标题改为 i18n key（sidebar.groups/items/backToHome，en + zh-CN），侧栏随语言切换完整本地化
 

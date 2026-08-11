@@ -134,6 +134,7 @@ Checklist: [`a11y-checklist.md`](./a11y-checklist.md).
 
 | Date | Change |
 |------|--------|
+| 2026-08-11 | Settings workspace: unified section cards, dirty/save/error states, semantic schedule controls, desktop/mobile navigation, and migration confirmation flow |
 | 2026-08-11 | MetAPI brand: transparent SVG badge (real π glyph) + favicon; product label cleanup |
 | 2026-07-16 | Initial token freeze (indigo era) |
 | 2026-07-19 | FOUC canvas, glass family, GCP primary, card density, shell glass |
