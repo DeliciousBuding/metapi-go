@@ -22,18 +22,24 @@ if [ "${delete_only:-0}" = "1" ]; then
 fi
 
 echo "=============================================="
-echo "pre-push: running local CI (vet + frontend + test -race)"
+echo "pre-push: running local CI (build + vet + frontend + test -race)"
 echo "=============================================="
 
-# 1. go vet — fast static analysis
+# 1. go build — compile the server binary first (AGENTS.md gate)
 echo ""
-echo "[1/3] go vet ./..."
+echo "[1/4] go build ./cmd/server"
+go build ./cmd/server
+echo "  ✓ build passed"
+
+# 2. go vet — fast static analysis
+echo ""
+echo "[2/4] go vet ./..."
 go vet ./...
 echo "  ✓ vet passed"
 
-# 2. frontend gate — typecheck + lint + unit tests (skipped when Bun is unavailable)
+# 3. frontend gate — typecheck + lint + unit tests (skipped when Bun is unavailable)
 echo ""
-echo "[2/3] frontend gate (cd web && bun run typecheck && bun run lint && bun run test)"
+echo "[3/4] frontend gate (cd web && bun run typecheck && bun run lint && bun run test)"
 if command -v bun >/dev/null 2>&1; then
 	(cd web && bun run typecheck && bun run lint && bun run test)
 	echo "  ✓ frontend passed"
@@ -41,9 +47,9 @@ else
 	echo "  ⚠ bun not found — skipping frontend gate (CI will cover it)"
 fi
 
-# 3. full test suite with race detector
+# 4. full test suite with race detector
 echo ""
-echo "[3/3] race gate (native Unix, WSL-backed on Windows)"
+echo "[4/4] race gate (native Unix, WSL-backed on Windows)"
 bash ./scripts/go-race.sh
 echo "  ✓ tests passed (-race clean)"
 

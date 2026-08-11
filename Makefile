@@ -26,7 +26,7 @@ lint:
 
 # Run dependency vulnerability scan
 vuln:
-	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+	go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
 
 # Verify downloaded modules match go.sum checksums
 mod-verify:
