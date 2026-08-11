@@ -17,10 +17,20 @@ All notable changes to MetAPI-Go will be documented in this file.
 ### Fixed — URL 同步与滚动裁切
 - sites/models/oauth/site-announcements 表格状态经 `useLocation()` 订阅 router location（`searchStr`），排序/分页立即在页面内生效（此前同路径 search 导航不重渲染，表格滞后）
 - authenticated-layout 内容区 `overflow-hidden` 裁切超视口内容 → `overflow-y-auto`（长页面不可滚动）
+- **侧栏导航点击崩溃**：TanStack `Link` 经 Base UI `render` prop 渲染时 React children 泄漏进 `router.navigate`（"Converting circular structure to JSON"）→ `SidebarNavLink` 包装器只透传 DOM-safe props
+- **URL 同步表格参数噪声**：`searchParams.ts` parse/encode 分离，5 个 feature（sites/proxy-logs/models/oauth/site-announcements）search schema 以规范逗号字符串回写 URL，消除 `?sort=%5B%5D` / `?brand=%5B%5D` JSON 序列化噪声；proxy-logs schema 测试同步 encode 语义
 
 ### Changed — 文案与视觉润色
 - 文案术语统一（启用/停用、额度、Check-in、通道）、内部计划编号（K1a/N9a 等）移出用户可见文案、tokenRoutes toast/链式横幅拼接 bug 修复、9 处硬编码 → t()（含移除公开设置页的 TokenDance 品牌泄漏）
 - 登录页真实 logo 徽标 + 品牌光晕 + lg CTA；Dashboard 统计卡骨架屏 + 渐变 id 唯一化 + 空/错状态图标化 + WS 连接脉冲指示；设置页移动端响应式 drill-in + sticky 侧栏
+
+### Chore — Git 工作流规范化（GitHub Flow）
+- **分支模型**：master 唯一长期分支（受保护），短命分支（`fix/*`/`feature/*`/`chore/*`/`docs/*`）→ PR → Squash merge；规则文档 `docs/git-workflow.md`
+- **master 分支保护**（GitHub 实际启用）：要求 PR + 11 个 CI 状态检查必选 + enforce admins + 禁强推/删除；不要求 approve（个人项目）
+- **Squash-only 合并**：仓库级关闭 merge commit / rebase merge
+- **PR 模板**：`.github/pull_request_template.md`（改动摘要/类型/测试验证/自查清单）
+- **CI**：ci.yml 移除 `paths-ignore`（必选状态检查与跳过互斥，纯文档 PR 会永久 pending 卡合并）；PR + master push 全量 11 job
+- **移除 update-center 幽灵前端**：`updateCenterReminder.ts`/`updateCenterPresentation.ts` 删除（update-center API 为 501 residual，前端不再渲染）
 
 ## [v0.9.0] — 2026-08-11
 
