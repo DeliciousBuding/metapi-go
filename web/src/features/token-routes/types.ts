@@ -164,7 +164,6 @@ export type RouteSummaryRow = {
 // "add channels" flow. Mirrors the backend `batchAddChannels` payload shape.
 // ---------------------------------------------------------------------------
 
-
 export type RouteFormPayload = {
   routeMode: RouteMode
   modelPattern?: string
@@ -179,7 +178,6 @@ export type RouteFormPayload = {
 // ---------------------------------------------------------------------------
 // Dialog state machine (mirrors the accounts feature's union-typed state)
 // ---------------------------------------------------------------------------
-
 
 export interface RouteRowActions {
   onEdit: (route: RouteSummaryRow) => void

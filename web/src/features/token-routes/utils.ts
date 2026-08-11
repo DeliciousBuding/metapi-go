@@ -5,19 +5,16 @@
 // Error helpers use `i18n.t()` to return pre-translated strings (safe to
 // pass as zod messages — FormMessage's `t()` returns them as-is).
 
+import i18n from '@/i18n/config'
+
 import type {
   RouteMode,
   RouteRoutingStrategy,
   RouteRow,
   RouteSummaryRow,
 } from './types'
-import i18n from '@/i18n/config'
 
-
-
-function isRouteIconNoneValue(
-  raw: string | null | undefined,
-): boolean {
+function isRouteIconNoneValue(raw: string | null | undefined): boolean {
   return (raw || '').trim() === ROUTE_ICON_NONE_VALUE
 }
 
@@ -33,13 +30,13 @@ export const ROUTE_ICON_NONE_VALUE = '__route_icon_none__'
 // ---------------------------------------------------------------------------
 
 export function normalizeRouteMode(
-  routeMode: RouteMode | string | null | undefined,
+  routeMode: RouteMode | string | null | undefined
 ): RouteMode {
   return routeMode === 'explicit_group' ? 'explicit_group' : 'pattern'
 }
 
 export function isExplicitGroupRoute(
-  route: Pick<RouteRow | RouteSummaryRow, 'routeMode'>,
+  route: Pick<RouteRow | RouteSummaryRow, 'routeMode'>
 ): boolean {
   return normalizeRouteMode(route.routeMode) === 'explicit_group'
 }
@@ -108,15 +105,14 @@ export function getModelPatternError(modelPattern: string): string | null {
 // ---------------------------------------------------------------------------
 
 export function resolveRouteTitle(
-  route: Pick<RouteRow | RouteSummaryRow, 'displayName' | 'modelPattern'>,
+  route: Pick<RouteRow | RouteSummaryRow, 'displayName' | 'modelPattern'>
 ): string {
   const title = (route.displayName || '').trim()
   return title || route.modelPattern
 }
 
-
 export function normalizeRouteDisplayIconValue(
-  raw: string | null | undefined,
+  raw: string | null | undefined
 ): string {
   const normalized = (raw || '').trim()
   if (isRouteIconNoneValue(normalized)) return ROUTE_ICON_NONE_VALUE
@@ -130,7 +126,7 @@ export type ResolvedRouteIcon =
   | { kind: 'text'; value: string }
 
 export function resolveRouteIcon(
-  displayIcon: string | null | undefined,
+  displayIcon: string | null | undefined
 ): ResolvedRouteIcon {
   const normalized = (displayIcon || '').trim()
   if (!normalized) return { kind: 'auto' }
@@ -143,7 +139,7 @@ export function resolveRouteIcon(
 }
 
 export function formatContextLength(
-  contextLength: number | null | undefined,
+  contextLength: number | null | undefined
 ): string {
   if (!contextLength || contextLength <= 0) return ''
   if (contextLength >= 1_000_000) {
@@ -168,15 +164,13 @@ const ROUTING_STRATEGY_LABEL_KEYS: Record<RouteRoutingStrategy, string> = {
 }
 
 export function normalizeRoutingStrategy(
-  value: string | null | undefined,
+  value: string | null | undefined
 ): RouteRoutingStrategy {
   if (value === 'round_robin' || value === 'stable_first') return value
   return 'weighted'
 }
 
-export function routingStrategyLabel(
-  value: string | null | undefined,
-): string {
+export function routingStrategyLabel(value: string | null | undefined): string {
   return ROUTING_STRATEGY_LABEL_KEYS[normalizeRoutingStrategy(value)]
 }
 
@@ -189,7 +183,7 @@ export function dedupeChannelDrafts(
     accountId: number
     tokenId?: number
     sourceModel?: string
-  }>,
+  }>
 ): Array<{ accountId: number; tokenId?: number; sourceModel?: string }> {
   const seen = new Set<string>()
   const result: Array<{

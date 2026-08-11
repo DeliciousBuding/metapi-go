@@ -12,9 +12,7 @@
 // types declared in features/dashboard/types.ts) — the spec builders stay
 // unchanged.
 
-import type {
-  ChartColors,
-} from '../hooks/use-chart-colors'
+import type { ChartColors } from '../hooks/use-chart-colors'
 import type {
   IncomeOutcomePoint,
   ModelCostRow,
@@ -71,7 +69,7 @@ const PADDING = { left: 8, right: 16, top: 8, bottom: 8 } as const
  */
 export function buildIncomeOutcomeSpec(
   colors: ChartColors,
-  data: IncomeOutcomePoint[],
+  data: IncomeOutcomePoint[]
 ): VChartSpec {
   return {
     type: 'bar',
@@ -103,7 +101,7 @@ export function buildIncomeOutcomeSpec(
  */
 export function buildSiteTrendSpec(
   colors: ChartColors,
-  data: SiteTrendPoint[],
+  data: SiteTrendPoint[]
 ): VChartSpec {
   return {
     type: 'line',
@@ -138,7 +136,7 @@ export function buildSiteTrendSpec(
 export function buildSiteDistributionSpec(
   colors: ChartColors,
   labelColor: string,
-  data: SiteDistributionSlice[],
+  data: SiteDistributionSlice[]
 ): VChartSpec {
   const values = data.map((slice) => ({
     siteName: slice.siteName,
@@ -190,7 +188,7 @@ export function buildSiteDistributionSpec(
  */
 export function buildLatencyHistogramSpec(
   colors: ChartColors,
-  data: Array<{ label: string; count: number }>,
+  data: Array<{ label: string; count: number }>
 ): VChartSpec {
   return {
     type: 'bar',
@@ -212,7 +210,7 @@ export function buildLatencyHistogramSpec(
  */
 export function buildLatencyTrendSpec(
   colors: ChartColors,
-  data: Array<{ date: string; metric: string; latency: number }>,
+  data: Array<{ date: string; metric: string; latency: number }>
 ): VChartSpec {
   return {
     type: 'line',
@@ -247,7 +245,7 @@ export function buildLatencyTrendSpec(
 export function buildModelCostSpec(
   colors: ChartColors,
   labelColor: string,
-  data: ModelCostRow[],
+  data: ModelCostRow[]
 ): VChartSpec {
   const values = data.map((row) => ({
     model: row.label || row.model,

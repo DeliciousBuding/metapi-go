@@ -4,12 +4,7 @@
 // `/models` route file (validateSearch schema + types) and for cross-feature
 // reuse (the model-tester imports `useModels` to populate its model picker).
 
-
 export { useModels } from './api'
-export {
-  modelsSearchSchema,
-} from './lib/models-schema'
+export { modelsSearchSchema } from './lib/models-schema'
 
-export {
-  modelsKeys,
-} from './types'
+export { modelsKeys } from './types'

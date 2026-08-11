@@ -5,16 +5,12 @@
 
 import { z } from 'zod'
 
+import type { RouteFormPayload, RouteMode, RouteSummaryRow } from '../types'
 import {
   getModelPatternError,
   isRegexModelPattern,
   normalizeRouteDisplayIconValue,
 } from '../utils'
-import type {
-  RouteFormPayload,
-  RouteMode,
-  RouteSummaryRow,
-} from '../types'
 
 // ---------------------------------------------------------------------------
 // Form schema factory
@@ -29,7 +25,9 @@ export function getRouteFormSchema() {
       displayIcon: z.string().trim().optional(),
       contextLength: z.string().trim().optional(),
       sourceRouteIds: z.array(z.number().int().positive()).optional(),
-      routingStrategy: z.enum(['weighted', 'round_robin', 'stable_first']).optional(),
+      routingStrategy: z
+        .enum(['weighted', 'round_robin', 'stable_first'])
+        .optional(),
       modelMapping: z.string().trim().optional(),
       channelDrafts: z
         .array(
@@ -37,7 +35,7 @@ export function getRouteFormSchema() {
             accountId: z.number().int().positive(),
             tokenId: z.number().int().positive().optional(),
             sourceModel: z.string().trim().optional(),
-          }),
+          })
         )
         .optional(),
     })
@@ -97,7 +95,7 @@ export type RouteFormValues = z.infer<ReturnType<typeof getRouteFormSchema>>
 // ---------------------------------------------------------------------------
 
 export function getRouteFormDefaultValues(
-  routeMode: RouteMode = 'explicit_group',
+  routeMode: RouteMode = 'explicit_group'
 ): RouteFormValues {
   return {
     routeMode,
@@ -117,7 +115,7 @@ export function getRouteFormDefaultValues(
 // ---------------------------------------------------------------------------
 
 function parseContextLength(
-  raw: string | undefined,
+  raw: string | undefined
 ): number | null | undefined {
   const trimmed = (raw || '').trim()
   if (!trimmed) return undefined
@@ -128,7 +126,7 @@ function parseContextLength(
 }
 
 export function transformFormToPayload(
-  values: RouteFormValues,
+  values: RouteFormValues
 ): RouteFormPayload {
   const trimmedDisplayName = (values.displayName || '').trim() || undefined
   const trimmedDisplayIcon = normalizeRouteDisplayIconValue(values.displayIcon)
@@ -139,9 +137,13 @@ export function transformFormToPayload(
     routeMode: values.routeMode,
     displayName: trimmedDisplayName,
     displayIcon:
-      trimmedDisplayIcon && trimmedDisplayIcon !== '' ? trimmedDisplayIcon : undefined,
+      trimmedDisplayIcon && trimmedDisplayIcon !== ''
+        ? trimmedDisplayIcon
+        : undefined,
     contextLength,
-    ...(values.routingStrategy ? { routingStrategy: values.routingStrategy } : {}),
+    ...(values.routingStrategy
+      ? { routingStrategy: values.routingStrategy }
+      : {}),
     ...(trimmedModelMapping ? { modelMapping: trimmedModelMapping } : {}),
   }
 
@@ -159,9 +161,10 @@ export function transformFormToPayload(
 }
 
 export function transformRouteToFormValues(
-  route: RouteSummaryRow,
+  route: RouteSummaryRow
 ): Partial<RouteFormValues> {
-  const routeMode = route.routeMode === 'explicit_group' ? 'explicit_group' : 'pattern'
+  const routeMode =
+    route.routeMode === 'explicit_group' ? 'explicit_group' : 'pattern'
   return {
     routeMode,
     modelPattern: route.modelPattern ?? '',
@@ -188,4 +191,3 @@ export const routesSearchSchema = z.object({
   page: z.coerce.number().int().positive().optional(),
   pageSize: z.coerce.number().int().positive().optional(),
 })
-

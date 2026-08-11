@@ -4,30 +4,27 @@
   "private": true,
   "description": "Meta-layer management and unified proxy for AI API aggregation platforms",
   "keywords": [
+    "aggregator",
     "ai",
     "api-gateway",
-    "proxy",
-    "rsbuild",
-    "react",
-    "openai",
     "claude",
-    "aggregator"
+    "openai",
+    "proxy",
+    "react",
+    "rsbuild"
   ],
   "homepage": "https://github.com/DeliciousBuding/metapi-go#readme",
   "bugs": {
     "url": "https://github.com/DeliciousBuding/metapi-go/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/DeliciousBuding/metapi-go.git"
   },
   "license": "MIT",
   "author": {
     "name": "DeliciousBuding",
     "url": "https://github.com/DeliciousBuding"
   },
-  "engines": {
-    "bun": ">= 1.0"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DeliciousBuding/metapi-go.git"
   },
   "type": "module",
   "scripts": {
@@ -115,5 +112,8 @@
     "postcss": "8.5.15",
     "qs": "6.15.2",
     "uuid": "14.0.0"
+  },
+  "engines": {
+    "bun": ">= 1.0"
   }
 }

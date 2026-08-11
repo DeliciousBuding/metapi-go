@@ -167,7 +167,6 @@ export interface AccountPayload {
 // Dialog state machine (mirrors the keys feature's union-typed provider state)
 // ---------------------------------------------------------------------------
 
-
 export interface AccountRowActions {
   onEdit: (account: Account) => void
   onDelete: (account: Account) => void

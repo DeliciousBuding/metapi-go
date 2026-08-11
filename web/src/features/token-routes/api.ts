@@ -12,15 +12,13 @@ import {
 } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
+import i18n from '@/i18n/config'
 import { api } from '@/lib/api'
-import {
-  buildZeroChannelPlaceholderRoutes,
-} from '@/lib/helpers/zeroChannelRoutes'
 import {
   normalizeMissingTokenModels,
   type MissingTokenModelsByName,
 } from '@/lib/helpers/routeMissingTokenHints'
-import i18n from '@/i18n/config'
+import { buildZeroChannelPlaceholderRoutes } from '@/lib/helpers/zeroChannelRoutes'
 
 import type {
   RouteChannel,
@@ -45,13 +43,15 @@ export const routeQueryKeys = {
 // ---------------------------------------------------------------------------
 
 function assertBusinessOk<T>(result: unknown, fallback: string): T {
-  const envelope = result as { success?: unknown; message?: unknown; data?: unknown }
-  if (
-    envelope &&
-    typeof envelope.success === 'boolean' &&
-    !envelope.success
-  ) {
-    throw new Error(typeof envelope.message === 'string' ? envelope.message : i18n.t(fallback))
+  const envelope = result as {
+    success?: unknown
+    message?: unknown
+    data?: unknown
+  }
+  if (envelope && typeof envelope.success === 'boolean' && !envelope.success) {
+    throw new Error(
+      typeof envelope.message === 'string' ? envelope.message : i18n.t(fallback)
+    )
   }
   return (result as T) ?? (envelope?.data as T)
 }
@@ -72,10 +72,7 @@ export type ModelTokenCandidatesResponse = {
 // ---------------------------------------------------------------------------
 
 export function useRoutes(
-  options?: Omit<
-    UseQueryOptions<RouteSummaryRow[]>,
-    'queryKey' | 'queryFn'
-  >,
+  options?: Omit<UseQueryOptions<RouteSummaryRow[]>, 'queryKey' | 'queryFn'>
 ) {
   return useQuery({
     queryKey: routeQueryKeys.summary(),
@@ -99,19 +96,20 @@ export function useModelTokenCandidates(
   options?: Omit<
     UseQueryOptions<ModelTokenCandidatesResponse>,
     'queryKey' | 'queryFn'
-  >,
+  >
 ) {
   return useQuery({
     queryKey: routeQueryKeys.candidates(),
     queryFn: async () => {
-      const response = (await api.getModelTokenCandidates()) as ModelTokenCandidatesResponse
+      const response =
+        (await api.getModelTokenCandidates()) as ModelTokenCandidatesResponse
       return {
         models: response?.models ?? {},
         modelsWithoutToken: normalizeMissingTokenModels(
-          response?.modelsWithoutToken ?? {},
+          response?.modelsWithoutToken ?? {}
         ),
         modelsMissingTokenGroups: normalizeMissingTokenModels(
-          response?.modelsMissingTokenGroups ?? {},
+          response?.modelsMissingTokenGroups ?? {}
         ),
         endpointTypesByModel: response?.endpointTypesByModel ?? {},
       }
@@ -130,7 +128,7 @@ export function useRouteChannels(
   options?: Omit<
     UseQueryOptions<RouteChannel[]>,
     'queryKey' | 'queryFn' | 'enabled'
-  >,
+  >
 ) {
   return useQuery({
     queryKey: routeQueryKeys.channels(routeId ?? 0),
@@ -160,7 +158,10 @@ export function useCreateRoute() {
   return useMutation({
     mutationFn: async (payload: RouteFormPayload) => {
       const result = await api.addRoute(payload)
-      return assertBusinessOk<CreateRouteResult>(result, 'tokenRoutes.toast.createFailed')
+      return assertBusinessOk<CreateRouteResult>(
+        result,
+        'tokenRoutes.toast.createFailed'
+      )
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
@@ -274,10 +275,17 @@ export function useBatchAddChannels() {
       channels,
     }: {
       routeId: number
-      channels: Array<{ accountId: number; tokenId?: number; sourceModel?: string }>
+      channels: Array<{
+        accountId: number
+        tokenId?: number
+        sourceModel?: string
+      }>
     }) => {
       const result = await api.batchAddChannels(routeId, channels)
-      return assertBusinessOk<BatchAddChannelsResult>(result, 'tokenRoutes.toast.channelAddFailed')
+      return assertBusinessOk<BatchAddChannelsResult>(
+        result,
+        'tokenRoutes.toast.channelAddFailed'
+      )
     },
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
@@ -301,12 +309,18 @@ export interface RebuildRoutesResult {
 export function useRebuildRoutes() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (options?: { refreshModels?: boolean; wait?: boolean }) => {
+    mutationFn: async (options?: {
+      refreshModels?: boolean
+      wait?: boolean
+    }) => {
       const result = await api.rebuildRoutes(
         options?.refreshModels ?? true,
-        options?.wait ?? false,
+        options?.wait ?? false
       )
-      return assertBusinessOk<RebuildRoutesResult>(result, 'tokenRoutes.toast.rebuildFailed')
+      return assertBusinessOk<RebuildRoutesResult>(
+        result,
+        'tokenRoutes.toast.rebuildFailed'
+      )
     },
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
@@ -317,7 +331,7 @@ export function useRebuildRoutes() {
           i18n.t('tokenRoutes.toast.rebuildComplete', {
             created: data?.created ?? 0,
             channels: data?.channelCount ?? 0,
-          }),
+          })
         )
       }
     },
@@ -333,7 +347,10 @@ export function useRefreshRouteDecisions() {
   return useMutation({
     mutationFn: async () => {
       const result = await api.refreshRouteDecisionSnapshots()
-      return assertBusinessOk<{ jobId?: string }>(result, 'tokenRoutes.toast.refreshFailed')
+      return assertBusinessOk<{ jobId?: string }>(
+        result,
+        'tokenRoutes.toast.refreshFailed'
+      )
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
@@ -349,14 +366,14 @@ export function useRefreshRouteDecisions() {
 export function useZeroChannelRoutes(
   routes: RouteSummaryRow[] | undefined,
   candidates: ModelTokenCandidatesResponse | undefined,
-  showZeroChannel: boolean,
+  showZeroChannel: boolean
 ): RouteSummaryRow[] {
   const base = routes ?? []
   if (!showZeroChannel || !candidates) return base
   const placeholders = buildZeroChannelPlaceholderRoutes(
     base,
     candidates.modelsWithoutToken ?? {},
-    candidates.modelsMissingTokenGroups ?? {},
+    candidates.modelsMissingTokenGroups ?? {}
   )
   return [...base, ...placeholders]
 }
@@ -364,4 +381,3 @@ export function useZeroChannelRoutes(
 // ---------------------------------------------------------------------------
 // Convenience selectors
 // ---------------------------------------------------------------------------
-

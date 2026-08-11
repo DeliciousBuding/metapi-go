@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { buildZeroChannelPlaceholderRoutes } from './zeroChannelRoutes.js';
-import type { MissingTokenModelsByName } from './routeMissingTokenHints.js';
-import type { RouteSummaryRow } from '../../features/token-routes/types.js';
+import { describe, expect, it } from 'vitest'
+
+import type { RouteSummaryRow } from '../../features/token-routes/types.js'
+import type { MissingTokenModelsByName } from './routeMissingTokenHints.js'
+import { buildZeroChannelPlaceholderRoutes } from './zeroChannelRoutes.js'
 
 describe('buildZeroChannelPlaceholderRoutes', () => {
   it('merges missing-token and missing-group models into exact zero-channel placeholders', () => {
@@ -20,7 +21,7 @@ describe('buildZeroChannelPlaceholderRoutes', () => {
         decisionSnapshot: null,
         decisionRefreshedAt: null,
       },
-    ];
+    ]
 
     const modelsWithoutToken: MissingTokenModelsByName = {
       'gpt-4o-mini': [
@@ -29,7 +30,7 @@ describe('buildZeroChannelPlaceholderRoutes', () => {
       'gpt-5.2-codex': [
         { accountId: 2, username: 'bob', siteId: 12, siteName: 'site-b' },
       ],
-    };
+    }
     const modelsMissingTokenGroups: MissingTokenModelsByName = {
       'gpt-5.2-codex': [
         {
@@ -45,11 +46,15 @@ describe('buildZeroChannelPlaceholderRoutes', () => {
       're:^claude-.*$': [
         { accountId: 4, username: 'dan', siteId: 14, siteName: 'site-d' },
       ],
-    };
+    }
 
-    const placeholders = buildZeroChannelPlaceholderRoutes(routes, modelsWithoutToken, modelsMissingTokenGroups);
+    const placeholders = buildZeroChannelPlaceholderRoutes(
+      routes,
+      modelsWithoutToken,
+      modelsMissingTokenGroups
+    )
 
-    expect(placeholders).toHaveLength(1);
+    expect(placeholders).toHaveLength(1)
     expect(placeholders[0]).toMatchObject({
       modelPattern: 'gpt-5.2-codex',
       channelCount: 0,
@@ -59,8 +64,8 @@ describe('buildZeroChannelPlaceholderRoutes', () => {
       kind: 'zero_channel',
       readOnly: true,
       isVirtual: true,
-    });
-    expect(placeholders[0].siteNames).toEqual(['site-b', 'site-c']);
-    expect(placeholders[0].id).toBeLessThan(0);
-  });
-});
+    })
+    expect(placeholders[0].siteNames).toEqual(['site-b', 'site-c'])
+    expect(placeholders[0].id).toBeLessThan(0)
+  })
+})

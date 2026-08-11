@@ -15,11 +15,11 @@
 
 import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
 
-import { api } from '@/lib/api'
 import {
   announcementsKeys,
   announcementsSearchSchema,
 } from '@/features/site-announcements'
+import { api } from '@/lib/api'
 
 export const Route = createFileRoute('/_authenticated/site-announcements')({
   validateSearch: announcementsSearchSchema,
@@ -33,8 +33,7 @@ export const Route = createFileRoute('/_authenticated/site-announcements')({
     })
   },
   component: lazyRouteComponent(
-    () =>
-      import('@/features/site-announcements/components/announcements-page'),
-    'AnnouncementsPage',
+    () => import('@/features/site-announcements/components/announcements-page'),
+    'AnnouncementsPage'
   ),
 })

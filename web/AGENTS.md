@@ -12,24 +12,24 @@ metapi-go 是 Meta-layer management and unified proxy for AI API aggregation pla
 
 ### 技术栈
 
-| 类别       | 技术                                                              |
-| ---------- | ----------------------------------------------------------------- |
-| 包管理     | Bun                                                               |
-| 构建       | Rsbuild 2、tsgo（TS 原生编译器）                                  |
-| 框架       | React 19、TypeScript                                              |
-| 路由       | @tanstack/react-router（文件路由 + 自动生成 + validateSearch + loader + lazyRouteComponent） |
-| 数据与请求 | @tanstack/react-query、axios、Zustand                             |
-| 表格与列表 | @tanstack/react-table、@tanstack/react-virtual                    |
-| 国际化     | i18next、react-i18next、i18next-browser-languagedetector（key-based） |
-| 日期       | Day.js                                                            |
+| 类别       | 技术                                                                                                       |
+| ---------- | ---------------------------------------------------------------------------------------------------------- |
+| 包管理     | Bun                                                                                                        |
+| 构建       | Rsbuild 2、tsgo（TS 原生编译器）                                                                           |
+| 框架       | React 19、TypeScript                                                                                       |
+| 路由       | @tanstack/react-router（文件路由 + 自动生成 + validateSearch + loader + lazyRouteComponent）               |
+| 数据与请求 | @tanstack/react-query、axios、Zustand                                                                      |
+| 表格与列表 | @tanstack/react-table、@tanstack/react-virtual                                                             |
+| 国际化     | i18next、react-i18next、i18next-browser-languagedetector（key-based）                                      |
+| 日期       | Day.js                                                                                                     |
 | UI 与样式  | Base UI、shadcn/ui base-nova、HugeIcons（免费层）+ lucide、Tailwind CSS 4、clsx / class-variance-authority |
-| 字体       | @fontsource-variable/public-sans + lora（本地嵌入）              |
-| 图表       | @visactor/vchart（复杂）、recharts + shadcn chart（简单）        |
-| 表单       | React Hook Form、Zod                                              |
-| 动画/反馈  | motion、sonner、vaul、cmdk                                        |
-| Markdown   | marked、shiki、katex、dompurify                                   |
-| 拖拽       | @dnd-kit/core + sortable + utilities                              |
-| 工具       | oxfmt、oxlint、knip、vitest                                       |
+| 字体       | @fontsource-variable/public-sans + lora（本地嵌入）                                                        |
+| 图表       | @visactor/vchart（复杂）、recharts + shadcn chart（简单）                                                  |
+| 表单       | React Hook Form、Zod                                                                                       |
+| 动画/反馈  | motion、sonner、vaul、cmdk                                                                                 |
+| Markdown   | marked、shiki、katex、dompurify                                                                            |
+| 拖拽       | @dnd-kit/core + sortable + utilities                                                                       |
+| 工具       | oxfmt、oxlint、knip、vitest                                                                                |
 
 优先选用成熟、维护良好的开源库；仅在现有库无法满足或需特殊适配时自行实现，并评估可维护性与通用性。HugeIcons 仅用免费层（`@hugeicons/core-free-icons`），付费图标用 lucide 兜底。
 
@@ -88,21 +88,21 @@ src/
 
 ### features（13 个）
 
-| feature | 职责 |
-|---------|------|
-| `auth` | 登录 + OAuth |
-| `dashboard` | 仪表盘 + 4 section（overview/traffic/models/availability）+ RealtimeOps WebSocket |
-| `sites` | 站点管理 + 引导式配置动线（站点→账号→路由） |
-| `accounts` | 连接管理 + Tokens |
-| `token-routes` | 路由 + dnd-kit 拖拽 |
-| `oauth` | OAuth 管理 |
-| `checkin` | 签到记录（嵌套响应解构 + failureReason 分类 badge） |
-| `proxy-logs` | 使用日志（manual + 服务端分页 + 详情 Sheet） |
-| `models` | 模型广场 + 品牌图标 |
-| `model-tester` | 操练场 + SSE 流式（全协议 OpenAI/Claude/Responses/Gemini） |
-| `site-announcements` | 站点公告 CRUD |
-| `about` | 关于（静态信息） |
-| `settings` | 5 子区 drill-in（general/downstream/models/content/system-info） |
+| feature              | 职责                                                                              |
+| -------------------- | --------------------------------------------------------------------------------- |
+| `auth`               | 登录 + OAuth                                                                      |
+| `dashboard`          | 仪表盘 + 4 section（overview/traffic/models/availability）+ RealtimeOps WebSocket |
+| `sites`              | 站点管理 + 引导式配置动线（站点→账号→路由）                                       |
+| `accounts`           | 连接管理 + Tokens                                                                 |
+| `token-routes`       | 路由 + dnd-kit 拖拽                                                               |
+| `oauth`              | OAuth 管理                                                                        |
+| `checkin`            | 签到记录（嵌套响应解构 + failureReason 分类 badge）                               |
+| `proxy-logs`         | 使用日志（manual + 服务端分页 + 详情 Sheet）                                      |
+| `models`             | 模型广场 + 品牌图标                                                               |
+| `model-tester`       | 操练场 + SSE 流式（全协议 OpenAI/Claude/Responses/Gemini）                        |
+| `site-announcements` | 站点公告 CRUD                                                                     |
+| `about`              | 关于（静态信息）                                                                  |
+| `settings`           | 5 子区 drill-in（general/downstream/models/content/system-info）                  |
 
 ### data-table 四层
 

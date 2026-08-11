@@ -11,19 +11,11 @@
 // / proxy 24h) from api.getDashboardSnapshot.
 
 import { useId, useMemo } from 'react'
-import { Area, AreaChart } from 'recharts'
 import { useTranslation } from 'react-i18next'
+import { Area, AreaChart } from 'recharts'
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import {
-  ChartContainer,
-  type ChartConfig,
-} from '@/components/ui/chart'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ChartContainer, type ChartConfig } from '@/components/ui/chart'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
@@ -67,7 +59,7 @@ export function StatCard({
         label: t('dashboard.statCard.trendLabel'),
       },
     }),
-    [t],
+    [t]
   )
   const data = useMemo(
     () =>
@@ -75,7 +67,7 @@ export function StatCard({
         index,
         value: sample,
       })),
-    [spark],
+    [spark]
   )
 
   return (
@@ -114,13 +106,7 @@ export function StatCard({
                   margin={{ top: 4, right: 0, bottom: 0, left: 0 }}
                 >
                   <defs>
-                    <linearGradient
-                      id={gradientId}
-                      x1='0'
-                      y1='0'
-                      x2='0'
-                      y2='1'
-                    >
+                    <linearGradient id={gradientId} x1='0' y1='0' x2='0' y2='1'>
                       <stop
                         offset='0%'
                         stopColor='var(--color-value)'

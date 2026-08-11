@@ -6,20 +6,41 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { useAccounts } from '@/features/accounts'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useAccounts } from '@/features/accounts'
 
 import { useCheckinAccount } from '../api'
 
-interface ManualCheckinDialogProps { open: boolean; onOpenChange: (open: boolean) => void }
+interface ManualCheckinDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}
 const NO_SELECTION = '__none'
 
-export function ManualCheckinDialog({ open, onOpenChange }: ManualCheckinDialogProps) {
+export function ManualCheckinDialog({
+  open,
+  onOpenChange,
+}: ManualCheckinDialogProps) {
   const { t } = useTranslation()
   const { data: snapshot } = useAccounts()
-  const accounts = (snapshot?.accounts ?? []).filter((account) => account.capabilities?.canCheckin === true)
+  const accounts = (snapshot?.accounts ?? []).filter(
+    (account) => account.capabilities?.canCheckin === true
+  )
   const triggerMutation = useCheckinAccount()
   const [selectedId, setSelectedId] = useState<string>(NO_SELECTION)
 
@@ -29,31 +50,58 @@ export function ManualCheckinDialog({ open, onOpenChange }: ManualCheckinDialogP
     try {
       const result = await triggerMutation.mutateAsync(accountId)
       if (result.status === 'success') {
-        toast.success(t('checkin.toast.success'), { description: result.reward ? t('checkin.toast.successReward', { reward: result.reward }) : undefined })
+        toast.success(t('checkin.toast.success'), {
+          description: result.reward
+            ? t('checkin.toast.successReward', { reward: result.reward })
+            : undefined,
+        })
       } else if (result.status === 'skipped' || result.skipped) {
-        toast.info(t('checkin.toast.skipped'), { description: result.message || undefined })
+        toast.info(t('checkin.toast.skipped'), {
+          description: result.message || undefined,
+        })
       } else {
-        toast.error(t('checkin.toast.failed'), { description: result.message || undefined })
+        toast.error(t('checkin.toast.failed'), {
+          description: result.message || undefined,
+        })
       }
       onOpenChange(false)
       setSelectedId(NO_SELECTION)
-    } catch { }
+    } catch {}
   }
 
   const isSubmitting = triggerMutation.isPending
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) setSelectedId(NO_SELECTION); onOpenChange(next) }}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) setSelectedId(NO_SELECTION)
+        onOpenChange(next)
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t('checkin.manual.title')}</DialogTitle>
-          <DialogDescription>{t('checkin.manual.description')}</DialogDescription>
+          <DialogDescription>
+            {t('checkin.manual.description')}
+          </DialogDescription>
         </DialogHeader>
         <div className='space-y-3 py-2'>
-          <Select value={selectedId} onValueChange={(value) => setSelectedId(value ?? NO_SELECTION)}>
-            <SelectTrigger><SelectValue placeholder={t('checkin.manual.accountPlaceholder')} /></SelectTrigger>
+          <Select
+            value={selectedId}
+            onValueChange={(value) => setSelectedId(value ?? NO_SELECTION)}
+          >
+            <SelectTrigger>
+              <SelectValue
+                placeholder={t('checkin.manual.accountPlaceholder')}
+              />
+            </SelectTrigger>
             <SelectContent>
-              {accounts.length === 0 && <SelectItem value={NO_SELECTION} disabled>{t('checkin.manual.accountEmpty')}</SelectItem>}
+              {accounts.length === 0 && (
+                <SelectItem value={NO_SELECTION} disabled>
+                  {t('checkin.manual.accountEmpty')}
+                </SelectItem>
+              )}
               {accounts.map((account) => (
                 <SelectItem key={account.id} value={String(account.id)}>
                   {account.username || `#${account.id}`}
@@ -64,8 +112,17 @@ export function ManualCheckinDialog({ open, onOpenChange }: ManualCheckinDialogP
           </Select>
         </div>
         <DialogFooter>
-          <Button variant='outline' onClick={() => onOpenChange(false)} disabled={isSubmitting}>{t('common.cancel')}</Button>
-          <Button onClick={handleTrigger} disabled={isSubmitting || selectedId === NO_SELECTION}>
+          <Button
+            variant='outline'
+            onClick={() => onOpenChange(false)}
+            disabled={isSubmitting}
+          >
+            {t('common.cancel')}
+          </Button>
+          <Button
+            onClick={handleTrigger}
+            disabled={isSubmitting || selectedId === NO_SELECTION}
+          >
             {isSubmitting && <Loader2 className='animate-spin' />}
             <Zap />
             {t('checkin.manual.trigger')}

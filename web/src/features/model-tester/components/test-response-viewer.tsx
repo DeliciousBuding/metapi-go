@@ -16,12 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Spinner } from '@/components/ui/spinner'
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 
 import type { TestResponse } from '../types'
@@ -78,10 +73,14 @@ function ContentArea({
       ref={scrollRef}
       className={cn(
         'h-full overflow-y-auto whitespace-pre-wrap break-words p-4 text-sm leading-relaxed',
-        className,
+        className
       )}
     >
-      {text ? text : <span className='text-muted-foreground'>{placeholder}</span>}
+      {text ? (
+        text
+      ) : (
+        <span className='text-muted-foreground'>{placeholder}</span>
+      )}
     </div>
   )
 }
@@ -210,7 +209,7 @@ export function TestResponseViewer({
       )}
 
       <Separator />
-      <div className='flex items-center justify-between p-2 text-xs text-muted-foreground'>
+      <div className='text-muted-foreground flex items-center justify-between p-2 text-xs'>
         <span>{t('modelTester.viewer.hint')}</span>
         {hasContent && (
           <span className='tabular-nums'>

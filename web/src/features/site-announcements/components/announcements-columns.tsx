@@ -52,7 +52,11 @@ const SEVERITY_BADGE_VARIANT: Record<
   critical: 'destructive',
 }
 
-function SeverityBadge({ severity }: { severity: AnnouncementSeverity | undefined }) {
+function SeverityBadge({
+  severity,
+}: {
+  severity: AnnouncementSeverity | undefined
+}) {
   const { t } = useTranslation()
   const resolved: AnnouncementSeverity = severity ?? 'info'
   return (
@@ -87,7 +91,7 @@ function formatTimestamp(value?: string | null): string {
  * by the page so the columns stay free of mutation/query concerns.
  */
 export function useAnnouncementsColumns(
-  actions: AnnouncementsColumnActions,
+  actions: AnnouncementsColumnActions
 ): ColumnDef<SiteAnnouncement>[] {
   const { t } = useTranslation()
 
@@ -102,7 +106,9 @@ export function useAnnouncementsColumns(
       header: ({ table }) => (
         <Checkbox
           checked={table.getIsAllRowsSelected()}
-          indeterminate={table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()}
+          indeterminate={
+            table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()
+          }
           onCheckedChange={(value) => table.toggleAllRowsSelected(!!value)}
           aria-label={t('siteAnnouncements.columns.selectAll')}
         />
@@ -122,7 +128,10 @@ export function useAnnouncementsColumns(
       size: 240,
       meta: { mobileTitle: true, mobileOrder: 0 },
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('siteAnnouncements.columns.title')} />
+        <DataTableColumnHeader
+          column={column}
+          title={t('siteAnnouncements.columns.title')}
+        />
       ),
       cell: ({ row }) => (
         <span className='font-medium'>{row.original.title}</span>
@@ -134,7 +143,10 @@ export function useAnnouncementsColumns(
       size: 120,
       meta: { mobileBadge: true, mobileOrder: 1 },
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('siteAnnouncements.columns.severity')} />
+        <DataTableColumnHeader
+          column={column}
+          title={t('siteAnnouncements.columns.severity')}
+        />
       ),
       cell: ({ row }) => <SeverityBadge severity={row.original.severity} />,
       filterFn: (row, columnId, filterValue) => {
@@ -152,7 +164,10 @@ export function useAnnouncementsColumns(
       size: 110,
       meta: { mobileHidden: true, mobileOrder: 10 },
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('siteAnnouncements.columns.enabled')} />
+        <DataTableColumnHeader
+          column={column}
+          title={t('siteAnnouncements.columns.enabled')}
+        />
       ),
       cell: ({ row }) => <EnabledBadge enabled={row.original.enabled} />,
       filterFn: (row, columnId, filterValue) => {
@@ -172,21 +187,22 @@ export function useAnnouncementsColumns(
       enableSorting: false,
       meta: { mobileHidden: true, mobileOrder: 20 },
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('siteAnnouncements.columns.link')} />
+        <DataTableColumnHeader
+          column={column}
+          title={t('siteAnnouncements.columns.link')}
+        />
       ),
       cell: ({ row }) => {
         const link = row.original.link
         if (!link) {
-          return (
-            <span className='text-muted-foreground text-sm'>—</span>
-          )
+          return <span className='text-muted-foreground text-sm'>—</span>
         }
         return (
           <a
             href={link}
             target='_blank'
             rel='noopener noreferrer'
-            className='inline-flex text-muted-foreground transition-colors hover:text-foreground'
+            className='text-muted-foreground hover:text-foreground inline-flex transition-colors'
             aria-label={t('siteAnnouncements.columns.openLink')}
           >
             <ExternalLinkIcon className='size-4' />
@@ -200,7 +216,10 @@ export function useAnnouncementsColumns(
       size: 180,
       meta: { mobileHidden: true, mobileOrder: 30 },
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('siteAnnouncements.columns.createdAt')} />
+        <DataTableColumnHeader
+          column={column}
+          title={t('siteAnnouncements.columns.createdAt')}
+        />
       ),
       cell: ({ row }) => (
         <span className='text-muted-foreground text-sm tabular-nums'>

@@ -4,8 +4,8 @@
 
 import { createElement } from 'react'
 
-import { createSectionRegistry } from '../../utils/section-registry'
 import type { SettingsSubarea } from '../../types'
+import { createSectionRegistry } from '../../utils/section-registry'
 import { KeysSection } from './components/keys-section'
 import { ProxyTokenSection } from './components/proxy-token-section'
 

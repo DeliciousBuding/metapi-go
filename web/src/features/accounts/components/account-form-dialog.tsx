@@ -51,7 +51,6 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 
 import { useCreateAccount, useUpdateAccount } from '../api'
-import { showAccountCreatedToast } from './account-created-toast'
 import {
   getAccountFormDefaultValues,
   getAccountFormSchema,
@@ -60,6 +59,7 @@ import {
   type AccountFormValues,
 } from '../lib/accounts-schema'
 import type { Account, CredentialMode, Site } from '../types'
+import { showAccountCreatedToast } from './account-created-toast'
 
 interface AccountFormDialogProps {
   open: boolean
@@ -100,7 +100,7 @@ export function AccountFormDialog({
     if (initializedFor === targetKey) return
     setInitializedFor(targetKey)
     const baseDefaults = getAccountFormDefaultValues(
-      account?.credentialMode ?? 'session',
+      account?.credentialMode ?? 'session'
     )
     if (isEdit && account) {
       form.reset({ ...baseDefaults, ...transformAccountToFormValues(account) })
@@ -116,8 +116,7 @@ export function AccountFormDialog({
         await updateMutation.mutateAsync({ id: account.id, payload })
       } else {
         const result = await createMutation.mutateAsync(payload)
-        const newId =
-          result?.data?.id ?? result?.data?.account?.id ?? undefined
+        const newId = result?.data?.id ?? result?.data?.account?.id ?? undefined
         showAccountCreatedToast(newId, values.siteId)
       }
       onOpenChange(false)
@@ -135,9 +134,16 @@ export function AccountFormDialog({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side='right' className='flex w-full flex-col gap-0 sm:max-w-lg'>
+      <SheetContent
+        side='right'
+        className='flex w-full flex-col gap-0 sm:max-w-lg'
+      >
         <SheetHeader>
-          <SheetTitle>{isEdit ? t('accounts.form.editTitle') : t('accounts.form.addTitle')}</SheetTitle>
+          <SheetTitle>
+            {isEdit
+              ? t('accounts.form.editTitle')
+              : t('accounts.form.addTitle')}
+          </SheetTitle>
           <SheetDescription>
             {isEdit
               ? t('accounts.form.editDescription')
@@ -166,7 +172,9 @@ export function AccountFormDialog({
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder={t('accounts.form.sitePlaceholder')} />
+                        <SelectValue
+                          placeholder={t('accounts.form.sitePlaceholder')}
+                        />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -200,8 +208,12 @@ export function AccountFormDialog({
                 }
               >
                 <TabsList>
-                  <TabsTrigger value='session'>{t('accounts.form.modeSession')}</TabsTrigger>
-                  <TabsTrigger value='apikey'>{t('accounts.form.modeApiKey')}</TabsTrigger>
+                  <TabsTrigger value='session'>
+                    {t('accounts.form.modeSession')}
+                  </TabsTrigger>
+                  <TabsTrigger value='apikey'>
+                    {t('accounts.form.modeApiKey')}
+                  </TabsTrigger>
                 </TabsList>
               </Tabs>
             </FormItem>
@@ -238,19 +250,22 @@ export function AccountFormDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t('accounts.form.status')}</FormLabel>
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
-                  >
+                  <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value='active'>{t('accounts.form.statusActive')}</SelectItem>
-                      <SelectItem value='disabled'>{t('accounts.form.statusDisabled')}</SelectItem>
-                      <SelectItem value='expired'>{t('accounts.form.statusExpired')}</SelectItem>
+                      <SelectItem value='active'>
+                        {t('accounts.form.statusActive')}
+                      </SelectItem>
+                      <SelectItem value='disabled'>
+                        {t('accounts.form.statusDisabled')}
+                      </SelectItem>
+                      <SelectItem value='expired'>
+                        {t('accounts.form.statusExpired')}
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -266,7 +281,9 @@ export function AccountFormDialog({
                 <FormItem className='flex flex-row items-center justify-between rounded-lg border p-3'>
                   <div className='space-y-0.5'>
                     <FormLabel>{t('accounts.form.checkinEnabled')}</FormLabel>
-                    <FormDescription>{t('accounts.form.checkinEnabledHint')}</FormDescription>
+                    <FormDescription>
+                      {t('accounts.form.checkinEnabledHint')}
+                    </FormDescription>
                   </div>
                   <FormControl>
                     <Switch
@@ -295,7 +312,7 @@ export function AccountFormDialog({
                         field.onChange(
                           event.target.value === ''
                             ? undefined
-                            : Number(event.target.value),
+                            : Number(event.target.value)
                         )
                       }
                       onBlur={field.onBlur}
@@ -339,7 +356,9 @@ export function AccountFormDialog({
                       value={field.value ?? ''}
                     />
                   </FormControl>
-                  <FormDescription>{t('accounts.form.tagsHint')}</FormDescription>
+                  <FormDescription>
+                    {t('accounts.form.tagsHint')}
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -396,7 +415,9 @@ function SessionFields({ form }: SessionFieldsProps) {
                 value={field.value ?? ''}
               />
             </FormControl>
-            <FormDescription>{t('accounts.formSession.accessTokenHint')}</FormDescription>
+            <FormDescription>
+              {t('accounts.formSession.accessTokenHint')}
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -411,13 +432,15 @@ function SessionFields({ form }: SessionFieldsProps) {
             <FormControl>
               <Input
                 type='number'
-                placeholder={t('accounts.formSession.platformUserIdPlaceholder')}
+                placeholder={t(
+                  'accounts.formSession.platformUserIdPlaceholder'
+                )}
                 value={field.value ?? ''}
                 onChange={(event) =>
                   field.onChange(
                     event.target.value === ''
                       ? undefined
-                      : Number(event.target.value),
+                      : Number(event.target.value)
                   )
                 }
                 onBlur={field.onBlur}
@@ -456,13 +479,15 @@ function SessionFields({ form }: SessionFieldsProps) {
             <FormControl>
               <Input
                 type='number'
-                placeholder={t('accounts.formSession.tokenExpiresAtPlaceholder')}
+                placeholder={t(
+                  'accounts.formSession.tokenExpiresAtPlaceholder'
+                )}
                 value={field.value ?? ''}
                 onChange={(event) =>
                   field.onChange(
                     event.target.value === ''
                       ? undefined
-                      : Number(event.target.value),
+                      : Number(event.target.value)
                   )
                 }
                 onBlur={field.onBlur}
@@ -511,13 +536,12 @@ function ApiKeyFields({ form }: SessionFieldsProps) {
           <FormItem className='flex flex-row items-center justify-between rounded-lg border p-3'>
             <div className='space-y-0.5'>
               <FormLabel>{t('accounts.formApiKey.skipModelFetch')}</FormLabel>
-              <FormDescription>{t('accounts.formApiKey.skipModelFetchHint')}</FormDescription>
+              <FormDescription>
+                {t('accounts.formApiKey.skipModelFetchHint')}
+              </FormDescription>
             </div>
             <FormControl>
-              <Switch
-                checked={field.value}
-                onCheckedChange={field.onChange}
-              />
+              <Switch checked={field.value} onCheckedChange={field.onChange} />
             </FormControl>
           </FormItem>
         )}

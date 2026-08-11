@@ -8,7 +8,6 @@ import { type ReactNode, useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
 import {
   Collapsible,
   CollapsibleContent,
@@ -34,6 +33,7 @@ import {
   SidebarMenuSubItem,
   useSidebar,
 } from '@/components/ui/sidebar'
+import { cn } from '@/lib/utils'
 
 import { checkIsActive } from '../lib/url-utils'
 import type {
@@ -176,9 +176,7 @@ function SidebarMenuLink({ item, href }: { item: NavLink; href: string }) {
       <SidebarMenuButton
         isActive={checkIsActive(href, item)}
         tooltip={t(item.title)}
-        render={(props) => (
-          <SidebarNavLink to={item.url} renderProps={props} />
-        )}
+        render={(props) => <SidebarNavLink to={item.url} renderProps={props} />}
       >
         {item.icon && <item.icon className='shrink-0' />}
         <span className='min-w-0 flex-1 truncate'>{t(item.title)}</span>
@@ -293,7 +291,7 @@ function SidebarMenuCollapsedDropdown({
                       ...props,
                       className: cn(
                         props.className as string | undefined,
-                        checkIsActive(href, sub) ? 'bg-secondary' : undefined,
+                        checkIsActive(href, sub) ? 'bg-secondary' : undefined
                       ),
                     }}
                   />

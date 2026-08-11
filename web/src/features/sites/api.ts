@@ -17,14 +17,20 @@ import {
 
 import { api } from '@/lib/api'
 
-import { sitesKeys, type Site, type SiteBatchAction, type SiteBatchResult, type SiteFormPayload } from './types'
+import {
+  sitesKeys,
+  type Site,
+  type SiteBatchAction,
+  type SiteBatchResult,
+  type SiteFormPayload,
+} from './types'
 
 /**
  * Fetch all sites. The backend returns the full array; the table owns
  * client-side pagination/sorting/filtering.
  */
 export function useSites(
-  options?: Omit<UseQueryOptions<Site[]>, 'queryKey' | 'queryFn'>,
+  options?: Omit<UseQueryOptions<Site[]>, 'queryKey' | 'queryFn'>
 ) {
   return useQuery<Site[]>({
     queryKey: sitesKeys.list(),
@@ -44,7 +50,7 @@ type CreateSiteContext = { previous: Site[] | undefined }
  * Optimistically rolls back the list on error.
  */
 export function useCreateSite(
-  options?: UseMutationOptions<Site, Error, SiteFormPayload, CreateSiteContext>,
+  options?: UseMutationOptions<Site, Error, SiteFormPayload, CreateSiteContext>
 ) {
   const queryClient = useQueryClient()
   return useMutation<Site, Error, SiteFormPayload, CreateSiteContext>({
@@ -107,7 +113,7 @@ export function useUpdateSite(
     Error,
     { id: number; payload: Partial<Site> },
     UpdateSiteContext
-  >,
+  >
 ) {
   const queryClient = useQueryClient()
   return useMutation<
@@ -125,8 +131,8 @@ export function useUpdateSite(
       const previous = queryClient.getQueryData<Site[]>(sitesKeys.list())
       queryClient.setQueryData<Site[]>(sitesKeys.list(), (current) =>
         (current ?? []).map((site) =>
-          site.id === id ? { ...site, ...payload } : site,
-        ),
+          site.id === id ? { ...site, ...payload } : site
+        )
       )
       return { previous }
     },
@@ -146,7 +152,12 @@ export function useUpdateSite(
  * Delete a site. Removes the row from the list cache optimistically.
  */
 export function useDeleteSite(
-  options?: UseMutationOptions<void, Error, number, { previous: Site[] | undefined }>,
+  options?: UseMutationOptions<
+    void,
+    Error,
+    number,
+    { previous: Site[] | undefined }
+  >
 ) {
   const queryClient = useQueryClient()
   return useMutation<void, Error, number, { previous: Site[] | undefined }>({
@@ -157,7 +168,7 @@ export function useDeleteSite(
       await queryClient.cancelQueries({ queryKey: sitesKeys.list() })
       const previous = queryClient.getQueryData<Site[]>(sitesKeys.list())
       queryClient.setQueryData<Site[]>(sitesKeys.list(), (current) =>
-        (current ?? []).filter((site) => site.id !== id),
+        (current ?? []).filter((site) => site.id !== id)
       )
       return { previous }
     },
@@ -183,7 +194,7 @@ export function useBatchUpdateSites(
     SiteBatchResult,
     Error,
     { ids: number[]; action: SiteBatchAction }
-  >,
+  >
 ) {
   const queryClient = useQueryClient()
   return useMutation<
@@ -192,7 +203,10 @@ export function useBatchUpdateSites(
     { ids: number[]; action: SiteBatchAction }
   >({
     mutationFn: async ({ ids, action }) => {
-      const result = (await api.batchUpdateSites({ ids, action })) as SiteBatchResult
+      const result = (await api.batchUpdateSites({
+        ids,
+        action,
+      })) as SiteBatchResult
       return result ?? { successIds: [], failedItems: [] }
     },
     onSettled: () => {
@@ -207,7 +221,7 @@ export function useBatchUpdateSites(
  * the "detect" button in the add-site dialog.
  */
 export function useDetectSite(
-  options?: UseMutationOptions<Partial<Site>, Error, string>,
+  options?: UseMutationOptions<Partial<Site>, Error, string>
 ) {
   return useMutation<Partial<Site>, Error, string>({
     mutationFn: async (url) => {

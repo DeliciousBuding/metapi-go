@@ -20,10 +20,7 @@ import type {
   ProxyLogsQuery,
 } from '@/lib/api'
 
-export {
-  type ProxyLogBillingDetails,
-  type ProxyLogsQuery,
-}
+export { type ProxyLogBillingDetails, type ProxyLogsQuery }
 
 // --- List item + detail (feature contract) -------------------------------
 

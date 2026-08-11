@@ -20,10 +20,7 @@ const MAX_BACKOFF_MS = 15_000
 const SPARK_WINDOW = 60
 
 function buildWebSocketUrl(token: string): string | null {
-  if (
-    typeof window === 'undefined' ||
-    typeof window.location === 'undefined'
-  ) {
+  if (typeof window === 'undefined' || typeof window.location === 'undefined') {
     return null
   }
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'

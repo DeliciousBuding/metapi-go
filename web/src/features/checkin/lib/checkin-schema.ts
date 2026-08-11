@@ -11,8 +11,6 @@
 
 import { z } from 'zod'
 
-
-
 const DEFAULT_CHECKIN_PAGE_SIZE = 20
 
 // ---------------------------------------------------------------------------
@@ -48,7 +46,7 @@ export function getCheckinSearchDefaultValues(): CheckinSearch {
 export function readCheckinSearchFromUrl(): CheckinSearch {
   if (typeof window === 'undefined') return getCheckinSearchDefaultValues()
   const entries = Object.fromEntries(
-    new URLSearchParams(window.location.search).entries(),
+    new URLSearchParams(window.location.search).entries()
   )
   const parsed = checkinSearchSchema.safeParse(entries)
   return parsed.success ? parsed.data : getCheckinSearchDefaultValues()

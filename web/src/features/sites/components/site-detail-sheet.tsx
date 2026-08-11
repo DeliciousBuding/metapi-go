@@ -201,7 +201,9 @@ export function SiteDetailSheet({
             <>
               <Separator />
               <section>
-                <h3 className='text-sm font-medium'>{t('sites.detail.tags')}</h3>
+                <h3 className='text-sm font-medium'>
+                  {t('sites.detail.tags')}
+                </h3>
                 <div className='mt-2 flex flex-wrap gap-1.5'>
                   {tags.map((tag) => (
                     <Badge key={tag} variant='outline'>

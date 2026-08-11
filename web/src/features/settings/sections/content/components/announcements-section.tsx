@@ -11,8 +11,6 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
-import { api,type Announcement,type AnnouncementsResponse } from '@/lib/api'
-
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -41,11 +39,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
-import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
 import {
   Table,
   TableBody,
@@ -54,14 +47,25 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Textarea } from '@/components/ui/textarea'
+import { api, type Announcement, type AnnouncementsResponse } from '@/lib/api'
+
+import {
+  SettingsSectionCard,
+  SettingsSectionSkeleton,
+} from '../../../components/settings-section-card'
 
 const announcementsQueryKeys = {
   all: ['announcements'] as const,
 }
 
 const announcementSchema = z.object({
-  title: z.string().min(1, 'settings.content.announcements.schema.titleRequired'),
-  message: z.string().min(1, 'settings.content.announcements.schema.messageRequired'),
+  title: z
+    .string()
+    .min(1, 'settings.content.announcements.schema.titleRequired'),
+  message: z
+    .string()
+    .min(1, 'settings.content.announcements.schema.messageRequired'),
   severity: z.enum(['info', 'warning', 'critical']),
   link: z.string().optional(),
   enabled: z.boolean().optional(),
@@ -69,7 +73,10 @@ const announcementSchema = z.object({
 
 type AnnouncementFormValues = z.infer<typeof announcementSchema>
 
-type EditMode = { kind: 'create' } | { kind: 'edit'; announcement: Announcement } | null
+type EditMode =
+  | { kind: 'create' }
+  | { kind: 'edit'; announcement: Announcement }
+  | null
 
 const EDIT_FORM_ID = 'settings-content-announcements-edit-form'
 
@@ -107,7 +114,13 @@ export function AnnouncementsSection() {
         enabled: announcement.enabled,
       })
     } else if (editMode?.kind === 'create') {
-      form.reset({ title: '', message: '', severity: 'info', link: '', enabled: true })
+      form.reset({
+        title: '',
+        message: '',
+        severity: 'info',
+        link: '',
+        enabled: true,
+      })
     }
   }, [editMode, form])
 
@@ -128,7 +141,8 @@ export function AnnouncementsSection() {
           enabled: Boolean(values.enabled),
         })
       }
-      const targetId = (editMode as { announcement: Announcement } | null)?.announcement?.id
+      const targetId = (editMode as { announcement: Announcement } | null)
+        ?.announcement?.id
       if (!targetId) {
         throw new Error('No announcement selected for edit')
       }
@@ -141,21 +155,27 @@ export function AnnouncementsSection() {
       })
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: announcementsQueryKeys.all })
+      void queryClient.invalidateQueries({
+        queryKey: announcementsQueryKeys.all,
+      })
       toast.success(t('settings.content.announcements.toast.saved'))
       setEditMode(null)
     },
-    onError: () => toast.error(t('settings.content.announcements.toast.saveFailed')),
+    onError: () =>
+      toast.error(t('settings.content.announcements.toast.saveFailed')),
   })
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => api.deleteAnnouncement(id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: announcementsQueryKeys.all })
+      void queryClient.invalidateQueries({
+        queryKey: announcementsQueryKeys.all,
+      })
       toast.success(t('settings.content.announcements.toast.deleted'))
       setDeleteTarget(null)
     },
-    onError: () => toast.error(t('settings.content.announcements.toast.deleteFailed')),
+    onError: () =>
+      toast.error(t('settings.content.announcements.toast.deleteFailed')),
   })
 
   function onSubmit(values: AnnouncementFormValues) {
@@ -173,17 +193,14 @@ export function AnnouncementsSection() {
       title={t('settings.content.announcements.title')}
       description={t('settings.content.announcements.description')}
       actions={
-        <Button
-          size='sm'
-          onClick={() => setEditMode({ kind: 'create' })}
-        >
+        <Button size='sm' onClick={() => setEditMode({ kind: 'create' })}>
           {t('settings.content.announcements.create')}
         </Button>
       }
     >
       {isLoading ? <SettingsSectionSkeleton /> : null}
       {!isLoading && items.length === 0 ? (
-        <p className='py-8 text-center text-sm text-muted-foreground'>
+        <p className='text-muted-foreground py-8 text-center text-sm'>
           {t('settings.content.announcements.empty')}
         </p>
       ) : null}
@@ -191,9 +208,15 @@ export function AnnouncementsSection() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>{t('settings.content.announcements.columns.severity')}</TableHead>
-              <TableHead>{t('settings.content.announcements.columns.title')}</TableHead>
-              <TableHead>{t('settings.content.announcements.columns.enabled')}</TableHead>
+              <TableHead>
+                {t('settings.content.announcements.columns.severity')}
+              </TableHead>
+              <TableHead>
+                {t('settings.content.announcements.columns.title')}
+              </TableHead>
+              <TableHead>
+                {t('settings.content.announcements.columns.enabled')}
+              </TableHead>
               <TableHead className='text-right'>
                 {t('settings.content.announcements.columns.actions')}
               </TableHead>
@@ -204,19 +227,23 @@ export function AnnouncementsSection() {
               <TableRow key={announcement.id}>
                 <TableCell>
                   <Badge variant={severityVariant(announcement.severity)}>
-                    {t(`settings.content.announcements.severity.${announcement.severity}`)}
+                    {t(
+                      `settings.content.announcements.severity.${announcement.severity}`
+                    )}
                   </Badge>
                 </TableCell>
                 <TableCell>
                   <div className='flex flex-col'>
                     <span className='font-medium'>{announcement.title}</span>
-                    <span className='line-clamp-2 text-xs text-muted-foreground'>
+                    <span className='text-muted-foreground line-clamp-2 text-xs'>
                       {announcement.message}
                     </span>
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={announcement.enabled ? 'default' : 'secondary'}>
+                  <Badge
+                    variant={announcement.enabled ? 'default' : 'secondary'}
+                  >
                     {announcement.enabled
                       ? t('settings.common.enabled')
                       : t('settings.common.disabled')}
@@ -228,7 +255,9 @@ export function AnnouncementsSection() {
                       type='button'
                       variant='ghost'
                       size='sm'
-                      onClick={() => setEditMode({ kind: 'edit', announcement })}
+                      onClick={() =>
+                        setEditMode({ kind: 'edit', announcement })
+                      }
                     >
                       {t('settings.common.edit')}
                     </Button>
@@ -278,7 +307,9 @@ export function AnnouncementsSection() {
                 name='title'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('settings.content.announcements.fields.title')}</FormLabel>
+                    <FormLabel>
+                      {t('settings.content.announcements.fields.title')}
+                    </FormLabel>
                     <FormControl>
                       <Input {...field} value={field.value ?? ''} />
                     </FormControl>
@@ -291,7 +322,9 @@ export function AnnouncementsSection() {
                 name='message'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('settings.content.announcements.fields.message')}</FormLabel>
+                    <FormLabel>
+                      {t('settings.content.announcements.fields.message')}
+                    </FormLabel>
                     <FormControl>
                       <Textarea {...field} value={field.value ?? ''} rows={4} />
                     </FormControl>
@@ -304,7 +337,9 @@ export function AnnouncementsSection() {
                 name='severity'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('settings.content.announcements.fields.severity')}</FormLabel>
+                    <FormLabel>
+                      {t('settings.content.announcements.fields.severity')}
+                    </FormLabel>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger>
@@ -319,7 +354,9 @@ export function AnnouncementsSection() {
                           {t('settings.content.announcements.severity.warning')}
                         </SelectItem>
                         <SelectItem value='critical'>
-                          {t('settings.content.announcements.severity.critical')}
+                          {t(
+                            'settings.content.announcements.severity.critical'
+                          )}
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -332,9 +369,15 @@ export function AnnouncementsSection() {
                 name='link'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('settings.content.announcements.fields.link')}</FormLabel>
+                    <FormLabel>
+                      {t('settings.content.announcements.fields.link')}
+                    </FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value ?? ''} placeholder='https://…' />
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        placeholder='https://…'
+                      />
                     </FormControl>
                     <FormDescription>
                       {t('settings.content.announcements.fields.linkHint')}
@@ -366,7 +409,11 @@ export function AnnouncementsSection() {
             <Button variant='outline' onClick={() => setEditMode(null)}>
               {t('settings.common.cancel')}
             </Button>
-            <Button type='submit' form={EDIT_FORM_ID} disabled={upsertMutation.isPending}>
+            <Button
+              type='submit'
+              form={EDIT_FORM_ID}
+              disabled={upsertMutation.isPending}
+            >
               {upsertMutation.isPending
                 ? t('settings.common.saving')
                 : t('settings.common.save')}
@@ -416,7 +463,9 @@ export function AnnouncementsSection() {
   )
 }
 
-function severityVariant(severity: Announcement['severity']): 'default' | 'secondary' | 'destructive' {
+function severityVariant(
+  severity: Announcement['severity']
+): 'default' | 'secondary' | 'destructive' {
   if (severity === 'critical') {
     return 'destructive'
   }

@@ -7,10 +7,7 @@
 // fetches the detail payload by id. `useProxyLogsMeta` returns the
 // clientOptions / summary / sites facets used by the toolbar.
 
-import {
-  useQuery,
-  type UseQueryOptions,
-} from '@tanstack/react-query'
+import { useQuery, type UseQueryOptions } from '@tanstack/react-query'
 
 import { type ProxyLogsQuery, api } from '@/lib/api'
 
@@ -29,7 +26,7 @@ type ProxyLogsMetaData = Awaited<ReturnType<typeof api.getProxyLogsMeta>>
  */
 export function useProxyLogs(
   params: ProxyLogsQuery,
-  options?: Omit<UseQueryOptions<ProxyLogsResponseData>, 'queryKey' | 'queryFn'>,
+  options?: Omit<UseQueryOptions<ProxyLogsResponseData>, 'queryKey' | 'queryFn'>
 ) {
   return useQuery({
     queryKey: proxyLogsKeys.list(params),
@@ -45,10 +42,11 @@ export function useProxyLogs(
  */
 export function useProxyLog(
   id: number | null,
-  options?: Omit<UseQueryOptions<ProxyLogDetail>, 'queryKey' | 'queryFn'>,
+  options?: Omit<UseQueryOptions<ProxyLogDetail>, 'queryKey' | 'queryFn'>
 ) {
   return useQuery<ProxyLogDetail>({
-    queryKey: id === null ? ['proxy-logs', 'detail', 'none'] : proxyLogsKeys.detail(id),
+    queryKey:
+      id === null ? ['proxy-logs', 'detail', 'none'] : proxyLogsKeys.detail(id),
     queryFn: async () => {
       const result = await api.getProxyLogDetail(id as number)
       return result as unknown as ProxyLogDetail
@@ -65,10 +63,7 @@ export function useProxyLog(
  */
 export function useProxyLogsMeta(
   params: Omit<ProxyLogsQuery, 'limit' | 'offset'>,
-  options?: Omit<
-    UseQueryOptions<ProxyLogsMetaData>,
-    'queryKey' | 'queryFn'
-  >,
+  options?: Omit<UseQueryOptions<ProxyLogsMetaData>, 'queryKey' | 'queryFn'>
 ) {
   return useQuery({
     queryKey: proxyLogsKeys.meta(params),

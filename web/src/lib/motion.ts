@@ -57,5 +57,3 @@ export const MOTION_VARIANTS = {
     exit: { opacity: 0, x: -8 },
   },
 } as const
-
-

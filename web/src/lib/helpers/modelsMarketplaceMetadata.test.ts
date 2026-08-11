@@ -1,13 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest'
+
 import {
   mergeMarketplaceMetadata,
   shouldHydrateMarketplaceMetadata,
   type MarketplaceModelMetadataShape,
-} from './modelsMarketplaceMetadata.js';
+} from './modelsMarketplaceMetadata.js'
 
 interface TestModel extends MarketplaceModelMetadataShape {
-  name: string;
-  accountCount: number;
+  name: string
+  accountCount: number
 }
 
 function createModel(overrides: Partial<TestModel>): TestModel {
@@ -19,7 +20,7 @@ function createModel(overrides: Partial<TestModel>): TestModel {
     supportedEndpointTypes: [],
     pricingSources: [],
     ...overrides,
-  };
+  }
 }
 
 describe('modelsMarketplaceMetadata', () => {
@@ -27,10 +28,10 @@ describe('modelsMarketplaceMetadata', () => {
     const models = [
       createModel({ name: 'gpt-4o', description: 'base model' }),
       createModel({ name: 'claude-sonnet-4' }),
-    ];
+    ]
 
-    expect(shouldHydrateMarketplaceMetadata(models)).toBe(true);
-  });
+    expect(shouldHydrateMarketplaceMetadata(models)).toBe(true)
+  })
 
   it('identifies when metadata is already complete', () => {
     const models = [
@@ -48,16 +49,16 @@ describe('modelsMarketplaceMetadata', () => {
         supportedEndpointTypes: ['chat'],
         pricingSources: [{ source: 'site-b' }],
       }),
-    ];
+    ]
 
-    expect(shouldHydrateMarketplaceMetadata(models)).toBe(false);
-  });
+    expect(shouldHydrateMarketplaceMetadata(models)).toBe(false)
+  })
 
   it('merges metadata into current models without overriding non-metadata fields', () => {
     const base = [
       createModel({ name: 'GPT-4O', accountCount: 3 }),
       createModel({ name: 'claude-sonnet-4', accountCount: 5 }),
-    ];
+    ]
     const detail = [
       createModel({
         name: 'gpt-4o',
@@ -67,9 +68,9 @@ describe('modelsMarketplaceMetadata', () => {
         supportedEndpointTypes: ['chat', 'responses'],
         pricingSources: [{ source: 'site-a' }],
       }),
-    ];
+    ]
 
-    const merged = mergeMarketplaceMetadata(base, detail);
+    const merged = mergeMarketplaceMetadata(base, detail)
 
     expect(merged).toEqual([
       {
@@ -80,6 +81,6 @@ describe('modelsMarketplaceMetadata', () => {
         pricingSources: [{ source: 'site-a' }],
       },
       base[1],
-    ]);
-  });
-});
+    ])
+  })
+})
