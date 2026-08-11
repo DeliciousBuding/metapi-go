@@ -55,6 +55,8 @@ jobs:
         run: |
           go mod download
           go mod verify
+      - name: Seed web/dist placeholder for go:embed
+        run: mkdir -p web/dist && touch web/dist/.gitkeep
       - name: Test Go packages with race detector
         run: go test ./... -count=1 -race
       - name: Test PostgreSQL integration paths
