@@ -55,14 +55,18 @@ function useFormatRelativeShort() {
       deltaMs >= 0
         ? t('proxyLogs.columns.relativeBefore')
         : t('proxyLogs.columns.relativeAfter')
-    if (abs < 60_000)
+    if (abs < 60_000) {
       return `${Math.max(1, Math.round(abs / 1000))} ${t('proxyLogs.columns.relativeSeconds')}${suffix}`
-    if (abs < 3_600_000)
+    }
+    if (abs < 3_600_000) {
       return `${Math.round(abs / 60_000)} ${t('proxyLogs.columns.relativeMinutes')}${suffix}`
-    if (abs < 86_400_000)
+    }
+    if (abs < 86_400_000) {
       return `${Math.round(abs / 3_600_000)} ${t('proxyLogs.columns.relativeHours')}${suffix}`
-    if (abs < 2_592_000_000)
+    }
+    if (abs < 2_592_000_000) {
       return `${Math.round(abs / 86_400_000)} ${t('proxyLogs.columns.relativeDays')}${suffix}`
+    }
     return `${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
   }
 }
@@ -247,8 +251,9 @@ export function useProxyLogsColumns(
       ),
       cell: ({ row }) => {
         const retryCount = row.original.retryCount
-        if (!retryCount || retryCount <= 0)
+        if (!retryCount || retryCount <= 0) {
           return <span className='text-muted-foreground text-sm'>—</span>
+        }
         return (
           <Badge variant='warning' className='tabular-nums'>
             ×{retryCount}

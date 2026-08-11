@@ -58,10 +58,12 @@ function weightsAlmostEqual(a: RoutingWeights, b: RoutingWeights): boolean {
 export function resolveRoutingProfilePreset(
   weights: RoutingWeights
 ): RoutingProfilePresetId {
-  if (weightsAlmostEqual(weights, ROUTING_PROFILE_PRESETS.balanced))
+  if (weightsAlmostEqual(weights, ROUTING_PROFILE_PRESETS.balanced)) {
     return 'balanced'
-  if (weightsAlmostEqual(weights, ROUTING_PROFILE_PRESETS.stable))
+  }
+  if (weightsAlmostEqual(weights, ROUTING_PROFILE_PRESETS.stable)) {
     return 'stable'
+  }
   if (weightsAlmostEqual(weights, ROUTING_PROFILE_PRESETS.cost)) return 'cost'
   return 'custom'
 }

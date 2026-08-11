@@ -26,8 +26,9 @@ function buildSupportedTypeLabel(
   capability: ConversationFileCapability
 ): string {
   const labels: string[] = []
-  if (isSupportedMode(capability.documentMode))
+  if (isSupportedMode(capability.documentMode)) {
     labels.push('PDF / TXT / Markdown / JSON')
+  }
   if (isSupportedMode(capability.imageMode)) labels.push('图片')
   if (isSupportedMode(capability.audioMode)) labels.push('音频')
   return labels.join(' / ')
@@ -35,8 +36,9 @@ function buildSupportedTypeLabel(
 
 function buildTransportNotes(capability: ConversationFileCapability): string[] {
   const notes: string[] = []
-  if (capability.documentMode === 'inline_only')
+  if (capability.documentMode === 'inline_only') {
     notes.push('文档会以内联数据注入')
+  }
   if (
     capability.imageMode === 'native' &&
     capability.documentMode === 'inline_only'

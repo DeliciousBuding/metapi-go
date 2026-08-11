@@ -17,16 +17,19 @@ function hasMarketplaceMetadata(model: MarketplaceModelMetadataShape): boolean {
   if (
     typeof model.description === 'string' &&
     model.description.trim().length > 0
-  )
+  ) {
     return true
+  }
   if (Array.isArray(model.tags) && model.tags.length > 0) return true
   if (
     Array.isArray(model.supportedEndpointTypes) &&
     model.supportedEndpointTypes.length > 0
-  )
+  ) {
     return true
-  if (Array.isArray(model.pricingSources) && model.pricingSources.length > 0)
+  }
+  if (Array.isArray(model.pricingSources) && model.pricingSources.length > 0) {
     return true
+  }
   return false
 }
 

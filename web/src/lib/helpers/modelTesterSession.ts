@@ -430,7 +430,7 @@ const isExactModelPattern = (modelPattern: string): boolean => {
   const normalized = modelPattern.trim()
   if (!normalized) return false
   if (normalized.toLowerCase().startsWith('re:')) return false
-  return !/[*\?]/.test(normalized)
+  return !/[*?]/.test(normalized)
 }
 
 const splitCommaSeparated = (value: string): string[] =>
@@ -522,11 +522,12 @@ const toOpenAiContentPart = (
     const parsed = rawData ? parseDataUrl(rawData) : null
     if (fileId) filePayload.file_id = fileId
     else if (rawData) filePayload.file_data = parsed?.data || rawData
-    if (typeof part.filename === 'string' && part.filename.trim())
+    if (typeof part.filename === 'string' && part.filename.trim()) {
       filePayload.filename = part.filename.trim()
-    if (typeof part.mimeType === 'string' && part.mimeType.trim())
+    }
+    if (typeof part.mimeType === 'string' && part.mimeType.trim()) {
       filePayload.mime_type = part.mimeType.trim()
-    else if (parsed?.mimeType) filePayload.mime_type = parsed.mimeType
+    } else if (parsed?.mimeType) filePayload.mime_type = parsed.mimeType
     if (Object.keys(filePayload).length === 0) return null
     return {
       type: 'file',
@@ -572,12 +573,14 @@ const toResponsesContentPart = (
     const fileBlock: Record<string, unknown> = {
       type: 'input_file',
     }
-    if (typeof part.fileId === 'string' && part.fileId.trim())
+    if (typeof part.fileId === 'string' && part.fileId.trim()) {
       fileBlock.file_id = part.fileId.trim()
-    else if (typeof part.data === 'string' && part.data.trim())
+    } else if (typeof part.data === 'string' && part.data.trim()) {
       fileBlock.file_data = part.data.trim()
-    if (typeof part.filename === 'string' && part.filename.trim())
+    }
+    if (typeof part.filename === 'string' && part.filename.trim()) {
       fileBlock.filename = part.filename.trim()
+    }
     if (Object.keys(fileBlock).length === 1) return null
     return fileBlock
   }
@@ -592,8 +595,9 @@ const toClaudeContentPart = (
     part.type !== 'input_file' ||
     typeof part.data !== 'string' ||
     !part.data.trim()
-  )
+  ) {
     return null
+  }
   const parsed = parseDataUrl(part.data)
   if (!parsed) return null
   const mimeType =
@@ -820,8 +824,9 @@ const buildConversationJsonBody = (
       parameterEnabled.max_tokens,
       inputs.max_tokens
     )
-    if (parameterEnabled.seed && typeof inputs.seed === 'number')
+    if (parameterEnabled.seed && typeof inputs.seed === 'number') {
       body.seed = inputs.seed
+    }
     return body
   }
 
@@ -877,8 +882,9 @@ const buildConversationJsonBody = (
       parameterEnabled.max_tokens,
       inputs.max_tokens
     )
-    if (parameterEnabled.seed && typeof inputs.seed === 'number')
+    if (parameterEnabled.seed && typeof inputs.seed === 'number') {
       generationConfig.seed = inputs.seed
+    }
     if (Object.keys(generationConfig).length > 0) {
       body.generationConfig = generationConfig
     }
@@ -923,15 +929,17 @@ const buildConversationJsonBody = (
     parameterEnabled.presence_penalty,
     inputs.presence_penalty
   )
-  if (parameterEnabled.seed && typeof inputs.seed === 'number')
+  if (parameterEnabled.seed && typeof inputs.seed === 'number') {
     body.seed = inputs.seed
+  }
   return body
 }
 
 const parseMessage = (value: unknown, index: number): ChatMessage | null => {
   if (!isRecord(value)) return null
-  if (typeof value.role !== 'string' || !VALID_ROLES.has(value.role))
+  if (typeof value.role !== 'string' || !VALID_ROLES.has(value.role)) {
     return null
+  }
   if (typeof value.content !== 'string') return null
 
   const parsed: ChatMessage = {
@@ -1200,8 +1208,9 @@ const parsePendingPayload = (
     }
 
     if ('jsonBody' in value) pending.jsonBody = value.jsonBody
-    if (typeof value.rawJsonText === 'string')
+    if (typeof value.rawJsonText === 'string') {
       pending.rawJsonText = value.rawJsonText
+    }
     const forcedChannelId = toPositiveInteger(value.forcedChannelId)
     if (forcedChannelId !== null) pending.forcedChannelId = forcedChannelId
     if (isRecord(value.multipartFields)) {

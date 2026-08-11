@@ -107,12 +107,13 @@ export function buildRouteModelCandidatesIndex(
       const accountId = Number.parseInt(accountIdText, 10)
       tokenOptionsByAccountId[accountId].sort((a, b) => {
         if (a.isDefault === b.isDefault) {
-          if (a.id === b.id)
+          if (a.id === b.id) {
             return (a.sourceModel || '').localeCompare(
               b.sourceModel || '',
               undefined,
               { sensitivity: 'base' }
             )
+          }
           return a.id - b.id
         }
         return a.isDefault ? -1 : 1

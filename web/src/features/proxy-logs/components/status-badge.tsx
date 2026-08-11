@@ -49,14 +49,16 @@ function resolveTierFromHttpStatus(httpStatus: number): StatusTier {
 
 function resolveTierFromStatusString(status: string): StatusTier {
   const normalized = status.toLowerCase()
-  if (['success', 'ok', 'succeeded', 'succeed'].includes(normalized))
+  if (['success', 'ok', 'succeeded', 'succeed'].includes(normalized)) {
     return STATUS_TIERS.success
+  }
   if (
     ['failed', 'error', 'failure', 'timeout', 'timeouterror'].includes(
       normalized
     )
-  )
+  ) {
     return STATUS_TIERS.serverError
+  }
   if (normalized.includes('redirect')) return STATUS_TIERS.redirect
   if (normalized.includes('client')) return STATUS_TIERS.clientError
   return STATUS_TIERS.neutral
@@ -68,19 +70,21 @@ function resolveTier(
 ): { tier: StatusTier; label: string } {
   const numericStatus =
     typeof httpStatus === 'number' && httpStatus > 0 ? httpStatus : null
-  if (numericStatus !== null)
+  if (numericStatus !== null) {
     return {
       tier: resolveTierFromHttpStatus(numericStatus),
       label: String(numericStatus),
     }
+  }
   const statusString =
     typeof status === 'string' && status.trim().length > 0
       ? status.trim()
       : null
   if (statusString !== null) {
     const parsed = Number.parseInt(statusString, 10)
-    if (Number.isFinite(parsed) && parsed > 0)
+    if (Number.isFinite(parsed) && parsed > 0) {
       return { tier: resolveTierFromHttpStatus(parsed), label: String(parsed) }
+    }
     return {
       tier: resolveTierFromStatusString(statusString),
       label: statusString,

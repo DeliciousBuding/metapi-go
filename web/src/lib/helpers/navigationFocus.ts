@@ -31,8 +31,9 @@ export function buildAccountFocusPath(
   const normalizedId = normalizePositiveId(accountId)
   if (!normalizedId) return '/accounts'
   const params = new URLSearchParams()
-  if (options?.segment && options.segment !== 'session')
+  if (options?.segment && options.segment !== 'session') {
     params.set('segment', options.segment)
+  }
   params.set(FOCUS_ACCOUNT_ID_KEY, String(normalizedId))
   if (options?.openRebind) params.set(OPEN_REBIND_KEY, '1')
   return `/accounts?${params.toString()}`

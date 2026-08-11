@@ -31,18 +31,20 @@ interface StatusConfig {
 }
 
 function resolveStatusConfig(status: string): StatusConfig {
-  if (status === 'success')
+  if (status === 'success') {
     return {
       variant: 'default',
       dotClassName: 'bg-emerald-500',
       labelKey: 'checkin.columns.statusSuccess',
     }
-  if (status === 'skipped')
+  }
+  if (status === 'skipped') {
     return {
       variant: 'secondary',
       dotClassName: 'bg-muted-foreground',
       labelKey: 'checkin.columns.statusSkipped',
     }
+  }
   return {
     variant: 'destructive',
     dotClassName: 'bg-red-500',
@@ -153,8 +155,9 @@ export function useCheckinColumns(
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
         const site = log.sites
-        if (!site || (!site.name && !site.url))
+        if (!site || (!site.name && !site.url)) {
           return <span className='text-muted-foreground'>—</span>
+        }
         return (
           <span className='max-w-[160px] truncate'>
             {site.name || site.url}

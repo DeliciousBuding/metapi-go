@@ -138,8 +138,9 @@ function useAnnouncementsUrlState() {
 
   const columnFilters: ColumnFiltersState = useMemo(() => {
     const filters: ColumnFiltersState = []
-    if (search.severity)
+    if (search.severity) {
       filters.push({ id: 'severity', value: search.severity })
+    }
     if (search.enabled) filters.push({ id: 'enabled', value: search.enabled })
     return filters
   }, [search.severity, search.enabled])

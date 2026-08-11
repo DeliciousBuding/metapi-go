@@ -25,8 +25,9 @@ function useIconCdn() {
     if (
       typeof document === 'undefined' ||
       typeof MutationObserver === 'undefined'
-    )
+    ) {
       return undefined
+    }
     const observer = new MutationObserver(() => {
       setIsDark(document.documentElement.getAttribute('data-theme') === 'dark')
     })

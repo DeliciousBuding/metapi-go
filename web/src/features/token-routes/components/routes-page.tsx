@@ -116,8 +116,9 @@ export function RoutesPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams()
-    if (pagination.pageIndex > 0)
+    if (pagination.pageIndex > 0) {
       params.set('page', String(pagination.pageIndex + 1))
+    }
     if (pagination.pageSize !== DEFAULT_PAGE_SIZE) {
       params.set('pageSize', String(pagination.pageSize))
     }

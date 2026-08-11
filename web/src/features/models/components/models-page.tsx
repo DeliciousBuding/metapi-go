@@ -123,8 +123,9 @@ function buildHref(next: Partial<ResolvedSearch>): string {
   if (merged.pageSize !== 20) params.set('pageSize', String(merged.pageSize))
   const sortString = encodeSorting(merged.sorting)
   if (sortString) params.set('sort', sortString)
-  if (merged.brand.length > 0)
+  if (merged.brand.length > 0) {
     params.set('brand', encodeStringList(merged.brand))
+  }
   if (merged.capability.length > 0) {
     params.set('capability', encodeStringList(merged.capability))
   }

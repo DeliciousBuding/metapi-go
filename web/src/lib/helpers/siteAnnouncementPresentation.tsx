@@ -99,8 +99,9 @@ function sanitizeUrl(
   const value = String(raw || '').trim()
   if (!value) return null
   if (value.startsWith('#') || value.startsWith('/')) return value
-  if (allowDataImage && /^data:image\/[a-z0-9.+-]+;base64,/i.test(value))
+  if (allowDataImage && /^data:image\/[a-z0-9.+-]+;base64,/i.test(value)) {
     return value
+  }
   if (/^https?:\/\//i.test(value)) return value
   if (/^mailto:/i.test(value)) return value
   if (/^tel:/i.test(value)) return value
@@ -374,10 +375,12 @@ function sanitizeNode(node: Node): string {
       String(element.getAttribute('rowspan') || ''),
       10
     )
-    if (Number.isFinite(colspan) && colspan > 1)
+    if (Number.isFinite(colspan) && colspan > 1) {
       attrs.push(` colspan="${colspan}"`)
-    if (Number.isFinite(rowspan) && rowspan > 1)
+    }
+    if (Number.isFinite(rowspan) && rowspan > 1) {
       attrs.push(` rowspan="${rowspan}"`)
+    }
   }
 
   if (VOID_TAGS.has(tag)) {
