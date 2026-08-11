@@ -13,6 +13,9 @@ var (
 	unixHomePathRE     = regexp.MustCompile(`/(?:Users|home)/[^/\s` + "`" + `]+`)
 	dsnWithPasswordRE  = regexp.MustCompile(`(?i)\b(?:postgres(?:ql)?|mysql)://([^:\s` + "`" + `/]+):([^@\s` + "`" + `]+)@([^\s` + "`" + `/]+)`)
 	aiArtifactRE       = regexp.MustCompile(`(?i)(contentReference\[oaicite:|oai_citation|citeturn\d+search\d+|grok_card|utm_source=(?:chatgpt\.com|copilot\.com|openai|claude\.ai|perplexity\.ai))`)
+	// Public markdown must only link public repositories under this owner.
+	// Private deployment forks (e.g. tokendance-gateway) must never be cited.
+	ownerRepoLinkRE = regexp.MustCompile(`(?i)github\.com/DeliciousBuding/([A-Za-z0-9_.-]+)`)
 )
 
 func TestPublicMarkdownHygiene(t *testing.T) {
@@ -29,7 +32,7 @@ func TestPublicMarkdownHygiene(t *testing.T) {
 			// covers published tree paths (CI clones are clean; local worktrees
 			// under .claude/ must not fail public docs gates).
 			if name == ".git" || name == "node_modules" || name == "dist" ||
-				name == ".claude" || name == "worktrees" {
+				name == ".claude" || name == ".worktrees" {
 				return filepath.SkipDir
 			}
 			return nil
@@ -53,6 +56,8 @@ func TestPublicMarkdownHygiene(t *testing.T) {
 				findings = append(findings, formatFinding(rel, lineNo, "local Unix home path", line))
 			case aiArtifactRE.MatchString(line):
 				findings = append(findings, formatFinding(rel, lineNo, "AI citation or tracking artifact", line))
+			case hasPrivateRepoLink(line):
+				findings = append(findings, formatFinding(rel, lineNo, "link to a non-public repository under DeliciousBuding", line))
 			case dsnWithPasswordRE.MatchString(line) && !isAllowedExampleDSN(line):
 				findings = append(findings, formatFinding(rel, lineNo, "credential-bearing DSN without placeholders", line))
 			case looksLikeRedisSupportedClaim(line):
@@ -98,6 +103,19 @@ func mustRel(t *testing.T, root, path string) string {
 
 func formatFinding(path string, line int, kind string, text string) string {
 	return path + ":" + itoa(line) + ": " + kind + ": " + strings.TrimSpace(text)
+}
+
+func hasPrivateRepoLink(line string) bool {
+	matches := ownerRepoLinkRE.FindAllStringSubmatch(line, -1)
+	for _, match := range matches {
+		// metapi-go itself is the only public repository under this owner.
+		// Strip a trailing ".git" (clone URLs) before comparing.
+		repo := strings.TrimSuffix(strings.ToLower(match[1]), ".git")
+		if repo != "metapi-go" {
+			return true
+		}
+	}
+	return false
 }
 
 func isAllowedExampleDSN(line string) bool {

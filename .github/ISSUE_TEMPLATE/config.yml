@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/DeliciousBuding/metapi-go/blob/master/README.md
+    about: 先查阅 README 与 docs/ 目录，大部分部署问题在那里有答案
+  - name: Security vulnerability
+    url: https://github.com/DeliciousBuding/metapi-go/security/advisories/new
+    about: 安全问题请通过 Security Advisory 私密报告，勿开公开 issue

@@ -91,13 +91,15 @@ jobs:
     timeout-minutes: 45
     needs: release-gate
     permissions:
-      contents: read
+      contents: write
       packages: write
       attestations: write
       id-token: write
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: docker/setup-buildx-action@v3
 
@@ -115,8 +117,9 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
             type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             type=semver,pattern={{major}}.{{minor}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-            type=sha,prefix=,format=short
+            type=sha,prefix=,format=short,enable=${{ !startsWith(github.ref, 'refs/tags/v') }}
 
+      # Build once for the amd64 smoke test, then push the multi-arch manifest.
       - uses: docker/build-push-action@v6
         id: build-smoke
         with:
@@ -125,6 +128,7 @@ jobs:
           push: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: VERSION=${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'dev' }}
           cache-from: type=gha,scope=metapi-go
           cache-to: type=gha,mode=max,scope=metapi-go
           platforms: linux/amd64
@@ -166,8 +170,58 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: VERSION=${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'dev' }}
           cache-from: type=gha,scope=metapi-go
           cache-to: type=gha,mode=max,scope=metapi-go
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           provenance: mode=max
           sbom: true
+
+      # ---- Release (tag pushes only) ----
+      # The GitHub Release is created here, after the image push succeeded,
+      # so a published Release always points at a real ghcr.io tag.
+      - name: Build multi-platform release binaries
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          set -euo pipefail
+          ldflags="-s -w -X github.com/deliciousbuding/metapi-go/internal/version.Version=${GITHUB_REF_NAME}"
+          mkdir -p dist-bin
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
+            os="${target%/*}"
+            arch="${target#*/}"
+            ext=""
+            if [ "$os" = "windows" ]; then ext=".exe"; fi
+            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -trimpath -buildvcs=false \
+              -ldflags="$ldflags" -o "dist-bin/metapi-${os}-${arch}${ext}" ./cmd/server
+            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -trimpath -buildvcs=false \
+              -ldflags="$ldflags" -o "dist-bin/metapi-migrate-${os}-${arch}${ext}" ./cmd/migrate
+          done
+          cd dist-bin
+          sha256sum * > checksums.txt
+          cd ..
+
+      - name: Extract changelog section for this tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          awk -v ver="$GITHUB_REF_NAME" '
+            index($0, "## [" ver "]") == 1 {found=1; print; next}
+            found && index($0, "## [") == 1 {exit}
+            found {print}
+          ' CHANGELOG.md > release-body.md
+          if [ ! -s release-body.md ]; then
+            echo "no changelog section for $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
+
+      - name: Create GitHub Release with binaries
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" dist-bin/* --clobber
+            gh release edit "$tag" --notes-file release-body.md
+          else
+            gh release create "$tag" dist-bin/* --title "$tag" --notes-file release-body.md --latest
+          fi
