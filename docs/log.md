@@ -12,6 +12,8 @@
 - **URL-synced tables fix**: sites/models/oauth/site-announcements read the router location (`useLocation` + `searchStr`) so sort/pagination now update the table in place instead of waiting for an unrelated re-render
 - **Copy audit**: terminology unification (启用/停用, 额度, Check-in, 通道), internal plan codes (K1a/N9a) removed from user-visible copy, tokenRoutes toast/chain-banner concatenation bugs fixed, 9 hardcoded strings → t() (incl. TokenDance brand leak removed from the public settings copy)
 - **Visual polish**: sign-in real logo mark + brand glow + lg CTA; dashboard StatCard skeletons + useId-unique gradients + iconized empty/error states + pulsing WS indicator; settings responsive drill-in + sticky sidebar; authenticated-layout scroll-clip fix (content taller than viewport was unscrollable)
+- **Theme customizer**: header Palette panel with 4 axes (10 color presets / font Auto-Sans-Serif / radius 6 / scale 4) + per-axis & global reset; **default font is sans for every preset** (Anthropic no longer inlines serif; serif is an explicit choice); legacy FontProvider dual-track removed
+- **Sidebar i18n**: nav titles moved to keys (sidebar.groups/items/backToHome, en + zh-CN), sidebar renders fully in the active language
 
 ## 2026-08-11 — v0.9.0 frontend rewrite
 
