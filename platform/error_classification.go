@@ -7,7 +7,7 @@ import (
 )
 
 // UpstreamErrorClass is the high-level class for upstream failure signals.
-// Used for account-status decisions, retry UX, and risk documentation.
+// Used for account-status decisions, retry UX, and residual-risk documentation.
 type UpstreamErrorClass string
 
 const (
@@ -24,7 +24,7 @@ const (
 	ClassValidation UpstreamErrorClass = "validation"
 	// ClassTransient means rate-limit / timeout / 5xx / network-like failures.
 	ClassTransient UpstreamErrorClass = "transient"
-	// ClassUnknown is the bucket.
+	// ClassUnknown is the residual bucket.
 	ClassUnknown UpstreamErrorClass = "unknown"
 )
 
@@ -68,7 +68,7 @@ func ClassifyUpstreamError(httpStatus int, message string) UpstreamErrorClass {
 		return ClassBilling
 	}
 
-	// Strong credential-expiry phrases beat mixed text such as
+	// Strong credential-expiry phrases beat mixed residual text such as
 	// "jwt expired, connection timeout" (checkin failure-reason priority 6 > 8).
 	if isStrongTokenExpiredSignal(text) {
 		return ClassExpired
@@ -82,7 +82,7 @@ func ClassifyUpstreamError(httpStatus int, message string) UpstreamErrorClass {
 	}
 
 	// HTTP 401 / "HTTP 401 …" without an explicit credential-expiry phrase is auth
-	// known limitation only. Marking accounts.status='expired' requires confirmed
+	// residual only. Marking accounts.status='expired' requires confirmed
 	// invalid/expired credential wording (isStrongTokenExpiredSignal above).
 	// Bare/generic 401 used to mark expired and caused over-expiry flaps.
 	if httpStatus == 401 || containsHTTPStatus(raw, 401) {
@@ -95,7 +95,7 @@ func ClassifyUpstreamError(httpStatus int, message string) UpstreamErrorClass {
 		if hasAuthFailureSignal(text) || hasAuthTokenReference(text) {
 			return ClassAuth
 		}
-		// 401 with an opaque/non-auth body must not mark expired.
+		// 401 with an opaque/non-auth residual body must not mark expired.
 		return ClassUnknown
 	}
 

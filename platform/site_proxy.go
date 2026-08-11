@@ -205,12 +205,12 @@ func newProxyHTTPClient(proxy func(*http.Request) (*url.URL, error), insecureSki
 // HTTP clients that talk to operator-configured upstream sites.
 //
 // It refuses:
-// - more than 5 redirects
-// - https → non-https scheme downgrades
-// - any host change (blocks 302 to metadata / loopback / private SSRF targets)
+//   - more than 5 redirects
+//   - https → non-https scheme downgrades
+//   - any host change (blocks 302 to metadata / loopback / private SSRF targets)
 //
 // Same-origin redirects remain allowed so normal upstream path hops still work.
-// Used by platform.DoWithProxy, proxy.RuntimeExecutor, and bare clients
+// Used by platform.DoWithProxy, proxy.RuntimeExecutor, and residual bare clients
 // (health probe / admin harness / defaultUpstreamClient).
 func RejectCrossOriginRedirect(req *http.Request, via []*http.Request) error {
 	if len(via) >= 5 {

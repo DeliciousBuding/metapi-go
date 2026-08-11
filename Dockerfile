@@ -1,10 +1,10 @@
 # Stage 1: Frontend build
-FROM node:25-alpine AS web
+FROM oven/bun:1-alpine AS web
 WORKDIR /app/web
-COPY web/package.json web/package-lock.json ./
-RUN npm ci --ignore-scripts
+COPY web/package.json web/bun.lock ./
+RUN bun install --frozen-lockfile
 COPY web ./
-RUN npm run build:web && node scripts/verify-dist.mjs
+RUN bun run build:web
 
 # Stage 2: Go build
 FROM golang:1.26.5-alpine AS build

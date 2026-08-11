@@ -18,6 +18,7 @@
   <a href="https://github.com/DeliciousBuding/metapi-go/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/DeliciousBuding/metapi-go?logo=github&label=release&color=blue"></a>
   <img alt="Go" src="https://img.shields.io/badge/Go-1.26.5-00ADD8?logo=go">
   <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?logo=react">
+  <img alt="Bun" src="https://img.shields.io/badge/Bun-≥1.0-000000?logo=bun&logoColor=white">
   <a href="https://github.com/DeliciousBuding/metapi-go/pkgs/container/metapi-go"><img alt="Docker" src="https://img.shields.io/badge/ghcr-latest-2496ED?logo=docker&logoColor=white"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-3DA639?logo=opensourceinitiative&logoColor=white"></a>
 </p>
@@ -59,6 +60,26 @@ Open `http://localhost:4000`.
 | Memory | 85 MB | ~20 MB |
 | Image | ~250 MB | ~15 MB |
 | Startup | 5-10 s | <0.1 s |
+
+## Tech Stack
+
+| Layer | Technology |
+|------|------|
+| Backend | [chi](https://github.com/go-chi/chi) router + `net/http` |
+| Language | Go 1.26.5 |
+| Database | SQLite / PostgreSQL + [sqlx](https://github.com/jmoiron/sqlx); optional Redis for RPM/TPM admission only |
+| Scheduling | [robfig/cron](https://github.com/robfig/cron) |
+| Container | Docker (Alpine, 15MB image) |
+| Frontend | React 19 + Bun + Rsbuild 2 + TanStack Router/Query/Table + Zustand + Tailwind CSS v4 + shadcn Base UI + OKLCH design system + VChart + RHF + Zod + i18next (embedded in Go binary) |
+
+## Frontend Architecture
+
+As of v0.9.0 the frontend is 100% aligned with the [New API](https://github.com/QuantumNous/new-api) stack, migrated losslessly from the original TypeScript MetAPI: API contracts (camelCase fields, env var names) and DB (SQLite/PG dual dialect) are fully preserved. The prebuilt bundle is embedded into the single Go binary via `go:embed`; the production image ships no Node/Bun runtime.
+
+- **13 feature modules**: `auth`, `dashboard` (4 sections + RealtimeOps WebSocket), `sites` (guided setup: site→account→route), `accounts`, `token-routes` (dnd-kit drag), `oauth`, `checkin` (nested response destructuring + failure-reason badges), `proxy-logs` (manual + server pagination + detail Sheet), `models`, `model-tester` (SSE streaming, all protocols), `site-announcements`, `about`, `settings` (5 sub-areas).
+- **data-table four-layer architecture**: `core` (TanStack table primitives) + `layout` (responsive composition) + `toolbar` (filter/search/bulk actions) + `static` (local-array rendering) + `hooks` (controlled state, URL three-segment sync).
+- **OKLCH design system**: three-layer CSS (`theme.css` semantic tokens + `theme-presets.css` 10 presets + `index.css` Tailwind 4 entry); 3-axis theming (preset/radius/scale) via `<body data-theme-*>`; class-based dark mode with cookie persistence. Chart colors sampled from OKLCH tokens in JS with MutationObserver re-sampling on theme change.
+- **Key-based i18n**: i18next + react-i18next, supports `en` + `zh-CN` (~900 keys each, zero missing in either direction); React components use `useTranslation()` + `t()`, non-React modules use `i18n.t()`.
 
 ## Proxy Usage
 
@@ -123,6 +144,39 @@ Forwarded client IP headers are ignored unless `TRUSTED_PROXY_CIDRS` contains th
 ```
 
 Database schema is identical. Auto-migration runs on startup.
+
+## Development
+
+### Backend (Go)
+
+```bash
+make build    # build
+make test     # run all tests
+make vet      # go vet
+make lint     # lint
+make vuln     # govulncheck
+make verify   # local release gate
+```
+
+### Frontend (`web/`, Bun)
+
+The frontend lives in `web/`, is independent of the Go backend, and requires Bun >= 1.0.
+
+```bash
+cd web
+bun install            # install deps
+bun run dev            # local dev (rsbuild dev, /api /v1 proxied to backend, default http://localhost:4000)
+bun run typecheck      # tsgo type check
+bun run lint           # oxlint
+bun run lint:fix       # oxlint --fix
+bun run test           # vitest run (currently 361 tests)
+bun run knip           # detect unused code
+bun run build          # rsbuild build (output embedded into Go binary via go:embed)
+bun run build:check    # tsgo + build (full pre-release check)
+bun run i18n:sync      # sync i18n keys
+```
+
+Dev proxy defaults to `http://localhost:4000`; override via `DEV_PROXY_TARGET` / `VITE_DEV_PROXY_TARGET` / `PORT` / `VITE_BACKEND_PORT`.
 
 ## Related Projects
 

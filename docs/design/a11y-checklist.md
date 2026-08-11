@@ -203,11 +203,11 @@ Breakpoints used by product:
 
 ## 7. Residual a11y debt (explicit non-goals for this PR)
 
-Tracked for follow-up issues (not blocking the checklist):
+Tracked for follow-up issues (not blocking U3 checklist doc):
 
 1. ~~**Focus trap** inside SearchModal / CenteredModal / notification panel (Tab cycles within overlay).~~ **Done** — `web/components/useFocusTrap.ts` wired into SearchModal, CenteredModal, MobileDrawer, NotificationPanel.
 2. ~~**Global `:focus-visible`** utility applied to all `.btn`, `.sidebar-item`, topbar controls.~~ **Partial done** — `.sidebar-item:focus-visible` + existing chrome rings; remaining page-level action grids still mixed.
-3. ~~**`prefers-reduced-motion`** hard cutover for `fade-in` / `slide-up` / drawer transitions.~~ **Done** (global + token collapse). Residual: intentional essential-motion exceptions only if product later needs them.
+3. ~~**`prefers-reduced-motion`** hard cutover for `fade-in` / `slide-up` / drawer transitions.~~ **Done in #540** (global + token collapse). Residual: intentional essential-motion exceptions only if product later needs them.
 4. **Page-level icon actions** (copy, open external, row kebab, route drag handles) — many labeled, inventory incomplete across Accounts/Sites/Routes/Logs.
 5. **Muted/tertiary text** used as primary content in a few dense tables — content audit.
 6. ~~**Notification panel** keyboard model (arrow keys, Esc, focus return to bell).~~ **Partial** — Esc + focus trap + restore; arrow-key list nav still residual.
@@ -215,13 +215,13 @@ Tracked for follow-up issues (not blocking the checklist):
 8. **Charts**: non-color status encoding for availability buckets; keyboard access to series.
 9. ~~**Skip link** to `#main-content` for keyboard users.~~ **Done** — `App.tsx` skip-link + `main#main-content`.
 10. ~~**i18n entries** for newer chrome strings (e.g. `展开侧边栏`) if EN surface shows Chinese fallback.~~ **Partial** — skip-link + sidebar expand/nav open/close added; full inventory residual.
-11. **Automated axe/playwright a11y CI** check — not wired.
-12. **Full 375 walkthrough** of every page table → card path (density work debt).
+11. **Automated axe/playwright a11y CI** gate — not wired.
+12. **Full 375 walkthrough** of every page table → card path (U2 density work residual).
 13. **Residual hex hygiene** in pages/components (brand logos, chart series, route-card dark gradients) — sequential; no new brand hex allowed.
 
 ---
 
-## 8. Manual test script
+## 8. Manual test script (release smoke)
 
 Run against both light and dark themes.
 
@@ -258,7 +258,7 @@ Run against both light and dark themes.
 
 | Change | File | Why |
 |--------|------|-----|
-| Checklist source of truth | `docs/design/a11y-checklist.md` | deliverable |
+| Checklist source of truth | `docs/design/a11y-checklist.md` | U3 deliverable |
 | Search modal close + dialog semantics | `web/components/SearchModal.tsx` | Icon/header lacked explicit close control name |
 | Search modal test | `web/components/search-modal.results.test.tsx` | Guard close `aria-label` |
 | Sidebar collapse name | `web/App.tsx` | Icon-only when collapsed |
@@ -267,7 +267,7 @@ No package bumps. No Go changes. No wholesale page redesign.
 
 ---
 
-## 10. Definition of done
+## 10. Definition of done (U3 +  slice)
 
 - [x] Checklist committed under `docs/design/`
 - [x] Critical shared/chrome icon-only gaps fixed (search close, sidebar collapse)
@@ -277,4 +277,4 @@ No package bumps. No Go changes. No wholesale page redesign.
 - [x] `prefers-reduced-transparency` solid glass fallbacks complete for shell/login/toast/ds-glass
 - [x] Shared focus trap + skip link + EmptyState residual pages (Accounts/Tokens/ModelTester) — 2026-07-19 polish
 - [ ] Page-level icon action inventory + ModernSelect listbox semantics (follow-up)
-- [ ] Residual page hex sweep + dual-theme soft-badge contrast lab measurement (follow-up)
+- [ ] Residual page hex sweep + dual-theme soft-badge contrast lab measurement (follow-up under #540 residual)

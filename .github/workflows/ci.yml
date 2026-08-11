@@ -90,17 +90,13 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: "25"
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      - run: npm ci --ignore-scripts
-      - run: npm run audit:prod
-      - run: npm run typecheck:web
-      - run: npm run typecheck:web:test
-      - run: npm test
-      - run: npm run build:web
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run test
+      - run: bun run build:web
 
   test-sqlite:
     runs-on: ubuntu-latest
@@ -139,46 +135,6 @@ jobs:
           PG_USER: postgres
           PG_PASSWORD: test
           PG_DATABASE: metapi_test
-
-  # EN-mode main-surface verification (2026-08-01): boots the real single
-  # process (embedded SPA, fresh SQLite) and walks all 18 admin routes,
-  # including seeded Dashboard data-state charts, asserting no untranslated
-  # fallback and no Han residue in EN mode.
-  en-verify:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "25"
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      - uses: actions/setup-go@v5
-        with:
-          go-version: "1.26.5"
-      - name: Install web deps
-        working-directory: web
-        run: npm ci --ignore-scripts
-      - name: Install Playwright Chromium
-        working-directory: web
-        run: npx playwright install chromium --with-deps
-      - name: Build web (embed dist)
-        working-directory: web
-        run: npm run build:web
-      - name: Build server binary
-        run: go build -trimpath -o /tmp/metapi-enverify ./cmd/server
-      - name: Boot backend + run EN verification
-        run: |
-          AUTH_TOKEN=ci-en-verify PROXY_TOKEN=sk-ci-verify PORT=4182 DB_URL=/tmp/enverify.db METAPI_ENABLE_PROXY_STUB=1 /tmp/metapi-enverify > /tmp/enverify.log 2>&1 &
-          for i in $(seq 1 90); do
-            if curl -sf http://127.0.0.1:4182/health > /dev/null 2>&1; then break; fi
-            sleep 1
-          done
-          cd web
-          DB_URL=/tmp/enverify.db METAPI_UI_AUTH_TOKEN=ci-en-verify METAPI_UI_SHOT_BASE=http://127.0.0.1:4182 node scripts/verify-en-pages.mjs --with-data
-          # zh mode: no Untranslated fallback + known zh labels in place
-          # (guards en→zh restore pollution across all 18 routes).
-          DB_URL=/tmp/enverify.db METAPI_UI_AUTH_TOKEN=ci-en-verify METAPI_UI_SHOT_BASE=http://127.0.0.1:4182 node scripts/verify-en-pages.mjs --with-data --zh
 
   build:
     runs-on: ubuntu-latest

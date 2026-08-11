@@ -18,6 +18,7 @@
   <a href="https://github.com/DeliciousBuding/metapi-go/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/DeliciousBuding/metapi-go?logo=github&label=release&color=blue"></a>
   <img alt="Go" src="https://img.shields.io/badge/Go-1.26.5-00ADD8?logo=go">
   <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?logo=react">
+  <img alt="Bun" src="https://img.shields.io/badge/Bun-≥1.0-000000?logo=bun&logoColor=white">
   <a href="https://github.com/DeliciousBuding/metapi-go/pkgs/container/metapi-go"><img alt="Docker" src="https://img.shields.io/badge/ghcr-latest-2496ED?logo=docker&logoColor=white"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-3DA639?logo=opensourceinitiative&logoColor=white"></a>
 </p>
@@ -226,7 +227,20 @@ Cron 定时执行（默认每日 08:00），智能解析奖励金额，签到失
 | 数据库 | SQLite / PostgreSQL + [sqlx](https://github.com/jmoiron/sqlx)；可选 Redis 仅用于 RPM/TPM admission（非必需） |
 | 定时任务 | [robfig/cron](https://github.com/robfig/cron) |
 | 容器化 | Docker（Alpine，15MB 镜像） |
-| 前端 | React 19 + Vite 8 + Tailwind CSS v4（内嵌） |
+| 前端 | React 19 + Bun + Rsbuild 2 + TanStack Router/Query/Table + Zustand + Tailwind CSS v4 + shadcn Base UI + OKLCH 设计系统 + VChart + RHF + Zod + i18next（内嵌于 Go 二进制） |
+
+---
+
+## 前端架构
+
+v0.9.0 起前端 100% 对齐 [New API](https://github.com/QuantumNous/new-api) 技术栈，从原 TypeScript 版 MetAPI 无损迁移：API 契约（camelCase 字段、env var 名）与 DB（SQLite/PG dual dialect）完全保留。预构建产物经 `go:embed` 打包进单二进制，生产镜像不含 Node/Bun 运行时。
+
+### 模块组织
+
+- **13 个 feature 模块**：`auth`、`dashboard`（4 section + RealtimeOps WebSocket）、`sites`（引导式配置动线 站点→账号→路由）、`accounts`、`token-routes`（dnd-kit 拖拽）、`oauth`、`checkin`（嵌套响应解构 + 失败原因分类 badge）、`proxy-logs`（manual + 服务端分页 + 详情 Sheet）、`models`、`model-tester`（SSE 全协议流式）、`site-announcements`、`about`、`settings`（5 子区 drill-in）。
+- **data-table 四层架构**：`core`（TanStack table 渲染原语）+ `layout`（响应式页面组合）+ `toolbar`（filter/search/批量操作）+ `static`（本地数组轻量渲染）+ `hooks`（受控状态层，URL 三段式同步）。feature 经统一 `index.ts` 导入，专属列/动作留在各 feature 目录。
+- **OKLCH 设计系统**：三层 CSS（`theme.css` 语义 token + `theme-presets.css` 10 套预设 + `index.css` Tailwind 4 入口）；3 轴主题（preset/radius/scale）经 `<body data-theme-*>` 切换；暗色 class-based + cookie 持久化。图表取色用 JS 读 OKLCH token，MutationObserver 监听主题变化重采样。
+- **key-based i18n**：i18next + react-i18next，支持 `en` + `zh-CN`（各 ~900 key，双向 0 缺失）；React 组件 `useTranslation()` + `t()`，非 React 模块用 `i18n.t()`；`scripts/sync-i18n.mjs` 双向补齐。
 
 ---
 
@@ -256,6 +270,8 @@ MetAPI 完全自托管，所有数据（账号、令牌、路由、日志）均�
 
 ## 开发
 
+### 后端（Go）
+
 ```bash
 make build    # 构建
 make test     # 运行全部测试
@@ -266,6 +282,26 @@ make bench-routing  # 路由权重选择 benchmark
 make verify   # 本地发布门禁
 make docker-verify  # 构建完整 Docker 镜像（需要 Docker）
 ```
+
+### 前端（`web/`，Bun）
+
+前端代码在 `web/` 目录，独立于 Go 后端，需 Bun >= 1.0。
+
+```bash
+cd web
+bun install            # 装依赖
+bun run dev            # 本地开发（rsbuild dev，/api /v1 代理到后端，默认 http://localhost:4000）
+bun run typecheck      # tsgo 类型检查
+bun run lint           # oxlint
+bun run lint:fix       # oxlint --fix
+bun run test           # vitest run（全量，当前 361 tests）
+bun run knip           # 未使用代码检测
+bun run build          # rsbuild build（产物经 go:embed 打包进 Go 二进制）
+bun run build:check    # tsgo + build（发布前完整检查）
+bun run i18n:sync      # 同步 i18n key
+```
+
+Dev proxy 默认指向 `http://localhost:4000`，可经 `DEV_PROXY_TARGET` / `VITE_DEV_PROXY_TARGET` / `PORT` / `VITE_BACKEND_PORT` 覆盖。
 
 ---
 

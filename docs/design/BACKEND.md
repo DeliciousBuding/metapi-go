@@ -2,7 +2,7 @@
 
 **Last updated**: 2026-08-11
 
-**Status**: B0 — architecture truth for backend architecture
+**Status**: architecture baseline — backend architecture truth
 **Authority**: package layout and import edges as they exist in this repo
 **Companion**: [`docs/architecture.md`](../architecture.md) (as-built map)
 
@@ -170,7 +170,7 @@ Only `cmd/server` (and tests/e2e helpers) should construct the full graph: load 
 
 - Dual dialect: store tests cover SQLite and PG where SQL diverges.
 - Package tests stay inside the package; e2e covers full binary behavior.
-- Local gate before push: `go vet ./...` and `go test ./... -count=1 -race` (see `AGENTS.md`).
+- Pre-commit verification: `go vet ./...` and `go test ./... -count=1 -race` (see `AGENTS.md`).
 
 ---
 
@@ -188,16 +188,16 @@ Only `cmd/server` (and tests/e2e helpers) should construct the full graph: load 
 
 ---
 
-## 5. backend architecture follow-ons
+## 5. Planned backend work
 
-| Issue | Focus | Status pointer |
-|------:|-------|----------------|
-| B0 | This file + architecture truth | Done in principle docs |
-| B1 | Package boundary inventory / minimal ownership cleanup | **[`docs/analysis/package-boundaries.md`](../analysis/package-boundaries.md)** — ownership map, public entrypoints, import exceptions, cleanup queue |
-| B2 | CRITICAL concurrency (leases, contexts, stub locks) | code under `routing` / `proxy` |
-| B3 | Unified error model | prefer `handler/shared` + analysis notes |
+| Area | Focus | Status pointer |
+|------|-------|----------------|
+| Architecture baseline | This file + architecture truth | Done in principle docs |
+| Package ownership inventory | Package boundary inventory / minimal ownership cleanup | **[`docs/analysis/package-boundaries.md`](../analysis/package-boundaries.md)** — ownership map, public entrypoints, import exceptions, cleanup queue |
+| Concurrency safety | CRITICAL concurrency (leases, contexts, stub locks) | code under `routing` / `proxy` |
+| Unified error model | Unified error model | prefer `handler/shared` + analysis notes |
 
-When principles change, revise this file. When only layout/ownership facts change, update [`docs/architecture.md`](../architecture.md) and/or the B1 inventory.
+When principles change, revise this file. When only layout/ownership facts change, update [`docs/architecture.md`](../architecture.md) and/or the package ownership inventory.
 
 ---
 
