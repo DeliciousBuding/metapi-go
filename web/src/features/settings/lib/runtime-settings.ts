@@ -21,7 +21,7 @@ import { api, type RuntimeSettingsPayload } from '@/lib/api'
  */
 export type RuntimeSettings = Record<string, unknown>
 
-export const runtimeSettingsQueryKeys = {
+const runtimeSettingsQueryKeys = {
   all: ['runtime-settings'] as const,
   detail: () => [...runtimeSettingsQueryKeys.all, 'detail'] as const,
 }
