@@ -38,6 +38,8 @@
     "typecheck": "tsgo -b",
     "lint": "oxlint -c .oxlintrc.json .",
     "lint:fix": "oxlint -c .oxlintrc.json . --fix",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
     "preview": "rsbuild preview",
     "desktop:icons": "node scripts/desktop/generate-icons.mjs",
     "knip": "knip",

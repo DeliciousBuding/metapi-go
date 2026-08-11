@@ -30,9 +30,9 @@
 | PostgreSQL pool budget | **present** | profiles + lease backoff; deployment must still respect role LIMIT |
 | RE2 user-id extraction | **fixed and deployed** | v0.8.45 shipped; the 0.8.44 crash state is historical |
 | OAuth token refresh | **present** | shared explicit account/site projection supports SQLite and PostgreSQL |
-| UI i18n verification | **present** | EN and zh cover 18 routes with seeded real data-state assertions; static gate rejects unwrapped han text nodes |
-| EN label coverage | **swept 2026-08-02** | 414 JSX text nodes wrapped in tr(); 22 keys added; live status badge colors tokenized |
-| Theme accent presets | **chart-synced 2026-08-02** | blue/indigo/teal recolor UI chrome AND chart series (chart-1 follows primary; FOUC-safe) |
+| UI i18n verification | **present (v0.9.0 rewrite)** | key-based i18n (i18next): en + zh-CN locales each 1369 keys; vitest i18n-keys gate keeps both key sets identical — bidirectional 0 missing |
+| EN label coverage | **present (v0.9.0 rewrite)** | all UI copy via t() (i18next); vitest i18n-keys gate scans 1151 unique keys with en/zh-CN identical; live status badge colors tokenized |
+| Theme accent presets | **chart-synced (v0.9.0 rewrite)** | 3-axis theme (preset/radius/scale) + 10 presets; useChartColors() syncs chart series with OKLCH tokens (FOUC-safe) |
 | Daily metric truth | **Dashboard + Accounts closed in master** | shared local-day aggregation, real reward/check-in, partial truth metadata, query errors fail closed; per-account today reward/spend with status gate on Accounts rows (no fake zeros) |
 | Windows local development | **loopback by default** | empty `HOST` binds `127.0.0.1`; containers/server platforms explicitly retain `0.0.0.0` |
 

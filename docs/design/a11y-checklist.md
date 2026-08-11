@@ -135,7 +135,7 @@ Values from `web/src/styles/theme.css` / `DESIGN.md`. Ratios are approximate WCA
 1. Body copy and table primary cells → `--color-text-primary` or `--color-text-secondary` only.
 2. Never place `--color-text-muted` on large reading blocks.
 3. Soft semantic fills (`*-soft`) pair with solid semantic text, not muted gray.
-4. Chart axis labels use theme-aware hook colors (`useThemeLabelColor`) — verify both themes.
+4. Chart axis labels use theme-aware hook colors (`useChartColors`) — verify both themes.
 5. Focus rings must remain visible on both themes (`--color-focus-ring`).
 
 ---
@@ -213,9 +213,9 @@ Tracked for follow-up issues (not blocking U3 checklist doc):
 6. ~~**Notification panel** keyboard model (arrow keys, Esc, focus return to bell).~~ **Partial** — Esc + focus trap + restore; arrow-key list nav still residual.
 7. **ModernSelect** listbox semantics (`role="listbox"/"option"`, typeahead, aria-controls).
 8. **Charts**: non-color status encoding for availability buckets; keyboard access to series.
-9. ~~**Skip link** to `#main-content` for keyboard users.~~ **Done** — `App.tsx` skip-link + `main#main-content`.
+9. ~~**Skip link** to main content for keyboard users.~~ **Done** — `SkipToMain` (`web/src/components/skip-to-main.tsx`, href `#content`) rendered in `web/src/components/layout/components/authenticated-layout.tsx`.
 10. ~~**i18n entries** for newer chrome strings (e.g. `展开侧边栏`) if EN surface shows Chinese fallback.~~ **Partial** — skip-link + sidebar expand/nav open/close added; full inventory residual.
-11. **Automated axe/playwright a11y CI** gate — not wired.
+11. **Automated axe a11y CI** gate — not wired.
 12. **Full 375 walkthrough** of every page table → card path (U2 density work residual).
 13. **Residual hex hygiene** in pages/components (brand logos, chart series, route-card dark gradients) — sequential; no new brand hex allowed.
 

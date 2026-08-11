@@ -173,7 +173,7 @@ bun run test           # vitest run (currently 361 tests)
 bun run knip           # detect unused code
 bun run build          # rsbuild build (output embedded into Go binary via go:embed)
 bun run build:check    # tsgo + build (full pre-release check)
-bun run i18n:sync      # sync i18n keys
+bun run format:check   # oxfmt format check
 ```
 
 Dev proxy defaults to `http://localhost:4000`; override via `DEV_PROXY_TARGET` / `VITE_DEV_PROXY_TARGET` / `PORT` / `VITE_BACKEND_PORT`.

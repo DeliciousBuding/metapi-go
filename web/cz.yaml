@@ -1,0 +1,5 @@
+# Commitizen 配置（web 前端包）。仓库版本号以 CHANGELOG.md 与 tag 为准。
+commitizen:
+  name: cz_conventional_commits
+  version: 0.9.0
+  tag_format: v$version

@@ -240,7 +240,7 @@ v0.9.0 起前端 100% 对齐 [New API](https://github.com/QuantumNous/new-api) �
 - **13 个 feature 模块**：`auth`、`dashboard`（4 section + RealtimeOps WebSocket）、`sites`（引导式配置动线 站点→账号→路由）、`accounts`、`token-routes`（dnd-kit 拖拽）、`oauth`、`checkin`（嵌套响应解构 + 失败原因分类 badge）、`proxy-logs`（manual + 服务端分页 + 详情 Sheet）、`models`、`model-tester`（SSE 全协议流式）、`site-announcements`、`about`、`settings`（5 子区 drill-in）。
 - **data-table 四层架构**：`core`（TanStack table 渲染原语）+ `layout`（响应式页面组合）+ `toolbar`（filter/search/批量操作）+ `static`（本地数组轻量渲染）+ `hooks`（受控状态层，URL 三段式同步）。feature 经统一 `index.ts` 导入，专属列/动作留在各 feature 目录。
 - **OKLCH 设计系统**：三层 CSS（`theme.css` 语义 token + `theme-presets.css` 10 套预设 + `index.css` Tailwind 4 入口）；3 轴主题（preset/radius/scale）经 `<body data-theme-*>` 切换；暗色 class-based + cookie 持久化。图表取色用 JS 读 OKLCH token，MutationObserver 监听主题变化重采样。
-- **key-based i18n**：i18next + react-i18next，支持 `en` + `zh-CN`（各 ~900 key，双向 0 缺失）；React 组件 `useTranslation()` + `t()`，非 React 模块用 `i18n.t()`；`scripts/sync-i18n.mjs` 双向补齐。
+- **key-based i18n**：i18next + react-i18next，支持 `en` + `zh-CN`（各 ~900 key，双向 0 缺失）；React 组件 `useTranslation()` + `t()`，非 React 模块用 `i18n.t()`；key 双向一致性由 `web/src/i18n/__tests__/i18n-keys.test.ts` 校验。
 
 ---
 
@@ -298,7 +298,7 @@ bun run test           # vitest run（全量，当前 361 tests）
 bun run knip           # 未使用代码检测
 bun run build          # rsbuild build（产物经 go:embed 打包进 Go 二进制）
 bun run build:check    # tsgo + build（发布前完整检查）
-bun run i18n:sync      # 同步 i18n key
+bun run format:check   # oxfmt 格式检查
 ```
 
 Dev proxy 默认指向 `http://localhost:4000`，可经 `DEV_PROXY_TARGET` / `VITE_DEV_PROXY_TARGET` / `PORT` / `VITE_BACKEND_PORT` 覆盖。

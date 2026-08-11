@@ -1,4 +1,4 @@
-最后更新：2026-08-11 13:00
+最后更新：2026-08-11 14:40
 
 # 前端开发规范
 
@@ -140,11 +140,10 @@ bun run build          # = build:web = desktop:icons && rsbuild build
 bun run build:check    # tsgo -b && build（发布前完整检查）
 bun run format         # oxfmt（含保护头）
 bun run format:check   # 格式检查
-bun run i18n:sync      # 同步 i18n key（scripts/sync-i18n.mjs）
 bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 ```
 
-**静态门禁（发布前必须全绿）**：tsgo 0 error + oxlint 0 error + knip exit 0 + `bun run build` pass + vitest 全绿（当前 361 tests / 36 files）。Dev proxy 默认指向 `http://localhost:4000`，可经 `DEV_PROXY_TARGET` / `VITE_DEV_PROXY_TARGET` / `PORT` / `VITE_BACKEND_PORT` 覆盖。
+**静态门禁（发布前必须全绿）**：tsgo 0 error + oxlint 0 error + knip exit 0 + `bun run build` pass + vitest 全绿（当前 351 tests / 36 files）。Dev proxy 默认指向 `http://localhost:4000`，可经 `DEV_PROXY_TARGET` / `VITE_DEV_PROXY_TARGET` / `PORT` / `VITE_BACKEND_PORT` 覆盖。
 
 ---
 
@@ -152,7 +151,7 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 
 ### 5.1 国际化
 
-- **页面文本**：所有面向用户文案需 i18n，使用 `useTranslation()` 的 `t()` 翻译。当前支持 2 语言（`en` + `zhCN`，各 ~900 key，双向 0 缺失），`scripts/sync-i18n.mjs` 同步补齐。
+- **页面文本**：所有面向用户文案需 i18n，使用 `useTranslation()` 的 `t()` 翻译。当前支持 2 语言（`en` + `zh-CN`，各 1369 key，双向 0 缺失），key 双向一致性由 `src/i18n/__tests__/i18n-keys.test.ts` 校验。
 - **使用场景**
   - **React 组件**：必须 `const { t } = useTranslation()`，保证语言切换时重渲染。
   - **非 React 环境**（工具函数、常量、类方法）：可 `import { t } from 'i18next'`；不随语言切换自动更新，仅在不依赖响应式更新场景使用。
@@ -248,7 +247,7 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 
 ### 5.14 测试
 
-- **栈**：vitest + @testing-library/react + jsdom（环境见 `vite.config.ts`）；当前 361 tests / 36 files 全绿。
+- **栈**：vitest + @testing-library/react + jsdom（环境见 `vite.config.ts`）；当前 351 tests / 36 files 全绿。
 - **范围**：工具函数与纯逻辑优先单元测试（`*.test.ts`）；组件用 React Testing Library 测交互与行为，避免测实现细节。
 - **位置**：测试必须放模块专属 `__tests__/`（如 `src/features/token-routes/components/__tests__/layout.test.ts`）；禁止与正式代码平铺。
 - **命名与组织**：按被测职责命名（`layout.test.ts`、`validation.test.ts`）；一个文件只覆盖一个明确模块；每用例只保护一个可描述行为，名称含触发条件与预期结果，优先 Arrange/Act/Assert。
@@ -289,5 +288,6 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 
 ## 更新日志
 
+- **2026-08-11**：移除不存在的 `i18n:sync` / `sync-i18n.mjs` 引用（i18n key 双向一致性由 `src/i18n/__tests__/i18n-keys.test.ts` 校验）；补回 `format` / `format:check`（oxfmt）脚本说明；`zhCN` 更正为 `zh-CN`。
 - **2026-08-11**：反映前端重写（阶段 1-6）完整架构——新增「目录结构」「开发工作流与静态门禁」「隐私与迁移约束」三节；i18n 更正为 2 语言 key-based；状态管理更正为仅 `auth-store`；测试环境更正为 jsdom（361 tests）；features 更正为 13 个（移除已并入 dashboard availability 的 `monitors`）；补充 data-table 四层、routes loader/lazyRouteComponent、设计系统三层 CSS + 3 轴主题 + 10 预设、useChartColors 取色等。
 - **2026-08-11**：初始版本——100% 对齐 newapi 栈重写（16 节）。

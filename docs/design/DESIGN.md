@@ -18,7 +18,7 @@
 | Density default | Comfortable-dense (admin tables + KPI cards coexist) |
 | Brand color | **GCP Blue** `#1a73e8` (dark `#8ab4f8`) with cool gray accent |
 | Logo mark | Soft blue gradient chip (no neon indigo/cyan marketing pair) |
-| Fonts | **System stack only** (Segoe UI / PingFang / YaHei / system-ui) — no Google Fonts CDN |
+| Fonts | **Public Sans + Lora** (locally embedded via `@fontsource-variable`) — no Google Fonts CDN |
 | High-res | Content column max-width ladder 1680 → 1920 → 2280 → 2600, centered |
 
 **Principles**
@@ -85,7 +85,7 @@ Unchanged roles: success / warning / danger / info with solid + soft pairs. Badg
 | Radius | `--radius-control` 10 · `--radius-card` 14 · `--radius-shell` 16 · `--radius-full` | Nav pills use full; buttons/inputs = control |
 | Shadow | `--shadow-sm/md/lg/card/elevated/glass` | Dual ambient+key; dark uses emissive border |
 | Motion | `--motion-swift`, `--motion-soft`, `--ease-emphasized` | Calm; honor `prefers-reduced-motion` |
-| Type | `--font-sans` system stack · `--tracking-*` · `--line-body/title` | No external font CDN |
+| Type | `--font-sans` Public Sans · `--tracking-*` · `--line-body/title` | No external font CDN |
 | Content | `--content-max` + `--content-pad-x/y` | Hi-res breakpoints at 1920 / 2560 / 3200 |
 
 ---
