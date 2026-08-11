@@ -7,7 +7,8 @@
 
 ## 2026-08-11 — post-v0.9.0 UI completion batch
 
-- **Git workflow（GitHub Flow 落地）**：master 唯一长期分支 + 分支保护（要求 PR + 11 CI 检查必选 + enforce admins + 禁强推/删除）+ 仓库级 Squash-only 合并 + PR 模板；规则文档 `docs/git-workflow.md`；ci.yml 移除 paths-ignore（必选检查与跳过互斥）
+- **Git workflow（GitHub Flow 落地，已实际启用）**：master 唯一长期分支 + 分支保护（要求 PR + 11 CI 检查必选 + enforce admins + 禁强推/删除）+ 仓库级 Squash-only 合并 + PR 模板；规则文档 `docs/git-workflow.md`；ci.yml 移除 paths-ignore（必选检查与跳过互斥）
+- **v0.9.0 发布补推（此前仅本地）**：本地 master 18+ commit（v0.9.0 重写 + UI completion）推上 GitHub；`v0.9.0` tag + Release 创建；CD 双跑成功 → `ghcr.io/deliciousbuding/metapi-go` 发布 `latest`/`0.9.0`/`0.9`/sha 镜像（首跑暴露 CI 盲点并修复：go:embed 需 web/dist，测试 job 构建真实前端；responses-websocket doc 指针 `.md` → 真实文档）
 - **前端修复收尾**：Base UI render prop + TanStack Link 冲突（侧栏点击 JSON circular 崩溃）→ SidebarNavLink 只透传 DOM-safe props；searchParams parse/encode 分离消除 `?sort=%5B%5D` URL 噪声；updateCenterReminder/updateCenterPresentation（501 residual 幽灵前端）删除
 - **品牌 rename → MetAPI**：display name unified (identity-branding / locales / About / index title); transparent SVG badge `logo.svg` (gradient rounded-square + real π glyph) + `favicon.svg` replace the white-background PNG; router root-file whitelist + table-driven regression test extended to `image/svg+xml`
 - **i18n language switcher**: header `LanguageSwitcher` dropdown (en/zh-CN) + browser auto-follow (localStorage → navigator) + `documentElement.lang`/`dir` sync via `toBcp47`; locale parity now 1381 keys each, bidirectional 0 missing
