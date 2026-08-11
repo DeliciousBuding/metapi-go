@@ -124,6 +124,7 @@ jobs:
   test-sqlite:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    needs: frontend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -141,6 +142,7 @@ jobs:
   test-pg:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    needs: frontend
     services:
       postgres:
         image: postgres:16-alpine
