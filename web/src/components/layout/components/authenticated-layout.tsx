@@ -1,8 +1,9 @@
 // metapi-go/layout — authenticated-layout adapted from newapi. AGPL header stripped.
-// Simplified for skeleton: SidebarProvider + SkipToMain + AppHeader + flex row
-// (AppSidebar + SidebarInset). Dropped LayoutProvider and SearchProvider (not in
-// scope for skeleton; metapi has no global search). Uses children, not AnimatedOutlet,
-// since route transitions are a later concern.
+// SidebarProvider + SkipToMain + AppHeader + flex row (AppSidebar + SidebarInset).
+// Uses <Outlet /> from TanStack Router so matched child routes (/dashboard/*, /sites,
+// /accounts, /settings/*, ...) render inside SidebarInset.
+
+import { Outlet } from '@tanstack/react-router'
 
 import { SkipToMain } from '@/components/skip-to-main'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
@@ -12,11 +13,7 @@ import { cn } from '@/lib/utils'
 import { AppHeader } from './app-header'
 import { AppSidebar } from './app-sidebar'
 
-type AuthenticatedLayoutProps = {
-  children?: React.ReactNode
-}
-
-export function AuthenticatedLayout(props: AuthenticatedLayoutProps) {
+export function AuthenticatedLayout() {
   const defaultOpen = getCookie('sidebar_state') !== 'false'
 
   return (
@@ -34,7 +31,7 @@ export function AuthenticatedLayout(props: AuthenticatedLayoutProps) {
             'peer-data-[variant=inset]:h-[calc(100svh-var(--app-header-height,0px)-(var(--spacing)*4))]'
           )}
         >
-          {props.children}
+          <Outlet />
         </SidebarInset>
       </div>
     </SidebarProvider>
