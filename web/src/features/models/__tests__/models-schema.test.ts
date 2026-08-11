@@ -11,21 +11,22 @@ import {
 // ---------------------------------------------------------------------------
 
 describe('modelsSearchSchema — brand transform', () => {
-  it('splits a comma-separated list and trims each segment', () => {
-    expect(modelsSearchSchema.parse({ brand: 'openai, anthropic' }).brand).toEqual(
-      ['openai', 'anthropic'],
+  it('normalizes a comma-separated list (trims + drops empties) to a string', () => {
+    expect(modelsSearchSchema.parse({ brand: 'openai, anthropic' }).brand).toBe(
+      'openai,anthropic',
     );
   });
 
   it('drops empty segments and surrounding whitespace', () => {
-    expect(modelsSearchSchema.parse({ brand: ' openai ,,' }).brand).toEqual([
+    expect(modelsSearchSchema.parse({ brand: ' openai ,,' }).brand).toBe(
       'openai',
-    ]);
+    );
   });
 
-  it('returns an empty array for missing / empty input', () => {
-    expect(modelsSearchSchema.parse({}).brand).toEqual([]);
-    expect(modelsSearchSchema.parse({ brand: '' }).brand).toEqual([]);
+  it('returns undefined for missing / empty input (no URL noise)', () => {
+    expect(modelsSearchSchema.parse({}).brand).toBeUndefined();
+    expect(modelsSearchSchema.parse({ brand: '' }).brand).toBeUndefined();
+    expect(modelsSearchSchema.parse({ brand: '[]' }).brand).toBeUndefined();
   });
 });
 
@@ -35,8 +36,8 @@ describe('modelsSearchSchema — capability transform', () => {
       brand: 'openai',
       capability: 'vision, ,code',
     });
-    expect(result.brand).toEqual(['openai']);
-    expect(result.capability).toEqual(['vision', 'code']);
+    expect(result.brand).toBe('openai');
+    expect(result.capability).toBe('vision,code');
   });
 });
 
@@ -45,17 +46,15 @@ describe('modelsSearchSchema — capability transform', () => {
 // ---------------------------------------------------------------------------
 
 describe('modelsSearchSchema — sort transform', () => {
-  it('parses multi-segment sort with mixed directions', () => {
-    expect(modelsSearchSchema.parse({ sort: 'created:desc,model:asc' }).sort).toEqual(
-      [
-        { id: 'created', desc: true },
-        { id: 'model', desc: false },
-      ],
-    );
+  it('normalizes a comma-separated sort descriptor to a canonical string', () => {
+    expect(
+      modelsSearchSchema.parse({ sort: 'created:desc,model:asc' }).sort,
+    ).toBe('created:desc,model:asc');
   });
 
-  it('returns an empty array when sort is missing', () => {
-    expect(modelsSearchSchema.parse({}).sort).toEqual([]);
+  it('returns undefined when sort is missing / empty (no URL noise)', () => {
+    expect(modelsSearchSchema.parse({}).sort).toBeUndefined();
+    expect(modelsSearchSchema.parse({ sort: '[]' }).sort).toBeUndefined();
   });
 });
 

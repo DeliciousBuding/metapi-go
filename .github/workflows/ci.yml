@@ -1,17 +1,13 @@
 name: CI
 
-# S1: 限 master/PR，避免所有分支全量 11 job
+# All checks run on every PR/push. Required status checks are enabled on
+# master, so `paths-ignore` must stay empty — a skipped workflow would leave
+# required checks permanently pending and block the PR.
 on:
   pull_request:
     branches: [master, main]
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
   push:
     branches: [master, main]
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
   workflow_dispatch:
 
 permissions:
@@ -31,6 +27,10 @@ jobs:
           go-version: "1.26.5"
       - name: Install golangci-lint
         run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+      # web/embed.go embeds web/dist, which is gitignored and absent on a
+      # fresh checkout. A placeholder file lets Go tooling type-check the
+      # embed package; production images build the real SPA in the Dockerfile.
+      - run: mkdir -p web/dist && touch web/dist/placeholder.txt
       - name: Run golangci-lint
         run: golangci-lint run --timeout=3m
 
@@ -41,6 +41,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26.5"
+      # web/embed.go embeds web/dist, which is gitignored and absent on a
+      # fresh checkout. A placeholder file lets go vet type-check the embed
+      # package; production images build the real SPA in the Dockerfile.
+      - run: mkdir -p web/dist && touch web/dist/placeholder.txt
       - run: go vet ./...
 
   vulncheck:
@@ -50,6 +54,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26.5"
+      - run: mkdir -p web/dist && touch web/dist/placeholder.txt
       - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
   mod-verify:
@@ -107,6 +112,14 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26.5"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      # SPA-fallback and static-asset tests exercise the real embedded dist,
+      # so build the frontend before running Go tests.
+      - name: Build frontend (real dist for SPA tests)
+        working-directory: web
+        run: bun install --frozen-lockfile && bun run build:web
       - run: go test ./... -count=1 -race
 
   test-pg:
@@ -129,6 +142,14 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26.5"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      # SPA-fallback and static-asset tests exercise the real embedded dist,
+      # so build the frontend before running Go tests.
+      - name: Build frontend (real dist for SPA tests)
+        working-directory: web
+        run: bun install --frozen-lockfile && bun run build:web
       - run: |
           dsn="${PG_SCHEME}://${PG_USER}:${PG_PASSWORD}@localhost:5432/${PG_DATABASE}?sslmode=disable"
           PG_TEST_DSN="$dsn" DATABASE_URL="$dsn" go test ./... -count=1 -tags=integration -p 1 # -p 1: PG integration shares one database across packages; parallel packages race AutoMigrate/table state
@@ -145,7 +166,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26.5"
-      - run: mkdir -p web/dist
+      - run: mkdir -p web/dist && touch web/dist/placeholder.txt
       - run: go build -trimpath ./cmd/server
       - run: go build -trimpath ./cmd/migrate
 

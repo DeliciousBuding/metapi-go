@@ -46,5 +46,7 @@
 
 | Fact | Value |
 |:-----|:------|
+| Model | GitHub Flow — master 唯一长期分支（受保护），短命分支（`fix/*`/`feature/*`/`chore/*`/`docs/*`）→ PR → Squash merge |
 | Default branch | `master` |
-| Current maintenance | master-only changes; no auxiliary worktree introduced; preserve small-commit discipline |
+| Master protection | PR required + 11 CI status checks required + enforce admins; no approve requirement; squash-only merge (repo-level) |
+| Workflow doc | [`git-workflow.md`](git-workflow.md) |

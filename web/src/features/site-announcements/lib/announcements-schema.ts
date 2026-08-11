@@ -14,7 +14,7 @@
 
 import { z } from 'zod'
 
-import { parseSortingParam } from '@/lib/helpers/searchParams'
+import { encodeSortingParam } from '@/lib/helpers/searchParams'
 
 import type { AnnouncementSeverity } from '../types'
 
@@ -78,7 +78,7 @@ export const announcementsSearchSchema = z.object({
   sort: z
     .union([z.string(), z.array(sortingItemSchema)])
     .optional()
-    .transform((value) => parseSortingParam(value)),
+    .transform((value) => encodeSortingParam(value)),
   severity: z.string().optional(),
   enabled: z.string().optional(),
 })

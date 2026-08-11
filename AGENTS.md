@@ -56,6 +56,7 @@ golangci-lint run --timeout=3m        # Lint check
 
 ## Release Workflow
 
+0. 所有改动经 `fix/*` / `feature/*` 等短命分支 → PR → Squash merge 回 master（详见 [`docs/git-workflow.md`](docs/git-workflow.md)；master 受保护，禁止直接 push）
 1. 确保本地 CI 全部通过（pre-push hook 自动检查）
 2. 更新 `CHANGELOG.md`（按 Keep a Changelog 格式）
 3. Tag + push：`git tag -a vX.Y.Z -m "vX.Y.Z — 简述"` → `git push origin vX.Y.Z`

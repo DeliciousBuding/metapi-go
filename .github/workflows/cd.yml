@@ -55,6 +55,11 @@ jobs:
         run: |
           go mod download
           go mod verify
+      # SPA-fallback and static-asset tests exercise the real embedded dist,
+      # so build the frontend before running Go tests.
+      - name: Build frontend (real dist for SPA tests)
+        working-directory: web
+        run: bun install --frozen-lockfile && bun run build:web
       - name: Test Go packages with race detector
         run: go test ./... -count=1 -race
       - name: Test PostgreSQL integration paths

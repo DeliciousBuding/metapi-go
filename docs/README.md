@@ -24,6 +24,7 @@
 | Version history | root [`CHANGELOG.md`](../CHANGELOG.md) |
 | Deploy / ops vars | [`deployment.md`](deployment.md) |
 | HTTP API | [`api.md`](api.md) |
+| Git branch & PR workflow | [`git-workflow.md`](git-workflow.md) |
 
 ## Layout
 
@@ -35,6 +36,7 @@ docs/
   architecture.md           ← as-built package & request path
   api.md                    ← public API notes
   deployment.md             ← run / Docker / ops vars
+  git-workflow.md           ← branch model / PR / protection rules
   migration.md              ← SQLite → PG / schema upgrade
   design/                   ← living design source of truth
     BACKEND.md                backend design philosophy, dependency rules

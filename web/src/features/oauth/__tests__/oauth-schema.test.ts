@@ -127,13 +127,15 @@ describe('oauthSearchSchema', () => {
     ).toMatchObject({ page: 0, status: 'whatever' });
   });
 
-  it('parses multi-segment sort', () => {
-    expect(oauthSearchSchema.parse({ sort: 'created:desc,model:asc' }).sort).toEqual(
-      [
-        { id: 'created', desc: true },
-        { id: 'model', desc: false },
-      ],
+  it('normalizes a comma-separated sort descriptor to a canonical string', () => {
+    expect(oauthSearchSchema.parse({ sort: 'created:desc,model:asc' }).sort).toBe(
+      'created:desc,model:asc',
     );
+  });
+
+  it('returns undefined for empty sort (no URL noise)', () => {
+    expect(oauthSearchSchema.parse({}).sort).toBeUndefined();
+    expect(oauthSearchSchema.parse({ sort: '[]' }).sort).toBeUndefined();
   });
 
   it('rejects pageSize above 200', () => {
