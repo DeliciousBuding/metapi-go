@@ -91,7 +91,7 @@
     "@typescript/native-preview": "^7.0.0-dev.20260702.3",
     "@vitejs/plugin-react": "^6.0.3",
     "happy-dom": "^20.11.1",
-    "jsdom": "^29.1.1",
+    "jsdom": "^30.0.1",
     "knip": "^6.24.0",
     "oxfmt": "^0.57.0",
     "oxlint": "^1.72.0",
