@@ -8,7 +8,7 @@
 // OAuth flow), delete. Mobile cards are handled by `DataTablePage` via the
 // column `meta` flags.
 
-import { useNavigate } from '@tanstack/react-router'
+import { useLocation, useNavigate } from '@tanstack/react-router'
 import type {
   ColumnFiltersState,
   PaginationState,
@@ -71,11 +71,11 @@ function encodeSorting(sorting: SortingState): string {
     .join(',')
 }
 
-function readSearch(): ResolvedSearch {
+function readSearch(searchString?: string): ResolvedSearch {
   if (typeof window === 'undefined') {
     return { q: '', pageIndex: 0, pageSize: 20, sorting: [], status: undefined }
   }
-  const params = new URLSearchParams(window.location.search)
+  const params = new URLSearchParams(searchString ?? window.location.search)
   const parsed = oauthSearchSchema.safeParse({
     q: params.get('q') ?? undefined,
     page: params.get('page') ?? undefined,
@@ -112,7 +112,11 @@ function buildHref(next: Partial<ResolvedSearch>): string {
 
 function useOAuthUrlState() {
   const navigate = useNavigate()
-  const search = readSearch()
+  // Subscribe to the router location: TanStack Router does not re-render a
+  // route component on same-path search-only navigation unless a hook
+  // consumes the location, and readSearch() reads the URL on render.
+  const location = useLocation()
+  const search = readSearch(location.searchStr)
 
   const columnFilters: ColumnFiltersState = useMemo(() => {
     if (!search.status) return []
