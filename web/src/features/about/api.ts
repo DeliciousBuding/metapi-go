@@ -14,7 +14,7 @@ import { aboutKeys, type AboutInfo } from './types'
 
 const ABOUT_INFO: AboutInfo = {
   version: '0.9.0',
-  projectName: 'Metapi',
+  projectName: 'MetAPI',
   description:
     'Meta-layer management and unified proxy for AI API aggregation platforms',
   homepage: 'https://github.com/DeliciousBuding/metapi-go#readme',

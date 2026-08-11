@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="MetAPI">
+  <defs>
+    <linearGradient id="metapi-brand-gradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4f7cff"/>
+      <stop offset="0.55" stop-color="#3b5bdb"/>
+      <stop offset="1" stop-color="#1e3a8a"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded-square brand badge, transparent background. The pi glyph is
+       drawn as strokes (not <text>) so rendering is font-independent. -->
+  <rect x="12" y="12" width="232" height="232" rx="56" fill="url(#metapi-brand-gradient)"/>
+  <path d="M64 92 H192" stroke="#ffffff" stroke-width="26" stroke-linecap="round"/>
+  <path d="M90 92 V170" stroke="#ffffff" stroke-width="26" stroke-linecap="round"/>
+  <path d="M166 92 V182" stroke="#ffffff" stroke-width="26" stroke-linecap="round"/>
+</svg>

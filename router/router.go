@@ -192,6 +192,8 @@ func setupSPAFallback(r chi.Router, distFS fs.FS) {
 		"favicon-64.png":            "image/png",
 		"desktop-icon.png":          "image/png",
 		"desktop-tray-template.png": "image/png",
+		"logo.svg":                  "image/svg+xml",
+		"favicon.svg":               "image/svg+xml",
 	}
 	for name, contentType := range rootFiles {
 		fileName := name

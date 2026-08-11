@@ -7,7 +7,7 @@ import i18n from 'i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
 import { initReactI18next } from 'react-i18next'
 
-import { convertDetectedLanguage } from './languages'
+import { convertDetectedLanguage, toBcp47 } from './languages'
 import en from './locales/en.json'
 import zhCN from './locales/zh-CN.json'
 
@@ -23,9 +23,13 @@ i18n
     resources,
     fallbackLng: 'en',
     supportedLngs: ['en', 'zhCN'],
+    // Treat browser variants like `en-US` as supported (they resolve to the
+    // base `en` resources via the fallback chain).
+    nonExplicitSupportedLngs: true,
     load: 'currentOnly',
     nsSeparator: false,
-    debug: import.meta.env.DEV,
+    // i18next's debug logging is noisy under vitest; keep it for dev only.
+    debug: import.meta.env.DEV && !import.meta.env.TEST,
     interpolation: {
       escapeValue: false,
     },
@@ -35,5 +39,20 @@ i18n
       convertDetectedLanguage,
     },
   })
+
+/**
+ * Keep `<html lang>` in sync with the active language so assistive tech,
+ * spell checkers and locale-aware tooling see the current BCP-47 tag. Both
+ * supported languages are LTR, so dir stays pinned to ltr.
+ */
+function syncDocumentLanguage(language: string): void {
+  document.documentElement.lang = toBcp47(language)
+  document.documentElement.dir = 'ltr'
+}
+
+i18n.on('languageChanged', syncDocumentLanguage)
+// The language may not be resolved yet at module load (async init); the
+// `languageChanged` event re-syncs once init settles.
+syncDocumentLanguage(i18n.language || i18n.resolvedLanguage || 'en')
 
 export default i18n

@@ -4,7 +4,7 @@
       "login": {
         "title": "Sign in",
         "subtitle": "Sign in to the admin console",
-        "brandName": "Metapi",
+        "brandName": "MetAPI",
         "brandTagline": "The relay station of relay stations",
         "tokenLabel": "Admin Token",
         "tokenPlaceholder": "Enter your admin token",
@@ -45,7 +45,12 @@
       "actions": "Actions",
       "status": "Status",
       "name": "Name",
-      "optional": "Optional"
+      "optional": "Optional",
+      "language": "Language",
+      "languageName": {
+        "en": "English",
+        "zhCN": "简体中文"
+      }
     },
     "about": {
       "title": "About",
@@ -85,7 +90,7 @@
         "author": "Author"
       },
       "footer": {
-        "copyright": "© {{year}} Metapi. All rights reserved."
+        "copyright": "© {{year}} MetAPI. All rights reserved."
       }
     },
     "models": {

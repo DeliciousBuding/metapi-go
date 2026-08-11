@@ -4,7 +4,7 @@
       "login": {
         "title": "登录",
         "subtitle": "登录管理控制台",
-        "brandName": "Metapi",
+        "brandName": "MetAPI",
         "brandTagline": "中转站的中转站",
         "tokenLabel": "管理员令牌",
         "tokenPlaceholder": "请输入管理员令牌",
@@ -45,7 +45,12 @@
       "actions": "操作",
       "status": "状态",
       "name": "名称",
-      "optional": "选填"
+      "optional": "选填",
+      "language": "语言",
+      "languageName": {
+        "en": "English",
+        "zhCN": "简体中文"
+      }
     },
     "about": {
       "title": "关于",
@@ -85,7 +90,7 @@
         "author": "作者"
       },
       "footer": {
-        "copyright": "© {{year}} Metapi. 保留所有权利。"
+        "copyright": "© {{year}} MetAPI. 保留所有权利。"
       }
     },
     "models": {

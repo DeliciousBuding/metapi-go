@@ -99,7 +99,7 @@ This document is the accessibility acceptance checklist. It records keyboard, na
 | Element | Rule |
 |---------|------|
 | Inline SVG in labeled buttons | `aria-hidden="true"` |
-| Logo mark next to product name | `alt="Metapi"` or empty alt if adjacent text duplicates |
+| Logo mark next to product name | `alt="MetAPI"` or empty alt if adjacent text duplicates |
 | Status color dots | Not sole channel; pair with text/badge |
 
 ---

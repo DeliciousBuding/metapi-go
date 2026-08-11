@@ -227,19 +227,29 @@ func TestRootPublicFilesServedBeforeSPAFallback(t *testing.T) {
 	}
 	r := New(cfg, web.Dist)
 
-	for _, name := range []string{"/logo.png", "/favicon.png", "/favicon-64.png"} {
+	cases := []struct {
+		name   string
+		wantCT string
+	}{
+		{name: "/logo.png", wantCT: "image/png"},
+		{name: "/favicon.png", wantCT: "image/png"},
+		{name: "/favicon-64.png", wantCT: "image/png"},
+		{name: "/logo.svg", wantCT: "image/svg+xml"},
+		{name: "/favicon.svg", wantCT: "image/svg+xml"},
+	}
+	for _, tc := range cases {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, name, nil)
+		req := httptest.NewRequest(http.MethodGet, tc.name, nil)
 		r.ServeHTTP(rec, req)
 
 		if rec.Code != http.StatusOK {
-			t.Fatalf("GET %s status = %d, want 200", name, rec.Code)
+			t.Fatalf("GET %s status = %d, want 200", tc.name, rec.Code)
 		}
-		if ct := rec.Header().Get("Content-Type"); ct != "image/png" {
-			t.Fatalf("GET %s content-type = %q, want image/png", name, ct)
+		if ct := rec.Header().Get("Content-Type"); ct != tc.wantCT {
+			t.Fatalf("GET %s content-type = %q, want %q", tc.name, ct, tc.wantCT)
 		}
 		if rec.Body.Len() == 0 {
-			t.Fatalf("GET %s body empty", name)
+			t.Fatalf("GET %s body empty", tc.name)
 		}
 	}
 }
