@@ -1442,7 +1442,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ dryRun }),
     }) as Promise<RedirectApplyResponse>,
-  // read-only multiplier/rate overview.
+  // multiplier/rate overview (GET) + batch edit (PUT).
   getRateOverview: () =>
     request('/api/models/rates') as Promise<RateOverviewResponse>,
   // batch rate editing — unit_cost + weight only

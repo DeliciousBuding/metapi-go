@@ -875,7 +875,7 @@
         },
         "rates": {
           "title": "Rates & Multipliers",
-          "description": "Read-only aggregation of all multiplier surfaces.",
+          "description": "Account unit costs and channel route weights.",
           "summary": "{{accounts}} accounts ({{withCost}} with unit cost) · {{channels}} channels ({{channelsEnabled}} enabled).",
           "accountTable": "Account unit costs",
           "channelTable": "Channel weights",

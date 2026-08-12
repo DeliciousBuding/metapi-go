@@ -1,6 +1,6 @@
 // metapi-go/features/settings/sections/models/components — rates overview
-// section (N9a). Read-only aggregation of account unit-cost + channel weight
-// with inline ✎ edit (Enter=commit, Esc=cancel). Mirrors the legacy
+// section (N9a). Account unit-cost + channel weight aggregation with inline
+// ✎ edit (Enter=commit, Esc=cancel). Mirrors the legacy
 // RatesOverviewSection but trimmed to the two editable surfaces.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'

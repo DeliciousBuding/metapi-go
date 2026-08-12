@@ -873,7 +873,7 @@
         },
         "rates": {
           "title": "费率与倍率",
-          "description": "所有倍率面的只读聚合。",
+          "description": "账号单价与渠道路由权重。",
           "summary": "{{accounts}} 个账号（{{withCost}} 个设单价）· {{channels}} 个通道（{{channelsEnabled}} 个启用）。",
           "accountTable": "账号单价",
           "channelTable": "通道权重",
