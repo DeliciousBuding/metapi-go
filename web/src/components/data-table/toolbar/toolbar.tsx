@@ -101,9 +101,8 @@ export type DataTableToolbarProps<TData> = {
    */
   hideViewOptions?: boolean
   /**
-   * Optional view-mode toggle (e.g. table vs. card) rendered in the right
-   * action cluster, before the View Options dropdown. Typically a
-   * {@link DataTableViewModeToggle}. Omitted by default.
+   * Optional extra control rendered in the right action cluster, before the
+   * View Options dropdown. Omitted by default.
    */
   viewToggle?: ReactNode
   /**
