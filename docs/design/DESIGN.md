@@ -148,7 +148,8 @@ New UI must start from shadcn Base UI primitives when possible. Import via `@/co
 2. `cd web && bun run typecheck` — TS gate
 3. `cd web && bun run lint` — oxlint
 4. `cd web && bun run build` — production bundle gate (`build:web`)
-5. Manual score rubric (target ≥ 4/5 each):
+5. `cd web && bun run a11y:scan` — axe-core serious/critical gate (needs the dev server; see `web/scripts/a11y-scan.mjs`)
+6. Manual score rubric (target ≥ 4/5 each):
    - Material (glass/solid hierarchy)
    - Brand calm (GCP blue, no neon)
    - Spacing rhythm
@@ -173,6 +174,7 @@ Checklist: [`a11y-checklist.md`](./a11y-checklist.md).
 
 | Date | Change |
 |------|--------|
+| 2026-08-12 | a11y: fixed column-resizer `aria-valuenow`, explicit labels on table/filter selects (pagination, proxy-logs, checkin, program-logs), base-ui Switch `aria-checked` normalization; added the `a11y:scan` axe gate (15 routes clean) |
 | 2026-08-12 | Codified the two-tier page-title scale (landing/hub = `text-2xl`, data/list pages = `text-lg`, settings cards = `text-base` h1) so future pages stop inventing a third size |
 | 2026-08-12 | DESIGN.md aligned to the shipped shadcn-OKLCH token system: documented `data-theme-*` axes, presets, glass recipe, status/focus tokens; removed stale `--color-bg*` / `--glass-*` / `--space-*` / `--content-max` contract |
 | 2026-08-11 | Settings workspace: unified section cards, dirty/save/error states, semantic schedule controls, desktop/mobile navigation, and migration confirmation flow |
