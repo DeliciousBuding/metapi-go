@@ -73,7 +73,7 @@ Each maps a Tailwind alias `--color-*` (e.g. `--color-background: var(--backgrou
 | Token | Light | Dark | Usage |
 |-------|-------|------|-------|
 | `--primary` | `oklch(0.692 0.141 243.716)` | `oklch(0.54 0.142 248.516)` | Primary actions, active nav |
-| `--primary-foreground` | `oklch(1 0 0)` | `oklch(1 0 0)` | Text on primary |
+| `--primary-foreground` | `oklch(0.145 0 0)` | `oklch(1 0 0)` | Text on primary |
 | `--accent` | `color-mix(in oklch, var(--primary) 12%, var(--background))` | `color-mix(in oklch, var(--primary) 20%, var(--background))` | Soft primary fill / active chip |
 | `--neutral` | `oklch(0.708 0 0)` | `oklch(0.76 0 0)` | Cool gray secondary |
 | `--sidebar` / `--sidebar-primary` / `--sidebar-accent` | derived from background/primary | derived from background/primary | Sidebar canvas, brand, active tones |

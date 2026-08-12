@@ -216,7 +216,7 @@ Tracked for follow-up issues (not blocking U3 checklist doc):
 11. **Automated axe a11y CI** gate — not wired.
 12. **Full 375 walkthrough** of every page table → card path (U2 density work residual).
 13. **Residual hex hygiene** in pages/components (brand logos, chart series, route-card dark surfaces) — sequential; no new brand hex allowed.
-14. **Light-theme primary CTA contrast** — white on `--primary` (`#3ea4ec`) ≈ 2.7:1 fails AA. Candidates (design sign-off required, brand color): darken light `--primary` toward GCP blue `#1a73e8` (~4.5:1) or use dark ink on primary in light mode (~7:1).
+14. ~~**Light-theme primary CTA contrast** — white on `--primary` (`#3ea4ec`) ≈ 2.7:1 fails AA.~~ **Done** — light `--primary-foreground` = `oklch(0.145 0 0)` (`#0a0a0a`) on the unchanged brand primary (`#3ea4ec`) measures **7.28:1** (AAA; lab calc Oklch->sRGB->WCAG). Dark theme untouched (`oklch(1 0 0)` on `#0e72bc` = 5.05:1 AA). Side effects: checkbox/radio/filter-chip icons, avatar badge, slider thumb, brand-icon fallback letters also switch to ink on light-primary fills, all strictly higher contrast. Presets are explicit user choices and are out of scope (audit-only: underground/rose-garden/sunset-glow pass with white; forest-whisper 2.75:1, ocean-breeze 3.75:1, lavender-dream 4.04:1 remain below AA — preset-specific fix deferred).
 
 ---
 
