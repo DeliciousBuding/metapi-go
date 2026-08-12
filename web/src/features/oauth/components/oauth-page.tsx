@@ -211,7 +211,14 @@ export function OAuthPage() {
   }))
 
   return (
-    <>
+    <div className='flex h-full flex-col gap-3 p-4'>
+      <div>
+        <h1 className='text-lg font-normal'>{t('oauth.page.title')}</h1>
+        <p className='text-muted-foreground text-sm'>
+          {t('oauth.page.description')}
+        </p>
+      </div>
+
       {connectionsQuery.error && (
         <div className='border-destructive/40 bg-destructive/10 text-destructive rounded-lg border p-3 text-sm'>
           {t('oauth.page.loadError', {
@@ -289,6 +296,6 @@ export function OAuthPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   )
 }

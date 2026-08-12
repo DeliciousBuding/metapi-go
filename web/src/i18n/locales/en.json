@@ -95,7 +95,9 @@
     },
     "models": {
       "page": {
-        "loadError": "Failed to load models: {{message}}"
+        "loadError": "Failed to load models: {{message}}",
+        "title": "Models",
+        "description": "Model marketplace: brands, capabilities, latency, and success rate."
       },
       "toast": {
         "refreshSucceeded": "Models refreshed.",
@@ -206,11 +208,17 @@
         "noRaw": "No raw events",
         "hint": "Tip: reasoning and raw tabs show extra model output.",
         "contentChars": "{{value}} chars"
+      },
+      "page": {
+        "title": "Model Tester",
+        "description": "Send test prompts to a model and inspect the response."
       }
     },
     "oauth": {
       "page": {
-        "loadError": "Failed to load OAuth connections: {{message}}"
+        "loadError": "Failed to load OAuth connections: {{message}}",
+        "title": "OAuth",
+        "description": "Manage OAuth connections for provider accounts."
       },
       "form": {
         "startTitle": "Start authorization",
@@ -281,7 +289,9 @@
     },
     "sites": {
       "page": {
-        "loadError": "Failed to load sites: {{message}}"
+        "loadError": "Failed to load sites: {{message}}",
+        "title": "Sites",
+        "description": "Manage connected sites, their status, and routing weight."
       },
       "toast": {
         "statusToggled": "Site \"{{name}}\" updated.",

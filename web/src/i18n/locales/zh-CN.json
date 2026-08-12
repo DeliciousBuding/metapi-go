@@ -95,7 +95,9 @@
     },
     "models": {
       "page": {
-        "loadError": "加载模型失败：{{message}}"
+        "loadError": "加载模型失败：{{message}}",
+        "title": "模型",
+        "description": "模型市场：品牌、能力、延迟与成功率。"
       },
       "toast": {
         "refreshSucceeded": "模型已刷新。",
@@ -206,11 +208,17 @@
         "noRaw": "暂无原始事件",
         "hint": "提示：推理和原始选项卡显示额外的模型输出。",
         "contentChars": "{{value}} 字符"
+      },
+      "page": {
+        "title": "模型测试器",
+        "description": "向模型发送测试提示并查看响应。"
       }
     },
     "oauth": {
       "page": {
-        "loadError": "加载 OAuth 连接失败：{{message}}"
+        "loadError": "加载 OAuth 连接失败：{{message}}",
+        "title": "OAuth",
+        "description": "管理供应商账号的 OAuth 连接。"
       },
       "form": {
         "startTitle": "开始授权",
@@ -281,7 +289,9 @@
     },
     "sites": {
       "page": {
-        "loadError": "加载站点失败：{{message}}"
+        "loadError": "加载站点失败：{{message}}",
+        "title": "站点",
+        "description": "管理已连接的站点、状态与路由权重。"
       },
       "toast": {
         "statusToggled": "站点「{{name}}」已更新。",

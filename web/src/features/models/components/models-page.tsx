@@ -214,7 +214,14 @@ export function ModelsPage() {
   )
 
   return (
-    <>
+    <div className='flex h-full flex-col gap-3 p-4'>
+      <div>
+        <h1 className='text-lg font-normal'>{t('models.page.title')}</h1>
+        <p className='text-muted-foreground text-sm'>
+          {t('models.page.description')}
+        </p>
+      </div>
+
       {modelsQuery.error && (
         <div className='border-destructive/40 bg-destructive/10 text-destructive rounded-lg border p-3 text-sm'>
           {t('models.page.loadError', {
@@ -270,6 +277,6 @@ export function ModelsPage() {
           if (!open) setViewingModel(null)
         }}
       />
-    </>
+    </div>
   )
 }
