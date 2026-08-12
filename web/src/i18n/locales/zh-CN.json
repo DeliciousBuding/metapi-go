@@ -1019,6 +1019,7 @@
           "allTypes": "全部类型",
           "unreadOnly": "只看未读",
           "count": "数量",
+          "loadedCount": "已加载 {{count}} 条",
           "markRead": "标记已读",
           "markAllRead": "全部标为已读",
           "exportCsv": "导出 CSV",
@@ -1041,6 +1042,10 @@
           "pathPlaceholder": "搜索路径…",
           "search": "查询",
           "empty": "暂无审计记录。",
+          "total": "共 {{total}} 条",
+          "page": "第 {{current}} / {{total}} 页",
+          "previous": "上一页",
+          "next": "下一页",
           "columns": { "time": "时间", "method": "方法", "path": "路径", "status": "状态", "actor": "操作者", "ip": "IP" }
         },
         "updateCenter": {
@@ -1058,24 +1063,30 @@
           "opsNote": "应用内部署已禁用；请使用 metapi-migrate CLI 或容器编排工具。"
         },
         "database": {
-          "title": "数据库迁移",
-          "description": "运行时 DB 方言 / 连接 / 迁移（仅 CLI）。",
+          "title": "数据库",
+          "description": "查看当前连接并保存下次重启生效的数据库配置。",
           "currentRuntime": "当前运行：",
           "restartRequired": "已保存待生效——需重启以应用。",
           "testConnection": "测试连接",
           "migrate": "迁移",
-          "saveAsRuntime": "保存为运行数据库",
+          "saveAsRuntime": "保存配置",
+          "migrationCliOnly": "数据迁移不会在管理界面中执行。请使用 metapi-migrate CLI，并在操作前备份数据库。",
           "migrateConfirmTitle": "确认迁移",
           "migrateConfirm": "执行迁移",
           "fields": {
             "dialect": "方言",
             "connectionString": "连接字符串",
             "connectionStringHint": "sqlite 路径或 postgres URL。",
+            "connectionSaved": "已保存连接",
+            "connectionSavedHint": "连接已保存且不会回显。留空可保留；切换数据库类型时必须输入新连接。",
             "ssl": "启用 SSL/TLS",
             "sslHint": "仅 postgres。",
             "overwrite": "允许覆盖目标数据库"
           },
-          "schema": { "connectionRequired": "请输入连接字符串。" },
+          "schema": {
+            "connectionRequired": "请输入新数据库类型对应的连接字符串。",
+            "testConnectionRequired": "请输入要测试的连接字符串。"
+          },
           "toast": {
             "saved": "运行时数据库配置已保存。",
             "saveFailed": "保存数据库配置失败。",
@@ -1089,6 +1100,7 @@
           "title": "维护与危险区",
           "description": "缓存重建、日志清理与恢复出厂。",
           "toolsGroup": "维护工具",
+          "clearing": "清理中…",
           "clearCache": "清除缓存并重建路由",
           "clearUsage": "清除用量日志",
           "dangerZone": "危险区",

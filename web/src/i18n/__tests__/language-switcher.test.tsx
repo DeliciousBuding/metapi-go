@@ -22,6 +22,7 @@ import {
 } from 'vitest'
 
 import { AppHeader } from '@/components/layout/components/app-header'
+import { SidebarProvider } from '@/components/ui/sidebar'
 import { ThemeProvider } from '@/context/theme-provider'
 import i18n from '@/i18n/config'
 
@@ -70,7 +71,9 @@ afterEach(() => {
 function renderHeader() {
   return render(
     <ThemeProvider>
-      <AppHeader />
+      <SidebarProvider defaultOpen={false}>
+        <AppHeader />
+      </SidebarProvider>
     </ThemeProvider>
   )
 }

@@ -93,7 +93,7 @@ export function MaintenanceSection() {
               onClick={() => clearCacheMutation.mutate()}
             >
               {clearCacheMutation.isPending
-                ? t('settings.common.saving')
+                ? t('settings.systemInfo.maintenance.clearing')
                 : t('settings.systemInfo.maintenance.clearCache')}
             </Button>
             <Button
@@ -104,7 +104,7 @@ export function MaintenanceSection() {
               onClick={() => clearUsageMutation.mutate()}
             >
               {clearUsageMutation.isPending
-                ? t('settings.common.saving')
+                ? t('settings.systemInfo.maintenance.clearing')
                 : t('settings.systemInfo.maintenance.clearUsage')}
             </Button>
           </div>

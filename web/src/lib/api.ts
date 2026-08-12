@@ -37,6 +37,7 @@ type RequestOptions = {
   timeoutMs?: number
   signal?: AbortSignal
   headers?: Record<string, string>
+  skipErrorHandler?: boolean
 }
 
 /**
@@ -54,6 +55,7 @@ async function request<T = any>(
     timeoutMs = 30_000,
     signal,
     headers,
+    skipErrorHandler = false,
   } = options
 
   const requestHeaders: Record<string, string> | undefined = body
@@ -64,6 +66,7 @@ async function request<T = any>(
     timeout: timeoutMs,
     signal,
     headers: requestHeaders,
+    skipErrorHandler,
   }
 
   const response =
@@ -1609,6 +1612,7 @@ export const api = {
     request('/api/settings/auth/change', {
       method: 'POST',
       body: JSON.stringify({ oldToken, newToken }),
+      skipErrorHandler: true,
     }),
   getRuntimeSettings: () => request('/api/settings/runtime'),
   getBrandList: () => request('/api/settings/brand-list'),
@@ -1616,6 +1620,7 @@ export const api = {
     request('/api/settings/runtime', {
       method: 'PUT',
       body: JSON.stringify(data),
+      skipErrorHandler: true,
     }),
   getUpdateCenterStatus: () => request('/api/update-center/status'),
   saveUpdateCenterConfig: (data: any) =>
@@ -1659,16 +1664,18 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
       timeoutMs: 20_000,
+      skipErrorHandler: true,
     }),
   getRuntimeDatabaseConfig: () => request('/api/settings/database/runtime'),
-  updateRuntimeDatabaseConfig: (data: {
+  updateRuntimeDatabaseConfig: (data: Partial<{
     dialect: 'sqlite' | 'postgres'
     connectionString: string
-    ssl?: boolean
-  }) =>
+    ssl: boolean
+  }>) =>
     request('/api/settings/database/runtime', {
       method: 'PUT',
       body: JSON.stringify(data),
+      skipErrorHandler: true,
     }),
   testExternalDatabaseConnection: (data: {
     dialect: 'sqlite' | 'postgres'
@@ -1678,6 +1685,7 @@ export const api = {
     request('/api/settings/database/test-connection', {
       method: 'POST',
       body: JSON.stringify(data),
+      skipErrorHandler: true,
     }),
   migrateExternalDatabase: (data: {
     dialect: 'sqlite' | 'postgres'
@@ -1689,6 +1697,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
       timeoutMs: 120_000,
+      skipErrorHandler: true,
     }),
   getDownstreamApiKeys: () => request('/api/downstream-keys'),
   createDownstreamApiKey: (data: any) =>
@@ -1752,17 +1761,20 @@ export const api = {
     request<SettingsMigrationApplyResponse>('/api/settings/migration/apply', {
       method: 'POST',
       body: JSON.stringify({}),
+      skipErrorHandler: true,
     }),
   importBackup: (data: any) =>
     request('/api/settings/backup/import', {
       method: 'POST',
       body: JSON.stringify({ data }),
+      skipErrorHandler: true,
     }),
   // F1: import plan preview before commit.
   previewBackupImport: (data: any) =>
     request('/api/settings/backup/import/preview', {
       method: 'POST',
       body: JSON.stringify({ data }),
+      skipErrorHandler: true,
     }),
   getBackupWebdavConfig: () =>
     request<BackupWebdavResponse>('/api/settings/backup/webdav'),
@@ -1779,27 +1791,42 @@ export const api = {
     request<BackupWebdavResponse>('/api/settings/backup/webdav', {
       method: 'PUT',
       body: JSON.stringify(data),
+      skipErrorHandler: true,
     }),
   exportBackupToWebdav: (type?: BackupWebdavExportType) =>
     request<BackupWebdavResponse>('/api/settings/backup/webdav/export', {
       method: 'POST',
       body: JSON.stringify(type ? { type } : {}),
       timeoutMs: 60_000,
+      skipErrorHandler: true,
     }),
   importBackupFromWebdav: () =>
     request<BackupWebdavResponse>('/api/settings/backup/webdav/import', {
       method: 'POST',
       body: JSON.stringify({}),
       timeoutMs: 60_000,
+      skipErrorHandler: true,
     }),
   clearRuntimeCache: () =>
-    request('/api/settings/maintenance/clear-cache', { method: 'POST' }),
+    request('/api/settings/maintenance/clear-cache', {
+      method: 'POST',
+      skipErrorHandler: true,
+    }),
   clearUsageData: () =>
-    request('/api/settings/maintenance/clear-usage', { method: 'POST' }),
+    request('/api/settings/maintenance/clear-usage', {
+      method: 'POST',
+      skipErrorHandler: true,
+    }),
   factoryReset: () =>
-    request('/api/settings/maintenance/factory-reset', { method: 'POST' }),
+    request('/api/settings/maintenance/factory-reset', {
+      method: 'POST',
+      skipErrorHandler: true,
+    }),
   testNotification: () =>
-    request('/api/settings/notify/test', { method: 'POST' }),
+    request('/api/settings/notify/test', {
+      method: 'POST',
+      skipErrorHandler: true,
+    }),
 
   // Monitor embed
   getMonitorConfig: () => request('/api/monitor/config'),

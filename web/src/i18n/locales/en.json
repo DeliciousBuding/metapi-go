@@ -1019,6 +1019,7 @@
           "allTypes": "All types",
           "unreadOnly": "Unread only",
           "count": "Count",
+          "loadedCount": "{{count}} loaded",
           "markRead": "Mark read",
           "markAllRead": "Mark all read",
           "exportCsv": "Export CSV",
@@ -1041,6 +1042,10 @@
           "pathPlaceholder": "Search path…",
           "search": "Search",
           "empty": "No audit entries.",
+          "total": "{{total}} entries",
+          "page": "Page {{current}} of {{total}}",
+          "previous": "Previous",
+          "next": "Next",
           "columns": { "time": "Time", "method": "Method", "path": "Path", "status": "Status", "actor": "Actor", "ip": "IP" }
         },
         "updateCenter": {
@@ -1058,24 +1063,30 @@
           "opsNote": "In-app deploy is disabled; use the metapi-migrate CLI or your container orchestrator."
         },
         "database": {
-          "title": "Database Migration",
-          "description": "Runtime DB dialect / connection / migrate (CLI-only).",
+          "title": "Database",
+          "description": "Inspect the active connection and save database settings for the next restart.",
           "currentRuntime": "Current runtime:",
           "restartRequired": "Saved config pending — restart required to apply.",
           "testConnection": "Test connection",
           "migrate": "Migrate",
-          "saveAsRuntime": "Save as runtime DB",
+          "saveAsRuntime": "Save configuration",
+          "migrationCliOnly": "Data migration is not executed in the admin UI. Use the metapi-migrate CLI and back up the database first.",
           "migrateConfirmTitle": "Confirm migration",
           "migrateConfirm": "Run migration",
           "fields": {
             "dialect": "Dialect",
             "connectionString": "Connection string",
             "connectionStringHint": "sqlite path or postgres URL.",
+            "connectionSaved": "Saved connection",
+            "connectionSavedHint": "The saved connection is not revealed. Leave this blank to keep it; changing the database type requires a new connection.",
             "ssl": "Enable SSL/TLS",
             "sslHint": "postgres only.",
             "overwrite": "Allow overwriting target database"
           },
-          "schema": { "connectionRequired": "Connection string is required." },
+          "schema": {
+            "connectionRequired": "Enter a connection string for the new database type.",
+            "testConnectionRequired": "Enter the connection string to test."
+          },
           "toast": {
             "saved": "Runtime database config saved.",
             "saveFailed": "Failed to save database config.",
@@ -1089,6 +1100,7 @@
           "title": "Maintenance & Danger Zone",
           "description": "Cache rebuild, log purge, and factory reset.",
           "toolsGroup": "Maintenance tools",
+          "clearing": "Clearing…",
           "clearCache": "Clear cache & rebuild routes",
           "clearUsage": "Clear usage logs",
           "dangerZone": "Danger zone",

@@ -1,14 +1,8 @@
 // metapi-go/features/settings/sections/system-info/components — database
-// section. Runtime DB dialect (sqlite|postgres) + connection string + ssl
-// toggle + test-connection / migrate / save-as-runtime buttons. The migrate
-// action is present in api.ts but the Go runtime disables it in-app; we
-// still expose it so the user sees the toast from the server rather than a
-// silent no-op.
+// section. Runtime DB selection is restart-pending configuration; destructive
+// data migration remains CLI-only and is not presented as a working UI action.
 
-import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
@@ -34,18 +28,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { FormNavigationGuard } from '../../../components/form-navigation-guard'
+import { SettingsFormActions } from '../../../components/settings-form-actions'
 import {
   SettingsSectionCard,
   SettingsSectionSkeleton,
 } from '../../../components/settings-section-card'
+import { SettingsSectionError } from '../../../components/settings-section-error'
+import { useSettingsForm } from '../../../hooks/use-settings-form'
+import { collectChangedFields, hasChanges } from '../../../lib/collect-changed-fields'
 
 const SAVE_FORM_ID = 'settings-system-info-database-form'
 
 const databaseSchema = z.object({
   dialect: z.enum(['sqlite', 'postgres']),
-  connectionString: z.string().min(1, 'settings.systemInfo.database.schema.connectionRequired'),
-  ssl: z.boolean().optional(),
-  overwrite: z.boolean().optional(),
+  connectionString: z.string(),
+  ssl: z.boolean(),
 })
 
 type DatabaseFormValues = z.infer<typeof databaseSchema>
@@ -54,123 +52,171 @@ type RuntimeDatabaseConfig = {
   active?: { dialect: string; connection: string; ssl?: boolean }
   saved?: {
     dialect: 'sqlite' | 'postgres'
-    connectionString: string
+    connectionStringMasked?: string
+    hasConnectionString?: boolean
     ssl?: boolean
   }
   restartRequired?: boolean
+}
+
+const DEFAULT_VALUES: DatabaseFormValues = {
+  dialect: 'sqlite',
+  connectionString: '',
+  ssl: false,
 }
 
 const runtimeDatabaseQueryKeys = {
   all: ['runtime-database-config'] as const,
 }
 
+function deriveServerValues(
+  data: RuntimeDatabaseConfig | undefined,
+): DatabaseFormValues | null {
+  if (!data) return null
+  if (!data.saved) return DEFAULT_VALUES
+  return {
+    dialect: data.saved.dialect,
+    connectionString: '',
+    ssl: Boolean(data.saved.ssl),
+  }
+}
+
 export function DatabaseSection() {
   const { t } = useTranslation()
-  const [confirmMigrateOpen, setConfirmMigrateOpen] = useState(false)
 
   const configQuery = useQuery<RuntimeDatabaseConfig>({
     queryKey: runtimeDatabaseQueryKeys.all,
-    queryFn: async () => (await api.getRuntimeDatabaseConfig()) as RuntimeDatabaseConfig,
+    queryFn: async () =>
+      (await api.getRuntimeDatabaseConfig()) as RuntimeDatabaseConfig,
     staleTime: 30 * 1000,
   })
 
-  const form = useForm<DatabaseFormValues>({
-    resolver: zodResolver(databaseSchema) as never,
-    defaultValues: {
-      dialect: 'sqlite',
-      connectionString: '',
-      ssl: false,
-      overwrite: false,
-    },
-  })
-
-  useEffect(() => {
-    const saved = configQuery.data?.saved
-    if (!saved) {
-      return
-    }
-    form.reset(
-      {
-        dialect: saved.dialect,
-        connectionString: saved.connectionString,
-        ssl: Boolean(saved.ssl),
-        overwrite: false,
-      },
-      { keepDirtyValues: true },
-    )
-  }, [configQuery.data, form])
+  const serverValues = deriveServerValues(configQuery.data)
+  const { form, baseline, syncFromServer } =
+    useSettingsForm<DatabaseFormValues>({
+      schema: databaseSchema,
+      defaultValues: DEFAULT_VALUES,
+      serverValues,
+    })
 
   const dialect = form.watch('dialect')
+  const savedConfig = configQuery.data?.saved
+  const isDirty = form.formState.isDirty
+  let connectionPlaceholder = './data/target.db'
+  if (savedConfig?.hasConnectionString) {
+    connectionPlaceholder =
+      savedConfig.connectionStringMasked
+      || t('settings.systemInfo.database.fields.connectionSaved')
+  } else if (dialect === 'postgres') {
+    connectionPlaceholder = 'postgres://user:pass@host:5432/db'
+  }
 
   const testMutation = useMutation({
     mutationFn: async (values: DatabaseFormValues) =>
       api.testExternalDatabaseConnection({
         dialect: values.dialect,
         connectionString: values.connectionString,
-        ssl: Boolean(values.ssl),
+        ssl: values.ssl,
       }),
-    onSuccess: () => toast.success(t('settings.systemInfo.database.toast.testOk')),
-    onError: () => toast.error(t('settings.systemInfo.database.toast.testFailed')),
-  })
-
-  const migrateMutation = useMutation({
-    mutationFn: async (values: DatabaseFormValues) =>
-      api.migrateExternalDatabase({
-        dialect: values.dialect,
-        connectionString: values.connectionString,
-        overwrite: Boolean(values.overwrite),
-        ssl: Boolean(values.ssl),
-      }),
-    onSuccess: () => {
-      toast.success(t('settings.systemInfo.database.toast.migrated'))
-      setConfirmMigrateOpen(false)
-    },
-    onError: () => {
-      toast.error(t('settings.systemInfo.database.toast.migrateFailed'))
-      setConfirmMigrateOpen(false)
-    },
+    onSuccess: () =>
+      toast.success(t('settings.systemInfo.database.toast.testOk')),
+    onError: () =>
+      toast.error(t('settings.systemInfo.database.toast.testFailed')),
   })
 
   const saveMutation = useMutation({
-    mutationFn: async (values: DatabaseFormValues) =>
-      api.updateRuntimeDatabaseConfig({
-        dialect: values.dialect,
-        connectionString: values.connectionString,
-        ssl: Boolean(values.ssl),
-      }),
-    onSuccess: () => toast.success(t('settings.systemInfo.database.toast.saved')),
-    onError: () => toast.error(t('settings.systemInfo.database.toast.saveFailed')),
+    mutationFn: async (values: Partial<DatabaseFormValues>) =>
+      api.updateRuntimeDatabaseConfig(values),
+    onSuccess: (response) => {
+      const saved = (response as RuntimeDatabaseConfig).saved
+      if (saved) {
+        syncFromServer({
+          dialect: saved.dialect,
+          connectionString: '',
+          ssl: Boolean(saved.ssl),
+        })
+      }
+      void configQuery.refetch()
+      toast.success(t('settings.systemInfo.database.toast.saved'))
+    },
+    onError: () =>
+      toast.error(t('settings.systemInfo.database.toast.saveFailed')),
   })
 
-  function onSave(values: DatabaseFormValues) {
-    saveMutation.mutate(values)
+  function requireConnection(messageKey: string): string | null {
+    const connection = form.getValues('connectionString').trim()
+    if (connection) return connection
+    form.setError('connectionString', { message: messageKey })
+    return null
   }
+
+  function onSave(values: DatabaseFormValues) {
+    const changed = collectChangedFields(
+      values as unknown as Record<string, unknown>,
+      baseline as unknown as Record<string, unknown> | null,
+    ) as Partial<DatabaseFormValues>
+    const connection = values.connectionString.trim()
+    const requiresConnection =
+      !savedConfig?.hasConnectionString || changed.dialect !== undefined
+    if (requiresConnection && !connection) {
+      requireConnection('settings.systemInfo.database.schema.connectionRequired')
+      return
+    }
+    if (connection) {
+      changed.connectionString = connection
+    } else {
+      delete changed.connectionString
+    }
+    if (!hasChanges(changed)) {
+      toast.info(t('settings.common.noChanges'))
+      return
+    }
+    saveMutation.mutate(changed)
+  }
+
+  const testConnection = form.handleSubmit((values) => {
+    const connection = requireConnection(
+      'settings.systemInfo.database.schema.testConnectionRequired',
+    )
+    if (!connection) return
+    testMutation.mutate({ ...values, connectionString: connection })
+  })
 
   if (configQuery.isLoading) {
     return <SettingsSectionSkeleton />
   }
+  if (configQuery.isError || !configQuery.data) {
+    return (
+      <SettingsSectionError
+        title={t('settings.systemInfo.database.title')}
+        onRetry={() => void configQuery.refetch()}
+      />
+    )
+  }
 
-  const active = configQuery.data?.active
+  const active = configQuery.data.active
 
   return (
     <SettingsSectionCard
       title={t('settings.systemInfo.database.title')}
       description={t('settings.systemInfo.database.description')}
     >
-      <div className='space-y-4'>
+      <div className='space-y-5'>
         {active ? (
-          <div className='text-xs text-muted-foreground'>
-            <span>{t('settings.systemInfo.database.currentRuntime')}</span>
-            <code className='ml-2 rounded bg-muted px-2 py-0.5'>
+          <div className='rounded-lg border bg-muted/25 p-3'>
+            <p className='text-xs font-medium text-muted-foreground'>
+              {t('settings.systemInfo.database.currentRuntime')}
+            </p>
+            <code className='mt-1 block break-all text-xs text-foreground'>
               {active.dialect} · {active.connection}
               {active.ssl ? ' · SSL' : ''}
             </code>
           </div>
         ) : null}
-        {configQuery.data?.restartRequired ? (
-          <p className='text-xs text-warning'>
+        {configQuery.data.restartRequired ? (
+          <div className='rounded-lg border border-warning/35 bg-warning/10 px-3 py-2 text-sm text-warning-foreground'>
             {t('settings.systemInfo.database.restartRequired')}
-          </p>
+          </div>
         ) : null}
 
         <Form {...form}>
@@ -184,16 +230,26 @@ export function DatabaseSection() {
               name='dialect'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('settings.systemInfo.database.fields.dialect')}</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <FormLabel>
+                    {t('settings.systemInfo.database.fields.dialect')}
+                  </FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={(value) => {
+                      field.onChange(value)
+                      if (value === 'sqlite') {
+                        form.setValue('ssl', false, { shouldDirty: true })
+                      }
+                    }}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value='sqlite'>sqlite</SelectItem>
-                      <SelectItem value='postgres'>postgres</SelectItem>
+                      <SelectItem value='sqlite'>SQLite</SelectItem>
+                      <SelectItem value='postgres'>PostgreSQL</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -213,122 +269,77 @@ export function DatabaseSection() {
                       {...field}
                       value={field.value ?? ''}
                       className='font-mono'
-                      placeholder={
-                        dialect === 'postgres'
-                          ? 'postgres://user:pass@host:5432/db'
-                          : './data/target.db'
-                      }
+                      autoComplete='off'
+                      spellCheck={false}
+                      placeholder={connectionPlaceholder}
                     />
                   </FormControl>
                   <FormDescription>
-                    {t('settings.systemInfo.database.fields.connectionStringHint')}
+                    {t(
+                      savedConfig?.hasConnectionString
+                        ? 'settings.systemInfo.database.fields.connectionSavedHint'
+                        : 'settings.systemInfo.database.fields.connectionStringHint',
+                    )}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name='ssl'
-              render={({ field }) => (
-                <FormItem className='flex flex-row items-center gap-3'>
-                  <FormControl>
-                    <Checkbox
-                      checked={Boolean(field.value)}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormLabel className='cursor-pointer'>
-                    {t('settings.systemInfo.database.fields.ssl')}
-                  </FormLabel>
-                  <FormDescription>
-                    {t('settings.systemInfo.database.fields.sslHint')}
-                  </FormDescription>
-                </FormItem>
-              )}
-            />
+            {dialect === 'postgres' ? (
+              <FormField
+                control={form.control}
+                name='ssl'
+                render={({ field }) => (
+                  <FormItem className='flex flex-row items-start gap-3 rounded-lg border p-3'>
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className='space-y-1'>
+                      <FormLabel className='cursor-pointer'>
+                        {t('settings.systemInfo.database.fields.ssl')}
+                      </FormLabel>
+                      <FormDescription>
+                        {t('settings.systemInfo.database.fields.sslHint')}
+                      </FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+            ) : null}
 
-            <div className='flex flex-wrap gap-2'>
+            <div className='flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between'>
               <Button
                 type='button'
                 variant='outline'
                 size='sm'
                 disabled={testMutation.isPending}
-                onClick={() => testMutation.mutate(form.getValues())}
+                onClick={() => void testConnection()}
               >
                 {testMutation.isPending
                   ? t('settings.common.testing')
                   : t('settings.systemInfo.database.testConnection')}
               </Button>
-              <Button
-                type='button'
-                variant='outline'
-                size='sm'
-                disabled={migrateMutation.isPending}
-                onClick={() => setConfirmMigrateOpen(true)}
-              >
-                {t('settings.systemInfo.database.migrate')}
-              </Button>
-              <Button
-                type='submit'
-                form={SAVE_FORM_ID}
-                size='sm'
-                disabled={saveMutation.isPending}
-              >
-                {saveMutation.isPending
-                  ? t('settings.common.saving')
-                  : t('settings.systemInfo.database.saveAsRuntime')}
-              </Button>
+              <SettingsFormActions
+                formId={SAVE_FORM_ID}
+                isDirty={isDirty}
+                isPending={saveMutation.isPending}
+                onReset={() =>
+                  syncFromServer(serverValues ?? DEFAULT_VALUES)
+                }
+                saveLabel={t('settings.systemInfo.database.saveAsRuntime')}
+              />
             </div>
           </form>
         </Form>
 
-        {confirmMigrateOpen ? (
-          <div className='space-y-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4'>
-            <h4 className='text-sm font-medium'>
-              {t('settings.systemInfo.database.migrateConfirmTitle')}
-            </h4>
-            <FormField
-              control={form.control}
-              name='overwrite'
-              render={({ field }) => (
-                <FormItem className='flex flex-row items-center gap-3'>
-                  <FormControl>
-                    <Checkbox
-                      checked={Boolean(field.value)}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormLabel className='cursor-pointer'>
-                    {t('settings.systemInfo.database.fields.overwrite')}
-                  </FormLabel>
-                </FormItem>
-              )}
-            />
-            <div className='flex gap-2'>
-              <Button
-                type='button'
-                variant='destructive'
-                size='sm'
-                disabled={migrateMutation.isPending}
-                onClick={() => migrateMutation.mutate(form.getValues())}
-              >
-                {migrateMutation.isPending
-                  ? t('settings.common.saving')
-                  : t('settings.systemInfo.database.migrateConfirm')}
-              </Button>
-              <Button
-                type='button'
-                variant='outline'
-                size='sm'
-                onClick={() => setConfirmMigrateOpen(false)}
-              >
-                {t('settings.common.cancel')}
-              </Button>
-            </div>
-          </div>
-        ) : null}
+        <p className='rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground'>
+          {t('settings.systemInfo.database.migrationCliOnly')}
+        </p>
       </div>
+      <FormNavigationGuard enabled={isDirty} />
     </SettingsSectionCard>
   )
 }

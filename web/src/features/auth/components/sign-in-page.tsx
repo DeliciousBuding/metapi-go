@@ -11,7 +11,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from '@/components/ui/card'
 import { metapiIdentity } from '@/lib/identity-branding'
 
@@ -34,9 +33,9 @@ export function SignInPage({ redirectTo }: SignInPageProps) {
             alt={metapiIdentity.name}
             className='mx-auto size-12'
           />
-          <CardTitle className='text-2xl tracking-tight'>
+          <h1 className='text-2xl font-medium tracking-tight'>
             {t('auth.login.brandName')}
-          </CardTitle>
+          </h1>
           <CardDescription>{t('auth.login.brandTagline')}</CardDescription>
         </CardHeader>
         <CardContent className='grid gap-4'>

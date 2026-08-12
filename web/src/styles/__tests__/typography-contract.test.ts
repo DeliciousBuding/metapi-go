@@ -11,9 +11,9 @@ describe('typography design contract', () => {
   it('uses the bundled variable sans face and a project-owned mono stack', () => {
     const theme = read('src/styles/theme.css')
 
-    expect(theme).toContain(
-      "--font-sans: 'Public Sans Variable', 'Public Sans', sans-serif"
-    )
+    expect(theme).toContain("--font-sans:")
+    expect(theme).toContain("'Public Sans Variable', 'Public Sans'")
+    expect(theme).toContain("'Noto Sans SC'")
     expect(theme).toMatch(/--font-mono:\s*'Cascadia Mono'/)
     expect(theme).not.toContain('--font-inter:')
     expect(theme).not.toContain('--font-manrope:')

@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
+	"github.com/jmoiron/sqlx"
 )
 
 // RegisterDatabaseRoutes registers all /api/settings/database routes.
@@ -26,6 +27,15 @@ func RegisterDatabaseRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
 type databaseHandler struct {
 	db  *sqlx.DB
 	cfg *config.Config
+}
+
+type savedDatabaseConfig struct {
+	Dialect                string `json:"dialect"`
+	Connection             string `json:"connection"`
+	ConnectionStringMasked string `json:"connectionStringMasked"`
+	HasConnectionString    bool   `json:"hasConnectionString"`
+	Ssl                    bool   `json:"ssl"`
+	rawConnectionString    string
 }
 
 const runtimeDatabaseConnectionTestTimeoutSec = "5"
@@ -150,7 +160,7 @@ func (h *databaseHandler) getRuntime(w http.ResponseWriter, r *http.Request) {
 		"success":         true,
 		"active":          activeRuntimeDatabaseConfig(h.cfg),
 		"saved":           saved,
-		"restartRequired": saved != nil,
+		"restartRequired": savedDatabaseRequiresRestart(saved, h.cfg),
 	})
 }
 
@@ -189,10 +199,10 @@ func (h *databaseHandler) saveRuntime(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success":         true,
-		"message":         "数据库运行配置已保存，重启容器后生效",
+		"message":         "数据库运行配置已保存",
 		"active":          activeRuntimeDatabaseConfig(h.cfg),
 		"saved":           saved,
-		"restartRequired": true,
+		"restartRequired": savedDatabaseRequiresRestart(saved, h.cfg),
 	})
 }
 
@@ -262,31 +272,79 @@ func (h *databaseHandler) migrate(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func loadSavedDatabaseConfig(db *sqlx.DB) (map[string]any, error) {
+func loadSavedDatabaseConfig(db *sqlx.DB) (*savedDatabaseConfig, error) {
 	rows := queryRows(db, "SELECT key, value FROM settings WHERE key IN ('db_type', 'db_url', 'db_ssl')")
-	config := map[string]any{}
+	values := map[string]any{}
 	for _, row := range rows {
 		key, _ := row["key"].(string)
-		val, _ := row["value"].(string)
-		if val != "" {
-			var parsed any
-			if err := json.Unmarshal([]byte(val), &parsed); err == nil {
-				config[key] = parsed
-			}
+		value, _ := row["value"].(string)
+		if value == "" {
+			continue
+		}
+		var parsed any
+		if err := json.Unmarshal([]byte(value), &parsed); err == nil {
+			values[key] = parsed
 		}
 	}
 
-	dialect, _ := config["db_type"].(string)
-	conn, _ := config["db_url"].(string)
-	if dialect == "" || conn == "" {
+	dialect, _ := values["db_type"].(string)
+	connection, _ := values["db_url"].(string)
+	if dialect == "" || connection == "" {
 		return nil, nil
 	}
-
-	return map[string]any{
-		"dialect":    dialect,
-		"connection": maskConnectionString(conn),
-		"ssl":        config["db_ssl"],
+	ssl := parseRuntimeDatabaseSsl(values["db_ssl"])
+	masked := maskConnectionString(connection)
+	return &savedDatabaseConfig{
+		Dialect:                dialect,
+		Connection:             masked,
+		ConnectionStringMasked: masked,
+		HasConnectionString:    true,
+		Ssl:                    ssl,
+		rawConnectionString:    connection,
 	}, nil
+}
+
+func savedDatabaseRequiresRestart(saved *savedDatabaseConfig, cfg *config.Config) bool {
+	if saved == nil || cfg == nil {
+		return false
+	}
+	activeDialect, ok := normalizeRuntimeDatabaseDialect(cfg.DbType)
+	if !ok {
+		activeDialect = store.DialectSQLite
+	}
+	if saved.Dialect != activeDialect {
+		return true
+	}
+	if saved.Dialect == store.DialectSQLite {
+		// SQLite connection strings appear in several equivalent spellings
+		// (sqlite://, file://, bare path, default hub.db). Normalize both
+		// sides so the same database does not demand a pointless restart.
+		dataDir := cfg.DataDir
+		if dataDir == "" {
+			dataDir = config.DefaultDataDir
+		}
+		return store.ResolveSQLitePath(saved.rawConnectionString, dataDir) !=
+			store.ResolveSQLitePath(cfg.DbUrl, dataDir)
+	}
+	if strings.TrimSpace(saved.rawConnectionString) != strings.TrimSpace(cfg.DbUrl) {
+		return true
+	}
+	return saved.Ssl != (cfg.PostgresSSLMode() != "")
+}
+
+// parseRuntimeDatabaseSsl tolerates legacy string-encoded values ("true"/"1")
+// in addition to the JSON bool written by the current save path.
+func parseRuntimeDatabaseSsl(value any) bool {
+	switch v := value.(type) {
+	case bool:
+		return v
+	case string:
+		parsed, err := strconv.ParseBool(strings.TrimSpace(v))
+		return err == nil && parsed
+	case float64:
+		return v != 0
+	}
+	return false
 }
 
 func maskConnectionString(conn string) string {

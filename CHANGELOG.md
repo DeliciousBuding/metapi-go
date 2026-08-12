@@ -10,11 +10,18 @@ All notable changes to MetAPI-Go will be documented in this file.
 ### Added
 - Versioned `ScheduleSpec` v1 for daily, interval, random-window, and custom Cron schedules, with additive preview/apply migration endpoints that preserve every legacy key.
 - Unified settings form actions, load-error states, dirty navigation guards, semantic schedule controls, and responsive settings navigation.
+- Server-side audit-log pagination (`limit`/`offset`) with a paginated audit table UI (page indicator, prev/next, method filter resets to page 1).
+- Database settings page now uses the unified dirty-guard form (Save/Reset disabled until dirty, unsaved-changes hint, navigation guard); the in-app 501 migrate button is replaced with a CLI-only migration note.
+- CJK sans-serif fallbacks for `--font-sans` (Noto Sans SC/TC/JP/KR, PingFang SC, Microsoft YaHei) so zh-CN UI no longer falls back to a non-deterministic system face.
+- Mobile sidebar trigger in the app header (`md:hidden`) so the sidebar can be opened from the header on small screens.
 
 ### Fixed
 - Kept legacy cron values and v1 schedule mirrors synchronized, including mixed legacy+semantic payloads.
 - Persisted notification strings and task mute maps in a restart-safe format; PostgreSQL settings audit inserts now use rebound placeholders.
 - Prevented partial settings edits from clearing untouched notification toggles, WebDAV fields, allowlist entries, or masked proxy-token inputs.
+- Settings mutations now surface exactly one error toast (section-level `onError` only; the global interceptor toast is skipped for section-handled calls).
+- `restartRequired` for runtime DB config is computed from the real diff; SQLite connection strings are path-normalized (`sqlite://`/`file://`/bare/default) and legacy string-encoded `db_ssl` values are tolerated, so an equivalent saved config no longer demands a restart.
+- Update-center version rows hide dev `0.0.0.0` placeholders; program-logs section handles array/object responses, shows an error state, and replaces the disabled count input with a loaded-count label.
 
 ### Added — 品牌与国际化完善
 - 品牌名统一 **MetAPI**（identity-branding / locales / About / index title）

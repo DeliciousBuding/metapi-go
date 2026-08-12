@@ -2,7 +2,10 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-sans: 'Public Sans Variable', 'Public Sans', sans-serif;
+  --font-sans:
+    'Public Sans Variable', 'Public Sans', 'Noto Sans SC', 'Noto Sans TC',
+    'Noto Sans JP', 'Noto Sans KR', 'Source Han Sans SC', 'PingFang SC',
+    'Microsoft YaHei', '微软雅黑', 'Segoe UI', Arial, sans-serif;
   /* Editorial serif token — the body face used by the `serif` font axis
    * (an explicit user choice; every preset defaults to sans). Lora carries
    * only Latin glyphs, so the stack walks through CJK serifs (Noto / Source

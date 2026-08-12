@@ -12,7 +12,6 @@ import { api } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -24,6 +23,7 @@ import {
   SettingsSectionCard,
   SettingsSectionSkeleton,
 } from '../../../components/settings-section-card'
+import { SettingsSectionError } from '../../../components/settings-section-error'
 import {
   Table,
   TableBody,
@@ -83,7 +83,12 @@ export function ProgramLogsSection() {
   const eventsQuery = useQuery<EventsResponse>({
     queryKey: eventsQueryKeys.list(filterQuery),
     queryFn: async () => {
-      const data = (await api.getEvents(filterQuery)) as EventsResponse
+      const data = (await api.getEvents(filterQuery)) as
+        | EventsResponse
+        | ProgramEvent[]
+      if (Array.isArray(data)) {
+        return { items: data, total: data.length, limit: 50 }
+      }
       return data ?? { items: [] }
     },
     staleTime: 10 * 1000,
@@ -146,7 +151,7 @@ export function ProgramLogsSection() {
       title={t('settings.systemInfo.programLogs.title')}
       description={t('settings.systemInfo.programLogs.description')}
       actions={
-        <div className='flex gap-2'>
+        <div className='flex flex-wrap gap-2'>
           <Button
             type='button'
             variant='outline'
@@ -202,20 +207,25 @@ export function ProgramLogsSection() {
           />
           {t('settings.systemInfo.programLogs.unreadOnly')}
         </label>
-        <Input
-          disabled
-          value={`${items.length}`}
-          className='w-20'
-          aria-label={t('settings.systemInfo.programLogs.count')}
-        />
+        <span className='text-xs text-muted-foreground'>
+          {t('settings.systemInfo.programLogs.loadedCount', {
+            count: items.length,
+          })}
+        </span>
       </div>
       {eventsQuery.isLoading ? <SettingsSectionSkeleton /> : null}
-      {!eventsQuery.isLoading && items.length === 0 ? (
+      {eventsQuery.isError ? (
+        <SettingsSectionError
+          title={t('settings.systemInfo.programLogs.title')}
+          onRetry={() => void eventsQuery.refetch()}
+        />
+      ) : null}
+      {!eventsQuery.isLoading && !eventsQuery.isError && items.length === 0 ? (
         <p className='py-8 text-center text-sm text-muted-foreground'>
           {t('settings.systemInfo.programLogs.empty')}
         </p>
       ) : null}
-      {!eventsQuery.isLoading && items.length > 0 ? (
+      {!eventsQuery.isLoading && !eventsQuery.isError && items.length > 0 ? (
         <Table>
           <TableHeader>
             <TableRow>

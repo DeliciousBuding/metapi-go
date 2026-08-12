@@ -2,6 +2,7 @@
 // Brand on the left; shared language, appearance, and color-scheme controls on the right.
 
 import { InterfaceControls } from '@/components/layout/components/interface-controls'
+import { SidebarTrigger } from '@/components/ui/sidebar'
 import { metapiIdentity } from '@/lib/identity-branding'
 import { cn } from '@/lib/utils'
 
@@ -28,6 +29,7 @@ export function AppHeader({
         '[--app-header-height:3.5rem]'
       )}
     >
+      <SidebarTrigger className='md:hidden' />
       {leftContent ?? (
         <div className='flex items-center gap-2'>
           <img
