@@ -1261,24 +1261,28 @@
           }
         },
         "maintenance": {
-          "title": "Maintenance & Danger Zone",
-          "description": "Cache rebuild, log purge, and factory reset.",
+          "title": "Maintenance",
+          "description": "Cache rebuild and usage-log purge.",
           "toolsGroup": "Maintenance tools",
           "clearing": "Clearing…",
           "clearCache": "Clear cache & rebuild routes",
           "clearUsage": "Clear usage logs",
-          "dangerZone": "Danger zone",
+          "toast": {
+            "cacheCleared": "Cache cleared.",
+            "cacheClearFailed": "Failed to clear cache.",
+            "usageCleared": "Usage logs cleared.",
+            "usageClearFailed": "Failed to clear usage logs."
+          }
+        },
+        "dangerZone": {
+          "title": "Factory reset",
+          "description": "Irreversible. Wipes the database, reverts to default SQLite, resets the admin token, and signs you out.",
           "factoryReset": "Factory reset",
-          "factoryResetHint": "Irreversible. Wipes the database, reverts to default SQLite, resets the admin token, and signs you out.",
           "factoryResetTitle": "Factory reset",
           "factoryResetDescription": "This wipes ALL data and reverts to defaults. The admin token will reset to the default. You will be signed out.",
           "factoryResetCountdown": "Wait {{seconds}}s…",
           "factoryResetConfirm": "Wipe everything",
           "toast": {
-            "cacheCleared": "Cache cleared.",
-            "cacheClearFailed": "Failed to clear cache.",
-            "usageCleared": "Usage logs cleared.",
-            "usageClearFailed": "Failed to clear usage logs.",
             "factoryResetDone": "Factory reset complete. Reloading…",
             "factoryResetFailed": "Factory reset failed."
           }

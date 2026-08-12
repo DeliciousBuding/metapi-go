@@ -1,6 +1,6 @@
 // metapi-go/features/settings/sections/system-info — System Info subarea.
 // Scope (plan §5.5.2): program logs + audit logs + update center + database
-// migration + maintenance/danger zone. All five sections wired to real
+// migration + maintenance tools + danger zone. All six sections wired to real
 // surfaces under ./components.
 
 import { ServerCog } from 'lucide-react'
@@ -9,6 +9,7 @@ import { createElement } from 'react'
 import type { SettingsSubarea } from '../../types'
 import { createSectionRegistry } from '../../utils/section-registry'
 import { AuditLogsSection } from './components/audit-logs-section'
+import { DangerZoneSection } from './components/danger-zone-section'
 import { DatabaseSection } from './components/database-section'
 import { MaintenanceSection } from './components/maintenance-section'
 import { ProgramLogsSection } from './components/program-logs-section'
@@ -48,9 +49,16 @@ const SYSTEM_INFO_SECTIONS = [
   {
     id: 'maintenance',
     title: 'settings.systemInfo.maintenance.title',
-    group: 'settings.systemInfo.groups.dangerZone',
+    group: 'settings.systemInfo.groups.system',
     description: 'settings.systemInfo.maintenance.description',
     build: () => createElement(MaintenanceSection),
+  },
+  {
+    id: 'danger-zone',
+    title: 'settings.systemInfo.dangerZone.title',
+    group: 'settings.systemInfo.groups.dangerZone',
+    description: 'settings.systemInfo.dangerZone.description',
+    build: () => createElement(DangerZoneSection),
   },
 ] as const
 

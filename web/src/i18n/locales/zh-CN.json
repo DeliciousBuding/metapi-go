@@ -1255,24 +1255,28 @@
           }
         },
         "maintenance": {
-          "title": "维护与危险区",
-          "description": "缓存重建、日志清理与恢复出厂。",
+          "title": "维护",
+          "description": "缓存重建与用量日志清理。",
           "toolsGroup": "维护工具",
           "clearing": "清理中…",
           "clearCache": "清除缓存并重建路由",
           "clearUsage": "清除用量日志",
-          "dangerZone": "危险区",
-          "factoryReset": "恢复出厂",
-          "factoryResetHint": "不可逆。清空数据库、回退默认 SQLite、重置管理员令牌并登出。",
-          "factoryResetTitle": "恢复出厂",
-          "factoryResetDescription": "将清空所有数据并回退默认值。管理员令牌将重置为默认值。您将被登出。",
-          "factoryResetCountdown": "等待 {{seconds}} 秒…",
-          "factoryResetConfirm": "全部清空",
           "toast": {
             "cacheCleared": "缓存已清理。",
             "cacheClearFailed": "清理缓存失败。",
             "usageCleared": "用量日志已清理。",
-            "usageClearFailed": "清理用量日志失败。",
+            "usageClearFailed": "清理用量日志失败。"
+          }
+        },
+        "dangerZone": {
+          "title": "恢复出厂设置",
+          "description": "不可逆。清空数据库、回退默认 SQLite、重置管理员令牌并登出。",
+          "factoryReset": "恢复出厂设置",
+          "factoryResetTitle": "恢复出厂设置",
+          "factoryResetDescription": "将清空所有数据并回退默认值。管理员令牌将重置为默认值。您将被登出。",
+          "factoryResetCountdown": "等待 {{seconds}} 秒…",
+          "factoryResetConfirm": "全部清空",
+          "toast": {
             "factoryResetDone": "恢复出厂完成。正在重新加载…",
             "factoryResetFailed": "恢复出厂失败。"
           }
