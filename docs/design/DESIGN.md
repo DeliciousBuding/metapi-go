@@ -148,7 +148,7 @@ New UI must start from shadcn Base UI primitives when possible. Import via `@/co
 2. `cd web && bun run typecheck` — TS gate
 3. `cd web && bun run lint` — oxlint
 4. `cd web && bun run build` — production bundle gate (`build:web`)
-5. `cd web && bun run a11y:scan` — axe-core serious/critical gate (needs the dev server; see `web/scripts/a11y-scan.mjs`)
+5. `cd web && bun run a11y:scan` — axe-core serious/critical gate (needs the dev server; see `web/scripts/a11y-scan.mjs`). Also enforced in CI: the `a11y` job serves the real embedded SPA via the Go server (fresh sqlite runtime DB) and scans all 15 admin routes against it (`BASE_URL`-driven; `.github/workflows/ci.yml`)
 6. Manual score rubric (target ≥ 4/5 each):
    - Material (glass/solid hierarchy)
    - Brand calm (GCP blue, no neon)
@@ -174,6 +174,8 @@ Checklist: [`a11y-checklist.md`](./a11y-checklist.md).
 
 | Date | Change |
 |------|--------|
+| 2026-08-12 | a11y gate wired into CI: the `a11y` job serves the embedded SPA via the Go server (sqlite) and runs `a11y:scan` against all 15 admin routes |
+| 2026-08-12 | Dark-theme soft-destructive contrast: new `--destructive-soft-fg` token (dark `oklch(0.8 0.15 22)`); soft-destructive text across badges/buttons/dashboard/proxy-logs now readable in dark; sidebar group labels 60%->75% |
 | 2026-08-12 | a11y: fixed column-resizer `aria-valuenow`, explicit labels on table/filter selects (pagination, proxy-logs, checkin, program-logs), base-ui Switch `aria-checked` normalization; added the `a11y:scan` axe gate (15 routes clean) |
 | 2026-08-12 | Codified the two-tier page-title scale (landing/hub = `text-2xl`, data/list pages = `text-lg`, settings cards = `text-base` h1) so future pages stop inventing a third size |
 | 2026-08-12 | DESIGN.md aligned to the shipped shadcn-OKLCH token system: documented `data-theme-*` axes, presets, glass recipe, status/focus tokens; removed stale `--color-bg*` / `--glass-*` / `--space-*` / `--content-max` contract |
