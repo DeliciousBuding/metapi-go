@@ -19,6 +19,8 @@ export type SettingsSection = {
   id: string
   /** Human label shown in the settings sidebar + page header. */
   title: string
+  /** Optional i18n key of a group label that scopes this section in the sidebar. */
+  group?: string
   /** Short description shown under the page header (optional). */
   description?: string
   /** Optional lucide icon for the sidebar (phase 2 may leave unset). */
@@ -37,6 +39,8 @@ export type SettingsSection = {
 export type SettingsSectionNavItem = {
   title: string
   url: LinkProps['to'] | (string & {})
+  /** Optional i18n key of the sidebar group this item belongs to. */
+  group?: string
 }
 
 /**

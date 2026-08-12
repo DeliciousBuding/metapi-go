@@ -629,10 +629,10 @@
     "settings": {
       "subareas": {
         "general": "General",
-        "downstream": "Downstream Keys",
-        "models": "Models",
-        "content": "Content",
-        "systemInfo": "System Info"
+        "downstream": "Downstream",
+        "models": "Model Settings",
+        "content": "Data & Messaging",
+        "systemInfo": "System & Maintenance"
       },
       "common": {
         "save": "Save",
@@ -674,6 +674,10 @@
         "unlimited": "unlimited"
       },
       "general": {
+        "groups": {
+          "brandSecurity": "Brand & Security",
+          "runtimeStrategy": "Runtime & Strategy"
+        },
         "site": {
           "title": "Site & Branding",
           "description": "System name, logo, footer, about, and server address.",
@@ -975,6 +979,10 @@
         }
       },
       "content": {
+        "groups": {
+          "data": "Data",
+          "messaging": "Messaging"
+        },
         "importExport": {
           "title": "Import / Export",
           "description": "Backup and restore runtime configuration.",
@@ -1085,7 +1093,7 @@
         },
         "announcements": {
           "title": "Risk Banner Announcements",
-          "description": "Product risk banners — draft, severity, and enabled state.",
+          "description": "Product risk banners — draft, severity, and enabled state. Same source as the top-level Site Announcements page.",
           "create": "New announcement",
           "createTitle": "Create announcement",
           "editTitle": "Edit announcement",
@@ -1125,6 +1133,11 @@
         }
       },
       "systemInfo": {
+        "groups": {
+          "logs": "Logs",
+          "system": "System",
+          "dangerZone": "Danger Zone"
+        },
         "programLogs": {
           "title": "Program Logs",
           "description": "Operational event log (events stream).",
@@ -1194,7 +1207,7 @@
         },
         "database": {
           "title": "Database",
-          "description": "Inspect the active connection and save database settings for the next restart.",
+          "description": "Inspect the active connection and save database settings for the next restart. Changes here apply after the next restart and never break the running instance.",
           "currentRuntime": "Current runtime:",
           "restartRequired": "Saved config pending — restart required to apply.",
           "testConnection": "Test connection",
@@ -1908,13 +1921,14 @@
         "oauth": "OAuth",
         "siteAnnouncements": "Site Announcements",
         "models": "Models",
+        "modelSettings": "Model Settings",
         "modelTester": "Model Tester",
         "settings": "Settings",
         "about": "About",
         "general": "General",
-        "downstreamKeys": "Downstream Keys",
-        "content": "Content",
-        "systemInfo": "System Info"
+        "downstreamKeys": "Downstream",
+        "content": "Data & Messaging",
+        "systemInfo": "System & Maintenance"
       },
       "backToHome": "Back to Home"
     }

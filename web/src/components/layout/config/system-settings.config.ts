@@ -4,7 +4,7 @@
 // Titles are i18n keys resolved via t() at render time (nav-group.tsx /
 // sidebar-view-header.tsx).
 
-import { Boxes, KeyRound, Package, ServerCog, Settings } from 'lucide-react'
+import { Boxes, Database, KeyRound, ServerCog, Settings } from 'lucide-react'
 
 import type { NavGroup, SidebarView } from '../types'
 
@@ -32,13 +32,13 @@ function getSettingsNavGroups(): NavGroup[] {
           url: '/settings/downstream',
         },
         {
-          title: 'sidebar.items.models',
+          title: 'sidebar.items.modelSettings',
           icon: Boxes,
           url: '/settings/models',
         },
         {
           title: 'sidebar.items.content',
-          icon: Package,
+          icon: Database,
           url: '/settings/content',
         },
         {

@@ -629,10 +629,10 @@
     "settings": {
       "subareas": {
         "general": "通用",
-        "downstream": "下游密钥",
-        "models": "模型",
-        "content": "内容",
-        "systemInfo": "系统信息"
+        "downstream": "下游",
+        "models": "模型配置",
+        "content": "数据与消息",
+        "systemInfo": "系统与维护"
       },
       "common": {
         "save": "保存",
@@ -674,6 +674,10 @@
         "unlimited": "不限"
       },
       "general": {
+        "groups": {
+          "brandSecurity": "品牌与安全",
+          "runtimeStrategy": "运行与策略"
+        },
         "site": {
           "title": "站点与品牌",
           "description": "系统名称、Logo、页脚、关于与服务器地址。",
@@ -973,6 +977,10 @@
         }
       },
       "content": {
+        "groups": {
+          "data": "数据",
+          "messaging": "消息"
+        },
         "importExport": {
           "title": "导入 / 导出",
           "description": "备份与恢复运行时配置。",
@@ -1083,7 +1091,7 @@
         },
         "announcements": {
           "title": "风险横幅公告",
-          "description": "产品风险横幅 — 草稿 / 严重程度 / 启用状态。",
+          "description": "产品风险横幅 — 草稿 / 严重程度 / 启用状态。与顶部「站点公告」页面共用同一数据源。",
           "create": "新建公告",
           "createTitle": "创建公告",
           "editTitle": "编辑公告",
@@ -1119,6 +1127,11 @@
         }
       },
       "systemInfo": {
+        "groups": {
+          "logs": "日志",
+          "system": "系统",
+          "dangerZone": "危险区"
+        },
         "programLogs": {
           "title": "程序日志",
           "description": "操作事件日志（事件流）。",
@@ -1188,7 +1201,7 @@
         },
         "database": {
           "title": "数据库",
-          "description": "查看当前连接并保存下次重启生效的数据库配置。",
+          "description": "查看当前连接并保存下次重启生效的数据库配置。本页改动仅下次重启生效，不会影响正在运行的服务。",
           "currentRuntime": "当前运行：",
           "restartRequired": "已保存待生效——需重启以应用。",
           "testConnection": "测试连接",
@@ -1902,13 +1915,14 @@
         "oauth": "OAuth",
         "siteAnnouncements": "站点公告",
         "models": "模型",
+        "modelSettings": "模型配置",
         "modelTester": "操练场",
         "settings": "设置",
         "about": "关于",
-        "general": "常规",
-        "downstreamKeys": "下游密钥",
-        "content": "内容",
-        "systemInfo": "系统信息"
+        "general": "通用",
+        "downstreamKeys": "下游",
+        "content": "数据与消息",
+        "systemInfo": "系统与维护"
       },
       "backToHome": "返回首页"
     }

@@ -14,18 +14,21 @@ const CONTENT_SECTIONS = [
   {
     id: 'import-export',
     title: 'settings.content.importExport.title',
+    group: 'settings.content.groups.data',
     description: 'settings.content.importExport.description',
     build: () => createElement(ImportExportSection),
   },
   {
     id: 'notifications',
     title: 'settings.content.notifications.title',
+    group: 'settings.content.groups.messaging',
     description: 'settings.content.notifications.description',
     build: () => createElement(NotificationsSection),
   },
   {
     id: 'announcements',
     title: 'settings.content.announcements.title',
+    group: 'settings.content.groups.messaging',
     description: 'settings.content.announcements.description',
     build: () => createElement(AnnouncementsSection),
   },
