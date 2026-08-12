@@ -574,7 +574,12 @@
         "siteDistribution": {
           "title": "Site distribution",
           "description": "Balance share by site.",
-          "empty": "No site distribution data yet."
+          "empty": "No site distribution data yet.",
+          "tooltip": {
+            "balance": "Balance",
+            "accounts": "Accounts",
+            "share": "Share"
+          }
         }
       },
       "models": {
@@ -582,7 +587,13 @@
         "costDistribution": {
           "title": "Cost distribution",
           "description": "Spend share by model (30d).",
-          "empty": "No model cost data for the selected range."
+          "empty": "No model cost data for the selected range.",
+          "tooltip": {
+            "cost": "Cost",
+            "calls": "Requests",
+            "tokens": "Tokens",
+            "share": "Share"
+          }
         },
         "latencyHistogram": {
           "title": "Latency histogram",

@@ -147,9 +147,23 @@ export function TrafficSection() {
     () => buildSiteTrendSpec(colors, siteTrendData),
     [colors, siteTrendData]
   )
+  const siteDistributionTooltipLabels = useMemo(
+    () => ({
+      balance: t('dashboard.traffic.siteDistribution.tooltip.balance'),
+      accounts: t('dashboard.traffic.siteDistribution.tooltip.accounts'),
+      share: t('dashboard.traffic.siteDistribution.tooltip.share'),
+    }),
+    [t]
+  )
   const siteDistributionSpec = useMemo(
-    () => buildSiteDistributionSpec(colors, labelColor, siteDistributionData),
-    [colors, labelColor, siteDistributionData]
+    () =>
+      buildSiteDistributionSpec(
+        colors,
+        labelColor,
+        siteDistributionData,
+        siteDistributionTooltipLabels
+      ),
+    [colors, labelColor, siteDistributionData, siteDistributionTooltipLabels]
   )
 
   const remountKey = `traffic-${resolvedTheme}`

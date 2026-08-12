@@ -210,7 +210,7 @@ Tracked for follow-up issues (not blocking U3 checklist doc):
 5. ~~**Muted/tertiary text** used as primary content in dense tables.~~ **Audited clean** (2026-08-12): all muted-foreground table cells are placeholders (-), meta sub-labels, or icon glyphs; no primary data rendered muted.
 6. ~~**Notification panel** keyboard model.~~ **Obsolete** — the rewrite ships no notification bell/panel surface (topbar = language/theme/avatar only); nothing to keyboard-navigate.
 7. ~~**ModernSelect** listbox semantics.~~ **Obsolete** — ModernSelect was removed in the dead-helper cleanup; selects use @base-ui/react primitives with native listbox semantics. (`role="listbox"/"option"`, typeahead, aria-controls).
-8. **Charts**: non-color status encoding for availability buckets; keyboard access to series.
+8. **Charts**: non-color status encoding for availability buckets; keyboard access to series. **Partial** — availability status/severity and attention badges all carry text labels (no color-only status); line/bar charts expose text axes + legends; site/model donuts show a name legend plus restored rich text tooltips (balance/cost, accounts, calls, tokens, share) at legacy parity. Residual: keyboard series access unavailable in @visactor/vchart 2.1.4 (no spec aria support; version upgrade deferred).
 9. ~~**Skip link** to main content for keyboard users.~~ **Done** — `SkipToMain` (`web/src/components/skip-to-main.tsx`, href `#content`) rendered in `web/src/components/layout/components/authenticated-layout.tsx`.
 10. ~~**i18n entries** for newer chrome strings (e.g. `展开侧边栏`) if EN surface shows Chinese fallback.~~ **Partial** — skip-link + sidebar expand/nav open/close added; full inventory residual.
 11. **Automated axe a11y CI** gate — not wired.

@@ -62,6 +62,41 @@ const ANIMATION_APPEAR = {
 
 const PADDING = { left: 8, right: 16, top: 8, bottom: 8 } as const
 
+/** Adaptive currency formatting for tooltip values (mirrors the legacy charts). */
+function formatCurrency(value: number): string {
+  if (value >= 1000) return `$${value.toFixed(2)}`
+  if (value >= 1) return `$${value.toFixed(3)}`
+  return `$${value.toFixed(6)}`
+}
+
+/** Coerce a VChart tooltip datum to a record (mirrors the legacy charts). */
+function coerceDatum(datum: unknown): Record<string, unknown> {
+  return datum && typeof datum === 'object'
+    ? (datum as Record<string, unknown>)
+    : {}
+}
+
+/** Render the VChart-computed slice share as a percent string. */
+function percentOf(datum: unknown): string {
+  const pct = Number(coerceDatum(datum)._percent_ ?? 0)
+  return `${pct.toFixed(1)}%`
+}
+
+/** Site-distribution donut tooltip labels (i18n supplied by the section). */
+export type SiteDistributionTooltipLabels = {
+  balance: string
+  accounts: string
+  share: string
+}
+
+/** Model-cost donut tooltip labels (i18n supplied by the section). */
+export type ModelCostTooltipLabels = {
+  cost: string
+  calls: string
+  tokens: string
+  share: string
+}
+
 /**
  * Income vs outcome grouped bar chart (long-format rows: day/type/value).
  * Ported from legacy IncomeOutcomeChart. Series colors come from the chart
@@ -136,7 +171,8 @@ export function buildSiteTrendSpec(
 export function buildSiteDistributionSpec(
   colors: ChartColors,
   labelColor: string,
-  data: SiteDistributionSlice[]
+  data: SiteDistributionSlice[],
+  tooltipLabels: SiteDistributionTooltipLabels
 ): VChartSpec {
   const values = data.map((slice) => ({
     siteName: slice.siteName,
@@ -165,6 +201,29 @@ export function buildSiteDistributionSpec(
         cornerRadius: 4,
         stroke: colors.grid,
         lineWidth: 1,
+      },
+    },
+    tooltip: {
+      mark: {
+        title: {
+          value: (datum: unknown) => String(coerceDatum(datum).siteName ?? '-'),
+        },
+        content: [
+          {
+            key: tooltipLabels.balance,
+            value: (datum: unknown) =>
+              formatCurrency(Number(coerceDatum(datum).value ?? 0)),
+          },
+          {
+            key: tooltipLabels.accounts,
+            value: (datum: unknown) =>
+              String(coerceDatum(datum).accountCount ?? 0),
+          },
+          {
+            key: tooltipLabels.share,
+            value: (datum: unknown) => percentOf(datum),
+          },
+        ],
       },
     },
     legends: {
@@ -245,7 +304,8 @@ export function buildLatencyTrendSpec(
 export function buildModelCostSpec(
   colors: ChartColors,
   labelColor: string,
-  data: ModelCostRow[]
+  data: ModelCostRow[],
+  tooltipLabels: ModelCostTooltipLabels
 ): VChartSpec {
   const values = data.map((row) => ({
     model: row.label || row.model,
@@ -274,6 +334,33 @@ export function buildModelCostSpec(
         cornerRadius: 3,
         stroke: colors.grid,
         lineWidth: 1,
+      },
+    },
+    tooltip: {
+      mark: {
+        title: {
+          value: (datum: unknown) => String(coerceDatum(datum).model ?? '-'),
+        },
+        content: [
+          {
+            key: tooltipLabels.cost,
+            value: (datum: unknown) =>
+              formatCurrency(Number(coerceDatum(datum).value ?? 0)),
+          },
+          {
+            key: tooltipLabels.calls,
+            value: (datum: unknown) => String(coerceDatum(datum).calls ?? 0),
+          },
+          {
+            key: tooltipLabels.tokens,
+            value: (datum: unknown) =>
+              Number(coerceDatum(datum).tokens ?? 0).toLocaleString(),
+          },
+          {
+            key: tooltipLabels.share,
+            value: (datum: unknown) => percentOf(datum),
+          },
+        ],
       },
     },
     legends: {

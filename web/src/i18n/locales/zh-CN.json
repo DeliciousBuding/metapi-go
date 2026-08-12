@@ -574,7 +574,12 @@
         "siteDistribution": {
           "title": "站点分布",
           "description": "按站点的余额占比。",
-          "empty": "暂无站点分布数据。"
+          "empty": "暂无站点分布数据。",
+          "tooltip": {
+            "balance": "余额",
+            "accounts": "账户数",
+            "share": "占比"
+          }
         }
       },
       "models": {
@@ -582,7 +587,13 @@
         "costDistribution": {
           "title": "成本分布",
           "description": "按模型的支出占比（30 天）。",
-          "empty": "所选区间暂无模型成本数据。"
+          "empty": "所选区间暂无模型成本数据。",
+          "tooltip": {
+            "cost": "成本",
+            "calls": "请求",
+            "tokens": "Token",
+            "share": "占比"
+          }
         },
         "latencyHistogram": {
           "title": "延迟直方图",
