@@ -629,10 +629,19 @@
     "settings": {
       "subareas": {
         "general": "General",
+        "general.description": "Branding, authentication, schedules, proxy transport, and routing strategy.",
         "downstream": "Downstream",
+        "downstream.description": "Provider API keys and the global proxy token.",
         "models": "Model Settings",
+        "models.description": "Model name redirects, rates & multipliers, and the global allowlist.",
         "content": "Data & Messaging",
-        "systemInfo": "System & Maintenance"
+        "content.description": "Import/export, notification channels, and risk-banner announcements.",
+        "systemInfo": "System & Maintenance",
+        "systemInfo.description": "Logs, updates, database, and maintenance — including the danger zone."
+      },
+      "overview": {
+        "title": "Settings",
+        "description": "Manage gateway configuration, provider keys, model behavior, content, and system maintenance."
       },
       "common": {
         "save": "Save",
@@ -1921,14 +1930,9 @@
         "oauth": "OAuth",
         "siteAnnouncements": "Site Announcements",
         "models": "Models",
-        "modelSettings": "Model Settings",
         "modelTester": "Model Tester",
         "settings": "Settings",
-        "about": "About",
-        "general": "General",
-        "downstreamKeys": "Downstream",
-        "content": "Data & Messaging",
-        "systemInfo": "System & Maintenance"
+        "about": "About"
       },
       "backToHome": "Back to Home"
     }

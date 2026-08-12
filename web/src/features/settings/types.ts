@@ -67,6 +67,10 @@ type SettingsSubareaId =
 export type SettingsSubarea = {
   id: SettingsSubareaId
   title: string
+  /** Short description shown on the settings overview landing (optional). */
+  description?: string
+  /** Optional lucide icon shown on the settings overview + main sidebar. */
+  icon?: ElementType
   /** Base path, e.g. '/settings/general'. Section URLs become `${basePath}/${id}`. */
   basePath: string
   /** Section navigated to when no `$section` param is present. */

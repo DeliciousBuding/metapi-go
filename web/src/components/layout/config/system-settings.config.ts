@@ -4,7 +4,7 @@
 // Titles are i18n keys resolved via t() at render time (nav-group.tsx /
 // sidebar-view-header.tsx).
 
-import { Boxes, Database, KeyRound, ServerCog, Settings } from 'lucide-react'
+import { getSettingsSubareas } from '@/features/settings'
 
 import type { NavGroup, SidebarView } from '../types'
 
@@ -20,33 +20,11 @@ function getSettingsNavGroups(): NavGroup[] {
     {
       id: 'system-administration',
       title: 'sidebar.groups.systemAdministration',
-      items: [
-        {
-          title: 'sidebar.items.general',
-          icon: Settings,
-          url: '/settings/general',
-        },
-        {
-          title: 'sidebar.items.downstreamKeys',
-          icon: KeyRound,
-          url: '/settings/downstream',
-        },
-        {
-          title: 'sidebar.items.modelSettings',
-          icon: Boxes,
-          url: '/settings/models',
-        },
-        {
-          title: 'sidebar.items.content',
-          icon: Database,
-          url: '/settings/content',
-        },
-        {
-          title: 'sidebar.items.systemInfo',
-          icon: ServerCog,
-          url: '/settings/system-info',
-        },
-      ],
+      items: getSettingsSubareas().map((subarea) => ({
+        title: subarea.title,
+        icon: subarea.icon,
+        url: subarea.basePath,
+      })),
     },
   ]
 }

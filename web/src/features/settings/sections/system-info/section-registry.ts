@@ -3,6 +3,7 @@
 // migration + maintenance/danger zone. All five sections wired to real
 // surfaces under ./components.
 
+import { ServerCog } from 'lucide-react'
 import { createElement } from 'react'
 
 import type { SettingsSubarea } from '../../types'
@@ -62,6 +63,8 @@ const registry = createSectionRegistry<SystemInfoSectionId>({
 export const systemInfoSubarea: SettingsSubarea = {
   id: 'system-info',
   title: 'settings.subareas.systemInfo',
+  description: 'settings.subareas.systemInfo.description',
+  icon: ServerCog,
   basePath: '/settings/system-info',
   defaultSection: registry.defaultSection,
   sectionIds: registry.sectionIds,

@@ -9,6 +9,7 @@
 // components. Section content is built with React.createElement, which is
 // hooks-safe and stays valid when individual section components are swapped.
 
+import { Settings } from 'lucide-react'
 import { createElement } from 'react'
 
 import type { SettingsSubarea } from '../../types'
@@ -73,6 +74,8 @@ const registry = createSectionRegistry<GeneralSectionId>({
 export const generalSubarea: SettingsSubarea = {
   id: 'general',
   title: 'settings.subareas.general',
+  description: 'settings.subareas.general.description',
+  icon: Settings,
   basePath: '/settings/general',
   defaultSection: registry.defaultSection,
   sectionIds: registry.sectionIds,

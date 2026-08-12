@@ -2,6 +2,7 @@
 // Scope (plan §5.5.2): import/export + notification channels + risk-banner
 // announcements. All three sections wired to real forms under ./components.
 
+import { Database } from 'lucide-react'
 import { createElement } from 'react'
 
 import type { SettingsSubarea } from '../../types'
@@ -45,6 +46,8 @@ const registry = createSectionRegistry<ContentSectionId>({
 export const contentSubarea: SettingsSubarea = {
   id: 'content',
   title: 'settings.subareas.content',
+  description: 'settings.subareas.content.description',
+  icon: Database,
   basePath: '/settings/content',
   defaultSection: registry.defaultSection,
   sectionIds: registry.sectionIds,

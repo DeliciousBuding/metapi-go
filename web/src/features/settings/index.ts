@@ -8,12 +8,14 @@
 
 // Generic factory + adapter types
 
-// Generic dispatcher + in-page sidebar + stub content
+// Generic dispatcher + in-page sidebar + overview landing + stub content
+export { SettingsOverview } from './components/settings-overview'
 export { SettingsPage } from './components/settings-page'
 
 // 5-subarea manifest + validation helpers (route registration surface)
 export {
   getSettingsSubarea,
+  getSettingsSubareas,
   resolveDefaultSection,
   isValidSection,
 } from './config/settings-config'

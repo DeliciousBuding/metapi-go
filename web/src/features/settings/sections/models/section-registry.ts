@@ -3,6 +3,7 @@
 // model allowlist & brand blocking. All three sections wired to real forms
 // under ./components.
 
+import { Boxes } from 'lucide-react'
 import { createElement } from 'react'
 
 import type { SettingsSubarea } from '../../types'
@@ -43,6 +44,8 @@ const registry = createSectionRegistry<ModelsSectionId>({
 export const modelsSubarea: SettingsSubarea = {
   id: 'models',
   title: 'settings.subareas.models',
+  description: 'settings.subareas.models.description',
+  icon: Boxes,
   basePath: '/settings/models',
   defaultSection: registry.defaultSection,
   sectionIds: registry.sectionIds,
