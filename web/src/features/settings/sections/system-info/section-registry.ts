@@ -27,6 +27,7 @@ const SYSTEM_INFO_SECTIONS = [
     title: 'settings.systemInfo.auditLogs.title',
     group: 'settings.systemInfo.groups.logs',
     description: 'settings.systemInfo.auditLogs.description',
+    readonly: true,
     build: () => createElement(AuditLogsSection),
   },
   {
@@ -34,6 +35,7 @@ const SYSTEM_INFO_SECTIONS = [
     title: 'settings.systemInfo.updateCenter.title',
     group: 'settings.systemInfo.groups.system',
     description: 'settings.systemInfo.updateCenter.description',
+    readonly: true,
     build: () => createElement(UpdateCenterSection),
   },
   {

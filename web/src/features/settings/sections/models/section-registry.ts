@@ -23,6 +23,7 @@ const MODELS_SECTIONS = [
     id: 'rates',
     title: 'settings.models.rates.title',
     description: 'settings.models.rates.description',
+    readonly: true,
     build: () => createElement(RatesSection),
   },
   {

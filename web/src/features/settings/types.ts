@@ -25,6 +25,8 @@ export type SettingsSection = {
   description?: string
   /** Optional lucide icon for the sidebar (phase 2 may leave unset). */
   icon?: ElementType
+  /** Read-only / external surface (rates, audit, update center) - shown as a badge. */
+  readonly?: boolean
   /** Lazy content builder. Receives nothing in phase 2; phase 3 adds settings. */
   build: () => ReactNode
 }
@@ -41,6 +43,8 @@ export type SettingsSectionNavItem = {
   url: LinkProps['to'] | (string & {})
   /** Optional i18n key of the sidebar group this item belongs to. */
   group?: string
+  /** Read-only / external surface - shown as a badge. */
+  readonly?: boolean
 }
 
 /**

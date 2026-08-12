@@ -673,6 +673,7 @@
         "loadFailed": "Failed to load settings. The form is disabled to avoid overwriting your configuration.",
         "retry": "Retry",
         "unsavedTitle": "Discard unsaved changes?",
+        "readonly": "Read-only",
         "unsavedDescription": "You have unsaved changes in this section. Leaving now will discard them.",
         "discardChanges": "Discard changes",
         "keepEditing": "Keep editing",

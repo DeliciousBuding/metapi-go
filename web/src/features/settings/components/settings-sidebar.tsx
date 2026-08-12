@@ -65,13 +65,20 @@ export function SettingsSidebar({ items, title }: SettingsSidebarProps) {
                   key={String(item.url)}
                   to={item.url}
                   className={cn(
-                    'rounded-md px-3 py-2 text-sm transition-colors',
+                    'flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
                     isActive
                       ? 'bg-accent font-medium text-accent-foreground'
                       : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   )}
                 >
-                  {t(item.title)}
+                  <span className='min-w-0 flex-1 truncate'>
+                    {t(item.title)}
+                  </span>
+                  {item.readonly ? (
+                    <span className='bg-muted text-muted-foreground shrink-0 rounded-sm px-1 py-0.5 text-[10px]'>
+                      {t('settings.common.readonly')}
+                    </span>
+                  ) : null}
                 </Link>
               )
             })}

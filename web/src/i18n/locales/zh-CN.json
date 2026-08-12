@@ -673,6 +673,7 @@
         "loadFailed": "设置加载失败，表单已禁用，避免覆盖现有配置。",
         "retry": "重试",
         "unsavedTitle": "放弃未保存的更改？",
+        "readonly": "只读",
         "unsavedDescription": "本分区有未保存的更改，离开将丢弃它们。",
         "discardChanges": "放弃更改",
         "keepEditing": "继续编辑",

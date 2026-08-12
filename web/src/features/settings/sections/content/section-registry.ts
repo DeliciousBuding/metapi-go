@@ -39,7 +39,7 @@ type ContentSectionId = (typeof CONTENT_SECTIONS)[number]['id']
 
 const registry = createSectionRegistry<ContentSectionId>({
   sections: CONTENT_SECTIONS,
-  defaultSection: 'import-export',
+  defaultSection: 'notifications',
   basePath: '/settings/content',
 })
 

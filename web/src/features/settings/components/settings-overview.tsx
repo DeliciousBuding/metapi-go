@@ -61,7 +61,14 @@ export function SettingsOverview() {
                         to={section.url}
                         className='text-muted-foreground hover:text-foreground flex items-center gap-2 rounded-md px-1 py-1 text-sm transition-colors'
                       >
-                        {t(section.title)}
+                        <span className='min-w-0 flex-1 truncate'>
+                          {t(section.title)}
+                        </span>
+                        {section.readonly ? (
+                          <span className='bg-muted text-muted-foreground shrink-0 rounded-sm px-1 py-0.5 text-[10px]'>
+                            {t('settings.common.readonly')}
+                          </span>
+                        ) : null}
                       </Link>
                     </li>
                   ))}
