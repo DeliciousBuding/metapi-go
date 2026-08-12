@@ -187,7 +187,13 @@ export function ProgramLogsSection() {
           onValueChange={(value) => setTypeFilter(value ?? 'all')}
         >
           <SelectTrigger className='w-40'>
-            <SelectValue />
+            <SelectValue>
+              {(selected) =>
+                !selected || selected === 'all'
+                  ? t('settings.systemInfo.programLogs.allTypes')
+                  : t(`settings.systemInfo.programLogs.type.${String(selected)}`)
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value='all'>

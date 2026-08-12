@@ -422,7 +422,16 @@ export function ImportExportSection() {
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue />
+                          <SelectValue>
+                            {(selected) => {
+                              const labels: Record<string, string> = {
+                                all: t('settings.content.importExport.exportAll'),
+                                accounts: t('settings.content.importExport.exportAccounts'),
+                                preferences: t('settings.content.importExport.exportPreferences'),
+                              }
+                              return selected ? labels[String(selected)] ?? String(selected) : ''
+                            }}
+                          </SelectValue>
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>

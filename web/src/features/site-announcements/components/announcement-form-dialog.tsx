@@ -209,7 +209,13 @@ export function AnnouncementFormDialog({
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder={t('siteAnnouncements.form.severityPlaceholder')} />
+                          <SelectValue>
+                            {(selected) =>
+                              selected
+                                ? t(`siteAnnouncements.severity.${String(selected)}`)
+                                : t('siteAnnouncements.form.severityPlaceholder')
+                            }
+                          </SelectValue>
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>

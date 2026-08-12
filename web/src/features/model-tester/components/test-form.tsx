@@ -150,7 +150,12 @@ export function TestForm({
               >
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue>
+                      {(selected) => {
+                        const option = TARGET_FORMAT_OPTIONS.find((item) => item.value === selected)
+                        return option ? t(option.labelKey) : String(selected ?? '')
+                      }}
+                    </SelectValue>
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>

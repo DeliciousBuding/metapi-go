@@ -174,7 +174,15 @@ export function AccountFormDialog({
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder={t('accounts.form.sitePlaceholder')} />
+                        <SelectValue>
+                          {(selected) => {
+                            if (!selected) return t('accounts.form.sitePlaceholder')
+                            const site = siteOptions.find((item) => String(item.id) === selected)
+                            if (!site) return String(selected)
+                            const suffix = site.platform ? ` · ${site.platform}` : ''
+                            return `${site.name || site.url || `#${site.id}`}${suffix}`
+                          }}
+                        </SelectValue>
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -252,7 +260,16 @@ export function AccountFormDialog({
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue>
+                          {(selected) => {
+                            const labels: Record<string, string> = {
+                              active: t('accounts.form.statusActive'),
+                              disabled: t('accounts.form.statusDisabled'),
+                              expired: t('accounts.form.statusExpired'),
+                            }
+                            return selected ? labels[String(selected)] ?? String(selected) : ''
+                          }}
+                        </SelectValue>
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>

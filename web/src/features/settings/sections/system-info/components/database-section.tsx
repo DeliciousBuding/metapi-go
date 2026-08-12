@@ -244,7 +244,13 @@ export function DatabaseSection() {
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue>
+                          {(selected) => {
+                            if (selected === 'sqlite') return 'SQLite'
+                            if (selected === 'postgres') return 'PostgreSQL'
+                            return ''
+                          }}
+                        </SelectValue>
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>

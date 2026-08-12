@@ -51,7 +51,17 @@ export function ManualCheckinDialog({ open, onOpenChange }: ManualCheckinDialogP
         </DialogHeader>
         <div className='space-y-3 py-2'>
           <Select value={selectedId} onValueChange={(value) => setSelectedId(value ?? NO_SELECTION)}>
-            <SelectTrigger><SelectValue placeholder={t('checkin.manual.accountPlaceholder')} /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue>
+                {(selected) => {
+                  if (!selected || selected === NO_SELECTION) return t('checkin.manual.accountPlaceholder')
+                  const account = accounts.find((item) => String(item.id) === selected)
+                  if (!account) return String(selected)
+                  const suffix = account.site?.name ? ` · ${account.site.name}` : ''
+                  return `${account.username || `#${account.id}`}${suffix}`
+                }}
+              </SelectValue>
+            </SelectTrigger>
             <SelectContent>
               {accounts.length === 0 && <SelectItem value={NO_SELECTION} disabled>{t('checkin.manual.accountEmpty')}</SelectItem>}
               {accounts.map((account) => (

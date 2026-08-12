@@ -308,7 +308,13 @@ export function AnnouncementsSection() {
                     <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue />
+                          <SelectValue>
+                            {(selected) =>
+                              selected
+                                ? t(`settings.content.announcements.severity.${String(selected)}`)
+                                : ''
+                            }
+                          </SelectValue>
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>

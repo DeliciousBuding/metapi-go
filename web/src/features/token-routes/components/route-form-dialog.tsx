@@ -128,7 +128,13 @@ export function RouteFormDialog({ open, onOpenChange, mode, route, availableRout
               <FormItem>
                 <FormLabel>{t('tokenRoutes.form.routingStrategy')}</FormLabel>
                 <Select value={field.value ?? 'weighted'} onValueChange={(value) => field.onChange(value as RouteRoutingStrategy)}>
-                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue>
+                        {(selected) => t(`tokenRoutes.strategies.${String(selected ?? 'weighted')}`)}
+                      </SelectValue>
+                    </SelectTrigger>
+                  </FormControl>
                   <SelectContent>
                     <SelectItem value='weighted'>{t('tokenRoutes.strategies.weighted')}</SelectItem>
                     <SelectItem value='round_robin'>{t('tokenRoutes.strategies.round_robin')}</SelectItem>

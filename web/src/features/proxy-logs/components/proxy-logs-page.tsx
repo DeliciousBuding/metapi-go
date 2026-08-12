@@ -169,7 +169,14 @@ export function ProxyLogsPage() {
           additionalSearch: (
             <>
               <Select value={status} onValueChange={(value) => { setStatus(value as ProxyLogFilters['status']); setPagination((prev) => ({ ...prev, pageIndex: 0 })) }}>
-                <SelectTrigger size='sm' className='w-[120px]'><SelectValue placeholder={t('proxyLogs.page.filterStatusPlaceholder')} /></SelectTrigger>
+                <SelectTrigger size='sm' className='w-[120px]'>
+                  <SelectValue>
+                    {(selected) => {
+                      const option = PROXY_LOG_STATUS_FILTER_OPTIONS.find((item) => item.value === selected)
+                      return option ? t(option.labelKey) : String(selected ?? '')
+                    }}
+                  </SelectValue>
+                </SelectTrigger>
                 <SelectContent>
                   {PROXY_LOG_STATUS_FILTER_OPTIONS.map((option) => (
                     <SelectItem key={option.value} value={option.value}>{t(option.labelKey)}</SelectItem>
@@ -178,7 +185,15 @@ export function ProxyLogsPage() {
               </Select>
               {siteOptions.length > 0 && (
                 <Select value={siteId === null ? 'all' : String(siteId)} onValueChange={(value) => { setSiteId(value === 'all' ? null : Number(value)); setPagination((prev) => ({ ...prev, pageIndex: 0 })) }}>
-                  <SelectTrigger size='sm' className='w-[160px]'><SelectValue placeholder={t('proxyLogs.page.filterSitePlaceholder')} /></SelectTrigger>
+                  <SelectTrigger size='sm' className='w-[160px]'>
+                    <SelectValue>
+                      {(selected) => {
+                        if (!selected || selected === 'all') return t('proxyLogs.page.filterAllSites')
+                        const site = siteOptions.find((item) => String(item.id) === selected)
+                        return site ? site.name || `#${site.id}` : String(selected)
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value='all'>{t('proxyLogs.page.filterAllSites')}</SelectItem>
                     {siteOptions.map((site) => (<SelectItem key={site.id} value={String(site.id)}>{site.name || `#${site.id}`}</SelectItem>))}
@@ -187,7 +202,15 @@ export function ProxyLogsPage() {
               )}
               {clientOptions.length > 0 && (
                 <Select value={client || 'all'} onValueChange={(value) => { setClient(!value || value === 'all' ? '' : value); setPagination((prev) => ({ ...prev, pageIndex: 0 })) }}>
-                  <SelectTrigger size='sm' className='w-[160px]'><SelectValue placeholder={t('proxyLogs.page.filterClientPlaceholder')} /></SelectTrigger>
+                  <SelectTrigger size='sm' className='w-[160px]'>
+                    <SelectValue>
+                      {(selected) => {
+                        if (!selected || selected === 'all') return t('proxyLogs.page.filterAllClients')
+                        const option = clientOptions.find((item) => item.value === selected)
+                        return option ? option.label : String(selected)
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value='all'>{t('proxyLogs.page.filterAllClients')}</SelectItem>
                     {clientOptions.map((option) => (<SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>))}

@@ -113,7 +113,13 @@ export function AuditLogsSection() {
           }}
         >
           <SelectTrigger className='w-full sm:w-32'>
-            <SelectValue />
+            <SelectValue>
+              {(selected) =>
+                !selected || selected === 'all'
+                  ? t('settings.systemInfo.auditLogs.allMethods')
+                  : String(selected)
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {METHOD_FILTERS.map((method) => (

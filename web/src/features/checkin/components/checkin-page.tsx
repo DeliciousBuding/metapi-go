@@ -178,7 +178,17 @@ export function CheckinPage() {
         <span className='text-muted-foreground text-sm'>{t('checkin.page.to')}</span>
         <Input type='datetime-local' value={to} onChange={(event) => { setTo(event.target.value); setPagination((prev) => ({ ...prev, pageIndex: 0 })) }} className='w-[200px]' aria-label={t('checkin.page.endTime')} />
         <Select value={accountId ? String(accountId) : ACCOUNT_FILTER_ALL} onValueChange={(value) => { setAccountId(!value || value === ACCOUNT_FILTER_ALL ? undefined : Number(value)); setPagination((prev) => ({ ...prev, pageIndex: 0 })) }}>
-          <SelectTrigger className='w-[200px]'><SelectValue placeholder={t('checkin.page.allAccountsPlaceholder')} /></SelectTrigger>
+          <SelectTrigger className='w-[200px]'>
+            <SelectValue>
+              {(selected) => {
+                if (!selected || selected === ACCOUNT_FILTER_ALL) {
+                  return t('checkin.page.allAccounts')
+                }
+                const account = accountOptions.find((item) => String(item.id) === selected)
+                return account ? account.username || `#${account.id}` : String(selected)
+              }}
+            </SelectValue>
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value={ACCOUNT_FILTER_ALL}>{t('checkin.page.allAccounts')}</SelectItem>
             {accountOptions.map((account) => (<SelectItem key={account.id} value={String(account.id)}>{account.username || `#${account.id}`}</SelectItem>))}
