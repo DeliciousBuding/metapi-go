@@ -206,15 +206,15 @@ Tracked for follow-up issues (not blocking U3 checklist doc):
 1. ~~**Focus trap** inside SearchModal / CenteredModal / notification panel (Tab cycles within overlay).~~ **Done** — `web/src/lib/helpers/navigationFocus.ts` + shadcn Base UI dialog primitives (`web/src/components/ui/dialog.tsx`, `command.tsx`).
 2. ~~**Global `:focus-visible`** utility applied to all `.btn`, `.sidebar-item`, topbar controls.~~ **Partial done** — `.sidebar-item:focus-visible` + existing chrome rings; remaining page-level action grids still mixed.
 3. ~~**`prefers-reduced-motion`** hard cutover for `fade-in` / `slide-up` / drawer transitions.~~ **Done in #540** (global + token collapse). Residual: intentional essential-motion exceptions only if product later needs them.
-4. **Page-level icon actions** (copy, open external, row kebab, route drag handles) — many labeled, inventory incomplete across Accounts/Sites/Routes/Logs.
-5. **Muted/tertiary text** used as primary content in a few dense tables — content audit.
-6. ~~**Notification panel** keyboard model (arrow keys, Esc, focus return to bell).~~ **Partial** — Esc + focus trap + restore; arrow-key list nav still residual.
-7. **ModernSelect** listbox semantics (`role="listbox"/"option"`, typeahead, aria-controls).
+4. ~~**Page-level icon actions** (copy, open external, row kebab, route drag handles).~~ **Audited clean** (2026-08-12): Playwright scan of 15 pages found no unlabeled icon-only controls; the 3 raw hits were base-ui checkboxes with correct aria-labelledby labels.
+5. ~~**Muted/tertiary text** used as primary content in dense tables.~~ **Audited clean** (2026-08-12): all muted-foreground table cells are placeholders (-), meta sub-labels, or icon glyphs; no primary data rendered muted.
+6. ~~**Notification panel** keyboard model.~~ **Obsolete** — the rewrite ships no notification bell/panel surface (topbar = language/theme/avatar only); nothing to keyboard-navigate.
+7. ~~**ModernSelect** listbox semantics.~~ **Obsolete** — ModernSelect was removed in the dead-helper cleanup; selects use @base-ui/react primitives with native listbox semantics. (`role="listbox"/"option"`, typeahead, aria-controls).
 8. **Charts**: non-color status encoding for availability buckets; keyboard access to series.
 9. ~~**Skip link** to main content for keyboard users.~~ **Done** — `SkipToMain` (`web/src/components/skip-to-main.tsx`, href `#content`) rendered in `web/src/components/layout/components/authenticated-layout.tsx`.
 10. ~~**i18n entries** for newer chrome strings (e.g. `展开侧边栏`) if EN surface shows Chinese fallback.~~ **Partial** — skip-link + sidebar expand/nav open/close added; full inventory residual.
 11. **Automated axe a11y CI** gate — not wired.
-12. **Full 375 walkthrough** of every page table → card path (U2 density work residual).
+12. ~~**Full 375 walkthrough** of every page table → card path.~~ **Audited clean** (2026-08-12): 30 pages × 375px × zh — 0 doc overflow, 0 clipped elements outside scroll containers, 0 i18n leaks. Dense tables scroll horizontally inside overflow-x-auto wrappers (standard mobile pattern).
 13. **Residual hex hygiene** in pages/components (brand logos, chart series, route-card dark surfaces) — sequential; no new brand hex allowed.
 14. ~~**Light-theme primary CTA contrast** — white on `--primary` (`#3ea4ec`) ≈ 2.7:1 fails AA.~~ **Done** — light `--primary-foreground` = `oklch(0.145 0 0)` (`#0a0a0a`) on the unchanged brand primary (`#3ea4ec`) measures **7.28:1** (AAA; lab calc Oklch->sRGB->WCAG). Dark theme untouched (`oklch(1 0 0)` on `#0e72bc` = 5.05:1 AA). Side effects: checkbox/radio/filter-chip icons, avatar badge, slider thumb, brand-icon fallback letters also switch to ink on light-primary fills, all strictly higher contrast. Presets are explicit user choices and are out of scope (audit-only: underground/rose-garden/sunset-glow pass with white; forest-whisper 2.75:1, ocean-breeze 3.75:1, lavender-dream 4.04:1 remain below AA — preset-specific fix deferred).
 
