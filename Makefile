@@ -1,8 +1,12 @@
 .PHONY: p0585-probe p0585-e2e build test race race-integration vet lint vuln mod-verify docs-hygiene bench-routing coverage verify verify-race docker-verify run docker-build clean web-build migrate-build
 
+# Version injected into the binary at build time; "dev" when not on a tag.
+VERSION ?= $(shell git describe --tags --exact-match 2>/dev/null || echo dev)
+LDFLAGS := -s -w -X github.com/deliciousbuding/metapi-go/internal/version.Version=$(VERSION)
+
 # Build the server binary (requires web/dist/ to exist for go:embed)
 build:
-	go build -trimpath -ldflags="-s -w" -o metapi ./cmd/server
+	go build -trimpath -ldflags="$(LDFLAGS)" -o metapi ./cmd/server
 
 # Run tests
 test:
@@ -26,7 +30,7 @@ lint:
 
 # Run dependency vulnerability scan
 vuln:
-	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+	go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
 
 # Verify downloaded modules match go.sum checksums
 mod-verify:
