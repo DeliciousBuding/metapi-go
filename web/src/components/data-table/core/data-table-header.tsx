@@ -52,6 +52,7 @@ export function DataTableHeader<TData>({
                   role='separator'
                   aria-orientation='vertical'
                   aria-label={t('Resize column')}
+                  aria-valuenow={Math.round(header.getSize())}
                   data-column-resizer
                   tabIndex={0}
                   onDoubleClick={(event) =>

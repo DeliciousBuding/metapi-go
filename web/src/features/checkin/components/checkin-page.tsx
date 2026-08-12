@@ -307,7 +307,10 @@ export function CheckinPage() {
             setPagination((prev) => ({ ...prev, pageIndex: 0 }))
           }}
         >
-          <SelectTrigger className='w-[200px]'>
+          <SelectTrigger
+            aria-label={t('checkin.page.filterAccountTitle')}
+            className='w-[200px]'
+          >
             <SelectValue>
               {(selected) => {
                 if (!selected || selected === ACCOUNT_FILTER_ALL) {

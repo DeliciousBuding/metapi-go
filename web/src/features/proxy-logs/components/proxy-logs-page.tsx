@@ -357,7 +357,11 @@ export function ProxyLogsPage() {
                   setPagination((prev) => ({ ...prev, pageIndex: 0 }))
                 }}
               >
-                <SelectTrigger size='sm' className='w-[120px]'>
+                <SelectTrigger
+                  size='sm'
+                  aria-label={t('proxyLogs.page.filterStatusPlaceholder')}
+                  className='w-[120px]'
+                >
                   <SelectValue>
                     {(selected) => {
                       const option = PROXY_LOG_STATUS_FILTER_OPTIONS.find(
@@ -365,7 +369,9 @@ export function ProxyLogsPage() {
                       )
                       return option
                         ? t(option.labelKey)
-                        : String(selected ?? '')
+                        : selected
+                          ? String(selected)
+                          : t('proxyLogs.filter.all')
                     }}
                   </SelectValue>
                 </SelectTrigger>
@@ -385,7 +391,11 @@ export function ProxyLogsPage() {
                     setPagination((prev) => ({ ...prev, pageIndex: 0 }))
                   }}
                 >
-                  <SelectTrigger size='sm' className='w-[160px]'>
+                  <SelectTrigger
+                    size='sm'
+                    aria-label={t('proxyLogs.page.filterSitePlaceholder')}
+                    className='w-[160px]'
+                  >
                     <SelectValue>
                       {(selected) => {
                         if (!selected || selected === 'all') {
@@ -420,7 +430,11 @@ export function ProxyLogsPage() {
                     setPagination((prev) => ({ ...prev, pageIndex: 0 }))
                   }}
                 >
-                  <SelectTrigger size='sm' className='w-[160px]'>
+                  <SelectTrigger
+                    size='sm'
+                    aria-label={t('proxyLogs.page.filterClientPlaceholder')}
+                    className='w-[160px]'
+                  >
                     <SelectValue>
                       {(selected) => {
                         if (!selected || selected === 'all') {

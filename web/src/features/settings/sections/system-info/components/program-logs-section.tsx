@@ -182,7 +182,10 @@ export function ProgramLogsSection() {
           value={typeFilter}
           onValueChange={(value) => setTypeFilter(value ?? 'all')}
         >
-          <SelectTrigger className='w-40'>
+          <SelectTrigger
+            aria-label={t('settings.systemInfo.programLogs.filterType')}
+            className='w-40'
+          >
             <SelectValue>
               {(selected) =>
                 !selected || selected === 'all'
