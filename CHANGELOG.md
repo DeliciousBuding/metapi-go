@@ -7,6 +7,8 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
+## [v0.10.0] — 2026-08-12
+
 ### Added
 - Versioned `ScheduleSpec` v1 for daily, interval, random-window, and custom Cron schedules, with additive preview/apply migration endpoints that preserve every legacy key.
 - Unified settings form actions, load-error states, dirty navigation guards, semantic schedule controls, and responsive settings navigation.
