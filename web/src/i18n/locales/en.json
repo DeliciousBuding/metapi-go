@@ -907,7 +907,7 @@
           }
         },
         "allowlist": {
-          "title": "Global Allowlist & Brand Blocking",
+          "title": "Allowlist & Brand Blocking",
           "description": "Global allowed models and globally blocked brands.",
           "allowAll": "(empty = allow all)",
           "addPlaceholder": "Add a model name and press Enter",

@@ -905,7 +905,7 @@
           }
         },
         "allowlist": {
-          "title": "全局白名单与品牌屏蔽",
+          "title": "白名单与品牌屏蔽",
           "description": "全局允许的模型与全局屏蔽的品牌。",
           "allowAll": "（留空 = 允许全部）",
           "addPlaceholder": "输入模型名并回车添加",

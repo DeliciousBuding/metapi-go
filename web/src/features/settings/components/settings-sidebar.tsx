@@ -40,7 +40,7 @@ export function SettingsSidebar({ items, title }: SettingsSidebarProps) {
   }, [items])
 
   return (
-    <aside className='w-full shrink-0 lg:sticky lg:top-6 lg:w-56'>
+    <aside className='w-full shrink-0 lg:sticky lg:top-6 lg:w-60'>
       <nav className='flex flex-col gap-1'>
         {title ? (
           <p className='text-muted-foreground/70 px-3 pb-2 text-[11px] font-medium tracking-wider uppercase'>
