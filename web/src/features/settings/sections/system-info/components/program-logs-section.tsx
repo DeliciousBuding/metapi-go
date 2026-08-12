@@ -32,18 +32,12 @@ import {
   SettingsSectionSkeleton,
 } from '../../../components/settings-section-card'
 import { SettingsSectionError } from '../../../components/settings-section-error'
-
-type ProgramEvent = {
-  id: number
-  type: string
-  title: string
-  message?: string
-  level?: 'info' | 'warning' | 'error'
-  read?: boolean
-  createdAt?: string
-}
-
-type EventsResponse = { items: ProgramEvent[]; total?: number; limit?: number }
+import {
+  formatTimestamp,
+  normalizeEvent,
+  type EventsResponse,
+  type ProgramEvent,
+} from '../lib/event-normalize'
 
 const eventsQueryKeys = {
   all: ['program-events'] as const,
@@ -86,10 +80,14 @@ export function ProgramLogsSection() {
       const data = (await api.getEvents(filterQuery)) as
         | EventsResponse
         | ProgramEvent[]
+      const rawItems = Array.isArray(data) ? data : (data?.items ?? [])
+      const items = rawItems.map((row) =>
+        normalizeEvent(row as unknown as Record<string, unknown>)
+      )
       if (Array.isArray(data)) {
-        return { items: data, total: data.length, limit: 50 }
+        return { items, total: items.length, limit: 50 }
       }
-      return data ?? { items: [] }
+      return { ...data, items, total: data?.total ?? items.length }
     },
     staleTime: 10 * 1000,
   })
@@ -256,7 +254,7 @@ export function ProgramLogsSection() {
             {items.map((event) => (
               <TableRow key={event.id}>
                 <TableCell className='text-muted-foreground text-xs'>
-                  {event.createdAt ?? '—'}
+                  {formatTimestamp(event.createdAt)}
                 </TableCell>
                 <TableCell>
                   <Badge variant={levelVariant(event.level)}>
