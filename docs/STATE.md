@@ -1,6 +1,6 @@
 # STATE.md — MetAPI Go product status
 
-**Last verified**: 2026-08-11
+**Last verified**: 2026-08-12
 
 > **Current state** (product repository). Only current facts and pointers, no narrative.
 > Deployment facts live in the deployment guide; open items → [`progress/MASTER.md`](progress/MASTER.md) · timeline → [`log.md`](log.md) · version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
