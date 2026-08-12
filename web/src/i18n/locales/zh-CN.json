@@ -279,87 +279,6 @@
         "abnormal": "异常"
       }
     },
-    "siteAnnouncements": {
-      "page": {
-        "loadError": "加载公告失败：{{message}}"
-      },
-      "toast": {
-        "deleted": "公告「{{title}}」已删除。",
-        "deleteFailed": "删除公告失败。"
-      },
-      "empty": {
-        "title": "暂无公告",
-        "description": "创建后公告会显示在这里。",
-        "add": "添加公告"
-      },
-      "toolbar": {
-        "searchPlaceholder": "搜索公告…",
-        "add": "添加公告"
-      },
-      "delete": {
-        "title": "删除公告",
-        "description": "将删除公告「{{title}}」，此操作不可撤销。",
-        "cancel": "取消",
-        "confirm": "删除"
-      },
-      "form": {
-        "addTitle": "添加公告",
-        "editTitle": "编辑公告",
-        "addDescription": "创建一条新的站点公告。",
-        "editDescription": "更新公告详情。",
-        "title": "标题",
-        "titlePlaceholder": "输入标题",
-        "message": "内容",
-        "messagePlaceholder": "输入公告内容",
-        "messageDescription": "公告启用时向用户展示。",
-        "severity": "严重程度",
-        "severityPlaceholder": "选择严重程度",
-        "link": "链接",
-        "linkPlaceholder": "https://example.com",
-        "linkDescription": "可选，指向更多详情的地址。",
-        "enabled": "启用",
-        "enabledDescription": "该公告当前是否处于活动状态。",
-        "cancel": "取消",
-        "save": "保存",
-        "create": "创建",
-        "createSucceeded": "公告「{{title}}」已创建。",
-        "updateSucceeded": "公告「{{title}}」已更新。",
-        "createFailed": "创建公告失败。",
-        "updateFailed": "更新公告失败。",
-        "errors": {
-          "invalidLink": "请输入有效的地址。",
-          "titleRequired": "请输入标题。",
-          "titleTooLong": "标题不能超过 200 个字符。",
-          "messageRequired": "请输入内容。",
-          "messageTooLong": "内容不能超过 2000 个字符。"
-        }
-      },
-      "columns": {
-        "selectAll": "全选",
-        "selectRow": "选择此行",
-        "title": "标题",
-        "severity": "严重程度",
-        "enabled": "启用",
-        "link": "链接",
-        "openLink": "打开链接",
-        "createdAt": "创建时间",
-        "actions": "操作",
-        "rowActions": "行操作"
-      },
-      "actions": {
-        "edit": "编辑",
-        "delete": "删除"
-      },
-      "severity": {
-        "info": "信息",
-        "warning": "警告",
-        "critical": "严重"
-      },
-      "enabled": {
-        "on": "启用",
-        "off": "停用"
-      }
-    },
     "sites": {
       "page": {
         "loadError": "加载站点失败：{{message}}"
@@ -1112,7 +1031,7 @@
         },
         "announcements": {
           "title": "风险横幅公告",
-          "description": "产品风险横幅 — 草稿 / 严重程度 / 启用状态。与顶部「站点公告」页面共用同一数据源。",
+          "description": "产品风险横幅 — 草稿 / 严重程度 / 启用状态。",
           "create": "新建公告",
           "createTitle": "创建公告",
           "editTitle": "编辑公告",
@@ -1938,7 +1857,6 @@
         "monitors": "监控",
         "tokenRoutes": "路由",
         "oauth": "OAuth",
-        "siteAnnouncements": "站点公告",
         "models": "模型",
         "modelTester": "操练场",
         "settings": "设置",

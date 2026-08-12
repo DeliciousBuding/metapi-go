@@ -1,5 +1,5 @@
 // metapi-go/helpers — URL search-param decode helpers shared by the feature
-// search schemas (sites / proxy-logs / models / oauth / site-announcements).
+// search schemas (sites / proxy-logs / models / oauth).
 
 import { z } from 'zod'
 //

@@ -1,6 +1,6 @@
 // metapi-go/data-table — shared URL-synced table state hook.
 //
-// The list pages (sites / oauth / site-announcements / models) each mirror
+// The list pages (sites / oauth / models) each mirror
 // table state (search / page / page-size / sorting / faceted filters) to the
 // URL so a deep link restores the exact view. This hook owns the TanStack
 // Router plumbing that was previously duplicated per page:

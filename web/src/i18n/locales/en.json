@@ -279,87 +279,6 @@
         "abnormal": "Abnormal"
       }
     },
-    "siteAnnouncements": {
-      "page": {
-        "loadError": "Failed to load announcements: {{message}}"
-      },
-      "toast": {
-        "deleted": "Announcement \"{{title}}\" deleted.",
-        "deleteFailed": "Failed to delete the announcement."
-      },
-      "empty": {
-        "title": "No announcements",
-        "description": "Announcements will appear here once created.",
-        "add": "Add announcement"
-      },
-      "toolbar": {
-        "searchPlaceholder": "Search announcements…",
-        "add": "Add announcement"
-      },
-      "delete": {
-        "title": "Delete announcement",
-        "description": "This will delete the announcement \"{{title}}\". This action cannot be undone.",
-        "cancel": "Cancel",
-        "confirm": "Delete"
-      },
-      "form": {
-        "addTitle": "Add announcement",
-        "editTitle": "Edit announcement",
-        "addDescription": "Create a new site announcement.",
-        "editDescription": "Update the announcement details.",
-        "title": "Title",
-        "titlePlaceholder": "Enter the title",
-        "message": "Message",
-        "messagePlaceholder": "Enter the message body",
-        "messageDescription": "Shown to users when the announcement is active.",
-        "severity": "Severity",
-        "severityPlaceholder": "Select a severity",
-        "link": "Link",
-        "linkPlaceholder": "https://example.com",
-        "linkDescription": "Optional URL for more details.",
-        "enabled": "Enabled",
-        "enabledDescription": "Whether this announcement is currently active.",
-        "cancel": "Cancel",
-        "save": "Save",
-        "create": "Create",
-        "createSucceeded": "Announcement \"{{title}}\" created.",
-        "updateSucceeded": "Announcement \"{{title}}\" updated.",
-        "createFailed": "Failed to create the announcement.",
-        "updateFailed": "Failed to update the announcement.",
-        "errors": {
-          "invalidLink": "Please enter a valid URL.",
-          "titleRequired": "Please enter a title.",
-          "titleTooLong": "Title must be at most 200 characters.",
-          "messageRequired": "Please enter a message.",
-          "messageTooLong": "Message must be at most 2000 characters."
-        }
-      },
-      "columns": {
-        "selectAll": "Select all",
-        "selectRow": "Select row",
-        "title": "Title",
-        "severity": "Severity",
-        "enabled": "Enabled",
-        "link": "Link",
-        "openLink": "Open link",
-        "createdAt": "Created at",
-        "actions": "Actions",
-        "rowActions": "Row actions"
-      },
-      "actions": {
-        "edit": "Edit",
-        "delete": "Delete"
-      },
-      "severity": {
-        "info": "Info",
-        "warning": "Warning",
-        "critical": "Critical"
-      },
-      "enabled": {
-        "on": "Enabled",
-        "off": "Disabled"
-      }
-    },
     "sites": {
       "page": {
         "loadError": "Failed to load sites: {{message}}"
@@ -1114,7 +1033,7 @@
         },
         "announcements": {
           "title": "Risk Banner Announcements",
-          "description": "Product risk banners — draft, severity, and enabled state. Same source as the top-level Site Announcements page.",
+          "description": "Product risk banners — draft, severity, and enabled state.",
           "create": "New announcement",
           "createTitle": "Create announcement",
           "editTitle": "Edit announcement",
@@ -1944,7 +1863,6 @@
         "monitors": "Monitors",
         "tokenRoutes": "Token Routes",
         "oauth": "OAuth",
-        "siteAnnouncements": "Site Announcements",
         "models": "Models",
         "modelTester": "Model Tester",
         "settings": "Settings",
