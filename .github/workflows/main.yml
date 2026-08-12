@@ -129,7 +129,7 @@ jobs:
       # The real dist is reused by test-sqlite/test-pg (SPA-fallback tests),
       # instead of each test job rebuilding the frontend.
       - name: Upload web dist for test jobs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: web-dist
           path: web/dist
