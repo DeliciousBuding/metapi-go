@@ -43,6 +43,20 @@ export function checkIsActive(
     return true
   }
 
+  // Prefix match for drill-in items (e.g. a settings subarea stays active for
+  // any of its section URLs: /settings/general matches /settings/general/*).
+  if (item.activePrefix) {
+    const prefix = item.activePrefix.split('?')[0]
+    const cleanPrefix = prefix.length > 1 ? prefix.replace(/\/+$/, '') : prefix
+    const cleanHref =
+      hrefWithoutQuery.length > 1
+        ? hrefWithoutQuery.replace(/\/+$/, '')
+        : hrefWithoutQuery
+    if (cleanHref === cleanPrefix || cleanHref.startsWith(`${cleanPrefix}/`)) {
+      return true
+    }
+  }
+
   // For collapsible items (NavCollapsible), check sub-items first
   if ('items' in item && item.items) {
     const collapsibleItem = item as NavCollapsible

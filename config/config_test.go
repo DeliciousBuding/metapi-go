@@ -344,3 +344,94 @@ func TestLoadExplicitPoolOverridesProfile(t *testing.T) {
 		t.Fatalf("explicit override = %d/%d, want 50/10", cfg.DbMaxOpenConns, cfg.DbMaxIdleConns)
 	}
 }
+
+func TestLoadParsesBrandingEnv(t *testing.T) {
+	cfg := Load(map[string]string{
+		"SYSTEM_NAME":       "My Gateway",
+		"LOGO":              "https://example.com/logo.png",
+		"FOOTER":            "Powered by MetAPI",
+		"ABOUT":             "About page copy",
+		"HOME_PAGE_CONTENT": "Welcome",
+		"SERVER_ADDRESS":    "https://gw.example.com",
+	})
+	if cfg.SystemName != "My Gateway" {
+		t.Fatalf("SystemName = %q", cfg.SystemName)
+	}
+	if cfg.Logo != "https://example.com/logo.png" {
+		t.Fatalf("Logo = %q", cfg.Logo)
+	}
+	if cfg.Footer != "Powered by MetAPI" {
+		t.Fatalf("Footer = %q", cfg.Footer)
+	}
+	if cfg.About != "About page copy" {
+		t.Fatalf("About = %q", cfg.About)
+	}
+	if cfg.HomePageContent != "Welcome" {
+		t.Fatalf("HomePageContent = %q", cfg.HomePageContent)
+	}
+	if cfg.ServerAddress != "https://gw.example.com" {
+		t.Fatalf("ServerAddress = %q", cfg.ServerAddress)
+	}
+}
+
+func TestLoadBrandingDefaultsEmpty(t *testing.T) {
+	cfg := Load(map[string]string{})
+	if cfg.SystemName != "" || cfg.Logo != "" || cfg.Footer != "" || cfg.About != "" || cfg.HomePageContent != "" || cfg.ServerAddress != "" {
+		t.Fatalf("branding defaults not empty: %+v", cfg)
+	}
+}
+
+func TestValidateAcceptsWindowScheduleMode(t *testing.T) {
+	cfg := &Config{
+		Port:                4000,
+		DbType:              "sqlite",
+		DbMaxOpenConns:      10,
+		DbMaxIdleConns:      3,
+		CheckinScheduleMode: "window",
+		AuthToken:           "not-default-admin",
+		ProxyToken:          "sk-not-default-proxy",
+	}
+	for _, err := range cfg.Validate() {
+		if configErrorField(err) == "checkin_schedule_mode" && configErrorCritical(err) {
+			t.Fatalf("window mode rejected as critical: %v", err)
+		}
+	}
+}
+
+func TestValidateRejectsBogusScheduleMode(t *testing.T) {
+	cfg := &Config{
+		Port:                4000,
+		DbType:              "sqlite",
+		DbMaxOpenConns:      10,
+		DbMaxIdleConns:      3,
+		CheckinScheduleMode: "bogus",
+		AuthToken:           "not-default-admin",
+		ProxyToken:          "sk-not-default-proxy",
+	}
+	found := false
+	for _, err := range cfg.Validate() {
+		if configErrorField(err) == "checkin_schedule_mode" {
+			found = true
+			if !configErrorCritical(err) {
+				t.Fatalf("bogus mode not critical: %v", err)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("no checkin_schedule_mode validation error")
+	}
+}
+
+func configErrorField(err error) string {
+	if ce, ok := err.(*configError); ok {
+		return ce.field
+	}
+	return ""
+}
+
+func configErrorCritical(err error) bool {
+	if ce, ok := err.(*configError); ok {
+		return ce.critical
+	}
+	return false
+}

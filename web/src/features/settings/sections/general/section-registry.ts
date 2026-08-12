@@ -9,6 +9,7 @@
 // components. Section content is built with React.createElement, which is
 // hooks-safe and stays valid when individual section components are swapped.
 
+import { Settings } from 'lucide-react'
 import { createElement } from 'react'
 
 import type { SettingsSubarea } from '../../types'
@@ -23,30 +24,35 @@ const GENERAL_SECTIONS = [
   {
     id: 'site',
     title: 'settings.general.site.title',
+    group: 'settings.general.groups.brandSecurity',
     description: 'settings.general.site.description',
     build: () => createElement(SiteSection),
   },
   {
     id: 'authentication',
     title: 'settings.general.authentication.title',
+    group: 'settings.general.groups.brandSecurity',
     description: 'settings.general.authentication.description',
     build: () => createElement(AuthenticationSection),
   },
   {
     id: 'scheduling',
     title: 'settings.general.scheduling.title',
+    group: 'settings.general.groups.runtimeStrategy',
     description: 'settings.general.scheduling.description',
     build: () => createElement(SchedulingSection),
   },
   {
     id: 'proxy-transport',
     title: 'settings.general.proxyTransport.title',
+    group: 'settings.general.groups.runtimeStrategy',
     description: 'settings.general.proxyTransport.description',
     build: () => createElement(ProxyTransportSection),
   },
   {
     id: 'routing',
     title: 'settings.general.routing.title',
+    group: 'settings.general.groups.runtimeStrategy',
     description: 'settings.general.routing.description',
     build: () => createElement(RoutingSection),
   },
@@ -68,6 +74,8 @@ const registry = createSectionRegistry<GeneralSectionId>({
 export const generalSubarea: SettingsSubarea = {
   id: 'general',
   title: 'settings.subareas.general',
+  description: 'settings.subareas.general.description',
+  icon: Settings,
   basePath: '/settings/general',
   defaultSection: registry.defaultSection,
   sectionIds: registry.sectionIds,

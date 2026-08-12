@@ -12,12 +12,12 @@ export default defineConfig(({ envMode }) => {
   // VITE_ prefix kept for parity with legacy env var names
   // (DEV_PROXY_TARGET / VITE_DEV_PROXY_TARGET / PORT / VITE_BACKEND_PORT).
   const env = loadEnv({ mode: envMode, prefixes: ['VITE_'] })
+  const backendPort =
+    process.env.VITE_BACKEND_PORT || env.rawPublicVars.VITE_BACKEND_PORT
   const serverUrl =
     process.env.VITE_DEV_PROXY_TARGET ||
     env.rawPublicVars.VITE_DEV_PROXY_TARGET ||
-    (process.env.PORT || env.rawPublicVars.VITE_BACKEND_PORT
-      ? `http://localhost:${process.env.PORT || env.rawPublicVars.VITE_BACKEND_PORT}`
-      : 'http://localhost:4000')
+    `http://localhost:${backendPort || '4000'}`
 
   const isProd = envMode === 'production'
   // metapi-go backend serves admin REST under /api and OpenAI-compatible proxy

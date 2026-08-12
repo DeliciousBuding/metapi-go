@@ -10,10 +10,11 @@
 // the scheduled-tasks table.
 
 import { useQuery } from '@tanstack/react-query'
-import { Activity, ClipboardList } from 'lucide-react'
+import { Activity, ClipboardList, RefreshCw } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -77,7 +78,8 @@ const SCHEDULER_STATUS_BADGE: Record<
     key: 'dashboard.overview.scheduledTasks.statusSuccess',
   },
   failed: {
-    className: 'border-destructive/40 bg-destructive/10 text-destructive',
+    className:
+      'border-destructive/40 bg-destructive/10 text-destructive-soft-fg',
     key: 'dashboard.overview.scheduledTasks.statusFailed',
   },
   running: {
@@ -104,7 +106,12 @@ export function OverviewSection() {
       api.getBalanceHistory(0, 8) as Promise<BalanceHistoryResponse>,
   })
 
-  const { data: schedulerStatus, isLoading: schedulerLoading } = useQuery({
+  const {
+    data: schedulerStatus,
+    isLoading: schedulerLoading,
+    error: schedulerError,
+    refetch: refetchScheduler,
+  } = useQuery({
     queryKey: ['scheduler-status'],
     queryFn: () => api.getSchedulerStatus(),
   })
@@ -139,6 +146,23 @@ export function OverviewSection() {
   const renderSchedulerBody = (): ReactNode => {
     if (schedulerLoading) {
       return <Skeleton className='h-40 w-full rounded-md' />
+    }
+    if (schedulerError) {
+      return (
+        <div className='border-destructive/40 bg-destructive/10 flex min-h-24 flex-col items-center justify-center gap-3 rounded-lg border py-8 text-center'>
+          <p className='text-destructive text-sm'>
+            {t('dashboard.overview.scheduledTasks.loadError')}
+          </p>
+          <Button
+            variant='outline'
+            size='sm'
+            onClick={() => void refetchScheduler()}
+          >
+            <RefreshCw className='mr-1 size-3.5' />
+            {t('dashboard.overview.scheduledTasks.retry')}
+          </Button>
+        </div>
+      )
     }
     if (schedulerRows.length === 0) {
       return (

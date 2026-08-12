@@ -1,5 +1,6 @@
 // metapi-go/ui — switch component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
 import { Switch as SwitchPrimitive } from '@base-ui/react/switch'
+import { useEffect, useRef } from 'react'
 
 import { cn } from '@/lib/utils'
 
@@ -10,8 +11,22 @@ function Switch({
 }: SwitchPrimitive.Root.Props & {
   size?: 'sm' | 'default'
 }) {
+  const ref = useRef<HTMLElement | null>(null)
+
+  // @base-ui emits aria-checked as "0"/"1", but ARIA only accepts
+  // "true"/"false"/"mixed"/"undefined" — normalize so axe and screen
+  // readers see a valid value (kept in sync on every re-render).
+  useEffect(() => {
+    const node = ref.current
+    if (!node) return
+    const current = node.getAttribute('aria-checked')
+    if (current === '0') node.setAttribute('aria-checked', 'false')
+    else if (current === '1') node.setAttribute('aria-checked', 'true')
+  })
+
   return (
     <SwitchPrimitive.Root
+      ref={ref}
       data-slot='switch'
       data-size={size}
       className={cn(

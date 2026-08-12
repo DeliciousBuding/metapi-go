@@ -10,7 +10,6 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -32,18 +31,13 @@ import {
   SettingsSectionCard,
   SettingsSectionSkeleton,
 } from '../../../components/settings-section-card'
-
-type ProgramEvent = {
-  id: number
-  type: string
-  title: string
-  message?: string
-  level?: 'info' | 'warning' | 'error'
-  read?: boolean
-  createdAt?: string
-}
-
-type EventsResponse = { items: ProgramEvent[]; total?: number; limit?: number }
+import { SettingsSectionError } from '../../../components/settings-section-error'
+import {
+  formatTimestamp,
+  normalizeEvent,
+  type EventsResponse,
+  type ProgramEvent,
+} from '../lib/event-normalize'
 
 const eventsQueryKeys = {
   all: ['program-events'] as const,
@@ -83,8 +77,17 @@ export function ProgramLogsSection() {
   const eventsQuery = useQuery<EventsResponse>({
     queryKey: eventsQueryKeys.list(filterQuery),
     queryFn: async () => {
-      const data = (await api.getEvents(filterQuery)) as EventsResponse
-      return data ?? { items: [] }
+      const data = (await api.getEvents(filterQuery)) as
+        | EventsResponse
+        | ProgramEvent[]
+      const rawItems = Array.isArray(data) ? data : (data?.items ?? [])
+      const items = rawItems.map((row) =>
+        normalizeEvent(row as unknown as Record<string, unknown>)
+      )
+      if (Array.isArray(data)) {
+        return { items, total: items.length, limit: 50 }
+      }
+      return { ...data, items, total: data?.total ?? items.length }
     },
     staleTime: 10 * 1000,
   })
@@ -149,7 +152,7 @@ export function ProgramLogsSection() {
       title={t('settings.systemInfo.programLogs.title')}
       description={t('settings.systemInfo.programLogs.description')}
       actions={
-        <div className='flex gap-2'>
+        <div className='flex flex-wrap gap-2'>
           <Button
             type='button'
             variant='outline'
@@ -179,8 +182,19 @@ export function ProgramLogsSection() {
           value={typeFilter}
           onValueChange={(value) => setTypeFilter(value ?? 'all')}
         >
-          <SelectTrigger className='w-40'>
-            <SelectValue />
+          <SelectTrigger
+            aria-label={t('settings.systemInfo.programLogs.filterType')}
+            className='w-40'
+          >
+            <SelectValue>
+              {(selected) =>
+                !selected || selected === 'all'
+                  ? t('settings.systemInfo.programLogs.allTypes')
+                  : t(
+                      `settings.systemInfo.programLogs.type.${String(selected)}`
+                    )
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value='all'>
@@ -200,20 +214,25 @@ export function ProgramLogsSection() {
           />
           {t('settings.systemInfo.programLogs.unreadOnly')}
         </label>
-        <Input
-          disabled
-          value={`${items.length}`}
-          className='w-20'
-          aria-label={t('settings.systemInfo.programLogs.count')}
-        />
+        <span className='text-muted-foreground text-xs'>
+          {t('settings.systemInfo.programLogs.loadedCount', {
+            count: items.length,
+          })}
+        </span>
       </div>
       {eventsQuery.isLoading ? <SettingsSectionSkeleton /> : null}
-      {!eventsQuery.isLoading && items.length === 0 ? (
+      {eventsQuery.isError ? (
+        <SettingsSectionError
+          title={t('settings.systemInfo.programLogs.title')}
+          onRetry={() => void eventsQuery.refetch()}
+        />
+      ) : null}
+      {!eventsQuery.isLoading && !eventsQuery.isError && items.length === 0 ? (
         <p className='text-muted-foreground py-8 text-center text-sm'>
           {t('settings.systemInfo.programLogs.empty')}
         </p>
       ) : null}
-      {!eventsQuery.isLoading && items.length > 0 ? (
+      {!eventsQuery.isLoading && !eventsQuery.isError && items.length > 0 ? (
         <Table>
           <TableHeader>
             <TableRow>
@@ -238,7 +257,7 @@ export function ProgramLogsSection() {
             {items.map((event) => (
               <TableRow key={event.id}>
                 <TableCell className='text-muted-foreground text-xs'>
-                  {event.createdAt ?? '—'}
+                  {formatTimestamp(event.createdAt)}
                 </TableCell>
                 <TableCell>
                   <Badge variant={levelVariant(event.level)}>

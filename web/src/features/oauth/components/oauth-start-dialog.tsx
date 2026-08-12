@@ -137,9 +137,19 @@ export function OAuthStartDialog({
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue
-                          placeholder={t('oauth.form.providerPlaceholder')}
-                        />
+                        <SelectValue>
+                          {(selected) => {
+                            if (!selected) {
+                              return t('oauth.form.providerPlaceholder')
+                            }
+                            const provider = enabledProviders.find(
+                              (item) => item.provider === selected
+                            )
+                            return provider
+                              ? provider.label || provider.provider
+                              : String(selected)
+                          }}
+                        </SelectValue>
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>

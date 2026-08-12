@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/app"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/scheduler"
+	"github.com/jmoiron/sqlx"
 )
 
 type checkinSchedulePatch struct {
@@ -18,6 +18,7 @@ type checkinSchedulePatch struct {
 	// E1: random-window mode bounds (HH:mm, 24h).
 	WindowStart *string
 	WindowEnd   *string
+	Schedule    *scheduler.ScheduleSpec
 }
 
 type checkinScheduleState struct {
@@ -32,7 +33,7 @@ type checkinScheduleState struct {
 func applyCheckinScheduleSettings(db *sqlx.DB, cfg *config.Config, patch checkinSchedulePatch) (checkinScheduleState, error) {
 	state := resolveCheckinScheduleState(cfg, patch)
 	if state.Mode == "" {
-		return checkinScheduleState{}, fmt.Errorf("mode must be cron or interval")
+		return checkinScheduleState{}, fmt.Errorf("mode must be cron, interval or window")
 	}
 	if patch.Cron != nil || state.Mode == "cron" {
 		if state.Cron == "" {
@@ -78,6 +79,25 @@ func applyCheckinScheduleSettings(db *sqlx.DB, cfg *config.Config, patch checkin
 			return checkinScheduleState{}, err
 		}
 	}
+	v2 := scheduler.ScheduleSpec{Version: scheduler.ScheduleSpecVersion}
+	if patch.Schedule != nil {
+		v2 = *patch.Schedule
+		v2.Version = scheduler.ScheduleSpecVersion
+	} else {
+		switch state.Mode {
+		case "window":
+			v2 = scheduler.ScheduleSpec{Version: scheduler.ScheduleSpecVersion, Type: "window", WindowStart: state.WindowStart, WindowEnd: state.WindowEnd, Cron: state.Cron}
+		case "interval":
+			v2 = scheduler.ScheduleSpec{Version: scheduler.ScheduleSpecVersion, Type: "interval", EveryHours: state.IntervalHours, Cron: state.Cron}
+		default:
+			v2 = scheduler.CronToSchedule(state.Cron)
+		}
+	}
+	v2.Cron = state.Cron
+	if err := upsertSettingTx(db, tx, "checkin_schedule_v2", v2); err != nil {
+		return checkinScheduleState{}, err
+	}
+
 	if err := tx.Commit(); err != nil {
 		return checkinScheduleState{}, fmt.Errorf("settings: commit checkin schedule update: %w", err)
 	}
@@ -164,4 +184,17 @@ func upsertSettingTx(db *sqlx.DB, tx *sqlx.Tx, key string, value any) error {
 		return fmt.Errorf("settings: upsert %q: %w", key, err)
 	}
 	return nil
+}
+
+// scheduleSpecForCheckin derives the semantic ScheduleSpec shown by GET
+// /api/settings/runtime for the checkin task, honouring its mode.
+func scheduleSpecForCheckin(cfg *config.Config) scheduler.ScheduleSpec {
+	switch cfg.CheckinScheduleMode {
+	case "window":
+		return scheduler.ScheduleSpec{Version: scheduler.ScheduleSpecVersion, Type: "window", WindowStart: cfg.CheckinWindowStart, WindowEnd: cfg.CheckinWindowEnd, Cron: cfg.CheckinCron}
+	case "interval":
+		return scheduler.ScheduleSpec{Version: scheduler.ScheduleSpecVersion, Type: "interval", EveryHours: cfg.CheckinIntervalHours, Cron: cfg.CheckinCron}
+	default:
+		return scheduler.CronToSchedule(cfg.CheckinCron)
+	}
 }

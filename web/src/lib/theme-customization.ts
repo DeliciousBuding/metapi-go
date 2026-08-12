@@ -17,7 +17,7 @@ export const THEME_PRESETS = [
   },
   {
     value: 'simple-large',
-    name: 'Simple Large-font',
+    name: 'Simple',
     swatches: ['oklch(0.15 0 0)', 'oklch(0.99 0 0)'],
   },
   {

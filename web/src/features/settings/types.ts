@@ -19,10 +19,14 @@ export type SettingsSection = {
   id: string
   /** Human label shown in the settings sidebar + page header. */
   title: string
+  /** Optional i18n key of a group label that scopes this section in the sidebar. */
+  group?: string
   /** Short description shown under the page header (optional). */
   description?: string
   /** Optional lucide icon for the sidebar (phase 2 may leave unset). */
   icon?: ElementType
+  /** Read-only / external surface (rates, audit, update center) - shown as a badge. */
+  readonly?: boolean
   /** Lazy content builder. Receives nothing in phase 2; phase 3 adds settings. */
   build: () => ReactNode
 }
@@ -37,6 +41,10 @@ export type SettingsSection = {
 export type SettingsSectionNavItem = {
   title: string
   url: LinkProps['to'] | (string & {})
+  /** Optional i18n key of the sidebar group this item belongs to. */
+  group?: string
+  /** Read-only / external surface - shown as a badge. */
+  readonly?: boolean
 }
 
 /**
@@ -63,6 +71,10 @@ type SettingsSubareaId =
 export type SettingsSubarea = {
   id: SettingsSubareaId
   title: string
+  /** Short description shown on the settings overview landing (optional). */
+  description?: string
+  /** Optional lucide icon shown on the settings overview + main sidebar. */
+  icon?: ElementType
   /** Base path, e.g. '/settings/general'. Section URLs become `${basePath}/${id}`. */
   basePath: string
   /** Section navigated to when no `$section` param is present. */

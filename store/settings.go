@@ -130,17 +130,42 @@ func ApplyRuntimeSettings(cfg *config.Config, settingsMap map[string]string) {
 				cfg.CheckinWindowEnd = v
 			}
 
+		// Site & Branding (empty values keep the embedded defaults)
+		case "system_name":
+			if v := parseJSONSettingString(value); v != "" {
+				cfg.SystemName = v
+			}
+		case "logo":
+			if v := parseJSONSettingString(value); v != "" {
+				cfg.Logo = v
+			}
+		case "footer":
+			if v := parseJSONSettingString(value); v != "" {
+				cfg.Footer = v
+			}
+		case "about":
+			if v := parseJSONSettingString(value); v != "" {
+				cfg.About = v
+			}
+		case "home_page_content":
+			if v := parseJSONSettingString(value); v != "" {
+				cfg.HomePageContent = v
+			}
+		case "server_address":
+			if v := parseJSONSettingString(value); v != "" {
+				cfg.ServerAddress = v
+			}
 		// Notify
 		case "webhook_url":
-			cfg.WebhookUrl = value
+			cfg.WebhookUrl = parseJSONSettingString(value)
 		case "webhook_enabled":
 			cfg.WebhookEnabled = parseBoolSetting(value, cfg.WebhookEnabled)
 		case "bark_url":
-			cfg.BarkUrl = value
+			cfg.BarkUrl = parseJSONSettingString(value)
 		case "bark_enabled":
 			cfg.BarkEnabled = parseBoolSetting(value, cfg.BarkEnabled)
 		case "serverchan_key":
-			cfg.ServerChanKey = value
+			cfg.ServerChanKey = parseJSONSettingString(value)
 		case "serverchan_enabled":
 			cfg.ServerChanEnabled = parseBoolSetting(value, cfg.ServerChanEnabled)
 
@@ -148,25 +173,25 @@ func ApplyRuntimeSettings(cfg *config.Config, settingsMap map[string]string) {
 		case "telegram_enabled":
 			cfg.TelegramEnabled = parseBoolSetting(value, cfg.TelegramEnabled)
 		case "telegram_bot_token":
-			cfg.TelegramBotToken = value
+			cfg.TelegramBotToken = parseJSONSettingString(value)
 		case "telegram_chat_id":
-			cfg.TelegramChatId = value
+			cfg.TelegramChatId = parseJSONSettingString(value)
 
 		// SMTP
 		case "smtp_enabled":
 			cfg.SmtpEnabled = parseBoolSetting(value, cfg.SmtpEnabled)
 		case "smtp_host":
-			cfg.SmtpHost = value
+			cfg.SmtpHost = parseJSONSettingString(value)
 		case "smtp_port":
 			cfg.SmtpPort = parseInt(value, cfg.SmtpPort)
 		case "smtp_user":
-			cfg.SmtpUser = value
+			cfg.SmtpUser = parseJSONSettingString(value)
 		case "smtp_pass":
-			cfg.SmtpPass = value
+			cfg.SmtpPass = parseJSONSettingString(value)
 		case "smtp_from":
-			cfg.SmtpFrom = value
+			cfg.SmtpFrom = parseJSONSettingString(value)
 		case "smtp_to":
-			cfg.SmtpTo = value
+			cfg.SmtpTo = parseJSONSettingString(value)
 
 		// Log cleanup
 		case "log_cleanup.usage_logs_enabled":
@@ -220,27 +245,27 @@ func ApplyRuntimeSettings(cfg *config.Config, settingsMap map[string]string) {
 		case "feishu_enabled":
 			cfg.FeishuEnabled = parseBoolSetting(value, cfg.FeishuEnabled)
 		case "feishu_webhook":
-			cfg.FeishuWebhook = value
+			cfg.FeishuWebhook = parseJSONSettingString(value)
 		case "feishu_secret":
-			cfg.FeishuSecret = value
+			cfg.FeishuSecret = parseJSONSettingString(value)
 		case "dingtalk_enabled":
 			cfg.DingtalkEnabled = parseBoolSetting(value, cfg.DingtalkEnabled)
 		case "dingtalk_webhook":
-			cfg.DingtalkWebhook = value
+			cfg.DingtalkWebhook = parseJSONSettingString(value)
 		case "dingtalk_secret":
-			cfg.DingtalkSecret = value
+			cfg.DingtalkSecret = parseJSONSettingString(value)
 		case "wecom_enabled":
 			cfg.WecomEnabled = parseBoolSetting(value, cfg.WecomEnabled)
 		case "wecom_webhook":
-			cfg.WecomWebhook = value
+			cfg.WecomWebhook = parseJSONSettingString(value)
 		case "ntfy_enabled":
 			cfg.NtfyEnabled = parseBoolSetting(value, cfg.NtfyEnabled)
 		case "ntfy_url":
-			cfg.NtfyUrl = value
+			cfg.NtfyUrl = parseJSONSettingString(value)
 		case "ntfy_topic":
-			cfg.NtfyTopic = value
+			cfg.NtfyTopic = parseJSONSettingString(value)
 		case "ntfy_token":
-			cfg.NtfyToken = value
+			cfg.NtfyToken = parseJSONSettingString(value)
 
 		// per-alert-type mute toggles (JSON object).
 		// Stored as {"token_expired":true,"low_balance":false,...}; missing

@@ -2,13 +2,9 @@
 // section. Consolidates the legacy cards 3-7 (system proxy, error keywords,
 // payload rules, codex upstream concurrency, model-availability probe) into
 // one form. The legacy payload-rules visual editor is reduced to a JSON
-// textarea here (functional, parse-validated); a richer editor can be
-// layered back on later.
+// textarea here (functional, parse-validated).
 
-import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
-import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
@@ -27,10 +23,15 @@ import {
 import { Input } from '@/components/ui/input'
 import { api } from '@/lib/api'
 
+import { FormNavigationGuard } from '../../../components/form-navigation-guard'
+import { SettingsFormActions } from '../../../components/settings-form-actions'
+import { SettingsSectionCard } from '../../../components/settings-section-card'
+import { SettingsSectionError } from '../../../components/settings-section-error'
+import { useSettingsForm } from '../../../hooks/use-settings-form'
 import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
+  collectChangedFields,
+  hasChanges,
+} from '../../../lib/collect-changed-fields'
 import {
   asBoolean,
   asNumber,
@@ -39,6 +40,7 @@ import {
   splitListField,
   useRuntimeSettings,
   useUpdateRuntimeSettings,
+  type RuntimeSettings,
 } from '../../../lib/runtime-settings'
 
 const FORM_ID = 'settings-general-proxy-transport-form'
@@ -67,81 +69,116 @@ const payloadRulesSchema = z
 const proxyTransportSchema = z.object({
   systemProxyUrl: z.string().optional(),
   proxyErrorKeywords: z.string().optional(),
-  proxyEmptyContentFailEnabled: z.boolean().optional(),
+  proxyEmptyContentFailEnabled: z.boolean(),
   payloadRules: payloadRulesSchema,
-  codexUpstreamWebsocketEnabled: z.boolean().optional(),
-  responsesCompactFallbackToResponsesEnabled: z.boolean().optional(),
-  proxySessionChannelConcurrencyLimit: z.coerce
-    .number()
-    .int()
-    .min(0)
-    .optional(),
-  proxySessionChannelQueueWaitMs: z.coerce.number().int().min(0).optional(),
-  modelAvailabilityProbeEnabled: z.boolean().optional(),
+  codexUpstreamWebsocketEnabled: z.boolean(),
+  responsesCompactFallbackToResponsesEnabled: z.boolean(),
+  proxySessionChannelConcurrencyLimit: z.coerce.number().int().min(0),
+  proxySessionChannelQueueWaitMs: z.coerce.number().int().min(0),
+  modelAvailabilityProbeEnabled: z.boolean(),
 })
 
 type ProxyTransportFormValues = z.infer<typeof proxyTransportSchema>
 
+const DEFAULT_VALUES: ProxyTransportFormValues = {
+  systemProxyUrl: '',
+  proxyErrorKeywords: '',
+  proxyEmptyContentFailEnabled: false,
+  payloadRules: '',
+  codexUpstreamWebsocketEnabled: false,
+  responsesCompactFallbackToResponsesEnabled: false,
+  proxySessionChannelConcurrencyLimit: 2,
+  proxySessionChannelQueueWaitMs: 1500,
+  modelAvailabilityProbeEnabled: false,
+}
+
+function deriveServerValues(
+  data: RuntimeSettings | undefined
+): ProxyTransportFormValues | null {
+  if (!data) {
+    return null
+  }
+  const payloadRulesRaw = data.payloadRules
+  let payloadRulesJson = ''
+  if (payloadRulesRaw && typeof payloadRulesRaw === 'object') {
+    try {
+      payloadRulesJson = JSON.stringify(payloadRulesRaw, null, 2)
+    } catch {
+      payloadRulesJson = ''
+    }
+  }
+  return {
+    systemProxyUrl: asString(data.systemProxyUrl),
+    proxyErrorKeywords: joinListField(splitListField(data.proxyErrorKeywords)),
+    proxyEmptyContentFailEnabled: asBoolean(data.proxyEmptyContentFailEnabled),
+    payloadRules: payloadRulesJson,
+    codexUpstreamWebsocketEnabled: asBoolean(
+      data.codexUpstreamWebsocketEnabled
+    ),
+    responsesCompactFallbackToResponsesEnabled: asBoolean(
+      data.responsesCompactFallbackToResponsesEnabled
+    ),
+    proxySessionChannelConcurrencyLimit:
+      asNumber(data.proxySessionChannelConcurrencyLimit) ?? 2,
+    proxySessionChannelQueueWaitMs:
+      asNumber(data.proxySessionChannelQueueWaitMs) ?? 1500,
+    modelAvailabilityProbeEnabled: asBoolean(
+      data.modelAvailabilityProbeEnabled
+    ),
+  }
+}
+
+function proxyTransportToPayload(changed: Partial<ProxyTransportFormValues>) {
+  const payload: Record<string, unknown> = {}
+  if (changed.systemProxyUrl !== undefined) {
+    payload.systemProxyUrl = changed.systemProxyUrl
+  }
+  if (changed.proxyErrorKeywords !== undefined) {
+    payload.proxyErrorKeywords = splitListField(changed.proxyErrorKeywords)
+  }
+  if (changed.proxyEmptyContentFailEnabled !== undefined) {
+    payload.proxyEmptyContentFailEnabled = changed.proxyEmptyContentFailEnabled
+  }
+  if (changed.payloadRules !== undefined) {
+    payload.payloadRules = changed.payloadRules
+      ? (JSON.parse(changed.payloadRules) as Record<string, unknown>)
+      : null
+  }
+  if (changed.codexUpstreamWebsocketEnabled !== undefined) {
+    payload.codexUpstreamWebsocketEnabled =
+      changed.codexUpstreamWebsocketEnabled
+  }
+  if (changed.responsesCompactFallbackToResponsesEnabled !== undefined) {
+    payload.responsesCompactFallbackToResponsesEnabled =
+      changed.responsesCompactFallbackToResponsesEnabled
+  }
+  if (changed.proxySessionChannelConcurrencyLimit !== undefined) {
+    payload.proxySessionChannelConcurrencyLimit =
+      changed.proxySessionChannelConcurrencyLimit
+  }
+  if (changed.proxySessionChannelQueueWaitMs !== undefined) {
+    payload.proxySessionChannelQueueWaitMs =
+      changed.proxySessionChannelQueueWaitMs
+  }
+  if (changed.modelAvailabilityProbeEnabled !== undefined) {
+    payload.modelAvailabilityProbeEnabled =
+      changed.modelAvailabilityProbeEnabled
+  }
+  return payload
+}
+
 export function ProxyTransportSection() {
   const { t } = useTranslation()
-  const { data, isLoading } = useRuntimeSettings()
+  const { data, isLoading, isError, refetch } = useRuntimeSettings()
   const updateMutation = useUpdateRuntimeSettings()
 
-  const form = useForm<ProxyTransportFormValues>({
-    resolver: zodResolver(proxyTransportSchema) as never,
-    defaultValues: {
-      systemProxyUrl: '',
-      proxyErrorKeywords: '',
-      proxyEmptyContentFailEnabled: false,
-      payloadRules: '',
-      codexUpstreamWebsocketEnabled: false,
-      responsesCompactFallbackToResponsesEnabled: false,
-      proxySessionChannelConcurrencyLimit: 2,
-      proxySessionChannelQueueWaitMs: 1500,
-      modelAvailabilityProbeEnabled: false,
-    },
-  })
-
-  useEffect(() => {
-    if (!data) {
-      return
-    }
-    const payloadRulesRaw = data.payloadRules
-    let payloadRulesJson = ''
-    if (payloadRulesRaw && typeof payloadRulesRaw === 'object') {
-      try {
-        payloadRulesJson = JSON.stringify(payloadRulesRaw, null, 2)
-      } catch {
-        payloadRulesJson = ''
-      }
-    }
-    form.reset(
-      {
-        systemProxyUrl: asString(data.systemProxyUrl),
-        proxyErrorKeywords: joinListField(
-          splitListField(data.proxyErrorKeywords)
-        ),
-        proxyEmptyContentFailEnabled: asBoolean(
-          data.proxyEmptyContentFailEnabled
-        ),
-        payloadRules: payloadRulesJson,
-        codexUpstreamWebsocketEnabled: asBoolean(
-          data.codexUpstreamWebsocketEnabled
-        ),
-        responsesCompactFallbackToResponsesEnabled: asBoolean(
-          data.responsesCompactFallbackToResponsesEnabled
-        ),
-        proxySessionChannelConcurrencyLimit:
-          asNumber(data.proxySessionChannelConcurrencyLimit) ?? 2,
-        proxySessionChannelQueueWaitMs:
-          asNumber(data.proxySessionChannelQueueWaitMs) ?? 1500,
-        modelAvailabilityProbeEnabled: asBoolean(
-          data.modelAvailabilityProbeEnabled
-        ),
-      },
-      { keepDirtyValues: true }
-    )
-  }, [data, form])
+  const serverValues = deriveServerValues(data)
+  const { form, baseline, syncFromServer } =
+    useSettingsForm<ProxyTransportFormValues>({
+      schema: proxyTransportSchema,
+      defaultValues: DEFAULT_VALUES,
+      serverValues,
+    })
 
   const testProxyMutation = useMutation({
     mutationFn: async (proxyUrl: string) => api.testSystemProxy({ proxyUrl }),
@@ -160,18 +197,15 @@ export function ProxyTransportSection() {
   })
 
   function onSubmit(values: ProxyTransportFormValues) {
-    const { payloadRules, proxyErrorKeywords, ...rest } = values
-    const payload: Record<string, unknown> = { ...rest }
-    if (proxyErrorKeywords !== undefined) {
-      payload.proxyErrorKeywords = splitListField(proxyErrorKeywords)
+    const changed = collectChangedFields(
+      values as unknown as Record<string, unknown>,
+      baseline as unknown as Record<string, unknown> | null
+    ) as Partial<ProxyTransportFormValues>
+    if (!hasChanges(changed)) {
+      toast.info(t('settings.common.noChanges'))
+      return
     }
-    if (payloadRules !== undefined) {
-      // Empty string → send null to clear; valid JSON → parsed object.
-      payload.payloadRules = payloadRules
-        ? (JSON.parse(payloadRules) as Record<string, unknown>)
-        : null
-    }
-    updateMutation.mutate(payload as never, {
+    updateMutation.mutate(proxyTransportToPayload(changed) as never, {
       onSuccess: () =>
         toast.success(t('settings.general.proxyTransport.toast.saved')),
       onError: () =>
@@ -180,21 +214,57 @@ export function ProxyTransportSection() {
   }
 
   if (isLoading) {
-    return <SettingsSectionSkeleton />
+    return (
+      <SettingsSectionCard
+        title={t('settings.general.proxyTransport.title')}
+        description={t('settings.general.proxyTransport.description')}
+      >
+        <p className='text-muted-foreground text-sm'>
+          {t('settings.common.loading')}
+        </p>
+      </SettingsSectionCard>
+    )
   }
 
+  if (isError || !data) {
+    return (
+      <SettingsSectionError
+        title={t('settings.general.proxyTransport.title')}
+        onRetry={() => void refetch()}
+      />
+    )
+  }
+
+  const isDirty = form.formState.isDirty
   const systemProxyUrl = form.watch('systemProxyUrl')
 
   return (
     <SettingsSectionCard
       title={t('settings.general.proxyTransport.title')}
       description={t('settings.general.proxyTransport.description')}
+      actions={
+        <Button
+          type='button'
+          variant='outline'
+          size='sm'
+          disabled={testProxyMutation.isPending || !systemProxyUrl}
+          onClick={() => {
+            if (systemProxyUrl) {
+              testProxyMutation.mutate(systemProxyUrl)
+            }
+          }}
+        >
+          {testProxyMutation.isPending
+            ? t('settings.common.testing')
+            : t('settings.general.proxyTransport.testProxy')}
+        </Button>
+      }
     >
       <Form {...form}>
         <form
           id={FORM_ID}
           onSubmit={form.handleSubmit(onSubmit)}
-          className='space-y-6'
+          className='space-y-4'
         >
           <FormField
             control={form.control}
@@ -204,29 +274,14 @@ export function ProxyTransportSection() {
                 <FormLabel>
                   {t('settings.general.proxyTransport.fields.systemProxyUrl')}
                 </FormLabel>
-                <div className='flex gap-2'>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      value={field.value ?? ''}
-                      placeholder='http://127.0.0.1:7890'
-                      className='font-mono'
-                    />
-                  </FormControl>
-                  <Button
-                    type='button'
-                    variant='outline'
-                    size='sm'
-                    disabled={testProxyMutation.isPending || !systemProxyUrl}
-                    onClick={() =>
-                      testProxyMutation.mutate(systemProxyUrl ?? '')
-                    }
-                  >
-                    {testProxyMutation.isPending
-                      ? t('settings.common.testing')
-                      : t('settings.general.proxyTransport.testProxy')}
-                  </Button>
-                </div>
+                <FormControl>
+                  <Input
+                    {...field}
+                    value={field.value ?? ''}
+                    placeholder='http://127.0.0.1:7890'
+                    className='font-mono'
+                  />
+                </FormControl>
                 <FormDescription>
                   {t(
                     'settings.general.proxyTransport.fields.systemProxyUrlHint'
@@ -236,67 +291,59 @@ export function ProxyTransportSection() {
               </FormItem>
             )}
           />
-
-          <div className='space-y-4 rounded-lg border p-4'>
-            <h4 className='text-sm font-medium'>
-              {t('settings.general.proxyTransport.errorRulesGroup')}
-            </h4>
-            <FormField
-              control={form.control}
-              name='proxyErrorKeywords'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
+          <FormField
+            control={form.control}
+            name='proxyErrorKeywords'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  {t(
+                    'settings.general.proxyTransport.fields.proxyErrorKeywords'
+                  )}
+                </FormLabel>
+                <FormControl>
+                  <textarea
+                    {...field}
+                    value={field.value ?? ''}
+                    rows={4}
+                    className='border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex field-sizing-content w-full rounded-md border bg-transparent px-3 py-2 font-mono text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]'
+                  />
+                </FormControl>
+                <FormDescription>
+                  {t(
+                    'settings.general.proxyTransport.fields.proxyErrorKeywordsHint'
+                  )}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name='proxyEmptyContentFailEnabled'
+            render={({ field }) => (
+              <FormItem className='flex flex-row items-center gap-3'>
+                <FormControl>
+                  <Checkbox
+                    checked={Boolean(field.value)}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+                <div className='space-y-1'>
+                  <FormLabel className='cursor-pointer'>
                     {t(
-                      'settings.general.proxyTransport.fields.proxyErrorKeywords'
+                      'settings.general.proxyTransport.fields.proxyEmptyContentFailEnabled'
                     )}
                   </FormLabel>
-                  <FormControl>
-                    <textarea
-                      {...field}
-                      value={field.value ?? ''}
-                      rows={4}
-                      placeholder='rate limit&#10;blocked'
-                      className='border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex field-sizing-content w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]'
-                    />
-                  </FormControl>
                   <FormDescription>
                     {t(
-                      'settings.general.proxyTransport.fields.proxyErrorKeywordsHint'
+                      'settings.general.proxyTransport.fields.proxyEmptyContentFailEnabledHint'
                     )}
                   </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name='proxyEmptyContentFailEnabled'
-              render={({ field }) => (
-                <FormItem className='flex flex-row items-center gap-3'>
-                  <FormControl>
-                    <Checkbox
-                      checked={Boolean(field.value)}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className='space-y-1'>
-                    <FormLabel className='cursor-pointer'>
-                      {t(
-                        'settings.general.proxyTransport.fields.proxyEmptyContentFailEnabled'
-                      )}
-                    </FormLabel>
-                    <FormDescription>
-                      {t(
-                        'settings.general.proxyTransport.fields.proxyEmptyContentFailEnabledHint'
-                      )}
-                    </FormDescription>
-                  </div>
-                </FormItem>
-              )}
-            />
-          </div>
-
+                </div>
+              </FormItem>
+            )}
+          />
           <FormField
             control={form.control}
             name='payloadRules'
@@ -309,7 +356,7 @@ export function ProxyTransportSection() {
                   <textarea
                     {...field}
                     value={field.value ?? ''}
-                    rows={8}
+                    rows={6}
                     placeholder='{ "default": {} }'
                     className='border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex field-sizing-content w-full rounded-md border bg-transparent px-3 py-2 font-mono text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]'
                   />
@@ -440,17 +487,17 @@ export function ProxyTransportSection() {
             )}
           />
 
-          <Button
-            type='submit'
-            form={FORM_ID}
-            disabled={updateMutation.isPending}
-          >
-            {updateMutation.isPending
-              ? t('settings.common.saving')
-              : t('settings.common.save')}
-          </Button>
+          <SettingsFormActions
+            formId={FORM_ID}
+            isDirty={isDirty}
+            isPending={updateMutation.isPending}
+            onReset={() =>
+              syncFromServer(deriveServerValues(data) ?? DEFAULT_VALUES)
+            }
+          />
         </form>
       </Form>
+      <FormNavigationGuard enabled={isDirty} />
     </SettingsSectionCard>
   )
 }

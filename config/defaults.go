@@ -43,6 +43,15 @@ const (
 	DefaultBalanceRefreshCron   = "0 * * * *"
 	DefaultLogCleanupCron       = "0 6 * * *"
 
+	// Site & Branding defaults. Empty means the embedded frontend branding and
+	// login-page copy are used unchanged.
+	DefaultSystemName      = ""
+	DefaultLogo            = ""
+	DefaultFooter          = ""
+	DefaultAbout           = ""
+	DefaultHomePageContent = ""
+	DefaultServerAddress   = ""
+
 	DefaultNotifyCooldownSec = 300
 	DefaultSmtpPort          = 587
 

@@ -92,9 +92,21 @@ export function ManualCheckinDialog({
             onValueChange={(value) => setSelectedId(value ?? NO_SELECTION)}
           >
             <SelectTrigger>
-              <SelectValue
-                placeholder={t('checkin.manual.accountPlaceholder')}
-              />
+              <SelectValue>
+                {(selected) => {
+                  if (!selected || selected === NO_SELECTION) {
+                    return t('checkin.manual.accountPlaceholder')
+                  }
+                  const account = accounts.find(
+                    (item) => String(item.id) === selected
+                  )
+                  if (!account) return String(selected)
+                  const suffix = account.site?.name
+                    ? ` · ${account.site.name}`
+                    : ''
+                  return `${account.username || `#${account.id}`}${suffix}`
+                }}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {accounts.length === 0 && (

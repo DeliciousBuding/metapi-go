@@ -3,8 +3,8 @@
 **Product**: MetAPI admin
 **Scope**: Enterprise ops control plane (sites, accounts, tokens, routes, monitors, logs)
 **Visual language**: GCP cloud console density + frosted glass shell + Apple detail
-**Source of truth**: this document + `web/src/styles/theme.css` + `web/src/components/ui/**`
-**Last updated**: 2026-08-11
+**Source of truth**: this document + `web/src/styles/theme.css` + `web/src/styles/theme-presets.css` + `web/src/lib/theme-customization.ts` + `web/src/components/ui/**`
+**Last updated**: 2026-08-12
 
 ---
 
@@ -15,78 +15,116 @@
 | Product voice | Professional, dense, high-signal ops UI |
 | Audience | Operators managing multi-site API gateways, keys, and routing |
 | Personality | Calm GCP control room with Apple-grade materials — not consumer marketing |
-| Density default | Comfortable-dense (admin tables + KPI cards coexist) |
-| Brand color | **GCP Blue** `#1a73e8` (dark `#8ab4f8`) with cool gray accent |
-| Logo mark | Transparent gradient badge `web/public/logo.svg` — rounded-square blue ramp (light `#4f7cff` → `#1e3a8a`) with white **π** glyph (real U+03C0, serif fallback, not hand-drawn strokes); `favicon.svg` = standalone gradient π for small sizes; both served from the embedded SPA root (`router.go` root-file whitelist, `image/svg+xml`) |
+| Density default | Comfortable-dense (admin tables + KPI cards coexist); density axis `data-theme-scale` |
+| Brand color | **GCP Blue family** — light primary `oklch(0.692 0.141 243.716)`, dark primary `oklch(0.54 0.142 248.516)` (see §2.3; exact values live in `theme.css`, never hard-code hex) |
+| Logo mark | Transparent solid-color badge `web/public/logo.svg` — rounded-square `#3b5bdb` field with white **π** glyph (real U+03C0, serif fallback, not hand-drawn strokes); `favicon.svg` = standalone solid blue π for small sizes; both served from the embedded SPA root (`router.go` root-file whitelist, `image/svg+xml`) |
 | Fonts | **Public Sans + Lora** (locally embedded via `@fontsource-variable`) — no Google Fonts CDN |
-| High-res | Content column max-width ladder 1680 → 1920 → 2280 → 2600, centered |
+| High-res | Content layout axis `data-theme-content-layout` (`full`/`centered`); centered clamps to `--max-content-width` (1280px) at ≥1280px viewport; utilities `max-w-container` (1280px) / `max-w-container-lg` (1536px) |
 
 **Principles**
 
 1. **Signal over decoration** — every color/weight change means status, severity, or hierarchy.
-2. **Token-first** — no new hard-coded hex in pages; use CSS custom properties.
-3. **Dual theme parity** — light and dark share the same semantic token names.
-4. **Dense but breathing** — 13px body, clear table rhythm, calm page titles (weight 400).
+2. **Token-first** — no new hard-coded hex in pages; use OKLCH CSS custom properties.
+3. **Dual theme parity** — light and dark share the same semantic token names (`.dark` class on `<html>`).
+4. **Dense but breathing** — small body text (default `--text-sm` ≈ 0.78rem), clear table rhythm, calm page titles (weight 400).
 5. **One glass system** — shell/modal/dropdown only; never blur table rows.
 6. **Progressive adoption** — primitives in `web/src/components/ui/**`; migrate pages gradually.
 7. **Console, not marketing** — pill nav, tabular nums, restrained card hover (no lift).
+8. **No gradients** — backgrounds, masks, charts, swatches, fallback avatars, and brand assets use solid colors only.
 
 ---
 
 ## 2. Color tokens
 
-All values live in `web/src/styles/theme.css` under `:root` (light) and `[data-theme="dark"]` (dark).
+All values live in `web/src/styles/theme.css` under `:root` (light) and `.dark` (dark); presets override them per `data-theme-preset` in `theme-presets.css`.
 
-### 2.1 Surfaces
+### 2.1 Theme architecture
+
+| Layer | Mechanism |
+|-------|-----------|
+| Theme mode | `<html class="dark|light">` (plus `data-theme` attr for compat) set by `ThemeProvider` and the FOUC bootstrap in `web/index.html`; cookie `vite-ui-theme` (1y), falls back to `prefers-color-scheme` |
+| Preset | `<body data-theme-preset>` — 9 shipped presets: default, anthropic, simple-large, underground, rose-garden, lake-view, sunset-glow, forest-whisper, ocean-breeze, lavender-dream |
+| Font axis | `<body data-theme-font="sans|serif">` — swaps `--font-body` |
+| Radius axis | `<body data-theme-radius="none|sm|md|lg|xl">` — overrides `--radius` |
+| Density axis | `<body data-theme-scale="sm|lg|xl">` — rescales `--text-*` and `--spacing` |
+| Content axis | `<body data-theme-content-layout="full|centered">` |
+
+Constants (allowed values, defaults, cookies `theme_preset` / `theme_font` / `theme_radius` / `theme_scale` / `theme_content_layout`): `web/src/lib/theme-customization.ts`.
+
+### 2.2 Core semantic surfaces
 
 | Token | Light | Dark | Usage |
 |-------|-------|------|-------|
-| `--color-bg` | `#eef2f6` | `#0b0f14` | App canvas (matches FOUC bootstrap) |
-| `--color-bg-secondary` | `#e4eaf0` | `#12181f` | Nested wells, inset panels |
-| `--color-bg-card` | `#ffffff` | `#161b22` | Cards, tables, drawers |
-| `--color-bg-sidebar` | translucent white | translucent deep slate | Sidebar (prefer glass tokens) |
-| `--color-bg-topbar` | translucent white | translucent deep slate | Topbar base |
-| `--color-bg-elevated` | `#ffffff` | `#1c2330` | Popovers, solid fallbacks |
-| `--color-bg-hover` | black 4% | white 5% | Row/button hover wash |
-| `--color-bg-active` | black 6% | white 8% | Pressed / selected wash |
+| `--background` | `oklch(1 0 0)` | `oklch(0.235 0 0)` | App canvas |
+| `--foreground` | `oklch(0.145 0 0)` | `oklch(0.965 0 0)` | Primary text |
+| `--card` | `oklch(1 0 0)` | `oklch(0.285 0 0)` | Cards, tables, drawers |
+| `--popover` | `oklch(1 0 0)` | `oklch(0.305 0 0)` | Popovers, menus, dropdowns |
+| `--secondary` / `--muted` | `oklch(0.95 0 0)` / `oklch(0.97 0 0)` | `oklch(0.335 0 0)` / `oklch(0.305 0 0)` | Nested wells, subdued fills |
+| `--muted-foreground` | `oklch(0.49 0 0)` | `oklch(0.78 0 0)` | Meta/secondary text |
+| `--border` | `oklch(0.93 0 0)` | `oklch(1 0 0 / 10%)` | Hairlines |
+| `--input` | `oklch(0.93 0 0)` | `oklch(1 0 0 / 17%)` | Input borders |
+| `--ring` | `oklch(0.708 0.16 249.003)` | `oklch(0.554 0.148 250.726)` | Focus rings (`focus-visible:ring-3 ring-ring/50`) |
+| `--overlay` | `oklch(0 0 0 / 0.1)` | `oklch(0 0 0 / 0.32)` | Modal/sheet scrim |
 
-### 2.2 Brand / accent
+Each maps a Tailwind alias `--color-*` (e.g. `--color-background: var(--background)`) in the `@theme inline` block.
+
+### 2.3 Brand / accent
 
 | Token | Light | Dark | Usage |
 |-------|-------|------|-------|
-| `--color-primary` | `#1a73e8` | `#8ab4f8` | Primary actions, active nav |
-| `--color-primary-hover` | `#1557b0` | `#aecbfa` | Hover on primary |
-| `--color-primary-light` | `#e8f0fe` | `#1a2b45` | Soft primary fill / active chip |
-| `--color-accent` | `#5f6368` | `#9aa0a6` | Cool gray secondary (not cyan neon) |
-| `--color-brand-gradient` | blue ramp | elevated blue ramp | Logo chip only |
+| `--primary` | `oklch(0.692 0.141 243.716)` | `oklch(0.54 0.142 248.516)` | Primary actions, active nav |
+| `--primary-foreground` | `oklch(0.145 0 0)` | `oklch(1 0 0)` | Text on primary |
+| `--accent` | `color-mix(in oklch, var(--primary) 12%, var(--background))` | `color-mix(in oklch, var(--primary) 20%, var(--background))` | Soft primary fill / active chip |
+| `--neutral` | `oklch(0.708 0 0)` | `oklch(0.76 0 0)` | Cool gray secondary |
+| `--sidebar` / `--sidebar-primary` / `--sidebar-accent` | derived from background/primary | derived from background/primary | Sidebar canvas, brand, active tones |
 
-### 2.3 Glass material
+Presets replace `--primary`/`--background` per `data-theme-preset` (e.g. Anthropic clay `oklch(0.685 0.142 38)` on cream `oklch(0.984 0.005 95)`).
 
-| Token | Purpose |
-|-------|---------|
-| `--glass-bg` / `--glass-bg-strong` | Translucent panel fills |
-| `--glass-border` | Hairline glass edge |
-| `--glass-blur` / `--glass-saturate` | Backdrop filter recipe |
-| `--shadow-glass` | Soft elevation + inset highlight |
+### 2.4 Status semantics
 
-Fallbacks: `@supports not (backdrop-filter)` and `prefers-reduced-transparency: reduce` → solid elevated surface.
+| Token | Light | Dark | Usage |
+|-------|-------|------|-------|
+| `--success` / `--success-foreground` | `oklch(0.596 0.145 163.225)` / `oklch(0.985 0 0)` | `oklch(0.696 0.17 162.48)` / `oklch(0.145 0 0)` | Healthy / active |
+| `--warning` / `--warning-foreground` | `oklch(0.681 0.162 75.834)` / `oklch(0.145 0 0)` | `oklch(0.769 0.188 70.08)` / `oklch(0.145 0 0)` | Degraded / pending |
+| `--destructive` / `--destructive-foreground` | `oklch(0.577 0.245 27.325)` / `oklch(0.985 0 0)` | `oklch(0.704 0.191 22.216)` / `oklch(0.985 0 0)` | Errors, deletes |
+| `--info` / `--info-foreground` | `oklch(0.588 0.158 241.966)` / `oklch(0.985 0 0)` | `oklch(0.613 0.14 239.919)` / `oklch(0.145 0 0)` | Informational |
 
-### 2.4 Semantic status
+Badge pattern: solid on soft fill (e.g. `bg-success/10 text-success`); each status also maps a `--color-*` Tailwind alias.
 
-Unchanged roles: success / warning / danger / info with solid + soft pairs. Badge text uses solid on soft fill.
+### 2.5 Charts
+
+`--chart-1…5` in both themes drive vchart/recharts series; dark reuses the same five hues at lighter lightness. Non-color status encoding is required for availability buckets (see a11y checklist).
+
+### 2.6 Glass material
+
+No dedicated `--glass-*` variables. Glass is a Tailwind recipe:
+
+| Surface | Recipe |
+|---------|--------|
+| Topbar / sticky chrome | `bg-background/95 supports-[backdrop-filter]:bg-background/60 backdrop-blur-lg` |
+| Modal / sheet scrim | `bg-overlay supports-backdrop-filter:backdrop-blur-xs` |
+| Floating toolbars | `bg-background/95 supports-[backdrop-filter]:bg-background/60 backdrop-blur-lg` |
+
+Fallback: `supports-[backdrop-filter]` gates translucency so browsers without `backdrop-filter` keep a solid surface; `prefers-reduced-transparency` reduces to solid elevated surface.
+
+### 2.7 Focus
+
+`--ring` (per theme) + shadcn recipe `focus-visible:ring-3 focus-visible:ring-ring/50`; global base `outline-ring/50` in `styles/index.css`. Never remove the outline without a visible replacement ring.
 
 ---
 
 ## 3. Spacing, radius, elevation, motion, type, layout
 
-| Family | Tokens | Notes |
-|--------|--------|-------|
-| Spacing | `--space-0…12`, `--gap-tight/default/section`, `--space-main` | 4px base; section gap 20px |
-| Radius | `--radius-control` 10 · `--radius-card` 14 · `--radius-shell` 16 · `--radius-full` | Nav pills use full; buttons/inputs = control |
-| Shadow | `--shadow-sm/md/lg/card/elevated/glass` | Dual ambient+key; dark uses emissive border |
-| Motion | `--motion-swift`, `--motion-soft`, `--ease-emphasized` | Calm; honor `prefers-reduced-motion` |
-| Type | `--font-sans` Public Sans · `--tracking-*` · `--line-body/title` | No external font CDN |
-| Content | `--content-max` + `--content-pad-x/y` | Hi-res breakpoints at 1920 / 2560 / 3200 |
+| Family | Mechanism | Notes |
+|--------|-----------|-------|
+| Spacing | Tailwind 4 scale — base `--spacing` (default 0.25rem; `data-theme-scale` overrides 0.225 / 0.28 / 0.3rem) | `gap-*`, `p-*`, `m-*`, `space-y-*`; no custom `--space-*` |
+| Radius | `--radius: 1rem` (default) with `--radius-sm/md/lg/xl/2xl/3xl/4xl` derived; `data-theme-radius` overrides `--radius` (none 0 · sm 0.3 · md 0.5 · lg 0.75 · xl 1rem) | Controls/buttons `rounded-lg`; cards/sheets `rounded-xl`+ |
+| Shadow | Tailwind default `shadow-*` + custom `--shadow-card-hover` (`0 4px 12px …`) | Hover elevation on cards (`[data-card-hover]`); no lift on plain rows |
+| Motion | `tw-animate-css` utilities (`animate-in/out`, `fade-in-*`, `zoom-in-*`) + keyframes in `styles/index.css` (table row stagger, landing, terminal demo) | Calm; every animation guarded by `prefers-reduced-motion` |
+| Type | `--font-sans` Public Sans Variable + CJK fallbacks (Noto Sans SC/TC/JP/KR, PingFang, Microsoft YaHei) · `--font-serif` Lora Variable + CJK serif fallbacks · `--font-mono` Cascadia/SFMono/Consolas · `--font-body` active face | `data-theme-font` swaps the body face; density axis rescales `--text-xs…3xl` |
+| Page title scale | Landing/hub pages (dashboard `Overview`, `About`, `Settings` overview, `Sign in`): `text-2xl font-normal tracking-tight` (24px) · data/list pages (models, sites, oauth, accounts, check-in, proxy-logs, token-routes, model-tester): `text-lg font-normal` (18px) · settings section cards own a single `text-base` h1 inside the card | All titles weight 400 ("calm titles"); exactly one h1 per page (a11y); no third page-title variant without updating this table |
+
+| Layout | `data-theme-content-layout="full|centered"`; centered clamps `[data-slot='sidebar-inset'] > *` to `--max-content-width` (1280px) at ≥1280px; utilities `max-w-container` 1280 / `max-w-container-lg` 1536 | Hi-res: `full` uses available width; `centered` keeps a comfortable reading width |
 
 ---
 
@@ -96,19 +134,22 @@ Primitive inventory and API: [`components.md`](./components.md).
 
 | Layer | Prefix / classes | Where |
 |-------|------------------|-------|
-| Base UI (shadcn) | shadcn `ui-*` components | `web/src/components/ui/**` |
+| Base UI (shadcn) | `ui-*` components (data-slot attrs) | `web/src/components/ui/**` |
 | Shell layout | `app-header` / `app-sidebar` | `web/src/components/layout/**` |
 | Theme tokens | OKLCH CSS variables | `web/src/styles/theme.css` + `theme-presets.css` |
 
-New UI must start from shadcn Base UI primitives when possible.
+New UI must start from shadcn Base UI primitives when possible. Import via `@/components/ui/*`.
 
 ---
 
 ## 5. Visual acceptance
 
 1. `cd web && bun run test` — vitest unit/component suites
-2. `cd web && bun run build` — production bundle gate
-3. Manual score rubric (target ≥ 4/5 each):
+2. `cd web && bun run typecheck` — TS gate
+3. `cd web && bun run lint` — oxlint
+4. `cd web && bun run build` — production bundle gate (`build:web`)
+5. `cd web && bun run a11y:scan` — axe-core serious/critical gate (needs the dev server; see `web/scripts/a11y-scan.mjs`). Also enforced in CI: the `a11y` job serves the real embedded SPA via the Go server (fresh sqlite runtime DB) and scans all 15 admin routes against it (`BASE_URL`-driven; `.github/workflows/ci.yml`)
+6. Manual score rubric (target ≥ 4/5 each):
    - Material (glass/solid hierarchy)
    - Brand calm (GCP blue, no neon)
    - Spacing rhythm
@@ -116,15 +157,14 @@ New UI must start from shadcn Base UI primitives when possible.
    - Motion restraint
    - Dark parity
 
-
 ---
 
 ## 6. a11y non-negotiables
 
-- Focus-visible rings via `--color-focus-ring-strong`
+- Focus-visible rings via the `--ring` recipe (`focus-visible:ring-3 ring-ring/50`)
 - Contrast on soft badges in both themes
 - `prefers-reduced-transparency` / `prefers-reduced-motion`
-- FOUC: `theme_mode`-first bootstrap; no white flash in dark
+- FOUC: cookie-first bootstrap in `web/index.html`; no white flash in dark
 
 Checklist: [`a11y-checklist.md`](./a11y-checklist.md).
 
@@ -134,6 +174,12 @@ Checklist: [`a11y-checklist.md`](./a11y-checklist.md).
 
 | Date | Change |
 |------|--------|
+| 2026-08-12 | a11y gate wired into CI: the `a11y` job serves the embedded SPA via the Go server (sqlite) and runs `a11y:scan` against all 15 admin routes |
+| 2026-08-12 | Dark-theme soft-destructive contrast: new `--destructive-soft-fg` token (dark `oklch(0.8 0.15 22)`); soft-destructive text across badges/buttons/dashboard/proxy-logs now readable in dark; sidebar group labels 60%->75% |
+| 2026-08-12 | a11y: fixed column-resizer `aria-valuenow`, explicit labels on table/filter selects (pagination, proxy-logs, checkin, program-logs), base-ui Switch `aria-checked` normalization; added the `a11y:scan` axe gate (15 routes clean) |
+| 2026-08-12 | Codified the two-tier page-title scale (landing/hub = `text-2xl`, data/list pages = `text-lg`, settings cards = `text-base` h1) so future pages stop inventing a third size |
+| 2026-08-12 | DESIGN.md aligned to the shipped shadcn-OKLCH token system: documented `data-theme-*` axes, presets, glass recipe, status/focus tokens; removed stale `--color-bg*` / `--glass-*` / `--space-*` / `--content-max` contract |
+| 2026-08-11 | Settings workspace: unified section cards, dirty/save/error states, semantic schedule controls, desktop/mobile navigation, and migration confirmation flow |
 | 2026-08-11 | MetAPI brand: transparent SVG badge (real π glyph) + favicon; product label cleanup |
 | 2026-07-16 | Initial token freeze (indigo era) |
 | 2026-07-19 | FOUC canvas, glass family, GCP primary, card density, shell glass |

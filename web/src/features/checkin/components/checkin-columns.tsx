@@ -34,7 +34,7 @@ function resolveStatusConfig(status: string): StatusConfig {
   if (status === 'success') {
     return {
       variant: 'default',
-      dotClassName: 'bg-emerald-500',
+      dotClassName: 'bg-success',
       labelKey: 'checkin.columns.statusSuccess',
     }
   }
@@ -47,7 +47,7 @@ function resolveStatusConfig(status: string): StatusConfig {
   }
   return {
     variant: 'destructive',
-    dotClassName: 'bg-red-500',
+    dotClassName: 'bg-destructive',
     labelKey: 'checkin.columns.statusFailed',
   }
 }
@@ -137,6 +137,10 @@ export function useCheckinColumns(
     },
     {
       id: 'account',
+      accessorFn: (row) => {
+        const log = checkinLogRowSchema.parse(row)
+        return log.accounts?.username ?? ''
+      },
       header: t('checkin.columns.account'),
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
@@ -151,6 +155,10 @@ export function useCheckinColumns(
     },
     {
       id: 'site',
+      accessorFn: (row) => {
+        const log = checkinLogRowSchema.parse(row)
+        return log.sites?.name ?? ''
+      },
       header: t('checkin.columns.site'),
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
@@ -173,6 +181,7 @@ export function useCheckinColumns(
     },
     {
       id: 'status',
+      accessorFn: (row) => checkinLogRowSchema.parse(row).checkin_logs.status,
       header: t('common.status'),
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
@@ -187,6 +196,10 @@ export function useCheckinColumns(
     },
     {
       id: 'reason',
+      accessorFn: (row) => {
+        const log = checkinLogRowSchema.parse(row)
+        return log.failureReason?.category ?? ''
+      },
       header: t('checkin.columns.failureReason'),
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
@@ -203,6 +216,8 @@ export function useCheckinColumns(
     },
     {
       id: 'message',
+      accessorFn: (row) =>
+        checkinLogRowSchema.parse(row).checkin_logs.message ?? '',
       header: t('checkin.columns.message'),
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
@@ -221,6 +236,8 @@ export function useCheckinColumns(
     },
     {
       id: 'reward',
+      accessorFn: (row) =>
+        checkinLogRowSchema.parse(row).checkin_logs.reward ?? '',
       header: t('checkin.columns.reward'),
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)

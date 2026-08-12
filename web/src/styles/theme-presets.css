@@ -274,7 +274,7 @@
   --sidebar-ring: oklch(0.6359 0.1699 307.95);
 }
 
-/* ── Simple Large-font ────────────────────────────────────────────────── */
+/* ── Simple ───────────────────────────────────────────────────────────── */
 [data-theme-preset='simple-large'] {
   --background: oklch(0.99 0 0);
   --foreground: oklch(0.15 0 0);
@@ -326,14 +326,6 @@
   --skeleton-highlight: oklch(0.97 0 0);
 
   --radius: 0.5rem;
-  --text-xs: 0.9rem;
-  --text-sm: 1rem;
-  --text-base: 1.125rem;
-  --text-lg: 1.25rem;
-  --text-xl: 1.45rem;
-  --text-2xl: 1.75rem;
-  --text-3xl: 2.15rem;
-  --spacing: 0.3rem;
 }
 .dark [data-theme-preset='simple-large'] {
   --background: oklch(0.215 0 0);
@@ -389,11 +381,6 @@
 /* Overview accents mirror the public blue/cyan/violet palette by default.
  * Named presets map those slots to their own chart palette so the overview
  * stays coherent with the user's selected theme. */
-[data-theme-preset]:not([data-theme-preset='default']) {
-  --overview-accent-1: var(--chart-1);
-  --overview-accent-2: var(--chart-2);
-  --overview-accent-3: var(--chart-3);
-}
 
 /* ── Semantic surface bridge ──────────────────────────────────────────── */
 /* Color presets should tint the surfaces most components actually use, not
@@ -429,9 +416,6 @@
   --sidebar-accent: color-mix(in oklch, var(--primary) 14%, var(--background));
   --sidebar-accent-foreground: var(--foreground);
   --sidebar-border: color-mix(in oklch, var(--primary) 18%, var(--background));
-  --success: var(--chart-2);
-  --warning: var(--chart-4);
-  --info: var(--chart-1);
   --neutral: var(--muted-foreground);
 }
 .dark

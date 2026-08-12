@@ -3,7 +3,7 @@
 **Product**: MetAPI admin
 **Scope**: accessibility checklist
 **Related source of truth**: `docs/design/DESIGN.md`, `web/src/styles/theme.css`
-**Last updated**: 2026-08-11
+**Last updated**: 2026-08-12
 **Status**: checklist + reduced-motion/transparency pass; page-level residual debt tracked below
 
 This document is the accessibility acceptance checklist. It records keyboard, name, contrast, and responsive expectations, plus residual debt that is intentionally out of scope for this issue.
@@ -41,7 +41,7 @@ This document is the accessibility acceptance checklist. It records keyboard, na
 |------|-------------|
 | `:focus-visible` | Visible ring on interactive chrome (buttons, close controls, nav items) |
 | Mouse users | Prefer `:focus-visible` over always-on `:focus` to avoid sticky outlines |
-| Token | Prefer `--color-focus-ring` / primary outline (`DESIGN.md` §2.8) |
+| Token | `--ring` recipe — `focus-visible:ring-3 focus-visible:ring-ring/50` (`DESIGN.md` §2.7) |
 | Hit target | Icon-only controls ≥ ~36px (topbar already ~36) |
 
 **Current**: `.modal-close-button:focus-visible` uses primary outline. Broader global focus-ring utility is residual (not all controls share one rule).
@@ -106,37 +106,35 @@ This document is the accessibility acceptance checklist. It records keyboard, na
 
 ## 4. Contrast notes (primary text / surfaces)
 
-Values from `web/src/styles/theme.css` / `DESIGN.md`. Ratios are approximate WCAG 2.x relative luminance checks for operator review (not a lab measurement suite).
+Ratios computed 2026-08-12 from the shipped `web/src/styles/theme.css` OKLCH values (WCAG 2.x relative luminance; token map in `DESIGN.md` §2). Light-theme primary CTA (white on `--primary`) fails AA — tracked as debt §7.14.
 
 ### 4.1 Light theme
 
-| Pair | Approx ratio | WCAG AA body (4.5:1) | Notes |
-|------|--------------|----------------------|-------|
-| `--color-text-primary` `#1a1a1a` on `--color-bg-card` `#ffffff` | ~16.5:1 | Pass | Titles, primary values |
-| `--color-text-primary` on `--color-bg` `#f5f5f5` | ~15.0:1 | Pass | Page canvas |
-| `--color-text-secondary` `#666666` on card | ~5.7:1 | Pass | Labels / nav |
-| `--color-text-tertiary` `#8a8a8a` on card | ~3.5:1 | Fail body / pass large | Helper only |
-| `--color-text-muted` `#999999` on card | ~2.8:1 | Fail body | Placeholders, meta — not body copy |
-| Primary button text inverse on `--color-primary` `#4f46e5` | ~5.0:1+ | Pass | CTA |
-| Danger solid `#dc2626` on white (text) | ~4.6:1 | Borderline pass | Prefer solid on soft fills for badges |
+| Pair | Ratio | WCAG AA body (4.5:1) | Notes |
+|------|-------|----------------------|-------|
+| `--foreground` on `--card` / `--background` | 20.9:1 | Pass | Titles, primary values |
+| `--muted-foreground` on `--card` | 6.3:1 | Pass | Labels / secondary text |
+| `--secondary-foreground` on `--secondary` | 11.8:1 | Pass | Nested wells |
+| White text on `--primary` | 2.7:1 | **Fail** | Light-theme CTA — see debt §7.14 |
+| White text on `--destructive` | 4.8:1 | Pass | Errors, deletes |
 
 ### 4.2 Dark theme
 
-| Pair | Approx ratio | AA body | Notes |
-|------|--------------|---------|-------|
-| `--color-text-primary` `#f0f0f0` on `--color-bg-card` `#1a1a1a` | ~15.0:1 | Pass | |
-| `--color-text-secondary` `#a0a0a0` on card | ~7.0:1 | Pass | |
-| `--color-text-tertiary` `#7a7a7a` on card | ~4.0:1 | Borderline / fail small | Avoid as sole body text |
-| `--color-text-muted` `#666666` on card | ~3.0:1 | Fail body | Meta only |
-| Primary `#6366f1` on dark card (as text) | ~4.5:1± | Verify in UI | Prefer primary for actions/links, not long body |
+| Pair | Ratio | WCAG AA body (4.5:1) | Notes |
+|------|-------|----------------------|-------|
+| `--foreground` on `--card` | 13.0:1 | Pass | Titles, primary values |
+| `--foreground` on `--background` | 15.1:1 | Pass | Page canvas |
+| `--muted-foreground` on `--card` | 7.2:1 | Pass | Labels / secondary text |
+| `--secondary-foreground` on `--secondary` | 8.9:1 | Pass | Nested wells |
+| White text on `--primary` | 5.0:1 | Pass | CTA |
 
 ### 4.3 Contrast rules for implementers
 
-1. Body copy and table primary cells → `--color-text-primary` or `--color-text-secondary` only.
-2. Never place `--color-text-muted` on large reading blocks.
-3. Soft semantic fills (`*-soft`) pair with solid semantic text, not muted gray.
+1. Body copy and table primary cells → `--foreground` / `--muted-foreground` only.
+2. Never place `--muted-foreground` on large reading blocks as primary content.
+3. Status badges: solid text on soft fill (e.g. `text-success` on `bg-success/10`) — not muted gray.
 4. Chart axis labels use theme-aware hook colors (`useChartColors`) — verify both themes.
-5. Focus rings must remain visible on both themes (`--color-focus-ring`).
+5. Focus rings must remain visible on both themes (`--ring` recipe).
 
 ---
 
@@ -198,6 +196,7 @@ Breakpoints used by product:
 | Dialog semantics | `role="dialog"` + `aria-modal` for blocking overlays | Mobile drawer pass; SearchModal improved; not all legacy overlays |
 | Live regions | Toasts/errors announced | Residual |
 | Language | `t()` for user-visible chrome strings; `aria-label` included in i18n attr list | Pass pattern |
+| Page heading structure | One `h1` per settings section page — breadcrumb header (`Settings / subarea`) + section card owns the single `h1` + description | **Pass** (2026-08-12): `settings-page.tsx` + `settings-section-card.tsx`; verified via Playwright (1 h1 on maintenance / danger-zone / import-export) |
 
 ---
 
@@ -208,16 +207,17 @@ Tracked for follow-up issues (not blocking U3 checklist doc):
 1. ~~**Focus trap** inside SearchModal / CenteredModal / notification panel (Tab cycles within overlay).~~ **Done** — `web/src/lib/helpers/navigationFocus.ts` + shadcn Base UI dialog primitives (`web/src/components/ui/dialog.tsx`, `command.tsx`).
 2. ~~**Global `:focus-visible`** utility applied to all `.btn`, `.sidebar-item`, topbar controls.~~ **Partial done** — `.sidebar-item:focus-visible` + existing chrome rings; remaining page-level action grids still mixed.
 3. ~~**`prefers-reduced-motion`** hard cutover for `fade-in` / `slide-up` / drawer transitions.~~ **Done in #540** (global + token collapse). Residual: intentional essential-motion exceptions only if product later needs them.
-4. **Page-level icon actions** (copy, open external, row kebab, route drag handles) — many labeled, inventory incomplete across Accounts/Sites/Routes/Logs.
-5. **Muted/tertiary text** used as primary content in a few dense tables — content audit.
-6. ~~**Notification panel** keyboard model (arrow keys, Esc, focus return to bell).~~ **Partial** — Esc + focus trap + restore; arrow-key list nav still residual.
-7. **ModernSelect** listbox semantics (`role="listbox"/"option"`, typeahead, aria-controls).
-8. **Charts**: non-color status encoding for availability buckets; keyboard access to series.
+4. ~~**Page-level icon actions** (copy, open external, row kebab, route drag handles).~~ **Audited clean** (2026-08-12): Playwright scan of 15 pages found no unlabeled icon-only controls; the 3 raw hits were base-ui checkboxes with correct aria-labelledby labels.
+5. ~~**Muted/tertiary text** used as primary content in dense tables.~~ **Audited clean** (2026-08-12): all muted-foreground table cells are placeholders (-), meta sub-labels, or icon glyphs; no primary data rendered muted.
+6. ~~**Notification panel** keyboard model.~~ **Obsolete** — the rewrite ships no notification bell/panel surface (topbar = language/theme/avatar only); nothing to keyboard-navigate.
+7. ~~**ModernSelect** listbox semantics.~~ **Obsolete** — ModernSelect was removed in the dead-helper cleanup; selects use @base-ui/react primitives with native listbox semantics. (`role="listbox"/"option"`, typeahead, aria-controls).
+8. **Charts**: non-color status encoding for availability buckets; keyboard access to series. **Partial** — availability status/severity and attention badges all carry text labels (no color-only status); line/bar charts expose text axes + legends; site/model donuts show a name legend plus restored rich text tooltips (balance/cost, accounts, calls, tokens, share) at legacy parity. Residual: keyboard series access unavailable in @visactor/vchart 2.1.4 (no spec aria support; version upgrade deferred).
 9. ~~**Skip link** to main content for keyboard users.~~ **Done** — `SkipToMain` (`web/src/components/skip-to-main.tsx`, href `#content`) rendered in `web/src/components/layout/components/authenticated-layout.tsx`.
-10. ~~**i18n entries** for newer chrome strings (e.g. `展开侧边栏`) if EN surface shows Chinese fallback.~~ **Partial** — skip-link + sidebar expand/nav open/close added; full inventory residual.
-11. **Automated axe a11y CI** gate — not wired.
-12. **Full 375 walkthrough** of every page table → card path (U2 density work residual).
-13. **Residual hex hygiene** in pages/components (brand logos, chart series, route-card dark gradients) — sequential; no new brand hex allowed.
+10. ~~**i18n entries** for newer chrome strings (e.g. `展开侧边栏`) if EN surface shows Chinese fallback.~~ **Audited clean** (2026-08-12): EN-surface runtime scan of 12 routes (home, settings overview + all 5 subareas, dashboard + traffic + models, accounts) — 0 CJK in chrome; the only hits are seed data values (downstream key names, audit-log messages). Skip-link + sidebar expand/nav open/close are i18n-keyed.
+11. ~~**Automated axe a11y CI** gate.~~ **Done** — the `a11y` job in `.github/workflows/ci.yml` serves the embedded SPA via the Go server (fresh sqlite runtime DB, `dev-admin-token-123`) and runs `a11y:scan` (15 admin routes) against the shipped bundle; gated by `docker-build` alongside the tests. Verified green in CI 2026-08-12 (commits `3c46318`, `a2c1364`).
+12. ~~**Full 375 walkthrough** of every page table → card path.~~ **Audited clean** (2026-08-12): 30 pages × 375px × zh — 0 doc overflow, 0 clipped elements outside scroll containers, 0 i18n leaks. Dense tables scroll horizontally inside overflow-x-auto wrappers (standard mobile pattern).
+13. **Residual hex hygiene** in pages/components (brand logos, chart series, route-card dark surfaces) — sequential; no new brand hex allowed.
+14. ~~**Light-theme primary CTA contrast** — white on `--primary` (`#3ea4ec`) ≈ 2.7:1 fails AA.~~ **Done** — light `--primary-foreground` = `oklch(0.145 0 0)` (`#0a0a0a`) on the unchanged brand primary (`#3ea4ec`) measures **7.28:1** (AAA; lab calc Oklch->sRGB->WCAG). Dark theme untouched (`oklch(1 0 0)` on `#0e72bc` = 5.05:1 AA). Side effects: checkbox/radio/filter-chip icons, avatar badge, slider thumb, brand-icon fallback letters also switch to ink on light-primary fills, all strictly higher contrast. Presets are explicit user choices and are out of scope (audit-only: underground/rose-garden/sunset-glow pass with white; forest-whisper 2.75:1, ocean-breeze 3.75:1, lavender-dream 4.04:1 remain below AA — preset-specific fix deferred).
 
 ---
 

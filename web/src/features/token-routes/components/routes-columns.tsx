@@ -198,6 +198,7 @@ export function useRoutesColumns(
     },
     {
       id: 'title',
+      accessorFn: (row) => resolveRouteTitle(row as RouteSummaryRow),
       header: t('tokenRoutes.columns.modelAndName'),
       cell: ({ row }) => {
         const route = row.original as RouteSummaryRow
@@ -245,6 +246,7 @@ export function useRoutesColumns(
     },
     {
       id: 'channels',
+      accessorFn: (row) => (row as RouteSummaryRow).channelCount,
       header: t('tokenRoutes.columns.channels'),
       cell: ({ row }) => {
         const route = row.original as RouteSummaryRow
@@ -266,6 +268,7 @@ export function useRoutesColumns(
     },
     {
       id: 'strategy',
+      accessorFn: (row) => (row as RouteSummaryRow).routingStrategy ?? '',
       header: t('tokenRoutes.columns.strategy'),
       cell: ({ row }) => {
         const route = row.original as RouteSummaryRow
@@ -281,6 +284,7 @@ export function useRoutesColumns(
     },
     {
       id: 'sites',
+      accessorFn: (row) => (row as RouteSummaryRow).siteNames ?? [],
       header: t('tokenRoutes.columns.sites'),
       cell: ({ row }) => {
         const route = row.original as RouteSummaryRow
@@ -307,6 +311,11 @@ export function useRoutesColumns(
     },
     {
       id: 'enabled',
+      accessorFn: (row) => {
+        const route = row as RouteSummaryRow
+        if (isReadOnlyRoute(route)) return 'readonly'
+        return route.enabled ? 'enabled' : 'disabled'
+      },
       header: t('tokenRoutes.columns.enabled'),
       cell: ({ row }) => {
         const route = row.original as RouteSummaryRow
@@ -323,7 +332,7 @@ export function useRoutesColumns(
             <span
               className={cn(
                 'size-1.5 rounded-full',
-                route.enabled ? 'bg-emerald-500' : 'bg-muted-foreground'
+                route.enabled ? 'bg-success' : 'bg-muted-foreground'
               )}
             />
             {route.enabled

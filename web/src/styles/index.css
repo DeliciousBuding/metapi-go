@@ -75,7 +75,7 @@
     scrollbar-color: var(--border) transparent;
   }
   html {
-    @apply overflow-x-hidden font-sans;
+    @apply overflow-x-hidden;
   }
   body {
     @apply bg-background text-foreground has-[div[data-variant='inset']]:bg-sidebar min-h-svh w-full;
@@ -106,49 +106,14 @@
   }
 }
 
-/* Vercel Geist-style skeleton shimmer */
+/* Static skeleton treatment; color ramps are intentionally not used. */
 .skeleton-shimmer {
-  background: linear-gradient(
-    90deg,
-    var(--skeleton-base) 0%,
-    var(--skeleton-base) 33%,
-    var(--skeleton-highlight) 50%,
-    var(--skeleton-base) 67%,
-    var(--skeleton-base) 100%
-  );
-  background-size: 300% 100%;
-  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+  background: var(--skeleton-base);
 }
 
-@keyframes skeleton-shimmer {
-  0% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: -100% 50%;
-  }
-}
-
-/* Override auto-skeleton-react inline styles with Vercel shimmer */
+/* Override auto-skeleton-react inline styles with the same flat fill. */
 .auto-skeleton-fade [class^='skeleton-'] {
-  background: linear-gradient(
-    90deg,
-    var(--skeleton-base) 0%,
-    var(--skeleton-base) 33%,
-    var(--skeleton-highlight) 50%,
-    var(--skeleton-base) 67%,
-    var(--skeleton-base) 100%
-  ) !important;
-  background-size: 300% 100% !important;
-  animation: skeleton-shimmer 1.8s ease-in-out infinite !important;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .skeleton-shimmer,
-  .auto-skeleton-fade [class^='skeleton-'] {
-    animation: none !important;
-    background: var(--skeleton-base) !important;
-  }
+  background: var(--skeleton-base) !important;
 }
 
 @utility container {
@@ -219,10 +184,6 @@
   }
 }
 
-@utility faded-bottom {
-  @apply after:pointer-events-none after:absolute after:start-0 after:bottom-0 after:hidden after:h-32 after:w-full after:rounded-b-2xl after:bg-[linear-gradient(180deg,_transparent_10%,_var(--background)_70%)] md:after:block;
-}
-
 .CollapsibleContent {
   overflow: hidden;
 }
@@ -253,87 +214,8 @@
   }
 }
 
-/* Launch UI Animations and Effects - Matching Template Exactly */
+/* Launch UI animations. */
 @layer utilities {
-  /* Gradient utilities */
-  .bg-radial {
-    background-image: radial-gradient(var(--tw-gradient-stops));
-  }
-
-  /* Glass morphism effects - matching Launch UI template */
-  .glass-1 {
-    @apply border-border from-card/80 to-card/40 dark:border-border/10 dark:border-b-border/5 dark:border-t-border/20 dark:from-card/5 dark:to-card/0 border bg-linear-to-b;
-  }
-
-  .glass-2 {
-    @apply border-border from-card/100 to-card/80 dark:border-border/10 dark:border-b-border/5 dark:border-t-border/20 dark:from-card/10 dark:to-card/5 border bg-linear-to-b;
-  }
-
-  .glass-3 {
-    @apply border-border from-card/30 to-card/20 dark:border-border/10 dark:border-t-border/20 dark:border-b-border/5 dark:from-primary/5 dark:to-primary/2 border bg-linear-to-b;
-  }
-
-  .glass-4 {
-    @apply border-border border-b-input/90 from-card/60 to-card/20 dark:border-border/10 dark:border-t-border/30 dark:from-primary/10 dark:to-primary/5 border bg-linear-to-b dark:border-b-0;
-  }
-
-  .glass-5 {
-    @apply border-border border-b-input from-card/100 to-card/20 dark:border-border/10 dark:border-t-border/30 dark:from-primary/15 dark:to-primary/5 border bg-linear-to-b dark:border-b-0;
-  }
-
-  /* Fade effects - matching Launch UI template */
-  .fade-x {
-    mask-image: linear-gradient(
-      to right,
-      transparent 0%,
-      black 25%,
-      black 75%,
-      transparent 100%
-    );
-  }
-
-  .fade-y {
-    mask-image: linear-gradient(
-      to top,
-      transparent 0%,
-      black 25%,
-      black 75%,
-      transparent 100%
-    );
-  }
-
-  .fade-top {
-    mask-image: linear-gradient(to bottom, transparent 0%, black 35%);
-  }
-
-  .fade-bottom {
-    mask-image: linear-gradient(to top, transparent 0%, black 35%);
-  }
-
-  .fade-top-lg {
-    mask-image: linear-gradient(to bottom, transparent 15%, black 100%);
-  }
-
-  .fade-bottom-lg {
-    mask-image: linear-gradient(to top, transparent 15%, black 100%);
-  }
-
-  .fade-left {
-    mask-image: linear-gradient(to right, transparent 0%, black 35%);
-  }
-
-  .fade-right {
-    mask-image: linear-gradient(to left, transparent 0%, black 35%);
-  }
-
-  .fade-left-lg {
-    mask-image: linear-gradient(to right, transparent 15%, black 100%);
-  }
-
-  .fade-right-lg {
-    mask-image: linear-gradient(to left, transparent 15%, black 100%);
-  }
-
   /* Animations */
   .animate-appear {
     animation: appear 0.6s forwards ease-out;
@@ -513,12 +395,7 @@
 
   @media (min-width: 641px) {
     [data-slot='card']:not([data-card-hover='false']):hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgb(0 0 0 / 0.06);
-    }
-
-    .dark [data-slot='card']:not([data-card-hover='false']):hover {
-      box-shadow: 0 4px 12px rgb(0 0 0 / 0.3);
+      box-shadow: var(--shadow-card-hover);
     }
   }
 
@@ -631,51 +508,5 @@
   .terminal-demo-spin,
   .terminal-demo-pulse {
     animation: none !important;
-  }
-}
-
-/* ── Auto group flowing border ── */
-@property --auto-group-flow-angle {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
-
-@keyframes auto-group-flow-border-travel {
-  to {
-    --auto-group-flow-angle: 360deg;
-  }
-}
-
-/* Border-only effect: the conic gradient covers the whole layer, but the
- * two-layer mask (content-box XOR full box) keeps only a `padding`-wide
- * ring visible, so the highlight hugs the rounded perimeter. Animating
- * the gradient's start angle makes the bright segment travel around all
- * four edges and corners without touching the interior. */
-.auto-group-flow-border {
-  padding: 1.5px;
-  border-radius: inherit;
-  background: conic-gradient(
-    from var(--auto-group-flow-angle),
-    transparent 0deg,
-    transparent 240deg,
-    color-mix(in oklch, var(--primary) 45%, transparent) 300deg,
-    var(--primary) 342deg,
-    transparent 360deg
-  );
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  animation: auto-group-flow-border-travel 3.2s linear infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .auto-group-flow-border {
-    display: none;
   }
 }

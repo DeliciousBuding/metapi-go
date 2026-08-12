@@ -1,18 +1,12 @@
 // metapi-go/features/settings/sections/general/components — site & branding
-// section. Reads branding keys from the runtime-settings document and writes
-// them back via PUT /api/settings/runtime. The branding keys
-// (systemName / logo / footer / about / homePageContent / serverAddress) are
-// not declared on RuntimeSettingsPayload (the legacy TS backend stored them
-// there anyway); the loose RuntimeSettings bag lets the form read them.
+// section. Six branding keys (systemName / logo / footer / about /
+// homePageContent / serverAddress) read from and written back through
+// GET/PUT /api/settings/runtime via the shared settings form.
 
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
-import { Button } from '@/components/ui/button'
 import {
   Form,
   FormControl,
@@ -25,14 +19,20 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 
+import { FormNavigationGuard } from '../../../components/form-navigation-guard'
+import { SettingsFormActions } from '../../../components/settings-form-actions'
+import { SettingsSectionCard } from '../../../components/settings-section-card'
+import { SettingsSectionError } from '../../../components/settings-section-error'
+import { useSettingsForm } from '../../../hooks/use-settings-form'
 import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
+  collectChangedFields,
+  hasChanges,
+} from '../../../lib/collect-changed-fields'
 import {
   asString,
   useRuntimeSettings,
   useUpdateRuntimeSettings,
+  type RuntimeSettings,
 } from '../../../lib/runtime-settings'
 
 const FORM_ID = 'settings-general-site-form'
@@ -48,50 +48,81 @@ const siteSchema = z.object({
 
 type SiteFormValues = z.infer<typeof siteSchema>
 
+const DEFAULT_VALUES: SiteFormValues = {
+  systemName: '',
+  logo: '',
+  footer: '',
+  about: '',
+  homePageContent: '',
+  serverAddress: '',
+}
+
+function deriveServerValues(
+  data: RuntimeSettings | undefined
+): SiteFormValues | null {
+  if (!data) {
+    return null
+  }
+  return {
+    systemName: asString(data.systemName),
+    logo: asString(data.logo),
+    footer: asString(data.footer),
+    about: asString(data.about),
+    homePageContent: asString(data.homePageContent),
+    serverAddress: asString(data.serverAddress),
+  }
+}
+
 export function SiteSection() {
   const { t } = useTranslation()
-  const { data, isLoading } = useRuntimeSettings()
+  const { data, isLoading, isError, refetch } = useRuntimeSettings()
   const updateMutation = useUpdateRuntimeSettings()
 
-  const form = useForm<SiteFormValues>({
-    resolver: zodResolver(siteSchema) as never,
-    defaultValues: {
-      systemName: '',
-      logo: '',
-      footer: '',
-      about: '',
-      homePageContent: '',
-      serverAddress: '',
-    },
+  const serverValues = deriveServerValues(data)
+  const { form, baseline, syncFromServer } = useSettingsForm<SiteFormValues>({
+    schema: siteSchema,
+    defaultValues: DEFAULT_VALUES,
+    serverValues,
   })
 
-  useEffect(() => {
-    if (!data) {
+  function onSubmit(values: SiteFormValues) {
+    const changed = collectChangedFields(
+      values as unknown as Record<string, unknown>,
+      baseline as unknown as Record<string, unknown> | null
+    ) as Partial<SiteFormValues>
+    if (!hasChanges(changed)) {
+      toast.info(t('settings.common.noChanges'))
       return
     }
-    form.reset(
-      {
-        systemName: asString(data.systemName),
-        logo: asString(data.logo),
-        footer: asString(data.footer),
-        about: asString(data.about),
-        homePageContent: asString(data.homePageContent),
-        serverAddress: asString(data.serverAddress),
-      },
-      { keepDirtyValues: true }
-    )
-  }, [data, form])
-
-  function onSubmit(values: SiteFormValues) {
-    updateMutation.mutate(values as never, {
+    updateMutation.mutate(changed, {
       onSuccess: () => toast.success(t('settings.general.site.toast.saved')),
       onError: () => toast.error(t('settings.general.site.toast.saveFailed')),
     })
   }
 
   if (isLoading) {
-    return <SettingsSectionSkeleton />
+    return (
+      <SettingsSectionCard
+        title={t('settings.general.site.title')}
+        description={t('settings.general.site.description')}
+      >
+        <p className='text-muted-foreground text-sm'>
+          {t('settings.common.loading')}
+        </p>
+      </SettingsSectionCard>
+    )
   }
+
+  if (isError || !data) {
+    return (
+      <SettingsSectionError
+        title={t('settings.general.site.title')}
+        onRetry={() => void refetch()}
+      />
+    )
+  }
+
+  const isDirty = form.formState.isDirty
 
   return (
     <SettingsSectionCard
@@ -229,17 +260,17 @@ export function SiteSection() {
               </FormItem>
             )}
           />
-          <Button
-            type='submit'
-            form={FORM_ID}
-            disabled={updateMutation.isPending}
-          >
-            {updateMutation.isPending
-              ? t('settings.common.saving')
-              : t('settings.common.save')}
-          </Button>
+          <SettingsFormActions
+            formId={FORM_ID}
+            isDirty={isDirty}
+            isPending={updateMutation.isPending}
+            onReset={() =>
+              syncFromServer(deriveServerValues(data) ?? DEFAULT_VALUES)
+            }
+          />
         </form>
       </Form>
+      <FormNavigationGuard enabled={isDirty} />
     </SettingsSectionCard>
   )
 }

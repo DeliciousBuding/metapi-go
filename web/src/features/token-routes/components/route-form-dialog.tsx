@@ -10,6 +10,7 @@ import { useForm, type SubmitErrorHandler } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -84,6 +85,11 @@ export function RouteFormDialog({
     resolver: zodResolver(schema),
     defaultValues: getRouteFormDefaultValues(),
   })
+  const { handleOpenChange, guard } = useDirtyDialogClose({
+    enabled: form.formState.isDirty,
+    onDiscard: () => form.reset(),
+    onOpenChange,
+  })
   const routeMode = form.watch('routeMode') as RouteMode
   const modelPattern = form.watch('modelPattern') ?? ''
   const [initializedFor, setInitializedFor] = useState<string | null>(null)
@@ -135,6 +141,7 @@ export function RouteFormDialog({
       if (!isEdit) {
         showRouteCompletionToast(routeId, chainContext)
       }
+      form.reset()
       onOpenChange(false)
     } catch {}
   }
@@ -148,7 +155,7 @@ export function RouteFormDialog({
     batchAddChannelsMutation.isPending
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side='right'
         className='flex w-full flex-col gap-0 sm:max-w-lg'
@@ -262,7 +269,13 @@ export function RouteFormDialog({
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue>
+                          {(selected) =>
+                            t(
+                              `tokenRoutes.strategies.${String(selected ?? 'weighted')}`
+                            )
+                          }
+                        </SelectValue>
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -327,6 +340,7 @@ export function RouteFormDialog({
           </Button>
         </SheetFooter>
       </SheetContent>
+      {guard}
     </Sheet>
   )
 }

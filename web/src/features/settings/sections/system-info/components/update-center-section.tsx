@@ -44,6 +44,15 @@ export function UpdateCenterSection() {
   })
 
   const status = statusQuery.data ?? {}
+  const currentVersion =
+    status.currentVersion && status.currentVersion !== '0.0.0'
+      ? status.currentVersion
+      : undefined
+  const latestVersion =
+    status.latestVersion && status.latestVersion !== '0.0.0'
+      ? status.latestVersion
+      : undefined
+  const hasComparableVersions = Boolean(currentVersion && latestVersion)
 
   return (
     <SettingsSectionCard
@@ -60,19 +69,19 @@ export function UpdateCenterSection() {
                 {t('settings.systemInfo.updateCenter.currentVersion')}
               </div>
               <code className='text-sm'>
-                {status.currentVersion ??
+                {currentVersion ??
                   t('settings.systemInfo.updateCenter.unknown')}
               </code>
             </div>
-            {status.latestVersion ? (
+            {latestVersion ? (
               <div>
                 <div className='text-muted-foreground text-xs'>
                   {t('settings.systemInfo.updateCenter.latestVersion')}
                 </div>
-                <code className='text-sm'>{status.latestVersion}</code>
+                <code className='text-sm'>{latestVersion}</code>
               </div>
             ) : null}
-            {status.updateAvailable !== undefined ? (
+            {hasComparableVersions && status.updateAvailable !== undefined ? (
               <Badge variant={status.updateAvailable ? 'default' : 'secondary'}>
                 {status.updateAvailable
                   ? t('settings.systemInfo.updateCenter.updateAvailable')

@@ -118,7 +118,7 @@ func recordAuditLog(db *sqlx.DB, r *http.Request, status int) {
 	}
 }
 
-// GET /api/admin/audit-logs?limit=&method=&path=
+// GET /api/admin/audit-logs?limit=&offset=&method=&path=
 // Lists recent admin write operations newest-first. method filters exact
 // methods (POST/PUT/PATCH/DELETE); path filters by substring.
 func RegisterAuditLogsRoutes(r chi.Router, db *sqlx.DB) {
@@ -132,6 +132,10 @@ type auditLogsHandler struct {
 
 func (h *auditLogsHandler) list(w http.ResponseWriter, r *http.Request) {
 	limit := clampInt(getQueryInt(r, "limit", 50), 1, 200)
+	offset := getQueryInt(r, "offset", 0)
+	if offset < 0 {
+		offset = 0
+	}
 	method := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("method")))
 	pathFilter := strings.TrimSpace(r.URL.Query().Get("path"))
 
@@ -154,8 +158,8 @@ func (h *auditLogsHandler) list(w http.ResponseWriter, r *http.Request) {
 
 	rows := queryRows(h.db,
 		"SELECT id, actor, method, path, status, request_id, remote_ip, created_at FROM admin_audit_logs WHERE "+
-			strings.Join(where, " AND ")+" ORDER BY id DESC LIMIT ?",
-		append(args, limit)...)
+			strings.Join(where, " AND ")+" ORDER BY id DESC LIMIT ? OFFSET ?",
+		append(args, limit, offset)...)
 
 	items := make([]map[string]any, 0, len(rows))
 	for _, row := range rows {
@@ -171,8 +175,9 @@ func (h *auditLogsHandler) list(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"items": items,
-		"total": total,
-		"limit": limit,
+		"items":  items,
+		"total":  total,
+		"limit":  limit,
+		"offset": offset,
 	})
 }

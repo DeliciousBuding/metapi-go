@@ -9,13 +9,6 @@
 // `/sites` route file lands its own `validateSearch`. Mobile cards are
 // handled by `DataTablePage` via the column `meta` flags.
 
-import { useLocation, useNavigate } from '@tanstack/react-router'
-import type {
-  ColumnFiltersState,
-  PaginationState,
-  SortingState,
-  Updater,
-} from '@tanstack/react-table'
 import { Plus as PlusIcon, Trash2 as Trash2Icon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -24,7 +17,10 @@ import { toast } from 'sonner'
 import {
   DataTableBulkActions,
   DataTablePage,
+  encodeSorting,
   useDataTable,
+  useUrlTableState,
+  type UrlTableState,
 } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
 import {
@@ -36,7 +32,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Spinner } from '@/components/ui/spinner'
-import { parseSortingParam } from '@/lib/helpers/searchParams'
+import { useAccounts } from '@/features/accounts'
+import { asStringParam, parseSortingParam } from '@/lib/helpers/searchParams'
 
 import {
   useBatchUpdateSites,
@@ -54,32 +51,17 @@ import { SITES_STATUS_FILTER_OPTIONS, useSitesColumns } from './sites-columns'
 const SITES_COLUMN_VISIBILITY_STORAGE_KEY = 'metapi-go:sites:column-visibility'
 const SITES_COLUMN_SIZING_STORAGE_KEY = 'metapi-go:sites:column-sizing'
 
-type ResolvedSearch = {
-  q: string
-  pageIndex: number
-  pageSize: number
-  sorting: SortingState
-  status: string | undefined
-}
+type SitesUrlFilters = { status: string | undefined }
 
-function resolveUpdater<TValue>(
-  updater: Updater<TValue>,
-  previous: TValue
-): TValue {
-  return typeof updater === 'function'
-    ? (updater as (old: TValue) => TValue)(previous)
-    : updater
-}
-
-function encodeSorting(sorting: SortingState): string {
-  return sorting
-    .map((item) => `${item.id}:${item.desc ? 'desc' : 'asc'}`)
-    .join(',')
-}
-
-function readSearch(searchString?: string): ResolvedSearch {
+function readSearch(searchString?: string): UrlTableState<SitesUrlFilters> {
   if (typeof window === 'undefined') {
-    return { q: '', pageIndex: 0, pageSize: 20, sorting: [], status: undefined }
+    return {
+      q: '',
+      pageIndex: 0,
+      pageSize: 20,
+      sorting: [],
+      filters: { status: undefined },
+    }
   }
   const params = new URLSearchParams(searchString ?? window.location.search)
   const parsed = sitesSearchSchema.safeParse({
@@ -90,107 +72,96 @@ function readSearch(searchString?: string): ResolvedSearch {
     status: params.get('status') ?? undefined,
   })
   if (!parsed.success) {
-    return { q: '', pageIndex: 0, pageSize: 20, sorting: [], status: undefined }
+    return {
+      q: '',
+      pageIndex: 0,
+      pageSize: 20,
+      sorting: [],
+      filters: { status: undefined },
+    }
   }
   const data = parsed.data
   return {
-    q: data.q ?? '',
+    q: asStringParam(data.q) ?? '',
     pageIndex: data.page ?? 0,
     pageSize: data.pageSize ?? 20,
     sorting: parseSortingParam(data.sort),
-    status: data.status,
+    filters: { status: asStringParam(data.status) },
   }
 }
 
-function buildHref(next: Partial<ResolvedSearch>): string {
+function buildHref(next: Partial<UrlTableState<SitesUrlFilters>>): string {
   const current = readSearch()
-  const merged: ResolvedSearch = { ...current, ...next }
+  const merged: UrlTableState<SitesUrlFilters> = {
+    ...current,
+    ...next,
+    filters: { ...current.filters, ...next.filters },
+  }
   const params = new URLSearchParams()
   if (merged.q) params.set('q', merged.q)
   if (merged.pageIndex > 0) params.set('page', String(merged.pageIndex))
   if (merged.pageSize !== 20) params.set('pageSize', String(merged.pageSize))
   const sortString = encodeSorting(merged.sorting)
   if (sortString) params.set('sort', sortString)
-  if (merged.status) params.set('status', merged.status)
+  if (merged.filters.status) params.set('status', merged.filters.status)
   const queryString = params.toString()
   return queryString ? `/sites?${queryString}` : '/sites'
 }
 
 /**
  * The "feature useSearch" stage. Reads the URL on every render (cheap) and
- * hands the data-table controlled state + navigation-backed setters. Because
- * `useNavigate` re-renders the page after each navigation, the next render
- * re-reads the URL — keeping a single source of truth.
+ * hands the data-table controlled state + navigation-backed setters. The
+ * shared {@link useUrlTableState} owns the router subscription and the
+ * URL-sync guard.
  */
 function useSitesUrlState() {
-  const navigate = useNavigate()
-  // Subscribe to the router location: TanStack Router does not re-render a
-  // route component on same-path search-only navigation unless a hook
-  // consumes the location, and readSearch() reads the URL on render — without
-  // this the table would only catch up on the next unrelated re-render.
-  const searchStr = useLocation({ select: (loc) => loc.searchStr })
-  const search = readSearch(searchStr)
-
-  const columnFilters: ColumnFiltersState = useMemo(() => {
-    if (!search.status) return []
-    return [{ id: 'status', value: search.status }]
-  }, [search.status])
-
-  // URL-sync guard: table state callbacks can fire while the router is
-  // navigating away (the useLocation subscription re-renders this page with
-  // the *next* location's search string). Without the pathname check the
-  // callback would navigate straight back, hijacking the in-flight
-  // navigation — the "clicked a sidebar link but the page snapped back"
-  // bug. Only sync when we are still on this page.
-  function syncUrl(next: Partial<ResolvedSearch>) {
-    const href = buildHref(next)
-    if (!href.startsWith(window.location.pathname)) return
-    navigate({ href, replace: true })
-  }
-
-  const onGlobalFilterChange = (updater: Updater<string>) => {
-    const next = resolveUpdater(updater, search.q)
-    syncUrl({ q: next })
-  }
-  const onPaginationChange = (updater: Updater<PaginationState>) => {
-    const next = resolveUpdater(updater, {
-      pageIndex: search.pageIndex,
-      pageSize: search.pageSize,
-    })
-    syncUrl({ pageIndex: next.pageIndex, pageSize: next.pageSize })
-  }
-  const onSortingChange = (updater: Updater<SortingState>) => {
-    const next = resolveUpdater(updater, search.sorting)
-    syncUrl({ sorting: next })
-  }
-  const onColumnFiltersChange = (updater: Updater<ColumnFiltersState>) => {
-    const next = resolveUpdater(updater, columnFilters)
-    const statusEntry = next.find((filter) => filter.id === 'status')
-    const statusValue =
-      statusEntry && Array.isArray(statusEntry.value)
-        ? (statusEntry.value as string[])[0]
-        : (statusEntry?.value as string | undefined)
-    syncUrl({ status: statusValue })
-  }
-
-  return {
-    globalFilter: search.q,
-    onGlobalFilterChange,
-    pagination: {
-      pageIndex: search.pageIndex,
-      pageSize: search.pageSize,
-    } as PaginationState,
-    onPaginationChange,
-    sorting: search.sorting,
-    onSortingChange,
-    columnFilters,
-    onColumnFiltersChange,
-  }
+  return useUrlTableState<SitesUrlFilters>({
+    basePath: '/sites',
+    read: readSearch,
+    buildHref,
+    toColumnFilters: (filters) =>
+      filters.status ? [{ id: 'status', value: filters.status }] : [],
+    fromColumnFilters: (filters) => {
+      const statusEntry = filters.find((filter) => filter.id === 'status')
+      return {
+        filters: {
+          status: Array.isArray(statusEntry?.value)
+            ? (statusEntry.value as string[])[0]
+            : (statusEntry?.value as string | undefined),
+        },
+      }
+    },
+  })
 }
 
 export function SitesPage() {
   const { t } = useTranslation()
   const sitesQuery = useSites()
+  // The /api/sites endpoint does not include account counts; enrich the rows
+  // from the already-cached accounts snapshot (the documented plan in
+  // types.ts). If the snapshot is unavailable the column falls back to '—'.
+  const accountsQuery = useAccounts()
+  const accountCountBySite = useMemo(() => {
+    const counts = new Map<number, number>()
+    for (const account of accountsQuery.data?.accounts ?? []) {
+      const siteId = Number(account.siteId)
+      if (Number.isFinite(siteId) && siteId > 0) {
+        counts.set(siteId, (counts.get(siteId) ?? 0) + 1)
+      }
+    }
+    return counts
+  }, [accountsQuery.data])
+  const sites = useMemo(() => {
+    const rows = sitesQuery.data ?? []
+    if (accountCountBySite.size === 0) return rows
+    return rows.map((site) => ({
+      ...site,
+      accountCount:
+        typeof site.accountCount === 'number'
+          ? site.accountCount
+          : (accountCountBySite.get(site.id) ?? 0),
+    }))
+  }, [sitesQuery.data, accountCountBySite])
   const deleteSite = useDeleteSite()
   const updateSite = useUpdateSite()
   const batchUpdateSites = useBatchUpdateSites()
@@ -200,6 +171,10 @@ export function SitesPage() {
   const [viewingSite, setViewingSite] = useState<Site | null>(null)
   const [createdSite, setCreatedSite] = useState<Site | null>(null)
   const [deletingSite, setDeletingSite] = useState<Site | null>(null)
+  const [bulkDeleteState, setBulkDeleteState] = useState<{
+    ids: number[]
+    count: number
+  } | null>(null)
 
   const urlState = useSitesUrlState()
 
@@ -218,7 +193,6 @@ export function SitesPage() {
         {
           onSuccess: () =>
             toast.success(t('sites.toast.statusToggled', { name: site.name })),
-          onError: () => toast.error(t('sites.toast.statusToggleFailed')),
         }
       )
     },
@@ -228,7 +202,6 @@ export function SitesPage() {
         {
           onSuccess: () =>
             toast.success(t('sites.toast.pinToggled', { name: site.name })),
-          onError: () => toast.error(t('sites.toast.pinToggleFailed')),
         }
       )
     },
@@ -238,7 +211,7 @@ export function SitesPage() {
   })
 
   const { table } = useDataTable<Site>({
-    data: sitesQuery.data ?? [],
+    data: sites,
     columns,
     enableRowSelection: true,
     enableColumnResizing: true,
@@ -271,7 +244,7 @@ export function SitesPage() {
       await deleteSite.mutateAsync(site.id)
       toast.success(t('sites.toast.deleted', { name: site.name }))
     } catch {
-      toast.error(t('sites.toast.deleteFailed'))
+      // http-client toasted
     } finally {
       setDeletingSite(null)
     }
@@ -281,6 +254,10 @@ export function SitesPage() {
     const selectedRows = table.getFilteredSelectedRowModel().rows
     const ids = selectedRows.map((row) => row.original.id)
     if (ids.length === 0) return
+    if (action === 'delete') {
+      setBulkDeleteState({ ids, count: ids.length })
+      return
+    }
     try {
       const result = await batchUpdateSites.mutateAsync({ ids, action })
       const successCount = result.successIds?.length ?? 0
@@ -297,7 +274,35 @@ export function SitesPage() {
       }
       table.resetRowSelection()
     } catch {
-      toast.error(t('sites.toast.bulkFailed'))
+      // http-client toasted
+    }
+  }
+
+  async function confirmBulkDelete() {
+    if (!bulkDeleteState) return
+    const { ids } = bulkDeleteState
+    try {
+      const result = await batchUpdateSites.mutateAsync({
+        ids,
+        action: 'delete',
+      })
+      const successCount = result.successIds?.length ?? 0
+      const failedCount = ids.length - successCount
+      if (failedCount <= 0) {
+        toast.success(t('sites.toast.bulkSucceeded', { count: successCount }))
+      } else {
+        toast.warning(
+          t('sites.toast.bulkPartial', {
+            success: successCount,
+            failed: failedCount,
+          })
+        )
+      }
+      table.resetRowSelection()
+      setBulkDeleteState(null)
+    } catch {
+      // http-client toasted
+      setBulkDeleteState(null)
     }
   }
 
@@ -307,7 +312,21 @@ export function SitesPage() {
   }))
 
   return (
-    <>
+    <div className='flex h-full flex-col gap-3 p-4'>
+      <div>
+        <h1 className='text-lg font-normal'>{t('sites.page.title')}</h1>
+        <p className='text-muted-foreground text-sm'>
+          {t('sites.page.description')}
+        </p>
+      </div>
+
+      {sitesQuery.error && (
+        <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
+          {t('sites.page.loadError', {
+            message: (sitesQuery.error as Error).message,
+          })}
+        </div>
+      )}
       <DataTablePage
         table={table}
         columns={columns}
@@ -436,6 +455,41 @@ export function SitesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+
+      <Dialog
+        open={bulkDeleteState !== null}
+        onOpenChange={(open) => {
+          if (!open) setBulkDeleteState(null)
+        }}
+      >
+        <DialogContent className='sm:max-w-sm'>
+          <DialogHeader>
+            <DialogTitle>{t('sites.bulk.deleteConfirmTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('sites.bulk.deleteConfirmDescription', {
+                count: bulkDeleteState?.count ?? 0,
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant='outline'
+              onClick={() => setBulkDeleteState(null)}
+              disabled={batchUpdateSites.isPending}
+            >
+              {t('sites.bulk.deleteConfirmCancel')}
+            </Button>
+            <Button
+              variant='destructive'
+              onClick={confirmBulkDelete}
+              disabled={batchUpdateSites.isPending}
+            >
+              {batchUpdateSites.isPending && <Spinner className='mr-2' />}
+              {t('sites.bulk.deleteConfirmConfirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   )
 }

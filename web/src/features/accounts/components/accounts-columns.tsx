@@ -50,17 +50,17 @@ const HEALTH_BADGE_CONFIG: Record<RuntimeHealthState, HealthBadgeConfig> = {
   healthy: {
     labelKey: 'accounts.columns.healthHealthy',
     variant: 'default',
-    dotClassName: 'bg-emerald-500',
+    dotClassName: 'bg-success',
   },
   degraded: {
     labelKey: 'accounts.columns.healthDegraded',
     variant: 'warning',
-    dotClassName: 'bg-amber-500',
+    dotClassName: 'bg-warning',
   },
   unhealthy: {
     labelKey: 'accounts.columns.healthUnhealthy',
     variant: 'destructive',
-    dotClassName: 'bg-red-500',
+    dotClassName: 'bg-destructive',
   },
   disabled: {
     labelKey: 'accounts.columns.healthDisabled',
@@ -84,7 +84,7 @@ function useResolveHealth() {
         labelKey: 'accounts.columns.healthExpired',
         label: t('accounts.columns.healthExpired'),
         variant: 'destructive',
-        dotClassName: 'bg-red-500',
+        dotClassName: 'bg-destructive',
       }
     }
     const state = account.runtimeHealth?.state ?? 'unknown'
@@ -221,6 +221,10 @@ export function useAccountsColumns(
     },
     {
       id: 'name',
+      accessorFn: (row) => {
+        const account = accountSchema.parse(row)
+        return account.username ?? ''
+      },
       header: t('accounts.columns.name'),
       cell: ({ row }) => {
         const account = accountSchema.parse(row.original)
@@ -254,6 +258,7 @@ export function useAccountsColumns(
     },
     {
       id: 'site',
+      accessorFn: (row) => String(accountSchema.parse(row).siteId),
       header: t('accounts.columns.site'),
       cell: ({ row }) => {
         const account = accountSchema.parse(row.original)
@@ -281,6 +286,7 @@ export function useAccountsColumns(
     },
     {
       id: 'status',
+      accessorFn: (row) => accountSchema.parse(row).status,
       header: t('common.status'),
       cell: ({ row }) => {
         const account = accountSchema.parse(row.original)
@@ -312,7 +318,7 @@ export function useAccountsColumns(
               {formatBalance(account.balance)}
             </span>
             {account.todayReward ? (
-              <span className='text-[11px] text-emerald-600'>
+              <span className='text-success text-[11px]'>
                 +{formatBalance(account.todayReward)}
               </span>
             ) : null}
@@ -332,7 +338,7 @@ export function useAccountsColumns(
               {formatBalance(account.balanceUsed)}
             </span>
             <span className='text-muted-foreground text-[11px]'>
-              {formatPercent(account.balanceUsed ?? 0, account.balance ?? 0)}
+              {formatPercent(account.balanceUsed ?? 0, account.quota ?? 0)}
             </span>
           </div>
         )
@@ -341,6 +347,10 @@ export function useAccountsColumns(
     },
     {
       id: 'checkin',
+      accessorFn: (row) => {
+        const account = accountSchema.parse(row)
+        return account.checkinEnabled ? 'on' : 'off'
+      },
       header: t('accounts.columns.checkin'),
       cell: ({ row }) => {
         const account = accountSchema.parse(row.original)

@@ -3,6 +3,7 @@ package admin
 import (
 	"encoding/base64"
 	"encoding/json"
+	"github.com/go-chi/chi/v5"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -902,5 +903,39 @@ func TestImportBackupTablesSkipsRuntimeLocalSettings(t *testing.T) {
 		if count != 0 {
 			t.Fatalf("runtime-local setting %s was imported", key)
 		}
+	}
+}
+
+func TestWebdavSaveRejectsInvalidAutoSyncCron(t *testing.T) {
+	db := setupBackupTestDB(t)
+	allowPrivateWebdavTargetsForTest(t)
+	r := chi.NewRouter()
+	RegisterBackupRoutes(r, db.DB)
+
+	rec := doPutJSON(t, r, "/api/settings/backup/webdav", map[string]any{
+		"enabled":         true,
+		"fileUrl":         "http://dav.example.com/backup.json",
+		"autoSyncEnabled": true,
+		"autoSyncCron":    "not-a-cron",
+	})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s, want 400", rec.Code, rec.Body.String())
+	}
+}
+
+func TestWebdavSaveAcceptsValidAutoSyncCron(t *testing.T) {
+	db := setupBackupTestDB(t)
+	allowPrivateWebdavTargetsForTest(t)
+	r := chi.NewRouter()
+	RegisterBackupRoutes(r, db.DB)
+
+	rec := doPutJSON(t, r, "/api/settings/backup/webdav", map[string]any{
+		"enabled":         true,
+		"fileUrl":         "http://dav.example.com/backup.json",
+		"autoSyncEnabled": true,
+		"autoSyncCron":    "0 */3 * * *",
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s, want 200", rec.Code, rec.Body.String())
 	}
 }

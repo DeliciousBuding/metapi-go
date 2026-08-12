@@ -16,8 +16,18 @@ import { useAuthStore } from '@/stores/auth-store'
 
 let authBootstrapped = false
 
+function isDevtoolsEnabled() {
+  if (import.meta.env.MODE !== 'development') return false
+  try {
+    return window.localStorage.getItem('metapi-devtools') === '1'
+  } catch {
+    return false
+  }
+}
+
 function RootComponent() {
   const queryClient = useQueryClient()
+  const showDevtools = isDevtoolsEnabled()
 
   // Clear the query cache when the auth session changes (login/logout/tab
   // sync) so stale user-scoped data never leaks across sessions.
@@ -35,7 +45,7 @@ function RootComponent() {
     <>
       <Outlet />
       <Toaster closeButton duration={5000} position='top-center' richColors />
-      {import.meta.env.MODE === 'development' && (
+      {showDevtools && (
         <>
           <ReactQueryDevtools buttonPosition='bottom-left' />
           <TanStackRouterDevtools position='bottom-right' />

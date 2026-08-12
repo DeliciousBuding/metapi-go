@@ -8,19 +8,18 @@
 // OAuth flow), delete. Mobile cards are handled by `DataTablePage` via the
 // column `meta` flags.
 
-import { useLocation, useNavigate } from '@tanstack/react-router'
-import type {
-  ColumnFiltersState,
-  PaginationState,
-  SortingState,
-  Updater,
-} from '@tanstack/react-table'
 import { Plus as PlusIcon } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { DataTablePage, useDataTable } from '@/components/data-table'
+import {
+  DataTablePage,
+  encodeSorting,
+  useDataTable,
+  useUrlTableState,
+  type UrlTableState,
+} from '@/components/data-table'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -30,7 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { parseSortingParam } from '@/lib/helpers/searchParams'
+import { asStringParam, parseSortingParam } from '@/lib/helpers/searchParams'
 
 import {
   useDeleteOAuthConnection,
@@ -46,32 +45,17 @@ import { OAuthStartDialog } from './oauth-start-dialog'
 const OAUTH_COLUMN_VISIBILITY_STORAGE_KEY = 'metapi-go:oauth:column-visibility'
 const OAUTH_COLUMN_SIZING_STORAGE_KEY = 'metapi-go:oauth:column-sizing'
 
-type ResolvedSearch = {
-  q: string
-  pageIndex: number
-  pageSize: number
-  sorting: SortingState
-  status: string | undefined
-}
+type OAuthUrlFilters = { status: string | undefined }
 
-function resolveUpdater<TValue>(
-  updater: Updater<TValue>,
-  previous: TValue
-): TValue {
-  return typeof updater === 'function'
-    ? (updater as (old: TValue) => TValue)(previous)
-    : updater
-}
-
-function encodeSorting(sorting: SortingState): string {
-  return sorting
-    .map((item) => `${item.id}:${item.desc ? 'desc' : 'asc'}`)
-    .join(',')
-}
-
-function readSearch(searchString?: string): ResolvedSearch {
+function readSearch(searchString?: string): UrlTableState<OAuthUrlFilters> {
   if (typeof window === 'undefined') {
-    return { q: '', pageIndex: 0, pageSize: 20, sorting: [], status: undefined }
+    return {
+      q: '',
+      pageIndex: 0,
+      pageSize: 20,
+      sorting: [],
+      filters: { status: undefined },
+    }
   }
   const params = new URLSearchParams(searchString ?? window.location.search)
   const parsed = oauthSearchSchema.safeParse({
@@ -82,94 +66,66 @@ function readSearch(searchString?: string): ResolvedSearch {
     status: params.get('status') ?? undefined,
   })
   if (!parsed.success) {
-    return { q: '', pageIndex: 0, pageSize: 20, sorting: [], status: undefined }
+    return {
+      q: '',
+      pageIndex: 0,
+      pageSize: 20,
+      sorting: [],
+      filters: { status: undefined },
+    }
   }
   const data = parsed.data
   return {
-    q: data.q ?? '',
+    q: asStringParam(data.q) ?? '',
     pageIndex: data.page ?? 0,
     pageSize: data.pageSize ?? 20,
     sorting: parseSortingParam(data.sort),
-    status: data.status,
+    filters: { status: asStringParam(data.status) },
   }
 }
 
-function buildHref(next: Partial<ResolvedSearch>): string {
+function buildHref(next: Partial<UrlTableState<OAuthUrlFilters>>): string {
   const current = readSearch()
-  const merged: ResolvedSearch = { ...current, ...next }
+  const merged: UrlTableState<OAuthUrlFilters> = {
+    ...current,
+    ...next,
+    filters: { ...current.filters, ...next.filters },
+  }
   const params = new URLSearchParams()
   if (merged.q) params.set('q', merged.q)
   if (merged.pageIndex > 0) params.set('page', String(merged.pageIndex))
   if (merged.pageSize !== 20) params.set('pageSize', String(merged.pageSize))
   const sortString = encodeSorting(merged.sorting)
   if (sortString) params.set('sort', sortString)
-  if (merged.status) params.set('status', merged.status)
+  if (merged.filters.status) params.set('status', merged.filters.status)
   const queryString = params.toString()
   return queryString ? `/oauth?${queryString}` : '/oauth'
 }
 
+/**
+ * The "feature useSearch" stage. Reads the URL on every render (cheap) and
+ * hands the data-table controlled state + navigation-backed setters. The
+ * shared {@link useUrlTableState} owns the router subscription and the
+ * URL-sync guard.
+ */
 function useOAuthUrlState() {
-  const navigate = useNavigate()
-  // Subscribe to the router location: TanStack Router does not re-render a
-  // route component on same-path search-only navigation unless a hook
-  // consumes the location, and readSearch() reads the URL on render.
-  const searchStr = useLocation({ select: (loc) => loc.searchStr })
-  const search = readSearch(searchStr)
-
-  const columnFilters: ColumnFiltersState = useMemo(() => {
-    if (!search.status) return []
-    return [{ id: 'status', value: search.status }]
-  }, [search.status])
-
-  // URL-sync guard: table state callbacks can fire while the router is
-  // navigating away (the useLocation subscription re-renders this page with
-  // the *next* location's search string). Without the pathname check the
-  // callback would navigate straight back, hijacking the in-flight
-  // navigation. Only sync when we are still on this page.
-  function syncUrl(next: Partial<ResolvedSearch>) {
-    const href = buildHref(next)
-    if (!href.startsWith(window.location.pathname)) return
-    navigate({ href, replace: true })
-  }
-
-  const onGlobalFilterChange = (updater: Updater<string>) => {
-    const next = resolveUpdater(updater, search.q)
-    syncUrl({ q: next })
-  }
-  const onPaginationChange = (updater: Updater<PaginationState>) => {
-    const next = resolveUpdater(updater, {
-      pageIndex: search.pageIndex,
-      pageSize: search.pageSize,
-    })
-    syncUrl({ pageIndex: next.pageIndex, pageSize: next.pageSize })
-  }
-  const onSortingChange = (updater: Updater<SortingState>) => {
-    const next = resolveUpdater(updater, search.sorting)
-    syncUrl({ sorting: next })
-  }
-  const onColumnFiltersChange = (updater: Updater<ColumnFiltersState>) => {
-    const next = resolveUpdater(updater, columnFilters)
-    const statusEntry = next.find((filter) => filter.id === 'status')
-    const statusValue =
-      statusEntry && Array.isArray(statusEntry.value)
-        ? (statusEntry.value as string[])[0]
-        : (statusEntry?.value as string | undefined)
-    syncUrl({ status: statusValue })
-  }
-
-  return {
-    globalFilter: search.q,
-    onGlobalFilterChange,
-    pagination: {
-      pageIndex: search.pageIndex,
-      pageSize: search.pageSize,
-    } as PaginationState,
-    onPaginationChange,
-    sorting: search.sorting,
-    onSortingChange,
-    columnFilters,
-    onColumnFiltersChange,
-  }
+  return useUrlTableState<OAuthUrlFilters>({
+    basePath: '/oauth',
+    read: readSearch,
+    buildHref,
+    toColumnFilters: (filters) =>
+      filters.status ? [{ id: 'status', value: filters.status }] : [],
+    fromColumnFilters: (filters) => {
+      const statusEntry = filters.find((filter) => filter.id === 'status')
+      return {
+        filters: {
+          status: Array.isArray(statusEntry?.value)
+            ? (statusEntry.value as string[])[0]
+            : (statusEntry?.value as string | undefined),
+        },
+      }
+    },
+  })
 }
 
 export function OAuthPage() {
@@ -191,7 +147,6 @@ export function OAuthPage() {
           toast.success(
             t('oauth.toast.quotaRefreshed', { id: client.accountId })
           ),
-        onError: () => toast.error(t('oauth.toast.quotaRefreshFailed')),
       })
     },
     onRebind: (client) => {
@@ -208,7 +163,6 @@ export function OAuthPage() {
             t('oauth.toast.rebindStarted', { id: client.accountId })
           )
         },
-        onError: () => toast.error(t('oauth.toast.rebindFailed')),
       })
     },
     onDelete: (client) => {
@@ -245,7 +199,7 @@ export function OAuthPage() {
       await deleteConnection.mutateAsync(client.accountId)
       toast.success(t('oauth.toast.deleted', { id: client.accountId }))
     } catch {
-      toast.error(t('oauth.toast.deleteFailed'))
+      // http-client toasted
     } finally {
       setDeletingClient(null)
     }
@@ -257,7 +211,21 @@ export function OAuthPage() {
   }))
 
   return (
-    <>
+    <div className='flex h-full flex-col gap-3 p-4'>
+      <div>
+        <h1 className='text-lg font-normal'>{t('oauth.page.title')}</h1>
+        <p className='text-muted-foreground text-sm'>
+          {t('oauth.page.description')}
+        </p>
+      </div>
+
+      {connectionsQuery.error && (
+        <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
+          {t('oauth.page.loadError', {
+            message: (connectionsQuery.error as Error).message,
+          })}
+        </div>
+      )}
       <DataTablePage
         table={table}
         columns={columns}
@@ -328,6 +296,6 @@ export function OAuthPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   )
 }

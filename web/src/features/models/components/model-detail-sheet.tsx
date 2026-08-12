@@ -66,7 +66,8 @@ function formatLatency(latency: number | null): string {
 
 function formatSuccessRate(rate: number | null): string {
   if (rate === null || rate === undefined) return '—'
-  return `${Math.round(rate * 100)}%`
+  // API successRate is already a percentage (0-100); avoid double-scaling.
+  return `${Math.round(rate)}%`
 }
 
 function GroupPricingRow({

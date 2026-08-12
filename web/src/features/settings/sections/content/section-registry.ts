@@ -2,6 +2,7 @@
 // Scope (plan §5.5.2): import/export + notification channels + risk-banner
 // announcements. All three sections wired to real forms under ./components.
 
+import { MessagesSquare } from 'lucide-react'
 import { createElement } from 'react'
 
 import type { SettingsSubarea } from '../../types'
@@ -14,18 +15,21 @@ const CONTENT_SECTIONS = [
   {
     id: 'import-export',
     title: 'settings.content.importExport.title',
+    group: 'settings.content.groups.data',
     description: 'settings.content.importExport.description',
     build: () => createElement(ImportExportSection),
   },
   {
     id: 'notifications',
     title: 'settings.content.notifications.title',
+    group: 'settings.content.groups.messaging',
     description: 'settings.content.notifications.description',
     build: () => createElement(NotificationsSection),
   },
   {
     id: 'announcements',
     title: 'settings.content.announcements.title',
+    group: 'settings.content.groups.messaging',
     description: 'settings.content.announcements.description',
     build: () => createElement(AnnouncementsSection),
   },
@@ -35,13 +39,15 @@ type ContentSectionId = (typeof CONTENT_SECTIONS)[number]['id']
 
 const registry = createSectionRegistry<ContentSectionId>({
   sections: CONTENT_SECTIONS,
-  defaultSection: 'import-export',
+  defaultSection: 'notifications',
   basePath: '/settings/content',
 })
 
 export const contentSubarea: SettingsSubarea = {
   id: 'content',
   title: 'settings.subareas.content',
+  description: 'settings.subareas.content.description',
+  icon: MessagesSquare,
   basePath: '/settings/content',
   defaultSection: registry.defaultSection,
   sectionIds: registry.sectionIds,

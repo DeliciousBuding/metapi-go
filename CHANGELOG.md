@@ -7,6 +7,49 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Versioned `ScheduleSpec` v1 for daily, interval, random-window, and custom Cron schedules, with additive preview/apply migration endpoints that preserve every legacy key.
+- Unified settings form actions, load-error states, dirty navigation guards, semantic schedule controls, and responsive settings navigation.
+- Server-side audit-log pagination (`limit`/`offset`) with a paginated audit table UI (page indicator, prev/next, method filter resets to page 1).
+- Database settings page now uses the unified dirty-guard form (Save/Reset disabled until dirty, unsaved-changes hint, navigation guard); the in-app 501 migrate button is replaced with a CLI-only migration note.
+- CJK sans-serif fallbacks for `--font-sans` (Noto Sans SC/TC/JP/KR, PingFang SC, Microsoft YaHei) so zh-CN UI no longer falls back to a non-deterministic system face.
+- Mobile sidebar trigger in the app header (`md:hidden`) so the sidebar can be opened from the header on small screens.
+
+### Fixed
+- Kept legacy cron values and v1 schedule mirrors synchronized, including mixed legacy+semantic payloads.
+- Persisted notification strings and task mute maps in a restart-safe format; PostgreSQL settings audit inserts now use rebound placeholders.
+- Prevented partial settings edits from clearing untouched notification toggles, WebDAV fields, allowlist entries, or masked proxy-token inputs.
+- Settings mutations now surface exactly one error toast (section-level `onError` only; the global interceptor toast is skipped for section-handled calls).
+- `restartRequired` for runtime DB config is computed from the real diff; SQLite connection strings are path-normalized (`sqlite://`/`file://`/bare/default) and legacy string-encoded `db_ssl` values are tolerated, so an equivalent saved config no longer demands a restart.
+- Update-center version rows hide dev `0.0.0.0` placeholders; program-logs section handles array/object responses, shows an error state, and replaces the disabled count input with a loaded-count label.
+
+### Added — 品牌与国际化完善
+- 品牌名统一 **MetAPI**（identity-branding / locales / About / index title）
+- 透明 SVG LOGO：`logo.svg`（纯色蓝圆角徽标 + 真 π 字形 U+03C0）+ `favicon.svg`，替换白底 PNG；router 根文件白名单 + 表驱动回归测试扩展 `image/svg+xml`
+- 顶栏语言切换 `LanguageSwitcher`（en/zh-CN）：浏览器语言自动跟随（localStorage → navigator）+ `documentElement.lang`/`dir` 同步（`toBcp47`）；locale 各 1475 key 双向 0 缺失
+- **主题定制面板**：顶栏 Palette 入口，4 轴（10 颜色预设 swatch / 字体 Auto-Sans-Serif / 圆角 6 档 / 缩放 4 档）+ 每轴独立重置 + 全局重置；**全部预设默认无衬线**（Anthropic 不再内联衬线，衬线仅显式选择）；移除遗留 FontProvider 双轨（html class → data-theme-font 单一机制）
+- **侧栏导航 i18n**：导航标题改为 i18n key（sidebar.groups/items/backToHome，en + zh-CN），侧栏随语言切换完整本地化
+
+### Fixed — URL 同步与滚动裁切
+- sites/models/oauth/site-announcements 表格状态经 `useLocation()` 订阅 router location（`searchStr`），排序/分页立即在页面内生效（此前同路径 search 导航不重渲染，表格滞后）
+- authenticated-layout 内容区 `overflow-hidden` 裁切超视口内容 → `overflow-y-auto`（长页面不可滚动）
+- **侧栏导航点击崩溃**：TanStack `Link` 经 Base UI `render` prop 渲染时 React children 泄漏进 `router.navigate`（"Converting circular structure to JSON"）→ `SidebarNavLink` 包装器只透传 DOM-safe props
+- **URL 同步表格参数噪声**：`searchParams.ts` parse/encode 分离，5 个 feature（sites/proxy-logs/models/oauth/site-announcements）search schema 以规范逗号字符串回写 URL，消除 `?sort=%5B%5D` / `?brand=%5B%5D` JSON 序列化噪声；proxy-logs schema 测试同步 encode 语义
+
+### Changed — 文案与视觉润色
+- 文案术语统一（启用/停用、额度、Check-in、通道）、内部计划编号（K1a/N9a 等）移出用户可见文案、tokenRoutes toast/链式横幅拼接 bug 修复、9 处硬编码 → t()（含移除公开设置页的 TokenDance 品牌泄漏）
+- 登录页真实 logo 徽标 + 纯色背景 + lg CTA；Dashboard 统计卡骨架屏 + 纯色半透明面积图 + 空/错状态图标化 + WS 连接脉冲指示；设置页移动端响应式 drill-in + sticky 侧栏
+- 全站移除渐变设计：主题色块、品牌 fallback、Logo/favicon、骨架屏、遮罩工具和流动边框统一改为纯色或删除；新增源码与 public 资产回归门禁
+- 登录页与认证后顶栏统一复用 `InterfaceControls`（语言 / 外观 / 明暗），明暗切换按 resolved theme 工作；Public Sans 修正为实际变量字体族名，补齐项目级 mono 栈，移除字体与密度双轨，并在首屏挂载前恢复持久化外观轴
+- 开发态 TanStack Query/Router Devtools 改为 `localStorage.metapi-devtools=1` 显式开启，默认界面与截图不再被第三方彩色浮层占用
+
+### Chore — Git 工作流规范化（GitHub Flow）
+- **分支模型**：master 唯一长期分支（受保护），短命分支（`fix/*`/`feature/*`/`chore/*`/`docs/*`）→ PR → Squash merge；规则文档 `docs/git-workflow.md`
+- **master 分支保护**（GitHub 实际启用）：要求 PR + 11 个 CI 状态检查必选 + enforce admins + 禁强推/删除；不要求 approve（个人项目）
+- **Squash-only 合并**：仓库级关闭 merge commit / rebase merge
+- **PR 模板**：`.github/pull_request_template.md`（改动摘要/类型/测试验证/自查清单）
+- **CI**：ci.yml 移除 `paths-ignore`（必选状态检查与跳过互斥，纯文档 PR 会永久 pending 卡合并）；PR + master push 全量 11 job
+- **移除 update-center 幽灵前端**：`updateCenterReminder.ts`/`updateCenterPresentation.ts` 删除（update-center API 为 501 residual，前端不再渲染）
 ### Added — 仓库产品化（社区健康 + CI/CD 硬化 + 多平台发布）
 - 社区文件补齐：CONTRIBUTING.md / SECURITY.md / CODE_OF_CONDUCT.md / issue 模板（bug + feature + config）/ dependabot（Go/npm/Actions/Docker 四通道）
 - 仓库规范化：.gitattributes（LF 统一 + 二进制声明）、.editorconfig、.gitignore 补密钥/证书/通用 exe 规则

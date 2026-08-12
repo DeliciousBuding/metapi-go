@@ -90,9 +90,11 @@ func TestRuntimeDatabaseSaveRuntimeKeepsActiveDatabaseSeparateFromSavedOverride(
 			Dialect string `json:"dialect"`
 		} `json:"active"`
 		Saved struct {
-			Dialect    string `json:"dialect"`
-			Connection string `json:"connection"`
-			Ssl        bool   `json:"ssl"`
+			Dialect                string `json:"dialect"`
+			Connection             string `json:"connection"`
+			ConnectionStringMasked string `json:"connectionStringMasked"`
+			HasConnectionString    bool   `json:"hasConnectionString"`
+			Ssl                    bool   `json:"ssl"`
 		} `json:"saved"`
 		RestartRequired bool `json:"restartRequired"`
 	}
@@ -113,6 +115,9 @@ func TestRuntimeDatabaseSaveRuntimeKeepsActiveDatabaseSeparateFromSavedOverride(
 	}
 	if strings.Contains(payload.Saved.Connection, "future-pass") || !strings.Contains(payload.Saved.Connection, "example.invalid:5432") {
 		t.Fatalf("saved connection = %q, want masked postgres host", payload.Saved.Connection)
+	}
+	if payload.Saved.ConnectionStringMasked != payload.Saved.Connection || !payload.Saved.HasConnectionString {
+		t.Fatalf("saved connection metadata = %+v", payload.Saved)
 	}
 	if !payload.RestartRequired {
 		t.Fatalf("restartRequired = false, want true after saved override")
@@ -301,5 +306,110 @@ func TestRuntimeDatabaseMigrateIsNotImplemented(t *testing.T) {
 	}
 	if !strings.Contains(payload.Message, "metapi-migrate") {
 		t.Fatalf("message = %q, want CLI migration guidance", payload.Message)
+	}
+}
+
+func TestRuntimeDatabaseGetDoesNotRequireRestartWhenSavedMatchesActive(t *testing.T) {
+	db := setupBackupTestDB(t)
+	const dsn = "postgres://user:secret@example.invalid:5432/metapi"
+	for key, value := range map[string]any{
+		"db_type": "postgres",
+		"db_url":  dsn,
+		"db_ssl":  true,
+	} {
+		if err := upsertSettingDB(db.DB, key, value); err != nil {
+			t.Fatalf("save %s: %v", key, err)
+		}
+	}
+	cfg := config.Load(map[string]string{
+		"DB_TYPE":    "postgres",
+		"DB_URL":     dsn,
+		"DB_SSLMODE": "require",
+	})
+	handler := &databaseHandler{db: db.DB, cfg: cfg}
+	req := httptest.NewRequest(http.MethodGet, "/api/settings/database/runtime", nil)
+	rec := httptest.NewRecorder()
+	handler.getRuntime(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var payload struct {
+		RestartRequired bool `json:"restartRequired"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.RestartRequired {
+		t.Fatalf("restartRequired = true, want false for matching saved and active config")
+	}
+}
+
+func TestRuntimeDatabaseGetDoesNotRequireRestartForEquivalentSQLitePath(t *testing.T) {
+	db := setupBackupTestDB(t)
+	const savedPath = "C:/data/hub.db"
+	for key, value := range map[string]any{
+		"db_type": "sqlite",
+		"db_url":  savedPath,
+		"db_ssl":  true,
+	} {
+		if err := upsertSettingDB(db.DB, key, value); err != nil {
+			t.Fatalf("save %s: %v", key, err)
+		}
+	}
+	// Active runtime spells the same SQLite file with the sqlite:// prefix.
+	cfg := config.Load(map[string]string{
+		"DB_TYPE": "sqlite",
+		"DB_URL":  "sqlite://" + savedPath,
+	})
+	handler := &databaseHandler{db: db.DB, cfg: cfg}
+	req := httptest.NewRequest(http.MethodGet, "/api/settings/database/runtime", nil)
+	rec := httptest.NewRecorder()
+	handler.getRuntime(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var payload struct {
+		RestartRequired bool `json:"restartRequired"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.RestartRequired {
+		t.Fatalf("restartRequired = true, want false for equivalent sqlite path spellings")
+	}
+}
+
+func TestRuntimeDatabaseLegacyStringSSLDoesNotForceRestart(t *testing.T) {
+	db := setupBackupTestDB(t)
+	const dsn = "postgres://user:secret@example.invalid:5432/metapi"
+	for key, value := range map[string]any{
+		"db_type": "postgres",
+		"db_url":  dsn,
+		"db_ssl":  "true",
+	} {
+		if err := upsertSettingDB(db.DB, key, value); err != nil {
+			t.Fatalf("save %s: %v", key, err)
+		}
+	}
+	cfg := config.Load(map[string]string{
+		"DB_TYPE":    "postgres",
+		"DB_URL":     dsn,
+		"DB_SSLMODE": "require",
+	})
+	handler := &databaseHandler{db: db.DB, cfg: cfg}
+	req := httptest.NewRequest(http.MethodGet, "/api/settings/database/runtime", nil)
+	rec := httptest.NewRecorder()
+	handler.getRuntime(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var payload struct {
+		RestartRequired bool `json:"restartRequired"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.RestartRequired {
+		t.Fatalf("restartRequired = true, want false for legacy string ssl matching active sslmode")
 	}
 }

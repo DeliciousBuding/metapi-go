@@ -14,6 +14,10 @@ type BaseNavItem = {
   icon?: React.ElementType
   activeUrls?: (LinkProps['to'] | (string & {}))[]
   configUrls?: (LinkProps['to'] | (string & {}))[]
+  /** When set, the item stays active for any URL under this path prefix. */
+  activePrefix?: string
+  /** TanStack Link active matching (e.g. `{ exact: true }` for workspace roots). */
+  activeOptions?: LinkProps['activeOptions']
 }
 
 /**

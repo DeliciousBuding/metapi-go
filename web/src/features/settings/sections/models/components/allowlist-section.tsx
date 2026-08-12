@@ -3,11 +3,14 @@
 // inline text input + badges; globalBlockedBrands is a grid of toggle
 // switches sourced from api.getBrandList(). Both saves trigger a routes
 // rebuild (api.rebuildRoutes(false)) so the channel graph stays consistent.
+//
+// Brand toggles are instant operations: switches are disabled while a toggle
+// is in flight (serializing concurrent clicks so the last click wins), and a
+// failed toggle refetches runtime settings so the local state realigns with
+// the server instead of silently diverging.
 
-import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
-import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
@@ -27,13 +30,20 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { api } from '@/lib/api'
 
+import { FormNavigationGuard } from '../../../components/form-navigation-guard'
+import { SettingsFormActions } from '../../../components/settings-form-actions'
+import { SettingsSectionCard } from '../../../components/settings-section-card'
+import { SettingsSectionError } from '../../../components/settings-section-error'
+import { useSettingsForm } from '../../../hooks/use-settings-form'
 import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
+  collectChangedFields,
+  hasChanges,
+} from '../../../lib/collect-changed-fields'
 import {
+  runtimeSettingsQueryKeys,
   useRuntimeSettings,
   useUpdateRuntimeSettings,
+  type RuntimeSettings,
 } from '../../../lib/runtime-settings'
 
 const ALLOWLIST_FORM_ID = 'settings-models-allowlist-form'
@@ -43,6 +53,8 @@ const allowlistSchema = z.object({
 })
 
 type AllowlistFormValues = z.infer<typeof allowlistSchema>
+
+const DEFAULT_VALUES: AllowlistFormValues = { globalAllowedModels: '' }
 
 type BrandListResponse = { brands: string[] }
 type TokenCandidates = { models: Record<string, unknown> }
@@ -54,10 +66,34 @@ const candidatesQueryKeys = {
   all: ['model-token-candidates'] as const,
 }
 
+function splitAllowed(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    return raw.map((item) => String(item)).filter(Boolean)
+  }
+  if (typeof raw === 'string') {
+    return raw
+      .split(/\r?\n|,/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+  }
+  return []
+}
+
+function deriveServerValues(
+  data: RuntimeSettings | undefined
+): AllowlistFormValues | null {
+  if (!data) {
+    return null
+  }
+  return {
+    globalAllowedModels: splitAllowed(data.globalAllowedModels).join('\n'),
+  }
+}
+
 export function AllowlistSection() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const { data, isLoading } = useRuntimeSettings()
+  const { data, isLoading, isError, refetch } = useRuntimeSettings()
   const updateMutation = useUpdateRuntimeSettings()
 
   const brandsQuery = useQuery<BrandListResponse>({
@@ -73,38 +109,27 @@ export function AllowlistSection() {
     staleTime: 5 * 60 * 1000,
   })
 
-  const form = useForm<AllowlistFormValues>({
-    resolver: zodResolver(allowlistSchema) as never,
-    defaultValues: { globalAllowedModels: '' },
-  })
+  const serverValues = deriveServerValues(data)
+  const { form, baseline, syncFromServer } =
+    useSettingsForm<AllowlistFormValues>({
+      schema: allowlistSchema,
+      defaultValues: DEFAULT_VALUES,
+      serverValues,
+    })
 
   const [pendingModel, setPendingModel] = useState('')
-
-  // Active set of allowed models (string[]) held in local state so the
-  // badges can be removed without a round-trip; synced to the form on save.
-  const initialAllowed = useMemo(() => {
-    const raw = data?.globalAllowedModels
-    if (Array.isArray(raw)) {
-      return raw.map((item) => String(item)).filter(Boolean)
-    }
-    if (typeof raw === 'string') {
-      return raw
-        .split(/\r?\n|,/)
-        .map((item) => item.trim())
-        .filter(Boolean)
-    }
-    return []
-  }, [data])
-
   const [allowedModels, setAllowedModels] = useState<string[]>([])
 
+  const initialAllowed = useMemo(
+    () => splitAllowed(data?.globalAllowedModels),
+    [data]
+  )
+
   useEffect(() => {
-    setAllowedModels(initialAllowed)
-    form.reset(
-      { globalAllowedModels: initialAllowed.join('\n') },
-      { keepDirtyValues: true }
-    )
-  }, [initialAllowed, form])
+    if (!form.formState.isDirty) {
+      setAllowedModels(initialAllowed)
+    }
+  }, [form.formState.isDirty, initialAllowed])
 
   const candidateModels = useMemo(
     () => Object.keys(candidatesQuery.data?.models ?? {}),
@@ -114,19 +139,7 @@ export function AllowlistSection() {
   const [blockedBrands, setBlockedBrands] = useState<string[]>([])
 
   useEffect(() => {
-    const raw = data?.globalBlockedBrands
-    if (Array.isArray(raw)) {
-      setBlockedBrands(raw.map((item) => String(item)).filter(Boolean))
-    } else if (typeof raw === 'string') {
-      setBlockedBrands(
-        raw
-          .split(/\r?\n|,/)
-          .map((item) => item.trim())
-          .filter(Boolean)
-      )
-    } else {
-      setBlockedBrands([])
-    }
+    setBlockedBrands(splitAllowed(data?.globalBlockedBrands))
   }, [data])
 
   const brandToggleMutation = useMutation({
@@ -135,14 +148,25 @@ export function AllowlistSection() {
       await api.rebuildRoutes(false)
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['runtime-settings'] })
+      void queryClient.invalidateQueries({
+        queryKey: runtimeSettingsQueryKeys.all,
+      })
       toast.success(t('settings.models.allowlist.toast.brandsSaved'))
     },
-    onError: () =>
-      toast.error(t('settings.models.allowlist.toast.brandsSaveFailed')),
+    onError: () => {
+      // Re-align local state with the server so a failed toggle does not
+      // leave the switches diverged from the persisted allowlist.
+      void queryClient.invalidateQueries({
+        queryKey: runtimeSettingsQueryKeys.all,
+      })
+      toast.error(t('settings.models.allowlist.toast.brandsSaveFailed'))
+    },
   })
 
   function toggleBrand(brand: string) {
+    if (brandToggleMutation.isPending) {
+      return
+    }
     const next = blockedBrands.includes(brand)
       ? blockedBrands.filter((item) => item !== brand)
       : [...blockedBrands, brand]
@@ -169,22 +193,21 @@ export function AllowlistSection() {
   }
 
   function onSubmit(values: AllowlistFormValues) {
-    const list = values.globalAllowedModels
-      ? values.globalAllowedModels
-          .split(/\r?\n|,/)
-          .map((item) => item.trim())
-          .filter(Boolean)
-      : []
+    const changed = collectChangedFields(
+      values as unknown as Record<string, unknown>,
+      baseline as unknown as Record<string, unknown> | null
+    ) as Partial<AllowlistFormValues>
+    if (!hasChanges(changed) && changed.globalAllowedModels === undefined) {
+      toast.info(t('settings.common.noChanges'))
+      return
+    }
     updateMutation.mutate(
-      { globalAllowedModels: list },
+      { globalAllowedModels: splitAllowed(values.globalAllowedModels) },
       {
-        onSuccess: async () => {
-          try {
-            await api.rebuildRoutes(false)
-          } catch {
+        onSuccess: () => {
+          void api.rebuildRoutes(false).catch(() => {
             toast.warning(t('settings.models.allowlist.toast.rebuildFailed'))
-            return
-          }
+          })
           toast.success(t('settings.models.allowlist.toast.saved'))
         },
         onError: () =>
@@ -194,10 +217,30 @@ export function AllowlistSection() {
   }
 
   if (isLoading) {
-    return <SettingsSectionSkeleton />
+    return (
+      <SettingsSectionCard
+        title={t('settings.models.allowlist.title')}
+        description={t('settings.models.allowlist.description')}
+      >
+        <p className='text-muted-foreground text-sm'>
+          {t('settings.common.loading')}
+        </p>
+      </SettingsSectionCard>
+    )
   }
 
+  if (isError || !data) {
+    return (
+      <SettingsSectionError
+        title={t('settings.models.allowlist.title')}
+        onRetry={() => void refetch()}
+      />
+    )
+  }
+
+  const isDirty = form.formState.isDirty
   const brands = brandsQuery.data?.brands ?? []
+  const brandTogglePending = brandToggleMutation.isPending
 
   return (
     <SettingsSectionCard
@@ -209,7 +252,7 @@ export function AllowlistSection() {
           <form
             id={ALLOWLIST_FORM_ID}
             onSubmit={form.handleSubmit(onSubmit)}
-            className='space-y-3'
+            className='space-y-4'
           >
             <FormField
               control={form.control}
@@ -287,15 +330,14 @@ export function AllowlistSection() {
                 </FormItem>
               )}
             />
-            <Button
-              type='submit'
-              form={ALLOWLIST_FORM_ID}
-              disabled={updateMutation.isPending}
-            >
-              {updateMutation.isPending
-                ? t('settings.common.saving')
-                : t('settings.common.save')}
-            </Button>
+            <SettingsFormActions
+              formId={ALLOWLIST_FORM_ID}
+              isDirty={isDirty}
+              isPending={updateMutation.isPending}
+              onReset={() =>
+                syncFromServer(deriveServerValues(data) ?? DEFAULT_VALUES)
+              }
+            />
           </form>
         </Form>
 
@@ -329,6 +371,7 @@ export function AllowlistSection() {
                   <Switch
                     checked={!blockedBrands.includes(brand)}
                     onCheckedChange={() => toggleBrand(brand)}
+                    disabled={brandTogglePending}
                     aria-label={brand}
                   />
                 </div>
@@ -344,6 +387,7 @@ export function AllowlistSection() {
           ) : null}
         </div>
       </div>
+      <FormNavigationGuard enabled={isDirty} />
     </SettingsSectionCard>
   )
 }

@@ -97,6 +97,14 @@ type Config struct {
 	CheckinWindowEnd   string
 	BalanceRefreshCron string
 	LogCleanupCron     string
+	// Site & Branding (6 fields) - empty defaults keep the embedded frontend
+	// branding and login-page copy unchanged.
+	SystemName      string
+	Logo            string
+	Footer          string
+	About           string
+	HomePageContent string
+	ServerAddress   string
 
 	// Log Cleanup (4 fields)
 	LogCleanupUsageLogsEnabled   bool
@@ -490,6 +498,14 @@ func Load(env map[string]string) *Config {
 	)
 	cfg.BalanceRefreshCron = firstNonEmpty(get("BALANCE_REFRESH_CRON"), DefaultBalanceRefreshCron)
 	cfg.LogCleanupCron = firstNonEmpty(get("LOG_CLEANUP_CRON"), DefaultLogCleanupCron)
+
+	// ---- 3.4b Site & Branding ----
+	cfg.SystemName = firstNonEmpty(get("SYSTEM_NAME"), DefaultSystemName)
+	cfg.Logo = firstNonEmpty(get("LOGO"), DefaultLogo)
+	cfg.Footer = firstNonEmpty(get("FOOTER"), DefaultFooter)
+	cfg.About = firstNonEmpty(get("ABOUT"), DefaultAbout)
+	cfg.HomePageContent = firstNonEmpty(get("HOME_PAGE_CONTENT"), DefaultHomePageContent)
+	cfg.ServerAddress = firstNonEmpty(get("SERVER_ADDRESS"), DefaultServerAddress)
 
 	// ---- §3.5 Log Cleanup ----
 	cfg.LogCleanupUsageLogsEnabled = parseBoolean(get("LOG_CLEANUP_USAGE_LOGS_ENABLED"), false)

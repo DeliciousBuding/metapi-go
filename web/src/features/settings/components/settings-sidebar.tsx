@@ -10,6 +10,7 @@
 // across browser back/forward and direct deep links.
 
 import { Link, useLocation } from '@tanstack/react-router'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/lib/utils'
@@ -27,32 +28,62 @@ export function SettingsSidebar({ items, title }: SettingsSidebarProps) {
   const href = useLocation({ select: (location) => location.href })
   const activeHref = normalizePath(href)
 
+  const groups = useMemo(() => {
+    const map = new Map<string | undefined, SettingsSectionNavItem[]>()
+    for (const item of items) {
+      const key = item.group ?? undefined
+      const bucket = map.get(key) ?? []
+      bucket.push(item)
+      map.set(key, bucket)
+    }
+    return [...map.entries()]
+  }, [items])
+
   return (
-    <aside className='w-full shrink-0 lg:sticky lg:top-6 lg:w-56'>
+    <aside className='w-full shrink-0 lg:sticky lg:top-6 lg:w-60'>
       <nav className='flex flex-col gap-1'>
         {title ? (
           <p className='text-muted-foreground/70 px-3 pb-2 text-[11px] font-medium tracking-wider uppercase'>
             {title}
           </p>
         ) : null}
-        {items.map((item) => {
-          const itemHref = normalizePath(String(item.url))
-          const isActive = activeHref === itemHref
-          return (
-            <Link
-              key={String(item.url)}
-              to={item.url}
-              className={cn(
-                'rounded-md px-3 py-2 text-sm transition-colors',
-                isActive
-                  ? 'bg-accent font-medium text-accent-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-              )}
-            >
-              {t(item.title)}
-            </Link>
-          )
-        })}
+        {groups.map(([groupKey, groupItems]) => (
+          <div
+            key={groupKey ?? '__ungrouped__'}
+            className='flex flex-col gap-1'
+          >
+            {groupKey ? (
+              <p className='text-muted-foreground/75 px-3 pt-2 pb-1 text-[11px] font-medium tracking-wider uppercase'>
+                {t(groupKey)}
+              </p>
+            ) : null}
+            {groupItems.map((item) => {
+              const itemHref = normalizePath(String(item.url))
+              const isActive = activeHref === itemHref
+              return (
+                <Link
+                  key={String(item.url)}
+                  to={item.url}
+                  className={cn(
+                    'flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
+                    isActive
+                      ? 'bg-accent font-medium text-accent-foreground'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  )}
+                >
+                  <span className='min-w-0 flex-1 truncate'>
+                    {t(item.title)}
+                  </span>
+                  {item.readonly ? (
+                    <span className='bg-muted text-muted-foreground shrink-0 rounded-sm px-1 py-0.5 text-[10px]'>
+                      {t('settings.common.readonly')}
+                    </span>
+                  ) : null}
+                </Link>
+              )
+            })}
+          </div>
+        ))}
       </nav>
     </aside>
   )

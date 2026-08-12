@@ -27,11 +27,11 @@ func (c *Config) Validate() []error {
 
 	// --- Critical: CheckinScheduleMode must be "cron" or "interval" ---
 	mode := strings.TrimSpace(strings.ToLower(c.CheckinScheduleMode))
-	if mode != "cron" && mode != "interval" {
+	if mode != "cron" && mode != "interval" && mode != "window" {
 		errs = append(errs, &configError{
 			field:    "checkin_schedule_mode",
 			value:    c.CheckinScheduleMode,
-			msg:      "must be 'cron' or 'interval'",
+			msg:      "must be 'cron', 'interval', or 'window'",
 			critical: true,
 		})
 	}

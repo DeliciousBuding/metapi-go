@@ -100,8 +100,14 @@ export function ModelTesterPage() {
           setError(t('modelTester.error.stopped'))
           toast.info(t('modelTester.toast.stopped'))
         } else {
-          const message =
-            err instanceof Error ? err.message : t('modelTester.error.unknown')
+          const rawMessage =
+            err instanceof Error ? err.message : 'modelTester.error.unknown'
+          // Some thrown errors carry an i18n key (e.g.
+          // `modelTester.error.notAvailable` / `sessionExpired`); translate
+          // key-shaped messages so the viewer shows user-facing text.
+          const message = rawMessage.startsWith('modelTester.')
+            ? t(rawMessage)
+            : rawMessage
           setError(message)
           toast.error(t('modelTester.toast.failed'))
         }
@@ -115,29 +121,38 @@ export function ModelTesterPage() {
   const isRunning = testModel.isPending
 
   return (
-    <div className='grid h-full grid-cols-1 gap-4 lg:grid-cols-2 lg:overflow-hidden'>
-      <Card className='flex h-full min-h-0 flex-col'>
-        <CardContent className='flex min-h-0 flex-1 flex-col p-4'>
-          <TestForm
-            isRunning={isRunning}
-            defaultModel={defaultModel}
-            onSubmit={handleSubmit}
-            onStop={handleStop}
-          />
-        </CardContent>
-      </Card>
+    <div className='flex h-full flex-col gap-4 p-4'>
+      <div>
+        <h1 className='text-lg font-normal'>{t('modelTester.page.title')}</h1>
+        <p className='text-muted-foreground text-sm'>
+          {t('modelTester.page.description')}
+        </p>
+      </div>
 
-      <Card className='flex h-full min-h-0 flex-col'>
-        <CardContent className='flex min-h-0 flex-1 flex-col p-0'>
-          <TestResponseViewer
-            content={content}
-            reasoningContent={reasoningContent}
-            isRunning={isRunning}
-            response={response}
-            error={error}
-          />
-        </CardContent>
-      </Card>
+      <div className='grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2 lg:overflow-hidden'>
+        <Card className='flex h-full min-h-0 flex-col'>
+          <CardContent className='flex min-h-0 flex-1 flex-col p-4'>
+            <TestForm
+              isRunning={isRunning}
+              defaultModel={defaultModel}
+              onSubmit={handleSubmit}
+              onStop={handleStop}
+            />
+          </CardContent>
+        </Card>
+
+        <Card className='flex h-full min-h-0 flex-col'>
+          <CardContent className='flex min-h-0 flex-1 flex-col p-0'>
+            <TestResponseViewer
+              content={content}
+              reasoningContent={reasoningContent}
+              isRunning={isRunning}
+              response={response}
+              error={error}
+            />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

@@ -1,19 +1,15 @@
 // metapi-go/features/settings/sections/content/components — notification
 // channels section. All channels (webhook/bark/serverchan/telegram/smtp/
 // feishu/dingtalk/wecom/ntfy) in one form, plus the per-task mute toggles
-// and the "send test notification" action. Secrets (serverChanKey /
-// telegramBotToken / smtpPass / feishuSecret / dingtalkSecret / ntfyToken)
-// are only sent when the user types a fresh value; masked display is shown
-// for the read-only state.
+// and the "send test notification" action. Secrets are only sent when the
+// user types a fresh value; blank = keep the stored secret, masked values
+// are never echoed back.
 
-import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
-import { useEffect } from 'react'
-import {
-  type ControllerRenderProps,
-  type FieldPath,
-  type FieldValues,
-  useForm,
+import type {
+  ControllerRenderProps,
+  FieldPath,
+  FieldValues,
 } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -33,57 +29,63 @@ import {
 import { Input } from '@/components/ui/input'
 import { api } from '@/lib/api'
 
+import { FormNavigationGuard } from '../../../components/form-navigation-guard'
+import { SettingsFormActions } from '../../../components/settings-form-actions'
+import { SettingsSectionCard } from '../../../components/settings-section-card'
+import { SettingsSectionError } from '../../../components/settings-section-error'
+import { useSettingsForm } from '../../../hooks/use-settings-form'
 import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
+  collectChangedFields,
+  hasChanges,
+} from '../../../lib/collect-changed-fields'
 import {
   asBoolean,
   asNumber,
   asString,
   useRuntimeSettings,
   useUpdateRuntimeSettings,
+  type RuntimeSettings,
 } from '../../../lib/runtime-settings'
 
 const FORM_ID = 'settings-content-notifications-form'
 
 const notifySchema = z.object({
-  notifyCooldownSec: z.coerce.number().int().min(0).optional(),
-  webhookEnabled: z.boolean().optional(),
+  notifyCooldownSec: z.coerce.number().int().min(0),
+  webhookEnabled: z.boolean(),
   webhookUrl: z.string().optional(),
-  barkEnabled: z.boolean().optional(),
+  barkEnabled: z.boolean(),
   barkUrl: z.string().optional(),
-  serverChanEnabled: z.boolean().optional(),
+  serverChanEnabled: z.boolean(),
   serverChanKey: z.string().optional(),
-  telegramEnabled: z.boolean().optional(),
-  telegramUseSystemProxy: z.boolean().optional(),
+  telegramEnabled: z.boolean(),
+  telegramUseSystemProxy: z.boolean(),
   telegramApiBaseUrl: z.string().optional(),
   telegramBotToken: z.string().optional(),
   telegramChatId: z.string().optional(),
   telegramMessageThreadId: z.string().optional(),
-  smtpEnabled: z.boolean().optional(),
+  smtpEnabled: z.boolean(),
   smtpHost: z.string().optional(),
-  smtpPort: z.coerce.number().int().optional(),
-  smtpSecure: z.boolean().optional(),
+  smtpPort: z.coerce.number().int(),
+  smtpSecure: z.boolean(),
   smtpUser: z.string().optional(),
   smtpPass: z.string().optional(),
   smtpFrom: z.string().optional(),
   smtpTo: z.string().optional(),
-  feishuEnabled: z.boolean().optional(),
+  feishuEnabled: z.boolean(),
   feishuWebhook: z.string().optional(),
   feishuSecret: z.string().optional(),
-  dingtalkEnabled: z.boolean().optional(),
+  dingtalkEnabled: z.boolean(),
   dingtalkWebhook: z.string().optional(),
   dingtalkSecret: z.string().optional(),
-  wecomEnabled: z.boolean().optional(),
+  wecomEnabled: z.boolean(),
   wecomWebhook: z.string().optional(),
-  ntfyEnabled: z.boolean().optional(),
+  ntfyEnabled: z.boolean(),
   ntfyUrl: z.string().optional(),
   ntfyTopic: z.string().optional(),
   ntfyToken: z.string().optional(),
-  muteTokenExpired: z.boolean().optional(),
-  muteLowBalance: z.boolean().optional(),
-  muteProxyAllFailed: z.boolean().optional(),
+  muteTokenExpired: z.boolean(),
+  muteLowBalance: z.boolean(),
+  muteProxyAllFailed: z.boolean(),
 })
 
 type NotifyFormValues = z.infer<typeof notifySchema>
@@ -97,101 +99,141 @@ const SECRET_FIELDS = [
   'ntfyToken',
 ] as const
 
+type SecretFieldName = (typeof SECRET_FIELDS)[number]
+
+const DEFAULT_VALUES: NotifyFormValues = {
+  notifyCooldownSec: 300,
+  webhookEnabled: false,
+  webhookUrl: '',
+  barkEnabled: false,
+  barkUrl: '',
+  serverChanEnabled: false,
+  serverChanKey: '',
+  telegramEnabled: false,
+  telegramUseSystemProxy: false,
+  telegramApiBaseUrl: 'https://api.telegram.org',
+  telegramBotToken: '',
+  telegramChatId: '',
+  telegramMessageThreadId: '',
+  smtpEnabled: false,
+  smtpHost: '',
+  smtpPort: 587,
+  smtpSecure: false,
+  smtpUser: '',
+  smtpPass: '',
+  smtpFrom: '',
+  smtpTo: '',
+  feishuEnabled: false,
+  feishuWebhook: '',
+  feishuSecret: '',
+  dingtalkEnabled: false,
+  dingtalkWebhook: '',
+  dingtalkSecret: '',
+  wecomEnabled: false,
+  wecomWebhook: '',
+  ntfyEnabled: false,
+  ntfyUrl: 'https://ntfy.sh',
+  ntfyTopic: '',
+  ntfyToken: '',
+  muteTokenExpired: false,
+  muteLowBalance: false,
+  muteProxyAllFailed: false,
+}
+
+function deriveServerValues(
+  data: RuntimeSettings | undefined
+): NotifyFormValues | null {
+  if (!data) {
+    return null
+  }
+  const toggles = (data.notifyTaskToggles ?? {}) as Record<string, unknown>
+  return {
+    notifyCooldownSec: asNumber(data.notifyCooldownSec) ?? 300,
+    webhookEnabled: asBoolean(data.webhookEnabled),
+    webhookUrl: asString(data.webhookUrl),
+    barkEnabled: asBoolean(data.barkEnabled),
+    barkUrl: asString(data.barkUrl),
+    serverChanEnabled: asBoolean(data.serverChanEnabled),
+    serverChanKey: '',
+    telegramEnabled: asBoolean(data.telegramEnabled),
+    telegramUseSystemProxy: asBoolean(data.telegramUseSystemProxy),
+    telegramApiBaseUrl:
+      asString(data.telegramApiBaseUrl) || 'https://api.telegram.org',
+    telegramBotToken: '',
+    telegramChatId: asString(data.telegramChatId),
+    telegramMessageThreadId: asString(data.telegramMessageThreadId),
+    smtpEnabled: asBoolean(data.smtpEnabled),
+    smtpHost: asString(data.smtpHost),
+    smtpPort: asNumber(data.smtpPort) ?? 587,
+    smtpSecure: asBoolean(data.smtpSecure),
+    smtpUser: asString(data.smtpUser),
+    smtpPass: '',
+    smtpFrom: asString(data.smtpFrom),
+    smtpTo: asString(data.smtpTo),
+    feishuEnabled: asBoolean(data.feishuEnabled),
+    feishuWebhook: asString(data.feishuWebhook),
+    feishuSecret: '',
+    dingtalkEnabled: asBoolean(data.dingtalkEnabled),
+    dingtalkWebhook: asString(data.dingtalkWebhook),
+    dingtalkSecret: '',
+    wecomEnabled: asBoolean(data.wecomEnabled),
+    wecomWebhook: asString(data.wecomWebhook),
+    ntfyEnabled: asBoolean(data.ntfyEnabled),
+    ntfyUrl: asString(data.ntfyUrl) || 'https://ntfy.sh',
+    ntfyTopic: asString(data.ntfyTopic),
+    ntfyToken: '',
+    muteTokenExpired: asBoolean(toggles.token_expired),
+    muteLowBalance: asBoolean(toggles.low_balance),
+    muteProxyAllFailed: asBoolean(toggles.proxy_all_failed),
+  }
+}
+
+function notificationsToPayload(
+  changed: Partial<NotifyFormValues>,
+  baseline: NotifyFormValues | null
+): Record<string, unknown> {
+  const payload: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(changed)) {
+    if (SECRET_FIELDS.includes(key as SecretFieldName)) {
+      // Blank secret = keep stored; never submit a masked value.
+      if (value) {
+        payload[key] = value
+      }
+      continue
+    }
+    payload[key] = value
+  }
+  // Mute toggles are stored as notifyTaskToggles; submit the whole map when
+  // any mute field changed.
+  const muteChanged =
+    changed.muteTokenExpired !== undefined ||
+    changed.muteLowBalance !== undefined ||
+    changed.muteProxyAllFailed !== undefined
+  if (muteChanged) {
+    const current = { ...(baseline ?? DEFAULT_VALUES), ...changed }
+    payload.notifyTaskToggles = {
+      token_expired: current.muteTokenExpired,
+      low_balance: current.muteLowBalance,
+      proxy_all_failed: current.muteProxyAllFailed,
+    }
+  }
+  delete payload.muteTokenExpired
+  delete payload.muteLowBalance
+  delete payload.muteProxyAllFailed
+  return payload
+}
+
 export function NotificationsSection() {
   const { t } = useTranslation()
-  const { data, isLoading } = useRuntimeSettings()
+  const { data, isLoading, isError, refetch } = useRuntimeSettings()
   const updateMutation = useUpdateRuntimeSettings()
 
-  const form = useForm<NotifyFormValues>({
-    resolver: zodResolver(notifySchema) as never,
-    defaultValues: {
-      notifyCooldownSec: 300,
-      webhookEnabled: false,
-      webhookUrl: '',
-      barkEnabled: false,
-      barkUrl: '',
-      serverChanEnabled: false,
-      serverChanKey: '',
-      telegramEnabled: false,
-      telegramUseSystemProxy: false,
-      telegramApiBaseUrl: 'https://api.telegram.org',
-      telegramBotToken: '',
-      telegramChatId: '',
-      telegramMessageThreadId: '',
-      smtpEnabled: false,
-      smtpHost: '',
-      smtpPort: 587,
-      smtpSecure: false,
-      smtpUser: '',
-      smtpPass: '',
-      smtpFrom: '',
-      smtpTo: '',
-      feishuEnabled: false,
-      feishuWebhook: '',
-      feishuSecret: '',
-      dingtalkEnabled: false,
-      dingtalkWebhook: '',
-      dingtalkSecret: '',
-      wecomEnabled: false,
-      wecomWebhook: '',
-      ntfyEnabled: false,
-      ntfyUrl: 'https://ntfy.sh',
-      ntfyTopic: '',
-      ntfyToken: '',
-      muteTokenExpired: false,
-      muteLowBalance: false,
-      muteProxyAllFailed: false,
-    },
+  const serverValues = deriveServerValues(data)
+  const { form, baseline, syncFromServer } = useSettingsForm<NotifyFormValues>({
+    schema: notifySchema,
+    defaultValues: DEFAULT_VALUES,
+    serverValues,
   })
-
-  useEffect(() => {
-    if (!data) {
-      return
-    }
-    const toggles = (data.notifyTaskToggles ?? {}) as Record<string, unknown>
-    form.reset(
-      {
-        notifyCooldownSec: asNumber(data.notifyCooldownSec) ?? 300,
-        webhookEnabled: asBoolean(data.webhookEnabled),
-        webhookUrl: asString(data.webhookUrl),
-        barkEnabled: asBoolean(data.barkEnabled),
-        barkUrl: asString(data.barkUrl),
-        serverChanEnabled: asBoolean(data.serverChanEnabled),
-        serverChanKey: '',
-        telegramEnabled: asBoolean(data.telegramEnabled),
-        telegramUseSystemProxy: asBoolean(data.telegramUseSystemProxy),
-        telegramApiBaseUrl:
-          asString(data.telegramApiBaseUrl) || 'https://api.telegram.org',
-        telegramBotToken: '',
-        telegramChatId: asString(data.telegramChatId),
-        telegramMessageThreadId: asString(data.telegramMessageThreadId),
-        smtpEnabled: asBoolean(data.smtpEnabled),
-        smtpHost: asString(data.smtpHost),
-        smtpPort: asNumber(data.smtpPort) ?? 587,
-        smtpSecure: asBoolean(data.smtpSecure),
-        smtpUser: asString(data.smtpUser),
-        smtpPass: '',
-        smtpFrom: asString(data.smtpFrom),
-        smtpTo: asString(data.smtpTo),
-        feishuEnabled: asBoolean(data.feishuEnabled),
-        feishuWebhook: asString(data.feishuWebhook),
-        feishuSecret: '',
-        dingtalkEnabled: asBoolean(data.dingtalkEnabled),
-        dingtalkWebhook: asString(data.dingtalkWebhook),
-        dingtalkSecret: '',
-        wecomEnabled: asBoolean(data.wecomEnabled),
-        wecomWebhook: asString(data.wecomWebhook),
-        ntfyEnabled: asBoolean(data.ntfyEnabled),
-        ntfyUrl: asString(data.ntfyUrl) || 'https://ntfy.sh',
-        ntfyTopic: asString(data.ntfyTopic),
-        ntfyToken: '',
-        muteTokenExpired: asBoolean(toggles.token_expired),
-        muteLowBalance: asBoolean(toggles.low_balance),
-        muteProxyAllFailed: asBoolean(toggles.proxy_all_failed),
-      },
-      { keepDirtyValues: true }
-    )
-  }, [data, form])
 
   const testMutation = useMutation({
     mutationFn: async () => api.testNotification(),
@@ -202,24 +244,15 @@ export function NotificationsSection() {
   })
 
   function onSubmit(values: NotifyFormValues) {
-    // Only include a secret field if the user typed a fresh value — empty
-    // string means "keep the stored secret" and is omitted from the payload.
-    const payload: Record<string, unknown> = { ...values }
-    const toggles: Record<string, boolean> = {
-      token_expired: Boolean(values.muteTokenExpired),
-      low_balance: Boolean(values.muteLowBalance),
-      proxy_all_failed: Boolean(values.muteProxyAllFailed),
+    const changed = collectChangedFields(
+      values as unknown as Record<string, unknown>,
+      baseline as unknown as Record<string, unknown> | null
+    ) as Partial<NotifyFormValues>
+    if (!hasChanges(changed)) {
+      toast.info(t('settings.common.noChanges'))
+      return
     }
-    payload.notifyTaskToggles = toggles
-    delete payload.muteTokenExpired
-    delete payload.muteLowBalance
-    delete payload.muteProxyAllFailed
-    for (const field of SECRET_FIELDS) {
-      if (!payload[field]) {
-        delete payload[field]
-      }
-    }
-    updateMutation.mutate(payload as never, {
+    updateMutation.mutate(notificationsToPayload(changed, baseline) as never, {
       onSuccess: () =>
         toast.success(t('settings.content.notifications.toast.saved')),
       onError: () =>
@@ -228,8 +261,28 @@ export function NotificationsSection() {
   }
 
   if (isLoading) {
-    return <SettingsSectionSkeleton />
+    return (
+      <SettingsSectionCard
+        title={t('settings.content.notifications.title')}
+        description={t('settings.content.notifications.description')}
+      >
+        <p className='text-muted-foreground text-sm'>
+          {t('settings.common.loading')}
+        </p>
+      </SettingsSectionCard>
+    )
   }
+
+  if (isError || !data) {
+    return (
+      <SettingsSectionError
+        title={t('settings.content.notifications.title')}
+        onRetry={() => void refetch()}
+      />
+    )
+  }
+
+  const isDirty = form.formState.isDirty
 
   return (
     <SettingsSectionCard
@@ -352,7 +405,7 @@ export function NotificationsSection() {
               render={({ field }) => (
                 <SecretField
                   label='settings.content.notifications.fields.serverChanKey'
-                  masked={asString(data?.serverChanKeyMasked)}
+                  masked={asString(data.serverChanKeyMasked)}
                   field={field}
                 />
               )}
@@ -419,7 +472,9 @@ export function NotificationsSection() {
               render={({ field }) => (
                 <SecretField
                   label='settings.content.notifications.fields.telegramBotToken'
-                  masked={asString(data?.telegramBotToken)}
+                  masked={asString(
+                    data.telegramBotTokenMasked || data.telegramBotToken
+                  )}
                   field={field}
                 />
               )}
@@ -439,7 +494,7 @@ export function NotificationsSection() {
                 />
               )}
             />
-            <div className='grid grid-cols-2 gap-4'>
+            <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
               <FormField
                 control={form.control}
                 name='smtpHost'
@@ -485,7 +540,7 @@ export function NotificationsSection() {
                 render={({ field }) => (
                   <SecretField
                     label='settings.content.notifications.fields.smtpPass'
-                    masked={asString(data?.smtpPassMasked)}
+                    masked={asString(data.smtpPassMasked)}
                     field={field}
                   />
                 )}
@@ -552,7 +607,7 @@ export function NotificationsSection() {
               render={({ field }) => (
                 <SecretField
                   label='settings.content.notifications.fields.feishuSecret'
-                  masked={asString(data?.feishuSecretMasked)}
+                  masked={asString(data.feishuSecretMasked)}
                   field={field}
                 />
               )}
@@ -588,7 +643,7 @@ export function NotificationsSection() {
               render={({ field }) => (
                 <SecretField
                   label='settings.content.notifications.fields.dingtalkSecret'
-                  masked={asString(data?.dingtalkSecretMasked)}
+                  masked={asString(data.dingtalkSecretMasked)}
                   field={field}
                 />
               )}
@@ -660,7 +715,7 @@ export function NotificationsSection() {
               render={({ field }) => (
                 <SecretField
                   label='settings.content.notifications.fields.ntfyToken'
-                  masked={asString(data?.ntfyTokenMasked)}
+                  masked={asString(data.ntfyTokenMasked)}
                   field={field}
                 />
               )}
@@ -703,17 +758,17 @@ export function NotificationsSection() {
             />
           </div>
 
-          <Button
-            type='submit'
-            form={FORM_ID}
-            disabled={updateMutation.isPending}
-          >
-            {updateMutation.isPending
-              ? t('settings.common.saving')
-              : t('settings.common.save')}
-          </Button>
+          <SettingsFormActions
+            formId={FORM_ID}
+            isDirty={isDirty}
+            isPending={updateMutation.isPending}
+            onReset={() =>
+              syncFromServer(deriveServerValues(data) ?? DEFAULT_VALUES)
+            }
+          />
         </form>
       </Form>
+      <FormNavigationGuard enabled={isDirty} />
     </SettingsSectionCard>
   )
 }
@@ -721,8 +776,8 @@ export function NotificationsSection() {
 // --- inline sub-components (kept inside this file because they are tightly
 // coupled to the form's ControllerProps shape and the i18n key namespace) ---
 
-type FieldProps = {
-  field: ControllerRenderProps<FieldValues, FieldPath<FieldValues>>
+type FieldProps<TValues extends FieldValues> = {
+  field: ControllerRenderProps<TValues, FieldPath<TValues>>
   label: string
 }
 
@@ -741,7 +796,10 @@ function ChannelGroup({
   )
 }
 
-function ToggleField({ label, field }: FieldProps) {
+function ToggleField<TValues extends FieldValues>({
+  label,
+  field,
+}: FieldProps<TValues>) {
   const { t } = useTranslation()
   return (
     <FormItem className='flex flex-row items-center gap-3'>
@@ -756,7 +814,10 @@ function ToggleField({ label, field }: FieldProps) {
   )
 }
 
-function TextField({ label, field }: FieldProps) {
+function TextField<TValues extends FieldValues>({
+  label,
+  field,
+}: FieldProps<TValues>) {
   const { t } = useTranslation()
   return (
     <FormItem>
@@ -769,11 +830,11 @@ function TextField({ label, field }: FieldProps) {
   )
 }
 
-function UrlField({
+function UrlField<TValues extends FieldValues>({
   label,
   field,
   placeholder,
-}: FieldProps & { placeholder?: string }) {
+}: FieldProps<TValues> & { placeholder?: string }) {
   const { t } = useTranslation()
   return (
     <FormItem>
@@ -791,11 +852,11 @@ function UrlField({
   )
 }
 
-function SecretField({
+function SecretField<TValues extends FieldValues>({
   label,
   field,
   masked,
-}: FieldProps & { masked: string }) {
+}: FieldProps<TValues> & { masked: string }) {
   const { t } = useTranslation()
   return (
     <FormItem>
@@ -818,7 +879,10 @@ function SecretField({
   )
 }
 
-function MuteField({ label, field }: FieldProps) {
+function MuteField<TValues extends FieldValues>({
+  label,
+  field,
+}: FieldProps<TValues>) {
   const { t } = useTranslation()
   return (
     <FormItem className='flex flex-row items-center gap-3'>

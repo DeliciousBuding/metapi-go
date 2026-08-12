@@ -1,9 +1,9 @@
 // metapi-go/features/settings/sections/system-info/components — admin audit
-// logs section (B1). Read-only table of admin write operations with a method
-// filter + path text search.
+// logs section (B1). Read-only paginated table of admin write operations with
+// method and path filters.
 
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
@@ -30,6 +30,7 @@ import {
   SettingsSectionCard,
   SettingsSectionSkeleton,
 } from '../../../components/settings-section-card'
+import { SettingsSectionError } from '../../../components/settings-section-error'
 
 type AuditLogItem = {
   id: number
@@ -44,9 +45,12 @@ type AuditLogItem = {
 
 type AuditLogsResponse = {
   items: AuditLogItem[]
-  total?: number
-  limit?: number
+  total: number
+  limit: number
+  offset: number
 }
+
+const PAGE_SIZE = 50
 
 const auditQueryKeys = {
   all: ['admin-audit-logs'] as const,
@@ -60,40 +64,37 @@ export function AuditLogsSection() {
   const [methodFilter, setMethodFilter] = useState<string>('all')
   const [pathSearch, setPathSearch] = useState('')
   const [submittedPath, setSubmittedPath] = useState('')
+  const [page, setPage] = useState(0)
 
-  const filterString = (() => {
+  const filterString = useMemo(() => {
     const params = new URLSearchParams()
-    if (methodFilter !== 'all') {
-      params.set('method', methodFilter)
-    }
-    if (submittedPath) {
-      params.set('path', submittedPath)
-    }
+    if (methodFilter !== 'all') params.set('method', methodFilter)
+    if (submittedPath) params.set('path', submittedPath)
+    params.set('limit', String(PAGE_SIZE))
+    params.set('offset', String(page * PAGE_SIZE))
     return params.toString()
-  })()
+  }, [methodFilter, page, submittedPath])
 
   const auditQuery = useQuery<AuditLogsResponse>({
     queryKey: auditQueryKeys.list(filterString),
     queryFn: async () => {
-      const params = new URLSearchParams()
-      if (methodFilter !== 'all') {
-        params.set('method', methodFilter)
-      }
-      if (submittedPath) {
-        params.set('path', submittedPath)
-      }
-      const data = (await api.getAdminAuditLogs(params)) as AuditLogsResponse
-      return data ?? { items: [] }
+      const data = (await api.getAdminAuditLogs(
+        new URLSearchParams(filterString)
+      )) as AuditLogsResponse
+      return data ?? { items: [], total: 0, limit: PAGE_SIZE, offset: 0 }
     },
     staleTime: 10 * 1000,
   })
 
   function submitSearch(event: React.FormEvent) {
     event.preventDefault()
+    setPage(0)
     setSubmittedPath(pathSearch.trim())
   }
 
   const items = auditQuery.data?.items ?? []
+  const total = auditQuery.data?.total ?? 0
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
     <SettingsSectionCard
@@ -102,14 +103,23 @@ export function AuditLogsSection() {
     >
       <form
         onSubmit={submitSearch}
-        className='mb-4 flex flex-wrap items-center gap-3'
+        className='mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center'
       >
         <Select
           value={methodFilter}
-          onValueChange={(value) => setMethodFilter(value ?? 'all')}
+          onValueChange={(value) => {
+            setPage(0)
+            setMethodFilter(value ?? 'all')
+          }}
         >
-          <SelectTrigger className='w-32'>
-            <SelectValue />
+          <SelectTrigger className='w-full sm:w-32'>
+            <SelectValue>
+              {(selected) =>
+                !selected || selected === 'all'
+                  ? t('settings.systemInfo.auditLogs.allMethods')
+                  : String(selected)
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {METHOD_FILTERS.map((method) => (
@@ -125,73 +135,115 @@ export function AuditLogsSection() {
           value={pathSearch}
           onChange={(event) => setPathSearch(event.target.value)}
           placeholder={t('settings.systemInfo.auditLogs.pathPlaceholder')}
-          className='flex-1'
+          className='min-w-0 flex-1'
         />
         <Button type='submit' variant='outline' size='sm'>
           {t('settings.systemInfo.auditLogs.search')}
         </Button>
       </form>
+
       {auditQuery.isLoading ? <SettingsSectionSkeleton /> : null}
-      {!auditQuery.isLoading && items.length === 0 ? (
+      {auditQuery.isError ? (
+        <SettingsSectionError
+          title={t('settings.systemInfo.auditLogs.title')}
+          onRetry={() => void auditQuery.refetch()}
+        />
+      ) : null}
+      {!auditQuery.isLoading && !auditQuery.isError && items.length === 0 ? (
         <p className='text-muted-foreground py-8 text-center text-sm'>
           {t('settings.systemInfo.auditLogs.empty')}
         </p>
       ) : null}
-      {!auditQuery.isLoading && items.length > 0 ? (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>
-                {t('settings.systemInfo.auditLogs.columns.time')}
-              </TableHead>
-              <TableHead>
-                {t('settings.systemInfo.auditLogs.columns.method')}
-              </TableHead>
-              <TableHead>
-                {t('settings.systemInfo.auditLogs.columns.path')}
-              </TableHead>
-              <TableHead>
-                {t('settings.systemInfo.auditLogs.columns.status')}
-              </TableHead>
-              <TableHead>
-                {t('settings.systemInfo.auditLogs.columns.actor')}
-              </TableHead>
-              <TableHead>
-                {t('settings.systemInfo.auditLogs.columns.ip')}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map((entry) => (
-              <TableRow key={entry.id}>
-                <TableCell className='text-muted-foreground text-xs'>
-                  {entry.createdAt}
-                </TableCell>
-                <TableCell>
-                  <Badge variant={methodVariant(entry.method)}>
-                    {entry.method}
-                  </Badge>
-                </TableCell>
-                <TableCell className='font-mono text-xs'>
-                  {entry.path}
-                </TableCell>
-                <TableCell>
-                  <span
-                    className={
-                      entry.status >= 400 ? 'text-destructive' : 'text-success'
-                    }
-                  >
-                    {entry.status}
-                  </span>
-                </TableCell>
-                <TableCell className='text-xs'>{entry.actor ?? '—'}</TableCell>
-                <TableCell className='text-muted-foreground text-xs'>
-                  {entry.remoteIp ?? '—'}
-                </TableCell>
+      {!auditQuery.isLoading && !auditQuery.isError && items.length > 0 ? (
+        <>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>
+                  {t('settings.systemInfo.auditLogs.columns.time')}
+                </TableHead>
+                <TableHead>
+                  {t('settings.systemInfo.auditLogs.columns.method')}
+                </TableHead>
+                <TableHead>
+                  {t('settings.systemInfo.auditLogs.columns.path')}
+                </TableHead>
+                <TableHead>
+                  {t('settings.systemInfo.auditLogs.columns.status')}
+                </TableHead>
+                <TableHead>
+                  {t('settings.systemInfo.auditLogs.columns.actor')}
+                </TableHead>
+                <TableHead>
+                  {t('settings.systemInfo.auditLogs.columns.ip')}
+                </TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {items.map((entry) => (
+                <TableRow key={entry.id}>
+                  <TableCell className='text-muted-foreground text-xs'>
+                    {entry.createdAt}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={methodVariant(entry.method)}>
+                      {entry.method}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className='font-mono text-xs'>
+                    {entry.path}
+                  </TableCell>
+                  <TableCell>
+                    <span
+                      className={
+                        entry.status >= 400
+                          ? 'text-destructive'
+                          : 'text-success'
+                      }
+                    >
+                      {entry.status}
+                    </span>
+                  </TableCell>
+                  <TableCell className='text-xs'>
+                    {entry.actor ?? '—'}
+                  </TableCell>
+                  <TableCell className='text-muted-foreground text-xs'>
+                    {entry.remoteIp ?? '—'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <div className='text-muted-foreground mt-4 flex flex-col gap-2 border-t pt-3 text-xs sm:flex-row sm:items-center sm:justify-between'>
+            <span>{t('settings.systemInfo.auditLogs.total', { total })}</span>
+            <div className='flex items-center gap-2'>
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                disabled={page === 0 || auditQuery.isFetching}
+                onClick={() => setPage((current) => Math.max(0, current - 1))}
+              >
+                {t('settings.systemInfo.auditLogs.previous')}
+              </Button>
+              <span>
+                {t('settings.systemInfo.auditLogs.page', {
+                  current: page + 1,
+                  total: pageCount,
+                })}
+              </span>
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                disabled={page + 1 >= pageCount || auditQuery.isFetching}
+                onClick={() => setPage((current) => current + 1)}
+              >
+                {t('settings.systemInfo.auditLogs.next')}
+              </Button>
+            </div>
+          </div>
+        </>
       ) : null}
     </SettingsSectionCard>
   )
@@ -200,9 +252,7 @@ export function AuditLogsSection() {
 function methodVariant(
   method: string
 ): 'default' | 'secondary' | 'destructive' {
-  if (method === 'DELETE') {
-    return 'destructive'
-  }
+  if (method === 'DELETE') return 'destructive'
   if (method === 'POST' || method === 'PUT' || method === 'PATCH') {
     return 'default'
   }

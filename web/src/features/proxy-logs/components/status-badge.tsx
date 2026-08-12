@@ -28,7 +28,8 @@ const STATUS_TIERS = {
     fallbackLabelKey: 'proxyLogs.status.clientError',
   },
   serverError: {
-    className: 'bg-destructive/10 text-destructive border-destructive/30',
+    className:
+      'bg-destructive/10 text-destructive-soft-fg border-destructive/30',
     dotClassName: 'bg-destructive',
     fallbackLabelKey: 'proxyLogs.status.serverError',
   },

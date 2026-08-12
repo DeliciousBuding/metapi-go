@@ -4,7 +4,7 @@
 // Titles are i18n keys resolved via t() at render time (nav-group.tsx /
 // sidebar-view-header.tsx).
 
-import { Boxes, KeyRound, Package, ServerCog, Settings } from 'lucide-react'
+import { getSettingsSubareas } from '@/features/settings'
 
 import type { NavGroup, SidebarView } from '../types'
 
@@ -16,36 +16,28 @@ import type { NavGroup, SidebarView } from '../types'
  * scopes the items as "administration" actions.
  */
 function getSettingsNavGroups(): NavGroup[] {
+  const subareas = getSettingsSubareas()
   return [
     {
       id: 'system-administration',
       title: 'sidebar.groups.systemAdministration',
       items: [
         {
-          title: 'sidebar.items.general',
-          icon: Settings,
-          url: '/settings/general',
+          title: 'sidebar.settingsOverview',
+          url: '/settings',
+          // The overview is the workspace root: only exact /settings is the
+          // current page, never /settings/<subarea>/... descendants.
+          activeOptions: { exact: true },
         },
-        {
-          title: 'sidebar.items.downstreamKeys',
-          icon: KeyRound,
-          url: '/settings/downstream',
-        },
-        {
-          title: 'sidebar.items.models',
-          icon: Boxes,
-          url: '/settings/models',
-        },
-        {
-          title: 'sidebar.items.content',
-          icon: Package,
-          url: '/settings/content',
-        },
-        {
-          title: 'sidebar.items.systemInfo',
-          icon: ServerCog,
-          url: '/settings/system-info',
-        },
+        ...subareas.map((subarea) => ({
+          title: subarea.title,
+          icon: subarea.icon,
+          // Drill straight to the subarea's default section - the bare
+          // basePath URL 302-redirects there anyway (one extra hop).
+          url: `${subarea.basePath}/${subarea.defaultSection}`,
+          // Keep the subarea highlighted on every one of its section URLs.
+          activePrefix: subarea.basePath,
+        })),
       ],
     },
   ]

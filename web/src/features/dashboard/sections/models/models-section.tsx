@@ -110,9 +110,18 @@ export function ModelsSection() {
     return rows
   }, [trendQuery.data, metricAvg, metricP95])
 
+  const costTooltipLabels = useMemo(
+    () => ({
+      cost: t('dashboard.models.costDistribution.tooltip.cost'),
+      calls: t('dashboard.models.costDistribution.tooltip.calls'),
+      tokens: t('dashboard.models.costDistribution.tooltip.tokens'),
+      share: t('dashboard.models.costDistribution.tooltip.share'),
+    }),
+    [t]
+  )
   const costSpec = useMemo(
-    () => buildModelCostSpec(colors, labelColor, costData),
-    [colors, labelColor, costData]
+    () => buildModelCostSpec(colors, labelColor, costData, costTooltipLabels),
+    [colors, labelColor, costData, costTooltipLabels]
   )
   const histogramSpec = useMemo(
     () => buildLatencyHistogramSpec(colors, histogramData),

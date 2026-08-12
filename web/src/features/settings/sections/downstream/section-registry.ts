@@ -2,6 +2,7 @@
 // Scope (plan §5.5.2): downstream API keys + the global PROXY_TOKEN.
 // Sections: keys, proxy-token. Both wired to real forms under ./components.
 
+import { KeyRound } from 'lucide-react'
 import { createElement } from 'react'
 
 import type { SettingsSubarea } from '../../types'
@@ -35,6 +36,8 @@ const registry = createSectionRegistry<DownstreamSectionId>({
 export const downstreamSubarea: SettingsSubarea = {
   id: 'downstream',
   title: 'settings.subareas.downstream',
+  description: 'settings.subareas.downstream.description',
+  icon: KeyRound,
   basePath: '/settings/downstream',
   defaultSection: registry.defaultSection,
   sectionIds: registry.sectionIds,

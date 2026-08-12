@@ -239,7 +239,7 @@ export function CheckinPage() {
     <div className='flex h-full flex-col gap-3 p-4'>
       <div className='flex items-center justify-between'>
         <div>
-          <h1 className='text-lg font-semibold'>{t('checkin.page.title')}</h1>
+          <h1 className='text-lg font-normal'>{t('checkin.page.title')}</h1>
           <p className='text-muted-foreground text-sm'>
             {t('checkin.page.description')}
           </p>
@@ -268,7 +268,7 @@ export function CheckinPage() {
       </div>
 
       {error && (
-        <div className='border-destructive/40 bg-destructive/10 text-destructive rounded-lg border p-3 text-sm'>
+        <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
           {t('checkin.page.loadError', { message: (error as Error).message })}
         </div>
       )}
@@ -307,10 +307,23 @@ export function CheckinPage() {
             setPagination((prev) => ({ ...prev, pageIndex: 0 }))
           }}
         >
-          <SelectTrigger className='w-[200px]'>
-            <SelectValue
-              placeholder={t('checkin.page.allAccountsPlaceholder')}
-            />
+          <SelectTrigger
+            aria-label={t('checkin.page.filterAccountTitle')}
+            className='w-[200px]'
+          >
+            <SelectValue>
+              {(selected) => {
+                if (!selected || selected === ACCOUNT_FILTER_ALL) {
+                  return t('checkin.page.allAccounts')
+                }
+                const account = accountOptions.find(
+                  (item) => String(item.id) === selected
+                )
+                return account
+                  ? account.username || `#${account.id}`
+                  : String(selected)
+              }}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={ACCOUNT_FILTER_ALL}>

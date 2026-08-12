@@ -4,16 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
+	"github.com/deliciousbuding/metapi-go/app"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/routing"
+	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/go-chi/chi/v5"
+	"github.com/jmoiron/sqlx"
 )
 
 // RegisterSettingsRoutes registers all /api/settings routes (runtime, brand-list, system-proxy/test).
@@ -24,6 +27,8 @@ func RegisterSettingsRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
 	r.Put("/api/settings/runtime", handler.updateRuntime)
 	r.Get("/api/settings/brand-list", handler.brandList)
 	r.Post("/api/settings/system-proxy/test", handler.testSystemProxy)
+	r.Get("/api/settings/migration/preview", handler.previewSettingsMigration)
+	r.Post("/api/settings/migration/apply", handler.applySettingsMigration)
 }
 
 type settingsHandler struct {
@@ -39,10 +44,22 @@ func (h *settingsHandler) getRuntime(w http.ResponseWriter, r *http.Request) {
 		"checkinCron":          cfg.CheckinCron,
 		"checkinScheduleMode":  cfg.CheckinScheduleMode,
 		"checkinIntervalHours": cfg.CheckinIntervalHours,
+		"checkinWindowStart":   cfg.CheckinWindowStart,
+		"checkinWindowEnd":     cfg.CheckinWindowEnd,
+		"checkinSchedule":      scheduleSpecForCheckin(cfg),
+		// Site & Branding
+		"systemName":      cfg.SystemName,
+		"logo":            cfg.Logo,
+		"footer":          cfg.Footer,
+		"about":           cfg.About,
+		"homePageContent": cfg.HomePageContent,
+		"serverAddress":   cfg.ServerAddress,
 		// Balance
-		"balanceRefreshCron": cfg.BalanceRefreshCron,
+		"balanceRefreshCron":     cfg.BalanceRefreshCron,
+		"balanceRefreshSchedule": scheduler.CronToSchedule(cfg.BalanceRefreshCron),
 		// Log cleanup
 		"logCleanupCron":               cfg.LogCleanupCron,
+		"logCleanupSchedule":           scheduler.CronToSchedule(cfg.LogCleanupCron),
 		"logCleanupUsageLogsEnabled":   cfg.LogCleanupUsageLogsEnabled,
 		"logCleanupProgramLogsEnabled": cfg.LogCleanupProgramLogsEnabled,
 		"logCleanupRetentionDays":      cfg.LogCleanupRetentionDays,
@@ -104,19 +121,19 @@ func (h *settingsHandler) getRuntime(w http.ResponseWriter, r *http.Request) {
 		"smtpFrom":       cfg.SmtpFrom,
 		"smtpTo":         cfg.SmtpTo,
 		// Notify: Feishu / DingTalk / WeCom / Ntfy
-		"feishuEnabled":      cfg.FeishuEnabled,
-		"feishuWebhook":      cfg.FeishuWebhook,
-		"feishuSecretMasked": maskValue(cfg.FeishuSecret),
-		"dingtalkEnabled":    cfg.DingtalkEnabled,
-		"dingtalkWebhook":    cfg.DingtalkWebhook,
+		"feishuEnabled":        cfg.FeishuEnabled,
+		"feishuWebhook":        cfg.FeishuWebhook,
+		"feishuSecretMasked":   maskValue(cfg.FeishuSecret),
+		"dingtalkEnabled":      cfg.DingtalkEnabled,
+		"dingtalkWebhook":      cfg.DingtalkWebhook,
 		"dingtalkSecretMasked": maskValue(cfg.DingtalkSecret),
-		"wecomEnabled":       cfg.WecomEnabled,
-		"wecomWebhook":       cfg.WecomWebhook,
-		"ntfyEnabled":        cfg.NtfyEnabled,
-		"ntfyUrl":            cfg.NtfyUrl,
-		"ntfyTopic":          cfg.NtfyTopic,
-		"ntfyTokenMasked":    maskValue(cfg.NtfyToken),
-		"notifyTaskToggles":  cfg.NotifyTaskToggles,
+		"wecomEnabled":         cfg.WecomEnabled,
+		"wecomWebhook":         cfg.WecomWebhook,
+		"ntfyEnabled":          cfg.NtfyEnabled,
+		"ntfyUrl":              cfg.NtfyUrl,
+		"ntfyTopic":            cfg.NtfyTopic,
+		"ntfyTokenMasked":      maskValue(cfg.NtfyToken),
+		"notifyTaskToggles":    cfg.NotifyTaskToggles,
 		// Notify: cooldown
 		"notifyCooldownSec": cfg.NotifyCooldownSec,
 		// Admin
@@ -201,19 +218,105 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 	}
+	if v, ok := body["checkinSchedule"]; ok {
+		spec, err := decodeScheduleSpec(v)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "checkinSchedule 格式无效"})
+			return
+		}
+		if err := spec.Validate(); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+			return
+		}
+		patch := checkinSchedulePatch{Schedule: &spec}
+		switch spec.Type {
+		case "daily", "custom":
+			mode := "cron"
+			cron, err := scheduler.ScheduleToCron(spec)
+			if err != nil {
+				writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+				return
+			}
+			patch.Mode = &mode
+			patch.Cron = &cron
+		case "interval":
+			mode := "interval"
+			patch.Mode = &mode
+			patch.IntervalHours = &spec.EveryHours
+			if cron, err := scheduler.ScheduleToCron(spec); err == nil && cron != "" {
+				patch.Cron = &cron
+			}
+		case "window":
+			mode := "window"
+			patch.Mode = &mode
+			patch.WindowStart = &spec.WindowStart
+			patch.WindowEnd = &spec.WindowEnd
+		}
+		if _, err := applyCheckinScheduleSettings(h.db, cfg, patch); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+			return
+		}
+	}
 
 	// Balance refresh cron
 	if v, ok := body["balanceRefreshCron"]; ok {
 		cron := normalizeString(v)
+		if !scheduler.ValidateCronExpr(cron) {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "balanceRefreshCron 不是有效的 cron 表达式"})
+			return
+		}
+		if err := persistDualSchedule(h.db, "balance_refresh_cron", cron, "balance_refresh_schedule_v2", scheduler.CronToSchedule(cron)); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"success": false, "message": "保存余额刷新调度失败"})
+			return
+		}
 		cfg.BalanceRefreshCron = cron
-		upsertSettingDB(h.db, "balance_refresh_cron", cron)
+		if err := app.UpdateBalanceCron(cron); err != nil {
+			slog.Warn("settings: balance refresh cron hot update failed", "error", err)
+		}
+	}
+	if v, ok := body["balanceRefreshSchedule"]; ok {
+		spec, err := decodeScheduleSpec(v)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "balanceRefreshSchedule 格式无效"})
+			return
+		}
+		if err := spec.Validate(); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+			return
+		}
+		cron, err := scheduler.ScheduleToCron(spec)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+			return
+		}
+		if cron == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "balanceRefreshSchedule 无法转换为 cron 表达式"})
+			return
+		}
+		if err := persistDualSchedule(h.db, "balance_refresh_cron", cron, "balance_refresh_schedule_v2", spec); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"success": false, "message": "保存余额刷新调度失败"})
+			return
+		}
+		cfg.BalanceRefreshCron = cron
+		if err := app.UpdateBalanceCron(cron); err != nil {
+			slog.Warn("settings: balance refresh cron hot update failed", "error", err)
+		}
 	}
 
 	// Log cleanup settings
+	logCleanupChanged := false
 	if v, ok := body["logCleanupCron"]; ok {
 		cron := normalizeString(v)
+		if !scheduler.ValidateCronExpr(cron) {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "logCleanupCron 不是有效的 cron 表达式"})
+			return
+		}
+		if err := persistDualSchedule(h.db, "log_cleanup_cron", cron, "log_cleanup_schedule_v2", scheduler.CronToSchedule(cron)); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"success": false, "message": "保存日志清理调度失败"})
+			return
+		}
 		cfg.LogCleanupCron = cron
-		upsertSettingDB(h.db, "log_cleanup_cron", cron)
+		logCleanupChanged = true
 	}
 	if v, ok := body["logCleanupUsageLogsEnabled"]; ok {
 		enabled, err := toBoolStrict(v)
@@ -245,6 +348,37 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 		}
 		cfg.LogCleanupRetentionDays = int(days)
 		upsertSettingDB(h.db, "log_cleanup_retention_days", int(days))
+	}
+	if v, ok := body["logCleanupSchedule"]; ok {
+		spec, err := decodeScheduleSpec(v)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "logCleanupSchedule 格式无效"})
+			return
+		}
+		if err := spec.Validate(); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+			return
+		}
+		cron, err := scheduler.ScheduleToCron(spec)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+			return
+		}
+		if cron == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "logCleanupSchedule 无法转换为 cron 表达式"})
+			return
+		}
+		if err := persistDualSchedule(h.db, "log_cleanup_cron", cron, "log_cleanup_schedule_v2", spec); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{"success": false, "message": "保存日志清理调度失败"})
+			return
+		}
+		cfg.LogCleanupCron = cron
+		logCleanupChanged = true
+	}
+	if logCleanupChanged {
+		if err := app.UpdateLogCleanupSettings(cfg.LogCleanupCron, cfg.LogCleanupUsageLogsEnabled, cfg.LogCleanupProgramLogsEnabled, cfg.LogCleanupRetentionDays); err != nil {
+			slog.Warn("settings: log cleanup hot update failed", "error", err)
+		}
 	}
 
 	// Model probe
@@ -570,7 +704,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 			cfg.NotifyTaskToggles = map[string]bool{}
 		}
 		if raw, mErr := json.Marshal(v); mErr == nil {
-			upsertSettingDB(h.db, "notify_task_toggles", string(raw))
+			upsertSettingDB(h.db, "notify_task_toggles", v)
 			// Re-hydrate from the marshaled value so runtime matches persisted.
 			fresh := map[string]bool{}
 			if uErr := json.Unmarshal(raw, &fresh); uErr == nil {
@@ -741,6 +875,31 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	// Apply to routing runtime immediately (0 / non-positive falls back to code default).
 	routing.SetCacheRatioDefaults(cfg.CacheRatioDefault, 0, cfg.CacheRatioClaude, 0)
 
+	// Site & Branding
+	if v, ok := body["systemName"]; ok {
+		cfg.SystemName = normalizeString(v)
+		upsertSettingDB(h.db, "system_name", cfg.SystemName)
+	}
+	if v, ok := body["logo"]; ok {
+		cfg.Logo = normalizeString(v)
+		upsertSettingDB(h.db, "logo", cfg.Logo)
+	}
+	if v, ok := body["footer"]; ok {
+		cfg.Footer = normalizeString(v)
+		upsertSettingDB(h.db, "footer", cfg.Footer)
+	}
+	if v, ok := body["about"]; ok {
+		cfg.About = normalizeString(v)
+		upsertSettingDB(h.db, "about", cfg.About)
+	}
+	if v, ok := body["homePageContent"]; ok {
+		cfg.HomePageContent = normalizeString(v)
+		upsertSettingDB(h.db, "home_page_content", cfg.HomePageContent)
+	}
+	if v, ok := body["serverAddress"]; ok {
+		cfg.ServerAddress = normalizeString(v)
+		upsertSettingDB(h.db, "server_address", cfg.ServerAddress)
+	}
 	// Log the event
 	logSettingsEvent(h.db, "status", "运行时设置已更新", "运行时设置已更新", "info", now)
 
@@ -1031,6 +1190,40 @@ func stringSliceOrEmpty(in []string) []string {
 
 func logSettingsEvent(db *sqlx.DB, eventType, title, message, level, createdAt string) {
 	// Silently ignore errors (matches TS behavior)
-	db.Exec(`INSERT INTO events (type, title, message, level, related_type, created_at, "read")
-		VALUES (?, ?, ?, ?, 'settings', ?, 0)`, eventType, title, message, level, createdAt)
+	query := db.Rebind(`INSERT INTO events (type, title, message, level, related_type, created_at, "read")
+		VALUES (?, ?, ?, ?, 'settings', ?, 0)`)
+	_, _ = db.Exec(query, eventType, title, message, level, createdAt)
+}
+
+// decodeScheduleSpec converts a decoded JSON body value into a ScheduleSpec.
+func decodeScheduleSpec(v any) (scheduler.ScheduleSpec, error) {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return scheduler.ScheduleSpec{}, err
+	}
+	var spec scheduler.ScheduleSpec
+	if err := json.Unmarshal(raw, &spec); err != nil {
+		return scheduler.ScheduleSpec{}, err
+	}
+	return spec, nil
+}
+
+// persistDualSchedule writes the legacy cron key and its v2 ScheduleSpec
+// mirror in one transaction so the two never diverge.
+func persistDualSchedule(db *sqlx.DB, legacyKey string, legacyValue any, v2Key string, spec scheduler.ScheduleSpec) error {
+	tx, err := db.Beginx()
+	if err != nil {
+		return fmt.Errorf("settings: begin dual schedule write: %w", err)
+	}
+	defer tx.Rollback()
+	if err := upsertSettingTx(db, tx, legacyKey, legacyValue); err != nil {
+		return err
+	}
+	if cron, ok := legacyValue.(string); ok {
+		spec.Cron = cron
+	}
+	if err := upsertSettingTx(db, tx, v2Key, spec); err != nil {
+		return err
+	}
+	return tx.Commit()
 }

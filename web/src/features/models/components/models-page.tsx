@@ -10,23 +10,26 @@
 // Mobile cards are handled by `DataTablePage` via the column `meta` flags.
 
 import { useMutation } from '@tanstack/react-query'
-import { useLocation, useNavigate } from '@tanstack/react-router'
-import type {
-  ColumnFiltersState,
-  PaginationState,
-  SortingState,
-  Updater,
-} from '@tanstack/react-table'
+import { useNavigate } from '@tanstack/react-router'
+import type { ColumnFiltersState } from '@tanstack/react-table'
 import { RefreshCw as RefreshCwIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { DataTablePage, useDataTable } from '@/components/data-table'
+import {
+  DataTablePage,
+  encodeSorting,
+  useDataTable,
+  useUrlTableState,
+  type UrlTableState,
+} from '@/components/data-table'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { api } from '@/lib/api'
 import {
+  asStringParam,
+  encodeStringListParam,
   parseSortingParam,
   parseStringListParam,
 } from '@/lib/helpers/searchParams'
@@ -45,43 +48,19 @@ const MODELS_COLUMN_VISIBILITY_STORAGE_KEY =
   'metapi-go:models:column-visibility'
 const MODELS_COLUMN_SIZING_STORAGE_KEY = 'metapi-go:models:column-sizing'
 
-type ResolvedSearch = {
-  q: string
-  pageIndex: number
-  pageSize: number
-  sorting: SortingState
+type ModelsUrlFilters = {
   brand: string[]
   capability: string[]
 }
 
-function resolveUpdater<TValue>(
-  updater: Updater<TValue>,
-  previous: TValue
-): TValue {
-  return typeof updater === 'function'
-    ? (updater as (old: TValue) => TValue)(previous)
-    : updater
-}
-
-function encodeSorting(sorting: SortingState): string {
-  return sorting
-    .map((item) => `${item.id}:${item.desc ? 'desc' : 'asc'}`)
-    .join(',')
-}
-
-function encodeStringList(values: string[]): string {
-  return values.join(',')
-}
-
-function readSearch(searchString?: string): ResolvedSearch {
+function readSearch(searchString?: string): UrlTableState<ModelsUrlFilters> {
   if (typeof window === 'undefined') {
     return {
       q: '',
       pageIndex: 0,
       pageSize: 20,
       sorting: [],
-      brand: [],
-      capability: [],
+      filters: { brand: [], capability: [] },
     }
   }
   const params = new URLSearchParams(searchString ?? window.location.search)
@@ -99,111 +78,81 @@ function readSearch(searchString?: string): ResolvedSearch {
       pageIndex: 0,
       pageSize: 20,
       sorting: [],
-      brand: [],
-      capability: [],
+      filters: { brand: [], capability: [] },
     }
   }
   const data = parsed.data
   return {
-    q: data.q ?? '',
+    q: asStringParam(data.q) ?? '',
     pageIndex: data.page ?? 0,
     pageSize: data.pageSize ?? 20,
     sorting: parseSortingParam(data.sort),
-    brand: parseStringListParam(data.brand),
-    capability: parseStringListParam(data.capability),
+    filters: {
+      brand: parseStringListParam(data.brand),
+      capability: parseStringListParam(data.capability),
+    },
   }
 }
 
-function buildHref(next: Partial<ResolvedSearch>): string {
+function buildHref(next: Partial<UrlTableState<ModelsUrlFilters>>): string {
   const current = readSearch()
-  const merged: ResolvedSearch = { ...current, ...next }
+  const merged: UrlTableState<ModelsUrlFilters> = {
+    ...current,
+    ...next,
+    filters: { ...current.filters, ...next.filters },
+  }
   const params = new URLSearchParams()
   if (merged.q) params.set('q', merged.q)
   if (merged.pageIndex > 0) params.set('page', String(merged.pageIndex))
   if (merged.pageSize !== 20) params.set('pageSize', String(merged.pageSize))
   const sortString = encodeSorting(merged.sorting)
   if (sortString) params.set('sort', sortString)
-  if (merged.brand.length > 0) {
-    params.set('brand', encodeStringList(merged.brand))
-  }
-  if (merged.capability.length > 0) {
-    params.set('capability', encodeStringList(merged.capability))
-  }
+  const brandString = encodeStringListParam(merged.filters.brand)
+  if (brandString) params.set('brand', brandString)
+  const capabilityString = encodeStringListParam(merged.filters.capability)
+  if (capabilityString) params.set('capability', capabilityString)
   const queryString = params.toString()
   return queryString ? `/models?${queryString}` : '/models'
 }
 
+/**
+ * The "feature useSearch" stage. Reads the URL on every render (cheap) and
+ * hands the data-table controlled state + navigation-backed setters. The
+ * shared {@link useUrlTableState} owns the router subscription and the
+ * URL-sync guard.
+ */
 function useModelsUrlState() {
-  const navigate = useNavigate()
-  // Subscribe to the router location: TanStack Router does not re-render a
-  // route component on same-path search-only navigation unless a hook
-  // consumes the location, and readSearch() reads the URL on render.
-  const searchStr = useLocation({ select: (loc) => loc.searchStr })
-  const search = readSearch(searchStr)
-
-  const columnFilters: ColumnFiltersState = useMemo(() => {
-    const filters: ColumnFiltersState = []
-    if (search.brand.length > 0) {
-      filters.push({ id: 'brand', value: search.brand })
-    }
-    if (search.capability.length > 0) {
-      filters.push({ id: 'capabilities', value: search.capability })
-    }
-    return filters
-  }, [search.brand, search.capability])
-
-  // URL-sync guard: table state callbacks can fire while the router is
-  // navigating away (the useLocation subscription re-renders this page with
-  // the *next* location's search string). Without the pathname check the
-  // callback would navigate straight back, hijacking the in-flight
-  // navigation. Only sync when we are still on this page.
-  function syncUrl(next: Partial<ResolvedSearch>) {
-    const href = buildHref(next)
-    if (!href.startsWith(window.location.pathname)) return
-    navigate({ href, replace: true })
-  }
-
-  const onGlobalFilterChange = (updater: Updater<string>) => {
-    const next = resolveUpdater(updater, search.q)
-    syncUrl({ q: next })
-  }
-  const onPaginationChange = (updater: Updater<PaginationState>) => {
-    const next = resolveUpdater(updater, {
-      pageIndex: search.pageIndex,
-      pageSize: search.pageSize,
-    })
-    syncUrl({ pageIndex: next.pageIndex, pageSize: next.pageSize })
-  }
-  const onSortingChange = (updater: Updater<SortingState>) => {
-    const next = resolveUpdater(updater, search.sorting)
-    syncUrl({ sorting: next })
-  }
-  const onColumnFiltersChange = (updater: Updater<ColumnFiltersState>) => {
-    const next = resolveUpdater(updater, columnFilters)
-    const brandEntry = next.find((filter) => filter.id === 'brand')
-    const capabilityEntry = next.find((filter) => filter.id === 'capabilities')
-    const brandValues = Array.isArray(brandEntry?.value)
-      ? (brandEntry?.value as string[])
-      : []
-    const capabilityValues = Array.isArray(capabilityEntry?.value)
-      ? (capabilityEntry?.value as string[])
-      : []
-    syncUrl({ brand: brandValues, capability: capabilityValues })
-  }
-
-  return {
-    globalFilter: search.q,
-    onGlobalFilterChange,
-    pagination: {
-      pageIndex: search.pageIndex,
-      pageSize: search.pageSize,
-    } as PaginationState,
-    onPaginationChange,
-    sorting: search.sorting,
-    onSortingChange,
-    columnFilters,
-    onColumnFiltersChange,
-  }
+  return useUrlTableState<ModelsUrlFilters>({
+    basePath: '/models',
+    read: readSearch,
+    buildHref,
+    toColumnFilters: (filters) => {
+      const columnFilters: ColumnFiltersState = []
+      if (filters.brand.length > 0) {
+        columnFilters.push({ id: 'brand', value: filters.brand })
+      }
+      if (filters.capability.length > 0) {
+        columnFilters.push({ id: 'capabilities', value: filters.capability })
+      }
+      return columnFilters
+    },
+    fromColumnFilters: (filters) => {
+      const brandEntry = filters.find((filter) => filter.id === 'brand')
+      const capabilityEntry = filters.find(
+        (filter) => filter.id === 'capabilities'
+      )
+      return {
+        filters: {
+          brand: Array.isArray(brandEntry?.value)
+            ? (brandEntry.value as string[])
+            : [],
+          capability: Array.isArray(capabilityEntry?.value)
+            ? (capabilityEntry.value as string[])
+            : [],
+        },
+      }
+    },
+  })
 }
 
 export function ModelsPage() {
@@ -221,7 +170,7 @@ export function ModelsPage() {
     },
     onTest: (model) => {
       const params = new URLSearchParams({ model: model.name })
-      navigate({ href: `/model-tester?${params.toString()}`, replace: true })
+      navigate({ href: `/model-tester?${params.toString()}` })
     },
   })
 
@@ -249,9 +198,6 @@ export function ModelsPage() {
     onSuccess: () => {
       toast.success(t('models.toast.refreshSucceeded'))
     },
-    onError: () => {
-      toast.error(t('models.toast.refreshFailed'))
-    },
   })
 
   // The refresh call re-aggregates the marketplace server-side; the next
@@ -268,7 +214,21 @@ export function ModelsPage() {
   )
 
   return (
-    <>
+    <div className='flex h-full flex-col gap-3 p-4'>
+      <div>
+        <h1 className='text-lg font-normal'>{t('models.page.title')}</h1>
+        <p className='text-muted-foreground text-sm'>
+          {t('models.page.description')}
+        </p>
+      </div>
+
+      {modelsQuery.error && (
+        <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
+          {t('models.page.loadError', {
+            message: (modelsQuery.error as Error).message,
+          })}
+        </div>
+      )}
       <DataTablePage
         table={table}
         columns={columns}
@@ -317,6 +277,6 @@ export function ModelsPage() {
           if (!open) setViewingModel(null)
         }}
       />
-    </>
+    </div>
   )
 }

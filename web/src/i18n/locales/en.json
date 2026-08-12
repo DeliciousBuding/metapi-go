@@ -94,6 +94,11 @@
       }
     },
     "models": {
+      "page": {
+        "loadError": "Failed to load models: {{message}}",
+        "title": "Models",
+        "description": "Model marketplace: brands, capabilities, latency, and success rate."
+      },
       "toast": {
         "refreshSucceeded": "Models refreshed.",
         "refreshFailed": "Failed to refresh models."
@@ -157,7 +162,7 @@
         "maxTokens": "Max tokens",
         "maxTokensHint": "Maximum number of tokens to generate.",
         "stream": "Stream",
-        "streamHint": "Stream the response token by token.",
+        "streamHint": "Stream the response token by token (backend support pending).",
         "stop": "Stop",
         "submit": "Send",
         "errors": {
@@ -182,7 +187,8 @@
       },
       "error": {
         "stopped": "Request was stopped.",
-        "unknown": "An unknown error occurred."
+        "unknown": "An unknown error occurred.",
+        "notAvailable": "Model testing isn't available yet: the backend needs a configured channel to run a test, and streaming support is still pending."
       },
       "viewer": {
         "title": "Response",
@@ -203,9 +209,18 @@
         "noRaw": "No raw events",
         "hint": "Tip: reasoning and raw tabs show extra model output.",
         "contentChars": "{{value}} chars"
+      },
+      "page": {
+        "title": "Model Tester",
+        "description": "Send test prompts to a model and inspect the response."
       }
     },
     "oauth": {
+      "page": {
+        "loadError": "Failed to load OAuth connections: {{message}}",
+        "title": "OAuth",
+        "description": "Manage OAuth connections for provider accounts."
+      },
       "form": {
         "startTitle": "Start authorization",
         "startDescription": "Connect an OAuth account to enable it for routing.",
@@ -273,85 +288,12 @@
         "abnormal": "Abnormal"
       }
     },
-    "siteAnnouncements": {
-      "toast": {
-        "deleted": "Announcement \"{{title}}\" deleted.",
-        "deleteFailed": "Failed to delete the announcement."
-      },
-      "empty": {
-        "title": "No announcements",
-        "description": "Announcements will appear here once created.",
-        "add": "Add announcement"
-      },
-      "toolbar": {
-        "searchPlaceholder": "Search announcements…",
-        "add": "Add announcement"
-      },
-      "delete": {
-        "title": "Delete announcement",
-        "description": "This will delete the announcement \"{{title}}\". This action cannot be undone.",
-        "cancel": "Cancel",
-        "confirm": "Delete"
-      },
-      "form": {
-        "addTitle": "Add announcement",
-        "editTitle": "Edit announcement",
-        "addDescription": "Create a new site announcement.",
-        "editDescription": "Update the announcement details.",
-        "title": "Title",
-        "titlePlaceholder": "Enter the title",
-        "message": "Message",
-        "messagePlaceholder": "Enter the message body",
-        "messageDescription": "Shown to users when the announcement is active.",
-        "severity": "Severity",
-        "severityPlaceholder": "Select a severity",
-        "link": "Link",
-        "linkPlaceholder": "https://example.com",
-        "linkDescription": "Optional URL for more details.",
-        "enabled": "Enabled",
-        "enabledDescription": "Whether this announcement is currently active.",
-        "cancel": "Cancel",
-        "save": "Save",
-        "create": "Create",
-        "createSucceeded": "Announcement \"{{title}}\" created.",
-        "updateSucceeded": "Announcement \"{{title}}\" updated.",
-        "createFailed": "Failed to create the announcement.",
-        "updateFailed": "Failed to update the announcement.",
-        "errors": {
-          "invalidLink": "Please enter a valid URL.",
-          "titleRequired": "Please enter a title.",
-          "titleTooLong": "Title must be at most 200 characters.",
-          "messageRequired": "Please enter a message.",
-          "messageTooLong": "Message must be at most 2000 characters."
-        }
-      },
-      "columns": {
-        "selectAll": "Select all",
-        "selectRow": "Select row",
-        "title": "Title",
-        "severity": "Severity",
-        "enabled": "Enabled",
-        "link": "Link",
-        "openLink": "Open link",
-        "createdAt": "Created at",
-        "actions": "Actions",
-        "rowActions": "Row actions"
-      },
-      "actions": {
-        "edit": "Edit",
-        "delete": "Delete"
-      },
-      "severity": {
-        "info": "Info",
-        "warning": "Warning",
-        "critical": "Critical"
-      },
-      "enabled": {
-        "on": "Enabled",
-        "off": "Disabled"
-      }
-    },
     "sites": {
+      "page": {
+        "loadError": "Failed to load sites: {{message}}",
+        "title": "Sites",
+        "description": "Manage connected sites, their status, and routing weight."
+      },
       "toast": {
         "statusToggled": "Site \"{{name}}\" updated.",
         "statusToggleFailed": "Failed to update the site status.",
@@ -376,7 +318,11 @@
       "bulk": {
         "enable": "Enable",
         "disable": "Disable",
-        "delete": "Delete"
+        "delete": "Delete",
+        "deleteConfirmTitle": "Delete selected sites?",
+        "deleteConfirmDescription": "This will delete the {{count}} selected site(s). This action cannot be undone.",
+        "deleteConfirmConfirm": "Delete",
+        "deleteConfirmCancel": "Cancel"
       },
       "deleteConfirm": {
         "title": "Delete site",
@@ -538,7 +484,9 @@
           "statusNever": "never",
           "enabled": "enabled",
           "disabled": "disabled",
-          "empty": "No scheduled jobs configured."
+          "empty": "No scheduled jobs configured.",
+          "loadError": "Failed to load scheduled tasks.",
+          "retry": "Retry"
         }
       },
       "traffic": {
@@ -556,7 +504,12 @@
         "siteDistribution": {
           "title": "Site distribution",
           "description": "Balance share by site.",
-          "empty": "No site distribution data yet."
+          "empty": "No site distribution data yet.",
+          "tooltip": {
+            "balance": "Balance",
+            "accounts": "Accounts",
+            "share": "Share"
+          }
         }
       },
       "models": {
@@ -564,7 +517,13 @@
         "costDistribution": {
           "title": "Cost distribution",
           "description": "Spend share by model (30d).",
-          "empty": "No model cost data for the selected range."
+          "empty": "No model cost data for the selected range.",
+          "tooltip": {
+            "cost": "Cost",
+            "calls": "Requests",
+            "tokens": "Tokens",
+            "share": "Share"
+          }
         },
         "latencyHistogram": {
           "title": "Latency histogram",
@@ -611,10 +570,19 @@
     "settings": {
       "subareas": {
         "general": "General",
-        "downstream": "Downstream Keys",
-        "models": "Models",
-        "content": "Content",
-        "systemInfo": "System Info"
+        "general.description": "Branding, authentication, schedules, proxy transport, and routing strategy.",
+        "downstream": "Downstream",
+        "downstream.description": "Downstream API keys (issued to sites/accounts) and the global proxy token.",
+        "models": "Model Settings",
+        "models.description": "Model name redirects, rates & multipliers, and the global allowlist.",
+        "content": "Data & Messaging",
+        "content.description": "Import/export, notification channels, and risk-banner announcements.",
+        "systemInfo": "System & Maintenance",
+        "systemInfo.description": "Logs, updates, database, and maintenance — including the danger zone."
+      },
+      "overview": {
+        "title": "Settings",
+        "description": "Manage gateway configuration, downstream keys, model behavior, data & messaging, and system maintenance."
       },
       "common": {
         "save": "Save",
@@ -627,9 +595,40 @@
         "create": "Create",
         "enabled": "Enabled",
         "disabled": "Disabled",
+        "loading": "Loading…",
+        "saved": "All changes saved.",
+        "unsaved": "You have unsaved changes.",
+        "reset": "Reset",
+        "noChanges": "No changes to save.",
+        "loadFailed": "Failed to load settings. The form is disabled to avoid overwriting your configuration.",
+        "retry": "Retry",
+        "unsavedTitle": "Discard unsaved changes?",
+        "readonly": "Read-only",
+        "unsavedDescription": "You have unsaved changes in this section. Leaving now will discard them.",
+        "discardChanges": "Discard changes",
+        "keepEditing": "Keep editing",
+        "schedule": {
+          "everyHours": "Every {{count}} hours",
+          "everyHours_one": "Every {{count}} hour",
+          "everyHours_other": "Every {{count}} hours",
+          "kinds": {
+            "daily": "Daily at",
+            "interval": "Every N hours",
+            "window": "Random in window",
+            "custom": "Advanced cron",
+            "dailyHint": "Runs once per day at the selected time.",
+            "intervalHint": "Runs every selected number of hours.",
+            "windowHint": "Runs at a random time inside the window (check-in only).",
+            "customHint": "Raw cron expression; the original text is preserved exactly."
+          }
+        },
         "unlimited": "unlimited"
       },
       "general": {
+        "groups": {
+          "brandSecurity": "Brand & Security",
+          "runtimeStrategy": "Runtime & Strategy"
+        },
         "site": {
           "title": "Site & Branding",
           "description": "System name, logo, footer, about, and server address.",
@@ -689,6 +688,16 @@
           "modeCron": "Cron",
           "modeInterval": "Interval",
           "triggerCheckin": "Trigger check-in now",
+          "migration": {
+            "title": "Upgrade legacy schedules",
+            "summary": "v{{current}} → v{{target}}: {{pending}} schedule(s) can be migrated to the semantic format.",
+            "customCount": "{{count}} custom cron expression(s) kept verbatim.",
+            "legacyPreserved": "Legacy cron fields are kept; nothing is deleted.",
+            "apply": "Upgrade now",
+            "confirm": "This adds semantic schedule descriptors and keeps all existing cron fields. It is safe and repeatable.",
+            "applied": "Schedules upgraded.",
+            "applyFailed": "Failed to upgrade schedules."
+          },
           "triggering": "Triggering…",
           "fields": {
             "checkinScheduleMode": "Check-in schedule mode",
@@ -700,6 +709,12 @@
             "logCleanupCronHint": "Defaults to 06:00 daily.",
             "logCleanupRetentionDays": "Log retention (days)",
             "logCleanupUsageLogsEnabled": "Purge usage logs",
+            "checkinGroup": "Check-in",
+            "checkinSchedule": "Check-in schedule",
+            "balanceGroup": "Balance refresh",
+            "balanceRefreshSchedule": "Balance refresh schedule",
+            "logCleanupGroup": "Log cleanup",
+            "logCleanupSchedule": "Log cleanup schedule",
             "logCleanupUsageLogsEnabledHint": "Delete accumulated proxy usage logs on the cleanup schedule.",
             "logCleanupProgramLogsEnabled": "Purge program logs",
             "logCleanupProgramLogsEnabledHint": "Delete program events on the cleanup schedule. No-op if both cleanup toggles are off."
@@ -871,7 +886,7 @@
         },
         "rates": {
           "title": "Rates & Multipliers",
-          "description": "Read-only aggregation of all multiplier surfaces.",
+          "description": "Account unit costs and channel route weights.",
           "summary": "{{accounts}} accounts ({{withCost}} with unit cost) · {{channels}} channels ({{channelsEnabled}} enabled).",
           "accountTable": "Account unit costs",
           "channelTable": "Channel weights",
@@ -892,7 +907,7 @@
           }
         },
         "allowlist": {
-          "title": "Global Allowlist & Brand Blocking",
+          "title": "Allowlist & Brand Blocking",
           "description": "Global allowed models and globally blocked brands.",
           "allowAll": "(empty = allow all)",
           "addPlaceholder": "Add a model name and press Enter",
@@ -915,6 +930,10 @@
         }
       },
       "content": {
+        "groups": {
+          "data": "Data & Backup",
+          "messaging": "Messaging"
+        },
         "importExport": {
           "title": "Import / Export",
           "description": "Backup and restore runtime configuration.",
@@ -928,6 +947,11 @@
           "saveWebdav": "Save WebDAV config",
           "exportToWebdav": "Export to WebDAV",
           "importFromWebdav": "Import from WebDAV",
+          "importPreview": "Preview import",
+          "importConfirmTitle": "Confirm import?",
+          "importConfirmDescription": "Importing inserts or overwrites the rows shown in the preview. Review the plan before continuing.",
+          "importPreviewTitle": "Import plan",
+          "importPreviewRow": "{{table}}: {{toInsert}} insert(s), {{duplicates}} duplicate(s) skipped, {{skipped}} skipped by policy.",
           "lastSync": "Last sync: {{at}}",
           "lastError": "Last error: {{error}}",
           "fields": {
@@ -956,7 +980,7 @@
         },
         "notifications": {
           "title": "Notification Channels",
-          "description": "Webhook / Bark / Telegram / SMTP / Feishu / DingTalk / WeCom / NTFY.",
+          "description": "Webhook / Bark / ServerChan / Telegram / SMTP / Feishu / DingTalk / WeCom / NTFY.",
           "test": "Send test",
           "muteGroup": "Per-alert mute",
           "secretPlaceholder": "Leave blank to keep stored secret",
@@ -1060,12 +1084,19 @@
         }
       },
       "systemInfo": {
+        "groups": {
+          "logs": "Logs",
+          "system": "System",
+          "dangerZone": "Danger Zone"
+        },
         "programLogs": {
           "title": "Program Logs",
           "description": "Operational event log (events stream).",
           "allTypes": "All types",
+          "filterType": "Type",
           "unreadOnly": "Unread only",
           "count": "Count",
+          "loadedCount": "{{count}} loaded",
           "markRead": "Mark read",
           "markAllRead": "Mark all read",
           "exportCsv": "Export CSV",
@@ -1099,6 +1130,10 @@
           "pathPlaceholder": "Search path…",
           "search": "Search",
           "empty": "No audit entries.",
+          "total": "{{total}} entries",
+          "page": "Page {{current}} of {{total}}",
+          "previous": "Previous",
+          "next": "Next",
           "columns": {
             "time": "Time",
             "method": "Method",
@@ -1123,24 +1158,30 @@
           "opsNote": "In-app deploy is disabled; use the metapi-migrate CLI or your container orchestrator."
         },
         "database": {
-          "title": "Database Migration",
-          "description": "Runtime DB dialect / connection / migrate (CLI-only).",
+          "title": "Database",
+          "description": "Inspect the active connection and save database settings for the next restart. Changes here apply after the next restart and never break the running instance.",
           "currentRuntime": "Current runtime:",
           "restartRequired": "Saved config pending — restart required to apply.",
           "testConnection": "Test connection",
           "migrate": "Migrate",
-          "saveAsRuntime": "Save as runtime DB",
+          "saveAsRuntime": "Save configuration",
+          "migrationCliOnly": "Data migration is not executed in the admin UI. Use the metapi-migrate CLI and back up the database first.",
           "migrateConfirmTitle": "Confirm migration",
           "migrateConfirm": "Run migration",
           "fields": {
             "dialect": "Dialect",
             "connectionString": "Connection string",
             "connectionStringHint": "sqlite path or postgres URL.",
+            "connectionSaved": "Saved connection",
+            "connectionSavedHint": "The saved connection is not revealed. Leave this blank to keep it; changing the database type requires a new connection.",
             "ssl": "Enable SSL/TLS",
             "sslHint": "postgres only.",
             "overwrite": "Allow overwriting target database"
           },
-          "schema": { "connectionRequired": "Connection string is required." },
+          "schema": {
+            "connectionRequired": "Enter a connection string for the new database type.",
+            "testConnectionRequired": "Enter the connection string to test."
+          },
           "toast": {
             "saved": "Runtime database config saved.",
             "saveFailed": "Failed to save database config.",
@@ -1151,23 +1192,30 @@
           }
         },
         "maintenance": {
-          "title": "Maintenance & Danger Zone",
-          "description": "Cache rebuild, log purge, and factory reset.",
+          "title": "Maintenance",
+          "description": "Cache rebuild and usage-log purge.",
           "toolsGroup": "Maintenance tools",
+          "clearing": "Clearing…",
           "clearCache": "Clear cache & rebuild routes",
           "clearUsage": "Clear usage logs",
-          "dangerZone": "Danger zone",
+          "eventsHint": "Cleanup events are recorded in Program Logs.",
+          "viewEvents": "View Program Logs",
+          "toast": {
+            "cacheCleared": "Cache cleared.",
+            "cacheClearFailed": "Failed to clear cache.",
+            "usageCleared": "Usage logs cleared.",
+            "usageClearFailed": "Failed to clear usage logs."
+          }
+        },
+        "dangerZone": {
+          "title": "Factory reset",
+          "description": "Irreversible. Wipes the database, reverts to default SQLite, resets the admin token, and signs you out.",
           "factoryReset": "Factory reset",
-          "factoryResetHint": "Irreversible. Wipes the database, reverts to default SQLite, resets the admin token, and signs you out.",
           "factoryResetTitle": "Factory reset",
           "factoryResetDescription": "This wipes ALL data and reverts to defaults. The admin token will reset to the default. You will be signed out.",
           "factoryResetCountdown": "Wait {{seconds}}s…",
           "factoryResetConfirm": "Wipe everything",
           "toast": {
-            "cacheCleared": "Cache cleared.",
-            "cacheClearFailed": "Failed to clear cache.",
-            "usageCleared": "Usage logs cleared.",
-            "usageClearFailed": "Failed to clear usage logs.",
             "factoryResetDone": "Factory reset complete. Reloading…",
             "factoryResetFailed": "Factory reset failed."
           }
@@ -1197,7 +1245,11 @@
         "refreshBalance": "Refresh balance",
         "enable": "Enable",
         "disable": "Disable",
-        "delete": "Delete"
+        "delete": "Delete",
+        "deleteConfirmTitle": "Delete selected accounts?",
+        "deleteConfirmDescription": "This will delete the {{count}} selected account(s). This action cannot be undone.",
+        "deleteConfirmConfirm": "Delete",
+        "deleteConfirmCancel": "Cancel"
       },
       "form": {
         "invalid": "Please check the highlighted form fields",
@@ -1331,6 +1383,12 @@
         "toggleEnabled": "Enable/disable token",
         "edit": "Edit",
         "delete": "Delete",
+        "deleteConfirm": {
+          "title": "Delete token?",
+          "description": "This will delete token \"{{name}}\". This action cannot be undone.",
+          "confirm": "Delete",
+          "cancel": "Cancel"
+        },
         "form": {
           "invalid": "Please check the token form",
           "name": "Token name",
@@ -1559,6 +1617,7 @@
         "to": "to",
         "allAccounts": "All accounts",
         "allAccountsPlaceholder": "All accounts",
+        "filterAccountTitle": "Account",
         "resetFilters": "Reset filters",
         "emptyTitle": "No check-in records",
         "emptyDescription": "Run a check-in to generate logs, or adjust the filter conditions.",
@@ -1792,7 +1851,7 @@
       "preset": {
         "default": "Default",
         "anthropic": "Anthropic",
-        "simple-large": "Simple Large-font",
+        "simple-large": "Simple",
         "underground": "Underground",
         "rose-garden": "Rose Garden",
         "lake-view": "Lake View",
@@ -1819,17 +1878,13 @@
         "monitors": "Monitors",
         "tokenRoutes": "Token Routes",
         "oauth": "OAuth",
-        "siteAnnouncements": "Site Announcements",
         "models": "Models",
         "modelTester": "Model Tester",
         "settings": "Settings",
-        "about": "About",
-        "general": "General",
-        "downstreamKeys": "Downstream Keys",
-        "content": "Content",
-        "systemInfo": "System Info"
+        "about": "About"
       },
-      "backToHome": "Back to Home"
+      "backToHome": "Back to Home",
+      "settingsOverview": "Settings Overview"
     }
   }
 }

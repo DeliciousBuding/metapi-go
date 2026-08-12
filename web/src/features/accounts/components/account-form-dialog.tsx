@@ -20,6 +20,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -87,6 +88,12 @@ export function AccountFormDialog({
     defaultValues: getAccountFormDefaultValues(),
   })
 
+  const { handleOpenChange, guard } = useDirtyDialogClose({
+    enabled: form.formState.isDirty,
+    onDiscard: () => form.reset(),
+    onOpenChange,
+  })
+
   const credentialMode = form.watch('credentialMode') as CredentialMode
   const [initializedFor, setInitializedFor] = useState<string | null>(null)
   const isInitialized = initializedFor !== null
@@ -119,6 +126,7 @@ export function AccountFormDialog({
         const newId = result?.data?.id ?? result?.data?.account?.id ?? undefined
         showAccountCreatedToast(newId, values.siteId)
       }
+      form.reset()
       onOpenChange(false)
     } catch {
       // http-client already toasted the business/network error.
@@ -133,7 +141,7 @@ export function AccountFormDialog({
   const siteOptions = sites
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side='right'
         className='flex w-full flex-col gap-0 sm:max-w-lg'
@@ -172,9 +180,21 @@ export function AccountFormDialog({
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue
-                          placeholder={t('accounts.form.sitePlaceholder')}
-                        />
+                        <SelectValue>
+                          {(selected) => {
+                            if (!selected) {
+                              return t('accounts.form.sitePlaceholder')
+                            }
+                            const site = siteOptions.find(
+                              (item) => String(item.id) === selected
+                            )
+                            if (!site) return String(selected)
+                            const suffix = site.platform
+                              ? ` · ${site.platform}`
+                              : ''
+                            return `${site.name || site.url || `#${site.id}`}${suffix}`
+                          }}
+                        </SelectValue>
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -253,7 +273,18 @@ export function AccountFormDialog({
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue>
+                          {(selected) => {
+                            const labels: Record<string, string> = {
+                              active: t('accounts.form.statusActive'),
+                              disabled: t('accounts.form.statusDisabled'),
+                              expired: t('accounts.form.statusExpired'),
+                            }
+                            return selected
+                              ? (labels[String(selected)] ?? String(selected))
+                              : ''
+                          }}
+                        </SelectValue>
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -384,6 +415,7 @@ export function AccountFormDialog({
           </Button>
         </SheetFooter>
       </SheetContent>
+      {guard}
     </Sheet>
   )
 }

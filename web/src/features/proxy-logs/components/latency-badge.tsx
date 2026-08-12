@@ -18,7 +18,8 @@ const LATENCY_TIERS = {
   },
   unhealthy: {
     thresholdMs: Number.POSITIVE_INFINITY,
-    className: 'bg-destructive/10 text-destructive border-destructive/30',
+    className:
+      'bg-destructive/10 text-destructive-soft-fg border-destructive/30',
     dotClassName: 'bg-destructive',
   },
 } as const

@@ -120,3 +120,57 @@ func TestParseStringListSettingEmptyRawRejected(t *testing.T) {
 		t.Fatalf("empty raw should be rejected, got %#v ok=%v", list, ok)
 	}
 }
+
+func TestApplyRuntimeSettingsAppliesBranding(t *testing.T) {
+	cfg := &config.Config{}
+	ApplyRuntimeSettings(cfg, map[string]string{
+		"system_name":       `"My Gateway"`,
+		"logo":              `"https://example.com/logo.png"`,
+		"footer":            `"Powered by MetAPI"`,
+		"about":             `"About copy"`,
+		"home_page_content": `"Welcome"`,
+		"server_address":    `"https://gw.example.com"`,
+	})
+	if cfg.SystemName != "My Gateway" || cfg.Logo != "https://example.com/logo.png" || cfg.Footer != "Powered by MetAPI" {
+		t.Fatalf("branding = %+v", cfg)
+	}
+	if cfg.About != "About copy" || cfg.HomePageContent != "Welcome" || cfg.ServerAddress != "https://gw.example.com" {
+		t.Fatalf("branding = %+v", cfg)
+	}
+}
+
+func TestApplyRuntimeSettingsIgnoresEmptyBranding(t *testing.T) {
+	cfg := &config.Config{SystemName: "keep"}
+	ApplyRuntimeSettings(cfg, map[string]string{
+		"system_name": `""`,
+	})
+	if cfg.SystemName != "keep" {
+		t.Fatalf("SystemName = %q, want preserved", cfg.SystemName)
+	}
+}
+
+func TestApplyRuntimeSettingsDecodesJSONEncodedNotificationStrings(t *testing.T) {
+	cfg := &config.Config{}
+	ApplyRuntimeSettings(cfg, map[string]string{
+		"webhook_url":        `"https://hooks.example.test/path"`,
+		"telegram_bot_token": `"bot-token"`,
+		"smtp_pass":          `"smtp-secret"`,
+		"ntfy_topic":         `"alerts"`,
+	})
+	if cfg.WebhookUrl != "https://hooks.example.test/path" || cfg.TelegramBotToken != "bot-token" {
+		t.Fatalf("decoded notification strings = %#v", cfg)
+	}
+	if cfg.SmtpPass != "smtp-secret" || cfg.NtfyTopic != "alerts" {
+		t.Fatalf("decoded notification secrets = %#v", cfg)
+	}
+}
+
+func TestApplyRuntimeSettingsDecodesNotifyTaskTogglesObject(t *testing.T) {
+	cfg := &config.Config{}
+	ApplyRuntimeSettings(cfg, map[string]string{
+		"notify_task_toggles": `{"token_expired":true,"low_balance":false}`,
+	})
+	if cfg.NotifyTaskToggles == nil || !cfg.NotifyTaskToggles["token_expired"] || cfg.NotifyTaskToggles["low_balance"] {
+		t.Fatalf("NotifyTaskToggles = %#v", cfg.NotifyTaskToggles)
+	}
+}

@@ -15,6 +15,7 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -127,6 +128,12 @@ export function SiteFormDialog({
     defaultValues: SITE_FORM_DEFAULT_VALUES,
   })
 
+  const { handleOpenChange, guard } = useDirtyDialogClose({
+    enabled: form.formState.isDirty,
+    onDiscard: () => form.reset(),
+    onOpenChange,
+  })
+
   const createSite = useCreateSite()
   const updateSite = useUpdateSite()
   const detectSite = useDetectSite()
@@ -162,7 +169,7 @@ export function SiteFormDialog({
       }
       toast.success(t('sites.form.detectSucceeded'))
     } catch {
-      toast.error(t('sites.form.detectFailed'))
+      // http-client toasted
     }
   }
 
@@ -172,22 +179,22 @@ export function SiteFormDialog({
       if (isEditing && editingSite) {
         await updateSite.mutateAsync({ id: editingSite.id, payload })
         toast.success(t('sites.form.updateSucceeded', { name: values.name }))
+        form.reset()
         onOpenChange(false)
       } else {
         const created = await createSite.mutateAsync(payload)
         toast.success(t('sites.form.createSucceeded', { name: values.name }))
+        form.reset()
         onOpenChange(false)
         onCreated?.(created)
       }
     } catch {
-      toast.error(
-        isEditing ? t('sites.form.updateFailed') : t('sites.form.createFailed')
-      )
+      // http-client toasted
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className='sm:max-w-2xl'>
         <DialogHeader>
           <DialogTitle>
@@ -516,6 +523,7 @@ export function SiteFormDialog({
           </form>
         </Form>
       </DialogContent>
+      {guard}
     </Dialog>
   )
 }

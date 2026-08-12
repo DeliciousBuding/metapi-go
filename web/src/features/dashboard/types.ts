@@ -101,15 +101,5 @@ export type RealtimeOpsSample = {
   gaveUp: boolean
 }
 
-/** Active announcement (product-risk banner). */
-export type AnnouncementItem = {
-  id: number
-  title: string
-  message: string
-  severity: 'info' | 'warning' | 'critical'
-  link?: string | null
-  dismissed?: boolean
-}
-
 /** VChart spec — opaque record; VChart accepts a broad spec shape. */
 export type VChartSpec = Record<string, unknown>

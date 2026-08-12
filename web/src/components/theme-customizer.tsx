@@ -25,10 +25,6 @@ import {
 } from '@/lib/theme-customization'
 import { cn } from '@/lib/utils'
 
-/** Rainbow gradient used for the `default` swatch — mirrors the shipped default palette. */
-const DEFAULT_PRESET_GRADIENT =
-  'linear-gradient(135deg, oklch(0.68 0.2 25) 0%, oklch(0.8 0.17 85) 25%, oklch(0.72 0.18 155) 50%, oklch(0.66 0.19 245) 75%, oklch(0.68 0.2 315) 100%)'
-
 const FONT_OPTIONS: {
   value: ThemeFont
   labelKey: string
@@ -151,10 +147,7 @@ function PresetSection() {
                 aria-hidden='true'
                 className='absolute inset-0 rounded-md'
                 style={{
-                  background:
-                    preset.value === 'default'
-                      ? DEFAULT_PRESET_GRADIENT
-                      : `linear-gradient(135deg, ${preset.swatches[0]} 0%, ${preset.swatches[1] ?? preset.swatches[0]} 100%)`,
+                  backgroundColor: preset.swatches[0],
                 }}
               />
               <TileCheck />

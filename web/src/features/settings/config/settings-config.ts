@@ -27,6 +27,15 @@ const SETTINGS_SUBAREAS: readonly SettingsSubarea[] = [
 /** Stable id list for route validation. */
 
 /**
+ * All 5 settings subareas in main-sidebar order.
+ * Consumed by the settings overview landing and the layout drill-in sidebar so
+ * both surfaces share one metadata source (title / icon / description).
+ */
+export function getSettingsSubareas(): readonly SettingsSubarea[] {
+  return SETTINGS_SUBAREAS
+}
+
+/**
  * Look up a subarea by id (e.g. from the `$subarea` route param).
  * @returns The matching SettingsSubarea, or `undefined` if the id is unknown.
  */

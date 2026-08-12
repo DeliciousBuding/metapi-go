@@ -353,11 +353,21 @@ Reset usage counters (used_cost, used_requests) to zero.
 
 ### GET /api/settings/runtime
 
-Get all runtime settings. Returns 60+ fields. Sensitive values (proxyToken, tokens, passwords) are masked.
+Get all runtime settings as a flat JSON object. Sensitive values (proxyToken, tokens, passwords) are masked. The response includes branding fields (`systemName`, `logo`, `footer`, `about`, `homePageContent`, `serverAddress`) and semantic schedule mirrors (`checkinSchedule`, `balanceRefreshSchedule`, `logCleanupSchedule`).
+
+`ScheduleSpec` v1 uses `{ "version": 1, "kind": "daily|interval|window|custom", ... }`. The legacy `*_cron` fields remain available and remain the runtime compatibility source of truth.
 
 ### PUT /api/settings/runtime
 
-Update runtime settings. Partial update -- only send fields you want to change.
+Update runtime settings. Partial update -- only send fields you want to change. Schedule updates atomically write both the legacy cron key and the corresponding v1 semantic mirror.
+
+### GET /api/settings/migration/preview
+
+Preview the additive settings migration. Returns `currentVersion`, `targetVersion`, `pending`, `customCount`, `legacyFieldsPreserved`, and per-task migration items.
+
+### POST /api/settings/migration/apply
+
+Apply the settings migration in one transaction. It only adds `*_schedule_v2` mirrors and `settings_schema_version`; existing legacy keys are not removed or changed. Repeated calls are no-ops after completion.
 
 ### GET /api/settings/brand-list
 
@@ -455,7 +465,7 @@ Reset checkin attempt tracking.
 
 ### PUT /api/checkin/schedule
 
-Update checkin schedule (cron or interval mode).
+Update checkin schedule (cron, interval, or random-window mode). The handler keeps the legacy fields and `checkin_schedule_v2` mirror synchronized.
 
 ---
 

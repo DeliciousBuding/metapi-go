@@ -121,6 +121,58 @@ jobs:
           path: web/dist
           retention-days: 3
 
+  a11y:
+    # axe-core a11y gate against the real production SPA: the Go server embeds
+    # web/dist (built by the frontend job) and serves the admin app + API from
+    # one origin, so the scan exercises the exact shipped bundle instead of the
+    # dev server. Requires a fresh sqlite runtime DB (server auto-migrates).
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
+      - name: Install web deps (playwright + axe-core)
+        run: bun install --frozen-lockfile
+        working-directory: web
+      - name: Install Playwright Chromium
+        run: bunx playwright install --with-deps chromium
+        working-directory: web
+      - name: Serve SPA and run axe a11y gate
+        run: |
+          set -euo pipefail
+          AUTH_TOKEN=dev-admin-token-123 \
+          PROXY_TOKEN=dev-proxy-token-123 \
+          DATA_DIR="$(mktemp -d)/data" \
+          PORT=4099 \
+          go run ./cmd/server >/tmp/metapi-a11y-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" >/dev/null 2>&1 || true' EXIT
+          ready=
+          for _ in $(seq 1 90); do
+            if curl -fsS "http://127.0.0.1:4099/ready" | grep -q '"status":"ok"'; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ -z "$ready" ]; then
+            echo "server failed to become ready; log:"
+            cat /tmp/metapi-a11y-server.log
+            exit 1
+          fi
+          cd web
+          BASE_URL=http://127.0.0.1:4099 bun run a11y:scan
   test-sqlite:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -200,6 +252,7 @@ jobs:
       - secret-scan
       - docs-hygiene
       - frontend
+      - a11y
       - test-sqlite
       - test-pg
       - build

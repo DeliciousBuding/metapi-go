@@ -124,6 +124,16 @@ export function ThemeCustomizationProvider(props: {
     )
   }, [preset])
 
+  useEffect(() => {
+    window.requestAnimationFrame(() => {
+      const background = getComputedStyle(document.body)
+        .getPropertyValue('--background')
+        .trim()
+      const themeColor = document.querySelector('meta[name="theme-color"]')
+      if (background) themeColor?.setAttribute('content', background)
+    })
+  }, [preset])
+
   // Font is resolved before writing the attribute: the persisted preference
   // may be `default`, but CSS works in terms of the concrete sans/serif choice.
   useEffect(() => {
