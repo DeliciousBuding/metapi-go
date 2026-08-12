@@ -1191,6 +1191,8 @@
           "clearing": "清理中…",
           "clearCache": "清除缓存并重建路由",
           "clearUsage": "清除用量日志",
+          "eventsHint": "清理事件会记录在「程序日志」中。",
+          "viewEvents": "查看程序日志",
           "toast": {
             "cacheCleared": "缓存已清理。",
             "cacheClearFailed": "清理缓存失败。",

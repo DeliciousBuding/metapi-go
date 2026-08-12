@@ -4,6 +4,7 @@
 // nested inside routine-tools pages.
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { Link, type LinkProps } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -67,6 +68,19 @@ export function MaintenanceSection() {
               : t('settings.systemInfo.maintenance.clearUsage')}
           </Button>
         </div>
+        <p className='text-muted-foreground text-xs'>
+          {t('settings.systemInfo.maintenance.eventsHint')}{' '}
+          <Link
+            to={
+              '/settings/system-info/program-logs' as
+                | LinkProps['to']
+                | (string & {})
+            }
+            className='text-primary underline-offset-4 hover:underline'
+          >
+            {t('settings.systemInfo.maintenance.viewEvents')}
+          </Link>
+        </p>
       </div>
     </SettingsSectionCard>
   )

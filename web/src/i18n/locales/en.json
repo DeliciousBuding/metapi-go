@@ -1197,6 +1197,8 @@
           "clearing": "Clearing…",
           "clearCache": "Clear cache & rebuild routes",
           "clearUsage": "Clear usage logs",
+          "eventsHint": "Cleanup events are recorded in Program Logs.",
+          "viewEvents": "View Program Logs",
           "toast": {
             "cacheCleared": "Cache cleared.",
             "cacheClearFailed": "Failed to clear cache.",

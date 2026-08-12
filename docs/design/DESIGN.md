@@ -122,6 +122,8 @@ Fallback: `supports-[backdrop-filter]` gates translucency so browsers without `b
 | Shadow | Tailwind default `shadow-*` + custom `--shadow-card-hover` (`0 4px 12px …`) | Hover elevation on cards (`[data-card-hover]`); no lift on plain rows |
 | Motion | `tw-animate-css` utilities (`animate-in/out`, `fade-in-*`, `zoom-in-*`) + keyframes in `styles/index.css` (table row stagger, landing, terminal demo) | Calm; every animation guarded by `prefers-reduced-motion` |
 | Type | `--font-sans` Public Sans Variable + CJK fallbacks (Noto Sans SC/TC/JP/KR, PingFang, Microsoft YaHei) · `--font-serif` Lora Variable + CJK serif fallbacks · `--font-mono` Cascadia/SFMono/Consolas · `--font-body` active face | `data-theme-font` swaps the body face; density axis rescales `--text-xs…3xl` |
+| Page title scale | Landing/hub pages (dashboard `Overview`, `About`, `Settings` overview, `Sign in`): `text-2xl font-normal tracking-tight` (24px) · data/list pages (models, sites, oauth, accounts, check-in, proxy-logs, token-routes, model-tester): `text-lg font-normal` (18px) · settings section cards own a single `text-base` h1 inside the card | All titles weight 400 ("calm titles"); exactly one h1 per page (a11y); no third page-title variant without updating this table |
+
 | Layout | `data-theme-content-layout="full|centered"`; centered clamps `[data-slot='sidebar-inset'] > *` to `--max-content-width` (1280px) at ≥1280px; utilities `max-w-container` 1280 / `max-w-container-lg` 1536 | Hi-res: `full` uses available width; `centered` keeps a comfortable reading width |
 
 ---
@@ -171,6 +173,7 @@ Checklist: [`a11y-checklist.md`](./a11y-checklist.md).
 
 | Date | Change |
 |------|--------|
+| 2026-08-12 | Codified the two-tier page-title scale (landing/hub = `text-2xl`, data/list pages = `text-lg`, settings cards = `text-base` h1) so future pages stop inventing a third size |
 | 2026-08-12 | DESIGN.md aligned to the shipped shadcn-OKLCH token system: documented `data-theme-*` axes, presets, glass recipe, status/focus tokens; removed stale `--color-bg*` / `--glass-*` / `--space-*` / `--content-max` contract |
 | 2026-08-11 | Settings workspace: unified section cards, dirty/save/error states, semantic schedule controls, desktop/mobile navigation, and migration confirmation flow |
 | 2026-08-11 | MetAPI brand: transparent SVG badge (real π glyph) + favicon; product label cleanup |
