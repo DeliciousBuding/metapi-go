@@ -1,5 +1,7 @@
 // metapi-go/helpers — URL search-param decode helpers shared by the feature
 // search schemas (sites / proxy-logs / models / oauth / site-announcements).
+
+import { z } from 'zod'
 //
 // TanStack Router parses `?sort=...` by attempting JSON.parse on each value
 // and round-trips validated search objects back through the URL, so a sort
@@ -19,6 +21,31 @@ function encodeSortingItems(items: SortingItem[]): string {
   return items
     .map((item) => `${item.id}:${item.desc ? 'desc' : 'asc'}`)
     .join(',')
+}
+
+/**
+ * Search-param that TanStack Router may hand over as a JSON-parsed primitive
+ * (`?q=123` arrives as number `123`, `?enabled=true` as boolean `true`) even
+ * though the page reads the same value back as a raw string via
+ * `window.location.search`. Accepts all three and normalizes to string so
+ * route `validateSearch` never throws on numeric/boolean-looking values.
+ */
+export const stringSearchParam = z
+  .union([z.string(), z.number(), z.boolean()])
+  .optional()
+
+/**
+ * Normalize a validated {@link stringSearchParam} value to a plain string.
+ * At runtime the value is always a raw URL string (pages feed
+ * `URLSearchParams.get` output into `safeParse`); the union simply keeps the
+ * route's `validateSearch` from rejecting router-parsed primitives such as
+ * `?q=123` (number) or `?enabled=true` (boolean).
+ */
+export function asStringParam(
+  value: string | number | boolean | undefined,
+): string | undefined {
+  if (typeof value === 'string') return value
+  return value === undefined ? undefined : String(value)
 }
 
 /**

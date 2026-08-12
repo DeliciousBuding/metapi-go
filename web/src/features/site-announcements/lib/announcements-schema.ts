@@ -14,7 +14,7 @@
 
 import { z } from 'zod'
 
-import { encodeSortingParam } from '@/lib/helpers/searchParams'
+import { encodeSortingParam, stringSearchParam } from '@/lib/helpers/searchParams'
 
 import type { AnnouncementSeverity } from '../types'
 
@@ -72,15 +72,15 @@ const paginationSchema = z.object({
 })
 
 export const announcementsSearchSchema = z.object({
-  q: z.string().optional(),
+  q: stringSearchParam,
   page: z.coerce.number().int().min(0).optional(),
   pageSize: z.coerce.number().int().min(1).max(200).optional(),
   sort: z
     .union([z.string(), z.array(sortingItemSchema)])
     .optional()
     .transform((value) => encodeSortingParam(value)),
-  severity: z.string().optional(),
-  enabled: z.string().optional(),
+  severity: stringSearchParam,
+  enabled: stringSearchParam,
 })
 
 

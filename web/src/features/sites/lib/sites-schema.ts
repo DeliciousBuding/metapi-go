@@ -16,7 +16,7 @@
 
 import { z } from 'zod'
 
-import { encodeSortingParam } from '@/lib/helpers/searchParams'
+import { encodeSortingParam, stringSearchParam } from '@/lib/helpers/searchParams'
 
 import type { SiteProbeScope } from '../types'
 
@@ -134,14 +134,14 @@ const columnFilterItemSchema = z.object({
 })
 
 export const sitesSearchSchema = z.object({
-  q: z.string().optional(),
+  q: stringSearchParam,
   page: z.coerce.number().int().min(0).optional(),
   pageSize: z.coerce.number().int().min(1).max(200).optional(),
   sort: z
     .union([z.string(), z.array(sortingItemSchema)])
     .optional()
     .transform((value) => encodeSortingParam(value)),
-  status: z.string().optional(),
+  status: stringSearchParam,
 })
 
 

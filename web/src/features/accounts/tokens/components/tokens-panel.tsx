@@ -34,7 +34,7 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 
-import { ConfirmDialog } from '@/features/settings/components/confirm-dialog'
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
 
 import type { AccountToken } from '../../types'
 import {

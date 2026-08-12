@@ -36,7 +36,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 
-import { ConfirmDialog } from '../../../components/confirm-dialog'
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
 import { ScheduleEditor } from '../../../components/schedule-editor'
 import { SettingsFormActions } from '../../../components/settings-form-actions'

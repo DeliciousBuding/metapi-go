@@ -22,7 +22,7 @@
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { ConfirmDialog } from '@/features/settings/components/confirm-dialog'
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
 
 type DirtyDialogCloseOptions = {
   /** True while the form holds unsaved changes (RHF `formState.isDirty`). */

@@ -8,7 +8,7 @@ import { useBlocker } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { ConfirmDialog } from './confirm-dialog'
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
 
 type FormNavigationGuardProps = {
   enabled: boolean

@@ -7,21 +7,18 @@
 // edit; a separate confirm dialog guards deletion. Mobile cards are handled
 // by `DataTablePage` via the column `meta` flags.
 
-import { useLocation, useNavigate } from '@tanstack/react-router'
-import type {
-  ColumnFiltersState,
-  PaginationState,
-  SortingState,
-  Updater,
-} from '@tanstack/react-table'
+import type { ColumnFiltersState } from '@tanstack/react-table'
 import { Plus as PlusIcon } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import {
   DataTablePage,
+  encodeSorting,
   useDataTable,
+  useUrlTableState,
+  type UrlTableState,
 } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
 import {
@@ -33,7 +30,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 
-import { parseSortingParam } from '@/lib/helpers/searchParams'
+import { asStringParam, parseSortingParam } from '@/lib/helpers/searchParams'
 
 import {
   useAnnouncements,
@@ -53,36 +50,21 @@ const ANNOUNCEMENTS_COLUMN_VISIBILITY_STORAGE_KEY =
 const ANNOUNCEMENTS_COLUMN_SIZING_STORAGE_KEY =
   'metapi-go:site-announcements:column-sizing'
 
-type ResolvedSearch = {
-  q: string
-  pageIndex: number
-  pageSize: number
-  sorting: SortingState
+type AnnouncementsUrlFilters = {
   severity: string | undefined
   enabled: string | undefined
 }
 
-function resolveUpdater<TValue>(updater: Updater<TValue>, previous: TValue): TValue {
-  return typeof updater === 'function'
-    ? (updater as (old: TValue) => TValue)(previous)
-    : updater
-}
-
-function encodeSorting(sorting: SortingState): string {
-  return sorting
-    .map((item) => `${item.id}:${item.desc ? 'desc' : 'asc'}`)
-    .join(',')
-}
-
-function readSearch(searchString?: string): ResolvedSearch {
+function readSearch(
+  searchString?: string,
+): UrlTableState<AnnouncementsUrlFilters> {
   if (typeof window === 'undefined') {
     return {
       q: '',
       pageIndex: 0,
       pageSize: 20,
       sorting: [],
-      severity: undefined,
-      enabled: undefined,
+      filters: { severity: undefined, enabled: undefined },
     }
   }
   const params = new URLSearchParams(searchString ?? window.location.search)
@@ -100,103 +82,77 @@ function readSearch(searchString?: string): ResolvedSearch {
       pageIndex: 0,
       pageSize: 20,
       sorting: [],
-      severity: undefined,
-      enabled: undefined,
+      filters: { severity: undefined, enabled: undefined },
     }
   }
   const data = parsed.data
   return {
-    q: data.q ?? '',
+    q: asStringParam(data.q) ?? '',
     pageIndex: data.page ?? 0,
     pageSize: data.pageSize ?? 20,
     sorting: parseSortingParam(data.sort),
-    severity: data.severity,
-    enabled: data.enabled,
+    filters: {
+      severity: asStringParam(data.severity),
+      enabled: asStringParam(data.enabled),
+    },
   }
 }
 
-function buildHref(next: Partial<ResolvedSearch>): string {
+function buildHref(next: Partial<UrlTableState<AnnouncementsUrlFilters>>): string {
   const current = readSearch()
-  const merged: ResolvedSearch = { ...current, ...next }
+  const merged: UrlTableState<AnnouncementsUrlFilters> = {
+    ...current,
+    ...next,
+    filters: { ...current.filters, ...next.filters },
+  }
   const params = new URLSearchParams()
   if (merged.q) params.set('q', merged.q)
   if (merged.pageIndex > 0) params.set('page', String(merged.pageIndex))
   if (merged.pageSize !== 20) params.set('pageSize', String(merged.pageSize))
   const sortString = encodeSorting(merged.sorting)
   if (sortString) params.set('sort', sortString)
-  if (merged.severity) params.set('severity', merged.severity)
-  if (merged.enabled) params.set('enabled', merged.enabled)
+  if (merged.filters.severity) params.set('severity', merged.filters.severity)
+  if (merged.filters.enabled) params.set('enabled', merged.filters.enabled)
   const queryString = params.toString()
   return queryString ? `/site-announcements?${queryString}` : '/site-announcements'
 }
 
+/**
+ * The "feature useSearch" stage. Reads the URL on every render (cheap) and
+ * hands the data-table controlled state + navigation-backed setters. The
+ * shared {@link useUrlTableState} owns the router subscription and the
+ * URL-sync guard.
+ */
 function useAnnouncementsUrlState() {
-  const navigate = useNavigate()
-  // Subscribe to the router location: TanStack Router does not re-render a
-  // route component on same-path search-only navigation unless a hook
-  // consumes the location, and readSearch() reads the URL on render.
-  const searchStr = useLocation({ select: (loc) => loc.searchStr })
-  const search = readSearch(searchStr)
-
-  const columnFilters: ColumnFiltersState = useMemo(() => {
-    const filters: ColumnFiltersState = []
-    if (search.severity) filters.push({ id: 'severity', value: search.severity })
-    if (search.enabled) filters.push({ id: 'enabled', value: search.enabled })
-    return filters
-  }, [search.severity, search.enabled])
-
-  // URL-sync guard: table state callbacks can fire while the router is
-  // navigating away (the useLocation subscription re-renders this page with
-  // the *next* location's search string). Without the pathname check the
-  // callback would navigate straight back, hijacking the in-flight
-  // navigation. Only sync when we are still on this page.
-  function syncUrl(next: Partial<ResolvedSearch>) {
-    const href = buildHref(next)
-    if (!href.startsWith(window.location.pathname)) return
-    navigate({ href, replace: true })
-  }
-
-  const onGlobalFilterChange = (updater: Updater<string>) => {
-    const next = resolveUpdater(updater, search.q)
-    syncUrl({ q: next })
-  }
-  const onPaginationChange = (updater: Updater<PaginationState>) => {
-    const next = resolveUpdater(updater, {
-      pageIndex: search.pageIndex,
-      pageSize: search.pageSize,
-    })
-    syncUrl({ pageIndex: next.pageIndex, pageSize: next.pageSize })
-  }
-  const onSortingChange = (updater: Updater<SortingState>) => {
-    const next = resolveUpdater(updater, search.sorting)
-    syncUrl({ sorting: next })
-  }
-  const onColumnFiltersChange = (updater: Updater<ColumnFiltersState>) => {
-    const next = resolveUpdater(updater, columnFilters)
-    const severityEntry = next.find((filter) => filter.id === 'severity')
-    const severityValue = Array.isArray(severityEntry?.value)
-      ? (severityEntry?.value as string[] | undefined)?.[0]
-      : (severityEntry?.value as string | undefined)
-    const enabledEntry = next.find((filter) => filter.id === 'enabled')
-    const enabledValue = Array.isArray(enabledEntry?.value)
-      ? (enabledEntry?.value as string[] | undefined)?.[0]
-      : (enabledEntry?.value as string | undefined)
-    syncUrl({ severity: severityValue, enabled: enabledValue })
-  }
-
-  return {
-    globalFilter: search.q,
-    onGlobalFilterChange,
-    pagination: {
-      pageIndex: search.pageIndex,
-      pageSize: search.pageSize,
-    } as PaginationState,
-    onPaginationChange,
-    sorting: search.sorting,
-    onSortingChange,
-    columnFilters,
-    onColumnFiltersChange,
-  }
+  return useUrlTableState<AnnouncementsUrlFilters>({
+    basePath: '/site-announcements',
+    read: readSearch,
+    buildHref,
+    toColumnFilters: (filters) => {
+      const columnFilters: ColumnFiltersState = []
+      if (filters.severity) {
+        columnFilters.push({ id: 'severity', value: filters.severity })
+      }
+      if (filters.enabled) {
+        columnFilters.push({ id: 'enabled', value: filters.enabled })
+      }
+      return columnFilters
+    },
+    fromColumnFilters: (filters) => {
+      const severityEntry = filters.find((filter) => filter.id === 'severity')
+      const enabledEntry = filters.find((filter) => filter.id === 'enabled')
+      return {
+        filters: {
+          severity: Array.isArray(severityEntry?.value)
+            ? (severityEntry.value as string[])[0]
+            : (severityEntry?.value as string | undefined),
+          enabled: Array.isArray(enabledEntry?.value)
+            ? (enabledEntry.value as string[])[0]
+            : (enabledEntry?.value as string | undefined),
+        },
+      }
+    },
+  })
 }
 
 export function AnnouncementsPage() {

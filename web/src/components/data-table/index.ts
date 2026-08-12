@@ -7,5 +7,7 @@ export {
   DataTablePage,
 } from './layout/data-table-page'
 export { useDataTable } from './hooks/use-data-table'
+export { encodeSorting, useUrlTableState } from './hooks/use-url-table-state'
+export type { UrlTableState } from './hooks/use-url-table-state'
 
 

@@ -1,6 +1,6 @@
-// metapi-go/features/settings/components — controlled confirmation dialog
-// built on the project AlertDialog. Used by the navigation guard, the import
-// confirm step, and the schedule migration card.
+// metapi-go/components/common — controlled confirmation dialog built on
+// the project AlertDialog. Shared by the settings navigation guard, the
+// import confirm step, the schedule migration card, and the feature forms.
 
 import {
   AlertDialog,

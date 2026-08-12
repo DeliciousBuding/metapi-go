@@ -14,7 +14,7 @@
 
 import { z } from 'zod'
 
-import { encodeSortingParam } from '@/lib/helpers/searchParams'
+import { encodeSortingParam, stringSearchParam } from '@/lib/helpers/searchParams'
 
 const HTTP_OR_EMPTY_MESSAGE_KEY = 'oauth.form.errors.invalidProxyUrl'
 
@@ -72,14 +72,14 @@ const columnFilterItemSchema = z.object({
 })
 
 export const oauthSearchSchema = z.object({
-  q: z.string().optional(),
+  q: stringSearchParam,
   page: z.coerce.number().int().min(0).optional(),
   pageSize: z.coerce.number().int().min(1).max(200).optional(),
   sort: z
     .union([z.string(), z.array(sortingItemSchema)])
     .optional()
     .transform((value) => encodeSortingParam(value)),
-  status: z.string().optional(),
+  status: stringSearchParam,
 })
 
 

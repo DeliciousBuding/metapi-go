@@ -17,6 +17,7 @@ import { z } from 'zod'
 import {
   encodeSortingParam,
   encodeStringListParam,
+  stringSearchParam,
 } from '@/lib/helpers/searchParams'
 
 const sortingItemSchema = z.object({
@@ -30,7 +31,7 @@ const paginationSchema = z.object({
 })
 
 export const modelsSearchSchema = z.object({
-  q: z.string().optional(),
+  q: stringSearchParam,
   page: z.coerce.number().int().min(0).optional(),
   pageSize: z.coerce.number().int().min(1).max(200).optional(),
   sort: z
