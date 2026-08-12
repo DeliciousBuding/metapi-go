@@ -71,6 +71,24 @@ master (唯一长期分支，受保护，随时可发布)
 4. Tag 只从 master 打（master 即发布线）；SemVer 格式 `vX.Y.Z`（其他 tag 不触发发布）
 5. 版本号经 `-ldflags -X .../internal/version.Version` 注入二进制（`metapi --version` 可查）；tag 与 `web/package.json` 版本不一致会在发布前失败
 
+## 6.5 处理 Dependabot 升级（别人追升级时的 SOP）
+
+Dependabot 每周一自动开升级 PR（Go / npm / GitHub Actions / Docker），全部走同一套 12 项 CI。处理顺序：
+
+1. **Go 组（patch/minor）**：CI 全绿 → 直接 squash merge。breaking major 自动关闭，需手动迁移 PR。
+2. **GitHub Actions**：patch/minor 已分组为一个 PR；major（如 `setup-go` 5→7）单独开 PR。CI 全绿即可合并；若显示 `BEHIND`，先 `gh pr update-branch <n>` 等 CI 重跑再合并。
+3. **npm 组（patch/minor）**：⚠️ **dependabot 不更新 `web/bun.lock`**，`bun install --frozen-lockfile` 必然失败。合并前必须补 lockfile：
+   ```bash
+   git worktree add .worktrees/fix-frontend-deps -b fix/frontend-deps dependabot/<npm-branch>
+   cd .worktrees/fix-frontend-deps/web && bun install      # 重新生成 bun.lock
+   bun run typecheck && bun run lint && bun run format:check
+   git add web/bun.lock && git commit -m "chore(deps): regenerate bun.lock"
+   git push --force origin HEAD:dependabot/<npm-branch>
+   ```
+   再等 CI 全绿后合并。`oxfmt` 升级可能顺带改格式（`format:check` 失败时跑 `bun run format` 一并提交）。
+4. **前端库 major（如 `@tanstack/react-table` 8→9）**：关闭 PR，注明需手动迁移 PR（API 改动 + 重新生成 lockfile），不自动合并。
+5. 合并后无需手动重推镜像：master push 会触发单一管道自动推送 `latest` + sha。
+
 ## 7. 紧急修复
 
 - 生产问题需要绕过 PR 时：临时在 GitHub 仓库设置关闭 master 保护 → 直接修复 → 重新开启。**不得**长期保留关闭状态。
