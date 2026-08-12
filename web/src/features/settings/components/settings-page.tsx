@@ -6,10 +6,23 @@
 // section's content. Keeping it presentational (no URL reading) means route
 // files stay ~10 lines and the component is trivially testable.
 //
+// The header is a breadcrumb (Settings / subarea) instead of the section
+// title: each section card already carries its own h1 + description, so the
+// page header only needs to say where the user is inside the settings tree.
+//
 // Phase 3 will extend this to fetch the runtime-settings map and pass it into
 // each section's `build` (mirroring newapi's SettingsPage + useSystemOptions).
 
+import { Link, type LinkProps } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
 
 import type { SettingsSubarea } from '../types'
 import { SettingsSidebar } from './settings-sidebar'
@@ -23,16 +36,27 @@ type SettingsPageProps = {
 
 export function SettingsPage({ subarea, activeSection }: SettingsPageProps) {
   const { t } = useTranslation()
-  const meta = subarea.getSectionMeta(activeSection)
   const navItems = subarea.getSectionNavItems()
 
   return (
     <div className='flex flex-col gap-6 p-6'>
-      <header className='flex flex-col gap-1'>
-        <h1 className='text-2xl font-normal tracking-tight'>{t(meta.title)}</h1>
-        {meta.description ? (
-          <p className='text-muted-foreground text-sm'>{t(meta.description)}</p>
-        ) : null}
+      <header>
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <Link
+                to={'/settings' as LinkProps['to'] | (string & {})}
+                className='hover:text-foreground transition-colors'
+              >
+                {t('settings.overview.title')}
+              </Link>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>{t(subarea.title)}</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
       </header>
       <div className='flex flex-col gap-6 lg:flex-row lg:items-start'>
         <SettingsSidebar items={navItems} title={t(subarea.title)} />

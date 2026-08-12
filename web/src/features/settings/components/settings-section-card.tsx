@@ -9,7 +9,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -36,7 +35,9 @@ export function SettingsSectionCard({
     <Card>
       <CardHeader className='flex flex-row items-start justify-between gap-4'>
         <div className='space-y-1'>
-          <CardTitle>{title}</CardTitle>
+          <h1 className='text-base leading-snug font-medium group-data-[size=sm]/card:text-sm'>
+            {title}
+          </h1>
           {description ? (
             <CardDescription>{description}</CardDescription>
           ) : null}
