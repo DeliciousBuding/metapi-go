@@ -617,7 +617,7 @@ export type ScheduleSpecV1 =
   | { version: 1; kind: 'window'; windowStart: string; windowEnd: string }
   | { version: 1; kind: 'custom'; cron: string }
 
-export type SettingsMigrationItem = {
+type SettingsMigrationItem = {
   task: string
   legacyKey: string
   legacyValue: string

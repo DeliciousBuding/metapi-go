@@ -11,8 +11,6 @@
 
 import type { ScheduleSpecV1 } from '@/lib/api'
 
-export const SCHEDULE_SPEC_VERSION = 1 as const
-
 export function cronToSchedule(
   cron: string | null | undefined
 ): ScheduleSpecV1 {

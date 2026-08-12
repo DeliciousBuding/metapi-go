@@ -16,7 +16,6 @@ import {
   type RuntimeSettingsPayload,
   type ScheduleSpecV1,
   type SettingsMigrationApplyResponse,
-  type SettingsMigrationPreviewResponse,
 } from '@/lib/api'
 
 /**
@@ -124,7 +123,7 @@ export const runtimeSettingsQueryKeys = {
   detail: () => [...runtimeSettingsQueryKeys.all, 'detail'] as const,
 }
 
-export const settingsMigrationQueryKeys = {
+const settingsMigrationQueryKeys = {
   all: ['settings-migration'] as const,
   preview: () => [...settingsMigrationQueryKeys.all, 'preview'] as const,
 }
@@ -191,8 +190,6 @@ export function useApplySettingsMigration() {
     },
   })
 }
-
-export type { SettingsMigrationApplyResponse, SettingsMigrationPreviewResponse }
 
 /**
  * Split a runtime list field that the backend serializes as either a
