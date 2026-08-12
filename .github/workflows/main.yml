@@ -152,7 +152,7 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - name: Download frontend dist
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: web-dist
           path: web/dist
@@ -200,7 +200,7 @@ jobs:
       # SPA-fallback and static-asset tests exercise the real embedded dist,
       # built once by the frontend job and passed through the artifact.
       - name: Download frontend dist
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: web-dist
           path: web/dist
@@ -231,7 +231,7 @@ jobs:
       # SPA-fallback and static-asset tests exercise the real embedded dist,
       # built once by the frontend job and passed through the artifact.
       - name: Download frontend dist
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: web-dist
           path: web/dist
