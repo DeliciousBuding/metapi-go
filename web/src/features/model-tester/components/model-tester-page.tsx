@@ -100,8 +100,14 @@ export function ModelTesterPage() {
           setError(t('modelTester.error.stopped'))
           toast.info(t('modelTester.toast.stopped'))
         } else {
-          const message =
-            err instanceof Error ? err.message : t('modelTester.error.unknown')
+          const rawMessage =
+            err instanceof Error ? err.message : 'modelTester.error.unknown'
+          // Some thrown errors carry an i18n key (e.g.
+          // `modelTester.error.notAvailable` / `sessionExpired`); translate
+          // key-shaped messages so the viewer shows user-facing text.
+          const message = rawMessage.startsWith('modelTester.')
+            ? t(rawMessage)
+            : rawMessage
           setError(message)
           toast.error(t('modelTester.toast.failed'))
         }

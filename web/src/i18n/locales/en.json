@@ -162,7 +162,7 @@
         "maxTokens": "Max tokens",
         "maxTokensHint": "Maximum number of tokens to generate.",
         "stream": "Stream",
-        "streamHint": "Stream the response token by token.",
+        "streamHint": "Stream the response token by token (backend support pending).",
         "stop": "Stop",
         "submit": "Send",
         "errors": {
@@ -187,7 +187,8 @@
       },
       "error": {
         "stopped": "Request was stopped.",
-        "unknown": "An unknown error occurred."
+        "unknown": "An unknown error occurred.",
+        "notAvailable": "Model testing isn't available yet: the backend needs a configured channel to run a test, and streaming support is still pending."
       },
       "viewer": {
         "title": "Response",

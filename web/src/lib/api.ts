@@ -1941,4 +1941,20 @@ export const api = {
       body: JSON.stringify(data),
     })
   },
+  testChatSync: async (data: TestChatRequestPayload, signal?: AbortSignal) => {
+    const token = getAuthToken(localStorage)
+    if (!token) {
+      clearAuthSession(localStorage)
+      throw new Error('Session expired')
+    }
+    return fetch('/api/test/chat', {
+      method: 'POST',
+      signal,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
+  },
 }

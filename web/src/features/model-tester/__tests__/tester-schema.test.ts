@@ -14,7 +14,7 @@ function validOverrides(): Partial<TesterFormValues> {
     temperature: 0.7,
     topP: 1,
     maxTokens: 1024,
-    stream: true,
+    stream: false,
   }
 }
 
@@ -227,7 +227,7 @@ describe('TESTER_FORM_DEFAULT_VALUES', () => {
       temperature: 0.7,
       topP: 1,
       maxTokens: 1024,
-      stream: true,
+      stream: false,
     })
   })
 

@@ -54,5 +54,5 @@ export const TESTER_FORM_DEFAULT_VALUES: TesterFormValues = {
   temperature: 0.7,
   topP: 1,
   maxTokens: 1024,
-  stream: true,
+  stream: false,
 }

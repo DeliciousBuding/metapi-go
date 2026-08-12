@@ -1,15 +1,17 @@
 /* eslint-disable no-nested-ternary -- error-shape selection uses chained ternaries */
 // metapi-go/features/model-tester — TanStack Query mutation for the chat test.
 //
-// `useTestModel` is a `useMutation` whose `mutationFn` opens the SSE stream
-// (`api.testChatStream`) and consumes it in a reader loop, normalizing the
-// per-chunk delta across OpenAI / Claude / Responses / Gemini protocols
-// (ported from the legacy `pages/ModelTester.tsx` parser). Each parsed
-// delta is forwarded to the caller's `onDelta` callback so the response
-// viewer can render content/reasoning as it arrives; when the stream
-// closes the resolved `TestResponse` summary is returned and `onDone`
-// fires. The caller passes an `AbortSignal` so the Stop button cancels an
-// in-flight test.
+// `useTestModel` is a `useMutation` whose `mutationFn` runs the chat test:
+// with `stream: true` it opens the SSE stream (`api.testChatStream`) and
+// consumes it in a reader loop; otherwise it posts a single sync request
+// (`api.testChatSync`) and parses the JSON body as one delta. Both paths
+// normalize across OpenAI / Claude / Responses / Gemini protocols (ported
+// from the legacy `pages/ModelTester.tsx` parser). Each parsed delta is
+// forwarded to the caller's `onDelta` callback so the response viewer can
+// render content/reasoning as it arrives; when the test finishes the
+// resolved `TestResponse` summary is returned and `onDone` fires. The
+// caller passes an `AbortSignal` so the Stop button cancels an in-flight
+// test.
 //
 // A mutation (rather than a query) is the right shape here: the test is a
 // user-initiated command with a single terminal resolution, not a cacheable
@@ -230,9 +232,28 @@ async function parseStreamErrorText(response: Response): Promise<string> {
 }
 
 /**
- * Run a single chat test. Opens the SSE stream, forwards each parsed delta
- * to `onDelta`, and resolves to a `TestResponse` summary when the stream
- * closes. Throws on auth failure, non-ok responses, or caller abort.
+ * Map a non-ok test response to a user-facing error.
+ *
+ * Backend 501s are known limitations (no fake SSE stream; the sync harness
+ * requires a forced channel), so surface a friendly localized key instead of
+ * the raw "not implemented" text. Auth failures map to the session-expired
+ * key; every other status falls back to the parsed backend error text.
+ */
+export async function resolveTestResponseError(
+  response: Response
+): Promise<string> {
+  if (response.status === 501) return 'modelTester.error.notAvailable'
+  if (response.status === 401 || response.status === 403) {
+    return 'modelTester.error.sessionExpired'
+  }
+  return parseStreamErrorText(response)
+}
+
+/**
+ * Run a single chat test (streaming or sync, per `payload.stream`). Streams
+ * forward each parsed delta to `onDelta` and resolve to a `TestResponse`
+ * summary when the stream closes; sync mode parses the single JSON body as
+ * one delta. Throws on auth failure, non-ok responses, or caller abort.
  */
 async function runTestStream(
   variables: TestModelVariables
@@ -247,13 +268,12 @@ async function runTestStream(
   let chunks = 0
   const rawEvents: string[] = []
 
-  const response = await api.testChatStream(chatPayload, signal)
+  const response = payload.stream
+    ? await api.testChatStream(chatPayload, signal)
+    : await api.testChatSync(chatPayload, signal)
 
-  if (response.status === 401 || response.status === 403) {
-    throw new Error('modelTester.error.sessionExpired')
-  }
   if (!response.ok) {
-    throw new Error(await parseStreamErrorText(response))
+    throw new Error(await resolveTestResponseError(response))
   }
   if (!response.body) {
     throw new Error('modelTester.error.emptyStream')
