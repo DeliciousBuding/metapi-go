@@ -321,7 +321,7 @@ export function SitesPage() {
       </div>
 
       {sitesQuery.error && (
-        <div className='border-destructive/40 bg-destructive/10 text-destructive rounded-lg border p-3 text-sm'>
+        <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
           {t('sites.page.loadError', {
             message: (sitesQuery.error as Error).message,
           })}

@@ -43,7 +43,7 @@ const SEVERITY_TONE: Record<
 > = {
   critical: {
     dot: 'bg-destructive',
-    badge: 'border-destructive/40 bg-destructive/10 text-destructive',
+    badge: 'border-destructive/40 bg-destructive/10 text-destructive-soft-fg',
   },
   warning: {
     dot: 'bg-warning',

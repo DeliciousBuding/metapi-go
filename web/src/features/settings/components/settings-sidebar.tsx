@@ -53,7 +53,7 @@ export function SettingsSidebar({ items, title }: SettingsSidebarProps) {
             className='flex flex-col gap-1'
           >
             {groupKey ? (
-              <p className='text-muted-foreground/60 px-3 pt-2 pb-1 text-[11px] font-medium tracking-wider uppercase'>
+              <p className='text-muted-foreground/75 px-3 pt-2 pb-1 text-[11px] font-medium tracking-wider uppercase'>
                 {t(groupKey)}
               </p>
             ) : null}

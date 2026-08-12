@@ -22,7 +22,7 @@ const SEVERITY_TONE: Record<
   { wrapper: string; icon: typeof Info }
 > = {
   critical: {
-    wrapper: 'border-destructive/40 bg-destructive/10 text-destructive',
+    wrapper: 'border-destructive/40 bg-destructive/10 text-destructive-soft-fg',
     icon: Megaphone,
   },
   warning: {

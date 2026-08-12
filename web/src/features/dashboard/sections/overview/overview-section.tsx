@@ -78,7 +78,8 @@ const SCHEDULER_STATUS_BADGE: Record<
     key: 'dashboard.overview.scheduledTasks.statusSuccess',
   },
   failed: {
-    className: 'border-destructive/40 bg-destructive/10 text-destructive',
+    className:
+      'border-destructive/40 bg-destructive/10 text-destructive-soft-fg',
     key: 'dashboard.overview.scheduledTasks.statusFailed',
   },
   running: {

@@ -220,7 +220,7 @@ export function OAuthPage() {
       </div>
 
       {connectionsQuery.error && (
-        <div className='border-destructive/40 bg-destructive/10 text-destructive rounded-lg border p-3 text-sm'>
+        <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
           {t('oauth.page.loadError', {
             message: (connectionsQuery.error as Error).message,
           })}
