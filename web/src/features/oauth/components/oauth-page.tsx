@@ -193,7 +193,6 @@ export function OAuthPage() {
       refreshQuota.mutate(client.accountId, {
         onSuccess: () =>
           toast.success(t('oauth.toast.quotaRefreshed', { id: client.accountId })),
-        onError: () => toast.error(t('oauth.toast.quotaRefreshFailed')),
       })
     },
     onRebind: (client) => {
@@ -204,7 +203,6 @@ export function OAuthPage() {
           }
           toast.success(t('oauth.toast.rebindStarted', { id: client.accountId }))
         },
-        onError: () => toast.error(t('oauth.toast.rebindFailed')),
       })
     },
     onDelete: (client) => {
@@ -241,7 +239,7 @@ export function OAuthPage() {
       await deleteConnection.mutateAsync(client.accountId)
       toast.success(t('oauth.toast.deleted', { id: client.accountId }))
     } catch {
-      toast.error(t('oauth.toast.deleteFailed'))
+      // http-client toasted
     } finally {
       setDeletingClient(null)
     }
@@ -254,6 +252,13 @@ export function OAuthPage() {
 
   return (
     <>
+      {connectionsQuery.error && (
+        <div className='rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive'>
+          {t('oauth.page.loadError', {
+            message: (connectionsQuery.error as Error).message,
+          })}
+        </div>
+      )}
       <DataTablePage
         table={table}
         columns={columns}

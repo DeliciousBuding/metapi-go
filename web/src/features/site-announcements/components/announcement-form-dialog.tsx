@@ -13,6 +13,7 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -96,6 +97,12 @@ export function AnnouncementFormDialog({
     defaultValues: ANNOUNCEMENT_FORM_DEFAULT_VALUES,
   })
 
+  const { handleOpenChange, guard } = useDirtyDialogClose({
+    enabled: form.formState.isDirty,
+    onDiscard: () => form.reset(),
+    onOpenChange,
+  })
+
   const createAnnouncement = useCreateAnnouncement()
   const updateAnnouncement = useUpdateAnnouncement()
 
@@ -119,23 +126,21 @@ export function AnnouncementFormDialog({
           payload,
         })
         toast.success(t('siteAnnouncements.form.updateSucceeded', { title: values.title }))
+        form.reset()
         onOpenChange(false)
       } else {
         await createAnnouncement.mutateAsync(payload)
         toast.success(t('siteAnnouncements.form.createSucceeded', { title: values.title }))
+        form.reset()
         onOpenChange(false)
       }
     } catch {
-      toast.error(
-        isEditing
-          ? t('siteAnnouncements.form.updateFailed')
-          : t('siteAnnouncements.form.createFailed'),
-      )
+      // http-client toasted
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className='sm:max-w-2xl'>
         <DialogHeader>
           <DialogTitle>
@@ -285,6 +290,7 @@ export function AnnouncementFormDialog({
           </form>
         </Form>
       </DialogContent>
+      {guard}
     </Dialog>
   )
 }

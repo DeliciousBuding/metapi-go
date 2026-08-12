@@ -94,6 +94,9 @@
       }
     },
     "models": {
+      "page": {
+        "loadError": "加载模型失败：{{message}}"
+      },
       "toast": {
         "refreshSucceeded": "模型已刷新。",
         "refreshFailed": "刷新模型失败。"
@@ -206,6 +209,9 @@
       }
     },
     "oauth": {
+      "page": {
+        "loadError": "加载 OAuth 连接失败：{{message}}"
+      },
       "form": {
         "startTitle": "开始授权",
         "startDescription": "连接一个 OAuth 账号以启用路由。",
@@ -274,6 +280,9 @@
       }
     },
     "siteAnnouncements": {
+      "page": {
+        "loadError": "加载公告失败：{{message}}"
+      },
       "toast": {
         "deleted": "公告「{{title}}」已删除。",
         "deleteFailed": "删除公告失败。"
@@ -352,6 +361,9 @@
       }
     },
     "sites": {
+      "page": {
+        "loadError": "加载站点失败：{{message}}"
+      },
       "toast": {
         "statusToggled": "站点「{{name}}」已更新。",
         "statusToggleFailed": "更新站点状态失败。",
@@ -376,7 +388,11 @@
       "bulk": {
         "enable": "启用",
         "disable": "停用",
-        "delete": "删除"
+        "delete": "删除",
+        "deleteConfirmTitle": "删除选中的站点？",
+        "deleteConfirmDescription": "将删除选中的 {{count}} 个站点，此操作不可撤销。",
+        "deleteConfirmConfirm": "删除",
+        "deleteConfirmCancel": "取消"
       },
       "deleteConfirm": {
         "title": "删除站点",
@@ -526,7 +542,9 @@
           "statusNever": "未运行",
           "enabled": "已启用",
           "disabled": "已停用",
-          "empty": "未配置定时任务。"
+          "empty": "未配置定时任务。",
+          "loadError": "加载定时任务失败。",
+          "retry": "重试"
         }
       },
       "traffic": {
@@ -1144,7 +1162,11 @@
         "refreshBalance": "刷新余额",
         "enable": "启用",
         "disable": "停用",
-        "delete": "删除"
+        "delete": "删除",
+        "deleteConfirmTitle": "删除选中的账号？",
+        "deleteConfirmDescription": "将删除选中的 {{count}} 个账号，此操作不可撤销。",
+        "deleteConfirmConfirm": "删除",
+        "deleteConfirmCancel": "取消"
       },
       "form": {
         "invalid": "请检查表单标红字段",
@@ -1278,6 +1300,12 @@
         "toggleEnabled": "启用/禁用令牌",
         "edit": "编辑",
         "delete": "删除",
+        "deleteConfirm": {
+          "title": "删除令牌？",
+          "description": "将删除令牌「{{name}}」，此操作不可撤销。",
+          "confirm": "删除",
+          "cancel": "取消"
+        },
         "form": {
           "invalid": "请检查令牌表单",
           "name": "令牌名称",

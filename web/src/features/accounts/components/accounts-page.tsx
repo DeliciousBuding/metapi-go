@@ -359,6 +359,7 @@ export function AccountsPage() {
 function AccountsBulkActions({ table }: { table: Table<Account> }) {
   const { t } = useTranslation()
   const batchMutation = useBatchUpdateAccounts()
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
 
   const selectedIds = useMemo(
     () =>
@@ -378,8 +379,24 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
     }
   }
 
+  const confirmBulkDelete = async () => {
+    if (selectedIds.length === 0) return
+    try {
+      await batchMutation.mutateAsync({
+        ids: selectedIds,
+        action: 'delete',
+      })
+      table.resetRowSelection()
+      setConfirmDeleteOpen(false)
+    } catch {
+      // http-client toasted
+      setConfirmDeleteOpen(false)
+    }
+  }
+
   return (
-    <DataTableBulkActions table={table} entityName={t('accounts.bulk.entityName')}>
+    <>
+      <DataTableBulkActions table={table} entityName={t('accounts.bulk.entityName')}>
       <Button
         size='xs'
         variant='outline'
@@ -409,12 +426,43 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
       <Button
         size='xs'
         variant='destructive'
-        onClick={() => runBatch('delete')}
+        onClick={() => setConfirmDeleteOpen(true)}
         disabled={batchMutation.isPending}
       >
         <Trash2 />
         {t('accounts.bulk.delete')}
       </Button>
     </DataTableBulkActions>
+
+    <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+      <DialogContent className='sm:max-w-sm'>
+        <DialogHeader>
+          <DialogTitle>{t('accounts.bulk.deleteConfirmTitle')}</DialogTitle>
+          <DialogDescription>
+            {t('accounts.bulk.deleteConfirmDescription', {
+              count: selectedIds.length,
+            })}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant='outline'
+            onClick={() => setConfirmDeleteOpen(false)}
+            disabled={batchMutation.isPending}
+          >
+            {t('accounts.bulk.deleteConfirmCancel')}
+          </Button>
+          <Button
+            variant='destructive'
+            onClick={confirmBulkDelete}
+            disabled={batchMutation.isPending}
+          >
+            {batchMutation.isPending && <Loader2 className='animate-spin' />}
+            {t('accounts.bulk.deleteConfirmConfirm')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+      </Dialog>
+    </>
   )
 }

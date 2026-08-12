@@ -10,6 +10,7 @@ import { useForm, type SubmitErrorHandler } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -48,6 +49,11 @@ export function RouteFormDialog({ open, onOpenChange, mode, route, availableRout
 
   const schema = useMemo(() => getRouteFormSchema(), [])
   const form = useForm<RouteFormValues>({ resolver: zodResolver(schema), defaultValues: getRouteFormDefaultValues() })
+  const { handleOpenChange, guard } = useDirtyDialogClose({
+    enabled: form.formState.isDirty,
+    onDiscard: () => form.reset(),
+    onOpenChange,
+  })
   const routeMode = form.watch('routeMode') as RouteMode
   const modelPattern = form.watch('modelPattern') ?? ''
   const [initializedFor, setInitializedFor] = useState<string | null>(null)
@@ -74,6 +80,7 @@ export function RouteFormDialog({ open, onOpenChange, mode, route, availableRout
       else { const result = await createMutation.mutateAsync(payload); routeId = result?.data?.id }
       if (routeId && drafts.length > 0) { await batchAddChannelsMutation.mutateAsync({ routeId, channels: drafts }) }
       if (!isEdit) { showRouteCompletionToast(routeId, chainContext) }
+      form.reset()
       onOpenChange(false)
     } catch { }
   }
@@ -82,7 +89,7 @@ export function RouteFormDialog({ open, onOpenChange, mode, route, availableRout
   const isSubmitting = createMutation.isPending || updateMutation.isPending || batchAddChannelsMutation.isPending
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent side='right' className='flex w-full flex-col gap-0 sm:max-w-lg'>
         <SheetHeader>
           <SheetTitle>{isEdit ? t('tokenRoutes.form.editTitle') : t('tokenRoutes.form.addTitle')}</SheetTitle>
@@ -150,6 +157,7 @@ export function RouteFormDialog({ open, onOpenChange, mode, route, availableRout
           </Button>
         </SheetFooter>
       </SheetContent>
+      {guard}
     </Sheet>
   )
 }

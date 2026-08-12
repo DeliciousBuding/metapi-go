@@ -252,7 +252,7 @@ export function AnnouncementsPage() {
       await deleteAnnouncement.mutateAsync(item.id)
       toast.success(t('siteAnnouncements.toast.deleted', { title: item.title }))
     } catch {
-      toast.error(t('siteAnnouncements.toast.deleteFailed'))
+      // http-client toasted
     } finally {
       setDeletingAnnouncement(null)
     }
@@ -270,6 +270,13 @@ export function AnnouncementsPage() {
 
   return (
     <>
+      {announcementsQuery.error && (
+        <div className='rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive'>
+          {t('siteAnnouncements.page.loadError', {
+            message: (announcementsQuery.error as Error).message,
+          })}
+        </div>
+      )}
       <DataTablePage
         table={table}
         columns={columns}

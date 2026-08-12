@@ -94,6 +94,9 @@
       }
     },
     "models": {
+      "page": {
+        "loadError": "Failed to load models: {{message}}"
+      },
       "toast": {
         "refreshSucceeded": "Models refreshed.",
         "refreshFailed": "Failed to refresh models."
@@ -206,6 +209,9 @@
       }
     },
     "oauth": {
+      "page": {
+        "loadError": "Failed to load OAuth connections: {{message}}"
+      },
       "form": {
         "startTitle": "Start authorization",
         "startDescription": "Connect an OAuth account to enable it for routing.",
@@ -274,6 +280,9 @@
       }
     },
     "siteAnnouncements": {
+      "page": {
+        "loadError": "Failed to load announcements: {{message}}"
+      },
       "toast": {
         "deleted": "Announcement \"{{title}}\" deleted.",
         "deleteFailed": "Failed to delete the announcement."
@@ -352,6 +361,9 @@
       }
     },
     "sites": {
+      "page": {
+        "loadError": "Failed to load sites: {{message}}"
+      },
       "toast": {
         "statusToggled": "Site \"{{name}}\" updated.",
         "statusToggleFailed": "Failed to update the site status.",
@@ -376,7 +388,11 @@
       "bulk": {
         "enable": "Enable",
         "disable": "Disable",
-        "delete": "Delete"
+        "delete": "Delete",
+        "deleteConfirmTitle": "Delete selected sites?",
+        "deleteConfirmDescription": "This will delete the {{count}} selected site(s). This action cannot be undone.",
+        "deleteConfirmConfirm": "Delete",
+        "deleteConfirmCancel": "Cancel"
       },
       "deleteConfirm": {
         "title": "Delete site",
@@ -526,7 +542,9 @@
           "statusNever": "never",
           "enabled": "enabled",
           "disabled": "disabled",
-          "empty": "No scheduled jobs configured."
+          "empty": "No scheduled jobs configured.",
+          "loadError": "Failed to load scheduled tasks.",
+          "retry": "Retry"
         }
       },
       "traffic": {
@@ -1144,7 +1162,11 @@
         "refreshBalance": "Refresh balance",
         "enable": "Enable",
         "disable": "Disable",
-        "delete": "Delete"
+        "delete": "Delete",
+        "deleteConfirmTitle": "Delete selected accounts?",
+        "deleteConfirmDescription": "This will delete the {{count}} selected account(s). This action cannot be undone.",
+        "deleteConfirmConfirm": "Delete",
+        "deleteConfirmCancel": "Cancel"
       },
       "form": {
         "invalid": "Please check the highlighted form fields",
@@ -1278,6 +1300,12 @@
         "toggleEnabled": "Enable/disable token",
         "edit": "Edit",
         "delete": "Delete",
+        "deleteConfirm": {
+          "title": "Delete token?",
+          "description": "This will delete token \"{{name}}\". This action cannot be undone.",
+          "confirm": "Delete",
+          "cancel": "Cancel"
+        },
         "form": {
           "invalid": "Please check the token form",
           "name": "Token name",

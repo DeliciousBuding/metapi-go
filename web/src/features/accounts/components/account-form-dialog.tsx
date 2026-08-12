@@ -20,6 +20,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -87,6 +88,12 @@ export function AccountFormDialog({
     defaultValues: getAccountFormDefaultValues(),
   })
 
+  const { handleOpenChange, guard } = useDirtyDialogClose({
+    enabled: form.formState.isDirty,
+    onDiscard: () => form.reset(),
+    onOpenChange,
+  })
+
   const credentialMode = form.watch('credentialMode') as CredentialMode
   const [initializedFor, setInitializedFor] = useState<string | null>(null)
   const isInitialized = initializedFor !== null
@@ -120,6 +127,7 @@ export function AccountFormDialog({
           result?.data?.id ?? result?.data?.account?.id ?? undefined
         showAccountCreatedToast(newId, values.siteId)
       }
+      form.reset()
       onOpenChange(false)
     } catch {
       // http-client already toasted the business/network error.
@@ -134,7 +142,7 @@ export function AccountFormDialog({
   const siteOptions = sites
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent side='right' className='flex w-full flex-col gap-0 sm:max-w-lg'>
         <SheetHeader>
           <SheetTitle>{isEdit ? t('accounts.form.editTitle') : t('accounts.form.addTitle')}</SheetTitle>
@@ -365,6 +373,7 @@ export function AccountFormDialog({
           </Button>
         </SheetFooter>
       </SheetContent>
+      {guard}
     </Sheet>
   )
 }

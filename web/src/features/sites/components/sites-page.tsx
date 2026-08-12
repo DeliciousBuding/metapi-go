@@ -195,6 +195,10 @@ export function SitesPage() {
   const [viewingSite, setViewingSite] = useState<Site | null>(null)
   const [createdSite, setCreatedSite] = useState<Site | null>(null)
   const [deletingSite, setDeletingSite] = useState<Site | null>(null)
+  const [bulkDeleteState, setBulkDeleteState] = useState<{
+    ids: number[]
+    count: number
+  } | null>(null)
 
   const urlState = useSitesUrlState()
 
@@ -213,7 +217,6 @@ export function SitesPage() {
         {
           onSuccess: () =>
             toast.success(t('sites.toast.statusToggled', { name: site.name })),
-          onError: () => toast.error(t('sites.toast.statusToggleFailed')),
         },
       )
     },
@@ -223,7 +226,6 @@ export function SitesPage() {
         {
           onSuccess: () =>
             toast.success(t('sites.toast.pinToggled', { name: site.name })),
-          onError: () => toast.error(t('sites.toast.pinToggleFailed')),
         },
       )
     },
@@ -266,7 +268,7 @@ export function SitesPage() {
       await deleteSite.mutateAsync(site.id)
       toast.success(t('sites.toast.deleted', { name: site.name }))
     } catch {
-      toast.error(t('sites.toast.deleteFailed'))
+      // http-client toasted
     } finally {
       setDeletingSite(null)
     }
@@ -278,6 +280,10 @@ export function SitesPage() {
     const selectedRows = table.getFilteredSelectedRowModel().rows
     const ids = selectedRows.map((row) => row.original.id)
     if (ids.length === 0) return
+    if (action === 'delete') {
+      setBulkDeleteState({ ids, count: ids.length })
+      return
+    }
     try {
       const result = await batchUpdateSites.mutateAsync({ ids, action })
       const successCount = result.successIds?.length ?? 0
@@ -296,7 +302,35 @@ export function SitesPage() {
       }
       table.resetRowSelection()
     } catch {
-      toast.error(t('sites.toast.bulkFailed'))
+      // http-client toasted
+    }
+  }
+
+  async function confirmBulkDelete() {
+    if (!bulkDeleteState) return
+    const { ids } = bulkDeleteState
+    try {
+      const result = await batchUpdateSites.mutateAsync({
+        ids,
+        action: 'delete',
+      })
+      const successCount = result.successIds?.length ?? 0
+      const failedCount = ids.length - successCount
+      if (failedCount <= 0) {
+        toast.success(t('sites.toast.bulkSucceeded', { count: successCount }))
+      } else {
+        toast.warning(
+          t('sites.toast.bulkPartial', {
+            success: successCount,
+            failed: failedCount,
+          }),
+        )
+      }
+      table.resetRowSelection()
+      setBulkDeleteState(null)
+    } catch {
+      // http-client toasted
+      setBulkDeleteState(null)
     }
   }
 
@@ -307,6 +341,13 @@ export function SitesPage() {
 
   return (
     <>
+      {sitesQuery.error && (
+        <div className='rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive'>
+          {t('sites.page.loadError', {
+            message: (sitesQuery.error as Error).message,
+          })}
+        </div>
+      )}
       <DataTablePage
         table={table}
         columns={columns}
@@ -428,6 +469,41 @@ export function SitesPage() {
             >
               {deleteSite.isPending && <Spinner className='mr-2' />}
               {t('sites.deleteConfirm.confirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={bulkDeleteState !== null}
+        onOpenChange={(open) => {
+          if (!open) setBulkDeleteState(null)
+        }}
+      >
+        <DialogContent className='sm:max-w-sm'>
+          <DialogHeader>
+            <DialogTitle>{t('sites.bulk.deleteConfirmTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('sites.bulk.deleteConfirmDescription', {
+                count: bulkDeleteState?.count ?? 0,
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant='outline'
+              onClick={() => setBulkDeleteState(null)}
+              disabled={batchUpdateSites.isPending}
+            >
+              {t('sites.bulk.deleteConfirmCancel')}
+            </Button>
+            <Button
+              variant='destructive'
+              onClick={confirmBulkDelete}
+              disabled={batchUpdateSites.isPending}
+            >
+              {batchUpdateSites.isPending && <Spinner className='mr-2' />}
+              {t('sites.bulk.deleteConfirmConfirm')}
             </Button>
           </DialogFooter>
         </DialogContent>

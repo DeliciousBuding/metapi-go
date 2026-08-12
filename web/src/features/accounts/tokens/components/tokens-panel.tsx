@@ -34,6 +34,8 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 
+import { ConfirmDialog } from '@/features/settings/components/confirm-dialog'
+
 import type { AccountToken } from '../../types'
 import {
   useAccountTokens,
@@ -65,6 +67,7 @@ export function TokensPanel({ accountId }: TokensPanelProps) {
 
   const [formOpen, setFormOpen] = useState(false)
   const [editingToken, setEditingToken] = useState<AccountToken | null>(null)
+  const [deletingToken, setDeletingToken] = useState<AccountToken | null>(null)
 
   const openCreateForm = () => {
     setEditingToken(null)
@@ -140,7 +143,7 @@ export function TokensPanel({ accountId }: TokensPanelProps) {
               key={token.id}
               token={token}
               onEdit={() => openEditForm(token)}
-              onDelete={() => deleteMutation.mutate(token.id)}
+              onDelete={() => setDeletingToken(token)}
               onSetDefault={() => setDefaultMutation.mutate(token.id)}
               onToggleEnabled={(enabled) =>
                 toggleEnabledMutation.mutate({ id: token.id, enabled })
@@ -151,6 +154,23 @@ export function TokensPanel({ accountId }: TokensPanelProps) {
           ))}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={deletingToken !== null}
+        title={t('accounts.tokens.deleteConfirm.title')}
+        description={t('accounts.tokens.deleteConfirm.description', {
+          name: deletingToken?.name || t('accounts.tokens.unnamed'),
+        })}
+        confirmLabel={t('accounts.tokens.deleteConfirm.confirm')}
+        cancelLabel={t('accounts.tokens.deleteConfirm.cancel')}
+        destructive
+        onConfirm={() => {
+          if (!deletingToken) return
+          deleteMutation.mutate(deletingToken.id)
+          setDeletingToken(null)
+        }}
+        onCancel={() => setDeletingToken(null)}
+      />
     </div>
   )
 }

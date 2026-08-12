@@ -228,6 +228,7 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
 
   const searchInput = (
     <Input
+      aria-label={placeholder}
       placeholder={placeholder}
       value={searchValue}
       onChange={handleSearchChange}

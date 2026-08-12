@@ -220,7 +220,7 @@ export function ModelsPage() {
     },
     onTest: (model) => {
       const params = new URLSearchParams({ model: model.name })
-      navigate({ href: `/model-tester?${params.toString()}`, replace: true })
+      navigate({ href: `/model-tester?${params.toString()}` })
     },
   })
 
@@ -248,9 +248,6 @@ export function ModelsPage() {
     onSuccess: () => {
       toast.success(t('models.toast.refreshSucceeded'))
     },
-    onError: () => {
-      toast.error(t('models.toast.refreshFailed'))
-    },
   })
 
   // The refresh call re-aggregates the marketplace server-side; the next
@@ -268,6 +265,13 @@ export function ModelsPage() {
 
   return (
     <>
+      {modelsQuery.error && (
+        <div className='rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive'>
+          {t('models.page.loadError', {
+            message: (modelsQuery.error as Error).message,
+          })}
+        </div>
+      )}
       <DataTablePage
         table={table}
         columns={columns}
