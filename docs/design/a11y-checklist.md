@@ -3,7 +3,7 @@
 **Product**: MetAPI admin
 **Scope**: accessibility checklist
 **Related source of truth**: `docs/design/DESIGN.md`, `web/src/styles/theme.css`
-**Last updated**: 2026-08-11
+**Last updated**: 2026-08-12
 **Status**: checklist + reduced-motion/transparency pass; page-level residual debt tracked below
 
 This document is the accessibility acceptance checklist. It records keyboard, name, contrast, and responsive expectations, plus residual debt that is intentionally out of scope for this issue.
@@ -196,6 +196,7 @@ Breakpoints used by product:
 | Dialog semantics | `role="dialog"` + `aria-modal` for blocking overlays | Mobile drawer pass; SearchModal improved; not all legacy overlays |
 | Live regions | Toasts/errors announced | Residual |
 | Language | `t()` for user-visible chrome strings; `aria-label` included in i18n attr list | Pass pattern |
+| Page heading structure | One `h1` per settings section page — breadcrumb header (`Settings / subarea`) + section card owns the single `h1` + description | **Pass** (2026-08-12): `settings-page.tsx` + `settings-section-card.tsx`; verified via Playwright (1 h1 on maintenance / danger-zone / import-export) |
 
 ---
 
