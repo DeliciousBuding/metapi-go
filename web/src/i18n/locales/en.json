@@ -969,7 +969,7 @@
         },
         "notifications": {
           "title": "Notification Channels",
-          "description": "Webhook / Bark / Telegram / SMTP / Feishu / DingTalk / WeCom / NTFY.",
+          "description": "Webhook / Bark / ServerChan / Telegram / SMTP / Feishu / DingTalk / WeCom / NTFY.",
           "test": "Send test",
           "muteGroup": "Per-alert mute",
           "secretPlaceholder": "Leave blank to keep stored secret",

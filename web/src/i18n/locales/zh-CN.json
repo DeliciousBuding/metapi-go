@@ -967,7 +967,7 @@
         },
         "notifications": {
           "title": "通知渠道",
-          "description": "Webhook / Bark / Telegram / SMTP / 飞书 / 钉钉 / 企业微信 / NTFY。",
+          "description": "Webhook / Bark / ServerChan / Telegram / SMTP / 飞书 / 钉钉 / 企业微信 / NTFY。",
           "test": "发送测试",
           "muteGroup": "按告警静音",
           "secretPlaceholder": "留空则保留已存密钥",
