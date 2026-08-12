@@ -136,11 +136,13 @@ const BASE_UI_SAFE_PROPS = [
 function SidebarNavLink({
   to,
   renderProps,
+  activeOptions,
 }: {
   to: LinkProps['to'] | (string & {})
   renderProps: React.HTMLAttributes<HTMLAnchorElement> & {
     ref?: React.Ref<HTMLAnchorElement>
   }
+  activeOptions?: LinkProps['activeOptions']
 }) {
   const { setOpenMobile } = useSidebar()
   const propsBag = renderProps as unknown as Record<string, unknown>
@@ -155,6 +157,7 @@ function SidebarNavLink({
   return (
     <Link
       to={to}
+      activeOptions={activeOptions}
       {...safeProps}
       onClick={(event) => {
         setOpenMobile(false)
@@ -176,7 +179,13 @@ function SidebarMenuLink({ item, href }: { item: NavLink; href: string }) {
       <SidebarMenuButton
         isActive={checkIsActive(href, item)}
         tooltip={t(item.title)}
-        render={(props) => <SidebarNavLink to={item.url} renderProps={props} />}
+        render={(props) => (
+          <SidebarNavLink
+            to={item.url}
+            renderProps={props}
+            activeOptions={item.activeOptions}
+          />
+        )}
       >
         {item.icon && <item.icon className='shrink-0' />}
         <span className='min-w-0 flex-1 truncate'>{t(item.title)}</span>
@@ -230,7 +239,11 @@ function SidebarMenuCollapsible({
               <SidebarMenuSubButton
                 isActive={checkIsActive(href, subItem)}
                 render={(props) => (
-                  <SidebarNavLink to={subItem.url} renderProps={props} />
+                  <SidebarNavLink
+                    to={subItem.url}
+                    renderProps={props}
+                    activeOptions={subItem.activeOptions}
+                  />
                 )}
               >
                 {subItem.icon && <subItem.icon className='shrink-0' />}
@@ -287,6 +300,7 @@ function SidebarMenuCollapsedDropdown({
                 render={(props) => (
                   <SidebarNavLink
                     to={sub.url}
+                    activeOptions={sub.activeOptions}
                     renderProps={{
                       ...props,
                       className: cn(

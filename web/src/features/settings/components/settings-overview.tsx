@@ -6,7 +6,7 @@
 // subarea manifest, so the overview stays in sync with the main sidebar and
 // the per-subarea registries without a second copy.
 
-import { Link } from '@tanstack/react-router'
+import { Link, type LinkProps } from '@tanstack/react-router'
 import { ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -36,7 +36,11 @@ export function SettingsOverview() {
             <Card key={subarea.id} size='sm' className='h-full'>
               <CardContent className='flex h-full flex-col gap-3'>
                 <Link
-                  to={subarea.basePath}
+                  to={
+                    `${subarea.basePath}/${subarea.defaultSection}` as
+                      | LinkProps['to']
+                      | (string & {})
+                  }
                   className='group/subarea flex items-center gap-2 font-medium'
                 >
                   {Icon ? (

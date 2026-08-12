@@ -16,15 +16,29 @@ import type { NavGroup, SidebarView } from '../types'
  * scopes the items as "administration" actions.
  */
 function getSettingsNavGroups(): NavGroup[] {
+  const subareas = getSettingsSubareas()
   return [
     {
       id: 'system-administration',
       title: 'sidebar.groups.systemAdministration',
-      items: getSettingsSubareas().map((subarea) => ({
-        title: subarea.title,
-        icon: subarea.icon,
-        url: subarea.basePath,
-      })),
+      items: [
+        {
+          title: 'sidebar.settingsOverview',
+          url: '/settings',
+          // The overview is the workspace root: only exact /settings is the
+          // current page, never /settings/<subarea>/... descendants.
+          activeOptions: { exact: true },
+        },
+        ...subareas.map((subarea) => ({
+          title: subarea.title,
+          icon: subarea.icon,
+          // Drill straight to the subarea's default section - the bare
+          // basePath URL 302-redirects there anyway (one extra hop).
+          url: `${subarea.basePath}/${subarea.defaultSection}`,
+          // Keep the subarea highlighted on every one of its section URLs.
+          activePrefix: subarea.basePath,
+        })),
+      ],
     },
   ]
 }
