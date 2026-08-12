@@ -193,6 +193,10 @@ export function useAccountsColumns(
     },
     {
       id: 'name',
+      accessorFn: (row) => {
+        const account = accountSchema.parse(row)
+        return account.username ?? ''
+      },
       header: t('accounts.columns.name'),
       cell: ({ row }) => {
         const account = accountSchema.parse(row.original)
@@ -222,6 +226,7 @@ export function useAccountsColumns(
     },
     {
       id: 'site',
+      accessorFn: (row) => String(accountSchema.parse(row).siteId),
       header: t('accounts.columns.site'),
       cell: ({ row }) => {
         const account = accountSchema.parse(row.original)
@@ -245,6 +250,7 @@ export function useAccountsColumns(
     },
     {
       id: 'status',
+      accessorFn: (row) => accountSchema.parse(row).status,
       header: t('common.status'),
       cell: ({ row }) => {
         const account = accountSchema.parse(row.original)
@@ -299,6 +305,10 @@ export function useAccountsColumns(
     },
     {
       id: 'checkin',
+      accessorFn: (row) => {
+        const account = accountSchema.parse(row)
+        return account.checkinEnabled ? 'on' : 'off'
+      },
       header: t('accounts.columns.checkin'),
       cell: ({ row }) => {
         const account = accountSchema.parse(row.original)

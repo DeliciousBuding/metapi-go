@@ -45,7 +45,7 @@ function DataTableFacetedFilterInner<TData, TValue>({
   singleSelect = false,
 }: DataTableFacetedFilterProps<TData, TValue>) {
   const { t } = useTranslation()
-  const facets = column?.getFacetedUniqueValues()
+  const facets = column?.getFacetedUniqueValues() ?? new Map<unknown, number>()
   const filterValue = column?.getFilterValue() as string[] | undefined
   const selectedValues = new Set(filterValue)
 
@@ -96,7 +96,7 @@ function DataTableFacetedFilterInner<TData, TValue>({
                       key={option.value}
                       className='rounded-sm px-1 font-normal'
                     >
-                      {t(option.label)}
+                      {option.label}
                     </Badge>
                   ))
               )}
@@ -136,9 +136,9 @@ function DataTableFacetedFilterInner<TData, TValue>({
                     ) : null}
                     <span
                       className='min-w-0 flex-1 truncate'
-                      title={t(option.label)}
+                      title={option.label}
                     >
-                      {t(option.label)}
+                      {option.label}
                     </span>
                     {typeof option.count === 'number' ? (
                       <span className='text-muted-foreground ms-auto flex h-4 min-w-4 items-center justify-center font-mono text-xs'>

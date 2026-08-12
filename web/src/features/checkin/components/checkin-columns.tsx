@@ -78,7 +78,12 @@ export function useCheckinColumns(actions: CheckinRowActions): ColumnDef<Checkin
       meta: { mobileTitle: true },
     },
     {
-      id: 'account', header: t('checkin.columns.account'),
+      id: 'account',
+      accessorFn: (row) => {
+        const log = checkinLogRowSchema.parse(row)
+        return log.accounts?.username ?? ''
+      },
+      header: t('checkin.columns.account'),
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
         const username = log.accounts?.username
@@ -87,7 +92,12 @@ export function useCheckinColumns(actions: CheckinRowActions): ColumnDef<Checkin
       meta: { mobileOrder: 1 },
     },
     {
-      id: 'site', header: t('checkin.columns.site'),
+      id: 'site',
+      accessorFn: (row) => {
+        const log = checkinLogRowSchema.parse(row)
+        return log.sites?.name ?? ''
+      },
+      header: t('checkin.columns.site'),
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
         const site = log.sites
@@ -102,7 +112,9 @@ export function useCheckinColumns(actions: CheckinRowActions): ColumnDef<Checkin
       meta: { mobileOrder: 2 },
     },
     {
-      id: 'status', header: t('common.status'),
+      id: 'status',
+      accessorFn: (row) => checkinLogRowSchema.parse(row).checkin_logs.status,
+      header: t('common.status'),
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
         return <StatusBadge status={log.checkin_logs.status} />
@@ -115,7 +127,12 @@ export function useCheckinColumns(actions: CheckinRowActions): ColumnDef<Checkin
       meta: { mobileBadge: true },
     },
     {
-      id: 'reason', header: t('checkin.columns.failureReason'),
+      id: 'reason',
+      accessorFn: (row) => {
+        const log = checkinLogRowSchema.parse(row)
+        return log.failureReason?.category ?? ''
+      },
+      header: t('checkin.columns.failureReason'),
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
         return <FailureReasonBadge reason={log.failureReason} />
@@ -130,7 +147,9 @@ export function useCheckinColumns(actions: CheckinRowActions): ColumnDef<Checkin
       meta: { mobileOrder: 3 },
     },
     {
-      id: 'message', header: t('checkin.columns.message'),
+      id: 'message',
+      accessorFn: (row) => checkinLogRowSchema.parse(row).checkin_logs.message ?? '',
+      header: t('checkin.columns.message'),
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
         const message = log.checkin_logs.message
@@ -140,7 +159,9 @@ export function useCheckinColumns(actions: CheckinRowActions): ColumnDef<Checkin
       meta: { mobileHidden: true },
     },
     {
-      id: 'reward', header: t('checkin.columns.reward'),
+      id: 'reward',
+      accessorFn: (row) => checkinLogRowSchema.parse(row).checkin_logs.reward ?? '',
+      header: t('checkin.columns.reward'),
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
         const reward = log.checkin_logs.reward
