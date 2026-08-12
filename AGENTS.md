@@ -59,8 +59,8 @@ golangci-lint run --timeout=3m        # Lint check
 0. 所有改动经 `fix/*` / `feature/*` 等短命分支 → PR → Squash merge 回 master（详见 [`docs/git-workflow.md`](docs/git-workflow.md)；master 受保护，禁止直接 push）
 1. 确保本地 CI 全部通过（pre-push hook 自动检查）
 2. 更新 `CHANGELOG.md`（按 Keep a Changelog 格式；**必须包含 `## [vX.Y.Z]` 节**，Release 说明从该节提取）；同步 `web/package.json` 的 version 字段
-3. Tag + push：`git tag -a vX.Y.Z -m "vX.Y.Z — 简述"` → `git push origin vX.Y.Z`（仅 SemVer tag 触发发布）
-4. Tag push 触发 GitHub Actions `cd.yml` → release-gate 验证 → 构建推送 `ghcr.io/deliciousbuding/metapi-go:vX.Y.Z`（amd64+arm64）→ 多平台二进制附件 + checksums → 自动创建 GitHub Release（`release.yml` 已并入 cd.yml）
+3. 发布助手：`bash scripts/release.sh X.Y.Z`（校验 CHANGELOG 节、`web/package.json` 版本、master 与远端同步后打 annotated tag 并推送）；或手动 `git tag -a vX.Y.Z` → `git push origin vX.Y.Z`（仅 SemVer tag 触发发布）
+4. Tag push 触发单一管道 `.github/workflows/main.yml`：全量 12 项检查通过 → 推送 `ghcr.io/deliciousbuding/metapi-go:vX.Y.Z`（amd64+arm64，provenance+SBOM）→ 5 平台二进制附件 + checksums + 二进制冒烟 → 自动创建 GitHub Release（body 取自 CHANGELOG 对应节）
 
 **版本号**：`vMAJOR.MINOR.PATCH`（SemVer 2.0）
 - PATCH：bug 修复

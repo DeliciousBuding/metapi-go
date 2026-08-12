@@ -1,5 +1,5 @@
 # Dependabot — automated dependency updates (Go / npm / Actions / Docker)
-# Each update opens a PR that goes through the same 11-check CI as any other PR.
+# Each update opens a PR that goes through the same 12-check CI as any other PR.
 version: 2
 updates:
   - package-ecosystem: gomod
