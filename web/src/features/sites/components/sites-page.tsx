@@ -10,7 +10,7 @@
 // handled by `DataTablePage` via the column `meta` flags.
 
 import { Plus as PlusIcon, Trash2 as Trash2Icon } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -32,6 +32,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Spinner } from '@/components/ui/spinner'
+
+import { useAccounts } from '@/features/accounts'
 
 import { useBatchUpdateSites, useDeleteSite, useSites, useUpdateSite } from '../api'
 import { sitesSearchSchema } from '../lib/sites-schema'
@@ -134,6 +136,31 @@ function useSitesUrlState() {
 export function SitesPage() {
   const { t } = useTranslation()
   const sitesQuery = useSites()
+  // The /api/sites endpoint does not include account counts; enrich the rows
+  // from the already-cached accounts snapshot (the documented plan in
+  // types.ts). If the snapshot is unavailable the column falls back to '—'.
+  const accountsQuery = useAccounts()
+  const accountCountBySite = useMemo(() => {
+    const counts = new Map<number, number>()
+    for (const account of accountsQuery.data?.accounts ?? []) {
+      const siteId = Number(account.siteId)
+      if (Number.isFinite(siteId) && siteId > 0) {
+        counts.set(siteId, (counts.get(siteId) ?? 0) + 1)
+      }
+    }
+    return counts
+  }, [accountsQuery.data])
+  const sites = useMemo(() => {
+    const rows = sitesQuery.data ?? []
+    if (accountCountBySite.size === 0) return rows
+    return rows.map((site) => ({
+      ...site,
+      accountCount:
+        typeof site.accountCount === 'number'
+          ? site.accountCount
+          : (accountCountBySite.get(site.id) ?? 0),
+    }))
+  }, [sitesQuery.data, accountCountBySite])
   const deleteSite = useDeleteSite()
   const updateSite = useUpdateSite()
   const batchUpdateSites = useBatchUpdateSites()
@@ -183,7 +210,7 @@ export function SitesPage() {
   })
 
   const { table } = useDataTable<Site>({
-    data: sitesQuery.data ?? [],
+    data: sites,
     columns,
     enableRowSelection: true,
     enableColumnResizing: true,

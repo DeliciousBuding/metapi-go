@@ -296,7 +296,7 @@ export function useAccountsColumns(
           <div className='flex flex-col'>
             <span className='tabular-nums'>{formatBalance(account.balanceUsed)}</span>
             <span className='text-[11px] text-muted-foreground'>
-              {formatPercent(account.balanceUsed ?? 0, account.balance ?? 0)}
+              {formatPercent(account.balanceUsed ?? 0, account.quota ?? 0)}
             </span>
           </div>
         )
