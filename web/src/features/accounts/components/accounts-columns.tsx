@@ -47,16 +47,38 @@ interface HealthBadgeConfig {
 }
 
 const HEALTH_BADGE_CONFIG: Record<RuntimeHealthState, HealthBadgeConfig> = {
-  healthy: { labelKey: 'accounts.columns.healthHealthy', variant: 'default', dotClassName: 'bg-success' },
-  degraded: { labelKey: 'accounts.columns.healthDegraded', variant: 'warning', dotClassName: 'bg-warning' },
-  unhealthy: { labelKey: 'accounts.columns.healthUnhealthy', variant: 'destructive', dotClassName: 'bg-destructive' },
-  disabled: { labelKey: 'accounts.columns.healthDisabled', variant: 'secondary', dotClassName: 'bg-muted-foreground' },
-  unknown: { labelKey: 'accounts.columns.healthUnknown', variant: 'outline', dotClassName: 'bg-muted-foreground' },
+  healthy: {
+    labelKey: 'accounts.columns.healthHealthy',
+    variant: 'default',
+    dotClassName: 'bg-success',
+  },
+  degraded: {
+    labelKey: 'accounts.columns.healthDegraded',
+    variant: 'warning',
+    dotClassName: 'bg-warning',
+  },
+  unhealthy: {
+    labelKey: 'accounts.columns.healthUnhealthy',
+    variant: 'destructive',
+    dotClassName: 'bg-destructive',
+  },
+  disabled: {
+    labelKey: 'accounts.columns.healthDisabled',
+    variant: 'secondary',
+    dotClassName: 'bg-muted-foreground',
+  },
+  unknown: {
+    labelKey: 'accounts.columns.healthUnknown',
+    variant: 'outline',
+    dotClassName: 'bg-muted-foreground',
+  },
 }
 
 function useResolveHealth() {
   const { t } = useTranslation()
-  return function resolveHealth(account: Account): HealthBadgeConfig & { label: string } {
+  return function resolveHealth(
+    account: Account
+  ): HealthBadgeConfig & { label: string } {
     if (account.status === 'expired') {
       return {
         labelKey: 'accounts.columns.healthExpired',
@@ -90,7 +112,9 @@ function useResolveDisplayName() {
   const { t } = useTranslation()
   return function resolveDisplayName(account: Account): string {
     if (account.username && account.username.trim()) return account.username
-    return account.credentialMode === 'apikey' ? t('accounts.columns.fallbackApiKey') : t('accounts.columns.fallbackUnnamed')
+    return account.credentialMode === 'apikey'
+      ? t('accounts.columns.fallbackApiKey')
+      : t('accounts.columns.fallbackUnnamed')
   }
 }
 
@@ -110,7 +134,7 @@ function AccountsRowActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className='inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground'
+        className='text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 items-center justify-center rounded-md transition-colors outline-none'
         aria-label={t('accounts.columns.rowActions')}
       >
         <MoreHorizontal className='size-4' />
@@ -126,18 +150,22 @@ function AccountsRowActions({
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => actions.onTogglePin(account)}>
           {account.isPinned ? <PinOff /> : <Pin />}
-          {account.isPinned ? t('accounts.columns.unpin') : t('accounts.columns.pin')}
+          {account.isPinned
+            ? t('accounts.columns.unpin')
+            : t('accounts.columns.pin')}
         </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => actions.onToggleStatus(account)}
-        >
+        <DropdownMenuItem onClick={() => actions.onToggleStatus(account)}>
           <Power />
-          {account.status === 'disabled' ? t('accounts.columns.enable') : t('accounts.columns.disable')}
+          {account.status === 'disabled'
+            ? t('accounts.columns.enable')
+            : t('accounts.columns.disable')}
         </DropdownMenuItem>
         {canCheckin && (
           <DropdownMenuItem onClick={() => actions.onToggleCheckin(account)}>
             <CalendarCheck />
-            {account.checkinEnabled ? t('accounts.columns.disableCheckin') : t('accounts.columns.enableCheckin')}
+            {account.checkinEnabled
+              ? t('accounts.columns.disableCheckin')
+              : t('accounts.columns.enableCheckin')}
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
@@ -162,7 +190,7 @@ function AccountsRowActions({
 // ---------------------------------------------------------------------------
 
 export function useAccountsColumns(
-  actions: AccountRowActions,
+  actions: AccountRowActions
 ): ColumnDef<Account>[] {
   const { t } = useTranslation()
   const resolveHealth = useResolveHealth()
@@ -203,10 +231,14 @@ export function useAccountsColumns(
         return (
           <div className='flex flex-col gap-1'>
             <div className='flex items-center gap-2'>
-              <span className='font-medium truncate max-w-[220px]'>
+              <span className='max-w-[220px] truncate font-medium'>
                 {resolveDisplayName(account)}
               </span>
-              <Badge variant={account.credentialMode === 'session' ? 'default' : 'secondary'}>
+              <Badge
+                variant={
+                  account.credentialMode === 'session' ? 'default' : 'secondary'
+                }
+              >
                 {account.credentialMode === 'session' ? 'Session' : 'API Key'}
               </Badge>
             </div>
@@ -234,9 +266,13 @@ export function useAccountsColumns(
         if (!site) return <span className='text-muted-foreground'>—</span>
         return (
           <div className='flex flex-col'>
-            <span className='truncate max-w-[160px]'>{site.name || site.url || `#${site.id}`}</span>
+            <span className='max-w-[160px] truncate'>
+              {site.name || site.url || `#${site.id}`}
+            </span>
             {site.platform && (
-              <span className='text-[11px] text-muted-foreground'>{site.platform}</span>
+              <span className='text-muted-foreground text-[11px]'>
+                {site.platform}
+              </span>
             )}
           </div>
         )
@@ -257,7 +293,9 @@ export function useAccountsColumns(
         const config = resolveHealth(account)
         return (
           <Badge variant={config.variant}>
-            <span className={cn('size-1.5 rounded-full', config.dotClassName)} />
+            <span
+              className={cn('size-1.5 rounded-full', config.dotClassName)}
+            />
             {config.label}
           </Badge>
         )
@@ -276,9 +314,11 @@ export function useAccountsColumns(
         const account = accountSchema.parse(row.original)
         return (
           <div className='flex flex-col'>
-            <span className='tabular-nums'>{formatBalance(account.balance)}</span>
+            <span className='tabular-nums'>
+              {formatBalance(account.balance)}
+            </span>
             {account.todayReward ? (
-              <span className='text-[11px] text-success'>
+              <span className='text-success text-[11px]'>
                 +{formatBalance(account.todayReward)}
               </span>
             ) : null}
@@ -294,8 +334,10 @@ export function useAccountsColumns(
         const account = accountSchema.parse(row.original)
         return (
           <div className='flex flex-col'>
-            <span className='tabular-nums'>{formatBalance(account.balanceUsed)}</span>
-            <span className='text-[11px] text-muted-foreground'>
+            <span className='tabular-nums'>
+              {formatBalance(account.balanceUsed)}
+            </span>
+            <span className='text-muted-foreground text-[11px]'>
               {formatPercent(account.balanceUsed ?? 0, account.quota ?? 0)}
             </span>
           </div>
@@ -313,11 +355,17 @@ export function useAccountsColumns(
       cell: ({ row }) => {
         const account = accountSchema.parse(row.original)
         if (!account.capabilities?.canCheckin) {
-          return <span className='text-muted-foreground text-xs'>{t('accounts.columns.checkinUnsupported')}</span>
+          return (
+            <span className='text-muted-foreground text-xs'>
+              {t('accounts.columns.checkinUnsupported')}
+            </span>
+          )
         }
         return (
           <Badge variant={account.checkinEnabled ? 'default' : 'outline'}>
-            {account.checkinEnabled ? t('accounts.columns.checkinOn') : t('accounts.columns.checkinOff')}
+            {account.checkinEnabled
+              ? t('accounts.columns.checkinOn')
+              : t('accounts.columns.checkinOff')}
           </Badge>
         )
       },

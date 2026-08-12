@@ -63,7 +63,7 @@ type AnnouncementFormDialogProps = {
 }
 
 function announcementToFormValues(
-  item: SiteAnnouncement,
+  item: SiteAnnouncement
 ): AnnouncementFormValues {
   return {
     title: item.title ?? '',
@@ -115,7 +115,8 @@ export function AnnouncementFormDialog({
     }
   }, [open, editingAnnouncement, form])
 
-  const isSubmitting = createAnnouncement.isPending || updateAnnouncement.isPending
+  const isSubmitting =
+    createAnnouncement.isPending || updateAnnouncement.isPending
 
   async function onSubmit(values: AnnouncementFormValues) {
     const payload = buildPayload(values)
@@ -125,12 +126,16 @@ export function AnnouncementFormDialog({
           id: editingAnnouncement.id,
           payload,
         })
-        toast.success(t('siteAnnouncements.form.updateSucceeded', { title: values.title }))
+        toast.success(
+          t('siteAnnouncements.form.updateSucceeded', { title: values.title })
+        )
         form.reset()
         onOpenChange(false)
       } else {
         await createAnnouncement.mutateAsync(payload)
-        toast.success(t('siteAnnouncements.form.createSucceeded', { title: values.title }))
+        toast.success(
+          t('siteAnnouncements.form.createSucceeded', { title: values.title })
+        )
         form.reset()
         onOpenChange(false)
       }
@@ -183,7 +188,9 @@ export function AnnouncementFormDialog({
                   <FormLabel>{t('siteAnnouncements.form.message')}</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder={t('siteAnnouncements.form.messagePlaceholder')}
+                      placeholder={t(
+                        'siteAnnouncements.form.messagePlaceholder'
+                      )}
                       rows={4}
                       {...field}
                     />
@@ -202,18 +209,21 @@ export function AnnouncementFormDialog({
                 name='severity'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('siteAnnouncements.form.severity')}</FormLabel>
-                    <Select
-                      value={field.value}
-                      onValueChange={field.onChange}
-                    >
+                    <FormLabel>
+                      {t('siteAnnouncements.form.severity')}
+                    </FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue>
                             {(selected) =>
                               selected
-                                ? t(`siteAnnouncements.severity.${String(selected)}`)
-                                : t('siteAnnouncements.form.severityPlaceholder')
+                                ? t(
+                                    `siteAnnouncements.severity.${String(selected)}`
+                                  )
+                                : t(
+                                    'siteAnnouncements.form.severityPlaceholder'
+                                  )
                             }
                           </SelectValue>
                         </SelectTrigger>
@@ -243,7 +253,9 @@ export function AnnouncementFormDialog({
                     <FormLabel>{t('siteAnnouncements.form.link')}</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder={t('siteAnnouncements.form.linkPlaceholder')}
+                        placeholder={t(
+                          'siteAnnouncements.form.linkPlaceholder'
+                        )}
                         {...field}
                       />
                     </FormControl>
@@ -260,7 +272,7 @@ export function AnnouncementFormDialog({
               control={form.control}
               name='enabled'
               render={({ field }) => (
-                <FormItem className='flex flex-row items-center justify-between rounded-lg border border-border p-3'>
+                <FormItem className='border-border flex flex-row items-center justify-between rounded-lg border p-3'>
                   <div className='space-y-0.5'>
                     <FormLabel>{t('siteAnnouncements.form.enabled')}</FormLabel>
                     <FormDescription>

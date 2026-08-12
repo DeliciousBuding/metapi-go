@@ -11,11 +11,7 @@
 // search state today. Section validation lives in `beforeLoad` because
 // `$section` is a path param, not a search param.
 
-import {
-  createFileRoute,
-  redirect,
-  useNavigate,
-} from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 
 import {
   DASHBOARD_DEFAULT_SECTION,

@@ -24,7 +24,10 @@ import { SettingsFormActions } from '../../../components/settings-form-actions'
 import { SettingsSectionCard } from '../../../components/settings-section-card'
 import { SettingsSectionError } from '../../../components/settings-section-error'
 import { useSettingsForm } from '../../../hooks/use-settings-form'
-import { collectChangedFields, hasChanges } from '../../../lib/collect-changed-fields'
+import {
+  collectChangedFields,
+  hasChanges,
+} from '../../../lib/collect-changed-fields'
 import {
   asString,
   useRuntimeSettings,
@@ -55,7 +58,7 @@ const DEFAULT_VALUES: SiteFormValues = {
 }
 
 function deriveServerValues(
-  data: RuntimeSettings | undefined,
+  data: RuntimeSettings | undefined
 ): SiteFormValues | null {
   if (!data) {
     return null
@@ -85,7 +88,7 @@ export function SiteSection() {
   function onSubmit(values: SiteFormValues) {
     const changed = collectChangedFields(
       values as unknown as Record<string, unknown>,
-      baseline as unknown as Record<string, unknown> | null,
+      baseline as unknown as Record<string, unknown> | null
     ) as Partial<SiteFormValues>
     if (!hasChanges(changed)) {
       toast.info(t('settings.common.noChanges'))
@@ -103,7 +106,7 @@ export function SiteSection() {
         title={t('settings.general.site.title')}
         description={t('settings.general.site.description')}
       >
-        <p className='text-sm text-muted-foreground'>
+        <p className='text-muted-foreground text-sm'>
           {t('settings.common.loading')}
         </p>
       </SettingsSectionCard>
@@ -137,12 +140,16 @@ export function SiteSection() {
             name='systemName'
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t('settings.general.site.fields.systemName')}</FormLabel>
+                <FormLabel>
+                  {t('settings.general.site.fields.systemName')}
+                </FormLabel>
                 <FormControl>
                   <Input
                     {...field}
                     value={field.value ?? ''}
-                    placeholder={t('settings.general.site.fields.systemNamePlaceholder')}
+                    placeholder={t(
+                      'settings.general.site.fields.systemNamePlaceholder'
+                    )}
                   />
                 </FormControl>
                 <FormDescription>
@@ -177,12 +184,16 @@ export function SiteSection() {
             name='footer'
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t('settings.general.site.fields.footer')}</FormLabel>
+                <FormLabel>
+                  {t('settings.general.site.fields.footer')}
+                </FormLabel>
                 <FormControl>
                   <Input
                     {...field}
                     value={field.value ?? ''}
-                    placeholder={t('settings.general.site.fields.footerPlaceholder')}
+                    placeholder={t(
+                      'settings.general.site.fields.footerPlaceholder'
+                    )}
                   />
                 </FormControl>
                 <FormMessage />
@@ -215,7 +226,9 @@ export function SiteSection() {
                     {...field}
                     value={field.value ?? ''}
                     rows={6}
-                    placeholder={t('settings.general.site.fields.homePageContentPlaceholder')}
+                    placeholder={t(
+                      'settings.general.site.fields.homePageContentPlaceholder'
+                    )}
                   />
                 </FormControl>
                 <FormDescription>
@@ -251,7 +264,9 @@ export function SiteSection() {
             formId={FORM_ID}
             isDirty={isDirty}
             isPending={updateMutation.isPending}
-            onReset={() => syncFromServer(deriveServerValues(data) ?? DEFAULT_VALUES)}
+            onReset={() =>
+              syncFromServer(deriveServerValues(data) ?? DEFAULT_VALUES)
+            }
           />
         </form>
       </Form>

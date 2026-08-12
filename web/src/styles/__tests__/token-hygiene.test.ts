@@ -27,8 +27,10 @@ function walk(dir: string): string[] {
   return out
 }
 
-const allSource = walk(SRC)
-  .map((file) => ({ file, text: readFileSync(file, 'utf8') }))
+const allSource = walk(SRC).map((file) => ({
+  file,
+  text: readFileSync(file, 'utf8'),
+}))
 
 const read = (path: string) => readFileSync(join(WEB_ROOT, path), 'utf8')
 
@@ -37,8 +39,8 @@ describe('design-token hygiene', () => {
     const offenders = allSource
       .filter(({ text }) =>
         /bg-emerald-|text-emerald-|bg-red-500|bg-amber-500|bg-blue-500|text-red-500|text-amber-500/.test(
-          text,
-        ),
+          text
+        )
       )
       .map(({ file }) => file.slice(SRC.length + 1))
     expect(offenders).toEqual([])

@@ -3,7 +3,6 @@ import { cn } from '@/lib/utils'
 
 import type { DataTableColumnClassName, DataTablePinnedColumn } from './types'
 
-
 export function getResolvedColumnClassNameFromMap(
   getColumnClassName?: DataTableColumnClassName,
   pinnedColumnById?: Map<string, DataTablePinnedColumn>

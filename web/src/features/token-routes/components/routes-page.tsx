@@ -2,20 +2,14 @@
 // metapi-go features/token-routes/components — the routes list page.
 // i18n: all user-visible strings migrated to t() calls.
 
-import { useEffect, useMemo, useState } from 'react'
 import type {
   ColumnFiltersState,
   OnChangeFn,
   PaginationState,
   Table,
 } from '@tanstack/react-table'
-import {
-  Loader2,
-  Plus,
-  Power,
-  RefreshCw,
-  Zap,
-} from 'lucide-react'
+import { Loader2, Plus, Power, RefreshCw, Zap } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -46,21 +40,15 @@ import {
   useUpdateRoute,
   useZeroChannelRoutes,
 } from '../api'
-import type {
-  RouteRowActions,
-  RouteSummaryRow,
-} from '../types'
+import type { RouteRowActions, RouteSummaryRow } from '../types'
 import {
   isExplicitGroupRoute,
   isExactModelPattern,
   resolveRouteTitle,
 } from '../utils'
-import { useRoutesColumns } from './routes-columns'
 import { RouteDetailSheet } from './route-detail-sheet'
-import {
-  RouteFormDialog,
-  type RouteAccountOption,
-} from './route-form-dialog'
+import { RouteFormDialog, type RouteAccountOption } from './route-form-dialog'
+import { useRoutesColumns } from './routes-columns'
 
 interface InitialUrlState {
   page: number
@@ -128,39 +116,54 @@ export function RoutesPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams()
-    if (pagination.pageIndex > 0) params.set('page', String(pagination.pageIndex + 1))
+    if (pagination.pageIndex > 0)
+      params.set('page', String(pagination.pageIndex + 1))
     if (pagination.pageSize !== DEFAULT_PAGE_SIZE) {
       params.set('pageSize', String(pagination.pageSize))
     }
     if (globalFilter) params.set('q', globalFilter)
-    const enabledFilter = columnFilters.find((filter) => filter.id === 'enabled')
-    if (enabledFilter && Array.isArray(enabledFilter.value) && enabledFilter.value.length) {
+    const enabledFilter = columnFilters.find(
+      (filter) => filter.id === 'enabled'
+    )
+    if (
+      enabledFilter &&
+      Array.isArray(enabledFilter.value) &&
+      enabledFilter.value.length
+    ) {
       params.set('enabled', enabledFilter.value.join(','))
     }
     if (initial.accountId) params.set('accountId', String(initial.accountId))
     if (initial.siteId) params.set('siteId', String(initial.siteId))
     const query = params.toString()
-    const url = query ? `${window.location.pathname}?${query}` : window.location.pathname
+    const url = query
+      ? `${window.location.pathname}?${query}`
+      : window.location.pathname
     window.history.replaceState(null, '', url)
-  }, [pagination, globalFilter, columnFilters, initial.accountId, initial.siteId])
+  }, [
+    pagination,
+    globalFilter,
+    columnFilters,
+    initial.accountId,
+    initial.siteId,
+  ])
 
   const onGlobalFilterChange = useMemo<OnChangeFn<string>>(
     () => (updater) => {
       setGlobalFilter((prev) =>
-        updater instanceof Function ? updater(prev) : updater,
+        updater instanceof Function ? updater(prev) : updater
       )
       setPagination((prev) => ({ ...prev, pageIndex: 0 }))
     },
-    [],
+    []
   )
   const onColumnFiltersChange = useMemo<OnChangeFn<ColumnFiltersState>>(
     () => (updater) => {
       setColumnFilters((prev) =>
-        updater instanceof Function ? updater(prev) : updater,
+        updater instanceof Function ? updater(prev) : updater
       )
       setPagination((prev) => ({ ...prev, pageIndex: 0 }))
     },
-    [],
+    []
   )
 
   const [formOpen, setFormOpen] = useState(false)
@@ -169,7 +172,9 @@ export function RoutesPage() {
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailRoute, setDetailRoute] = useState<RouteSummaryRow | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
-  const [deleteRouteState, setDeleteRoute] = useState<RouteSummaryRow | null>(null)
+  const [deleteRouteState, setDeleteRoute] = useState<RouteSummaryRow | null>(
+    null
+  )
 
   const openCreate = () => {
     setFormMode('create')
@@ -237,14 +242,14 @@ export function RoutesPage() {
         (route) =>
           !isExplicitGroupRoute(route) &&
           isExactModelPattern(route.modelPattern) &&
-          route.id !== editRoute?.id,
+          route.id !== editRoute?.id
       ),
-    [routes, editRoute],
+    [routes, editRoute]
   )
 
   const accountOptions = useMemo<RouteAccountOption[]>(
     () => buildAccountOptions(candidates),
-    [candidates],
+    [candidates]
   )
 
   const chainContext = useMemo(
@@ -252,7 +257,7 @@ export function RoutesPage() {
       accountId: initial.accountId,
       siteId: initial.siteId,
     }),
-    [initial.accountId, initial.siteId],
+    [initial.accountId, initial.siteId]
   )
 
   const confirmDelete = async () => {
@@ -271,7 +276,7 @@ export function RoutesPage() {
       <div className='flex items-center justify-between gap-4'>
         <div>
           <h1 className='text-lg font-normal'>{t('tokenRoutes.page.title')}</h1>
-          <p className='text-sm text-muted-foreground'>
+          <p className='text-muted-foreground text-sm'>
             {t('tokenRoutes.page.description')}
           </p>
         </div>
@@ -296,7 +301,9 @@ export function RoutesPage() {
             disabled={refreshDecisionsMutation.isPending}
           >
             <RefreshCw
-              className={refreshDecisionsMutation.isPending ? 'animate-spin' : undefined}
+              className={
+                refreshDecisionsMutation.isPending ? 'animate-spin' : undefined
+              }
             />
             {t('tokenRoutes.page.refreshDecisions')}
           </Button>
@@ -308,17 +315,23 @@ export function RoutesPage() {
       </div>
 
       {(initial.accountId || initial.siteId) && (
-        <div className='rounded-lg border bg-muted/40 p-2 text-sm text-muted-foreground'>
+        <div className='bg-muted/40 text-muted-foreground rounded-lg border p-2 text-sm'>
           {t('tokenRoutes.page.chainContext')}
-          {initial.accountId ? ` ${t('tokenRoutes.page.chainContextAccount', { id: initial.accountId })}` : ''}
-          {initial.siteId ? ` / ${t('tokenRoutes.page.chainContextSite', { id: initial.siteId })} ` : ' '}
+          {initial.accountId
+            ? ` ${t('tokenRoutes.page.chainContextAccount', { id: initial.accountId })}`
+            : ''}
+          {initial.siteId
+            ? ` / ${t('tokenRoutes.page.chainContextSite', { id: initial.siteId })} `
+            : ' '}
           {t('tokenRoutes.page.chainContextSuffix')}
         </div>
       )}
 
       {error && (
-        <div className='rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive'>
-          {t('tokenRoutes.page.loadError', { message: (error as Error).message })}
+        <div className='border-destructive/40 bg-destructive/10 text-destructive rounded-lg border p-3 text-sm'>
+          {t('tokenRoutes.page.loadError', {
+            message: (error as Error).message,
+          })}
         </div>
       )}
 
@@ -339,8 +352,14 @@ export function RoutesPage() {
               title: t('tokenRoutes.page.filterStatusTitle'),
               singleSelect: true,
               options: [
-                { label: t('tokenRoutes.page.filterStatusEnabled'), value: 'enabled' },
-                { label: t('tokenRoutes.page.filterStatusDisabled'), value: 'disabled' },
+                {
+                  label: t('tokenRoutes.page.filterStatusEnabled'),
+                  value: 'enabled',
+                },
+                {
+                  label: t('tokenRoutes.page.filterStatusDisabled'),
+                  value: 'disabled',
+                },
               ],
             },
           ],
@@ -348,7 +367,7 @@ export function RoutesPage() {
         bulkActions={<RoutesBulkActions table={table} />}
       />
 
-      <label className='flex items-center gap-2 text-sm text-muted-foreground'>
+      <label className='text-muted-foreground flex items-center gap-2 text-sm'>
         <Switch
           checked={showZeroChannel}
           onCheckedChange={setShowZeroChannel}
@@ -378,7 +397,9 @@ export function RoutesPage() {
             <DialogTitle>{t('tokenRoutes.page.deleteTitle')}</DialogTitle>
             <DialogDescription>
               {t('tokenRoutes.page.deleteDescription', {
-                name: deleteRouteState ? resolveRouteTitle(deleteRouteState) : '',
+                name: deleteRouteState
+                  ? resolveRouteTitle(deleteRouteState)
+                  : '',
               })}
             </DialogDescription>
           </DialogHeader>
@@ -415,7 +436,7 @@ function RoutesBulkActions({ table }: { table: Table<RouteSummaryRow> }) {
         .getFilteredSelectedRowModel()
         .rows.map((row) => (row.original as RouteSummaryRow).id)
         .filter((id) => id > 0),
-    [table],
+    [table]
   )
 
   const runBatch = async (action: BatchRouteAction) => {
@@ -429,7 +450,10 @@ function RoutesBulkActions({ table }: { table: Table<RouteSummaryRow> }) {
   }
 
   return (
-    <DataTableBulkActions table={table} entityName={t('tokenRoutes.page.bulkEntityName')}>
+    <DataTableBulkActions
+      table={table}
+      entityName={t('tokenRoutes.page.bulkEntityName')}
+    >
       <Button
         size='xs'
         variant='outline'
@@ -462,7 +486,7 @@ function buildAccountOptions(
     | {
         models?: Record<string, unknown[]>
       }
-    | undefined,
+    | undefined
 ): RouteAccountOption[] {
   const models = candidates?.models
   if (!models || typeof models !== 'object') return []
@@ -487,5 +511,7 @@ function buildAccountOptions(
 
   return [...accountMap.entries()]
     .map(([id, label]) => ({ id, label }))
-    .sort((left, right) => left.label.localeCompare(right.label, undefined, { sensitivity: 'base' }))
+    .sort((left, right) =>
+      left.label.localeCompare(right.label, undefined, { sensitivity: 'base' })
+    )
 }

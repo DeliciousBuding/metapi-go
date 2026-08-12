@@ -26,7 +26,6 @@ import {
 } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
-
 import { api } from '@/lib/api'
 import {
   asStringParam,
@@ -38,12 +37,12 @@ import {
 import { useModels } from '../api'
 import { modelsSearchSchema } from '../lib/models-schema'
 import type { ModelRow } from '../types'
+import { ModelDetailSheet } from './model-detail-sheet'
 import {
   buildBrandFilterOptions,
   buildCapabilityFilterOptions,
   useModelsColumns,
 } from './models-columns'
-import { ModelDetailSheet } from './model-detail-sheet'
 
 const MODELS_COLUMN_VISIBILITY_STORAGE_KEY =
   'metapi-go:models:column-visibility'
@@ -140,7 +139,7 @@ function useModelsUrlState() {
     fromColumnFilters: (filters) => {
       const brandEntry = filters.find((filter) => filter.id === 'brand')
       const capabilityEntry = filters.find(
-        (filter) => filter.id === 'capabilities',
+        (filter) => filter.id === 'capabilities'
       )
       return {
         filters: {
@@ -207,17 +206,17 @@ export function ModelsPage() {
   const models = useMemo(() => modelsQuery.data ?? [], [modelsQuery.data])
   const brandFilterOptions = useMemo(
     () => buildBrandFilterOptions(models),
-    [models],
+    [models]
   )
   const capabilityFilterOptions = useMemo(
     () => buildCapabilityFilterOptions(models),
-    [models],
+    [models]
   )
 
   return (
     <>
       {modelsQuery.error && (
-        <div className='rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive'>
+        <div className='border-destructive/40 bg-destructive/10 text-destructive rounded-lg border p-3 text-sm'>
           {t('models.page.loadError', {
             message: (modelsQuery.error as Error).message,
           })}

@@ -14,7 +14,10 @@
 
 import { z } from 'zod'
 
-import { encodeSortingParam, stringSearchParam } from '@/lib/helpers/searchParams'
+import {
+  encodeSortingParam,
+  stringSearchParam,
+} from '@/lib/helpers/searchParams'
 
 const HTTP_OR_EMPTY_MESSAGE_KEY = 'oauth.form.errors.invalidProxyUrl'
 
@@ -30,10 +33,7 @@ function isEmptyOrHttpUrl(value: string): boolean {
 }
 
 export const oauthStartSchema = z.object({
-  provider: z
-    .string()
-    .trim()
-    .min(1, 'oauth.form.errors.providerRequired'),
+  provider: z.string().trim().min(1, 'oauth.form.errors.providerRequired'),
   projectId: z.string().trim(),
   proxyUrl: z.string().refine(isEmptyOrHttpUrl, HTTP_OR_EMPTY_MESSAGE_KEY),
   useSystemProxy: z.boolean(),
@@ -81,7 +81,6 @@ export const oauthSearchSchema = z.object({
     .transform((value) => encodeSortingParam(value)),
   status: stringSearchParam,
 })
-
 
 export const OAUTH_SORTING_ITEM_SCHEMA = sortingItemSchema
 export const OAUTH_PAGINATION_SCHEMA = paginationSchema

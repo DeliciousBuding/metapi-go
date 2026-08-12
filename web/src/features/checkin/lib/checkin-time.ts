@@ -6,9 +6,10 @@
 // UI, mirroring the legacy `pages/helpers/checkinLogTime` module which is
 // outside the `src/` alias scope and therefore cannot be imported here.
 
-function parseServerUtcDate(
-  value: string | null | undefined,
-): { date: Date | null; raw: string } {
+function parseServerUtcDate(value: string | null | undefined): {
+  date: Date | null
+  raw: string
+} {
   if (!value) return { date: null, raw: '' }
 
   const raw = String(value).trim()
@@ -44,7 +45,7 @@ function parseServerUtcDate(
 }
 
 export function parseServerUtcDateTime(
-  value: string | null | undefined,
+  value: string | null | undefined
 ): Date | null {
   return parseServerUtcDate(value).date
 }
@@ -53,7 +54,7 @@ function formatWithParts(
   value: string | null | undefined,
   options: Intl.DateTimeFormatOptions,
   locale = 'zh-CN',
-  timeZone?: string,
+  timeZone?: string
 ): string {
   const { date, raw } = parseServerUtcDate(value)
   if (!date) return raw || '-'
@@ -66,7 +67,7 @@ function formatWithParts(
 export function formatCheckinLogTime(
   value: string | null | undefined,
   locale?: string,
-  timeZone?: string,
+  timeZone?: string
 ): string {
   return formatWithParts(
     value,
@@ -80,14 +81,14 @@ export function formatCheckinLogTime(
       hour12: false,
     },
     locale,
-    timeZone,
+    timeZone
   )
 }
 
 export function formatDateTimeMinuteLocal(
   value: string | null | undefined,
   locale = 'zh-CN',
-  timeZone?: string,
+  timeZone?: string
 ): string {
   return formatWithParts(
     value,
@@ -100,7 +101,7 @@ export function formatDateTimeMinuteLocal(
       hour12: false,
     },
     locale,
-    timeZone,
+    timeZone
   )
 }
 
@@ -123,7 +124,7 @@ export function toLocalDatetimeInputValue(date: Date): string {
  */
 export function localDatetimeInputToEpochMs(
   value: string | null | undefined,
-  endOfDay = false,
+  endOfDay = false
 ): number | null {
   if (!value) return null
   const date = new Date(value)

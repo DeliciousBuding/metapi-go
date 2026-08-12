@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest'
 
 import {
   OAUTH_COLUMN_FILTER_ITEM_SCHEMA,
@@ -8,10 +8,10 @@ import {
   oauthSearchSchema,
   oauthStartSchema,
   type OAuthStartValues,
-} from '../lib/oauth-schema';
+} from '../lib/oauth-schema'
 
 function validOAuthStart(): OAuthStartValues {
-  return { ...OAUTH_START_DEFAULT_VALUES, provider: 'github' };
+  return { ...OAUTH_START_DEFAULT_VALUES, provider: 'github' }
 }
 
 // ---------------------------------------------------------------------------
@@ -20,15 +20,16 @@ function validOAuthStart(): OAuthStartValues {
 
 describe('oauthStartSchema — happy path', () => {
   it('parses a minimal valid form (provider only)', () => {
-    expect(oauthStartSchema.safeParse(validOAuthStart()).success).toBe(true);
-  });
+    expect(oauthStartSchema.safeParse(validOAuthStart()).success).toBe(true)
+  })
 
   it('allows a blank projectId', () => {
     expect(
-      oauthStartSchema.safeParse({ ...validOAuthStart(), projectId: '' }).success,
-    ).toBe(true);
-  });
-});
+      oauthStartSchema.safeParse({ ...validOAuthStart(), projectId: '' })
+        .success
+    ).toBe(true)
+  })
+})
 
 // ---------------------------------------------------------------------------
 // provider required
@@ -36,20 +37,24 @@ describe('oauthStartSchema — happy path', () => {
 
 describe('oauthStartSchema — provider', () => {
   it('rejects an empty provider with providerRequired', () => {
-    const result = oauthStartSchema.safeParse({ ...validOAuthStart(), provider: '' });
-    expect(result.success).toBe(false);
-    if (result.success) return;
+    const result = oauthStartSchema.safeParse({
+      ...validOAuthStart(),
+      provider: '',
+    })
+    expect(result.success).toBe(false)
+    if (result.success) return
     expect(result.error.issues[0]?.message).toBe(
-      'oauth.form.errors.providerRequired',
-    );
-  });
+      'oauth.form.errors.providerRequired'
+    )
+  })
 
   it('rejects a whitespace-only provider after trimming', () => {
     expect(
-      oauthStartSchema.safeParse({ ...validOAuthStart(), provider: '   ' }).success,
-    ).toBe(false);
-  });
-});
+      oauthStartSchema.safeParse({ ...validOAuthStart(), provider: '   ' })
+        .success
+    ).toBe(false)
+  })
+})
 
 // ---------------------------------------------------------------------------
 // proxyUrl refine
@@ -58,28 +63,31 @@ describe('oauthStartSchema — provider', () => {
 describe('oauthStartSchema — proxyUrl', () => {
   it('accepts an empty / http / https proxyUrl', () => {
     expect(
-      oauthStartSchema.safeParse({ ...validOAuthStart(), proxyUrl: '' }).success,
-    ).toBe(true);
+      oauthStartSchema.safeParse({ ...validOAuthStart(), proxyUrl: '' }).success
+    ).toBe(true)
     expect(
       oauthStartSchema.safeParse({
         ...validOAuthStart(),
         proxyUrl: 'https://proxy.example',
-      }).success,
-    ).toBe(true);
-  });
+      }).success
+    ).toBe(true)
+  })
 
   it.each([
     ['ftp scheme', 'ftp://x'],
     ['plain string', 'not-a-url'],
   ])('rejects %s with invalidProxyUrl', (_label, proxyUrl) => {
-    const result = oauthStartSchema.safeParse({ ...validOAuthStart(), proxyUrl });
-    expect(result.success).toBe(false);
-    if (result.success) return;
+    const result = oauthStartSchema.safeParse({
+      ...validOAuthStart(),
+      proxyUrl,
+    })
+    expect(result.success).toBe(false)
+    if (result.success) return
     expect(result.error.issues[0]?.message).toBe(
-      'oauth.form.errors.invalidProxyUrl',
-    );
-  });
-});
+      'oauth.form.errors.invalidProxyUrl'
+    )
+  })
+})
 
 // ---------------------------------------------------------------------------
 // useSystemProxy boolean (no coerce)
@@ -90,10 +98,10 @@ describe('oauthStartSchema — useSystemProxy', () => {
     const result = oauthStartSchema.safeParse({
       ...validOAuthStart(),
       useSystemProxy: 'true' as unknown as boolean,
-    });
-    expect(result.success).toBe(false);
-  });
-});
+    })
+    expect(result.success).toBe(false)
+  })
+})
 
 // ---------------------------------------------------------------------------
 // defaults
@@ -106,15 +114,15 @@ describe('OAUTH_START_DEFAULT_VALUES', () => {
       projectId: '',
       proxyUrl: '',
       useSystemProxy: false,
-    });
-  });
+    })
+  })
 
   it('fails schema validation (provider empty)', () => {
     expect(oauthStartSchema.safeParse(OAUTH_START_DEFAULT_VALUES).success).toBe(
-      false,
-    );
-  });
-});
+      false
+    )
+  })
+})
 
 // ---------------------------------------------------------------------------
 // search schema
@@ -123,25 +131,25 @@ describe('OAUTH_START_DEFAULT_VALUES', () => {
 describe('oauthSearchSchema', () => {
   it('accepts page 0 and any status string (no enum)', () => {
     expect(
-      oauthSearchSchema.parse({ page: '0', status: 'whatever' }),
-    ).toMatchObject({ page: 0, status: 'whatever' });
-  });
+      oauthSearchSchema.parse({ page: '0', status: 'whatever' })
+    ).toMatchObject({ page: 0, status: 'whatever' })
+  })
 
   it('normalizes a comma-separated sort descriptor to a canonical string', () => {
-    expect(oauthSearchSchema.parse({ sort: 'created:desc,model:asc' }).sort).toBe(
-      'created:desc,model:asc',
-    );
-  });
+    expect(
+      oauthSearchSchema.parse({ sort: 'created:desc,model:asc' }).sort
+    ).toBe('created:desc,model:asc')
+  })
 
   it('returns undefined for empty sort (no URL noise)', () => {
-    expect(oauthSearchSchema.parse({}).sort).toBeUndefined();
-    expect(oauthSearchSchema.parse({ sort: '[]' }).sort).toBeUndefined();
-  });
+    expect(oauthSearchSchema.parse({}).sort).toBeUndefined()
+    expect(oauthSearchSchema.parse({ sort: '[]' }).sort).toBeUndefined()
+  })
 
   it('rejects pageSize above 200', () => {
-    expect(oauthSearchSchema.safeParse({ pageSize: '201' }).success).toBe(false);
-  });
-});
+    expect(oauthSearchSchema.safeParse({ pageSize: '201' }).success).toBe(false)
+  })
+})
 
 // ---------------------------------------------------------------------------
 // shared item schemas
@@ -152,24 +160,22 @@ describe('shared OAuth item schemas', () => {
     expect(OAUTH_PAGINATION_SCHEMA.parse({})).toEqual({
       pageIndex: 0,
       pageSize: 20,
-    });
-  });
+    })
+  })
 
   it('OAUTH_SORTING_ITEM_SCHEMA requires both fields', () => {
+    expect(OAUTH_SORTING_ITEM_SCHEMA.safeParse({ id: 'a' }).success).toBe(false)
     expect(
-      OAUTH_SORTING_ITEM_SCHEMA.safeParse({ id: 'a' }).success,
-    ).toBe(false);
-    expect(
-      OAUTH_SORTING_ITEM_SCHEMA.safeParse({ id: 'a', desc: true }).success,
-    ).toBe(true);
-  });
+      OAUTH_SORTING_ITEM_SCHEMA.safeParse({ id: 'a', desc: true }).success
+    ).toBe(true)
+  })
 
   it('OAUTH_COLUMN_FILTER_ITEM_SCHEMA accepts string / string[] / boolean', () => {
     expect(
-      OAUTH_COLUMN_FILTER_ITEM_SCHEMA.safeParse({ id: 'a', value: 'x' }).success,
-    ).toBe(true);
+      OAUTH_COLUMN_FILTER_ITEM_SCHEMA.safeParse({ id: 'a', value: 'x' }).success
+    ).toBe(true)
     expect(
-      OAUTH_COLUMN_FILTER_ITEM_SCHEMA.safeParse({ id: 'a', value: 42 }).success,
-    ).toBe(false);
-  });
-});
+      OAUTH_COLUMN_FILTER_ITEM_SCHEMA.safeParse({ id: 'a', value: 42 }).success
+    ).toBe(false)
+  })
+})

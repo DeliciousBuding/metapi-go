@@ -512,10 +512,22 @@
     },
     "dashboard": {
       "sections": {
-        "overview": { "title": "Overview", "description": "Core metrics, announcements, and scheduled-task health." },
-        "traffic": { "title": "Traffic", "description": "Income / spend, site trend, and distribution charts." },
-        "models": { "title": "Models", "description": "Model cost distribution, availability, and latency." },
-        "availability": { "title": "Availability", "description": "Realtime traffic (WebSocket) and uptime monitors." }
+        "overview": {
+          "title": "Overview",
+          "description": "Core metrics, announcements, and scheduled-task health."
+        },
+        "traffic": {
+          "title": "Traffic",
+          "description": "Income / spend, site trend, and distribution charts."
+        },
+        "models": {
+          "title": "Models",
+          "description": "Model cost distribution, availability, and latency."
+        },
+        "availability": {
+          "title": "Availability",
+          "description": "Realtime traffic (WebSocket) and uptime monitors."
+        }
       },
       "overview": {
         "statCards": {
@@ -549,15 +561,41 @@
       },
       "traffic": {
         "loadError": "Failed to load traffic data.",
-        "incomeOutcome": { "title": "Income vs spend", "description": "Daily balance inflow vs spend (30d).", "empty": "No balance flow data for the selected range." },
-        "siteTrend": { "title": "Site trend", "description": "Per-site spend over time.", "empty": "No site trend data yet." },
-        "siteDistribution": { "title": "Site distribution", "description": "Balance share by site.", "empty": "No site distribution data yet." }
+        "incomeOutcome": {
+          "title": "Income vs spend",
+          "description": "Daily balance inflow vs spend (30d).",
+          "empty": "No balance flow data for the selected range."
+        },
+        "siteTrend": {
+          "title": "Site trend",
+          "description": "Per-site spend over time.",
+          "empty": "No site trend data yet."
+        },
+        "siteDistribution": {
+          "title": "Site distribution",
+          "description": "Balance share by site.",
+          "empty": "No site distribution data yet."
+        }
       },
       "models": {
         "loadError": "Failed to load model / latency data.",
-        "costDistribution": { "title": "Cost distribution", "description": "Spend share by model (30d).", "empty": "No model cost data for the selected range." },
-        "latencyHistogram": { "title": "Latency histogram", "description": "Request count by latency bucket (7d).", "empty": "No latency samples yet." },
-        "latencyTrend": { "title": "Latency trend", "description": "Average and p95 latency over time (7d).", "metricAvg": "Average", "metricP95": "P95", "empty": "No latency trend data yet." }
+        "costDistribution": {
+          "title": "Cost distribution",
+          "description": "Spend share by model (30d).",
+          "empty": "No model cost data for the selected range."
+        },
+        "latencyHistogram": {
+          "title": "Latency histogram",
+          "description": "Request count by latency bucket (7d).",
+          "empty": "No latency samples yet."
+        },
+        "latencyTrend": {
+          "title": "Latency trend",
+          "description": "Average and p95 latency over time (7d).",
+          "metricAvg": "Average",
+          "metricP95": "P95",
+          "empty": "No latency trend data yet."
+        }
       },
       "availability": {
         "realtime": {
@@ -654,7 +692,10 @@
             "serverAddress": "Server address",
             "serverAddressHint": "Public base URL used for outbound links and OpenAPI docs."
           },
-          "toast": { "saved": "Site branding saved.", "saveFailed": "Failed to save site branding." }
+          "toast": {
+            "saved": "Site branding saved.",
+            "saveFailed": "Failed to save site branding."
+          }
         },
         "authentication": {
           "title": "Authentication",
@@ -752,7 +793,9 @@
             "modelAvailabilityProbeEnabled": "Enable model availability probe",
             "modelAvailabilityProbeEnabledHint": "Periodically probe upstream model availability and mark unreachable models."
           },
-          "schema": { "payloadRulesInvalid": "Payload rules must be a valid JSON object." },
+          "schema": {
+            "payloadRulesInvalid": "Payload rules must be a valid JSON object."
+          },
           "toast": {
             "saved": "Proxy & transport settings saved.",
             "saveFailed": "Failed to save proxy & transport settings.",
@@ -766,7 +809,11 @@
           "description": "Fallback cost, weights, cooldown, and timeouts.",
           "weightsGroup": "Routing weights",
           "weightsHint": "Presets apply canonical weight profiles; fine-tune individually as needed.",
-          "preset": { "balanced": "Balanced", "stable": "Stable-first", "cost": "Cost-first" },
+          "preset": {
+            "balanced": "Balanced",
+            "stable": "Stable-first",
+            "cost": "Cost-first"
+          },
           "fields": {
             "routingFallbackUnitCost": "Fallback unit cost",
             "routingFallbackUnitCostHint": "Default unit cost when no measured/configured value exists.",
@@ -782,7 +829,10 @@
             "balanceWeight": "Balance weight",
             "usageWeight": "Usage weight"
           },
-          "toast": { "saved": "Routing strategy saved.", "saveFailed": "Failed to save routing strategy." }
+          "toast": {
+            "saved": "Routing strategy saved.",
+            "saveFailed": "Failed to save routing strategy."
+          }
         }
       },
       "downstream": {
@@ -798,7 +848,13 @@
           "cost": "Cost: {{used}} / {{max}}",
           "deleteTitle": "Delete downstream key",
           "deleteDescription": "Delete key \"{{name}}\"? This action cannot be undone.",
-          "columns": { "name": "Name", "group": "Group", "enabled": "Enabled", "usage": "Usage", "actions": "Actions" },
+          "columns": {
+            "name": "Name",
+            "group": "Group",
+            "enabled": "Enabled",
+            "usage": "Usage",
+            "actions": "Actions"
+          },
           "fields": {
             "name": "Name",
             "key": "Key",
@@ -810,7 +866,10 @@
             "enabled": "Enabled",
             "description": "Description"
           },
-          "schema": { "nameRequired": "Name is required.", "keyMinLength": "Key must be at least 8 characters." },
+          "schema": {
+            "nameRequired": "Name is required.",
+            "keyMinLength": "Key must be at least 8 characters."
+          },
           "toast": {
             "created": "Downstream key created.",
             "createFailed": "Failed to create downstream key.",
@@ -827,9 +886,17 @@
           "notSet": "not set",
           "generate": "Generate",
           "save": "Update token",
-          "fields": { "suffix": "Token suffix", "suffixHint": "The sk- prefix is fixed. Generate or type a new suffix." },
-          "schema": { "suffixMinLength": "Suffix must be at least 8 characters." },
-          "toast": { "saved": "Proxy token updated.", "saveFailed": "Failed to update proxy token." }
+          "fields": {
+            "suffix": "Token suffix",
+            "suffixHint": "The sk- prefix is fixed. Generate or type a new suffix."
+          },
+          "schema": {
+            "suffixMinLength": "Suffix must be at least 8 characters."
+          },
+          "toast": {
+            "saved": "Proxy token updated.",
+            "saveFailed": "Failed to update proxy token."
+          }
         }
       },
       "models": {
@@ -841,7 +908,13 @@
           "apply": "Apply",
           "promote": "To manual",
           "empty": "No model redirects. Click Generate to scan accounts.",
-          "columns": { "canonical": "Canonical", "actual": "Actual", "account": "Account", "source": "Source", "actions": "Actions" },
+          "columns": {
+            "canonical": "Canonical",
+            "actual": "Actual",
+            "account": "Account",
+            "source": "Source",
+            "actions": "Actions"
+          },
           "source": { "sync": "Auto", "manual": "Manual" },
           "toast": {
             "generated": "Generated {{created}} redirects across {{accounts}} accounts.",
@@ -863,8 +936,20 @@
           "accountTable": "Account unit costs",
           "channelTable": "Channel weights",
           "empty": "No rate data available yet.",
-          "columns": { "account": "Account", "site": "Site", "channels": "Channels", "unitCost": "Unit cost", "route": "Route", "model": "Model", "enabled": "Enabled", "weight": "Weight" },
-          "toast": { "updated": "Updated (accounts: {{accounts}}, channels: {{channels}}).", "updateFailed": "Failed to update rates." }
+          "columns": {
+            "account": "Account",
+            "site": "Site",
+            "channels": "Channels",
+            "unitCost": "Unit cost",
+            "route": "Route",
+            "model": "Model",
+            "enabled": "Enabled",
+            "weight": "Weight"
+          },
+          "toast": {
+            "updated": "Updated (accounts: {{accounts}}, channels: {{channels}}).",
+            "updateFailed": "Failed to update rates."
+          }
         },
         "allowlist": {
           "title": "Global Allowlist & Brand Blocking",
@@ -1008,8 +1093,17 @@
           "deleteTitle": "Delete announcement",
           "deleteDescription": "Delete \"{{title}}\"? This action cannot be undone.",
           "empty": "No announcements. Create one to surface a risk banner.",
-          "columns": { "severity": "Severity", "title": "Title", "enabled": "Status", "actions": "Actions" },
-          "severity": { "info": "Info", "warning": "Warning", "critical": "Critical" },
+          "columns": {
+            "severity": "Severity",
+            "title": "Title",
+            "enabled": "Status",
+            "actions": "Actions"
+          },
+          "severity": {
+            "info": "Info",
+            "warning": "Warning",
+            "critical": "Critical"
+          },
           "fields": {
             "title": "Title",
             "message": "Message",
@@ -1043,8 +1137,19 @@
           "exportCsv": "Export CSV",
           "clear": "Clear",
           "empty": "No program events.",
-          "type": { "checkin": "Checkin", "balance": "Balance", "token": "Token", "proxy": "Proxy" },
-          "columns": { "time": "Time", "level": "Level", "type": "Type", "title": "Title", "actions": "Actions" },
+          "type": {
+            "checkin": "Checkin",
+            "balance": "Balance",
+            "token": "Token",
+            "proxy": "Proxy"
+          },
+          "columns": {
+            "time": "Time",
+            "level": "Level",
+            "type": "Type",
+            "title": "Title",
+            "actions": "Actions"
+          },
           "toast": {
             "allMarkedRead": "All events marked read.",
             "markAllFailed": "Failed to mark events read.",
@@ -1064,7 +1169,14 @@
           "page": "Page {{current}} of {{total}}",
           "previous": "Previous",
           "next": "Next",
-          "columns": { "time": "Time", "method": "Method", "path": "Path", "status": "Status", "actor": "Actor", "ip": "IP" }
+          "columns": {
+            "time": "Time",
+            "method": "Method",
+            "path": "Path",
+            "status": "Status",
+            "actor": "Actor",
+            "ip": "IP"
+          }
         },
         "updateCenter": {
           "title": "Update Center",

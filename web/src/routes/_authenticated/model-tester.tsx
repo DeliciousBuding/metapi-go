@@ -12,24 +12,27 @@
 
 import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
 
-import { api } from '@/lib/api'
 import { modelsKeys } from '@/features/models'
+import { api } from '@/lib/api'
 
 export const Route = createFileRoute('/_authenticated/model-tester')({
   loader: async ({ context }) => {
     await context.queryClient.prefetchQuery({
-      queryKey: modelsKeys.marketplace({ refresh: false, includePricing: false }),
+      queryKey: modelsKeys.marketplace({
+        refresh: false,
+        includePricing: false,
+      }),
       queryFn: async () => {
         const result = await api.getModelsMarketplace({
           refresh: false,
           includePricing: false,
         })
-        return Array.isArray(result) ? result : result?.models ?? []
+        return Array.isArray(result) ? result : (result?.models ?? [])
       },
     })
   },
   component: lazyRouteComponent(
     () => import('@/features/model-tester/components/model-tester-page'),
-    'ModelTesterPage',
+    'ModelTesterPage'
   ),
 })

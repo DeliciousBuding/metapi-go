@@ -30,7 +30,7 @@ export function SettingsFormActions({
   const pendingLabel = savingLabel ?? t('settings.common.saving')
   return (
     <div className='flex items-center gap-2'>
-      <span className='text-xs text-muted-foreground'>
+      <span className='text-muted-foreground text-xs'>
         {isDirty ? t('settings.common.unsaved') : t('settings.common.saved')}
       </span>
       <Button
@@ -42,7 +42,12 @@ export function SettingsFormActions({
       >
         {t('settings.common.reset')}
       </Button>
-      <Button type='submit' form={formId} size='sm' disabled={!isDirty || isPending}>
+      <Button
+        type='submit'
+        form={formId}
+        size='sm'
+        disabled={!isDirty || isPending}
+      >
         {isPending ? pendingLabel : label}
       </Button>
     </div>

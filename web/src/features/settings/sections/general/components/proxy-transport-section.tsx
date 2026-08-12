@@ -9,8 +9,6 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
-import { api } from '@/lib/api'
-
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -23,13 +21,17 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { api } from '@/lib/api'
 
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
 import { SettingsFormActions } from '../../../components/settings-form-actions'
 import { SettingsSectionCard } from '../../../components/settings-section-card'
 import { SettingsSectionError } from '../../../components/settings-section-error'
 import { useSettingsForm } from '../../../hooks/use-settings-form'
-import { collectChangedFields, hasChanges } from '../../../lib/collect-changed-fields'
+import {
+  collectChangedFields,
+  hasChanges,
+} from '../../../lib/collect-changed-fields'
 import {
   asBoolean,
   asNumber,
@@ -61,7 +63,7 @@ const payloadRulesSchema = z
         return false
       }
     },
-    { message: 'settings.general.proxyTransport.schema.payloadRulesInvalid' },
+    { message: 'settings.general.proxyTransport.schema.payloadRulesInvalid' }
   )
 
 const proxyTransportSchema = z.object({
@@ -91,7 +93,7 @@ const DEFAULT_VALUES: ProxyTransportFormValues = {
 }
 
 function deriveServerValues(
-  data: RuntimeSettings | undefined,
+  data: RuntimeSettings | undefined
 ): ProxyTransportFormValues | null {
   if (!data) {
     return null
@@ -110,21 +112,23 @@ function deriveServerValues(
     proxyErrorKeywords: joinListField(splitListField(data.proxyErrorKeywords)),
     proxyEmptyContentFailEnabled: asBoolean(data.proxyEmptyContentFailEnabled),
     payloadRules: payloadRulesJson,
-    codexUpstreamWebsocketEnabled: asBoolean(data.codexUpstreamWebsocketEnabled),
+    codexUpstreamWebsocketEnabled: asBoolean(
+      data.codexUpstreamWebsocketEnabled
+    ),
     responsesCompactFallbackToResponsesEnabled: asBoolean(
-      data.responsesCompactFallbackToResponsesEnabled,
+      data.responsesCompactFallbackToResponsesEnabled
     ),
     proxySessionChannelConcurrencyLimit:
       asNumber(data.proxySessionChannelConcurrencyLimit) ?? 2,
     proxySessionChannelQueueWaitMs:
       asNumber(data.proxySessionChannelQueueWaitMs) ?? 1500,
-    modelAvailabilityProbeEnabled: asBoolean(data.modelAvailabilityProbeEnabled),
+    modelAvailabilityProbeEnabled: asBoolean(
+      data.modelAvailabilityProbeEnabled
+    ),
   }
 }
 
-function proxyTransportToPayload(
-  changed: Partial<ProxyTransportFormValues>,
-) {
+function proxyTransportToPayload(changed: Partial<ProxyTransportFormValues>) {
   const payload: Record<string, unknown> = {}
   if (changed.systemProxyUrl !== undefined) {
     payload.systemProxyUrl = changed.systemProxyUrl
@@ -141,7 +145,8 @@ function proxyTransportToPayload(
       : null
   }
   if (changed.codexUpstreamWebsocketEnabled !== undefined) {
-    payload.codexUpstreamWebsocketEnabled = changed.codexUpstreamWebsocketEnabled
+    payload.codexUpstreamWebsocketEnabled =
+      changed.codexUpstreamWebsocketEnabled
   }
   if (changed.responsesCompactFallbackToResponsesEnabled !== undefined) {
     payload.responsesCompactFallbackToResponsesEnabled =
@@ -152,10 +157,12 @@ function proxyTransportToPayload(
       changed.proxySessionChannelConcurrencyLimit
   }
   if (changed.proxySessionChannelQueueWaitMs !== undefined) {
-    payload.proxySessionChannelQueueWaitMs = changed.proxySessionChannelQueueWaitMs
+    payload.proxySessionChannelQueueWaitMs =
+      changed.proxySessionChannelQueueWaitMs
   }
   if (changed.modelAvailabilityProbeEnabled !== undefined) {
-    payload.modelAvailabilityProbeEnabled = changed.modelAvailabilityProbeEnabled
+    payload.modelAvailabilityProbeEnabled =
+      changed.modelAvailabilityProbeEnabled
   }
   return payload
 }
@@ -179,7 +186,7 @@ export function ProxyTransportSection() {
       const latency = (result as { latencyMs?: number } | null)?.latencyMs
       if (typeof latency === 'number') {
         toast.success(
-          t('settings.general.proxyTransport.toast.proxyOk', { ms: latency }),
+          t('settings.general.proxyTransport.toast.proxyOk', { ms: latency })
         )
       } else {
         toast.success(t('settings.general.proxyTransport.toast.proxyOkGeneric'))
@@ -192,7 +199,7 @@ export function ProxyTransportSection() {
   function onSubmit(values: ProxyTransportFormValues) {
     const changed = collectChangedFields(
       values as unknown as Record<string, unknown>,
-      baseline as unknown as Record<string, unknown> | null,
+      baseline as unknown as Record<string, unknown> | null
     ) as Partial<ProxyTransportFormValues>
     if (!hasChanges(changed)) {
       toast.info(t('settings.common.noChanges'))
@@ -212,7 +219,7 @@ export function ProxyTransportSection() {
         title={t('settings.general.proxyTransport.title')}
         description={t('settings.general.proxyTransport.description')}
       >
-        <p className='text-sm text-muted-foreground'>
+        <p className='text-muted-foreground text-sm'>
           {t('settings.common.loading')}
         </p>
       </SettingsSectionCard>
@@ -276,7 +283,9 @@ export function ProxyTransportSection() {
                   />
                 </FormControl>
                 <FormDescription>
-                  {t('settings.general.proxyTransport.fields.systemProxyUrlHint')}
+                  {t(
+                    'settings.general.proxyTransport.fields.systemProxyUrlHint'
+                  )}
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -288,18 +297,22 @@ export function ProxyTransportSection() {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>
-                  {t('settings.general.proxyTransport.fields.proxyErrorKeywords')}
+                  {t(
+                    'settings.general.proxyTransport.fields.proxyErrorKeywords'
+                  )}
                 </FormLabel>
                 <FormControl>
                   <textarea
                     {...field}
                     value={field.value ?? ''}
                     rows={4}
-                    className='flex field-sizing-content w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50'
+                    className='border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex field-sizing-content w-full rounded-md border bg-transparent px-3 py-2 font-mono text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]'
                   />
                 </FormControl>
                 <FormDescription>
-                  {t('settings.general.proxyTransport.fields.proxyErrorKeywordsHint')}
+                  {t(
+                    'settings.general.proxyTransport.fields.proxyErrorKeywordsHint'
+                  )}
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -318,10 +331,14 @@ export function ProxyTransportSection() {
                 </FormControl>
                 <div className='space-y-1'>
                   <FormLabel className='cursor-pointer'>
-                    {t('settings.general.proxyTransport.fields.proxyEmptyContentFailEnabled')}
+                    {t(
+                      'settings.general.proxyTransport.fields.proxyEmptyContentFailEnabled'
+                    )}
                   </FormLabel>
                   <FormDescription>
-                    {t('settings.general.proxyTransport.fields.proxyEmptyContentFailEnabledHint')}
+                    {t(
+                      'settings.general.proxyTransport.fields.proxyEmptyContentFailEnabledHint'
+                    )}
                   </FormDescription>
                 </div>
               </FormItem>
@@ -341,7 +358,7 @@ export function ProxyTransportSection() {
                     value={field.value ?? ''}
                     rows={6}
                     placeholder='{ "default": {} }'
-                    className='flex field-sizing-content w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50'
+                    className='border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex field-sizing-content w-full rounded-md border bg-transparent px-3 py-2 font-mono text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]'
                   />
                 </FormControl>
                 <FormDescription>
@@ -368,7 +385,9 @@ export function ProxyTransportSection() {
                     />
                   </FormControl>
                   <FormLabel className='cursor-pointer'>
-                    {t('settings.general.proxyTransport.fields.codexUpstreamWebsocketEnabled')}
+                    {t(
+                      'settings.general.proxyTransport.fields.codexUpstreamWebsocketEnabled'
+                    )}
                   </FormLabel>
                 </FormItem>
               )}
@@ -385,7 +404,9 @@ export function ProxyTransportSection() {
                     />
                   </FormControl>
                   <FormLabel className='cursor-pointer'>
-                    {t('settings.general.proxyTransport.fields.responsesCompactFallbackEnabled')}
+                    {t(
+                      'settings.general.proxyTransport.fields.responsesCompactFallbackEnabled'
+                    )}
                   </FormLabel>
                 </FormItem>
               )}
@@ -397,10 +418,17 @@ export function ProxyTransportSection() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      {t('settings.general.proxyTransport.fields.proxySessionChannelConcurrencyLimit')}
+                      {t(
+                        'settings.general.proxyTransport.fields.proxySessionChannelConcurrencyLimit'
+                      )}
                     </FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value ?? ''} type='number' min={0} />
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        type='number'
+                        min={0}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -412,10 +440,18 @@ export function ProxyTransportSection() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      {t('settings.general.proxyTransport.fields.proxySessionChannelQueueWaitMs')}
+                      {t(
+                        'settings.general.proxyTransport.fields.proxySessionChannelQueueWaitMs'
+                      )}
                     </FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value ?? ''} type='number' min={0} step={100} />
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        type='number'
+                        min={0}
+                        step={100}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -428,7 +464,7 @@ export function ProxyTransportSection() {
             control={form.control}
             name='modelAvailabilityProbeEnabled'
             render={({ field }) => (
-              <FormItem className='flex flex-row items-center gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4'>
+              <FormItem className='border-destructive/40 bg-destructive/5 flex flex-row items-center gap-3 rounded-lg border p-4'>
                 <FormControl>
                   <Checkbox
                     checked={Boolean(field.value)}
@@ -437,10 +473,14 @@ export function ProxyTransportSection() {
                 </FormControl>
                 <div className='space-y-1'>
                   <FormLabel className='cursor-pointer'>
-                    {t('settings.general.proxyTransport.fields.modelAvailabilityProbeEnabled')}
+                    {t(
+                      'settings.general.proxyTransport.fields.modelAvailabilityProbeEnabled'
+                    )}
                   </FormLabel>
                   <FormDescription>
-                    {t('settings.general.proxyTransport.fields.modelAvailabilityProbeEnabledHint')}
+                    {t(
+                      'settings.general.proxyTransport.fields.modelAvailabilityProbeEnabledHint'
+                    )}
                   </FormDescription>
                 </div>
               </FormItem>

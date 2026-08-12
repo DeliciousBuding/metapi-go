@@ -5,12 +5,9 @@
 // cross-feature deep linking (the latency/status badges are reusable
 // presentational components for any feature that renders a proxy log row).
 
-
 export {
   proxyLogsSearchSchema,
   type ProxyLogsSearch,
 } from './lib/proxy-logs-schema'
 
-export {
-  proxyLogsKeys,
-} from './types'
+export { proxyLogsKeys } from './types'

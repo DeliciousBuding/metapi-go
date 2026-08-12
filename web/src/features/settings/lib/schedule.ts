@@ -14,7 +14,7 @@ import type { ScheduleSpecV1 } from '@/lib/api'
 export const SCHEDULE_SPEC_VERSION = 1 as const
 
 export function cronToSchedule(
-  cron: string | null | undefined,
+  cron: string | null | undefined
 ): ScheduleSpecV1 {
   const raw = cron?.trim() ?? ''
   if (!raw) {
@@ -34,7 +34,12 @@ export function cronToSchedule(
     return { version: 1, kind: 'custom', cron: raw }
   }
   const minuteNum = Number(minute)
-  if (minute === '*' || !Number.isInteger(minuteNum) || minuteNum < 0 || minuteNum > 59) {
+  if (
+    minute === '*' ||
+    !Number.isInteger(minuteNum) ||
+    minuteNum < 0 ||
+    minuteNum > 59
+  ) {
     return { version: 1, kind: 'custom', cron: raw }
   }
   const intervalMatch = /^\*$|^\*\/(\d+)$/.exec(hour)
@@ -80,9 +85,9 @@ export function scheduleEqual(a: ScheduleSpecV1, b: ScheduleSpecV1): boolean {
       return b.kind === 'interval' && a.everyHours === b.everyHours
     case 'window':
       return (
-        b.kind === 'window'
-        && a.windowStart === b.windowStart
-        && a.windowEnd === b.windowEnd
+        b.kind === 'window' &&
+        a.windowStart === b.windowStart &&
+        a.windowEnd === b.windowEnd
       )
     case 'custom':
       return b.kind === 'custom' && a.cron === b.cron
@@ -96,7 +101,7 @@ export function scheduleEqual(a: ScheduleSpecV1, b: ScheduleSpecV1): boolean {
  */
 export function scheduleToCron(
   spec: ScheduleSpecV1 | undefined,
-  originalCron?: string,
+  originalCron?: string
 ): string | undefined {
   if (!spec) {
     return undefined
@@ -119,7 +124,7 @@ export function scheduleToCron(
 
 /** Map a ScheduleSpec to the legacy `checkinScheduleMode` value. */
 export function specToLegacyMode(
-  spec: ScheduleSpecV1 | undefined,
+  spec: ScheduleSpecV1 | undefined
 ): 'cron' | 'interval' | 'window' {
   if (spec?.kind === 'interval') {
     return 'interval'

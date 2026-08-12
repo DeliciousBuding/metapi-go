@@ -10,8 +10,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
-import { api, type RuntimeSettingsPayload, type ScheduleSpecV1 } from '@/lib/api'
-
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -24,13 +23,22 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import {
+  api,
+  type RuntimeSettingsPayload,
+  type ScheduleSpecV1,
+} from '@/lib/api'
 
-import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
 import { ScheduleEditor } from '../../../components/schedule-editor'
 import { SettingsFormActions } from '../../../components/settings-form-actions'
 import { SettingsSectionCard } from '../../../components/settings-section-card'
 import { SettingsSectionError } from '../../../components/settings-section-error'
+import { useSettingsForm } from '../../../hooks/use-settings-form'
+import {
+  collectChangedFields,
+  hasChanges,
+} from '../../../lib/collect-changed-fields'
 import {
   useApplySettingsMigration,
   useRuntimeSettings,
@@ -38,13 +46,11 @@ import {
   useUpdateRuntimeSettings,
   type RuntimeSettings,
 } from '../../../lib/runtime-settings'
-import { collectChangedFields, hasChanges } from '../../../lib/collect-changed-fields'
 import {
   scheduleFromLegacy,
   scheduleToCron,
   specToLegacyMode,
 } from '../../../lib/schedule'
-import { useSettingsForm } from '../../../hooks/use-settings-form'
 
 const FORM_ID = 'settings-general-scheduling-form'
 
@@ -93,14 +99,14 @@ const DEFAULT_VALUES: SchedulingFormValues = {
 }
 
 function deriveServerValues(
-  data: RuntimeSettings | undefined,
+  data: RuntimeSettings | undefined
 ): SchedulingFormValues | null {
   if (!data) {
     return null
   }
   const checkinSchedule =
-    data.checkinSchedule
-    ?? scheduleFromLegacy({
+    data.checkinSchedule ??
+    scheduleFromLegacy({
       cron: data.checkinCron,
       mode: data.checkinScheduleMode,
       intervalHours: data.checkinIntervalHours,
@@ -108,11 +114,10 @@ function deriveServerValues(
       windowEnd: data.checkinWindowEnd,
     })
   const balanceSchedule =
-    data.balanceRefreshSchedule
-    ?? scheduleFromLegacy({ cron: data.balanceRefreshCron })
+    data.balanceRefreshSchedule ??
+    scheduleFromLegacy({ cron: data.balanceRefreshCron })
   const logCleanupSchedule =
-    data.logCleanupSchedule
-    ?? scheduleFromLegacy({ cron: data.logCleanupCron })
+    data.logCleanupSchedule ?? scheduleFromLegacy({ cron: data.logCleanupCron })
   return {
     checkinSchedule,
     balanceRefreshSchedule: balanceSchedule,
@@ -127,7 +132,7 @@ function deriveServerValues(
 function projectSchedule(
   payload: RuntimeSettingsPayload,
   job: 'checkin' | 'balance' | 'log',
-  spec: ScheduleSpecV1,
+  spec: ScheduleSpecV1
 ) {
   if (job === 'checkin') {
     payload.checkinSchedule = spec
@@ -155,7 +160,7 @@ function projectSchedule(
 }
 
 function schedulingToPayload(
-  changed: Partial<SchedulingFormValues>,
+  changed: Partial<SchedulingFormValues>
 ): RuntimeSettingsPayload {
   const payload: RuntimeSettingsPayload = {}
   if (changed.checkinSchedule) {
@@ -185,11 +190,12 @@ export function SchedulingSection() {
   const updateMutation = useUpdateRuntimeSettings()
 
   const serverValues = deriveServerValues(data)
-  const { form, baseline, syncFromServer } = useSettingsForm<SchedulingFormValues>({
-    schema: schedulingSchema,
-    defaultValues: DEFAULT_VALUES,
-    serverValues,
-  })
+  const { form, baseline, syncFromServer } =
+    useSettingsForm<SchedulingFormValues>({
+      schema: schedulingSchema,
+      defaultValues: DEFAULT_VALUES,
+      serverValues,
+    })
 
   const triggerCheckinMutation = useMutation({
     mutationFn: async () => api.triggerCheckinAll(),
@@ -202,15 +208,17 @@ export function SchedulingSection() {
   function onSubmit(values: SchedulingFormValues) {
     const changed = collectChangedFields(
       values as unknown as Record<string, unknown>,
-      baseline as unknown as Record<string, unknown> | null,
+      baseline as unknown as Record<string, unknown> | null
     ) as Partial<SchedulingFormValues>
     if (!hasChanges(changed)) {
       toast.info(t('settings.common.noChanges'))
       return
     }
     updateMutation.mutate(schedulingToPayload(changed), {
-      onSuccess: () => toast.success(t('settings.general.scheduling.toast.saved')),
-      onError: () => toast.error(t('settings.general.scheduling.toast.saveFailed')),
+      onSuccess: () =>
+        toast.success(t('settings.general.scheduling.toast.saved')),
+      onError: () =>
+        toast.error(t('settings.general.scheduling.toast.saveFailed')),
     })
   }
 
@@ -220,7 +228,7 @@ export function SchedulingSection() {
         title={t('settings.general.scheduling.title')}
         description={t('settings.general.scheduling.description')}
       >
-        <p className='text-sm text-muted-foreground'>
+        <p className='text-muted-foreground text-sm'>
           {t('settings.common.loading')}
         </p>
       </SettingsSectionCard>
@@ -298,10 +306,15 @@ export function SchedulingSection() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    {t('settings.general.scheduling.fields.balanceRefreshSchedule')}
+                    {t(
+                      'settings.general.scheduling.fields.balanceRefreshSchedule'
+                    )}
                   </FormLabel>
                   <FormControl>
-                    <ScheduleEditor value={field.value} onChange={field.onChange} />
+                    <ScheduleEditor
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -322,7 +335,10 @@ export function SchedulingSection() {
                     {t('settings.general.scheduling.fields.logCleanupSchedule')}
                   </FormLabel>
                   <FormControl>
-                    <ScheduleEditor value={field.value} onChange={field.onChange} />
+                    <ScheduleEditor
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -334,7 +350,9 @@ export function SchedulingSection() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    {t('settings.general.scheduling.fields.logCleanupRetentionDays')}
+                    {t(
+                      'settings.general.scheduling.fields.logCleanupRetentionDays'
+                    )}
                   </FormLabel>
                   <FormControl>
                     <Input
@@ -362,10 +380,14 @@ export function SchedulingSection() {
                   </FormControl>
                   <div className='space-y-1'>
                     <FormLabel className='cursor-pointer'>
-                      {t('settings.general.scheduling.fields.logCleanupUsageLogsEnabled')}
+                      {t(
+                        'settings.general.scheduling.fields.logCleanupUsageLogsEnabled'
+                      )}
                     </FormLabel>
                     <FormDescription>
-                      {t('settings.general.scheduling.fields.logCleanupUsageLogsEnabledHint')}
+                      {t(
+                        'settings.general.scheduling.fields.logCleanupUsageLogsEnabledHint'
+                      )}
                     </FormDescription>
                   </div>
                 </FormItem>
@@ -384,10 +406,14 @@ export function SchedulingSection() {
                   </FormControl>
                   <div className='space-y-1'>
                     <FormLabel className='cursor-pointer'>
-                      {t('settings.general.scheduling.fields.logCleanupProgramLogsEnabled')}
+                      {t(
+                        'settings.general.scheduling.fields.logCleanupProgramLogsEnabled'
+                      )}
                     </FormLabel>
                     <FormDescription>
-                      {t('settings.general.scheduling.fields.logCleanupProgramLogsEnabledHint')}
+                      {t(
+                        'settings.general.scheduling.fields.logCleanupProgramLogsEnabledHint'
+                      )}
                     </FormDescription>
                   </div>
                 </FormItem>
@@ -399,7 +425,9 @@ export function SchedulingSection() {
             formId={FORM_ID}
             isDirty={isDirty}
             isPending={updateMutation.isPending}
-            onReset={() => syncFromServer(deriveServerValues(data) ?? DEFAULT_VALUES)}
+            onReset={() =>
+              syncFromServer(deriveServerValues(data) ?? DEFAULT_VALUES)
+            }
           />
         </form>
       </Form>
@@ -424,19 +452,19 @@ function MigrationCard() {
   }
 
   return (
-    <div className='mb-6 space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4'>
+    <div className='border-primary/30 bg-primary/5 mb-6 space-y-3 rounded-lg border p-4'>
       <div>
         <h4 className='text-sm font-medium'>
           {t('settings.general.scheduling.migration.title')}
         </h4>
-        <p className='mt-1 text-xs text-muted-foreground'>
+        <p className='text-muted-foreground mt-1 text-xs'>
           {t('settings.general.scheduling.migration.summary', {
             current: preview.currentVersion,
             target: preview.targetVersion,
             pending: preview.pending,
           })}
         </p>
-        <ul className='mt-2 list-inside list-disc space-y-1 text-xs text-muted-foreground'>
+        <ul className='text-muted-foreground mt-2 list-inside list-disc space-y-1 text-xs'>
           <li>
             {t('settings.general.scheduling.migration.customCount', {
               count: preview.customCount,
@@ -467,7 +495,9 @@ function MigrationCard() {
             onSuccess: () =>
               toast.success(t('settings.general.scheduling.migration.applied')),
             onError: () =>
-              toast.error(t('settings.general.scheduling.migration.applyFailed')),
+              toast.error(
+                t('settings.general.scheduling.migration.applyFailed')
+              ),
           })
         }}
         onCancel={() => setConfirmOpen(false)}

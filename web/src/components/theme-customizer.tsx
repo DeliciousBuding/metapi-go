@@ -33,8 +33,16 @@ const FONT_OPTIONS: {
   preview?: string
 }[] = [
   { value: 'default', labelKey: 'theme.fontOptions.auto' },
-  { value: 'sans', labelKey: 'theme.fontOptions.sans', preview: 'var(--font-sans)' },
-  { value: 'serif', labelKey: 'theme.fontOptions.serif', preview: 'var(--font-serif)' },
+  {
+    value: 'sans',
+    labelKey: 'theme.fontOptions.sans',
+    preview: 'var(--font-sans)',
+  },
+  {
+    value: 'serif',
+    labelKey: 'theme.fontOptions.serif',
+    preview: 'var(--font-serif)',
+  },
 ]
 
 const RADIUS_OPTIONS: {
@@ -57,7 +65,11 @@ const SCALE_OPTIONS: {
   // Font size used by the "Aa" preview tile.
   fontSize: string
 }[] = [
-  { value: 'default', labelKey: 'theme.scaleOptions.auto', fontSize: '0.875rem' },
+  {
+    value: 'default',
+    labelKey: 'theme.scaleOptions.auto',
+    fontSize: '0.875rem',
+  },
   { value: 'sm', labelKey: 'theme.scaleOptions.sm', fontSize: '0.75rem' },
   { value: 'lg', labelKey: 'theme.scaleOptions.lg', fontSize: '1rem' },
   { value: 'xl', labelKey: 'theme.scaleOptions.xl', fontSize: '1.25rem' },
@@ -77,7 +89,7 @@ function TileCheck() {
       aria-hidden='true'
       className='bg-primary absolute top-0 right-0 z-10 flex size-4.5 translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full group-data-unchecked:hidden'
     >
-      <Check className='size-3 text-primary-foreground' />
+      <Check className='text-primary-foreground size-3' />
     </span>
   )
 }
@@ -187,7 +199,9 @@ function FontSection() {
               </span>
               <TileCheck />
             </div>
-            <div className='mt-1.5 text-center text-xs'>{t(option.labelKey)}</div>
+            <div className='mt-1.5 text-center text-xs'>
+              {t(option.labelKey)}
+            </div>
           </RadioPrimitive.Root>
         ))}
       </RadioGroup>
@@ -226,7 +240,9 @@ function RadiusSection() {
               />
               <TileCheck />
             </div>
-            <div className='mt-1.5 text-center text-xs'>{t(option.labelKey)}</div>
+            <div className='mt-1.5 text-center text-xs'>
+              {t(option.labelKey)}
+            </div>
           </RadioPrimitive.Root>
         ))}
       </RadioGroup>
@@ -267,7 +283,9 @@ function ScaleSection() {
               </span>
               <TileCheck />
             </div>
-            <div className='mt-1.5 text-center text-xs'>{t(option.labelKey)}</div>
+            <div className='mt-1.5 text-center text-xs'>
+              {t(option.labelKey)}
+            </div>
           </RadioPrimitive.Root>
         ))}
       </RadioGroup>

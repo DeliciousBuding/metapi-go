@@ -42,7 +42,7 @@ export const stringSearchParam = z
  * `?q=123` (number) or `?enabled=true` (boolean).
  */
 export function asStringParam(
-  value: string | number | boolean | undefined,
+  value: string | number | boolean | undefined
 ): string | undefined {
   if (typeof value === 'string') return value
   return value === undefined ? undefined : String(value)

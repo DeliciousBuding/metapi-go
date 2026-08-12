@@ -25,14 +25,18 @@ describe('collectChangedFields', () => {
 
   it('includes a whole nested object when any child differs', () => {
     const baseline = { weights: { a: 1, b: 2 } }
-    expect(collectChangedFields({ weights: { a: 1, b: 3 } }, baseline)).toEqual({
-      weights: { a: 1, b: 3 },
-    })
+    expect(collectChangedFields({ weights: { a: 1, b: 3 } }, baseline)).toEqual(
+      {
+        weights: { a: 1, b: 3 },
+      }
+    )
   })
 
   it('treats equal nested objects as unchanged', () => {
     const baseline = { weights: { a: 1, b: 2 } }
-    expect(collectChangedFields({ weights: { a: 1, b: 2 } }, baseline)).toEqual({})
+    expect(collectChangedFields({ weights: { a: 1, b: 2 } }, baseline)).toEqual(
+      {}
+    )
   })
 
   it('detects array changes', () => {
@@ -49,12 +53,16 @@ describe('collectChangedFields', () => {
 
   it('returns the full values when baseline is missing', () => {
     expect(collectChangedFields({ name: 'a' }, null)).toEqual({ name: 'a' })
-    expect(collectChangedFields({ name: 'a' }, undefined)).toEqual({ name: 'a' })
+    expect(collectChangedFields({ name: 'a' }, undefined)).toEqual({
+      name: 'a',
+    })
   })
 
   it('detects type changes', () => {
     const baseline = { count: 1 as number | string }
-    expect(collectChangedFields({ count: '1' }, baseline)).toEqual({ count: '1' })
+    expect(collectChangedFields({ count: '1' }, baseline)).toEqual({
+      count: '1',
+    })
   })
 })
 

@@ -24,9 +24,9 @@ export function SignInPage({ redirectTo }: SignInPageProps) {
   const { t } = useTranslation()
 
   return (
-    <div className='relative flex min-h-svh items-center justify-center bg-background px-4 pt-16 pb-4'>
+    <div className='bg-background relative flex min-h-svh items-center justify-center px-4 pt-16 pb-4'>
       <InterfaceControls className='absolute top-3 right-3 sm:top-4 sm:right-4' />
-      <Card className='shadow-sm relative w-full max-w-sm'>
+      <Card className='relative w-full max-w-sm shadow-sm'>
         <CardHeader className='gap-2 text-center'>
           <img
             src={metapiIdentity.logoPath}
@@ -40,7 +40,7 @@ export function SignInPage({ redirectTo }: SignInPageProps) {
         </CardHeader>
         <CardContent className='grid gap-4'>
           <LoginForm redirectTo={redirectTo} />
-          <p className='text-pretty text-center text-xs text-muted-foreground'>
+          <p className='text-muted-foreground text-center text-xs text-pretty'>
             {t('auth.login.note')}
           </p>
         </CardContent>

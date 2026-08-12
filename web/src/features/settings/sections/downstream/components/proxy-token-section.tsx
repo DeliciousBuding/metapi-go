@@ -26,7 +26,10 @@ import { SettingsFormActions } from '../../../components/settings-form-actions'
 import { SettingsSectionCard } from '../../../components/settings-section-card'
 import { SettingsSectionError } from '../../../components/settings-section-error'
 import { useSettingsForm } from '../../../hooks/use-settings-form'
-import { collectChangedFields, hasChanges } from '../../../lib/collect-changed-fields'
+import {
+  collectChangedFields,
+  hasChanges,
+} from '../../../lib/collect-changed-fields'
 import {
   asString,
   useRuntimeSettings,
@@ -48,7 +51,9 @@ const DEFAULT_VALUES: ProxyTokenFormValues = { proxyTokenSuffix: '' }
 function generateHighEntropySuffix(): string {
   const bytes = new Uint8Array(48)
   crypto.getRandomValues(bytes)
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join(
+    ''
+  )
 }
 
 export function ProxyTokenSection() {
@@ -59,11 +64,12 @@ export function ProxyTokenSection() {
   // The runtime response masks the suffix; we never prefill the input. The
   // server snapshot is always the empty baseline so a typed value is always
   // "dirty" and a blank value is never submitted.
-  const { form, baseline, syncFromServer } = useSettingsForm<ProxyTokenFormValues>({
-    schema: proxyTokenSchema,
-    defaultValues: DEFAULT_VALUES,
-    serverValues: data ? { proxyTokenSuffix: '' } : null,
-  })
+  const { form, baseline, syncFromServer } =
+    useSettingsForm<ProxyTokenFormValues>({
+      schema: proxyTokenSchema,
+      defaultValues: DEFAULT_VALUES,
+      serverValues: data ? { proxyTokenSuffix: '' } : null,
+    })
 
   function generateNewSuffix() {
     form.setValue('proxyTokenSuffix', generateHighEntropySuffix(), {
@@ -74,7 +80,7 @@ export function ProxyTokenSection() {
   function onSubmit(values: ProxyTokenFormValues) {
     const changed = collectChangedFields(
       values as unknown as Record<string, unknown>,
-      baseline as unknown as Record<string, unknown> | null,
+      baseline as unknown as Record<string, unknown> | null
     ) as Partial<ProxyTokenFormValues>
     if (!hasChanges(changed) || !changed.proxyTokenSuffix) {
       toast.info(t('settings.common.noChanges'))
@@ -90,7 +96,7 @@ export function ProxyTokenSection() {
         },
         onError: () =>
           toast.error(t('settings.downstream.proxyToken.toast.saveFailed')),
-      },
+      }
     )
   }
 
@@ -100,7 +106,7 @@ export function ProxyTokenSection() {
         title={t('settings.downstream.proxyToken.title')}
         description={t('settings.downstream.proxyToken.description')}
       >
-        <p className='text-sm text-muted-foreground'>
+        <p className='text-muted-foreground text-sm'>
           {t('settings.common.loading')}
         </p>
       </SettingsSectionCard>
@@ -124,9 +130,9 @@ export function ProxyTokenSection() {
       title={t('settings.downstream.proxyToken.title')}
       description={t('settings.downstream.proxyToken.description')}
     >
-      <div className='mb-4 text-sm text-muted-foreground'>
+      <div className='text-muted-foreground mb-4 text-sm'>
         <span>{t('settings.downstream.proxyToken.current')}</span>
-        <code className='ml-2 rounded bg-muted px-2 py-0.5 text-xs'>
+        <code className='bg-muted ml-2 rounded px-2 py-0.5 text-xs'>
           {masked || t('settings.downstream.proxyToken.notSet')}
         </code>
       </div>

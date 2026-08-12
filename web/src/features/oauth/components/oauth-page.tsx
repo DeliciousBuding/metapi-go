@@ -29,7 +29,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-
 import { asStringParam, parseSortingParam } from '@/lib/helpers/searchParams'
 
 import {
@@ -40,10 +39,7 @@ import {
 } from '../api'
 import { oauthSearchSchema } from '../lib/oauth-schema'
 import type { OAuthClient } from '../types'
-import {
-  OAUTH_STATUS_FILTER_OPTIONS,
-  useOAuthColumns,
-} from './oauth-columns'
+import { OAUTH_STATUS_FILTER_OPTIONS, useOAuthColumns } from './oauth-columns'
 import { OAuthStartDialog } from './oauth-start-dialog'
 
 const OAUTH_COLUMN_VISIBILITY_STORAGE_KEY = 'metapi-go:oauth:column-visibility'
@@ -148,16 +144,24 @@ export function OAuthPage() {
     onRefreshQuota: (client) => {
       refreshQuota.mutate(client.accountId, {
         onSuccess: () =>
-          toast.success(t('oauth.toast.quotaRefreshed', { id: client.accountId })),
+          toast.success(
+            t('oauth.toast.quotaRefreshed', { id: client.accountId })
+          ),
       })
     },
     onRebind: (client) => {
       rebindConnection.mutate(client.accountId, {
         onSuccess: (result) => {
           if (result.authorizationUrl) {
-            window.open(result.authorizationUrl, '_blank', 'noopener,noreferrer')
+            window.open(
+              result.authorizationUrl,
+              '_blank',
+              'noopener,noreferrer'
+            )
           }
-          toast.success(t('oauth.toast.rebindStarted', { id: client.accountId }))
+          toast.success(
+            t('oauth.toast.rebindStarted', { id: client.accountId })
+          )
         },
       })
     },
@@ -209,7 +213,7 @@ export function OAuthPage() {
   return (
     <>
       {connectionsQuery.error && (
-        <div className='rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive'>
+        <div className='border-destructive/40 bg-destructive/10 text-destructive rounded-lg border p-3 text-sm'>
           {t('oauth.page.loadError', {
             message: (connectionsQuery.error as Error).message,
           })}

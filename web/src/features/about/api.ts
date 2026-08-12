@@ -28,7 +28,7 @@ const ABOUT_INFO: AboutInfo = {
  * network call. Pass `options.enabled` etc. to override.
  */
 export function useAboutInfo(
-  options?: Omit<UseQueryOptions<AboutInfo>, 'queryKey' | 'queryFn'>,
+  options?: Omit<UseQueryOptions<AboutInfo>, 'queryKey' | 'queryFn'>
 ) {
   return useQuery<AboutInfo>({
     queryKey: aboutKeys.info(),

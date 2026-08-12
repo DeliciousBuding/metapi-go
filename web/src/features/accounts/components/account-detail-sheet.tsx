@@ -64,15 +64,24 @@ export function AccountDetailSheet({
   const site = account.site
   const displayName =
     account.username?.trim() ||
-    (account.credentialMode === 'apikey' ? t('accounts.detail.fallbackApiKey') : t('accounts.detail.fallbackUnnamed'))
+    (account.credentialMode === 'apikey'
+      ? t('accounts.detail.fallbackApiKey')
+      : t('accounts.detail.fallbackUnnamed'))
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side='right' className='flex w-full flex-col gap-0 sm:max-w-md'>
+      <SheetContent
+        side='right'
+        className='flex w-full flex-col gap-0 sm:max-w-md'
+      >
         <SheetHeader>
           <SheetTitle className='flex items-center gap-2'>
             <span className='truncate'>{displayName}</span>
-            <Badge variant={account.credentialMode === 'session' ? 'default' : 'secondary'}>
+            <Badge
+              variant={
+                account.credentialMode === 'session' ? 'default' : 'secondary'
+              }
+            >
               {account.credentialMode === 'session' ? 'Session' : 'API Key'}
             </Badge>
           </SheetTitle>
@@ -82,7 +91,9 @@ export function AccountDetailSheet({
           {/* Overview grid */}
           <dl className='grid grid-cols-2 gap-x-3 gap-y-2 text-sm'>
             <DetailField label={t('accounts.detail.site')}>
-              {site ? site.name || site.url || `#${site.id}` : `#${account.siteId}`}
+              {site
+                ? site.name || site.url || `#${site.id}`
+                : `#${account.siteId}`}
             </DetailField>
             <DetailField label={t('accounts.detail.platform')}>
               {site?.platform || '—'}
@@ -128,7 +139,11 @@ export function AccountDetailSheet({
               onClick={handleRefresh}
               disabled={refreshMutation.isPending}
             >
-              <RefreshCw className={refreshMutation.isPending ? 'animate-spin' : undefined} />
+              <RefreshCw
+                className={
+                  refreshMutation.isPending ? 'animate-spin' : undefined
+                }
+              />
               {t('accounts.detail.refreshBalance')}
             </Button>
           </div>
@@ -163,7 +178,7 @@ function DetailField({
 }) {
   return (
     <div className='flex flex-col'>
-      <dt className='text-[11px] text-muted-foreground'>{label}</dt>
+      <dt className='text-muted-foreground text-[11px]'>{label}</dt>
       <dd className='truncate'>{children}</dd>
     </div>
   )

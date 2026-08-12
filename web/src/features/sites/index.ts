@@ -4,11 +4,6 @@
 // `/sites` route file (validateSearch schema + types) and for cross-feature
 // deep linking (the SiteCreatedModal → /accounts handoff).
 
+export { sitesSearchSchema } from './lib/sites-schema'
 
-export {
-  sitesSearchSchema,
-} from './lib/sites-schema'
-
-export {
-  sitesKeys,
-} from './types'
+export { sitesKeys } from './types'

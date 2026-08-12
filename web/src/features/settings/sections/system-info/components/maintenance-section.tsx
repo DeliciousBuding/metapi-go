@@ -8,8 +8,6 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
-import { api } from '@/lib/api'
-
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -19,9 +17,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  SettingsSectionCard,
-} from '../../../components/settings-section-card'
+import { api } from '@/lib/api'
+
+import { SettingsSectionCard } from '../../../components/settings-section-card'
 
 const FACTORY_RESET_COUNTDOWN_SECONDS = 3
 
@@ -51,13 +49,16 @@ export function MaintenanceSection() {
       void queryClient.invalidateQueries({ queryKey: ['runtime-settings'] })
       toast.success(t('settings.systemInfo.maintenance.toast.cacheCleared'))
     },
-    onError: () => toast.error(t('settings.systemInfo.maintenance.toast.cacheClearFailed')),
+    onError: () =>
+      toast.error(t('settings.systemInfo.maintenance.toast.cacheClearFailed')),
   })
 
   const clearUsageMutation = useMutation({
     mutationFn: async () => api.clearUsageData(),
-    onSuccess: () => toast.success(t('settings.systemInfo.maintenance.toast.usageCleared')),
-    onError: () => toast.error(t('settings.systemInfo.maintenance.toast.usageClearFailed')),
+    onSuccess: () =>
+      toast.success(t('settings.systemInfo.maintenance.toast.usageCleared')),
+    onError: () =>
+      toast.error(t('settings.systemInfo.maintenance.toast.usageClearFailed')),
   })
 
   const factoryResetMutation = useMutation({
@@ -110,11 +111,11 @@ export function MaintenanceSection() {
           </div>
         </div>
 
-        <div className='space-y-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4'>
-          <h4 className='text-sm font-medium text-destructive'>
+        <div className='border-destructive/40 bg-destructive/5 space-y-3 rounded-lg border p-4'>
+          <h4 className='text-destructive text-sm font-medium'>
             {t('settings.systemInfo.maintenance.dangerZone')}
           </h4>
-          <p className='text-xs text-muted-foreground'>
+          <p className='text-muted-foreground text-xs'>
             {t('settings.systemInfo.maintenance.factoryResetHint')}
           </p>
           <Button
@@ -146,7 +147,10 @@ export function MaintenanceSection() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant='outline' onClick={() => setFactoryResetOpen(false)}>
+            <Button
+              variant='outline'
+              onClick={() => setFactoryResetOpen(false)}
+            >
               {t('settings.common.cancel')}
             </Button>
             <Button

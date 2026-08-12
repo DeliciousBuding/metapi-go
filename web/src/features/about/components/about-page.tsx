@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { Badge } from '@/components/ui/badge'
 import {
   Card,
   CardContent,
@@ -22,13 +23,15 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 
 import { useAboutInfo } from '../api'
 import { KEY_DEPENDENCIES, type AboutDependency } from '../types'
 
-const DEPENDENCY_CATEGORY_LABEL_KEY: Record<AboutDependency['category'], string> = {
+const DEPENDENCY_CATEGORY_LABEL_KEY: Record<
+  AboutDependency['category'],
+  string
+> = {
   framework: 'about.deps.framework',
   build: 'about.deps.build',
   data: 'about.deps.data',
@@ -94,12 +97,24 @@ export function AboutPage() {
             <InfoIcon className='text-muted-foreground size-4' />
             {t('about.sections.projectInfo')}
           </CardTitle>
-          <CardDescription>{t('about.sections.projectInfoDescription')}</CardDescription>
+          <CardDescription>
+            {t('about.sections.projectInfoDescription')}
+          </CardDescription>
         </CardHeader>
-        <CardContent className='divide-y divide-border'>
-          <InfoRow label={t('about.fields.projectName')} value={info.projectName} />
-          <InfoRow label={t('about.fields.description')} value={info.description} />
-          <InfoRow label={t('about.fields.version')} value={info.version} mono />
+        <CardContent className='divide-border divide-y'>
+          <InfoRow
+            label={t('about.fields.projectName')}
+            value={info.projectName}
+          />
+          <InfoRow
+            label={t('about.fields.description')}
+            value={info.description}
+          />
+          <InfoRow
+            label={t('about.fields.version')}
+            value={info.version}
+            mono
+          />
           <InfoRow label={t('about.fields.license')} value={info.license} />
           <InfoRow label={t('about.fields.author')} value={info.author} />
         </CardContent>
@@ -111,12 +126,22 @@ export function AboutPage() {
             <PackageIcon className='text-muted-foreground size-4' />
             {t('about.sections.buildInfo')}
           </CardTitle>
-          <CardDescription>{t('about.sections.buildInfoDescription')}</CardDescription>
+          <CardDescription>
+            {t('about.sections.buildInfoDescription')}
+          </CardDescription>
         </CardHeader>
-        <CardContent className='divide-y divide-border'>
-          <InfoRow label={t('about.fields.buildTime')} value={info.buildTime} mono />
+        <CardContent className='divide-border divide-y'>
+          <InfoRow
+            label={t('about.fields.buildTime')}
+            value={info.buildTime}
+            mono
+          />
           <InfoRow label={t('about.fields.commit')} value={info.commit} mono />
-          <InfoRow label={t('about.fields.goVersion')} value={info.goVersion} mono />
+          <InfoRow
+            label={t('about.fields.goVersion')}
+            value={info.goVersion}
+            mono
+          />
         </CardContent>
       </Card>
 
@@ -126,19 +151,24 @@ export function AboutPage() {
             <PackageIcon className='text-muted-foreground size-4' />
             {t('about.sections.dependencies')}
           </CardTitle>
-          <CardDescription>{t('about.sections.dependenciesDescription')}</CardDescription>
+          <CardDescription>
+            {t('about.sections.dependenciesDescription')}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className='flex flex-wrap gap-2'>
             {KEY_DEPENDENCIES.map((dep) => (
               <div
                 key={dep.name}
-                className='flex items-center gap-2 rounded-lg border border-border px-3 py-1.5'
+                className='border-border flex items-center gap-2 rounded-lg border px-3 py-1.5'
               >
                 <span className='text-foreground text-sm font-medium'>
                   {dep.name}
                 </span>
-                <Badge variant='secondary' className='font-mono text-xs tabular-nums'>
+                <Badge
+                  variant='secondary'
+                  className='font-mono text-xs tabular-nums'
+                >
                   {dep.version}
                 </Badge>
                 <span className='text-muted-foreground text-xs'>
@@ -156,18 +186,22 @@ export function AboutPage() {
             <CodeIcon className='text-muted-foreground size-4' />
             {t('about.sections.links')}
           </CardTitle>
-          <CardDescription>{t('about.sections.linksDescription')}</CardDescription>
+          <CardDescription>
+            {t('about.sections.linksDescription')}
+          </CardDescription>
         </CardHeader>
         <CardContent className='space-y-2'>
           <a
             href={info.repository}
             target='_blank'
             rel='noopener noreferrer'
-            className='flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 transition-colors hover:bg-accent'
+            className='border-border hover:bg-accent flex items-center justify-between gap-2 rounded-lg border px-3 py-2 transition-colors'
           >
             <span className='flex items-center gap-2'>
               <CodeIcon className='text-muted-foreground size-4' />
-              <span className='text-sm font-medium'>{t('about.links.repository')}</span>
+              <span className='text-sm font-medium'>
+                {t('about.links.repository')}
+              </span>
             </span>
             <ExternalLinkIcon className='text-muted-foreground size-3.5' />
           </a>
@@ -175,11 +209,13 @@ export function AboutPage() {
             href={info.homepage}
             target='_blank'
             rel='noopener noreferrer'
-            className='flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 transition-colors hover:bg-accent'
+            className='border-border hover:bg-accent flex items-center justify-between gap-2 rounded-lg border px-3 py-2 transition-colors'
           >
             <span className='flex items-center gap-2'>
               <ExternalLinkIcon className='text-muted-foreground size-4' />
-              <span className='text-sm font-medium'>{t('about.links.homepage')}</span>
+              <span className='text-sm font-medium'>
+                {t('about.links.homepage')}
+              </span>
             </span>
             <ExternalLinkIcon className='text-muted-foreground size-3.5' />
           </a>
@@ -187,11 +223,13 @@ export function AboutPage() {
             href={issueUrl}
             target='_blank'
             rel='noopener noreferrer'
-            className='flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 transition-colors hover:bg-accent'
+            className='border-border hover:bg-accent flex items-center justify-between gap-2 rounded-lg border px-3 py-2 transition-colors'
           >
             <span className='flex items-center gap-2'>
               <InfoIcon className='text-muted-foreground size-4' />
-              <span className='text-sm font-medium'>{t('about.links.issues')}</span>
+              <span className='text-sm font-medium'>
+                {t('about.links.issues')}
+              </span>
             </span>
             <ExternalLinkIcon className='text-muted-foreground size-3.5' />
           </a>
@@ -199,11 +237,13 @@ export function AboutPage() {
             href={authorUrl}
             target='_blank'
             rel='noopener noreferrer'
-            className='flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 transition-colors hover:bg-accent'
+            className='border-border hover:bg-accent flex items-center justify-between gap-2 rounded-lg border px-3 py-2 transition-colors'
           >
             <span className='flex items-center gap-2'>
               <HeartIcon className='text-muted-foreground size-4' />
-              <span className='text-sm font-medium'>{t('about.links.author')}</span>
+              <span className='text-sm font-medium'>
+                {t('about.links.author')}
+              </span>
             </span>
             <ExternalLinkIcon className='text-muted-foreground size-3.5' />
           </a>

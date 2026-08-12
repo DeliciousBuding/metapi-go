@@ -47,7 +47,7 @@ export function useSettingsForm<TValues extends FieldValues>({
       baselineRef.current = structuredClone(values)
       form.reset(values)
     },
-    [form],
+    [form]
   )
 
   useEffect(() => {

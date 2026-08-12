@@ -7,8 +7,6 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
-import { api } from '@/lib/api'
-
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -28,6 +26,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { api } from '@/lib/api'
+
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
 import { SettingsFormActions } from '../../../components/settings-form-actions'
 import {
@@ -36,7 +36,10 @@ import {
 } from '../../../components/settings-section-card'
 import { SettingsSectionError } from '../../../components/settings-section-error'
 import { useSettingsForm } from '../../../hooks/use-settings-form'
-import { collectChangedFields, hasChanges } from '../../../lib/collect-changed-fields'
+import {
+  collectChangedFields,
+  hasChanges,
+} from '../../../lib/collect-changed-fields'
 
 const SAVE_FORM_ID = 'settings-system-info-database-form'
 
@@ -70,7 +73,7 @@ const runtimeDatabaseQueryKeys = {
 }
 
 function deriveServerValues(
-  data: RuntimeDatabaseConfig | undefined,
+  data: RuntimeDatabaseConfig | undefined
 ): DatabaseFormValues | null {
   if (!data) return null
   if (!data.saved) return DEFAULT_VALUES
@@ -105,8 +108,8 @@ export function DatabaseSection() {
   let connectionPlaceholder = './data/target.db'
   if (savedConfig?.hasConnectionString) {
     connectionPlaceholder =
-      savedConfig.connectionStringMasked
-      || t('settings.systemInfo.database.fields.connectionSaved')
+      savedConfig.connectionStringMasked ||
+      t('settings.systemInfo.database.fields.connectionSaved')
   } else if (dialect === 'postgres') {
     connectionPlaceholder = 'postgres://user:pass@host:5432/db'
   }
@@ -153,13 +156,15 @@ export function DatabaseSection() {
   function onSave(values: DatabaseFormValues) {
     const changed = collectChangedFields(
       values as unknown as Record<string, unknown>,
-      baseline as unknown as Record<string, unknown> | null,
+      baseline as unknown as Record<string, unknown> | null
     ) as Partial<DatabaseFormValues>
     const connection = values.connectionString.trim()
     const requiresConnection =
       !savedConfig?.hasConnectionString || changed.dialect !== undefined
     if (requiresConnection && !connection) {
-      requireConnection('settings.systemInfo.database.schema.connectionRequired')
+      requireConnection(
+        'settings.systemInfo.database.schema.connectionRequired'
+      )
       return
     }
     if (connection) {
@@ -176,7 +181,7 @@ export function DatabaseSection() {
 
   const testConnection = form.handleSubmit((values) => {
     const connection = requireConnection(
-      'settings.systemInfo.database.schema.testConnectionRequired',
+      'settings.systemInfo.database.schema.testConnectionRequired'
     )
     if (!connection) return
     testMutation.mutate({ ...values, connectionString: connection })
@@ -203,18 +208,18 @@ export function DatabaseSection() {
     >
       <div className='space-y-5'>
         {active ? (
-          <div className='rounded-lg border bg-muted/25 p-3'>
-            <p className='text-xs font-medium text-muted-foreground'>
+          <div className='bg-muted/25 rounded-lg border p-3'>
+            <p className='text-muted-foreground text-xs font-medium'>
               {t('settings.systemInfo.database.currentRuntime')}
             </p>
-            <code className='mt-1 block break-all text-xs text-foreground'>
+            <code className='text-foreground mt-1 block text-xs break-all'>
               {active.dialect} · {active.connection}
               {active.ssl ? ' · SSL' : ''}
             </code>
           </div>
         ) : null}
         {configQuery.data.restartRequired ? (
-          <div className='rounded-lg border border-warning/35 bg-warning/10 px-3 py-2 text-sm text-warning-foreground'>
+          <div className='border-warning/35 bg-warning/10 text-warning-foreground rounded-lg border px-3 py-2 text-sm'>
             {t('settings.systemInfo.database.restartRequired')}
           </div>
         ) : null}
@@ -284,7 +289,7 @@ export function DatabaseSection() {
                     {t(
                       savedConfig?.hasConnectionString
                         ? 'settings.systemInfo.database.fields.connectionSavedHint'
-                        : 'settings.systemInfo.database.fields.connectionStringHint',
+                        : 'settings.systemInfo.database.fields.connectionStringHint'
                     )}
                   </FormDescription>
                   <FormMessage />
@@ -332,16 +337,14 @@ export function DatabaseSection() {
                 formId={SAVE_FORM_ID}
                 isDirty={isDirty}
                 isPending={saveMutation.isPending}
-                onReset={() =>
-                  syncFromServer(serverValues ?? DEFAULT_VALUES)
-                }
+                onReset={() => syncFromServer(serverValues ?? DEFAULT_VALUES)}
                 saveLabel={t('settings.systemInfo.database.saveAsRuntime')}
               />
             </div>
           </form>
         </Form>
 
-        <p className='rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground'>
+        <p className='text-muted-foreground rounded-lg border border-dashed px-3 py-2 text-xs'>
           {t('settings.systemInfo.database.migrationCliOnly')}
         </p>
       </div>

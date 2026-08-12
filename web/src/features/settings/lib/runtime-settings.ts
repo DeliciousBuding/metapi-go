@@ -134,7 +134,7 @@ export const settingsMigrationQueryKeys = {
  * cache entry; `useUpdateRuntimeSettings` invalidates it after writes.
  */
 export function useRuntimeSettings(
-  options?: Omit<UseQueryOptions<RuntimeSettings>, 'queryKey' | 'queryFn'>,
+  options?: Omit<UseQueryOptions<RuntimeSettings>, 'queryKey' | 'queryFn'>
 ) {
   return useQuery({
     queryKey: runtimeSettingsQueryKeys.detail(),

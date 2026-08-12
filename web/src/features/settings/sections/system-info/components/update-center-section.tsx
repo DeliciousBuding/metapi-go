@@ -6,15 +6,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 
-import { api } from '@/lib/api'
-
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
+import { api } from '@/lib/api'
+import { cn } from '@/lib/utils'
+
 import {
   SettingsSectionCard,
   SettingsSectionSkeleton,
 } from '../../../components/settings-section-card'
-import { cn } from '@/lib/utils'
 
 type UpdateCenterStatus = {
   currentVersion?: string
@@ -30,14 +30,16 @@ const updateCenterQueryKeys = {
 
 const REPO_URL = 'https://github.com/DeliciousBuding/metapi-go'
 const RELEASES_URL = `${REPO_URL}/releases`
-const GHCR_URL = 'https://github.com/DeliciousBuding/metapi-go/pkgs/container/metapi-go'
+const GHCR_URL =
+  'https://github.com/DeliciousBuding/metapi-go/pkgs/container/metapi-go'
 
 export function UpdateCenterSection() {
   const { t } = useTranslation()
 
   const statusQuery = useQuery<UpdateCenterStatus>({
     queryKey: updateCenterQueryKeys.all,
-    queryFn: async () => (await api.getUpdateCenterStatus()) as UpdateCenterStatus,
+    queryFn: async () =>
+      (await api.getUpdateCenterStatus()) as UpdateCenterStatus,
     staleTime: 60 * 1000,
   })
 
@@ -63,16 +65,17 @@ export function UpdateCenterSection() {
         <div className='space-y-4'>
           <div className='flex flex-wrap items-center gap-4'>
             <div>
-              <div className='text-xs text-muted-foreground'>
+              <div className='text-muted-foreground text-xs'>
                 {t('settings.systemInfo.updateCenter.currentVersion')}
               </div>
               <code className='text-sm'>
-                {currentVersion ?? t('settings.systemInfo.updateCenter.unknown')}
+                {currentVersion ??
+                  t('settings.systemInfo.updateCenter.unknown')}
               </code>
             </div>
             {latestVersion ? (
               <div>
-                <div className='text-xs text-muted-foreground'>
+                <div className='text-muted-foreground text-xs'>
                   {t('settings.systemInfo.updateCenter.latestVersion')}
                 </div>
                 <code className='text-sm'>{latestVersion}</code>
@@ -93,7 +96,7 @@ export function UpdateCenterSection() {
           </div>
 
           {status.residual ? (
-            <p className='text-xs text-muted-foreground'>{status.residual}</p>
+            <p className='text-muted-foreground text-xs'>{status.residual}</p>
           ) : null}
 
           <div className='flex flex-wrap gap-2'>
@@ -123,7 +126,7 @@ export function UpdateCenterSection() {
             </a>
           </div>
 
-          <p className='text-xs text-muted-foreground'>
+          <p className='text-muted-foreground text-xs'>
             {t('settings.systemInfo.updateCenter.opsNote')}
           </p>
         </div>

@@ -6,8 +6,6 @@ import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { api } from '@/lib/api'
-
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,11 +17,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
-import { SettingsSectionError } from '../../../components/settings-section-error'
-import {
   Table,
   TableBody,
   TableCell,
@@ -31,6 +24,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { api } from '@/lib/api'
+
+import {
+  SettingsSectionCard,
+  SettingsSectionSkeleton,
+} from '../../../components/settings-section-card'
+import { SettingsSectionError } from '../../../components/settings-section-error'
 
 type AuditLogItem = {
   id: number
@@ -79,7 +79,7 @@ export function AuditLogsSection() {
     queryKey: auditQueryKeys.list(filterString),
     queryFn: async () => {
       const data = (await api.getAdminAuditLogs(
-        new URLSearchParams(filterString),
+        new URLSearchParams(filterString)
       )) as AuditLogsResponse
       return data ?? { items: [], total: 0, limit: PAGE_SIZE, offset: 0 }
     },
@@ -150,7 +150,7 @@ export function AuditLogsSection() {
         />
       ) : null}
       {!auditQuery.isLoading && !auditQuery.isError && items.length === 0 ? (
-        <p className='py-8 text-center text-sm text-muted-foreground'>
+        <p className='text-muted-foreground py-8 text-center text-sm'>
           {t('settings.systemInfo.auditLogs.empty')}
         </p>
       ) : null}
@@ -159,18 +159,30 @@ export function AuditLogsSection() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{t('settings.systemInfo.auditLogs.columns.time')}</TableHead>
-                <TableHead>{t('settings.systemInfo.auditLogs.columns.method')}</TableHead>
-                <TableHead>{t('settings.systemInfo.auditLogs.columns.path')}</TableHead>
-                <TableHead>{t('settings.systemInfo.auditLogs.columns.status')}</TableHead>
-                <TableHead>{t('settings.systemInfo.auditLogs.columns.actor')}</TableHead>
-                <TableHead>{t('settings.systemInfo.auditLogs.columns.ip')}</TableHead>
+                <TableHead>
+                  {t('settings.systemInfo.auditLogs.columns.time')}
+                </TableHead>
+                <TableHead>
+                  {t('settings.systemInfo.auditLogs.columns.method')}
+                </TableHead>
+                <TableHead>
+                  {t('settings.systemInfo.auditLogs.columns.path')}
+                </TableHead>
+                <TableHead>
+                  {t('settings.systemInfo.auditLogs.columns.status')}
+                </TableHead>
+                <TableHead>
+                  {t('settings.systemInfo.auditLogs.columns.actor')}
+                </TableHead>
+                <TableHead>
+                  {t('settings.systemInfo.auditLogs.columns.ip')}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {items.map((entry) => (
                 <TableRow key={entry.id}>
-                  <TableCell className='text-xs text-muted-foreground'>
+                  <TableCell className='text-muted-foreground text-xs'>
                     {entry.createdAt}
                   </TableCell>
                   <TableCell>
@@ -178,7 +190,9 @@ export function AuditLogsSection() {
                       {entry.method}
                     </Badge>
                   </TableCell>
-                  <TableCell className='font-mono text-xs'>{entry.path}</TableCell>
+                  <TableCell className='font-mono text-xs'>
+                    {entry.path}
+                  </TableCell>
                   <TableCell>
                     <span
                       className={
@@ -190,18 +204,18 @@ export function AuditLogsSection() {
                       {entry.status}
                     </span>
                   </TableCell>
-                  <TableCell className='text-xs'>{entry.actor ?? '—'}</TableCell>
-                  <TableCell className='text-xs text-muted-foreground'>
+                  <TableCell className='text-xs'>
+                    {entry.actor ?? '—'}
+                  </TableCell>
+                  <TableCell className='text-muted-foreground text-xs'>
                     {entry.remoteIp ?? '—'}
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-          <div className='mt-4 flex flex-col gap-2 border-t pt-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between'>
-            <span>
-              {t('settings.systemInfo.auditLogs.total', { total })}
-            </span>
+          <div className='text-muted-foreground mt-4 flex flex-col gap-2 border-t pt-3 text-xs sm:flex-row sm:items-center sm:justify-between'>
+            <span>{t('settings.systemInfo.auditLogs.total', { total })}</span>
             <div className='flex items-center gap-2'>
               <Button
                 type='button'
@@ -235,7 +249,9 @@ export function AuditLogsSection() {
   )
 }
 
-function methodVariant(method: string): 'default' | 'secondary' | 'destructive' {
+function methodVariant(
+  method: string
+): 'default' | 'secondary' | 'destructive' {
   if (method === 'DELETE') return 'destructive'
   if (method === 'POST' || method === 'PUT' || method === 'PATCH') {
     return 'default'

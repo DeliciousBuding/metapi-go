@@ -1,6 +1,20 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
 import { InterfaceControls } from '@/components/layout/components/interface-controls'
 import { ThemeCustomizationProvider } from '@/context/theme-customization-provider'
@@ -69,15 +83,11 @@ describe('interface controls', () => {
 
   it('toggles the resolved color scheme instead of the stored system value', async () => {
     renderControls()
-    await waitFor(() =>
-      expect(document.documentElement).toHaveClass('light')
-    )
+    await waitFor(() => expect(document.documentElement).toHaveClass('light'))
 
     fireEvent.click(screen.getByRole('button', { name: 'Toggle theme' }))
 
-    await waitFor(() =>
-      expect(document.documentElement).toHaveClass('dark')
-    )
+    await waitFor(() => expect(document.documentElement).toHaveClass('dark'))
     expect(document.documentElement.style.colorScheme).toBe('dark')
   })
 })

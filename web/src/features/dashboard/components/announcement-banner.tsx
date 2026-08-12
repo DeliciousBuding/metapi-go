@@ -8,8 +8,8 @@
 // state; phase 3 will wire the dismiss call (api.dismissAnnouncement) and
 // markdown rendering via @/components/ui/markdown.
 
-import { useEffect, useState } from 'react'
 import { Info, Megaphone, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api } from '@/lib/api'
@@ -22,8 +22,7 @@ const SEVERITY_TONE: Record<
   { wrapper: string; icon: typeof Info }
 > = {
   critical: {
-    wrapper:
-      'border-destructive/40 bg-destructive/10 text-destructive',
+    wrapper: 'border-destructive/40 bg-destructive/10 text-destructive',
     icon: Megaphone,
   },
   warning: {
@@ -86,7 +85,7 @@ export function AnnouncementBanner() {
             role='alert'
             className={cn(
               'flex items-start gap-3 rounded-lg border px-4 py-3 text-sm',
-              tone.wrapper,
+              tone.wrapper
             )}
           >
             <Icon className='mt-0.5 size-4 shrink-0' />

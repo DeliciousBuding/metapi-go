@@ -13,7 +13,6 @@ import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
-import { useModels } from '@/features/models'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -36,6 +35,7 @@ import { Slider } from '@/components/ui/slider'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { useModels } from '@/features/models'
 import { cn } from '@/lib/utils'
 
 import {
@@ -92,10 +92,7 @@ export function TestForm({
 
   return (
     <Form {...form}>
-      <form
-        onSubmit={handleSubmit}
-        className='flex h-full flex-col gap-4'
-      >
+      <form onSubmit={handleSubmit} className='flex h-full flex-col gap-4'>
         <FormField
           control={form.control}
           name='model'
@@ -152,8 +149,12 @@ export function TestForm({
                   <SelectTrigger>
                     <SelectValue>
                       {(selected) => {
-                        const option = TARGET_FORMAT_OPTIONS.find((item) => item.value === selected)
-                        return option ? t(option.labelKey) : String(selected ?? '')
+                        const option = TARGET_FORMAT_OPTIONS.find(
+                          (item) => item.value === selected
+                        )
+                        return option
+                          ? t(option.labelKey)
+                          : String(selected ?? '')
                       }}
                     </SelectValue>
                   </SelectTrigger>
@@ -290,7 +291,7 @@ export function TestForm({
                       field.onChange(
                         Number.isNaN(event.target.valueAsNumber)
                           ? 0
-                          : event.target.valueAsNumber,
+                          : event.target.valueAsNumber
                       )
                     }
                     onBlur={field.onBlur}

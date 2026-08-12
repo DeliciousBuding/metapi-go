@@ -41,7 +41,7 @@ export function isDeepEqual(a: unknown, b: unknown): boolean {
  */
 export function collectChangedFields<T extends Record<string, unknown>>(
   values: T,
-  baseline: T | null | undefined,
+  baseline: T | null | undefined
 ): Partial<T> {
   if (!baseline) {
     return { ...values }

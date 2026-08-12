@@ -8,8 +8,6 @@
 
 import { useTranslation } from 'react-i18next'
 
-import type { ScheduleSpecV1 } from '@/lib/api'
-
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -18,11 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import type { ScheduleSpecV1 } from '@/lib/api'
 
-import {
-  cronToSchedule,
-  scheduleToCron,
-} from '../lib/schedule'
+import { cronToSchedule, scheduleToCron } from '../lib/schedule'
 
 const INTERVAL_OPTIONS = Array.from({ length: 24 }, (_, index) => index + 1)
 
@@ -67,18 +63,12 @@ export function ScheduleEditor({
     }
     // Switching back to a semantic mode: reuse the mapped form of the current
     // cron when available, otherwise fall back to sensible defaults.
-    const mapped =
-      spec.kind === 'custom'
-        ? cronToSchedule(spec.cron)
-        : spec
+    const mapped = spec.kind === 'custom' ? cronToSchedule(spec.cron) : spec
     if (nextKind === 'interval') {
       onChange({
         version: 1,
         kind: 'interval',
-        everyHours:
-          mapped.kind === 'interval'
-            ? mapped.everyHours
-            : 6,
+        everyHours: mapped.kind === 'interval' ? mapped.everyHours : 6,
       })
       return
     }
@@ -151,7 +141,9 @@ export function ScheduleEditor({
             <SelectTrigger className='w-32'>
               <SelectValue>
                 {(selected) =>
-                  t('settings.common.schedule.everyHours', { count: Number(selected) })
+                  t('settings.common.schedule.everyHours', {
+                    count: Number(selected),
+                  })
                 }
               </SelectValue>
             </SelectTrigger>
@@ -177,12 +169,11 @@ export function ScheduleEditor({
                 version: 1,
                 kind: 'window',
                 windowStart: event.target.value || '00:00',
-                windowEnd:
-                  spec.kind === 'window' ? spec.windowEnd : '23:59',
+                windowEnd: spec.kind === 'window' ? spec.windowEnd : '23:59',
               })
             }
           />
-          <span className='text-xs text-muted-foreground'>→</span>
+          <span className='text-muted-foreground text-xs'>→</span>
           <Input
             type='time'
             className='w-32 font-mono'
@@ -215,7 +206,7 @@ export function ScheduleEditor({
           }
         />
       ) : null}
-      <p className='text-xs text-muted-foreground'>
+      <p className='text-muted-foreground text-xs'>
         {t(`settings.common.schedule.kinds.${kind}Hint`)}
       </p>
     </div>

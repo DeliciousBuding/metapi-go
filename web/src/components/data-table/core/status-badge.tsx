@@ -91,14 +91,12 @@ function useCopyToClipboard() {
   const [copied, setCopied] = React.useState(false)
 
   const copyToClipboard = React.useCallback((value: string) => {
-    if (
-      typeof navigator === 'undefined' ||
-      !navigator.clipboard?.writeText
-    ) {
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
       return
     }
 
-    navigator.clipboard.writeText(value)
+    navigator.clipboard
+      .writeText(value)
       .then(() => {
         setCopied(true)
         window.setTimeout(() => setCopied(false), 1500)
@@ -263,4 +261,3 @@ export function StatusBadgeList<T>(props: StatusBadgeListProps<T>) {
     </div>
   )
 }
-

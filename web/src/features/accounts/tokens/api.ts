@@ -15,14 +15,12 @@ import {
 } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
-import { api } from '@/lib/api'
 import i18n from '@/i18n/config'
-import { accountQueryKeys } from '../api'
+import { api } from '@/lib/api'
 
+import { accountQueryKeys } from '../api'
 import { type AccountToken, accountTokenSchema } from '../types'
 import type { AccountTokenPayload } from './lib/tokens-schema'
-
-
 
 const accountTokenQueryKeys = {
   all: ['account-tokens'] as const,
@@ -39,7 +37,6 @@ const accountTokenQueryKeys = {
 // Query keys
 // ---------------------------------------------------------------------------
 
-
 // ---------------------------------------------------------------------------
 // Envelope helper
 // ---------------------------------------------------------------------------
@@ -50,13 +47,9 @@ function assertBusinessOk<T>(result: unknown, fallback: string): T {
     message?: unknown
     data?: unknown
   }
-  if (
-    envelope &&
-    typeof envelope.success === 'boolean' &&
-    !envelope.success
-  ) {
+  if (envelope && typeof envelope.success === 'boolean' && !envelope.success) {
     throw new Error(
-      typeof envelope.message === 'string' ? envelope.message : i18n.t(fallback),
+      typeof envelope.message === 'string' ? envelope.message : i18n.t(fallback)
     )
   }
   return (result as T) ?? (envelope?.data as T)
@@ -80,10 +73,7 @@ function normalizeTokenList(raw: unknown): AccountToken[] {
 
 export function useAccountTokens(
   accountId?: number,
-  options?: Omit<
-    UseQueryOptions<AccountToken[]>,
-    'queryKey' | 'queryFn'
-  >,
+  options?: Omit<UseQueryOptions<AccountToken[]>, 'queryKey' | 'queryFn'>
 ) {
   return useQuery({
     queryKey: accountTokenQueryKeys.list(accountId),
@@ -101,7 +91,6 @@ export function useAccountTokens(
 // useAccountTokenValue — GET /api/account-tokens/:id/value (reveal)
 // ---------------------------------------------------------------------------
 
-
 // ---------------------------------------------------------------------------
 // useCreateAccountToken — POST /api/account-tokens
 // ---------------------------------------------------------------------------
@@ -114,7 +103,9 @@ export function useCreateAccountToken() {
       return assertBusinessOk(result, 'accounts.tokens.toast.createFailed')
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: accountTokenQueryKeys.all })
+      void queryClient.invalidateQueries({
+        queryKey: accountTokenQueryKeys.all,
+      })
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
       toast.success(i18n.t('accounts.tokens.toast.created'))
     },
@@ -139,7 +130,9 @@ export function useUpdateAccountToken() {
       return assertBusinessOk(result, 'accounts.tokens.toast.updateFailed')
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: accountTokenQueryKeys.all })
+      void queryClient.invalidateQueries({
+        queryKey: accountTokenQueryKeys.all,
+      })
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
       toast.success(i18n.t('accounts.tokens.toast.updated'))
     },
@@ -158,7 +151,9 @@ export function useDeleteAccountToken() {
       return assertBusinessOk(result, 'accounts.tokens.toast.deleteFailed')
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: accountTokenQueryKeys.all })
+      void queryClient.invalidateQueries({
+        queryKey: accountTokenQueryKeys.all,
+      })
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
       toast.success(i18n.t('accounts.tokens.toast.deleted'))
     },
@@ -177,7 +172,9 @@ export function useSetDefaultAccountToken() {
       return assertBusinessOk(result, 'accounts.tokens.toast.defaultFailed')
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: accountTokenQueryKeys.all })
+      void queryClient.invalidateQueries({
+        queryKey: accountTokenQueryKeys.all,
+      })
       toast.success(i18n.t('accounts.tokens.toast.defaultSet'))
     },
   })
@@ -195,7 +192,9 @@ export function useSyncAccountTokens() {
       return assertBusinessOk(result, 'accounts.tokens.toast.syncFailed')
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: accountTokenQueryKeys.all })
+      void queryClient.invalidateQueries({
+        queryKey: accountTokenQueryKeys.all,
+      })
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
       toast.success(i18n.t('accounts.tokens.toast.synced'))
     },
@@ -209,18 +208,14 @@ export function useSyncAccountTokens() {
 export function useToggleAccountTokenEnabled() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({
-      id,
-      enabled,
-    }: {
-      id: number
-      enabled: boolean
-    }) => {
+    mutationFn: async ({ id, enabled }: { id: number; enabled: boolean }) => {
       const result = await api.updateAccountToken(id, { enabled })
       return assertBusinessOk(result, 'accounts.tokens.toast.statusFailed')
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: accountTokenQueryKeys.all })
+      void queryClient.invalidateQueries({
+        queryKey: accountTokenQueryKeys.all,
+      })
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
     },
   })

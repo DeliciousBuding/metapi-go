@@ -15,8 +15,6 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
-import { api } from '@/lib/api'
-
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -30,13 +28,17 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { api } from '@/lib/api'
 
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
 import { SettingsFormActions } from '../../../components/settings-form-actions'
 import { SettingsSectionCard } from '../../../components/settings-section-card'
 import { SettingsSectionError } from '../../../components/settings-section-error'
 import { useSettingsForm } from '../../../hooks/use-settings-form'
-import { collectChangedFields, hasChanges } from '../../../lib/collect-changed-fields'
+import {
+  collectChangedFields,
+  hasChanges,
+} from '../../../lib/collect-changed-fields'
 import {
   runtimeSettingsQueryKeys,
   useRuntimeSettings,
@@ -78,12 +80,14 @@ function splitAllowed(raw: unknown): string[] {
 }
 
 function deriveServerValues(
-  data: RuntimeSettings | undefined,
+  data: RuntimeSettings | undefined
 ): AllowlistFormValues | null {
   if (!data) {
     return null
   }
-  return { globalAllowedModels: splitAllowed(data.globalAllowedModels).join('\n') }
+  return {
+    globalAllowedModels: splitAllowed(data.globalAllowedModels).join('\n'),
+  }
 }
 
 export function AllowlistSection() {
@@ -100,23 +104,25 @@ export function AllowlistSection() {
 
   const candidatesQuery = useQuery<TokenCandidates>({
     queryKey: candidatesQueryKeys.all,
-    queryFn: async () => (await api.getModelTokenCandidates()) as TokenCandidates,
+    queryFn: async () =>
+      (await api.getModelTokenCandidates()) as TokenCandidates,
     staleTime: 5 * 60 * 1000,
   })
 
   const serverValues = deriveServerValues(data)
-  const { form, baseline, syncFromServer } = useSettingsForm<AllowlistFormValues>({
-    schema: allowlistSchema,
-    defaultValues: DEFAULT_VALUES,
-    serverValues,
-  })
+  const { form, baseline, syncFromServer } =
+    useSettingsForm<AllowlistFormValues>({
+      schema: allowlistSchema,
+      defaultValues: DEFAULT_VALUES,
+      serverValues,
+    })
 
   const [pendingModel, setPendingModel] = useState('')
   const [allowedModels, setAllowedModels] = useState<string[]>([])
 
   const initialAllowed = useMemo(
     () => splitAllowed(data?.globalAllowedModels),
-    [data],
+    [data]
   )
 
   useEffect(() => {
@@ -127,7 +133,7 @@ export function AllowlistSection() {
 
   const candidateModels = useMemo(
     () => Object.keys(candidatesQuery.data?.models ?? {}),
-    [candidatesQuery.data],
+    [candidatesQuery.data]
   )
 
   const [blockedBrands, setBlockedBrands] = useState<string[]>([])
@@ -189,7 +195,7 @@ export function AllowlistSection() {
   function onSubmit(values: AllowlistFormValues) {
     const changed = collectChangedFields(
       values as unknown as Record<string, unknown>,
-      baseline as unknown as Record<string, unknown> | null,
+      baseline as unknown as Record<string, unknown> | null
     ) as Partial<AllowlistFormValues>
     if (!hasChanges(changed) && changed.globalAllowedModels === undefined) {
       toast.info(t('settings.common.noChanges'))
@@ -206,7 +212,7 @@ export function AllowlistSection() {
         },
         onError: () =>
           toast.error(t('settings.models.allowlist.toast.saveFailed')),
-      },
+      }
     )
   }
 
@@ -216,7 +222,7 @@ export function AllowlistSection() {
         title={t('settings.models.allowlist.title')}
         description={t('settings.models.allowlist.description')}
       >
-        <p className='text-sm text-muted-foreground'>
+        <p className='text-muted-foreground text-sm'>
           {t('settings.common.loading')}
         </p>
       </SettingsSectionCard>
@@ -257,7 +263,9 @@ export function AllowlistSection() {
                     {t('settings.models.allowlist.fields.globalAllowedModels')}
                   </FormLabel>
                   <FormDescription>
-                    {t('settings.models.allowlist.fields.globalAllowedModelsHint')}
+                    {t(
+                      'settings.models.allowlist.fields.globalAllowedModelsHint'
+                    )}
                   </FormDescription>
                   <div className='flex flex-wrap gap-2'>
                     {allowedModels.map((model) => (
@@ -271,7 +279,7 @@ export function AllowlistSection() {
                       </Badge>
                     ))}
                     {allowedModels.length === 0 ? (
-                      <span className='text-xs text-muted-foreground'>
+                      <span className='text-muted-foreground text-xs'>
                         {t('settings.models.allowlist.allowAll')}
                       </span>
                     ) : null}
@@ -280,14 +288,18 @@ export function AllowlistSection() {
                     <FormControl>
                       <Input
                         value={pendingModel}
-                        onChange={(event) => setPendingModel(event.target.value)}
+                        onChange={(event) =>
+                          setPendingModel(event.target.value)
+                        }
                         onKeyDown={(event) => {
                           if (event.key === 'Enter') {
                             event.preventDefault()
                             addAllowedModel(pendingModel)
                           }
                         }}
-                        placeholder={t('settings.models.allowlist.addPlaceholder')}
+                        placeholder={t(
+                          'settings.models.allowlist.addPlaceholder'
+                        )}
                       />
                     </FormControl>
                     <Button
@@ -334,17 +346,17 @@ export function AllowlistSection() {
             <h4 className='text-sm font-medium'>
               {t('settings.models.allowlist.fields.globalBlockedBrands')}
             </h4>
-            <p className='text-xs text-muted-foreground'>
+            <p className='text-muted-foreground text-xs'>
               {t('settings.models.allowlist.fields.globalBlockedBrandsHint')}
             </p>
           </div>
           {brandsQuery.isLoading ? (
-            <p className='text-sm text-muted-foreground'>
+            <p className='text-muted-foreground text-sm'>
               {t('settings.models.allowlist.loadingBrands')}
             </p>
           ) : null}
           {!brandsQuery.isLoading && brands.length === 0 ? (
-            <p className='text-sm text-muted-foreground'>
+            <p className='text-muted-foreground text-sm'>
               {t('settings.models.allowlist.noBrands')}
             </p>
           ) : null}
@@ -367,8 +379,10 @@ export function AllowlistSection() {
             </div>
           ) : null}
           {blockedBrands.length > 0 ? (
-            <p className='text-xs text-muted-foreground'>
-              {t('settings.models.allowlist.blockedCount', { count: blockedBrands.length })}
+            <p className='text-muted-foreground text-xs'>
+              {t('settings.models.allowlist.blockedCount', {
+                count: blockedBrands.length,
+              })}
             </p>
           ) : null}
         </div>

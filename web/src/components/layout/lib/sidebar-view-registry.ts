@@ -1,8 +1,8 @@
 // metapi-go/layout — sidebar-view-registry ported from newapi. AGPL header stripped.
 // Resolves the active nested drill-in view for a given pathname.
 
-import type { SidebarView } from '../types'
 import { SYSTEM_SETTINGS_VIEW } from '../config/system-settings.config'
+import type { SidebarView } from '../types'
 
 /**
  * Registered nested sidebar views.

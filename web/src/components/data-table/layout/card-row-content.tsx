@@ -3,7 +3,6 @@ import type { Cell, Row } from '@tanstack/react-table'
 import * as React from 'react'
 
 import { StatusBadgeTypeContext } from '../core/status-badge'
-
 import { getCellLabel, renderCellContent } from './card-cell-utils'
 
 function orderCardCells<TData>(

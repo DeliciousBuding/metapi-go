@@ -29,13 +29,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-
 import { asStringParam, parseSortingParam } from '@/lib/helpers/searchParams'
 
-import {
-  useAnnouncements,
-  useDeleteAnnouncement,
-} from '../api'
+import { useAnnouncements, useDeleteAnnouncement } from '../api'
 import { announcementsSearchSchema } from '../lib/announcements-schema'
 import type { SiteAnnouncement } from '../types'
 import { AnnouncementFormDialog } from './announcement-form-dialog'
@@ -56,7 +52,7 @@ type AnnouncementsUrlFilters = {
 }
 
 function readSearch(
-  searchString?: string,
+  searchString?: string
 ): UrlTableState<AnnouncementsUrlFilters> {
   if (typeof window === 'undefined') {
     return {
@@ -98,7 +94,9 @@ function readSearch(
   }
 }
 
-function buildHref(next: Partial<UrlTableState<AnnouncementsUrlFilters>>): string {
+function buildHref(
+  next: Partial<UrlTableState<AnnouncementsUrlFilters>>
+): string {
   const current = readSearch()
   const merged: UrlTableState<AnnouncementsUrlFilters> = {
     ...current,
@@ -114,7 +112,9 @@ function buildHref(next: Partial<UrlTableState<AnnouncementsUrlFilters>>): strin
   if (merged.filters.severity) params.set('severity', merged.filters.severity)
   if (merged.filters.enabled) params.set('enabled', merged.filters.enabled)
   const queryString = params.toString()
-  return queryString ? `/site-announcements?${queryString}` : '/site-announcements'
+  return queryString
+    ? `/site-announcements?${queryString}`
+    : '/site-announcements'
 }
 
 /**
@@ -214,10 +214,12 @@ export function AnnouncementsPage() {
     }
   }
 
-  const severityFilters = ANNOUNCEMENTS_SEVERITY_FILTER_OPTIONS.map((option) => ({
-    label: t(option.label),
-    value: option.value,
-  }))
+  const severityFilters = ANNOUNCEMENTS_SEVERITY_FILTER_OPTIONS.map(
+    (option) => ({
+      label: t(option.label),
+      value: option.value,
+    })
+  )
 
   const enabledFilters = ANNOUNCEMENTS_ENABLED_FILTER_OPTIONS.map((option) => ({
     label: t(option.label),
@@ -227,7 +229,7 @@ export function AnnouncementsPage() {
   return (
     <>
       {announcementsQuery.error && (
-        <div className='rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive'>
+        <div className='border-destructive/40 bg-destructive/10 text-destructive rounded-lg border p-3 text-sm'>
           {t('siteAnnouncements.page.loadError', {
             message: (announcementsQuery.error as Error).message,
           })}

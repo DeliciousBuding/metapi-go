@@ -43,10 +43,15 @@ export type UrlTableStateOptions<TFilters> = {
   /** Map page filter values to table column filters. */
   toColumnFilters: (filters: TFilters) => ColumnFiltersState
   /** Map table column filters back to page filter values. */
-  fromColumnFilters: (filters: ColumnFiltersState) => Partial<UrlTableState<TFilters>>
+  fromColumnFilters: (
+    filters: ColumnFiltersState
+  ) => Partial<UrlTableState<TFilters>>
 }
 
-function resolveUpdater<TValue>(updater: Updater<TValue>, previous: TValue): TValue {
+function resolveUpdater<TValue>(
+  updater: Updater<TValue>,
+  previous: TValue
+): TValue {
   return typeof updater === 'function'
     ? (updater as (old: TValue) => TValue)(previous)
     : updater
@@ -63,7 +68,9 @@ export function encodeSorting(sorting: SortingState): string {
  * Controlled table state whose source of truth is the URL search string.
  * Re-exported fields plug straight into `useDataTable`.
  */
-export function useUrlTableState<TFilters>(options: UrlTableStateOptions<TFilters>) {
+export function useUrlTableState<TFilters>(
+  options: UrlTableStateOptions<TFilters>
+) {
   const navigate = useNavigate()
   // Subscribe to the router location so search-only navigation re-renders.
   const searchStr = useLocation({ select: (loc) => loc.searchStr })

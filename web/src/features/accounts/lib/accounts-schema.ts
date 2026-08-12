@@ -13,11 +13,7 @@
 
 import { z } from 'zod'
 
-import type {
-  Account,
-  AccountPayload,
-  CredentialMode,
-} from '../types'
+import type { Account, AccountPayload, CredentialMode } from '../types'
 
 // ---------------------------------------------------------------------------
 // Schema factory
@@ -42,10 +38,9 @@ export function getAccountFormSchema() {
         .string()
         .trim()
         .optional()
-        .refine(
-          (value) => !value || /^https?:\/\/.+/.test(value),
-          { message: 'accounts.schema.invalidProxyUrl' },
-        ),
+        .refine((value) => !value || /^https?:\/\/.+/.test(value), {
+          message: 'accounts.schema.invalidProxyUrl',
+        }),
       refreshToken: z.string().trim().optional(),
       tokenExpiresAt: z.number().int().positive().optional(),
       skipModelFetch: z.boolean(),
@@ -79,7 +74,7 @@ export type AccountFormValues = z.infer<ReturnType<typeof getAccountFormSchema>>
 // ---------------------------------------------------------------------------
 
 export function getAccountFormDefaultValues(
-  mode: CredentialMode = 'session',
+  mode: CredentialMode = 'session'
 ): AccountFormValues {
   return {
     siteId: 0,
@@ -112,7 +107,7 @@ function parseTagsInput(raw: string | undefined): string[] | undefined {
 }
 
 export function transformFormToPayload(
-  values: AccountFormValues,
+  values: AccountFormValues
 ): AccountPayload {
   const tags = parseTagsInput(values.tags)
   const extraConfig = values.proxyUrl
@@ -152,7 +147,7 @@ export function transformFormToPayload(
 }
 
 export function transformAccountToFormValues(
-  account: Account,
+  account: Account
 ): Partial<AccountFormValues> {
   return {
     siteId: account.siteId,

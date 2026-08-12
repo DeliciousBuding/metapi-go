@@ -25,7 +25,10 @@ export function getAccountTokenFormSchema() {
       .trim()
       .min(1, { message: 'accounts.tokens.schema.valueRequired' }),
     tokenGroup: z.string().trim().optional(),
-    quota: z.number().nonnegative({ message: 'accounts.tokens.schema.quotaNonNegative' }).optional(),
+    quota: z
+      .number()
+      .nonnegative({ message: 'accounts.tokens.schema.quotaNonNegative' })
+      .optional(),
     unlimited: z.boolean(),
     expiresAt: z.string().trim().optional(),
     allowedIps: z.string().trim().optional(),
@@ -41,7 +44,7 @@ export type AccountTokenFormValues = z.infer<
 // ---------------------------------------------------------------------------
 
 export function getAccountTokenFormDefaultValues(
-  accountId = 0,
+  accountId = 0
 ): AccountTokenFormValues {
   return {
     accountId,
@@ -73,7 +76,7 @@ export interface AccountTokenPayload {
 }
 
 export function transformTokenFormToPayload(
-  values: AccountTokenFormValues,
+  values: AccountTokenFormValues
 ): AccountTokenPayload {
   const allowedIps = values.allowedIps
     ? values.allowedIps

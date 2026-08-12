@@ -17,10 +17,7 @@
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
-import type {
-  FailureReason,
-  FailureReasonCategory,
-} from '../types'
+import type { FailureReason, FailureReasonCategory } from '../types'
 
 export interface FailureCategoryConfig {
   variant: 'default' | 'secondary' | 'destructive' | 'warning' | 'outline'
@@ -39,12 +36,8 @@ const FAILURE_CATEGORY_CONFIG: Record<
   unknown: { variant: 'outline', dotClassName: 'bg-muted-foreground' },
 }
 
-
-function resolveCategoryConfig(
-  category: string,
-): FailureCategoryConfig {
-  const config =
-    FAILURE_CATEGORY_CONFIG[category as FailureReasonCategory]
+function resolveCategoryConfig(category: string): FailureCategoryConfig {
+  const config = FAILURE_CATEGORY_CONFIG[category as FailureReasonCategory]
   return config ?? FAILURE_CATEGORY_CONFIG.unknown
 }
 
@@ -66,13 +59,9 @@ export function FailureReasonBadge({
   const tooltip = reason.detailHint || reason.actionHint || undefined
 
   return (
-    <Badge
-      variant={config.variant}
-      className={className}
-      title={tooltip}
-    >
+    <Badge variant={config.variant} className={className} title={tooltip}>
       <span className={cn('size-1.5 rounded-full', config.dotClassName)} />
-      <span className='truncate max-w-[140px]'>{label}</span>
+      <span className='max-w-[140px] truncate'>{label}</span>
     </Badge>
   )
 }

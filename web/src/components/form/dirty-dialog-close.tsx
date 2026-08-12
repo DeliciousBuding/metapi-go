@@ -53,7 +53,7 @@ export function useDirtyDialogClose({
       }
       setConfirmOpen(true)
     },
-    [enabled, onOpenChange],
+    [enabled, onOpenChange]
   )
 
   const guard = (

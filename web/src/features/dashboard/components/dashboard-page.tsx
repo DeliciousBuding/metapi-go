@@ -35,13 +35,13 @@ export type DashboardPageProps = {
 }
 
 function resolveSectionId(
-  activeSection: string | undefined,
+  activeSection: string | undefined
 ): DashboardSectionId {
   if (!activeSection) return DASHBOARD_DEFAULT_SECTION
   const known = new Set<string>(
     (getDashboardSectionNavItems() as Array<{ url: string }>).map(
-      (item) => item.url.split('/').pop() ?? '',
-    ),
+      (item) => item.url.split('/').pop() ?? ''
+    )
   )
   return known.has(activeSection)
     ? (activeSection as DashboardSectionId)
@@ -61,13 +61,9 @@ export function DashboardPage({
   return (
     <div className='flex flex-col gap-6 p-6'>
       <header className='flex flex-col gap-1'>
-        <h1 className='text-2xl font-normal tracking-tight'>
-          {t(meta.title)}
-        </h1>
+        <h1 className='text-2xl font-normal tracking-tight'>{t(meta.title)}</h1>
         {meta.description ? (
-          <p className='text-muted-foreground text-sm'>
-            {t(meta.description)}
-          </p>
+          <p className='text-muted-foreground text-sm'>{t(meta.description)}</p>
         ) : null}
       </header>
 

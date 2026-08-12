@@ -86,27 +86,35 @@ describe('cronToSchedule', () => {
   })
 
   it('keeps null/undefined as custom with empty cron', () => {
-    expect(cronToSchedule(null)).toEqual({ version: 1, kind: 'custom', cron: '' })
-    expect(cronToSchedule(undefined)).toEqual({ version: 1, kind: 'custom', cron: '' })
+    expect(cronToSchedule(null)).toEqual({
+      version: 1,
+      kind: 'custom',
+      cron: '',
+    })
+    expect(cronToSchedule(undefined)).toEqual({
+      version: 1,
+      kind: 'custom',
+      cron: '',
+    })
   })
 })
 
 describe('scheduleToCron', () => {
   it('emits a canonical cron for daily', () => {
     expect(scheduleToCron({ version: 1, kind: 'daily', time: '08:00' })).toBe(
-      '0 8 * * *',
+      '0 8 * * *'
     )
   })
 
   it('emits a canonical cron for interval', () => {
     expect(
-      scheduleToCron({ version: 1, kind: 'interval', everyHours: 6 }),
+      scheduleToCron({ version: 1, kind: 'interval', everyHours: 6 })
     ).toBe('0 */6 * * *')
   })
 
   it('returns custom cron verbatim', () => {
     expect(
-      scheduleToCron({ version: 1, kind: 'custom', cron: '0 8 * * 1-5' }),
+      scheduleToCron({ version: 1, kind: 'custom', cron: '0 8 * * 1-5' })
     ).toBe('0 8 * * 1-5')
   })
 
@@ -117,7 +125,7 @@ describe('scheduleToCron', () => {
         kind: 'window',
         windowStart: '00:00',
         windowEnd: '23:59',
-      }),
+      })
     ).toBeUndefined()
   })
 
@@ -128,27 +136,27 @@ describe('scheduleToCron', () => {
   it('returns the original bytes when semantics are unchanged (6-field)', () => {
     const original = '0 0 8 * * *'
     expect(
-      scheduleToCron({ version: 1, kind: 'daily', time: '08:00' }, original),
+      scheduleToCron({ version: 1, kind: 'daily', time: '08:00' }, original)
     ).toBe(original)
   })
 
   it('returns the original bytes when semantics are unchanged (interval 1)', () => {
     const original = '0 * * * *'
     expect(
-      scheduleToCron({ version: 1, kind: 'interval', everyHours: 1 }, original),
+      scheduleToCron({ version: 1, kind: 'interval', everyHours: 1 }, original)
     ).toBe(original)
   })
 
   it('returns the original bytes for interval 6', () => {
     const original = '0 */6 * * *'
     expect(
-      scheduleToCron({ version: 1, kind: 'interval', everyHours: 6 }, original),
+      scheduleToCron({ version: 1, kind: 'interval', everyHours: 6 }, original)
     ).toBe(original)
   })
 
   it('emits canonical cron when semantics changed', () => {
     expect(
-      scheduleToCron({ version: 1, kind: 'daily', time: '08:00' }, '0 9 * * *'),
+      scheduleToCron({ version: 1, kind: 'daily', time: '08:00' }, '0 9 * * *')
     ).toBe('0 8 * * *')
   })
 })
@@ -158,8 +166,8 @@ describe('scheduleEqual', () => {
     expect(
       scheduleEqual(
         { version: 1, kind: 'daily', time: '08:00' },
-        { version: 1, kind: 'daily', time: '08:00' },
-      ),
+        { version: 1, kind: 'daily', time: '08:00' }
+      )
     ).toBe(true)
   })
 
@@ -167,8 +175,8 @@ describe('scheduleEqual', () => {
     expect(
       scheduleEqual(
         { version: 1, kind: 'daily', time: '08:00' },
-        { version: 1, kind: 'daily', time: '09:00' },
-      ),
+        { version: 1, kind: 'daily', time: '09:00' }
+      )
     ).toBe(false)
   })
 
@@ -176,17 +184,22 @@ describe('scheduleEqual', () => {
     expect(
       scheduleEqual(
         { version: 1, kind: 'daily', time: '08:00' },
-        { version: 1, kind: 'interval', everyHours: 6 },
-      ),
+        { version: 1, kind: 'interval', everyHours: 6 }
+      )
     ).toBe(false)
   })
 
   it('matches identical window specs', () => {
     expect(
       scheduleEqual(
-        { version: 1, kind: 'window', windowStart: '00:00', windowEnd: '08:00' },
-        { version: 1, kind: 'window', windowStart: '00:00', windowEnd: '08:00' },
-      ),
+        {
+          version: 1,
+          kind: 'window',
+          windowStart: '00:00',
+          windowEnd: '08:00',
+        },
+        { version: 1, kind: 'window', windowStart: '00:00', windowEnd: '08:00' }
+      )
     ).toBe(true)
   })
 })
@@ -194,7 +207,7 @@ describe('scheduleEqual', () => {
 describe('specToLegacyMode', () => {
   it('maps interval to interval', () => {
     expect(
-      specToLegacyMode({ version: 1, kind: 'interval', everyHours: 6 }),
+      specToLegacyMode({ version: 1, kind: 'interval', everyHours: 6 })
     ).toBe('interval')
   })
 
@@ -205,13 +218,17 @@ describe('specToLegacyMode', () => {
         kind: 'window',
         windowStart: '00:00',
         windowEnd: '23:59',
-      }),
+      })
     ).toBe('window')
   })
 
   it('maps daily and custom to cron', () => {
-    expect(specToLegacyMode({ version: 1, kind: 'daily', time: '08:00' })).toBe('cron')
-    expect(specToLegacyMode({ version: 1, kind: 'custom', cron: 'x' })).toBe('cron')
+    expect(specToLegacyMode({ version: 1, kind: 'daily', time: '08:00' })).toBe(
+      'cron'
+    )
+    expect(specToLegacyMode({ version: 1, kind: 'custom', cron: 'x' })).toBe(
+      'cron'
+    )
   })
 
   it('maps undefined to cron', () => {
@@ -226,8 +243,13 @@ describe('scheduleFromLegacy', () => {
         mode: 'window',
         windowStart: '02:00',
         windowEnd: '06:00',
-      }),
-    ).toEqual({ version: 1, kind: 'window', windowStart: '02:00', windowEnd: '06:00' })
+      })
+    ).toEqual({
+      version: 1,
+      kind: 'window',
+      windowStart: '02:00',
+      windowEnd: '06:00',
+    })
   })
 
   it('defaults window boundaries when absent', () => {

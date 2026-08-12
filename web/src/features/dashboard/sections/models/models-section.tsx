@@ -8,8 +8,8 @@
 // The legacy standalone Cost and Latency cards are folded in (not rendered
 // as separate sections).
 
-import { VChart } from '@visactor/react-vchart'
 import { useQuery } from '@tanstack/react-query'
+import { VChart } from '@visactor/react-vchart'
 import { Inbox, TriangleAlert } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -18,7 +18,10 @@ import { useTheme } from '@/context/theme-provider'
 import { api } from '@/lib/api'
 
 import { ChartShell } from '../../components/chart-shell'
-import { useChartColors, useThemeLabelColor } from '../../hooks/use-chart-colors'
+import {
+  useChartColors,
+  useThemeLabelColor,
+} from '../../hooks/use-chart-colors'
 import {
   VCHART_OPTION,
   buildLatencyHistogramSpec,
@@ -30,7 +33,7 @@ import type { ModelCostRow } from '../../types'
 function ChartError({ message }: { message: string }) {
   return (
     <div className='flex h-full w-full flex-col items-center justify-center gap-1.5'>
-      <TriangleAlert className='size-5 text-destructive/80' />
+      <TriangleAlert className='text-destructive/80 size-5' />
       <p className='text-destructive text-xs'>{message}</p>
     </div>
   )
@@ -39,7 +42,7 @@ function ChartError({ message }: { message: string }) {
 function ChartEmpty({ message }: { message: string }) {
   return (
     <div className='flex h-full w-full flex-col items-center justify-center gap-1.5'>
-      <Inbox className='size-5 text-muted-foreground/60' />
+      <Inbox className='text-muted-foreground/60 size-5' />
       <p className='text-muted-foreground text-xs'>{message}</p>
     </div>
   )
@@ -68,7 +71,7 @@ export function ModelsSection() {
 
   const costData = useMemo<ModelCostRow[]>(
     () => costQuery.data?.items ?? [],
-    [costQuery.data],
+    [costQuery.data]
   )
 
   const histogramData = useMemo<Array<{ label: string; count: number }>>(
@@ -77,7 +80,7 @@ export function ModelsSection() {
         label: bucket.label,
         count: bucket.count,
       })),
-    [histogramQuery.data],
+    [histogramQuery.data]
   )
 
   const metricAvg = t('dashboard.models.latencyTrend.metricAvg')
@@ -90,10 +93,18 @@ export function ModelsSection() {
     const rows: Array<{ date: string; metric: string; latency: number }> = []
     for (const point of points) {
       if (point.avgLatencyMs !== null && point.avgLatencyMs !== undefined) {
-        rows.push({ date: point.date, metric: metricAvg, latency: point.avgLatencyMs })
+        rows.push({
+          date: point.date,
+          metric: metricAvg,
+          latency: point.avgLatencyMs,
+        })
       }
       if (point.p95LatencyMs !== null && point.p95LatencyMs !== undefined) {
-        rows.push({ date: point.date, metric: metricP95, latency: point.p95LatencyMs })
+        rows.push({
+          date: point.date,
+          metric: metricP95,
+          latency: point.p95LatencyMs,
+        })
       }
     }
     return rows
@@ -101,15 +112,15 @@ export function ModelsSection() {
 
   const costSpec = useMemo(
     () => buildModelCostSpec(colors, labelColor, costData),
-    [colors, labelColor, costData],
+    [colors, labelColor, costData]
   )
   const histogramSpec = useMemo(
     () => buildLatencyHistogramSpec(colors, histogramData),
-    [colors, histogramData],
+    [colors, histogramData]
   )
   const trendSpec = useMemo(
     () => buildLatencyTrendSpec(colors, trendData),
-    [colors, trendData],
+    [colors, trendData]
   )
 
   const renderChart = (
@@ -118,7 +129,7 @@ export function ModelsSection() {
     isLoading: boolean,
     isError: boolean,
     dataLength: number,
-    emptyKey: string,
+    emptyKey: string
   ) => {
     if (isLoading) return null
     if (isError) {
@@ -151,7 +162,7 @@ export function ModelsSection() {
           costQuery.isLoading,
           costQuery.isError,
           costData.length,
-          'dashboard.models.costDistribution.empty',
+          'dashboard.models.costDistribution.empty'
         )}
       </ChartShell>
 
@@ -167,7 +178,7 @@ export function ModelsSection() {
           histogramQuery.isLoading,
           histogramQuery.isError,
           histogramData.length,
-          'dashboard.models.latencyHistogram.empty',
+          'dashboard.models.latencyHistogram.empty'
         )}
       </ChartShell>
 
@@ -184,7 +195,7 @@ export function ModelsSection() {
           trendQuery.isLoading,
           trendQuery.isError,
           trendData.length,
-          'dashboard.models.latencyTrend.empty',
+          'dashboard.models.latencyTrend.empty'
         )}
       </ChartShell>
     </div>

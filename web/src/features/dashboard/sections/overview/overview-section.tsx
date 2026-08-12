@@ -14,6 +14,7 @@ import { Activity, ClipboardList, RefreshCw } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -21,7 +22,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -44,8 +44,18 @@ type DashboardSnapshot = {
   accountCount?: number
   totalAccounts?: number
   activeAccounts?: number
-  todayCheckin?: { total: number; success: number; skipped: number; failed: number }
-  proxy24h?: { total: number; success: number; totalTokens: number; totalCost: number }
+  todayCheckin?: {
+    total: number
+    success: number
+    skipped: number
+    failed: number
+  }
+  proxy24h?: {
+    total: number
+    success: number
+    totalTokens: number
+    totalCost: number
+  }
   performance?: { requestsPerMinute: number; tokensPerMinute: number }
 }
 
@@ -91,7 +101,8 @@ export function OverviewSection() {
 
   const { data: balanceHistory } = useQuery({
     queryKey: ['dashboard-balance-spark', 0, 8],
-    queryFn: () => api.getBalanceHistory(0, 8) as Promise<BalanceHistoryResponse>,
+    queryFn: () =>
+      api.getBalanceHistory(0, 8) as Promise<BalanceHistoryResponse>,
   })
 
   const {
@@ -137,8 +148,8 @@ export function OverviewSection() {
     }
     if (schedulerError) {
       return (
-        <div className='flex min-h-24 flex-col items-center justify-center gap-3 rounded-lg border border-destructive/40 bg-destructive/10 py-8 text-center'>
-          <p className='text-sm text-destructive'>
+        <div className='border-destructive/40 bg-destructive/10 flex min-h-24 flex-col items-center justify-center gap-3 rounded-lg border py-8 text-center'>
+          <p className='text-destructive text-sm'>
             {t('dashboard.overview.scheduledTasks.loadError')}
           </p>
           <Button
@@ -155,7 +166,7 @@ export function OverviewSection() {
     if (schedulerRows.length === 0) {
       return (
         <div className='flex min-h-24 flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center'>
-          <ClipboardList className='size-5 text-muted-foreground/60' />
+          <ClipboardList className='text-muted-foreground/60 size-5' />
           <p className='text-muted-foreground text-sm'>
             {t('dashboard.overview.scheduledTasks.empty')}
           </p>
@@ -196,14 +207,12 @@ export function OverviewSection() {
               : t('dashboard.overview.scheduledTasks.disabled')
             return (
               <TableRow key={row.job}>
-                <TableCell className='font-medium'>
-                  {row.job}
-                </TableCell>
+                <TableCell className='font-medium'>{row.job}</TableCell>
                 <TableCell>
                   <span
                     className={cn(
                       'inline-flex h-5 items-center rounded-full border px-2 text-xs font-medium',
-                      enabledClassName,
+                      enabledClassName
                     )}
                   >
                     {enabledLabel}
@@ -213,7 +222,7 @@ export function OverviewSection() {
                   <span
                     className={cn(
                       'inline-flex h-5 items-center rounded-full border px-2 text-xs font-medium',
-                      status.className,
+                      status.className
                     )}
                   >
                     {t(status.key)}

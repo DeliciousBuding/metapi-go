@@ -10,7 +10,11 @@ import type { ReactNode } from 'react'
 /**
  * The 4 dashboard sections, in main-sidebar / tab order.
  */
-export type DashboardSectionId = 'overview' | 'traffic' | 'models' | 'availability'
+export type DashboardSectionId =
+  | 'overview'
+  | 'traffic'
+  | 'models'
+  | 'availability'
 
 /**
  * A single dashboard section — the leaf unit of the Dashboard workspace.

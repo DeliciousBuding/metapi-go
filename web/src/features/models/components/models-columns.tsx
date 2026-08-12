@@ -20,10 +20,7 @@ import {
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import {
-  getBrand,
-  InlineBrandIcon,
-} from '@/assets/brand-icons/BrandIcon'
+import { getBrand, InlineBrandIcon } from '@/assets/brand-icons/BrandIcon'
 import {
   BadgeListCell,
   DataTableColumnHeader,
@@ -87,7 +84,9 @@ function formatSuccessRate(rate: number | null | undefined): string {
  * because it reads i18n state). The `actions` callbacks are supplied by the
  * page so the columns stay free of mutation/query concerns.
  */
-export function useModelsColumns(actions: ModelsColumnActions): ColumnDef<ModelRow>[] {
+export function useModelsColumns(
+  actions: ModelsColumnActions
+): ColumnDef<ModelRow>[] {
   const { t } = useTranslation()
 
   const columns: ColumnDef<ModelRow>[] = useMemo(
@@ -140,9 +139,7 @@ export function useModelsColumns(actions: ModelsColumnActions): ColumnDef<ModelR
             <div className='flex flex-col'>
               <span className='font-medium'>{model.name}</span>
               {model.description ? (
-                <TruncatedCell
-                  className='text-muted-foreground max-w-[20rem] text-xs'
-                >
+                <TruncatedCell className='text-muted-foreground max-w-[20rem] text-xs'>
                   {model.description}
                 </TruncatedCell>
               ) : null}
@@ -199,7 +196,7 @@ export function useModelsColumns(actions: ModelsColumnActions): ColumnDef<ModelR
           />
         ),
         cell: ({ row }) => (
-          <span className='tabular-nums text-sm'>
+          <span className='text-sm tabular-nums'>
             {row.original.accountCount}
           </span>
         ),
@@ -216,7 +213,7 @@ export function useModelsColumns(actions: ModelsColumnActions): ColumnDef<ModelR
           />
         ),
         cell: ({ row }) => (
-          <span className='text-muted-foreground tabular-nums text-sm'>
+          <span className='text-muted-foreground text-sm tabular-nums'>
             {formatLatency(row.original.avgLatency)}
           </span>
         ),
@@ -233,7 +230,7 @@ export function useModelsColumns(actions: ModelsColumnActions): ColumnDef<ModelR
           />
         ),
         cell: ({ row }) => (
-          <span className='text-muted-foreground tabular-nums text-sm'>
+          <span className='text-muted-foreground text-sm tabular-nums'>
             {formatSuccessRate(row.original.successRate)}
           </span>
         ),
@@ -252,7 +249,7 @@ export function useModelsColumns(actions: ModelsColumnActions): ColumnDef<ModelR
         cell: ({ row }) => {
           const price = resolveLowestInputPrice(row.original)
           return (
-            <span className='tabular-nums text-sm'>
+            <span className='text-sm tabular-nums'>
               {price === null ? (
                 <span className='text-muted-foreground'>—</span>
               ) : (
@@ -307,7 +304,7 @@ export function useModelsColumns(actions: ModelsColumnActions): ColumnDef<ModelR
         },
       },
     ],
-    [actions, t],
+    [actions, t]
   )
 
   return columns

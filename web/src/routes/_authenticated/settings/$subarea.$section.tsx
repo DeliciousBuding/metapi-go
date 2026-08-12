@@ -18,7 +18,7 @@ import {
 } from '@/features/settings'
 
 export const Route = createFileRoute(
-  '/_authenticated/settings/$subarea/$section',
+  '/_authenticated/settings/$subarea/$section'
 )({
   beforeLoad: ({ params }) => {
     const subareaConfig = getSettingsSubarea(params.subarea)

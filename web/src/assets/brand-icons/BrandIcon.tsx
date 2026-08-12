@@ -1,5 +1,6 @@
 /* eslint-disable react/only-export-components -- icon component co-located with brand helpers */
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react'
+
 import {
   avatarLetters,
   getBrand,
@@ -7,52 +8,69 @@ import {
   hashColor,
   normalizeBrandIconKey,
   type BrandInfo,
-} from './brandRegistry.js';
+} from './brandRegistry.js'
 
-export { getBrand } from './brandRegistry.js';
+export { getBrand } from './brandRegistry.js'
 
-const BRAND_ICON_VERSION = '1.83.0';
-const ICON_CDN = `https://registry.npmmirror.com/@lobehub/icons-static-png/${BRAND_ICON_VERSION}/files/dark`;
-const ICON_CDN_LIGHT = `https://registry.npmmirror.com/@lobehub/icons-static-png/${BRAND_ICON_VERSION}/files/light`;
+const BRAND_ICON_VERSION = '1.83.0'
+const ICON_CDN = `https://registry.npmmirror.com/@lobehub/icons-static-png/${BRAND_ICON_VERSION}/files/dark`
+const ICON_CDN_LIGHT = `https://registry.npmmirror.com/@lobehub/icons-static-png/${BRAND_ICON_VERSION}/files/light`
 
 function useIconCdn() {
   const [isDark, setIsDark] = useState(() => {
-    if (typeof document === 'undefined') return false;
-    return document.documentElement.getAttribute('data-theme') === 'dark';
-  });
+    if (typeof document === 'undefined') return false
+    return document.documentElement.getAttribute('data-theme') === 'dark'
+  })
   useEffect(() => {
-    if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return undefined;
+    if (
+      typeof document === 'undefined' ||
+      typeof MutationObserver === 'undefined'
+    )
+      return undefined
     const observer = new MutationObserver(() => {
-      setIsDark(document.documentElement.getAttribute('data-theme') === 'dark');
-    });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => observer.disconnect();
-  }, []);
-  return isDark ? ICON_CDN : ICON_CDN_LIGHT;
+      setIsDark(document.documentElement.getAttribute('data-theme') === 'dark')
+    })
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    })
+    return () => observer.disconnect()
+  }, [])
+  return isDark ? ICON_CDN : ICON_CDN_LIGHT
 }
 
 type BrandGlyphProps = {
-  brand?: Pick<BrandInfo, 'name' | 'icon'> | null;
-  model?: string | null;
-  icon?: string | null;
-  alt?: string;
-  size?: number;
-  fallbackText?: string | null;
-  style?: CSSProperties;
-};
+  brand?: Pick<BrandInfo, 'name' | 'icon'> | null
+  model?: string | null
+  icon?: string | null
+  alt?: string
+  size?: number
+  fallbackText?: string | null
+  style?: CSSProperties
+}
 
-function BrandGlyph({ brand, model, icon, alt, size = 16, fallbackText, style }: BrandGlyphProps) {
-  const cdn = useIconCdn();
-  const resolvedBrand = brand || (model ? getBrand(model) : null);
-  const resolvedIcon = normalizeBrandIconKey(icon || resolvedBrand?.icon || null);
-  const [imgError, setImgError] = useState(false);
+function BrandGlyph({
+  brand,
+  model,
+  icon,
+  alt,
+  size = 16,
+  fallbackText,
+  style,
+}: BrandGlyphProps) {
+  const cdn = useIconCdn()
+  const resolvedBrand = brand || (model ? getBrand(model) : null)
+  const resolvedIcon = normalizeBrandIconKey(
+    icon || resolvedBrand?.icon || null
+  )
+  const [imgError, setImgError] = useState(false)
 
   useEffect(() => {
-    setImgError(false);
-  }, [resolvedIcon]);
+    setImgError(false)
+  }, [resolvedIcon])
 
   if (resolvedIcon && !imgError) {
-    const src = getBrandIconUrl(resolvedIcon, cdn);
+    const src = getBrandIconUrl(resolvedIcon, cdn)
     if (src) {
       return (
         <img
@@ -67,18 +85,18 @@ function BrandGlyph({ brand, model, icon, alt, size = 16, fallbackText, style }:
             ...style,
           }}
           onError={() => setImgError(true)}
-          loading="lazy"
+          loading='lazy'
         />
-      );
+      )
     }
   }
 
-  const fallback = (fallbackText ?? resolvedBrand?.name ?? model ?? '').trim();
-  if (!fallback) return null;
+  const fallback = (fallbackText ?? resolvedBrand?.name ?? model ?? '').trim()
+  if (!fallback) return null
 
   return (
     <span
-      aria-hidden="true"
+      aria-hidden='true'
       style={{
         width: size,
         height: size,
@@ -98,40 +116,60 @@ function BrandGlyph({ brand, model, icon, alt, size = 16, fallbackText, style }:
     >
       {avatarLetters(fallback)}
     </span>
-  );
+  )
 }
 
-export function BrandIcon({ model, size = 44 }: { model: string; size?: number }) {
-  const brand = getBrand(model);
+export function BrandIcon({
+  model,
+  size = 44,
+}: {
+  model: string
+  size?: number
+}) {
+  const brand = getBrand(model)
 
   if (brand) {
     return (
-      <div style={{
-        width: size,
-        height: size,
-        borderRadius: 10,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-        background: 'transparent',
-      }}
+      <div
+        style={{
+          width: size,
+          height: size,
+          borderRadius: 10,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          background: 'transparent',
+        }}
       >
         <BrandGlyph brand={brand} size={size} fallbackText={brand.name} />
       </div>
-    );
+    )
   }
 
   return (
-    <div className="model-card-avatar" style={{ width: size, height: size, background: hashColor(model), fontSize: size > 32 ? 16 : 10 }}>
+    <div
+      className='model-card-avatar'
+      style={{
+        width: size,
+        height: size,
+        background: hashColor(model),
+        fontSize: size > 32 ? 16 : 10,
+      }}
+    >
       {avatarLetters(model)}
     </div>
-  );
+  )
 }
 
-export function InlineBrandIcon({ model, size = 16 }: { model: string; size?: number }) {
-  const brand = getBrand(model);
-  if (!brand) return null;
-  return <BrandGlyph brand={brand} size={size} fallbackText={brand.name} />;
+export function InlineBrandIcon({
+  model,
+  size = 16,
+}: {
+  model: string
+  size?: number
+}) {
+  const brand = getBrand(model)
+  if (!brand) return null
+  return <BrandGlyph brand={brand} size={size} fallbackText={brand.name} />
 }
-
