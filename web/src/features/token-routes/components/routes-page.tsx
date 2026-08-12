@@ -270,7 +270,7 @@ export function RoutesPage() {
     <div className='flex h-full flex-col gap-3 p-4'>
       <div className='flex items-center justify-between gap-4'>
         <div>
-          <h1 className='text-lg font-semibold'>{t('tokenRoutes.page.title')}</h1>
+          <h1 className='text-lg font-normal'>{t('tokenRoutes.page.title')}</h1>
           <p className='text-sm text-muted-foreground'>
             {t('tokenRoutes.page.description')}
           </p>

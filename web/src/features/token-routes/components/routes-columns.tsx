@@ -296,7 +296,7 @@ export function useRoutesColumns(
             <span
               className={cn(
                 'size-1.5 rounded-full',
-                route.enabled ? 'bg-emerald-500' : 'bg-muted-foreground',
+                route.enabled ? 'bg-success' : 'bg-muted-foreground',
               )}
             />
             {route.enabled ? t('tokenRoutes.columns.enable') : t('tokenRoutes.columns.disable')}

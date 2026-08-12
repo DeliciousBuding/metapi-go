@@ -395,12 +395,7 @@
 
   @media (min-width: 641px) {
     [data-slot='card']:not([data-card-hover='false']):hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgb(0 0 0 / 0.06);
-    }
-
-    .dark [data-slot='card']:not([data-card-hover='false']):hover {
-      box-shadow: 0 4px 12px rgb(0 0 0 / 0.3);
+      box-shadow: var(--shadow-card-hover);
     }
   }
 

@@ -381,11 +381,6 @@
 /* Overview accents mirror the public blue/cyan/violet palette by default.
  * Named presets map those slots to their own chart palette so the overview
  * stays coherent with the user's selected theme. */
-[data-theme-preset]:not([data-theme-preset='default']) {
-  --overview-accent-1: var(--chart-1);
-  --overview-accent-2: var(--chart-2);
-  --overview-accent-3: var(--chart-3);
-}
 
 /* ── Semantic surface bridge ──────────────────────────────────────────── */
 /* Color presets should tint the surfaces most components actually use, not
@@ -421,9 +416,6 @@
   --sidebar-accent: color-mix(in oklch, var(--primary) 14%, var(--background));
   --sidebar-accent-foreground: var(--foreground);
   --sidebar-border: color-mix(in oklch, var(--primary) 18%, var(--background));
-  --success: var(--chart-2);
-  --warning: var(--chart-4);
-  --info: var(--chart-1);
   --neutral: var(--muted-foreground);
 }
 .dark

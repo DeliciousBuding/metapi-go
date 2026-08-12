@@ -246,7 +246,7 @@ export function AccountsPage() {
     <div className='flex h-full flex-col gap-3 p-4'>
       <div className='flex items-center justify-between'>
         <div>
-          <h1 className='text-lg font-semibold'>{t('accounts.page.title')}</h1>
+          <h1 className='text-lg font-normal'>{t('accounts.page.title')}</h1>
           <p className='text-sm text-muted-foreground'>
             {t('accounts.page.description')}
           </p>

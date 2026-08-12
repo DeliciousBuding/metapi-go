@@ -32,12 +32,9 @@ function normalizeInput(value: string): string {
 
 const FALLBACK_COLORS = [
   'var(--color-chart-1)',
-  'var(--color-chart-3)',
   'var(--color-chart-2)',
-  'var(--color-chart-7)',
-  'var(--color-stat-orange-ink)',
-  'var(--color-stat-cyan-ink)',
-  'var(--color-chart-6)',
+  'var(--color-chart-3)',
+  'var(--color-chart-4)',
   'var(--color-chart-5)',
 ];
 

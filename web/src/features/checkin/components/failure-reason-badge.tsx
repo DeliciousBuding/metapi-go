@@ -31,11 +31,11 @@ const FAILURE_CATEGORY_CONFIG: Record<
   FailureReasonCategory,
   FailureCategoryConfig
 > = {
-  auth: { variant: 'destructive', dotClassName: 'bg-red-500' },
-  verification: { variant: 'warning', dotClassName: 'bg-amber-500' },
-  network: { variant: 'secondary', dotClassName: 'bg-blue-500' },
+  auth: { variant: 'destructive', dotClassName: 'bg-destructive' },
+  verification: { variant: 'warning', dotClassName: 'bg-warning' },
+  network: { variant: 'secondary', dotClassName: 'bg-info' },
   site: { variant: 'outline', dotClassName: 'bg-muted-foreground' },
-  state: { variant: 'secondary', dotClassName: 'bg-emerald-500' },
+  state: { variant: 'secondary', dotClassName: 'bg-success' },
   unknown: { variant: 'outline', dotClassName: 'bg-muted-foreground' },
 }
 

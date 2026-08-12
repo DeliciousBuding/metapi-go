@@ -18,9 +18,9 @@ import { FailureReasonBadge } from './failure-reason-badge'
 interface StatusConfig { variant: 'default' | 'secondary' | 'destructive'; dotClassName: string; labelKey: string }
 
 function resolveStatusConfig(status: string): StatusConfig {
-  if (status === 'success') return { variant: 'default', dotClassName: 'bg-emerald-500', labelKey: 'checkin.columns.statusSuccess' }
+  if (status === 'success') return { variant: 'default', dotClassName: 'bg-success', labelKey: 'checkin.columns.statusSuccess' }
   if (status === 'skipped') return { variant: 'secondary', dotClassName: 'bg-muted-foreground', labelKey: 'checkin.columns.statusSkipped' }
-  return { variant: 'destructive', dotClassName: 'bg-red-500', labelKey: 'checkin.columns.statusFailed' }
+  return { variant: 'destructive', dotClassName: 'bg-destructive', labelKey: 'checkin.columns.statusFailed' }
 }
 
 function StatusBadge({ status }: { status: string }) {

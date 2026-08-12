@@ -151,7 +151,7 @@ export function CheckinPage() {
     <div className='flex h-full flex-col gap-3 p-4'>
       <div className='flex items-center justify-between'>
         <div>
-          <h1 className='text-lg font-semibold'>{t('checkin.page.title')}</h1>
+          <h1 className='text-lg font-normal'>{t('checkin.page.title')}</h1>
           <p className='text-sm text-muted-foreground'>{t('checkin.page.description')}</p>
         </div>
         <div className='flex items-center gap-2'>

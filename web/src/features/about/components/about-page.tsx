@@ -80,7 +80,7 @@ export function AboutPage() {
   return (
     <div className='mx-auto w-full max-w-4xl space-y-6 p-4 sm:p-6 lg:p-8'>
       <div className='space-y-1'>
-        <h1 className='text-2xl font-semibold tracking-tight'>
+        <h1 className='text-2xl font-normal tracking-tight'>
           {t('about.title')}
         </h1>
         <p className='text-muted-foreground text-sm'>

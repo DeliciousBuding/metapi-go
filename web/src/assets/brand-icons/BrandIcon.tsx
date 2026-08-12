@@ -84,7 +84,7 @@ function BrandGlyph({ brand, model, icon, alt, size = 16, fallbackText, style }:
         height: size,
         borderRadius: Math.max(4, Math.round(size * 0.33)),
         background: hashColor(fallback),
-        color: 'var(--color-on-primary)',
+        color: 'var(--color-primary-foreground)',
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',

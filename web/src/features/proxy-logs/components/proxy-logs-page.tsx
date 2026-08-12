@@ -136,7 +136,7 @@ export function ProxyLogsPage() {
     <div className='flex h-full flex-col gap-3 p-4'>
       <div className='flex items-center justify-between'>
         <div>
-          <h1 className='text-lg font-semibold'>{t('proxyLogs.page.title')}</h1>
+          <h1 className='text-lg font-normal'>{t('proxyLogs.page.title')}</h1>
           <p className='text-muted-foreground text-sm'>{t('proxyLogs.page.description')}</p>
         </div>
         <Button variant='outline' size='sm' onClick={() => logsQuery.refetch()} disabled={logsQuery.isFetching}>

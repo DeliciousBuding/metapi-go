@@ -47,9 +47,9 @@ interface HealthBadgeConfig {
 }
 
 const HEALTH_BADGE_CONFIG: Record<RuntimeHealthState, HealthBadgeConfig> = {
-  healthy: { labelKey: 'accounts.columns.healthHealthy', variant: 'default', dotClassName: 'bg-emerald-500' },
-  degraded: { labelKey: 'accounts.columns.healthDegraded', variant: 'warning', dotClassName: 'bg-amber-500' },
-  unhealthy: { labelKey: 'accounts.columns.healthUnhealthy', variant: 'destructive', dotClassName: 'bg-red-500' },
+  healthy: { labelKey: 'accounts.columns.healthHealthy', variant: 'default', dotClassName: 'bg-success' },
+  degraded: { labelKey: 'accounts.columns.healthDegraded', variant: 'warning', dotClassName: 'bg-warning' },
+  unhealthy: { labelKey: 'accounts.columns.healthUnhealthy', variant: 'destructive', dotClassName: 'bg-destructive' },
   disabled: { labelKey: 'accounts.columns.healthDisabled', variant: 'secondary', dotClassName: 'bg-muted-foreground' },
   unknown: { labelKey: 'accounts.columns.healthUnknown', variant: 'outline', dotClassName: 'bg-muted-foreground' },
 }
@@ -62,7 +62,7 @@ function useResolveHealth() {
         labelKey: 'accounts.columns.healthExpired',
         label: t('accounts.columns.healthExpired'),
         variant: 'destructive',
-        dotClassName: 'bg-red-500',
+        dotClassName: 'bg-destructive',
       }
     }
     const state = account.runtimeHealth?.state ?? 'unknown'
@@ -272,7 +272,7 @@ export function useAccountsColumns(
           <div className='flex flex-col'>
             <span className='tabular-nums'>{formatBalance(account.balance)}</span>
             {account.todayReward ? (
-              <span className='text-[11px] text-emerald-600'>
+              <span className='text-[11px] text-success'>
                 +{formatBalance(account.todayReward)}
               </span>
             ) : null}
