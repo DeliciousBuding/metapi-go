@@ -94,8 +94,9 @@ export function ManualCheckinDialog({
             <SelectTrigger>
               <SelectValue>
                 {(selected) => {
-                  if (!selected || selected === NO_SELECTION)
+                  if (!selected || selected === NO_SELECTION) {
                     return t('checkin.manual.accountPlaceholder')
+                  }
                   const account = accounts.find(
                     (item) => String(item.id) === selected
                   )

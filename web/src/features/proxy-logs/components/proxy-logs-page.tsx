@@ -51,7 +51,7 @@ type ResolvedUrlState = {
 }
 
 function readUrlState(): ResolvedUrlState {
-  if (typeof window === 'undefined')
+  if (typeof window === 'undefined') {
     return {
       pageIndex: 0,
       pageSize: DEFAULT_PAGE_SIZE,
@@ -64,6 +64,7 @@ function readUrlState(): ResolvedUrlState {
       latencyMin: null,
       latencyMax: null,
     }
+  }
   const params = new URLSearchParams(window.location.search)
   const parsed = proxyLogsSearchSchema.safeParse({
     q: params.get('q') ?? undefined,
@@ -77,7 +78,7 @@ function readUrlState(): ResolvedUrlState {
     latencyMin: params.get('latencyMin') ?? undefined,
     latencyMax: params.get('latencyMax') ?? undefined,
   })
-  if (!parsed.success)
+  if (!parsed.success) {
     return {
       pageIndex: 0,
       pageSize: DEFAULT_PAGE_SIZE,
@@ -90,6 +91,7 @@ function readUrlState(): ResolvedUrlState {
       latencyMin: null,
       latencyMax: null,
     }
+  }
   const data = parsed.data
   return {
     pageIndex: data.page ?? 0,
@@ -110,17 +112,20 @@ function writeUrlState(state: ResolvedUrlState) {
   const params = new URLSearchParams()
   if (state.search) params.set('q', state.search)
   if (state.pageIndex > 0) params.set('page', String(state.pageIndex))
-  if (state.pageSize !== DEFAULT_PAGE_SIZE)
+  if (state.pageSize !== DEFAULT_PAGE_SIZE) {
     params.set('pageSize', String(state.pageSize))
+  }
   if (state.status && state.status !== 'all') params.set('status', state.status)
   if (state.siteId !== null) params.set('siteId', String(state.siteId))
   if (state.client) params.set('client', state.client)
   if (state.from) params.set('from', state.from)
   if (state.to) params.set('to', state.to)
-  if (state.latencyMin !== null)
+  if (state.latencyMin !== null) {
     params.set('latencyMin', String(state.latencyMin))
-  if (state.latencyMax !== null)
+  }
+  if (state.latencyMax !== null) {
     params.set('latencyMax', String(state.latencyMax))
+  }
   const query = params.toString()
   const url = query
     ? `${window.location.pathname}?${query}`
@@ -383,8 +388,9 @@ export function ProxyLogsPage() {
                   <SelectTrigger size='sm' className='w-[160px]'>
                     <SelectValue>
                       {(selected) => {
-                        if (!selected || selected === 'all')
+                        if (!selected || selected === 'all') {
                           return t('proxyLogs.page.filterAllSites')
+                        }
                         const site = siteOptions.find(
                           (item) => String(item.id) === selected
                         )
@@ -417,8 +423,9 @@ export function ProxyLogsPage() {
                   <SelectTrigger size='sm' className='w-[160px]'>
                     <SelectValue>
                       {(selected) => {
-                        if (!selected || selected === 'all')
+                        if (!selected || selected === 'all') {
                           return t('proxyLogs.page.filterAllClients')
+                        }
                         const option = clientOptions.find(
                           (item) => item.value === selected
                         )

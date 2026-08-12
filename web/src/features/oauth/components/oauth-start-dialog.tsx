@@ -139,8 +139,9 @@ export function OAuthStartDialog({
                       <SelectTrigger>
                         <SelectValue>
                           {(selected) => {
-                            if (!selected)
+                            if (!selected) {
                               return t('oauth.form.providerPlaceholder')
+                            }
                             const provider = enabledProviders.find(
                               (item) => item.provider === selected
                             )

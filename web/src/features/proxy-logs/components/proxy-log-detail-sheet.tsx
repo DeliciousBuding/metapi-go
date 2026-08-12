@@ -200,8 +200,9 @@ function ConversationFileLinks({
   usageSource: string | null
 }) {
   const { t } = useTranslation()
-  if (!downstreamPath && !upstreamPath && !clientFamily && !sessionId)
+  if (!downstreamPath && !upstreamPath && !clientFamily && !sessionId) {
     return null
+  }
   return (
     <>
       <Separator />
@@ -334,8 +335,9 @@ function JsonBlock({ value }: { value: unknown }) {
   const [copied, setCopied] = useState(false)
   const text = useMemo(() => prettyPrintJson(value), [value])
   function handleCopy() {
-    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText)
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
       return
+    }
     navigator.clipboard
       .writeText(text)
       .then(() => {

@@ -109,10 +109,12 @@ export function AccountsPage() {
   const [globalFilter, setGlobalFilter] = useState(initial.search)
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() => {
     const filters: ColumnFiltersState = []
-    if (initial.status.length)
+    if (initial.status.length) {
       filters.push({ id: 'status', value: initial.status })
-    if (initial.siteIds.length)
+    }
+    if (initial.siteIds.length) {
       filters.push({ id: 'site', value: initial.siteIds })
+    }
     return filters
   })
 
@@ -120,8 +122,9 @@ export function AccountsPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams()
-    if (pagination.pageIndex > 0)
+    if (pagination.pageIndex > 0) {
       params.set('page', String(pagination.pageIndex + 1))
+    }
     if (pagination.pageSize !== DEFAULT_PAGE_SIZE) {
       params.set('pageSize', String(pagination.pageSize))
     }

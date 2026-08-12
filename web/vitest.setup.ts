@@ -111,8 +111,12 @@ const originalError = console.error.bind(console)
 const originalWarn = console.warn.bind(console)
 console.error = (...args: unknown[]) => {
   const head = String(args[0] ?? '')
-  if (head.includes('not wrapped in act') || head.includes('ReactDOMTestUtils'))
+  if (
+    head.includes('not wrapped in act') ||
+    head.includes('ReactDOMTestUtils')
+  ) {
     return
+  }
   originalError(...args)
 }
 console.warn = (...args: unknown[]) => {

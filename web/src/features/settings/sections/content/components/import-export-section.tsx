@@ -198,11 +198,13 @@ export function ImportExportSection() {
       const payload: Parameters<typeof api.saveBackupWebdavConfig>[0] = {}
       if (values.enabled !== undefined) payload.enabled = values.enabled
       if (values.fileUrl !== undefined) payload.fileUrl = values.fileUrl ?? ''
-      if (values.username !== undefined)
+      if (values.username !== undefined) {
         payload.username = values.username ?? ''
+      }
       if (values.password) payload.password = values.password
-      if (values.exportType !== undefined)
+      if (values.exportType !== undefined) {
         payload.exportType = values.exportType
+      }
       if (values.autoSyncEnabled !== undefined) {
         payload.autoSyncEnabled = values.autoSyncEnabled
       }

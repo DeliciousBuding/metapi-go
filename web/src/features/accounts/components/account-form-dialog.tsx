@@ -182,8 +182,9 @@ export function AccountFormDialog({
                       <SelectTrigger>
                         <SelectValue>
                           {(selected) => {
-                            if (!selected)
+                            if (!selected) {
                               return t('accounts.form.sitePlaceholder')
+                            }
                             const site = siteOptions.find(
                               (item) => String(item.id) === selected
                             )
