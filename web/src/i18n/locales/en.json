@@ -642,7 +642,7 @@
         "general": "General",
         "general.description": "Branding, authentication, schedules, proxy transport, and routing strategy.",
         "downstream": "Downstream",
-        "downstream.description": "Provider API keys and the global proxy token.",
+        "downstream.description": "Downstream API keys (issued to sites/accounts) and the global proxy token.",
         "models": "Model Settings",
         "models.description": "Model name redirects, rates & multipliers, and the global allowlist.",
         "content": "Data & Messaging",
@@ -652,7 +652,7 @@
       },
       "overview": {
         "title": "Settings",
-        "description": "Manage gateway configuration, provider keys, model behavior, content, and system maintenance."
+        "description": "Manage gateway configuration, downstream keys, model behavior, data & messaging, and system maintenance."
       },
       "common": {
         "save": "Save",
@@ -1945,7 +1945,8 @@
         "settings": "Settings",
         "about": "About"
       },
-      "backToHome": "Back to Home"
+      "backToHome": "Back to Home",
+      "settingsOverview": "Settings Overview"
     }
   }
 }

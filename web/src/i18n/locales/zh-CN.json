@@ -642,7 +642,7 @@
         "general": "通用",
         "general.description": "品牌、认证、定时任务、代理传输与路由策略。",
         "downstream": "下游",
-        "downstream.description": "上游 API 密钥与全局代理令牌。",
+        "downstream.description": "为下游站点/账号签发的 API 密钥与全局代理令牌。",
         "models": "模型配置",
         "models.description": "模型名称重定向、费率倍率与全局白名单。",
         "content": "数据与消息",
@@ -652,7 +652,7 @@
       },
       "overview": {
         "title": "设置",
-        "description": "管理网关配置、上游密钥、模型行为、内容与系统维护。"
+        "description": "管理网关配置、下游密钥、模型行为、数据与消息、系统与维护。"
       },
       "common": {
         "save": "保存",
@@ -1939,7 +1939,8 @@
         "settings": "设置",
         "about": "关于"
       },
-      "backToHome": "返回首页"
+      "backToHome": "返回首页",
+      "settingsOverview": "设置总览"
     }
   }
 }
