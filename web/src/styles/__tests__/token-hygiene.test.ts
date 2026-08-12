@@ -75,4 +75,15 @@ describe('design-token hygiene', () => {
     expect(css).not.toMatch(/data-slot='card'.*translateY\(-1px\)/s)
     expect(css).toContain('var(--shadow-card-hover)')
   })
+
+  it('theme.css defines destructive-soft-fg in both themes (dark contrast fix)', () => {
+    const theme = read('src/styles/theme.css')
+    expect(theme).toContain(
+      '--color-destructive-soft-fg: var(--destructive-soft-fg)'
+    )
+    // light aliases to --destructive; dark uses a lighter readable value so
+    // soft-destructive text on dark surfaces keeps AA contrast.
+    expect(theme).toMatch(/--destructive-soft-fg: var\(--destructive\)/)
+    expect(theme).toMatch(/--destructive-soft-fg: oklch\(0\.8 0\.15 22\)/)
+  })
 })
