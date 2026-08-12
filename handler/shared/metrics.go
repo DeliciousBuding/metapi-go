@@ -3,6 +3,7 @@ package shared
 import (
 	"fmt"
 	"net/http"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -26,7 +27,7 @@ type MetricsCollector struct {
 	routeRebuildOK     atomic.Int64
 	// Streams that requested include_usage but ended without usable tokens (known limitation).
 	streamMissingUsageTotal atomic.Int64
-	startTime          time.Time
+	startTime               time.Time
 
 	// Labeled outcomes + latency histograms (low-cardinality only).
 	outcomesMu sync.Mutex
@@ -169,7 +170,6 @@ func RecordStreamMissingUsage() { globalMetrics.streamMissingUsageTotal.Add(1) }
 
 // StreamMissingUsageTotal returns the missing-usage counter (tests/ops).
 func StreamMissingUsageTotal() int64 { return globalMetrics.streamMissingUsageTotal.Load() }
-
 
 // ObserveProxyOutcome records a terminal proxy outcome: labeled counter, latency
 // histogram, legacy error counter (when not success), and optional Observer hook.
@@ -491,6 +491,39 @@ func WritePrometheusMetrics(w http.ResponseWriter) error {
 			k.endpoint, k.status, h.count)
 	}
 	m.histMu.Unlock()
+
+	// Go runtime + memory metrics (stdlib only; keeps the zero-dependency design).
+	var ms runtime.MemStats
+	runtime.ReadMemStats(&ms)
+
+	appendLine("# HELP go_goroutines Number of goroutines that currently exist\n")
+	appendLine("# TYPE go_goroutines gauge\n")
+	appendLine("go_goroutines %d\n", runtime.NumGoroutine())
+
+	appendLine("# HELP go_memstats_alloc_bytes Number of bytes allocated and still in use\n")
+	appendLine("# TYPE go_memstats_alloc_bytes gauge\n")
+	appendLine("go_memstats_alloc_bytes %d\n", ms.Alloc)
+
+	appendLine("# HELP go_memstats_heap_alloc_bytes Number of heap bytes allocated and still in use\n")
+	appendLine("# TYPE go_memstats_heap_alloc_bytes gauge\n")
+	appendLine("go_memstats_heap_alloc_bytes %d\n", ms.HeapAlloc)
+
+	appendLine("# HELP go_memstats_heap_inuse_bytes Number of heap bytes that are in use\n")
+	appendLine("# TYPE go_memstats_heap_inuse_bytes gauge\n")
+	appendLine("go_memstats_heap_inuse_bytes %d\n", ms.HeapInuse)
+
+	appendLine("# HELP go_memstats_heap_objects Number of allocated objects\n")
+	appendLine("# TYPE go_memstats_heap_objects gauge\n")
+	appendLine("go_memstats_heap_objects %d\n", ms.HeapObjects)
+
+	appendLine("# HELP go_memstats_sys_bytes Number of bytes obtained from system\n")
+	appendLine("# TYPE go_memstats_sys_bytes gauge\n")
+	appendLine("go_memstats_sys_bytes %d\n", ms.Sys)
+
+	appendLine("# HELP go_gc_duration_seconds A summary of the pause duration of garbage collection cycles\n")
+	appendLine("# TYPE go_gc_duration_seconds summary\n")
+	appendLine("go_gc_duration_seconds_sum %g\n", float64(ms.PauseTotalNs)/1e9)
+	appendLine("go_gc_duration_seconds_count %d\n", ms.NumGC)
 
 	_, err := w.Write(b)
 	return err

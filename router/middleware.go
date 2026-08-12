@@ -1,15 +1,20 @@
 package router
 
 import (
+	"bufio"
+	"errors"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"net/netip"
+	"runtime/debug"
 	"strings"
+	"time"
 
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"github.com/deliciousbuding/metapi-go/config"
 )
 
 // CORS returns a CORS middleware handler configured for MetAPI.
@@ -41,20 +46,69 @@ func corsOptions(allowedOrigins []string) cors.Options {
 	}
 }
 
-// RequestLogger logs every incoming request using slog.
+// RequestLogger logs every incoming request using slog after it completes,
+// including status, duration, and bytes written for latency/error triage.
 // Includes request_id for log correlation when RequestID middleware is active.
-// Equivalent to TS Fastify `logger: true`.
+// Equivalent to TS Fastify `logger: true`, extended with outcome fields.
 func RequestLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
 		reqID := middleware.GetReqID(r.Context())
+		sw := &statusRecorder{
+			WrapResponseWriter: middleware.NewWrapResponseWriter(w, r.ProtoMajor),
+		}
+		next.ServeHTTP(sw, r)
+
+		status := sw.Status()
+		if status == 0 {
+			status = http.StatusOK
+		}
 		slog.Info("request",
 			"method", r.Method,
 			"path", r.URL.Path,
 			"remote", r.RemoteAddr,
 			"request_id", reqID,
+			"status", status,
+			"bytes", sw.BytesWritten(),
+			"duration_ms", float64(time.Since(start).Microseconds())/1000.0,
 		)
-		next.ServeHTTP(w, r)
 	})
+}
+
+// statusRecorder wraps a chi WrapResponseWriter and forwards the optional
+// http.ResponseWriter interfaces that chi's interface does not expose. The
+// proxy SSE path opts out of the server-level WriteTimeout via SetWriteDeadline
+// (handler/proxy/upstream.go), SSE needs Flush, and WebSocket upgrades need
+// Hijack — dropping any of these would silently break streaming.
+type statusRecorder struct {
+	middleware.WrapResponseWriter
+}
+
+func (s *statusRecorder) Flush() {
+	if f, ok := s.WrapResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+func (s *statusRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if h, ok := s.WrapResponseWriter.(http.Hijacker); ok {
+		return h.Hijack()
+	}
+	return nil, nil, errors.New("statusRecorder: underlying writer does not support hijacking")
+}
+
+func (s *statusRecorder) ReadFrom(r io.Reader) (int64, error) {
+	if rf, ok := s.WrapResponseWriter.(io.ReaderFrom); ok {
+		return rf.ReadFrom(r)
+	}
+	return io.Copy(s.WrapResponseWriter, r)
+}
+
+func (s *statusRecorder) SetWriteDeadline(t time.Time) error {
+	if rc, ok := s.Unwrap().(interface{ SetWriteDeadline(time.Time) error }); ok {
+		return rc.SetWriteDeadline(t)
+	}
+	return nil
 }
 
 // TrustedRealIP reads X-Forwarded-For / X-Real-IP only from explicitly
@@ -129,10 +183,28 @@ func normalizeForwardedIP(raw string) string {
 	return addr.Unmap().String()
 }
 
-// Recoverer catches panics and returns 500.
-// Equivalent to TS Fastify default error handling.
+// Recoverer catches panics, logs the panic + stack via slog (with request_id
+// for correlation), and returns 500. Equivalent to chi middleware.Recoverer but
+// keeps panic diagnostics in the structured log instead of stderr.
 func Recoverer(next http.Handler) http.Handler {
-	return middleware.Recoverer(next)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if rv := recover(); rv != nil {
+				if rv == http.ErrAbortHandler {
+					panic(rv)
+				}
+				slog.Error("panic recovered",
+					"panic", rv,
+					"method", r.Method,
+					"path", r.URL.Path,
+					"request_id", middleware.GetReqID(r.Context()),
+					"stack", string(debug.Stack()),
+				)
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
 }
 
 // BodyLimit enforces a maximum request body size using http.MaxBytesReader.

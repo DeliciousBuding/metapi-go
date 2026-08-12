@@ -215,3 +215,22 @@ func TestStatusFromHTTP(t *testing.T) {
 		t.Fatal("502")
 	}
 }
+
+func TestGoRuntimeMetricsExposed(t *testing.T) {
+	ResetMetricsForTest()
+	rec := httptest.NewRecorder()
+	if err := WritePrometheusMetrics(rec); err != nil {
+		t.Fatalf("WritePrometheusMetrics: %v", err)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{
+		"# TYPE go_goroutines gauge",
+		"# TYPE go_memstats_alloc_bytes gauge",
+		"# TYPE go_memstats_heap_inuse_bytes gauge",
+		"# TYPE go_gc_duration_seconds summary",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("body missing %q", want)
+		}
+	}
+}
