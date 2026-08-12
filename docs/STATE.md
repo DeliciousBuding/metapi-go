@@ -10,10 +10,10 @@
 | Fact | Value |
 |:-----|:------|
 | Source | **[DeliciousBuding/metapi-go](https://github.com/DeliciousBuding/metapi-go)** · default branch `master` |
-| Latest release | **[v0.9.0](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.9.0)** (2026-08-11); master CD publishes `ghcr.io/deliciousbuding/metapi-go` — verified live: tags `latest`/`0.9.0`/`0.9`/sha |
-| Release pipeline | CD (`.github/workflows/cd.yml`) builds **linux/amd64 + linux/arm64** images (provenance + SBOM) then creates the GitHub Release with **5-platform binaries + checksums.txt** (linux/darwin/windows × amd64/arm64); `release.yml` merged into cd.yml; SemVer-only tags (`vX.Y.Z`) trigger it; release notes extracted from the matching `CHANGELOG.md` section |
+| Latest release | **[v0.10.0](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.10.0)** (2026-08-12); master pipeline publishes `ghcr.io/deliciousbuding/metapi-go` — verified live: tags `latest`/`0.10.0`/`0.10`/sha |
+| Release pipeline | Single pipeline (`.github/workflows/main.yml`): PR / master push / SemVer tag all run the same 12-check suite; master push pushes the **linux/amd64 + linux/arm64** image (provenance + SBOM, tags latest+sha); SemVer-only tags (`vX.Y.Z`) additionally build **5-platform binaries + checksums.txt** (linux/darwin/windows × amd64/arm64), smoke `metapi-linux-amd64 --version`, and create the GitHub Release with notes extracted from the matching `CHANGELOG.md` section; tag must match `web/package.json` version or the release fails |
 | Versioning | `metapi --version` reports the build version injected via `-ldflags -X .../internal/version.Version` (`dev` for local builds); Docker build arg `VERSION`; Makefile `VERSION` variable |
-| Dependency updates | Dependabot active (Go / npm / GitHub Actions / Docker) — weekly group PRs through the same 11-check CI; breaking major bumps are closed and need a manual migration PR |
+| Dependency updates | Dependabot active (Go / npm / GitHub Actions / Docker) — weekly group PRs through the same 12-check CI; breaking major bumps are closed and need a manual migration PR |
 
 | Production pin (ops) | **v0.9.0** image on `ghcr.io/deliciousbuding/metapi-go`; runtime deployment facts live in the deployment docs |
 | Current focus | production hardening |
@@ -51,5 +51,5 @@
 |:-----|:------|
 | Model | GitHub Flow — master 唯一长期分支（受保护），短命分支（`fix/*`/`feature/*`/`chore/*`/`docs/*`）→ PR → Squash merge |
 | Default branch | `master` |
-| Master protection | PR required + 11 CI status checks required + enforce admins; no approve requirement; squash-only merge (repo-level) |
+| Master protection | PR required + 12 CI status checks required + enforce admins; no approve requirement; squash-only merge (repo-level) |
 | Workflow doc | [`git-workflow.md`](git-workflow.md) |

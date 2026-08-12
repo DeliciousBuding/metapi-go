@@ -1,7 +1,10 @@
 # Stage 1: Frontend build
 # ARG declared before the first FROM is visible to every stage.
 ARG VERSION=dev
-FROM oven/bun:1.3.14-alpine AS web
+# Single source of truth: .github/workflows/main.yml env.BUN_VERSION
+# (docker-push/docker-build pass it as a build-arg; default matches).
+ARG BUN_VERSION=1.3.14
+FROM oven/bun:${BUN_VERSION}-alpine AS web
 WORKDIR /app/web
 COPY web/package.json web/bun.lock ./
 RUN bun install --frozen-lockfile

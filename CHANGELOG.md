@@ -7,6 +7,11 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- CI/CD 合并为单一 `.github/workflows/main.yml` 管道（测试 → 镜像推送 → GitHub Release），移除 cd.yml 中与 CI 重复的 release-gate；master push 推送镜像（latest+sha）；SemVer tag 额外构建 5 平台二进制 + checksums + 二进制冒烟并创建 Release
+- Bun 工具链版本单一来源（workflow `env.BUN_VERSION` + Dockerfile `BUN_VERSION` build-arg）；发布前校验 tag / `web/package.json` / CHANGELOG 节一致
+- 新增发布助手 `scripts/release.sh`（校验后打 annotated tag 并推送）
+
 ## [v0.10.0] — 2026-08-12
 
 ### Added

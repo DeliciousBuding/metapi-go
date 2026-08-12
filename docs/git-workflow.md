@@ -34,7 +34,7 @@ master (唯一长期分支，受保护，随时可发布)
 | 规则 | 值 |
 |:-----|:---|
 | 要求 PR | ✅ 禁止直接 push，任何改动必须经 PR 合入 |
-| 必选状态检查 | CI 全部 11 个 job（lint / vet / vulncheck / mod-verify / secret-scan / docs-hygiene / frontend / test-sqlite / test-pg / build / docker-build） |
+| 必选状态检查 | CI 全部 12 个 job（lint / vet / vulncheck / mod-verify / secret-scan / docs-hygiene / frontend / a11y / test-sqlite / test-pg / build / docker-build） |
 | 强制管理员 | ✅ 管理员同样受保护（防呆，紧急时可在仓库设置临时关闭） |
 | 要求 approve | ❌ 不强制（个人项目，自己合并自己的 PR） |
 | 合并方式 | **Squash only**（仓库级设置：关闭 merge commit 与 rebase merge） |
@@ -65,10 +65,11 @@ master (唯一长期分支，受保护，随时可发布)
 
 ## 6. Release 流程
 
-1. 本地 CI 全绿 → `CHANGELOG.md` 更新（**必须包含 `## [vX.Y.Z]` 节**——Release 说明从该节提取，缺节 tag 推送会使 CD 失败）→ `git tag -a vX.Y.Z` → `git push origin vX.Y.Z`
-2. Tag 推送触发 `cd.yml`：release-gate 全量验证（gitleaks 历史扫描 + 真实前端构建 + `-race` + PG 集成）→ 构建推送 `ghcr.io/deliciousbuding/metapi-go`（**amd64 + arm64** 双架构，provenance + SBOM）→ 构建 5 平台二进制附件（linux/darwin/windows × amd64/arm64）+ `checksums.txt` → 创建 GitHub Release（body 取自 CHANGELOG 对应节）
-3. Tag 只从 master 打（master 即发布线）；SemVer 格式 `vX.Y.Z`（`v*` 之外的 tag 不触发发布）
-4. 版本号经 `-ldflags -X .../internal/version.Version` 注入二进制（`metapi --version` 可查）；发布时同步 `web/package.json` 的 version 字段
+1. 更新 `CHANGELOG.md`（**必须包含 `## [vX.Y.Z]` 节**——Release 说明从该节提取，缺节会失败）并同步 `web/package.json` 的 version 字段，经 PR 合入 master
+2. 运行发布助手 `bash scripts/release.sh X.Y.Z`（校验 CHANGELOG 节、`web/package.json` 版本、master 与远端同步后打 annotated tag 并推送）；等价手动流程：`git tag -a vX.Y.Z` → `git push origin vX.Y.Z`
+3. Tag 推送触发单一管道 `.github/workflows/main.yml`：全量 12 项检查通过 → 推送 `ghcr.io/deliciousbuding/metapi-go`（**amd64 + arm64**，provenance + SBOM）→ 构建 5 平台二进制附件（linux/darwin/windows × amd64/arm64）+ `checksums.txt` → 冒烟 `metapi-linux-amd64 --version` → 创建 GitHub Release（body 取自 CHANGELOG 对应节）
+4. Tag 只从 master 打（master 即发布线）；SemVer 格式 `vX.Y.Z`（其他 tag 不触发发布）
+5. 版本号经 `-ldflags -X .../internal/version.Version` 注入二进制（`metapi --version` 可查）；tag 与 `web/package.json` 版本不一致会在发布前失败
 
 ## 7. 紧急修复
 
@@ -82,8 +83,7 @@ master (唯一长期分支，受保护，随时可发布)
 | 合并策略 | 仓库 Settings → General | Allow squash merging only |
 | master 保护 | 仓库 Settings → Branches | 见 §3 |
 | PR 模板 | `.github/pull_request_template.md` | 自动填充 |
-| CI | `.github/workflows/ci.yml` | PR + master push 全量 11 job |
-| CD + Release | `.github/workflows/cd.yml` | master push 发布镜像；SemVer tag 推送：release-gate → 镜像（amd64+arm64）→ 多平台二进制 + GitHub Release |
+| CI + CD + Release | `.github/workflows/main.yml` | 单一管道：PR / master push / SemVer tag 全量 12 项检查；master push 推送镜像（latest+sha）；SemVer tag：镜像（amd64+arm64）→ 多平台二进制 + GitHub Release |
 | 本地门禁 | `.githooks/pre-push` | `git config core.hooksPath .githooks` 安装后 push 前自动运行（build + vet + 前端 + race） |
 
 相关文档：[`deployment.md`](deployment.md)（部署）· [`STATE.md`](STATE.md)（当前状态）· `AGENTS.md`（工程规则）

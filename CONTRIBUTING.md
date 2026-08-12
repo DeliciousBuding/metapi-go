@@ -18,7 +18,7 @@ git config core.hooksPath .githooks
 
 The hook runs `go build`, `go vet`, the frontend gate, and the race-enabled
 test suite. Use `git push --no-verify` only for emergencies — GitHub Actions
-still runs the full 11-check CI on every PR.
+still runs the full 12-check CI on every PR.
 
 ## Branch model
 
