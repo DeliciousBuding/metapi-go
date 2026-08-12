@@ -41,7 +41,7 @@ This document is the accessibility acceptance checklist. It records keyboard, na
 |------|-------------|
 | `:focus-visible` | Visible ring on interactive chrome (buttons, close controls, nav items) |
 | Mouse users | Prefer `:focus-visible` over always-on `:focus` to avoid sticky outlines |
-| Token | Prefer `--color-focus-ring` / primary outline (`DESIGN.md` §2.8) |
+| Token | `--ring` recipe — `focus-visible:ring-3 focus-visible:ring-ring/50` (`DESIGN.md` §2.7) |
 | Hit target | Icon-only controls ≥ ~36px (topbar already ~36) |
 
 **Current**: `.modal-close-button:focus-visible` uses primary outline. Broader global focus-ring utility is residual (not all controls share one rule).
@@ -106,37 +106,35 @@ This document is the accessibility acceptance checklist. It records keyboard, na
 
 ## 4. Contrast notes (primary text / surfaces)
 
-Values from `web/src/styles/theme.css` / `DESIGN.md`. Ratios are approximate WCAG 2.x relative luminance checks for operator review (not a lab measurement suite).
+Ratios computed 2026-08-12 from the shipped `web/src/styles/theme.css` OKLCH values (WCAG 2.x relative luminance; token map in `DESIGN.md` §2). Light-theme primary CTA (white on `--primary`) fails AA — tracked as debt §7.14.
 
 ### 4.1 Light theme
 
-| Pair | Approx ratio | WCAG AA body (4.5:1) | Notes |
-|------|--------------|----------------------|-------|
-| `--color-text-primary` `#1a1a1a` on `--color-bg-card` `#ffffff` | ~16.5:1 | Pass | Titles, primary values |
-| `--color-text-primary` on `--color-bg` `#f5f5f5` | ~15.0:1 | Pass | Page canvas |
-| `--color-text-secondary` `#666666` on card | ~5.7:1 | Pass | Labels / nav |
-| `--color-text-tertiary` `#8a8a8a` on card | ~3.5:1 | Fail body / pass large | Helper only |
-| `--color-text-muted` `#999999` on card | ~2.8:1 | Fail body | Placeholders, meta — not body copy |
-| Primary button text inverse on `--color-primary` `#4f46e5` | ~5.0:1+ | Pass | CTA |
-| Danger solid `#dc2626` on white (text) | ~4.6:1 | Borderline pass | Prefer solid on soft fills for badges |
+| Pair | Ratio | WCAG AA body (4.5:1) | Notes |
+|------|-------|----------------------|-------|
+| `--foreground` on `--card` / `--background` | 20.9:1 | Pass | Titles, primary values |
+| `--muted-foreground` on `--card` | 6.3:1 | Pass | Labels / secondary text |
+| `--secondary-foreground` on `--secondary` | 11.8:1 | Pass | Nested wells |
+| White text on `--primary` | 2.7:1 | **Fail** | Light-theme CTA — see debt §7.14 |
+| White text on `--destructive` | 4.8:1 | Pass | Errors, deletes |
 
 ### 4.2 Dark theme
 
-| Pair | Approx ratio | AA body | Notes |
-|------|--------------|---------|-------|
-| `--color-text-primary` `#f0f0f0` on `--color-bg-card` `#1a1a1a` | ~15.0:1 | Pass | |
-| `--color-text-secondary` `#a0a0a0` on card | ~7.0:1 | Pass | |
-| `--color-text-tertiary` `#7a7a7a` on card | ~4.0:1 | Borderline / fail small | Avoid as sole body text |
-| `--color-text-muted` `#666666` on card | ~3.0:1 | Fail body | Meta only |
-| Primary `#6366f1` on dark card (as text) | ~4.5:1± | Verify in UI | Prefer primary for actions/links, not long body |
+| Pair | Ratio | WCAG AA body (4.5:1) | Notes |
+|------|-------|----------------------|-------|
+| `--foreground` on `--card` | 13.0:1 | Pass | Titles, primary values |
+| `--foreground` on `--background` | 15.1:1 | Pass | Page canvas |
+| `--muted-foreground` on `--card` | 7.2:1 | Pass | Labels / secondary text |
+| `--secondary-foreground` on `--secondary` | 8.9:1 | Pass | Nested wells |
+| White text on `--primary` | 5.0:1 | Pass | CTA |
 
 ### 4.3 Contrast rules for implementers
 
-1. Body copy and table primary cells → `--color-text-primary` or `--color-text-secondary` only.
-2. Never place `--color-text-muted` on large reading blocks.
-3. Soft semantic fills (`*-soft`) pair with solid semantic text, not muted gray.
+1. Body copy and table primary cells → `--foreground` / `--muted-foreground` only.
+2. Never place `--muted-foreground` on large reading blocks as primary content.
+3. Status badges: solid text on soft fill (e.g. `text-success` on `bg-success/10`) — not muted gray.
 4. Chart axis labels use theme-aware hook colors (`useChartColors`) — verify both themes.
-5. Focus rings must remain visible on both themes (`--color-focus-ring`).
+5. Focus rings must remain visible on both themes (`--ring` recipe).
 
 ---
 
@@ -218,6 +216,7 @@ Tracked for follow-up issues (not blocking U3 checklist doc):
 11. **Automated axe a11y CI** gate — not wired.
 12. **Full 375 walkthrough** of every page table → card path (U2 density work residual).
 13. **Residual hex hygiene** in pages/components (brand logos, chart series, route-card dark surfaces) — sequential; no new brand hex allowed.
+14. **Light-theme primary CTA contrast** — white on `--primary` (`#3ea4ec`) ≈ 2.7:1 fails AA. Candidates (design sign-off required, brand color): darken light `--primary` toward GCP blue `#1a73e8` (~4.5:1) or use dark ink on primary in light mode (~7:1).
 
 ---
 

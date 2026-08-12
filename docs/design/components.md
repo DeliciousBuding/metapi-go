@@ -23,18 +23,14 @@ The `/__design__` dev gallery and `DesignSystemGallery` page were removed with t
 
 ## Tokens used
 
-Primitives consume existing semantic tokens. Glass material tokens:
-
-| Token | Purpose |
-|-------|---------|
-| `--glass-bg` | Translucent panel fill |
-| `--glass-bg-strong` | Stronger glass fill |
-| `--glass-border` | Glass edge |
-| `--glass-blur` | Backdrop blur radius |
-| `--glass-saturate` | Backdrop saturation |
-| `--shadow-glass` | Soft glass elevation |
-
-Also: `--color-primary*`, `--color-bg*`, `--color-text*`, `--color-border*`, status soft fills (`--color-*-soft`), spacing (`--space-*`), radius, motion.
+Primitives consume the OKLCH semantic tokens from `web/src/styles/theme.css`
+(surfaces `--background`/`--card`/`--popover`, ink `--foreground`/`--muted-foreground`,
+status `--success`/`--warning`/`--destructive`/`--info`, focus `--ring`,
+borders `--border`/`--input`, charts `--chart-1…5`) via their Tailwind `--color-*`
+aliases. Glass is a recipe, not a token: `bg-background/95 supports-[backdrop-filter]:bg-background/60 backdrop-blur-lg`
+for sticky chrome, `bg-overlay supports-backdrop-filter:backdrop-blur-xs` for modal/sheet scrims.
+Spacing/radius/motion follow the Tailwind 4 scale plus the `data-theme-radius` / `data-theme-scale`
+axes documented in `DESIGN.md` §2–3.
 
 ## Inventory
 
