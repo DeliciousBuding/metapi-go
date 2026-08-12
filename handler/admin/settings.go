@@ -349,11 +349,6 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 		cfg.LogCleanupRetentionDays = int(days)
 		upsertSettingDB(h.db, "log_cleanup_retention_days", int(days))
 	}
-	if logCleanupChanged {
-		if err := app.UpdateLogCleanupSettings(cfg.LogCleanupCron, cfg.LogCleanupUsageLogsEnabled, cfg.LogCleanupProgramLogsEnabled, cfg.LogCleanupRetentionDays); err != nil {
-			slog.Warn("settings: log cleanup hot update failed", "error", err)
-		}
-	}
 	if v, ok := body["logCleanupSchedule"]; ok {
 		spec, err := decodeScheduleSpec(v)
 		if err != nil {
@@ -379,6 +374,11 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 		}
 		cfg.LogCleanupCron = cron
 		logCleanupChanged = true
+	}
+	if logCleanupChanged {
+		if err := app.UpdateLogCleanupSettings(cfg.LogCleanupCron, cfg.LogCleanupUsageLogsEnabled, cfg.LogCleanupProgramLogsEnabled, cfg.LogCleanupRetentionDays); err != nil {
+			slog.Warn("settings: log cleanup hot update failed", "error", err)
+		}
 	}
 
 	// Model probe

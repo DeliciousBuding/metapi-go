@@ -118,7 +118,6 @@ func Apply(db *sqlx.DB) (MigrationResult, error) {
 		if err := upsertTx(db, tx, SchemaVersionKey, CurrentSchemaVersion); err != nil {
 			return MigrationResult{}, err
 		}
-		writes++
 		applied++
 	}
 	if err := tx.Commit(); err != nil {
