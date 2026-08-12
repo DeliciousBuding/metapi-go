@@ -42,7 +42,8 @@
     "knip": "knip",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "a11y:scan": "node scripts/a11y-scan.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -89,11 +90,13 @@
     "@types/react-dom": "^19.2.3",
     "@typescript/native-preview": "^7.0.0-dev.20260702.3",
     "@vitejs/plugin-react": "^6.0.3",
+    "axe-core": "4.12.1",
     "happy-dom": "^20.11.1",
     "jsdom": "^29.1.1",
     "knip": "^6.24.0",
     "oxfmt": "^0.57.0",
     "oxlint": "^1.72.0",
+    "playwright": "1.61.1",
     "react-test-renderer": "^19.2.7",
     "shadcn": "^4.12.0",
     "sharp": "^0.34.5",
