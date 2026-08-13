@@ -16,6 +16,7 @@ import { Area, AreaChart } from 'recharts'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, type ChartConfig } from '@/components/ui/chart'
+import { CountUp } from '@/components/ui/count-up'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
@@ -30,6 +31,10 @@ type StatCardProps = {
   accentClassName?: string
   /** Render skeleton placeholders while the metric is still loading. */
   loading?: boolean
+  /** Numeric value to animate (CountUp). When set, overrides the static alue string. */
+  valueNumber?: number
+  /** Formatter applied to the animated numeric value. */
+  valueFormat?: (value: number) => string
   className?: string
 }
 
@@ -46,6 +51,8 @@ export function StatCard({
   spark,
   accentClassName,
   loading = false,
+  valueNumber,
+  valueFormat,
   className,
 }: StatCardProps) {
   const { t } = useTranslation()
@@ -84,9 +91,17 @@ export function StatCard({
         ) : (
           <>
             <div className='flex items-end justify-between gap-2'>
-              <span className='text-2xl font-semibold tracking-tight tabular-nums'>
-                {value}
-              </span>
+              {valueNumber !== undefined && Number.isFinite(valueNumber) ? (
+                <CountUp
+                  value={valueNumber}
+                  format={valueFormat}
+                  className='text-2xl font-semibold tracking-tight'
+                />
+              ) : (
+                <span className='text-2xl font-semibold tracking-tight tabular-nums'>
+                  {value}
+                </span>
+              )}
               {hint ? (
                 <span className='text-muted-foreground text-xs tabular-nums'>
                   {hint}

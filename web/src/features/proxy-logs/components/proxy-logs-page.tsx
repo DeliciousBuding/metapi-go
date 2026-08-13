@@ -283,6 +283,7 @@ export function ProxyLogsPage() {
   }
 
   const hasLatencyFilter = latencyMin !== null || latencyMax !== null
+  const slowOnly = latencyMin === 2000 && latencyMax === null
 
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
@@ -516,6 +517,24 @@ export function ProxyLogsPage() {
                   }}
                   className='w-[100px]'
                 />
+              </div>
+              <div className='flex items-center gap-1.5'>
+                <Button
+                  type='button'
+                  variant={slowOnly ? 'default' : 'outline'}
+                  size='sm'
+                  onClick={() => {
+                    if (slowOnly) {
+                      setLatencyMin(null)
+                    } else {
+                      setLatencyMin(2000)
+                      setLatencyMax(null)
+                    }
+                    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+                  }}
+                >
+                  {t('proxyLogs.page.slowOnly')}
+                </Button>
               </div>
               {hasLatencyFilter && (
                 <div className='flex items-center gap-1.5 text-xs'>

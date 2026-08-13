@@ -1006,6 +1006,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ url }),
     }),
+  importSites: (data: unknown) =>
+    request('/api/sites/import', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
   getSiteDisabledModels: (siteId: number) =>
     request(`/api/sites/${siteId}/disabled-models`),
   updateSiteDisabledModels: (siteId: number, models: string[]) =>
@@ -1156,6 +1161,7 @@ export const api = {
   getRoutesSummary: () => request('/api/routes/summary'),
   getRouteChannels: (routeId: number) =>
     request(`/api/routes/${routeId}/channels`),
+  getChannels: () => request('/api/channels'),
   batchAddChannels: (
     routeId: number,
     channels: Array<{
@@ -1316,6 +1322,13 @@ export const api = {
   },
   getProxyLogDetail: (id: number) =>
     request(`/api/stats/proxy-logs/${id}`) as Promise<ProxyLogDetail>,
+  getUsageHeatmap: (params?: { days?: number; dimension?: 'site' | 'model' }) =>
+    request(`/api/stats/usage-heatmap${buildQueryString(params)}`),
+  getSlowRequests: (params?: {
+    limit?: number
+    minLatencyMs?: number
+    hours?: number
+  }) => request(`/api/stats/slow-requests${buildQueryString(params)}`),
   getProxyDebugTraces: (params?: { limit?: number }) =>
     request(
       `/api/stats/proxy-debug/traces${buildQueryString(params)}`
@@ -1442,6 +1455,22 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ dryRun }),
     }) as Promise<RedirectApplyResponse>,
+  // K1a: model-governance fix candidates (list + apply).
+  getRedirectFixCandidates: () =>
+    request('/api/models/redirect-fix-candidates') as Promise<{
+      items: RedirectFixCandidate[]
+      count: number
+    }>,
+  applyRedirectFixCandidates: (dryRun = false) =>
+    request('/api/models/redirect-fix-candidates', {
+      method: 'POST',
+      body: JSON.stringify({ dryRun }),
+    }) as Promise<{
+      success: boolean
+      dryRun: boolean
+      removed?: number
+      count?: number
+    }>,
   // multiplier/rate overview (GET) + batch edit (PUT).
   getRateOverview: () =>
     request('/api/models/rates') as Promise<RateOverviewResponse>,
@@ -1815,6 +1844,7 @@ export const api = {
 
   // Monitor embed
   getMonitorConfig: () => request('/api/monitor/config'),
+  getMonitorHealth: () => request('/api/monitor/health'),
   updateMonitorConfig: (data: { ldohCookie?: string | null }) =>
     request('/api/monitor/config', {
       method: 'PUT',

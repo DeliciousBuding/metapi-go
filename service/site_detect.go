@@ -6,9 +6,18 @@ import (
 )
 
 // DetectResult is the result of platform detection.
+//
+// Platform/SiteType both hold the detected platform (SiteType mirrors the TS
+// "siteType" naming; Platform is retained for backward compatibility with the
+// existing /api/sites/detect consumers). Confidence is a coarse signal of how
+// the platform was resolved (preset match = 1.0, hostname heuristic = 0.8).
+// CanonicalURL is the normalized URL suitable for persistence/dedup.
 type DetectResult struct {
 	URL                    string  `json:"url"`
+	CanonicalURL           string  `json:"canonicalUrl"`
 	Platform               string  `json:"platform"`
+	SiteType               string  `json:"siteType"`
+	Confidence             float64 `json:"confidence"`
 	InitializationPresetID *string `json:"initializationPresetId,omitempty"`
 }
 
@@ -45,7 +54,10 @@ func DetectSite(rawURL string) *DetectResult {
 		id := preset.ID
 		return &DetectResult{
 			URL:                    canonicalURL,
+			CanonicalURL:           CanonicalizeSiteURL(trimmed),
 			Platform:               preset.Platform,
+			SiteType:               preset.Platform,
+			Confidence:             1.0,
 			InitializationPresetID: &id,
 		}
 	}
@@ -117,7 +129,13 @@ func DetectSite(rawURL string) *DetectResult {
 		return nil
 	}
 
-	result := &DetectResult{URL: canonicalURL, Platform: platform}
+	result := &DetectResult{
+		URL:          canonicalURL,
+		CanonicalURL: CanonicalizeSiteURL(trimmed),
+		Platform:     platform,
+		SiteType:     platform,
+		Confidence:   0.8,
+	}
 	// Optional: attach a preset when hostname heuristics already chose a vendor
 	// platform and a defaultUrl fallback matches under that protocol family.
 	// Prefer the detected protocol family when the heuristic platform itself is

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 // ---- K1a: model name redirects ----
@@ -42,6 +42,7 @@ func setupRedirectTest(t *testing.T) (*store.DB, chi.Router, int64, int64) {
 
 	r := chi.NewRouter()
 	RegisterModelRedirectRoutes(r, db.DB)
+	RegisterModelRedirectFixRoutes(r, db.DB)
 	return db, r, siteID, accountID
 }
 
@@ -170,9 +171,9 @@ func TestRedirects_GenerationRules(t *testing.T) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	for _, m := range []string{
 		"claude-3-5-sonnet-20241022-v2", // date+revision suffix
-		"claude-3-5-haiku-latest",        // version suffix
-		"gpt-4o",                         // exact → no mapping
-		"CLAUDE-3-5-SONNET-20250101",     // case-folded date suffix
+		"claude-3-5-haiku-latest",       // version suffix
+		"gpt-4o",                        // exact → no mapping
+		"CLAUDE-3-5-SONNET-20250101",    // case-folded date suffix
 	} {
 		_, err := db.Exec(`INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at)
 			VALUES (?, ?, 1, 0, ?)`, accountID, m, now)
@@ -227,5 +228,70 @@ func TestRedirects_Validation(t *testing.T) {
 	resp = doPutJSON(t, r, "/api/model-redirects/abc", map[string]any{"actual": "x"})
 	if resp.Code != 400 {
 		t.Fatalf("bad id returned %d, want 400", resp.Code)
+	}
+}
+
+func TestRedirectFixCandidates_ListAndApply(t *testing.T) {
+	db, r, siteID, accountID := setupRedirectTest(t)
+
+	// Generate the redirect mapping (canonical -> date-suffixed actual).
+	resp := doPostJSON(t, r, "/api/model-redirects/generate", map[string]any{"accountId": accountID})
+	if resp.Code != 200 {
+		t.Fatalf("generate returned %d: %s", resp.Code, resp.Body.String())
+	}
+
+	// Add a disabled-model entry for the canonical model.
+	if _, err := db.Exec(`INSERT INTO site_disabled_models (site_id, model_name, created_at)
+		VALUES (?, ?, ?)`, siteID, "claude-3-5-sonnet", time.Now().UTC().Format(time.RFC3339)); err != nil {
+		t.Fatalf("insert disabled: %v", err)
+	}
+
+	// GET lists the candidate without side effects.
+	resp = doGet(t, r, "/api/models/redirect-fix-candidates")
+	if resp.Code != 200 {
+		t.Fatalf("list returned %d: %s", resp.Code, resp.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal list: %v", err)
+	}
+	if body["count"].(float64) != 1 {
+		t.Fatalf("count = %#v, want 1", body)
+	}
+	items := body["items"].([]any)
+	cand := items[0].(map[string]any)
+	if cand["canonical"] != "claude-3-5-sonnet" || cand["actual"] != "claude-3-5-sonnet-20241022" {
+		t.Fatalf("candidate = %#v", cand)
+	}
+
+	// POST dry-run does not delete.
+	resp = doPostJSON(t, r, "/api/models/redirect-fix-candidates", map[string]any{"dryRun": true})
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal dry-run: %v", err)
+	}
+	if body["dryRun"] != true {
+		t.Fatalf("dry-run = %#v", body)
+	}
+	var disabledCount int
+	if err := db.Get(&disabledCount, "SELECT COUNT(*) FROM site_disabled_models"); err != nil {
+		t.Fatalf("count disabled: %v", err)
+	}
+	if disabledCount != 1 {
+		t.Fatalf("disabled count after dry-run = %d, want 1", disabledCount)
+	}
+
+	// POST apply deletes it.
+	resp = doPostJSON(t, r, "/api/models/redirect-fix-candidates", map[string]any{"dryRun": false})
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal apply: %v", err)
+	}
+	if body["removed"].(float64) != 1 {
+		t.Fatalf("removed = %#v, want 1", body)
+	}
+	if err := db.Get(&disabledCount, "SELECT COUNT(*) FROM site_disabled_models"); err != nil {
+		t.Fatalf("count after apply: %v", err)
+	}
+	if disabledCount != 0 {
+		t.Fatalf("disabled count after apply = %d, want 0", disabledCount)
 	}
 }

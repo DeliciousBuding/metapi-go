@@ -6,15 +6,22 @@
 
 import type { ColumnDef } from '@tanstack/react-table'
 import {
+  AlertTriangle,
+  CalendarCheck,
+  CheckCircle2,
+  Clock,
   Eye,
+  HelpCircle,
   MoreHorizontal,
+  PauseCircle,
   Pencil,
   Pin,
   PinOff,
   Power,
   RefreshCw,
-  CalendarCheck,
   Trash2,
+  XCircle,
+  type LucideIcon,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -27,6 +34,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 import {
@@ -44,6 +57,7 @@ interface HealthBadgeConfig {
   labelKey: string
   variant: 'default' | 'secondary' | 'destructive' | 'warning' | 'outline'
   dotClassName: string
+  icon: LucideIcon
 }
 
 const HEALTH_BADGE_CONFIG: Record<RuntimeHealthState, HealthBadgeConfig> = {
@@ -51,26 +65,31 @@ const HEALTH_BADGE_CONFIG: Record<RuntimeHealthState, HealthBadgeConfig> = {
     labelKey: 'accounts.columns.healthHealthy',
     variant: 'default',
     dotClassName: 'bg-success',
+    icon: CheckCircle2,
   },
   degraded: {
     labelKey: 'accounts.columns.healthDegraded',
     variant: 'warning',
     dotClassName: 'bg-warning',
+    icon: AlertTriangle,
   },
   unhealthy: {
     labelKey: 'accounts.columns.healthUnhealthy',
     variant: 'destructive',
     dotClassName: 'bg-destructive',
+    icon: XCircle,
   },
   disabled: {
     labelKey: 'accounts.columns.healthDisabled',
     variant: 'secondary',
     dotClassName: 'bg-muted-foreground',
+    icon: PauseCircle,
   },
   unknown: {
     labelKey: 'accounts.columns.healthUnknown',
     variant: 'outline',
     dotClassName: 'bg-muted-foreground',
+    icon: HelpCircle,
   },
 }
 
@@ -85,6 +104,7 @@ function useResolveHealth() {
         label: t('accounts.columns.healthExpired'),
         variant: 'destructive',
         dotClassName: 'bg-destructive',
+        icon: Clock,
       }
     }
     const state = account.runtimeHealth?.state ?? 'unknown'
@@ -291,13 +311,35 @@ export function useAccountsColumns(
       cell: ({ row }) => {
         const account = accountSchema.parse(row.original)
         const config = resolveHealth(account)
-        return (
+        const HealthIcon = config.icon
+        const reason = account.runtimeHealth?.reason?.trim()
+        const badge = (
           <Badge variant={config.variant}>
+            <HealthIcon className='size-3' aria-hidden='true' />
             <span
               className={cn('size-1.5 rounded-full', config.dotClassName)}
+              aria-hidden='true'
             />
             {config.label}
           </Badge>
+        )
+        if (!reason) {
+          return badge
+        }
+        return (
+          <TooltipProvider delay={200}>
+            <Tooltip>
+              <TooltipTrigger render={<span className='w-fit'>{badge}</span>} />
+              <TooltipContent side='top' className='max-w-xs'>
+                <div className='flex flex-col gap-0.5'>
+                  <span className='font-medium'>
+                    {t('accounts.columns.healthDetail')}
+                  </span>
+                  <span className='text-xs'>{reason}</span>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )
       },
       filterFn: (row, _columnId, filterValue: unknown) => {

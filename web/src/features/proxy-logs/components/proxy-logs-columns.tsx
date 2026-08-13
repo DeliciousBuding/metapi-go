@@ -20,8 +20,8 @@ import {
 import { cn } from '@/lib/utils'
 
 import type { ProxyLog } from '../types'
-import { LatencyBadge } from './latency-badge'
 import { StatusBadge } from './status-badge'
+import { TimingCell } from './timing-cell'
 
 export type ProxyLogsColumnActions = { onView: (log: ProxyLog) => void }
 
@@ -203,7 +203,7 @@ export function useProxyLogsColumns(
         />
       ),
       cell: ({ row }) => (
-        <LatencyBadge
+        <TimingCell
           latencyMs={row.original.latencyMs}
           firstByteLatencyMs={row.original.firstByteLatencyMs}
         />

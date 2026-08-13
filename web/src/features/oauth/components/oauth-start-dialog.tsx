@@ -13,7 +13,6 @@ import { ExternalLink as ExternalLinkIcon } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -43,6 +42,7 @@ import {
 } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
+import { toast } from '@/lib/toast'
 
 import { useOAuthProviders, useStartOAuth } from '../api'
 import {

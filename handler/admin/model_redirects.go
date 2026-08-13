@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
-	"github.com/deliciousbuding/metapi-go/service"
 )
 
 // ---- Model Name Redirects ----
@@ -27,6 +27,75 @@ func RegisterModelRedirectRoutes(r chi.Router, db *sqlx.DB) {
 
 type modelRedirectHandler struct {
 	db *sqlx.DB
+}
+
+// RegisterModelRedirectFixRoutes mounts the model-governance fix-candidate
+// endpoints. They wrap service.ListRedirectFixCandidates /
+// service.ApplyRedirectFixes so the admin SPA can review and apply
+// redirect-repairable disabled models without driving raw SQL.
+func RegisterModelRedirectFixRoutes(r chi.Router, db *sqlx.DB) {
+	h := &modelRedirectHandler{db: db}
+	r.Get("/api/models/redirect-fix-candidates", h.listFixCandidates)
+	r.Post("/api/models/redirect-fix-candidates", h.applyFixCandidates)
+}
+
+// GET /api/models/redirect-fix-candidates
+func (h *modelRedirectHandler) listFixCandidates(w http.ResponseWriter, r *http.Request) {
+	candidates, err := service.ListRedirectFixCandidates(r.Context(), h.db)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to list fix candidates"})
+		return
+	}
+	if candidates == nil {
+		candidates = []service.RedirectFixCandidate{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": candidates, "count": len(candidates)})
+}
+
+// POST /api/models/redirect-fix-candidates — body {dryRun?: bool}.
+// dryRun=true reports without deleting; the default (false) applies the
+// fixes, records an event per candidate, and reloads the hot-path registry.
+func (h *modelRedirectHandler) applyFixCandidates(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		DryRun *bool `json:"dryRun"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid JSON body"})
+		return
+	}
+	dryRun := body.DryRun != nil && *body.DryRun
+
+	candidates, err := service.ListRedirectFixCandidates(r.Context(), h.db)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to list fix candidates"})
+		return
+	}
+
+	if dryRun {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"success": true,
+			"dryRun":  true,
+			"items":   candidates,
+			"count":   len(candidates),
+		})
+		return
+	}
+
+	removed, err := service.ApplyRedirectFixes(r.Context(), h.db, candidates)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "apply failed: " + err.Error()})
+		return
+	}
+	for _, c := range candidates {
+		_ = recordRedirectEvent(h.db, c)
+	}
+	service.ReloadRedirectRegistry(r.Context(), h.db) // K1b: keep hot-path registry fresh
+	writeJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"dryRun":  false,
+		"removed": removed,
+		"count":   len(candidates),
+	})
 }
 
 // GET /api/model-redirects?accountId=&source=
@@ -236,10 +305,10 @@ func (h *modelRedirectHandler) apply(w http.ResponseWriter, r *http.Request) {
 
 	if dryRun {
 		writeJSON(w, http.StatusOK, map[string]any{
-			"success":   true,
-			"dryRun":    true,
+			"success":    true,
+			"dryRun":     true,
 			"candidates": candidates,
-			"count":     len(candidates),
+			"count":      len(candidates),
 		})
 		return
 	}

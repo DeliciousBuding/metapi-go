@@ -9,10 +9,13 @@
 // `/sites` route file lands its own `validateSearch`. Mobile cards are
 // handled by `DataTablePage` via the column `meta` flags.
 
-import { Plus as PlusIcon, Trash2 as Trash2Icon } from 'lucide-react'
+import {
+  Plus as PlusIcon,
+  Trash2 as Trash2Icon,
+  Upload as UploadIcon,
+} from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 import {
   DataTableBulkActions,
@@ -33,7 +36,9 @@ import {
 } from '@/components/ui/dialog'
 import { Spinner } from '@/components/ui/spinner'
 import { useAccounts } from '@/features/accounts'
+import { ImportWizardDialog } from '@/features/import'
 import { asStringParam, parseSortingParam } from '@/lib/helpers/searchParams'
+import { toast } from '@/lib/toast'
 
 import {
   useBatchUpdateSites,
@@ -167,6 +172,7 @@ export function SitesPage() {
   const batchUpdateSites = useBatchUpdateSites()
 
   const [formOpen, setFormOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [editingSite, setEditingSite] = useState<Site | null>(null)
   const [viewingSite, setViewingSite] = useState<Site | null>(null)
   const [createdSite, setCreatedSite] = useState<Site | null>(null)
@@ -335,10 +341,16 @@ export function SitesPage() {
         emptyTitle={t('sites.empty.title')}
         emptyDescription={t('sites.empty.description')}
         emptyAction={
-          <Button onClick={handleAddSite}>
-            <PlusIcon className='mr-1 size-4' />
-            {t('sites.empty.addSite')}
-          </Button>
+          <>
+            <Button onClick={() => setImportOpen(true)}>
+              <UploadIcon className='mr-1 size-4' />
+              {t('sites.empty.import')}
+            </Button>
+            <Button variant='outline' onClick={handleAddSite}>
+              <PlusIcon className='mr-1 size-4' />
+              {t('sites.empty.addSite')}
+            </Button>
+          </>
         }
         skeletonKeyPrefix='site-skeleton'
         toolbarProps={{
@@ -399,6 +411,8 @@ export function SitesPage() {
         editingSite={editingSite}
         onCreated={handleCreated}
       />
+
+      <ImportWizardDialog open={importOpen} onOpenChange={setImportOpen} />
 
       <SiteCreatedModal
         site={createdSite}

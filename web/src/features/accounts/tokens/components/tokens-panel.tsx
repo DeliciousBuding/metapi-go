@@ -16,7 +16,6 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { useForm, type SubmitErrorHandler } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Badge } from '@/components/ui/badge'
@@ -31,8 +30,10 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { SecretField } from '@/components/ui/secret-field'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
+import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
 import type { AccountToken } from '../../types'
@@ -217,9 +218,7 @@ function TokenRow({
             </Badge>
           )}
         </div>
-        <span className='text-muted-foreground truncate font-mono text-[11px]'>
-          {token.tokenMasked || token.token || '—'}
-        </span>
+        <SecretField value={token.token} masked={token.tokenMasked} />
       </div>
 
       <div className='flex items-center gap-1'>

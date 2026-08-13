@@ -34,6 +34,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { formatLatency, formatPrice, formatSuccessRate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type { ModelRow } from '../types'
@@ -61,24 +68,25 @@ function resolveLowestInputPrice(model: ModelRow): number | null {
   return lowest
 }
 
-function formatPrice(price: number | null): string {
-  if (price === null) return '—'
-  if (price === 0) return '0'
-  if (price < 0.01) return price.toFixed(4)
-  return price.toFixed(2)
+function resolvePriceDetail(
+  model: ModelRow
+): Array<{ site: string; price: number }> {
+  const rows: Array<{ site: string; price: number }> = []
+  for (const source of model.pricingSources ?? []) {
+    let lowest: number | null = null
+    for (const groupKey of Object.keys(source.groupPricing ?? {})) {
+      const input = source.groupPricing[groupKey]?.inputPerMillion
+      if (typeof input === 'number' && Number.isFinite(input)) {
+        if (lowest === null || input < lowest) lowest = input
+      }
+    }
+    if (lowest !== null) {
+      rows.push({ site: source.siteName || `#${source.siteId}`, price: lowest })
+    }
+  }
+  rows.sort((a, b) => a.price - b.price)
+  return rows
 }
-
-function formatLatency(latency: number | null | undefined): string {
-  if (latency === null || latency === undefined) return '—'
-  return `${Math.round(latency)}ms`
-}
-
-function formatSuccessRate(rate: number | null | undefined): string {
-  if (rate === null || rate === undefined) return '—'
-  // API successRate is already a percentage (0-100); avoid double-scaling.
-  return `${Math.round(rate)}%`
-}
-
 /**
  * Build the model list columns. Must be called during render (it is a hook
  * because it reads i18n state). The `actions` callbacks are supplied by the
@@ -248,14 +256,38 @@ export function useModelsColumns(
         ),
         cell: ({ row }) => {
           const price = resolveLowestInputPrice(row.original)
+          if (price === null) {
+            return <span className='text-muted-foreground text-sm'>—</span>
+          }
+          const detail = resolvePriceDetail(row.original)
+          const priceLabel = `$${formatPrice(price)}/M`
+          if (detail.length === 0) {
+            return <span className='text-sm tabular-nums'>{priceLabel}</span>
+          }
           return (
-            <span className='text-sm tabular-nums'>
-              {price === null ? (
-                <span className='text-muted-foreground'>—</span>
-              ) : (
-                `$${formatPrice(price)}/M`
-              )}
-            </span>
+            <TooltipProvider delay={200}>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <span className='text-sm tabular-nums underline decoration-dotted underline-offset-2' />
+                  }
+                >
+                  {priceLabel}
+                </TooltipTrigger>
+                <TooltipContent side='top' className='max-w-xs'>
+                  <div className='flex flex-col gap-1'>
+                    <span className='font-medium'>
+                      {t('models.columns.priceDetail')}
+                    </span>
+                    {detail.map((item) => (
+                      <span key={item.site} className='text-xs tabular-nums'>
+                        {item.site}: ${formatPrice(item.price)}/M
+                      </span>
+                    ))}
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )
         },
       },

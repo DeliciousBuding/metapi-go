@@ -6,10 +6,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, type LinkProps } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
+import { toast } from '@/lib/toast'
 
 import { SettingsSectionCard } from '../../../components/settings-section-card'
 

@@ -87,6 +87,8 @@ func AutoMigrate(db *DB) error {
 		{"model_name_redirects", buildModelNameRedirectsDDL(dialect)},
 		// Table 34: admin_audit_logs
 		{"admin_audit_logs", buildAdminAuditLogsDDL(dialect)},
+		// Table 35: model_probe_results
+		{"model_probe_results", buildModelProbeResultsDDL(dialect)},
 	}
 
 	// Non-UNIQUE indexes are created separately via CREATE INDEX IF NOT EXISTS
@@ -1266,6 +1268,40 @@ func buildModelVerifyHistoryDDL(d string) string {
 	)`
 }
 
+// buildModelProbeResultsDDL creates the model_probe_results table.
+// One row per background model-probe result (scheduler/model_probe.go pass),
+// used as the connectivity signal for the route-rebuild probe filter (#625).
+// status shares the probe vocabulary: success | failure | inconclusive | skipped.
+func buildModelProbeResultsDDL(d string) string {
+	if isPG(d) {
+		return `CREATE TABLE IF NOT EXISTS model_probe_results (
+			id SERIAL PRIMARY KEY,
+			channel_id INTEGER,
+			account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+			site_id INTEGER NOT NULL,
+			model_name TEXT NOT NULL,
+			status TEXT NOT NULL,
+			latency_ms DOUBLE PRECISION,
+			http_status INTEGER,
+			error_text TEXT,
+			created_at TEXT NOT NULL
+		)`
+	}
+	return `CREATE TABLE IF NOT EXISTS model_probe_results (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		channel_id INTEGER,
+		account_id INTEGER NOT NULL,
+		site_id INTEGER NOT NULL,
+		model_name TEXT NOT NULL,
+		status TEXT NOT NULL,
+		latency_ms REAL,
+		http_status INTEGER,
+		error_text TEXT,
+		created_at TEXT NOT NULL,
+		FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+	)`
+}
+
 // buildProductAnnouncementsDDL creates the product_announcements table
 //. Operator-authored severity-ranked banners shown on
 // the Dashboard. Content edits (PUT) reset any dismissal so a new revision is
@@ -1502,6 +1538,10 @@ func buildIndexes() []struct {
 		// model_verify_history
 		{"model_verify_history_batch_idx", `CREATE INDEX IF NOT EXISTS model_verify_history_batch_idx ON model_verify_history (batch_id, created_at)`},
 		{"model_verify_history_model_idx", `CREATE INDEX IF NOT EXISTS model_verify_history_model_idx ON model_verify_history (model_name, created_at)`},
+		// model_probe_results
+		{"model_probe_results_channel_model_idx", `CREATE INDEX IF NOT EXISTS model_probe_results_channel_model_idx ON model_probe_results (channel_id, model_name, created_at)`},
+		{"model_probe_results_account_model_idx", `CREATE INDEX IF NOT EXISTS model_probe_results_account_model_idx ON model_probe_results (account_id, model_name, created_at)`},
+		{"model_probe_results_created_at_idx", `CREATE INDEX IF NOT EXISTS model_probe_results_created_at_idx ON model_probe_results (created_at)`},
 		// model_name_redirects
 		{"model_name_redirects_account_actual_idx", `CREATE INDEX IF NOT EXISTS model_name_redirects_account_actual_idx ON model_name_redirects (account_id, actual)`},
 		// admin_audit_logs

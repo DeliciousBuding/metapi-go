@@ -14,11 +14,15 @@ import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedAboutRouteImport } from './routes/_authenticated/about'
 import { Route as AuthenticatedAccountsRouteImport } from './routes/_authenticated/accounts'
+import { Route as AuthenticatedChannelsRouteImport } from './routes/_authenticated/channels'
 import { Route as AuthenticatedCheckinRouteImport } from './routes/_authenticated/checkin'
 import { Route as AuthenticatedDashboardRouteRouteImport } from './routes/_authenticated/dashboard/route'
+import { Route as AuthenticatedFixCandidatesRouteImport } from './routes/_authenticated/fix-candidates'
 import { Route as AuthenticatedModelTesterRouteImport } from './routes/_authenticated/model-tester'
 import { Route as AuthenticatedModelsRouteImport } from './routes/_authenticated/models'
 import { Route as AuthenticatedOauthRouteImport } from './routes/_authenticated/oauth'
+import { Route as AuthenticatedObservabilityRouteImport } from './routes/_authenticated/observability'
+import { Route as AuthenticatedPriceCompareRouteImport } from './routes/_authenticated/price-compare'
 import { Route as AuthenticatedProxyLogsRouteImport } from './routes/_authenticated/proxy-logs'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
 import { Route as AuthenticatedSiteAnnouncementsRouteImport } from './routes/_authenticated/site-announcements'
@@ -55,6 +59,11 @@ const AuthenticatedAccountsRoute = AuthenticatedAccountsRouteImport.update({
   path: '/accounts',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedChannelsRoute = AuthenticatedChannelsRouteImport.update({
+  id: '/channels',
+  path: '/channels',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedCheckinRoute = AuthenticatedCheckinRouteImport.update({
   id: '/checkin',
   path: '/checkin',
@@ -64,6 +73,12 @@ const AuthenticatedDashboardRouteRoute =
   AuthenticatedDashboardRouteRouteImport.update({
     id: '/dashboard',
     path: '/dashboard',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedFixCandidatesRoute =
+  AuthenticatedFixCandidatesRouteImport.update({
+    id: '/fix-candidates',
+    path: '/fix-candidates',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedModelTesterRoute =
@@ -82,6 +97,18 @@ const AuthenticatedOauthRoute = AuthenticatedOauthRouteImport.update({
   path: '/oauth',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedObservabilityRoute =
+  AuthenticatedObservabilityRouteImport.update({
+    id: '/observability',
+    path: '/observability',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedPriceCompareRoute =
+  AuthenticatedPriceCompareRouteImport.update({
+    id: '/price-compare',
+    path: '/price-compare',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedProxyLogsRoute = AuthenticatedProxyLogsRouteImport.update({
   id: '/proxy-logs',
   path: '/proxy-logs',
@@ -154,10 +181,14 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/about': typeof AuthenticatedAboutRoute
   '/accounts': typeof AuthenticatedAccountsRoute
+  '/channels': typeof AuthenticatedChannelsRoute
   '/checkin': typeof AuthenticatedCheckinRoute
+  '/fix-candidates': typeof AuthenticatedFixCandidatesRoute
   '/model-tester': typeof AuthenticatedModelTesterRoute
   '/models': typeof AuthenticatedModelsRoute
   '/oauth': typeof AuthenticatedOauthRoute
+  '/observability': typeof AuthenticatedObservabilityRoute
+  '/price-compare': typeof AuthenticatedPriceCompareRoute
   '/proxy-logs': typeof AuthenticatedProxyLogsRoute
   '/site-announcements': typeof AuthenticatedSiteAnnouncementsRoute
   '/sites': typeof AuthenticatedSitesRoute
@@ -173,10 +204,14 @@ export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
   '/about': typeof AuthenticatedAboutRoute
   '/accounts': typeof AuthenticatedAccountsRoute
+  '/channels': typeof AuthenticatedChannelsRoute
   '/checkin': typeof AuthenticatedCheckinRoute
+  '/fix-candidates': typeof AuthenticatedFixCandidatesRoute
   '/model-tester': typeof AuthenticatedModelTesterRoute
   '/models': typeof AuthenticatedModelsRoute
   '/oauth': typeof AuthenticatedOauthRoute
+  '/observability': typeof AuthenticatedObservabilityRoute
+  '/price-compare': typeof AuthenticatedPriceCompareRoute
   '/proxy-logs': typeof AuthenticatedProxyLogsRoute
   '/site-announcements': typeof AuthenticatedSiteAnnouncementsRoute
   '/sites': typeof AuthenticatedSitesRoute
@@ -196,10 +231,14 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/_authenticated/about': typeof AuthenticatedAboutRoute
   '/_authenticated/accounts': typeof AuthenticatedAccountsRoute
+  '/_authenticated/channels': typeof AuthenticatedChannelsRoute
   '/_authenticated/checkin': typeof AuthenticatedCheckinRoute
+  '/_authenticated/fix-candidates': typeof AuthenticatedFixCandidatesRoute
   '/_authenticated/model-tester': typeof AuthenticatedModelTesterRoute
   '/_authenticated/models': typeof AuthenticatedModelsRoute
   '/_authenticated/oauth': typeof AuthenticatedOauthRoute
+  '/_authenticated/observability': typeof AuthenticatedObservabilityRoute
+  '/_authenticated/price-compare': typeof AuthenticatedPriceCompareRoute
   '/_authenticated/proxy-logs': typeof AuthenticatedProxyLogsRoute
   '/_authenticated/site-announcements': typeof AuthenticatedSiteAnnouncementsRoute
   '/_authenticated/sites': typeof AuthenticatedSitesRoute
@@ -221,10 +260,14 @@ export interface FileRouteTypes {
     | '/settings'
     | '/about'
     | '/accounts'
+    | '/channels'
     | '/checkin'
+    | '/fix-candidates'
     | '/model-tester'
     | '/models'
     | '/oauth'
+    | '/observability'
+    | '/price-compare'
     | '/proxy-logs'
     | '/site-announcements'
     | '/sites'
@@ -240,10 +283,14 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/about'
     | '/accounts'
+    | '/channels'
     | '/checkin'
+    | '/fix-candidates'
     | '/model-tester'
     | '/models'
     | '/oauth'
+    | '/observability'
+    | '/price-compare'
     | '/proxy-logs'
     | '/site-announcements'
     | '/sites'
@@ -262,10 +309,14 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/about'
     | '/_authenticated/accounts'
+    | '/_authenticated/channels'
     | '/_authenticated/checkin'
+    | '/_authenticated/fix-candidates'
     | '/_authenticated/model-tester'
     | '/_authenticated/models'
     | '/_authenticated/oauth'
+    | '/_authenticated/observability'
+    | '/_authenticated/price-compare'
     | '/_authenticated/proxy-logs'
     | '/_authenticated/site-announcements'
     | '/_authenticated/sites'
@@ -321,6 +372,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAccountsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/channels': {
+      id: '/_authenticated/channels'
+      path: '/channels'
+      fullPath: '/channels'
+      preLoaderRoute: typeof AuthenticatedChannelsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/checkin': {
       id: '/_authenticated/checkin'
       path: '/checkin'
@@ -333,6 +391,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/fix-candidates': {
+      id: '/_authenticated/fix-candidates'
+      path: '/fix-candidates'
+      fullPath: '/fix-candidates'
+      preLoaderRoute: typeof AuthenticatedFixCandidatesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/model-tester': {
@@ -354,6 +419,20 @@ declare module '@tanstack/react-router' {
       path: '/oauth'
       fullPath: '/oauth'
       preLoaderRoute: typeof AuthenticatedOauthRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/observability': {
+      id: '/_authenticated/observability'
+      path: '/observability'
+      fullPath: '/observability'
+      preLoaderRoute: typeof AuthenticatedObservabilityRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/price-compare': {
+      id: '/_authenticated/price-compare'
+      path: '/price-compare'
+      fullPath: '/price-compare'
+      preLoaderRoute: typeof AuthenticatedPriceCompareRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/proxy-logs': {
@@ -492,10 +571,14 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
   AuthenticatedAboutRoute: typeof AuthenticatedAboutRoute
   AuthenticatedAccountsRoute: typeof AuthenticatedAccountsRoute
+  AuthenticatedChannelsRoute: typeof AuthenticatedChannelsRoute
   AuthenticatedCheckinRoute: typeof AuthenticatedCheckinRoute
+  AuthenticatedFixCandidatesRoute: typeof AuthenticatedFixCandidatesRoute
   AuthenticatedModelTesterRoute: typeof AuthenticatedModelTesterRoute
   AuthenticatedModelsRoute: typeof AuthenticatedModelsRoute
   AuthenticatedOauthRoute: typeof AuthenticatedOauthRoute
+  AuthenticatedObservabilityRoute: typeof AuthenticatedObservabilityRoute
+  AuthenticatedPriceCompareRoute: typeof AuthenticatedPriceCompareRoute
   AuthenticatedProxyLogsRoute: typeof AuthenticatedProxyLogsRoute
   AuthenticatedSiteAnnouncementsRoute: typeof AuthenticatedSiteAnnouncementsRoute
   AuthenticatedSitesRoute: typeof AuthenticatedSitesRoute
@@ -509,10 +592,14 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
   AuthenticatedAboutRoute: AuthenticatedAboutRoute,
   AuthenticatedAccountsRoute: AuthenticatedAccountsRoute,
+  AuthenticatedChannelsRoute: AuthenticatedChannelsRoute,
   AuthenticatedCheckinRoute: AuthenticatedCheckinRoute,
+  AuthenticatedFixCandidatesRoute: AuthenticatedFixCandidatesRoute,
   AuthenticatedModelTesterRoute: AuthenticatedModelTesterRoute,
   AuthenticatedModelsRoute: AuthenticatedModelsRoute,
   AuthenticatedOauthRoute: AuthenticatedOauthRoute,
+  AuthenticatedObservabilityRoute: AuthenticatedObservabilityRoute,
+  AuthenticatedPriceCompareRoute: AuthenticatedPriceCompareRoute,
   AuthenticatedProxyLogsRoute: AuthenticatedProxyLogsRoute,
   AuthenticatedSiteAnnouncementsRoute: AuthenticatedSiteAnnouncementsRoute,
   AuthenticatedSitesRoute: AuthenticatedSitesRoute,

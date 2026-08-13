@@ -4,6 +4,7 @@
 // Titles are i18n keys resolved via t() at render time (nav-group.tsx).
 
 import {
+  Activity,
   Boxes,
   CalendarCheck,
   FlaskConical,
@@ -11,9 +12,12 @@ import {
   LayoutDashboard,
   ScrollText,
   Route,
+  Scale,
   Server,
   Settings,
   ShieldCheck,
+  Waypoints,
+  Wrench,
 } from 'lucide-react'
 
 import type { SidebarData } from '@/components/layout/types'
@@ -57,6 +61,11 @@ export function useSidebarData(): SidebarData {
             url: '/proxy-logs',
             icon: ScrollText,
           },
+          {
+            title: 'sidebar.items.observability',
+            url: '/observability',
+            icon: Activity,
+          },
         ],
       },
       {
@@ -67,6 +76,11 @@ export function useSidebarData(): SidebarData {
             title: 'sidebar.items.tokenRoutes',
             url: '/token-routes',
             icon: Route,
+          },
+          {
+            title: 'sidebar.items.channels',
+            url: '/channels',
+            icon: Waypoints,
           },
           {
             title: 'sidebar.items.oauth',
@@ -88,6 +102,16 @@ export function useSidebarData(): SidebarData {
             title: 'sidebar.items.modelTester',
             url: '/model-tester',
             icon: FlaskConical,
+          },
+          {
+            title: 'sidebar.items.priceCompare',
+            url: '/price-compare',
+            icon: Scale,
+          },
+          {
+            title: 'sidebar.items.fixCandidates',
+            url: '/fix-candidates',
+            icon: Wrench,
           },
         ],
       },

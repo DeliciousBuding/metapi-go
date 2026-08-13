@@ -13,7 +13,6 @@ import { Search as SearchIcon } from 'lucide-react'
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
@@ -45,6 +44,7 @@ import {
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { toast } from '@/lib/toast'
 
 import { useCreateSite, useDetectSite, useUpdateSite } from '../api'
 import {
@@ -137,6 +137,7 @@ export function SiteFormDialog({
   const createSite = useCreateSite()
   const updateSite = useUpdateSite()
   const detectSite = useDetectSite()
+  const detectSiteAsync = detectSite.mutateAsync
 
   useEffect(() => {
     if (!open) return
@@ -148,8 +149,32 @@ export function SiteFormDialog({
   }, [open, editingSite, form])
 
   const watchedUrl = form.watch('url')
+  const watchedPlatform = form.watch('platform')
   const probeEnabled = form.watch('postRefreshProbeEnabled')
   const isSubmitting = createSite.isPending || updateSite.isPending
+
+  // Auto-recognize platform when a URL is pasted and no platform has been
+  // chosen yet. Unknown sites resolve to an empty result and stay manually
+  // specifiable; a user-entered platform always wins over auto-detection.
+  useEffect(() => {
+    const url = watchedUrl.trim()
+    if (!url || isEditing || watchedPlatform.trim() !== '') return
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const detected = await detectSiteAsync(url)
+          if (detected.platform && !form.getValues('platform').trim()) {
+            form.setValue('platform', detected.platform, { shouldDirty: true })
+          }
+        } catch {
+          // Unknown site: leave the platform empty for manual entry.
+        }
+      })()
+    }, 600)
+
+    return () => window.clearTimeout(timer)
+  }, [watchedUrl, watchedPlatform, isEditing, detectSiteAsync, form])
 
   async function handleDetect() {
     const url = watchedUrl.trim()

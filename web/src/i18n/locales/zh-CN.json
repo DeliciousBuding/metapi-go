@@ -1,5 +1,8 @@
 {
   "translation": {
+    "dataTable": {
+      "summary": "显示第 {{start}}-{{end}} 条，共 {{total}} 条"
+    },
     "auth": {
       "login": {
         "title": "登录",
@@ -36,6 +39,9 @@
       "refresh": "刷新",
       "loading": "加载中…",
       "noData": "暂无数据",
+      "noResults": "无匹配结果",
+      "noResultsDescription": "没有符合当前筛选条件的记录。",
+      "resetFilters": "重置筛选",
       "edit": "编辑",
       "create": "新建",
       "close": "关闭",
@@ -134,7 +140,8 @@
         "successRate": "成功率",
         "priceInput": "输入价格",
         "actions": "操作",
-        "rowActions": "行操作"
+        "rowActions": "行操作",
+        "priceDetail": "价格明细"
       },
       "actions": {
         "viewDetails": "查看详情",
@@ -308,7 +315,8 @@
       "empty": {
         "title": "暂无站点",
         "description": "添加一个站点即可开始路由请求。",
-        "addSite": "添加站点"
+        "addSite": "添加站点",
+        "import": "导入站点"
       },
       "toolbar": {
         "searchPlaceholder": "搜索站点…",
@@ -565,7 +573,9 @@
         "learnMore": "了解更多",
         "dismiss": "关闭公告"
       },
-      "statCard": { "trendLabel": "趋势" }
+      "statCard": {
+        "trendLabel": "趋势"
+      }
     },
     "settings": {
       "subareas": {
@@ -845,7 +855,9 @@
             "suffix": "令牌后缀",
             "suffixHint": "sk- 前缀固定。生成或输入新后缀。"
           },
-          "schema": { "suffixMinLength": "后缀至少 8 个字符。" },
+          "schema": {
+            "suffixMinLength": "后缀至少 8 个字符。"
+          },
           "toast": {
             "saved": "代理令牌已更新。",
             "saveFailed": "更新代理令牌失败。"
@@ -868,7 +880,10 @@
             "source": "来源",
             "actions": "操作"
           },
-          "source": { "sync": "自动", "manual": "手动" },
+          "source": {
+            "sync": "自动",
+            "manual": "手动"
+          },
           "toast": {
             "generated": "已生成 {{created}} 条重定向，涉及 {{accounts}} 个账号。",
             "generateFailed": "生成重定向失败。",
@@ -1056,7 +1071,11 @@
             "enabled": "状态",
             "actions": "操作"
           },
-          "severity": { "info": "信息", "warning": "警告", "critical": "严重" },
+          "severity": {
+            "info": "信息",
+            "warning": "警告",
+            "critical": "严重"
+          },
           "fields": {
             "title": "标题",
             "message": "内容",
@@ -1215,7 +1234,9 @@
           }
         }
       },
-      "stub": { "placeholder": "TODO phase 3: 从旧版迁移内容" }
+      "stub": {
+        "placeholder": "TODO phase 3: 从旧版迁移内容"
+      }
     },
     "accounts": {
       "page": {
@@ -1232,7 +1253,8 @@
         "filterStatusExpired": "过期",
         "filterSiteTitle": "站点",
         "deleteTitle": "删除账号",
-        "deleteDescription": "确定删除账号「{{name}}」？该操作不可撤销，相关令牌将一并清除。"
+        "deleteDescription": "确定删除账号「{{name}}」？该操作不可撤销，相关令牌将一并清除。",
+        "emptyImport": "导入站点"
       },
       "bulk": {
         "entityName": "账号",
@@ -1321,7 +1343,8 @@
         "checkinUnsupported": "不支持",
         "checkinOn": "已开启",
         "checkinOff": "未开启",
-        "actions": "操作"
+        "actions": "操作",
+        "healthDetail": "健康详情"
       },
       "detail": {
         "fallbackApiKey": "API Key 连接",
@@ -1708,7 +1731,8 @@
         "latencyMin": "延迟 ≥",
         "latencyMax": "延迟 ≤",
         "latencyUnit": "ms",
-        "latencyExample": "示例："
+        "latencyExample": "示例：",
+        "slowOnly": "仅慢请求"
       },
       "columns": {
         "createdAt": "时间",
@@ -1778,6 +1802,11 @@
         "all": "全部",
         "success": "成功",
         "failed": "失败"
+      },
+      "timing": {
+        "slow": "慢",
+        "ariaFirstByte": "首字节 {{firstByte}}，总计 {{total}}",
+        "ariaTotal": "总计 {{total}}"
       }
     },
     "No Data": "暂无数据",
@@ -1855,13 +1884,100 @@
         "lavender-dream": "薰衣草梦"
       }
     },
+    "observability": {
+      "title": "可观测性",
+      "description": "站点与账号的健康、熔断与请求分析。",
+      "sections": {
+        "overview": {
+          "title": "概览",
+          "description": "慢请求排名与用量密度。"
+        },
+        "health": {
+          "title": "健康",
+          "description": "站点/账号健康以及路由熔断与冷却状态。"
+        },
+        "proxyLogs": {
+          "title": "使用日志",
+          "description": "完整的使用日志工作区。"
+        }
+      },
+      "overview": {
+        "slowRequests": {
+          "title": "慢请求（Top）",
+          "description": "所选时间窗内延迟最高的请求。",
+          "empty": "当前时间窗内没有慢请求。",
+          "colModel": "模型",
+          "colSite": "站点",
+          "colLatency": "延迟",
+          "colFirstByte": "首字节",
+          "colHttp": "HTTP",
+          "colStatus": "状态",
+          "colTime": "时间"
+        },
+        "heatmap": {
+          "title": "用量热力图",
+          "description": "按站点的小时调用密度。",
+          "empty": "所选范围内没有用量密度数据。",
+          "legendLow": "少",
+          "legendHigh": "多"
+        }
+      },
+      "health": {
+        "runtime": {
+          "title": "运行时健康",
+          "description": "内存中的路由熔断状态（软隔离）。",
+          "sitesTracked": "已跟踪站点",
+          "sitesBreakerOpen": "站点熔断开启",
+          "modelsTracked": "已跟踪模型",
+          "modelsBreakerOpen": "模型熔断开启"
+        },
+        "breakers": {
+          "title": "已开启熔断",
+          "description": "当前被排除在选路之外的站点与模型。",
+          "empty": "没有开启的熔断。",
+          "colSite": "站点",
+          "colModel": "模型",
+          "colLevel": "级别",
+          "colUntil": "截至"
+        },
+        "cooldown": {
+          "title": "通道冷却",
+          "description": "失败后正在退避的通道。",
+          "channelsCooling": "冷却中",
+          "channelsWithFailures": "有失败",
+          "channelsRecentlyFailed": "最近失败",
+          "empty": "当前没有处于冷却的通道。",
+          "colSite": "站点",
+          "colChannel": "通道",
+          "colFailCount": "失败数",
+          "colUntil": "截至"
+        },
+        "inventory": {
+          "title": "资源清单",
+          "description": "按状态统计的站点与账号。",
+          "sites": "站点",
+          "accounts": "账号",
+          "total": "总计",
+          "active": "活跃",
+          "disabled": "停用",
+          "other": "其他"
+        }
+      },
+      "proxyLogs": {
+        "title": "使用日志",
+        "description": "完整的使用日志工作区。",
+        "hint": "打开独立的使用日志页面查看筛选、列与详情。",
+        "open": "打开使用日志"
+      }
+    },
     "sidebar": {
       "groups": {
         "console": "控制台",
         "configuration": "配置",
         "models": "模型",
         "system": "系统",
-        "systemAdministration": "系统管理"
+        "systemAdministration": "系统管理",
+        "observability": "可观测性"
       },
       "items": {
         "dashboard": "仪表盘",
@@ -1869,16 +1985,159 @@
         "accounts": "账号",
         "checkin": "签到",
         "proxyLogs": "使用日志",
+        "observability": "可观测性",
         "monitors": "监控",
         "tokenRoutes": "路由",
         "oauth": "OAuth",
         "models": "模型",
         "modelTester": "操练场",
         "settings": "设置",
-        "about": "关于"
+        "about": "关于",
+        "priceCompare": "价格对比",
+        "fixCandidates": "修复候选项",
+        "channels": "通道"
       },
       "backToHome": "返回首页",
       "settingsOverview": "设置总览"
+    },
+    "import": {
+      "title": "导入站点",
+      "description": "批量导入一个或多个站点，并可选地附带账号凭证。",
+      "back": "上一步",
+      "next": "下一步",
+      "submit": "导入",
+      "cta": "导入站点",
+      "steps": {
+        "source": "来源",
+        "identify": "识别",
+        "connect": "接入",
+        "routes": "模型 / 路由",
+        "done": "完成"
+      },
+      "source": {
+        "label": "站点 URL",
+        "placeholder": "每行粘贴一个站点 URL",
+        "hint": "每个非空行对应一个站点，粘贴内容中的重复项会被忽略。",
+        "empty": "请至少粘贴一个站点 URL。"
+      },
+      "identify": {
+        "name": "名称",
+        "platform": "平台",
+        "detected": "已识别 · {{confidence}}%",
+        "duplicateWarning": "该站点已存在，请选择重复项处理方式。",
+        "skip": "跳过",
+        "merge": "将账号合并到已有站点",
+        "missingPlatform": "请为每个站点设置平台（未知站点可手动填写）。"
+      },
+      "connect": {
+        "username": "用户名",
+        "accessToken": "访问令牌",
+        "apiToken": "API 令牌"
+      },
+      "routes": {
+        "hint": "导入的站点默认启用，模型发现将在后台进行；请在下方设置路由权重。",
+        "weight": "权重",
+        "invalidWeight": "权重必须是大于等于 0 的数字。"
+      },
+      "done": {
+        "imported": "已导入 {{count}}",
+        "skipped": "已跳过 {{count}}",
+        "failed": "失败 {{count}}",
+        "close": "完成"
+      },
+      "result": {
+        "imported": "已导入",
+        "merged": "已合并",
+        "skipped": "已跳过",
+        "failed": "失败"
+      }
+    },
+    "priceCompare": {
+      "page": {
+        "title": "价格对比",
+        "description": "跨站点有效模型价格，附价格来源等级。",
+        "searchPlaceholder": "按模型筛选…",
+        "loadError": "加载价格对比失败：{{message}}",
+        "emptyDescription": "暂无价格数据。连接账号或产生流量后即可查看有效价格。"
+      },
+      "group": {
+        "description": "按来源站点的有效价格，从低到高。"
+      },
+      "grade": {
+        "billing_details": "计费明细",
+        "observed": "观测",
+        "configured": "已配置",
+        "fallback": "兜底"
+      },
+      "recommended": "推荐",
+      "missingPrice": "无价格信号",
+      "columns": {
+        "site": "站点",
+        "grade": "等级",
+        "input": "输入 / 1M",
+        "output": "输出 / 1M",
+        "effective": "有效成本",
+        "status": "状态"
+      }
+    },
+    "fixCandidates": {
+      "page": {
+        "title": "重定向修复候选项",
+        "description": "可通过已有重定向映射恢复的禁用模型。",
+        "loadError": "加载修复候选项失败：{{message}}",
+        "emptyDescription": "没有可通过现有重定向修复的禁用模型。"
+      },
+      "apply": "应用修复",
+      "confirm": {
+        "title": "应用重定向修复？",
+        "description": "将恢复 {{count}} 个禁用模型（通过其重定向映射）。"
+      },
+      "toast": {
+        "applySucceeded": "已应用 {{count}} 项修复。",
+        "applyFailed": "应用修复失败：{{message}}"
+      },
+      "columns": {
+        "site": "站点",
+        "model": "模型",
+        "redirect": "重定向",
+        "account": "账号"
+      }
+    },
+    "channels": {
+      "page": {
+        "title": "通道",
+        "description": "跨站点、账号、令牌与 OAuth 单元的只读路由健康视图。",
+        "loadError": "加载通道失败：{{message}}"
+      },
+      "empty": {
+        "title": "暂无通道",
+        "description": "当前尚未生成任何路由通道。"
+      },
+      "toolbar": {
+        "searchPlaceholder": "搜索通道..."
+      },
+      "columns": {
+        "name": "名称",
+        "site": "站点",
+        "type": "类型",
+        "status": "状态",
+        "models": "模型",
+        "priority": "优先级",
+        "weight": "权重",
+        "response": "响应",
+        "cooldown": "冷却"
+      },
+      "status": {
+        "enabled": "已启用",
+        "cooldown": "冷却中",
+        "breakerOpen": "熔断已开",
+        "manuallyDisabled": "已手动停用"
+      },
+      "type": {
+        "account": "账号",
+        "token": "令牌",
+        "oauth_unit": "OAuth 单元"
+      }
     }
   }
 }
