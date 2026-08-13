@@ -46,7 +46,9 @@ export function SecretField({
   }
 
   return (
-    <span className={cn('inline-flex max-w-full items-center gap-0.5', className)}>
+    <span
+      className={cn('inline-flex max-w-full items-center gap-0.5', className)}
+    >
       <span className='text-muted-foreground truncate font-mono text-[11px]'>
         {display}
       </span>
