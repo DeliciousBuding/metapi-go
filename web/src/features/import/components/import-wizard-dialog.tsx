@@ -6,9 +6,6 @@
 // weight, then commits one idempotent POST /api/sites/import and reports the
 // imported/skipped/failed breakdown.
 
-import { useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 import {
   Check as CheckIcon,
   Minus as MinusIcon,
@@ -16,6 +13,9 @@ import {
   Upload as UploadIcon,
   X as XIcon,
 } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -91,15 +91,31 @@ function defaultSiteName(url: string): string {
 
 function statusBadge(status: ImportSiteResultStatus) {
   if (status === 'imported') {
-    return { variant: 'outline' as const, icon: CheckIcon, label: 'import.result.imported' }
+    return {
+      variant: 'outline' as const,
+      icon: CheckIcon,
+      label: 'import.result.imported',
+    }
   }
   if (status === 'merged') {
-    return { variant: 'outline' as const, icon: CheckIcon, label: 'import.result.merged' }
+    return {
+      variant: 'outline' as const,
+      icon: CheckIcon,
+      label: 'import.result.merged',
+    }
   }
   if (status === 'failed') {
-    return { variant: 'destructive' as const, icon: XIcon, label: 'import.result.failed' }
+    return {
+      variant: 'destructive' as const,
+      icon: XIcon,
+      label: 'import.result.failed',
+    }
   }
-  return { variant: 'secondary' as const, icon: MinusIcon, label: 'import.result.skipped' }
+  return {
+    variant: 'secondary' as const,
+    icon: MinusIcon,
+    label: 'import.result.skipped',
+  }
 }
 
 export function ImportWizardDialog({
@@ -195,7 +211,9 @@ export function ImportWizardDialog({
   }
 
   function handleIdentifyNext() {
-    const missing = candidates.filter((candidate) => candidate.platform.trim() === '')
+    const missing = candidates.filter(
+      (candidate) => candidate.platform.trim() === ''
+    )
     if (missing.length > 0) {
       toast.error(t('import.identify.missingPlatform'))
       return
@@ -218,7 +236,8 @@ export function ImportWizardDialog({
     const items: ImportSiteItem[] = candidates.map((candidate) => {
       const accessToken = candidate.accessToken.trim()
       const apiToken = candidate.apiToken.trim()
-      const hasAccount = candidate.includeAccount && (accessToken !== '' || apiToken !== '')
+      const hasAccount =
+        candidate.includeAccount && (accessToken !== '' || apiToken !== '')
       return {
         name: candidate.name.trim() || candidate.url,
         url: candidate.url,
@@ -267,7 +286,9 @@ export function ImportWizardDialog({
         <div className='mt-2 min-h-64'>
           {step === 'source' && (
             <div className='grid gap-3'>
-              <Label htmlFor='import-source-urls'>{t('import.source.label')}</Label>
+              <Label htmlFor='import-source-urls'>
+                {t('import.source.label')}
+              </Label>
               <Textarea
                 id='import-source-urls'
                 rows={8}
@@ -277,7 +298,7 @@ export function ImportWizardDialog({
                 className='font-mono text-xs'
                 autoFocus
               />
-              <p className='text-xs text-muted-foreground'>
+              <p className='text-muted-foreground text-xs'>
                 {t('import.source.hint')}
               </p>
             </div>
@@ -297,11 +318,13 @@ export function ImportWizardDialog({
                       <Input
                         value={candidate.name}
                         onChange={(event) =>
-                          updateCandidate(candidate.id, { name: event.target.value })
+                          updateCandidate(candidate.id, {
+                            name: event.target.value,
+                          })
                         }
                       />
                     </div>
-                    <div className='truncate font-mono text-xs text-muted-foreground'>
+                    <div className='text-muted-foreground truncate font-mono text-xs'>
                       {candidate.url}
                     </div>
                     <div className='grid gap-2'>
@@ -323,7 +346,9 @@ export function ImportWizardDialog({
                           <Badge variant='secondary'>
                             <CheckIcon className='size-3' />
                             {t('import.identify.detected', {
-                              confidence: Math.round((candidate.confidence ?? 0) * 100),
+                              confidence: Math.round(
+                                (candidate.confidence ?? 0) * 100
+                              ),
                             })}
                           </Badge>
                         )}
@@ -331,27 +356,34 @@ export function ImportWizardDialog({
                     </div>
 
                     {duplicate && (
-                      <div className='rounded-lg border border-warning/40 bg-warning/10 p-3'>
+                      <div className='border-warning/40 bg-warning/10 rounded-lg border p-3'>
                         <div className='mb-2 flex items-center gap-2 text-sm'>
-                          <AlertIcon className='size-4 text-warning' />
+                          <AlertIcon className='text-warning size-4' />
                           <span>{t('import.identify.duplicateWarning')}</span>
                         </div>
                         <RadioGroup
                           value={candidate.duplicateStrategy}
                           onValueChange={(value) =>
                             updateCandidate(candidate.id, {
-                              duplicateStrategy: value as ImportDuplicateStrategy,
+                              duplicateStrategy:
+                                value as ImportDuplicateStrategy,
                             })
                           }
                         >
                           <div className='flex items-center gap-2'>
-                            <RadioGroupItem id={`${candidate.id}-skip`} value='skip' />
+                            <RadioGroupItem
+                              id={`${candidate.id}-skip`}
+                              value='skip'
+                            />
                             <Label htmlFor={`${candidate.id}-skip`}>
                               {t('import.identify.skip')}
                             </Label>
                           </div>
                           <div className='flex items-center gap-2'>
-                            <RadioGroupItem id={`${candidate.id}-merge`} value='merge' />
+                            <RadioGroupItem
+                              id={`${candidate.id}-merge`}
+                              value='merge'
+                            />
                             <Label htmlFor={`${candidate.id}-merge`}>
                               {t('import.identify.merge')}
                             </Label>
@@ -377,14 +409,16 @@ export function ImportWizardDialog({
                       <div className='truncate text-sm font-medium'>
                         {candidate.name}
                       </div>
-                      <div className='truncate text-xs text-muted-foreground'>
+                      <div className='text-muted-foreground truncate text-xs'>
                         {candidate.url}
                       </div>
                     </div>
                     <Switch
                       checked={candidate.includeAccount}
                       onCheckedChange={(checked) =>
-                        updateCandidate(candidate.id, { includeAccount: checked })
+                        updateCandidate(candidate.id, {
+                          includeAccount: checked,
+                        })
                       }
                     />
                   </div>
@@ -433,7 +467,7 @@ export function ImportWizardDialog({
 
           {step === 'routes' && (
             <div className='grid gap-3'>
-              <p className='text-xs text-muted-foreground'>
+              <p className='text-muted-foreground text-xs'>
                 {t('import.routes.hint')}
               </p>
               {candidates.map((candidate) => (
@@ -445,7 +479,7 @@ export function ImportWizardDialog({
                     <div className='truncate text-sm font-medium'>
                       {candidate.name}
                     </div>
-                    <div className='truncate text-xs text-muted-foreground'>
+                    <div className='text-muted-foreground truncate text-xs'>
                       {candidate.platform}
                     </div>
                   </div>
@@ -496,7 +530,7 @@ export function ImportWizardDialog({
                     >
                       <div className='min-w-0'>
                         <div className='truncate text-sm'>{item.name}</div>
-                        <div className='truncate text-xs text-muted-foreground'>
+                        <div className='text-muted-foreground truncate text-xs'>
                           {item.url}
                         </div>
                       </div>
@@ -518,7 +552,9 @@ export function ImportWizardDialog({
               type='button'
               variant='outline'
               onClick={() =>
-                setStep(STEP_ORDER[Math.max(0, currentIndex - 1)] as ImportStepId)
+                setStep(
+                  STEP_ORDER[Math.max(0, currentIndex - 1)] as ImportStepId
+                )
               }
             >
               {t('import.back')}

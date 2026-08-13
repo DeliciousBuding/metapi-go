@@ -19,7 +19,10 @@ type StepperProps = {
   currentIndex: number
 }
 
-function stepState(index: number, currentIndex: number): 'current' | 'completed' | 'upcoming' {
+function stepState(
+  index: number,
+  currentIndex: number
+): 'current' | 'completed' | 'upcoming' {
   if (index === currentIndex) return 'current'
   if (index < currentIndex) return 'completed'
   return 'upcoming'
@@ -27,10 +30,7 @@ function stepState(index: number, currentIndex: number): 'current' | 'completed'
 
 export function ImportStepper({ steps, currentIndex }: StepperProps) {
   return (
-    <ol
-      aria-label='Import progress'
-      className='flex items-center gap-1.5'
-    >
+    <ol aria-label='Import progress' className='flex items-center gap-1.5'>
       {steps.map((step, index) => {
         const state = stepState(index, currentIndex)
         const isCompleted = state === 'completed'
@@ -48,9 +48,9 @@ export function ImportStepper({ steps, currentIndex }: StepperProps) {
                 'flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full border text-xs font-medium',
                 isCurrent &&
                   'border-primary bg-primary text-primary-foreground',
-                isCompleted &&
-                  'border-primary/30 bg-primary/10 text-primary',
-                !isCurrent && !isCompleted &&
+                isCompleted && 'border-primary/30 bg-primary/10 text-primary',
+                !isCurrent &&
+                  !isCompleted &&
                   'border-border text-muted-foreground'
               )}
             >
@@ -63,7 +63,9 @@ export function ImportStepper({ steps, currentIndex }: StepperProps) {
             <span
               className={cn(
                 'truncate text-xs',
-                isCurrent ? 'font-medium text-foreground' : 'text-muted-foreground'
+                isCurrent
+                  ? 'font-medium text-foreground'
+                  : 'text-muted-foreground'
               )}
             >
               {step.label}

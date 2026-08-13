@@ -39,6 +39,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { ImportWizardDialog } from '@/features/import'
 
 import {
   type BatchAccountAction,
@@ -51,7 +52,6 @@ import {
   useToggleAccountStatus,
 } from '../api'
 import { type Account, type AccountRowActions, accountSchema } from '../types'
-import { ImportWizardDialog } from '@/features/import'
 import { AccountDetailSheet } from './account-detail-sheet'
 import { AccountFormDialog } from './account-form-dialog'
 import { useAccountsColumns } from './accounts-columns'

@@ -19,7 +19,9 @@ export function canonicalizeUrl(raw: string): string {
   const trimmed = raw.trim()
   if (trimmed === '') return trimmed
   try {
-    const url = new URL(trimmed.includes('://') ? trimmed : `https://${trimmed}`)
+    const url = new URL(
+      trimmed.includes('://') ? trimmed : `https://${trimmed}`
+    )
     url.search = ''
     url.hash = ''
     return url.toString().replace(/\/$/, '')

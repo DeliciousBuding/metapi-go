@@ -26,7 +26,11 @@ export type ImportSitesPayload = {
   duplicateStrategy: ImportDuplicateStrategy
 }
 
-export type ImportSiteResultStatus = 'imported' | 'merged' | 'skipped' | 'failed'
+export type ImportSiteResultStatus =
+  | 'imported'
+  | 'merged'
+  | 'skipped'
+  | 'failed'
 
 export type ImportSiteItemResult = {
   name: string
@@ -70,9 +74,4 @@ export type ImportCandidate = {
   weight: number
 }
 
-export type ImportStepId =
-  | 'source'
-  | 'identify'
-  | 'connect'
-  | 'routes'
-  | 'done'
+export type ImportStepId = 'source' | 'identify' | 'connect' | 'routes' | 'done'
