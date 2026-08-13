@@ -34,6 +34,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { formatLatency, formatPrice, formatSuccessRate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type { ModelRow } from '../types'
@@ -61,23 +62,6 @@ function resolveLowestInputPrice(model: ModelRow): number | null {
   return lowest
 }
 
-function formatPrice(price: number | null): string {
-  if (price === null) return '—'
-  if (price === 0) return '0'
-  if (price < 0.01) return price.toFixed(4)
-  return price.toFixed(2)
-}
-
-function formatLatency(latency: number | null | undefined): string {
-  if (latency === null || latency === undefined) return '—'
-  return `${Math.round(latency)}ms`
-}
-
-function formatSuccessRate(rate: number | null | undefined): string {
-  if (rate === null || rate === undefined) return '—'
-  // API successRate is already a percentage (0-100); avoid double-scaling.
-  return `${Math.round(rate)}%`
-}
 
 /**
  * Build the model list columns. Must be called during render (it is a hook
