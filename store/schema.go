@@ -459,6 +459,20 @@ type ModelVerifyRecord struct {
 	CreatedAt   string   `db:"created_at" json:"createdAt"`
 }
 
+// ---- Table 35: model_probe_results ----
+type ModelProbeResult struct {
+	ID          int64    `db:"id" json:"id"`
+	ChannelID   *int64   `db:"channel_id" json:"channelId"`
+	AccountID   int64    `db:"account_id" json:"accountId"`
+	SiteID      int64    `db:"site_id" json:"siteId"`
+	ModelName   string   `db:"model_name" json:"modelName"`
+	Status      string   `db:"status" json:"status"` // success | failure | inconclusive | skipped
+	LatencyMs   *float64 `db:"latency_ms" json:"latencyMs"`
+	HTTPStatus  *int64   `db:"http_status" json:"httpStatus"`
+	ErrorText   *string  `db:"error_text" json:"errorText"`
+	CreatedAt   string   `db:"created_at" json:"createdAt"`
+}
+
 // ---- Table 31: product_announcements ----
 type ProductAnnouncement struct {
 	ID        int64   `db:"id" json:"id"`

@@ -16,6 +16,7 @@ import {
   Server,
   Settings,
   ShieldCheck,
+  Waypoints,
   Wrench,
 } from 'lucide-react'
 
@@ -75,6 +76,11 @@ export function useSidebarData(): SidebarData {
             title: 'sidebar.items.tokenRoutes',
             url: '/token-routes',
             icon: Route,
+          },
+          {
+            title: 'sidebar.items.channels',
+            url: '/channels',
+            icon: Waypoints,
           },
           {
             title: 'sidebar.items.oauth',
