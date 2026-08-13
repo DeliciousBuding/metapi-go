@@ -35,3 +35,23 @@ services:
       DB_CONN_MAX_LIFETIME_SEC: ${DB_CONN_MAX_LIFETIME_SEC:-1800}
       DB_CONN_MAX_IDLE_TIME_SEC: ${DB_CONN_MAX_IDLE_TIME_SEC:-300}
     restart: unless-stopped
+    # Runtime hardening (matches docker-compose.yml): drop caps, read-only root,
+    # tmpfs /tmp, and bounded CPU/memory so a runaway process cannot exhaust the host.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64M
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/metapi", "healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
