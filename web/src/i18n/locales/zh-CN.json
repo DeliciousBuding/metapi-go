@@ -134,7 +134,8 @@
         "successRate": "成功率",
         "priceInput": "输入价格",
         "actions": "操作",
-        "rowActions": "行操作"
+        "rowActions": "行操作",
+        "priceDetail": "价格明细"
       },
       "actions": {
         "viewDetails": "查看详情",
@@ -565,7 +566,9 @@
         "learnMore": "了解更多",
         "dismiss": "关闭公告"
       },
-      "statCard": { "trendLabel": "趋势" }
+      "statCard": {
+        "trendLabel": "趋势"
+      }
     },
     "settings": {
       "subareas": {
@@ -845,7 +848,9 @@
             "suffix": "令牌后缀",
             "suffixHint": "sk- 前缀固定。生成或输入新后缀。"
           },
-          "schema": { "suffixMinLength": "后缀至少 8 个字符。" },
+          "schema": {
+            "suffixMinLength": "后缀至少 8 个字符。"
+          },
           "toast": {
             "saved": "代理令牌已更新。",
             "saveFailed": "更新代理令牌失败。"
@@ -868,7 +873,10 @@
             "source": "来源",
             "actions": "操作"
           },
-          "source": { "sync": "自动", "manual": "手动" },
+          "source": {
+            "sync": "自动",
+            "manual": "手动"
+          },
           "toast": {
             "generated": "已生成 {{created}} 条重定向，涉及 {{accounts}} 个账号。",
             "generateFailed": "生成重定向失败。",
@@ -1056,7 +1064,11 @@
             "enabled": "状态",
             "actions": "操作"
           },
-          "severity": { "info": "信息", "warning": "警告", "critical": "严重" },
+          "severity": {
+            "info": "信息",
+            "warning": "警告",
+            "critical": "严重"
+          },
           "fields": {
             "title": "标题",
             "message": "内容",
@@ -1215,7 +1227,9 @@
           }
         }
       },
-      "stub": { "placeholder": "TODO phase 3: 从旧版迁移内容" }
+      "stub": {
+        "placeholder": "TODO phase 3: 从旧版迁移内容"
+      }
     },
     "accounts": {
       "page": {
@@ -1321,7 +1335,8 @@
         "checkinUnsupported": "不支持",
         "checkinOn": "已开启",
         "checkinOff": "未开启",
-        "actions": "操作"
+        "actions": "操作",
+        "healthDetail": "健康详情"
       },
       "detail": {
         "fallbackApiKey": "API Key 连接",
@@ -1708,7 +1723,8 @@
         "latencyMin": "延迟 ≥",
         "latencyMax": "延迟 ≤",
         "latencyUnit": "ms",
-        "latencyExample": "示例："
+        "latencyExample": "示例：",
+        "slowOnly": "仅慢请求"
       },
       "columns": {
         "createdAt": "时间",
@@ -1778,6 +1794,11 @@
         "all": "全部",
         "success": "成功",
         "failed": "失败"
+      },
+      "timing": {
+        "slow": "慢",
+        "ariaFirstByte": "首字节 {{firstByte}}，总计 {{total}}",
+        "ariaTotal": "总计 {{total}}"
       }
     },
     "No Data": "暂无数据",

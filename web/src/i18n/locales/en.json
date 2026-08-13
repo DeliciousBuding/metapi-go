@@ -134,7 +134,8 @@
         "successRate": "Success rate",
         "priceInput": "Input price",
         "actions": "Actions",
-        "rowActions": "Row actions"
+        "rowActions": "Row actions",
+        "priceDetail": "Price detail"
       },
       "actions": {
         "viewDetails": "View details",
@@ -565,7 +566,9 @@
         "learnMore": "learn more",
         "dismiss": "Dismiss announcement"
       },
-      "statCard": { "trendLabel": "Trend" }
+      "statCard": {
+        "trendLabel": "Trend"
+      }
     },
     "settings": {
       "subareas": {
@@ -870,7 +873,10 @@
             "source": "Source",
             "actions": "Actions"
           },
-          "source": { "sync": "Auto", "manual": "Manual" },
+          "source": {
+            "sync": "Auto",
+            "manual": "Manual"
+          },
           "toast": {
             "generated": "Generated {{created}} redirects across {{accounts}} accounts.",
             "generateFailed": "Failed to generate redirects.",
@@ -1221,7 +1227,9 @@
           }
         }
       },
-      "stub": { "placeholder": "TODO phase 3: migrate content from legacy" }
+      "stub": {
+        "placeholder": "TODO phase 3: migrate content from legacy"
+      }
     },
     "accounts": {
       "page": {
@@ -1327,7 +1335,8 @@
         "checkinUnsupported": "Not supported",
         "checkinOn": "On",
         "checkinOff": "Off",
-        "actions": "Actions"
+        "actions": "Actions",
+        "healthDetail": "Health detail"
       },
       "detail": {
         "fallbackApiKey": "API Key connection",
@@ -1714,7 +1723,8 @@
         "latencyMin": "Latency ≥",
         "latencyMax": "Latency ≤",
         "latencyUnit": "ms",
-        "latencyExample": "Example:"
+        "latencyExample": "Example:",
+        "slowOnly": "Slow only"
       },
       "columns": {
         "createdAt": "Time",
@@ -1784,6 +1794,11 @@
         "all": "All",
         "success": "Success",
         "failed": "Failed"
+      },
+      "timing": {
+        "slow": "Slow",
+        "ariaFirstByte": "First byte {{firstByte}}, total {{total}}",
+        "ariaTotal": "Total {{total}}"
       }
     },
     "No Data": "No Data",
