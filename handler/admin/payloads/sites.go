@@ -69,6 +69,30 @@ type SiteDisabledModelsPayload struct {
 	Models []string `json:"models"`
 }
 
+// SiteImportAccount mirrors an account to attach during batch import.
+type SiteImportAccount struct {
+	Username    *string `json:"username,omitempty"`
+	AccessToken string  `json:"accessToken,omitempty"`
+	APIToken    string  `json:"apiToken,omitempty"`
+}
+
+// SiteImportItem is one candidate site in POST /api/sites/import.
+type SiteImportItem struct {
+	Name              string              `json:"name"`
+	URL               string              `json:"url"`
+	Platform          *string             `json:"platform,omitempty"`
+	GlobalWeight      *float64            `json:"globalWeight,omitempty"`
+	MaxConcurrency    *int64              `json:"maxConcurrency,omitempty"`
+	DuplicateStrategy string              `json:"duplicateStrategy,omitempty"`
+	Accounts          []SiteImportAccount `json:"accounts,omitempty"`
+}
+
+// SiteImportPayload is the JSON body for POST /api/sites/import.
+type SiteImportPayload struct {
+	Items             []SiteImportItem `json:"items"`
+	DuplicateStrategy string           `json:"duplicateStrategy,omitempty"`
+}
+
 // ProbeNowBody is the JSON body for POST /api/sites/:id/probe-now.
 type ProbeNowBody struct {
 	Scope              *string `json:"scope,omitempty"`

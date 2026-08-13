@@ -315,7 +315,8 @@
       "empty": {
         "title": "No sites",
         "description": "Add a site to start routing requests.",
-        "addSite": "Add site"
+        "addSite": "Add site",
+        "import": "Import sites"
       },
       "toolbar": {
         "searchPlaceholder": "Search sites…",
@@ -1252,7 +1253,8 @@
         "filterStatusExpired": "Expired",
         "filterSiteTitle": "Site",
         "deleteTitle": "Delete account",
-        "deleteDescription": "Delete account \"{{name}}\"? This action cannot be undone, and associated tokens will be removed."
+        "deleteDescription": "Delete account \"{{name}}\"? This action cannot be undone, and associated tokens will be removed.",
+        "emptyImport": "Import sites"
       },
       "bulk": {
         "entityName": "account",
@@ -1994,6 +1996,58 @@
       },
       "backToHome": "Back to Home",
       "settingsOverview": "Settings Overview"
+    },
+    "import": {
+      "title": "Import sites",
+      "description": "Import one or more sites and optionally attach account credentials.",
+      "back": "Back",
+      "next": "Next",
+      "submit": "Import",
+      "cta": "Import sites",
+      "steps": {
+        "source": "Source",
+        "identify": "Identify",
+        "connect": "Connect",
+        "routes": "Models / routes",
+        "done": "Done"
+      },
+      "source": {
+        "label": "Site URLs",
+        "placeholder": "Paste one site URL per line",
+        "hint": "Each non-empty line becomes one site. Duplicates in the paste are ignored.",
+        "empty": "Paste at least one site URL."
+      },
+      "identify": {
+        "name": "Name",
+        "platform": "Platform",
+        "detected": "Detected · {{confidence}}%",
+        "duplicateWarning": "This site already exists. Choose how to handle the duplicate.",
+        "skip": "Skip",
+        "merge": "Merge accounts into existing site",
+        "missingPlatform": "Set a platform for every site (unknown sites stay manual)."
+      },
+      "connect": {
+        "username": "Username",
+        "accessToken": "Access token",
+        "apiToken": "API token"
+      },
+      "routes": {
+        "hint": "Imported sites are created active. Model discovery runs in the background; set the routing weight below.",
+        "weight": "Weight",
+        "invalidWeight": "Weight must be a number greater than or equal to 0."
+      },
+      "done": {
+        "imported": "Imported {{count}}",
+        "skipped": "Skipped {{count}}",
+        "failed": "Failed {{count}}",
+        "close": "Done"
+      },
+      "result": {
+        "imported": "Imported",
+        "merged": "Merged",
+        "skipped": "Skipped",
+        "failed": "Failed"
+      }
     }
   }
 }

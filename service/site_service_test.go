@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -596,5 +597,27 @@ func TestIsValidHTTPURL_RejectsMetadata(t *testing.T) {
 	}
 	if !IsValidHTTPURL("http://10.0.0.5/checkin") {
 		t.Error("RFC1918 should remain valid for lab external checkin")
+	}
+}
+
+func TestDetectSite_ConfidenceAndCanonicalURL(t *testing.T) {
+	result := DetectSite("https://api.openai.com/v1?x=1#frag")
+	if result == nil {
+		t.Fatal("expected detection result, got nil")
+	}
+	if result.SiteType != "openai" {
+		t.Fatalf("siteType=%q want openai", result.SiteType)
+	}
+	if result.Confidence <= 0 || result.Confidence > 1 {
+		t.Fatalf("confidence=%v want (0,1]", result.Confidence)
+	}
+	if result.CanonicalURL == "" {
+		t.Fatal("canonicalUrl is empty")
+	}
+	if strings.HasSuffix(result.CanonicalURL, "/") {
+		t.Fatalf("canonicalUrl=%q should not end with slash", result.CanonicalURL)
+	}
+	if strings.Contains(result.CanonicalURL, "?") || strings.Contains(result.CanonicalURL, "#") {
+		t.Fatalf("canonicalUrl=%q should drop query/fragment", result.CanonicalURL)
 	}
 }

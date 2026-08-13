@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/handler/admin/payloads"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
+	"github.com/jmoiron/sqlx"
 )
 
 // RegisterSitesRoutes registers all /api/sites routes.
@@ -29,6 +29,7 @@ func RegisterSitesRoutes(r chi.Router, db *sqlx.DB) {
 	r.Delete("/api/sites/{id}", handler.deleteSite)
 	r.Post("/api/sites/batch", handler.batchSites)
 	r.Post("/api/sites/detect", handler.detectSite)
+	r.Post("/api/sites/import", handler.importSites)
 
 	// Sub-resources
 	r.Get("/api/sites/{id}/disabled-models", handler.getDisabledModels)
@@ -556,6 +557,67 @@ func (h *sitesHandler) detectSite(w http.ResponseWriter, r *http.Request) {
 	}
 	// Failure must not use HTTP 200 with an error body.
 	writeError(w, http.StatusBadRequest, "Could not detect platform")
+}
+
+// ---- Import Sites (batch, idempotent) ----
+
+func (h *sitesHandler) importSites(w http.ResponseWriter, r *http.Request) {
+	var body payloads.SiteImportPayload
+	if err := decodeJSONRequest(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid import payload.")
+		return
+	}
+	if len(body.Items) == 0 {
+		writeError(w, http.StatusBadRequest, "items is required")
+		return
+	}
+
+	strategy := service.ImportDuplicateStrategy(strings.TrimSpace(body.DuplicateStrategy))
+	if strategy == "" {
+		strategy = service.ImportDuplicateSkip
+	}
+	if strategy != service.ImportDuplicateSkip && strategy != service.ImportDuplicateMerge {
+		writeError(w, http.StatusBadRequest, "Invalid duplicateStrategy. Expected skip or merge.")
+		return
+	}
+
+	items := make([]service.ImportSiteInput, 0, len(body.Items))
+	for _, item := range body.Items {
+		platform := ""
+		if item.Platform != nil {
+			platform = *item.Platform
+		}
+		accounts := make([]service.ImportAccountInput, 0, len(item.Accounts))
+		for _, acct := range item.Accounts {
+			accounts = append(accounts, service.ImportAccountInput{
+				Username:    acct.Username,
+				AccessToken: acct.AccessToken,
+				APIToken:    acct.APIToken,
+			})
+		}
+		items = append(items, service.ImportSiteInput{
+			Name:              item.Name,
+			URL:               item.URL,
+			Platform:          platform,
+			GlobalWeight:      item.GlobalWeight,
+			MaxConcurrency:    item.MaxConcurrency,
+			DuplicateStrategy: service.ImportDuplicateStrategy(item.DuplicateStrategy),
+			Accounts:          accounts,
+		})
+	}
+
+	result, err := service.ImportSites(h.db, items, strategy)
+	if err != nil {
+		slog.Error("ImportSites failed", "err", err)
+		writeError(w, http.StatusInternalServerError, "Import sites failed")
+		return
+	}
+
+	if result.Imported > 0 {
+		service.InvalidateSiteCaches()
+		routing.InvalidateCache()
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 // ---- Disabled Models ----
