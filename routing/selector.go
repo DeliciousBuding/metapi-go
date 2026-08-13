@@ -87,7 +87,6 @@ type ChannelSelector struct {
 	db                  ChannelSelectorDB
 	cache               *RouteCache
 	configuredMaxSec    int
-	downstreamPolicy    DownstreamRoutingPolicy
 	routingWeights      RoutingWeightsConfig
 	pricingFn           func(siteID, accountID int64, modelName string) *float64
 	fallbackUnitCost    float64

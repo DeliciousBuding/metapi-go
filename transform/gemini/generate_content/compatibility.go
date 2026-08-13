@@ -978,9 +978,7 @@ func parseDataURLToGeminiInline(url string) map[string]any {
 		return nil
 	}
 	mimeType := rest[:comma]
-	if strings.HasSuffix(mimeType, ";base64") {
-		mimeType = mimeType[:len(mimeType)-7]
-	}
+	mimeType = strings.TrimSuffix(mimeType, ";base64")
 	data := rest[comma+1:]
 	return map[string]any{
 		"inlineData": map[string]any{
@@ -1089,11 +1087,11 @@ type GeminiAggregateState struct {
 
 // GeminiUsageSummary holds token counts.
 type GeminiUsageSummary struct {
-	PromptTokenCount       int
-	CandidatesTokenCount   int
-	TotalTokenCount        int
+	PromptTokenCount        int
+	CandidatesTokenCount    int
+	TotalTokenCount         int
 	CachedContentTokenCount int
-	ThoughtsTokenCount     int
+	ThoughtsTokenCount      int
 }
 
 // GeminiCandidateAggregate holds per-candidate state.

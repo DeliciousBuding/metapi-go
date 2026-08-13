@@ -13,8 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/handler/admin/payloads"
 	"github.com/deliciousbuding/metapi-go/platform"
@@ -24,6 +22,8 @@ import (
 	balanceService "github.com/deliciousbuding/metapi-go/service/balance"
 	dailyservice "github.com/deliciousbuding/metapi-go/service/daily"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
+	"github.com/jmoiron/sqlx"
 )
 
 // RegisterAccountsRoutes registers all /api/accounts routes.
@@ -202,7 +202,7 @@ func (h *accountsHandler) createAccount(w http.ResponseWriter, r *http.Request) 
 
 	// Resolve credential mode
 	credentialMode := service.ResolveRequestedCredentialMode(body.CredentialMode)
-	if body.AccessTokens != nil && len(body.AccessTokens) > 0 {
+	if len(body.AccessTokens) > 0 {
 		credentialMode = service.CredentialModeAPIKey
 	}
 
@@ -219,7 +219,7 @@ func (h *accountsHandler) createAccount(w http.ResponseWriter, r *http.Request) 
 			appendRequestedToken(*body.AccessToken)
 		}
 	} else {
-		if body.AccessTokens != nil && len(body.AccessTokens) > 0 {
+		if len(body.AccessTokens) > 0 {
 			for _, token := range body.AccessTokens {
 				appendRequestedToken(token)
 			}

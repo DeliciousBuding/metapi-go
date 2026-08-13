@@ -284,11 +284,6 @@ type geminiLoadCodeAssistPayload struct {
 	AllowedTiers            interface{} `json:"allowedTiers"`
 }
 
-type geminiOnboardUserPayload struct {
-	Done     interface{} `json:"done"`
-	Response interface{} `json:"response"`
-}
-
 type geminiInternalMetadata struct {
 	IDEType    string `json:"ideType"`
 	Platform   string `json:"platform"`

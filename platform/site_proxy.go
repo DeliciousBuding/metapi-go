@@ -35,7 +35,6 @@ type SiteProxyConfig struct {
 type SiteProxy struct {
 	systemProxyURL  string
 	siteConfigs     map[string]*SiteProxyConfig
-	lastLoad        time.Time
 	httpClient      *http.Client
 	httpClientNoTLS *http.Client
 }

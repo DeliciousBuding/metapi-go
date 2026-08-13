@@ -9,27 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/jmoiron/sqlx"
 )
 
 // ---- Normalization helpers (mirrors TS sites.ts normalize functions) ----
-
-func normalizeSiteStatus(input *string) string {
-	if input == nil {
-		return ""
-	}
-	status := strings.TrimSpace(strings.ToLower(*input))
-	if status == "active" || status == "disabled" {
-		return status
-	}
-	return ""
-}
-
-func normalizePinnedFlag(input *bool) *bool {
-	return input
-}
 
 func NormalizeSortOrder(input *int) *int {
 	if input == nil {
@@ -65,13 +50,6 @@ func NormalizeNullable(s *string) *string {
 		return nil
 	}
 	return &trimmed
-}
-
-func boolToFloat(b bool) float64 {
-	if b {
-		return 1
-	}
-	return 0
 }
 
 // accountAgg is used for aggregating account balance/subscription data.
@@ -543,7 +521,7 @@ func ParseExtraConfig(raw *string) map[string]any {
 
 // MarshalExtraConfig marshals a map to a JSON string.
 func MarshalExtraConfig(config map[string]any) *string {
-	if config == nil || len(config) == 0 {
+	if len(config) == 0 {
 		return nil
 	}
 	b, err := json.Marshal(config)

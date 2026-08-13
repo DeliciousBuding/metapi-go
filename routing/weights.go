@@ -395,15 +395,6 @@ func rememberStableFirstSiteSelectionForKeyLocked(rotationKey string, siteID int
 	}
 }
 
-func rememberStableFirstObservationProgressForKey(rotationKey string, state StableFirstObservationProgressState) {
-	if rotationKey == "" {
-		return
-	}
-	stableFirstStateMu.Lock()
-	defer stableFirstStateMu.Unlock()
-	rememberStableFirstObservationProgressForKeyLocked(rotationKey, state)
-}
-
 func rememberStableFirstObservationProgressForKeyLocked(rotationKey string, state StableFirstObservationProgressState) {
 	delete(stableFirstObservationProgressByKey, rotationKey)
 	stableFirstObservationProgressByKey[rotationKey] = state
@@ -413,15 +404,6 @@ func rememberStableFirstObservationProgressForKeyLocked(rotationKey string, stat
 			break
 		}
 	}
-}
-
-func rememberStableFirstObservationSiteCooldown(rotationKey string, siteID int64, observedAtMs int64) {
-	if rotationKey == "" || siteID <= 0 {
-		return
-	}
-	stableFirstStateMu.Lock()
-	defer stableFirstStateMu.Unlock()
-	rememberStableFirstObservationSiteCooldownLocked(rotationKey, siteID, observedAtMs)
 }
 
 func rememberStableFirstObservationSiteCooldownLocked(rotationKey string, siteID int64, observedAtMs int64) {

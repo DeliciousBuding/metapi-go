@@ -4,7 +4,6 @@ linters:
     - errcheck
     - staticcheck
     - ineffassign
-  disable:
     - unused
     - gosimple
 
@@ -31,7 +30,7 @@ issues:
 
     # Test-only issues
     - path: "_test\\.go"
-      linters: [errcheck, ineffassign, staticcheck]
+      linters: [errcheck, ineffassign, staticcheck, unused]
 
     # Staticcheck: deprecated RealIP is a known risk
     - path: "router/middleware\\.go"

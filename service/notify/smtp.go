@@ -20,11 +20,10 @@ type SMTPChannel struct {
 }
 
 type cachedSMTPClient struct {
-	addr        string
-	auth        smtp.Auth
-	from        string
-	useTLS      bool
-	tlsConfig   *tls.Config
+	addr   string
+	auth   smtp.Auth
+	from   string
+	useTLS bool
 }
 
 func (c *SMTPChannel) Name() string { return "smtp" }

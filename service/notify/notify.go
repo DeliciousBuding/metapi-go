@@ -23,15 +23,15 @@ const (
 type NotificationChannel string
 
 const (
-	ChannelWebhook   NotificationChannel = "webhook"
-	ChannelBark      NotificationChannel = "bark"
+	ChannelWebhook    NotificationChannel = "webhook"
+	ChannelBark       NotificationChannel = "bark"
 	ChannelServerChan NotificationChannel = "serverchan"
-	ChannelTelegram  NotificationChannel = "telegram"
-	ChannelSMTP      NotificationChannel = "smtp"
-	ChannelFeishu    NotificationChannel = "feishu"
-	ChannelDingTalk  NotificationChannel = "dingtalk"
-	ChannelWeCom     NotificationChannel = "wecom"
-	ChannelNtfy      NotificationChannel = "ntfy"
+	ChannelTelegram   NotificationChannel = "telegram"
+	ChannelSMTP       NotificationChannel = "smtp"
+	ChannelFeishu     NotificationChannel = "feishu"
+	ChannelDingTalk   NotificationChannel = "dingtalk"
+	ChannelWeCom      NotificationChannel = "wecom"
+	ChannelNtfy       NotificationChannel = "ntfy"
 )
 
 // Channel is the interface for notification channels.
@@ -60,19 +60,6 @@ type DispatchResult struct {
 	Succeeded      int
 	Failed         int
 	FailedChannels []NotificationChannel
-}
-
-// All notification channels
-var channels = []Channel{
-	&WebhookChannel{},
-	&BarkChannel{},
-	&ServerChanChannel{},
-	&TelegramChannel{},
-	&SMTPChannel{},
-	&FeishuChannel{},
-	&DingtalkChannel{},
-	&WecomChannel{},
-	&NtfyChannel{},
 }
 
 // SendNotification dispatches a notification through all configured channels.

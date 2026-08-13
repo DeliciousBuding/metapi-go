@@ -8,10 +8,10 @@ import (
 // ---- Cooldown constants ----
 
 const (
-	FailureBackoffBaseSec         = 15
-	ShortWindowLimitCooldownMs    = 5 * 60 * 1000
-	MaxFailureBackoffSec          = 30 * 24 * 60 * 60 // 30 days
-	RoundRobinFailureThreshold    = 3
+	FailureBackoffBaseSec                   = 15
+	ShortWindowLimitCooldownMs              = 5 * 60 * 1000
+	MaxFailureBackoffSec                    = 30 * 24 * 60 * 60 // 30 days
+	RoundRobinFailureThreshold              = 3
 	TokenRouterFailureCooldownMaxSecCeiling = MaxFailureBackoffSec
 )
 
@@ -228,67 +228,6 @@ func IsContributionCloseToBest(value, bestValue, ratio float64) bool {
 	return value >= (bestValue * ratio)
 }
 
-// readFiniteNumber coerces unknown to float64 or nil.
-func readFiniteNumber(v interface{}) *float64 {
-	switch x := v.(type) {
-	case float64:
-		if math.IsInf(x, 0) || math.IsNaN(x) {
-			return nil
-		}
-		return &x
-	case int64:
-		f := float64(x)
-		return &f
-	case int:
-		f := float64(x)
-		return &f
-	case float32:
-		f := float64(x)
-		return &f
-	}
-	return nil
-}
-
-// readFiniteInteger coerces unknown to int64 from any numeric type.
-func readFiniteInteger(v interface{}) *int64 {
-	switch x := v.(type) {
-	case float64:
-		if math.IsInf(x, 0) || math.IsNaN(x) {
-			return nil
-		}
-		trunc := int64(math.Trunc(x))
-		return &trunc
-	case int64:
-		return &x
-	case int:
-		trunc := int64(x)
-		return &trunc
-	case float32:
-		f := float64(x)
-		if math.IsInf(f, 0) || math.IsNaN(f) {
-			return nil
-		}
-		trunc := int64(math.Trunc(f))
-		return &trunc
-	}
-	return nil
-}
-
-// readNullableTimestamp coerces unknown to *int64 (positive only, nil otherwise).
-func readNullableTimestamp(v interface{}) *int64 {
-	val := readFiniteInteger(v)
-	if val == nil || *val <= 0 {
-		return nil
-	}
-	return val
-}
-
-// isRecord checks if a value is a map.
-func isRecord(v interface{}) (map[string]interface{}, bool) {
-	m, ok := v.(map[string]interface{})
-	return m, ok
-}
-
 // min64 returns the smaller of two int64s.
 func min64(a, b int64) int64 {
 	if a < b {
@@ -305,49 +244,7 @@ func max64(a, b int64) int64 {
 	return b
 }
 
-// maxFloat returns the larger of two float64s.
-func maxFloat(a, b float64) float64 {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 // isFiniteFloat checks if a float64 is finite.
 func isFiniteFloat(v float64) bool {
 	return !math.IsInf(v, 0) && !math.IsNaN(v)
-}
-
-// maxFloatSlice returns the maximum value in a float64 slice, with a floor.
-func maxFloatSlice(values []float64, floor float64) float64 {
-	if len(values) == 0 {
-		return floor
-	}
-	m := values[0]
-	for _, v := range values[1:] {
-		if v > m {
-			m = v
-		}
-	}
-	if m < floor {
-		m = floor
-	}
-	return m
-}
-
-// minFloatSlice returns the minimum value in a float64 slice, with a ceiling.
-func minFloatSlice(values []float64, ceiling float64) float64 {
-	if len(values) == 0 {
-		return ceiling
-	}
-	m := values[0]
-	for _, v := range values[1:] {
-		if v < m {
-			m = v
-		}
-	}
-	if m > ceiling {
-		m = ceiling
-	}
-	return m
 }

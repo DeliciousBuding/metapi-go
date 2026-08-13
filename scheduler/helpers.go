@@ -3,9 +3,6 @@ package scheduler
 import (
 	"fmt"
 	"strings"
-
-	"github.com/jmoiron/sqlx"
-	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // stringsTrimLower trims whitespace and lowercases. Returns "active" for empty.
@@ -20,14 +17,4 @@ func stringsTrimLower(s string) string {
 // formatErr is a shorthand for fmt.Errorf.
 func formatErr(f string, args ...any) error {
 	return fmt.Errorf(f, args...)
-}
-
-// getSqlxDB returns the underlying *sqlx.DB from the store singleton.
-// Returns nil if the database is not initialized.
-func getSqlxDB() *sqlx.DB {
-	db := store.GetDB()
-	if db == nil {
-		return nil
-	}
-	return db.DB
 }

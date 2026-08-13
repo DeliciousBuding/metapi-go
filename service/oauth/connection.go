@@ -3,7 +3,6 @@ package oauth
 import (
 	"fmt"
 	"log/slog"
-	"math"
 	"strings"
 	"time"
 
@@ -346,10 +345,6 @@ func strPtr(s *string) string {
 		return ""
 	}
 	return strings.TrimSpace(*s)
-}
-
-func mathTrunc(f float64) int {
-	return int(math.Trunc(f))
 }
 
 // ensureOauthIdentityBackfill backfills oauth_provider, oauth_account_key, and oauth_project_id

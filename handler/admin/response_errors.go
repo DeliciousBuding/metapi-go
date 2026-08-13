@@ -12,8 +12,3 @@ import (
 func writeError(w http.ResponseWriter, code int, message string) {
 	shared.WriteError(w, code, message)
 }
-
-// writeErrorDetail writes {"error":"...","detail":"..."} with a non-2xx status.
-func writeErrorDetail(w http.ResponseWriter, code int, message, detail string) {
-	shared.WriteErrorDetail(w, code, message, detail)
-}

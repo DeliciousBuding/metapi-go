@@ -40,11 +40,11 @@ import (
 // ---- CLI flags ----
 
 var (
-	flagFrom     = flag.String("from", "", "Source SQLite database (sqlite://path or plain path)")
-	flagTo       = flag.String("to", "", "Target PostgreSQL connection string (postgres://user:pass@host:port/db)")
-	flagDryRun   = flag.Bool("dry-run", false, "Validate and print migration plan without writing data")
-	flagProgress = flag.Bool("progress", false, "Show per-table progress during transfer")
-	flagVerify   = flag.Bool("verify", false, "Compute row-count + hash checksum after migration")
+	flagFrom      = flag.String("from", "", "Source SQLite database (sqlite://path or plain path)")
+	flagTo        = flag.String("to", "", "Target PostgreSQL connection string (postgres://user:pass@host:port/db)")
+	flagDryRun    = flag.Bool("dry-run", false, "Validate and print migration plan without writing data")
+	flagProgress  = flag.Bool("progress", false, "Show per-table progress during transfer")
+	flagVerify    = flag.Bool("verify", false, "Compute row-count + hash checksum after migration")
 	flagOverwrite = flag.Bool("overwrite", true, "Clear target data before inserting (default true, matches TS)")
 	flagBatchSize = flag.Int("batch-size", 1, "Rows per multi-row INSERT batch (1 = row-by-row, matching TS default)")
 )
@@ -109,17 +109,17 @@ func asNullableString(v interface{}) interface{} {
 // jsonColumnSet records which columns have logical type 'json'.
 // 13 columns across 5 tables, matching the TS schemaContract.json logical types.
 var jsonColumnSet = map[string]bool{
-	"sites.custom_headers":                        true,
-	"accounts.extra_config":                       true,
-	"token_routes.model_mapping":                  true,
-	"token_routes.decision_snapshot":              true,
-	"proxy_logs.billing_details":                  true,
-	"proxy_video_tasks.status_snapshot":           true,
-	"proxy_video_tasks.upstream_response_meta":    true,
-	"downstream_api_keys.supported_models":        true,
-	"downstream_api_keys.allowed_route_ids":       true,
+	"sites.custom_headers":                         true,
+	"accounts.extra_config":                        true,
+	"token_routes.model_mapping":                   true,
+	"token_routes.decision_snapshot":               true,
+	"proxy_logs.billing_details":                   true,
+	"proxy_video_tasks.status_snapshot":            true,
+	"proxy_video_tasks.upstream_response_meta":     true,
+	"downstream_api_keys.supported_models":         true,
+	"downstream_api_keys.allowed_route_ids":        true,
 	"downstream_api_keys.site_weight_multipliers":  true,
-	"downstream_api_keys.excluded_site_ids":       true,
+	"downstream_api_keys.excluded_site_ids":        true,
 	"downstream_api_keys.excluded_credential_refs": true,
 }
 
@@ -385,10 +385,7 @@ func isPostgresURL(raw string) bool {
 
 // isSQLiteTarget treats "sqlite://path" and plain paths as SQLite targets.
 func isSQLiteTarget(raw string) bool {
-	if isPostgresURL(raw) {
-		return false
-	}
-	return true
+	return !isPostgresURL(raw)
 }
 
 // openSourceDB opens a SQLite path or a PostgreSQL URL as the source.
@@ -455,18 +452,6 @@ func normalizeSQLitePath(raw string) (string, error) {
 	}
 
 	return raw, nil
-}
-
-func validatePGURL(raw string) error {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return fmt.Errorf("connection string cannot be empty")
-	}
-	lower := strings.ToLower(raw)
-	if !strings.HasPrefix(lower, "postgres:") && !strings.HasPrefix(lower, "postgresql:") {
-		return fmt.Errorf("must start with postgres:// or postgresql://")
-	}
-	return nil
 }
 
 // readAllTables reads all 18 tables from the SQLite source into memory.
@@ -1085,24 +1070,24 @@ func ensureTargetSchema(db *sql.DB, sqlite bool) error {
 	// The full schema is handled by store.Migrate() in the server binary.
 	// Here we only need the tables to exist for data insertion.
 	tables := map[string]string{
-		"sites":                 `CREATE TABLE IF NOT EXISTS "sites" (id BIGSERIAL PRIMARY KEY, name TEXT, url TEXT, external_checkin_url TEXT, platform TEXT, proxy_url TEXT, use_system_proxy BOOLEAN DEFAULT FALSE, custom_headers JSONB, status TEXT DEFAULT 'active', is_pinned BOOLEAN DEFAULT FALSE, sort_order BIGINT DEFAULT 0, global_weight DOUBLE PRECISION DEFAULT 1, api_key TEXT, post_refresh_probe_enabled BOOLEAN DEFAULT FALSE, post_refresh_probe_model TEXT DEFAULT '', post_refresh_probe_scope TEXT DEFAULT '', post_refresh_probe_latency_threshold_ms BIGINT DEFAULT 0, created_at TEXT, updated_at TEXT)`,
-		"site_api_endpoints":    `CREATE TABLE IF NOT EXISTS "site_api_endpoints" (id BIGSERIAL PRIMARY KEY, site_id BIGINT, url TEXT, enabled BOOLEAN DEFAULT TRUE, sort_order BIGINT DEFAULT 0, cooldown_until TEXT, last_selected_at TEXT, last_failed_at TEXT, last_failure_reason TEXT, created_at TEXT, updated_at TEXT)`,
-		"site_announcements":    `CREATE TABLE IF NOT EXISTS "site_announcements" (id BIGSERIAL PRIMARY KEY, site_id BIGINT, platform TEXT, source_key TEXT, title TEXT, content TEXT, level TEXT DEFAULT 'info', source_url TEXT, starts_at TEXT, ends_at TEXT, upstream_created_at TEXT, upstream_updated_at TEXT, first_seen_at TEXT, last_seen_at TEXT, read_at TEXT, dismissed_at TEXT, raw_payload TEXT, created_at TEXT, updated_at TEXT)`,
-		"site_disabled_models":  `CREATE TABLE IF NOT EXISTS "site_disabled_models" (id BIGSERIAL PRIMARY KEY, site_id BIGINT, model_name TEXT, created_at TEXT)`,
-		"accounts":              `CREATE TABLE IF NOT EXISTS "accounts" (id BIGSERIAL PRIMARY KEY, site_id BIGINT, username TEXT, access_token TEXT, api_token TEXT, balance DOUBLE PRECISION DEFAULT 0, balance_used DOUBLE PRECISION DEFAULT 0, quota DOUBLE PRECISION DEFAULT 0, unit_cost DOUBLE PRECISION, value_score DOUBLE PRECISION DEFAULT 0, status TEXT DEFAULT 'active', is_pinned BOOLEAN DEFAULT FALSE, sort_order BIGINT DEFAULT 0, checkin_enabled BOOLEAN DEFAULT TRUE, last_checkin_at TEXT, last_balance_refresh TEXT, oauth_provider TEXT, oauth_account_key TEXT, oauth_project_id TEXT, extra_config JSONB, created_at TEXT, updated_at TEXT)`,
-		"account_tokens":        `CREATE TABLE IF NOT EXISTS "account_tokens" (id BIGSERIAL PRIMARY KEY, account_id BIGINT, name TEXT, token TEXT, token_group TEXT, value_status TEXT DEFAULT 'ready', source TEXT DEFAULT 'manual', enabled BOOLEAN DEFAULT TRUE, is_default BOOLEAN DEFAULT FALSE, created_at TEXT, updated_at TEXT)`,
-		"checkin_logs":          `CREATE TABLE IF NOT EXISTS "checkin_logs" (id BIGSERIAL PRIMARY KEY, account_id BIGINT, status TEXT DEFAULT 'success', message TEXT, reward TEXT, created_at TEXT)`,
-		"model_availability":    `CREATE TABLE IF NOT EXISTS "model_availability" (id BIGSERIAL PRIMARY KEY, account_id BIGINT, model_name TEXT, available BOOLEAN DEFAULT FALSE, is_manual BOOLEAN DEFAULT FALSE, latency_ms BIGINT, checked_at TEXT)`,
+		"sites":                    `CREATE TABLE IF NOT EXISTS "sites" (id BIGSERIAL PRIMARY KEY, name TEXT, url TEXT, external_checkin_url TEXT, platform TEXT, proxy_url TEXT, use_system_proxy BOOLEAN DEFAULT FALSE, custom_headers JSONB, status TEXT DEFAULT 'active', is_pinned BOOLEAN DEFAULT FALSE, sort_order BIGINT DEFAULT 0, global_weight DOUBLE PRECISION DEFAULT 1, api_key TEXT, post_refresh_probe_enabled BOOLEAN DEFAULT FALSE, post_refresh_probe_model TEXT DEFAULT '', post_refresh_probe_scope TEXT DEFAULT '', post_refresh_probe_latency_threshold_ms BIGINT DEFAULT 0, created_at TEXT, updated_at TEXT)`,
+		"site_api_endpoints":       `CREATE TABLE IF NOT EXISTS "site_api_endpoints" (id BIGSERIAL PRIMARY KEY, site_id BIGINT, url TEXT, enabled BOOLEAN DEFAULT TRUE, sort_order BIGINT DEFAULT 0, cooldown_until TEXT, last_selected_at TEXT, last_failed_at TEXT, last_failure_reason TEXT, created_at TEXT, updated_at TEXT)`,
+		"site_announcements":       `CREATE TABLE IF NOT EXISTS "site_announcements" (id BIGSERIAL PRIMARY KEY, site_id BIGINT, platform TEXT, source_key TEXT, title TEXT, content TEXT, level TEXT DEFAULT 'info', source_url TEXT, starts_at TEXT, ends_at TEXT, upstream_created_at TEXT, upstream_updated_at TEXT, first_seen_at TEXT, last_seen_at TEXT, read_at TEXT, dismissed_at TEXT, raw_payload TEXT, created_at TEXT, updated_at TEXT)`,
+		"site_disabled_models":     `CREATE TABLE IF NOT EXISTS "site_disabled_models" (id BIGSERIAL PRIMARY KEY, site_id BIGINT, model_name TEXT, created_at TEXT)`,
+		"accounts":                 `CREATE TABLE IF NOT EXISTS "accounts" (id BIGSERIAL PRIMARY KEY, site_id BIGINT, username TEXT, access_token TEXT, api_token TEXT, balance DOUBLE PRECISION DEFAULT 0, balance_used DOUBLE PRECISION DEFAULT 0, quota DOUBLE PRECISION DEFAULT 0, unit_cost DOUBLE PRECISION, value_score DOUBLE PRECISION DEFAULT 0, status TEXT DEFAULT 'active', is_pinned BOOLEAN DEFAULT FALSE, sort_order BIGINT DEFAULT 0, checkin_enabled BOOLEAN DEFAULT TRUE, last_checkin_at TEXT, last_balance_refresh TEXT, oauth_provider TEXT, oauth_account_key TEXT, oauth_project_id TEXT, extra_config JSONB, created_at TEXT, updated_at TEXT)`,
+		"account_tokens":           `CREATE TABLE IF NOT EXISTS "account_tokens" (id BIGSERIAL PRIMARY KEY, account_id BIGINT, name TEXT, token TEXT, token_group TEXT, value_status TEXT DEFAULT 'ready', source TEXT DEFAULT 'manual', enabled BOOLEAN DEFAULT TRUE, is_default BOOLEAN DEFAULT FALSE, created_at TEXT, updated_at TEXT)`,
+		"checkin_logs":             `CREATE TABLE IF NOT EXISTS "checkin_logs" (id BIGSERIAL PRIMARY KEY, account_id BIGINT, status TEXT DEFAULT 'success', message TEXT, reward TEXT, created_at TEXT)`,
+		"model_availability":       `CREATE TABLE IF NOT EXISTS "model_availability" (id BIGSERIAL PRIMARY KEY, account_id BIGINT, model_name TEXT, available BOOLEAN DEFAULT FALSE, is_manual BOOLEAN DEFAULT FALSE, latency_ms BIGINT, checked_at TEXT)`,
 		"token_model_availability": `CREATE TABLE IF NOT EXISTS "token_model_availability" (id BIGSERIAL PRIMARY KEY, token_id BIGINT, model_name TEXT, available BOOLEAN DEFAULT FALSE, latency_ms BIGINT, checked_at TEXT)`,
-		"token_routes":          `CREATE TABLE IF NOT EXISTS "token_routes" (id BIGSERIAL PRIMARY KEY, model_pattern TEXT, display_name TEXT, display_icon TEXT, route_mode TEXT DEFAULT 'pattern', model_mapping JSONB, decision_snapshot JSONB, decision_refreshed_at TEXT, routing_strategy TEXT DEFAULT '', enabled BOOLEAN DEFAULT TRUE, created_at TEXT, updated_at TEXT)`,
-		"route_channels":        `CREATE TABLE IF NOT EXISTS "route_channels" (id BIGSERIAL PRIMARY KEY, route_id BIGINT, account_id BIGINT, token_id BIGINT, oauth_route_unit_id BIGINT, source_model TEXT, priority BIGINT DEFAULT 0, weight BIGINT DEFAULT 10, enabled BOOLEAN DEFAULT TRUE, manual_override BOOLEAN DEFAULT FALSE, success_count BIGINT DEFAULT 0, fail_count BIGINT DEFAULT 0, total_latency_ms BIGINT DEFAULT 0, total_cost DOUBLE PRECISION DEFAULT 0, last_used_at TEXT, last_selected_at TEXT, last_fail_at TEXT, consecutive_fail_count BIGINT DEFAULT 0, cooldown_level BIGINT DEFAULT 0, cooldown_until TEXT)`,
-		"route_group_sources":   `CREATE TABLE IF NOT EXISTS "route_group_sources" (id BIGSERIAL PRIMARY KEY, group_route_id BIGINT, source_route_id BIGINT)`,
-		"proxy_logs":            `CREATE TABLE IF NOT EXISTS "proxy_logs" (id BIGSERIAL PRIMARY KEY, route_id BIGINT, channel_id BIGINT, account_id BIGINT, downstream_api_key_id BIGINT, model_requested TEXT, model_actual TEXT, status TEXT, http_status BIGINT, is_stream BOOLEAN DEFAULT FALSE, first_byte_latency_ms BIGINT, latency_ms BIGINT, prompt_tokens BIGINT, completion_tokens BIGINT, total_tokens BIGINT, estimated_cost DOUBLE PRECISION, billing_details JSONB, client_family TEXT, client_app_id TEXT, client_app_name TEXT, client_confidence TEXT, error_message TEXT, retry_count BIGINT DEFAULT 0, created_at TEXT)`,
-		"proxy_video_tasks":     `CREATE TABLE IF NOT EXISTS "proxy_video_tasks" (id BIGSERIAL PRIMARY KEY, public_id TEXT, upstream_video_id TEXT, site_url TEXT, token_value TEXT, requested_model TEXT, actual_model TEXT, channel_id BIGINT, account_id BIGINT, status_snapshot JSONB, upstream_response_meta JSONB, last_upstream_status BIGINT, last_polled_at TEXT, created_at TEXT, updated_at TEXT)`,
-		"proxy_files":           `CREATE TABLE IF NOT EXISTS "proxy_files" (id BIGSERIAL PRIMARY KEY, public_id TEXT, owner_type TEXT, owner_id TEXT, filename TEXT, mime_type TEXT, purpose TEXT, byte_size BIGINT, sha256 TEXT, content_base64 TEXT, created_at TEXT, updated_at TEXT, deleted_at TEXT)`,
-		"downstream_api_keys":   `CREATE TABLE IF NOT EXISTS "downstream_api_keys" (id BIGSERIAL PRIMARY KEY, name TEXT, key TEXT, description TEXT, group_name TEXT, tags TEXT, enabled BOOLEAN DEFAULT TRUE, expires_at TEXT, max_cost DOUBLE PRECISION, used_cost DOUBLE PRECISION DEFAULT 0, max_requests BIGINT, used_requests BIGINT DEFAULT 0, supported_models JSONB, allowed_route_ids JSONB, site_weight_multipliers JSONB, excluded_site_ids JSONB, excluded_credential_refs JSONB, last_used_at TEXT, created_at TEXT, updated_at TEXT)`,
-		"events":                `CREATE TABLE IF NOT EXISTS "events" (id BIGSERIAL PRIMARY KEY, type TEXT, title TEXT, message TEXT, level TEXT DEFAULT 'info', read BOOLEAN DEFAULT FALSE, related_id BIGINT, related_type TEXT, created_at TEXT)`,
-		"settings":              `CREATE TABLE IF NOT EXISTS "settings" (key TEXT PRIMARY KEY, value TEXT)`,
+		"token_routes":             `CREATE TABLE IF NOT EXISTS "token_routes" (id BIGSERIAL PRIMARY KEY, model_pattern TEXT, display_name TEXT, display_icon TEXT, route_mode TEXT DEFAULT 'pattern', model_mapping JSONB, decision_snapshot JSONB, decision_refreshed_at TEXT, routing_strategy TEXT DEFAULT '', enabled BOOLEAN DEFAULT TRUE, created_at TEXT, updated_at TEXT)`,
+		"route_channels":           `CREATE TABLE IF NOT EXISTS "route_channels" (id BIGSERIAL PRIMARY KEY, route_id BIGINT, account_id BIGINT, token_id BIGINT, oauth_route_unit_id BIGINT, source_model TEXT, priority BIGINT DEFAULT 0, weight BIGINT DEFAULT 10, enabled BOOLEAN DEFAULT TRUE, manual_override BOOLEAN DEFAULT FALSE, success_count BIGINT DEFAULT 0, fail_count BIGINT DEFAULT 0, total_latency_ms BIGINT DEFAULT 0, total_cost DOUBLE PRECISION DEFAULT 0, last_used_at TEXT, last_selected_at TEXT, last_fail_at TEXT, consecutive_fail_count BIGINT DEFAULT 0, cooldown_level BIGINT DEFAULT 0, cooldown_until TEXT)`,
+		"route_group_sources":      `CREATE TABLE IF NOT EXISTS "route_group_sources" (id BIGSERIAL PRIMARY KEY, group_route_id BIGINT, source_route_id BIGINT)`,
+		"proxy_logs":               `CREATE TABLE IF NOT EXISTS "proxy_logs" (id BIGSERIAL PRIMARY KEY, route_id BIGINT, channel_id BIGINT, account_id BIGINT, downstream_api_key_id BIGINT, model_requested TEXT, model_actual TEXT, status TEXT, http_status BIGINT, is_stream BOOLEAN DEFAULT FALSE, first_byte_latency_ms BIGINT, latency_ms BIGINT, prompt_tokens BIGINT, completion_tokens BIGINT, total_tokens BIGINT, estimated_cost DOUBLE PRECISION, billing_details JSONB, client_family TEXT, client_app_id TEXT, client_app_name TEXT, client_confidence TEXT, error_message TEXT, retry_count BIGINT DEFAULT 0, created_at TEXT)`,
+		"proxy_video_tasks":        `CREATE TABLE IF NOT EXISTS "proxy_video_tasks" (id BIGSERIAL PRIMARY KEY, public_id TEXT, upstream_video_id TEXT, site_url TEXT, token_value TEXT, requested_model TEXT, actual_model TEXT, channel_id BIGINT, account_id BIGINT, status_snapshot JSONB, upstream_response_meta JSONB, last_upstream_status BIGINT, last_polled_at TEXT, created_at TEXT, updated_at TEXT)`,
+		"proxy_files":              `CREATE TABLE IF NOT EXISTS "proxy_files" (id BIGSERIAL PRIMARY KEY, public_id TEXT, owner_type TEXT, owner_id TEXT, filename TEXT, mime_type TEXT, purpose TEXT, byte_size BIGINT, sha256 TEXT, content_base64 TEXT, created_at TEXT, updated_at TEXT, deleted_at TEXT)`,
+		"downstream_api_keys":      `CREATE TABLE IF NOT EXISTS "downstream_api_keys" (id BIGSERIAL PRIMARY KEY, name TEXT, key TEXT, description TEXT, group_name TEXT, tags TEXT, enabled BOOLEAN DEFAULT TRUE, expires_at TEXT, max_cost DOUBLE PRECISION, used_cost DOUBLE PRECISION DEFAULT 0, max_requests BIGINT, used_requests BIGINT DEFAULT 0, supported_models JSONB, allowed_route_ids JSONB, site_weight_multipliers JSONB, excluded_site_ids JSONB, excluded_credential_refs JSONB, last_used_at TEXT, created_at TEXT, updated_at TEXT)`,
+		"events":                   `CREATE TABLE IF NOT EXISTS "events" (id BIGSERIAL PRIMARY KEY, type TEXT, title TEXT, message TEXT, level TEXT DEFAULT 'info', read BOOLEAN DEFAULT FALSE, related_id BIGINT, related_type TEXT, created_at TEXT)`,
+		"settings":                 `CREATE TABLE IF NOT EXISTS "settings" (key TEXT PRIMARY KEY, value TEXT)`,
 	}
 
 	for table, ddl := range tables {
