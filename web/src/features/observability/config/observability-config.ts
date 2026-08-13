@@ -62,11 +62,9 @@ const observabilityRegistry =
     basePath: '/observability',
   })
 
-export const OBSERVABILITY_SECTION_IDS = observabilityRegistry.sectionIds
 export const OBSERVABILITY_DEFAULT_SECTION =
   observabilityRegistry.defaultSection
 export const getObservabilitySectionNavItems =
   observabilityRegistry.getSectionNavItems
 export const getObservabilitySectionContent =
   observabilityRegistry.getSectionContent
-export const getObservabilitySectionMeta = observabilityRegistry.getSectionMeta

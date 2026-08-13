@@ -74,7 +74,7 @@ export type RuntimeHealthBreaker = {
   penaltyScore: number
 }
 
-export type StatusCounts = {
+type StatusCounts = {
   total: number
   active: number
   disabled: number

@@ -10,5 +10,3 @@ import { z } from 'zod'
 export const observabilitySearchSchema = z.object({
   section: z.enum(['overview', 'health', 'proxy-logs']).optional(),
 })
-
-export type ObservabilitySearch = z.infer<typeof observabilitySearchSchema>

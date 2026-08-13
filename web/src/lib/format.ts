@@ -15,7 +15,7 @@ export function formatInt(value: number | null | undefined): string {
 }
 
 /** Format a 0..1 ratio as a percentage: 0.853 → "85.3%". */
-export function formatPercent(
+function formatPercent(
   rate: number | null | undefined,
   fractionDigits = 1
 ): string {
@@ -59,20 +59,4 @@ export function formatSuccessRate(rate: number | null | undefined): string {
     return EM_DASH
   }
   return `${Math.round(rate)}%`
-}
-
-/** Compact a large number: 1234 → "1.2K", 3456789 → "3.5M". */
-export function formatCompactNumber(value: number | null | undefined): string {
-  if (value === null || value === undefined || !Number.isFinite(value)) {
-    return EM_DASH
-  }
-  return new Intl.NumberFormat(undefined, {
-    notation: 'compact',
-    maximumFractionDigits: 1,
-  }).format(value)
-}
-
-/** Format a token count with compact notation for large values. */
-export function formatTokens(value: number | null | undefined): string {
-  return formatCompactNumber(value)
 }

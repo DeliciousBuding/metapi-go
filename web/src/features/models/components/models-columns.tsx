@@ -34,13 +34,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { formatLatency, formatPrice, formatSuccessRate } from '@/lib/format'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { formatLatency, formatPrice, formatSuccessRate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type { ModelRow } from '../types'

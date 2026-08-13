@@ -13,7 +13,7 @@ export const priceGradeValues = [
 ] as const
 export type PriceGrade = (typeof priceGradeValues)[number]
 
-export const priceCompareItemSchema = z.object({
+const priceCompareItemSchema = z.object({
   siteId: z.coerce.number().default(0),
   siteName: z.string().catch(''),
   platform: z.string().catch(''),
@@ -46,7 +46,6 @@ export const priceCompareResponseSchema = z.object({
   items: z.array(priceCompareItemSchema).catch([]),
   meta: z.unknown().nullish(),
 })
-export type PriceCompareResponse = z.infer<typeof priceCompareResponseSchema>
 
 export const priceCompareQueryKeys = {
   all: ['models', 'price-compare'] as const,

@@ -6,18 +6,8 @@
 
 export { ObservabilityPage } from './components/observability-page'
 
-export {
-  OBSERVABILITY_DEFAULT_SECTION,
-  OBSERVABILITY_SECTION_IDS,
-} from './config/observability-config'
-
 export { OBSERVABILITY_VIEW } from './config/observability-nav'
 
-export {
-  observabilitySearchSchema,
-  type ObservabilitySearch,
-} from './lib/observability-schema'
-
-export { useMonitorHealth, useSlowRequests, useUsageHeatmap } from './api'
+export { observabilitySearchSchema } from './lib/observability-schema'
 
 export type { ObservabilitySectionId } from './types'

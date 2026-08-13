@@ -4,7 +4,7 @@
 // platform + confidence), lets the operator attach accounts and routing weight,
 // then submits one idempotent POST /api/sites/import batch.
 
-export type ImportAccountInput = {
+type ImportAccountInput = {
   username?: string | null
   accessToken?: string
   apiToken?: string
@@ -32,7 +32,7 @@ export type ImportSiteResultStatus =
   | 'skipped'
   | 'failed'
 
-export type ImportSiteItemResult = {
+type ImportSiteItemResult = {
   name: string
   url: string
   status: ImportSiteResultStatus

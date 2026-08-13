@@ -3,4 +3,4 @@
 // the existing `@/features/dashboard/lib/format` import path for dashboard
 // sections while centralizing the formatting vocabulary.
 
-export { formatInt, formatRatio, formatPercent } from '@/lib/format'
+export { formatInt, formatRatio } from '@/lib/format'

@@ -9,7 +9,7 @@ export type ChannelStatus =
   | 'breaker_open'
   | 'manually_disabled'
 
-export type ChannelType = 'account' | 'token' | 'oauth_unit'
+type ChannelType = 'account' | 'token' | 'oauth_unit'
 
 export type ChannelRow = {
   id: number
