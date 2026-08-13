@@ -20,8 +20,8 @@ import {
 import { cn } from '@/lib/utils'
 
 import type { ProxyLog } from '../types'
-import { TimingCell } from './timing-cell'
 import { StatusBadge } from './status-badge'
+import { TimingCell } from './timing-cell'
 
 export type ProxyLogsColumnActions = { onView: (log: ProxyLog) => void }
 

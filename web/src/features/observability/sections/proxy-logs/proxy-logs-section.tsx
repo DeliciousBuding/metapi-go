@@ -3,9 +3,9 @@
 // URL state and single h1, so the Observability workspace links out instead
 // of embedding it and breaking the page-title / URL-state contracts.
 
-import { useTranslation } from 'react-i18next'
 import { Link } from '@tanstack/react-router'
 import { ScrollText } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { buttonVariants } from '@/components/ui/button'
 import {

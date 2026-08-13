@@ -22,8 +22,7 @@ export function useUsageHeatmap(
 ) {
   return useQuery({
     queryKey: observabilityKeys.usageHeatmap(params),
-    queryFn: () =>
-      api.getUsageHeatmap(params) as Promise<UsageHeatmapResponse>,
+    queryFn: () => api.getUsageHeatmap(params) as Promise<UsageHeatmapResponse>,
     staleTime: 30 * 1000,
     ...options,
   })
@@ -35,8 +34,7 @@ export function useSlowRequests(
 ) {
   return useQuery({
     queryKey: observabilityKeys.slowRequests(params),
-    queryFn: () =>
-      api.getSlowRequests(params) as Promise<SlowRequestsResponse>,
+    queryFn: () => api.getSlowRequests(params) as Promise<SlowRequestsResponse>,
     staleTime: 30 * 1000,
     ...options,
   })

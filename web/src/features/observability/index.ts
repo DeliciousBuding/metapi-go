@@ -21,4 +21,3 @@ export {
 export { useMonitorHealth, useSlowRequests, useUsageHeatmap } from './api'
 
 export type { ObservabilitySectionId } from './types'
-

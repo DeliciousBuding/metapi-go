@@ -54,7 +54,7 @@ export function TimingCell({
 
   return (
     <div className={cn('flex w-fit items-center gap-2', className)}>
-      <span className='text-xs font-medium tabular-nums whitespace-nowrap'>
+      <span className='text-xs font-medium whitespace-nowrap tabular-nums'>
         {formatDuration(latencyMs)}
       </span>
       <span

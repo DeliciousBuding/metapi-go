@@ -26,9 +26,7 @@ export type ObservabilitySectionRegistry<TSectionId extends string> = {
   getSectionMeta: (sectionId: TSectionId) => ObservabilitySection
 }
 
-export function createObservabilitySectionRegistry<
-  TSectionId extends string,
->(
+export function createObservabilitySectionRegistry<TSectionId extends string>(
   config: ObservabilitySectionRegistryConfig<TSectionId>
 ): ObservabilitySectionRegistry<TSectionId> {
   const { sections, defaultSection, basePath } = config

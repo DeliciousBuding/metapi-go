@@ -2,7 +2,13 @@
 // Health / Proxy Logs). Registered through a local section-registry factory
 // and consumed by ObservabilityPage + the route file + the sidebar drill-in.
 
-import { createElement, lazy, Suspense, type ComponentType, type ReactNode } from 'react'
+import {
+  createElement,
+  lazy,
+  Suspense,
+  type ComponentType,
+  type ReactNode,
+} from 'react'
 
 import type { ObservabilitySection, ObservabilitySectionId } from '../types'
 import { createObservabilitySectionRegistry } from '../utils/section-registry'
@@ -49,17 +55,18 @@ const OBSERVABILITY_SECTIONS: readonly ObservabilitySection[] = [
   },
 ]
 
-const observabilityRegistry = createObservabilitySectionRegistry<ObservabilitySectionId>({
-  sections: OBSERVABILITY_SECTIONS,
-  defaultSection: 'overview',
-  basePath: '/observability',
-})
+const observabilityRegistry =
+  createObservabilitySectionRegistry<ObservabilitySectionId>({
+    sections: OBSERVABILITY_SECTIONS,
+    defaultSection: 'overview',
+    basePath: '/observability',
+  })
 
 export const OBSERVABILITY_SECTION_IDS = observabilityRegistry.sectionIds
-export const OBSERVABILITY_DEFAULT_SECTION = observabilityRegistry.defaultSection
+export const OBSERVABILITY_DEFAULT_SECTION =
+  observabilityRegistry.defaultSection
 export const getObservabilitySectionNavItems =
   observabilityRegistry.getSectionNavItems
 export const getObservabilitySectionContent =
   observabilityRegistry.getSectionContent
-export const getObservabilitySectionMeta =
-  observabilityRegistry.getSectionMeta
+export const getObservabilitySectionMeta = observabilityRegistry.getSectionMeta

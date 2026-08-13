@@ -2,8 +2,8 @@
 // routing breaker/cooldown aggregation. Reads the read-only
 // /api/monitor/health projection; never mutates routing state.
 
-import { useTranslation } from 'react-i18next'
 import { AlertTriangle, CheckCircle2, Server, ShieldCheck } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import {
   Card,
@@ -54,9 +54,11 @@ function StatCell({
   tone?: 'neutral' | 'warning' | 'success'
 }) {
   return (
-    <div className='rounded-lg border bg-card p-3'>
+    <div className='bg-card rounded-lg border p-3'>
       <p className='text-muted-foreground text-xs'>{label}</p>
-      <p className={`text-2xl font-semibold tabular-nums ${resolveToneClass(tone)}`}>
+      <p
+        className={`text-2xl font-semibold tabular-nums ${resolveToneClass(tone)}`}
+      >
         {value}
       </p>
     </div>
@@ -100,7 +102,11 @@ export function HealthSection() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {renderBreakersBody(health.isLoading, runtime?.openBreakers ?? [], t)}
+            {renderBreakersBody(
+              health.isLoading,
+              runtime?.openBreakers ?? [],
+              t
+            )}
           </CardContent>
         </Card>
 
@@ -155,7 +161,14 @@ export function HealthSection() {
 
 function renderRuntimeStats(
   loading: boolean,
-  runtime: { sitesTracked: number; sitesBreakerOpen: number; modelsTracked: number; modelsBreakerOpen: number } | undefined,
+  runtime:
+    | {
+        sitesTracked: number
+        sitesBreakerOpen: number
+        modelsTracked: number
+        modelsBreakerOpen: number
+      }
+    | undefined,
   t: Translate
 ) {
   if (loading) {
@@ -243,12 +256,14 @@ function renderBreakersBody(
 
 function renderCooldownBody(
   loading: boolean,
-  cooldown: {
-    channelsCooling: number
-    channelsWithFailures: number
-    channelsRecentlyFailed: number
-    cooling: CooldownChannel[]
-  } | undefined,
+  cooldown:
+    | {
+        channelsCooling: number
+        channelsWithFailures: number
+        channelsRecentlyFailed: number
+        cooling: CooldownChannel[]
+      }
+    | undefined,
   t: Translate
 ) {
   if (loading) {
@@ -334,7 +349,7 @@ function InventoryCard({
   t: Translate
 }) {
   return (
-    <div className='rounded-lg border bg-card p-3'>
+    <div className='bg-card rounded-lg border p-3'>
       <p className='text-muted-foreground mb-2 text-xs font-medium'>{title}</p>
       <div className='grid grid-cols-4 gap-2 text-center'>
         <InventoryMetric
@@ -374,9 +389,9 @@ function InventoryMetric({
   return (
     <div>
       <p className='text-muted-foreground text-xs'>{label}</p>
-      <p className={`text-lg font-semibold tabular-nums ${className}`}>{value}</p>
+      <p className={`text-lg font-semibold tabular-nums ${className}`}>
+        {value}
+      </p>
     </div>
   )
 }
-
-

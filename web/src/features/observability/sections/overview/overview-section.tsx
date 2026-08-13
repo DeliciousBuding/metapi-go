@@ -2,9 +2,9 @@
 // + usage heatmap. Both consume existing /api/stats endpoints (no new
 // backend surface) so the Overview reads like a curated lens over proxy data.
 
+import { BarChart3, Flame } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BarChart3, Flame } from 'lucide-react'
 
 import {
   Card,
@@ -142,8 +142,12 @@ function renderSlowRequestsBody(
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>{t('observability.overview.slowRequests.colModel')}</TableHead>
-          <TableHead>{t('observability.overview.slowRequests.colSite')}</TableHead>
+          <TableHead>
+            {t('observability.overview.slowRequests.colModel')}
+          </TableHead>
+          <TableHead>
+            {t('observability.overview.slowRequests.colSite')}
+          </TableHead>
           <TableHead className='text-right'>
             {t('observability.overview.slowRequests.colLatency')}
           </TableHead>
@@ -153,7 +157,9 @@ function renderSlowRequestsBody(
           <TableHead className='text-right'>
             {t('observability.overview.slowRequests.colHttp')}
           </TableHead>
-          <TableHead>{t('observability.overview.slowRequests.colStatus')}</TableHead>
+          <TableHead>
+            {t('observability.overview.slowRequests.colStatus')}
+          </TableHead>
           <TableHead className='text-right'>
             {t('observability.overview.slowRequests.colTime')}
           </TableHead>
@@ -233,7 +239,7 @@ function renderHeatmapBody(
             />
           ))}
         </div>
-        <div className='mt-2 flex items-center justify-end gap-2 text-xs text-muted-foreground'>
+        <div className='text-muted-foreground mt-2 flex items-center justify-end gap-2 text-xs'>
           <span>{t('observability.overview.heatmap.legendLow')}</span>
           <div className='flex gap-px'>
             {[0, 0.25, 0.5, 0.75, 1].map((alpha) => (
@@ -289,4 +295,3 @@ function HeatmapRow({
     </>
   )
 }
-

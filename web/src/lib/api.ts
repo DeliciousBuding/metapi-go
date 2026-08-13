@@ -1966,4 +1966,3 @@ export const api = {
     })
   },
 }
-

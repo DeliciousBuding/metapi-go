@@ -1877,91 +1877,91 @@
       }
     },
     "observability": {
-    "title": "可观测性",
-    "description": "站点与账号的健康、熔断与请求分析。",
-    "sections": {
+      "title": "可观测性",
+      "description": "站点与账号的健康、熔断与请求分析。",
+      "sections": {
+        "overview": {
+          "title": "概览",
+          "description": "慢请求排名与用量密度。"
+        },
+        "health": {
+          "title": "健康",
+          "description": "站点/账号健康以及路由熔断与冷却状态。"
+        },
+        "proxyLogs": {
+          "title": "使用日志",
+          "description": "完整的使用日志工作区。"
+        }
+      },
       "overview": {
-        "title": "概览",
-        "description": "慢请求排名与用量密度。"
+        "slowRequests": {
+          "title": "慢请求（Top）",
+          "description": "所选时间窗内延迟最高的请求。",
+          "empty": "当前时间窗内没有慢请求。",
+          "colModel": "模型",
+          "colSite": "站点",
+          "colLatency": "延迟",
+          "colFirstByte": "首字节",
+          "colHttp": "HTTP",
+          "colStatus": "状态",
+          "colTime": "时间"
+        },
+        "heatmap": {
+          "title": "用量热力图",
+          "description": "按站点的小时调用密度。",
+          "empty": "所选范围内没有用量密度数据。",
+          "legendLow": "少",
+          "legendHigh": "多"
+        }
       },
       "health": {
-        "title": "健康",
-        "description": "站点/账号健康以及路由熔断与冷却状态。"
+        "runtime": {
+          "title": "运行时健康",
+          "description": "内存中的路由熔断状态（软隔离）。",
+          "sitesTracked": "已跟踪站点",
+          "sitesBreakerOpen": "站点熔断开启",
+          "modelsTracked": "已跟踪模型",
+          "modelsBreakerOpen": "模型熔断开启"
+        },
+        "breakers": {
+          "title": "已开启熔断",
+          "description": "当前被排除在选路之外的站点与模型。",
+          "empty": "没有开启的熔断。",
+          "colSite": "站点",
+          "colModel": "模型",
+          "colLevel": "级别",
+          "colUntil": "截至"
+        },
+        "cooldown": {
+          "title": "通道冷却",
+          "description": "失败后正在退避的通道。",
+          "channelsCooling": "冷却中",
+          "channelsWithFailures": "有失败",
+          "channelsRecentlyFailed": "最近失败",
+          "empty": "当前没有处于冷却的通道。",
+          "colSite": "站点",
+          "colChannel": "通道",
+          "colFailCount": "失败数",
+          "colUntil": "截至"
+        },
+        "inventory": {
+          "title": "资源清单",
+          "description": "按状态统计的站点与账号。",
+          "sites": "站点",
+          "accounts": "账号",
+          "total": "总计",
+          "active": "活跃",
+          "disabled": "停用",
+          "other": "其他"
+        }
       },
       "proxyLogs": {
         "title": "使用日志",
-        "description": "完整的使用日志工作区。"
+        "description": "完整的使用日志工作区。",
+        "hint": "打开独立的使用日志页面查看筛选、列与详情。",
+        "open": "打开使用日志"
       }
     },
-    "overview": {
-      "slowRequests": {
-        "title": "慢请求（Top）",
-        "description": "所选时间窗内延迟最高的请求。",
-        "empty": "当前时间窗内没有慢请求。",
-        "colModel": "模型",
-        "colSite": "站点",
-        "colLatency": "延迟",
-        "colFirstByte": "首字节",
-        "colHttp": "HTTP",
-        "colStatus": "状态",
-        "colTime": "时间"
-      },
-      "heatmap": {
-        "title": "用量热力图",
-        "description": "按站点的小时调用密度。",
-        "empty": "所选范围内没有用量密度数据。",
-        "legendLow": "少",
-        "legendHigh": "多"
-      }
-    },
-    "health": {
-      "runtime": {
-        "title": "运行时健康",
-        "description": "内存中的路由熔断状态（软隔离）。",
-        "sitesTracked": "已跟踪站点",
-        "sitesBreakerOpen": "站点熔断开启",
-        "modelsTracked": "已跟踪模型",
-        "modelsBreakerOpen": "模型熔断开启"
-      },
-      "breakers": {
-        "title": "已开启熔断",
-        "description": "当前被排除在选路之外的站点与模型。",
-        "empty": "没有开启的熔断。",
-        "colSite": "站点",
-        "colModel": "模型",
-        "colLevel": "级别",
-        "colUntil": "截至"
-      },
-      "cooldown": {
-        "title": "通道冷却",
-        "description": "失败后正在退避的通道。",
-        "channelsCooling": "冷却中",
-        "channelsWithFailures": "有失败",
-        "channelsRecentlyFailed": "最近失败",
-        "empty": "当前没有处于冷却的通道。",
-        "colSite": "站点",
-        "colChannel": "通道",
-        "colFailCount": "失败数",
-        "colUntil": "截至"
-      },
-      "inventory": {
-        "title": "资源清单",
-        "description": "按状态统计的站点与账号。",
-        "sites": "站点",
-        "accounts": "账号",
-        "total": "总计",
-        "active": "活跃",
-        "disabled": "停用",
-        "other": "其他"
-      }
-    },
-    "proxyLogs": {
-      "title": "使用日志",
-      "description": "完整的使用日志工作区。",
-      "hint": "打开独立的使用日志页面查看筛选、列与详情。",
-      "open": "打开使用日志"
-    }
-  },
     "sidebar": {
       "groups": {
         "console": "控制台",

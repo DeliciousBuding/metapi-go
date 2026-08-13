@@ -24,7 +24,9 @@ function resolveSectionId(
 ): ObservabilitySectionId {
   if (!activeSection) return OBSERVABILITY_DEFAULT_SECTION
   const known = new Set<string>(
-    getObservabilitySectionNavItems().map((item) => item.url.split('=').pop() ?? '')
+    getObservabilitySectionNavItems().map(
+      (item) => item.url.split('=').pop() ?? ''
+    )
   )
   return known.has(activeSection)
     ? (activeSection as ObservabilitySectionId)
@@ -73,4 +75,3 @@ export function ObservabilityPage({
     </div>
   )
 }
-
