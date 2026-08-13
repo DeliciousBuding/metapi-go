@@ -5,12 +5,28 @@ All notable changes to MetAPI-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
-## [Unreleased]
+## [v0.11.0] — 2026-08-13
+
+### Added
+- 管理控制台 UI/UX 与功能全量交付（#594–#626，合并为 #633/#634）
+  - UX 基础：共享格式化器、状态/空态组件、toast、CountUp、响应式 data-table + 移动端降级、无障碍、页面标题缩放（#594–#600）
+  - 安全：token 列脱敏（#601–#602）
+  - 可观测性工作台：Overview/Health/Proxy Logs、访问日志指标、slog panic 恢复、probe 驱动的路由重建过滤（#603–#610）
+  - 导入：站点探测 + 统一导入向导 + 幂等批量导入（#611–#616）
+  - 模型：定价层、价格对比、重定向修复候选 + 推荐（#617–#621）
+  - 通道：只读列表 + probe 驱动的重建过滤（#622–#626）
+- /api/routes/rebuild 响应新增 changed 统计（probe 过滤 no-change 短路时保持真实，含测试断言）
+- 访问日志记录 status/bytes/duration_ms；statusRecorder 转发 Flush/Hijack/ReadFrom/SetWriteDeadline 保持 SSE/WebSocket 可用；slog panic 恢复带 request_id；/metrics 新增 go_goroutines / go_memstats_* / go_gc_duration_seconds（纯 stdlib，零依赖）（#593）
 
 ### Changed
-- CI/CD 合并为单一 `.github/workflows/main.yml` 管道（测试 → 镜像推送 → GitHub Release），移除 cd.yml 中与 CI 重复的 release-gate；master push 推送镜像（latest+sha）；SemVer tag 额外构建 5 平台二进制 + checksums + 二进制冒烟并创建 Release
-- Bun 工具链版本单一来源（workflow `env.BUN_VERSION` + Dockerfile `BUN_VERSION` build-arg）；发布前校验 tag / `web/package.json` / CHANGELOG 节一致
-- 新增发布助手 `scripts/release.sh`（校验后打 annotated tag 并推送）
+- CI/CD 合并为单一 .github/workflows/main.yml 管道（测试 → 镜像推送 → GitHub Release），移除 cd.yml 中与 CI 重复的 release-gate；master push 推送镜像（latest+sha）；SemVer tag 额外构建 5 平台二进制 + checksums + 二进制冒烟并创建 Release
+- Bun 工具链版本单一来源（workflow env.BUN_VERSION + Dockerfile BUN_VERSION build-arg）；发布前校验 tag / web/package.json / CHANGELOG 节一致
+- 新增发布助手 scripts/release.sh（校验后打 annotated tag 并推送）
+
+### Chore
+- Dependabot：actions/setup-go 5→7（#584）、upload/download-artifact + build-push-action majors（#592）、frontend-deps 5 项（#588）
+- GitHub Actions Dependabot 分组 + 升级处理 SOP 文档（#591）
+- state 文档 last-verified 日期更新（#590）
 
 ## [v0.10.0] — 2026-08-12
 
