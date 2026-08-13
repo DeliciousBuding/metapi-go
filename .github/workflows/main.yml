@@ -432,6 +432,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
+          # install.sh must ship as a release asset so the documented
+          # curl .../download/install.sh | bash flow resolves.
+          cp scripts/install.sh dist-bin/install.sh
           tag="$GITHUB_REF_NAME"
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" dist-bin/* --clobber

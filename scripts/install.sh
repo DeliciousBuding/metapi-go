@@ -25,15 +25,35 @@ case "$os" in
 esac
 
 if [ "$VERSION" = "latest" ]; then
-  url="https://github.com/${REPO}/releases/latest/download/${binary}"
+  base="https://github.com/${REPO}/releases/latest/download"
 else
-  url="https://github.com/${REPO}/releases/download/${VERSION}/${binary}"
+  base="https://github.com/${REPO}/releases/download/${VERSION}"
 fi
+url="${base}/${binary}"
 
 echo "Downloading ${binary} (${VERSION})..."
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 curl -fsSL "$url" -o "$tmp/metapi"
+
+# Verify the binary against the release checksums manifest.
+checksums_url="${base}/checksums.txt"
+curl -fsSL "$checksums_url" -o "$tmp/checksums.txt"
+expected="$(awk -v b="$binary" '$2 == b { print $1 }' "$tmp/checksums.txt")"
+if [ -z "$expected" ]; then
+  echo "checksums.txt did not contain an entry for ${binary}" >&2
+  exit 1
+fi
+if command -v sha256sum >/dev/null 2>&1; then
+  actual="$(sha256sum "$tmp/metapi" | awk '{print $1}')"
+else
+  actual="$(shasum -a 256 "$tmp/metapi" | awk '{print $1}')"
+fi
+if [ "$expected" != "$actual" ]; then
+  echo "checksum mismatch for ${binary}: expected ${expected}, got ${actual}" >&2
+  exit 1
+fi
+
 chmod +x "$tmp/metapi"
 
 install_dir="${PREFIX}/bin"
