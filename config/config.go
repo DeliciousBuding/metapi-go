@@ -33,6 +33,15 @@ func Get() *Config {
 	return globalCfg
 }
 
+// GetSafe returns the global config singleton, or nil when it has not been
+// loaded yet. Prefer Get() in the composition root; GetSafe is for optional
+// callbacks that may run before (or without) config initialization.
+func GetSafe() *Config {
+	cfgMu.RLock()
+	defer cfgMu.RUnlock()
+	return globalCfg
+}
+
 // CodexHeaderDefaults holds Codex-specific HTTP header defaults.
 type CodexHeaderDefaults struct {
 	UserAgent    string
@@ -238,6 +247,12 @@ type Config struct {
 	ModelAvailabilityProbeIntervalMs  int
 	ModelAvailabilityProbeTimeoutMs   int
 	ModelAvailabilityProbeConcurrency int
+
+	// RouteRebuildProbeFilterEnabled gates the route-rebuild probe filter (#625).
+	// Default false keeps the legacy non-probe rebuild path byte-for-byte.
+	RouteRebuildProbeFilterEnabled       bool
+	RouteRebuildProbeFilterIncludeModels []string
+	RouteRebuildProbeFilterExcludeModels []string
 
 	// Retention (6 fields)
 	ProxyLogRetentionDays                       int
@@ -631,6 +646,10 @@ func Load(env map[string]string) *Config {
 		int(math.Trunc(parseNumber(get("MODEL_AVAILABILITY_PROBE_CONCURRENCY"), DefaultModelAvailabilityProbeConcurrency))),
 		1, 16,
 	)
+
+	cfg.RouteRebuildProbeFilterEnabled = parseBoolean(get("ROUTE_REBUILD_PROBE_FILTER_ENABLED"), false)
+	cfg.RouteRebuildProbeFilterIncludeModels = parseCsvList(get("ROUTE_REBUILD_PROBE_FILTER_INCLUDE_MODELS"))
+	cfg.RouteRebuildProbeFilterExcludeModels = parseCsvList(get("ROUTE_REBUILD_PROBE_FILTER_EXCLUDE_MODELS"))
 
 	// ---- §3.21 Retention ----
 	cfg.ProxyLogRetentionDays = maxInt(0, int(math.Trunc(parseNumber(get("PROXY_LOG_RETENTION_DAYS"), DefaultProxyLogRetentionDays))))
