@@ -5,6 +5,7 @@
 
 import { Check, Copy, Eye, EyeOff } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -25,6 +26,7 @@ export function SecretField({
   fallback = '—',
   className,
 }: SecretFieldProps) {
+  const { t } = useTranslation()
   const [revealed, setRevealed] = useState(false)
   const [copied, setCopied] = useState(false)
 
@@ -57,8 +59,10 @@ export function SecretField({
           variant='ghost'
           size='icon-sm'
           onClick={() => setRevealed((v) => !v)}
-          title={revealed ? 'Hide' : 'Reveal'}
-          aria-label={revealed ? 'Hide secret' : 'Reveal secret'}
+          title={revealed ? t('common.hide') : t('common.reveal')}
+          aria-label={
+            revealed ? t('common.hideSecret') : t('common.revealSecret')
+          }
         >
           {revealed ? <EyeOff /> : <Eye />}
         </Button>
@@ -67,8 +71,8 @@ export function SecretField({
         variant='ghost'
         size='icon-sm'
         onClick={handleCopy}
-        title='Copy'
-        aria-label='Copy secret'
+        title={t('common.copy')}
+        aria-label={t('common.copySecret')}
       >
         {copied ? <Check className='text-success' /> : <Copy />}
       </Button>
