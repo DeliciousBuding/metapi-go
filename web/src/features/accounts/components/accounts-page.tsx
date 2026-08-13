@@ -14,7 +14,14 @@ import type {
   PaginationState,
   Table,
 } from '@tanstack/react-table'
-import { Loader2, Plus, Power, RefreshCw, Trash2 } from 'lucide-react'
+import {
+  Loader2,
+  Plus,
+  Power,
+  RefreshCw,
+  Trash2,
+  Upload as UploadIcon,
+} from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -44,6 +51,7 @@ import {
   useToggleAccountStatus,
 } from '../api'
 import { type Account, type AccountRowActions, accountSchema } from '../types'
+import { ImportWizardDialog } from '@/features/import'
 import { AccountDetailSheet } from './account-detail-sheet'
 import { AccountFormDialog } from './account-form-dialog'
 import { useAccountsColumns } from './accounts-columns'
@@ -180,6 +188,7 @@ export function AccountsPage() {
   const [detailAccount, setDetailAccount] = useState<Account | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteAccount, setDeleteAccount] = useState<Account | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
 
   const openCreate = () => {
     setFormMode('create')
@@ -288,6 +297,12 @@ export function AccountsPage() {
         isFetching={isFetching}
         emptyTitle={t('accounts.page.emptyTitle')}
         emptyDescription={t('accounts.page.emptyDescription')}
+        emptyAction={
+          <Button onClick={() => setImportOpen(true)}>
+            <UploadIcon className='mr-1 size-4' />
+            {t('accounts.page.emptyImport')}
+          </Button>
+        }
         skeletonKeyPrefix='accounts-skeleton'
         toolbarProps={{
           searchPlaceholder: t('accounts.page.searchPlaceholder'),
@@ -328,6 +343,8 @@ export function AccountsPage() {
         }}
         bulkActions={<AccountsBulkActions table={table} />}
       />
+
+      <ImportWizardDialog open={importOpen} onOpenChange={setImportOpen} />
 
       {/* Create / edit form (Sheet) */}
       <AccountFormDialog

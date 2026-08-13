@@ -1,5 +1,57 @@
 {
   "translation": {
+    "import": {
+      "title": "导入站点",
+      "description": "批量导入一个或多个站点，并可选地附带账号凭证。",
+      "back": "上一步",
+      "next": "下一步",
+      "submit": "导入",
+      "cta": "导入站点",
+      "steps": {
+        "source": "来源",
+        "identify": "识别",
+        "connect": "接入",
+        "routes": "模型 / 路由",
+        "done": "完成"
+      },
+      "source": {
+        "label": "站点 URL",
+        "placeholder": "每行粘贴一个站点 URL",
+        "hint": "每个非空行对应一个站点，粘贴内容中的重复项会被忽略。",
+        "empty": "请至少粘贴一个站点 URL。"
+      },
+      "identify": {
+        "name": "名称",
+        "platform": "平台",
+        "detected": "已识别 · {{confidence}}%",
+        "duplicateWarning": "该站点已存在，请选择重复项处理方式。",
+        "skip": "跳过",
+        "merge": "将账号合并到已有站点",
+        "missingPlatform": "请为每个站点设置平台（未知站点可手动填写）。"
+      },
+      "connect": {
+        "username": "用户名",
+        "accessToken": "访问令牌",
+        "apiToken": "API 令牌"
+      },
+      "routes": {
+        "hint": "导入的站点默认启用，模型发现将在后台进行；请在下方设置路由权重。",
+        "weight": "权重",
+        "invalidWeight": "权重必须是大于等于 0 的数字。"
+      },
+      "done": {
+        "imported": "已导入 {{count}}",
+        "skipped": "已跳过 {{count}}",
+        "failed": "失败 {{count}}",
+        "close": "完成"
+      },
+      "result": {
+        "imported": "已导入",
+        "merged": "已合并",
+        "skipped": "已跳过",
+        "failed": "失败"
+      }
+    },
     "auth": {
       "login": {
         "title": "登录",
@@ -308,7 +360,8 @@
       "empty": {
         "title": "暂无站点",
         "description": "添加一个站点即可开始路由请求。",
-        "addSite": "添加站点"
+        "addSite": "添加站点",
+        "import": "导入站点"
       },
       "toolbar": {
         "searchPlaceholder": "搜索站点…",
@@ -1225,6 +1278,7 @@
         "loadError": "加载账号失败：{{message}}",
         "emptyTitle": "暂无账号",
         "emptyDescription": "添加一个账号以开始管理连接，或先到「站点」页添加站点。",
+        "emptyImport": "导入站点",
         "searchPlaceholder": "搜索账号名称 / 站点…",
         "filterStatusTitle": "状态",
         "filterStatusActive": "启用",

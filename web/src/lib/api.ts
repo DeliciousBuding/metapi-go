@@ -1006,6 +1006,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ url }),
     }),
+  importSites: (data: unknown) =>
+    request('/api/sites/import', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
   getSiteDisabledModels: (siteId: number) =>
     request(`/api/sites/${siteId}/disabled-models`),
   updateSiteDisabledModels: (siteId: number, models: string[]) =>
