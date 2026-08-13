@@ -515,6 +515,7 @@ func (h *tokenRoutesHandler) rebuildRoutes(w http.ResponseWriter, r *http.Reques
 		"channelsInserted": stats.ChannelsInserted,
 		"channelsRemoved":  stats.ChannelsRemoved,
 		"channelsKept":     stats.ChannelsKept,
+		"changed":          stats.Changed,
 	})
 }
 

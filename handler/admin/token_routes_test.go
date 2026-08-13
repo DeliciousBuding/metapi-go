@@ -125,6 +125,9 @@ func TestTokenRoutes_Rebuild_InvalidatesCacheTruthfully(t *testing.T) {
 	if _, ok := result["patternRoutes"]; !ok {
 		t.Fatalf("missing patternRoutes in rebuild response: %v", result)
 	}
+	if _, ok := result["changed"]; !ok {
+		t.Fatalf("missing changed in rebuild response: %v", result)
+	}
 
 	var chCount int
 	if err := db.Get(&chCount, `SELECT COUNT(*) FROM route_channels WHERE route_id = ?`, routeID); err != nil {
