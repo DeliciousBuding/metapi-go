@@ -70,6 +70,16 @@ export type DataTablePageProps<TData> = {
   emptyAction?: React.ReactNode
 
   /**
+   * Empty-state title shown when rows are empty due to active filters.
+   */
+  filteredEmptyTitle?: string
+
+  /**
+   * Empty-state description shown when rows are empty due to active filters.
+   */
+  filteredEmptyDescription?: string
+
+  /**
    * Custom toolbar node — fully replaces the default {@link DataTableToolbar}.
    * Useful for layouts like "primary buttons + toolbar" or feature-specific filter cards.
    * If provided, `toolbarProps` is ignored.
@@ -339,6 +349,8 @@ function renderDesktop<TData>(
       emptyDescription={props.emptyDescription}
       emptyIcon={props.emptyIcon}
       emptyAction={props.emptyAction}
+      filteredEmptyTitle={props.filteredEmptyTitle}
+      filteredEmptyDescription={props.filteredEmptyDescription}
       skeletonKeyPrefix={props.skeletonKeyPrefix}
       renderRow={props.renderRow}
       applyHeaderSize={props.applyHeaderSize}

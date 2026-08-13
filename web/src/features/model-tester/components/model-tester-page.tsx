@@ -15,9 +15,9 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 import { Card, CardContent } from '@/components/ui/card'
+import { toast } from '@/lib/toast'
 
 import { useTestModel } from '../api'
 import type { TesterFormValues } from '../lib/tester-schema'

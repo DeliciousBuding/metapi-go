@@ -16,7 +16,6 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { useForm, type SubmitErrorHandler } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Badge } from '@/components/ui/badge'
@@ -34,6 +33,7 @@ import { Input } from '@/components/ui/input'
 import { SecretField } from '@/components/ui/secret-field'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
+import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
 import type { AccountToken } from '../../types'

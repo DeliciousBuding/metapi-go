@@ -11,7 +11,6 @@
 import { Plus as PlusIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 import {
   DataTablePage,
@@ -30,6 +29,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { asStringParam, parseSortingParam } from '@/lib/helpers/searchParams'
+import { toast } from '@/lib/toast'
 
 import {
   useDeleteOAuthConnection,

@@ -1,6 +1,7 @@
 // metapi-go/data-table — ported from newapi
 import type { Row, Table as TanstackTable } from '@tanstack/react-table'
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
@@ -40,6 +41,14 @@ export function DataTableView<TData>(props: DataTableViewProps<TData>) {
     props.pinnedColumns
   )
 
+  const { t } = useTranslation()
+  const pageIndex = props.table.getState().pagination.pageIndex
+  const pageSize = props.table.getState().pagination.pageSize
+  const totalRows = props.table.getRowCount()
+  const start = totalRows === 0 ? 0 : pageIndex * pageSize + 1
+  const end = pageIndex * pageSize + rows.length
+  const caption = t('dataTable.summary', { start, end, total: totalRows })
+
   return (
     <div
       className={cn(
@@ -54,6 +63,7 @@ export function DataTableView<TData>(props: DataTableViewProps<TData>) {
           rows={rows}
           colSpan={colSpan}
           getColumnClassName={columnClassName}
+          caption={caption}
         />
       ) : (
         <UnifiedTableView
@@ -61,6 +71,7 @@ export function DataTableView<TData>(props: DataTableViewProps<TData>) {
           rows={rows}
           colSpan={colSpan}
           getColumnClassName={columnClassName}
+          caption={caption}
         />
       )}
     </div>
@@ -72,17 +83,20 @@ function UnifiedTableView<TData>({
   rows,
   colSpan,
   getColumnClassName,
+  caption,
 }: {
   props: DataTableViewProps<TData>
   rows: Row<TData>[]
   colSpan: number
   getColumnClassName: DataTableColumnClassName
+  caption: string
 }) {
   const tableSizing = getTableSizing(props)
 
   return (
     <div className={props.tableContainerClassName}>
       <Table className={props.tableClassName} style={tableSizing.style}>
+        <caption className='sr-only'>{caption}</caption>
         {tableSizing.colgroup}
         <DataTableHeader
           table={props.table}
@@ -102,11 +116,13 @@ function SplitHeaderTableView<TData>({
   rows,
   colSpan,
   getColumnClassName,
+  caption,
 }: {
   props: DataTableViewProps<TData>
   rows: Row<TData>[]
   colSpan: number
   getColumnClassName: DataTableColumnClassName
+  caption: string
 }) {
   const tableSizing = getTableSizing(props)
 
@@ -134,6 +150,7 @@ function SplitHeaderTableView<TData>({
           )}
           style={tableSizing.style}
         >
+          <caption className='sr-only'>{caption}</caption>
           {tableSizing.colgroup}
           <DataTableHeader
             table={props.table}
@@ -283,12 +300,23 @@ function renderEmptyState<TData>(
     )
   }
 
+  const state = props.table.getState()
+  const isFiltered =
+    (state.columnFilters ?? []).length > 0 || !!state.globalFilter
+
   return (
     <TableEmpty
       colSpan={colSpan}
       title={props.emptyTitle}
       description={props.emptyDescription}
       icon={props.emptyIcon}
+      isFiltered={isFiltered}
+      filteredTitle={props.filteredEmptyTitle}
+      filteredDescription={props.filteredEmptyDescription}
+      onClearFilters={() => {
+        props.table.resetColumnFilters()
+        props.table.resetGlobalFilter()
+      }}
     >
       {props.emptyAction}
     </TableEmpty>

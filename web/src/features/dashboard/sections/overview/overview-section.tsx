@@ -131,6 +131,9 @@ export function OverviewSection() {
   const proxy = snapshot?.proxy24h
   const performance = snapshot?.performance
 
+  // Animate integer KPI values; round during easing so grouping stays clean.
+  const animateInt = (n: number) => formatInt(Math.round(n))
+
   const accountHint = t('dashboard.overview.statCards.accountCountHint', {
     active: activeAccounts !== undefined ? formatInt(activeAccounts) : '—',
   })
@@ -251,6 +254,8 @@ export function OverviewSection() {
         <StatCard
           title={t('dashboard.overview.statCards.accountCount')}
           value={formatInt(totalAccounts ?? null)}
+          valueNumber={totalAccounts ?? undefined}
+          valueFormat={animateInt}
           hint={accountHint}
           spark={accountSpark}
           loading={snapshotLoading}
@@ -258,6 +263,8 @@ export function OverviewSection() {
         <StatCard
           title={t('dashboard.overview.statCards.siteCount')}
           value={formatInt(siteCount ?? null)}
+          valueNumber={siteCount ?? undefined}
+          valueFormat={animateInt}
           hint={t('dashboard.overview.statCards.siteCountHint')}
           loading={snapshotLoading}
         />
@@ -270,6 +277,8 @@ export function OverviewSection() {
         <StatCard
           title={t('dashboard.overview.statCards.proxy24h')}
           value={!proxy ? '—' : formatInt(proxy.total)}
+          valueNumber={proxy ? proxy.total : undefined}
+          valueFormat={animateInt}
           hint={proxyHint}
           loading={snapshotLoading}
         />

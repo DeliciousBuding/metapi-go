@@ -9,7 +9,6 @@ import type {
 import { CalendarRange, Loader2, RotateCw, Zap } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 import { DataTablePage, useDataTable } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
@@ -22,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAccounts } from '@/features/accounts'
+import { toast } from '@/lib/toast'
 
 import { useCheckinAccount, useCheckinLogs, useManualCheckin } from '../api'
 import {

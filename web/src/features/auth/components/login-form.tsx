@@ -9,7 +9,6 @@ import { useNavigate } from '@tanstack/react-router'
 import { ArrowRight } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -22,6 +21,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
+import { toast } from '@/lib/toast'
 
 import { useLogin } from '../api'
 import { sanitizeAuthRedirect } from '../lib/auth-redirect'

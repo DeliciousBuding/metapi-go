@@ -48,6 +48,8 @@ export type DataTableViewProps<TData> = {
   emptyIcon?: React.ReactNode
   emptyAction?: React.ReactNode
   emptyContent?: React.ReactNode
+  filteredEmptyTitle?: string
+  filteredEmptyDescription?: string
   emptyCellClassName?: string
   skeletonKeyPrefix?: string
   skeletonRowHeight?: string

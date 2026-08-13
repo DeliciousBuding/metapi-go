@@ -1,5 +1,8 @@
 {
   "translation": {
+    "dataTable": {
+      "summary": "Showing {{start}}-{{end}} of {{total}} rows"
+    },
     "auth": {
       "login": {
         "title": "Sign in",
@@ -36,6 +39,9 @@
       "refresh": "Refresh",
       "loading": "Loading…",
       "noData": "No data",
+      "noResults": "No results",
+      "noResultsDescription": "No records match your current filters.",
+      "resetFilters": "Reset filters",
       "edit": "Edit",
       "create": "Create",
       "close": "Close",

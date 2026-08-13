@@ -4,7 +4,6 @@
 import { Loader2, Zap } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -23,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAccounts } from '@/features/accounts'
+import { toast } from '@/lib/toast'
 
 import { useCheckinAccount } from '../api'
 

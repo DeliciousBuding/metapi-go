@@ -181,7 +181,7 @@ function StatusBadge({
               type === 'underline' && 'border-b border-current pb-px'
             ),
         textColorMap[computedVariant],
-        pulse && 'animate-pulse',
+        pulse && 'animate-pulse motion-reduce:animate-none',
         copyable &&
           'cursor-copy hover:brightness-95 active:scale-95 dark:hover:brightness-110',
         className

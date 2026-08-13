@@ -1,6 +1,7 @@
 // metapi-go/features/proxy-logs/components — latency badge.
 // i18n: title attributes resolved via t().
 
+import { AlertTriangle, Clock, Zap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/lib/utils'
@@ -10,17 +11,20 @@ const LATENCY_TIERS = {
     thresholdMs: 500,
     className: 'bg-success/10 text-success border-success/30',
     dotClassName: 'bg-success',
+    icon: Zap,
   },
   slow: {
     thresholdMs: 2000,
     className: 'bg-warning/10 text-warning border-warning/30',
     dotClassName: 'bg-warning',
+    icon: Clock,
   },
   unhealthy: {
     thresholdMs: Number.POSITIVE_INFINITY,
     className:
       'bg-destructive/10 text-destructive-soft-fg border-destructive/30',
     dotClassName: 'bg-destructive',
+    icon: AlertTriangle,
   },
 } as const
 
@@ -56,6 +60,7 @@ export function LatencyBadge({
     )
   }
   const tier = resolveTier(latencyMs)
+  const LatencyIcon = tier.icon
   const label = formatLatency(latencyMs)
   const title =
     firstByteLatencyMs !== null &&
@@ -75,6 +80,7 @@ export function LatencyBadge({
         className
       )}
     >
+      <LatencyIcon className='size-3' aria-hidden='true' />
       {showDot && (
         <span
           className={cn(
