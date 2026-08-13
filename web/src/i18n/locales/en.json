@@ -1,5 +1,8 @@
 {
   "translation": {
+    "dataTable": {
+      "summary": "Showing {{start}}-{{end}} of {{total}} rows"
+    },
     "auth": {
       "login": {
         "title": "Sign in",

@@ -1,5 +1,8 @@
 {
   "translation": {
+    "dataTable": {
+      "summary": "显示第 {{start}}-{{end}} 条，共 {{total}} 条"
+    },
     "auth": {
       "login": {
         "title": "登录",
