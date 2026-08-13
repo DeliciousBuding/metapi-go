@@ -1,0 +1,231 @@
+// metapi-go/features/models/price-compare — standalone cross-site price page.
+// Groups the backend's cheaper-first candidate rows by model and surfaces the
+// provenance grade + best-channel recommendation for every source.
+
+import { Search, Star } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+
+import { Badge } from '@/components/ui/badge'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Spinner } from '@/components/ui/spinner'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+
+import { usePriceCompare } from '../api'
+import type { PriceCompareItem } from '../types'
+import { PriceGradeBadge } from './price-grade-badge'
+
+function formatPerMillion(value: number): string {
+  return value.toFixed(4)
+}
+
+function formatSampleCost(value: number): string {
+  return `$${value.toFixed(6)}`
+}
+
+type ModelGroup = {
+  key: string
+  model: string
+  rows: PriceCompareItem[]
+}
+
+export function PriceComparePage() {
+  const { t } = useTranslation()
+  const [search, setSearch] = useState('')
+  const [modelParam, setModelParam] = useState('')
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setModelParam(search.trim())
+    }, 350)
+    return () => window.clearTimeout(timer)
+  }, [search])
+
+  const query = usePriceCompare({
+    model: modelParam || undefined,
+    limit: 200,
+  })
+
+  const groups = useMemo<ModelGroup[]>(() => {
+    const map = new Map<string, PriceCompareItem[]>()
+    for (const item of query.data ?? []) {
+      const key = item.model.trim().toLowerCase() || '__unknown__'
+      const list = map.get(key) ?? []
+      list.push(item)
+      map.set(key, list)
+    }
+    return [...map.entries()].map(([key, rows]) => ({
+      key,
+      model: rows[0]?.model ?? '',
+      rows,
+    }))
+  }, [query.data])
+
+  return (
+    <div className='flex h-full flex-col gap-3 p-4'>
+      <div className='flex items-end justify-between gap-3'>
+        <div>
+          <h1 className='text-lg font-normal'>
+            {t('priceCompare.page.title')}
+          </h1>
+          <p className='text-muted-foreground text-sm'>
+            {t('priceCompare.page.description')}
+          </p>
+        </div>
+        <div className='relative w-64'>
+          <Search
+            aria-hidden='true'
+            className='text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2'
+          />
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={t('priceCompare.page.searchPlaceholder')}
+            aria-label={t('priceCompare.page.searchPlaceholder')}
+            className='pl-8'
+          />
+        </div>
+      </div>
+
+      {query.isLoading && (
+        <div className='text-muted-foreground flex items-center gap-2 text-sm'>
+          <Spinner />
+          {t('common.loading')}
+        </div>
+      )}
+
+      {query.error && (
+        <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
+          {t('priceCompare.page.loadError', {
+            message: (query.error as Error).message,
+          })}
+        </div>
+      )}
+
+      {!query.isLoading && !query.error && groups.length === 0 && (
+        <div className='text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm'>
+          {t('priceCompare.page.emptyDescription')}
+        </div>
+      )}
+
+      <div className='flex flex-col gap-4'>
+        {groups.map((group) => (
+          <ModelGroupCard key={group.key} group={group} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ModelGroupCard({ group }: { group: ModelGroup }) {
+  const { t } = useTranslation()
+  const hasRecommended = group.rows.some((row) => row.recommended)
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className='flex items-center gap-2 text-base font-normal'>
+          <span className='font-mono'>{group.model}</span>
+          {hasRecommended && (
+            <Badge variant='secondary'>
+              <Star aria-hidden='true' className='size-3!' />
+              {t('priceCompare.recommended')}
+            </Badge>
+          )}
+        </CardTitle>
+        <CardDescription>{t('priceCompare.group.description')}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t('priceCompare.columns.site')}</TableHead>
+              <TableHead>{t('priceCompare.columns.grade')}</TableHead>
+              <TableHead className='text-right'>
+                {t('priceCompare.columns.input')}
+              </TableHead>
+              <TableHead className='text-right'>
+                {t('priceCompare.columns.output')}
+              </TableHead>
+              <TableHead className='text-right'>
+                {t('priceCompare.columns.effective')}
+              </TableHead>
+              <TableHead>{t('priceCompare.columns.status')}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {group.rows.map((row) => (
+              <PriceRow
+                key={`${row.siteId}-${row.accountId}-${row.model}`}
+                row={row}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  )
+}
+
+function PriceRow({ row }: { row: PriceCompareItem }) {
+  return (
+    <TableRow>
+      <TableCell>
+        <div className='font-medium'>{row.siteName}</div>
+        {row.username && (
+          <div className='text-muted-foreground text-xs'>{row.username}</div>
+        )}
+      </TableCell>
+      <TableCell>
+        <PriceGradeBadge grade={row.source} />
+      </TableCell>
+      <TableCell className='text-right tabular-nums'>
+        {formatPerMillion(row.inputPerMillion)}
+      </TableCell>
+      <TableCell className='text-right tabular-nums'>
+        {formatPerMillion(row.outputPerMillion)}
+      </TableCell>
+      <TableCell className='text-right tabular-nums'>
+        {row.missingPrice ? '—' : formatSampleCost(row.estimatedCostSample)}
+      </TableCell>
+      <TableCell>
+        <PriceRowStatus row={row} />
+      </TableCell>
+    </TableRow>
+  )
+}
+
+function PriceRowStatus({ row }: { row: PriceCompareItem }) {
+  const { t } = useTranslation()
+  if (row.missingPrice) {
+    return (
+      <span className='text-muted-foreground inline-flex items-center gap-1 text-xs'>
+        <Star aria-hidden='true' className='size-3 opacity-40' />
+        {t('priceCompare.missingPrice')}
+      </span>
+    )
+  }
+  if (row.recommended) {
+    return (
+      <Badge variant='default'>
+        <Star aria-hidden='true' className='size-3!' />
+        {t('priceCompare.recommended')}
+      </Badge>
+    )
+  }
+  return null
+}

@@ -195,11 +195,21 @@ Cross-site effective model price comparison for operators.
 
 Query: `model` (optional name/substring), `days` (default 30), `limit` (default 50), `topModels` (default 12 when model empty).
 
-Returns `{ model, days, limit, sampleUsage, items: [{ siteId, siteName, platform, model, accountId, username, inputPerMillion, outputPerMillion, source, ratesSource, estimatedCostSample, observedSamples, configuredUnitCost, missingPrice }], meta }`.
+Returns `{ model, days, limit, sampleUsage, items: [{ siteId, siteName, platform, model, accountId, username, inputPerMillion, outputPerMillion, source, ratesSource, estimatedCostSample, observedSamples, configuredUnitCost, missingPrice, recommended }], meta }`.
 
-`source` is one of `billing_details` | `observed` | `configured` | `fallback`. Fallback is always labeled; `missingPrice=true` when no catalog/observed/configured signal exists.
+`source` is one of `billing_details` | `observed` | `configured` | `fallback`. Fallback is always labeled; `missingPrice=true` when no catalog/observed/configured signal exists. Rows are sorted cheapest-first and `recommended=true` marks the best channel per model.
 
 Alias: `GET /api/stats/model-prices` (same handler).
+
+### GET /api/models/redirect-fix-candidates
+
+List disabled models that an existing redirect mapping can restore.
+
+Returns `{ items: [{ siteId, siteName, accountId, modelName, canonical, actual }], count }`.
+
+### POST /api/models/redirect-fix-candidates
+
+Apply the listed redirect fixes. Body: `{ "dryRun": false }` (`false` applies; `true` previews without deleting). Returns `{ success, dryRun, removed, count }`.
 
 ### GET /api/models/token-candidates
 

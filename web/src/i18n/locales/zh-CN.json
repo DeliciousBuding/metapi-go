@@ -1992,7 +1992,9 @@
         "models": "模型",
         "modelTester": "操练场",
         "settings": "设置",
-        "about": "关于"
+        "about": "关于",
+        "priceCompare": "价格对比",
+        "fixCandidates": "修复候选项"
       },
       "backToHome": "返回首页",
       "settingsOverview": "设置总览"
@@ -2047,6 +2049,57 @@
         "merged": "已合并",
         "skipped": "已跳过",
         "failed": "失败"
+      }
+    },
+    "priceCompare": {
+      "page": {
+        "title": "价格对比",
+        "description": "跨站点有效模型价格，附价格来源等级。",
+        "searchPlaceholder": "按模型筛选…",
+        "loadError": "加载价格对比失败：{{message}}",
+        "emptyDescription": "暂无价格数据。连接账号或产生流量后即可查看有效价格。"
+      },
+      "group": {
+        "description": "按来源站点的有效价格，从低到高。"
+      },
+      "grade": {
+        "billing_details": "计费明细",
+        "observed": "观测",
+        "configured": "已配置",
+        "fallback": "兜底"
+      },
+      "recommended": "推荐",
+      "missingPrice": "无价格信号",
+      "columns": {
+        "site": "站点",
+        "grade": "等级",
+        "input": "输入 / 1M",
+        "output": "输出 / 1M",
+        "effective": "有效成本",
+        "status": "状态"
+      }
+    },
+    "fixCandidates": {
+      "page": {
+        "title": "重定向修复候选项",
+        "description": "可通过已有重定向映射恢复的禁用模型。",
+        "loadError": "加载修复候选项失败：{{message}}",
+        "emptyDescription": "没有可通过现有重定向修复的禁用模型。"
+      },
+      "apply": "应用修复",
+      "confirm": {
+        "title": "应用重定向修复？",
+        "description": "将恢复 {{count}} 个禁用模型（通过其重定向映射）。"
+      },
+      "toast": {
+        "applySucceeded": "已应用 {{count}} 项修复。",
+        "applyFailed": "应用修复失败：{{message}}"
+      },
+      "columns": {
+        "site": "站点",
+        "model": "模型",
+        "redirect": "重定向",
+        "account": "账号"
       }
     }
   }

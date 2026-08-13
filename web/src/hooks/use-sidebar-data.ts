@@ -12,9 +12,11 @@ import {
   LayoutDashboard,
   ScrollText,
   Route,
+  Scale,
   Server,
   Settings,
   ShieldCheck,
+  Wrench,
 } from 'lucide-react'
 
 import type { SidebarData } from '@/components/layout/types'
@@ -94,6 +96,16 @@ export function useSidebarData(): SidebarData {
             title: 'sidebar.items.modelTester',
             url: '/model-tester',
             icon: FlaskConical,
+          },
+          {
+            title: 'sidebar.items.priceCompare',
+            url: '/price-compare',
+            icon: Scale,
+          },
+          {
+            title: 'sidebar.items.fixCandidates',
+            url: '/fix-candidates',
+            icon: Wrench,
           },
         ],
       },

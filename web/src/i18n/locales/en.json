@@ -1992,7 +1992,9 @@
         "models": "Models",
         "modelTester": "Model Tester",
         "settings": "Settings",
-        "about": "About"
+        "about": "About",
+        "priceCompare": "Price Compare",
+        "fixCandidates": "Fix Candidates"
       },
       "backToHome": "Back to Home",
       "settingsOverview": "Settings Overview"
@@ -2047,6 +2049,57 @@
         "merged": "Merged",
         "skipped": "Skipped",
         "failed": "Failed"
+      }
+    },
+    "priceCompare": {
+      "page": {
+        "title": "Price Compare",
+        "description": "Cross-site effective model pricing with provenance grades.",
+        "searchPlaceholder": "Filter by model…",
+        "loadError": "Failed to load price comparison: {{message}}",
+        "emptyDescription": "No price data yet. Connect accounts or run traffic to see effective pricing."
+      },
+      "group": {
+        "description": "Effective price per source site, cheapest first."
+      },
+      "grade": {
+        "billing_details": "Billing",
+        "observed": "Observed",
+        "configured": "Configured",
+        "fallback": "Fallback"
+      },
+      "recommended": "Recommended",
+      "missingPrice": "No price signal",
+      "columns": {
+        "site": "Site",
+        "grade": "Grade",
+        "input": "Input / 1M",
+        "output": "Output / 1M",
+        "effective": "Effective cost",
+        "status": "Status"
+      }
+    },
+    "fixCandidates": {
+      "page": {
+        "title": "Redirect Fix Candidates",
+        "description": "Disabled models that an existing redirect mapping can restore.",
+        "loadError": "Failed to load fix candidates: {{message}}",
+        "emptyDescription": "No disabled models are repairable by an existing redirect."
+      },
+      "apply": "Apply fixes",
+      "confirm": {
+        "title": "Apply redirect fixes?",
+        "description": "This re-enables {{count}} disabled model(s) via their redirect mapping."
+      },
+      "toast": {
+        "applySucceeded": "Applied {{count}} fix(es).",
+        "applyFailed": "Failed to apply fixes: {{message}}"
+      },
+      "columns": {
+        "site": "Site",
+        "model": "Model",
+        "redirect": "Redirect",
+        "account": "Account"
       }
     }
   }
