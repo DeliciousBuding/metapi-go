@@ -209,6 +209,13 @@ docker compose -f docker-compose.prod.yml up -d
 
 Docker Compose will automatically recreate the container with the new image. Auto-migration runs at startup to apply any new schema changes.
 
+Upgrade checklist:
+
+1. Back up the database first (cp data/hub.db ... or pg_dump -Fc ...).
+2. Prefer pinning a released image tag (e.g. ghcr.io/deliciousbuding/metapi-go:v0.11.0) over latest so rollback is reproducible.
+3. After upgrade, verify GET /ready returns 200 and run bash web/scripts/verify-live-assets.sh http://127.0.0.1:4000.
+4. Rollback = restore the pre-upgrade backup and re-run the previous pinned image tag. Schema changes are forward-only; do not downgrade the schema by deleting rows from schema_migrations.
+
 ## Post-deploy asset smoke (mandatory)
 
 After every deploy, replay the browser asset graph against the running
