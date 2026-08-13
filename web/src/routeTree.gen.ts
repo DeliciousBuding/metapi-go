@@ -19,6 +19,7 @@ import { Route as AuthenticatedDashboardRouteRouteImport } from './routes/_authe
 import { Route as AuthenticatedModelTesterRouteImport } from './routes/_authenticated/model-tester'
 import { Route as AuthenticatedModelsRouteImport } from './routes/_authenticated/models'
 import { Route as AuthenticatedOauthRouteImport } from './routes/_authenticated/oauth'
+import { Route as AuthenticatedObservabilityRouteImport } from './routes/_authenticated/observability'
 import { Route as AuthenticatedProxyLogsRouteImport } from './routes/_authenticated/proxy-logs'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
 import { Route as AuthenticatedSiteAnnouncementsRouteImport } from './routes/_authenticated/site-announcements'
@@ -82,6 +83,12 @@ const AuthenticatedOauthRoute = AuthenticatedOauthRouteImport.update({
   path: '/oauth',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedObservabilityRoute =
+  AuthenticatedObservabilityRouteImport.update({
+    id: '/observability',
+    path: '/observability',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedProxyLogsRoute = AuthenticatedProxyLogsRouteImport.update({
   id: '/proxy-logs',
   path: '/proxy-logs',
@@ -158,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/model-tester': typeof AuthenticatedModelTesterRoute
   '/models': typeof AuthenticatedModelsRoute
   '/oauth': typeof AuthenticatedOauthRoute
+  '/observability': typeof AuthenticatedObservabilityRoute
   '/proxy-logs': typeof AuthenticatedProxyLogsRoute
   '/site-announcements': typeof AuthenticatedSiteAnnouncementsRoute
   '/sites': typeof AuthenticatedSitesRoute
@@ -177,6 +185,7 @@ export interface FileRoutesByTo {
   '/model-tester': typeof AuthenticatedModelTesterRoute
   '/models': typeof AuthenticatedModelsRoute
   '/oauth': typeof AuthenticatedOauthRoute
+  '/observability': typeof AuthenticatedObservabilityRoute
   '/proxy-logs': typeof AuthenticatedProxyLogsRoute
   '/site-announcements': typeof AuthenticatedSiteAnnouncementsRoute
   '/sites': typeof AuthenticatedSitesRoute
@@ -200,6 +209,7 @@ export interface FileRoutesById {
   '/_authenticated/model-tester': typeof AuthenticatedModelTesterRoute
   '/_authenticated/models': typeof AuthenticatedModelsRoute
   '/_authenticated/oauth': typeof AuthenticatedOauthRoute
+  '/_authenticated/observability': typeof AuthenticatedObservabilityRoute
   '/_authenticated/proxy-logs': typeof AuthenticatedProxyLogsRoute
   '/_authenticated/site-announcements': typeof AuthenticatedSiteAnnouncementsRoute
   '/_authenticated/sites': typeof AuthenticatedSitesRoute
@@ -225,6 +235,7 @@ export interface FileRouteTypes {
     | '/model-tester'
     | '/models'
     | '/oauth'
+    | '/observability'
     | '/proxy-logs'
     | '/site-announcements'
     | '/sites'
@@ -244,6 +255,7 @@ export interface FileRouteTypes {
     | '/model-tester'
     | '/models'
     | '/oauth'
+    | '/observability'
     | '/proxy-logs'
     | '/site-announcements'
     | '/sites'
@@ -266,6 +278,7 @@ export interface FileRouteTypes {
     | '/_authenticated/model-tester'
     | '/_authenticated/models'
     | '/_authenticated/oauth'
+    | '/_authenticated/observability'
     | '/_authenticated/proxy-logs'
     | '/_authenticated/site-announcements'
     | '/_authenticated/sites'
@@ -354,6 +367,13 @@ declare module '@tanstack/react-router' {
       path: '/oauth'
       fullPath: '/oauth'
       preLoaderRoute: typeof AuthenticatedOauthRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/observability': {
+      id: '/_authenticated/observability'
+      path: '/observability'
+      fullPath: '/observability'
+      preLoaderRoute: typeof AuthenticatedObservabilityRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/proxy-logs': {
@@ -496,6 +516,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedModelTesterRoute: typeof AuthenticatedModelTesterRoute
   AuthenticatedModelsRoute: typeof AuthenticatedModelsRoute
   AuthenticatedOauthRoute: typeof AuthenticatedOauthRoute
+  AuthenticatedObservabilityRoute: typeof AuthenticatedObservabilityRoute
   AuthenticatedProxyLogsRoute: typeof AuthenticatedProxyLogsRoute
   AuthenticatedSiteAnnouncementsRoute: typeof AuthenticatedSiteAnnouncementsRoute
   AuthenticatedSitesRoute: typeof AuthenticatedSitesRoute
@@ -513,6 +534,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedModelTesterRoute: AuthenticatedModelTesterRoute,
   AuthenticatedModelsRoute: AuthenticatedModelsRoute,
   AuthenticatedOauthRoute: AuthenticatedOauthRoute,
+  AuthenticatedObservabilityRoute: AuthenticatedObservabilityRoute,
   AuthenticatedProxyLogsRoute: AuthenticatedProxyLogsRoute,
   AuthenticatedSiteAnnouncementsRoute: AuthenticatedSiteAnnouncementsRoute,
   AuthenticatedSitesRoute: AuthenticatedSitesRoute,

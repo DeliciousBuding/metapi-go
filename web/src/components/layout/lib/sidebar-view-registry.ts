@@ -2,6 +2,7 @@
 // Resolves the active nested drill-in view for a given pathname.
 
 import { SYSTEM_SETTINGS_VIEW } from '../config/system-settings.config'
+import { OBSERVABILITY_VIEW } from '@/features/observability'
 import type { SidebarView } from '../types'
 
 /**
@@ -13,7 +14,7 @@ import type { SidebarView } from '../types'
  *
  * Match priority is array order; the first matching `pathPattern` wins.
  */
-const SIDEBAR_VIEWS: readonly SidebarView[] = [SYSTEM_SETTINGS_VIEW]
+const SIDEBAR_VIEWS: readonly SidebarView[] = [SYSTEM_SETTINGS_VIEW, OBSERVABILITY_VIEW]
 
 /**
  * Resolve the active nested view for the given path.

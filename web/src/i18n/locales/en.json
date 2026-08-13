@@ -1876,13 +1876,100 @@
         "lavender-dream": "Lavender Dream"
       }
     },
+    "observability": {
+    "title": "Observability",
+    "description": "Health, breakers and request analytics across sites and accounts.",
+    "sections": {
+      "overview": {
+        "title": "Overview",
+        "description": "Slow request ranking and usage density."
+      },
+      "health": {
+        "title": "Health",
+        "description": "Site/account health plus routing breaker and cooldown state."
+      },
+      "proxyLogs": {
+        "title": "Proxy Logs",
+        "description": "Full proxy request log workspace."
+      }
+    },
+    "overview": {
+      "slowRequests": {
+        "title": "Slow requests (top)",
+        "description": "Highest-latency proxy requests in the selected window.",
+        "empty": "No slow requests in the current window.",
+        "colModel": "Model",
+        "colSite": "Site",
+        "colLatency": "Latency",
+        "colFirstByte": "First byte",
+        "colHttp": "HTTP",
+        "colStatus": "Status",
+        "colTime": "Time"
+      },
+      "heatmap": {
+        "title": "Usage heatmap",
+        "description": "Hourly call density by site.",
+        "empty": "No usage density data for the selected range.",
+        "legendLow": "Less",
+        "legendHigh": "More"
+      }
+    },
+    "health": {
+      "runtime": {
+        "title": "Runtime health",
+        "description": "In-memory routing breaker state (soft isolation).",
+        "sitesTracked": "Sites tracked",
+        "sitesBreakerOpen": "Site breakers open",
+        "modelsTracked": "Models tracked",
+        "modelsBreakerOpen": "Model breakers open"
+      },
+      "breakers": {
+        "title": "Open breakers",
+        "description": "Sites and models currently filtered out of selection.",
+        "empty": "No open breakers.",
+        "colSite": "Site",
+        "colModel": "Model",
+        "colLevel": "Level",
+        "colUntil": "Until"
+      },
+      "cooldown": {
+        "title": "Channel cooldown",
+        "description": "Channels backing off after failures.",
+        "channelsCooling": "Cooling",
+        "channelsWithFailures": "With failures",
+        "channelsRecentlyFailed": "Recently failed",
+        "empty": "No channels currently cooling down.",
+        "colSite": "Site",
+        "colChannel": "Channel",
+        "colFailCount": "Fails",
+        "colUntil": "Until"
+      },
+      "inventory": {
+        "title": "Inventory",
+        "description": "Configured sites and accounts by status.",
+        "sites": "Sites",
+        "accounts": "Accounts",
+        "total": "Total",
+        "active": "Active",
+        "disabled": "Disabled",
+        "other": "Other"
+      }
+    },
+    "proxyLogs": {
+      "title": "Proxy request logs",
+      "description": "The full proxy request log workspace.",
+      "hint": "Open the dedicated proxy logs page for filters, columns and detail.",
+      "open": "Open proxy logs"
+    }
+  },
     "sidebar": {
       "groups": {
         "console": "Console",
         "configuration": "Configuration",
         "models": "Models",
         "system": "System",
-        "systemAdministration": "System Administration"
+        "systemAdministration": "System Administration",
+        "observability": "Observability"
       },
       "items": {
         "dashboard": "Dashboard",
@@ -1890,6 +1977,7 @@
         "accounts": "Accounts",
         "checkin": "Check-in",
         "proxyLogs": "Proxy Logs",
+        "observability": "Observability",
         "monitors": "Monitors",
         "tokenRoutes": "Token Routes",
         "oauth": "OAuth",

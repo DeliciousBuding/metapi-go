@@ -1316,6 +1316,13 @@ export const api = {
   },
   getProxyLogDetail: (id: number) =>
     request(`/api/stats/proxy-logs/${id}`) as Promise<ProxyLogDetail>,
+  getUsageHeatmap: (params?: { days?: number; dimension?: 'site' | 'model' }) =>
+    request(`/api/stats/usage-heatmap${buildQueryString(params)}`),
+  getSlowRequests: (params?: {
+    limit?: number
+    minLatencyMs?: number
+    hours?: number
+  }) => request(`/api/stats/slow-requests${buildQueryString(params)}`),
   getProxyDebugTraces: (params?: { limit?: number }) =>
     request(
       `/api/stats/proxy-debug/traces${buildQueryString(params)}`
@@ -1815,6 +1822,7 @@ export const api = {
 
   // Monitor embed
   getMonitorConfig: () => request('/api/monitor/config'),
+  getMonitorHealth: () => request('/api/monitor/health'),
   updateMonitorConfig: (data: { ldohCookie?: string | null }) =>
     request('/api/monitor/config', {
       method: 'PUT',
@@ -1958,3 +1966,4 @@ export const api = {
     })
   },
 }
+
