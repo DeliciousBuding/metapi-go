@@ -6,7 +6,7 @@
 // never prefilled from the server; a blank (unchanged) field is not sent.
 
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'

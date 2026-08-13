@@ -4,7 +4,7 @@
 // GET/PUT /api/settings/runtime via the shared settings form.
 
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { z } from 'zod'
 
 import {

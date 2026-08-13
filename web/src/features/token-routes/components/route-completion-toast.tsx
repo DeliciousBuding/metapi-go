@@ -6,7 +6,7 @@
 // type-safe `navigate` because the dashboard route registration is owned by
 // another subagent; a hard navigation keeps the deep-link working today.
 
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import i18n from '@/i18n/config'
 

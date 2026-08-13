@@ -9,7 +9,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { ArrowRight } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { Button } from '@/components/ui/button'
 import {

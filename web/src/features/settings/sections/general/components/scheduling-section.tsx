@@ -7,7 +7,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { z } from 'zod'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'

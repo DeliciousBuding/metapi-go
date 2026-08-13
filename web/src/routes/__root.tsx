@@ -44,7 +44,7 @@ function RootComponent() {
   return (
     <>
       <Outlet />
-      <Toaster closeButton duration={5000} position='top-center' richColors />
+      <Toaster closeButton position='top-center' />
       {showDevtools && (
         <>
           <ReactQueryDevtools buttonPosition='bottom-left' />

@@ -10,7 +10,7 @@ import {
   useQueryClient,
   type UseQueryOptions,
 } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import i18n from '@/i18n/config'
 import { api } from '@/lib/api'

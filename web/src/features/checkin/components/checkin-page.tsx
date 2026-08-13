@@ -9,7 +9,7 @@ import type {
 import { CalendarRange, Loader2, RotateCw, Zap } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import { DataTablePage, useDataTable } from '@/components/data-table'
 import { Button } from '@/components/ui/button'

@@ -5,7 +5,7 @@
 // weight fields; saving is explicit through the shared actions row.
 
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'

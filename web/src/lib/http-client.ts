@@ -1,5 +1,5 @@
 import axios, { type AxiosRequestConfig } from 'axios'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import {
   applyAuthRotation,

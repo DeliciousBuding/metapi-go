@@ -9,7 +9,7 @@
 // and can be upgraded to `useNavigate({ to: '/token-routes', search })` once
 // the route file lands.
 
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import i18n from '@/i18n/config'
 

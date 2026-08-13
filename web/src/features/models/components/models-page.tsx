@@ -15,7 +15,7 @@ import type { ColumnFiltersState } from '@tanstack/react-table'
 import { RefreshCw as RefreshCwIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
+import { toast } from '@/lib/toast'
 
 import {
   DataTablePage,
