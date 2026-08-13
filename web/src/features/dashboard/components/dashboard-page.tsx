@@ -73,7 +73,7 @@ export function DashboardPage({
           onSectionChange?.(value as DashboardSectionId)
         }
       >
-        <TabsList className='w-fit'>
+        <TabsList className='w-fit max-w-full overflow-x-auto'>
           {navItems.map((item) => {
             const id = item.url.split('/').pop() ?? item.title
             return (
