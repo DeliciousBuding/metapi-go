@@ -218,7 +218,7 @@ TS→Go / SQLite→PG data transfer tool above.
 
 Startup already runs `store.AutoMigrate`:
 
-1. **Base bootstrap** — `CREATE TABLE IF NOT EXISTS` for all 27 product tables +
+1. **Base bootstrap** — `CREATE TABLE IF NOT EXISTS` for all 35 product tables +
    `CREATE INDEX IF NOT EXISTS` for non-unique indexes.
 2. **Additive upgrades** — ordered steps recorded in `schema_migrations`.
 
@@ -322,7 +322,7 @@ crash between `ALTER TABLE` and the bookkeeping insert recovers cleanly.
 
 ### Rollback philosophy
 
-Additive migrations are **forward-only**:
+Additive migrations are **forward-only**. There is no automatic schema downgrade: running an older binary against a newer schema is supported only because additive columns are nullable/defaulted and ignored by old code, but the schema itself never rewinds.
 
 | Policy | Rationale |
 |:-------|:----------|
@@ -339,7 +339,7 @@ must preserve pre-upgrade behavior until a feature flag or UI explicitly opts in
 
 | Path | Role |
 |:-----|:-----|
-| `store/migrate.go` | Base 27-table DDL; `AutoMigrate` calls `ApplyAdditiveMigrations` |
+| `store/migrate.go` | Base 35-table DDL; `AutoMigrate` calls `ApplyAdditiveMigrations` |
 | `store/additive.go` | `schema_migrations`, `ApplyAdditiveMigrations`, `EnsureColumn`, `columnExists` |
 | `store/additive_test.go` | SQLite unit tests + optional PG (`PG_TEST_DSN`) dual-dialect smoke |
 | Schema parity notes | Dialect differences |
