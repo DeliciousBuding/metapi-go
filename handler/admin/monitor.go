@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
-	"github.com/deliciousbuding/metapi-go/config"
 )
 
 // RegisterMonitorRoutes registers all /api/monitor and /monitor-proxy routes.
@@ -22,6 +22,7 @@ func RegisterMonitorRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
 	handler := &monitorHandler{db: db, cfg: cfg}
 
 	r.Get("/api/monitor/config", handler.getConfig)
+	RegisterMonitorHealthRoute(r, db, cfg) // GET /api/monitor/health (observability projection)
 	r.Put("/api/monitor/config", handler.saveConfig)
 	r.Post("/api/monitor/session", handler.createSession)
 	// DELETE clears the HttpOnly meta_monitor_auth cookie on admin logout.
