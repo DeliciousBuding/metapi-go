@@ -27,6 +27,36 @@ func StartBackgroundServices() {
 	slog.Info("starting background schedulers")
 
 	cfg := config.Get()
+	newRegistry, checkin, balance, logCleanup, webdav := buildSchedulers(cfg)
+
+	// Start all
+	newRegistry.StartAll(context.Background())
+
+	// Publish scheduler pointers only after StartAll so a config update can
+	// never observe a half-started scheduler.
+	servicesMu.Lock()
+	registry = newRegistry
+	checkinScheduler = checkin
+	balanceScheduler = balance
+	logCleanupScheduler = logCleanup
+	webdavScheduler = webdav
+	servicesMu.Unlock()
+
+	slog.Info("all background schedulers registered",
+		"count", len(newRegistry.List()),
+	)
+}
+
+// buildSchedulers constructs and registers every background scheduler without
+// starting them, so registration coverage can be asserted independently of the
+// runtime side effects of StartAll.
+func buildSchedulers(cfg *config.Config) (
+	*scheduler.Registry,
+	*scheduler.CheckinScheduler,
+	*scheduler.BalanceScheduler,
+	*scheduler.LogCleanupScheduler,
+	*scheduler.BackupWebdavScheduler,
+) {
 	newRegistry := scheduler.NewRegistry()
 
 	// ---- Usage Aggregation (needed by admin-snapshot) ----
@@ -39,15 +69,18 @@ func StartBackgroundServices() {
 
 	// ---- Scheduler 2: Balance Refresh ----
 	balance := scheduler.NewBalanceScheduler(cfg, nil)
+	newRegistry.Register(balance)
 
 	// ---- Scheduler 3: Daily Summary ----
 	newRegistry.Register(scheduler.NewDailySummaryScheduler(cfg))
 
 	// ---- Scheduler 4: Log Cleanup ----
 	logCleanup := scheduler.NewLogCleanupScheduler(cfg)
+	newRegistry.Register(logCleanup)
 
 	// ---- Scheduler 5: Backup WebDAV ----
 	webdav := scheduler.NewBackupWebdavScheduler(cfg)
+	newRegistry.Register(webdav)
 
 	// ---- Scheduler 6: Site Announcements ----
 	newRegistry.Register(scheduler.NewSiteAnnouncementScheduler(cfg))
@@ -83,22 +116,7 @@ func StartBackgroundServices() {
 	// ---- Scheduler 15: OAuth Token Refresh ----
 	newRegistry.Register(scheduler.NewOAuthRefreshScheduler(cfg))
 
-	// Start all
-	newRegistry.StartAll(context.Background())
-
-	// Publish scheduler pointers only after StartAll so a config update can
-	// never observe a half-started scheduler.
-	servicesMu.Lock()
-	registry = newRegistry
-	checkinScheduler = checkin
-	balanceScheduler = balance
-	logCleanupScheduler = logCleanup
-	webdavScheduler = webdav
-	servicesMu.Unlock()
-
-	slog.Info("all background schedulers registered",
-		"count", len(newRegistry.List()),
-	)
+	return newRegistry, checkin, balance, logCleanup, webdav
 }
 
 // StopBackgroundServices stops all background schedulers.
