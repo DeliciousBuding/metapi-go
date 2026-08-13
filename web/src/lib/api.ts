@@ -137,8 +137,8 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 async function streamSse(
   url: string,
   handlers: {
-    onLog?: (entry: any) => void
-    onDone?: (payload: any) => void
+    onLog?: (entry: unknown) => void
+    onDone?: (payload: unknown) => void
     signal?: AbortSignal
   }
 ) {
@@ -181,9 +181,10 @@ async function streamSse(
       }
 
       if (dataLines.length <= 0) continue
-      let payload: any = dataLines.join('\n')
+      const raw = dataLines.join('\n')
+      let payload: unknown = raw
       try {
-        payload = JSON.parse(payload)
+        payload = JSON.parse(raw)
       } catch {
         // keep string payload
       }
@@ -1659,8 +1660,8 @@ export const api = {
   streamUpdateCenterTaskLogs: (
     taskId: string,
     handlers: {
-      onLog?: (entry: any) => void
-      onDone?: (payload: any) => void
+      onLog?: (entry: unknown) => void
+      onDone?: (payload: unknown) => void
       signal?: AbortSignal
     }
   ) =>

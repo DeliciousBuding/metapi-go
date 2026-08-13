@@ -56,7 +56,17 @@
       "languageName": {
         "en": "English",
         "zhCN": "简体中文"
-      }
+      },
+      "pagination": "分页",
+      "previousPage": "上一页",
+      "nextPage": "下一页",
+      "morePages": "更多页",
+      "hideSecret": "隐藏密钥",
+      "revealSecret": "显示密钥",
+      "copySecret": "复制密钥",
+      "hide": "隐藏",
+      "reveal": "显示",
+      "copy": "复制"
     },
     "about": {
       "title": "关于",
@@ -1233,9 +1243,6 @@
             "factoryResetFailed": "恢复出厂失败。"
           }
         }
-      },
-      "stub": {
-        "placeholder": "TODO phase 3: 从旧版迁移内容"
       }
     },
     "accounts": {

@@ -56,7 +56,17 @@
       "languageName": {
         "en": "English",
         "zhCN": "简体中文"
-      }
+      },
+      "pagination": "Pagination",
+      "previousPage": "Go to previous page",
+      "nextPage": "Go to next page",
+      "morePages": "More pages",
+      "hideSecret": "Hide secret",
+      "revealSecret": "Reveal secret",
+      "copySecret": "Copy secret",
+      "hide": "Hide",
+      "reveal": "Reveal",
+      "copy": "Copy"
     },
     "about": {
       "title": "About",
@@ -1233,9 +1243,6 @@
             "factoryResetFailed": "Factory reset failed."
           }
         }
-      },
-      "stub": {
-        "placeholder": "TODO phase 3: migrate content from legacy"
       }
     },
     "accounts": {

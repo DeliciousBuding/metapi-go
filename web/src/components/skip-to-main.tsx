@@ -2,9 +2,13 @@
 // Renders a visually-hidden link that becomes visible on focus, letting keyboard
 // users jump straight to the main content region.
 
+import { useTranslation } from 'react-i18next'
+
 import { cn } from '@/lib/utils'
 
 export function SkipToMain() {
+  const { t } = useTranslation()
+
   return (
     <a
       href='#content'
@@ -17,7 +21,7 @@ export function SkipToMain() {
         'focus-visible:pointer-events-auto focus-visible:translate-y-0'
       )}
     >
-      Skip to main content
+      {t('common.skipToMain')}
     </a>
   )
 }
