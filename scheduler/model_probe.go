@@ -359,7 +359,7 @@ func (s *ModelProbeScheduler) runProbeLocked(dbw *store.DB) {
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			outcome := s.probeOne(target, timeoutMs)
+			outcome := s.probeOne(target, timeoutMs, dbw)
 			mu.Lock()
 			switch outcome {
 			case "success":
@@ -390,7 +390,7 @@ func (s *ModelProbeScheduler) runProbeLocked(dbw *store.DB) {
 	)
 }
 
-func (s *ModelProbeScheduler) probeOne(target ProbeTarget, timeoutMs int) string {
+func (s *ModelProbeScheduler) probeOne(target ProbeTarget, timeoutMs int, dbw ...*store.DB) string {
 	s.mu.Lock()
 	probe := s.probe
 	recorder := s.recorder
@@ -416,6 +416,7 @@ func (s *ModelProbeScheduler) probeOne(target ProbeTarget, timeoutMs int) string
 			"model", target.ModelName,
 			"error", err,
 		)
+		s.persistProbeResult(resolveProbeResultDB(dbw), target, "inconclusive", ProbeOutcome{Status: "inconclusive", ErrorText: err.Error()})
 		return "inconclusive"
 	}
 
@@ -427,6 +428,7 @@ func (s *ModelProbeScheduler) probeOne(target ProbeTarget, timeoutMs int) string
 	accountID := target.AccountID
 	accountPtr := &accountID
 
+	status := "inconclusive"
 	switch outcome.Status {
 	case "success":
 		if err := recorder.RecordProbeSuccess(ctx, target.ChannelID, outcome.LatencyMs, modelPtr, accountPtr); err != nil {
@@ -434,9 +436,9 @@ func (s *ModelProbeScheduler) probeOne(target ProbeTarget, timeoutMs int) string
 				"channel_id", target.ChannelID,
 				"error", err,
 			)
-			return "inconclusive"
+		} else {
+			status = "success"
 		}
-		return "success"
 	case "failure":
 		var statusPtr *int
 		if outcome.HTTPStatus > 0 {
@@ -453,15 +455,62 @@ func (s *ModelProbeScheduler) probeOne(target ProbeTarget, timeoutMs int) string
 				"channel_id", target.ChannelID,
 				"error", err,
 			)
-			return "inconclusive"
+		} else {
+			status = "failure"
 		}
-		return "failure"
 	case "skipped":
-		return "skipped"
+		status = "skipped"
 	default:
 		// inconclusive / unknown — do not mutate health or cooldown.
-		return "inconclusive"
+		status = "inconclusive"
 	}
+
+	// Record the raw probe outcome for the route-rebuild probe filter (#625).
+	// Persisted status uses the measured outcome so connectivity filtering sees
+	// the actual upstream signal, not the recorder-applied result.
+	s.persistProbeResult(resolveProbeResultDB(dbw), target, status, outcome)
+	return status
+}
+
+func resolveProbeResultDB(dbw []*store.DB) *store.DB {
+	if len(dbw) == 0 {
+		return nil
+	}
+	return dbw[0]
+}
+
+// persistProbeResult appends one model_probe_results row for a background
+// probe outcome. It is best-effort: a failed history write must never block
+// health/cooldown mutation or the probe pass itself.
+func (s *ModelProbeScheduler) persistProbeResult(dbw *store.DB, target ProbeTarget, status string, outcome ProbeOutcome) {
+	if dbw == nil {
+		return
+	}
+	if status == "" {
+		status = "inconclusive"
+	}
+	var latencyPtr *float64
+	if outcome.LatencyMs > 0 {
+		l := outcome.LatencyMs
+		latencyPtr = &l
+	}
+	var httpPtr *int64
+	if outcome.HTTPStatus > 0 {
+		h := int64(outcome.HTTPStatus)
+		httpPtr = &h
+	}
+	var errPtr *string
+	if outcome.ErrorText != "" {
+		e := outcome.ErrorText
+		errPtr = &e
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, _ = dbw.Exec(
+		`INSERT INTO model_probe_results
+			(channel_id, account_id, site_id, model_name, status, latency_ms, http_status, error_text, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		target.ChannelID, target.AccountID, target.SiteID, target.ModelName, status, latencyPtr, httpPtr, errPtr, now,
+	)
 }
 
 // loadProbeTargets selects a budgeted set of active route channels for probing.
