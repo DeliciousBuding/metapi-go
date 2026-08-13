@@ -1856,40 +1856,40 @@
       }
     },
     "channels": {
-        "page": {
-            "title": "通道",
-            "description": "跨站点、账号、令牌与 OAuth 单元的只读路由健康视图。",
-            "loadError": "加载通道失败：{{message}}"
-        },
-        "empty": {
-            "title": "暂无通道",
-            "description": "当前尚未生成任何路由通道。"
-        },
-        "toolbar": {
-            "searchPlaceholder": "搜索通道..."
-        },
-        "columns": {
-            "name": "名称",
-            "site": "站点",
-            "type": "类型",
-            "status": "状态",
-            "models": "模型",
-            "priority": "优先级",
-            "weight": "权重",
-            "response": "响应",
-            "cooldown": "冷却"
-        },
-        "status": {
-            "enabled": "已启用",
-            "cooldown": "冷却中",
-            "breakerOpen": "熔断已开",
-            "manuallyDisabled": "已手动停用"
-        },
-        "type": {
-            "account": "账号",
-            "token": "令牌",
-            "oauth_unit": "OAuth 单元"
-        }
+      "page": {
+        "title": "通道",
+        "description": "跨站点、账号、令牌与 OAuth 单元的只读路由健康视图。",
+        "loadError": "加载通道失败：{{message}}"
+      },
+      "empty": {
+        "title": "暂无通道",
+        "description": "当前尚未生成任何路由通道。"
+      },
+      "toolbar": {
+        "searchPlaceholder": "搜索通道..."
+      },
+      "columns": {
+        "name": "名称",
+        "site": "站点",
+        "type": "类型",
+        "status": "状态",
+        "models": "模型",
+        "priority": "优先级",
+        "weight": "权重",
+        "response": "响应",
+        "cooldown": "冷却"
+      },
+      "status": {
+        "enabled": "已启用",
+        "cooldown": "冷却中",
+        "breakerOpen": "熔断已开",
+        "manuallyDisabled": "已手动停用"
+      },
+      "type": {
+        "account": "账号",
+        "token": "令牌",
+        "oauth_unit": "OAuth 单元"
+      }
     },
     "sidebar": {
       "groups": {

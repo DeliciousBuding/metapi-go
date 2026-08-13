@@ -4,12 +4,7 @@
 // color + icon + text (dual-channel, never color-only).
 
 import type { ColumnDef } from '@tanstack/react-table'
-import {
-  Ban,
-  CheckCircle2,
-  Clock,
-  TriangleAlert,
-} from 'lucide-react'
+import { Ban, CheckCircle2, Clock, TriangleAlert } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -21,7 +16,12 @@ import type { ChannelRow, ChannelStatus } from '../types'
 
 const STATUS_CONFIG: Record<
   ChannelStatus,
-  { labelKey: string; variant: 'default' | 'warning' | 'destructive' | 'secondary'; dotClass: string; Icon: typeof CheckCircle2 }
+  {
+    labelKey: string
+    variant: 'default' | 'warning' | 'destructive' | 'secondary'
+    dotClass: string
+    Icon: typeof CheckCircle2
+  }
 > = {
   enabled: {
     labelKey: 'channels.status.enabled',
@@ -171,7 +171,9 @@ export function useChannelsColumns(): ColumnDef<ChannelRow>[] {
             title={t('channels.columns.priority')}
           />
         ),
-        cell: ({ row }) => <span className='text-sm'>{row.original.priority}</span>,
+        cell: ({ row }) => (
+          <span className='text-sm'>{row.original.priority}</span>
+        ),
       },
       {
         id: 'weight',
@@ -184,7 +186,9 @@ export function useChannelsColumns(): ColumnDef<ChannelRow>[] {
             title={t('channels.columns.weight')}
           />
         ),
-        cell: ({ row }) => <span className='text-sm'>{row.original.weight}</span>,
+        cell: ({ row }) => (
+          <span className='text-sm'>{row.original.weight}</span>
+        ),
       },
       {
         id: 'response',
