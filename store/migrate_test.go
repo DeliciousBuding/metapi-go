@@ -23,15 +23,15 @@ func TestAutoMigrateIdempotent(t *testing.T) {
 		t.Fatalf("second AutoMigrate failed (should be idempotent): %v", err)
 	}
 
-	// Verify all 27 tables still exist.
+	// Verify all 35 tables still exist.
 	var count int
 	err = db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table'").Scan(&count)
 	if err != nil {
 		t.Fatalf("table count query failed: %v", err)
 	}
-	// 27 user tables + sqlite_sequence may exist.
-	if count < 27 {
-		t.Errorf("expected at least 27 tables after double migrate, got %d", count)
+	// 35 user tables + sqlite_sequence may exist.
+	if count < 35 {
+		t.Errorf("expected at least 35 tables after double migrate, got %d", count)
 	}
 }
 
