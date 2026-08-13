@@ -7,9 +7,7 @@ import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
 export const Route = createFileRoute('/_authenticated/price-compare')({
   component: lazyRouteComponent(
     () =>
-      import(
-        '@/features/models/price-compare/components/price-compare-page'
-      ),
+      import('@/features/models/price-compare/components/price-compare-page'),
     'PriceComparePage'
   ),
 })

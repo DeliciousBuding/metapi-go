@@ -2,14 +2,10 @@
 
 import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
 
-export const Route = createFileRoute(
-  '/_authenticated/fix-candidates'
-)({
+export const Route = createFileRoute('/_authenticated/fix-candidates')({
   component: lazyRouteComponent(
     () =>
-      import(
-        '@/features/models/fix-candidates/components/fix-candidates-page'
-      ),
+      import('@/features/models/fix-candidates/components/fix-candidates-page'),
     'FixCandidatesPage'
   ),
 })

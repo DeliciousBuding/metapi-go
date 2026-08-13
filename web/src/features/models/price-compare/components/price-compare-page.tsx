@@ -102,7 +102,7 @@ export function PriceComparePage() {
       </div>
 
       {query.isLoading && (
-        <div className='flex items-center gap-2 text-sm text-muted-foreground'>
+        <div className='text-muted-foreground flex items-center gap-2 text-sm'>
           <Spinner />
           {t('common.loading')}
         </div>
@@ -147,9 +147,7 @@ function ModelGroupCard({ group }: { group: ModelGroup }) {
             </Badge>
           )}
         </CardTitle>
-        <CardDescription>
-          {t('priceCompare.group.description')}
-        </CardDescription>
+        <CardDescription>{t('priceCompare.group.description')}</CardDescription>
       </CardHeader>
       <CardContent>
         <Table>
@@ -171,7 +169,10 @@ function ModelGroupCard({ group }: { group: ModelGroup }) {
           </TableHeader>
           <TableBody>
             {group.rows.map((row) => (
-              <PriceRow key={`${row.siteId}-${row.accountId}-${row.model}`} row={row} />
+              <PriceRow
+                key={`${row.siteId}-${row.accountId}-${row.model}`}
+                row={row}
+              />
             ))}
           </TableBody>
         </Table>
@@ -186,9 +187,7 @@ function PriceRow({ row }: { row: PriceCompareItem }) {
       <TableCell>
         <div className='font-medium'>{row.siteName}</div>
         {row.username && (
-          <div className='text-muted-foreground text-xs'>
-            {row.username}
-          </div>
+          <div className='text-muted-foreground text-xs'>{row.username}</div>
         )}
       </TableCell>
       <TableCell>

@@ -17,10 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
-import {
-  useApplyRedirectFixCandidates,
-  useRedirectFixCandidates,
-} from '../api'
+import { useApplyRedirectFixCandidates, useRedirectFixCandidates } from '../api'
 
 export function FixCandidatesPage() {
   const { t } = useTranslation()
@@ -91,8 +88,10 @@ export function FixCandidatesPage() {
                 <TableCell className='font-medium'>
                   {candidate.siteName}
                 </TableCell>
-                <TableCell className='font-mono'>{candidate.modelName}</TableCell>
-                <TableCell className='font-mono text-muted-foreground'>
+                <TableCell className='font-mono'>
+                  {candidate.modelName}
+                </TableCell>
+                <TableCell className='text-muted-foreground font-mono'>
                   {candidate.canonical} → {candidate.actual}
                 </TableCell>
                 <TableCell className='tabular-nums'>
