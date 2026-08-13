@@ -169,3 +169,26 @@ func TestAggregatePriceCompareRows_SortCheapestFirstMissingLast(t *testing.T) {
 		t.Fatalf("last should be missing A, got %+v", got[3])
 	}
 }
+
+func TestAggregatePriceCompareRows_MarksRecommendedCheapestPerModel(t *testing.T) {
+	rows := []PriceCompareRow{
+		{SiteName: "Expensive", Model: "gpt-4o", EstimatedCostSample: 0.5, MissingPrice: false, AccountID: 1},
+		{SiteName: "Cheap", Model: "gpt-4o", EstimatedCostSample: 0.1, MissingPrice: false, AccountID: 2},
+		{SiteName: "Missing", Model: "gpt-4o", EstimatedCostSample: 0.0, MissingPrice: true, AccountID: 3},
+		{SiteName: "OtherModel", Model: "claude-x", EstimatedCostSample: 0.2, MissingPrice: false, AccountID: 4},
+	}
+	got := AggregatePriceCompareRows(rows)
+	byAccount := map[int64]PriceCompareRow{}
+	for _, r := range got {
+		byAccount[r.AccountID] = r
+	}
+	if !byAccount[2].Recommended {
+		t.Fatalf("cheapest gpt-4o row should be recommended: %+v", byAccount[2])
+	}
+	if byAccount[1].Recommended || byAccount[3].Recommended {
+		t.Fatal("only the cheapest priced row should be recommended")
+	}
+	if !byAccount[4].Recommended {
+		t.Fatal("sole priced row for claude-x should be recommended")
+	}
+}

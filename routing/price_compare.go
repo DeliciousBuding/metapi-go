@@ -2,6 +2,8 @@ package routing
 
 import (
 	"strings"
+
+	"github.com/deliciousbuding/metapi-go/service/pricing"
 )
 
 // Price comparison provenance labels. Callers must not invent unlabeled prices.
@@ -54,20 +56,21 @@ type PriceCompareInput struct {
 
 // PriceCompareRow is one cross-site effective price candidate for admin UX.
 type PriceCompareRow struct {
-	SiteID               int64   `json:"siteId"`
-	SiteName             string  `json:"siteName"`
-	Platform             string  `json:"platform"`
-	Model                string  `json:"model"`
-	AccountID            int64   `json:"accountId"`
-	Username             string  `json:"username,omitempty"`
-	InputPerMillion      float64 `json:"inputPerMillion"`
-	OutputPerMillion     float64 `json:"outputPerMillion"`
-	Source               string  `json:"source"`
-	RatesSource          string  `json:"ratesSource"`
-	EstimatedCostSample  float64 `json:"estimatedCostSample"`
-	ObservedSamples      int     `json:"observedSamples,omitempty"`
-	ConfiguredUnitCost   *float64 `json:"configuredUnitCost,omitempty"`
-	MissingPrice         bool    `json:"missingPrice"`
+	SiteID              int64    `json:"siteId"`
+	SiteName            string   `json:"siteName"`
+	Platform            string   `json:"platform"`
+	Model               string   `json:"model"`
+	AccountID           int64    `json:"accountId"`
+	Username            string   `json:"username,omitempty"`
+	InputPerMillion     float64  `json:"inputPerMillion"`
+	OutputPerMillion    float64  `json:"outputPerMillion"`
+	Source              string   `json:"source"`
+	RatesSource         string   `json:"ratesSource"`
+	EstimatedCostSample float64  `json:"estimatedCostSample"`
+	ObservedSamples     int      `json:"observedSamples,omitempty"`
+	ConfiguredUnitCost  *float64 `json:"configuredUnitCost,omitempty"`
+	MissingPrice        bool     `json:"missingPrice"`
+	Recommended         bool     `json:"recommended"`
 }
 
 // BuildPriceCompareRow resolves effective rates + sample cost without inventing
@@ -187,7 +190,27 @@ func AggregatePriceCompareRows(rows []PriceCompareRow) []PriceCompareRow {
 			}
 		}
 	}
-	return out
+	return markPriceCompareRecommendations(out)
+}
+
+// markPriceCompareRecommendations flags the cheapest priced row of each model
+// as the recommended best channel. Rows without a resolvable model name or
+// without a price are never recommended.
+func markPriceCompareRecommendations(rows []PriceCompareRow) []PriceCompareRow {
+	seen := make(map[string]struct{}, len(rows))
+	for i := range rows {
+		row := &rows[i]
+		key := strings.ToLower(strings.TrimSpace(row.Model))
+		if key == "" || row.MissingPrice {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		row.Recommended = true
+	}
+	return rows
 }
 
 func priceCompareLess(a, b PriceCompareRow) bool {
@@ -215,24 +238,13 @@ func resolvePriceCompareRates(in PriceCompareInput, model string) (inputPerM, ou
 
 	if (in.ModelRatio != nil && isFiniteFloat(*in.ModelRatio) && *in.ModelRatio > 0) ||
 		(in.CompletionRatio != nil && isFiniteFloat(*in.CompletionRatio) && *in.CompletionRatio > 0) {
-		pm := PricingModel{
+		canonical := pricing.NormalizeToProductCanonical(pricing.NormalizeInput{
 			ModelName:       model,
-			QuotaType:       0,
-			ModelRatio:      1,
-			CompletionRatio: 1,
-		}
-		if in.ModelRatio != nil && isFiniteFloat(*in.ModelRatio) && *in.ModelRatio > 0 {
-			pm.ModelRatio = *in.ModelRatio
-		}
-		if in.CompletionRatio != nil && isFiniteFloat(*in.CompletionRatio) && *in.CompletionRatio > 0 {
-			pm.CompletionRatio = *in.CompletionRatio
-		}
-		groupMul := 1.0
-		if in.GroupRatio != nil && isFiniteFloat(*in.GroupRatio) && *in.GroupRatio > 0 {
-			groupMul = *in.GroupRatio
-		}
-		inM, outM, _, _ := CacheAwarePerMillionRates(pm, groupMul)
-		return inM, outM, PriceSourceBilling
+			ModelRatio:      in.ModelRatio,
+			CompletionRatio: in.CompletionRatio,
+			GroupMultiplier: in.GroupRatio,
+		})
+		return canonical.InputPerMillion, canonical.OutputPerMillion, PriceSourceBilling
 	}
 
 	// Explicit single-sided rates still count as billing when one side is known.
