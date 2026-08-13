@@ -15,7 +15,6 @@ import type { ColumnFiltersState } from '@tanstack/react-table'
 import { RefreshCw as RefreshCwIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from '@/lib/toast'
 
 import {
   DataTablePage,
@@ -33,6 +32,7 @@ import {
   parseSortingParam,
   parseStringListParam,
 } from '@/lib/helpers/searchParams'
+import { toast } from '@/lib/toast'
 
 import { useModels } from '../api'
 import { modelsSearchSchema } from '../lib/models-schema'

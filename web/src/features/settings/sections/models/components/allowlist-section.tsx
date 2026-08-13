@@ -12,7 +12,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from '@/lib/toast'
 import { z } from 'zod'
 
 import { Badge } from '@/components/ui/badge'
@@ -29,6 +28,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { api } from '@/lib/api'
+import { toast } from '@/lib/toast'
 
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
 import { SettingsFormActions } from '../../../components/settings-form-actions'

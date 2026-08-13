@@ -10,7 +10,6 @@ import {
   useQueryClient,
   type UseQueryOptions,
 } from '@tanstack/react-query'
-import { toast } from '@/lib/toast'
 
 import i18n from '@/i18n/config'
 import { api } from '@/lib/api'
@@ -19,6 +18,7 @@ import {
   type MissingTokenModelsByName,
 } from '@/lib/helpers/routeMissingTokenHints'
 import { buildZeroChannelPlaceholderRoutes } from '@/lib/helpers/zeroChannelRoutes'
+import { toast } from '@/lib/toast'
 
 import type {
   RouteChannel,

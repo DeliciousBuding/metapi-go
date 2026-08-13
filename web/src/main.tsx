@@ -17,11 +17,11 @@ import { AxiosError } from 'axios'
 import i18next from 'i18next'
 import { StrictMode } from 'react'
 import ReactDOM from 'react-dom/client'
-import { toast } from '@/lib/toast'
 
 import { DirectionProvider } from '@/context/direction-provider'
 import { ThemeCustomizationProvider } from '@/context/theme-customization-provider'
 import { ThemeProvider } from '@/context/theme-provider'
+import { toast } from '@/lib/toast'
 
 // i18next side-effect init (config.ts calls i18n.init)
 import './i18n/config'

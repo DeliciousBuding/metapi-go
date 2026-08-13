@@ -1,5 +1,4 @@
 import axios, { type AxiosRequestConfig } from 'axios'
-import { toast } from '@/lib/toast'
 
 import {
   applyAuthRotation,
@@ -9,6 +8,7 @@ import {
   getAuthSession,
   refreshAuthentication,
 } from '@/lib/auth-session'
+import { toast } from '@/lib/toast'
 
 declare module 'axios' {
   export interface AxiosRequestConfig {

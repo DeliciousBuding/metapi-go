@@ -6,7 +6,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -19,6 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { api, type RateOverviewResponse } from '@/lib/api'
+import { toast } from '@/lib/toast'
 
 import {
   SettingsSectionCard,

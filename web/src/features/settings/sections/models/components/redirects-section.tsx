@@ -4,7 +4,6 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { toast } from '@/lib/toast'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -21,6 +20,7 @@ import {
   type ModelRedirectsResponse,
   type RedirectApplyResponse,
 } from '@/lib/api'
+import { toast } from '@/lib/toast'
 
 import {
   SettingsSectionCard,

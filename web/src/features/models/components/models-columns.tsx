@@ -62,7 +62,6 @@ function resolveLowestInputPrice(model: ModelRow): number | null {
   return lowest
 }
 
-
 /**
  * Build the model list columns. Must be called during render (it is a hook
  * because it reads i18n state). The `actions` callbacks are supplied by the

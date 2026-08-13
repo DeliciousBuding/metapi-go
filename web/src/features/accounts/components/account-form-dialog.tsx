@@ -18,7 +18,6 @@ import {
   type UseFormReturn,
 } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { toast } from '@/lib/toast'
 
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
@@ -50,6 +49,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { toast } from '@/lib/toast'
 
 import { useCreateAccount, useUpdateAccount } from '../api'
 import {

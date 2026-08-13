@@ -9,9 +9,8 @@
 // and can be upgraded to `useNavigate({ to: '/token-routes', search })` once
 // the route file lands.
 
-import { toast } from '@/lib/toast'
-
 import i18n from '@/i18n/config'
+import { toast } from '@/lib/toast'
 
 function buildRouteTarget(accountId?: number, siteId?: number): string {
   const params = new URLSearchParams()

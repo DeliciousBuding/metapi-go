@@ -81,7 +81,7 @@ export function TableEmpty({
   const resolvedIcon = isFiltered ? (
     <SearchX className='size-6' />
   ) : (
-    (icon || <Database className='size-6' />)
+    icon || <Database className='size-6' />
   )
 
   return (

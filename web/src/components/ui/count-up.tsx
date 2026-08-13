@@ -63,9 +63,7 @@ export function CountUp({
       return undefined
     }
 
-    const duration = mountedRef.current
-      ? updateDuration
-      : initialDuration
+    const duration = mountedRef.current ? updateDuration : initialDuration
     mountedRef.current = true
     const start = performance.now()
 

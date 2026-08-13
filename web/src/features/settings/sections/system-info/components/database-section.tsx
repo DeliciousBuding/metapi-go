@@ -4,7 +4,6 @@
 
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { toast } from '@/lib/toast'
 import { z } from 'zod'
 
 import { Button } from '@/components/ui/button'
@@ -27,6 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
+import { toast } from '@/lib/toast'
 
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
 import { SettingsFormActions } from '../../../components/settings-form-actions'

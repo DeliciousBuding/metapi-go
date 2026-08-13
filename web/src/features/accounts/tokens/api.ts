@@ -13,10 +13,10 @@ import {
   useQueryClient,
   type UseQueryOptions,
 } from '@tanstack/react-query'
-import { toast } from '@/lib/toast'
 
 import i18n from '@/i18n/config'
 import { api } from '@/lib/api'
+import { toast } from '@/lib/toast'
 
 import { accountQueryKeys } from '../api'
 import { type AccountToken, accountTokenSchema } from '../types'

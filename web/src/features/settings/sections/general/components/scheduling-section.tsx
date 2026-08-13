@@ -7,7 +7,6 @@
 import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from '@/lib/toast'
 import { z } from 'zod'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
@@ -28,6 +27,7 @@ import {
   type RuntimeSettingsPayload,
   type ScheduleSpecV1,
 } from '@/lib/api'
+import { toast } from '@/lib/toast'
 
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
 import { ScheduleEditor } from '../../../components/schedule-editor'

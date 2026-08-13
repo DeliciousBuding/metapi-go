@@ -12,7 +12,6 @@
 import { Plus as PlusIcon, Trash2 as Trash2Icon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { toast } from '@/lib/toast'
 
 import {
   DataTableBulkActions,
@@ -34,6 +33,7 @@ import {
 import { Spinner } from '@/components/ui/spinner'
 import { useAccounts } from '@/features/accounts'
 import { asStringParam, parseSortingParam } from '@/lib/helpers/searchParams'
+import { toast } from '@/lib/toast'
 
 import {
   useBatchUpdateSites,
