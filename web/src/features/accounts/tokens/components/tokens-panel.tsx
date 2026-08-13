@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
+import { SecretField } from '@/components/ui/secret-field'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 
@@ -217,9 +218,7 @@ function TokenRow({
             </Badge>
           )}
         </div>
-        <span className='text-muted-foreground truncate font-mono text-[11px]'>
-          {token.tokenMasked || token.token || '—'}
-        </span>
+        <SecretField value={token.token} masked={token.tokenMasked} />
       </div>
 
       <div className='flex items-center gap-1'>
