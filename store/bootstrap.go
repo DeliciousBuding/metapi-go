@@ -74,7 +74,7 @@ func EnsureRuntimeDatabase(cfg *config.Config) error {
 		return fmt.Errorf("bootstrap: failed to open database: %w", err)
 	}
 
-	// Run auto-migration (CREATE TABLE IF NOT EXISTS for all 27 tables).
+	// Run auto-migration (CREATE TABLE IF NOT EXISTS for all 35 tables).
 	if err := AutoMigrate(db); err != nil {
 		db.Close()
 		return fmt.Errorf("bootstrap: auto-migration failed: %w", err)

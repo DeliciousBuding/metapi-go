@@ -7,7 +7,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 )
 
-// AutoMigrate creates all 28 tables with indexes, unique constraints, foreign keys,
+// AutoMigrate creates all 35 tables with indexes, unique constraints, foreign keys,
 // and check constraints. Uses CREATE TABLE IF NOT EXISTS for idempotency.
 // After the base bootstrap it runs ApplyAdditiveMigrations (schema_migrations
 // bookkeeping + ordered enterprise steps). Run on startup after Open().
@@ -1232,7 +1232,7 @@ func buildBalanceHistoryDDL(d string) string {
 }
 
 // buildModelVerifyHistoryDDL creates the model_verify_history table
-//. One row per model/channel probe result from an
+// . One row per model/channel probe result from an
 // operator-initiated batch verification pass (POST /api/models/verify-batch).
 // batch_id groups one operator action; status is success | failure |
 // inconclusive | skipped (same vocabulary as the background model probe).
@@ -1303,7 +1303,7 @@ func buildModelProbeResultsDDL(d string) string {
 }
 
 // buildProductAnnouncementsDDL creates the product_announcements table
-//. Operator-authored severity-ranked banners shown on
+// . Operator-authored severity-ranked banners shown on
 // the Dashboard. Content edits (PUT) reset any dismissal so a new revision is
 // seen again (dismiss-revision semantics).
 func buildProductAnnouncementsDDL(d string) string {
@@ -1332,7 +1332,7 @@ func buildProductAnnouncementsDDL(d string) string {
 }
 
 // buildAnnouncementDismissalsDDL creates the announcement_dismissals table
-//. One row per dismissed announcement; content
+// . One row per dismissed announcement; content
 // revisions delete the row so the new revision surfaces again.
 func buildAnnouncementDismissalsDDL(d string) string {
 	if isPG(d) {
@@ -1349,7 +1349,7 @@ func buildAnnouncementDismissalsDDL(d string) string {
 }
 
 // buildModelNameRedirectsDDL creates the model_name_redirects table
-//. Maps a canonical route model name to the actual
+// . Maps a canonical route model name to the actual
 // upstream name per account (e.g. claude-3-5-sonnet → claude-3-5-sonnet-20241022).
 // source is sync (auto-generated) or manual (operator-authored, never
 // overwritten by sync generation).
@@ -1409,7 +1409,7 @@ func buildEventsDDL(d string) string {
 }
 
 // buildAdminAuditLogsDDL creates the admin_audit_logs table
-//. Records authenticated admin write
+// . Records authenticated admin write
 // operations (POST/PUT/PATCH/DELETE) for traceability and compliance.
 // actor is a sha256 prefix of the admin bearer token — never the raw token.
 func buildAdminAuditLogsDDL(d string) string {
