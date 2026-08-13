@@ -4,6 +4,7 @@
 // Titles are i18n keys resolved via t() at render time (nav-group.tsx).
 
 import {
+  Activity,
   Boxes,
   CalendarCheck,
   FlaskConical,
@@ -56,6 +57,11 @@ export function useSidebarData(): SidebarData {
             title: 'sidebar.items.proxyLogs',
             url: '/proxy-logs',
             icon: ScrollText,
+          },
+          {
+            title: 'sidebar.items.observability',
+            url: '/observability',
+            icon: Activity,
           },
         ],
       },

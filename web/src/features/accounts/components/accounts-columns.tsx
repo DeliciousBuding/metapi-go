@@ -34,6 +34,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 import {
@@ -306,7 +312,8 @@ export function useAccountsColumns(
         const account = accountSchema.parse(row.original)
         const config = resolveHealth(account)
         const HealthIcon = config.icon
-        return (
+        const reason = account.runtimeHealth?.reason?.trim()
+        const badge = (
           <Badge variant={config.variant}>
             <HealthIcon className='size-3' aria-hidden='true' />
             <span
@@ -315,6 +322,24 @@ export function useAccountsColumns(
             />
             {config.label}
           </Badge>
+        )
+        if (!reason) {
+          return badge
+        }
+        return (
+          <TooltipProvider delay={200}>
+            <Tooltip>
+              <TooltipTrigger render={<span className='w-fit'>{badge}</span>} />
+              <TooltipContent side='top' className='max-w-xs'>
+                <div className='flex flex-col gap-0.5'>
+                  <span className='font-medium'>
+                    {t('accounts.columns.healthDetail')}
+                  </span>
+                  <span className='text-xs'>{reason}</span>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )
       },
       filterFn: (row, _columnId, filterValue: unknown) => {
