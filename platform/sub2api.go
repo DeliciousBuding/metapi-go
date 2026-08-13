@@ -85,7 +85,7 @@ func (s *Sub2ApiAdapter) matchSub2ApiErrorEnvelope(ctx context.Context, url stri
 		return false
 	}
 
-	code, _ := body["code"]
+	code := body["code"]
 	switch c := code.(type) {
 	case string:
 		upper := strings.ToUpper(strings.TrimSpace(c))

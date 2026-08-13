@@ -558,7 +558,7 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 		enabled, expiresAt, maxCost, maxRequests, maxRpm, maxTpm,
 		modelsJSON, routeIdsJSON, swmJSON, keyWeight,
 		excludedSitesJSON, credRefsJSON,
-			allowedSitesJSON, allowedCredRefsJSON, proxyURL, ipAllowlist, ipBlocklist, now, id,
+		allowedSitesJSON, allowedCredRefsJSON, proxyURL, ipAllowlist, ipBlocklist, now, id,
 	)
 	if err != nil {
 		if isUniqueConstraintError(err) {
@@ -1258,30 +1258,6 @@ func normalizeExpiresAt(input *string) *string {
 	}
 	iso := t.UTC().Format(time.RFC3339)
 	return &iso
-}
-
-// normalizePositiveFloatOrNull keeps positive values; nil/negative/NaN/Inf become NULL.
-// Prefer normalizeQuotaFloatOrNull for maxCost (null/0 clear contract).
-func normalizePositiveFloatOrNull(input *float64) *float64 {
-	if input == nil {
-		return nil
-	}
-	if *input < 0 || math.IsNaN(*input) || math.IsInf(*input, 0) {
-		return nil
-	}
-	return input
-}
-
-// normalizePositiveIntOrNull keeps non-negative values; nil/negative become NULL.
-// Prefer normalizeQuotaIntOrNull for maxRequests (null/0 clear contract).
-func normalizePositiveIntOrNull(input *int64) *int64 {
-	if input == nil {
-		return nil
-	}
-	if *input < 0 {
-		return nil
-	}
-	return input
 }
 
 // normalizeQuotaFloatOrNull implements maxCost clear/set semantics for create/update.

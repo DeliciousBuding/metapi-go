@@ -3,10 +3,9 @@ package oauth
 import "sync"
 
 var (
-	mu         sync.RWMutex
-	byID       = make(map[OAuthProviderId]*OAuthProviderDefinition)
-	all        []*OAuthProviderDefinition
-	registered bool
+	mu   sync.RWMutex
+	byID = make(map[OAuthProviderId]*OAuthProviderDefinition)
+	all  []*OAuthProviderDefinition
 )
 
 // RegisterProvider registers a single OAuth provider definition.
@@ -16,7 +15,6 @@ func RegisterProvider(def *OAuthProviderDefinition) {
 	defer mu.Unlock()
 	byID[def.Metadata.Provider] = def
 	all = append(all, def)
-	registered = true
 }
 
 // GetProviderDefinition returns the provider definition for the given provider ID.

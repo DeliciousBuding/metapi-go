@@ -150,10 +150,8 @@ func NormalizeManagedTokenExpiresAt(value any) (int64, bool) {
 // Unrelated keys on existing are always preserved. Returns nil when empty.
 func MergeSub2ApiAuth(existing map[string]any, refreshToken any, tokenExpiresAt any) map[string]any {
 	out := map[string]any{}
-	if existing != nil {
-		for k, v := range existing {
-			out[k] = v
-		}
+	for k, v := range existing {
+		out[k] = v
 	}
 	if rt, ok := NormalizeManagedRefreshToken(refreshToken); ok {
 		out["refreshToken"] = rt

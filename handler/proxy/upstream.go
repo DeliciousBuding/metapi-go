@@ -1479,41 +1479,6 @@ func relayBufferedUpstreamResponse(w http.ResponseWriter, resp *http.Response, b
 	_, _ = w.Write(bodyBytes)
 }
 
-// handleNonStreamUpstream writes a non-streaming upstream response to the downstream.
-func handleNonStreamUpstream(w http.ResponseWriter, resp *http.Response, latencyMs int64, requestedModel, upstreamModel string, channelID int64) {
-	bodyBytes, err := proxy.ReadBufferedResponseBody(resp.Body)
-	if err != nil {
-		slog.Warn("failed to read upstream response", "err", err)
-		writeJSONError(w, 502, "Failed to read upstream response", "upstream_error")
-		return
-	}
-
-	// Detect proxy failure
-	usage := ParseUsageFromBody(bodyBytes)
-	failure := proxy.DetectProxyFailure(string(bodyBytes), usage.ToUsageSummary())
-	if failure != nil {
-		slog.Warn("content-based failure detected",
-			"reason", failure.Reason,
-			"status", failure.Status,
-			"model", upstreamModel,
-			"channel_id", channelID,
-			"latency_ms", latencyMs,
-		)
-		writeJSONError(w, failure.Status, "Upstream returned an error response", "upstream_error")
-		return
-	}
-
-	// Relay upstream response headers and body
-	for k, v := range resp.Header {
-		if k == "Content-Length" || k == "Transfer-Encoding" {
-			continue
-		}
-		w.Header()[k] = v
-	}
-	w.WriteHeader(resp.StatusCode)
-	w.Write(bodyBytes)
-}
-
 // sanitizeUpstreamJSONBody applies Responses continuity/compact/reasoning-input
 // sanitization and official Gemini tool-history thoughtSignature inject for one
 // upstream attempt. Chat/messages candidates strip previous_response_id;

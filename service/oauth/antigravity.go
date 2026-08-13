@@ -99,11 +99,6 @@ type antigravityLoadCodeAssistPayload struct {
 	AllowedTiers            interface{} `json:"allowedTiers"`
 }
 
-type antigravityOnboardUserPayload struct {
-	Done     interface{} `json:"done"`
-	Response interface{} `json:"response"`
-}
-
 func parseAntigravityExpiresAt(payload *antigravityOAuthTokenPayload) int64 {
 	switch v := payload.ExpiresIn.(type) {
 	case float64:

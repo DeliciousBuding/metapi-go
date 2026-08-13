@@ -130,10 +130,10 @@ func buildClaudeModelsResponse(models []string, now time.Time) map[string]any {
 	}
 
 	return map[string]any{
-		"data":      items,
-		"first_id":  firstID,
-		"last_id":   lastID,
-		"has_more":  false,
+		"data":     items,
+		"first_id": firstID,
+		"last_id":  lastID,
+		"has_more": false,
 	}
 }
 
@@ -325,10 +325,7 @@ func knownModelContextLength(model string) (int64, bool) {
 // IsModelAllowedByPolicy checks if a model is allowed by the downstream policy.
 func IsModelAllowedByPolicy(requestedModel string, policy auth.DownstreamRoutingPolicy) bool {
 	if len(policy.SupportedModels) == 0 && len(policy.AllowedRouteIDs) == 0 {
-		if policy.DenyAllWhenEmpty {
-			return false
-		}
-		return true
+		return !policy.DenyAllWhenEmpty
 	}
 
 	if len(policy.SupportedModels) > 0 {

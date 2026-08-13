@@ -112,13 +112,11 @@ func CloneMultipartBody(r *http.Request, overrides map[string]string) (io.Reader
 		}
 
 		// For override keys not present in the original form, add them
-		if overrides != nil {
-			for key, ov := range overrides {
-				if _, exists := r.MultipartForm.Value[key]; !exists {
-					if err := writer.WriteField(key, ov); err != nil {
-						copyErr = fmt.Errorf("write multipart override field %q: %w", key, err)
-						return
-					}
+		for key, ov := range overrides {
+			if _, exists := r.MultipartForm.Value[key]; !exists {
+				if err := writer.WriteField(key, ov); err != nil {
+					copyErr = fmt.Errorf("write multipart override field %q: %w", key, err)
+					return
 				}
 			}
 		}

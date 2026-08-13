@@ -240,9 +240,7 @@ func HandleGeminiCLICountTokens(w http.ResponseWriter, r *http.Request) {
 func ParseGeminiPath(path string) (apiVersion, model, action string) {
 	path = strings.TrimPrefix(path, "/")
 	// Strip optional /gemini/ prefix used by HandleGeminiGenerateContentDynamic.
-	if strings.HasPrefix(path, "gemini/") {
-		path = strings.TrimPrefix(path, "gemini/")
-	}
+	path = strings.TrimPrefix(path, "gemini/")
 	parts := strings.SplitN(path, "/", 4)
 
 	if len(parts) >= 1 {

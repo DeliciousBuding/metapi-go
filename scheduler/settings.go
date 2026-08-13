@@ -2,7 +2,6 @@ package scheduler
 
 import (
 	"encoding/json"
-	"fmt"
 	"math"
 	"strings"
 	"time"
@@ -109,22 +108,6 @@ func resolvePositiveIntegerSetting(settingKey string, fallback int) int {
 	}
 
 	return int(math.Trunc(value))
-}
-
-// resolveJsonSetting reads a JSON value from DB settings into the target type.
-func resolveJsonSetting(settingKey string, target any) error {
-	db := store.GetDB()
-	if db == nil {
-		return fmt.Errorf("database not available")
-	}
-
-	settingsStore := store.NewSettingsStore(db)
-	raw, err := settingsStore.Get(settingKey)
-	if err != nil || raw == "" {
-		return fmt.Errorf("setting %s not found", settingKey)
-	}
-
-	return json.Unmarshal([]byte(raw), target)
 }
 
 // ---- Common helpers ----

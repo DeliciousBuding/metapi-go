@@ -157,13 +157,6 @@ func bodyGeminiMaxOutputTokens(body map[string]any) (value int64, field string, 
 	return 0, "", false
 }
 
-// bodyMaxTokens extracts body["max_tokens"] when present as a finite whole number
-// or numeric string. Missing / null / empty / non-numeric → not present.
-// Kept for callers/tests that only care about the chat/messages field.
-func bodyMaxTokens(body map[string]any) (int64, bool) {
-	return parseBodyTokenField(body, "max_tokens")
-}
-
 // parseBodyTokenField reads body[key] as a finite whole number or numeric string.
 func parseBodyTokenField(body map[string]any, key string) (int64, bool) {
 	if body == nil {

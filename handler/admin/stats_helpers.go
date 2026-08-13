@@ -3,7 +3,6 @@ package admin
 import (
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -15,7 +14,7 @@ import (
 //
 
 func modelAllowed(model string, allowed map[string]struct{}) bool {
-	if allowed == nil || len(allowed) == 0 {
+	if len(allowed) == 0 {
 		return true
 	}
 	_, ok := allowed[strings.ToLower(strings.TrimSpace(model))]
@@ -42,10 +41,6 @@ func queryRow(db *sqlx.DB, query string, args ...any) map[string]any {
 		return mapKeysToCamel(row)
 	}
 	return nil
-}
-
-func nowUTC() string {
-	return time.Now().UTC().Format(time.RFC3339)
 }
 
 func roundMicro(v float64) float64 {
