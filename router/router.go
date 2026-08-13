@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/app"
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
@@ -16,6 +15,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/handler/proxy"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 // New creates and configures the Chi router with the full middleware stack,
@@ -86,6 +86,8 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 			admin.RegisterAnnouncementsRoutes(r, db.DB)
 			// K1a: model name redirects.
 			admin.RegisterModelRedirectRoutes(r, db.DB)
+			// K1a: model-governance fix candidates (list + apply).
+			admin.RegisterModelRedirectFixRoutes(r, db.DB)
 			// Read-only multiplier/rate overview.
 			admin.RegisterModelRatesRoutes(r, db.DB)
 			// B1: admin write-operation audit log.
