@@ -279,13 +279,21 @@ Get, update, delete an account token.
 
 List site announcements.
 
-### GET /api/site-announcements/:id
+### POST /api/site-announcements/{id}/read
 
-Get a single announcement.
+Mark one site announcement as read.
 
-### PUT /api/site-announcements/:id
+### POST /api/site-announcements/read-all
 
-Update announcement (e.g., mark as read/dismissed).
+Mark all site announcements as read.
+
+### POST /api/site-announcements/sync
+
+Sync site announcements from configured sites.
+
+### DELETE /api/site-announcements
+
+Delete all site announcements.
 
 ---
 
@@ -295,15 +303,15 @@ Update announcement (e.g., mark as read/dismissed).
 
 List system events (paginated). **Query params**: `page`, `limit`, `level`.
 
-### GET /api/events/unread-count
+### GET /api/events/count
 
 Get count of unread events.
 
-### POST /api/events/mark-all-read
+### POST /api/events/read-all
 
 Mark all events as read.
 
-### PUT /api/events/:id/read
+### POST /api/events/{id}/read
 
 Mark a single event as read.
 
@@ -465,13 +473,17 @@ Reset all data to factory defaults.
 
 ## Checkin
 
-### POST /api/checkin/run
+### POST /api/checkin/trigger
 
 Trigger manual checkin for all accounts.
 
-### POST /api/checkin/reset-attempts
+### POST /api/checkin/trigger/{id}
 
-Reset checkin attempt tracking.
+Trigger manual checkin for a single account.
+
+### GET /api/checkin/logs
+
+List checkin execution logs.
 
 ### PUT /api/checkin/schedule
 
@@ -495,17 +507,33 @@ Trigger update center check.
 
 ## Monitor
 
-### GET /api/monitor/status
+### GET /api/monitor/health
 
-System monitoring status.
+Monitoring health snapshot.
+
+### GET /api/monitor/config
+
+Get monitoring configuration.
+
+### PUT /api/monitor/config
+
+Save monitoring configuration.
+
+### POST /api/monitor/session
+
+Start a monitoring session.
+
+### DELETE /api/monitor/session
+
+Clear the monitoring session.
 
 ---
 
 ## Search
 
-### GET /api/search
+### POST /api/search
 
-Global search across sites, accounts, routes, and keys. **Query params**: `q`.
+Global search across sites, accounts, routes, and keys.
 
 ---
 
@@ -523,9 +551,29 @@ Get task status.
 
 ## Test
 
-### POST /api/test/echo
+### GET /api/test/read
 
-Echo test endpoint.
+Read-only test endpoint.
+
+### POST /api/test/write
+
+Write test endpoint.
+
+### PUT /api/test/update
+
+Update test endpoint.
+
+### PATCH /api/test/patch
+
+Patch test endpoint.
+
+### DELETE /api/test/delete
+
+Delete test endpoint.
+
+### POST /api/test/boom
+
+Intentional panic test endpoint.
 
 ---
 
@@ -535,23 +583,23 @@ Echo test endpoint.
 
 List OAuth providers.
 
-### POST /api/oauth/authorize
+### POST /api/oauth/providers/{provider}/start
 
-Start OAuth authorization flow.
+Start OAuth authorization flow for a provider.
 
-### GET /api/oauth/callback
+### GET /api/oauth/callback/{provider}
 
-OAuth callback endpoint.
+OAuth callback endpoint for a provider.
 
 ---
 
 ## Auth Settings
 
-### GET /api/auth/settings
+### GET /api/settings/auth/info
 
 Get authentication settings (admin IP allowlist, proxy token config).
 
-### PUT /api/auth/settings
+### POST /api/settings/auth/change
 
 Update authentication settings.
 
@@ -598,3 +646,218 @@ OpenAI-compatible Files surface (proxy auth required). Forwards to the selected 
 | DELETE | `/v1/files/{fileId}` | Delete file. |
 
 Channel selection uses model key: body/multipart `model`, else `?model=`, else `X-Metapi-Files-Model`, else default `gpt-4o`. Residual platforms without a Files API return upstream errors.
+
+---
+
+## Admin Route Inventory
+Complete list of registered `/api` admin routes (generated from the router registration). Path parameters use `:param` syntax.
+
+### GET
+- `/api/account-tokens`
+- `/api/account-tokens/:id/value`
+- `/api/account-tokens/account/:accountId/default`
+- `/api/account-tokens/groups/:accountId`
+- `/api/accounts`
+- `/api/accounts/:id/models`
+- `/api/admin/audit-logs`
+- `/api/admin/ops/ws`
+- `/api/announcements`
+- `/api/announcements/active`
+- `/api/channels`
+- `/api/checkin/logs`
+- `/api/debug/vars`
+- `/api/desktop/health`
+- `/api/downstream-keys`
+- `/api/downstream-keys/:id/export`
+- `/api/downstream-keys/:id/overview`
+- `/api/downstream-keys/:id/trend`
+- `/api/downstream-keys/summary`
+- `/api/events`
+- `/api/events/count`
+- `/api/model-redirects`
+- `/api/models/marketplace`
+- `/api/models/price-compare`
+- `/api/models/rates`
+- `/api/models/redirect-fix-candidates`
+- `/api/models/token-candidates`
+- `/api/models/verify-history`
+- `/api/monitor/config`
+- `/api/monitor/health`
+- `/api/oauth/callback/:provider`
+- `/api/oauth/connections`
+- `/api/oauth/providers`
+- `/api/oauth/sessions/:state`
+- `/api/ping`
+- `/api/routes`
+- `/api/routes/:id/channels`
+- `/api/routes/decision`
+- `/api/routes/lite`
+- `/api/routes/summary`
+- `/api/scheduler/status`
+- `/api/settings/auth/info`
+- `/api/settings/backup/export`
+- `/api/settings/backup/webdav`
+- `/api/settings/brand-list`
+- `/api/settings/database/runtime`
+- `/api/settings/migration/preview`
+- `/api/settings/runtime`
+- `/api/site-announcements`
+- `/api/sites`
+- `/api/sites/:id/available-models`
+- `/api/sites/:id/disabled-models`
+- `/api/sites/:id/probe-stream`
+- `/api/stats/attention`
+- `/api/stats/balance-history`
+- `/api/stats/balance-income-outcome`
+- `/api/stats/dashboard`
+- `/api/stats/latency-histogram`
+- `/api/stats/latency-trend`
+- `/api/stats/model-by-site`
+- `/api/stats/model-cost-distribution`
+- `/api/stats/model-prices`
+- `/api/stats/proxy-debug/traces`
+- `/api/stats/proxy-debug/traces/:id`
+- `/api/stats/proxy-logs`
+- `/api/stats/proxy-logs/:id`
+- `/api/stats/site-distribution`
+- `/api/stats/site-trend`
+- `/api/stats/slow-requests`
+- `/api/stats/usage-heatmap`
+- `/api/tags`
+- `/api/tasks`
+- `/api/tasks/:id`
+- `/api/test/chat/jobs/:jobId`
+- `/api/test/proxy/jobs/:jobId`
+- `/api/test/read`
+- `/api/update-center/status`
+- `/api/update-center/tasks/:id/stream`
+
+### POST
+- `/api/account-tokens`
+- `/api/account-tokens/:id/default`
+- `/api/account-tokens/batch`
+- `/api/account-tokens/sync-all`
+- `/api/account-tokens/sync/:accountId`
+- `/api/accounts`
+- `/api/accounts/:id/balance`
+- `/api/accounts/:id/models/manual`
+- `/api/accounts/:id/rebind-session`
+- `/api/accounts/batch`
+- `/api/accounts/health/refresh`
+- `/api/accounts/login`
+- `/api/accounts/verify-token`
+- `/api/admin/test-channel`
+- `/api/announcements`
+- `/api/announcements/:id/dismiss`
+- `/api/checkin/trigger`
+- `/api/checkin/trigger/:id`
+- `/api/debug/channel-probe`
+- `/api/downstream-keys`
+- `/api/downstream-keys/:id/reset-usage`
+- `/api/downstream-keys/batch`
+- `/api/events/:id/read`
+- `/api/events/read-all`
+- `/api/model-redirects/apply`
+- `/api/model-redirects/generate`
+- `/api/models/check/:accountId`
+- `/api/models/probe`
+- `/api/models/redirect-fix-candidates`
+- `/api/models/verify-batch`
+- `/api/monitor/session`
+- `/api/oauth/connections/:accountId/quota/refresh`
+- `/api/oauth/connections/:accountId/rebind`
+- `/api/oauth/connections/quota/refresh-batch`
+- `/api/oauth/import`
+- `/api/oauth/providers/:provider/start`
+- `/api/oauth/route-units`
+- `/api/oauth/sessions/:state/manual-callback`
+- `/api/ping`
+- `/api/routes`
+- `/api/routes/:id/channels`
+- `/api/routes/:id/channels/batch`
+- `/api/routes/:id/cooldown/clear`
+- `/api/routes/batch`
+- `/api/routes/decision/batch`
+- `/api/routes/decision/by-route/batch`
+- `/api/routes/decision/refresh`
+- `/api/routes/decision/route-wide/batch`
+- `/api/routes/rebuild`
+- `/api/search`
+- `/api/settings/auth/change`
+- `/api/settings/backup/import`
+- `/api/settings/backup/import/preview`
+- `/api/settings/backup/webdav/export`
+- `/api/settings/backup/webdav/import`
+- `/api/settings/database/migrate`
+- `/api/settings/database/test-connection`
+- `/api/settings/maintenance/clear-cache`
+- `/api/settings/maintenance/clear-usage`
+- `/api/settings/maintenance/factory-reset`
+- `/api/settings/migration/apply`
+- `/api/settings/notify/test`
+- `/api/settings/system-proxy/test`
+- `/api/site-announcements/:id/read`
+- `/api/site-announcements/read-all`
+- `/api/site-announcements/sync`
+- `/api/sites`
+- `/api/sites/:id/probe-now`
+- `/api/sites/batch`
+- `/api/sites/detect`
+- `/api/sites/import`
+- `/api/test/boom`
+- `/api/test/chat`
+- `/api/test/chat/jobs`
+- `/api/test/chat/stream`
+- `/api/test/proxy`
+- `/api/test/proxy/jobs`
+- `/api/test/proxy/stream`
+- `/api/test/write`
+- `/api/update-center/check`
+- `/api/update-center/deploy`
+- `/api/update-center/rollback`
+
+### PUT
+- `/api/account-tokens/:id`
+- `/api/accounts/:id`
+- `/api/accounts/:id/tags`
+- `/api/announcements/:id`
+- `/api/channels/:channelId`
+- `/api/channels/batch`
+- `/api/checkin/schedule`
+- `/api/downstream-keys/:id`
+- `/api/model-redirects/:id`
+- `/api/models/rates`
+- `/api/monitor/config`
+- `/api/routes/:id`
+- `/api/routes/reorder`
+- `/api/settings/backup/webdav`
+- `/api/settings/database/runtime`
+- `/api/settings/runtime`
+- `/api/sites/:id`
+- `/api/sites/:id/disabled-models`
+- `/api/sites/:id/tags`
+- `/api/test/update`
+- `/api/update-center/config`
+
+### PATCH
+- `/api/oauth/connections/:accountId/proxy`
+- `/api/oauth/route-units/:routeUnitId`
+- `/api/test/patch`
+
+### DELETE
+- `/api/account-tokens/:id`
+- `/api/accounts/:id`
+- `/api/announcements/:id`
+- `/api/channels/:channelId`
+- `/api/downstream-keys/:id`
+- `/api/events`
+- `/api/model-redirects/:id`
+- `/api/monitor/session`
+- `/api/oauth/connections/:accountId`
+- `/api/oauth/route-units/:routeUnitId`
+- `/api/routes/:id`
+- `/api/site-announcements`
+- `/api/sites/:id`
+- `/api/test/chat/jobs/:jobId`
+- `/api/test/delete`
+- `/api/test/proxy/jobs/:jobId`
