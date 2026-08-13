@@ -5,7 +5,7 @@ All notable changes to MetAPI-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
-## [v0.11.0] — 2026-08-13
+## [v0.11.0] — 2026-08-14
 
 ### Added
 - 管理控制台 UI/UX 与功能全量交付（#594–#626，合并为 #633/#634）
@@ -17,16 +17,27 @@ All notable changes to MetAPI-Go will be documented in this file.
   - 通道：只读列表 + probe 驱动的重建过滤（#622–#626）
 - /api/routes/rebuild 响应新增 changed 统计（probe 过滤 no-change 短路时保持真实，含测试断言）
 - 访问日志记录 status/bytes/duration_ms；statusRecorder 转发 Flush/Hijack/ReadFrom/SetWriteDeadline 保持 SSE/WebSocket 可用；slog panic 恢复带 request_id；/metrics 新增 go_goroutines / go_memstats_* / go_gc_duration_seconds（纯 stdlib，零依赖）（#593）
+- docs/api.md 补全 `/api` 端点清单并修正漂移路径（#643）
+- .env.example 补齐约 80 个可选配置键（#640）
+
+### Fixed
+- 调度器注册回归：`balance-refresh` / `log-cleanup` / `backup-webdav` 曾被构造但未 `Register()`，现已注册并加 16 集合回归测试（#635）
 
 ### Changed
 - CI/CD 合并为单一 .github/workflows/main.yml 管道（测试 → 镜像推送 → GitHub Release），移除 cd.yml 中与 CI 重复的 release-gate；master push 推送镜像（latest+sha）；SemVer tag 额外构建 5 平台二进制 + checksums + 二进制冒烟并创建 Release
 - Bun 工具链版本单一来源（workflow env.BUN_VERSION + Dockerfile BUN_VERSION build-arg）；发布前校验 tag / web/package.json / CHANGELOG 节一致
 - 新增发布助手 scripts/release.sh（校验后打 annotated tag 并推送）
+- 升级安全：旧 schema 增量 `ALTER TABLE` 回归测试 + 迁移文档明确 forward-only（#636）
+- docker-compose.prod.yml 安全硬化（healthcheck / no-new-privileges / cap_drop / read_only / tmpfs / 资源限制）+ 部署升级清单（#639）
+- 重新启用 `unused`/`gosimple` linter 并删除约 30 处死代码（#641）
+- 前端 a11y 标签走 i18n + 删除孤儿 stub key + SSE 回调类型 any→unknown（#642）
 
 ### Chore
 - Dependabot：actions/setup-go 5→7（#584）、upload/download-artifact + build-push-action majors（#592）、frontend-deps 5 项（#588）
 - GitHub Actions Dependabot 分组 + 升级处理 SOP 文档（#591）
 - state 文档 last-verified 日期更新（#590）
+- 发布资产：install.sh 上传 release 资产 + sha256 校验（#637）
+- 计数一致性：表 35 / 调度器 16 / i18n 1641 / 测试文件对账（#638）
 
 ## [v0.10.0] — 2026-08-12
 
