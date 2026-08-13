@@ -283,12 +283,23 @@ function renderEmptyState<TData>(
     )
   }
 
+  const state = props.table.getState()
+  const isFiltered =
+    (state.columnFilters ?? []).length > 0 || !!state.globalFilter
+
   return (
     <TableEmpty
       colSpan={colSpan}
       title={props.emptyTitle}
       description={props.emptyDescription}
       icon={props.emptyIcon}
+      isFiltered={isFiltered}
+      filteredTitle={props.filteredEmptyTitle}
+      filteredDescription={props.filteredEmptyDescription}
+      onClearFilters={() => {
+        props.table.resetColumnFilters()
+        props.table.resetGlobalFilter()
+      }}
     >
       {props.emptyAction}
     </TableEmpty>
