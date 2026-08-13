@@ -8,20 +8,33 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/joho/godotenv"
 	"github.com/deliciousbuding/metapi-go/app"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/internal/version"
 	"github.com/deliciousbuding/metapi-go/router"
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/deliciousbuding/metapi-go/web"
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	// ---- Version flag (e.g. `metapi --version`) ----
-	if len(os.Args) > 1 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
-		fmt.Println(version.Version)
-		os.Exit(0)
+	// ---- Help / version flags (must run before config load so they work
+	// without a valid AUTH_TOKEN/PROXY_TOKEN, which --help/--version must not require) ----
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "--version", "-v":
+			fmt.Println(version.Version)
+			os.Exit(0)
+		case "--help", "-h":
+			fmt.Println("Usage: metapi [command]")
+			fmt.Println()
+			fmt.Println("Commands:")
+			fmt.Println("  (none)          Run the MetAPI server")
+			fmt.Println("  healthcheck     Run a health check and exit (for Docker HEALTHCHECK)")
+			fmt.Println("  --version, -v   Print version and exit")
+			fmt.Println("  --help, -h      Print this help and exit")
+			os.Exit(0)
+		}
 	}
 
 	// ---- Healthcheck subcommand (for Docker HEALTHCHECK without curl) ----
