@@ -1861,6 +1861,42 @@
         "lavender-dream": "Lavender Dream"
       }
     },
+    "channels": {
+        "page": {
+            "title": "Channels",
+            "description": "Read-only routing health across every site, account, token and OAuth unit.",
+            "loadError": "Failed to load channels: {{message}}"
+        },
+        "empty": {
+            "title": "No channels",
+            "description": "No routing channels have been materialised yet."
+        },
+        "toolbar": {
+            "searchPlaceholder": "Search channels..."
+        },
+        "columns": {
+            "name": "Name",
+            "site": "Site",
+            "type": "Type",
+            "status": "Status",
+            "models": "Models",
+            "priority": "Priority",
+            "weight": "Weight",
+            "response": "Response",
+            "cooldown": "Cooldown"
+        },
+        "status": {
+            "enabled": "Enabled",
+            "cooldown": "Cooldown",
+            "breakerOpen": "Breaker open",
+            "manuallyDisabled": "Manually disabled"
+        },
+        "type": {
+            "account": "Account",
+            "token": "Token",
+            "oauth_unit": "OAuth unit"
+        }
+    },
     "sidebar": {
       "groups": {
         "console": "Console",
@@ -1877,6 +1913,7 @@
         "proxyLogs": "Proxy Logs",
         "monitors": "Monitors",
         "tokenRoutes": "Token Routes",
+        "channels": "Channels",
         "oauth": "OAuth",
         "models": "Models",
         "modelTester": "Model Tester",

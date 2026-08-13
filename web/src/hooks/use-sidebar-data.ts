@@ -14,6 +14,7 @@ import {
   Server,
   Settings,
   ShieldCheck,
+  Waypoints,
 } from 'lucide-react'
 
 import type { SidebarData } from '@/components/layout/types'
@@ -67,6 +68,11 @@ export function useSidebarData(): SidebarData {
             title: 'sidebar.items.tokenRoutes',
             url: '/token-routes',
             icon: Route,
+          },
+          {
+            title: 'sidebar.items.channels',
+            url: '/channels',
+            icon: Waypoints,
           },
           {
             title: 'sidebar.items.oauth',

@@ -1156,6 +1156,7 @@ export const api = {
   getRoutesSummary: () => request('/api/routes/summary'),
   getRouteChannels: (routeId: number) =>
     request(`/api/routes/${routeId}/channels`),
+  getChannels: () => request('/api/channels'),
   batchAddChannels: (
     routeId: number,
     channels: Array<{
