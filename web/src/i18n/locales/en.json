@@ -471,9 +471,19 @@
           "siteCount": "Sites",
           "siteCountHint": "tracked sites",
           "todayCheckin": "Today's check-in",
-          "todayCheckinHint": "{{success}} / {{total}} succeeded",
+          "checkinSucceeded": "succeeded",
+          "checkinSkipped": "skipped",
           "proxy24h": "Proxy 24h",
           "proxy24hHint": "{{success}} ok · {{rpm}}/min"
+        },
+        "snapshot": {
+          "title": "Today snapshot",
+          "totalBalance": "Total balance",
+          "vs7d": "vs 7d ago",
+          "checkinSuccess": "Successful check-ins today",
+          "attention": "Needs attention",
+          "attentionOpen": "Open availability",
+          "availability": "Availability"
         },
         "scheduledTasks": {
           "title": "Scheduled tasks",
