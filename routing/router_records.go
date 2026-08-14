@@ -490,11 +490,6 @@ func resolveShortWindowLimitCooldownTS(account store.Account, ctx SiteRuntimeFai
 	// For now, default to 5 minute cooldown
 	untilMs := nowMs + ShortWindowLimitCooldownMs
 
-	// Check OAuth quota lastLimitResetAt
-	if account.OAuthProvider != nil && *account.OAuthProvider == "codex" {
-		// Could read from extraConfig, simplified for now
-	}
-
 	iso := formatUnixMillisISO(untilMs)
 	return &iso
 }

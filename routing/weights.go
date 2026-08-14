@@ -1,7 +1,6 @@
 package routing
 
 import (
-	"encoding/json"
 	"math"
 	"math/rand"
 	"sort"
@@ -769,14 +768,4 @@ type StableFirstSitePoolState struct {
 	ObservationReason    string
 }
 
-// MarshalJSON helpers for the runtime health payload
-func marshalHealthPayload(v SiteRuntimeHealthPersistencePayload) (string, error) {
-	b, err := json.Marshal(v)
-	return string(b), err
-}
 
-func unmarshalHealthPayload(data string) (*SiteRuntimeHealthPersistencePayload, error) {
-	var v SiteRuntimeHealthPersistencePayload
-	err := json.Unmarshal([]byte(data), &v)
-	return &v, err
-}

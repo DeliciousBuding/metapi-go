@@ -98,11 +98,6 @@ func explainSelectionFromMatch(selector *ChannelSelector, match *RouteMatch, req
 	mappedModel := ResolveMappedModel(requestedModel, match.Route.ModelMapping)
 	strategy := NormalizeRouteRoutingStrategy(match.Route.RoutingStrategy)
 
-	runtimeModelResolver := mappedModel
-	if requestedByDisplayName {
-		// Will resolve per-candidate
-	}
-
 	nowISO := time.Now().UTC().Format(time.RFC3339)
 	nowMs := time.Now().UnixMilli()
 	summary := []string{
@@ -186,7 +181,6 @@ func explainSelectionFromMatch(selector *ChannelSelector, match *RouteMatch, req
 		Candidates:     candidates,
 	}
 
-	_ = runtimeModelResolver
 	return explanation
 }
 
