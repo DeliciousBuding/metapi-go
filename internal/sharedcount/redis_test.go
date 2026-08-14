@@ -32,24 +32,23 @@ type fakeRedis struct {
 
 func newFakeRedis(t *testing.T) *fakeRedis {
 	t.Helper()
+	return newFakeRedisWithAuth(t, "")
+}
+
+func newFakeRedisWithAuth(t *testing.T, password string) *fakeRedis {
+	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("fake redis listen: %v", err)
 	}
 	f := &fakeRedis{
-		data: make(map[string]int64),
-		ttl:  make(map[string]time.Time),
-		ln:   ln,
+		data:     make(map[string]int64),
+		ttl:      make(map[string]time.Time),
+		authPass: password,
+		ln:       ln,
 	}
 	f.wg.Add(1)
 	go f.serve()
-	return f
-}
-
-func newFakeRedisWithAuth(t *testing.T, password string) *fakeRedis {
-	t.Helper()
-	f := newFakeRedis(t)
-	f.authPass = password
 	return f
 }
 
