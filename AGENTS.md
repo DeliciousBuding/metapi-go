@@ -4,7 +4,8 @@ Go rewrite of [MetAPI](https://github.com/cita-777/metapi). Feature parity with 
 
 ## Golden Rules
 
-- **Feature parity**: Every behavior must match the original TypeScript MetAPI server.
+- **Feature parity**: 客户端可见行为与 TS 版保持兼容（协议、JSON 字段 camelCase、环境变量同名）；
+  内部实现以 Go 简化架构为准（as-built 见 `docs/architecture.md`），不复刻 TS 内部结构。
   Keep the TS reference checkout outside this public repo, and do not document local checkout paths.
 - **Single binary**: The React SPA is pre-built and embedded via `go:embed`. Do not add `npm`/`node` to the
   production image.
@@ -20,17 +21,17 @@ Go rewrite of [MetAPI](https://github.com/cita-777/metapi). Feature parity with 
 ```
 cmd/server/main.go      Entry point
 cmd/migrate/main.go     SQLite→PG migration tool
-config/                 ~100 env vars from config.Load()
-store/                  DB layer (28 tables, sqlx)
+config/                 env map → Config（完整变量清单见 docs/deployment.md + .env.example）
+store/                  DB layer (35 tables, sqlx; schema DDL in store/schema_ddl.go)
 auth/                   Admin + proxy auth + rate limiting
-routing/                TokenRouter (Fibonacci + weighted random)
-proxy/                  ProxyCore (dual-loop orchestration)
+routing/                TokenRouter (weighted random + Fibonacci cooldown + runtime breaker)
+proxy/                  转发编排（coordinator / executor / channel selection / retry policy）
 platform/               14 upstream adapters
-transform/              4-protocol SSE conversion
-service/                Checkin, balance, notify, OAuth, backup
+transform/              协议转换（openai completions/embeddings/images/responses + gemini + shared）
+service/                Domain workflows (sites/accounts/checkin/balance/notify/oauth/backup/pricing)
 scheduler/              16 background jobs
-handler/admin/          ~144 admin REST endpoints
-handler/proxy/           ~30 proxy routes (OpenAI, Gemini, Claude, Codex, Files)
+handler/admin/          admin REST registrars（端点清单见 docs/api.md）
+handler/proxy/          proxy routes (OpenAI, Gemini, Claude, Codex, Files)
 web/dist/               Pre-built React SPA (embedded)
 ```
 
@@ -88,6 +89,7 @@ golangci-lint run --timeout=3m        # Lint check
 | `docs/architecture.md` | As-built package map (proxy/transform/routing; not proxycore/protocol) |
 | `docs/design/BACKEND.md` | Backend philosophy, dependency rules, forbidden imports |
 | `docs/design/DESIGN.md` | UI design system source of truth |
+| `docs/benchmark.md` | 产品对标（New API × All API Hub）+ roadmap |
 
 | `docs/api.md` / `docs/deployment.md` / `docs/migration.md` | API · deploy · migration |
 | `CHANGELOG.md` | Version narrative |

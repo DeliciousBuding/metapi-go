@@ -4,7 +4,7 @@
 // RatesOverviewSection but trimmed to the two editable surfaces.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
@@ -47,10 +47,10 @@ export function RatesSection() {
 
   const [draft, setDraft] = useState<EditTarget>(null)
 
-  useEffect(() => {
-    // Cancel the in-flight edit if the underlying data refreshes.
-    setDraft(null)
-  }, [overviewQuery.data])
+  // Note: the draft is intentionally NOT cleared when overviewQuery.data
+  // refreshes — a background refetch must not silently discard the value an
+  // operator is typing. The input renders the draft state, so a refetch only
+  // re-renders the non-editing rows.
 
   const updateMutation = useMutation({
     mutationFn: async (payload: {
@@ -72,6 +72,15 @@ export function RatesSection() {
 
   function commitEdit(target: EditTarget) {
     if (!target) {
+      return
+    }
+    if (updateMutation.isPending) {
+      // In-flight edit already — ignore the extra Enter keystroke.
+      return
+    }
+    if (typeof target.value !== 'number' || Number.isNaN(target.value)) {
+      // Empty / non-numeric input must never silently become 0.
+      toast.error(t('settings.models.rates.toast.invalidValue'))
       return
     }
     if (target.kind === 'account') {
@@ -146,6 +155,7 @@ export function RatesSection() {
                     min={0}
                     step='any'
                     autoFocus
+                    disabled={updateMutation.isPending}
                     defaultValue={account.unitCost ?? 0}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') {
@@ -167,6 +177,9 @@ export function RatesSection() {
                 ) : (
                   <button
                     type='button'
+                    aria-label={t('settings.models.rates.editUnitCost', {
+                      account: account.username,
+                    })}
                     className='flex items-center gap-1 text-sm'
                     onClick={() =>
                       setDraft({
@@ -223,6 +236,7 @@ export function RatesSection() {
                     min={0}
                     step='any'
                     autoFocus
+                    disabled={updateMutation.isPending}
                     defaultValue={channel.weight}
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') {
@@ -244,6 +258,9 @@ export function RatesSection() {
                 ) : (
                   <button
                     type='button'
+                    aria-label={t('settings.models.rates.editWeight', {
+                      model: channel.modelName,
+                    })}
                     className='flex items-center gap-1 text-sm'
                     onClick={() =>
                       setDraft({

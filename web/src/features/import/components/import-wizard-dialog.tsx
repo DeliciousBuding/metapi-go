@@ -131,6 +131,7 @@ export function ImportWizardDialog({
   const [sourceText, setSourceText] = useState('')
   const [candidates, setCandidates] = useState<ImportCandidate[]>([])
   const [result, setResult] = useState<ImportSitesResult | null>(null)
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false)
 
   const steps: ImportStep[] = useMemo(
     () => [
@@ -162,8 +163,27 @@ export function ImportWizardDialog({
   }
 
   function handleOpenChange(next: boolean) {
-    if (!next) reset()
+    if (!next) {
+      // Guard against silently dropping a partially filled wizard: any
+      // source text, detected candidates, or a finished result counts as
+      // input worth confirming.
+      const hasInput =
+        sourceText.trim().length > 0 ||
+        candidates.length > 0 ||
+        result !== null
+      if (hasInput) {
+        setDiscardConfirmOpen(true)
+        return
+      }
+      reset()
+    }
     onOpenChange(next)
+  }
+
+  function confirmDiscard() {
+    setDiscardConfirmOpen(false)
+    reset()
+    onOpenChange(false)
   }
 
   function updateCandidate(id: string, patch: Partial<ImportCandidate>) {
@@ -274,12 +294,13 @@ export function ImportWizardDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className='sm:max-w-2xl'>
-        <DialogHeader>
-          <DialogTitle>{t('import.title')}</DialogTitle>
-          <DialogDescription>{t('import.description')}</DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent className='sm:max-w-2xl'>
+          <DialogHeader>
+            <DialogTitle>{t('import.title')}</DialogTitle>
+            <DialogDescription>{t('import.description')}</DialogDescription>
+          </DialogHeader>
 
         <ImportStepper steps={steps} currentIndex={currentIndex} />
 
@@ -595,5 +616,33 @@ export function ImportWizardDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <Dialog
+      open={discardConfirmOpen}
+      onOpenChange={(next) => {
+        if (!next) setDiscardConfirmOpen(false)
+      }}
+    >
+      <DialogContent className='sm:max-w-md'>
+        <DialogHeader>
+          <DialogTitle>{t('import.discard.title')}</DialogTitle>
+          <DialogDescription>
+            {t('import.discard.description')}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant='outline'
+            onClick={() => setDiscardConfirmOpen(false)}
+          >
+            {t('import.discard.keepEditing')}
+          </Button>
+          <Button variant='destructive' onClick={confirmDiscard}>
+            {t('import.discard.confirm')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }

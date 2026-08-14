@@ -24,7 +24,15 @@
         "serverUnreachable": "Unable to connect to the server.",
         "failed": "Login failed, please check the service status."
       },
-      "internalServerError": "Internal Server Error!"
+      "internalServerError": "Internal Server Error!",
+      "notFoundTitle": "Page not found",
+      "notFoundDescription": "The address may be wrong or the page has been moved.",
+      "backHome": "Back to dashboard",
+      "renderTitle": "Something went wrong",
+      "renderDescription": "An unexpected rendering error occurred.",
+      "retry": "Retry",
+      "reload": "Reload page",
+      "showDetail": "Show error details"
     },
     "common": {
       "skipToMain": "Skip to main content",
@@ -821,7 +829,8 @@
             "updateFailed": "Failed to update downstream key.",
             "deleted": "Downstream key deleted.",
             "deleteFailed": "Failed to delete downstream key."
-          }
+          },
+          "connect": "Connect"
         },
         "proxyToken": {
           "title": "Proxy Token",
@@ -895,8 +904,11 @@
           },
           "toast": {
             "updated": "Updated (accounts: {{accounts}}, channels: {{channels}}).",
-            "updateFailed": "Failed to update rates."
-          }
+            "updateFailed": "Failed to update rates.",
+            "invalidValue": "Enter a valid number."
+          },
+          "editUnitCost": "Edit unit cost for {{account}}",
+          "editWeight": "Edit weight for {{model}}"
         },
         "allowlist": {
           "title": "Allowlist & Brand Blocking",
@@ -1540,7 +1552,8 @@
         "flowComplete": "Configuration flow complete.",
         "withRouteId": "Route #{{id}} created. {{suffix}}",
         "withoutRouteId": "Route created. {{suffix}}",
-        "action": "Back to Dashboard"
+        "action": "Back to Dashboard",
+        "connectAction": "接入客户端"
       },
       "toast": {
         "updated": "Route updated",
@@ -1994,6 +2007,12 @@
         "merged": "Merged",
         "skipped": "Skipped",
         "failed": "Failed"
+      },
+      "discard": {
+        "title": "Discard this import?",
+        "description": "The URLs and settings you entered will be lost.",
+        "keepEditing": "Keep editing",
+        "confirm": "Discard"
       }
     },
     "priceCompare": {
@@ -2081,6 +2100,29 @@
         "account": "Account",
         "token": "Token",
         "oauth_unit": "OAuth unit"
+      }
+    },
+    "connect": {
+      "title": "Connect {{name}}",
+      "description": "Copy the gateway endpoint and key, or import into a client with one click.",
+      "endpointLabel": "Gateway endpoint",
+      "copyEndpoint": "Copy endpoint",
+      "copyKey": "Copy API key",
+      "oneClickLabel": "One-click import",
+      "cherryStudio": "Cherry Studio",
+      "ccSwitch": "CC Switch",
+      "ccAppLabel": "CC Switch app",
+      "copyLabel": "Copy configurations",
+      "envVars": "Environment variables",
+      "genericJson": "Generic JSON",
+      "copy": "Copy",
+      "loadFailed": "Failed to load credential export.",
+      "hint": "Deep links open the client app if installed; JSON/env copies are pasted manually into clients that do not support import links.",
+      "copyFailed": "Copy failed — clipboard unavailable.",
+      "toast": {
+        "keyCopied": "API key copied",
+        "endpointCopied": "Endpoint copied",
+        "jsonCopied": "Configuration copied"
       }
     }
   }

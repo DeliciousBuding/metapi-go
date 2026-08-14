@@ -21,6 +21,8 @@ import ReactDOM from 'react-dom/client'
 import { DirectionProvider } from '@/context/direction-provider'
 import { ThemeCustomizationProvider } from '@/context/theme-customization-provider'
 import { ThemeProvider } from '@/context/theme-provider'
+import { ErrorPage } from '@/components/layout/error-page'
+import { NotFoundPage } from '@/components/layout/not-found-page'
 import { toast } from '@/lib/toast'
 
 // i18next side-effect init (config.ts calls i18n.init)
@@ -69,6 +71,8 @@ const router = createRouter({
   context: { queryClient },
   defaultPreload: 'intent',
   defaultPreloadStaleTime: 0,
+  defaultNotFoundComponent: NotFoundPage,
+  defaultErrorComponent: ErrorPage,
 })
 
 // Register the router instance for type safety.

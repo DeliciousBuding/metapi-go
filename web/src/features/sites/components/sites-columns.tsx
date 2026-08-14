@@ -51,7 +51,7 @@ function StatusBadge({ status }: { status: SiteStatus | undefined }) {
   const { t } = useTranslation()
   const resolved: SiteStatus = status === 'disabled' ? 'disabled' : 'active'
   return (
-    <Badge variant={resolved === 'active' ? 'default' : 'secondary'}>
+    <Badge variant={resolved === 'active' ? 'success' : 'secondary'}>
       {t(STATUS_LABEL_KEY[resolved])}
     </Badge>
   )

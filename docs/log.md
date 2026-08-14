@@ -5,9 +5,22 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
 
+## 2026-08-14 — 多 Agent UI/UX 对照审计 + 分发端 P0 落地
+
+- **4 个审计 agent**（动线/视觉/交互/功能对标，对照 New API × All API Hub）：结论聚合进 `docs/analysis/ui-ux-audit-2026-08.md`（25 视觉项 / 9 交互项 / 5 动线 / 8 功能差距）
+- **分发端 P0**：客户端接入导出对话框（Cherry Studio/CC Switch 深链 + env/JSON 复制，复用后端 credential_export）；建路由完成 toast CTA 改接 `/settings/downstream`
+- **视觉 P0**：6 处 `-foreground` 误用修复 + badge success/info 变体 + 站点徽章语义 + 软徽章对比度 token 修正
+- **交互 P0/P1**：rates 行内编辑安全网（防重/空值/丢 draft）；404 与错误边界页；深链页码钳位（4 页接线）；导入向导脏确认
+- **验证**：tsgo 0 error · oxlint 0 error · vitest 337 全绿（i18n 键门禁）· 生产 build 通过
+
+## 2026-08-14 — 产品对标 + 文档卫生（neat-freak）
+
+- **产品对标文档**：`docs/benchmark.md`（New API v1.0.0-rc.24 × All API Hub 上游 #1290）；结论 P0 = 客户端一键导出 + 接入向导；roadmap 表进 MASTER.md；"明确不做"= 多租户计费/支付/桌面版
+- **文档卫生**：STATE.md 发行/生产 pin/i18n/RE2 事实对齐 v0.12.0；package-boundaries.md 清除 canonical/anthropic/Conductor 残留 + 修正 transform 接线状态（部分接线）；AGENTS.md 结构注释对齐 as-built（35 表/16 调度器/transform 3 协议族）；删除 .claude/UPGRADE-POLISH-PLAN.md（未完成项转入 MASTER backlog）
+
 ## 2026-08-14 — v0.12.0 架构简化（净删 ~21K 行）
 
-- **死代码大清扫**（#650–#653，5 个 PR）：删 test-only 的 canonical 转换层（~6.6K）、三套测试专用编排层（conductor/surface/endpoint_flow）、未激活的 lease/sticky 队列、死 facade（app/prometheus、shared 半套 metrics/errors、input_files、检测管线、service/adapter 桥接）；Go 170K→150K，无生产行为变化
+- **死代码大清扫**（#650–#654，5 个 PR）：删 test-only 的 canonical 转换层（~6.6K）、三套测试专用编排层（conductor/surface/endpoint_flow）、未激活的 lease/sticky 队列、死 facade（app/prometheus、shared 半套 metrics/errors、input_files、检测管线、service/adapter 桥接）；Go 170K→150K，无生产行为变化
 - **数据完整性修复**：cmd/migrate 自维护 schema 副本已漂移（sites 漏 7 列）→ 复用 store.AutoMigrate + 运行时漂移守卫；app/proxy_upstream.go 垃圾抽屉移入 service/routing_store.go
 - **去重 + 标准化**：手写 stdlib 重实现（Hinnant 日历/JSON/int/TrimSpace）→ 标准库；handler/routing/scheduler/platform 各去重 3-11 份复制；god-file 按自然接缝拆分（含前端 api.ts 1997→10 模块）
 - **文档对账**：architecture/BACKEND/package-boundaries 同步为 as-built 真相（无 canonical、无 Conductor 编排）

@@ -51,6 +51,8 @@ import {
 import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
 
+import { CredentialExportDialog, type CredentialExportTarget } from '@/components/common/credential-export-dialog'
+
 import {
   SettingsSectionCard,
   SettingsSectionSkeleton,
@@ -106,6 +108,8 @@ export function KeysSection() {
   const [deleteTarget, setDeleteTarget] = useState<DownstreamApiKeyItem | null>(
     null
   )
+  const [exportTarget, setExportTarget] =
+    useState<CredentialExportTarget | null>(null)
 
   const keysQuery = useQuery<DownstreamKeysResponse>({
     queryKey: downstreamKeysQueryKeys.list(),
@@ -282,14 +286,24 @@ export function KeysSection() {
                   </div>
                 </TableCell>
                 <TableCell className='text-right'>
-                  <Button
-                    type='button'
-                    variant='ghost'
-                    size='sm'
-                    onClick={() => setDeleteTarget(item)}
-                  >
-                    {t('settings.common.delete')}
-                  </Button>
+                  <div className='flex justify-end gap-1'>
+                    <Button
+                      type='button'
+                      variant='ghost'
+                      size='sm'
+                      onClick={() => setExportTarget(item)}
+                    >
+                      {t('settings.downstream.keys.connect')}
+                    </Button>
+                    <Button
+                      type='button'
+                      variant='ghost'
+                      size='sm'
+                      onClick={() => setDeleteTarget(item)}
+                    >
+                      {t('settings.common.delete')}
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -523,6 +537,13 @@ export function KeysSection() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CredentialExportDialog
+        target={exportTarget}
+        onOpenChange={(open) => {
+          if (!open) setExportTarget(null)
+        }}
+      />
     </SettingsSectionCard>
   )
 }

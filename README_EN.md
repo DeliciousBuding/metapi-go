@@ -81,7 +81,7 @@ As of v0.9.0 the frontend is 100% aligned with the [New API](https://github.com/
 - **13 feature modules**: `auth`, `dashboard` (4 sections + RealtimeOps WebSocket), `sites` (guided setup: site→account→route), `accounts`, `token-routes` (dnd-kit drag), `oauth`, `checkin` (nested response destructuring + failure-reason badges), `proxy-logs` (manual + server pagination + detail Sheet), `models`, `model-tester` (SSE streaming, all protocols), `site-announcements`, `about`, `settings` (5 sub-areas).
 - **data-table four-layer architecture**: `core` (TanStack table primitives) + `layout` (responsive composition) + `toolbar` (filter/search/bulk actions) + `static` (local-array rendering) + `hooks` (controlled state, URL three-segment sync).
 - **OKLCH design system**: three-layer CSS (`theme.css` semantic tokens + `theme-presets.css` 10 presets + `index.css` Tailwind 4 entry); 3-axis theming (preset/radius/scale) via `<body data-theme-*>`; class-based dark mode with cookie persistence. Chart colors sampled from OKLCH tokens in JS with MutationObserver re-sampling on theme change.
-- **Key-based i18n**: i18next + react-i18next, supports `en` + `zh-CN` (1434 keys each, zero missing in either direction); React components use `useTranslation()` + `t()`, non-React modules use `i18n.t()`.
+- **Key-based i18n**: i18next + react-i18next, supports `en` + `zh-CN` (1587 keys each, zero missing in either direction); React components use `useTranslation()` + `t()`, non-React modules use `i18n.t()`.
 
 ## Proxy Usage
 

@@ -137,6 +137,8 @@ export const settingsApi = {
     }),
   resetDownstreamApiKeyUsage: (id: number) =>
     request(`/api/downstream-keys/${id}/reset-usage`, { method: 'POST' }),
+  getDownstreamKeyExport: (id: number, profile: 'all' | 'openai' | 'cherry' | 'generic' = 'all') =>
+    request(`/api/downstream-keys/${id}/export?profile=${profile}`),
   getDownstreamApiKeysSummary: (params?: {
     range?: '24h' | '7d' | 'all'
     status?: 'all' | 'enabled' | 'disabled'
