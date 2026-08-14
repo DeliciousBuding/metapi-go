@@ -33,10 +33,7 @@ export function ErrorPage({ error }: { error: Error }) {
           <RotateCw className='mr-1.5 size-4' />
           {t('errors.retry')}
         </Button>
-        <Button
-          variant='outline'
-          onClick={() => window.location.reload()}
-        >
+        <Button variant='outline' onClick={() => window.location.reload()}>
           {t('errors.reload')}
         </Button>
       </div>

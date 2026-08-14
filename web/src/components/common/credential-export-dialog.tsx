@@ -84,7 +84,11 @@ function buildCherryStudioLink(
   return `cherrystudio://providers/api-keys?v=1&data=${data}`
 }
 
-function buildCcSwitchLink(app: string, apiBase: string, apiKey: string): string {
+function buildCcSwitchLink(
+  app: string,
+  apiBase: string,
+  apiKey: string
+): string {
   const params = new URLSearchParams({
     resource: 'provider',
     app,
