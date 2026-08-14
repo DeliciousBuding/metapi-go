@@ -83,7 +83,7 @@ const SCHEDULER_STATUS_BADGE: Record<
     key: 'dashboard.overview.scheduledTasks.statusFailed',
   },
   running: {
-    className: 'border-info/40 bg-info/10 text-info-foreground',
+    className: 'border-info/40 bg-info/10 text-info',
     key: 'dashboard.overview.scheduledTasks.statusRunning',
   },
   never: {

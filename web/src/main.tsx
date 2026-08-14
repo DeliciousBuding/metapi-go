@@ -18,6 +18,8 @@ import i18next from 'i18next'
 import { StrictMode } from 'react'
 import ReactDOM from 'react-dom/client'
 
+import { ErrorPage } from '@/components/layout/error-page'
+import { NotFoundPage } from '@/components/layout/not-found-page'
 import { DirectionProvider } from '@/context/direction-provider'
 import { ThemeCustomizationProvider } from '@/context/theme-customization-provider'
 import { ThemeProvider } from '@/context/theme-provider'
@@ -69,6 +71,8 @@ const router = createRouter({
   context: { queryClient },
   defaultPreload: 'intent',
   defaultPreloadStaleTime: 0,
+  defaultNotFoundComponent: NotFoundPage,
+  defaultErrorComponent: ErrorPage,
 })
 
 // Register the router instance for type safety.

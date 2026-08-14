@@ -108,6 +108,17 @@ export function useUrlTableState<TFilters>(
     syncUrl(options.fromColumnFilters(next))
   }
 
+  // Clamp the URL page when the data shrinks (deep-linked stale page numbers
+  // would otherwise render an empty page with a confusing "no results" empty
+  // state). Pass this directly to useDataTable's `ensurePageInRange`.
+  function ensurePageInRange(pageCount: number) {
+    if (pageCount <= 0) return
+    const maxIndex = pageCount - 1
+    if (search.pageIndex > maxIndex) {
+      syncUrl({ pageIndex: maxIndex })
+    }
+  }
+
   return {
     globalFilter: search.q,
     onGlobalFilterChange,
@@ -120,5 +131,6 @@ export function useUrlTableState<TFilters>(
     onSortingChange,
     columnFilters,
     onColumnFiltersChange,
+    ensurePageInRange,
   }
 }

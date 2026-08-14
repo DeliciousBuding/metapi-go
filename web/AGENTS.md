@@ -151,7 +151,7 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 
 ### 5.1 国际化
 
-- **页面文本**：所有面向用户文案需 i18n，使用 `useTranslation()` 的 `t()` 翻译。当前支持 2 语言（`en` + `zh-CN`，各 1381 key，双向 0 缺失），key 双向一致性由 `src/i18n/__tests__/i18n-keys.test.ts` 校验。
+- **页面文本**：所有面向用户文案需 i18n，使用 `useTranslation()` 的 `t()` 翻译。当前支持 2 语言（`en` + `zh-CN`，各 1587 key，双向 0 缺失），key 双向一致性由 `src/i18n/__tests__/i18n-keys.test.ts` 校验。
 - **语言切换**：顶栏 `LanguageSwitcher`（`components/layout/components/app-header.tsx`）提供 en/zh-CN 手动切换；`i18next-browser-languagedetector` 按 localStorage → navigator 顺序自动跟随浏览器语言；`languageChanged` 时经 `toBcp47()` 同步 `document.documentElement.lang`（zhCN → `zh-CN`）+ `dir`。
 - **使用场景**
   - **React 组件**：必须 `const { t } = useTranslation()`，保证语言切换时重渲染。
@@ -195,7 +195,7 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 
 ### 5.6 API 请求
 
-- **后端契约**：后端默认 `http://localhost:4000`（`PORT` env 可覆盖）。admin REST 在 `/api`（`handler/admin` ~144 endpoints），OpenAI 兼容代理在 `/v1`（`handler/proxy` ~30 routes）。JSON 字段一律 camelCase，env var 名与 TS 版一致无前缀。
+- **后端契约**：后端默认 `http://localhost:4000`（`PORT` env 可覆盖）。admin REST 在 `/api`（`handler/admin`，端点清单见 `docs/api.md`），OpenAI 兼容代理在 `/v1`（`handler/proxy`）。JSON 字段一律 camelCase，env var 名与 TS 版一致无前缀。
 - **Axios**：用统一 `api` 实例（`src/lib/http-client.ts`），`withCredentials: true`；GET 默认请求去重，特殊请求可配置关闭。认证与通用错误在拦截器处理（401 静默刷新）。
 - **React Query**：`useQuery` 取数、`useMutation` 变更；每个查询配唯一 `queryKey`（数组形式、层级一致）；`onSuccess` 对相关 query `invalidateQueries`，可配合乐观更新。服务端错误统一经 `handleServerError`（见 [5.9](#59-错误处理)）。
 - **Dev proxy**：`rsbuild.config.ts` 将 `/api`、`/v1` 代理到后端；`DEV_PROXY_TARGET` / `VITE_DEV_PROXY_TARGET` / `PORT` / `VITE_BACKEND_PORT` 可覆盖默认 4000。

@@ -51,7 +51,7 @@ const SEVERITY_TONE: Record<
   },
   info: {
     dot: 'bg-info',
-    badge: 'border-info/40 bg-info/10 text-info-foreground',
+    badge: 'border-info/40 bg-info/10 text-info',
   },
 }
 
@@ -103,7 +103,7 @@ function RealtimeOpsPanel() {
             className={cn(
               'flex items-center gap-1.5 text-xs font-normal',
               sample.connected
-                ? 'text-success-foreground'
+                ? 'text-success'
                 : sample.gaveUp
                   ? 'text-destructive'
                   : 'text-muted-foreground'

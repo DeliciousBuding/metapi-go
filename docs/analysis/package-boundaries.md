@@ -1,8 +1,8 @@
 # Package Boundary Inventory
 
 **Status**: B1 inventory — as-built ownership, public entrypoints, import edges
-**Date**: 2026-07-17
-**Base**: `origin/master` @ inventory time
+**Date**: 2026-08-14
+**Base**: `origin/master` @ v0.12.0 (`9cd5ca0`)
 **Authority companions**:
 - [`docs/design/BACKEND.md`](../design/BACKEND.md) — principles + allowed import edges
 - [`docs/architecture.md`](../architecture.md) — as-built package map and request flows
@@ -36,7 +36,7 @@ This document is the **B1 ownership inventory**. It does **not** rewrite package
 | `store` | Dual-dialect open/migrate/schema/settings, `GetDB` | Auth, HTTP handlers, routing selection | auth, routing, service, scheduler, app, router |
 | `auth` | Admin/proxy middleware, downstream key policy, rate limits | Proxy orchestration, admin CRUD | `router`, `handler/proxy` |
 | `platform` | Upstream adapters + site HTTP proxy helpers | Persistence, route selection, admin HTTP | `service/*`, some `handler/*`, thin `proxy` |
-| `transform/*` | Protocol conversion (native per protocol; no canonical IR) | HTTP, store, routing | **currently leaf-only** (see §5.4) |
+| `transform/*` | Protocol conversion (native per protocol; no canonical IR) | HTTP, store, routing | **partially wired** (see §5.4) |
 | `routing` | TokenRouter, matcher, weights, cooldown, site breaker, ports | HTTP handlers, proxy conductor | `proxy`, `handler/*`, `app` wiring |
 | `service` (+ subpkgs) | Domain workflows (sites/accounts/checkin/balance/notify/oauth/backup/…) | Chi routes, proxy surface formatting | `handler/*`, `scheduler`, `proxy` |
 | `proxy` (+ `profiles`, `types`) | Coordinator, executor, channel selection, retry policy | Admin REST, SPA | `handler/proxy`, `app` |
@@ -54,7 +54,6 @@ This document is the **B1 ownership inventory**. It does **not** rewrite package
 | Subpackage | Responsibility |
 |------------|----------------|
 | `service` (root) | Site/account/token helpers, local time, proxy util shared by domain |
-| `service/adapter` | Thin bridge over `platform.GetAdapter` for domain call sites |
 | `service/checkin` | Check-in workflows + reward parsing |
 | `service/balance` | Balance refresh |
 | `service/notify` | Multi-channel notifications |
@@ -62,16 +61,16 @@ This document is the **B1 ownership inventory**. It does **not** rewrite package
 | `service/daily` | Daily summary |
 | `service/backup` | Export/import style backup helpers |
 | `service/oauth` | OAuth providers, sessions, route units, refresh |
+| `service/pricing` | Model pricing helpers |
+| `service/settingsmigration` | Runtime settings migration |
 
 ### 2.2 `transform` subpackage ownership
 
 | Subpackage | Responsibility |
 |------------|----------------|
 | `transform` | Package doc only (no runtime API yet at root) |
-| `transform/canonical` | Intermediate types + OpenAI bridge |
 | `transform/shared` | Shared chat format / error payload helpers |
-| `transform/openai/*` | chat / completions / embeddings / images / responses |
-| `transform/anthropic/messages` | Anthropic messages conversion |
+| `transform/openai/*` | completions / embeddings / images / responses |
 | `transform/gemini/generate_content` | Gemini generateContent compatibility |
 
 ### 2.3 `proxy` subpackage ownership
@@ -105,9 +104,9 @@ Composition-root and package-facing APIs only (not exhaustive of every exported 
 |---------|-------------|
 | `auth` | `AdminAuth`, `ProxyAuth`, `AdminRateLimit`, `OAuthRateLimit`, downstream policy helpers, context getters |
 | `store` | `Open` / `OpenWithPostgresSSLMode`, `GetDB`, `Migrate`, `EnsureRuntimeDatabase`, `LoadRuntimeSettings`, `NewSettingsStore`, schema model types |
-| `routing` | `NewTokenRouter`, `NewChannelSelector`, `NewRouteCache`, `NewRouteDecisionService`, `NewRouteRefreshWorkflow`, ports in `ports.go`, cooldown/breaker helpers |
+| `routing` | `NewTokenRouter`, `NewChannelSelector`, `NewRouteCache`, `NewRouteDecisionService`, `NewPricingReference`, ports in `ports.go`, cooldown/breaker helpers |
 | `platform` | `PlatformAdapter` + `Register`/`GetAdapter`, `NewSiteProxy`/`DoWithProxy`, detect helpers, `ClassifyUpstreamError` / expired helpers |
-| `proxy` | `NewDefaultProxyConductor`, `NewProxyChannelCoordinator`, `NewRuntimeExecutor`, `NewSiteConcurrencyLimiter`, surface/failure toolkit helpers, profile registry |
+| `proxy` | `NewProxyChannelCoordinator`, `NewRuntimeExecutor`, `NewSiteConcurrencyLimiter`, `RegisterDetectionProfile`/`RegisterFallbackProfile`, surface/failure-judge helpers, profile registry |
 | `proxy/types` | `CliProfileDefinition` and related structs |
 | `proxy/profiles` | profile registration (init-style detectors) |
 
@@ -126,10 +125,9 @@ Composition-root and package-facing APIs only (not exhaustive of every exported 
 
 | Package | Entrypoints |
 |---------|-------------|
-| `transform/openai/chat` | `Inbound` (and related) |
-| `transform/anthropic/messages` | conversion entrypoints |
-| `transform/gemini/generate_content` | compatibility entrypoints |
-| `transform/canonical`, `transform/shared` | shared IR / helpers |
+| `transform/openai/responses` | Responses conversion entrypoints (wired on proxy path) |
+| `transform/gemini/generate_content` | Gemini compatibility entrypoints (wired on proxy path) |
+| `transform/shared` | shared IR / helpers (leaf-only) |
 
 ---
 
@@ -152,7 +150,7 @@ service*       → config, platform, store, other service/*
 scheduler      → config, service/*, store
 store          → config
 platform       → (leaf)
-transform/*    → transform/canonical, transform/shared (leaf cluster)
+transform/*    → transform/shared (leaf cluster)
 config, web, handler/shared, handler/admin/payloads, proxy/types → leaves
 ```
 
@@ -170,7 +168,7 @@ config, web, handler/shared, handler/admin/payloads, proxy/types → leaves
 | `scheduler` | app, **handler/admin** |
 | `auth` | router, handler/proxy |
 | `app` | cmd/server, router, **handler/admin** |
-| `transform/*` | **no non-transform production importers** |
+| `transform/*` | `handler/proxy` (gemini/generate_content, openai/responses only; rest leaf-only) |
 | `web` | cmd/server (router takes embed FS) |
 
 ### 4.3 Cycles
@@ -205,11 +203,15 @@ Severity is relative to `BACKEND.md` §2 rules and long-term clarity—not a cla
   2. Move `ConfigureProxyUpstream` into `cmd/server` or a `bootstrap` package that is allowed to import all layers.
 - **B1 choice**: Document as **approved composition-root helper** living under `app` for historical reasons; do not expand this pattern.
 
-### 5.4 [P1] `transform/*` is an unwired leaf cluster
+### 5.4 [P2] `transform/*` is partially wired
 
-- **Evidence**: Non-test imports of `transform/*` exist only inside `transform/*`.
-- **Impact**: Architecture docs describe transform on the proxy path, but runtime conversion is not yet import-coupled from `proxy`/`handler/proxy` (transform may be incomplete relative to TS, or conversion is inlined elsewhere).
-- **Cleanup**: When wiring begins, import direction must stay `handler/proxy` or `proxy` → `transform/*` only; never reverse. Track under feature/transform issues—not B1 code move.
+- **Evidence**: Production imports of `transform/*` exist only from `handler/proxy`
+  (`transform/gemini/generate_content`, `transform/openai/responses`). The remaining
+  subpackages (`transform/openai/completions|embeddings|images`, `transform/shared`) are leaf-only.
+- **Impact**: Gemini + Responses conversion live on the proxy path; the rest are unwired
+  until their surfaces need them.
+- **Cleanup**: When wiring more, import direction must stay `handler/proxy` or `proxy` →
+  `transform/*` only; never reverse.
 
 ### 5.5 [P2] Dual error writing styles in handlers
 

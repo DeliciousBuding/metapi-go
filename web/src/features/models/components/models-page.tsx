@@ -188,6 +188,7 @@ export function ModelsPage() {
     onSortingChange: urlState.onSortingChange,
     columnFilters: urlState.columnFilters,
     onColumnFiltersChange: urlState.onColumnFiltersChange,
+    ensurePageInRange: urlState.ensurePageInRange,
     getRowId: (row) => row.name,
   })
 

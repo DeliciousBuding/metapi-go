@@ -10,8 +10,9 @@ import { toast } from '@/lib/toast'
 
 /**
  * Fire the post-create guided toast. Call from the create-route form's
- * success handler. The primary CTA carries the operator back to the
- * Dashboard to verify the configuration is live.
+ * success handler. The primary CTA takes the operator to Settings →
+ * Downstream, where each API key now exposes the one-click client connect
+ * surface (endpoint + key + Cherry Studio / CC Switch import).
  */
 export function showRouteCompletionToast(
   routeId?: number,
@@ -32,8 +33,8 @@ export function showRouteCompletionToast(
     description,
     duration: 8000,
     action: {
-      label: i18n.t('tokenRoutes.completion.action'),
-      onClick: () => window.location.assign('/'),
+      label: i18n.t('tokenRoutes.completion.connectAction'),
+      onClick: () => window.location.assign('/settings/downstream'),
     },
   })
 }

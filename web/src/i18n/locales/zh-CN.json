@@ -24,7 +24,15 @@
         "serverUnreachable": "无法连接到服务器。",
         "failed": "登录失败，请检查服务状态。"
       },
-      "internalServerError": "服务器内部错误！"
+      "internalServerError": "服务器内部错误！",
+      "notFoundTitle": "页面不存在",
+      "notFoundDescription": "地址可能写错了，或页面已被移动。",
+      "backHome": "返回首页",
+      "renderTitle": "出了点问题",
+      "renderDescription": "页面渲染时发生意外错误。",
+      "retry": "重试",
+      "reload": "重新加载",
+      "showDetail": "查看错误详情"
     },
     "common": {
       "skipToMain": "跳转到主要内容",
@@ -821,7 +829,8 @@
             "updateFailed": "更新下游密钥失败。",
             "deleted": "下游密钥已删除。",
             "deleteFailed": "删除下游密钥失败。"
-          }
+          },
+          "connect": "接入"
         },
         "proxyToken": {
           "title": "代理令牌",
@@ -895,8 +904,11 @@
           },
           "toast": {
             "updated": "已更新（账号：{{accounts}}，通道：{{channels}}）。",
-            "updateFailed": "更新费率失败。"
-          }
+            "updateFailed": "更新费率失败。",
+            "invalidValue": "请输入有效数字。"
+          },
+          "editUnitCost": "编辑 {{account}} 的单位成本",
+          "editWeight": "编辑 {{model}} 的权重"
         },
         "allowlist": {
           "title": "白名单与品牌屏蔽",
@@ -1540,7 +1552,8 @@
         "flowComplete": "配置动线已完成。",
         "withRouteId": "路由 #{{id}} 已创建。{{suffix}}",
         "withoutRouteId": "路由已创建。{{suffix}}",
-        "action": "返回 Dashboard"
+        "action": "返回 Dashboard",
+        "connectAction": "接入客户端"
       },
       "toast": {
         "updated": "路由已更新",
@@ -1994,6 +2007,12 @@
         "merged": "已合并",
         "skipped": "已跳过",
         "failed": "失败"
+      },
+      "discard": {
+        "title": "放弃本次导入？",
+        "description": "已填写的地址与设置将会丢失。",
+        "keepEditing": "继续编辑",
+        "confirm": "放弃"
       }
     },
     "priceCompare": {
@@ -2081,6 +2100,29 @@
         "account": "账号",
         "token": "令牌",
         "oauth_unit": "OAuth 单元"
+      }
+    },
+    "connect": {
+      "title": "接入 {{name}}",
+      "description": "复制网关地址与密钥，或一键导入客户端。",
+      "endpointLabel": "网关接入地址",
+      "copyEndpoint": "复制地址",
+      "copyKey": "复制 API Key",
+      "oneClickLabel": "一键导入",
+      "cherryStudio": "Cherry Studio",
+      "ccSwitch": "CC Switch",
+      "ccAppLabel": "CC Switch 应用",
+      "copyLabel": "复制配置",
+      "envVars": "环境变量",
+      "genericJson": "通用 JSON",
+      "copy": "复制",
+      "loadFailed": "接入配置加载失败。",
+      "hint": "一键导入会唤起已安装的客户端；不支持导入链接的客户端请手动粘贴 JSON / 环境变量。",
+      "copyFailed": "复制失败——剪贴板不可用。",
+      "toast": {
+        "keyCopied": "API Key 已复制",
+        "endpointCopied": "接入地址已复制",
+        "jsonCopied": "配置已复制"
       }
     }
   }

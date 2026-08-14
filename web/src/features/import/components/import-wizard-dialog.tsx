@@ -131,6 +131,7 @@ export function ImportWizardDialog({
   const [sourceText, setSourceText] = useState('')
   const [candidates, setCandidates] = useState<ImportCandidate[]>([])
   const [result, setResult] = useState<ImportSitesResult | null>(null)
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false)
 
   const steps: ImportStep[] = useMemo(
     () => [
@@ -162,8 +163,25 @@ export function ImportWizardDialog({
   }
 
   function handleOpenChange(next: boolean) {
-    if (!next) reset()
+    if (!next) {
+      // Guard against silently dropping a partially filled wizard: any
+      // source text, detected candidates, or a finished result counts as
+      // input worth confirming.
+      const hasInput =
+        sourceText.trim().length > 0 || candidates.length > 0 || result !== null
+      if (hasInput) {
+        setDiscardConfirmOpen(true)
+        return
+      }
+      reset()
+    }
     onOpenChange(next)
+  }
+
+  function confirmDiscard() {
+    setDiscardConfirmOpen(false)
+    reset()
+    onOpenChange(false)
   }
 
   function updateCandidate(id: string, patch: Partial<ImportCandidate>) {
@@ -274,326 +292,355 @@ export function ImportWizardDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className='sm:max-w-2xl'>
-        <DialogHeader>
-          <DialogTitle>{t('import.title')}</DialogTitle>
-          <DialogDescription>{t('import.description')}</DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent className='sm:max-w-2xl'>
+          <DialogHeader>
+            <DialogTitle>{t('import.title')}</DialogTitle>
+            <DialogDescription>{t('import.description')}</DialogDescription>
+          </DialogHeader>
 
-        <ImportStepper steps={steps} currentIndex={currentIndex} />
+          <ImportStepper steps={steps} currentIndex={currentIndex} />
 
-        <div className='mt-2 min-h-64'>
-          {step === 'source' && (
-            <div className='grid gap-3'>
-              <Label htmlFor='import-source-urls'>
-                {t('import.source.label')}
-              </Label>
-              <Textarea
-                id='import-source-urls'
-                rows={8}
-                value={sourceText}
-                onChange={(event) => setSourceText(event.target.value)}
-                placeholder={t('import.source.placeholder')}
-                className='font-mono text-xs'
-                autoFocus
-              />
-              <p className='text-muted-foreground text-xs'>
-                {t('import.source.hint')}
-              </p>
-            </div>
-          )}
+          <div className='mt-2 min-h-64'>
+            {step === 'source' && (
+              <div className='grid gap-3'>
+                <Label htmlFor='import-source-urls'>
+                  {t('import.source.label')}
+                </Label>
+                <Textarea
+                  id='import-source-urls'
+                  rows={8}
+                  value={sourceText}
+                  onChange={(event) => setSourceText(event.target.value)}
+                  placeholder={t('import.source.placeholder')}
+                  className='font-mono text-xs'
+                  autoFocus
+                />
+                <p className='text-muted-foreground text-xs'>
+                  {t('import.source.hint')}
+                </p>
+              </div>
+            )}
 
-          {step === 'identify' && (
-            <div className='grid gap-3'>
-              {candidates.map((candidate) => {
-                const duplicate = isDuplicate(candidate)
-                return (
+            {step === 'identify' && (
+              <div className='grid gap-3'>
+                {candidates.map((candidate) => {
+                  const duplicate = isDuplicate(candidate)
+                  return (
+                    <div
+                      key={candidate.id}
+                      className='grid gap-3 rounded-lg border p-3'
+                    >
+                      <div className='grid gap-2'>
+                        <Label>{t('import.identify.name')}</Label>
+                        <Input
+                          value={candidate.name}
+                          onChange={(event) =>
+                            updateCandidate(candidate.id, {
+                              name: event.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <div className='text-muted-foreground truncate font-mono text-xs'>
+                        {candidate.url}
+                      </div>
+                      <div className='grid gap-2'>
+                        <Label>{t('import.identify.platform')}</Label>
+                        <div className='flex items-center gap-2'>
+                          <Input
+                            value={candidate.platform}
+                            onChange={(event) =>
+                              updateCandidate(candidate.id, {
+                                platform: event.target.value,
+                                detected: false,
+                                confidence: null,
+                              })
+                            }
+                            className='flex-1'
+                          />
+                          {candidate.detecting && <Spinner />}
+                          {!candidate.detecting && candidate.detected && (
+                            <Badge variant='secondary'>
+                              <CheckIcon className='size-3' />
+                              {t('import.identify.detected', {
+                                confidence: Math.round(
+                                  (candidate.confidence ?? 0) * 100
+                                ),
+                              })}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      {duplicate && (
+                        <div className='border-warning/40 bg-warning/10 rounded-lg border p-3'>
+                          <div className='mb-2 flex items-center gap-2 text-sm'>
+                            <AlertIcon className='text-warning size-4' />
+                            <span>{t('import.identify.duplicateWarning')}</span>
+                          </div>
+                          <RadioGroup
+                            value={candidate.duplicateStrategy}
+                            onValueChange={(value) =>
+                              updateCandidate(candidate.id, {
+                                duplicateStrategy:
+                                  value as ImportDuplicateStrategy,
+                              })
+                            }
+                          >
+                            <div className='flex items-center gap-2'>
+                              <RadioGroupItem
+                                id={`${candidate.id}-skip`}
+                                value='skip'
+                              />
+                              <Label htmlFor={`${candidate.id}-skip`}>
+                                {t('import.identify.skip')}
+                              </Label>
+                            </div>
+                            <div className='flex items-center gap-2'>
+                              <RadioGroupItem
+                                id={`${candidate.id}-merge`}
+                                value='merge'
+                              />
+                              <Label htmlFor={`${candidate.id}-merge`}>
+                                {t('import.identify.merge')}
+                              </Label>
+                            </div>
+                          </RadioGroup>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {step === 'connect' && (
+              <div className='grid gap-3'>
+                {candidates.map((candidate) => (
                   <div
                     key={candidate.id}
                     className='grid gap-3 rounded-lg border p-3'
                   >
-                    <div className='grid gap-2'>
-                      <Label>{t('import.identify.name')}</Label>
-                      <Input
-                        value={candidate.name}
-                        onChange={(event) =>
+                    <div className='flex items-center justify-between gap-3'>
+                      <div className='min-w-0'>
+                        <div className='truncate text-sm font-medium'>
+                          {candidate.name}
+                        </div>
+                        <div className='text-muted-foreground truncate text-xs'>
+                          {candidate.url}
+                        </div>
+                      </div>
+                      <Switch
+                        checked={candidate.includeAccount}
+                        onCheckedChange={(checked) =>
                           updateCandidate(candidate.id, {
-                            name: event.target.value,
+                            includeAccount: checked,
                           })
                         }
                       />
                     </div>
-                    <div className='text-muted-foreground truncate font-mono text-xs'>
-                      {candidate.url}
-                    </div>
-                    <div className='grid gap-2'>
-                      <Label>{t('import.identify.platform')}</Label>
-                      <div className='flex items-center gap-2'>
-                        <Input
-                          value={candidate.platform}
-                          onChange={(event) =>
-                            updateCandidate(candidate.id, {
-                              platform: event.target.value,
-                              detected: false,
-                              confidence: null,
-                            })
-                          }
-                          className='flex-1'
-                        />
-                        {candidate.detecting && <Spinner />}
-                        {!candidate.detecting && candidate.detected && (
-                          <Badge variant='secondary'>
-                            <CheckIcon className='size-3' />
-                            {t('import.identify.detected', {
-                              confidence: Math.round(
-                                (candidate.confidence ?? 0) * 100
-                              ),
-                            })}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-
-                    {duplicate && (
-                      <div className='border-warning/40 bg-warning/10 rounded-lg border p-3'>
-                        <div className='mb-2 flex items-center gap-2 text-sm'>
-                          <AlertIcon className='text-warning size-4' />
-                          <span>{t('import.identify.duplicateWarning')}</span>
+                    {candidate.includeAccount && (
+                      <div className='grid gap-2 sm:grid-cols-3'>
+                        <div className='grid gap-1.5'>
+                          <Label>{t('import.connect.username')}</Label>
+                          <Input
+                            value={candidate.username}
+                            onChange={(event) =>
+                              updateCandidate(candidate.id, {
+                                username: event.target.value,
+                              })
+                            }
+                          />
                         </div>
-                        <RadioGroup
-                          value={candidate.duplicateStrategy}
-                          onValueChange={(value) =>
-                            updateCandidate(candidate.id, {
-                              duplicateStrategy:
-                                value as ImportDuplicateStrategy,
-                            })
-                          }
-                        >
-                          <div className='flex items-center gap-2'>
-                            <RadioGroupItem
-                              id={`${candidate.id}-skip`}
-                              value='skip'
-                            />
-                            <Label htmlFor={`${candidate.id}-skip`}>
-                              {t('import.identify.skip')}
-                            </Label>
-                          </div>
-                          <div className='flex items-center gap-2'>
-                            <RadioGroupItem
-                              id={`${candidate.id}-merge`}
-                              value='merge'
-                            />
-                            <Label htmlFor={`${candidate.id}-merge`}>
-                              {t('import.identify.merge')}
-                            </Label>
-                          </div>
-                        </RadioGroup>
+                        <div className='grid gap-1.5'>
+                          <Label>{t('import.connect.accessToken')}</Label>
+                          <Input
+                            type='password'
+                            value={candidate.accessToken}
+                            onChange={(event) =>
+                              updateCandidate(candidate.id, {
+                                accessToken: event.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className='grid gap-1.5'>
+                          <Label>{t('import.connect.apiToken')}</Label>
+                          <Input
+                            value={candidate.apiToken}
+                            onChange={(event) =>
+                              updateCandidate(candidate.id, {
+                                apiToken: event.target.value,
+                              })
+                            }
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
-                )
-              })}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
 
-          {step === 'connect' && (
-            <div className='grid gap-3'>
-              {candidates.map((candidate) => (
-                <div
-                  key={candidate.id}
-                  className='grid gap-3 rounded-lg border p-3'
-                >
-                  <div className='flex items-center justify-between gap-3'>
+            {step === 'routes' && (
+              <div className='grid gap-3'>
+                <p className='text-muted-foreground text-xs'>
+                  {t('import.routes.hint')}
+                </p>
+                {candidates.map((candidate) => (
+                  <div
+                    key={candidate.id}
+                    className='flex items-center justify-between gap-3 rounded-lg border p-3'
+                  >
                     <div className='min-w-0'>
                       <div className='truncate text-sm font-medium'>
                         {candidate.name}
                       </div>
                       <div className='text-muted-foreground truncate text-xs'>
-                        {candidate.url}
+                        {candidate.platform}
                       </div>
                     </div>
-                    <Switch
-                      checked={candidate.includeAccount}
-                      onCheckedChange={(checked) =>
-                        updateCandidate(candidate.id, {
-                          includeAccount: checked,
-                        })
-                      }
-                    />
-                  </div>
-                  {candidate.includeAccount && (
-                    <div className='grid gap-2 sm:grid-cols-3'>
-                      <div className='grid gap-1.5'>
-                        <Label>{t('import.connect.username')}</Label>
-                        <Input
-                          value={candidate.username}
-                          onChange={(event) =>
-                            updateCandidate(candidate.id, {
-                              username: event.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <div className='grid gap-1.5'>
-                        <Label>{t('import.connect.accessToken')}</Label>
-                        <Input
-                          type='password'
-                          value={candidate.accessToken}
-                          onChange={(event) =>
-                            updateCandidate(candidate.id, {
-                              accessToken: event.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                      <div className='grid gap-1.5'>
-                        <Label>{t('import.connect.apiToken')}</Label>
-                        <Input
-                          value={candidate.apiToken}
-                          onChange={(event) =>
-                            updateCandidate(candidate.id, {
-                              apiToken: event.target.value,
-                            })
-                          }
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {step === 'routes' && (
-            <div className='grid gap-3'>
-              <p className='text-muted-foreground text-xs'>
-                {t('import.routes.hint')}
-              </p>
-              {candidates.map((candidate) => (
-                <div
-                  key={candidate.id}
-                  className='flex items-center justify-between gap-3 rounded-lg border p-3'
-                >
-                  <div className='min-w-0'>
-                    <div className='truncate text-sm font-medium'>
-                      {candidate.name}
-                    </div>
-                    <div className='text-muted-foreground truncate text-xs'>
-                      {candidate.platform}
+                    <div className='flex items-center gap-2'>
+                      <Label>{t('import.routes.weight')}</Label>
+                      <Input
+                        type='number'
+                        min={0}
+                        step={0.1}
+                        value={candidate.weight}
+                        onChange={(event) =>
+                          updateCandidate(candidate.id, {
+                            weight: Number(event.target.value),
+                          })
+                        }
+                        className='w-24'
+                      />
                     </div>
                   </div>
-                  <div className='flex items-center gap-2'>
-                    <Label>{t('import.routes.weight')}</Label>
-                    <Input
-                      type='number'
-                      min={0}
-                      step={0.1}
-                      value={candidate.weight}
-                      onChange={(event) =>
-                        updateCandidate(candidate.id, {
-                          weight: Number(event.target.value),
-                        })
-                      }
-                      className='w-24'
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {step === 'done' && result && (
-            <div className='grid gap-4'>
-              <div className='flex flex-wrap items-center gap-2'>
-                <Badge variant='outline'>
-                  <CheckIcon className='size-3' />
-                  {t('import.done.imported', { count: result.imported })}
-                </Badge>
-                <Badge variant='secondary'>
-                  <MinusIcon className='size-3' />
-                  {t('import.done.skipped', { count: result.skipped })}
-                </Badge>
-                <Badge variant='destructive'>
-                  <XIcon className='size-3' />
-                  {t('import.done.failed', { count: result.failed })}
-                </Badge>
+                ))}
               </div>
-              <div className='grid gap-2'>
-                {result.results.map((item) => {
-                  const badge = statusBadge(item.status)
-                  const Icon = badge.icon
-                  return (
-                    <div
-                      key={`${item.url}-${item.status}`}
-                      className='flex items-center justify-between gap-3 rounded-lg border p-2.5'
-                    >
-                      <div className='min-w-0'>
-                        <div className='truncate text-sm'>{item.name}</div>
-                        <div className='text-muted-foreground truncate text-xs'>
-                          {item.url}
+            )}
+
+            {step === 'done' && result && (
+              <div className='grid gap-4'>
+                <div className='flex flex-wrap items-center gap-2'>
+                  <Badge variant='outline'>
+                    <CheckIcon className='size-3' />
+                    {t('import.done.imported', { count: result.imported })}
+                  </Badge>
+                  <Badge variant='secondary'>
+                    <MinusIcon className='size-3' />
+                    {t('import.done.skipped', { count: result.skipped })}
+                  </Badge>
+                  <Badge variant='destructive'>
+                    <XIcon className='size-3' />
+                    {t('import.done.failed', { count: result.failed })}
+                  </Badge>
+                </div>
+                <div className='grid gap-2'>
+                  {result.results.map((item) => {
+                    const badge = statusBadge(item.status)
+                    const Icon = badge.icon
+                    return (
+                      <div
+                        key={`${item.url}-${item.status}`}
+                        className='flex items-center justify-between gap-3 rounded-lg border p-2.5'
+                      >
+                        <div className='min-w-0'>
+                          <div className='truncate text-sm'>{item.name}</div>
+                          <div className='text-muted-foreground truncate text-xs'>
+                            {item.url}
+                          </div>
                         </div>
+                        <Badge variant={badge.variant}>
+                          <Icon className='size-3' />
+                          {t(badge.label)}
+                        </Badge>
                       </div>
-                      <Badge variant={badge.variant}>
-                        <Icon className='size-3' />
-                        {t(badge.label)}
-                      </Badge>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        <DialogFooter showCloseButton={false}>
-          {step !== 'source' && step !== 'done' && (
+          <DialogFooter showCloseButton={false}>
+            {step !== 'source' && step !== 'done' && (
+              <Button
+                type='button'
+                variant='outline'
+                onClick={() =>
+                  setStep(
+                    STEP_ORDER[Math.max(0, currentIndex - 1)] as ImportStepId
+                  )
+                }
+              >
+                {t('import.back')}
+              </Button>
+            )}
+            {step === 'source' && (
+              <Button type='button' onClick={handleSourceNext}>
+                <UploadIcon className='mr-1 size-4' />
+                {t('import.next')}
+              </Button>
+            )}
+            {step === 'identify' && (
+              <Button type='button' onClick={handleIdentifyNext}>
+                {t('import.next')}
+              </Button>
+            )}
+            {step === 'connect' && (
+              <Button type='button' onClick={handleConnectNext}>
+                {t('import.next')}
+              </Button>
+            )}
+            {step === 'routes' && (
+              <Button
+                type='button'
+                onClick={handleSubmit}
+                disabled={importSites.isPending}
+              >
+                {importSites.isPending && <Spinner className='mr-2' />}
+                {t('import.submit')}
+              </Button>
+            )}
+            {step === 'done' && (
+              <Button type='button' onClick={handleDone}>
+                <CheckIcon className='mr-1 size-4' />
+                {t('import.done.close')}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={discardConfirmOpen}
+        onOpenChange={(next) => {
+          if (!next) setDiscardConfirmOpen(false)
+        }}
+      >
+        <DialogContent className='sm:max-w-md'>
+          <DialogHeader>
+            <DialogTitle>{t('import.discard.title')}</DialogTitle>
+            <DialogDescription>
+              {t('import.discard.description')}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
             <Button
-              type='button'
               variant='outline'
-              onClick={() =>
-                setStep(
-                  STEP_ORDER[Math.max(0, currentIndex - 1)] as ImportStepId
-                )
-              }
+              onClick={() => setDiscardConfirmOpen(false)}
             >
-              {t('import.back')}
+              {t('import.discard.keepEditing')}
             </Button>
-          )}
-          {step === 'source' && (
-            <Button type='button' onClick={handleSourceNext}>
-              <UploadIcon className='mr-1 size-4' />
-              {t('import.next')}
+            <Button variant='destructive' onClick={confirmDiscard}>
+              {t('import.discard.confirm')}
             </Button>
-          )}
-          {step === 'identify' && (
-            <Button type='button' onClick={handleIdentifyNext}>
-              {t('import.next')}
-            </Button>
-          )}
-          {step === 'connect' && (
-            <Button type='button' onClick={handleConnectNext}>
-              {t('import.next')}
-            </Button>
-          )}
-          {step === 'routes' && (
-            <Button
-              type='button'
-              onClick={handleSubmit}
-              disabled={importSites.isPending}
-            >
-              {importSites.isPending && <Spinner className='mr-2' />}
-              {t('import.submit')}
-            </Button>
-          )}
-          {step === 'done' && (
-            <Button type='button' onClick={handleDone}>
-              <CheckIcon className='mr-1 size-4' />
-              {t('import.done.close')}
-            </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

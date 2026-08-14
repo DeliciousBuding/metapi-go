@@ -237,7 +237,7 @@ v0.9.0 起前端 100% 对齐 [New API](https://github.com/QuantumNous/new-api) �
 - **13 个 feature 模块**：`auth`、`dashboard`（4 section + RealtimeOps WebSocket）、`sites`（引导式配置动线 站点→账号→路由）、`accounts`、`token-routes`（dnd-kit 拖拽）、`oauth`、`checkin`（嵌套响应解构 + 失败原因分类 badge）、`proxy-logs`（manual + 服务端分页 + 详情 Sheet）、`models`、`model-tester`（SSE 全协议流式）、`site-announcements`、`about`、`settings`（5 子区 drill-in）。
 - **data-table 四层架构**：`core`（TanStack table 渲染原语）+ `layout`（响应式页面组合）+ `toolbar`（filter/search/批量操作）+ `static`（本地数组轻量渲染）+ `hooks`（受控状态层，URL 三段式同步）。feature 经统一 `index.ts` 导入，专属列/动作留在各 feature 目录。
 - **OKLCH 设计系统**：三层 CSS（`theme.css` 语义 token + `theme-presets.css` 10 套预设 + `index.css` Tailwind 4 入口）；3 轴主题（preset/radius/scale）经 `<body data-theme-*>` 切换；暗色 class-based + cookie 持久化。图表取色用 JS 读 OKLCH token，MutationObserver 监听主题变化重采样。
-- **key-based i18n**：i18next + react-i18next，支持 `en` + `zh-CN`（各 1641 key，双向 0 缺失）；React 组件 `useTranslation()` + `t()`，非 React 模块用 `i18n.t()`；key 双向一致性由 `web/src/i18n/__tests__/i18n-keys.test.ts` 校验。
+- **key-based i18n**：i18next + react-i18next，支持 `en` + `zh-CN`（各 1587 key，双向 0 缺失）；React 组件 `useTranslation()` + `t()`，非 React 模块用 `i18n.t()`；key 双向一致性由 `web/src/i18n/__tests__/i18n-keys.test.ts` 校验。
 
 ---
 
@@ -260,6 +260,7 @@ MetAPI 完全自托管，所有数据（账号、令牌、路由、日志）均�
 | [docs/README.md](docs/README.md) | **文档地图**（先看这个） |
 | [docs/architecture.md](docs/architecture.md) | 包结构与请求路径 |
 | [docs/progress/MASTER.md](docs/progress/MASTER.md) | 当前里程碑 / 活跃 Issue |
+| [docs/benchmark.md](docs/benchmark.md) | 产品对标与路线图（New API × All API Hub） |
 
 | [CHANGELOG.md](CHANGELOG.md) | 版本变更 |
 

@@ -1,6 +1,6 @@
 # docs/ — MetAPI Go documentation map
 
-**Last updated**: 2026-08-11
+**Last updated**: 2026-08-14
 **Purpose**: one-screen orientation for humans and contributors.
 
 ## Progress source of truth roles
@@ -18,6 +18,7 @@
 | Current product status | [`STATE.md`](STATE.md) |
 | Open gates | [`progress/MASTER.md`](progress/MASTER.md) |
 | Progress timeline | [`log.md`](log.md) |
+| Product benchmark / roadmap | [`benchmark.md`](benchmark.md) |
 | Package architecture | [`architecture.md`](architecture.md) |
 | Backend design rules | [`design/BACKEND.md`](design/BACKEND.md) |
 | UI design system | [`design/DESIGN.md`](design/DESIGN.md) |
@@ -34,6 +35,7 @@ docs/
   README.md                 ← this map
   STATE.md                  ← 现状 source of truth (keep slim)
   log.md                    ← progress log (append-only)
+  benchmark.md              ← product benchmark (New API × All API Hub) + roadmap
   architecture.md           ← as-built package & request path
   api.md                    ← public API notes
   deployment.md             ← run / Docker / ops vars
@@ -49,6 +51,7 @@ docs/
     db-pool-budget.md         PG pool profiles
     package-boundaries.md     B1 package ownership inventory
     redis-shared-state.md     Redis shared state design
+    ui-ux-audit-2026-08.md    multi-agent UI/UX audit + backlog
   progress/                 ← MASTER only (open gates)
 ```
 
