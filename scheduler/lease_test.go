@@ -118,9 +118,8 @@ func TestSideEffectSchedulersUseClusterLease(t *testing.T) {
 		"channel_recovery.go",
 		"checkin.go",
 		"daily_summary.go",
-		"file_retention.go",
+		"retention.go", // shared implementation of the retention trio
 		"log_cleanup.go",
-		"log_retention.go",
 		"model_probe.go",
 		"site_announcement.go",
 		"sub2api_refresh.go",

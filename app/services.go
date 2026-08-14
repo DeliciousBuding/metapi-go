@@ -68,7 +68,7 @@ func buildSchedulers(cfg *config.Config) (
 	newRegistry.Register(checkin)
 
 	// ---- Scheduler 2: Balance Refresh ----
-	balance := scheduler.NewBalanceScheduler(cfg, nil)
+	balance := scheduler.NewBalanceScheduler(cfg)
 	newRegistry.Register(balance)
 
 	// ---- Scheduler 3: Daily Summary ----

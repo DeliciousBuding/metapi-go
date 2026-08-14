@@ -1,13 +1,13 @@
 package oauth
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"strings"
 	"time"
 
-	"context"
-
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -73,8 +73,12 @@ func ListOauthConnections(input ListConnectionsInput) (*ListConnectionsResult, e
 		return nil, fmt.Errorf("database not initialized")
 	}
 
-	limit := clampInt(input.Limit, 1, 200, 50)
-	offset := maxInt(input.Offset, 0)
+	limit := input.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	limit = config.ClampInt(limit, 1, 200)
+	offset := config.MaxInt(input.Offset, 0)
 
 	// Ensure OAuth identity backfill: backfill columns from extraConfig.oauth.
 	ensureOauthIdentityBackfill(db)
@@ -319,26 +323,6 @@ func StartOauthRebindFlow(accountID int64, requestOrigin string, proxyURL *strin
 }
 
 // ---- Helpers ----
-
-func clampInt(v, lo, hi, fallback int) int {
-	if v <= 0 {
-		return fallback
-	}
-	if v < lo {
-		return lo
-	}
-	if v > hi {
-		return hi
-	}
-	return v
-}
-
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
 
 func strPtr(s *string) string {
 	if s == nil {
