@@ -1,10 +1,14 @@
 // metapi-go/layout — authenticated-layout adapted from newapi. AGPL header stripped.
 // SidebarProvider + SkipToMain + AppHeader + flex row (AppSidebar + SidebarInset).
 // Uses <Outlet /> from TanStack Router so matched child routes (/dashboard/*, /sites,
-// /accounts, /settings/*, ...) render inside SidebarInset.
+// /accounts, /settings/*, ...) render inside SidebarInset. Also owns the global
+// search palette state and mounts SearchModal here (inside the router, since
+// result clicks navigate).
 
 import { Outlet } from '@tanstack/react-router'
+import * as React from 'react'
 
+import { SearchModal } from '@/components/layout/search-modal'
 import { SkipToMain } from '@/components/skip-to-main'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { getCookie } from '@/lib/cookies'
@@ -15,11 +19,12 @@ import { AppSidebar } from './app-sidebar'
 
 export function AuthenticatedLayout() {
   const defaultOpen = getCookie('sidebar_state') !== 'false'
+  const [searchOpen, setSearchOpen] = React.useState(false)
 
   return (
     <SidebarProvider defaultOpen={defaultOpen} className='flex-col'>
       <SkipToMain />
-      <AppHeader />
+      <AppHeader onSearchClick={() => setSearchOpen(true)} />
       <div className='flex min-h-0 w-full flex-1 [--app-header-height:3.5rem]'>
         <AppSidebar />
         <SidebarInset
@@ -34,6 +39,7 @@ export function AuthenticatedLayout() {
           <Outlet />
         </SidebarInset>
       </div>
+      <SearchModal open={searchOpen} onOpenChange={setSearchOpen} />
     </SidebarProvider>
   )
 }

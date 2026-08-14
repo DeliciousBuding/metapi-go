@@ -1,7 +1,13 @@
 // metapi-go/layout — application header.
-// Brand on the left; shared language, appearance, and color-scheme controls on the right.
+// Brand on the left; global-search trigger plus the shared language,
+// appearance, and color-scheme controls on the right.
+
+import { Search } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { InterfaceControls } from '@/components/layout/components/interface-controls'
+import { Button } from '@/components/ui/button'
+import { isMacPlatform, Kbd } from '@/components/ui/kbd'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { metapiIdentity } from '@/lib/identity-branding'
 import { cn } from '@/lib/utils'
@@ -13,12 +19,36 @@ type AppHeaderProps = {
   leftContent?: React.ReactNode
   /** Custom right content, overrides the default interface controls if provided. */
   rightContent?: React.ReactNode
+  /** Called when the global-search trigger is clicked. */
+  onSearchClick?: () => void
+}
+
+function SearchTrigger({ onClick }: { onClick?: () => void }) {
+  const { t } = useTranslation()
+  const modifierKey = isMacPlatform() ? '⌘' : 'Ctrl'
+
+  return (
+    <Button
+      variant='outline'
+      className='text-muted-foreground dark:border-input dark:bg-input/30 h-8 gap-2 px-2.5 font-normal'
+      onClick={onClick}
+      aria-label={t('search.trigger')}
+    >
+      <Search className='size-4' />
+      <span className='hidden md:inline'>{t('search.trigger')}</span>
+      <span className='hidden items-center gap-1 md:flex'>
+        <Kbd>{modifierKey}</Kbd>
+        <Kbd>K</Kbd>
+      </span>
+    </Button>
+  )
 }
 
 export function AppHeader({
   showThemeToggle = true,
   leftContent,
   rightContent,
+  onSearchClick,
 }: AppHeaderProps) {
   return (
     <header
@@ -44,10 +74,10 @@ export function AppHeader({
       )}
 
       {rightContent ?? (
-        <InterfaceControls
-          className='ms-auto'
-          showThemeToggle={showThemeToggle}
-        />
+        <div className='ms-auto flex items-center gap-1'>
+          <SearchTrigger onClick={onSearchClick} />
+          <InterfaceControls showThemeToggle={showThemeToggle} />
+        </div>
       )}
     </header>
   )
