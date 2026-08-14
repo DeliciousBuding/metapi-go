@@ -16,7 +16,8 @@ func (g *GeminiAdapter) Detect(ctx context.Context, urlStr string) (bool, error)
 	lower := strings.ToLower(urlStr)
 	return strings.Contains(lower, "generativelanguage.googleapis.com") ||
 		strings.Contains(lower, "googleapis.com/v1beta/openai") ||
-		strings.Contains(lower, "gemini.google.com"), nil
+		strings.Contains(lower, "gemini.google.com") ||
+		strings.Contains(lower, "ai.google.dev"), nil
 }
 
 // GetModels uses 3-path discovery: OpenAI-compat (if on /openai/ path) -> native Gemini -> OpenAI-compat fallback.

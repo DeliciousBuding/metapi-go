@@ -14,11 +14,11 @@ func TestAntigravityAdapter_Detect(t *testing.T) {
 		url     string
 		matches bool
 	}{
-		{"https://antigravity.example.com/v1/models", true},
-		{"https://example.com/antigravity/v1", true},
-		{"https://ANTIGRAVITY.example.com", true},
+		{"https://antigravity.googleapis.com", true},
+		{"https://antigravity.googleapis.com/v1/models", true},
+		{"https://antigravity.example.com/v1/models", false},
+		{"https://example.com/antigravity/v1", false},
 		{"https://api.openai.com", false},
-		{"https://example.com/gravity", false},
 	}
 	for _, tt := range tests {
 		ok, err := a.Detect(ctx, tt.url)

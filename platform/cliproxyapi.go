@@ -21,8 +21,9 @@ func (c *CliProxyApiAdapter) Detect(ctx context.Context, url string) (bool, erro
 		return true, nil
 	}
 
-	// Condition 2: "cliproxy" keyword
-	if strings.Contains(lower, "cliproxy") {
+	// Condition 2: "cliproxy" / "cli-proxy-api" keywords (the hyphenated form
+	// is an alias in the registry but was previously not matched).
+	if strings.Contains(lower, "cliproxy") || strings.Contains(lower, "cli-proxy-api") {
 		return true, nil
 	}
 

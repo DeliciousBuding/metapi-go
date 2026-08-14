@@ -14,6 +14,8 @@ type VeloeraAdapter struct {
 
 // Detect probes GET /api/status and checks for "veloera" in system_name or version.
 func (v *VeloeraAdapter) Detect(ctx context.Context, url string) (bool, error) {
+	ctx, cancel := withProbeTimeout(ctx)
+	defer cancel()
 	resp, err := fetchJSON(ctx, url+"/api/status", "GET", nil, nil, nil)
 	if err != nil {
 		return false, nil

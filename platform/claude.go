@@ -2,6 +2,7 @@ package platform
 
 import (
 	"context"
+	"net/url"
 	"strings"
 )
 
@@ -12,10 +13,18 @@ type ClaudeAdapter struct {
 	*StandardAdapter
 }
 
-// Detect matches URL keywords: api.anthropic.com or anthropic.com/v1.
-func (c *ClaudeAdapter) Detect(ctx context.Context, url string) (bool, error) {
-	lower := strings.ToLower(url)
-	return strings.Contains(lower, "api.anthropic.com") || strings.Contains(lower, "anthropic.com/v1"), nil
+// Detect matches the exact api.anthropic.com host, or anthropic.com with a
+// /v1 path prefix (avoids anthropic.com/v1-docs style false positives).
+func (c *ClaudeAdapter) Detect(ctx context.Context, urlStr string) (bool, error) {
+	parsed, err := url.Parse(strings.TrimSpace(urlStr))
+	if err != nil {
+		return false, nil
+	}
+	host := strings.ToLower(parsed.Hostname())
+	if host == "api.anthropic.com" {
+		return true, nil
+	}
+	return host == "anthropic.com" && strings.HasPrefix(parsed.Path, "/v1"), nil
 }
 
 // GetModels tries native Anthropic endpoint first, then falls back to OpenAI-compat

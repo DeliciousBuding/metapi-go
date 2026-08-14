@@ -16,7 +16,19 @@ type NewApiAdapter struct {
 }
 
 // Detect probes GET /api/status and checks success===true and system_name is present.
+// Known NewAPI fork aliases (vo-api/super-api/rix-api/neo-api) short-circuit
+// via URL keyword so shield/WAF-fronted deployments whose /api/status probe is
+// blocked still get detected.
 func (n *NewApiAdapter) Detect(ctx context.Context, url string) (bool, error) {
+	lower := strings.ToLower(url)
+	for _, kw := range []string{"vo-api", "super-api", "rix-api", "neo-api"} {
+		if strings.Contains(lower, kw) {
+			return true, nil
+		}
+	}
+
+	ctx, cancel := withProbeTimeout(ctx)
+	defer cancel()
 	resp, err := fetchJSON(ctx, url+"/api/status", "GET", nil, nil, nil)
 	if err != nil {
 		return false, nil

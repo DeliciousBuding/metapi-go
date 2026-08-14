@@ -23,7 +23,7 @@ func TestCliProxyApiAdapter_Detect(t *testing.T) {
 		{"http://localhost:8317/v1/models", true},
 		{"https://cliproxy.example.com", true},
 		{"https://CLIPROXY.example.com", true},
-		{"https://cli-proxy-api.example.com", false}, // does not contain "cliproxy" substring
+		{"https://cli-proxy-api.example.com", true}, // hyphenated alias now matched
 		{"https://api.openai.com", false},
 		{"https://example.com:8080", false},
 	}
