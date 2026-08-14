@@ -105,5 +105,5 @@ func extractModelIDs(payload map[string]interface{}) []string {
 			result = append(result, name)
 		}
 	}
-	return result
+	return normalizeModelIDs(result)
 }

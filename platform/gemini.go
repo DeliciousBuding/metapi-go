@@ -93,14 +93,5 @@ func stripModelPrefix(name string) string {
 }
 
 func normalizeModelList(models []string) []string {
-	seen := make(map[string]bool)
-	result := make([]string, 0, len(models))
-	for _, m := range models {
-		normalized := stripModelPrefix(m)
-		if normalized != "" && !seen[normalized] {
-			seen[normalized] = true
-			result = append(result, normalized)
-		}
-	}
-	return result
+	return normalizeModelIDs(models)
 }

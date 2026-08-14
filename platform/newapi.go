@@ -534,7 +534,7 @@ func (n *NewApiAdapter) GetModels(ctx context.Context, baseURL, token string, pl
 					}
 				}
 				if len(models) > 0 {
-					return models, nil
+					return normalizeModelIDs(models), nil
 				}
 			}
 			if data, ok := getMap(resp, "data"); ok {
@@ -545,7 +545,7 @@ func (n *NewApiAdapter) GetModels(ctx context.Context, baseURL, token string, pl
 					}
 				}
 				if len(models) > 0 {
-					return models, nil
+					return normalizeModelIDs(models), nil
 				}
 			}
 		}

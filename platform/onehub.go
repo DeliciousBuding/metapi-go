@@ -43,7 +43,7 @@ func (o *OneHubAdapter) GetModels(ctx context.Context, baseURL string, apiToken 
 			}
 		}
 		if len(models) > 0 {
-			return models, nil
+			return normalizeModelIDs(models), nil
 		}
 	}
 
