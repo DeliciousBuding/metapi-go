@@ -5,6 +5,13 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
 
+## 2026-08-14 — Leader/Worker 并行 fan-out：5 分支合入 + strict 模式关闭
+
+- **并行开发**：5 个 Flash worker 各自在 `.worktrees/` 独立分支实现，PR #658-#662 全部 squash 合入 master（全局搜索 / 首页今日快照+StatCard / 告警富化 / 表格交互 / 测试台会话化+模板库），连同 #657 共 6 个 PR
+- **工程策略**：关闭分支保护 strict「分支必须最新」——保留 12 项必检 + squash 线性历史，允许并行分支各自 CI 绿后直接合入（`docs/git-workflow.md` §3 已记录）
+- **hook-kit 修复**：修 `leak_guard.py` 新分支 push 用空树 diff 误报历史占位符的 bug，改为与远端 merge-base 求差（补回归测试）
+- 剩余 P1：接入向导 onboarding checklist、价格对比权重对照、测试台批量延迟对比
+
 ## 2026-08-14 — 多 Agent UI/UX 对照审计 + 分发端 P0 落地
 
 - **4 个审计 agent**（动线/视觉/交互/功能对标，对照 New API × All API Hub）：结论聚合进 `docs/analysis/ui-ux-audit-2026-08.md`（25 视觉项 / 9 交互项 / 5 动线 / 8 功能差距）
