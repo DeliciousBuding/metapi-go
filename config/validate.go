@@ -88,7 +88,7 @@ func (c *Config) Validate() []error {
 	}
 
 	// --- Warning: Cron expressions must be parseable ---
-	if !validateCronExpr(c.CheckinCron) {
+	if !ValidateCronExpr(c.CheckinCron) {
 		errs = append(errs, &configError{
 			field:    "checkin_cron",
 			value:    c.CheckinCron,
@@ -96,7 +96,7 @@ func (c *Config) Validate() []error {
 			critical: false,
 		})
 	}
-	if !validateCronExpr(c.BalanceRefreshCron) {
+	if !ValidateCronExpr(c.BalanceRefreshCron) {
 		errs = append(errs, &configError{
 			field:    "balance_refresh_cron",
 			value:    c.BalanceRefreshCron,
@@ -104,7 +104,7 @@ func (c *Config) Validate() []error {
 			critical: false,
 		})
 	}
-	if !validateCronExpr(c.LogCleanupCron) {
+	if !ValidateCronExpr(c.LogCleanupCron) {
 		errs = append(errs, &configError{
 			field:    "log_cleanup_cron",
 			value:    c.LogCleanupCron,
@@ -302,10 +302,12 @@ func IsCritical(err error) bool {
 	return false
 }
 
-// validateCronExpr checks if a cron expression is parseable. Auto-normalizes
+// ValidateCronExpr checks if a cron expression is parseable. Auto-normalizes
 // 5-field expressions (minute hour dom month dow) to 6-field (second...)
 // for compatibility with cron.WithSeconds(), matching the scheduler behavior.
-func validateCronExpr(expr string) bool {
+// This is the canonical cron validation used by both config.Validate and
+// scheduler.ValidateCronExpr.
+func ValidateCronExpr(expr string) bool {
 	if strings.TrimSpace(expr) == "" {
 		return false
 	}

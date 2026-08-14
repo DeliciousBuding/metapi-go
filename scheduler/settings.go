@@ -112,25 +112,6 @@ func resolvePositiveIntegerSetting(settingKey string, fallback int) int {
 
 // ---- Common helpers ----
 
-// clampInt clamps v to the range [lo, hi].
-func clampInt(v, lo, hi int) int {
-	if v < lo {
-		return lo
-	}
-	if v > hi {
-		return hi
-	}
-	return v
-}
-
-// maxInt returns the larger of a and b.
-func maxInt(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 // toISOTime returns the current time as an ISO 8601 string.
 func toISOTime(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)

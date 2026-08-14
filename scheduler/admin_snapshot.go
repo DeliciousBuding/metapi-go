@@ -19,13 +19,11 @@ const (
 // and prunes expired ones.
 type AdminSnapshotScheduler struct {
 	cfg         *config.Config
-	ticker      *time.Ticker
-	stopCh      chan struct{}
-	running     bool
 	mu          sync.Mutex
 	inFlight    bool
 	passCount   int
 	aggregation *UsageAggregationScheduler
+	runner      *intervalRunner
 }
 
 // NewAdminSnapshotScheduler creates a new admin snapshot warm scheduler.
@@ -33,56 +31,22 @@ func NewAdminSnapshotScheduler(cfg *config.Config, usage *UsageAggregationSchedu
 	return &AdminSnapshotScheduler{
 		cfg:         cfg,
 		aggregation: usage,
+		runner:      &intervalRunner{},
 	}
 }
 
 func (s *AdminSnapshotScheduler) Name() string { return "admin-snapshot" }
 
 func (s *AdminSnapshotScheduler) Start(ctx context.Context) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.ticker = time.NewTicker(time.Duration(adminSnapshotWarmIntervalMs) * time.Millisecond)
-	s.stopCh = make(chan struct{})
-	s.running = true
-
-	// Immediate first run
-	go s.runWarm()
-
-	go func() {
-		for {
-			select {
-			case <-s.ticker.C:
-				go s.runWarm()
-			case <-s.stopCh:
-				return
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
 	slog.Info("admin-snapshot scheduler started",
 		"interval_ms", adminSnapshotWarmIntervalMs,
 		"prune_every", adminSnapshotPruneEvery,
 	)
-	return nil
+	return s.runner.start(ctx, time.Duration(adminSnapshotWarmIntervalMs)*time.Millisecond, true, s.runWarm)
 }
 
 func (s *AdminSnapshotScheduler) Stop() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if !s.running {
-		return nil
-	}
-	s.running = false
-	if s.ticker != nil {
-		s.ticker.Stop()
-	}
-	if s.stopCh != nil {
-		close(s.stopCh)
-	}
-	return nil
+	return s.runner.stop()
 }
 
 // WarmOnce performs a single warm pass. Safe to call externally.

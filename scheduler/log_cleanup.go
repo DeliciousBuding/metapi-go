@@ -33,7 +33,7 @@ func (s *LogCleanupScheduler) Start(ctx context.Context) error {
 
 	s.cfg.LogCleanupUsageLogsEnabled = resolveBooleanSetting("log_cleanup_usage_logs_enabled", s.cfg.LogCleanupUsageLogsEnabled)
 	s.cfg.LogCleanupProgramLogsEnabled = resolveBooleanSetting("log_cleanup_program_logs_enabled", s.cfg.LogCleanupProgramLogsEnabled)
-	s.cfg.LogCleanupRetentionDays = clampInt(
+	s.cfg.LogCleanupRetentionDays = config.ClampInt(
 		resolvePositiveIntegerSetting("log_cleanup_retention_days", s.cfg.LogCleanupRetentionDays),
 		1, 3650,
 	)
@@ -72,7 +72,7 @@ func (s *LogCleanupScheduler) UpdateSettings(cronExpr string, usageEnabled, prog
 	s.cfg.LogCleanupCron = cronExpr
 	s.cfg.LogCleanupUsageLogsEnabled = usageEnabled
 	s.cfg.LogCleanupProgramLogsEnabled = programEnabled
-	s.cfg.LogCleanupRetentionDays = clampInt(retentionDays, 1, 3650)
+	s.cfg.LogCleanupRetentionDays = config.ClampInt(retentionDays, 1, 3650)
 
 	if s.cronRunner != nil {
 		s.cronRunner.stop()

@@ -19,63 +19,26 @@ const defaultUpdateCenterIntervalMs = 15 * 60 * 1000 // 15 minutes
 // See limitation-update-center.md and /.
 type UpdateCenterScheduler struct {
 	cfg      *config.Config
-	ticker   *time.Ticker
-	stopCh   chan struct{}
-	running  bool
 	mu       sync.Mutex
 	inFlight bool
+	runner   *intervalRunner
 }
 
 // NewUpdateCenterScheduler creates the update-center ticker.
 func NewUpdateCenterScheduler(cfg *config.Config) *UpdateCenterScheduler {
-	return &UpdateCenterScheduler{cfg: cfg}
+	return &UpdateCenterScheduler{cfg: cfg, runner: &intervalRunner{}}
 }
 
 func (s *UpdateCenterScheduler) Name() string { return "update-center" }
 
 func (s *UpdateCenterScheduler) Start(ctx context.Context) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	interval := time.Duration(maxInt64(defaultUpdateCenterIntervalMs, 10_000)) * time.Millisecond
-	s.ticker = time.NewTicker(interval)
-	s.stopCh = make(chan struct{})
-	s.running = true
-
-	// Immediate first pass (log-only; no remote polling).
-	go s.runSync()
-
-	go func() {
-		for {
-			select {
-			case <-s.ticker.C:
-				go s.runSync()
-			case <-s.stopCh:
-				return
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
+	interval := time.Duration(config.MaxInt64(defaultUpdateCenterIntervalMs, 10_000)) * time.Millisecond
 	slog.Info("update-center residual scheduler started (log-only; no remote registry)", "interval_ms", interval.Milliseconds())
-	return nil
+	return s.runner.start(ctx, interval, true, s.runSync)
 }
 
 func (s *UpdateCenterScheduler) Stop() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if !s.running {
-		return nil
-	}
-	s.running = false
-	if s.ticker != nil {
-		s.ticker.Stop()
-	}
-	if s.stopCh != nil {
-		close(s.stopCh)
-	}
-	return nil
+	return s.runner.stop()
 }
 
 func (s *UpdateCenterScheduler) runSync() {
