@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -22,6 +23,87 @@ var supportedProxySchemes = map[string]bool{
 	"http": true, "https": true,
 	"socks": true, "socks4": true, "socks4a": true,
 	"socks5": true, "socks5h": true,
+}
+
+// transportCache pools *http.Transport instances by (proxyURL, insecureSkipTLS)
+// so repeated DoWithProxy / SiteProxy.Do calls to the same proxy (or direct)
+// reuse the underlying keep-alive connection pool instead of forcing a fresh
+// TLS handshake + dial on every request. Probe loops and stream traffic are
+// the main beneficiaries: handshake amplification and fingerprint exposure at
+// shield-protected upstreams drop to one-per-(proxy,tls)-tuple per process.
+//
+// Entries live for the process lifetime; pooled transports hold idle
+// connections bounded by MaxIdleConns / MaxIdleConnsPerHost / IdleConnTimeout
+// (see newPooledTransport). The proxy func captured by a cached transport must
+// be effectively constant with respect to the request (http.ProxyURL,
+// SiteProxy.proxyFunc, or nil) so the cache key stays stable.
+var transportCache sync.Map // map[string]*http.Transport
+
+// getCachedTransport returns a pooled *http.Transport for the given
+// (proxy, insecureSkipTLS) tuple, creating and storing it on first miss.
+// Concurrency-safe: concurrent first-miss callers race via LoadOrStore; the
+// loser's transport is unreferenced and garbage-collected with no connections.
+func getCachedTransport(proxy func(*http.Request) (*url.URL, error), insecureSkipTLS bool) *http.Transport {
+	key := transportCacheKey(proxy, insecureSkipTLS)
+	if cached, ok := transportCache.Load(key); ok {
+		return cached.(*http.Transport)
+	}
+	transport := newPooledTransport(proxy, insecureSkipTLS)
+	actual, _ := transportCache.LoadOrStore(key, transport)
+	return actual.(*http.Transport)
+}
+
+// transportCacheKey derives the cache key from the proxy func by resolving it
+// against a sentinel request. proxy may be nil (direct connection), in which
+// case the proxy portion of the key is the empty string.
+func transportCacheKey(proxy func(*http.Request) (*url.URL, error), insecureSkipTLS bool) string {
+	proxyURL := ""
+	if proxy != nil {
+		sentinel := &http.Request{URL: &url.URL{Scheme: "http", Host: "transport-cache.sentinel.invalid"}}
+		if resolved, err := proxy(sentinel); err == nil && resolved != nil {
+			proxyURL = resolved.String()
+		}
+	}
+	insecure := "0"
+	if insecureSkipTLS {
+		insecure = "1"
+	}
+	return proxyURL + "|" + insecure
+}
+
+// newPooledTransport builds a fresh *http.Transport configured for connection
+// reuse. Called only on cache misses inside getCachedTransport.
+func newPooledTransport(proxy func(*http.Request) (*url.URL, error), insecureSkipTLS bool) *http.Transport {
+	transport := &http.Transport{
+		Proxy: proxy,
+		DialContext: (&net.Dialer{
+			Timeout:   defaultProxyConnectTimeout,
+			KeepAlive: defaultProxyKeepAliveInitial,
+		}).DialContext,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		// Pool sizing: keep idle sockets warm so repeated probes/streams to the
+		// same upstream reuse the same TCP+TLS pair instead of re-dialing.
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 20,
+		IdleConnTimeout:    90 * time.Second,
+	}
+	if insecureSkipTLS {
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+	return transport
+}
+
+// newProxyClient wraps a (pooled) *http.Transport with the shared timeout and
+// cross-origin redirect policy used by outbound site-proxy traffic. The
+// *http.Client is cheap to construct per request; only the Transport is pooled.
+func newProxyClient(transport *http.Transport) *http.Client {
+	return &http.Client{
+		Transport:     transport,
+		Timeout:       30 * time.Second,
+		CheckRedirect: RejectCrossOriginRedirect,
+	}
 }
 
 // SiteProxyConfig holds proxy configuration for a site.
@@ -128,26 +210,12 @@ func (sp *SiteProxy) doWithExplicitProxy(ctx context.Context, req *http.Request,
 		return nil, fmt.Errorf("unsupported proxy scheme: %s", scheme)
 	}
 
-	transport := &http.Transport{
-		Proxy: http.ProxyURL(proxyURL),
-		DialContext: (&net.Dialer{
-			Timeout:   defaultProxyConnectTimeout,
-			KeepAlive: defaultProxyKeepAliveInitial,
-		}).DialContext,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ResponseHeaderTimeout: 30 * time.Second,
-	}
-
-	if proxyConfig.InsecureSkipTLS {
-		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	}
-
-	client := &http.Client{
-		Transport:     transport,
-		Timeout:       30 * time.Second,
-		CheckRedirect: RejectCrossOriginRedirect,
-	}
-
+	// Reuse a pooled transport so repeated requests through the same proxy
+	// share keep-alive connections instead of re-handshaking TLS every call.
+	// Only the *http.Transport is pooled; the *http.Client wrapper (timeout +
+	// redirect policy) is constructed per call and is cheap.
+	transport := getCachedTransport(http.ProxyURL(proxyURL), proxyConfig.InsecureSkipTLS)
+	client := newProxyClient(transport)
 	return client.Do(req)
 }
 
@@ -172,32 +240,12 @@ func DoWithProxy(ctx context.Context, req *http.Request, proxyConfig *ProxyConfi
 			return nil, fmt.Errorf("unsupported proxy scheme: %s", scheme)
 		}
 
-		client := newProxyHTTPClient(http.ProxyURL(proxyURL), insecureSkipTLS)
+		client := newProxyClient(getCachedTransport(http.ProxyURL(proxyURL), insecureSkipTLS))
 		return client.Do(req.WithContext(ctx))
 	}
 
-	client := newProxyHTTPClient(nil, insecureSkipTLS)
+	client := newProxyClient(getCachedTransport(nil, insecureSkipTLS))
 	return client.Do(req.WithContext(ctx))
-}
-
-func newProxyHTTPClient(proxy func(*http.Request) (*url.URL, error), insecureSkipTLS bool) *http.Client {
-	transport := &http.Transport{
-		Proxy: proxy,
-		DialContext: (&net.Dialer{
-			Timeout:   defaultProxyConnectTimeout,
-			KeepAlive: defaultProxyKeepAliveInitial,
-		}).DialContext,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ResponseHeaderTimeout: 30 * time.Second,
-	}
-	if insecureSkipTLS {
-		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	}
-	return &http.Client{
-		Transport:     transport,
-		Timeout:       30 * time.Second,
-		CheckRedirect: RejectCrossOriginRedirect,
-	}
 }
 
 // RejectCrossOriginRedirect is the shared CheckRedirect policy for outbound
