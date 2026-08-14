@@ -54,6 +54,13 @@ server.exe
 routing.test.exe
 *.test.exe
 
+# Electron desktop shell artifacts (electron/ is a separate Node project)
+electron/node_modules/
+electron/dist/
+electron/metapi
+electron/metapi.exe
+electron/*.log
+
 # Test artifacts
 coverage.out
 *.out
