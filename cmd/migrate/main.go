@@ -33,6 +33,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/store"
+
 	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "modernc.org/sqlite"
 )
@@ -107,7 +109,9 @@ func asNullableString(v interface{}) interface{} {
 // ---- JSON column serialization (matching TS serializeColumnValue) ----
 
 // jsonColumnSet records which columns have logical type 'json'.
-// 13 columns across 5 tables, matching the TS schemaContract.json logical types.
+// 14 columns across 5 tables, matching the TS schemaContract.json logical types.
+// (downstream_api_keys.tags is intentionally absent: it migrated as a plain
+// TEXT passthrough before this refactor and keeps that behavior.)
 var jsonColumnSet = map[string]bool{
 	"sites.custom_headers":                         true,
 	"accounts.extra_config":                        true,
@@ -121,6 +125,8 @@ var jsonColumnSet = map[string]bool{
 	"downstream_api_keys.site_weight_multipliers":  true,
 	"downstream_api_keys.excluded_site_ids":        true,
 	"downstream_api_keys.excluded_credential_refs": true,
+	"downstream_api_keys.allowed_site_ids":         true,
+	"downstream_api_keys.allowed_credential_refs":  true,
 }
 
 func isJSONColumn(table, column string) bool {
@@ -156,50 +162,22 @@ var runtimeDBSettingKeys = map[string]bool{
 	"db_ssl":  true,
 }
 
-// ---- FK-safe clear order (children before parents, matching TS clearTargetData) ----
+// The migration table set, FK-safe delete order, and auto-increment table
+// list all derive from the canonical store schema (store.AllTableNames /
+// store.ClearTableNames) so a future store DDL change can never silently
+// drift cmd/migrate again.
 
-var clearOrder = []string{
-	"route_channels",
-	"route_group_sources",
-	"token_model_availability",
-	"model_availability",
-	"checkin_logs",
-	"proxy_logs",
-	"proxy_video_tasks",
-	"proxy_files",
-	"account_tokens",
-	"accounts",
-	"site_announcements",
-	"site_disabled_models",
-	"site_api_endpoints",
-	"token_routes",
-	"sites",
-	"downstream_api_keys",
-	"events",
-	"settings",
-}
-
-// ---- Tables that have auto-increment id for PG sequence sync (matching TS) ----
-
-var sequenceTables = []string{
-	"sites",
-	"site_api_endpoints",
-	"site_announcements",
-	"site_disabled_models",
-	"accounts",
-	"account_tokens",
-	"checkin_logs",
-	"model_availability",
-	"token_model_availability",
-	"token_routes",
-	"route_channels",
-	"route_group_sources",
-	"proxy_logs",
-	"proxy_video_tasks",
-	"proxy_files",
-	"downstream_api_keys",
-	"events",
-	// settings is excluded (no serial id in migration path)
+// sequenceTableNames returns every migrated table with a serial id column
+// (settings has a text PK and is excluded, matching TS).
+func sequenceTableNames() []string {
+	var out []string
+	for _, table := range store.AllTableNames() {
+		if table == "settings" {
+			continue
+		}
+		out = append(out, table)
+	}
+	return out
 }
 
 // ---- Migration summary ----
@@ -263,7 +241,7 @@ func runMigration(fromPath, toURL string, overwrite, dryRun, progress, verify bo
 	}
 
 	// Print per-table row counts
-	for _, t := range orderedTableNames() {
+	for _, t := range store.AllTableNames() {
 		fmt.Fprintf(os.Stderr, "  %-28s %d rows\n", t+":", len(snapshot[t]))
 	}
 
@@ -276,20 +254,20 @@ func runMigration(fromPath, toURL string, overwrite, dryRun, progress, verify bo
 		return buildSummary(snapshot, toURL, overwrite), nil
 	}
 
-	// 4. Open target (SQLite path or PostgreSQL URL)
+	// 4. Open target (SQLite path or PostgreSQL URL) and create the canonical
+	// schema via store.AutoMigrate — the same dual-dialect DDL the server uses,
+	// so target tables always carry every column the insert builders expect.
 	tgtDB, err := openTargetDB(toURL)
 	if err != nil {
 		return nil, fmt.Errorf("open target: %w", err)
 	}
 	defer tgtDB.Close()
 
-	if err := tgtDB.Ping(); err != nil {
-		return nil, fmt.Errorf("ping target: %w", err)
-	}
-
-	// 5. Ensure schema exists in target (dialect-specific DDL)
-	if err := ensureTargetSchema(tgtDB, toSQLite); err != nil {
-		return nil, fmt.Errorf("ensure target schema: %w", err)
+	// 5. Drift guard: refuse to migrate when an insert builder's column list
+	// no longer matches the store schema (turns silent data loss into a loud
+	// failure instead).
+	if err := verifyBuilderColumnsMatchTarget(tgtDB); err != nil {
+		return nil, err
 	}
 
 	// 6. Check target state (reject if data exists and !overwrite, matching TS ensureTargetState)
@@ -310,7 +288,7 @@ func runMigration(fromPath, toURL string, overwrite, dryRun, progress, verify bo
 	// 8. Clear target data in FK-safe order (if overwrite)
 	if overwrite {
 		fmt.Fprintf(os.Stderr, "\nClearing target data (FK-safe order)...\n")
-		for _, table := range clearOrder {
+		for _, table := range store.ClearTableNames() {
 			if _, err := tx.Exec(fmt.Sprintf(`DELETE FROM "%s"`, table)); err != nil {
 				return nil, fmt.Errorf("clear %s: %w", table, err)
 			}
@@ -348,7 +326,7 @@ func runMigration(fromPath, toURL string, overwrite, dryRun, progress, verify bo
 	// 10. Sync sequences (PostgreSQL only; SQLite AUTOINCREMENT handles itself)
 	if !toSQLite {
 		fmt.Fprintf(os.Stderr, "\nSyncing PostgreSQL sequences...\n")
-		for _, table := range sequenceTables {
+		for _, table := range sequenceTableNames() {
 			q := fmt.Sprintf(`SELECT setval(pg_get_serial_sequence('%s', 'id'), COALESCE((SELECT MAX("id") FROM "%s"), 1), TRUE)`, table, table)
 			if _, err := tx.Exec(q); err != nil {
 				// Table might not exist if migrations haven't run; warn but continue
@@ -408,16 +386,33 @@ func openSourceDB(raw string) (*sql.DB, error) {
 	return sql.Open("sqlite", sourcePath+"?_journal_mode=WAL")
 }
 
-// openTargetDB opens a SQLite path or a PostgreSQL URL as the target.
-func openTargetDB(raw string) (*sql.DB, error) {
+// openTargetDB opens a SQLite path or a PostgreSQL URL as the target via
+// store.Open (WAL + pragmas for SQLite, sslmode/pool handling for PostgreSQL)
+// and runs store.AutoMigrate so the target carries the canonical dual-dialect
+// schema. The caller must Close the returned DB.
+func openTargetDB(raw string) (*store.DB, error) {
+	var (
+		db  *store.DB
+		err error
+	)
 	if isPostgresURL(raw) {
-		return sql.Open("pgx", raw)
+		db, err = store.Open(store.DialectPostgres, raw, false)
+	} else {
+		sqlitePath, pathErr := normalizeSQLitePath(raw)
+		if pathErr != nil {
+			return nil, pathErr
+		}
+		db, err = store.Open(store.DialectSQLite, sqlitePath, false)
 	}
-	sourcePath, err := normalizeSQLitePath(raw)
 	if err != nil {
 		return nil, err
 	}
-	return sql.Open("sqlite", sourcePath+"?_journal_mode=WAL")
+
+	if err := store.AutoMigrate(db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("auto-migrate target schema: %w", err)
+	}
+	return db, nil
 }
 
 // normalizeSQLitePath handles sqlite:// prefix and plain paths (matching TS normalizeSqliteTarget).
@@ -454,32 +449,13 @@ func normalizeSQLitePath(raw string) (string, error) {
 	return raw, nil
 }
 
-// readAllTables reads all 18 tables from the SQLite source into memory.
+// readAllTables reads all 18 migration tables from the source into memory.
+// The table set is sourced from store.AllTableNames so it can never drift
+// from the canonical schema.
 func readAllTables(db *sql.DB) (map[string][]map[string]interface{}, error) {
-	tables := []string{
-		"sites",
-		"site_api_endpoints",
-		"site_announcements",
-		"site_disabled_models",
-		"accounts",
-		"account_tokens",
-		"checkin_logs",
-		"model_availability",
-		"token_model_availability",
-		"token_routes",
-		"route_channels",
-		"route_group_sources",
-		"proxy_logs",
-		"proxy_video_tasks",
-		"proxy_files",
-		"downstream_api_keys",
-		"events",
-		"settings",
-	}
-
 	snapshot := make(map[string][]map[string]interface{})
 
-	for _, table := range tables {
+	for _, table := range store.AllTableNames() {
 		rows, err := db.Query(fmt.Sprintf(`SELECT * FROM "%s"`, table))
 		if err != nil {
 			// Table might not exist if migrations haven't created it
@@ -521,30 +497,6 @@ func readAllTables(db *sql.DB) (map[string][]map[string]interface{}, error) {
 	return snapshot, nil
 }
 
-// orderedTableNames returns table names in a stable order for display.
-func orderedTableNames() []string {
-	return []string{
-		"sites",
-		"site_api_endpoints",
-		"site_announcements",
-		"site_disabled_models",
-		"accounts",
-		"account_tokens",
-		"checkin_logs",
-		"model_availability",
-		"token_model_availability",
-		"token_routes",
-		"route_channels",
-		"route_group_sources",
-		"proxy_logs",
-		"proxy_video_tasks",
-		"proxy_files",
-		"downstream_api_keys",
-		"events",
-		"settings",
-	}
-}
-
 // ---- Insert statement builder (matching TS buildStatements) ----
 
 type insertStmt struct {
@@ -583,7 +535,17 @@ func v(row map[string]interface{}, key string) interface{} {
 }
 
 func buildSites(rows []map[string]interface{}) []insertStmt {
-	cols := []string{"id", "name", "url", "external_checkin_url", "platform", "proxy_url", "use_system_proxy", "custom_headers", "status", "is_pinned", "sort_order", "global_weight", "api_key", "created_at", "updated_at"}
+	// Column list mirrors store.buildSitesDDL + additive columns exactly;
+	// verifyBuilderColumnsMatchTarget enforces this at migration time.
+	cols := []string{
+		"id", "name", "url", "external_checkin_url", "platform", "proxy_url",
+		"use_system_proxy", "custom_headers", "custom_headers_override_request_headers",
+		"status", "is_pinned", "sort_order", "global_weight", "api_key",
+		"max_concurrency",
+		"post_refresh_probe_enabled", "post_refresh_probe_model", "post_refresh_probe_scope",
+		"post_refresh_probe_latency_threshold_ms",
+		"created_at", "updated_at", "tags",
+	}
 	var stmts []insertStmt
 	for _, row := range rows {
 		stmts = append(stmts, insertStmt{
@@ -597,13 +559,20 @@ func buildSites(rows []map[string]interface{}) []insertStmt {
 				asNullableString(v(row, "proxy_url")),
 				asBoolean(v(row, "use_system_proxy"), false),
 				serializeColumnValue("sites", "custom_headers", v(row, "custom_headers")),
+				asBoolean(v(row, "custom_headers_override_request_headers"), false),
 				coalesceNullString(asNullableString(v(row, "status")), "active"),
 				asBoolean(v(row, "is_pinned"), false),
 				asNumber(v(row, "sort_order"), float64(0)),
 				asNumber(v(row, "global_weight"), float64(1)),
 				asNullableString(v(row, "api_key")),
+				asNumber(v(row, "max_concurrency"), float64(0)),
+				asBoolean(v(row, "post_refresh_probe_enabled"), false),
+				coalesceNullString(asNullableString(v(row, "post_refresh_probe_model")), ""),
+				coalesceNullString(asNullableString(v(row, "post_refresh_probe_scope")), "single"),
+				asNumber(v(row, "post_refresh_probe_latency_threshold_ms"), float64(0)),
 				asNullableString(v(row, "created_at")),
 				asNullableString(v(row, "updated_at")),
+				asNullableString(v(row, "tags")),
 			},
 		})
 	}
@@ -659,7 +628,8 @@ func buildSiteDisabledModels(rows []map[string]interface{}) []insertStmt {
 }
 
 func buildSiteAnnouncements(rows []map[string]interface{}) []insertStmt {
-	cols := []string{"id", "site_id", "platform", "source_key", "title", "content", "level", "source_url", "starts_at", "ends_at", "upstream_created_at", "upstream_updated_at", "first_seen_at", "last_seen_at", "read_at", "dismissed_at", "raw_payload", "created_at", "updated_at"}
+	// The store DDL for site_announcements has no created_at/updated_at columns.
+	cols := []string{"id", "site_id", "platform", "source_key", "title", "content", "level", "source_url", "starts_at", "ends_at", "upstream_created_at", "upstream_updated_at", "first_seen_at", "last_seen_at", "read_at", "dismissed_at", "raw_payload"}
 	var stmts []insertStmt
 	for _, row := range rows {
 		stmts = append(stmts, insertStmt{
@@ -682,8 +652,6 @@ func buildSiteAnnouncements(rows []map[string]interface{}) []insertStmt {
 				asNullableString(v(row, "read_at")),
 				asNullableString(v(row, "dismissed_at")),
 				asNullableString(v(row, "raw_payload")),
-				asNullableString(v(row, "created_at")),
-				asNullableString(v(row, "updated_at")),
 			},
 		})
 	}
@@ -691,7 +659,13 @@ func buildSiteAnnouncements(rows []map[string]interface{}) []insertStmt {
 }
 
 func buildAccounts(rows []map[string]interface{}) []insertStmt {
-	cols := []string{"id", "site_id", "username", "access_token", "api_token", "balance", "balance_used", "quota", "unit_cost", "value_score", "status", "is_pinned", "sort_order", "checkin_enabled", "last_checkin_at", "last_balance_refresh", "extra_config", "created_at", "updated_at"}
+	cols := []string{
+		"id", "site_id", "username", "access_token", "api_token", "balance", "balance_used",
+		"quota", "unit_cost", "value_score", "status", "is_pinned", "sort_order",
+		"checkin_enabled", "last_checkin_at", "last_balance_refresh",
+		"oauth_provider", "oauth_account_key", "oauth_project_id",
+		"extra_config", "created_at", "updated_at", "tags",
+	}
 	var stmts []insertStmt
 	for _, row := range rows {
 		stmts = append(stmts, insertStmt{
@@ -713,9 +687,13 @@ func buildAccounts(rows []map[string]interface{}) []insertStmt {
 				asBoolean(v(row, "checkin_enabled"), true),
 				asNullableString(v(row, "last_checkin_at")),
 				asNullableString(v(row, "last_balance_refresh")),
+				asNullableString(v(row, "oauth_provider")),
+				asNullableString(v(row, "oauth_account_key")),
+				asNullableString(v(row, "oauth_project_id")),
 				serializeColumnValue("accounts", "extra_config", v(row, "extra_config")),
 				asNullableString(v(row, "created_at")),
 				asNullableString(v(row, "updated_at")),
+				asNullableString(v(row, "tags")),
 			},
 		})
 	}
@@ -747,7 +725,7 @@ func buildAccountTokens(rows []map[string]interface{}) []insertStmt {
 }
 
 func buildCheckinLogs(rows []map[string]interface{}) []insertStmt {
-	cols := []string{"id", "account_id", "status", "message", "reward", "created_at"}
+	cols := []string{"id", "account_id", "status", "message", "reward", "failure_reason", "created_at"}
 	var stmts []insertStmt
 	for _, row := range rows {
 		stmts = append(stmts, insertStmt{
@@ -758,6 +736,7 @@ func buildCheckinLogs(rows []map[string]interface{}) []insertStmt {
 				coalesceNullString(asNullableString(v(row, "status")), "success"),
 				asNullableString(v(row, "message")),
 				asNullableString(v(row, "reward")),
+				asNullableString(v(row, "failure_reason")),
 				asNullableString(v(row, "created_at")),
 			},
 		})
@@ -805,7 +784,7 @@ func buildTokenModelAvailability(rows []map[string]interface{}) []insertStmt {
 }
 
 func buildTokenRoutes(rows []map[string]interface{}) []insertStmt {
-	cols := []string{"id", "model_pattern", "display_name", "display_icon", "model_mapping", "route_mode", "decision_snapshot", "decision_refreshed_at", "routing_strategy", "enabled", "created_at", "updated_at"}
+	cols := []string{"id", "model_pattern", "display_name", "display_icon", "model_mapping", "route_mode", "decision_snapshot", "decision_refreshed_at", "routing_strategy", "context_length", "sort_order", "enabled", "created_at", "updated_at"}
 	var stmts []insertStmt
 	for _, row := range rows {
 		stmts = append(stmts, insertStmt{
@@ -820,6 +799,8 @@ func buildTokenRoutes(rows []map[string]interface{}) []insertStmt {
 				serializeColumnValue("token_routes", "decision_snapshot", v(row, "decision_snapshot")),
 				asNullableString(v(row, "decision_refreshed_at")),
 				asNullableString(v(row, "routing_strategy")),
+				asNumber(v(row, "context_length"), nil),
+				asNumber(v(row, "sort_order"), float64(0)),
 				asBoolean(v(row, "enabled"), true),
 				asNullableString(v(row, "created_at")),
 				asNullableString(v(row, "updated_at")),
@@ -879,7 +860,7 @@ func buildRouteGroupSources(rows []map[string]interface{}) []insertStmt {
 }
 
 func buildProxyLogs(rows []map[string]interface{}) []insertStmt {
-	cols := []string{"id", "route_id", "channel_id", "account_id", "downstream_api_key_id", "model_requested", "model_actual", "status", "http_status", "is_stream", "first_byte_latency_ms", "latency_ms", "prompt_tokens", "completion_tokens", "total_tokens", "estimated_cost", "billing_details", "client_family", "client_app_id", "client_app_name", "client_confidence", "error_message", "retry_count", "created_at"}
+	cols := []string{"id", "route_id", "channel_id", "account_id", "downstream_api_key_id", "model_requested", "model_actual", "status", "http_status", "is_stream", "first_byte_latency_ms", "latency_ms", "prompt_tokens", "completion_tokens", "total_tokens", "estimated_cost", "billing_details", "client_family", "client_app_id", "client_app_name", "client_confidence", "error_message", "retry_count", "request_id", "created_at"}
 	var stmts []insertStmt
 	for _, row := range rows {
 		stmts = append(stmts, insertStmt{
@@ -908,6 +889,7 @@ func buildProxyLogs(rows []map[string]interface{}) []insertStmt {
 				asNullableString(v(row, "client_confidence")),
 				asNullableString(v(row, "error_message")),
 				asNumber(v(row, "retry_count"), float64(0)),
+				asNullableString(v(row, "request_id")),
 				asNullableString(v(row, "created_at")),
 			},
 		})
@@ -970,7 +952,7 @@ func buildProxyFiles(rows []map[string]interface{}) []insertStmt {
 }
 
 func buildDownstreamAPIKeys(rows []map[string]interface{}) []insertStmt {
-	cols := []string{"id", "name", "key", "description", "group_name", "tags", "enabled", "expires_at", "max_cost", "used_cost", "max_requests", "used_requests", "supported_models", "allowed_route_ids", "site_weight_multipliers", "excluded_site_ids", "excluded_credential_refs", "last_used_at", "created_at", "updated_at"}
+	cols := []string{"id", "name", "key", "description", "group_name", "tags", "enabled", "expires_at", "max_cost", "used_cost", "max_requests", "used_requests", "supported_models", "allowed_route_ids", "site_weight_multipliers", "excluded_site_ids", "excluded_credential_refs", "allowed_site_ids", "allowed_credential_refs", "key_weight", "proxy_url", "max_rpm", "max_tpm", "ip_allowlist", "ip_blocklist", "last_used_at", "created_at", "updated_at"}
 	var stmts []insertStmt
 	for _, row := range rows {
 		stmts = append(stmts, insertStmt{
@@ -993,6 +975,14 @@ func buildDownstreamAPIKeys(rows []map[string]interface{}) []insertStmt {
 				serializeColumnValue("downstream_api_keys", "site_weight_multipliers", v(row, "site_weight_multipliers")),
 				serializeColumnValue("downstream_api_keys", "excluded_site_ids", v(row, "excluded_site_ids")),
 				serializeColumnValue("downstream_api_keys", "excluded_credential_refs", v(row, "excluded_credential_refs")),
+				serializeColumnValue("downstream_api_keys", "allowed_site_ids", v(row, "allowed_site_ids")),
+				serializeColumnValue("downstream_api_keys", "allowed_credential_refs", v(row, "allowed_credential_refs")),
+				asNumber(v(row, "key_weight"), nil),
+				asNullableString(v(row, "proxy_url")),
+				asNumber(v(row, "max_rpm"), nil),
+				asNumber(v(row, "max_tpm"), nil),
+				asNullableString(v(row, "ip_allowlist")),
+				asNullableString(v(row, "ip_blocklist")),
 				asNullableString(v(row, "last_used_at")),
 				asNullableString(v(row, "created_at")),
 				asNullableString(v(row, "updated_at")),
@@ -1063,65 +1053,14 @@ func buildInsertPG(s insertStmt) (string, []interface{}) {
 	return sql, s.values
 }
 
-// ---- Ensure target schema (matching TS ensureRuntimeDatabaseSchema) ----
-
-func ensureTargetSchema(db *sql.DB, sqlite bool) error {
-	// Minimal DDL: CREATE TABLE IF NOT EXISTS for the 18 migration-target tables.
-	// The full schema is handled by store.Migrate() in the server binary.
-	// Here we only need the tables to exist for data insertion.
-	tables := map[string]string{
-		"sites":                    `CREATE TABLE IF NOT EXISTS "sites" (id BIGSERIAL PRIMARY KEY, name TEXT, url TEXT, external_checkin_url TEXT, platform TEXT, proxy_url TEXT, use_system_proxy BOOLEAN DEFAULT FALSE, custom_headers JSONB, status TEXT DEFAULT 'active', is_pinned BOOLEAN DEFAULT FALSE, sort_order BIGINT DEFAULT 0, global_weight DOUBLE PRECISION DEFAULT 1, api_key TEXT, post_refresh_probe_enabled BOOLEAN DEFAULT FALSE, post_refresh_probe_model TEXT DEFAULT '', post_refresh_probe_scope TEXT DEFAULT '', post_refresh_probe_latency_threshold_ms BIGINT DEFAULT 0, created_at TEXT, updated_at TEXT)`,
-		"site_api_endpoints":       `CREATE TABLE IF NOT EXISTS "site_api_endpoints" (id BIGSERIAL PRIMARY KEY, site_id BIGINT, url TEXT, enabled BOOLEAN DEFAULT TRUE, sort_order BIGINT DEFAULT 0, cooldown_until TEXT, last_selected_at TEXT, last_failed_at TEXT, last_failure_reason TEXT, created_at TEXT, updated_at TEXT)`,
-		"site_announcements":       `CREATE TABLE IF NOT EXISTS "site_announcements" (id BIGSERIAL PRIMARY KEY, site_id BIGINT, platform TEXT, source_key TEXT, title TEXT, content TEXT, level TEXT DEFAULT 'info', source_url TEXT, starts_at TEXT, ends_at TEXT, upstream_created_at TEXT, upstream_updated_at TEXT, first_seen_at TEXT, last_seen_at TEXT, read_at TEXT, dismissed_at TEXT, raw_payload TEXT, created_at TEXT, updated_at TEXT)`,
-		"site_disabled_models":     `CREATE TABLE IF NOT EXISTS "site_disabled_models" (id BIGSERIAL PRIMARY KEY, site_id BIGINT, model_name TEXT, created_at TEXT)`,
-		"accounts":                 `CREATE TABLE IF NOT EXISTS "accounts" (id BIGSERIAL PRIMARY KEY, site_id BIGINT, username TEXT, access_token TEXT, api_token TEXT, balance DOUBLE PRECISION DEFAULT 0, balance_used DOUBLE PRECISION DEFAULT 0, quota DOUBLE PRECISION DEFAULT 0, unit_cost DOUBLE PRECISION, value_score DOUBLE PRECISION DEFAULT 0, status TEXT DEFAULT 'active', is_pinned BOOLEAN DEFAULT FALSE, sort_order BIGINT DEFAULT 0, checkin_enabled BOOLEAN DEFAULT TRUE, last_checkin_at TEXT, last_balance_refresh TEXT, oauth_provider TEXT, oauth_account_key TEXT, oauth_project_id TEXT, extra_config JSONB, created_at TEXT, updated_at TEXT)`,
-		"account_tokens":           `CREATE TABLE IF NOT EXISTS "account_tokens" (id BIGSERIAL PRIMARY KEY, account_id BIGINT, name TEXT, token TEXT, token_group TEXT, value_status TEXT DEFAULT 'ready', source TEXT DEFAULT 'manual', enabled BOOLEAN DEFAULT TRUE, is_default BOOLEAN DEFAULT FALSE, created_at TEXT, updated_at TEXT)`,
-		"checkin_logs":             `CREATE TABLE IF NOT EXISTS "checkin_logs" (id BIGSERIAL PRIMARY KEY, account_id BIGINT, status TEXT DEFAULT 'success', message TEXT, reward TEXT, created_at TEXT)`,
-		"model_availability":       `CREATE TABLE IF NOT EXISTS "model_availability" (id BIGSERIAL PRIMARY KEY, account_id BIGINT, model_name TEXT, available BOOLEAN DEFAULT FALSE, is_manual BOOLEAN DEFAULT FALSE, latency_ms BIGINT, checked_at TEXT)`,
-		"token_model_availability": `CREATE TABLE IF NOT EXISTS "token_model_availability" (id BIGSERIAL PRIMARY KEY, token_id BIGINT, model_name TEXT, available BOOLEAN DEFAULT FALSE, latency_ms BIGINT, checked_at TEXT)`,
-		"token_routes":             `CREATE TABLE IF NOT EXISTS "token_routes" (id BIGSERIAL PRIMARY KEY, model_pattern TEXT, display_name TEXT, display_icon TEXT, route_mode TEXT DEFAULT 'pattern', model_mapping JSONB, decision_snapshot JSONB, decision_refreshed_at TEXT, routing_strategy TEXT DEFAULT '', enabled BOOLEAN DEFAULT TRUE, created_at TEXT, updated_at TEXT)`,
-		"route_channels":           `CREATE TABLE IF NOT EXISTS "route_channels" (id BIGSERIAL PRIMARY KEY, route_id BIGINT, account_id BIGINT, token_id BIGINT, oauth_route_unit_id BIGINT, source_model TEXT, priority BIGINT DEFAULT 0, weight BIGINT DEFAULT 10, enabled BOOLEAN DEFAULT TRUE, manual_override BOOLEAN DEFAULT FALSE, success_count BIGINT DEFAULT 0, fail_count BIGINT DEFAULT 0, total_latency_ms BIGINT DEFAULT 0, total_cost DOUBLE PRECISION DEFAULT 0, last_used_at TEXT, last_selected_at TEXT, last_fail_at TEXT, consecutive_fail_count BIGINT DEFAULT 0, cooldown_level BIGINT DEFAULT 0, cooldown_until TEXT)`,
-		"route_group_sources":      `CREATE TABLE IF NOT EXISTS "route_group_sources" (id BIGSERIAL PRIMARY KEY, group_route_id BIGINT, source_route_id BIGINT)`,
-		"proxy_logs":               `CREATE TABLE IF NOT EXISTS "proxy_logs" (id BIGSERIAL PRIMARY KEY, route_id BIGINT, channel_id BIGINT, account_id BIGINT, downstream_api_key_id BIGINT, model_requested TEXT, model_actual TEXT, status TEXT, http_status BIGINT, is_stream BOOLEAN DEFAULT FALSE, first_byte_latency_ms BIGINT, latency_ms BIGINT, prompt_tokens BIGINT, completion_tokens BIGINT, total_tokens BIGINT, estimated_cost DOUBLE PRECISION, billing_details JSONB, client_family TEXT, client_app_id TEXT, client_app_name TEXT, client_confidence TEXT, error_message TEXT, retry_count BIGINT DEFAULT 0, created_at TEXT)`,
-		"proxy_video_tasks":        `CREATE TABLE IF NOT EXISTS "proxy_video_tasks" (id BIGSERIAL PRIMARY KEY, public_id TEXT, upstream_video_id TEXT, site_url TEXT, token_value TEXT, requested_model TEXT, actual_model TEXT, channel_id BIGINT, account_id BIGINT, status_snapshot JSONB, upstream_response_meta JSONB, last_upstream_status BIGINT, last_polled_at TEXT, created_at TEXT, updated_at TEXT)`,
-		"proxy_files":              `CREATE TABLE IF NOT EXISTS "proxy_files" (id BIGSERIAL PRIMARY KEY, public_id TEXT, owner_type TEXT, owner_id TEXT, filename TEXT, mime_type TEXT, purpose TEXT, byte_size BIGINT, sha256 TEXT, content_base64 TEXT, created_at TEXT, updated_at TEXT, deleted_at TEXT)`,
-		"downstream_api_keys":      `CREATE TABLE IF NOT EXISTS "downstream_api_keys" (id BIGSERIAL PRIMARY KEY, name TEXT, key TEXT, description TEXT, group_name TEXT, tags TEXT, enabled BOOLEAN DEFAULT TRUE, expires_at TEXT, max_cost DOUBLE PRECISION, used_cost DOUBLE PRECISION DEFAULT 0, max_requests BIGINT, used_requests BIGINT DEFAULT 0, supported_models JSONB, allowed_route_ids JSONB, site_weight_multipliers JSONB, excluded_site_ids JSONB, excluded_credential_refs JSONB, last_used_at TEXT, created_at TEXT, updated_at TEXT)`,
-		"events":                   `CREATE TABLE IF NOT EXISTS "events" (id BIGSERIAL PRIMARY KEY, type TEXT, title TEXT, message TEXT, level TEXT DEFAULT 'info', read BOOLEAN DEFAULT FALSE, related_id BIGINT, related_type TEXT, created_at TEXT)`,
-		"settings":                 `CREATE TABLE IF NOT EXISTS "settings" (key TEXT PRIMARY KEY, value TEXT)`,
-	}
-
-	for table, ddl := range tables {
-		if sqlite {
-			ddl = sqliteDDLFromPG(ddl)
-		}
-		if _, err := db.Exec(ddl); err != nil {
-			return fmt.Errorf("create table %s: %w", table, err)
-		}
-		_ = table // used in error message
-	}
-	return nil
-}
-
-// sqliteDDLFromPG converts a PostgreSQL CREATE TABLE statement to the SQLite
-// dialect (reverse-migration support). Type mapping:
+// ---- Ensure target schema ----
 //
-//	BIGSERIAL PRIMARY KEY → INTEGER PRIMARY KEY AUTOINCREMENT
-//	BOOLEAN → INTEGER (DEFAULT TRUE/FALSE → DEFAULT 1/0 — SQLite has no bool literal)
-//	BIGINT → INTEGER · DOUBLE PRECISION → REAL · JSONB → TEXT
-func sqliteDDLFromPG(pgDDL string) string {
-	r := strings.NewReplacer(
-		"DEFAULT FALSE", "DEFAULT 0",
-		"DEFAULT TRUE", "DEFAULT 1",
-		"BIGSERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT",
-		"JSONB", "TEXT",
-		"BOOLEAN", "INTEGER",
-		"BIGINT", "INTEGER",
-		"DOUBLE PRECISION", "REAL",
-	)
-	return r.Replace(pgDDL)
-}
+// Removed: the previous ensureTargetSchema triplicated schema knowledge in
+// cmd/migrate and drifted from store/migrate.go (missing max_concurrency,
+// post_refresh_probe_* and tags on sites, etc.), silently dropping data.
+// openTargetDB now calls store.Open + store.AutoMigrate so the canonical
+// dual-dialect DDL is the single source of truth.
 
-// buildInsertSQLite builds an INSERT with `?` placeholders (SQLite dialect).
 func buildInsertSQLite(s insertStmt) (string, []interface{}) {
 	quotedCols := make([]string, len(s.columns))
 	for i, c := range s.columns {
@@ -1141,9 +1080,8 @@ func buildInsertSQLite(s insertStmt) (string, []interface{}) {
 
 // ---- Checksum verification ----
 
-func verifyChecksums(srcDB, tgtDB *sql.DB, snapshot map[string][]map[string]interface{}) error {
-	tables := orderedTableNames()
-	for _, table := range tables {
+func verifyChecksums(srcDB *sql.DB, tgtDB *store.DB, snapshot map[string][]map[string]interface{}) error {
+	for _, table := range store.AllTableNames() {
 		srcCount := len(snapshot[table])
 
 		var tgtCount int
@@ -1186,7 +1124,7 @@ func hashRows(rows []map[string]interface{}) []byte {
 	return h.Sum(nil)
 }
 
-func hashPGTable(db *sql.DB, table string) ([]byte, error) {
+func hashPGTable(db *store.DB, table string) ([]byte, error) {
 	rows, err := db.Query(fmt.Sprintf(`SELECT * FROM "%s" ORDER BY id`, table))
 	if err != nil {
 		return nil, err
@@ -1216,6 +1154,81 @@ func hashPGTable(db *sql.DB, table string) ([]byte, error) {
 	return h.Sum(nil), rows.Err()
 }
 
+// ---- Drift guard ----
+
+// verifyBuilderColumnsMatchTarget fails the migration when any per-table
+// insert builder's column list differs from the target schema created by
+// store.AutoMigrate. This turns silent column drift (data loss) into a loud
+// failure before any data is written.
+func verifyBuilderColumnsMatchTarget(db *store.DB) error {
+	builderColumns := builderColumnSets()
+	for _, table := range store.AllTableNames() {
+		actual, err := targetColumns(db, table)
+		if err != nil {
+			return fmt.Errorf("read target columns for %s: %w", table, err)
+		}
+		expected := builderColumns[table]
+		missing, extra := diffColumnSets(expected, actual)
+		if len(missing) > 0 || len(extra) > 0 {
+			return fmt.Errorf(
+				"cmd/migrate insert builder for table %q is out of sync with store DDL (missing=%v extra=%v); refusing to migrate",
+				table, missing, extra,
+			)
+		}
+	}
+	return nil
+}
+
+// builderColumnSets derives each builder's INSERT column list by running the
+// builders against one synthetic empty row per table. No hardcoded table list
+// lives here — the table set comes from store.AllTableNames().
+func builderColumnSets() map[string][]string {
+	snapshot := make(map[string][]map[string]interface{}, len(store.AllTableNames()))
+	for _, table := range store.AllTableNames() {
+		snapshot[table] = []map[string]interface{}{{}}
+	}
+	out := make(map[string][]string)
+	for _, stmt := range buildStatements(snapshot) {
+		out[stmt.table] = stmt.columns
+	}
+	return out
+}
+
+// targetColumns returns the canonical column list of a target table.
+func targetColumns(db *store.DB, table string) ([]string, error) {
+	rows, err := db.Query(fmt.Sprintf(`SELECT * FROM "%s" LIMIT 0`, table))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return rows.Columns()
+}
+
+// diffColumnSets reports names present in exactly one of the two sets.
+func diffColumnSets(expected, actual []string) (missing, extra []string) {
+	expectedSet := make(map[string]bool, len(expected))
+	for _, c := range expected {
+		expectedSet[c] = true
+	}
+	actualSet := make(map[string]bool, len(actual))
+	for _, c := range actual {
+		actualSet[c] = true
+	}
+	for _, c := range expected {
+		if !actualSet[c] {
+			missing = append(missing, c)
+		}
+	}
+	for _, c := range actual {
+		if !expectedSet[c] {
+			extra = append(extra, c)
+		}
+	}
+	sort.Strings(missing)
+	sort.Strings(extra)
+	return missing, extra
+}
+
 // ---- Summary ----
 
 func buildSummary(snapshot map[string][]map[string]interface{}, toURL string, overwrite bool) *MigrationSummary {
@@ -1227,7 +1240,7 @@ func buildSummary(snapshot map[string][]map[string]interface{}, toURL string, ov
 		Timestamp:  time.Now().UnixMilli(),
 		Rows:       make(map[string]int),
 	}
-	for _, table := range orderedTableNames() {
+	for _, table := range store.AllTableNames() {
 		s.Rows[table] = len(snapshot[table])
 	}
 	return s
@@ -1241,7 +1254,7 @@ func printSummary(s *MigrationSummary) {
 	fmt.Fprintf(os.Stderr, "  version:    %s\n", s.Version)
 	fmt.Fprintf(os.Stderr, "  timestamp:  %d\n", s.Timestamp)
 	fmt.Fprintf(os.Stderr, "  rows:\n")
-	for _, table := range orderedTableNames() {
+	for _, table := range store.AllTableNames() {
 		fmt.Fprintf(os.Stderr, "    %-28s %d\n", table+":", s.Rows[table])
 	}
 }

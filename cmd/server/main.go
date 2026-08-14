@@ -123,9 +123,6 @@ func bootstrapRuntime(cfg *config.Config) (err error) {
 	if err := store.LoadRuntimeSettings(cfg); err != nil {
 		return fmt.Errorf("load runtime settings: %w", err)
 	}
-	if err := store.Migrate(cfg); err != nil {
-		return fmt.Errorf("run runtime migrations: %w", err)
-	}
 
 	slog.Info("bootstrap complete")
 	return nil

@@ -366,9 +366,9 @@ func TestClampInt(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		got := clampInt(tc.v, tc.lo, tc.hi)
+		got := config.ClampInt(tc.v, tc.lo, tc.hi)
 		if got != tc.expected {
-			t.Errorf("clampInt(%d, %d, %d) = %d, want %d",
+			t.Errorf("ClampInt(%d, %d, %d) = %d, want %d",
 				tc.v, tc.lo, tc.hi, got, tc.expected)
 		}
 	}
@@ -387,9 +387,9 @@ func TestMaxInt(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		got := maxInt(tc.a, tc.b)
+		got := config.MaxInt(tc.a, tc.b)
 		if got != tc.expected {
-			t.Errorf("maxInt(%d, %d) = %d, want %d", tc.a, tc.b, got, tc.expected)
+			t.Errorf("MaxInt(%d, %d) = %d, want %d", tc.a, tc.b, got, tc.expected)
 		}
 	}
 }
@@ -406,9 +406,9 @@ func TestMaxInt64(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		got := maxInt64(tc.a, tc.b)
+		got := config.MaxInt64(tc.a, tc.b)
 		if got != tc.expected {
-			t.Errorf("maxInt64(%d, %d) = %d, want %d", tc.a, tc.b, got, tc.expected)
+			t.Errorf("MaxInt64(%d, %d) = %d, want %d", tc.a, tc.b, got, tc.expected)
 		}
 	}
 }
@@ -744,7 +744,7 @@ func TestCountResults(t *testing.T) {
 
 func TestNewBalanceScheduler(t *testing.T) {
 	cfg := testConfig()
-	s := NewBalanceScheduler(cfg, nil)
+	s := NewBalanceScheduler(cfg)
 	if s == nil {
 		t.Fatal("NewBalanceScheduler returned nil")
 	}
@@ -756,7 +756,7 @@ func TestNewBalanceScheduler(t *testing.T) {
 func TestBalanceScheduler_UpdateCron(t *testing.T) {
 	cfg := testConfig()
 	cfg.BalanceRefreshCron = "0 0 0 * * *"
-	s := NewBalanceScheduler(cfg, nil)
+	s := NewBalanceScheduler(cfg)
 
 	t.Run("invalid cron", func(t *testing.T) {
 		err := s.UpdateCron("not-a-cron")
@@ -779,7 +779,7 @@ func TestBalanceScheduler_UpdateCron(t *testing.T) {
 func TestBalanceScheduler_Stop(t *testing.T) {
 	cfg := testConfig()
 	cfg.BalanceRefreshCron = "0 0 0 * * *"
-	s := NewBalanceScheduler(cfg, nil)
+	s := NewBalanceScheduler(cfg)
 	_ = s.Start(context.Background())
 	time.Sleep(50 * time.Millisecond)
 
@@ -1771,9 +1771,9 @@ func TestProxyLogRetentionScheduler_DisabledByLogCleanup(t *testing.T) {
 		t.Errorf("Start returned error: %v", err)
 	}
 	time.Sleep(30 * time.Millisecond)
-	s.mu.Lock()
-	started := s.running
-	s.mu.Unlock()
+	s.runner.mu.Lock()
+	started := s.runner.running
+	s.runner.mu.Unlock()
 	if started {
 		t.Error("scheduler should be disabled when logCleanup is configured")
 	}
@@ -1786,9 +1786,9 @@ func TestProxyLogRetentionScheduler_DisabledByZeroDays(t *testing.T) {
 	s := NewProxyLogRetentionScheduler(cfg)
 	ctx := context.Background()
 	_ = s.Start(ctx)
-	s.mu.Lock()
-	started := s.running
-	s.mu.Unlock()
+	s.runner.mu.Lock()
+	started := s.runner.running
+	s.runner.mu.Unlock()
 	if started {
 		t.Error("scheduler should be disabled when retention_days=0")
 	}
@@ -1933,7 +1933,7 @@ func TestAllSchedulersImplementInterface(t *testing.T) {
 
 	schedulers := []Scheduler{
 		NewCheckinScheduler(cfg),
-		NewBalanceScheduler(cfg, nil),
+		NewBalanceScheduler(cfg),
 		NewChannelRecoveryScheduler(cfg),
 		NewModelProbeScheduler(cfg),
 		NewLogCleanupScheduler(cfg),

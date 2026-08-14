@@ -52,7 +52,7 @@ func (s *CheckinScheduler) Start(ctx context.Context) error {
 
 	activeCron := resolveCronSetting("checkin_cron", s.cfg.CheckinCron)
 	activeMode := resolveCheckinScheduleMode(s.cfg)
-	activeIntervalHours := clampInt(
+	activeIntervalHours := config.ClampInt(
 		resolvePositiveIntegerSetting("checkin_interval_hours", s.cfg.CheckinIntervalHours),
 		1, 24,
 	)
@@ -224,7 +224,7 @@ func (s *CheckinScheduler) UpdateCheckinSchedule(mode, cronExpr string, interval
 		s.cfg.CheckinWindowEnd = windowEnd
 	}
 	s.cfg.CheckinScheduleMode = mode
-	s.cfg.CheckinIntervalHours = clampInt(intervalHours, 1, 24)
+	s.cfg.CheckinIntervalHours = config.ClampInt(intervalHours, 1, 24)
 	s.startLocked()
 	return nil
 }
@@ -311,7 +311,7 @@ func (s *CheckinScheduler) runIntervalPassLocked(dbw *store.DB) {
 // filterDue mirrors TS selectDueIntervalCheckinAccountIds().
 func (s *CheckinScheduler) filterDue(rows []intervalCandidate, now time.Time) []int64 {
 	nowMs := now.UnixMilli()
-	intervalHours := clampInt(s.cfg.CheckinIntervalHours, 1, 24)
+	intervalHours := config.ClampInt(s.cfg.CheckinIntervalHours, 1, 24)
 	intervalMs := int64(intervalHours) * 3600 * 1000
 
 	s.mu.Lock()

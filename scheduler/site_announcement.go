@@ -53,12 +53,10 @@ func getDefaultSiteAnnouncementSyncFunc() SiteAnnouncementSyncFunc {
 // SiteAnnouncementScheduler polls site announcements periodically.
 type SiteAnnouncementScheduler struct {
 	cfg      *config.Config
-	ticker   *time.Ticker
-	stopCh   chan struct{}
-	running  bool
 	mu       sync.Mutex
 	inFlight bool
 	syncFunc SiteAnnouncementSyncFunc
+	runner   *intervalRunner
 }
 
 // NewSiteAnnouncementScheduler creates a new site announcement poller.
@@ -67,6 +65,7 @@ func NewSiteAnnouncementScheduler(cfg *config.Config) *SiteAnnouncementScheduler
 	return &SiteAnnouncementScheduler{
 		cfg:      cfg,
 		syncFunc: getDefaultSiteAnnouncementSyncFunc(),
+		runner:   &intervalRunner{},
 	}
 }
 
@@ -81,48 +80,13 @@ func (s *SiteAnnouncementScheduler) SetSyncFunc(fn SiteAnnouncementSyncFunc) {
 func (s *SiteAnnouncementScheduler) Name() string { return "site-announcement" }
 
 func (s *SiteAnnouncementScheduler) Start(ctx context.Context) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	interval := time.Duration(maxInt64(defaultSiteAnnouncementIntervalMs, 10_000)) * time.Millisecond
-	s.ticker = time.NewTicker(interval)
-	s.stopCh = make(chan struct{})
-	s.running = true
-
-	// Immediate first run
-	go s.runSync()
-
-	go func() {
-		for {
-			select {
-			case <-s.ticker.C:
-				go s.runSync()
-			case <-s.stopCh:
-				return
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
+	interval := time.Duration(config.MaxInt64(defaultSiteAnnouncementIntervalMs, 10_000)) * time.Millisecond
 	slog.Info("site-announcement scheduler started", "interval_ms", interval.Milliseconds())
-	return nil
+	return s.runner.start(ctx, interval, true, s.runSync)
 }
 
 func (s *SiteAnnouncementScheduler) Stop() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if !s.running {
-		return nil
-	}
-	s.running = false
-	if s.ticker != nil {
-		s.ticker.Stop()
-	}
-	if s.stopCh != nil {
-		close(s.stopCh)
-	}
-	return nil
+	return s.runner.stop()
 }
 
 func (s *SiteAnnouncementScheduler) runSync() {
@@ -202,11 +166,4 @@ func (s *SiteAnnouncementScheduler) runResidualScan(dbw *store.DB) {
 	}
 
 	slog.Info("site-announcement: residual scan complete (no announcements written)", "sites", count)
-}
-
-func maxInt64(a, b int64) int64 {
-	if a > b {
-		return a
-	}
-	return b
 }

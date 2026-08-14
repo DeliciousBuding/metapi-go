@@ -31,65 +31,28 @@ var leadMsByProvider = map[string]int64{
 // tokens nearing expiry. Mirrors the TS oauthRefreshScheduler.ts.
 type OAuthRefreshScheduler struct {
 	cfg          *config.Config
-	ticker       *time.Ticker
-	stopCh       chan struct{}
-	running      bool
 	mu           sync.Mutex
 	passInFlight bool
+	runner       *intervalRunner
 }
 
 // NewOAuthRefreshScheduler creates a new OAuth token refresh scheduler.
 func NewOAuthRefreshScheduler(cfg *config.Config) *OAuthRefreshScheduler {
-	return &OAuthRefreshScheduler{cfg: cfg}
+	return &OAuthRefreshScheduler{cfg: cfg, runner: &intervalRunner{}}
 }
 
 func (s *OAuthRefreshScheduler) Name() string { return "oauth-refresh" }
 
 func (s *OAuthRefreshScheduler) Start(ctx context.Context) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	intervalMs := maxInt(oauthRefreshSchedulerIntervalMs, oauthRefreshSchedulerMinIntervalMs)
+	intervalMs := config.MaxInt(oauthRefreshSchedulerIntervalMs, oauthRefreshSchedulerMinIntervalMs)
 	interval := time.Duration(intervalMs) * time.Millisecond
 
-	s.ticker = time.NewTicker(interval)
-	s.stopCh = make(chan struct{})
-	s.running = true
-
-	// Immediate first run.
-	go s.runPass()
-
-	go func() {
-		for {
-			select {
-			case <-s.ticker.C:
-				go s.runPass()
-			case <-s.stopCh:
-				return
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
 	slog.Info("oauth-refresh scheduler started", "interval_ms", intervalMs)
-	return nil
+	return s.runner.start(ctx, interval, true, s.runPass)
 }
 
 func (s *OAuthRefreshScheduler) Stop() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if !s.running {
-		return nil
-	}
-	s.running = false
-	if s.ticker != nil {
-		s.ticker.Stop()
-	}
-	if s.stopCh != nil {
-		close(s.stopCh)
-	}
-	return nil
+	return s.runner.stop()
 }
 
 // OAuthRefreshResult is the outcome of a single refresh pass.

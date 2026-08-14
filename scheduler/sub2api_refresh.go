@@ -23,65 +23,28 @@ const (
 // tokens for eligible accounts via balance.RefreshBalance.
 type Sub2APIRefreshScheduler struct {
 	cfg          *config.Config
-	ticker       *time.Ticker
-	stopCh       chan struct{}
-	running      bool
 	mu           sync.Mutex
 	passInFlight bool
+	runner       *intervalRunner
 }
 
 // NewSub2APIRefreshScheduler creates a new Sub2API refresh scheduler.
 func NewSub2APIRefreshScheduler(cfg *config.Config) *Sub2APIRefreshScheduler {
-	return &Sub2APIRefreshScheduler{cfg: cfg}
+	return &Sub2APIRefreshScheduler{cfg: cfg, runner: &intervalRunner{}}
 }
 
 func (s *Sub2APIRefreshScheduler) Name() string { return "sub2api-refresh" }
 
 func (s *Sub2APIRefreshScheduler) Start(ctx context.Context) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	intervalMs := int64(maxInt(sub2apiRefreshIntervalMs, sub2apiRefreshMinIntervalMs))
+	intervalMs := int64(config.MaxInt(sub2apiRefreshIntervalMs, sub2apiRefreshMinIntervalMs))
 	interval := time.Duration(intervalMs) * time.Millisecond
 
-	s.ticker = time.NewTicker(interval)
-	s.stopCh = make(chan struct{})
-	s.running = true
-
-	// Immediate first run
-	go s.runPass()
-
-	go func() {
-		for {
-			select {
-			case <-s.ticker.C:
-				go s.runPass()
-			case <-s.stopCh:
-				return
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
 	slog.Info("sub2api-refresh scheduler started", "interval_ms", intervalMs)
-	return nil
+	return s.runner.start(ctx, interval, true, s.runPass)
 }
 
 func (s *Sub2APIRefreshScheduler) Stop() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if !s.running {
-		return nil
-	}
-	s.running = false
-	if s.ticker != nil {
-		s.ticker.Stop()
-	}
-	if s.stopCh != nil {
-		close(s.stopCh)
-	}
-	return nil
+	return s.runner.stop()
 }
 
 // Sub2ApiRefreshResult is the result of a refresh pass.

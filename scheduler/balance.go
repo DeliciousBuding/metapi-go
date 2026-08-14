@@ -9,24 +9,15 @@ import (
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
-// RouteRefresher rebuilds token routes after balance refresh.
-// Mirrors TS routeRefreshWorkflow.refreshModelsAndRebuildRoutes().
-type RouteRefresher interface {
-	RebuildTokenRoutes(ctx context.Context) error
-}
-
-// BalanceScheduler periodically refreshes account balances and then rebuilds
-// routes. Execution order is strict: refreshAllBalances MUST complete before
-// rebuildRoutes begins.
+// BalanceScheduler periodically refreshes account balances.
 type BalanceScheduler struct {
-	cfg            *config.Config
-	cronRunner     *cronRunner
-	routeRefresher RouteRefresher
+	cfg        *config.Config
+	cronRunner *cronRunner
 }
 
 // NewBalanceScheduler creates a new balance refresh scheduler.
-func NewBalanceScheduler(cfg *config.Config, routeRefresher RouteRefresher) *BalanceScheduler {
-	return &BalanceScheduler{cfg: cfg, routeRefresher: routeRefresher}
+func NewBalanceScheduler(cfg *config.Config) *BalanceScheduler {
+	return &BalanceScheduler{cfg: cfg}
 }
 
 // Name returns "balance-refresh".
@@ -91,24 +82,7 @@ func (s *BalanceScheduler) runJob() {
 }
 
 func (s *BalanceScheduler) runJobLocked(dbw *store.DB) {
-	// Step 1: Refresh all balances
+	// Refresh all balances.
 	results := balance.RefreshAllBalances(s.cfg, dbw.DB)
 	slog.Info("balance: refresh complete", "accounts", len(results))
-
-	// Step 2: Rebuild routes (strict ordering)
-	if err := s.refreshModelsAndRebuildRoutes(); err != nil {
-		slog.Error("balance: route rebuild failed", "error", err)
-	}
-
-	slog.Info("balance: refresh complete")
-}
-
-// refreshModelsAndRebuildRoutes rebuilds routes after balance refresh.
-// Mirrors TS routeRefreshWorkflow.refreshModelsAndRebuildRoutes().
-func (s *BalanceScheduler) refreshModelsAndRebuildRoutes() error {
-	if s.routeRefresher == nil {
-		slog.Info("balance: route refresher not configured, skipping route rebuild")
-		return nil
-	}
-	return s.routeRefresher.RebuildTokenRoutes(context.Background())
 }

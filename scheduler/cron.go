@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"sync"
+	"time"
 
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/robfig/cron/v3"
 )
 
@@ -72,14 +75,9 @@ func normalizeCronExpr(expr string) string {
 // ValidateCronExpr validates a cron expression using robfig/cron parser
 // with seconds field. Auto-converts 5-field expressions to 6-field.
 // Returns true if the expression is valid.
+// Thin wrapper over config.ValidateCronExpr (the canonical implementation).
 func ValidateCronExpr(expr string) bool {
-	if strings.TrimSpace(expr) == "" {
-		return false
-	}
-	expr = normalizeCronExpr(expr)
-	parser := cron.NewParser(cron.Second | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
-	_, err := parser.Parse(expr)
-	return err == nil
+	return config.ValidateCronExpr(expr)
 }
 
 // ParseCronExpr tries to parse a cron expression. Auto-converts 5-field
@@ -134,4 +132,65 @@ func (cr *cronRunner) start() {
 // stop returns a context that is done when all running jobs have completed.
 func (cr *cronRunner) stop() context.Context {
 	return cr.cron.Stop()
+}
+
+// intervalRunner owns the ticker/stopCh/running boilerplate shared by the
+// fixed-interval schedulers (update-center, model-probe, site-announcement,
+// channel-recovery, usage-aggregation, admin-snapshot, oauth-refresh,
+// sub2api-refresh and the retention trio). Semantics:
+//   - Start creates a ticker, marks running, optionally fires the first run
+//     immediately in its own goroutine, then spawns the select loop (one
+//     goroutine per tick).
+//   - The loop exits on stopCh close or ctx.Done; Stop is idempotent.
+type intervalRunner struct {
+	ticker  *time.Ticker
+	stopCh  chan struct{}
+	running bool
+	mu      sync.Mutex
+}
+
+// start begins the tick loop. The run func is executed once per tick in its
+// own goroutine; when immediate is true it is also executed once right away.
+// Returns nil when the runner is already running.
+func (r *intervalRunner) start(ctx context.Context, interval time.Duration, immediate bool, run func()) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.running {
+		return nil
+	}
+	r.ticker = time.NewTicker(interval)
+	r.stopCh = make(chan struct{})
+	r.running = true
+
+	if immediate {
+		go run()
+	}
+
+	go func() {
+		for {
+			select {
+			case <-r.ticker.C:
+				go run()
+			case <-r.stopCh:
+				return
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return nil
+}
+
+// stop halts the tick loop. Idempotent; returns nil when not running.
+func (r *intervalRunner) stop() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !r.running {
+		return nil
+	}
+	r.running = false
+	r.ticker.Stop()
+	close(r.stopCh)
+	return nil
 }
