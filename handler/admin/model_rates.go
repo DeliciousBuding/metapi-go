@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -44,7 +43,7 @@ func (h *modelRatesHandler) updateRates(w http.ResponseWriter, r *http.Request) 
 			Weight *float64 `json:"weight"`
 		} `json:"channels"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSONRequest(r, &body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid JSON body"})
 		return
 	}

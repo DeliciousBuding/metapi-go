@@ -173,17 +173,14 @@ func (h *databaseHandler) saveRuntime(w http.ResponseWriter, r *http.Request) {
 		Overwrite        *bool   `json:"overwrite"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "Invalid request body"})
+		writeError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
 	if body.Dialect != nil {
 		dialect, ok := normalizeRuntimeDatabaseDialect(*body.Dialect)
 		if !ok {
-			writeJSON(w, http.StatusBadRequest, map[string]any{
-				"success": false,
-				"message": "数据库类型仅支持 sqlite 或 postgres",
-			})
+			writeError(w, http.StatusBadRequest, "数据库类型仅支持 sqlite 或 postgres")
 			return
 		}
 		upsertSettingDB(h.db, "db_type", dialect)
@@ -214,25 +211,19 @@ func (h *databaseHandler) testConnection(w http.ResponseWriter, r *http.Request)
 		Ssl              bool   `json:"ssl"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "Invalid request body"})
+		writeError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
 	dialect, ok := normalizeRuntimeDatabaseDialect(body.Dialect)
 	if !ok {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"success": false,
-			"message": "数据库类型仅支持 sqlite 或 postgres",
-		})
+		writeError(w, http.StatusBadRequest, "数据库类型仅支持 sqlite 或 postgres")
 		return
 	}
 
 	maskedConnection, err := testRuntimeDatabaseConnection(dialect, body.ConnectionString, body.Ssl)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"success": false,
-			"message": "数据库测试连接失败: " + sanitizeConnectionError(err, body.ConnectionString),
-		})
+		writeError(w, http.StatusBadRequest, "数据库测试连接失败: "+sanitizeConnectionError(err, body.ConnectionString))
 		return
 	}
 
@@ -252,16 +243,13 @@ func (h *databaseHandler) migrate(w http.ResponseWriter, r *http.Request) {
 		Ssl              bool   `json:"ssl"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "Invalid request body"})
+		writeError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
 	dialect, ok := normalizeRuntimeDatabaseDialect(body.Dialect)
 	if !ok {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"success": false,
-			"message": "数据库类型仅支持 sqlite 或 postgres",
-		})
+		writeError(w, http.StatusBadRequest, "数据库类型仅支持 sqlite 或 postgres")
 		return
 	}
 

@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/service/notify"
+	"github.com/go-chi/chi/v5"
+	"github.com/jmoiron/sqlx"
 )
 
 // RegisterSiteAnnouncementsRoutes registers all /api/site-announcements routes.
@@ -79,8 +79,8 @@ type SiteAnnouncementFailedSite struct {
 
 // GET /api/site-announcements?limit=&offset=&siteId=&platform=&read=&status=
 func (h *siteAnnouncementsHandler) listAnnouncements(w http.ResponseWriter, r *http.Request) {
-	limit := clampInt(getQueryInt(r, "limit", 50), 1, 500)
-	offset := maxInt(0, getQueryInt(r, "offset", 0))
+	limit, _ := parseLimitOffset(r, 50, 500)
+	offset := max(0, getQueryInt(r, "offset", 0))
 	readFilter := strings.TrimSpace(r.URL.Query().Get("read"))
 	statusFilter := strings.TrimSpace(r.URL.Query().Get("status"))
 	siteIDFilter := strings.TrimSpace(r.URL.Query().Get("siteId"))
@@ -192,10 +192,8 @@ func (h *siteAnnouncementsHandler) listAnnouncements(w http.ResponseWriter, r *h
 
 // POST /api/site-announcements/:id/read
 func (h *siteAnnouncementsHandler) markRead(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil || id <= 0 {
-		writeJSON(w, http.StatusOK, map[string]bool{"success": true})
+	id, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 	now := time.Now().UTC().Format(time.RFC3339)

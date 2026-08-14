@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
-	"github.com/deliciousbuding/metapi-go/config"
 )
 
 // RegisterAuthSettingsRoutes registers all /api/settings/auth routes.
@@ -44,10 +44,7 @@ func (h *authSettingsHandler) changeToken(w http.ResponseWriter, r *http.Request
 		NewToken string `json:"newToken"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"success": false,
-			"message": "请填写所有字段",
-		})
+		writeError(w, http.StatusBadRequest, "请填写所有字段")
 		return
 	}
 
@@ -55,18 +52,12 @@ func (h *authSettingsHandler) changeToken(w http.ResponseWriter, r *http.Request
 	body.NewToken = strings.TrimSpace(body.NewToken)
 
 	if body.OldToken == "" || body.NewToken == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"success": false,
-			"message": "请填写所有字段",
-		})
+		writeError(w, http.StatusBadRequest, "请填写所有字段")
 		return
 	}
 
 	if len(body.NewToken) < 6 {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"success": false,
-			"message": "新 Token 至少 6 个字符",
-		})
+		writeError(w, http.StatusBadRequest, "新 Token 至少 6 个字符")
 		return
 	}
 
@@ -74,10 +65,7 @@ func (h *authSettingsHandler) changeToken(w http.ResponseWriter, r *http.Request
 	// lengths after a dummy compare so length mismatches do not short-circuit
 	// before crypto/subtle.ConstantTimeCompare.
 	if !constantTimeTokenEqual(body.OldToken, h.cfg.AuthToken) {
-		writeJSON(w, http.StatusForbidden, map[string]any{
-			"success": false,
-			"message": "旧 Token 验证失败",
-		})
+		writeError(w, http.StatusForbidden, "旧 Token 验证失败")
 		return
 	}
 

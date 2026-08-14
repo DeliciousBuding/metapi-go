@@ -4,17 +4,13 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-
-	"github.com/go-chi/chi/v5"
 )
 
 const credentialExportFormatVersion = "1.0.0"
 
 func (h *downstreamKeysHandler) exportKey(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil || id <= 0 {
-		writeError(w, http.StatusBadRequest, "id 无效")
+	id, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 	row := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)

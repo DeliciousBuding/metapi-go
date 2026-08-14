@@ -67,10 +67,10 @@ func setBackupExportLimitsForTest(t *testing.T, maxRows int, maxCellBytes int, m
 	})
 }
 
-func TestImportTableRowsRejectsUnknownColumns(t *testing.T) {
+func TestImportTableRowsWithConnRejectsUnknownColumns(t *testing.T) {
 	db := setupBackupTestDB(t)
 
-	_, err := importTableRows(db.DB, "settings", []map[string]any{
+	_, err := importTableRowsWithConn(db.DB, "settings", []map[string]any{
 		{
 			"key":                      "safe-key",
 			"value":                    "safe-value",
@@ -93,17 +93,17 @@ func TestImportTableRowsRejectsUnknownColumns(t *testing.T) {
 	}
 }
 
-func TestImportTableRowsAllowsKnownColumns(t *testing.T) {
+func TestImportTableRowsWithConnAllowsKnownColumns(t *testing.T) {
 	db := setupBackupTestDB(t)
 
-	n, err := importTableRows(db.DB, "settings", []map[string]any{
+	n, err := importTableRowsWithConn(db.DB, "settings", []map[string]any{
 		{
 			"key":   "theme",
 			"value": "dark",
 		},
 	})
 	if err != nil {
-		t.Fatalf("importTableRows: %v", err)
+		t.Fatalf("importTableRowsWithConn: %v", err)
 	}
 	if n != 1 {
 		t.Fatalf("imported = %d, want 1", n)

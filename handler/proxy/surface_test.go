@@ -493,19 +493,6 @@ func TestIsStreamFromBody_EdgeCases(t *testing.T) {
 	}
 }
 
-// ---- jsonSafeString (roundtrip test via writeJSON) ----
-
-func TestJsonSafeString_Encoding(t *testing.T) {
-	result := jsonSafeString(`"hello"`)
-	if result != `\"hello\"` {
-		t.Errorf("jsonSafeString = %q", result)
-	}
-	result = jsonSafeString("line1\nline2")
-	if result != "line1\\nline2" {
-		t.Errorf("jsonSafeString newline = %q", result)
-	}
-}
-
 // ---- unmarshalResponse helper ----
 
 func unmarshalResponse(t *testing.T, rec *httptest.ResponseRecorder) map[string]any {

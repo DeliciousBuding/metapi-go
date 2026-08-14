@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 func setupDownstreamKeysTest(t *testing.T) (*store.DB, chi.Router) {
@@ -697,8 +697,8 @@ func TestDownstreamKeysListSummaryOverviewRedactPlaintextKey(t *testing.T) {
 	if item["key"] != secret {
 		t.Fatalf("create should still return full key once, got %#v", item["key"])
 	}
-	if item["keyMasked"] != maskKey(secret) {
-		t.Fatalf("create keyMasked = %#v, want %q", item["keyMasked"], maskKey(secret))
+	if item["keyMasked"] != maskSecret(secret) {
+		t.Fatalf("create keyMasked = %#v, want %q", item["keyMasked"], maskSecret(secret))
 	}
 	keyID := int64(item["id"].(float64))
 
@@ -726,8 +726,8 @@ func TestDownstreamKeysListSummaryOverviewRedactPlaintextKey(t *testing.T) {
 		if masked == secret {
 			t.Fatalf("%s keyMasked equals full secret", surface)
 		}
-		if masked != maskKey(secret) {
-			t.Fatalf("%s keyMasked = %q, want %q", surface, masked, maskKey(secret))
+		if masked != maskSecret(secret) {
+			t.Fatalf("%s keyMasked = %q, want %q", surface, masked, maskSecret(secret))
 		}
 		// Raw body must not contain the full secret string either.
 	}
@@ -866,8 +866,8 @@ func TestDownstreamKeysUpdateAndResetUsageRedactPlaintextKey(t *testing.T) {
 		if masked == secret {
 			t.Fatalf("%s keyMasked equals full secret", surface)
 		}
-		if masked != maskKey(secret) {
-			t.Fatalf("%s keyMasked = %q, want %q", surface, masked, maskKey(secret))
+		if masked != maskSecret(secret) {
+			t.Fatalf("%s keyMasked = %q, want %q", surface, masked, maskSecret(secret))
 		}
 		return row
 	}

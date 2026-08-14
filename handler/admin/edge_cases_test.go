@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 // =============================================================================
@@ -100,8 +100,8 @@ func TestEdge_EmptyRequestBody_UpdateRuntime(t *testing.T) {
 	}
 	var result map[string]any
 	json.Unmarshal(rec.Body.Bytes(), &result)
-	if result["success"] != false {
-		t.Error("expected success=false for empty body on updateRuntime")
+	if msg, _ := result["error"].(string); msg == "" {
+		t.Error("expected unified error body for empty body on updateRuntime")
 	}
 }
 
