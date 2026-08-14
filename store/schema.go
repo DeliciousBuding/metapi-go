@@ -30,6 +30,12 @@ type Site struct {
 	UpdatedAt                          string `db:"updated_at" json:"updatedAt"`
 	// Tags holds a JSON array of operator labels.
 	Tags *string `db:"tags" json:"tags"`
+	// BrowserUA optionally overrides the global browser User-Agent for this
+	// site (used to match the UA of a harvested cf_clearance cookie).
+	BrowserUA *string `db:"browser_ua" json:"browserUa"`
+	// CfClearance is a per-site Cloudflare clearance cookie injected into
+	// outbound requests to bypass CF challenges.
+	CfClearance *string `db:"cf_clearance" json:"cfClearance"`
 }
 
 // ---- Table 2: site_api_endpoints ----

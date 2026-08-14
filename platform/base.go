@@ -222,6 +222,7 @@ func fetchJSON(ctx context.Context, url, method string, body interface{}, header
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
+	ApplySiteIdentity(req, proxy)
 
 	resp, err := DoWithProxy(ctx, req, proxy)
 	if err != nil {
@@ -263,6 +264,7 @@ func fetchText(ctx context.Context, url string, proxy *ProxyConfig) (string, str
 	}
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,*/*;q=0.8")
 	req.Header.Set("User-Agent", DefaultBrowserUserAgent)
+	ApplySiteIdentity(req, proxy)
 
 	resp, err := DoWithProxy(ctx, req, proxy)
 	if err != nil {

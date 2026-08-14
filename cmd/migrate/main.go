@@ -544,7 +544,7 @@ func buildSites(rows []map[string]interface{}) []insertStmt {
 		"max_concurrency",
 		"post_refresh_probe_enabled", "post_refresh_probe_model", "post_refresh_probe_scope",
 		"post_refresh_probe_latency_threshold_ms",
-		"created_at", "updated_at", "tags",
+		"created_at", "updated_at", "tags", "browser_ua", "cf_clearance",
 	}
 	var stmts []insertStmt
 	for _, row := range rows {
@@ -573,6 +573,8 @@ func buildSites(rows []map[string]interface{}) []insertStmt {
 				asNullableString(v(row, "created_at")),
 				asNullableString(v(row, "updated_at")),
 				asNullableString(v(row, "tags")),
+				asNullableString(v(row, "browser_ua")),
+				asNullableString(v(row, "cf_clearance")),
 			},
 		})
 	}

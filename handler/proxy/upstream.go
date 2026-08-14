@@ -687,6 +687,8 @@ func applyProxyCustomHeaders(req *http.Request, proxyConfig *platform.ProxyConfi
 	platform.ApplyCustomHeadersWithOptions(req, proxyConfig.CustomHeaders, platform.ApplyCustomHeadersOptions{
 		OverrideRequest: proxyConfig.CustomHeadersOverrideRequest,
 	})
+	// Per-site anti-bot identity: cf_clearance cookie + browser UA override.
+	platform.ApplySiteIdentity(req, proxyConfig)
 }
 
 // sendUpstreamRequest dispatches an upstream HTTP request with optional observed
