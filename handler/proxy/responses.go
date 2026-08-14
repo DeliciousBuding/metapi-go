@@ -18,6 +18,13 @@ func HandleResponses(w http.ResponseWriter, r *http.Request, downstreamPath stri
 		return
 	}
 
+	// Prompt safety filter (#681): block high-risk prompts before they reach
+	// shared OAuth upstream accounts. Runs only when PROMPT_FILTER_ENABLED.
+	if blocked := checkPromptFilter(ctx); blocked != nil {
+		writeJSONError(w, blocked.Status, blocked.Error, blocked.ErrorType)
+		return
+	}
+
 	if ctx.IsStream {
 		dispatchUpstream(w, r, ctx)
 		return

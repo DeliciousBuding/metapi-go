@@ -29,5 +29,11 @@ func HandleChatCompletions(w http.ResponseWriter, r *http.Request) {
 // handleChatSurfaceRequest is the internal implementation for chat proxy surfaces.
 // Surface format is read from ctx.SurfaceFormat (set by caller via SurfConfig).
 func handleChatSurfaceRequest(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
+	// Prompt safety filter (#681): block high-risk prompts before they reach
+	// shared OAuth upstream accounts. Runs only when PROMPT_FILTER_ENABLED.
+	if blocked := checkPromptFilter(ctx); blocked != nil {
+		writeJSONError(w, blocked.Status, blocked.Error, blocked.ErrorType)
+		return
+	}
 	dispatchUpstream(w, r, ctx)
 }
