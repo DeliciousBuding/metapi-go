@@ -18,12 +18,15 @@ import (
 
 const (
 	codexAuthURL             = "https://auth.openai.com/oauth/authorize"
-	codexTokenURL            = "https://auth.openai.com/oauth/token"
 	codexLoopbackPort        = 1455
 	codexLoopbackPath        = "/auth/callback"
 	codexLoopbackRedirectURI = "http://localhost:1455/auth/callback"
 	codexUpstreamBaseURL     = "https://chatgpt.com/backend-api/codex"
 )
+
+// codexTokenURL is a package var (not a const) so tests can swap in a local
+// httptest server via withCodexEndpointSwap, mirroring the grok.go pattern.
+var codexTokenURL = "https://auth.openai.com/oauth/token"
 
 func init() {
 	RegisterProvider(&OAuthProviderDefinition{

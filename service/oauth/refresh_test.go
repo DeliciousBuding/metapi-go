@@ -1,8 +1,13 @@
 package oauth
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // ---- Singleflight Tests ----
@@ -295,6 +300,301 @@ func TestRefreshResult_ErrorHandling(t *testing.T) {
 	}
 	if result.Err != nil {
 		t.Error("fresh result with nil error should not report error")
+	}
+}
+
+// ---- doRefreshAccessToken error paths + success path ----
+//
+// These tests use the setupTestDB helper (defined in route_unit_test.go) to
+// spin up an in-memory SQLite database, then exercise the full refresh path
+// with a mocked codex token endpoint.
+
+// insertCodexTestAccount inserts a site + account with the given extraConfig
+// and returns the account ID. Used by the doRefreshAccessToken tests to
+// satisfy the accounts.site_id → sites.id foreign key.
+func insertCodexTestAccount(t *testing.T, db *store.DB, accountKey, extraConfig string) int64 {
+	t.Helper()
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err := db.Exec(
+		`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
+		 VALUES ('codex-site', 'https://codex.example.com', 'codex', 'active', ?, ?)`,
+		now, now,
+	)
+	if err != nil {
+		t.Fatalf("insert site: %v", err)
+	}
+	provider := "codex"
+	res, err := db.Exec(
+		`INSERT INTO accounts (site_id, username, access_token, status, oauth_provider, oauth_account_key, extra_config, created_at, updated_at)
+		 VALUES (1, ?, 'stale-access', 'active', ?, ?, ?, ?, ?)`,
+		accountKey, provider, accountKey, extraConfig, now, now,
+	)
+	if err != nil {
+		t.Fatalf("insert account: %v", err)
+	}
+	id, _ := res.LastInsertId()
+	return id
+}
+
+func TestDoRefreshAccessToken_NoDatabase(t *testing.T) {
+	// Ensure no DB is active so the early-return "database not initialized"
+	// branch is exercised.
+	store.CloseDatabase()
+	t.Cleanup(func() { store.CloseDatabase() })
+
+	result := doRefreshAccessToken(1)
+	if result.Err == nil {
+		t.Fatal("expected error when database is not initialized")
+	}
+	if !strings.Contains(result.Err.Error(), "database not initialized") {
+		t.Errorf("error = %v, want 'database not initialized'", result.Err)
+	}
+}
+
+func TestDoRefreshAccessToken_AccountNotFound(t *testing.T) {
+	_, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	result := doRefreshAccessToken(99999)
+	if result.Err == nil {
+		t.Fatal("expected error for missing account")
+	}
+	if !strings.Contains(result.Err.Error(), "oauth account not found") {
+		t.Errorf("error = %v", result.Err)
+	}
+}
+
+func TestDoRefreshAccessToken_NoRefreshToken(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	extraConfig := `{"oauth":{"provider":"codex","accountId":"acct-no-rt","accountKey":"acct-no-rt"}}`
+	insertCodexTestAccount(t, db, "acct-no-rt", extraConfig)
+
+	result := doRefreshAccessToken(1)
+	if result.Err == nil {
+		t.Fatal("expected error for account without refresh token")
+	}
+	if !strings.Contains(result.Err.Error(), "refresh token missing") {
+		t.Errorf("error = %v", result.Err)
+	}
+}
+
+func TestDoRefreshAccessToken_Success_Codex(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	// Build a valid codex id_token so parseJWTClaims succeeds and the refresh
+	// path returns a full TokenSet.
+	claims := codexJWTClaims{Email: "refresh@example.com"}
+	claims.Auth.ChatGPTAccountID = "acct-refresh-1"
+	claims.Auth.ChatGPTPlanType = "plus"
+	idToken := makeCodexIDToken(t, claims)
+
+	tokenServer := newJSONTestServer(t, func(r *http.Request) (int, interface{}) {
+		if r.PostFormValue("grant_type") != "refresh_token" {
+			t.Errorf("grant_type = %q", r.PostFormValue("grant_type"))
+		}
+		if r.PostFormValue("refresh_token") != "old-codex-rt" {
+			t.Errorf("refresh_token = %q", r.PostFormValue("refresh_token"))
+		}
+		return 200, codexTokenResponse{
+			AccessToken:  "fresh-codex-access",
+			RefreshToken: "fresh-codex-rt",
+			IDToken:      idToken,
+			ExpiresIn:    float64(7200),
+		}
+	})
+	defer tokenServer.Close()
+	withCodexTokenURLSwap(t, tokenServer.URL)
+
+	extraConfig := `{"oauth":{"provider":"codex","accountId":"acct-refresh-1","accountKey":"acct-refresh-1","refreshToken":"old-codex-rt","planType":"free","email":"old@example.com"}}`
+	accountID := insertCodexTestAccount(t, db, "acct-refresh-1", extraConfig)
+
+	result := doRefreshAccessToken(accountID)
+	if result.Err != nil {
+		t.Fatalf("refresh failed: %v", result.Err)
+	}
+	if result.AccessToken != "fresh-codex-access" {
+		t.Errorf("AccessToken = %q", result.AccessToken)
+	}
+	if result.AccountKey != "acct-refresh-1" {
+		t.Errorf("AccountKey = %q", result.AccountKey)
+	}
+	if result.ExtraConfig == nil {
+		t.Error("ExtraConfig should be non-nil")
+	}
+
+	// Verify the DB was updated.
+	var updated store.Account
+	if err := db.Get(&updated, "SELECT * FROM accounts WHERE id = ?", accountID); err != nil {
+		t.Fatalf("reload account: %v", err)
+	}
+	if updated.AccessToken != "fresh-codex-access" {
+		t.Errorf("DB access_token = %q, want fresh-codex-access", updated.AccessToken)
+	}
+	if updated.ExtraConfig == nil {
+		t.Fatal("extraConfig should not be nil after refresh")
+	}
+	if !strings.Contains(*updated.ExtraConfig, "fresh-codex-rt") {
+		t.Errorf("extraConfig should contain fresh refresh token, got %q", *updated.ExtraConfig)
+	}
+	if !strings.Contains(*updated.ExtraConfig, "refresh@example.com") {
+		t.Errorf("extraConfig should contain refreshed email, got %q", *updated.ExtraConfig)
+	}
+}
+
+func TestDoRefreshAccessToken_RefreshFails(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"invalid_grant"}`))
+	}))
+	defer tokenServer.Close()
+	withCodexTokenURLSwap(t, tokenServer.URL)
+
+	extraConfig := `{"oauth":{"provider":"codex","accountId":"acct-fail","accountKey":"acct-fail","refreshToken":"dead-rt"}}`
+	accountID := insertCodexTestAccount(t, db, "acct-fail", extraConfig)
+
+	result := doRefreshAccessToken(accountID)
+	if result.Err == nil {
+		t.Fatal("expected refresh error to propagate")
+	}
+	if !strings.Contains(result.Err.Error(), "invalid_grant") {
+		t.Errorf("error = %v, want invalid_grant", result.Err)
+	}
+}
+
+func TestDoRefreshAccessToken_UnknownProvider(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	// Insert an account with an unregistered provider. We bypass the helper
+	// because the helper hardcodes codex.
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err := db.Exec(
+		`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
+		 VALUES ('unk-site', 'https://unk.example.com', 'unknown', 'active', ?, ?)`,
+		now, now,
+	)
+	if err != nil {
+		t.Fatalf("insert site: %v", err)
+	}
+	provider := "nonexistent-provider"
+	accountKey := "acct-unknown"
+	extraConfig := `{"oauth":{"provider":"nonexistent-provider","accountId":"acct-unknown","accountKey":"acct-unknown","refreshToken":"any-rt"}}`
+	res, err := db.Exec(
+		`INSERT INTO accounts (site_id, username, access_token, status, oauth_provider, oauth_account_key, extra_config, created_at, updated_at)
+		 VALUES (1, 'user', 'access', 'active', ?, ?, ?, ?, ?)`,
+		provider, accountKey, extraConfig, now, now,
+	)
+	if err != nil {
+		t.Fatalf("insert account: %v", err)
+	}
+	accountID, _ := res.LastInsertId()
+
+	result := doRefreshAccessToken(accountID)
+	if result.Err == nil {
+		t.Fatal("expected error for unknown provider")
+	}
+	if !strings.Contains(result.Err.Error(), "unsupported oauth provider") {
+		t.Errorf("error = %v", result.Err)
+	}
+}
+
+// ---- RefreshAccessTokenSingleflight ----
+
+func TestRefreshAccessTokenSingleflight_NoDatabase(t *testing.T) {
+	store.CloseDatabase()
+	t.Cleanup(func() { store.CloseDatabase() })
+
+	refreshInFlightMu.Lock()
+	refreshInFlight = make(map[int64]*refreshPromise)
+	refreshInFlightMu.Unlock()
+
+	_, err := RefreshAccessTokenSingleflight(1)
+	if err == nil {
+		t.Fatal("expected error when database is not initialized")
+	}
+}
+
+func TestRefreshAccessTokenSingleflight_Success(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	claims := codexJWTClaims{Email: "sf@example.com"}
+	claims.Auth.ChatGPTAccountID = "acct-sf-1"
+	idToken := makeCodexIDToken(t, claims)
+
+	tokenServer := newJSONTestServer(t, func(r *http.Request) (int, interface{}) {
+		return 200, codexTokenResponse{
+			AccessToken:  "sf-access",
+			RefreshToken: "sf-rt",
+			IDToken:      idToken,
+			ExpiresIn:    float64(3600),
+		}
+	})
+	defer tokenServer.Close()
+	withCodexTokenURLSwap(t, tokenServer.URL)
+
+	extraConfig := `{"oauth":{"provider":"codex","accountId":"acct-sf-1","accountKey":"acct-sf-1","refreshToken":"old-rt"}}`
+	accountID := insertCodexTestAccount(t, db, "acct-sf-1", extraConfig)
+
+	result, err := RefreshAccessTokenSingleflight(accountID)
+	if err != nil {
+		t.Fatalf("singleflight refresh failed: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if result.AccessToken != "sf-access" {
+		t.Errorf("AccessToken = %q", result.AccessToken)
+	}
+}
+
+func TestRefreshAccessTokenSingleflight_Dedupes(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	claims := codexJWTClaims{Email: "dedupe@example.com"}
+	claims.Auth.ChatGPTAccountID = "acct-dedupe"
+	idToken := makeCodexIDToken(t, claims)
+
+	tokenServer := newJSONTestServer(t, func(r *http.Request) (int, interface{}) {
+		return 200, codexTokenResponse{
+			AccessToken:  "dedupe-access",
+			RefreshToken: "dedupe-rt",
+			IDToken:      idToken,
+			ExpiresIn:    float64(3600),
+		}
+	})
+	defer tokenServer.Close()
+	withCodexTokenURLSwap(t, tokenServer.URL)
+
+	extraConfig := `{"oauth":{"provider":"codex","accountId":"acct-dedupe","accountKey":"acct-dedupe","refreshToken":"old-rt"}}`
+	accountID := insertCodexTestAccount(t, db, "acct-dedupe", extraConfig)
+
+	// Two concurrent singleflight calls for the same account → only one should
+	// hit the token endpoint, the other dedupes via the in-flight promise.
+	done := make(chan *refreshResult, 2)
+	errs := make(chan error, 2)
+	go func() {
+		r, e := RefreshAccessTokenSingleflight(accountID)
+		done <- r
+		errs <- e
+	}()
+	go func() {
+		r, e := RefreshAccessTokenSingleflight(accountID)
+		done <- r
+		errs <- e
+	}()
+	for i := 0; i < 2; i++ {
+		if e := <-errs; e != nil {
+			t.Errorf("concurrent singleflight %d failed: %v", i, e)
+		}
+		<-done
 	}
 }
 

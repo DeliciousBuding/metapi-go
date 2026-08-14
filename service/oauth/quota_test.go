@@ -298,3 +298,274 @@ func TestNormalizeQuotaWindowGo_OptionalFields(t *testing.T) {
 		t.Errorf("resetAt should be empty, got %q", w.ResetAt)
 	}
 }
+
+// ---- parseRateLimitWindow ----
+
+func TestParseRateLimitWindow_FullHeaders(t *testing.T) {
+	headers := map[string]string{
+		"x-ratelimit-limit-request-limit":       "100",
+		"x-ratelimit-limit-remaining-requests":  "30",
+		"x-ratelimit-limit-requests-reset-in-seconds": "60",
+	}
+	w := parseRateLimitWindow(headers, "x-ratelimit-limit")
+	if w == nil {
+		t.Fatal("expected non-nil window")
+	}
+	if !w.Supported {
+		t.Error("window should be supported when limit/remaining present")
+	}
+	if w.Limit == nil || *w.Limit != 100 {
+		t.Errorf("Limit = %v, want 100", w.Limit)
+	}
+	if w.Remaining == nil || *w.Remaining != 30 {
+		t.Errorf("Remaining = %v, want 30", w.Remaining)
+	}
+	if w.Used == nil || *w.Used != 70 {
+		t.Errorf("Used = %v, want 70 (100-30)", w.Used)
+	}
+	if w.ResetAt == "" {
+		t.Error("ResetAt should be set from reset-in-seconds")
+	}
+}
+
+func TestParseRateLimitWindow_OnlyLimit(t *testing.T) {
+	headers := map[string]string{
+		"prefix-request-limit": "200",
+	}
+	w := parseRateLimitWindow(headers, "prefix")
+	if w == nil {
+		t.Fatal("expected non-nil window")
+	}
+	if w.Limit == nil || *w.Limit != 200 {
+		t.Errorf("Limit = %v", w.Limit)
+	}
+	if w.Remaining != nil {
+		t.Errorf("Remaining should be nil, got %v", *w.Remaining)
+	}
+	if w.Used != nil {
+		t.Error("Used should be nil when Remaining is nil")
+	}
+}
+
+func TestParseRateLimitWindow_NoLimitOrRemainingReturnsNil(t *testing.T) {
+	headers := map[string]string{
+		"prefix-requests-reset-in-seconds": "60",
+	}
+	if w := parseRateLimitWindow(headers, "prefix"); w != nil {
+		t.Errorf("expected nil when neither limit nor remaining present, got %+v", w)
+	}
+}
+
+func TestParseRateLimitWindow_UsedClampedToZero(t *testing.T) {
+	// If remaining > limit (shouldn't happen, but defensive), used clamps to 0.
+	headers := map[string]string{
+		"w-request-limit":      "10",
+		"w-remaining-requests":  "20",
+	}
+	w := parseRateLimitWindow(headers, "w")
+	if w.Used == nil || *w.Used != 0 {
+		t.Errorf("Used = %v, want 0 (clamped)", w.Used)
+	}
+}
+
+func TestParseRateLimitWindow_ResetSecondsParsedAsDuration(t *testing.T) {
+	headers := map[string]string{
+		"w-request-limit":              "10",
+		"w-remaining-requests":         "5",
+		"w-requests-reset-in-seconds":  "3600",
+	}
+	w := parseRateLimitWindow(headers, "w")
+	if w.ResetAt == "" {
+		t.Error("ResetAt should be set")
+	}
+}
+
+func TestParseRateLimitWindow_ResetSecondsNonNumericPassthrough(t *testing.T) {
+	headers := map[string]string{
+		"w-request-limit":              "10",
+		"w-remaining-requests":         "5",
+		"w-requests-reset-in-seconds":  "not-a-number",
+	}
+	w := parseRateLimitWindow(headers, "w")
+	if w.ResetAt != "not-a-number" {
+		t.Errorf("non-numeric reset should pass through verbatim, got %q", w.ResetAt)
+	}
+}
+
+// ---- fiveHourOrDefault / sevenDayOrDefault ----
+
+func TestFiveHourOrDefault_PassesThroughNonNil(t *testing.T) {
+	w := &OauthQuotaWindowSnapshot{Supported: true, Limit: float64Ptr(100)}
+	got := fiveHourOrDefault(w)
+	if got != w {
+		t.Error("non-nil window should pass through")
+	}
+}
+
+func TestFiveHourOrDefault_DefaultsToUnsupported(t *testing.T) {
+	got := fiveHourOrDefault(nil)
+	if got == nil {
+		t.Fatal("expected non-nil default")
+	}
+	if got.Supported {
+		t.Error("default should be unsupported")
+	}
+}
+
+func TestSevenDayOrDefault_PassesThroughNonNil(t *testing.T) {
+	w := &OauthQuotaWindowSnapshot{Supported: true}
+	got := sevenDayOrDefault(w)
+	if got != w {
+		t.Error("non-nil window should pass through")
+	}
+}
+
+func TestSevenDayOrDefault_DefaultsToUnsupported(t *testing.T) {
+	got := sevenDayOrDefault(nil)
+	if got == nil {
+		t.Fatal("expected non-nil default")
+	}
+	if got.Supported {
+		t.Error("default should be unsupported")
+	}
+}
+
+// float64Ptr is a helper for tests that need *float64 literals.
+func float64Ptr(f float64) *float64 { return &f }
+
+// ---- quotaFingerprint ----
+
+func TestQuotaFingerprint_NilReturnsEmpty(t *testing.T) {
+	if got := quotaFingerprint(nil); got != "" {
+		t.Errorf("nil snapshot should yield empty fingerprint, got %q", got)
+	}
+}
+
+func TestQuotaFingerprint_Deterministic(t *testing.T) {
+	snap := &OauthQuotaSnapshot{Status: "ok", Source: "probe"}
+	a := quotaFingerprint(snap)
+	b := quotaFingerprint(snap)
+	if a != b {
+		t.Errorf("same snapshot should yield same fingerprint: %q vs %q", a, b)
+	}
+	if a == "" {
+		t.Error("fingerprint should not be empty")
+	}
+}
+
+func TestQuotaFingerprint_DifferentSnapshotsDiffer(t *testing.T) {
+	snap1 := &OauthQuotaSnapshot{Status: "ok", Source: "probe"}
+	snap2 := &OauthQuotaSnapshot{Status: "error", Source: "probe"}
+	if quotaFingerprint(snap1) == quotaFingerprint(snap2) {
+		t.Error("different snapshots should yield different fingerprints")
+	}
+}
+
+// ---- parseUsageLimitResetHint ----
+
+func TestParseUsageLimitResetHint_EmptyReturnsEmpty(t *testing.T) {
+	if got := parseUsageLimitResetHint(""); got != "" {
+		t.Errorf("empty input = %q", got)
+	}
+}
+
+func TestParseUsageLimitResetHint_InvalidJSONReturnsEmpty(t *testing.T) {
+	if got := parseUsageLimitResetHint("not json"); got != "" {
+		t.Errorf("invalid JSON = %q", got)
+	}
+}
+
+func TestParseUsageLimitResetHint_TopLevelResetsAt(t *testing.T) {
+	input := `{"resets_at":"2026-12-31T23:59:59Z"}`
+	if got := parseUsageLimitResetHint(input); got != "2026-12-31T23:59:59Z" {
+		t.Errorf("top-level resets_at = %q", got)
+	}
+}
+
+func TestParseUsageLimitResetHint_TopLevelResetsInSeconds(t *testing.T) {
+	input := `{"resets_in_seconds":3600}`
+	got := parseUsageLimitResetHint(input)
+	if got == "" {
+		t.Error("resets_in_seconds should yield non-empty RFC3339")
+	}
+}
+
+func TestParseUsageLimitResetHint_NestedUsageLimitReached(t *testing.T) {
+	input := `{"usage_limit_reached":{"resets_at":"2026-06-01T00:00:00Z"}}`
+	if got := parseUsageLimitResetHint(input); got != "2026-06-01T00:00:00Z" {
+		t.Errorf("nested resets_at = %q", got)
+	}
+}
+
+func TestParseUsageLimitResetHint_NestedResetsInSeconds(t *testing.T) {
+	input := `{"usage_limit_reached":{"resets_in_seconds":1800}}`
+	got := parseUsageLimitResetHint(input)
+	if got == "" {
+		t.Error("nested resets_in_seconds should yield non-empty RFC3339")
+	}
+}
+
+func TestParseUsageLimitResetHint_NoRelevantFieldsReturnsEmpty(t *testing.T) {
+	input := `{"other":"field"}`
+	if got := parseUsageLimitResetHint(input); got != "" {
+		t.Errorf("no relevant fields = %q, want empty", got)
+	}
+}
+
+// ---- parseFloat64 ----
+
+func TestParseFloat64_ValidNumber(t *testing.T) {
+	v := parseFloat64("3.14")
+	if v == nil || *v != 3.14 {
+		t.Errorf("parseFloat64(3.14) = %v, want 3.14", v)
+	}
+}
+
+func TestParseFloat64_Integer(t *testing.T) {
+	v := parseFloat64("42")
+	if v == nil || *v != 42 {
+		t.Errorf("parseFloat64(42) = %v, want 42", v)
+	}
+}
+
+func TestParseFloat64_EmptyReturnsNil(t *testing.T) {
+	if v := parseFloat64(""); v != nil {
+		t.Errorf("parseFloat64('') = %v, want nil", v)
+	}
+}
+
+func TestParseFloat64_WhitespaceTrimmed(t *testing.T) {
+	v := parseFloat64("  1.5  ")
+	if v == nil || *v != 1.5 {
+		t.Errorf("parseFloat64('  1.5  ') = %v, want 1.5", v)
+	}
+}
+
+func TestParseFloat64_NonNumericReturnsNil(t *testing.T) {
+	if v := parseFloat64("abc"); v != nil {
+		t.Errorf("parseFloat64('abc') = %v, want nil", v)
+	}
+}
+
+// ---- resolveAccountProxyURLForQuota ----
+
+func TestResolveAccountProxyURLForQuota_FromExtraConfig(t *testing.T) {
+	extra := `{"proxyUrl":"http://proxy:3128"}`
+	v := resolveAccountProxyURLForQuota(1, &extra)
+	if v == nil || *v != "http://proxy:3128" {
+		t.Errorf("got %v, want http://proxy:3128", v)
+	}
+}
+
+func TestResolveAccountProxyURLForQuota_NoProxyReturnsNil(t *testing.T) {
+	extra := `{"other":"value"}`
+	if v := resolveAccountProxyURLForQuota(1, &extra); v != nil {
+		t.Errorf("no proxy in extraConfig = %v, want nil", v)
+	}
+}
+
+func TestResolveAccountProxyURLForQuota_NilExtraConfigReturnsNil(t *testing.T) {
+	if v := resolveAccountProxyURLForQuota(1, nil); v != nil {
+		t.Errorf("nil extraConfig = %v, want nil", v)
+	}
+}

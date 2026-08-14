@@ -15,13 +15,16 @@ import (
 
 const (
 	claudeAuthURL                 = "https://claude.ai/oauth/authorize"
-	claudeTokenURL                = "https://api.anthropic.com/v1/oauth/token"
 	claudeLoopbackPort            = 54545
 	claudeLoopbackPath            = "/callback"
 	claudeLoopbackRedirectURI     = "http://localhost:54545/callback"
 	claudeUpstreamBaseURL         = "https://api.anthropic.com"
 	claudeDefaultAnthropicVersion = "2023-06-01"
 )
+
+// claudeTokenURL is a package var (not a const) so tests can swap in a local
+// httptest server via withClaudeEndpointSwap, mirroring the grok.go pattern.
+var claudeTokenURL = "https://api.anthropic.com/v1/oauth/token"
 
 func init() {
 	RegisterProvider(&OAuthProviderDefinition{
