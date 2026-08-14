@@ -560,7 +560,7 @@ func buildSites(rows []map[string]interface{}) []insertStmt {
 		"post_refresh_probe_enabled", "post_refresh_probe_model", "post_refresh_probe_scope",
 		"post_refresh_probe_latency_threshold_ms",
 		"created_at", "updated_at", "tags", "browser_ua", "cf_clearance",
-		"resin_enabled",
+		"resin_enabled", "use_utls",
 	}
 	var stmts []insertStmt
 	for _, row := range rows {
@@ -594,6 +594,9 @@ func buildSites(rows []map[string]interface{}) []insertStmt {
 				// resin_enabled is a nullable boolean override; preserve source
 				// value verbatim (NULL stays NULL so per-site inherits global).
 				asNullableBool(v(row, "resin_enabled")),
+			// use_utls is a nullable boolean override; preserve source value
+			// verbatim (NULL stays NULL so per-site inherits global UTLS_ENABLED).
+			asNullableBool(v(row, "use_utls")),
 			},
 		})
 	}

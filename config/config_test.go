@@ -104,6 +104,22 @@ func TestLoadResinDefaultsOff(t *testing.T) {
 	}
 }
 
+func TestLoadParsesUTLSEnabled(t *testing.T) {
+	cfg := Load(map[string]string{
+		"UTLS_ENABLED": "true",
+	})
+	if !cfg.UTLSEnabled {
+		t.Fatal("UTLSEnabled = false, want true")
+	}
+}
+
+func TestLoadUTLSDefaultsOff(t *testing.T) {
+	cfg := Load(map[string]string{})
+	if cfg.UTLSEnabled {
+		t.Fatal("UTLSEnabled = true, want false default")
+	}
+}
+
 func TestLoadPrefersDBURLOverDatabaseURLAlias(t *testing.T) {
 	cfg := Load(map[string]string{
 		"DB_URL":       "sqlite://local.db",

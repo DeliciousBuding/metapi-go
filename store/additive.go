@@ -181,6 +181,18 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "sites", "resin_enabled", "INTEGER", "BOOLEAN", "")
 		},
 	},
+	{
+		// Tier 1 (#672): per-site uTLS TLS fingerprint masking override.
+		// NULL = inherit global UTLS_ENABLED flag; true/false = explicit
+		// per-site opt-in/opt-out. Uses INTEGER/BOOLEAN (not TEXT) so the
+		// *bool struct field scans correctly via database/sql, matching the
+		// resin_enabled pattern.
+		Version:     "sc2_015_site_use_utls",
+		Description: "sites.use_utls BOOLEAN NULL — per-site uTLS Chrome-ClientHello fingerprint masking override; NULL inherits global UTLS_ENABLED",
+		Apply: func(db *DB) error {
+			return EnsureColumn(db, "sites", "use_utls", "INTEGER", "BOOLEAN", "")
+		},
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.
