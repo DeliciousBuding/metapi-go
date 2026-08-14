@@ -24,13 +24,13 @@
 
 | Pri | Item | Status |
 |-----|------|--------|
-| P0 | 客户端配置一键导出（Cherry Studio / CC Switch / env / JSON） | **done**（接入对话框 + keys 行内入口） |
+| P0 | 客户端配置一键导出（Cherry Studio / CC Switch / env / JSON） | **done**（#657，接入对话框 + keys 行内入口） |
 | P0 | 接入向导（平台 → 凭证 → 连通性测试 → 引导建 token 路由） | partial（完成 toast 已改接 `/settings/downstream`；onboarding checklist 与表单连通性测试待做） |
-| P1 | 全局搜索（跨站点/账号/模型/路由/告警） | planned（后端 `/api/search` 已完备，缺前端 SearchModal） |
-| P1 | 首页今日快照（签到/余额/告警/可用性聚合） | planned（API 已就绪） |
+| P1 | 全局搜索（跨站点/账号/模型/路由/告警） | **done**（#658，⌘K Command Palette，后端 `/api/search`） |
+| P1 | 首页今日快照（签到/余额/告警/可用性聚合） | **done**（#659，快照横条 + attention 直达） |
 | P1 | 价格对比增强（路由分配权重 vs 价格对照） | planned |
-| P1 | 告警富化（受影响路由 + 替代站点 + 直达链接） | planned（alert.go 3 处） |
-| P1 | 测试台增强（模板库 + 批量延迟对比） | planned |
+| P1 | 告警富化（受影响路由 + 替代站点 + 直达链接） | **done**（#660，3 条核心告警消息富化） |
+| P1 | 测试台增强（模板库 + 批量延迟对比） | partial（#662 会话化 + 模板库；批量延迟对比待做） |
 | P2 | WebDAV 加密同步 / 移动端 PWA / Realtime/Rerank 转发 | deferred（需需求信号） |
 
 ## Engineering backlog

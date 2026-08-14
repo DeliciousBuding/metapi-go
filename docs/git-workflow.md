@@ -39,8 +39,10 @@ master (唯一长期分支，受保护，随时可发布)
 | 要求 approve | ❌ 不强制（个人项目，自己合并自己的 PR） |
 | 合并方式 | **Squash only**（仓库级设置：关闭 merge commit 与 rebase merge） |
 | 线性历史 | 由 Squash-only 保证 |
+| 要求分支最新（strict） | ❌ **已关闭（2026-08-14）**——仍保留 12 项必检 + squash 线性历史；关闭后多个并行分支可各自 CI 绿了直接合入，无需每个 PR 串行 rebase 重跑全量 CI |
 
 > 注意：必选状态检查与 CI 的 `paths-ignore` 互斥——任何 PR 都会触发全量 CI（含纯文档 PR），否则必选检查会永久 pending 卡住合并。
+> 注意：关闭 strict 后，合并时仍以「12 项必检全绿」为准；squash 合并若有真实文件冲突仍会被 GitHub 拦截。并行开发时优先让各分支文件面不重叠。
 
 ## 4. PR 流程
 
