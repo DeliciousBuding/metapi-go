@@ -35,25 +35,30 @@ func (s *Sub2ApiAdapter) resolveModelEndpoints(baseURL string) []string {
 	}
 }
 
-func (s *Sub2ApiAdapter) fetchModelsByToken(ctx context.Context, baseURL, token string, proxy *ProxyConfig) []string {
+func (s *Sub2ApiAdapter) fetchModelsByToken(ctx context.Context, baseURL, token string, proxy *ProxyConfig) ([]string, error) {
 	authToken := stripBearerPrefix(token)
 	if authToken == "" {
-		return nil
+		return nil, nil
 	}
 
+	var lastErr error
 	for _, url := range s.resolveModelEndpoints(baseURL) {
 		headers := map[string]string{"Authorization": "Bearer " + authToken}
 		resp, err := fetchJSON(ctx, url, "GET", nil, headers, proxy)
 		if err != nil {
+			lastErr = err
 			continue
 		}
 		models := extractModelIDs(resp)
 		if len(models) > 0 {
-			return models
+			return models, nil
 		}
 	}
 
-	return nil
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return []string{}, nil
 }
 
 func extractModelIDs(payload map[string]interface{}) []string {

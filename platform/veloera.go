@@ -79,7 +79,7 @@ func (v *VeloeraAdapter) GetModels(ctx context.Context, baseURL string, apiToken
 	headers := authBearerHeaders(apiToken)
 	resp, err := fetchJSON(ctx, baseURL+"/v1/models", "GET", nil, headers, proxy)
 	if err != nil {
-		return []string{}, nil
+		return nil, err
 	}
 
 	return extractModelIDsFromData(resp), nil

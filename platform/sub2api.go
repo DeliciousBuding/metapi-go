@@ -186,7 +186,16 @@ func (s *Sub2ApiAdapter) GetModels(ctx context.Context, baseURL, apiToken string
 	normalized := normalizeBaseURL(baseURL)
 	managementBase := s.resolveManagementBaseURL(normalized)
 
-	directModels := s.fetchModelsByToken(ctx, normalized, apiToken, proxy)
+	// Surface a terminal fetch error so callers can classify it (unauthorized
+	// vs timeout); otherwise return an explicit empty list for "no models".
+	finish := func(err error) ([]string, error) {
+		if err != nil {
+			return nil, err
+		}
+		return []string{}, nil
+	}
+
+	directModels, directErr := s.fetchModelsByToken(ctx, normalized, apiToken, proxy)
 	if len(directModels) > 0 {
 		return directModels, nil
 	}
@@ -194,12 +203,20 @@ func (s *Sub2ApiAdapter) GetModels(ctx context.Context, baseURL, apiToken string
 	// Session JWT cannot access /v1/models directly; discover a user key first
 	discoveredToken, _ := s.GetAPIToken(ctx, managementBase, apiToken, platformUserId, proxy)
 	if discoveredToken == nil {
-		return []string{}, nil
+		return finish(directErr)
 	}
 	if normalizeTokenKeyForCompare(*discoveredToken) == normalizeTokenKeyForCompare(apiToken) {
-		return []string{}, nil
+		return finish(directErr)
 	}
-	return s.fetchModelsByToken(ctx, normalized, *discoveredToken, proxy), nil
+
+	fallbackModels, fallbackErr := s.fetchModelsByToken(ctx, normalized, *discoveredToken, proxy)
+	if len(fallbackModels) > 0 {
+		return fallbackModels, nil
+	}
+	if fallbackErr != nil {
+		return finish(fallbackErr)
+	}
+	return finish(directErr)
 }
 
 // GetAPITokens: GET /api/v1/keys?page=1&page_size=100 + /api/v1/api-keys?page=1&page_size=100.
