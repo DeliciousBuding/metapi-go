@@ -197,7 +197,8 @@
         "empty": "响应为空。",
         "succeeded": "请求成功。",
         "stopped": "请求已停止。",
-        "failed": "请求失败。"
+        "failed": "请求失败。",
+        "cleared": "会话已清空。"
       },
       "error": {
         "stopped": "请求已停止。",
@@ -222,11 +223,47 @@
         "noReasoning": "暂无推理",
         "noRaw": "暂无原始事件",
         "hint": "提示：推理和原始选项卡显示额外的模型输出。",
-        "contentChars": "{{value}} 字符"
+        "contentChars": "{{value}} 字符",
+        "roleYou": "你",
+        "roleAssistant": "助手"
       },
       "page": {
         "title": "模型测试器",
         "description": "向模型发送测试提示并查看响应。"
+      },
+      "template": {
+        "label": "模板",
+        "placeholder": "选择预设模板…",
+        "hint": "从本地模板库填入提示词与采样参数。",
+        "templates": {
+          "quickConnectivity": {
+            "label": "快速连通性",
+            "prompt": "ping"
+          },
+          "formatConversion": {
+            "label": "格式转换",
+            "prompt": "把下面的 JSON 对象转换成 Markdown 表格，保留所有字段：\n\n{\n  \"id\": 42,\n  \"name\": \"relay\",\n  \"enabled\": true,\n  \"weight\": 3.5\n}\n\n只输出表格。"
+          },
+          "longContext": {
+            "label": "长上下文",
+            "prompt": "阅读下面的材料，然后回答问题。\n\n材料：\nMetAPI 是 AI API 聚合平台的元层管理与统一代理。它把站点、账号、令牌路由和渠道集中在一起，让一个入口可以分发到多个上游 AI 提供商。运营人员配置供应商站点（OpenAI、Anthropic、Gemini 等），用凭证接入账号，并定义按模型、权重和优先级选择渠道的令牌路由。下游客户端只需对接一个 MetAPI 端点即可获得与各上游 API 一致的体验，同时日志、配额和告警让整个集群保持可观测。\n\n问题：\n用一段简短的话列出运营人员在 MetAPI 中配置的四个基本模块。"
+          },
+          "toolCalling": {
+            "label": "工具调用",
+            "prompt": "你是一个必须以工具调用作答的助手。请模拟一次查询北京当前天气的工具调用，返回一个只包含 \"tool\"、\"arguments\"、\"result\" 三个字段的 JSON 对象。只输出 JSON 对象。"
+          },
+          "chainOfThought": {
+            "label": "思维链推理",
+            "prompt": "逐步解答下面的问题，先展示推理过程，再给出最终答案：\n\n农场主养了鸡和兔，两种动物一共有 35 个头、94 只脚，鸡和兔各有多少只？\n\n结尾以「答案：」开头输出。"
+          }
+        }
+      },
+      "clear": {
+        "button": "清空会话",
+        "title": "清空会话？",
+        "description": "将删除对话中之前的所有轮次，当前模型与参数设置会保留。",
+        "confirm": "清空",
+        "cancel": "取消"
       }
     },
     "oauth": {

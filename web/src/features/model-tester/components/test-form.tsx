@@ -1,15 +1,17 @@
 // metapi-go/features/model-tester — test form (RHF + Zod + shadcn).
 //
-// Renders the left column of the tester: model picker (populated from the
-// models marketplace via `useModels`), target protocol format, system +
-// user prompts, and sampling parameters (temperature / top_p / max_tokens /
-// stream). The parent owns the run/stop lifecycle; this form only emits
-// validated values on submit. When `defaultModel` is provided (deep link
-// from the marketplace `/models?...` → `/model-tester?model=…`) the model
-// field is pre-selected as soon as the marketplace list loads.
+// Renders the left column of the tester: a local template picker (fills
+// the prompt + sampling parameters from the localStorage template library),
+// model picker (populated from the models marketplace via `useModels`),
+// target protocol format, system + user prompts, and sampling parameters
+// (temperature / top_p / max_tokens / stream). The parent owns the
+// run/stop lifecycle; this form only emits validated values on submit.
+// When `defaultModel` is provided (deep link from the marketplace
+// `/models?...` → `/model-tester?model=…`) the model field is pre-selected
+// as soon as the marketplace list loads.
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
@@ -38,6 +40,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useModels } from '@/features/models'
 import { cn } from '@/lib/utils'
 
+import { defaultTemplateStorage, loadTesterTemplates } from '../lib/templates'
 import {
   TESTER_FORM_DEFAULT_VALUES,
   testerSchema,
@@ -90,9 +93,65 @@ export function TestForm({
     onSubmit(values)
   })
 
+  // The template picker is not part of the validated schema: selecting a
+  // template fills the prompt + sampling params, then resets to the
+  // placeholder so the same template can be applied again.
+  const templates = useMemo(
+    () => loadTesterTemplates(defaultTemplateStorage()),
+    []
+  )
+  const [selectedTemplateId, setSelectedTemplateId] = useState('')
+
+  const applyTemplate = (templateId: string | null) => {
+    if (!templateId) return
+    const template = templates.find((item) => item.id === templateId)
+    if (!template) return
+    form.setValue('prompt', t(template.promptKey), {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
+    if (template.temperature !== undefined) {
+      form.setValue('temperature', template.temperature, {
+        shouldDirty: true,
+      })
+    }
+    if (template.topP !== undefined) {
+      form.setValue('topP', template.topP, { shouldDirty: true })
+    }
+    if (template.maxTokens !== undefined) {
+      form.setValue('maxTokens', template.maxTokens, { shouldDirty: true })
+    }
+    setSelectedTemplateId('')
+  }
+
   return (
     <Form {...form}>
       <form onSubmit={handleSubmit} className='flex h-full flex-col gap-4'>
+        <FormItem>
+          <FormLabel>{t('modelTester.template.label')}</FormLabel>
+          <Select
+            value={selectedTemplateId}
+            onValueChange={applyTemplate}
+            disabled={isRunning}
+          >
+            <FormControl>
+              <SelectTrigger>
+                <SelectValue
+                  placeholder={t('modelTester.template.placeholder')}
+                />
+              </SelectTrigger>
+            </FormControl>
+            <SelectContent>
+              {templates.map((template) => (
+                <SelectItem key={template.id} value={template.id}>
+                  {t(template.labelKey)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <FormDescription>{t('modelTester.template.hint')}</FormDescription>
+        </FormItem>
+
         <FormField
           control={form.control}
           name='model'

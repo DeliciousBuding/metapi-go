@@ -1,13 +1,69 @@
-// metapi-go/features/model-tester — error-mapping unit tests.
+// metapi-go/features/model-tester — error-mapping + payload unit tests.
 //
 // `resolveTestResponseError` turns non-ok test responses into user-facing
 // messages: backend 501s are known limitations (no fake SSE stream; the sync
 // harness requires a forced channel) and map to a friendly localized key
-// instead of the raw "not implemented" text.
+// instead of the raw "not implemented" text. `buildChatPayload` renders the
+// conversation history into the request `messages` array.
 
 import { describe, expect, it } from 'vitest'
 
-import { resolveTestResponseError } from '../api'
+import { buildChatPayload, resolveTestResponseError } from '../api'
+import type { ChatMessage, TestFormValues } from '../types'
+
+function formValues(overrides: Partial<TestFormValues> = {}): TestFormValues {
+  return {
+    model: 'gpt-4o',
+    systemPrompt: '',
+    prompt: 'current question',
+    targetFormat: 'openai',
+    temperature: 0.7,
+    topP: 1,
+    maxTokens: 1024,
+    stream: true,
+    ...overrides,
+  }
+}
+
+function historyTurn(role: ChatMessage['role'], content: string): ChatMessage {
+  return { id: `${role}-${content}`, role, content }
+}
+
+describe('buildChatPayload', () => {
+  it('keeps the single-shot shape when history is empty', () => {
+    const payload = buildChatPayload(formValues())
+    expect(payload.messages).toEqual([
+      { role: 'user', content: 'current question' },
+    ])
+  })
+
+  it('prepends the system prompt, then history, then the current prompt', () => {
+    const payload = buildChatPayload(
+      formValues({ systemPrompt: '  behave  ' }),
+      [
+        historyTurn('user', 'first question'),
+        historyTurn('assistant', 'first answer'),
+      ]
+    )
+    expect(payload.messages).toEqual([
+      { role: 'system', content: 'behave' },
+      { role: 'user', content: 'first question' },
+      { role: 'assistant', content: 'first answer' },
+      { role: 'user', content: 'current question' },
+    ])
+  })
+
+  it('maps sampling params onto the wire (snake_case + omitted max_tokens at 0)', () => {
+    const payload = buildChatPayload(
+      formValues({ temperature: 0.2, topP: 0.9, maxTokens: 0 })
+    )
+    expect(payload.temperature).toBe(0.2)
+    expect(payload.top_p).toBe(0.9)
+    expect(payload.max_tokens).toBeUndefined()
+    expect(payload.stream).toBe(true)
+    expect(payload.targetFormat).toBe('openai')
+  })
+})
 
 describe('resolveTestResponseError', () => {
   it('maps the sync 501 (forced-channel harness required) to notAvailable', async () => {
