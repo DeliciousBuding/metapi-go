@@ -1,27 +1,38 @@
 // metapi-go/features/settings/sections/downstream — Downstream Keys subarea.
 // Scope (plan §5.5.2): downstream API keys + the global PROXY_TOKEN.
 // Sections: keys, proxy-token. Both wired to real forms under ./components.
+// Each section is React.lazy so its form/table dependencies land in a separate
+// async chunk; the surrounding Suspense boundary lives in settings-page.tsx.
 
 import { KeyRound } from 'lucide-react'
-import { createElement } from 'react'
+import { createElement, lazy } from 'react'
 
 import type { SettingsSubarea } from '../../types'
 import { createSectionRegistry } from '../../utils/section-registry'
-import { KeysSection } from './components/keys-section'
-import { ProxyTokenSection } from './components/proxy-token-section'
+
+const LazyKeysSection = lazy(() =>
+  import('./components/keys-section').then((module) => ({
+    default: module.KeysSection,
+  }))
+)
+const LazyProxyTokenSection = lazy(() =>
+  import('./components/proxy-token-section').then((module) => ({
+    default: module.ProxyTokenSection,
+  }))
+)
 
 const DOWNSTREAM_SECTIONS = [
   {
     id: 'keys',
     title: 'settings.downstream.keys.title',
     description: 'settings.downstream.keys.description',
-    build: () => createElement(KeysSection),
+    build: () => createElement(LazyKeysSection),
   },
   {
     id: 'proxy-token',
     title: 'settings.downstream.proxyToken.title',
     description: 'settings.downstream.proxyToken.description',
-    build: () => createElement(ProxyTokenSection),
+    build: () => createElement(LazyProxyTokenSection),
   },
 ] as const
 

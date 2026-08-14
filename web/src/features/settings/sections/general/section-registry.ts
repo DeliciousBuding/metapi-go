@@ -6,19 +6,44 @@
 //
 // This module is a .ts file (no JSX syntax) so the react/only-export-components
 // fast-refresh rule does not apply — the registry exports config values, not
-// components. Section content is built with React.createElement, which is
-// hooks-safe and stays valid when individual section components are swapped.
+// components. Section content is built with React.createElement around
+// React.lazy components, which is hooks-safe and keeps each section's heavy
+// form/table dependencies in separate async chunks instead of the main bundle.
+// The lazy component references are created at module level so their identity
+// is stable across renders (React.lazy requires this to avoid remounting); the
+// surrounding Suspense boundary lives in settings-page.tsx.
 
 import { Settings } from 'lucide-react'
-import { createElement } from 'react'
+import { createElement, lazy } from 'react'
 
 import type { SettingsSubarea } from '../../types'
 import { createSectionRegistry } from '../../utils/section-registry'
-import { AuthenticationSection } from './components/authentication-section'
-import { ProxyTransportSection } from './components/proxy-transport-section'
-import { RoutingSection } from './components/routing-section'
-import { SchedulingSection } from './components/scheduling-section'
-import { SiteSection } from './components/site-section'
+
+const LazySiteSection = lazy(() =>
+  import('./components/site-section').then((module) => ({
+    default: module.SiteSection,
+  }))
+)
+const LazyAuthenticationSection = lazy(() =>
+  import('./components/authentication-section').then((module) => ({
+    default: module.AuthenticationSection,
+  }))
+)
+const LazySchedulingSection = lazy(() =>
+  import('./components/scheduling-section').then((module) => ({
+    default: module.SchedulingSection,
+  }))
+)
+const LazyProxyTransportSection = lazy(() =>
+  import('./components/proxy-transport-section').then((module) => ({
+    default: module.ProxyTransportSection,
+  }))
+)
+const LazyRoutingSection = lazy(() =>
+  import('./components/routing-section').then((module) => ({
+    default: module.RoutingSection,
+  }))
+)
 
 const GENERAL_SECTIONS = [
   {
@@ -26,35 +51,35 @@ const GENERAL_SECTIONS = [
     title: 'settings.general.site.title',
     group: 'settings.general.groups.brandSecurity',
     description: 'settings.general.site.description',
-    build: () => createElement(SiteSection),
+    build: () => createElement(LazySiteSection),
   },
   {
     id: 'authentication',
     title: 'settings.general.authentication.title',
     group: 'settings.general.groups.brandSecurity',
     description: 'settings.general.authentication.description',
-    build: () => createElement(AuthenticationSection),
+    build: () => createElement(LazyAuthenticationSection),
   },
   {
     id: 'scheduling',
     title: 'settings.general.scheduling.title',
     group: 'settings.general.groups.runtimeStrategy',
     description: 'settings.general.scheduling.description',
-    build: () => createElement(SchedulingSection),
+    build: () => createElement(LazySchedulingSection),
   },
   {
     id: 'proxy-transport',
     title: 'settings.general.proxyTransport.title',
     group: 'settings.general.groups.runtimeStrategy',
     description: 'settings.general.proxyTransport.description',
-    build: () => createElement(ProxyTransportSection),
+    build: () => createElement(LazyProxyTransportSection),
   },
   {
     id: 'routing',
     title: 'settings.general.routing.title',
     group: 'settings.general.groups.runtimeStrategy',
     description: 'settings.general.routing.description',
-    build: () => createElement(RoutingSection),
+    build: () => createElement(LazyRoutingSection),
   },
 ] as const
 
