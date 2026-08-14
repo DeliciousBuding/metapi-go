@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -31,8 +32,15 @@ const (
 
 // CheckinOptions configures checkin behavior.
 type CheckinOptions struct {
-	SkipEvent    bool
-	ScheduleMode string // "cron" or "interval"
+	SkipEvent bool
+	// SkipNotification suppresses the per-account failure notifications
+	// ("checkin failed" / "Cloudflare challenge") emitted from CheckinAccount.
+	// Callers that aggregate failures themselves (CheckinAll) set this so a
+	// round produces ONE consolidated notification instead of N per-account
+	// notifications (issue #667). Single-account callers (manual trigger)
+	// leave it false to preserve the existing per-account alert.
+	SkipNotification bool
+	ScheduleMode     string // "cron" or "interval"
 }
 
 // CheckinResult is the result of a single account checkin.
@@ -555,20 +563,25 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 			})
 		}
 
-		if isCloudflare {
-			notifypkg.SendNotification(cfg,
-				"Cloudflare challenge",
-				fmt.Sprintf("%s @ %s: %s", orUsername(account.Username, accountID), site.Name, result.Message),
-				"warning", nil,
-			)
-		}
+		// Per-account failure notifications are suppressed when the caller
+		// aggregates the round itself (CheckinAll → one consolidated alert,
+		// issue #667). Single-account manual triggers leave it on.
+		if !options.SkipNotification {
+			if isCloudflare {
+				notifypkg.SendNotification(cfg,
+					"Cloudflare challenge",
+					fmt.Sprintf("%s @ %s: %s", orUsername(account.Username, accountID), site.Name, result.Message),
+					"warning", nil,
+				)
+			}
 
-		if !unsupportedCheckin && !manualVerificationRequired {
-			notifypkg.SendNotification(cfg,
-				"checkin failed",
-				fmt.Sprintf("%s @ %s: %s", orUsername(account.Username, accountID), site.Name, result.Message),
-				"error", nil,
-			)
+			if !unsupportedCheckin && !manualVerificationRequired {
+				notifypkg.SendNotification(cfg,
+					"checkin failed",
+					fmt.Sprintf("%s @ %s: %s", orUsername(account.Username, accountID), site.Name, result.Message),
+					"error", nil,
+				)
+			}
 		}
 	}
 
@@ -582,7 +595,10 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 }
 
 // CheckinAll performs checkin for all eligible accounts.
-// Mirrors TS checkinAll().
+// Mirrors TS checkinAll(). Per-account failure notifications are suppressed
+// here (SkipNotification) and aggregated into ONE round notification sent at
+// the end (issue #667): a 50-account failure burst now yields a single
+// "Checkin round <id>: N ok, M failed" alert instead of 50 separate ones.
 func CheckinAll(cfg *config.Config, db *sqlx.DB, accountIDs []int64, scheduleMode string) []CheckinAllResult {
 	query := `SELECT a.id AS "accounts.id", a.site_id AS "accounts.site_id", a.username AS "accounts.username",
 		a.access_token AS "accounts.access_token", a.balance AS "accounts.balance",
@@ -658,8 +674,9 @@ func CheckinAll(cfg *config.Config, db *sqlx.DB, accountIDs []int64, scheduleMod
 				}
 				row := rows[idx]
 				result := CheckinAccount(cfg, db, row.Accounts.ID, &CheckinOptions{
-					SkipEvent:    true,
-					ScheduleMode: scheduleMode,
+					SkipEvent:        true,
+					SkipNotification: true,
+					ScheduleMode:     scheduleMode,
 				})
 
 				username := ""
@@ -680,6 +697,8 @@ func CheckinAll(cfg *config.Config, db *sqlx.DB, accountIDs []int64, scheduleMod
 	}
 	wg.Wait()
 
+	sendCheckinRoundNotification(cfg, results)
+
 	return results
 }
 
@@ -688,6 +707,126 @@ func orUsername(username *string, id int64) string {
 		return *username
 	}
 	return fmt.Sprintf("ID:%d", id)
+}
+
+// notifySend is the notification dispatch function used by round aggregation.
+// It defaults to notifypkg.SendNotification; tests swap it to assert call
+// counts and message contents without touching real notification channels.
+var notifySend = notifypkg.SendNotification
+
+// checkinFailure captures a single failed account within a checkin round, for
+// inclusion in the aggregated round notification.
+type checkinFailure struct {
+	accountID   int64
+	accountName string
+	site        string
+	error       string
+}
+
+// checkinRoundResult is the aggregated outcome of one CheckinAll round: the
+// round identifier, the collected failures, and the success count. It backs
+// the single consolidated notification that replaces N per-account alerts.
+type checkinRoundResult struct {
+	roundID   string
+	failures  []checkinFailure
+	successes int
+}
+
+// accountLabel resolves a display name for a CheckinAllResult, falling back
+// to an ID-based label when the username is empty (mirrors orUsername but
+// works off the already-resolved string carried by CheckinAllResult).
+func accountLabel(username string, id int64) string {
+	if strings.TrimSpace(username) != "" {
+		return username
+	}
+	return fmt.Sprintf("ID:%d", id)
+}
+
+// firstLine returns the first line of a message, trimmed of surrounding
+// whitespace. Keeps the aggregated notification body compact when an adapter
+// returns a multi-line error blob.
+func firstLine(message string) string {
+	if idx := strings.IndexByte(message, '\n'); idx >= 0 {
+		return strings.TrimSpace(message[:idx])
+	}
+	return strings.TrimSpace(message)
+}
+
+// buildCheckinRoundResult aggregates CheckinAll results into a round summary.
+// Skipped accounts (unsupported endpoint / manual verification / disabled)
+// are neither successes nor failures for notification purposes. Returns nil
+// when there are no failures, matching the current behavior of NOT alerting
+// on a fully-clean round (all success or all skipped).
+func buildCheckinRoundResult(results []CheckinAllResult) *checkinRoundResult {
+	var failures []checkinFailure
+	successes := 0
+	for _, r := range results {
+		switch r.Result.Status {
+		case CheckinFailed:
+			failures = append(failures, checkinFailure{
+				accountID:   r.AccountID,
+				accountName: accountLabel(r.Username, r.AccountID),
+				site:        r.Site,
+				error:       firstLine(r.Result.Message),
+			})
+		case CheckinSuccess:
+			successes++
+		}
+	}
+	if len(failures) == 0 {
+		return nil
+	}
+	// Deterministic ordering across goroutine scheduling order so the
+	// notification body is stable and diffable.
+	sort.SliceStable(failures, func(i, j int) bool {
+		if failures[i].accountName != failures[j].accountName {
+			return failures[i].accountName < failures[j].accountName
+		}
+		return failures[i].accountID < failures[j].accountID
+	})
+	return &checkinRoundResult{
+		roundID:   time.Now().UTC().Format("2006-01-02T15:04:05Z"),
+		successes: successes,
+		failures:  failures,
+	}
+}
+
+// maxFailuresPerNotification caps how many failure lines are rendered in the
+// body so a 50-account outage stays a readable summary, not a wall of text.
+const maxFailuresPerNotification = 25
+
+// notificationTitle renders the round notification title:
+// "Checkin round <id>: <ok> ok, <failed> failed".
+func (rr *checkinRoundResult) notificationTitle() string {
+	return fmt.Sprintf("Checkin round %s: %d ok, %d failed", rr.roundID, rr.successes, len(rr.failures))
+}
+
+// notificationBody renders one "account @ site: error" line per failure,
+// truncated to maxFailuresPerNotification entries with a tail count.
+func (rr *checkinRoundResult) notificationBody() string {
+	var builder strings.Builder
+	for i, f := range rr.failures {
+		if i > 0 {
+			builder.WriteString("\n")
+		}
+		if i >= maxFailuresPerNotification {
+			fmt.Fprintf(&builder, "…and %d more", len(rr.failures)-maxFailuresPerNotification)
+			break
+		}
+		fmt.Fprintf(&builder, "%s @ %s: %s", f.accountName, f.site, f.error)
+	}
+	return builder.String()
+}
+
+// sendCheckinRoundNotification aggregates a CheckinAll round's results into a
+// single failure notification. No-op on a clean round (no failures). This is
+// the issue #667 fix: one failed round → one notification, not N.
+func sendCheckinRoundNotification(cfg *config.Config, results []CheckinAllResult) {
+	round := buildCheckinRoundResult(results)
+	if round == nil {
+		return
+	}
+	notifySend(cfg, round.notificationTitle(), round.notificationBody(), "error", nil)
 }
 
 // shouldRetryTransient reports whether the current checkin result should be
