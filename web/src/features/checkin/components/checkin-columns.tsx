@@ -7,7 +7,6 @@ import { Eye, MoreHorizontal, Play } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -98,29 +97,6 @@ export function useCheckinColumns(
 ): ColumnDef<CheckinLogRow>[] {
   const { t } = useTranslation()
   return [
-    {
-      id: 'select',
-      size: 40,
-      enableSorting: false,
-      enableHiding: false,
-      header: ({ table }) => (
-        <Checkbox
-          checked={table.getIsAllPageRowsSelected()}
-          onCheckedChange={(value) =>
-            table.toggleAllPageRowsSelected(Boolean(value))
-          }
-          aria-label={t('checkin.columns.selectAll')}
-        />
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(Boolean(value))}
-          aria-label={t('checkin.columns.selectRow')}
-        />
-      ),
-      meta: { mobileHidden: true },
-    },
     {
       accessorKey: 'checkin_logs.createdAt',
       id: 'createdAt',

@@ -225,16 +225,38 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
     queueSearchValue(value)
   }
 
+  const hasSearchValue = searchValue.length > 0
+
+  const clearSearchValue = () => {
+    setIsSearchComposing(false)
+    setSearchDraft(null)
+    commitSearchValue('')
+  }
+
   const searchInput = (
-    <Input
-      aria-label={placeholder}
-      placeholder={placeholder}
-      value={searchValue}
-      onChange={handleSearchChange}
-      onCompositionStart={handleSearchCompositionStart}
-      onCompositionEnd={handleSearchCompositionEnd}
-      className='w-full sm:w-[200px] lg:w-[240px]'
-    />
+    <div className='relative w-full sm:w-[200px] lg:w-[240px]'>
+      <Input
+        aria-label={placeholder}
+        placeholder={placeholder}
+        value={searchValue}
+        onChange={handleSearchChange}
+        onCompositionStart={handleSearchCompositionStart}
+        onCompositionEnd={handleSearchCompositionEnd}
+        className={cn('w-full', hasSearchValue && 'pe-8')}
+      />
+      {hasSearchValue && (
+        <Button
+          type='button'
+          variant='ghost'
+          size='icon-xs'
+          aria-label={t('Clear search')}
+          onClick={clearSearchValue}
+          className='text-muted-foreground hover:text-foreground absolute top-1/2 right-1 -translate-y-1/2'
+        >
+          <Cross2Icon className='size-3.5' />
+        </Button>
+      )}
+    </div>
   )
 
   const filterChips = React.useMemo(

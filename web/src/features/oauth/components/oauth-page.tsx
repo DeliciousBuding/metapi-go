@@ -173,7 +173,7 @@ export function OAuthPage() {
   const { table } = useDataTable<OAuthClient>({
     data: connectionsQuery.data ?? [],
     columns,
-    enableRowSelection: true,
+    enableRowSelection: false,
     enableColumnResizing: true,
     columnVisibilityStorageKey: OAUTH_COLUMN_VISIBILITY_STORAGE_KEY,
     columnSizingStorageKey: OAUTH_COLUMN_SIZING_STORAGE_KEY,
