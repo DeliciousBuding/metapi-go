@@ -26,8 +26,8 @@ import {
 } from '@/components/ui/breadcrumb'
 
 import type { SettingsSubarea } from '../types'
-import { SettingsSidebar } from './settings-sidebar'
 import { SettingsSectionSkeleton } from './settings-section-card'
+import { SettingsSidebar } from './settings-sidebar'
 
 type SettingsPageProps = {
   /** The assembled subarea (sections + nav + content). */
