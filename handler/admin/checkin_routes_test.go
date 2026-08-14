@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -186,6 +187,124 @@ func TestCheckinUpdateScheduleRejectsInvalidCron(t *testing.T) {
 	})
 	if resp.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d body=%s, want 400", resp.Code, resp.Body.String())
+	}
+}
+
+func TestCheckinLogsReturnsPaginatedItemsAndTotal(t *testing.T) {
+	db, r, _ := setupCheckinRoutesTest(t)
+	upstream, _ := newCheckinAnyRouterServer(t)
+	siteID := insertCheckinRouteSite(t, db, upstream.URL)
+	accountID := insertCheckinRouteAccount(t, db, siteID, true)
+
+	// Seed a handful of logs with varying statuses so pagination + status
+	// filtering are exercised against the real total.
+	seedCheckinLogs(t, db, accountID, []struct {
+		status  string
+		message string
+	}{
+		{"success", "reward a"},
+		{"failed", "boom"},
+		{"skipped", "no-op"},
+		{"success", "reward b"},
+		{"failed", "timeout"},
+	})
+
+	resp := doGet(t, r, "/api/checkin/logs?limit=2&offset=0")
+	if resp.Code != http.StatusOK {
+		t.Fatalf("getLogs: %d %s", resp.Code, resp.Body.String())
+	}
+	var page struct {
+		Items    []map[string]any `json:"items"`
+		Total    int              `json:"total"`
+		Page     int              `json:"page"`
+		PageSize int              `json:"pageSize"`
+	}
+	if err := json.Unmarshal(resp.Body.Bytes(), &page); err != nil {
+		t.Fatalf("unmarshal page: %v", err)
+	}
+	if page.Total != 5 {
+		t.Fatalf("total = %d, want 5 (real total, not page size)", page.Total)
+	}
+	if len(page.Items) != 2 {
+		t.Fatalf("items len = %d, want 2 (page size)", len(page.Items))
+	}
+	if page.PageSize != 2 {
+		t.Fatalf("pageSize = %d, want 2", page.PageSize)
+	}
+	if page.Page != 1 {
+		t.Fatalf("page = %d, want 1", page.Page)
+	}
+}
+
+func TestCheckinLogsFiltersByStatusAndDateRange(t *testing.T) {
+	db, r, _ := setupCheckinRoutesTest(t)
+	upstream, _ := newCheckinAnyRouterServer(t)
+	siteID := insertCheckinRouteSite(t, db, upstream.URL)
+	accountID := insertCheckinRouteAccount(t, db, siteID, true)
+
+	seedCheckinLogs(t, db, accountID, []struct {
+		status  string
+		message string
+	}{
+		{"success", "reward a"},
+		{"failed", "boom"},
+		{"skipped", "no-op"},
+		{"success", "reward b"},
+		{"failed", "timeout"},
+	})
+
+	// status filter narrows the total to the failed rows.
+	failedResp := doGet(t, r, "/api/checkin/logs?limit=10&status=failed")
+	if failedResp.Code != http.StatusOK {
+		t.Fatalf("status filter: %d %s", failedResp.Code, failedResp.Body.String())
+	}
+	var failedPage struct {
+		Items []map[string]any `json:"items"`
+		Total int              `json:"total"`
+	}
+	if err := json.Unmarshal(failedResp.Body.Bytes(), &failedPage); err != nil {
+		t.Fatalf("unmarshal failed page: %v", err)
+	}
+	if failedPage.Total != 2 {
+		t.Fatalf("status=failed total = %d, want 2", failedPage.Total)
+	}
+
+	// date-range bound in the future excludes every row, proving the
+	// server-side created_at filter is applied (the legacy client filter only
+	// saw 500 rows so older records silently slipped through).
+	future := time.Now().UTC().Add(24 * time.Hour).Format(time.RFC3339)
+	emptyResp := doGet(t, r, "/api/checkin/logs?limit=10&from="+url.QueryEscape(future))
+	var emptyPage struct {
+		Items []map[string]any `json:"items"`
+		Total int              `json:"total"`
+	}
+	if err := json.Unmarshal(emptyResp.Body.Bytes(), &emptyPage); err != nil {
+		t.Fatalf("unmarshal empty page: %v", err)
+	}
+	if emptyPage.Total != 0 {
+		t.Fatalf("future from-bound total = %d, want 0", emptyPage.Total)
+	}
+}
+
+func seedCheckinLogs(
+	t *testing.T,
+	db *store.DB,
+	accountID int64,
+	rows []struct {
+		status  string
+		message string
+	},
+) {
+	t.Helper()
+	now := time.Now().UTC()
+	for i, row := range rows {
+		createdAt := now.Add(-time.Duration(i) * time.Minute).Format(time.RFC3339)
+		if _, err := db.Exec(
+			"INSERT INTO checkin_logs (account_id, status, message, failure_reason, created_at) VALUES (?, ?, ?, ?, ?)",
+			accountID, row.status, row.message, "", createdAt,
+		); err != nil {
+			t.Fatalf("seed checkin log %d: %v", i, err)
+		}
 	}
 }
 

@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/table'
 
 import { useMonitorHealth } from '../../api'
+import { ObservabilityErrorBanner } from '../../components/observability-error-banner'
 import type { CooldownChannel, RuntimeHealthBreaker } from '../../types'
 
 type Translate = (key: string) => string
@@ -72,6 +73,19 @@ export function HealthSection() {
   const data = health.data
   const runtime = data?.runtimeHealth
   const cooldown = data?.cooldown
+
+  // Surface a load failure explicitly instead of rendering dashes / empty
+  // tables that read as "no open breakers" rather than "request failed".
+  // A retry re-runs the monitor-health query (auto-refresh keeps ticking).
+  if (health.isError && !health.isLoading) {
+    return (
+      <ObservabilityErrorBanner
+        messageKey='observability.health.loadFailed'
+        isRetrying={health.isFetching && !health.isLoading}
+        onRetry={() => void health.refetch()}
+      />
+    )
+  }
 
   return (
     <div className='flex flex-col gap-4'>

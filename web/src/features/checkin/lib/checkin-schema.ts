@@ -11,6 +11,9 @@
 
 import { z } from 'zod'
 
+import type { CheckinLogsQuery } from '../types'
+import { localDatetimeInputToUtcRfc3339 } from './checkin-time'
+
 const DEFAULT_CHECKIN_PAGE_SIZE = 20
 
 // ---------------------------------------------------------------------------
@@ -98,4 +101,30 @@ export function buildCheckinSearchString(params: {
   if (params.query) search.set('q', params.query)
   const query = search.toString()
   return query ? `?${query}` : ''
+}
+
+/**
+ * Build the server-side `CheckinLogsQuery` for the *initial* page render from
+ * the URL search state. The page derives the same payload from its state
+ * (initialized from the URL), so the route loader's prefetchQuery uses this
+ * to produce a cache key that exactly matches the hook's first fetch — no
+ * double-fetch on mount. `from`/`to` are converted to UTC RFC3339 (no
+ * milliseconds) so the lexicographic `created_at` bound is correct.
+ */
+export function buildInitialCheckinLogsQuery(): CheckinLogsQuery {
+  const search = readCheckinSearchFromUrl()
+  const statusValues = parseFilterValues(search.status)
+  const reasonValues = parseFilterValues(search.reason)
+  const siteValues = parseFilterValues(search.site)
+  return {
+    limit: search.pageSize,
+    offset: (search.page - 1) * search.pageSize,
+    accountId: search.accountId,
+    status: statusValues[0],
+    reason: reasonValues,
+    site: siteValues,
+    from: localDatetimeInputToUtcRfc3339(search.from, false),
+    to: localDatetimeInputToUtcRfc3339(search.to, true),
+    search: search.q || undefined,
+  }
 }

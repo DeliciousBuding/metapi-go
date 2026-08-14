@@ -1,4 +1,4 @@
-import { request } from './transport'
+import { request, buildQueryString } from './transport'
 
 export const tokenRoutesApi = {
   // Account tokens
@@ -43,8 +43,9 @@ export const tokenRoutesApi = {
   triggerCheckinAll: () => request('/api/checkin/trigger', { method: 'POST' }),
   triggerCheckin: (id: number) =>
     request(`/api/checkin/trigger/${id}`, { method: 'POST' }),
-  getCheckinLogs: (params?: string) =>
-    request(`/api/checkin/logs${params ? `?${params}` : ''}`),
+  getCheckinLogs: (
+    params?: Record<string, string | number | boolean | null | undefined>
+  ) => request(`/api/checkin/logs${buildQueryString(params)}`),
 
   // Routes
   getRoutes: () => request('/api/routes'),

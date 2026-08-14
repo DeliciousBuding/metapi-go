@@ -8,46 +8,28 @@
 // `window.location.search` reads (via `readCheckinSearchFromUrl`) stay
 // consistent.
 //
-// `loader` prefetches the checkin log window the page's `useCheckinLogs`
-// will request, using the same key shape (`[...logs(), { accountId, limit,
-// offset }]`) so the prefetched page is reused rather than re-fetched on
-// mount. The loader reads the accountId from `window.location.search` via
-// `readCheckinSearchFromUrl()` (the feature's own URL reader, the same
-// helper the page uses) because TanStack Router's loader context does not
-// expose the validated `search` object in this version. The queryFn mirrors
-// the hook (build the query string, call `api.getCheckinLogs`, parse each
-// row with `checkinLogRowSchema`) so the cached payload matches the hook's
-// output type exactly.
+// `loader` prefetches the first server-paginated checkin-logs page the page's
+// `useCheckinLogs` hook will request. It builds the exact same
+// `CheckinLogsQuery` the page derives from URL state (`buildInitialCheckinLogsQuery`)
+// and reuses the hook's query key + fetcher (`fetchCheckinLogs`), so the
+// prefetched page is served from cache on mount instead of re-fetching.
 
 import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
 
 import {
-  checkinLogRowSchema,
+  buildInitialCheckinLogsQuery,
   checkinQueryKeys,
   checkinSearchSchema,
-  readCheckinSearchFromUrl,
+  fetchCheckinLogs,
 } from '@/features/checkin'
-import { api } from '@/lib/api'
-
-const CHECKIN_PREFETCH_LIMIT = 500
 
 export const Route = createFileRoute('/_authenticated/checkin')({
   validateSearch: checkinSearchSchema,
   loader: async ({ context }) => {
-    const { accountId } = readCheckinSearchFromUrl()
+    const initialQuery = buildInitialCheckinLogsQuery()
     await context.queryClient.prefetchQuery({
-      queryKey: [
-        ...checkinQueryKeys.logs(),
-        { accountId, limit: CHECKIN_PREFETCH_LIMIT, offset: undefined },
-      ],
-      queryFn: async () => {
-        const params = new URLSearchParams()
-        params.set('limit', String(CHECKIN_PREFETCH_LIMIT))
-        if (accountId) params.set('accountId', String(accountId))
-        const raw = await api.getCheckinLogs(params.toString())
-        if (!Array.isArray(raw)) return []
-        return raw.map((row) => checkinLogRowSchema.parse(row))
-      },
+      queryKey: checkinQueryKeys.logsList(initialQuery),
+      queryFn: () => fetchCheckinLogs(initialQuery),
     })
   },
   component: lazyRouteComponent(

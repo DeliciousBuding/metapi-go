@@ -134,3 +134,23 @@ export function localDatetimeInputToEpochMs(
   }
   return date.getTime()
 }
+
+/**
+ * Convert a `datetime-local` input value (local) to a UTC RFC3339 string
+ * *without* milliseconds (`YYYY-MM-DDTHH:mm:ssZ`). The checkin backend stores
+ * `created_at` as a naive UTC RFC3339 string, so a lexicographic comparison
+ * is correct — but only when the bound omits milliseconds, otherwise a stored
+ * value at the same second sorts after the bound (`.Z` vs `Z`). Returns
+ * `undefined` for empty/invalid input so callers can skip the server param.
+ *
+ * `endOfDay = true` pins the seconds to 59 so the upper bound includes the
+ * whole minute selected by the minute-precision `datetime-local` input.
+ */
+export function localDatetimeInputToUtcRfc3339(
+  value: string | null | undefined,
+  endOfDay = false
+): string | undefined {
+  const epochMs = localDatetimeInputToEpochMs(value, endOfDay)
+  if (epochMs === null) return undefined
+  return new Date(epochMs).toISOString().replace(/\.\d{3}Z$/, 'Z')
+}

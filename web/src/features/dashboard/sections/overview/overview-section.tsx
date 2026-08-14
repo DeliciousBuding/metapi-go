@@ -106,6 +106,8 @@ export function OverviewSection() {
   const { data: snapshot, isLoading: snapshotLoading } = useQuery({
     queryKey: ['dashboard-snapshot'],
     queryFn: () => api.getDashboardSnapshot() as Promise<DashboardSnapshot>,
+    // Keep the QPS / 24h-proxy stat cards fresh without a manual refresh.
+    refetchInterval: 10 * 1000,
   })
 
   const { data: balanceHistory } = useQuery({
