@@ -12,7 +12,7 @@ COPY web ./
 RUN bun run build:web
 
 # Stage 2: Go build
-FROM golang:1.26.5-alpine AS build
+FROM golang:1.26.6-alpine AS build
 ARG VERSION
 WORKDIR /app
 COPY go.mod go.sum ./
