@@ -1893,6 +1893,16 @@
     "observability": {
       "title": "可观测性",
       "description": "站点与账号的健康、熔断与请求分析。",
+      "autoRefresh": {
+        "label": "自动刷新",
+        "interval15s": "15秒",
+        "interval30s": "30秒",
+        "intervalOff": "关闭"
+      },
+      "error": {
+        "loadFailed": "数据加载失败。",
+        "retry": "重试"
+      },
       "sections": {
         "overview": {
           "title": "概览",
@@ -1911,6 +1921,7 @@
         "slowRequests": {
           "title": "慢请求（Top）",
           "description": "所选时间窗内延迟最高的请求。",
+          "loadFailed": "慢请求数据加载失败。",
           "empty": "当前时间窗内没有慢请求。",
           "colModel": "模型",
           "colSite": "站点",
@@ -1923,12 +1934,14 @@
         "heatmap": {
           "title": "用量热力图",
           "description": "按站点的小时调用密度。",
+          "loadFailed": "用量热力图数据加载失败。",
           "empty": "所选范围内没有用量密度数据。",
           "legendLow": "少",
           "legendHigh": "多"
         }
       },
       "health": {
+        "loadFailed": "健康数据加载失败。",
         "runtime": {
           "title": "运行时健康",
           "description": "内存中的路由熔断状态（软隔离）。",

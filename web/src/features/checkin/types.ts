@@ -79,6 +79,32 @@ export type FailureReasonCategory = (typeof FAILURE_REASON_CATEGORIES)[number]
 export type FailureReason = z.infer<typeof failureReasonSchema>
 
 // ---------------------------------------------------------------------------
+// Server-side query + response — GET /api/checkin/logs now paginates and
+// filters server-side (mirroring /api/stats/proxy-logs). `from`/`to` are UTC
+// RFC3339 strings so lexicographic comparison against the stored naive UTC
+// `created_at` is correct and dialect-agnostic.
+// ---------------------------------------------------------------------------
+
+export type CheckinLogsQuery = {
+  limit?: number
+  offset?: number
+  accountId?: number
+  status?: string
+  reason?: string[]
+  site?: string[]
+  from?: string
+  to?: string
+  search?: string
+}
+
+export type CheckinLogsResponse = {
+  items: CheckinLogRow[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+// ---------------------------------------------------------------------------
 // Inner projections — the nested sub-objects inside each log row.
 // ---------------------------------------------------------------------------
 

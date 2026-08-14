@@ -11,7 +11,8 @@ import { api } from '@/lib/api'
 import { assertBusinessOk } from '@/lib/assert-business-ok'
 
 import {
-  type CheckinLogRow,
+  type CheckinLogsQuery,
+  type CheckinLogsResponse,
   checkinLogRowSchema,
   triggerCheckinAllResultSchema,
   triggerCheckinResultSchema,
@@ -20,30 +21,71 @@ import {
 export const checkinQueryKeys = {
   all: ['checkin'] as const,
   logs: () => [...checkinQueryKeys.all, 'logs'] as const,
+  logsList: (params: CheckinLogsQuery) =>
+    [...checkinQueryKeys.logs(), params] as const,
 }
 
-export interface UseCheckinLogsParams {
-  accountId?: number
-  limit?: number
-  offset?: number
+export type UseCheckinLogsParams = CheckinLogsQuery
+
+/**
+ * Build the flat query-param record the backend expects (arrays joined with
+ * commas) from the structured `CheckinLogsQuery`. Shared by the hook and the
+ * route loader so the prefetched page reuses the hook's cache key exactly.
+ */
+function buildCheckinLogsParams(
+  params: CheckinLogsQuery
+): Record<string, string | number | boolean | null | undefined> {
+  return {
+    limit: params.limit,
+    offset: params.offset,
+    accountId: params.accountId,
+    status: params.status,
+    reason: params.reason?.length ? params.reason.join(',') : undefined,
+    site: params.site?.length ? params.site.join(',') : undefined,
+    from: params.from,
+    to: params.to,
+    search: params.search,
+  }
 }
 
+/**
+ * Fetch + parse a server-side paginated checkin-logs page. The backend returns
+ * `{ items, total, page, pageSize }` (mirroring /api/stats/proxy-logs); each
+ * row is parsed defensively with `checkinLogRowSchema` before feature code
+ * touches it. Used by the hook and the route loader so the cached payload
+ * shape matches exactly.
+ */
+export async function fetchCheckinLogs(
+  params: CheckinLogsQuery
+): Promise<CheckinLogsResponse> {
+  const raw = await api.getCheckinLogs(buildCheckinLogsParams(params))
+  const payload = (raw ?? {}) as Partial<CheckinLogsResponse>
+  const rawItems = Array.isArray(payload.items) ? payload.items : []
+  const items = rawItems.map((row) => checkinLogRowSchema.parse(row))
+  const total = typeof payload.total === 'number' ? payload.total : 0
+  const page = typeof payload.page === 'number' ? payload.page : 1
+  const pageSize =
+    typeof payload.pageSize === 'number'
+      ? payload.pageSize
+      : (params.limit ?? 0)
+  return { items, total, page, pageSize }
+}
+
+/**
+ * Fetch a server-side paginated + filtered page of checkin logs. The backend
+ * returns `{ items, total, page, pageSize }` (mirroring /api/stats/proxy-logs),
+ * so the data table runs in manualPagination/manualFiltering mode and the
+ * page count reflects the real total — not the legacy 500-row client cap that
+ * silently dropped older records from date-range filters.
+ */
 export function useCheckinLogs(
   params: UseCheckinLogsParams = {},
-  options?: Omit<UseQueryOptions<CheckinLogRow[]>, 'queryKey' | 'queryFn'>
+  options?: Omit<UseQueryOptions<CheckinLogsResponse>, 'queryKey' | 'queryFn'>
 ) {
-  const { accountId, limit = 500, offset } = params
   return useQuery({
-    queryKey: [...checkinQueryKeys.logs(), { accountId, limit, offset }],
-    queryFn: async () => {
-      const search = new URLSearchParams()
-      search.set('limit', String(limit))
-      if (offset !== undefined) search.set('offset', String(offset))
-      if (accountId) search.set('accountId', String(accountId))
-      const raw = await api.getCheckinLogs(search.toString())
-      if (!Array.isArray(raw)) return [] as CheckinLogRow[]
-      return raw.map((row) => checkinLogRowSchema.parse(row))
-    },
+    queryKey: checkinQueryKeys.logsList(params),
+    queryFn: () => fetchCheckinLogs(params),
+    placeholderData: (previous) => previous,
     staleTime: 15 * 1000,
     ...options,
   })

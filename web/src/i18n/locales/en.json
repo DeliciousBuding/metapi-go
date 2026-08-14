@@ -1893,6 +1893,16 @@
     "observability": {
       "title": "Observability",
       "description": "Health, breakers and request analytics across sites and accounts.",
+      "autoRefresh": {
+        "label": "Auto-refresh",
+        "interval15s": "15s",
+        "interval30s": "30s",
+        "intervalOff": "Off"
+      },
+      "error": {
+        "loadFailed": "Failed to load data.",
+        "retry": "Retry"
+      },
       "sections": {
         "overview": {
           "title": "Overview",
@@ -1911,6 +1921,7 @@
         "slowRequests": {
           "title": "Slow requests (top)",
           "description": "Highest-latency proxy requests in the selected window.",
+          "loadFailed": "Failed to load slow-request data.",
           "empty": "No slow requests in the current window.",
           "colModel": "Model",
           "colSite": "Site",
@@ -1923,12 +1934,14 @@
         "heatmap": {
           "title": "Usage heatmap",
           "description": "Hourly call density by site.",
+          "loadFailed": "Failed to load usage heatmap data.",
           "empty": "No usage density data for the selected range.",
           "legendLow": "Less",
           "legendHigh": "More"
         }
       },
       "health": {
+        "loadFailed": "Failed to load health data.",
         "runtime": {
           "title": "Runtime health",
           "description": "In-memory routing breaker state (soft isolation).",

@@ -25,6 +25,7 @@ import {
 import { formatLatency } from '@/lib/format'
 
 import { useSlowRequests, useUsageHeatmap } from '../../api'
+import { ObservabilityErrorBanner } from '../../components/observability-error-banner'
 import type { SlowRequestItem, UsageHeatmapCell } from '../../types'
 
 const MAX_HEATMAP_KEYS = 16
@@ -94,7 +95,15 @@ export function OverviewSection() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {renderSlowRequestsBody(slow.isLoading, slowItems, t)}
+          {slow.isError && !slow.isLoading ? (
+            <ObservabilityErrorBanner
+              messageKey='observability.overview.slowRequests.loadFailed'
+              isRetrying={slow.isFetching && !slow.isLoading}
+              onRetry={() => void slow.refetch()}
+            />
+          ) : (
+            renderSlowRequestsBody(slow.isLoading, slowItems, t)
+          )}
         </CardContent>
       </Card>
 
@@ -109,7 +118,15 @@ export function OverviewSection() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {renderHeatmapBody(heatmap.isLoading, layout, t)}
+          {heatmap.isError && !heatmap.isLoading ? (
+            <ObservabilityErrorBanner
+              messageKey='observability.overview.heatmap.loadFailed'
+              isRetrying={heatmap.isFetching && !heatmap.isLoading}
+              onRetry={() => void heatmap.refetch()}
+            />
+          ) : (
+            renderHeatmapBody(heatmap.isLoading, layout, t)
+          )}
         </CardContent>
       </Card>
     </div>

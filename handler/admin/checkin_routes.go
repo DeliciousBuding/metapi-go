@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/deliciousbuding/metapi-go/config"
 	checkinservice "github.com/deliciousbuding/metapi-go/service/checkin"
@@ -71,43 +72,141 @@ func (h *checkinHandler) triggerOne(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GET /api/checkin/logs?limit=&offset=&accountId=
+// GET /api/checkin/logs?limit=&offset=&accountId=&status=&from=&to=&reason=&site=&search=
 //
-// Response shape is the nested TS-era form the frontend expects:
+// Server-side paginated + filtered response. Mirrors the /api/stats/proxy-logs
+// contract: a page of nested rows plus the real total (so the data table's
+// server-pagination mode shows the true row count, not the page size).
+//
+// Filters:
+//   - accountId: exact match on cl.account_id
+//   - status:    exact match on cl.status (success/failed/skipped)
+//   - from/to:   UTC RFC3339 bounds on cl.created_at (inclusive)
+//   - reason:    comma-separated failure_reason.category values; matched as
+//                JSON substring so it works across SQLite/MySQL/Postgres
+//   - site:      comma-separated site names; exact match on s.name
+//   - search:    LIKE over username / site name / message / reward
+//
+// Response shape (items is the nested TS-era form the frontend expects):
 //
 //	{
-//	 "checkin_logs": { id, accountId, status, message, reward, createdAt },
-//	 "accounts": { username, id },
-//	 "sites": { name, url },
-//	 "failureReason": { code, category, title, actionHint, detailHint } | null
+//	 "items": [
+//	   {
+//	     "checkin_logs": { id, accountId, status, message, reward, createdAt },
+//	     "accounts": { username, id },
+//	     "sites": { name, url },
+//	     "failureReason": { code, category, title, actionHint, detailHint } | null
+//	   }
+//	 ],
+//	 "total": <int>,
+//	 "page": <int>,
+//	 "pageSize": <int>
 //	}
 //
 // failureReason is lifted from the checkin_logs.failure_reason TEXT column
 // (ClassifyFailureReason JSON) to a parsed object at the top level so the UI
 // can read `log.failureReason.title` directly instead of a phantom always-`-`.
 func (h *checkinHandler) getLogs(w http.ResponseWriter, r *http.Request) {
-	limit, _ := parseLimitOffset(r, 50, 500)
+	limit, _ := parseLimitOffset(r, 50, 200)
 	offset := max(0, getQueryInt(r, "offset", 0))
-	accountIDStr := r.URL.Query().Get("accountId")
+	accountIDStr := strings.TrimSpace(r.URL.Query().Get("accountId"))
+	status := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("status")))
+	from := strings.TrimSpace(r.URL.Query().Get("from"))
+	to := strings.TrimSpace(r.URL.Query().Get("to"))
+	reason := splitTrimFilter(r.URL.Query().Get("reason"))
+	site := splitTrimFilter(r.URL.Query().Get("site"))
+	search := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("search")))
 
-	query := `SELECT cl.*, a.username as account_username, s.name as site_name, s.url as site_url
-		FROM checkin_logs cl
-		INNER JOIN accounts a ON cl.account_id = a.id
-		INNER JOIN sites s ON a.site_id = s.id`
+	var conditions []string
 	var args []any
 
 	if accountIDStr != "" {
 		if aid, err := strconv.ParseInt(accountIDStr, 10, 64); err == nil && aid > 0 {
-			query += " WHERE cl.account_id = ?"
+			conditions = append(conditions, "cl.account_id = ?")
 			args = append(args, aid)
 		}
 	}
+	if status == "success" || status == "failed" || status == "skipped" {
+		conditions = append(conditions, "cl.status = ?")
+		args = append(args, status)
+	}
+	// created_at is stored as a naive UTC RFC3339 string, so lexicographic
+	// comparison against UTC bounds is correct and dialect-agnostic.
+	if from != "" {
+		conditions = append(conditions, "cl.created_at >= ?")
+		args = append(args, from)
+	}
+	if to != "" {
+		conditions = append(conditions, "cl.created_at <= ?")
+		args = append(args, to)
+	}
+	if len(reason) > 0 {
+		// failure_reason is compact JSON from encoding/json, so a substring
+		// match on "category":"<value>" hits cleanly. OR across the selected
+		// categories so the multi-select behaves like the legacy client filter.
+		reasonClauses := make([]string, 0, len(reason))
+		for _, category := range reason {
+			reasonClauses = append(reasonClauses, "LOWER(COALESCE(cl.failure_reason, '')) LIKE ?")
+			args = append(args, "%\"category\":\""+strings.ToLower(category)+"\"%")
+		}
+		conditions = append(conditions, "("+strings.Join(reasonClauses, " OR ")+")")
+	}
+	if len(site) > 0 {
+		placeHolders := make([]string, 0, len(site))
+		for _, name := range site {
+			placeHolders = append(placeHolders, "?")
+			args = append(args, name)
+		}
+		conditions = append(conditions, "s.name IN ("+strings.Join(placeHolders, ",")+")")
+	}
+	if search != "" {
+		conditions = append(conditions, "(LOWER(COALESCE(a.username, '')) LIKE ? OR LOWER(COALESCE(s.name, '')) LIKE ? OR LOWER(COALESCE(cl.message, '')) LIKE ? OR LOWER(COALESCE(cl.reward, '')) LIKE ?)")
+		like := "%" + search + "%"
+		args = append(args, like, like, like, like)
+	}
 
-	query += " ORDER BY cl.created_at DESC LIMIT ? OFFSET ?"
-	args = append(args, limit, offset)
+	var where string
+	if len(conditions) > 0 {
+		where = " WHERE " + strings.Join(conditions, " AND ")
+	}
 
-	rows := queryRows(h.db, query, args...)
-	writeJSON(w, http.StatusOK, reshapeCheckinLogs(rows))
+	query := `SELECT cl.*, a.username as account_username, s.name as site_name, s.url as site_url
+		FROM checkin_logs cl
+		INNER JOIN accounts a ON cl.account_id = a.id
+		INNER JOIN sites s ON a.site_id = s.id` +
+		where + " ORDER BY cl.created_at DESC LIMIT ? OFFSET ?"
+	qArgs := make([]any, len(args))
+	copy(qArgs, args)
+	qArgs = append(qArgs, limit, offset)
+	rows := queryRows(h.db, query, qArgs...)
+
+	countQuery := "SELECT COUNT(*) FROM checkin_logs cl INNER JOIN accounts a ON cl.account_id = a.id INNER JOIN sites s ON a.site_id = s.id" + where
+	var total int
+	h.db.Get(&total, rebindAdminQuery(h.db, countQuery), args...)
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"items":    reshapeCheckinLogs(rows),
+		"total":    total,
+		"page":     (offset / limit) + 1,
+		"pageSize": limit,
+	})
+}
+
+// splitTrimFilter splits a comma-separated query value into trimmed,
+// non-empty tokens — used for the multi-select reason/site filters.
+func splitTrimFilter(value string) []string {
+	if value == "" {
+		return nil
+	}
+	parts := strings.Split(value, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
 }
 
 // reshapeCheckinLogs converts the flat camelCased query rows into the nested

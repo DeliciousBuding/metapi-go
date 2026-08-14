@@ -168,6 +168,10 @@ function AttentionPanel() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['dashboard-attention', 20],
     queryFn: () => api.getAttention(20) as Promise<AttentionResponse>,
+    // Auto-refresh the attention panel so expired accounts / low balances
+    // surface without a manual reload (the realtime QPS panel uses the ops
+    // WebSocket stream above; this covers the REST half of availability).
+    refetchInterval: 10 * 1000,
   })
 
   const items = data?.items ?? []

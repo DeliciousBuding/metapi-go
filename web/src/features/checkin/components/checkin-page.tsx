@@ -1,5 +1,11 @@
 // metapi-go features/checkin/components — the checkin log list page.
 // i18n: all user-visible strings migrated to t() calls.
+//
+// Server-side pagination + filtering (mirrors /api/stats/proxy-logs): the
+// table runs in manualPagination/manualFiltering/manualSorting mode and the
+// backend returns the real total, so date-range / status / reason / site /
+// search filters see the full log history instead of the legacy 500-row
+// client cap that silently dropped older records.
 
 import type {
   ColumnFiltersState,
@@ -21,6 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAccounts } from '@/features/accounts'
+import { useSites } from '@/features/sites/api'
 import { toast } from '@/lib/toast'
 
 import { useCheckinAccount, useCheckinLogs, useManualCheckin } from '../api'
@@ -29,10 +36,7 @@ import {
   parseFilterValues,
   readCheckinSearchFromUrl,
 } from '../lib/checkin-schema'
-import {
-  localDatetimeInputToEpochMs,
-  parseServerUtcDateTime,
-} from '../lib/checkin-time'
+import { localDatetimeInputToUtcRfc3339 } from '../lib/checkin-time'
 import { type CheckinLogRow, checkinLogRowSchema } from '../types'
 import { useCheckinColumns } from './checkin-columns'
 import { CheckinDetailSheet } from './checkin-detail-sheet'
@@ -64,66 +68,107 @@ export function CheckinPage() {
   const [from, setFrom] = useState(initial.from ?? '')
   const [to, setTo] = useState(initial.to ?? '')
 
-  const {
-    data: rawLogs,
-    isLoading,
-    isFetching,
-    error,
-  } = useCheckinLogs({ accountId })
   const { data: accountsSnapshot } = useAccounts()
   const accountOptions = accountsSnapshot?.accounts ?? []
+  const { data: sitesData } = useSites()
+  const siteOptions = useMemo(
+    () =>
+      (sitesData ?? []).map((site) => ({
+        value: site.name,
+        label: site.name,
+      })),
+    [sitesData]
+  )
+
   const triggerAllMutation = useManualCheckin()
   const triggerOneMutation = useCheckinAccount()
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailRow, setDetailRow] = useState<CheckinLogRow | null>(null)
   const [manualOpen, setManualOpen] = useState(false)
 
-  const logs = useMemo(() => {
-    const fromMs = localDatetimeInputToEpochMs(from)
-    const toMs = localDatetimeInputToEpochMs(to, true)
-    return (rawLogs ?? []).filter((row) => {
-      if (fromMs === null && toMs === null) return true
-      const date = parseServerUtcDateTime(row.checkin_logs.createdAt)
-      if (!date) return true
-      if (fromMs !== null && date.getTime() < fromMs) return false
-      if (toMs !== null && date.getTime() > toMs) return false
-      return true
-    })
-  }, [rawLogs, from, to])
+  // Resolve the active server-side filter values from the column-filter
+  // state (the toolbar faceted filters drive these). status is single-select,
+  // so only the first value is forwarded to the backend.
+  const statusValues = useMemo(() => {
+    const statusFilter = columnFilters.find((filter) => filter.id === 'status')
+    const value = statusFilter?.value
+    return Array.isArray(value) ? (value as string[]) : []
+  }, [columnFilters])
+  const reasonValues = useMemo(() => {
+    const reasonFilter = columnFilters.find((filter) => filter.id === 'reason')
+    const value = reasonFilter?.value
+    return Array.isArray(value) ? (value as string[]) : []
+  }, [columnFilters])
+  const siteValues = useMemo(() => {
+    const siteFilter = columnFilters.find((filter) => filter.id === 'site')
+    const value = siteFilter?.value
+    return Array.isArray(value) ? (value as string[]) : []
+  }, [columnFilters])
 
-  const siteOptions = useMemo(() => {
-    const seen = new Map<string, string>()
-    for (const row of rawLogs ?? []) {
-      const name = row.sites?.name
-      if (name && !seen.has(name)) seen.set(name, name)
-    }
-    return [...seen.entries()].map(([value, label]) => ({ value, label }))
-  }, [rawLogs])
+  const fromUtc = useMemo(
+    () => localDatetimeInputToUtcRfc3339(from, false),
+    [from]
+  )
+  const toUtc = useMemo(() => localDatetimeInputToUtcRfc3339(to, true), [to])
+
+  const queryPayload = useMemo(
+    () => ({
+      limit: pagination.pageSize,
+      offset: pagination.pageIndex * pagination.pageSize,
+      accountId,
+      status: statusValues[0],
+      reason: reasonValues,
+      site: siteValues,
+      from: fromUtc,
+      to: toUtc,
+      search: globalFilter.trim() || undefined,
+    }),
+    [
+      pagination,
+      accountId,
+      statusValues,
+      reasonValues,
+      siteValues,
+      fromUtc,
+      toUtc,
+      globalFilter,
+    ]
+  )
+
+  const {
+    data: logsPage,
+    isLoading,
+    isFetching,
+    error,
+  } = useCheckinLogs(queryPayload)
+  const logs = useMemo(() => logsPage?.items ?? [], [logsPage])
+  const total = logsPage?.total ?? 0
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const statusFilter = columnFilters.find((filter) => filter.id === 'status')
-    const reasonFilter = columnFilters.find((filter) => filter.id === 'reason')
-    const siteFilter = columnFilters.find((filter) => filter.id === 'site')
     const query = buildCheckinSearchString({
       pageIndex: pagination.pageIndex,
       pageSize: pagination.pageSize,
       accountId,
-      statusValues: Array.isArray(statusFilter?.value)
-        ? (statusFilter?.value as string[])
-        : [],
-      reasonValues: Array.isArray(reasonFilter?.value)
-        ? (reasonFilter?.value as string[])
-        : [],
-      siteValues: Array.isArray(siteFilter?.value)
-        ? (siteFilter?.value as string[])
-        : [],
+      statusValues,
+      reasonValues,
+      siteValues,
       from: from || undefined,
       to: to || undefined,
       query: globalFilter || undefined,
     })
     window.history.replaceState(null, '', `${window.location.pathname}${query}`)
-  }, [pagination, accountId, columnFilters, from, to, globalFilter])
+  }, [
+    pagination,
+    accountId,
+    columnFilters,
+    from,
+    to,
+    globalFilter,
+    statusValues,
+    reasonValues,
+    siteValues,
+  ])
 
   const onGlobalFilterChange = useMemo<OnChangeFn<string>>(
     () => (updater) => {
@@ -140,6 +185,14 @@ export function CheckinPage() {
         updater instanceof Function ? updater(prev) : updater
       )
       setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+    },
+    []
+  )
+  const onPaginationChange = useMemo<OnChangeFn<PaginationState>>(
+    () => (updater) => {
+      setPagination((prev) =>
+        updater instanceof Function ? updater(prev) : updater
+      )
     },
     []
   )
@@ -175,17 +228,22 @@ export function CheckinPage() {
   }
 
   const columns = useCheckinColumns(rowActions)
-  const { table } = useDataTable({
+  const { table } = useDataTable<CheckinLogRow>({
     data: logs,
     columns,
+    manualPagination: true,
+    manualFiltering: true,
+    manualSorting: true,
     enableRowSelection: false,
     globalFilter,
     onGlobalFilterChange,
     columnFilters,
     onColumnFiltersChange,
     pagination,
-    onPaginationChange: setPagination,
+    onPaginationChange,
     globalFilterFn: (row, _columnId, filterValue) => {
+      // With manualFiltering the table does not run this; kept so the column
+      // definition stays valid if the table ever flips back to client mode.
       const log = checkinLogRowSchema.parse(row.original)
       const haystack = [
         log.accounts?.username ?? '',
@@ -198,6 +256,7 @@ export function CheckinPage() {
         .toLowerCase()
       return haystack.includes(String(filterValue).toLowerCase())
     },
+    totalCount: total,
   })
 
   const handleTriggerAll = async () => {
