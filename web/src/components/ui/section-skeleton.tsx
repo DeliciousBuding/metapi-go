@@ -8,11 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
  */
 export function SectionSkeleton() {
   return (
-    <div
-      className='space-y-4 p-4'
-      aria-busy='true'
-      aria-live='polite'
-    >
+    <div className='space-y-4 p-4' aria-busy='true' aria-live='polite'>
       <Skeleton className='h-6 w-48' />
       <Skeleton className='h-4 w-full' />
       <Skeleton className='h-4 w-3/4' />

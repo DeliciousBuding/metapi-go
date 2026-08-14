@@ -1,5 +1,6 @@
 import axios, { type AxiosRequestConfig } from 'axios'
 
+import i18n from '@/i18n/config'
 import {
   applyAuthRotation,
   clearAuthentication,
@@ -9,8 +10,6 @@ import {
   refreshAuthentication,
 } from '@/lib/auth-session'
 import { toast } from '@/lib/toast'
-
-import i18n from '@/i18n/config'
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
@@ -118,7 +117,8 @@ apiClient.interceptors.response.use(
       typeof response.data?.success === 'boolean' &&
       !response.data.success
     ) {
-      const message = resolveResponseMessage(response.data) || i18n.t('common.requestFailed')
+      const message =
+        resolveResponseMessage(response.data) || i18n.t('common.requestFailed')
       toast.error(message)
     }
     return response
