@@ -50,6 +50,11 @@ type ProxyConfig struct {
 	// BrowserUA overrides the global browser User-Agent for a specific site
 	// (used to match the UA of a harvested cf_clearance cookie).
 	BrowserUA string
+	// ResinAccount records the Resin business-identity used for this request
+	// (set by BuildPlatformProxyConfig when the resin forward proxy is active).
+	// Downstream code (e.g. native wss reverse-proxy) can read this to set the
+	// X-Resin-Account header on paths that bypass the HTTP forward proxy.
+	ResinAccount string
 }
 
 // CheckinResult is the outcome of a daily checkin.

@@ -189,6 +189,21 @@ func GetUseSystemProxyFromExtraConfig(extraConfig *string) bool {
 }
 
 // BuildPlatformProxyConfig resolves account and site proxy settings for platform calls.
+//
+// Precedence (highest to lowest):
+//  1. key proxy (applied separately via proxy.ApplyKeyProxyOverride)
+//  2. account extraConfig.proxyUrl (explicit per-account proxy)
+//  3. site.ProxyURL (explicit per-site proxy)
+//  4. Resin sticky forward proxy (when RESIN_ENABLED and identity available)
+//  5. system proxy (account extraConfig.useSystemProxy or site.UseSystemProxy)
+//  6. direct (no proxy)
+//
+// The Resin tier sits between explicit proxy URLs and the generic system-proxy
+// opt-in so an operator who sets a per-account/per-site proxy still wins, but
+// Resin takes priority over the shared SYSTEM_PROXY_URL. Resin requires a
+// business identity: acc-{account.ID} when the account row exists. For
+// pre-account flows (verify/login/create) with no account row yet, use
+// BuildPlatformProxyConfigForToken which derives a deterministic temp identity.
 func BuildPlatformProxyConfig(cfg *config.Config, account *store.Account, site *store.Site) *platform.ProxyConfig {
 	if account == nil && site == nil {
 		return nil
@@ -212,11 +227,38 @@ func BuildPlatformProxyConfig(cfg *config.Config, account *store.Account, site *
 		}
 	}
 
+	// 2. account explicit proxyUrl
 	if account != nil {
 		if accountProxyURL := strings.TrimSpace(GetProxyURLFromExtraConfig(account.ExtraConfig)); accountProxyURL != "" {
 			proxyCfg.ProxyURL = accountProxyURL
 			return normalizePlatformProxyConfig(proxyCfg)
 		}
+	}
+
+	// 3. site explicit ProxyURL
+	if site != nil {
+		if site.ProxyURL != nil && strings.TrimSpace(*site.ProxyURL) != "" {
+			proxyCfg.ProxyURL = strings.TrimSpace(*site.ProxyURL)
+			return normalizePlatformProxyConfig(proxyCfg)
+		}
+	}
+
+	// 4. Resin sticky forward proxy (only when no higher-precedence proxy set).
+	//    Requires a business identity: acc-{account.ID} when account exists.
+	if ResinEnabled(cfg) {
+		platformName := ResolveResinPlatform(cfg, site)
+		accountIdentity := AccountFor(account, site)
+		if platformName != "" && accountIdentity != "" {
+			if resinURL, ok := ForwardProxyURL(cfg, platformName, accountIdentity); ok {
+				proxyCfg.ProxyURL = resinURL
+				proxyCfg.ResinAccount = accountIdentity
+				return normalizePlatformProxyConfig(proxyCfg)
+			}
+		}
+	}
+
+	// 5. system proxy fallback (account opt-in, then site opt-in)
+	if account != nil {
 		if GetUseSystemProxyFromExtraConfig(account.ExtraConfig) && cfg != nil && strings.TrimSpace(cfg.SystemProxyUrl) != "" {
 			proxyCfg.ProxyURL = strings.TrimSpace(cfg.SystemProxyUrl)
 			proxyCfg.UseSystemProxy = true
@@ -225,10 +267,6 @@ func BuildPlatformProxyConfig(cfg *config.Config, account *store.Account, site *
 	}
 
 	if site != nil {
-		if site.ProxyURL != nil && strings.TrimSpace(*site.ProxyURL) != "" {
-			proxyCfg.ProxyURL = strings.TrimSpace(*site.ProxyURL)
-			return normalizePlatformProxyConfig(proxyCfg)
-		}
 		if site.UseSystemProxy && cfg != nil && strings.TrimSpace(cfg.SystemProxyUrl) != "" {
 			proxyCfg.ProxyURL = strings.TrimSpace(cfg.SystemProxyUrl)
 			proxyCfg.UseSystemProxy = true
@@ -236,6 +274,50 @@ func BuildPlatformProxyConfig(cfg *config.Config, account *store.Account, site *
 		}
 	}
 
+	return normalizePlatformProxyConfig(proxyCfg)
+}
+
+// BuildPlatformProxyConfigForToken is the pre-account variant of
+// BuildPlatformProxyConfig for verify-token / login / create flows where no
+// Account row exists yet. It derives a deterministic temp Resin identity from
+// (siteID, rawToken) so all pre-account requests for the same token share an
+// egress IP, then (in Tier 2) inherit-lease can transfer the lease to the
+// stable acc-{id} identity after INSERT.
+//
+// Precedence matches BuildPlatformProxyConfig with the temp identity filling
+// the resin tier: site.ProxyURL > resin(temp) > system > direct.
+func BuildPlatformProxyConfigForToken(cfg *config.Config, site *store.Site, rawToken string) *platform.ProxyConfig {
+	// When the site has an explicit ProxyURL, that beats resin — delegate
+	// entirely so headers/cookies/UA are assembled by the shared path.
+	if site != nil && site.ProxyURL != nil && strings.TrimSpace(*site.ProxyURL) != "" {
+		return BuildPlatformProxyConfig(cfg, nil, site)
+	}
+
+	// No explicit site.ProxyURL: assemble the base config (headers, cookies,
+	// UA, and possibly the system proxy via site.UseSystemProxy).
+	proxyCfg := BuildPlatformProxyConfig(cfg, nil, site)
+	if proxyCfg == nil {
+		proxyCfg = &platform.ProxyConfig{}
+	}
+
+	if !ResinEnabled(cfg) || site == nil {
+		return normalizePlatformProxyConfig(proxyCfg)
+	}
+
+	platformName := ResolveResinPlatform(cfg, site)
+	tempIdentity := TempAccountFor(site.ID, rawToken)
+	if platformName == "" || tempIdentity == "" {
+		return normalizePlatformProxyConfig(proxyCfg)
+	}
+	resinURL, ok := ForwardProxyURL(cfg, platformName, tempIdentity)
+	if !ok {
+		return normalizePlatformProxyConfig(proxyCfg)
+	}
+	// Resin wins over the system proxy per precedence, so override whatever
+	// ProxyURL the inner call set (or fill the empty direct case).
+	proxyCfg.ProxyURL = resinURL
+	proxyCfg.UseSystemProxy = false
+	proxyCfg.ResinAccount = tempIdentity
 	return normalizePlatformProxyConfig(proxyCfg)
 }
 

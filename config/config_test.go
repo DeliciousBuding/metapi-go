@@ -72,6 +72,38 @@ func TestLoadInfersPostgresFromDatabaseURLAlias(t *testing.T) {
 	}
 }
 
+func TestLoadParsesResinConfig(t *testing.T) {
+	cfg := Load(map[string]string{
+		"RESIN_URL":           "http://resin.local:2260/my-token",
+		"RESIN_PLATFORM_NAME": "metapi",
+		"RESIN_ENABLED":       "true",
+	})
+
+	if cfg.ResinURL != "http://resin.local:2260/my-token" {
+		t.Fatalf("ResinURL = %q, want http://resin.local:2260/my-token", cfg.ResinURL)
+	}
+	if cfg.ResinPlatformName != "metapi" {
+		t.Fatalf("ResinPlatformName = %q, want metapi", cfg.ResinPlatformName)
+	}
+	if !cfg.ResinEnabled {
+		t.Fatal("ResinEnabled = false, want true")
+	}
+}
+
+func TestLoadResinDefaultsOff(t *testing.T) {
+	cfg := Load(map[string]string{})
+
+	if cfg.ResinURL != "" {
+		t.Fatalf("ResinURL = %q, want empty default", cfg.ResinURL)
+	}
+	if cfg.ResinPlatformName != "" {
+		t.Fatalf("ResinPlatformName = %q, want empty default", cfg.ResinPlatformName)
+	}
+	if cfg.ResinEnabled {
+		t.Fatal("ResinEnabled = true, want false default")
+	}
+}
+
 func TestLoadPrefersDBURLOverDatabaseURLAlias(t *testing.T) {
 	cfg := Load(map[string]string{
 		"DB_URL":       "sqlite://local.db",

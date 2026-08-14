@@ -12,6 +12,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/service"
 )
 
 // Codex upstream WebSocket runtime (
@@ -60,6 +61,16 @@ type CodexWebsocketSendInput struct {
 	RequestURL string
 	Headers    map[string]string
 	Body       map[string]any
+	// ResinAccount carries the Resin business identity for the native wss
+	// reverse-proxy rewrite. When non-empty (and ResinPlatform is set) and
+	// Resin is enabled, the dial URL is rewritten to
+	// ws://{host}/{token}/{Platform}/{protocol}/{target} and X-Resin-Account
+	// is set on the dial headers.
+	ResinAccount string
+	// ResinPlatform is the Platform segment for the resin reverse-proxy path.
+	// The caller (which has the site in scope) resolves it from
+	// cfg.ResinPlatformName (falling back to site.Platform).
+	ResinPlatform string
 }
 
 // ---- response id store (process-local) ----
@@ -595,10 +606,12 @@ func SendCodexWebsocketRequest(ctx context.Context, input CodexWebsocketSendInpu
 
 	for {
 		result, err := sendCodexWSSessionAttempt(ctx, session, CodexWebsocketSendInput{
-			SessionID:  sessionID,
-			RequestURL: input.RequestURL,
-			Headers:    input.Headers,
-			Body:       currentBody,
+			SessionID:    sessionID,
+			RequestURL:   input.RequestURL,
+			Headers:      input.Headers,
+			Body:         currentBody,
+			ResinAccount:  input.ResinAccount,
+			ResinPlatform: input.ResinPlatform,
 		})
 		if err == nil {
 			return result, nil
@@ -633,6 +646,19 @@ func sendCodexWSSessionAttempt(ctx context.Context, session *codexWSSocketSessio
 		return nil, &CodexWebsocketRuntimeError{Message: "missing upstream websocket url", Status: 502}
 	}
 
+	// Resin reverse-proxy rewrite for native wss dials (the only path that
+	// bypasses BuildPlatformProxyConfig / the HTTP forward proxy). Resin
+	// requires the client→resin leg to be ws; the protocol segment encodes
+	// the original target scheme (https for wss, http for ws).
+	resinAccount := strings.TrimSpace(input.ResinAccount)
+	resinPlatform := strings.TrimSpace(input.ResinPlatform)
+	runtimeCfg := safeConfigGet()
+	if runtimeCfg != nil && service.ResinEnabled(runtimeCfg) && resinAccount != "" && resinPlatform != "" {
+		if rewritten := service.RewriteWSURL(wsURL, runtimeCfg, resinPlatform, resinAccount); rewritten != "" {
+			wsURL = rewritten
+		}
+	}
+
 	reused := false
 	conn := session.conn
 	if conn != nil && session.socketURL == wsURL {
@@ -644,6 +670,15 @@ func sendCodexWSSessionAttempt(ctx context.Context, session *codexWSSocketSessio
 			session.socketURL = ""
 		}
 		headers := BuildCodexWebsocketHandshakeHeaders(input.Headers)
+		// Resin reverse-proxy identity header (only meaningful when the URL
+		// was rewritten above; harmless otherwise since Resin ignores it on
+		// non-rewritten paths, but we gate it to the rewrite case for hygiene).
+		if runtimeCfg != nil && service.ResinEnabled(runtimeCfg) && resinAccount != "" && resinPlatform != "" {
+			if headers == nil {
+				headers = map[string]string{}
+			}
+			headers["X-Resin-Account"] = resinAccount
+		}
 		httpHeader := http.Header{}
 		for k, v := range headers {
 			if strings.TrimSpace(k) == "" || strings.TrimSpace(v) == "" {

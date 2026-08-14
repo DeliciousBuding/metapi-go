@@ -174,6 +174,14 @@ type Config struct {
 	NotifyCooldownSec int
 	SystemProxyUrl    string
 
+	// Resin sticky proxy pool (3 fields, env-only — no DDL for Tier 1).
+	// RESIN_URL carries the base URL + token, e.g. http://resin.local:2260/my-token.
+	// RESIN_PLATFORM_NAME is the Platform identity (falls back to site.Platform).
+	// RESIN_ENABLED is the global opt-in (default false).
+	ResinURL          string
+	ResinPlatformName string
+	ResinEnabled      bool
+
 	// NotifyTaskToggles gates per-alert-type notifications.
 	// Keys are alert task slugs ("token_expired", "low_balance", "proxy_all_failed").
 	// Default nil = all enabled (backward-compatible). When a key is present and
@@ -551,6 +559,11 @@ func Load(env map[string]string) *Config {
 	// ---- §3.11 Notify: General ----
 	cfg.NotifyCooldownSec = maxInt(0, int(math.Trunc(parseNumber(get("NOTIFY_COOLDOWN_SEC"), DefaultNotifyCooldownSec))))
 	cfg.SystemProxyUrl = firstNonEmpty(get("SYSTEM_PROXY_URL"), "")
+
+	// ---- §3.11b Resin sticky proxy pool ----
+	cfg.ResinURL = firstNonEmpty(get("RESIN_URL"), "")
+	cfg.ResinPlatformName = firstNonEmpty(get("RESIN_PLATFORM_NAME"), "")
+	cfg.ResinEnabled = parseBoolean(get("RESIN_ENABLED"), false)
 
 	// ---- §3.12 Notify: Feishu / DingTalk / WeCom / Ntfy ----
 	cfg.FeishuEnabled = parseBoolean(get("FEISHU_ENABLED"), false)

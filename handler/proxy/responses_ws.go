@@ -16,6 +16,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/routing"
+	"github.com/deliciousbuding/metapi-go/service"
 )
 
 // Responses WebSocket transport.
@@ -833,11 +834,25 @@ func (s *responsesWSSession) tryCodexUpstreamWSS(ctx context.Context, body map[s
 		s.codexRuntimeKeys = append(s.codexRuntimeKeys, sessionKey)
 	}
 
+	// Resin sticky identity for native wss reverse-proxy rewrite. The wss
+	// dial bypasses BuildPlatformProxyConfig, so we pass the identity through
+	// the input; sendCodexWSSessionAttempt rewrites the URL + sets
+	// X-Resin-Account when Resin is enabled. Platform = cfg.ResinPlatformName
+	// (fallback site.Platform); Account = acc-{selected.Account.ID}.
+	resinAccount := ""
+	resinPlatform := ""
+	if runtimeCfg := safeConfigGet(); runtimeCfg != nil && service.ResinEnabled(runtimeCfg) {
+		resinAccount = service.AccountFor(&selected.Account, &selected.Site)
+		resinPlatform = service.ResolveResinPlatform(runtimeCfg, &selected.Site)
+	}
+
 	result, sendErr := SendCodexWebsocketRequest(ctx, CodexWebsocketSendInput{
-		SessionID:  sessionKey,
-		RequestURL: upstreamURL,
-		Headers:    headers,
-		Body:       upBody,
+		SessionID:     sessionKey,
+		RequestURL:    upstreamURL,
+		Headers:       headers,
+		Body:          upBody,
+		ResinAccount:  resinAccount,
+		ResinPlatform: resinPlatform,
 	})
 	if sendErr != nil {
 		runtimeErr, ok := sendErr.(*CodexWebsocketRuntimeError)

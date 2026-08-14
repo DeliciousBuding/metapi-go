@@ -380,7 +380,7 @@ func (h *accountsHandler) createSingleAccount(ctx context.Context, body payloads
 	}
 
 	skipModelFetch := body.SkipModelFetch != nil && *body.SkipModelFetch
-	proxyCfg := service.BuildPlatformProxyConfig(h.cfg, nil, &site)
+	proxyCfg := service.BuildPlatformProxyConfigForToken(h.cfg, &site, rawAccessToken)
 
 	resolvedUsername := strings.TrimSpace(coalescePtr(username, ""))
 	usernameProvided := resolvedUsername != ""
@@ -593,7 +593,7 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-	loginResult, err := adp.Login(ctx, site.URL, body.Username, body.Password, nil, service.BuildPlatformProxyConfig(h.cfg, nil, &site))
+	loginResult, err := adp.Login(ctx, site.URL, body.Username, body.Password, nil, service.BuildPlatformProxyConfigForToken(h.cfg, &site, body.Username))
 	if err != nil {
 		slog.Warn("Account login failed", "err", err, "site_id", site.ID, "platform", site.Platform)
 		writeError(w, http.StatusUnauthorized, "login failed")
@@ -736,7 +736,7 @@ func (h *accountsHandler) verifyToken(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-	result, err := adp.VerifyToken(ctx, site.URL, accessToken, body.PlatformUserID, service.BuildPlatformProxyConfig(h.cfg, nil, &site))
+	result, err := adp.VerifyToken(ctx, site.URL, accessToken, body.PlatformUserID, service.BuildPlatformProxyConfigForToken(h.cfg, &site, accessToken))
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{"success": false, "message": err.Error()})
 		return
