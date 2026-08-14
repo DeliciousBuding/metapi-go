@@ -174,7 +174,13 @@ func GetOauthInfoFromAccount(account *store.Account) *OauthInfo {
 		accountKey = storedIdentity.AccountID
 	}
 
-	accountID := storedIdentity.AccountID
+	// Guard against storedIdentity being nil when the OAuth provider is set
+	// via the column field but no extraConfig was ever written. Without this
+	// guard the unconditional access below would panic with a nil dereference.
+	var accountID string
+	if storedIdentity != nil {
+		accountID = storedIdentity.AccountID
+	}
 	if accountID == "" {
 		accountID = accountKey
 	}

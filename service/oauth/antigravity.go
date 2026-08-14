@@ -13,14 +13,11 @@ import (
 
 const (
 	antigravityAuthURL               = "https://accounts.google.com/o/oauth2/v2/auth"
-	antigravityTokenURL              = "https://oauth2.googleapis.com/token"
-	antigravityUserinfoURL           = "https://www.googleapis.com/oauth2/v1/userinfo?alt=json"
 	antigravityClientID              = "ANTIGRAVITY_CLIENT_ID_PLACEHOLDER"
 	antigravityClientSecret          = "ANTIGRAVITY_CLIENT_SECRET_PLACEHOLDER"
 	antigravityLoopbackPort          = 51121
 	antigravityLoopbackPath          = "/oauth-callback"
 	antigravityLoopbackRedirectURI   = "http://localhost:51121/oauth-callback"
-	antigravityUpstreamBaseURL       = "https://cloudcode-pa.googleapis.com"
 	antigravityGoogleAPIClient       = "google-cloud-sdk vscode_cloudshelleditor/0.1"
 	antigravityUserAgent             = "google-api-nodejs-client/9.15.1"
 	antigravityModelsUserAgent       = "antigravity/1.19.6 darwin/arm64"
@@ -28,6 +25,15 @@ const (
 	antigravityInternalAPIVersion    = "v1internal"
 	antigravityOnboardPollIntervalMs = 2000
 	antigravityOnboardMaxAttempts    = 5
+)
+
+// antigravityTokenURL, antigravityUserinfoURL and antigravityUpstreamBaseURL
+// are package vars (not consts) so tests can swap in local httptest servers
+// via withAntigravityEndpointSwap, mirroring the grok.go pattern.
+var (
+	antigravityTokenURL        = "https://oauth2.googleapis.com/token"
+	antigravityUserinfoURL     = "https://www.googleapis.com/oauth2/v1/userinfo?alt=json"
+	antigravityUpstreamBaseURL = "https://cloudcode-pa.googleapis.com"
 )
 
 var antigravityScopes = []string{
