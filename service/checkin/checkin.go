@@ -75,6 +75,8 @@ func isAlreadyCheckedInMessage(message string) bool {
 	return strings.Contains(normalized, "already checked in") ||
 		strings.Contains(normalized, "already signed") ||
 		strings.Contains(normalized, "already sign in") ||
+		strings.Contains(normalized, "already claim") ||
+		strings.Contains(normalized, "claimed today") ||
 		strings.Contains(text, "今日已签到") ||
 		strings.Contains(text, "今天已签到") ||
 		strings.Contains(text, "今天已经签到") ||
@@ -82,6 +84,9 @@ func isAlreadyCheckedInMessage(message string) bool {
 		strings.Contains(text, "已经签到") ||
 		strings.Contains(text, "已签到") ||
 		strings.Contains(text, "重复签到") ||
+		strings.Contains(text, "已经领取") ||
+		strings.Contains(text, "已领取") ||
+		strings.Contains(text, "领取过") ||
 		strings.Contains(text, "签到达")
 }
 
