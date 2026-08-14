@@ -841,9 +841,12 @@ func (s *responsesWSSession) tryCodexUpstreamWSS(ctx context.Context, body map[s
 	// (fallback site.Platform); Account = acc-{selected.Account.ID}.
 	resinAccount := ""
 	resinPlatform := ""
-	if runtimeCfg := safeConfigGet(); runtimeCfg != nil && service.ResinEnabled(runtimeCfg) {
+	if runtimeCfg := safeConfigGet(); runtimeCfg != nil && service.ResinEnabled(runtimeCfg, &selected.Site) {
 		resinAccount = service.AccountFor(&selected.Account, &selected.Site)
 		resinPlatform = service.ResolveResinPlatform(runtimeCfg, &selected.Site)
+		if resinAccount != "" {
+			service.TouchResinLease(resinAccount)
+		}
 	}
 
 	result, sendErr := SendCodexWebsocketRequest(ctx, CodexWebsocketSendInput{

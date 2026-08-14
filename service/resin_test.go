@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/store"
@@ -24,20 +25,152 @@ func TestResinEnabledGating(t *testing.T) {
 	cases := []struct {
 		name string
 		cfg  *config.Config
+		site *store.Site
 		want bool
 	}{
-		{"nil config", nil, false},
-		{"disabled flag", &config.Config{ResinEnabled: false, ResinURL: "http://resin.local:2260/tok"}, false},
-		{"enabled but empty url", &config.Config{ResinEnabled: true, ResinURL: ""}, false},
-		{"enabled but blank url", &config.Config{ResinEnabled: true, ResinURL: "   "}, false},
-		{"enabled with url", resinCfg("http://resin.local:2260/tok", "Default"), true},
+		{"nil config", nil, nil, false},
+		{"disabled flag", &config.Config{ResinEnabled: false, ResinURL: "http://resin.local:2260/tok"}, nil, false},
+		{"enabled but empty url", &config.Config{ResinEnabled: true, ResinURL: ""}, nil, false},
+		{"enabled but blank url", &config.Config{ResinEnabled: true, ResinURL: "   "}, nil, false},
+		{"enabled with url", resinCfg("http://resin.local:2260/tok", "Default"), nil, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := ResinEnabled(tc.cfg); got != tc.want {
+			if got := ResinEnabled(tc.cfg, tc.site); got != tc.want {
 				t.Fatalf("ResinEnabled = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+// ---- Per-site override ----
+
+func TestResinEnabledPerSiteOverride(t *testing.T) {
+	t.Parallel()
+	enabled := true
+	disabled := false
+	cases := []struct {
+		name   string
+		cfg    *config.Config
+		site   *store.Site
+		want   bool
+	}{
+		{
+			name: "global on, site nil override → inherit global",
+			cfg:  resinCfg("http://resin.local:2260/tok", "Default"),
+			site: &store.Site{ID: 1, ResinEnabled: nil},
+			want: true,
+		},
+		{
+			name: "global on, site explicit true → still true",
+			cfg:  resinCfg("http://resin.local:2260/tok", "Default"),
+			site: &store.Site{ID: 1, ResinEnabled: &enabled},
+			want: true,
+		},
+		{
+			name: "global on, site explicit false → false (per-site opt-out)",
+			cfg:  resinCfg("http://resin.local:2260/tok", "Default"),
+			site: &store.Site{ID: 1, ResinEnabled: &disabled},
+			want: false,
+		},
+		{
+			name: "global off, site explicit true → true (per-site opt-in)",
+			cfg:  &config.Config{ResinEnabled: false, ResinURL: "http://resin.local:2260/tok"},
+			site: &store.Site{ID: 1, ResinEnabled: &enabled},
+			want: true,
+		},
+		{
+			name: "global off, site nil override → false (inherit global)",
+			cfg:  &config.Config{ResinEnabled: false, ResinURL: "http://resin.local:2260/tok"},
+			site: &store.Site{ID: 1, ResinEnabled: nil},
+			want: false,
+		},
+		{
+			name: "global off, site explicit false → false",
+			cfg:  &config.Config{ResinEnabled: false, ResinURL: "http://resin.local:2260/tok"},
+			site: &store.Site{ID: 1, ResinEnabled: &disabled},
+			want: false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ResinEnabled(tc.cfg, tc.site); got != tc.want {
+				t.Fatalf("ResinEnabled = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// ---- Lease tracker ----
+
+func TestTouchResinLeaseAndActiveLeases(t *testing.T) {
+	t.Parallel()
+	// Use a unique identity to avoid collisions with other tests.
+	const accountID = "acc-test-lease-42"
+	TouchResinLease(accountID)
+	t.Cleanup(func() { resinLeaseTracker.Delete(accountID) })
+
+	leases := ActiveLeases()
+	found := false
+	for _, lease := range leases {
+		if lease.AccountID == accountID {
+			found = true
+			if lease.LastUsed == "" {
+				t.Fatalf("lease LastUsed is empty for %q", accountID)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("TouchResinLease did not surface in ActiveLeases: %v", leases)
+	}
+}
+
+func TestTouchResinLeaseEmptyIsNoop(t *testing.T) {
+	t.Parallel()
+	TouchResinLease("")
+	TouchResinLease("   ")
+	leases := ActiveLeases()
+	for _, lease := range leases {
+		if lease.AccountID == "" {
+			t.Fatalf("empty account id stored in lease tracker: %v", lease)
+		}
+	}
+}
+
+func TestActiveLeasesPrunesStaleEntries(t *testing.T) {
+	t.Parallel()
+	const staleID = "acc-stale-test-99"
+	const freshID = "acc-fresh-test-99"
+	// Plant a stale entry directly to bypass the time.Now() write.
+	resinLeaseTracker.Store(staleID, time.Now().UTC().Add(-2*resinLeaseStaleTTL))
+	resinLeaseTracker.Store(freshID, time.Now().UTC())
+	t.Cleanup(func() {
+		resinLeaseTracker.Delete(staleID)
+		resinLeaseTracker.Delete(freshID)
+	})
+
+	leases := ActiveLeases()
+	hasStale := false
+	hasFresh := false
+	for _, lease := range leases {
+		switch lease.AccountID {
+		case staleID:
+			hasStale = true
+		case freshID:
+			hasFresh = true
+		}
+	}
+	if hasStale {
+		t.Fatalf("stale lease %q should have been pruned from ActiveLeases", staleID)
+	}
+	if !hasFresh {
+		t.Fatalf("fresh lease %q should be present in ActiveLeases", freshID)
+	}
+
+	// Verify the stale entry was actually deleted from the underlying map.
+	if _, ok := resinLeaseTracker.Load(staleID); ok {
+		t.Fatalf("stale lease %q was not deleted from resinLeaseTracker", staleID)
 	}
 }
 

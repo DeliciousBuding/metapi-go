@@ -170,6 +170,17 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "sites", "cf_clearance", "TEXT", "TEXT", "")
 		},
 	},
+	{
+		// Tier 2 (#678): per-site Resin override. NULL = inherit global
+		// RESIN_ENABLED flag; true/false = explicit per-site opt-in/opt-out.
+		// This is observability-only on the storage side; service.ResinEnabled
+		// resolves site-level precedence at request time.
+		Version:     "sc2_014_site_resin_enabled",
+		Description: "sites.resin_enabled BOOLEAN NULL — per-site Resin sticky-proxy override; NULL inherits global RESIN_ENABLED",
+		Apply: func(db *DB) error {
+			return EnsureColumn(db, "sites", "resin_enabled", "INTEGER", "BOOLEAN", "")
+		},
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.

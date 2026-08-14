@@ -106,6 +106,21 @@ func asNullableString(v interface{}) interface{} {
 	return fmt.Sprintf("%v", v)
 }
 
+// asNullableBool preserves NULL for nullable boolean columns (e.g.
+// sites.resin_enabled). nil stays nil so per-site override semantics
+// ("NULL = inherit global") survive the migration round-trip. Non-nil
+// values are coerced via asBoolean so old SQLite rows (stored as 0/1
+// INTEGER) and PG rows (stored as BOOLEAN) both round-trip correctly.
+func asNullableBool(v interface{}) interface{} {
+	if v == nil {
+		return nil
+	}
+	if s, ok := v.(string); ok && strings.TrimSpace(s) == "" {
+		return nil
+	}
+	return asBoolean(v, false)
+}
+
 // ---- JSON column serialization (matching TS serializeColumnValue) ----
 
 // jsonColumnSet records which columns have logical type 'json'.
@@ -545,6 +560,7 @@ func buildSites(rows []map[string]interface{}) []insertStmt {
 		"post_refresh_probe_enabled", "post_refresh_probe_model", "post_refresh_probe_scope",
 		"post_refresh_probe_latency_threshold_ms",
 		"created_at", "updated_at", "tags", "browser_ua", "cf_clearance",
+		"resin_enabled",
 	}
 	var stmts []insertStmt
 	for _, row := range rows {
@@ -575,6 +591,9 @@ func buildSites(rows []map[string]interface{}) []insertStmt {
 				asNullableString(v(row, "tags")),
 				asNullableString(v(row, "browser_ua")),
 				asNullableString(v(row, "cf_clearance")),
+				// resin_enabled is a nullable boolean override; preserve source
+				// value verbatim (NULL stays NULL so per-site inherits global).
+				asNullableBool(v(row, "resin_enabled")),
 			},
 		})
 	}
