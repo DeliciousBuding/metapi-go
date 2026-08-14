@@ -138,7 +138,7 @@ func LoadSiteAPIEndpoints(db *sqlx.DB, siteIDs []int64) (map[int64][]store.SiteA
 const SiteSelectColumns = `id, name, url, external_checkin_url, platform, proxy_url, use_system_proxy,
 	custom_headers, custom_headers_override_request_headers, status, is_pinned, sort_order, global_weight, api_key, max_concurrency,
 	post_refresh_probe_enabled, post_refresh_probe_model, post_refresh_probe_scope,
-	post_refresh_probe_latency_threshold_ms, tags, created_at, updated_at`
+	post_refresh_probe_latency_threshold_ms, tags, cf_clearance, browser_ua, created_at, updated_at`
 
 // LoadSiteWithEndpoints loads a single site with its apiEndpoints attached.
 func LoadSiteWithEndpoints(db *sqlx.DB, siteID int64) (map[string]any, error) {
@@ -180,6 +180,8 @@ func siteToMap(site store.Site, endpoints []store.SiteAPIEndpoint) map[string]an
 		"postRefreshProbeModel":               site.PostRefreshProbeModel,
 		"postRefreshProbeScope":               site.PostRefreshProbeScope,
 		"postRefreshProbeLatencyThresholdMs":  site.PostRefreshProbeLatencyThresholdMs,
+		"browserUa":                           site.BrowserUA,
+		"cfClearance":                         site.CfClearance,
 		"createdAt":                           site.CreatedAt,
 		"updatedAt":                           site.UpdatedAt,
 		"apiEndpoints":                        endpoints,
@@ -313,8 +315,8 @@ func CreateSite(db *sqlx.DB, siteData map[string]any) (int64, error) {
 		 custom_headers_override_request_headers,
 		 external_checkin_url, status, is_pinned, sort_order, global_weight, max_concurrency,
 		 post_refresh_probe_enabled, post_refresh_probe_model, post_refresh_probe_scope,
-		 post_refresh_probe_latency_threshold_ms, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 post_refresh_probe_latency_threshold_ms, browser_ua, cf_clearance, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 RETURNING id`),
 		name, urlStr, platform,
 		siteData["proxyUrl"], useSystemProxy, siteData["customHeaders"],
@@ -323,6 +325,7 @@ func CreateSite(db *sqlx.DB, siteData map[string]any) (int64, error) {
 		sortOrder, globalWeight, maxConcurrency,
 		postRefreshProbeEnabled, postRefreshProbeModel,
 		postRefreshProbeScope, postRefreshProbeLatencyThresholdMs,
+		siteData["browserUa"], siteData["cfClearance"],
 		now, now,
 	).Scan(&siteID)
 	if err != nil {
@@ -501,6 +504,8 @@ func jsonKeyToColumn(key string) string {
 		"postRefreshProbeModel":               "post_refresh_probe_model",
 		"postRefreshProbeScope":               "post_refresh_probe_scope",
 		"postRefreshProbeLatencyThresholdMs":  "post_refresh_probe_latency_threshold_ms",
+		"browserUa":                          "browser_ua",
+		"cfClearance":                        "cf_clearance",
 	}
 	return mapping[key]
 }

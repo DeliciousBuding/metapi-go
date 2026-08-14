@@ -157,6 +157,19 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "checkin_logs", "failure_reason", "TEXT", "TEXT", "")
 		},
 	},
+	{
+		// Per-site anti-bot identity: browser UA override + Cloudflare
+		// clearance cookie. cf_clearance is injected via a dedicated typed
+		// field (not custom_headers, where Cookie is deny-listed).
+		Version:     "sc2_013_site_cf_clearance_browser_ua",
+		Description: "sites.browser_ua / sites.cf_clearance TEXT NULL — per-site browser User-Agent override and Cloudflare clearance cookie",
+		Apply: func(db *DB) error {
+			if err := EnsureColumn(db, "sites", "browser_ua", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			return EnsureColumn(db, "sites", "cf_clearance", "TEXT", "TEXT", "")
+		},
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.

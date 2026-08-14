@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -39,5 +40,39 @@ func TestFetchJSON_DoesNotOverrideExplicitUserAgent(t *testing.T) {
 	}
 	if gotUA != custom {
 		t.Errorf("User-Agent = %q, want explicit %q", gotUA, custom)
+	}
+}
+
+func TestApplySiteIdentity_InjectsClearanceCookie(t *testing.T) {
+	req, _ := http.NewRequest("GET", "https://example.com", nil)
+	ApplySiteIdentity(req, &ProxyConfig{
+		ClearanceCookie: "abc123",
+		BrowserUA:       "custom-ua/1.0",
+	})
+
+	if cookie := req.Header.Get("Cookie"); cookie != "cf_clearance=abc123" {
+		t.Errorf("Cookie = %q, want cf_clearance=abc123", cookie)
+	}
+	if ua := req.Header.Get("User-Agent"); ua != "custom-ua/1.0" {
+		t.Errorf("User-Agent = %q, want custom-ua/1.0", ua)
+	}
+}
+
+func TestApplySiteIdentity_PreservesExistingCookie(t *testing.T) {
+	req, _ := http.NewRequest("GET", "https://example.com", nil)
+	req.Header.Set("Cookie", "session=existing")
+	ApplySiteIdentity(req, &ProxyConfig{ClearanceCookie: "abc123"})
+
+	cookie := req.Header.Get("Cookie")
+	if !strings.Contains(cookie, "session=existing") || !strings.Contains(cookie, "cf_clearance=abc123") {
+		t.Errorf("Cookie = %q, should contain both session and cf_clearance", cookie)
+	}
+}
+
+func TestApplySiteIdentity_NilConfig(t *testing.T) {
+	req, _ := http.NewRequest("GET", "https://example.com", nil)
+	ApplySiteIdentity(req, nil)
+	if req.Header.Get("Cookie") != "" {
+		t.Errorf("Cookie should be empty for nil config, got %q", req.Header.Get("Cookie"))
 	}
 }

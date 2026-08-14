@@ -204,6 +204,12 @@ func BuildPlatformProxyConfig(cfg *config.Config, account *store.Account, site *
 				proxyCfg.CustomHeaders = filterPlatformCustomHeaders(headers)
 			}
 		}
+		if site.CfClearance != nil {
+			proxyCfg.ClearanceCookie = strings.TrimSpace(*site.CfClearance)
+		}
+		if site.BrowserUA != nil {
+			proxyCfg.BrowserUA = strings.TrimSpace(*site.BrowserUA)
+		}
 	}
 
 	if account != nil {
@@ -237,7 +243,8 @@ func normalizePlatformProxyConfig(proxyCfg *platform.ProxyConfig) *platform.Prox
 	if proxyCfg == nil {
 		return nil
 	}
-	if proxyCfg.ProxyURL == "" && !proxyCfg.UseSystemProxy && len(proxyCfg.CustomHeaders) == 0 && !proxyCfg.InsecureSkipTLS {
+	if proxyCfg.ProxyURL == "" && !proxyCfg.UseSystemProxy && len(proxyCfg.CustomHeaders) == 0 && !proxyCfg.InsecureSkipTLS &&
+		proxyCfg.ClearanceCookie == "" && proxyCfg.BrowserUA == "" {
 		return nil
 	}
 	return proxyCfg

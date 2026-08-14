@@ -44,6 +44,12 @@ type ProxyConfig struct {
 	CustomHeadersOverrideRequest bool
 	UseSystemProxy               bool
 	InsecureSkipTLS              bool
+	// ClearanceCookie is a per-site Cloudflare cf_clearance value injected as
+	// a Cookie header on outbound requests to bypass CF challenges.
+	ClearanceCookie string
+	// BrowserUA overrides the global browser User-Agent for a specific site
+	// (used to match the UA of a harvested cf_clearance cookie).
+	BrowserUA string
 }
 
 // CheckinResult is the outcome of a daily checkin.
