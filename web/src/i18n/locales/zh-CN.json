@@ -64,7 +64,10 @@
       "copySecret": "复制密钥",
       "hide": "隐藏",
       "reveal": "显示",
-      "copy": "复制"
+      "copy": "复制",
+      "sessionExpired": "会话已过期！",
+      "requestFailed": "请求失败",
+      "requestTimeout": "请求超时（{{seconds}}s）"
     },
     "about": {
       "title": "关于",

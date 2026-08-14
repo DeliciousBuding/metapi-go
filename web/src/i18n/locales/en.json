@@ -64,7 +64,10 @@
       "copySecret": "Copy secret",
       "hide": "Hide",
       "reveal": "Reveal",
-      "copy": "Copy"
+      "copy": "Copy",
+      "sessionExpired": "Session expired!",
+      "requestFailed": "Request failed",
+      "requestTimeout": "Request timeout ({{seconds}}s)"
     },
     "about": {
       "title": "About",

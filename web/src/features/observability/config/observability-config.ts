@@ -10,6 +10,8 @@ import {
   type ReactNode,
 } from 'react'
 
+import { SectionSkeleton } from '@/components/ui/section-skeleton'
+
 import type { ObservabilitySection, ObservabilitySectionId } from '../types'
 import { createObservabilitySectionRegistry } from '../utils/section-registry'
 
@@ -31,7 +33,11 @@ const LazyProxyLogsSection = lazy(() =>
 
 function mountSection(component: ComponentType): () => ReactNode {
   return () =>
-    createElement(Suspense, { fallback: null }, createElement(component))
+    createElement(
+      Suspense,
+      { fallback: createElement(SectionSkeleton) },
+      createElement(component)
+    )
 }
 
 const OBSERVABILITY_SECTIONS: readonly ObservabilitySection[] = [

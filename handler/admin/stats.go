@@ -164,23 +164,40 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 		"generatedAt": generatedAt,
 	}
 
+	// Fail-open: a single aggregation query failing must not blank the whole
+	// dashboard. Each sub-query is wrapped in individual error handling — on
+	// failure the field gets a null marker, the error is logged, and the
+	// field name is recorded in failedMetrics. Mirrors the todayMetricStatus
+	// degrade-to-partial pattern from accounts.go (listAccounts).
+	failedMetrics := make([]string, 0, 8)
+	markFailed := func(field, operation string, err error) {
+		slog.Error("dashboard stats query failed; degrading to partial", "operation", operation, "field", field, "error", err)
+		failedMetrics = append(failedMetrics, field)
+		result[field] = nil
+	}
+
 	if view == "summary" || view == "full" {
 		var siteCount, accountCount, activeAccounts int
 		if err := h.db.Get(&siteCount, "SELECT COUNT(*) FROM sites"); err != nil {
-			h.dashboardError(w, "load site count", err)
-			return
+			markFailed("siteCount", "load site count", err)
+		} else {
+			result["siteCount"] = siteCount
 		}
 		if err := h.db.Get(&accountCount, "SELECT COUNT(*) FROM accounts"); err != nil {
-			h.dashboardError(w, "load account count", err)
-			return
+			markFailed("accountCount", "load account count", err)
+			result["totalAccounts"] = nil
+		} else {
+			result["accountCount"] = accountCount
+			result["totalAccounts"] = accountCount
 		}
 		if err := h.db.Get(&activeAccounts, `
 			SELECT COUNT(*) FROM accounts a
 			INNER JOIN sites s ON s.id = a.site_id
 			WHERE a.status = 'active' AND s.status = 'active'
 		`); err != nil {
-			h.dashboardError(w, "load active account count", err)
-			return
+			markFailed("activeAccounts", "load active account count", err)
+		} else {
+			result["activeAccounts"] = activeAccounts
 		}
 
 		var totalBalance, totalUsed float64
@@ -190,8 +207,9 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 			INNER JOIN sites s ON s.id = a.site_id
 			WHERE s.status = 'active'
 		`); err != nil {
-			h.dashboardError(w, "load total balance", err)
-			return
+			markFailed("totalBalance", "load total balance", err)
+		} else {
+			result["totalBalance"] = roundMicro(totalBalance)
 		}
 		if err := h.db.Get(&totalUsed, `
 			SELECT COALESCE(SUM(COALESCE(a.balance_used, 0)), 0)
@@ -199,8 +217,9 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 			INNER JOIN sites s ON s.id = a.site_id
 			WHERE s.status = 'active'
 		`); err != nil {
-			h.dashboardError(w, "load total used", err)
-			return
+			markFailed("totalUsed", "load total used", err)
+		} else {
+			result["totalUsed"] = roundMicro(totalUsed)
 		}
 
 		// 24h proxy window (UTC) — single-pass aggregate with effective tokens.
@@ -222,14 +241,70 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 			INNER JOIN sites s ON s.id = a.site_id
 			WHERE pl.created_at >= ? AND s.status = 'active'
 		`), since24h); err != nil {
-			h.dashboardError(w, "load 24h proxy metrics", err)
-			return
+			markFailed("proxy24h", "load 24h proxy metrics", err)
+		} else {
+			result["proxy24h"] = map[string]any{
+				"total":       proxy24h.Total,
+				"success":     proxy24h.Success,
+				"totalTokens": proxy24h.TotalTokens,
+				"totalCost":   roundMicro(proxy24h.TotalCost),
+			}
+			// Legacy flat fields kept for older clients / tests.
+			result["totalTokens"] = proxy24h.TotalTokens
+			result["totalCost"] = roundMicro(proxy24h.TotalCost)
 		}
 
-		dailyMetrics, err := dailyservice.CollectDailySummaryMetrics(h.db, now)
-		if err != nil {
-			h.dashboardError(w, "load local-day metrics", err)
-			return
+		dailyMetrics, metricsErr := dailyservice.CollectDailySummaryMetrics(h.db, now)
+		if metricsErr != nil {
+			markFailed("todayMetricStatus", "load local-day metrics", metricsErr)
+			result["todaySpend"] = nil
+			result["todayReward"] = nil
+			result["todayCheckin"] = nil
+			result["todayMetricStatus"] = map[string]any{
+				"status": "partial",
+				"reason": "metrics collection failed",
+			}
+		} else {
+			result["todaySpend"] = roundMicro(dailyMetrics.TodaySpend)
+			result["todayReward"] = roundMicro(dailyMetrics.TodayReward)
+			result["todayCheckin"] = map[string]any{
+				"total":   dailyMetrics.CheckinTotal,
+				"success": dailyMetrics.CheckinSuccess,
+				"skipped": dailyMetrics.CheckinSkipped,
+				"failed":  dailyMetrics.CheckinFailed,
+			}
+			overallTodayStatus := "complete"
+			if dailyMetrics.TodayRewardStatus != "complete" ||
+				dailyMetrics.TodaySpendStatus != "complete" ||
+				dailyMetrics.ProxyMetricStatus != "complete" {
+				overallTodayStatus = "partial"
+			}
+			result["todayMetricStatus"] = map[string]any{
+				"status":      overallTodayStatus,
+				"localDay":    dailyMetrics.LocalDay,
+				"timeZone":    dailyMetrics.TimeZone,
+				"windowStart": dailyMetrics.WindowStartUTC,
+				"windowEnd":   dailyMetrics.WindowEndUTC,
+				"metrics": map[string]any{
+					"checkin": map[string]any{"status": "complete"},
+					"spend": map[string]any{
+						"status":            dailyMetrics.TodaySpendStatus,
+						"reason":            dailyMetrics.TodaySpendReason,
+						"missingCostCount":  dailyMetrics.ProxyMissingCost,
+						"unattributedCount": dailyMetrics.ProxyUnattributed,
+					},
+					"reward": map[string]any{
+						"status": dailyMetrics.TodayRewardStatus,
+						"reason": dailyMetrics.TodayRewardReason,
+					},
+					"proxy": map[string]any{
+						"status":             dailyMetrics.ProxyMetricStatus,
+						"reason":             dailyMetrics.ProxyMetricReason,
+						"unknownStatusCount": dailyMetrics.ProxyUnknown,
+						"unattributedCount":  dailyMetrics.ProxyUnattributed,
+					},
+				},
+			}
 		}
 
 		// Performance window: last 60s request/token rate from proxy_logs.
@@ -248,73 +323,16 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 			INNER JOIN sites s ON s.id = a.site_id
 			WHERE pl.created_at >= ? AND s.status = 'active'
 		`), sincePerf); err != nil {
-			h.dashboardError(w, "load performance metrics", err)
-			return
+			markFailed("performance", "load performance metrics", err)
+		} else {
+			rpm := float64(perf.Requests) * 60 / float64(windowSeconds)
+			tpm := float64(perf.Tokens) * 60 / float64(windowSeconds)
+			result["performance"] = map[string]any{
+				"windowSeconds":     windowSeconds,
+				"requestsPerMinute": rpm,
+				"tokensPerMinute":   tpm,
+			}
 		}
-
-		rpm := float64(perf.Requests) * 60 / float64(windowSeconds)
-		tpm := float64(perf.Tokens) * 60 / float64(windowSeconds)
-
-		result["siteCount"] = siteCount
-		result["accountCount"] = accountCount
-		result["totalAccounts"] = accountCount
-		result["activeAccounts"] = activeAccounts
-		result["totalBalance"] = roundMicro(totalBalance)
-		result["totalUsed"] = roundMicro(totalUsed)
-		result["todaySpend"] = roundMicro(dailyMetrics.TodaySpend)
-		result["todayReward"] = roundMicro(dailyMetrics.TodayReward)
-		result["todayCheckin"] = map[string]any{
-			"total":   dailyMetrics.CheckinTotal,
-			"success": dailyMetrics.CheckinSuccess,
-			"skipped": dailyMetrics.CheckinSkipped,
-			"failed":  dailyMetrics.CheckinFailed,
-		}
-		overallTodayStatus := "complete"
-		if dailyMetrics.TodayRewardStatus != "complete" ||
-			dailyMetrics.TodaySpendStatus != "complete" ||
-			dailyMetrics.ProxyMetricStatus != "complete" {
-			overallTodayStatus = "partial"
-		}
-		result["todayMetricStatus"] = map[string]any{
-			"status":      overallTodayStatus,
-			"localDay":    dailyMetrics.LocalDay,
-			"timeZone":    dailyMetrics.TimeZone,
-			"windowStart": dailyMetrics.WindowStartUTC,
-			"windowEnd":   dailyMetrics.WindowEndUTC,
-			"metrics": map[string]any{
-				"checkin": map[string]any{"status": "complete"},
-				"spend": map[string]any{
-					"status":            dailyMetrics.TodaySpendStatus,
-					"reason":            dailyMetrics.TodaySpendReason,
-					"missingCostCount":  dailyMetrics.ProxyMissingCost,
-					"unattributedCount": dailyMetrics.ProxyUnattributed,
-				},
-				"reward": map[string]any{
-					"status": dailyMetrics.TodayRewardStatus,
-					"reason": dailyMetrics.TodayRewardReason,
-				},
-				"proxy": map[string]any{
-					"status":             dailyMetrics.ProxyMetricStatus,
-					"reason":             dailyMetrics.ProxyMetricReason,
-					"unknownStatusCount": dailyMetrics.ProxyUnknown,
-					"unattributedCount":  dailyMetrics.ProxyUnattributed,
-				},
-			},
-		}
-		result["proxy24h"] = map[string]any{
-			"total":       proxy24h.Total,
-			"success":     proxy24h.Success,
-			"totalTokens": proxy24h.TotalTokens,
-			"totalCost":   roundMicro(proxy24h.TotalCost),
-		}
-		result["performance"] = map[string]any{
-			"windowSeconds":     windowSeconds,
-			"requestsPerMinute": rpm,
-			"tokensPerMinute":   tpm,
-		}
-		// Legacy flat fields kept for older clients / tests.
-		result["totalTokens"] = proxy24h.TotalTokens
-		result["totalCost"] = roundMicro(proxy24h.TotalCost)
 	}
 
 	if view == "insights" || view == "full" {
@@ -327,8 +345,9 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 			INNER JOIN sites s ON s.id = a.site_id
 			WHERE s.status = 'active'
 		`)); err != nil {
-			h.dashboardError(w, "load total tokens", err)
-			return
+			markFailed("totalTokens", "load total tokens", err)
+		} else {
+			result["totalTokens"] = totalTokens
 		}
 		var totalCost float64
 		if err := h.db.Get(&totalCost, `
@@ -338,11 +357,10 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 			INNER JOIN sites s ON s.id = a.site_id
 			WHERE s.status = 'active'
 		`); err != nil {
-			h.dashboardError(w, "load total cost", err)
-			return
+			markFailed("totalCost", "load total cost", err)
+		} else {
+			result["totalCost"] = roundMicro(totalCost)
 		}
-		result["totalTokens"] = totalTokens
-		result["totalCost"] = roundMicro(totalCost)
 
 		// Site availability over last 24h from proxy_logs join path.
 		since24h := time.Now().UTC().Add(-24 * time.Hour).Format(time.RFC3339)
@@ -372,33 +390,65 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 			ORDER BY total_requests DESC, s.name ASC
 		`, since24h)
 		if err != nil {
-			h.dashboardError(w, "load site availability", err)
-			return
-		}
-
-		siteAvailability := make([]map[string]any, 0, len(rows))
-		for _, row := range rows {
-			item := map[string]any{
-				"siteId":              row["siteId"],
-				"siteName":            row["siteName"],
-				"siteUrl":             row["siteUrl"],
-				"platform":            row["platform"],
-				"totalRequests":       row["totalRequests"],
-				"successCount":        row["successCount"],
-				"failedCount":         row["failedCount"],
-				"availabilityPercent": row["availabilityPercent"],
-				"averageLatencyMs":    row["averageLatencyMs"],
-				"buckets":             []any{},
+			markFailed("siteAvailability", "load site availability", err)
+		} else {
+			siteAvailability := make([]map[string]any, 0, len(rows))
+			for _, row := range rows {
+				item := map[string]any{
+					"siteId":              row["siteId"],
+					"siteName":            row["siteName"],
+					"siteUrl":             row["siteUrl"],
+					"platform":            row["platform"],
+					"totalRequests":       row["totalRequests"],
+					"successCount":        row["successCount"],
+					"failedCount":         row["failedCount"],
+					"availabilityPercent": row["availabilityPercent"],
+					"averageLatencyMs":    row["averageLatencyMs"],
+					"buckets":             []any{},
+				}
+				siteAvailability = append(siteAvailability, item)
 			}
-			siteAvailability = append(siteAvailability, item)
+			result["siteAvailability"] = siteAvailability
 		}
-		result["siteAvailability"] = siteAvailability
 	}
 
-	// Marshal once and cache the bytes on the success path only — error paths
-	// returned earlier via dashboardError. Caching the exact encoded bytes
-	// (json.Encoder appends a newline, matching shared.WriteJSON) guarantees a
-	// later cache-hit response is byte-identical to the miss that populated it.
+	// Aggregate per-metric health so the frontend can distinguish a fully
+	// healthy response from one where individual queries degraded to null.
+	dashboardStatus := "complete"
+	if len(failedMetrics) > 0 {
+		dashboardStatus = "partial"
+	}
+	result["dashboardStatus"] = map[string]any{
+		"status": dashboardStatus,
+		"failed": failedMetrics,
+	}
+
+	// Truly fatal: every metric failed (e.g. DB connection lost, every table
+	// missing). Return 500 and do NOT cache — the response has no useful
+	// data and replaying it for 10s would hide a real outage. Individual
+	// query failures (some succeed, some null) are NOT fatal and fall
+	// through to the 200 + cache path below.
+	hasRealData := false
+	for key, value := range result {
+		if key == "generatedAt" || key == "dashboardStatus" || key == "todayMetricStatus" {
+			continue
+		}
+		if value != nil {
+			hasRealData = true
+			break
+		}
+	}
+	if !hasRealData {
+		slog.Error("dashboard stats: all metrics failed; returning 500", "failedCount", len(failedMetrics))
+		h.dashboardError(w, "load dashboard statistics", fmt.Errorf("all %d metric queries failed", len(failedMetrics)))
+		return
+	}
+
+	// Marshal once and cache the bytes. Partial responses (some fields null)
+	// are cached too — they are still HTTP 200 and better than a 500 blank.
+	// The 10s TTL keeps recovery quick; ?force=1 bypasses for a hard refresh.
+	// json.Encoder appends a newline, matching shared.WriteJSON, so a later
+	// cache-hit response is byte-identical to the miss that populated it.
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(result); err != nil {
 		slog.Error("dashboard stats marshal failed", "error", err)

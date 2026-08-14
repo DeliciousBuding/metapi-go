@@ -21,6 +21,8 @@ import {
   type ReactNode,
 } from 'react'
 
+import { SectionSkeleton } from '@/components/ui/section-skeleton'
+
 import type { DashboardSection, DashboardSectionId } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
 
@@ -48,7 +50,11 @@ const LazyAvailabilitySection = lazy(() =>
 /** Wrap a lazy section in a Suspense boundary so build() returns a ready node. */
 function mountSection(component: ComponentType): () => ReactNode {
   return () =>
-    createElement(Suspense, { fallback: null }, createElement(component))
+    createElement(
+      Suspense,
+      { fallback: createElement(SectionSkeleton) },
+      createElement(component)
+    )
 }
 
 const DASHBOARD_SECTIONS: readonly DashboardSection[] = [
