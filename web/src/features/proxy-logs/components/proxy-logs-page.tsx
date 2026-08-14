@@ -3,7 +3,7 @@
 // i18n: all user-visible strings migrated to t() calls.
 
 import type { OnChangeFn, PaginationState } from '@tanstack/react-table'
-import { RefreshCw } from 'lucide-react'
+import { Download as DownloadIcon, RefreshCw } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -17,14 +17,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { api } from '@/lib/api'
+import { toast } from '@/lib/toast'
 
 import { useProxyLogs, useProxyLogsMeta } from '../api'
 import {
   PROXY_LOG_STATUS_FILTER_OPTIONS,
   proxyLogsSearchSchema,
 } from '../lib/proxy-logs-schema'
+import { useProxyLogsAutoRefresh } from '../lib/use-proxy-logs-auto-refresh'
 import type { ProxyLog, ProxyLogDetail, ProxyLogFilters } from '../types'
 import { LatencyBadge } from './latency-badge'
+import { ProxyLogsAutoRefreshToggle } from './proxy-logs-auto-refresh-toggle'
 import { ProxyLogDetailSheet } from './proxy-log-detail-sheet'
 import {
   useProxyLogsColumns,
@@ -36,6 +40,7 @@ const PROXY_LOGS_COLUMN_VISIBILITY_STORAGE_KEY =
 const PROXY_LOGS_COLUMN_SIZING_STORAGE_KEY =
   'metapi-go:proxy-logs:column-sizing'
 const DEFAULT_PAGE_SIZE = 20
+const PROXY_LOGS_CSV_EXPORT_LIMIT = 10_000
 
 type ResolvedUrlState = {
   pageIndex: number
@@ -156,6 +161,7 @@ export function ProxyLogsPage() {
   )
   const [detailLog, setDetailLog] = useState<ProxyLog | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
 
   useEffect(() => {
     writeUrlState({
@@ -207,7 +213,10 @@ export function ProxyLogsPage() {
     }),
     [queryPayload]
   )
-  const logsQuery = useProxyLogs(queryPayload)
+  const { intervalMs } = useProxyLogsAutoRefresh()
+  const logsQuery = useProxyLogs(queryPayload, {
+    refetchInterval: intervalMs === false ? false : intervalMs,
+  })
   const metaQuery = useProxyLogsMeta(metaPayload)
   const rawItems = useMemo(() => logsQuery.data?.items ?? [], [logsQuery.data])
   const total = logsQuery.data?.total ?? 0
@@ -282,6 +291,39 @@ export function ProxyLogsPage() {
     setPagination((prev) => ({ ...prev, pageIndex: 0 }))
   }
 
+  async function handleExportCsv() {
+    setIsExporting(true)
+    try {
+      const exportPayload = {
+        ...queryPayload,
+        limit: PROXY_LOGS_CSV_EXPORT_LIMIT,
+        offset: 0,
+      }
+      const response = await api.getProxyLogs(exportPayload)
+      const rows = response.items ?? []
+      const csv = proxyLogsToCsv(rows, t)
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `metapi-proxy-logs-${formatExportStamp()}.csv`
+      anchor.click()
+      URL.revokeObjectURL(url)
+      toast.success(
+        t('proxyLogs.page.exportCsvToast', { count: rows.length })
+      )
+    } catch (exportError) {
+      toast.error(
+        t('proxyLogs.page.exportCsvFailed', {
+          message:
+            exportError instanceof Error ? exportError.message : 'unknown',
+        })
+      )
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   const hasLatencyFilter = latencyMin !== null || latencyMax !== null
   const slowOnly = latencyMin === 2000 && latencyMax === null
 
@@ -294,17 +336,31 @@ export function ProxyLogsPage() {
             {t('proxyLogs.page.description')}
           </p>
         </div>
-        <Button
-          variant='outline'
-          size='sm'
-          onClick={() => logsQuery.refetch()}
-          disabled={logsQuery.isFetching}
-        >
-          <RefreshCw
-            className={logsQuery.isFetching ? 'animate-spin' : undefined}
-          />
-          {t('proxyLogs.page.refresh')}
-        </Button>
+        <div className='flex items-center gap-2'>
+          <ProxyLogsAutoRefreshToggle />
+          <Button
+            variant='outline'
+            size='sm'
+            onClick={handleExportCsv}
+            disabled={isExporting}
+          >
+            <DownloadIcon
+              className={isExporting ? 'animate-pulse' : undefined}
+            />
+            {t('proxyLogs.page.exportCsv')}
+          </Button>
+          <Button
+            variant='outline'
+            size='sm'
+            onClick={() => logsQuery.refetch()}
+            disabled={logsQuery.isFetching}
+          >
+            <RefreshCw
+              className={logsQuery.isFetching ? 'animate-spin' : undefined}
+            />
+            {t('proxyLogs.page.refresh')}
+          </Button>
+        </div>
       </div>
 
       {summary && (
@@ -593,6 +649,68 @@ function SummaryCard({
       </div>
     </div>
   )
+}
+
+function formatExportStamp(): string {
+  const now = new Date()
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`
+}
+
+// CSV export column header keys. The proxy_logs table does not persist the
+// HTTP method or upstream path (only the downstream trace surface does), so
+// the CSV sticks to the columns the /api/stats/proxy-logs response actually
+// returns. httpStatus IS in the response (pl.*) even though the list type
+// historically omitted it, so it is surfaced here as a bonus column.
+const PROXY_LOGS_CSV_COLUMNS = [
+  'timestamp',
+  'httpStatus',
+  'status',
+  'model',
+  'account',
+  'site',
+  'duration',
+  'tokens',
+  'estimatedCost',
+] as const
+
+function csvEscape(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return ''
+  const text = String(value)
+  if (/[",\n\r]/.test(text)) {
+    return `"${text.replaceAll('"', '""')}"`
+  }
+  return text
+}
+
+function proxyLogsToCsv(
+  rows: ProxyLog[],
+  t: (key: string, params?: Record<string, unknown>) => string
+): string {
+  const header = PROXY_LOGS_CSV_COLUMNS.map((column) =>
+    csvEscape(t(`proxyLogs.page.exportCsv.column.${column}`, { defaultValue: column }))
+  ).join(',')
+  const body = rows
+    .map((log) => {
+      const accountLabel = log.username || (log.accountId ? `#${log.accountId}` : '')
+      const siteLabel =
+        log.siteName || (log.siteId ? `#${log.siteId}` : '')
+      const modelLabel = log.modelActual?.trim() || log.modelRequested?.trim() || ''
+      const cells = [
+        log.createdAt,
+        log.httpStatus ?? '',
+        log.status,
+        modelLabel,
+        accountLabel,
+        siteLabel,
+        log.latencyMs,
+        log.totalTokens ?? '',
+        log.estimatedCost ?? '',
+      ]
+      return cells.map(csvEscape).join(',')
+    })
+    .join('\n')
+  return `${header}\n${body}`
 }
 
 export type { ProxyLogDetail }

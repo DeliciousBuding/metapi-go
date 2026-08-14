@@ -434,6 +434,7 @@ export type ProxyLogListItem = {
   modelRequested: string
   modelActual: string
   status: string
+  httpStatus?: number | null
   latencyMs: number
   isStream?: boolean | null
   firstByteLatencyMs?: number | null
