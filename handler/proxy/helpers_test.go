@@ -30,37 +30,6 @@ func TestItoa(t *testing.T) {
 	}
 }
 
-// ---- jsonEscape ----
-
-func TestJsonEscape(t *testing.T) {
-	tests := []struct {
-		input string
-		want  string
-	}{
-		{"hello", "hello"},
-		{`"quoted"`, `\"quoted\"`},
-		{`a\b`, `a\\b`},
-		{"line\nbreak", "line\\nbreak"},
-		{"carriage\rreturn", "carriage\\rreturn"},
-		{"tab\there", "tab\\there"},
-		{`mix"ed\n\r\t`, `mix\"ed\\n\\r\\t`},
-		{"", ""},
-	}
-	for _, tt := range tests {
-		got := jsonEscape(tt.input)
-		if got != tt.want {
-			t.Errorf("jsonEscape(%q) = %q, want %q", tt.input, got, tt.want)
-		}
-	}
-}
-
-func TestJsonEscapeStr(t *testing.T) {
-	got := jsonEscapeStr(`test"`)
-	if got != `test\"` {
-		t.Errorf("jsonEscapeStr = %q, want %q", got, `test\"`)
-	}
-}
-
 // ---- writeJSONError ----
 
 func TestWriteJSONError(t *testing.T) {
@@ -186,69 +155,6 @@ func TestWriteJSON_StatusCodeRange(t *testing.T) {
 	}
 }
 
-// ---- appendJSON ----
-
-func TestAppendJSON_AllTypes(t *testing.T) {
-	tests := []struct {
-		name  string
-		input any
-	}{
-		{"string", "hello"},
-		{"int", 42},
-		{"int64", int64(100)},
-		{"float_int", 3.0},
-		{"float_nonint", 3.5},
-		{"true", true},
-		{"false", false},
-		{"nil", nil},
-		{"empty_map", map[string]any{}},
-		{"map_string", map[string]any{"a": "b"}},
-		{"map_multi", map[string]any{"x": float64(1), "y": true}},
-		{"array_empty", []any{}},
-		{"array_strings", []any{"a", "b"}},
-		{"array_maps", []map[string]any{{"k": "v"}}},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var buf []byte
-			buf = appendJSON(buf, tt.input)
-			var result any
-			if err := json.Unmarshal(buf, &result); err != nil {
-				t.Errorf("appendJSON(%v) produced invalid JSON: %v (buf=%q)", tt.name, err, string(buf))
-			}
-		})
-	}
-}
-
-// ---- ftoa ----
-
-func TestFtoa(t *testing.T) {
-	tests := []struct {
-		input float64
-		want  string
-	}{
-		{0, "0"},
-		{1, "1"},
-		{42, "42"},
-		{-5, "-5"},
-	}
-	for _, tt := range tests {
-		got := ftoa(tt.input)
-		if got != tt.want {
-			t.Errorf("ftoa(%v) = %q, want %q", tt.input, got, tt.want)
-		}
-	}
-}
-
-// ---- currentUnix ----
-
-func TestCurrentUnix(t *testing.T) {
-	got := currentUnix()
-	if got <= 0 {
-		t.Errorf("currentUnix() = %d, want positive Unix timestamp", got)
-	}
-}
-
 // ---- sseEvent ----
 
 func TestSSEEvent(t *testing.T) {
@@ -295,13 +201,6 @@ func TestGetProxyAuth_Nil(t *testing.T) {
 	if got != nil {
 		t.Errorf("GetProxyAuth should return nil for unauthenticated request")
 	}
-}
-
-// ---- EnsureMultipartBufferParser ----
-
-func TestEnsureMultipartBufferParser_NoOp(t *testing.T) {
-	// Should be a no-op in Go
-	EnsureMultipartBufferParser()
 }
 
 // ---- HeaderMapFromRequest ----

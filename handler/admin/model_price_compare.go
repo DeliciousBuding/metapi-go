@@ -21,7 +21,7 @@ import (
 // labeled platform fallbacks. Does not invent unlabeled prices.
 func (h *statsHandler) modelPriceCompare(w http.ResponseWriter, r *http.Request) {
 	modelQ := strings.TrimSpace(r.URL.Query().Get("model"))
-	limit := clampInt(getQueryInt(r, "limit", 50), 1, 200)
+	limit, _ := parseLimitOffset(r, 50, 200)
 	days := clampInt(getQueryInt(r, "days", 30), 1, 365)
 	topModels := clampInt(getQueryInt(r, "topModels", 12), 1, 50)
 
@@ -140,10 +140,10 @@ func (h *statsHandler) topModelsForPriceCompare(limit int, since string) []strin
 }
 
 type observedPriceSignal struct {
-	AvgCost         float64
-	Samples         int
-	BillingDetails  string
-	ResolvedModel   string
+	AvgCost        float64
+	Samples        int
+	BillingDetails string
+	ResolvedModel  string
 }
 
 func (h *statsHandler) loadPriceCompareInputs(modelName string, since string) []routing.PriceCompareInput {

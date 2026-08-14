@@ -357,7 +357,6 @@ func TestDispatchUpstreamUsesSiteCustomHeaders(t *testing.T) {
 	}
 }
 
-
 func TestDispatchUpstreamDeniesSensitiveCustomHeaders(t *testing.T) {
 	var gotAuth, gotHost, gotCustom, gotCookie, gotConn string
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -407,7 +406,6 @@ func TestDispatchUpstreamDeniesSensitiveCustomHeaders(t *testing.T) {
 		t.Fatalf("Host overridden to evil.example")
 	}
 }
-
 
 func TestDispatchUpstreamNonStreamFailoversOnRetryableHTTPStatusAndRecordsHealth(t *testing.T) {
 	var firstCalls int
@@ -1597,15 +1595,28 @@ func TestDefaultUpstreamClientRejectsCrossOriginRedirect(t *testing.T) {
 func TestWarnMissingStreamUsage_RecordsMetric(t *testing.T) {
 	shared.ResetMetricsForTest()
 	warnMissingStreamUsageAfterIncludeUsage("gpt-4o", "/v1/chat/completions", ParsedUsage{Found: false})
-	if got := shared.StreamMissingUsageTotal(); got != 1 {
-		t.Fatalf("missing usage metric = %d, want 1", got)
+	missingUsageFromExposition := func() string {
+		rec := httptest.NewRecorder()
+		if err := shared.WritePrometheusMetrics(rec); err != nil {
+			t.Fatalf("WritePrometheusMetrics: %v", err)
+		}
+		body := rec.Body.String()
+		for _, line := range strings.Split(body, "\n") {
+			if strings.HasPrefix(line, "metapi_stream_missing_usage_total ") {
+				return strings.TrimSpace(strings.TrimPrefix(line, "metapi_stream_missing_usage_total "))
+			}
+		}
+		return ""
+	}
+	if got := missingUsageFromExposition(); got != "1" {
+		t.Fatalf("missing usage metric = %q, want 1", got)
 	}
 	warnMissingStreamUsageAfterIncludeUsage("gpt-4o", "/v1/chat/completions", ParsedUsage{Found: true})
-	if got := shared.StreamMissingUsageTotal(); got != 2 {
-		t.Fatalf("zero usage residual metric = %d, want 2", got)
+	if got := missingUsageFromExposition(); got != "2" {
+		t.Fatalf("zero usage residual metric = %q, want 2", got)
 	}
 	warnMissingStreamUsageAfterIncludeUsage("gpt-4o", "/v1/chat/completions", ParsedUsage{Found: true, PromptTokens: 3})
-	if got := shared.StreamMissingUsageTotal(); got != 2 {
-		t.Fatalf("usable usage should not increment, got %d", got)
+	if got := missingUsageFromExposition(); got != "2" {
+		t.Fatalf("usable usage should not increment, got %q", got)
 	}
 }

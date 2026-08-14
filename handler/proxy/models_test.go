@@ -82,10 +82,10 @@ func (r *selectionOnlyRouter) RecordFailure(context.Context, int64, routing.Site
 
 // Ensure compile-time interface compliance.
 var (
-	_ proxy.TokenRouterInterface            = (*modelsTestRouter)(nil)
-	_ AvailableModelsSource                 = (*modelsTestRouter)(nil)
-	_ AvailableModelContextLengthsSource    = (*modelsTestRouter)(nil)
-	_ proxy.TokenRouterInterface            = (*selectionOnlyRouter)(nil)
+	_ proxy.TokenRouterInterface         = (*modelsTestRouter)(nil)
+	_ AvailableModelsSource              = (*modelsTestRouter)(nil)
+	_ AvailableModelContextLengthsSource = (*modelsTestRouter)(nil)
+	_ proxy.TokenRouterInterface         = (*selectionOnlyRouter)(nil)
 )
 
 func withModelsRouter(t *testing.T, router proxy.TokenRouterInterface) {
@@ -250,7 +250,7 @@ func TestBuildOpenAIModelsResponse_RouteContextLengthOverridesHeuristic(t *testi
 		[]string{"gpt-4o", "custom-vendor/my-model"},
 		time.Unix(2, 0).UTC(),
 		map[string]int64{
-			"gpt-4o":                64000,
+			"gpt-4o":                 64000,
 			"custom-vendor/my-model": 32000,
 		},
 	)

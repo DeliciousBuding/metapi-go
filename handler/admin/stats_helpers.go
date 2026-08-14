@@ -47,56 +47,6 @@ func roundMicro(v float64) float64 {
 	return float64(int64(v*1_000_000)) / 1_000_000
 }
 
-func coerceFloat(v any) float64 {
-	switch n := v.(type) {
-	case float64:
-		return n
-	case float32:
-		return float64(n)
-	case int64:
-		return float64(n)
-	case int:
-		return float64(n)
-	case int32:
-		return float64(n)
-	case []byte:
-		f, _ := strconv.ParseFloat(string(n), 64)
-		return f
-	case string:
-		f, _ := strconv.ParseFloat(n, 64)
-		return f
-	default:
-		return 0
-	}
-}
-
-func coerceInt(v any) int {
-	return int(coerceInt64(v))
-}
-
-func coerceInt64(v any) int64 {
-	switch n := v.(type) {
-	case int64:
-		return n
-	case int:
-		return int64(n)
-	case int32:
-		return int64(n)
-	case float64:
-		return int64(n)
-	case float32:
-		return int64(n)
-	case []byte:
-		i, _ := strconv.ParseInt(string(n), 10, 64)
-		return i
-	case string:
-		i, _ := strconv.ParseInt(n, 10, 64)
-		return i
-	default:
-		return 0
-	}
-}
-
 func coerceString(v any) string {
 	switch s := v.(type) {
 	case string:

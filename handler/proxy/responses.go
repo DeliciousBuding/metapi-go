@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 )
 
 // HandleResponses handles POST /v1/responses and /v1/responses/compact.
@@ -81,8 +80,4 @@ func resolveAliasedResponsesPath(path string) string {
 		return "/v1/responses/compact"
 	}
 	return ""
-}
-
-func currentUnix() int64 {
-	return time.Now().Unix()
 }

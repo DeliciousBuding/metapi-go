@@ -7,16 +7,15 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/handler/admin/payloads"
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
+	"github.com/jmoiron/sqlx"
 )
 
 // RegisterAccountTokensRoutes registers all /api/account-tokens routes.
@@ -378,10 +377,8 @@ func (h *accountTokensHandler) batchTokens(w http.ResponseWriter, r *http.Reques
 // ---- Update Token ----
 
 func (h *accountTokensHandler) updateToken(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	tokenID, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "令牌 ID 无效")
+	tokenID, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 
@@ -509,10 +506,8 @@ func (h *accountTokensHandler) updateToken(w http.ResponseWriter, r *http.Reques
 // ---- Set Default ----
 
 func (h *accountTokensHandler) setDefault(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	tokenID, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "令牌 ID 无效")
+	tokenID, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 
@@ -540,12 +535,12 @@ func (h *accountTokensHandler) setDefault(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	ok, err := service.SetDefaultToken(h.db, tokenID)
+	defaultSet, err := service.SetDefaultToken(h.db, tokenID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "设置默认令牌失败")
 		return
 	}
-	if !ok {
+	if !defaultSet {
 		writeError(w, http.StatusNotFound, "令牌不存在")
 		return
 	}
@@ -555,10 +550,8 @@ func (h *accountTokensHandler) setDefault(w http.ResponseWriter, r *http.Request
 // ---- Get Token Value ----
 
 func (h *accountTokensHandler) getTokenValue(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	tokenID, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "令牌 ID 无效")
+	tokenID, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 
@@ -612,10 +605,8 @@ func (h *accountTokensHandler) getTokenValue(w http.ResponseWriter, r *http.Requ
 // ---- Delete Token ----
 
 func (h *accountTokensHandler) deleteToken(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	tokenID, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "令牌 ID 无效")
+	tokenID, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 
@@ -682,169 +673,6 @@ func (h *accountTokensHandler) deleteTokenWithUpstream(ctx context.Context, toke
 
 // ---- Sync Account ----
 
-func (h *accountTokensHandler) syncAccount(w http.ResponseWriter, r *http.Request) {
-	accountIDStr := chi.URLParam(r, "accountId")
-	accountID, err := strconv.ParseInt(accountIDStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "账号 ID 无效")
-		return
-	}
-
-	row, err := service.GetAccountWithSiteByID(h.db, accountID)
-	if err != nil {
-		writeError(w, http.StatusNotFound, "账号不存在")
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-	defer cancel()
-
-	result, syncErr := executeAccountTokenSync(ctx, h.db, h.cfg, row)
-	if syncErr != nil {
-		writeError(w, http.StatusBadGateway, syncErr.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, result)
-}
-
-// ---- Sync All ----
-
-func (h *accountTokensHandler) syncAll(w http.ResponseWriter, r *http.Request) {
-	var body payloads.AccountTokenSyncAllPayload
-	if err := decodeJSONRequest(r, &body); err != nil {
-		// Empty body is allowed for background mode.
-		body = payloads.AccountTokenSyncAllPayload{}
-	}
-
-	wait := body.Wait != nil && *body.Wait
-	db := h.db
-	cfg := h.cfg
-
-	if wait {
-		summary, results := executeSyncAllAccountTokens(context.Background(), db, cfg)
-		writeJSON(w, http.StatusOK, map[string]any{
-			"success": true,
-			"summary": summary,
-			"results": results,
-		})
-		return
-	}
-
-	task, reused := StartBackgroundTask(BackgroundTaskStartOptions{
-		Type:      "sync-all-account-tokens",
-		Title:     "同步全部账号令牌",
-		DedupeKey: "sync-all-account-tokens",
-	}, func() (any, error) {
-		summary, results := executeSyncAllAccountTokens(context.Background(), db, cfg)
-		return map[string]any{
-			"summary": summary,
-			"results": results,
-		}, nil
-	})
-
-	writeJSON(w, http.StatusAccepted, map[string]any{
-		"success": true,
-		"queued":  true,
-		"reused":  reused,
-		"jobId":   task.ID,
-		"taskId":  task.ID,
-		"status":  string(task.Status),
-		"message": "已开始全部账号令牌同步，请稍后查看程序日志",
-	})
-}
-
-// ---- Get Groups ----
-
-func (h *accountTokensHandler) getGroups(w http.ResponseWriter, r *http.Request) {
-	accountIDStr := chi.URLParam(r, "accountId")
-	accountID, err := strconv.ParseInt(accountIDStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "账号 ID 无效")
-		return
-	}
-
-	row, err := service.GetAccountWithSiteByID(h.db, accountID)
-	if err != nil {
-		writeError(w, http.StatusNotFound, "账号不存在")
-		return
-	}
-
-	if service.IsAPIKeyConnection(&row.Account) {
-		writeError(w, http.StatusBadRequest, "API Key 连接不支持拉取账号令牌分组")
-		return
-	}
-
-	accessToken := strings.TrimSpace(row.Account.AccessToken)
-	adapter := platform.GetAdapter(row.Site.Platform)
-	proxyCfg := service.BuildPlatformProxyConfig(h.cfg, &row.Account, &row.Site)
-	platformUserID := service.ResolvePlatformUserIDPtr(&row.Account)
-
-	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
-	defer cancel()
-
-	groups, err := service.GetTokenGroups(
-		ctx,
-		h.db,
-		accountID,
-		adapter,
-		row.Site.URL,
-		accessToken,
-		platformUserID,
-		proxyCfg,
-	)
-	if err != nil {
-		slog.Error("Failed to load token groups", "err", err, "account_id", accountID)
-		writeError(w, http.StatusInternalServerError, "Failed to load token groups")
-		return
-	}
-
-	writeJSON(w, http.StatusOK, map[string]any{
-		"success": true,
-		"groups":  groups,
-	})
-}
-
-// ---- Get Account Default Token ----
-
-func (h *accountTokensHandler) getAccountDefault(w http.ResponseWriter, r *http.Request) {
-	accountIDStr := chi.URLParam(r, "accountId")
-	accountID, err := strconv.ParseInt(accountIDStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "账号 ID 无效")
-		return
-	}
-
-	var account store.Account
-	if err := h.db.Get(&account, h.db.Rebind("SELECT * FROM accounts WHERE id = ?"), accountID); err != nil {
-		writeJSON(w, http.StatusOK, map[string]any{"success": true, "token": nil})
-		return
-	}
-
-	if service.IsAPIKeyConnection(&account) {
-		writeJSON(w, http.StatusOK, map[string]any{"success": true, "token": nil})
-		return
-	}
-
-	token, err := service.GetDefaultTokenForAccount(h.db, accountID)
-	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]any{"success": true, "token": nil})
-		return
-	}
-
-	var site store.Site
-	if err := h.db.Get(&site, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), account.SiteID); err != nil {
-		writeError(w, http.StatusInternalServerError, "读取站点失败")
-		return
-	}
-
-	writeJSON(w, http.StatusOK, map[string]any{
-		"success": true,
-		"token":   tokenToMapMasked(*token, site.Platform),
-	})
-}
-
-// ---- Upstream helpers ----
-
 func buildCreateAPITokenOptions(body payloads.AccountTokenCreatePayload) (*platform.CreateAPITokenOptions, error) {
 	unlimitedQuota := true
 	if body.UnlimitedQuota != nil {
@@ -902,303 +730,6 @@ func buildCreateAPITokenOptions(body payloads.AccountTokenCreatePayload) (*platf
 		ModelLimitsEnabled: modelLimitsEnabled,
 		ModelLimits:        modelLimits,
 	}, nil
-}
-
-func parseFlexibleFloat(v any) (float64, bool) {
-	switch val := v.(type) {
-	case float64:
-		return val, true
-	case float32:
-		return float64(val), true
-	case int:
-		return float64(val), true
-	case int64:
-		return float64(val), true
-	case string:
-		s := strings.TrimSpace(val)
-		if s == "" {
-			return 0, false
-		}
-		n, err := strconv.ParseFloat(s, 64)
-		return n, err == nil
-	default:
-		return 0, false
-	}
-}
-
-func parseFlexibleEpochSeconds(v any) (int64, bool) {
-	switch val := v.(type) {
-	case float64:
-		return int64(val), true
-	case float32:
-		return int64(val), true
-	case int:
-		return int64(val), true
-	case int64:
-		return val, true
-	case string:
-		s := strings.TrimSpace(val)
-		if s == "" {
-			return 0, false
-		}
-		if n, err := strconv.ParseInt(s, 10, 64); err == nil {
-			return n, true
-		}
-		if t, err := time.Parse(time.RFC3339, s); err == nil {
-			return t.Unix(), true
-		}
-		if t, err := time.Parse("2006-01-02", s); err == nil {
-			return t.Unix(), true
-		}
-		return 0, false
-	default:
-		if n, ok := parseFlexibleFloat(v); ok {
-			return int64(n), true
-		}
-		return 0, false
-	}
-}
-
-func executeAccountTokenSync(ctx context.Context, db *sqlx.DB, cfg *config.Config, row *service.AccountWithSite) (map[string]any, error) {
-	if row == nil {
-		return nil, fmt.Errorf("账号不存在")
-	}
-	accountID := row.Account.ID
-
-	base := map[string]any{
-		"success":   true,
-		"accountId": accountID,
-		"synced":    false,
-		"created":   0,
-		"updated":   0,
-		"total":     0,
-	}
-
-	if strings.EqualFold(strings.TrimSpace(row.Site.Status), "disabled") {
-		base["status"] = "skipped"
-		base["reason"] = "site_disabled"
-		base["message"] = "站点已禁用，跳过令牌同步"
-		return base, nil
-	}
-	if service.IsAPIKeyConnection(&row.Account) {
-		base["status"] = "skipped"
-		base["reason"] = "apikey_connection"
-		base["message"] = "API Key 连接不支持同步账号令牌"
-		return base, nil
-	}
-
-	accessToken := strings.TrimSpace(row.Account.AccessToken)
-	if accessToken == "" {
-		if row.Account.APIToken != nil && strings.TrimSpace(*row.Account.APIToken) != "" {
-			if _, err := service.EnsureDefaultTokenForAccount(
-				db,
-				accountID,
-				strings.TrimSpace(*row.Account.APIToken),
-				"default",
-				"legacy",
-				"default",
-				true,
-			); err != nil {
-				return nil, err
-			}
-			base["status"] = "skipped"
-			base["reason"] = "no_access_token"
-			base["message"] = "账号缺少访问令牌，已保留本地默认令牌"
-			return base, nil
-		}
-		base["status"] = "skipped"
-		base["reason"] = "no_access_token"
-		base["message"] = "账号缺少访问令牌，无法同步站点令牌"
-		return base, nil
-	}
-
-	adapter := platform.GetAdapter(row.Site.Platform)
-	if adapter == nil {
-		base["status"] = "skipped"
-		base["reason"] = "unsupported_platform"
-		base["message"] = "不支持的平台，无法同步站点令牌: " + row.Site.Platform
-		return base, nil
-	}
-
-	callCtx := ctx
-	if callCtx == nil {
-		callCtx = context.Background()
-	}
-	if _, hasDeadline := callCtx.Deadline(); !hasDeadline {
-		var cancel context.CancelFunc
-		callCtx, cancel = context.WithTimeout(callCtx, 15*time.Second)
-		defer cancel()
-	}
-
-	proxyCfg := service.BuildPlatformProxyConfig(cfg, &row.Account, &row.Site)
-	platformUserID := service.ResolvePlatformUserIDPtr(&row.Account)
-
-	upstreamTokens, err := service.FetchUpstreamAPITokens(
-		callCtx,
-		adapter,
-		row.Site.URL,
-		accessToken,
-		platformUserID,
-		proxyCfg,
-	)
-	if err != nil {
-		_ = service.CreateEvent(db, "token_sync", "账号令牌同步失败", err.Error(), "error", accountID, "account")
-		return nil, fmt.Errorf("同步上游令牌失败: %w", err)
-	}
-	if len(upstreamTokens) == 0 {
-		base["status"] = "skipped"
-		base["reason"] = "no_upstream_tokens"
-		base["message"] = "upstream returned no api tokens"
-		return base, nil
-	}
-
-	syncResult, syncErr := service.SyncTokensFromUpstream(db, accountID, upstreamTokens)
-	if syncErr != nil {
-		_ = service.CreateEvent(db, "token_sync", "账号令牌同步失败", syncErr.Error(), "error", accountID, "account")
-		return nil, syncErr
-	}
-
-	base["status"] = "synced"
-	base["synced"] = true
-	base["created"] = syncResult.Created
-	base["updated"] = syncResult.Updated
-	base["total"] = syncResult.Total
-	base["maskedPending"] = syncResult.MaskedPending
-	if syncResult.DefaultTokenID != nil {
-		base["defaultTokenId"] = *syncResult.DefaultTokenID
-	}
-	base["message"] = fmt.Sprintf("同步完成：新增 %d，更新 %d，合计 %d", syncResult.Created, syncResult.Updated, syncResult.Total)
-
-	_ = service.CreateEvent(
-		db,
-		"token_sync",
-		"账号令牌同步完成",
-		base["message"].(string),
-		"info",
-		accountID,
-		"account",
-	)
-	return base, nil
-}
-
-func executeSyncAllAccountTokens(ctx context.Context, db *sqlx.DB, cfg *config.Config) (map[string]int, []map[string]any) {
-	type accountIDRow struct {
-		ID int64 `db:"id"`
-	}
-	var ids []accountIDRow
-	if err := db.Select(&ids, `SELECT id FROM accounts WHERE status = 'active' ORDER BY id`); err != nil {
-		slog.Error("sync-all account tokens: list accounts failed", "err", err)
-		return map[string]int{
-			"total": 0, "synced": 0, "skipped": 0, "failed": 0, "created": 0, "updated": 0,
-		}, []map[string]any{}
-	}
-
-	summary := map[string]int{
-		"total": len(ids), "synced": 0, "skipped": 0, "failed": 0, "created": 0, "updated": 0,
-	}
-	results := make([]map[string]any, 0, len(ids))
-
-	const batchSize = 3
-	for i := 0; i < len(ids); i += batchSize {
-		end := i + batchSize
-		if end > len(ids) {
-			end = len(ids)
-		}
-		batch := ids[i:end]
-
-		type batchItem struct {
-			result map[string]any
-		}
-		out := make([]batchItem, len(batch))
-		var wg sync.WaitGroup
-		for idx, item := range batch {
-			wg.Add(1)
-			go func(idx int, accountID int64) {
-				defer wg.Done()
-				row, err := service.GetAccountWithSiteByID(db, accountID)
-				if err != nil {
-					out[idx] = batchItem{result: map[string]any{
-						"success":   false,
-						"accountId": accountID,
-						"status":    "failed",
-						"reason":    "account_not_found",
-						"message":   "账号不存在",
-						"synced":    false,
-						"created":   0,
-						"updated":   0,
-						"total":     0,
-					}}
-					return
-				}
-				result, syncErr := executeAccountTokenSync(ctx, db, cfg, row)
-				if syncErr != nil {
-					out[idx] = batchItem{result: map[string]any{
-						"success":   false,
-						"accountId": accountID,
-						"status":    "failed",
-						"reason":    "sync_failed",
-						"message":   syncErr.Error(),
-						"synced":    false,
-						"created":   0,
-						"updated":   0,
-						"total":     0,
-					}}
-					return
-				}
-				out[idx] = batchItem{result: result}
-			}(idx, item.ID)
-		}
-		wg.Wait()
-
-		for _, item := range out {
-			result := item.result
-			results = append(results, result)
-			status, _ := result["status"].(string)
-			switch status {
-			case "synced":
-				summary["synced"]++
-			case "skipped":
-				summary["skipped"]++
-			default:
-				summary["failed"]++
-			}
-			if created, ok := asInt(result["created"]); ok {
-				summary["created"] += created
-			}
-			if updated, ok := asInt(result["updated"]); ok {
-				summary["updated"] += updated
-			}
-		}
-	}
-
-	return summary, results
-}
-
-func asInt(v any) (int, bool) {
-	switch n := v.(type) {
-	case int:
-		return n, true
-	case int64:
-		return int(n), true
-	case float64:
-		return int(n), true
-	default:
-		return 0, false
-	}
-}
-
-// ---- Helper functions ----
-
-// TokenValueStatusReady and MaskedPending
-const (
-	TokenValueStatusReady         = "ready"
-	TokenValueStatusMaskedPending = "masked_pending"
-)
-
-// IsMaskedTokenValue checks if a token value contains masking characters.
-func IsMaskedTokenValue(token string) bool {
-	value := strings.TrimSpace(token)
-	return value != "" && (strings.Contains(value, "*") || strings.Contains(value, "•"))
 }
 
 func nullIfEmpty(s string) *string {

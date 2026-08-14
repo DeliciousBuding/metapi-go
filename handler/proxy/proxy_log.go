@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/proxy"
+	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -149,3 +152,227 @@ func strPtrOrEmpty(s string) *string {
 func int64Ptr(v int64) *int64 { return &v }
 
 func boolPtr(v bool) *bool { return &v }
+
+func writeSuccessProxyLog(
+	ctx context.Context,
+	cfg *UpstreamConfig,
+	selected *routing.SelectedChannel,
+	proxyCtx *Ctx,
+	upstreamModel string,
+	upstreamPath string,
+	latencyMs int64,
+	httpStatus int,
+	isStream bool,
+	usage ParsedUsage,
+	retryCount int,
+	requestID string,
+) {
+	if cfg == nil || selected == nil {
+		return
+	}
+	if requestID == "" {
+		requestID = proxy.RequestIDFromContext(ctx)
+	}
+	requestedModel := ""
+	var keyID *int64
+	clientFamily, clientAppID, clientAppName, clientConfidence := "", "", "", ""
+	if proxyCtx != nil {
+		requestedModel = proxyCtx.RequestedModel
+		if proxyCtx.Auth != nil {
+			keyID = proxyCtx.Auth.KeyID
+		}
+		clientFamily = proxyCtx.ClientCtx.ClientKind
+		clientAppID = proxyCtx.ClientCtx.ClientAppID
+		clientAppName = proxyCtx.ClientCtx.ClientAppName
+		clientConfidence = proxyCtx.ClientCtx.ClientConfidence
+	}
+	if requestedModel == "" {
+		requestedModel = upstreamModel
+	}
+	modelActual := upstreamModel
+	routeID := selected.Channel.RouteID
+	var routeIDPtr *int64
+	if routeID != 0 {
+		routeIDPtr = &routeID
+	}
+	channelID := selected.Channel.ID
+	accountID := selected.Account.ID
+	source := usage.Source
+	if source == "" {
+		if usage.Found {
+			source = usageSourceUpstream
+		} else {
+			source = usageSourceUnknown
+		}
+	}
+	platformName := ""
+	if selected.Site.Platform != "" {
+		platformName = selected.Site.Platform
+	}
+	// K1b: billing attribution uses the requested (canonical) name so a
+	// redirect/rewrite to the upstream actual name never changes cost
+	// accounting — ratio lookups stay on the canonical model.
+	billing := EstimateBillingCostFromUsage(requestedModel, platformName, usage)
+	entry := proxy.ProxyLogEntry{
+		RouteID:            routeIDPtr,
+		ChannelID:          &channelID,
+		AccountID:          &accountID,
+		DownstreamAPIKeyID: keyID,
+		ModelRequested:     requestedModel,
+		ModelActual:        &modelActual,
+		Status:             "success",
+		HTTPStatus:         httpStatus,
+		IsStream:           boolPtr(isStream),
+		FirstByteLatencyMs: int64Ptr(latencyMs),
+		LatencyMs:          latencyMs,
+		PromptTokens:       int64Ptr(usage.PromptTokens),
+		CompletionTokens:   int64Ptr(usage.CompletionTokens),
+		TotalTokens:        int64Ptr(usage.TotalTokens),
+		EstimatedCost:      billing.EstimatedCost,
+		BillingDetails:     billing.BillingDetails,
+		ClientFamily:       clientFamily,
+		ClientAppID:        clientAppID,
+		ClientAppName:      clientAppName,
+		ClientConfidence:   clientConfidence,
+		RetryCount:         retryCount,
+		RequestID:          requestID,
+		UpstreamPath:       &upstreamPath,
+		UsageSource:        source,
+	}
+	logProxy(ctx, cfg, entry)
+	// Advance managed-key used_cost so max_cost can gate subsequent traffic.
+	// Stream + non-stream both sink here once; helper no-ops zero/NaN/Inf.
+	// Failure paths intentionally do not call this (known limitation stays).
+	recordManagedKeyCostOnSuccess(keyID, billing.EstimatedCost)
+}
+
+// recordManagedKeyCostOnSuccess increments used_cost for managed keys after a
+// successful proxy attempt. Nil KeyID (global token) is a no-op; zero/NaN/Inf
+// costs are skipped by auth.RecordManagedKeyCostUsage itself.
+func recordManagedKeyCostOnSuccess(keyID *int64, estimatedCost float64) {
+	if keyID == nil {
+		return
+	}
+	auth.RecordManagedKeyCostUsage(*keyID, estimatedCost)
+}
+
+// writeFailureProxyLog persists a failed attempt into proxy_logs so stats /
+// usage aggregation do not silently under-count tokens when upstream still
+// reported usage on error or content-detected failure paths.
+// Matches SurfaceFailureToolkit status="failed" semantics.
+// Does not invent tokens: zeros + usage_source=unknown when usage.Found is false.
+func writeFailureProxyLog(
+	ctx context.Context,
+	cfg *UpstreamConfig,
+	selected *routing.SelectedChannel,
+	proxyCtx *Ctx,
+	upstreamModel string,
+	upstreamPath string,
+	latencyMs int64,
+	httpStatus int,
+	isStream bool,
+	usage ParsedUsage,
+	retryCount int,
+	requestID string,
+	errText string,
+) {
+	if cfg == nil || selected == nil {
+		return
+	}
+	if requestID == "" {
+		requestID = proxy.RequestIDFromContext(ctx)
+	}
+	requestedModel := ""
+	var keyID *int64
+	clientFamily, clientAppID, clientAppName, clientConfidence := "", "", "", ""
+	if proxyCtx != nil {
+		requestedModel = proxyCtx.RequestedModel
+		if proxyCtx.Auth != nil {
+			keyID = proxyCtx.Auth.KeyID
+		}
+		clientFamily = proxyCtx.ClientCtx.ClientKind
+		clientAppID = proxyCtx.ClientCtx.ClientAppID
+		clientAppName = proxyCtx.ClientCtx.ClientAppName
+		clientConfidence = proxyCtx.ClientCtx.ClientConfidence
+	}
+	if requestedModel == "" {
+		requestedModel = upstreamModel
+	}
+	modelActual := upstreamModel
+	routeID := selected.Channel.RouteID
+	var routeIDPtr *int64
+	if routeID != 0 {
+		routeIDPtr = &routeID
+	}
+	channelID := selected.Channel.ID
+	accountID := selected.Account.ID
+	source := usage.Source
+	if source == "" {
+		if usage.Found {
+			source = usageSourceUpstream
+		} else {
+			source = usageSourceUnknown
+		}
+	}
+	platformName := ""
+	if selected.Site.Platform != "" {
+		platformName = selected.Site.Platform
+	}
+	// Only attach cost when usage was found; avoid inventing spend on pure
+	// network/timeout failures with zero tokens. Attribution name, not the
+	// upstream rewritten name.
+	var estimatedCost float64
+	var billingDetails any
+	if usage.Found {
+		billing := EstimateBillingCostFromUsage(requestedModel, platformName, usage)
+		estimatedCost = billing.EstimatedCost
+		billingDetails = billing.BillingDetails
+	}
+	errMsg := strings.TrimSpace(errText)
+	var errPtr *string
+	if errMsg != "" {
+		errPtr = &errMsg
+	}
+	entry := proxy.ProxyLogEntry{
+		RouteID:            routeIDPtr,
+		ChannelID:          &channelID,
+		AccountID:          &accountID,
+		DownstreamAPIKeyID: keyID,
+		ModelRequested:     requestedModel,
+		ModelActual:        &modelActual,
+		Status:             "failed",
+		HTTPStatus:         httpStatus,
+		IsStream:           boolPtr(isStream),
+		FirstByteLatencyMs: int64Ptr(latencyMs),
+		LatencyMs:          latencyMs,
+		PromptTokens:       int64Ptr(usage.PromptTokens),
+		CompletionTokens:   int64Ptr(usage.CompletionTokens),
+		TotalTokens:        int64Ptr(usage.TotalTokens),
+		EstimatedCost:      estimatedCost,
+		BillingDetails:     billingDetails,
+		ClientFamily:       clientFamily,
+		ClientAppID:        clientAppID,
+		ClientAppName:      clientAppName,
+		ClientConfidence:   clientConfidence,
+		ErrorMessage:       errPtr,
+		RetryCount:         retryCount,
+		RequestID:          requestID,
+		UpstreamPath:       &upstreamPath,
+		UsageSource:        source,
+	}
+	logProxy(ctx, cfg, entry)
+}
+
+// truncateErrText bounds proxy_logs.error_message size for large upstream bodies.
+func truncateErrText(s string) string {
+	const maxErrRunes = 2000
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return s
+	}
+	r := []rune(s)
+	if len(r) <= maxErrRunes {
+		return s
+	}
+	return string(r[:maxErrRunes]) + "..."
+}

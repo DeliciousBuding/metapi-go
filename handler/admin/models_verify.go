@@ -1,7 +1,6 @@
 package admin
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -39,10 +38,7 @@ func nullableFloat64(v float64) any {
 func (h *statsHandler) verifyBatch(w http.ResponseWriter, r *http.Request) {
 	sched := scheduler.GetGlobalModelProbeScheduler()
 	if sched == nil {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
-			"success": false,
-			"message": "model probe scheduler is not running (start schedulers)",
-		})
+		writeError(w, http.StatusServiceUnavailable, "model probe scheduler is not running (start schedulers)")
 		return
 	}
 
@@ -51,7 +47,7 @@ func (h *statsHandler) verifyBatch(w http.ResponseWriter, r *http.Request) {
 		AccountID int64    `json:"accountId"`
 		Limit     int      `json:"limit"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSONRequest(r, &body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid JSON body"})
 		return
 	}
@@ -182,7 +178,7 @@ func (h *statsHandler) verifyBatch(w http.ResponseWriter, r *http.Request) {
 // GET /api/models/verify-history?limit=&model=
 // Returns recent per-row verification history, newest first, with site names.
 func (h *statsHandler) verifyHistory(w http.ResponseWriter, r *http.Request) {
-	limit := clampInt(getQueryInt(r, "limit", 50), 1, 200)
+	limit, _ := parseLimitOffset(r, 50, 200)
 	model := strings.TrimSpace(r.URL.Query().Get("model"))
 
 	q := `SELECT v.id, v.batch_id, v.model_name, v.channel_id, v.account_id, v.site_id,
