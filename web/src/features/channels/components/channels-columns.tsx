@@ -4,15 +4,24 @@
 // color + icon + text (dual-channel, never color-only).
 
 import type { ColumnDef } from '@tanstack/react-table'
-import { Ban, CheckCircle2, Clock, TriangleAlert } from 'lucide-react'
+import {
+  Ban,
+  CheckCircle2,
+  Clock,
+  Eye as EyeIcon,
+  TriangleAlert,
+} from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DataTableColumnHeader } from '@/components/data-table'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 import type { ChannelRow, ChannelStatus } from '../types'
+
+export type ChannelsColumnActions = { onView: (channel: ChannelRow) => void }
 
 const STATUS_CONFIG: Record<
   ChannelStatus,
@@ -59,7 +68,9 @@ function formatCooldown(until: string | null): string {
   return new Date(until).toLocaleString()
 }
 
-export function useChannelsColumns(): ColumnDef<ChannelRow>[] {
+export function useChannelsColumns(
+  actions?: ChannelsColumnActions
+): ColumnDef<ChannelRow>[] {
   const { t } = useTranslation()
 
   return useMemo<ColumnDef<ChannelRow>[]>(
@@ -224,7 +235,37 @@ export function useChannelsColumns(): ColumnDef<ChannelRow>[] {
           </span>
         ),
       },
+      {
+        id: 'actions',
+        size: 56,
+        enableSorting: false,
+        enableHiding: false,
+        enableResizing: false,
+        meta: { mobileHidden: false, mobileOrder: 4 },
+        header: () => (
+          <span className='text-muted-foreground text-xs'>
+            {t('common.actions')}
+          </span>
+        ),
+        cell: ({ row }) => {
+          if (!actions) return null
+          const channel = row.original
+          return (
+            <div className={cn('flex justify-end')}>
+              <Button
+                variant='ghost'
+                size='icon-sm'
+                className='data-popup-open:bg-accent'
+                aria-label={t('channels.columns.viewDetails')}
+                onClick={() => actions.onView(channel)}
+              >
+                <EyeIcon className='size-4' />
+              </Button>
+            </div>
+          )
+        },
+      },
     ],
-    [t]
+    [t, actions]
   )
 }

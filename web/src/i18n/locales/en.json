@@ -1742,7 +1742,28 @@
         "latencyMax": "Latency ≤",
         "latencyUnit": "ms",
         "latencyExample": "Example:",
-        "slowOnly": "Slow only"
+        "slowOnly": "Slow only",
+        "autoRefresh": {
+          "label": "Auto-refresh",
+          "interval5s": "5s",
+          "interval15s": "15s",
+          "interval30s": "30s",
+          "intervalOff": "Off"
+        },
+        "exportCsv": "Export CSV",
+        "exportCsvToast": "Exported {{count}} rows",
+        "exportCsvFailed": "CSV export failed: {{message}}",
+        "exportCsvColumn": {
+          "timestamp": "Timestamp",
+          "httpStatus": "HTTP status",
+          "status": "Status",
+          "model": "Model",
+          "account": "Account",
+          "site": "Site",
+          "duration": "Duration (ms)",
+          "tokens": "Tokens",
+          "estimatedCost": "Estimated cost"
+        }
       },
       "columns": {
         "createdAt": "Time",
@@ -2151,7 +2172,8 @@
         "priority": "Priority",
         "weight": "Weight",
         "response": "Response",
-        "cooldown": "Cooldown"
+        "cooldown": "Cooldown",
+        "viewDetails": "View details"
       },
       "status": {
         "enabled": "Enabled",
@@ -2163,6 +2185,33 @@
         "account": "Account",
         "token": "Token",
         "oauth_unit": "OAuth unit"
+      },
+      "detail": {
+        "title": "Channel detail",
+        "description": "Read-only routing health for a single channel.",
+        "sectionOverview": "Overview",
+        "sectionHealth": "Routing health",
+        "sectionModels": "Models",
+        "name": "Name",
+        "site": "Site",
+        "type": "Type",
+        "status": "Status",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "routePattern": "Route pattern",
+        "oauthUnit": "OAuth unit",
+        "tokenName": "Token name",
+        "accountName": "Account",
+        "priority": "Priority",
+        "weight": "Weight",
+        "avgLatency": "Average latency",
+        "cooldownUntil": "Cooldown until",
+        "manualOverride": "Manual override",
+        "manualOverrideActive": "Active",
+        "manualOverrideNone": "None",
+        "modelsList": "Model list",
+        "notAvailable": "—",
+        "never": "Never"
       }
     },
     "connect": {

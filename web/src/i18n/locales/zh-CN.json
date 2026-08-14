@@ -1742,7 +1742,28 @@
         "latencyMax": "延迟 ≤",
         "latencyUnit": "ms",
         "latencyExample": "示例：",
-        "slowOnly": "仅慢请求"
+        "slowOnly": "仅慢请求",
+        "autoRefresh": {
+          "label": "自动刷新",
+          "interval5s": "5秒",
+          "interval15s": "15秒",
+          "interval30s": "30秒",
+          "intervalOff": "关闭"
+        },
+        "exportCsv": "导出 CSV",
+        "exportCsvToast": "已导出 {{count}} 条记录",
+        "exportCsvFailed": "导出 CSV 失败：{{message}}",
+        "exportCsvColumn": {
+          "timestamp": "时间戳",
+          "httpStatus": "HTTP 状态",
+          "status": "状态",
+          "model": "模型",
+          "account": "账号",
+          "site": "站点",
+          "duration": "耗时（毫秒）",
+          "tokens": "令牌数",
+          "estimatedCost": "预估成本"
+        }
       },
       "columns": {
         "createdAt": "时间",
@@ -2151,7 +2172,8 @@
         "priority": "优先级",
         "weight": "权重",
         "response": "响应",
-        "cooldown": "冷却"
+        "cooldown": "冷却",
+        "viewDetails": "查看详情"
       },
       "status": {
         "enabled": "已启用",
@@ -2163,6 +2185,33 @@
         "account": "账号",
         "token": "令牌",
         "oauth_unit": "OAuth 单元"
+      },
+      "detail": {
+        "title": "通道详情",
+        "description": "单个通道的只读路由健康视图。",
+        "sectionOverview": "概览",
+        "sectionHealth": "路由健康",
+        "sectionModels": "模型",
+        "name": "名称",
+        "site": "站点",
+        "type": "类型",
+        "status": "状态",
+        "enabled": "已启用",
+        "disabled": "已停用",
+        "routePattern": "路由匹配规则",
+        "oauthUnit": "OAuth 单元",
+        "tokenName": "令牌名称",
+        "accountName": "账号",
+        "priority": "优先级",
+        "weight": "权重",
+        "avgLatency": "平均延迟",
+        "cooldownUntil": "冷却至",
+        "manualOverride": "手动覆盖",
+        "manualOverrideActive": "已启用",
+        "manualOverrideNone": "无",
+        "modelsList": "模型列表",
+        "notAvailable": "—",
+        "never": "从未"
       }
     },
     "connect": {
