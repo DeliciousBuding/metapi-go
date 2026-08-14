@@ -17,10 +17,6 @@ type Sub2ApiAdapter struct {
 	*BaseAdapter
 }
 
-func init() {
-	Register(&Sub2ApiAdapter{BaseAdapter: NewBaseAdapter("sub2api")})
-}
-
 // Detect uses a multi-path approach: URL keyword, /api/v1/auth/me probe, /v1/models probe, root title.
 func (s *Sub2ApiAdapter) Detect(ctx context.Context, url string) (bool, error) {
 	lower := strings.ToLower(url)
@@ -287,7 +283,7 @@ func (s *Sub2ApiAdapter) CreateAPIToken(ctx context.Context, baseURL, accessToke
 		}
 	}
 
-	headers := s.buildAuthHeader(accessToken)
+	headers := authBearerHeaders(accessToken)
 	endpoints := []string{"/api/v1/keys", "/api/v1/api-keys"}
 	for _, endpoint := range endpoints {
 		resp, err := fetchJSON(ctx, normalized+endpoint, "POST", payload, headers, proxy)
@@ -328,7 +324,7 @@ func (s *Sub2ApiAdapter) DeleteAPIToken(ctx context.Context, baseURL, accessToke
 		return nil // Already absent, safe
 	}
 
-	headers := s.buildAuthHeader(accessToken)
+	headers := authBearerHeaders(accessToken)
 	endpoints := []string{
 		fmt.Sprintf("/api/v1/keys/%d", *tokenID),
 		fmt.Sprintf("/api/v1/api-keys/%d", *tokenID),
@@ -349,7 +345,7 @@ func (s *Sub2ApiAdapter) DeleteAPIToken(ctx context.Context, baseURL, accessToke
 // GetSiteAnnouncements: GET /api/v1/announcements?page=1&page_size=100.
 func (s *Sub2ApiAdapter) GetSiteAnnouncements(ctx context.Context, baseURL, accessToken string, platformUserId *int, proxy *ProxyConfig) ([]SiteAnnouncement, error) {
 	endpoint := "/api/v1/announcements?page=1&page_size=100"
-	headers := s.buildAuthHeader(accessToken)
+	headers := authBearerHeaders(accessToken)
 	resp, err := fetchJSON(ctx, normalizeBaseURL(baseURL)+endpoint, "GET", nil, headers, proxy)
 	if err != nil {
 		return []SiteAnnouncement{}, nil
@@ -434,10 +430,6 @@ type sub2apiKeyItem struct {
 	tokenGroup string
 }
 
-func (s *Sub2ApiAdapter) buildAuthHeader(accessToken string) map[string]string {
-	return authBearerHeaders(accessToken)
-}
-
 func (s *Sub2ApiAdapter) parseSub2ApiEnvelope(body map[string]interface{}, endpoint string) error {
 	code, ok := body["code"]
 	if !ok {
@@ -472,7 +464,7 @@ func (s *Sub2ApiAdapter) parseSub2ApiEnvelopeRaw(body map[string]interface{}, en
 
 func (s *Sub2ApiAdapter) fetchAuthMe(ctx context.Context, baseURL, accessToken string, proxy *ProxyConfig) (*sub2apiUser, error) {
 	endpoint := "/api/v1/auth/me"
-	headers := s.buildAuthHeader(accessToken)
+	headers := authBearerHeaders(accessToken)
 	resp, err := fetchJSON(ctx, baseURL+endpoint, "GET", nil, headers, proxy)
 	if err != nil {
 		return nil, err
@@ -560,110 +552,13 @@ func (s *Sub2ApiAdapter) resolveManagementBaseURL(baseURL string) string {
 	return normalized
 }
 
-func (s *Sub2ApiAdapter) resolveModelEndpoints(baseURL string) []string {
-	normalized := normalizeBaseURL(baseURL)
-	if normalized == "" {
-		return nil
-	}
-
-	if strings.HasSuffix(strings.ToLower(normalized), "/models") {
-		return []string{normalized}
-	}
-
-	if regexp.MustCompile(`(?i)/(?:antigravity/)?v\d+(?:\.\d+)?(?:beta)?$`).MatchString(normalized) {
-		return []string{normalized + "/models"}
-	}
-
-	if strings.HasSuffix(strings.ToLower(normalized), "/antigravity") {
-		return []string{
-			normalized + "/v1/models",
-			normalized + "/v1beta/models",
-		}
-	}
-
-	return []string{
-		normalized + "/v1/models",
-		normalized + "/api/v1/models",
-		normalized + "/v1beta/models",
-		normalized + "/antigravity/v1beta/models",
-	}
-}
-
-func (s *Sub2ApiAdapter) fetchModelsByToken(ctx context.Context, baseURL, token string, proxy *ProxyConfig) []string {
-	authToken := stripBearerPrefix(token)
-	if authToken == "" {
-		return nil
-	}
-
-	for _, url := range s.resolveModelEndpoints(baseURL) {
-		headers := map[string]string{"Authorization": "Bearer " + authToken}
-		resp, err := fetchJSON(ctx, url, "GET", nil, headers, proxy)
-		if err != nil {
-			continue
-		}
-		models := extractModelIDs(resp)
-		if len(models) > 0 {
-			return models
-		}
-	}
-
-	return nil
-}
-
-func extractModelIDs(payload map[string]interface{}) []string {
-	var source interface{} = payload
-	if data, ok := payload["data"]; ok {
-		if m, ok := data.(map[string]interface{}); ok {
-			source = m
-		} else {
-			source = data
-		}
-	}
-
-	var rawModels []interface{}
-	if source != nil {
-		switch v := source.(type) {
-		case []interface{}:
-			rawModels = v
-		case map[string]interface{}:
-			if items, ok := v["items"].([]interface{}); ok {
-				rawModels = items
-			} else if models, ok := v["models"].([]interface{}); ok {
-				rawModels = models
-			}
-		}
-	}
-
-	seen := make(map[string]bool)
-	result := make([]string, 0, len(rawModels))
-	for _, item := range rawModels {
-		var name string
-		switch v := item.(type) {
-		case string:
-			name = strings.TrimSpace(v)
-		case map[string]interface{}:
-			if id, ok := v["id"].(string); ok {
-				name = strings.TrimSpace(id)
-			} else if n, ok := v["name"].(string); ok {
-				name = strings.TrimSpace(n)
-			}
-		}
-		name = strings.TrimPrefix(name, "models/")
-		if name != "" && !seen[name] {
-			seen[name] = true
-			result = append(result, name)
-		}
-	}
-	return result
-}
-
 func (s *Sub2ApiAdapter) listAPIKeys(ctx context.Context, baseURL, accessToken string, proxy *ProxyConfig) ([]sub2apiKeyItem, error) {
 	endpoints := []string{
 		"/api/v1/keys?page=1&page_size=100",
 		"/api/v1/api-keys?page=1&page_size=100",
 	}
 
-	headers := s.buildAuthHeader(accessToken)
+	headers := authBearerHeaders(accessToken)
 	for _, endpoint := range endpoints {
 		resp, err := fetchJSON(ctx, baseURL+endpoint, "GET", nil, headers, proxy)
 		if err != nil {
@@ -752,446 +647,6 @@ func (s *Sub2ApiAdapter) parseTokenItems(raw interface{}) []sub2apiKeyItem {
 		})
 	}
 	return items
-}
-
-func (s *Sub2ApiAdapter) listGroups(ctx context.Context, baseURL, accessToken string, proxy *ProxyConfig) []string {
-	endpoints := []string{
-		"/api/v1/groups/available",
-		"/api/v1/groups?page=1&page_size=100",
-		"/api/v1/groups",
-		"/api/v1/group?page=1&page_size=100",
-		"/api/v1/group",
-	}
-
-	headers := s.buildAuthHeader(accessToken)
-	for _, endpoint := range endpoints {
-		resp, err := fetchJSON(ctx, baseURL+endpoint, "GET", nil, headers, proxy)
-		if err != nil {
-			continue
-		}
-
-		parsed := s.tryParseEnvelope(resp)
-		groups := s.parseGroupItems(parsed)
-		if len(groups) > 0 {
-			return groups
-		}
-	}
-	return nil
-}
-
-func (s *Sub2ApiAdapter) tryParseEnvelope(resp map[string]interface{}) map[string]interface{} {
-	if code, ok := resp["code"].(float64); ok && code == 0 {
-		if data, ok := getMap(resp, "data"); ok {
-			return data
-		}
-	}
-	return resp
-}
-
-func (s *Sub2ApiAdapter) parseGroupItems(payload map[string]interface{}) []string {
-	var rawItems []interface{}
-	switch v := payload["data"].(type) {
-	case []interface{}:
-		rawItems = v
-	}
-	if rawItems == nil {
-		if rawItems, _ = payload["data"].([]interface{}); rawItems == nil {
-			rawItems, _ = payload["items"].([]interface{})
-		}
-	}
-	if rawItems == nil {
-		rawItems, _ = payload["list"].([]interface{})
-	}
-	if rawItems == nil {
-		rawItems, _ = payload["groups"].([]interface{})
-	}
-	if rawItems == nil {
-		// Try payload itself as array
-		return nil
-	}
-
-	seen := make(map[string]bool)
-	var groups []string
-	for _, item := range rawItems {
-		switch v := item.(type) {
-		case float64:
-			if v > 0 {
-				s := fmt.Sprintf("%d", int(v))
-				if !seen[s] {
-					seen[s] = true
-					groups = append(groups, s)
-				}
-			}
-		case string:
-			t := strings.TrimSpace(v)
-			if t != "" && !seen[t] {
-				seen[t] = true
-				groups = append(groups, t)
-			}
-		case map[string]interface{}:
-			// Try group_id, id, name
-			if gid, ok := v["group_id"].(float64); ok && gid > 0 {
-				s := fmt.Sprintf("%d", int(gid))
-				if !seen[s] {
-					seen[s] = true
-					groups = append(groups, s)
-				}
-				continue
-			}
-			if id, ok := v["id"].(float64); ok && id > 0 {
-				s := fmt.Sprintf("%d", int(id))
-				if !seen[s] {
-					seen[s] = true
-					groups = append(groups, s)
-				}
-				continue
-			}
-			if name, ok := getString(v, "name"); ok && name != "" && !seen[name] {
-				seen[name] = true
-				groups = append(groups, name)
-				continue
-			}
-			if name, ok := getString(v, "group_name"); ok && name != "" && !seen[name] {
-				seen[name] = true
-				groups = append(groups, name)
-			}
-		}
-	}
-	return groups
-}
-
-func (s *Sub2ApiAdapter) inferGroupsFromKeys(ctx context.Context, baseURL, accessToken string, proxy *ProxyConfig) []string {
-	endpoints := []string{
-		"/api/v1/keys?page=1&page_size=100",
-		"/api/v1/api-keys?page=1&page_size=100",
-	}
-
-	headers := s.buildAuthHeader(accessToken)
-	for _, endpoint := range endpoints {
-		resp, err := fetchJSON(ctx, baseURL+endpoint, "GET", nil, headers, proxy)
-		if err != nil {
-			continue
-		}
-
-		parsed := s.tryParseEnvelope(resp)
-		groupIDs := s.parseGroupIDsFromTokenPayload(parsed)
-		if len(groupIDs) > 0 {
-			return groupIDs
-		}
-	}
-	return nil
-}
-
-func (s *Sub2ApiAdapter) parseGroupIDsFromTokenPayload(payload map[string]interface{}) []string {
-	var rawItems []interface{}
-	if data, ok := payload["data"].([]interface{}); ok {
-		rawItems = data
-	} else if items, ok := payload["items"].([]interface{}); ok {
-		rawItems = items
-	} else if list, ok := payload["list"].([]interface{}); ok {
-		rawItems = list
-	}
-
-	seen := make(map[string]bool)
-	var groups []string
-	for _, item := range rawItems {
-		m, ok := item.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		if gid, ok := m["group_id"].(float64); ok && gid > 0 {
-			s := fmt.Sprintf("%d", int(gid))
-			if !seen[s] {
-				seen[s] = true
-				groups = append(groups, s)
-			}
-		}
-	}
-	return groups
-}
-
-func (s *Sub2ApiAdapter) fetchSubscriptionSummary(ctx context.Context, baseURL, accessToken string, proxy *ProxyConfig) (*SubscriptionSummary, error) {
-	headers := s.buildAuthHeader(accessToken)
-	summaryEndpoint := "/api/v1/subscriptions/summary"
-
-	resp, err := fetchJSON(ctx, baseURL+summaryEndpoint, "GET", nil, headers, proxy)
-	if err != nil {
-		// Try fallback
-		return s.trySubscriptionFallback(ctx, baseURL, headers, proxy)
-	}
-
-	data, err := s.parseSub2ApiEnvelopeRaw(resp, summaryEndpoint)
-	if err != nil {
-		return s.trySubscriptionFallback(ctx, baseURL, headers, proxy)
-	}
-
-	return s.buildSubscriptionSummary(data), nil
-}
-
-func (s *Sub2ApiAdapter) trySubscriptionFallback(ctx context.Context, baseURL string, headers map[string]string, proxy *ProxyConfig) (*SubscriptionSummary, error) {
-	fallbackEndpoints := []string{"/api/v1/subscriptions/active"}
-	for _, endpoint := range fallbackEndpoints {
-		resp, err := fetchJSON(ctx, baseURL+endpoint, "GET", nil, headers, proxy)
-		if err != nil {
-			continue
-		}
-		data, err := s.parseSub2ApiEnvelopeRaw(resp, endpoint)
-		if err != nil {
-			continue
-		}
-		return s.buildSubscriptionSummary(data), nil
-	}
-	return nil, nil
-}
-
-func (s *Sub2ApiAdapter) buildSubscriptionSummary(raw interface{}) *SubscriptionSummary {
-	subscriptions := s.parseSubscriptionItems(raw)
-
-	body, _ := raw.(map[string]interface{})
-	var activeCount int
-	var totalUsedUsd float64
-
-	if body != nil {
-		if ac, ok := getFloat(body, "active_count"); ok {
-			activeCount = int(ac)
-		} else if ac, ok := getFloat(body, "activeCount"); ok {
-			activeCount = int(ac)
-		}
-
-		if tu, ok := getFloat(body, "total_used_usd"); ok {
-			totalUsedUsd = tu
-		} else if tu, ok := getFloat(body, "totalUsedUsd"); ok {
-			totalUsedUsd = tu
-		}
-	}
-
-	if activeCount == 0 {
-		activeCount = len(subscriptions)
-	}
-
-	if totalUsedUsd == 0 {
-		for _, sub := range subscriptions {
-			if sub.MonthlyUsedUsd != nil {
-				totalUsedUsd += *sub.MonthlyUsedUsd
-			}
-		}
-		totalUsedUsd = math.Round(totalUsedUsd*1e6) / 1e6
-	}
-
-	return &SubscriptionSummary{
-		ActiveCount:   activeCount,
-		TotalUsedUsd:  totalUsedUsd,
-		Subscriptions: subscriptions,
-	}
-}
-
-func (s *Sub2ApiAdapter) parseSubscriptionItems(raw interface{}) []SubscriptionPlanSummary {
-	var rawItems []interface{}
-	switch v := raw.(type) {
-	case []interface{}:
-		rawItems = v
-	case map[string]interface{}:
-		if arr, ok := v["subscriptions"].([]interface{}); ok {
-			rawItems = arr
-		} else if arr, ok := v["items"].([]interface{}); ok {
-			rawItems = arr
-		} else if arr, ok := v["list"].([]interface{}); ok {
-			rawItems = arr
-		} else if arr, ok := v["data"].([]interface{}); ok {
-			rawItems = arr
-		}
-	}
-
-	result := make([]SubscriptionPlanSummary, 0, len(rawItems))
-	for _, item := range rawItems {
-		m, ok := item.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		if summary := s.parseSingleSubscription(m); summary != nil {
-			result = append(result, *summary)
-		}
-	}
-	return result
-}
-
-func (s *Sub2ApiAdapter) parseSingleSubscription(item map[string]interface{}) *SubscriptionPlanSummary {
-	summary := SubscriptionPlanSummary{}
-
-	if id := getIntPtr(item, "id"); id != nil {
-		summary.ID = id
-	}
-
-	// Try group_id from nested group object or direct
-	groupObj, _ := getMap(item, "group")
-	if gid := getIntPtr(item, "group_id"); gid != nil {
-		summary.GroupID = gid
-	} else if gid := getIntPtr(item, "groupId"); gid != nil {
-		summary.GroupID = gid
-	} else if groupObj != nil {
-		if gid := getIntPtr(groupObj, "id"); gid != nil {
-			summary.GroupID = gid
-		}
-	}
-
-	// Group name from multiple candidates
-	groupNameCandidates := []string{}
-	if s, _ := getString(item, "group_name"); s != "" {
-		groupNameCandidates = append(groupNameCandidates, s)
-	}
-	if s, _ := getString(item, "groupName"); s != "" {
-		groupNameCandidates = append(groupNameCandidates, s)
-	}
-	if s, _ := getString(item, "name"); s != "" {
-		groupNameCandidates = append(groupNameCandidates, s)
-	}
-	if s, _ := getString(item, "title"); s != "" {
-		groupNameCandidates = append(groupNameCandidates, s)
-	}
-	if groupObj != nil {
-		if s, _ := getString(groupObj, "name"); s != "" {
-			groupNameCandidates = append(groupNameCandidates, s)
-		}
-		if s, _ := getString(groupObj, "title"); s != "" {
-			groupNameCandidates = append(groupNameCandidates, s)
-		}
-	}
-	if len(groupNameCandidates) > 0 {
-		summary.GroupName = groupNameCandidates[0]
-	}
-
-	if s, _ := getString(item, "status"); s != "" {
-		summary.Status = s
-	}
-
-	// Expires at
-	expiresAt := s.parseDateTime(
-		s.getRawString(item, "expires_at"),
-		s.getRawString(item, "expiresAt"),
-		s.getRawString(item, "expired_at"),
-		s.getRawString(item, "expiredAt"),
-		s.getRawString(item, "end_at"),
-		s.getRawString(item, "endAt"),
-		s.getRawString(item, "end_time"),
-		s.getRawString(item, "endTime"),
-		s.getRawString(item, "current_period_end"),
-		s.getRawString(item, "currentPeriodEnd"),
-	)
-	if expiresAt != "" {
-		summary.ExpiresAt = expiresAt
-	}
-
-	// Daily
-	if v := s.parseNonNegativeNumber(s.getRaw(item, "daily_used_usd"), s.getRaw(item, "dailyUsedUsd")); v != nil {
-		summary.DailyUsedUsd = v
-	}
-	if v := s.parseNonNegativeNumber(s.getRaw(item, "daily_limit_usd"), s.getRaw(item, "dailyLimitUsd")); v != nil {
-		summary.DailyLimitUsd = v
-	}
-
-	// Weekly
-	if v := s.parseNonNegativeNumber(s.getRaw(item, "weekly_used_usd"), s.getRaw(item, "weeklyUsedUsd")); v != nil {
-		summary.WeeklyUsedUsd = v
-	}
-	if v := s.parseNonNegativeNumber(s.getRaw(item, "weekly_limit_usd"), s.getRaw(item, "weeklyLimitUsd")); v != nil {
-		summary.WeeklyLimitUsd = v
-	}
-
-	// Monthly
-	if v := s.parseNonNegativeNumber(
-		s.getRaw(item, "monthly_used_usd"), s.getRaw(item, "monthlyUsedUsd"),
-		s.getRaw(item, "used_usd"), s.getRaw(item, "usedUsd"),
-		s.getRaw(item, "total_used_usd"), s.getRaw(item, "totalUsedUsd"),
-	); v != nil {
-		summary.MonthlyUsedUsd = v
-	}
-	if v := s.parseNonNegativeNumber(
-		s.getRaw(item, "monthly_limit_usd"), s.getRaw(item, "monthlyLimitUsd"),
-		s.getRaw(item, "limit_usd"), s.getRaw(item, "limitUsd"),
-		s.getRaw(item, "total_limit_usd"), s.getRaw(item, "totalLimitUsd"),
-	); v != nil {
-		summary.MonthlyLimitUsd = v
-	}
-
-	// If nothing parsed, return nil
-	if summary.ID == nil && summary.GroupID == nil && summary.GroupName == "" &&
-		summary.Status == "" && summary.ExpiresAt == "" &&
-		summary.DailyUsedUsd == nil && summary.MonthlyUsedUsd == nil {
-		return nil
-	}
-
-	return &summary
-}
-
-func (s *Sub2ApiAdapter) getRaw(item map[string]interface{}, key string) interface{} {
-	return item[key]
-}
-
-func (s *Sub2ApiAdapter) getRawString(item map[string]interface{}, key string) string {
-	v := item[key]
-	if v == nil {
-		return ""
-	}
-	switch val := v.(type) {
-	case string:
-		return strings.TrimSpace(val)
-	case float64:
-		return fmt.Sprintf("%v", val)
-	}
-	return ""
-}
-
-func (s *Sub2ApiAdapter) parseNonNegativeNumber(values ...interface{}) *float64 {
-	for _, v := range values {
-		if v == nil {
-			continue
-		}
-		switch val := v.(type) {
-		case float64:
-			if val >= 0 {
-				result := math.Round(val*1e6) / 1e6
-				return &result
-			}
-		case string:
-			trimmed := strings.TrimSpace(val)
-			if trimmed == "" {
-				continue
-			}
-			// Try parse
-			var f float64
-			if _, err := fmt.Sscanf(trimmed, "%f", &f); err == nil && f >= 0 {
-				result := math.Round(f*1e6) / 1e6
-				return &result
-			}
-		}
-	}
-	return nil
-}
-
-func (s *Sub2ApiAdapter) parseDateTime(values ...string) string {
-	for _, v := range values {
-		v = strings.TrimSpace(v)
-		if v == "" {
-			continue
-		}
-
-		// Try numeric (unix timestamp)
-		var numeric float64
-		if _, err := fmt.Sscanf(v, "%f", &numeric); err == nil && numeric > 0 {
-			ms := numeric
-			if ms < 10_000_000_000 {
-				ms *= 1000
-			}
-			return time.UnixMilli(int64(ms)).Format(time.RFC3339)
-		}
-
-		// Try date parsing
-		t, err := time.Parse(time.RFC3339, v)
-		if err == nil {
-			return t.Format(time.RFC3339)
-		}
-	}
-	return ""
 }
 
 func parseGroupID(raw string) (int, error) {

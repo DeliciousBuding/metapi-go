@@ -641,3 +641,87 @@ func pickTokenID(items []map[string]interface{}, targetKey string) *int {
 	}
 	return nil
 }
+
+// --- OneAPI-style parsing helpers ---
+
+// parseOneApiStyleBalance parses a OneAPI-style /api/user/self balance payload.
+// Accepts either the full response envelope or the extracted "data" map.
+// quotaMeansRemaining selects between forks where "quota" is the remaining
+// amount (balance=quota, total=quota+used) vs the total (balance=quota-used).
+func parseOneApiStyleBalance(resp map[string]interface{}, divisor float64, quotaMeansRemaining bool) BalanceInfo {
+	data, ok := getMap(resp, "data")
+	if !ok {
+		data = resp
+	}
+
+	quota, _ := getFloat(data, "quota")
+	used, _ := getFloat(data, "used_quota")
+
+	quotaUSD := quota / divisor
+	usedUSD := used / divisor
+	balanceUSD := quotaUSD - usedUSD
+	if quotaMeansRemaining {
+		balanceUSD = quotaUSD
+		quotaUSD += usedUSD // total = remaining + used
+	}
+
+	var todayIncome *float64
+	if v, ok := getFloat(data, "today_income"); ok {
+		ti := v / divisor
+		todayIncome = &ti
+	}
+	var todayQuotaConsumption *float64
+	if v, ok := getFloat(data, "today_quota_consumption"); ok {
+		tq := v / divisor
+		todayQuotaConsumption = &tq
+	}
+
+	return BalanceInfo{
+		Balance:               balanceUSD,
+		Used:                  usedUSD,
+		Quota:                 quotaUSD,
+		TodayIncome:           todayIncome,
+		TodayQuotaConsumption: todayQuotaConsumption,
+	}
+}
+
+// checkinResultFromResponse builds a CheckinResult from a checkin endpoint
+// response, falling back to successMsg/failureMsg when the message is empty.
+func checkinResultFromResponse(resp map[string]interface{}, successMsg, failureMsg string) *CheckinResult {
+	success, _ := getBool(resp, "success")
+	msg, _ := getString(resp, "message")
+	if msg == "" {
+		if success {
+			msg = successMsg
+		} else {
+			msg = failureMsg
+		}
+	}
+	result := &CheckinResult{Success: success, Message: msg}
+	if success {
+		if data, ok := getMap(resp, "data"); ok {
+			if reward, ok := data["reward"]; ok {
+				result.Reward = fmt.Sprintf("%v", reward)
+			}
+		}
+	}
+	return result
+}
+
+// extractModelIDsFromData extracts "data": [{"id": ...}] model ids from an
+// OpenAI-compatible /v1/models response.
+func extractModelIDsFromData(resp map[string]interface{}) []string {
+	data, ok := resp["data"].([]interface{})
+	if !ok {
+		return nil
+	}
+	models := make([]string, 0, len(data))
+	for _, item := range data {
+		if m, ok := item.(map[string]interface{}); ok {
+			if id, ok := m["id"].(string); ok && strings.TrimSpace(id) != "" {
+				models = append(models, strings.TrimSpace(id))
+			}
+		}
+	}
+	return models
+}

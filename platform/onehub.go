@@ -10,10 +10,6 @@ type OneHubAdapter struct {
 	*OneApiAdapter
 }
 
-func init() {
-	Register(&OneHubAdapter{OneApiAdapter: &OneApiAdapter{BaseAdapter: NewBaseAdapter("one-hub")}})
-}
-
 // Detect: URL keyword match "onehub" or "one-hub" (case-insensitive, title-first platform).
 func (o *OneHubAdapter) Detect(ctx context.Context, url string) (bool, error) {
 	lower := strings.ToLower(url)

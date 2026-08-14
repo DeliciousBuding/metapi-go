@@ -10,10 +10,6 @@ type OpenAiAdapter struct {
 	*StandardAdapter
 }
 
-func init() {
-	Register(&OpenAiAdapter{StandardAdapter: NewStandardAdapter("openai")})
-}
-
 // Detect matches by URL keyword: api.openai.com.
 func (o *OpenAiAdapter) Detect(ctx context.Context, url string) (bool, error) {
 	return strings.Contains(strings.ToLower(url), "api.openai.com"), nil

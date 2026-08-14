@@ -593,7 +593,7 @@ func TestPickTokenID(t *testing.T) {
 
 func TestUnsupportedMethodContract(t *testing.T) {
 	// Verify that CodexAdapter returns proper unsupported results for all methods
-	codex := &CodexAdapter{BaseAdapter: NewBaseAdapter("codex")}
+	codex := buildAdapter("codex")
 	ctx := context.Background()
 
 	// Login

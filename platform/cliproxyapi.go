@@ -12,14 +12,6 @@ type CliProxyApiAdapter struct {
 	*StandardAdapter
 }
 
-func init() {
-	Register(&CliProxyApiAdapter{StandardAdapter: &StandardAdapter{
-		BaseAdapter:               NewBaseAdapter("cliproxyapi"),
-		LoginUnsupportedMessage:   "CLIProxyAPI does not support login",
-		CheckinUnsupportedMessage: "CLIProxyAPI does not support checkin",
-	}})
-}
-
 // Detect uses 3 conditions: port 8317, "cliproxy" keyword, or HTTP probe with x-cpa-* headers.
 func (c *CliProxyApiAdapter) Detect(ctx context.Context, url string) (bool, error) {
 	lower := strings.ToLower(url)

@@ -6,7 +6,7 @@ import (
 )
 
 func TestCodexAdapter_Detect(t *testing.T) {
-	a := &CodexAdapter{BaseAdapter: NewBaseAdapter("codex")}
+	a := &CodexAdapter{StandardAdapter: &StandardAdapter{BaseAdapter: NewBaseAdapter("codex"), LoginUnsupportedMessage: "codex oauth login is managed via OAuth flow", CheckinUnsupportedMessage: "codex oauth connections do not support checkin"}}
 
 	ctx := context.Background()
 
@@ -33,14 +33,14 @@ func TestCodexAdapter_Detect(t *testing.T) {
 }
 
 func TestCodexAdapter_PlatformName(t *testing.T) {
-	a := &CodexAdapter{BaseAdapter: NewBaseAdapter("codex")}
+	a := &CodexAdapter{StandardAdapter: &StandardAdapter{BaseAdapter: NewBaseAdapter("codex"), LoginUnsupportedMessage: "codex oauth login is managed via OAuth flow", CheckinUnsupportedMessage: "codex oauth connections do not support checkin"}}
 	if a.PlatformName() != "codex" {
 		t.Errorf("PlatformName: %q", a.PlatformName())
 	}
 }
 
 func TestCodexAdapter_LoginUnspported(t *testing.T) {
-	a := &CodexAdapter{BaseAdapter: NewBaseAdapter("codex")}
+	a := &CodexAdapter{StandardAdapter: &StandardAdapter{BaseAdapter: NewBaseAdapter("codex"), LoginUnsupportedMessage: "codex oauth login is managed via OAuth flow", CheckinUnsupportedMessage: "codex oauth connections do not support checkin"}}
 	ctx := context.Background()
 
 	lr, err := a.Login(ctx, "http://x", "u", "p", nil, nil)
@@ -56,7 +56,7 @@ func TestCodexAdapter_LoginUnspported(t *testing.T) {
 }
 
 func TestCodexAdapter_CheckinUnspported(t *testing.T) {
-	a := &CodexAdapter{BaseAdapter: NewBaseAdapter("codex")}
+	a := &CodexAdapter{StandardAdapter: &StandardAdapter{BaseAdapter: NewBaseAdapter("codex"), LoginUnsupportedMessage: "codex oauth login is managed via OAuth flow", CheckinUnsupportedMessage: "codex oauth connections do not support checkin"}}
 	ctx := context.Background()
 
 	cr, err := a.Checkin(ctx, "http://x", "t", nil, nil)
@@ -72,7 +72,7 @@ func TestCodexAdapter_CheckinUnspported(t *testing.T) {
 }
 
 func TestCodexAdapter_GetModelsEmpty(t *testing.T) {
-	a := &CodexAdapter{BaseAdapter: NewBaseAdapter("codex")}
+	a := &CodexAdapter{StandardAdapter: &StandardAdapter{BaseAdapter: NewBaseAdapter("codex"), LoginUnsupportedMessage: "codex oauth login is managed via OAuth flow", CheckinUnsupportedMessage: "codex oauth connections do not support checkin"}}
 	ctx := context.Background()
 
 	models, err := a.GetModels(ctx, "http://x", "t", nil, nil)
@@ -85,7 +85,7 @@ func TestCodexAdapter_GetModelsEmpty(t *testing.T) {
 }
 
 func TestCodexAdapter_GetBalanceZero(t *testing.T) {
-	a := &CodexAdapter{BaseAdapter: NewBaseAdapter("codex")}
+	a := &CodexAdapter{StandardAdapter: &StandardAdapter{BaseAdapter: NewBaseAdapter("codex"), LoginUnsupportedMessage: "codex oauth login is managed via OAuth flow", CheckinUnsupportedMessage: "codex oauth connections do not support checkin"}}
 	ctx := context.Background()
 
 	bi, err := a.GetBalance(ctx, "http://x", "t", nil, nil)
@@ -98,7 +98,7 @@ func TestCodexAdapter_GetBalanceZero(t *testing.T) {
 }
 
 func TestCodexAdapter_GetUserInfoNil(t *testing.T) {
-	a := &CodexAdapter{BaseAdapter: NewBaseAdapter("codex")}
+	a := &CodexAdapter{StandardAdapter: &StandardAdapter{BaseAdapter: NewBaseAdapter("codex"), LoginUnsupportedMessage: "codex oauth login is managed via OAuth flow", CheckinUnsupportedMessage: "codex oauth connections do not support checkin"}}
 	ctx := context.Background()
 
 	ui, err := a.GetUserInfo(ctx, "http://x", "t", nil, nil)
