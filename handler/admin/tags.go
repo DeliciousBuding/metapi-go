@@ -3,7 +3,6 @@ package admin
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -118,8 +117,7 @@ func decodeTagsBody(w http.ResponseWriter, r *http.Request) ([]string, bool) {
 	var body struct {
 		Tags *[]string `json:"tags"`
 	}
-	dec := json.NewDecoder(r.Body)
-	if err := dec.Decode(&body); err != nil || body.Tags == nil {
+	if err := decodeJSONRequest(r, &body); err != nil || body.Tags == nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "body must be {\"tags\": [\"a\", \"b\"]}"})
 		return nil, false
 	}
@@ -141,9 +139,8 @@ func decodeTagsBody(w http.ResponseWriter, r *http.Request) ([]string, bool) {
 
 // PUT /api/accounts/{id}/tags
 func (h *tagsHandler) updateAccountTags(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil || id <= 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid account id"})
+	id, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 	tags, ok := decodeTagsBody(w, r)
@@ -155,7 +152,7 @@ func (h *tagsHandler) updateAccountTags(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusNotFound, map[string]string{"message": "account not found"})
 		return
 	}
-	_, err = h.db.Exec(rebindAdminQuery(h.db, "UPDATE accounts SET tags = ? WHERE id = ?"), encodeTagsJSON(tags), id)
+	_, err := h.db.Exec(rebindAdminQuery(h.db, "UPDATE accounts SET tags = ? WHERE id = ?"), encodeTagsJSON(tags), id)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to update account tags"})
 		return
@@ -165,9 +162,8 @@ func (h *tagsHandler) updateAccountTags(w http.ResponseWriter, r *http.Request) 
 
 // PUT /api/sites/{id}/tags
 func (h *tagsHandler) updateSiteTags(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil || id <= 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid site id"})
+	id, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 	tags, ok := decodeTagsBody(w, r)
@@ -179,7 +175,7 @@ func (h *tagsHandler) updateSiteTags(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"message": "site not found"})
 		return
 	}
-	_, err = h.db.Exec(rebindAdminQuery(h.db, "UPDATE sites SET tags = ? WHERE id = ?"), encodeTagsJSON(tags), id)
+	_, err := h.db.Exec(rebindAdminQuery(h.db, "UPDATE sites SET tags = ? WHERE id = ?"), encodeTagsJSON(tags), id)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to update site tags"})
 		return

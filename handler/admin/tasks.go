@@ -94,7 +94,7 @@ type tasksHandler struct {
 
 // GET /api/tasks?limit=
 func (h *tasksHandler) listTasks(w http.ResponseWriter, r *http.Request) {
-	limit := clampInt(getQueryInt(r, "limit", 50), 1, 200)
+	limit, _ := parseLimitOffset(r, 50, 200)
 	tasks := listBackgroundTasks(h.db, limit)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success": true,
@@ -106,19 +106,13 @@ func (h *tasksHandler) listTasks(w http.ResponseWriter, r *http.Request) {
 func (h *tasksHandler) getTask(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(chi.URLParam(r, "id"))
 	if id == "" {
-		writeJSON(w, http.StatusNotFound, map[string]any{
-			"success": false,
-			"message": "task not found",
-		})
+		writeError(w, http.StatusNotFound, "task not found")
 		return
 	}
 
 	task := getBackgroundTask(h.db, id)
 	if task == nil {
-		writeJSON(w, http.StatusNotFound, map[string]any{
-			"success": false,
-			"message": "task not found",
-		})
+		writeError(w, http.StatusNotFound, "task not found")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -359,16 +353,16 @@ func loadBackgroundTaskDB(db *sqlx.DB, id string) *BackgroundTask {
 		return nil
 	}
 	var rec struct {
-		ID        string  `db:"task_id"`
-		Type      string  `db:"type"`
-		Title     string  `db:"title"`
-		Status    string  `db:"status"`
-		Message   *string `db:"message"`
-		ErrorTxt  *string `db:"error"`
-		DedupeKey *string `db:"dedupe_key"`
-		CreatedAt string  `db:"created_at"`
-		UpdatedAt string  `db:"updated_at"`
-		StartedAt *string `db:"started_at"`
+		ID         string  `db:"task_id"`
+		Type       string  `db:"type"`
+		Title      string  `db:"title"`
+		Status     string  `db:"status"`
+		Message    *string `db:"message"`
+		ErrorTxt   *string `db:"error"`
+		DedupeKey  *string `db:"dedupe_key"`
+		CreatedAt  string  `db:"created_at"`
+		UpdatedAt  string  `db:"updated_at"`
+		StartedAt  *string `db:"started_at"`
 		FinishedAt *string `db:"finished_at"`
 	}
 	err := db.Get(&rec, `

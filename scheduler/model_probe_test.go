@@ -183,9 +183,9 @@ func TestModelProbeScheduler_DisabledDoesNotStartTicker(t *testing.T) {
 		t.Fatalf("Start: %v", err)
 	}
 	// running stays false when disabled
-	s.mu.Lock()
-	running := s.running
-	s.mu.Unlock()
+	s.runner.mu.Lock()
+	running := s.runner.running
+	s.runner.mu.Unlock()
 	if running {
 		t.Fatal("disabled scheduler should not mark running")
 	}

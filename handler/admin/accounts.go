@@ -2,10 +2,8 @@ package admin
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -56,12 +54,6 @@ type accountsSnapshotCache struct {
 	data      []byte
 	expiresAt time.Time
 	ttl       time.Duration
-}
-
-func (c *accountsSnapshotCache) isValid() bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.data != nil && time.Now().Before(c.expiresAt)
 }
 
 func (c *accountsSnapshotCache) get() ([]byte, bool) {
@@ -184,7 +176,7 @@ func (h *accountsHandler) listAccounts(w http.ResponseWriter, r *http.Request) {
 func (h *accountsHandler) createAccount(w http.ResponseWriter, r *http.Request) {
 	var body payloads.AccountCreatePayload
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "error": "Invalid account payload."})
+		writeError(w, http.StatusBadRequest, "Invalid account payload.")
 		return
 	}
 
@@ -229,7 +221,7 @@ func (h *accountsHandler) createAccount(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if len(requestedTokens) == 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "error": "请填写 Token"})
+		writeError(w, http.StatusBadRequest, "请填写 Token")
 		return
 	}
 
@@ -267,7 +259,7 @@ func (h *accountsHandler) createAccount(w http.ResponseWriter, r *http.Request) 
 					"index":      i,
 					"status":     "created",
 					"id":         created.ID,
-					"username":   coalesceStr(created.Username, ""),
+					"username":   coalescePtr(created.Username, ""),
 					"queued":     false,
 					"message":    nil,
 					"modelCount": created.ModelCount,
@@ -390,7 +382,7 @@ func (h *accountsHandler) createSingleAccount(ctx context.Context, body payloads
 	skipModelFetch := body.SkipModelFetch != nil && *body.SkipModelFetch
 	proxyCfg := service.BuildPlatformProxyConfig(h.cfg, nil, &site)
 
-	resolvedUsername := strings.TrimSpace(coalesceStr(username, ""))
+	resolvedUsername := strings.TrimSpace(coalescePtr(username, ""))
 	usernameProvided := resolvedUsername != ""
 	accessTokenVal := rawAccessToken
 	apiTokenVal := ""
@@ -579,11 +571,11 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if strings.TrimSpace(body.Username) == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "Invalid username. Expected string."})
+		writeError(w, http.StatusBadRequest, "Invalid username. Expected string.")
 		return
 	}
 	if strings.TrimSpace(body.Password) == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "Invalid password. Expected string."})
+		writeError(w, http.StatusBadRequest, "Invalid password. Expected string.")
 		return
 	}
 
@@ -633,7 +625,7 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 	// Encrypt password for autoRelogin
 	passwordCipher, encErr := service.EncryptPassword(h.cfg, body.Password)
 	if encErr != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"success": false, "message": "Failed to encrypt password."})
+		writeError(w, http.StatusInternalServerError, "Failed to encrypt password.")
 		return
 	}
 
@@ -656,7 +648,7 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 			loginAccessToken, true, extraConfigStr, now, existing.ID,
 		); err != nil {
 			slog.Error("Failed to update login account", "err", err, "account_id", existing.ID)
-			writeJSON(w, http.StatusInternalServerError, map[string]any{"success": false, "message": "Failed to save account."})
+			writeError(w, http.StatusInternalServerError, "Failed to save account.")
 			return
 		}
 	} else {
@@ -668,7 +660,7 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 			body.SiteID, body.Username, loginAccessToken, true, false, sortOrder, extraConfigStr, now, now,
 		); err != nil {
 			slog.Error("Failed to insert login account", "err", err, "site_id", body.SiteID)
-			writeJSON(w, http.StatusInternalServerError, map[string]any{"success": false, "message": "Failed to save account."})
+			writeError(w, http.StatusInternalServerError, "Failed to save account.")
 			return
 		}
 	}
@@ -677,7 +669,7 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 	var loginAcct store.Account
 	if err := h.db.Get(&loginAcct, h.db.Rebind("SELECT * FROM accounts WHERE site_id = ? AND username = ?"), body.SiteID, body.Username); err != nil {
 		slog.Error("Failed to load login account", "err", err, "site_id", body.SiteID)
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"success": false, "message": "Failed to load account."})
+		writeError(w, http.StatusInternalServerError, "Failed to load account.")
 		return
 	}
 	loginAcctMap := map[string]any{
@@ -899,16 +891,14 @@ func clearAccountAuthRuntimeHealth(db *sqlx.DB, accountID int64) error {
 // ---- Rebind Session ----
 
 func (h *accountsHandler) rebindSession(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	accountID, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil || accountID <= 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "error": "账号 ID 无效"})
+	accountID, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 
 	var body payloads.AccountRebindSessionPayload
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "Invalid rebind payload."})
+		writeError(w, http.StatusBadRequest, "Invalid rebind payload.")
 		return
 	}
 
@@ -917,13 +907,13 @@ func (h *accountsHandler) rebindSession(w http.ResponseWriter, r *http.Request) 
 		nextAccessToken = strings.TrimSpace(*body.AccessToken)
 	}
 	if nextAccessToken == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "error": "请提供新的 Session Token"})
+		writeError(w, http.StatusBadRequest, "请提供新的 Session Token")
 		return
 	}
 
 	row, err := service.GetAccountWithSiteByID(h.db, accountID)
 	if err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]any{"success": false, "message": "账号不存在"})
+		writeError(w, http.StatusNotFound, "账号不存在")
 		return
 	}
 
@@ -945,14 +935,14 @@ func (h *accountsHandler) rebindSession(w http.ResponseWriter, r *http.Request) 
 		h.db.Rebind("UPDATE accounts SET access_token = ?, status = 'active', extra_config = ?, updated_at = ? WHERE id = ?"),
 		nextAccessToken, extraConfigStr, now, accountID,
 	); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"success": false, "message": "failed to update account"})
+		writeError(w, http.StatusInternalServerError, "failed to update account")
 		return
 	}
 
 	// Fetch updated account for response
 	var rebindAcct store.Account
 	if err := h.db.Get(&rebindAcct, h.db.Rebind("SELECT * FROM accounts WHERE id = ?"), accountID); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{"success": false, "message": "failed to read updated account"})
+		writeError(w, http.StatusInternalServerError, "failed to read updated account")
 		return
 	}
 	rebindAcctMap := map[string]any{
@@ -985,10 +975,8 @@ func (h *accountsHandler) rebindSession(w http.ResponseWriter, r *http.Request) 
 // ---- Update Account ----
 
 func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid account id"})
+	id, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 
@@ -1231,10 +1219,8 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 // ---- Delete Account ----
 
 func (h *accountsHandler) deleteAccount(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil || id <= 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid account id"})
+	id, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 	if err := service.DeleteAccount(h.db, id); err != nil {
@@ -1367,257 +1353,9 @@ type healthRefreshSummary struct {
 	Skipped   int `json:"skipped"`
 }
 
-func (h *accountsHandler) healthRefresh(w http.ResponseWriter, r *http.Request) {
-	var body payloads.AccountHealthRefreshPayload
-	if err := decodeJSONRequest(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "error": "Invalid health refresh payload."})
-		return
-	}
-
-	wait := body.Wait != nil && *body.Wait
-
-	var accountIDs []int64
-	if body.AccountID != nil {
-		if *body.AccountID <= 0 {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "error": "Invalid accountId. Expected positive number."})
-			return
-		}
-		accountID := int64(*body.AccountID)
-		if _, err := service.GetAccountWithSiteByID(h.db, accountID); err != nil {
-			writeJSON(w, http.StatusNotFound, map[string]any{"success": false, "message": "account not found"})
-			return
-		}
-		accountIDs = []int64{accountID}
-	} else {
-		ids, err := listAccountIDsForHealthRefresh(h.db)
-		if err != nil {
-			slog.Error("Failed to list accounts for health refresh", "err", err)
-			writeJSON(w, http.StatusInternalServerError, map[string]any{"success": false, "error": "Failed to list accounts"})
-			return
-		}
-		accountIDs = ids
-	}
-
-	if wait {
-		summary, results := h.runAccountHealthRefresh(accountIDs)
-		globalAccountsCache.clear()
-		writeJSON(w, http.StatusOK, map[string]any{
-			"success": true,
-			"summary": summary,
-			"results": results,
-			"message": formatHealthRefreshMessage(summary),
-		})
-		return
-	}
-
-	// Async path: in-process task registry (no durable multi-instance job store).
-	title := "刷新账号运行健康状态"
-	dedupeKey := "refresh-all-account-runtime-health"
-	if body.AccountID != nil {
-		title = fmt.Sprintf("刷新账号 #%d 运行健康状态", *body.AccountID)
-		dedupeKey = fmt.Sprintf("refresh-account-runtime-health-%d", *body.AccountID)
-	}
-
-	ids := append([]int64(nil), accountIDs...)
-	db := h.db
-	cfg := h.cfg
-	task, reused := StartBackgroundTask(BackgroundTaskStartOptions{
-		Type:      "account-runtime-health-refresh",
-		Title:     title,
-		DedupeKey: dedupeKey,
-	}, func() (any, error) {
-		handler := &accountsHandler{db: db, cfg: cfg}
-		summary, results := handler.runAccountHealthRefresh(ids)
-		globalAccountsCache.clear()
-		return map[string]any{
-			"summary": summary,
-			"results": results,
-		}, nil
-	})
-
-	writeJSON(w, http.StatusAccepted, map[string]any{
-		"success": true,
-		"queued":  true,
-		"reused":  reused,
-		"jobId":   task.ID,
-		"taskId":  task.ID,
-		"status":  string(task.Status),
-		"message": "已开始刷新账号运行健康状态，请稍后查看账号列表",
-	})
-}
-
-func listAccountIDsForHealthRefresh(db *sqlx.DB) ([]int64, error) {
-	var ids []int64
-	if err := db.Select(&ids, "SELECT id FROM accounts ORDER BY id"); err != nil {
-		return nil, err
-	}
-	if ids == nil {
-		ids = []int64{}
-	}
-	return ids, nil
-}
-
-func (h *accountsHandler) runAccountHealthRefresh(accountIDs []int64) (healthRefreshSummary, []healthRefreshResultItem) {
-	results := make([]healthRefreshResultItem, 0, len(accountIDs))
-	summary := healthRefreshSummary{}
-
-	for _, accountID := range accountIDs {
-		item := h.refreshOneAccountHealth(accountID)
-		results = append(results, item)
-		summary.Total++
-		switch item.Status {
-		case "success":
-			summary.Success++
-		case "failed":
-			summary.Failed++
-		default:
-			summary.Skipped++
-		}
-		switch service.RuntimeHealthState(item.State) {
-		case service.HealthHealthy:
-			summary.Healthy++
-		case service.HealthUnhealthy:
-			summary.Unhealthy++
-		case service.HealthDegraded:
-			summary.Degraded++
-		case service.HealthDisabled:
-			summary.Disabled++
-		default:
-			summary.Unknown++
-		}
-	}
-
-	if results == nil {
-		results = []healthRefreshResultItem{}
-	}
-	return summary, results
-}
-
-func (h *accountsHandler) refreshOneAccountHealth(accountID int64) healthRefreshResultItem {
-	row, err := service.GetAccountWithSiteByID(h.db, accountID)
-	if err != nil {
-		return healthRefreshResultItem{
-			AccountID: accountID,
-			Status:    "failed",
-			State:     string(service.HealthUnknown),
-			Reason:    "account not found",
-			Message:   "account not found",
-		}
-	}
-
-	caps := service.BuildCapabilitiesForAccount(&row.Account)
-	sessionCapable := caps.CanRefreshBalance
-
-	// proxy-only / OAuth / pure API-key: no balance probe path — honest skip.
-	if caps.ProxyOnly || !caps.CanRefreshBalance || service.IsAPIKeyConnection(&row.Account) {
-		health := service.BuildRuntimeHealthForAccount(service.RuntimeHealthInput{
-			AccountStatus:  row.Account.Status,
-			SiteStatus:     row.Site.Status,
-			ExtraConfig:    row.Account.ExtraConfig,
-			SessionCapable: &sessionCapable,
-			OAuthProvider:  row.Account.OAuthProvider,
-		})
-		return healthRefreshResultItem{
-			AccountID: accountID,
-			Status:    "skipped",
-			State:     string(health.State),
-			Reason:    "proxy_only",
-			Message:   "proxy-only account skipped runtime balance probe",
-			ProxyOnly: true,
-		}
-	}
-
-	result, refreshErr := balanceService.RefreshBalance(h.cfg, h.db, accountID)
-
-	// Re-read after refresh so state reflects persisted runtimeHealth / status.
-	if updated, loadErr := service.GetAccountWithSiteByID(h.db, accountID); loadErr == nil {
-		row = updated
-	}
-	sessionCapable = service.BuildCapabilitiesForAccount(&row.Account).CanRefreshBalance
-	health := service.BuildRuntimeHealthForAccount(service.RuntimeHealthInput{
-		AccountStatus:  row.Account.Status,
-		SiteStatus:     row.Site.Status,
-		ExtraConfig:    row.Account.ExtraConfig,
-		SessionCapable: &sessionCapable,
-		OAuthProvider:  row.Account.OAuthProvider,
-	})
-
-	if result == nil && refreshErr == nil {
-		return healthRefreshResultItem{
-			AccountID: accountID,
-			Status:    "failed",
-			State:     string(service.HealthUnknown),
-			Reason:    "account not found or platform not supported",
-			Message:   "account not found or platform not supported",
-		}
-	}
-	if refreshErr != nil {
-		state := string(health.State)
-		if state == "" || state == string(service.HealthUnknown) {
-			state = string(service.HealthUnhealthy)
-		}
-		reason := health.Reason
-		if reason == "" {
-			reason = refreshErr.Error()
-		}
-		return healthRefreshResultItem{
-			AccountID: accountID,
-			Status:    "failed",
-			State:     state,
-			Reason:    reason,
-			Message:   refreshErr.Error(),
-		}
-	}
-	if result.Skipped {
-		state := string(health.State)
-		if state == "" {
-			state = string(service.HealthUnknown)
-		}
-		reason := result.Reason
-		if reason == "" {
-			reason = health.Reason
-		}
-		return healthRefreshResultItem{
-			AccountID: accountID,
-			Status:    "skipped",
-			State:     state,
-			Reason:    reason,
-			Message:   reason,
-			ProxyOnly: reason == "proxy_only",
-		}
-	}
-
-	state := string(health.State)
-	if state == "" {
-		state = string(service.HealthHealthy)
-	}
-	reason := health.Reason
-	if reason == "" {
-		reason = "余额刷新成功"
-	}
-	return healthRefreshResultItem{
-		AccountID: accountID,
-		Status:    "success",
-		State:     state,
-		Reason:    reason,
-		Message:   reason,
-	}
-}
-
-func formatHealthRefreshMessage(summary healthRefreshSummary) string {
-	return fmt.Sprintf(
-		"账号健康刷新完成：成功 %d，失败 %d，跳过 %d（共 %d）",
-		summary.Success, summary.Failed, summary.Skipped, summary.Total,
-	)
-}
-
-// ---- Refresh Balance ----
-
 func (h *accountsHandler) refreshBalance(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"message": "account not found or platform not supported"})
+	id, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 
@@ -1646,167 +1384,3 @@ func (h *accountsHandler) refreshBalance(w http.ResponseWriter, r *http.Request)
 }
 
 // ---- Account Models ----
-
-func (h *accountsHandler) getAccountModels(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil || id <= 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "账号 ID 无效"})
-		return
-	}
-
-	row, err := service.GetAccountWithSiteByID(h.db, id)
-	if err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"message": "账号不存在"})
-		return
-	}
-
-	// Get available models for this account
-	type modelRow struct {
-		ModelName string `db:"model_name"`
-		Available int    `db:"available"`
-		LatencyMs *int64 `db:"latency_ms"`
-		IsManual  int    `db:"is_manual"`
-	}
-	var modelRows []modelRow
-	h.db.Select(&modelRows, h.db.Rebind("SELECT model_name, CASE WHEN available THEN 1 ELSE 0 END AS available, latency_ms, CASE WHEN is_manual THEN 1 ELSE 0 END AS is_manual FROM model_availability WHERE account_id = ?"), id)
-
-	// Get disabled models for this site
-	var disabledRows []string
-	h.db.Select(&disabledRows, h.db.Rebind("SELECT model_name FROM site_disabled_models WHERE site_id = ?"), row.Account.SiteID)
-
-	disabledSet := map[string]bool{}
-	for _, m := range disabledRows {
-		disabledSet[m] = true
-	}
-
-	var models []map[string]any
-	for _, r := range modelRows {
-		if r.Available == 0 {
-			continue
-		}
-		models = append(models, map[string]any{
-			"name":      r.ModelName,
-			"latencyMs": r.LatencyMs,
-			"disabled":  disabledSet[r.ModelName],
-			"isManual":  r.IsManual == 1,
-		})
-	}
-
-	writeJSON(w, http.StatusOK, map[string]any{
-		"siteId":        row.Account.SiteID,
-		"siteName":      row.Site.Name,
-		"models":        models,
-		"totalCount":    len(models),
-		"disabledCount": countDisabled(models),
-	})
-}
-
-func (h *accountsHandler) manualModels(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil || id <= 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "账号 ID 无效"})
-		return
-	}
-
-	var body payloads.AccountManualModelsPayload
-	if err := decodeJSONRequest(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid models. Expected string[]."})
-		return
-	}
-
-	if len(body.Models) == 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "模型列表不能为空"})
-		return
-	}
-
-	// Deduplicate
-	seen := map[string]bool{}
-	var models []string
-	for _, m := range body.Models {
-		m = strings.TrimSpace(m)
-		if m != "" && !seen[m] {
-			seen[m] = true
-			models = append(models, m)
-		}
-	}
-	if len(models) == 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "模型列表不能为空"})
-		return
-	}
-
-	var account store.Account
-	if err := h.db.Get(&account, h.db.Rebind("SELECT * FROM accounts WHERE id = ?"), id); err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"message": "账号不存在"})
-		return
-	}
-
-	now := time.Now().UTC().Format(time.RFC3339)
-	tx, err := h.db.Beginx()
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to start transaction"})
-		return
-	}
-	committed := false
-	defer func() {
-		if !committed {
-			_ = tx.Rollback()
-		}
-	}()
-
-	for _, m := range models {
-		var existingID int64
-		err := tx.Get(&existingID, tx.Rebind("SELECT id FROM model_availability WHERE account_id = ? AND model_name = ?"), id, m)
-		if err == nil {
-			if _, err := tx.Exec(tx.Rebind("UPDATE model_availability SET available = ?, latency_ms = NULL, is_manual = ?, checked_at = ? WHERE id = ?"), true, true, now, existingID); err != nil {
-				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update manual model"})
-				return
-			}
-			continue
-		}
-		if !errors.Is(err, sql.ErrNoRows) {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to read manual model"})
-			return
-		}
-		if _, err := tx.Exec(tx.Rebind("INSERT INTO model_availability (account_id, model_name, available, is_manual, latency_ms, checked_at) VALUES (?, ?, ?, ?, NULL, ?)"), id, m, true, true, now); err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to insert manual model"})
-			return
-		}
-	}
-	if err := tx.Commit(); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to commit manual models"})
-		return
-	}
-	committed = true
-
-	routing.InvalidateCache()
-	globalAccountsCache.clear()
-	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
-}
-
-// ---- Helpers ----
-
-func buildBatchAPIKeyName(username string, index, total int) string {
-	if username == "" {
-		return fmt.Sprintf("key-%d", index+1)
-	}
-	return fmt.Sprintf("%s-%d", username, index+1)
-}
-
-func coalesceStr(s *string, fallback string) string {
-	if s == nil {
-		return fallback
-	}
-	return *s
-}
-
-func countDisabled(models []map[string]any) int {
-	count := 0
-	for _, m := range models {
-		if d, ok := m["disabled"].(bool); ok && d {
-			count++
-		}
-	}
-	return count
-}

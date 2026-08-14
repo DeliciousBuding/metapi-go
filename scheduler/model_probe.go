@@ -48,11 +48,9 @@ type ChannelHealthRecorder interface {
 // Supports account-level lease to prevent concurrent probes on the same account.
 type ModelProbeScheduler struct {
 	cfg           *config.Config
-	ticker        *time.Ticker
-	stopCh        chan struct{}
-	running       bool
 	mu            sync.Mutex
 	accountLeases map[int64]bool
+	runner        *intervalRunner
 
 	probe    ChannelHealthProbe
 	recorder ChannelHealthRecorder
@@ -78,6 +76,7 @@ func NewModelProbeScheduler(cfg *config.Config) *ModelProbeScheduler {
 	return &ModelProbeScheduler{
 		cfg:           cfg,
 		accountLeases: make(map[int64]bool),
+		runner:        &intervalRunner{},
 	}
 }
 
@@ -111,48 +110,21 @@ func (s *ModelProbeScheduler) Start(ctx context.Context) error {
 	}
 
 	// Hard floor of 60 seconds
-	intervalMs := int64(maxInt(s.cfg.ModelAvailabilityProbeIntervalMs, 60_000))
+	intervalMs := int64(config.MaxInt(s.cfg.ModelAvailabilityProbeIntervalMs, 60_000))
 	interval := time.Duration(intervalMs) * time.Millisecond
-
-	s.ticker = time.NewTicker(interval)
-	s.stopCh = make(chan struct{})
-	s.running = true
-
-	go func() {
-		for {
-			select {
-			case <-s.ticker.C:
-				go s.runProbe()
-			case <-s.stopCh:
-				return
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
 
 	slog.Info("model-probe scheduler started",
 		"interval_ms", intervalMs,
 		"timeout_ms", s.cfg.ModelAvailabilityProbeTimeoutMs,
 		"concurrency", s.cfg.ModelAvailabilityProbeConcurrency,
 	)
-	return nil
+	// No immediate first run: the original model-probe ticker only probes on
+	// interval ticks (probe-now is driven by admin/global paths instead).
+	return s.runner.start(ctx, interval, false, s.runProbe)
 }
 
 func (s *ModelProbeScheduler) Stop() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if !s.running {
-		return nil
-	}
-	s.running = false
-	if s.ticker != nil {
-		s.ticker.Stop()
-	}
-	if s.stopCh != nil {
-		close(s.stopCh)
-	}
-	return nil
+	return s.runner.stop()
 }
 
 // TryAcquireAccountLease attempts to acquire a lease for probing a specific account.

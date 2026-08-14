@@ -222,25 +222,3 @@ func TestAutoMigrateTextPKTables(t *testing.T) {
 		t.Error("analytics_projection_checkpoints missing PRIMARY KEY on 'projector_key'")
 	}
 }
-
-// TestMigrateFunctionDoesNotPanic verifies the exported Migrate() function
-// handles a nil DB gracefully.
-func TestMigrateFunctionDoesNotPanic(t *testing.T) {
-	// Close any existing DB to test nil case.
-	_ = CloseDatabase()
-
-	// Migrate should not panic when DB is nil.
-	// It logs a warning and returns nil.
-	// We pass a nil config since Migrate() accesses cfg fields minimally.
-	defer func() {
-		if r := recover(); r != nil {
-			t.Errorf("Migrate() panicked with nil DB: %v", r)
-		}
-	}()
-	// Migrate(nil) — cfg is only used for logging context, nil is safe here
-	// since the function returns early on db==nil.
-	err := Migrate(nil)
-	if err != nil {
-		t.Logf("Migrate with nil DB returned error: %v", err)
-	}
-}

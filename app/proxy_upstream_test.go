@@ -16,10 +16,11 @@ import (
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/scheduler"
+	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
-var _ routing.ChannelSelectorDB = (*proxyRoutingStore)(nil)
+var _ routing.ChannelSelectorDB = (*service.ProxyRoutingStore)(nil)
 var _ routing.ChannelLoadSnapshotProvider = proxyLoadProvider{}
 var _ proxy.TokenRouterInterface = (*routing.TokenRouter)(nil)
 
@@ -162,7 +163,7 @@ func TestProxyRoutingStoreSelectsSeededChannel(t *testing.T) {
 	}
 
 	channelID := seedProxyRoute(t, db, "https://example.invalid", "gpt-seeded", "seed-token")
-	router := routing.NewTokenRouter(newProxyRoutingStore(db), testProxyConfig(t), nil, nil)
+	router := routing.NewTokenRouter(service.NewProxyRoutingStore(db), testProxyConfig(t), nil, nil)
 
 	selected, err := router.SelectChannel(context.Background(), "gpt-seeded", routing.EmptyDownstreamRoutingPolicy)
 	if err != nil {

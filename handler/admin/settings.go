@@ -160,7 +160,7 @@ func (h *settingsHandler) getRuntime(w http.ResponseWriter, r *http.Request) {
 func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) {
 	var body map[string]any
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "Invalid request body"})
+		writeError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
@@ -172,11 +172,11 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["proxyToken"]; ok {
 		token := normalizeString(v)
 		if !strings.HasPrefix(token, "sk-") {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "下游访问令牌必须以 sk- 开头"})
+			writeError(w, http.StatusBadRequest, "下游访问令牌必须以 sk- 开头")
 			return
 		}
 		if len(token) < 6 {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "下游访问令牌至少 6 位（含 sk-）"})
+			writeError(w, http.StatusBadRequest, "下游访问令牌至少 6 位（含 sk-）")
 			return
 		}
 		cfg.ProxyToken = token
@@ -203,29 +203,29 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 		if v, ok := body["checkinIntervalHours"]; ok {
 			hours, err := toFloat64Strict(v)
 			if err != nil {
-				writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "checkinIntervalHours 必须是数字类型"})
+				writeError(w, http.StatusBadRequest, "checkinIntervalHours 必须是数字类型")
 				return
 			}
 			if hours != float64(int(hours)) {
-				writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "签到间隔必须是 1 到 24 的整数小时"})
+				writeError(w, http.StatusBadRequest, "签到间隔必须是 1 到 24 的整数小时")
 				return
 			}
 			intervalHours := int(hours)
 			patch.IntervalHours = &intervalHours
 		}
 		if _, err := applyCheckinScheduleSettings(h.db, cfg, patch); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 	}
 	if v, ok := body["checkinSchedule"]; ok {
 		spec, err := decodeScheduleSpec(v)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "checkinSchedule 格式无效"})
+			writeError(w, http.StatusBadRequest, "checkinSchedule 格式无效")
 			return
 		}
 		if err := spec.Validate(); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		patch := checkinSchedulePatch{Schedule: &spec}
@@ -234,7 +234,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 			mode := "cron"
 			cron, err := scheduler.ScheduleToCron(spec)
 			if err != nil {
-				writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}
 			patch.Mode = &mode
@@ -253,7 +253,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 			patch.WindowEnd = &spec.WindowEnd
 		}
 		if _, err := applyCheckinScheduleSettings(h.db, cfg, patch); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 	}
@@ -262,11 +262,11 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["balanceRefreshCron"]; ok {
 		cron := normalizeString(v)
 		if !scheduler.ValidateCronExpr(cron) {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "balanceRefreshCron 不是有效的 cron 表达式"})
+			writeError(w, http.StatusBadRequest, "balanceRefreshCron 不是有效的 cron 表达式")
 			return
 		}
 		if err := persistDualSchedule(h.db, "balance_refresh_cron", cron, "balance_refresh_schedule_v2", scheduler.CronToSchedule(cron)); err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]any{"success": false, "message": "保存余额刷新调度失败"})
+			writeError(w, http.StatusInternalServerError, "保存余额刷新调度失败")
 			return
 		}
 		cfg.BalanceRefreshCron = cron
@@ -277,24 +277,24 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["balanceRefreshSchedule"]; ok {
 		spec, err := decodeScheduleSpec(v)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "balanceRefreshSchedule 格式无效"})
+			writeError(w, http.StatusBadRequest, "balanceRefreshSchedule 格式无效")
 			return
 		}
 		if err := spec.Validate(); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		cron, err := scheduler.ScheduleToCron(spec)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		if cron == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "balanceRefreshSchedule 无法转换为 cron 表达式"})
+			writeError(w, http.StatusBadRequest, "balanceRefreshSchedule 无法转换为 cron 表达式")
 			return
 		}
 		if err := persistDualSchedule(h.db, "balance_refresh_cron", cron, "balance_refresh_schedule_v2", spec); err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]any{"success": false, "message": "保存余额刷新调度失败"})
+			writeError(w, http.StatusInternalServerError, "保存余额刷新调度失败")
 			return
 		}
 		cfg.BalanceRefreshCron = cron
@@ -308,11 +308,11 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["logCleanupCron"]; ok {
 		cron := normalizeString(v)
 		if !scheduler.ValidateCronExpr(cron) {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "logCleanupCron 不是有效的 cron 表达式"})
+			writeError(w, http.StatusBadRequest, "logCleanupCron 不是有效的 cron 表达式")
 			return
 		}
 		if err := persistDualSchedule(h.db, "log_cleanup_cron", cron, "log_cleanup_schedule_v2", scheduler.CronToSchedule(cron)); err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]any{"success": false, "message": "保存日志清理调度失败"})
+			writeError(w, http.StatusInternalServerError, "保存日志清理调度失败")
 			return
 		}
 		cfg.LogCleanupCron = cron
@@ -321,7 +321,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["logCleanupUsageLogsEnabled"]; ok {
 		enabled, err := toBoolStrict(v)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "logCleanupUsageLogsEnabled 必须是布尔类型 (true/false)"})
+			writeError(w, http.StatusBadRequest, "logCleanupUsageLogsEnabled 必须是布尔类型 (true/false)")
 			return
 		}
 		cfg.LogCleanupUsageLogsEnabled = enabled
@@ -330,7 +330,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["logCleanupProgramLogsEnabled"]; ok {
 		enabled, err := toBoolStrict(v)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "logCleanupProgramLogsEnabled 必须是布尔类型 (true/false)"})
+			writeError(w, http.StatusBadRequest, "logCleanupProgramLogsEnabled 必须是布尔类型 (true/false)")
 			return
 		}
 		cfg.LogCleanupProgramLogsEnabled = enabled
@@ -339,11 +339,11 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["logCleanupRetentionDays"]; ok {
 		days, err := toFloat64Strict(v)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "logCleanupRetentionDays 必须是数字类型"})
+			writeError(w, http.StatusBadRequest, "logCleanupRetentionDays 必须是数字类型")
 			return
 		}
 		if days < 1 {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "日志清理保留天数必须是大于等于 1 的整数"})
+			writeError(w, http.StatusBadRequest, "日志清理保留天数必须是大于等于 1 的整数")
 			return
 		}
 		cfg.LogCleanupRetentionDays = int(days)
@@ -352,24 +352,24 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["logCleanupSchedule"]; ok {
 		spec, err := decodeScheduleSpec(v)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "logCleanupSchedule 格式无效"})
+			writeError(w, http.StatusBadRequest, "logCleanupSchedule 格式无效")
 			return
 		}
 		if err := spec.Validate(); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		cron, err := scheduler.ScheduleToCron(spec)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		if cron == "" {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "logCleanupSchedule 无法转换为 cron 表达式"})
+			writeError(w, http.StatusBadRequest, "logCleanupSchedule 无法转换为 cron 表达式")
 			return
 		}
 		if err := persistDualSchedule(h.db, "log_cleanup_cron", cron, "log_cleanup_schedule_v2", spec); err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]any{"success": false, "message": "保存日志清理调度失败"})
+			writeError(w, http.StatusInternalServerError, "保存日志清理调度失败")
 			return
 		}
 		cfg.LogCleanupCron = cron
@@ -385,7 +385,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["modelAvailabilityProbeEnabled"]; ok {
 		enabled, err := toBoolStrict(v)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "modelAvailabilityProbeEnabled 必须是布尔类型 (true/false)"})
+			writeError(w, http.StatusBadRequest, "modelAvailabilityProbeEnabled 必须是布尔类型 (true/false)")
 			return
 		}
 		cfg.ModelAvailabilityProbeEnabled = enabled
@@ -396,7 +396,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["codexUpstreamWebsocketEnabled"]; ok {
 		enabled, err := toBoolStrict(v)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "codexUpstreamWebsocketEnabled 必须是布尔类型 (true/false)"})
+			writeError(w, http.StatusBadRequest, "codexUpstreamWebsocketEnabled 必须是布尔类型 (true/false)")
 			return
 		}
 		cfg.CodexUpstreamWebsocketEnabled = enabled
@@ -407,7 +407,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["responsesCompactFallbackToResponsesEnabled"]; ok {
 		enabled, err := toBoolStrict(v)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "responsesCompactFallbackToResponsesEnabled 必须是布尔类型 (true/false)"})
+			writeError(w, http.StatusBadRequest, "responsesCompactFallbackToResponsesEnabled 必须是布尔类型 (true/false)")
 			return
 		}
 		cfg.ResponsesCompactFallbackToResponsesEnabled = enabled
@@ -418,7 +418,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["disableCrossProtocolFallback"]; ok {
 		enabled, err := toBoolStrict(v)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "disableCrossProtocolFallback 必须是布尔类型 (true/false)"})
+			writeError(w, http.StatusBadRequest, "disableCrossProtocolFallback 必须是布尔类型 (true/false)")
 			return
 		}
 		cfg.DisableCrossProtocolFallback = enabled
@@ -429,11 +429,11 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["proxySessionChannelConcurrencyLimit"]; ok {
 		n, err := toFloat64Strict(v)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "proxySessionChannelConcurrencyLimit 必须是数字类型"})
+			writeError(w, http.StatusBadRequest, "proxySessionChannelConcurrencyLimit 必须是数字类型")
 			return
 		}
 		if n < 0 {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "会话通道并发上限必须是大于等于 0 的整数"})
+			writeError(w, http.StatusBadRequest, "会话通道并发上限必须是大于等于 0 的整数")
 			return
 		}
 		cfg.ProxySessionChannelConcurrencyLimit = int(n)
@@ -442,11 +442,11 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["proxySessionChannelQueueWaitMs"]; ok {
 		n, err := toFloat64Strict(v)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "proxySessionChannelQueueWaitMs 必须是数字类型"})
+			writeError(w, http.StatusBadRequest, "proxySessionChannelQueueWaitMs 必须是数字类型")
 			return
 		}
 		if n < 0 {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "会话通道排队等待时间必须是大于等于 0 的整数毫秒"})
+			writeError(w, http.StatusBadRequest, "会话通道排队等待时间必须是大于等于 0 的整数毫秒")
 			return
 		}
 		cfg.ProxySessionChannelQueueWaitMs = int(n)
@@ -455,19 +455,19 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 
 	// Debug settings
 	if err := applyBoolSettingDB(h.db, body, "proxyDebugTraceEnabled", &cfg.ProxyDebugTraceEnabled, "proxy_debug_trace_enabled"); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if err := applyBoolSettingDB(h.db, body, "proxyDebugCaptureHeaders", &cfg.ProxyDebugCaptureHeaders, "proxy_debug_capture_headers"); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if err := applyBoolSettingDB(h.db, body, "proxyDebugCaptureBodies", &cfg.ProxyDebugCaptureBodies, "proxy_debug_capture_bodies"); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if err := applyBoolSettingDB(h.db, body, "proxyDebugCaptureStreamChunks", &cfg.ProxyDebugCaptureStreamChunks, "proxy_debug_capture_stream_chunks"); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -486,11 +486,11 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["proxyDebugRetentionHours"]; ok {
 		n, err := toFloat64Strict(v)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "proxyDebugRetentionHours 必须是数字类型"})
+			writeError(w, http.StatusBadRequest, "proxyDebugRetentionHours 必须是数字类型")
 			return
 		}
 		if n < 1 {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "代理调试保留时长必须是大于等于 1 的整数小时"})
+			writeError(w, http.StatusBadRequest, "代理调试保留时长必须是大于等于 1 的整数小时")
 			return
 		}
 		cfg.ProxyDebugRetentionHours = int(n)
@@ -499,11 +499,11 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["proxyDebugMaxBodyBytes"]; ok {
 		n, err := toFloat64Strict(v)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "proxyDebugMaxBodyBytes 必须是数字类型"})
+			writeError(w, http.StatusBadRequest, "proxyDebugMaxBodyBytes 必须是数字类型")
 			return
 		}
 		if n < 1024 {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "代理调试抓取体积上限必须是大于等于 1024 的整数字节"})
+			writeError(w, http.StatusBadRequest, "代理调试抓取体积上限必须是大于等于 1024 的整数字节")
 			return
 		}
 		cfg.ProxyDebugMaxBodyBytes = int(n)
@@ -514,11 +514,11 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["routingFallbackUnitCost"]; ok {
 		n, err := toFloat64Strict(v)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "routingFallbackUnitCost 必须是数字类型"})
+			writeError(w, http.StatusBadRequest, "routingFallbackUnitCost 必须是数字类型")
 			return
 		}
 		if n <= 0 {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "无价模型默认单价必须是大于 0 的数字"})
+			writeError(w, http.StatusBadRequest, "无价模型默认单价必须是大于 0 的数字")
 			return
 		}
 		if n < 1e-6 {
@@ -530,11 +530,11 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["proxyFirstByteTimeoutSec"]; ok {
 		n, err := toFloat64Strict(v)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "proxyFirstByteTimeoutSec 必须是数字类型"})
+			writeError(w, http.StatusBadRequest, "proxyFirstByteTimeoutSec 必须是数字类型")
 			return
 		}
 		if n < 0 {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "首字超时必须是大于等于 0 的数字（秒）"})
+			writeError(w, http.StatusBadRequest, "首字超时必须是大于等于 0 的数字（秒）")
 			return
 		}
 		cfg.ProxyFirstByteTimeoutSec = int(n)
@@ -543,11 +543,11 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["tokenRouterFailureCooldownMaxSec"]; ok {
 		n, err := toFloat64Strict(v)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "tokenRouterFailureCooldownMaxSec 必须是数字类型"})
+			writeError(w, http.StatusBadRequest, "tokenRouterFailureCooldownMaxSec 必须是数字类型")
 			return
 		}
 		if n <= 0 {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "路由失败冷却上限必须是大于 0 的数字（秒）"})
+			writeError(w, http.StatusBadRequest, "路由失败冷却上限必须是大于 0 的数字（秒）")
 			return
 		}
 		cfg.TokenRouterFailureCooldownMaxSec = int(n)
@@ -556,7 +556,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 
 	// Notify: Webhook
 	if err := applyBoolSettingDB(h.db, body, "webhookEnabled", &cfg.WebhookEnabled, "webhook_enabled"); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if v, ok := body["webhookUrl"]; ok {
@@ -566,7 +566,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 
 	// Notify: Bark
 	if err := applyBoolSettingDB(h.db, body, "barkEnabled", &cfg.BarkEnabled, "bark_enabled"); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if v, ok := body["barkUrl"]; ok {
@@ -576,7 +576,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 
 	// Notify: ServerChan
 	if err := applyBoolSettingDB(h.db, body, "serverChanEnabled", &cfg.ServerChanEnabled, "serverchan_enabled"); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if v, ok := body["serverChanKey"]; ok {
@@ -586,7 +586,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 
 	// Notify: Telegram
 	if err := applyBoolSettingDB(h.db, body, "telegramEnabled", &cfg.TelegramEnabled, "telegram_enabled"); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if v, ok := body["telegramApiBaseUrl"]; ok {
@@ -602,7 +602,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 		upsertSettingDB(h.db, "telegram_chat_id", cfg.TelegramChatId)
 	}
 	if err := applyBoolSettingDB(h.db, body, "telegramUseSystemProxy", &cfg.TelegramUseSystemProxy, "telegram_use_system_proxy"); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if v, ok := body["telegramMessageThreadId"]; ok {
@@ -612,7 +612,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 
 	// Notify: SMTP
 	if err := applyBoolSettingDB(h.db, body, "smtpEnabled", &cfg.SmtpEnabled, "smtp_enabled"); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if v, ok := body["smtpHost"]; ok {
@@ -622,14 +622,14 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["smtpPort"]; ok {
 		n, err := toFloat64Strict(v)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "smtpPort 必须是数字类型"})
+			writeError(w, http.StatusBadRequest, "smtpPort 必须是数字类型")
 			return
 		}
 		cfg.SmtpPort = int(n)
 		upsertSettingDB(h.db, "smtp_port", cfg.SmtpPort)
 	}
 	if err := applyBoolSettingDB(h.db, body, "smtpSecure", &cfg.SmtpSecure, "smtp_secure"); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if v, ok := body["smtpUser"]; ok {
@@ -651,7 +651,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 
 	// Notify: Feishu / DingTalk / WeCom / Ntfy
 	if err := applyBoolSettingDB(h.db, body, "feishuEnabled", &cfg.FeishuEnabled, "feishu_enabled"); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if v, ok := body["feishuWebhook"]; ok {
@@ -663,7 +663,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 		upsertSettingDB(h.db, "feishu_secret", cfg.FeishuSecret)
 	}
 	if err := applyBoolSettingDB(h.db, body, "dingtalkEnabled", &cfg.DingtalkEnabled, "dingtalk_enabled"); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if v, ok := body["dingtalkWebhook"]; ok {
@@ -675,7 +675,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 		upsertSettingDB(h.db, "dingtalk_secret", cfg.DingtalkSecret)
 	}
 	if err := applyBoolSettingDB(h.db, body, "wecomEnabled", &cfg.WecomEnabled, "wecom_enabled"); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if v, ok := body["wecomWebhook"]; ok {
@@ -683,7 +683,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 		upsertSettingDB(h.db, "wecom_webhook", cfg.WecomWebhook)
 	}
 	if err := applyBoolSettingDB(h.db, body, "ntfyEnabled", &cfg.NtfyEnabled, "ntfy_enabled"); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if v, ok := body["ntfyUrl"]; ok {
@@ -717,11 +717,11 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["notifyCooldownSec"]; ok {
 		n, err := toFloat64Strict(v)
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "notifyCooldownSec 必须是数字类型"})
+			writeError(w, http.StatusBadRequest, "notifyCooldownSec 必须是数字类型")
 			return
 		}
 		if n < 0 {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "告警冷静期必须是大于等于 0 的数字（秒）"})
+			writeError(w, http.StatusBadRequest, "告警冷静期必须是大于等于 0 的数字（秒）")
 			return
 		}
 		cfg.NotifyCooldownSec = int(n)
@@ -752,12 +752,12 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["globalBlockedBrands"]; ok {
 		brands, err := parseStringArraySetting(v, "globalBlockedBrands")
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		cfg.GlobalBlockedBrands = brands
 		if err := upsertSettingDB(h.db, "global_blocked_brands", brands); err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]any{"success": false, "message": "保存品牌屏蔽失败"})
+			writeError(w, http.StatusInternalServerError, "保存品牌屏蔽失败")
 			return
 		}
 	}
@@ -768,12 +768,12 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	if v, ok := body["globalAllowedModels"]; ok {
 		models, err := parseStringArraySetting(v, "globalAllowedModels")
 		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		cfg.GlobalAllowedModels = models
 		if err := upsertSettingDB(h.db, "global_allowed_models", models); err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]any{"success": false, "message": "保存模型白名单失败"})
+			writeError(w, http.StatusInternalServerError, "保存模型白名单失败")
 			return
 		}
 	}
@@ -802,7 +802,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 
 	// Proxy empty content fail
 	if err := applyBoolSettingDB(h.db, body, "proxyEmptyContentFailEnabled", &cfg.ProxyEmptyContentFailEnabled, "proxy_empty_content_fail_enabled"); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": err.Error()})
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -812,7 +812,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 			if bf, ok3 := rw["baseWeightFactor"]; ok3 {
 				val, err := toFloat64Strict(bf)
 				if err != nil {
-					writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "routingWeights.baseWeightFactor 必须是数字类型"})
+					writeError(w, http.StatusBadRequest, "routingWeights.baseWeightFactor 必须是数字类型")
 					return
 				}
 				cfg.RoutingWeights.BaseWeightFactor = val
@@ -820,7 +820,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 			if vsf, ok3 := rw["valueScoreFactor"]; ok3 {
 				val, err := toFloat64Strict(vsf)
 				if err != nil {
-					writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "routingWeights.valueScoreFactor 必须是数字类型"})
+					writeError(w, http.StatusBadRequest, "routingWeights.valueScoreFactor 必须是数字类型")
 					return
 				}
 				cfg.RoutingWeights.ValueScoreFactor = val
@@ -828,7 +828,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 			if cw, ok3 := rw["costWeight"]; ok3 {
 				val, err := toFloat64Strict(cw)
 				if err != nil {
-					writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "routingWeights.costWeight 必须是数字类型"})
+					writeError(w, http.StatusBadRequest, "routingWeights.costWeight 必须是数字类型")
 					return
 				}
 				cfg.RoutingWeights.CostWeight = val
@@ -836,7 +836,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 			if bw, ok3 := rw["balanceWeight"]; ok3 {
 				val, err := toFloat64Strict(bw)
 				if err != nil {
-					writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "routingWeights.balanceWeight 必须是数字类型"})
+					writeError(w, http.StatusBadRequest, "routingWeights.balanceWeight 必须是数字类型")
 					return
 				}
 				cfg.RoutingWeights.BalanceWeight = val
@@ -844,7 +844,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 			if uw, ok3 := rw["usageWeight"]; ok3 {
 				val, err := toFloat64Strict(uw)
 				if err != nil {
-					writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "routingWeights.usageWeight 必须是数字类型"})
+					writeError(w, http.StatusBadRequest, "routingWeights.usageWeight 必须是数字类型")
 					return
 				}
 				cfg.RoutingWeights.UsageWeight = val
@@ -943,7 +943,7 @@ func (h *settingsHandler) testSystemProxy(w http.ResponseWriter, r *http.Request
 		TargetUrl *string `json:"targetUrl"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "Invalid request body"})
+		writeError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
@@ -952,10 +952,7 @@ func (h *settingsHandler) testSystemProxy(w http.ResponseWriter, r *http.Request
 		proxyURL = strings.TrimSpace(*body.ProxyUrl)
 	}
 	if proxyURL == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"success": false,
-			"message": "请先填写系统代理地址",
-		})
+		writeError(w, http.StatusBadRequest, "请先填写系统代理地址")
 		return
 	}
 
@@ -965,10 +962,7 @@ func (h *settingsHandler) testSystemProxy(w http.ResponseWriter, r *http.Request
 		// Guard operator-supplied probe targets against non-http(s) and
 		// cloud metadata / link-local SSRF first-hops.
 		if service.IsForbiddenSiteTargetURL(target) || !service.IsValidHTTPURL(target) {
-			writeJSON(w, http.StatusBadRequest, map[string]any{
-				"success": false,
-				"message": "Invalid targetUrl. Cloud metadata / link-local targets are not allowed; expected a valid http(s) URL.",
-			})
+			writeError(w, http.StatusBadRequest, "Invalid targetUrl. Cloud metadata / link-local targets are not allowed; expected a valid http(s) URL.")
 			return
 		}
 	}
@@ -1048,24 +1042,6 @@ func hasAnyKey(body map[string]any, keys ...string) bool {
 		}
 	}
 	return false
-}
-
-func toFloat64(v any) float64 {
-	switch val := v.(type) {
-	case float64:
-		return val
-	case float32:
-		return float64(val)
-	case int:
-		return float64(val)
-	case int64:
-		return float64(val)
-	case json.Number:
-		n, _ := val.Float64()
-		return n
-	default:
-		return 0
-	}
 }
 
 func toBool(v any) bool {

@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 func setupAuthSettingsTest(t *testing.T) (*store.DB, chi.Router, *config.Config) {
@@ -47,11 +47,8 @@ func TestAuthSettingsChange_WrongOldTokenForbidden(t *testing.T) {
 	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode body: %v", err)
 	}
-	if body["success"] != false {
-		t.Fatalf("success = %v, want false", body["success"])
-	}
-	if body["message"] != "旧 Token 验证失败" {
-		t.Fatalf("message = %q, want 旧 Token 验证失败", body["message"])
+	if body["error"] != "旧 Token 验证失败" {
+		t.Fatalf("error = %v, want 旧 Token 验证失败", body["error"])
 	}
 	if cfg.AuthToken != "admin-auth-settings-token" {
 		t.Fatalf("AuthToken mutated to %q", cfg.AuthToken)

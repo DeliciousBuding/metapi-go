@@ -13,9 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 // ProxyVideoTask holds a video task mapping (publicId -> upstreamVideoId).
@@ -48,8 +48,6 @@ var (
 // On successful non-stream upstream 2xx, dispatch rewrites response `id` to a
 // generated publicId and SaveProxyVideoTask (process-local).
 func HandleVideosCreate(w http.ResponseWriter, r *http.Request) {
-	EnsureMultipartBufferParser()
-
 	ctx, errResp := PrepareCtx(r, SurfConfig{
 		Endpoint:       "videos",
 		DownstreamPath: "/v1/videos",
@@ -134,13 +132,9 @@ func HandleVideosDelete(w http.ResponseWriter, r *http.Request) {
 	dispatchUpstream(w, r, ctx)
 }
 
-// resolveVideoUpstreamID returns the upstream path id for a client-facing id.
+// resolveVideoUpstreamIDFromTask returns the upstream path id for a client-facing id.
 // When a mapping exists with a non-empty UpstreamVideoID different from publicID,
 // that upstream id is used; otherwise publicID is passed through unchanged.
-func resolveVideoUpstreamID(publicID string) string {
-	return resolveVideoUpstreamIDFromTask(publicID, GetProxyVideoTaskByPublicID(publicID))
-}
-
 func resolveVideoUpstreamIDFromTask(publicID string, task *ProxyVideoTask) string {
 	if task == nil {
 		return publicID

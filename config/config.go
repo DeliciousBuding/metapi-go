@@ -61,10 +61,9 @@ type RoutingWeights struct {
 // Field names use Go exported (PascalCase) but each maps 1:1 to a TS config field
 // as documented in section 3.
 type Config struct {
-	// Auth (5 fields)
+	// Auth (4 fields)
 	AuthToken               string
 	ProxyToken              string
-	DeployHelperToken       string
 	AccountCredentialSecret string
 	CodexClientId           string
 
@@ -424,14 +423,6 @@ func Load(env map[string]string) *Config {
 		return env[key]
 	}
 
-	// Resolve legacy alias: DEPLOY_HELPER_TOKEN falls back to UPDATE_CENTER_HELPER_TOKEN
-	resolveDeployHelperToken := func() string {
-		if v := get("DEPLOY_HELPER_TOKEN"); v != "" {
-			return v
-		}
-		return get("UPDATE_CENTER_HELPER_TOKEN")
-	}
-
 	// Resolve ACCOUNT_CREDENTIAL_SECRET: env var → AUTH_TOKEN → default
 	resolveAccountCredentialSecret := func() string {
 		if v := get("ACCOUNT_CREDENTIAL_SECRET"); v != "" {
@@ -464,7 +455,6 @@ func Load(env map[string]string) *Config {
 	// ---- §3.1 Auth ----
 	cfg.AuthToken = firstNonEmpty(get("AUTH_TOKEN"), DefaultAuthToken)
 	cfg.ProxyToken = firstNonEmpty(get("PROXY_TOKEN"), DefaultProxyToken)
-	cfg.DeployHelperToken = parseOptionalSecret(resolveDeployHelperToken())
 	cfg.AccountCredentialSecret = resolveAccountCredentialSecret()
 	if cfg.AccountCredentialSecret == DefaultAuthToken {
 		slog.Warn("config: AccountCredentialSecret is using the default value — this is insecure for production. Set ACCOUNT_CREDENTIAL_SECRET or AUTH_TOKEN environment variable.")
@@ -507,7 +497,7 @@ func Load(env map[string]string) *Config {
 	// E1: window bounds (HH:mm, 24h). Defaults: 00:00-23:59 = any time of day.
 	cfg.CheckinWindowStart = firstNonEmpty(get("CHECKIN_WINDOW_START"), "00:00")
 	cfg.CheckinWindowEnd = firstNonEmpty(get("CHECKIN_WINDOW_END"), "23:59")
-	cfg.CheckinIntervalHours = clampInt(
+	cfg.CheckinIntervalHours = ClampInt(
 		int(math.Trunc(parseNumber(get("CHECKIN_INTERVAL_HOURS"), DefaultCheckinIntervalHours))),
 		1, 24,
 	)
@@ -642,7 +632,7 @@ func Load(env map[string]string) *Config {
 	cfg.ModelAvailabilityProbeEnabled = parseBoolean(get("MODEL_AVAILABILITY_PROBE_ENABLED"), false)
 	cfg.ModelAvailabilityProbeIntervalMs = maxInt(60000, int(math.Trunc(parseNumber(get("MODEL_AVAILABILITY_PROBE_INTERVAL_MS"), float64(DefaultModelAvailabilityProbeIntervalMs)))))
 	cfg.ModelAvailabilityProbeTimeoutMs = maxInt(3000, int(math.Trunc(parseNumber(get("MODEL_AVAILABILITY_PROBE_TIMEOUT_MS"), DefaultModelAvailabilityProbeTimeoutMs))))
-	cfg.ModelAvailabilityProbeConcurrency = clampInt(
+	cfg.ModelAvailabilityProbeConcurrency = ClampInt(
 		int(math.Trunc(parseNumber(get("MODEL_AVAILABILITY_PROBE_CONCURRENCY"), DefaultModelAvailabilityProbeConcurrency))),
 		1, 16,
 	)
@@ -715,8 +705,8 @@ func dbPoolDefaultsForProfile(profile string) (int, int) {
 	}
 }
 
-// clampInt clamps v to [lo, hi].
-func clampInt(v, lo, hi int) int {
+// ClampInt clamps v to [lo, hi].
+func ClampInt(v, lo, hi int) int {
 	if v < lo {
 		return lo
 	}
@@ -737,6 +727,14 @@ func maxInt(a, b int) int {
 // MaxInt returns the larger of a and b. Exported for use by other packages.
 func MaxInt(a, b int) int {
 	return maxInt(a, b)
+}
+
+// MaxInt64 returns the larger of a and b. Exported for use by other packages.
+func MaxInt64(a, b int64) int64 {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // ParseJsonValue parses a JSON string into an any value.

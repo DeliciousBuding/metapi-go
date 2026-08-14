@@ -57,13 +57,11 @@ func getActiveChannelIDsProvider() func() []int64 {
 // or active to probe if they have recovered.
 type ChannelRecoveryScheduler struct {
 	cfg                *config.Config
-	ticker             *time.Ticker
-	stopCh             chan struct{}
-	running            bool
 	mu                 sync.Mutex
 	inFlightKeys       map[string]bool  // "channelId:modelName" -> in flight
 	lastStartedAtByKey map[string]int64 // "channelId:modelName" -> start timestamp ms
 	sweepInFlight      bool
+	runner             *intervalRunner
 }
 
 // NewChannelRecoveryScheduler creates a new channel recovery probe scheduler.
@@ -72,59 +70,25 @@ func NewChannelRecoveryScheduler(cfg *config.Config) *ChannelRecoveryScheduler {
 		cfg:                cfg,
 		inFlightKeys:       make(map[string]bool),
 		lastStartedAtByKey: make(map[string]int64),
+		runner:             &intervalRunner{},
 	}
 }
 
 func (s *ChannelRecoveryScheduler) Name() string { return "channel-recovery" }
 
 func (s *ChannelRecoveryScheduler) Start(ctx context.Context) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	intervalMs := int64(maxInt(channelRecoverySweepIntervalMs, channelRecoveryMinIntervalMs))
+	intervalMs := int64(config.MaxInt(channelRecoverySweepIntervalMs, channelRecoveryMinIntervalMs))
 	interval := time.Duration(intervalMs) * time.Millisecond
-
-	s.ticker = time.NewTicker(interval)
-	s.stopCh = make(chan struct{})
-	s.running = true
-
-	// Immediate first sweep
-	go s.runSweep()
-
-	go func() {
-		for {
-			select {
-			case <-s.ticker.C:
-				go s.runSweep()
-			case <-s.stopCh:
-				return
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
 
 	slog.Info("channel-recovery scheduler started",
 		"interval_ms", intervalMs,
 		"max_batch", channelRecoveryMaxBatch,
 	)
-	return nil
+	return s.runner.start(ctx, interval, true, s.runSweep)
 }
 
 func (s *ChannelRecoveryScheduler) Stop() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if !s.running {
-		return nil
-	}
-	s.running = false
-	if s.ticker != nil {
-		s.ticker.Stop()
-	}
-	if s.stopCh != nil {
-		close(s.stopCh)
-	}
-	return nil
+	return s.runner.stop()
 }
 
 // runSweep performs a single recovery probe sweep.

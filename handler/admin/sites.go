@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/handler/admin/payloads"
+	"github.com/deliciousbuding/metapi-go/handler/shared"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/deliciousbuding/metapi-go/service"
@@ -182,9 +182,9 @@ func (h *sitesHandler) createSite(w http.ResponseWriter, r *http.Request) {
 		"url":                                canonicalURL,
 		"platform":                           platform,
 		"status":                             coalesce(normalizedStatus, "active"),
-		"isPinned":                           coalesceBool(normalizedPinned, false),
-		"globalWeight":                       coalesceFloat64(normalizedWeight, 1.0),
-		"maxConcurrency":                     coalesceInt64(body.MaxConcurrency, 0),
+		"isPinned":                           coalescePtr(normalizedPinned, false),
+		"globalWeight":                       coalescePtr(normalizedWeight, 1.0),
+		"maxConcurrency":                     coalescePtr(body.MaxConcurrency, 0),
 		"postRefreshProbeEnabled":            false,
 		"postRefreshProbeModel":              "",
 		"postRefreshProbeScope":              "single",
@@ -262,15 +262,13 @@ func (h *sitesHandler) createSite(w http.ResponseWriter, r *http.Request) {
 // ---- Update Site ----
 
 func (h *sitesHandler) updateSite(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid site id")
+	id, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 
 	var existing store.Site
-	err = h.db.Get(&existing, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), id)
+	err := h.db.Get(&existing, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), id)
 	if err == sql.ErrNoRows {
 		writeError(w, http.StatusNotFound, "Site not found")
 		return
@@ -453,10 +451,8 @@ func (h *sitesHandler) updateSite(w http.ResponseWriter, r *http.Request) {
 // ---- Delete Site ----
 
 func (h *sitesHandler) deleteSite(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil || id <= 0 {
-		writeError(w, http.StatusBadRequest, "Invalid site id")
+	id, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 	if err := service.DeleteSite(h.db, id); err != nil {
@@ -623,10 +619,8 @@ func (h *sitesHandler) importSites(w http.ResponseWriter, r *http.Request) {
 // ---- Disabled Models ----
 
 func (h *sitesHandler) getDisabledModels(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid site id")
+	id, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 
@@ -652,10 +646,8 @@ func (h *sitesHandler) updateDisabledModels(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid site id")
+	id, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 
@@ -694,10 +686,8 @@ func (h *sitesHandler) updateDisabledModels(w http.ResponseWriter, r *http.Reque
 // ---- Available Models ----
 
 func (h *sitesHandler) getAvailableModels(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid site id")
+	id, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 
@@ -747,10 +737,8 @@ func (h *sitesHandler) getAvailableModels(w http.ResponseWriter, r *http.Request
 // ---- Probe Now ----
 
 func (h *sitesHandler) probeNow(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid site id")
+	id, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 
@@ -776,10 +764,8 @@ func (h *sitesHandler) probeNow(w http.ResponseWriter, r *http.Request) {
 // ---- Probe Stream (SSE) ----
 
 func (h *sitesHandler) probeStream(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid site id")
+	id, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 
@@ -836,34 +822,6 @@ func normalizeSiteStatusString(s *string) string {
 
 func boolPtrValid(b *bool) bool {
 	return b != nil
-}
-
-func coalesce(v string, fallback string) string {
-	if v == "" {
-		return fallback
-	}
-	return v
-}
-
-func coalesceBool(b *bool, fallback bool) bool {
-	if b == nil {
-		return fallback
-	}
-	return *b
-}
-
-func coalesceFloat64(f *float64, fallback float64) float64 {
-	if f == nil {
-		return fallback
-	}
-	return *f
-}
-
-func coalesceInt64(v *int64, fallback int64) int64 {
-	if v == nil {
-		return fallback
-	}
-	return *v
 }
 
 func normalizeAPIEndpointsInput(input []payloads.SiteAPIEndpointInput) ([]payloads.SiteAPIEndpointInput, string) {
@@ -934,7 +892,5 @@ func sortStringsCI(strs []string) {
 }
 
 func writeJSON(w http.ResponseWriter, statusCode int, data any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(data)
+	shared.WriteJSON(w, statusCode, data)
 }

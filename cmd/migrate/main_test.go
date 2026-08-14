@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/deliciousbuding/metapi-go/store"
+)
 
 // ---- Reverse migration (PG → SQLite) helpers, 2026-08-01 ----
 
@@ -22,37 +26,51 @@ func TestIsPostgresURL(t *testing.T) {
 	}
 }
 
-func TestSQLiteDDLFromPG(t *testing.T) {
-	pg := `CREATE TABLE IF NOT EXISTS "sites" (id BIGSERIAL PRIMARY KEY, name TEXT, use_system_proxy BOOLEAN DEFAULT FALSE, sort_order BIGINT DEFAULT 0, global_weight DOUBLE PRECISION DEFAULT 1, custom_headers JSONB, enabled BOOLEAN DEFAULT TRUE, created_at TEXT)`
-	got := sqliteDDLFromPG(pg)
-	want := `CREATE TABLE IF NOT EXISTS "sites" (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, use_system_proxy INTEGER DEFAULT 0, sort_order INTEGER DEFAULT 0, global_weight REAL DEFAULT 1, custom_headers TEXT, enabled INTEGER DEFAULT 1, created_at TEXT)`
-	if got != want {
-		t.Fatalf("sqliteDDLFromPG mismatch:\n got: %s\nwant: %s", got, want)
+// TestBuildersMatchStoreSchema guards against the data-loss drift this
+// refactor fixed: every per-table insert builder must carry exactly the
+// columns created by store.AutoMigrate. When a future store DDL change
+// diverges from cmd/migrate, this test (and the migration-time drift guard)
+// fails loudly instead of silently dropping columns.
+func TestBuildersMatchStoreSchema(t *testing.T) {
+	db, err := store.Open(store.DialectSQLite, ":memory:", false)
+	if err != nil {
+		t.Fatalf("Open SQLite: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	if err := store.AutoMigrate(db); err != nil {
+		t.Fatalf("AutoMigrate: %v", err)
+	}
+
+	if err := verifyBuilderColumnsMatchTarget(db); err != nil {
+		t.Fatalf("cmd/migrate builders drifted from store DDL: %v", err)
 	}
 }
 
-func TestSQLiteDDLFromPG_NoBogusReplacement(t *testing.T) {
-	// BIGINT must not corrupt other tokens; JSONB→TEXT must not touch TEXT columns.
-	pg := `CREATE TABLE IF NOT EXISTS "proxy_logs" (id BIGSERIAL PRIMARY KEY, prompt_tokens BIGINT, billing_details JSONB, created_at TEXT)`
-	got := sqliteDDLFromPG(pg)
-	for _, bad := range []string{"BIGSERIAL", "BIGINT", "JSONB", "BOOLEAN", "DOUBLE PRECISION"} {
-		if contains(got, bad) {
-			t.Errorf("sqliteDDLFromPG still contains %q: %s", bad, got)
+// TestBuildSitesIncludesPreviouslyDroppedColumns pins the exact regression:
+// before the refactor buildSites copied only 15 columns and silently dropped
+// max_concurrency, the post_refresh_probe_* group, custom_headers_override_request_headers
+// and tags.
+func TestBuildSitesIncludesPreviouslyDroppedColumns(t *testing.T) {
+	stmts := buildSites([]map[string]interface{}{{}})
+	if len(stmts) != 1 {
+		t.Fatalf("buildSites produced %d stmts, want 1", len(stmts))
+	}
+	got := make(map[string]bool, len(stmts[0].columns))
+	for _, c := range stmts[0].columns {
+		got[c] = true
+	}
+	for _, required := range []string{
+		"max_concurrency",
+		"post_refresh_probe_enabled",
+		"post_refresh_probe_model",
+		"post_refresh_probe_scope",
+		"post_refresh_probe_latency_threshold_ms",
+		"custom_headers_override_request_headers",
+		"tags",
+	} {
+		if !got[required] {
+			t.Errorf("buildSites is missing column %q", required)
 		}
 	}
-	if !contains(got, "INTEGER PRIMARY KEY AUTOINCREMENT") {
-		t.Errorf("missing AUTOINCREMENT mapping: %s", got)
-	}
-	if !contains(got, "TEXT") {
-		t.Errorf("JSONB→TEXT mapping failed: %s", got)
-	}
-}
-
-func contains(s, sub string) bool {
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			return true
-		}
-	}
-	return false
 }

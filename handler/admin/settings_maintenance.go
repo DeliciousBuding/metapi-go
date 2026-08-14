@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/go-chi/chi/v5"
+	"github.com/jmoiron/sqlx"
 )
 
 // RegisterMaintenanceRoutes registers all /api/settings/maintenance routes.
@@ -46,24 +46,15 @@ func (h *maintenanceHandler) clearCache(w http.ResponseWriter, r *http.Request) 
 
 	// Delete all (shared DB — multi-instance safe for durable state)
 	if _, err := h.db.Exec("DELETE FROM model_availability"); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": fmt.Sprintf("清理 model_availability 失败：%v", err),
-		})
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("清理 model_availability 失败：%v", err))
 		return
 	}
 	if _, err := h.db.Exec("DELETE FROM route_channels"); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": fmt.Sprintf("清理 route_channels 失败：%v", err),
-		})
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("清理 route_channels 失败：%v", err))
 		return
 	}
 	if _, err := h.db.Exec("DELETE FROM token_routes"); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": fmt.Sprintf("清理 token_routes 失败：%v", err),
-		})
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("清理 token_routes 失败：%v", err))
 		return
 	}
 
@@ -149,26 +140,17 @@ func (h *maintenanceHandler) factoryReset(w http.ResponseWriter, r *http.Request
 	}
 	// Decode body; if confirm is not true, reject.
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"success": false,
-			"message": "Invalid request body",
-		})
+		writeError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 	if !body.Confirm {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"success": false,
-			"message": "工厂重置需要确认。请在请求体中设置 confirm: true",
-		})
+		writeError(w, http.StatusBadRequest, "工厂重置需要确认。请在请求体中设置 confirm: true")
 		return
 	}
 
 	tx, err := h.db.Beginx()
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": fmt.Sprintf("开启事务失败：%v", err),
-		})
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("开启事务失败：%v", err))
 		return
 	}
 	defer tx.Rollback()
@@ -181,19 +163,13 @@ func (h *maintenanceHandler) factoryReset(w http.ResponseWriter, r *http.Request
 		var count int64
 		countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s", table)
 		if err := tx.Get(&count, countQuery); err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]any{
-				"success": false,
-				"message": fmt.Sprintf("工厂重置失败：无法读取表 %s：%v", table, err),
-			})
+			writeError(w, http.StatusInternalServerError, fmt.Sprintf("工厂重置失败：无法读取表 %s：%v", table, err))
 			return
 		}
 
 		deleteQuery := fmt.Sprintf("DELETE FROM %s", table)
 		if _, err := tx.Exec(deleteQuery); err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]any{
-				"success": false,
-				"message": fmt.Sprintf("工厂重置失败：无法清空表 %s：%v", table, err),
-			})
+			writeError(w, http.StatusInternalServerError, fmt.Sprintf("工厂重置失败：无法清空表 %s：%v", table, err))
 			return
 		}
 
@@ -217,10 +193,7 @@ func (h *maintenanceHandler) factoryReset(w http.ResponseWriter, r *http.Request
 	// For other drivers, skip sequence reset (no-op).
 
 	if err := tx.Commit(); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": fmt.Sprintf("提交事务失败：%v", err),
-		})
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("提交事务失败：%v", err))
 		return
 	}
 

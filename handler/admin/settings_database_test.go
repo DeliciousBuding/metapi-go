@@ -257,17 +257,13 @@ func TestRuntimeDatabaseTestConnectionPostgresFailureDoesNotLeakPassword(t *test
 	}
 
 	var payload struct {
-		Success bool   `json:"success"`
-		Message string `json:"message"`
+		Error string `json:"error"`
 	}
 	if err := json.NewDecoder(rec.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if payload.Success {
-		t.Fatalf("success = true, want false")
-	}
-	if !strings.Contains(payload.Message, "数据库测试连接失败") {
-		t.Fatalf("message = %q, want connection failure message", payload.Message)
+	if !strings.Contains(payload.Error, "数据库测试连接失败") {
+		t.Fatalf("error = %q, want connection failure message", payload.Error)
 	}
 }
 

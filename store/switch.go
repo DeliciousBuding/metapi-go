@@ -16,6 +16,10 @@ import (
 // 2. Update config in-place (dialect, URL, SSL).
 // 3. Open new connection + run auto-migration.
 // 4. On failure: close new connection, restore old config, re-open old connection.
+//
+// The new connection honors cfg.DbSslMode (DB_SSLMODE) and the runtime
+// PostgreSQL pool profile, so a switch can never silently downgrade an
+// explicit sslmode or the configured pool budget.
 func SwitchDatabase(cfg *config.Config, nextDialect, nextDsn string, nextSsl bool) error {
 	previousDialect := cfg.DbType
 	previousDsn := cfg.DbUrl
@@ -36,13 +40,18 @@ func SwitchDatabase(cfg *config.Config, nextDialect, nextDsn string, nextSsl boo
 	cfg.DbUrl = nextDsn
 	cfg.DbSsl = nextSsl
 
-	// Step 3: Open new connection.
+	// Step 3: Open new connection with the full runtime config (sslmode + pool).
 	dsn := nextDsn
 	if nextDialect == DialectSQLite {
 		dsn = ResolveSQLitePath(nextDsn, cfg.DataDir)
 	}
 
-	newDB, err := Open(nextDialect, dsn, nextSsl)
+	newDB, err := OpenWithPostgresSSLModeAndPool(
+		nextDialect,
+		dsn,
+		cfg.PostgresSSLMode(),
+		postgresPoolConfigFromRuntimeConfig(cfg),
+	)
 	if err != nil {
 		// Step 4: Rollback — restore old config and re-open.
 		slog.Error("switch: failed to open new database, rolling back",
@@ -82,7 +91,12 @@ func rollbackSwitch(cfg *config.Config, dialect, dsn string, ssl bool, originalE
 		rollbackDsn = ResolveSQLitePath(dsn, cfg.DataDir)
 	}
 
-	rollbackDB, rollbackErr := Open(dialect, rollbackDsn, ssl)
+	rollbackDB, rollbackErr := OpenWithPostgresSSLModeAndPool(
+		dialect,
+		rollbackDsn,
+		cfg.PostgresSSLMode(),
+		postgresPoolConfigFromRuntimeConfig(cfg),
+	)
 	if rollbackErr != nil {
 		return fmt.Errorf("switch: database switch failed AND rollback failed: switch=%w, rollback=%w", originalErr, rollbackErr)
 	}

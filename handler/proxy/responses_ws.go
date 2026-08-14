@@ -583,20 +583,6 @@ func (s *responsesWSSession) writeErrorWithPayload(ctx context.Context, status i
 
 // ---- helpers ----
 
-// extractWSHeaders extracts relevant headers for WebSocket context detection.
-func extractWSHeaders(r *http.Request) map[string]string {
-	headers := make(map[string]string)
-	if r == nil {
-		return headers
-	}
-	for k, v := range r.Header {
-		if len(v) > 0 {
-			headers[k] = v[0]
-		}
-	}
-	return headers
-}
-
 // extractWSTurnState extracts the x-codex-turn-state header value.
 func extractWSTurnState(r *http.Request) string {
 	if r == nil {

@@ -27,65 +27,30 @@ const (
 // Uses a database lease for multi-instance safety.
 type UsageAggregationScheduler struct {
 	cfg                *config.Config
-	ticker             *time.Ticker
-	stopCh             chan struct{}
-	running            bool
 	mu                 sync.Mutex
 	projectionInFlight bool
+	runner             *intervalRunner
 }
 
 // NewUsageAggregationScheduler creates a new usage aggregation scheduler.
 func NewUsageAggregationScheduler(cfg *config.Config) *UsageAggregationScheduler {
-	return &UsageAggregationScheduler{cfg: cfg}
+	return &UsageAggregationScheduler{cfg: cfg, runner: &intervalRunner{}}
 }
 
 func (s *UsageAggregationScheduler) Name() string { return "usage-aggregation" }
 
 func (s *UsageAggregationScheduler) Start(ctx context.Context) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.ticker = time.NewTicker(time.Duration(usageProjectionIntervalMs) * time.Millisecond)
-	s.stopCh = make(chan struct{})
-	s.running = true
-
-	// Immediate first run
-	go s.runPass()
-
-	go func() {
-		for {
-			select {
-			case <-s.ticker.C:
-				go s.runPass()
-			case <-s.stopCh:
-				return
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
 	slog.Info("usage-aggregation scheduler started",
 		"interval_ms", usageProjectionIntervalMs,
 		"lease_ms", usageProjectionLeaseMs,
 	)
-	return nil
+	return s.runner.start(ctx, time.Duration(usageProjectionIntervalMs)*time.Millisecond, true, func() {
+		s.runPass()
+	})
 }
 
 func (s *UsageAggregationScheduler) Stop() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if !s.running {
-		return nil
-	}
-	s.running = false
-	if s.ticker != nil {
-		s.ticker.Stop()
-	}
-	if s.stopCh != nil {
-		close(s.stopCh)
-	}
-	return nil
+	return s.runner.stop()
 }
 
 // ProjectionPassResult is the result of a single projection pass.
