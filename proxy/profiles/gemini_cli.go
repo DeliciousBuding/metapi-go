@@ -8,14 +8,7 @@ import (
 
 func geminiCliProfile() *types.CliProfileDefinition {
 	return &types.CliProfileDefinition{
-		ID: types.ProfileGeminiCli,
-		Capabilities: types.CliProfileCapabilities{
-			SupportsResponsesCompact:             false,
-			SupportsResponsesWebsocketIncremental: false,
-			PreservesContinuation:                false,
-			SupportsCountTokens:                  true,
-			EchoesTurnState:                      false,
-		},
+		ID:     types.ProfileGeminiCli,
 		Detect: detectGeminiCli,
 	}
 }

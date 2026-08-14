@@ -109,32 +109,32 @@ type SelectedChannel struct {
 
 // RouteDecisionExplanation mirrors TS RouteDecisionExplanation.
 type RouteDecisionExplanation struct {
-	RequestedModel    string
-	ActualModel       string
-	Matched           bool
-	RouteID           *int64
-	ModelPattern      string
-	SelectedChannelID *int64
-	SelectedAccountID *int64
-	SelectedLabel     string
-	Summary           []string
-	Candidates        []RouteDecisionCandidate
+	RequestedModel    string                   `json:"requestedModel"`
+	ActualModel       string                   `json:"actualModel"`
+	Matched           bool                     `json:"matched"`
+	RouteID           *int64                   `json:"routeId,omitempty"`
+	ModelPattern      string                   `json:"modelPattern,omitempty"`
+	SelectedChannelID *int64                   `json:"selectedChannelId,omitempty"`
+	SelectedAccountID *int64                   `json:"selectedAccountId,omitempty"`
+	SelectedLabel     string                   `json:"selectedLabel,omitempty"`
+	Summary           []string                 `json:"summary"`
+	Candidates        []RouteDecisionCandidate `json:"candidates"`
 }
 
 // RouteDecisionCandidate mirrors TS RouteDecisionCandidate.
 type RouteDecisionCandidate struct {
-	ChannelID              int64
-	AccountID              int64
-	Username               string
-	SiteName               string
-	TokenName              string
-	Priority               int64
-	Weight                 int64
-	Eligible               bool
-	RecentlyFailed         bool
-	AvoidedByRecentFailure bool
-	Probability            float64
-	Reason                 string
+	ChannelID              int64   `json:"channelId"`
+	AccountID              int64   `json:"accountId"`
+	Username               string  `json:"username"`
+	SiteName               string  `json:"siteName"`
+	TokenName              string  `json:"tokenName"`
+	Priority               int64   `json:"priority"`
+	Weight                 int64   `json:"weight"`
+	Eligible               bool    `json:"eligible"`
+	RecentlyFailed         bool    `json:"recentlyFailed"`
+	AvoidedByRecentFailure bool    `json:"avoidedByRecentFailure"`
+	Probability            float64 `json:"probability"`
+	Reason                 string  `json:"reason"`
 }
 
 // RouteRoutingStrategy is the strategy for a route.
@@ -175,11 +175,6 @@ func NormalizeRouteRoutingStrategy(value string) RouteRoutingStrategy {
 	default:
 		return StrategyWeighted
 	}
-}
-
-// IsRoundRobinRouteRoutingStrategy checks if a strategy is round_robin.
-func IsRoundRobinRouteRoutingStrategy(value string) bool {
-	return NormalizeRouteRoutingStrategy(value) == StrategyRoundRobin
 }
 
 // RouteMatch holds a matched route with its resolved channels.
@@ -235,10 +230,77 @@ type PricingReferenceRefreshOptions struct {
 	RefreshedKeys                *map[string]struct{}
 }
 
-// ExplainSelectionOptions configures explain-selection behavior.
-type ExplainSelectionOptions struct {
-	ExcludeChannelIDs            []int64
-	BypassSourceModelCheck       bool
-	UseChannelSourceModelForCost bool
-	DownstreamPolicy             DownstreamRoutingPolicy
+// ChannelSelectorDB defines the DB operations needed by the selector.
+type ChannelSelectorDB interface {
+	// Route operations
+	LoadEnabledRoutes(ctx context.Context) ([]store.TokenRoute, error)
+	LoadRouteGroupSources(ctx context.Context, groupRouteIDs []int64) (map[int64][]int64, error)
+
+	// Channel operations
+	LoadRouteChannels(ctx context.Context, routeIDs []int64) ([]struct {
+		Channel store.RouteChannel
+		Account store.Account
+		Site    store.Site
+		Token   *store.AccountToken
+	}, error)
+
+	// OAuth route unit operations
+	LoadOAuthRouteUnitSummaries(ctx context.Context, unitIDs []int64) (map[int64]OAuthRouteUnitSummary, error)
+	LoadOAuthRouteUnitMembers(ctx context.Context, unitIDs []int64) (map[int64][]OAuthRouteUnitMemberCandidate, error)
+
+	// Channel mutation
+	UpdateChannelLastSelectedAt(ctx context.Context, channelID int64, lastSelectedAt string) error
+	UpdateRouteUnitMemberLastSelectedAt(ctx context.Context, unitID, accountID int64, lastSelectedAt string) error
+
+	// Route unit member routes
+	FindRouteIDsByOAuthRouteUnitID(ctx context.Context, unitID int64) ([]int64, error)
+
+	// Load credential-scoped channel IDs
+	LoadCredentialScopedChannelIDs(ctx context.Context, channel store.RouteChannel, accountID int64) ([]int64, error)
+
+	// Load channel by ID with joins
+	LoadChannelWithAccount(ctx context.Context, channelID int64) (*struct {
+		Channel store.RouteChannel
+		Account store.Account
+	}, error)
+
+	LoadChannelWithAccountAndRoute(ctx context.Context, channelID int64) (*struct {
+		Channel store.RouteChannel
+		Account store.Account
+		Route   store.TokenRoute
+	}, error)
+
+	// Batch updates
+	UpdateChannelCooldownFields(ctx context.Context, channelIDs []int64, updates map[string]interface{}) error
+	UpdateChannelSuccessFields(ctx context.Context, channelID int64, updates map[string]interface{}) error
+
+	// Route unit member updates
+	UpdateRouteUnitMemberCooldownFields(ctx context.Context, memberID int64, updates map[string]interface{}) error
+	UpdateRouteUnitMemberSuccessFields(ctx context.Context, memberID int64, updates map[string]interface{}) error
+
+	// Load member with account+unit
+	LoadRouteUnitMemberWithAccount(ctx context.Context, unitID, accountID int64) (*struct {
+		Member  store.OAuthRouteUnitMember
+		Account store.Account
+		Unit    store.OAuthRouteUnit
+	}, error)
+
+	// Find all routes
+	FindAllEnabledRoutes(ctx context.Context) ([]store.TokenRoute, error)
+
+	// Credential scoping
+	LoadChannelsByTokenID(ctx context.Context, tokenID int64) ([]store.RouteChannel, error)
+	LoadChannelsByAccountIDWithoutToken(ctx context.Context, accountID int64) ([]store.RouteChannel, error)
+
+	// Runtime health
+	LoadRuntimeHealthChannelRows(ctx context.Context, channelIDs []int64) ([]struct {
+		SiteID            int64
+		SourceModel       *string
+		RouteModelPattern string
+	}, error)
+
+	// Clear channel failure states
+	ClearChannelFailureStates(ctx context.Context, channelIDs []int64) error
 }
+
+

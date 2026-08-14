@@ -568,11 +568,11 @@ func TestNormalizeRouteRoutingStrategy(t *testing.T) {
 }
 
 func TestIsRoundRobinRouteRoutingStrategy(t *testing.T) {
-	if !IsRoundRobinRouteRoutingStrategy("round_robin") {
-		t.Error("expected true for round_robin")
+	if NormalizeRouteRoutingStrategy("round_robin") != StrategyRoundRobin {
+		t.Error("expected round_robin to normalize to StrategyRoundRobin")
 	}
-	if IsRoundRobinRouteRoutingStrategy("weighted") {
-		t.Error("expected false for weighted")
+	if NormalizeRouteRoutingStrategy("weighted") == StrategyRoundRobin {
+		t.Error("expected weighted not to normalize to StrategyRoundRobin")
 	}
 }
 

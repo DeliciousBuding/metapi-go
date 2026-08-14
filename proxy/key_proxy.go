@@ -55,16 +55,3 @@ func ApplyKeyProxyOverride(base *platform.ProxyConfig, keyProxyURL *string) *pla
 	}
 	return &out
 }
-
-// ResolveKeyProxyURL normalizes a nullable proxy URL pointer.
-// Whitespace-only and empty values become nil (inherit).
-func ResolveKeyProxyURL(proxyURL *string) *string {
-	if proxyURL == nil {
-		return nil
-	}
-	trimmed := strings.TrimSpace(*proxyURL)
-	if trimmed == "" {
-		return nil
-	}
-	return &trimmed
-}

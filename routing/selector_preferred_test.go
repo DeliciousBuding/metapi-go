@@ -2,6 +2,7 @@ package routing
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -124,7 +125,7 @@ func preferredEligibleJoined(channelID, siteID, accountID int64, model string) s
 	Token   *store.AccountToken
 } {
 	m := model
-	token := "tok-" + formatInt(accountID)
+	token := "tok-" + strconv.FormatInt(accountID, 10)
 	return struct {
 		Channel store.RouteChannel
 		Account store.Account

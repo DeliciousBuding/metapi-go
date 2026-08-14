@@ -2,6 +2,7 @@ package routing
 
 import (
 	"math"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -329,28 +330,28 @@ func TestShortWindowLimitCooldownMs(t *testing.T) {
 }
 
 // =============================================================================
-// IsOAuthRouteUnitMemberCoolingDown tests
+// IsCooldownActive tests
 // =============================================================================
 
-func TestIsOAuthRouteUnitMemberCoolingDown(t *testing.T) {
+func TestIsCooldownActive(t *testing.T) {
 	nowISO := time.Now().UTC().Format(time.RFC3339)
 	pastISO := time.Now().Add(-1 * time.Hour).UTC().Format(time.RFC3339)
 	futureISO := time.Now().Add(1 * time.Hour).UTC().Format(time.RFC3339)
 
-	if IsOAuthRouteUnitMemberCoolingDown(nil, nowISO) {
+	if IsCooldownActive(nil, nowISO) {
 		t.Error("expected false for nil cooldownUntil")
 	}
 
 	emptyStr := ""
-	if IsOAuthRouteUnitMemberCoolingDown(&emptyStr, nowISO) {
+	if IsCooldownActive(&emptyStr, nowISO) {
 		t.Error("expected false for empty cooldownUntil")
 	}
 
-	if IsOAuthRouteUnitMemberCoolingDown(&pastISO, nowISO) {
+	if IsCooldownActive(&pastISO, nowISO) {
 		t.Error("expected false for past cooldown")
 	}
 
-	if !IsOAuthRouteUnitMemberCoolingDown(&futureISO, nowISO) {
+	if !IsCooldownActive(&futureISO, nowISO) {
 		t.Error("expected true for future cooldown")
 	}
 }
@@ -360,7 +361,7 @@ func TestIsOAuthRouteUnitMemberCoolingDown(t *testing.T) {
 func TestIsCooldownActive_MillisVsSecondPrecision(t *testing.T) {
 	now := time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC)
 	nowISO := now.UTC().Format(time.RFC3339) // no fractional seconds
-	cooldownUntil := timeMsToISO(now.UnixMilli() + 500) // always-present millis
+	cooldownUntil := formatUnixMillisISO(now.UnixMilli() + 500) // always-present millis
 
 	// Document the lexical trap the parse path must avoid.
 	if cooldownUntil > nowISO {
@@ -370,18 +371,15 @@ func TestIsCooldownActive_MillisVsSecondPrecision(t *testing.T) {
 	if !IsCooldownActive(&cooldownUntil, nowISO) {
 		t.Fatalf("cooldownUntil=now+500ms must still be active; cool=%q now=%q", cooldownUntil, nowISO)
 	}
-	if !IsOAuthRouteUnitMemberCoolingDown(&cooldownUntil, nowISO) {
-		t.Fatalf("OAuth member cool path must treat now+500ms as cooling; cool=%q now=%q", cooldownUntil, nowISO)
-	}
 
 	// Expired (past) millis cooldown must be inactive against second-precision now.
-	pastCool := timeMsToISO(now.UnixMilli() - 500)
+	pastCool := formatUnixMillisISO(now.UnixMilli() - 500)
 	if IsCooldownActive(&pastCool, nowISO) {
 		t.Fatalf("past cooldown must be inactive; cool=%q now=%q", pastCool, nowISO)
 	}
 
 	// Equal second boundary (no remaining cool window) is not active.
-	exact := timeMsToISO(now.UnixMilli())
+	exact := formatUnixMillisISO(now.UnixMilli())
 	if IsCooldownActive(&exact, nowISO) {
 		t.Fatalf("cooldownUntil==now must not be active; cool=%q now=%q", exact, nowISO)
 	}
@@ -498,5 +496,5 @@ func describePtr(p *int64) string {
 	if p == nil {
 		return "nil"
 	}
-	return formatInt(*p)
+	return strconv.FormatInt(*p, 10)
 }

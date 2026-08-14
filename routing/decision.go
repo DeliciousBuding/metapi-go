@@ -2,6 +2,7 @@ package routing
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -88,120 +89,17 @@ func (s *RouteDecisionService) saveRouteDecisionSnapshot(ctx context.Context, ro
 
 // marshalDecision JSON-encodes a RouteDecisionExplanation.
 func marshalDecision(d RouteDecisionExplanation) (string, error) {
-	// Use a simple JSON builder
-	b := []byte{'{'}
-	b = append(b, `"requestedModel":"`...)
-	b = append(b, escapeJSON(d.RequestedModel)...)
-	b = append(b, `","actualModel":"`...)
-	b = append(b, escapeJSON(d.ActualModel)...)
-	b = append(b, `","matched":`...)
-	if d.Matched {
-		b = append(b, "true"...)
-	} else {
-		b = append(b, "false"...)
+	// Keep the historical hand-built shape: summary/candidates are always
+	// arrays (never null) even when empty.
+	if d.Summary == nil {
+		d.Summary = []string{}
 	}
-	if d.RouteID != nil {
-		b = append(b, `,"routeId":`...)
-		b = append(b, fmtInt(*d.RouteID)...)
+	if d.Candidates == nil {
+		d.Candidates = []RouteDecisionCandidate{}
 	}
-	if d.ModelPattern != "" {
-		b = append(b, `,"modelPattern":"`...)
-		b = append(b, escapeJSON(d.ModelPattern)...)
+	b, err := json.Marshal(d)
+	if err != nil {
+		return "", err
 	}
-	if d.SelectedChannelID != nil {
-		b = append(b, `,"selectedChannelId":`...)
-		b = append(b, fmtInt(*d.SelectedChannelID)...)
-	}
-	if d.SelectedAccountID != nil {
-		b = append(b, `,"selectedAccountId":`...)
-		b = append(b, fmtInt(*d.SelectedAccountID)...)
-	}
-	if d.SelectedLabel != "" {
-		b = append(b, `,"selectedLabel":"`...)
-		b = append(b, escapeJSON(d.SelectedLabel)...)
-	}
-	b = append(b, `,"summary":[`...)
-	for i, s := range d.Summary {
-		if i > 0 {
-			b = append(b, ',')
-		}
-		b = append(b, '"')
-		b = append(b, escapeJSON(s)...)
-		b = append(b, '"')
-	}
-	b = append(b, `],"candidates":[`...)
-	for i, c := range d.Candidates {
-		if i > 0 {
-			b = append(b, ',')
-		}
-		b = append(b, '{')
-		b = append(b, `"channelId":`...)
-		b = append(b, fmtInt(c.ChannelID)...)
-		b = append(b, `,"accountId":`...)
-		b = append(b, fmtInt(c.AccountID)...)
-		b = append(b, `,"username":"`...)
-		b = append(b, escapeJSON(c.Username)...)
-		b = append(b, `","siteName":"`...)
-		b = append(b, escapeJSON(c.SiteName)...)
-		b = append(b, `","tokenName":"`...)
-		b = append(b, escapeJSON(c.TokenName)...)
-		b = append(b, `","priority":`...)
-		b = append(b, fmtInt(c.Priority)...)
-		b = append(b, `,"weight":`...)
-		b = append(b, fmtInt(c.Weight)...)
-		b = append(b, `,"eligible":`...)
-		if c.Eligible {
-			b = append(b, "true"...)
-		} else {
-			b = append(b, "false"...)
-		}
-		b = append(b, `,"recentlyFailed":`...)
-		if c.RecentlyFailed {
-			b = append(b, "true"...)
-		} else {
-			b = append(b, "false"...)
-		}
-		b = append(b, `,"avoidedByRecentFailure":`...)
-		if c.AvoidedByRecentFailure {
-			b = append(b, "true"...)
-		} else {
-			b = append(b, "false"...)
-		}
-		b = append(b, `,"probability":`...)
-		b = append(b, fmtFloatValue(c.Probability)...)
-		b = append(b, `,"reason":"`...)
-		b = append(b, escapeJSON(c.Reason)...)
-		b = append(b, '"')
-		b = append(b, '}')
-	}
-	b = append(b, ']')
-	b = append(b, '}')
 	return string(b), nil
-}
-
-func fmtFloatValue(v float64) string {
-	// Simple float formatting
-	return fmtFloat(v)
-}
-
-func escapeJSON(s string) string {
-	result := make([]byte, 0, len(s))
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		switch c {
-		case '"':
-			result = append(result, '\\', '"')
-		case '\\':
-			result = append(result, '\\', '\\')
-		case '\n':
-			result = append(result, '\\', 'n')
-		case '\r':
-			result = append(result, '\\', 'r')
-		case '\t':
-			result = append(result, '\\', 't')
-		default:
-			result = append(result, c)
-		}
-	}
-	return string(result)
 }

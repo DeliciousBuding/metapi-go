@@ -2,6 +2,7 @@ package routing
 
 import (
 	"sort"
+	"time"
 )
 
 // GetRoundRobinCandidates sorts candidates by lastSelectedAt || lastUsedAt ascending.
@@ -55,11 +56,11 @@ func ApplyRoundRobinCooldown(
 	nextCooldownLevel = cooldownLevel
 
 	if nextConsecutiveFailCount >= RoundRobinFailureThreshold {
-		nextCooldownLevel = min64(cooldownLevel+1, int64(len(RoundRobinCooldownLevelsSec)-1))
+		nextCooldownLevel = min(cooldownLevel+1, int64(len(RoundRobinCooldownLevelsSec)-1))
 		cooldownSec := ResolveRoundRobinCooldownSec(int(nextCooldownLevel))
 		if cooldownSec > 0 {
 			untilMs := nowMs + ClampFailureCooldownMs(cooldownSec*1000, configuredMaxSec)
-			iso := timeFromMs(untilMs)
+			iso := formatUnixMillisISO(untilMs)
 			cooldownUntilISO = &iso
 		}
 		nextConsecutiveFailCount = 0
@@ -72,94 +73,13 @@ func ApplyFibonacciCooldown(failCount int64, nowMs int64, configuredMaxSec int) 
 	fc := failCount
 	effectiveMs := ResolveEffectiveFailureCooldownMs(&fc, configuredMaxSec)
 	untilMs := nowMs + effectiveMs
-	iso := timeFromMs(untilMs)
+	iso := formatUnixMillisISO(untilMs)
 	return &iso
 }
 
-// timeFromMs formats Unix milliseconds as ISO 8601.
-func timeFromMs(ms int64) string {
-	return timeMsToISO(ms)
-}
-
-func timeMsToISO(ms int64) string {
-	// format as "2006-01-02T15:04:05.000Z"
-	t := secToTime(ms / 1000)
-	ns := (ms % 1000) * 1000000
-	return t.Format("2006-01-02T15:04:05") + "." + pad3(int(ns/1000000)) + "Z"
-}
-
-func secToTime(sec int64) timeTime {
-	return timeUnix(sec, 0)
-}
-
-type timeTime struct {
-	unix int64
-}
-
-func timeUnix(sec int64, nsec int64) timeTime {
-	return timeTime{unix: sec}
-}
-
-func (t timeTime) Format(layout string) string {
-	// Compute the date/time parts from unix seconds
-	// This is a simplified implementation
-	sec := t.unix
-	// Adjust for days since Unix epoch (1970-01-01)
-	day := sec / 86400
-	timeOfDay := sec % 86400
-	if timeOfDay < 0 {
-		timeOfDay += 86400
-		day--
-	}
-
-	// Compute year/month/day from day count
-	year, month, mday := daysToDate(day)
-	hour := timeOfDay / 3600
-	minute := (timeOfDay % 3600) / 60
-	second := timeOfDay % 60
-
-	switch layout {
-	case "2006-01-02T15:04:05":
-		return formatInt2(int64(year)) + "-" + formatInt2(int64(month)) + "-" + formatInt2(int64(mday)) +
-			"T" + formatInt2(hour) + ":" + formatInt2(minute) + ":" + formatInt2(second)
-	default:
-		return ""
-	}
-}
-
-func formatInt2(v int64) string {
-	s := formatInt(v)
-	if len(s) == 1 {
-		return "0" + s
-	}
-	return s
-}
-
-func pad3(v int) string {
-	s := formatInt(int64(v))
-	for len(s) < 3 {
-		s = "0" + s
-	}
-	return s
-}
-
-func daysToDate(days int64) (year int, month int, day int) {
-	// Algorithm from Howard Hinnant
-	days += 719468
-	era := days / 146097
-	if days < 0 {
-		era--
-	}
-	doe := days - era*146097
-	yoe := (doe - doe/1460 + doe/36524 - doe/146096) / 365
-	y := yoe + era*400
-	doy := doe - (365*yoe + yoe/4 - yoe/100)
-	mp := (5*doy + 2) / 153
-	d := doy - (153*mp+2)/5 + 1
-	m := mp + 3
-	if m > 12 {
-		m -= 12
-		y++
-	}
-	return int(y), int(m), int(d)
+// formatUnixMillisISO formats Unix milliseconds as ISO 8601 with always-present
+// milliseconds ("2006-01-02T15:04:05.000Z") so millis-precision values cannot
+// lose to second-precision RFC3339 strings in lexical order.
+func formatUnixMillisISO(ms int64) string {
+	return time.UnixMilli(ms).UTC().Format("2006-01-02T15:04:05.000Z")
 }

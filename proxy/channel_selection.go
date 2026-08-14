@@ -35,7 +35,6 @@ type ChannelSelectionInput struct {
 	//
 	ExcludeChannelIDs []int64
 	RetryCount        int
-	StickySessionKey  string
 	ForcedChannelID   *int64
 }
 
@@ -128,7 +127,12 @@ func CanRetryChannelSelection(retryCount int, maxRetries int, forcedChannelID *i
 // ---- Channel Selection ----
 
 // SelectProxyChannelForAttempt selects a channel for the current attempt.
-// Implements the dual-path selection: tester forced -> sticky preference -> normal -> route refresh.
+// Paths: tester forced -> normal selection (first attempt may retry selection
+// once when the store returned no channels).
+//
+// routeRefresher is retained in the signature for handler wiring, but is never
+// populated in production (RouteRefreshWorkflow has no wired implementer), so
+// no refresh step runs here.
 func SelectProxyChannelForAttempt(
 	ctx context.Context,
 	router TokenRouterInterface,
@@ -152,78 +156,23 @@ func SelectProxyChannelForAttempt(
 
 	var selected *routing.SelectedChannel
 	var err error
-	refreshedRoutes := false
-
-	refreshForFirstAttempt := func() (bool, error) {
-		if input.RetryCount > 0 || refreshedRoutes {
-			return false, nil
-		}
-		refreshedRoutes = true
-		if routeRefresher == nil {
-			return false, nil
-		}
-		if err := routeRefresher.RefreshModelsAndRebuildRoutes(ctx); err != nil {
-			return false, err
-		}
-		return true, nil
-	}
-
-	// Sticky session preference (first attempt only)
-	if input.RetryCount == 0 && input.StickySessionKey != "" {
-		preferredChannelID := coord.GetStickyChannelID(input.StickySessionKey)
-		if preferredChannelID > 0 && !containsInt64(input.ExcludeChannelIDs, preferredChannelID) {
-			selected, err = router.SelectPreferredChannel(
-				ctx,
-				input.RequestedModel,
-				preferredChannelID,
-				input.DownstreamPolicy,
-				input.ExcludeChannelIDs,
-			)
-			if selected == nil {
-				// Refresh routes and retry
-				refreshSucceeded, _ := refreshForFirstAttempt()
-				selected, err = router.SelectPreferredChannel(
-					ctx,
-					input.RequestedModel,
-					preferredChannelID,
-					input.DownstreamPolicy,
-					input.ExcludeChannelIDs,
-				)
-				if selected == nil && refreshSucceeded {
-					coord.ClearStickyChannel(input.StickySessionKey, preferredChannelID)
-				}
-			}
-		}
-	}
 
 	// Normal selection
-	if selected == nil {
-		if input.RetryCount == 0 {
-			selected, err = router.SelectChannel(ctx, input.RequestedModel, input.DownstreamPolicy)
-		} else {
-			selected, err = router.SelectNextChannel(
-				ctx,
-				input.RequestedModel,
-				input.ExcludeChannelIDs,
-				input.DownstreamPolicy,
-			)
-		}
+	if input.RetryCount == 0 {
+		selected, err = router.SelectChannel(ctx, input.RequestedModel, input.DownstreamPolicy)
+	} else {
+		selected, err = router.SelectNextChannel(
+			ctx,
+			input.RequestedModel,
+			input.ExcludeChannelIDs,
+			input.DownstreamPolicy,
+		)
 	}
 
-	// Route refresh on empty selection (first attempt only)
-	if selected == nil && input.RetryCount == 0 && !refreshedRoutes {
-		_, _ = refreshForFirstAttempt()
+	// Retry selection once on first attempt when nothing was selected.
+	if selected == nil && input.RetryCount == 0 {
 		selected, err = router.SelectChannel(ctx, input.RequestedModel, input.DownstreamPolicy)
 	}
 
 	return selected, err
-}
-
-func containsInt64(slice []int64, val int64) bool {
-	for _, v := range slice {
-		if v == val {
-			return true
-		}
-	}
-	return false
 }

@@ -289,14 +289,6 @@ func makeTestConfig() *config.Config {
 	}
 }
 
-// makeTestConfigSticky returns a config with sticky sessions enabled.
-func makeTestConfigSticky() *config.Config {
-	cfg := makeTestConfig()
-	cfg.ProxyStickySessionEnabled = true
-	cfg.ProxyStickySessionTtlMs = 300000 // 5 minutes
-	return cfg
-}
-
 // setupE2ERouter creates a chi router wired with the proxy handler and mock routing.
 // Must be called AFTER config.Set() for the global config.
 func setupE2ERouter(mockR *mockRouter, coordinator *proxy.ProxyChannelCoordinator, middleware func(http.Handler) http.Handler) chi.Router {
@@ -471,92 +463,6 @@ func TestChannelRetry(t *testing.T) {
 			t.Errorf("expected channel 2 second, got %d", mockR.selectedIDs[1])
 		}
 	}
-}
-
-// ---------------------------------------------------------------------------
-// Test 3: Sticky Session
-// ---------------------------------------------------------------------------
-
-func TestStickySession(t *testing.T) {
-	mockUpstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		writeJSONHelper(w, 200, map[string]any{
-			"id":      "chatcmpl-sticky",
-			"object":  "chat.completion",
-			"model":   "gpt-4",
-			"choices": []map[string]any{
-				{
-					"index":   0,
-					"message": map[string]any{"role": "assistant", "content": "ok"},
-				},
-			},
-		})
-	}))
-	defer mockUpstream.Close()
-
-	cfg := makeTestConfigSticky()
-	coord := proxy.NewProxyChannelCoordinator(cfg)
-
-	ch1 := makeChannel(1, mockUpstream.URL, "gpt-4")
-	ch2 := makeChannel(2, mockUpstream.URL, "gpt-4")
-	chWithSession := makeChannel(10, mockUpstream.URL, "gpt-4")
-	chWithSession.Account.ExtraConfig = strPtr(`{"credentialMode":"session"}`)
-
-	mockR := newMockRouter()
-	mockR.addChannel(ch1)
-	mockR.addChannel(ch2)
-	mockR.addChannel(chWithSession)
-	mockR.addPreferredChannel(10, chWithSession)
-
-	// Build a sticky session key and bind it to channel 10.
-	stickyKey := coord.BuildStickySessionKey("codex", "session-abc-123", "gpt-4", "/v1/chat/completions", nil)
-	coord.BindStickyChannel(stickyKey, 10, strPtr(`{"credentialMode":"session"}`), nil)
-
-	// Create a client detection function that returns the session ID.
-	// We simulate this by having the PrepareCtx path detect the session via headers.
-	// In real flow, client_detect.go handles this. For the E2E test, we send headers
-	// that would be detected as Codex with session-id.
-
-	r := setupE2ERouter(mockR, coord, injectAuthMiddleware("global", nil, "global-proxy-token"))
-
-	// Make two requests — although client detection depends on headers,
-	// the coordinator's sticky binding is verified directly below.
-
-	// Verify the sticky key resolves to channel 10.
-	gotID := coord.GetStickyChannelID(stickyKey)
-	_ = r // router is set up for the coordinator but direct tests use coordinator API
-	if gotID != 10 {
-		t.Fatalf("expected sticky channel 10, got %d", gotID)
-	}
-
-	// Make the first request — since this isn't a real Codex client,
-	// the session detection won't fire, so SelectChannel is used.
-	// The sticky session preference in SelectProxyChannelForAttempt
-	// only fires when a StickySessionKey is provided in the input.
-	// Since our injectAuthMiddleware doesn't set up client detection,
-	// the normal SelectChannel path is used.
-
-	// Test the mechanism by verifying the coordinator binding works.
-	// Make two calls and ensure the sticky key still maps to the same channel.
-	stickyKey2 := coord.BuildStickySessionKey("codex", "session-abc-123", "gpt-4", "/v1/chat/completions", nil)
-	if stickyKey2 != stickyKey {
-		t.Errorf("sticky keys should be deterministic: %q vs %q", stickyKey, stickyKey2)
-	}
-
-	// Clear and rebind to verify the lifecycle.
-	coord.ClearStickyChannel(stickyKey, 10)
-	gotID = coord.GetStickyChannelID(stickyKey)
-	if gotID != 0 {
-		t.Errorf("expected 0 after clear, got %d", gotID)
-	}
-
-	// Rebind.
-	coord.BindStickyChannel(stickyKey, 10, strPtr(`{"credentialMode":"session"}`), nil)
-	gotID = coord.GetStickyChannelID(stickyKey)
-	if gotID != 10 {
-		t.Errorf("expected 10 after rebind, got %d", gotID)
-	}
-
-	t.Log("sticky session key lifecycle verified")
 }
 
 // ---------------------------------------------------------------------------

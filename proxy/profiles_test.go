@@ -416,12 +416,6 @@ func TestDetectClientContext(t *testing.T) {
 		if ctx.ClientConfidence != "exact" {
 			t.Errorf("expected exact confidence, got %q", ctx.ClientConfidence)
 		}
-		if !ctx.Capabilities.SupportsCountTokens {
-			t.Error("expected SupportsCountTokens=true for claude_code")
-		}
-		if !ctx.Capabilities.PreservesContinuation {
-			t.Error("expected PreservesContinuation=true for claude_code")
-		}
 	})
 
 	t.Run("detects codex context", func(t *testing.T) {
@@ -438,15 +432,6 @@ func TestDetectClientContext(t *testing.T) {
 		if ctx.ClientConfidence != "exact" {
 			t.Errorf("expected exact confidence, got %q", ctx.ClientConfidence)
 		}
-		if !ctx.Capabilities.SupportsResponsesCompact {
-			t.Error("expected SupportsResponsesCompact=true for codex")
-		}
-		if !ctx.Capabilities.SupportsResponsesWebsocketIncremental {
-			t.Error("expected SupportsResponsesWebsocketIncremental=true for codex")
-		}
-		if !ctx.Capabilities.EchoesTurnState {
-			t.Error("expected EchoesTurnState=true for codex")
-		}
 	})
 
 	t.Run("detects gemini_cli context", func(t *testing.T) {
@@ -460,12 +445,6 @@ func TestDetectClientContext(t *testing.T) {
 		if ctx.ClientAppName != "Gemini CLI" {
 			t.Errorf("expected 'Gemini CLI' app name, got %q", ctx.ClientAppName)
 		}
-		if !ctx.Capabilities.SupportsCountTokens {
-			t.Error("expected SupportsCountTokens=true for gemini_cli")
-		}
-		if ctx.Capabilities.PreservesContinuation {
-			t.Error("expected PreservesContinuation=false for gemini_cli")
-		}
 	})
 
 	t.Run("detects generic context as fallback", func(t *testing.T) {
@@ -474,27 +453,6 @@ func TestDetectClientContext(t *testing.T) {
 		if ctx.ClientKind != "generic" {
 			t.Errorf("expected generic kind, got %q", ctx.ClientKind)
 		}
-		if ctx.Capabilities.SupportsCountTokens {
-			t.Error("expected SupportsCountTokens=false for generic")
-		}
 	})
 }
 
-func TestGetProfileDefinition(t *testing.T) {
-	t.Run("returns registered profile", func(t *testing.T) {
-		def := GetProfileDefinition(types.ProfileClaudeCode)
-		if def == nil {
-			t.Fatal("expected non-nil profile definition")
-		}
-		if def.ID != types.ProfileClaudeCode {
-			t.Errorf("expected claude_code, got %s", def.ID)
-		}
-	})
-
-	t.Run("returns nil for unregistered profile", func(t *testing.T) {
-		def := GetProfileDefinition("nonexistent")
-		if def != nil {
-			t.Error("expected nil for unregistered profile")
-		}
-	})
-}

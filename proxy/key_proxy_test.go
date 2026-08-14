@@ -84,18 +84,3 @@ func TestApplyKeyProxyOverride_KeyOverridesSystemProxyFlag(t *testing.T) {
 		t.Fatal("UseSystemProxy should be cleared by key override")
 	}
 }
-
-func TestResolveKeyProxyURL(t *testing.T) {
-	if ResolveKeyProxyURL(nil) != nil {
-		t.Fatal("nil in → nil out")
-	}
-	empty := "  "
-	if ResolveKeyProxyURL(&empty) != nil {
-		t.Fatal("whitespace → nil")
-	}
-	v := " http://p:1 "
-	got := ResolveKeyProxyURL(&v)
-	if got == nil || *got != "http://p:1" {
-		t.Fatalf("got %#v", got)
-	}
-}

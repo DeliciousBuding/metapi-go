@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/deliciousbuding/metapi-go/config"
@@ -46,16 +45,9 @@ func (m *mockRouter) RecordFailure(ctx context.Context, channelID int64, failure
 	return nil
 }
 
-type mockRouteRefresher struct {
-	called   bool
-	refresh  func(ctx context.Context) error
-}
+type mockRouteRefresher struct{}
 
 func (m *mockRouteRefresher) RefreshModelsAndRebuildRoutes(ctx context.Context) error {
-	m.called = true
-	if m.refresh != nil {
-		return m.refresh(ctx)
-	}
 	return nil
 }
 
@@ -85,10 +77,6 @@ func setupCfg() {
 		"PORT": "8080",
 	})
 	config.Set(cfg)
-}
-
-func sessionScopedExtraConfig() string {
-	return `{"credentialMode":"session"}`
 }
 
 // ---- Tests ----
@@ -377,109 +365,14 @@ func TestSelectProxyChannelForAttempt(t *testing.T) {
 			t.Errorf("excluded channels not passed correctly: %v", capturedExclude)
 		}
 	})
-
-	t.Run("sticky session preference - first attempt", func(t *testing.T) {
-		coord := NewProxyChannelCoordinator(config.Get())
-		coord.cfg.ProxyStickySessionEnabled = true
-		coord.cfg.ProxyStickySessionTtlMs = 60000
-
-		keyID := int64(1)
-		stickyKey := coord.BuildStickySessionKey("codex", "session-123", "gpt-4", "/v1/chat/completions", &keyID)
-
-		// Bind with session-scoped credentials
-		ec := sessionScopedExtraConfig()
-		coord.BindStickyChannel(stickyKey, 55, &ec, nil)
-
-		preferredCalled := false
-		selectCalled := false
-
-		router := &mockRouter{
-			selectPreferredChannel: func(ctx context.Context, requestedModel string, preferredChannelID int64, policy routing.DownstreamRoutingPolicy, excludeChannelIDs []int64) (*routing.SelectedChannel, error) {
-				preferredCalled = true
-				ch := makeChannel(55, 1, 100)
-				return &ch, nil
-			},
-			selectChannel: func(ctx context.Context, requestedModel string, policy routing.DownstreamRoutingPolicy) (*routing.SelectedChannel, error) {
-				selectCalled = true
-				return nil, nil
-			},
-		}
-		refresher := &mockRouteRefresher{}
-
-		selected, err := SelectProxyChannelForAttempt(ctx, router, coord, refresher, ChannelSelectionInput{
-			RequestedModel:   "gpt-4",
-			DownstreamPolicy: defaultPolicy,
-			RetryCount:       0,
-			StickySessionKey: stickyKey,
-		})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if selected == nil {
-			t.Fatal("expected selected channel via sticky preference")
-		}
-		if !preferredCalled {
-			t.Error("expected SelectPreferredChannel to be called for sticky session")
-		}
-		if selectCalled {
-			t.Error("expected SelectChannel NOT to be called when sticky preference succeeds")
-		}
-		if selected.Channel.ID != 55 {
-			t.Errorf("expected sticky channel 55, got %d", selected.Channel.ID)
-		}
-	})
-
-	t.Run("sticky channel unavailable - route refresh and retry", func(t *testing.T) {
-		coord := NewProxyChannelCoordinator(config.Get())
-		coord.cfg.ProxyStickySessionEnabled = true
-		coord.cfg.ProxyStickySessionTtlMs = 60000
-
-		keyID := int64(1)
-		stickyKey := coord.BuildStickySessionKey("codex", "session-abc", "gpt-4", "/v1/chat/completions", &keyID)
-		ec := sessionScopedExtraConfig()
-		coord.BindStickyChannel(stickyKey, 55, &ec, nil)
-
-		refresher := &mockRouteRefresher{}
-		callCount := 0
-
-		router := &mockRouter{
-			selectPreferredChannel: func(ctx context.Context, requestedModel string, preferredChannelID int64, policy routing.DownstreamRoutingPolicy, excludeChannelIDs []int64) (*routing.SelectedChannel, error) {
-				callCount++
-				if callCount == 1 {
-					return nil, nil // first call: unavailable
-				}
-				ch := makeChannel(55, 1, 100)
-				return &ch, nil
-			},
-		}
-
-		selected, err := SelectProxyChannelForAttempt(ctx, router, coord, refresher, ChannelSelectionInput{
-			RequestedModel:   "gpt-4",
-			DownstreamPolicy: defaultPolicy,
-			RetryCount:       0,
-			StickySessionKey: stickyKey,
-		})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if selected == nil {
-			t.Fatal("expected selected channel after refresh")
-		}
-		if callCount != 2 {
-			t.Errorf("expected 2 preferred channel calls, got %d", callCount)
-		}
-		if !refresher.called {
-			t.Error("expected route refresh to be called")
-		}
-	})
 }
 
-func TestSelectProxyChannelForAttempt_RouteRefreshOnEmpty(t *testing.T) {
+func TestSelectProxyChannelForAttempt_RetrySelectionOnEmpty(t *testing.T) {
 	setupCfg()
 	ctx := context.Background()
 	coord := NewProxyChannelCoordinator(config.Get())
 
-	t.Run("route refresh on empty selection - first attempt only", func(t *testing.T) {
+	t.Run("first attempt retries selection once when empty", func(t *testing.T) {
 		count := 0
 		refresher := &mockRouteRefresher{}
 		router := &mockRouter{
@@ -502,38 +395,40 @@ func TestSelectProxyChannelForAttempt_RouteRefreshOnEmpty(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if selected == nil {
-			t.Fatal("expected selected channel after route refresh")
+			t.Fatal("expected selected channel on second selection attempt")
 		}
 		if selected.Channel.ID != 101 {
 			t.Errorf("expected channel 101, got %d", selected.Channel.ID)
-		}
-		if !refresher.called {
-			t.Error("expected route refresh to be called")
 		}
 		if count != 2 {
 			t.Errorf("expected 2 select channel calls, got %d", count)
 		}
 	})
 
-	t.Run("no route refresh on retry > 0", func(t *testing.T) {
-		refresher2 := &mockRouteRefresher{}
+	t.Run("no retry selection on retry > 0", func(t *testing.T) {
+		refresher := &mockRouteRefresher{}
+		nextCalls := 0
 		router := &mockRouter{
 			selectNextChannel: func(ctx context.Context, requestedModel string, excludeChannelIDs []int64, policy routing.DownstreamRoutingPolicy) (*routing.SelectedChannel, error) {
+				nextCalls++
 				return nil, nil
 			},
 		}
 
-		_, _ = SelectProxyChannelForAttempt(ctx, router, coord, refresher2, ChannelSelectionInput{
+		selected, _ := SelectProxyChannelForAttempt(ctx, router, coord, refresher, ChannelSelectionInput{
 			RequestedModel:   "gpt-4",
 			DownstreamPolicy: routing.EmptyDownstreamRoutingPolicy,
 			RetryCount:       1,
 		})
-		if refresher2.called {
-			t.Error("expected route refresh NOT to be called on retry > 0")
+		if selected != nil {
+			t.Error("expected nil selection on retry")
+		}
+		if nextCalls != 1 {
+			t.Errorf("expected exactly 1 SelectNextChannel call, got %d", nextCalls)
 		}
 	})
 
-	t.Run("route refresh when refresher is nil", func(t *testing.T) {
+	t.Run("nil refresher still selects on second attempt", func(t *testing.T) {
 		count := 0
 		router := &mockRouter{
 			selectChannel: func(ctx context.Context, requestedModel string, policy routing.DownstreamRoutingPolicy) (*routing.SelectedChannel, error) {
@@ -566,19 +461,14 @@ func TestSelectProxyChannelForAttempt_ErrorPropagation(t *testing.T) {
 	defaultPolicy := routing.EmptyDownstreamRoutingPolicy
 	coord := NewProxyChannelCoordinator(config.Get())
 
-	t.Run("refresh error is silently swallowed", func(t *testing.T) {
-		refresherErr := &mockRouteRefresher{
-			refresh: func(ctx context.Context) error {
-				return errors.New("refresh failed")
-			},
-		}
+	t.Run("nil selection with no available channels", func(t *testing.T) {
 		router := &mockRouter{
 			selectChannel: func(ctx context.Context, requestedModel string, policy routing.DownstreamRoutingPolicy) (*routing.SelectedChannel, error) {
 				return nil, nil
 			},
 		}
 
-		selected, err := SelectProxyChannelForAttempt(ctx, router, coord, refresherErr, ChannelSelectionInput{
+		selected, err := SelectProxyChannelForAttempt(ctx, router, coord, &mockRouteRefresher{}, ChannelSelectionInput{
 			RequestedModel:   "gpt-4",
 			DownstreamPolicy: defaultPolicy,
 			RetryCount:       0,
@@ -590,101 +480,4 @@ func TestSelectProxyChannelForAttempt_ErrorPropagation(t *testing.T) {
 			t.Error("expected nil selected when all channels exhausted")
 		}
 	})
-}
-
-func TestStickySessionChannelSelectionExpired(t *testing.T) {
-	setupCfg()
-	ctx := context.Background()
-	defaultPolicy := routing.EmptyDownstreamRoutingPolicy
-
-	coord := NewProxyChannelCoordinator(config.Get())
-	coord.cfg.ProxyStickySessionEnabled = true
-
-	keyID := int64(1)
-	stickyKey := coord.BuildStickySessionKey("codex", "session-old", "gpt-4", "/v1/chat/completions", &keyID)
-
-	ec := sessionScopedExtraConfig()
-	coord.BindStickyChannel(stickyKey, 55, &ec, nil)
-	// Manually clear the binding to simulate expiry
-	coord.ClearStickyChannel(stickyKey, 55)
-
-	selectPreferredCalled := false
-	selectChannelCalled := false
-
-	router := &mockRouter{
-		selectPreferredChannel: func(ctx context.Context, requestedModel string, preferredChannelID int64, policy routing.DownstreamRoutingPolicy, excludeChannelIDs []int64) (*routing.SelectedChannel, error) {
-			selectPreferredCalled = true
-			return nil, nil
-		},
-		selectChannel: func(ctx context.Context, requestedModel string, policy routing.DownstreamRoutingPolicy) (*routing.SelectedChannel, error) {
-			selectChannelCalled = true
-			ch := makeChannel(88, 2, 200)
-			return &ch, nil
-		},
-	}
-
-	refresher := &mockRouteRefresher{}
-
-	selected, err := SelectProxyChannelForAttempt(ctx, router, coord, refresher, ChannelSelectionInput{
-		RequestedModel:   "gpt-4",
-		DownstreamPolicy: defaultPolicy,
-		RetryCount:       0,
-		StickySessionKey: stickyKey,
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if selected == nil {
-		t.Fatal("expected selected channel via normal selection (sticky cleared)")
-	}
-	if selectPreferredCalled {
-		t.Error("expected SelectPreferredChannel NOT to be called for missing sticky binding")
-	}
-	if !selectChannelCalled {
-		t.Error("expected SelectChannel to be called as fallback")
-	}
-}
-
-func TestStickyPreferredChannelInExcludeList(t *testing.T) {
-	setupCfg()
-	ctx := context.Background()
-	defaultPolicy := routing.EmptyDownstreamRoutingPolicy
-
-	coord := NewProxyChannelCoordinator(config.Get())
-	coord.cfg.ProxyStickySessionEnabled = true
-	coord.cfg.ProxyStickySessionTtlMs = 60000
-
-	keyID := int64(1)
-	stickyKey := coord.BuildStickySessionKey("codex", "session-exclude", "gpt-4", "/v1/chat/completions", &keyID)
-	ec := sessionScopedExtraConfig()
-	coord.BindStickyChannel(stickyKey, 55, &ec, nil)
-
-	selectChannelCalled := false
-
-	router := &mockRouter{
-		selectChannel: func(ctx context.Context, requestedModel string, policy routing.DownstreamRoutingPolicy) (*routing.SelectedChannel, error) {
-			selectChannelCalled = true
-			ch := makeChannel(88, 2, 200)
-			return &ch, nil
-		},
-	}
-
-	refresher := &mockRouteRefresher{}
-
-	selected, err := SelectProxyChannelForAttempt(ctx, router, coord, refresher, ChannelSelectionInput{
-		RequestedModel:    "gpt-4",
-		DownstreamPolicy:  defaultPolicy,
-		RetryCount:        0,
-		StickySessionKey:  stickyKey,
-		ExcludeChannelIDs: []int64{55},
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if selected == nil {
-		t.Fatal("expected selected channel via normal selection")
-	}
-	if !selectChannelCalled {
-		t.Error("expected SelectChannel to be called (sticky in exclude list)")
-	}
 }

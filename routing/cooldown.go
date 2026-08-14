@@ -40,7 +40,7 @@ func ResolveFailureBackoffSec(failCount *int64) int64 {
 		normalized = *failCount
 	}
 	fib := FibonacciNumber(normalized)
-	return min64(FailureBackoffBaseSec*fib, MaxFailureBackoffSec)
+	return min(FailureBackoffBaseSec*fib, MaxFailureBackoffSec)
 }
 
 // ResolveConfiguredFailureCooldownMaxMs returns the configured max cooldown in ms.
@@ -181,7 +181,7 @@ func CompareNullableTimeDesc(left, right *string) int {
 
 // IsCooldownActive reports whether cooldownUntil is still in the future relative to nowISO.
 // Both timestamps are parsed to milliseconds before comparison so millis-bearing writer
-// formats (timeMsToISO) cannot lose to second-precision RFC3339 nowISO via lexical order.
+// formats (formatUnixMillisISO) cannot lose to second-precision RFC3339 nowISO via lexical order.
 // Example bug: "…T15:04:05.500Z" > "…T15:04:05Z" is false as strings ('.' < 'Z') but true by time.
 func IsCooldownActive(cooldownUntil *string, nowISO string) bool {
 	if cooldownUntil == nil || *cooldownUntil == "" {
@@ -197,11 +197,6 @@ func IsCooldownActive(cooldownUntil *string, nowISO string) bool {
 		return false
 	}
 	return *untilMs > *nowMs
-}
-
-// IsOAuthRouteUnitMemberCoolingDown checks if a route unit member is in cooldown.
-func IsOAuthRouteUnitMemberCoolingDown(cooldownUntil *string, nowISO string) bool {
-	return IsCooldownActive(cooldownUntil, nowISO)
 }
 
 // ClampNumber clamps a float64 to [lo, hi].
@@ -226,22 +221,6 @@ func IsContributionCloseToBest(value, bestValue, ratio float64) bool {
 		return true
 	}
 	return value >= (bestValue * ratio)
-}
-
-// min64 returns the smaller of two int64s.
-func min64(a, b int64) int64 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-// max64 returns the larger of two int64s.
-func max64(a, b int64) int64 {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 // isFiniteFloat checks if a float64 is finite.
