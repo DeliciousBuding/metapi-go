@@ -35,7 +35,9 @@ func InvalidateCache() {
 	}
 }
 
-// RouteCache caches enabled routes and per-route matches with TTL.
+// RouteCache caches the routes list and per-route matches with TTL.
+// The routes list is used by handler/admin tests to assert cache invalidation
+// semantics; the selector itself reads routes straight from the DB.
 type RouteCache struct {
 	mu           sync.RWMutex
 	routesLoaded bool

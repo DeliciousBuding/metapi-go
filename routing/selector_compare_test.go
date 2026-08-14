@@ -2,6 +2,7 @@ package routing
 
 import (
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -69,13 +70,13 @@ func TestSelector_GoldenWeightFormula(t *testing.T) {
 	)
 
 	for _, d := range result.Details {
-		sb.WriteString(formatInt(d.Candidate.Channel.ID))
+		sb.WriteString(strconv.FormatInt(d.Candidate.Channel.ID, 10))
 		sb.WriteString(",")
-		sb.WriteString(formatInt(d.Candidate.Site.ID))
+		sb.WriteString(strconv.FormatInt(d.Candidate.Site.ID, 10))
 		sb.WriteString(",")
-		sb.WriteString(formatInt(d.Candidate.Account.ID))
+		sb.WriteString(strconv.FormatInt(d.Candidate.Account.ID, 10))
 		sb.WriteString(",")
-		sb.WriteString(fmtFloat(d.Probability))
+		sb.WriteString(formatGoldenFloat(d.Probability))
 		sb.WriteString("\n")
 	}
 

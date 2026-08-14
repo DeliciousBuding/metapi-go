@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/deliciousbuding/metapi-go/proxy/profiles"
-	"github.com/deliciousbuding/metapi-go/proxy/types"
 )
 
 // SiteProtocolPreference re-exports profiles.SiteProtocolPreference for callers
@@ -45,8 +44,6 @@ type EndpointCandidateOptions struct {
 	DisableCrossProtocolFallback bool
 	// Preference is the site protocol preference (responses-only / stream).
 	Preference SiteProtocolPreference
-	// DownstreamClient may influence preference when Codex profile is detected.
-	DownstreamClient *types.DetectedProfile
 }
 
 // ResolveEndpointCandidatesWithOptions builds the ordered multi-protocol candidate
@@ -66,9 +63,6 @@ func ResolveEndpointCandidatesWithOptions(downstreamPath string, opts EndpointCa
 	pref := opts.Preference
 	// Codex client profile on responses path reinforces prefer-responses, but does
 	// not by itself force responses-only (that is a site property).
-	// Codex client profile is informational only; site preference remains authoritative
-	// for responses-only. DownstreamClient is accepted for future scoring hooks.
-	_ = opts.DownstreamClient
 
 	if pref.ResponsesOnly {
 		return []UpstreamEndpoint{EndpointResponses}

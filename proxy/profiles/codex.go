@@ -8,14 +8,7 @@ import (
 
 func codexProfile() *types.CliProfileDefinition {
 	return &types.CliProfileDefinition{
-		ID: types.ProfileCodex,
-		Capabilities: types.CliProfileCapabilities{
-			SupportsResponsesCompact:             true,
-			SupportsResponsesWebsocketIncremental: true,
-			PreservesContinuation:                true,
-			SupportsCountTokens:                  false,
-			EchoesTurnState:                      true,
-		},
+		ID:     types.ProfileCodex,
 		Detect: detectCodex,
 	}
 }

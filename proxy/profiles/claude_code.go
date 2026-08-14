@@ -12,14 +12,7 @@ var claudeCodeUserAgentPattern = regexp.MustCompile(`^claude-cli/\d+\.\d+\.\d+`)
 
 func claudeCodeProfile() *types.CliProfileDefinition {
 	return &types.CliProfileDefinition{
-		ID: types.ProfileClaudeCode,
-		Capabilities: types.CliProfileCapabilities{
-			SupportsResponsesCompact:             false,
-			SupportsResponsesWebsocketIncremental: false,
-			PreservesContinuation:                true,
-			SupportsCountTokens:                  true,
-			EchoesTurnState:                      false,
-		},
+		ID:     types.ProfileClaudeCode,
 		Detect: detectClaudeCode,
 	}
 }

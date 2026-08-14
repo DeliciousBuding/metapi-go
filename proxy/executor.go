@@ -241,11 +241,6 @@ func (e *RuntimeExecutor) WithObservedFirstByte(
 	}, firstByteLatencyMs, nil
 }
 
-// IsObservedFirstByteTimeout checks if a result represents a first-byte timeout.
-func IsObservedFirstByteTimeout(result *ExecutorDispatchResult) bool {
-	return result != nil && result.Status == 0
-}
-
 // IsObservedFirstByteTimeoutError reports whether err is a first-byte timeout.
 func IsObservedFirstByteTimeoutError(err error) bool {
 	return errors.Is(err, ErrObservedFirstByteTimeout)

@@ -3,6 +3,7 @@ package routing
 import (
 	"math"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -423,7 +424,7 @@ func TestAllBreakerOpen(t *testing.T) {
 	state2.BreakerUntilMs = &breakerMs
 	healthStateMu.Unlock()
 
-	healthy, avoided := GetBreakerFilteredCandidatesByModel(candidates, "gpt-4")
+	healthy, avoided := FilterSiteRuntimeBrokenCandidatesByModel(candidates, "gpt-4")
 
 	// When all are broken, all should be returned (starvation prevention)
 	if len(healthy) != len(candidates) {
@@ -465,7 +466,7 @@ func TestPartialBreakerOpen(t *testing.T) {
 	state1.BreakerUntilMs = &breakerMs
 	healthStateMu.Unlock()
 
-	healthy, avoided := GetBreakerFilteredCandidatesByModel(candidates, "gpt-4")
+	healthy, avoided := FilterSiteRuntimeBrokenCandidatesByModel(candidates, "gpt-4")
 
 	// Site 10 should be filtered out, sites 20 and 30 should remain
 	if len(healthy) != 2 {
@@ -711,13 +712,13 @@ func TestGoldenFile_Consistency(t *testing.T) {
 		nil, 1.0, nil, 0, WeightedMode, "", nil, 1.0,
 	)
 	for _, d := range weightedResult.Details {
-		sb.WriteString(formatInt(d.Candidate.Channel.ID))
+		sb.WriteString(strconv.FormatInt(d.Candidate.Channel.ID, 10))
 		sb.WriteString(",")
-		sb.WriteString(formatInt(d.Candidate.Site.ID))
+		sb.WriteString(strconv.FormatInt(d.Candidate.Site.ID, 10))
 		sb.WriteString(",")
-		sb.WriteString(formatInt(d.Candidate.Account.ID))
+		sb.WriteString(strconv.FormatInt(d.Candidate.Account.ID, 10))
 		sb.WriteString(",")
-		sb.WriteString(fmtFloat(d.Probability))
+		sb.WriteString(formatGoldenFloat(d.Probability))
 		sb.WriteString("\n")
 	}
 
@@ -737,23 +738,23 @@ func TestGoldenFile_Consistency(t *testing.T) {
 		nil, 1.0, nil, 0, StableFirstMode, "1:gpt-4", nil, 1.0,
 	)
 	for _, d := range stableFirstResult.Details {
-		sb.WriteString(formatInt(d.Candidate.Channel.ID))
+		sb.WriteString(strconv.FormatInt(d.Candidate.Channel.ID, 10))
 		sb.WriteString(",")
-		sb.WriteString(formatInt(d.Candidate.Site.ID))
+		sb.WriteString(strconv.FormatInt(d.Candidate.Site.ID, 10))
 		sb.WriteString(",")
-		sb.WriteString(formatInt(d.Candidate.Account.ID))
+		sb.WriteString(strconv.FormatInt(d.Candidate.Account.ID, 10))
 		sb.WriteString(",")
-		sb.WriteString(fmtFloat(d.Probability))
+		sb.WriteString(formatGoldenFloat(d.Probability))
 		sb.WriteString("\n")
 	}
 	sb.WriteString("# Stable site count: ")
-	sb.WriteString(formatInt(int64(stableFirstResult.StableSiteCount)))
+	sb.WriteString(strconv.FormatInt(int64(stableFirstResult.StableSiteCount), 10))
 	sb.WriteString("\n")
 	if stableFirstResult.Selected != nil {
 		sb.WriteString("# Selected: channel=")
-		sb.WriteString(formatInt(stableFirstResult.Selected.Channel.ID))
+		sb.WriteString(strconv.FormatInt(stableFirstResult.Selected.Channel.ID, 10))
 		sb.WriteString(", site=")
-		sb.WriteString(formatInt(stableFirstResult.Selected.Site.ID))
+		sb.WriteString(strconv.FormatInt(stableFirstResult.Selected.Site.ID, 10))
 		sb.WriteString("\n")
 	}
 
@@ -771,13 +772,13 @@ func TestGoldenFile_Consistency(t *testing.T) {
 	robinCandidates := makeRoundRobinTestCandidates()
 	ordered := GetRoundRobinCandidates(robinCandidates)
 	for i, c := range ordered {
-		sb.WriteString(formatInt(int64(i + 1)))
+		sb.WriteString(strconv.FormatInt(int64(i+1), 10))
 		sb.WriteString(",")
-		sb.WriteString(formatInt(c.Channel.ID))
+		sb.WriteString(strconv.FormatInt(c.Channel.ID, 10))
 		sb.WriteString(",")
-		sb.WriteString(formatInt(c.Site.ID))
+		sb.WriteString(strconv.FormatInt(c.Site.ID, 10))
 		sb.WriteString(",")
-		sb.WriteString(formatInt(c.Account.ID))
+		sb.WriteString(strconv.FormatInt(c.Account.ID, 10))
 		sb.WriteString("\n")
 	}
 
