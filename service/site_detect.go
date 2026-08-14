@@ -1,8 +1,12 @@
 package service
 
 import (
+	"context"
 	"net/url"
 	"strings"
+	"time"
+
+	"github.com/deliciousbuding/metapi-go/platform"
 )
 
 // DetectResult is the result of platform detection.
@@ -117,8 +121,13 @@ func DetectSite(rawURL string) *DetectResult {
 	case strings.Contains(host, "aistudio.google.com") || strings.Contains(host, "makersuite.google.com"):
 		platform = "gemini"
 	default:
-		// Check for common NewAPI/OneAPI patterns
-		if strings.Contains(host, "anyrouter") || strings.Contains(parsed.Path, "anyrouter") {
+		// Adapter-based detection for gateway forks (NewAPI/OneAPI/Sub2API/
+		// one-hub/done-hub/veloera/cliproxyapi/anyrouter). Keyword heuristics
+		// remain as a fallback for WAF/shield-fronted deployments whose HTTP
+		// probes are blocked.
+		if name := detectPlatformByAdapter(trimmed); name != "" {
+			platform = name
+		} else if strings.Contains(host, "anyrouter") || strings.Contains(parsed.Path, "anyrouter") {
 			platform = "anyrouter"
 		} else if strings.Contains(host, "oneapi") || strings.Contains(host, "new-api") || strings.Contains(host, "newapi") {
 			platform = "new-api"
@@ -164,4 +173,28 @@ func CanonicalizeSiteURL(rawURL string) string {
 	parsed.RawQuery = ""
 	parsed.Fragment = ""
 	return strings.TrimRight(parsed.String(), "/")
+}
+
+// adapterDetectTimeout bounds the adapter-chain detection. Detection is a
+// one-shot admin action (site create/import), so a few seconds is acceptable.
+const adapterDetectTimeout = 6 * time.Second
+
+// detectPlatformByAdapter runs the adapter registry Detect chain in registration
+// order (specific forks before generic adapters, OneAPI catch-all last). The
+// first true result wins. Errors are treated as "not detected" so one broken
+// probe cannot abort the whole chain.
+func detectPlatformByAdapter(rawURL string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), adapterDetectTimeout)
+	defer cancel()
+
+	for _, adapter := range platform.ListAdapters() {
+		ok, err := adapter.Detect(ctx, rawURL)
+		if err != nil {
+			continue
+		}
+		if ok {
+			return adapter.PlatformName()
+		}
+	}
+	return ""
 }
