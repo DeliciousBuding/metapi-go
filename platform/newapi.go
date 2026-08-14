@@ -39,7 +39,7 @@ func (n *NewApiAdapter) Login(ctx context.Context, baseURL, username, password s
 	body := map[string]string{"username": username, "password": password}
 	headers := map[string]string{
 		"X-Requested-With": "XMLHttpRequest",
-		"User-Agent":       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+		"User-Agent":       DefaultBrowserUserAgent,
 	}
 
 	parsed, cookieHeader, err := fetchLoginResponse(ctx, baseURL+"/api/user/login", body, headers, proxy)

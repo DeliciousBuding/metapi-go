@@ -216,6 +216,9 @@ func fetchJSON(ctx context.Context, url, method string, body interface{}, header
 	if _, ok := headers["Content-Type"]; !ok {
 		headers["Content-Type"] = "application/json"
 	}
+	if _, ok := headers["User-Agent"]; !ok {
+		headers["User-Agent"] = DefaultBrowserUserAgent
+	}
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
@@ -259,6 +262,7 @@ func fetchText(ctx context.Context, url string, proxy *ProxyConfig) (string, str
 		return "", "", fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,*/*;q=0.8")
+	req.Header.Set("User-Agent", DefaultBrowserUserAgent)
 
 	resp, err := DoWithProxy(ctx, req, proxy)
 	if err != nil {
