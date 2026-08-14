@@ -242,6 +242,14 @@ type Config struct {
 	GlobalBlockedBrands                        []string
 	GlobalAllowedModels                        []string
 
+	// Prompt Filter (OAuth account pool protection, #681).
+	// PROMPT_FILTER_ENABLED gates a pre-upstream pattern-based safety filter
+	// that blocks jailbreak/exfiltration prompts before they reach shared OAuth
+	// accounts. Default false — opt-in only. PROMPT_FILTER_DENY_PATTERNS is a
+	// comma-separated list of extra substring patterns appended to the seed list.
+	PromptFilterEnabled      bool
+	PromptFilterDenyPatterns []string
+
 	// Proxy: Debug (9 fields)
 	ProxyDebugTraceEnabled        bool
 	ProxyDebugCaptureHeaders      bool
@@ -630,6 +638,10 @@ func Load(env map[string]string) *Config {
 	cfg.ProxyErrorKeywords = parseCsvList(get("PROXY_ERROR_KEYWORDS"))
 	cfg.GlobalBlockedBrands = []string{}
 	cfg.GlobalAllowedModels = []string{}
+
+	// ---- §3.17b Prompt Filter (OAuth pool protection, #681) ----
+	cfg.PromptFilterEnabled = parseBoolean(get("PROMPT_FILTER_ENABLED"), false)
+	cfg.PromptFilterDenyPatterns = parseCsvList(get("PROMPT_FILTER_DENY_PATTERNS"))
 
 	// ---- §3.18 Proxy: Debug ----
 	cfg.ProxyDebugTraceEnabled = parseBoolean(get("PROXY_DEBUG_TRACE_ENABLED"), false)

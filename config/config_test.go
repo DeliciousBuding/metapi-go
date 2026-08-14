@@ -104,6 +104,35 @@ func TestLoadResinDefaultsOff(t *testing.T) {
 	}
 }
 
+func TestLoadPromptFilterDefaultsOff(t *testing.T) {
+	cfg := Load(map[string]string{})
+	if cfg.PromptFilterEnabled {
+		t.Fatal("PromptFilterEnabled = true, want false default")
+	}
+	if len(cfg.PromptFilterDenyPatterns) != 0 {
+		t.Fatalf("PromptFilterDenyPatterns = %v, want empty default", cfg.PromptFilterDenyPatterns)
+	}
+}
+
+func TestLoadPromptFilterParsesEnabledAndPatterns(t *testing.T) {
+	cfg := Load(map[string]string{
+		"PROMPT_FILTER_ENABLED":       "true",
+		"PROMPT_FILTER_DENY_PATTERNS": " forbidden phrase , another-bad ,",
+	})
+	if !cfg.PromptFilterEnabled {
+		t.Fatal("PromptFilterEnabled = false, want true")
+	}
+	want := []string{"forbidden phrase", "another-bad"}
+	if len(cfg.PromptFilterDenyPatterns) != len(want) {
+		t.Fatalf("PromptFilterDenyPatterns = %v, want %v", cfg.PromptFilterDenyPatterns, want)
+	}
+	for i := range want {
+		if cfg.PromptFilterDenyPatterns[i] != want[i] {
+			t.Fatalf("PromptFilterDenyPatterns[%d] = %q, want %q", i, cfg.PromptFilterDenyPatterns[i], want[i])
+		}
+	}
+}
+
 func TestLoadParsesUTLSEnabled(t *testing.T) {
 	cfg := Load(map[string]string{
 		"UTLS_ENABLED": "true",
