@@ -5,7 +5,7 @@
 ## Prerequisites
 
 - Docker (for containerized deployment)
-- Go 1.26.5+ (for bare-metal deployment)
+- Go 1.26.6+ (for bare-metal deployment)
 - Bun 1.x (for frontend build)
 - PostgreSQL 16+ (optional, for production database)
 - A reverse proxy (nginx or Caddy) with TLS

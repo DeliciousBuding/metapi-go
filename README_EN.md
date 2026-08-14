@@ -18,7 +18,7 @@
   <a href="https://github.com/DeliciousBuding/metapi-go/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/DeliciousBuding/metapi-go?logo=github&label=release&color=blue"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/DeliciousBuding/metapi-go?style=social"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/forks"><img alt="Forks" src="https://img.shields.io/github/forks/DeliciousBuding/metapi-go?style=social"></a>
-  <img alt="Go" src="https://img.shields.io/badge/Go-1.26.5-00ADD8?logo=go">
+  <img alt="Go" src="https://img.shields.io/badge/Go-1.26.6-00ADD8?logo=go">
   <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?logo=react">
   <img alt="Bun" src="https://img.shields.io/badge/Bun-≥1.0-000000?logo=bun&logoColor=white">
   <a href="https://github.com/DeliciousBuding/metapi-go/pkgs/container/metapi-go"><img alt="Docker" src="https://img.shields.io/badge/ghcr-latest-2496ED?logo=docker&logoColor=white"></a>
@@ -68,7 +68,7 @@ Open `http://localhost:4000`.
 | Layer | Technology |
 |------|------|
 | Backend | [chi](https://github.com/go-chi/chi) router + `net/http` |
-| Language | Go 1.26.5 |
+| Language | Go 1.26.6 |
 | Database | SQLite / PostgreSQL + [sqlx](https://github.com/jmoiron/sqlx); optional Redis for RPM/TPM admission only |
 | Scheduling | [robfig/cron](https://github.com/robfig/cron) |
 | Container | Docker (Alpine, 15MB image) |

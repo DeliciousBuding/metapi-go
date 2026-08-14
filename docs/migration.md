@@ -14,7 +14,7 @@ The migration involves:
 
 ## Prerequisites
 
-- Go 1.26.5+ installed
+- Go 1.26.6+ installed
 - Built `metapi-migrate` binary: `make migrate-build`
 - PostgreSQL 16+ running (if migrating to PG)
 - Backed up your existing SQLite database

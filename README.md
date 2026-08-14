@@ -18,7 +18,7 @@
   <a href="https://github.com/DeliciousBuding/metapi-go/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/DeliciousBuding/metapi-go?logo=github&label=release&color=blue"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/DeliciousBuding/metapi-go?style=social"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/forks"><img alt="Forks" src="https://img.shields.io/github/forks/DeliciousBuding/metapi-go?style=social"></a>
-  <img alt="Go" src="https://img.shields.io/badge/Go-1.26.5-00ADD8?logo=go">
+  <img alt="Go" src="https://img.shields.io/badge/Go-1.26.6-00ADD8?logo=go">
   <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?logo=react">
   <img alt="Bun" src="https://img.shields.io/badge/Bun-≥1.0-000000?logo=bun&logoColor=white">
   <a href="https://github.com/DeliciousBuding/metapi-go/pkgs/container/metapi-go"><img alt="Docker" src="https://img.shields.io/badge/ghcr-latest-2496ED?logo=docker&logoColor=white"></a>
@@ -220,7 +220,7 @@ Cron 定时执行（默认每日 08:00），智能解析奖励金额，签到失
 | 层 | 技术 |
 |----|------|
 | 后端 | [chi](https://github.com/go-chi/chi) 路由 + `net/http` |
-| 语言 | Go 1.26.5 |
+| 语言 | Go 1.26.6 |
 | 数据库 | SQLite / PostgreSQL + [sqlx](https://github.com/jmoiron/sqlx)；可选 Redis 仅用于 RPM/TPM admission（非必需） |
 | 定时任务 | [robfig/cron](https://github.com/robfig/cron) |
 | 容器化 | Docker（Alpine，15MB 镜像） |
