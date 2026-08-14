@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 )
 
@@ -727,5 +728,26 @@ func extractModelIDsFromData(resp map[string]interface{}) []string {
 			}
 		}
 	}
-	return models
+	return normalizeModelIDs(models)
+}
+
+// normalizeModelIDs dedups case-insensitively (preserving first-seen casing),
+// strips a "models/" prefix, and sorts for deterministic output.
+func normalizeModelIDs(models []string) []string {
+	seen := make(map[string]bool, len(models))
+	result := make([]string, 0, len(models))
+	for _, m := range models {
+		t := strings.TrimPrefix(strings.TrimSpace(m), "models/")
+		if t == "" {
+			continue
+		}
+		key := strings.ToLower(t)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		result = append(result, t)
+	}
+	sort.Strings(result)
+	return result
 }

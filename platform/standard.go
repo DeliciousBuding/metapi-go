@@ -68,7 +68,7 @@ func (s *StandardAdapter) fetchModelsFromStandardEndpoint(ctx context.Context, b
 			}
 		}
 	}
-	return models, nil
+	return normalizeModelIDs(models), nil
 }
 
 // --- URL normalization helpers ---

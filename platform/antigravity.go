@@ -58,7 +58,7 @@ func extractAntigravityModelNames(payload map[string]interface{}) []string {
 				names = append(names, t)
 			}
 		}
-		return names
+		return normalizeModelIDs(names)
 	}
 
 	// Array form: {"models": [{"id": "...", "name": "..."},...]}
@@ -78,7 +78,7 @@ func extractAntigravityModelNames(payload map[string]interface{}) []string {
 				}
 			}
 		}
-		return names
+		return normalizeModelIDs(names)
 	}
 
 	return []string{}
