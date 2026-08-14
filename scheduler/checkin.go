@@ -144,6 +144,13 @@ func (s *CheckinScheduler) startLocked() {
 // maybeCatchUpCheckin queries whether today's scheduled check-in already
 // passed without a run and, if so, triggers an immediate run (guarded by the
 // scheduler lease like every other run). Idempotent by construction.
+//
+// When the global catch-up does not apply (today's run already happened, or
+// the trigger is still ahead), it falls back to a per-account stale catch-up
+// (issue #669): enqueue accounts whose last_checkin_at is nil or older than
+// 24h. This covers cases the global "ranToday" gate misses — e.g. an account
+// was added mid-day, recovered after a transient failure, or was skipped by
+// an aborted prior run while other accounts succeeded.
 func (s *CheckinScheduler) maybeCatchUpCheckin() {
 	dbw := store.GetDB()
 	if dbw == nil {
@@ -163,11 +170,65 @@ func (s *CheckinScheduler) maybeCatchUpCheckin() {
 		return
 	}
 
-	if !shouldCatchUpCheckin(now, s.cfg.CheckinCron, ranToday > 0, enabled) {
+	if shouldCatchUpCheckin(now, s.cfg.CheckinCron, ranToday > 0, enabled) {
+		slog.Info("checkin: missed today's scheduled time, compensating with immediate run", "spec", s.cfg.CheckinCron)
+		go s.runCronJob()
 		return
 	}
-	slog.Info("checkin: missed today's scheduled time, compensating with immediate run", "spec", s.cfg.CheckinCron)
-	go s.runCronJob()
+
+	// Per-account catch-up (issue #669). Runs in a goroutine so startup is
+	// not blocked; pacing and the per-account lease are reused via CheckinAll.
+	go s.runStaleAccountCatchUp(dbw)
+}
+
+// runStaleAccountCatchUp enqueues an immediate checkin for every enabled,
+// active account whose last_checkin_at is nil/empty or older than 24h. Shares
+// the scheduler lease with cron/interval runs so a concurrent tick cannot
+// double-run. CheckinAll's same-site pacing and CheckinAccount's per-account
+// lease apply unchanged (issue #669).
+func (s *CheckinScheduler) runStaleAccountCatchUp(dbw *store.DB) {
+	staleIDs, err := selectStaleCheckinAccountIDs(dbw, time.Now().Add(-24*time.Hour).UTC().Format(time.RFC3339))
+	if err != nil {
+		slog.Warn("checkin stale catch-up: query failed", "error", err)
+		return
+	}
+	if len(staleIDs) == 0 {
+		return
+	}
+	slog.Info("checkin: stale account catch-up", "count", len(staleIDs))
+	runWithSchedulerLease(context.Background(), dbw, s.Name(), func() {
+		results := checkin.CheckinAll(s.cfg, dbw.DB, staleIDs, "catchup")
+		ok, bad := countResults(results)
+		slog.Info("checkin: stale account catch-up done", "enqueued", len(staleIDs), "success", ok, "failed", bad)
+	})
+}
+
+// selectStaleCheckinAccountIDs returns IDs of enabled, active accounts on
+// non-disabled sites whose last_checkin_at is nil/empty or older than the
+// cutoff (RFC3339). Pure query — pacing and execution happen via CheckinAll.
+// String comparison of RFC3339 timestamps is chronological because both
+// last_checkin_at and the cutoff are persisted in UTC.
+func selectStaleCheckinAccountIDs(dbw *store.DB, cutoffRFC3339 string) ([]int64, error) {
+	rows, err := dbw.Query(`
+		SELECT a.id FROM accounts a
+		INNER JOIN sites s ON a.site_id = s.id
+		WHERE a.checkin_enabled = TRUE AND a.status = 'active' AND s.status <> 'disabled'
+		  AND (a.last_checkin_at IS NULL OR a.last_checkin_at = '' OR a.last_checkin_at < ?)
+	`, cutoffRFC3339)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			continue
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 func (s *CheckinScheduler) stopLocked() {
