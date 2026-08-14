@@ -3,8 +3,7 @@
 // of the site → account → route guided configuration chain.
 //
 // Navigation uses window.location.assign rather than TanStack Router's
-// type-safe `navigate` because the dashboard route registration is owned by
-// another subagent; a hard navigation keeps the deep-link working today.
+// type-safe `navigate`; a hard navigation keeps the deep-link working today.
 
 import i18n from '@/i18n/config'
 import { toast } from '@/lib/toast'

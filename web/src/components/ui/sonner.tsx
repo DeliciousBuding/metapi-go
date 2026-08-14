@@ -11,7 +11,6 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Toaster as Sonner, type ToasterProps } from 'sonner'
 
-// TODO: depends on @/context/theme-provider (useTheme) — provided by other subagent (context layer)
 import { useTheme } from '@/context/theme-provider'
 
 const Toaster = (props: ToasterProps) => {

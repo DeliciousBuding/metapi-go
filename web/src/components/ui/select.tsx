@@ -11,7 +11,6 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react'
 import * as React from 'react'
 
-// TODO: depends on @/hooks (useMediaQuery) — provided by other subagent (hooks layer)
 import { useMediaQuery } from '@/hooks'
 import { cn } from '@/lib/utils'
 
