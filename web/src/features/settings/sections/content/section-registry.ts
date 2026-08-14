@@ -1,15 +1,30 @@
 // metapi-go/features/settings/sections/content — Content subarea.
 // Scope (plan §5.5.2): import/export + notification channels + risk-banner
 // announcements. All three sections wired to real forms under ./components.
+// Each section is React.lazy so its form/table dependencies land in a separate
+// async chunk; the surrounding Suspense boundary lives in settings-page.tsx.
 
 import { MessagesSquare } from 'lucide-react'
-import { createElement } from 'react'
+import { createElement, lazy } from 'react'
 
 import type { SettingsSubarea } from '../../types'
 import { createSectionRegistry } from '../../utils/section-registry'
-import { AnnouncementsSection } from './components/announcements-section'
-import { ImportExportSection } from './components/import-export-section'
-import { NotificationsSection } from './components/notifications-section'
+
+const LazyImportExportSection = lazy(() =>
+  import('./components/import-export-section').then((module) => ({
+    default: module.ImportExportSection,
+  }))
+)
+const LazyNotificationsSection = lazy(() =>
+  import('./components/notifications-section').then((module) => ({
+    default: module.NotificationsSection,
+  }))
+)
+const LazyAnnouncementsSection = lazy(() =>
+  import('./components/announcements-section').then((module) => ({
+    default: module.AnnouncementsSection,
+  }))
+)
 
 const CONTENT_SECTIONS = [
   {
@@ -17,21 +32,21 @@ const CONTENT_SECTIONS = [
     title: 'settings.content.importExport.title',
     group: 'settings.content.groups.data',
     description: 'settings.content.importExport.description',
-    build: () => createElement(ImportExportSection),
+    build: () => createElement(LazyImportExportSection),
   },
   {
     id: 'notifications',
     title: 'settings.content.notifications.title',
     group: 'settings.content.groups.messaging',
     description: 'settings.content.notifications.description',
-    build: () => createElement(NotificationsSection),
+    build: () => createElement(LazyNotificationsSection),
   },
   {
     id: 'announcements',
     title: 'settings.content.announcements.title',
     group: 'settings.content.groups.messaging',
     description: 'settings.content.announcements.description',
-    build: () => createElement(AnnouncementsSection),
+    build: () => createElement(LazyAnnouncementsSection),
   },
 ] as const
 

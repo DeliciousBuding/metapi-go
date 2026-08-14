@@ -2,34 +2,49 @@
 // Scope (plan §5.5.2): model-name redirects + rates/multipliers + global
 // model allowlist & brand blocking. All three sections wired to real forms
 // under ./components.
+// Each section is React.lazy so its form/table dependencies land in a separate
+// async chunk; the surrounding Suspense boundary lives in settings-page.tsx.
 
 import { Boxes } from 'lucide-react'
-import { createElement } from 'react'
+import { createElement, lazy } from 'react'
 
 import type { SettingsSubarea } from '../../types'
 import { createSectionRegistry } from '../../utils/section-registry'
-import { AllowlistSection } from './components/allowlist-section'
-import { RatesSection } from './components/rates-section'
-import { RedirectsSection } from './components/redirects-section'
+
+const LazyRedirectsSection = lazy(() =>
+  import('./components/redirects-section').then((module) => ({
+    default: module.RedirectsSection,
+  }))
+)
+const LazyRatesSection = lazy(() =>
+  import('./components/rates-section').then((module) => ({
+    default: module.RatesSection,
+  }))
+)
+const LazyAllowlistSection = lazy(() =>
+  import('./components/allowlist-section').then((module) => ({
+    default: module.AllowlistSection,
+  }))
+)
 
 const MODELS_SECTIONS = [
   {
     id: 'redirects',
     title: 'settings.models.redirects.title',
     description: 'settings.models.redirects.description',
-    build: () => createElement(RedirectsSection),
+    build: () => createElement(LazyRedirectsSection),
   },
   {
     id: 'rates',
     title: 'settings.models.rates.title',
     description: 'settings.models.rates.description',
-    build: () => createElement(RatesSection),
+    build: () => createElement(LazyRatesSection),
   },
   {
     id: 'allowlist',
     title: 'settings.models.allowlist.title',
     description: 'settings.models.allowlist.description',
-    build: () => createElement(AllowlistSection),
+    build: () => createElement(LazyAllowlistSection),
   },
 ] as const
 

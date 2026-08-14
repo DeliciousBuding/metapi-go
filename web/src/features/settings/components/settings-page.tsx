@@ -14,6 +14,7 @@
 // each section's `build` (mirroring newapi's SettingsPage + useSystemOptions).
 
 import { Link, type LinkProps } from '@tanstack/react-router'
+import { Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -26,6 +27,7 @@ import {
 
 import type { SettingsSubarea } from '../types'
 import { SettingsSidebar } from './settings-sidebar'
+import { SettingsSectionSkeleton } from './settings-section-card'
 
 type SettingsPageProps = {
   /** The assembled subarea (sections + nav + content). */
@@ -61,7 +63,14 @@ export function SettingsPage({ subarea, activeSection }: SettingsPageProps) {
       <div className='flex flex-col gap-6 lg:flex-row lg:items-start'>
         <SettingsSidebar items={navItems} title={t(subarea.title)} />
         <main className='min-w-0 flex-1'>
-          {subarea.getSectionContent(activeSection)}
+          {/* Single Suspense boundary catches the React.lazy sections emitted
+              by each subarea registry's build(). On the first visit to a
+              section its chunk suspends and the settings-shaped skeleton
+              shows; on revisits the lazy module is already resolved so the
+              section renders instantly without re-fetching. */}
+          <Suspense fallback={<SettingsSectionSkeleton />}>
+            {subarea.getSectionContent(activeSection)}
+          </Suspense>
         </main>
       </div>
     </div>
