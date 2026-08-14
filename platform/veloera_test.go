@@ -136,10 +136,10 @@ func TestVeloeraAdapter_GetModels(t *testing.T) {
 	defer cancel()
 
 	models, err := v.GetModels(ctx, unreachableBaseURL(t), "token", nil, nil)
-	if err != nil {
-		t.Errorf("GetModels should not error: %v", err)
+	if err == nil {
+		t.Error("GetModels on unreachable should surface a fetch error")
 	}
 	if len(models) != 0 {
-		t.Error("GetModels on unreachable should return empty")
+		t.Error("GetModels on unreachable should return empty models")
 	}
 }

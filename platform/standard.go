@@ -2,6 +2,7 @@ package platform
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"regexp"
 	"strings"
@@ -56,7 +57,7 @@ func (s *StandardAdapter) fetchModelsFromStandardEndpoint(ctx context.Context, b
 
 	data, ok := resp["data"].([]interface{})
 	if !ok {
-		return nil, err
+		return nil, fmt.Errorf("unexpected /v1/models response shape")
 	}
 
 	models := make([]string, 0, len(data))
