@@ -1,12 +1,12 @@
 # Architecture Overview
 
-**Last updated**: 2026-08-11
+**Last updated**: 2026-08-14
 
 > **Navigation**: full docs map in [`docs/README.md`](README.md) · open items in [`progress/MASTER.md`](progress/MASTER.md).
 
 MetAPI Go is a ground-up rewrite of the TypeScript MetAPI proxy gateway in Go. This document describes the **as-built** package layout, request paths, and key design decisions. Design philosophy and package dependency rules live in [`docs/design/BACKEND.md`](design/BACKEND.md).
 
-> **Naming truth:** There is **no** `proxycore/` or `protocol/` package in this repository. The proxy engine is `proxy/` (with `proxy/profiles` and `proxy/types`). Protocol conversion is `transform/` (with `transform/canonical`, `openai`, `anthropic`, `gemini`, `shared`). Older docs or TS-era names that say “ProxyCore package” or “protocol package” refer to these real packages.
+> **Naming truth:** There is **no** `proxycore/` or `protocol/` package in this repository. The proxy engine is `proxy/` (with `proxy/profiles` and `proxy/types`). Protocol conversion is `transform/` (with `openai` [completions/embeddings/images/responses], `gemini`, and `shared`). There is **no** `transform/canonical` intermediate layer — cross-protocol conversion is native (e.g. OpenAI→Gemini) and bypasses any canonical representation. Older docs or TS-era names that say “ProxyCore package” or “protocol package” refer to these real packages.
 
 ## High-Level Architecture
 
@@ -29,9 +29,9 @@ MetAPI Go is a ground-up rewrite of the TypeScript MetAPI proxy gateway in Go. T
                  │              │
          ┌───────▼──────────────▼───────┐
          │           proxy/              │
-         │  Conductor → Session → Retry  │
-         │  ChannelSelection → Endpoint  │
-         │  FailureJudge → Surface       │
+         │  Coordinator · Executor       │
+         │  ChannelSelection · Retry     │
+         │  Profiles · Failure policy    │
          └──────────────┬───────────────┘
                         │
          ┌──────────────▼───────────────┐
@@ -42,8 +42,8 @@ MetAPI Go is a ground-up rewrite of the TypeScript MetAPI proxy gateway in Go. T
                         │
          ┌──────────────▼───────────────┐
          │        transform/             │
-         │  OpenAI / Anthropic / Gemini  │
-         │  via canonical intermediate   │
+         │  OpenAI / Gemini (native)     │
+         │  shared stream helpers        │
          └──────────────┬───────────────┘
                         │
          ┌──────────────▼───────────────┐
@@ -72,16 +72,14 @@ metapi-go/
 │   ├── admin/              # Admin REST handlers (+ payloads/)
 │   ├── proxy/              # /v1/* proxy surface handlers
 │   └── shared/             # Shared API error helpers
-├── proxy/                  # Dual-loop proxy orchestration (NOT "proxycore/")
+├── proxy/                  # Proxy orchestration (NOT "proxycore/")
 │   ├── profiles/           # Client/profile detection (Claude Code, Codex, Gemini CLI, …)
 │   └── types/              # Shared proxy types
 ├── routing/                # TokenRouter: match, weights, cooldown, site runtime breaker
 ├── platform/               # Upstream platform adapters (14) + site proxy
-├── transform/              # Protocol transformers (NOT "protocol/")
-│   ├── canonical/          # Shared intermediate representation
-│   ├── openai/             # chat, completions, embeddings, images, responses
-│   ├── anthropic/          # messages
-│   ├── gemini/             # generate_content
+├── transform/              # Protocol transformers (NOT "protocol/"; no canonical IR)
+│   ├── openai/             # completions, embeddings, images, responses
+│   ├── gemini/             # generate_content (native OpenAI→Gemini bridge)
 │   └── shared/             # Cross-protocol helpers
 ├── service/                # Domain services (sites, accounts, checkin, balance, notify, oauth, backup, …)
 ├── scheduler/              # Background cron jobs (checkin, balance, recovery, retention, …)
@@ -109,10 +107,10 @@ metapi-go/
 | `config` | Env → `Config` (names match TS; no `METAPI_` prefix) |
 | `handler/admin` | Admin CRUD + settings + ops endpoints |
 | `handler/proxy` | Protocol surfaces under `/v1/*` |
-| `proxy` | Orchestration: channel pick, session lease, retry, failure judge |
+| `proxy` | Coordinator + executor + channel selection + retry policy (the request loop itself lives in `handler/proxy/upstream.go`) |
 | `routing` | Model/route match, weighted selection, Fibonacci cooldown, site breaker |
 | `platform` | Per-upstream adapter behavior (detect, auth headers, admin APIs) |
-| `transform` | Request/response (+ SSE) conversion via canonical model |
+| `transform` | Request/response (+ SSE) conversion, native per protocol (no canonical intermediate) |
 | `service` | Business workflows used by handlers and schedulers |
 | `scheduler` | Cron-driven background work |
 | `store` | Dual-dialect persistence |
@@ -131,11 +129,10 @@ Client → /v1/chat/completions (or messages / generateContent / …)
   → routing selector (weights / round-robin / stable-first)
       · skip cooldown channels
       · skip open site/model runtime breakers
-  → proxy.Conductor.Execute
+  → handler/proxy upstream loop (per-attempt retry in `upstream.go`)
       → profile detect (proxy/profiles)
-      → session lease / sticky preference
-      → endpoint flow + retry policy
-          → transform (client format ↔ provider format via canonical)
+      → endpoint dispatch + retry policy (proxy.retry_policy)
+          → transform (client format ↔ provider format, native per protocol)
           → HTTP to upstream (platform-aware headers / site proxy)
           → transform response / SSE
       → failure judge (content + policy)
@@ -200,7 +197,7 @@ Routing isolates bad channels instead of cascading:
 - **Per-channel cooldown** — Fibonacci backoff on failures (`routing` cooldown helpers).
 - **Site runtime breaker** — streak-based open periods at site and model granularity (`SiteRuntimeBreakerLevelsMs`).
 - **Selection filters** — open breakers and recent failures are removed before weighted/round-robin pick.
-- **Proxy failover** — conductor can retry same channel, refresh auth, or failover to the next channel without taking the whole gateway down.
+- **Proxy failover** — the request loop can retry the same channel, refresh auth, or failover to the next channel without taking the whole gateway down.
 
 ### 6. Config via env, TS-compatible names
 
@@ -223,7 +220,7 @@ routing → store, config
 service → platform, store, config, service/*
 scheduler → service/*, store, config
 platform → (leaf; no store/handler imports)
-transform/* → transform/canonical, transform/shared (leaf protocol layer)
+transform/* → transform/shared (leaf protocol layer)
 store → config
 config, web, handler/shared → leaves
 ```
@@ -236,7 +233,7 @@ config, web, handler/shared → leaves
 - **U** (understandable): real names match code (`proxy`, `transform`, `routing`)
 - **P** (pluggable): platform adapters and protocol transforms register/compose independently
 - **E** (environment-agnostic): SQLite or PostgreSQL via dialect store
-- **R** (replaceable): conductor dependencies and adapters are injectable/replaceable
+- **R** (replaceable): coordinator dependencies and platform adapters are injectable/replaceable
 
 ## Related docs
 

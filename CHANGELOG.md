@@ -5,6 +5,31 @@ All notable changes to MetAPI-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.12.0] — 2026-08-14
+
+### Removed（架构简化：净删 ~21,000 行，Go 170K→150K）
+
+- 删除 test-only 的 canonical 转换层（`transform/canonical` + `transform/openai/chat` + `transform/anthropic/messages`，~6,600 行）——生产唯一跨协议路径（OpenAI→Gemini）为原生直连，绕过 canonical（#652）
+- 删除三套测试专用编排层（`proxy/conductor.go`、`SurfaceFailureToolkit`、`ExecuteEndpointFlow`）——生产实为 `handler/proxy/upstream.go` 内的手写重试循环（#653）
+- 删除未激活的 lease/sticky 会话队列机制、`routing/workflow.go` stub、`routing/snapshot.go` 死实现（`SnapshotDB` 接口保留，由 `service.ProxyRoutingStore` 实现）（#653）
+- 删除死 facade/符号：`app/prometheus.go` 11 个包装、`handler/shared` 半套 metrics/errors、`proxy/input_files.go`、`platform` 检测管线（`detect.go`/`InitRegistry`）、`service/adapter` 桥接、`service/proxy_util.go`、`DeployHelperToken`、`store.Migrate` 重复调用等（#650/#652/#651）
+- 前端删除 14 个未使用 shadcn 组件 + ~101 个未使用 i18n key + 空 barrel（#654）
+
+### Fixed
+
+- **cmd/migrate 静默丢数据**：离线迁移工具自维护 schema 副本且已漂移（`sites` 漏 7 列等），改为复用 `store.AutoMigrate` 并新增运行时漂移守卫 `TestBuildersMatchStoreSchema`，漂移永不再发生（#651）
+- **app 垃圾抽屉**：`app/proxy_upstream.go`（801 行 DB 访问层，违反 BACKEND.md「app 不得承载业务逻辑」）移入 `service/routing_store.go`（#651）
+- **store/switch.go 运行时切换丢配置**：`SwitchDatabase` 走旧 `Open()` 丢 `DB_SSLMODE` 与连接池预算，改为透传 `cfg.PostgresSSLMode()` + `postgresPoolConfigFromRuntimeConfig`（#651）
+
+### Changed（去重 + 标准化）
+
+- 手写 stdlib 重实现全部替换为标准库：Hinnant 日历算法→`time.UnixMilli().Format()`、手写 `formatInt/parseInt64/jsonMarshal`→`strconv`/`encoding/json`、`stringsTrimSpace`→`strings.TrimSpace`、`min64/max64`→内建 `min`/`max`（#653）
+- handler 去重：mask/coerce/coalesce 家族、`shared.WriteJSON`（删掉手写 JSON 序列化器）、`pathID`、`parseLimitOffset`、统一 `decodeJSONRequest` 与 `writeError` 错误响应（#650）
+- routing 去重：cooldown 决策树 ×4 收敛为 `resolveCooldownUpdate`、eligibility 双实现收敛（修复 admin 解释缺失 OAuth/token 检查的真值 bug）、breaker 过滤器 API 收敛（#653）
+- scheduler 去重：ticker 循环 ×11 收敛为 `intervalRunner`、retention ×3 收敛为 `NewRetentionScheduler`（#651）
+- platform 去重：balance/checkin/model-list 解析各 ×4 收敛为 `base.go` 共享 helper（#652）
+- god-file 拆分：`handler/admin/*`、`handler/proxy/upstream.go`、`routing/*`、`store/migrate.go`、`platform/newapi.go`/`sub2api.go`、前端 `lib/api.ts`（1997 行→10 个域模块 + 兼容 barrel）（#650/#652/#653/#654）
+
 ## [v0.11.0] — 2026-08-14
 
 ### Added

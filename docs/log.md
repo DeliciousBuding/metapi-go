@@ -5,6 +5,13 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
 
+## 2026-08-14 — v0.12.0 架构简化（净删 ~21K 行）
+
+- **死代码大清扫**（#650–#653，5 个 PR）：删 test-only 的 canonical 转换层（~6.6K）、三套测试专用编排层（conductor/surface/endpoint_flow）、未激活的 lease/sticky 队列、死 facade（app/prometheus、shared 半套 metrics/errors、input_files、检测管线、service/adapter 桥接）；Go 170K→150K，无生产行为变化
+- **数据完整性修复**：cmd/migrate 自维护 schema 副本已漂移（sites 漏 7 列）→ 复用 store.AutoMigrate + 运行时漂移守卫；app/proxy_upstream.go 垃圾抽屉移入 service/routing_store.go
+- **去重 + 标准化**：手写 stdlib 重实现（Hinnant 日历/JSON/int/TrimSpace）→ 标准库；handler/routing/scheduler/platform 各去重 3-11 份复制；god-file 按自然接缝拆分（含前端 api.ts 1997→10 模块）
+- **文档对账**：architecture/BACKEND/package-boundaries 同步为 as-built 真相（无 canonical、无 Conductor 编排）
+
 ## 2026-08-14 — v0.11.0 管理控制台 UI/UX 全量 + 开源打磨
 
 - **管理控制台 UI/UX 与功能全量交付**（#594–#626，合并为 #633/#634）：共享格式化器、状态/空态组件、toast、CountUp、响应式 data-table + 移动端降级、无障碍、token 列脱敏、可观测性工作台（Overview/Health/Proxy Logs）、站点探测 + 统一导入向导、模型定价/价格对比/重定向修复、通道只读列表 + probe 驱动重建过滤

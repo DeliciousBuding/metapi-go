@@ -50,7 +50,7 @@ Gateway resilience is **per channel / per site**, not process-wide suicide:
 | Fibonacci failure cooldown | `routing` | Back off a bad channel without blackholing the fleet |
 | Recent-failure filters | `routing` selector | Prefer healthy candidates in the current pick |
 | Site/model runtime breaker | `routing` runtime health | Open breaker after streak; tiered open windows |
-| Conductor failover | `proxy` | Retry same channel, refresh auth, or move to next channel |
+| Channel failover | `handler/proxy` loop + `proxy` retry policy | Retry same channel, refresh auth, or move to next channel |
 | Content failure judge | `proxy` | Detect “HTTP 200 but empty/error body” without trusting status alone |
 
 Rules of thumb:
@@ -115,7 +115,7 @@ Arrows mean **“may import”**. Edges not shown are forbidden unless listed un
 | `handler/shared` | — | domain packages |
 | `store` | `config` | `handler`, `proxy`, `router`, `scheduler`, `service`, `auth` |
 | `platform` | — (leaf adapters) | `store`, `handler`, `proxy`, `router`, `scheduler` |
-| `transform/*` | `transform/canonical`, `transform/shared` | `handler`, `store`, `proxy`, `routing`, `service` |
+| `transform/*` | `transform/shared` | `handler`, `store`, `proxy`, `routing`, `service` |
 | `proxy/types`, `proxy/profiles` | `proxy/types` only (profiles) | upper layers |
 | `routing` | `config`, `store` | `handler`, `proxy`, `router`, `scheduler`, `service` |
 | `auth` | `config`, `store` | `handler`, `proxy`, `router` |
