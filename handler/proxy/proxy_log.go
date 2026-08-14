@@ -32,6 +32,44 @@ func InsertProxyLog(ctx context.Context, db *store.DB, entry proxy.ProxyLogEntry
 		return nil
 	}
 	createdAt := time.Now().UTC().Format(time.RFC3339)
+	args := proxyLogEntryArgs(entry, createdAt)
+	query := "INSERT INTO proxy_logs (" + proxyLogInsertColumns + ") VALUES " + proxyLogSingleRowPlaceholders
+	if ctx != nil {
+		_, err := db.ExecContext(ctx, query, args...)
+		return err
+	}
+	_, err := db.Exec(query, args...)
+	return err
+}
+
+// proxyLogInsertColumns is the canonical column list for a proxy_logs INSERT.
+// Order MUST match proxyLogEntryArgs. Shared by the single-row InsertProxyLog
+// path and the multi-row batch writer so the two never drift.
+const proxyLogInsertColumns = `route_id, channel_id, account_id, downstream_api_key_id,
+			model_requested, model_actual, status, http_status, is_stream,
+			first_byte_latency_ms, latency_ms,
+			prompt_tokens, completion_tokens, total_tokens,
+			estimated_cost, billing_details,
+			client_family, client_app_id, client_app_name, client_confidence,
+			error_message, retry_count, request_id, created_at`
+
+// proxyLogSingleRowPlaceholders is the 24 "?" placeholders for one row.
+// store.DB rebinds ? to $N for PostgreSQL, so the batch writer builds rows of
+// the same placeholder shape and lets the rebind do the dialect work.
+const proxyLogSingleRowPlaceholders = `(?, ?, ?, ?,
+			?, ?, ?, ?, ?,
+			?, ?,
+			?, ?, ?,
+			?, ?,
+			?, ?, ?, ?,
+			?, ?, ?, ?)`
+
+// proxyLogEntryArgs builds the positional args for one proxy_logs INSERT row,
+// matching proxyLogInsertColumns order. Shared by InsertProxyLog (single) and
+// batchInsertProxyLogs (multi-row). createdAt is injected by the caller so the
+// batch writer can stamp a whole batch with one timestamp while the single-row
+// path keeps its per-call time.Now().
+func proxyLogEntryArgs(entry proxy.ProxyLogEntry, createdAt string) []any {
 	var billingDetails any
 	if entry.BillingDetails != nil {
 		switch v := entry.BillingDetails.(type) {
@@ -43,27 +81,7 @@ func InsertProxyLog(ctx context.Context, db *store.DB, entry proxy.ProxyLogEntry
 			}
 		}
 	}
-
-	query := `
-		INSERT INTO proxy_logs (
-			route_id, channel_id, account_id, downstream_api_key_id,
-			model_requested, model_actual, status, http_status, is_stream,
-			first_byte_latency_ms, latency_ms,
-			prompt_tokens, completion_tokens, total_tokens,
-			estimated_cost, billing_details,
-			client_family, client_app_id, client_app_name, client_confidence,
-			error_message, retry_count, request_id, created_at
-		) VALUES (
-			?, ?, ?, ?,
-			?, ?, ?, ?, ?,
-			?, ?,
-			?, ?, ?,
-			?, ?,
-			?, ?, ?, ?,
-			?, ?, ?, ?
-		)`
-
-	args := []any{
+	return []any{
 		nullInt64(entry.RouteID),
 		nullInt64(entry.ChannelID),
 		nullInt64(entry.AccountID),
@@ -89,13 +107,6 @@ func InsertProxyLog(ctx context.Context, db *store.DB, entry proxy.ProxyLogEntry
 		nullString(strPtrOrEmpty(entry.RequestID)),
 		createdAt,
 	}
-
-	if ctx != nil {
-		_, err := db.ExecContext(ctx, query, args...)
-		return err
-	}
-	_, err := db.Exec(query, args...)
-	return err
 }
 
 func logProxy(ctx context.Context, cfg *UpstreamConfig, entry proxy.ProxyLogEntry) {

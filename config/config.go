@@ -285,6 +285,16 @@ type Config struct {
 	ProxyVideoTaskRetentionDays                 int
 	ProxyVideoTaskRetentionPruneIntervalMinutes int
 
+	// Proxy Log Batch Writer (3 fields). PROXY_LOG_ASYNC (default true) routes
+	// proxy_logs INSERTs through a background batch writer that decouples the
+	// hot proxy path from DB write latency / SQLite write-lock contention.
+	// Set false for tests/e2e that need write-through visibility. BATCH_SIZE
+	// (default 50) is the row count that triggers a flush; FLUSH_INTERVAL_MS
+	// (default 1000) is the max time between flushes.
+	ProxyLogAsync            bool
+	ProxyLogBatchSize        int
+	ProxyLogFlushIntervalMs  int
+
 	// Routing Weights (5 fields)
 	RoutingWeights RoutingWeights
 
@@ -684,6 +694,20 @@ func Load(env map[string]string) *Config {
 	cfg.ProxyFileRetentionPruneIntervalMinutes = maxInt(1, int(math.Trunc(parseNumber(get("PROXY_FILE_RETENTION_PRUNE_INTERVAL_MINUTES"), float64(DefaultProxyFileRetentionPruneIntervalMinutes)))))
 	cfg.ProxyVideoTaskRetentionDays = maxInt(0, int(math.Trunc(parseNumber(get("PROXY_VIDEO_TASK_RETENTION_DAYS"), float64(DefaultProxyVideoTaskRetentionDays)))))
 	cfg.ProxyVideoTaskRetentionPruneIntervalMinutes = maxInt(1, int(math.Trunc(parseNumber(get("PROXY_VIDEO_TASK_RETENTION_PRUNE_INTERVAL_MINUTES"), float64(DefaultProxyVideoTaskRetentionPruneIntervalMinutes)))))
+
+	// ---- §3.21b Proxy Log Batch Writer ----
+	// Default async=true so production gets the latency win automatically; the
+	// clamp guards against malformed operator input. Batch size/interval floors
+	// of 1 keep the writer functional even under tiny operator-chosen values.
+	cfg.ProxyLogAsync = parseBoolean(get("PROXY_LOG_ASYNC"), DefaultProxyLogAsync)
+	cfg.ProxyLogBatchSize = ClampInt(
+		int(math.Trunc(parseNumber(get("PROXY_LOG_BATCH_SIZE"), float64(DefaultProxyLogBatchSize)))),
+		1, 1000,
+	)
+	cfg.ProxyLogFlushIntervalMs = ClampInt(
+		int(math.Trunc(parseNumber(get("PROXY_LOG_FLUSH_INTERVAL_MS"), float64(DefaultProxyLogFlushIntervalMs)))),
+		1, 60000,
+	)
 
 	// ---- §3.22 Routing Weights ----
 	cfg.RoutingWeights = RoutingWeights{
