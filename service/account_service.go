@@ -245,13 +245,14 @@ func BuildPlatformProxyConfig(cfg *config.Config, account *store.Account, site *
 
 	// 4. Resin sticky forward proxy (only when no higher-precedence proxy set).
 	//    Requires a business identity: acc-{account.ID} when account exists.
-	if ResinEnabled(cfg) {
+	if ResinEnabled(cfg, site) {
 		platformName := ResolveResinPlatform(cfg, site)
 		accountIdentity := AccountFor(account, site)
 		if platformName != "" && accountIdentity != "" {
 			if resinURL, ok := ForwardProxyURL(cfg, platformName, accountIdentity); ok {
 				proxyCfg.ProxyURL = resinURL
 				proxyCfg.ResinAccount = accountIdentity
+				TouchResinLease(accountIdentity)
 				return normalizePlatformProxyConfig(proxyCfg)
 			}
 		}
@@ -300,7 +301,7 @@ func BuildPlatformProxyConfigForToken(cfg *config.Config, site *store.Site, rawT
 		proxyCfg = &platform.ProxyConfig{}
 	}
 
-	if !ResinEnabled(cfg) || site == nil {
+	if !ResinEnabled(cfg, site) || site == nil {
 		return normalizePlatformProxyConfig(proxyCfg)
 	}
 
@@ -318,6 +319,7 @@ func BuildPlatformProxyConfigForToken(cfg *config.Config, site *store.Site, rawT
 	proxyCfg.ProxyURL = resinURL
 	proxyCfg.UseSystemProxy = false
 	proxyCfg.ResinAccount = tempIdentity
+	TouchResinLease(tempIdentity)
 	return normalizePlatformProxyConfig(proxyCfg)
 }
 

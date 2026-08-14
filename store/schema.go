@@ -36,6 +36,11 @@ type Site struct {
 	// CfClearance is a per-site Cloudflare clearance cookie injected into
 	// outbound requests to bypass CF challenges.
 	CfClearance *string `db:"cf_clearance" json:"cfClearance"`
+	// ResinEnabled is a per-site Resin sticky-proxy override.
+	// nil  = inherit global RESIN_ENABLED flag (default, preserves legacy behavior)
+	// true = force-enable Resin for this site even when global is disabled
+	// false = force-disable Resin for this site even when global is enabled
+	ResinEnabled *bool `db:"resin_enabled" json:"resinEnabled"`
 }
 
 // ---- Table 2: site_api_endpoints ----

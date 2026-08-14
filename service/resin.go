@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net/url"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/store"
@@ -42,9 +44,101 @@ const resinAccountPrefixStable = "acc-"
 // resinAccountPrefixTemp is the prefix for deterministic pre-account identities.
 const resinAccountPrefixTemp = "tmp-"
 
-// Enabled reports whether the Resin sticky proxy is configured and active.
-// Resin requires both RESIN_ENABLED=true and a non-empty RESIN_URL.
-func ResinEnabled(cfg *config.Config) bool {
+// resinLeaseStaleTTL is the cutoff for "active" lease reporting. Entries
+// whose last-used timestamp is older than this are considered stale and are
+// pruned from the active snapshot. This is observability-only — Resin itself
+// owns the actual upstream TCP connection lifecycle.
+const resinLeaseStaleTTL = 5 * time.Minute
+
+// resinLeaseTracker records the last-used timestamp for each Resin account
+// identity that routed through the forward proxy or the wss reverse-proxy
+// rewrite. It is observability-only: there is no actual TCP lease to release
+// (Resin handles that server-side). The tracker powers the
+// GET /api/admin/resin/status endpoint's active_leases field.
+//
+// The map key is the Resin account identity ("acc-{id}" or "tmp-{hash}") so
+// callers must TouchResinLease with the same value they embedded in the
+// forward proxy URL / X-Resin-Account header.
+var resinLeaseTracker sync.Map // map[string]time.Time
+
+// TouchResinLease records that accountID used Resin "now". Safe for concurrent
+// calls; no-op when accountID is empty.
+func TouchResinLease(accountID string) {
+	accountID = strings.TrimSpace(accountID)
+	if accountID == "" {
+		return
+	}
+	resinLeaseTracker.Store(accountID, time.Now().UTC())
+}
+
+// ActiveLeases returns the list of Resin account IDs whose last-used timestamp
+// is fresher than resinLeaseStaleTTL, plus that timestamp in UTC RFC3339.
+// Stale entries are pruned in-place so the snapshot stays bounded under
+// long-running processes with high account churn.
+func ActiveLeases() []ResinLease {
+	now := time.Now().UTC()
+	cutoff := now.Add(-resinLeaseStaleTTL)
+	out := make([]ResinLease, 0)
+	resinLeaseTracker.Range(func(key, value any) bool {
+		accountID, _ := key.(string)
+		lastUsed, _ := value.(time.Time)
+		if lastUsed.Before(cutoff) {
+			resinLeaseTracker.Delete(accountID)
+			return true
+		}
+		out = append(out, ResinLease{
+			AccountID: accountID,
+			LastUsed:  lastUsed.UTC().Format(time.RFC3339),
+		})
+		return true
+	})
+	return out
+}
+
+// ResinLease is one entry in the active-lease snapshot returned by ActiveLeases
+// and surfaced by GET /api/admin/resin/status.
+type ResinLease struct {
+	AccountID string `json:"accountId"`
+	LastUsed  string `json:"lastUsed"`
+}
+
+// ClearResinLeasesForTest empties the lease tracker. Test-only — production
+// relies on ActiveLeases' lazy pruning.
+func ClearResinLeasesForTest() {
+	resinLeaseTracker.Range(func(key, _ any) bool {
+		resinLeaseTracker.Delete(key)
+		return true
+	})
+}
+
+// ResinEnabled reports whether Resin is active for the given site.
+//
+// Precedence:
+//  1. site.ResinEnabled non-nil → explicit per-site override wins (true =
+//     force-enable even when global is off; false = force-disable even when
+//     global is on). This is the Tier 2 per-site override (#678).
+//  2. site.ResinEnabled nil → fall back to the global RESIN_ENABLED flag,
+//     which itself requires a non-empty RESIN_URL.
+//
+// When site is nil only the global flag is consulted (used by wss runtime
+// paths that don't have a site row in scope — the URL-rewrite / header gates
+// there are advisory; per-site filtering already happened upstream in
+// BuildPlatformProxyConfig).
+func ResinEnabled(cfg *config.Config, site *store.Site) bool {
+	if site != nil && site.ResinEnabled != nil {
+		return *site.ResinEnabled
+	}
+	if cfg == nil || !cfg.ResinEnabled {
+		return false
+	}
+	return strings.TrimSpace(cfg.ResinURL) != ""
+}
+
+// ResinGlobalEnabled reports whether the global RESIN_ENABLED flag is set and
+// a non-empty RESIN_URL is configured. This is the configuration-only view
+// (ignores per-site overrides) and is used by the /api/admin/resin/status
+// endpoint to surface the operator-facing global toggle state.
+func ResinGlobalEnabled(cfg *config.Config) bool {
 	if cfg == nil || !cfg.ResinEnabled {
 		return false
 	}

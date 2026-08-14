@@ -653,7 +653,11 @@ func sendCodexWSSessionAttempt(ctx context.Context, session *codexWSSocketSessio
 	resinAccount := strings.TrimSpace(input.ResinAccount)
 	resinPlatform := strings.TrimSpace(input.ResinPlatform)
 	runtimeCfg := safeConfigGet()
-	if runtimeCfg != nil && service.ResinEnabled(runtimeCfg) && resinAccount != "" && resinPlatform != "" {
+	// Per-site override has already been resolved upstream (in
+	// responses_ws.go) — when this code runs, the caller has decided Resin
+	// is active for the selected site, so we only gate on the global flag
+	// + the identity being present. nil site → global flag view only.
+	if runtimeCfg != nil && service.ResinEnabled(runtimeCfg, nil) && resinAccount != "" && resinPlatform != "" {
 		if rewritten := service.RewriteWSURL(wsURL, runtimeCfg, resinPlatform, resinAccount); rewritten != "" {
 			wsURL = rewritten
 		}
@@ -673,7 +677,7 @@ func sendCodexWSSessionAttempt(ctx context.Context, session *codexWSSocketSessio
 		// Resin reverse-proxy identity header (only meaningful when the URL
 		// was rewritten above; harmless otherwise since Resin ignores it on
 		// non-rewritten paths, but we gate it to the rewrite case for hygiene).
-		if runtimeCfg != nil && service.ResinEnabled(runtimeCfg) && resinAccount != "" && resinPlatform != "" {
+		if runtimeCfg != nil && service.ResinEnabled(runtimeCfg, nil) && resinAccount != "" && resinPlatform != "" {
 			if headers == nil {
 				headers = map[string]string{}
 			}
