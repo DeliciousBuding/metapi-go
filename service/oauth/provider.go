@@ -10,10 +10,11 @@ import (
 type OAuthProviderId string
 
 const (
-	ProviderCodex      OAuthProviderId = "codex"
-	ProviderClaude     OAuthProviderId = "claude"
-	ProviderGeminiCli  OAuthProviderId = "gemini-cli"
+	ProviderCodex       OAuthProviderId = "codex"
+	ProviderClaude      OAuthProviderId = "claude"
+	ProviderGeminiCli   OAuthProviderId = "gemini-cli"
 	ProviderAntigravity OAuthProviderId = "antigravity"
+	ProviderGrok        OAuthProviderId = "grok"
 )
 
 // ---- ProviderMetadata ----

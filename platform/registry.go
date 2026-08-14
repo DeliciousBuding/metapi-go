@@ -33,6 +33,9 @@ var PlatformAliases = map[string]string{
 	"gemini-cli":    "gemini-cli",
 	"antigravity":   "antigravity",
 	"anti-gravity":  "antigravity",
+	"grok":          "grok",
+	"xai":           "grok",
+	"x.ai":          "grok",
 	"google":        "gemini",
 	"cliproxyapi":   "cliproxyapi",
 	"cpa":           "cliproxyapi",
@@ -49,6 +52,7 @@ var orderedPlatformNames = []string{
 	"gemini",
 	"gemini-cli",
 	"antigravity",
+	"grok",
 	"cliproxyapi",
 	"anyrouter",
 	"done-hub",
@@ -88,6 +92,12 @@ func buildAdapter(name string) PlatformAdapter {
 		return &GeminiCliAdapter{GeminiAdapter: &GeminiAdapter{StandardAdapter: NewStandardAdapter("gemini-cli")}}
 	case "antigravity":
 		return &AntigravityAdapter{StandardAdapter: NewStandardAdapter("antigravity")}
+	case "grok":
+		return &GrokAdapter{StandardAdapter: &StandardAdapter{
+			BaseAdapter:               NewBaseAdapter("grok"),
+			LoginUnsupportedMessage:   "grok oauth login is managed via Device OAuth flow",
+			CheckinUnsupportedMessage: "grok oauth connections do not support checkin",
+		}}
 	case "cliproxyapi":
 		return &CliProxyApiAdapter{StandardAdapter: &StandardAdapter{
 			BaseAdapter:               NewBaseAdapter("cliproxyapi"),
