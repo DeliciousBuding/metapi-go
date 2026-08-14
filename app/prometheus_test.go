@@ -13,10 +13,7 @@ import (
 func TestPrometheusHandler_FormatSmoke(t *testing.T) {
 	shared.ResetMetricsForTest()
 	shared.RecordProxyRequest()
-	shared.RecordProxyError()
-	shared.RecordStreamStart()
 	shared.RecordRouteRebuildCompleted()
-	shared.SetActiveChannels(2)
 	shared.SetDBConnections(3)
 	shared.ObserveProxyOutcome(shared.ProxyObservation{
 		Endpoint: shared.EndpointChat,
@@ -39,9 +36,6 @@ func TestPrometheusHandler_FormatSmoke(t *testing.T) {
 		"# HELP metapi_proxy_requests_total",
 		"# TYPE metapi_proxy_requests_total counter",
 		"metapi_proxy_requests_total 1",
-		"metapi_proxy_errors_total 1",
-		"metapi_proxy_streams_active 1",
-		"metapi_active_channels 2",
 		"metapi_db_connections_open 3",
 		`metapi_route_rebuild_total{result="completed"} 1`,
 		"# HELP metapi_uptime_seconds",
@@ -55,29 +49,4 @@ func TestPrometheusHandler_FormatSmoke(t *testing.T) {
 			t.Fatalf("metrics body missing %q\n%s", want, body)
 		}
 	}
-	shared.RecordStreamEnd()
 }
-
-func TestSetMetricsObserver_AppSurface(t *testing.T) {
-	shared.ResetMetricsForTest()
-	var called int
-	SetMetricsObserver(observerFunc(func(obs shared.ProxyObservation) {
-		called++
-		if obs.Endpoint != shared.EndpointEmbeddings {
-			t.Fatalf("endpoint = %q", obs.Endpoint)
-		}
-	}))
-	ObserveProxyOutcome(shared.ProxyObservation{
-		Endpoint: shared.EndpointEmbeddings,
-		Status:   shared.OutcomeSuccess,
-		Latency:  time.Millisecond,
-	})
-	if called != 1 {
-		t.Fatalf("called = %d, want 1", called)
-	}
-	SetMetricsObserver(nil)
-}
-
-type observerFunc func(shared.ProxyObservation)
-
-func (f observerFunc) ObserveProxy(obs shared.ProxyObservation) { f(obs) }

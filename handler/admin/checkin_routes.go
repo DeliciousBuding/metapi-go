@@ -5,10 +5,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/config"
 	checkinservice "github.com/deliciousbuding/metapi-go/service/checkin"
+	"github.com/go-chi/chi/v5"
+	"github.com/jmoiron/sqlx"
 )
 
 // RegisterCheckinRoutes registers all /api/checkin routes.
@@ -45,10 +45,8 @@ func (h *checkinHandler) triggerAll(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/checkin/trigger/:id
 func (h *checkinHandler) triggerOne(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil || id <= 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid account id"})
+	id, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 
@@ -88,8 +86,8 @@ func (h *checkinHandler) triggerOne(w http.ResponseWriter, r *http.Request) {
 // (ClassifyFailureReason JSON) to a parsed object at the top level so the UI
 // can read `log.failureReason.title` directly instead of a phantom always-`-`.
 func (h *checkinHandler) getLogs(w http.ResponseWriter, r *http.Request) {
-	limit := clampInt(getQueryInt(r, "limit", 50), 1, 500)
-	offset := maxInt(0, getQueryInt(r, "offset", 0))
+	limit, _ := parseLimitOffset(r, 50, 500)
+	offset := max(0, getQueryInt(r, "offset", 0))
 	accountIDStr := r.URL.Query().Get("accountId")
 
 	query := `SELECT cl.*, a.username as account_username, s.name as site_name, s.url as site_url

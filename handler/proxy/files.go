@@ -27,8 +27,6 @@ func RegisterFilesRoutes(r chi.Router) {
 // HandleFilesUpload handles POST /v1/files (multipart file upload).
 // Forwards to upstream POST /v1/files after auth + channel selection.
 func HandleFilesUpload(w http.ResponseWriter, r *http.Request) {
-	EnsureMultipartBufferParser()
-
 	// Multipart is the OpenAI Files upload contract. Reject bare JSON early so
 	// clients get a clear 400 instead of an opaque upstream failure.
 	if !IsMultipartRequest(r) && r.ContentLength != 0 {

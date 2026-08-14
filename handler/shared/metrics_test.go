@@ -3,7 +3,6 @@ package shared
 import (
 	"net/http/httptest"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -12,12 +11,10 @@ func TestMetricsCollector_RecordAndExpose(t *testing.T) {
 	ResetMetricsForTest()
 	RecordProxyRequest()
 	RecordProxyRequest()
-	RecordProxyError()
-	RecordStreamStart()
 	RecordRouteRebuildCompleted()
 
 	req, err, streams, rebuilds := SnapshotForTest()
-	if req != 2 || err != 1 || streams != 1 || rebuilds != 1 {
+	if req != 2 || err != 0 || streams != 0 || rebuilds != 1 {
 		t.Fatalf("snapshot = req=%d err=%d streams=%d rebuilds=%d", req, err, streams, rebuilds)
 	}
 
@@ -29,14 +26,11 @@ func TestMetricsCollector_RecordAndExpose(t *testing.T) {
 	if !strings.Contains(body, "metapi_proxy_requests_total 2") {
 		t.Fatalf("body missing requests counter: %s", body)
 	}
-	if !strings.Contains(body, "metapi_proxy_errors_total 1") {
+	if !strings.Contains(body, "metapi_proxy_errors_total 0") {
 		t.Fatalf("body missing errors counter: %s", body)
 	}
 	RecordStreamMissingUsage()
 	RecordStreamMissingUsage()
-	if got := StreamMissingUsageTotal(); got != 2 {
-		t.Fatalf("StreamMissingUsageTotal = %d, want 2", got)
-	}
 	rec2 := httptest.NewRecorder()
 	if writeErr := WritePrometheusMetrics(rec2); writeErr != nil {
 		t.Fatalf("WritePrometheusMetrics after missing usage: %v", writeErr)
@@ -44,11 +38,6 @@ func TestMetricsCollector_RecordAndExpose(t *testing.T) {
 	body2 := rec2.Body.String()
 	if !strings.Contains(body2, "metapi_stream_missing_usage_total 2") {
 		t.Fatalf("body missing stream missing usage counter: %s", body2)
-	}
-	RecordStreamEnd()
-	_, _, streams, _ = SnapshotForTest()
-	if streams != 0 {
-		t.Fatalf("streams after end = %d, want 0", streams)
 	}
 }
 
@@ -161,40 +150,6 @@ func TestObserveProxyOutcome_SanitizesHighCardinality(t *testing.T) {
 		if strings.Contains(k, "gpt") || strings.Contains(k, "502") || strings.Contains(k, "site") {
 			t.Fatalf("high-cardinality label leaked: %q", k)
 		}
-	}
-}
-
-type countingObserver struct {
-	n    atomic.Int64
-	last ProxyObservation
-}
-
-func (c *countingObserver) ObserveProxy(obs ProxyObservation) {
-	c.n.Add(1)
-	c.last = obs
-}
-
-func TestObserverHook_ReceivesSanitizedObservation(t *testing.T) {
-	ResetMetricsForTest()
-	obs := &countingObserver{}
-	SetObserver(obs)
-	ObserveProxyOutcome(ProxyObservation{
-		Endpoint: EndpointResponses,
-		Status:   OutcomeSuccess,
-		Stream:   true,
-		Latency:  50 * time.Millisecond,
-	})
-	if obs.n.Load() != 1 {
-		t.Fatalf("observer calls = %d, want 1", obs.n.Load())
-	}
-	if obs.last.Endpoint != EndpointResponses || obs.last.Status != OutcomeSuccess || !obs.last.Stream {
-		t.Fatalf("observer last = %+v", obs.last)
-	}
-	// Reset clears observer to no-op.
-	ResetMetricsForTest()
-	ObserveProxyOutcome(ProxyObservation{Endpoint: EndpointChat, Status: OutcomeSuccess})
-	if obs.n.Load() != 1 {
-		t.Fatalf("after reset observer still called: %d", obs.n.Load())
 	}
 }
 

@@ -8,18 +8,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/auth"
+	"github.com/go-chi/chi/v5"
 )
 
 // ---- ParseGeminiPath ----
 
 func TestParseGeminiPath(t *testing.T) {
 	tests := []struct {
-		path        string
-		wantVer     string
-		wantModel   string
-		wantAction  string
+		path       string
+		wantVer    string
+		wantModel  string
+		wantAction string
 	}{
 		{"/v1beta/models/gemini-2.5-pro:generateContent", "v1beta", "gemini-2.5-pro", "generateContent"},
 		{"/v1beta/models/gemini-2.5-flash:streamGenerateContent", "v1beta", "gemini-2.5-flash", "streamGenerateContent"},

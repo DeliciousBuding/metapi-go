@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 func setupOpsAdminStubsTest(t *testing.T) (*store.DB, chi.Router, *config.Config) {
@@ -54,12 +54,9 @@ func TestNotifyTest_NoChannelConfiguredReturns400(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if body["success"] != false {
-		t.Fatalf("success = %v, want false", body["success"])
-	}
-	msg, _ := body["message"].(string)
+	msg, _ := body["error"].(string)
 	if !strings.Contains(msg, "no notification channels configured") {
-		t.Fatalf("message = %q, want clear channel configuration error", msg)
+		t.Fatalf("error = %q, want clear channel configuration error", msg)
 	}
 }
 
@@ -118,8 +115,8 @@ func TestMonitorConfig_RejectsInvalidCookie(t *testing.T) {
 	}
 	var body map[string]any
 	_ = json.Unmarshal(resp.Body.Bytes(), &body)
-	if body["success"] != false {
-		t.Fatalf("success = %v, want false", body["success"])
+	if msg, _ := body["error"].(string); msg == "" {
+		t.Fatalf("expected unified error body, got %v", body)
 	}
 }
 

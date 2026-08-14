@@ -411,30 +411,6 @@ func TestSynthesizePrewarmResponsePayloads_EmptyModel(t *testing.T) {
 	}
 }
 
-// ---- extractWSHeaders ----
-
-func TestExtractWSHeaders(t *testing.T) {
-	req := httptest.NewRequest("GET", "/v1/responses", nil)
-	req.Header.Set("Authorization", "Bearer test")
-	req.Header.Set("X-Custom", "value")
-
-	headers := extractWSHeaders(req)
-	if headers["Authorization"] != "Bearer test" {
-		t.Errorf("Authorization = %q", headers["Authorization"])
-	}
-	if headers["X-Custom"] != "value" {
-		t.Errorf("X-Custom = %q", headers["X-Custom"])
-	}
-}
-
-func TestExtractWSHeaders_Empty(t *testing.T) {
-	req := httptest.NewRequest("GET", "/v1/responses", nil)
-	headers := extractWSHeaders(req)
-	if len(headers) != 0 {
-		t.Errorf("expected empty headers, got %d", len(headers))
-	}
-}
-
 // ---- extractWSTurnState ----
 
 func TestExtractWSTurnState(t *testing.T) {

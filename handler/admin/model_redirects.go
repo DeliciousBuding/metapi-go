@@ -1,9 +1,7 @@
 package admin
 
 import (
-	"encoding/json"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -59,7 +57,7 @@ func (h *modelRedirectHandler) applyFixCandidates(w http.ResponseWriter, r *http
 	var body struct {
 		DryRun *bool `json:"dryRun"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSONRequest(r, &body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid JSON body"})
 		return
 	}
@@ -144,16 +142,15 @@ func (h *modelRedirectHandler) list(w http.ResponseWriter, r *http.Request) {
 
 // PUT /api/model-redirects/{id} — switch to manual / correct actual.
 func (h *modelRedirectHandler) update(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil || id <= 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid redirect id"})
+	id, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 	var body struct {
 		Actual *string `json:"actual"`
 		Source *string `json:"source"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSONRequest(r, &body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid JSON body"})
 		return
 	}
@@ -204,9 +201,8 @@ func (h *modelRedirectHandler) update(w http.ResponseWriter, r *http.Request) {
 
 // DELETE /api/model-redirects/{id}
 func (h *modelRedirectHandler) remove(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil || id <= 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid redirect id"})
+	id, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 	res, err := h.db.Exec(rebindAdminQuery(h.db, "DELETE FROM model_name_redirects WHERE id = ?"), id)
@@ -230,7 +226,7 @@ func (h *modelRedirectHandler) generate(w http.ResponseWriter, r *http.Request) 
 		AccountID int64    `json:"accountId"`
 		Models    []string `json:"models"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSONRequest(r, &body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid JSON body"})
 		return
 	}
@@ -288,7 +284,7 @@ func (h *modelRedirectHandler) apply(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		DryRun *bool `json:"dryRun"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSONRequest(r, &body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid JSON body"})
 		return
 	}

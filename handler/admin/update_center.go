@@ -70,7 +70,7 @@ func (h *updateCenterHandler) saveConfig(w http.ResponseWriter, r *http.Request)
 		DefaultDeploySource *string `json:"defaultDeploySource"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "Invalid request body"})
+		writeError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
@@ -83,12 +83,12 @@ func (h *updateCenterHandler) saveConfig(w http.ResponseWriter, r *http.Request)
 		"success": true,
 		"config": map[string]any{
 			"enabled":             enableVal,
-			"helperBaseUrl":       coalesceStr(body.HelperBaseUrl, ""),
-			"namespace":           coalesceStr(body.Namespace, ""),
-			"releaseName":         coalesceStr(body.ReleaseName, ""),
-			"chartRef":            coalesceStr(body.ChartRef, ""),
-			"imageRepository":     coalesceStr(body.ImageRepository, ""),
-			"defaultDeploySource": coalesceStr(body.DefaultDeploySource, "docker-hub-tag"),
+			"helperBaseUrl":       coalescePtr(body.HelperBaseUrl, ""),
+			"namespace":           coalescePtr(body.Namespace, ""),
+			"releaseName":         coalescePtr(body.ReleaseName, ""),
+			"chartRef":            coalescePtr(body.ChartRef, ""),
+			"imageRepository":     coalescePtr(body.ImageRepository, ""),
+			"defaultDeploySource": coalescePtr(body.DefaultDeploySource, "docker-hub-tag"),
 		},
 		// Echo-only: this handler does not persist helper/registry product config.
 		"residual": "config echo only; not persisted as update-center product config; deploy/rollback remain residual",
@@ -106,7 +106,7 @@ func (h *updateCenterHandler) deploy(w http.ResponseWriter, r *http.Request) {
 		TargetVersion *string `json:"targetVersion"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "Invalid request body"})
+		writeError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
@@ -118,10 +118,7 @@ func (h *updateCenterHandler) deploy(w http.ResponseWriter, r *http.Request) {
 		targetTag = strings.TrimSpace(*body.TargetVersion)
 	}
 	if targetTag == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"success": false,
-			"message": "targetTag is required",
-		})
+		writeError(w, http.StatusBadRequest, "targetTag is required")
 		return
 	}
 
@@ -139,7 +136,7 @@ func (h *updateCenterHandler) rollback(w http.ResponseWriter, r *http.Request) {
 		TargetRevision *string `json:"targetRevision"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{"success": false, "message": "Invalid request body"})
+		writeError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
@@ -148,10 +145,7 @@ func (h *updateCenterHandler) rollback(w http.ResponseWriter, r *http.Request) {
 		targetRevision = strings.TrimSpace(*body.TargetRevision)
 	}
 	if targetRevision == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"success": false,
-			"message": "targetRevision is required",
-		})
+		writeError(w, http.StatusBadRequest, "targetRevision is required")
 		return
 	}
 

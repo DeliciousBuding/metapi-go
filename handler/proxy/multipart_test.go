@@ -73,11 +73,11 @@ func TestParseMultipartFormData_Multipart(t *testing.T) {
 		t.Fatal("expected non-nil result for multipart body")
 	}
 
-	if model := got.GetField("model"); model != "gpt-4o" {
-		t.Errorf("model field = %q, want gpt-4o", model)
+	if model := got.Values["model"]; len(model) == 0 || model[0] != "gpt-4o" {
+		t.Errorf("model field = %v, want gpt-4o", model)
 	}
-	if prompt := got.GetField("prompt"); prompt != "a cat" {
-		t.Errorf("prompt field = %q, want 'a cat'", prompt)
+	if prompt := got.Values["prompt"]; len(prompt) == 0 || prompt[0] != "a cat" {
+		t.Errorf("prompt field = %v, want 'a cat'", prompt)
 	}
 }
 
@@ -90,32 +90,6 @@ func TestParseMultipartFormData_EmptyContentType(t *testing.T) {
 	}
 	if got != nil {
 		t.Error("expected nil for empty content type")
-	}
-}
-
-// ---- MultipartFormData.GetField ----
-
-func TestMultipartFormData_GetField(t *testing.T) {
-	tests := []struct {
-		name string
-		fd   *MultipartFormData
-		key  string
-		want string
-	}{
-		{"nil fd", nil, "model", ""},
-		{"nil Values", &MultipartFormData{}, "model", ""},
-		{"existing", &MultipartFormData{Values: map[string][]string{"model": {"gpt-4o"}}}, "model", "gpt-4o"},
-		{"missing", &MultipartFormData{Values: map[string][]string{"other": {"val"}}}, "model", ""},
-		{"empty slice", &MultipartFormData{Values: map[string][]string{"model": {}}}, "model", ""},
-		{"trimmed", &MultipartFormData{Values: map[string][]string{"model": {"  gpt-4o  "}}}, "model", "gpt-4o"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := tt.fd.GetField(tt.key)
-			if got != tt.want {
-				t.Errorf("GetField(%q) = %q, want %q", tt.key, got, tt.want)
-			}
-		})
 	}
 }
 

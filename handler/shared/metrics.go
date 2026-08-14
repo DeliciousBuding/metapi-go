@@ -99,67 +99,14 @@ type ProxyObservation struct {
 	Latency  time.Duration // total observed latency for the attempt/request
 }
 
-// Observer is an optional export hook for OTEL/Langfuse-style sinks.
-// Implementations must not block; drop or buffer on backpressure.
-// The default is a no-op.
-type Observer interface {
-	ObserveProxy(obs ProxyObservation)
-}
-
-type noopObserver struct{}
-
-func (noopObserver) ObserveProxy(ProxyObservation) {}
-
-var (
-	observerMu sync.RWMutex
-	observer   Observer = noopObserver{}
-)
-
-// SetObserver registers an optional export sink. Pass nil to reset to no-op.
-// Safe for concurrent use; hot path reads under RLock.
-func SetObserver(o Observer) {
-	observerMu.Lock()
-	defer observerMu.Unlock()
-	if o == nil {
-		observer = noopObserver{}
-		return
-	}
-	observer = o
-}
-
-// GetObserver returns the currently registered Observer (never nil).
-func GetObserver() Observer {
-	observerMu.RLock()
-	defer observerMu.RUnlock()
-	return observer
-}
-
 // RecordProxyRequest increments the proxy request counter.
 func RecordProxyRequest() { globalMetrics.proxyRequestsTotal.Add(1) }
-
-// RecordProxyError increments the proxy error counter.
-func RecordProxyError() { globalMetrics.proxyErrorsTotal.Add(1) }
-
-// RecordStreamStart increments active SSE stream count.
-func RecordStreamStart() { globalMetrics.proxyStreamsActive.Add(1) }
-
-// RecordStreamEnd decrements active SSE stream count.
-func RecordStreamEnd() { globalMetrics.proxyStreamsActive.Add(-1) }
-
-// SetActiveChannels sets the active channel gauge.
-func SetActiveChannels(n int64) { globalMetrics.activeChannels.Store(n) }
 
 // SetDBConnections sets the DB open-connection gauge.
 func SetDBConnections(n int64) { globalMetrics.dbConnectionsOpen.Store(n) }
 
 // SetDBConnectionsInUse sets the DB in-use connection gauge.
 func SetDBConnectionsInUse(n int64) { globalMetrics.dbConnectionsInUse.Store(n) }
-
-// RecordDBConnError increments the DB connection-budget / open error counter
-// (e.g. SQLSTATE 53300 too many connections for role). Delegates to the
-// app/observability leaf so lower layers (scheduler) can record without
-// importing handler/shared (resolves package-boundaries §5.11).
-func RecordDBConnError() { observability.RecordDBConnError() }
 
 // RecordRouteRebuildCompleted increments successful route rebuild/cache-invalidate counter.
 func RecordRouteRebuildCompleted() { globalMetrics.routeRebuildOK.Add(1) }
@@ -168,11 +115,8 @@ func RecordRouteRebuildCompleted() { globalMetrics.routeRebuildOK.Add(1) }
 // but ended without usable counts (observability only; never invents tokens).
 func RecordStreamMissingUsage() { globalMetrics.streamMissingUsageTotal.Add(1) }
 
-// StreamMissingUsageTotal returns the missing-usage counter (tests/ops).
-func StreamMissingUsageTotal() int64 { return globalMetrics.streamMissingUsageTotal.Load() }
-
 // ObserveProxyOutcome records a terminal proxy outcome: labeled counter, latency
-// histogram, legacy error counter (when not success), and optional Observer hook.
+// histogram, and legacy error counter (when not success).
 // Labels are sanitized to a fixed allowlist; unknown values collapse to safe defaults.
 func ObserveProxyOutcome(obs ProxyObservation) {
 	endpoint := sanitizeEndpoint(obs.Endpoint)
@@ -198,18 +142,6 @@ func ObserveProxyOutcome(obs ProxyObservation) {
 	if status != OutcomeSuccess {
 		globalMetrics.proxyErrorsTotal.Add(1)
 	}
-
-	// Export hook last so metric state is consistent even if the sink panics
-	// (recover so a bad sink cannot break the proxy hot path).
-	func() {
-		defer func() { _ = recover() }()
-		GetObserver().ObserveProxy(ProxyObservation{
-			Endpoint: endpoint,
-			Status:   status,
-			Stream:   obs.Stream,
-			Latency:  obs.Latency,
-		})
-	}()
 }
 
 func observeLatency(endpoint, status string, d time.Duration) {
@@ -346,7 +278,6 @@ func ResetMetricsForTest() {
 	globalMetrics.histMu.Lock()
 	globalMetrics.histograms = make(map[histKey]*latencyHistogram)
 	globalMetrics.histMu.Unlock()
-	SetObserver(nil)
 }
 
 // SnapshotForTest returns current counter values for assertions.

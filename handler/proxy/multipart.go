@@ -53,18 +53,6 @@ func ParseMultipartFormData(r *http.Request) (*MultipartFormData, error) {
 	}, nil
 }
 
-// GetField gets a form field value from multipart data. Returns "" if not found.
-func (m *MultipartFormData) GetField(key string) string {
-	if m == nil || m.Values == nil {
-		return ""
-	}
-	vals := m.Values[key]
-	if len(vals) == 0 {
-		return ""
-	}
-	return strings.TrimSpace(vals[0])
-}
-
 // CloneMultipartBody clones the request body for forwarding to upstream.
 // If overrides is non-nil, field values matching override keys are replaced
 // (e.g., replacing "model" with the resolved upstream model).

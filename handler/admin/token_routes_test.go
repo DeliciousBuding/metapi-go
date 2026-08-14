@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 func setupTokenRoutesTest(t *testing.T) (*store.DB, chi.Router) {
@@ -29,14 +29,14 @@ func setupTokenRoutesTest(t *testing.T) (*store.DB, chi.Router) {
 	}
 
 	r := chi.NewRouter()
-	RegisterTokenRoutes(r, db.DB)
+	RegisterTokenRoutesWithDeps(r, db.DB, TokenRoutesDeps{})
 	return db, r
 }
 
 func setupTokenRoutesPostgresTest(t *testing.T) (*store.DB, chi.Router) {
 	t.Helper()
 	db, r := setupTokensPostgresTest(t)
-	RegisterTokenRoutes(r, db.DB)
+	RegisterTokenRoutesWithDeps(r, db.DB, TokenRoutesDeps{})
 	return db, r
 }
 
@@ -705,10 +705,7 @@ func TestRouteDecision_RouterUnavailable(t *testing.T) {
 	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if body["success"] != false {
-		t.Fatalf("success = %v, want false", body["success"])
-	}
-	if msg, _ := body["message"].(string); msg == "" {
+	if msg, _ := body["error"].(string); msg == "" {
 		t.Fatalf("expected clear error message, body=%v", body)
 	}
 }

@@ -25,8 +25,6 @@ func HandleImagesGenerations(w http.ResponseWriter, r *http.Request) {
 // Supports multipart/form-data and JSON body. Model defaults to "gpt-image-1".
 // Multipart is parsed in PrepareCtx and forwarded via CloneMultipartBody in dispatchUpstream.
 func HandleImagesEdits(w http.ResponseWriter, r *http.Request) {
-	EnsureMultipartBufferParser()
-
 	ctx, errResp := PrepareCtx(r, SurfConfig{
 		Endpoint:       "images",
 		DownstreamPath: "/v1/images/edits",
