@@ -202,8 +202,16 @@ func (s *Sub2ApiAdapter) GetModels(ctx context.Context, baseURL, apiToken string
 		return directModels, nil
 	}
 
-	// Session JWT cannot access /v1/models directly; discover a user key first
-	discoveredToken, _ := s.GetAPIToken(ctx, managementBase, apiToken, platformUserId, proxy)
+	// Session JWT cannot access /v1/models directly; discover a user key first.
+	// Filter keys by the user's subscription group (from /api/v1/auth/me) so
+	// we pick a key from the SAME group as the user's subscription rather than
+	// blindly taking the first enabled key, which may belong to a different
+	// group and surface the wrong model set (#675).
+	userGroup := ""
+	if user, err := s.fetchAuthMe(ctx, normalized, apiToken, proxy); err == nil {
+		userGroup = user.group
+	}
+	discoveredToken, _ := s.getAPITokenForGroup(ctx, managementBase, apiToken, userGroup, platformUserId, proxy)
 	if discoveredToken == nil {
 		return finish(directErr)
 	}
@@ -260,6 +268,47 @@ func (s *Sub2ApiAdapter) GetAPIToken(ctx context.Context, baseURL, accessToken s
 		return &k, nil
 	}
 	return nil, nil
+}
+
+// getAPITokenForGroup returns an API key for the user's subscription group.
+// When group is non-empty, only keys whose TokenGroup matches are considered;
+// if no key matches the group, it falls back to first-enabled so a missing
+// group tag never blocks model enumeration entirely (#675).
+func (s *Sub2ApiAdapter) getAPITokenForGroup(ctx context.Context, baseURL, accessToken, group string, platformUserId *int, proxy *ProxyConfig) (*string, error) {
+	tokens, err := s.GetAPITokens(ctx, baseURL, accessToken, platformUserId, proxy)
+	if err != nil {
+		return nil, nil
+	}
+	return pickKeyForGroup(tokens, group), nil
+}
+
+// pickKeyForGroup selects the first enabled key whose TokenGroup matches the
+// user's group. Falls back to first-enabled when the group is empty, no keys
+// match, or all group-matched keys are disabled. Returns nil when there are
+// no keys at all.
+func pickKeyForGroup(tokens []ApiTokenInfo, group string) *string {
+	if len(tokens) == 0 {
+		return nil
+	}
+	if strings.TrimSpace(group) != "" {
+		for _, t := range tokens {
+			if !t.Enabled {
+				continue
+			}
+			if strings.TrimSpace(t.TokenGroup) == strings.TrimSpace(group) {
+				k := t.Key
+				return &k
+			}
+		}
+	}
+	for _, t := range tokens {
+		if t.Enabled {
+			k := t.Key
+			return &k
+		}
+	}
+	k := tokens[0].Key
+	return &k
 }
 
 // GetUserGroups: 5 endpoint fallback + key-based inference.
@@ -439,6 +488,10 @@ type sub2apiUser struct {
 	username string
 	email    string
 	balance  float64
+	// group holds the user's subscription group identifier (group_id or
+	// group_name) from /api/v1/auth/me, used to filter API keys by group
+	// during model enumeration fallback. Empty when the upstream omits it.
+	group string
 }
 
 type sub2apiKeyItem struct {
@@ -506,13 +559,47 @@ func (s *Sub2ApiAdapter) fetchAuthMe(ctx context.Context, baseURL, accessToken s
 	username, _ := getString(data, "username")
 	email, _ := getString(data, "email")
 	balance, _ := getFloat(data, "balance")
+	userGroup := parseSub2ApiUserGroup(data)
 
 	return &sub2apiUser{
 		id:       int(idFloat),
 		username: username,
 		email:    email,
 		balance:  balance,
+		group:    userGroup,
 	}, nil
+}
+
+// parseSub2ApiUserGroup extracts the subscription group identifier from an
+// /api/v1/auth/me payload. Sub2API exposes the group as either a numeric
+// group_id, a string group_name/group, or a nested subscription object.
+// Returns "" when the upstream omits the field.
+func parseSub2ApiUserGroup(data map[string]interface{}) string {
+	if data == nil {
+		return ""
+	}
+	if gid, ok := data["group_id"].(float64); ok && gid > 0 {
+		return fmt.Sprintf("%d", int(gid))
+	}
+	if g, ok := getString(data, "group_name"); ok && strings.TrimSpace(g) != "" {
+		return strings.TrimSpace(g)
+	}
+	if g, ok := getString(data, "group"); ok && strings.TrimSpace(g) != "" {
+		return strings.TrimSpace(g)
+	}
+	// Some deployments nest group under subscription/group.
+	if sub, ok := getMap(data, "subscription"); ok {
+		if gid, ok := sub["group_id"].(float64); ok && gid > 0 {
+			return fmt.Sprintf("%d", int(gid))
+		}
+		if g, ok := getString(sub, "group_name"); ok && strings.TrimSpace(g) != "" {
+			return strings.TrimSpace(g)
+		}
+		if g, ok := getString(sub, "group"); ok && strings.TrimSpace(g) != "" {
+			return strings.TrimSpace(g)
+		}
+	}
+	return ""
 }
 
 func (s *Sub2ApiAdapter) usdToQuota(balanceUsd float64) float64 {

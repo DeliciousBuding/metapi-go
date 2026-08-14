@@ -41,8 +41,15 @@ func (s *Sub2ApiAdapter) fetchModelsByToken(ctx context.Context, baseURL, token 
 		return nil, nil
 	}
 
+	endpoints := s.resolveModelEndpoints(baseURL)
 	var lastErr error
-	for _, url := range s.resolveModelEndpoints(baseURL) {
+	for _, url := range endpoints {
+		// Fast-fail: a slow first endpoint must not burn the whole budget.
+		// Checking ctx.Err() between attempts lets a cancelled/deadline-exceeded
+		// context short-circuit the remaining endpoints (#675).
+		if ctx.Err() != nil {
+			break
+		}
 		headers := map[string]string{"Authorization": "Bearer " + authToken}
 		resp, err := fetchJSON(ctx, url, "GET", nil, headers, proxy)
 		if err != nil {

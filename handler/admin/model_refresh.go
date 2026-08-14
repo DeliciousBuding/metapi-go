@@ -185,6 +185,21 @@ func refreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, all
 		}
 	}
 
+	// Backfill token_model_availability for the resolved token so the
+	// marketplace stats and site model list (which read this table) reflect
+	// the freshly refreshed model set (#675). Best-effort: if the token does
+	// not match an account_tokens row, skip silently — the account-level
+	// model_availability rows remain the source of truth.
+	tokenBackfilled := false
+	if tokenID, ok := resolveAccountTokenID(db, accountID, token); ok {
+		if err := persistTokenModelAvailability(db, tokenID, clean, now); err != nil {
+			slog.Warn("model-refresh: token_model_availability backfill failed",
+				"account_id", accountID, "token_id", tokenID, "error", err)
+		} else {
+			tokenBackfilled = true
+		}
+	}
+
 	// Best-effort route rebuild from updated availability.
 	rebuildStats, rebuildErr := service.RebuildTokenRoutesFromAvailability(context.Background(), db)
 	rebuildPayload := map[string]any{
@@ -226,6 +241,7 @@ func refreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, all
 		"redirects": map[string]any{
 			"generated": redirectsCreated,
 		},
+		"tokenBackfilled": tokenBackfilled,
 	}
 }
 
@@ -319,6 +335,96 @@ func persistAccountModelAvailability(db *sqlx.DB, accountID int64, models []stri
 				SET available = ?, latency_ms = NULL, checked_at = ?
 				WHERE account_id = ? AND model_name = ?
 			`), true, now, accountID, model); err2 != nil {
+				return err
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	committed = true
+	return nil
+}
+
+// resolveAccountTokenID finds the account_tokens row id matching the resolved
+// refresh token. Tokens are stored normalized (TrimSpace, no Bearer prefix);
+// the resolved token is also normalized, so an exact match is sufficient.
+// Returns (id, true) on match, (0, false) when no row matches — in which case
+// the caller skips the token_model_availability backfill (#675).
+func resolveAccountTokenID(db *sqlx.DB, accountID int64, token string) (int64, bool) {
+	normalized := strings.TrimSpace(token)
+	normalized = strings.TrimPrefix(normalized, "Bearer ")
+	normalized = strings.TrimSpace(normalized)
+	if normalized == "" {
+		return 0, false
+	}
+	var tokenID int64
+	err := db.Get(&tokenID, db.Rebind(
+		"SELECT id FROM account_tokens WHERE account_id = ? AND token = ? ORDER BY id DESC LIMIT 1",
+	), accountID, normalized)
+	if err != nil {
+		return 0, false
+	}
+	return tokenID, true
+}
+
+// persistTokenModelAvailability mirrors persistAccountModelAvailability for
+// the token_model_availability table: mark all existing rows for the token
+// unavailable, then upsert the current model set as available. Uses its own
+// transaction so a failure here never rolls back the account-level write.
+func persistTokenModelAvailability(db *sqlx.DB, tokenID int64, models []string, now string) error {
+	tx, err := db.Beginx()
+	if err != nil {
+		return err
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// Mark all existing rows for this token unavailable before upserting the
+	// current set — mirrors the account-level "mark non-manual unavailable"
+	// pattern. token_model_availability has no is_manual column, so we clear
+	// everything and re-enable the freshly observed models.
+	if _, err := tx.Exec(tx.Rebind(`
+		UPDATE token_model_availability
+		SET available = ?, checked_at = ?
+		WHERE token_id = ?
+	`), false, now, tokenID); err != nil {
+		return err
+	}
+
+	for _, model := range models {
+		var existingID int64
+		err := tx.Get(&existingID, tx.Rebind(`
+			SELECT id FROM token_model_availability WHERE token_id = ? AND model_name = ?
+		`), tokenID, model)
+		if err == nil {
+			if _, err := tx.Exec(tx.Rebind(`
+				UPDATE token_model_availability
+				SET available = ?, latency_ms = NULL, checked_at = ?
+				WHERE id = ?
+			`), true, now, existingID); err != nil {
+				return err
+			}
+			continue
+		}
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		if _, err := tx.Exec(tx.Rebind(`
+			INSERT INTO token_model_availability (token_id, model_name, available, latency_ms, checked_at)
+			VALUES (?, ?, ?, NULL, ?)
+		`), tokenID, model, true, now); err != nil {
+			// Unique constraint violation: fall back to UPDATE.
+			if _, err2 := tx.Exec(tx.Rebind(`
+				UPDATE token_model_availability
+				SET available = ?, latency_ms = NULL, checked_at = ?
+				WHERE token_id = ? AND model_name = ?
+			`), true, now, tokenID, model); err2 != nil {
 				return err
 			}
 		}
