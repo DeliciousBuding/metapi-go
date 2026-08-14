@@ -13,9 +13,10 @@
 // first paint renders with data. The queryFn mirrors the hook (unwrap the
 // `models` array from the marketplace envelope) so the cached payload matches.
 
-import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 
 import { modelsKeys, modelsSearchSchema } from '@/features/models'
+import { ModelsPage } from '@/features/models/components/models-page'
 import { api } from '@/lib/api'
 
 export const Route = createFileRoute('/_authenticated/models')({
@@ -35,8 +36,5 @@ export const Route = createFileRoute('/_authenticated/models')({
       },
     })
   },
-  component: lazyRouteComponent(
-    () => import('@/features/models/components/models-page'),
-    'ModelsPage'
-  ),
+  component: ModelsPage,
 })

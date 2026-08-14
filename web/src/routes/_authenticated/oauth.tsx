@@ -12,9 +12,10 @@
 // mirror the hooks (unwrap `.items` / `.providers` from the backend
 // envelopes) so the cached payloads match the hooks' output types exactly.
 
-import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 
 import { oauthKeys, oauthSearchSchema } from '@/features/oauth'
+import { OAuthPage } from '@/features/oauth/components/oauth-page'
 import { api } from '@/lib/api'
 
 export const Route = createFileRoute('/_authenticated/oauth')({
@@ -40,8 +41,5 @@ export const Route = createFileRoute('/_authenticated/oauth')({
       }),
     ])
   },
-  component: lazyRouteComponent(
-    () => import('@/features/oauth/components/oauth-page'),
-    'OAuthPage'
-  ),
+  component: OAuthPage,
 })

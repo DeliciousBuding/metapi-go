@@ -11,14 +11,19 @@
 
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
 
-import { getSettingsSubarea } from '@/features/settings'
+import { getSettingsSubarea, resolveDefaultSection } from '@/features/settings'
 
 export const Route = createFileRoute('/_authenticated/settings/$subarea')({
   beforeLoad: ({ params }) => {
     if (!getSettingsSubarea(params.subarea)) {
+      // Redirect straight to the default section so an unknown subarea doesn't
+      // bounce through the bare `/settings/general` → section redirect.
       throw redirect({
-        to: '/settings/$subarea',
-        params: { subarea: 'general' },
+        to: '/settings/$subarea/$section',
+        params: {
+          subarea: 'general',
+          section: resolveDefaultSection('general') ?? 'site',
+        },
       })
     }
   },

@@ -20,6 +20,7 @@ import ReactDOM from 'react-dom/client'
 
 import { ErrorPage } from '@/components/layout/error-page'
 import { NotFoundPage } from '@/components/layout/not-found-page'
+import { RoutePending } from '@/components/layout/route-pending'
 import { DirectionProvider } from '@/context/direction-provider'
 import { ThemeCustomizationProvider } from '@/context/theme-customization-provider'
 import { ThemeProvider } from '@/context/theme-provider'
@@ -70,9 +71,23 @@ const router = createRouter({
   routeTree,
   context: { queryClient },
   defaultPreload: 'intent',
-  defaultPreloadStaleTime: 0,
   defaultNotFoundComponent: NotFoundPage,
   defaultErrorComponent: ErrorPage,
+  // The window never scrolls — the app is a single pane and the scroll
+  // container is #content (AuthenticatedLayout's SidebarInset). Reset it to
+  // top on navigation so a new route never inherits the previous page's
+  // offset.
+  scrollRestoration: true,
+  scrollToTopSelectors: ['#content'],
+  // Leaf routes are code-split (rsbuild.config.ts `autoCodeSplitting`), so a
+  // cold navigation suspends until the chunk + loader resolve. Without a
+  // pending component the router renders `null` in that window — a black flash
+  // in dark mode. RoutePending keeps the content shell visible instead.
+  // `pendingMs` debounces the fallback (fast loads never show it) and
+  // `pendingMinMs` stops the skeleton itself from flickering on near-misses.
+  defaultPendingComponent: RoutePending,
+  defaultPendingMs: 200,
+  defaultPendingMinMs: 300,
 })
 
 // Register the router instance for type safety.
