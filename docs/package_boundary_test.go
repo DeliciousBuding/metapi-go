@@ -156,7 +156,7 @@ func forbiddenImport(pkg, imp string) string {
 			return "rule 2: platform ↛ store/handler/proxy/router/scheduler (only config + proxy/profiles)"
 		}
 	case "transform":
-		// Allowed: transform/canonical, transform/shared, and same-protocol siblings.
+		// Allowed: transform/shared, and same-protocol siblings.
 		if impTop == "transform" {
 			return "" // leaf cluster
 		}

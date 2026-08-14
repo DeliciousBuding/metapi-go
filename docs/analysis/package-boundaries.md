@@ -36,10 +36,10 @@ This document is the **B1 ownership inventory**. It does **not** rewrite package
 | `store` | Dual-dialect open/migrate/schema/settings, `GetDB` | Auth, HTTP handlers, routing selection | auth, routing, service, scheduler, app, router |
 | `auth` | Admin/proxy middleware, downstream key policy, rate limits | Proxy orchestration, admin CRUD | `router`, `handler/proxy` |
 | `platform` | Upstream adapters + site HTTP proxy helpers | Persistence, route selection, admin HTTP | `service/*`, some `handler/*`, thin `proxy` |
-| `transform/*` | Protocol conversion (canonical intermediate) | HTTP, store, routing | **currently leaf-only** (see §5.4) |
+| `transform/*` | Protocol conversion (native per protocol; no canonical IR) | HTTP, store, routing | **currently leaf-only** (see §5.4) |
 | `routing` | TokenRouter, matcher, weights, cooldown, site breaker, ports | HTTP handlers, proxy conductor | `proxy`, `handler/*`, `app` wiring |
 | `service` (+ subpkgs) | Domain workflows (sites/accounts/checkin/balance/notify/oauth/backup/…) | Chi routes, proxy surface formatting | `handler/*`, `scheduler`, `proxy` |
-| `proxy` (+ `profiles`, `types`) | Conductor, session leases, retry, failure judge, site concurrency | Admin REST, SPA | `handler/proxy`, `app` |
+| `proxy` (+ `profiles`, `types`) | Coordinator, executor, channel selection, retry policy | Admin REST, SPA | `handler/proxy`, `app` |
 | `handler/shared` | Shared admin/proxy error + metrics helpers (HTTP-shaped) | Domain services | `handler/*`, `app` metrics export |
 | `handler/admin` | `/api/*` REST registrars + payloads | Router middleware stack, SPA | `router` |
 | `handler/proxy` | `/v1/*` and non-v1 proxy surfaces | Admin CRUD, cron registry | `router` |
