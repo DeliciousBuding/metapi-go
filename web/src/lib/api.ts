@@ -14,9 +14,9 @@
  * preserved 1:1 so downstream TanStack Query hooks and feature code keep
  * working without signature churn.
  *
- * TODO(types): ~29 parameter sites still use `any` (untyped backend payloads).
- * Replace with Zod schemas + `z.infer` types in a follow-up; left as `any`
- * for now to keep the rewrite signature-stable. Search for `: any` to find them.
+ * Mutation payloads and loose response shapes are typed as `unknown` rather
+ * than `any`: the backend contract is intentionally permissive, and callers
+ * narrow the shape themselves instead of depending on an implicit `any`.
  */
 
 import { clearAuthSession, getAuthToken } from '@/lib/auth-session'
@@ -45,7 +45,7 @@ type RequestOptions = {
  * http-client GET-dedup applies; non-GET goes through `apiClient.request`.
  * Returns the parsed response body, matching the legacy `res.json()` contract.
  */
-async function request<T = any>(
+async function request<T = unknown>(
   url: string,
   options: RequestOptions = {}
 ): Promise<T> {
@@ -989,15 +989,15 @@ export type DownstreamApiKeyTrendResponse = {
 export const api = {
   // Sites
   getSites: () => request('/api/sites'),
-  addSite: (data: any) =>
+  addSite: (data: unknown) =>
     request('/api/sites', { method: 'POST', body: JSON.stringify(data) }),
-  updateSite: (id: number, data: any) =>
+  updateSite: (id: number, data: unknown) =>
     request(`/api/sites/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
   deleteSite: (id: number) => request(`/api/sites/${id}`, { method: 'DELETE' }),
-  batchUpdateSites: (data: any) =>
+  batchUpdateSites: (data: unknown) =>
     request('/api/sites/batch', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -1037,20 +1037,21 @@ export const api = {
 
   // Accounts
   getAccounts: async (params?: { includeOauth?: boolean }) => {
-    const result = await request<any>(
+    const result = await request<{ accounts?: unknown[] } | unknown[]>(
       `/api/accounts${buildQueryString(params)}`
     )
-    return Array.isArray(result?.accounts) ? result.accounts : result
+    const accounts = Array.isArray(result) ? result : result?.accounts
+    return Array.isArray(accounts) ? accounts : result
   },
   getAccountsSnapshot: (options?: { refresh?: boolean }) =>
     request(
       `/api/accounts${buildQueryString(options?.refresh ? { refresh: 1 } : undefined)}`
     ) as Promise<{
       generatedAt: string
-      accounts: any[]
-      sites: any[]
+      accounts: unknown[]
+      sites: unknown[]
     }>,
-  addAccount: (data: any) =>
+  addAccount: (data: unknown) =>
     request('/api/accounts', { method: 'POST', body: JSON.stringify(data) }),
   loginAccount: (data: {
     siteId: number
@@ -1084,14 +1085,14 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-  updateAccount: (id: number, data: any) =>
+  updateAccount: (id: number, data: unknown) =>
     request(`/api/accounts/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
   deleteAccount: (id: number) =>
     request(`/api/accounts/${id}`, { method: 'DELETE' }),
-  batchUpdateAccounts: (data: any) =>
+  batchUpdateAccounts: (data: unknown) =>
     request('/api/accounts/batch', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -1114,19 +1115,19 @@ export const api = {
   // Account tokens
   getAccountTokens: (accountId?: number) =>
     request(`/api/account-tokens${accountId ? `?accountId=${accountId}` : ''}`),
-  addAccountToken: (data: any) =>
+  addAccountToken: (data: unknown) =>
     request('/api/account-tokens', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-  updateAccountToken: (id: number, data: any) =>
+  updateAccountToken: (id: number, data: unknown) =>
     request(`/api/account-tokens/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
   deleteAccountToken: (id: number) =>
     request(`/api/account-tokens/${id}`, { method: 'DELETE' }),
-  batchUpdateAccountTokens: (data: any) =>
+  batchUpdateAccountTokens: (data: unknown) =>
     request('/api/account-tokens/batch', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -1175,9 +1176,9 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ channels }),
     }),
-  addRoute: (data: any) =>
+  addRoute: (data: unknown) =>
     request('/api/routes', { method: 'POST', body: JSON.stringify(data) }),
-  updateRoute: (id: number, data: any) =>
+  updateRoute: (id: number, data: unknown) =>
     request(`/api/routes/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -1191,12 +1192,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-  addChannel: (routeId: number, data: any) =>
+  addChannel: (routeId: number, data: unknown) =>
     request(`/api/routes/${routeId}/channels`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-  updateChannel: (id: number, data: any) =>
+  updateChannel: (id: number, data: unknown) =>
     request(`/api/channels/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -1496,9 +1497,11 @@ export const api = {
       ...(options?.refresh ? { refresh: 1 } : {}),
     })
     const [distribution, trend, sites] = await Promise.all([
-      request<{ distribution: any[] }>(`/api/stats/site-distribution${query}`),
-      request<{ trend: any[] }>(`/api/stats/site-trend${query}`),
-      request<any[]>('/api/sites'),
+      request<{ distribution: unknown[] }>(
+        `/api/stats/site-distribution${query}`
+      ),
+      request<{ trend: unknown[] }>(`/api/stats/site-trend${query}`),
+      request<unknown[]>('/api/sites'),
     ])
     return {
       generatedAt: new Date().toISOString(),
@@ -1633,7 +1636,7 @@ export const api = {
       skipErrorHandler: true,
     }),
   getUpdateCenterStatus: () => request('/api/update-center/status'),
-  saveUpdateCenterConfig: (data: any) =>
+  saveUpdateCenterConfig: (data: unknown) =>
     request('/api/update-center/config', {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -1712,12 +1715,12 @@ export const api = {
       skipErrorHandler: true,
     }),
   getDownstreamApiKeys: () => request('/api/downstream-keys'),
-  createDownstreamApiKey: (data: any) =>
+  createDownstreamApiKey: (data: unknown) =>
     request('/api/downstream-keys', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-  updateDownstreamApiKey: (id: number, data: any) =>
+  updateDownstreamApiKey: (id: number, data: unknown) =>
     request(`/api/downstream-keys/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -1776,14 +1779,14 @@ export const api = {
       body: JSON.stringify({}),
       skipErrorHandler: true,
     }),
-  importBackup: (data: any) =>
+  importBackup: (data: unknown) =>
     request('/api/settings/backup/import', {
       method: 'POST',
       body: JSON.stringify({ data }),
       skipErrorHandler: true,
     }),
   // F1: import plan preview before commit.
-  previewBackupImport: (data: any) =>
+  previewBackupImport: (data: unknown) =>
     request('/api/settings/backup/import/preview', {
       method: 'POST',
       body: JSON.stringify({ data }),
@@ -1866,9 +1869,12 @@ export const api = {
     if (options?.refresh) params.set('refresh', '1')
     if (options?.includePricing) params.set('includePricing', '1')
     const query = params.toString()
-    return request(`/api/models/marketplace${query ? `?${query}` : ''}`, {
-      timeoutMs: options?.refresh ? 45_000 : 15_000,
-    })
+    return request<{ models?: unknown[] } | unknown[]>(
+      `/api/models/marketplace${query ? `?${query}` : ''}`,
+      {
+        timeoutMs: options?.refresh ? 45_000 : 15_000,
+      }
+    )
   },
   /** Cross-site effective model price comparison. */
   getModelPriceCompare: (options?: {
