@@ -39,8 +39,10 @@ func (s *Sub2ApiAdapter) Detect(ctx context.Context, url string) (bool, error) {
 		return true, nil
 	}
 
-	// Fallback: check root HTML title
-	body, ct, err := fetchText(ctx, base+"/", nil)
+	// Fallback: check root HTML title (bounded so half-open hosts fail fast).
+	titleCtx, cancel := withProbeTimeout(ctx)
+	defer cancel()
+	body, ct, err := fetchText(titleCtx, base+"/", nil)
 	if err != nil {
 		return false, nil
 	}

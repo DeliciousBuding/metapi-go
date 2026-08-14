@@ -2,6 +2,7 @@ package platform
 
 import (
 	"context"
+	"net/url"
 	"strings"
 )
 
@@ -10,9 +11,14 @@ type OpenAiAdapter struct {
 	*StandardAdapter
 }
 
-// Detect matches by URL keyword: api.openai.com.
-func (o *OpenAiAdapter) Detect(ctx context.Context, url string) (bool, error) {
-	return strings.Contains(strings.ToLower(url), "api.openai.com"), nil
+// Detect matches the exact api.openai.com host (avoids suffix confusion such
+// as api.openai.com.evil.example).
+func (o *OpenAiAdapter) Detect(ctx context.Context, urlStr string) (bool, error) {
+	parsed, err := url.Parse(strings.TrimSpace(urlStr))
+	if err != nil {
+		return false, nil
+	}
+	return strings.EqualFold(parsed.Hostname(), "api.openai.com"), nil
 }
 
 // GetModels fetches models from the standard /v1/models OpenAI endpoint.

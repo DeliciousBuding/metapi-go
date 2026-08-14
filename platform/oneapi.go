@@ -12,8 +12,12 @@ type OneApiAdapter struct {
 	*BaseAdapter
 }
 
-// Detect probes GET /api/status and checks that success===true and system_name is absent.
+// Detect probes GET /api/status and checks that success===true, system_name is
+// absent, and data.version is present (the catch-all discriminator). Requiring
+// version keeps unrelated /api/status endpoints from being labeled one-api.
 func (o *OneApiAdapter) Detect(ctx context.Context, url string) (bool, error) {
+	ctx, cancel := withProbeTimeout(ctx)
+	defer cancel()
 	resp, err := fetchJSON(ctx, url+"/api/status", "GET", nil, nil, nil)
 	if err != nil {
 		return false, nil
@@ -26,8 +30,11 @@ func (o *OneApiAdapter) Detect(ctx context.Context, url string) (bool, error) {
 	if !ok {
 		return false, nil
 	}
-	_, hasSystemName := data["system_name"]
-	return !hasSystemName, nil
+	if _, hasSystemName := data["system_name"]; hasSystemName {
+		return false, nil
+	}
+	_, hasVersion := data["version"]
+	return hasVersion, nil
 }
 
 // Checkin: POST /api/user/checkin (Bearer auth).

@@ -2,6 +2,7 @@ package platform
 
 import (
 	"context"
+	"net/url"
 	"strings"
 )
 
@@ -12,9 +13,15 @@ type AntigravityAdapter struct {
 	*StandardAdapter
 }
 
-// Detect matches URL keyword: antigravity.
-func (a *AntigravityAdapter) Detect(ctx context.Context, url string) (bool, error) {
-	return strings.Contains(strings.ToLower(url), "antigravity"), nil
+// Detect matches the antigravity host only. The bare "antigravity" substring
+// previously matched any URL whose path contained /antigravity (e.g. Sub2API
+// model endpoints), swallowing them before sub2api was reached.
+func (a *AntigravityAdapter) Detect(ctx context.Context, urlStr string) (bool, error) {
+	parsed, err := url.Parse(strings.TrimSpace(urlStr))
+	if err != nil {
+		return false, nil
+	}
+	return strings.EqualFold(parsed.Hostname(), "antigravity.googleapis.com"), nil
 }
 
 // GetModels fetches from /v1internal:fetchAvailableModels with Antigravity-specific headers.
