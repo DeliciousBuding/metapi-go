@@ -1,6 +1,8 @@
 package service
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -277,10 +279,44 @@ func TestDetectSite_NewAPI(t *testing.T) {
 	}
 }
 
+func TestDetectSite_AdapterChain_NewAPI(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/status" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"success":true,"data":{"system_name":"MyNewAPI"}}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	result := DetectSite(server.URL)
+	if result == nil || result.Platform != "new-api" {
+		t.Fatalf("expected 'new-api', got %v", result)
+	}
+}
+
+func TestDetectSite_AdapterChain_OneAPI(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/status" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"success":true,"data":{"version":"1.0"}}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	result := DetectSite(server.URL)
+	if result == nil || result.Platform != "one-api" {
+		t.Fatalf("expected 'one-api', got %v", result)
+	}
+}
+
 func TestDetectSite_Unknown(t *testing.T) {
 	tests := []string{
 		"https://unknown-llm-provider.example.com",
-		"https://random-site.com",
+		"https://random-site.invalid",
 		"",
 	}
 	for _, url := range tests {
