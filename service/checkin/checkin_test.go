@@ -2,6 +2,9 @@ package checkin
 
 import (
 	"testing"
+	"time"
+
+	"github.com/deliciousbuding/metapi-go/platform"
 )
 
 // ---- isAlreadyCheckedInMessage Tests (12 patterns) ----
@@ -332,5 +335,128 @@ func TestCheckinExecutionStatus_Constants(t *testing.T) {
 	}
 	if CheckinSkipped != "skipped" {
 		t.Errorf("CheckinSkipped should be 'skipped', got %q", CheckinSkipped)
+	}
+}
+
+// ---- shouldRetryTransient Tests (issue #668: transient-retry classification decision) ----
+//
+// These tests pin the retry-decision predicate used by CheckinAccount (step
+// 6.5). A failure is retried once ONLY when it classifies as ClassTransient
+// (rate-limit / timeout / 5xx / network). Auth/billing/model/validation/state
+// failures must NOT retry — they require operator intervention.
+
+func TestShouldRetryTransient_TransientMessagesRetry(t *testing.T) {
+	// Realistic adapter-produced failure messages that the platform
+	// classifier maps to ClassTransient (httpStatus=0, message-driven).
+	transientMessages := []string{
+		"HTTP 429: rate limit exceeded",
+		"HTTP 429: too many requests",
+		"HTTP 503: service unavailable",
+		"HTTP 502: bad gateway",
+		"HTTP 504: gateway timeout",
+		"request: connection refused",
+		"request: connection reset by peer",
+		"rate limit exceeded",
+		"request timed out",
+		"too many requests",
+	}
+	for _, msg := range transientMessages {
+		t.Run(msg, func(t *testing.T) {
+			// Sanity-check the underlying classifier so the retry decision
+			// and the platform classification agree.
+			if platform.ClassifyUpstreamError(0, msg) != platform.ClassTransient {
+				t.Fatalf("classifier returned %s for %q, want ClassTransient",
+					platform.ClassifyUpstreamError(0, msg), msg)
+			}
+			result := &platform.CheckinResult{Success: false, Message: msg}
+			if !shouldRetryTransient(result) {
+				t.Errorf("shouldRetryTransient(%q) = false, want true", msg)
+			}
+		})
+	}
+}
+
+func TestShouldRetryTransient_NonTransientMessagesNoRetry(t *testing.T) {
+	// Failures that must NOT trigger the transient retry path.
+	nonTransientCases := []struct {
+		msg   string
+		label string
+	}{
+		{"jwt expired", "expired"},
+		{"invalid access token", "expired"},
+		{"access token is invalid", "expired"},
+		{"HTTP 401: unauthorized", "auth"},
+		{"insufficient quota", "billing"},
+		{"no payment method", "billing"},
+		{"model not supported", "model"},
+		{"invalid_argument", "validation"},
+		{"already checked in", "state"},
+		{"turnstile token 为空", "verification"},
+		{"some unknown opaque error", "unknown"},
+	}
+	for _, tt := range nonTransientCases {
+		t.Run(tt.label, func(t *testing.T) {
+			if platform.ClassifyUpstreamError(0, tt.msg) == platform.ClassTransient {
+				t.Fatalf("classifier returned ClassTransient for %q (%s); pick a non-transient fixture",
+					tt.msg, tt.label)
+			}
+			result := &platform.CheckinResult{Success: false, Message: tt.msg}
+			if shouldRetryTransient(result) {
+				t.Errorf("shouldRetryTransient(%q) = true, want false (%s)", tt.msg, tt.label)
+			}
+		})
+	}
+}
+
+func TestShouldRetryTransient_SuccessAndNilNoRetry(t *testing.T) {
+	// A successful checkin must never enter the retry path.
+	success := &platform.CheckinResult{Success: true, Message: "checkin success", Reward: "50"}
+	if shouldRetryTransient(success) {
+		t.Error("shouldRetryTransient(success) = true, want false")
+	}
+
+	// Defensive: a nil result must not panic or retry.
+	if shouldRetryTransient(nil) {
+		t.Error("shouldRetryTransient(nil) = true, want false")
+	}
+
+	// An empty-message failure is NOT transient (ClassUnknown), so no retry.
+	empty := &platform.CheckinResult{Success: false, Message: ""}
+	if shouldRetryTransient(empty) {
+		t.Error("shouldRetryTransient(empty failure) = true, want false")
+	}
+}
+
+// ---- Pacing & backoff helper Tests (issue #668: same-site pacing) ----
+//
+// These pin the existence and magnitude of the delays used between same-site
+// checkins (CheckinAll) and before the transient retry (CheckinAccount).
+
+func TestSameSitePacingDelay(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		d := sameSitePacingDelay()
+		// Base 1s + 0-249ms jitter → [1000ms, 1249ms]. Use a safe envelope.
+		if d < 950*time.Millisecond || d > 1300*time.Millisecond {
+			t.Errorf("sameSitePacingDelay() = %v, want ~1s (950ms-1300ms) on iteration %d", d, i)
+		}
+	}
+}
+
+func TestSameSitePacingDelay_AlwaysPositive(t *testing.T) {
+	// Must never be zero or negative (would mean no pacing).
+	for i := 0; i < 200; i++ {
+		if sameSitePacingDelay() <= 0 {
+			t.Fatal("sameSitePacingDelay() returned non-positive duration")
+		}
+	}
+}
+
+func TestTransientRetryBackoff(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		d := transientRetryBackoff()
+		// Base 2s + 0-999ms jitter → [2000ms, 2999ms].
+		if d < 2*time.Second || d > 3*time.Second {
+			t.Errorf("transientRetryBackoff() = %v, want 2s-3s on iteration %d", d, i)
+		}
 	}
 }

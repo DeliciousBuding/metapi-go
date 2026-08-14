@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math/rand/v2"
 	"strings"
 	"sync"
 	"time"
@@ -326,6 +327,19 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 		}
 	}
 
+	// 6.5. Transient retry: if still failing AND the failure classifies as
+	// transient (rate-limit / timeout / 5xx / network-like), wait a short
+	// backoff and retry the checkin once. This protects the daily checkin
+	// from a single transient blip. Auth/billing/model/validation failures
+	// are NOT retried — they require operator intervention. Max 1 retry.
+	if shouldRetryTransient(result) {
+		time.Sleep(transientRetryBackoff())
+		result, err = adp.Checkin(context.Background(), site.URL, activeAccessToken, platformUserIDPtr(platformUserID), proxyConfig)
+		if err != nil {
+			result = &platform.CheckinResult{Success: false, Message: err.Error()}
+		}
+	}
+
 	// 7. Classify result
 	isCloudflare := alert.IsCloudflareChallenge(result.Message)
 	alreadyCheckedIn := isAlreadyCheckedInMessage(result.Message)
@@ -574,7 +588,13 @@ func CheckinAll(cfg *config.Config, db *sqlx.DB, accountIDs []int64, scheduleMod
 		wg.Add(1)
 		go func(indices []int) {
 			defer wg.Done()
-			for _, idx := range indices {
+			for i, idx := range indices {
+				if i > 0 {
+					// Same-site pacing: space consecutive checkins on the same site
+					// to avoid tripping upstream rate limits (429). Cross-site
+					// parallelism is preserved by the per-site goroutine above.
+					time.Sleep(sameSitePacingDelay())
+				}
 				row := rows[idx]
 				result := CheckinAccount(cfg, db, row.Accounts.ID, &CheckinOptions{
 					SkipEvent:    true,
@@ -607,4 +627,29 @@ func orUsername(username *string, id int64) string {
 		return *username
 	}
 	return fmt.Sprintf("ID:%d", id)
+}
+
+// shouldRetryTransient reports whether the current checkin result should be
+// retried once as a transient failure (rate-limit / timeout / 5xx / network).
+// Auth/billing/model/validation failures return false — they require operator
+// intervention, not a retry. Used by CheckinAccount after the auto-relogin
+// path (issue #668: transient-retry). Max 1 retry.
+func shouldRetryTransient(result *platform.CheckinResult) bool {
+	if result == nil || result.Success {
+		return false
+	}
+	return platform.ClassifyUpstreamError(0, result.Message) == platform.ClassTransient
+}
+
+// sameSitePacingDelay returns a ~1s delay (with minor jitter) used between
+// consecutive same-site checkins in CheckinAll to avoid upstream rate limits
+// (issue #668: same-site pacing).
+func sameSitePacingDelay() time.Duration {
+	return time.Second + time.Duration(rand.IntN(250))*time.Millisecond
+}
+
+// transientRetryBackoff returns a ~2-3s backoff used before retrying a transient
+// checkin failure (rate-limit / timeout / 5xx / network) in CheckinAccount.
+func transientRetryBackoff() time.Duration {
+	return 2*time.Second + time.Duration(rand.IntN(1000))*time.Millisecond
 }
