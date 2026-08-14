@@ -22,9 +22,17 @@ func TestIsAlreadyCheckedInMessage_Positive(t *testing.T) {
 		"已签到",
 		"重复签到",
 		"签到达",
+		// Claimed: "already claimed", "claimed today", "已领取", "领取过"
+		"already claimed today",
+		"reward already claimed",
+		"claimed today's reward",
+		"今日已领取",
+		"已经领取奖励",
+		"领取过今日奖励",
 		// Case insensitive
 		"Already Checked In",
 		"ALREADY SIGNED",
+		"ALREADY CLAIMED",
 	}
 	for _, msg := range positiveCases {
 		t.Run(msg, func(t *testing.T) {
