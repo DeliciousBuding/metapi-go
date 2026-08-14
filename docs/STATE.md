@@ -1,6 +1,6 @@
 # STATE.md — MetAPI Go product status
 
-**Last verified**: 2026-08-12
+**Last verified**: 2026-08-14
 
 > **Current state** (product repository). Only current facts and pointers, no narrative.
 > Deployment facts live in the deployment guide; open items → [`progress/MASTER.md`](progress/MASTER.md) · timeline → [`log.md`](log.md) · version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
@@ -10,14 +10,14 @@
 | Fact | Value |
 |:-----|:------|
 | Source | **[DeliciousBuding/metapi-go](https://github.com/DeliciousBuding/metapi-go)** · default branch `master` |
-| Latest release | **[v0.10.0](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.10.0)** (2026-08-12); master pipeline publishes `ghcr.io/deliciousbuding/metapi-go` — verified live: tags `latest`/`0.10.0`/`0.10`/sha |
+| Latest release | **[v0.11.0](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.11.0)** (2026-08-14); master pipeline publishes `ghcr.io/deliciousbuding/metapi-go` — verified live: tags `latest`/`0.11.0`/`0.11`/sha |
 | Release pipeline | Single pipeline (`.github/workflows/main.yml`): PR / master push / SemVer tag all run the same 12-check suite; master push pushes the **linux/amd64 + linux/arm64** image (provenance + SBOM, tags latest+sha); SemVer-only tags (`vX.Y.Z`) additionally build **5-platform binaries + checksums.txt** (linux/darwin/windows × amd64/arm64), smoke `metapi-linux-amd64 --version`, and create the GitHub Release with notes extracted from the matching `CHANGELOG.md` section; tag must match `web/package.json` version or the release fails |
 | Versioning | `metapi --version` reports the build version injected via `-ldflags -X .../internal/version.Version` (`dev` for local builds); Docker build arg `VERSION`; Makefile `VERSION` variable |
 | Dependency updates | Dependabot active (Go / npm / GitHub Actions / Docker) — weekly group PRs through the same 12-check CI; breaking major bumps are closed and need a manual migration PR |
 
 | Production pin (ops) | **v0.9.0** image on `ghcr.io/deliciousbuding/metapi-go`; runtime deployment facts live in the deployment docs |
 | Current focus | production hardening |
-| Open issues / PRs | [#557](https://github.com/DeliciousBuding/metapi-go/issues/557) · [#558](https://github.com/DeliciousBuding/metapi-go/issues/558) |
+| Open issues / PRs | [#557](https://github.com/DeliciousBuding/metapi-go/issues/557) · [#558](https://github.com/DeliciousBuding/metapi-go/issues/558) · [#562](https://github.com/DeliciousBuding/metapi-go/issues/562) |
 | Stack | Go 1.26.6 · React 19 + Bun + Rsbuild 2 + TanStack Router/Query/Table + Tailwind 4 + shadcn Base UI + OKLCH + i18next · dual dialect SQLite/PostgreSQL |
 | Runtime shape | single embedded SPA binary · **16** background schedulers · OAuth callback listeners start only with an active flow |
 | Brand | **MetAPI** · transparent solid-blue SVG badge `web/public/logo.svg` (real U+03C0 π glyph) + `favicon.svg` · served from the embedded SPA root by the router whitelist |

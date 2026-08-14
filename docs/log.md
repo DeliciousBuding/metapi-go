@@ -1,9 +1,24 @@
 # log.md — MetAPI Go product milestones
 
-**Last updated**: 2026-08-11
+**Last updated**: 2026-08-14
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
+
+## 2026-08-14 — v0.11.0 管理控制台 UI/UX 全量 + 开源打磨
+
+- **管理控制台 UI/UX 与功能全量交付**（#594–#626，合并为 #633/#634）：共享格式化器、状态/空态组件、toast、CountUp、响应式 data-table + 移动端降级、无障碍、token 列脱敏、可观测性工作台（Overview/Health/Proxy Logs）、站点探测 + 统一导入向导、模型定价/价格对比/重定向修复、通道只读列表 + probe 驱动重建过滤
+- **可观测性**：访问日志 status/bytes/duration_ms + statusRecorder 转发 SSE/WebSocket + slog panic 恢复带 request_id + /metrics 纯 stdlib go runtime 指标（#593）；/api/routes/rebuild 响应新增 changed 统计
+- **调度器注册回归修复**：balance-refresh / log-cleanup / backup-webdav 曾构造未 Register()，已注册并加 16 集合回归测试（#635）
+- **CI/CD 单一管道**：test → 镜像推送 → GitHub Release 合一（main.yml）；master push 推 latest+sha 镜像；SemVer tag 另建 5 平台二进制 + checksums + 二进制冒烟 + Release（#637）
+- **升级与打磨**：旧 schema 增量 ALTER 回归测试 + forward-only 迁移文档（#636）；docker-compose.prod 安全硬化（#639）；重新启用 unused/gosimple + 删死代码（#641）；a11y 标签 i18n + SSE any→unknown（#642）；docs/api.md 端点清单（#643）；.env.example 补齐（#640）
+- **类型/卫生收尾**：api.ts payload/response any→unknown（#646）；Go 1.26.6 升级（#647）；清理过期子代理拆分注释（#648）
+
+## 2026-08-12 — v0.10.0 设置中心 + 调度规格 v1
+
+- **ScheduleSpec v1**：daily / interval / random-window / custom cron 四种调度规格，additive preview/apply 迁移端点保留所有 legacy key
+- **设置中心**：统一表单 actions + load-error 态 + dirty 导航守卫 + 语义化调度控件 + 响应式导航；DB 设置页统一 dirty-guard，应用内 501 migrate 按钮改为 CLI-only 迁移提示；审计日志服务端分页 + 分页表 UI
+- **CJK 字体回退**：--font-sans 加 Noto Sans SC/TC/JP/KR + PingFang SC + Microsoft YaHei；移动端侧栏 header 触发器（md:hidden）
 
 ## 2026-08-11 — post-v0.9.0 UI completion batch
 

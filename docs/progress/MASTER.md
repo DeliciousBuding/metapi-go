@@ -1,10 +1,10 @@
 # Roadmap
 
-**Last updated**: 2026-08-11
+**Last updated**: 2026-08-14
 
 **Repo**: https://github.com/DeliciousBuding/metapi-go
 
-**Release**: v0.9.0 · master CD `ghcr.io/deliciousbuding/metapi-go`
+**Release**: v0.11.0 · master CD `ghcr.io/deliciousbuding/metapi-go`
 
 > Current status → [`../STATE.md`](../STATE.md) · Timeline → [`../log.md`](../log.md)
 
@@ -14,6 +14,7 @@
 |------:|:------|
 | [#557](https://github.com/DeliciousBuding/metapi-go/issues/557) | Production multi-channel cascade e2e |
 | [#558](https://github.com/DeliciousBuding/metapi-go/issues/558) | Runtime probes for Codex and AnyRouter (optional) |
+| [#562](https://github.com/DeliciousBuding/metapi-go/issues/562) | 商汤端口兼容性（自动判失效） |
 
 ## Product honesty
 
