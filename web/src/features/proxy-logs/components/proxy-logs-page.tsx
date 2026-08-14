@@ -687,7 +687,7 @@ function proxyLogsToCsv(
 ): string {
   const header = PROXY_LOGS_CSV_COLUMNS.map((column) =>
     csvEscape(
-      t(`proxyLogs.page.exportCsv.column.${column}`, { defaultValue: column })
+      t(`proxyLogs.page.exportCsvColumn.${column}`, { defaultValue: column })
     )
   ).join(',')
   const body = rows
