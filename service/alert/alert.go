@@ -5,10 +5,10 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/service"
 	notifypkg "github.com/deliciousbuding/metapi-go/service/notify"
+	"github.com/jmoiron/sqlx"
 )
 
 // TokenExpiredParams holds parameters for reportTokenExpired.
@@ -54,9 +54,10 @@ func ReportTokenExpired(cfg *config.Config, db *sqlx.DB, params TokenExpiredPara
 
 	// Write events
 	_ = createdAt
+	message := enrichAlertMessage(db, fmt.Sprintf("%s @ %s 的 Token 无效或已过期%s", accountLabel, siteLabel, detail),
+		alertEnrichmentScope{accountID: &params.AccountID})
 	service.CreateEvent(db, "token", "Token 已失效",
-		fmt.Sprintf("%s @ %s 的 Token 无效或已过期%s", accountLabel, siteLabel, detail),
-		"error", params.AccountID, "account")
+		message, "error", params.AccountID, "account")
 
 	// Update account status
 	db.Exec(db.Rebind("UPDATE accounts SET status = 'expired', updated_at = ? WHERE id = ?"),
@@ -72,8 +73,7 @@ func ReportTokenExpired(cfg *config.Config, db *sqlx.DB, params TokenExpiredPara
 	})
 
 	// Send notification
-	notifypkg.SendNotification(cfg, "Token 已失效",
-		fmt.Sprintf("%s @ %s 的 Token 无效或已过期%s", accountLabel, siteLabel, detail),
+	notifypkg.SendNotification(cfg, "Token 已失效", message,
 		"error", &notifypkg.SendNotificationOptions{TaskTag: "token_expired"})
 }
 
@@ -121,8 +121,10 @@ func ReportLowBalance(cfg *config.Config, db *sqlx.DB, params LowBalanceParams) 
 		siteLabel = *params.SiteName
 	}
 
-	msg := fmt.Sprintf("%s @ %s 余额不足：当前 $%.2f（阈值 $%.2f）",
-		accountLabel, siteLabel, params.Balance, params.Threshold)
+	msg := enrichAlertMessage(db,
+		fmt.Sprintf("%s @ %s 余额不足：当前 $%.2f（阈值 $%.2f）",
+			accountLabel, siteLabel, params.Balance, params.Threshold),
+		alertEnrichmentScope{accountID: &params.AccountID})
 
 	service.CreateEvent(db, "balance", "余额不足", msg, "warning",
 		params.AccountID, "account")
@@ -130,7 +132,6 @@ func ReportLowBalance(cfg *config.Config, db *sqlx.DB, params LowBalanceParams) 
 	notifypkg.SendNotification(cfg, "余额不足", msg, "warning",
 		&notifypkg.SendNotificationOptions{TaskTag: "low_balance"})
 }
-
 
 type ProxyAllFailedParams struct {
 	Model  string
@@ -142,12 +143,14 @@ type ProxyAllFailedParams struct {
 func ReportProxyAllFailed(cfg *config.Config, db *sqlx.DB, params ProxyAllFailedParams) {
 	createdAt := service.FormatUtcSqlDateTime(time.Now())
 
-	service.CreateEvent(db, "proxy", "代理全部失败",
+	message := enrichAlertMessage(db,
 		fmt.Sprintf("模型=%s, 原因=%s", params.Model, params.Reason),
-		"error", 0, "route")
+		alertEnrichmentScope{model: params.Model})
 
-	notifypkg.SendNotification(cfg, "代理全部失败",
-		fmt.Sprintf("模型=%s, 原因=%s", params.Model, params.Reason),
+	service.CreateEvent(db, "proxy", "代理全部失败",
+		message, "error", 0, "route")
+
+	notifypkg.SendNotification(cfg, "代理全部失败", message,
 		"error", &notifypkg.SendNotificationOptions{TaskTag: "proxy_all_failed"})
 
 	_ = createdAt // already used above
