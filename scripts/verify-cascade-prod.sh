@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# verify-cascade-hk3.sh — P0-585 production multi-channel cascade verification.
+# verify-cascade-prod.sh — P0-585 production multi-channel cascade verification.
 #
-# Connects to a running metapi instance (hk3 or any reachable host) and captures
-# honest, READ-ONLY evidence of the multi-channel cascade failover behaviour.
+# Connects to a running metapi instance (any reachable host — set METAPI_URL)
+# and captures honest, READ-ONLY evidence of the multi-channel cascade
+# failover behaviour.
 # This script performs NO destructive actions: it does not disable channels,
 # rotate credentials, or mutate routing state. It only:
 #   1. checks health / readiness
@@ -19,17 +20,18 @@
 #
 # ---------------------------------------------------------------------------
 # Usage:
-#   # On the hk3 host itself (instance bound to 127.0.0.1:4000):
-#   ssh hk3 'bash -s' < scripts/verify-cascade-hk3.sh
+#   # On the production host itself (instance bound to 127.0.0.1:4000):
+#   ssh <prod-host> 'bash -s' < scripts/verify-cascade-prod.sh
 #
-#   # Locally against a tunnel (ssh -L 4000:127.0.0.1:4000 hk3):
+#   # Locally against an SSH tunnel to the production host:
+#   ssh -L 4000:127.0.0.1:4000 <prod-host> -N   # in one terminal
 #   METAPI_URL=http://127.0.0.1:4000 \
 #   METAPI_AUTH_TOKEN=<admin-token> \
 #   METAPI_PROXY_TOKEN=<proxy-token> \
-#   ./scripts/verify-cascade-hk3.sh
+#   ./scripts/verify-cascade-prod.sh
 #
 #   # Override the model used for the live probe (recommended):
-#   METAPI_TEST_MODEL=gpt-4o-mini ./scripts/verify-cascade-hk3.sh
+#   METAPI_TEST_MODEL=gpt-4o-mini ./scripts/verify-cascade-prod.sh
 #
 # Required env:
 #   METAPI_AUTH_TOKEN  — admin AUTH_TOKEN (for /api/* topology + proxy_logs)

@@ -48,7 +48,7 @@ Exclusion is **channel-only** — same-site sibling channels stay eligible. Site
 
 ## 3. What was missing (the gap this change addresses)
 
-`docs/STATE.md` records `cascade | partial | HTTP load proof exists; production multi-channel proof still required`. The HTTP e2e tests use `httptest.Server` mocks — they prove the code path is correct, **not** that a real production instance with a real multi-site topology actually cascades. Issue #557 requires production/staging evidence against the `hk3` deployment (34.92.70.144:4000).
+`docs/STATE.md` records `cascade | partial | HTTP load proof exists; production multi-channel proof still required`. The HTTP e2e tests use `httptest.Server` mocks — they prove the code path is correct, **not** that a real production instance with a real multi-site topology actually cascades. Issue #557 requires production/staging evidence against the live deployment (the operator runs the script against the instance via `METAPI_URL`).
 
 This change ships the **verification tooling** (a read-only shell script + a build-tagged Go test) and the **procedure** (this document) so an operator can collect that evidence without faking it. It does **not** attach captured evidence files, because:
 
@@ -59,26 +59,26 @@ This change ships the **verification tooling** (a read-only shell script + a bui
 
 ### 4.1 Prerequisites
 
-- Access to the `hk3` host (SSH) or an SSH tunnel (`ssh -L 4000:127.0.0.1:4000 hk3`).
+- Access to the production host (SSH) or an SSH tunnel (`ssh -L 4000:127.0.0.1:4000 <prod-host>`).
 - `METAPI_AUTH_TOKEN` (admin `AUTH_TOKEN`) — needed for `/api/*` (topology + proxy_logs).
 - `METAPI_PROXY_TOKEN` (downstream `PROXY_TOKEN`) — needed for `/v1/*` (live probe).
 - `curl` and `jq` on the machine running the script.
 
 ### 4.2 Run the verification script
 
-The script is at `scripts/verify-cascade-hk3.sh`. It is **read-only**: it checks health, snapshots topology, sends one minimal chat-completions probe, diffs Prometheus counters, and groups recent `proxy_logs` by `request_id` to surface cascade attempts. It does **not** disable channels or mutate routing state.
+The script is at `scripts/verify-cascade-prod.sh`. It is **read-only**: it checks health, snapshots topology, sends one minimal chat-completions probe, diffs Prometheus counters, and groups recent `proxy_logs` by `request_id` to surface cascade attempts. It does **not** disable channels or mutate routing state.
 
 ```bash
-# Option A — run on the hk3 host itself (instance bound to 127.0.0.1:4000):
-ssh hk3 'bash -s' < scripts/verify-cascade-hk3.sh
+# Option A — run on the production host itself (instance bound to 127.0.0.1:4000):
+ssh <prod-host> 'bash -s' < scripts/verify-cascade-prod.sh
 
-# Option B — run locally against an SSH tunnel:
-ssh -L 4000:127.0.0.1:4000 hk3 -N   # in one terminal
+# Option B — run locally against an SSH tunnel to the production host:
+ssh -L 4000:127.0.0.1:4000 <prod-host> -N   # in one terminal
 METAPI_URL=http://127.0.0.1:4000 \
 METAPI_AUTH_TOKEN=<admin-token> \
 METAPI_PROXY_TOKEN=<proxy-token> \
 METAPI_TEST_MODEL=<a-model-on-a-multi-channel-route> \
-  ./scripts/verify-cascade-hk3.sh
+  ./scripts/verify-cascade-prod.sh
 ```
 
 The script writes a structured JSON report to `./cascade-verify-reports/cascade-verify-<timestamp>.json` and raw artefacts (metrics, topology, proxy_logs) to a sibling `raw-<timestamp>/` directory. Keep both when attaching evidence to the issue.
@@ -97,7 +97,7 @@ METAPI_TEST_MODEL=<a-model-on-a-multi-channel-route> \
 
 ### 4.4 Triggering a cascade (operator-gated, NOT automated)
 
-The script and the Go test do **not** force a 5xx — that would require disabling a production channel, which is destructive and out of scope for a read-only verification. To genuinely trigger a cascade against `hk3`, an operator performs these steps manually (documented in the script's final report block):
+The script and the Go test do **not** force a 5xx — that would require disabling a production channel, which is destructive and out of scope for a read-only verification. To genuinely trigger a cascade against the production instance, an operator performs these steps manually (documented in the script's final report block):
 
 1. Pick a route with ≥2 channels (the script's `topology.perRoute` field identifies these).
 2. `PUT /api/channels/{id}` with `{"enabled":false}` on the **first** channel only, **or** point its account at a deliberately broken upstream.
@@ -126,13 +126,13 @@ The decisive signal is the last one: a `requestId` with multiple `proxy_logs` ro
 | Verified by this change | Still partial |
 |---|---|
 | Verification **procedure + tooling** shipped (script + build-tagged test). | No captured production evidence is committed; evidence must be attached by an operator run. |
-| Read-only topology/metrics/proxy_logs collection is automated and safe. | Cascade is only observable on a real 5xx; a fully-healthy `hk3` yields no cascade rows (the test honestly `t.Skip`s). |
+| Read-only topology/metrics/proxy_logs collection is automated and safe. | Cascade is only observable on a real 5xx; a fully-healthy instance yields no cascade rows (the test honestly `t.Skip`s). |
 | Staging test asserts channel-scoped exclude + bounded retry **when** cascade occurs. | The destructive trigger (channel disable) is operator-gated, not automated. |
-| `go build ./...` + existing `e2e` tests stay green; the staging test is build-tagged out of CI. | If `hk3` has no multi-channel route, cascade cannot be exercised on that instance at all — a topology gap, not a code gap. |
+| `go build ./...` + existing `e2e` tests stay green; the staging test is build-tagged out of CI. | If the production instance has no multi-channel route, cascade cannot be exercised on it at all — a topology gap, not a code gap. |
 
 ## 7. Related files
 
-- `scripts/verify-cascade-hk3.sh` — read-only production verification script.
+- `scripts/verify-cascade-prod.sh` — read-only production verification script.
 - `e2e/e2e_p0585_production_test.go` — `//go:build staging` test; deeper assertions when cascade is observed.
 - `e2e/e2e_cascade_isolation_test.go` — the HTTP-path load-proof tests (mock upstreams).
 - `handler/proxy/upstream.go` — the cascade retry loop (`dispatchUpstream`).
