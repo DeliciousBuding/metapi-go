@@ -55,6 +55,14 @@ type ProxyConfig struct {
 	// Downstream code (e.g. native wss reverse-proxy) can read this to set the
 	// X-Resin-Account header on paths that bypass the HTTP forward proxy.
 	ResinAccount string
+	// UseUTLS switches the transport to a uTLS-backed DialTLSContext that
+	// mimics Chrome's ClientHello (HelloChrome_Auto), masking the JA3/JA4
+	// fingerprint that Cloudflare and similar WAFs use to block automated
+	// traffic. When false (default) the standard crypto/tls transport is
+	// used. Resolved from site-level use_utls or the global UTLS_ENABLED flag
+	// by service.BuildPlatformProxyConfig; the platform layer only reads
+	// the resolved bool.
+	UseUTLS bool
 }
 
 // CheckinResult is the outcome of a daily checkin.
