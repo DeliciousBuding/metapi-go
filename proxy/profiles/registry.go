@@ -16,13 +16,6 @@ func All() []*types.CliProfileDefinition {
 func Generic() *types.CliProfileDefinition {
 	return &types.CliProfileDefinition{
 		ID: types.ProfileGeneric,
-		Capabilities: types.CliProfileCapabilities{
-			SupportsResponsesCompact:             false,
-			SupportsResponsesWebsocketIncremental: false,
-			PreservesContinuation:                false,
-			SupportsCountTokens:                  false,
-			EchoesTurnState:                      false,
-		},
 		Detect: func(input types.DetectInput) *types.DetectedProfile {
 			return &types.DetectedProfile{
 				ID: types.ProfileGeneric,

@@ -1,10 +1,10 @@
 package routing
 
 import (
-	"encoding/json"
 	"math"
 	"math/rand"
 	"sort"
+	"strconv"
 	"sync"
 )
 
@@ -334,6 +334,8 @@ func ResolveChannelRuntimeLoadMultiplier(snapshot ChannelLoadSnapshot) float64 {
 }
 
 // ---- Stable-first helpers ----
+// Implements the stable_first routing strategy helpers (observation gating,
+// site rotation, weighted selection); see BuildStableFirstPoolPlan in this file.
 
 func compareStableFirstCandidateOrder(left, right RouteChannelCandidate) int {
 	// Compare by lastSelectedAt || lastUsedAt
@@ -407,7 +409,7 @@ func rememberStableFirstObservationProgressForKeyLocked(rotationKey string, stat
 }
 
 func rememberStableFirstObservationSiteCooldownLocked(rotationKey string, siteID int64, observedAtMs int64) {
-	scopedKey := rotationKey + ":" + formatInt(siteID)
+	scopedKey := rotationKey + ":" + strconv.FormatInt(siteID, 10)
 	delete(stableFirstObservationSiteCooldownByKey, scopedKey)
 	stableFirstObservationSiteCooldownByKey[scopedKey] = observedAtMs
 	for len(stableFirstObservationSiteCooldownByKey) > MaxStableFirstObservationSiteCooldownKeys {
@@ -534,17 +536,17 @@ func BuildStableFirstRotationKey(routeID int64, requestedModel string) string {
 	if normalizedModel == "" {
 		normalizedModel = NormalizeRouteDisplayName(nil) // won't work, fallback
 		if normalizedModel == "" {
-			normalizedModel = formatInt(routeID)
+			normalizedModel = strconv.FormatInt(routeID, 10)
 		}
 	}
-	return formatInt(routeID) + ":" + normalizedModel
+	return strconv.FormatInt(routeID, 10) + ":" + normalizedModel
 }
 
 // ClearStableFirstCachesForRoute clears rotation/progress/cooldown for a route.
 func ClearStableFirstCachesForRoute(routeID int64) {
 	stableFirstStateMu.Lock()
 	defer stableFirstStateMu.Unlock()
-	routePrefix := formatInt(routeID) + ":"
+	routePrefix := strconv.FormatInt(routeID, 10) + ":"
 	for k := range stableFirstLastSelectedSiteByKey {
 		if len(k) >= len(routePrefix) && k[:len(routePrefix)] == routePrefix {
 			delete(stableFirstLastSelectedSiteByKey, k)
@@ -578,7 +580,7 @@ func ShouldUseStableFirstObservationCandidate(rotationKey string, observationCan
 	}
 	n := nowMs()
 	for _, c := range observationCandidates {
-		scopedKey := rotationKey + ":" + formatInt(c.Site.ID)
+		scopedKey := rotationKey + ":" + strconv.FormatInt(c.Site.ID, 10)
 		observedAtMs, exists := stableFirstObservationSiteCooldownByKey[scopedKey]
 		if !exists || (n-observedAtMs) >= StableFirstObservationSiteCooldownMs {
 			return true
@@ -766,14 +768,4 @@ type StableFirstSitePoolState struct {
 	ObservationReason    string
 }
 
-// MarshalJSON helpers for the runtime health payload
-func marshalHealthPayload(v SiteRuntimeHealthPersistencePayload) (string, error) {
-	b, err := json.Marshal(v)
-	return string(b), err
-}
 
-func unmarshalHealthPayload(data string) (*SiteRuntimeHealthPersistencePayload, error) {
-	var v SiteRuntimeHealthPersistencePayload
-	err := json.Unmarshal([]byte(data), &v)
-	return &v, err
-}

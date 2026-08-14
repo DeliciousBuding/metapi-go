@@ -3,6 +3,7 @@ package routing
 import (
 	"math"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -123,13 +124,13 @@ func TestCalculateWeightedSelection_GoldenFile(t *testing.T) {
 	sb.WriteString("# Golden file for CalculateWeightedSelection weight formula\n")
 	sb.WriteString("# Format: channelID,siteID,accountID,probability\n")
 	for i, d := range result.Details {
-		sb.WriteString(formatInt(d.Candidate.Channel.ID))
+		sb.WriteString(strconv.FormatInt(d.Candidate.Channel.ID, 10))
 		sb.WriteString(",")
-		sb.WriteString(formatInt(d.Candidate.Site.ID))
+		sb.WriteString(strconv.FormatInt(d.Candidate.Site.ID, 10))
 		sb.WriteString(",")
-		sb.WriteString(formatInt(d.Candidate.Account.ID))
+		sb.WriteString(strconv.FormatInt(d.Candidate.Account.ID, 10))
 		sb.WriteString(",")
-		sb.WriteString(fmtFloat(d.Probability))
+		sb.WriteString(formatGoldenFloat(d.Probability))
 		sb.WriteString("\n")
 		_ = i
 	}

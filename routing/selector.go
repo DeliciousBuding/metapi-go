@@ -9,79 +9,6 @@ import (
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
-// ChannelSelectorDB defines the DB operations needed by the selector.
-type ChannelSelectorDB interface {
-	// Route operations
-	LoadEnabledRoutes(ctx context.Context) ([]store.TokenRoute, error)
-	LoadRouteGroupSources(ctx context.Context, groupRouteIDs []int64) (map[int64][]int64, error)
-
-	// Channel operations
-	LoadRouteChannels(ctx context.Context, routeIDs []int64) ([]struct {
-		Channel store.RouteChannel
-		Account store.Account
-		Site    store.Site
-		Token   *store.AccountToken
-	}, error)
-
-	// OAuth route unit operations
-	LoadOAuthRouteUnitSummaries(ctx context.Context, unitIDs []int64) (map[int64]OAuthRouteUnitSummary, error)
-	LoadOAuthRouteUnitMembers(ctx context.Context, unitIDs []int64) (map[int64][]OAuthRouteUnitMemberCandidate, error)
-
-	// Channel mutation
-	UpdateChannelLastSelectedAt(ctx context.Context, channelID int64, lastSelectedAt string) error
-	UpdateRouteUnitMemberLastSelectedAt(ctx context.Context, unitID, accountID int64, lastSelectedAt string) error
-
-	// Route unit member routes
-	FindRouteIDsByOAuthRouteUnitID(ctx context.Context, unitID int64) ([]int64, error)
-
-	// Load credential-scoped channel IDs
-	LoadCredentialScopedChannelIDs(ctx context.Context, channel store.RouteChannel, accountID int64) ([]int64, error)
-
-	// Load channel by ID with joins
-	LoadChannelWithAccount(ctx context.Context, channelID int64) (*struct {
-		Channel store.RouteChannel
-		Account store.Account
-	}, error)
-
-	LoadChannelWithAccountAndRoute(ctx context.Context, channelID int64) (*struct {
-		Channel store.RouteChannel
-		Account store.Account
-		Route   store.TokenRoute
-	}, error)
-
-	// Batch updates
-	UpdateChannelCooldownFields(ctx context.Context, channelIDs []int64, updates map[string]interface{}) error
-	UpdateChannelSuccessFields(ctx context.Context, channelID int64, updates map[string]interface{}) error
-
-	// Route unit member updates
-	UpdateRouteUnitMemberCooldownFields(ctx context.Context, memberID int64, updates map[string]interface{}) error
-	UpdateRouteUnitMemberSuccessFields(ctx context.Context, memberID int64, updates map[string]interface{}) error
-
-	// Load member with account+unit
-	LoadRouteUnitMemberWithAccount(ctx context.Context, unitID, accountID int64) (*struct {
-		Member  store.OAuthRouteUnitMember
-		Account store.Account
-		Unit    store.OAuthRouteUnit
-	}, error)
-
-	// Find all routes
-	FindAllEnabledRoutes(ctx context.Context) ([]store.TokenRoute, error)
-
-	// Credential scoping
-	LoadChannelsByTokenID(ctx context.Context, tokenID int64) ([]store.RouteChannel, error)
-	LoadChannelsByAccountIDWithoutToken(ctx context.Context, accountID int64) ([]store.RouteChannel, error)
-
-	// Runtime health
-	LoadRuntimeHealthChannelRows(ctx context.Context, channelIDs []int64) ([]struct {
-		SiteID            int64
-		SourceModel       *string
-		RouteModelPattern string
-	}, error)
-
-	// Clear channel failure states
-	ClearChannelFailureStates(ctx context.Context, channelIDs []int64) error
-}
-
 // ChannelSelector implements selectChannel, selectNextChannel, selectPreferredChannel.
 type ChannelSelector struct {
 	db                  ChannelSelectorDB
@@ -246,12 +173,6 @@ func (s *ChannelSelector) selectFromMatch(
 	requestedByDisplayName := IsRouteDisplayNameMatch(requestedModel, match.Route.DisplayName)
 	bypassSourceModelCheck := requestedByDisplayName
 	strategy := NormalizeRouteRoutingStrategy(match.Route.RoutingStrategy)
-	runtimeModelResolver := mappedModel
-	_ = runtimeModelResolver
-	if requestedByDisplayName {
-		sm := NormalizeChannelSourceModel(nil) // Will be resolved per-candidate
-		_ = sm
-	}
 
 	nowISO := time.Now().UTC().Format(time.RFC3339)
 	nowMs := time.Now().UnixMilli()
@@ -353,7 +274,7 @@ func (s *ChannelSelector) selectFromMatch(
 	// Deterministic pluggable strategies: least_busy / lowest_latency / lowest_cost.
 	// Same eligibility + recent-failure filters as weighted; exclude lists remain upstream.
 	if strategy == StrategyLeastBusy || strategy == StrategyLowestLatency || strategy == StrategyLowestCost {
-		breakerHealthy, _ := GetBreakerFilteredCandidatesByModelResolver(available, resolveModel)
+		breakerHealthy, _ := FilterSiteRuntimeBrokenCandidatesByModelResolver(available, resolveModel)
 		filteredCandidates := FilterRecentlyFailedCandidates(breakerHealthy,
 			func(c RouteChannelCandidate) (*int64, *string) { return &c.Channel.FailCount, c.Channel.LastFailAt },
 			nowMs, s.configuredMaxSec)
@@ -450,23 +371,11 @@ func selectAcrossPriorityLayers(
 	// request must still attempt something; hard excludes already ran upstream.
 	// known limitation: this global empty-filter full-set path is intentional
 	// starvation prevention, not cascade-complete (tests: known limitation).
-	breakerHealthy, _ := GetBreakerFilteredCandidatesByModelResolver(available, resolveModel)
+	breakerHealthy, _ := FilterSiteRuntimeBrokenCandidatesByModelResolver(available, resolveModel)
 	filteredGlobal := FilterRecentlyFailedCandidates(breakerHealthy,
 		func(c RouteChannelCandidate) (*int64, *string) { return &c.Channel.FailCount, c.Channel.LastFailAt },
 		nowMs, configuredMaxSec)
 	return selectFromPool(filteredGlobal)
-}
-
-// selectWeightedAcrossPriorityLayers is retained as a thin alias for tests and
-// any external references to the name.
-func selectWeightedAcrossPriorityLayers(
-	available []RouteChannelCandidate,
-	resolveModel func(RouteChannelCandidate) string,
-	nowMs int64,
-	configuredMaxSec int,
-	selectFromPool func([]RouteChannelCandidate) *RouteChannelCandidate,
-) *RouteChannelCandidate {
-	return selectAcrossPriorityLayers(available, resolveModel, nowMs, configuredMaxSec, selectFromPool)
 }
 
 // softFilterCandidatesStrict applies site/model breaker then recent-failure

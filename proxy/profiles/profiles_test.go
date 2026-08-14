@@ -348,27 +348,6 @@ func TestGeneric_ReturnsGenericProfile(t *testing.T) {
 	}
 }
 
-func TestGeneric_Capabilities(t *testing.T) {
-	generic := Generic()
-	caps := generic.Capabilities
-
-	if caps.SupportsResponsesCompact {
-		t.Error("generic should not support ResponsesCompact")
-	}
-	if caps.SupportsResponsesWebsocketIncremental {
-		t.Error("generic should not support ResponsesWebsocketIncremental")
-	}
-	if caps.PreservesContinuation {
-		t.Error("generic should not preserve continuation")
-	}
-	if caps.SupportsCountTokens {
-		t.Error("generic should not support count tokens")
-	}
-	if caps.EchoesTurnState {
-		t.Error("generic should not echo turn state")
-	}
-}
-
 // helper: repeat a byte n times as a string
 func repeat(b byte, n int) string {
 	buf := make([]byte, n)

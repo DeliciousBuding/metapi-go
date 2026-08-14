@@ -100,7 +100,7 @@ func getEligibleRouteUnitMembers(
 		if m.Site.Status == "disabled" {
 			continue
 		}
-		if IsOAuthRouteUnitMemberCoolingDown(m.Member.CooldownUntil, nowISO) {
+		if IsCooldownActive(m.Member.CooldownUntil, nowISO) {
 			continue
 		}
 		// Token check: account accessToken or apiToken must be non-empty

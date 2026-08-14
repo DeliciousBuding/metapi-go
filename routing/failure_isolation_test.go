@@ -2,6 +2,7 @@ package routing
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -85,7 +86,7 @@ func (db *isolationDB) getChannel(id int64) *store.RouteChannel {
 }
 
 func memberKey(unitID, accountID int64) string {
-	return formatInt(unitID) + ":" + formatInt(accountID)
+	return strconv.FormatInt(unitID, 10) + ":" + strconv.FormatInt(accountID, 10)
 }
 
 func (db *isolationDB) seedMember(member store.OAuthRouteUnitMember, account store.Account, unit store.OAuthRouteUnit) {
@@ -293,7 +294,7 @@ func newIsolationRouter(db *isolationDB) *TokenRouter {
 }
 
 func isolationAccount(id, siteID int64) store.Account {
-	token := "tok-" + formatInt(id)
+	token := "tok-" + strconv.FormatInt(id, 10)
 	return store.Account{
 		ID:          id,
 		SiteID:      siteID,
@@ -742,7 +743,7 @@ func TestSelectionFilter_PrefersHealthySiblingAfterOneFailure(t *testing.T) {
 
 			// Mimic strategy selection filter stack: breaker then recent-failure
 			// (RR now uses the same recent-failure filter as weighted/stable_first).
-			breakerHealthy, _ := GetBreakerFilteredCandidatesByModel(candidates, model)
+			breakerHealthy, _ := FilterSiteRuntimeBrokenCandidatesByModel(candidates, model)
 			filtered := FilterRecentlyFailedCandidates(breakerHealthy, getInfo, nowMs, 0)
 
 			got := map[int64]bool{}
@@ -829,7 +830,7 @@ func TestSiteBreaker_DoesNotOpenOnSingleFailureAndDoesNotPoisonOtherSites(t *tes
 		buildTestCandidate(1, 10, 101, 10, 0, 100, 0, 50.0, 1.0, nil, 0, &model),
 		buildTestCandidate(2, 20, 201, 10, 0, 100, 0, 50.0, 1.0, nil, 0, &model),
 	}
-	healthy, avoided := GetBreakerFilteredCandidatesByModel(candidates, model)
+	healthy, avoided := FilterSiteRuntimeBrokenCandidatesByModel(candidates, model)
 	if len(healthy) != 1 || healthy[0].Channel.ID != 2 {
 		t.Fatalf("expected only site-20 channel healthy, got %v", healthyIDs(healthy))
 	}
@@ -858,7 +859,7 @@ func TestRoundRobinFilterStack_MatchesWeightedRecentFailurePolicy(t *testing.T) 
 	healthy.Channel.LastSelectedAt = &recentSel
 
 	candidates := []RouteChannelCandidate{failed, healthy}
-	breakerHealthy, _ := GetBreakerFilteredCandidatesByModel(candidates, model)
+	breakerHealthy, _ := FilterSiteRuntimeBrokenCandidatesByModel(candidates, model)
 	filtered := FilterRecentlyFailedCandidates(breakerHealthy,
 		func(c RouteChannelCandidate) (*int64, *string) { return &c.Channel.FailCount, c.Channel.LastFailAt },
 		nowMs, 0)
@@ -941,7 +942,7 @@ func TestWeightedSoftFilter_EmptyPriorityDemotesToNext(t *testing.T) {
 		t.Fatalf("expected legacy filter full-set fallback size 2, got %d", len(legacy0))
 	}
 
-	selected := selectWeightedAcrossPriorityLayers(available, resolve, nowMs, 3600,
+	selected := selectAcrossPriorityLayers(available, resolve, nowMs, 3600,
 		func(pool []RouteChannelCandidate) *RouteChannelCandidate {
 			if len(pool) == 0 {
 				return nil
@@ -987,7 +988,7 @@ func TestWeightedSoftFilter_AllLayersSoftEmptyAllowsGlobalFallback(t *testing.T)
 	c1.Channel.FailCount = 2
 	c1.Channel.LastFailAt = &recentISO
 
-	selected := selectWeightedAcrossPriorityLayers([]RouteChannelCandidate{c0, c1}, resolve, nowMs, 3600,
+	selected := selectAcrossPriorityLayers([]RouteChannelCandidate{c0, c1}, resolve, nowMs, 3600,
 		func(pool []RouteChannelCandidate) *RouteChannelCandidate {
 			if len(pool) == 0 {
 				return nil
@@ -1058,15 +1059,6 @@ func TestRoundRobinSoftFilter_EmptyPriorityDemotesToNext(t *testing.T) {
 	}
 	if selected.Channel.Priority != 1 {
 		t.Fatalf("expected priority 1, got %d", selected.Channel.Priority)
-	}
-
-	// Alias used by #358 tests must share the same walk.
-	selectedAlias := selectWeightedAcrossPriorityLayers(available, resolve, nowMs, 3600,
-		func(pool []RouteChannelCandidate) *RouteChannelCandidate {
-			return SelectRoundRobinCandidate(pool)
-		})
-	if selectedAlias == nil || selectedAlias.Channel.ID != 2 {
-		t.Fatalf("alias walk expected channel 2, got %v", channelIDOrNil(selectedAlias))
 	}
 }
 
@@ -1255,7 +1247,7 @@ func TestCascadeIsolation_EmptyFilterFullSetStarvationGuard_AllPriorityLayersSof
 	}
 
 	// Global empty-filter full-set fallback intentionally re-exposes both.
-	breakerHealthy, _ := GetBreakerFilteredCandidatesByModelResolver(available, resolve)
+	breakerHealthy, _ := FilterSiteRuntimeBrokenCandidatesByModelResolver(available, resolve)
 	fullSet := FilterRecentlyFailedCandidates(breakerHealthy,
 		func(c RouteChannelCandidate) (*int64, *string) { return &c.Channel.FailCount, c.Channel.LastFailAt },
 		nowMs, 3600)
@@ -1280,11 +1272,6 @@ func TestCascadeIsolation_EmptyFilterFullSetStarvationGuard_AllPriorityLayersSof
 			}
 			if selected.Channel.ID != 1 && selected.Channel.ID != 2 {
 				t.Fatalf("unexpected selected channel %d", selected.Channel.ID)
-			}
-			// Alias path used by older #358 tests must share the same starvation guard.
-			alias := selectWeightedAcrossPriorityLayers(available, resolve, nowMs, 3600, st.pick)
-			if alias == nil {
-				t.Fatal("alias walk must also apply global full-set starvation guard")
 			}
 		})
 	}

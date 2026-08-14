@@ -41,11 +41,6 @@ func RegisterFallbackProfile(p *types.CliProfileDefinition) {
 	profileMap[p.ID] = p
 }
 
-// GetProfileDefinition returns a profile by ID.
-func GetProfileDefinition(id types.CliProfileID) *types.CliProfileDefinition {
-	return profileMap[id]
-}
-
 // DetectCliProfile detects the CLI profile from the input.
 // Returns the first matching profile, or generic as fallback.
 func DetectCliProfile(input types.DetectInput) types.DetectedProfile {

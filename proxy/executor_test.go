@@ -33,7 +33,7 @@ func TestWithObservedFirstByteReturnsTransportErrors(t *testing.T) {
 	if err == nil {
 		t.Fatalf("WithObservedFirstByte returned nil error and result=%+v, want transport error", result)
 	}
-	if IsObservedFirstByteTimeout(result) {
+	if result != nil && result.Status == 0 {
 		t.Fatalf("transport error was classified as first-byte timeout: %+v", result)
 	}
 }
@@ -54,7 +54,7 @@ func TestWithObservedFirstByteReturnsTimeoutMarkerOnDeadline(t *testing.T) {
 	if err != nil {
 		t.Fatalf("WithObservedFirstByte returned error for first-byte timeout: %v", err)
 	}
-	if !IsObservedFirstByteTimeout(result) {
+	if result == nil || result.Status != 0 {
 		t.Fatalf("result = %+v, want first-byte timeout marker", result)
 	}
 }

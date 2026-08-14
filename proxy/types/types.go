@@ -13,12 +13,9 @@ const (
 )
 
 // CliProfileCapabilities describes what a CLI client supports.
+// Capability flags were removed in chore/rm-dead-proxy-routing (read only in
+// tests); the type is kept so DetectedProfile keeps a stable shape.
 type CliProfileCapabilities struct {
-	SupportsResponsesCompact             bool
-	SupportsResponsesWebsocketIncremental bool
-	PreservesContinuation                bool
-	SupportsCountTokens                  bool
-	EchoesTurnState                      bool
 }
 
 // DetectInput is the input for profile detection.
