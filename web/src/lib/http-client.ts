@@ -1,5 +1,6 @@
 import axios, { type AxiosRequestConfig } from 'axios'
 
+import i18n from '@/i18n/config'
 import {
   applyAuthRotation,
   clearAuthentication,
@@ -116,7 +117,8 @@ apiClient.interceptors.response.use(
       typeof response.data?.success === 'boolean' &&
       !response.data.success
     ) {
-      const message = resolveResponseMessage(response.data) || 'Request failed'
+      const message =
+        resolveResponseMessage(response.data) || i18n.t('common.requestFailed')
       toast.error(message)
     }
     return response
@@ -142,20 +144,20 @@ apiClient.interceptors.response.use(
         }
 
         // anonymous / out_of_sync / transient_error — treat as signed out.
-        if (!skipErrorHandler) toast.error('Session expired!')
+        if (!skipErrorHandler) toast.error(i18n.t('common.sessionExpired'))
         redirectToSignIn()
       } else if (config?.authRetry) {
         clearAuthentication(false)
-        if (!skipErrorHandler) toast.error('Session expired!')
+        if (!skipErrorHandler) toast.error(i18n.t('common.sessionExpired'))
         redirectToSignIn()
       } else if (!skipErrorHandler) {
-        toast.error('Session expired!')
+        toast.error(i18n.t('common.sessionExpired'))
       }
     } else if (!skipErrorHandler) {
       const message =
         resolveResponseMessage(error?.response?.data) ||
         error?.message ||
-        'Request failed'
+        i18n.t('common.requestFailed')
       toast.error(message)
     }
     throw error
@@ -272,7 +274,9 @@ export async function fetchAuthenticatedResponse(
     if (name === 'AbortError') {
       if (externalSignal?.aborted) throw error
       throw new Error(
-        `请求超时（${Math.max(1, Math.round(timeoutMs / 1000))}s）`
+        i18n.t('common.requestTimeout', {
+          seconds: Math.max(1, Math.round(timeoutMs / 1000)),
+        })
       )
     }
     throw error
