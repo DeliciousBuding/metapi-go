@@ -246,6 +246,29 @@ func (c *Config) Validate() []error {
 			msg:      "UNSAFE: account credential encryption key not set — stored credentials are NOT encrypted",
 			critical: false,
 		})
+	} else {
+		// Length-based strength validation. Load() resolves an unset
+		// ACCOUNT_CREDENTIAL_SECRET to AUTH_TOKEN, then to the default admin
+		// token, so the value here is the final resolved secret. A short key
+		// silently passes the empty check above, so enforce explicit floors:
+		//   < 8 bytes  → critical (trivially brute-forceable)
+		//   < 16 bytes → warning  (weak; .env.example recommends 32+ bytes)
+		secretLen := len(c.AccountCredentialSecret)
+		if secretLen < 8 {
+			errs = append(errs, &configError{
+				field:    "account_credential_secret",
+				value:    fmt.Sprintf("%d bytes", secretLen),
+				msg:      "UNSAFE: secret is shorter than 8 bytes — trivially brute-forceable; use a 32+ byte random secret",
+				critical: true,
+			})
+		} else if secretLen < 16 {
+			errs = append(errs, &configError{
+				field:    "account_credential_secret",
+				value:    fmt.Sprintf("%d bytes", secretLen),
+				msg:      "weak: secret is shorter than 16 bytes — use a 32+ byte random secret for production",
+				critical: false,
+			})
+		}
 	}
 
 	// --- Warning: OAuth client IDs are placeholders ---
