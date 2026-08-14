@@ -1,7 +1,7 @@
 // metapi-go features/checkin — entity types & runtime schemas.
 //
 // The checkin API (GET /api/checkin/logs) returns a flat JSON array whose
-// elements are *nested* objects — the F-subagent shape regression fix:
+// elements are *nested* objects — the shape regression fix:
 //
 //   {
 //     "checkin_logs": { id, accountId, status, message, reward, createdAt },

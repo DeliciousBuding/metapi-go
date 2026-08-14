@@ -26,7 +26,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-// TODO: depends on @/hooks/use-mobile (useIsMobile) — provided by other subagent (hooks layer)
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
 
