@@ -109,7 +109,7 @@ func TestLoadPromptFilterDefaultsOff(t *testing.T) {
 	if cfg.PromptFilterEnabled {
 		t.Fatal("PromptFilterEnabled = true, want false default")
 	}
-	if cfg.PromptFilterDenyPatterns != nil && len(cfg.PromptFilterDenyPatterns) != 0 {
+	if len(cfg.PromptFilterDenyPatterns) != 0 {
 		t.Fatalf("PromptFilterDenyPatterns = %v, want empty default", cfg.PromptFilterDenyPatterns)
 	}
 }
