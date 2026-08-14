@@ -31,7 +31,7 @@ func TestRegistry_RegistrationOrder(t *testing.T) {
 	// Verify order matches spec
 	expected := []string{
 		"openai", "codex", "claude", "gemini", "gemini-cli",
-		"antigravity", "grok", "cliproxyapi", "anyrouter", "done-hub",
+		"antigravity", "grok", "cliproxyapi", "sensetime", "anyrouter", "done-hub",
 		"one-hub", "veloera", "new-api", "sub2api", "one-api",
 	}
 	if len(names) != len(expected) {
@@ -61,6 +61,21 @@ func TestGetAdapter(t *testing.T) {
 	a3 := GetAdapter("")
 	if a3 != nil {
 		t.Errorf("GetAdapter('') should return nil: %v", a3)
+	}
+}
+
+func TestGetAdapter_SenseTime(t *testing.T) {
+	a := GetAdapter("sensetime")
+	if a == nil {
+		t.Fatal("expected adapter for 'sensetime', got nil")
+	}
+	if a.PlatformName() != "sensetime" {
+		t.Errorf("expected PlatformName 'sensetime', got %q", a.PlatformName())
+	}
+	// Alias normalization: mixed-case input resolves via PlatformAliases.
+	a2 := GetAdapter("SenseTime")
+	if a2 == nil || a2.PlatformName() != "sensetime" {
+		t.Errorf("GetAdapter('SenseTime') should resolve via alias: %v", a2)
 	}
 }
 

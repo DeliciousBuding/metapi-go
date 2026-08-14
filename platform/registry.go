@@ -40,6 +40,7 @@ var PlatformAliases = map[string]string{
 	"cliproxyapi":   "cliproxyapi",
 	"cpa":           "cliproxyapi",
 	"cli-proxy-api": "cliproxyapi",
+	"sensetime":     "sensetime",
 }
 
 // orderedPlatformNames defines the spec-required adapter registration order.
@@ -54,6 +55,7 @@ var orderedPlatformNames = []string{
 	"antigravity",
 	"grok",
 	"cliproxyapi",
+	"sensetime",
 	"anyrouter",
 	"done-hub",
 	"one-hub",
@@ -104,6 +106,8 @@ func buildAdapter(name string) PlatformAdapter {
 			LoginUnsupportedMessage:   "CLIProxyAPI does not support login",
 			CheckinUnsupportedMessage: "CLIProxyAPI does not support checkin",
 		}}
+	case "sensetime":
+		return NewStandardAdapter("sensetime")
 	case "anyrouter":
 		return &AnyRouterAdapter{NewApiAdapter: &NewApiAdapter{BaseAdapter: NewBaseAdapter("anyrouter")}}
 	case "done-hub":
