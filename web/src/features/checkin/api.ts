@@ -1,5 +1,4 @@
 // metapi-go features/checkin/api — TanStack Query hooks for the checkin domain.
-// i18n: fallback strings use i18n.t().
 
 import {
   useMutation,
@@ -8,8 +7,8 @@ import {
   type UseQueryOptions,
 } from '@tanstack/react-query'
 
-import i18n from '@/i18n/config'
 import { api } from '@/lib/api'
+import { assertBusinessOk } from '@/lib/assert-business-ok'
 
 import {
   type CheckinLogRow,
@@ -21,16 +20,6 @@ import {
 export const checkinQueryKeys = {
   all: ['checkin'] as const,
   logs: () => [...checkinQueryKeys.all, 'logs'] as const,
-}
-
-function assertBusinessOk(result: unknown, fallback: string): unknown {
-  const envelope = result as { success?: unknown; message?: unknown }
-  if (envelope && typeof envelope.success === 'boolean' && !envelope.success) {
-    throw new Error(
-      typeof envelope.message === 'string' ? envelope.message : i18n.t(fallback)
-    )
-  }
-  return result
 }
 
 export interface UseCheckinLogsParams {

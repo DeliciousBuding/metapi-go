@@ -32,11 +32,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { api } from '@/lib/api'
+import { formatInt, formatRatio } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { AnnouncementBanner } from '../../components/announcement-banner'
 import { StatCard } from '../../components/stat-card'
-import { formatInt, formatRatio } from '../../lib/format'
 
 /** Summary-view dashboard snapshot (GET /api/stats/dashboard?view=summary). */
 type DashboardSnapshot = {

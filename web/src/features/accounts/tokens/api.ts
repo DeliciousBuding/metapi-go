@@ -16,6 +16,7 @@ import {
 
 import i18n from '@/i18n/config'
 import { api } from '@/lib/api'
+import { assertBusinessOk } from '@/lib/assert-business-ok'
 import { toast } from '@/lib/toast'
 
 import { accountQueryKeys } from '../api'
@@ -27,32 +28,6 @@ const accountTokenQueryKeys = {
   list: (accountId?: number) =>
     ['account-tokens', 'list', accountId ?? 'all'] as const,
   value: (id: number) => ['account-tokens', 'value', id] as const,
-}
-
-// ---------------------------------------------------------------------------
-// Envelope helper
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Query keys
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Envelope helper
-// ---------------------------------------------------------------------------
-
-function assertBusinessOk<T>(result: unknown, fallback: string): T {
-  const envelope = result as {
-    success?: unknown
-    message?: unknown
-    data?: unknown
-  }
-  if (envelope && typeof envelope.success === 'boolean' && !envelope.success) {
-    throw new Error(
-      typeof envelope.message === 'string' ? envelope.message : i18n.t(fallback)
-    )
-  }
-  return (result as T) ?? (envelope?.data as T)
 }
 
 function normalizeTokenList(raw: unknown): AccountToken[] {

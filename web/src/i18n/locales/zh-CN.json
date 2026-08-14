@@ -5,8 +5,6 @@
     },
     "auth": {
       "login": {
-        "title": "登录",
-        "subtitle": "登录管理控制台",
         "brandName": "MetAPI",
         "brandTagline": "中转站的中转站",
         "tokenLabel": "管理员令牌",
@@ -29,29 +27,21 @@
       "internalServerError": "服务器内部错误！"
     },
     "common": {
-      "dashboardTbd": "仪表盘待定",
       "skipToMain": "跳转到主要内容",
       "confirm": "确定",
       "cancel": "取消",
       "save": "保存",
       "delete": "删除",
-      "search": "搜索",
-      "refresh": "刷新",
       "loading": "加载中…",
-      "noData": "暂无数据",
       "noResults": "无匹配结果",
       "noResultsDescription": "没有符合当前筛选条件的记录。",
       "resetFilters": "重置筛选",
       "edit": "编辑",
       "create": "新建",
       "close": "关闭",
-      "back": "返回",
-      "yes": "是",
       "no": "否",
       "actions": "操作",
       "status": "状态",
-      "name": "名称",
-      "optional": "选填",
       "language": "语言",
       "languageName": {
         "en": "English",
@@ -116,8 +106,7 @@
         "description": "模型市场：品牌、能力、延迟与成功率。"
       },
       "toast": {
-        "refreshSucceeded": "模型已刷新。",
-        "refreshFailed": "刷新模型失败。"
+        "refreshSucceeded": "模型已刷新。"
       },
       "empty": {
         "title": "暂无模型",
@@ -262,11 +251,8 @@
       },
       "toast": {
         "quotaRefreshed": "已请求刷新 #{{id}} 的额度。",
-        "quotaRefreshFailed": "刷新额度失败。",
         "rebindStarted": "已开始重新绑定 #{{id}}。",
-        "rebindFailed": "重新绑定失败。",
-        "deleted": "连接 #{{id}} 已删除。",
-        "deleteFailed": "删除连接失败。"
+        "deleted": "连接 #{{id}} 已删除。"
       },
       "empty": {
         "title": "暂无连接",
@@ -313,14 +299,10 @@
       },
       "toast": {
         "statusToggled": "站点「{{name}}」已更新。",
-        "statusToggleFailed": "更新站点状态失败。",
         "pinToggled": "「{{name}}」的置顶已更新。",
-        "pinToggleFailed": "更新置顶失败。",
         "deleted": "站点「{{name}}」已删除。",
-        "deleteFailed": "删除站点失败。",
         "bulkSucceeded": "已成功更新 {{count}} 个站点。",
-        "bulkPartial": "{{success}} 个成功，{{failed}} 个失败。",
-        "bulkFailed": "批量操作失败。"
+        "bulkPartial": "{{success}} 个成功，{{failed}} 个失败。"
       },
       "empty": {
         "title": "暂无站点",
@@ -387,7 +369,6 @@
         "detect": "自动检测",
         "detectRequiresUrl": "输入地址后可自动检测平台。",
         "detectSucceeded": "已检测到平台。",
-        "detectFailed": "无法检测平台。",
         "externalCheckinUrl": "外部签到地址",
         "optionalUrlPlaceholder": "留空则使用站点地址",
         "proxyUrl": "代理地址",
@@ -411,8 +392,6 @@
         "create": "创建",
         "createSucceeded": "站点「{{name}}」已创建。",
         "updateSucceeded": "站点「{{name}}」已更新。",
-        "createFailed": "创建站点失败。",
-        "updateFailed": "更新站点失败。",
         "errors": {
           "invalidUrl": "请输入有效的地址。",
           "invalidUrlOrEmpty": "请输入有效的地址，或留空。",
@@ -705,8 +684,6 @@
         "scheduling": {
           "title": "定时任务",
           "description": "签到、余额刷新与日志清理计划。",
-          "modeCron": "Cron",
-          "modeInterval": "间隔",
           "triggerCheckin": "立即签到",
           "triggering": "触发中…",
           "migration": {
@@ -720,13 +697,6 @@
             "applyFailed": "计划升级失败。"
           },
           "fields": {
-            "checkinScheduleMode": "签到调度模式",
-            "checkinScheduleModeHint": "Cron 表达式或固定间隔。",
-            "checkinIntervalHours": "签到间隔（小时）",
-            "checkinCron": "签到 Cron",
-            "balanceRefreshCron": "余额刷新 Cron",
-            "logCleanupCron": "日志清理 Cron",
-            "logCleanupCronHint": "默认每天 06:00 执行。",
             "logCleanupRetentionDays": "保留天数",
             "logCleanupUsageLogsEnabled": "清理用量日志",
             "logCleanupUsageLogsEnabledHint": "按计划删除累积的代理用量日志。",
@@ -750,7 +720,6 @@
           "title": "代理与传输",
           "description": "系统代理、负载规则、上游并发与探测。",
           "testProxy": "测试",
-          "errorRulesGroup": "代理失败规则",
           "codexUpstreamGroup": "Codex 上游并发",
           "fields": {
             "systemProxyUrl": "系统代理 URL",
@@ -1118,7 +1087,6 @@
           "allTypes": "全部类型",
           "filterType": "类型",
           "unreadOnly": "只看未读",
-          "count": "数量",
           "loadedCount": "已加载 {{count}} 条",
           "markRead": "标记已读",
           "markAllRead": "全部标为已读",
@@ -1186,11 +1154,8 @@
           "currentRuntime": "当前运行：",
           "restartRequired": "已保存待生效——需重启以应用。",
           "testConnection": "测试连接",
-          "migrate": "迁移",
           "saveAsRuntime": "保存配置",
           "migrationCliOnly": "数据迁移不会在管理界面中执行。请使用 metapi-migrate CLI，并在操作前备份数据库。",
-          "migrateConfirmTitle": "确认迁移",
-          "migrateConfirm": "执行迁移",
           "fields": {
             "dialect": "方言",
             "connectionString": "连接字符串",
@@ -1198,8 +1163,7 @@
             "connectionSaved": "已保存连接",
             "connectionSavedHint": "连接已保存且不会回显。留空可保留；切换数据库类型时必须输入新连接。",
             "ssl": "启用 SSL/TLS",
-            "sslHint": "仅 postgres。",
-            "overwrite": "允许覆盖目标数据库"
+            "sslHint": "仅 postgres。"
           },
           "schema": {
             "connectionRequired": "请输入新数据库类型对应的连接字符串。",
@@ -1209,9 +1173,7 @@
             "saved": "运行时数据库配置已保存。",
             "saveFailed": "保存数据库配置失败。",
             "testOk": "连接正常。",
-            "testFailed": "连接测试失败。",
-            "migrated": "迁移完成。",
-            "migrateFailed": "迁移失败。"
+            "testFailed": "连接测试失败。"
           }
         },
         "maintenance": {
@@ -1298,7 +1260,6 @@
         "proxyUrl": "代理地址（可选）",
         "tags": "标签（可选）",
         "tagsHint": "逗号分隔多个标签",
-        "cancel": "取消",
         "save": "保存修改",
         "create": "添加账号"
       },
@@ -1339,18 +1300,14 @@
         "disable": "停用",
         "disableCheckin": "关闭签到",
         "enableCheckin": "开启签到",
-        "edit": "编辑",
-        "delete": "删除",
         "name": "连接名称",
         "site": "站点",
-        "status": "状态",
         "balance": "余额",
         "used": "已用",
         "checkin": "签到",
         "checkinUnsupported": "不支持",
         "checkinOn": "已开启",
         "checkinOff": "未开启",
-        "actions": "操作",
         "healthDetail": "健康详情"
       },
       "detail": {
@@ -1428,8 +1385,6 @@
           "expiresAt": "过期时间（可选）",
           "allowedIps": "IP 白名单（可选）",
           "allowedIpsPlaceholder": "逗号分隔",
-          "cancel": "取消",
-          "save": "保存",
           "create": "添加令牌"
         },
         "toast": {
@@ -1438,7 +1393,6 @@
           "deleted": "令牌已删除",
           "defaultSet": "已设为默认令牌",
           "synced": "令牌已同步",
-          "valueFailed": "获取令牌值失败",
           "createFailed": "添加令牌失败",
           "updateFailed": "更新令牌失败",
           "deleteFailed": "删除令牌失败",
@@ -1501,7 +1455,6 @@
         "modelMapping": "模型映射（可选）",
         "modelMappingHint": "将匹配的模型名映射为上游模型名（JSON 对象）。",
         "modelMappingPlaceholder": "{\"gpt-4\":\"gpt-4o\"} 或留空",
-        "cancel": "取消",
         "save": "保存修改",
         "create": "添加路由"
       },
@@ -1536,8 +1489,6 @@
         "viewDetails": "查看详情",
         "clearCooldown": "清除冷却",
         "refreshDecision": "刷新决策",
-        "edit": "编辑",
-        "delete": "删除",
         "notGenerated": "未生成",
         "decisionCachedAt": "决策缓存于 {{time}}",
         "modelAndName": "模型 / 名称",
@@ -1546,7 +1497,6 @@
         "sites": "站点",
         "enabled": "状态",
         "notEnabled": "未启用",
-        "actions": "操作",
         "enable": "启用",
         "disable": "停用"
       },
@@ -1556,7 +1506,6 @@
         "notGenerated": "未生成",
         "matchRule": "匹配规则",
         "displayName": "显示名",
-        "status": "状态",
         "strategy": "策略",
         "context": "上下文",
         "channels": "通道",
@@ -1616,11 +1565,7 @@
       },
       "utils": {
         "regexEmpty": "正则体不能为空",
-        "regexError": "模型匹配正则错误：{{error}}",
-        "batchChannelsAdded": "通道已添加",
-        "batchAdded": "已添加 {{count}} 个通道",
-        "batchSkipped": "跳过 {{count}} 个重复",
-        "batchErrors": "{{count}} 个错误"
+        "regexError": "模型匹配正则错误：{{error}}"
       },
       "schema": {
         "modelPatternRequired": "请填写模型匹配规则",
@@ -1640,7 +1585,6 @@
         "endTime": "结束时间",
         "to": "至",
         "allAccounts": "全部账号",
-        "allAccountsPlaceholder": "全部账号",
         "filterAccountTitle": "账号",
         "resetFilters": "重置筛选",
         "emptyTitle": "暂无签到记录",
@@ -1674,8 +1618,7 @@
         "status": "状态",
         "failureReason": "失败原因",
         "message": "信息",
-        "reward": "奖励",
-        "actions": "操作"
+        "reward": "奖励"
       },
       "detail": {
         "statusSuccess": "成功",
@@ -1701,7 +1644,6 @@
         "description": "选择一个支持签到的账号，立即触发一次签到。",
         "accountPlaceholder": "选择账号",
         "accountEmpty": "暂无支持签到的账号",
-        "cancel": "取消",
         "trigger": "立即签到"
       },
       "toast": {
@@ -1824,9 +1766,6 @@
     "Search": "搜索",
     "View": "查看",
     "Toggle columns": "切换列",
-    "Card view": "卡片视图",
-    "Table view": "表格视图",
-    "View mode": "视图模式",
     "selected": "已选",
     "No results found.": "未找到结果。",
     "No option found.": "未找到选项。",
@@ -1993,7 +1932,6 @@
         "checkin": "签到",
         "proxyLogs": "使用日志",
         "observability": "可观测性",
-        "monitors": "监控",
         "tokenRoutes": "路由",
         "oauth": "OAuth",
         "models": "模型",
@@ -2013,7 +1951,6 @@
       "back": "上一步",
       "next": "下一步",
       "submit": "导入",
-      "cta": "导入站点",
       "steps": {
         "source": "来源",
         "identify": "识别",

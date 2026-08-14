@@ -5,8 +5,6 @@
     },
     "auth": {
       "login": {
-        "title": "Sign in",
-        "subtitle": "Sign in to the admin console",
         "brandName": "MetAPI",
         "brandTagline": "The relay station of relay stations",
         "tokenLabel": "Admin Token",
@@ -29,29 +27,21 @@
       "internalServerError": "Internal Server Error!"
     },
     "common": {
-      "dashboardTbd": "Dashboard TBD",
       "skipToMain": "Skip to main content",
       "confirm": "Confirm",
       "cancel": "Cancel",
       "save": "Save",
       "delete": "Delete",
-      "search": "Search",
-      "refresh": "Refresh",
       "loading": "Loading…",
-      "noData": "No data",
       "noResults": "No results",
       "noResultsDescription": "No records match your current filters.",
       "resetFilters": "Reset filters",
       "edit": "Edit",
       "create": "Create",
       "close": "Close",
-      "back": "Back",
-      "yes": "Yes",
       "no": "No",
       "actions": "Actions",
       "status": "Status",
-      "name": "Name",
-      "optional": "Optional",
       "language": "Language",
       "languageName": {
         "en": "English",
@@ -116,8 +106,7 @@
         "description": "Model marketplace: brands, capabilities, latency, and success rate."
       },
       "toast": {
-        "refreshSucceeded": "Models refreshed.",
-        "refreshFailed": "Failed to refresh models."
+        "refreshSucceeded": "Models refreshed."
       },
       "empty": {
         "title": "No models",
@@ -262,11 +251,8 @@
       },
       "toast": {
         "quotaRefreshed": "Quota refresh requested for #{{id}}.",
-        "quotaRefreshFailed": "Failed to refresh quota.",
         "rebindStarted": "Rebind started for #{{id}}.",
-        "rebindFailed": "Failed to start rebind.",
-        "deleted": "Connection #{{id}} deleted.",
-        "deleteFailed": "Failed to delete the connection."
+        "deleted": "Connection #{{id}} deleted."
       },
       "empty": {
         "title": "No connections",
@@ -313,14 +299,10 @@
       },
       "toast": {
         "statusToggled": "Site \"{{name}}\" updated.",
-        "statusToggleFailed": "Failed to update the site status.",
         "pinToggled": "Pin updated for \"{{name}}\".",
-        "pinToggleFailed": "Failed to update the pin.",
         "deleted": "Site \"{{name}}\" deleted.",
-        "deleteFailed": "Failed to delete the site.",
         "bulkSucceeded": "{{count}} site(s) updated successfully.",
-        "bulkPartial": "{{success}} succeeded, {{failed}} failed.",
-        "bulkFailed": "Bulk operation failed."
+        "bulkPartial": "{{success}} succeeded, {{failed}} failed."
       },
       "empty": {
         "title": "No sites",
@@ -387,7 +369,6 @@
         "detect": "Detect",
         "detectRequiresUrl": "Enter a URL to auto-detect the platform.",
         "detectSucceeded": "Platform detected.",
-        "detectFailed": "Could not detect the platform.",
         "externalCheckinUrl": "External check-in URL",
         "optionalUrlPlaceholder": "Leave empty to use the site URL",
         "proxyUrl": "Proxy URL",
@@ -411,8 +392,6 @@
         "create": "Create",
         "createSucceeded": "Site \"{{name}}\" created.",
         "updateSucceeded": "Site \"{{name}}\" updated.",
-        "createFailed": "Failed to create the site.",
-        "updateFailed": "Failed to update the site.",
         "errors": {
           "invalidUrl": "Please enter a valid URL.",
           "invalidUrlOrEmpty": "Please enter a valid URL, or leave it empty.",
@@ -705,8 +684,6 @@
         "scheduling": {
           "title": "Scheduled Tasks",
           "description": "Check-in, balance refresh, and log cleanup schedules.",
-          "modeCron": "Cron",
-          "modeInterval": "Interval",
           "triggerCheckin": "Trigger check-in now",
           "migration": {
             "title": "Upgrade legacy schedules",
@@ -720,13 +697,6 @@
           },
           "triggering": "Triggering…",
           "fields": {
-            "checkinScheduleMode": "Check-in schedule mode",
-            "checkinScheduleModeHint": "Cron expression or fixed interval.",
-            "checkinIntervalHours": "Check-in interval (hours)",
-            "checkinCron": "Check-in cron",
-            "balanceRefreshCron": "Balance refresh cron",
-            "logCleanupCron": "Log cleanup cron",
-            "logCleanupCronHint": "Defaults to 06:00 daily.",
             "logCleanupRetentionDays": "Log retention (days)",
             "logCleanupUsageLogsEnabled": "Purge usage logs",
             "checkinGroup": "Check-in",
@@ -750,7 +720,6 @@
           "title": "Proxy & Transport",
           "description": "System proxy, payload rules, upstream concurrency, and probe.",
           "testProxy": "Test",
-          "errorRulesGroup": "Proxy failure rules",
           "codexUpstreamGroup": "Codex upstream concurrency",
           "fields": {
             "systemProxyUrl": "System proxy URL",
@@ -1118,7 +1087,6 @@
           "allTypes": "All types",
           "filterType": "Type",
           "unreadOnly": "Unread only",
-          "count": "Count",
           "loadedCount": "{{count}} loaded",
           "markRead": "Mark read",
           "markAllRead": "Mark all read",
@@ -1186,11 +1154,8 @@
           "currentRuntime": "Current runtime:",
           "restartRequired": "Saved config pending — restart required to apply.",
           "testConnection": "Test connection",
-          "migrate": "Migrate",
           "saveAsRuntime": "Save configuration",
           "migrationCliOnly": "Data migration is not executed in the admin UI. Use the metapi-migrate CLI and back up the database first.",
-          "migrateConfirmTitle": "Confirm migration",
-          "migrateConfirm": "Run migration",
           "fields": {
             "dialect": "Dialect",
             "connectionString": "Connection string",
@@ -1198,8 +1163,7 @@
             "connectionSaved": "Saved connection",
             "connectionSavedHint": "The saved connection is not revealed. Leave this blank to keep it; changing the database type requires a new connection.",
             "ssl": "Enable SSL/TLS",
-            "sslHint": "postgres only.",
-            "overwrite": "Allow overwriting target database"
+            "sslHint": "postgres only."
           },
           "schema": {
             "connectionRequired": "Enter a connection string for the new database type.",
@@ -1209,9 +1173,7 @@
             "saved": "Runtime database config saved.",
             "saveFailed": "Failed to save database config.",
             "testOk": "Connection OK.",
-            "testFailed": "Connection test failed.",
-            "migrated": "Migration completed.",
-            "migrateFailed": "Migration failed."
+            "testFailed": "Connection test failed."
           }
         },
         "maintenance": {
@@ -1298,7 +1260,6 @@
         "proxyUrl": "Proxy URL (optional)",
         "tags": "Tags (optional)",
         "tagsHint": "Separate multiple tags with commas",
-        "cancel": "Cancel",
         "save": "Save changes",
         "create": "Add account"
       },
@@ -1339,18 +1300,14 @@
         "disable": "Disable",
         "disableCheckin": "Disable check-in",
         "enableCheckin": "Enable check-in",
-        "edit": "Edit",
-        "delete": "Delete",
         "name": "Connection name",
         "site": "Site",
-        "status": "Status",
         "balance": "Balance",
         "used": "Used",
         "checkin": "Check-in",
         "checkinUnsupported": "Not supported",
         "checkinOn": "On",
         "checkinOff": "Off",
-        "actions": "Actions",
         "healthDetail": "Health detail"
       },
       "detail": {
@@ -1428,8 +1385,6 @@
           "expiresAt": "Expiry time (optional)",
           "allowedIps": "IP allowlist (optional)",
           "allowedIpsPlaceholder": "Comma-separated",
-          "cancel": "Cancel",
-          "save": "Save",
           "create": "Add token"
         },
         "toast": {
@@ -1438,7 +1393,6 @@
           "deleted": "Token deleted",
           "defaultSet": "Set as default token",
           "synced": "Tokens synced",
-          "valueFailed": "Failed to get token value",
           "createFailed": "Failed to add token",
           "updateFailed": "Failed to update token",
           "deleteFailed": "Failed to delete token",
@@ -1501,7 +1455,6 @@
         "modelMapping": "Model mapping (optional)",
         "modelMappingHint": "Map the matched model name to an upstream model name (JSON object).",
         "modelMappingPlaceholder": "{\"gpt-4\":\"gpt-4o\"} or leave empty",
-        "cancel": "Cancel",
         "save": "Save changes",
         "create": "Add route"
       },
@@ -1536,8 +1489,6 @@
         "viewDetails": "View details",
         "clearCooldown": "Clear cooldown",
         "refreshDecision": "Refresh decision",
-        "edit": "Edit",
-        "delete": "Delete",
         "notGenerated": "Not generated",
         "decisionCachedAt": "Decision cached at {{time}}",
         "modelAndName": "Model / name",
@@ -1546,7 +1497,6 @@
         "sites": "Sites",
         "enabled": "Status",
         "notEnabled": "Not enabled",
-        "actions": "Actions",
         "enable": "Enable",
         "disable": "Disable"
       },
@@ -1556,7 +1506,6 @@
         "notGenerated": "Not generated",
         "matchRule": "Match rule",
         "displayName": "Display name",
-        "status": "Status",
         "strategy": "Strategy",
         "context": "Context",
         "channels": "Channels",
@@ -1616,11 +1565,7 @@
       },
       "utils": {
         "regexEmpty": "Regex body cannot be empty",
-        "regexError": "Model match regex error: {{error}}",
-        "batchChannelsAdded": "Channels added",
-        "batchAdded": "{{count}} channels added",
-        "batchSkipped": "{{count}} duplicates skipped",
-        "batchErrors": "{{count}} errors"
+        "regexError": "Model match regex error: {{error}}"
       },
       "schema": {
         "modelPatternRequired": "Please enter a model match rule",
@@ -1640,7 +1585,6 @@
         "endTime": "End time",
         "to": "to",
         "allAccounts": "All accounts",
-        "allAccountsPlaceholder": "All accounts",
         "filterAccountTitle": "Account",
         "resetFilters": "Reset filters",
         "emptyTitle": "No check-in records",
@@ -1674,8 +1618,7 @@
         "status": "Status",
         "failureReason": "Failure reason",
         "message": "Message",
-        "reward": "Reward",
-        "actions": "Actions"
+        "reward": "Reward"
       },
       "detail": {
         "statusSuccess": "Success",
@@ -1701,7 +1644,6 @@
         "description": "Select an account that supports check-in to trigger a check-in immediately.",
         "accountPlaceholder": "Select account",
         "accountEmpty": "No accounts support check-in",
-        "cancel": "Cancel",
         "trigger": "Check in now"
       },
       "toast": {
@@ -1824,9 +1766,6 @@
     "Search": "Search",
     "View": "View",
     "Toggle columns": "Toggle columns",
-    "Card view": "Card view",
-    "Table view": "Table view",
-    "View mode": "View mode",
     "selected": "selected",
     "No results found.": "No results found.",
     "No option found.": "No option found.",
@@ -1993,7 +1932,6 @@
         "checkin": "Check-in",
         "proxyLogs": "Proxy Logs",
         "observability": "Observability",
-        "monitors": "Monitors",
         "tokenRoutes": "Token Routes",
         "oauth": "OAuth",
         "models": "Models",
@@ -2013,7 +1951,6 @@
       "back": "Back",
       "next": "Next",
       "submit": "Import",
-      "cta": "Import sites",
       "steps": {
         "source": "Source",
         "identify": "Identify",

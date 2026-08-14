@@ -4,6 +4,7 @@
 import { AlertTriangle, Clock, Zap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { formatLatency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const LATENCY_TIERS = {
@@ -34,12 +35,6 @@ function resolveTier(latencyMs: number) {
   return LATENCY_TIERS.unhealthy
 }
 
-function formatLatency(latencyMs: number): string {
-  if (latencyMs < 1000) return `${Math.round(latencyMs)} ms`
-  const seconds = latencyMs / 1000
-  return seconds >= 100 ? `${seconds.toFixed(0)} s` : `${seconds.toFixed(2)} s`
-}
-
 export type LatencyBadgeProps = {
   latencyMs: number | null | undefined
   firstByteLatencyMs?: number | null
@@ -61,14 +56,22 @@ export function LatencyBadge({
   }
   const tier = resolveTier(latencyMs)
   const LatencyIcon = tier.icon
-  const label = formatLatency(latencyMs)
+  // Matches the legacy local formatter: ms below 1s, seconds above, dropping
+  // decimals once the value reaches 100s (100.0 → "100 s").
+  const secondsFormat = {
+    autoSeconds: true,
+    spaced: true,
+    secondsDigits: 2,
+    wholeSecondsThreshold: 100,
+  }
+  const label = formatLatency(latencyMs, secondsFormat)
   const title =
     firstByteLatencyMs !== null &&
     firstByteLatencyMs !== undefined &&
     firstByteLatencyMs >= 0
       ? t('proxyLogs.latency.totalAndFirstByte', {
           label,
-          firstByte: formatLatency(firstByteLatencyMs),
+          firstByte: formatLatency(firstByteLatencyMs, secondsFormat),
         })
       : t('proxyLogs.latency.totalLatency', { label })
   return (

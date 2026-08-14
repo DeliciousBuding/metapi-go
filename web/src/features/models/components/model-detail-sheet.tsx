@@ -25,6 +25,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { formatLatency, formatPrice, formatSuccessRate } from '@/lib/format'
 
 import type { ModelGroupPricing, ModelRow } from '../types'
 
@@ -48,26 +49,6 @@ function DetailRow({
       <div className='col-span-2 break-words'>{children}</div>
     </div>
   )
-}
-
-function formatPrice(value: number | undefined): string {
-  if (value === undefined || value === null || !Number.isFinite(value)) {
-    return '—'
-  }
-  if (value === 0) return '0'
-  if (value < 0.01) return value.toFixed(4)
-  return value.toFixed(2)
-}
-
-function formatLatency(latency: number | null): string {
-  if (latency === null || latency === undefined) return '—'
-  return `${Math.round(latency)}ms`
-}
-
-function formatSuccessRate(rate: number | null): string {
-  if (rate === null || rate === undefined) return '—'
-  // API successRate is already a percentage (0-100); avoid double-scaling.
-  return `${Math.round(rate)}%`
 }
 
 function GroupPricingRow({

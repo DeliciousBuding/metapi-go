@@ -24,9 +24,9 @@ describe('typography design contract', () => {
       '@apply overflow-x-hidden font-sans'
     )
 
-    const kbd = read('src/components/ui/kbd.tsx')
-    expect(kbd).toContain('font-mono')
-    expect(kbd).not.toContain('font-sans')
+    const secretField = read('src/components/ui/secret-field.tsx')
+    expect(secretField).toContain('font-mono')
+    expect(secretField).not.toContain('font-sans')
   })
 
   it('keeps density scaling out of color presets', () => {

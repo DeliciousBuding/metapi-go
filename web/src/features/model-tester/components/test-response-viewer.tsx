@@ -17,6 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Spinner } from '@/components/ui/spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { formatLatency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type { TestResponse } from '../types'
@@ -27,11 +28,6 @@ type TestResponseViewerProps = {
   isRunning: boolean
   response: TestResponse | null
   error?: string
-}
-
-function formatLatency(latencyMs: number | undefined): string {
-  if (latencyMs === undefined || latencyMs === null) return '—'
-  return `${latencyMs}ms`
 }
 
 function prettyPrintRawEvents(rawEvents: string[]): string {
