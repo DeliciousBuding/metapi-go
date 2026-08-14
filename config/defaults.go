@@ -34,7 +34,19 @@ const (
 	DefaultDbConnMaxLifetimeSec = 1800
 	DefaultDbConnMaxIdleTimeSec = 300
 
-	DefaultRequestBodyLimit = 20 * 1024 * 1024 // 20 MB
+	// RequestBodyLimit / FileUploadLimit. Parsed from MB env vars in Load:
+	//   REQUEST_BODY_LIMIT_MB  (default 20, clamped [1, 200])
+	//   FILE_UPLOAD_LIMIT_MB   (default 100, clamped [1, 1000])
+	// DefaultRequestBodyLimit is kept as the byte equivalent of 20 MB for
+	// backward-compatible struct literals in tests and callers that don't
+	// run Load().
+	DefaultRequestBodyLimitMB = 20
+	DefaultFileUploadLimitMB  = 100
+	DefaultRequestBodyLimit   = DefaultRequestBodyLimitMB * 1024 * 1024 // 20 MB
+
+	// Per-IP rate limiting for /v1 proxy routes. Default 60 RPM per IP.
+	// 0 disables the per-IP limiter entirely.
+	DefaultProxyRateLimitRPM = 60
 
 	TokenRouterFailureCooldownMaxSecCeiling = 30 * 24 * 60 * 60 // 30 days
 

@@ -204,9 +204,20 @@ type Config struct {
 	AdminCorsAllowedOrigins []string
 	TrustedProxyCidrs       []string
 
-	// Proxy: Core (2 fields)
+	// Proxy: Core (5 fields)
 	RequestBodyLimit        int
-	RoutingFallbackUnitCost float64
+	// FileUploadLimitBytes is the higher body limit applied to multipart upload
+	// routes (/v1/files, /v1/images/*) so large uploads are not rejected by the
+	// general RequestBodyLimit. Parsed from FILE_UPLOAD_LIMIT_MB.
+	FileUploadLimitBytes     int
+	// ProxyRateLimitRPM is the per-IP request-per-minute cap for /v1 proxy
+	// routes. Parsed from PROXY_RATE_LIMIT_RPM (default 60; 0 = disabled).
+	ProxyRateLimitRPM        int
+	// ProxyGlobalTokenRPM caps the global PROXY_TOKEN across all IPs. Parsed
+	// from PROXY_GLOBAL_TOKEN_RPM (default 0 = unlimited). Safety net: even if
+	// the token leaks, upstream spend is bounded.
+	ProxyGlobalTokenRPM      int
+	RoutingFallbackUnitCost  float64
 	// CacheRatioDefault / CacheRatioClaude override the prompt-cache ratio
 	// fallbacks used when an upstream pricing row omits cache_ratio. 0/missing =
 	// use the code defaults (DefaultCacheRatio=1.0, ClaudeCacheRatio=0.1).
@@ -605,7 +616,20 @@ func Load(env map[string]string) *Config {
 	cfg.TrustedProxyCidrs = parseCsvList(get("TRUSTED_PROXY_CIDRS"))
 
 	// ---- §3.13 Proxy: Core ----
-	cfg.RequestBodyLimit = DefaultRequestBodyLimit
+	// REQUEST_BODY_LIMIT_MB controls the general body limit (default 20 MB,
+	// clamped to [1, 200]). FILE_UPLOAD_LIMIT_MB controls a separate higher
+	// limit for multipart upload routes /v1/files and /v1/images/* (default
+	// 100 MB, clamped to [1, 1000]).
+	bodyLimitMB := ClampInt(int(math.Trunc(parseNumber(get("REQUEST_BODY_LIMIT_MB"), float64(DefaultRequestBodyLimitMB)))), 1, 200)
+	cfg.RequestBodyLimit = bodyLimitMB * 1024 * 1024
+	fileUploadLimitMB := ClampInt(int(math.Trunc(parseNumber(get("FILE_UPLOAD_LIMIT_MB"), float64(DefaultFileUploadLimitMB)))), 1, 1000)
+	cfg.FileUploadLimitBytes = fileUploadLimitMB * 1024 * 1024
+
+	// Per-IP rate limiting for /v1 proxy routes (default 60 RPM; 0 = disabled).
+	cfg.ProxyRateLimitRPM = maxInt(0, int(math.Trunc(parseNumber(get("PROXY_RATE_LIMIT_RPM"), float64(DefaultProxyRateLimitRPM)))))
+	// Global PROXY_TOKEN RPM cap across all IPs (default 0 = unlimited).
+	cfg.ProxyGlobalTokenRPM = maxInt(0, int(math.Trunc(parseNumber(get("PROXY_GLOBAL_TOKEN_RPM"), 0))))
+
 	cfg.RoutingFallbackUnitCost = math.Max(1e-6, parseNumber(get("ROUTING_FALLBACK_UNIT_COST"), 1))
 	// Seconds; internal first-byte observation uses ms = sec * 1000.
 	cfg.ProxyFirstByteTimeoutSec = maxInt(0, int(math.Trunc(parseNumber(get("PROXY_FIRST_BYTE_TIMEOUT_SEC"), 0))))

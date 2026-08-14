@@ -220,3 +220,54 @@ func BodyLimit(limitBytes int) func(http.Handler) http.Handler {
 		})
 	}
 }
+
+// isFileUploadPath reports whether the given request path targets a multipart
+// upload route that should use the higher file-upload body limit instead of
+// the general RequestBodyLimit. Covers /v1/files (POST upload) and
+// /v1/images/* (POST edits/variations may carry multipart image payloads).
+func isFileUploadPath(path string) bool {
+	if path == "/v1/files" {
+		return true
+	}
+	if strings.HasPrefix(path, "/v1/images/") {
+		return true
+	}
+	return false
+}
+
+// writeBodyLimitError emits a 413 Request Entity Too Large response with a
+// JSON error body, so clients receive a clean rejection instead of a silently
+// truncated body.
+func writeBodyLimitError(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusRequestEntityTooLarge)
+	_, _ = w.Write([]byte(`{"error":"Request body too large"}`))
+}
+
+// BodyLimitPathAware enforces a maximum request body size, selecting between a
+// general limit and a higher file-upload limit based on the request path.
+// Multipart upload routes (/v1/files, /v1/images/*) use the higher
+// fileUploadLimitBytes; all other paths use defaultLimitBytes.
+//
+// A Content-Length that already exceeds the selected limit is rejected early
+// with a 413 JSON response before the handler runs, so the client gets a
+// clean error instead of a truncated read. For chunked requests (no
+// Content-Length) http.MaxBytesReader still caps the body as a safety net.
+func BodyLimitPathAware(defaultLimitBytes, fileUploadLimitBytes int) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			limit := defaultLimitBytes
+			if isFileUploadPath(r.URL.Path) && fileUploadLimitBytes > 0 {
+				limit = fileUploadLimitBytes
+			}
+			if limit > 0 {
+				if r.ContentLength > int64(limit) {
+					writeBodyLimitError(w)
+					return
+				}
+				r.Body = http.MaxBytesReader(w, r.Body, int64(limit))
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
