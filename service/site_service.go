@@ -230,10 +230,77 @@ func ListSites(db *sqlx.DB) ([]map[string]any, error) {
 	return result, nil
 }
 
+// subscriptionSummary is the JSON-serializable summary of a site's sub2api
+// subscription state, aggregated from each account's extra_config.sub2apiAuth.
+// Mirrors the TS sites.ts buildSubscriptionSummary shape consumed by the
+// frontend (web/src/features/sites/components/sites-columns.tsx uses
+// activeCount as an accountCount fallback).
+type subscriptionSummary struct {
+	Group       string      `json:"group,omitempty"`
+	ExpiresAt   *time.Time  `json:"expiresAt,omitempty"`
+	Active      bool        `json:"active"`
+	ActiveCount int         `json:"activeCount"`
+}
+
+// buildSubscriptionSummary aggregates sub2api subscription info for a site by
+// scanning every account's extra_config for a sub2apiAuth object. The TS
+// version parsed sub2apiAuth to surface the subscription group, token expiry
+// and liveness; here we extract the same known fields without over-fetching.
+//
+// Returns nil when no account for the site carries a sub2apiAuth block (the
+// pre-existing behavior), so non-sub2api sites stay unaffected.
 func buildSubscriptionSummary(accounts []accountAgg, siteID int64) any {
-	// Subscription aggregation
-	// The TS version aggregates from sub2apiAuth in extraConfig
-	return nil
+	var (
+		group        string
+		latestExpiry *time.Time
+		activeCount  int
+		seenSub2Api  bool
+	)
+	now := time.Now().UTC()
+	for _, acc := range accounts {
+		if acc.SiteID != siteID {
+			continue
+		}
+		auth := GetSub2ApiAuthFromExtraConfig(acc.ExtraConfig)
+		if auth == nil {
+			continue
+		}
+		seenSub2Api = true
+
+		// Subscription group/plan name: prefer "group", fall back to "planName".
+		if g, ok := auth["group"].(string); ok && g != "" {
+			if group == "" {
+				group = g
+			}
+		} else if p, ok := auth["planName"].(string); ok && p != "" {
+			if group == "" {
+				group = p
+			}
+		}
+
+		// tokenExpiresAt is epoch seconds (see NormalizeManagedTokenExpiresAt).
+		if exp, ok := NormalizeManagedTokenExpiresAt(auth["tokenExpiresAt"]); ok && exp > 0 {
+			expiry := time.Unix(exp, 0).UTC()
+			if latestExpiry == nil || expiry.After(*latestExpiry) {
+				latestExpiry = &expiry
+			}
+			if expiry.After(now) {
+				activeCount++
+			}
+		} else {
+			// No usable expiry — treat as active so accountCount fallback still works.
+			activeCount++
+		}
+	}
+	if !seenSub2Api {
+		return nil
+	}
+	return &subscriptionSummary{
+		Group:       group,
+		ExpiresAt:   latestExpiry,
+		Active:      activeCount > 0,
+		ActiveCount: activeCount,
+	}
 }
 
 // CreateSite creates a new site with apiEndpoints in a transaction.
