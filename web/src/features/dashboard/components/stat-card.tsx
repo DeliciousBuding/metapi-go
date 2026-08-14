@@ -6,10 +6,12 @@
 // VChart (canvas, needs useChartColors). This card renders a metric value +
 // an optional tiny area sparkline so the overview reads at a glance.
 //
-// Phase 2: values + sparkline data are stubbed by the overview section. Phase
-// 3 will feed real snapshot metrics (activeAccounts / sites / checkin success
-// / proxy 24h) from api.getDashboardSnapshot.
+// 2026-08 upgrade (audit ui-ux-2026-08): optional lucide icon rendered in an
+// IconBadge, an optional tone (default/success/warning) that maps the icon
+// badge onto the semantic status tokens, and an optional two-cell details
+// grid (label + value) for extra information density.
 
+import type { LucideIcon } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Area, AreaChart } from 'recharts'
@@ -17,8 +19,17 @@ import { Area, AreaChart } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, type ChartConfig } from '@/components/ui/chart'
 import { CountUp } from '@/components/ui/count-up'
+import { IconBadge } from '@/components/ui/icon-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+
+type StatCardTone = 'default' | 'success' | 'warning'
+
+type StatCardDetail = {
+  label: string
+  value: string
+  tone?: StatCardTone
+}
 
 type StatCardProps = {
   title: string
@@ -31,11 +42,23 @@ type StatCardProps = {
   accentClassName?: string
   /** Render skeleton placeholders while the metric is still loading. */
   loading?: boolean
-  /** Numeric value to animate (CountUp). When set, overrides the static alue string. */
+  /** Numeric value to animate (CountUp). When set, overrides the static value string. */
   valueNumber?: number
   /** Formatter applied to the animated numeric value. */
   valueFormat?: (value: number) => string
+  /** Optional lucide icon rendered in a soft badge next to the title. */
+  icon?: LucideIcon
+  /** Icon-badge tone mapped onto semantic tokens (default/success/warning). */
+  tone?: StatCardTone
+  /** Optional detail sub-cells (label + value) under the metric. */
+  details?: StatCardDetail[]
   className?: string
+}
+
+const DETAIL_TONE_CLASSES: Record<StatCardTone, string> = {
+  default: 'text-foreground',
+  success: 'text-success',
+  warning: 'text-warning',
 }
 
 const SPARK_CONFIG_BASE: ChartConfig = {
@@ -44,17 +67,7 @@ const SPARK_CONFIG_BASE: ChartConfig = {
   },
 }
 
-export function StatCard({
-  title,
-  value,
-  hint,
-  spark,
-  accentClassName,
-  loading = false,
-  valueNumber,
-  valueFormat,
-  className,
-}: StatCardProps) {
+export function StatCard(props: StatCardProps) {
   const { t } = useTranslation()
   const sparkConfig: ChartConfig = useMemo(
     () => ({
@@ -68,22 +81,30 @@ export function StatCard({
   )
   const data = useMemo(
     () =>
-      (spark ?? []).map((sample, index) => ({
+      (props.spark ?? []).map((sample, index) => ({
         index,
         value: sample,
       })),
-    [spark]
+    [props.spark]
   )
+  const Icon = props.icon
 
   return (
-    <Card className={cn('overflow-hidden', className)}>
+    <Card className={cn('overflow-hidden', props.className)}>
       <CardHeader className='pb-2'>
-        <CardTitle className='text-muted-foreground text-xs font-medium tracking-wide uppercase'>
-          {title}
-        </CardTitle>
+        <div className='flex items-center gap-2'>
+          {Icon ? (
+            <IconBadge tone={props.tone ?? 'default'} size='sm'>
+              <Icon />
+            </IconBadge>
+          ) : null}
+          <CardTitle className='text-muted-foreground text-xs font-medium tracking-wide uppercase'>
+            {props.title}
+          </CardTitle>
+        </div>
       </CardHeader>
       <CardContent className='space-y-2'>
-        {loading ? (
+        {props.loading ? (
           <div className='space-y-2'>
             <Skeleton className='h-7 w-20' />
             <Skeleton className='h-4 w-32' />
@@ -91,23 +112,47 @@ export function StatCard({
         ) : (
           <>
             <div className='flex items-end justify-between gap-2'>
-              {valueNumber !== undefined && Number.isFinite(valueNumber) ? (
+              {props.valueNumber !== undefined &&
+              Number.isFinite(props.valueNumber) ? (
                 <CountUp
-                  value={valueNumber}
-                  format={valueFormat}
+                  value={props.valueNumber}
+                  format={props.valueFormat}
                   className='text-2xl font-semibold tracking-tight'
                 />
               ) : (
                 <span className='text-2xl font-semibold tracking-tight tabular-nums'>
-                  {value}
+                  {props.value}
                 </span>
               )}
-              {hint ? (
+              {props.hint ? (
                 <span className='text-muted-foreground text-xs tabular-nums'>
-                  {hint}
+                  {props.hint}
                 </span>
               ) : null}
             </div>
+            {props.details && props.details.length > 0 ? (
+              <div className='grid grid-cols-2 gap-2'>
+                {props.details.map((detail) => (
+                  <div
+                    key={detail.label}
+                    className='bg-muted/40 rounded-lg border border-transparent px-2.5 py-2'
+                  >
+                    <div className='text-muted-foreground truncate text-[11px] leading-none font-medium'>
+                      {detail.label}
+                    </div>
+                    <div
+                      className={cn(
+                        'mt-1.5 truncate text-xs font-semibold tabular-nums',
+                        DETAIL_TONE_CLASSES[detail.tone ?? 'default']
+                      )}
+                      title={detail.value}
+                    >
+                      {detail.value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             {data.length > 1 ? (
               <ChartContainer
                 config={sparkConfig}
@@ -125,7 +170,7 @@ export function StatCard({
                     fill='var(--color-value)'
                     fillOpacity={0.16}
                     isAnimationActive={false}
-                    className={accentClassName}
+                    className={props.accentClassName}
                   />
                 </AreaChart>
               </ChartContainer>

@@ -10,7 +10,14 @@
 // the scheduled-tasks table.
 
 import { useQuery } from '@tanstack/react-query'
-import { Activity, ClipboardList, RefreshCw } from 'lucide-react'
+import {
+  Activity,
+  CalendarCheck,
+  ClipboardList,
+  Globe,
+  RefreshCw,
+  Users,
+} from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -37,6 +44,7 @@ import { cn } from '@/lib/utils'
 
 import { AnnouncementBanner } from '../../components/announcement-banner'
 import { StatCard } from '../../components/stat-card'
+import { TodaySnapshotStrip } from '../../components/today-snapshot'
 
 /** Summary-view dashboard snapshot (GET /api/stats/dashboard?view=summary). */
 type DashboardSnapshot = {
@@ -137,14 +145,24 @@ export function OverviewSection() {
   const accountHint = t('dashboard.overview.statCards.accountCountHint', {
     active: activeAccounts !== undefined ? formatInt(activeAccounts) : '—',
   })
-  const checkinHint = t('dashboard.overview.statCards.todayCheckinHint', {
-    success: checkin?.success ?? 0,
-    total: checkin?.total ?? 0,
-  })
   const proxyHint = t('dashboard.overview.statCards.proxy24hHint', {
     success: proxy?.success ?? 0,
     rpm: performance?.requestsPerMinute ?? 0,
   })
+
+  const checkinDetails = useMemo(() => {
+    if (!checkin) return undefined
+    return [
+      {
+        label: t('dashboard.overview.statCards.checkinSucceeded'),
+        value: formatInt(checkin.success),
+      },
+      {
+        label: t('dashboard.overview.statCards.checkinSkipped'),
+        value: formatInt(checkin.skipped),
+      },
+    ]
+  }, [checkin, t])
 
   const renderSchedulerBody = (): ReactNode => {
     if (schedulerLoading) {
@@ -250,6 +268,8 @@ export function OverviewSection() {
     <div className='flex flex-col gap-4'>
       <AnnouncementBanner />
 
+      <TodaySnapshotStrip />
+
       <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4'>
         <StatCard
           title={t('dashboard.overview.statCards.accountCount')}
@@ -258,6 +278,7 @@ export function OverviewSection() {
           valueFormat={animateInt}
           hint={accountHint}
           spark={accountSpark}
+          icon={Users}
           loading={snapshotLoading}
         />
         <StatCard
@@ -266,12 +287,15 @@ export function OverviewSection() {
           valueNumber={siteCount ?? undefined}
           valueFormat={animateInt}
           hint={t('dashboard.overview.statCards.siteCountHint')}
+          icon={Globe}
           loading={snapshotLoading}
         />
         <StatCard
           title={t('dashboard.overview.statCards.todayCheckin')}
           value={!checkin ? '—' : formatRatio(checkin.success, checkin.total)}
-          hint={checkinHint}
+          icon={CalendarCheck}
+          tone='success'
+          details={checkinDetails}
           loading={snapshotLoading}
         />
         <StatCard
@@ -280,6 +304,7 @@ export function OverviewSection() {
           valueNumber={proxy ? proxy.total : undefined}
           valueFormat={animateInt}
           hint={proxyHint}
+          icon={Activity}
           loading={snapshotLoading}
         />
       </div>

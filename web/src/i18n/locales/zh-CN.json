@@ -471,9 +471,19 @@
           "siteCount": "站点",
           "siteCountHint": "已跟踪站点",
           "todayCheckin": "今日签到",
-          "todayCheckinHint": "{{success}} / {{total}} 成功",
+          "checkinSucceeded": "成功",
+          "checkinSkipped": "跳过",
           "proxy24h": "代理 24h",
           "proxy24hHint": "{{success}} 成功 · {{rpm}}/分"
+        },
+        "snapshot": {
+          "title": "今日快照",
+          "totalBalance": "总余额",
+          "vs7d": "较 7 天前",
+          "checkinSuccess": "今日签到成功",
+          "attention": "待处理",
+          "attentionOpen": "打开可用性",
+          "availability": "可用性"
         },
         "scheduledTasks": {
           "title": "定时任务",

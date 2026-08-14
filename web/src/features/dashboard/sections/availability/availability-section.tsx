@@ -72,7 +72,7 @@ function RealtimeSparkline({ samples }: { samples: number[] }) {
           <div
             // eslint-disable-next-line react/no-array-index-key
             key={index}
-            className='bg-primary/70 min-w-0 flex-1 rounded-sm'
+            className='bg-chart-1/70 min-w-0 flex-1 rounded-sm'
             style={{ height: `${ratio * 100}%` }}
           />
         )
