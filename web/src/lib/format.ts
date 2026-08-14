@@ -46,11 +46,33 @@ export function formatPrice(price: number | null | undefined): string {
 }
 
 /** Format latency in milliseconds. */
-export function formatLatency(latency: number | null | undefined): string {
+export function formatLatency(
+  latency: number | null | undefined,
+  options?: {
+    /** Render values >= 1000ms as seconds instead of milliseconds. */
+    autoSeconds?: boolean
+    /** Fraction digits for the seconds form (default 1). */
+    secondsDigits?: number
+    /** When the seconds value reaches this, drop all fraction digits. */
+    wholeSecondsThreshold?: number
+    /** Insert a space between number and unit ("1.3 s" vs "1.3s"). */
+    spaced?: boolean
+  }
+): string {
   if (latency === null || latency === undefined || !Number.isFinite(latency)) {
     return EM_DASH
   }
-  return `${Math.round(latency)}ms`
+  const separator = options?.spaced ? ' ' : ''
+  if (options?.autoSeconds && latency >= 1000) {
+    const seconds = latency / 1000
+    const digits =
+      options?.wholeSecondsThreshold !== undefined &&
+      seconds >= options.wholeSecondsThreshold
+        ? 0
+        : (options?.secondsDigits ?? 1)
+    return `${seconds.toFixed(digits)}${separator}s`
+  }
+  return `${Math.round(latency)}${separator}ms`
 }
 
 /** Format an already-percentage (0-100) value without re-scaling. */

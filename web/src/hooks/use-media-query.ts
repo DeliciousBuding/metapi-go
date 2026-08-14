@@ -1,5 +1,5 @@
 // metapi-go/hooks — use-media-query ported from newapi. AGPL header stripped.
-// Exports useMediaQuery — consumed by select.tsx (via @/hooks barrel).
+// Exports useMediaQuery — consumed by select.tsx and data-table-page.tsx.
 
 import { useSyncExternalStore } from 'react'
 

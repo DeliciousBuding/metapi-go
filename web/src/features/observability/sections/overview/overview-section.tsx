@@ -22,17 +22,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { formatLatency } from '@/lib/format'
 
 import { useSlowRequests, useUsageHeatmap } from '../../api'
 import type { SlowRequestItem, UsageHeatmapCell } from '../../types'
 
 const MAX_HEATMAP_KEYS = 16
-
-function formatLatency(ms: number): string {
-  if (!Number.isFinite(ms)) return '—'
-  if (ms >= 1000) return `${(ms / 1000).toFixed(1)} s`
-  return `${Math.round(ms)} ms`
-}
 
 function formatClock(iso: string): string {
   if (!iso) return '—'
@@ -175,10 +170,18 @@ function renderSlowRequestsBody(
               {item.siteName || '—'}
             </TableCell>
             <TableCell className='text-right tabular-nums'>
-              {formatLatency(item.latencyMs)}
+              {formatLatency(item.latencyMs, {
+                autoSeconds: true,
+                secondsDigits: 1,
+                spaced: true,
+              })}
             </TableCell>
             <TableCell className='text-right tabular-nums'>
-              {formatLatency(item.firstByteLatencyMs)}
+              {formatLatency(item.firstByteLatencyMs, {
+                autoSeconds: true,
+                secondsDigits: 1,
+                spaced: true,
+              })}
             </TableCell>
             <TableCell className='text-right tabular-nums'>
               {item.httpStatus || '—'}

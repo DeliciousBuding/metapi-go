@@ -6,7 +6,7 @@ import type {
 } from '@tanstack/react-table'
 import * as React from 'react'
 
-import { useMediaQuery } from '@/hooks'
+import { useMediaQuery } from '@/hooks/use-media-query'
 import { cn } from '@/lib/utils'
 
 import {
