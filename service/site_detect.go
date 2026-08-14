@@ -36,9 +36,11 @@ func DetectSite(rawURL string) *DetectResult {
 	}
 
 	parsed, err := url.Parse(trimmed)
-	if err != nil {
-		// Allow scheme-less inputs such as "api.deepseek.com/v1".
-		if withScheme, schemeErr := url.Parse("https://" + trimmed); schemeErr == nil {
+	// Allow scheme-less inputs such as "api.deepseek.com/v1" or
+	// "api.sensetime.com": url.Parse succeeds but leaves Host empty for bare
+	// host/path strings, so retry with an https:// prefix.
+	if err != nil || parsed == nil || parsed.Host == "" {
+		if withScheme, schemeErr := url.Parse("https://" + trimmed); schemeErr == nil && withScheme.Host != "" {
 			parsed = withScheme
 			err = nil
 		}
@@ -118,6 +120,8 @@ func DetectSite(rawURL string) *DetectResult {
 		platform = "github-copilot"
 	case strings.Contains(host, "claude.ai"):
 		platform = "claude"
+	case strings.Contains(host, "api.sensetime.com") || strings.Contains(host, "sensetime.com"):
+		platform = "sensetime"
 	case strings.Contains(host, "aistudio.google.com") || strings.Contains(host, "makersuite.google.com"):
 		platform = "gemini"
 	default:

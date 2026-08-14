@@ -157,6 +157,25 @@ func TestDetectSite_SiliconFlow(t *testing.T) {
 	}
 }
 
+func TestDetectSite_SenseTime(t *testing.T) {
+	tests := []string{
+		"https://api.sensetime.com/v1",
+		"https://sensetime.com",
+		"api.sensetime.com",
+	}
+	for _, url := range tests {
+		t.Run(url, func(t *testing.T) {
+			result := DetectSite(url)
+			if result == nil {
+				t.Fatalf("expected detection for %q, got nil", url)
+			}
+			if result.Platform != "sensetime" {
+				t.Errorf("expected 'sensetime' for %q, got %q", url, result.Platform)
+			}
+		})
+	}
+}
+
 func TestDetectSite_ModelScope(t *testing.T) {
 	// Bare modelscope inference root maps to the Claude-compatible preset.
 	result := DetectSite("https://api-inference.modelscope.cn")
