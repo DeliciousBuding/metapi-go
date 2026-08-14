@@ -1,6 +1,15 @@
-import { request, parseContentDispositionFilename, arrayBufferToBase64, type RequestOptions } from './transport'
-import { fetchAuthenticatedResponse, extractResponseErrorMessage } from '@/lib/http-client'
 import { getAuthToken, clearAuthSession } from '@/lib/auth-session'
+import {
+  fetchAuthenticatedResponse,
+  extractResponseErrorMessage,
+} from '@/lib/http-client'
+
+import {
+  request,
+  parseContentDispositionFilename,
+  arrayBufferToBase64,
+  type RequestOptions,
+} from './transport'
 import type { ProxyTestRequestEnvelope, TestChatRequestPayload } from './types'
 
 const DEFAULT_PROXY_TEST_TIMEOUT_MS = 30_000

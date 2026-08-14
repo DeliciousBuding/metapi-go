@@ -7,16 +7,16 @@
  * response types are re-exported from `./api/types`.
  */
 
-import { sitesApi } from './api/sites.ts'
 import { accountsApi } from './api/accounts.ts'
-import { tokenRoutesApi } from './api/token-routes.ts'
-import { statsApi } from './api/stats.ts'
-import { searchApi } from './api/search.ts'
-import { oauthApi } from './api/oauth.ts'
 import { eventsApi } from './api/events.ts'
+import { oauthApi } from './api/oauth.ts'
+import { searchApi } from './api/search.ts'
 import { settingsApi } from './api/settings.ts'
+import { sitesApi } from './api/sites.ts'
+import { statsApi } from './api/stats.ts'
 import { systemApi } from './api/system.ts'
 import { testChatApi } from './api/test-chat.ts'
+import { tokenRoutesApi } from './api/token-routes.ts'
 
 export * from './api/types'
 
