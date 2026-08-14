@@ -38,9 +38,9 @@ func TestFullMethodCompliance(t *testing.T) {
 	unreachable := unreachableBaseURL(t)
 
 	testMethodCompliance(t, ctx, &OpenAiAdapter{StandardAdapter: NewStandardAdapter("openai")}, unreachable)
-	testMethodCompliance(t, ctx, &CodexAdapter{BaseAdapter: NewBaseAdapter("codex")}, unreachable)
+	testMethodCompliance(t, ctx, buildAdapter("codex"), unreachable)
 	testMethodCompliance(t, ctx, &ClaudeAdapter{StandardAdapter: NewStandardAdapter("claude")}, unreachable)
-	testMethodCompliance(t, ctx, &AntigravityAdapter{BaseAdapter: NewBaseAdapter("antigravity")}, unreachable)
+	testMethodCompliance(t, ctx, buildAdapter("antigravity"), unreachable)
 	testMethodCompliance(t, ctx, &Sub2ApiAdapter{BaseAdapter: NewBaseAdapter("sub2api")}, unreachable)
 	testMethodCompliance(t, ctx, &VeloeraAdapter{BaseAdapter: NewBaseAdapter("veloera")}, unreachable)
 }

@@ -6,7 +6,7 @@ import (
 )
 
 func TestAntigravityAdapter_Detect(t *testing.T) {
-	a := &AntigravityAdapter{BaseAdapter: NewBaseAdapter("antigravity")}
+	a := &AntigravityAdapter{StandardAdapter: NewStandardAdapter("antigravity")}
 
 	ctx := context.Background()
 
@@ -33,14 +33,14 @@ func TestAntigravityAdapter_Detect(t *testing.T) {
 }
 
 func TestAntigravityAdapter_PlatformName(t *testing.T) {
-	a := &AntigravityAdapter{BaseAdapter: NewBaseAdapter("antigravity")}
+	a := &AntigravityAdapter{StandardAdapter: NewStandardAdapter("antigravity")}
 	if a.PlatformName() != "antigravity" {
 		t.Errorf("PlatformName: %q", a.PlatformName())
 	}
 }
 
 func TestAntigravityAdapter_LoginUnspported(t *testing.T) {
-	a := &AntigravityAdapter{BaseAdapter: NewBaseAdapter("antigravity")}
+	a := &AntigravityAdapter{StandardAdapter: NewStandardAdapter("antigravity")}
 	ctx := context.Background()
 
 	lr, err := a.Login(ctx, "http://x", "u", "p", nil, nil)
@@ -53,7 +53,7 @@ func TestAntigravityAdapter_LoginUnspported(t *testing.T) {
 }
 
 func TestAntigravityAdapter_CheckinUnspported(t *testing.T) {
-	a := &AntigravityAdapter{BaseAdapter: NewBaseAdapter("antigravity")}
+	a := &AntigravityAdapter{StandardAdapter: NewStandardAdapter("antigravity")}
 	ctx := context.Background()
 
 	cr, err := a.Checkin(ctx, "http://x", "t", nil, nil)
@@ -66,7 +66,7 @@ func TestAntigravityAdapter_CheckinUnspported(t *testing.T) {
 }
 
 func TestAntigravityAdapter_GetBalanceZero(t *testing.T) {
-	a := &AntigravityAdapter{BaseAdapter: NewBaseAdapter("antigravity")}
+	a := &AntigravityAdapter{StandardAdapter: NewStandardAdapter("antigravity")}
 	ctx := context.Background()
 
 	bi, err := a.GetBalance(ctx, "http://x", "t", nil, nil)
@@ -82,9 +82,9 @@ func TestExtractAntigravityModelNames(t *testing.T) {
 	// Object form
 	obj := map[string]interface{}{
 		"models": map[string]interface{}{
-			"gpt-4":          map[string]interface{}{},
-			"claude-3-opus":  map[string]interface{}{},
-			"  ":             map[string]interface{}{}, // whitespace name, should be filtered
+			"gpt-4":         map[string]interface{}{},
+			"claude-3-opus": map[string]interface{}{},
+			"  ":            map[string]interface{}{}, // whitespace name, should be filtered
 		},
 	}
 	names := extractAntigravityModelNames(obj)

@@ -134,15 +134,13 @@ func TestNewApiAdapter_TryDecodeUserID(t *testing.T) {
 }
 
 func TestNewApiAdapter_ParseBalance(t *testing.T) {
-	n := &NewApiAdapter{BaseAdapter: NewBaseAdapter("new-api")}
-
 	// Normal case: quota=remaining, balance=quota/500000
 	// quota=500000, used_quota=100000 => quotaUSD=1, usedUSD=0.2, total=1.2
 	data := map[string]interface{}{
 		"quota":      float64(500000),
 		"used_quota": float64(100000),
 	}
-	b := n.parseBalance(data)
+	b := parseOneApiStyleBalance(data, 500000, true)
 	if b.Balance != 1.0 {
 		t.Errorf("Balance (quotaUSD): %f, want 1.0", b.Balance)
 	}
@@ -159,7 +157,7 @@ func TestNewApiAdapter_ParseBalance(t *testing.T) {
 		"used_quota":   float64(500000),
 		"today_income": float64(100000),
 	}
-	b2 := n.parseBalance(data2)
+	b2 := parseOneApiStyleBalance(data2, 500000, true)
 	if b2.Balance != 2.0 {
 		t.Errorf("Balance: %f", b2.Balance)
 	}
@@ -169,21 +167,19 @@ func TestNewApiAdapter_ParseBalance(t *testing.T) {
 
 	// Empty data
 	data3 := map[string]interface{}{}
-	b3 := n.parseBalance(data3)
+	b3 := parseOneApiStyleBalance(data3, 500000, true)
 	if b3.Balance != 0 || b3.Used != 0 || b3.Quota != 0 {
 		t.Error("empty data should return all zeros")
 	}
 }
 
 func TestNewApiAdapter_BalanceQuotaIsRemaining(t *testing.T) {
-	n := &NewApiAdapter{BaseAdapter: NewBaseAdapter("new-api")}
-
 	// NewApi model A: quota = remaining, total = quota + used
 	data := map[string]interface{}{
 		"quota":      float64(400000),
 		"used_quota": float64(100000),
 	}
-	b := n.parseBalance(data)
+	b := parseOneApiStyleBalance(data, 500000, true)
 
 	// quotaUSD = 400000/500000 = 0.8
 	// usedUSD = 100000/500000 = 0.2
@@ -218,79 +214,6 @@ func TestNewApiAdapter_DefaultUnsupportedMethods(t *testing.T) {
 	}
 	if len(anns) != 0 {
 		t.Error("GetSiteAnnouncements on unreachable should return empty")
-	}
-}
-
-// --- Shield Challenge (acw_sc__v2) ---
-
-func TestParseChallengeArg1(t *testing.T) {
-	html := `<script>var arg1='A1B2C3D4E5F6';</script>`
-	result := parseChallengeArg1(html)
-	if result != "A1B2C3D4E5F6" {
-		t.Errorf("parseChallengeArg1: %q", result)
-	}
-
-	// No match
-	if r := parseChallengeArg1("no match"); r != "" {
-		t.Errorf("expected empty, got %q", r)
-	}
-}
-
-func TestParseChallengeMapping(t *testing.T) {
-	html := `for(var m=[3,1,2],p=L(0x115)`
-	result := parseChallengeMapping(html)
-	if len(result) != 3 || result[0] != 3 || result[1] != 1 || result[2] != 2 {
-		t.Errorf("parseChallengeMapping: %v", result)
-	}
-
-	// With hex values
-	html2 := `for(var m=[0x10,0x20,0x30],p=L(0x115)`
-	result2 := parseChallengeMapping(html2)
-	if len(result2) != 3 || result2[0] != 16 || result2[1] != 32 || result2[2] != 48 {
-		t.Errorf("parseChallengeMapping hex: %v", result2)
-	}
-
-	// No match
-	if r := parseChallengeMapping("no match"); r != nil {
-		t.Errorf("expected nil, got %v", r)
-	}
-}
-
-func TestSolveAcwScV2_EmptyInputs(t *testing.T) {
-	// Empty HTML - known to panic in parseChallengeXorSeed; test that SolveAcwScV2 handles edge cases.
-	// Note: production code should be called with real HTML; empty/malformed inputs
-	// are expected to either return "" or be caught. We test only valid-ish inputs.
-	//
-	// Missing arg1 - needs enough HTML to avoid parseChallengeXorSeed bounds issue
-	html := `for(var m=[1,2,3],p=L(0x115)` +
-		`function a0i(){}function b(){}` +
-		`(function(a,c){a0j(0x115)}),!(function`
-	r := SolveAcwScV2(html)
-	if r != "" {
-		t.Logf("SolveAcwScV2(missing arg1): %q", r)
-	}
-
-	// Missing mapping
-	html2 := `<script>var arg1='A1B2C3D4E5F6';</script>` +
-		`function a0i(){}function b(){}` +
-		`(function(a,c){a0j(0x115)}),!(function`
-	r2 := SolveAcwScV2(html2)
-	if r2 != "" {
-		t.Logf("SolveAcwScV2(missing mapping): %q", r2)
-	}
-}
-
-func TestSolveAcwScV2_WithAllParts(t *testing.T) {
-	// Full challenge with arg1, mapping, and xor seed
-	html := `<script>var arg1='AABBCCDD';</script>` +
-		`for(var m=[1,2,3,4],p=L(0x115)` +
-		`function a0i(){}function b(){}` +
-		`(function(a,c){a0j(0x115)}),!(function`
-
-	result := SolveAcwScV2(html)
-	// With the current implementation, solveXorSeedThroughRegex will return ""
-	if result != "" {
-		t.Logf("SolveAcwScV2 result (may be empty without JS VM): %q", result)
 	}
 }
 

@@ -11,14 +11,6 @@ type DoneHubAdapter struct {
 	*OneHubAdapter
 }
 
-func init() {
-	Register(&DoneHubAdapter{
-		OneHubAdapter: &OneHubAdapter{
-			OneApiAdapter: &OneApiAdapter{BaseAdapter: NewBaseAdapter("done-hub")},
-		},
-	})
-}
-
 // Detect: URL keyword match "donehub" or "done-hub" (title-first platform).
 func (d *DoneHubAdapter) Detect(ctx context.Context, url string) (bool, error) {
 	lower := strings.ToLower(url)
@@ -38,36 +30,8 @@ func (d *DoneHubAdapter) GetBalance(ctx context.Context, baseURL, accessToken st
 		return &BalanceInfo{}, nil
 	}
 
-	data, ok := getMap(resp, "data")
-	if !ok {
-		data = resp
-	}
-
-	quotaRemaining, _ := getFloat(data, "quota")
-	used, _ := getFloat(data, "used_quota")
-
-	quotaUSD := quotaRemaining / 500000
-	usedUSD := used / 500000
-	totalUSD := quotaUSD + usedUSD
-
-	var todayIncome *float64
-	if v, ok := getFloat(data, "today_income"); ok {
-		ti := v / 500000
-		todayIncome = &ti
-	}
-	var todayQuotaConsumption *float64
-	if v, ok := getFloat(data, "today_quota_consumption"); ok {
-		tq := v / 500000
-		todayQuotaConsumption = &tq
-	}
-
-	return &BalanceInfo{
-		Balance:              quotaUSD,
-		Used:                 usedUSD,
-		Quota:                totalUSD,
-		TodayIncome:          todayIncome,
-		TodayQuotaConsumption: todayQuotaConsumption,
-	}, nil
+	balance := parseOneApiStyleBalance(resp, 500000, true)
+	return &balance, nil
 }
 
 // GetSiteAnnouncements: GET /api/notice.

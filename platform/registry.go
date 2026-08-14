@@ -1,48 +1,43 @@
 package platform
 
 import (
-	"context"
 	"strings"
 )
 
 // PLATFORM_ALIASES maps user-facing platform names to canonical identifiers.
 var PlatformAliases = map[string]string{
-	"anyrouter":      "anyrouter",
-	"vo-api":         "new-api",
-	"super-api":      "new-api",
-	"rix-api":        "new-api",
-	"neo-api":        "new-api",
-	"newapi":         "new-api",
-	"new api":        "new-api",
-	"new-api":        "new-api",
-	"oneapi":         "one-api",
-	"one api":        "one-api",
-	"one-api":        "one-api",
-	"onehub":         "one-hub",
-	"one-hub":        "one-hub",
-	"donehub":        "done-hub",
-	"done-hub":       "done-hub",
-	"veloera":        "veloera",
-	"sub2api":        "sub2api",
-	"openai":         "openai",
-	"codex":          "codex",
-	"chatgpt-codex":  "codex",
-	"chatgpt codex":  "codex",
-	"anthropic":      "claude",
-	"claude":         "claude",
-	"gemini":         "gemini",
-	"gemini-cli":     "gemini-cli",
-	"antigravity":    "antigravity",
-	"anti-gravity":   "antigravity",
-	"google":         "gemini",
-	"cliproxyapi":    "cliproxyapi",
-	"cpa":            "cliproxyapi",
-	"cli-proxy-api":  "cliproxyapi",
+	"anyrouter":     "anyrouter",
+	"vo-api":        "new-api",
+	"super-api":     "new-api",
+	"rix-api":       "new-api",
+	"neo-api":       "new-api",
+	"newapi":        "new-api",
+	"new api":       "new-api",
+	"new-api":       "new-api",
+	"oneapi":        "one-api",
+	"one api":       "one-api",
+	"one-api":       "one-api",
+	"onehub":        "one-hub",
+	"one-hub":       "one-hub",
+	"donehub":       "done-hub",
+	"done-hub":      "done-hub",
+	"veloera":       "veloera",
+	"sub2api":       "sub2api",
+	"openai":        "openai",
+	"codex":         "codex",
+	"chatgpt-codex": "codex",
+	"chatgpt codex": "codex",
+	"anthropic":     "claude",
+	"claude":        "claude",
+	"gemini":        "gemini",
+	"gemini-cli":    "gemini-cli",
+	"antigravity":   "antigravity",
+	"anti-gravity":  "antigravity",
+	"google":        "gemini",
+	"cliproxyapi":   "cliproxyapi",
+	"cpa":           "cliproxyapi",
+	"cli-proxy-api": "cliproxyapi",
 }
-
-// registry holds all platform adapters in detection order.
-// Populated via Register() calls from each adapter's init().
-var registry []PlatformAdapter
 
 // orderedPlatformNames defines the spec-required adapter registration order.
 // "Specific forks before generic adapters for better auto-detection."
@@ -64,29 +59,57 @@ var orderedPlatformNames = []string{
 	"one-api",
 }
 
-// Register adds an adapter to the global registry.
-// Called from adapter init() functions.
-func Register(a PlatformAdapter) {
-	registry = append(registry, a)
+// registry holds all platform adapters in detection order.
+// Populated deterministically by init() following orderedPlatformNames.
+var registry []PlatformAdapter
+
+func init() {
+	for _, name := range orderedPlatformNames {
+		registry = append(registry, buildAdapter(name))
+	}
 }
 
-// InitRegistry reorders the adapter registry to match the spec-required detection sequence.
-// Call this once at startup after all packages have been imported.
-// The order ensures: specific forks before generic adapters, OneApi last as catch-all.
-func InitRegistry() {
-	// Collect adapters registered by init() functions
-	byName := make(map[string]PlatformAdapter, len(registry))
-	for _, a := range registry {
-		byName[a.PlatformName()] = a
+// buildAdapter constructs the adapter registered for a canonical platform name.
+func buildAdapter(name string) PlatformAdapter {
+	switch name {
+	case "openai":
+		return &OpenAiAdapter{StandardAdapter: NewStandardAdapter("openai")}
+	case "codex":
+		return &CodexAdapter{StandardAdapter: &StandardAdapter{
+			BaseAdapter:               NewBaseAdapter("codex"),
+			LoginUnsupportedMessage:   "codex oauth login is managed via OAuth flow",
+			CheckinUnsupportedMessage: "codex oauth connections do not support checkin",
+		}}
+	case "claude":
+		return &ClaudeAdapter{StandardAdapter: NewStandardAdapter("claude")}
+	case "gemini":
+		return &GeminiAdapter{StandardAdapter: NewStandardAdapter("gemini")}
+	case "gemini-cli":
+		return &GeminiCliAdapter{GeminiAdapter: &GeminiAdapter{StandardAdapter: NewStandardAdapter("gemini-cli")}}
+	case "antigravity":
+		return &AntigravityAdapter{StandardAdapter: NewStandardAdapter("antigravity")}
+	case "cliproxyapi":
+		return &CliProxyApiAdapter{StandardAdapter: &StandardAdapter{
+			BaseAdapter:               NewBaseAdapter("cliproxyapi"),
+			LoginUnsupportedMessage:   "CLIProxyAPI does not support login",
+			CheckinUnsupportedMessage: "CLIProxyAPI does not support checkin",
+		}}
+	case "anyrouter":
+		return &AnyRouterAdapter{NewApiAdapter: &NewApiAdapter{BaseAdapter: NewBaseAdapter("anyrouter")}}
+	case "done-hub":
+		return &DoneHubAdapter{OneHubAdapter: &OneHubAdapter{OneApiAdapter: &OneApiAdapter{BaseAdapter: NewBaseAdapter("done-hub")}}}
+	case "one-hub":
+		return &OneHubAdapter{OneApiAdapter: &OneApiAdapter{BaseAdapter: NewBaseAdapter("one-hub")}}
+	case "veloera":
+		return &VeloeraAdapter{BaseAdapter: NewBaseAdapter("veloera")}
+	case "new-api":
+		return &NewApiAdapter{BaseAdapter: NewBaseAdapter("new-api")}
+	case "sub2api":
+		return &Sub2ApiAdapter{BaseAdapter: NewBaseAdapter("sub2api")}
+	case "one-api":
+		return &OneApiAdapter{BaseAdapter: NewBaseAdapter("one-api")}
 	}
-
-	// Re-register in spec order
-	registry = nil
-	for _, name := range orderedPlatformNames {
-		if a, ok := byName[name]; ok {
-			Register(a)
-		}
-	}
+	return nil
 }
 
 // NormalizePlatformAlias maps a raw platform string to its canonical form.
@@ -109,44 +132,6 @@ func GetAdapter(platform string) PlatformAdapter {
 			return a
 		}
 	}
-	return nil
-}
-
-// DetectPlatform runs the 4-step detection pipeline to identify a platform from a URL.
-func DetectPlatform(rawURL string) PlatformAdapter {
-	// Step 1: URL Hint (direct match)
-	if hint := DetectPlatformByURLHint(rawURL); hint != "" {
-		if a := GetAdapter(hint); a != nil {
-			return a
-		}
-	}
-
-	// Step 2: Title Hint with titleFirstPlatforms short-circuit
-	if hint := DetectPlatformByTitle(rawURL); hint != "" {
-		if titleFirstPlatforms[TitleHintPlatform(hint)] {
-			if a := GetAdapter(hint); a != nil {
-				return a
-			}
-		}
-		// new-api and one-api are NOT in titleFirstPlatforms — they need step 3 probe
-	}
-
-	// Step 3: Sequential probe (iterate adapters in registration order)
-	ctx := context.Background()
-	for _, a := range registry {
-		ok, _ := a.Detect(ctx, rawURL)
-		if ok {
-			return a
-		}
-	}
-
-	// Step 4: Title Hint fallback (for new-api/one-api that didn't match probe)
-	if hint := DetectPlatformByTitle(rawURL); hint != "" {
-		if a := GetAdapter(hint); a != nil {
-			return a
-		}
-	}
-
 	return nil
 }
 

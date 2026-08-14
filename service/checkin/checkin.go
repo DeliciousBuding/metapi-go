@@ -1,6 +1,7 @@
 package checkin
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -8,14 +9,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/service"
-	"github.com/deliciousbuding/metapi-go/service/adapter"
 	"github.com/deliciousbuding/metapi-go/service/alert"
 	"github.com/deliciousbuding/metapi-go/service/balance"
 	notifypkg "github.com/deliciousbuding/metapi-go/service/notify"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/jmoiron/sqlx"
 )
 
 // CheckinExecutionStatus is the status of a checkin execution.
@@ -144,7 +145,7 @@ func shouldAttemptAutoRelogin(message string) bool {
 
 // tryAutoRelogin attempts to re-login and get a new access token.
 func tryAutoRelogin(cfg *config.Config, db *sqlx.DB, account *store.Account, site *store.Site) (string, error) {
-	adp := adapter.GetAdapter(site.Platform)
+	adp := platform.GetAdapter(site.Platform)
 	if adp == nil {
 		return "", fmt.Errorf("no adapter for platform %s", site.Platform)
 	}
@@ -161,7 +162,7 @@ func tryAutoRelogin(cfg *config.Config, db *sqlx.DB, account *store.Account, sit
 
 	proxyConfig := service.BuildPlatformProxyConfig(cfg, account, site)
 
-	result, err := adp.Login(site.URL, relogin.Username, password, proxyConfig)
+	result, err := adp.Login(context.Background(), site.URL, relogin.Username, password, nil, proxyConfig)
 	if err != nil || !result.Success || result.AccessToken == "" {
 		if err != nil {
 			return "", err
@@ -184,6 +185,16 @@ func tryAutoRelogin(cfg *config.Config, db *sqlx.DB, account *store.Account, sit
 	}
 
 	return result.AccessToken, nil
+}
+
+// platformUserIDPtr converts a resolved int64 platform user id to the
+// *int form expected by platform adapter methods (nil when not available).
+func platformUserIDPtr(platformUserID int64) *int {
+	if platformUserID <= 0 {
+		return nil
+	}
+	value := int(platformUserID)
+	return &value
 }
 
 // CheckinAccount performs a checkin for a single account.
@@ -274,7 +285,7 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 	}
 
 	// 3. Get platform adapter
-	adp := adapter.GetAdapter(site.Platform)
+	adp := platform.GetAdapter(site.Platform)
 	if adp == nil {
 		return CheckinResult{
 			Success: false, Status: CheckinFailed,
@@ -293,9 +304,9 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 
 	// 5. First checkin attempt
 	activeAccessToken := account.AccessToken
-	result, err := adp.Checkin(site.URL, activeAccessToken, platformUserID, proxyConfig)
+	result, err := adp.Checkin(context.Background(), site.URL, activeAccessToken, platformUserIDPtr(platformUserID), proxyConfig)
 	if err != nil {
-		result = &adapter.CheckinResult{Success: false, Message: err.Error()}
+		result = &platform.CheckinResult{Success: false, Message: err.Error()}
 	}
 
 	// 6. Auto-relogin on failure
@@ -303,9 +314,9 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 		refreshedToken, reloginErr := tryAutoRelogin(cfg, db, account, site)
 		if reloginErr == nil && refreshedToken != "" {
 			activeAccessToken = refreshedToken
-			result, err = adp.Checkin(site.URL, activeAccessToken, platformUserID, proxyConfig)
+			result, err = adp.Checkin(context.Background(), site.URL, activeAccessToken, platformUserIDPtr(platformUserID), proxyConfig)
 			if err != nil {
-				result = &adapter.CheckinResult{Success: false, Message: err.Error()}
+				result = &platform.CheckinResult{Success: false, Message: err.Error()}
 			}
 		}
 	}
@@ -333,7 +344,7 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 	}
 
 	logReward := result.Reward
-	var refreshedBalanceInfo *adapter.BalanceInfo
+	var refreshedBalanceInfo *platform.BalanceInfo
 
 	// 8. Post-success processing
 	if effectiveSuccess {

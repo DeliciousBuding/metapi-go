@@ -6,12 +6,10 @@ import (
 )
 
 // AntigravityAdapter handles Google Antigravity platforms (OAuth-driven).
+// StandardAdapter provides the "not supported"/empty defaults for auth,
+// checkin and balance methods.
 type AntigravityAdapter struct {
-	*BaseAdapter
-}
-
-func init() {
-	Register(&AntigravityAdapter{BaseAdapter: NewBaseAdapter("antigravity")})
+	*StandardAdapter
 }
 
 // Detect matches URL keyword: antigravity.
@@ -19,36 +17,16 @@ func (a *AntigravityAdapter) Detect(ctx context.Context, url string) (bool, erro
 	return strings.Contains(strings.ToLower(url), "antigravity"), nil
 }
 
-// Login: not supported.
-func (a *AntigravityAdapter) Login(ctx context.Context, url, username, password string, platformUserId *int, proxy *ProxyConfig) (*LoginResult, error) {
-	return &LoginResult{Success: false, Message: "login endpoint not supported"}, nil
-}
-
-// GetUserInfo returns nil.
-func (a *AntigravityAdapter) GetUserInfo(ctx context.Context, url, accessToken string, platformUserId *int, proxy *ProxyConfig) (*UserInfo, error) {
-	return nil, nil
-}
-
-// Checkin: not supported.
-func (a *AntigravityAdapter) Checkin(ctx context.Context, url, accessToken string, platformUserId *int, proxy *ProxyConfig) (*CheckinResult, error) {
-	return &CheckinResult{Success: false, Message: "checkin endpoint not supported"}, nil
-}
-
-// GetBalance returns zero balance.
-func (a *AntigravityAdapter) GetBalance(ctx context.Context, url, accessToken string, platformUserId *int, proxy *ProxyConfig) (*BalanceInfo, error) {
-	return &BalanceInfo{Balance: 0, Used: 0, Quota: 0}, nil
-}
-
 // GetModels fetches from /v1internal:fetchAvailableModels with Antigravity-specific headers.
 func (a *AntigravityAdapter) GetModels(ctx context.Context, baseURL string, accessToken string, platformUserId *int, proxy *ProxyConfig) ([]string, error) {
 	normalized := strings.TrimRight(strings.TrimSpace(baseURL), "/")
 
 	headers := map[string]string{
-		"Authorization":   "Bearer " + accessToken,
-		"Accept":          "application/json",
-		"User-Agent":      "Antigravity/1.0",
+		"Authorization":     "Bearer " + accessToken,
+		"Accept":            "application/json",
+		"User-Agent":        "Antigravity/1.0",
 		"X-Goog-Api-Client": "antigravity-client",
-		"Client-Metadata": "antigravity",
+		"Client-Metadata":   "antigravity",
 	}
 
 	resp, err := fetchJSON(ctx, normalized+"/v1internal:fetchAvailableModels", "POST", map[string]interface{}{}, headers, proxy)

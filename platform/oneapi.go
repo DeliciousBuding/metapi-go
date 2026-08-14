@@ -12,10 +12,6 @@ type OneApiAdapter struct {
 	*BaseAdapter
 }
 
-func init() {
-	Register(&OneApiAdapter{BaseAdapter: NewBaseAdapter("one-api")})
-}
-
 // Detect probes GET /api/status and checks that success===true and system_name is absent.
 func (o *OneApiAdapter) Detect(ctx context.Context, url string) (bool, error) {
 	resp, err := fetchJSON(ctx, url+"/api/status", "GET", nil, nil, nil)
@@ -42,26 +38,7 @@ func (o *OneApiAdapter) Checkin(ctx context.Context, baseURL, accessToken string
 		return &CheckinResult{Success: false, Message: err.Error()}, nil
 	}
 
-	success, _ := getBool(resp, "success")
-	if success {
-		msg, _ := getString(resp, "message")
-		if msg == "" {
-			msg = "Check-in successful"
-		}
-		reward := ""
-		if data, ok := getMap(resp, "data"); ok {
-			if r, ok := data["reward"]; ok {
-				reward = fmt.Sprintf("%v", r)
-			}
-		}
-		return &CheckinResult{Success: true, Message: msg, Reward: reward}, nil
-	}
-
-	msg, _ := getString(resp, "message")
-	if msg == "" {
-		msg = "Check-in failed"
-	}
-	return &CheckinResult{Success: false, Message: msg}, nil
+	return checkinResultFromResponse(resp, "Check-in successful", "Check-in failed"), nil
 }
 
 // GetBalance: quota=total, balance=quota-used, divisor=500000.
@@ -72,35 +49,8 @@ func (o *OneApiAdapter) GetBalance(ctx context.Context, baseURL, accessToken str
 		return &BalanceInfo{}, nil
 	}
 
-	data, ok := getMap(resp, "data")
-	if !ok {
-		data = resp
-	}
-
-	quota, _ := getFloat(data, "quota")
-	used, _ := getFloat(data, "used_quota")
-	balance := (quota - used) / 500000
-	quotaUSD := quota / 500000
-	usedUSD := used / 500000
-
-	var todayIncome *float64
-	if v, ok := getFloat(data, "today_income"); ok {
-		ti := v / 500000
-		todayIncome = &ti
-	}
-	var todayQuotaConsumption *float64
-	if v, ok := getFloat(data, "today_quota_consumption"); ok {
-		tq := v / 500000
-		todayQuotaConsumption = &tq
-	}
-
-	return &BalanceInfo{
-		Balance:              balance,
-		Used:                 usedUSD,
-		Quota:                quotaUSD,
-		TodayIncome:          todayIncome,
-		TodayQuotaConsumption: todayQuotaConsumption,
-	}, nil
+	balance := parseOneApiStyleBalance(resp, 500000, false)
+	return &balance, nil
 }
 
 // GetModels: GET /v1/models (Bearer auth).
@@ -111,20 +61,7 @@ func (o *OneApiAdapter) GetModels(ctx context.Context, baseURL string, apiToken 
 		return []string{}, nil
 	}
 
-	data, ok := resp["data"].([]interface{})
-	if !ok {
-		return []string{}, nil
-	}
-
-	models := make([]string, 0, len(data))
-	for _, item := range data {
-		if m, ok := item.(map[string]interface{}); ok {
-			if id, ok := m["id"].(string); ok && strings.TrimSpace(id) != "" {
-				models = append(models, strings.TrimSpace(id))
-			}
-		}
-	}
-	return models, nil
+	return extractModelIDsFromData(resp), nil
 }
 
 // GetAPITokens: GET /api/token/?p=0&size=100 (Bearer auth).
@@ -351,13 +288,13 @@ func buildDefaultTokenPayload(options *CreateAPITokenOptions) map[string]interfa
 	}
 
 	return map[string]interface{}{
-		"name":                name,
-		"unlimited_quota":     unlimitedQuota,
-		"expired_time":        expiredTime,
-		"remain_quota":        remainQuota,
-		"allow_ips":           allowIPs,
+		"name":                 name,
+		"unlimited_quota":      unlimitedQuota,
+		"expired_time":         expiredTime,
+		"remain_quota":         remainQuota,
+		"allow_ips":            allowIPs,
 		"model_limits_enabled": modelLimitsEnabled,
-		"model_limits":        modelLimits,
-		"group":               group,
+		"model_limits":         modelLimits,
+		"group":                group,
 	}
 }
