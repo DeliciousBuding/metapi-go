@@ -41,6 +41,11 @@ type Site struct {
 	// true = force-enable Resin for this site even when global is disabled
 	// false = force-disable Resin for this site even when global is enabled
 	ResinEnabled *bool `db:"resin_enabled" json:"resinEnabled"`
+	// UseUTLS is a per-site uTLS TLS fingerprint masking override.
+	// nil  = inherit global UTLS_ENABLED flag (default, preserves legacy behavior)
+	// true = force-enable uTLS Chrome-ClientHello masking for this site
+	// false = force-disable uTLS masking even when global is enabled
+	UseUTLS *bool `db:"use_utls" json:"useUtls"`
 }
 
 // ---- Table 2: site_api_endpoints ----

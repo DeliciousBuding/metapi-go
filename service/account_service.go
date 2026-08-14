@@ -188,6 +188,20 @@ func GetUseSystemProxyFromExtraConfig(extraConfig *string) bool {
 	return false
 }
 
+// UTLSEnabled resolves whether uTLS TLS fingerprint masking is active for a
+// site. Per-site UseUTLS overrides the global UTLS_ENABLED flag:
+//   - site.UseUTLS != nil → explicit per-site decision (true/false)
+//   - site.UseUTLS == nil → fall back to cfg.UTLSEnabled (global default)
+//
+// Mirrors the ResinEnabled resolution pattern so operators can globally opt in
+// via UTLS_ENABLED=true and selectively disable specific sites with use_utls=false.
+func UTLSEnabled(cfg *config.Config, site *store.Site) bool {
+	if site != nil && site.UseUTLS != nil {
+		return *site.UseUTLS
+	}
+	return cfg != nil && cfg.UTLSEnabled
+}
+
 // BuildPlatformProxyConfig resolves account and site proxy settings for platform calls.
 //
 // Precedence (highest to lowest):
@@ -226,6 +240,11 @@ func BuildPlatformProxyConfig(cfg *config.Config, account *store.Account, site *
 			proxyCfg.BrowserUA = strings.TrimSpace(*site.BrowserUA)
 		}
 	}
+
+	// Resolve uTLS from site-level override or global UTLS_ENABLED flag. This
+	// is independent of the proxy-precedence chain below — uTLS masking applies
+	// regardless of whether a proxy URL is configured.
+	proxyCfg.UseUTLS = UTLSEnabled(cfg, site)
 
 	// 2. account explicit proxyUrl
 	if account != nil {
@@ -328,7 +347,7 @@ func normalizePlatformProxyConfig(proxyCfg *platform.ProxyConfig) *platform.Prox
 		return nil
 	}
 	if proxyCfg.ProxyURL == "" && !proxyCfg.UseSystemProxy && len(proxyCfg.CustomHeaders) == 0 && !proxyCfg.InsecureSkipTLS &&
-		proxyCfg.ClearanceCookie == "" && proxyCfg.BrowserUA == "" {
+		proxyCfg.ClearanceCookie == "" && proxyCfg.BrowserUA == "" && !proxyCfg.UseUTLS {
 		return nil
 	}
 	return proxyCfg

@@ -182,6 +182,14 @@ type Config struct {
 	ResinPlatformName string
 	ResinEnabled      bool
 
+	// uTLS TLS fingerprint masking (1 field, env-only — no DDL for Tier 1).
+	// UTLS_ENABLED is the global opt-in (default false). When true, all
+	// outbound platform requests use a uTLS Chrome-ClientHello transport
+	// instead of Go's default crypto/tls ClientHello, masking the JA3/JA4
+	// fingerprint that Cloudflare and similar WAFs use to block automated
+	// traffic. Per-site use_utls overrides this flag (see service.UTLSEnabled).
+	UTLSEnabled bool
+
 	// NotifyTaskToggles gates per-alert-type notifications.
 	// Keys are alert task slugs ("token_expired", "low_balance", "proxy_all_failed").
 	// Default nil = all enabled (backward-compatible). When a key is present and
@@ -564,6 +572,9 @@ func Load(env map[string]string) *Config {
 	cfg.ResinURL = firstNonEmpty(get("RESIN_URL"), "")
 	cfg.ResinPlatformName = firstNonEmpty(get("RESIN_PLATFORM_NAME"), "")
 	cfg.ResinEnabled = parseBoolean(get("RESIN_ENABLED"), false)
+
+	// ---- §3.11c uTLS TLS fingerprint masking ----
+	cfg.UTLSEnabled = parseBoolean(get("UTLS_ENABLED"), false)
 
 	// ---- §3.12 Notify: Feishu / DingTalk / WeCom / Ntfy ----
 	cfg.FeishuEnabled = parseBoolean(get("FEISHU_ENABLED"), false)

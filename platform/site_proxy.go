@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	utls "github.com/refraction-networking/utls"
 )
 
 const (
@@ -40,23 +42,37 @@ var supportedProxySchemes = map[string]bool{
 var transportCache sync.Map // map[string]*http.Transport
 
 // getCachedTransport returns a pooled *http.Transport for the given
-// (proxy, insecureSkipTLS) tuple, creating and storing it on first miss.
-// Concurrency-safe: concurrent first-miss callers race via LoadOrStore; the
-// loser's transport is unreferenced and garbage-collected with no connections.
-func getCachedTransport(proxy func(*http.Request) (*url.URL, error), insecureSkipTLS bool) *http.Transport {
-	key := transportCacheKey(proxy, insecureSkipTLS)
+// (proxy, insecureSkipTLS, useUTLS) tuple, creating and storing it on first
+// miss. Concurrency-safe: concurrent first-miss callers race via
+// LoadOrStore; the loser's transport is unreferenced and garbage-collected
+// with no connections.
+//
+// When useUTLS is true the transport is built by newUTLSTransport (Chrome
+// ClientHello fingerprint masking via uTLS); otherwise the standard
+// newPooledTransport is used. The two variants occupy separate cache keys so
+// they never alias — the uTLS DialTLSContext is only paid for by sites that
+// opt in.
+func getCachedTransport(proxy func(*http.Request) (*url.URL, error), insecureSkipTLS, useUTLS bool) *http.Transport {
+	key := transportCacheKey(proxy, insecureSkipTLS, useUTLS)
 	if cached, ok := transportCache.Load(key); ok {
 		return cached.(*http.Transport)
 	}
-	transport := newPooledTransport(proxy, insecureSkipTLS)
+	var transport *http.Transport
+	if useUTLS {
+		transport = newUTLSTransport(proxy, insecureSkipTLS)
+	} else {
+		transport = newPooledTransport(proxy, insecureSkipTLS)
+	}
 	actual, _ := transportCache.LoadOrStore(key, transport)
 	return actual.(*http.Transport)
 }
 
 // transportCacheKey derives the cache key from the proxy func by resolving it
 // against a sentinel request. proxy may be nil (direct connection), in which
-// case the proxy portion of the key is the empty string.
-func transportCacheKey(proxy func(*http.Request) (*url.URL, error), insecureSkipTLS bool) string {
+// case the proxy portion of the key is the empty string. When useUTLS is true
+// a "|utls" suffix is appended so the uTLS-backed transport never aliases
+// with the standard crypto/tls transport for the same (proxy, insecure) tuple.
+func transportCacheKey(proxy func(*http.Request) (*url.URL, error), insecureSkipTLS, useUTLS bool) string {
 	proxyURL := ""
 	if proxy != nil {
 		sentinel := &http.Request{URL: &url.URL{Scheme: "http", Host: "transport-cache.sentinel.invalid"}}
@@ -68,7 +84,11 @@ func transportCacheKey(proxy func(*http.Request) (*url.URL, error), insecureSkip
 	if insecureSkipTLS {
 		insecure = "1"
 	}
-	return proxyURL + "|" + insecure
+	key := proxyURL + "|" + insecure
+	if useUTLS {
+		key += "|utls"
+	}
+	return key
 }
 
 // newPooledTransport builds a fresh *http.Transport configured for connection
@@ -93,6 +113,74 @@ func newPooledTransport(proxy func(*http.Request) (*url.URL, error), insecureSki
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 	return transport
+}
+
+// newUTLSTransport builds a pooled *http.Transport whose DialTLSContext
+// performs a uTLS handshake with HelloChrome_Auto (the latest Chrome
+// ClientHello spec), masking the JA3/JA4 fingerprint that Cloudflare and
+// similar WAFs use to block Go's default crypto/tls ClientHello.
+//
+// On uTLS handshake failure the connection falls back to standard Go TLS
+// (tls.Client + HandshakeContext) so a transient uTLS incompatibility never
+// breaks the request — the operator can opt in knowing it is best-effort.
+//
+// Note: DialTLSContext is honored for non-proxied HTTPS connections (per the
+// net/http contract). When an HTTP/HTTPS proxy is configured the transport
+// still dials through it and uses TLSClientConfig for the post-CONNECT TLS
+// handshake; uTLS masking applies to direct connections. SOCKS proxies are
+// handled at the dial layer so DialTLSContext covers them as well.
+func newUTLSTransport(proxy func(*http.Request) (*url.URL, error), insecureSkipTLS bool) *http.Transport {
+	transport := newPooledTransport(proxy, insecureSkipTLS)
+	transport.DialTLSContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		return dialUTLSContext(ctx, network, addr, insecureSkipTLS)
+	}
+	return transport
+}
+
+// dialUTLSContext performs the uTLS Chrome-ClientHello handshake with a
+// standard-TLS fallback. It dials the raw TCP connection, attempts the uTLS
+// handshake, and on failure redials and retries with crypto/tls. Both paths
+// honor insecureSkipTLS for sites with self-signed or expired certificates.
+func dialUTLSContext(ctx context.Context, network, addr string, insecureSkipTLS bool) (net.Conn, error) {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		host = addr
+	}
+
+	dialer := &net.Dialer{
+		Timeout:   defaultProxyConnectTimeout,
+		KeepAlive: defaultProxyKeepAliveInitial,
+	}
+
+	rawConn, err := dialer.DialContext(ctx, network, addr)
+	if err != nil {
+		return nil, fmt.Errorf("utls dial: %w", err)
+	}
+
+	// uTLS handshake with Chrome ClientHello spec.
+	uConn := utls.UClient(rawConn, &utls.Config{
+		ServerName:         host,
+		InsecureSkipVerify: insecureSkipTLS,
+	}, utls.HelloChrome_Auto)
+	if err := uConn.HandshakeContext(ctx); err != nil {
+		rawConn.Close()
+		// Fallback to standard Go TLS on uTLS failure — don't let a uTLS
+		// incompatibility break the request.
+		fallbackConn, dialErr := dialer.DialContext(ctx, network, addr)
+		if dialErr != nil {
+			return nil, fmt.Errorf("utls handshake: %w; fallback dial: %v", err, dialErr)
+		}
+		stdConn := tls.Client(fallbackConn, &tls.Config{
+			ServerName:         host,
+			InsecureSkipVerify: insecureSkipTLS,
+		})
+		if handshakeErr := stdConn.HandshakeContext(ctx); handshakeErr != nil {
+			fallbackConn.Close()
+			return nil, fmt.Errorf("utls handshake: %w; fallback tls handshake: %v", err, handshakeErr)
+		}
+		return stdConn, nil
+	}
+	return uConn, nil
 }
 
 // newProxyClient wraps a (pooled) *http.Transport with the shared timeout and
@@ -214,7 +302,7 @@ func (sp *SiteProxy) doWithExplicitProxy(ctx context.Context, req *http.Request,
 	// share keep-alive connections instead of re-handshaking TLS every call.
 	// Only the *http.Transport is pooled; the *http.Client wrapper (timeout +
 	// redirect policy) is constructed per call and is cheap.
-	transport := getCachedTransport(http.ProxyURL(proxyURL), proxyConfig.InsecureSkipTLS)
+	transport := getCachedTransport(http.ProxyURL(proxyURL), proxyConfig.InsecureSkipTLS, proxyConfig.UseUTLS)
 	client := newProxyClient(transport)
 	return client.Do(req)
 }
@@ -240,11 +328,12 @@ func DoWithProxy(ctx context.Context, req *http.Request, proxyConfig *ProxyConfi
 			return nil, fmt.Errorf("unsupported proxy scheme: %s", scheme)
 		}
 
-		client := newProxyClient(getCachedTransport(http.ProxyURL(proxyURL), insecureSkipTLS))
+		client := newProxyClient(getCachedTransport(http.ProxyURL(proxyURL), insecureSkipTLS, proxyConfig.UseUTLS))
 		return client.Do(req.WithContext(ctx))
 	}
 
-	client := newProxyClient(getCachedTransport(nil, insecureSkipTLS))
+	useUTLS := proxyConfig != nil && proxyConfig.UseUTLS
+	client := newProxyClient(getCachedTransport(nil, insecureSkipTLS, useUTLS))
 	return client.Do(req.WithContext(ctx))
 }
 
