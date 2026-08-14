@@ -1,12 +1,14 @@
 package admin
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/scheduler"
@@ -74,15 +76,85 @@ type statsHandler struct {
 	db *sqlx.DB
 }
 
+// dashboardSummaryCache is a short-TTL in-memory cache for the dashboard
+// summary endpoint. Dashboard aggregation queries (COUNT/SUM over 24h of
+// proxy_logs) are expensive enough to dedup rapid reloads but cheap enough
+// that a 10s window keeps near-real-time semantics. Mirrors the
+// accountsSnapshotCache pattern: RWMutex-guarded bytes + expiry timestamp.
+//
+// Keyed by view (summary|insights|full) so the three response shapes never
+// collide. Only successful responses are cached; error paths bypass the cache.
+// ?force=1 clears the cache (admin "force refresh").
+type dashboardSummaryCache struct {
+	mu      sync.RWMutex
+	entries map[string]dashboardCacheEntry
+	ttl     time.Duration
+}
+
+type dashboardCacheEntry struct {
+	data      []byte
+	expiresAt time.Time
+}
+
+func (c *dashboardSummaryCache) get(view string) ([]byte, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	e, ok := c.entries[view]
+	if !ok || len(e.data) == 0 || time.Now().After(e.expiresAt) {
+		return nil, false
+	}
+	return e.data, true
+}
+
+func (c *dashboardSummaryCache) set(view string, data []byte) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.entries == nil {
+		c.entries = make(map[string]dashboardCacheEntry)
+	}
+	// Copy the slice so later buffer reuse by the caller cannot mutate the
+	// cached payload (defensive against json.Marshal aliasing).
+	stored := make([]byte, len(data))
+	copy(stored, data)
+	c.entries[view] = dashboardCacheEntry{data: stored, expiresAt: time.Now().Add(c.ttl)}
+}
+
+func (c *dashboardSummaryCache) clear() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.entries = nil
+}
+
+var globalDashboardCache = &dashboardSummaryCache{ttl: 10 * time.Second}
+
 // ---- Dashboard ----
-// GET /api/stats/dashboard?refresh=&view=
+// GET /api/stats/dashboard?force=&view=
 func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 	view := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("view")))
 	if view != "summary" && view != "insights" {
 		view = "full"
 	}
 
-	// Set cache headers
+	// ?force=1 (or true) is the admin "force refresh" hook: it invalidates the
+	// snapshot cache so this request recomputes from the DB and repopulates it.
+	forceRefresh := parseDashboardForceRefresh(r.URL.Query().Get("force"))
+	if forceRefresh {
+		globalDashboardCache.clear()
+	}
+
+	// Cache hit short-circuits the expensive aggregation queries. The cached
+	// bytes are the exact JSON the miss path would have produced.
+	if cached, hit := globalDashboardCache.get(view); hit {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("x-dashboard-summary-cache", "hit")
+		w.Header().Set("x-dashboard-insights-cache", "miss")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(cached)
+		return
+	}
+
+	// Cache miss: report miss and compute. Both headers default to "miss";
+	// the summary header reflects this cache's state.
 	w.Header().Set("x-dashboard-summary-cache", "miss")
 	w.Header().Set("x-dashboard-insights-cache", "miss")
 
@@ -323,7 +395,31 @@ func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
 		result["siteAvailability"] = siteAvailability
 	}
 
-	writeJSON(w, http.StatusOK, result)
+	// Marshal once and cache the bytes on the success path only — error paths
+	// returned earlier via dashboardError. Caching the exact encoded bytes
+	// (json.Encoder appends a newline, matching shared.WriteJSON) guarantees a
+	// later cache-hit response is byte-identical to the miss that populated it.
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(result); err != nil {
+		slog.Error("dashboard stats marshal failed", "error", err)
+		writeError(w, http.StatusInternalServerError, "Failed to encode dashboard statistics")
+		return
+	}
+	cached := buf.Bytes()
+	globalDashboardCache.set(view, cached)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(cached)
+}
+
+// parseDashboardForceRefresh accepts ?force=1 / ?force=true (case-insensitive)
+// as the admin "force refresh" signal. Empty and any other value miss the
+// cache normally. Mirrors the accounts handler's refresh=true convention but
+// uses the generic force name so it reads naturally for any cache-backed
+// admin endpoint.
+func parseDashboardForceRefresh(raw string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(raw))
+	return normalized == "1" || normalized == "true" || normalized == "yes" || normalized == "on"
 }
 
 func (h *statsHandler) dashboardError(w http.ResponseWriter, operation string, err error) {

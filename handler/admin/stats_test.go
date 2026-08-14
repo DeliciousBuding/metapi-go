@@ -14,6 +14,9 @@ import (
 
 func setupStatsPostgresTest(t *testing.T) (*store.DB, chi.Router) {
 	t.Helper()
+	// Process-global cache must start empty per test so a prior test's cached
+	// summary never leaks in (especially for the DB-closed 500 test).
+	globalDashboardCache.clear()
 
 	dsn := strings.TrimSpace(os.Getenv("PG_TEST_DSN"))
 	if dsn == "" {
@@ -37,6 +40,9 @@ func setupStatsPostgresTest(t *testing.T) (*store.DB, chi.Router) {
 
 func setupStatsSQLiteTest(t *testing.T) (*store.DB, chi.Router) {
 	t.Helper()
+	// Process-global cache must start empty per test so a prior test's cached
+	// summary never leaks in (especially for the DB-closed 500 test).
+	globalDashboardCache.clear()
 	db, err := store.Open(store.DialectSQLite, ":memory:", false)
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
@@ -285,7 +291,7 @@ func TestStats_SQLiteDashboardUsesLocalDayRewardAndCheckinTruth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("insert unattributed proxy log: %v", err)
 	}
-	resp = doGet(t, r, "/api/stats/dashboard?view=summary")
+	resp = doGet(t, r, "/api/stats/dashboard?view=summary&force=1")
 	if resp.Code != 200 {
 		t.Fatalf("partial dashboard returned %d: %s", resp.Code, resp.Body.String())
 	}

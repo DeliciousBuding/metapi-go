@@ -54,11 +54,22 @@ func ConfigureProxyUpstream(cfg *config.Config) error {
 		Coordinator: coord,
 		Executor:    proxy.NewRuntimeExecutor(requestTimeout),
 		// Persist successful/failed proxy attempts (token usage when available).
-		// Writer uses store.GetDB() so it follows runtime DB overrides in tests.
+		// EnqueueProxyLog routes through the async batch writer when
+		// PROXY_LOG_ASYNC is enabled (default), falling back to a synchronous
+		// InsertProxyLog in sync mode and under channel backpressure. The
+		// writer resolves store.GetDB() at flush time so runtime overrides in
+		// tests are honored.
 		LogProxy: func(ctx context.Context, entry proxy.ProxyLogEntry) error {
-			return proxyhandler.InsertProxyLog(ctx, store.GetDB(), entry)
+			return proxyhandler.EnqueueProxyLog(ctx, entry)
 		},
 	})
+	// Configure the proxy_log batch writer from env. Idempotent: a reconfigure
+	// first drains the previous writer so no goroutine or in-flight entry leaks.
+	proxyhandler.ConfigureProxyLogWriter(
+		cfg.ProxyLogAsync,
+		cfg.ProxyLogBatchSize,
+		cfg.ProxyLogFlushIntervalMs,
+	)
 	// Channel recovery active candidates follow coordinator leases.
 	// Normalize nil→empty so an empty lease set does not look "unset".
 	scheduler.SetActiveChannelIDsProvider(func() []int64 {
@@ -113,4 +124,14 @@ func (p proxyLoadProvider) GetChannelLoadSnapshot(params routing.ChannelLoadPara
 		WaitingCount:     snap.WaitingCount,
 		Saturated:        snap.Saturated,
 	}
+}
+
+// ShutdownProxyLogBatchWriter drains and stops the global proxy_log batch
+// writer. It is intended to be registered as an app OnClose hook during server
+// startup so the writer flushes its final batch before app.cleanup() calls
+// store.CloseDatabase(). Exposed here (rather than having cmd/server import
+// handler/proxy directly) to keep the cmd → app package boundary intact.
+// No-op when the writer was never started (sync mode / PROXY_LOG_ASYNC=false).
+func ShutdownProxyLogBatchWriter(ctx context.Context) error {
+	return proxyhandler.ShutdownProxyLogBatchWriter(ctx)
 }

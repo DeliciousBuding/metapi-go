@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -98,6 +99,14 @@ func main() {
 	a := app.New(cfg, r)
 	a.RegisterOnClose(func() {
 		app.StopBackgroundServices()
+		// Drain the proxy_log batch writer before app.cleanup() calls
+		// store.CloseDatabase() so the final batch flushes against an
+		// still-open DB. Bounded wait so a stuck flush cannot block shutdown.
+		drainCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := app.ShutdownProxyLogBatchWriter(drainCtx); err != nil {
+			slog.Warn("proxy_log batch writer drain did not complete within timeout", "error", err)
+		}
 	})
 
 	// ---- 21-23. Listen + shutdown ----
