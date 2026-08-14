@@ -12,10 +12,6 @@ type ClaudeAdapter struct {
 	*StandardAdapter
 }
 
-func init() {
-	Register(&ClaudeAdapter{StandardAdapter: NewStandardAdapter("claude")})
-}
-
 // Detect matches URL keywords: api.anthropic.com or anthropic.com/v1.
 func (c *ClaudeAdapter) Detect(ctx context.Context, url string) (bool, error) {
 	lower := strings.ToLower(url)

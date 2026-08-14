@@ -12,10 +12,6 @@ type VeloeraAdapter struct {
 	*BaseAdapter
 }
 
-func init() {
-	Register(&VeloeraAdapter{BaseAdapter: NewBaseAdapter("veloera")})
-}
-
 // Detect probes GET /api/status and checks for "veloera" in system_name or version.
 func (v *VeloeraAdapter) Detect(ctx context.Context, url string) (bool, error) {
 	resp, err := fetchJSON(ctx, url+"/api/status", "GET", nil, nil, nil)
@@ -63,26 +59,7 @@ func (v *VeloeraAdapter) Checkin(ctx context.Context, baseURL, accessToken strin
 		return &CheckinResult{Success: false, Message: err.Error()}, nil
 	}
 
-	success, _ := getBool(resp, "success")
-	if success {
-		msg, _ := getString(resp, "message")
-		if msg == "" {
-			msg = "Check-in successful"
-		}
-		reward := ""
-		if data, ok := getMap(resp, "data"); ok {
-			if r, ok := data["reward"]; ok {
-				reward = fmt.Sprintf("%v", r)
-			}
-		}
-		return &CheckinResult{Success: true, Message: msg, Reward: reward}, nil
-	}
-
-	msg, _ := getString(resp, "message")
-	if msg == "" {
-		msg = "Check-in failed"
-	}
-	return &CheckinResult{Success: false, Message: msg}, nil
+	return checkinResultFromResponse(resp, "Check-in successful", "Check-in failed"), nil
 }
 
 // GetBalance: quota=total, balance=quota-used, divisor=1,000,000 (NOT 500,000!).
@@ -93,35 +70,8 @@ func (v *VeloeraAdapter) GetBalance(ctx context.Context, baseURL, accessToken st
 		return &BalanceInfo{}, nil
 	}
 
-	data, ok := getMap(resp, "data")
-	if !ok {
-		data = resp
-	}
-
-	quota, _ := getFloat(data, "quota")
-	used, _ := getFloat(data, "used_quota")
-	balance := (quota - used) / 1000000
-	quotaUSD := quota / 1000000
-	usedUSD := used / 1000000
-
-	var todayIncome *float64
-	if v, ok := getFloat(data, "today_income"); ok {
-		ti := v / 1000000
-		todayIncome = &ti
-	}
-	var todayQuotaConsumption *float64
-	if v, ok := getFloat(data, "today_quota_consumption"); ok {
-		tq := v / 1000000
-		todayQuotaConsumption = &tq
-	}
-
-	return &BalanceInfo{
-		Balance:              balance,
-		Used:                 usedUSD,
-		Quota:                quotaUSD,
-		TodayIncome:          todayIncome,
-		TodayQuotaConsumption: todayQuotaConsumption,
-	}, nil
+	balance := parseOneApiStyleBalance(resp, 1000000, false)
+	return &balance, nil
 }
 
 // GetModels: GET /v1/models (Bearer auth only, no Veloera headers).
@@ -132,18 +82,5 @@ func (v *VeloeraAdapter) GetModels(ctx context.Context, baseURL string, apiToken
 		return []string{}, nil
 	}
 
-	data, ok := resp["data"].([]interface{})
-	if !ok {
-		return []string{}, nil
-	}
-
-	models := make([]string, 0, len(data))
-	for _, item := range data {
-		if m, ok := item.(map[string]interface{}); ok {
-			if id, ok := m["id"].(string); ok && strings.TrimSpace(id) != "" {
-				models = append(models, strings.TrimSpace(id))
-			}
-		}
-	}
-	return models, nil
+	return extractModelIDsFromData(resp), nil
 }

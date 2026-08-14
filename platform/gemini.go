@@ -11,10 +11,6 @@ type GeminiAdapter struct {
 	*StandardAdapter
 }
 
-func init() {
-	Register(&GeminiAdapter{StandardAdapter: NewStandardAdapter("gemini")})
-}
-
 // Detect matches URL keywords: generativelanguage.googleapis.com, googleapis.com/v1beta/openai, gemini.google.com.
 func (g *GeminiAdapter) Detect(ctx context.Context, urlStr string) (bool, error) {
 	lower := strings.ToLower(urlStr)

@@ -14,13 +14,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/service"
-	"github.com/deliciousbuding/metapi-go/service/adapter"
 	"github.com/deliciousbuding/metapi-go/service/alert"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/jmoiron/sqlx"
 )
 
 // lowBalanceAlertThreshold is the per-account balance floor that triggers a
@@ -323,7 +322,7 @@ func parseIncomeFromContent(content string) float64 {
 
 // tryAutoReloginBalance attempts re-login for balance refresh.
 func tryAutoReloginBalance(cfg *config.Config, db *sqlx.DB, account *store.Account, site *store.Site) (string, error) {
-	adp := adapter.GetAdapter(site.Platform)
+	adp := platform.GetAdapter(site.Platform)
 	if adp == nil {
 		return "", fmt.Errorf("no adapter for platform %s", site.Platform)
 	}
@@ -340,7 +339,7 @@ func tryAutoReloginBalance(cfg *config.Config, db *sqlx.DB, account *store.Accou
 
 	proxyConfig := service.BuildPlatformProxyConfig(cfg, account, site)
 
-	result, err := adp.Login(site.URL, relogin.Username, password, proxyConfig)
+	result, err := adp.Login(context.Background(), site.URL, relogin.Username, password, nil, proxyConfig)
 	if err != nil || !result.Success || result.AccessToken == "" {
 		if err != nil {
 			return "", err
@@ -363,6 +362,16 @@ func tryAutoReloginBalance(cfg *config.Config, db *sqlx.DB, account *store.Accou
 	return result.AccessToken, nil
 }
 
+// platformUserIDPtr converts a resolved int64 platform user id to the
+// *int form expected by platform adapter methods (nil when not available).
+func platformUserIDPtr(platformUserID int64) *int {
+	if platformUserID <= 0 {
+		return nil
+	}
+	value := int(platformUserID)
+	return &value
+}
+
 // BalanceResult is the result of a balance refresh.
 type BalanceResult struct {
 	Balance     float64
@@ -370,7 +379,7 @@ type BalanceResult struct {
 	Quota       float64
 	Skipped     bool
 	Reason      string
-	BalanceInfo *adapter.BalanceInfo
+	BalanceInfo *platform.BalanceInfo
 }
 
 // RefreshBalance refreshes the balance for a single account.
@@ -411,7 +420,7 @@ func RefreshBalance(cfg *config.Config, db *sqlx.DB, accountID int64) (*BalanceR
 	}
 
 	// Get adapter
-	adp := adapter.GetAdapter(site.Platform)
+	adp := platform.GetAdapter(site.Platform)
 	if adp == nil {
 		return nil, fmt.Errorf("unsupported platform: %s", site.Platform)
 	}
@@ -449,8 +458,8 @@ func RefreshBalance(cfg *config.Config, db *sqlx.DB, accountID int64) (*BalanceR
 	}
 
 	// Read balance helper
-	readBalance := func(token string) (*adapter.BalanceInfo, error) {
-		return adp.GetBalance(site.URL, token, platformUserID, proxyConfig)
+	readBalance := func(token string) (*platform.BalanceInfo, error) {
+		return adp.GetBalance(context.Background(), site.URL, token, platformUserIDPtr(platformUserID), proxyConfig)
 	}
 
 	// Error handler
