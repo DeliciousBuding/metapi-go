@@ -197,7 +197,8 @@
         "empty": "The response is empty.",
         "succeeded": "Request succeeded.",
         "stopped": "Request stopped.",
-        "failed": "Request failed."
+        "failed": "Request failed.",
+        "cleared": "Session cleared."
       },
       "error": {
         "stopped": "Request was stopped.",
@@ -222,11 +223,47 @@
         "noReasoning": "No reasoning",
         "noRaw": "No raw events",
         "hint": "Tip: reasoning and raw tabs show extra model output.",
-        "contentChars": "{{value}} chars"
+        "contentChars": "{{value}} chars",
+        "roleYou": "You",
+        "roleAssistant": "Assistant"
       },
       "page": {
         "title": "Model Tester",
         "description": "Send test prompts to a model and inspect the response."
+      },
+      "template": {
+        "label": "Template",
+        "placeholder": "Load a preset…",
+        "hint": "Fills the prompt and sampling parameters from the local template library.",
+        "templates": {
+          "quickConnectivity": {
+            "label": "Quick connectivity",
+            "prompt": "ping"
+          },
+          "formatConversion": {
+            "label": "Format conversion",
+            "prompt": "Convert the following JSON object into a Markdown table and keep every field:\n\n{\n  \"id\": 42,\n  \"name\": \"relay\",\n  \"enabled\": true,\n  \"weight\": 3.5\n}\n\nReturn only the table."
+          },
+          "longContext": {
+            "label": "Long context",
+            "prompt": "Read the passage below and answer the question that follows.\n\nPassage:\nMetAPI is a meta-layer management and unified proxy for AI API aggregation platforms. It centralizes sites, accounts, token routes and channels so that one entry point can fan out to many upstream AI providers. Operators configure provider sites (OpenAI, Anthropic, Gemini, and others), connect accounts with their credentials, and define token routes that pick channels by model, weight and priority. Downstream clients then talk to a single MetAPI endpoint that behaves like each upstream API, while logs, quotas and alerts keep the fleet observable.\n\nQuestion:\nIn one short paragraph, list the four building blocks an operator configures in MetAPI."
+          },
+          "toolCalling": {
+            "label": "Tool calling",
+            "prompt": "You are an assistant that must respond with a tool call. Simulate the call for fetching the current weather in Beijing and return a JSON object with exactly three fields: \"tool\", \"arguments\", and \"result\". Output only the JSON object."
+          },
+          "chainOfThought": {
+            "label": "Chain-of-thought reasoning",
+            "prompt": "Solve the following problem step by step, showing your reasoning before the final answer:\n\nA farmer keeps chickens and rabbits. Together the animals have 35 heads and 94 legs. How many chickens and how many rabbits are there?\n\nEnd with a line that starts with \"Answer:\"."
+          }
+        }
+      },
+      "clear": {
+        "button": "Clear session",
+        "title": "Clear the session?",
+        "description": "This removes all previous rounds from the conversation. The current model and parameter settings are kept.",
+        "confirm": "Clear",
+        "cancel": "Cancel"
       }
     },
     "oauth": {

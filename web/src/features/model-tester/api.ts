@@ -13,6 +13,12 @@
 // caller passes an `AbortSignal` so the Stop button cancels an in-flight
 // test.
 //
+// `buildChatPayload` renders the conversation history into the request
+// `messages` array (system → prior user/assistant turns → current prompt)
+// so multi-turn context travels on the wire. Backends that only consume a
+// single message keep working: they ignore the extra entries and read the
+// last user prompt.
+//
 // A mutation (rather than a query) is the right shape here: the test is a
 // user-initiated command with a single terminal resolution, not a cacheable
 // read, and TanStack's `isPending` / `mutateAsync` / `reset` map cleanly
@@ -23,6 +29,7 @@ import { useMutation } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 
 import type {
+  ChatMessage,
   ChatTestPayload,
   TestFormValues,
   TestModelVariables,
@@ -32,10 +39,16 @@ import type {
 
 const MAX_RAW_EVENTS = 200
 
-function buildChatPayload(values: TestFormValues): ChatTestPayload {
+export function buildChatPayload(
+  values: TestFormValues,
+  history: ChatMessage[] = []
+): ChatTestPayload {
   const messages: Array<{ role: string; content: string }> = []
   if (values.systemPrompt.trim().length > 0) {
     messages.push({ role: 'system', content: values.systemPrompt.trim() })
+  }
+  for (const message of history) {
+    messages.push({ role: message.role, content: message.content })
   }
   messages.push({ role: 'user', content: values.prompt })
   return {
@@ -258,8 +271,8 @@ export async function resolveTestResponseError(
 async function runTestStream(
   variables: TestModelVariables
 ): Promise<TestResponse> {
-  const { payload, onDelta, onDone, signal } = variables
-  const chatPayload = buildChatPayload(payload)
+  const { payload, history, onDelta, onDone, signal } = variables
+  const chatPayload = buildChatPayload(payload, history)
   const startedAt = performance.now()
 
   let content = ''
