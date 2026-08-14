@@ -29,7 +29,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 	r.Use(TrustedRealIP(cfg))
 	r.Use(RequestLogger)
 	r.Use(Recoverer)
-	r.Use(BodyLimit(cfg.RequestBodyLimit))
+	r.Use(BodyLimitPathAware(cfg.RequestBodyLimit, cfg.FileUploadLimitBytes))
 
 	// ---- /health and /ready (design addition, not in TS) ----
 	// Registered before route groups so it bypasses auth middleware.
@@ -121,10 +121,16 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		})
 	})
 
-	// /v1/* proxy routes → proxy auth middleware
+	// /v1/* proxy routes → proxy rate limiting + proxy auth middleware.
+	// Per-IP RPM limiter runs BEFORE auth so unauthenticated brute-force floods
+	// are rejected without burning a DB lookup. The global-token cap runs AFTER
+	// auth since it needs the resolved auth source to know whether the request
+	// used the global PROXY_TOKEN (managed keys have their own RPM admission).
 	r.Route("/v1", func(r chi.Router) {
 		r.Use(CORS())
+		r.Use(auth.ProxyRateLimit(cfg.ProxyRateLimitRPM))
 		r.Use(auth.ProxyAuth(cfg))
+		r.Use(auth.ProxyGlobalTokenRateLimit(cfg.ProxyGlobalTokenRPM))
 		proxyhandler.RegisterProxyRoutes(r)
 		// N2: downstream-key-visible cross-site price catalog (not admin auth).
 		// Mounted under /v1 so it inherits ProxyAuth; reuses the admin
@@ -137,9 +143,12 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 	// Non-/v1 proxy routes (chat alias, responses aliases, Gemini native paths).
 	// Use an inline group instead of Route("/") so proxy auth only applies to
 	// the exact registered proxy paths and does not shadow the SPA fallback.
+	// Same rate-limiting stack as /v1: per-IP before auth, global-token after.
 	r.Group(func(r chi.Router) {
 		r.Use(CORS())
+		r.Use(auth.ProxyRateLimit(cfg.ProxyRateLimitRPM))
 		r.Use(auth.ProxyAuth(cfg))
+		r.Use(auth.ProxyGlobalTokenRateLimit(cfg.ProxyGlobalTokenRPM))
 		proxyhandler.RegisterNonV1ProxyRoutes(r)
 	})
 
