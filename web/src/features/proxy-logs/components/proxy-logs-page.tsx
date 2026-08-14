@@ -28,8 +28,8 @@ import {
 import { useProxyLogsAutoRefresh } from '../lib/use-proxy-logs-auto-refresh'
 import type { ProxyLog, ProxyLogDetail, ProxyLogFilters } from '../types'
 import { LatencyBadge } from './latency-badge'
-import { ProxyLogsAutoRefreshToggle } from './proxy-logs-auto-refresh-toggle'
 import { ProxyLogDetailSheet } from './proxy-log-detail-sheet'
+import { ProxyLogsAutoRefreshToggle } from './proxy-logs-auto-refresh-toggle'
 import {
   useProxyLogsColumns,
   type ProxyLogsColumnActions,
@@ -309,9 +309,7 @@ export function ProxyLogsPage() {
       anchor.download = `metapi-proxy-logs-${formatExportStamp()}.csv`
       anchor.click()
       URL.revokeObjectURL(url)
-      toast.success(
-        t('proxyLogs.page.exportCsvToast', { count: rows.length })
-      )
+      toast.success(t('proxyLogs.page.exportCsvToast', { count: rows.length }))
     } catch (exportError) {
       toast.error(
         t('proxyLogs.page.exportCsvFailed', {
@@ -688,14 +686,17 @@ function proxyLogsToCsv(
   t: (key: string, params?: Record<string, unknown>) => string
 ): string {
   const header = PROXY_LOGS_CSV_COLUMNS.map((column) =>
-    csvEscape(t(`proxyLogs.page.exportCsv.column.${column}`, { defaultValue: column }))
+    csvEscape(
+      t(`proxyLogs.page.exportCsv.column.${column}`, { defaultValue: column })
+    )
   ).join(',')
   const body = rows
     .map((log) => {
-      const accountLabel = log.username || (log.accountId ? `#${log.accountId}` : '')
-      const siteLabel =
-        log.siteName || (log.siteId ? `#${log.siteId}` : '')
-      const modelLabel = log.modelActual?.trim() || log.modelRequested?.trim() || ''
+      const accountLabel =
+        log.username || (log.accountId ? `#${log.accountId}` : '')
+      const siteLabel = log.siteName || (log.siteId ? `#${log.siteId}` : '')
+      const modelLabel =
+        log.modelActual?.trim() || log.modelRequested?.trim() || ''
       const cells = [
         log.createdAt,
         log.httpStatus ?? '',

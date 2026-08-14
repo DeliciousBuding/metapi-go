@@ -75,13 +75,10 @@ export function useProxyLogsAutoRefresh(): {
   const [intervalMs, setIntervalMsState] =
     useState<ProxyLogsAutoRefreshInterval>(readStoredInterval)
 
-  const setIntervalMs = useCallback(
-    (value: ProxyLogsAutoRefreshInterval) => {
-      setIntervalMsState(value)
-      writeStoredInterval(value)
-    },
-    []
-  )
+  const setIntervalMs = useCallback((value: ProxyLogsAutoRefreshInterval) => {
+    setIntervalMsState(value)
+    writeStoredInterval(value)
+  }, [])
 
   return { intervalMs, setIntervalMs }
 }
