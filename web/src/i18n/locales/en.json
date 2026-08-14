@@ -2124,6 +2124,31 @@
         "endpointCopied": "Endpoint copied",
         "jsonCopied": "Configuration copied"
       }
+    },
+    "search": {
+      "trigger": "Search…",
+      "placeholder": "Search sites, accounts, tokens, models, logs…",
+      "title": "Global search",
+      "description": "Search across sites, accounts, tokens, models, check-in and proxy logs.",
+      "searching": "Searching…",
+      "unknown": "Unknown",
+      "modelTokens": "{{count}} tokens",
+      "empty": {
+        "title": "Search everything",
+        "description": "Find sites, accounts, tokens, models, check-in and proxy logs."
+      },
+      "noResults": {
+        "title": "No results",
+        "description": "Nothing matched \"{{query}}\"."
+      },
+      "groups": {
+        "sites": "Sites",
+        "accounts": "Accounts",
+        "tokens": "Tokens",
+        "checkinLogs": "Check-in logs",
+        "proxyLogs": "Proxy logs",
+        "models": "Models"
+      }
     }
   }
 }

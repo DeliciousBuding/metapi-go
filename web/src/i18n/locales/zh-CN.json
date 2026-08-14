@@ -2124,6 +2124,31 @@
         "endpointCopied": "接入地址已复制",
         "jsonCopied": "配置已复制"
       }
+    },
+    "search": {
+      "trigger": "搜索…",
+      "placeholder": "搜索站点、账号、令牌、模型、日志…",
+      "title": "全局搜索",
+      "description": "跨站点、账号、令牌、模型、签到与代理日志搜索。",
+      "searching": "搜索中…",
+      "unknown": "未知",
+      "modelTokens": "{{count}} 个令牌",
+      "empty": {
+        "title": "全局搜索",
+        "description": "可搜索站点、账号、令牌、模型、签到与代理日志。"
+      },
+      "noResults": {
+        "title": "无匹配结果",
+        "description": "没有找到与「{{query}}」匹配的内容。"
+      },
+      "groups": {
+        "sites": "站点",
+        "accounts": "账号",
+        "tokens": "令牌",
+        "checkinLogs": "签到日志",
+        "proxyLogs": "代理日志",
+        "models": "模型"
+      }
     }
   }
 }
