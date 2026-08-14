@@ -53,6 +53,42 @@ type CheckinAllResult struct {
 	Result    CheckinResult
 }
 
+// checkinTimeout bounds a single adapter checkin call so a hung upstream
+// cannot block the worker indefinitely (issue #669). The existing
+// withProbeTimeout (5s) is for Detect; checkin needs a longer budget because
+// NewApi-family adapters fall back through Bearer → cookie → sign_in paths.
+// Declared as a var (not const) so tests can override it to assert enforcement
+// without sleeping for 30s.
+var checkinTimeout = 30 * time.Second
+
+// checkinInProgress is a process-local set of account IDs currently being
+// checked in. It prevents the scheduler and a concurrent admin manual trigger
+// from double-running the same account simultaneously (issue #669). The
+// scheduler-level runWithSchedulerLease guards against multi-instance
+// double-runs; this map guards the in-process per-account case.
+var checkinInProgress sync.Map // accountID int64 -> struct{}
+
+// tryAcquireCheckinLease attempts to mark accountID as in-progress. It returns
+// true when this caller now owns the lease (and must call releaseCheckinLease),
+// false when another checkin for the same account is already running.
+func tryAcquireCheckinLease(accountID int64) bool {
+	_, loaded := checkinInProgress.LoadOrStore(accountID, struct{}{})
+	return !loaded
+}
+
+// releaseCheckinLease clears the in-progress marker for accountID. Safe to
+// call unconditionally from a defer; a second release is a no-op.
+func releaseCheckinLease(accountID int64) {
+	checkinInProgress.Delete(accountID)
+}
+
+// checkinContext derives a per-account checkin context bounded by
+// checkinTimeout so a hung upstream cannot block the worker indefinitely
+// (issue #669). Mirrors the existing withProbeTimeout (5s) used for Detect.
+func checkinContext(parent context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(parent, checkinTimeout)
+}
+
 // IsSiteDisabled checks if a site status represents "disabled".
 func IsSiteDisabled(status string) bool {
 	normalized := strings.TrimSpace(status)
@@ -210,6 +246,18 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 		options = &CheckinOptions{}
 	}
 
+	// 0. Per-account in-progress lease: ensure the scheduler and a concurrent
+	// admin manual trigger cannot double-run the same account simultaneously
+	// (issue #669). Process-local; the scheduler-level advisory lock already
+	// guards multi-instance runs. Released on every return path below.
+	if !tryAcquireCheckinLease(accountID) {
+		return CheckinResult{
+			Success: true, Status: CheckinSkipped, Skipped: true,
+			Reason: "already_in_progress", Message: "checkin already in progress for this account",
+		}
+	}
+	defer releaseCheckinLease(accountID)
+
 	// 1. Load account + site
 	aws, err := service.GetAccountWithSiteByID(db, accountID)
 	if err != nil {
@@ -308,19 +356,32 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 	platformUserID := service.ResolvePlatformUserID(account.ExtraConfig, account.Username)
 	proxyConfig := service.BuildPlatformProxyConfig(cfg, account, site)
 
+	// Per-account checkin timeout (issue #669): a hung upstream must not block
+	// the worker indefinitely. The budget covers the NewApi Bearer → cookie →
+	// sign_in fallback chain; Detect still uses its own 5s withProbeTimeout.
+	ctx, cancel := checkinContext(context.Background())
+	defer cancel()
+
 	// 5. First checkin attempt
 	activeAccessToken := account.AccessToken
-	result, err := adp.Checkin(context.Background(), site.URL, activeAccessToken, platformUserIDPtr(platformUserID), proxyConfig)
+	result, err := adp.Checkin(ctx, site.URL, activeAccessToken, platformUserIDPtr(platformUserID), proxyConfig)
 	if err != nil {
 		result = &platform.CheckinResult{Success: false, Message: err.Error()}
 	}
 
-	// 6. Auto-relogin on failure
-	if !result.Success && shouldAttemptAutoRelogin(result.Message) {
+	// 6. Auth self-heal: on token-expiry signals OR a classified ClassAuth
+	// failure (401/403 with auth residual), attempt ONE re-login to refresh
+	// the session token, then retry the checkin once. Handles session expiry
+	// between scheduled runs (issue #669). If re-login fails or the adapter
+	// does not support login, the original auth error propagates unchanged.
+	if !result.Success && shouldAttemptSelfHealLogin(result.Message, adp) {
+		slog.Info("[checkin] session expired, attempting re-login", "accountID", account.ID)
 		refreshedToken, reloginErr := tryAutoRelogin(cfg, db, account, site)
-		if reloginErr == nil && refreshedToken != "" {
+		if reloginErr != nil {
+			slog.Warn("checkin: re-login failed; surfacing original auth error", "accountID", account.ID, "error", reloginErr)
+		} else if refreshedToken != "" {
 			activeAccessToken = refreshedToken
-			result, err = adp.Checkin(context.Background(), site.URL, activeAccessToken, platformUserIDPtr(platformUserID), proxyConfig)
+			result, err = adp.Checkin(ctx, site.URL, activeAccessToken, platformUserIDPtr(platformUserID), proxyConfig)
 			if err != nil {
 				result = &platform.CheckinResult{Success: false, Message: err.Error()}
 			}
@@ -334,7 +395,7 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 	// are NOT retried — they require operator intervention. Max 1 retry.
 	if shouldRetryTransient(result) {
 		time.Sleep(transientRetryBackoff())
-		result, err = adp.Checkin(context.Background(), site.URL, activeAccessToken, platformUserIDPtr(platformUserID), proxyConfig)
+		result, err = adp.Checkin(ctx, site.URL, activeAccessToken, platformUserIDPtr(platformUserID), proxyConfig)
 		if err != nil {
 			result = &platform.CheckinResult{Success: false, Message: err.Error()}
 		}
@@ -639,6 +700,42 @@ func shouldRetryTransient(result *platform.CheckinResult) bool {
 		return false
 	}
 	return platform.ClassifyUpstreamError(0, result.Message) == platform.ClassTransient
+}
+
+// adapterSupportsLogin reports whether adp can perform a real (network-backed)
+// Login to refresh an expired session. StandardAdapter-based adapters and
+// Sub2Api return a hardcoded "unsupported" message from Login without any
+// network call, so re-login would always no-op. NewApi, the OneApi family
+// and Veloera inherit BaseAdapter.Login (real POST /api/user/login) or
+// override it. Unknown adapters default to true: a re-login attempt against
+// an unsupported adapter is a cheap non-network no-op (issue #669).
+func adapterSupportsLogin(adp platform.PlatformAdapter) bool {
+	switch a := adp.(type) {
+	case *platform.Sub2ApiAdapter:
+		// JWT-only; Login always returns unsupported without a network call.
+		return false
+	case *platform.StandardAdapter:
+		return a.LoginUnsupportedMessage == ""
+	case *platform.OpenAiAdapter, *platform.ClaudeAdapter, *platform.GeminiAdapter,
+		*platform.GeminiCliAdapter, *platform.AntigravityAdapter,
+		*platform.CodexAdapter, *platform.CliProxyApiAdapter:
+		// All StandardAdapter-based with Login explicitly unsupported.
+		return false
+	}
+	return true
+}
+
+// shouldAttemptSelfHealLogin reports whether CheckinAccount should attempt a
+// single re-login before retrying the checkin. True for confirmed token-expiry
+// signals (the legacy shouldAttemptAutoRelogin path) OR for a classified
+// ClassAuth failure (401/403 with auth residual) when the adapter can actually
+// re-login. ClassAuth covers session-expiry-between-runs cases the legacy
+// message-patterns miss (issue #669).
+func shouldAttemptSelfHealLogin(message string, adp platform.PlatformAdapter) bool {
+	if shouldAttemptAutoRelogin(message) {
+		return true
+	}
+	return platform.ClassifyUpstreamError(0, message) == platform.ClassAuth && adapterSupportsLogin(adp)
 }
 
 // sameSitePacingDelay returns a ~1s delay (with minor jitter) used between
