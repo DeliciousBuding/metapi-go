@@ -32,7 +32,7 @@ export type UseCheckinLogsParams = CheckinLogsQuery
  * commas) from the structured `CheckinLogsQuery`. Shared by the hook and the
  * route loader so the prefetched page reuses the hook's cache key exactly.
  */
-export function buildCheckinLogsParams(
+function buildCheckinLogsParams(
   params: CheckinLogsQuery
 ): Record<string, string | number | boolean | null | undefined> {
   return {

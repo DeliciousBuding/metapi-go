@@ -10,15 +10,10 @@
 // --- checkin hooks + query keys ---
 export { checkinQueryKeys, fetchCheckinLogs } from './api'
 
-// --- checkin entity types + runtime schemas ---
-export { checkinLogRowSchema } from './types'
-
 // --- URL search schema + helpers ---
 export {
   buildInitialCheckinLogsQuery,
   checkinSearchSchema,
-  parseFilterValues,
-  readCheckinSearchFromUrl,
 } from './lib/checkin-schema'
 
 // --- time helpers ---
