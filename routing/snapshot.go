@@ -2,13 +2,11 @@ package routing
 
 import "context"
 
-// SnapshotDB defines the DB operations needed to persist route decision
-// snapshots. It is implemented by service.ProxyRoutingStore.
-//
-// The concrete snapshot store that previously lived alongside this interface
-// (RouteDecisionSnapshotStore) was removed as dead code — its high-level
-// orchestration is superseded by RouteDecisionService in decision.go, which
-// drives these low-level operations through the DB contract.
+// SnapshotDB defines the low-level DB operations for persisting route decision
+// snapshots. The concrete implementation is service.ProxyRoutingStore
+// (service/routing_store.go); the former high-level RouteDecisionSnapshotStore
+// was removed as dead code — decision snapshots are written directly by the
+// route-decision service through this interface.
 type SnapshotDB interface {
 	UpdateRouteDecisionSnapshot(ctx context.Context, routeID int64, snapshot string, refreshedAt string) error
 	ClearRouteDecisionSnapshot(ctx context.Context, routeID int64) error
