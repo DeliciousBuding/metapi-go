@@ -57,6 +57,15 @@ export function DataTableColumnHeader<TData, TValue>({
           )}
         </DropdownMenuTrigger>
         <DropdownMenuContent align='start'>
+          {column.getIsSorted() !== false && (
+            <>
+              <DropdownMenuItem onClick={() => column.clearSorting()}>
+                <CaretSortIcon className='text-muted-foreground/70 size-3.5' />
+                {t('Default order')}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuItem onClick={() => column.toggleSorting(false)}>
             <ArrowUpIcon className='text-muted-foreground/70 size-3.5' />
             {t('Asc')}

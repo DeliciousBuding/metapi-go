@@ -40,6 +40,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { ImportWizardDialog } from '@/features/import'
+import { toast } from '@/lib/toast'
 
 import {
   type BatchAccountAction,
@@ -416,7 +417,19 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
   const runBatch = async (action: BatchAccountAction) => {
     if (selectedIds.length === 0) return
     try {
-      await batchMutation.mutateAsync({ ids: selectedIds, action })
+      const result = await batchMutation.mutateAsync({
+        ids: selectedIds,
+        action,
+      })
+      // Partial failures are toasted by the mutation hook (failedItems);
+      // only report success here to avoid double toasts.
+      if ((result?.failedItems ?? []).length === 0) {
+        toast.success(
+          t('accounts.toast.bulkSucceeded', {
+            count: result?.successIds?.length ?? selectedIds.length,
+          })
+        )
+      }
       table.resetRowSelection()
     } catch {
       // http-client toasted
@@ -426,10 +439,17 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
   const confirmBulkDelete = async () => {
     if (selectedIds.length === 0) return
     try {
-      await batchMutation.mutateAsync({
+      const result = await batchMutation.mutateAsync({
         ids: selectedIds,
         action: 'delete',
       })
+      if ((result?.failedItems ?? []).length === 0) {
+        toast.success(
+          t('accounts.toast.bulkSucceeded', {
+            count: result?.successIds?.length ?? selectedIds.length,
+          })
+        )
+      }
       table.resetRowSelection()
       setConfirmDeleteOpen(false)
     } catch {

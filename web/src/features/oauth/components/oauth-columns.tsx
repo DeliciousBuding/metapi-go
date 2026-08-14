@@ -20,7 +20,6 @@ import { useTranslation } from 'react-i18next'
 import { DataTableColumnHeader } from '@/components/data-table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -96,32 +95,6 @@ export function useOAuthColumns(
   const { t } = useTranslation()
 
   const columns: ColumnDef<OAuthClient>[] = [
-    {
-      id: 'select',
-      enableSorting: false,
-      enableHiding: false,
-      enableResizing: false,
-      size: 36,
-      meta: { mobileHidden: true },
-      header: ({ table }) => (
-        <Checkbox
-          checked={table.getIsAllRowsSelected()}
-          indeterminate={
-            table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()
-          }
-          onCheckedChange={(value) => table.toggleAllRowsSelected(!!value)}
-          aria-label={t('oauth.columns.selectAll')}
-        />
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          onClick={(event) => event.stopPropagation()}
-          aria-label={t('oauth.columns.selectRow')}
-        />
-      ),
-    },
     {
       id: 'provider',
       accessorKey: 'provider',

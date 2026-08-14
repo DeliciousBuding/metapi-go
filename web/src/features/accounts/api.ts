@@ -173,8 +173,19 @@ export function useBatchUpdateAccounts() {
         'accounts.toast.batchFailed'
       )
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
+      const failedItems = result?.failedItems ?? []
+      if (failedItems.length > 0) {
+        const failedList = failedItems.map((item) => `#${item.id}`).join(', ')
+        toast.warning(
+          i18n.t('accounts.toast.bulkPartial', {
+            success: result?.successIds?.length ?? 0,
+            failed: failedItems.length,
+            items: failedList,
+          })
+        )
+      }
     },
   })
 }

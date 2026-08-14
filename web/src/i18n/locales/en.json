@@ -278,8 +278,6 @@
         "confirm": "Delete"
       },
       "columns": {
-        "selectAll": "Select all",
-        "selectRow": "Select row",
         "provider": "Provider",
         "username": "Username",
         "site": "Site",
@@ -1363,6 +1361,8 @@
         "refreshFailed": "Failed to refresh balance",
         "deleteFailed": "Failed to delete account",
         "batchFailed": "Bulk operation failed",
+        "bulkSucceeded": "Processed {{count}} account(s).",
+        "bulkPartial": "{{success}} succeeded, {{failed}} failed: {{items}}",
         "pinFailed": "Failed to update pin",
         "statusFailed": "Failed to update status",
         "checkinFailed": "Failed to update check-in"
@@ -1631,8 +1631,6 @@
         "statusSkipped": "Skipped",
         "statusFailed": "Failed",
         "rowActions": "Check-in record actions",
-        "selectAll": "Select all",
-        "selectRow": "Select row",
         "viewDetails": "View details",
         "triggerCheckin": "Trigger check-in",
         "createdAt": "Check-in time",
@@ -1794,6 +1792,7 @@
     "No option found.": "No option found.",
     "Press Enter to use \"{{value}}\"": "Press Enter to use \"{{value}}\"",
     "Clear filters": "Clear filters",
+    "Clear search": "Clear search",
     "Clear selection": "Clear selection",
     "Clear selection (Escape)": "Clear selection (Escape)",
     "Resize column": "Resize column",
@@ -1806,6 +1805,7 @@
     "Go to last page": "Go to last page",
     "Asc": "Asc",
     "Desc": "Desc",
+    "Default order": "Default order",
     "Collapse": "Collapse",
     "Expand": "Expand",
     "Hide": "Hide",

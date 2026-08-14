@@ -178,7 +178,7 @@ export function CheckinPage() {
   const { table } = useDataTable({
     data: logs,
     columns,
-    enableRowSelection: true,
+    enableRowSelection: false,
     globalFilter,
     onGlobalFilterChange,
     columnFilters,
