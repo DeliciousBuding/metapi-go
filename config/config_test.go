@@ -512,3 +512,71 @@ func configErrorCritical(err error) bool {
 	}
 	return false
 }
+
+func TestValidateCriticalOnShortCredentialSecret(t *testing.T) {
+	// 7-byte secret (< 8) must be a critical error. Short keys were silently
+	// accepted before the length floor was added.
+	cfg := Load(map[string]string{
+		"AUTH_TOKEN":                "admin-token-not-default",
+		"PROXY_TOKEN":               "proxy-token-not-default",
+		"ACCOUNT_CREDENTIAL_SECRET": "tiny123", // 7 bytes
+		"CLAUDE_CLIENT_ID":          "claude-client",
+		"CODEX_CLIENT_ID":           "codex-client",
+		"GEMINI_CLI_CLIENT_ID":      "gemini-client",
+	})
+
+	var found bool
+	for _, err := range cfg.Validate() {
+		if configErrorField(err) == "account_credential_secret" && configErrorCritical(err) {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("Validate did not return critical error for < 8 byte credential secret")
+	}
+}
+
+func TestValidateWarnsOnWeakCredentialSecret(t *testing.T) {
+	// 14-byte secret (>= 8, < 16) must be a non-critical warning.
+	cfg := Load(map[string]string{
+		"AUTH_TOKEN":                "admin-token-not-default",
+		"PROXY_TOKEN":               "proxy-token-not-default",
+		"ACCOUNT_CREDENTIAL_SECRET": "mediumsecret12", // 14 bytes
+		"CLAUDE_CLIENT_ID":          "claude-client",
+		"CODEX_CLIENT_ID":           "codex-client",
+		"GEMINI_CLI_CLIENT_ID":      "gemini-client",
+	})
+
+	var foundWarning bool
+	for _, err := range cfg.Validate() {
+		if configErrorField(err) != "account_credential_secret" {
+			continue
+		}
+		if configErrorCritical(err) {
+			t.Fatalf("14-byte secret flagged critical, want warning: %v", err)
+		}
+		foundWarning = true
+	}
+	if !foundWarning {
+		t.Fatal("Validate did not return weak-secret warning for 14 byte credential secret")
+	}
+}
+
+func TestValidateAcceptsStrongCredentialSecret(t *testing.T) {
+	// 17-byte secret (>= 16) must produce no credential_secret length error.
+	cfg := Load(map[string]string{
+		"AUTH_TOKEN":                "admin-token-not-default",
+		"PROXY_TOKEN":               "proxy-token-not-default",
+		"ACCOUNT_CREDENTIAL_SECRET": "credential-secret", // 17 bytes
+		"CLAUDE_CLIENT_ID":          "claude-client",
+		"CODEX_CLIENT_ID":           "codex-client",
+		"GEMINI_CLI_CLIENT_ID":      "gemini-client",
+	})
+
+	for _, err := range cfg.Validate() {
+		if configErrorField(err) == "account_credential_secret" {
+			t.Fatalf("Validate returned credential_secret error for 17 byte secret: %v", err)
+		}
+	}
+}

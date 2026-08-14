@@ -700,3 +700,71 @@ func TestAdminAuth_IPCheckBeforeAuthCheck(t *testing.T) {
 		t.Errorf("expected 'IP not allowed', got %q", w.Body.String())
 	}
 }
+
+// ---------------------------------------------------------------------------
+// parseAllowlistWithDiagnostics tests
+// ---------------------------------------------------------------------------
+
+func TestParseAllowlistWithDiagnostics_ReportsInvalidEntries(t *testing.T) {
+	parsed, invalid := parseAllowlistWithDiagnostics([]string{
+		"192.168.1.1",
+		"10.0.0.0/8",
+		"not-an-ip",
+		"",
+		"172.16.0.0/12",
+		"10.0.0.0/8/invalid",
+	})
+
+	if len(parsed) != 3 {
+		t.Errorf("expected 3 valid entries, got %d: %+v", len(parsed), parsed)
+	}
+	wantInvalid := []string{"not-an-ip", "10.0.0.0/8/invalid"}
+	if len(invalid) != len(wantInvalid) {
+		t.Fatalf("expected %d invalid entries, got %d: %v", len(wantInvalid), len(invalid), invalid)
+	}
+	for i, want := range wantInvalid {
+		if invalid[i] != want {
+			t.Errorf("invalid[%d] = %q, want %q", i, invalid[i], want)
+		}
+	}
+}
+
+func TestParseAllowlistWithDiagnostics_WhitespaceNotReported(t *testing.T) {
+	// Whitespace-only entries are no-ops, not misconfigurations — they must
+	// not appear in the invalid list.
+	parsed, invalid := parseAllowlistWithDiagnostics([]string{"  ", "", "\t"})
+	if len(parsed) != 0 {
+		t.Errorf("expected 0 valid entries, got %d", len(parsed))
+	}
+	if len(invalid) != 0 {
+		t.Errorf("expected 0 invalid entries for whitespace-only input, got %v", invalid)
+	}
+}
+
+func TestParseAllowlistWithDiagnostics_AllValid(t *testing.T) {
+	parsed, invalid := parseAllowlistWithDiagnostics([]string{
+		"192.168.1.1",
+		"10.0.0.0/8",
+		"::ffff:10.0.0.1",
+	})
+	if len(parsed) != 3 {
+		t.Errorf("expected 3 valid entries, got %d", len(parsed))
+	}
+	if len(invalid) != 0 {
+		t.Errorf("expected 0 invalid entries, got %v", invalid)
+	}
+}
+
+func TestParseAllowlist_DelegatesAndDiscardsInvalid(t *testing.T) {
+	// parseAllowlist must remain backward-compatible: it returns only valid
+	// entries and silently drops invalid ones (same as before the diagnostics
+	// split, so downstream.go callers keep working unchanged).
+	result := parseAllowlist([]string{
+		"192.168.1.1",
+		"not-an-ip",
+		"10.0.0.0/8",
+	})
+	if len(result) != 2 {
+		t.Errorf("expected 2 valid entries (invalid dropped), got %d", len(result))
+	}
+}

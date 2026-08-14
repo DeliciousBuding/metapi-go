@@ -3,6 +3,7 @@ package auth
 import (
 	"crypto/subtle"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/netip"
 	"strings"
@@ -29,8 +30,20 @@ import (
 // authentication using the given configuration.
 func AdminAuth(cfg *config.Config) func(http.Handler) http.Handler {
 	// Pre-parse the allowlist once at factory creation time so we don't
-	// re-parse string entries on every request.
-	parsedAllowlist := parseAllowlist(cfg.AdminIpAllowlist)
+	// re-parse string entries on every request. Invalid entries are surfaced
+	// here (startup time) so operators notice a typo'd allowlist instead of
+	// believing the IP restriction is active when it silently dropped.
+	parsedAllowlist, invalidEntries := parseAllowlistWithDiagnostics(cfg.AdminIpAllowlist)
+	for _, entry := range invalidEntries {
+		slog.Warn("admin IP allowlist: skipping invalid entry",
+			"entry", entry,
+			"hint", "expected an exact IP or an IPv4 CIDR like 10.0.0.0/8")
+	}
+	if len(invalidEntries) > 0 {
+		slog.Warn("admin IP allowlist: skipped invalid entries — the allowlist may not restrict traffic as intended",
+			"skipped", len(invalidEntries),
+			"valid", len(parsedAllowlist))
+	}
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -143,8 +156,21 @@ type parsedAllowlistEntry struct {
 
 // parseAllowlist converts a list of raw allowlist strings into parsed entries.
 // Invalid entries are silently skipped (matches TS parseAllowlistEntry → null).
+// Use parseAllowlistWithDiagnostics when you need to surface skipped entries
+// (e.g. startup warnings for a misconfigured ADMIN_IP_ALLOWLIST).
 func parseAllowlist(entries []string) []parsedAllowlistEntry {
+	parsed, _ := parseAllowlistWithDiagnostics(entries)
+	return parsed
+}
+
+// parseAllowlistWithDiagnostics mirrors parseAllowlist but also returns the
+// raw entries that were non-empty yet could not be parsed into an exact IP or
+// IPv4 CIDR. Callers (e.g. AdminAuth) log these so operators notice a typo'd
+// allowlist instead of believing the restriction is active. Whitespace-only
+// entries are intentionally not reported — they are no-ops, not misconfig.
+func parseAllowlistWithDiagnostics(entries []string) ([]parsedAllowlistEntry, []string) {
 	result := make([]parsedAllowlistEntry, 0, len(entries))
+	var invalid []string
 	for _, raw := range entries {
 		entry := strings.TrimSpace(raw)
 		if entry == "" {
@@ -156,10 +182,12 @@ func parseAllowlist(entries []string) []parsedAllowlistEntry {
 			// Exact IP match
 			normalized := normalizeIP(entry)
 			if normalized == "" {
+				invalid = append(invalid, entry)
 				continue
 			}
 			// Validate it's a real IP (or at least non-empty after normalization)
 			if _, err := netip.ParseAddr(normalized); err != nil {
+				invalid = append(invalid, entry)
 				continue
 			}
 			result = append(result, parsedAllowlistEntry{
@@ -172,6 +200,7 @@ func parseAllowlist(entries []string) []parsedAllowlistEntry {
 		// CIDR match — only supports IPv4 CIDR (matches TS behavior)
 		// Check for multiple slashes (invalid)
 		if strings.IndexByte(entry[slashIdx+1:], '/') >= 0 {
+			invalid = append(invalid, entry)
 			continue
 		}
 
@@ -181,17 +210,20 @@ func parseAllowlist(entries []string) []parsedAllowlistEntry {
 		// Must be a valid IPv4 address and a numeric prefix
 		addr, err := netip.ParseAddr(networkIP)
 		if err != nil || !addr.Is4() {
+			invalid = append(invalid, entry)
 			continue
 		}
 
 		// Build the CIDR string and parse
 		prefix, err := netip.ParsePrefix(networkIP + "/" + prefixText)
 		if err != nil {
+			invalid = append(invalid, entry)
 			continue
 		}
 
 		// TS only supports prefix 0-32 for IPv4
 		if !prefix.Addr().Is4() {
+			invalid = append(invalid, entry)
 			continue
 		}
 
@@ -200,7 +232,7 @@ func parseAllowlist(entries []string) []parsedAllowlistEntry {
 			cidrPrefix: prefix,
 		})
 	}
-	return result
+	return result, invalid
 }
 
 // isIPAllowed checks whether the given client IP is allowed by the allowlist.

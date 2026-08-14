@@ -1,6 +1,6 @@
 # Admin API Reference
 
-**Last updated**: 2026-08-11
+**Last updated**: 2026-08-15
 
 Base URL: `http://localhost:4000/api`
 
@@ -152,10 +152,42 @@ Delete a channel.
 
 ### POST /api/admin/test-channel
 
+**Auth**: admin Bearer token. Alias: `POST /api/debug/channel-probe` (same handler).
 
-Body: `{ "channelId"?: number, "siteId"?: number, "model"?: string, "prompt"?: string, "mode"?: "chat"|"models", "timeoutMs"?: number }`.
+Forces a single upstream request against a specific channel or site, bypassing weighted selection. Useful for smoke-testing a channel after a credential rotation.
 
-Requires `channelId` or `siteId`. Forces one upstream request (no weighted selection). Returns `{ success, statusCode, latencyMs, truncatedBody, error, channelId, siteId, accountId, model, mode, bodyTruncated, ... }` with ~2 KiB redacted body summary.
+**Body**:
+```json
+{
+  "channelId": 12,
+  "siteId": 3,
+  "model": "gpt-4o-mini",
+  "prompt": "ping",
+  "mode": "chat",
+  "timeoutMs": 15000
+}
+```
+
+Either `channelId` or `siteId` is required. `mode` is `chat` (default) or `models`; `models` issues a `GET /v1/models` instead of a chat completion. `timeoutMs` is clamped to `[1000, 60000]` (default `15000`). `prompt` is truncated to 256 runes and never persisted.
+
+**Response** (200):
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "latencyMs": 842,
+  "truncatedBody": "...",
+  "error": "",
+  "channelId": 12,
+  "siteId": 3,
+  "accountId": 5,
+  "model": "gpt-4o-mini",
+  "mode": "chat",
+  "bodyTruncated": true
+}
+```
+
+Returns a ~2 KiB redacted body summary (`bodyTruncated` flags truncation). Secret-like tokens in the body/error are redacted. A channel with no usable token returns `success: false` with `error: "No usable token on channel/account ..."`.
 
 ---
 
@@ -526,6 +558,132 @@ Start a monitoring session.
 ### DELETE /api/monitor/session
 
 Clear the monitoring session.
+
+---
+
+## Admin Diagnostics & Observability
+
+Read-only surfaces for resin, scheduler health, and rate overview. These endpoints never mutate state; they exist so operators can confirm automations and rate tuning at a glance.
+
+### GET /api/admin/resin/status
+
+Resin sticky-proxy-pool observability snapshot (#698).
+
+**Auth**: admin Bearer token.
+
+**Response** (200):
+```json
+{
+  "enabled": false,
+  "resinUrl": "http://resin.local:2260/my-token",
+  "platformName": "",
+  "activeLeases": [
+    { "accountId": 5, "lastUsed": "2026-08-15T08:12:00Z" }
+  ],
+  "perSiteOverrides": [
+    { "siteId": 3, "name": "anthropic", "platform": "anthropic", "resinEnabled": true }
+  ],
+  "generatedAt": "2026-08-15T08:12:30Z"
+}
+```
+
+`enabled` reflects `RESIN_ENABLED` plus a non-empty `RESIN_URL`. `activeLeases` lists accounts whose last-used timestamp is fresher than the 5-minute stale TTL. `perSiteOverrides` only lists sites with an explicit non-NULL `resin_enabled` column (NULL-inherit rows are absent so the snapshot stays bounded).
+
+### GET /api/scheduler/status
+
+Unified run-history view of recurring schedulers. Each entry reports the job's last-run signal and a coarse 24h activity window.
+
+**Auth**: admin Bearer token.
+
+**Response** (200):
+```json
+{
+  "items": [
+    {
+      "job": "checkin",
+      "enabled": true,
+      "lastRunAt": "2026-08-15T08:00:00Z",
+      "lastStatus": "success",
+      "runs24h": 4,
+      "success24h": 4
+    },
+    {
+      "job": "model-probe",
+      "enabled": false,
+      "lastStatus": "never",
+      "note": "not enabled (MODEL_AVAILABILITY_PROBE_ENABLED)"
+    }
+  ],
+  "generatedAt": "2026-08-15T08:12:30Z"
+}
+```
+
+Jobs surfaced: `checkin`, `balance-refresh`, `model-probe`, `site-announcements`, `daily-summary`, `log-cleanup`, `usage-aggregation`. `lastStatus` is one of `success` | `failed` | `running` | `never`. Data sources are existing run signals only (checkin_logs, accounts.last_balance_refresh, in-memory probe summary, events rows) — no scheduler code changes.
+
+### GET /api/models/rates
+
+Read-only aggregation of every multiplier/rate surface: account unit cost, channel weight, site global weight, downstream-key weight, and 30-day observed model spend.
+
+**Auth**: admin Bearer token.
+
+**Response** (200):
+```json
+{
+  "generatedAt": "2026-08-15T08:12:30Z",
+  "summary": {
+    "accountsWithUnitCost": 3,
+    "accountsTotal": 5,
+    "channelsTotal": 12,
+    "channelsEnabled": 9
+  },
+  "accounts": [
+    { "accountId": 5, "username": "svc-1", "siteId": 3, "siteName": "anthropic", "unitCost": 0.003, "channelCount": 2, "totalWeight": 40 }
+  ],
+  "channels": [
+    { "channelId": 12, "routeId": 1, "routePattern": "gpt-4o", "accountId": 5, "username": "svc-1", "modelName": "gpt-4o", "weight": 20, "enabled": true }
+  ],
+  "sites": [
+    { "siteId": 3, "siteName": "anthropic", "globalWeight": 1.0 }
+  ],
+  "keys": [
+    { "keyId": 1, "name": "prod-key", "keyWeight": 1.0 }
+  ],
+  "models": [
+    { "model": "gpt-4o", "calls": 1200, "spend": 1.23, "tokens": 450000 }
+  ]
+}
+```
+
+`unitCost` is a display/planning field (estimated cost is ratio-based, never account-priced). Observed model costs are aggregated from `model_day_usage` over the trailing 30 days.
+
+### PUT /api/models/rates
+
+Batch update account unit cost and route-channel weight. Pure config writes; `unit_cost` stays a display/planning field.
+
+**Auth**: admin Bearer token.
+
+**Body**:
+```json
+{
+  "accounts": [
+    { "id": 5, "unitCost": 0.003 }
+  ],
+  "channels": [
+    { "id": 12, "weight": 20 }
+  ]
+}
+```
+
+`unitCost` and `weight` must be `>= 0`. Missing arrays are no-ops; both empty returns `400 "nothing to update"`. Weights feed the routing cache, so the handler invalidates it on success.
+
+**Response** (200):
+```json
+{
+  "success": true,
+  "updatedAccounts": 1,
+  "updatedChannels": 1
+}
+```
 
 ---
 
