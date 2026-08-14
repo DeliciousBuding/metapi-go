@@ -717,8 +717,8 @@ func TestFlowInstructions_CallbackPorts(t *testing.T) {
 
 func TestListOauthProviders_ReturnsAllFour(t *testing.T) {
 	providers := ListOauthProviders()
-	if len(providers) != 4 {
-		t.Errorf("expected 4 providers, got %d", len(providers))
+	if len(providers) != 5 {
+		t.Errorf("expected 5 providers, got %d", len(providers))
 	}
 }
 

@@ -50,6 +50,9 @@ func TestRegistry_IsRegisteredProvider(t *testing.T) {
 	if !IsRegisteredProvider("antigravity") {
 		t.Error("antigravity should be registered")
 	}
+	if !IsRegisteredProvider("grok") {
+		t.Error("grok should be registered")
+	}
 	if IsRegisteredProvider("nonexistent") {
 		t.Error("nonexistent should not be registered")
 	}
@@ -57,14 +60,14 @@ func TestRegistry_IsRegisteredProvider(t *testing.T) {
 
 func TestRegistry_ListProviderDefinitions(t *testing.T) {
 	defs := ListProviderDefinitions()
-	if len(defs) != 4 {
-		t.Errorf("expected 4 providers, got %d", len(defs))
+	if len(defs) != 5 {
+		t.Errorf("expected 5 providers, got %d", len(defs))
 	}
 	seen := make(map[OAuthProviderId]bool)
 	for _, def := range defs {
 		seen[def.Metadata.Provider] = true
 	}
-	for _, pid := range []OAuthProviderId{ProviderCodex, ProviderClaude, ProviderGeminiCli, ProviderAntigravity} {
+	for _, pid := range []OAuthProviderId{ProviderCodex, ProviderClaude, ProviderGeminiCli, ProviderAntigravity, ProviderGrok} {
 		if !seen[pid] {
 			t.Errorf("provider %q missing from list", pid)
 		}
@@ -377,7 +380,7 @@ func TestProviderSiteConfig_Claude(t *testing.T) {
 // ---- Interface Compliance Tests ----
 
 func TestInterfaceCompliance_AllProvidersHaveRequiredFunctions(t *testing.T) {
-	providers := []OAuthProviderId{ProviderCodex, ProviderClaude, ProviderGeminiCli, ProviderAntigravity}
+	providers := []OAuthProviderId{ProviderCodex, ProviderClaude, ProviderGeminiCli, ProviderAntigravity, ProviderGrok}
 	for _, pid := range providers {
 		def := GetProviderDefinition(string(pid))
 		if def.BuildAuthorizationURL == nil {
@@ -393,7 +396,7 @@ func TestInterfaceCompliance_AllProvidersHaveRequiredFunctions(t *testing.T) {
 }
 
 func TestInterfaceCompliance_BuildProxyHeaders_Optional(t *testing.T) {
-	for _, pid := range []OAuthProviderId{ProviderCodex, ProviderClaude, ProviderGeminiCli, ProviderAntigravity} {
+	for _, pid := range []OAuthProviderId{ProviderCodex, ProviderClaude, ProviderGeminiCli, ProviderAntigravity, ProviderGrok} {
 		def := GetProviderDefinition(string(pid))
 		if def.BuildProxyHeaders == nil {
 			t.Errorf("%s should implement BuildProxyHeaders", pid)
@@ -440,5 +443,8 @@ func TestProviderID_Constants(t *testing.T) {
 	}
 	if ProviderAntigravity != "antigravity" {
 		t.Errorf("ProviderAntigravity = %q, want 'antigravity'", ProviderAntigravity)
+	}
+	if ProviderGrok != "grok" {
+		t.Errorf("ProviderGrok = %q, want 'grok'", ProviderGrok)
 	}
 }

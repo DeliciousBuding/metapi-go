@@ -31,7 +31,7 @@ func TestRegistry_RegistrationOrder(t *testing.T) {
 	// Verify order matches spec
 	expected := []string{
 		"openai", "codex", "claude", "gemini", "gemini-cli",
-		"antigravity", "cliproxyapi", "anyrouter", "done-hub",
+		"antigravity", "grok", "cliproxyapi", "anyrouter", "done-hub",
 		"one-hub", "veloera", "new-api", "sub2api", "one-api",
 	}
 	if len(names) != len(expected) {
@@ -92,6 +92,11 @@ func TestNormalizePlatformAlias(t *testing.T) {
 		{"gemini-cli", "gemini-cli"},
 		{"antigravity", "antigravity"},
 		{"anti-gravity", "antigravity"},
+		{"grok", "grok"},
+		{"xai", "grok"},
+		{"x.ai", "grok"},
+		{"GROK", "grok"},
+		{"XAI", "grok"},
 		{"cliproxyapi", "cliproxyapi"},
 		{"cpa", "cliproxyapi"},
 		{"cli-proxy-api", "cliproxyapi"},

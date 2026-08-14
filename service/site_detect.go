@@ -109,7 +109,7 @@ func DetectSite(rawURL string) *DetectResult {
 	case strings.Contains(host, "api.perplexity.ai"):
 		platform = "perplexity"
 	case strings.Contains(host, "api.x.ai") || strings.Contains(host, "x.ai"):
-		platform = "xai"
+		platform = "grok"
 	case strings.Contains(host, "api-inference.huggingface.co") || strings.Contains(host, "hf.space"):
 		platform = "huggingface"
 	case strings.Contains(host, "azure.com") || strings.Contains(host, "openai.azure.com"):

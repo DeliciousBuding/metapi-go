@@ -228,8 +228,8 @@ func TestDetectSite_XAI(t *testing.T) {
 	for _, url := range tests {
 		t.Run(url, func(t *testing.T) {
 			result := DetectSite(url)
-			if result == nil || result.Platform != "xai" {
-				t.Fatalf("expected 'xai' for %q, got %v", url, result)
+			if result == nil || result.Platform != "grok" {
+				t.Fatalf("expected 'grok' for %q, got %v", url, result)
 			}
 		})
 	}
