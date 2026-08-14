@@ -3,12 +3,9 @@
 package shared
 
 import (
-	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
-
-	"github.com/go-chi/chi/v5/middleware"
 )
 
 // APIError represents a structured JSON error response.
@@ -36,43 +33,11 @@ func (e *APIError) Error() string {
 	return e.Message
 }
 
-// RequestIDFromContext returns the chi RequestID middleware value when present.
-func RequestIDFromContext(ctx context.Context) string {
-	if ctx == nil {
-		return ""
-	}
-	return middleware.GetReqID(ctx)
-}
-
-// RequestIDFromRequest returns the ingress request/trace id for r.
-func RequestIDFromRequest(r *http.Request) string {
-	if r == nil {
-		return ""
-	}
-	return RequestIDFromContext(r.Context())
-}
-
 // WriteError writes a structured JSON error response to the client.
 // It sets Content-Type: application/json and the given HTTP status code.
 // Callers must use a non-2xx status for failures — never HTTP 200 with an error body.
 func WriteError(w http.ResponseWriter, code int, message string) {
 	WriteAPIError(w, &APIError{Code: code, Message: message})
-}
-
-// WriteErrorDetail writes a structured JSON error response with
-// additional detail field (e.g., "invalid_request" error type).
-func WriteErrorDetail(w http.ResponseWriter, code int, message, detail string) {
-	WriteAPIError(w, &APIError{Code: code, Message: message, Detail: detail})
-}
-
-// WriteErrorWithRequestID is WriteError plus an optional request/trace id field.
-func WriteErrorWithRequestID(w http.ResponseWriter, code int, message, requestID string) {
-	WriteAPIError(w, &APIError{Code: code, Message: message, RequestID: requestID})
-}
-
-// WriteErrorDetailWithRequestID is WriteErrorDetail plus an optional request/trace id.
-func WriteErrorDetailWithRequestID(w http.ResponseWriter, code int, message, detail, requestID string) {
-	WriteAPIError(w, &APIError{Code: code, Message: message, Detail: detail, RequestID: requestID})
 }
 
 // WriteAPIError writes the public fields of APIError with the given status.
@@ -103,5 +68,14 @@ func WriteAPIError(w http.ResponseWriter, err *APIError) {
 		RequestID: err.RequestID,
 	}); encErr != nil {
 		slog.Warn("shared: failed to write error response", "error", encErr, "request_id", err.RequestID)
+	}
+}
+
+// WriteJSON writes v as a JSON response with Content-Type: application/json.
+func WriteJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		slog.Warn("shared: failed to write JSON response", "error", err)
 	}
 }

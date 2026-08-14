@@ -131,8 +131,7 @@ type auditLogsHandler struct {
 }
 
 func (h *auditLogsHandler) list(w http.ResponseWriter, r *http.Request) {
-	limit := clampInt(getQueryInt(r, "limit", 50), 1, 200)
-	offset := getQueryInt(r, "offset", 0)
+	limit, offset := parseLimitOffset(r, 50, 200)
 	if offset < 0 {
 		offset = 0
 	}

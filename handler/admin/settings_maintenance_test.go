@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 func setupMaintenanceTest(t *testing.T) (*store.DB, chi.Router, *routing.RouteCache) {
@@ -51,7 +51,7 @@ func TestMaintenanceClearCache_RealInvalidationAndRealJob(t *testing.T) {
 		t.Fatalf("seed token_routes: %v", err)
 	}
 
-	if !globalAccountsCache.isValid() {
+	if _, hit := globalAccountsCache.get(); !hit {
 		t.Fatal("accounts snapshot cache should be warm before clear-cache")
 	}
 	if rc.GetRoutes() == nil {
@@ -88,7 +88,7 @@ func TestMaintenanceClearCache_RealInvalidationAndRealJob(t *testing.T) {
 	}
 
 	// In-process caches must be invalidated immediately.
-	if globalAccountsCache.isValid() {
+	if _, hit := globalAccountsCache.get(); hit {
 		t.Fatal("accounts snapshot cache should be cleared")
 	}
 	if routes := rc.GetRoutes(); routes != nil {

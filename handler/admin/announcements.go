@@ -1,9 +1,7 @@
 package admin
 
 import (
-	"encoding/json"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -127,7 +125,7 @@ type announcementBody struct {
 // returns ok=false on error.
 func decodeAnnouncementBody(w http.ResponseWriter, r *http.Request) (announcementBody, bool) {
 	var body announcementBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeJSONRequest(r, &body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid JSON body"})
 		return body, false
 	}
@@ -181,14 +179,13 @@ func (h *announcementsHandler) create(w http.ResponseWriter, r *http.Request) {
 // PUT /api/announcements/{id} — edit; content changes reset the dismissal so
 // the new revision is seen again.
 func (h *announcementsHandler) update(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil || id <= 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid announcement id"})
+	id, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 	var current struct {
-		Title   string `db:"title"`
-		Message string `db:"message"`
+		Title   string  `db:"title"`
+		Message string  `db:"message"`
 		Link    *string `db:"link"`
 	}
 	if err := h.db.Get(&current, rebindAdminQuery(h.db, "SELECT title, message, link FROM product_announcements WHERE id = ?"), id); err != nil {
@@ -241,9 +238,8 @@ func (h *announcementsHandler) update(w http.ResponseWriter, r *http.Request) {
 
 // DELETE /api/announcements/{id}
 func (h *announcementsHandler) remove(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil || id <= 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid announcement id"})
+	id, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 	res, err := h.db.Exec(rebindAdminQuery(h.db, "DELETE FROM product_announcements WHERE id = ?"), id)
@@ -260,9 +256,8 @@ func (h *announcementsHandler) remove(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/announcements/{id}/dismiss
 func (h *announcementsHandler) dismiss(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil || id <= 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid announcement id"})
+	id, ok := pathID(w, r)
+	if !ok {
 		return
 	}
 	var exists int
@@ -271,7 +266,7 @@ func (h *announcementsHandler) dismiss(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
-	_, err = h.db.Exec(rebindAdminQuery(h.db, `
+	_, err := h.db.Exec(rebindAdminQuery(h.db, `
 		INSERT INTO announcement_dismissals (announcement_id, dismissed_at)
 		VALUES (?, ?)
 		ON CONFLICT (announcement_id) DO UPDATE SET dismissed_at = excluded.dismissed_at`), id, now)

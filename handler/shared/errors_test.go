@@ -33,9 +33,9 @@ func TestWriteError_StatusAndCamelCaseJSON(t *testing.T) {
 	}
 }
 
-func TestWriteErrorDetail_IncludesDetail(t *testing.T) {
+func TestWriteAPIError_IncludesDetail(t *testing.T) {
 	rec := httptest.NewRecorder()
-	WriteErrorDetail(rec, http.StatusConflict, "API key 已存在", "duplicate_key")
+	WriteAPIError(rec, &APIError{Code: http.StatusConflict, Message: "API key 已存在", Detail: "duplicate_key"})
 
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("status = %d, want 409", rec.Code)
@@ -65,9 +65,9 @@ func TestWriteAPIError_RejectsSilent200(t *testing.T) {
 	}
 }
 
-func TestWriteErrorWithRequestID_IncludesRequestID(t *testing.T) {
+func TestWriteAPIError_IncludesRequestID(t *testing.T) {
 	rec := httptest.NewRecorder()
-	WriteErrorWithRequestID(rec, http.StatusServiceUnavailable, "upstream exhausted", "req-abc-123")
+	WriteAPIError(rec, &APIError{Code: http.StatusServiceUnavailable, Message: "upstream exhausted", RequestID: "req-abc-123"})
 
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want 503", rec.Code)

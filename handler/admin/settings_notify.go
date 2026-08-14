@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/service/notify"
+	"github.com/go-chi/chi/v5"
 )
 
 // RegisterNotifyRoutes registers the /api/settings/notify/test route.
@@ -32,10 +32,7 @@ func testNotify(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"success": false,
-			"message": err.Error(),
-		})
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 

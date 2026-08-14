@@ -12,9 +12,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 // chiRouterForVideo creates a chi router that registers video routes with auth injection.
@@ -108,7 +108,7 @@ func TestHandleVideosCreate_RewritesPublicIDAndSavesMapping(t *testing.T) {
 	}
 
 	// resolve path uses UpstreamVideoID for subsequent GET.
-	if got := resolveVideoUpstreamID(publicID); got != "upstream_vid_abc" {
+	if got := resolveVideoUpstreamIDFromTask(publicID, GetProxyVideoTaskByPublicID(publicID)); got != "upstream_vid_abc" {
 		t.Fatalf("resolve = %q", got)
 	}
 }
@@ -313,9 +313,9 @@ func TestHandleVideosDelete_Unauthorized(t *testing.T) {
 	}
 }
 
-func TestResolveVideoUpstreamID(t *testing.T) {
+func TestResolveVideoUpstreamIDFromTask(t *testing.T) {
 	publicID := "video_resolve_public"
-	if got := resolveVideoUpstreamID(publicID); got != publicID {
+	if got := resolveVideoUpstreamIDFromTask(publicID, GetProxyVideoTaskByPublicID(publicID)); got != publicID {
 		t.Errorf("missing mapping: got %q want %q", got, publicID)
 	}
 
@@ -325,7 +325,7 @@ func TestResolveVideoUpstreamID(t *testing.T) {
 	})
 	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(publicID) })
 
-	if got := resolveVideoUpstreamID(publicID); got != "upstream_video_xyz" {
+	if got := resolveVideoUpstreamIDFromTask(publicID, GetProxyVideoTaskByPublicID(publicID)); got != "upstream_video_xyz" {
 		t.Errorf("mapped id: got %q want upstream_video_xyz", got)
 	}
 
@@ -333,7 +333,7 @@ func TestResolveVideoUpstreamID(t *testing.T) {
 	same := "video_same_id"
 	SaveProxyVideoTask(&ProxyVideoTask{PublicID: same, UpstreamVideoID: same})
 	t.Cleanup(func() { DeleteProxyVideoTaskByPublicID(same) })
-	if got := resolveVideoUpstreamID(same); got != same {
+	if got := resolveVideoUpstreamIDFromTask(same, GetProxyVideoTaskByPublicID(same)); got != same {
 		t.Errorf("same id mapping: got %q want %q", got, same)
 	}
 }
@@ -471,11 +471,10 @@ func TestProxyVideoTask_DBDurableRoundTrip(t *testing.T) {
 	}
 }
 
-
 // preferredTrackRouter records SelectPreferredChannel invocations.
 type preferredTrackRouter struct {
-	selected routing.SelectedChannel
-	lastPreferred int64
+	selected       routing.SelectedChannel
+	lastPreferred  int64
 	preferredCalls int
 }
 

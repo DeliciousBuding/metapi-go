@@ -5,8 +5,9 @@ package proxyhandler
 import (
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/auth"
+	"github.com/deliciousbuding/metapi-go/handler/shared"
+	"github.com/go-chi/chi/v5"
 )
 
 // RegisterProxyRoutes registers all /v1/* proxy surfaces on the given chi router.
@@ -76,10 +77,6 @@ func RegisterNonV1ProxyRoutes(r chi.Router) {
 	RegisterGeminiRoutes(r)
 }
 
-// EnsureMultipartBufferParser is called by surfaces that support multipart/form-data.
-// In Go/chi, `net/http` natively parses multipart forms, so this is a no-op.
-func EnsureMultipartBufferParser() {}
-
 // writeJSONError writes a JSON error response without a request id.
 // Prefer writeJSONErrorWithRequest when the ingress request/trace id is known.
 func writeJSONError(w http.ResponseWriter, status int, message, typ string) {
@@ -93,52 +90,14 @@ func writeJSONErrorWithRequest(w http.ResponseWriter, status int, message, typ, 
 	if requestID != "" && w.Header().Get("X-Request-Id") == "" {
 		w.Header().Set("X-Request-Id", requestID)
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	body := `{"error":{"message":"` + jsonEscape(message) + `","type":"` + jsonEscape(typ) + `"`
+	errBody := map[string]any{
+		"message": message,
+		"type":    typ,
+	}
 	if requestID != "" {
-		body += `,"request_id":"` + jsonEscape(requestID) + `"`
+		errBody["request_id"] = requestID
 	}
-	body += `}}`
-	w.Write([]byte(body))
-}
-
-// jsonEscape performs full JSON string escaping per RFC 8259 Section 7.
-func jsonEscape(s string) string {
-	result := make([]byte, 0, len(s)+16)
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		switch c {
-		case '"':
-			result = append(result, '\\', '"')
-		case '\\':
-			result = append(result, '\\', '\\')
-		case '\b':
-			result = append(result, '\\', 'b')
-		case '\f':
-			result = append(result, '\\', 'f')
-		case '\n':
-			result = append(result, '\\', 'n')
-		case '\r':
-			result = append(result, '\\', 'r')
-		case '\t':
-			result = append(result, '\\', 't')
-		default:
-			if c < 0x20 {
-				result = append(result, '\\', 'u', '0', '0', hexDigit(c>>4), hexDigit(c&0x0f))
-			} else {
-				result = append(result, c)
-			}
-		}
-	}
-	return string(result)
-}
-
-func hexDigit(n byte) byte {
-	if n < 10 {
-		return '0' + n
-	}
-	return 'a' + n - 10
+	shared.WriteJSON(w, status, map[string]any{"error": errBody})
 }
 
 // GetProxyAuth extracts the proxy auth context from the request.

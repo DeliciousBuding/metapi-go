@@ -73,25 +73,16 @@ func (h *monitorHandler) saveConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	rawBody, readErr := readAdminJSONBody(r.Body)
 	if readErr != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"success": false,
-			"message": "Invalid request body",
-		})
+		writeError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 	if len(strings.TrimSpace(string(rawBody))) > 0 {
 		if err := rejectDuplicateJSONKeys(rawBody); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{
-				"success": false,
-				"message": "Invalid request body",
-			})
+			writeError(w, http.StatusBadRequest, "Invalid request body")
 			return
 		}
 		if err := json.Unmarshal(rawBody, &body); err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]any{
-				"success": false,
-				"message": "Invalid request body",
-			})
+			writeError(w, http.StatusBadRequest, "Invalid request body")
 			return
 		}
 	}
@@ -103,10 +94,7 @@ func (h *monitorHandler) saveConfig(w http.ResponseWriter, r *http.Request) {
 
 	if raw == "" {
 		if err := upsertSettingDB(h.db, ldohCookieSettingKey, ""); err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]any{
-				"success": false,
-				"message": "Failed to clear LDOH cookie",
-			})
+			writeError(w, http.StatusInternalServerError, "Failed to clear LDOH cookie")
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
@@ -120,18 +108,12 @@ func (h *monitorHandler) saveConfig(w http.ResponseWriter, r *http.Request) {
 
 	normalized := normalizeLdohCookie(raw)
 	if !strings.HasPrefix(normalized, "ld_auth_session=") || len(normalized) < 24 {
-		writeJSON(w, http.StatusBadRequest, map[string]any{
-			"success": false,
-			"message": "Cookie 格式无效，请填写 ld_auth_session 或其值",
-		})
+		writeError(w, http.StatusBadRequest, "Cookie 格式无效，请填写 ld_auth_session 或其值")
 		return
 	}
 
 	if err := upsertSettingDB(h.db, ldohCookieSettingKey, normalized); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"message": "Failed to save LDOH cookie",
-		})
+		writeError(w, http.StatusInternalServerError, "Failed to save LDOH cookie")
 		return
 	}
 

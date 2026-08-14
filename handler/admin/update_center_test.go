@@ -30,11 +30,8 @@ func TestUpdateCenterDeploy_RequiresTargetTag(t *testing.T) {
 	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if body["success"] != false {
-		t.Fatalf("success=%v, want false", body["success"])
-	}
-	if msg, _ := body["message"].(string); !strings.Contains(msg, "targetTag") {
-		t.Fatalf("message=%q, want targetTag required", msg)
+	if msg, _ := body["error"].(string); !strings.Contains(msg, "targetTag") {
+		t.Fatalf("error=%q, want targetTag required", msg)
 	}
 }
 
@@ -90,8 +87,8 @@ func TestUpdateCenterRollback_RequiresTargetRevision(t *testing.T) {
 	}
 	var body map[string]any
 	_ = json.Unmarshal(resp.Body.Bytes(), &body)
-	if body["success"] != false {
-		t.Fatalf("success=%v, want false", body["success"])
+	if msg, _ := body["error"].(string); !strings.Contains(msg, "targetRevision") {
+		t.Fatalf("error=%q, want targetRevision required", msg)
 	}
 }
 
