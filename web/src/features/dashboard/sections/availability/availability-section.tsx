@@ -47,11 +47,11 @@ const SEVERITY_TONE: Record<
   },
   warning: {
     dot: 'bg-warning',
-    badge: 'border-warning/40 bg-warning/10 text-warning',
+    badge: 'border-warning/40 bg-warning/10 text-warning-soft-fg',
   },
   info: {
     dot: 'bg-info',
-    badge: 'border-info/40 bg-info/10 text-info',
+    badge: 'border-info/40 bg-info/10 text-info-soft-fg',
   },
 }
 

@@ -23,11 +23,11 @@ const SEVERITY_TONE: Record<
     icon: Megaphone,
   },
   warning: {
-    wrapper: 'border-warning/40 bg-warning/10 text-warning',
+    wrapper: 'border-warning/40 bg-warning/10 text-warning-soft-fg',
     icon: Megaphone,
   },
   info: {
-    wrapper: 'border-info/40 bg-info/10 text-info',
+    wrapper: 'border-info/40 bg-info/10 text-info-soft-fg',
     icon: Info,
   },
 }

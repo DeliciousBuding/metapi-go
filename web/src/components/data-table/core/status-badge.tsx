@@ -34,27 +34,27 @@ const dotColorMap = {
 } as const
 
 const textColorMap = {
-  success: 'text-success',
-  warning: 'text-warning',
-  danger: 'text-destructive',
-  info: 'text-info',
+  success: 'text-success-soft-fg',
+  warning: 'text-warning-soft-fg',
+  danger: 'text-destructive-soft-fg',
+  info: 'text-info-soft-fg',
   neutral: 'text-muted-foreground',
   purple: 'text-chart-4',
-  amber: 'text-warning',
+  amber: 'text-warning-soft-fg',
   blue: 'text-chart-1',
   cyan: 'text-chart-2',
-  green: 'text-success',
+  green: 'text-success-soft-fg',
   grey: 'text-muted-foreground',
   indigo: 'text-chart-1',
-  'light-blue': 'text-info',
-  'light-green': 'text-success',
+  'light-blue': 'text-info-soft-fg',
+  'light-green': 'text-success-soft-fg',
   lime: 'text-chart-3',
-  orange: 'text-warning',
+  orange: 'text-warning-soft-fg',
   pink: 'text-chart-5',
-  red: 'text-destructive',
+  red: 'text-destructive-soft-fg',
   teal: 'text-chart-2',
   violet: 'text-chart-4',
-  yellow: 'text-warning',
+  yellow: 'text-warning-soft-fg',
 } as const
 
 type StatusVariant = keyof typeof dotColorMap

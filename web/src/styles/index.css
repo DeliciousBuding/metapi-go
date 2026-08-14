@@ -85,11 +85,6 @@
     font-family: var(--font-body);
   }
 
-  /* Keep sticky headers stable while primitives lock body scrolling. */
-  body[data-scroll-locked] {
-    overflow: unset !important;
-  }
-
   /* Cursor pointer for buttons */
   button:not(:disabled),
   [role='button']:not(:disabled) {
@@ -104,16 +99,6 @@
       font-size: 16px !important;
     }
   }
-}
-
-/* Static skeleton treatment; color ramps are intentionally not used. */
-.skeleton-shimmer {
-  background: var(--skeleton-base);
-}
-
-/* Override auto-skeleton-react inline styles with the same flat fill. */
-.auto-skeleton-fade [class^='skeleton-'] {
-  background: var(--skeleton-base) !important;
 }
 
 @utility container {
@@ -300,7 +285,7 @@
   .animate-appear-zoom,
   .animate-scroll-up,
   .animate-scroll-down,
-  [data-slot='table'] tbody tr {
+  [data-slot='table'][data-table-stagger='true'] tbody tr {
     animation: none !important;
     opacity: 1;
     transform: none;
@@ -408,38 +393,40 @@
     transition: background-color 120ms ease;
   }
 
-  /* Table row stagger-in animation */
-  [data-slot='table'] tbody tr {
+  /* Table row stagger-in animation. Opt-in via `data-table-stagger` so
+     virtualized tables (rows appended during scroll) skip the entry
+     animation and never mount at opacity 0. */
+  [data-slot='table'][data-table-stagger='true'] tbody tr {
     animation: tableRowEnter 0.2s cubic-bezier(0.33, 1, 0.68, 1) both;
   }
-  [data-slot='table'] tbody tr:nth-child(2) {
+  [data-slot='table'][data-table-stagger='true'] tbody tr:nth-child(2) {
     animation-delay: 25ms;
   }
-  [data-slot='table'] tbody tr:nth-child(3) {
+  [data-slot='table'][data-table-stagger='true'] tbody tr:nth-child(3) {
     animation-delay: 50ms;
   }
-  [data-slot='table'] tbody tr:nth-child(4) {
+  [data-slot='table'][data-table-stagger='true'] tbody tr:nth-child(4) {
     animation-delay: 75ms;
   }
-  [data-slot='table'] tbody tr:nth-child(5) {
+  [data-slot='table'][data-table-stagger='true'] tbody tr:nth-child(5) {
     animation-delay: 100ms;
   }
-  [data-slot='table'] tbody tr:nth-child(6) {
+  [data-slot='table'][data-table-stagger='true'] tbody tr:nth-child(6) {
     animation-delay: 125ms;
   }
-  [data-slot='table'] tbody tr:nth-child(7) {
+  [data-slot='table'][data-table-stagger='true'] tbody tr:nth-child(7) {
     animation-delay: 150ms;
   }
-  [data-slot='table'] tbody tr:nth-child(8) {
+  [data-slot='table'][data-table-stagger='true'] tbody tr:nth-child(8) {
     animation-delay: 175ms;
   }
-  [data-slot='table'] tbody tr:nth-child(9) {
+  [data-slot='table'][data-table-stagger='true'] tbody tr:nth-child(9) {
     animation-delay: 200ms;
   }
-  [data-slot='table'] tbody tr:nth-child(10) {
+  [data-slot='table'][data-table-stagger='true'] tbody tr:nth-child(10) {
     animation-delay: 225ms;
   }
-  [data-slot='table'] tbody tr:nth-child(n + 11) {
+  [data-slot='table'][data-table-stagger='true'] tbody tr:nth-child(n + 11) {
     animation-delay: 250ms;
   }
 }

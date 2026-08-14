@@ -13,17 +13,17 @@ type StatusTier = {
 
 const STATUS_TIERS = {
   success: {
-    className: 'bg-success/10 text-success border-success/30',
+    className: 'bg-success/10 text-success-soft-fg border-success/30',
     dotClassName: 'bg-success',
     fallbackLabelKey: 'proxyLogs.status.success',
   },
   redirect: {
-    className: 'bg-info/10 text-info border-info/30',
+    className: 'bg-info/10 text-info-soft-fg border-info/30',
     dotClassName: 'bg-info',
     fallbackLabelKey: 'proxyLogs.status.redirect',
   },
   clientError: {
-    className: 'bg-warning/10 text-warning border-warning/30',
+    className: 'bg-warning/10 text-warning-soft-fg border-warning/30',
     dotClassName: 'bg-warning',
     fallbackLabelKey: 'proxyLogs.status.clientError',
   },

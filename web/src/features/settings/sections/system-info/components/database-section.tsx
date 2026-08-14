@@ -219,7 +219,7 @@ export function DatabaseSection() {
           </div>
         ) : null}
         {configQuery.data.restartRequired ? (
-          <div className='border-warning/35 bg-warning/10 text-warning rounded-lg border px-3 py-2 text-sm'>
+          <div className='border-warning/35 bg-warning/10 text-warning-soft-fg rounded-lg border px-3 py-2 text-sm'>
             {t('settings.systemInfo.database.restartRequired')}
           </div>
         ) : null}
