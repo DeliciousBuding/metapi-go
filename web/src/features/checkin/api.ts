@@ -65,7 +65,9 @@ export async function fetchCheckinLogs(
   const total = typeof payload.total === 'number' ? payload.total : 0
   const page = typeof payload.page === 'number' ? payload.page : 1
   const pageSize =
-    typeof payload.pageSize === 'number' ? payload.pageSize : params.limit ?? 0
+    typeof payload.pageSize === 'number'
+      ? payload.pageSize
+      : (params.limit ?? 0)
   return { items, total, page, pageSize }
 }
 

@@ -109,10 +109,7 @@ export function CheckinPage() {
     () => localDatetimeInputToUtcRfc3339(from, false),
     [from]
   )
-  const toUtc = useMemo(
-    () => localDatetimeInputToUtcRfc3339(to, true),
-    [to]
-  )
+  const toUtc = useMemo(() => localDatetimeInputToUtcRfc3339(to, true), [to])
 
   const queryPayload = useMemo(
     () => ({
@@ -144,10 +141,7 @@ export function CheckinPage() {
     isFetching,
     error,
   } = useCheckinLogs(queryPayload)
-  const logs = useMemo(
-    () => logsPage?.items ?? [],
-    [logsPage]
-  )
+  const logs = useMemo(() => logsPage?.items ?? [], [logsPage])
   const total = logsPage?.total ?? 0
 
   useEffect(() => {
@@ -164,7 +158,17 @@ export function CheckinPage() {
       query: globalFilter || undefined,
     })
     window.history.replaceState(null, '', `${window.location.pathname}${query}`)
-  }, [pagination, accountId, columnFilters, from, to, globalFilter, statusValues, reasonValues, siteValues])
+  }, [
+    pagination,
+    accountId,
+    columnFilters,
+    from,
+    to,
+    globalFilter,
+    statusValues,
+    reasonValues,
+    siteValues,
+  ])
 
   const onGlobalFilterChange = useMemo<OnChangeFn<string>>(
     () => (updater) => {

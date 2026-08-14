@@ -59,9 +59,8 @@ export function ObservabilityAutoRefreshProvider({
 }: {
   children: ReactNode
 }) {
-  const [intervalMs, setIntervalMsState] = useState<
-    ObservabilityAutoRefreshInterval
-  >(readStoredInterval)
+  const [intervalMs, setIntervalMsState] =
+    useState<ObservabilityAutoRefreshInterval>(readStoredInterval)
 
   const setIntervalMs = useCallback(
     (value: ObservabilityAutoRefreshInterval) => {

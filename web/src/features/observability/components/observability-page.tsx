@@ -7,14 +7,14 @@ import { useTranslation } from 'react-i18next'
 
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
-import { ObservabilityAutoRefreshToggle } from './observability-auto-refresh-toggle'
-import { ObservabilityAutoRefreshProvider } from '../context/auto-refresh-context'
 import {
   OBSERVABILITY_DEFAULT_SECTION,
   getObservabilitySectionContent,
   getObservabilitySectionNavItems,
 } from '../config/observability-config'
+import { ObservabilityAutoRefreshProvider } from '../context/auto-refresh-context'
 import type { ObservabilitySectionId } from '../types'
+import { ObservabilityAutoRefreshToggle } from './observability-auto-refresh-toggle'
 
 export type ObservabilityPageProps = {
   activeSection?: string

@@ -16,18 +16,29 @@ import {
 } from '../context/auto-refresh-context'
 
 const OBSERVABILITY_AUTO_REFRESH_PRESETS = [
-  { id: '15s', labelKey: 'observability.autoRefresh.interval15s', value: 15_000 },
-  { id: '30s', labelKey: 'observability.autoRefresh.interval30s', value: 30_000 },
-  { id: 'off', labelKey: 'observability.autoRefresh.intervalOff', value: false },
+  {
+    id: '15s',
+    labelKey: 'observability.autoRefresh.interval15s',
+    value: 15_000,
+  },
+  {
+    id: '30s',
+    labelKey: 'observability.autoRefresh.interval30s',
+    value: 30_000,
+  },
+  {
+    id: 'off',
+    labelKey: 'observability.autoRefresh.intervalOff',
+    value: false,
+  },
 ] as const
 
 export function ObservabilityAutoRefreshToggle() {
   const { t } = useTranslation()
   const { intervalMs, setIntervalMs } = useObservabilityAutoRefresh()
 
-  const isMatch = (
-    presetValue: ObservabilityAutoRefreshInterval
-  ): boolean => presetValue === intervalMs
+  const isMatch = (presetValue: ObservabilityAutoRefreshInterval): boolean =>
+    presetValue === intervalMs
 
   return (
     <div
