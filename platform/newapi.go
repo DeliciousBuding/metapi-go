@@ -15,10 +15,15 @@ type NewApiAdapter struct {
 	*BaseAdapter
 }
 
-// Detect probes GET /api/status and checks success===true and system_name is present.
+// Detect probes GET /api/status and checks success===true and that
+// data.system_name's value names a NewAPI fork. one-api v0.6.10 also ships
+// system_name (default "One API"), so mere presence of the key misdetects
+// one-api as new-api; the value-based check keeps the two apart.
 // Known NewAPI fork aliases (vo-api/super-api/rix-api/neo-api) short-circuit
 // via URL keyword so shield/WAF-fronted deployments whose /api/status probe is
 // blocked still get detected.
+// Operators who rename SYSTEM_NAME to something unrelated degrade to manual
+// platform selection — acceptable for an auto-detect heuristic.
 func (n *NewApiAdapter) Detect(ctx context.Context, url string) (bool, error) {
 	lower := strings.ToLower(url)
 	for _, kw := range []string{"vo-api", "super-api", "rix-api", "neo-api"} {
@@ -41,8 +46,12 @@ func (n *NewApiAdapter) Detect(ctx context.Context, url string) (bool, error) {
 	if !ok {
 		return false, nil
 	}
-	_, hasSystemName := data["system_name"]
-	return hasSystemName, nil
+	systemName, hasSystemName := getString(data, "system_name")
+	if !hasSystemName {
+		return false, nil
+	}
+	folded := strings.ToLower(systemName)
+	return strings.Contains(folded, "newapi") || strings.Contains(folded, "new api"), nil
 }
 
 // --- Login ---

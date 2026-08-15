@@ -6,15 +6,20 @@ import (
 	"strings"
 )
 
-// OneApiAdapter handles OneAPI platforms (detect: /api/status without system_name).
+// OneApiAdapter handles OneAPI platforms (detect: /api/status by version +
+// system_name value discriminator against new-api).
 // Serves as the base for OneHubAdapter and DoneHubAdapter.
 type OneApiAdapter struct {
 	*BaseAdapter
 }
 
-// Detect probes GET /api/status and checks that success===true, system_name is
-// absent, and data.version is present (the catch-all discriminator). Requiring
-// version keeps unrelated /api/status endpoints from being labeled one-api.
+// Detect probes GET /api/status and checks success===true, data.version is
+// present, and system_name (when present) names one-api. one-api v0.5.x has no
+// system_name (legacy shape); v0.6.10+ ships system_name (default "One API").
+// The value check keeps new-api (default "New API") and one-api apart.
+// Requiring version keeps unrelated /api/status endpoints from being labeled
+// one-api. Operators who rename SYSTEM_NAME to something unrelated degrade to
+// manual platform selection — acceptable for an auto-detect heuristic.
 func (o *OneApiAdapter) Detect(ctx context.Context, url string) (bool, error) {
 	ctx, cancel := withProbeTimeout(ctx)
 	defer cancel()
@@ -30,11 +35,17 @@ func (o *OneApiAdapter) Detect(ctx context.Context, url string) (bool, error) {
 	if !ok {
 		return false, nil
 	}
-	if _, hasSystemName := data["system_name"]; hasSystemName {
+	if _, hasVersion := data["version"]; !hasVersion {
 		return false, nil
 	}
-	_, hasVersion := data["version"]
-	return hasVersion, nil
+	systemName, hasSystemName := getString(data, "system_name")
+	if !hasSystemName {
+		// Legacy v0.5 shape (or a non-string system_name): nothing to
+		// discriminate on, treat as absent.
+		return true, nil
+	}
+	folded := strings.ToLower(systemName)
+	return strings.Contains(folded, "oneapi") || strings.Contains(folded, "one api"), nil
 }
 
 // Checkin: POST /api/user/checkin (Bearer auth).
