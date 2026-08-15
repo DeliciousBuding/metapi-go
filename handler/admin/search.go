@@ -24,6 +24,11 @@ type searchRequestBody struct {
 	Limit int    `json:"limit"`
 }
 
+// searchQueryMaxLength caps the trimmed query length before it is interpolated
+// into a LIKE pattern. Prevents unbounded SQL pattern construction and guards
+// against request-size abuse on the admin search surface.
+const searchQueryMaxLength = 200
+
 // accountPublicSelectColumns lists every accounts column EXCEPT the plaintext
 // credentials (access_token, api_token). List/search endpoints pair this with
 // credentialFragmentsSelect() to expose masked secrets without ever scanning
@@ -64,6 +69,11 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 			"proxyLogs":     []any{},
 			"models":        []any{},
 		})
+		return
+	}
+
+	if len(q) > searchQueryMaxLength {
+		writeError(w, http.StatusBadRequest, "search query too long (max 200 characters)")
 		return
 	}
 

@@ -662,3 +662,86 @@ func TestSlogLevelFallsBackToInfo(t *testing.T) {
 		t.Fatalf("SlogLevel(\"\") = %v, want LevelInfo", got)
 	}
 }
+
+func TestLoadAdminOAuthRateLimitDefaults(t *testing.T) {
+	cfg := Load(map[string]string{})
+
+	if cfg.AdminRateLimitRPS != DefaultAdminRateLimitRPS {
+		t.Fatalf("AdminRateLimitRPS = %d, want %d", cfg.AdminRateLimitRPS, DefaultAdminRateLimitRPS)
+	}
+	if cfg.AdminRateLimitBurst != DefaultAdminRateLimitBurst {
+		t.Fatalf("AdminRateLimitBurst = %d, want %d", cfg.AdminRateLimitBurst, DefaultAdminRateLimitBurst)
+	}
+	if cfg.OAuthRateLimitRPS != DefaultOAuthRateLimitRPS {
+		t.Fatalf("OAuthRateLimitRPS = %d, want %d", cfg.OAuthRateLimitRPS, DefaultOAuthRateLimitRPS)
+	}
+	if cfg.OAuthRateLimitBurst != DefaultOAuthRateLimitBurst {
+		t.Fatalf("OAuthRateLimitBurst = %d, want %d", cfg.OAuthRateLimitBurst, DefaultOAuthRateLimitBurst)
+	}
+}
+
+func TestLoadAdminOAuthRateLimitFromEnv(t *testing.T) {
+	cfg := Load(map[string]string{
+		"ADMIN_RATE_LIMIT_RPS":   "200",
+		"ADMIN_RATE_LIMIT_BURST": "400",
+		"OAUTH_RATE_LIMIT_RPS":   "25",
+		"OAUTH_RATE_LIMIT_BURST": "50",
+	})
+
+	if cfg.AdminRateLimitRPS != 200 {
+		t.Fatalf("AdminRateLimitRPS = %d, want 200", cfg.AdminRateLimitRPS)
+	}
+	if cfg.AdminRateLimitBurst != 400 {
+		t.Fatalf("AdminRateLimitBurst = %d, want 400", cfg.AdminRateLimitBurst)
+	}
+	if cfg.OAuthRateLimitRPS != 25 {
+		t.Fatalf("OAuthRateLimitRPS = %d, want 25", cfg.OAuthRateLimitRPS)
+	}
+	if cfg.OAuthRateLimitBurst != 50 {
+		t.Fatalf("OAuthRateLimitBurst = %d, want 50", cfg.OAuthRateLimitBurst)
+	}
+}
+
+func TestLoadAdminOAuthRateLimitClampsNegativeToZero(t *testing.T) {
+	cfg := Load(map[string]string{
+		"ADMIN_RATE_LIMIT_RPS":   "-5",
+		"ADMIN_RATE_LIMIT_BURST": "-10",
+		"OAUTH_RATE_LIMIT_RPS":   "-1",
+		"OAUTH_RATE_LIMIT_BURST": "-2",
+	})
+
+	if cfg.AdminRateLimitRPS != 0 {
+		t.Fatalf("AdminRateLimitRPS = %d, want 0 (clamped)", cfg.AdminRateLimitRPS)
+	}
+	if cfg.AdminRateLimitBurst != 0 {
+		t.Fatalf("AdminRateLimitBurst = %d, want 0 (clamped)", cfg.AdminRateLimitBurst)
+	}
+	if cfg.OAuthRateLimitRPS != 0 {
+		t.Fatalf("OAuthRateLimitRPS = %d, want 0 (clamped)", cfg.OAuthRateLimitRPS)
+	}
+	if cfg.OAuthRateLimitBurst != 0 {
+		t.Fatalf("OAuthRateLimitBurst = %d, want 0 (clamped)", cfg.OAuthRateLimitBurst)
+	}
+}
+
+func TestLoadAdminOAuthRateLimitFallsBackOnInvalid(t *testing.T) {
+	cfg := Load(map[string]string{
+		"ADMIN_RATE_LIMIT_RPS":   "not-a-number",
+		"ADMIN_RATE_LIMIT_BURST": "still-not-a-number",
+		"OAUTH_RATE_LIMIT_RPS":   "garbage",
+		"OAUTH_RATE_LIMIT_BURST": "oops",
+	})
+
+	if cfg.AdminRateLimitRPS != DefaultAdminRateLimitRPS {
+		t.Fatalf("AdminRateLimitRPS = %d, want default %d on invalid input", cfg.AdminRateLimitRPS, DefaultAdminRateLimitRPS)
+	}
+	if cfg.AdminRateLimitBurst != DefaultAdminRateLimitBurst {
+		t.Fatalf("AdminRateLimitBurst = %d, want default %d on invalid input", cfg.AdminRateLimitBurst, DefaultAdminRateLimitBurst)
+	}
+	if cfg.OAuthRateLimitRPS != DefaultOAuthRateLimitRPS {
+		t.Fatalf("OAuthRateLimitRPS = %d, want default %d on invalid input", cfg.OAuthRateLimitRPS, DefaultOAuthRateLimitRPS)
+	}
+	if cfg.OAuthRateLimitBurst != DefaultOAuthRateLimitBurst {
+		t.Fatalf("OAuthRateLimitBurst = %d, want default %d on invalid input", cfg.OAuthRateLimitBurst, DefaultOAuthRateLimitBurst)
+	}
+}

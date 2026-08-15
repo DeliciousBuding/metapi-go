@@ -224,6 +224,17 @@ type Config struct {
 	AdminIpAllowlist        []string
 	AdminCorsAllowedOrigins []string
 	TrustedProxyCidrs       []string
+	// AdminRateLimitRPS / AdminRateLimitBurst control the per-IP token bucket
+	// for /api/* admin routes. Parsed from ADMIN_RATE_LIMIT_RPS (default 100)
+	// and ADMIN_RATE_LIMIT_BURST (default 200). A burst of 0 means the bucket
+	// never refills above the RPS rate; values <= 0 disable the limiter.
+	AdminRateLimitRPS   int
+	AdminRateLimitBurst int
+	// OAuthRateLimitRPS / OAuthRateLimitBurst control the stricter per-IP
+	// token bucket applied to /api/oauth/* routes. Parsed from
+	// OAUTH_RATE_LIMIT_RPS (default 10) and OAUTH_RATE_LIMIT_BURST (default 20).
+	OAuthRateLimitRPS   int
+	OAuthRateLimitBurst int
 
 	// Proxy: Core (5 fields)
 	RequestBodyLimit int
@@ -657,6 +668,13 @@ func Load(env map[string]string) *Config {
 	cfg.AdminIpAllowlist = parseCsvList(get("ADMIN_IP_ALLOWLIST"))
 	cfg.AdminCorsAllowedOrigins = parseCsvList(get("ADMIN_CORS_ALLOWED_ORIGINS"))
 	cfg.TrustedProxyCidrs = parseCsvList(get("TRUSTED_PROXY_CIDRS"))
+	// Admin/OAuth per-IP token-bucket rate limits. Defaults preserve the
+	// original hardcoded values (Admin 100/200, OAuth 10/20) so existing
+	// deployments are byte-for-byte compatible without env changes.
+	cfg.AdminRateLimitRPS = maxInt(0, int(math.Trunc(parseNumber(get("ADMIN_RATE_LIMIT_RPS"), float64(DefaultAdminRateLimitRPS)))))
+	cfg.AdminRateLimitBurst = maxInt(0, int(math.Trunc(parseNumber(get("ADMIN_RATE_LIMIT_BURST"), float64(DefaultAdminRateLimitBurst)))))
+	cfg.OAuthRateLimitRPS = maxInt(0, int(math.Trunc(parseNumber(get("OAUTH_RATE_LIMIT_RPS"), float64(DefaultOAuthRateLimitRPS)))))
+	cfg.OAuthRateLimitBurst = maxInt(0, int(math.Trunc(parseNumber(get("OAUTH_RATE_LIMIT_BURST"), float64(DefaultOAuthRateLimitBurst)))))
 
 	// ---- §3.13 Proxy: Core ----
 	// REQUEST_BODY_LIMIT_MB controls the general body limit (default 20 MB,
