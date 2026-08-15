@@ -309,34 +309,21 @@ func persistAccountModelAvailability(db *sqlx.DB, accountID int64, models []stri
 	}
 
 	for _, model := range models {
-		var existingID int64
-		err := tx.Get(&existingID, tx.Rebind(`
-			SELECT id FROM model_availability WHERE account_id = ? AND model_name = ?
-		`), accountID, model)
-		if err == nil {
-			if _, err := tx.Exec(tx.Rebind(`
-				UPDATE model_availability
-				SET available = ?, latency_ms = NULL, checked_at = ?
-				WHERE id = ?
-			`), true, now, existingID); err != nil {
-				return err
-			}
-			continue
-		}
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return err
-		}
+		// Single dialect-aware upsert replaces the SELECT-then-UPDATE-or-INSERT
+		// pattern (3 round-trips/model → 1). ON CONFLICT (account_id, model_name)
+		// targets the model_availability_account_model_unique constraint. The
+		// is_manual column is deliberately NOT updated on conflict so the
+		// auto-refresh path preserves operator-set manual rows (mirroring the
+		// old UPDATE which only touched available/latency_ms/checked_at).
 		if _, err := tx.Exec(tx.Rebind(`
 			INSERT INTO model_availability (account_id, model_name, available, is_manual, latency_ms, checked_at)
 			VALUES (?, ?, ?, ?, NULL, ?)
+			ON CONFLICT (account_id, model_name) DO UPDATE SET
+				available = EXCLUDED.available,
+				latency_ms = NULL,
+				checked_at = EXCLUDED.checked_at
 		`), accountID, model, true, false, now); err != nil {
-			if _, err2 := tx.Exec(tx.Rebind(`
-				UPDATE model_availability
-				SET available = ?, latency_ms = NULL, checked_at = ?
-				WHERE account_id = ? AND model_name = ?
-			`), true, now, accountID, model); err2 != nil {
-				return err
-			}
+			return err
 		}
 	}
 

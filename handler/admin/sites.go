@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -881,14 +882,9 @@ func sseWrite(w http.ResponseWriter, flusher http.Flusher, event string, data an
 }
 
 func sortStringsCI(strs []string) {
-	// Simple bubble sort for small cases; real impl would use sort.SliceStable
-	for i := 0; i < len(strs); i++ {
-		for j := i + 1; j < len(strs); j++ {
-			if strings.ToLower(strs[i]) > strings.ToLower(strs[j]) {
-				strs[i], strs[j] = strs[j], strs[i]
-			}
-		}
-	}
+	sort.Slice(strs, func(i, j int) bool {
+		return strings.ToLower(strs[i]) < strings.ToLower(strs[j])
+	})
 }
 
 func writeJSON(w http.ResponseWriter, statusCode int, data any) {
