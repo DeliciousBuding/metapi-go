@@ -53,6 +53,13 @@ func main() {
 	cfg := config.Load(env)
 	config.Set(cfg)
 
+	// Configure the slog threshold from LOG_LEVEL before validation so a
+	// raised threshold also quiets non-critical validation warnings. The
+	// default text handler to stderr is preserved; only the level changes.
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: config.SlogLevel(cfg.LogLevel),
+	})))
+
 	// ---- 1a. Validate config at startup ----
 	errs := cfg.Validate()
 	hasCritical := false

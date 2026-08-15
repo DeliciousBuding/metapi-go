@@ -171,7 +171,7 @@ func HandleResponsesWebsocket(w http.ResponseWriter, r *http.Request) {
 			ctx.Err() != nil {
 			return
 		}
-		slog.Info("responses websocket session ended",
+		slog.Debug("responses websocket session ended",
 			"err", err,
 			"path", path,
 		)

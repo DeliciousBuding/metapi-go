@@ -58,7 +58,7 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 			// Client disconnect / request cancel: still return any usage already
 			// extracted from earlier SSE events (best-effort partial). Do not
 			// invent tokens when upstream never emitted a usage event.
-			slog.Info("SSE downstream context ended",
+			slog.Debug("SSE downstream context ended",
 				"err", r.Context().Err(),
 				"latency_ms", latencyMs,
 				"streamed_bytes", streamedBytes,

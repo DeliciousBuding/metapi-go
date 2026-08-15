@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/service/alert"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 func setupAccountsTest(t *testing.T) (*store.DB, chi.Router, *config.Config) {
@@ -2538,5 +2538,67 @@ func TestAccounts_List_IncludesPerAccountTodayMetrics(t *testing.T) {
 	}
 	if got := coerceString(cleanRow["todaySpendStatus"]); got != "complete" {
 		t.Fatalf("clean todaySpendStatus = %q, want complete", got)
+	}
+}
+
+// TestAccounts_ErrorResponsesUseStandardShape verifies that migrated error
+// paths in accounts.go emit the unified {"error":...} shape (via
+// writeErrorWithRequest) instead of the legacy {"success":false,"message":...}
+// or {"message":...} bodies, and use non-2xx status codes.
+func TestAccounts_ErrorResponsesUseStandardShape(t *testing.T) {
+	db, r, _ := setupAccountsTest(t)
+	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+	res, err := db.Exec(
+		"INSERT INTO sites (name, url, platform, status, created_at, updated_at) VALUES (?, ?, 'no-such-platform', 'active', ?, ?)",
+		"UnsupportedPlatformSite", "https://example.com", now, now,
+	)
+	if err != nil {
+		t.Fatalf("insert unsupported platform site: %v", err)
+	}
+	siteID, _ := res.LastInsertId()
+
+	t.Run("verifyToken unsupported platform returns 400 standard error", func(t *testing.T) {
+		resp := doPostJSON(t, r, "/api/accounts/verify-token", map[string]any{
+			"siteId":      siteID,
+			"accessToken": "some-token",
+		})
+		assertStandardErrorShape(t, resp, http.StatusBadRequest, "unsupported platform: no-such-platform")
+	})
+
+	t.Run("loginAccount unsupported platform returns 400 standard error", func(t *testing.T) {
+		resp := doPostJSON(t, r, "/api/accounts/login", map[string]any{
+			"siteId":   siteID,
+			"username": "u",
+			"password": "p",
+		})
+		assertStandardErrorShape(t, resp, http.StatusBadRequest, "unsupported platform: no-such-platform")
+	})
+
+	t.Run("updateAccount nonexistent returns 404 standard error", func(t *testing.T) {
+		resp := doPutJSON(t, r, "/api/accounts/999999", map[string]any{"status": "active"})
+		assertStandardErrorShape(t, resp, http.StatusNotFound, "account not found")
+	})
+}
+
+// assertStandardErrorShape verifies a response uses the unified admin error
+// shape: non-2xx status, JSON body with an "error" key and no legacy
+// "success" or "message" keys (the markers of the pre-migration shapes).
+func assertStandardErrorShape(t *testing.T, resp *httptest.ResponseRecorder, wantStatus int, wantMessage string) {
+	t.Helper()
+	if resp.Code != wantStatus {
+		t.Fatalf("status = %d, want %d (body=%s)", resp.Code, wantStatus, resp.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal error body: %v (body=%s)", err, resp.Body.String())
+	}
+	if body["error"] != wantMessage {
+		t.Fatalf("error = %v, want %q (body=%s)", body["error"], wantMessage, resp.Body.String())
+	}
+	if _, ok := body["success"]; ok {
+		t.Fatalf("unexpected legacy \"success\" field in error body: %s", resp.Body.String())
+	}
+	if _, ok := body["message"]; ok {
+		t.Fatalf("unexpected legacy \"message\" field in error body: %s", resp.Body.String())
 	}
 }
