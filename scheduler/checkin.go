@@ -167,7 +167,7 @@ func (s *CheckinScheduler) maybeCatchUpCheckin() {
 	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
 	var ranToday int
-	if err := dbw.QueryRow(`SELECT COUNT(*) FROM checkin_logs WHERE created_at >= ?`, startOfDay.Format(time.RFC3339)).Scan(&ranToday); err != nil {
+	if err := dbw.QueryRow(dbw.Rebind(`SELECT COUNT(*) FROM checkin_logs WHERE created_at >= ?`), startOfDay.Format(time.RFC3339)).Scan(&ranToday); err != nil {
 		slog.Warn("checkin catch-up: ran-today query failed", "error", err)
 		return
 	}
