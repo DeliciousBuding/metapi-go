@@ -1,9 +1,23 @@
 # log.md — MetAPI Go product milestones
 
-**Last updated**: 2026-08-14
+**Last updated**: 2026-08-15
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
+
+## 2026-08-15 — 真实平台测试战役：测试床 + 6 个实测 bug 修复 + CI e2e
+
+- **测试平台（真实上游，compose 管理）**：临时 ARM 机跑 metapi + new-api v1 + one-api v0.6.10 + sub2api + cliproxyapi 7 容器；私有层（host-local git + `.env` chmod 600）与公开层（`testbed/compose.template.yml` sanitized 模板 + env 驱动脚本）隔离，主机 IP/凭据不进公开仓；设计/SOP → [`plan/test-platform.md`](plan/test-platform.md)
+- **实测修 6 个真 bug（全部真实平台端到端复测通过）**：
+  - #767 前端 10 路由严格 validateSearch 在旧 URL 参数下抛错 → error boundary「服务器错误」
+  - #768 new-api v1 登录响应无顶层 `success`（token 在 `data.access_token`）
+  - #769 one-api v0.6.10 与 new-api 的 `/api/status` 都带 `system_name`+`version`，旧判据失效 → 按 system_name 值区分
+  - #770 账号表单只有 session/apikey 模式，password 站点无法绑定 → 新增 password 模式接 login 流
+  - #773 one-api v0.6.10 凭证在 session cookie（`data.access_token` 空串）→ cookie 登录 + cookie-aware self/checkin/balance
+  - #776/#777 sub2api + cliproxyapi VerifyToken 静态分派（Go 内嵌无虚分发）→ 各自 override
+- **CI 工作流（GitHub Actions 免费持久化）**：#774 新增 `test-e2e` job（真实 new-api/one-api 服务容器跑 `scripts/e2e/smoke.sh` 双全链）+ `test-sqlite` 4 分片（`-race` 长杆 4m56s→~1m30s）+ golangci-lint/Playwright 缓存 + `go-toolchain` composite action；#775 补 `scripts/e2e/verify-token-import.sh`（token 导入链）
+- **实测链**：`smoke.sh`（password 登录链）+ `verify-token-import.sh`（token 导入链）四条链全绿：new-api 13 PASS、one-api 13 PASS、sub2api 11 PASS、cliproxyapi 11 PASS
+- **发布**：v0.13.0 tag 发布（CHANGELOG + web/package.json 同步）；#778 修 smoke.sh `set -u` unbound（`first_model`）
 
 ## 2026-08-14 — Leader/Worker 并行 fan-out：5 分支合入 + strict 模式关闭
 
