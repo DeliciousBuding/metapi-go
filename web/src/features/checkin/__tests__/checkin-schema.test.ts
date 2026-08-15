@@ -34,15 +34,34 @@ describe('checkinSearchSchema', () => {
   })
 
   it.each([
-    ['non-numeric page', { page: 'abc' }],
-    ['page below 1', { page: '0' }],
-    ['pageSize above 200', { pageSize: '201' }],
-    ['pageSize below 1', { pageSize: '0' }],
-    ['non-positive accountId', { accountId: '-3' }],
-    ['fractional accountId', { accountId: '1.5' }],
-  ])('rejects %s', (_label, input) => {
+    ['non-numeric page', { page: 'abc' }, { page: 1 }],
+    ['page below 1', { page: '0' }, { page: 1 }],
+    ['pageSize above 200', { pageSize: '201' }, { pageSize: 20 }],
+    ['pageSize below 1', { pageSize: '0' }, { pageSize: 20 }],
+    ['non-positive accountId', { accountId: '-3' }, { accountId: undefined }],
+    ['fractional accountId', { accountId: '1.5' }, { accountId: undefined }],
+  ])('falls back instead of throwing for %s', (_label, input, fallback) => {
     const result = checkinSearchSchema.safeParse(input)
-    expect(result.success).toBe(false)
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.data).toMatchObject(fallback)
+  })
+
+  it('tolerates router-parsed primitives without throwing', () => {
+    const result = checkinSearchSchema.parse({
+      page: 0,
+      pageSize: 'bogus',
+      accountId: 'bogus',
+      q: 123,
+      from: 2026,
+      to: false,
+    })
+    expect(result.page).toBe(1)
+    expect(result.pageSize).toBe(20)
+    expect(result.accountId).toBeUndefined()
+    expect(result.q).toBe(123)
+    expect(result.from).toBe(2026)
+    expect(result.to).toBe(false)
   })
 
   it('preserves free-form filter / datetime-local strings', () => {

@@ -73,12 +73,13 @@ const columnFilterItemSchema = z.object({
 
 export const oauthSearchSchema = z.object({
   q: stringSearchParam,
-  page: z.coerce.number().int().min(0).optional(),
-  pageSize: z.coerce.number().int().min(1).max(200).optional(),
+  page: z.coerce.number().int().min(0).catch(0).default(0),
+  pageSize: z.coerce.number().int().min(1).max(200).catch(20).default(20),
   sort: z
     .union([z.string(), z.array(sortingItemSchema)])
     .optional()
-    .transform((value) => encodeSortingParam(value)),
+    .transform((value) => encodeSortingParam(value))
+    .catch(undefined),
   status: stringSearchParam,
 })
 

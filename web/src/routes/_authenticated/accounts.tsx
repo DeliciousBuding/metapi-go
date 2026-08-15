@@ -19,13 +19,19 @@ import { z } from 'zod'
 import { accountQueryKeys } from '@/features/accounts'
 import { AccountsPage } from '@/features/accounts/components/accounts-page'
 import { api } from '@/lib/api'
+import { stringSearchParam } from '@/lib/helpers/searchParams'
 
-const accountsSearchSchema = z.object({
-  page: z.coerce.number().int().positive().optional(),
-  pageSize: z.coerce.number().int().min(1).max(200).optional(),
-  q: z.string().optional(),
-  status: z.string().optional(),
-  site: z.string().optional(),
+// Tolerant URL search contract: TanStack Router JSON-parses search values, so
+// `?q=123` arrives as a number and `?status=true` as a boolean. The string
+// fields accept all three primitives (normalized to string by the page via
+// `asStringParam`), and the numerics fall back to sane defaults instead of
+// throwing a route error on stale bookmarks / legacy URLs.
+export const accountsSearchSchema = z.object({
+  page: z.coerce.number().int().positive().catch(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(200).catch(20).default(20),
+  q: stringSearchParam,
+  status: stringSearchParam,
+  site: stringSearchParam,
 })
 
 export const Route = createFileRoute('/_authenticated/accounts')({

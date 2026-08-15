@@ -11,6 +11,8 @@
 
 import { z } from 'zod'
 
+import { asStringParam, stringSearchParam } from '@/lib/helpers/searchParams'
+
 import type { CheckinLogsQuery } from '../types'
 import { localDatetimeInputToUtcRfc3339 } from './checkin-time'
 
@@ -21,18 +23,26 @@ export const DEFAULT_CHECKIN_PAGE_SIZE = 20
 // ---------------------------------------------------------------------------
 
 export const checkinSearchSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(200).default(20),
-  accountId: z.coerce.number().int().positive().optional(),
+  page: z.coerce.number().int().min(1).catch(1).default(1),
+  pageSize: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(200)
+    .catch(DEFAULT_CHECKIN_PAGE_SIZE)
+    .default(DEFAULT_CHECKIN_PAGE_SIZE),
+  accountId: z.coerce.number().int().positive().optional().catch(undefined),
   // Comma-separated multi-select filter values (status / reason category /
   // site name).
   status: z.string().optional(),
   reason: z.string().optional(),
   site: z.string().optional(),
-  // datetime-local input values (YYYY-MM-DDTHH:mm, local tz).
-  from: z.string().optional(),
-  to: z.string().optional(),
-  q: z.string().optional(),
+  // datetime-local input values (YYYY-MM-DDTHH:mm, local tz). Router JSON
+  // parsing may hand over numeric/boolean primitives for these too, so they
+  // use the tolerant string param (normalized via `asStringParam`).
+  from: stringSearchParam,
+  to: stringSearchParam,
+  q: stringSearchParam,
 })
 export type CheckinSearch = z.infer<typeof checkinSearchSchema>
 
@@ -89,8 +99,8 @@ export function buildInitialCheckinLogsQuery(
     status: statusValues[0],
     reason: reasonValues,
     site: siteValues,
-    from: localDatetimeInputToUtcRfc3339(search.from, false),
-    to: localDatetimeInputToUtcRfc3339(search.to, true),
-    search: search.q || undefined,
+    from: localDatetimeInputToUtcRfc3339(asStringParam(search.from), false),
+    to: localDatetimeInputToUtcRfc3339(asStringParam(search.to), true),
+    search: asStringParam(search.q) || undefined,
   }
 }

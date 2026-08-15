@@ -5,6 +5,8 @@
 
 import { z } from 'zod'
 
+import { stringSearchParam } from '@/lib/helpers/searchParams'
+
 import type { RouteFormPayload, RouteMode, RouteSummaryRow } from '../types'
 import {
   getModelPatternError,
@@ -182,15 +184,19 @@ export function transformRouteToFormValues(
 // URL state schema
 // ---------------------------------------------------------------------------
 
+// Tolerant URL search contract: the router JSON-parses search values, so
+// `?q=123` arrives as a number and `?enabled=true` as a boolean. Strings use
+// `stringSearchParam` (normalized via `asStringParam` by the page) and the
+// numerics fall back to sane defaults instead of throwing a route error.
 export const routesSearchSchema = z.object({
-  q: z.string().optional(),
+  q: stringSearchParam,
   // The page encodes the enabled filter as a comma-separated string
   // (`enabled,disabled`), so the schema accepts a raw string and the page
   // splits it — a single enum would reject the page's own writes.
-  enabled: z.string().optional(),
+  enabled: stringSearchParam,
   site: z.string().optional(),
-  accountId: z.coerce.number().int().positive().optional(),
-  siteId: z.coerce.number().int().positive().optional(),
-  page: z.coerce.number().int().positive().optional(),
-  pageSize: z.coerce.number().int().positive().optional(),
+  accountId: z.coerce.number().int().positive().optional().catch(undefined),
+  siteId: z.coerce.number().int().positive().optional().catch(undefined),
+  page: z.coerce.number().int().positive().catch(1).default(1),
+  pageSize: z.coerce.number().int().positive().catch(20).default(20),
 })

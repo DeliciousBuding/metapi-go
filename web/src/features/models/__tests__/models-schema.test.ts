@@ -70,11 +70,29 @@ describe('modelsSearchSchema — numerics', () => {
   })
 
   it.each([
-    ['pageSize below 1', { pageSize: '0' }],
-    ['pageSize above 200', { pageSize: '201' }],
-    ['non-numeric page', { page: 'abc' }],
-  ])('rejects %s', (_label, input) => {
-    expect(modelsSearchSchema.safeParse(input).success).toBe(false)
+    ['pageSize below 1', { pageSize: '0' }, { pageSize: 20 }],
+    ['pageSize above 200', { pageSize: '201' }, { pageSize: 20 }],
+    ['non-numeric page', { page: 'abc' }, { page: 0 }],
+  ])('falls back instead of throwing for %s', (_label, input, fallback) => {
+    const result = modelsSearchSchema.safeParse(input)
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.data).toMatchObject(fallback)
+  })
+
+  it('tolerates router-parsed primitives without throwing', () => {
+    const result = modelsSearchSchema.parse({
+      q: 123,
+      page: 0,
+      sort: true,
+      brand: 42,
+      capability: [{ bad: true }],
+    })
+    expect(result.q).toBe(123)
+    expect(result.page).toBe(0)
+    expect(result.sort).toBeUndefined()
+    expect(result.brand).toBeUndefined()
+    expect(result.capability).toBeUndefined()
   })
 })
 

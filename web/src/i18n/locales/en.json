@@ -32,7 +32,10 @@
       "renderDescription": "An unexpected rendering error occurred.",
       "retry": "Retry",
       "reload": "Reload page",
-      "showDetail": "Show error details"
+      "showDetail": "Show error details",
+      "searchParamTitle": "The link parameters are no longer valid",
+      "searchParamDescription": "This link contains outdated or malformed parameters. Reset it to open the page with default settings.",
+      "searchParamReset": "Reset URL"
     },
     "common": {
       "skipToMain": "Skip to main content",

@@ -25,6 +25,7 @@ import {
 } from '@/features/proxy-logs'
 import { ProxyLogsPage } from '@/features/proxy-logs/components/proxy-logs-page'
 import { api } from '@/lib/api'
+import { asStringParam } from '@/lib/helpers/searchParams'
 
 const DEFAULT_PROXY_LOGS_PAGE_SIZE = 20
 
@@ -54,7 +55,7 @@ export const Route = createFileRoute('/_authenticated/proxy-logs')({
     const pageIndex = search.page ?? 0
     const pageSize = search.pageSize ?? DEFAULT_PROXY_LOGS_PAGE_SIZE
     const status = search.status === 'all' ? undefined : search.status
-    const searchText = search.q?.trim() || undefined
+    const searchText = asStringParam(search.q)?.trim() || undefined
     const siteId = search.siteId ?? undefined
     const client = search.client || undefined
     const from = search.from || undefined

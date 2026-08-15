@@ -8,5 +8,8 @@
 import { z } from 'zod'
 
 export const observabilitySearchSchema = z.object({
-  section: z.enum(['overview', 'health', 'proxy-logs']).optional(),
+  section: z
+    .enum(['overview', 'health', 'proxy-logs'])
+    .catch('overview')
+    .default('overview'),
 })
