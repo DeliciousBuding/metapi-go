@@ -39,7 +39,6 @@ type BackgroundTaskLogEntry struct {
 // runtime DB is available so multi-instance deployments can list/get tasks across
 // processes. Memory cache is the primary fast path; DB is the cold cross-process
 // fallback. Cleanup removes expired rows from both memory and DB.
-//
 type BackgroundTask struct {
 	ID         string                   `json:"id"`
 	Type       string                   `json:"type"`
@@ -236,6 +235,74 @@ func runBackgroundTask(taskID, title, dedupeKey string, runner func() (any, erro
 
 	// DB update best-effort
 	updateBackgroundTaskDBStatus(taskID, string(status), nil, &finished, errPtr, result)
+}
+
+// AppendBackgroundTaskLog appends a progress log entry to a pending/running
+// background task's in-memory Logs slice (capped at backgroundTaskLogLimit)
+// and updates its human-readable Message so /api/tasks/{id} polling surfaces
+// meaningful progress while the runner is still executing. It is a no-op for
+// unknown or already-terminal task IDs so callers can call it unconditionally
+// from inside a runner without tracking liveness themselves.
+//
+// Logs are memory-only (admin_background_tasks has no logs column); the
+// durable row's message column is updated best-effort so a cross-process
+// /api/tasks/{id} GET still shows the latest progress line.
+func AppendBackgroundTaskLog(taskID, message string) {
+	if taskID == "" {
+		return
+	}
+	trimmed := strings.TrimSpace(message)
+	if trimmed == "" {
+		return
+	}
+	now := time.Now().UTC()
+	nowISO := now.Format(time.RFC3339Nano)
+
+	backgroundTasksMu.Lock()
+	task, ok := backgroundTasks[taskID]
+	if !ok {
+		backgroundTasksMu.Unlock()
+		return
+	}
+	// Only append while the task is still active; terminal tasks are frozen.
+	if task.Status != BackgroundTaskPending && task.Status != BackgroundTaskRunning {
+		backgroundTasksMu.Unlock()
+		return
+	}
+	seq := len(task.Logs) + 1
+	task.Logs = append(task.Logs, BackgroundTaskLogEntry{
+		Seq:       seq,
+		Message:   trimmed,
+		CreatedAt: nowISO,
+	})
+	if len(task.Logs) > backgroundTaskLogLimit {
+		task.Logs = task.Logs[len(task.Logs)-backgroundTaskLogLimit:]
+	}
+	task.Message = trimmed
+	task.UpdatedAt = nowISO
+	backgroundTasksMu.Unlock()
+
+	// Best-effort durable message update (no logs column; message only).
+	updateBackgroundTaskDBMessage(taskID, trimmed)
+}
+
+// updateBackgroundTaskDBMessage refreshes only the message/updated_at columns
+// of a durable admin_background_tasks row, leaving status/error/started_at/
+// finished_at untouched. Used by AppendBackgroundTaskLog so progress lines
+// survive a process-local miss (cold cross-process /api/tasks/{id} GET).
+func updateBackgroundTaskDBMessage(taskID, message string) {
+	bgTasksMu.Lock()
+	db := bgTasksDB
+	bgTasksMu.Unlock()
+	if db == nil {
+		return
+	}
+	nowISO := time.Now().UTC().Format(time.RFC3339)
+	_, err := db.Exec(`UPDATE admin_background_tasks SET message=?, updated_at=? WHERE task_id=?`,
+		message, nowISO, taskID)
+	if err != nil {
+		slog.Debug("admin tasks: durable message update failed", "task_id", taskID, "error", err)
+	}
 }
 
 func getBackgroundTask(db *sqlx.DB, id string) *BackgroundTask {

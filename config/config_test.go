@@ -149,6 +149,22 @@ func TestLoadUTLSDefaultsOff(t *testing.T) {
 	}
 }
 
+func TestLoadUpdateCenterDefaultsOff(t *testing.T) {
+	cfg := Load(map[string]string{})
+	if cfg.UpdateCenterEnabled {
+		t.Fatal("UpdateCenterEnabled = true, want false default")
+	}
+}
+
+func TestLoadParsesUpdateCenterEnabled(t *testing.T) {
+	cfg := Load(map[string]string{
+		"METAPI_ENABLE_UPDATE_CENTER": "true",
+	})
+	if !cfg.UpdateCenterEnabled {
+		t.Fatal("UpdateCenterEnabled = false, want true")
+	}
+}
+
 func TestLoadPrefersDBURLOverDatabaseURLAlias(t *testing.T) {
 	cfg := Load(map[string]string{
 		"DB_URL":       "sqlite://local.db",

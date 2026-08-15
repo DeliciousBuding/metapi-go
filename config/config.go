@@ -190,6 +190,14 @@ type Config struct {
 	// traffic. Per-site use_utls overrides this flag (see service.UTLSEnabled).
 	UTLSEnabled bool
 
+	// UpdateCenterEnabled gates the residual update-center scheduler
+	// (scheduler.UpdateCenterScheduler). The scheduler is a log-only no-op
+	// today (no remote registry / version discovery), so it is disabled by
+	// default to avoid a 15-min lease heartbeat with no product value.
+	// METAPI_ENABLE_UPDATE_CENTER=true re-enables it for operators who want
+	// the periodic log line while a real helper/registry client is wired.
+	UpdateCenterEnabled bool
+
 	// NotifyTaskToggles gates per-alert-type notifications.
 	// Keys are alert task slugs ("token_expired", "low_balance", "proxy_all_failed").
 	// Default nil = all enabled (backward-compatible). When a key is present and
@@ -205,19 +213,19 @@ type Config struct {
 	TrustedProxyCidrs       []string
 
 	// Proxy: Core (5 fields)
-	RequestBodyLimit        int
+	RequestBodyLimit int
 	// FileUploadLimitBytes is the higher body limit applied to multipart upload
 	// routes (/v1/files, /v1/images/*) so large uploads are not rejected by the
 	// general RequestBodyLimit. Parsed from FILE_UPLOAD_LIMIT_MB.
-	FileUploadLimitBytes     int
+	FileUploadLimitBytes int
 	// ProxyRateLimitRPM is the per-IP request-per-minute cap for /v1 proxy
 	// routes. Parsed from PROXY_RATE_LIMIT_RPM (default 60; 0 = disabled).
-	ProxyRateLimitRPM        int
+	ProxyRateLimitRPM int
 	// ProxyGlobalTokenRPM caps the global PROXY_TOKEN across all IPs. Parsed
 	// from PROXY_GLOBAL_TOKEN_RPM (default 0 = unlimited). Safety net: even if
 	// the token leaks, upstream spend is bounded.
-	ProxyGlobalTokenRPM      int
-	RoutingFallbackUnitCost  float64
+	ProxyGlobalTokenRPM     int
+	RoutingFallbackUnitCost float64
 	// CacheRatioDefault / CacheRatioClaude override the prompt-cache ratio
 	// fallbacks used when an upstream pricing row omits cache_ratio. 0/missing =
 	// use the code defaults (DefaultCacheRatio=1.0, ClaudeCacheRatio=0.1).
@@ -302,9 +310,9 @@ type Config struct {
 	// Set false for tests/e2e that need write-through visibility. BATCH_SIZE
 	// (default 50) is the row count that triggers a flush; FLUSH_INTERVAL_MS
 	// (default 1000) is the max time between flushes.
-	ProxyLogAsync            bool
-	ProxyLogBatchSize        int
-	ProxyLogFlushIntervalMs  int
+	ProxyLogAsync           bool
+	ProxyLogBatchSize       int
+	ProxyLogFlushIntervalMs int
 
 	// Routing Weights (5 fields)
 	RoutingWeights RoutingWeights
@@ -604,6 +612,9 @@ func Load(env map[string]string) *Config {
 
 	// ---- §3.11c uTLS TLS fingerprint masking ----
 	cfg.UTLSEnabled = parseBoolean(get("UTLS_ENABLED"), false)
+
+	// ---- §3.11d Update Center scheduler gate ----
+	cfg.UpdateCenterEnabled = parseBoolean(get("METAPI_ENABLE_UPDATE_CENTER"), false)
 
 	// ---- §3.12 Notify: Feishu / DingTalk / WeCom / Ntfy ----
 	cfg.FeishuEnabled = parseBoolean(get("FEISHU_ENABLED"), false)
