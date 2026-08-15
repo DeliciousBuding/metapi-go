@@ -1,10 +1,9 @@
 // metapi-go/features/dashboard/components — overview metric stat card.
 //
-// Demonstrates the recharts / shadcn chart dual-track: simple sparklines use
-// the shadcn ChartContainer (DOM-rendered recharts, which CAN consume CSS
-// var() via ChartStyle's --color-${key} injection), while complex charts use
-// VChart (canvas, needs useChartColors). This card renders a metric value +
-// an optional tiny area sparkline so the overview reads at a glance.
+// Renders a metric value + an optional tiny area sparkline. The sparkline
+// uses the shadcn ChartContainer (DOM-rendered recharts), which consumes CSS
+// var() theme tokens via ChartStyle's --color-${key} injection — the same
+// pattern the dashboard section charts (components/charts.tsx) now use.
 //
 // 2026-08 upgrade (audit ui-ux-2026-08): optional lucide icon rendered in an
 // IconBadge, an optional tone (default/success/warning) that maps the icon

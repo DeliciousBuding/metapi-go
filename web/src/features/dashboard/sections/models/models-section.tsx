@@ -1,7 +1,7 @@
 // metapi-go/features/dashboard/sections/models — models section.
 //
 // Plan §5.5.1 models: ModelAnalysisPanel（模型可用性/延迟）+ 砍重复的
-// Cost/Latency 卡片并入. Phase 3 wires three VChart charts:
+// Cost/Latency 卡片并入. Phase 3 wires three recharts-based charts:
 //   - ModelCost donut        ← api.getModelCostDistribution(days, topN)
 //   - Latency histogram bars ← api.getLatencyHistogram(days, bucketMs)
 //   - Latency trend lines    ← api.getLatencyTrend(days)
@@ -9,25 +9,18 @@
 // as separate sections).
 
 import { useQuery } from '@tanstack/react-query'
-import { VChart } from '@visactor/react-vchart'
 import { Inbox, TriangleAlert } from 'lucide-react'
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { useTheme } from '@/context/theme-provider'
 import { api } from '@/lib/api'
 
+import {
+  LatencyHistogramChart,
+  LatencyTrendChart,
+  ModelCostChart,
+} from '../../components/charts'
 import { ChartShell } from '../../components/chart-shell'
-import {
-  useChartColors,
-  useThemeLabelColor,
-} from '../../hooks/use-chart-colors'
-import {
-  VCHART_OPTION,
-  buildLatencyHistogramSpec,
-  buildLatencyTrendSpec,
-  buildModelCostSpec,
-} from '../../lib/chart-specs'
 import type { ModelCostRow } from '../../types'
 
 function ChartError({ message }: { message: string }) {
@@ -50,9 +43,6 @@ function ChartEmpty({ message }: { message: string }) {
 
 export function ModelsSection() {
   const { t } = useTranslation()
-  const colors = useChartColors()
-  const labelColor = useThemeLabelColor()
-  const { resolvedTheme } = useTheme()
 
   const costQuery = useQuery({
     queryKey: ['dashboard-model-cost-distribution', 30, 8],
@@ -119,42 +109,22 @@ export function ModelsSection() {
     }),
     [t]
   )
-  const costSpec = useMemo(
-    () => buildModelCostSpec(colors, labelColor, costData, costTooltipLabels),
-    [colors, labelColor, costData, costTooltipLabels]
-  )
-  const histogramSpec = useMemo(
-    () => buildLatencyHistogramSpec(colors, histogramData),
-    [colors, histogramData]
-  )
-  const trendSpec = useMemo(
-    () => buildLatencyTrendSpec(colors, trendData),
-    [colors, trendData]
-  )
 
-  const renderChart = (
-    spec: Record<string, unknown>,
-    suffix: string,
+  const renderChartBody = (
     isLoading: boolean,
     isError: boolean,
-    dataLength: number,
-    emptyKey: string
-  ) => {
+    isEmpty: boolean,
+    emptyKey: string,
+    chart: ReactNode
+  ): ReactNode => {
     if (isLoading) return null
     if (isError) {
       return <ChartError message={t('dashboard.models.loadError')} />
     }
-    if (dataLength === 0) {
+    if (isEmpty) {
       return <ChartEmpty message={t(emptyKey)} />
     }
-    return (
-      <VChart
-        key={`models-${suffix}-${resolvedTheme}`}
-        spec={spec as never}
-        option={VCHART_OPTION}
-        style={{ width: '100%', height: '100%' }}
-      />
-    )
+    return chart
   }
 
   return (
@@ -165,13 +135,12 @@ export function ModelsSection() {
         height={320}
         loading={costQuery.isLoading}
       >
-        {renderChart(
-          costSpec,
-          'cost',
+        {renderChartBody(
           costQuery.isLoading,
           costQuery.isError,
-          costData.length,
-          'dashboard.models.costDistribution.empty'
+          costData.length === 0,
+          'dashboard.models.costDistribution.empty',
+          <ModelCostChart data={costData} labels={costTooltipLabels} />
         )}
       </ChartShell>
 
@@ -181,13 +150,12 @@ export function ModelsSection() {
         height={320}
         loading={histogramQuery.isLoading}
       >
-        {renderChart(
-          histogramSpec,
-          'histogram',
+        {renderChartBody(
           histogramQuery.isLoading,
           histogramQuery.isError,
-          histogramData.length,
-          'dashboard.models.latencyHistogram.empty'
+          histogramData.length === 0,
+          'dashboard.models.latencyHistogram.empty',
+          <LatencyHistogramChart data={histogramData} />
         )}
       </ChartShell>
 
@@ -198,13 +166,18 @@ export function ModelsSection() {
         className='lg:col-span-2'
         loading={trendQuery.isLoading}
       >
-        {renderChart(
-          trendSpec,
-          'trend',
+        {renderChartBody(
           trendQuery.isLoading,
           trendQuery.isError,
-          trendData.length,
-          'dashboard.models.latencyTrend.empty'
+          trendData.length === 0,
+          'dashboard.models.latencyTrend.empty',
+          (
+            <LatencyTrendChart
+              data={trendData}
+              avgLabel={metricAvg}
+              p95Label={metricP95}
+            />
+          )
         )}
       </ChartShell>
     </div>
