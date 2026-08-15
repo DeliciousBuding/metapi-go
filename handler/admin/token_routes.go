@@ -89,7 +89,11 @@ type tokenRoutesHandler struct {
 // ---- List Lite ----
 // GET /api/routes/lite
 func (h *tokenRoutesHandler) listLite(w http.ResponseWriter, r *http.Request) {
-	rows := queryRows(h.db, "SELECT id, model_pattern, display_name, display_icon, route_mode, routing_strategy, enabled, context_length FROM token_routes ORDER BY sort_order ASC, id ASC")
+	rows, err := queryRowsErr(h.db, "SELECT id, model_pattern, display_name, display_icon, route_mode, routing_strategy, enabled, context_length FROM token_routes ORDER BY sort_order ASC, id ASC")
+	if err != nil {
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to load routes")
+		return
+	}
 	type srcRow struct {
 		GroupRouteID  int64 `db:"group_route_id"`
 		SourceRouteID int64 `db:"source_route_id"`
@@ -114,7 +118,11 @@ func (h *tokenRoutesHandler) listLite(w http.ResponseWriter, r *http.Request) {
 // ---- List Summary ----
 // GET /api/routes/summary
 func (h *tokenRoutesHandler) listSummary(w http.ResponseWriter, r *http.Request) {
-	rows := queryRows(h.db, "SELECT * FROM token_routes ORDER BY sort_order ASC, id ASC")
+	rows, err := queryRowsErr(h.db, "SELECT * FROM token_routes ORDER BY sort_order ASC, id ASC")
+	if err != nil {
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to load routes")
+		return
+	}
 
 	// Batch-load per-route channel counts in a single GROUP BY query instead of
 	// firing two COUNT queries per route (the previous N+1 shape). A route with
@@ -187,23 +195,36 @@ func (h *tokenRoutesHandler) listRoutes(w http.ResponseWriter, r *http.Request) 
 
 	var rows []map[string]any
 	var total int64
+	var queryErr error
 	page, pageSize := 1, 50
 	if paginate {
 		page = clampInt(getQueryInt(r, "page", 1), 1, 1_000_000)
 		pageSize = clampInt(getQueryInt(r, "pageSize", 50), 1, 200)
 		offset := (page - 1) * pageSize
-		rows = queryRows(h.db, h.db.Rebind(
-			"SELECT * FROM token_routes ORDER BY sort_order ASC, id ASC LIMIT ? OFFSET ?"),
+		rows, queryErr = queryRowsErr(h.db,
+			"SELECT * FROM token_routes ORDER BY sort_order ASC, id ASC LIMIT ? OFFSET ?",
 			pageSize, offset)
+		if queryErr != nil {
+			writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to load routes")
+			return
+		}
 		// Separate COUNT keeps the row maps free of a window-function column
 		// (queryRows MapScans into map[string]any and would echo total_count
 		// into every route item otherwise).
 		_ = h.db.Get(&total, h.db.Rebind("SELECT COUNT(*) FROM token_routes"))
 	} else {
-		rows = queryRows(h.db, "SELECT * FROM token_routes ORDER BY sort_order ASC, id ASC")
+		rows, queryErr = queryRowsErr(h.db, "SELECT * FROM token_routes ORDER BY sort_order ASC, id ASC")
+		if queryErr != nil {
+			writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to load routes")
+			return
+		}
 	}
 
-	result := h.enrichRoutesWithChannels(rows, paginate)
+	result, err := h.enrichRoutesWithChannels(rows, paginate)
+	if err != nil {
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to load route channels")
+		return
+	}
 
 	if paginate {
 		writeJSON(w, http.StatusOK, map[string]any{
@@ -223,7 +244,7 @@ func (h *tokenRoutesHandler) listRoutes(w http.ResponseWriter, r *http.Request) 
 // current page so a 50-row page does not pull the entire fleet's channels;
 // when false (legacy unpaginated call) it loads every channel, matching the
 // pre-pagination behavior exactly.
-func (h *tokenRoutesHandler) enrichRoutesWithChannels(rows []map[string]any, scopeToPage bool) []map[string]any {
+func (h *tokenRoutesHandler) enrichRoutesWithChannels(rows []map[string]any, scopeToPage bool) ([]map[string]any, error) {
 	// Select only credential fragments (first4/last4/length) instead of the
 	// plaintext access_token/api_token — the full secret never crosses the
 	// DB→Go boundary, so a stray slog/metrics call cannot leak it. The masked
@@ -243,6 +264,7 @@ func (h *tokenRoutesHandler) enrichRoutesWithChannels(rows []map[string]any, sco
 	// behavior (an IN list of every route ID could also exceed SQLite's
 	// bind-parameter ceiling on very large fleets).
 	var allChannelRows []map[string]any
+	var channelErr error
 	if scopeToPage {
 		routeIDs := make([]int64, 0, len(rows))
 		for _, route := range rows {
@@ -259,14 +281,17 @@ func (h *tokenRoutesHandler) enrichRoutesWithChannels(rows []map[string]any, sco
 			}
 			channelQuery += " WHERE rc.route_id IN (" + strings.Join(placeholders, ",") + ")"
 			channelQuery += " ORDER BY rc.route_id ASC, rc.priority ASC, rc.id ASC"
-			allChannelRows = queryRows(h.db, channelQuery, args...)
+			allChannelRows, channelErr = queryRowsErr(h.db, channelQuery, args...)
 		} else {
 			channelQuery += " ORDER BY rc.route_id ASC, rc.priority ASC, rc.id ASC"
-			allChannelRows = queryRows(h.db, channelQuery)
+			allChannelRows, channelErr = queryRowsErr(h.db, channelQuery)
 		}
 	} else {
 		channelQuery += " ORDER BY rc.route_id ASC, rc.priority ASC, rc.id ASC"
-		allChannelRows = queryRows(h.db, channelQuery)
+		allChannelRows, channelErr = queryRowsErr(h.db, channelQuery)
+	}
+	if channelErr != nil {
+		return nil, channelErr
 	}
 
 	channelsByRoute := make(map[int64][]map[string]any)
@@ -317,7 +342,7 @@ func (h *tokenRoutesHandler) enrichRoutesWithChannels(rows []map[string]any, sco
 		}
 		result = append(result, item)
 	}
-	return result
+	return result, nil
 }
 
 // ---- Create Route ----

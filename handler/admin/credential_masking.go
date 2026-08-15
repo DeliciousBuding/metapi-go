@@ -13,7 +13,7 @@ import (
 // hardens against logging/metrics side-channels: a credential that is never
 // scanned into Go memory cannot be leaked by a stray slog or metrics call.
 //
-// Aliases are emitted in snake_case so queryRows()' camelCase key mapping
+// Aliases are emitted in snake_case so queryRowsErr()' camelCase key mapping
 // yields {aliasBase}Prefix / {aliasBase}Suffix / {aliasBase}Len in the row.
 //
 // SQLite (modernc.org/sqlite) has no LEFT()/RIGHT() built-ins — confirmed by

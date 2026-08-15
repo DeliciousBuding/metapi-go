@@ -140,11 +140,6 @@ func coalescePtr[T any](v *T, fallback T) T {
 
 // ---- DB row helpers (moved from search.go) ----
 
-func queryRows(db *sqlx.DB, query string, args ...any) []map[string]any {
-	result, _ := queryRowsErr(db, query, args...)
-	return result
-}
-
 func queryRowsErr(db *sqlx.DB, query string, args ...any) ([]map[string]any, error) {
 	rows, err := db.Queryx(rebindAdminQuery(db, query), args...)
 	if err != nil {

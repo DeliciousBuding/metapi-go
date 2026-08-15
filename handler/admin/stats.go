@@ -541,7 +541,11 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 		qArgs := make([]any, len(args))
 		copy(qArgs, args)
 		qArgs = append(qArgs, limit, offset)
-		items := queryRows(h.db, query, qArgs...)
+		items, err := queryRowsErr(h.db, query, qArgs...)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to load proxy logs")
+			return
+		}
 		queryPayload["items"] = normalizeSlice(items)
 
 		var total int
@@ -580,7 +584,11 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 			"totalTokensAll": summary.TotalTokensAll,
 		}
 
-		sites := queryRows(h.db, "SELECT id, name, status FROM sites")
+		sites, err := queryRowsErr(h.db, "SELECT id, name, status FROM sites")
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to load sites")
+			return
+		}
 		metaPayload["sites"] = normalizeSlice(sites)
 	}
 
@@ -634,7 +642,11 @@ func (h *statsHandler) proxyLogDetail(w http.ResponseWriter, r *http.Request) {
 func (h *statsHandler) debugTraces(w http.ResponseWriter, r *http.Request) {
 	limit, _ := parseLimitOffset(r, 50, 100)
 
-	rows := queryRows(h.db, "SELECT * FROM proxy_debug_traces ORDER BY created_at DESC LIMIT ?", limit)
+	rows, err := queryRowsErr(h.db, "SELECT * FROM proxy_debug_traces ORDER BY created_at DESC LIMIT ?", limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load debug traces")
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": normalizeSlice(rows)})
 }
 
@@ -653,7 +665,11 @@ func (h *statsHandler) debugTraceDetail(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Load related attempts
-	attempts := queryRows(h.db, "SELECT * FROM proxy_debug_attempts WHERE trace_id = ? ORDER BY attempt_index ASC", id)
+	attempts, err := queryRowsErr(h.db, "SELECT * FROM proxy_debug_attempts WHERE trace_id = ? ORDER BY attempt_index ASC", id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load debug trace attempts")
+		return
+	}
 	row["attempts"] = normalizeSlice(attempts)
 
 	writeJSON(w, http.StatusOK, row)
@@ -666,7 +682,7 @@ func (h *statsHandler) siteDistribution(w http.ResponseWriter, r *http.Request) 
 	fromDay := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format("2006-01-02")
 
 	// Prefer projected site_day_usage spend; include live account balances.
-	rows := queryRows(h.db, `
+	rows, err := queryRowsErr(h.db, `
 		SELECT
 			s.id AS site_id,
 			s.name AS site_name,
@@ -688,6 +704,10 @@ func (h *statsHandler) siteDistribution(w http.ResponseWriter, r *http.Request) 
 		) usage ON usage.site_id = s.id
 		ORDER BY total_spend DESC, s.name ASC
 	`, fromDay)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load site distribution")
+		return
+	}
 
 	distribution := make([]map[string]any, 0, len(rows))
 	for _, row := range rows {
@@ -709,7 +729,7 @@ func (h *statsHandler) siteTrend(w http.ResponseWriter, r *http.Request) {
 	days := clampInt(getQueryInt(r, "days", 7), 1, 365)
 	fromDay := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format("2006-01-02")
 
-	rows := queryRows(h.db, `
+	rows, err := queryRowsErr(h.db, `
 		SELECT
 			u.local_day AS local_day,
 			s.name AS site_name,
@@ -721,6 +741,10 @@ func (h *statsHandler) siteTrend(w http.ResponseWriter, r *http.Request) {
 		GROUP BY u.local_day, s.name
 		ORDER BY u.local_day ASC, s.name ASC
 	`, fromDay)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load site trend")
+		return
+	}
 
 	// Shape: [{ date, sites: { [siteName]: { spend, calls } } }]
 	byDate := make(map[string]map[string]map[string]any)
@@ -773,7 +797,11 @@ func (h *statsHandler) modelBySite(w http.ResponseWriter, r *http.Request) {
 	}
 	query += " GROUP BY model ORDER BY calls DESC"
 
-	rows := queryRows(h.db, query, args...)
+	rows, err := queryRowsErr(h.db, query, args...)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load model-by-site")
+		return
+	}
 	models := make([]map[string]any, 0, len(rows))
 	for _, row := range rows {
 		models = append(models, map[string]any{
@@ -800,7 +828,11 @@ func (h *statsHandler) marketplace(w http.ResponseWriter, r *http.Request) {
 	refreshRequested := parseTruthyQuery(r.URL.Query().Get("refresh"))
 	includePricing := parseTruthyQuery(r.URL.Query().Get("includePricing"))
 
-	models := h.buildMarketplaceModels()
+	models, err := h.buildMarketplaceModels()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to build marketplace models")
+		return
+	}
 	meta := map[string]any{
 		"refreshRequested": refreshRequested,
 		// No background pricing/catalog job in this surface — DB-derived only.
@@ -836,10 +868,26 @@ func (h *statsHandler) marketplace(w http.ResponseWriter, r *http.Request) {
 // - endpointTypesByModel: inferred endpoint types from site platforms
 func (h *statsHandler) tokenCandidates(w http.ResponseWriter, r *http.Request) {
 	allowed := h.loadGlobalAllowedModels()
-	models := h.buildTokenCandidateModels(allowed)
-	withoutToken := h.buildModelsWithoutToken(allowed)
-	missingGroups := h.buildModelsMissingTokenGroups(allowed)
-	endpointTypes := h.buildEndpointTypesByModel(allowed)
+	models, err := h.buildTokenCandidateModels(allowed)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load token candidates")
+		return
+	}
+	withoutToken, err := h.buildModelsWithoutToken(allowed)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load models without token")
+		return
+	}
+	missingGroups, err := h.buildModelsMissingTokenGroups(allowed)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load missing token groups")
+		return
+	}
+	endpointTypes, err := h.buildEndpointTypesByModel(allowed)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load endpoint types")
+		return
+	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"models":                   models,

@@ -66,7 +66,10 @@ func (h *announcementsHandler) loadAnnouncements(enabledOnly bool) ([]map[string
 	}
 	q += ` ORDER BY CASE a.severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END, a.updated_at DESC`
 
-	rows := queryRows(h.db, rebindAdminQuery(h.db, q), args...)
+	rows, err := queryRowsErr(h.db, q, args...)
+	if err != nil {
+		return nil, err
+	}
 	items := make([]map[string]any, 0, len(rows))
 	for _, row := range rows {
 		item := map[string]any{

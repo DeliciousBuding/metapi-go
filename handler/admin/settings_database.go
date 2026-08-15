@@ -402,7 +402,10 @@ func (w *backgroundTaskLogWriter) Write(p []byte) (int, error) {
 }
 
 func loadSavedDatabaseConfig(db *sqlx.DB) (*savedDatabaseConfig, error) {
-	rows := queryRows(db, "SELECT key, value FROM settings WHERE key IN ('db_type', 'db_url', 'db_ssl')")
+	rows, err := queryRowsErr(db, "SELECT key, value FROM settings WHERE key IN ('db_type', 'db_url', 'db_ssl')")
+	if err != nil {
+		return nil, err
+	}
 	values := map[string]any{}
 	for _, row := range rows {
 		key, _ := row["key"].(string)

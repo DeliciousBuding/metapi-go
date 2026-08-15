@@ -64,7 +64,11 @@ func (h *downstreamKeysHandler) summary(w http.ResponseWriter, r *http.Request) 
 	}
 	query += " ORDER BY id DESC"
 
-	rows := queryRows(h.db, query, args...)
+	rows, err := queryRowsErr(h.db, query, args...)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load downstream keys")
+		return
+	}
 
 	// Apply group filter and enrich with usage data
 	items := make([]map[string]any, 0)
@@ -109,17 +113,26 @@ func (h *downstreamKeysHandler) listKeys(w http.ResponseWriter, r *http.Request)
 
 	var rows []map[string]any
 	var total int64
+	var queryErr error
 	page, pageSize := 1, 50
 	if paginate {
 		page = clampInt(getQueryInt(r, "page", 1), 1, 1_000_000)
 		pageSize = clampInt(getQueryInt(r, "pageSize", 50), 1, 200)
 		offset := (page - 1) * pageSize
-		rows = queryRows(h.db, h.db.Rebind(
-			"SELECT * FROM downstream_api_keys ORDER BY id DESC LIMIT ? OFFSET ?"),
+		rows, queryErr = queryRowsErr(h.db,
+			"SELECT * FROM downstream_api_keys ORDER BY id DESC LIMIT ? OFFSET ?",
 			pageSize, offset)
+		if queryErr != nil {
+			writeError(w, http.StatusInternalServerError, "failed to load downstream keys")
+			return
+		}
 		_ = h.db.Get(&total, h.db.Rebind("SELECT COUNT(*) FROM downstream_api_keys"))
 	} else {
-		rows = queryRows(h.db, "SELECT * FROM downstream_api_keys ORDER BY id DESC")
+		rows, queryErr = queryRowsErr(h.db, "SELECT * FROM downstream_api_keys ORDER BY id DESC")
+		if queryErr != nil {
+			writeError(w, http.StatusInternalServerError, "failed to load downstream keys")
+			return
+		}
 	}
 
 	for _, row := range rows {
@@ -216,7 +229,12 @@ func (h *downstreamKeysHandler) createKey(w http.ResponseWriter, r *http.Request
 	keyWeight := normalizeKeyWeightInput(body.KeyWeight)
 
 	// Policy reference validation.
-	if refErr := h.validateDownstreamPolicyReferences(normalizedRouteIds, normalizedSWM, normalizedExcludedSites, normalizedCredRefs, normalizedAllowedSites, normalizedAllowedCredRefs); refErr != "" {
+	refErr, refDbErr := h.validateDownstreamPolicyReferences(normalizedRouteIds, normalizedSWM, normalizedExcludedSites, normalizedCredRefs, normalizedAllowedSites, normalizedAllowedCredRefs)
+	if refDbErr != nil {
+		writeError(w, http.StatusInternalServerError, "failed to validate policy references")
+		return
+	}
+	if refErr != "" {
 		writeError(w, http.StatusBadRequest, refErr)
 		return
 	}
@@ -562,7 +580,12 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 	}
 
 	// Policy reference validation.
-	if refErr := h.validateDownstreamPolicyReferences(allowedRouteIds, siteWeightMultipliers, excludedSiteIds, excludedCredentialRefs, allowedSiteIds, allowedCredentialRefs); refErr != "" {
+	refErr, refDbErr := h.validateDownstreamPolicyReferences(allowedRouteIds, siteWeightMultipliers, excludedSiteIds, excludedCredentialRefs, allowedSiteIds, allowedCredentialRefs)
+	if refDbErr != nil {
+		writeError(w, http.StatusInternalServerError, "failed to validate policy references")
+		return
+	}
+	if refErr != "" {
 		writeError(w, http.StatusBadRequest, refErr)
 		return
 	}
@@ -793,12 +816,15 @@ func (h *downstreamKeysHandler) validateDownstreamPolicyReferences(
 	excludedCredentialRefs []any,
 	allowedSiteIds []int64,
 	allowedCredentialRefs []any,
-) string {
+) (string, error) {
 	// Validate allowedRouteIds exist in token_routes.
 	if len(allowedRouteIds) > 0 {
 		query, args, err := sqlx.In("SELECT id FROM token_routes WHERE id IN (?)", allowedRouteIds)
 		if err == nil {
-			rows := queryRows(h.db, h.db.Rebind(query), args...)
+			rows, qErr := queryRowsErr(h.db, query, args...)
+			if qErr != nil {
+				return "", qErr
+			}
 			existingIds := make(map[int64]bool)
 			for _, row := range rows {
 				if id, ok := row["id"].(int64); ok {
@@ -812,7 +838,7 @@ func (h *downstreamKeysHandler) validateDownstreamPolicyReferences(
 				}
 			}
 			if len(missing) > 0 {
-				return fmt.Sprintf("allowedRouteIds 包含不存在的路由: %s", strings.Join(missing, ", "))
+				return fmt.Sprintf("allowedRouteIds 包含不存在的路由: %s", strings.Join(missing, ", ")), nil
 			}
 		}
 	}
@@ -842,7 +868,10 @@ func (h *downstreamKeysHandler) validateDownstreamPolicyReferences(
 		}
 		query, args, err := sqlx.In("SELECT id FROM sites WHERE id IN (?)", ids)
 		if err == nil {
-			rows := queryRows(h.db, h.db.Rebind(query), args...)
+			rows, qErr := queryRowsErr(h.db, query, args...)
+			if qErr != nil {
+				return "", qErr
+			}
 			existingIds := make(map[int64]bool)
 			for _, row := range rows {
 				if id, ok := row["id"].(int64); ok {
@@ -856,7 +885,7 @@ func (h *downstreamKeysHandler) validateDownstreamPolicyReferences(
 				}
 			}
 			if len(missing) > 0 {
-				return fmt.Sprintf("策略中包含不存在的站点: %s", strings.Join(missing, ", "))
+				return fmt.Sprintf("策略中包含不存在的站点: %s", strings.Join(missing, ", ")), nil
 			}
 		}
 	}
@@ -873,7 +902,7 @@ func (h *downstreamKeysHandler) validateDownstreamPolicyReferences(
 			accountId := coerceInt64(obj["accountId"])
 			siteId := coerceInt64(obj["siteId"])
 			if tokenId <= 0 {
-				return fmt.Sprintf("credentialRefs 包含不存在的令牌: %v", obj["tokenId"])
+				return fmt.Sprintf("credentialRefs 包含不存在的令牌: %v", obj["tokenId"]), nil
 			}
 			row := queryRow(h.db,
 				`SELECT at.id as token_id, at.account_id, a.site_id
@@ -881,12 +910,12 @@ func (h *downstreamKeysHandler) validateDownstreamPolicyReferences(
 				 INNER JOIN accounts a ON at.account_id = a.id
 				 WHERE at.id = ?`, tokenId)
 			if row == nil {
-				return fmt.Sprintf("credentialRefs 包含不存在的令牌: %d", tokenId)
+				return fmt.Sprintf("credentialRefs 包含不存在的令牌: %d", tokenId), nil
 			}
 			dbAccountId := coerceInt64(mustRowValue(row, "account_id"))
 			dbSiteId := coerceInt64(mustRowValue(row, "site_id"))
 			if dbAccountId != accountId || dbSiteId != siteId {
-				return fmt.Sprintf("credentialRefs 中的 account_token 引用与账号/站点不匹配: %d", tokenId)
+				return fmt.Sprintf("credentialRefs 中的 account_token 引用与账号/站点不匹配: %d", tokenId), nil
 			}
 		} else if kind == "default_api_key" {
 			accountId := coerceInt64(obj["accountId"])
@@ -895,20 +924,20 @@ func (h *downstreamKeysHandler) validateDownstreamPolicyReferences(
 				`SELECT id as account_id, site_id, api_token
 				 FROM accounts WHERE id = ?`, accountId)
 			if row == nil {
-				return fmt.Sprintf("credentialRefs 包含不存在的账号: %d", accountId)
+				return fmt.Sprintf("credentialRefs 包含不存在的账号: %d", accountId), nil
 			}
 			dbSiteId := coerceInt64(mustRowValue(row, "site_id"))
 			if dbSiteId != siteId {
-				return fmt.Sprintf("credentialRefs 中的 default_api_key 引用与站点不匹配: %d", accountId)
+				return fmt.Sprintf("credentialRefs 中的 default_api_key 引用与站点不匹配: %d", accountId), nil
 			}
 			apiToken, _ := mustRowValue(row, "api_token").(string)
 			if strings.TrimSpace(apiToken) == "" {
-				return fmt.Sprintf("credentialRefs 中的 default_api_key 账号缺少默认 API Key: %d", accountId)
+				return fmt.Sprintf("credentialRefs 中的 default_api_key 账号缺少默认 API Key: %d", accountId), nil
 			}
 		}
 	}
 
-	return ""
+	return "", nil
 }
 
 func mustRowValue(row map[string]any, key string) any {

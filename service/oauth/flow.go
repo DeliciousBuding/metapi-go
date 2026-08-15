@@ -521,7 +521,9 @@ func activatePersistedOAuthAccount(ctx context.Context, input ActivateInput) (*P
 
 		// If existing and we just updated: activate the account now that model refresh succeeded.
 		if !created && input.PersistedStatus == "" {
-			_, _ = db.Exec("UPDATE accounts SET status = 'active', updated_at = ? WHERE id = ?", now, accountID)
+			if _, err := db.Exec(db.Rebind("UPDATE accounts SET status = 'active', updated_at = ? WHERE id = ?"), now, accountID); err != nil {
+				slog.Warn("oauth status activation failed", "error", err, "account_id", accountID)
+			}
 		}
 
 		// Step 7f: Rebuild routes.

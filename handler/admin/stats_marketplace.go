@@ -26,7 +26,7 @@ type marketplaceAccountAgg struct {
 	tokenIDs map[int64]struct{}
 }
 
-func (h *statsHandler) buildMarketplaceModels() []map[string]any {
+func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 	// Collect model names from availability tables + exact token_routes patterns.
 	type modelKey = string
 	type modelAgg struct {
@@ -74,7 +74,7 @@ func (h *statsHandler) buildMarketplaceModels() []map[string]any {
 	}
 
 	// Account-level availability.
-	accountRows := queryRows(h.db, `
+	accountRows, err := queryRowsErr(h.db, `
 		SELECT
 			ma.model_name AS model_name,
 			ma.latency_ms AS latency_ms,
@@ -91,6 +91,9 @@ func (h *statsHandler) buildMarketplaceModels() []map[string]any {
 			AND COALESCE(s.status, '') <> 'disabled'
 		ORDER BY ma.model_name ASC, a.id ASC
 	`)
+	if err != nil {
+		return nil, err
+	}
 	for _, row := range accountRows {
 		model := strings.TrimSpace(coerceString(row["modelName"]))
 		if model == "" {
@@ -110,7 +113,7 @@ func (h *statsHandler) buildMarketplaceModels() []map[string]any {
 			latency,
 		)
 		// Attach enabled tokens for this account (may also appear via token availability).
-		tokenRows := queryRows(h.db, `
+		tokenRows, err := queryRowsErr(h.db, `
 			SELECT id, name, is_default
 			FROM account_tokens
 			WHERE account_id = ?
@@ -118,6 +121,9 @@ func (h *statsHandler) buildMarketplaceModels() []map[string]any {
 				AND (value_status IS NULL OR value_status <> 'expired')
 			ORDER BY is_default DESC, id ASC
 		`, acc.ID)
+		if err != nil {
+			return nil, err
+		}
 		for _, tr := range tokenRows {
 			tid := coerceInt64(tr["id"])
 			if tid <= 0 {
@@ -136,7 +142,7 @@ func (h *statsHandler) buildMarketplaceModels() []map[string]any {
 	}
 
 	// Token-level availability.
-	tokenAvailRows := queryRows(h.db, `
+	tokenAvailRows, err := queryRowsErr(h.db, `
 		SELECT
 			tma.model_name AS model_name,
 			tma.latency_ms AS latency_ms,
@@ -158,6 +164,9 @@ func (h *statsHandler) buildMarketplaceModels() []map[string]any {
 			AND COALESCE(s.status, '') <> 'disabled'
 		ORDER BY tma.model_name ASC, a.id ASC, at.id ASC
 	`)
+	if err != nil {
+		return nil, err
+	}
 	for _, row := range tokenAvailRows {
 		model := strings.TrimSpace(coerceString(row["modelName"]))
 		if model == "" {
@@ -193,12 +202,15 @@ func (h *statsHandler) buildMarketplaceModels() []map[string]any {
 
 	// Exact-model token_routes contribute model names even when availability is empty
 	// so operators still see configured routes in the marketplace list.
-	routeRows := queryRows(h.db, `
+	routeRows, err := queryRowsErr(h.db, `
 		SELECT model_pattern
 		FROM token_routes
 		WHERE enabled = 1
 			AND route_mode <> 'explicit_group'
 	`)
+	if err != nil {
+		return nil, err
+	}
 	for _, row := range routeRows {
 		pattern := strings.TrimSpace(coerceString(row["modelPattern"]))
 		if pattern == "" {
@@ -219,7 +231,7 @@ func (h *statsHandler) buildMarketplaceModels() []map[string]any {
 		total   int
 		success int
 	}{}
-	logRows := queryRows(h.db, `
+	logRows, err := queryRowsErr(h.db, `
 		SELECT
 			COALESCE(NULLIF(TRIM(model_actual), ''), NULLIF(TRIM(model_requested), ''), '') AS model,
 			COUNT(*) AS total,
@@ -229,6 +241,9 @@ func (h *statsHandler) buildMarketplaceModels() []map[string]any {
 			AND COALESCE(NULLIF(TRIM(model_actual), ''), NULLIF(TRIM(model_requested), ''), '') <> ''
 		GROUP BY COALESCE(NULLIF(TRIM(model_actual), ''), NULLIF(TRIM(model_requested), ''), '')
 	`, since)
+	if err != nil {
+		return nil, err
+	}
 	for _, row := range logRows {
 		model := strings.TrimSpace(coerceString(row["model"]))
 		if model == "" {
@@ -300,7 +315,7 @@ func (h *statsHandler) buildMarketplaceModels() []map[string]any {
 			"accounts":       accounts,
 		})
 	}
-	return out
+	return out, nil
 }
 
 func inferEndpointTypesForModel(modelName string, accounts []map[string]any) []string {
@@ -318,8 +333,8 @@ func inferEndpointTypesForModel(modelName string, accounts []map[string]any) []s
 	}
 }
 
-func (h *statsHandler) buildTokenCandidateModels(allowed map[string]struct{}) map[string][]map[string]any {
-	rows := queryRows(h.db, `
+func (h *statsHandler) buildTokenCandidateModels(allowed map[string]struct{}) (map[string][]map[string]any, error) {
+	rows, err := queryRowsErr(h.db, `
 		SELECT
 			tma.model_name AS model_name,
 			a.id AS account_id,
@@ -340,6 +355,9 @@ func (h *statsHandler) buildTokenCandidateModels(allowed map[string]struct{}) ma
 			AND COALESCE(s.status, '') <> 'disabled'
 		ORDER BY tma.model_name ASC, a.id ASC, at.id ASC
 	`)
+	if err != nil {
+		return nil, err
+	}
 
 	out := map[string][]map[string]any{}
 	seen := map[string]map[int64]struct{}{} // model -> tokenIDs
@@ -375,14 +393,14 @@ func (h *statsHandler) buildTokenCandidateModels(allowed map[string]struct{}) ma
 			"siteName":  coerceString(row["siteName"]),
 		})
 	}
-	return out
+	return out, nil
 }
 
-func (h *statsHandler) buildModelsWithoutToken(allowed map[string]struct{}) map[string][]map[string]any {
+func (h *statsHandler) buildModelsWithoutToken(allowed map[string]struct{}) (map[string][]map[string]any, error) {
 	// Accounts with available model_availability but no token_model_availability
 	// coverage for that model AND no enabled account_tokens at all (or none that
 	// list the model). Operators use this for zero-channel route hints.
-	rows := queryRows(h.db, `
+	rows, err := queryRowsErr(h.db, `
 		SELECT
 			ma.model_name AS model_name,
 			a.id AS account_id,
@@ -415,6 +433,9 @@ func (h *statsHandler) buildModelsWithoutToken(allowed map[string]struct{}) map[
 			)
 		ORDER BY ma.model_name ASC, a.id ASC
 	`)
+	if err != nil {
+		return nil, err
+	}
 
 	out := map[string][]map[string]any{}
 	seen := map[string]map[int64]struct{}{}
@@ -447,14 +468,14 @@ func (h *statsHandler) buildModelsWithoutToken(allowed map[string]struct{}) map[
 			"siteName":  coerceString(row["siteName"]),
 		})
 	}
-	return out
+	return out, nil
 }
 
-func (h *statsHandler) buildModelsMissingTokenGroups(allowed map[string]struct{}) map[string][]map[string]any {
+func (h *statsHandler) buildModelsMissingTokenGroups(allowed map[string]struct{}) (map[string][]map[string]any, error) {
 	// When an account has model availability and managed tokens, but none of the
 	// enabled tokens have a resolvable token_group label, group coverage is uncertain
 	// / missing. We do not invent required groups from a remote pricing catalog.
-	rows := queryRows(h.db, `
+	rows, err := queryRowsErr(h.db, `
 		SELECT
 			ma.model_name AS model_name,
 			a.id AS account_id,
@@ -474,6 +495,9 @@ func (h *statsHandler) buildModelsMissingTokenGroups(allowed map[string]struct{}
 			AND (at.value_status IS NULL OR at.value_status <> 'expired')
 		ORDER BY ma.model_name ASC, a.id ASC, at.id ASC
 	`)
+	if err != nil {
+		return nil, err
+	}
 
 	type accGroups struct {
 		accountID int64
@@ -551,7 +575,7 @@ func (h *statsHandler) buildModelsMissingTokenGroups(allowed map[string]struct{}
 			out[model] = append(out[model], item)
 		}
 	}
-	return out
+	return out, nil
 }
 
 func resolveTokenGroupLabel(tokenGroup, tokenName string) string {
@@ -574,14 +598,18 @@ func resolveTokenGroupLabel(tokenGroup, tokenName string) string {
 	return name
 }
 
-func (h *statsHandler) buildEndpointTypesByModel(allowed map[string]struct{}) map[string][]string {
+func (h *statsHandler) buildEndpointTypesByModel(allowed map[string]struct{}) (map[string][]string, error) {
 	// Union of endpoint types inferred from model names present in availability.
 	models := map[string]struct{}{}
-	for _, row := range queryRows(h.db, `
+	availModels, err := queryRowsErr(h.db, `
 		SELECT DISTINCT model_name AS model_name FROM model_availability WHERE COALESCE(available, 0) = 1
 		UNION
 		SELECT DISTINCT model_name AS model_name FROM token_model_availability WHERE COALESCE(available, 0) = 1
-	`) {
+	`)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range availModels {
 		model := strings.TrimSpace(coerceString(row["modelName"]))
 		if model == "" || !modelAllowed(model, allowed) {
 			continue
@@ -597,7 +625,7 @@ func (h *statsHandler) buildEndpointTypesByModel(allowed map[string]struct{}) ma
 		}
 		out[model] = types
 	}
-	return out
+	return out, nil
 }
 
 func (h *statsHandler) loadGlobalAllowedModels() map[string]struct{} {

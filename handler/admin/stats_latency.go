@@ -15,7 +15,7 @@ func (h *statsHandler) slowRequests(w http.ResponseWriter, r *http.Request) {
 	hours := clampInt(getQueryInt(r, "hours", 24), 1, 168)
 	since := time.Now().UTC().Add(-time.Duration(hours) * time.Hour).Format(time.RFC3339)
 
-	rows := queryRows(h.db, `
+	rows, err := queryRowsErr(h.db, `
 		SELECT
 			pl.id AS id,
 			COALESCE(NULLIF(pl.model_actual, ''), NULLIF(pl.model_requested, ''), '') AS model,
@@ -36,6 +36,10 @@ func (h *statsHandler) slowRequests(w http.ResponseWriter, r *http.Request) {
 		ORDER BY pl.latency_ms DESC, pl.created_at DESC
 		LIMIT ?
 	`, since, minLatencyMs, limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load slow requests")
+		return
+	}
 
 	items := make([]map[string]any, 0, len(rows))
 	for _, row := range rows {
@@ -77,7 +81,7 @@ func (h *statsHandler) modelCostDistribution(w http.ResponseWriter, r *http.Requ
 	since := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format("2006-01-02T00:00:00Z")
 
 	modelExpr := `COALESCE(NULLIF(pl.model_actual, ''), NULLIF(pl.model_requested, ''), 'unknown')`
-	rows := queryRows(h.db, `
+	rows, err := queryRowsErr(h.db, `
 		SELECT `+modelExpr+` AS model,
 			COUNT(*) AS calls,
 			COALESCE(SUM(COALESCE(pl.estimated_cost, 0)), 0) AS cost,
@@ -87,6 +91,10 @@ func (h *statsHandler) modelCostDistribution(w http.ResponseWriter, r *http.Requ
 		GROUP BY `+modelExpr+`
 		ORDER BY cost DESC, model ASC
 	`, since)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load model cost distribution")
+		return
+	}
 
 	items := make([]map[string]any, 0, topN+1)
 	var totalCost, totalCalls, totalTokens float64
@@ -147,7 +155,7 @@ func (h *statsHandler) latencyHistogram(w http.ResponseWriter, r *http.Request) 
 	bucketMs := clampInt(getQueryInt(r, "bucketMs", 500), 100, 60000)
 	since := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format("2006-01-02T00:00:00Z")
 
-	rows := queryRows(h.db, `
+	rows, err := queryRowsErr(h.db, `
 		SELECT (COALESCE(pl.latency_ms, 0) / ?) * ? AS bucket_start,
 			COUNT(*) AS count
 		FROM proxy_logs pl
@@ -155,6 +163,10 @@ func (h *statsHandler) latencyHistogram(w http.ResponseWriter, r *http.Request) 
 		GROUP BY bucket_start
 		ORDER BY bucket_start ASC
 	`, bucketMs, bucketMs, since)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load latency histogram")
+		return
+	}
 
 	buckets := make([]map[string]any, 0, len(rows))
 	var total int64
@@ -199,7 +211,7 @@ func (h *statsHandler) latencyTrend(w http.ResponseWriter, r *http.Request) {
 	fromDay := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format("2006-01-02")
 
 	dayExpr := dayBucketSQLExpr(h.db, "pl.created_at")
-	rows := queryRows(h.db, `
+	rows, err := queryRowsErr(h.db, `
 		SELECT `+dayExpr+` AS day,
 			COUNT(*) AS requests,
 			AVG(CASE WHEN COALESCE(pl.latency_ms, 0) > 0 THEN pl.latency_ms END) AS avg_latency,
@@ -211,6 +223,10 @@ func (h *statsHandler) latencyTrend(w http.ResponseWriter, r *http.Request) {
 		GROUP BY `+dayExpr+`
 		ORDER BY day ASC
 	`, fromDay)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load latency trend")
+		return
+	}
 
 	// p95 per day from a bounded descending sample. With LIMIT cap, the p95
 	// index (floor(0.05*n)) stays inside the sample while n < 20*cap.
@@ -242,7 +258,7 @@ func (h *statsHandler) latencyTrend(w http.ResponseWriter, r *http.Request) {
 		}
 		// COUNT(*) OVER () gives the true row count before LIMIT truncates,
 		// so p95 sampling stays honest when a day exceeds the sample cap.
-		samples := queryRows(h.db, `
+		samples, err := queryRowsErr(h.db, `
 			SELECT pl.latency_ms AS latency_ms, COUNT(*) OVER () AS total
 			FROM proxy_logs pl
 			WHERE pl.created_at >= ? AND pl.created_at < ?
@@ -250,6 +266,10 @@ func (h *statsHandler) latencyTrend(w http.ResponseWriter, r *http.Request) {
 			ORDER BY pl.latency_ms DESC
 			LIMIT ?
 		`, dayStart, dayEnd, p95SampleCap)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to load latency trend samples")
+			return
+		}
 		n := len(samples)
 		if n > 0 {
 			total := coerceInt64(samples[0]["total"])

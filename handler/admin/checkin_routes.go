@@ -178,7 +178,11 @@ func (h *checkinHandler) getLogs(w http.ResponseWriter, r *http.Request) {
 	qArgs := make([]any, len(args))
 	copy(qArgs, args)
 	qArgs = append(qArgs, limit, offset)
-	rows := queryRows(h.db, query, qArgs...)
+	rows, err := queryRowsErr(h.db, query, qArgs...)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load checkin logs")
+		return
+	}
 
 	countQuery := "SELECT COUNT(*) FROM checkin_logs cl INNER JOIN accounts a ON cl.account_id = a.id INNER JOIN sites s ON a.site_id = s.id" + where
 	var total int

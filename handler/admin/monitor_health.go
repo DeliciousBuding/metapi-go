@@ -32,12 +32,28 @@ type monitorHealthHandler struct {
 func (h *monitorHealthHandler) health(w http.ResponseWriter, r *http.Request) {
 	runtimeHealth := routing.SnapshotRuntimeHealth()
 
+	cooldown, err := h.aggregateCooldown()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to aggregate cooldown")
+		return
+	}
+	sites, err := h.statusCounts("sites")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load status counts")
+		return
+	}
+	accounts, err := h.statusCounts("accounts")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load status counts")
+		return
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"generatedAt":   time.Now().UTC().Format(time.RFC3339),
 		"runtimeHealth": runtimeHealth,
-		"cooldown":      h.aggregateCooldown(),
-		"sites":         h.statusCounts("sites"),
-		"accounts":      h.statusCounts("accounts"),
+		"cooldown":      cooldown,
+		"sites":         sites,
+		"accounts":      accounts,
 	})
 }
 
@@ -45,8 +61,8 @@ func (h *monitorHealthHandler) health(w http.ResponseWriter, r *http.Request) {
 // writing anything. Cooling means cooldownUntil is still in the future;
 // recently-failed means failCount>0 with a lastFailAt inside the configured
 // Fibonacci backoff window.
-func (h *monitorHealthHandler) aggregateCooldown() map[string]any {
-	rows := queryRows(h.db, `
+func (h *monitorHealthHandler) aggregateCooldown() (map[string]any, error) {
+	rows, err := queryRowsErr(h.db, `
 		SELECT
 			rc.id AS id,
 			rc.account_id AS account_id,
@@ -62,6 +78,9 @@ func (h *monitorHealthHandler) aggregateCooldown() map[string]any {
 		ORDER BY rc.cooldown_until DESC
 		LIMIT 10000
 	`)
+	if err != nil {
+		return nil, err
+	}
 
 	nowISO := time.Now().UTC().Format(time.RFC3339)
 	nowMs := time.Now().UnixMilli()
@@ -100,13 +119,16 @@ func (h *monitorHealthHandler) aggregateCooldown() map[string]any {
 		"channelsWithFailures":   channelsWithFailures,
 		"channelsRecentlyFailed": channelsRecentlyFailed,
 		"cooling":                cooling,
-	}
+	}, nil
 }
 
 // statusCounts aggregates a table's `status` column into total/active/
 // disabled/other buckets. `table` is always a literal in this file.
-func (h *monitorHealthHandler) statusCounts(table string) map[string]any {
-	rows := queryRows(h.db, "SELECT status, COUNT(*) AS count FROM "+table+" GROUP BY status")
+func (h *monitorHealthHandler) statusCounts(table string) (map[string]any, error) {
+	rows, err := queryRowsErr(h.db, "SELECT status, COUNT(*) AS count FROM "+table+" GROUP BY status")
+	if err != nil {
+		return nil, err
+	}
 	result := map[string]any{
 		"total":    0,
 		"active":   0,
@@ -127,7 +149,7 @@ func (h *monitorHealthHandler) statusCounts(table string) map[string]any {
 		}
 	}
 	result["total"] = total
-	return result
+	return result, nil
 }
 
 // nullableString converts a nullable MapScan value into *string, treating nil

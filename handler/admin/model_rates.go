@@ -105,7 +105,7 @@ func (h *modelRatesHandler) updateRates(w http.ResponseWriter, r *http.Request) 
 // GET /api/models/rates
 func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 	// Accounts with their unit cost (nullable) and channel footprint.
-	accRows := queryRows(h.db, `
+	accRows, err := queryRowsErr(h.db, `
 		SELECT a.id AS account_id, COALESCE(a.username, '') AS username,
 			s.id AS site_id, COALESCE(s.name, '') AS site_name,
 			a.unit_cost AS unit_cost,
@@ -117,6 +117,10 @@ func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 		GROUP BY a.id, a.username, s.id, s.name, a.unit_cost
 		ORDER BY COALESCE(a.unit_cost, 0) DESC, a.id ASC
 	`)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load rate overview")
+		return
+	}
 	accounts := make([]map[string]any, 0, len(accRows))
 	for _, row := range accRows {
 		accounts = append(accounts, map[string]any{
@@ -131,7 +135,7 @@ func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Channels with their weight (the effective routing multiplier).
-	chRows := queryRows(h.db, `
+	chRows, err := queryRowsErr(h.db, `
 		SELECT rc.id AS channel_id, rc.route_id, rc.account_id, rc.weight, rc.enabled,
 			COALESCE(rc.source_model, '') AS model_name,
 			COALESCE(tr.model_pattern, '') AS route_pattern,
@@ -141,6 +145,10 @@ func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 		LEFT JOIN accounts a ON a.id = rc.account_id
 		ORDER BY rc.weight DESC, rc.id ASC
 	`)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load rate overview")
+		return
+	}
 	channels := make([]map[string]any, 0, len(chRows))
 	for _, row := range chRows {
 		channels = append(channels, map[string]any{
@@ -156,10 +164,14 @@ func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Sites with global weight.
-	siteRows := queryRows(h.db, `
+	siteRows, err := queryRowsErr(h.db, `
 		SELECT id AS site_id, COALESCE(name, '') AS site_name, global_weight
 		FROM sites ORDER BY global_weight DESC, id ASC
 	`)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load rate overview")
+		return
+	}
 	sites := make([]map[string]any, 0, len(siteRows))
 	for _, row := range siteRows {
 		sites = append(sites, map[string]any{
@@ -170,11 +182,15 @@ func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Downstream keys with weight (the per-key multiplier).
-	keyRows := queryRows(h.db, `
+	keyRows, err := queryRowsErr(h.db, `
 		SELECT id AS key_id, COALESCE(name, '') AS name, key_weight
 		FROM downstream_api_keys
 		ORDER BY COALESCE(key_weight, 1.0) DESC, id ASC
 	`)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load rate overview")
+		return
+	}
 	keys := make([]map[string]any, 0, len(keyRows))
 	for _, row := range keyRows {
 		keys = append(keys, map[string]any{
@@ -185,7 +201,7 @@ func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Observed model costs (30d) — the effective price evidence.
-	modelRows := queryRows(h.db, `
+	modelRows, err := queryRowsErr(h.db, `
 		SELECT model,
 			COALESCE(SUM(total_calls), 0) AS calls,
 			COALESCE(SUM(total_spend), 0) AS spend,
@@ -195,6 +211,10 @@ func (h *modelRatesHandler) rates(w http.ResponseWriter, r *http.Request) {
 		GROUP BY model
 		ORDER BY spend DESC, model ASC
 	`, time.Now().UTC().AddDate(0, 0, -29).Format("2006-01-02"))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load rate overview")
+		return
+	}
 	models := make([]map[string]any, 0, len(modelRows))
 	for _, row := range modelRows {
 		models = append(models, map[string]any{

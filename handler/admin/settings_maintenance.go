@@ -40,20 +40,29 @@ const (
 func (h *maintenanceHandler) clearCache(w http.ResponseWriter, r *http.Request) {
 	// Count before deletion
 	var modelAvail, routeCh, tokenRoutes int64
-	_ = h.db.Get(&modelAvail, "SELECT COUNT(*) FROM model_availability")
-	_ = h.db.Get(&routeCh, "SELECT COUNT(*) FROM route_channels")
-	_ = h.db.Get(&tokenRoutes, "SELECT COUNT(*) FROM token_routes")
+	if err := h.db.Get(&modelAvail, h.db.Rebind("SELECT COUNT(*) FROM model_availability")); err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("读取 model_availability 失败：%v", err))
+		return
+	}
+	if err := h.db.Get(&routeCh, h.db.Rebind("SELECT COUNT(*) FROM route_channels")); err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("读取 route_channels 失败：%v", err))
+		return
+	}
+	if err := h.db.Get(&tokenRoutes, h.db.Rebind("SELECT COUNT(*) FROM token_routes")); err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("读取 token_routes 失败：%v", err))
+		return
+	}
 
 	// Delete all (shared DB — multi-instance safe for durable state)
-	if _, err := h.db.Exec("DELETE FROM model_availability"); err != nil {
+	if _, err := h.db.Exec(h.db.Rebind("DELETE FROM model_availability")); err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("清理 model_availability 失败：%v", err))
 		return
 	}
-	if _, err := h.db.Exec("DELETE FROM route_channels"); err != nil {
+	if _, err := h.db.Exec(h.db.Rebind("DELETE FROM route_channels")); err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("清理 route_channels 失败：%v", err))
 		return
 	}
-	if _, err := h.db.Exec("DELETE FROM token_routes"); err != nil {
+	if _, err := h.db.Exec(h.db.Rebind("DELETE FROM token_routes")); err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("清理 token_routes 失败：%v", err))
 		return
 	}

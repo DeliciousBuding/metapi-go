@@ -202,13 +202,17 @@ func (h *oauthHandler) listConnections(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows := queryRows(h.db,
+	rows, err := queryRowsErr(h.db,
 		`SELECT a.*, s.name as site_name, s.platform as site_platform
 		 FROM accounts a
 		 INNER JOIN sites s ON a.site_id = s.id
 		 WHERE a.oauth_provider IS NOT NULL
 		 ORDER BY a.id ASC LIMIT ? OFFSET ?`,
 		limit, offset)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load oauth connections")
+		return
+	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"connections": normalizeSlice(rows),
