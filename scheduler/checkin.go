@@ -32,6 +32,15 @@ type CheckinScheduler struct {
 	intervalStop     chan struct{}
 	attemptByAccount map[int64]int64 // accountId -> last attempt timestamp (ms)
 
+	// ctx is the lifecycle context captured from Start. Job timeouts derive
+	// from it instead of context.Background() so that Stop (which cancels it)
+	// also cancels in-flight checkin passes on shutdown. Defaults to
+	// context.Background() so behavior before/without Start matches the old
+	// code (just not cancellable by Stop). UpdateCheckinSchedule does NOT
+	// reset it — the lifecycle ctx is tied to Start/Stop, not config reload.
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	// checkinAll is the checkin execution function. Defaults to
 	// checkin.CheckinAll; overridable in tests to inject a mock that records
 	// calls without touching real upstreams.
@@ -45,6 +54,7 @@ func NewCheckinScheduler(cfg *config.Config) *CheckinScheduler {
 		mode:             cfg.CheckinScheduleMode,
 		attemptByAccount: make(map[int64]int64),
 		checkinAll:       checkin.CheckinAll,
+		ctx:              context.Background(),
 	}
 }
 
@@ -56,6 +66,12 @@ func (s *CheckinScheduler) Name() string { return "checkin" }
 func (s *CheckinScheduler) Start(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	// Capture the runner lifecycle context so per-job timeouts derive from it
+	// (cancelled on Stop) instead of context.Background() (never cancelled).
+	// Set before startLocked so goroutines launched by maybeCatchUpCheckin
+	// (runCronJob / runStaleAccountCatchUp) observe the captured ctx.
+	s.ctx, s.cancel = context.WithCancel(ctx)
 
 	activeCron := resolveCronSetting("checkin_cron", s.cfg.CheckinCron)
 	activeMode := resolveCheckinScheduleMode(s.cfg)
@@ -88,6 +104,13 @@ func (s *CheckinScheduler) Stop() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.stopLocked()
+	// Cancel the lifecycle context so any in-flight checkin pass whose job
+	// timeout derives from it aborts promptly. Lease Release falls back to
+	// context.Background() when the job ctx is already done, so this does
+	// not strand an advisory lock.
+	if s.cancel != nil {
+		s.cancel()
+	}
 	return nil
 }
 
@@ -203,7 +226,10 @@ func (s *CheckinScheduler) runStaleAccountCatchUp(dbw *store.DB) {
 		return
 	}
 	slog.Info("checkin: stale account catch-up", "count", len(staleIDs))
-	jobCtx, cancel := context.WithTimeout(context.Background(), checkinJobTimeout)
+	// Derive the job timeout from the lifecycle ctx (cancellable on Stop),
+	// not context.Background(). runWithSchedulerLease still releases the
+	// lease via context.Background() when this ctx is already done.
+	jobCtx, cancel := context.WithTimeout(s.ctx, checkinJobTimeout)
 	defer cancel()
 	runWithSchedulerLease(jobCtx, dbw, s.Name(), func() {
 		results := checkin.CheckinAll(s.cfg, dbw.DB, staleIDs, "catchup")
@@ -315,7 +341,10 @@ func (s *CheckinScheduler) runCronJob() {
 		slog.Error("checkin: database not available")
 		return
 	}
-	jobCtx, cancel := context.WithTimeout(context.Background(), checkinJobTimeout)
+	// Derive the job timeout from the lifecycle ctx (cancellable on Stop),
+	// not context.Background(). runWithSchedulerLease still releases the
+	// lease via context.Background() when this ctx is already done.
+	jobCtx, cancel := context.WithTimeout(s.ctx, checkinJobTimeout)
 	defer cancel()
 	runWithSchedulerLease(jobCtx, dbw, s.Name(), func() {
 		results := checkin.CheckinAll(s.cfg, dbw.DB, nil, "cron")
@@ -329,7 +358,10 @@ func (s *CheckinScheduler) runIntervalPass() {
 	if dbw == nil {
 		return
 	}
-	jobCtx, cancel := context.WithTimeout(context.Background(), checkinJobTimeout)
+	// Derive the job timeout from the lifecycle ctx (cancellable on Stop),
+	// not context.Background(). runWithSchedulerLease still releases the
+	// lease via context.Background() when this ctx is already done.
+	jobCtx, cancel := context.WithTimeout(s.ctx, checkinJobTimeout)
 	defer cancel()
 	runWithSchedulerLease(jobCtx, dbw, s.Name(), func() {
 		s.runIntervalPassLocked(dbw)

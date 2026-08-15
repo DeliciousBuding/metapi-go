@@ -38,6 +38,13 @@ type RetentionScheduler struct {
 	cfg    *config.Config
 	opts   RetentionSchedulerOptions
 	runner *intervalRunner
+	// ctx is the lifecycle context captured from Start. Job timeouts derive
+	// from it instead of context.Background() so that Stop (which cancels it)
+	// also cancels in-flight cleanups on shutdown. Defaults to
+	// context.Background() so a job running before/without Start behaves like
+	// the old code (just not cancellable by Stop).
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // NewRetentionScheduler builds a generic retention scheduler.
@@ -46,12 +53,17 @@ func NewRetentionScheduler(cfg *config.Config, opts RetentionSchedulerOptions) *
 		cfg:    cfg,
 		opts:   opts,
 		runner: &intervalRunner{},
+		ctx:    context.Background(),
 	}
 }
 
 func (s *RetentionScheduler) Name() string { return s.opts.Name }
 
 func (s *RetentionScheduler) Start(ctx context.Context) error {
+	// Capture the runner lifecycle context so per-job timeouts derive from it
+	// (cancelled on Stop) instead of context.Background() (never cancelled).
+	s.ctx, s.cancel = context.WithCancel(ctx)
+
 	if disabled, reason := s.opts.DisabledFn(s.cfg); disabled {
 		slog.Info(s.opts.Name + ": disabled (" + reason + ")")
 		return nil
@@ -71,6 +83,13 @@ func (s *RetentionScheduler) Start(ctx context.Context) error {
 }
 
 func (s *RetentionScheduler) Stop() error {
+	// Cancel the lifecycle context first so any in-flight cleanup whose job
+	// timeout derives from it aborts promptly. The runner stop then halts
+	// future ticks. Lease Release falls back to context.Background() when the
+	// job ctx is already done, so this does not strand an advisory lock.
+	if s.cancel != nil {
+		s.cancel()
+	}
 	return s.runner.stop()
 }
 
@@ -84,7 +103,10 @@ func (s *RetentionScheduler) runCleanup() {
 	if retentionDays <= 0 {
 		return
 	}
-	jobCtx, cancel := context.WithTimeout(context.Background(), retentionJobTimeout)
+	// Derive the job timeout from the lifecycle ctx (cancellable on Stop),
+	// not context.Background(). runWithSchedulerLease still releases the
+	// lease via context.Background() when this ctx is already done.
+	jobCtx, cancel := context.WithTimeout(s.ctx, retentionJobTimeout)
 	defer cancel()
 	runWithSchedulerLease(jobCtx, dbw, s.Name(), func() {
 		s.runCleanupLocked(dbw, retentionDays)

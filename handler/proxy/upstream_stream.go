@@ -124,6 +124,11 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 		}
 		if err != nil {
 			if err != io.EOF {
+				// Mid-stream upstream failure (network reset, upstream crash,
+				// truncated body): emit a final SSE error event so the client
+				// can surface the failure explicitly instead of inferring it
+				// from a missing [DONE] marker. Mirrors the byte-limit path.
+				writeSSEStreamError(w, flusher, "upstream stream interrupted", "upstream_error")
 				slog.Warn("SSE stream read error", "err", err, "latency_ms", latencyMs)
 			}
 			break
