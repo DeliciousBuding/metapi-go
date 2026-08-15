@@ -140,6 +140,12 @@
   --skeleton-base: oklch(0.97 0 0);
   --skeleton-highlight: oklch(0.985 0 0);
   --table-row: var(--background);
+  --table-row-hover-bg: color-mix(
+    in oklch,
+    var(--muted) 50%,
+    var(--background)
+  );
+  --table-row-selected-bg: var(--muted);
   --table-header: color-mix(
     in oklch,
     var(--foreground) 1.5%,
@@ -222,6 +228,12 @@
   --skeleton-base: oklch(0.335 0 0);
   --skeleton-highlight: oklch(0.44 0 0);
   --table-row: var(--background);
+  --table-row-hover-bg: color-mix(
+    in oklch,
+    var(--muted) 50%,
+    var(--background)
+  );
+  --table-row-selected-bg: var(--muted);
   --table-header: color-mix(in oklch, var(--foreground) 6%, var(--background));
   --table-header-hover: color-mix(
     in oklch,
