@@ -43,6 +43,12 @@ export function ComboboxInput({
   const inputRef = React.useRef<HTMLInputElement>(null)
   const listRef = React.useRef<HTMLUListElement>(null)
   const pointerFocusRef = React.useRef(false)
+  // Stable id used to wire aria-controls / aria-activedescendant so screen
+  // readers announce the highlighted option as the user arrows through the
+  // list. Falls back to the caller-provided id (e.g. for <label htmlFor>).
+  const generatedId = React.useId()
+  const comboBoxId = id ?? generatedId
+  const listboxId = `${comboBoxId}-listbox`
   const selectedOption = React.useMemo(
     () => options.find((option) => option.value === value),
     [options, value]
@@ -145,12 +151,20 @@ export function ComboboxInput({
     <div ref={containerRef} className='relative'>
       <Input
         ref={inputRef}
-        id={id}
+        id={comboBoxId}
         type='text'
         role='combobox'
         aria-expanded={open}
         aria-haspopup='listbox'
         aria-autocomplete='list'
+        aria-controls={
+          open && filteredOptions.length > 0 ? listboxId : undefined
+        }
+        aria-activedescendant={
+          open && filteredOptions.length > 0 && highlightedIndex >= 0
+            ? `${comboBoxId}-opt-${highlightedIndex}`
+            : undefined
+        }
         autoComplete='off'
         placeholder={placeholder}
         value={displayValue}
@@ -185,12 +199,14 @@ export function ComboboxInput({
           {filteredOptions.length > 0 ? (
             <ul
               ref={listRef}
+              id={listboxId}
               role='listbox'
               className='max-h-[200px] overflow-y-auto p-1'
             >
               {filteredOptions.map((option, index) => (
                 <li
                   key={option.value}
+                  id={`${comboBoxId}-opt-${index}`}
                   role='option'
                   aria-selected={value === option.value}
                   data-highlighted={index === highlightedIndex}
