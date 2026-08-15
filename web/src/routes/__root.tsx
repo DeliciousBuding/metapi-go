@@ -87,12 +87,17 @@ export const Route = createRootRouteWithContext<{
 }>()({
   beforeLoad: async () => {
     if (authBootstrapped) return
-    const outcome = await bootstrapAuthentication()
-    if (outcome.kind === 'authenticated' && outcome.bundle) {
-      const { auth } = useAuthStore.getState()
-      if (!auth.accessToken) {
-        auth.setBundle(outcome.bundle)
+    try {
+      const outcome = await bootstrapAuthentication()
+      if (outcome.kind === 'authenticated' && outcome.bundle) {
+        const { auth } = useAuthStore.getState()
+        if (!auth.accessToken) {
+          auth.setBundle(outcome.bundle)
+        }
       }
+    } catch {
+      // localStorage can throw (SecurityError) in sandboxed/blocked-storage
+      // contexts; treat as anonymous rather than crashing the boot.
     }
     useAuthStore.getState().auth.setBootstrapState('complete')
     authBootstrapped = true

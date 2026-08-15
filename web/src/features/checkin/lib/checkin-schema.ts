@@ -33,10 +33,11 @@ export const checkinSearchSchema = z.object({
     .default(DEFAULT_CHECKIN_PAGE_SIZE),
   accountId: z.coerce.number().int().positive().optional().catch(undefined),
   // Comma-separated multi-select filter values (status / reason category /
-  // site name).
-  status: z.string().optional(),
-  reason: z.string().optional(),
-  site: z.string().optional(),
+  // site name). Tolerant of router-parsed primitives (null literals,
+  // duplicate-param arrays, numbers/booleans) via `stringSearchParam`.
+  status: stringSearchParam,
+  reason: stringSearchParam,
+  site: stringSearchParam,
   // datetime-local input values (YYYY-MM-DDTHH:mm, local tz). Router JSON
   // parsing may hand over numeric/boolean primitives for these too, so they
   // use the tolerant string param (normalized via `asStringParam`).
@@ -89,9 +90,9 @@ export function parseFilterValues(value: string | undefined): string[] {
 export function buildInitialCheckinLogsQuery(
   search: CheckinSearch
 ): CheckinLogsQuery {
-  const statusValues = parseFilterValues(search.status)
-  const reasonValues = parseFilterValues(search.reason)
-  const siteValues = parseFilterValues(search.site)
+  const statusValues = parseFilterValues(asStringParam(search.status))
+  const reasonValues = parseFilterValues(asStringParam(search.reason))
+  const siteValues = parseFilterValues(asStringParam(search.site))
   return {
     limit: search.pageSize,
     offset: (search.page - 1) * search.pageSize,

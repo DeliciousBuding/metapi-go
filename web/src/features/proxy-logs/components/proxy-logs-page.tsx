@@ -57,9 +57,9 @@ export function ProxyLogsPage() {
     urlSearch.status ?? 'all'
   )
   const [siteId, setSiteId] = useState<number | null>(urlSearch.siteId ?? null)
-  const [client, setClient] = useState(urlSearch.client ?? '')
-  const [from, setFrom] = useState(urlSearch.from ?? '')
-  const [to, setTo] = useState(urlSearch.to ?? '')
+  const [client, setClient] = useState(asStringParam(urlSearch.client) ?? '')
+  const [from, setFrom] = useState(asStringParam(urlSearch.from) ?? '')
+  const [to, setTo] = useState(asStringParam(urlSearch.to) ?? '')
   const [latencyMin, setLatencyMin] = useState<number | null>(
     urlSearch.latencyMin ?? null
   )

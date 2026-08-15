@@ -29,10 +29,16 @@ function encodeSortingItems(items: SortingItem[]): string {
  * though the page reads the same value back as a raw string via
  * `window.location.search`. Accepts all three and normalizes to string so
  * route `validateSearch` never throws on numeric/boolean-looking values.
+ *
+ * The `.catch(undefined)` is the resilience clause: `?q=null` JSON-parses to
+ * `null` and duplicate params (`?q=a&q=b`) parse to an array — neither is
+ * accepted by the union, and without the catch they would throw a
+ * `validateSearch` error on URL entry. Degrade both to `undefined` instead.
  */
 export const stringSearchParam = z
   .union([z.string(), z.number(), z.boolean()])
   .optional()
+  .catch(undefined)
 
 /**
  * Normalize a validated {@link stringSearchParam} value to a plain string.

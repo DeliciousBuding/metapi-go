@@ -61,11 +61,11 @@ export function CheckinPage() {
   )
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() => {
     const filters: ColumnFiltersState = []
-    const statusValues = parseFilterValues(search.status)
+    const statusValues = parseFilterValues(asStringParam(search.status))
     if (statusValues.length) filters.push({ id: 'status', value: statusValues })
-    const reasonValues = parseFilterValues(search.reason)
+    const reasonValues = parseFilterValues(asStringParam(search.reason))
     if (reasonValues.length) filters.push({ id: 'reason', value: reasonValues })
-    const siteValues = parseFilterValues(search.site)
+    const siteValues = parseFilterValues(asStringParam(search.site))
     if (siteValues.length) filters.push({ id: 'site', value: siteValues })
     return filters
   })

@@ -228,6 +228,23 @@ export function hasValidAuthSession(
 }
 
 /**
+ * Guarded variant of {@link hasValidAuthSession}: storage access can throw
+ * (SecurityError) in sandboxed/blocked-storage contexts. Treat that as
+ * unauthenticated so route guards (sign-in beforeLoad, authenticated
+ * layout) never crash on a hostile localStorage.
+ */
+export function hasValidAuthSessionSafe(
+  storage?: StorageLike | null,
+  nowMs: number = Date.now()
+): boolean {
+  try {
+    return hasValidAuthSession(storage, nowMs)
+  } catch {
+    return false
+  }
+}
+
+/**
  * Persist an AuthBundle to storage. Converts the bundle's
  * access_expires_at (unix seconds) to the ms epoch the legacy keys expect.
  */

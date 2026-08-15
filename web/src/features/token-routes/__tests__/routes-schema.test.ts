@@ -19,7 +19,6 @@ describe('routesSearchSchema', () => {
     expect(result).toEqual({
       q: 'gpt',
       enabled: 'enabled,disabled',
-      site: undefined,
       accountId: 7,
       siteId: 3,
       page: 2,

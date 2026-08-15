@@ -8,22 +8,25 @@ import { z } from 'zod'
 
 import { SignInPage } from '@/features/auth'
 import { sanitizeAuthRedirect } from '@/features/auth/lib/auth-redirect'
-import { hasValidAuthSession } from '@/lib/auth-session'
+import { hasValidAuthSessionSafe } from '@/lib/auth-session'
+import { asStringParam, stringSearchParam } from '@/lib/helpers/searchParams'
 
-const searchSchema = z.object({
-  redirect: z.string().optional(),
+export const signInSearchSchema = z.object({
+  redirect: stringSearchParam,
 })
 
 function SignInComponent() {
   const { redirect } = Route.useSearch()
-  return <SignInPage redirectTo={redirect} />
+  return <SignInPage redirectTo={asStringParam(redirect)} />
 }
 
 export const Route = createFileRoute('/sign-in')({
   component: SignInComponent,
-  validateSearch: searchSchema,
+  validateSearch: signInSearchSchema,
   beforeLoad: ({ search }) => {
-    if (hasValidAuthSession(localStorage)) {
+    // localStorage can throw (SecurityError) in sandboxed/blocked-storage
+    // contexts; treat that as unauthenticated rather than crashing the guard.
+    if (hasValidAuthSessionSafe(localStorage)) {
       const target =
         sanitizeAuthRedirect(search?.redirect, window.location.origin) ?? '/'
       throw redirect({ href: target, replace: true })

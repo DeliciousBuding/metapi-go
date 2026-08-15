@@ -194,7 +194,6 @@ export const routesSearchSchema = z.object({
   // (`enabled,disabled`), so the schema accepts a raw string and the page
   // splits it — a single enum would reject the page's own writes.
   enabled: stringSearchParam,
-  site: z.string().optional(),
   accountId: z.coerce.number().int().positive().optional().catch(undefined),
   siteId: z.coerce.number().int().positive().optional().catch(undefined),
   page: z.coerce.number().int().positive().catch(1).default(1),
