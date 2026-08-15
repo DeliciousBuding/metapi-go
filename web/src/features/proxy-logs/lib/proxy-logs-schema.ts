@@ -28,9 +28,12 @@ export const proxyLogsSearchSchema = z.object({
     .catch(undefined),
   status: z.enum(['all', 'success', 'failed']).catch('all').default('all'),
   siteId: z.coerce.number().int().optional().catch(undefined),
-  client: z.string().optional(),
-  from: z.string().optional(),
-  to: z.string().optional(),
+  // Client name and datetime-local bounds. Tolerant of router-parsed
+  // primitives (null literals, duplicate-param arrays, numeric epochs) via
+  // `stringSearchParam`; read sites normalize with `asStringParam`.
+  client: stringSearchParam,
+  from: stringSearchParam,
+  to: stringSearchParam,
   latencyMin: z.coerce.number().int().min(0).optional().catch(undefined),
   latencyMax: z.coerce.number().int().min(0).optional().catch(undefined),
 })

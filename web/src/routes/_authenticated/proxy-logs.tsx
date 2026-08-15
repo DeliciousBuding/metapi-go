@@ -57,9 +57,9 @@ export const Route = createFileRoute('/_authenticated/proxy-logs')({
     const status = search.status === 'all' ? undefined : search.status
     const searchText = asStringParam(search.q)?.trim() || undefined
     const siteId = search.siteId ?? undefined
-    const client = search.client || undefined
-    const from = search.from || undefined
-    const to = search.to || undefined
+    const client = asStringParam(search.client) || undefined
+    const from = asStringParam(search.from) || undefined
+    const to = asStringParam(search.to) || undefined
 
     const queryPayload = {
       limit: pageSize,
