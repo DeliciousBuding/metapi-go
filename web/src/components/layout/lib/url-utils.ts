@@ -23,23 +23,23 @@ function urlToString(url: LinkProps['to'] | (string & {})): string | null {
 }
 
 /**
- * Normalize URL by removing query parameters and trailing slashes
+ * Strip both the query string and the hash fragment from a URL, leaving only
+ * the pathname. The active-state comparison should ignore transient query /
+ * hash state so `/models#top` still highlights the `/models` nav item.
  */
+function stripQueryAndHash(url: string): string {
+  return url.split('?')[0].split('#')[0]
+}
 
 /**
- * Check if a navigation item is active
- * @param href - Current URL
+ * Check if a navigation item is active for the current href.
+ * @param href - Current URL (may include query string + hash fragment)
  * @param item - Navigation item
- * @param mainNav - Whether this is a main navigation item (matches first-level path)
  */
-export function checkIsActive(
-  href: string,
-  item: NavItem,
-  mainNav = false
-): boolean {
-  const hrefWithoutQuery = href.split('?')[0]
+export function checkIsActive(href: string, item: NavItem): boolean {
+  const hrefPath = stripQueryAndHash(href)
 
-  if (item.activeUrls?.some((url) => urlToString(url) === hrefWithoutQuery)) {
+  if (item.activeUrls?.some((url) => urlToString(url) === hrefPath)) {
     return true
   }
 
@@ -49,9 +49,7 @@ export function checkIsActive(
     const prefix = item.activePrefix.split('?')[0]
     const cleanPrefix = prefix.length > 1 ? prefix.replace(/\/+$/, '') : prefix
     const cleanHref =
-      hrefWithoutQuery.length > 1
-        ? hrefWithoutQuery.replace(/\/+$/, '')
-        : hrefWithoutQuery
+      hrefPath.length > 1 ? hrefPath.replace(/\/+$/, '') : hrefPath
     if (cleanHref === cleanPrefix || cleanHref.startsWith(`${cleanPrefix}/`)) {
       return true
     }
@@ -69,9 +67,9 @@ export function checkIsActive(
         const subItemUrl = urlToString(i.url)
         if (!subItemUrl) return false
         if (href === subItemUrl) return true
-        const subItemUrlWithoutQuery = subItemUrl.split('?')[0]
+        const subItemUrlPath = stripQueryAndHash(subItemUrl)
         const subItemUrlHasQuery = subItemUrl.includes('?')
-        if (subItemUrlWithoutQuery === hrefWithoutQuery) {
+        if (subItemUrlPath === hrefPath) {
           if (!subItemUrlHasQuery) return true
           if (subItemUrlHasQuery && href === subItemUrl) return true
         }
@@ -91,20 +89,13 @@ export function checkIsActive(
   // Exact match
   if (href === itemUrl) return true
 
-  const itemUrlWithoutQuery = itemUrl.split('?')[0]
+  const itemUrlPath = stripQueryAndHash(itemUrl)
   const itemUrlHasQuery = itemUrl.includes('?')
 
   // If both URLs have the same base path
-  if (hrefWithoutQuery === itemUrlWithoutQuery) {
+  if (hrefPath === itemUrlPath) {
     if (!itemUrlHasQuery) return true
     if (itemUrlHasQuery && href === itemUrl) return true
-  }
-
-  // Main navigation match (matches first-level path)
-  if (mainNav && href.split('/')[1] && itemUrl) {
-    const hrefFirstPath = href.split('/')[1]
-    const itemFirstPath = itemUrl.split('/')[1]
-    return hrefFirstPath === itemFirstPath
   }
 
   return false

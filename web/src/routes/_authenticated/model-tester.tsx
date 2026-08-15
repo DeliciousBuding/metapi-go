@@ -1,8 +1,9 @@
 // metapi-go/routes — model tester (playground).
 //
-// No `validateSearch`: the page reads the `?model=` deep-link param directly
-// from `window.location.search` (same transitional pattern the sites page
-// uses), and the tester form owns the rest of its state in-memory.
+// `validateSearch` types the single deep-link param `?model=` (from the
+// marketplace "try it" link) so the page can read it via `useSearch()` instead
+// of `window.location.search`. The tester form owns the rest of its state
+// in-memory.
 //
 // `loader` prefetches the base model marketplace
 // (`modelsKeys.marketplace({ refresh: false, includePricing: false })`) — the
@@ -11,12 +12,18 @@
 // models hook (unwrap the `models` array from the marketplace envelope).
 
 import { createFileRoute } from '@tanstack/react-router'
+import { z } from 'zod'
 
 import { ModelTesterPage } from '@/features/model-tester/components/model-tester-page'
 import { modelsKeys } from '@/features/models'
 import { api } from '@/lib/api'
 
+const modelTesterSearchSchema = z.object({
+  model: z.string().optional(),
+})
+
 export const Route = createFileRoute('/_authenticated/model-tester')({
+  validateSearch: modelTesterSearchSchema,
   loader: async ({ context }) => {
     await context.queryClient.prefetchQuery({
       queryKey: modelsKeys.marketplace({

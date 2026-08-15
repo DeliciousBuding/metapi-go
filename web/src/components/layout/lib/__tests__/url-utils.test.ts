@@ -45,4 +45,19 @@ describe('checkIsActive', () => {
     expect(checkIsActive('/settings?tab=a', item)).toBe(true)
     expect(checkIsActive('/settings/general', item)).toBe(false)
   })
+
+  it('ignores the hash fragment when matching the item url', () => {
+    const item = link({ url: '/models' })
+    expect(checkIsActive('/models#top', item)).toBe(true)
+    expect(checkIsActive('/models?tab=a#top', item)).toBe(true)
+  })
+
+  it('ignores the hash fragment for activePrefix drill-ins', () => {
+    const item = link({
+      url: '/settings/general/site',
+      activePrefix: '/settings/general',
+    })
+    expect(checkIsActive('/settings/general/site#header', item)).toBe(true)
+    expect(checkIsActive('/settings/general/auth#x', item)).toBe(true)
+  })
 })

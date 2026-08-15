@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedSplatRouteImport } from './routes/_authenticated/$'
 import { Route as AuthenticatedAboutRouteImport } from './routes/_authenticated/about'
 import { Route as AuthenticatedAccountsRouteImport } from './routes/_authenticated/accounts'
 import { Route as AuthenticatedChannelsRouteImport } from './routes/_authenticated/channels'
@@ -47,6 +48,11 @@ const SignInRoute = SignInRouteImport.update({
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSplatRoute = AuthenticatedSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAboutRoute = AuthenticatedAboutRouteImport.update({
@@ -179,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof SignInRoute
   '/dashboard': typeof AuthenticatedDashboardRouteRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
+  '/$': typeof AuthenticatedSplatRoute
   '/about': typeof AuthenticatedAboutRoute
   '/accounts': typeof AuthenticatedAccountsRoute
   '/channels': typeof AuthenticatedChannelsRoute
@@ -202,6 +209,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
+  '/$': typeof AuthenticatedSplatRoute
   '/about': typeof AuthenticatedAboutRoute
   '/accounts': typeof AuthenticatedAccountsRoute
   '/channels': typeof AuthenticatedChannelsRoute
@@ -229,6 +237,7 @@ export interface FileRoutesById {
   '/sign-in': typeof SignInRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRouteRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
+  '/_authenticated/$': typeof AuthenticatedSplatRoute
   '/_authenticated/about': typeof AuthenticatedAboutRoute
   '/_authenticated/accounts': typeof AuthenticatedAccountsRoute
   '/_authenticated/channels': typeof AuthenticatedChannelsRoute
@@ -258,6 +267,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/dashboard'
     | '/settings'
+    | '/$'
     | '/about'
     | '/accounts'
     | '/channels'
@@ -281,6 +291,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/sign-in'
+    | '/$'
     | '/about'
     | '/accounts'
     | '/channels'
@@ -307,6 +318,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/_authenticated/dashboard'
     | '/_authenticated/settings'
+    | '/_authenticated/$'
     | '/_authenticated/about'
     | '/_authenticated/accounts'
     | '/_authenticated/channels'
@@ -356,6 +368,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/$': {
+      id: '/_authenticated/$'
+      path: '/$'
+      fullPath: '/$'
+      preLoaderRoute: typeof AuthenticatedSplatRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/about': {
@@ -569,6 +588,7 @@ const AuthenticatedSettingsRouteRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRouteRoute: typeof AuthenticatedDashboardRouteRouteWithChildren
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
+  AuthenticatedSplatRoute: typeof AuthenticatedSplatRoute
   AuthenticatedAboutRoute: typeof AuthenticatedAboutRoute
   AuthenticatedAccountsRoute: typeof AuthenticatedAccountsRoute
   AuthenticatedChannelsRoute: typeof AuthenticatedChannelsRoute
@@ -590,6 +610,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRouteRoute:
     AuthenticatedDashboardRouteRouteWithChildren,
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
+  AuthenticatedSplatRoute: AuthenticatedSplatRoute,
   AuthenticatedAboutRoute: AuthenticatedAboutRoute,
   AuthenticatedAccountsRoute: AuthenticatedAccountsRoute,
   AuthenticatedChannelsRoute: AuthenticatedChannelsRoute,
