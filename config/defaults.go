@@ -53,6 +53,14 @@ const (
 	// 0 disables the per-IP limiter entirely.
 	DefaultProxyRateLimitRPM = 60
 
+	// Admin/OAuth per-IP token-bucket rate limits. These mirror the original
+	// hardcoded router values so existing deployments are unchanged without
+	// env overrides.
+	DefaultAdminRateLimitRPS   = 100
+	DefaultAdminRateLimitBurst = 200
+	DefaultOAuthRateLimitRPS   = 10
+	DefaultOAuthRateLimitBurst = 20
+
 	TokenRouterFailureCooldownMaxSecCeiling = 30 * 24 * 60 * 60 // 30 days
 
 	DefaultCheckinCron          = "0 8 * * *"

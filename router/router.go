@@ -47,10 +47,10 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 	r.Group(func(r chi.Router) {
 		r.Use(AdminCORS(cfg))
 		r.Use(auth.AdminAuth(cfg))
-		// Rate limiting: per-IP token bucket (100 req/s, burst 200)
-		r.Use(auth.AdminRateLimit(100, 200))
-		// Stricter OAuth rate limit: 10 req/s, burst 20 (only /api/oauth/*)
-		r.Use(auth.OAuthRateLimit(10, 20))
+		// Rate limiting: per-IP token bucket (configurable via ADMIN_RATE_LIMIT_*).
+		r.Use(auth.AdminRateLimit(cfg.AdminRateLimitRPS, cfg.AdminRateLimitBurst))
+		// Stricter OAuth rate limit (configurable via OAUTH_RATE_LIMIT_*), only /api/oauth/*.
+		r.Use(auth.OAuthRateLimit(cfg.OAuthRateLimitRPS, cfg.OAuthRateLimitBurst))
 		// B1: audit admin write operations.
 		if db := store.GetDB(); db != nil {
 			r.Use(admin.AuditMiddleware(db.DB))
