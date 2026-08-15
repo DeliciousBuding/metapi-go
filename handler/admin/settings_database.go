@@ -236,6 +236,18 @@ func (h *databaseHandler) testConnection(w http.ResponseWriter, r *http.Request)
 }
 
 // POST /api/settings/database/migrate
+//
+// Queues a SQLite→PostgreSQL (or reverse) migration as an admin background
+// task and returns 202 Accepted with the task ID so the UI can poll
+// /api/tasks/{id} for progress. The migration itself runs store.RunMigration
+// — the exact same code path the metapi-migrate CLI uses — in a goroutine,
+// streaming its progress lines into the task's Logs slice via
+// AppendBackgroundTaskLog.
+//
+// The source is the currently-running runtime database (cfg); the target is
+// the dialect + connection string supplied in the request body. A saved
+// runtime override (settings table) only takes effect after restart, so it
+// is intentionally NOT used as the source here.
 func (h *databaseHandler) migrate(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Dialect          string `json:"dialect"`
@@ -247,17 +259,146 @@ func (h *databaseHandler) migrate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dialect, ok := normalizeRuntimeDatabaseDialect(body.Dialect)
+	targetDialect, ok := normalizeRuntimeDatabaseDialect(body.Dialect)
 	if !ok {
 		writeError(w, http.StatusBadRequest, "数据库类型仅支持 sqlite 或 postgres")
 		return
 	}
 
-	writeJSON(w, http.StatusNotImplemented, map[string]any{
-		"success": false,
-		"message": "数据库迁移接口尚未接入当前 Go 运行时；请使用 metapi-migrate CLI 执行 SQLite 到 PostgreSQL 迁移",
-		"dialect": dialect,
+	targetURL := strings.TrimSpace(body.ConnectionString)
+	if targetURL == "" {
+		writeError(w, http.StatusBadRequest, "目标数据库连接字符串不能为空")
+		return
+	}
+
+	sourceURL, sourceDialect, err := resolveMigrationSource(h.cfg)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Refuse to migrate onto the live runtime database: overwriting the DB
+	// the server is currently using would be destructive mid-request.
+	if sameMigrationTarget(sourceURL, sourceDialect, targetURL, targetDialect) {
+		writeError(w, http.StatusBadRequest, "目标数据库与当前运行库相同，无法迁移")
+		return
+	}
+
+	// idCh decouples the runner from the StartBackgroundTask return value:
+	// the goroutine launched inside StartBackgroundTask may begin executing
+	// before the caller observes the returned task, so the runner reads the
+	// task ID from this buffered channel once the handler has it in hand.
+	idCh := make(chan string, 1)
+	task, reused := StartBackgroundTask(BackgroundTaskStartOptions{
+		Type:      databaseMigrationTaskType,
+		Title:     databaseMigrationTaskTitle,
+		DedupeKey: databaseMigrationTaskDedupeKey,
+	}, func() (any, error) {
+		taskID := <-idCh
+		progress := &backgroundTaskLogWriter{taskID: taskID}
+		AppendBackgroundTaskLog(taskID, "开始迁移：源="+describeMigrationEndpoint(sourceURL, sourceDialect)+
+			" 目标="+describeMigrationEndpoint(targetURL, targetDialect))
+		summary, runErr := store.RunMigration(store.RunMigrationOptions{
+			FromPath:  sourceURL,
+			ToURL:     targetURL,
+			Overwrite: true,
+			Progress:  true,
+			Verify:    false,
+			LogWriter: progress,
+		})
+		if runErr != nil {
+			return nil, runErr
+		}
+		return summary, nil
 	})
+	// Hand the task ID to the runner goroutine. Buffered (size 1) so this
+	// never blocks even if the task was reused and no runner is listening.
+	idCh <- task.ID
+	_ = reused
+
+	writeJSON(w, http.StatusAccepted, map[string]any{
+		"success": true,
+		"message": "数据库迁移已加入后台任务队列，请通过任务 ID 轮询进度",
+		"taskId":  task.ID,
+		"task":    task,
+	})
+}
+
+const (
+	databaseMigrationTaskType      = "database_migration"
+	databaseMigrationTaskTitle     = "数据库迁移"
+	databaseMigrationTaskDedupeKey = "database_migration"
+)
+
+// resolveMigrationSource returns the live runtime database as the migration
+// source. A saved runtime override (settings table) only takes effect after a
+// restart, so the active cfg is the authoritative source for a migration
+// triggered from the admin UI.
+func resolveMigrationSource(cfg *config.Config) (connection, dialect string, err error) {
+	if cfg == nil {
+		return "", "", fmt.Errorf("运行时配置未加载，无法确定迁移源")
+	}
+	resolved, ok := normalizeRuntimeDatabaseDialect(cfg.DbType)
+	if !ok {
+		resolved = store.DialectSQLite
+	}
+	conn := strings.TrimSpace(cfg.DbUrl)
+	if resolved == store.DialectSQLite {
+		dataDir := cfg.DataDir
+		if dataDir == "" {
+			dataDir = config.DefaultDataDir
+		}
+		conn = store.ResolveSQLitePath(conn, dataDir)
+	}
+	if conn == "" {
+		return "", "", fmt.Errorf("当前运行库连接为空，无法作为迁移源")
+	}
+	return conn, resolved, nil
+}
+
+// sameMigrationTarget reports whether the source and target resolve to the
+// same physical database. It is a safety guard against an in-place overwrite
+// of the live runtime DB; the common SQLite→Postgres path has differing
+// dialects and short-circuits to false.
+func sameMigrationTarget(sourceURL, sourceDialect, targetURL, targetDialect string) bool {
+	if sourceDialect != targetDialect {
+		return false
+	}
+	if sourceDialect == store.DialectPostgres {
+		// Compare host/port/db/query, ignoring credentials (maskConnectionString
+		// redacts everything before the last @).
+		return maskConnectionString(sourceURL) == maskConnectionString(targetURL)
+	}
+	return store.ResolveSQLitePath(sourceURL, ".") == store.ResolveSQLitePath(targetURL, ".")
+}
+
+// describeMigrationEndpoint returns a non-secret, human-readable label for a
+// migration endpoint used in progress log lines.
+func describeMigrationEndpoint(connection, dialect string) string {
+	if dialect == store.DialectPostgres {
+		return maskConnectionString(connection)
+	}
+	return connection
+}
+
+// backgroundTaskLogWriter adapts a background task ID into an io.Writer so
+// store.RunMigration's progress lines are appended to the task's in-memory
+// Logs slice and surface through /api/tasks/{id} polling. Multi-line writes
+// (RunMigration emits several lines per Fprintf) are split into one log
+// entry per logical line.
+type backgroundTaskLogWriter struct {
+	taskID string
+}
+
+func (w *backgroundTaskLogWriter) Write(p []byte) (int, error) {
+	chunk := strings.TrimRight(string(p), "\n")
+	if chunk == "" {
+		return len(p), nil
+	}
+	for _, line := range strings.Split(chunk, "\n") {
+		AppendBackgroundTaskLog(w.taskID, line)
+	}
+	return len(p), nil
 }
 
 func loadSavedDatabaseConfig(db *sqlx.DB) (*savedDatabaseConfig, error) {

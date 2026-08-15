@@ -7,8 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 func TestRuntimeDatabaseGetRuntimeReportsActivePostgres(t *testing.T) {
@@ -267,41 +269,178 @@ func TestRuntimeDatabaseTestConnectionPostgresFailureDoesNotLeakPassword(t *test
 	}
 }
 
-func TestRuntimeDatabaseMigrateIsNotImplemented(t *testing.T) {
-	db := setupBackupTestDB(t)
-	handler := &databaseHandler{db: db.DB}
+// TestRuntimeDatabaseMigrateQueuesBackgroundTask asserts the migrate handler
+// returns 202 Accepted with a task ID instead of 501, and that the registered
+// background task completes successfully for a real SQLite→SQLite copy. The
+// migration logic itself is exercised by store.RunMigration round-trip tests;
+// this test only verifies the handler wiring (202 + task ID + terminal state).
+func TestRuntimeDatabaseMigrateQueuesBackgroundTask(t *testing.T) {
+	resetBackgroundTasksForTests()
+	t.Cleanup(func() { resetBackgroundTasksForTests() })
 
+	// Source = a file-backed SQLite DB the runtime config points at. The
+	// in-memory handler DB is only for the settings table and is not the
+	// migration source. Seed one sites row so the copy has something to move.
+	sourcePath := filepath.Join(t.TempDir(), "source.db")
+	srcDB, err := store.Open(store.DialectSQLite, sourcePath, false)
+	if err != nil {
+		t.Fatalf("open source: %v", err)
+	}
+	if err := store.AutoMigrate(srcDB); err != nil {
+		t.Fatalf("auto-migrate source: %v", err)
+	}
+	if _, err := srcDB.Exec(`INSERT INTO sites (name, url, platform) VALUES (?, ?, ?)`,
+		"Migrate Handler Site", "https://migrate.example.com", "openai"); err != nil {
+		t.Fatalf("seed source site: %v", err)
+	}
+	if err := srcDB.Close(); err != nil {
+		t.Fatalf("close source: %v", err)
+	}
+
+	settingsDB := setupBackupTestDB(t)
+	cfg := config.Load(map[string]string{
+		"DB_TYPE": "sqlite",
+		"DB_URL":  sourcePath,
+	})
+	handler := &databaseHandler{db: settingsDB.DB, cfg: cfg}
+
+	targetPath := filepath.Join(t.TempDir(), "target.db")
 	req := httptest.NewRequest(http.MethodPost, "/api/settings/database/migrate", strings.NewReader(`{
-		"dialect": "postgres",
-		"connectionString": "postgres://user:pass@example.invalid:5432/metapi"
+		"dialect": "sqlite",
+		"connectionString": "`+strings.ReplaceAll(targetPath, `\`, `\\`)+`"
 	}`))
 	rec := httptest.NewRecorder()
-
 	handler.migrate(rec, req)
 
-	if rec.Code != http.StatusNotImplemented {
-		t.Fatalf("status = %d, want 501; body=%s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want 202; body=%s", rec.Code, rec.Body.String())
 	}
 	var payload struct {
-		Success bool              `json:"success"`
-		Message string            `json:"message"`
-		Dialect string            `json:"dialect"`
-		Rows    map[string]uint64 `json:"rows"`
+		Success bool   `json:"success"`
+		TaskID  string `json:"taskId"`
+		Task    struct {
+			ID   string `json:"id"`
+			Type string `json:"type"`
+		} `json:"task"`
 	}
 	if err := json.NewDecoder(rec.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if payload.Success {
-		t.Fatalf("success = true, want false")
+	if !payload.Success {
+		t.Fatalf("success = false, want true; body=%s", rec.Body.String())
 	}
-	if payload.Dialect != "postgres" {
-		t.Fatalf("dialect = %q, want postgres", payload.Dialect)
+	if payload.TaskID == "" {
+		t.Fatalf("taskId missing; body=%s", rec.Body.String())
 	}
-	if payload.Rows != nil {
-		t.Fatalf("rows = %#v, want omitted rows for unimplemented migration", payload.Rows)
+	if payload.Task.ID != payload.TaskID {
+		t.Fatalf("task.id = %q, want %q", payload.Task.ID, payload.TaskID)
 	}
-	if !strings.Contains(payload.Message, "metapi-migrate") {
-		t.Fatalf("message = %q, want CLI migration guidance", payload.Message)
+	if payload.Task.Type != "database_migration" {
+		t.Fatalf("task.type = %q, want database_migration", payload.Task.Type)
+	}
+
+	// Poll the in-memory registry until the task reaches a terminal state.
+	// The migration copies one row SQLite→SQLite; it should succeed quickly.
+	deadline := time.Now().Add(5 * time.Second)
+	var final *BackgroundTask
+	for time.Now().Before(deadline) {
+		task := getBackgroundTask(nil, payload.TaskID)
+		if task != nil && (task.Status == BackgroundTaskSucceeded || task.Status == BackgroundTaskFailed) {
+			final = task
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if final == nil {
+		t.Fatalf("migrate task %s did not reach a terminal state within timeout", payload.TaskID)
+	}
+	if final.Status != BackgroundTaskSucceeded {
+		t.Fatalf("migrate task status = %s, want succeeded; message=%q error=%v logs=%d",
+			final.Status, final.Message, final.Error, len(final.Logs))
+	}
+	// Progress logging: the runner must have appended at least the "开始迁移"
+	// start line plus RunMigration's structural output.
+	if len(final.Logs) == 0 {
+		t.Fatalf("migrate task produced no progress logs; message=%q", final.Message)
+	}
+	var hasStartLine bool
+	for _, entry := range final.Logs {
+		if strings.Contains(entry.Message, "开始迁移") {
+			hasStartLine = true
+			break
+		}
+	}
+	if !hasStartLine {
+		t.Fatalf("migrate task logs missing start line: %+v", final.Logs)
+	}
+
+	// Verify the target received the row.
+	tgtDB, err := store.Open(store.DialectSQLite, targetPath, false)
+	if err != nil {
+		t.Fatalf("open target: %v", err)
+	}
+	defer tgtDB.Close()
+	var siteCount int
+	if err := tgtDB.QueryRow(`SELECT COUNT(*) FROM sites WHERE name = ?`, "Migrate Handler Site").Scan(&siteCount); err != nil {
+		t.Fatalf("count migrated site: %v", err)
+	}
+	if siteCount != 1 {
+		t.Fatalf("target site count = %d, want 1", siteCount)
+	}
+}
+
+// TestRuntimeDatabaseMigrateRejectsSameTarget guards the in-place overwrite
+// prevention: migrating onto the live runtime DB must 400, not enqueue a task.
+func TestRuntimeDatabaseMigrateRejectsSameTarget(t *testing.T) {
+	resetBackgroundTasksForTests()
+	t.Cleanup(func() { resetBackgroundTasksForTests() })
+
+	settingsDB := setupBackupTestDB(t)
+	const sourcePath = "C:/data/hub.db"
+	cfg := config.Load(map[string]string{
+		"DB_TYPE": "sqlite",
+		"DB_URL":  sourcePath,
+	})
+	handler := &databaseHandler{db: settingsDB.DB, cfg: cfg}
+
+	// Target spells the same SQLite file with a sqlite:// prefix.
+	req := httptest.NewRequest(http.MethodPost, "/api/settings/database/migrate", strings.NewReader(`{
+		"dialect": "sqlite",
+		"connectionString": "sqlite://`+strings.ReplaceAll(sourcePath, `\`, `\\`)+`"
+	}`))
+	rec := httptest.NewRecorder()
+	handler.migrate(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "相同") {
+		t.Fatalf("body = %s, want same-target rejection message", rec.Body.String())
+	}
+}
+
+// TestRuntimeDatabaseMigrateRejectsEmptyConnectionString asserts a missing
+// target connection string 400s before any task is enqueued.
+func TestRuntimeDatabaseMigrateRejectsEmptyConnectionString(t *testing.T) {
+	resetBackgroundTasksForTests()
+	t.Cleanup(func() { resetBackgroundTasksForTests() })
+
+	settingsDB := setupBackupTestDB(t)
+	cfg := config.Load(map[string]string{"DB_TYPE": "sqlite", "DB_URL": "C:/data/hub.db"})
+	handler := &databaseHandler{db: settingsDB.DB, cfg: cfg}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/settings/database/migrate", strings.NewReader(`{
+		"dialect": "sqlite",
+		"connectionString": ""
+	}`))
+	rec := httptest.NewRecorder()
+	handler.migrate(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "连接字符串") {
+		t.Fatalf("body = %s, want empty-connection-string rejection", rec.Body.String())
 	}
 }
 
