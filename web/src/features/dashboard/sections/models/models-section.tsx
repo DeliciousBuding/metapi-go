@@ -15,12 +15,12 @@ import { useTranslation } from 'react-i18next'
 
 import { api } from '@/lib/api'
 
+import { ChartShell } from '../../components/chart-shell'
 import {
   LatencyHistogramChart,
   LatencyTrendChart,
   ModelCostChart,
 } from '../../components/charts'
-import { ChartShell } from '../../components/chart-shell'
 import type { ModelCostRow } from '../../types'
 
 function ChartError({ message }: { message: string }) {
@@ -171,13 +171,11 @@ export function ModelsSection() {
           trendQuery.isError,
           trendData.length === 0,
           'dashboard.models.latencyTrend.empty',
-          (
-            <LatencyTrendChart
-              data={trendData}
-              avgLabel={metricAvg}
-              p95Label={metricP95}
-            />
-          )
+          <LatencyTrendChart
+            data={trendData}
+            avgLabel={metricAvg}
+            p95Label={metricP95}
+          />
         )}
       </ChartShell>
     </div>

@@ -13,12 +13,12 @@ import { useTranslation } from 'react-i18next'
 
 import { api } from '@/lib/api'
 
+import { ChartShell } from '../../components/chart-shell'
 import {
   IncomeOutcomeChart,
   SiteDistributionChart,
   SiteTrendChart,
 } from '../../components/charts'
-import { ChartShell } from '../../components/chart-shell'
 import type {
   IncomeOutcomePoint,
   SiteDistributionSlice,
@@ -196,12 +196,10 @@ export function TrafficSection() {
           siteDistributionQuery,
           siteDistributionData.length === 0,
           'dashboard.traffic.siteDistribution.empty',
-          (
-            <SiteDistributionChart
-              data={siteDistributionData}
-              labels={siteDistributionLabels}
-            />
-          )
+          <SiteDistributionChart
+            data={siteDistributionData}
+            labels={siteDistributionLabels}
+          />
         )}
       </ChartShell>
     </div>

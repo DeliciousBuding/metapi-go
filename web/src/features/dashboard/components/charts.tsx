@@ -91,9 +91,10 @@ function pivotIncomeOutcome(data: IncomeOutcomePoint[]): IncomeOutcomeRow[] {
   return [...byDay.values()]
 }
 
-function pivotSiteTrend(
-  data: SiteTrendPoint[]
-): { rows: Array<Record<string, string | number>>; sites: string[] } {
+function pivotSiteTrend(data: SiteTrendPoint[]): {
+  rows: Array<Record<string, string | number>>
+  sites: string[]
+} {
   const siteIndex = new Map<string, number>()
   for (const point of data) {
     if (!siteIndex.has(point.site)) {
@@ -241,12 +242,7 @@ export function IncomeOutcomeChart({ data }: { data: IncomeOutcomePoint[] }) {
       <BarChart data={rows} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
         <CartesianGrid vertical={false} strokeDasharray='4 4' />
         <XAxis dataKey='day' tickMargin={8} minTickGap={24} />
-        <YAxis
-          axisLine={false}
-          tickLine={false}
-          width={48}
-          tickMargin={4}
-        />
+        <YAxis axisLine={false} tickLine={false} width={48} tickMargin={4} />
         <ChartLegend
           content={<ChartLegendContent />}
           verticalAlign='top'
