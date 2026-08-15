@@ -155,10 +155,14 @@ func (h *auditLogsHandler) list(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows := queryRows(h.db,
+	rows, err := queryRowsErr(h.db,
 		"SELECT id, actor, method, path, status, request_id, remote_ip, created_at FROM admin_audit_logs WHERE "+
 			strings.Join(where, " AND ")+" ORDER BY id DESC LIMIT ? OFFSET ?",
 		append(args, limit, offset)...)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list audit logs")
+		return
+	}
 
 	items := make([]map[string]any, 0, len(rows))
 	for _, row := range rows {

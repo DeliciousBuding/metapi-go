@@ -97,7 +97,11 @@ func (h *statsHandler) verifyBatch(w http.ResponseWriter, r *http.Request) {
 	q += ` ORDER BY rc.id ASC LIMIT ?`
 	args = append(args, limit)
 
-	rows := queryRows(h.db, q, args...)
+	rows, err := queryRowsErr(h.db, q, args...)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load verification targets")
+		return
+	}
 	targets := make([]scheduler.ProbeTarget, 0, len(rows))
 	for _, row := range rows {
 		targets = append(targets, scheduler.ProbeTarget{
@@ -194,7 +198,11 @@ func (h *statsHandler) verifyHistory(w http.ResponseWriter, r *http.Request) {
 	q += ` ORDER BY v.created_at DESC, v.id DESC LIMIT ?`
 	args = append(args, limit)
 
-	rows := queryRows(h.db, q, args...)
+	rows, err := queryRowsErr(h.db, q, args...)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load verification history")
+		return
+	}
 	items := make([]map[string]any, 0, len(rows))
 	for _, row := range rows {
 		items = append(items, map[string]any{

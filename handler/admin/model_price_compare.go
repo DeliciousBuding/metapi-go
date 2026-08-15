@@ -31,12 +31,21 @@ func (h *statsHandler) modelPriceCompare(w http.ResponseWriter, r *http.Request)
 	if modelQ != "" {
 		models = []string{modelQ}
 	} else {
-		models = h.topModelsForPriceCompare(topModels, since)
+		var err error
+		models, err = h.topModelsForPriceCompare(topModels, since)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to load top models")
+			return
+		}
 	}
 
 	candidates := make([]routing.PriceCompareRow, 0)
 	for _, modelName := range models {
-		inputs := h.loadPriceCompareInputs(modelName, since)
+		inputs, err := h.loadPriceCompareInputs(modelName, since)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to load price compare inputs")
+			return
+		}
 		for _, in := range inputs {
 			row := routing.BuildPriceCompareRow(in, routing.DefaultPriceCompareSampleUsage)
 			candidates = append(candidates, row)
@@ -86,8 +95,8 @@ func (h *statsHandler) modelPriceCompare(w http.ResponseWriter, r *http.Request)
 	})
 }
 
-func (h *statsHandler) topModelsForPriceCompare(limit int, since string) []string {
-	rows := queryRows(h.db, `
+func (h *statsHandler) topModelsForPriceCompare(limit int, since string) ([]string, error) {
+	rows, err := queryRowsErr(h.db, `
 		SELECT COALESCE(NULLIF(TRIM(pl.model_actual), ''), NULLIF(TRIM(pl.model_requested), ''), '') AS model,
 			COUNT(*) AS calls
 		FROM proxy_logs pl
@@ -98,6 +107,9 @@ func (h *statsHandler) topModelsForPriceCompare(limit int, since string) []strin
 		ORDER BY calls DESC
 		LIMIT ?
 	`, since, limit)
+	if err != nil {
+		return nil, err
+	}
 
 	out := make([]string, 0, len(rows))
 	seen := map[string]struct{}{}
@@ -114,16 +126,19 @@ func (h *statsHandler) topModelsForPriceCompare(limit int, since string) []strin
 		out = append(out, m)
 	}
 	if len(out) > 0 {
-		return out
+		return out, nil
 	}
 
-	avail := queryRows(h.db, `
+	avail, err := queryRowsErr(h.db, `
 		SELECT model_name AS model, COUNT(*) AS cnt
 		FROM model_availability
 		GROUP BY model_name
 		ORDER BY cnt DESC
 		LIMIT ?
 	`, limit)
+	if err != nil {
+		return nil, err
+	}
 	for _, row := range avail {
 		m := strings.TrimSpace(coerceString(row["model"]))
 		if m == "" {
@@ -136,7 +151,7 @@ func (h *statsHandler) topModelsForPriceCompare(limit int, since string) []strin
 		seen[key] = struct{}{}
 		out = append(out, m)
 	}
-	return out
+	return out, nil
 }
 
 type observedPriceSignal struct {
@@ -146,15 +161,15 @@ type observedPriceSignal struct {
 	ResolvedModel  string
 }
 
-func (h *statsHandler) loadPriceCompareInputs(modelName string, since string) []routing.PriceCompareInput {
+func (h *statsHandler) loadPriceCompareInputs(modelName string, since string) ([]routing.PriceCompareInput, error) {
 	modelName = strings.TrimSpace(modelName)
 	if modelName == "" {
-		return nil
+		return nil, nil
 	}
 	like := "%" + strings.ToLower(modelName) + "%"
 
 	// Observed success costs + latest-ish billing_details for matching models.
-	obsRows := queryRows(h.db, `
+	obsRows, err := queryRowsErr(h.db, `
 		SELECT
 			pl.account_id AS account_id,
 			COALESCE(NULLIF(TRIM(pl.model_actual), ''), NULLIF(TRIM(pl.model_requested), ''), '') AS model_name,
@@ -168,6 +183,9 @@ func (h *statsHandler) loadPriceCompareInputs(modelName string, since string) []
 			AND LOWER(COALESCE(NULLIF(TRIM(pl.model_actual), ''), NULLIF(TRIM(pl.model_requested), ''), '')) LIKE ?
 		GROUP BY pl.account_id, COALESCE(NULLIF(TRIM(pl.model_actual), ''), NULLIF(TRIM(pl.model_requested), ''), '')
 	`, since, like)
+	if err != nil {
+		return nil, err
+	}
 
 	obsByAccount := map[int64]observedPriceSignal{}
 	for _, row := range obsRows {
@@ -189,11 +207,14 @@ func (h *statsHandler) loadPriceCompareInputs(modelName string, since string) []
 	}
 
 	// Accounts that advertise the model via availability.
-	availRows := queryRows(h.db, `
+	availRows, err := queryRowsErr(h.db, `
 		SELECT account_id, model_name
 		FROM model_availability
 		WHERE LOWER(model_name) LIKE ?
 	`, like)
+	if err != nil {
+		return nil, err
+	}
 	availModelByAccount := map[int64]string{}
 	for _, row := range availRows {
 		accID := coerceInt64(row["accountId"])
@@ -207,7 +228,7 @@ func (h *statsHandler) loadPriceCompareInputs(modelName string, since string) []
 	}
 
 	// Active accounts on non-disabled sites.
-	accountRows := queryRows(h.db, `
+	accountRows, err := queryRowsErr(h.db, `
 		SELECT
 			s.id AS site_id,
 			s.name AS site_name,
@@ -223,6 +244,9 @@ func (h *statsHandler) loadPriceCompareInputs(modelName string, since string) []
 			AND COALESCE(s.status, '') <> 'disabled'
 		ORDER BY s.name ASC, a.id ASC
 	`)
+	if err != nil {
+		return nil, err
+	}
 
 	out := make([]routing.PriceCompareInput, 0)
 	for _, row := range accountRows {
@@ -293,7 +317,7 @@ func (h *statsHandler) loadPriceCompareInputs(modelName string, since string) []
 			}
 		}
 	}
-	return out
+	return out, nil
 }
 
 func applyBillingDetailsToPriceInput(in *routing.PriceCompareInput, raw string) {

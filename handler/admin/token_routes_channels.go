@@ -17,7 +17,7 @@ func (h *tokenRoutesHandler) getRouteChannels(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	channelRows := queryRows(h.db,
+	channelRows, err := queryRowsErr(h.db,
 		`SELECT rc.*, a.username, `+
 			credentialFragmentsSelect(h.db, "a.access_token", "access_token")+`, `+
 			credentialFragmentsSelect(h.db, "a.api_token", "api_token")+`,
@@ -27,6 +27,10 @@ func (h *tokenRoutesHandler) getRouteChannels(w http.ResponseWriter, r *http.Req
 		 LEFT JOIN accounts a ON rc.account_id = a.id
 		 LEFT JOIN sites s ON a.site_id = s.id
 		 WHERE rc.route_id = ?`, id)
+	if err != nil {
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to load route channels")
+		return
+	}
 	var enrichedChans []map[string]any
 	for _, ch := range channelRows {
 		enriched := map[string]any{

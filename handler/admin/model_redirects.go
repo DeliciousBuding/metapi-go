@@ -121,7 +121,11 @@ func (h *modelRedirectHandler) list(w http.ResponseWriter, r *http.Request) {
 	}
 	q += " ORDER BY mr.updated_at DESC, mr.id DESC"
 
-	rows := queryRows(h.db, rebindAdminQuery(h.db, q), args...)
+	rows, err := queryRowsErr(h.db, q, args...)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list model redirects")
+		return
+	}
 	items := make([]map[string]any, 0, len(rows))
 	for _, row := range rows {
 		items = append(items, map[string]any{
@@ -235,7 +239,11 @@ func (h *modelRedirectHandler) generate(w http.ResponseWriter, r *http.Request) 
 		models := body.Models
 		if len(models) == 0 {
 			// Deterministic order: insertion order ≈ upstream return order.
-			rows := queryRows(h.db, "SELECT model_name FROM model_availability WHERE account_id = ? AND available = 1 ORDER BY id ASC", body.AccountID)
+			rows, err := queryRowsErr(h.db, "SELECT model_name FROM model_availability WHERE account_id = ? AND available = 1 ORDER BY id ASC", body.AccountID)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "failed to load account models")
+				return
+			}
 			for _, row := range rows {
 				models = append(models, coerceString(row["modelName"]))
 			}

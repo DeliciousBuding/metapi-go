@@ -81,15 +81,21 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 
 	likePattern := "%" + q + "%"
 
-	// Search sites
-	sites := queryRows(h.db, "SELECT "+service.SiteSelectColumns+" FROM sites WHERE name LIKE ? OR url LIKE ? OR platform LIKE ? LIMIT ?",
+	// Search sites. Each query surfaces its error so a DB failure yields an
+	// explicit HTTP 500 instead of an empty 200 (silent swallows from the old
+	// queryRows helper masked real outages as "no results").
+	sites, err := queryRowsErr(h.db, "SELECT "+service.SiteSelectColumns+" FROM sites WHERE name LIKE ? OR url LIKE ? OR platform LIKE ? LIMIT ?",
 		likePattern, likePattern, likePattern, perCategory)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "search query failed")
+		return
+	}
 
 	// Search accounts. Select only credential fragments (first4/last4/length)
 	// instead of a.* — the plaintext access_token/api_token never cross the
 	// DB→Go boundary, so a stray slog/metrics call cannot leak them. The masked
 	// form is rebuilt in Go by redactSearchAccountSecrets().
-	accounts := queryRows(h.db,
+	accounts, err := queryRowsErr(h.db,
 		`SELECT `+accountPublicSelectColumns+`, `+
 			credentialFragmentsSelect(h.db, "a.access_token", "access_token")+`, `+
 			credentialFragmentsSelect(h.db, "a.api_token", "api_token")+`,
@@ -98,9 +104,13 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 		 WHERE a.username LIKE ? OR s.name LIKE ? OR s.platform LIKE ?
 		 LIMIT ?`,
 		likePattern, likePattern, likePattern, perCategory)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "search query failed")
+		return
+	}
 
 	// Search account tokens. Same fragment pattern for at.token.
-	accountTokens := queryRows(h.db,
+	accountTokens, err := queryRowsErr(h.db,
 		`SELECT `+accountTokenPublicSelectColumns+`, `+
 			credentialFragmentsSelect(h.db, "at.token", "token")+`,
 			a.username as account_username, s.name as site_name
@@ -110,23 +120,35 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 		 WHERE at.name LIKE ? OR coalesce(at.token_group,'') LIKE ? OR a.username LIKE ? OR s.name LIKE ?
 		 ORDER BY at.updated_at DESC LIMIT ?`,
 		likePattern, likePattern, likePattern, likePattern, perCategory)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "search query failed")
+		return
+	}
 
 	// Search checkin logs
-	checkinLogs := queryRows(h.db,
+	checkinLogs, err := queryRowsErr(h.db,
 		`SELECT cl.*, a.username as account_username
 		 FROM checkin_logs cl
 		 INNER JOIN accounts a ON cl.account_id = a.id
 		 WHERE coalesce(cl.message,'') LIKE ?
 		 ORDER BY cl.created_at DESC LIMIT ?`,
 		likePattern, perCategory)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "search query failed")
+		return
+	}
 
 	// Search proxy logs
-	proxyLogs := queryRows(h.db,
+	proxyLogs, err := queryRowsErr(h.db,
 		"SELECT * FROM proxy_logs WHERE coalesce(model_requested,'') LIKE ? ORDER BY created_at DESC LIMIT ?",
 		likePattern, perCategory)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "search query failed")
+		return
+	}
 
 	// Search models
-	modelRows := queryRows(h.db,
+	modelRows, err := queryRowsErr(h.db,
 		`SELECT DISTINCT tma.model_name, COUNT(DISTINCT at.id) as token_count,
 		        COUNT(DISTINCT a.id) as account_count, COUNT(DISTINCT s.id) as site_count
 		 FROM token_model_availability tma
@@ -137,6 +159,10 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 		 GROUP BY tma.model_name
 		 ORDER BY account_count DESC LIMIT ?`,
 		likePattern, perCategory)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "search query failed")
+		return
+	}
 
 	for _, row := range accounts {
 		redactSearchAccountSecrets(row)

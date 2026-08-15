@@ -54,7 +54,11 @@ func (h *resinHandler) status(w http.ResponseWriter, r *http.Request) {
 	}
 
 	activeLeases := service.ActiveLeases()
-	perSiteOverrides := h.perSiteOverrides()
+	perSiteOverrides, err := h.perSiteOverrides()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load resin per-site overrides")
+		return
+	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"enabled":            enabled,
@@ -69,16 +73,19 @@ func (h *resinHandler) status(w http.ResponseWriter, r *http.Request) {
 // perSiteOverrides queries sites with a non-NULL resin_enabled column and
 // returns them in admin-list order. NULL-inherit sites are excluded so the
 // snapshot only lists operators' explicit decisions.
-func (h *resinHandler) perSiteOverrides() []map[string]any {
+func (h *resinHandler) perSiteOverrides() ([]map[string]any, error) {
 	if h.db == nil {
-		return []map[string]any{}
+		return []map[string]any{}, nil
 	}
-	rows := queryRows(h.db, `
+	rows, err := queryRowsErr(h.db, `
 		SELECT id, name, platform, resin_enabled
 		FROM sites
 		WHERE resin_enabled IS NOT NULL
 		ORDER BY sort_order, id
 	`)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]map[string]any, 0, len(rows))
 	for _, row := range rows {
 		siteID := coerceInt64(row["id"])
@@ -92,5 +99,5 @@ func (h *resinHandler) perSiteOverrides() []map[string]any {
 			"resinEnabled":  resinEnabled,
 		})
 	}
-	return out
+	return out, nil
 }

@@ -282,7 +282,9 @@ func RecordOauthQuotaResetHint(accountID int64, statusCode int, errorText string
 	}
 	extraConfig := MergeAccountExtraConfig(account.ExtraConfig, extraPatch)
 	now := time.Now().Format(time.RFC3339)
-	_, _ = db.Exec("UPDATE accounts SET extra_config = ?, updated_at = ? WHERE id = ?", extraConfig, now, accountID)
+	if _, err := db.Exec(db.Rebind("UPDATE accounts SET extra_config = ?, updated_at = ? WHERE id = ?"), extraConfig, now, accountID); err != nil {
+		slog.Warn("oauth quota persist failed", "error", err, "account_id", accountID)
+	}
 }
 
 // ---- Internal helpers ----
@@ -443,7 +445,9 @@ func persistQuotaSnapshot(db *store.DB, accountID int64, snapshot *OauthQuotaSna
 	}
 	extraConfig := MergeAccountExtraConfig(account.ExtraConfig, extraPatch)
 	now := time.Now().Format(time.RFC3339)
-	db.Exec("UPDATE accounts SET extra_config = ?, updated_at = ? WHERE id = ?", extraConfig, now, accountID)
+	if _, err := db.Exec(db.Rebind("UPDATE accounts SET extra_config = ?, updated_at = ? WHERE id = ?"), extraConfig, now, accountID); err != nil {
+		slog.Warn("oauth quota persist failed", "error", err, "account_id", accountID)
+	}
 }
 
 func quotaFingerprint(snapshot *OauthQuotaSnapshot) string {

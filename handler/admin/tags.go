@@ -72,8 +72,11 @@ func encodeTagsJSON(tags []string) string {
 // total usage descending. Drives filter chips on Accounts/Sites pages.
 func (h *tagsHandler) listTags(w http.ResponseWriter, r *http.Request) {
 	counts := map[string]map[string]int{} // tag → {"accounts": n, "sites": n}
-	addRows := func(table string) {
-		rows := queryRows(h.db, "SELECT tags FROM "+table+" WHERE COALESCE(tags, '') <> ''")
+	addRows := func(table string) error {
+		rows, err := queryRowsErr(h.db, "SELECT tags FROM "+table+" WHERE COALESCE(tags, '') <> ''")
+		if err != nil {
+			return err
+		}
 		for _, row := range rows {
 			tags, err := parseTagsJSON(coerceString(row["tags"]))
 			if err != nil {
@@ -86,9 +89,16 @@ func (h *tagsHandler) listTags(w http.ResponseWriter, r *http.Request) {
 				counts[t][table]++
 			}
 		}
+		return nil
 	}
-	addRows("accounts")
-	addRows("sites")
+	if err := addRows("accounts"); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load tags")
+		return
+	}
+	if err := addRows("sites"); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load tags")
+		return
+	}
 
 	items := make([]map[string]any, 0, len(counts))
 	for tag, c := range counts {

@@ -22,7 +22,11 @@ func (h *statsHandler) balanceHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	q += ` ORDER BY local_day ASC, account_id ASC`
 
-	rows := queryRows(h.db, q, args...)
+	rows, err := queryRowsErr(h.db, q, args...)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load balance history")
+		return
+	}
 	byAccount := make(map[int64][]map[string]any)
 	for _, row := range rows {
 		accID := coerceInt64(row["accountId"])
@@ -73,7 +77,11 @@ func (h *statsHandler) balanceIncomeOutcome(w http.ResponseWriter, r *http.Reque
 	}
 	q += ` ORDER BY account_id ASC, local_day ASC`
 
-	rows := queryRows(h.db, q, args...)
+	rows, err := queryRowsErr(h.db, q, args...)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load balance income/outcome")
+		return
+	}
 
 	// Per-account chronological snapshots (already ordered).
 	type snapshot struct {
@@ -177,8 +185,12 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 	items := make([]attentionItem, 0, limit)
 
 	// 1. Expired accounts — critical.
-	expired := queryRows(h.db, rebindAdminQuery(h.db, `SELECT id, username, site_id, updated_at
-		FROM accounts WHERE status = 'expired' ORDER BY updated_at DESC LIMIT ?`), limit)
+	expired, err := queryRowsErr(h.db, `SELECT id, username, site_id, updated_at
+		FROM accounts WHERE status = 'expired' ORDER BY updated_at DESC LIMIT ?`, limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load attention items")
+		return
+	}
 	for _, row := range expired {
 		items = append(items, attentionItem{
 			Severity: "critical", Category: "expired_account",
@@ -193,9 +205,13 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 2. Low-balance accounts (< 1.0) — warning. Matches G1 threshold.
-	low := queryRows(h.db, rebindAdminQuery(h.db, `SELECT id, username, balance, site_id
+	low, err := queryRowsErr(h.db, `SELECT id, username, balance, site_id
 		FROM accounts WHERE status = 'active' AND COALESCE(balance, 0) < 1.0
-		ORDER BY balance ASC LIMIT ?`), limit)
+		ORDER BY balance ASC LIMIT ?`, limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load attention items")
+		return
+	}
 	for _, row := range low {
 		items = append(items, attentionItem{
 			Severity: "warning", Category: "low_balance",
@@ -210,8 +226,12 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 3. Disabled sites — warning.
-	disabledSites := queryRows(h.db, rebindAdminQuery(h.db, `SELECT id, name, updated_at
-		FROM sites WHERE status = 'disabled' ORDER BY updated_at DESC LIMIT ?`), limit)
+	disabledSites, err := queryRowsErr(h.db, `SELECT id, name, updated_at
+		FROM sites WHERE status = 'disabled' ORDER BY updated_at DESC LIMIT ?`, limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load attention items")
+		return
+	}
 	for _, row := range disabledSites {
 		items = append(items, attentionItem{
 			Severity: "warning", Category: "disabled_site",
@@ -227,9 +247,13 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 
 	// 4. Recent unread warning/error events — info/warning (deep-link to events).
 	since24h := time.Now().UTC().Add(-24 * time.Hour).Format(time.RFC3339)
-	evRows := queryRows(h.db, rebindAdminQuery(h.db, `SELECT type, title, level, related_id, related_type, created_at
+	evRows, err := queryRowsErr(h.db, `SELECT type, title, level, related_id, related_type, created_at
 		FROM events WHERE level IN ('warning', 'error') AND created_at >= ?
-		ORDER BY created_at DESC LIMIT ?`), since24h, limit)
+		ORDER BY created_at DESC LIMIT ?`, since24h, limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load attention items")
+		return
+	}
 	for _, row := range evRows {
 		severity := coerceString(row["level"])
 		if severity == "error" {
