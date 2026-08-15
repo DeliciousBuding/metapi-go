@@ -40,8 +40,6 @@ type UpstreamConfig struct {
 var upstreamCfg *UpstreamConfig
 var unconfiguredUpstreamLogOnce sync.Once
 
-const defaultMaxStreamResponseBytes int64 = 128 << 20
-
 // defaultUpstreamClient is used as a safety fallback when the RuntimeExecutor
 // has not been wired (e.g., during tests). It carries a 90s timeout so a hung
 // upstream never leaks a goroutine, and the shared RejectCrossOriginRedirect

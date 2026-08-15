@@ -252,11 +252,16 @@ type Config struct {
 	ProxySessionChannelLeaseTtlMs       int
 	ProxySessionChannelLeaseKeepaliveMs int
 
-	// Proxy: Misc (6 fields)
+	// Proxy: Misc (7 fields)
 	CodexUpstreamWebsocketEnabled              bool
 	ResponsesCompactFallbackToResponsesEnabled bool
 	DisableCrossProtocolFallback               bool
 	ProxyEmptyContentFailEnabled               bool
+	// ProxyMaxStreamResponseBytes caps the total bytes relayed for a single
+	// SSE stream before a controlled termination (default 1 MB). Parsed once
+	// at startup from PROXY_MAX_STREAM_RESPONSE_BYTES so the hot stream path
+	// reads a struct field instead of calling os.Getenv per request.
+	ProxyMaxStreamResponseBytes int
 	ProxyErrorKeywords                         []string
 	GlobalBlockedBrands                        []string
 	GlobalAllowedModels                        []string
@@ -647,9 +652,13 @@ func Load(env map[string]string) *Config {
 	cfg.FileUploadLimitBytes = fileUploadLimitMB * 1024 * 1024
 
 	// Per-IP rate limiting for /v1 proxy routes (default 60 RPM; 0 = disabled).
-	cfg.ProxyRateLimitRPM = maxInt(0, int(math.Trunc(parseNumber(get("PROXY_RATE_LIMIT_RPM"), float64(DefaultProxyRateLimitRPM)))))
+	// Negative values are NOT clamped here so config.Validate can warn the
+	// operator — consumers (auth.ProxyRateLimit) already treat <=0 as disabled,
+	// so the only observable effect of a negative is the startup warning.
+	cfg.ProxyRateLimitRPM = int(math.Trunc(parseNumber(get("PROXY_RATE_LIMIT_RPM"), float64(DefaultProxyRateLimitRPM))))
 	// Global PROXY_TOKEN RPM cap across all IPs (default 0 = unlimited).
-	cfg.ProxyGlobalTokenRPM = maxInt(0, int(math.Trunc(parseNumber(get("PROXY_GLOBAL_TOKEN_RPM"), 0))))
+	// Negative left intact for Validate to warn on; <=0 disables at the limiter.
+	cfg.ProxyGlobalTokenRPM = int(math.Trunc(parseNumber(get("PROXY_GLOBAL_TOKEN_RPM"), 0)))
 
 	cfg.RoutingFallbackUnitCost = math.Max(1e-6, parseNumber(get("ROUTING_FALLBACK_UNIT_COST"), 1))
 	// Seconds; internal first-byte observation uses ms = sec * 1000.
@@ -665,7 +674,10 @@ func Load(env map[string]string) *Config {
 	cfg.TokenRouterCacheTtlMs = maxInt(100, int(math.Trunc(parseNumber(get("TOKEN_ROUTER_CACHE_TTL_MS"), DefaultTokenRouterCacheTtlMs))))
 
 	// ---- §3.15 Proxy: Channel ----
-	cfg.ProxyMaxChannelAttempts = maxInt(1, int(math.Trunc(parseNumber(get("PROXY_MAX_CHANNEL_ATTEMPTS"), DefaultProxyMaxChannelAttempts))))
+	// Negative left intact so config.Validate can warn the operator; the
+	// consumer (GetProxyMaxChannelAttempts) already clamps <=0 to 1, so the
+	// only observable effect of a negative is the startup warning.
+	cfg.ProxyMaxChannelAttempts = int(math.Trunc(parseNumber(get("PROXY_MAX_CHANNEL_ATTEMPTS"), DefaultProxyMaxChannelAttempts)))
 	cfg.ProxyStickySessionEnabled = parseBoolean(get("PROXY_STICKY_SESSION_ENABLED"), true)
 	cfg.ProxyStickySessionTtlMs = maxInt(30000, int(math.Trunc(parseNumber(get("PROXY_STICKY_SESSION_TTL_MS"), float64(DefaultProxyStickySessionTtlMs)))))
 
@@ -680,6 +692,14 @@ func Load(env map[string]string) *Config {
 	cfg.ResponsesCompactFallbackToResponsesEnabled = parseBoolean(get("RESPONSES_COMPACT_FALLBACK_TO_RESPONSES_ENABLED"), false)
 	cfg.DisableCrossProtocolFallback = parseBoolean(get("DISABLE_CROSS_PROTOCOL_FALLBACK"), false)
 	cfg.ProxyEmptyContentFailEnabled = parseBoolean(get("PROXY_EMPTY_CONTENT_FAIL"), false)
+	// PROXY_MAX_STREAM_RESPONSE_BYTES caps a single SSE stream (default 1 MB).
+	// 0/negative/invalid resolves to the default so the hot stream path never
+	// has to re-parse env or guard against a zero limit. Read once here.
+	streamBytesParsed := int(math.Trunc(parseNumber(get("PROXY_MAX_STREAM_RESPONSE_BYTES"), float64(DefaultProxyMaxStreamResponseBytes))))
+	if streamBytesParsed <= 0 {
+		streamBytesParsed = DefaultProxyMaxStreamResponseBytes
+	}
+	cfg.ProxyMaxStreamResponseBytes = streamBytesParsed
 	cfg.ProxyErrorKeywords = parseCsvList(get("PROXY_ERROR_KEYWORDS"))
 	cfg.GlobalBlockedBrands = []string{}
 	cfg.GlobalAllowedModels = []string{}

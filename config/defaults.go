@@ -97,5 +97,12 @@ const (
 	DefaultProxyDebugRetentionHours = 24
 	DefaultProxyDebugMaxBodyBytes   = 262144
 
+	// DefaultProxyMaxStreamResponseBytes caps the total bytes relayed for a
+	// single SSE stream before a controlled termination (1 MB). Parsed from
+	// PROXY_MAX_STREAM_RESPONSE_BYTES; 0/negative/invalid falls back to this
+	// default. Read once at startup via config.Load — the stream handler reads
+	// the resolved value from the config singleton, not os.Getenv per request.
+	DefaultProxyMaxStreamResponseBytes = 1 << 20 // 1 MB
+
 	TelegramApiBaseUrl = "https://api.telegram.org"
 )

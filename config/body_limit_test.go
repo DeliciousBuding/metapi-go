@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -127,12 +128,26 @@ func TestLoadProxyRateLimitRPMIgnoresInvalidValue(t *testing.T) {
 	}
 }
 
-func TestLoadProxyRateLimitRPMClampsNegativeToZero(t *testing.T) {
+// Negative RPM values are intentionally left intact by Load so config.Validate
+// can surface a startup warning ("use 0 for explicit disable"). The limiter
+// consumer (auth.ProxyRateLimit) still treats <=0 as disabled, so the only
+// observable effect of a negative is the warning — no silent disable.
+func TestLoadProxyRateLimitRPMPreservesNegativeForValidation(t *testing.T) {
 	cfg := Load(map[string]string{
 		"PROXY_RATE_LIMIT_RPM": "-5",
 	})
-	if cfg.ProxyRateLimitRPM != 0 {
-		t.Fatalf("ProxyRateLimitRPM = %d, want 0 (clamped from negative)", cfg.ProxyRateLimitRPM)
+	if cfg.ProxyRateLimitRPM != -5 {
+		t.Fatalf("ProxyRateLimitRPM = %d, want -5 (preserved for Validate warning)", cfg.ProxyRateLimitRPM)
+	}
+	var warned bool
+	for _, err := range cfg.Validate() {
+		if IsWarning(err) && strings.Contains(err.Error(), "proxy_rate_limit_rpm") {
+			warned = true
+			break
+		}
+	}
+	if !warned {
+		t.Fatal("Validate did not warn on negative PROXY_RATE_LIMIT_RPM")
 	}
 }
 
@@ -156,12 +171,24 @@ func TestLoadProxyGlobalTokenRPMParsesCustomValue(t *testing.T) {
 	}
 }
 
-func TestLoadProxyGlobalTokenRPMClampsNegativeToZero(t *testing.T) {
+// Negative values are preserved (not clamped) so Validate can warn; the global
+// token limiter still treats <=0 as unlimited, matching 0 = explicit disable.
+func TestLoadProxyGlobalTokenRPMPreservesNegativeForValidation(t *testing.T) {
 	cfg := Load(map[string]string{
 		"PROXY_GLOBAL_TOKEN_RPM": "-10",
 	})
-	if cfg.ProxyGlobalTokenRPM != 0 {
-		t.Fatalf("ProxyGlobalTokenRPM = %d, want 0 (clamped from negative)", cfg.ProxyGlobalTokenRPM)
+	if cfg.ProxyGlobalTokenRPM != -10 {
+		t.Fatalf("ProxyGlobalTokenRPM = %d, want -10 (preserved for Validate warning)", cfg.ProxyGlobalTokenRPM)
+	}
+	var warned bool
+	for _, err := range cfg.Validate() {
+		if IsWarning(err) && strings.Contains(err.Error(), "proxy_global_token_rpm") {
+			warned = true
+			break
+		}
+	}
+	if !warned {
+		t.Fatal("Validate did not warn on negative PROXY_GLOBAL_TOKEN_RPM")
 	}
 }
 
