@@ -363,8 +363,10 @@ func updateWebdavBackupState(db *sqlx.DB, syncErr error) map[string]any {
 		state["lastSyncAt"] = now
 	}
 	data, err := json.Marshal(state)
-	if err == nil {
-		_ = saveBackupSettingString(db, backupWebdavStateSettingKey, string(data))
+	if err != nil {
+		slog.Warn("settings: failed to marshal webdav backup state", "error", err)
+	} else if saveErr := saveBackupSettingString(db, backupWebdavStateSettingKey, string(data)); saveErr != nil {
+		slog.Warn("settings: failed to persist webdav backup state", "error", saveErr)
 	}
 	return state
 }

@@ -27,12 +27,15 @@ func failSettings(status int, msg string) *settingsApplyError {
 
 // applyStringSetting handles the common "simple string field" pattern:
 // normalize the body value, mutate the config target, and persist it.
-// The upsert error is deliberately ignored, matching the historical handler.
-func applyStringSetting(db *sqlx.DB, body map[string]any, key string, target *string, dbKey string) {
+// Returns the upsert error so callers can surface it as HTTP 500.
+func applyStringSetting(db *sqlx.DB, body map[string]any, key string, target *string, dbKey string) error {
 	if v, ok := body[key]; ok {
 		*target = normalizeString(v)
-		upsertSettingDB(db, dbKey, *target)
+		if err := upsertSettingDB(db, dbKey, *target); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // applyProxyAccessSettings applies the proxy token and system proxy URL.
@@ -51,7 +54,9 @@ func (h *settingsHandler) applyProxyAccessSettings(body map[string]any) *setting
 	}
 
 	// System proxy URL
-	applyStringSetting(h.db, body, "systemProxyUrl", &h.cfg.SystemProxyUrl, "system_proxy_url")
+	if err := applyStringSetting(h.db, body, "systemProxyUrl", &h.cfg.SystemProxyUrl, "system_proxy_url"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
 
 	return nil
 }
@@ -329,9 +334,15 @@ func (h *settingsHandler) applyProxyDebugSettings(body map[string]any) *settings
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
 
-	applyStringSetting(h.db, body, "proxyDebugTargetSessionId", &h.cfg.ProxyDebugTargetSessionId, "proxy_debug_target_session_id")
-	applyStringSetting(h.db, body, "proxyDebugTargetClientKind", &h.cfg.ProxyDebugTargetClientKind, "proxy_debug_target_client_kind")
-	applyStringSetting(h.db, body, "proxyDebugTargetModel", &h.cfg.ProxyDebugTargetModel, "proxy_debug_target_model")
+	if err := applyStringSetting(h.db, body, "proxyDebugTargetSessionId", &h.cfg.ProxyDebugTargetSessionId, "proxy_debug_target_session_id"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
+	if err := applyStringSetting(h.db, body, "proxyDebugTargetClientKind", &h.cfg.ProxyDebugTargetClientKind, "proxy_debug_target_client_kind"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
+	if err := applyStringSetting(h.db, body, "proxyDebugTargetModel", &h.cfg.ProxyDebugTargetModel, "proxy_debug_target_model"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
 
 	if v, ok := body["proxyDebugRetentionHours"]; ok {
 		n, err := toFloat64Strict(v)
@@ -466,37 +477,53 @@ func (h *settingsHandler) applyNotifySettings(body map[string]any) *settingsAppl
 	if err := applyBoolSettingDB(h.db, body, "webhookEnabled", &h.cfg.WebhookEnabled, "webhook_enabled"); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	applyStringSetting(h.db, body, "webhookUrl", &h.cfg.WebhookUrl, "webhook_url")
+	if err := applyStringSetting(h.db, body, "webhookUrl", &h.cfg.WebhookUrl, "webhook_url"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
 
 	// Notify: Bark
 	if err := applyBoolSettingDB(h.db, body, "barkEnabled", &h.cfg.BarkEnabled, "bark_enabled"); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	applyStringSetting(h.db, body, "barkUrl", &h.cfg.BarkUrl, "bark_url")
+	if err := applyStringSetting(h.db, body, "barkUrl", &h.cfg.BarkUrl, "bark_url"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
 
 	// Notify: ServerChan
 	if err := applyBoolSettingDB(h.db, body, "serverChanEnabled", &h.cfg.ServerChanEnabled, "serverchan_enabled"); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	applyStringSetting(h.db, body, "serverChanKey", &h.cfg.ServerChanKey, "serverchan_key")
+	if err := applyStringSetting(h.db, body, "serverChanKey", &h.cfg.ServerChanKey, "serverchan_key"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
 
 	// Notify: Telegram
 	if err := applyBoolSettingDB(h.db, body, "telegramEnabled", &h.cfg.TelegramEnabled, "telegram_enabled"); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	applyStringSetting(h.db, body, "telegramApiBaseUrl", &h.cfg.TelegramApiBaseUrl, "telegram_api_base_url")
-	applyStringSetting(h.db, body, "telegramBotToken", &h.cfg.TelegramBotToken, "telegram_bot_token")
-	applyStringSetting(h.db, body, "telegramChatId", &h.cfg.TelegramChatId, "telegram_chat_id")
+	if err := applyStringSetting(h.db, body, "telegramApiBaseUrl", &h.cfg.TelegramApiBaseUrl, "telegram_api_base_url"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
+	if err := applyStringSetting(h.db, body, "telegramBotToken", &h.cfg.TelegramBotToken, "telegram_bot_token"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
+	if err := applyStringSetting(h.db, body, "telegramChatId", &h.cfg.TelegramChatId, "telegram_chat_id"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
 	if err := applyBoolSettingDB(h.db, body, "telegramUseSystemProxy", &h.cfg.TelegramUseSystemProxy, "telegram_use_system_proxy"); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	applyStringSetting(h.db, body, "telegramMessageThreadId", &h.cfg.TelegramMessageThreadId, "telegram_message_thread_id")
+	if err := applyStringSetting(h.db, body, "telegramMessageThreadId", &h.cfg.TelegramMessageThreadId, "telegram_message_thread_id"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
 
 	// Notify: SMTP
 	if err := applyBoolSettingDB(h.db, body, "smtpEnabled", &h.cfg.SmtpEnabled, "smtp_enabled"); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	applyStringSetting(h.db, body, "smtpHost", &h.cfg.SmtpHost, "smtp_host")
+	if err := applyStringSetting(h.db, body, "smtpHost", &h.cfg.SmtpHost, "smtp_host"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
 	if v, ok := body["smtpPort"]; ok {
 		n, err := toFloat64Strict(v)
 		if err != nil {
@@ -508,32 +535,56 @@ func (h *settingsHandler) applyNotifySettings(body map[string]any) *settingsAppl
 	if err := applyBoolSettingDB(h.db, body, "smtpSecure", &h.cfg.SmtpSecure, "smtp_secure"); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	applyStringSetting(h.db, body, "smtpUser", &h.cfg.SmtpUser, "smtp_user")
-	applyStringSetting(h.db, body, "smtpPass", &h.cfg.SmtpPass, "smtp_pass")
-	applyStringSetting(h.db, body, "smtpFrom", &h.cfg.SmtpFrom, "smtp_from")
-	applyStringSetting(h.db, body, "smtpTo", &h.cfg.SmtpTo, "smtp_to")
+	if err := applyStringSetting(h.db, body, "smtpUser", &h.cfg.SmtpUser, "smtp_user"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
+	if err := applyStringSetting(h.db, body, "smtpPass", &h.cfg.SmtpPass, "smtp_pass"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
+	if err := applyStringSetting(h.db, body, "smtpFrom", &h.cfg.SmtpFrom, "smtp_from"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
+	if err := applyStringSetting(h.db, body, "smtpTo", &h.cfg.SmtpTo, "smtp_to"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
 
 	// Notify: Feishu / DingTalk / WeCom / Ntfy
 	if err := applyBoolSettingDB(h.db, body, "feishuEnabled", &h.cfg.FeishuEnabled, "feishu_enabled"); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	applyStringSetting(h.db, body, "feishuWebhook", &h.cfg.FeishuWebhook, "feishu_webhook")
-	applyStringSetting(h.db, body, "feishuSecret", &h.cfg.FeishuSecret, "feishu_secret")
+	if err := applyStringSetting(h.db, body, "feishuWebhook", &h.cfg.FeishuWebhook, "feishu_webhook"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
+	if err := applyStringSetting(h.db, body, "feishuSecret", &h.cfg.FeishuSecret, "feishu_secret"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
 	if err := applyBoolSettingDB(h.db, body, "dingtalkEnabled", &h.cfg.DingtalkEnabled, "dingtalk_enabled"); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	applyStringSetting(h.db, body, "dingtalkWebhook", &h.cfg.DingtalkWebhook, "dingtalk_webhook")
-	applyStringSetting(h.db, body, "dingtalkSecret", &h.cfg.DingtalkSecret, "dingtalk_secret")
+	if err := applyStringSetting(h.db, body, "dingtalkWebhook", &h.cfg.DingtalkWebhook, "dingtalk_webhook"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
+	if err := applyStringSetting(h.db, body, "dingtalkSecret", &h.cfg.DingtalkSecret, "dingtalk_secret"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
 	if err := applyBoolSettingDB(h.db, body, "wecomEnabled", &h.cfg.WecomEnabled, "wecom_enabled"); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	applyStringSetting(h.db, body, "wecomWebhook", &h.cfg.WecomWebhook, "wecom_webhook")
+	if err := applyStringSetting(h.db, body, "wecomWebhook", &h.cfg.WecomWebhook, "wecom_webhook"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
 	if err := applyBoolSettingDB(h.db, body, "ntfyEnabled", &h.cfg.NtfyEnabled, "ntfy_enabled"); err != nil {
 		return failSettings(http.StatusBadRequest, err.Error())
 	}
-	applyStringSetting(h.db, body, "ntfyUrl", &h.cfg.NtfyUrl, "ntfy_url")
-	applyStringSetting(h.db, body, "ntfyTopic", &h.cfg.NtfyTopic, "ntfy_topic")
-	applyStringSetting(h.db, body, "ntfyToken", &h.cfg.NtfyToken, "ntfy_token")
+	if err := applyStringSetting(h.db, body, "ntfyUrl", &h.cfg.NtfyUrl, "ntfy_url"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
+	if err := applyStringSetting(h.db, body, "ntfyTopic", &h.cfg.NtfyTopic, "ntfy_topic"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
+	if err := applyStringSetting(h.db, body, "ntfyToken", &h.cfg.NtfyToken, "ntfy_token"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
 
 	// Per-alert-type mute toggles (JSON object).
 	if v, ok := body["notifyTaskToggles"]; ok {
@@ -648,12 +699,24 @@ func (h *settingsHandler) applyFilterSettings(body map[string]any) *settingsAppl
 // applySiteBrandingSettings applies the site branding fields.
 func (h *settingsHandler) applySiteBrandingSettings(body map[string]any) *settingsApplyError {
 	// Site & Branding
-	applyStringSetting(h.db, body, "systemName", &h.cfg.SystemName, "system_name")
-	applyStringSetting(h.db, body, "logo", &h.cfg.Logo, "logo")
-	applyStringSetting(h.db, body, "footer", &h.cfg.Footer, "footer")
-	applyStringSetting(h.db, body, "about", &h.cfg.About, "about")
-	applyStringSetting(h.db, body, "homePageContent", &h.cfg.HomePageContent, "home_page_content")
-	applyStringSetting(h.db, body, "serverAddress", &h.cfg.ServerAddress, "server_address")
+	if err := applyStringSetting(h.db, body, "systemName", &h.cfg.SystemName, "system_name"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
+	if err := applyStringSetting(h.db, body, "logo", &h.cfg.Logo, "logo"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
+	if err := applyStringSetting(h.db, body, "footer", &h.cfg.Footer, "footer"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
+	if err := applyStringSetting(h.db, body, "about", &h.cfg.About, "about"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
+	if err := applyStringSetting(h.db, body, "homePageContent", &h.cfg.HomePageContent, "home_page_content"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
+	if err := applyStringSetting(h.db, body, "serverAddress", &h.cfg.ServerAddress, "server_address"); err != nil {
+		return failSettings(http.StatusInternalServerError, err.Error())
+	}
 
 	return nil
 }

@@ -211,7 +211,10 @@ func (h *tokenRoutesHandler) listRoutes(w http.ResponseWriter, r *http.Request) 
 		// Separate COUNT keeps the row maps free of a window-function column
 		// (queryRows MapScans into map[string]any and would echo total_count
 		// into every route item otherwise).
-		_ = h.db.Get(&total, h.db.Rebind("SELECT COUNT(*) FROM token_routes"))
+		if err := h.db.Get(&total, h.db.Rebind("SELECT COUNT(*) FROM token_routes")); err != nil {
+			writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to count routes")
+			return
+		}
 	} else {
 		rows, queryErr = queryRowsErr(h.db, "SELECT * FROM token_routes ORDER BY sort_order ASC, id ASC")
 		if queryErr != nil {

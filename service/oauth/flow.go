@@ -488,7 +488,9 @@ func activatePersistedOAuthAccount(ctx context.Context, input ActivateInput) (*P
 
 		// Get next sort order.
 		var maxSortOrder int64
-		_ = db.Get(&maxSortOrder, "SELECT COALESCE(MAX(sort_order), -1) FROM accounts")
+		if err := db.Get(&maxSortOrder, db.Rebind("SELECT COALESCE(MAX(sort_order), -1) FROM accounts")); err != nil {
+			slog.Warn("oauth: failed to query max sort_order for accounts, defaulting to 1", "error", err)
+		}
 		sortOrder := maxSortOrder + 1
 
 		accountID, err = execStoreInsertID(db,
@@ -644,7 +646,9 @@ func ensureOAuthProviderSite(db *store.DB, def *OAuthProviderDefinition) (*store
 
 	// Get next sort order.
 	var maxSortOrder int64
-	_ = db.Get(&maxSortOrder, "SELECT COALESCE(MAX(sort_order), -1) FROM sites")
+	if err := db.Get(&maxSortOrder, db.Rebind("SELECT COALESCE(MAX(sort_order), -1) FROM sites")); err != nil {
+		slog.Warn("oauth: failed to query max sort_order for sites, defaulting to 1", "error", err)
+	}
 	sortOrder := maxSortOrder + 1
 	now := time.Now().Format(time.RFC3339)
 

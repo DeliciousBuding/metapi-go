@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"regexp"
 	"strings"
@@ -65,7 +67,11 @@ func CanonicalFromActual(actual string, candidates []string) (canonical string, 
 // models (settings) plus exact token_routes model patterns (no wildcards).
 func loadRedirectCandidates(ctx context.Context, db *sqlx.DB) ([]string, error) {
 	var raw string
-	_ = db.GetContext(ctx, &raw, `SELECT value FROM settings WHERE key = 'global_allowed_models'`)
+	if err := db.GetContext(ctx, &raw, `SELECT value FROM settings WHERE key = 'global_allowed_models'`); err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+	}
 	var candidates []string
 	if strings.TrimSpace(raw) != "" {
 		var list []string
