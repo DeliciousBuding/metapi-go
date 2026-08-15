@@ -5,7 +5,9 @@
 // Simplifications for the phase 2 skeleton:
 //   - No `TSettings` type param (phase 3 will reintroduce the merged
 //     /api/settings/runtime key-value map + react-hook-form sections; for
-//     now `build` takes no args and stub sections render a TODO card).
+//     now `build` takes no args and each section supplies its own lazy
+//     content — see `sections/<subarea>/section-registry.ts`, where every
+//     subarea wires real lazy components rather than stub placeholders).
 //   - Nav items use plain `title` strings (no TFunction); i18n lands phase 2,
 //     matching components/layout/config/system-settings.config.ts.
 //   - urlStyle is always 'path' — section URLs are `${basePath}/${id}` so the

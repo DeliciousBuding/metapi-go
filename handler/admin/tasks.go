@@ -310,10 +310,13 @@ func insertBackgroundTaskDB(task *BackgroundTask) {
 	if task.DedupeKey != nil {
 		dedupePtr = *task.DedupeKey
 	}
-	// Derive DB handle via tasksHandler.db — but StartBackgroundTask is
-	// a free function. In the current architecture each call site passes its
-	// runner but we don't have the db handle here. Use global bootstrap.
-	// For now: register a package-level DB setter.
+	// StartBackgroundTask and its durable-write helpers are free functions
+	// invoked from many admin call sites, so the *sqlx.DB cannot be threaded
+	// through every caller without churning the public signature. The
+	// package-level handle set by SetBackgroundTaskDB (wired once at boot in
+	// RegisterTasksRoutes) is the intended bridge from the routed handler
+	// layer to these free functions: memory stays the fast path and the DB is
+	// the cold cross-process fallback (best-effort; nil DB → memory-only).
 	bgTasksMu.Lock()
 	db := bgTasksDB
 	bgTasksMu.Unlock()

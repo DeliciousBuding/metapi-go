@@ -53,3 +53,33 @@ func TestParseRequest_EmptyPrompt(t *testing.T) {
 		t.Errorf("model mismatch: got %v, want %q", result["model"], "text-davinci-003")
 	}
 }
+
+// TestParseResponse exercises the completions response pass-through.
+// ParseResponse is an intentional pass-through (the proxy handles routing
+// and shape validation downstream), so every input — including malformed
+// bodies missing required fields — must be returned byte-for-byte unchanged
+// with a nil error. The malformed case documents that this layer performs no
+// schema validation by design.
+func TestParseResponse(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []byte
+	}{
+		{"valid response", []byte(`{"id":"cmpl-1","object":"text_completion","choices":[{"text":"hello"}]}`)},
+		{"empty byte slice", []byte{}},
+		{"nil byte slice", nil},
+		{"malformed missing required fields", []byte(`{"object":"text_completion"`)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseResponse(tt.input)
+			if err != nil {
+				t.Fatalf("ParseResponse returned unexpected error: %v", err)
+			}
+			if string(got) != string(tt.input) {
+				t.Errorf("response mismatch: got %q, want %q", got, tt.input)
+			}
+		})
+	}
+}
