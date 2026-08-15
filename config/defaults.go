@@ -110,4 +110,10 @@ const (
 	DefaultProxyMaxStreamResponseBytes = 1 << 20 // 1 MB
 
 	TelegramApiBaseUrl = "https://api.telegram.org"
+
+	// DefaultLDOHBaseURL is the upstream LDOH (LdoHub) dashboard URL proxied
+	// by the /monitor-proxy/ldoh/* admin surface. Parsed from LDOH_BASE_URL
+	// so operators can point the monitor iframe at a self-hosted LDOH
+	// instance without rebuilding the binary.
+	DefaultLDOHBaseURL = "https://ldoh.105117.xyz"
 )

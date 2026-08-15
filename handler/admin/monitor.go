@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -42,7 +43,17 @@ type monitorHandler struct {
 
 const ldohCookieSettingKey = "monitor_ldoh_cookie"
 const monitorAuthCookie = "meta_monitor_auth"
-const ldohBaseURL = "https://ldoh.105117.xyz"
+
+// SECURITY: The LDOH upstream session cookie (ld_auth_session=…) is stored
+// PLAINTEXT in the settings table (key = monitor_ldoh_cookie). Anyone with
+// read access to the database — a leaked backup, a SQL injection in another
+// handler, or a snapshot on a shared host — can impersonate the LDOH session
+// until it expires upstream. This is an accepted short-term trade-off: the
+// value is already a bearer secret handed to the browser, and the settings
+// table is not field-level encrypted today. A future improvement should
+// encrypt this secret at rest (e.g. AES-GCM keyed by AccountCredentialSecret)
+// so a database read alone does not yield a usable session cookie. Until then,
+// treat DB access as equivalent to LDOH credential disclosure.
 
 // monitorCookiePath is scoped to the iframe proxy surface only.
 // Path=/ is intentionally avoided so a stolen cookie cannot be presented
@@ -199,7 +210,8 @@ func (h *monitorHandler) ldohProxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	wildcardPath := resolveLdohProxyPath(r)
-	targetURL, err := url.Parse(ldohBaseURL + "/" + wildcardPath)
+	baseURL := h.cfg.LDOHBaseURL
+	targetURL, err := url.Parse(baseURL + "/" + wildcardPath)
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid proxy path"})
 		return
@@ -242,15 +254,20 @@ func (h *monitorHandler) ldohProxy(w http.ResponseWriter, r *http.Request) {
 	}
 	upstreamResp, err := client.Do(upstreamReq)
 	if err != nil {
+		slog.Error("LDOH upstream request failed",
+			"method", method,
+			"url", targetURL.String(),
+			"error", err,
+		)
 		writeJSON(w, http.StatusBadGateway, map[string]any{
-			"error": "LDOH upstream request failed: " + err.Error(),
+			"error": "LDOH upstream request failed",
 		})
 		return
 	}
 	defer upstreamResp.Body.Close()
 
 	contentType := upstreamResp.Header.Get("Content-Type")
-	if location := rewriteLocationHeader(upstreamResp.Header.Get("Location")); location != "" {
+	if location := rewriteLocationHeader(upstreamResp.Header.Get("Location"), baseURL); location != "" {
 		w.Header().Set("Location", location)
 	}
 	if contentType != "" {
@@ -267,7 +284,7 @@ func (h *monitorHandler) ldohProxy(w http.ResponseWriter, r *http.Request) {
 		if readErr != nil {
 			return
 		}
-		_, _ = w.Write([]byte(rewriteProxyText(string(raw))))
+		_, _ = w.Write([]byte(rewriteProxyText(string(raw), baseURL)))
 		return
 	}
 
@@ -369,10 +386,16 @@ func resolveLdohProxyPath(r *http.Request) string {
 	return ""
 }
 
-func rewriteProxyText(text string) string {
+func rewriteProxyText(text, baseURL string) string {
+	// Build the URL-based replacer entries dynamically so operators who
+	// override LDOH_BASE_URL get correct body rewrites for their instance.
+	// The escaped variant handles JSON-encoded source maps / inline scripts
+	// where "/" is written as "\/".
+	baseURLPrefix := baseURL + "/"
+	escapedBaseURLPrefix := strings.ReplaceAll(baseURLPrefix, "/", `\/`)
 	replacer := strings.NewReplacer(
-		"https://ldoh.105117.xyz/", "/monitor-proxy/ldoh/",
-		`https:\/\/ldoh.105117.xyz\/`, `\/monitor-proxy\/ldoh\/`,
+		baseURLPrefix, "/monitor-proxy/ldoh/",
+		escapedBaseURLPrefix, `\/monitor-proxy\/ldoh\/`,
 		`src="/`, `src="/monitor-proxy/ldoh/`,
 		`src='/`, `src='/monitor-proxy/ldoh/`,
 		`href="/`, `href="/monitor-proxy/ldoh/`,
@@ -388,12 +411,12 @@ func rewriteProxyText(text string) string {
 	return replacer.Replace(text)
 }
 
-func rewriteLocationHeader(location string) string {
+func rewriteLocationHeader(location, baseURL string) string {
 	if location == "" {
 		return ""
 	}
-	if strings.HasPrefix(location, ldohBaseURL+"/") {
-		return "/monitor-proxy/ldoh/" + strings.TrimPrefix(location, ldohBaseURL+"/")
+	if strings.HasPrefix(location, baseURL+"/") {
+		return "/monitor-proxy/ldoh/" + strings.TrimPrefix(location, baseURL+"/")
 	}
 	if strings.HasPrefix(location, "/") {
 		return "/monitor-proxy/ldoh" + location

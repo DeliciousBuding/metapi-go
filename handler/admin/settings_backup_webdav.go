@@ -260,7 +260,16 @@ func isValidWebdavFileURL(raw string) bool {
 			return false
 		}
 	}
-	return isAllowedWebdavTargetHost(parsed.Hostname())
+	// Explicit SSRF guard: reject literal IPs in private/loopback/link-local/
+	// unspecified ranges at the URL-validation layer. This complements the
+	// dial-time DNS resolution check in rejectUnsafeWebdavDialHost and the
+	// hostname-level guard in isAllowedWebdavTargetHost. The allowPrivateWebdavTargets
+	// flag (test-only) bypasses this guard so httptest servers on 127.0.0.1 work.
+	host := parsed.Hostname()
+	if !allowPrivateWebdavTargets && isPrivateOrLoopback(host) {
+		return false
+	}
+	return isAllowedWebdavTargetHost(host)
 }
 
 func decodeOptionalJSONRequest(r *http.Request, dst any) error {
@@ -546,6 +555,25 @@ func isUnsafeWebdavAddr(addr netip.Addr) bool {
 		addr.IsLinkLocalUnicast() ||
 		addr.IsLinkLocalMulticast() ||
 		addr.IsMulticast()
+}
+
+// isPrivateOrLoopback reports whether host is a literal IP address in a
+// private, loopback, link-local, multicast, or unspecified range. This covers:
+//   - Loopback: 127.0.0.0/8, ::1
+//   - Link-local: 169.254.0.0/16 (incl. cloud metadata 169.254.169.254), fe80::/10
+//   - Private: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+//   - Unspecified: 0.0.0.0/8, ::
+//
+// Hostnames that are not literal IPs return false: DNS resolution for
+// hostnames is deferred to the dial-time guard in rejectUnsafeWebdavDialHost
+// to avoid TOCTOU races (a hostname that resolves to a safe IP at validation
+// time could resolve to a private IP by dial time, and vice versa).
+func isPrivateOrLoopback(host string) bool {
+	addr, err := netip.ParseAddr(strings.Trim(host, "[]"))
+	if err != nil {
+		return false
+	}
+	return isUnsafeWebdavAddr(addr)
 }
 
 func readLimitedWebdavBody(body io.Reader, maxBytes int64) ([]byte, error) {
