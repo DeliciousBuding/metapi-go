@@ -106,7 +106,7 @@ This document is the accessibility acceptance checklist. It records keyboard, na
 
 ## 4. Contrast notes (primary text / surfaces)
 
-Ratios computed 2026-08-12 from the shipped `web/src/styles/theme.css` OKLCH values (WCAG 2.x relative luminance; token map in `DESIGN.md` §2). Light-theme primary CTA (white on `--primary`) fails AA — tracked as debt §7.14.
+Ratios computed 2026-08-12 from the shipped `web/src/styles/theme.css` OKLCH values (WCAG 2.x relative luminance; token map in `DESIGN.md` §2). The light-theme primary CTA uses ink `--primary-foreground` on `--primary` (7.28:1, AAA) — see the fix history in §7.14.
 
 ### 4.1 Light theme
 
@@ -115,7 +115,7 @@ Ratios computed 2026-08-12 from the shipped `web/src/styles/theme.css` OKLCH val
 | `--foreground` on `--card` / `--background` | 20.9:1 | Pass | Titles, primary values |
 | `--muted-foreground` on `--card` | 6.3:1 | Pass | Labels / secondary text |
 | `--secondary-foreground` on `--secondary` | 11.8:1 | Pass | Nested wells |
-| White text on `--primary` | 2.7:1 | **Fail** | Light-theme CTA — see debt §7.14 |
+| `--primary-foreground` on `--primary` | 7.28:1 | Pass | Light-theme CTA — ink-on-brand fix, see §7.14 |
 | White text on `--destructive` | 4.8:1 | Pass | Errors, deletes |
 
 ### 4.2 Dark theme

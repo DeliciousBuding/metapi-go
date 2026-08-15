@@ -1,6 +1,6 @@
 # UI/UX 与动线审计 — 多 Agent 对照（New API × All API Hub）
 
-**Last updated**: 2026-08-14
+**Last updated**: 2026-08-15
 
 > 4 个审计 agent 的对照结论聚合（动线 / 视觉 / 交互 / 功能对标）+ 实施进展。
 > 对标基线：New API v1.0.0-rc.24、All API Hub 上游 #1290、MetAPI-Go v0.12.0。
@@ -41,36 +41,38 @@
 - **导入向导脏确认**：`import-wizard-dialog.tsx` 有输入时关闭先确认（全站最后一个无守卫表单）
 - **站点状态徽章**、**对比度 token** 见上
 
-## 剩余 backlog（已定级，未实施）
+## Backlog 状态（对齐 `docs/progress/MASTER.md` 2026-08-15）
+
+> 下表对齐 [`../progress/MASTER.md`](../progress/MASTER.md) 的产品 roadmap。`[x]` 表示已完成并标注来源（PR 号或代码证据），`[ ]` 表示未实施；P1/P2 待办已重新编号。
 
 ### P1
 
-| 项 | 位置 | 备注 |
-|----|------|------|
-| 全局搜索（⌘K） | 后端 `/api/search` + `searchApi` 已完备，前端 CommandDialog 闲置 | 新建 SearchModal + header 入口，搜站点/账号/Token/模型/日志并跳转 |
-| 今日快照横条 | `dashboard/sections/overview/overview-section.tsx` | 余额+环比 / 今日签到收益 / 未读告警 / 可用性红绿点；`todayCheckin`/`getAttention` API 已就绪 |
-| attention 上提首页 | `availability-section.tsx` | 最有价值的待办列表目前藏在第 4 个 Tab |
-| 告警富化 | `service/alert/alert.go` 3 处 | 消息加受影响路由 + 替代站点 + 直达链接；program-logs 支持 ?related 过滤 |
-| 批量操作反馈 | `accounts-page.tsx` / `accounts/api.ts` | 成功/部分失败 toast（failedItems 现被丢弃） |
-| checkin/oauth 死复选框 | `checkin-page.tsx` / `oauth-page.tsx` | 有选择列无批量操作 → 补操作或删列 |
-| 排序清除 | `data-table/core/column-header.tsx` | 菜单加「默认顺序」或表头三态循环 |
-| 徽章配方收敛 | overview/availability/checkin/accounts/routes/channels 内联状态徽章 | 迁移到 badge success/info 变体（本轮只加了变体，未全量迁移） |
-| Stat 卡升级 | `dashboard/components/stat-card.tsx` | IconBadge + 三档 tone + 明细子格（New API C1/C2 借鉴） |
-| RealtimeSparkline 图表 token | `availability-section.tsx` | `bg-primary/70` → `--chart-1`/useChartColors |
-| 行内高频操作免菜单化 | `accounts-columns.tsx` | New API 渠道行操作模式（行级 pending + 成功 toast） |
+| # | 状态 | 项 | 位置 | 备注 |
+|---|------|----|------|------|
+| — | [x] #658 | 全局搜索（⌘K） | 后端 `/api/search` + `searchApi` | done — Command Palette 已接入 header，搜站点/账号/Token/模型/日志并跳转 |
+| — | [x] #659 | 今日快照横条 | `dashboard/sections/overview/overview-section.tsx` | done — 快照横条上线（余额+环比 / 签到 / 未读告警 / 可用性红绿点），`todayCheckin`/`getAttention` 已接 |
+| — | [x] #659 | attention 上提首页 | `availability-section.tsx` | done — 首页快照横条提供 attention 直达，原「藏在第 4 个 Tab」已收口 |
+| — | [x] #660 | 告警富化 | `service/alert/alert.go` | done — 3 条核心告警消息富化（受影响路由 + 替代站点 + 直达链接） |
+| — | [x] 代码 | 批量操作反馈 | `accounts-page.tsx` / `accounts/api.ts` | done — `useBatchUpdateAccounts` 已 toast `bulkPartial`（success/failed/items）；MASTER.md 未单列号，证据见 `accounts/api.ts` |
+| 1 | [ ] | checkin/oauth 死复选框 | `checkin-page.tsx` / `oauth-page.tsx` | 有选择列无批量操作 → 补操作或删列 |
+| 2 | [ ] | 排序清除 | `data-table/core/column-header.tsx` | 菜单加「默认顺序」或表头三态循环 |
+| 3 | [ ] | 徽章配方收敛 | overview/availability/checkin/accounts/routes/channels 内联状态徽章 | 迁移到 badge success/info 变体（变体已加，未全量迁移） |
+| 4 | [ ] | Stat 卡升级 | `dashboard/components/stat-card.tsx` | IconBadge + 三档 tone + 明细子格（New API C1/C2 借鉴） |
+| 5 | [ ] | RealtimeSparkline 图表 token | `availability-section.tsx` | `bg-primary/70` → `--chart-1`/`useChartColors` |
+| 6 | [ ] | 行内高频操作免菜单化 | `accounts-columns.tsx` | New API 渠道行操作模式（行级 pending + 成功 toast） |
 
 ### P2
 
-| 项 | 位置 |
-|----|------|
-| URL 状态同步两套机制统一 | `use-url-table-state.ts` vs 一次性 read + replaceState（accounts/checkin/token-routes/proxy-logs） |
-| 图标族统一（HugeIcons × lucide 同屏） | ui 原语 vs feature 层 |
-| 文档漂移销项 | DESIGN.md（9 vs 10 预设）、a11y-checklist §4.1 对比度债务已过时、标题 400 vs 500 |
-| 圆角层级 / header 高度双来源 | `data-table-view.tsx`（rounded-lg vs 卡片 rounded-xl）、`app-header.tsx` + `theme.css` token |
-| 导入向导校验失败聚焦首错字段 | `account-form-dialog.tsx` 等 |
-| 移动端：首帧侧栏闪烁 / settings 375px 导航 | `use-mobile.tsx` / `settings-sidebar.tsx` |
-| 骨架屏 shimmer / 表格骨架行宽差异化 | `index.css` / `table-skeleton.tsx` |
-| Playground 会话化 + 模板库 + 批量延迟对比 | `model-tester/`（对标 New API Playground，benchmark P1-7） |
+| # | 状态 | 项 | 位置 | 备注 |
+|---|------|----|------|------|
+| 1 | [ ] | URL 状态同步两套机制统一 | `use-url-table-state.ts` vs 一次性 read + replaceState（accounts/checkin/token-routes/proxy-logs） | |
+| 2 | [ ] | 图标族统一（HugeIcons × lucide 同屏） | ui 原语 vs feature 层 | |
+| 3 | [~] | 文档漂移销项 | DESIGN.md（9 vs 10 预设）、标题 400 vs 500 | §4.1 对比度债务已销项（见 `docs/design/a11y-checklist.md` §4.1/§7.14，ink-on-brand 7.28:1 AAA） |
+| 4 | [ ] | 圆角层级 / header 高度双来源 | `data-table-view.tsx`（rounded-lg vs 卡片 rounded-xl）、`app-header.tsx` + `theme.css` token | |
+| 5 | [ ] | 导入向导校验失败聚焦首错字段 | `account-form-dialog.tsx` 等 | |
+| 6 | [ ] | 移动端：首帧侧栏闪烁 / settings 375px 导航 | `use-mobile.tsx` / `settings-sidebar.tsx` | |
+| 7 | [ ] | 骨架屏 shimmer / 表格骨架行宽差异化 | `index.css` / `table-skeleton.tsx` | |
+| 8 | [~] | Playground 会话化 + 模板库 + 批量延迟对比 | `model-tester/`（对标 New API Playground，benchmark P1-7） | #662 已做会话化 + 模板库；批量延迟对比待做 |
 
 ### 明确不做（定位边界，见 benchmark.md）
 
@@ -79,7 +81,7 @@
 ## 审计证据口径
 
 - 动线审计：5 条动线（首次接入 / 客户端分发 / 日常巡检 / 故障处理 / 模型测试），
-  全部引用文件经验证；核心发现「建完路由之后系统撒手不管」已由本轮 P0 修复收口。
-- 视觉审计：25 项问题（3 P0 / 10 P1 / 12 P2），本轮修复 3 P0 + 1 P1（站点徽章）。
-- 交互审计：1 P0 / 8 P1，本轮修复 P0 + 页码钳位 + 导入脏确认 + 404 边界。
-- 功能对标：8 项差距，本轮落地「客户端一键导出」；6/8 项后端数据已完备、只需前端。
+  全部引用文件经验证；核心发现「建完路由之后系统撒手不管」已收口（#657 接入对话框 + 完成动线 toast 改接 `/settings/downstream`）。
+- 视觉审计：25 项问题（3 P0 / 10 P1 / 12 P2），已修复 3 P0（`text-*-foreground` 透明底误用 ×6、软徽章 success/info 变体、站点 active 徽章语义统一）+ 2 P1（站点 active 软徽章、12px 软徽章对比度 AA：浅色 success/info/warning 明度下调）。
+- 交互审计：1 P0 / 8 P1，已修复 P0（倍率行内编辑安全网）+ 3 P1（页码钳位、导入脏确认、404/错误边界）；剩余 P1 见上表 #1–#6。
+- 功能对标：8 项差距，已落地 4 项（客户端一键导出 #657、全局搜索 #658、首页今日快照 #659、告警富化 #660）；剩余 4 项后端数据已完备、只需前端补齐。
