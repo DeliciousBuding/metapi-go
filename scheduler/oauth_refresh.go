@@ -35,16 +35,30 @@ type OAuthRefreshScheduler struct {
 	mu           sync.Mutex
 	passInFlight bool
 	runner       *intervalRunner
+	// ctx is the lifecycle context captured from Start. Job timeouts derive
+	// from it instead of context.Background() so Stop (which cancels it) also
+	// cancels in-flight refresh passes on shutdown. Defaults to
+	// context.Background() so behavior without Start matches the old code.
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // NewOAuthRefreshScheduler creates a new OAuth token refresh scheduler.
 func NewOAuthRefreshScheduler(cfg *config.Config) *OAuthRefreshScheduler {
-	return &OAuthRefreshScheduler{cfg: cfg, runner: &intervalRunner{}}
+	return &OAuthRefreshScheduler{
+		cfg:    cfg,
+		runner: &intervalRunner{},
+		ctx:    context.Background(),
+	}
 }
 
 func (s *OAuthRefreshScheduler) Name() string { return "oauth-refresh" }
 
 func (s *OAuthRefreshScheduler) Start(ctx context.Context) error {
+	// Capture the runner lifecycle context so per-job timeouts derive from it
+	// (cancelled on Stop) instead of context.Background() (never cancelled).
+	s.ctx, s.cancel = context.WithCancel(ctx)
+
 	intervalMs := config.MaxInt(oauthRefreshSchedulerIntervalMs, oauthRefreshSchedulerMinIntervalMs)
 	interval := time.Duration(intervalMs) * time.Millisecond
 
@@ -53,6 +67,13 @@ func (s *OAuthRefreshScheduler) Start(ctx context.Context) error {
 }
 
 func (s *OAuthRefreshScheduler) Stop() error {
+	// Cancel the lifecycle context first so any in-flight refresh pass whose
+	// job timeout derives from it aborts promptly. The runner stop then halts
+	// future ticks. Lease Release falls back to context.Background() when the
+	// job ctx is already done, so this does not strand an advisory lock.
+	if s.cancel != nil {
+		s.cancel()
+	}
 	return s.runner.stop()
 }
 
@@ -92,7 +113,10 @@ func (s *OAuthRefreshScheduler) runPass() {
 	if dbw == nil {
 		return
 	}
-	jobCtx, cancel := context.WithTimeout(context.Background(), oauthRefreshJobTimeout)
+	// Derive the job timeout from the lifecycle ctx (cancellable on Stop),
+	// not context.Background(). runWithSchedulerLease still releases the
+	// lease via context.Background() when this ctx is already done.
+	jobCtx, cancel := context.WithTimeout(s.ctx, oauthRefreshJobTimeout)
 	defer cancel()
 	runWithSchedulerLease(jobCtx, dbw, s.Name(), func() {
 		s.runPassLocked()

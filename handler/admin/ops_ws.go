@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/handler/shared"
+	"github.com/go-chi/chi/v5"
 )
 
 // ---- B2: live ops WebSocket ----
@@ -53,7 +53,15 @@ func (h *opsWSHandler) serve(w http.ResponseWriter, r *http.Request) {
 	}
 
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-		OriginPatterns: []string{"*"}, // admin UI served from the same origin
+		// Restrict cross-origin WebSocket upgrades to the operator-configured
+		// admin origins (ADMIN_CORS_ALLOWED_ORIGINS) plus localhost/127.0.0.1
+		// for dev. When no origins are configured, the slice is empty which
+		// makes coder/websocket enforce same-origin only (Origin host must
+		// match the request Host) — the safe default for an unconfigured box.
+		// The token check above is unaffected; this only tightens the
+		// browser-origin gate so a cross-site page cannot ride an admin's
+		// session via WebSocket.
+		OriginPatterns: opsWSOriginPatterns(h.cfg),
 	})
 	if err != nil {
 		return // handshake failure already written
@@ -107,4 +115,27 @@ func constantTimeEqual(a, b string) bool {
 		return false
 	}
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
+}
+
+// opsWSOriginPatterns returns the authorized WebSocket origin host patterns.
+//
+// When AdminCorsAllowedOrigins is empty the result is nil, which makes
+// coder/websocket enforce same-origin only (the Origin host must match the
+// request Host). When origins are configured, the configured entries are
+// returned alongside localhost/127.0.0.1 so local dev against a configured
+// box still works. Patterns are matched against the Origin URL host (or
+// scheme://host when the pattern itself contains "://"), matching the
+// library's authenticateOrigin rules.
+func opsWSOriginPatterns(cfg *config.Config) []string {
+	if cfg == nil {
+		return nil
+	}
+	configured := cfg.AdminCorsAllowedOrigins
+	if len(configured) == 0 {
+		return nil
+	}
+	patterns := make([]string, 0, len(configured)+2)
+	patterns = append(patterns, configured...)
+	patterns = append(patterns, "localhost", "127.0.0.1")
+	return patterns
 }
