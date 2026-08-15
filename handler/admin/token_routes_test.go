@@ -1586,3 +1586,91 @@ func TestRedactSearchSecrets(t *testing.T) {
 		t.Fatalf("tokenMasked = %#v, want %q", tok["tokenMasked"], maskSecret(tokSecret))
 	}
 }
+
+// TestTokenRoutes_SummaryBatchedCounts verifies that listSummary returns
+// correct per-route channelCount / enabledChannelCount via the single
+// GROUP BY query (covers routes with mixed enabled/disabled channels and a
+// route with zero channels).
+func TestTokenRoutes_SummaryBatchedCounts(t *testing.T) {
+	db, r := setupTokenRoutesTest(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	// seedRouteChannelRefs creates site/account/token + one 'gpt-*' route.
+	route1ID, accountID, tokenID := seedRouteChannelRefs(t, db)
+
+	// Second route ('claude-*') and a third route ('empty-*') with no channels.
+	res, err := db.Exec(
+		`INSERT INTO token_routes (model_pattern, enabled, created_at, updated_at)
+		 VALUES ('claude-*', 1, ?, ?)`, now, now)
+	if err != nil {
+		t.Fatalf("insert claude route: %v", err)
+	}
+	route2ID, _ := res.LastInsertId()
+
+	res, err = db.Exec(
+		`INSERT INTO token_routes (model_pattern, enabled, created_at, updated_at)
+		 VALUES ('empty-*', 1, ?, ?)`, now, now)
+	if err != nil {
+		t.Fatalf("insert empty route: %v", err)
+	}
+	route3ID, _ := res.LastInsertId()
+
+	// Route 1: 3 channels (2 enabled, 1 disabled).
+	for _, enabled := range []int{1, 1, 0} {
+		if _, err := db.Exec(
+			`INSERT INTO route_channels (route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override)
+			 VALUES (?, ?, ?, 'gpt-4o', 0, 10, ?, 0)`,
+			route1ID, accountID, tokenID, enabled); err != nil {
+			t.Fatalf("insert route1 channel: %v", err)
+		}
+	}
+
+	// Route 2: 2 channels (both enabled).
+	for i := 0; i < 2; i++ {
+		if _, err := db.Exec(
+			`INSERT INTO route_channels (route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override)
+			 VALUES (?, ?, ?, 'claude-3', 0, 10, 1, 0)`,
+			route2ID, accountID, tokenID); err != nil {
+			t.Fatalf("insert route2 channel: %v", err)
+		}
+	}
+
+	// Route 3: intentionally no channels.
+
+	resp := doGet(t, r, "/api/routes/summary")
+	if resp.Code != http.StatusOK {
+		t.Fatalf("summary status = %d body=%s", resp.Code, resp.Body.String())
+	}
+	var items []map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &items); err != nil {
+		t.Fatalf("decode summary: %v", err)
+	}
+
+	want := map[int64][2]int64{
+		route1ID: {3, 2},
+		route2ID: {2, 2},
+		route3ID: {0, 0},
+	}
+	seen := map[int64]bool{}
+	for _, item := range items {
+		id := int64(item["id"].(float64))
+		expected, ok := want[id]
+		if !ok {
+			continue
+		}
+		seen[id] = true
+		gotTotal := int64(item["channelCount"].(float64))
+		gotEnabled := int64(item["enabledChannelCount"].(float64))
+		if gotTotal != expected[0] {
+			t.Errorf("route %d channelCount = %d, want %d", id, gotTotal, expected[0])
+		}
+		if gotEnabled != expected[1] {
+			t.Errorf("route %d enabledChannelCount = %d, want %d", id, gotEnabled, expected[1])
+		}
+	}
+	for id := range want {
+		if !seen[id] {
+			t.Errorf("route %d missing from /api/routes/summary response", id)
+		}
+	}
+}

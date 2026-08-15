@@ -1,8 +1,6 @@
 package admin
 
 import (
-	"database/sql"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -119,21 +117,21 @@ func (h *accountsHandler) manualModels(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	for _, m := range models {
-		var existingID int64
-		err := tx.Get(&existingID, tx.Rebind("SELECT id FROM model_availability WHERE account_id = ? AND model_name = ?"), id, m)
-		if err == nil {
-			if _, err := tx.Exec(tx.Rebind("UPDATE model_availability SET available = ?, latency_ms = NULL, is_manual = ?, checked_at = ? WHERE id = ?"), true, true, now, existingID); err != nil {
-				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update manual model"})
-				return
-			}
-			continue
-		}
-		if !errors.Is(err, sql.ErrNoRows) {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to read manual model"})
-			return
-		}
-		if _, err := tx.Exec(tx.Rebind("INSERT INTO model_availability (account_id, model_name, available, is_manual, latency_ms, checked_at) VALUES (?, ?, ?, ?, NULL, ?)"), id, m, true, true, now); err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to insert manual model"})
+		// Single dialect-aware upsert replaces the SELECT-then-UPDATE-or-INSERT
+		// pattern (3 round-trips/model → 1). ON CONFLICT (account_id, model_name)
+		// targets the model_availability_account_model_unique constraint. Manual
+		// models set is_manual = true on both insert and conflict update so the
+		// operator-pinned flag is always reasserted (matches the old behavior).
+		if _, err := tx.Exec(tx.Rebind(`
+			INSERT INTO model_availability (account_id, model_name, available, is_manual, latency_ms, checked_at)
+			VALUES (?, ?, ?, ?, NULL, ?)
+			ON CONFLICT (account_id, model_name) DO UPDATE SET
+				available = EXCLUDED.available,
+				is_manual = EXCLUDED.is_manual,
+				latency_ms = NULL,
+				checked_at = EXCLUDED.checked_at
+		`), id, m, true, true, now); err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to upsert manual model"})
 			return
 		}
 	}

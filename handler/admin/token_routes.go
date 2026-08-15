@@ -115,12 +115,32 @@ func (h *tokenRoutesHandler) listLite(w http.ResponseWriter, r *http.Request) {
 // GET /api/routes/summary
 func (h *tokenRoutesHandler) listSummary(w http.ResponseWriter, r *http.Request) {
 	rows := queryRows(h.db, "SELECT * FROM token_routes ORDER BY sort_order ASC, id ASC")
+
+	// Batch-load per-route channel counts in a single GROUP BY query instead of
+	// firing two COUNT queries per route (the previous N+1 shape). A route with
+	// no channels simply has no row in route_channels, so it falls through to
+	// the zero value of routeChannelCounts — same as the old per-route COUNT.
+	type routeChannelCounts struct {
+		RouteID       int64 `db:"route_id"`
+		Total         int64 `db:"total"`
+		EnabledCount  int64 `db:"enabled_count"`
+	}
+	var counts []routeChannelCounts
+	if err := h.db.Select(&counts, `
+		SELECT route_id, COUNT(*) AS total,
+		       SUM(CASE WHEN enabled THEN 1 ELSE 0 END) AS enabled_count
+		FROM route_channels GROUP BY route_id`); err != nil {
+		slog.Warn("listSummary: batch channel counts failed", "err", err)
+	}
+	countsByRoute := make(map[int64]routeChannelCounts, len(counts))
+	for _, c := range counts {
+		countsByRoute[c.RouteID] = c
+	}
+
 	result := make([]map[string]any, 0)
 	for _, route := range rows {
 		routeID := coerceInt64(route["id"])
-		var channelCount, enabledCount int
-		h.db.Get(&channelCount, h.db.Rebind("SELECT COUNT(*) FROM route_channels WHERE route_id = ?"), routeID)
-		h.db.Get(&enabledCount, h.db.Rebind("SELECT COUNT(*) FROM route_channels WHERE route_id = ? AND enabled = ?"), routeID, true)
+		c := countsByRoute[routeID]
 
 		item := map[string]any{
 			"id":                  route["id"],
@@ -133,8 +153,8 @@ func (h *tokenRoutesHandler) listSummary(w http.ResponseWriter, r *http.Request)
 			"routingStrategy":     route["routingStrategy"],
 			"contextLength":       route["contextLength"],
 			"enabled":             route["enabled"],
-			"channelCount":        channelCount,
-			"enabledChannelCount": enabledCount,
+			"channelCount":        c.Total,
+			"enabledChannelCount": c.EnabledCount,
 			"siteNames":           []string{},
 			"decisionSnapshot":    nil,
 			"decisionRefreshedAt": route["decisionRefreshedAt"],
