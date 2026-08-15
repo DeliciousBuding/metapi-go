@@ -1,13 +1,11 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import {
-  buildCheckinSearchString,
   buildInitialCheckinLogsQuery,
   checkinSearchSchema,
   getCheckinSearchDefaultValues,
   parseCheckinSearch,
   parseFilterValues,
-  readCheckinSearchFromUrl,
 } from '../lib/checkin-schema'
 
 // ---------------------------------------------------------------------------
@@ -87,95 +85,6 @@ describe('parseFilterValues', () => {
     expect(parseFilterValues(undefined)).toEqual([])
     expect(parseFilterValues('')).toEqual([])
     expect(parseFilterValues('   ')).toEqual([])
-  })
-})
-
-// ---------------------------------------------------------------------------
-// buildCheckinSearchString
-// ---------------------------------------------------------------------------
-
-describe('buildCheckinSearchString', () => {
-  it('returns an empty string for the default page state', () => {
-    expect(
-      buildCheckinSearchString({
-        pageIndex: 0,
-        pageSize: 20,
-        statusValues: [],
-        reasonValues: [],
-        siteValues: [],
-      })
-    ).toBe('')
-  })
-
-  it('omits page on the first index and pageSize when it equals 20', () => {
-    const result = buildCheckinSearchString({
-      pageIndex: 0,
-      pageSize: 20,
-      statusValues: ['ok', 'fail'],
-      reasonValues: [],
-      siteValues: [],
-    })
-    const params = new URLSearchParams(result.slice(1))
-    expect(params.get('page')).toBeNull()
-    expect(params.get('pageSize')).toBeNull()
-    expect(params.get('status')).toBe('ok,fail')
-  })
-
-  it('writes page as pageIndex+1 and the pageSize when it differs from 20', () => {
-    const result = buildCheckinSearchString({
-      pageIndex: 2,
-      pageSize: 50,
-      statusValues: [],
-      reasonValues: [],
-      siteValues: [],
-      query: 'x',
-    })
-    const params = new URLSearchParams(result.slice(1))
-    expect(params.get('page')).toBe('3')
-    expect(params.get('pageSize')).toBe('50')
-    expect(params.get('q')).toBe('x')
-  })
-
-  it('emits accountId and date-range fields when provided', () => {
-    const result = buildCheckinSearchString({
-      pageIndex: 0,
-      pageSize: 20,
-      accountId: 42,
-      statusValues: [],
-      reasonValues: [],
-      siteValues: [],
-      from: '2026-01-01T00:00',
-      to: '2026-01-02T00:00',
-    })
-    const params = new URLSearchParams(result.slice(1))
-    expect(params.get('accountId')).toBe('42')
-    expect(params.get('from')).toBe('2026-01-01T00:00')
-    expect(params.get('to')).toBe('2026-01-02T00:00')
-  })
-})
-
-// ---------------------------------------------------------------------------
-// readCheckinSearchFromUrl
-// ---------------------------------------------------------------------------
-
-describe('readCheckinSearchFromUrl', () => {
-  afterEach(() => {
-    // Reset the URL so later suites see a clean location.
-    history.replaceState({}, '', '/')
-  })
-
-  it('parses a valid query string from window.location.search', () => {
-    history.replaceState({}, '', '/?page=3&status=ok,fail')
-    const result = readCheckinSearchFromUrl()
-    expect(result.page).toBe(3)
-    expect(result.status).toBe('ok,fail')
-  })
-
-  it('falls back to defaults when the query string is invalid', () => {
-    history.replaceState({}, '', '/?page=abc&pageSize=999')
-    const result = readCheckinSearchFromUrl()
-    expect(result.page).toBe(1)
-    expect(result.pageSize).toBe(20)
   })
 })
 

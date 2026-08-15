@@ -7,13 +7,14 @@
 // search filters see the full log history instead of the legacy 500-row
 // client cap that silently dropped older records.
 
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import type {
   ColumnFiltersState,
   OnChangeFn,
   PaginationState,
 } from '@tanstack/react-table'
 import { CalendarRange, Loader2, RotateCw, Zap } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DataTablePage, useDataTable } from '@/components/data-table'
@@ -32,9 +33,8 @@ import { toast } from '@/lib/toast'
 
 import { useCheckinAccount, useCheckinLogs, useManualCheckin } from '../api'
 import {
-  buildCheckinSearchString,
+  DEFAULT_CHECKIN_PAGE_SIZE,
   parseFilterValues,
-  readCheckinSearchFromUrl,
 } from '../lib/checkin-schema'
 import { localDatetimeInputToUtcRfc3339 } from '../lib/checkin-time'
 import { type CheckinLogRow, checkinLogRowSchema } from '../types'
@@ -46,27 +46,31 @@ const ACCOUNT_FILTER_ALL = 'all'
 
 export function CheckinPage() {
   const { t } = useTranslation()
-  const initial = useMemo(readCheckinSearchFromUrl, [])
+  // URL state is owned by the router: read the validated search via
+  // `useSearch` (no `window.location.search`), write changes back via
+  // `navigate({ search, replace: true })` (no `history.replaceState`).
+  const search = useSearch({ from: '/_authenticated/checkin' })
+  const navigate = useNavigate()
   const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: initial.page - 1,
-    pageSize: initial.pageSize,
+    pageIndex: search.page - 1,
+    pageSize: search.pageSize,
   })
-  const [globalFilter, setGlobalFilter] = useState(initial.q ?? '')
+  const [globalFilter, setGlobalFilter] = useState(search.q ?? '')
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() => {
     const filters: ColumnFiltersState = []
-    const statusValues = parseFilterValues(initial.status)
+    const statusValues = parseFilterValues(search.status)
     if (statusValues.length) filters.push({ id: 'status', value: statusValues })
-    const reasonValues = parseFilterValues(initial.reason)
+    const reasonValues = parseFilterValues(search.reason)
     if (reasonValues.length) filters.push({ id: 'reason', value: reasonValues })
-    const siteValues = parseFilterValues(initial.site)
+    const siteValues = parseFilterValues(search.site)
     if (siteValues.length) filters.push({ id: 'site', value: siteValues })
     return filters
   })
   const [accountId, setAccountId] = useState<number | undefined>(
-    initial.accountId
+    search.accountId
   )
-  const [from, setFrom] = useState(initial.from ?? '')
-  const [to, setTo] = useState(initial.to ?? '')
+  const [from, setFrom] = useState(search.from ?? '')
+  const [to, setTo] = useState(search.to ?? '')
 
   const { data: accountsSnapshot } = useAccounts()
   const accountOptions = accountsSnapshot?.accounts ?? []
@@ -144,30 +148,43 @@ export function CheckinPage() {
   const logs = useMemo(() => logsPage?.items ?? [], [logsPage])
   const total = logsPage?.total ?? 0
 
+  // Write state back to the URL through the router (single source of truth).
+  // Skip the initial write — the URL already holds the search the state was
+  // initialised from.
+  const skipInitialWrite = useRef(true)
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const query = buildCheckinSearchString({
-      pageIndex: pagination.pageIndex,
-      pageSize: pagination.pageSize,
-      accountId,
-      statusValues,
-      reasonValues,
-      siteValues,
-      from: from || undefined,
-      to: to || undefined,
-      query: globalFilter || undefined,
+    if (skipInitialWrite.current) {
+      skipInitialWrite.current = false
+      return
+    }
+    navigate({
+      to: '/checkin',
+      search: {
+        page: pagination.pageIndex > 0 ? pagination.pageIndex + 1 : undefined,
+        pageSize:
+          pagination.pageSize !== DEFAULT_CHECKIN_PAGE_SIZE
+            ? pagination.pageSize
+            : undefined,
+        accountId: accountId || undefined,
+        status: statusValues.length ? statusValues.join(',') : undefined,
+        reason: reasonValues.length ? reasonValues.join(',') : undefined,
+        site: siteValues.length ? siteValues.join(',') : undefined,
+        from: from || undefined,
+        to: to || undefined,
+        q: globalFilter || undefined,
+      },
+      replace: true,
     })
-    window.history.replaceState(null, '', `${window.location.pathname}${query}`)
   }, [
     pagination,
     accountId,
-    columnFilters,
     from,
     to,
     globalFilter,
     statusValues,
     reasonValues,
     siteValues,
+    navigate,
   ])
 
   const onGlobalFilterChange = useMemo<OnChangeFn<string>>(

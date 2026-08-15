@@ -4,9 +4,8 @@
 // checkin page). The schema carries `.default()` values for page / pageSize;
 // with TanStack Router's default (non-strict) search handling these defaults
 // populate the validated `search` object passed to the loader / `useSearch()`
-// but are NOT written back to the URL, so the page's own
-// `window.location.search` reads (via `readCheckinSearchFromUrl`) stay
-// consistent.
+// but are NOT written back to the URL — the page reads that same `search` and
+// writes changes back via `navigate({ search, replace: true })`.
 //
 // `loader` prefetches the first server-paginated checkin-logs page the page's
 // `useCheckinLogs` hook will request. It builds the exact same
