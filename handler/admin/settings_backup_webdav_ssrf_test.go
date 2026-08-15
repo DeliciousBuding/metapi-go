@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/deliciousbuding/metapi-go/internal/ssrf"
 )
 
 // disallowPrivateWebdavTargetsForTest explicitly pins the test-only
@@ -49,8 +51,8 @@ func TestIsPrivateOrLoopback(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := isPrivateOrLoopback(tt.host); got != tt.want {
-				t.Fatalf("isPrivateOrLoopback(%q) = %v, want %v", tt.host, got, tt.want)
+			if got := ssrf.IsPrivateOrLoopbackLiteral(tt.host); got != tt.want {
+				t.Fatalf("IsPrivateOrLoopbackLiteral(%q) = %v, want %v", tt.host, got, tt.want)
 			}
 		})
 	}
@@ -84,8 +86,8 @@ func TestIsAllowedWebdavTargetHost(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := isAllowedWebdavTargetHost(tt.host); got != tt.want {
-				t.Fatalf("isAllowedWebdavTargetHost(%q) = %v, want %v", tt.host, got, tt.want)
+			if got := ssrf.IsAllowedWebdavTargetHost(tt.host, false); got != tt.want {
+				t.Fatalf("IsAllowedWebdavTargetHost(%q) = %v, want %v", tt.host, got, tt.want)
 			}
 		})
 	}
@@ -97,11 +99,11 @@ func TestIsAllowedWebdavTargetHost(t *testing.T) {
 func TestIsAllowedWebdavTargetHost_FlagBypassed(t *testing.T) {
 	allowPrivateWebdavTargetsForTest(t) // flips to true
 
-	if !isAllowedWebdavTargetHost("127.0.0.1") {
-		t.Fatal("with allowPrivateWebdavTargets=true, 127.0.0.1 should be allowed")
+	if !ssrf.IsAllowedWebdavTargetHost("127.0.0.1", true) {
+		t.Fatal("with allowPrivate=true, 127.0.0.1 should be allowed")
 	}
-	if !isAllowedWebdavTargetHost("localhost") {
-		t.Fatal("with allowPrivateWebdavTargets=true, localhost should be allowed")
+	if !ssrf.IsAllowedWebdavTargetHost("localhost", true) {
+		t.Fatal("with allowPrivate=true, localhost should be allowed")
 	}
 }
 
@@ -134,7 +136,7 @@ func TestRejectUnsafeWebdavDialHost(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
-			err := rejectUnsafeWebdavDialHost(ctx, tt.host)
+			err := ssrf.RejectUnsafeWebdavDialHost(ctx, tt.host, false)
 			if tt.dialSkip {
 				t.Logf("rejectUnsafeWebdavDialHost(%q) err=%v (DNS-dependent, not asserted)", tt.host, err)
 				return
@@ -158,7 +160,7 @@ func TestRejectUnsafeWebdavDialHost_PublicHostname(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	err := rejectUnsafeWebdavDialHost(ctx, "example.com")
+	err := ssrf.RejectUnsafeWebdavDialHost(ctx, "example.com", false)
 	if err == nil {
 		// DNS resolved to one or more public addresses — allowed as expected.
 		return
