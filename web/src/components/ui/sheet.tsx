@@ -31,7 +31,7 @@ function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
     <SheetPrimitive.Backdrop
       data-slot='sheet-overlay'
       className={cn(
-        'fixed inset-0 z-50 bg-overlay transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0 supports-backdrop-filter:backdrop-blur-xs',
+        'data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 fixed inset-0 z-50 bg-overlay duration-100 motion-reduce:animate-none! supports-backdrop-filter:backdrop-blur-xs',
         className
       )}
       {...props}
@@ -62,15 +62,15 @@ function SheetContent({
         data-slot='sheet-content'
         data-side={side}
         className={cn(
-          'bg-background text-foreground fixed z-50 flex flex-col gap-4 overflow-hidden bg-clip-padding text-sm shadow-none transition duration-200 ease-in-out data-ending-style:opacity-0 data-starting-style:opacity-0',
+          'bg-background text-foreground fixed z-50 flex flex-col gap-4 overflow-hidden bg-clip-padding text-sm shadow-none duration-100 motion-reduce:animate-none! data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0',
           side === 'right' &&
-            'inset-y-0 right-0 h-full w-3/4 border-l data-ending-style:translate-x-[2.5rem] data-starting-style:translate-x-[2.5rem] sm:max-w-sm',
+            'inset-y-0 right-0 h-full w-3/4 border-l data-open:slide-in-from-right-10 data-closed:slide-out-to-right-10 sm:max-w-sm',
           side === 'left' &&
-            'inset-y-0 left-0 h-full w-3/4 border-r data-ending-style:translate-x-[-2.5rem] data-starting-style:translate-x-[-2.5rem] sm:max-w-sm',
+            'inset-y-0 left-0 h-full w-3/4 border-r data-open:slide-in-from-left-10 data-closed:slide-out-to-left-10 sm:max-w-sm',
           side === 'top' &&
-            'inset-x-0 top-0 h-auto border-b data-ending-style:translate-y-[-2.5rem] data-starting-style:translate-y-[-2.5rem]',
+            'inset-x-0 top-0 h-auto border-b data-open:slide-in-from-top-10 data-closed:slide-out-to-top-10',
           side === 'bottom' &&
-            'inset-x-0 bottom-0 h-auto border-t data-ending-style:translate-y-[2.5rem] data-starting-style:translate-y-[2.5rem]',
+            'inset-x-0 bottom-0 h-auto border-t data-open:slide-in-from-bottom-10 data-closed:slide-out-to-bottom-10',
           className
         )}
         {...props}

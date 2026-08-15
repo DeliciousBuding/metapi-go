@@ -66,6 +66,8 @@ beforeEach(async () => {
 // afterEach cleanup never registers — unmount explicitly between tests.
 afterEach(() => {
   cleanup()
+  // `<html dir>` is owned by DirectionProvider; keep it pristine between tests.
+  document.documentElement.removeAttribute('dir')
 })
 
 function renderHeader() {
@@ -96,7 +98,11 @@ describe('language switcher', () => {
     expect(chineseItem).not.toHaveAttribute('aria-current')
   })
 
-  it('switches i18n.language to zhCN and syncs <html lang> on click', async () => {
+  it('switches i18n.language to zhCN and syncs <html lang> without touching dir', async () => {
+    // `dir` is owned by DirectionProvider (issue #736) — switching language
+    // must never reset an RTL direction back to ltr.
+    document.documentElement.dir = 'rtl'
+
     renderHeader()
 
     fireEvent.click(screen.getByRole('button', { name: 'Language' }))
@@ -104,7 +110,7 @@ describe('language switcher', () => {
 
     await waitFor(() => expect(i18n.language).toBe('zhCN'))
     expect(document.documentElement.lang).toBe('zh-CN')
-    expect(document.documentElement.dir).toBe('ltr')
+    expect(document.documentElement.dir).toBe('rtl')
 
     // The detector caches the choice in localStorage for next visit.
     expect(localStorage.getItem('i18nextLng')).toBe('zhCN')

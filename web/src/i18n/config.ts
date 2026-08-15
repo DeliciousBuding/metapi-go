@@ -42,12 +42,15 @@ i18n
 
 /**
  * Keep `<html lang>` in sync with the active language so assistive tech,
- * spell checkers and locale-aware tooling see the current BCP-47 tag. Both
- * supported languages are LTR, so dir stays pinned to ltr.
+ * spell checkers and locale-aware tooling see the current BCP-47 tag.
+ *
+ * `dir` is deliberately NOT touched here: DirectionProvider is the single
+ * owner of `document.documentElement.dir` (cookie/localStorage-backed). A
+ * hardcoded `dir = 'ltr'` would reset RTL users to LTR on every language
+ * change.
  */
 function syncDocumentLanguage(language: string): void {
   document.documentElement.lang = toBcp47(language)
-  document.documentElement.dir = 'ltr'
 }
 
 i18n.on('languageChanged', syncDocumentLanguage)
