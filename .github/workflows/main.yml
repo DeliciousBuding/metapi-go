@@ -37,30 +37,22 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-      - name: Install golangci-lint
-        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
-      # web/embed.go embeds web/dist, which is gitignored and absent on a
-      # fresh checkout. A placeholder file lets Go tooling type-check the
-      # embed package; production images build the real SPA in the Dockerfile.
-      - run: mkdir -p web/dist && touch web/dist/placeholder.txt
+      - uses: ./.github/actions/go-toolchain
       - name: Run golangci-lint
-        run: golangci-lint run --timeout=3m
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.64.8
+          # goinstall builds with the current toolchain (go.mod go directive is
+          # newer than the action's prebuilt binary), and still caches the build.
+          install-mode: goinstall
+          args: --timeout=3m
 
   vet:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-      # web/embed.go embeds web/dist, which is gitignored and absent on a
-      # fresh checkout. A placeholder file lets go vet type-check the embed
-      # package; production images build the real SPA in the Dockerfile.
-      - run: mkdir -p web/dist && touch web/dist/placeholder.txt
+      - uses: ./.github/actions/go-toolchain
       - run: go vet ./...
 
   vulncheck:
@@ -68,10 +60,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-      - run: mkdir -p web/dist && touch web/dist/placeholder.txt
+      - uses: ./.github/actions/go-toolchain
       - run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
 
   mod-verify:
@@ -159,6 +148,12 @@ jobs:
       - name: Install web deps (playwright + axe-core)
         run: bun install --frozen-lockfile
         working-directory: web
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/bun.lockb') }}
+          restore-keys: playwright-${{ runner.os }}-
       - name: Install Playwright Chromium
         run: bunx playwright install --with-deps chromium
         working-directory: web
@@ -188,15 +183,24 @@ jobs:
           cd web
           BASE_URL=http://127.0.0.1:4099 bun run a11y:scan
 
-  test-sqlite:
+  test-sqlite-shard:
+    # The race detector makes the full suite the pipeline's long pole (~5 min).
+    # Shard packages round-robin across parallel runners to cut it ~4x while
+    # still running every package under -race. (Packages are independent; the
+    # handler tests use per-test :memory: sqlite, so sharding is safe.) The
+    # stable `test-sqlite` name below aggregates the shards so branch
+    # protection keeps a single required check.
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
     needs: frontend
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+        total: [4]
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
+      - uses: ./.github/actions/go-toolchain
       # SPA-fallback and static-asset tests exercise the real embedded dist,
       # built once by the frontend job and passed through the artifact.
       - name: Download frontend dist
@@ -204,7 +208,32 @@ jobs:
         with:
           name: web-dist
           path: web/dist
-      - run: go test ./... -count=1 -race
+      - name: Run tests (shard ${{ matrix.shard }}/${{ matrix.total }})
+        run: |
+          set -euo pipefail
+          mapfile -t pkgs < <(go list ./...)
+          shard_pkgs=()
+          for i in "${!pkgs[@]}"; do
+            if (( i % matrix.total == matrix.shard )); then
+              shard_pkgs+=("${pkgs[i]}")
+            fi
+          done
+          if [ "${#shard_pkgs[@]}" -eq 0 ]; then
+            echo "no packages in shard; nothing to run"
+            exit 0
+          fi
+          echo "shard ${{ matrix.shard }} running ${#shard_pkgs[@]} packages:"
+          printf '  %s\n' "${shard_pkgs[@]}"
+          go test "${shard_pkgs[@]}" -count=1 -race
+
+  # Stable name that branch protection depends on: passes only when every
+  # shard above passed.
+  test-sqlite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: test-sqlite-shard
+    steps:
+      - run: echo "all test-sqlite shards passed"
 
   test-pg:
     runs-on: ubuntu-latest
@@ -249,12 +278,88 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-      - run: mkdir -p web/dist && touch web/dist/placeholder.txt
+      - uses: ./.github/actions/go-toolchain
       - run: go build -trimpath ./cmd/server
       - run: go build -trimpath ./cmd/migrate
+
+  # Real-platform e2e: boots REAL upstreams (new-api v1, one-api) as service
+  # containers, starts a live metapi server on the runner, and drives
+  # scripts/e2e/smoke.sh through the full admin + proxy chain (detect → login →
+  # verify → account → models → balance → checkin → downstream token → route →
+  # /v1 relay). This is the durable, free-on-Actions version of the transient
+  # ARM testbed: no external infra, no secrets, re-runnable per push.
+  test-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      new-api:
+        image: calciumion/new-api:latest
+        ports:
+          - 3000:3000
+      one-api:
+        image: justsong/one-api:latest
+        ports:
+          - 3001:3000
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/go-toolchain
+      - name: Initialize upstreams
+        run: |
+          set -euo pipefail
+          # new-api v1 has no default password: first-run setup creates root.
+          for i in $(seq 1 30); do
+            if curl -fsS -X POST http://127.0.0.1:3000/api/setup \
+              -H 'Content-Type: application/json' \
+              -d '{"username":"root","password":"metapi123","confirmPassword":"metapi123","SelfUseModeEnabled":false,"DemoSiteEnabled":false}' >/dev/null 2>&1; then
+              echo "new-api initialized"
+              break
+            fi
+            sleep 2
+          done
+          # one-api auto-seeds root/123456; just wait for readiness.
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:3001/api/status >/dev/null 2>&1 && { echo "one-api ready"; break; }
+            sleep 2
+          done
+      - name: Run live server + smoke chains
+        run: |
+          set -euo pipefail
+          AUTH_TOKEN=e2e-admin-token \
+          PROXY_TOKEN=e2e-proxy-token \
+          DATA_DIR="$(mktemp -d)/data" \
+          PORT=4010 \
+          go run ./cmd/server >/tmp/metapi-e2e.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" >/dev/null 2>&1 || true' EXIT
+          ready=
+          for _ in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:4010/ready 2>/dev/null | grep -q '"status":"ok"'; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ -z "$ready" ]; then
+            echo "metapi server failed to become ready; log:"
+            cat /tmp/metapi-e2e.log
+            exit 1
+          fi
+
+          echo "===== new-api full chain ====="
+          METAPI_URL=http://127.0.0.1:4010 \
+          METAPI_AUTH_TOKEN=e2e-admin-token \
+          UPSTREAM_URL=http://127.0.0.1:3000 \
+          UPSTREAM_USERNAME=root UPSTREAM_PASSWORD=metapi123 \
+          PLATFORM=new-api \
+          bash scripts/e2e/smoke.sh
+
+          echo "===== one-api full chain ====="
+          METAPI_URL=http://127.0.0.1:4010 \
+          METAPI_AUTH_TOKEN=e2e-admin-token \
+          UPSTREAM_URL=http://127.0.0.1:3001 \
+          UPSTREAM_USERNAME=root UPSTREAM_PASSWORD=123456 \
+          PLATFORM=one-api SITE_NAME=e2e-smoke-oneapi TOKEN_NAME=e2e-smoke-oneapi-token \
+          bash scripts/e2e/smoke.sh
 
   # Build + smoke the image on every run (this is also a required check on PRs).
   # It does not push; docker-push publishes the same image via shared cache.
@@ -273,6 +378,7 @@ jobs:
       - test-sqlite
       - test-pg
       - build
+      - test-e2e
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4
