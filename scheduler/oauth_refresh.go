@@ -8,6 +8,7 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/service/oauth"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 const (
@@ -87,6 +88,18 @@ func (s *OAuthRefreshScheduler) runPass() {
 		s.mu.Unlock()
 	}()
 
+	dbw := store.GetDB()
+	if dbw == nil {
+		return
+	}
+	jobCtx, cancel := context.WithTimeout(context.Background(), oauthRefreshJobTimeout)
+	defer cancel()
+	runWithSchedulerLease(jobCtx, dbw, s.Name(), func() {
+		s.runPassLocked()
+	})
+}
+
+func (s *OAuthRefreshScheduler) runPassLocked() {
 	nowMs := time.Now().UnixMilli()
 	rows, err := oauth.ListOAuthRefreshCandidates()
 	if err != nil {

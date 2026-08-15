@@ -196,7 +196,9 @@ func (s *CheckinScheduler) runStaleAccountCatchUp(dbw *store.DB) {
 		return
 	}
 	slog.Info("checkin: stale account catch-up", "count", len(staleIDs))
-	runWithSchedulerLease(context.Background(), dbw, s.Name(), func() {
+	jobCtx, cancel := context.WithTimeout(context.Background(), checkinJobTimeout)
+	defer cancel()
+	runWithSchedulerLease(jobCtx, dbw, s.Name(), func() {
 		results := checkin.CheckinAll(s.cfg, dbw.DB, staleIDs, "catchup")
 		ok, bad := countResults(results)
 		slog.Info("checkin: stale account catch-up done", "enqueued", len(staleIDs), "success", ok, "failed", bad)
@@ -306,7 +308,9 @@ func (s *CheckinScheduler) runCronJob() {
 		slog.Error("checkin: database not available")
 		return
 	}
-	runWithSchedulerLease(context.Background(), dbw, s.Name(), func() {
+	jobCtx, cancel := context.WithTimeout(context.Background(), checkinJobTimeout)
+	defer cancel()
+	runWithSchedulerLease(jobCtx, dbw, s.Name(), func() {
 		results := checkin.CheckinAll(s.cfg, dbw.DB, nil, "cron")
 		ok, bad := countResults(results)
 		slog.Info("checkin: cron job done", "success", ok, "failed", bad)
@@ -318,7 +322,9 @@ func (s *CheckinScheduler) runIntervalPass() {
 	if dbw == nil {
 		return
 	}
-	runWithSchedulerLease(context.Background(), dbw, s.Name(), func() {
+	jobCtx, cancel := context.WithTimeout(context.Background(), checkinJobTimeout)
+	defer cancel()
+	runWithSchedulerLease(jobCtx, dbw, s.Name(), func() {
 		s.runIntervalPassLocked(dbw)
 	})
 }

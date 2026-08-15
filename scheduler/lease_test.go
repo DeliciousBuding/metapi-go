@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/deliciousbuding/metapi-go/store"
 )
@@ -121,6 +122,7 @@ func TestSideEffectSchedulersUseClusterLease(t *testing.T) {
 		"retention.go", // shared implementation of the retention trio
 		"log_cleanup.go",
 		"model_probe.go",
+		"oauth_refresh.go",
 		"site_announcement.go",
 		"sub2api_refresh.go",
 		"update_center.go",
@@ -197,5 +199,100 @@ func TestNoteLeaseAcquireFailureBackoff(t *testing.T) {
 	if !blocked || rem <= 0 {
 		t.Fatalf("expected active backoff, blocked=%v rem=%v", blocked, rem)
 	}
+}
+
+// TestRunWithSchedulerLeaseReleasesAfterDeadline verifies that a job whose
+// context deadline fires during fn() still releases the lease so the next
+// instance can acquire it. This is the P2 fix: a pathological pass over N
+// accounts cannot block all other instances indefinitely.
+func TestRunWithSchedulerLeaseReleasesAfterDeadline(t *testing.T) {
+	db, err := store.Open(store.DialectSQLite, ":memory:", false)
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	name := "test-deadline-" + t.Name()
+	jobCtx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancel()
+
+	ran := false
+	runWithSchedulerLease(jobCtx, db, name, func() {
+		// Exceed the deadline so ctx.Err() == DeadlineExceeded on return.
+		time.Sleep(80 * time.Millisecond)
+		ran = true
+	})
+	if !ran {
+		t.Fatal("job did not run to completion")
+	}
+	if err := jobCtx.Err(); err != context.DeadlineExceeded {
+		t.Fatalf("expected ctx deadline exceeded, got %v", err)
+	}
+
+	// Lease must be released despite the deadline-exceeded context.
+	lease, acquired, err := tryAcquireSchedulerLease(context.Background(), db, name)
+	if err != nil {
+		t.Fatalf("re-acquire failed: %v", err)
+	}
+	if !acquired || lease == nil {
+		t.Fatal("lease was not released after deadline-exceeded job completed")
+	}
+	lease.Release(context.Background())
+}
+
+// TestRunWithSchedulerLeaseReleasesOnBackgroundContext verifies the normal
+// (no-deadline) path still acquires and releases cleanly.
+func TestRunWithSchedulerLeaseReleasesOnBackgroundContext(t *testing.T) {
+	db, err := store.Open(store.DialectSQLite, ":memory:", false)
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	name := "test-bg-" + t.Name()
+	ran := false
+	runWithSchedulerLease(context.Background(), db, name, func() {
+		ran = true
+	})
+	if !ran {
+		t.Fatal("job did not run")
+	}
+
+	lease, acquired, err := tryAcquireSchedulerLease(context.Background(), db, name)
+	if err != nil {
+		t.Fatalf("re-acquire failed: %v", err)
+	}
+	if !acquired || lease == nil {
+		t.Fatal("lease was not released after background-context job completed")
+	}
+	lease.Release(context.Background())
+}
+
+// TestReleaseWithCancelledContextDoesNotPanic verifies that passing an
+// already-cancelled context to Release (as runWithSchedulerLease does when
+// the deadline fires) does not break local lease release.
+func TestReleaseWithCancelledContextDoesNotPanic(t *testing.T) {
+	db, err := store.Open(store.DialectSQLite, ":memory:", false)
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	name := "test-cancel-release-" + t.Name()
+	lease, acquired, err := tryAcquireSchedulerLease(context.Background(), db, name)
+	if err != nil || !acquired || lease == nil {
+		t.Fatalf("acquire: err=%v acquired=%v", err, acquired)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // simulate a deadline-exceeded / cancelled context
+	lease.Release(ctx)
+
+	// Should be re-acquirable.
+	again, acquired, err := tryAcquireSchedulerLease(context.Background(), db, name)
+	if err != nil || !acquired || again == nil {
+		t.Fatalf("re-acquire after cancelled release: err=%v acquired=%v", err, acquired)
+	}
+	again.Release(context.Background())
 }
 

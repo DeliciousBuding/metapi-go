@@ -123,7 +123,9 @@ func (s *BackupWebdavScheduler) runExport(cfg *BackupWebdavConfig) {
 	if dbw == nil {
 		return
 	}
-	runWithSchedulerLease(context.Background(), dbw, s.Name(), func() {
+	jobCtx, cancel := context.WithTimeout(context.Background(), backupWebdavJobTimeout)
+	defer cancel()
+	runWithSchedulerLease(jobCtx, dbw, s.Name(), func() {
 		s.runExportLocked(cfg, dbw)
 	})
 }

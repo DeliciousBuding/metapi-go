@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/deliciousbuding/metapi-go/handler/shared"
 	"github.com/deliciousbuding/metapi-go/routing"
 )
 
@@ -58,6 +59,17 @@ func (h *tokenRoutesHandler) listChannels(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusInternalServerError, "加载通道列表失败")
 		return
 	}
+
+	// Refresh the metapi_active_channels gauge so /metrics reflects the real
+	// proxy channel count instead of a constant 0. Counted from the same rows
+	// we already load for the list (enabled channels = active candidates).
+	var enabledChannels int64
+	for _, row := range rows {
+		if row.Enabled {
+			enabledChannels++
+		}
+	}
+	shared.SetActiveChannels(enabledChannels)
 
 	items := make([]map[string]any, 0, len(rows))
 	for _, row := range rows {

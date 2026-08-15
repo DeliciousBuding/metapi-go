@@ -108,6 +108,25 @@ func SetDBConnections(n int64) { globalMetrics.dbConnectionsOpen.Store(n) }
 // SetDBConnectionsInUse sets the DB in-use connection gauge.
 func SetDBConnectionsInUse(n int64) { globalMetrics.dbConnectionsInUse.Store(n) }
 
+// IncActiveStreams increments the metapi_proxy_streams_active gauge. Call at
+// the start of every proxied SSE/stream response. Pair with DecActiveStreams.
+func IncActiveStreams() { globalMetrics.proxyStreamsActive.Add(1) }
+
+// DecActiveStreams decrements the metapi_proxy_streams_active gauge. Call when
+// a proxied SSE/stream response ends (success, error, or client disconnect).
+// Uses Add(-1) so a misplaced Dec can drive the gauge negative, which is the
+// honest signal that Inc/Dec are unbalanced.
+func DecActiveStreams() { globalMetrics.proxyStreamsActive.Add(-1) }
+
+// SetActiveStreams sets the metapi_proxy_streams_active gauge to an absolute
+// value (useful for reconciliation/edge resets from a coordinator snapshot).
+func SetActiveStreams(n int64) { globalMetrics.proxyStreamsActive.Store(n) }
+
+// SetActiveChannels sets the metapi_active_channels gauge. Call from the
+// channel list handler (or a periodic refresh) so /metrics reflects the real
+// count of proxy channels instead of a constant 0.
+func SetActiveChannels(n int64) { globalMetrics.activeChannels.Store(n) }
+
 // RecordRouteRebuildCompleted increments successful route rebuild/cache-invalidate counter.
 func RecordRouteRebuildCompleted() { globalMetrics.routeRebuildOK.Add(1) }
 
@@ -287,6 +306,12 @@ func SnapshotForTest() (requests, errors, streams, rebuilds int64) {
 		globalMetrics.proxyStreamsActive.Load(),
 		globalMetrics.routeRebuildOK.Load()
 }
+
+// ActiveChannelsForTest returns the current metapi_active_channels gauge value.
+func ActiveChannelsForTest() int64 { return globalMetrics.activeChannels.Load() }
+
+// ActiveStreamsForTest returns the current metapi_proxy_streams_active gauge value.
+func ActiveStreamsForTest() int64 { return globalMetrics.proxyStreamsActive.Load() }
 
 // OutcomeSnapshotForTest returns labeled outcome counts for assertions.
 func OutcomeSnapshotForTest() map[string]int64 {

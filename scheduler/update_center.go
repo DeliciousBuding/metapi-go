@@ -60,7 +60,9 @@ func (s *UpdateCenterScheduler) runSync() {
 	if dbw == nil {
 		return
 	}
-	runWithSchedulerLease(context.Background(), dbw, s.Name(), func() {
+	jobCtx, cancel := context.WithTimeout(context.Background(), updateCenterJobTimeout)
+	defer cancel()
+	runWithSchedulerLease(jobCtx, dbw, s.Name(), func() {
 		s.runSyncLocked(dbw)
 	})
 }

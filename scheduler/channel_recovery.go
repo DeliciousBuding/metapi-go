@@ -112,7 +112,9 @@ func (s *ChannelRecoveryScheduler) runSweep() {
 	if dbw == nil {
 		return
 	}
-	runWithSchedulerLease(context.Background(), dbw, s.Name(), func() {
+	jobCtx, cancel := context.WithTimeout(context.Background(), channelRecoveryJobTimeout)
+	defer cancel()
+	runWithSchedulerLease(jobCtx, dbw, s.Name(), func() {
 		s.runSweepLocked(dbw)
 	})
 }

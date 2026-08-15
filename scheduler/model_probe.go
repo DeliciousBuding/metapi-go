@@ -255,7 +255,9 @@ func (s *ModelProbeScheduler) runProbe() {
 	if dbw == nil {
 		return
 	}
-	runWithSchedulerLease(context.Background(), dbw, s.Name(), func() {
+	jobCtx, cancel := context.WithTimeout(context.Background(), modelProbeJobTimeout)
+	defer cancel()
+	runWithSchedulerLease(jobCtx, dbw, s.Name(), func() {
 		s.runProbeLocked(dbw)
 	})
 }
