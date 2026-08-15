@@ -529,3 +529,22 @@
     animation: none !important;
   }
 }
+
+/*
+ * Global reduced-motion safety net for the shared tw-animate-css enter/exit
+ * animations (dialog / sheet / alert-dialog / select / tooltip / popover /
+ * dropdown-menu / context-menu) and Base UI transitions, which have no
+ * dedicated per-class selector above. Collapses every animation + transition
+ * to near-instant (and stops infinite spinners after one iteration) so
+ * `prefers-reduced-motion: reduce` users see no motion anywhere.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
