@@ -231,7 +231,7 @@ func (h *tokenRoutesHandler) createRoute(w http.ResponseWriter, r *http.Request)
 		Enabled       *bool `json:"enabled"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid request body")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: " + err.Error())
 		return
 	}
 
@@ -251,12 +251,12 @@ func (h *tokenRoutesHandler) createRoute(w http.ResponseWriter, r *http.Request)
 	}
 
 	if routeMode != "explicit_group" && modelPattern == "" {
-		writeError(w, http.StatusBadRequest, "模型匹配不能为空")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "模型匹配不能为空")
 		return
 	}
 
 	if routeMode == "explicit_group" && displayName == "" {
-		writeError(w, http.StatusBadRequest, "显式群组必须填写对外模型名")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "显式群组必须填写对外模型名")
 		return
 	}
 
@@ -288,7 +288,7 @@ func (h *tokenRoutesHandler) createRoute(w http.ResponseWriter, r *http.Request)
 		modelMapping, routingStrategy, contextLength, enabled, now, now,
 	)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "创建路由失败")
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "创建路由失败")
 		return
 	}
 
@@ -308,7 +308,7 @@ func (h *tokenRoutesHandler) createRoute(w http.ResponseWriter, r *http.Request)
 
 	created := queryRow(h.db, "SELECT * FROM token_routes WHERE id = ?", id)
 	if created == nil {
-		writeError(w, http.StatusInternalServerError, "创建路由失败")
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "创建路由失败")
 		return
 	}
 	created["sourceRouteIds"] = body.SourceRouteIds
@@ -326,13 +326,13 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 
 	existing := queryRow(h.db, "SELECT * FROM token_routes WHERE id = ?", id)
 	if existing == nil {
-		writeError(w, http.StatusNotFound, "路由不存在")
+		writeErrorWithRequest(w, r, http.StatusNotFound, "路由不存在")
 		return
 	}
 
 	var body map[string]any
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid request body")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: " + err.Error())
 		return
 	}
 
@@ -432,18 +432,18 @@ func (h *tokenRoutesHandler) batchRoutes(w http.ResponseWriter, r *http.Request)
 		IDs    []int64 `json:"ids"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid request body")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: " + err.Error())
 		return
 	}
 
 	if len(body.IDs) == 0 {
-		writeError(w, http.StatusBadRequest, "ids 必须是非空数组")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "ids 必须是非空数组")
 		return
 	}
 
 	action := strings.TrimSpace(body.Action)
 	if action != "enable" && action != "disable" {
-		writeError(w, http.StatusBadRequest, "action 必须是 enable 或 disable")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "action 必须是 enable 或 disable")
 		return
 	}
 

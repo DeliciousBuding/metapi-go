@@ -233,7 +233,7 @@ func pathID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	idStr := strings.TrimSpace(chi.URLParam(r, "id"))
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil || id <= 0 {
-		writeError(w, http.StatusBadRequest, "无效的 ID")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "无效的 ID")
 		return 0, false
 	}
 	return id, true

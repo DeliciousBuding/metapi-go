@@ -55,7 +55,7 @@ func (h *tokenRoutesHandler) listChannels(w http.ResponseWriter, r *http.Request
 		LEFT JOIN account_tokens at ON rc.token_id = at.id
 		ORDER BY rc.id ASC`)); err != nil {
 		slog.Error("channels list failed", "error", err)
-		writeError(w, http.StatusInternalServerError, "加载通道列表失败")
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "加载通道列表失败")
 		return
 	}
 

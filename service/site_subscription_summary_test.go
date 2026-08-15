@@ -198,6 +198,114 @@ func TestBuildSubscriptionSummary_JSONShape(t *testing.T) {
 	}
 }
 
+// TestBuildSubscriptionSummariesBySite_MultiSiteSinglePass verifies the new
+// single-pass aggregator (Fix 2) produces correct per-site summaries in one
+// scan of the accounts slice, instead of rescanning per site. This is the
+// O(accounts) replacement for the old O(sites × accounts) per-site loop.
+func TestBuildSubscriptionSummariesBySite_MultiSiteSinglePass(t *testing.T) {
+	t.Parallel()
+	now := time.Now().Unix()
+	past := now - 60
+	future1 := now + 60
+	future2 := now + 3600
+	accounts := []accountAgg{
+		// Site 1: two sub2api accounts — one expired (past), one active (future1).
+		{SiteID: 1, ExtraConfig: strPtr(`{"sub2apiAuth":{"group":"a","tokenExpiresAt":` + itoa64(past) + `}}`)},
+		{SiteID: 1, ExtraConfig: strPtr(`{"sub2apiAuth":{"group":"b","tokenExpiresAt":` + itoa64(future1) + `}}`)},
+		// Site 2: one sub2api account — active with the latest expiry.
+		{SiteID: 2, ExtraConfig: strPtr(`{"sub2apiAuth":{"group":"c","tokenExpiresAt":` + itoa64(future2) + `}}`)},
+		// Site 3: no sub2api account — must be ABSENT from the map (not a
+		// typed-nil entry, which would break nil comparisons downstream).
+		{SiteID: 3, ExtraConfig: strPtr(`{"proxyUrl":"http://proxy.local"}`)},
+		{SiteID: 3, ExtraConfig: nil},
+	}
+	summaries := buildSubscriptionSummariesBySite(accounts)
+	if len(summaries) != 2 {
+		t.Fatalf("expected 2 sites with summaries, got %d (%#v)", len(summaries), summaries)
+	}
+	if _, ok := summaries[3]; ok {
+		t.Fatal("site 3 (no sub2api) should be absent from map, not a typed-nil entry")
+	}
+	if _, ok := summaries[99]; ok {
+		t.Fatal("site 99 (no accounts at all) should be absent from map")
+	}
+
+	s1 := summaries[1]
+	if s1 == nil {
+		t.Fatal("site 1 summary is nil")
+	}
+	if s1.Group != "a" {
+		t.Fatalf("site 1 Group = %q, want a (first-seen wins)", s1.Group)
+	}
+	if s1.ActiveCount != 1 {
+		t.Fatalf("site 1 ActiveCount = %d, want 1 (only future1 is active)", s1.ActiveCount)
+	}
+	if !s1.Active {
+		t.Fatal("site 1 Active = false, want true (ActiveCount > 0)")
+	}
+	if s1.ExpiresAt == nil || !s1.ExpiresAt.Equal(time.Unix(future1, 0).UTC()) {
+		t.Fatalf("site 1 ExpiresAt = %v, want %v (latest of past+future1)", s1.ExpiresAt, time.Unix(future1, 0).UTC())
+	}
+
+	s2 := summaries[2]
+	if s2 == nil {
+		t.Fatal("site 2 summary is nil")
+	}
+	if s2.Group != "c" {
+		t.Fatalf("site 2 Group = %q, want c", s2.Group)
+	}
+	if s2.ActiveCount != 1 {
+		t.Fatalf("site 2 ActiveCount = %d, want 1", s2.ActiveCount)
+	}
+	if !s2.ExpiresAt.Equal(time.Unix(future2, 0).UTC()) {
+		t.Fatalf("site 2 ExpiresAt = %v, want %v", s2.ExpiresAt, time.Unix(future2, 0).UTC())
+	}
+}
+
+// TestBuildSubscriptionSummariesBySite_EmptyInput verifies the single-pass
+// aggregator returns a non-nil empty map (not nil) for nil/empty input, so
+// callers can safely do `summaries[siteID]` without nil-map panics.
+func TestBuildSubscriptionSummariesBySite_EmptyInput(t *testing.T) {
+	t.Parallel()
+	if got := buildSubscriptionSummariesBySite(nil); got == nil || len(got) != 0 {
+		t.Fatalf("nil input: expected non-nil empty map, got %#v", got)
+	}
+	if got := buildSubscriptionSummariesBySite([]accountAgg{}); got == nil || len(got) != 0 {
+		t.Fatalf("empty input: expected non-nil empty map, got %#v", got)
+	}
+}
+
+// TestBuildSubscriptionSummary_DelegatesToSinglePass verifies the backward-
+// compat wrapper returns the same value as the single-pass map lookup, and
+// returns an untyped nil (not a typed-nil pointer) when the site has no
+// sub2api accounts — guarding against the Go typed-nil comparison gotcha.
+func TestBuildSubscriptionSummary_DelegatesToSinglePass(t *testing.T) {
+	t.Parallel()
+	future := time.Now().Add(time.Hour).Unix()
+	accounts := []accountAgg{
+		{SiteID: 1, ExtraConfig: strPtr(`{"sub2apiAuth":{"group":"x","tokenExpiresAt":` + itoa64(future) + `}}`)},
+		{SiteID: 2, ExtraConfig: strPtr(`{"proxyUrl":"http://no-sub2api.local"}`)},
+	}
+	// Site 1 has a sub2api summary.
+	got := buildSubscriptionSummary(accounts, 1)
+	if got == nil {
+		t.Fatal("site 1: expected non-nil summary")
+	}
+	summary, ok := got.(*subscriptionSummary)
+	if !ok {
+		t.Fatalf("site 1: expected *subscriptionSummary, got %T", got)
+	}
+	if summary.Group != "x" {
+		t.Fatalf("site 1: Group = %q, want x", summary.Group)
+	}
+	// Site 2 has no sub2api — must be untyped nil so `got != nil` is false.
+	// A typed-nil *subscriptionSummary would wrongly report non-nil.
+	got = buildSubscriptionSummary(accounts, 2)
+	if got != nil {
+		t.Fatalf("site 2: expected untyped nil (no sub2api), got %#v (typed-nil trap?)", got)
+	}
+}
+
 // itoa64 formats an int64 as a string for JSON splicing in test fixtures.
 func itoa64(n int64) string {
 	const digits = "0123456789"
