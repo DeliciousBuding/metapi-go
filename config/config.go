@@ -197,6 +197,12 @@ type Config struct {
 	// traffic. Per-site use_utls overrides this flag (see service.UTLSEnabled).
 	UTLSEnabled bool
 
+	// LDOHBaseURL is the upstream LDOH dashboard URL proxied through
+	// /monitor-proxy/ldoh/* (env-only — no DDL). Parsed from LDOH_BASE_URL;
+	// defaults to DefaultLDOHBaseURL so operators can redirect the monitor
+	// iframe at a self-hosted LDOH instance without a code change.
+	LDOHBaseURL string
+
 	// UpdateCenterEnabled gates the residual update-center scheduler
 	// (scheduler.UpdateCenterScheduler). The scheduler is a log-only no-op
 	// today (no remote registry / version discovery), so it is disabled by
@@ -625,6 +631,9 @@ func Load(env map[string]string) *Config {
 
 	// ---- §3.11c uTLS TLS fingerprint masking ----
 	cfg.UTLSEnabled = parseBoolean(get("UTLS_ENABLED"), false)
+
+	// ---- §3.11e LDOH monitor proxy base URL ----
+	cfg.LDOHBaseURL = strings.TrimSpace(firstNonEmpty(get("LDOH_BASE_URL"), DefaultLDOHBaseURL))
 
 	// ---- §3.11d Update Center scheduler gate ----
 	cfg.UpdateCenterEnabled = parseBoolean(get("METAPI_ENABLE_UPDATE_CENTER"), false)

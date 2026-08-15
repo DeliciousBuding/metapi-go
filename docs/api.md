@@ -777,6 +777,25 @@ Readiness check (no auth required). It pings the active database and returns `20
 
 Desktop health check. Returns `{"status":"ok"}`.
 
+## Security Notes
+
+### LDOH monitor proxy
+
+The `/monitor-proxy/ldoh/*` admin surface proxies an upstream LDOH dashboard. The base URL is configurable via `LDOH_BASE_URL` (default `https://ldoh.105117.xyz`). The `LDOH_BASE_URL` env var lets operators redirect the monitor iframe at a self-hosted LDOH instance without rebuilding.
+
+**At-rest cookie concern**: The upstream LDOH session cookie (`ld_auth_session=…`) is stored **plaintext** in the `settings` table (key `monitor_ldoh_cookie`). Anyone with read access to the database can impersonate the LDOH session until it expires upstream. This is an accepted short-term trade-off; a future improvement should encrypt this secret at rest (e.g. AES-GCM keyed by `ACCOUNT_CREDENTIAL_SECRET`). Treat database read access as equivalent to LDOH credential disclosure until then.
+
+**Error leakage**: Upstream request failures return a generic `"LDOH upstream request failed"` message to the browser. The full error (DNS/TLS/network details) is logged server-side via `slog` only, preventing upstream topology leakage to end users.
+
+### WebDAV backup SSRF hardening
+
+WebDAV import/export URLs (`fileUrl`) are validated against SSRF at two layers:
+
+1. **URL validation** (`isValidWebdavFileURL`): rejects schemes other than `http`/`https`, embedded userinfo, invalid ports, `localhost` hostnames, and literal IP addresses in private (RFC 1918), loopback (127.0.0.0/8, ::1), link-local (169.254.0.0/16, fe80::/10 — blocks cloud metadata endpoints like 169.254.169.254), multicast, and unspecified (0.0.0.0/8, ::) ranges.
+2. **Dial-time DNS resolution** (`rejectUnsafeWebdavDialHost`): resolves the hostname and rejects any resolved IP in the same unsafe ranges, preventing TOCTOU races where a hostname resolves differently between validation and connection.
+
+Redirect targets are validated with the same `isValidWebdavFileURL` check before being followed (max 5 redirects; HTTPS-to-HTTP downgrades refused).
+
 ## Browser CORS
 
 Admin routes under `/api/*` are same-origin by default. Set `ADMIN_CORS_ALLOWED_ORIGINS` to a comma-separated list of exact trusted `http(s)` browser origins only when the admin UI is hosted separately. Wildcards, paths, query strings, and fragments are rejected. Proxy routes and health/metrics endpoints retain wildcard CORS.
