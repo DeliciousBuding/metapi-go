@@ -13,7 +13,10 @@ import { Button } from '@/components/ui/button'
 export function NotFoundPage() {
   const { t } = useTranslation()
   return (
-    <div className='flex min-h-screen flex-col items-center justify-center gap-4 p-6'>
+    // `min-h-full` (not `min-h-screen`) so the page fills its container: the
+    // authenticated 404 catch-all renders it inside SidebarInset
+    // (`h-[calc(100svh-header)]`), where 100vh would overflow and add a scroll.
+    <div className='flex min-h-full flex-col items-center justify-center gap-4 p-6'>
       <div className='bg-muted/60 flex size-16 items-center justify-center rounded-2xl'>
         <Compass className='text-muted-foreground size-8' />
       </div>

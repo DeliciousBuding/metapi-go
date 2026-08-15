@@ -22,6 +22,7 @@
 // resulting `AbortError` is detected and surfaced as a "stopped" state
 // rather than a hard error.
 
+import { useSearch } from '@tanstack/react-router'
 import { Trash2 as TrashIcon } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -53,19 +54,13 @@ function isAbortError(error: unknown): boolean {
   )
 }
 
-function readDefaultModelFromUrl(): string | undefined {
-  if (typeof window === 'undefined') return undefined
-  const params = new URLSearchParams(window.location.search)
-  const model = params.get('model')
-  return model && model.trim().length > 0 ? model : undefined
-}
-
 export function ModelTesterPage() {
   const { t } = useTranslation()
-  // The `/model-tester` route file does not land its own validateSearch yet,
-  // so the page reads the `model` deep-link param directly from the URL (the
-  // same pattern the sites page uses for its search state).
-  const defaultModel = readDefaultModelFromUrl()
+  // The `/model-tester` route validates `?model=` via validateSearch, so the
+  // deep-link param comes from `useSearch()` (typed) rather than a raw
+  // `window.location.search` read.
+  const { model } = useSearch({ from: '/_authenticated/model-tester' })
+  const defaultModel = model?.trim() ? model : undefined
 
   const testModel = useTestModel()
 
