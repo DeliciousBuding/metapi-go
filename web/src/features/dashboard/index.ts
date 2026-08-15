@@ -21,6 +21,4 @@ export { DashboardPage } from './components/dashboard-page'
 
 // Hooks
 
-// VChart spec builders
-
 // The 4 sections (lazy imports land at the call site in phase 3)

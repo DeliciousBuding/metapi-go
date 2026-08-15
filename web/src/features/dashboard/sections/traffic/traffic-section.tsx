@@ -1,30 +1,24 @@
 // metapi-go/features/dashboard/sections/traffic — traffic section.
 //
-// Plan §5.5.1 traffic:流量趋势图（IncomeOutcome / SiteTrend）+
-// SiteDistribution 饼图. Three VChart charts wired with useChartColors +
-// ChartShell. Phase 3 reshapes api.getBalanceIncomeOutcome /
-// getSiteTrend / getSiteDistribution responses into the chart data types.
+// Plan §5.5.1 traffic: traffic trend chart（IncomeOutcome / SiteTrend）+
+// SiteDistribution donut. Three charts built on the shared recharts-based
+// Chart components, fed by useChartColors-free CSS-var() theming. Phase 3
+// reshapes api.getBalanceIncomeOutcome / getSiteTrend / getSiteDistribution
+// responses into the chart data types.
 
 import { useQuery } from '@tanstack/react-query'
-import { VChart } from '@visactor/react-vchart'
 import { Inbox, TriangleAlert } from 'lucide-react'
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { useTheme } from '@/context/theme-provider'
 import { api } from '@/lib/api'
 
 import { ChartShell } from '../../components/chart-shell'
 import {
-  useChartColors,
-  useThemeLabelColor,
-} from '../../hooks/use-chart-colors'
-import {
-  VCHART_OPTION,
-  buildIncomeOutcomeSpec,
-  buildSiteDistributionSpec,
-  buildSiteTrendSpec,
-} from '../../lib/chart-specs'
+  IncomeOutcomeChart,
+  SiteDistributionChart,
+  SiteTrendChart,
+} from '../../components/charts'
 import type {
   IncomeOutcomePoint,
   SiteDistributionSlice,
@@ -78,9 +72,6 @@ function ChartEmpty({ message }: { message: string }) {
 
 export function TrafficSection() {
   const { t } = useTranslation()
-  const colors = useChartColors()
-  const labelColor = useThemeLabelColor()
-  const { resolvedTheme } = useTheme()
 
   const incomeOutcomeQuery = useQuery({
     queryKey: ['dashboard-balance-income-outcome', 30],
@@ -139,15 +130,7 @@ export function TrafficSection() {
     }))
   }, [siteDistributionQuery.data])
 
-  const incomeOutcomeSpec = useMemo(
-    () => buildIncomeOutcomeSpec(colors, incomeOutcomeData),
-    [colors, incomeOutcomeData]
-  )
-  const siteTrendSpec = useMemo(
-    () => buildSiteTrendSpec(colors, siteTrendData),
-    [colors, siteTrendData]
-  )
-  const siteDistributionTooltipLabels = useMemo(
+  const siteDistributionLabels = useMemo(
     () => ({
       balance: t('dashboard.traffic.siteDistribution.tooltip.balance'),
       accounts: t('dashboard.traffic.siteDistribution.tooltip.accounts'),
@@ -155,42 +138,21 @@ export function TrafficSection() {
     }),
     [t]
   )
-  const siteDistributionSpec = useMemo(
-    () =>
-      buildSiteDistributionSpec(
-        colors,
-        labelColor,
-        siteDistributionData,
-        siteDistributionTooltipLabels
-      ),
-    [colors, labelColor, siteDistributionData, siteDistributionTooltipLabels]
-  )
 
-  const remountKey = `traffic-${resolvedTheme}`
-
-  const renderChart = (
-    spec: Record<string, unknown>,
-    suffix: string,
+  const renderChartBody = (
     query: { isLoading: boolean; isError: boolean },
-    emptyKey: string
-  ) => {
+    isEmpty: boolean,
+    emptyKey: string,
+    chart: ReactNode
+  ): ReactNode => {
     if (query.isLoading) return null
     if (query.isError) {
       return <ChartError message={t('dashboard.traffic.loadError')} />
     }
-    const data = spec.data as Array<{ values: unknown[] }> | undefined
-    const values = data?.[0]?.values
-    if (!values || values.length === 0) {
+    if (isEmpty) {
       return <ChartEmpty message={t(emptyKey)} />
     }
-    return (
-      <VChart
-        key={`${remountKey}-${suffix}`}
-        spec={spec as never}
-        option={VCHART_OPTION}
-        style={{ width: '100%', height: '100%' }}
-      />
-    )
+    return chart
   }
 
   return (
@@ -201,11 +163,11 @@ export function TrafficSection() {
         height={300}
         loading={incomeOutcomeQuery.isLoading}
       >
-        {renderChart(
-          incomeOutcomeSpec,
-          'income',
+        {renderChartBody(
           incomeOutcomeQuery,
-          'dashboard.traffic.incomeOutcome.empty'
+          incomeOutcomeData.length === 0,
+          'dashboard.traffic.incomeOutcome.empty',
+          <IncomeOutcomeChart data={incomeOutcomeData} />
         )}
       </ChartShell>
 
@@ -215,11 +177,11 @@ export function TrafficSection() {
         height={300}
         loading={siteTrendQuery.isLoading}
       >
-        {renderChart(
-          siteTrendSpec,
-          'site-trend',
+        {renderChartBody(
           siteTrendQuery,
-          'dashboard.traffic.siteTrend.empty'
+          siteTrendData.length === 0,
+          'dashboard.traffic.siteTrend.empty',
+          <SiteTrendChart data={siteTrendData} />
         )}
       </ChartShell>
 
@@ -230,11 +192,14 @@ export function TrafficSection() {
         className='lg:col-span-2'
         loading={siteDistributionQuery.isLoading}
       >
-        {renderChart(
-          siteDistributionSpec,
-          'site-dist',
+        {renderChartBody(
           siteDistributionQuery,
-          'dashboard.traffic.siteDistribution.empty'
+          siteDistributionData.length === 0,
+          'dashboard.traffic.siteDistribution.empty',
+          <SiteDistributionChart
+            data={siteDistributionData}
+            labels={siteDistributionLabels}
+          />
         )}
       </ChartShell>
     </div>

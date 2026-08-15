@@ -19,10 +19,9 @@ export type DashboardSectionId =
 /**
  * A single dashboard section — the leaf unit of the Dashboard workspace.
  *
- * `build` is a lazy content builder. Phase 2 sections render real chart
- * wiring (useChartColors + VChart spec + shadcn chart container) fed by stub
- * data arrays; phase 3 replaces the stub data with TanStack Query hooks over
- * the stats/dashboard API surface.
+ * `build` is a lazy content builder. Sections render chart wiring over the
+ * shared recharts-based Chart components (ChartContainer + CSS-var() palette)
+ * fed by TanStack Query hooks over the stats/dashboard API surface.
  */
 export type DashboardSection = {
   /** Stable id used in the URL (`/dashboard/<id>`). */
@@ -44,11 +43,11 @@ export type DashboardSectionNavItem = {
 }
 
 // ---------------------------------------------------------------------------
-// Chart data shapes — stub contracts for phase 2. Phase 3 will align these
-// 1:1 with the response types of the corresponding api.ts methods
+// Chart data shapes — contracts for the dashboard chart components. Aligned
+// with the response types of the corresponding api.ts methods
 // (getBalanceIncomeOutcome, getSiteTrend, getSiteDistribution,
-// getModelCostDistribution). Kept minimal so the VChart spec builders can be
-// wired now and fed real data later without reshaping.
+// getModelCostDistribution). Kept minimal so the recharts chart components
+// can be wired now and fed real data without reshaping.
 // ---------------------------------------------------------------------------
 
 /** Long-format row for the income vs outcome grouped bar chart. */
@@ -100,6 +99,3 @@ export type RealtimeOpsSample = {
   connected: boolean
   gaveUp: boolean
 }
-
-/** VChart spec — opaque record; VChart accepts a broad spec shape. */
-export type VChartSpec = Record<string, unknown>
