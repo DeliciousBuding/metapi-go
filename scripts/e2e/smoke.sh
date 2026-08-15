@@ -406,7 +406,7 @@ if [ -n "$PROXY_TOKEN" ]; then
     fi
   fi
   if [ -n "$ROUTE_ID" ]; then
-    if [ "$ROUTE_MODEL" = "$PROXY_MODEL" ] && [ -z "$first_model" ]; then
+    if [ "$ROUTE_MODEL" = "$PROXY_MODEL" ] && [ -z "${first_model:-}" ]; then
       warn_step "route create (routeId=$ROUTE_ID, model=$ROUTE_MODEL) — upstream model list empty, used PROXY_MODEL"
     else
       pass_step "route create (routeId=$ROUTE_ID, model=$ROUTE_MODEL)"
