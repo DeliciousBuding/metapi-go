@@ -1,0 +1,105 @@
+# MetAPI 真实平台测试床 — 公共模板（无隐私）
+#
+# 本文件是公开仓库里的 sanitized 模板：端口、凭据均为占位符，
+# 真实部署在私有层（测试主机上的私有 git 仓库 + .env，chmod 600）。
+# 复制到测试主机后将 ${...} 替换为真实值（真实值绝不进公开仓库）。
+#
+# 用法（测试主机上）：
+#   cp compose.template.yml compose.yml   # 填真实端口/凭据
+#   cp .env.example .env && chmod 600 .env
+#   docker compose up -d
+#
+# 服务矩阵（与 metapi-go 平台适配器一一对应）：
+#   metapi     — 被测系统（ghcr.io 镜像为「镜像一致性参考」；原生二进制迭代位另见 SOP）
+#   new-api    — NewApiAdapter（v1 响应形状）
+#   one-api    — OneApiAdapter（v0 响应形状）
+#   onehub     — NewApiAdapter 变体（新 fork 形状）
+#   sub2api    — Sub2ApiAdapter（JWT /api/v1/auth/me）
+#   cliproxyapi — CLI Proxy API 适配器（ChatGPT/Claude 自托管桥）
+#   端口统一 127.0.0.1 绑定，本机经 SSH 隧道访问（隧道脚本在私有层）。
+
+services:
+  metapi:
+    image: ghcr.io/deliciousbuding/metapi-go:latest
+    container_name: testbed-metapi
+    ports:
+      - "127.0.0.1:4000:4000"
+    volumes:
+      - ./data/metapi:/app/data
+    environment:
+      PORT: "4000"
+      HOST: "0.0.0.0"
+      TZ: "Asia/Shanghai"
+      AUTH_TOKEN: "${METAPI_AUTH_TOKEN}"
+      PROXY_TOKEN: "${METAPI_PROXY_TOKEN}"
+      ACCOUNT_CREDENTIAL_SECRET: "${METAPI_ACCOUNT_CREDENTIAL_SECRET}"
+      DATA_DIR: /app/data
+      CHECKIN_CRON: "0 8 * * *"
+      BALANCE_REFRESH_CRON: "0 * * * *"
+    restart: unless-stopped
+
+  new-api:
+    image: calciumion/new-api:latest
+    container_name: testbed-new-api
+    ports:
+      - "127.0.0.1:3001:3000"
+    volumes:
+      - ./data/new-api:/data
+    environment:
+      TZ: "Asia/Shanghai"
+    restart: unless-stopped
+    # 首次启动后需初始化：POST /api/setup {username,password,confirmPassword}
+    # （新 v1 无默认 root/123456）
+
+  one-api:
+    image: songquanpeng/one-api:latest
+    container_name: testbed-one-api
+    ports:
+      - "127.0.0.1:3002:3000"
+    volumes:
+      - ./data/one-api:/data
+    environment:
+      TZ: "Asia/Shanghai"
+    restart: unless-stopped
+
+  onehub:
+    image: ${ONEHUB_IMAGE:-martialbe/one-hub:latest}
+    container_name: testbed-onehub
+    ports:
+      - "127.0.0.1:3003:3000"
+    volumes:
+      - ./data/onehub:/data
+    environment:
+      TZ: "Asia/Shanghai"
+    restart: unless-stopped
+    profiles: ["extended"]
+
+  sub2api:
+    # 开源自托管（Go）：git clone + go build（见 SOP「上游安装」），
+    # 或使用预构建镜像 ${SUB2API_IMAGE}。
+    image: ${SUB2API_IMAGE}
+    container_name: testbed-sub2api
+    ports:
+      - "127.0.0.1:3004:8080"
+    volumes:
+      - ./data/sub2api:/app/data
+    environment:
+      TZ: "Asia/Shanghai"
+    restart: unless-stopped
+    profiles: ["extended"]
+
+  cliproxyapi:
+    # 开源自托管（Go）：git clone + go build（见 SOP「上游安装」）。
+    image: ${CLIPROXYAPI_IMAGE}
+    container_name: testbed-cliproxyapi
+    ports:
+      - "127.0.0.1:3005:8080"
+    volumes:
+      - ./data/cliproxyapi:/app/data
+    environment:
+      TZ: "Asia/Shanghai"
+    restart: unless-stopped
+    profiles: ["extended"]
+
+# 原生二进制迭代位（SOP「迭代循环」）：不在此 compose 内，
+# 测试主机上运行 ./metapi :4100（fresh data dir），快速验证修复。
