@@ -455,6 +455,38 @@
   }
 }
 
+/*
+ * Sidebar drill-in view transition.
+ *
+ * Replaces the former `motion` (framer-motion) `<AnimatePresence>` + `<motion.div>`
+ * pair in AppSidebar. The library shipped ~78 kB gz in the eager authenticated
+ * chunk even though the animation only fires on sidebar *view* switches
+ * (drill-in pattern), never on initial page render. The CSS keyframe below
+ * reproduces the same opacity + -8px translateX slide that `sidebarSlide` used,
+ * with the same EASE_OUT_CUBIC curve and 0.15s duration. Reduced-motion users
+ * get no animation, matching the old `useReducedMotion()` gate.
+ */
+@keyframes sidebarViewEnter {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.sidebar-view-enter {
+  animation: sidebarViewEnter 0.15s cubic-bezier(0.33, 1, 0.68, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-view-enter {
+    animation: none !important;
+  }
+}
+
 /* Tabular numbers for data-heavy contexts */
 [data-slot='table'] td,
 .tabular-nums {

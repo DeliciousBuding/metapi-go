@@ -3,11 +3,8 @@
 // and collapsible mode are hardcoded to sensible defaults. View resolution and
 // per-view header remain via useSidebarView + sidebar-view-registry.
 
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-
 import { Sidebar, SidebarContent, SidebarRail } from '@/components/ui/sidebar'
 import { useSidebarView } from '@/hooks/use-sidebar-view'
-import { MOTION_TRANSITION, MOTION_VARIANTS } from '@/lib/motion'
 
 import { NavGroup } from './nav-group'
 import { SidebarViewHeader } from './sidebar-view-header'
@@ -34,32 +31,32 @@ const SIDEBAR_COLLAPSIBLE = 'icon' as const
  *
  * Adding a new nested view only requires registering a SidebarView
  * in the registry; this component requires no changes.
+ *
+ * Animation: the view swap uses the `.sidebar-view-enter` CSS keyframe
+ * (defined in styles/index.css) instead of `motion`/`framer-motion`. The
+ * `key={key}` prop forces React to remount the container on every view
+ * change, which re-triggers the CSS enter animation. This removed the
+ * `motion` package (~78 kB gz) from the eager authenticated chunk; the
+ * animation only fires on view switches (never on initial page render —
+ * matching the previous `AnimatePresence initial={false}`), and
+ * `prefers-reduced-motion` users see no animation.
  */
 export function AppSidebar() {
   const { key, view, navGroups } = useSidebarView()
-  const shouldReduce = useReducedMotion()
 
   return (
     <Sidebar collapsible={SIDEBAR_COLLAPSIBLE} variant={SIDEBAR_VARIANT}>
       {view && <SidebarViewHeader view={view} />}
 
       <SidebarContent className='py-2'>
-        <AnimatePresence mode='wait' initial={false}>
-          <motion.div
-            key={key}
-            initial={
-              shouldReduce ? false : MOTION_VARIANTS.sidebarSlide.initial
-            }
-            animate={MOTION_VARIANTS.sidebarSlide.animate}
-            exit={shouldReduce ? undefined : MOTION_VARIANTS.sidebarSlide.exit}
-            transition={MOTION_TRANSITION.fast}
-            className='flex flex-col'
-          >
-            {navGroups.map((props) => (
-              <NavGroup key={props.id || props.title} {...props} />
-            ))}
-          </motion.div>
-        </AnimatePresence>
+        {/* `key` remounts the subtree on every view switch so the CSS
+         * enter animation re-runs. Plain <div> replaces the old
+         * <AnimatePresence><motion.div> pair. */}
+        <div key={key} className='sidebar-view-enter flex flex-col'>
+          {navGroups.map((props) => (
+            <NavGroup key={props.id || props.title} {...props} />
+          ))}
+        </div>
       </SidebarContent>
 
       <SidebarRail />
