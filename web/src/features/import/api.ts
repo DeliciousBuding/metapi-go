@@ -10,6 +10,7 @@ import {
   useQueryClient,
   type UseMutationOptions,
 } from '@tanstack/react-query'
+import axios from 'axios'
 
 import { accountQueryKeys } from '@/features/accounts'
 import { sitesKeys } from '@/features/sites'
@@ -21,7 +22,14 @@ import type {
   SiteDetectResult,
 } from './types'
 
-/** Detect the platform for a single URL. Returns an empty object on 400. */
+/**
+ * HTTP status codes that mean "the backend looked and the platform is not
+ * detectable" — a clean, expected negative result. The wizard keeps these URLs
+ * manually specifiable instead of treating them as failures.
+ */
+const UNDETECTABLE_STATUS_CODES = new Set([400, 404])
+
+/** Detect the platform for a single URL. Returns an empty object on 400/404. */
 export function useDetectSite(
   options?: UseMutationOptions<SiteDetectResult, Error, string>
 ) {
@@ -30,10 +38,18 @@ export function useDetectSite(
       try {
         const detected = (await api.detectSite(url)) as SiteDetectResult
         return detected ?? {}
-      } catch {
-        // Unknown / undetectable URLs surface as a client error; the wizard
-        // keeps them manually specifiable instead of failing the batch.
-        return {}
+      } catch (error: unknown) {
+        // Only 400/404 are clean "not detectable" responses — swallow them so
+        // the wizard renders the URL as manually specifiable. Transport
+        // errors (network/timeout) and 5xx must propagate so react-query can
+        // surface them instead of masquerading as a benign undetected URL.
+        if (
+          axios.isAxiosError(error) &&
+          UNDETECTABLE_STATUS_CODES.has(error.response?.status ?? 0)
+        ) {
+          return {}
+        }
+        throw error
       }
     },
     ...options,
@@ -48,7 +64,13 @@ export function useImportSites(
   return useMutation<ImportSitesResult, Error, ImportSitesPayload>({
     mutationFn: async (payload) => {
       const result = (await api.importSites(payload)) as ImportSitesResult
-      return result ?? { imported: 0, skipped: 0, failed: 0, results: [] }
+      if (!result) {
+        // A malformed/empty response hides the real outcome. Never fabricate
+        // an "everything failed" summary — let react-query surface the error
+        // so the caller can report it instead of showing fake zero counts.
+        throw new Error('Import response was empty')
+      }
+      return result
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: sitesKeys.list() })

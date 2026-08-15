@@ -317,6 +317,7 @@ export function SearchModal(props: SearchModalProps) {
           value={query}
           onValueChange={setQuery}
           placeholder={t('search.placeholder')}
+          aria-label={t('search.title')}
         />
         <CommandList className='max-h-[min(60svh,28rem)]'>
           {isSearching && (
