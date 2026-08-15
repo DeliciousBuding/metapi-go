@@ -63,14 +63,17 @@ func (n *NewApiAdapter) Login(ctx context.Context, baseURL, username, password s
 		return &LoginResult{Success: false, Message: "shield challenge blocked login"}, nil
 	}
 
-	accessToken := extractLoginToken(parsed, nil)
-	success, _ := getBool(parsed, "success")
+	data, _ := getMap(parsed, "data")
+	accessToken := extractLoginToken(parsed, data)
+	success, hasSuccess := getBool(parsed, "success")
 
-	if success && accessToken != "" {
+	// v1 omits top-level success; presence of a usable credential implies success.
+	// Explicit success:false is always a failure.
+	if accessToken != "" && (!hasSuccess || success) {
 		return &LoginResult{Success: true, AccessToken: accessToken, Username: username}, nil
 	}
 
-	if success && hasUsableSessionCookie(cookieHeader) {
+	if hasSuccess && success && hasUsableSessionCookie(cookieHeader) {
 		return &LoginResult{Success: true, AccessToken: cookieHeader, Username: username}, nil
 	}
 
