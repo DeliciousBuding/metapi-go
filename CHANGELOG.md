@@ -5,6 +5,39 @@ All notable changes to MetAPI-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.13.0] — 2026-08-15
+
+### Added
+
+- **下游适配上游（epic #676，19 子任务全量）**
+  - 上游识别：adapter Detect 链接入 `service.DetectSite`（修复 one-hub/done-hub/veloera/sub2api/cliproxyapi 5 平台无法自动识别，one-api 误标 new-api）＋ 防误判加固 ＋ HTTP 探测统一超时（#684/#689）；商汤 SenseTime 平台检测（#706）
+  - 反机器人/指纹：出站统一浏览器 UA（替换 `Go-http-client/1.1` bot 信标）＋ 每站 `cf_clearance` 注入（新增 `sites.cf_clearance`/`browser_ua` 列，`sc2_013` 迁移）＋ 可选 utls TLS 指纹 ＋ 共享 Transport 池化（#687/#688/#701/#694）
+  - 拉模型：修复静默空列表、关键适配器错误传播（#683）＋ 统一规范化/去重/排序（#690）＋ Sub2API 分组感知 + `token_model_availability` 回填（#695）
+  - 自动签到：已签到幂等识别（#691）＋ 同站限速 + transient 重试（#692）＋ 边界打磨（auth 自愈/重启 catch-up/超时/lease）（#699）＋ 失败通知聚合（#700）
+  - 新上游：Resin 粘性代理池（Tier 1 正向代理 + wss 反代 / Tier 2 override+lease+status）（#693/#698）；Grok/xAI OAuth 适配器（Device OAuth）（#696）；`/v1/images/generations` passthrough（#697）；Electron 桌面壳（#704）
+  - Prompt 过滤（OAuth 账号池防封，可选）（#702）
+- **前端功能**：客户端配置一键导出（Cherry Studio/CC Switch deep-link）（#657）、全局搜索 ⌘K 命令面板（#658）、首页今日快照（#659）、告警消息富化（#660）、模型测试台会话 + 模板库（#662）、可观测性自动刷新 + 错误态（#711）、proxy logs CSV 导出 + channels 详情面板（#713）、订阅汇总 `subscriptionSummary`（#708）、`/api/settings/database/migrate` 端点（#722）
+
+### Changed
+
+- **前端架构化（milestone WEB-ARCH，#732–#740 全量）**：URL 状态归属统一到路由层（4 页迁移 `useSearch`+`navigate`，loader 只读 `location.searchStr`）（#744/#751）；`_authenticated` 404 catch-all + checkIsActive 清理 + `?model=` 校验（#745）；动效/RTL/FOUC 单一来源（#756）+ 全 overlay `prefers-reduced-motion` 门禁（#760）+ 图标族收敛（ui 原语 HugeIcons 免费层，约定入 web/AGENTS.md）+ 交互原语收敛（transition-all→具体、select 移动端 portal、`--table-*` token）（#758）；设计系统文档对账（#757）
+- **性能**：dashboard 聚合 10s 缓存 + proxy_log 异步批写（#710）；`/routes/summary` N+1 修复 + model upsert `ON CONFLICT`（#724）；移除 `@visactor/react-vchart`（bundle −2MB）（#718）；settings 代码分割（#712）；Dockerfile BuildKit cache mounts（#729）
+- **可靠性**：admin/handler DB 错误传播修复（#746/#748/#759/#763/#716）；config 校验硬化（#725）；`LOG_LEVEL` 可配（#730）；列表端点防御性分页（#728）；SSE 错误事件 + 路由 error boundary + WS origin 限制 + scheduler shutdown 取消（#726）；admin 探测并发流式化（8 路，~8min→~60s）（#727）
+- **测试**：OAuth/sharedcount/SwitchDB/balance/scheduler/cmd-migrate 覆盖率大幅提升（#715/#720/#723/#731/#717/#743/#750/#761/#762）
+
+### Fixed
+
+- 修复 #761+#763 交叉引入的 SSRF 测试编译回归（测试引用已被移入 `internal/ssrf` 的旧函数名）（#764）
+- 模型拉取 200+畸形 body 静默返回空列表（#683）；adapter Detect 链未接生产（#684）
+- 停止 admin 列表端点 `SELECT` 明文凭证（改为 LEFT/RIGHT/LENGTH 脱敏）（#719）
+- dashboard fail-close → fail-open（单查询失败不再 500 全页）（#714）
+
+### Security
+
+- `/v1` 每 IP 限流（`PROXY_RATE_LIMIT_RPM`）+ 全局 token RPM 限额 + 请求体上限可配（#709）
+- WebDAV SSRF 硬化（`internal/ssrf` 包统一守卫 + dial-time DNS 解析检查）（#741/#761/#763）
+- OAuth 出站 prompt 过滤（#702）、WS origin 限制（#726）、LDOH URL 可配防误配（#741）
+
 ## [v0.12.0] — 2026-08-14
 
 ### Removed（架构简化：净删 ~21,000 行，Go 170K→150K）
