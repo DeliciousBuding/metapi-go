@@ -11,7 +11,6 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react'
 import * as React from 'react'
 
-import { useMediaQuery } from '@/hooks/use-media-query'
 import { cn } from '@/lib/utils'
 
 const Select = SelectPrimitive.Root
@@ -68,6 +67,10 @@ function SelectTrigger({
   )
 }
 
+function SelectPortal({ ...props }: SelectPrimitive.Portal.Props) {
+  return <SelectPrimitive.Portal data-slot='select-portal' {...props} />
+}
+
 function SelectContent({
   className,
   children,
@@ -82,8 +85,6 @@ function SelectContent({
     SelectPrimitive.Positioner.Props,
     'align' | 'alignOffset' | 'side' | 'sideOffset' | 'alignItemWithTrigger'
   >) {
-  const isMobile = useMediaQuery('(max-width: 640px)')
-
   const content = (
     <SelectPrimitive.Positioner
       side={side}
@@ -109,11 +110,10 @@ function SelectContent({
     </SelectPrimitive.Positioner>
   )
 
-  if (isMobile) {
-    return content
-  }
-
-  return <SelectPrimitive.Portal>{content}</SelectPrimitive.Portal>
+  // Always render through a portal so the popup escapes scroll containers
+  // and overflow clipping — this is what used to break select dropdowns on
+  // mobile, where the content was previously rendered inline.
+  return <SelectPortal>{content}</SelectPortal>
 }
 
 function SelectLabel({
@@ -219,6 +219,7 @@ export {
   SelectGroup,
   SelectItem,
   SelectLabel,
+  SelectPortal,
   SelectScrollDownButton,
   SelectScrollUpButton,
   SelectSeparator,

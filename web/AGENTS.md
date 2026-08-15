@@ -1,4 +1,4 @@
-最后更新：2026-08-11 14:40
+最后更新：2026-08-15 14:00
 
 # 前端开发规范
 
@@ -227,6 +227,7 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
   - `index.css`：Tailwind 4 入口（`@import 'tailwindcss'` + `@custom-variant dark` + `@theme inline` 桥接 token 到 Tailwind）。
 - **3 轴主题**：preset（预设）/ radius（圆角单点缩放）/ scale，经 `<body data-theme-*>` 切换；暗色模式 class-based（`<html class="dark">`，`@custom-variant dark (&:is(.dark *))`），cookie 持久化。
 - **图表取色**：复杂图用 VChart，简单图用 shadcn chart/recharts；`useChartColors`（`features/dashboard/hooks/use-chart-colors.ts`）JS 读取 OKLCH token 取色，MutationObserver 监听主题变化重新采样。
+- **图标选型**：`components/ui/*` 设计系统原语统一用 HugeIcons 免费层（`@hugeicons/core-free-icons` + `@hugeicons/react` 的 `HugeiconsIcon`，`strokeWidth={2}`）；`features/`、`layout/`、`data-table/` 等业务/页面层沿用 lucide-react 既有视觉。免费层缺等价 glyph 时才用 lucide 兜底；禁止新增付费 HugeIcons；同一文件不得混用两套图标来源。
 - 组件内尽量少写自定义 CSS。
 
 ### 5.11 文件组织
@@ -289,6 +290,7 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 
 ## 更新日志
 
+- **2026-08-15**：5.10 新增「图标选型」分层约定（ui 原语 HugeIcons 免费层、业务/页面层沿用 lucide、同一文件不混用、禁止新增付费 HugeIcons）；收敛 ui 层 2 处 lucide 残留（combobox-input/secret-field）到 HugeIcons。
 - **2026-08-11**：移除不存在的 `i18n:sync` / `sync-i18n.mjs` 引用（i18n key 双向一致性由 `src/i18n/__tests__/i18n-keys.test.ts` 校验）；补回 `format` / `format:check`（oxfmt）脚本说明；`zhCN` 更正为 `zh-CN`。
 - **2026-08-11**：反映前端重写（阶段 1-6）完整架构——新增「目录结构」「开发工作流与静态门禁」「隐私与迁移约束」三节；i18n 更正为 2 语言 key-based；状态管理更正为仅 `auth-store`；测试环境更正为 jsdom（361 tests）；features 更正为 13 个（移除已并入 dashboard availability 的 `monitors`）；补充 data-table 四层、routes loader/lazyRouteComponent、设计系统三层 CSS + 3 轴主题 + 10 预设、useChartColors 取色等。
 - **2026-08-11**：初始版本——100% 对齐 newapi 栈重写（16 节）。

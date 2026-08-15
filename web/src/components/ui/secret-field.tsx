@@ -3,7 +3,13 @@
 // offers one-click copy. Used for API keys/tokens where the raw value is
 // sensitive but the URL/base_url is NOT (URLs stay plaintext elsewhere).
 
-import { Check, Copy, Eye, EyeOff } from 'lucide-react'
+import {
+  CheckIcon,
+  Copy01Icon,
+  EyeIcon,
+  EyeOffIcon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -64,7 +70,11 @@ export function SecretField({
             revealed ? t('common.hideSecret') : t('common.revealSecret')
           }
         >
-          {revealed ? <EyeOff /> : <Eye />}
+          {revealed ? (
+            <HugeiconsIcon icon={EyeOffIcon} strokeWidth={2} />
+          ) : (
+            <HugeiconsIcon icon={EyeIcon} strokeWidth={2} />
+          )}
         </Button>
       )}
       <Button
@@ -74,7 +84,15 @@ export function SecretField({
         title={t('common.copy')}
         aria-label={t('common.copySecret')}
       >
-        {copied ? <Check className='text-success' /> : <Copy />}
+        {copied ? (
+          <HugeiconsIcon
+            icon={CheckIcon}
+            strokeWidth={2}
+            className='text-success'
+          />
+        ) : (
+          <HugeiconsIcon icon={Copy01Icon} strokeWidth={2} />
+        )}
       </Button>
     </span>
   )

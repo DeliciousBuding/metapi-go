@@ -1,5 +1,6 @@
 // metapi-go/ui — combobox-input component ported from newapi (base-nova style, @base-ui/react). AGPL header stripped.
-import { Check, ChevronsUpDown } from 'lucide-react'
+import { Tick02Icon, UnfoldMoreIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -192,7 +193,11 @@ export function ComboboxInput({
         onKeyDown={handleKeyDown}
         className={cn('pr-9', className)}
       />
-      <ChevronsUpDown className='pointer-events-none absolute top-1/2 right-3 size-4 shrink-0 -translate-y-1/2 opacity-50' />
+      <HugeiconsIcon
+        icon={UnfoldMoreIcon}
+        strokeWidth={2}
+        className='pointer-events-none absolute top-1/2 right-3 size-4 shrink-0 -translate-y-1/2 opacity-50'
+      />
 
       {showDropdown && (
         <div className='bg-popover text-popover-foreground absolute top-full z-100 mt-1 w-full rounded-md border shadow-md'>
@@ -222,7 +227,9 @@ export function ComboboxInput({
                     handleSelect(option.value)
                   }}
                 >
-                  <Check
+                  <HugeiconsIcon
+                    icon={Tick02Icon}
+                    strokeWidth={2}
                     className={cn(
                       'size-4 shrink-0',
                       value === option.value ? 'opacity-100' : 'opacity-0'
