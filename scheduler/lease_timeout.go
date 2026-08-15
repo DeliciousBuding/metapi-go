@@ -11,9 +11,6 @@ import "time"
 // released with context.Background() so the advisory-lock unlock never
 // fails due to a deadline-exceeded context.
 const (
-	// defaultJobTimeout is the fallback for jobs without an explicit budget.
-	defaultJobTimeout = 15 * time.Minute
-
 	// Heavy fan-out passes over many accounts/sites.
 	balanceJobTimeout      = 15 * time.Minute
 	checkinJobTimeout       = 15 * time.Minute
