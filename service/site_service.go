@@ -207,13 +207,28 @@ func ListSites(db *sqlx.DB) ([]map[string]any, error) {
 		return nil, err
 	}
 
-	// Aggregate totalBalance and subscriptionSummary per site
+	// Aggregate totalBalance and subscriptionSummary per site.
+	//
+	// The accounts query pulls balance + extra_config for every account once.
+	// We then build both the per-site balance sum and the per-site sub2api
+	// subscription summary in a SINGLE pass over the accounts slice (O(accounts))
+	// before the site loop, so the site loop does O(1) map lookups instead of
+	// rescanning the whole accounts slice per site (the previous behavior was
+	// O(sites × accounts) — 50 sites × 1000 accounts = 50,000 iterations).
+	//
+	// A LIKE filter on extra_config was considered to skip non-sub2api accounts
+	// at the DB layer, but balanceBySite must sum across ALL accounts (sub2api
+	// or not), so filtering the shared query would change totalBalance. We keep
+	// the unfiltered query and let buildSubscriptionSummariesBySite skip
+	// non-sub2api accounts in-memory (GetSub2ApiAuthFromExtraConfig returns nil
+	// for them, so they never allocate a map entry).
 	var accounts []accountAgg
 	if err := db.Select(&accounts, "SELECT site_id, balance, extra_config FROM accounts"); err != nil {
 		return nil, err
 	}
 
 	balanceBySite := make(map[int64]float64)
+	summariesBySite := buildSubscriptionSummariesBySite(accounts)
 	for _, a := range accounts {
 		balanceBySite[a.SiteID] += a.Balance
 	}
@@ -223,7 +238,7 @@ func ListSites(db *sqlx.DB) ([]map[string]any, error) {
 		siteMap := siteToMap(s, endpointsBySite[s.ID])
 		totalBalance := math.Round(balanceBySite[s.ID]*1_000_000) / 1_000_000
 		siteMap["totalBalance"] = totalBalance
-		siteMap["subscriptionSummary"] = buildSubscriptionSummary(accounts, s.ID)
+		siteMap["subscriptionSummary"] = summariesBySite[s.ID]
 		result[i] = siteMap
 	}
 
@@ -236,71 +251,81 @@ func ListSites(db *sqlx.DB) ([]map[string]any, error) {
 // frontend (web/src/features/sites/components/sites-columns.tsx uses
 // activeCount as an accountCount fallback).
 type subscriptionSummary struct {
-	Group       string      `json:"group,omitempty"`
-	ExpiresAt   *time.Time  `json:"expiresAt,omitempty"`
-	Active      bool        `json:"active"`
-	ActiveCount int         `json:"activeCount"`
+	Group       string     `json:"group,omitempty"`
+	ExpiresAt   *time.Time `json:"expiresAt,omitempty"`
+	Active      bool       `json:"active"`
+	ActiveCount int        `json:"activeCount"`
 }
 
-// buildSubscriptionSummary aggregates sub2api subscription info for a site by
-// scanning every account's extra_config for a sub2apiAuth object. The TS
-// version parsed sub2apiAuth to surface the subscription group, token expiry
-// and liveness; here we extract the same known fields without over-fetching.
+// buildSubscriptionSummariesBySite aggregates sub2api subscription info for
+// every site in a single pass over the accounts slice, returning a map keyed
+// by site ID. Sites whose accounts carry no sub2apiAuth block are absent from
+// the map (callers treat a missing key as nil — the pre-existing behavior, so
+// non-sub2api sites stay unaffected).
 //
-// Returns nil when no account for the site carries a sub2apiAuth block (the
-// pre-existing behavior), so non-sub2api sites stay unaffected.
-func buildSubscriptionSummary(accounts []accountAgg, siteID int64) any {
-	var (
-		group        string
-		latestExpiry *time.Time
-		activeCount  int
-		seenSub2Api  bool
-	)
+// This is the O(accounts) replacement for the previous per-site
+// buildSubscriptionSummary(accounts, siteID) call inside the site loop, which
+// rescanned the whole accounts slice per site (O(sites × accounts)).
+func buildSubscriptionSummariesBySite(accounts []accountAgg) map[int64]*subscriptionSummary {
+	result := make(map[int64]*subscriptionSummary)
 	now := time.Now().UTC()
 	for _, acc := range accounts {
-		if acc.SiteID != siteID {
-			continue
-		}
 		auth := GetSub2ApiAuthFromExtraConfig(acc.ExtraConfig)
 		if auth == nil {
 			continue
 		}
-		seenSub2Api = true
+		summary := result[acc.SiteID]
+		if summary == nil {
+			summary = &subscriptionSummary{}
+			result[acc.SiteID] = summary
+		}
 
 		// Subscription group/plan name: prefer "group", fall back to "planName".
-		if g, ok := auth["group"].(string); ok && g != "" {
-			if group == "" {
-				group = g
-			}
-		} else if p, ok := auth["planName"].(string); ok && p != "" {
-			if group == "" {
-				group = p
+		// First-seen wins so the caller-visible group is stable across accounts.
+		if summary.Group == "" {
+			if g, ok := auth["group"].(string); ok && g != "" {
+				summary.Group = g
+			} else if p, ok := auth["planName"].(string); ok && p != "" {
+				summary.Group = p
 			}
 		}
 
 		// tokenExpiresAt is epoch seconds (see NormalizeManagedTokenExpiresAt).
 		if exp, ok := NormalizeManagedTokenExpiresAt(auth["tokenExpiresAt"]); ok && exp > 0 {
 			expiry := time.Unix(exp, 0).UTC()
-			if latestExpiry == nil || expiry.After(*latestExpiry) {
-				latestExpiry = &expiry
+			if summary.ExpiresAt == nil || expiry.After(*summary.ExpiresAt) {
+				summary.ExpiresAt = &expiry
 			}
 			if expiry.After(now) {
-				activeCount++
+				summary.ActiveCount++
 			}
 		} else {
 			// No usable expiry — treat as active so accountCount fallback still works.
-			activeCount++
+			summary.ActiveCount++
 		}
 	}
-	if !seenSub2Api {
-		return nil
+	// Derive the Active flag once after all accounts are folded in, since
+	// ActiveCount is incremented across multiple accounts per site.
+	for _, summary := range result {
+		summary.Active = summary.ActiveCount > 0
 	}
-	return &subscriptionSummary{
-		Group:       group,
-		ExpiresAt:   latestExpiry,
-		Active:      activeCount > 0,
-		ActiveCount: activeCount,
+	return result
+}
+
+// buildSubscriptionSummary aggregates sub2api subscription info for a single
+// site by scanning every account's extra_config for a sub2apiAuth object.
+//
+// Kept for backward compatibility with existing tests and any caller that
+// needs a single-site summary. It delegates to buildSubscriptionSummariesBySite
+// (single pass) and looks up the requested site. Returns an untyped nil when
+// no account for the site carries a sub2apiAuth block (matching the original
+// behavior; indexing a missing map key would yield a typed-nil *subscriptionSummary
+// which compares != nil, so we guard with the comma-ok form).
+func buildSubscriptionSummary(accounts []accountAgg, siteID int64) any {
+	if s, ok := buildSubscriptionSummariesBySite(accounts)[siteID]; ok {
+		return s
 	}
+	return nil
 }
 
 // CreateSite creates a new site with apiEndpoints in a transaction.

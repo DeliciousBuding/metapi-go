@@ -176,19 +176,19 @@ func (h *accountsHandler) listAccounts(w http.ResponseWriter, r *http.Request) {
 func (h *accountsHandler) createAccount(w http.ResponseWriter, r *http.Request) {
 	var body payloads.AccountCreatePayload
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid account payload.")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid account payload: " + err.Error())
 		return
 	}
 
 	if body.SiteID <= 0 {
-		writeError(w, http.StatusBadRequest, "Invalid siteId. Expected positive number.")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid siteId. Expected positive number.")
 		return
 	}
 
 	// Check site exists
 	var site store.Site
 	if err := h.db.Get(&site, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), body.SiteID); err != nil {
-		writeError(w, http.StatusBadRequest, "site not found")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "site not found")
 		return
 	}
 
@@ -221,7 +221,7 @@ func (h *accountsHandler) createAccount(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if len(requestedTokens) == 0 {
-		writeError(w, http.StatusBadRequest, "请填写 Token")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "请填写 Token")
 		return
 	}
 
@@ -562,27 +562,27 @@ func (h *accountsHandler) createSingleAccount(ctx context.Context, body payloads
 func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 	var body payloads.AccountLoginPayload
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid login payload.")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid login payload: " + err.Error())
 		return
 	}
 
 	if body.SiteID <= 0 {
-		writeError(w, http.StatusBadRequest, "Invalid siteId. Expected positive number.")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid siteId. Expected positive number.")
 		return
 	}
 	if strings.TrimSpace(body.Username) == "" {
-		writeError(w, http.StatusBadRequest, "Invalid username. Expected string.")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid username. Expected string.")
 		return
 	}
 	if strings.TrimSpace(body.Password) == "" {
-		writeError(w, http.StatusBadRequest, "Invalid password. Expected string.")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid password. Expected string.")
 		return
 	}
 
 	// Get site
 	var site store.Site
 	if err := h.db.Get(&site, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), body.SiteID); err != nil {
-		writeError(w, http.StatusNotFound, "site not found")
+		writeErrorWithRequest(w, r, http.StatusNotFound, "site not found")
 		return
 	}
 
@@ -596,7 +596,7 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 	loginResult, err := adp.Login(ctx, site.URL, body.Username, body.Password, nil, service.BuildPlatformProxyConfigForToken(h.cfg, &site, body.Username))
 	if err != nil {
 		slog.Warn("Account login failed", "err", err, "site_id", site.ID, "platform", site.Platform)
-		writeError(w, http.StatusUnauthorized, "login failed")
+		writeErrorWithRequest(w, r, http.StatusUnauthorized, "login failed")
 		return
 	}
 	if loginResult == nil || !loginResult.Success || strings.TrimSpace(loginResult.AccessToken) == "" {
@@ -604,7 +604,7 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 		if loginResult != nil && strings.TrimSpace(loginResult.Message) != "" {
 			message = strings.TrimSpace(loginResult.Message)
 		}
-		writeError(w, http.StatusUnauthorized, message)
+		writeErrorWithRequest(w, r, http.StatusUnauthorized, message)
 		return
 	}
 	loginAccessToken := strings.TrimSpace(loginResult.AccessToken)
@@ -625,7 +625,7 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 	// Encrypt password for autoRelogin
 	passwordCipher, encErr := service.EncryptPassword(h.cfg, body.Password)
 	if encErr != nil {
-		writeError(w, http.StatusInternalServerError, "Failed to encrypt password.")
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "Failed to encrypt password.")
 		return
 	}
 
@@ -648,7 +648,7 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 			loginAccessToken, true, extraConfigStr, now, existing.ID,
 		); err != nil {
 			slog.Error("Failed to update login account", "err", err, "account_id", existing.ID)
-			writeError(w, http.StatusInternalServerError, "Failed to save account.")
+			writeErrorWithRequest(w, r, http.StatusInternalServerError, "Failed to save account.")
 			return
 		}
 	} else {
@@ -660,7 +660,7 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 			body.SiteID, body.Username, loginAccessToken, true, false, sortOrder, extraConfigStr, now, now,
 		); err != nil {
 			slog.Error("Failed to insert login account", "err", err, "site_id", body.SiteID)
-			writeError(w, http.StatusInternalServerError, "Failed to save account.")
+			writeErrorWithRequest(w, r, http.StatusInternalServerError, "Failed to save account.")
 			return
 		}
 	}
@@ -669,7 +669,7 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 	var loginAcct store.Account
 	if err := h.db.Get(&loginAcct, h.db.Rebind("SELECT * FROM accounts WHERE site_id = ? AND username = ?"), body.SiteID, body.Username); err != nil {
 		slog.Error("Failed to load login account", "err", err, "site_id", body.SiteID)
-		writeError(w, http.StatusInternalServerError, "Failed to load account.")
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "Failed to load account.")
 		return
 	}
 	loginAcctMap := map[string]any{
@@ -703,12 +703,12 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 func (h *accountsHandler) verifyToken(w http.ResponseWriter, r *http.Request) {
 	var body payloads.AccountVerifyTokenPayload
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid verify-token payload.")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid verify-token payload: " + err.Error())
 		return
 	}
 
 	if body.SiteID <= 0 {
-		writeError(w, http.StatusBadRequest, "Invalid siteId. Expected positive number.")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid siteId. Expected positive number.")
 		return
 	}
 
@@ -717,14 +717,14 @@ func (h *accountsHandler) verifyToken(w http.ResponseWriter, r *http.Request) {
 		accessToken = strings.TrimSpace(*body.AccessToken)
 	}
 	if accessToken == "" {
-		writeError(w, http.StatusBadRequest, "Token 不能为空")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Token 不能为空")
 		return
 	}
 
 	// Get site
 	var site store.Site
 	if err := h.db.Get(&site, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), body.SiteID); err != nil {
-		writeError(w, http.StatusNotFound, "site not found")
+		writeErrorWithRequest(w, r, http.StatusNotFound, "site not found")
 		return
 	}
 
@@ -898,7 +898,7 @@ func (h *accountsHandler) rebindSession(w http.ResponseWriter, r *http.Request) 
 
 	var body payloads.AccountRebindSessionPayload
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid rebind payload.")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid rebind payload: " + err.Error())
 		return
 	}
 
@@ -907,13 +907,13 @@ func (h *accountsHandler) rebindSession(w http.ResponseWriter, r *http.Request) 
 		nextAccessToken = strings.TrimSpace(*body.AccessToken)
 	}
 	if nextAccessToken == "" {
-		writeError(w, http.StatusBadRequest, "请提供新的 Session Token")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "请提供新的 Session Token")
 		return
 	}
 
 	row, err := service.GetAccountWithSiteByID(h.db, accountID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "账号不存在")
+		writeErrorWithRequest(w, r, http.StatusNotFound, "账号不存在")
 		return
 	}
 
@@ -935,14 +935,14 @@ func (h *accountsHandler) rebindSession(w http.ResponseWriter, r *http.Request) 
 		h.db.Rebind("UPDATE accounts SET access_token = ?, status = 'active', extra_config = ?, updated_at = ? WHERE id = ?"),
 		nextAccessToken, extraConfigStr, now, accountID,
 	); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update account")
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to update account")
 		return
 	}
 
 	// Fetch updated account for response
 	var rebindAcct store.Account
 	if err := h.db.Get(&rebindAcct, h.db.Rebind("SELECT * FROM accounts WHERE id = ?"), accountID); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to read updated account")
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to read updated account")
 		return
 	}
 	rebindAcctMap := map[string]any{
@@ -982,7 +982,7 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 
 	var body payloads.AccountUpdatePayload
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid account payload."})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "Invalid account payload: " + err.Error()})
 		return
 	}
 

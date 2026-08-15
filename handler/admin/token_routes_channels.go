@@ -67,7 +67,7 @@ func (h *tokenRoutesHandler) addChannel(w http.ResponseWriter, r *http.Request) 
 		Weight      *int64  `json:"weight"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid request body")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: " + err.Error())
 		return
 	}
 
@@ -89,7 +89,7 @@ func (h *tokenRoutesHandler) addChannel(w http.ResponseWriter, r *http.Request) 
 		 AND (source_model = ? OR (source_model IS NULL AND ? IS NULL))`),
 		routeID, body.AccountID, body.TokenID, body.TokenID, body.SourceModel, body.SourceModel)
 	if dupCount > 0 {
-		writeError(w, http.StatusBadRequest, "该来源模型的通道已存在")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "该来源模型的通道已存在")
 		return
 	}
 
@@ -101,7 +101,7 @@ func (h *tokenRoutesHandler) addChannel(w http.ResponseWriter, r *http.Request) 
 		routeID, body.AccountID, body.TokenID, body.SourceModel, priority, weight, true, true,
 	)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "创建通道失败")
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "创建通道失败")
 		return
 	}
 
@@ -126,7 +126,7 @@ func (h *tokenRoutesHandler) batchAddChannels(w http.ResponseWriter, r *http.Req
 		} `json:"channels"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid request body")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: " + err.Error())
 		return
 	}
 
@@ -190,7 +190,7 @@ func (h *tokenRoutesHandler) batchUpdateChannels(w http.ResponseWriter, r *http.
 		} `json:"updates"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid request body")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: " + err.Error())
 		return
 	}
 
@@ -229,15 +229,15 @@ func (h *tokenRoutesHandler) reorderRoutes(w http.ResponseWriter, r *http.Reques
 		} `json:"items"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid payload")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "invalid payload: " + err.Error())
 		return
 	}
 	if len(body.Items) == 0 {
-		writeError(w, http.StatusBadRequest, "items is required")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "items is required")
 		return
 	}
 	if len(body.Items) > 1000 {
-		writeError(w, http.StatusBadRequest, "too many items (max 1000)")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "too many items (max 1000)")
 		return
 	}
 
@@ -287,13 +287,13 @@ func (h *tokenRoutesHandler) updateChannel(w http.ResponseWriter, r *http.Reques
 	idStr := chi.URLParam(r, "channelId")
 	channelID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil || channelID <= 0 {
-		writeError(w, http.StatusNotFound, "通道不存在")
+		writeErrorWithRequest(w, r, http.StatusNotFound, "通道不存在")
 		return
 	}
 
 	var body map[string]any
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, "Invalid request body")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: " + err.Error())
 		return
 	}
 
