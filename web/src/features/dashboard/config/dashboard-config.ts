@@ -8,10 +8,10 @@
 // content is built with React.createElement, hooks-safe).
 //
 // Sections are loaded via React.lazy + dynamic import() so each section's
-// heavy dependencies (VChart for traffic/models, recharts for overview) land
-// in separate async chunks instead of the main sync bundle. The lazy
-// component references are created at module level so their identity is
-// stable across renders (React.lazy requires this to avoid remounting).
+// heavy dependencies (recharts + chart sections) land in separate async
+// chunks instead of the main sync bundle. The lazy component references are
+// created at module level so their identity is stable across renders
+// (React.lazy requires this to avoid remounting).
 
 import {
   createElement,

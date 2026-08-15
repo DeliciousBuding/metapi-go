@@ -58,7 +58,7 @@
 | 2 | [ ] | 排序清除 | `data-table/core/column-header.tsx` | 菜单加「默认顺序」或表头三态循环 |
 | 3 | [ ] | 徽章配方收敛 | overview/availability/checkin/accounts/routes/channels 内联状态徽章 | 迁移到 badge success/info 变体（变体已加，未全量迁移） |
 | 4 | [ ] | Stat 卡升级 | `dashboard/components/stat-card.tsx` | IconBadge + 三档 tone + 明细子格（New API C1/C2 借鉴） |
-| 5 | [ ] | RealtimeSparkline 图表 token | `availability-section.tsx` | `bg-primary/70` → `--chart-1`/`useChartColors` |
+| 5 | [x] 代码 | RealtimeSparkline 图表 token | `availability-section.tsx` | done — 已改 `bg-chart-1/70`（CSS var 直读，不再 `bg-primary/70`）；`useChartColors` 已随 VChart 移除 |
 | 6 | [ ] | 行内高频操作免菜单化 | `accounts-columns.tsx` | New API 渠道行操作模式（行级 pending + 成功 toast） |
 
 ### P2
@@ -67,7 +67,7 @@
 |---|------|----|------|------|
 | 1 | [ ] | URL 状态同步两套机制统一 | `use-url-table-state.ts` vs 一次性 read + replaceState（accounts/checkin/token-routes/proxy-logs） | |
 | 2 | [ ] | 图标族统一（HugeIcons × lucide 同屏） | ui 原语 vs feature 层 | |
-| 3 | [~] | 文档漂移销项 | DESIGN.md（9 vs 10 预设）、标题 400 vs 500 | §4.1 对比度债务已销项（见 `docs/design/a11y-checklist.md` §4.1/§7.14，ink-on-brand 7.28:1 AAA） |
+| 3 | [x] | 文档漂移销项 | DESIGN.md（9 vs 10 预设）、标题 400 vs 500 | done (#757) — DESIGN.md §2.1 预设数更正为 10、§3 标题字重对齐实现（页面 h1 400 / settings 卡片 h1 500）、§2.4 状态色明度对齐、§2.5 图表改述 recharts-only；§4.1 对比度债务已销项（见 `docs/design/a11y-checklist.md` §4.1/§7.14，ink-on-brand 7.28:1 AAA） |
 | 4 | [ ] | 圆角层级 / header 高度双来源 | `data-table-view.tsx`（rounded-lg vs 卡片 rounded-xl）、`app-header.tsx` + `theme.css` token | |
 | 5 | [ ] | 导入向导校验失败聚焦首错字段 | `account-form-dialog.tsx` 等 | |
 | 6 | [ ] | 移动端：首帧侧栏闪烁 / settings 375px 导航 | `use-mobile.tsx` / `settings-sidebar.tsx` | |
