@@ -10,14 +10,11 @@
 // `loader` prefetches both the proxy-logs page (`proxyLogsKeys.list(...)`)
 // and the meta facets (`proxyLogsKeys.meta(...)`) the page's `useProxyLogs`
 // / `useProxyLogsMeta` will request, building the same `ProxyLogsQuery`
-// payload from the URL search so the prefetched pages are reused. The
-// loader reads `window.location.search` and safe-parses it with
-// `proxyLogsSearchSchema` (the same schema the page uses) because TanStack
-// Router's loader context does not expose the validated `search` object in
-// this version; on a malformed URL the prefetch is skipped and the page
-// fetches on mount (its own safe-parse falls back to defaults). Latency
-// range is client-side only (not part of the backend query) so it is
-// intentionally absent from the prefetch payload.
+// payload from the router's `location.searchStr` (SSR-safe, rather than the
+// global `window.location.search`) so the prefetched pages are reused and the
+// cache key matches the page's first fetch. Latency range is client-side only
+// (not part of the backend query) so it is intentionally absent from the
+// prefetch payload.
 
 import { createFileRoute } from '@tanstack/react-router'
 
@@ -32,14 +29,16 @@ import { api } from '@/lib/api'
 const DEFAULT_PROXY_LOGS_PAGE_SIZE = 20
 
 /**
- * Read the proxy-logs URL search state via the feature schema. Returns
- * `null` on a malformed URL so the loader can skip the prefetch (the page
- * owns the fallback). Mirrors the page's `readUrlState` safe-parse approach.
+ * Safe-parse a raw search string with the feature schema. Returns `null` on a
+ * malformed string so the loader can skip the prefetch (the page owns the
+ * fallback). Pure — no `window` access — so it is shared by the loader (router
+ * `location.searchStr`) and mirrors the page's `readUrlState` approach.
  */
-function readProxyLogsUrlSearch(): ProxyLogsSearch | null {
-  if (typeof window === 'undefined') return null
+function parseProxyLogsSearch(searchStr: string): ProxyLogsSearch | null {
   const entries = Object.fromEntries(
-    new URLSearchParams(window.location.search).entries()
+    new URLSearchParams(
+      searchStr.startsWith('?') ? searchStr.slice(1) : searchStr
+    ).entries()
   )
   const parsed = proxyLogsSearchSchema.safeParse(entries)
   return parsed.success ? parsed.data : null
@@ -47,8 +46,8 @@ function readProxyLogsUrlSearch(): ProxyLogsSearch | null {
 
 export const Route = createFileRoute('/_authenticated/proxy-logs')({
   validateSearch: proxyLogsSearchSchema,
-  loader: async ({ context }) => {
-    const search = readProxyLogsUrlSearch()
+  loader: async ({ context, location }) => {
+    const search = parseProxyLogsSearch(location.searchStr)
     if (!search) return
 
     const pageIndex = search.page ?? 0

@@ -3,11 +3,11 @@
 // status / reason / date-range / text query are all encoded in the query
 // string so a bookmarked or shared URL restores the exact view.
 //
-// This mirrors the sites feature's `sitesSearchSchema` safe-parse pattern:
-// the route file for /checkin is not registered yet, so the page parses
-// `window.location.search` directly via this schema (gracefully falling
-// back to defaults on malformed input) instead of relying on TanStack
-// Router's generated search-param validation.
+// The `/checkin` route file registers this schema via `validateSearch`, and
+// its loader parses the router's `location.searchStr` with
+// `parseCheckinSearch`. The page still parses `window.location.search`
+// directly via `readCheckinSearchFromUrl` for its client-only state
+// initialisation (both share `parseCheckinSearch` underneath).
 
 import { z } from 'zod'
 
@@ -41,18 +41,30 @@ export function getCheckinSearchDefaultValues(): CheckinSearch {
 }
 
 /**
- * Parse `window.location.search` into a validated CheckinSearch. Returns
- * defaults on any validation failure so the page always boots into a known
- * state — the route layer will replace this with typed search params once
- * /checkin is registered.
+ * Parse a raw search string (with or without the leading `?`) into a
+ * validated CheckinSearch. Pure — no `window` access — so both the page
+ * (client, `window.location.search`) and the route loader (router
+ * `location.searchStr`) share the same parser. Returns defaults on any
+ * validation failure so callers always boot into a known state.
  */
-export function readCheckinSearchFromUrl(): CheckinSearch {
-  if (typeof window === 'undefined') return getCheckinSearchDefaultValues()
+export function parseCheckinSearch(searchStr: string): CheckinSearch {
   const entries = Object.fromEntries(
-    new URLSearchParams(window.location.search).entries()
+    new URLSearchParams(
+      searchStr.startsWith('?') ? searchStr.slice(1) : searchStr
+    ).entries()
   )
   const parsed = checkinSearchSchema.safeParse(entries)
   return parsed.success ? parsed.data : getCheckinSearchDefaultValues()
+}
+
+/**
+ * Parse `window.location.search` into a validated CheckinSearch (the page's
+ * client-only entry point). Returns defaults on any validation failure so
+ * the page always boots into a known state.
+ */
+export function readCheckinSearchFromUrl(): CheckinSearch {
+  if (typeof window === 'undefined') return getCheckinSearchDefaultValues()
+  return parseCheckinSearch(window.location.search)
 }
 
 /**
@@ -104,15 +116,16 @@ export function buildCheckinSearchString(params: {
 }
 
 /**
- * Build the server-side `CheckinLogsQuery` for the *initial* page render from
- * the URL search state. The page derives the same payload from its state
- * (initialized from the URL), so the route loader's prefetchQuery uses this
- * to produce a cache key that exactly matches the hook's first fetch — no
- * double-fetch on mount. `from`/`to` are converted to UTC RFC3339 (no
- * milliseconds) so the lexicographic `created_at` bound is correct.
+ * Build the server-side `CheckinLogsQuery` from an already-parsed
+ * `CheckinSearch`. Pure (no `window` access) so the route loader can pass the
+ * result of `parseCheckinSearch(location.searchStr)` — the prefetch cache key
+ * then exactly matches the hook's first fetch (no double-fetch on mount).
+ * `from`/`to` are converted to UTC RFC3339 (no milliseconds) so the
+ * lexicographic `created_at` bound is correct.
  */
-export function buildInitialCheckinLogsQuery(): CheckinLogsQuery {
-  const search = readCheckinSearchFromUrl()
+export function buildInitialCheckinLogsQuery(
+  search: CheckinSearch
+): CheckinLogsQuery {
   const statusValues = parseFilterValues(search.status)
   const reasonValues = parseFilterValues(search.reason)
   const siteValues = parseFilterValues(search.site)

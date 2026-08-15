@@ -14,6 +14,7 @@ export { checkinQueryKeys, fetchCheckinLogs } from './api'
 export {
   buildInitialCheckinLogsQuery,
   checkinSearchSchema,
+  parseCheckinSearch,
 } from './lib/checkin-schema'
 
 // --- time helpers ---
