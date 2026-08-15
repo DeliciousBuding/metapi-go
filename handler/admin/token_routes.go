@@ -156,8 +156,15 @@ func (h *tokenRoutesHandler) listSummary(w http.ResponseWriter, r *http.Request)
 func (h *tokenRoutesHandler) listRoutes(w http.ResponseWriter, r *http.Request) {
 	rows := queryRows(h.db, "SELECT * FROM token_routes ORDER BY sort_order ASC, id ASC")
 	// Batch-load all channels once (kill per-route N+1;).
+	// Select only credential fragments (first4/last4/length) instead of the
+	// plaintext access_token/api_token — the full secret never crosses the
+	// DB→Go boundary, so a stray slog/metrics call cannot leak it. The masked
+	// form is rebuilt in Go by routeChannelAccountPublic().
+	accessTokenFrags := credentialFragmentsSelect(h.db, "a.access_token", "access_token")
+	apiTokenFrags := credentialFragmentsSelect(h.db, "a.api_token", "api_token")
 	allChannelRows := queryRows(h.db,
-		`SELECT rc.*, a.username, a.access_token, a.api_token, a.balance, a.status as account_status,
+		`SELECT rc.*, a.username, `+accessTokenFrags+`, `+apiTokenFrags+`,
+		       a.balance, a.status as account_status,
 		        s.id as site_id, s.name as site_name, s.url as site_url, s.platform as site_platform, s.status as site_status
 		 FROM route_channels rc
 		 LEFT JOIN accounts a ON rc.account_id = a.id
@@ -313,6 +320,7 @@ func (h *tokenRoutesHandler) createRoute(w http.ResponseWriter, r *http.Request)
 	}
 	created["sourceRouteIds"] = body.SourceRouteIds
 	routing.InvalidateCache()
+	invalidateChannelsSnapshotCache()
 	writeJSON(w, http.StatusOK, created)
 }
 
@@ -405,6 +413,7 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 	h.db.Select(&srcIDs, h.db.Rebind("SELECT source_route_id FROM route_group_sources WHERE group_route_id = ?"), id)
 	updated["sourceRouteIds"] = srcIDs
 	routing.InvalidateCache()
+	invalidateChannelsSnapshotCache()
 	writeJSON(w, http.StatusOK, updated)
 }
 
@@ -421,6 +430,7 @@ func (h *tokenRoutesHandler) deleteRoute(w http.ResponseWriter, r *http.Request)
 	h.db.Exec(h.db.Rebind("DELETE FROM route_channels WHERE route_id = ?"), id)
 	h.db.Exec(h.db.Rebind("DELETE FROM token_routes WHERE id = ?"), id)
 	routing.InvalidateCache()
+	invalidateChannelsSnapshotCache()
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
@@ -459,6 +469,7 @@ func (h *tokenRoutesHandler) batchRoutes(w http.ResponseWriter, r *http.Request)
 	}
 
 	routing.InvalidateCache()
+	invalidateChannelsSnapshotCache()
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success":      true,
 		"updatedCount": updated,
@@ -484,6 +495,9 @@ func (h *tokenRoutesHandler) rebuildRoutes(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	shared.RecordRouteRebuildCompleted()
+	// Rebuild recomposes route_channels rows; drop the list snapshot so the
+	// next GET /api/channels reflects the rebuilt fleet immediately.
+	invalidateChannelsSnapshotCache()
 	slog.Info("routes rebuild completed",
 		"queued", false,
 		"status", "completed",
@@ -657,7 +671,9 @@ func execInsertID(db *sqlx.DB, query string, args ...any) (int64, error) {
 }
 
 // routeChannelAccountPublic returns account fields for admin route channel lists
-// without plaintext credentials.
+// without plaintext credentials. The masked form is rebuilt from the
+// prefix/suffix/length fragments selected by credentialFragmentsSelect() —
+// the plaintext access_token/api_token are never pulled from the DB.
 func routeChannelAccountPublic(ch map[string]any) map[string]any {
 	out := map[string]any{
 		"id":       ch["accountId"],
@@ -665,22 +681,11 @@ func routeChannelAccountPublic(ch map[string]any) map[string]any {
 		"balance":  ch["balance"],
 		"status":   ch["accountStatus"],
 	}
-	if v, ok := ch["accessToken"]; ok {
-		if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
-			out["accessTokenMasked"] = maskSecret(s)
-		}
+	if accessTokenLen := coerceInt64(ch["accessTokenLen"]); accessTokenLen > 0 {
+		out["accessTokenMasked"] = maskSecretFromFragments(ch["accessTokenPrefix"], ch["accessTokenSuffix"], accessTokenLen)
 	}
-	if v, ok := ch["apiToken"]; ok {
-		switch tv := v.(type) {
-		case string:
-			if strings.TrimSpace(tv) != "" {
-				out["apiTokenMasked"] = maskSecret(tv)
-			}
-		case *string:
-			if tv != nil && strings.TrimSpace(*tv) != "" {
-				out["apiTokenMasked"] = maskSecret(*tv)
-			}
-		}
+	if apiTokenLen := coerceInt64(ch["apiTokenLen"]); apiTokenLen > 0 {
+		out["apiTokenMasked"] = maskSecretFromFragments(ch["apiTokenPrefix"], ch["apiTokenSuffix"], apiTokenLen)
 	}
 	return out
 }

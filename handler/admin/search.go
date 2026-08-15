@@ -24,6 +24,21 @@ type searchRequestBody struct {
 	Limit int    `json:"limit"`
 }
 
+// accountPublicSelectColumns lists every accounts column EXCEPT the plaintext
+// credentials (access_token, api_token). List/search endpoints pair this with
+// credentialFragmentsSelect() to expose masked secrets without ever scanning
+// the full plaintext into Go memory. Mirrors service.SiteSelectColumns.
+const accountPublicSelectColumns = `a.id, a.site_id, a.username, a.balance, a.balance_used,
+	a.quota, a.unit_cost, a.value_score, a.status, a.is_pinned, a.sort_order,
+	a.checkin_enabled, a.last_checkin_at, a.last_balance_refresh, a.oauth_provider,
+	a.oauth_account_key, a.oauth_project_id, a.extra_config, a.created_at,
+	a.updated_at, a.tags`
+
+// accountTokenPublicSelectColumns lists every account_tokens column EXCEPT the
+// plaintext token. Paired with credentialFragmentsSelect("at.token", ...).
+const accountTokenPublicSelectColumns = `at.id, at.account_id, at.name, at.token_group,
+	at.value_status, at.source, at.enabled, at.is_default, at.created_at, at.updated_at`
+
 // POST /api/search
 func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 	var body searchRequestBody
@@ -70,17 +85,25 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 	sites := queryRows(h.db, "SELECT "+service.SiteSelectColumns+" FROM sites WHERE name LIKE ? OR url LIKE ? OR platform LIKE ? LIMIT ?",
 		likePattern, likePattern, likePattern, perCategory)
 
-	// Search accounts
+	// Search accounts. Select only credential fragments (first4/last4/length)
+	// instead of a.* — the plaintext access_token/api_token never cross the
+	// DB→Go boundary, so a stray slog/metrics call cannot leak them. The masked
+	// form is rebuilt in Go by redactSearchAccountSecrets().
 	accounts := queryRows(h.db,
-		`SELECT a.*, s.name as site_name, s.platform as site_platform
+		`SELECT `+accountPublicSelectColumns+`, `+
+			credentialFragmentsSelect(h.db, "a.access_token", "access_token")+`, `+
+			credentialFragmentsSelect(h.db, "a.api_token", "api_token")+`,
+			s.name as site_name, s.platform as site_platform
 		 FROM accounts a INNER JOIN sites s ON a.site_id = s.id
 		 WHERE a.username LIKE ? OR s.name LIKE ? OR s.platform LIKE ?
 		 LIMIT ?`,
 		likePattern, likePattern, likePattern, perCategory)
 
-	// Search account tokens
+	// Search account tokens. Same fragment pattern for at.token.
 	accountTokens := queryRows(h.db,
-		`SELECT at.*, a.username as account_username, s.name as site_name
+		`SELECT `+accountTokenPublicSelectColumns+`, `+
+			credentialFragmentsSelect(h.db, "at.token", "token")+`,
+			a.username as account_username, s.name as site_name
 		 FROM account_tokens at
 		 INNER JOIN accounts a ON at.account_id = a.id
 		 INNER JOIN sites s ON a.site_id = s.id
@@ -131,28 +154,31 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// redactSearchAccountSecrets removes plaintext credentials from search account hits.
+// redactSearchAccountSecrets rebuilds masked credentials from the
+// prefix/suffix/length fragments selected by credentialFragmentsSelect().
+// The plaintext access_token/api_token are never pulled from the DB, so there
+// is nothing to delete — this helper exists to keep the response shape
+// (accessTokenMasked / apiTokenMasked) identical to the prior behavior.
 func redactSearchAccountSecrets(row map[string]any) {
 	if row == nil {
 		return
 	}
-	if s, ok := row["accessToken"].(string); ok && strings.TrimSpace(s) != "" {
-		row["accessTokenMasked"] = maskSecret(s)
+	if accessTokenLen := coerceInt64(row["accessTokenLen"]); accessTokenLen > 0 {
+		row["accessTokenMasked"] = maskSecretFromFragments(row["accessTokenPrefix"], row["accessTokenSuffix"], accessTokenLen)
 	}
-	delete(row, "accessToken")
-	if s, ok := row["apiToken"].(string); ok && strings.TrimSpace(s) != "" {
-		row["apiTokenMasked"] = maskSecret(s)
+	if apiTokenLen := coerceInt64(row["apiTokenLen"]); apiTokenLen > 0 {
+		row["apiTokenMasked"] = maskSecretFromFragments(row["apiTokenPrefix"], row["apiTokenSuffix"], apiTokenLen)
 	}
-	delete(row, "apiToken")
 }
 
-// redactSearchTokenSecrets removes plaintext token from search accountTokens hits.
+// redactSearchTokenSecrets rebuilds the masked token from the prefix/suffix/
+// length fragments selected by credentialFragmentsSelect(). The plaintext
+// token is never pulled from the DB.
 func redactSearchTokenSecrets(row map[string]any) {
 	if row == nil {
 		return
 	}
-	if s, ok := row["token"].(string); ok && strings.TrimSpace(s) != "" {
-		row["tokenMasked"] = maskSecret(s)
+	if tokenLen := coerceInt64(row["tokenLen"]); tokenLen > 0 {
+		row["tokenMasked"] = maskSecretFromFragments(row["tokenPrefix"], row["tokenSuffix"], tokenLen)
 	}
-	delete(row, "token")
 }

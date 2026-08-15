@@ -18,6 +18,9 @@ import (
 
 func setupTokenRoutesTest(t *testing.T) (*store.DB, chi.Router) {
 	t.Helper()
+	// Each test gets a fresh :memory: DB; clear the process-global channels
+	// snapshot cache so a prior test's cached page can't shadow this one.
+	globalChannelsCache.clear()
 	db, err := store.Open(store.DialectSQLite, ":memory:", false)
 	if err != nil {
 		t.Fatalf("failed to open SQLite: %v", err)
@@ -1192,13 +1195,22 @@ func TestRoutes_ReorderAndListOrder(t *testing.T) {
 }
 
 func TestRouteChannelAccountPublic_OmitsSecrets(t *testing.T) {
+	// Plaintext secrets are never SELECTed anymore — the row carries only
+	// first4/last4/length fragments. routeChannelAccountPublic rebuilds the
+	// masked form from those fragments and must never expose plaintext.
+	const accessSecret = "FAKE-access-secret-ABCDEF" // 25 chars
+	const apiSecret = "FAKE-api-secret-XYZ12345"    // 25 chars
 	ch := map[string]any{
-		"accountId":     int64(7),
-		"username":      "u",
-		"accessToken":   "sk-access-secret-ABCDEF",
-		"apiToken":      "sk-api-secret-XYZ12345",
-		"balance":       1.5,
-		"accountStatus": "active",
+		"accountId":         int64(7),
+		"username":           "u",
+		"accessTokenPrefix":  accessSecret[:4],
+		"accessTokenSuffix":  accessSecret[len(accessSecret)-4:],
+		"accessTokenLen":     int64(len(accessSecret)),
+		"apiTokenPrefix":     apiSecret[:4],
+		"apiTokenSuffix":     apiSecret[len(apiSecret)-4:],
+		"apiTokenLen":        int64(len(apiSecret)),
+		"balance":            1.5,
+		"accountStatus":      "active",
 	}
 	got := routeChannelAccountPublic(ch)
 	if _, ok := got["accessToken"]; ok {
@@ -1210,8 +1222,16 @@ func TestRouteChannelAccountPublic_OmitsSecrets(t *testing.T) {
 	if got["accessTokenMasked"] == nil || got["apiTokenMasked"] == nil {
 		t.Fatalf("expected masked fields: %#v", got)
 	}
-	if s, _ := got["accessTokenMasked"].(string); strings.Contains(s, "sk-access-secret") {
-		t.Fatalf("mask leaked secret: %q", s)
+	if got["accessTokenMasked"] != maskSecret(accessSecret) {
+		t.Fatalf("accessTokenMasked = %#v, want %q", got["accessTokenMasked"], maskSecret(accessSecret))
+	}
+	if got["apiTokenMasked"] != maskSecret(apiSecret) {
+		t.Fatalf("apiTokenMasked = %#v, want %q", got["apiTokenMasked"], maskSecret(apiSecret))
+	}
+	// No fragment combination may reconstruct the full plaintext secret.
+	body := fmt.Sprintf("%v", got)
+	if strings.Contains(body, accessSecret) || strings.Contains(body, apiSecret) {
+		t.Fatalf("mask leaked plaintext: %s", body)
 	}
 }
 
@@ -1522,20 +1542,47 @@ func TestListRoutes_MultiRouteBatchChannelLoadAndRedaction(t *testing.T) {
 }
 
 func TestRedactSearchSecrets(t *testing.T) {
-	acc := map[string]any{"accessToken": "sk-acc-ABCDEFGH", "apiToken": "sk-api-ABCDEFGH", "username": "x"}
+	// Plaintext tokens are never SELECTed anymore — rows carry only
+	// first4/last4/length fragments. The redact helpers rebuild the masked
+	// form and must match maskSecret() exactly while never holding plaintext.
+	const accSecret = "sk-acc-ABCDEFGH"   // 16 chars
+	const apiSecret = "sk-api-ABCDEFGH"   // 16 chars
+	const tokSecret = "sk-token-ABCDEFGH" // 18 chars
+
+	acc := map[string]any{
+		"accessTokenPrefix": accSecret[:4],
+		"accessTokenSuffix": accSecret[len(accSecret)-4:],
+		"accessTokenLen":    int64(len(accSecret)),
+		"apiTokenPrefix":    apiSecret[:4],
+		"apiTokenSuffix":    apiSecret[len(apiSecret)-4:],
+		"apiTokenLen":       int64(len(apiSecret)),
+		"username":          "x",
+	}
 	redactSearchAccountSecrets(acc)
 	if _, ok := acc["accessToken"]; ok {
-		t.Fatal("accessToken not removed")
+		t.Fatal("accessToken key present (should never be selected)")
 	}
 	if _, ok := acc["apiToken"]; ok {
-		t.Fatal("apiToken not removed")
+		t.Fatal("apiToken key present (should never be selected)")
 	}
-	tok := map[string]any{"token": "sk-token-ABCDEFGH", "name": "n"}
+	if acc["accessTokenMasked"] != maskSecret(accSecret) {
+		t.Fatalf("accessTokenMasked = %#v, want %q", acc["accessTokenMasked"], maskSecret(accSecret))
+	}
+	if acc["apiTokenMasked"] != maskSecret(apiSecret) {
+		t.Fatalf("apiTokenMasked = %#v, want %q", acc["apiTokenMasked"], maskSecret(apiSecret))
+	}
+
+	tok := map[string]any{
+		"tokenPrefix": tokSecret[:4],
+		"tokenSuffix": tokSecret[len(tokSecret)-4:],
+		"tokenLen":    int64(len(tokSecret)),
+		"name":         "n",
+	}
 	redactSearchTokenSecrets(tok)
 	if _, ok := tok["token"]; ok {
-		t.Fatal("token not removed")
+		t.Fatal("token key present (should never be selected)")
 	}
-	if tok["tokenMasked"] == nil {
-		t.Fatal("tokenMasked missing")
+	if tok["tokenMasked"] != maskSecret(tokSecret) {
+		t.Fatalf("tokenMasked = %#v, want %q", tok["tokenMasked"], maskSecret(tokSecret))
 	}
 }

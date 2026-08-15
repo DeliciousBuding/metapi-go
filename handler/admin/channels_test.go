@@ -31,15 +31,27 @@ func TestChannels_ListProjection(t *testing.T) {
 		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
 	}
 
-	var items []map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &items); err != nil {
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode body: %v", err)
 	}
-	if len(items) != 1 {
-		t.Fatalf("items = %d, want 1", len(items))
+	if resp["page"] != float64(1) {
+		t.Fatalf("page = %v, want 1", resp["page"])
 	}
-
-	item := items[0]
+	if resp["pageSize"] != float64(50) {
+		t.Fatalf("pageSize = %v, want 50", resp["pageSize"])
+	}
+	if resp["total"] != float64(1) {
+		t.Fatalf("total = %v, want 1", resp["total"])
+	}
+	rawItems, ok := resp["items"].([]any)
+	if !ok {
+		t.Fatalf("items missing/wrong type: %#v", resp["items"])
+	}
+	if len(rawItems) != 1 {
+		t.Fatalf("items = %d, want 1", len(rawItems))
+	}
+	item := rawItems[0].(map[string]any)
 	if item["status"] != "enabled" {
 		t.Fatalf("status = %v, want enabled", item["status"])
 	}
@@ -86,14 +98,16 @@ func TestChannels_ManuallyDisabledStatus(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
-	var items []map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &items); err != nil {
+	var resp map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode body: %v", err)
 	}
-	if len(items) != 1 {
-		t.Fatalf("items = %d, want 1", len(items))
+	rawItems, ok := resp["items"].([]any)
+	if !ok || len(rawItems) != 1 {
+		t.Fatalf("items = %v, want 1 item", resp["items"])
 	}
-	if items[0]["status"] != "manually_disabled" {
-		t.Fatalf("status = %v, want manually_disabled", items[0]["status"])
+	item := rawItems[0].(map[string]any)
+	if item["status"] != "manually_disabled" {
+		t.Fatalf("status = %v, want manually_disabled", item["status"])
 	}
 }
