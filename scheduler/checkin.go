@@ -256,12 +256,19 @@ func selectStaleCheckinAccountIDs(dbw *store.DB, cutoffRFC3339 string) ([]int64,
 	defer rows.Close()
 
 	var ids []int64
+	var scanErr error
 	for rows.Next() {
 		var id int64
 		if err := rows.Scan(&id); err != nil {
+			if scanErr == nil {
+				scanErr = err
+			}
 			continue
 		}
 		ids = append(ids, id)
+	}
+	if scanErr != nil {
+		return ids, scanErr
 	}
 	return ids, rows.Err()
 }
