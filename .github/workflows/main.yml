@@ -42,6 +42,9 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: v1.64.8
+          # goinstall builds with the current toolchain (go.mod go directive is
+          # newer than the action's prebuilt binary), and still caches the build.
+          install-mode: goinstall
           args: --timeout=3m
 
   vet:
@@ -294,7 +297,7 @@ jobs:
         ports:
           - 3000:3000
       one-api:
-        image: songquanpeng/one-api:latest
+        image: justsong/one-api:latest
         ports:
           - 3001:3000
     steps:
