@@ -82,11 +82,26 @@
 - [x] 前端 Playwright 全页冒烟收尾（复用 scratch，快速批量）
 
 ### Wave 2
-- 按两份 bug 清单批量修复 → 迭代位复测 → 参考位升级
-- flaky 测试硬化（TestProxyLogBatchWriter_BackpressureFallsBackToSync CI 超时）
-- 补齐 v1 其余形状差异（审计清单见 #768 PR body）
+- [x] 按 bug 清单批量修复：one-api detect 误判(#769) + one-api cookie 登录(#773) + 账号 password 模式(#770) + flaky 硬化(#771)
+- [x] 真实平台双链全绿（原生 :4100 迭代位，master 二进制）：
+  - new-api v1 链 13 PASS / 0 FAIL（detect→login→verify→account→models→balance→checkin→token→route→proxy）
+  - one-api v0.6.10 链 13 PASS / 0 FAIL（含 cookie-session 登录 + detect 判据）
+- [x] CI 工作流 (#774)：test-e2e 真实上游容器 job + test-sqlite 4 分片 + lint/playwright 缓存 + composite action
+- [ ] 参考位 :4000 升级到含全部修复的镜像（等 master CI docker-push）
+- [ ] 前端 password 模式浏览器实测（Playwright，需 :4000 新镜像）
 
 ### Wave 3
 - 覆盖率缺口分析（go test -cover + vitest coverage）
-- smoke.sh 接入 CI（容器 e2e）；前端冒烟脚本沉淀评估
+- smoke.sh 接入 CI（已通过 test-e2e job 落地）；前端冒烟脚本沉淀评估
 - 文档沉淀（docs/api.md 实测修正、STATE/MASTER 更新）
+
+## 实测发现（真实平台，已修）
+
+| 问题 | 根因 | 修复 |
+|------|------|------|
+| new-api v1 登录失败 | 登录响应无顶层 `success`，token 在 `data.access_token` | #768 |
+| one-api v0.6.10 误判为 new-api | 两者 `/api/status` 都有 `system_name`+`version`，旧判据失效 | #769（按 system_name 值区分） |
+| one-api v0.6.10 登录失败 | `success=true` 但 `data.access_token` 空串，凭证在 session cookie | #773（cookie 登录 + cookie-aware self/checkin/balance） |
+| 账号表单无法绑定 password 站点 | 前端只有 session/apikey 模式，未接 login 流 | #770（password 模式） |
+| 前端多页「服务器错误」 | 10 路由严格 validateSearch 在旧 URL 参数下抛错 | #767（stringSearchParam + .catch()） |
+| 测试床 sub2api verify 失败 | 非产品 bug：sub2api 多租户按 Host 路由，须用与 site URL 一致的 Host 取 token | 测试床配置（README 已记） |
