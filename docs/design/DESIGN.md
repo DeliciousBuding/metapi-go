@@ -4,7 +4,7 @@
 **Scope**: Enterprise ops control plane (sites, accounts, tokens, routes, monitors, logs)
 **Visual language**: GCP cloud console density + frosted glass shell + Apple detail
 **Source of truth**: this document + `web/src/styles/theme.css` + `web/src/styles/theme-presets.css` + `web/src/lib/theme-customization.ts` + `web/src/components/ui/**`
-**Last updated**: 2026-08-12
+**Last updated**: 2026-08-15
 
 ---
 
@@ -43,7 +43,7 @@ All values live in `web/src/styles/theme.css` under `:root` (light) and `.dark` 
 | Layer | Mechanism |
 |-------|-----------|
 | Theme mode | `<html class="dark|light">` (plus `data-theme` attr for compat) set by `ThemeProvider` and the FOUC bootstrap in `web/index.html`; cookie `vite-ui-theme` (1y), falls back to `prefers-color-scheme` |
-| Preset | `<body data-theme-preset>` — 9 shipped presets: default, anthropic, simple-large, underground, rose-garden, lake-view, sunset-glow, forest-whisper, ocean-breeze, lavender-dream |
+| Preset | `<body data-theme-preset>` — 10 shipped presets: default, anthropic, simple-large, underground, rose-garden, lake-view, sunset-glow, forest-whisper, ocean-breeze, lavender-dream |
 | Font axis | `<body data-theme-font="sans|serif">` — swaps `--font-body` |
 | Radius axis | `<body data-theme-radius="none|sm|md|lg|xl">` — overrides `--radius` |
 | Density axis | `<body data-theme-scale="sm|lg|xl">` — rescales `--text-*` and `--spacing` |
@@ -84,16 +84,16 @@ Presets replace `--primary`/`--background` per `data-theme-preset` (e.g. Anthrop
 
 | Token | Light | Dark | Usage |
 |-------|-------|------|-------|
-| `--success` / `--success-foreground` | `oklch(0.596 0.145 163.225)` / `oklch(0.985 0 0)` | `oklch(0.696 0.17 162.48)` / `oklch(0.145 0 0)` | Healthy / active |
-| `--warning` / `--warning-foreground` | `oklch(0.681 0.162 75.834)` / `oklch(0.145 0 0)` | `oklch(0.769 0.188 70.08)` / `oklch(0.145 0 0)` | Degraded / pending |
+| `--success` / `--success-foreground` | `oklch(0.53 0.145 163.225)` / `oklch(0.985 0 0)` | `oklch(0.696 0.17 162.48)` / `oklch(0.145 0 0)` | Healthy / active |
+| `--warning` / `--warning-foreground` | `oklch(0.62 0.162 75.834)` / `oklch(0.145 0 0)` | `oklch(0.769 0.188 70.08)` / `oklch(0.145 0 0)` | Degraded / pending |
 | `--destructive` / `--destructive-foreground` | `oklch(0.577 0.245 27.325)` / `oklch(0.985 0 0)` | `oklch(0.704 0.191 22.216)` / `oklch(0.985 0 0)` | Errors, deletes |
-| `--info` / `--info-foreground` | `oklch(0.588 0.158 241.966)` / `oklch(0.985 0 0)` | `oklch(0.613 0.14 239.919)` / `oklch(0.145 0 0)` | Informational |
+| `--info` / `--info-foreground` | `oklch(0.53 0.158 241.966)` / `oklch(0.985 0 0)` | `oklch(0.613 0.14 239.919)` / `oklch(0.145 0 0)` | Informational |
 
 Badge pattern: solid on soft fill (e.g. `bg-success/10 text-success`); each status also maps a `--color-*` Tailwind alias.
 
 ### 2.5 Charts
 
-`--chart-1…5` in both themes drive vchart/recharts series; dark reuses the same five hues at lighter lightness. Non-color status encoding is required for availability buckets (see a11y checklist).
+`--chart-1…5` in both themes drive recharts series (SVG resolves the CSS `var()` palette directly); dark reuses the same five hues at lighter lightness. Non-color status encoding is required for availability buckets (see a11y checklist).
 
 ### 2.6 Glass material
 
@@ -122,7 +122,7 @@ Fallback: `supports-[backdrop-filter]` gates translucency so browsers without `b
 | Shadow | Tailwind default `shadow-*` + custom `--shadow-card-hover` (`0 4px 12px …`) | Hover elevation on cards (`[data-card-hover]`); no lift on plain rows |
 | Motion | `tw-animate-css` utilities (`animate-in/out`, `fade-in-*`, `zoom-in-*`) + keyframes in `styles/index.css` (table row stagger, landing, terminal demo) | Calm; every animation guarded by `prefers-reduced-motion` |
 | Type | `--font-sans` Public Sans Variable + CJK fallbacks (Noto Sans SC/TC/JP/KR, PingFang, Microsoft YaHei) · `--font-serif` Lora Variable + CJK serif fallbacks · `--font-mono` Cascadia/SFMono/Consolas · `--font-body` active face | `data-theme-font` swaps the body face; density axis rescales `--text-xs…3xl` |
-| Page title scale | Landing/hub pages (dashboard `Overview`, `About`, `Settings` overview, `Sign in`): `text-2xl font-normal tracking-tight` (24px) · data/list pages (models, sites, oauth, accounts, check-in, proxy-logs, token-routes, model-tester): `text-lg font-normal` (18px) · settings section cards own a single `text-base` h1 inside the card | All titles weight 400 ("calm titles"); exactly one h1 per page (a11y); no third page-title variant without updating this table |
+| Page title scale | Landing/hub pages (dashboard `Overview`, `About`, `Settings` overview, `Sign in`): `text-2xl font-normal tracking-tight` (24px) · data/list pages (models, sites, oauth, accounts, check-in, proxy-logs, token-routes, model-tester): `text-lg font-normal` (18px) · settings section cards own a single `text-base font-medium` h1 inside the card | Page h1s weight 400 ("calm titles"); settings section-card h1s weight 500 (matches `CardTitle` default); exactly one h1 per page (a11y); no third page-title variant without updating this table |
 
 | Layout | `data-theme-content-layout="full|centered"`; centered clamps `[data-slot='sidebar-inset'] > *` to `--max-content-width` (1280px) at ≥1280px; utilities `max-w-container` 1280 / `max-w-container-lg` 1536 | Hi-res: `full` uses available width; `centered` keeps a comfortable reading width |
 
@@ -174,6 +174,7 @@ Checklist: [`a11y-checklist.md`](./a11y-checklist.md).
 
 | Date | Change |
 |------|--------|
+| 2026-08-15 | Drift reconciliation (issue #740): preset count corrected to 10; §2.4 light status tokens synced to the shipped 0.53/0.62/0.53 lightness (12px soft-badge AA fix); page-title scale notes the settings section-card h1 weight 500 vs page h1s 400; charts section now documents recharts-only (`--chart-1…5` CSS vars) after the VChart removal |
 | 2026-08-12 | a11y gate wired into CI: the `a11y` job serves the embedded SPA via the Go server (sqlite) and runs `a11y:scan` against all 15 admin routes |
 | 2026-08-12 | Dark-theme soft-destructive contrast: new `--destructive-soft-fg` token (dark `oklch(0.8 0.15 22)`); soft-destructive text across badges/buttons/dashboard/proxy-logs now readable in dark; sidebar group labels 60%->75% |
 | 2026-08-12 | a11y: fixed column-resizer `aria-valuenow`, explicit labels on table/filter selects (pagination, proxy-logs, checkin, program-logs), base-ui Switch `aria-checked` normalization; added the `a11y:scan` axe gate (15 routes clean) |

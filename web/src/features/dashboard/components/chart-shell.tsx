@@ -1,9 +1,10 @@
-// metapi-go/features/dashboard/components — shared VChart card chrome.
+// metapi-go/features/dashboard/components — shared chart card chrome.
 //
 // Extracts the ~60-line container template duplicated across the 8 legacy
 // charts (research/06-motion-icons-charts-responsive.md §7.3) into one shell:
-// card chrome (bg-card, rounded-lg, border, shadow) + a fixed-height canvas
-// viewport + a header slot. VChart renders to <canvas> inside this viewport.
+// card chrome (bg-card, rounded-lg, border, shadow) + a fixed-height chart
+// viewport + a header slot. Holds either a recharts SVG chart (dashboard
+// sections) or a lightweight DOM chart in the same viewport.
 
 import type { ReactNode } from 'react'
 
@@ -20,13 +21,13 @@ import { cn } from '@/lib/utils'
 type ChartShellProps = {
   title: string
   description?: string
-  /** Fixed canvas height in px (default 300). */
+  /** Fixed chart viewport height in px (default 300). */
   height?: number
   /** Actions rendered in the header (toggles, range pickers). */
   actions?: ReactNode
   /** Whether the chart data is still loading (renders a skeleton). */
   loading?: boolean
-  /** The VChart / recharts canvas. */
+  /** The chart (recharts SVG or lightweight DOM chart). */
   children: ReactNode
   className?: string
 }

@@ -3,7 +3,7 @@
 **Product**: MetAPI admin
 **Scope**: accessibility checklist
 **Related source of truth**: `docs/design/DESIGN.md`, `web/src/styles/theme.css`
-**Last updated**: 2026-08-12
+**Last updated**: 2026-08-15
 **Status**: checklist + reduced-motion/transparency pass; page-level residual debt tracked below
 
 This document is the accessibility acceptance checklist. It records keyboard, name, contrast, and responsive expectations, plus residual debt that is intentionally out of scope for this issue.
@@ -117,6 +117,7 @@ Ratios computed 2026-08-12 from the shipped `web/src/styles/theme.css` OKLCH val
 | `--secondary-foreground` on `--secondary` | 11.8:1 | Pass | Nested wells |
 | `--primary-foreground` on `--primary` | 7.28:1 | Pass | Light-theme CTA — ink-on-brand fix, see §7.14 |
 | White text on `--destructive` | 4.8:1 | Pass | Errors, deletes |
+| Soft-badge text (`--success` / `--info` / `--warning`) on `/10` fills | ≥ 4.5:1 | Pass | 12px soft badges — light `--success`/`--info`/`--warning` lightness lowered (0.53 / 0.53 / 0.62) 2026-08-14; `*-soft-fg` tokens ship the readable tone |
 
 ### 4.2 Dark theme
 
@@ -133,7 +134,7 @@ Ratios computed 2026-08-12 from the shipped `web/src/styles/theme.css` OKLCH val
 1. Body copy and table primary cells → `--foreground` / `--muted-foreground` only.
 2. Never place `--muted-foreground` on large reading blocks as primary content.
 3. Status badges: solid text on soft fill (e.g. `text-success` on `bg-success/10`) — not muted gray.
-4. Chart axis labels use theme-aware hook colors (`useChartColors`) — verify both themes.
+4. Chart series colors resolve `--chart-1…5` CSS vars directly (recharts SVG) — no JS color extraction; verify both themes render the palette.
 5. Focus rings must remain visible on both themes (`--ring` recipe).
 
 ---
@@ -211,7 +212,7 @@ Tracked for follow-up issues (not blocking U3 checklist doc):
 5. ~~**Muted/tertiary text** used as primary content in dense tables.~~ **Audited clean** (2026-08-12): all muted-foreground table cells are placeholders (-), meta sub-labels, or icon glyphs; no primary data rendered muted.
 6. ~~**Notification panel** keyboard model.~~ **Obsolete** — the rewrite ships no notification bell/panel surface (topbar = language/theme/avatar only); nothing to keyboard-navigate.
 7. ~~**ModernSelect** listbox semantics.~~ **Obsolete** — ModernSelect was removed in the dead-helper cleanup; selects use @base-ui/react primitives with native listbox semantics. (`role="listbox"/"option"`, typeahead, aria-controls).
-8. **Charts**: non-color status encoding for availability buckets; keyboard access to series. **Partial** — availability status/severity and attention badges all carry text labels (no color-only status); line/bar charts expose text axes + legends; site/model donuts show a name legend plus restored rich text tooltips (balance/cost, accounts, calls, tokens, share) at legacy parity. Residual: keyboard series access unavailable in @visactor/vchart 2.1.4 (no spec aria support; version upgrade deferred).
+8. **Charts**: non-color status encoding for availability buckets; keyboard access to series. **Partial** — availability status/severity and attention badges all carry text labels (no color-only status); line/bar charts expose text axes + legends; site/model donuts show a name legend plus restored rich text tooltips (balance/cost, accounts, calls, tokens, share) at legacy parity. Residual: keyboard series access unavailable in recharts (SVG series are not focusable); text axes/legends/tooltips carry the data for assistive tech.
 9. ~~**Skip link** to main content for keyboard users.~~ **Done** — `SkipToMain` (`web/src/components/skip-to-main.tsx`, href `#content`) rendered in `web/src/components/layout/components/authenticated-layout.tsx`.
 10. ~~**i18n entries** for newer chrome strings (e.g. `展开侧边栏`) if EN surface shows Chinese fallback.~~ **Audited clean** (2026-08-12): EN-surface runtime scan of 12 routes (home, settings overview + all 5 subareas, dashboard + traffic + models, accounts) — 0 CJK in chrome; the only hits are seed data values (downstream key names, audit-log messages). Skip-link + sidebar expand/nav open/close are i18n-keyed.
 11. ~~**Automated axe a11y CI** gate.~~ **Done** — the `a11y` job in `.github/workflows/ci.yml` serves the embedded SPA via the Go server (fresh sqlite runtime DB, `dev-admin-token-123`) and runs `a11y:scan` (15 admin routes) against the shipped bundle; gated by `docker-build` alongside the tests. Verified green in CI 2026-08-12 (commits `3c46318`, `a2c1364`).

@@ -52,8 +52,8 @@ export const KEY_DEPENDENCIES: AboutDependency[] = [
   { name: 'React Hook Form', version: '7.80', category: 'form' },
   { name: 'Zod', version: '4.4', category: 'form' },
   { name: 'i18next', version: '26.3', category: 'framework' },
-  { name: 'VChart', version: '2.1', category: 'ui' },
-  { name: 'motion', version: '12.42', category: 'ui' },
+  { name: 'Recharts', version: '3.10', category: 'ui' },
+  { name: 'tw-animate-css', version: '1.4', category: 'ui' },
 ]
 
 /**
