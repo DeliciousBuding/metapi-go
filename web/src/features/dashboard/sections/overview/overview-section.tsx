@@ -82,7 +82,7 @@ const SCHEDULER_STATUS_BADGE: Record<
   { className: string; key: string }
 > = {
   success: {
-    className: 'border-success/40 bg-success/10 text-success',
+    className: 'border-success/40 bg-success/10 text-success-soft-fg',
     key: 'dashboard.overview.scheduledTasks.statusSuccess',
   },
   failed: {
@@ -91,7 +91,7 @@ const SCHEDULER_STATUS_BADGE: Record<
     key: 'dashboard.overview.scheduledTasks.statusFailed',
   },
   running: {
-    className: 'border-info/40 bg-info/10 text-info',
+    className: 'border-info/40 bg-info/10 text-info-soft-fg',
     key: 'dashboard.overview.scheduledTasks.statusRunning',
   },
   never: {
@@ -224,7 +224,7 @@ export function OverviewSection() {
               SCHEDULER_STATUS_BADGE[row.lastStatus ?? ''] ??
               SCHEDULER_STATUS_BADGE.never
             const enabledClassName = row.enabled
-              ? 'border-success/40 bg-success/10 text-success'
+              ? 'border-success/40 bg-success/10 text-success-soft-fg'
               : 'border-border bg-muted text-muted-foreground'
             const enabledLabel = row.enabled
               ? t('dashboard.overview.scheduledTasks.enabled')

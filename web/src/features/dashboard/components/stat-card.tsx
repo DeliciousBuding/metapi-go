@@ -56,8 +56,8 @@ type StatCardProps = {
 
 const DETAIL_TONE_CLASSES: Record<StatCardTone, string> = {
   default: 'text-foreground',
-  success: 'text-success',
-  warning: 'text-warning',
+  success: 'text-success-soft-fg',
+  warning: 'text-warning-soft-fg',
 }
 
 const SPARK_CONFIG_BASE: ChartConfig = {

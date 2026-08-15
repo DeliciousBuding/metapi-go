@@ -40,8 +40,8 @@ function formatClock(ms?: number | null): string {
 }
 
 function resolveToneClass(tone: 'neutral' | 'warning' | 'success'): string {
-  if (tone === 'warning') return 'text-warning'
-  if (tone === 'success') return 'text-success'
+  if (tone === 'warning') return 'text-warning-soft-fg'
+  if (tone === 'success') return 'text-success-soft-fg'
   return 'text-foreground'
 }
 

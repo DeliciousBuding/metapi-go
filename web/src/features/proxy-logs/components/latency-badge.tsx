@@ -10,13 +10,13 @@ import { cn } from '@/lib/utils'
 const LATENCY_TIERS = {
   fast: {
     thresholdMs: 500,
-    className: 'bg-success/10 text-success border-success/30',
+    className: 'bg-success/10 text-success-soft-fg border-success/30',
     dotClassName: 'bg-success',
     icon: Zap,
   },
   slow: {
     thresholdMs: 2000,
-    className: 'bg-warning/10 text-warning border-warning/30',
+    className: 'bg-warning/10 text-warning-soft-fg border-warning/30',
     dotClassName: 'bg-warning',
     icon: Clock,
   },

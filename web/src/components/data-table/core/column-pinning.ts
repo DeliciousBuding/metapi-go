@@ -31,10 +31,13 @@ function getPinnedColumnClassName(
   pinnedColumn: DataTablePinnedColumn,
   kind: 'header' | 'cell'
 ) {
+  // `--foreground` is OKLCH, so `hsl(var(--foreground))` is invalid and the
+  // whole shadow is dropped. Mix the foreground at low alpha for a subtle
+  // pinned-column edge instead of a hard dark line.
   const edgeClassName =
     pinnedColumn.side === 'left'
-      ? 'shadow-[8px_0_10px_-10px_hsl(var(--foreground))]'
-      : 'shadow-[-8px_0_10px_-10px_hsl(var(--foreground))]'
+      ? 'shadow-[8px_0_10px_-10px_color-mix(in_oklch,var(--foreground)_12%,transparent)]'
+      : 'shadow-[-8px_0_10px_-10px_color-mix(in_oklch,var(--foreground)_12%,transparent)]'
 
   return cn(
     'sticky whitespace-nowrap',

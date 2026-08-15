@@ -17,10 +17,10 @@ const iconBadgeVariants = cva(
       tone: {
         default: 'bg-muted text-muted-foreground',
         primary: 'bg-primary/10 text-primary',
-        success: 'bg-success/10 text-success',
-        warning: 'bg-warning/10 text-warning',
-        info: 'bg-info/10 text-info',
-        destructive: 'bg-destructive/10 text-destructive',
+        success: 'bg-success/10 text-success-soft-fg',
+        warning: 'bg-warning/10 text-warning-soft-fg',
+        info: 'bg-info/10 text-info-soft-fg',
+        destructive: 'bg-destructive/10 text-destructive-soft-fg',
       },
       size: {
         sm: 'size-7 rounded-md [&>svg]:size-3.5',
