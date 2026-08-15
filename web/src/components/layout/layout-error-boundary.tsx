@@ -48,7 +48,9 @@ export function LayoutErrorBoundary({ error }: { error: Error }) {
               <TriangleAlert className='text-destructive size-8' />
             </div>
             <div className='space-y-1 text-center'>
-              <p className='text-2xl font-semibold'>{t('errors.renderTitle')}</p>
+              <p className='text-2xl font-semibold'>
+                {t('errors.renderTitle')}
+              </p>
               <p className='text-muted-foreground text-sm'>
                 {t('errors.renderDescription')}
               </p>
@@ -58,7 +60,10 @@ export function LayoutErrorBoundary({ error }: { error: Error }) {
                 <RotateCw className='mr-1.5 size-4' />
                 {t('errors.retry')}
               </Button>
-              <Button variant='outline' onClick={() => window.location.reload()}>
+              <Button
+                variant='outline'
+                onClick={() => window.location.reload()}
+              >
                 {t('errors.reload')}
               </Button>
             </div>
