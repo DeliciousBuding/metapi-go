@@ -22,7 +22,7 @@ var (
 	webdavScheduler     *scheduler.BackupWebdavScheduler
 )
 
-// StartBackgroundServices creates and starts all 16 background schedulers.
+// StartBackgroundServices creates and starts all 17 background schedulers.
 func StartBackgroundServices() {
 	slog.Info("starting background schedulers")
 
@@ -109,6 +109,12 @@ func buildSchedulers(cfg *config.Config) (
 
 	// ---- Scheduler 13b: Proxy Video Task Retention ----
 	newRegistry.Register(scheduler.NewProxyVideoTaskRetentionScheduler(cfg))
+
+	// ---- Scheduler 13c: Admin Background Task Retention ----
+	// Prunes terminal admin_background_tasks rows older than 30 days so the
+	// table (queried via ORDER BY created_at DESC LIMIT on every /api/tasks
+	// list) cannot grow unboundedly.
+	newRegistry.Register(scheduler.NewAdminBackgroundTaskRetentionScheduler(cfg))
 
 	// ---- Scheduler 14: Proxy Log Retention (legacy fallback) ----
 	newRegistry.Register(scheduler.NewProxyLogRetentionScheduler(cfg))

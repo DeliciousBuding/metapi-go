@@ -1,6 +1,6 @@
 package store
 
-// buildIndexes returns all 67 non-UNIQUE index creation statements.
+// buildIndexes returns all 69 non-UNIQUE index creation statements.
 // Both SQLite and PostgreSQL support CREATE INDEX IF NOT EXISTS syntax.
 // UNIQUE constraints are already handled inside CREATE TABLE via CONSTRAINT... UNIQUE.
 func buildIndexes() []struct {
@@ -121,6 +121,10 @@ func buildIndexes() []struct {
 		{"events_read_created_at_idx", `CREATE INDEX IF NOT EXISTS events_read_created_at_idx ON events (read, created_at)`},
 		{"events_type_created_at_idx", `CREATE INDEX IF NOT EXISTS events_type_created_at_idx ON events (type, created_at)`},
 		{"events_created_at_idx", `CREATE INDEX IF NOT EXISTS events_created_at_idx ON events (created_at)`},
+		// admin_background_tasks
+		{"admin_background_tasks_created_at_idx", `CREATE INDEX IF NOT EXISTS admin_background_tasks_created_at_idx ON admin_background_tasks (created_at)`},
+		// announcement_dismissals
+		{"announcement_dismissals_announcement_id_idx", `CREATE INDEX IF NOT EXISTS announcement_dismissals_announcement_id_idx ON announcement_dismissals (announcement_id)`},
 	}
 }
 
