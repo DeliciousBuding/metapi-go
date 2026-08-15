@@ -30,6 +30,7 @@ import { useTranslation } from 'react-i18next'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { asStringParam } from '@/lib/helpers/searchParams'
 import { toast } from '@/lib/toast'
 
 import { useTestModel } from '../api'
@@ -60,7 +61,8 @@ export function ModelTesterPage() {
   // deep-link param comes from `useSearch()` (typed) rather than a raw
   // `window.location.search` read.
   const { model } = useSearch({ from: '/_authenticated/model-tester' })
-  const defaultModel = model?.trim() ? model : undefined
+  const modelParam = asStringParam(model)
+  const defaultModel = modelParam?.trim() ? modelParam : undefined
 
   const testModel = useTestModel()
 

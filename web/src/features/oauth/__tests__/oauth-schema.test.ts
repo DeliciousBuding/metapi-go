@@ -146,8 +146,17 @@ describe('oauthSearchSchema', () => {
     expect(oauthSearchSchema.parse({ sort: '[]' }).sort).toBeUndefined()
   })
 
-  it('rejects pageSize above 200', () => {
-    expect(oauthSearchSchema.safeParse({ pageSize: '201' }).success).toBe(false)
+  it('falls back instead of throwing for out-of-range / non-string values', () => {
+    const result = oauthSearchSchema.parse({
+      page: 'abc',
+      pageSize: '201',
+      sort: 123,
+      q: 42,
+    })
+    expect(result.page).toBe(0)
+    expect(result.pageSize).toBe(20)
+    expect(result.sort).toBeUndefined()
+    expect(result.q).toBe(42)
   })
 })
 

@@ -28,6 +28,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
+import { asStringParam } from '@/lib/helpers/searchParams'
 
 import {
   type BatchRouteAction,
@@ -84,10 +85,13 @@ export function RoutesPage() {
     pageIndex: (urlSearch.page ?? 1) - 1,
     pageSize: urlSearch.pageSize ?? DEFAULT_PAGE_SIZE,
   })
-  const [globalFilter, setGlobalFilter] = useState(urlSearch.q ?? '')
+  const [globalFilter, setGlobalFilter] = useState(
+    asStringParam(urlSearch.q) ?? ''
+  )
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() => {
     const filters: ColumnFiltersState = []
-    const enabledValues = urlSearch.enabled?.split(',').filter(Boolean) ?? []
+    const enabledValues =
+      asStringParam(urlSearch.enabled)?.split(',').filter(Boolean) ?? []
     if (enabledValues.length) {
       filters.push({ id: 'enabled', value: enabledValues })
     }

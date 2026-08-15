@@ -17,9 +17,12 @@ import { z } from 'zod'
 import { ModelTesterPage } from '@/features/model-tester/components/model-tester-page'
 import { modelsKeys } from '@/features/models'
 import { api } from '@/lib/api'
+import { stringSearchParam } from '@/lib/helpers/searchParams'
 
-const modelTesterSearchSchema = z.object({
-  model: z.string().optional(),
+// Tolerant deep-link param: the router JSON-parses search values, so a
+// stale `?model=123` arrives as a number and must not throw a route error.
+export const modelTesterSearchSchema = z.object({
+  model: stringSearchParam,
 })
 
 export const Route = createFileRoute('/_authenticated/model-tester')({

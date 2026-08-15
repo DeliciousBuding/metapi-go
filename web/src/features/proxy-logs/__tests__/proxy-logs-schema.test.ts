@@ -50,11 +50,11 @@ describe('proxyLogsSearchSchema — status enum', () => {
     )
   })
 
-  it('rejects an unknown status with an enum error', () => {
-    const result = proxyLogsSearchSchema.safeParse({ status: 'partial' })
-    expect(result.success).toBe(false)
-    if (result.success) return
-    expect(result.error.issues[0]?.message).toContain('Invalid option')
+  it('falls back to "all" for an unknown or non-string status', () => {
+    expect(proxyLogsSearchSchema.parse({ status: 'partial' }).status).toBe(
+      'all'
+    )
+    expect(proxyLogsSearchSchema.parse({ status: true }).status).toBe('all')
   })
 })
 
@@ -83,13 +83,39 @@ describe('proxyLogsSearchSchema — numerics', () => {
   })
 
   it.each([
-    ['pageSize below 1', { pageSize: '0' }],
-    ['pageSize above 200', { pageSize: '201' }],
-    ['latencyMin negative', { latencyMin: '-1' }],
-    ['non-numeric page', { page: 'abc' }],
-  ])('rejects %s', (_label, input) => {
+    ['pageSize below 1', { pageSize: '0' }, { pageSize: 20 }],
+    ['pageSize above 200', { pageSize: '201' }, { pageSize: 20 }],
+    ['latencyMin negative', { latencyMin: '-1' }, { latencyMin: undefined }],
+    ['non-numeric page', { page: 'abc' }, { page: 0 }],
+  ])('falls back instead of throwing for %s', (_label, input, fallback) => {
     const result = proxyLogsSearchSchema.safeParse(input)
-    expect(result.success).toBe(false)
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.data).toMatchObject(fallback)
+  })
+
+  it('tolerates router-parsed primitives without throwing', () => {
+    const result = proxyLogsSearchSchema.parse({
+      q: 123,
+      page: 0,
+      pageSize: 'bogus',
+      status: 'bogus',
+      sort: 123,
+      latencyMin: 'abc',
+    })
+    expect(result.q).toBe(123)
+    expect(result.page).toBe(0)
+    expect(result.pageSize).toBe(20)
+    expect(result.status).toBe('all')
+    expect(result.sort).toBeUndefined()
+    expect(result.latencyMin).toBeUndefined()
+  })
+
+  it('tolerates a malformed sort array without throwing', () => {
+    const result = proxyLogsSearchSchema.parse({
+      sort: [{ id: 7, desc: 'yes' }],
+    })
+    expect(result.sort).toBeUndefined()
   })
 })
 

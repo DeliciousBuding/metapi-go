@@ -41,6 +41,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { ImportWizardDialog } from '@/features/import'
+import { asStringParam } from '@/lib/helpers/searchParams'
 import { toast } from '@/lib/toast'
 
 import {
@@ -86,11 +87,14 @@ export function AccountsPage() {
     pageIndex: (search.page ?? 1) - 1,
     pageSize: search.pageSize ?? DEFAULT_PAGE_SIZE,
   })
-  const [globalFilter, setGlobalFilter] = useState(search.q ?? '')
+  const [globalFilter, setGlobalFilter] = useState(
+    asStringParam(search.q) ?? ''
+  )
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() => {
     const filters: ColumnFiltersState = []
-    const statusValues = search.status?.split(',').filter(Boolean) ?? []
-    const siteIds = search.site?.split(',').filter(Boolean) ?? []
+    const statusValues =
+      asStringParam(search.status)?.split(',').filter(Boolean) ?? []
+    const siteIds = asStringParam(search.site)?.split(',').filter(Boolean) ?? []
     if (statusValues.length) {
       filters.push({ id: 'status', value: statusValues })
     }

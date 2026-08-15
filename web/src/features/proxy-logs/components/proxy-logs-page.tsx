@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
+import { asStringParam } from '@/lib/helpers/searchParams'
 import { toast } from '@/lib/toast'
 
 import { useProxyLogs, useProxyLogsMeta } from '../api'
@@ -51,7 +52,7 @@ export function ProxyLogsPage() {
     pageIndex: urlSearch.page ?? 0,
     pageSize: urlSearch.pageSize ?? DEFAULT_PAGE_SIZE,
   })
-  const [search, setSearch] = useState(urlSearch.q ?? '')
+  const [search, setSearch] = useState(asStringParam(urlSearch.q) ?? '')
   const [status, setStatus] = useState<ProxyLogFilters['status']>(
     urlSearch.status ?? 'all'
   )

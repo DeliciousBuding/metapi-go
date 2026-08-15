@@ -32,7 +32,10 @@
       "renderDescription": "页面渲染时发生意外错误。",
       "retry": "重试",
       "reload": "重新加载",
-      "showDetail": "查看错误详情"
+      "showDetail": "查看错误详情",
+      "searchParamTitle": "链接参数已失效",
+      "searchParamDescription": "链接中包含过期或格式错误的参数。重置链接后将使用默认设置打开页面。",
+      "searchParamReset": "重置链接"
     },
     "common": {
       "skipToMain": "跳转到主要内容",

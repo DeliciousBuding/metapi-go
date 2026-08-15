@@ -11,8 +11,8 @@
 // (language/theme) stay interactive — only the page area swaps to the error
 // card with Retry / Reload / show-detail controls.
 
-import { useRouter } from '@tanstack/react-router'
-import { RotateCw, TriangleAlert } from 'lucide-react'
+import { SearchParamError, useRouter } from '@tanstack/react-router'
+import { Link2Off, RotateCw, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -29,6 +29,21 @@ export function LayoutErrorBoundary({ error }: { error: Error }) {
   const router = useRouter()
   const [showDetail, setShowDetail] = useState(false)
 
+  // A throwing `validateSearch` (stale bookmarks / legacy URLs with
+  // JSON-parsed primitives like `?q=123` or `?enabled=true`) surfaces here
+  // as a SearchParamError. Offer a dedicated recovery path that keeps the
+  // pathname but drops the invalid query string entirely.
+  const isSearchParamError = error instanceof SearchParamError
+
+  const resetUrl = () => {
+    const { pathname } = router.state.location
+    router.navigate({ to: pathname, search: {} }).catch(() => {
+      // Fallback if the re-validation still fails: hard-navigate to the
+      // bare pathname.
+      window.location.replace(pathname)
+    })
+  }
+
   return (
     <SidebarProvider className='flex-col'>
       <SkipToMain />
@@ -44,29 +59,53 @@ export function LayoutErrorBoundary({ error }: { error: Error }) {
           )}
         >
           <div className='flex w-full max-w-md flex-col items-center gap-4'>
-            <div className='bg-destructive/10 flex size-16 items-center justify-center rounded-2xl'>
-              <TriangleAlert className='text-destructive size-8' />
+            <div
+              className={cn(
+                'flex size-16 items-center justify-center rounded-2xl',
+                isSearchParamError ? 'bg-warning/10' : 'bg-destructive/10'
+              )}
+            >
+              {isSearchParamError ? (
+                <Link2Off className='text-warning size-8' />
+              ) : (
+                <TriangleAlert className='text-destructive size-8' />
+              )}
             </div>
             <div className='space-y-1 text-center'>
               <p className='text-2xl font-semibold'>
-                {t('errors.renderTitle')}
+                {t(
+                  isSearchParamError
+                    ? 'errors.searchParamTitle'
+                    : 'errors.renderTitle'
+                )}
               </p>
               <p className='text-muted-foreground text-sm'>
-                {t('errors.renderDescription')}
+                {t(
+                  isSearchParamError
+                    ? 'errors.searchParamDescription'
+                    : 'errors.renderDescription'
+                )}
               </p>
             </div>
-            <div className='flex gap-2'>
-              <Button onClick={() => router.invalidate()}>
-                <RotateCw className='mr-1.5 size-4' />
-                {t('errors.retry')}
+            {isSearchParamError ? (
+              <Button onClick={resetUrl}>
+                <Link2Off className='mr-1.5 size-4' />
+                {t('errors.searchParamReset')}
               </Button>
-              <Button
-                variant='outline'
-                onClick={() => window.location.reload()}
-              >
-                {t('errors.reload')}
-              </Button>
-            </div>
+            ) : (
+              <div className='flex gap-2'>
+                <Button onClick={() => router.invalidate()}>
+                  <RotateCw className='mr-1.5 size-4' />
+                  {t('errors.retry')}
+                </Button>
+                <Button
+                  variant='outline'
+                  onClick={() => window.location.reload()}
+                >
+                  {t('errors.reload')}
+                </Button>
+              </div>
+            )}
             <button
               type='button'
               className='text-muted-foreground text-xs underline underline-offset-2'

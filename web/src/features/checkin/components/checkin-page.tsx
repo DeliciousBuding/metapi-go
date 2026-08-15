@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/select'
 import { useAccounts } from '@/features/accounts'
 import { useSites } from '@/features/sites/api'
+import { asStringParam } from '@/lib/helpers/searchParams'
 import { toast } from '@/lib/toast'
 
 import { useCheckinAccount, useCheckinLogs, useManualCheckin } from '../api'
@@ -55,7 +56,9 @@ export function CheckinPage() {
     pageIndex: search.page - 1,
     pageSize: search.pageSize,
   })
-  const [globalFilter, setGlobalFilter] = useState(search.q ?? '')
+  const [globalFilter, setGlobalFilter] = useState(
+    asStringParam(search.q) ?? ''
+  )
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() => {
     const filters: ColumnFiltersState = []
     const statusValues = parseFilterValues(search.status)
@@ -69,8 +72,8 @@ export function CheckinPage() {
   const [accountId, setAccountId] = useState<number | undefined>(
     search.accountId
   )
-  const [from, setFrom] = useState(search.from ?? '')
-  const [to, setTo] = useState(search.to ?? '')
+  const [from, setFrom] = useState(asStringParam(search.from) ?? '')
+  const [to, setTo] = useState(asStringParam(search.to) ?? '')
 
   const { data: accountsSnapshot } = useAccounts()
   const accountOptions = accountsSnapshot?.accounts ?? []
