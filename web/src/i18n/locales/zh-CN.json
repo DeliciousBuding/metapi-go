@@ -1304,13 +1304,14 @@
         "editTitle": "编辑账号",
         "addTitle": "添加账号",
         "editDescription": "更新账号凭证与配置。留空的凭证字段将保持不变。",
-        "addDescription": "连接一个站点账号：Session 模式用于签到/余额，API Key 模式用于代理转发。",
+        "addDescription": "连接一个站点账号：Session / 密码登录模式用于签到与余额，API Key 模式用于代理转发。",
         "site": "站点",
         "sitePlaceholder": "选择站点",
         "siteEmpty": "暂无站点，请先添加站点",
         "credentialMode": "凭证模式",
         "modeSession": "Session",
         "modeApiKey": "API Key",
+        "modePassword": "密码登录",
         "connectionName": "连接名称（可选）",
         "connectionNamePlaceholder": "留空则使用站点用户名",
         "status": "状态",
@@ -1342,6 +1343,13 @@
         "apiKeyPlaceholder": "粘贴站点的 API Key（sk-...）",
         "skipModelFetch": "跳过模型获取",
         "skipModelFetchHint": "不验证 Key 的可用模型（快速添加）"
+      },
+      "formPassword": {
+        "username": "用户名",
+        "usernamePlaceholder": "站点登录用户名",
+        "password": "密码",
+        "passwordPlaceholder": "站点登录密码",
+        "hint": "使用用户名和密码登录站点，系统会自动获取并绑定会话 Token。"
       },
       "columns": {
         "healthHealthy": "健康",
@@ -1408,13 +1416,18 @@
         "bulkPartial": "{{success}} 个成功，{{failed}} 个失败：{{items}}",
         "pinFailed": "更新置顶失败",
         "statusFailed": "更新状态失败",
-        "checkinFailed": "更新签到失败"
+        "checkinFailed": "更新签到失败",
+        "loginSucceeded": "账号绑定成功",
+        "loginRelogged": "账号会话已刷新",
+        "loginFailed": "绑定账号失败"
       },
       "schema": {
         "siteRequired": "请选择站点",
         "invalidProxyUrl": "代理地址需为合法 URL",
         "accessTokenRequired": "请填写 Access Token / Cookie",
-        "apiKeyRequired": "请填写 API Key"
+        "apiKeyRequired": "请填写 API Key",
+        "usernameRequired": "请填写站点用户名",
+        "passwordRequired": "请填写站点密码"
       },
       "tokens": {
         "title": "访问令牌",

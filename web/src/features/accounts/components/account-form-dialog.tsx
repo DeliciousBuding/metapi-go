@@ -51,7 +51,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/lib/toast'
 
-import { useCreateAccount, useUpdateAccount } from '../api'
+import { useCreateAccount, useLoginAccount, useUpdateAccount } from '../api'
 import {
   getAccountFormDefaultValues,
   getAccountFormSchema,
@@ -80,6 +80,7 @@ export function AccountFormDialog({
   const { t } = useTranslation()
   const createMutation = useCreateAccount()
   const updateMutation = useUpdateAccount()
+  const loginMutation = useLoginAccount()
   const isEdit = mode === 'edit' && !!account
 
   const schema = useMemo(() => getAccountFormSchema(), [])
@@ -117,8 +118,30 @@ export function AccountFormDialog({
   }, [open, isEdit, account, initializedFor, form])
 
   const onSubmit = async (values: AccountFormValues) => {
-    const payload = transformFormToPayload(values)
     try {
+      if (values.credentialMode === 'password') {
+        const result = await loginMutation.mutateAsync({
+          siteId: values.siteId,
+          username: values.username?.trim() ?? '',
+          password: values.password ?? '',
+        })
+        toast.success(
+          t(
+            result?.reusedAccount
+              ? 'accounts.toast.loginRelogged'
+              : 'accounts.toast.loginSucceeded'
+          )
+        )
+        form.reset()
+        onOpenChange(false)
+        return
+      }
+
+      const payload = transformFormToPayload(values)
+      if (!payload) {
+        toast.error(t('accounts.toast.loginFailed'))
+        return
+      }
       if (isEdit && account) {
         await updateMutation.mutateAsync({ id: account.id, payload })
       } else {
@@ -137,7 +160,10 @@ export function AccountFormDialog({
     toast.error(t('accounts.form.invalid'))
   }
 
-  const isSubmitting = createMutation.isPending || updateMutation.isPending
+  const isSubmitting =
+    createMutation.isPending ||
+    updateMutation.isPending ||
+    loginMutation.isPending
   const siteOptions = sites
 
   return (
@@ -234,34 +260,40 @@ export function AccountFormDialog({
                   <TabsTrigger value='apikey'>
                     {t('accounts.form.modeApiKey')}
                   </TabsTrigger>
+                  <TabsTrigger value='password'>
+                    {t('accounts.form.modePassword')}
+                  </TabsTrigger>
                 </TabsList>
               </Tabs>
             </FormItem>
 
-            {/* Connection name (optional) */}
-            <FormField
-              control={form.control}
-              name='username'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('accounts.form.connectionName')}</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder={t('accounts.form.connectionNamePlaceholder')}
-                      {...field}
-                      value={field.value ?? ''}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {credentialMode === 'session' ? (
-              <SessionFields form={form} />
-            ) : (
-              <ApiKeyFields form={form} />
+            {/* Connection name (optional) — hidden in password mode, where
+                username is the site login name collected by PasswordFields */}
+            {credentialMode !== 'password' && (
+              <FormField
+                control={form.control}
+                name='username'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('accounts.form.connectionName')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder={t(
+                          'accounts.form.connectionNamePlaceholder'
+                        )}
+                        {...field}
+                        value={field.value ?? ''}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             )}
+
+            {credentialMode === 'session' && <SessionFields form={form} />}
+            {credentialMode === 'apikey' && <ApiKeyFields form={form} />}
+            {credentialMode === 'password' && <PasswordFields form={form} />}
 
             {/* Status */}
             <FormField
@@ -525,6 +557,59 @@ function SessionFields({ form }: SessionFieldsProps) {
                 onBlur={field.onBlur}
               />
             </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Password-mode fields — username+password sign-in, bound via the separate
+// POST /api/accounts/login endpoint (the backend fetches the session token
+// and stores autoRelogin config on the account).
+// ---------------------------------------------------------------------------
+
+function PasswordFields({ form }: SessionFieldsProps) {
+  const { t } = useTranslation()
+  return (
+    <>
+      <FormField
+        control={form.control}
+        name='username'
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t('accounts.formPassword.username')}</FormLabel>
+            <FormControl>
+              <Input
+                autoComplete='username'
+                placeholder={t('accounts.formPassword.usernamePlaceholder')}
+                {...field}
+                value={field.value ?? ''}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name='password'
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t('accounts.formPassword.password')}</FormLabel>
+            <FormControl>
+              <Input
+                type='password'
+                autoComplete='new-password'
+                placeholder={t('accounts.formPassword.passwordPlaceholder')}
+                {...field}
+                value={field.value ?? ''}
+              />
+            </FormControl>
+            <FormDescription>{t('accounts.formPassword.hint')}</FormDescription>
             <FormMessage />
           </FormItem>
         )}

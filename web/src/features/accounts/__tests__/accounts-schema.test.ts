@@ -7,7 +7,7 @@ import {
   transformFormToPayload,
   type AccountFormValues,
 } from '../lib/accounts-schema'
-import { type Account, accountSchema } from '../types'
+import { type Account, type AccountPayload, accountSchema } from '../types'
 
 // When the i18n runtime translation layer is active (the i18n.coverage suite
 // loads it first in the full run), Chinese-literal Zod messages are replaced
@@ -38,6 +38,15 @@ function validApikeyForm(): AccountFormValues {
     ...getAccountFormDefaultValues('apikey'),
     siteId: 1,
     apiToken: 'k',
+  }
+}
+
+function validPasswordForm(): AccountFormValues {
+  return {
+    ...getAccountFormDefaultValues('password'),
+    siteId: 1,
+    username: 'login-user',
+    password: 'secret',
   }
 }
 
@@ -77,6 +86,64 @@ describe('getAccountFormSchema — superRefine', () => {
     if (result.success) return
     expect(result.error.issues[0]?.path).toEqual(['apiToken'])
     expectLocalized(result.error.issues[0]?.message, '请填写 API Key')
+  })
+
+  it('requires a username in password mode', () => {
+    const result = getAccountFormSchema().safeParse({
+      ...validPasswordForm(),
+      username: '',
+    })
+    expect(result.success).toBe(false)
+    if (result.success) return
+    expect(result.error.issues[0]?.path).toEqual(['username'])
+    expectLocalized(result.error.issues[0]?.message, '请填写站点用户名')
+  })
+
+  it('requires a password in password mode', () => {
+    const result = getAccountFormSchema().safeParse({
+      ...validPasswordForm(),
+      password: '',
+    })
+    expect(result.success).toBe(false)
+    if (result.success) return
+    expect(result.error.issues[0]?.path).toEqual(['password'])
+    expectLocalized(result.error.issues[0]?.message, '请填写站点密码')
+  })
+
+  it('flags both username and password when both are blank', () => {
+    const result = getAccountFormSchema().safeParse({
+      ...validPasswordForm(),
+      username: '',
+      password: '',
+    })
+    expect(result.success).toBe(false)
+    if (result.success) return
+    const paths = result.error.issues.map((issue) => issue.path[0])
+    expect(paths).toEqual(['username', 'password'])
+  })
+
+  it('treats whitespace-only password credentials as empty after trimming', () => {
+    const result = getAccountFormSchema().safeParse({
+      ...validPasswordForm(),
+      username: '   ',
+      password: '   ',
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('does not require session or apikey credentials in password mode', () => {
+    const result = getAccountFormSchema().safeParse({
+      ...validPasswordForm(),
+      accessToken: '',
+      apiToken: '',
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts a fully valid password form', () => {
+    expect(getAccountFormSchema().safeParse(validPasswordForm()).success).toBe(
+      true
+    )
   })
 
   it('accepts a fully valid session form', () => {
@@ -172,8 +239,17 @@ describe('getAccountFormSchema — proxyUrl', () => {
 // ---------------------------------------------------------------------------
 
 describe('transformFormToPayload', () => {
+  // Session/apikey forms always produce a payload; password mode returns
+  // undefined (handled by the login endpoint). Assert the defined branch once
+  // so the individual assertions stay focused on the payload contract.
+  function expectPayload(values: AccountFormValues): AccountPayload {
+    const payload = transformFormToPayload(values)
+    expect(payload).toBeDefined()
+    return payload as AccountPayload
+  }
+
   it('folds proxyUrl into extraConfig for session mode', () => {
-    const payload = transformFormToPayload({
+    const payload = expectPayload({
       ...validSessionForm(),
       proxyUrl: 'http://p',
     })
@@ -184,7 +260,7 @@ describe('transformFormToPayload', () => {
   })
 
   it('sends a single-entry accessTokens array for apikey mode', () => {
-    const payload = transformFormToPayload(validApikeyForm())
+    const payload = expectPayload(validApikeyForm())
     expect(payload.credentialMode).toBe('apikey')
     expect(payload.accessTokens).toEqual(['k'])
     expect(payload.skipModelFetch).toBe(false)
@@ -192,7 +268,7 @@ describe('transformFormToPayload', () => {
   })
 
   it('sends an empty accessTokens array when apiToken is blank', () => {
-    const payload = transformFormToPayload({
+    const payload = expectPayload({
       ...validApikeyForm(),
       apiToken: '',
     })
@@ -200,7 +276,7 @@ describe('transformFormToPayload', () => {
   })
 
   it('parses tags on /[,，\\s]+/ and drops empties', () => {
-    const payload = transformFormToPayload({
+    const payload = expectPayload({
       ...validSessionForm(),
       tags: 'a, b，c d',
     })
@@ -208,11 +284,15 @@ describe('transformFormToPayload', () => {
   })
 
   it('returns undefined tags for a blank tag input', () => {
-    const payload = transformFormToPayload({
+    const payload = expectPayload({
       ...validSessionForm(),
       tags: '  ',
     })
     expect(payload.tags).toBeUndefined()
+  })
+
+  it('returns undefined for password mode (routed to the login endpoint)', () => {
+    expect(transformFormToPayload(validPasswordForm())).toBeUndefined()
   })
 })
 
@@ -258,6 +338,7 @@ describe('transformAccountToFormValues', () => {
     expect(form.accessToken).toBe('')
     expect(form.apiToken).toBe('')
     expect(form.refreshToken).toBe('')
+    expect(form.password).toBe('')
     expect(form.platformUserId).toBeUndefined()
     expect(form.tokenExpiresAt).toBeUndefined()
   })
@@ -280,6 +361,13 @@ describe('getAccountFormDefaultValues', () => {
 
   it('defaults to session mode', () => {
     expect(getAccountFormDefaultValues().credentialMode).toBe('session')
+  })
+
+  it('seeds password mode with a blank password field', () => {
+    expect(getAccountFormDefaultValues('password')).toMatchObject({
+      credentialMode: 'password',
+      password: '',
+    })
   })
 
   it('produces defaults that fail schema validation (siteId 0)', () => {

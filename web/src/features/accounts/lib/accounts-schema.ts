@@ -3,11 +3,14 @@
 // a schema *factory* (so cross-field rules can run), default-values factory,
 // and two transformers (form → API payload, entity → form defaults).
 //
-// The form is mode-aware (session vs apikey credential mode). Session mode
-// collects an Access Token / optional platformUserId / optional sub2api
-// refresh token; apikey mode collects an API Key. Conditional required-field
-// rules live in `superRefine` rather than a discriminated union so the RHF
-// field array stays stable across mode switches.
+// The form is mode-aware (session / apikey / password credential modes).
+// Session mode collects an Access Token / optional platformUserId / optional
+// sub2api refresh token; apikey mode collects an API Key; password mode
+// collects the site login username + password (bound via the separate
+// POST /api/accounts/login endpoint, not the accounts create payload).
+// Conditional required-field rules live in `superRefine` rather than a
+// discriminated union so the RHF field array stays stable across mode
+// switches.
 //
 // Error messages are i18next keys (resolved by `<FormMessage>`).
 
@@ -26,8 +29,9 @@ export function getAccountFormSchema() {
         .number({ message: 'accounts.schema.siteRequired' })
         .int({ message: 'accounts.schema.siteRequired' })
         .positive({ message: 'accounts.schema.siteRequired' }),
-      credentialMode: z.enum(['session', 'apikey']),
+      credentialMode: z.enum(['session', 'apikey', 'password']),
       username: z.string().trim().optional(),
+      password: z.string().trim().optional(),
       accessToken: z.string().trim().optional(),
       apiToken: z.string().trim().optional(),
       platformUserId: z.number().int().positive().optional(),
@@ -55,12 +59,27 @@ export function getAccountFormSchema() {
             message: 'accounts.schema.accessTokenRequired',
           })
         }
-      } else {
+      } else if (value.credentialMode === 'apikey') {
         if (!value.apiToken || value.apiToken.length === 0) {
           ctx.addIssue({
             code: 'custom',
             path: ['apiToken'],
             message: 'accounts.schema.apiKeyRequired',
+          })
+        }
+      } else {
+        if (!value.username || value.username.length === 0) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['username'],
+            message: 'accounts.schema.usernameRequired',
+          })
+        }
+        if (!value.password || value.password.length === 0) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['password'],
+            message: 'accounts.schema.passwordRequired',
           })
         }
       }
@@ -80,6 +99,7 @@ export function getAccountFormDefaultValues(
     siteId: 0,
     credentialMode: mode,
     username: '',
+    password: '',
     accessToken: '',
     apiToken: '',
     platformUserId: undefined,
@@ -106,9 +126,14 @@ function parseTagsInput(raw: string | undefined): string[] | undefined {
     .filter(Boolean)
 }
 
+// Password mode has no accounts create/update payload: it posts
+// `{siteId, username, password}` to POST /api/accounts/login instead, so the
+// transform returns undefined and the caller routes to the login mutation.
 export function transformFormToPayload(
   values: AccountFormValues
-): AccountPayload {
+): AccountPayload | undefined {
+  if (values.credentialMode === 'password') return undefined
+
   const tags = parseTagsInput(values.tags)
   const extraConfig = values.proxyUrl
     ? JSON.stringify({ proxyUrl: values.proxyUrl })
@@ -153,6 +178,7 @@ export function transformAccountToFormValues(
     siteId: account.siteId,
     credentialMode: account.credentialMode,
     username: account.username ?? '',
+    password: '',
     accessToken: '',
     apiToken: '',
     platformUserId: undefined,
