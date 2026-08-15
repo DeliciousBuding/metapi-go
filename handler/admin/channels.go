@@ -10,6 +10,7 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/handler/shared"
 	"github.com/deliciousbuding/metapi-go/routing"
+	"golang.org/x/sync/singleflight"
 )
 
 // channelListRow is the flattened read-only projection for GET /api/channels.
@@ -52,6 +53,10 @@ type channelsSnapshotCache struct {
 	data      []byte
 	expiresAt time.Time
 	ttl       time.Duration
+	// flight deduplicates concurrent cache-miss computes for the same page so
+	// N admin sessions polling an expired entry share one 5-way JOIN run
+	// instead of running it N× (thundering herd).
+	flight singleflight.Group
 }
 
 func (c *channelsSnapshotCache) get(key string) ([]byte, bool) {
@@ -77,6 +82,35 @@ func (c *channelsSnapshotCache) clear() {
 	c.data = nil
 	c.key = ""
 	c.expiresAt = time.Time{}
+}
+
+// getOrCompute returns the cached payload for key, or computes it via the
+// supplied function under single-flight dedup so N concurrent admin sessions
+// hitting a cold/expired entry share one 5-way JOIN run instead of running it
+// N× (thundering herd). Returns (data, hit, err): hit reports whether the
+// fast-path cache served the bytes (for the x-channels-snapshot-cache response
+// header). Only successful computes are stored, so errors never poison the cache.
+func (c *channelsSnapshotCache) getOrCompute(key string, compute func() ([]byte, error)) ([]byte, bool, error) {
+	if cached, hit := c.get(key); hit {
+		return cached, true, nil
+	}
+	result, err, _ := c.flight.Do(key, func() (any, error) {
+		// Re-check: a concurrent leader may have populated the cache while we
+		// waited for the single-flight slot.
+		if cached, hit := c.get(key); hit {
+			return cached, nil
+		}
+		data, err := compute()
+		if err != nil {
+			return nil, err
+		}
+		c.set(key, data)
+		return data, nil
+	})
+	if err != nil {
+		return nil, false, err
+	}
+	return result.([]byte), false, nil
 }
 
 var globalChannelsCache = &channelsSnapshotCache{ttl: 10 * time.Second}
@@ -106,16 +140,41 @@ func (h *tokenRoutesHandler) listChannels(w http.ResponseWriter, r *http.Request
 	forceRefresh := parseTruthyQuery(r.URL.Query().Get("refresh"))
 	cacheKey := fmt.Sprintf("%d:%d", page, pageSize)
 
-	if !forceRefresh {
-		if cached, hit := globalChannelsCache.get(cacheKey); hit {
-			w.Header().Set("Content-Type", "application/json")
-			w.Header().Set("x-channels-snapshot-cache", "hit")
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write(cached)
-			return
-		}
+	// Snapshot cache: a hit short-circuits; on a miss the single-flight group
+	// deduplicates concurrent computes for the same page so N admin sessions
+	// polling an expired entry share one 5-way JOIN run instead of running it
+	// N× (thundering herd). ?refresh=true clears the cache first so a force
+	// request always recomputes and repopulates.
+	if forceRefresh {
+		globalChannelsCache.clear()
+	}
+	data, cacheHit, err := globalChannelsCache.getOrCompute(cacheKey, func() ([]byte, error) {
+		return h.computeChannelsPage(r, page, pageSize)
+	})
+	if err != nil {
+		slog.Error("channels list failed", "error", err)
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "加载通道列表失败")
+		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+	if cacheHit {
+		w.Header().Set("x-channels-snapshot-cache", "hit")
+	} else {
+		w.Header().Set("x-channels-snapshot-cache", "miss")
+	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
+// computeChannelsPage runs the 5-way JOIN channel list query (the cache-miss
+// path). Extracted from listChannels so the single-flight group can
+// deduplicate concurrent misses. Uses the caller's request context so a client
+// disconnect cancels the in-flight query; under single-flight the leader's
+// context is shared (followers arrive while the leader is already running, so
+// their own context is not on the critical path). Returns the marshaled JSON
+// bytes; the caller (getOrCompute) stores them in the cache.
+func (h *tokenRoutesHandler) computeChannelsPage(r *http.Request, page, pageSize int) ([]byte, error) {
 	offset := (page - 1) * pageSize
 	var rows []channelListRow
 	if err := h.db.SelectContext(r.Context(), &rows, h.db.Rebind(`
@@ -137,9 +196,7 @@ func (h *tokenRoutesHandler) listChannels(w http.ResponseWriter, r *http.Request
 		LEFT JOIN account_tokens at ON rc.token_id = at.id
 		ORDER BY rc.id ASC
 		LIMIT ? OFFSET ?`), pageSize, offset); err != nil {
-		slog.Error("channels list failed", "error", err)
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "加载通道列表失败")
-		return
+		return nil, err
 	}
 
 	// Refresh the metapi_active_channels gauge so /metrics reflects the real
@@ -173,13 +230,7 @@ func (h *tokenRoutesHandler) listChannels(w http.ResponseWriter, r *http.Request
 		"page":     page,
 		"pageSize": pageSize,
 	}
-	respBytes, _ := json.Marshal(resp)
-	globalChannelsCache.set(cacheKey, respBytes)
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("x-channels-snapshot-cache", "miss")
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(respBytes)
+	return json.Marshal(resp)
 }
 
 func channelListItem(row channelListRow) map[string]any {
