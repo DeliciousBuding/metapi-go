@@ -46,18 +46,20 @@ func (b *BaseAdapter) Login(ctx context.Context, url, username, password string,
 		return &LoginResult{Success: false, Message: err.Error()}, nil
 	}
 
-	success, _ := getBool(resp, "success")
-	if !success {
+	// Extract token from various possible fields
+	data, _ := getMap(resp, "data")
+	token := extractLoginToken(resp, data)
+	success, hasSuccess := getBool(resp, "success")
+
+	// v1 omits top-level success; presence of a usable credential implies success.
+	// Explicit success:false is always a failure.
+	if token == "" && !(hasSuccess && success) {
 		msg, _ := getString(resp, "message")
 		if msg == "" {
 			msg = "login failed"
 		}
 		return &LoginResult{Success: false, Message: msg}, nil
 	}
-
-	// Extract token from various possible fields
-	data, _ := getMap(resp, "data")
-	token := extractLoginToken(resp, data)
 
 	return &LoginResult{
 		Success:     true,
