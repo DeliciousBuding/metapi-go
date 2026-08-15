@@ -71,7 +71,12 @@
 
           var body = document.body
           var preset = readCookie('theme_preset')
+          // Keep in lockstep with THEME_PRESETS in src/lib/theme-customization.ts
+          // (guarded by fouc-bootstrap.test.ts). `default` sets no CSS rule —
+          // React removes the attribute after mount — but must stay listed so
+          // the ids/order match the constants.
           var presets = [
+            'default',
             'anthropic',
             'simple-large',
             'underground',
