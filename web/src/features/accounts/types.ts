@@ -24,7 +24,7 @@ const RUNTIME_HEALTH_STATES = [
 ] as const
 export type RuntimeHealthState = (typeof RUNTIME_HEALTH_STATES)[number]
 
-const CREDENTIAL_MODES = ['session', 'apikey'] as const
+const CREDENTIAL_MODES = ['session', 'apikey', 'password'] as const
 export type CredentialMode = (typeof CREDENTIAL_MODES)[number]
 
 // ---------------------------------------------------------------------------
@@ -161,6 +161,20 @@ export interface AccountPayload {
   skipModelFetch?: boolean
   tags?: string[]
   extraConfig?: string
+}
+
+// ---------------------------------------------------------------------------
+// Account login payload (POST /api/accounts/login) — password-based binding.
+// The backend signs in with username+password, then creates the account (or
+// updates an existing one for the same site+username) with the upstream
+// session token plus autoRelogin config. This is a separate endpoint from
+// POST/PUT /api/accounts, so it carries its own payload type.
+// ---------------------------------------------------------------------------
+
+export interface LoginAccountPayload {
+  siteId: number
+  username: string
+  password: string
 }
 
 // ---------------------------------------------------------------------------

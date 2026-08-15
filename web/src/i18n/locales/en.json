@@ -1304,13 +1304,14 @@
         "editTitle": "Edit account",
         "addTitle": "Add account",
         "editDescription": "Update account credentials and configuration. Empty credential fields will remain unchanged.",
-        "addDescription": "Connect a site account: Session mode for check-in/balance, API Key mode for proxy forwarding.",
+        "addDescription": "Connect a site account: Session / Password modes for check-in and balance, API Key mode for proxy forwarding.",
         "site": "Site",
         "sitePlaceholder": "Select a site",
         "siteEmpty": "No sites available, please add a site first",
         "credentialMode": "Credential mode",
         "modeSession": "Session",
         "modeApiKey": "API Key",
+        "modePassword": "Password",
         "connectionName": "Connection name (optional)",
         "connectionNamePlaceholder": "Leave empty to use the site username",
         "status": "Status",
@@ -1342,6 +1343,13 @@
         "apiKeyPlaceholder": "Paste the site's API Key (sk-...)",
         "skipModelFetch": "Skip model fetch",
         "skipModelFetchHint": "Do not verify the Key's available models (quick add)"
+      },
+      "formPassword": {
+        "username": "Username",
+        "usernamePlaceholder": "Site login username",
+        "password": "Password",
+        "passwordPlaceholder": "Site login password",
+        "hint": "Sign in with username and password; the session token is fetched and bound automatically."
       },
       "columns": {
         "healthHealthy": "Healthy",
@@ -1408,13 +1416,18 @@
         "bulkPartial": "{{success}} succeeded, {{failed}} failed: {{items}}",
         "pinFailed": "Failed to update pin",
         "statusFailed": "Failed to update status",
-        "checkinFailed": "Failed to update check-in"
+        "checkinFailed": "Failed to update check-in",
+        "loginSucceeded": "Account bound successfully",
+        "loginRelogged": "Account session refreshed",
+        "loginFailed": "Failed to bind account"
       },
       "schema": {
         "siteRequired": "Please select a site",
         "invalidProxyUrl": "Proxy URL must be a valid URL",
         "accessTokenRequired": "Please enter the Access Token / Cookie",
-        "apiKeyRequired": "Please enter the API Key"
+        "apiKeyRequired": "Please enter the API Key",
+        "usernameRequired": "Please enter the site username",
+        "passwordRequired": "Please enter the site password"
       },
       "tokens": {
         "title": "Access tokens",

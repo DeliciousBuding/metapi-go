@@ -22,7 +22,12 @@ import { api } from '@/lib/api'
 import { assertBusinessOk } from '@/lib/assert-business-ok'
 import { toast } from '@/lib/toast'
 
-import type { AccountPayload, AccountStatus, AccountsSnapshot } from './types'
+import type {
+  AccountPayload,
+  AccountStatus,
+  AccountsSnapshot,
+  LoginAccountPayload,
+} from './types'
 
 // ---------------------------------------------------------------------------
 // Query keys
@@ -73,6 +78,34 @@ export function useCreateAccount() {
       return assertBusinessOk<CreateAccountResult>(
         result,
         'accounts.toast.createFailed'
+      )
+    },
+    onSuccess: (data) => {
+      void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
+      return data
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// useLoginAccount — POST /api/accounts/login (password-mode binding)
+// ---------------------------------------------------------------------------
+
+export interface LoginAccountResult {
+  success?: boolean
+  message?: string
+  account?: { id?: number; username?: string }
+  reusedAccount?: boolean
+}
+
+export function useLoginAccount() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: LoginAccountPayload) => {
+      const result = await api.loginAccount(payload)
+      return assertBusinessOk<LoginAccountResult>(
+        result,
+        'accounts.toast.loginFailed'
       )
     },
     onSuccess: (data) => {
