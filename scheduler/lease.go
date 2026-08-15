@@ -133,8 +133,16 @@ func (l *schedulerLease) Release(ctx context.Context) {
 		return
 	}
 	if l.conn != nil {
+		// Release must never depend on the job's deadline. When the caller's
+		// context is already done (e.g. per-job WithTimeout fired), unlock the
+		// advisory lock with a fresh background context so a deadline-exceeded
+		// job never leaks a cross-instance lock.
+		releaseCtx := ctx
+		if ctx == nil || ctx.Err() != nil {
+			releaseCtx = context.Background()
+		}
 		var released bool
-		if err := l.conn.QueryRowContext(ctx, "SELECT pg_advisory_unlock($1)", l.key).Scan(&released); err != nil {
+		if err := l.conn.QueryRowContext(releaseCtx, "SELECT pg_advisory_unlock($1)", l.key).Scan(&released); err != nil {
 			slog.Warn("scheduler: failed to release postgres advisory lock", "name", l.name, "error", err)
 		}
 		if err := l.conn.Close(); err != nil {
@@ -155,6 +163,12 @@ func runWithSchedulerLease(ctx context.Context, db *store.DB, name string, fn fu
 	}
 	defer lease.Release(ctx)
 	fn()
+	// Surface jobs that ran past their per-job deadline so operators can see
+	// which pass over N accounts exceeded its budget. The lease is still
+	// released above (Release uses context.Background() when ctx is done).
+	if err := ctx.Err(); err == context.DeadlineExceeded {
+		slog.Warn("scheduler: job cancelled by lease deadline", "name", name, "error", err)
+	}
 }
 
 func leasePressureActive() (bool, time.Duration) {

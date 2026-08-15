@@ -108,7 +108,9 @@ func (s *SiteAnnouncementScheduler) runSync() {
 	if dbw == nil {
 		return
 	}
-	runWithSchedulerLease(context.Background(), dbw, s.Name(), func() {
+	jobCtx, cancel := context.WithTimeout(context.Background(), siteAnnouncementJobTimeout)
+	defer cancel()
+	runWithSchedulerLease(jobCtx, dbw, s.Name(), func() {
 		s.runSyncLocked(dbw)
 	})
 }

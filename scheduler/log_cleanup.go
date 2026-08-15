@@ -102,7 +102,9 @@ func (s *LogCleanupScheduler) runJob() {
 		slog.Error("log-cleanup: database not available")
 		return
 	}
-	runWithSchedulerLease(context.Background(), dbw, s.Name(), func() {
+	jobCtx, cancel := context.WithTimeout(context.Background(), logCleanupJobTimeout)
+	defer cancel()
+	runWithSchedulerLease(jobCtx, dbw, s.Name(), func() {
 		s.runJobLocked(dbw)
 	})
 }

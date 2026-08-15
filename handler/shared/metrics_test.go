@@ -189,3 +189,89 @@ func TestGoRuntimeMetricsExposed(t *testing.T) {
 		}
 	}
 }
+
+// TestActiveStreamsGauge_IncDec verifies the SSE stream gauge actually moves
+// when the helpers are called (previously declared but never written, so
+// /metrics always reported 0).
+func TestActiveStreamsGauge_IncDec(t *testing.T) {
+	ResetMetricsForTest()
+
+	if got := ActiveStreamsForTest(); got != 0 {
+		t.Fatalf("initial active streams = %d, want 0", got)
+	}
+
+	IncActiveStreams()
+	IncActiveStreams()
+	IncActiveStreams()
+	if got := ActiveStreamsForTest(); got != 3 {
+		t.Fatalf("active streams after 3 Inc = %d, want 3", got)
+	}
+
+	DecActiveStreams()
+	if got := ActiveStreamsForTest(); got != 2 {
+		t.Fatalf("active streams after 1 Dec = %d, want 2", got)
+	}
+
+	// Absolute set reconciles the gauge (e.g. from a coordinator snapshot).
+	SetActiveStreams(7)
+	if got := ActiveStreamsForTest(); got != 7 {
+		t.Fatalf("active streams after Set(7) = %d, want 7", got)
+	}
+
+	// The gauge must surface in /metrics output.
+	rec := httptest.NewRecorder()
+	if err := WritePrometheusMetrics(rec); err != nil {
+		t.Fatalf("WritePrometheusMetrics: %v", err)
+	}
+	if !strings.Contains(rec.Body.String(), "metapi_proxy_streams_active 7") {
+		t.Fatalf("metrics body missing live streams gauge:\n%s", rec.Body.String())
+	}
+}
+
+// TestActiveStreamsGauge_ThreadSafe exercises concurrent Inc/Dec so the
+// atomic-backed gauge is proven race-free under the SSE lifecycle.
+func TestActiveStreamsGauge_ThreadSafe(t *testing.T) {
+	ResetMetricsForTest()
+
+	const goroutines = 16
+	const iterations = 200
+	done := make(chan struct{}, goroutines)
+	for i := 0; i < goroutines; i++ {
+		go func() {
+			defer func() { done <- struct{}{} }()
+			for j := 0; j < iterations; j++ {
+				IncActiveStreams()
+				DecActiveStreams()
+			}
+		}()
+	}
+	for i := 0; i < goroutines; i++ {
+		<-done
+	}
+	if got := ActiveStreamsForTest(); got != 0 {
+		t.Fatalf("active streams after balanced Inc/Dec storm = %d, want 0", got)
+	}
+}
+
+// TestActiveChannelsGauge_Set verifies the active channels gauge is written by
+// SetActiveChannels and exposed via /metrics (previously a constant 0).
+func TestActiveChannelsGauge_Set(t *testing.T) {
+	ResetMetricsForTest()
+
+	if got := ActiveChannelsForTest(); got != 0 {
+		t.Fatalf("initial active channels = %d, want 0", got)
+	}
+
+	SetActiveChannels(42)
+	if got := ActiveChannelsForTest(); got != 42 {
+		t.Fatalf("active channels after Set(42) = %d, want 42", got)
+	}
+
+	rec := httptest.NewRecorder()
+	if err := WritePrometheusMetrics(rec); err != nil {
+		t.Fatalf("WritePrometheusMetrics: %v", err)
+	}
+	if !strings.Contains(rec.Body.String(), "metapi_active_channels 42") {
+		t.Fatalf("metrics body missing live channels gauge:\n%s", rec.Body.String())
+	}
+}

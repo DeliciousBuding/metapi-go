@@ -77,7 +77,9 @@ func (s *Sub2APIRefreshScheduler) runPass() {
 	if dbw == nil {
 		return
 	}
-	runWithSchedulerLease(context.Background(), dbw, s.Name(), func() {
+	jobCtx, cancel := context.WithTimeout(context.Background(), sub2apiRefreshJobTimeout)
+	defer cancel()
+	runWithSchedulerLease(jobCtx, dbw, s.Name(), func() {
 		s.runPassLocked(dbw)
 	})
 }

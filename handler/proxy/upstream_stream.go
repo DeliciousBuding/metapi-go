@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/handler/shared"
 	"github.com/deliciousbuding/metapi-go/proxy"
 )
 
@@ -22,6 +23,13 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 		relayUpstreamErrorResponse(w, resp, latencyMs)
 		return empty
 	}
+
+	// Active SSE stream gauge: Inc when a real stream starts, Dec on every
+	// exit path (success, error, byte-limit, or client disconnect). The defer
+	// runs after writeSSEHeaders / before the read loop returns so the gauge
+	// always tracks a live stream, never a buffered non-stream response.
+	shared.IncActiveStreams()
+	defer shared.DecActiveStreams()
 
 	writeSSEHeaders(w)
 	w.WriteHeader(200)

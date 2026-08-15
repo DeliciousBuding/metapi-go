@@ -84,7 +84,9 @@ func (s *RetentionScheduler) runCleanup() {
 	if retentionDays <= 0 {
 		return
 	}
-	runWithSchedulerLease(context.Background(), dbw, s.Name(), func() {
+	jobCtx, cancel := context.WithTimeout(context.Background(), retentionJobTimeout)
+	defer cancel()
+	runWithSchedulerLease(jobCtx, dbw, s.Name(), func() {
 		s.runCleanupLocked(dbw, retentionDays)
 	})
 }

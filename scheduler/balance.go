@@ -76,7 +76,9 @@ func (s *BalanceScheduler) runJob() {
 		slog.Error("balance: database not available")
 		return
 	}
-	runWithSchedulerLease(context.Background(), dbw, s.Name(), func() {
+	jobCtx, cancel := context.WithTimeout(context.Background(), balanceJobTimeout)
+	defer cancel()
+	runWithSchedulerLease(jobCtx, dbw, s.Name(), func() {
 		s.runJobLocked(dbw)
 	})
 }
