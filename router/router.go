@@ -48,9 +48,26 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		r.Use(AdminCORS(cfg))
 		r.Use(auth.AdminAuth(cfg))
 		// Rate limiting: per-IP token bucket (configurable via ADMIN_RATE_LIMIT_*).
-		r.Use(auth.AdminRateLimit(cfg.AdminRateLimitRPS, cfg.AdminRateLimitBurst))
+		// Fall back to defaults when unset (e.g. tests building Config{} directly).
+		adminRps := cfg.AdminRateLimitRPS
+		if adminRps <= 0 {
+			adminRps = config.DefaultAdminRateLimitRPS
+		}
+		adminBurst := cfg.AdminRateLimitBurst
+		if adminBurst <= 0 {
+			adminBurst = config.DefaultAdminRateLimitBurst
+		}
+		r.Use(auth.AdminRateLimit(adminRps, adminBurst))
 		// Stricter OAuth rate limit (configurable via OAUTH_RATE_LIMIT_*), only /api/oauth/*.
-		r.Use(auth.OAuthRateLimit(cfg.OAuthRateLimitRPS, cfg.OAuthRateLimitBurst))
+		oauthRps := cfg.OAuthRateLimitRPS
+		if oauthRps <= 0 {
+			oauthRps = config.DefaultOAuthRateLimitRPS
+		}
+		oauthBurst := cfg.OAuthRateLimitBurst
+		if oauthBurst <= 0 {
+			oauthBurst = config.DefaultOAuthRateLimitBurst
+		}
+		r.Use(auth.OAuthRateLimit(oauthRps, oauthBurst))
 		// B1: audit admin write operations.
 		if db := store.GetDB(); db != nil {
 			r.Use(admin.AuditMiddleware(db.DB))
