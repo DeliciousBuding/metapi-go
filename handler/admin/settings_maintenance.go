@@ -117,17 +117,29 @@ func invalidateLocalProcessCaches() {
 // POST /api/settings/maintenance/clear-usage
 func (h *maintenanceHandler) clearUsage(w http.ResponseWriter, r *http.Request) {
 	var deletedProxyLogs int64
-	_ = h.db.Get(&deletedProxyLogs, "SELECT COUNT(*) FROM proxy_logs")
-	_, _ = h.db.Exec("DELETE FROM proxy_logs")
+	if err := h.db.Get(&deletedProxyLogs, h.db.Rebind("SELECT COUNT(*) FROM proxy_logs")); err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("读取 proxy_logs 失败：%v", err))
+		return
+	}
+	if _, err := h.db.Exec(h.db.Rebind("DELETE FROM proxy_logs")); err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("清理 proxy_logs 失败：%v", err))
+		return
+	}
 
 	// Reset route channel stats
-	_, _ = h.db.Exec(`UPDATE route_channels SET
+	if _, err := h.db.Exec(h.db.Rebind(`UPDATE route_channels SET
 		success_count = 0, fail_count = 0, total_latency_ms = 0, total_cost = 0,
 		last_used_at = NULL, last_selected_at = NULL, last_fail_at = NULL,
-		consecutive_fail_count = 0, cooldown_level = 0, cooldown_until = NULL`)
+		consecutive_fail_count = 0, cooldown_level = 0, cooldown_until = NULL`)); err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("清理 route_channels 统计失败：%v", err))
+		return
+	}
 
 	// Reset account balanceUsed
-	_, _ = h.db.Exec("UPDATE accounts SET balance_used = 0")
+	if _, err := h.db.Exec(h.db.Rebind("UPDATE accounts SET balance_used = 0")); err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("清理 accounts 余额占用失败：%v", err))
+		return
+	}
 
 	// Accounts list snapshot may still show old balanceUsed until cleared.
 	if globalAccountsCache != nil {
@@ -192,11 +204,17 @@ func (h *maintenanceHandler) factoryReset(w http.ResponseWriter, r *http.Request
 	driverName := h.db.DriverName()
 	switch driverName {
 	case "sqlite", "sqlite3":
-		_, _ = tx.Exec("DELETE FROM sqlite_sequence")
+		if _, err := tx.Exec("DELETE FROM sqlite_sequence"); err != nil {
+			writeError(w, http.StatusInternalServerError, fmt.Sprintf("工厂重置失败：无法重置自增序列：%v", err))
+			return
+		}
 	case "pgx", "postgres":
 		for _, table := range allTables {
 			seqName := table + "_id_seq"
-			_, _ = tx.Exec(fmt.Sprintf("ALTER SEQUENCE IF EXISTS %s RESTART WITH 1", seqName))
+			if _, err := tx.Exec(fmt.Sprintf("ALTER SEQUENCE IF EXISTS %s RESTART WITH 1", seqName)); err != nil {
+				writeError(w, http.StatusInternalServerError, fmt.Sprintf("工厂重置失败：无法重置序列 %s：%v", seqName, err))
+				return
+			}
 		}
 	}
 	// For other drivers, skip sequence reset (no-op).

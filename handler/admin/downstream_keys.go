@@ -126,7 +126,10 @@ func (h *downstreamKeysHandler) listKeys(w http.ResponseWriter, r *http.Request)
 			writeError(w, http.StatusInternalServerError, "failed to load downstream keys")
 			return
 		}
-		_ = h.db.Get(&total, h.db.Rebind("SELECT COUNT(*) FROM downstream_api_keys"))
+		if err := h.db.Get(&total, h.db.Rebind("SELECT COUNT(*) FROM downstream_api_keys")); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to count downstream keys")
+			return
+		}
 	} else {
 		rows, queryErr = queryRowsErr(h.db, "SELECT * FROM downstream_api_keys ORDER BY id DESC")
 		if queryErr != nil {

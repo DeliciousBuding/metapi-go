@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -444,10 +445,11 @@ func stringSliceOrEmpty(in []string) []string {
 }
 
 func logSettingsEvent(db *sqlx.DB, eventType, title, message, level, createdAt string) {
-	// Silently ignore errors (matches TS behavior)
 	query := db.Rebind(`INSERT INTO events (type, title, message, level, related_type, created_at, "read")
 		VALUES (?, ?, ?, ?, 'settings', ?, 0)`)
-	_, _ = db.Exec(query, eventType, title, message, level, createdAt)
+	if _, err := db.Exec(query, eventType, title, message, level, createdAt); err != nil {
+		slog.Warn("settings: failed to log settings event", "type", eventType, "error", err)
+	}
 }
 
 // decodeScheduleSpec converts a decoded JSON body value into a ScheduleSpec.
