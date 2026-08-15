@@ -23,6 +23,7 @@ import { api } from '@/lib/api'
 
 export const Route = createFileRoute('/_authenticated/token-routes')({
   validateSearch: routesSearchSchema,
+  staticData: { title: 'tokenRoutes.page.title' },
   loader: async ({ context }) => {
     await Promise.all([
       context.queryClient.prefetchQuery({

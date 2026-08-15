@@ -21,6 +21,7 @@ import { api } from '@/lib/api'
 
 export const Route = createFileRoute('/_authenticated/models')({
   validateSearch: modelsSearchSchema,
+  staticData: { title: 'models.page.title' },
   loader: async ({ context }) => {
     await context.queryClient.prefetchQuery({
       queryKey: modelsKeys.marketplace({

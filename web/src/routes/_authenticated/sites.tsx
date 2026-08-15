@@ -19,6 +19,7 @@ import { api } from '@/lib/api'
 
 export const Route = createFileRoute('/_authenticated/sites')({
   validateSearch: sitesSearchSchema,
+  staticData: { title: 'sites.page.title' },
   loader: async ({ context }) => {
     await context.queryClient.prefetchQuery({
       queryKey: sitesKeys.list(),

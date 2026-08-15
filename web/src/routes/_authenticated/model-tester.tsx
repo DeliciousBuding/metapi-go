@@ -24,6 +24,7 @@ const modelTesterSearchSchema = z.object({
 
 export const Route = createFileRoute('/_authenticated/model-tester')({
   validateSearch: modelTesterSearchSchema,
+  staticData: { title: 'modelTester.page.title' },
   loader: async ({ context }) => {
     await context.queryClient.prefetchQuery({
       queryKey: modelsKeys.marketplace({

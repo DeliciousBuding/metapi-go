@@ -30,6 +30,7 @@ const accountsSearchSchema = z.object({
 
 export const Route = createFileRoute('/_authenticated/accounts')({
   validateSearch: accountsSearchSchema,
+  staticData: { title: 'accounts.page.title' },
   loader: async ({ context }) => {
     await context.queryClient.prefetchQuery({
       queryKey: accountQueryKeys.snapshot(),
