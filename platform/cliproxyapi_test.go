@@ -2,7 +2,11 @@ package platform
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestCliProxyApiAdapter_Detect(t *testing.T) {
@@ -88,5 +92,107 @@ func TestCliProxyApiAdapter_DetectPort8317(t *testing.T) {
 	ok2, _ := a.Detect(ctx, "http://192.168.1.1:8317")
 	if !ok2 {
 		t.Error("should match port 8317 without path")
+	}
+}
+
+func newCliProxyApiVerifyTestAdapter() *CliProxyApiAdapter {
+	return &CliProxyApiAdapter{StandardAdapter: &StandardAdapter{BaseAdapter: NewBaseAdapter("cliproxyapi")}}
+}
+
+func TestCliProxyApiAdapter_VerifyToken_Models(t *testing.T) {
+	// Provider API key path: /v1/models serves models for the key.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/models" {
+			w.Header().Set("Content-Type", "application/json")
+			fmt.Fprint(w, `{"data":[{"id":"gpt-4o"},{"id":"claude-opus"}]}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	a := newCliProxyApiVerifyTestAdapter()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	result, err := a.VerifyToken(ctx, srv.URL, "any-key", nil, nil)
+	if err != nil {
+		t.Fatalf("VerifyToken: %v", err)
+	}
+	if result.TokenType != "apikey" {
+		t.Fatalf("TokenType = %q, want apikey", result.TokenType)
+	}
+	if len(result.Models) != 2 {
+		t.Fatalf("Models = %v, want 2 models", result.Models)
+	}
+}
+
+func TestCliProxyApiAdapter_VerifyToken_ManagementKey(t *testing.T) {
+	// Management key path: /v1/models is empty (unauthenticated on
+	// CLIProxyAPI), but the management probe accepts the key. VerifyToken
+	// must report "apikey" for the valid key and "unknown" for anything else.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/v1/models":
+			fmt.Fprint(w, `{"data":[],"object":"list"}`)
+		case "/v0/management/auth-files":
+			if r.Header.Get("Authorization") != "Bearer mgmt-key" {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			fmt.Fprint(w, `{"files":[]}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	a := newCliProxyApiVerifyTestAdapter()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	result, err := a.VerifyToken(ctx, srv.URL, "mgmt-key", nil, nil)
+	if err != nil {
+		t.Fatalf("VerifyToken (valid key): %v", err)
+	}
+	if result.TokenType != "apikey" {
+		t.Fatalf("TokenType = %q, want apikey (valid management key)", result.TokenType)
+	}
+
+	invalid, err := a.VerifyToken(ctx, srv.URL, "wrong-key", nil, nil)
+	if err != nil {
+		t.Fatalf("VerifyToken (invalid key): %v", err)
+	}
+	if invalid.TokenType != "unknown" {
+		t.Fatalf("TokenType = %q, want unknown (invalid management key)", invalid.TokenType)
+	}
+}
+
+func TestCliProxyApiAdapter_VerifyToken_Unknown(t *testing.T) {
+	// Empty models + management probe 401: the credential is not valid.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/v1/models":
+			fmt.Fprint(w, `{"data":[],"object":"list"}`)
+		case "/v0/management/auth-files":
+			w.WriteHeader(http.StatusUnauthorized)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	a := newCliProxyApiVerifyTestAdapter()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	result, err := a.VerifyToken(ctx, srv.URL, "garbage-token", nil, nil)
+	if err != nil {
+		t.Fatalf("VerifyToken: %v", err)
+	}
+	if result.TokenType != "unknown" {
+		t.Fatalf("TokenType = %q, want unknown", result.TokenType)
 	}
 }

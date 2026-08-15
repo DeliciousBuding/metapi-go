@@ -58,3 +58,50 @@ func (c *CliProxyApiAdapter) Detect(ctx context.Context, url string) (bool, erro
 func (c *CliProxyApiAdapter) GetModels(ctx context.Context, baseURL string, apiToken string, platformUserId *int, proxy *ProxyConfig) ([]string, error) {
 	return c.fetchModelsFromStandardEndpoint(ctx, baseURL, authBearerHeaders(apiToken), proxy)
 }
+
+// VerifyToken verifies a pasted CLIProxyAPI credential.
+//
+// CliProxyApiAdapter deliberately overrides VerifyToken instead of inheriting
+// BaseAdapter.VerifyToken: the base implementation statically dispatches to
+// one-api style GET /api/user/self (absent on CLIProxyAPI) and reports every
+// credential as "unknown". CLIProxyAPI credentials are keys: a provider API
+// key whose models are served through /v1/models, or the management key
+// (validated against the /v0/management API).
+func (c *CliProxyApiAdapter) VerifyToken(ctx context.Context, baseURL, token string, platformUserId *int, proxy *ProxyConfig) (*TokenVerifyResult, error) {
+	models, err := c.GetModels(ctx, baseURL, token, platformUserId, proxy)
+	if err == nil && len(models) > 0 {
+		return &TokenVerifyResult{TokenType: "apikey", Models: models}, nil
+	}
+
+	// /v1/models is unauthenticated on CLIProxyAPI (HTTP 200 with an empty
+	// list for valid and invalid keys alike when no auth files exist), so it
+	// cannot distinguish credentials. Probe the management API instead: a
+	// valid management key gets 2xx, anything else 401.
+	if c.isValidManagementKey(ctx, baseURL, token, proxy) {
+		return &TokenVerifyResult{TokenType: "apikey", Models: models}, nil
+	}
+
+	return &TokenVerifyResult{TokenType: "unknown"}, nil
+}
+
+// isValidManagementKey reports whether token authenticates against the
+// CLIProxyAPI management API (GET /v0/management/auth-files).
+func (c *CliProxyApiAdapter) isValidManagementKey(ctx context.Context, baseURL, token string, proxy *ProxyConfig) bool {
+	normalized := normalizePlatformBaseURL(baseURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, normalized+"/v0/management/auth-files", nil)
+	if err != nil {
+		return false
+	}
+	for k, v := range authBearerHeaders(token) {
+		req.Header.Set(k, v)
+	}
+	req.Header.Set("User-Agent", DefaultBrowserUserAgent)
+	ApplySiteIdentity(req, proxy)
+
+	resp, err := DoWithProxy(ctx, req, proxy)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode >= 200 && resp.StatusCode < 300
+}
