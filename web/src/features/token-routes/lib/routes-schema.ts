@@ -184,7 +184,10 @@ export function transformRouteToFormValues(
 
 export const routesSearchSchema = z.object({
   q: z.string().optional(),
-  enabled: z.enum(['all', 'enabled', 'disabled']).optional(),
+  // The page encodes the enabled filter as a comma-separated string
+  // (`enabled,disabled`), so the schema accepts a raw string and the page
+  // splits it — a single enum would reject the page's own writes.
+  enabled: z.string().optional(),
   site: z.string().optional(),
   accountId: z.coerce.number().int().positive().optional(),
   siteId: z.coerce.number().int().positive().optional(),

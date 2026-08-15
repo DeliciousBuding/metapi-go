@@ -5,16 +5,16 @@
 //
 // The `/checkin` route file registers this schema via `validateSearch`, and
 // its loader parses the router's `location.searchStr` with
-// `parseCheckinSearch`. The page still parses `window.location.search`
-// directly via `readCheckinSearchFromUrl` for its client-only state
-// initialisation (both share `parseCheckinSearch` underneath).
+// `parseCheckinSearch`. The page reads the validated search via `useSearch`
+// and writes changes back via `navigate({ search, replace: true })` — the
+// router owns URL state end to end.
 
 import { z } from 'zod'
 
 import type { CheckinLogsQuery } from '../types'
 import { localDatetimeInputToUtcRfc3339 } from './checkin-time'
 
-const DEFAULT_CHECKIN_PAGE_SIZE = 20
+export const DEFAULT_CHECKIN_PAGE_SIZE = 20
 
 // ---------------------------------------------------------------------------
 // URL search schema
@@ -58,16 +58,6 @@ export function parseCheckinSearch(searchStr: string): CheckinSearch {
 }
 
 /**
- * Parse `window.location.search` into a validated CheckinSearch (the page's
- * client-only entry point). Returns defaults on any validation failure so
- * the page always boots into a known state.
- */
-export function readCheckinSearchFromUrl(): CheckinSearch {
-  if (typeof window === 'undefined') return getCheckinSearchDefaultValues()
-  return parseCheckinSearch(window.location.search)
-}
-
-/**
  * Split a comma-separated filter string into a trimmed string array.
  */
 export function parseFilterValues(value: string | undefined): string[] {
@@ -76,43 +66,6 @@ export function parseFilterValues(value: string | undefined): string[] {
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean)
-}
-
-/**
- * Build the query string for the current page state (used to write state
- * back to the URL via history.replaceState).
- */
-export function buildCheckinSearchString(params: {
-  pageIndex: number
-  pageSize: number
-  accountId?: number
-  statusValues: string[]
-  reasonValues: string[]
-  siteValues: string[]
-  from?: string
-  to?: string
-  query?: string
-}): string {
-  const search = new URLSearchParams()
-  if (params.pageIndex > 0) search.set('page', String(params.pageIndex + 1))
-  if (params.pageSize !== DEFAULT_CHECKIN_PAGE_SIZE) {
-    search.set('pageSize', String(params.pageSize))
-  }
-  if (params.accountId) search.set('accountId', String(params.accountId))
-  if (params.statusValues.length) {
-    search.set('status', params.statusValues.join(','))
-  }
-  if (params.reasonValues.length) {
-    search.set('reason', params.reasonValues.join(','))
-  }
-  if (params.siteValues.length) {
-    search.set('site', params.siteValues.join(','))
-  }
-  if (params.from) search.set('from', params.from)
-  if (params.to) search.set('to', params.to)
-  if (params.query) search.set('q', params.query)
-  const query = search.toString()
-  return query ? `?${query}` : ''
 }
 
 /**

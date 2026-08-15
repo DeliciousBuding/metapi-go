@@ -2,9 +2,10 @@
 // metapi-go/features/proxy-logs/components — proxy logs list page.
 // i18n: all user-visible strings migrated to t() calls.
 
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import type { OnChangeFn, PaginationState } from '@tanstack/react-table'
 import { Download as DownloadIcon, RefreshCw } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { DataTablePage, useDataTable } from '@/components/data-table'
@@ -21,10 +22,7 @@ import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
 
 import { useProxyLogs, useProxyLogsMeta } from '../api'
-import {
-  PROXY_LOG_STATUS_FILTER_OPTIONS,
-  proxyLogsSearchSchema,
-} from '../lib/proxy-logs-schema'
+import { PROXY_LOG_STATUS_FILTER_OPTIONS } from '../lib/proxy-logs-schema'
 import { useProxyLogsAutoRefresh } from '../lib/use-proxy-logs-auto-refresh'
 import type { ProxyLog, ProxyLogFilters } from '../types'
 import { LatencyBadge } from './latency-badge'
@@ -42,139 +40,62 @@ const PROXY_LOGS_COLUMN_SIZING_STORAGE_KEY =
 const DEFAULT_PAGE_SIZE = 20
 const PROXY_LOGS_CSV_EXPORT_LIMIT = 10_000
 
-type ResolvedUrlState = {
-  pageIndex: number
-  pageSize: number
-  search: string
-  status: ProxyLogFilters['status']
-  siteId: number | null
-  client: string
-  from: string
-  to: string
-  latencyMin: number | null
-  latencyMax: number | null
-}
-
-function readUrlState(): ResolvedUrlState {
-  if (typeof window === 'undefined') {
-    return {
-      pageIndex: 0,
-      pageSize: DEFAULT_PAGE_SIZE,
-      search: '',
-      status: 'all',
-      siteId: null,
-      client: '',
-      from: '',
-      to: '',
-      latencyMin: null,
-      latencyMax: null,
-    }
-  }
-  const params = new URLSearchParams(window.location.search)
-  const parsed = proxyLogsSearchSchema.safeParse({
-    q: params.get('q') ?? undefined,
-    page: params.get('page') ?? undefined,
-    pageSize: params.get('pageSize') ?? undefined,
-    status: params.get('status') ?? undefined,
-    siteId: params.get('siteId') ?? undefined,
-    client: params.get('client') ?? undefined,
-    from: params.get('from') ?? undefined,
-    to: params.get('to') ?? undefined,
-    latencyMin: params.get('latencyMin') ?? undefined,
-    latencyMax: params.get('latencyMax') ?? undefined,
-  })
-  if (!parsed.success) {
-    return {
-      pageIndex: 0,
-      pageSize: DEFAULT_PAGE_SIZE,
-      search: '',
-      status: 'all',
-      siteId: null,
-      client: '',
-      from: '',
-      to: '',
-      latencyMin: null,
-      latencyMax: null,
-    }
-  }
-  const data = parsed.data
-  return {
-    pageIndex: data.page ?? 0,
-    pageSize: data.pageSize ?? DEFAULT_PAGE_SIZE,
-    search: data.q ?? '',
-    status: data.status ?? 'all',
-    siteId: data.siteId ?? null,
-    client: data.client ?? '',
-    from: data.from ?? '',
-    to: data.to ?? '',
-    latencyMin: data.latencyMin ?? null,
-    latencyMax: data.latencyMax ?? null,
-  }
-}
-
-function writeUrlState(state: ResolvedUrlState) {
-  if (typeof window === 'undefined') return
-  const params = new URLSearchParams()
-  if (state.search) params.set('q', state.search)
-  if (state.pageIndex > 0) params.set('page', String(state.pageIndex))
-  if (state.pageSize !== DEFAULT_PAGE_SIZE) {
-    params.set('pageSize', String(state.pageSize))
-  }
-  if (state.status && state.status !== 'all') params.set('status', state.status)
-  if (state.siteId !== null) params.set('siteId', String(state.siteId))
-  if (state.client) params.set('client', state.client)
-  if (state.from) params.set('from', state.from)
-  if (state.to) params.set('to', state.to)
-  if (state.latencyMin !== null) {
-    params.set('latencyMin', String(state.latencyMin))
-  }
-  if (state.latencyMax !== null) {
-    params.set('latencyMax', String(state.latencyMax))
-  }
-  const query = params.toString()
-  const url = query
-    ? `${window.location.pathname}?${query}`
-    : window.location.pathname
-  window.history.replaceState(null, '', url)
-}
-
 export function ProxyLogsPage() {
   const { t } = useTranslation()
-  const initial = useMemo(readUrlState, [])
+  // URL state is owned by the router: read the validated search via
+  // `useSearch` (no `window.location.search`), write changes back via
+  // `navigate({ search, replace: true })` (no `history.replaceState`).
+  const urlSearch = useSearch({ from: '/_authenticated/proxy-logs' })
+  const navigate = useNavigate()
   const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: initial.pageIndex,
-    pageSize: initial.pageSize,
+    pageIndex: urlSearch.page ?? 0,
+    pageSize: urlSearch.pageSize ?? DEFAULT_PAGE_SIZE,
   })
-  const [search, setSearch] = useState(initial.search)
+  const [search, setSearch] = useState(urlSearch.q ?? '')
   const [status, setStatus] = useState<ProxyLogFilters['status']>(
-    initial.status
+    urlSearch.status ?? 'all'
   )
-  const [siteId, setSiteId] = useState<number | null>(initial.siteId)
-  const [client, setClient] = useState(initial.client)
-  const [from, setFrom] = useState(initial.from)
-  const [to, setTo] = useState(initial.to)
+  const [siteId, setSiteId] = useState<number | null>(urlSearch.siteId ?? null)
+  const [client, setClient] = useState(urlSearch.client ?? '')
+  const [from, setFrom] = useState(urlSearch.from ?? '')
+  const [to, setTo] = useState(urlSearch.to ?? '')
   const [latencyMin, setLatencyMin] = useState<number | null>(
-    initial.latencyMin
+    urlSearch.latencyMin ?? null
   )
   const [latencyMax, setLatencyMax] = useState<number | null>(
-    initial.latencyMax
+    urlSearch.latencyMax ?? null
   )
   const [detailLog, setDetailLog] = useState<ProxyLog | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
 
+  // Write state back to the URL through the router (single source of truth).
+  // Skip the initial write — the URL already holds the search the state was
+  // initialised from.
+  const skipInitialWrite = useRef(true)
   useEffect(() => {
-    writeUrlState({
-      pageIndex: pagination.pageIndex,
-      pageSize: pagination.pageSize,
-      search,
-      status,
-      siteId,
-      client,
-      from,
-      to,
-      latencyMin,
-      latencyMax,
+    if (skipInitialWrite.current) {
+      skipInitialWrite.current = false
+      return
+    }
+    navigate({
+      to: '/proxy-logs',
+      search: {
+        page: pagination.pageIndex > 0 ? pagination.pageIndex : undefined,
+        pageSize:
+          pagination.pageSize !== DEFAULT_PAGE_SIZE
+            ? pagination.pageSize
+            : undefined,
+        q: search || undefined,
+        status: status !== 'all' ? status : undefined,
+        siteId: siteId ?? undefined,
+        client: client || undefined,
+        from: from || undefined,
+        to: to || undefined,
+        latencyMin: latencyMin ?? undefined,
+        latencyMax: latencyMax ?? undefined,
+      },
+      replace: true,
     })
   }, [
     pagination,
@@ -186,6 +107,7 @@ export function ProxyLogsPage() {
     to,
     latencyMin,
     latencyMax,
+    navigate,
   ])
 
   const queryPayload = useMemo(

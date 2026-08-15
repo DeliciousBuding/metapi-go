@@ -8,6 +8,7 @@
 // TanStack Query mutation hooks; the create/edit form, detail sheet, and
 // delete confirm live as siblings of the table.
 
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import type {
   ColumnFiltersState,
   OnChangeFn,
@@ -22,7 +23,7 @@ import {
   Trash2,
   Upload as UploadIcon,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -57,41 +58,7 @@ import { AccountDetailSheet } from './account-detail-sheet'
 import { AccountFormDialog } from './account-form-dialog'
 import { useAccountsColumns } from './accounts-columns'
 
-// ---------------------------------------------------------------------------
-// URL state helpers — read initial table state from the query string on mount
-// and write subsequent changes back via history.replaceState. Keeping the sync
-// framework-agnostic (window.history) avoids coupling to TanStack Router's
-// generated route tree while /token-routes etc. are still unregistered.
-// ---------------------------------------------------------------------------
-
-interface InitialUrlState {
-  page: number
-  pageSize: number
-  search: string
-  status: string[]
-  siteIds: string[]
-}
-
 const DEFAULT_PAGE_SIZE = 20
-
-function readInitialFromUrl(): InitialUrlState {
-  if (typeof window === 'undefined') {
-    return {
-      page: 1,
-      pageSize: DEFAULT_PAGE_SIZE,
-      search: '',
-      status: [],
-      siteIds: [],
-    }
-  }
-  const params = new URLSearchParams(window.location.search)
-  const page = Math.max(1, Number(params.get('page')) || 1)
-  const pageSize = Number(params.get('pageSize')) || DEFAULT_PAGE_SIZE
-  const search = params.get('q') ?? ''
-  const status = params.get('status')?.split(',').filter(Boolean) ?? []
-  const siteIds = params.get('site')?.split(',').filter(Boolean) ?? []
-  return { page, pageSize, search, status, siteIds }
-}
 
 // ---------------------------------------------------------------------------
 // Page
@@ -99,6 +66,11 @@ function readInitialFromUrl(): InitialUrlState {
 
 export function AccountsPage() {
   const { t } = useTranslation()
+  // URL state is owned by the router: read the validated search via
+  // `useSearch` (no `window.location.search`), and write changes back via
+  // `navigate({ search, replace: true })` (no `history.replaceState`).
+  const search = useSearch({ from: '/_authenticated/accounts' })
+  const navigate = useNavigate()
   const { data, isLoading, isFetching, error } = useAccounts()
   const accounts = data?.accounts ?? []
   const sites = data?.sites ?? []
@@ -110,56 +82,56 @@ export function AccountsPage() {
   const checkinMutation = useToggleAccountCheckin()
 
   // --- table state (client-side, URL-synced) ---
-  const initial = useMemo(readInitialFromUrl, [])
   const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: initial.page - 1,
-    pageSize: initial.pageSize,
+    pageIndex: (search.page ?? 1) - 1,
+    pageSize: search.pageSize ?? DEFAULT_PAGE_SIZE,
   })
-  const [globalFilter, setGlobalFilter] = useState(initial.search)
+  const [globalFilter, setGlobalFilter] = useState(search.q ?? '')
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() => {
     const filters: ColumnFiltersState = []
-    if (initial.status.length) {
-      filters.push({ id: 'status', value: initial.status })
+    const statusValues = search.status?.split(',').filter(Boolean) ?? []
+    const siteIds = search.site?.split(',').filter(Boolean) ?? []
+    if (statusValues.length) {
+      filters.push({ id: 'status', value: statusValues })
     }
-    if (initial.siteIds.length) {
-      filters.push({ id: 'site', value: initial.siteIds })
+    if (siteIds.length) {
+      filters.push({ id: 'site', value: siteIds })
     }
     return filters
   })
 
-  // Write state back to the URL (debounce-free replaceState is cheap enough).
+  // Write state back to the URL through the router (single source of truth).
+  // Skip the initial write — the URL already holds the search the state was
+  // initialised from.
+  const skipInitialWrite = useRef(true)
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const params = new URLSearchParams()
-    if (pagination.pageIndex > 0) {
-      params.set('page', String(pagination.pageIndex + 1))
+    if (skipInitialWrite.current) {
+      skipInitialWrite.current = false
+      return
     }
-    if (pagination.pageSize !== DEFAULT_PAGE_SIZE) {
-      params.set('pageSize', String(pagination.pageSize))
-    }
-    if (globalFilter) params.set('q', globalFilter)
     const statusFilter = columnFilters.find((filter) => filter.id === 'status')
-    if (
-      statusFilter &&
-      Array.isArray(statusFilter.value) &&
-      statusFilter.value.length
-    ) {
-      params.set('status', statusFilter.value.join(','))
-    }
     const siteFilter = columnFilters.find((filter) => filter.id === 'site')
-    if (
-      siteFilter &&
-      Array.isArray(siteFilter.value) &&
-      siteFilter.value.length
-    ) {
-      params.set('site', siteFilter.value.join(','))
-    }
-    const query = params.toString()
-    const url = query
-      ? `${window.location.pathname}?${query}`
-      : window.location.pathname
-    window.history.replaceState(null, '', url)
-  }, [pagination, globalFilter, columnFilters])
+    navigate({
+      to: '/accounts',
+      search: {
+        page: pagination.pageIndex > 0 ? pagination.pageIndex + 1 : undefined,
+        pageSize:
+          pagination.pageSize !== DEFAULT_PAGE_SIZE
+            ? pagination.pageSize
+            : undefined,
+        q: globalFilter || undefined,
+        status:
+          Array.isArray(statusFilter?.value) && statusFilter.value.length
+            ? statusFilter.value.join(',')
+            : undefined,
+        site:
+          Array.isArray(siteFilter?.value) && siteFilter.value.length
+            ? siteFilter.value.join(',')
+            : undefined,
+      },
+      replace: true,
+    })
+  }, [pagination, globalFilter, columnFilters, navigate])
 
   // onChange wrappers that reset to the first page on filter changes.
   const onGlobalFilterChange = useMemo<OnChangeFn<string>>(

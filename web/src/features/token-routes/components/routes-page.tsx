@@ -2,6 +2,7 @@
 // metapi-go features/token-routes/components — the routes list page.
 // i18n: all user-visible strings migrated to t() calls.
 
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import type {
   ColumnFiltersState,
   OnChangeFn,
@@ -9,7 +10,7 @@ import type {
   Table,
 } from '@tanstack/react-table'
 import { Loader2, Plus, Power, RefreshCw, Zap } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -50,40 +51,15 @@ import { RouteDetailSheet } from './route-detail-sheet'
 import { RouteFormDialog, type RouteAccountOption } from './route-form-dialog'
 import { useRoutesColumns } from './routes-columns'
 
-interface InitialUrlState {
-  page: number
-  pageSize: number
-  search: string
-  enabled: string[]
-  accountId?: number
-  siteId?: number
-}
-
 const DEFAULT_PAGE_SIZE = 20
-
-function readInitialFromUrl(): InitialUrlState {
-  if (typeof window === 'undefined') {
-    return { page: 1, pageSize: DEFAULT_PAGE_SIZE, search: '', enabled: [] }
-  }
-  const params = new URLSearchParams(window.location.search)
-  const page = Math.max(1, Number(params.get('page')) || 1)
-  const pageSize = Number(params.get('pageSize')) || DEFAULT_PAGE_SIZE
-  const search = params.get('q') ?? ''
-  const enabled = params.get('enabled')?.split(',').filter(Boolean) ?? []
-  const accountIdRaw = Number(params.get('accountId'))
-  const siteIdRaw = Number(params.get('siteId'))
-  return {
-    page,
-    pageSize,
-    search,
-    enabled,
-    accountId: accountIdRaw > 0 ? accountIdRaw : undefined,
-    siteId: siteIdRaw > 0 ? siteIdRaw : undefined,
-  }
-}
 
 export function RoutesPage() {
   const { t } = useTranslation()
+  // URL state is owned by the router: read the validated search via
+  // `useSearch` (no `window.location.search`), write changes back via
+  // `navigate({ search, replace: true })` (no `history.replaceState`).
+  const urlSearch = useSearch({ from: '/_authenticated/token-routes' })
+  const navigate = useNavigate()
   const { data: routesData, isLoading, isFetching, error } = useRoutes()
   const candidatesQuery = useModelTokenCandidates()
 
@@ -96,57 +72,59 @@ export function RoutesPage() {
   const routes = useMemo(() => routesData ?? [], [routesData])
   const candidates = candidatesQuery.data
 
+  // Chain context (account/site deep-link) is fixed for the session — read
+  // once from the validated search.
+  const accountId = urlSearch.accountId
+  const siteId = urlSearch.siteId
+
   const [showZeroChannel, setShowZeroChannel] = useState(false)
   const rows = useZeroChannelRoutes(routes, candidates, showZeroChannel)
 
-  const initial = useMemo(readInitialFromUrl, [])
   const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: initial.page - 1,
-    pageSize: initial.pageSize,
+    pageIndex: (urlSearch.page ?? 1) - 1,
+    pageSize: urlSearch.pageSize ?? DEFAULT_PAGE_SIZE,
   })
-  const [globalFilter, setGlobalFilter] = useState(initial.search)
+  const [globalFilter, setGlobalFilter] = useState(urlSearch.q ?? '')
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() => {
     const filters: ColumnFiltersState = []
-    if (initial.enabled.length) {
-      filters.push({ id: 'enabled', value: initial.enabled })
+    const enabledValues = urlSearch.enabled?.split(',').filter(Boolean) ?? []
+    if (enabledValues.length) {
+      filters.push({ id: 'enabled', value: enabledValues })
     }
     return filters
   })
 
+  // Write state back to the URL through the router (single source of truth).
+  // Skip the initial write — the URL already holds the search the state was
+  // initialised from.
+  const skipInitialWrite = useRef(true)
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const params = new URLSearchParams()
-    if (pagination.pageIndex > 0) {
-      params.set('page', String(pagination.pageIndex + 1))
+    if (skipInitialWrite.current) {
+      skipInitialWrite.current = false
+      return
     }
-    if (pagination.pageSize !== DEFAULT_PAGE_SIZE) {
-      params.set('pageSize', String(pagination.pageSize))
-    }
-    if (globalFilter) params.set('q', globalFilter)
     const enabledFilter = columnFilters.find(
       (filter) => filter.id === 'enabled'
     )
-    if (
-      enabledFilter &&
-      Array.isArray(enabledFilter.value) &&
-      enabledFilter.value.length
-    ) {
-      params.set('enabled', enabledFilter.value.join(','))
-    }
-    if (initial.accountId) params.set('accountId', String(initial.accountId))
-    if (initial.siteId) params.set('siteId', String(initial.siteId))
-    const query = params.toString()
-    const url = query
-      ? `${window.location.pathname}?${query}`
-      : window.location.pathname
-    window.history.replaceState(null, '', url)
-  }, [
-    pagination,
-    globalFilter,
-    columnFilters,
-    initial.accountId,
-    initial.siteId,
-  ])
+    navigate({
+      to: '/token-routes',
+      search: {
+        page: pagination.pageIndex > 0 ? pagination.pageIndex + 1 : undefined,
+        pageSize:
+          pagination.pageSize !== DEFAULT_PAGE_SIZE
+            ? pagination.pageSize
+            : undefined,
+        q: globalFilter || undefined,
+        enabled:
+          Array.isArray(enabledFilter?.value) && enabledFilter.value.length
+            ? enabledFilter.value.join(',')
+            : undefined,
+        accountId,
+        siteId,
+      },
+      replace: true,
+    })
+  }, [pagination, globalFilter, columnFilters, accountId, siteId, navigate])
 
   const onGlobalFilterChange = useMemo<OnChangeFn<string>>(
     () => (updater) => {
@@ -255,10 +233,10 @@ export function RoutesPage() {
 
   const chainContext = useMemo(
     () => ({
-      accountId: initial.accountId,
-      siteId: initial.siteId,
+      accountId,
+      siteId,
     }),
-    [initial.accountId, initial.siteId]
+    [accountId, siteId]
   )
 
   const confirmDelete = async () => {
@@ -315,14 +293,14 @@ export function RoutesPage() {
         </div>
       </div>
 
-      {(initial.accountId || initial.siteId) && (
+      {(accountId || siteId) && (
         <div className='bg-muted/40 text-muted-foreground rounded-lg border p-2 text-sm'>
           {t('tokenRoutes.page.chainContext')}
-          {initial.accountId
-            ? ` ${t('tokenRoutes.page.chainContextAccount', { id: initial.accountId })}`
+          {accountId
+            ? ` ${t('tokenRoutes.page.chainContextAccount', { id: accountId })}`
             : ''}
-          {initial.siteId
-            ? ` / ${t('tokenRoutes.page.chainContextSite', { id: initial.siteId })} `
+          {siteId
+            ? ` / ${t('tokenRoutes.page.chainContextSite', { id: siteId })} `
             : ' '}
           {t('tokenRoutes.page.chainContextSuffix')}
         </div>
