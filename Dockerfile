@@ -1,13 +1,24 @@
-# Stage 1: Frontend build
+# syntax=docker/dockerfile:1
+#
+# Multi-stage build for metapi-go.
+# BuildKit cache mounts speed up CI by persisting the Go module/build caches
+# and the Bun install cache across builds. Requires DOCKER_BUILDKIT=1 (default
+# on Docker Engine 23+ and Docker Desktop).
+
 # ARG declared before the first FROM is visible to every stage.
 ARG VERSION=dev
 # Single source of truth: .github/workflows/main.yml env.BUN_VERSION
 # (docker-push/docker-build pass it as a build-arg; default matches).
 ARG BUN_VERSION=1.3.14
+
+# Stage 1: Frontend build (Bun + Rsbuild)
 FROM oven/bun:${BUN_VERSION}-alpine AS web
 WORKDIR /app/web
 COPY web/package.json web/bun.lock ./
-RUN bun install --frozen-lockfile
+# --mount=type=cache keeps the Bun install cache across builds so repeat
+# installs skip already-fetched tarballs.
+RUN --mount=type=cache,target=/root/.bun/install-cache \
+    bun install --frozen-lockfile
 COPY web ./
 RUN bun run build:web
 
@@ -16,13 +27,41 @@ FROM golang:1.26.6-alpine AS build
 ARG VERSION
 WORKDIR /app
 COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
+# Module cache mount: `go mod download` becomes a no-op when go.sum hasn't
+# changed, because every module is already in /go/pkg/mod.
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+# Narrow COPY: only the Go source the binary needs. web/src, web/node_modules,
+# web/package.json etc. are never compiled by the Go toolchain and would only
+# bust the build cache when the frontend changes. web/dist arrives from the
+# frontend stage below.
+COPY cmd/ ./cmd/
+COPY internal/ ./internal/
+COPY store/ ./store/
+COPY handler/ ./handler/
+COPY router/ ./router/
+COPY auth/ ./auth/
+COPY config/ ./config/
+COPY service/ ./service/
+COPY platform/ ./platform/
+COPY proxy/ ./proxy/
+COPY routing/ ./routing/
+COPY scheduler/ ./scheduler/
+COPY app/ ./app/
+COPY transform/ ./transform/
+COPY e2e/ ./e2e/
+COPY web/embed.go ./web/embed.go
 COPY --from=web /app/web/dist ./web/dist
-RUN CGO_ENABLED=0 go build -trimpath -buildvcs=false \
+# Build cache mount: incremental Go compilation state survives across builds,
+# so unchanged packages aren't recompiled even when the source context shifts.
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    CGO_ENABLED=0 go build -trimpath -buildvcs=false \
     -ldflags="-s -w -X github.com/deliciousbuding/metapi-go/internal/version.Version=${VERSION}" \
     -o metapi ./cmd/server
-RUN CGO_ENABLED=0 go build -trimpath -buildvcs=false \
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    CGO_ENABLED=0 go build -trimpath -buildvcs=false \
     -ldflags="-s -w -X github.com/deliciousbuding/metapi-go/internal/version.Version=${VERSION}" \
     -o metapi-migrate ./cmd/migrate
 
