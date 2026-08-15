@@ -429,7 +429,10 @@ func (h *tokenRoutesHandler) createRoute(w http.ResponseWriter, r *http.Request)
 	// For explicit_group, insert source route references
 	if routeMode == "explicit_group" && len(body.SourceRouteIds) > 0 {
 		for _, srcID := range body.SourceRouteIds {
-			h.db.Exec(h.db.Rebind("INSERT INTO route_group_sources (group_route_id, source_route_id) VALUES (?, ?)"), id, srcID)
+			if _, err := h.db.Exec(h.db.Rebind("INSERT INTO route_group_sources (group_route_id, source_route_id) VALUES (?, ?)"), id, srcID); err != nil {
+				writeErrorWithRequest(w, r, http.StatusInternalServerError, "创建路由分组来源失败")
+				return
+			}
 		}
 	}
 
@@ -473,50 +476,89 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 
 	now := time.Now().UTC().Format(time.RFC3339)
 
+	tx, err := h.db.Beginx()
+	if err != nil {
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "开启事务失败")
+		return
+	}
+	defer tx.Rollback()
+
 	if v, ok := body["modelPattern"]; ok {
 		if s, ok2 := v.(string); ok2 {
-			h.db.Exec(h.db.Rebind("UPDATE token_routes SET model_pattern = ?, updated_at = ? WHERE id = ?"), strings.TrimSpace(s), now, id)
+			if _, err := tx.Exec(tx.Rebind("UPDATE token_routes SET model_pattern = ?, updated_at = ? WHERE id = ?"), strings.TrimSpace(s), now, id); err != nil {
+				writeErrorWithRequest(w, r, http.StatusInternalServerError, "更新路由失败")
+				return
+			}
 		}
 	}
 	if v, ok := body["displayName"]; ok {
 		if s, ok2 := v.(string); ok2 {
-			h.db.Exec(h.db.Rebind("UPDATE token_routes SET display_name = ?, updated_at = ? WHERE id = ?"), s, now, id)
+			if _, err := tx.Exec(tx.Rebind("UPDATE token_routes SET display_name = ?, updated_at = ? WHERE id = ?"), s, now, id); err != nil {
+				writeErrorWithRequest(w, r, http.StatusInternalServerError, "更新路由失败")
+				return
+			}
 		}
 	}
 	if v, ok := body["displayIcon"]; ok {
 		if s, ok2 := v.(string); ok2 {
-			h.db.Exec(h.db.Rebind("UPDATE token_routes SET display_icon = ?, updated_at = ? WHERE id = ?"), s, now, id)
+			if _, err := tx.Exec(tx.Rebind("UPDATE token_routes SET display_icon = ?, updated_at = ? WHERE id = ?"), s, now, id); err != nil {
+				writeErrorWithRequest(w, r, http.StatusInternalServerError, "更新路由失败")
+				return
+			}
 		}
 	}
 	if v, ok := body["enabled"]; ok {
-		h.db.Exec(h.db.Rebind("UPDATE token_routes SET enabled = ?, updated_at = ? WHERE id = ?"), toBool(v), now, id)
+		if _, err := tx.Exec(tx.Rebind("UPDATE token_routes SET enabled = ?, updated_at = ? WHERE id = ?"), toBool(v), now, id); err != nil {
+			writeErrorWithRequest(w, r, http.StatusInternalServerError, "更新路由失败")
+			return
+		}
 	}
 	if v, ok := body["routingStrategy"]; ok {
 		if s, ok2 := v.(string); ok2 {
-			h.db.Exec(h.db.Rebind("UPDATE token_routes SET routing_strategy = ?, updated_at = ? WHERE id = ?"), s, now, id)
+			if _, err := tx.Exec(tx.Rebind("UPDATE token_routes SET routing_strategy = ?, updated_at = ? WHERE id = ?"), s, now, id); err != nil {
+				writeErrorWithRequest(w, r, http.StatusInternalServerError, "更新路由失败")
+				return
+			}
 		}
 	}
 	if v, ok := body["modelMapping"]; ok {
 		mappingJSON, _ := json.Marshal(v)
-		h.db.Exec(h.db.Rebind("UPDATE token_routes SET model_mapping = ?, updated_at = ? WHERE id = ?"), string(mappingJSON), now, id)
+		if _, err := tx.Exec(tx.Rebind("UPDATE token_routes SET model_mapping = ?, updated_at = ? WHERE id = ?"), string(mappingJSON), now, id); err != nil {
+			writeErrorWithRequest(w, r, http.StatusInternalServerError, "更新路由失败")
+			return
+		}
 	}
 	// contextLength: present key updates (including explicit null/0 clear → NULL).
 	// Metadata only — no proxy max-token enforcement is wired from this field yet.
 	if v, ok := body["contextLength"]; ok {
-		h.db.Exec(h.db.Rebind("UPDATE token_routes SET context_length = ?, updated_at = ? WHERE id = ?"), normalizeContextLengthOrNull(v), now, id)
+		if _, err := tx.Exec(tx.Rebind("UPDATE token_routes SET context_length = ?, updated_at = ? WHERE id = ?"), normalizeContextLengthOrNull(v), now, id); err != nil {
+			writeErrorWithRequest(w, r, http.StatusInternalServerError, "更新路由失败")
+			return
+		}
 	}
 
 	// Update source route IDs for explicit_group
 	if v, ok := body["sourceRouteIds"]; ok {
 		if ids, ok2 := v.([]any); ok2 {
-			h.db.Exec(h.db.Rebind("DELETE FROM route_group_sources WHERE group_route_id = ?"), id)
+			if _, err := tx.Exec(tx.Rebind("DELETE FROM route_group_sources WHERE group_route_id = ?"), id); err != nil {
+				writeErrorWithRequest(w, r, http.StatusInternalServerError, "更新路由分组来源失败")
+				return
+			}
 			for _, rawID := range ids {
 				switch rid := rawID.(type) {
 				case float64:
-					h.db.Exec(h.db.Rebind("INSERT INTO route_group_sources (group_route_id, source_route_id) VALUES (?, ?)"), id, int64(rid))
+					if _, err := tx.Exec(tx.Rebind("INSERT INTO route_group_sources (group_route_id, source_route_id) VALUES (?, ?)"), id, int64(rid)); err != nil {
+						writeErrorWithRequest(w, r, http.StatusInternalServerError, "更新路由分组来源失败")
+						return
+					}
 				}
 			}
 		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "提交事务失败")
+		return
 	}
 
 	// Pattern change: recompose automatic channels while preserving manual overrides.
@@ -552,10 +594,35 @@ func (h *tokenRoutesHandler) deleteRoute(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	h.db.Exec(h.db.Rebind("DELETE FROM route_group_sources WHERE group_route_id = ?"), id)
-	h.db.Exec(h.db.Rebind("DELETE FROM route_group_sources WHERE source_route_id = ?"), id)
-	h.db.Exec(h.db.Rebind("DELETE FROM route_channels WHERE route_id = ?"), id)
-	h.db.Exec(h.db.Rebind("DELETE FROM token_routes WHERE id = ?"), id)
+	tx, err := h.db.Beginx()
+	if err != nil {
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "开启事务失败")
+		return
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(tx.Rebind("DELETE FROM route_group_sources WHERE group_route_id = ?"), id); err != nil {
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "删除路由失败")
+		return
+	}
+	if _, err := tx.Exec(tx.Rebind("DELETE FROM route_group_sources WHERE source_route_id = ?"), id); err != nil {
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "删除路由失败")
+		return
+	}
+	if _, err := tx.Exec(tx.Rebind("DELETE FROM route_channels WHERE route_id = ?"), id); err != nil {
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "删除路由失败")
+		return
+	}
+	if _, err := tx.Exec(tx.Rebind("DELETE FROM token_routes WHERE id = ?"), id); err != nil {
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "删除路由失败")
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "提交事务失败")
+		return
+	}
+
 	routing.InvalidateCache()
 	invalidateChannelsSnapshotCache()
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})

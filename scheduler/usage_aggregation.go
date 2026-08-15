@@ -285,12 +285,14 @@ func (s *UsageAggregationScheduler) releaseLease(dbw *store.DB, lease *projectio
 		msg := err.Error()
 		lastError = &msg
 	}
-	dbw.Exec(`
+	if _, execErr := dbw.Exec(`
 		UPDATE analytics_projection_checkpoints
 		SET lease_owner = NULL, lease_token = NULL, lease_expires_at = NULL,
 		    last_error = ?, updated_at = ?
 		WHERE projector_key = ? AND lease_token = ?
-	`, lastError, now, usageProjectorKey, lease.Token)
+	`, lastError, now, usageProjectorKey, lease.Token); execErr != nil {
+		slog.Warn("usage-aggregation: failed to release lease", "error", execErr, "lease_token", lease.Token)
+	}
 }
 
 func (s *UsageAggregationScheduler) readCheckpoint(dbw *store.DB) projectionCheckpoint {
@@ -765,8 +767,11 @@ func (s *UsageAggregationScheduler) RequestRecompute(fromLogID int64) {
 	if cp.RecomputeFromID != nil && *cp.RecomputeFromID > 0 && *cp.RecomputeFromID < fromID {
 		fromID = *cp.RecomputeFromID
 	}
-	dbw.Exec(`UPDATE analytics_projection_checkpoints
+	if _, err := dbw.Exec(`UPDATE analytics_projection_checkpoints
 		SET recompute_from_id = ?, recompute_requested_at = ?, updated_at = ?
-		WHERE projector_key = ?`, fromID, now, now, usageProjectorKey)
+		WHERE projector_key = ?`, fromID, now, now, usageProjectorKey); err != nil {
+		slog.Warn("usage-aggregation: failed to request recompute", "from_log_id", fromID, "error", err)
+		return
+	}
 	slog.Info("usage-aggregation: recompute requested", "from_log_id", fromID)
 }

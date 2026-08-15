@@ -611,16 +611,20 @@ func ListAccountsWithSites(db *sqlx.DB) ([]map[string]any, error) {
 	defer rows.Close()
 
 	var result []map[string]any
+	var scanErr error
 	for rows.Next() {
 		row := make(map[string]any)
 		if err := rows.MapScan(row); err != nil {
+			if scanErr == nil {
+				scanErr = err
+			}
 			continue
 		}
 		normalizeMapScanValues(row)
 		account := mapKeysToCamel(row)
 		result = append(result, enrichAccountOverviewRow(account))
 	}
-	return result, nil
+	return result, scanErr
 }
 
 // ListAccountsWithSitesPaginated returns a single page of accounts joined with
@@ -642,9 +646,13 @@ func ListAccountsWithSitesPaginated(db *sqlx.DB, limit, offset int) ([]map[strin
 	defer rows.Close()
 
 	var result []map[string]any
+	var scanErr error
 	for rows.Next() {
 		row := make(map[string]any)
 		if err := rows.MapScan(row); err != nil {
+			if scanErr == nil {
+				scanErr = err
+			}
 			continue
 		}
 		normalizeMapScanValues(row)
@@ -657,7 +665,7 @@ func ListAccountsWithSitesPaginated(db *sqlx.DB, limit, offset int) ([]map[strin
 		`SELECT COUNT(*) FROM accounts a INNER JOIN sites s ON a.site_id = s.id`)); err != nil {
 		return result, 0, err
 	}
-	return result, total, nil
+	return result, total, scanErr
 }
 
 // enrichAccountOverviewRow attaches admin-list overview fields used by the UI.

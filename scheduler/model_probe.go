@@ -564,9 +564,13 @@ func queryProbeTargets(dbw *store.DB, query string, args ...any) ([]ProbeTarget,
 	defer rows.Close()
 
 	var out []ProbeTarget
+	var scanErr error
 	for rows.Next() {
 		var t ProbeTarget
 		if err := rows.Scan(&t.ChannelID, &t.AccountID, &t.SiteID, &t.ModelName); err != nil {
+			if scanErr == nil {
+				scanErr = err
+			}
 			continue
 		}
 		if t.ChannelID <= 0 || t.ModelName == "" {
@@ -574,7 +578,7 @@ func queryProbeTargets(dbw *store.DB, query string, args ...any) ([]ProbeTarget,
 		}
 		out = append(out, t)
 	}
-	return out, nil
+	return out, scanErr
 }
 
 // ApplyProbeOutcome is a pure helper used by tests and optional direct callers.
