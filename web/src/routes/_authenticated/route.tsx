@@ -8,10 +8,19 @@
 // (AppHeader + AppSidebar + SidebarProvider) stays mounted and interactive.
 // Without this, a page crash would bubble to the router's
 // defaultErrorComponent (ErrorPage) and the whole shell would be lost.
+//
+// notFoundComponent mirrors that for `notFound()` throws from a loader /
+// beforeLoad (a missing resource, not a missing path — the latter is handled
+// by the `$` catch-all): the 404 renders inside the shell instead of falling
+// back to the router-level defaultNotFoundComponent.
 
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { AuthenticatedLayout, LayoutErrorBoundary } from '@/components/layout'
+import {
+  AuthenticatedLayout,
+  LayoutErrorBoundary,
+  NotFoundPage,
+} from '@/components/layout'
 import { hasValidAuthSession } from '@/lib/auth-session'
 
 export const Route = createFileRoute('/_authenticated')({
@@ -33,4 +42,5 @@ export const Route = createFileRoute('/_authenticated')({
   },
   component: AuthenticatedLayout,
   errorComponent: LayoutErrorBoundary,
+  notFoundComponent: NotFoundPage,
 })

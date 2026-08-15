@@ -30,6 +30,7 @@ import { CheckinPage } from '@/features/checkin/components/checkin-page'
 
 export const Route = createFileRoute('/_authenticated/checkin')({
   validateSearch: checkinSearchSchema,
+  staticData: { title: 'checkin.page.title' },
   loader: async ({ context, location }) => {
     const initialQuery = buildInitialCheckinLogsQuery(
       parseCheckinSearch(location.searchStr)

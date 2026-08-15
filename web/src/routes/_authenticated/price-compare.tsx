@@ -7,5 +7,6 @@ import { createFileRoute } from '@tanstack/react-router'
 import { PriceComparePage } from '@/features/models/price-compare/components/price-compare-page'
 
 export const Route = createFileRoute('/_authenticated/price-compare')({
+  staticData: { title: 'priceCompare.page.title' },
   component: PriceComparePage,
 })

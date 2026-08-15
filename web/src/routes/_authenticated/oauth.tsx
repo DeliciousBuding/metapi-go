@@ -20,6 +20,7 @@ import { api } from '@/lib/api'
 
 export const Route = createFileRoute('/_authenticated/oauth')({
   validateSearch: oauthSearchSchema,
+  staticData: { title: 'oauth.page.title' },
   loader: async ({ context }) => {
     await Promise.all([
       context.queryClient.prefetchQuery({

@@ -46,6 +46,7 @@ function parseProxyLogsSearch(searchStr: string): ProxyLogsSearch | null {
 
 export const Route = createFileRoute('/_authenticated/proxy-logs')({
   validateSearch: proxyLogsSearchSchema,
+  staticData: { title: 'proxyLogs.page.title' },
   loader: async ({ context, location }) => {
     const search = parseProxyLogsSearch(location.searchStr)
     if (!search) return

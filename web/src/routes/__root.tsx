@@ -6,12 +6,18 @@
 
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
-import { createRootRouteWithContext, Outlet } from '@tanstack/react-router'
+import {
+  createRootRouteWithContext,
+  Outlet,
+  useRouterState,
+} from '@tanstack/react-router'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Toaster } from '@/components/ui/sonner'
 import { bootstrapAuthentication } from '@/lib/auth-session'
+import { metapiIdentity } from '@/lib/identity-branding'
 import { useAuthStore } from '@/stores/auth-store'
 
 let authBootstrapped = false
@@ -25,9 +31,30 @@ function isDevtoolsEnabled() {
   }
 }
 
+/**
+ * Keep `document.title` in sync with the current route: the deepest match's
+ * `staticData.title` holds an i18n key, translated and suffixed with the
+ * product name (`Accounts · MetAPI`); routes without a title fall back to the
+ * bare product name. Re-runs on navigation and on language change.
+ */
+function useDocumentTitle() {
+  const { t, i18n } = useTranslation()
+  const titleKey = useRouterState({
+    select: (state) => state.matches.at(-1)?.staticData?.title,
+  })
+
+  useEffect(() => {
+    const pageTitle = titleKey ? t(titleKey) : ''
+    document.title = pageTitle
+      ? `${pageTitle} · ${metapiIdentity.name}`
+      : metapiIdentity.name
+  }, [titleKey, t, i18n.language])
+}
+
 function RootComponent() {
   const queryClient = useQueryClient()
   const showDevtools = isDevtoolsEnabled()
+  useDocumentTitle()
 
   // Clear the query cache when the auth session changes (login/logout/tab
   // sync) so stale user-scoped data never leaks across sessions.

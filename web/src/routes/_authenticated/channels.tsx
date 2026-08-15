@@ -8,6 +8,7 @@ import { api } from '@/lib/api'
 
 export const Route = createFileRoute('/_authenticated/channels')({
   validateSearch: channelsSearchSchema,
+  staticData: { title: 'channels.page.title' },
   loader: async ({ context }) => {
     await context.queryClient.prefetchQuery({
       queryKey: channelsKeys.list(),
