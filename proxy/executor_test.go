@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/deliciousbuding/metapi-go/config"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -132,7 +134,12 @@ func TestDoWithObservedFirstByteDoesNotCancelBodyAfterHeaders(t *testing.T) {
 }
 
 func TestDispatchRejectsOversizedBufferedResponse(t *testing.T) {
-	t.Setenv("PROXY_MAX_BUFFERED_RESPONSE_BYTES", "8")
+	// The buffered byte limit is now read from the config singleton (set once
+	// at startup via config.Load), not os.Getenv per request, so load a config
+	// with the limit and install it as the global singleton for this test.
+	prev := config.GetSafe()
+	t.Cleanup(func() { config.Set(prev) })
+	config.Set(config.Load(map[string]string{"PROXY_MAX_BUFFERED_RESPONSE_BYTES": "8"}))
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, "123456789")
@@ -154,7 +161,12 @@ func TestDispatchRejectsOversizedBufferedResponse(t *testing.T) {
 }
 
 func TestWithObservedFirstByteRejectsOversizedBufferedResponse(t *testing.T) {
-	t.Setenv("PROXY_MAX_BUFFERED_RESPONSE_BYTES", "8")
+	// The buffered byte limit is now read from the config singleton (set once
+	// at startup via config.Load), not os.Getenv per request, so load a config
+	// with the limit and install it as the global singleton for this test.
+	prev := config.GetSafe()
+	t.Cleanup(func() { config.Set(prev) })
+	config.Set(config.Load(map[string]string{"PROXY_MAX_BUFFERED_RESPONSE_BYTES": "8"}))
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, "123456789")

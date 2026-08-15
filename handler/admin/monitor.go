@@ -247,7 +247,7 @@ func (h *monitorHandler) ldohProxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout: time.Duration(h.cfg.LDOHProxyTimeoutSec) * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},

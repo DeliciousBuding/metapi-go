@@ -202,6 +202,13 @@ type Config struct {
 	// defaults to DefaultLDOHBaseURL so operators can redirect the monitor
 	// iframe at a self-hosted LDOH instance without a code change.
 	LDOHBaseURL string
+	// LDOHProxyTimeoutSec is the per-request timeout for the LDOH upstream
+	// HTTP client used by the /monitor-proxy/ldoh/* admin surface (env-only —
+	// no DDL). Parsed from LDOH_PROXY_TIMEOUT_SEC (default 30). Previously
+	// hardcoded to 30s in handler/admin/monitor.go; making it configurable
+	// lets operators raise the budget for slow LDOH instances or tighten it
+	// to fail fast. 0/negative/invalid falls back to the default at Load time.
+	LDOHProxyTimeoutSec int
 
 	// UpdateCenterEnabled gates the residual update-center scheduler
 	// (scheduler.UpdateCenterScheduler). The scheduler is a log-only no-op
@@ -286,6 +293,14 @@ type Config struct {
 	// at startup from PROXY_MAX_STREAM_RESPONSE_BYTES so the hot stream path
 	// reads a struct field instead of calling os.Getenv per request.
 	ProxyMaxStreamResponseBytes int
+	// ProxyMaxBufferedResponseBytes caps the total bytes read for a single
+	// non-streaming upstream response before a controlled termination
+	// (default 20 MB). Parsed once at startup from
+	// PROXY_MAX_BUFFERED_RESPONSE_BYTES so the buffered-response hot path
+	// (upstream.go / upstream_stream.go / executor.go) reads a struct field
+	// instead of re-parsing os.Getenv + strconv.ParseInt on every proxied
+	// request. 0/negative/invalid falls back to the default at Load time.
+	ProxyMaxBufferedResponseBytes int
 	ProxyErrorKeywords                         []string
 	GlobalBlockedBrands                        []string
 	GlobalAllowedModels                        []string
@@ -645,6 +660,14 @@ func Load(env map[string]string) *Config {
 
 	// ---- §3.11e LDOH monitor proxy base URL ----
 	cfg.LDOHBaseURL = strings.TrimSpace(firstNonEmpty(get("LDOH_BASE_URL"), DefaultLDOHBaseURL))
+	// LDOH_PROXY_TIMEOUT_SEC: per-request timeout for the LDOH upstream HTTP
+	// client. 0/negative/invalid falls back to the default (30s) so a
+	// misconfigured value never produces an unbounded-context LDOH call.
+	ldohTimeoutParsed := int(math.Trunc(parseNumber(get("LDOH_PROXY_TIMEOUT_SEC"), float64(DefaultLDOHProxyTimeoutSec))))
+	if ldohTimeoutParsed <= 0 {
+		ldohTimeoutParsed = DefaultLDOHProxyTimeoutSec
+	}
+	cfg.LDOHProxyTimeoutSec = ldohTimeoutParsed
 
 	// ---- §3.11d Update Center scheduler gate ----
 	cfg.UpdateCenterEnabled = parseBoolean(get("METAPI_ENABLE_UPDATE_CENTER"), false)
@@ -735,6 +758,16 @@ func Load(env map[string]string) *Config {
 		streamBytesParsed = DefaultProxyMaxStreamResponseBytes
 	}
 	cfg.ProxyMaxStreamResponseBytes = streamBytesParsed
+	// PROXY_MAX_BUFFERED_RESPONSE_BYTES caps a single non-streaming upstream
+	// response (default 20 MB). 0/negative/invalid resolves to the default so
+	// the buffered-response hot path never has to re-parse env or guard against
+	// a zero limit. Read once here — upstream.go / upstream_stream.go /
+	// executor.go read the resolved value from the config singleton.
+	bufferedBytesParsed := int(math.Trunc(parseNumber(get("PROXY_MAX_BUFFERED_RESPONSE_BYTES"), float64(DefaultProxyMaxBufferedResponseBytes))))
+	if bufferedBytesParsed <= 0 {
+		bufferedBytesParsed = int(DefaultProxyMaxBufferedResponseBytes)
+	}
+	cfg.ProxyMaxBufferedResponseBytes = bufferedBytesParsed
 	cfg.ProxyErrorKeywords = parseCsvList(get("PROXY_ERROR_KEYWORDS"))
 	cfg.GlobalBlockedBrands = []string{}
 	cfg.GlobalAllowedModels = []string{}

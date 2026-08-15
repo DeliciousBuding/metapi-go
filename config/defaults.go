@@ -117,6 +117,14 @@ const (
 	// the resolved value from the config singleton, not os.Getenv per request.
 	DefaultProxyMaxStreamResponseBytes = 1 << 20 // 1 MB
 
+	// DefaultProxyMaxBufferedResponseBytes caps the total bytes read for a
+	// single non-streaming upstream response before a controlled termination
+	// (20 MB). Parsed from PROXY_MAX_BUFFERED_RESPONSE_BYTES; 0/negative/invalid
+	// falls back to this default. Read once at startup via config.Load so the
+	// buffered-response hot path reads a struct field instead of re-parsing
+	// os.Getenv + strconv.ParseInt on every proxied request.
+	DefaultProxyMaxBufferedResponseBytes int64 = 20 << 20 // 20 MB
+
 	TelegramApiBaseUrl = "https://api.telegram.org"
 
 	// DefaultLDOHBaseURL is the upstream LDOH (LdoHub) dashboard URL proxied
@@ -124,4 +132,11 @@ const (
 	// so operators can point the monitor iframe at a self-hosted LDOH
 	// instance without rebuilding the binary.
 	DefaultLDOHBaseURL = "https://ldoh.105117.xyz"
+
+	// DefaultLDOHProxyTimeoutSec is the per-request timeout for the LDOH
+	// upstream HTTP client used by the /monitor-proxy/ldoh/* admin surface.
+	// Parsed from LDOH_PROXY_TIMEOUT_SEC; 0/negative/invalid falls back to
+	// this default. Matches the previous hardcoded 30s so existing
+	// deployments are unchanged without an env override.
+	DefaultLDOHProxyTimeoutSec = 30
 )
