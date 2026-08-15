@@ -350,13 +350,13 @@ jobs:
           PLATFORM=new-api \
           bash scripts/e2e/smoke.sh
 
-          echo "===== one-api detect ====="
-          curl -fsS -X POST http://127.0.0.1:4010/api/sites/detect \
-            -H "Authorization: Bearer e2e-admin-token" \
-            -H 'Content-Type: application/json' \
-            -d '{"url":"http://127.0.0.1:3001"}' \
-            | grep -q '"platform":"one-api"'
-          echo "one-api detect: platform=one-api OK"
+          echo "===== one-api full chain ====="
+          METAPI_URL=http://127.0.0.1:4010 \
+          METAPI_AUTH_TOKEN=e2e-admin-token \
+          UPSTREAM_URL=http://127.0.0.1:3001 \
+          UPSTREAM_USERNAME=root UPSTREAM_PASSWORD=123456 \
+          PLATFORM=one-api SITE_NAME=e2e-smoke-oneapi TOKEN_NAME=e2e-smoke-oneapi-token \
+          bash scripts/e2e/smoke.sh
 
   # Build + smoke the image on every run (this is also a required check on PRs).
   # It does not push; docker-push publishes the same image via shared cache.
