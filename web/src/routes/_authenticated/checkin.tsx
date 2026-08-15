@@ -14,7 +14,7 @@
 // and reuses the hook's query key + fetcher (`fetchCheckinLogs`), so the
 // prefetched page is served from cache on mount instead of re-fetching.
 
-import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 
 import {
   buildInitialCheckinLogsQuery,
@@ -22,6 +22,7 @@ import {
   checkinSearchSchema,
   fetchCheckinLogs,
 } from '@/features/checkin'
+import { CheckinPage } from '@/features/checkin/components/checkin-page'
 
 export const Route = createFileRoute('/_authenticated/checkin')({
   validateSearch: checkinSearchSchema,
@@ -32,8 +33,5 @@ export const Route = createFileRoute('/_authenticated/checkin')({
       queryFn: () => fetchCheckinLogs(initialQuery),
     })
   },
-  component: lazyRouteComponent(
-    () => import('@/features/checkin/components/checkin-page'),
-    'CheckinPage'
-  ),
+  component: CheckinPage,
 })

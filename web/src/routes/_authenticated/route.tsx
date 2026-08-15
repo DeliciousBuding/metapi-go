@@ -16,7 +16,15 @@ import { hasValidAuthSession } from '@/lib/auth-session'
 
 export const Route = createFileRoute('/_authenticated')({
   beforeLoad: ({ location }) => {
-    if (!hasValidAuthSession(localStorage)) {
+    // localStorage can throw (SecurityError) in sandboxed/blocked-storage
+    // contexts; treat that as unauthenticated rather than crashing the guard.
+    let authenticated = false
+    try {
+      authenticated = hasValidAuthSession(localStorage)
+    } catch {
+      authenticated = false
+    }
+    if (!authenticated) {
       throw redirect({
         to: '/sign-in',
         search: { redirect: location.href },

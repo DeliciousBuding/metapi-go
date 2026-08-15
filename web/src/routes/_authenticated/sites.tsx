@@ -8,12 +8,13 @@
 // so the page's comma-separated `sort` string stays intact.
 //
 // `loader` prefetches the sites list (`sitesKeys.list()`) so the page renders
-// with data on first paint. `lazyRouteComponent` code-splits the page; the
-// router-plugin's `autoCodeSplitting` also splits the route in prod.
+// with data on first paint. The component is declared directly; the router
+// plugin's `autoCodeSplitting` splits it in production.
 
-import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 
 import { sitesKeys, sitesSearchSchema } from '@/features/sites'
+import { SitesPage } from '@/features/sites/components/sites-page'
 import { api } from '@/lib/api'
 
 export const Route = createFileRoute('/_authenticated/sites')({
@@ -24,8 +25,5 @@ export const Route = createFileRoute('/_authenticated/sites')({
       queryFn: () => api.getSites(),
     })
   },
-  component: lazyRouteComponent(
-    () => import('@/features/sites/components/sites-page'),
-    'SitesPage'
-  ),
+  component: SitesPage,
 })

@@ -98,8 +98,13 @@ export default defineConfig(({ envMode }) => {
         plugins: [
           tanstackRouter({
             target: 'react',
-            // Dev: avoid per-route async chunks (reduces white flash on navigation + faster HMR feedback).
-            // Prod: keep route-based code splitting.
+            // Single source of truth for route code-splitting. Prod splits each
+            // route's component (plus error/notFound) into async chunks; loaders
+            // stay eager (the plugin's default groupings) to avoid a
+            // loader-chunk -> data -> component-chunk waterfall. Dev keeps routes
+            // eager for fast HMR. Route files declare components directly — no
+            // manual `lazyRouteComponent`. Loading state is handled by
+            // `defaultPendingComponent` in main.tsx.
             autoCodeSplitting: isProd,
           }),
         ],

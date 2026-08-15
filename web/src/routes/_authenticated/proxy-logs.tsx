@@ -19,13 +19,14 @@
 // range is client-side only (not part of the backend query) so it is
 // intentionally absent from the prefetch payload.
 
-import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 
 import {
   proxyLogsKeys,
   proxyLogsSearchSchema,
   type ProxyLogsSearch,
 } from '@/features/proxy-logs'
+import { ProxyLogsPage } from '@/features/proxy-logs/components/proxy-logs-page'
 import { api } from '@/lib/api'
 
 const DEFAULT_PROXY_LOGS_PAGE_SIZE = 20
@@ -82,8 +83,5 @@ export const Route = createFileRoute('/_authenticated/proxy-logs')({
       }),
     ])
   },
-  component: lazyRouteComponent(
-    () => import('@/features/proxy-logs/components/proxy-logs-page'),
-    'ProxyLogsPage'
-  ),
+  component: ProxyLogsPage,
 })

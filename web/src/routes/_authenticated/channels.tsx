@@ -1,8 +1,9 @@
 // metapi-go/routes — channels read-only list.
 
-import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 
 import { channelsKeys, channelsSearchSchema } from '@/features/channels'
+import { ChannelsPage } from '@/features/channels/components/channels-page'
 import { api } from '@/lib/api'
 
 export const Route = createFileRoute('/_authenticated/channels')({
@@ -16,8 +17,5 @@ export const Route = createFileRoute('/_authenticated/channels')({
       },
     })
   },
-  component: lazyRouteComponent(
-    () => import('@/features/channels/components/channels-page'),
-    'ChannelsPage'
-  ),
+  component: ChannelsPage,
 })

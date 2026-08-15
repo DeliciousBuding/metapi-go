@@ -10,8 +10,9 @@
 // the picker renders populated on first paint. The queryFn mirrors the
 // models hook (unwrap the `models` array from the marketplace envelope).
 
-import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 
+import { ModelTesterPage } from '@/features/model-tester/components/model-tester-page'
 import { modelsKeys } from '@/features/models'
 import { api } from '@/lib/api'
 
@@ -31,8 +32,5 @@ export const Route = createFileRoute('/_authenticated/model-tester')({
       },
     })
   },
-  component: lazyRouteComponent(
-    () => import('@/features/model-tester/components/model-tester-page'),
-    'ModelTesterPage'
-  ),
+  component: ModelTesterPage,
 })

@@ -10,12 +10,14 @@
 // `loader` prefetches the accounts snapshot (`accountQueryKeys.snapshot()`),
 // which the backend returns as `{ accounts, sites, generatedAt }` — the
 // embedded `sites` array powers the page's site filter, so a single prefetch
-// covers both. `lazyRouteComponent` code-splits the page.
+// covers both. The component is declared directly; the router plugin's
+// `autoCodeSplitting` splits it in production.
 
-import { createFileRoute, lazyRouteComponent } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 
 import { accountQueryKeys } from '@/features/accounts'
+import { AccountsPage } from '@/features/accounts/components/accounts-page'
 import { api } from '@/lib/api'
 
 const accountsSearchSchema = z.object({
@@ -34,8 +36,5 @@ export const Route = createFileRoute('/_authenticated/accounts')({
       queryFn: () => api.getAccountsSnapshot(),
     })
   },
-  component: lazyRouteComponent(
-    () => import('@/features/accounts/components/accounts-page'),
-    'AccountsPage'
-  ),
+  component: AccountsPage,
 })

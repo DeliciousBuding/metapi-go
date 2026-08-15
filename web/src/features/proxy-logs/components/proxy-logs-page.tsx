@@ -26,7 +26,7 @@ import {
   proxyLogsSearchSchema,
 } from '../lib/proxy-logs-schema'
 import { useProxyLogsAutoRefresh } from '../lib/use-proxy-logs-auto-refresh'
-import type { ProxyLog, ProxyLogDetail, ProxyLogFilters } from '../types'
+import type { ProxyLog, ProxyLogFilters } from '../types'
 import { LatencyBadge } from './latency-badge'
 import { ProxyLogDetailSheet } from './proxy-log-detail-sheet'
 import { ProxyLogsAutoRefreshToggle } from './proxy-logs-auto-refresh-toggle'
@@ -713,5 +713,3 @@ function proxyLogsToCsv(
     .join('\n')
   return `${header}\n${body}`
 }
-
-export type { ProxyLogDetail }
