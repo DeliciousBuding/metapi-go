@@ -5,11 +5,10 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/handler/shared"
 	"github.com/deliciousbuding/metapi-go/proxy"
 )
@@ -50,7 +49,7 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 
 	analyzer := newIncrementalSseAnalyzer()
 	sawStreamBytes := false
-	maxStreamBytes := maxStreamResponseBytes()
+	maxStreamBytes := streamResponseByteLimit()
 	var streamedBytes int64
 	buf := make([]byte, 4096)
 	for {
@@ -146,10 +145,11 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 			LogSseErrorEvents(result.ErrorEvents)
 		}
 
-		// Check for empty content (stream ended with no data events)
+		// Check for empty content (stream ended with no data events).
+		// ProxyEmptyContentFailEnabled is read from the startup-loaded config
+		// singleton instead of os.Getenv per stream request.
 		if !result.HasDataEvent {
-			emptyContentFail := os.Getenv("PROXY_EMPTY_CONTENT_FAIL")
-			if strings.ToLower(emptyContentFail) == "true" || emptyContentFail == "1" {
+			if cfg := config.GetSafe(); cfg != nil && cfg.ProxyEmptyContentFailEnabled {
 				slog.Warn("SSE stream contained no data events",
 					"latency_ms", latencyMs,
 					"event_count", result.EventCount,
@@ -164,16 +164,17 @@ func handleStreamUpstream(w http.ResponseWriter, r *http.Request, resp *http.Res
 	return empty
 }
 
-func maxStreamResponseBytes() int64 {
-	raw := strings.TrimSpace(os.Getenv("PROXY_MAX_STREAM_RESPONSE_BYTES"))
-	if raw == "" {
-		return defaultMaxStreamResponseBytes
+// streamResponseByteLimit returns the configured max SSE stream response size
+// in bytes from the startup-loaded config singleton. Falls back to
+// DefaultProxyMaxStreamResponseBytes when config is not yet loaded (e.g. tests
+// that bypass TestMain) or when the operator left the value at zero/negative.
+// Reading a struct field per request is materially cheaper than re-parsing
+// os.Getenv on every SSE stream and keeps the hot path allocation-free here.
+func streamResponseByteLimit() int64 {
+	if cfg := config.GetSafe(); cfg != nil && cfg.ProxyMaxStreamResponseBytes > 0 {
+		return int64(cfg.ProxyMaxStreamResponseBytes)
 	}
-	n, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil || n <= 0 {
-		return defaultMaxStreamResponseBytes
-	}
-	return n
+	return int64(config.DefaultProxyMaxStreamResponseBytes)
 }
 
 func writeSSEStreamError(w http.ResponseWriter, flusher http.Flusher, message, typ string) {

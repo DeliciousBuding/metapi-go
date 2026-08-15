@@ -134,6 +134,14 @@ func TestStreamUpstreamNon2xxRelaysJSONErrorStatus(t *testing.T) {
 }
 
 func TestHandleStreamUpstreamRelaysLargeSSE(t *testing.T) {
+	// The default stream byte limit (1 MB) would truncate this ~2 MB stream,
+	// so raise the config singleton for this test and restore it after.
+	prev := config.Get()
+	cfgCopy := *prev
+	cfgCopy.ProxyMaxStreamResponseBytes = 128 << 20
+	config.Set(&cfgCopy)
+	t.Cleanup(func() { config.Set(prev) })
+
 	event := "data: " + strings.Repeat("x", 512) + "\n\n"
 	var body strings.Builder
 	for i := 0; i < 4096; i++ {
@@ -165,7 +173,13 @@ func TestHandleStreamUpstreamRelaysLargeSSE(t *testing.T) {
 }
 
 func TestHandleStreamUpstreamStopsAtConfiguredByteLimit(t *testing.T) {
-	t.Setenv("PROXY_MAX_STREAM_RESPONSE_BYTES", "32")
+	// The stream byte limit is now read from the config singleton (set once
+	// at startup), not os.Getenv per request, so override the singleton here.
+	prev := config.Get()
+	cfgCopy := *prev
+	cfgCopy.ProxyMaxStreamResponseBytes = 32
+	config.Set(&cfgCopy)
+	t.Cleanup(func() { config.Set(prev) })
 
 	raw := "data: " + strings.Repeat("x", 128) + "\n\n"
 	resp := &http.Response{

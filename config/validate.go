@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/netip"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/robfig/cron/v3"
@@ -297,6 +298,122 @@ func (c *Config) Validate() []error {
 		})
 	}
 
+	// --- Critical/Warning: Lease keepalive vs TTL sanity ---
+	// keepalive > TTL is a genuine correctness bug: the lease expires before
+	// the renewal heartbeat can land, so sessions silently drop. keepalive ==
+	// TTL is borderline (no renewal headroom) and only warrants a warning.
+	if c.ProxySessionChannelLeaseKeepaliveMs > c.ProxySessionChannelLeaseTtlMs {
+		errs = append(errs, &configError{
+			field:    "proxy_session_channel_lease_keepalive_ms",
+			value:    fmt.Sprintf("%d > %d (ttl)", c.ProxySessionChannelLeaseKeepaliveMs, c.ProxySessionChannelLeaseTtlMs),
+			msg:      "keepalive interval must be < lease TTL — leases expire before renewal",
+			critical: true,
+		})
+	} else if c.ProxySessionChannelLeaseKeepaliveMs == c.ProxySessionChannelLeaseTtlMs && c.ProxySessionChannelLeaseTtlMs > 0 {
+		errs = append(errs, &configError{
+			field:    "proxy_session_channel_lease_keepalive_ms",
+			value:    fmt.Sprintf("%d == %d (ttl)", c.ProxySessionChannelLeaseKeepaliveMs, c.ProxySessionChannelLeaseTtlMs),
+			msg:      "keepalive equals TTL — set keepalive strictly less than TTL for renewal headroom",
+			critical: false,
+		})
+	}
+
+	// --- Warning: negative values silently disable limits ---
+	// Consumers treat <=0 as disabled, so a negative configures "disabled"
+	// without the operator realizing it. Recommend 0 for explicit disable.
+	if c.ProxyRateLimitRPM < 0 {
+		errs = append(errs, &configError{
+			field:    "proxy_rate_limit_rpm",
+			value:    fmt.Sprintf("%d", c.ProxyRateLimitRPM),
+			msg:      "negative value silently disables the per-IP limiter — use 0 for explicit disable",
+			critical: false,
+		})
+	}
+	if c.ProxyGlobalTokenRPM < 0 {
+		errs = append(errs, &configError{
+			field:    "proxy_global_token_rpm",
+			value:    fmt.Sprintf("%d", c.ProxyGlobalTokenRPM),
+			msg:      "negative value silently disables the global token limiter — use 0 for explicit disable",
+			critical: false,
+		})
+	}
+	if c.ProxyMaxChannelAttempts < 0 {
+		errs = append(errs, &configError{
+			field:    "proxy_max_channel_attempts",
+			value:    fmt.Sprintf("%d", c.ProxyMaxChannelAttempts),
+			msg:      "negative value silently clamps attempts to 1 — use 0 to disable retries",
+			critical: false,
+		})
+	}
+
+	// --- Warning: range checks for proxy session / router knobs ---
+	if c.ProxySessionChannelConcurrencyLimit < 1 {
+		errs = append(errs, &configError{
+			field:    "proxy_session_channel_concurrency_limit",
+			value:    fmt.Sprintf("%d", c.ProxySessionChannelConcurrencyLimit),
+			msg:      "should be >= 1 — 0 disables per-channel concurrency control",
+			critical: false,
+		})
+	}
+	if c.ProxyStickySessionEnabled && c.ProxyStickySessionTtlMs <= 0 {
+		errs = append(errs, &configError{
+			field:    "proxy_sticky_session_ttl_ms",
+			value:    fmt.Sprintf("%d", c.ProxyStickySessionTtlMs),
+			msg:      "should be > 0 when sticky sessions are enabled",
+			critical: false,
+		})
+	}
+	if c.TokenRouterCacheTtlMs <= 0 {
+		errs = append(errs, &configError{
+			field:    "token_router_cache_ttl_ms",
+			value:    fmt.Sprintf("%d", c.TokenRouterCacheTtlMs),
+			msg:      "should be > 0 — a non-positive cache TTL disables token-router caching",
+			critical: false,
+		})
+	}
+	if c.ProxySessionChannelQueueWaitMs < 0 {
+		errs = append(errs, &configError{
+			field:    "proxy_session_channel_queue_wait_ms",
+			value:    fmt.Sprintf("%d", c.ProxySessionChannelQueueWaitMs),
+			msg:      "should be >= 0 — negative values are treated as 0 (no queue wait)",
+			critical: false,
+		})
+	}
+
+	// --- Warning: webhook / service URLs must be well-formed http(s) ---
+	webhookUrls := []struct{ field, val string }{
+		{"webhook_url", c.WebhookUrl},
+		{"bark_url", c.BarkUrl},
+		{"feishu_webhook", c.FeishuWebhook},
+		{"dingtalk_webhook", c.DingtalkWebhook},
+		{"wecom_webhook", c.WecomWebhook},
+		{"ntfy_url", c.NtfyUrl},
+		{"resin_url", c.ResinURL},
+		{"telegram_api_base_url", c.TelegramApiBaseUrl},
+	}
+	for _, u := range webhookUrls {
+		if err := validateUrl(u.field, u.val, true); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	// --- Warning: proxy / redis URLs must parse (scheme left open) ---
+	for _, u := range []struct{ field, val string }{
+		{"system_proxy_url", c.SystemProxyUrl},
+		{"redis_url", c.RedisURL},
+	} {
+		if err := validateUrl(u.field, u.val, false); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	// --- Warning: checkin window bounds must be HH:mm ---
+	if err := validateHhMm("checkin_window_start", c.CheckinWindowStart); err != nil {
+		errs = append(errs, err)
+	}
+	if err := validateHhMm("checkin_window_end", c.CheckinWindowEnd); err != nil {
+		errs = append(errs, err)
+	}
+
 	return errs
 }
 
@@ -323,6 +440,89 @@ func IsCritical(err error) bool {
 		return ce.critical
 	}
 	return false
+}
+
+// IsWarning returns true if the error represents a non-fatal config warning.
+// It is the complement of IsCritical for config errors produced by Validate.
+func IsWarning(err error) bool {
+	if ce, ok := err.(*configError); ok {
+		return !ce.critical
+	}
+	return false
+}
+
+// validateUrl parses a URL string and returns a warning configError when the
+// value is malformed. For webhook-style URLs (requireWebScheme=true) it also
+// warns when the scheme is not http/https; otherwise it warns when the URL is
+// missing a scheme or host. Empty values are treated as unset (no error).
+func validateUrl(field, value string, requireWebScheme bool) error {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return &configError{
+			field:    field,
+			value:    value,
+			msg:      "malformed URL — " + err.Error(),
+			critical: false,
+		}
+	}
+	if requireWebScheme {
+		if parsed.Scheme != "http" && parsed.Scheme != "https" {
+			return &configError{
+				field:    field,
+				value:    value,
+				msg:      "scheme must be http or https",
+				critical: false,
+			}
+		}
+	} else if parsed.Scheme == "" {
+		return &configError{
+			field:    field,
+			value:    value,
+			msg:      "URL is missing a scheme",
+			critical: false,
+		}
+	}
+	if parsed.Host == "" {
+		return &configError{
+			field:    field,
+			value:    value,
+			msg:      "URL is missing a host",
+			critical: false,
+		}
+	}
+	return nil
+}
+
+// validateHhMm validates a 24h HH:mm window bound (2 digits : 2 digits with
+// hours 00-23 and minutes 00-59). Empty values are treated as unset.
+func validateHhMm(field, value string) error {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	if len(value) != 5 || value[2] != ':' {
+		return &configError{
+			field:    field,
+			value:    value,
+			msg:      "must be HH:mm (2 digits : 2 digits)",
+			critical: false,
+		}
+	}
+	hh, errH := strconv.Atoi(value[:2])
+	mm, errM := strconv.Atoi(value[3:])
+	if errH != nil || errM != nil || hh < 0 || hh > 23 || mm < 0 || mm > 59 {
+		return &configError{
+			field:    field,
+			value:    value,
+			msg:      "must be HH:mm with hours 00-23 and minutes 00-59",
+			critical: false,
+		}
+	}
+	return nil
 }
 
 // ValidateCronExpr checks if a cron expression is parseable. Auto-normalizes
