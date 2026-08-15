@@ -10,9 +10,12 @@
 //
 // `loader` prefetches the first server-paginated checkin-logs page the page's
 // `useCheckinLogs` hook will request. It builds the exact same
-// `CheckinLogsQuery` the page derives from URL state (`buildInitialCheckinLogsQuery`)
-// and reuses the hook's query key + fetcher (`fetchCheckinLogs`), so the
-// prefetched page is served from cache on mount instead of re-fetching.
+// `CheckinLogsQuery` the page derives from URL state, parsing the router's
+// `location.searchStr` (rather than the global `window.location.search`, so
+// the loader is SSR-safe and follows the router's location) via
+// `parseCheckinSearch` + `buildInitialCheckinLogsQuery`, and reuses the
+// hook's query key + fetcher (`fetchCheckinLogs`) so the prefetched page is
+// served from cache on mount instead of re-fetching.
 
 import { createFileRoute } from '@tanstack/react-router'
 
@@ -21,13 +24,16 @@ import {
   checkinQueryKeys,
   checkinSearchSchema,
   fetchCheckinLogs,
+  parseCheckinSearch,
 } from '@/features/checkin'
 import { CheckinPage } from '@/features/checkin/components/checkin-page'
 
 export const Route = createFileRoute('/_authenticated/checkin')({
   validateSearch: checkinSearchSchema,
-  loader: async ({ context }) => {
-    const initialQuery = buildInitialCheckinLogsQuery()
+  loader: async ({ context, location }) => {
+    const initialQuery = buildInitialCheckinLogsQuery(
+      parseCheckinSearch(location.searchStr)
+    )
     await context.queryClient.prefetchQuery({
       queryKey: checkinQueryKeys.logsList(initialQuery),
       queryFn: () => fetchCheckinLogs(initialQuery),
