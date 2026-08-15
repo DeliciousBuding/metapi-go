@@ -494,7 +494,14 @@ func TestDispatchUpstreamNonStreamFailoversOnRetryableHTTPStatusAndRecordsHealth
 }
 
 func TestNonStreamingUpstreamRejectsOversizedBufferedResponse(t *testing.T) {
-	t.Setenv("PROXY_MAX_BUFFERED_RESPONSE_BYTES", "8")
+	// The buffered byte limit is now read from the config singleton (set once
+	// at startup via config.Load), not os.Getenv per request, so override the
+	// singleton here — same pattern as TestHandleStreamUpstreamStopsAtConfiguredByteLimit.
+	prev := config.Get()
+	cfgCopy := *prev
+	cfgCopy.ProxyMaxBufferedResponseBytes = 8
+	config.Set(&cfgCopy)
+	t.Cleanup(func() { config.Set(prev) })
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
