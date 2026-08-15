@@ -623,6 +623,43 @@ func ListAccountsWithSites(db *sqlx.DB) ([]map[string]any, error) {
 	return result, nil
 }
 
+// ListAccountsWithSitesPaginated returns a single page of accounts joined with
+// their sites, plus the total row count matching the same join. Enrichment is
+// identical to ListAccountsWithSites so a paginated page is byte-compatible
+// with a slice of the unpaginated snapshot. Used by GET /api/accounts?page=...
+// to bound the admin list response when the fleet grows (defensive pagination,
+// same envelope as /api/channels and /api/checkin/logs).
+func ListAccountsWithSitesPaginated(db *sqlx.DB, limit, offset int) ([]map[string]any, int64, error) {
+	rows, err := db.Queryx(db.Rebind(
+		`SELECT a.*, s.id as site_id_val, s.name as site_name, s.url as site_url,
+		        s.platform as site_platform, s.status as site_status
+		 FROM accounts a INNER JOIN sites s ON a.site_id = s.id
+		 ORDER BY a.sort_order, a.id
+		 LIMIT ? OFFSET ?`), limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var result []map[string]any
+	for rows.Next() {
+		row := make(map[string]any)
+		if err := rows.MapScan(row); err != nil {
+			continue
+		}
+		normalizeMapScanValues(row)
+		account := mapKeysToCamel(row)
+		result = append(result, enrichAccountOverviewRow(account))
+	}
+
+	var total int64
+	if err := db.Get(&total, db.Rebind(
+		`SELECT COUNT(*) FROM accounts a INNER JOIN sites s ON a.site_id = s.id`)); err != nil {
+		return result, 0, err
+	}
+	return result, total, nil
+}
+
 // enrichAccountOverviewRow attaches admin-list overview fields used by the UI.
 func enrichAccountOverviewRow(account map[string]any) map[string]any {
 	if account == nil {

@@ -95,12 +95,47 @@ func (h *downstreamKeysHandler) summary(w http.ResponseWriter, r *http.Request) 
 }
 
 // GET /api/downstream-keys
+//
+// Defensive pagination (#719/#711 parity): the endpoint is unbounded by
+// default, but operators can opt into server-side paging with ?page/&pageSize.
+// When ?page is absent the behavior and response shape are byte-identical to
+// the legacy surface ({success, items}) so existing frontend code keeps working
+// untouched. Only when a non-empty ?page is supplied does the handler apply
+// LIMIT/OFFSET and return the {items,total,page,pageSize} envelope used by
+// /api/channels and /api/checkin/logs.
 func (h *downstreamKeysHandler) listKeys(w http.ResponseWriter, r *http.Request) {
-	rows := queryRows(h.db, "SELECT * FROM downstream_api_keys ORDER BY id DESC")
+	pageStr := strings.TrimSpace(r.URL.Query().Get("page"))
+	paginate := pageStr != ""
+
+	var rows []map[string]any
+	var total int64
+	page, pageSize := 1, 50
+	if paginate {
+		page = clampInt(getQueryInt(r, "page", 1), 1, 1_000_000)
+		pageSize = clampInt(getQueryInt(r, "pageSize", 50), 1, 200)
+		offset := (page - 1) * pageSize
+		rows = queryRows(h.db, h.db.Rebind(
+			"SELECT * FROM downstream_api_keys ORDER BY id DESC LIMIT ? OFFSET ?"),
+			pageSize, offset)
+		_ = h.db.Get(&total, h.db.Rebind("SELECT COUNT(*) FROM downstream_api_keys"))
+	} else {
+		rows = queryRows(h.db, "SELECT * FROM downstream_api_keys ORDER BY id DESC")
+	}
+
 	for _, row := range rows {
 		// List must not return full key; only keyMasked.
 		redactDownstreamKeySecret(row)
 		enrichKeyRateWindow(row)
+	}
+
+	if paginate {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"items":    normalizeSlice(rows),
+			"total":    total,
+			"page":     page,
+			"pageSize": pageSize,
+		})
+		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success": true,

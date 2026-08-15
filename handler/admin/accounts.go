@@ -94,6 +94,17 @@ func (h *accountsHandler) listAccounts(w http.ResponseWriter, r *http.Request) {
 	refresh := strings.TrimSpace(r.URL.Query().Get("refresh"))
 	forceRefresh := refresh == "true" || refresh == "1"
 
+	// Defensive pagination (#719/#711 parity). When ?page is absent the handler
+	// returns the full 30s-TTL cached snapshot exactly as before (backward
+	// compat for the frontend that does not paginate). When ?page is supplied,
+	// bypass the snapshot cache and run a bounded LIMIT/OFFSET query so the
+	// response size stays capped as the account fleet grows.
+	pageStr := strings.TrimSpace(r.URL.Query().Get("page"))
+	if pageStr != "" {
+		h.listAccountsPaginated(w, r)
+		return
+	}
+
 	// Check snapshot cache
 	if !forceRefresh {
 		if cached, hit := globalAccountsCache.get(); hit {
@@ -119,40 +130,7 @@ func (h *accountsHandler) listAccounts(w http.ResponseWriter, r *http.Request) {
 	if metricsErr != nil {
 		slog.Error("Failed to load per-account today metrics", "err", metricsErr)
 	} else {
-		for _, account := range accounts {
-			accountID := coerceInt64(account["id"])
-			if accountID <= 0 {
-				continue
-			}
-			if m, exists := todayMetrics[accountID]; exists {
-				account["todayReward"] = m.Reward
-				account["todayRewardStatus"] = m.RewardStatus
-				account["todayRewardReason"] = m.RewardReason
-				account["todaySpend"] = m.Spend
-				account["todaySpendStatus"] = m.SpendStatus
-				account["todaySpendReason"] = m.SpendReason
-				account["todayTokens"] = m.Tokens
-				account["todayProxy"] = map[string]any{
-					"total":   m.ProxyTotal,
-					"success": m.ProxySuccess,
-					"failed":  m.ProxyFailed,
-					"unknown": m.ProxyUnknown,
-				}
-			} else {
-				// Real zero, not missing: account had no rows within the local day.
-				account["todayReward"] = 0.0
-				account["todayRewardStatus"] = "complete"
-				account["todaySpend"] = 0.0
-				account["todaySpendStatus"] = "complete"
-				account["todayTokens"] = int64(0)
-				account["todayProxy"] = map[string]any{
-					"total":   0,
-					"success": 0,
-					"failed":  0,
-					"unknown": 0,
-				}
-			}
-		}
+		applyAccountTodayMetrics(accounts, todayMetrics)
 	}
 
 	// Also fetch sites for the response
@@ -169,6 +147,85 @@ func (h *accountsHandler) listAccounts(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("x-accounts-snapshot-cache", "miss")
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// listAccountsPaginated serves GET /api/accounts?page=&pageSize= with a bounded
+// LIMIT/OFFSET query. The snapshot cache is intentionally bypassed: a paged
+// request is an explicit opt-out of the snapshot, and caching every page combo
+// would multiply the cache surface. Today metrics are still enriched for the
+// accounts on the current page. Response shape mirrors /api/channels:
+// {items, total, page, pageSize, generatedAt, sites}.
+func (h *accountsHandler) listAccountsPaginated(w http.ResponseWriter, r *http.Request) {
+	page := clampInt(getQueryInt(r, "page", 1), 1, 1_000_000)
+	pageSize := clampInt(getQueryInt(r, "pageSize", 50), 1, 200)
+	offset := (page - 1) * pageSize
+
+	accounts, total, err := service.ListAccountsWithSitesPaginated(h.db, pageSize, offset)
+	if err != nil {
+		slog.Error("Failed to load paginated accounts", "err", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to load accounts"})
+		return
+	}
+
+	todayMetrics, metricsErr := dailyservice.CollectPerAccountTodayMetrics(h.db, time.Now())
+	if metricsErr != nil {
+		slog.Error("Failed to load per-account today metrics", "err", metricsErr)
+	} else {
+		applyAccountTodayMetrics(accounts, todayMetrics)
+	}
+
+	var sites []store.Site
+	h.db.Select(&sites, "SELECT "+service.SiteSelectColumns+" FROM sites ORDER BY sort_order, id")
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"items":     normalizeSlice(accounts),
+		"total":     total,
+		"page":      page,
+		"pageSize":  pageSize,
+		"generatedAt": time.Now().UTC().Format(time.RFC3339),
+		"sites":     sites,
+	})
+}
+
+// applyAccountTodayMetrics merges per-account today aggregates onto each
+// account map. Accounts with no metrics for the local day get explicit zeros
+// with a "complete" status so the UI shows real zeros rather than placeholders.
+// Extracted from listAccounts so both the cached and paginated paths share it.
+func applyAccountTodayMetrics(accounts []map[string]any, todayMetrics map[int64]*dailyservice.AccountTodayMetrics) {
+	for _, account := range accounts {
+		accountID := coerceInt64(account["id"])
+		if accountID <= 0 {
+			continue
+		}
+		if m, exists := todayMetrics[accountID]; exists {
+			account["todayReward"] = m.Reward
+			account["todayRewardStatus"] = m.RewardStatus
+			account["todayRewardReason"] = m.RewardReason
+			account["todaySpend"] = m.Spend
+			account["todaySpendStatus"] = m.SpendStatus
+			account["todaySpendReason"] = m.SpendReason
+			account["todayTokens"] = m.Tokens
+			account["todayProxy"] = map[string]any{
+				"total":   m.ProxyTotal,
+				"success": m.ProxySuccess,
+				"failed":  m.ProxyFailed,
+				"unknown": m.ProxyUnknown,
+			}
+		} else {
+			// Real zero, not missing: account had no rows within the local day.
+			account["todayReward"] = 0.0
+			account["todayRewardStatus"] = "complete"
+			account["todaySpend"] = 0.0
+			account["todaySpendStatus"] = "complete"
+			account["todayTokens"] = int64(0)
+			account["todayProxy"] = map[string]any{
+				"total":   0,
+				"success": 0,
+				"failed":  0,
+				"unknown": 0,
+			}
+		}
+	}
 }
 
 // ---- Create Account ----
