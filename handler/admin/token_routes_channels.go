@@ -18,7 +18,10 @@ func (h *tokenRoutesHandler) getRouteChannels(w http.ResponseWriter, r *http.Req
 	}
 
 	channelRows := queryRows(h.db,
-		`SELECT rc.*, a.username, a.access_token, a.api_token, a.balance, a.status as account_status,
+		`SELECT rc.*, a.username, `+
+			credentialFragmentsSelect(h.db, "a.access_token", "access_token")+`, `+
+			credentialFragmentsSelect(h.db, "a.api_token", "api_token")+`,
+		        a.balance, a.status as account_status,
 		        s.id as site_id, s.name as site_name, s.url as site_url, s.platform as site_platform, s.status as site_status
 		 FROM route_channels rc
 		 LEFT JOIN accounts a ON rc.account_id = a.id
@@ -107,6 +110,7 @@ func (h *tokenRoutesHandler) addChannel(w http.ResponseWriter, r *http.Request) 
 
 	created := queryRow(h.db, "SELECT * FROM route_channels WHERE id = ?", id)
 	routing.InvalidateCache()
+	invalidateChannelsSnapshotCache()
 	writeJSON(w, http.StatusOK, created)
 }
 
@@ -159,6 +163,7 @@ func (h *tokenRoutesHandler) batchAddChannels(w http.ResponseWriter, r *http.Req
 	}
 
 	routing.InvalidateCache()
+	invalidateChannelsSnapshotCache()
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success": true,
 		"created": created,
@@ -177,6 +182,7 @@ func (h *tokenRoutesHandler) clearCooldown(w http.ResponseWriter, r *http.Reques
 
 	h.db.Exec(h.db.Rebind(`UPDATE route_channels SET cooldown_until = NULL, consecutive_fail_count = 0, cooldown_level = 0 WHERE route_id = ?`), routeID)
 	routing.InvalidateCache()
+	invalidateChannelsSnapshotCache()
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
@@ -209,6 +215,7 @@ func (h *tokenRoutesHandler) batchUpdateChannels(w http.ResponseWriter, r *http.
 	}
 
 	routing.InvalidateCache()
+	invalidateChannelsSnapshotCache()
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success":  true,
 		"channels": normalizeSlice(updatedChannels),
@@ -328,6 +335,7 @@ func (h *tokenRoutesHandler) updateChannel(w http.ResponseWriter, r *http.Reques
 
 	updated := queryRow(h.db, "SELECT * FROM route_channels WHERE id = ?", channelID)
 	routing.InvalidateCache()
+	invalidateChannelsSnapshotCache()
 	writeJSON(w, http.StatusOK, updated)
 }
 
@@ -343,6 +351,7 @@ func (h *tokenRoutesHandler) deleteChannel(w http.ResponseWriter, r *http.Reques
 
 	h.db.Exec(h.db.Rebind("DELETE FROM route_channels WHERE id = ?"), channelID)
 	routing.InvalidateCache()
+	invalidateChannelsSnapshotCache()
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
 }
 
