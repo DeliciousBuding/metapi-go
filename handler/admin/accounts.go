@@ -645,7 +645,7 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 
 	adp := platform.GetAdapter(site.Platform)
 	if adp == nil {
-		writeJSON(w, http.StatusOK, map[string]any{"success": false, "message": "unsupported platform: " + site.Platform})
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "unsupported platform: " + site.Platform)
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
@@ -787,7 +787,7 @@ func (h *accountsHandler) verifyToken(w http.ResponseWriter, r *http.Request) {
 
 	adp := platform.GetAdapter(site.Platform)
 	if adp == nil {
-		writeJSON(w, http.StatusOK, map[string]any{"success": false, "message": "unsupported platform: " + site.Platform})
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "unsupported platform: " + site.Platform)
 		return
 	}
 
@@ -795,15 +795,11 @@ func (h *accountsHandler) verifyToken(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	result, err := adp.VerifyToken(ctx, site.URL, accessToken, body.PlatformUserID, service.BuildPlatformProxyConfigForToken(h.cfg, &site, accessToken))
 	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]any{"success": false, "message": err.Error()})
+		writeErrorWithRequest(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 	if result == nil || result.TokenType == "" || result.TokenType == "unknown" {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"success":   false,
-			"tokenType": "unknown",
-			"message":   "token verification failed",
-		})
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "token verification failed")
 		return
 	}
 
@@ -1045,7 +1041,7 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 
 	row, err := service.GetAccountWithSiteByID(h.db, id)
 	if err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"message": "account not found"})
+		writeErrorWithRequest(w, r, http.StatusNotFound, "account not found")
 		return
 	}
 
@@ -1418,12 +1414,12 @@ func (h *accountsHandler) refreshBalance(w http.ResponseWriter, r *http.Request)
 
 	result, err := balanceService.RefreshBalance(h.cfg, h.db, id)
 	if result == nil && err == nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"message": "account not found or platform not supported"})
+		writeErrorWithRequest(w, r, http.StatusNotFound, "account not found or platform not supported")
 		return
 	}
 	if err != nil {
 		if strings.Contains(err.Error(), "unsupported platform") {
-			writeJSON(w, http.StatusNotFound, map[string]string{"message": "account not found or platform not supported"})
+			writeErrorWithRequest(w, r, http.StatusNotFound, "account not found or platform not supported")
 			return
 		}
 		slog.Warn("Balance refresh failed", "err", err, "account_id", id)

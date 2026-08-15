@@ -15,6 +15,11 @@ const (
 	DefaultDataDir = "./data"
 	DefaultDbType  = "sqlite"
 
+	// DefaultLogLevel is the slog threshold applied at startup when LOG_LEVEL
+	// is unset or invalid. "info" preserves the pre-config behavior so the
+	// hot-path Debug downgrades stay silent unless an operator opts in.
+	DefaultLogLevel = "info"
+
 	// DbProfile selects PostgreSQL pool presets. Explicit DB_MAX_* env vars
 	// always override the profile numbers. Dedicated/large-DB users can set
 	// DB_PROFILE=dedicated or raise DB_MAX_OPEN_CONNS freely.

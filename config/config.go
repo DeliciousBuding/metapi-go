@@ -95,6 +95,13 @@ type Config struct {
 	DbApplicationName string
 	Tz                string
 
+	// LogLevel controls the slog threshold applied at startup (env LOG_LEVEL).
+	// Accepted values: debug, info, warn, error. Default "info". Raising the
+	// threshold silences per-request / SSE / WS Debug-downgraded hot-path logs
+	// that are already observable via Prometheus metrics, cutting log volume in
+	// production without losing Warn/Error signal.
+	LogLevel string
+
 	// Cron (5 fields)
 	CheckinCron          string
 	CheckinScheduleMode  string
@@ -541,6 +548,7 @@ func Load(env map[string]string) *Config {
 	cfg.DbConnMaxIdleTimeSec = int(math.Trunc(parseNumber(get("DB_CONN_MAX_IDLE_TIME_SEC"), float64(DefaultDbConnMaxIdleTimeSec))))
 	cfg.DbApplicationName = strings.TrimSpace(firstNonEmpty(get("DB_APPLICATION_NAME"), get("METAPI_DB_APPLICATION_NAME")))
 	cfg.Tz = get("TZ")
+	cfg.LogLevel = normalizeLogLevel(firstNonEmpty(get("LOG_LEVEL"), DefaultLogLevel))
 
 	// ---- §3.4 Cron ----
 	cfg.CheckinCron = firstNonEmpty(get("CHECKIN_CRON"), DefaultCheckinCron)
@@ -792,6 +800,41 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+// normalizeLogLevel canonicalizes a LOG_LEVEL env value to one of
+// debug|info|warn|error. Unknown/empty input falls back to DefaultLogLevel
+// ("info") so an invalid operator value can never silence Warn/Error output.
+func normalizeLogLevel(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "debug":
+		return "debug"
+	case "warn", "warning":
+		return "warn"
+	case "error":
+		return "error"
+	case "info", "":
+		return "info"
+	default:
+		return "info"
+	}
+}
+
+// SlogLevel maps a canonical log-level string to the matching slog.Level.
+// Callers (e.g. cmd/server/main.go) use this at startup to configure the
+// default slog handler threshold from config.LogLevel. Unknown values fall
+// back to LevelInfo, matching normalizeLogLevel's "info" default.
+func SlogLevel(logLevel string) slog.Level {
+	switch normalizeLogLevel(logLevel) {
+	case "debug":
+		return slog.LevelDebug
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
 }
 
 // normalizeDbProfile maps env aliases to shared-tiny|normal|dedicated.

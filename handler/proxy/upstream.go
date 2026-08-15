@@ -141,7 +141,7 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 		}
 		siteSlot, acquired := siteLimiter.TryAcquire(selected.Site.ID, selected.Site.MaxConcurrency)
 		if !acquired {
-			slog.Info("site concurrency saturated; skipping channel without failure cascade",
+			slog.Debug("site concurrency saturated; skipping channel without failure cascade",
 				"site_id", selected.Site.ID,
 				"channel_id", selected.Channel.ID,
 				"max_concurrency", selected.Site.MaxConcurrency,
@@ -439,7 +439,7 @@ func dispatchEndpointAttemptWithContinue(
 	if err != nil {
 		// First-byte timeout: continue to next protocol when allowed; do not poison.
 		if proxy.IsObservedFirstByteTimeoutError(err) {
-			slog.Info("upstream first-byte timeout",
+			slog.Debug("upstream first-byte timeout",
 				"url", upstreamURL,
 				"model", upstreamModel,
 				"channel_id", selected.Channel.ID,

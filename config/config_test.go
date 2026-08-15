@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log/slog"
 	"strings"
 	"testing"
 )
@@ -594,5 +595,70 @@ func TestValidateAcceptsStrongCredentialSecret(t *testing.T) {
 		if configErrorField(err) == "account_credential_secret" {
 			t.Fatalf("Validate returned credential_secret error for 17 byte secret: %v", err)
 		}
+	}
+}
+
+func TestLoadLogLevelDefaultsToInfo(t *testing.T) {
+	cfg := Load(map[string]string{})
+	if cfg.LogLevel != DefaultLogLevel {
+		t.Fatalf("LogLevel = %q, want %q", cfg.LogLevel, DefaultLogLevel)
+	}
+	if cfg.LogLevel != "info" {
+		t.Fatalf("LogLevel = %q, want info", cfg.LogLevel)
+	}
+}
+
+func TestLoadLogLevelParsesKnownLevels(t *testing.T) {
+	cases := map[string]string{
+		"debug":   "debug",
+		"DEBUG":   "debug",
+		" info ":  "info",
+		"warn":    "warn",
+		"warning": "warn",
+		"Warn":    "warn",
+		"error":   "error",
+		"ERROR":   "error",
+	}
+	for input, want := range cases {
+		t.Run(input, func(t *testing.T) {
+			cfg := Load(map[string]string{"LOG_LEVEL": input})
+			if cfg.LogLevel != want {
+				t.Fatalf("LOG_LEVEL=%q → LogLevel = %q, want %q", input, cfg.LogLevel, want)
+			}
+		})
+	}
+}
+
+func TestLoadLogLevelFallsBackOnInvalid(t *testing.T) {
+	for _, input := range []string{"verbose", "trace", "123", "off"} {
+		t.Run(input, func(t *testing.T) {
+			cfg := Load(map[string]string{"LOG_LEVEL": input})
+			if cfg.LogLevel != "info" {
+				t.Fatalf("LOG_LEVEL=%q → LogLevel = %q, want info (fallback)", input, cfg.LogLevel)
+			}
+		})
+	}
+}
+
+func TestSlogLevelMapsCanonicalLevels(t *testing.T) {
+	cases := map[string]slog.Level{
+		"debug": slog.LevelDebug,
+		"info":  slog.LevelInfo,
+		"warn":  slog.LevelWarn,
+		"error": slog.LevelError,
+	}
+	for input, want := range cases {
+		if got := SlogLevel(input); got != want {
+			t.Fatalf("SlogLevel(%q) = %v, want %v", input, got, want)
+		}
+	}
+}
+
+func TestSlogLevelFallsBackToInfo(t *testing.T) {
+	if got := SlogLevel("bogus"); got != slog.LevelInfo {
+		t.Fatalf("SlogLevel(\"bogus\") = %v, want LevelInfo", got)
+	}
+	if got := SlogLevel(""); got != slog.LevelInfo {
+		t.Fatalf("SlogLevel(\"\") = %v, want LevelInfo", got)
 	}
 }
