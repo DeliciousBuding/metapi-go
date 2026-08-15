@@ -298,7 +298,7 @@ func updateBackgroundTaskDBMessage(taskID, message string) {
 		return
 	}
 	nowISO := time.Now().UTC().Format(time.RFC3339)
-	_, err := db.Exec(`UPDATE admin_background_tasks SET message=?, updated_at=? WHERE task_id=?`,
+	_, err := db.Exec(db.Rebind(`UPDATE admin_background_tasks SET message=?, updated_at=? WHERE task_id=?`),
 		message, nowISO, taskID)
 	if err != nil {
 		slog.Debug("admin tasks: durable message update failed", "task_id", taskID, "error", err)
@@ -387,11 +387,11 @@ func insertBackgroundTaskDB(task *BackgroundTask) {
 	if db == nil {
 		return
 	}
-	_, err := db.Exec(`
+	_, err := db.Exec(db.Rebind(`
 		INSERT INTO admin_background_tasks (task_id, type, title, status, message, dedupe_key, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(task_id) DO NOTHING
-	`, task.ID, task.Type, task.Title, string(task.Status), task.Message, dedupePtr, task.CreatedAt, nowISO)
+	`), task.ID, task.Type, task.Title, string(task.Status), task.Message, dedupePtr, task.CreatedAt, nowISO)
 	if err != nil {
 		slog.Warn("admin tasks: durable insert failed (memory set)", "task_id", task.ID, "error", err)
 	}
@@ -405,10 +405,10 @@ func updateBackgroundTaskDBStatus(taskID, status string, startedAt, finishedAt, 
 		return
 	}
 	nowISO := time.Now().UTC().Format(time.RFC3339)
-	_, e := db.Exec(`
+	_, e := db.Exec(db.Rebind(`
 		UPDATE admin_background_tasks SET status=?, message=?, error=?, started_at=COALESCE(?,started_at),
 		finished_at=?, updated_at=? WHERE task_id=? AND status NOT IN ('succeeded','failed')
-	`, status, "updated", errMsg, startedAt, finishedAt, nowISO, taskID)
+	`), status, "updated", errMsg, startedAt, finishedAt, nowISO, taskID)
 	if e != nil {
 		slog.Debug("admin tasks: durable status update failed", "task_id", taskID, "error", e)
 	}
