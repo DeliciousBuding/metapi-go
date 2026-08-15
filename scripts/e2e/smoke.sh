@@ -272,14 +272,14 @@ else
   fail_step "login skipped (no site id)"
 fi
 
-# 6. verify-token — documented: the endpoint takes a token, not a password.
-#    Sending the password is expected to fail; record FAIL with body and continue.
+# 6. verify-token — the token-paste path, exercised with the REAL session token
+#    obtained from the login step (not the password).
 if [ -n "$SITE_ID" ]; then
-  status="$(request POST "$METAPI_URL/api/accounts/verify-token" "{\"siteId\":$SITE_ID,\"accessToken\":\"$UPSTREAM_PASSWORD\",\"credentialMode\":\"password\"}" "$METAPI_AUTH_TOKEN")"
+  status="$(request POST "$METAPI_URL/api/accounts/verify-token" "{\"siteId\":$SITE_ID,\"accessToken\":\"$LOGIN_TOKEN\",\"credentialMode\":\"session\"}" "$METAPI_AUTH_TOKEN")"
   if [ "$status" = "200" ]; then
-    pass_step "verify-token (unexpected success with password input)"
+    pass_step "verify-token (real session token, HTTP 200)"
   else
-    fail_step "verify-token (expected: takes a token, not a password — HTTP $status)"
+    fail_step "verify-token (real session token, HTTP $status)"
     evidence
   fi
 else

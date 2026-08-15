@@ -59,12 +59,14 @@ func countProxyLogsRows(t *testing.T, db *store.DB, pattern string) int {
 	return count
 }
 
-// shutdownWriterSoon waits up to 2s for the writer to drain+flush after a stop
+// shutdownWriterSoon waits up to 15s for the writer to drain+flush after a stop
 // signal. The loop goroutine closes b.done once it returns, so a successful
-// shutdown means every enqueued entry has been flushed.
+// shutdown means every enqueued entry has been flushed. The generous budget
+// exists because the backpressure test performs 500 row inserts under -race
+// (2s was too tight on loaded CI runners: "context deadline exceeded").
 func shutdownWriterSoon(t *testing.T, b *proxyLogBatchWriter) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	if err := b.shutdown(ctx); err != nil {
 		t.Fatalf("batch writer shutdown: %v", err)
