@@ -82,6 +82,10 @@ func main() {
 		slog.Error("startup bootstrap failed", "error", err)
 		os.Exit(1)
 	}
+	// One-time OAuth identity column backfill (bounded, marker-gated). Runs
+	// before the server accepts traffic so the admin list endpoint never
+	// pays the old per-request scan+update cost. See app.RunOauthIdentityBackfill.
+	app.RunOauthIdentityBackfill()
 	// N7: apply operator-configured cache-ratio fallback overrides to routing.
 	app.ApplyCacheRatioOverrides(cfg)
 	if err := app.ConfigureProxyUpstream(cfg); err != nil {

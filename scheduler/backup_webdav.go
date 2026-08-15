@@ -9,13 +9,13 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"net/netip"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/ssrf"
 	backupsvc "github.com/deliciousbuding/metapi-go/service/backup"
 	"github.com/deliciousbuding/metapi-go/store"
 )
@@ -208,7 +208,7 @@ func newBackupWebdavHTTPTransport() *http.Transport {
 				if err != nil {
 					return nil, err
 				}
-				if err := rejectUnsafeBackupWebdavDialHost(ctx, host); err != nil {
+				if err := ssrf.RejectUnsafeWebdavDialHost(ctx, host, allowPrivateBackupWebdavTargets); err != nil {
 					return nil, err
 				}
 			}
@@ -218,28 +218,6 @@ func newBackupWebdavHTTPTransport() *http.Transport {
 		ResponseHeaderTimeout: backupWebdavFetchTimeout,
 		IdleConnTimeout:       30 * time.Second,
 	}
-}
-
-func rejectUnsafeBackupWebdavDialHost(ctx context.Context, host string) error {
-	if !isAllowedBackupWebdavTargetHost(host) {
-		return fmt.Errorf("refusing WebDAV request to unsafe host %q", host)
-	}
-	if _, err := netip.ParseAddr(strings.Trim(host, "[]")); err == nil {
-		return nil
-	}
-	ips, err := net.DefaultResolver.LookupNetIP(ctx, "ip", host)
-	if err != nil {
-		return err
-	}
-	if len(ips) == 0 {
-		return fmt.Errorf("no IP addresses found for WebDAV host %q", host)
-	}
-	for _, ip := range ips {
-		if isUnsafeBackupWebdavAddr(ip) {
-			return fmt.Errorf("refusing WebDAV request to unsafe resolved address %s", ip)
-		}
-	}
-	return nil
 }
 
 func (s *BackupWebdavScheduler) updateState(store *store.SettingsStore, err error) {
@@ -317,33 +295,5 @@ func isValidHTTPURL(raw string) bool {
 			return false
 		}
 	}
-	return isAllowedBackupWebdavTargetHost(parsed.Hostname())
-}
-
-func isAllowedBackupWebdavTargetHost(host string) bool {
-	if allowPrivateBackupWebdavTargets {
-		return true
-	}
-	host = strings.TrimSpace(strings.Trim(host, "[]"))
-	if host == "" || strings.Contains(host, "%") {
-		return false
-	}
-	lower := strings.TrimSuffix(strings.ToLower(host), ".")
-	if lower == "localhost" || strings.HasSuffix(lower, ".localhost") {
-		return false
-	}
-	if addr, err := netip.ParseAddr(host); err == nil {
-		return !isUnsafeBackupWebdavAddr(addr)
-	}
-	return true
-}
-
-func isUnsafeBackupWebdavAddr(addr netip.Addr) bool {
-	addr = addr.Unmap()
-	return addr.IsUnspecified() ||
-		addr.IsLoopback() ||
-		addr.IsPrivate() ||
-		addr.IsLinkLocalUnicast() ||
-		addr.IsLinkLocalMulticast() ||
-		addr.IsMulticast()
+	return ssrf.IsAllowedWebdavTargetHost(parsed.Hostname(), allowPrivateBackupWebdavTargets)
 }

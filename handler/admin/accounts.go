@@ -22,6 +22,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
+	"golang.org/x/sync/singleflight"
 )
 
 // RegisterAccountsRoutes registers all /api/accounts routes.
@@ -54,6 +55,10 @@ type accountsSnapshotCache struct {
 	data      []byte
 	expiresAt time.Time
 	ttl       time.Duration
+	// flight deduplicates concurrent cache-miss computes so N admin sessions
+	// polling an expired snapshot share one ListAccountsWithSites + per-account
+	// metrics run instead of running it N× (thundering herd).
+	flight singleflight.Group
 }
 
 func (c *accountsSnapshotCache) get() ([]byte, bool) {
@@ -77,6 +82,35 @@ func (c *accountsSnapshotCache) clear() {
 	defer c.mu.Unlock()
 	c.data = nil
 	c.expiresAt = time.Time{}
+}
+
+// getOrCompute returns the cached snapshot, or computes it via the supplied
+// function under single-flight dedup so N concurrent admin sessions hitting a
+// cold/expired cache share one compute instead of running it N×. Returns
+// (data, hit, err): hit reports whether the fast-path cache served the bytes
+// (for the x-accounts-snapshot-cache response header). Only successful
+// computes are stored, so errors never poison the cache.
+func (c *accountsSnapshotCache) getOrCompute(compute func() ([]byte, error)) ([]byte, bool, error) {
+	if cached, hit := c.get(); hit {
+		return cached, true, nil
+	}
+	result, err, _ := c.flight.Do("snapshot", func() (any, error) {
+		// Re-check: a concurrent leader may have populated the cache while we
+		// waited for the single-flight slot.
+		if cached, hit := c.get(); hit {
+			return cached, nil
+		}
+		data, err := compute()
+		if err != nil {
+			return nil, err
+		}
+		c.set(data)
+		return data, nil
+	})
+	if err != nil {
+		return nil, false, err
+	}
+	return result.([]byte), false, nil
 }
 
 var globalAccountsCache = &accountsSnapshotCache{ttl: 30 * time.Second}
@@ -105,22 +139,43 @@ func (h *accountsHandler) listAccounts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check snapshot cache
-	if !forceRefresh {
-		if cached, hit := globalAccountsCache.get(); hit {
-			w.Header().Set("Content-Type", "application/json")
-			w.Header().Set("x-accounts-snapshot-cache", "hit")
-			w.WriteHeader(http.StatusOK)
-			w.Write(cached)
-			return
-		}
+	// Snapshot cache: a hit short-circuits; on a miss the single-flight group
+	// deduplicates concurrent computes so N admin sessions polling an expired
+	// snapshot share one ListAccountsWithSites + per-account metrics run
+	// instead of running it N× (thundering herd). ?refresh=true clears the
+	// cache first so a force request always recomputes and repopulates.
+	if forceRefresh {
+		globalAccountsCache.clear()
 	}
-
-	accounts, err := service.ListAccountsWithSites(h.db)
+	data, cacheHit, err := globalAccountsCache.getOrCompute(func() ([]byte, error) {
+		return h.computeAccountsSnapshot()
+	})
 	if err != nil {
 		slog.Error("Failed to load accounts", "err", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "Failed to load accounts"})
 		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if cacheHit {
+		w.Header().Set("x-accounts-snapshot-cache", "hit")
+	} else {
+		w.Header().Set("x-accounts-snapshot-cache", "miss")
+	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
+// computeAccountsSnapshot builds the full accounts+sites snapshot payload (the
+// cache-miss path). Extracted from listAccounts so the single-flight group can
+// deduplicate concurrent misses. Returns the marshaled JSON bytes; the caller
+// (getOrCompute) stores them in the cache. Today-metrics failure degrades to
+// "no metrics" and is logged — the account list itself must not fail because
+// an auxiliary aggregation query broke.
+func (h *accountsHandler) computeAccountsSnapshot() ([]byte, error) {
+	accounts, err := service.ListAccountsWithSites(h.db)
+	if err != nil {
+		return nil, err
 	}
 
 	// Per-account today truth. Failure degrades to "no metrics" (frontend shows
@@ -142,11 +197,7 @@ func (h *accountsHandler) listAccounts(w http.ResponseWriter, r *http.Request) {
 		"accounts":    accounts,
 		"sites":       sites,
 	}
-	respBytes, _ := json.Marshal(resp)
-	globalAccountsCache.set(respBytes)
-
-	w.Header().Set("x-accounts-snapshot-cache", "miss")
-	writeJSON(w, http.StatusOK, resp)
+	return json.Marshal(resp)
 }
 
 // listAccountsPaginated serves GET /api/accounts?page=&pageSize= with a bounded
@@ -178,12 +229,12 @@ func (h *accountsHandler) listAccountsPaginated(w http.ResponseWriter, r *http.R
 	h.db.Select(&sites, "SELECT "+service.SiteSelectColumns+" FROM sites ORDER BY sort_order, id")
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"items":     normalizeSlice(accounts),
-		"total":     total,
-		"page":      page,
-		"pageSize":  pageSize,
+		"items":       normalizeSlice(accounts),
+		"total":       total,
+		"page":        page,
+		"pageSize":    pageSize,
 		"generatedAt": time.Now().UTC().Format(time.RFC3339),
-		"sites":     sites,
+		"sites":       sites,
 	})
 }
 
@@ -233,7 +284,7 @@ func applyAccountTodayMetrics(accounts []map[string]any, todayMetrics map[int64]
 func (h *accountsHandler) createAccount(w http.ResponseWriter, r *http.Request) {
 	var body payloads.AccountCreatePayload
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid account payload: " + err.Error())
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid account payload: "+err.Error())
 		return
 	}
 
@@ -619,7 +670,7 @@ func (h *accountsHandler) createSingleAccount(ctx context.Context, body payloads
 func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 	var body payloads.AccountLoginPayload
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid login payload: " + err.Error())
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid login payload: "+err.Error())
 		return
 	}
 
@@ -645,7 +696,7 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 
 	adp := platform.GetAdapter(site.Platform)
 	if adp == nil {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "unsupported platform: " + site.Platform)
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "unsupported platform: "+site.Platform)
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
@@ -760,7 +811,7 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 func (h *accountsHandler) verifyToken(w http.ResponseWriter, r *http.Request) {
 	var body payloads.AccountVerifyTokenPayload
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid verify-token payload: " + err.Error())
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid verify-token payload: "+err.Error())
 		return
 	}
 
@@ -787,7 +838,7 @@ func (h *accountsHandler) verifyToken(w http.ResponseWriter, r *http.Request) {
 
 	adp := platform.GetAdapter(site.Platform)
 	if adp == nil {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "unsupported platform: " + site.Platform)
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "unsupported platform: "+site.Platform)
 		return
 	}
 
@@ -951,7 +1002,7 @@ func (h *accountsHandler) rebindSession(w http.ResponseWriter, r *http.Request) 
 
 	var body payloads.AccountRebindSessionPayload
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid rebind payload: " + err.Error())
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid rebind payload: "+err.Error())
 		return
 	}
 

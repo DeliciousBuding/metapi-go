@@ -11,13 +11,13 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"net/netip"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/app"
+	"github.com/deliciousbuding/metapi-go/internal/ssrf"
 	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/jmoiron/sqlx"
 )
@@ -262,14 +262,15 @@ func isValidWebdavFileURL(raw string) bool {
 	}
 	// Explicit SSRF guard: reject literal IPs in private/loopback/link-local/
 	// unspecified ranges at the URL-validation layer. This complements the
-	// dial-time DNS resolution check in rejectUnsafeWebdavDialHost and the
-	// hostname-level guard in isAllowedWebdavTargetHost. The allowPrivateWebdavTargets
-	// flag (test-only) bypasses this guard so httptest servers on 127.0.0.1 work.
+	// dial-time DNS resolution check in ssrf.RejectUnsafeWebdavDialHost and the
+	// hostname-level guard in ssrf.IsAllowedWebdavTargetHost. The
+	// allowPrivateWebdavTargets flag (test-only) bypasses this guard so
+	// httptest servers on 127.0.0.1 work.
 	host := parsed.Hostname()
-	if !allowPrivateWebdavTargets && isPrivateOrLoopback(host) {
+	if !allowPrivateWebdavTargets && ssrf.IsPrivateOrLoopbackLiteral(host) {
 		return false
 	}
-	return isAllowedWebdavTargetHost(host)
+	return ssrf.IsAllowedWebdavTargetHost(host, allowPrivateWebdavTargets)
 }
 
 func decodeOptionalJSONRequest(r *http.Request, dst any) error {
@@ -497,7 +498,7 @@ func newWebdavHTTPTransport() *http.Transport {
 				if err != nil {
 					return nil, err
 				}
-				if err := rejectUnsafeWebdavDialHost(ctx, host); err != nil {
+				if err := ssrf.RejectUnsafeWebdavDialHost(ctx, host, allowPrivateWebdavTargets); err != nil {
 					return nil, err
 				}
 			}
@@ -507,75 +508,6 @@ func newWebdavHTTPTransport() *http.Transport {
 		ResponseHeaderTimeout: backupWebdavFetchTimeout,
 		IdleConnTimeout:       30 * time.Second,
 	}
-}
-
-func rejectUnsafeWebdavDialHost(ctx context.Context, host string) error {
-	if !isAllowedWebdavTargetHost(host) {
-		return fmt.Errorf("refusing WebDAV request to unsafe host %q", host)
-	}
-	if _, err := netip.ParseAddr(strings.Trim(host, "[]")); err == nil {
-		return nil
-	}
-	ips, err := net.DefaultResolver.LookupNetIP(ctx, "ip", host)
-	if err != nil {
-		return err
-	}
-	if len(ips) == 0 {
-		return fmt.Errorf("no IP addresses found for WebDAV host %q", host)
-	}
-	for _, ip := range ips {
-		if isUnsafeWebdavAddr(ip) {
-			return fmt.Errorf("refusing WebDAV request to unsafe resolved address %s", ip)
-		}
-	}
-	return nil
-}
-
-func isAllowedWebdavTargetHost(host string) bool {
-	if allowPrivateWebdavTargets {
-		return true
-	}
-	host = strings.TrimSpace(strings.Trim(host, "[]"))
-	if host == "" || strings.Contains(host, "%") {
-		return false
-	}
-	lower := strings.TrimSuffix(strings.ToLower(host), ".")
-	if lower == "localhost" || strings.HasSuffix(lower, ".localhost") {
-		return false
-	}
-	if addr, err := netip.ParseAddr(host); err == nil {
-		return !isUnsafeWebdavAddr(addr)
-	}
-	return true
-}
-
-func isUnsafeWebdavAddr(addr netip.Addr) bool {
-	addr = addr.Unmap()
-	return addr.IsUnspecified() ||
-		addr.IsLoopback() ||
-		addr.IsPrivate() ||
-		addr.IsLinkLocalUnicast() ||
-		addr.IsLinkLocalMulticast() ||
-		addr.IsMulticast()
-}
-
-// isPrivateOrLoopback reports whether host is a literal IP address in a
-// private, loopback, link-local, multicast, or unspecified range. This covers:
-//   - Loopback: 127.0.0.0/8, ::1
-//   - Link-local: 169.254.0.0/16 (incl. cloud metadata 169.254.169.254), fe80::/10
-//   - Private: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
-//   - Unspecified: 0.0.0.0/8, ::
-//
-// Hostnames that are not literal IPs return false: DNS resolution for
-// hostnames is deferred to the dial-time guard in rejectUnsafeWebdavDialHost
-// to avoid TOCTOU races (a hostname that resolves to a safe IP at validation
-// time could resolve to a private IP by dial time, and vice versa).
-func isPrivateOrLoopback(host string) bool {
-	addr, err := netip.ParseAddr(strings.Trim(host, "[]"))
-	if err != nil {
-		return false
-	}
-	return isUnsafeWebdavAddr(addr)
 }
 
 func readLimitedWebdavBody(body io.Reader, maxBytes int64) ([]byte, error) {
