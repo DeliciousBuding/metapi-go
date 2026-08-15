@@ -9,6 +9,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/service/checkin"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/jmoiron/sqlx"
 )
 
 const checkinPollMs = int64(60_000) // 60 seconds between interval polls
@@ -30,6 +31,11 @@ type CheckinScheduler struct {
 	intervalTimer    *time.Ticker
 	intervalStop     chan struct{}
 	attemptByAccount map[int64]int64 // accountId -> last attempt timestamp (ms)
+
+	// checkinAll is the checkin execution function. Defaults to
+	// checkin.CheckinAll; overridable in tests to inject a mock that records
+	// calls without touching real upstreams.
+	checkinAll func(cfg *config.Config, db *sqlx.DB, accountIDs []int64, scheduleMode string) []checkin.CheckinAllResult
 }
 
 // NewCheckinScheduler creates a new checkin scheduler.
@@ -38,6 +44,7 @@ func NewCheckinScheduler(cfg *config.Config) *CheckinScheduler {
 		cfg:              cfg,
 		mode:             cfg.CheckinScheduleMode,
 		attemptByAccount: make(map[int64]int64),
+		checkinAll:       checkin.CheckinAll,
 	}
 }
 
@@ -160,7 +167,7 @@ func (s *CheckinScheduler) maybeCatchUpCheckin() {
 	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
 	var ranToday int
-	if err := dbw.QueryRow(`SELECT COUNT(*) FROM checkin_logs WHERE created_at >= ?`, startOfDay.Format(time.RFC3339)).Scan(&ranToday); err != nil {
+	if err := dbw.QueryRow(dbw.Rebind(`SELECT COUNT(*) FROM checkin_logs WHERE created_at >= ?`), startOfDay.Format(time.RFC3339)).Scan(&ranToday); err != nil {
 		slog.Warn("checkin catch-up: ran-today query failed", "error", err)
 		return
 	}
@@ -361,7 +368,7 @@ func (s *CheckinScheduler) runIntervalPassLocked(dbw *store.DB) {
 		return
 	}
 
-	results := checkin.CheckinAll(s.cfg, dbw.DB, dueIDs, "interval")
+	results := s.checkinAll(s.cfg, dbw.DB, dueIDs, "interval")
 
 	nowMs := now.UnixMilli()
 	s.mu.Lock()
