@@ -173,23 +173,102 @@ func (h *tokenRoutesHandler) listSummary(w http.ResponseWriter, r *http.Request)
 
 // ---- List Routes ----
 // GET /api/routes
+//
+// Defensive pagination (#719/#711 parity): the endpoint is unbounded by
+// default, but operators can opt into server-side paging with ?page/&pageSize.
+// When ?page is absent the behavior and response shape are byte-identical to
+// the legacy surface (a bare JSON array of routes with batched channels) so
+// existing frontend code that does not paginate keeps working untouched. Only
+// when a non-empty ?page is supplied does the handler apply LIMIT/OFFSET and
+// return the {items,total,page,pageSize} envelope used by /api/channels.
 func (h *tokenRoutesHandler) listRoutes(w http.ResponseWriter, r *http.Request) {
-	rows := queryRows(h.db, "SELECT * FROM token_routes ORDER BY sort_order ASC, id ASC")
-	// Batch-load all channels once (kill per-route N+1;).
+	pageStr := strings.TrimSpace(r.URL.Query().Get("page"))
+	paginate := pageStr != ""
+
+	var rows []map[string]any
+	var total int64
+	page, pageSize := 1, 50
+	if paginate {
+		page = clampInt(getQueryInt(r, "page", 1), 1, 1_000_000)
+		pageSize = clampInt(getQueryInt(r, "pageSize", 50), 1, 200)
+		offset := (page - 1) * pageSize
+		rows = queryRows(h.db, h.db.Rebind(
+			"SELECT * FROM token_routes ORDER BY sort_order ASC, id ASC LIMIT ? OFFSET ?"),
+			pageSize, offset)
+		// Separate COUNT keeps the row maps free of a window-function column
+		// (queryRows MapScans into map[string]any and would echo total_count
+		// into every route item otherwise).
+		_ = h.db.Get(&total, h.db.Rebind("SELECT COUNT(*) FROM token_routes"))
+	} else {
+		rows = queryRows(h.db, "SELECT * FROM token_routes ORDER BY sort_order ASC, id ASC")
+	}
+
+	result := h.enrichRoutesWithChannels(rows, paginate)
+
+	if paginate {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"items":    normalizeSlice(result),
+			"total":    total,
+			"page":     page,
+			"pageSize": pageSize,
+		})
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+// enrichRoutesWithChannels batch-loads channels for the given route rows and
+// attaches the enriched channel list to each route. When scopeToPage is true
+// (paginated call) the channel query is filtered to the route IDs on the
+// current page so a 50-row page does not pull the entire fleet's channels;
+// when false (legacy unpaginated call) it loads every channel, matching the
+// pre-pagination behavior exactly.
+func (h *tokenRoutesHandler) enrichRoutesWithChannels(rows []map[string]any, scopeToPage bool) []map[string]any {
 	// Select only credential fragments (first4/last4/length) instead of the
 	// plaintext access_token/api_token — the full secret never crosses the
 	// DB→Go boundary, so a stray slog/metrics call cannot leak it. The masked
 	// form is rebuilt in Go by routeChannelAccountPublic().
 	accessTokenFrags := credentialFragmentsSelect(h.db, "a.access_token", "access_token")
 	apiTokenFrags := credentialFragmentsSelect(h.db, "a.api_token", "api_token")
-	allChannelRows := queryRows(h.db,
-		`SELECT rc.*, a.username, `+accessTokenFrags+`, `+apiTokenFrags+`,
+	channelQuery := `SELECT rc.*, a.username, ` + accessTokenFrags + `, ` + apiTokenFrags + `,
 		       a.balance, a.status as account_status,
 		        s.id as site_id, s.name as site_name, s.url as site_url, s.platform as site_platform, s.status as site_status
 		 FROM route_channels rc
 		 LEFT JOIN accounts a ON rc.account_id = a.id
-		 LEFT JOIN sites s ON a.site_id = s.id
-		 ORDER BY rc.route_id ASC, rc.priority ASC, rc.id ASC`)
+		 LEFT JOIN sites s ON a.site_id = s.id`
+
+	// Collect route IDs to scope the channel batch load to the current page.
+	// Scoping only happens on paginated calls; the legacy call keeps the
+	// unfiltered load so its result set is identical to the pre-pagination
+	// behavior (an IN list of every route ID could also exceed SQLite's
+	// bind-parameter ceiling on very large fleets).
+	var allChannelRows []map[string]any
+	if scopeToPage {
+		routeIDs := make([]int64, 0, len(rows))
+		for _, route := range rows {
+			if rid := coerceInt64(route["id"]); rid > 0 {
+				routeIDs = append(routeIDs, rid)
+			}
+		}
+		if len(routeIDs) > 0 {
+			placeholders := make([]string, len(routeIDs))
+			args := make([]any, len(routeIDs))
+			for i, id := range routeIDs {
+				placeholders[i] = "?"
+				args[i] = id
+			}
+			channelQuery += " WHERE rc.route_id IN (" + strings.Join(placeholders, ",") + ")"
+			channelQuery += " ORDER BY rc.route_id ASC, rc.priority ASC, rc.id ASC"
+			allChannelRows = queryRows(h.db, channelQuery, args...)
+		} else {
+			channelQuery += " ORDER BY rc.route_id ASC, rc.priority ASC, rc.id ASC"
+			allChannelRows = queryRows(h.db, channelQuery)
+		}
+	} else {
+		channelQuery += " ORDER BY rc.route_id ASC, rc.priority ASC, rc.id ASC"
+		allChannelRows = queryRows(h.db, channelQuery)
+	}
+
 	channelsByRoute := make(map[int64][]map[string]any)
 	for _, ch := range allChannelRows {
 		routeID := coerceInt64(ch["routeId"])
@@ -238,7 +317,7 @@ func (h *tokenRoutesHandler) listRoutes(w http.ResponseWriter, r *http.Request) 
 		}
 		result = append(result, item)
 	}
-	writeJSON(w, http.StatusOK, result)
+	return result
 }
 
 // ---- Create Route ----
