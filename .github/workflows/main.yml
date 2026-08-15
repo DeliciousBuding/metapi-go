@@ -37,13 +37,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-      # web/embed.go embeds web/dist, which is gitignored and absent on a
-      # fresh checkout. A placeholder file lets Go tooling type-check the
-      # embed package; production images build the real SPA in the Dockerfile.
-      - run: mkdir -p web/dist && touch web/dist/placeholder.txt
+      - uses: ./.github/actions/go-toolchain
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
@@ -55,13 +49,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-      # web/embed.go embeds web/dist, which is gitignored and absent on a
-      # fresh checkout. A placeholder file lets go vet type-check the embed
-      # package; production images build the real SPA in the Dockerfile.
-      - run: mkdir -p web/dist && touch web/dist/placeholder.txt
+      - uses: ./.github/actions/go-toolchain
       - run: go vet ./...
 
   vulncheck:
@@ -69,10 +57,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-      - run: mkdir -p web/dist && touch web/dist/placeholder.txt
+      - uses: ./.github/actions/go-toolchain
       - run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
 
   mod-verify:
@@ -160,6 +145,12 @@ jobs:
       - name: Install web deps (playwright + axe-core)
         run: bun install --frozen-lockfile
         working-directory: web
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/bun.lockb') }}
+          restore-keys: playwright-${{ runner.os }}-
       - name: Install Playwright Chromium
         run: bunx playwright install --with-deps chromium
         working-directory: web
@@ -189,15 +180,24 @@ jobs:
           cd web
           BASE_URL=http://127.0.0.1:4099 bun run a11y:scan
 
-  test-sqlite:
+  test-sqlite-shard:
+    # The race detector makes the full suite the pipeline's long pole (~5 min).
+    # Shard packages round-robin across parallel runners to cut it ~4x while
+    # still running every package under -race. (Packages are independent; the
+    # handler tests use per-test :memory: sqlite, so sharding is safe.) The
+    # stable `test-sqlite` name below aggregates the shards so branch
+    # protection keeps a single required check.
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
     needs: frontend
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+        total: [4]
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
+      - uses: ./.github/actions/go-toolchain
       # SPA-fallback and static-asset tests exercise the real embedded dist,
       # built once by the frontend job and passed through the artifact.
       - name: Download frontend dist
@@ -205,7 +205,32 @@ jobs:
         with:
           name: web-dist
           path: web/dist
-      - run: go test ./... -count=1 -race
+      - name: Run tests (shard ${{ matrix.shard }}/${{ matrix.total }})
+        run: |
+          set -euo pipefail
+          mapfile -t pkgs < <(go list ./...)
+          shard_pkgs=()
+          for i in "${!pkgs[@]}"; do
+            if (( i % matrix.total == matrix.shard )); then
+              shard_pkgs+=("${pkgs[i]}")
+            fi
+          done
+          if [ "${#shard_pkgs[@]}" -eq 0 ]; then
+            echo "no packages in shard; nothing to run"
+            exit 0
+          fi
+          echo "shard ${{ matrix.shard }} running ${#shard_pkgs[@]} packages:"
+          printf '  %s\n' "${shard_pkgs[@]}"
+          go test "${shard_pkgs[@]}" -count=1 -race
+
+  # Stable name that branch protection depends on: passes only when every
+  # shard above passed.
+  test-sqlite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: test-sqlite-shard
+    steps:
+      - run: echo "all test-sqlite shards passed"
 
   test-pg:
     runs-on: ubuntu-latest
@@ -250,10 +275,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-      - run: mkdir -p web/dist && touch web/dist/placeholder.txt
+      - uses: ./.github/actions/go-toolchain
       - run: go build -trimpath ./cmd/server
       - run: go build -trimpath ./cmd/migrate
 
@@ -277,11 +299,7 @@ jobs:
           - 3001:3000
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-      # smoke.sh exercises backend routes only; the SPA bundle is irrelevant.
-      - run: mkdir -p web/dist && touch web/dist/placeholder.txt
+      - uses: ./.github/actions/go-toolchain
       - name: Initialize upstreams
         run: |
           set -euo pipefail
