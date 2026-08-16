@@ -43,6 +43,7 @@ import { useChannels } from '@/features/channels'
 import { useModels } from '@/features/models'
 import { cn } from '@/lib/utils'
 
+import { filterEnabledComparisonChannels } from '../lib/comparison-channels'
 import { defaultTemplateStorage, loadTesterTemplates } from '../lib/templates'
 import {
   TESTER_FORM_DEFAULT_VALUES,
@@ -84,6 +85,10 @@ export function TestForm({
 
   const compareChannels = form.watch('compareChannels')
   const selectedChannelIds = form.watch('channelIds') ?? []
+  const comparisonChannels = useMemo(
+    () => filterEnabledComparisonChannels(channelsQuery.data ?? []),
+    [channelsQuery.data]
+  )
 
   // Pre-select the model from a deep link once the marketplace list lands.
   useEffect(() => {
@@ -283,7 +288,7 @@ export function TestForm({
                   {t('modelTester.form.compareChannelsLabel')}
                 </FormLabel>
                 <div className='max-h-48 space-y-1 overflow-y-auto rounded-lg border p-2'>
-                  {(channelsQuery.data ?? []).map((channel) => {
+                  {comparisonChannels.map((channel) => {
                     const checked = selectedChannelIds.includes(channel.id)
                     return (
                       <label

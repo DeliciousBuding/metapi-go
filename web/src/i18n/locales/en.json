@@ -243,6 +243,7 @@
         "title": "Channel comparison",
         "emptyHint": "Select two or more channels and run a comparison.",
         "summary": "{{succeeded}} succeeded / {{failed}} failed",
+        "summaryWithAborted": "{{succeeded}} succeeded / {{failed}} failed / {{aborted}} stopped",
         "channel": "Channel",
         "site": "Site",
         "status": "Status",
