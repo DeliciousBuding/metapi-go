@@ -5,7 +5,7 @@ All notable changes to MetAPI-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
-## [Unreleased]
+## [v0.14.0] — 2026-08-17
 
 ### Added
 
@@ -14,6 +14,9 @@ All notable changes to MetAPI-Go will be documented in this file.
 - 站点/模型运行时熔断器增加 half-open 探测，恢复通道可受控重新进入候选集（#791）。
 - 接入向导收口：站点→账号→路由链路携带 `siteId`/`create` 深链预选、session/API key 凭证内联验证，创建路由时从链上下文预填 channelDrafts（#796）。
 - 路由详情真值：每个通道展示配置权重 + 启用占比（停用通道不计入分母）与规范化输入/输出单价（按具体模型 + accountId 关联，附价格来源），纯函数拆到 `route-price-truth` 并覆盖测试（#799）。
+- 引导链真值收口：站点 CTA 使用真实 TanStack 路由，账号/路由创建 ID 按后端响应解析，编辑保留脱敏凭据，批量通道部分失败显式提示（#800）。
+- 测试台真值收口：解析同步 harness envelope，保留上游状态/延迟/错误，禁用通道不再进入比较，停止请求独立计数，比较结果不污染会话历史（#801）。
+- URL 状态稳定性：列表页以 URL 作为分页、筛选、搜索和排序唯一所有者，稳定表格回调与最新 URL 合并，加入真实 Chromium route/a11y/mobile smoke（#802）。
 
 ### Changed
 
@@ -27,6 +30,12 @@ All notable changes to MetAPI-Go will be documented in this file.
 - 稳定 batch-writer shutdown 与 e2e `first_model` 空值处理（#771/#778）。
 - usage 缺少缓存明细时按完整输入/输出单价计费，不再错误套用缓存折扣（#788）。
 - usage aggregation flush 失败时保留 delta 与 watermark，重试不再静默丢失统计（#789）。
+- 修复账号深链测试夹具未跟随 URL 状态 hook 演进的问题，确保完整前端测试在集成分支上可重复运行。
+
+### Chore
+
+- 将 tester channel/latency truth Waves 2–3 从开放计划毕业为已交付能力；剩余工作仅为 operator-gated 的真实 Codex/AnyRouter 探针（#558）。
+- 将列表页 URL 状态稳定性规则固化到 [`docs/design/state-stability.md`](docs/design/state-stability.md)，并把 `ui:smoke` 纳入 CI a11y acceptance gate。
 
 ## [v0.13.0] — 2026-08-15
 

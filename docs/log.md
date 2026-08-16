@@ -1,9 +1,15 @@
 # log.md — MetAPI Go product milestones
 
-**Last updated**: 2026-08-16
+**Last updated**: 2026-08-17
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
+
+## 2026-08-17 — v0.14.0 发布收口
+
+- **交付闭环**：引导链、测试台真值、路由成本真值、URL 单一所有者与 Chromium smoke 全部合并；#800/#801/#802 CI 全绿并合入 master。
+- **知识卫生**：Wave 2–3 从 MASTER 毕业，旧 #782 关闭为 #802 的 superseded，剩余开放项仅 #558 的 operator-gated 真实探针。
+- **发布**：准备 v0.14.0，版本、CHANGELOG、STATE、MASTER 与 release pipeline 对齐；生产升级继续遵循 active production compose plane 的镜像 pin + soak + 四层验证门禁。
 
 ## 2026-08-16 — 路由成本真值 + 恢复可靠性 + 知识收口
 
