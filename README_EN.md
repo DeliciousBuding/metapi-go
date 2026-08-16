@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DeliciousBuding/metapi-go/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/DeliciousBuding/metapi-go/actions/workflows/ci.yml/badge.svg?branch=master"></a>
+  <a href="https://github.com/DeliciousBuding/metapi-go/actions/workflows/main.yml"><img alt="CI" src="https://github.com/DeliciousBuding/metapi-go/actions/workflows/main.yml/badge.svg?branch=master"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/DeliciousBuding/metapi-go?logo=github&label=release&color=blue"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/DeliciousBuding/metapi-go?style=social"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/forks"><img alt="Forks" src="https://img.shields.io/github/forks/DeliciousBuding/metapi-go?style=social"></a>
@@ -26,7 +26,7 @@
 </p>
 
 <p align="center">
-  <img alt="Platforms" src="https://img.shields.io/badge/platforms-14-blueviolet">
+  <img alt="Platforms" src="https://img.shields.io/badge/platforms-16-blueviolet">
   <img alt="Notifications" src="https://img.shields.io/badge/notifications-9%20channels-success">
   <img alt="DB" src="https://img.shields.io/badge/DB-SQLite%20%7C%20PostgreSQL-informational">
   <img alt="Image" src="https://img.shields.io/badge/image-15MB-orange">
@@ -51,37 +51,37 @@ Open `http://localhost:4000`.
 
 - **Protocol proxy**: OpenAI, Anthropic, Gemini, Codex — with real-time format conversion
 - **Routing engine**: Weighted random, round-robin, stable-first. Fibonacci backoff cooldown. Circuit breaker.
-- **Account management**: 14 platform adapters, auto check-in, balance tracking, OAuth PKCE
+- **Account management**: 16 platform adapters, auto check-in, balance tracking, OAuth PKCE
 - **Operations**: 9-channel notifications (Webhook/Bark/ServerChan/Telegram/SMTP/Feishu/DingTalk/WeCom/ntfy), audit log, realtime ops panel, backup/restore, rate limiting, 16 background schedulers
 - **Performance**: 20MB memory, 15MB Docker image, <0.1s startup
 
 ## Why Go?
 
-| | Node.js | Go |
-|---|---|---|
-| Memory | 85 MB | ~20 MB |
-| Image | ~250 MB | ~15 MB |
-| Startup | 5-10 s | <0.1 s |
+|         | Node.js | Go     |
+| ------- | ------- | ------ |
+| Memory  | 85 MB   | ~20 MB |
+| Image   | ~250 MB | ~15 MB |
+| Startup | 5-10 s  | <0.1 s |
 
 ## Tech Stack
 
-| Layer | Technology |
-|------|------|
-| Backend | [chi](https://github.com/go-chi/chi) router + `net/http` |
-| Language | Go 1.26.6 |
-| Database | SQLite / PostgreSQL + [sqlx](https://github.com/jmoiron/sqlx); optional Redis for RPM/TPM admission only |
-| Scheduling | [robfig/cron](https://github.com/robfig/cron) |
-| Container | Docker (Alpine, 15MB image) |
-| Frontend | React 19 + Bun + Rsbuild 2 + TanStack Router/Query/Table + Zustand + Tailwind CSS v4 + shadcn Base UI + OKLCH design system + VChart + RHF + Zod + i18next (embedded in Go binary) |
+| Layer      | Technology                                                                                                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Backend    | [chi](https://github.com/go-chi/chi) router + `net/http`                                                                                                                             |
+| Language   | Go 1.26.6                                                                                                                                                                            |
+| Database   | SQLite / PostgreSQL + [sqlx](https://github.com/jmoiron/sqlx); optional Redis for RPM/TPM admission only                                                                             |
+| Scheduling | [robfig/cron](https://github.com/robfig/cron)                                                                                                                                        |
+| Container  | Docker (Alpine, 15MB image)                                                                                                                                                          |
+| Frontend   | React 19 + Bun + Rsbuild 2 + TanStack Router/Query/Table + Zustand + Tailwind CSS v4 + shadcn Base UI + OKLCH design system + Recharts + RHF + Zod + i18next (embedded in Go binary) |
 
 ## Frontend Architecture
 
-As of v0.9.0 the frontend is 100% aligned with the [New API](https://github.com/QuantumNous/new-api) stack, migrated losslessly from the original TypeScript MetAPI: API contracts (camelCase fields, env var names) and DB (SQLite/PG dual dialect) are fully preserved. The prebuilt bundle is embedded into the single Go binary via `go:embed`; the production image ships no Node/Bun runtime.
+As of v0.9.0 the frontend uses a React stack in the same family as [New API](https://github.com/QuantumNous/new-api). Compatibility targets the original TypeScript MetAPI API contracts (camelCase fields and env var names) and SQLite/PostgreSQL data model rather than copying upstream internals. The prebuilt bundle is embedded into the single Go binary via `go:embed`; the production image ships no Node/Bun runtime.
 
-- **13 feature modules**: `auth`, `dashboard` (4 sections + RealtimeOps WebSocket), `sites` (guided setup: site→account→route), `accounts`, `token-routes` (dnd-kit drag), `oauth`, `checkin` (nested response destructuring + failure-reason badges), `proxy-logs` (manual + server pagination + detail Sheet), `models`, `model-tester` (SSE streaming, all protocols), `site-announcements`, `about`, `settings` (5 sub-areas).
-- **data-table four-layer architecture**: `core` (TanStack table primitives) + `layout` (responsive composition) + `toolbar` (filter/search/bulk actions) + `static` (local-array rendering) + `hooks` (controlled state, URL three-segment sync).
-- **OKLCH design system**: three-layer CSS (`theme.css` semantic tokens + `theme-presets.css` 10 presets + `index.css` Tailwind 4 entry); 3-axis theming (preset/radius/scale) via `<body data-theme-*>`; class-based dark mode with cookie persistence. Chart colors sampled from OKLCH tokens in JS with MutationObserver re-sampling on theme change.
-- **Key-based i18n**: i18next + react-i18next, supports `en` + `zh-CN` (1587 keys each, zero missing in either direction); React components use `useTranslation()` + `t()`, non-React modules use `i18n.t()`.
+- **Domain-owned feature modules**: authentication, dashboard, sites/accounts/channels, import, check-in, routing, models/tester, OAuth, observability, proxy logs, settings, and about each live under `src/features/*`. Compatibility URLs remain thin routes instead of pretending to be separate features.
+- **data-table four rendering layers plus hooks**: `core` (TanStack table primitives) + `layout` (responsive composition) + `toolbar` (filter/search/bulk actions) + `static` (local-array rendering); `hooks` owns controlled state and URL synchronization.
+- **OKLCH design system**: three-layer CSS (`theme.css` semantic tokens + `theme-presets.css` 10 presets + `index.css` Tailwind 4 entry); 5-axis theming (preset/font/radius/scale/content-layout) via `<body data-theme-*>`; class-based dark mode with cookie persistence. Recharts reads semantic CSS variables directly.
+- **Key-based i18n**: i18next + react-i18next supports `en` + `zh-CN`; React components use `useTranslation()` + `t()`, non-React modules use `i18n.t()`. A Vitest gate enforces bidirectional key parity, so volatile key counts are not duplicated in documentation.
 
 ## Proxy Usage
 
@@ -95,22 +95,22 @@ curl http://localhost:4000/v1/chat/completions \
 
 All env vars are identical to the TypeScript version.
 
-| Variable | Default |
-|----------|---------|
-| `AUTH_TOKEN` | `change-me-admin-token` |
-| `PROXY_TOKEN` | `change-me-proxy-sk-token` |
-| `PROXY_MAX_BUFFERED_RESPONSE_BYTES` | `20971520`; maximum buffered non-streaming upstream response size |
-| `METAPI_ENABLE_PROXY_STUB` | empty; test/demo-only local proxy stub. Keep empty in production so unconfigured upstream forwarding returns 503. |
-| `PORT` | `4000` |
-| `HOST` | `127.0.0.1` on Windows when unset; `0.0.0.0` elsewhere. Explicit values always win; containers set `0.0.0.0`. |
-| `DB_TYPE` | `sqlite`; `postgres` is inferred when a PostgreSQL URL is provided |
-| `DATABASE_URL` / `DB_URL` | empty; PostgreSQL connection string or SQLite file path. `DB_URL` takes precedence. |
-| `DB_SSLMODE` | empty; PostgreSQL TLS mode. Supports `disable`, `allow`, `prefer`, `require`, `verify-ca`, and `verify-full`; non-empty values override `sslmode` in the connection string. |
-| `DB_PROFILE` | `normal`; pool preset `shared-tiny` (2/1), `normal` (10/3), `dedicated` (20/5). Explicit `DB_MAX_*` override. |
-| `DB_MAX_OPEN_CONNS` / `DB_MAX_IDLE_CONNS` | profile defaults; PostgreSQL application pool budget, must not exceed the database role connection limit. |
-| `DB_CONN_MAX_LIFETIME_SEC` / `DB_CONN_MAX_IDLE_TIME_SEC` | `1800` / `300`; PostgreSQL connection lifetime and idle rotation in seconds. |
-| `TRUSTED_PROXY_CIDRS` | empty; comma-separated reverse-proxy CIDRs allowed to supply `X-Forwarded-For` / `X-Real-IP`; forwarded headers are ignored by default |
-| `ADMIN_CORS_ALLOWED_ORIGINS` | empty; comma-separated exact `http(s)` admin browser origins allowed to call `/api/*`; `*` is rejected |
+| Variable                                                 | Default                                                                                                                                                                     |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AUTH_TOKEN`                                             | `change-me-admin-token`                                                                                                                                                     |
+| `PROXY_TOKEN`                                            | `change-me-proxy-sk-token`                                                                                                                                                  |
+| `PROXY_MAX_BUFFERED_RESPONSE_BYTES`                      | `20971520`; maximum buffered non-streaming upstream response size                                                                                                           |
+| `METAPI_ENABLE_PROXY_STUB`                               | empty; test/demo-only local proxy stub. Keep empty in production so unconfigured upstream forwarding returns 503.                                                           |
+| `PORT`                                                   | `4000`                                                                                                                                                                      |
+| `HOST`                                                   | `127.0.0.1` on Windows when unset; `0.0.0.0` elsewhere. Explicit values always win; containers set `0.0.0.0`.                                                               |
+| `DB_TYPE`                                                | `sqlite`; `postgres` is inferred when a PostgreSQL URL is provided                                                                                                          |
+| `DATABASE_URL` / `DB_URL`                                | empty; PostgreSQL connection string or SQLite file path. `DB_URL` takes precedence.                                                                                         |
+| `DB_SSLMODE`                                             | empty; PostgreSQL TLS mode. Supports `disable`, `allow`, `prefer`, `require`, `verify-ca`, and `verify-full`; non-empty values override `sslmode` in the connection string. |
+| `DB_PROFILE`                                             | `normal`; pool preset `shared-tiny` (2/1), `normal` (10/3), `dedicated` (20/5). Explicit `DB_MAX_*` override.                                                               |
+| `DB_MAX_OPEN_CONNS` / `DB_MAX_IDLE_CONNS`                | profile defaults; PostgreSQL application pool budget, must not exceed the database role connection limit.                                                                   |
+| `DB_CONN_MAX_LIFETIME_SEC` / `DB_CONN_MAX_IDLE_TIME_SEC` | `1800` / `300`; PostgreSQL connection lifetime and idle rotation in seconds.                                                                                                |
+| `TRUSTED_PROXY_CIDRS`                                    | empty; comma-separated reverse-proxy CIDRs allowed to supply `X-Forwarded-For` / `X-Real-IP`; forwarded headers are ignored by default                                      |
+| `ADMIN_CORS_ALLOWED_ORIGINS`                             | empty; comma-separated exact `http(s)` admin browser origins allowed to call `/api/*`; `*` is rejected                                                                      |
 
 Full list: [`.env.example`](.env.example).
 
@@ -164,7 +164,7 @@ bun run dev            # local dev (rsbuild dev, /api /v1 proxied to backend, de
 bun run typecheck      # tsgo type check
 bun run lint           # oxlint
 bun run lint:fix       # oxlint --fix
-bun run test           # vitest run (currently 369 tests / 38 files)
+bun run test           # vitest run
 bun run knip           # detect unused code
 bun run build          # rsbuild build (output embedded into Go binary via go:embed)
 bun run build:check    # tsgo + build (full pre-release check)

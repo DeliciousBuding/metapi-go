@@ -1,10 +1,10 @@
 # UI/UX 与动线审计 — 多 Agent 对照（New API × All API Hub）
 
-**Last updated**: 2026-08-15
+**Last updated**: 2026-08-16
 
 > 4 个审计 agent 的对照结论聚合（动线 / 视觉 / 交互 / 功能对标）+ 实施进展。
-> 对标基线：New API v1.0.0-rc.24、All API Hub 上游 #1290、MetAPI-Go v0.12.0。
-> 产品级结论见 [`../benchmark.md`](../benchmark.md)；本文件是执行层清单。
+> 对标基线：New API v1.0.0-rc.24、All API Hub 上游 #1290、MetAPI-Go v0.13.0。
+> 本文件保留 2026-08 审计证据，不是当前 backlog；开放结果只在 [`../progress/MASTER.md`](../progress/MASTER.md) 维护。
 
 ## 本轮已实施（2026-08-14）
 
@@ -41,47 +41,47 @@
 - **导入向导脏确认**：`import-wizard-dialog.tsx` 有输入时关闭先确认（全站最后一个无守卫表单）
 - **站点状态徽章**、**对比度 token** 见上
 
-## Backlog 状态（对齐 `docs/progress/MASTER.md` 2026-08-15）
+## 审计快照（截至 2026-08-16）
 
-> 下表对齐 [`../progress/MASTER.md`](../progress/MASTER.md) 的产品 roadmap。`[x]` 表示已完成并标注来源（PR 号或代码证据），`[ ]` 表示未实施；P1/P2 待办已重新编号。
+> “未承诺”表示审计时未实施，仅保留为历史观察，不是待办。下表只有“批量延迟对比”的剩余部分已进入 [`../progress/MASTER.md`](../progress/MASTER.md)；其他观察需要新的用户需求或缺陷证据才会重新立项。
 
 ### P1
 
-| # | 状态 | 项 | 位置 | 备注 |
-|---|------|----|------|------|
-| — | [x] #658 | 全局搜索（⌘K） | 后端 `/api/search` + `searchApi` | done — Command Palette 已接入 header，搜站点/账号/Token/模型/日志并跳转 |
-| — | [x] #659 | 今日快照横条 | `dashboard/sections/overview/overview-section.tsx` | done — 快照横条上线（余额+环比 / 签到 / 未读告警 / 可用性红绿点），`todayCheckin`/`getAttention` 已接 |
-| — | [x] #659 | attention 上提首页 | `availability-section.tsx` | done — 首页快照横条提供 attention 直达，原「藏在第 4 个 Tab」已收口 |
-| — | [x] #660 | 告警富化 | `service/alert/alert.go` | done — 3 条核心告警消息富化（受影响路由 + 替代站点 + 直达链接） |
-| — | [x] 代码 | 批量操作反馈 | `accounts-page.tsx` / `accounts/api.ts` | done — `useBatchUpdateAccounts` 已 toast `bulkPartial`（success/failed/items）；MASTER.md 未单列号，证据见 `accounts/api.ts` |
-| 1 | [ ] | checkin/oauth 死复选框 | `checkin-page.tsx` / `oauth-page.tsx` | 有选择列无批量操作 → 补操作或删列 |
-| 2 | [ ] | 排序清除 | `data-table/core/column-header.tsx` | 菜单加「默认顺序」或表头三态循环 |
-| 3 | [ ] | 徽章配方收敛 | overview/availability/checkin/accounts/routes/channels 内联状态徽章 | 迁移到 badge success/info 变体（变体已加，未全量迁移） |
-| 4 | [ ] | Stat 卡升级 | `dashboard/components/stat-card.tsx` | IconBadge + 三档 tone + 明细子格（New API C1/C2 借鉴） |
-| 5 | [x] 代码 | RealtimeSparkline 图表 token | `availability-section.tsx` | done — 已改 `bg-chart-1/70`（CSS var 直读，不再 `bg-primary/70`）；`useChartColors` 已随 VChart 移除 |
-| 6 | [ ] | 行内高频操作免菜单化 | `accounts-columns.tsx` | New API 渠道行操作模式（行级 pending + 成功 toast） |
+| #   | 状态           | 项                           | 位置                                                                | 备注                                                                                              |
+| --- | -------------- | ---------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| —   | 已交付 #658    | 全局搜索（⌘K）               | 后端 `/api/search` + `searchApi`                                    | Command Palette 已接入 header，搜站点/账号/Token/模型/日志并跳转                                  |
+| —   | 已交付 #659    | 今日快照横条                 | `dashboard/sections/overview/overview-section.tsx`                  | 快照横条上线（余额+环比 / 签到 / 未读告警 / 可用性红绿点），`todayCheckin`/`getAttention` 已接    |
+| —   | 已交付 #659    | attention 上提首页           | `availability-section.tsx`                                          | 首页快照横条提供 attention 直达，原「藏在第 4 个 Tab」已收口                                      |
+| —   | 已交付 #660    | 告警富化                     | `service/alert/alert.go`                                            | 3 条核心告警消息富化（受影响路由 + 替代站点 + 直达链接）                                          |
+| —   | 已交付（代码） | 批量操作反馈                 | `accounts-page.tsx` / `accounts/api.ts`                             | `useBatchUpdateAccounts` 已 toast `bulkPartial`（success/failed/items）；证据见 `accounts/api.ts` |
+| 1   | 未承诺         | checkin/oauth 死复选框       | `checkin-page.tsx` / `oauth-page.tsx`                               | 审计建议：有选择列无批量操作时补操作或删列                                                        |
+| 2   | 未承诺         | 排序清除                     | `data-table/core/column-header.tsx`                                 | 审计建议：菜单加「默认顺序」或表头三态循环                                                        |
+| 3   | 未承诺         | 徽章配方收敛                 | overview/availability/checkin/accounts/routes/channels 内联状态徽章 | success/info 变体已存在，但未做全量迁移                                                           |
+| 4   | 未承诺         | Stat 卡升级                  | `dashboard/components/stat-card.tsx`                                | 审计建议：IconBadge + 三档 tone + 明细子格                                                        |
+| 5   | 已交付（代码） | RealtimeSparkline 图表 token | `availability-section.tsx`                                          | 已改 `bg-chart-1/70`；`useChartColors` 已随 VChart 移除                                           |
+| 6   | 未承诺         | 行内高频操作免菜单化         | `accounts-columns.tsx`                                              | 审计建议：高频动作采用行级 pending + 成功反馈                                                     |
 
 ### P2
 
-| # | 状态 | 项 | 位置 | 备注 |
-|---|------|----|------|------|
-| 1 | [ ] | URL 状态同步两套机制统一 | `use-url-table-state.ts` vs 一次性 read + replaceState（accounts/checkin/token-routes/proxy-logs） | |
-| 2 | [ ] | 图标族统一（HugeIcons × lucide 同屏） | ui 原语 vs feature 层 | |
-| 3 | [x] | 文档漂移销项 | DESIGN.md（9 vs 10 预设）、标题 400 vs 500 | done (#757) — DESIGN.md §2.1 预设数更正为 10、§3 标题字重对齐实现（页面 h1 400 / settings 卡片 h1 500）、§2.4 状态色明度对齐、§2.5 图表改述 recharts-only；§4.1 对比度债务已销项（见 `docs/design/a11y-checklist.md` §4.1/§7.14，ink-on-brand 7.28:1 AAA） |
-| 4 | [ ] | 圆角层级 / header 高度双来源 | `data-table-view.tsx`（rounded-lg vs 卡片 rounded-xl）、`app-header.tsx` + `theme.css` token | |
-| 5 | [ ] | 导入向导校验失败聚焦首错字段 | `account-form-dialog.tsx` 等 | |
-| 6 | [ ] | 移动端：首帧侧栏闪烁 / settings 375px 导航 | `use-mobile.tsx` / `settings-sidebar.tsx` | |
-| 7 | [ ] | 骨架屏 shimmer / 表格骨架行宽差异化 | `index.css` / `table-skeleton.tsx` | |
-| 8 | [~] | Playground 会话化 + 模板库 + 批量延迟对比 | `model-tester/`（对标 New API Playground，benchmark P1-7） | #662 已做会话化 + 模板库；批量延迟对比待做 |
+| #   | 状态              | 项                                        | 位置                                                 | 备注                                                                    |
+| --- | ----------------- | ----------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------- |
+| 1   | 已交付 #744/#751  | URL 状态同步两套机制统一                  | accounts/checkin/token-routes/proxy-logs             | 页面统一 `useSearch` + `navigate`，loader 只读 `location.searchStr`     |
+| 2   | 已交付 #758       | 图标族统一（HugeIcons × lucide 同屏）     | ui 原语 vs feature 层                                | ui 原语用 HugeIcons 免费层，业务层沿用 lucide，约定写入 `web/AGENTS.md` |
+| 3   | 已交付 #757       | 文档漂移销项                              | DESIGN.md（9 vs 10 预设）、标题 400 vs 500           | 预设数、标题字重、状态色、图表栈和 CTA 对比度已对齐实现                 |
+| 4   | 未承诺            | 圆角层级 / header 高度双来源              | `data-table-view.tsx`、`app-header.tsx`、`theme.css` | 审计观察，未升格为重构任务                                              |
+| 5   | 未承诺            | 导入向导校验失败聚焦首错字段              | `account-form-dialog.tsx` 等                         | 审计观察，按真实表单缺陷再立项                                          |
+| 6   | 未承诺            | 移动端首帧侧栏 / settings 375px 导航      | `use-mobile.tsx` / `settings-sidebar.tsx`            | 审计观察，按复现证据再立项                                              |
+| 7   | 未承诺            | 骨架屏 shimmer / 表格骨架差异化           | `index.css` / `table-skeleton.tsx`                   | 纯 polish，不进入当前计划                                               |
+| 8   | 部分交付 → MASTER | Playground 会话化 + 模板库 + 批量延迟对比 | `model-tester/`                                      | #662 已交付会话化 + 模板库；批量延迟对比由 MASTER Wave 2–3 接管         |
 
 ### 明确不做（定位边界，见 benchmark.md）
 
-多租户计费/钱包/订阅/支付、Electron 桌面版、社交 OAuth 登录、多实例 sticky 共享改造。
+多租户计费/钱包/订阅/支付、社交 OAuth 登录、多实例 sticky 共享改造。
 
 ## 审计证据口径
 
 - 动线审计：5 条动线（首次接入 / 客户端分发 / 日常巡检 / 故障处理 / 模型测试），
   全部引用文件经验证；核心发现「建完路由之后系统撒手不管」已收口（#657 接入对话框 + 完成动线 toast 改接 `/settings/downstream`）。
 - 视觉审计：25 项问题（3 P0 / 10 P1 / 12 P2），已修复 3 P0（`text-*-foreground` 透明底误用 ×6、软徽章 success/info 变体、站点 active 徽章语义统一）+ 2 P1（站点 active 软徽章、12px 软徽章对比度 AA：浅色 success/info/warning 明度下调）。
-- 交互审计：1 P0 / 8 P1，已修复 P0（倍率行内编辑安全网）+ 3 P1（页码钳位、导入脏确认、404/错误边界）；剩余 P1 见上表 #1–#6。
-- 功能对标：8 项差距，已落地 4 项（客户端一键导出 #657、全局搜索 #658、首页今日快照 #659、告警富化 #660）；剩余 4 项后端数据已完备、只需前端补齐。
+- 交互审计：1 P0 / 8 P1；已修复倍率行内编辑安全网、页码钳位、导入脏确认和 404/错误边界。其余内容保留为审计观察。
+- 功能对标：已落地客户端一键导出 #657、全局搜索 #658、首页今日快照 #659、告警富化 #660；后续承诺以 MASTER 为准，不从本审计表直接派生。

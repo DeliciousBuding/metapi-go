@@ -13,6 +13,9 @@ Go rewrite of [MetAPI](https://github.com/cita-777/metapi). Feature parity with 
   assume SQLite-only features.
 - **API compatibility**: All JSON responses must use camelCase field names matching the TS frontend.
   All env var names are identical to the TS version (no prefix).
+- **Simplicity first**: Design one owner and one data flow, then implement the smallest direct change. Do not add
+  speculative abstractions, parity scaffolds, or defensive fallback layers for behavior that has no real caller.
+  Unsupported behavior stays explicit (error/501/documented residual) instead of looking implemented.
 - **Before pushing**: `go build ./cmd/server && go vet ./... && go test ./... -count=1 -race` must pass.
   🚫 **Never skip local CI** — GitHub Actions is a verification gate, not a debug environment. The pre-push hook enforces this.
 
@@ -26,7 +29,7 @@ store/                  DB layer (35 tables, sqlx; schema DDL in store/schema_dd
 auth/                   Admin + proxy auth + rate limiting
 routing/                TokenRouter (weighted random + Fibonacci cooldown + runtime breaker)
 proxy/                  转发编排（coordinator / executor / channel selection / retry policy）
-platform/               14 upstream adapters
+platform/               16 upstream adapters
 transform/              协议转换（openai completions/embeddings/images/responses + gemini + shared）
 service/                Domain workflows (sites/accounts/checkin/balance/notify/oauth/backup/pricing)
 scheduler/              16 background jobs
@@ -37,13 +40,13 @@ web/dist/               Pre-built React SPA (embedded)
 
 ## Key Dependencies
 
-| Package | Purpose |
-|---------|---------|
-| `github.com/go-chi/chi/v5` | HTTP router |
-| `github.com/jmoiron/sqlx` | DB access |
-| `modernc.org/sqlite` | Pure-Go SQLite (no CGO) |
-| `github.com/jackc/pgx/v5` | PostgreSQL driver |
-| `github.com/robfig/cron/v3` | Cron scheduler |
+| Package                     | Purpose                 |
+| --------------------------- | ----------------------- |
+| `github.com/go-chi/chi/v5`  | HTTP router             |
+| `github.com/jmoiron/sqlx`   | DB access               |
+| `modernc.org/sqlite`        | Pure-Go SQLite (no CGO) |
+| `github.com/jackc/pgx/v5`   | PostgreSQL driver       |
+| `github.com/robfig/cron/v3` | Cron scheduler          |
 
 ## Build & Test
 
@@ -64,6 +67,7 @@ golangci-lint run --timeout=3m        # Lint check
 4. Tag push 触发单一管道 `.github/workflows/main.yml`：全量 12 项检查通过 → 推送 `ghcr.io/deliciousbuding/metapi-go:vX.Y.Z`（amd64+arm64，provenance+SBOM）→ 5 平台二进制附件 + checksums + 二进制冒烟 → 自动创建 GitHub Release（body 取自 CHANGELOG 对应节）
 
 **版本号**：`vMAJOR.MINOR.PATCH`（SemVer 2.0）
+
 - PATCH：bug 修复
 - MINOR：新功能/性能优化
 - MAJOR：不兼容 API 变更
@@ -80,19 +84,18 @@ golangci-lint run --timeout=3m        # Lint check
 
 **Map (start here):** [`docs/README.md`](docs/README.md)
 
-| Path | Role |
-|------|------|
-| `docs/STATE.md` | **Current state** (verified product facts; keep slim) |
-| `docs/progress/MASTER.md` | **Open items + strict checks** (not a changelog) |
-| `docs/log.md` | **Progress log** append-only (never overrides STATE) |
-
-| `docs/architecture.md` | As-built package map (proxy/transform/routing; not proxycore/protocol) |
-| `docs/design/BACKEND.md` | Backend philosophy, dependency rules, forbidden imports |
-| `docs/design/DESIGN.md` | UI design system source of truth |
-| `docs/benchmark.md` | 产品对标（New API × All API Hub）+ roadmap |
-
-| `docs/api.md` / `docs/deployment.md` / `docs/migration.md` | API · deploy · migration |
-| `CHANGELOG.md` | Version narrative |
+| Path                                                       | Role                                                                           |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `docs/STATE.md`                                            | **Current state** (verified product facts; keep slim)                          |
+| `docs/progress/MASTER.md`                                  | **Three delivery mainlines + the only executable open plan** (not a changelog) |
+| `docs/log.md`                                              | **Progress log** append-only (never overrides STATE)                           |
+| `docs/architecture.md`                                     | As-built package map (proxy/transform/routing; not proxycore/protocol)         |
+| `docs/design/BACKEND.md`                                   | Backend philosophy, dependency rules, forbidden imports                        |
+| `docs/design/DESIGN.md`                                    | UI design system source of truth                                               |
+| `docs/benchmark.md`                                        | 产品对标（New API × All API Hub）+ direction                                   |
+| `docs/testing.md`                                          | Test layers + sanitized real-platform testbed SOP                              |
+| `docs/api.md` / `docs/deployment.md` / `docs/migration.md` | API · deploy · migration                                                       |
+| `CHANGELOG.md`                                             | Version narrative                                                              |
 
 **Progress roles:** STATE = current state · MASTER = open items · LOG = timeline. Temporary session summaries are **not** source of truth — archive or delete after use.
 **Ops host/image pin** lives outside this repository (private deployment surface). Public deployment notes: `docs/deployment.md`.

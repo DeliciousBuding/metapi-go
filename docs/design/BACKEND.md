@@ -1,6 +1,6 @@
 # Backend Design Philosophy
 
-**Last updated**: 2026-08-11
+**Last updated**: 2026-08-16
 
 **Status**: architecture baseline — backend architecture truth
 **Authority**: package layout and import edges as they exist in this repo
@@ -45,13 +45,13 @@ This document states the **non-negotiable backend principles** for metapi-go. Im
 
 Gateway resilience is **per channel / per site**, not process-wide suicide:
 
-| Mechanism | Package | Intent |
-|-----------|---------|--------|
-| Fibonacci failure cooldown | `routing` | Back off a bad channel without blackholing the fleet |
-| Recent-failure filters | `routing` selector | Prefer healthy candidates in the current pick |
-| Site/model runtime breaker | `routing` runtime health | Open breaker after streak; tiered open windows |
-| Channel failover | `handler/proxy` loop + `proxy` retry policy | Retry same channel, refresh auth, or move to next channel |
-| Content failure judge | `proxy` | Detect “HTTP 200 but empty/error body” without trusting status alone |
+| Mechanism                  | Package                                     | Intent                                                               |
+| -------------------------- | ------------------------------------------- | -------------------------------------------------------------------- |
+| Fibonacci failure cooldown | `routing`                                   | Back off a bad channel without blackholing the fleet                 |
+| Recent-failure filters     | `routing` selector                          | Prefer healthy candidates in the current pick                        |
+| Site/model runtime breaker | `routing` runtime health                    | Open breaker after streak; tiered open windows                       |
+| Channel failover           | `handler/proxy` loop + `proxy` retry policy | Retry same channel, refresh auth, or move to next channel            |
+| Content failure judge      | `proxy`                                     | Detect “HTTP 200 but empty/error body” without trusting status alone |
 
 Rules of thumb:
 
@@ -70,6 +70,14 @@ Rules of thumb:
 
 - Behavioral parity with original MetAPI remains the default for existing APIs.
 - Enterprise upgrades (backend architecture and later) may clarify structure and fix CRITICAL defects without changing wire contracts unless the issue explicitly allows it.
+
+### 1.8 Simplicity before abstraction
+
+- Start with the owning package and the shortest explicit data flow. Add an interface, facade, registry, or shared helper only for an existing architectural boundary or multiple real consumers.
+- Do not retain scaffolds for endpoints, refresh flows, protocols, or deployment modes that do not exist. Unsupported behavior should fail explicitly or remain a documented residual.
+- Validate untrusted input at HTTP, config, storage, and upstream boundaries. Inside a validated flow, rely on typed invariants instead of repeating normalization and fallback logic at every layer.
+- A replacement removes the superseded path in the same change. Parallel implementations require a time-bounded migration plan and an explicit owner.
+- Tests protect observable contracts and high-risk boundaries; they should not freeze speculative implementation structure.
 
 ---
 
@@ -108,24 +116,24 @@ Arrows mean **“may import”**. Edges not shown are forbidden unless listed un
 
 ### 2.2 Dependency table (summary)
 
-| Package | May import (internal) | Must not import |
-|---------|----------------------|-----------------|
-| `config` | — | everything else |
-| `web` | — | everything else |
-| `handler/shared` | — | domain packages |
-| `store` | `config` | `handler`, `proxy`, `router`, `scheduler`, `service`, `auth` |
-| `platform` | — (leaf adapters) | `store`, `handler`, `proxy`, `router`, `scheduler` |
-| `transform/*` | `transform/shared` | `handler`, `store`, `proxy`, `routing`, `service` |
-| `proxy/types`, `proxy/profiles` | `proxy/types` only (profiles) | upper layers |
-| `routing` | `config`, `store` | `handler`, `proxy`, `router`, `scheduler`, `service` |
-| `auth` | `config`, `store` | `handler`, `proxy`, `router` |
-| `service` (+ subpackages) | `config`, `store`, `platform`, other `service/*` | `handler`, `router`, `proxy` (keep domain free of HTTP/orchestration) |
-| `proxy` | `config`, `store`, `routing`, `service`, `proxy/*` | `handler`, `router`, `scheduler` |
-| `handler/*` | `auth`, `config`, `store`, `service`, `proxy`, `routing`, `platform`, `app` (sparingly), `handler/*` | `router` (router mounts handlers, not reverse) |
-| `scheduler` | `config`, `store`, `service/*` | `handler`, `router`, `proxy` |
-| `app` | `config`, `store`, and wiring deps as needed | becoming a junk drawer for business logic |
-| `router` | `app`, `auth`, `config`, `handler/*`, `store`, `web` | `platform` internals, `transform` internals (handlers own surfaces) |
-| `cmd/*` | composition root — may wire all layers | business logic bodies (keep `main` thin) |
+| Package                         | May import (internal)                                                                                | Must not import                                                       |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `config`                        | —                                                                                                    | everything else                                                       |
+| `web`                           | —                                                                                                    | everything else                                                       |
+| `handler/shared`                | —                                                                                                    | domain packages                                                       |
+| `store`                         | `config`                                                                                             | `handler`, `proxy`, `router`, `scheduler`, `service`, `auth`          |
+| `platform`                      | — (leaf adapters)                                                                                    | `store`, `handler`, `proxy`, `router`, `scheduler`                    |
+| `transform/*`                   | `transform/shared`                                                                                   | `handler`, `store`, `proxy`, `routing`, `service`                     |
+| `proxy/types`, `proxy/profiles` | `proxy/types` only (profiles)                                                                        | upper layers                                                          |
+| `routing`                       | `config`, `store`                                                                                    | `handler`, `proxy`, `router`, `scheduler`, `service`                  |
+| `auth`                          | `config`, `store`                                                                                    | `handler`, `proxy`, `router`                                          |
+| `service` (+ subpackages)       | `config`, `store`, `platform`, other `service/*`                                                     | `handler`, `router`, `proxy` (keep domain free of HTTP/orchestration) |
+| `proxy`                         | `config`, `store`, `routing`, `service`, `proxy/*`                                                   | `handler`, `router`, `scheduler`                                      |
+| `handler/*`                     | `auth`, `config`, `store`, `service`, `proxy`, `routing`, `platform`, `app` (sparingly), `handler/*` | `router` (router mounts handlers, not reverse)                        |
+| `scheduler`                     | `config`, `store`, `service/*`                                                                       | `handler`, `router`, `proxy`                                          |
+| `app`                           | `config`, `store`, and wiring deps as needed                                                         | becoming a junk drawer for business logic                             |
+| `router`                        | `app`, `auth`, `config`, `handler/*`, `store`, `web`                                                 | `platform` internals, `transform` internals (handlers own surfaces)   |
+| `cmd/*`                         | composition root — may wire all layers                                                               | business logic bodies (keep `main` thin)                              |
 
 ### 2.3 Forbidden imports (hard rules)
 
@@ -176,34 +184,31 @@ Only `cmd/server` (and tests/e2e helpers) should construct the full graph: load 
 
 ## 4. Naming glossary (TS → Go)
 
-| TS / informal name | Actual Go package |
-|--------------------|-------------------|
-| proxy-core / ProxyCore | `proxy` |
+| TS / informal name      | Actual Go package       |
+| ----------------------- | ----------------------- |
+| proxy-core / ProxyCore  | `proxy`                 |
 | transformers / protocol | `transform` (+ subdirs) |
-| tokenRouter | `routing` |
-| platform adapters | `platform` |
-| admin routes | `handler/admin` |
-| proxy routes | `handler/proxy` |
-| embed web | `web` |
+| tokenRouter             | `routing`               |
+| platform adapters       | `platform`              |
+| admin routes            | `handler/admin`         |
+| proxy routes            | `handler/proxy`         |
+| embed web               | `web`                   |
 
 ---
 
-## 5. Planned backend work
+## 5. Change routing
 
-| Area | Focus | Status pointer |
-|------|-------|----------------|
-| Architecture baseline | This file + architecture truth | Done in principle docs |
-| Package ownership inventory | Package boundary inventory / minimal ownership cleanup | **[`docs/analysis/package-boundaries.md`](../analysis/package-boundaries.md)** — ownership map, public entrypoints, import exceptions, cleanup queue |
-| Concurrency safety | CRITICAL concurrency (leases, contexts, stub locks) | code under `routing` / `proxy` |
-| Unified error model | Unified error model | prefer `handler/shared` + analysis notes |
-
-When principles change, revise this file. When only layout/ownership facts change, update [`docs/architecture.md`](../architecture.md) and/or the package ownership inventory.
+- Open outcomes and priorities live in [`docs/progress/MASTER.md`](../progress/MASTER.md).
+- Package ownership and approved exception edges live in [`docs/analysis/package-boundaries.md`](../analysis/package-boundaries.md).
+- When principles change, revise this file. When only layout or request-flow facts change, update [`docs/architecture.md`](../architecture.md).
 
 ---
 
 ## 6. Checklist for new backend code
 
 - [ ] Belongs in an existing package (no drive-by top-level package)
+- [ ] Uses a direct implementation; any new abstraction has a real boundary or multiple consumers
+- [ ] Replaces old paths instead of adding speculative parallel scaffolding
 - [ ] Imports only allowed edges (§2)
 - [ ] JSON tags camelCase for public API
 - [ ] Auth path fail-closed

@@ -3,22 +3,22 @@
 **Product**: MetAPI admin
 **Scope**: accessibility checklist
 **Related source of truth**: `docs/design/DESIGN.md`, `web/src/styles/theme.css`
-**Last updated**: 2026-08-15
-**Status**: checklist + reduced-motion/transparency pass; page-level residual debt tracked below
+**Last updated**: 2026-08-16
+**Status**: living acceptance checklist; known limitations are documented, not an implicit backlog
 
-This document is the accessibility acceptance checklist. It records keyboard, name, contrast, and responsive expectations, plus residual debt that is intentionally out of scope for this issue.
+This document records keyboard, name, contrast, and responsive expectations. Known limitations are evidence only unless promoted to [`../progress/MASTER.md`](../progress/MASTER.md) or a scoped GitHub issue.
 
 ---
 
 ## 1. Acceptance criteria
 
-| AC | Status | Evidence / notes |
-|----|--------|------------------|
-| Keyboard focus order on primary flows | **partial / pass with debt** | Shell + shared modals: Tab reaches topbar tools, sidebar/nav, main content; Esc closes search / drawer / escape-enabled modals. Full page-form roving index not done. |
-| `aria-label` on icon-only controls | **pass for chrome** | Topbar icon buttons labeled; mobile nav open/close labeled; SearchModal close labeled; sidebar collapse labeled when icon-only. Page action grids still have mixed coverage (debt). |
-| Contrast notes for primary text/surfaces | **documented** | §4 below; body primary ≥ 4.5:1 both themes; muted/meta may fall near threshold. |
-| Responsive checklist 375 / 768 / 1280 | **documented + shell pass** | §5; shell breakpoints via `useIsMobile` (~768) and CSS media queries; no wholesale page redesign. |
-| Residual a11y debt documented | **yes** | §7 |
+| AC                                       | Status                       | Evidence / notes                                                                                                                                                                    |
+| ---------------------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Keyboard focus order on primary flows    | **partial / pass with debt** | Shell + shared modals: Tab reaches topbar tools, sidebar/nav, main content; Esc closes search / drawer / escape-enabled modals. Full page-form roving index not done.               |
+| `aria-label` on icon-only controls       | **pass for chrome**          | Topbar icon buttons labeled; mobile nav open/close labeled; SearchModal close labeled; sidebar collapse labeled when icon-only. Page action grids still have mixed coverage (debt). |
+| Contrast notes for primary text/surfaces | **documented**               | §4 below; body primary ≥ 4.5:1 both themes; muted/meta may fall near threshold.                                                                                                     |
+| Responsive checklist 375 / 768 / 1280    | **documented + shell pass**  | §5; shell breakpoints via `useIsMobile` (~768) and CSS media queries; no wholesale page redesign.                                                                                   |
+| Residual a11y debt documented            | **yes**                      | §7                                                                                                                                                                                  |
 
 ---
 
@@ -26,35 +26,34 @@ This document is the accessibility acceptance checklist. It records keyboard, na
 
 ### 2.1 Primary shell flow (must pass)
 
-| Step | Expected behavior | Current |
-|------|-------------------|---------|
-| Login | Tab: theme tools → token field → submit → external GitHub link; Enter submits | Pass |
-| Authenticated topbar | Tab order: mobile hamburger (if any) → language → search → notifications → theme → avatar | Pass |
-| Search (`Ctrl/Cmd+K` or search trigger) | Focus moves to search input on open; Esc closes | Pass |
-| Mobile nav | Hamburger opens drawer; Esc / backdrop / close button dismisses | Pass |
-| Sidebar collapse (desktop) | Button remains focusable when collapsed (icon-only) | Pass after aria fix |
-| Profile modal | Esc + explicit close when enabled; cancel/save in footer | Pass (`CenteredModal`) |
+| Step                                    | Expected behavior                                                             | Current                |
+| --------------------------------------- | ----------------------------------------------------------------------------- | ---------------------- |
+| Login                                   | Tab: theme tools → token field → submit → external GitHub link; Enter submits | Pass                   |
+| Authenticated topbar                    | Tab order: mobile hamburger (if any) → language → search → theme → avatar     | Pass                   |
+| Search (`Ctrl/Cmd+K` or search trigger) | Focus moves to search input on open; Esc closes                               | Pass                   |
+| Mobile nav                              | Hamburger opens drawer; Esc / backdrop / close button dismisses               | Pass                   |
+| Sidebar collapse (desktop)              | Button remains focusable when collapsed (icon-only)                           | Pass after aria fix    |
+| Profile modal                           | Esc + explicit close when enabled; cancel/save in footer                      | Pass (`CenteredModal`) |
 
 ### 2.2 Focus visibility
 
-| Rule | Expectation |
-|------|-------------|
-| `:focus-visible` | Visible ring on interactive chrome (buttons, close controls, nav items) |
-| Mouse users | Prefer `:focus-visible` over always-on `:focus` to avoid sticky outlines |
-| Token | `--ring` recipe — `focus-visible:ring-3 focus-visible:ring-ring/50` (`DESIGN.md` §2.7) |
-| Hit target | Icon-only controls ≥ ~36px (topbar already ~36) |
+| Rule             | Expectation                                                                            |
+| ---------------- | -------------------------------------------------------------------------------------- |
+| `:focus-visible` | Visible ring on interactive chrome (buttons, close controls, nav items)                |
+| Mouse users      | Prefer `:focus-visible` over always-on `:focus` to avoid sticky outlines               |
+| Token            | `--ring` recipe — `focus-visible:ring-3 focus-visible:ring-ring/50` (`DESIGN.md` §2.7) |
+| Hit target       | Icon-only controls ≥ ~36px (topbar already ~36)                                        |
 
 **Current**: `.modal-close-button:focus-visible` uses primary outline. Broader global focus-ring utility is residual (not all controls share one rule).
 
 ### 2.3 Keyboard traps
 
-| Surface | Expected | Notes |
-|---------|----------|-------|
-| Search modal | Esc exits; Tab cycles within modal | **Pass** — `useFocusTrap` on panel |
-| Centered modal | Esc optional via `closeOnEscape`; close button always named | **Pass** — trap + dialog name |
-| Mobile drawer | Esc exits; role=`dialog` + `aria-modal` | **Pass** — trap on panel |
-| Notification panel | Esc exits; Tab cycles within panel | **Pass** — trap + Esc (2026-07-19 polish) |
-| Theme/user dropdowns | Click-outside closes; Esc residual | Residual (non-modal menus) |
+| Surface              | Expected                                                    | Notes                              |
+| -------------------- | ----------------------------------------------------------- | ---------------------------------- |
+| Search modal         | Esc exits; Tab cycles within modal                          | **Pass** — `useFocusTrap` on panel |
+| Centered modal       | Esc optional via `closeOnEscape`; close button always named | **Pass** — trap + dialog name      |
+| Mobile drawer        | Esc exits; role=`dialog` + `aria-modal`                     | **Pass** — trap on panel           |
+| Theme/user dropdowns | Click-outside closes; Esc residual                          | Residual (non-modal menus)         |
 
 ### 2.4 Focus order anti-patterns (do not introduce)
 
@@ -70,21 +69,20 @@ This document is the accessibility acceptance checklist. It records keyboard, na
 
 ### 3.1 Shell chrome (required)
 
-| Control | Accessible name | Location |
-|---------|-----------------|----------|
-| Mobile hamburger | `打开导航` | `web/src/components/layout/components/app-header.tsx` |
-| Language toggle | bilingual explicit labels | `web/src/components/layout/components/app-header.tsx` |
-| Search trigger | `搜索 (Ctrl+K)` | `web/src/components/layout/components/app-header.tsx` |
-| Notifications | `通知` | `web/src/components/layout/components/app-header.tsx` |
-| Theme menu trigger | mode label (+ resolved system theme) | `web/src/components/layout/components/app-header.tsx` |
-| Avatar menu | display name | `web/src/components/layout/components/app-header.tsx` |
-| Sidebar item (collapsed) | item label | `web/src/components/layout/components/app-sidebar.tsx` |
-| Sidebar collapse | `收起侧边栏` / `展开侧边栏` | `web/src/components/layout/components/app-sidebar.tsx` |
-| Mobile drawer close | `关闭导航` (or `closeLabel`) | `web/src/components/ui/sheet.tsx` |
-| Modal close (×) | `关闭弹框` | `web/src/components/ui/dialog.tsx` |
-| Search modal close | `关闭` | `web/src/components/ui/command.tsx` |
-| Login GitHub icon link | `GitHub` | `web/src/features/auth/components/login-form.tsx` |
-| Login theme tools group | `外观设置` | `web/src/features/auth/components/login-form.tsx` |
+| Control                  | Accessible name                      | Location                                               |
+| ------------------------ | ------------------------------------ | ------------------------------------------------------ |
+| Mobile hamburger         | `打开导航`                           | `web/src/components/layout/components/app-header.tsx`  |
+| Language toggle          | bilingual explicit labels            | `web/src/components/layout/components/app-header.tsx`  |
+| Search trigger           | `搜索 (Ctrl+K)`                      | `web/src/components/layout/components/app-header.tsx`  |
+| Theme menu trigger       | mode label (+ resolved system theme) | `web/src/components/layout/components/app-header.tsx`  |
+| Avatar menu              | display name                         | `web/src/components/layout/components/app-header.tsx`  |
+| Sidebar item (collapsed) | item label                           | `web/src/components/layout/components/app-sidebar.tsx` |
+| Sidebar collapse         | `收起侧边栏` / `展开侧边栏`          | `web/src/components/layout/components/app-sidebar.tsx` |
+| Mobile drawer close      | `关闭导航` (or `closeLabel`)         | `web/src/components/ui/sheet.tsx`                      |
+| Modal close (×)          | `关闭弹框`                           | `web/src/components/ui/dialog.tsx`                     |
+| Search modal close       | `关闭`                               | `web/src/components/ui/command.tsx`                    |
+| Login GitHub icon link   | `GitHub`                             | `web/src/features/auth/components/login-form.tsx`      |
+| Login theme tools group  | `外观设置`                           | `web/src/features/auth/components/login-form.tsx`      |
 
 ### 3.2 Shared component rules
 
@@ -96,11 +94,11 @@ This document is the accessibility acceptance checklist. It records keyboard, na
 
 ### 3.3 Decorative media
 
-| Element | Rule |
-|---------|------|
-| Inline SVG in labeled buttons | `aria-hidden="true"` |
+| Element                        | Rule                                                    |
+| ------------------------------ | ------------------------------------------------------- |
+| Inline SVG in labeled buttons  | `aria-hidden="true"`                                    |
 | Logo mark next to product name | `alt="MetAPI"` or empty alt if adjacent text duplicates |
-| Status color dots | Not sole channel; pair with text/badge |
+| Status color dots              | Not sole channel; pair with text/badge                  |
 
 ---
 
@@ -110,24 +108,24 @@ Ratios computed 2026-08-12 from the shipped `web/src/styles/theme.css` OKLCH val
 
 ### 4.1 Light theme
 
-| Pair | Ratio | WCAG AA body (4.5:1) | Notes |
-|------|-------|----------------------|-------|
-| `--foreground` on `--card` / `--background` | 20.9:1 | Pass | Titles, primary values |
-| `--muted-foreground` on `--card` | 6.3:1 | Pass | Labels / secondary text |
-| `--secondary-foreground` on `--secondary` | 11.8:1 | Pass | Nested wells |
-| `--primary-foreground` on `--primary` | 7.28:1 | Pass | Light-theme CTA — ink-on-brand fix, see §7.14 |
-| White text on `--destructive` | 4.8:1 | Pass | Errors, deletes |
-| Soft-badge text (`--success` / `--info` / `--warning`) on `/10` fills | ≥ 4.5:1 | Pass | 12px soft badges — light `--success`/`--info`/`--warning` lightness lowered (0.53 / 0.53 / 0.62) 2026-08-14; `*-soft-fg` tokens ship the readable tone |
+| Pair                                                                  | Ratio   | WCAG AA body (4.5:1) | Notes                                                                                                                                                  |
+| --------------------------------------------------------------------- | ------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--foreground` on `--card` / `--background`                           | 20.9:1  | Pass                 | Titles, primary values                                                                                                                                 |
+| `--muted-foreground` on `--card`                                      | 6.3:1   | Pass                 | Labels / secondary text                                                                                                                                |
+| `--secondary-foreground` on `--secondary`                             | 11.8:1  | Pass                 | Nested wells                                                                                                                                           |
+| `--primary-foreground` on `--primary`                                 | 7.28:1  | Pass                 | Light-theme CTA — ink-on-brand fix, see §7.14                                                                                                          |
+| White text on `--destructive`                                         | 4.8:1   | Pass                 | Errors, deletes                                                                                                                                        |
+| Soft-badge text (`--success` / `--info` / `--warning`) on `/10` fills | ≥ 4.5:1 | Pass                 | 12px soft badges — light `--success`/`--info`/`--warning` lightness lowered (0.53 / 0.53 / 0.62) 2026-08-14; `*-soft-fg` tokens ship the readable tone |
 
 ### 4.2 Dark theme
 
-| Pair | Ratio | WCAG AA body (4.5:1) | Notes |
-|------|-------|----------------------|-------|
-| `--foreground` on `--card` | 13.0:1 | Pass | Titles, primary values |
-| `--foreground` on `--background` | 15.1:1 | Pass | Page canvas |
-| `--muted-foreground` on `--card` | 7.2:1 | Pass | Labels / secondary text |
-| `--secondary-foreground` on `--secondary` | 8.9:1 | Pass | Nested wells |
-| White text on `--primary` | 5.0:1 | Pass | CTA |
+| Pair                                      | Ratio  | WCAG AA body (4.5:1) | Notes                   |
+| ----------------------------------------- | ------ | -------------------- | ----------------------- |
+| `--foreground` on `--card`                | 13.0:1 | Pass                 | Titles, primary values  |
+| `--foreground` on `--background`          | 15.1:1 | Pass                 | Page canvas             |
+| `--muted-foreground` on `--card`          | 7.2:1  | Pass                 | Labels / secondary text |
+| `--secondary-foreground` on `--secondary` | 8.9:1  | Pass                 | Nested wells            |
+| White text on `--primary`                 | 5.0:1  | Pass                 | CTA                     |
 
 ### 4.3 Contrast rules for implementers
 
@@ -149,35 +147,35 @@ Breakpoints used by product:
 
 ### 5.1 375px (mobile)
 
-| Check | Expected | Status |
-|-------|----------|--------|
-| Topbar | Hamburger + logo + compact tools; search may iconify | Pass (shell) |
-| Sidebar | Hidden; content via `MobileDrawer` | Pass |
-| Main padding | Reduced; no clipped primary CTA | Pass / page debt |
-| Tables | Card/list alternative or horizontal scroll inside table region only | Partial (page-dependent) |
-| Batch actions | `MobileBatchBar` / responsive batch bar | Partial |
-| Filters | `ResponsiveFilterPanel` → bottom/side sheet | Partial |
-| Touch targets | ≥36–44px for chrome icons | Pass topbar |
-| Safe areas | Avoid fixed bars covering primary content | Residual on some pages |
+| Check         | Expected                                                            | Status                   |
+| ------------- | ------------------------------------------------------------------- | ------------------------ |
+| Topbar        | Hamburger + logo + compact tools; search may iconify                | Pass (shell)             |
+| Sidebar       | Hidden; content via `MobileDrawer`                                  | Pass                     |
+| Main padding  | Reduced; no clipped primary CTA                                     | Pass / page debt         |
+| Tables        | Card/list alternative or horizontal scroll inside table region only | Partial (page-dependent) |
+| Batch actions | `MobileBatchBar` / responsive batch bar                             | Partial                  |
+| Filters       | `ResponsiveFilterPanel` → bottom/side sheet                         | Partial                  |
+| Touch targets | ≥36–44px for chrome icons                                           | Pass topbar              |
+| Safe areas    | Avoid fixed bars covering primary content                           | Residual on some pages   |
 
 ### 5.2 768px (tablet / breakpoint edge)
 
-| Check | Expected | Status |
-|-------|----------|--------|
-| Layout switch | Mobile drawer path active at ≤768 | Pass |
-| Topbar density | Tools remain usable without overlap | Pass |
-| Modals | Max-width constrained; close control reachable | Pass shared modal |
-| Two-column forms | Stack via `ResponsiveFormGrid` where used | Partial adoption |
+| Check            | Expected                                       | Status            |
+| ---------------- | ---------------------------------------------- | ----------------- |
+| Layout switch    | Mobile drawer path active at ≤768              | Pass              |
+| Topbar density   | Tools remain usable without overlap            | Pass              |
+| Modals           | Max-width constrained; close control reachable | Pass shared modal |
+| Two-column forms | Stack via `ResponsiveFormGrid` where used      | Partial adoption  |
 
 ### 5.3 1280px (desktop)
 
-| Check | Expected | Status |
-|-------|----------|--------|
-| Sidebar | Expanded 220px default; collapsible to 64px | Pass |
-| Collapsed rail | Icon-only items named | Pass |
-| Tables | Full columns; sticky header optional | Page debt |
-| Topbar nav + search | Visible labels where designed | Pass |
-| KPI + charts | No overflow of card grid | Partial |
+| Check               | Expected                                    | Status    |
+| ------------------- | ------------------------------------------- | --------- |
+| Sidebar             | Expanded 220px default; collapsible to 64px | Pass      |
+| Collapsed rail      | Icon-only items named                       | Pass      |
+| Tables              | Full columns; sticky header optional        | Page debt |
+| Topbar nav + search | Visible labels where designed               | Pass      |
+| KPI + charts        | No overflow of card grid                    | Partial   |
 
 ### 5.4 Responsive anti-patterns
 
@@ -190,20 +188,20 @@ Breakpoints used by product:
 
 ## 6. Reduced motion & semantics
 
-| Topic | Expectation | Status |
-|-------|-------------|--------|
-| `prefers-reduced-motion: reduce` | Collapse non-essential transitions/animations | **Pass** — token durations → ~0 in `theme.css`; global hard-cut `animation/transition-duration` in `web/src/styles/index.css` |
-| `prefers-reduced-transparency: reduce` | Glass → solid elevated; strip backdrop blur | **Pass** — glass family + sidebar/topbar tokens solidify; shell/login/toast/overlay blur stripped in `web/src/styles/index.css` + shadcn Base UI glass surfaces |
-| Dialog semantics | `role="dialog"` + `aria-modal` for blocking overlays | Mobile drawer pass; SearchModal improved; not all legacy overlays |
-| Live regions | Toasts/errors announced | Residual |
-| Language | `t()` for user-visible chrome strings; `aria-label` included in i18n attr list | Pass pattern |
-| Page heading structure | One `h1` per settings section page — breadcrumb header (`Settings / subarea`) + section card owns the single `h1` + description | **Pass** (2026-08-12): `settings-page.tsx` + `settings-section-card.tsx`; verified via Playwright (1 h1 on maintenance / danger-zone / import-export) |
+| Topic                                  | Expectation                                                                                                                     | Status                                                                                                                                                          |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `prefers-reduced-motion: reduce`       | Collapse non-essential transitions/animations                                                                                   | **Pass** — token durations → ~0 in `theme.css`; global hard-cut `animation/transition-duration` in `web/src/styles/index.css`                                   |
+| `prefers-reduced-transparency: reduce` | Glass → solid elevated; strip backdrop blur                                                                                     | **Pass** — glass family + sidebar/topbar tokens solidify; shell/login/toast/overlay blur stripped in `web/src/styles/index.css` + shadcn Base UI glass surfaces |
+| Dialog semantics                       | `role="dialog"` + `aria-modal` for blocking overlays                                                                            | Mobile drawer pass; SearchModal improved; not all legacy overlays                                                                                               |
+| Live regions                           | Toasts/errors announced                                                                                                         | Residual                                                                                                                                                        |
+| Language                               | `t()` for user-visible chrome strings; `aria-label` included in i18n attr list                                                  | Pass pattern                                                                                                                                                    |
+| Page heading structure                 | One `h1` per settings section page — breadcrumb header (`Settings / subarea`) + section card owns the single `h1` + description | **Pass** (2026-08-12): `settings-page.tsx` + `settings-section-card.tsx`; verified via Playwright (1 h1 on maintenance / danger-zone / import-export)           |
 
 ---
 
-## 7. Residual a11y debt (explicit non-goals for this PR)
+## 7. Known limitations and closure evidence
 
-Tracked for follow-up issues (not blocking U3 checklist doc):
+This section preserves verified closure and known limitations. It is not a task list; open work is committed only through `MASTER.md` or a scoped issue.
 
 1. ~~**Focus trap** inside SearchModal / CenteredModal / notification panel (Tab cycles within overlay).~~ **Done** — `web/src/lib/helpers/navigationFocus.ts` + shadcn Base UI dialog primitives (`web/src/components/ui/dialog.tsx`, `command.tsx`).
 2. ~~**Global `:focus-visible`** utility applied to all `.btn`, `.sidebar-item`, topbar controls.~~ **Partial done** — `.sidebar-item:focus-visible` + existing chrome rings; remaining page-level action grids still mixed.
@@ -215,9 +213,9 @@ Tracked for follow-up issues (not blocking U3 checklist doc):
 8. **Charts**: non-color status encoding for availability buckets; keyboard access to series. **Partial** — availability status/severity and attention badges all carry text labels (no color-only status); line/bar charts expose text axes + legends; site/model donuts show a name legend plus restored rich text tooltips (balance/cost, accounts, calls, tokens, share) at legacy parity. Residual: keyboard series access unavailable in recharts (SVG series are not focusable); text axes/legends/tooltips carry the data for assistive tech.
 9. ~~**Skip link** to main content for keyboard users.~~ **Done** — `SkipToMain` (`web/src/components/skip-to-main.tsx`, href `#content`) rendered in `web/src/components/layout/components/authenticated-layout.tsx`.
 10. ~~**i18n entries** for newer chrome strings (e.g. `展开侧边栏`) if EN surface shows Chinese fallback.~~ **Audited clean** (2026-08-12): EN-surface runtime scan of 12 routes (home, settings overview + all 5 subareas, dashboard + traffic + models, accounts) — 0 CJK in chrome; the only hits are seed data values (downstream key names, audit-log messages). Skip-link + sidebar expand/nav open/close are i18n-keyed.
-11. ~~**Automated axe a11y CI** gate.~~ **Done** — the `a11y` job in `.github/workflows/ci.yml` serves the embedded SPA via the Go server (fresh sqlite runtime DB, `dev-admin-token-123`) and runs `a11y:scan` (15 admin routes) against the shipped bundle; gated by `docker-build` alongside the tests. Verified green in CI 2026-08-12 (commits `3c46318`, `a2c1364`).
+11. ~~**Automated axe a11y CI** gate.~~ **Done** — the `a11y` job in `.github/workflows/main.yml` serves the embedded SPA via the Go server (fresh sqlite runtime DB) and runs `a11y:scan` (15 admin routes) against the shipped bundle; gated by `docker-build` alongside the tests. Verified green in CI 2026-08-12 (commits `3c46318`, `a2c1364`).
 12. ~~**Full 375 walkthrough** of every page table → card path.~~ **Audited clean** (2026-08-12): 30 pages × 375px × zh — 0 doc overflow, 0 clipped elements outside scroll containers, 0 i18n leaks. Dense tables scroll horizontally inside overflow-x-auto wrappers (standard mobile pattern).
-13. **Residual hex hygiene** in pages/components (brand logos, chart series, route-card dark surfaces) — sequential; no new brand hex allowed.
+13. **Hex hygiene** — no new brand hex is allowed. Existing brand assets and other justified exceptions are reviewed when their owning surface changes; this is not a standalone sweep.
 14. ~~**Light-theme primary CTA contrast** — white on `--primary` (`#3ea4ec`) ≈ 2.7:1 fails AA.~~ **Done** — light `--primary-foreground` = `oklch(0.145 0 0)` (`#0a0a0a`) on the unchanged brand primary (`#3ea4ec`) measures **7.28:1** (AAA; lab calc Oklch->sRGB->WCAG). Dark theme untouched (`oklch(1 0 0)` on `#0e72bc` = 5.05:1 AA). Side effects: checkbox/radio/filter-chip icons, avatar badge, slider thumb, brand-icon fallback letters also switch to ink on light-primary fills, all strictly higher contrast. Presets are explicit user choices and are out of scope (audit-only: underground/rose-garden/sunset-glow pass with white; forest-whisper 2.75:1, ocean-breeze 3.75:1, lavender-dream 4.04:1 remain below AA — preset-specific fix deferred).
 
 ---
@@ -230,10 +228,9 @@ Run against both light and dark themes.
 
 1. Login with keyboard only; confirm error text is readable.
 2. Tab through topbar; open search; type query; Esc closes; focus returns to trigger (ideal) or remains usable.
-3. Open notifications; Tab within panel; click-outside/Esc dismiss.
-4. Toggle theme menu; select Dark/Light/System.
-5. Desktop: collapse sidebar; Tab to icon rail; confirm names via screen reader or accessibility inspector.
-6. Mobile width 375: open nav drawer; Esc closes; navigate to Sites.
+3. Toggle theme menu; select Dark/Light/System.
+4. Desktop: collapse sidebar; Tab to icon rail; confirm names via screen reader or accessibility inspector.
+5. Mobile width 375: open nav drawer; Esc closes; navigate to Sites.
 
 ### 8.2 Names
 
@@ -255,27 +252,9 @@ Run against both light and dark themes.
 
 ---
 
-## 9. Code touchpoints for this issue
+## 9. Maintenance contract
 
-| Change | File | Why |
-|--------|------|-----|
-| Checklist source of truth | `docs/design/a11y-checklist.md` | U3 deliverable |
-| Search modal close + dialog semantics | `web/src/components/ui/command.tsx` / `dialog.tsx` | Icon/header lacked explicit close control name |
-| Search modal test | `web/src/components/ui/*.test.ts(x)` | Guard close `aria-label` |
-| Sidebar collapse name | `web/src/components/layout/components/app-sidebar.tsx` | Icon-only when collapsed |
-
-No package bumps. No Go changes. No wholesale page redesign.
-
----
-
-## 10. Definition of done (U3 +  slice)
-
-- [x] Checklist committed under `docs/design/`
-- [x] Critical shared/chrome icon-only gaps fixed (search close, sidebar collapse)
-- [x] Topbar existing labels verified (no regression)
-- [x] Residual debt listed for follow-up
-- [x] `prefers-reduced-motion` hard-cut + duration token collapse
-- [x] `prefers-reduced-transparency` solid glass fallbacks complete for shell/login/toast/ds-glass
-- [x] Shared focus trap + skip link + EmptyState residual pages (Accounts/Tokens/ModelTester) — 2026-07-19 polish
-- [ ] Page-level icon action inventory + ModernSelect listbox semantics (follow-up)
-- [ ] Residual page hex sweep + dual-theme soft-badge contrast lab measurement (follow-up under #540 residual)
+- Shared accessibility behavior belongs in `web/src/components/ui/**` or the shell owner, with focused component coverage.
+- Feature-specific names, labels, error announcements, and responsive fallbacks stay with the feature.
+- Re-run the relevant keyboard/manual checks plus `bun run a11y:scan` when a shared interaction primitive changes.
+- Do not create a permanent “sweep” project. Promote a verified defect to `MASTER.md` or an issue with a concrete owner and acceptance criterion.

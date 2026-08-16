@@ -1,10 +1,10 @@
-最后更新：2026-08-15 14:00
+最后更新：2026-08-16 18:00
 
 # 前端开发规范
 
 本文档定义 metapi-go 前端项目的开发规范与最佳实践，供开发与 AI 助手共同遵循。具体依赖与脚本以 `package.json` 为准。
 
-metapi-go 是 Meta-layer management and unified proxy for AI API aggregation platforms 的 Go 重写，前端为 React SPA，预构建产物经 `web/embed.go` 的 `go:embed dist` 打包进 Go 单二进制（生产镜像不含 node/bun）。前端 100% 对齐 newapi 技术栈，从原 TypeScript 版 MetAPI 无损迁移：后端 API 契约（camelCase 字段、env var 名）与 DB（SQLite/PG dual dialect）完全保留。
+metapi-go 是 Meta-layer management and unified proxy for AI API aggregation platforms 的 Go 重写，前端为 React SPA，预构建产物经 `web/embed.go` 的 `go:embed dist` 打包进 Go 单二进制（生产镜像不含 node/bun）。前端采用与 newapi 同类的 React 技术栈；迁移必须保留后端 API 契约（camelCase 字段、env var 名）与 DB（SQLite/PG dual dialect）。
 
 ---
 
@@ -17,18 +17,15 @@ metapi-go 是 Meta-layer management and unified proxy for AI API aggregation pla
 | 包管理     | Bun                                                                                                        |
 | 构建       | Rsbuild 2、tsgo（TS 原生编译器）                                                                           |
 | 框架       | React 19、TypeScript                                                                                       |
-| 路由       | @tanstack/react-router（文件路由 + 自动生成 + validateSearch + loader + lazyRouteComponent）               |
+| 路由       | @tanstack/react-router（文件路由 + 自动生成 + validateSearch + loader + 生产自动拆包）                     |
 | 数据与请求 | @tanstack/react-query、axios、Zustand                                                                      |
-| 表格与列表 | @tanstack/react-table、@tanstack/react-virtual                                                             |
+| 表格与列表 | @tanstack/react-table                                                                                      |
 | 国际化     | i18next、react-i18next、i18next-browser-languagedetector（key-based）                                      |
-| 日期       | Day.js                                                                                                     |
 | UI 与样式  | Base UI、shadcn/ui base-nova、HugeIcons（免费层）+ lucide、Tailwind CSS 4、clsx / class-variance-authority |
 | 字体       | @fontsource-variable/public-sans + lora（本地嵌入）                                                        |
-| 图表       | @visactor/vchart（复杂）、recharts + shadcn chart（简单）                                                  |
+| 图表       | Recharts + shadcn chart                                                                                    |
 | 表单       | React Hook Form、Zod                                                                                       |
-| 动画/反馈  | motion、sonner、vaul、cmdk                                                                                 |
-| Markdown   | marked、shiki、katex、dompurify                                                                            |
-| 拖拽       | @dnd-kit/core + sortable + utilities                                                                       |
+| 动画/反馈  | tw-animate-css、sonner、cmdk                                                                               |
 | 工具       | oxfmt、oxlint、knip、vitest                                                                                |
 
 优先选用成熟、维护良好的开源库；仅在现有库无法满足或需特殊适配时自行实现，并评估可维护性与通用性。HugeIcons 仅用免费层（`@hugeicons/core-free-icons`），付费图标用 lucide 兜底。
@@ -60,7 +57,6 @@ metapi-go 是 Meta-layer management and unified proxy for AI API aggregation pla
   - [5.16 构建与部署](#516-构建与部署)
 - [六、隐私与迁移约束](#六隐私与迁移约束)
 - [七、协作与提交](#七协作与提交)
-- [更新日志](#更新日志)
 
 ---
 
@@ -68,13 +64,13 @@ metapi-go 是 Meta-layer management and unified proxy for AI API aggregation pla
 
 ```
 src/
-├── features/              # 功能模块（13 个，见下）
+├── features/              # 按产品领域组织的功能模块
 ├── components/
 │   ├── data-table/        # 四层架构表格（core/layout/toolbar/static/hooks）
-│   ├── ui/                # shadcn 组件 ~56 个
+│   ├── ui/                # shadcn/Base UI 设计系统原语
 │   └── layout/            # 页面级布局（含 components/ config/ lib/ types.ts）
 ├── lib/                   # api / http-client / auth-session / cookies /
-│                          # identity-branding / motion / theme-customization / utils + helpers/
+│                          # identity-branding / theme-customization / utils + helpers/
 ├── routes/                # TanStack Router 文件路由
 ├── styles/                # theme.css + theme-presets.css + index.css
 ├── i18n/                  # config.ts + languages.ts + locales/{en,zh-CN}.json
@@ -86,23 +82,17 @@ src/
 └── main.tsx               # 入口
 ```
 
-### features（13 个）
+### features
 
-| feature              | 职责                                                                              |
-| -------------------- | --------------------------------------------------------------------------------- |
-| `auth`               | 登录 + OAuth                                                                      |
-| `dashboard`          | 仪表盘 + 4 section（overview/traffic/models/availability）+ RealtimeOps WebSocket |
-| `sites`              | 站点管理 + 引导式配置动线（站点→账号→路由）                                       |
-| `accounts`           | 连接管理 + Tokens                                                                 |
-| `token-routes`       | 路由 + dnd-kit 拖拽                                                               |
-| `oauth`              | OAuth 管理                                                                        |
-| `checkin`            | 签到记录（嵌套响应解构 + failureReason 分类 badge）                               |
-| `proxy-logs`         | 使用日志（manual + 服务端分页 + 详情 Sheet）                                      |
-| `models`             | 模型广场 + 品牌图标                                                               |
-| `model-tester`       | 操练场 + SSE 流式（全协议 OpenAI/Claude/Responses/Gemini）                        |
-| `site-announcements` | 站点公告 CRUD                                                                     |
-| `about`              | 关于（静态信息）                                                                  |
-| `settings`           | 5 子区 drill-in（general/downstream/models/content/system-info）                  |
+| feature                                      | 职责                                          |
+| :------------------------------------------- | :-------------------------------------------- |
+| `auth` / `oauth`                             | 管理登录与上游 OAuth 连接                     |
+| `dashboard` / `observability`                | 仪表盘、健康状态、RealtimeOps、代理日志工作台 |
+| `sites` / `accounts` / `channels` / `import` | 上游站点、连接、通道与导入动线                |
+| `token-routes`                               | 下游 token 路由与策略配置                     |
+| `models` / `model-tester`                    | 模型、价格/修复候选与四协议流式测试台         |
+| `checkin` / `proxy-logs`                     | 签到记录与使用日志                            |
+| `settings` / `about`                         | 设置中心与项目信息                            |
 
 ### data-table 四层
 
@@ -116,8 +106,8 @@ src/
 
 ### lib
 
-- `api.ts`、`http-client.ts`（统一 axios 实例 + 拦截器）、`auth-session.ts`（401 静默刷新）、`cookies.ts`、`identity-branding.ts`、`motion.ts`、`theme-customization.ts`、`utils.ts`（含 `cn()`）。
-- `helpers/`：纯函数工具集，每个 `.ts` 就近配 `.test.ts`（如 `csvExport`、`fuzzySearch`、`listSorting`、`routeMissingTokenHints` 等）。
+- `api/`、`http-client.ts`（统一 axios 实例 + 拦截器）、`auth-session.ts`（token/过期处理）、`cookies.ts`、`identity-branding.ts`、`theme-customization.ts`、`utils.ts`（含 `cn()`）。
+- `helpers/`：纯函数工具集，测试统一放 `helpers/__tests__/`（如 `searchParams`、`routeMissingTokenHints`、`zeroChannelRoutes`）。
 
 ### routes
 
@@ -143,7 +133,7 @@ bun run format:check   # 格式检查
 bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 ```
 
-**静态门禁（发布前必须全绿）**：tsgo 0 error + oxlint 0 error + knip exit 0 + `bun run build` pass + vitest 全绿（当前 369 tests / 38 files）。Dev proxy 默认指向 `http://localhost:4000`，可经 `DEV_PROXY_TARGET` / `VITE_DEV_PROXY_TARGET` / `PORT` / `VITE_BACKEND_PORT` 覆盖。
+**静态门禁（发布前必须全绿）**：tsgo 0 error + oxlint 0 error + knip exit 0 + `bun run build` pass + vitest 全绿。测试数量不写入规则文件，以 `bun run test` 的最新输出为准。Dev proxy 默认指向 `http://localhost:4000`，可经 `DEV_PROXY_TARGET` / `VITE_DEV_PROXY_TARGET` / `PORT` / `VITE_BACKEND_PORT` 覆盖。
 
 ---
 
@@ -151,7 +141,7 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 
 ### 5.1 国际化
 
-- **页面文本**：所有面向用户文案需 i18n，使用 `useTranslation()` 的 `t()` 翻译。当前支持 2 语言（`en` + `zh-CN`，各 1587 key，双向 0 缺失），key 双向一致性由 `src/i18n/__tests__/i18n-keys.test.ts` 校验。
+- **页面文本**：所有面向用户文案需 i18n，使用 `useTranslation()` 的 `t()` 翻译。当前支持 `en` + `zh-CN`，key 双向一致性由 `src/i18n/__tests__/i18n-keys.test.ts` 校验；不在规则中固化易漂移计数。
 - **语言切换**：顶栏 `LanguageSwitcher`（`components/layout/components/app-header.tsx`）提供 en/zh-CN 手动切换；`i18next-browser-languagedetector` 按 localStorage → navigator 顺序自动跟随浏览器语言；`languageChanged` 时经 `toBcp47()` 同步 `document.documentElement.lang`（zhCN → `zh-CN`）+ `dir`。
 - **使用场景**
   - **React 组件**：必须 `const { t } = useTranslation()`，保证语言切换时重渲染。
@@ -174,6 +164,7 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 - **类型检查**：每次改动 TS/TSX 后执行 `bun run typecheck`（tsgo）；类型错误须修复至无错误，不得遗留。
 - **Lint**：完成代码改动前对涉及文件执行 `bun run lint`，修复所有 error；warning 按变更范围与风险评估处理。
 - **解构**：对象非必要不解构，特别是组件 props；直接 `props.xxx` 更清晰。
+- **简单优先**：优先在现有 owner 内直接实现；只有真实边界或多个现有消费者才新增抽象。不得为尚不存在的接口、角色或产品能力保留 scaffold、双轨或 fallback ladder。
 
 ### 5.3 组件
 
@@ -184,8 +175,8 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 ### 5.4 性能
 
 - **React**：合理用 `useMemo`/`useCallback` 减少无效重渲染；避免渲染路径中创建新对象/数组；必要时 `React.memo`。
-- **代码分割**：`React.lazy` + 动态 `import` 按需加载；TanStack Router 生产模式自动按路由 code splitting（见 `rsbuild.config.ts`，`autoCodeSplitting: isProd`）。
-- **资源**：图片选合适格式与尺寸；大列表用虚拟滚动（@tanstack/react-virtual）；大量图片懒加载。
+- **代码分割**：TanStack Router 生产模式自动按路由 code splitting（见 `rsbuild.config.ts`，`autoCodeSplitting: isProd`）；不要再叠一套手工路由拆包机制。
+- **资源**：图片选合适格式与尺寸并按需懒加载；只有真实性能证据支持时才引入虚拟滚动等额外复杂度。
 
 ### 5.5 状态管理
 
@@ -196,8 +187,8 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 ### 5.6 API 请求
 
 - **后端契约**：后端默认 `http://localhost:4000`（`PORT` env 可覆盖）。admin REST 在 `/api`（`handler/admin`，端点清单见 `docs/api.md`），OpenAI 兼容代理在 `/v1`（`handler/proxy`）。JSON 字段一律 camelCase，env var 名与 TS 版一致无前缀。
-- **Axios**：用统一 `api` 实例（`src/lib/http-client.ts`），`withCredentials: true`；GET 默认请求去重，特殊请求可配置关闭。认证与通用错误在拦截器处理（401 静默刷新）。
-- **React Query**：`useQuery` 取数、`useMutation` 变更；每个查询配唯一 `queryKey`（数组形式、层级一致）；`onSuccess` 对相关 query `invalidateQueries`，可配合乐观更新。服务端错误统一经 `handleServerError`（见 [5.9](#59-错误处理)）。
+- **Axios**：用统一 `api` 实例（`src/lib/http-client.ts`），`withCredentials: true`；GET 默认请求去重，特殊请求可配置关闭。后端没有 refresh endpoint，401 按现有契约清理会话并回到登录页，不保留伪刷新流程。
+- **React Query**：`useQuery` 取数、`useMutation` 变更；每个查询配唯一 `queryKey`（数组形式、层级一致）；`onSuccess` 对相关 query `invalidateQueries`。仅在竞态收益明确且可回滚时做乐观更新。
 - **Dev proxy**：`rsbuild.config.ts` 将 `/api`、`/v1` 代理到后端；`DEV_PROXY_TARGET` / `VITE_DEV_PROXY_TARGET` / `PORT` / `VITE_BACKEND_PORT` 可覆盖默认 4000。
 
 ### 5.7 表单
@@ -209,13 +200,13 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 
 - TanStack Router，路由文件在 `src/routes/`，`createFileRoute` 定义；搜索参数用 Zod schema + `validateSearch` 校验。
 - `beforeLoad` 做认证与重定向，避免不必要请求；嵌套结构用布局路由与 `_authenticated` 前缀，子路由经 `<Outlet />` 渲染。
-- 用 `loader` 做预取（prefetch）、`lazyRouteComponent` 做懒加载，保持类型安全。
+- 用 `loader` 做预取（prefetch）；生产拆包由 `rsbuild.config.ts` 的 `autoCodeSplitting` 统一负责。
 - 导航用 `useNavigate` 或 `Link`，保持类型安全，避免直接操作 `window.location`。
 
 ### 5.9 错误处理
 
-- **服务端错误**：统一 `handleServerError`（`src/lib/server-error.ts`），在 React Query 全局配置与拦截器接入；按 HTTP 状态码给合适提示，文案用 i18n。
-- **展示**：`toast.error` 等统一方式；路由级错误由 `errorComponent` 承接，提供友好错误页并记录便于排查的信息。
+- **服务端错误**：Axios 拦截器处理通用 HTTP/业务错误；feature mutation 只处理需要领域上下文的提示，避免双 toast。
+- **展示**：`toast.error` 等统一方式；路由级错误由 router `defaultErrorComponent` 承接。
 - **表单**：校验与服务端错误映射到字段后字段下方展示，用 `form.setError` 等与表单库一致方式。
 
 ### 5.10 样式与设计系统
@@ -225,15 +216,15 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
   - `theme.css`：OKLCH 语义 token（背景/前景/主色/边框等）+ radius/scale 变量。
   - `theme-presets.css`：10 套预设主题（每套覆盖语义 token）。
   - `index.css`：Tailwind 4 入口（`@import 'tailwindcss'` + `@custom-variant dark` + `@theme inline` 桥接 token 到 Tailwind）。
-- **3 轴主题**：preset（预设）/ radius（圆角单点缩放）/ scale，经 `<body data-theme-*>` 切换；暗色模式 class-based（`<html class="dark">`，`@custom-variant dark (&:is(.dark *))`），cookie 持久化。
-- **图表取色**：复杂图用 VChart，简单图用 shadcn chart/recharts；`useChartColors`（`features/dashboard/hooks/use-chart-colors.ts`）JS 读取 OKLCH token 取色，MutationObserver 监听主题变化重新采样。
+- **5 轴主题**：preset / font / radius / scale / content-layout，经 `<body data-theme-*>` 切换；暗色模式 class-based（`<html class="dark">`，`@custom-variant dark (&:is(.dark *))`），cookie 持久化。
+- **图表取色**：Recharts/shadcn chart 直接使用 `--chart-1…5` 语义 CSS 变量；不再维护 canvas 取色和 MutationObserver 双轨。
 - **图标选型**：`components/ui/*` 设计系统原语统一用 HugeIcons 免费层（`@hugeicons/core-free-icons` + `@hugeicons/react` 的 `HugeiconsIcon`，`strokeWidth={2}`）；`features/`、`layout/`、`data-table/` 等业务/页面层沿用 lucide-react 既有视觉。免费层缺等价 glyph 时才用 lucide 兜底；禁止新增付费 HugeIcons；同一文件不得混用两套图标来源。
 - 组件内尽量少写自定义 CSS。
 
 ### 5.11 文件组织
 
-- **功能模块**：`src/features/<feature>/`，含 `components/`、`lib/`、`hooks/`，及按需 `api.ts`、`types.ts`、`constants.ts`、入口组件。13 feature 见 [三、目录结构](#三目录结构)。
-- **通用**：通用组件放 `src/components/`（`ui/` shadcn ~56 组件 + `data-table/` 四层 + `layout/`），通用工具与类型放 `src/lib/`。组件文件 PascalCase，工具/类型文件 kebab-case 或 `types.ts`，类型 PascalCase 并 `export type`。
+- **功能模块**：`src/features/<feature>/`，含 `components/`、`lib/`、`hooks/`，及按需 `api.ts`、`types.ts`、`constants.ts`、入口组件；按领域归属，不按页面数量制造模块。
+- **通用**：通用组件放 `src/components/`（`ui/` 设计系统原语 + `data-table/` + `layout/`），通用工具与类型放 `src/lib/`。组件文件 PascalCase，工具/类型文件 kebab-case 或 `types.ts`，类型 PascalCase 并 `export type`。
 
 ### 5.12 可访问性
 
@@ -245,11 +236,11 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 
 - 认证与权限在路由（`beforeLoad`）与接口层校验；敏感操作二次确认。
 - 前后端均做数据校验（Zod），不信任仅前端校验；敏感信息不落前端存储，配置用环境变量，禁止硬编码密钥。
-- 依赖 React 默认转义，慎用 `dangerouslySetInnerHTML`（公告/markdown 渲染须经 `dompurify`）；跨域与 Cookie 用 `withCredentials` 并按后端要求处理 CSRF。
+- 依赖 React 默认转义；业务数据不得进入 `dangerouslySetInnerHTML`。跨域与 Cookie 用 `withCredentials` 并按后端要求处理 CSRF。
 
 ### 5.14 测试
 
-- **栈**：vitest + @testing-library/react + jsdom（环境见 `vite.config.ts`）；当前 369 tests / 38 files 全绿。
+- **栈**：vitest + @testing-library/react + jsdom（环境见 `vite.config.ts`）；是否全绿以本次运行输出为准。
 - **范围**：工具函数与纯逻辑优先单元测试（`*.test.ts`）；组件用 React Testing Library 测交互与行为，避免测实现细节。
 - **位置**：测试必须放模块专属 `__tests__/`（如 `src/features/token-routes/components/__tests__/layout.test.ts`）；禁止与正式代码平铺。
 - **命名与组织**：按被测职责命名（`layout.test.ts`、`validation.test.ts`）；一个文件只覆盖一个明确模块；每用例只保护一个可描述行为，名称含触发条件与预期结果，优先 Arrange/Act/Assert。
@@ -285,12 +276,3 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 - 提交信息清晰、符合项目约定（`docs:`/`state:`/`ops:`/`chore:` 前缀），描述变更内容与原因，中英文统一即可。
 - 变更需经代码审查，符合本文档规范，关注质量、性能、安全。
 - 重大功能或规范变更时更新相关文档与本文件。本文件行数预算 ≤300 行，超限先外置到 `src/docs/`。
-
----
-
-## 更新日志
-
-- **2026-08-15**：5.10 新增「图标选型」分层约定（ui 原语 HugeIcons 免费层、业务/页面层沿用 lucide、同一文件不混用、禁止新增付费 HugeIcons）；收敛 ui 层 2 处 lucide 残留（combobox-input/secret-field）到 HugeIcons。
-- **2026-08-11**：移除不存在的 `i18n:sync` / `sync-i18n.mjs` 引用（i18n key 双向一致性由 `src/i18n/__tests__/i18n-keys.test.ts` 校验）；补回 `format` / `format:check`（oxfmt）脚本说明；`zhCN` 更正为 `zh-CN`。
-- **2026-08-11**：反映前端重写（阶段 1-6）完整架构——新增「目录结构」「开发工作流与静态门禁」「隐私与迁移约束」三节；i18n 更正为 2 语言 key-based；状态管理更正为仅 `auth-store`；测试环境更正为 jsdom（361 tests）；features 更正为 13 个（移除已并入 dashboard availability 的 `monitors`）；补充 data-table 四层、routes loader/lazyRouteComponent、设计系统三层 CSS + 3 轴主题 + 10 预设、useChartColors 取色等。
-- **2026-08-11**：初始版本——100% 对齐 newapi 栈重写（16 节）。
