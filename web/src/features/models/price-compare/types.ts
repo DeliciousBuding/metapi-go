@@ -5,13 +5,23 @@
 import { z } from 'zod'
 
 /** Provenance grades for a price, mirroring routing price-source labels. */
-export const priceGradeValues = [
+const priceGradeValues = [
   'billing_details',
   'observed',
   'configured',
   'fallback',
 ] as const
 export type PriceGrade = (typeof priceGradeValues)[number]
+
+function isPriceGrade(value: string): value is PriceGrade {
+  return (priceGradeValues as readonly string[]).includes(value)
+}
+
+export function normalizePriceGrade(
+  value: string | null | undefined
+): PriceGrade {
+  return value && isPriceGrade(value) ? value : 'fallback'
+}
 
 const priceCompareItemSchema = z.object({
   siteId: z.coerce.number().default(0),
@@ -54,5 +64,6 @@ export const priceCompareQueryKeys = {
     days?: number
     limit?: number
     topModels?: number
+    exactModel?: boolean
   }) => [...priceCompareQueryKeys.all, params] as const,
 }
