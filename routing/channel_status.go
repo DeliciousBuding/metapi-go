@@ -21,7 +21,8 @@ func ChannelRuntimeStatus(siteID int64, modelName string, enabled bool, cooldown
 	}
 	nowISO := time.Now().UTC().Format(time.RFC3339)
 	details := GetSiteRuntimeHealthDetails(siteID, modelName)
-	if details.GlobalBreakerOpen || details.ModelBreakerOpen {
+	if details.GlobalBreakerOpen || details.ModelBreakerOpen ||
+		details.GlobalHalfOpen || details.ModelHalfOpen {
 		return ChannelStatusBreakerOpen
 	}
 	if IsCooldownActive(cooldownUntil, nowISO) {

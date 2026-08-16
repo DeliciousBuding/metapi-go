@@ -144,7 +144,8 @@ func (s *ChannelSelector) SelectPreferredChannel(
 		}
 	}
 	details := GetSiteRuntimeHealthDetails(preferred.Site.ID, runtimeModelResolver)
-	if details.GlobalBreakerOpen || details.ModelBreakerOpen {
+	if details.GlobalBreakerOpen || details.ModelBreakerOpen ||
+		details.GlobalHalfOpen || details.ModelHalfOpen {
 		return nil, nil
 	}
 
@@ -400,7 +401,8 @@ func softFilterCandidatesStrict(
 			modelName = resolveModel(c)
 		}
 		details := GetSiteRuntimeHealthDetails(c.Site.ID, modelName)
-		if details.GlobalBreakerOpen || details.ModelBreakerOpen {
+		if details.GlobalBreakerOpen || details.ModelBreakerOpen ||
+			details.GlobalHalfOpen || details.ModelHalfOpen {
 			continue
 		}
 		if IsChannelRecentlyFailed(&c.Channel.FailCount, c.Channel.LastFailAt, nowMs, configuredMaxSec) {
@@ -887,6 +889,22 @@ func (s *ChannelSelector) finalizeDispatch(
 				s.cache.InvalidateRouteScopedCache(rid)
 			}
 		}
+	}
+
+	// Half-open admission gate (three-state breaker, mirrors octopus circuit.go):
+	// hard-open breakers and in-flight recovery probes are rejected; after a
+	// breaker cooldown expires, exactly one request is admitted as the recovery
+	// probe while the rest keep being rejected until the probe outcome is
+	// recorded. Open now means no traffic — the pre-existing fail-open
+	// starvation fallback no longer dispatches against hard-open sites.
+	runtimeModelKey := mappedModel
+	if IsRouteDisplayNameMatch(requestedModel, match.Route.DisplayName) {
+		if sm := NormalizeChannelSourceModel(selected.Channel.SourceModel); sm != "" {
+			runtimeModelKey = sm
+		}
+	}
+	if !TryAdmitSiteModelRuntimeRequest(dispatchCandidate.Site.ID, runtimeModelKey) {
+		return nil, nil
 	}
 
 	tokenValue := resolvedRouteUnitMemberTokenValue
