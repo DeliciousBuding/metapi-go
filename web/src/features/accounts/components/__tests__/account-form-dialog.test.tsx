@@ -56,6 +56,9 @@ describe('AccountFormDialog', () => {
         document.querySelector('input[type="password"]')
       ).toBeInTheDocument()
     })
-    expect(screen.getAllByRole('tab')[2]).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getAllByRole('tab')[2]).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
   })
 })
