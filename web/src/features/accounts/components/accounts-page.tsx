@@ -6,11 +6,7 @@
 // effect. That pattern can create a router <-> table feedback loop when a
 // controlled callback changes identity during render.
 
-import type {
-  ColumnFiltersState,
-  FilterFn,
-  Table,
-} from '@tanstack/react-table'
+import type { ColumnFiltersState, FilterFn, Table } from '@tanstack/react-table'
 import {
   Loader2,
   Plus,
@@ -83,7 +79,8 @@ function readAccountsSearch(
   }
 
   const params = new URLSearchParams(
-    searchString ?? (typeof window !== 'undefined' ? window.location.search : '')
+    searchString ??
+      (typeof window !== 'undefined' ? window.location.search : '')
   )
   const parsed = accountsSearchSchema.safeParse({
     q: params.get('q') ?? undefined,
@@ -138,7 +135,12 @@ function buildAccountsHref(
 }
 
 function splitFilter(value: string | undefined): string[] {
-  return value?.split(',').map((item) => item.trim()).filter(Boolean) ?? []
+  return (
+    value
+      ?.split(',')
+      .map((item) => item.trim())
+      .filter(Boolean) ?? []
+  )
 }
 
 function toAccountsColumnFilters(
