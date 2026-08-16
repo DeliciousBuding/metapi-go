@@ -1,6 +1,6 @@
 # STATE.md — MetAPI Go product status
 
-**Last verified**: 2026-08-14
+**Last verified**: 2026-08-16
 
 > **Current state** (product repository). Only current facts and pointers, no narrative.
 > Deployment facts live in the deployment guide; open items → [`progress/MASTER.md`](progress/MASTER.md) · timeline → [`log.md`](log.md) · version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
@@ -10,7 +10,7 @@
 | Fact | Value |
 |:-----|:------|
 | Source | **[DeliciousBuding/metapi-go](https://github.com/DeliciousBuding/metapi-go)** · default branch `master` |
-| Latest release | **[v0.12.0](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.12.0)** (2026-08-14); master pipeline publishes `ghcr.io/deliciousbuding/metapi-go` — verified live: tags `latest`/`0.12.0`/`0.12`/sha |
+| Latest release | **[v0.13.0](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.13.0)** (2026-08-15); master pipeline publishes `ghcr.io/deliciousbuding/metapi-go` — verified live: tags `latest`/`0.13.0`/`0.13`/sha |
 | Release pipeline | Single pipeline (`.github/workflows/main.yml`): PR / master push / SemVer tag all run the same 12-check suite; master push pushes the **linux/amd64 + linux/arm64** image (provenance + SBOM, tags latest+sha); SemVer-only tags (`vX.Y.Z`) additionally build **5-platform binaries + checksums.txt** (linux/darwin/windows × amd64/arm64), smoke `metapi-linux-amd64 --version`, and create the GitHub Release with notes extracted from the matching `CHANGELOG.md` section; tag must match `web/package.json` version or the release fails |
 | Versioning | `metapi --version` reports the build version injected via `-ldflags -X .../internal/version.Version` (`dev` for local builds); Docker build arg `VERSION`; Makefile `VERSION` variable |
 | Dependency updates | Dependabot active (Go / npm / GitHub Actions / Docker) — weekly group PRs through the same 12-check CI; breaking major bumps are closed and need a manual migration PR |

@@ -1,10 +1,10 @@
 # Roadmap
 
-**Last updated**: 2026-08-14
+**Last updated**: 2026-08-16
 
 **Repo**: https://github.com/DeliciousBuding/metapi-go
 
-**Release**: v0.12.0 · master CD `ghcr.io/deliciousbuding/metapi-go`
+**Release**: v0.13.0 · master CD `ghcr.io/deliciousbuding/metapi-go`
 
 > Current status → [`../STATE.md`](../STATE.md) · Timeline → [`../log.md`](../log.md) ·
 > 产品对标 → [`../benchmark.md`](../benchmark.md)
