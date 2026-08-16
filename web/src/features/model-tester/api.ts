@@ -32,6 +32,7 @@ import { useMutation } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 
 import type {
+  BatchProbeResult,
   ChatMessage,
   ChatTestPayload,
   TestFormValues,
@@ -245,17 +246,16 @@ export async function resolveTestResponseError(
 }
 
 /**
- * Run a single sync chat test. Posts to `/api/test/chat` (the forced-channel
- * harness) and parses the single JSON body as one delta so the viewer renders
- * the final content. Forwards the delta to `onDelta` and resolves to a
- * `TestResponse` summary; throws on auth failure, non-ok responses, or caller
- * abort.
+ * Run a single sync probe against `/api/test/chat` (the forced-channel
+ * harness) and parse the JSON body as one delta. Returns a `TestResponse`
+ * summary (including measured `latencyMs`); throws on auth failure, non-ok
+ * responses, or caller abort. Shared by the single-run mutation and the batch
+ * comparison so both measure latency through the same path.
  */
-async function runChatTest(
-  variables: TestModelVariables
+export async function runChatProbe(
+  chatPayload: ChatTestPayload,
+  signal?: AbortSignal
 ): Promise<TestResponse> {
-  const { payload, history, onDelta, onDone, signal } = variables
-  const chatPayload = buildChatPayload(payload, history)
   const startedAt = performance.now()
 
   const response = await api.testChatSync(chatPayload, signal)
@@ -276,7 +276,7 @@ async function runChatTest(
       const parsed = JSON.parse(text) as unknown
       const errorText = extractErrorMessage(parsed)
       if (errorText) {
-        const summary: TestResponse = {
+        return {
           content: '',
           reasoningContent: '',
           doneReceived: true,
@@ -286,8 +286,6 @@ async function runChatTest(
           empty: true,
           error: errorText,
         }
-        onDone?.(summary)
-        return summary
       }
       const delta = parseAnyStreamDelta(parsed)
       content = delta.contentDelta ?? ''
@@ -299,7 +297,7 @@ async function runChatTest(
     }
   }
 
-  const summary: TestResponse = {
+  return {
     content,
     reasoningContent,
     doneReceived,
@@ -308,13 +306,123 @@ async function runChatTest(
     rawEvents,
     empty: !content && !reasoningContent,
   }
+}
+
+/**
+ * Detect a caller-triggered abort so the UI can show a "stopped" state
+ * instead of a hard error. Handles the message variants produced by
+ * `AbortController.abort()` across browsers and the fetch polyfill.
+ */
+export function isAbortError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  return (
+    error.name === 'AbortError' ||
+    error.message === 'This operation was aborted' ||
+    error.message === 'The user aborted a request.'
+  )
+}
+
+/**
+ * Run a single sync chat test for the viewer. Builds the payload from form
+ * values + history, delegates to `runChatProbe`, then forwards the single
+ * delta to `onDelta` and the summary to `onDone`.
+ */
+async function runChatTest(
+  variables: TestModelVariables
+): Promise<TestResponse> {
+  const { payload, history, onDelta, onDone, signal } = variables
+  const summary = await runChatProbe(buildChatPayload(payload, history), signal)
   onDelta?.({
-    contentDelta: content,
-    reasoningDelta: reasoningContent,
+    contentDelta: summary.content,
+    reasoningDelta: summary.reasoningContent,
     done: true,
   })
   onDone?.(summary)
   return summary
+}
+
+/**
+ * Run a batch of channel probes with bounded concurrency and one shared abort
+ * lifecycle, settling every request independently so one slow/failing channel
+ * never erases the others. Returns one result per probe in input order.
+ */
+export async function runBatchComparison(
+  probes: Array<{
+    channelId: number
+    run: (signal?: AbortSignal) => Promise<TestResponse>
+  }>,
+  options: { concurrency?: number; signal?: AbortSignal } = {}
+): Promise<BatchProbeResult[]> {
+  const concurrency = Math.max(1, options.concurrency ?? 3)
+  const results: BatchProbeResult[] = Array.from({ length: probes.length })
+  let nextIndex = 0
+
+  async function worker(): Promise<void> {
+    while (nextIndex < probes.length) {
+      const index = nextIndex
+      nextIndex += 1
+      const probe = probes[index]
+      results[index] = await settleProbe(
+        probe.channelId,
+        probe.run,
+        options.signal
+      )
+    }
+  }
+
+  const workerCount = Math.min(concurrency, probes.length)
+  await Promise.all(Array.from({ length: workerCount }, () => worker()))
+  return results
+}
+
+async function settleProbe(
+  channelId: number,
+  run: (signal?: AbortSignal) => Promise<TestResponse>,
+  signal?: AbortSignal
+): Promise<BatchProbeResult> {
+  try {
+    const summary = await run(signal)
+    if (summary.error) {
+      return {
+        channelId,
+        status: 'failure',
+        latencyMs: summary.latencyMs,
+        error: summary.error,
+      }
+    }
+    return { channelId, status: 'success', latencyMs: summary.latencyMs }
+  } catch (error) {
+    if (isAbortError(error)) return { channelId, status: 'aborted' }
+    return {
+      channelId,
+      status: 'failure',
+      error: error instanceof Error ? error.message : String(error),
+    }
+  }
+}
+
+/**
+ * Order batch results for display: completed successes first, sorted by
+ * ascending latency, then failures/aborted entries in their original input
+ * order (a stable sort so reruns do not jumble otherwise-identical rows).
+ */
+export function sortBatchResults(
+  results: BatchProbeResult[]
+): BatchProbeResult[] {
+  return results
+    .map((result, index) => ({ result, index }))
+    .sort((a, b) => {
+      const aSuccess = a.result.status === 'success'
+      const bSuccess = b.result.status === 'success'
+      if (aSuccess && bSuccess) {
+        const latencyDiff =
+          (a.result.latencyMs ?? 0) - (b.result.latencyMs ?? 0)
+        return latencyDiff !== 0 ? latencyDiff : a.index - b.index
+      }
+      if (aSuccess !== bSuccess) return aSuccess ? -1 : 1
+      return a.index - b.index
+    })
+    .map((entry) => entry.result)
 }
 
 export function useTestModel() {

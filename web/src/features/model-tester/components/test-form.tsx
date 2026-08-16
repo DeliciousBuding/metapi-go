@@ -17,6 +17,7 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Form,
   FormControl,
@@ -36,6 +37,7 @@ import {
 } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { Spinner } from '@/components/ui/spinner'
+import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { useChannels } from '@/features/channels'
 import { useModels } from '@/features/models'
@@ -79,6 +81,9 @@ export function TestForm({
     resolver: zodResolver(testerSchema),
     defaultValues: TESTER_FORM_DEFAULT_VALUES,
   })
+
+  const compareChannels = form.watch('compareChannels')
+  const selectedChannelIds = form.watch('channelIds') ?? []
 
   // Pre-select the model from a deep link once the marketplace list lands.
   useEffect(() => {
@@ -197,52 +202,125 @@ export function TestForm({
 
         <FormField
           control={form.control}
-          name='channelId'
+          name='compareChannels'
           render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('modelTester.form.channel')}</FormLabel>
-              <Select
-                value={field.value ? String(field.value) : 'none'}
-                onValueChange={(value) =>
-                  field.onChange(value === 'none' ? undefined : Number(value))
-                }
-                disabled={isRunning}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue>
-                      {(selected) => {
-                        if (!selected || selected === 'none') {
-                          return t('modelTester.form.channelNone')
-                        }
-                        const channel = (channelsQuery.data ?? []).find(
-                          (item) => String(item.id) === selected
-                        )
-                        return channel
-                          ? `${channel.name} · ${channel.site.name}`
-                          : String(selected)
-                      }}
-                    </SelectValue>
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value='none'>
-                    {t('modelTester.form.channelNone')}
-                  </SelectItem>
-                  {(channelsQuery.data ?? []).map((channel) => (
-                    <SelectItem key={channel.id} value={String(channel.id)}>
-                      {channel.name} · {channel.site.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormDescription>
-                {t('modelTester.form.channelHint')}
-              </FormDescription>
-              <FormMessage />
+            <FormItem className='flex flex-row items-center justify-between rounded-lg border p-3'>
+              <div className='space-y-0.5'>
+                <FormLabel>{t('modelTester.form.compareChannels')}</FormLabel>
+                <FormDescription>
+                  {t('modelTester.form.compareChannelsHint')}
+                </FormDescription>
+              </div>
+              <FormControl>
+                <Switch
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  disabled={isRunning}
+                />
+              </FormControl>
             </FormItem>
           )}
         />
+
+        {!compareChannels && (
+          <FormField
+            control={form.control}
+            name='channelId'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('modelTester.form.channel')}</FormLabel>
+                <Select
+                  value={field.value ? String(field.value) : 'none'}
+                  onValueChange={(value) =>
+                    field.onChange(value === 'none' ? undefined : Number(value))
+                  }
+                  disabled={isRunning}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue>
+                        {(selected) => {
+                          if (!selected || selected === 'none') {
+                            return t('modelTester.form.channelNone')
+                          }
+                          const channel = (channelsQuery.data ?? []).find(
+                            (item) => String(item.id) === selected
+                          )
+                          return channel
+                            ? `${channel.name} · ${channel.site.name}`
+                            : String(selected)
+                        }}
+                      </SelectValue>
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value='none'>
+                      {t('modelTester.form.channelNone')}
+                    </SelectItem>
+                    {(channelsQuery.data ?? []).map((channel) => (
+                      <SelectItem key={channel.id} value={String(channel.id)}>
+                        {channel.name} · {channel.site.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  {t('modelTester.form.channelHint')}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
+        {compareChannels && (
+          <FormField
+            control={form.control}
+            name='channelIds'
+            render={() => (
+              <FormItem>
+                <FormLabel>
+                  {t('modelTester.form.compareChannelsLabel')}
+                </FormLabel>
+                <div className='max-h-48 space-y-1 overflow-y-auto rounded-lg border p-2'>
+                  {(channelsQuery.data ?? []).map((channel) => {
+                    const checked = selectedChannelIds.includes(channel.id)
+                    return (
+                      <label
+                        key={channel.id}
+                        className='hover:bg-muted flex items-center gap-2 rounded px-2 py-1'
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(value) => {
+                            const next = value
+                              ? [...selectedChannelIds, channel.id]
+                              : selectedChannelIds.filter(
+                                  (id) => id !== channel.id
+                                )
+                            form.setValue('channelIds', next, {
+                              shouldValidate: true,
+                            })
+                          }}
+                          disabled={isRunning}
+                        />
+                        <span className='truncate text-sm'>
+                          {channel.name} · {channel.site.name}
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+                <FormDescription>
+                  {t('modelTester.form.compareChannelsCount', {
+                    count: selectedChannelIds.length,
+                  })}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         <FormField
           control={form.control}
