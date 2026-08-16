@@ -169,6 +169,10 @@
         "channel": "渠道",
         "channelNone": "不指定渠道（默认路由）",
         "channelHint": "针对指定渠道发起测试。留空则使用默认路由。",
+        "compareChannels": "对比渠道",
+        "compareChannelsHint": "用同一提示词在多个渠道上运行并对比延迟。",
+        "compareChannelsLabel": "待对比渠道",
+        "compareChannelsCount": "已选 {{count}} 个",
         "targetFormatLabel": "目标格式",
         "targetFormat": {
           "openai": "OpenAI",
@@ -197,7 +201,8 @@
           "topPMax": "Top P 不能超过 1。",
           "maxTokensInteger": "最大令牌数必须为整数。",
           "maxTokensMin": "最大令牌数不能小于 0。",
-          "maxTokensMax": "最大令牌数不能超过 128000。"
+          "maxTokensMax": "最大令牌数不能超过 128000。",
+          "compareMinChannels": "请至少选择两个渠道进行对比。"
         }
       },
       "toast": {
@@ -233,6 +238,19 @@
         "contentChars": "{{value}} 字符",
         "roleYou": "你",
         "roleAssistant": "助手"
+      },
+      "compare": {
+        "title": "渠道对比",
+        "emptyHint": "选择两个或更多渠道后运行对比。",
+        "summary": "{{succeeded}} 成功 / {{failed}} 失败",
+        "channel": "渠道",
+        "site": "站点",
+        "status": "状态",
+        "latency": "延迟",
+        "error": "错误",
+        "statusSuccess": "成功",
+        "statusFailure": "失败",
+        "statusAborted": "已停止"
       },
       "page": {
         "title": "模型测试器",

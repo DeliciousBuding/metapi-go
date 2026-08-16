@@ -169,6 +169,10 @@
         "channel": "Channel",
         "channelNone": "No channel (default routing)",
         "channelHint": "Run the test against a specific channel. Leave empty to use default routing.",
+        "compareChannels": "Compare channels",
+        "compareChannelsHint": "Run the same prompt across several channels and compare latency.",
+        "compareChannelsLabel": "Channels to compare",
+        "compareChannelsCount": "{{count}} selected",
         "targetFormatLabel": "Target format",
         "targetFormat": {
           "openai": "OpenAI",
@@ -197,7 +201,8 @@
           "topPMax": "Top P must be at most 1.",
           "maxTokensInteger": "Max tokens must be an integer.",
           "maxTokensMin": "Max tokens must be at least 0.",
-          "maxTokensMax": "Max tokens must be at most 128000."
+          "maxTokensMax": "Max tokens must be at most 128000.",
+          "compareMinChannels": "Select at least two channels to compare."
         }
       },
       "toast": {
@@ -233,6 +238,19 @@
         "contentChars": "{{value}} chars",
         "roleYou": "You",
         "roleAssistant": "Assistant"
+      },
+      "compare": {
+        "title": "Channel comparison",
+        "emptyHint": "Select two or more channels and run a comparison.",
+        "summary": "{{succeeded}} succeeded / {{failed}} failed",
+        "channel": "Channel",
+        "site": "Site",
+        "status": "Status",
+        "latency": "Latency",
+        "error": "Error",
+        "statusSuccess": "Success",
+        "statusFailure": "Failed",
+        "statusAborted": "Stopped"
       },
       "page": {
         "title": "Model Tester",

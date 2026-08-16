@@ -25,12 +25,15 @@ export type ChatMessage = {
  * `ChatTestPayload.messages` array from `systemPrompt` (role=system, when
  * present) + `prompt` (role=user). `channelId` targets a specific channel via
  * the forced-channel harness; when absent the backend returns its honest 501
- * "requires channelId" residual. Numeric fields are plain `z.number()` so RHF
- * input/output types match.
+ * "requires channelId" residual. `compareChannels` + `channelIds` drive the
+ * batch latency comparison (single-run path keeps using `channelId`).
+ * Numeric fields are plain `z.number()` so RHF input/output types match.
  */
 export type TestFormValues = {
   model: string
   channelId?: number
+  compareChannels: boolean
+  channelIds?: number[]
   systemPrompt: string
   prompt: string
   targetFormat: TestTargetFormat
@@ -99,4 +102,18 @@ export type ChatTestPayload = {
   temperature?: number
   top_p?: number
   max_tokens?: number
+}
+
+/**
+ * Settled result for one channel in a batch latency comparison. `status`
+ * distinguishes a clean response from an upstream error (the probe resolved
+ * with a `TestResponse.error`) or a caller abort; `latencyMs` is the observed
+ * wall-clock from request start to settle (only set when the probe actually
+ * issued a request).
+ */
+export type BatchProbeResult = {
+  channelId: number
+  status: 'success' | 'failure' | 'aborted'
+  latencyMs?: number
+  error?: string
 }
