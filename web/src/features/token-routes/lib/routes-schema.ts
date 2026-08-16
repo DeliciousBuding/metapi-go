@@ -28,7 +28,14 @@ export function getRouteFormSchema() {
       contextLength: z.string().trim().optional(),
       sourceRouteIds: z.array(z.number().int().positive()).optional(),
       routingStrategy: z
-        .enum(['weighted', 'round_robin', 'stable_first'])
+        .enum([
+          'weighted',
+          'round_robin',
+          'stable_first',
+          'least_busy',
+          'lowest_latency',
+          'lowest_cost',
+        ])
         .optional(),
       modelMapping: z.string().trim().optional(),
       channelDrafts: z

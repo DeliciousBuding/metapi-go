@@ -218,9 +218,12 @@ describe('normalizeRouteMode', () => {
 })
 
 describe('normalizeRoutingStrategy', () => {
-  it('preserves round_robin and stable_first', () => {
+  it('preserves every known strategy value', () => {
     expect(normalizeRoutingStrategy('round_robin')).toBe('round_robin')
     expect(normalizeRoutingStrategy('stable_first')).toBe('stable_first')
+    expect(normalizeRoutingStrategy('least_busy')).toBe('least_busy')
+    expect(normalizeRoutingStrategy('lowest_latency')).toBe('lowest_latency')
+    expect(normalizeRoutingStrategy('lowest_cost')).toBe('lowest_cost')
   })
 
   it('falls back to weighted for anything else', () => {
@@ -236,6 +239,9 @@ describe('routingStrategyLabel', () => {
     expectLocalized(routingStrategyLabel('weighted'), '权重随机')
     expectLocalized(routingStrategyLabel('round_robin'), '轮询')
     expectLocalized(routingStrategyLabel('stable_first'), '稳定优先')
+    expectLocalized(routingStrategyLabel('least_busy'), '负载最低')
+    expectLocalized(routingStrategyLabel('lowest_latency'), '延迟最低')
+    expectLocalized(routingStrategyLabel('lowest_cost'), '成本最低')
   })
 
   it('falls back to the weighted label for unknown input', () => {

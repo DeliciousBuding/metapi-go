@@ -161,13 +161,24 @@ const ROUTING_STRATEGY_LABEL_KEYS: Record<RouteRoutingStrategy, string> = {
   weighted: 'tokenRoutes.strategies.weighted',
   round_robin: 'tokenRoutes.strategies.round_robin',
   stable_first: 'tokenRoutes.strategies.stable_first',
+  least_busy: 'tokenRoutes.strategies.least_busy',
+  lowest_latency: 'tokenRoutes.strategies.lowest_latency',
+  lowest_cost: 'tokenRoutes.strategies.lowest_cost',
 }
 
 export function normalizeRoutingStrategy(
   value: string | null | undefined
 ): RouteRoutingStrategy {
-  if (value === 'round_robin' || value === 'stable_first') return value
-  return 'weighted'
+  switch (value) {
+    case 'round_robin':
+    case 'stable_first':
+    case 'least_busy':
+    case 'lowest_latency':
+    case 'lowest_cost':
+      return value
+    default:
+      return 'weighted'
+  }
 }
 
 export function routingStrategyLabel(value: string | null | undefined): string {
