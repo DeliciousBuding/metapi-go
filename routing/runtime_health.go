@@ -47,6 +47,13 @@ const (
 // SiteRuntimeBreakerLevelsMs defines breaker durations: [0ms, 60s, 5min, 30min].
 var SiteRuntimeBreakerLevelsMs = []int64{0, 60_000, 5 * 60_000, 30 * 60 * 1000}
 
+// SiteRuntimeHalfOpenProbeTimeoutMs bounds the half-open probe window. If the
+// admitted recovery probe never records an outcome (process restart, dropped
+// request), the breaker releases back to the expired state so the next request
+// retries the probe instead of leaving the site isolated forever. Upstream HTTP
+// timeouts are far below this bound, so live probes resolve long before it.
+const SiteRuntimeHalfOpenProbeTimeoutMs = 10 * 60 * 1000
+
 // ---- Failure classification patterns ----
 
 var siteTransientFailurePatterns = []*regexp.Regexp{
@@ -123,9 +130,13 @@ type SiteRuntimeHealthState struct {
 	RecentWindowUpdatedAtMs  int64    `json:"recentWindowUpdatedAtMs"`
 	BreakerLevel             int64    `json:"breakerLevel"`
 	BreakerUntilMs           *int64   `json:"breakerUntilMs,omitempty"`
-	LastUpdatedAtMs          int64    `json:"lastUpdatedAtMs"`
-	LastFailureAtMs          *int64   `json:"lastFailureAtMs,omitempty"`
-	LastSuccessAtMs          *int64   `json:"lastSuccessAtMs,omitempty"`
+	// HalfOpenSinceMs marks the half-open probe window: non-nil while the single
+	// post-cooldown recovery probe is in flight. Cleared when the probe outcome
+	// is recorded or the probe window times out.
+	HalfOpenSinceMs *int64 `json:"halfOpenSinceMs,omitempty"`
+	LastUpdatedAtMs int64  `json:"lastUpdatedAtMs"`
+	LastFailureAtMs *int64 `json:"lastFailureAtMs,omitempty"`
+	LastSuccessAtMs *int64 `json:"lastSuccessAtMs,omitempty"`
 	// Background probe status (). Soft operator signal; never marks keys expired.
 	LastProbeAtMs      *int64   `json:"lastProbeAtMs,omitempty"`
 	LastProbeStatus    string   `json:"lastProbeStatus,omitempty"` // success | failure | inconclusive
@@ -142,10 +153,14 @@ type SiteRuntimeHealthDetails struct {
 	CombinedMultiplier float64
 	GlobalBreakerOpen  bool
 	ModelBreakerOpen   bool
-	ModelKey           string
-	RecentSuccessRate  float64
-	RecentSampleCount  float64
-	RecentConfidence   float64
+	// Half-open flags: the cooldown elapsed and the single recovery probe has
+	// been admitted but not resolved yet. New requests keep being rejected.
+	GlobalHalfOpen    bool
+	ModelHalfOpen     bool
+	ModelKey          string
+	RecentSuccessRate float64
+	RecentSampleCount float64
+	RecentConfidence  float64
 }
 
 // RecentOutcomeSnapshot is a snapshot of recent success/failure counts.
@@ -404,6 +419,17 @@ func isRuntimeHealthBreakerOpen(state *SiteRuntimeHealthState) bool {
 	return state.BreakerUntilMs != nil && *state.BreakerUntilMs > nowMs()
 }
 
+// isRuntimeHealthHalfOpenActive reports whether the half-open probe window is
+// active: the cooldown elapsed, the single recovery probe was admitted, and its
+// outcome has neither been recorded nor timed out yet. Read-only — the stale
+// probe window is lazily released by the admission gate (write path).
+func isRuntimeHealthHalfOpenActive(state *SiteRuntimeHealthState) bool {
+	if state == nil || state.HalfOpenSinceMs == nil {
+		return false
+	}
+	return nowMs()-*state.HalfOpenSinceMs <= SiteRuntimeHalfOpenProbeTimeoutMs
+}
+
 func resolveSiteRuntimeBreakerMs(level int64) int64 {
 	if level < 0 {
 		level = 0
@@ -419,7 +445,7 @@ func GetRuntimeHealthMultiplier(state *SiteRuntimeHealthState) float64 {
 	if state == nil {
 		return 1
 	}
-	if isRuntimeHealthBreakerOpen(state) {
+	if isRuntimeHealthBreakerOpen(state) || isRuntimeHealthHalfOpenActive(state) {
 		return SiteRuntimeMinMultiplier
 	}
 	penaltyScore := getDecayedSiteRuntimePenalty(state)
@@ -472,6 +498,8 @@ func GetSiteRuntimeHealthDetails(siteID int64, modelName string) SiteRuntimeHeal
 		CombinedMultiplier: ClampNumber(globalMultiplier*modelMultiplier, SiteRuntimeMinMultiplier*SiteRuntimeMinMultiplier, 1),
 		GlobalBreakerOpen:  isRuntimeHealthBreakerOpen(globalState),
 		ModelBreakerOpen:   isRuntimeHealthBreakerOpen(modelState),
+		GlobalHalfOpen:     isRuntimeHealthHalfOpenActive(globalState),
+		ModelHalfOpen:      isRuntimeHealthHalfOpenActive(modelState),
 		ModelKey:           modelKey,
 		RecentSuccessRate:  recentSnapshot.SuccessRate,
 		RecentSampleCount:  recentSnapshot.SampleCount,
@@ -575,6 +603,25 @@ func applyRuntimeHealthFailure(state *SiteRuntimeHealthState, ctx SiteRuntimeFai
 	state.RecentFailureCount += 1
 	state.PenaltyScore += ResolveSiteRuntimeFailurePenalty(ctx)
 
+	if state.HalfOpenSinceMs != nil {
+		// The only requests dispatched while half-open are the recovery probe
+		// itself, so this outcome is the probe's. A transient failure re-opens
+		// the breaker at the next cooldown level (extended backoff); a
+		// non-transient failure (client-caused) proves nothing about upstream
+		// health, so the breaker stays expired and the next request retries
+		// the probe.
+		state.HalfOpenSinceMs = nil
+		if IsTransientSiteRuntimeFailure(ctx) {
+			state.BreakerLevel = min(state.BreakerLevel+1, int64(len(SiteRuntimeBreakerLevelsMs)-1))
+			until := n + resolveSiteRuntimeBreakerMs(state.BreakerLevel)
+			state.BreakerUntilMs = &until
+		}
+		state.TransientFailureStreak = 0
+		state.LastTransientFailureAtMs = nil
+		state.LastFailureAtMs = &n
+		return
+	}
+
 	if IsTransientSiteRuntimeFailure(ctx) {
 		if state.LastTransientFailureAtMs != nil && (n-*state.LastTransientFailureAtMs) <= SiteTransientStreakWindowMs {
 			state.TransientFailureStreak += 1
@@ -609,6 +656,7 @@ func applyRuntimeHealthSuccess(state *SiteRuntimeHealthState, latencyMs float64,
 	state.LastTransientFailureAtMs = nil
 	state.BreakerLevel = 0
 	state.BreakerUntilMs = nil
+	state.HalfOpenSinceMs = nil
 	state.LastSuccessAtMs = &n
 
 	if state.LatencyEMAMs == nil {

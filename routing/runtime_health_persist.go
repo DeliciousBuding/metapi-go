@@ -46,7 +46,7 @@ func shouldPersistSiteRuntimeHealthState(state *SiteRuntimeHealthState) bool {
 	if n-lastTouchedAtMs > SiteRuntimeHealthPersistStaleTTLMs {
 		return false
 	}
-	if isRuntimeHealthBreakerOpen(state) {
+	if isRuntimeHealthBreakerOpen(state) || state.HalfOpenSinceMs != nil {
 		return true
 	}
 	if getDecayedSiteRuntimePenalty(state) >= SiteRuntimeHealthPersistMinPenalty {
@@ -88,6 +88,10 @@ func cloneSiteRuntimeHealthState(state *SiteRuntimeHealthState) *SiteRuntimeHeal
 	if state.BreakerUntilMs != nil {
 		v := *state.BreakerUntilMs
 		clone.BreakerUntilMs = &v
+	}
+	if state.HalfOpenSinceMs != nil {
+		v := *state.HalfOpenSinceMs
+		clone.HalfOpenSinceMs = &v
 	}
 	if state.LastFailureAtMs != nil {
 		v := *state.LastFailureAtMs
