@@ -43,7 +43,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "a11y:scan": "node scripts/a11y-scan.mjs",
+    "a11y:axe": "node scripts/a11y-scan.mjs",
+    "a11y:scan": "bun run a11y:axe && bun run ui:smoke",
     "ui:smoke": "node scripts/route-smoke.mjs"
   },
   "dependencies": {
