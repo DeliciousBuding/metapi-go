@@ -19,6 +19,22 @@ export type PriceCompareParams = {
   topModels?: number
 }
 
+async function fetchPriceCompare(
+  params: PriceCompareParams = {}
+): Promise<PriceCompareItem[]> {
+  const raw = await api.getModelPriceCompare(params)
+  const parsed = priceCompareResponseSchema.parse(raw)
+  return parsed.items
+}
+
+export function priceCompareQueryOptions(params: PriceCompareParams = {}) {
+  return {
+    queryKey: priceCompareQueryKeys.list(params),
+    queryFn: () => fetchPriceCompare(params),
+    staleTime: 30 * 1000,
+  }
+}
+
 export function usePriceCompare(
   params: PriceCompareParams = {},
   options?: Omit<
@@ -27,13 +43,7 @@ export function usePriceCompare(
   >
 ) {
   return useQuery({
-    queryKey: priceCompareQueryKeys.list(params),
-    queryFn: async () => {
-      const raw = await api.getModelPriceCompare(params)
-      const parsed = priceCompareResponseSchema.parse(raw)
-      return parsed.items
-    },
-    staleTime: 30 * 1000,
+    ...priceCompareQueryOptions(params),
     ...options,
   })
 }

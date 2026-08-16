@@ -3,8 +3,9 @@
 // i18n: all user-visible strings migrated to t() calls.
 // `routingStrategyLabel()` returns an i18n key; wrapped with `t()`.
 
+import { useQueries } from '@tanstack/react-query'
 import { ExternalLink, Loader2, RefreshCw, Snowflake } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
@@ -17,6 +18,9 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { priceCompareQueryOptions } from '@/features/models/price-compare/api'
+import { PriceGradeBadge } from '@/features/models/price-compare/components/price-grade-badge'
+import type { PriceCompareItem } from '@/features/models/price-compare/types'
 
 import {
   useClearRouteCooldown,
@@ -24,6 +28,16 @@ import {
   useRefreshRouteDecisions,
   useRouteChannels,
 } from '../api'
+import {
+  calculateRouteChannelAllocations,
+  formatRoutePrice,
+  formatRouteWeightShare,
+  normalizeModelKey,
+  resolveDistinctConcreteModels,
+  resolveRouteChannelPriceTruth,
+  type RouteChannelAllocation,
+  type RouteChannelPriceTruth,
+} from '../lib/route-price-truth'
 import type { RouteChannel, RouteDecision, RouteSummaryRow } from '../types'
 import {
   formatContextLength,
@@ -38,6 +52,22 @@ interface RouteDetailSheetProps {
   onOpenChange: (open: boolean) => void
 }
 
+type PriceQueryState = {
+  isLoading: boolean
+  hasError: boolean
+}
+
+function requireChannelAllocation(
+  allocationsByChannelId: ReadonlyMap<number, RouteChannelAllocation>,
+  channelId: number
+): RouteChannelAllocation {
+  const allocation = allocationsByChannelId.get(channelId)
+  if (!allocation) {
+    throw new Error(`Missing allocation for route channel ${channelId}`)
+  }
+  return allocation
+}
+
 export function RouteDetailSheet({
   route,
   open,
@@ -48,6 +78,39 @@ export function RouteDetailSheet({
   const clearCooldownMutation = useClearRouteCooldown()
   const refreshDecisionMutation = useRefreshRouteDecisions()
   const rebuildMutation = useRebuildRoutes()
+  const channels = useMemo(() => channelsQuery.data ?? [], [channelsQuery.data])
+  const concreteModels = useMemo(
+    () => (route ? resolveDistinctConcreteModels(route, channels) : []),
+    [route, channels]
+  )
+  const priceQueries = useQueries({
+    queries: concreteModels.map((concreteModel) => ({
+      ...priceCompareQueryOptions({ model: concreteModel, limit: 200 }),
+      enabled: open && route !== null,
+    })),
+  })
+
+  const priceRowsByModel = new Map<string, readonly PriceCompareItem[]>()
+  const priceQueryStateByModel = new Map<string, PriceQueryState>()
+  concreteModels.forEach((concreteModel, modelIndex) => {
+    const modelKey = normalizeModelKey(concreteModel)
+    const priceQuery = priceQueries[modelIndex]
+    priceRowsByModel.set(modelKey, priceQuery?.data ?? [])
+    priceQueryStateByModel.set(modelKey, {
+      isLoading: priceQuery?.isPending ?? false,
+      hasError: priceQuery?.isError ?? false,
+    })
+  })
+
+  const allocationsByChannelId = new Map(
+    calculateRouteChannelAllocations(channels).map((allocation) => [
+      allocation.channelId,
+      allocation,
+    ])
+  )
+  const isPriceFetching = priceQueries.some(
+    (priceQuery) => priceQuery.isFetching
+  )
 
   if (!route) {
     return (
@@ -59,7 +122,6 @@ export function RouteDetailSheet({
 
   const isReadOnly = route.kind === 'zero_channel' || route.readOnly === true
   const title = resolveRouteTitle(route)
-  const channels = channelsQuery.data ?? []
   const decision = route.decisionSnapshot ?? null
 
   const handleClearCooldown = async () => {
@@ -85,7 +147,7 @@ export function RouteDetailSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side='right'
-        className='flex w-full flex-col gap-0 sm:max-w-md'
+        className='flex w-full flex-col gap-0 sm:max-w-xl'
       >
         <SheetHeader>
           <SheetTitle className='flex items-center gap-2'>
@@ -186,10 +248,15 @@ export function RouteDetailSheet({
 
           <div className='space-y-2'>
             <div className='flex items-center justify-between'>
-              <h3 className='text-sm font-medium'>
-                {t('tokenRoutes.detail.channelList')}
-              </h3>
-              {channelsQuery.isFetching && (
+              <div>
+                <h3 className='text-sm font-medium'>
+                  {t('tokenRoutes.detail.channelTruthList')}
+                </h3>
+                <p className='text-muted-foreground text-[11px]'>
+                  {t('tokenRoutes.detail.channelTruthDescription')}
+                </p>
+              </div>
+              {(channelsQuery.isFetching || isPriceFetching) && (
                 <Loader2 className='text-muted-foreground size-3.5 animate-spin' />
               )}
             </div>
@@ -201,9 +268,31 @@ export function RouteDetailSheet({
               </p>
             ) : (
               <ul className='space-y-1.5'>
-                {channels.map((channel) => (
-                  <ChannelRow key={channel.id} channel={channel} />
-                ))}
+                {channels.map((channel) => {
+                  const allocation = requireChannelAllocation(
+                    allocationsByChannelId,
+                    channel.id
+                  )
+                  const priceTruth = resolveRouteChannelPriceTruth(
+                    route,
+                    channel,
+                    priceRowsByModel
+                  )
+                  const priceQueryState = priceTruth.concreteModel
+                    ? priceQueryStateByModel.get(
+                        normalizeModelKey(priceTruth.concreteModel)
+                      )
+                    : undefined
+                  return (
+                    <ChannelRow
+                      key={channel.id}
+                      channel={channel}
+                      allocation={allocation}
+                      priceTruth={priceTruth}
+                      priceQueryState={priceQueryState}
+                    />
+                  )
+                })}
               </ul>
             )}
           </div>
@@ -234,7 +323,17 @@ export function RouteDetailSheet({
   )
 }
 
-function ChannelRow({ channel }: { channel: RouteChannel }) {
+function ChannelRow({
+  channel,
+  allocation,
+  priceTruth,
+  priceQueryState,
+}: {
+  channel: RouteChannel
+  allocation: RouteChannelAllocation
+  priceTruth: RouteChannelPriceTruth
+  priceQueryState: PriceQueryState | undefined
+}) {
   const { t } = useTranslation()
   const accountLabel =
     channel.account?.username || `account-${channel.accountId}`
@@ -244,43 +343,159 @@ function ChannelRow({ channel }: { channel: RouteChannel }) {
     (channel.tokenId
       ? `token-${channel.tokenId}`
       : t('tokenRoutes.detail.channelTokenUnbound'))
-  const sourceModel = channel.sourceModel || '—'
+  const sourceModel = priceTruth.concreteModel || '—'
   const cooldownActive =
     Boolean(channel.cooldownUntil) &&
     new Date(channel.cooldownUntil as string) > new Date()
   return (
-    <li className='flex items-center gap-2 rounded-lg border p-2 text-xs'>
-      <div className='flex flex-1 flex-col gap-0.5'>
-        <div className='flex items-center gap-1.5'>
-          <span className='truncate font-medium'>{accountLabel}</span>
-          {siteLabel && (
-            <span className='text-muted-foreground'>@ {siteLabel}</span>
+    <li className='rounded-lg border p-2 text-xs'>
+      <div className='flex items-start justify-between gap-2'>
+        <div className='min-w-0 flex-1'>
+          <div className='flex items-center gap-1.5'>
+            <span className='truncate font-medium'>{accountLabel}</span>
+            {siteLabel && (
+              <span className='text-muted-foreground truncate'>
+                @ {siteLabel}
+              </span>
+            )}
+          </div>
+          <div className='text-muted-foreground mt-0.5 flex flex-wrap items-center gap-1.5'>
+            <span>
+              {t('tokenRoutes.detail.channelToken')}: {tokenLabel}
+            </span>
+            <span>
+              {t('tokenRoutes.detail.channelUpstream')} {sourceModel}
+            </span>
+            <span>
+              {t('tokenRoutes.detail.channelPriority')} {channel.priority}
+            </span>
+          </div>
+        </div>
+        <div className='flex flex-col items-end gap-1'>
+          <Badge variant={channel.enabled ? 'default' : 'secondary'}>
+            {channel.enabled
+              ? t('tokenRoutes.columns.enable')
+              : t('tokenRoutes.columns.disable')}
+          </Badge>
+          {cooldownActive && (
+            <Badge variant='warning'>{t('tokenRoutes.detail.cooldown')}</Badge>
           )}
         </div>
-        <div className='text-muted-foreground flex flex-wrap items-center gap-1.5'>
-          <span>token: {tokenLabel}</span>
-          <span>
-            {t('tokenRoutes.detail.channelUpstream')} {sourceModel}
-          </span>
-          <span>
-            {t('tokenRoutes.detail.channelWeight')} {channel.weight}
-          </span>
-          <span>
-            {t('tokenRoutes.detail.channelPriority')} {channel.priority}
-          </span>
-        </div>
       </div>
-      <div className='flex flex-col items-end gap-1'>
-        <Badge variant={channel.enabled ? 'default' : 'secondary'}>
-          {channel.enabled
-            ? t('tokenRoutes.columns.enable')
-            : t('tokenRoutes.columns.disable')}
-        </Badge>
-        {cooldownActive && (
-          <Badge variant='warning'>{t('tokenRoutes.detail.cooldown')}</Badge>
-        )}
+
+      <dl className='bg-muted/30 mt-2 grid grid-cols-2 gap-2 rounded-md p-2 sm:grid-cols-4'>
+        <ChannelMetric label={t('tokenRoutes.detail.channelConfiguredWeight')}>
+          {allocation.configuredWeight}
+        </ChannelMetric>
+        <ChannelMetric label={t('tokenRoutes.detail.channelEnabledShare')}>
+          <span className='tabular-nums'>
+            {formatRouteWeightShare(allocation.enabledWeightShare)}
+          </span>
+          {allocation.enabledWeightShare === null && (
+            <span className='text-muted-foreground block text-[10px]'>
+              {channel.enabled
+                ? t('tokenRoutes.detail.channelShareUnavailable')
+                : t('tokenRoutes.detail.channelShareExcluded')}
+            </span>
+          )}
+        </ChannelMetric>
+        <ChannelMetric label={t('tokenRoutes.detail.channelInputPrice')}>
+          <PriceValue value={priceTruth.inputPerMillion} />
+        </ChannelMetric>
+        <ChannelMetric label={t('tokenRoutes.detail.channelOutputPrice')}>
+          <PriceValue value={priceTruth.outputPerMillion} />
+        </ChannelMetric>
+      </dl>
+
+      <div className='mt-2 flex flex-wrap items-center gap-x-3 gap-y-1'>
+        <PriceProvenance
+          priceTruth={priceTruth}
+          priceQueryState={priceQueryState}
+        />
       </div>
     </li>
+  )
+}
+
+function ChannelMetric({
+  label,
+  children,
+}: {
+  label: string
+  children: ReactNode
+}) {
+  return (
+    <div>
+      <dt className='text-muted-foreground text-[10px]'>{label}</dt>
+      <dd className='font-medium'>{children}</dd>
+    </div>
+  )
+}
+
+function PriceValue({ value }: { value: number | null }) {
+  return (
+    <span className='tabular-nums'>
+      {value === null ? '—' : `$${formatRoutePrice(value)}`}
+    </span>
+  )
+}
+
+function PriceProvenance({
+  priceTruth,
+  priceQueryState,
+}: {
+  priceTruth: RouteChannelPriceTruth
+  priceQueryState: PriceQueryState | undefined
+}) {
+  const { t } = useTranslation()
+
+  if (!priceTruth.concreteModel) {
+    return (
+      <span className='text-muted-foreground'>
+        {t('tokenRoutes.detail.channelPriceProvenance')}: — ·{' '}
+        {t('tokenRoutes.detail.channelPatternUnavailable')}
+      </span>
+    )
+  }
+  if (priceQueryState?.isLoading) {
+    return (
+      <span className='text-muted-foreground inline-flex items-center gap-1'>
+        <Loader2 className='size-3 animate-spin' />
+        {t('tokenRoutes.detail.channelPriceLoading')}
+      </span>
+    )
+  }
+  if (
+    priceQueryState?.hasError ||
+    !priceTruth.price ||
+    priceTruth.price.missingPrice ||
+    !priceTruth.provenance.ratesSource
+  ) {
+    return (
+      <span className='text-muted-foreground'>
+        {t('tokenRoutes.detail.channelPriceProvenance')}: — ·{' '}
+        {t('tokenRoutes.detail.channelPriceUnavailable')}
+      </span>
+    )
+  }
+
+  const costSource = priceTruth.provenance.source
+  const ratesSource = priceTruth.provenance.ratesSource
+  return (
+    <>
+      <span className='text-muted-foreground'>
+        {t('tokenRoutes.detail.channelRateProvenance')}:
+      </span>
+      <PriceGradeBadge grade={ratesSource} />
+      {costSource && costSource !== ratesSource && (
+        <>
+          <span className='text-muted-foreground'>
+            {t('tokenRoutes.detail.channelCostProvenance')}:
+          </span>
+          <PriceGradeBadge grade={costSource} />
+        </>
+      )}
+    </>
   )
 }
 
