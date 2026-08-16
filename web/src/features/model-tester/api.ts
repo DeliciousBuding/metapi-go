@@ -3,13 +3,13 @@
 //
 // `useTestModel` is a `useMutation` whose `mutationFn` runs the chat test:
 // it posts a single sync request (`api.testChatSync`) to `/api/test/chat`
-// (the forced-channel harness) and parses the JSON body as one delta,
-// normalizing across OpenAI / Claude / Responses / Gemini protocols (ported
-// from the legacy `pages/ModelTester.tsx` parser). The single delta is
-// forwarded to the caller's `onDelta` callback so the response viewer renders
-// the content/reasoning; when the test finishes the resolved `TestResponse`
-// summary is returned and `onDone` fires. The caller passes an `AbortSignal`
-// so the Stop button cancels an in-flight test.
+// (the forced-channel harness), unwraps the harness envelope, and parses its
+// bounded `truncatedBody` as the actual upstream response. Recognized JSON is
+// normalized across OpenAI / Claude / Responses / Gemini protocols; non-JSON
+// bodies remain honest plain text. The final content is forwarded once so the
+// response viewer can render it, while harness status/latency/error remain the
+// source of truth. The caller passes an `AbortSignal` so the Stop button
+// cancels an in-flight test.
 //
 // The tester is sync-only by design: the Go backend returns an honest 501 for
 // `/api/test/chat/stream` (SSE is not implemented), so the UI no longer offers
@@ -40,6 +40,22 @@ import type {
   TestResponse,
   TestStreamDelta,
 } from './types'
+
+type ChatTestHarnessEnvelope = {
+  success: boolean
+  statusCode: number
+  latencyMs: number
+  truncatedBody: string
+  error: string | null
+}
+
+type ParsedUpstreamBody = {
+  content: string
+  reasoningContent: string
+  doneReceived: boolean
+  rawEvents: string[]
+  error?: string
+}
 
 export function buildChatPayload(
   values: TestFormValues,
@@ -78,6 +94,41 @@ function extractErrorMessage(payload: unknown): string {
   return typeof message === 'string' ? message : ''
 }
 
+function parseChatTestHarnessEnvelope(
+  responseText: string
+): ChatTestHarnessEnvelope {
+  let payload: unknown
+  try {
+    payload = JSON.parse(responseText) as unknown
+  } catch {
+    throw new Error('Invalid chat test harness response')
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('Invalid chat test harness response')
+  }
+
+  const record = payload as Record<string, unknown>
+  const errorIsValid = record.error === null || typeof record.error === 'string'
+  if (
+    typeof record.success !== 'boolean' ||
+    typeof record.statusCode !== 'number' ||
+    typeof record.latencyMs !== 'number' ||
+    typeof record.truncatedBody !== 'string' ||
+    !errorIsValid
+  ) {
+    throw new Error('Invalid chat test harness response')
+  }
+
+  return {
+    success: record.success,
+    statusCode: record.statusCode,
+    latencyMs: record.latencyMs,
+    truncatedBody: record.truncatedBody,
+    error: record.error as string | null,
+  }
+}
+
 /**
  * Normalize a parsed event payload into a content/reasoning/done delta.
  * Faithful port of the legacy `parseAnyStreamDelta`: handles OpenAI
@@ -93,13 +144,17 @@ function parseAnyStreamDelta(eventPayload: unknown): TestStreamDelta {
   if (Array.isArray(payload.choices)) {
     const choice = payload.choices[0] as Record<string, unknown> | undefined
     const delta = (choice?.delta ?? {}) as Record<string, unknown>
+    const message = choice?.message as Record<string, unknown> | undefined
     const reasoningDelta =
       typeof delta.reasoning_content === 'string'
         ? delta.reasoning_content
         : typeof delta.reasoning === 'string'
           ? delta.reasoning
-          : ''
-    const message = choice?.message as Record<string, unknown> | undefined
+          : typeof message?.reasoning_content === 'string'
+            ? message.reasoning_content
+            : typeof message?.reasoning === 'string'
+              ? message.reasoning
+              : ''
     const contentDelta =
       typeof delta.content === 'string'
         ? delta.content
@@ -211,6 +266,51 @@ function parseAnyStreamDelta(eventPayload: unknown): TestStreamDelta {
   return {}
 }
 
+function parseUpstreamBody(truncatedBody: string): ParsedUpstreamBody {
+  if (!truncatedBody) {
+    return {
+      content: '',
+      reasoningContent: '',
+      doneReceived: false,
+      rawEvents: [],
+    }
+  }
+
+  try {
+    const payload = JSON.parse(truncatedBody) as unknown
+    const delta = parseAnyStreamDelta(payload)
+    const error = extractErrorMessage(payload)
+    return {
+      content: delta.contentDelta ?? '',
+      reasoningContent: delta.reasoningDelta ?? '',
+      doneReceived: Boolean(delta.done),
+      rawEvents: [truncatedBody],
+      error: error || undefined,
+    }
+  } catch {
+    return {
+      content: truncatedBody,
+      reasoningContent: '',
+      doneReceived: true,
+      rawEvents: [truncatedBody],
+    }
+  }
+}
+
+function resolveHarnessError(
+  envelope: ChatTestHarnessEnvelope,
+  upstreamError?: string
+): string | undefined {
+  const harnessError = envelope.error?.trim()
+  if (harnessError) return harnessError
+  if (upstreamError) return upstreamError
+  if (envelope.success) return undefined
+  if (envelope.statusCode > 0) {
+    return `upstream status ${envelope.statusCode}`
+  }
+  return 'Upstream request failed'
+}
+
 async function parseStreamErrorText(response: Response): Promise<string> {
   try {
     const text = await response.text()
@@ -247,64 +347,34 @@ export async function resolveTestResponseError(
 
 /**
  * Run a single sync probe against `/api/test/chat` (the forced-channel
- * harness) and parse the JSON body as one delta. Returns a `TestResponse`
- * summary (including measured `latencyMs`); throws on auth failure, non-ok
- * responses, or caller abort. Shared by the single-run mutation and the batch
- * comparison so both measure latency through the same path.
+ * harness), unwrap its response envelope, and normalize the bounded upstream
+ * body. The returned status, latency, and error come from the harness rather
+ * than browser timing. No stream chunks or terminal SSE events are invented.
  */
 export async function runChatProbe(
   chatPayload: ChatTestPayload,
   signal?: AbortSignal
 ): Promise<TestResponse> {
-  const startedAt = performance.now()
-
   const response = await api.testChatSync(chatPayload, signal)
 
   if (!response.ok) {
     throw new Error(await resolveTestResponseError(response))
   }
 
-  let content = ''
-  let reasoningContent = ''
-  let doneReceived = false
-  const rawEvents: string[] = []
-
-  const text = await response.text()
-  if (text) {
-    rawEvents.push(text)
-    try {
-      const parsed = JSON.parse(text) as unknown
-      const errorText = extractErrorMessage(parsed)
-      if (errorText) {
-        return {
-          content: '',
-          reasoningContent: '',
-          doneReceived: true,
-          latencyMs: Math.round(performance.now() - startedAt),
-          chunks: 1,
-          rawEvents,
-          empty: true,
-          error: errorText,
-        }
-      }
-      const delta = parseAnyStreamDelta(parsed)
-      content = delta.contentDelta ?? ''
-      reasoningContent = delta.reasoningDelta ?? ''
-      doneReceived = Boolean(delta.done)
-    } catch {
-      content = text
-      doneReceived = true
-    }
-  }
+  const envelope = parseChatTestHarnessEnvelope(await response.text())
+  const upstreamBody = parseUpstreamBody(envelope.truncatedBody)
+  const error = resolveHarnessError(envelope, upstreamBody.error)
 
   return {
-    content,
-    reasoningContent,
-    doneReceived,
-    latencyMs: Math.round(performance.now() - startedAt),
-    chunks: 1,
-    rawEvents,
-    empty: !content && !reasoningContent,
+    content: upstreamBody.content,
+    reasoningContent: upstreamBody.reasoningContent,
+    doneReceived: upstreamBody.doneReceived,
+    statusCode: envelope.statusCode,
+    latencyMs: envelope.latencyMs,
+    chunks: 0,
+    rawEvents: upstreamBody.rawEvents,
+    empty: !upstreamBody.content && !upstreamBody.reasoningContent,
+    error,
   }
 }
 
@@ -335,7 +405,7 @@ async function runChatTest(
   onDelta?.({
     contentDelta: summary.content,
     reasoningDelta: summary.reasoningContent,
-    done: true,
+    done: summary.doneReceived,
   })
   onDone?.(summary)
   return summary
@@ -386,11 +456,17 @@ async function settleProbe(
       return {
         channelId,
         status: 'failure',
+        statusCode: summary.statusCode,
         latencyMs: summary.latencyMs,
         error: summary.error,
       }
     }
-    return { channelId, status: 'success', latencyMs: summary.latencyMs }
+    return {
+      channelId,
+      status: 'success',
+      statusCode: summary.statusCode,
+      latencyMs: summary.latencyMs,
+    }
   } catch (error) {
     if (isAbortError(error)) return { channelId, status: 'aborted' }
     return {

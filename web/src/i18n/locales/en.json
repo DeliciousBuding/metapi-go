@@ -243,6 +243,7 @@
         "title": "Channel comparison",
         "emptyHint": "Select two or more channels and run a comparison.",
         "summary": "{{succeeded}} succeeded / {{failed}} failed",
+        "summaryWithAborted": "{{succeeded}} succeeded / {{failed}} failed / {{aborted}} stopped",
         "channel": "Channel",
         "site": "Site",
         "status": "Status",
@@ -1674,6 +1675,7 @@
         "batchFailed": "Bulk operation failed",
         "cooldownClearFailed": "Failed to clear cooldown",
         "channelAddFailed": "Failed to add channels",
+        "channelAddPartial": "Route created, but {{failed}} channel(s) were not added ({{created}} added): {{error}}",
         "rebuildFailed": "Failed to rebuild routes",
         "refreshFailed": "Failed to refresh decisions"
       },

@@ -41,7 +41,12 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/lib/toast'
 
-import { useBatchAddChannels, useCreateRoute, useUpdateRoute } from '../api'
+import {
+  resolveCreatedRouteId,
+  useBatchAddChannels,
+  useCreateRoute,
+  useUpdateRoute,
+} from '../api'
 import {
   buildChannelDraftSeed,
   getRouteFormDefaultValues,
@@ -129,20 +134,36 @@ export function RouteFormDialog({
     )
     try {
       let routeId: number | undefined
+      let channelBatchHadErrors = false
       if (isEdit && route) {
         await updateMutation.mutateAsync({ id: route.id, payload })
         routeId = route.id
       } else {
         const result = await createMutation.mutateAsync(payload)
-        routeId = result?.data?.id
+        routeId = resolveCreatedRouteId(result)
+        if (!routeId) {
+          toast.error(t('tokenRoutes.toast.createFailed'))
+          return
+        }
       }
       if (routeId && drafts.length > 0) {
-        await batchAddChannelsMutation.mutateAsync({
+        const batchResult = await batchAddChannelsMutation.mutateAsync({
           routeId,
           channels: drafts,
         })
+        const channelErrors = batchResult.errors ?? []
+        channelBatchHadErrors = channelErrors.length > 0
+        if (channelBatchHadErrors) {
+          toast.warning(
+            t('tokenRoutes.toast.channelAddPartial', {
+              created: batchResult.created ?? 0,
+              failed: channelErrors.length,
+              error: channelErrors[0],
+            })
+          )
+        }
       }
-      if (!isEdit) {
+      if (!isEdit && !channelBatchHadErrors) {
         showRouteCompletionToast(routeId, chainContext)
       }
       form.reset()

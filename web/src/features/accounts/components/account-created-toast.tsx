@@ -3,11 +3,8 @@
 // guided configuration chain (research/10-user-flows.md §4.2): the account
 // is added, and the operator is nudged to configure routes for it next.
 //
-// Navigation uses window.location.assign rather than TanStack Router's
-// type-safe `navigate` because /token-routes is not yet registered in the
-// generated route tree — a hard navigation keeps the deep-link working today
-// and can be upgraded to `useNavigate({ to: '/token-routes', search })` once
-// the route file lands.
+// Navigation uses a hard assignment because the toast action outlives the
+// account form component that created it.
 
 import i18n from '@/i18n/config'
 import { toast } from '@/lib/toast'

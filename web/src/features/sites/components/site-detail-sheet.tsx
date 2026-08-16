@@ -3,10 +3,8 @@
 // Opens from the row "view details" action. Shows the site's static config
 // (url / platform / status / probe / endpoints / tags / timestamps) and
 // surfaces the two follow-on CTAs of the guided config chain:
-//   - 管理账号 → /accounts?siteId=…  (step 2)
-//   - 管理路由 → /routes?siteId=…   (step 3)
-// Both use the untyped `href` navigate overload so they work before the
-// accounts/routes route files register a typed search schema.
+//   - 管理账号 → /accounts?siteId=…&create=1 (step 2)
+//   - 管理路由 → /token-routes?siteId=… (step 3)
 
 import { useNavigate } from '@tanstack/react-router'
 import {
@@ -55,11 +53,6 @@ function DetailRow({
   )
 }
 
-function buildPathWithSiteId(path: string, siteId: number): string {
-  const params = new URLSearchParams({ siteId: String(siteId) })
-  return `${path}?${params.toString()}`
-}
-
 export function SiteDetailSheet({
   site,
   open,
@@ -84,12 +77,20 @@ export function SiteDetailSheet({
 
   function goToAccounts() {
     onOpenChange(false)
-    navigate({ href: buildPathWithSiteId('/accounts', siteId), replace: true })
+    navigate({
+      to: '/accounts',
+      search: { siteId, create: true },
+      replace: true,
+    })
   }
 
   function goToRoutes() {
     onOpenChange(false)
-    navigate({ href: buildPathWithSiteId('/routes', siteId), replace: true })
+    navigate({
+      to: '/token-routes',
+      search: { siteId },
+      replace: true,
+    })
   }
 
   return (

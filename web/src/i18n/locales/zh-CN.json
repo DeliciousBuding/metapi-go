@@ -243,6 +243,7 @@
         "title": "渠道对比",
         "emptyHint": "选择两个或更多渠道后运行对比。",
         "summary": "{{succeeded}} 成功 / {{failed}} 失败",
+        "summaryWithAborted": "{{succeeded}} 成功 / {{failed}} 失败 / {{aborted}} 已停止",
         "channel": "渠道",
         "site": "站点",
         "status": "状态",
@@ -1674,6 +1675,7 @@
         "batchFailed": "批量操作失败",
         "cooldownClearFailed": "清除冷却失败",
         "channelAddFailed": "添加通道失败",
+        "channelAddPartial": "路由已创建，但有 {{failed}} 个通道添加失败（已添加 {{created}} 个）：{{error}}",
         "rebuildFailed": "重建路由失败",
         "refreshFailed": "刷新决策失败"
       },

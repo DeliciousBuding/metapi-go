@@ -1,10 +1,10 @@
 // metapi-go/features/model-tester — domain types for the model tester.
 //
 // The tester drives `api.testChatSync`, which POSTs a `ChatTestPayload` to
-// `/api/test/chat` (the forced-channel harness) and returns a single JSON
-// body. These types model the request envelope, the normalized response
-// delta (across OpenAI / Claude / Responses / Gemini protocols), and the
-// finalised response the viewer renders after the run finishes.
+// `/api/test/chat` (the forced-channel harness). The endpoint returns a
+// harness envelope whose `truncatedBody` contains the bounded upstream
+// response. These types model the request, normalized upstream content, and
+// the final response the viewer renders after the synchronous probe finishes.
 
 export type TestTargetFormat = 'openai' | 'claude' | 'responses' | 'gemini'
 
@@ -73,15 +73,16 @@ export type TestStreamDelta = {
 
 /**
  * Finalised test response the viewer renders after the run finishes.
- * `content` / `reasoningContent` are the accumulated full strings; `latencyMs`
- * is the wall-clock from request start to completion; `chunks` is the count
- * of data events consumed; `rawEvents` stores the last N raw data lines for
- * the JSON/raw debug tab.
+ * `content` / `reasoningContent` come from the harness's bounded upstream
+ * body. `statusCode`, `latencyMs`, and `error` preserve upstream harness
+ * truth. The synchronous harness does not emit stream chunks, so `chunks` is
+ * zero; `rawEvents` contains the actual upstream body for the raw debug tab.
  */
 export type TestResponse = {
   content: string
   reasoningContent: string
   doneReceived: boolean
+  statusCode: number
   latencyMs: number
   chunks: number
   rawEvents: string[]
@@ -107,13 +108,13 @@ export type ChatTestPayload = {
 /**
  * Settled result for one channel in a batch latency comparison. `status`
  * distinguishes a clean response from an upstream error (the probe resolved
- * with a `TestResponse.error`) or a caller abort; `latencyMs` is the observed
- * wall-clock from request start to settle (only set when the probe actually
- * issued a request).
+ * with a `TestResponse.error`) or a caller abort. `statusCode` and `latencyMs`
+ * preserve the harness result when the probe reached the upstream.
  */
 export type BatchProbeResult = {
   channelId: number
   status: 'success' | 'failure' | 'aborted'
+  statusCode?: number
   latencyMs?: number
   error?: string
 }
