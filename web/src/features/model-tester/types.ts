@@ -1,11 +1,10 @@
 // metapi-go/features/model-tester — domain types for the model tester.
 //
-// The tester drives `api.testChatStream`, which POSTs a
-// `TestChatRequestPayload` to `/api/test/chat/stream` and returns a raw
-// `Response` whose body is an SSE stream. These types model the request
-// envelope, the per-chunk delta (normalized across OpenAI / Claude /
-// Responses / Gemini protocols), and the finalised response the viewer
-// renders after the stream closes.
+// The tester drives `api.testChatSync`, which POSTs a `ChatTestPayload` to
+// `/api/test/chat` (the forced-channel harness) and returns a single JSON
+// body. These types model the request envelope, the normalized response
+// delta (across OpenAI / Claude / Responses / Gemini protocols), and the
+// finalised response the viewer renders after the run finishes.
 
 export type TestTargetFormat = 'openai' | 'claude' | 'responses' | 'gemini'
 
@@ -23,19 +22,21 @@ export type ChatMessage = {
 
 /**
  * Form values produced by `testerSchema`. The tester builds the
- * `TestChatRequestPayload.messages` array from `systemPrompt` (role=system,
- * when present) + `prompt` (role=user). Numeric fields are plain `z.number()`
- * so RHF input/output types match.
+ * `ChatTestPayload.messages` array from `systemPrompt` (role=system, when
+ * present) + `prompt` (role=user). `channelId` targets a specific channel via
+ * the forced-channel harness; when absent the backend returns its honest 501
+ * "requires channelId" residual. Numeric fields are plain `z.number()` so RHF
+ * input/output types match.
  */
 export type TestFormValues = {
   model: string
+  channelId?: number
   systemPrompt: string
   prompt: string
   targetFormat: TestTargetFormat
   temperature: number
   topP: number
   maxTokens: number
-  stream: boolean
 }
 
 /**
@@ -43,10 +44,9 @@ export type TestFormValues = {
  * prior conversation turns (excluding the current user prompt, which
  * `buildChatPayload` appends last) so multi-turn context is sent on the
  * wire when the backend honors the `messages` array. `onDelta` is invoked
- * for every parsed SSE chunk during streaming so the viewer can render
- * content/reasoning as it arrives; `onDone` fires once when the stream
- * closes (success or empty). `signal` lets the caller abort an in-flight
- * test (the Stop button).
+ * with the single normalized delta so the viewer can render content /
+ * reasoning; `onDone` fires once when the run finishes (success or empty).
+ * `signal` lets the caller abort an in-flight test (the Stop button).
  */
 export type TestModelVariables = {
   payload: TestFormValues
@@ -57,10 +57,10 @@ export type TestModelVariables = {
 }
 
 /**
- * Normalized per-chunk delta. `contentDelta` is the assistant text token;
- * `reasoningDelta` is the chain-of-thought text token (Claude thinking /
- * DeepSeek reasoning / Responses reasoning summary). `done` marks a
- * terminal structural event (finish_reason / message_stop / response.completed).
+ * Normalized response delta. `contentDelta` is the assistant text;
+ * `reasoningDelta` is the chain-of-thought text (Claude thinking / DeepSeek
+ * reasoning / Responses reasoning summary). `done` marks a terminal
+ * structural event (finish_reason / message_stop / response.completed).
  */
 export type TestStreamDelta = {
   contentDelta?: string
@@ -69,11 +69,11 @@ export type TestStreamDelta = {
 }
 
 /**
- * Finalised test response the viewer renders after the stream closes.
+ * Finalised test response the viewer renders after the run finishes.
  * `content` / `reasoningContent` are the accumulated full strings; `latencyMs`
- * is the wall-clock from request start to stream end; `chunks` is the count
- * of SSE data events consumed (capped for memory); `rawEvents` stores the
- * last N raw data lines for the JSON/raw debug tab.
+ * is the wall-clock from request start to completion; `chunks` is the count
+ * of data events consumed; `rawEvents` stores the last N raw data lines for
+ * the JSON/raw debug tab.
  */
 export type TestResponse = {
   content: string
@@ -87,16 +87,15 @@ export type TestResponse = {
 }
 
 /**
- * Wire shape for `/api/test/chat/stream`. Defined locally because
- * `lib/api.ts` keeps `TestChatRequestPayload` un-exported during the
- * rewrite; the structural shape is identical so `api.testChatStream`
- * accepts it via structural typing.
+ * Wire shape for `/api/test/chat`. Defined locally because `lib/api.ts` keeps
+ * `TestChatRequestPayload` un-exported during the rewrite; the structural
+ * shape is identical so `api.testChatSync` accepts it via structural typing.
  */
 export type ChatTestPayload = {
   model: string
   messages: Array<{ role: string; content: string }>
+  channelId?: number
   targetFormat?: TestTargetFormat
-  stream?: boolean
   temperature?: number
   top_p?: number
   max_tokens?: number

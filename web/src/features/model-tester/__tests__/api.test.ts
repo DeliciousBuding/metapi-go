@@ -1,10 +1,10 @@
 // metapi-go/features/model-tester — error-mapping + payload unit tests.
 //
 // `resolveTestResponseError` turns non-ok test responses into user-facing
-// messages: backend 501s are known limitations (no fake SSE stream; the sync
-// harness requires a forced channel) and map to a friendly localized key
-// instead of the raw "not implemented" text. `buildChatPayload` renders the
-// conversation history into the request `messages` array.
+// messages: backend 501s are known limitations (the sync harness requires a
+// forced channel) and map to a friendly localized key instead of the raw
+// "not implemented" text. `buildChatPayload` renders the conversation history
+// into the request `messages` array and forwards the targeted `channelId`.
 
 import { describe, expect, it } from 'vitest'
 
@@ -20,7 +20,6 @@ function formValues(overrides: Partial<TestFormValues> = {}): TestFormValues {
     temperature: 0.7,
     topP: 1,
     maxTokens: 1024,
-    stream: true,
     ...overrides,
   }
 }
@@ -60,8 +59,17 @@ describe('buildChatPayload', () => {
     expect(payload.temperature).toBe(0.2)
     expect(payload.top_p).toBe(0.9)
     expect(payload.max_tokens).toBeUndefined()
-    expect(payload.stream).toBe(true)
     expect(payload.targetFormat).toBe('openai')
+  })
+
+  it('forwards channelId when a channel is targeted', () => {
+    const payload = buildChatPayload(formValues({ channelId: 42 }))
+    expect(payload.channelId).toBe(42)
+  })
+
+  it('omits channelId when no channel is targeted', () => {
+    const payload = buildChatPayload(formValues())
+    expect(payload.channelId).toBeUndefined()
   })
 })
 
@@ -72,19 +80,6 @@ describe('resolveTestResponseError', () => {
         success: false,
         message:
           'Chat test requires channelId, siteId, or forcedChannelId for the forced-channel harness',
-      }),
-      { status: 501 }
-    )
-    expect(await resolveTestResponseError(response)).toBe(
-      'modelTester.error.notAvailable'
-    )
-  })
-
-  it('maps the stream 501 (SSE not implemented) to notAvailable', async () => {
-    const response = new Response(
-      JSON.stringify({
-        success: false,
-        message: 'Chat stream test is not implemented in Go',
       }),
       { status: 501 }
     )
