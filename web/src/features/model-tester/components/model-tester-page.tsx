@@ -10,12 +10,11 @@
 // resolved `TestResponse` summary is committed to the viewer's stats bar
 // when the stream closes.
 //
-// Session semantics: submitting appends the user prompt to `messages`
-// immediately and sends the prior turns as request context; when the run
-// finishes with non-empty content the assistant turn is appended. Stopped
-// or failed runs are never committed (their partial output stays visible
-// until the next submit). The Clear button (with confirmation) wipes the
-// conversation and the live run state.
+// Session semantics: a single run appends the user prompt to `messages` and
+// sends prior turns as request context; comparisons measure the same prompt
+// across channels without adding an unmatched conversation turn. When a
+// single run finishes with non-empty content, the assistant turn is appended.
+// The Clear button wipes the conversation and live run state.
 //
 // A deep link from the marketplace (`/model-tester?model=…`) pre-selects
 // the model in the form. The Stop button aborts the in-flight fetch; the
@@ -42,6 +41,7 @@ import {
   sortBatchResults,
   useTestModel,
 } from '../api'
+import { retainEnabledComparisonChannelIds } from '../lib/comparison-channels'
 import type { TesterFormValues } from '../lib/tester-schema'
 import type {
   BatchProbeResult,
@@ -98,13 +98,16 @@ export function ModelTesterPage() {
 
   const handleSubmit = useCallback(
     async (values: TesterFormValues) => {
-      // The current prompt joins the conversation immediately; the prior
-      // turns (before this prompt) are sent as request context.
+      const comparisonChannelIds = retainEnabledComparisonChannelIds(
+        values.channelIds ?? [],
+        channelsQuery.data ?? []
+      )
+      if (values.compareChannels && comparisonChannelIds.length < 2) {
+        toast.error(t('modelTester.form.errors.compareMinChannels'))
+        return
+      }
+
       const history = messages
-      setMessages((prev) => [
-        ...prev,
-        { id: nextMessageId(), role: 'user', content: values.prompt },
-      ])
       // Reset previous run state.
       setContent('')
       setReasoningContent('')
@@ -118,7 +121,7 @@ export function ModelTesterPage() {
         setComparison(null)
         setIsComparing(true)
         try {
-          const probes = (values.channelIds ?? []).map((channelId) => ({
+          const probes = comparisonChannelIds.map((channelId) => ({
             channelId,
             run: (signal?: AbortSignal) =>
               runChatProbe(
@@ -133,10 +136,21 @@ export function ModelTesterPage() {
           const succeeded = results.filter(
             (result) => result.status === 'success'
           ).length
+          const failed = results.filter(
+            (result) => result.status === 'failure'
+          ).length
+          const aborted = results.filter(
+            (result) => result.status === 'aborted'
+          ).length
+          const summaryKey =
+            aborted > 0
+              ? 'modelTester.compare.summaryWithAborted'
+              : 'modelTester.compare.summary'
           toast.success(
-            t('modelTester.compare.summary', {
+            t(summaryKey, {
               succeeded,
-              failed: results.length - succeeded,
+              failed,
+              aborted,
             })
           )
         } catch {
@@ -147,6 +161,13 @@ export function ModelTesterPage() {
         }
         return
       }
+
+      // Single runs join the conversation immediately; comparisons are
+      // measurements and do not create an unmatched user-only turn.
+      setMessages((prev) => [
+        ...prev,
+        { id: nextMessageId(), role: 'user', content: values.prompt },
+      ])
 
       try {
         const result = await testModel.mutateAsync({
@@ -193,7 +214,7 @@ export function ModelTesterPage() {
         abortControllerRef.current = null
       }
     },
-    [handleDelta, testModel, t, messages]
+    [channelsQuery.data, handleDelta, testModel, t, messages]
   )
 
   const handleClearSession = useCallback(() => {
@@ -248,6 +269,7 @@ export function ModelTesterPage() {
               <BatchResults
                 results={comparison ?? []}
                 channels={channelsQuery.data ?? []}
+                isRunning={isComparing}
               />
             ) : (
               <TestResponseViewer

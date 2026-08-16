@@ -6,10 +6,24 @@
 // "not implemented" text. `buildChatPayload` renders the conversation history
 // into the request `messages` array and forwards the targeted `channelId`.
 
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { buildChatPayload, resolveTestResponseError } from '../api'
+import {
+  buildChatPayload,
+  resolveTestResponseError,
+  runChatProbe,
+} from '../api'
 import type { ChatMessage, TestFormValues } from '../types'
+
+const testChatSync = vi.hoisted(() => vi.fn())
+
+vi.mock('@/lib/api', () => ({
+  api: { testChatSync },
+}))
+
+beforeEach(() => {
+  testChatSync.mockReset()
+})
 
 function formValues(overrides: Partial<TestFormValues> = {}): TestFormValues {
   return {
@@ -119,5 +133,78 @@ describe('resolveTestResponseError', () => {
   it('falls back to HTTP status when the body is not JSON', async () => {
     const response = new Response('plain text body', { status: 500 })
     expect(await resolveTestResponseError(response)).toBe('plain text body')
+  })
+})
+
+describe('runChatProbe', () => {
+  it('unwraps the harness envelope and preserves upstream timing truth', async () => {
+    const truncatedBody = JSON.stringify({
+      choices: [
+        {
+          message: { content: 'upstream answer' },
+          finish_reason: 'stop',
+        },
+      ],
+    })
+    testChatSync.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          statusCode: 200,
+          latencyMs: 321,
+          truncatedBody,
+          error: null,
+        }),
+        { status: 200 }
+      )
+    )
+
+    const result = await runChatProbe(buildChatPayload(formValues()))
+
+    expect(result).toEqual({
+      content: 'upstream answer',
+      reasoningContent: '',
+      doneReceived: true,
+      statusCode: 200,
+      latencyMs: 321,
+      chunks: 0,
+      rawEvents: [truncatedBody],
+      empty: false,
+      error: undefined,
+    })
+  })
+
+  it('surfaces the harness error instead of parsing it as model content', async () => {
+    testChatSync.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: false,
+          statusCode: 503,
+          latencyMs: 45,
+          truncatedBody: '{"error":{"message":"provider unavailable"}}',
+          error: 'forced channel request failed',
+        }),
+        { status: 200 }
+      )
+    )
+
+    const result = await runChatProbe(buildChatPayload(formValues()))
+
+    expect(result.content).toBe('')
+    expect(result.statusCode).toBe(503)
+    expect(result.latencyMs).toBe(45)
+    expect(result.error).toBe('forced channel request failed')
+  })
+
+  it('rejects malformed harness responses explicitly', async () => {
+    testChatSync.mockResolvedValue(
+      new Response(JSON.stringify({ content: 'not an envelope' }), {
+        status: 200,
+      })
+    )
+
+    await expect(runChatProbe(buildChatPayload(formValues()))).rejects.toThrow(
+      'Invalid chat test harness response'
+    )
   })
 })
