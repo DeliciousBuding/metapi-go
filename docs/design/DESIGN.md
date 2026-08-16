@@ -132,6 +132,8 @@ Fallback: `supports-[backdrop-filter]` gates translucency so browsers without `b
 
 Primitive ownership map: [`components.md`](./components.md). Component props and variants are defined by the implementation in `web/src/components/ui/**`, not duplicated in documentation.
 
+State-management rules for URL-synced tables and filters (single URL owner, stable callbacks, one-transaction updates): [`state-stability.md`](./state-stability.md).
+
 | Layer            | Prefix / classes                    | Where                                            |
 | ---------------- | ----------------------------------- | ------------------------------------------------ |
 | Base UI (shadcn) | `ui-*` components (data-slot attrs) | `web/src/components/ui/**`                       |
@@ -149,7 +151,8 @@ New UI must start from shadcn Base UI primitives when possible. Import via `@/co
 3. `cd web && bun run lint` — oxlint
 4. `cd web && bun run build` — production bundle gate (`build:web`)
 5. `cd web && bun run a11y:scan` — axe-core serious/critical gate (needs the dev server; see `web/scripts/a11y-scan.mjs`). Also enforced in CI: the `a11y` job serves the real embedded SPA via the Go server (fresh sqlite runtime DB) and scans all 15 admin routes against it (`BASE_URL`-driven; `.github/workflows/main.yml`)
-6. Manual score rubric (target ≥ 4/5 each):
+6. `cd web && bun run ui:smoke` — real-Chromium route/crash/mobile smoke gate (`web/scripts/route-smoke.mjs`); also enforced in CI in the `a11y` job against the shipped bundle
+7. Manual score rubric (target ≥ 4/5 each):
    - Material (glass/solid hierarchy)
    - Brand calm (GCP blue, no neon)
    - Spacing rhythm
