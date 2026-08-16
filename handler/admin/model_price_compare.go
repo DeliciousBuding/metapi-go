@@ -2,6 +2,7 @@ package admin
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"net/http"
 	"strconv"
@@ -21,6 +22,7 @@ import (
 // labeled platform fallbacks. Does not invent unlabeled prices.
 func (h *statsHandler) modelPriceCompare(w http.ResponseWriter, r *http.Request) {
 	modelQ := strings.TrimSpace(r.URL.Query().Get("model"))
+	exactModel := modelQ != "" && r.URL.Query().Get("exactModel") == "true"
 	limit, _ := parseLimitOffset(r, 50, 200)
 	days := clampInt(getQueryInt(r, "days", 30), 1, 365)
 	topModels := clampInt(getQueryInt(r, "topModels", 12), 1, 50)
@@ -41,7 +43,7 @@ func (h *statsHandler) modelPriceCompare(w http.ResponseWriter, r *http.Request)
 
 	candidates := make([]routing.PriceCompareRow, 0)
 	for _, modelName := range models {
-		inputs, err := h.loadPriceCompareInputs(modelName, since)
+		inputs, err := h.loadPriceCompareInputs(modelName, since, exactModel)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to load price compare inputs")
 			return
@@ -56,7 +58,8 @@ func (h *statsHandler) modelPriceCompare(w http.ResponseWriter, r *http.Request)
 		q := strings.ToLower(modelQ)
 		filtered := make([]routing.PriceCompareRow, 0, len(candidates))
 		for _, row := range candidates {
-			if strings.Contains(strings.ToLower(row.Model), q) {
+			rowModel := strings.ToLower(strings.TrimSpace(row.Model))
+			if (exactModel && rowModel == q) || (!exactModel && strings.Contains(rowModel, q)) {
 				filtered = append(filtered, row)
 			}
 		}
@@ -161,15 +164,20 @@ type observedPriceSignal struct {
 	ResolvedModel  string
 }
 
-func (h *statsHandler) loadPriceCompareInputs(modelName string, since string) ([]routing.PriceCompareInput, error) {
+func (h *statsHandler) loadPriceCompareInputs(modelName string, since string, exactModel bool) ([]routing.PriceCompareInput, error) {
 	modelName = strings.TrimSpace(modelName)
 	if modelName == "" {
 		return nil, nil
 	}
-	like := "%" + strings.ToLower(modelName) + "%"
+	modelOperator := "LIKE"
+	modelArgument := "%" + strings.ToLower(modelName) + "%"
+	if exactModel {
+		modelOperator = "="
+		modelArgument = strings.ToLower(modelName)
+	}
 
 	// Observed success costs + latest-ish billing_details for matching models.
-	obsRows, err := queryRowsErr(h.db, `
+	observedQuery := fmt.Sprintf(`
 		SELECT
 			pl.account_id AS account_id,
 			COALESCE(NULLIF(TRIM(pl.model_actual), ''), NULLIF(TRIM(pl.model_requested), ''), '') AS model_name,
@@ -180,9 +188,10 @@ func (h *statsHandler) loadPriceCompareInputs(modelName string, since string) ([
 		WHERE pl.created_at >= ?
 			AND pl.status = 'success'
 			AND COALESCE(pl.estimated_cost, 0) > 0
-			AND LOWER(COALESCE(NULLIF(TRIM(pl.model_actual), ''), NULLIF(TRIM(pl.model_requested), ''), '')) LIKE ?
+			AND LOWER(COALESCE(NULLIF(TRIM(pl.model_actual), ''), NULLIF(TRIM(pl.model_requested), ''), '')) %s ?
 		GROUP BY pl.account_id, COALESCE(NULLIF(TRIM(pl.model_actual), ''), NULLIF(TRIM(pl.model_requested), ''), '')
-	`, since, like)
+	`, modelOperator)
+	obsRows, err := queryRowsErr(h.db, observedQuery, since, modelArgument)
 	if err != nil {
 		return nil, err
 	}
@@ -207,11 +216,12 @@ func (h *statsHandler) loadPriceCompareInputs(modelName string, since string) ([
 	}
 
 	// Accounts that advertise the model via availability.
-	availRows, err := queryRowsErr(h.db, `
+	availabilityQuery := fmt.Sprintf(`
 		SELECT account_id, model_name
 		FROM model_availability
-		WHERE LOWER(model_name) LIKE ?
-	`, like)
+		WHERE LOWER(model_name) %s ?
+	`, modelOperator)
+	availRows, err := queryRowsErr(h.db, availabilityQuery, modelArgument)
 	if err != nil {
 		return nil, err
 	}

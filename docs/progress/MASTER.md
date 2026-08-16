@@ -14,7 +14,7 @@ MetAPI Go has **3 delivery mainlines**. CI, dual-dialect support, security, rele
 | :-------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **A. 路由与成本真值** | Core proxy, retry/cooldown/breaker, routing strategies, usage pricing, models.dev cold-start catalog, and half-open recovery are implemented. | Collect operator-gated live multi-channel cascade evidence; keep multi-instance limits explicit.                                                       |
 | **B. 上游兼容与实测** | 16 adapters; real new-api/one-api CI e2e plus Sub2API/CLIProxyAPI verification chains; six live-platform defects closed after v0.13.0.        | Run optional Codex and AnyRouter probes from [#558](https://github.com/DeliciousBuding/metapi-go/issues/558). No blocking compatibility issue is open. |
-| **C. 分发与管理体验** | Client export, global search, daily snapshot, enriched alerts, tester history/templates, and guided onboarding (site→account→route chain) are shipped. | Finish tester channel/latency truth and route allocation/price comparison. |
+| **C. 分发与管理体验** | Client export, global search, daily snapshot, enriched alerts, tester history/templates, guided onboarding, and route allocation/price truth are shipped. | Finish tester channel/latency truth (Waves 2–3). |
 
 ## Execution rules
 
@@ -59,19 +59,6 @@ MetAPI Go has **3 delivery mainlines**. CI, dual-dialect support, security, rele
 **Focused tests**: success ordering, mixed success/failure, bounded scheduling, abort, empty selection, and rerun state. Prefer testing the orchestration helper plus one user-facing component interaction; do not mock the module under test.
 
 **Non-goals**: backend batch endpoints, cross-model Cartesian matrices, persistent benchmark history, percentile analytics, charts, or background jobs.
-
-### Wave 4 — P1 route allocation and price truth
-
-**Depends on**: independent of Waves 2–3; may run in parallel.
-
-| Slice                   | Owner                                                                                                              | Implementation                                                                                                                                                                | Acceptance                                                                                                                                                        |
-| :---------------------- | :----------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| C10. Price join         | `web/src/features/token-routes/components/route-detail-sheet.tsx`, existing `features/models/price-compare/api.ts` | Resolve the concrete model used by each route channel, query the existing `/api/models/price-compare` data, and join by `accountId`. Query each distinct concrete model once. | Each comparable channel uses the same normalized pricing source as the Price Compare page. Pattern-only or missing-price rows show `—`, not zero or guessed cost. |
-| C11. Allocation display | route detail row/helper                                                                                            | Show configured weight and enabled-weight share beside normalized input/output price and provenance. Disabled channels are excluded from the share denominator.               | Enabled shares are deterministic and total 100% within normal display rounding; zero-total weights show unavailable rather than dividing by zero.                 |
-
-**Focused tests**: enabled/disabled share calculation, zero total, account/model join, missing price, and mixed source models. Put pure calculation coverage in the feature's `__tests__/`; avoid snapshots of Tailwind class strings.
-
-**Non-goals**: changing routing weights automatically, declaring cheapest as healthiest, duplicating pricing formulas, or adding a route-specific pricing endpoint.
 
 ## Evidence closeout
 

@@ -37,6 +37,7 @@
 | Theme customization       | **present**               | 5 axes (preset/font/radius/scale/content-layout), 10 presets, direct `--chart-1…5` CSS variables in Recharts, cookie persistence; serif is explicit opt-in          |
 | Daily metric truth        | **present**               | shared local-day aggregation, real reward/check-in, partial-truth metadata, fail-closed query errors, and per-account reward/spend status gates                     |
 | Guided onboarding         | **present**               | site→account→route chain carries the `siteId`/`create` deep link, inline credential verification (session/API key), and channelDrafts handoff to the route form     |
+| Route allocation/price    | **present**               | route detail shows configured weight + enabled share (disabled excluded) and normalized input/output price joined by concrete model + accountId, with provenance     |
 | Windows local development | **loopback by default**   | empty `HOST` binds `127.0.0.1`; containers/server platforms explicitly retain `0.0.0.0`                                                                             |
 
 ## Current pointers

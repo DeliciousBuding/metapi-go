@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
 
-import { priceGradeValues, type PriceGrade } from '../types'
+import { normalizePriceGrade, type PriceGrade } from '../types'
 
 const gradeIcon: Record<PriceGrade, LucideIcon> = {
   billing_details: CheckCircle2,
@@ -31,13 +31,9 @@ const gradeVariant: Record<
   fallback: 'outline',
 }
 
-function isPriceGrade(value: string): value is PriceGrade {
-  return (priceGradeValues as readonly string[]).includes(value)
-}
-
 export function PriceGradeBadge({ grade }: { grade: string }) {
   const { t } = useTranslation()
-  const normalized: PriceGrade = isPriceGrade(grade) ? grade : 'fallback'
+  const normalized: PriceGrade = normalizePriceGrade(grade)
   const Icon = gradeIcon[normalized]
   return (
     <Badge variant={gradeVariant[normalized]}>
