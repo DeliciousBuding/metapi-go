@@ -18,24 +18,15 @@ import {
   encodeSortingParam,
   encodeStringListParam,
   stringSearchParam,
+  tableSortingItemSchema,
 } from '@/lib/helpers/searchParams'
-
-const sortingItemSchema = z.object({
-  id: z.string(),
-  desc: z.boolean(),
-})
-
-const paginationSchema = z.object({
-  pageIndex: z.coerce.number().int().min(0).default(0),
-  pageSize: z.coerce.number().int().min(1).max(200).default(20),
-})
 
 export const modelsSearchSchema = z.object({
   q: stringSearchParam,
   page: z.coerce.number().int().min(0).catch(0).default(0),
   pageSize: z.coerce.number().int().min(1).max(200).catch(20).default(20),
   sort: z
-    .union([z.string(), z.array(sortingItemSchema)])
+    .union([z.string(), z.array(tableSortingItemSchema)])
     .optional()
     .transform((value) => encodeSortingParam(value))
     .catch(undefined),
@@ -51,6 +42,3 @@ export const modelsSearchSchema = z.object({
     .transform((value) => encodeStringListParam(value))
     .catch(undefined),
 })
-
-export const SORTING_ITEM_SCHEMA = sortingItemSchema
-export const PAGINATION_SCHEMA = paginationSchema
