@@ -20,6 +20,7 @@ vi.mock('../../api', () => ({
   useCreateAccount: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateAccount: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useLoginAccount: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useVerifyAccountToken: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }))
 
 beforeAll(() => {
