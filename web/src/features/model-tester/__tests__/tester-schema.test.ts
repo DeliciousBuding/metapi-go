@@ -221,6 +221,43 @@ describe('testerSchema — no coercion + enum', () => {
 })
 
 // ---------------------------------------------------------------------------
+// channel comparison
+// ---------------------------------------------------------------------------
+
+describe('testerSchema — channel comparison', () => {
+  it('accepts compare mode with at least two channels', () => {
+    const result = testerSchema.safeParse({
+      ...validInput(),
+      compareChannels: true,
+      channelIds: [1, 2],
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects compare mode with fewer than two channels', () => {
+    const result = testerSchema.safeParse({
+      ...validInput(),
+      compareChannels: true,
+      channelIds: [1],
+    })
+    expect(result.success).toBe(false)
+    if (result.success) return
+    expect(result.error.issues[0]?.message).toBe(
+      'modelTester.form.errors.compareMinChannels'
+    )
+  })
+
+  it('accepts empty channelIds when compare mode is off', () => {
+    const result = testerSchema.safeParse({
+      ...validInput(),
+      compareChannels: false,
+      channelIds: [],
+    })
+    expect(result.success).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // defaults
 // ---------------------------------------------------------------------------
 
@@ -229,6 +266,8 @@ describe('TESTER_FORM_DEFAULT_VALUES', () => {
     expect(TESTER_FORM_DEFAULT_VALUES).toEqual({
       model: '',
       channelId: undefined,
+      compareChannels: false,
+      channelIds: [],
       systemPrompt: '',
       prompt: '',
       targetFormat: 'openai',

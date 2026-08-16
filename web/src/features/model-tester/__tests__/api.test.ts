@@ -20,6 +20,8 @@ function formValues(overrides: Partial<TestFormValues> = {}): TestFormValues {
     temperature: 0.7,
     topP: 1,
     maxTokens: 1024,
+    compareChannels: false,
+    channelIds: [],
     ...overrides,
   }
 }

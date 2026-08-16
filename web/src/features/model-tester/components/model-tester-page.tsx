@@ -30,12 +30,26 @@ import { useTranslation } from 'react-i18next'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { useChannels } from '@/features/channels'
 import { asStringParam } from '@/lib/helpers/searchParams'
 import { toast } from '@/lib/toast'
 
-import { useTestModel } from '../api'
+import {
+  buildChatPayload,
+  isAbortError,
+  runBatchComparison,
+  runChatProbe,
+  sortBatchResults,
+  useTestModel,
+} from '../api'
 import type { TesterFormValues } from '../lib/tester-schema'
-import type { ChatMessage, TestResponse, TestStreamDelta } from '../types'
+import type {
+  BatchProbeResult,
+  ChatMessage,
+  TestResponse,
+  TestStreamDelta,
+} from '../types'
+import { BatchResults } from './batch-results'
 import { TestForm } from './test-form'
 import { TestResponseViewer } from './test-response-viewer'
 
@@ -44,15 +58,6 @@ let messageIdCounter = 0
 function nextMessageId(): string {
   messageIdCounter += 1
   return `message-${messageIdCounter}`
-}
-
-function isAbortError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false
-  return (
-    error.name === 'AbortError' ||
-    error.message === 'This operation was aborted' ||
-    error.message === 'The user aborted a request.'
-  )
 }
 
 export function ModelTesterPage() {
@@ -65,6 +70,7 @@ export function ModelTesterPage() {
   const defaultModel = modelParam?.trim() ? modelParam : undefined
 
   const testModel = useTestModel()
+  const channelsQuery = useChannels()
 
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [content, setContent] = useState('')
@@ -72,6 +78,8 @@ export function ModelTesterPage() {
   const [response, setResponse] = useState<TestResponse | null>(null)
   const [error, setError] = useState<string | undefined>(undefined)
   const [clearDialogOpen, setClearDialogOpen] = useState(false)
+  const [comparison, setComparison] = useState<BatchProbeResult[] | null>(null)
+  const [isComparing, setIsComparing] = useState(false)
 
   const abortControllerRef = useRef<AbortController | null>(null)
 
@@ -105,6 +113,40 @@ export function ModelTesterPage() {
 
       const controller = new AbortController()
       abortControllerRef.current = controller
+
+      if (values.compareChannels) {
+        setComparison(null)
+        setIsComparing(true)
+        try {
+          const probes = (values.channelIds ?? []).map((channelId) => ({
+            channelId,
+            run: (signal?: AbortSignal) =>
+              runChatProbe(
+                buildChatPayload({ ...values, channelId }, history),
+                signal
+              ),
+          }))
+          const results = await runBatchComparison(probes, {
+            signal: controller.signal,
+          })
+          setComparison(sortBatchResults(results))
+          const succeeded = results.filter(
+            (result) => result.status === 'success'
+          ).length
+          toast.success(
+            t('modelTester.compare.summary', {
+              succeeded,
+              failed: results.length - succeeded,
+            })
+          )
+        } catch {
+          toast.error(t('modelTester.toast.failed'))
+        } finally {
+          setIsComparing(false)
+          abortControllerRef.current = null
+        }
+        return
+      }
 
       try {
         const result = await testModel.mutateAsync({
@@ -160,11 +202,12 @@ export function ModelTesterPage() {
     setReasoningContent('')
     setResponse(null)
     setError(undefined)
+    setComparison(null)
     setClearDialogOpen(false)
     toast.success(t('modelTester.toast.cleared'))
   }, [t])
 
-  const isRunning = testModel.isPending
+  const isRunning = testModel.isPending || isComparing
 
   return (
     <div className='flex h-full flex-col gap-4 p-4'>
@@ -201,14 +244,21 @@ export function ModelTesterPage() {
 
         <Card className='flex h-full min-h-0 flex-col'>
           <CardContent className='flex min-h-0 flex-1 flex-col p-0'>
-            <TestResponseViewer
-              messages={messages}
-              content={content}
-              reasoningContent={reasoningContent}
-              isRunning={isRunning}
-              response={response}
-              error={error}
-            />
+            {comparison || isComparing ? (
+              <BatchResults
+                results={comparison ?? []}
+                channels={channelsQuery.data ?? []}
+              />
+            ) : (
+              <TestResponseViewer
+                messages={messages}
+                content={content}
+                reasoningContent={reasoningContent}
+                isRunning={isRunning}
+                response={response}
+                error={error}
+              />
+            )}
           </CardContent>
         </Card>
       </div>
