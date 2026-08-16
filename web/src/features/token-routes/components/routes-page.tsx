@@ -2,21 +2,18 @@
 // metapi-go features/token-routes/components — the routes list page.
 // i18n: all user-visible strings migrated to t() calls.
 
-import { useNavigate, useSearch } from '@tanstack/react-router'
-import type {
-  ColumnFiltersState,
-  OnChangeFn,
-  PaginationState,
-  Table,
-} from '@tanstack/react-table'
+import type { ColumnFiltersState, Table } from '@tanstack/react-table'
 import { Loader2, Plus, Power, RefreshCw, Zap } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
   DataTableBulkActions,
   DataTablePage,
+  type UrlTableState,
+  type UrlTableStateUpdate,
   useDataTable,
+  useUrlTableState,
 } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
 import {
@@ -42,6 +39,7 @@ import {
   useUpdateRoute,
   useZeroChannelRoutes,
 } from '../api'
+import { routesSearchSchema } from '../lib/routes-schema'
 import type { RouteRowActions, RouteSummaryRow } from '../types'
 import {
   isExplicitGroupRoute,
@@ -54,13 +52,125 @@ import { useRoutesColumns } from './routes-columns'
 
 const DEFAULT_PAGE_SIZE = 20
 
+/** Page-specific URL filters: the `enabled` column filter + chain context. */
+type TokenRoutesUrlFilters = {
+  enabled: string
+  accountId: string
+  siteId: string
+}
+
+/**
+ * Parse the raw search string into URL table state, reusing the route's
+ * `routesSearchSchema` so the derived state matches the loader's validated
+ * search. The page uses a 1-based `page` param.
+ */
+function readTokenRoutesSearch(
+  searchString: string
+): UrlTableState<TokenRoutesUrlFilters> {
+  const entries = Object.fromEntries(
+    new URLSearchParams(
+      searchString.startsWith('?') ? searchString.slice(1) : searchString
+    ).entries()
+  )
+  const parsed = routesSearchSchema.safeParse(entries)
+  const search = parsed.success ? parsed.data : null
+  return {
+    q: asStringParam(search?.q) ?? '',
+    pageIndex: (search?.page ?? 1) - 1,
+    pageSize: search?.pageSize ?? DEFAULT_PAGE_SIZE,
+    sorting: [],
+    filters: {
+      enabled: asStringParam(search?.enabled) ?? '',
+      accountId:
+        search?.accountId === undefined ? '' : String(search.accountId),
+      siteId: search?.siteId === undefined ? '' : String(search.siteId),
+    },
+  }
+}
+
+/** Serialize a partial state update back to the token-routes href, merging
+ *  over the CURRENT url state (preserves chain context accountId/siteId). */
+function buildTokenRoutesHref(
+  next: UrlTableStateUpdate<TokenRoutesUrlFilters>
+): string {
+  const current = readTokenRoutesSearch(window.location.search)
+  const merged: UrlTableState<TokenRoutesUrlFilters> = {
+    ...current,
+    ...next,
+    filters: { ...current.filters, ...next.filters },
+  }
+  const params = new URLSearchParams()
+  if (merged.q) params.set('q', merged.q)
+  if (merged.pageIndex > 0) params.set('page', String(merged.pageIndex + 1))
+  if (merged.pageSize !== DEFAULT_PAGE_SIZE) {
+    params.set('pageSize', String(merged.pageSize))
+  }
+  if (merged.filters.enabled) params.set('enabled', merged.filters.enabled)
+  if (merged.filters.accountId) {
+    params.set('accountId', merged.filters.accountId)
+  }
+  if (merged.filters.siteId) params.set('siteId', merged.filters.siteId)
+  const queryString = params.toString()
+  return queryString ? `/token-routes?${queryString}` : '/token-routes'
+}
+
+function useTokenRoutesUrlState() {
+  return useUrlTableState<TokenRoutesUrlFilters>({
+    basePath: '/token-routes',
+    read: readTokenRoutesSearch,
+    buildHref: buildTokenRoutesHref,
+    toColumnFilters: (filters) => {
+      const out: ColumnFiltersState = []
+      const enabledValues = filters.enabled.split(',').filter(Boolean)
+      if (enabledValues.length) {
+        out.push({ id: 'enabled', value: enabledValues })
+      }
+      return out
+    },
+    fromColumnFilters: (filters) => {
+      const enabledEntry = filters.find((filter) => filter.id === 'enabled')
+      return {
+        filters: {
+          enabled: Array.isArray(enabledEntry?.value)
+            ? enabledEntry.value.join(',')
+            : '',
+        },
+      }
+    },
+    resetPageIndexOnFilterChange: true,
+  })
+}
+
+// Module-level so the table's globalFilterFn keeps a stable identity across
+// renders (a fresh inline function would re-resolve the table every render).
+function routesGlobalFilterFn(
+  row: { original: unknown },
+  _columnId: string,
+  filterValue: string
+): boolean {
+  const route = row.original as RouteSummaryRow
+  const haystack = [
+    route.modelPattern,
+    route.displayName ?? '',
+    ...(route.siteNames ?? []),
+  ]
+    .join(' ')
+    .toLowerCase()
+  return haystack.includes(String(filterValue).toLowerCase())
+}
+
 export function RoutesPage() {
   const { t } = useTranslation()
-  // URL state is owned by the router: read the validated search via
-  // `useSearch` (no `window.location.search`), write changes back via
-  // `navigate({ search, replace: true })` (no `history.replaceState`).
-  const urlSearch = useSearch({ from: '/_authenticated/token-routes' })
-  const navigate = useNavigate()
+  const {
+    globalFilter,
+    pagination,
+    columnFilters,
+    onGlobalFilterChange,
+    onPaginationChange,
+    onColumnFiltersChange,
+    filters,
+  } = useTokenRoutesUrlState()
+
   const { data: routesData, isLoading, isFetching, error } = useRoutes()
   const candidatesQuery = useModelTokenCandidates()
 
@@ -73,81 +183,13 @@ export function RoutesPage() {
   const routes = useMemo(() => routesData ?? [], [routesData])
   const candidates = candidatesQuery.data
 
-  // Chain context (account/site deep-link) is fixed for the session — read
-  // once from the validated search.
-  const accountId = urlSearch.accountId
-  const siteId = urlSearch.siteId
+  // Chain context (account/site deep-link) is read from the URL-owned filters;
+  // it is preserved across every navigation but never modified by this page.
+  const accountId = filters.accountId ? Number(filters.accountId) : undefined
+  const siteId = filters.siteId ? Number(filters.siteId) : undefined
 
   const [showZeroChannel, setShowZeroChannel] = useState(false)
   const rows = useZeroChannelRoutes(routes, candidates, showZeroChannel)
-
-  const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: (urlSearch.page ?? 1) - 1,
-    pageSize: urlSearch.pageSize ?? DEFAULT_PAGE_SIZE,
-  })
-  const [globalFilter, setGlobalFilter] = useState(
-    asStringParam(urlSearch.q) ?? ''
-  )
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() => {
-    const filters: ColumnFiltersState = []
-    const enabledValues =
-      asStringParam(urlSearch.enabled)?.split(',').filter(Boolean) ?? []
-    if (enabledValues.length) {
-      filters.push({ id: 'enabled', value: enabledValues })
-    }
-    return filters
-  })
-
-  // Write state back to the URL through the router (single source of truth).
-  // Skip the initial write — the URL already holds the search the state was
-  // initialised from.
-  const skipInitialWrite = useRef(true)
-  useEffect(() => {
-    if (skipInitialWrite.current) {
-      skipInitialWrite.current = false
-      return
-    }
-    const enabledFilter = columnFilters.find(
-      (filter) => filter.id === 'enabled'
-    )
-    navigate({
-      to: '/token-routes',
-      search: {
-        page: pagination.pageIndex > 0 ? pagination.pageIndex + 1 : undefined,
-        pageSize:
-          pagination.pageSize !== DEFAULT_PAGE_SIZE
-            ? pagination.pageSize
-            : undefined,
-        q: globalFilter || undefined,
-        enabled:
-          Array.isArray(enabledFilter?.value) && enabledFilter.value.length
-            ? enabledFilter.value.join(',')
-            : undefined,
-        accountId,
-        siteId,
-      },
-      replace: true,
-    })
-  }, [pagination, globalFilter, columnFilters, accountId, siteId, navigate])
-
-  const onGlobalFilterChange = useMemo<OnChangeFn<string>>(
-    () => (updater) => {
-      setGlobalFilter((prev) =>
-        updater instanceof Function ? updater(prev) : updater
-      )
-      setPagination((prev) => ({ ...prev, pageIndex: 0 }))
-    },
-    []
-  )
-  const onColumnFiltersChange = useMemo<OnChangeFn<ColumnFiltersState>>(
-    () => (updater) => {
-      setColumnFilters((prev) =>
-        updater instanceof Function ? updater(prev) : updater
-      )
-      setPagination((prev) => ({ ...prev, pageIndex: 0 }))
-    },
-    []
-  )
 
   const [formOpen, setFormOpen] = useState(false)
   const [formMode, setFormMode] = useState<'create' | 'edit'>('create')
@@ -165,34 +207,38 @@ export function RoutesPage() {
     setFormOpen(true)
   }
 
-  const openEdit = (route: RouteSummaryRow) => {
+  const openEdit = useCallback((route: RouteSummaryRow) => {
     setFormMode('edit')
     setEditRoute(route)
     setFormOpen(true)
-  }
+  }, [])
 
-  const rowActions: RouteRowActions = {
-    onEdit: openEdit,
-    onDelete: (route) => {
-      setDeleteRoute(route)
-      setDeleteOpen(true)
-    },
-    onToggleEnabled: (route) =>
-      updateMutation.mutate({
-        id: route.id,
-        payload: { enabled: !route.enabled },
-      }),
-    onViewDetail: (route) => {
-      setDetailRoute(route)
-      setDetailOpen(true)
-    },
-    onClearCooldown: (route) => {
-      clearCooldownMutation.mutate(route.id)
-    },
-    onRefreshDecision: () => {
-      refreshDecisionsMutation.mutate()
-    },
-  }
+  // Memoized so the column defs keep a stable identity across renders.
+  const rowActions = useMemo<RouteRowActions>(
+    () => ({
+      onEdit: openEdit,
+      onDelete: (route) => {
+        setDeleteRoute(route)
+        setDeleteOpen(true)
+      },
+      onToggleEnabled: (route) =>
+        updateMutation.mutate({
+          id: route.id,
+          payload: { enabled: !route.enabled },
+        }),
+      onViewDetail: (route) => {
+        setDetailRoute(route)
+        setDetailOpen(true)
+      },
+      onClearCooldown: (route) => {
+        clearCooldownMutation.mutate(route.id)
+      },
+      onRefreshDecision: () => {
+        refreshDecisionsMutation.mutate()
+      },
+    }),
+    [openEdit, updateMutation, clearCooldownMutation, refreshDecisionsMutation]
+  )
 
   const columns = useRoutesColumns(rowActions)
 
@@ -200,23 +246,17 @@ export function RoutesPage() {
     data: rows,
     columns,
     enableRowSelection: true,
+    // The URL-synced callbacks already reset the page on every filter change
+    // (resetPageIndexOnFilterChange), so disable TanStack's own auto-reset to
+    // avoid a second redundant page update.
+    autoResetPageIndex: false,
     globalFilter,
     onGlobalFilterChange,
     columnFilters,
     onColumnFiltersChange,
     pagination,
-    onPaginationChange: setPagination,
-    globalFilterFn: (row, _columnId, filterValue) => {
-      const route = row.original as RouteSummaryRow
-      const haystack = [
-        route.modelPattern,
-        route.displayName ?? '',
-        ...(route.siteNames ?? []),
-      ]
-        .join(' ')
-        .toLowerCase()
-      return haystack.includes(String(filterValue).toLowerCase())
-    },
+    onPaginationChange,
+    globalFilterFn: routesGlobalFilterFn,
   })
 
   const availableRoutes = useMemo(

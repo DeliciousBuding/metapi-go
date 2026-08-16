@@ -121,14 +121,20 @@ function useControllableTableState<TValue>(
 
   const value = controlledValue ?? uncontrolledValue
 
+  // Keep the callback stable: a fresh setValue identity on every render
+  // re-resolves the TanStack table, which re-runs its autoResetPageIndex
+  // effect and can feed an infinite render loop through the URL sync.
+  const onChangeRef = React.useRef(onChange)
+  onChangeRef.current = onChange
+
   const setValue = React.useCallback<OnChangeFn<TValue>>(
     (updater) => {
       if (controlledValue === undefined) {
         setUncontrolledValue((previous) => resolveUpdater(updater, previous))
       }
-      onChange?.(updater)
+      onChangeRef.current?.(updater)
     },
-    [controlledValue, onChange]
+    [controlledValue]
   )
 
   return [value, setValue]

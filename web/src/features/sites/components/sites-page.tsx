@@ -24,6 +24,7 @@ import {
   useDataTable,
   useUrlTableState,
   type UrlTableState,
+  type UrlTableStateUpdate,
 } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
 import {
@@ -95,7 +96,7 @@ function readSearch(searchString?: string): UrlTableState<SitesUrlFilters> {
   }
 }
 
-function buildHref(next: Partial<UrlTableState<SitesUrlFilters>>): string {
+function buildHref(next: UrlTableStateUpdate<SitesUrlFilters>): string {
   const current = readSearch()
   const merged: UrlTableState<SitesUrlFilters> = {
     ...current,

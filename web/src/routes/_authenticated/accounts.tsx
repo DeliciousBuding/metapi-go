@@ -1,11 +1,10 @@
 // metapi-go/routes — accounts list.
 //
-// `validateSearch` validates the URL search state the accounts page reads via
-// `window.location.search`: `page` / `pageSize` (1-based, coerced from the
-// string URL), and `q` / `status` / `site` (strings; `status` + `site` are
-// comma-separated lists the page splits itself). Keeping them as strings
-// (not arrays) preserves the URL shape the page writes via
-// `history.replaceState`, so no search-param normalization rewrites the URL.
+// `validateSearch` validates the URL search state consumed by the accounts
+// page: `page` / `pageSize` (1-based), `q` / `status` / `site` strings, and the
+// canonical comma-separated `sort` value. The page reads the raw search string
+// through the shared URL-table hook and writes changes back through TanStack
+// Router, so direct links and back/forward restore the same table view.
 //
 // `loader` prefetches the accounts snapshot (`accountQueryKeys.snapshot()`),
 // which the backend returns as `{ accounts, sites, generatedAt }` — the
@@ -19,7 +18,10 @@ import { z } from 'zod'
 import { accountQueryKeys } from '@/features/accounts'
 import { AccountsPage } from '@/features/accounts/components/accounts-page'
 import { api } from '@/lib/api'
-import { stringSearchParam } from '@/lib/helpers/searchParams'
+import {
+  encodeSortingParam,
+  stringSearchParam,
+} from '@/lib/helpers/searchParams'
 
 // Tolerant URL search contract: TanStack Router JSON-parses search values, so
 // `?q=123` arrives as a number and `?status=true` as a boolean. The string
@@ -36,6 +38,14 @@ export const accountsSearchSchema = z.object({
   page: z.coerce.number().int().positive().catch(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(200).catch(20).default(20),
   q: stringSearchParam,
+  sort: z
+    .union([
+      z.string(),
+      z.array(z.object({ id: z.string(), desc: z.boolean() })),
+    ])
+    .optional()
+    .transform((value) => encodeSortingParam(value))
+    .catch(undefined),
   status: stringSearchParam,
   site: stringSearchParam,
   siteId: z.coerce.number().int().positive().optional().catch(undefined),

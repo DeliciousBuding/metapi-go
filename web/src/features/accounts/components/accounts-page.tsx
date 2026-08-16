@@ -7,14 +7,15 @@
 // automatically by DataTablePage. Row actions + bulk actions call the
 // TanStack Query mutation hooks; the create/edit form, detail sheet, and
 // delete confirm live as siblings of the table.
+//
+// URL state uses the shared useUrlTableState hook (same as sites/oauth/
+// models): the URL is the single source of truth and the callbacks navigate,
+// so there is no local state + navigate effect that can feed back into an
+// infinite render loop (the accounts page previously froze the renderer on
+// any interaction — see the URL-state loop fix).
 
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import type {
-  ColumnFiltersState,
-  OnChangeFn,
-  PaginationState,
-  Table,
-} from '@tanstack/react-table'
+import type { ColumnFiltersState, Table } from '@tanstack/react-table'
 import {
   Loader2,
   Plus,
@@ -23,13 +24,17 @@ import {
   Trash2,
   Upload as UploadIcon,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
   DataTableBulkActions,
   DataTablePage,
+  encodeSorting,
+  type UrlTableState,
+  type UrlTableStateUpdate,
   useDataTable,
+  useUrlTableState,
 } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
 import {
@@ -41,7 +46,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { ImportWizardDialog } from '@/features/import'
-import { asStringParam } from '@/lib/helpers/searchParams'
+import { parseSortingParam } from '@/lib/helpers/searchParams'
 import { toast } from '@/lib/toast'
 
 import {
@@ -62,101 +67,144 @@ import { useAccountsColumns } from './accounts-columns'
 
 const DEFAULT_PAGE_SIZE = 20
 
+/** Page-specific URL filters: comma-separated status + site id lists. */
+type AccountsUrlFilters = {
+  status: string
+  site: string
+}
+
+/**
+ * Parse the raw search string into URL table state. The accounts URL uses a
+ * 1-based `page` param (route schema: accountsSearchSchema); `q` / `status` /
+ * `site` are plain strings.
+ */
+function readAccountsSearch(
+  searchString: string
+): UrlTableState<AccountsUrlFilters> {
+  const params = new URLSearchParams(searchString)
+  const rawPage = Number(params.get('page') ?? '1')
+  const rawPageSize = Number(
+    params.get('pageSize') ?? String(DEFAULT_PAGE_SIZE)
+  )
+  const pageIndex =
+    Number.isFinite(rawPage) && rawPage > 0 ? Math.max(0, rawPage - 1) : 0
+  const pageSize =
+    Number.isFinite(rawPageSize) && rawPageSize > 0
+      ? Math.min(200, Math.max(1, rawPageSize))
+      : DEFAULT_PAGE_SIZE
+  return {
+    q: params.get('q') ?? '',
+    pageIndex,
+    pageSize,
+    sorting: parseSortingParam(params.get('sort') ?? undefined),
+    filters: {
+      status: params.get('status') ?? '',
+      site: params.get('site') ?? '',
+    },
+  }
+}
+
+/** Serialize a partial state update back to the 1-based accounts href,
+ *  merging over the CURRENT url state (so a pagination sync preserves q /
+ *  status / site — stripping them re-triggered the toolbar's debounced
+ *  search commit and looped the renderer). */
+function buildAccountsHref(
+  next: UrlTableStateUpdate<AccountsUrlFilters>
+): string {
+  const currentParams = new URLSearchParams(window.location.search)
+  const current = readAccountsSearch(window.location.search)
+  const merged: UrlTableState<AccountsUrlFilters> = {
+    ...current,
+    ...next,
+    filters: { ...current.filters, ...next.filters },
+  }
+  const params = new URLSearchParams()
+  if (merged.q) params.set('q', merged.q)
+  if (merged.pageIndex > 0) params.set('page', String(merged.pageIndex + 1))
+  if (merged.pageSize !== DEFAULT_PAGE_SIZE) {
+    params.set('pageSize', String(merged.pageSize))
+  }
+  const sortString = encodeSorting(merged.sorting)
+  if (sortString) params.set('sort', sortString)
+  if (merged.filters.status) params.set('status', merged.filters.status)
+  if (merged.filters.site) params.set('site', merged.filters.site)
+  const guidedSiteId = currentParams.get('siteId')
+  const guidedCreate = currentParams.get('create')
+  if (guidedSiteId) params.set('siteId', guidedSiteId)
+  if (guidedCreate) params.set('create', guidedCreate)
+  const queryString = params.toString()
+  return queryString ? `/accounts?${queryString}` : '/accounts'
+}
+
+/** The "feature useSearch" stage, mirroring the sites page. */
+function useAccountsUrlState() {
+  return useUrlTableState<AccountsUrlFilters>({
+    basePath: '/accounts',
+    read: readAccountsSearch,
+    buildHref: buildAccountsHref,
+    toColumnFilters: (filters) => {
+      const out: ColumnFiltersState = []
+      const statusValues = filters.status.split(',').filter(Boolean)
+      const siteIds = filters.site.split(',').filter(Boolean)
+      if (statusValues.length) out.push({ id: 'status', value: statusValues })
+      if (siteIds.length) out.push({ id: 'site', value: siteIds })
+      return out
+    },
+    fromColumnFilters: (filters) => {
+      const statusEntry = filters.find((filter) => filter.id === 'status')
+      const siteEntry = filters.find((filter) => filter.id === 'site')
+      return {
+        filters: {
+          status: Array.isArray(statusEntry?.value)
+            ? statusEntry.value.join(',')
+            : '',
+          site: Array.isArray(siteEntry?.value)
+            ? siteEntry.value.join(',')
+            : '',
+        },
+      }
+    },
+  })
+}
+
+// Module-level so the table's globalFilterFn keeps a stable identity across
+// renders (a fresh inline function would re-resolve the table every render).
+function accountsGlobalFilterFn(
+  row: { original: unknown },
+  _columnId: string,
+  filterValue: string
+): boolean {
+  const account = accountSchema.parse(row.original)
+  const haystack = [
+    account.username ?? '',
+    account.site?.name ?? '',
+    account.site?.platform ?? '',
+    account.site?.url ?? '',
+    ...(account.tags ?? []),
+  ]
+    .join(' ')
+    .toLowerCase()
+  return haystack.includes(String(filterValue).toLowerCase())
+}
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
 export function AccountsPage() {
   const { t } = useTranslation()
-  // URL state is owned by the router: read the validated search via
-  // `useSearch` (no `window.location.search`), and write changes back via
-  // `navigate({ search, replace: true })` (no `history.replaceState`).
   const search = useSearch({ from: '/_authenticated/accounts' })
   const navigate = useNavigate()
+  const urlState = useAccountsUrlState()
   const { data, isLoading, isFetching, error } = useAccounts()
   const accounts = data?.accounts ?? []
   const sites = data?.sites ?? []
 
-  const refreshMutation = useRefreshAccount()
+  const { mutate: refreshAccount } = useRefreshAccount()
   const deleteMutation = useDeleteAccount()
-  const pinMutation = useToggleAccountPin()
-  const statusMutation = useToggleAccountStatus()
-  const checkinMutation = useToggleAccountCheckin()
-
-  // --- table state (client-side, URL-synced) ---
-  const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: (search.page ?? 1) - 1,
-    pageSize: search.pageSize ?? DEFAULT_PAGE_SIZE,
-  })
-  const [globalFilter, setGlobalFilter] = useState(
-    asStringParam(search.q) ?? ''
-  )
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() => {
-    const filters: ColumnFiltersState = []
-    const statusValues =
-      asStringParam(search.status)?.split(',').filter(Boolean) ?? []
-    const siteIds = asStringParam(search.site)?.split(',').filter(Boolean) ?? []
-    if (statusValues.length) {
-      filters.push({ id: 'status', value: statusValues })
-    }
-    if (siteIds.length) {
-      filters.push({ id: 'site', value: siteIds })
-    }
-    return filters
-  })
-
-  // Write state back to the URL through the router (single source of truth).
-  // Skip the initial write — the URL already holds the search the state was
-  // initialised from.
-  const skipInitialWrite = useRef(true)
-  useEffect(() => {
-    if (skipInitialWrite.current) {
-      skipInitialWrite.current = false
-      return
-    }
-    const statusFilter = columnFilters.find((filter) => filter.id === 'status')
-    const siteFilter = columnFilters.find((filter) => filter.id === 'site')
-    navigate({
-      to: '/accounts',
-      search: {
-        page: pagination.pageIndex > 0 ? pagination.pageIndex + 1 : undefined,
-        pageSize:
-          pagination.pageSize !== DEFAULT_PAGE_SIZE
-            ? pagination.pageSize
-            : undefined,
-        q: globalFilter || undefined,
-        status:
-          Array.isArray(statusFilter?.value) && statusFilter.value.length
-            ? statusFilter.value.join(',')
-            : undefined,
-        site:
-          Array.isArray(siteFilter?.value) && siteFilter.value.length
-            ? siteFilter.value.join(',')
-            : undefined,
-      },
-      replace: true,
-    })
-  }, [pagination, globalFilter, columnFilters, navigate])
-
-  // onChange wrappers that reset to the first page on filter changes.
-  const onGlobalFilterChange = useMemo<OnChangeFn<string>>(
-    () => (updater) => {
-      setGlobalFilter((prev) =>
-        updater instanceof Function ? updater(prev) : updater
-      )
-      setPagination((prev) => ({ ...prev, pageIndex: 0 }))
-    },
-    []
-  )
-  const onColumnFiltersChange = useMemo<OnChangeFn<ColumnFiltersState>>(
-    () => (updater) => {
-      setColumnFilters((prev) =>
-        updater instanceof Function ? updater(prev) : updater
-      )
-      setPagination((prev) => ({ ...prev, pageIndex: 0 }))
-    },
-    []
-  )
+  const { mutate: toggleAccountPin } = useToggleAccountPin()
+  const { mutate: toggleAccountStatus } = useToggleAccountStatus()
+  const { mutate: toggleAccountCheckin } = useToggleAccountCheckin()
 
   // --- dialog state ---
   const [formOpen, setFormOpen] = useState(false)
@@ -208,37 +256,49 @@ export function AccountsPage() {
     })
   }, [search, isLoading, data, navigate])
 
-  const openEdit = (account: Account) => {
+  const openEdit = useCallback((account: Account) => {
     setFormMode('edit')
     setEditAccount(account)
     setFormOpen(true)
-  }
+  }, [])
 
   // --- row actions (handed to the columns hook) ---
-  const rowActions: AccountRowActions = {
-    onEdit: openEdit,
-    onDelete: (account) => {
-      setDeleteAccount(account)
-      setDeleteOpen(true)
-    },
-    onRefresh: (account) => refreshMutation.mutate(account.id),
-    onViewDetail: (account) => {
-      setDetailAccount(account)
-      setDetailOpen(true)
-    },
-    onTogglePin: (account) =>
-      pinMutation.mutate({ id: account.id, isPinned: !account.isPinned }),
-    onToggleStatus: (account) =>
-      statusMutation.mutate({
-        id: account.id,
-        status: account.status === 'active' ? 'disabled' : 'active',
-      }),
-    onToggleCheckin: (account) =>
-      checkinMutation.mutate({
-        id: account.id,
-        checkinEnabled: !account.checkinEnabled,
-      }),
-  }
+  // Memoized so the column defs keep a stable identity across renders; a
+  // fresh object every render re-resolves the TanStack table instance and
+  // re-runs its autoResetPageIndex effect (the old render-loop feedback).
+  const rowActions = useMemo<AccountRowActions>(
+    () => ({
+      onEdit: openEdit,
+      onDelete: (account) => {
+        setDeleteAccount(account)
+        setDeleteOpen(true)
+      },
+      onRefresh: (account) => refreshAccount(account.id),
+      onViewDetail: (account) => {
+        setDetailAccount(account)
+        setDetailOpen(true)
+      },
+      onTogglePin: (account) =>
+        toggleAccountPin({ id: account.id, isPinned: !account.isPinned }),
+      onToggleStatus: (account) =>
+        toggleAccountStatus({
+          id: account.id,
+          status: account.status === 'active' ? 'disabled' : 'active',
+        }),
+      onToggleCheckin: (account) =>
+        toggleAccountCheckin({
+          id: account.id,
+          checkinEnabled: !account.checkinEnabled,
+        }),
+    }),
+    [
+      openEdit,
+      refreshAccount,
+      toggleAccountPin,
+      toggleAccountStatus,
+      toggleAccountCheckin,
+    ]
+  )
 
   const columns = useAccountsColumns(rowActions)
 
@@ -246,28 +306,14 @@ export function AccountsPage() {
     data: accounts,
     columns,
     enableRowSelection: true,
-    globalFilter,
-    onGlobalFilterChange,
-    columnFilters,
-    onColumnFiltersChange,
-    pagination,
-    onPaginationChange: setPagination,
-    // Client-side global search across username / site name / platform /
-    // url / tags. Passed inline so the option's contextual typing drives the
-    // param types (avoids implicit-any + keeps the filter stable enough).
-    globalFilterFn: (row, _columnId, filterValue) => {
-      const account = accountSchema.parse(row.original)
-      const haystack = [
-        account.username ?? '',
-        account.site?.name ?? '',
-        account.site?.platform ?? '',
-        account.site?.url ?? '',
-        ...(account.tags ?? []),
-      ]
-        .join(' ')
-        .toLowerCase()
-      return haystack.includes(String(filterValue).toLowerCase())
-    },
+    globalFilter: urlState.globalFilter,
+    onGlobalFilterChange: urlState.onGlobalFilterChange,
+    columnFilters: urlState.columnFilters,
+    onColumnFiltersChange: urlState.onColumnFiltersChange,
+    pagination: urlState.pagination,
+    onPaginationChange: urlState.onPaginationChange,
+    ensurePageInRange: urlState.ensurePageInRange,
+    globalFilterFn: accountsGlobalFilterFn,
   })
 
   const confirmDelete = async () => {

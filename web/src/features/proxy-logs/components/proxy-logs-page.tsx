@@ -1,14 +1,18 @@
-/* eslint-disable no-nested-ternary -- status-icon selection uses chained ternaries */
+/* eslint-disable no-nested-ternary -- status-select display uses chained ternaries */
 // metapi-go/features/proxy-logs/components — proxy logs list page.
 // i18n: all user-visible strings migrated to t() calls.
 
-import { useNavigate, useSearch } from '@tanstack/react-router'
-import type { OnChangeFn, PaginationState } from '@tanstack/react-table'
 import { Download as DownloadIcon, RefreshCw } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { DataTablePage, useDataTable } from '@/components/data-table'
+import {
+  DataTablePage,
+  type UrlTableState,
+  type UrlTableStateUpdate,
+  useDataTable,
+  useUrlTableState,
+} from '@/components/data-table'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -23,7 +27,11 @@ import { asStringParam } from '@/lib/helpers/searchParams'
 import { toast } from '@/lib/toast'
 
 import { useProxyLogs, useProxyLogsMeta } from '../api'
-import { PROXY_LOG_STATUS_FILTER_OPTIONS } from '../lib/proxy-logs-schema'
+import {
+  PROXY_LOG_STATUS_FILTER_OPTIONS,
+  proxyLogsSearchSchema,
+  type ProxyLogsSearch,
+} from '../lib/proxy-logs-schema'
 import { useProxyLogsAutoRefresh } from '../lib/use-proxy-logs-auto-refresh'
 import type { ProxyLog, ProxyLogFilters } from '../types'
 import { LatencyBadge } from './latency-badge'
@@ -41,88 +49,136 @@ const PROXY_LOGS_COLUMN_SIZING_STORAGE_KEY =
 const DEFAULT_PAGE_SIZE = 20
 const PROXY_LOGS_CSV_EXPORT_LIMIT = 10_000
 
+/** Page-specific URL filters (all strings for URL round-trip simplicity). */
+type ProxyLogsUrlFilters = {
+  status: string
+  siteId: string
+  client: string
+  from: string
+  to: string
+  latencyMin: string
+  latencyMax: string
+}
+
+/**
+ * Parse the raw search string into URL table state, reusing the route's
+ * `proxyLogsSearchSchema` so the derived query payload matches the prefetched
+ * cache key (no double fetch). Returns schema defaults on a malformed string.
+ */
+function readProxyLogsSearch(
+  searchString: string
+): UrlTableState<ProxyLogsUrlFilters> {
+  const entries = Object.fromEntries(
+    new URLSearchParams(
+      searchString.startsWith('?') ? searchString.slice(1) : searchString
+    ).entries()
+  )
+  const parsed = proxyLogsSearchSchema.safeParse(entries)
+  const search: ProxyLogsSearch | null = parsed.success ? parsed.data : null
+  return {
+    q: asStringParam(search?.q) ?? '',
+    // The proxy-logs URL is 0-based (`page`), unlike the other list pages.
+    pageIndex: search?.page ?? 0,
+    pageSize: search?.pageSize ?? DEFAULT_PAGE_SIZE,
+    sorting: [],
+    filters: {
+      status: search?.status ?? 'all',
+      siteId: search?.siteId === undefined ? '' : String(search.siteId),
+      client: asStringParam(search?.client) ?? '',
+      from: asStringParam(search?.from) ?? '',
+      to: asStringParam(search?.to) ?? '',
+      latencyMin:
+        search?.latencyMin === undefined ? '' : String(search.latencyMin),
+      latencyMax:
+        search?.latencyMax === undefined ? '' : String(search.latencyMax),
+    },
+  }
+}
+
+/** Serialize a partial state update back to the proxy-logs href, merging over
+ *  the CURRENT url state so a single filter change preserves all others. */
+function buildProxyLogsHref(
+  next: UrlTableStateUpdate<ProxyLogsUrlFilters>
+): string {
+  const current = readProxyLogsSearch(window.location.search)
+  const merged: UrlTableState<ProxyLogsUrlFilters> = {
+    ...current,
+    ...next,
+    filters: { ...current.filters, ...next.filters },
+  }
+  const params = new URLSearchParams()
+  if (merged.q) params.set('q', merged.q)
+  if (merged.pageIndex > 0) params.set('page', String(merged.pageIndex))
+  if (merged.pageSize !== DEFAULT_PAGE_SIZE) {
+    params.set('pageSize', String(merged.pageSize))
+  }
+  if (merged.filters.status !== 'all') {
+    params.set('status', merged.filters.status)
+  }
+  if (merged.filters.siteId) params.set('siteId', merged.filters.siteId)
+  if (merged.filters.client) params.set('client', merged.filters.client)
+  if (merged.filters.from) params.set('from', merged.filters.from)
+  if (merged.filters.to) params.set('to', merged.filters.to)
+  if (merged.filters.latencyMin) {
+    params.set('latencyMin', merged.filters.latencyMin)
+  }
+  if (merged.filters.latencyMax) {
+    params.set('latencyMax', merged.filters.latencyMax)
+  }
+  const queryString = params.toString()
+  return queryString ? `/proxy-logs?${queryString}` : '/proxy-logs'
+}
+
+function useProxyLogsUrlState() {
+  return useUrlTableState<ProxyLogsUrlFilters>({
+    basePath: '/proxy-logs',
+    read: readProxyLogsSearch,
+    buildHref: buildProxyLogsHref,
+    // No TanStack column filters on this page: status / site / client /
+    // date / latency are all page-specific controls driven by `filters`.
+    toColumnFilters: () => [],
+    fromColumnFilters: () => ({}),
+    resetPageIndexOnFilterChange: true,
+  })
+}
+
 export function ProxyLogsPage() {
   const { t } = useTranslation()
-  // URL state is owned by the router: read the validated search via
-  // `useSearch` (no `window.location.search`), write changes back via
-  // `navigate({ search, replace: true })` (no `history.replaceState`).
-  const urlSearch = useSearch({ from: '/_authenticated/proxy-logs' })
-  const navigate = useNavigate()
-  const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: urlSearch.page ?? 0,
-    pageSize: urlSearch.pageSize ?? DEFAULT_PAGE_SIZE,
-  })
-  const [search, setSearch] = useState(asStringParam(urlSearch.q) ?? '')
-  const [status, setStatus] = useState<ProxyLogFilters['status']>(
-    urlSearch.status ?? 'all'
-  )
-  const [siteId, setSiteId] = useState<number | null>(urlSearch.siteId ?? null)
-  const [client, setClient] = useState(asStringParam(urlSearch.client) ?? '')
-  const [from, setFrom] = useState(asStringParam(urlSearch.from) ?? '')
-  const [to, setTo] = useState(asStringParam(urlSearch.to) ?? '')
-  const [latencyMin, setLatencyMin] = useState<number | null>(
-    urlSearch.latencyMin ?? null
-  )
-  const [latencyMax, setLatencyMax] = useState<number | null>(
-    urlSearch.latencyMax ?? null
-  )
+  const {
+    globalFilter,
+    pagination,
+    onGlobalFilterChange,
+    onPaginationChange,
+    filters,
+    updateUrlState,
+  } = useProxyLogsUrlState()
+
+  // Derive the active server-side filter values directly from the URL-owned
+  // filters (single source of truth — no local mirror to sync back).
+  const status = filters.status as ProxyLogFilters['status']
+  const siteId = filters.siteId ? Number(filters.siteId) : null
+  const client = filters.client
+  const from = filters.from
+  const to = filters.to
+  const latencyMin = filters.latencyMin ? Number(filters.latencyMin) : null
+  const latencyMax = filters.latencyMax ? Number(filters.latencyMax) : null
+
   const [detailLog, setDetailLog] = useState<ProxyLog | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
-
-  // Write state back to the URL through the router (single source of truth).
-  // Skip the initial write — the URL already holds the search the state was
-  // initialised from.
-  const skipInitialWrite = useRef(true)
-  useEffect(() => {
-    if (skipInitialWrite.current) {
-      skipInitialWrite.current = false
-      return
-    }
-    navigate({
-      to: '/proxy-logs',
-      search: {
-        page: pagination.pageIndex > 0 ? pagination.pageIndex : undefined,
-        pageSize:
-          pagination.pageSize !== DEFAULT_PAGE_SIZE
-            ? pagination.pageSize
-            : undefined,
-        q: search || undefined,
-        status: status !== 'all' ? status : undefined,
-        siteId: siteId ?? undefined,
-        client: client || undefined,
-        from: from || undefined,
-        to: to || undefined,
-        latencyMin: latencyMin ?? undefined,
-        latencyMax: latencyMax ?? undefined,
-      },
-      replace: true,
-    })
-  }, [
-    pagination,
-    search,
-    status,
-    siteId,
-    client,
-    from,
-    to,
-    latencyMin,
-    latencyMax,
-    navigate,
-  ])
 
   const queryPayload = useMemo(
     () => ({
       limit: pagination.pageSize,
       offset: pagination.pageIndex * pagination.pageSize,
       status: status === 'all' ? undefined : status,
-      search: search.trim() || undefined,
+      search: globalFilter.trim() || undefined,
       siteId: siteId ?? undefined,
       client: client || undefined,
       from: from || undefined,
       to: to || undefined,
     }),
-    [pagination, status, search, siteId, client, from, to]
+    [pagination, status, globalFilter, siteId, client, from, to]
   )
 
   const metaPayload = useMemo(
@@ -155,30 +211,16 @@ export function ProxyLogsPage() {
     })
   }, [rawItems, latencyMin, latencyMax])
 
-  const onGlobalFilterChange = useMemo<OnChangeFn<string>>(
-    () => (updater) => {
-      setSearch((prev) =>
-        updater instanceof Function ? updater(prev) : updater
-      )
-      setPagination((prev) => ({ ...prev, pageIndex: 0 }))
-    },
+  // Memoized so the column defs keep a stable identity across renders.
+  const columnActions = useMemo<ProxyLogsColumnActions>(
+    () => ({
+      onView: (log) => {
+        setDetailLog(log)
+        setDetailOpen(true)
+      },
+    }),
     []
   )
-  const onPaginationChange = useMemo<OnChangeFn<PaginationState>>(
-    () => (updater) => {
-      setPagination((prev) =>
-        updater instanceof Function ? updater(prev) : updater
-      )
-    },
-    []
-  )
-
-  const columnActions: ProxyLogsColumnActions = {
-    onView: (log) => {
-      setDetailLog(log)
-      setDetailOpen(true)
-    },
-  }
   const columns = useProxyLogsColumns(columnActions)
 
   const { table } = useDataTable<ProxyLog>({
@@ -190,7 +232,11 @@ export function ProxyLogsPage() {
     enableColumnResizing: true,
     columnVisibilityStorageKey: PROXY_LOGS_COLUMN_VISIBILITY_STORAGE_KEY,
     columnSizingStorageKey: PROXY_LOGS_COLUMN_SIZING_STORAGE_KEY,
-    globalFilter: search,
+    // The URL-synced callbacks already reset the page on every filter change
+    // (resetPageIndexOnFilterChange), so disable TanStack's own auto-reset to
+    // avoid a second redundant page update.
+    autoResetPageIndex: false,
+    globalFilter,
     onGlobalFilterChange,
     pagination,
     onPaginationChange,
@@ -203,15 +249,19 @@ export function ProxyLogsPage() {
   const siteOptions = metaQuery.data?.sites ?? []
 
   function handleReset() {
-    setSearch('')
-    setStatus('all')
-    setSiteId(null)
-    setClient('')
-    setFrom('')
-    setTo('')
-    setLatencyMin(null)
-    setLatencyMax(null)
-    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+    updateUrlState({
+      q: '',
+      pageIndex: 0,
+      filters: {
+        status: 'all',
+        siteId: '',
+        client: '',
+        from: '',
+        to: '',
+        latencyMin: '',
+        latencyMax: '',
+      },
+    })
   }
 
   async function handleExportCsv() {
@@ -331,8 +381,10 @@ export function ProxyLogsPage() {
               <Select
                 value={status}
                 onValueChange={(value) => {
-                  setStatus(value as ProxyLogFilters['status'])
-                  setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+                  updateUrlState({
+                    filters: { status: value ?? 'all' },
+                    pageIndex: 0,
+                  })
                 }}
               >
                 <SelectTrigger
@@ -365,8 +417,12 @@ export function ProxyLogsPage() {
                 <Select
                   value={siteId === null ? 'all' : String(siteId)}
                   onValueChange={(value) => {
-                    setSiteId(value === 'all' ? null : Number(value))
-                    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+                    updateUrlState({
+                      filters: {
+                        siteId: !value || value === 'all' ? '' : value,
+                      },
+                      pageIndex: 0,
+                    })
                   }}
                 >
                   <SelectTrigger
@@ -404,8 +460,12 @@ export function ProxyLogsPage() {
                 <Select
                   value={client || 'all'}
                   onValueChange={(value) => {
-                    setClient(!value || value === 'all' ? '' : value)
-                    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+                    updateUrlState({
+                      filters: {
+                        client: !value || value === 'all' ? '' : value,
+                      },
+                      pageIndex: 0,
+                    })
                   }}
                 >
                   <SelectTrigger
@@ -442,8 +502,10 @@ export function ProxyLogsPage() {
                 aria-label={t('proxyLogs.page.startTime')}
                 value={from}
                 onChange={(event) => {
-                  setFrom(event.target.value)
-                  setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+                  updateUrlState({
+                    filters: { from: event.target.value },
+                    pageIndex: 0,
+                  })
                 }}
                 className='w-[180px]'
               />
@@ -452,8 +514,10 @@ export function ProxyLogsPage() {
                 aria-label={t('proxyLogs.page.endTime')}
                 value={to}
                 onChange={(event) => {
-                  setTo(event.target.value)
-                  setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+                  updateUrlState({
+                    filters: { to: event.target.value },
+                    pageIndex: 0,
+                  })
                 }}
                 className='w-[180px]'
               />
@@ -472,8 +536,10 @@ export function ProxyLogsPage() {
                   value={latencyMin ?? ''}
                   onChange={(event) => {
                     const value = event.target.value
-                    setLatencyMin(value === '' ? null : Number(value))
-                    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+                    updateUrlState({
+                      filters: { latencyMin: value },
+                      pageIndex: 0,
+                    })
                   }}
                   className='w-[100px]'
                 />
@@ -489,8 +555,10 @@ export function ProxyLogsPage() {
                   value={latencyMax ?? ''}
                   onChange={(event) => {
                     const value = event.target.value
-                    setLatencyMax(value === '' ? null : Number(value))
-                    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+                    updateUrlState({
+                      filters: { latencyMax: value },
+                      pageIndex: 0,
+                    })
                   }}
                   className='w-[100px]'
                 />
@@ -502,12 +570,16 @@ export function ProxyLogsPage() {
                   size='sm'
                   onClick={() => {
                     if (slowOnly) {
-                      setLatencyMin(null)
+                      updateUrlState({
+                        filters: { latencyMin: '', latencyMax: '' },
+                        pageIndex: 0,
+                      })
                     } else {
-                      setLatencyMin(2000)
-                      setLatencyMax(null)
+                      updateUrlState({
+                        filters: { latencyMin: '2000', latencyMax: '' },
+                        pageIndex: 0,
+                      })
                     }
-                    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
                   }}
                 >
                   {t('proxyLogs.page.slowOnly')}
@@ -627,7 +699,7 @@ function proxyLogsToCsv(
         modelLabel,
         accountLabel,
         siteLabel,
-        log.latencyMs,
+        log.latencyMs ?? '',
         log.totalTokens ?? '',
         log.estimatedCost ?? '',
       ]
