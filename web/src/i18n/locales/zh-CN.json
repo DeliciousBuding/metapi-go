@@ -1429,6 +1429,14 @@
         "usernameRequired": "请填写站点用户名",
         "passwordRequired": "请填写站点密码"
       },
+      "verify": {
+        "button": "验证",
+        "pending": "验证中…",
+        "verified": "验证通过 — {{tokenType}}（{{modelCount}} 个模型）",
+        "failed": "验证失败",
+        "siteRequired": "请先选择站点",
+        "tokenRequired": "请先输入凭证"
+      },
       "tokens": {
         "title": "访问令牌",
         "syncFromSite": "同步站点令牌",

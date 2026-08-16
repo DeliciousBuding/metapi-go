@@ -1429,6 +1429,14 @@
         "usernameRequired": "Please enter the site username",
         "passwordRequired": "Please enter the site password"
       },
+      "verify": {
+        "button": "Verify",
+        "pending": "Verifying…",
+        "verified": "Verified — {{tokenType}} ({{modelCount}} models)",
+        "failed": "Verification failed",
+        "siteRequired": "Select a site first",
+        "tokenRequired": "Enter a credential to verify"
+      },
       "tokens": {
         "title": "Access tokens",
         "syncFromSite": "Sync site tokens",

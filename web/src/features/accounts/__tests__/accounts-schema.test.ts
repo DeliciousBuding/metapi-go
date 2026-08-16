@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  buildAccountVerifyPayload,
   getAccountFormDefaultValues,
   getAccountFormSchema,
   transformAccountToFormValues,
@@ -374,5 +375,51 @@ describe('getAccountFormDefaultValues', () => {
     expect(
       getAccountFormSchema().safeParse(getAccountFormDefaultValues()).success
     ).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// buildAccountVerifyPayload — inline verify-token payload
+// ---------------------------------------------------------------------------
+
+describe('buildAccountVerifyPayload', () => {
+  it('builds a session payload with the trimmed access token', () => {
+    const result = buildAccountVerifyPayload({
+      ...validSessionForm(),
+      accessToken: '  sk-1  ',
+    })
+    expect(result).toEqual({
+      ok: true,
+      payload: { siteId: 1, accessToken: 'sk-1', credentialMode: 'session' },
+    })
+  })
+
+  it('builds an apikey payload from apiToken', () => {
+    const result = buildAccountVerifyPayload(validApikeyForm())
+    expect(result).toEqual({
+      ok: true,
+      payload: { siteId: 1, accessToken: 'k', credentialMode: 'apikey' },
+    })
+  })
+
+  it('returns a site error when siteId is missing or non-positive', () => {
+    expect(
+      buildAccountVerifyPayload({ ...validSessionForm(), siteId: 0 })
+    ).toEqual({ ok: false, error: 'site' })
+  })
+
+  it('returns a token error when the credential is blank', () => {
+    expect(
+      buildAccountVerifyPayload({ ...validSessionForm(), accessToken: '  ' })
+    ).toEqual({ ok: false, error: 'token' })
+    expect(
+      buildAccountVerifyPayload({ ...validApikeyForm(), apiToken: '' })
+    ).toEqual({ ok: false, error: 'token' })
+  })
+
+  it('never builds a payload for password mode (no inline verification)', () => {
+    const result = buildAccountVerifyPayload(validPasswordForm())
+    expect(result.ok).toBe(false)
+    expect(result).toEqual({ ok: false, error: 'token' })
   })
 })

@@ -44,3 +44,43 @@ describe('accountsSearchSchema', () => {
     expect(result.q).toBeUndefined()
   })
 })
+
+// ---------------------------------------------------------------------------
+// accountsSearchSchema — site → account deep-link params
+// ---------------------------------------------------------------------------
+
+describe('accountsSearchSchema — deep-link params', () => {
+  it('accepts the sites guided-flow CTA shape (siteId + create=1)', () => {
+    const result = accountsSearchSchema.parse({ siteId: '3', create: '1' })
+    expect(result.siteId).toBe(3)
+    expect(result.create).toBe(true)
+  })
+
+  it('accepts router-parsed primitives for siteId and create', () => {
+    const result = accountsSearchSchema.parse({ siteId: 3, create: true })
+    expect(result.siteId).toBe(3)
+    expect(result.create).toBe(true)
+  })
+
+  it('treats create=0 as a non-open flag', () => {
+    const result = accountsSearchSchema.parse({ siteId: 3, create: 0 })
+    expect(result.create).toBe(false)
+  })
+
+  it('degrades malformed siteId / create to undefined', () => {
+    const result = accountsSearchSchema.parse({
+      siteId: 'bogus',
+      create: 'bogus',
+    })
+    expect(result.siteId).toBeUndefined()
+    // "bogus" coerces to boolean true; the page's resolver re-checks the
+    // site against the loaded snapshot, so no dialog opens for a stale id.
+    expect(result.create).toBe(true)
+  })
+
+  it('omits both params when absent', () => {
+    const result = accountsSearchSchema.parse({})
+    expect(result.siteId).toBeUndefined()
+    expect(result.create).toBeUndefined()
+  })
+})

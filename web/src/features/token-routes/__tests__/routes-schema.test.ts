@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { routesSearchSchema } from '../lib/routes-schema'
+import { buildChannelDraftSeed, routesSearchSchema } from '../lib/routes-schema'
 
 // ---------------------------------------------------------------------------
 // routesSearchSchema — tolerant URL search contract
@@ -48,5 +48,28 @@ describe('routesSearchSchema', () => {
     expect(result.page).toBe(1)
     expect(result.pageSize).toBe(20)
     expect(result.q).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// buildChannelDraftSeed — account → route guided-chain draft
+// ---------------------------------------------------------------------------
+
+describe('buildChannelDraftSeed', () => {
+  it('seeds a single draft for a positive integer accountId', () => {
+    expect(buildChannelDraftSeed(7)).toEqual([{ accountId: 7 }])
+  })
+
+  it('returns an empty array for a missing accountId', () => {
+    expect(buildChannelDraftSeed(undefined)).toEqual([])
+  })
+
+  it('returns an empty array for a non-positive accountId', () => {
+    expect(buildChannelDraftSeed(0)).toEqual([])
+    expect(buildChannelDraftSeed(-1)).toEqual([])
+  })
+
+  it('returns an empty array for a fractional accountId', () => {
+    expect(buildChannelDraftSeed(1.5)).toEqual([])
   })
 })

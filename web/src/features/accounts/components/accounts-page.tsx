@@ -54,6 +54,7 @@ import {
   useToggleAccountPin,
   useToggleAccountStatus,
 } from '../api'
+import { resolveDeepLinkPreselect } from '../lib/accounts-deep-link'
 import { type Account, type AccountRowActions, accountSchema } from '../types'
 import { AccountDetailSheet } from './account-detail-sheet'
 import { AccountFormDialog } from './account-form-dialog'
@@ -166,12 +167,46 @@ export function AccountsPage() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteAccount, setDeleteAccount] = useState<Account | null>(null)
   const [importOpen, setImportOpen] = useState(false)
+  const [preselectedSiteId, setPreselectedSiteId] = useState<number | undefined>(
+    undefined
+  )
 
   const openCreate = () => {
     setFormMode('create')
     setEditAccount(null)
+    setPreselectedSiteId(undefined)
     setFormOpen(true)
   }
+
+  // Consume the one-shot site → account deep link exactly once: resolve the
+  // referenced site against the loaded snapshot, open the create dialog with
+  // it preselected, then strip the transient params from the URL so a refetch
+  // or remount never reopens the dialog. Waits for the snapshot so a stale or
+  // unknown `siteId` falls back safely instead of creating data.
+  const deepLinkConsumed = useRef(false)
+  useEffect(() => {
+    if (deepLinkConsumed.current || search.create !== true) return
+    if (isLoading) return
+
+    const resolvedSiteId = resolveDeepLinkPreselect(
+      search.create,
+      search.siteId,
+      data?.sites ?? []
+    )
+    if (resolvedSiteId !== null) {
+      setPreselectedSiteId(resolvedSiteId)
+      setFormMode('create')
+      setEditAccount(null)
+      setFormOpen(true)
+    }
+
+    deepLinkConsumed.current = true
+    navigate({
+      to: '/accounts',
+      search: { ...search, siteId: undefined, create: undefined },
+      replace: true,
+    })
+  }, [search, isLoading, data, navigate])
 
   const openEdit = (account: Account) => {
     setFormMode('edit')
@@ -330,6 +365,7 @@ export function AccountsPage() {
         mode={formMode}
         account={editAccount}
         sites={sites}
+        initialSiteId={preselectedSiteId}
       />
 
       {/* Detail sheet (embeds the tokens sub-module) */}

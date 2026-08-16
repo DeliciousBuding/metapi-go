@@ -10,7 +10,7 @@
 // chain — rather than a plain confirmation.
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2 } from 'lucide-react'
+import { CheckCircle2, Loader2, TriangleAlert } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import {
   useForm,
@@ -51,8 +51,14 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/lib/toast'
 
-import { useCreateAccount, useLoginAccount, useUpdateAccount } from '../api'
 import {
+  useCreateAccount,
+  useLoginAccount,
+  useUpdateAccount,
+  useVerifyAccountToken,
+} from '../api'
+import {
+  buildAccountVerifyPayload,
   getAccountFormDefaultValues,
   getAccountFormSchema,
   transformAccountToFormValues,
@@ -68,6 +74,28 @@ interface AccountFormDialogProps {
   mode: 'create' | 'edit'
   account?: Account | null
   sites: Site[]
+  initialSiteId?: number
+}
+
+// Inline verification state for the session/apikey credential fields. Resets
+// to idle whenever the operator changes site, mode, or credential so a stale
+// "verified" result can never be reattached to a different credential.
+type VerificationState =
+  | { status: 'idle' }
+  | { status: 'pending' }
+  | { status: 'verified'; tokenType: string; modelCount: number }
+  | { status: 'failed'; message: string }
+
+function resolveAxiosErrorMessage(error: unknown): string {
+  if (error && typeof error === 'object') {
+    const response = (error as { response?: { data?: unknown } }).response
+    const data = response?.data
+    if (data && typeof data === 'object') {
+      const message = (data as { error?: unknown }).error
+      if (typeof message === 'string' && message.trim()) return message
+    }
+  }
+  return ''
 }
 
 export function AccountFormDialog({
@@ -76,11 +104,13 @@ export function AccountFormDialog({
   mode,
   account,
   sites,
+  initialSiteId,
 }: AccountFormDialogProps) {
   const { t } = useTranslation()
   const createMutation = useCreateAccount()
   const updateMutation = useUpdateAccount()
   const loginMutation = useLoginAccount()
+  const verifyMutation = useVerifyAccountToken()
   const isEdit = mode === 'edit' && !!account
 
   const schema = useMemo(() => getAccountFormSchema(), [])
@@ -113,9 +143,51 @@ export function AccountFormDialog({
     if (isEdit && account) {
       form.reset({ ...baseDefaults, ...transformAccountToFormValues(account) })
     } else {
-      form.reset(baseDefaults)
+      form.reset({ ...baseDefaults, siteId: initialSiteId ?? baseDefaults.siteId })
     }
-  }, [open, isEdit, account, initializedFor, form])
+  }, [open, isEdit, account, initializedFor, initialSiteId, form])
+
+  // Inline credential verification (session / apikey only). Password mode
+  // binds through the real login submit path, so it never verifies inline.
+  const [verification, setVerification] = useState<VerificationState>({
+    status: 'idle',
+  })
+  const watchedSiteId = form.watch('siteId')
+  const watchedAccessToken = form.watch('accessToken')
+  const watchedApiToken = form.watch('apiToken')
+  useEffect(() => {
+    setVerification({ status: 'idle' })
+  }, [watchedSiteId, credentialMode, watchedAccessToken, watchedApiToken])
+
+  const handleVerify = async () => {
+    const resolved = buildAccountVerifyPayload(form.getValues())
+    if (!resolved.ok) {
+      setVerification({
+        status: 'failed',
+        message: t(
+          resolved.error === 'site'
+            ? 'accounts.verify.siteRequired'
+            : 'accounts.verify.tokenRequired'
+        ),
+      })
+      return
+    }
+    setVerification({ status: 'pending' })
+    try {
+      const result = await verifyMutation.mutateAsync(resolved.payload)
+      setVerification({
+        status: 'verified',
+        tokenType: result.tokenType ?? 'unknown',
+        modelCount: result.modelCount ?? 0,
+      })
+    } catch (error) {
+      const backendMessage = resolveAxiosErrorMessage(error)
+      setVerification({
+        status: 'failed',
+        message: backendMessage || t('accounts.verify.failed'),
+      })
+    }
+  }
 
   const onSubmit = async (values: AccountFormValues) => {
     try {
@@ -291,8 +363,20 @@ export function AccountFormDialog({
               />
             )}
 
-            {credentialMode === 'session' && <SessionFields form={form} />}
-            {credentialMode === 'apikey' && <ApiKeyFields form={form} />}
+            {credentialMode === 'session' && (
+              <SessionFields
+                form={form}
+                verification={verification}
+                onVerify={handleVerify}
+              />
+            )}
+            {credentialMode === 'apikey' && (
+              <ApiKeyFields
+                form={form}
+                verification={verification}
+                onVerify={handleVerify}
+              />
+            )}
             {credentialMode === 'password' && <PasswordFields form={form} />}
 
             {/* Status */}
@@ -456,11 +540,59 @@ export function AccountFormDialog({
 // Session-mode fields
 // ---------------------------------------------------------------------------
 
-interface SessionFieldsProps {
-  form: UseFormReturn<AccountFormValues>
+function VerifyCredentialFeedback({
+  verification,
+  onVerify,
+}: {
+  verification: VerificationState
+  onVerify: () => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className='space-y-1.5'>
+      <Button
+        type='button'
+        variant='outline'
+        size='sm'
+        onClick={onVerify}
+        disabled={verification.status === 'pending'}
+      >
+        {verification.status === 'pending' ? (
+          <Loader2 className='animate-spin' />
+        ) : null}
+        {t('accounts.verify.button')}
+      </Button>
+      {verification.status === 'verified' && (
+        <p className='text-success flex items-center gap-1.5 text-xs'>
+          <CheckCircle2 className='size-3.5' />
+          {t('accounts.verify.verified', {
+            tokenType: verification.tokenType,
+            modelCount: verification.modelCount,
+          })}
+        </p>
+      )}
+      {verification.status === 'failed' && (
+        <div className='text-destructive space-y-0.5 text-xs'>
+          <p className='flex items-center gap-1.5'>
+            <TriangleAlert className='size-3.5' />
+            {t('accounts.verify.failed')}
+          </p>
+          {verification.message && (
+            <p className='text-destructive/80'>{verification.message}</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
-function SessionFields({ form }: SessionFieldsProps) {
+interface SessionFieldsProps {
+  form: UseFormReturn<AccountFormValues>
+  verification: VerificationState
+  onVerify: () => void
+}
+
+function SessionFields({ form, verification, onVerify }: SessionFieldsProps) {
   const { t } = useTranslation()
   return (
     <>
@@ -485,6 +617,11 @@ function SessionFields({ form }: SessionFieldsProps) {
             <FormMessage />
           </FormItem>
         )}
+      />
+
+      <VerifyCredentialFeedback
+        verification={verification}
+        onVerify={onVerify}
       />
 
       <FormField
@@ -571,7 +708,7 @@ function SessionFields({ form }: SessionFieldsProps) {
 // and stores autoRelogin config on the account).
 // ---------------------------------------------------------------------------
 
-function PasswordFields({ form }: SessionFieldsProps) {
+function PasswordFields({ form }: { form: UseFormReturn<AccountFormValues> }) {
   const { t } = useTranslation()
   return (
     <>
@@ -622,7 +759,11 @@ function PasswordFields({ form }: SessionFieldsProps) {
 // API-Key-mode fields
 // ---------------------------------------------------------------------------
 
-function ApiKeyFields({ form }: SessionFieldsProps) {
+function ApiKeyFields({
+  form,
+  verification,
+  onVerify,
+}: SessionFieldsProps) {
   const { t } = useTranslation()
   return (
     <>
@@ -644,6 +785,11 @@ function ApiKeyFields({ form }: SessionFieldsProps) {
             <FormMessage />
           </FormItem>
         )}
+      />
+
+      <VerifyCredentialFeedback
+        verification={verification}
+        onVerify={onVerify}
       />
 
       <FormField

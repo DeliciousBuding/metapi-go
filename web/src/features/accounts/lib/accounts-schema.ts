@@ -203,3 +203,46 @@ function extractProxyUrl(extraConfig: string | null | undefined): string {
   }
   return ''
 }
+
+// ---------------------------------------------------------------------------
+// Verify-token payload builder
+// ---------------------------------------------------------------------------
+
+type AccountVerifyPayload = {
+  siteId: number
+  accessToken: string
+  credentialMode: 'session' | 'apikey'
+}
+
+type AccountVerifyPayloadError = 'site' | 'token'
+
+export type AccountVerifyPayloadResult =
+  | { ok: true; payload: AccountVerifyPayload }
+  | { ok: false; error: AccountVerifyPayloadError }
+
+/**
+ * Build the inline verify-token payload from the current unsaved form values.
+ * Password mode is never verified inline — it binds through the real login
+ * submit path — so its empty session token resolves to the `token` error and
+ * the caller skips the verify action entirely for password mode.
+ */
+export function buildAccountVerifyPayload(
+  values: AccountFormValues
+): AccountVerifyPayloadResult {
+  if (!values.siteId || values.siteId <= 0) {
+    return { ok: false, error: 'site' }
+  }
+  const token =
+    values.credentialMode === 'apikey' ? values.apiToken : values.accessToken
+  if (!token || !token.trim()) {
+    return { ok: false, error: 'token' }
+  }
+  return {
+    ok: true,
+    payload: {
+      siteId: values.siteId,
+      accessToken: token.trim(),
+      credentialMode: values.credentialMode === 'apikey' ? 'apikey' : 'session',
+    },
+  }
+}

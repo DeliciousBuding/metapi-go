@@ -116,6 +116,40 @@ export function useLoginAccount() {
 }
 
 // ---------------------------------------------------------------------------
+// useVerifyAccountToken — POST /api/accounts/verify-token (inline credential
+// check before save). Passes skipErrorHandler so the shared axios layer does
+// not toast a global error: the form renders the verified/failed state inline
+// instead. The backend returns non-2xx {"error"} on failure, so assertBusinessOk
+// only ever sees success envelopes here.
+// ---------------------------------------------------------------------------
+
+export interface VerifyTokenResult {
+  tokenType?: string
+  modelCount?: number
+  models?: unknown[]
+  userInfo?: unknown
+  balance?: unknown
+  apiToken?: string
+  apiTokenFound?: boolean
+}
+
+export function useVerifyAccountToken() {
+  return useMutation({
+    mutationFn: async (payload: {
+      siteId: number
+      accessToken: string
+      credentialMode: 'session' | 'apikey'
+    }) => {
+      const result = await api.verifyToken(payload, { skipErrorHandler: true })
+      return assertBusinessOk<VerifyTokenResult>(
+        result,
+        'accounts.verify.failed'
+      )
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
 // useUpdateAccount — PUT /api/accounts/:id
 // ---------------------------------------------------------------------------
 
