@@ -1661,6 +1661,7 @@
         "batchFailed": "Bulk operation failed",
         "cooldownClearFailed": "Failed to clear cooldown",
         "channelAddFailed": "Failed to add channels",
+        "channelAddPartial": "Route created, but {{failed}} channel(s) were not added ({{created}} added): {{error}}",
         "rebuildFailed": "Failed to rebuild routes",
         "refreshFailed": "Failed to refresh decisions"
       },

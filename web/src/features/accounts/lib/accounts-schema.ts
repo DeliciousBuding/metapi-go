@@ -22,7 +22,7 @@ import type { Account, AccountPayload, CredentialMode } from '../types'
 // Schema factory
 // ---------------------------------------------------------------------------
 
-export function getAccountFormSchema() {
+export function getAccountFormSchema(requireCredential = true) {
   return z
     .object({
       siteId: z
@@ -52,7 +52,10 @@ export function getAccountFormSchema() {
     })
     .superRefine((value, ctx) => {
       if (value.credentialMode === 'session') {
-        if (!value.accessToken || value.accessToken.length === 0) {
+        if (
+          requireCredential &&
+          (!value.accessToken || value.accessToken.length === 0)
+        ) {
           ctx.addIssue({
             code: 'custom',
             path: ['accessToken'],
@@ -60,7 +63,10 @@ export function getAccountFormSchema() {
           })
         }
       } else if (value.credentialMode === 'apikey') {
-        if (!value.apiToken || value.apiToken.length === 0) {
+        if (
+          requireCredential &&
+          (!value.apiToken || value.apiToken.length === 0)
+        ) {
           ctx.addIssue({
             code: 'custom',
             path: ['apiToken'],
@@ -130,7 +136,8 @@ function parseTagsInput(raw: string | undefined): string[] | undefined {
 // `{siteId, username, password}` to POST /api/accounts/login instead, so the
 // transform returns undefined and the caller routes to the login mutation.
 export function transformFormToPayload(
-  values: AccountFormValues
+  values: AccountFormValues,
+  operation: 'create' | 'update' = 'create'
 ): AccountPayload | undefined {
   if (values.credentialMode === 'password') return undefined
 
@@ -143,7 +150,7 @@ export function transformFormToPayload(
     return {
       siteId: values.siteId,
       credentialMode: 'session',
-      accessToken: values.accessToken,
+      accessToken: values.accessToken || undefined,
       username: values.username || undefined,
       platformUserId: values.platformUserId,
       status: values.status,
@@ -160,7 +167,10 @@ export function transformFormToPayload(
   return {
     siteId: values.siteId,
     credentialMode: 'apikey',
-    accessTokens: values.apiToken ? [values.apiToken] : [],
+    apiToken:
+      operation === 'update' && values.apiToken ? values.apiToken : undefined,
+    accessTokens:
+      operation === 'create' && values.apiToken ? [values.apiToken] : undefined,
     username: values.username || undefined,
     status: values.status,
     checkinEnabled: values.checkinEnabled,

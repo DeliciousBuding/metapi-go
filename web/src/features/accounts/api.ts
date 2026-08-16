@@ -67,7 +67,24 @@ export function useAccounts(
 export interface CreateAccountResult {
   success?: boolean
   message?: string
-  data?: { id?: number; account?: { id?: number } } & Record<string, unknown>
+  id?: number
+  items?: Array<{
+    id?: number
+    status?: 'created' | 'failed'
+  }>
+}
+
+export function resolveCreatedAccountId(
+  result: CreateAccountResult | undefined
+): number | undefined {
+  if (result?.id && result.id > 0) return result.id
+
+  const createdItem = result?.items?.find(
+    (item) => item.status === 'created' && item.id && item.id > 0
+  )
+  if (createdItem?.id) return createdItem.id
+
+  return undefined
 }
 
 export function useCreateAccount() {
