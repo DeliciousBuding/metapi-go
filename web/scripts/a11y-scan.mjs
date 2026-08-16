@@ -2,14 +2,12 @@
 // metapi-go — axe-core accessibility gate (serious/critical only).
 //
 // Scans the authenticated admin routes with axe-core and exits non-zero when
-// any serious/critical violation is found. Requires the dev server:
+// any serious/critical violation is found. Requires the dev/embedded server:
 //
-//   cd web && bun run a11y:scan            # http://localhost:3000
-//   BASE_URL=http://localhost:3000 bun run a11y:scan
+//   cd web && bun run a11y:scan
+//   BASE_URL=http://localhost:3000 AUTH_TOKEN=... bun run a11y:scan
 //
-// Auth is seeded from the local dev session (dev-admin-token-123) before each
-// load; that token/port are local dev values only. axe-core is injected from
-// node_modules (no @axe-core/playwright needed — its dist is pruned).
+// axe-core is injected from node_modules (no @axe-core/playwright needed).
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -17,6 +15,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 
 const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3000'
+const AUTH_TOKEN = process.env.AUTH_TOKEN ?? 'dev-admin-token-123'
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 const AXE_SOURCE = join(
   SCRIPT_DIR,
@@ -48,15 +47,15 @@ const browser = await chromium.launch({ headless: true })
 const context = await browser.newContext({
   viewport: { width: 1440, height: 900 },
 })
-await context.addInitScript(() => {
-  localStorage.setItem('auth_token', 'dev-admin-token-123')
+await context.addInitScript((token) => {
+  localStorage.setItem('auth_token', token)
   localStorage.setItem(
     'auth_token_expires_at',
     String(Date.now() + 12 * 3600 * 1000)
   )
   localStorage.setItem('i18nextLng', 'en')
   document.cookie = 'vite-ui-theme=light; path=/'
-})
+}, AUTH_TOKEN)
 
 const failures = []
 for (const [name, path] of ROUTES) {
