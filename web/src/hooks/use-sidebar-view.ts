@@ -1,7 +1,6 @@
 // metapi-go/hooks — use-sidebar-view ported from newapi, simplified for metapi.
 // metapi has no role-based filtering (fully open) and no server-side module gating,
 // so this hook only resolves the nested drill-in view (Settings) vs root nav.
-// TODO(phase 2): re-add role filtering once auth-store + roles land.
 
 import { useLocation } from '@tanstack/react-router'
 import { useMemo } from 'react'

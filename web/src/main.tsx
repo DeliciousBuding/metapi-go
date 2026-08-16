@@ -2,10 +2,6 @@
 // Orchestrates: QueryClient (retry/401/403/500/staleTime) → RouterProvider
 // (TanStack Router, routeTree.gen.ts) → 3-layer Provider stack
 // (Theme → Direction → ThemeCustomization).
-//
-// Adapted from newapi web/src/main.tsx. Dropped system-branding bootstrap
-// (status/favicon) and legacy-route resolver — phase 2 will wire those once
-// the status hook + legacy-route map land.
 
 import {
   QueryCache,
@@ -52,16 +48,11 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       staleTime: 10 * 1000, // 10s
     },
-    mutations: {
-      // Skeleton: no global mutation error handler — features own their error
-      // display. TODO(phase2): wire @/lib/handle-server-error once it lands.
-    },
   },
   queryCache: new QueryCache({
     onError: (error) => {
       if (error instanceof AxiosError && error.response?.status === 500) {
         toast.error(i18next.t('errors.internalServerError'))
-        // TODO(phase2): router.navigate({ to: '/500' }) once error routes land
       }
     },
   }),

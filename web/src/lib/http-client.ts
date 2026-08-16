@@ -2,12 +2,10 @@ import axios, { type AxiosRequestConfig } from 'axios'
 
 import i18n from '@/i18n/config'
 import {
-  applyAuthRotation,
   clearAuthentication,
   clearAuthSession,
   getAccessToken,
-  getAuthSession,
-  refreshAuthentication,
+  resolveAuthenticationAfterUnauthorized,
 } from '@/lib/auth-session'
 import { toast } from '@/lib/toast'
 
@@ -19,12 +17,10 @@ declare module 'axios' {
     skipErrorHandler?: boolean
     /** Skip GET request dedup for this call. */
     disableDuplicate?: boolean
-    /** Skip the 401 → refresh → replay flow (used by the refresh call itself). */
-    skipAuthRefresh?: boolean
+    /** Skip the 401 → storage re-read → one replay flow. */
+    skipAuthRetry?: boolean
     /** Marker set on a request that is already a 401 retry, to avoid loops. */
     authRetry?: boolean
-    /** Apply an auth-rotation bundle found in `response.data.data`. */
-    acceptAuthRotation?: boolean
   }
 }
 
@@ -47,8 +43,8 @@ export const apiClient = axios.create({
 })
 
 // ---------------------------------------------------------------------------
-// GET dedup — collapse identical in-flight GETs onto one promise per
-// (session SID, url, params). Disabled per-request via `disableDuplicate`.
+// GET dedup — collapse identical in-flight GETs by URL and params.
+// Disabled per-request via `disableDuplicate`.
 // ---------------------------------------------------------------------------
 
 const inFlightGet = new Map<string, Promise<unknown>>()
@@ -58,8 +54,7 @@ apiClient.get = ((url: string, config: ApiRequestConfig = {}) => {
   if (config.disableDuplicate) return originalGet(url, config)
 
   const params = config.params ? JSON.stringify(config.params) : '{}'
-  const sessionSID = getAuthSession()?.sid || 'anonymous'
-  const key = `${sessionSID}:${url}?${params}`
+  const key = `${url}?${params}`
   const existingRequest = inFlightGet.get(key)
   if (existingRequest) return existingRequest
 
@@ -83,8 +78,8 @@ apiClient.interceptors.request.use((config) => {
 })
 
 // ---------------------------------------------------------------------------
-// Response + error interceptors — business error toasts, 401 refresh+replay,
-// and a catch-all error toast.
+// Response + error interceptors — business error toasts, one 401 replay when
+// another tab replaced the token, and a catch-all error toast.
 // ---------------------------------------------------------------------------
 
 function redirectToSignIn(): void {
@@ -108,10 +103,6 @@ function resolveResponseMessage(data: unknown): string | undefined {
 
 apiClient.interceptors.response.use(
   (response) => {
-    if (response.config.acceptAuthRotation && response.data?.success === true) {
-      applyAuthRotation(response.data.data)
-    }
-
     if (
       !response.config.skipBusinessError &&
       typeof response.data?.success === 'boolean' &&
@@ -129,9 +120,9 @@ apiClient.interceptors.response.use(
     const status = error?.response?.status
 
     if (status === 401) {
-      if (config && !config.skipAuthRefresh && !config.authRetry) {
+      if (config && !config.skipAuthRetry && !config.authRetry) {
         config.authRetry = true
-        const outcome = await refreshAuthentication()
+        const outcome = resolveAuthenticationAfterUnauthorized()
         if (outcome.kind === 'authenticated') {
           const token = getAccessToken()
           if (token) {
@@ -143,11 +134,10 @@ apiClient.interceptors.response.use(
           return apiClient.request(config)
         }
 
-        // anonymous / out_of_sync / transient_error — treat as signed out.
         if (!skipErrorHandler) toast.error(i18n.t('common.sessionExpired'))
         redirectToSignIn()
       } else if (config?.authRetry) {
-        clearAuthentication(false)
+        clearAuthentication()
         if (!skipErrorHandler) toast.error(i18n.t('common.sessionExpired'))
         redirectToSignIn()
       } else if (!skipErrorHandler) {
@@ -172,7 +162,7 @@ apiClient.interceptors.response.use(
 // Auth + timeout + 401 handling mirror the legacy `fetchAuthenticatedResponse`
 // contract so the streaming method bodies in api.ts stay byte-for-byte
 // faithful. 401/403 here clear the session and reload the page (legacy
-// behaviour); the axios path above does refresh+replay instead.
+// behaviour); the axios path above re-reads storage and retries once instead.
 // ---------------------------------------------------------------------------
 
 export type FetchAuthenticatedOptions = RequestInit & {

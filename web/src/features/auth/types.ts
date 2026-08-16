@@ -8,7 +8,7 @@ export type { AuthBundle } from '@/lib/auth-session'
  * Login form payload. metapi-go uses token-based admin auth: the operator
  * pastes an admin token which is validated via GET /api/settings/auth/info
  * with `Authorization: Bearer <token>`. There is no username/password
- * endpoint (seamless-migration hard constraint, plan §3.1).
+ * endpoint; this preserves the existing admin-auth contract.
  */
 export interface LoginPayload {
   token: string
