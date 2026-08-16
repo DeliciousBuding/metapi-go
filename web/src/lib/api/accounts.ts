@@ -28,15 +28,19 @@ export const accountsApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-  verifyToken: (data: {
-    siteId: number
-    accessToken: string
-    platformUserId?: number
-    credentialMode?: 'auto' | 'session' | 'apikey'
-  }) =>
+  verifyToken: (
+    data: {
+      siteId: number
+      accessToken: string
+      platformUserId?: number
+      credentialMode?: 'auto' | 'session' | 'apikey'
+    },
+    options?: { skipErrorHandler?: boolean }
+  ) =>
     request('/api/accounts/verify-token', {
       method: 'POST',
       body: JSON.stringify(data),
+      skipErrorHandler: options?.skipErrorHandler,
     }),
   rebindAccountSession: (
     id: number,

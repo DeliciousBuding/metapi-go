@@ -43,6 +43,7 @@ import { toast } from '@/lib/toast'
 
 import { useBatchAddChannels, useCreateRoute, useUpdateRoute } from '../api'
 import {
+  buildChannelDraftSeed,
   getRouteFormDefaultValues,
   getRouteFormSchema,
   transformFormToPayload,
@@ -109,9 +110,12 @@ export function RouteFormDialog({
     if (isEdit && route) {
       form.reset({ ...baseDefaults, ...transformRouteToFormValues(route) })
     } else {
-      form.reset(baseDefaults)
+      form.reset({
+        ...baseDefaults,
+        channelDrafts: buildChannelDraftSeed(chainContext?.accountId),
+      })
     }
-  }, [open, isEdit, route, initializedFor, form])
+  }, [open, isEdit, route, initializedFor, chainContext, form])
 
   const patternError = useMemo(
     () => (modelPattern ? getModelPatternError(modelPattern) : null),

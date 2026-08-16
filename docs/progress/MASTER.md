@@ -14,7 +14,7 @@ MetAPI Go has **3 delivery mainlines**. CI, dual-dialect support, security, rele
 | :-------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **A. 路由与成本真值** | Core proxy, retry/cooldown/breaker, routing strategies, usage pricing, models.dev cold-start catalog, and half-open recovery are implemented. | Collect operator-gated live multi-channel cascade evidence; keep multi-instance limits explicit.                                                       |
 | **B. 上游兼容与实测** | 16 adapters; real new-api/one-api CI e2e plus Sub2API/CLIProxyAPI verification chains; six live-platform defects closed after v0.13.0.        | Run optional Codex and AnyRouter probes from [#558](https://github.com/DeliciousBuding/metapi-go/issues/558). No blocking compatibility issue is open. |
-| **C. 分发与管理体验** | Client export, global search, daily snapshot, enriched alerts, and tester history/templates are shipped.                                      | Finish guided onboarding, tester channel/latency truth, and route allocation/price comparison.                                                         |
+| **C. 分发与管理体验** | Client export, global search, daily snapshot, enriched alerts, tester history/templates, and guided onboarding (site→account→route chain) are shipped. | Finish tester channel/latency truth and route allocation/price comparison. |
 
 ## Execution rules
 
@@ -25,24 +25,6 @@ MetAPI Go has **3 delivery mainlines**. CI, dual-dialect support, security, rele
 5. Each slice lands with its focused regression test and updates `STATE.md` only after the behavior is verified. Historical detail belongs in `CHANGELOG.md` / `log.md`, not here.
 
 ## Delivery sequence
-
-### Wave 1 — P0 guided onboarding
-
-**Outcome**: the existing Site → Account → Token Route chain carries context forward and verifies credentials without introducing a parallel onboarding state machine.
-
-| Slice                       | Owner                                                                                                                             | Implementation                                                                                                                                                                                                                                      | Acceptance                                                                                                                                     |
-| :-------------------------- | :-------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------- |
-| C1. Account deep link       | `web/src/routes/_authenticated/accounts.tsx`, `web/src/features/accounts/components/accounts-page.tsx`, `account-form-dialog.tsx` | Add validated `siteId` / `create` search state. Open the create dialog once when the referenced site exists; consume or neutralize the open flag so refetches do not reopen it.                                                                     | The site-created CTA reaches an open account form with the site selected. Invalid/stale IDs fall back safely and never create data.            |
-| C2. Credential verification | `web/src/features/accounts/api.ts`, `components/account-form-dialog.tsx`, existing `POST /api/accounts/verify-token`              | Add one mutation and an inline verify action for session/API-key credentials using current unsaved form values. Password binding continues through the real login submit path. Reset verification state whenever site, mode, or credential changes. | Operators see verified/failed/pending state before save; verification never bypasses schema validation and never persists secrets separately.  |
-| C3. Route draft handoff     | `web/src/features/token-routes/components/route-form-dialog.tsx`                                                                  | In create mode, seed one `channelDrafts` entry from a valid `chainContext.accountId`; preserve normal defaults for direct entry and all edit behavior.                                                                                              | Account-created CTA reaches a route form with the account already selected; the operator still chooses model and routing settings before save. |
-
-**Focused tests**
-
-- Extend `web/src/features/accounts/__tests__/accounts-search-schema.test.ts` for valid, missing, and malformed deep-link values.
-- Add behavior coverage for one-time dialog opening, site preselection, verification-state invalidation, and password-mode exclusion.
-- Extend route form/schema coverage for account draft seeding without changing edit defaults.
-
-**Non-goals**: a new `/onboarding` route, persisted wizard progress, automatic credential saving, automatic route creation, or backend workflow orchestration.
 
 ### Wave 2 — P1 tester truth foundation
 
@@ -80,7 +62,7 @@ MetAPI Go has **3 delivery mainlines**. CI, dual-dialect support, security, rele
 
 ### Wave 4 — P1 route allocation and price truth
 
-**Depends on**: independent of Waves 1–3; may run in parallel after the P0 onboarding slice.
+**Depends on**: independent of Waves 2–3; may run in parallel.
 
 | Slice                   | Owner                                                                                                              | Implementation                                                                                                                                                                | Acceptance                                                                                                                                                        |
 | :---------------------- | :----------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
