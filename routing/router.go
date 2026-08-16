@@ -18,7 +18,7 @@ type TokenRouter struct {
 	routingWeights      RoutingWeightsConfig
 	configuredMaxSec    int
 	fallbackUnitCost    float64
-	pricingFn           func(siteID, accountID int64, modelName string) *float64
+	pricingFn           CatalogPricingResolver
 	channelLoadProvider ChannelLoadSnapshotProvider
 }
 
@@ -26,7 +26,7 @@ type TokenRouter struct {
 func NewTokenRouter(
 	db ChannelSelectorDB,
 	cfg *config.Config,
-	pricingFn func(siteID, accountID int64, modelName string) *float64,
+	pricingFn CatalogPricingResolver,
 	channelLoadProvider ChannelLoadSnapshotProvider,
 ) *TokenRouter {
 	cacheTTLMs := int64(cfg.TokenRouterCacheTtlMs)

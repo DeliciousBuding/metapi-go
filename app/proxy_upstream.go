@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -13,6 +15,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/service/pricingcatalog"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -46,7 +49,7 @@ func ConfigureProxyUpstream(cfg *config.Config) error {
 	auth.ConfigureSharedAdmissionFromRedisURL(cfg.RedisURL)
 
 	routingStore := service.NewProxyRoutingStore(db)
-	router := routing.NewTokenRouter(routingStore, cfg, nil, proxyLoadProvider{coord: coord})
+	router := routing.NewTokenRouter(routingStore, cfg, pricingCatalogResolver(cfg, db), proxyLoadProvider{coord: coord})
 	decisionService := routing.NewRouteDecisionService(router, routingStore)
 	setTokenRouteDecisionRuntime(router, decisionService)
 	proxyhandler.SetUpstreamConfig(&proxyhandler.UpstreamConfig{
@@ -134,4 +137,68 @@ func (p proxyLoadProvider) GetChannelLoadSnapshot(params routing.ChannelLoadPara
 // No-op when the writer was never started (sync mode / PROXY_LOG_ASYNC=false).
 func ShutdownProxyLogBatchWriter(ctx context.Context) error {
 	return proxyhandler.ShutdownProxyLogBatchWriter(ctx)
+}
+
+var (
+	pricingCatalogMu       sync.Mutex
+	pricingCatalogProvider *pricingcatalog.Provider
+)
+
+// pricingCatalogResolver returns the process-global models.dev catalog pricing
+// provider wired into the TokenRouter as the cold-start cost signal, or nil
+// when PRICING_CATALOG_ENABLED=false. Reconfigure calls reuse the existing
+// provider (and its refresh loop) instead of stacking duplicate tickers.
+func pricingCatalogResolver(cfg *config.Config, db *store.DB) routing.CatalogPricingResolver {
+	if cfg == nil || !cfg.PricingCatalogEnabled {
+		return nil
+	}
+	pricingCatalogMu.Lock()
+	defer pricingCatalogMu.Unlock()
+	if pricingCatalogProvider != nil {
+		return pricingCatalogProvider
+	}
+	provider := pricingcatalog.NewProvider(pricingcatalog.Options{
+		RefreshInterval:    time.Duration(cfg.PricingCatalogRefreshMin) * time.Minute,
+		FetchURL:           cfg.PricingCatalogURL,
+		SiteSnapshotSource: &siteSnapshotSource{db: db},
+	})
+	provider.Start()
+	pricingCatalogProvider = provider
+	return provider
+}
+
+// siteSnapshotSource resolves site platform/URL from the runtime DB for
+// vendor classification (official vendor host vs third-party relay).
+type siteSnapshotSource struct {
+	db *store.DB
+}
+
+func (s *siteSnapshotSource) GetSiteSnapshot(ctx context.Context, siteID int64) (pricingcatalog.SiteSnapshot, bool, error) {
+	if s == nil || s.db == nil {
+		return pricingcatalog.SiteSnapshot{}, false, nil
+	}
+	var row struct {
+		Platform string `db:"platform"`
+		URL      string `db:"url"`
+	}
+	err := s.db.GetContext(ctx, &row, s.db.Rebind("SELECT platform, url FROM sites WHERE id = ?"), siteID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return pricingcatalog.SiteSnapshot{}, false, nil
+		}
+		return pricingcatalog.SiteSnapshot{}, false, err
+	}
+	return pricingcatalog.SiteSnapshot{Platform: row.Platform, URL: row.URL}, true, nil
+}
+
+// ShutdownPricingCatalog stops the catalog pricing refresh loop. Registered as
+// an app OnClose hook during server startup; no-op when the catalog was never
+// enabled.
+func ShutdownPricingCatalog() {
+	pricingCatalogMu.Lock()
+	provider := pricingCatalogProvider
+	pricingCatalogMu.Unlock()
+	if provider != nil {
+		provider.Stop()
+	}
 }

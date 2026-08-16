@@ -53,6 +53,11 @@ const (
 	// 0 disables the per-IP limiter entirely.
 	DefaultProxyRateLimitRPM = 60
 
+	// Pricing catalog (models.dev official list prices) cold-start cost signal.
+	DefaultPricingCatalogEnabled    = true
+	DefaultPricingCatalogRefreshMin = 60
+	DefaultPricingCatalogURL        = "https://models.dev/api.json"
+
 	// Admin/OAuth per-IP token-bucket rate limits. These mirror the original
 	// hardcoded router values so existing deployments are unchanged without
 	// env overrides.

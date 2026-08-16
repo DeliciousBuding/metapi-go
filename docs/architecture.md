@@ -82,6 +82,8 @@ metapi-go/
 │   ├── gemini/             # generate_content (native OpenAI→Gemini bridge)
 │   └── shared/             # Cross-protocol helpers
 ├── service/                # Domain services (sites, accounts, checkin, balance, notify, oauth, backup, …)
+│   ├── pricing/            # Canonical pricing normalization (ratios → $/M)
+│   └── pricingcatalog/     # models.dev official catalog pricing (cold-start cost signal)
 ├── scheduler/              # Background cron jobs (checkin, balance, recovery, retention, …)
 ├── store/                  # sqlx DB open, dual dialect, schema, settings
 ├── web/
@@ -129,6 +131,8 @@ Client → /v1/chat/completions (or messages / generateContent / …)
   → routing selector (weights / round-robin / stable-first)
       · skip cooldown channels
       · skip open site/model runtime breakers
+      · cost signal: observed avg → configured unit_cost → catalog (models.dev,
+        official sites "catalog", relay sites "catalog_estimate") → fallback
   → handler/proxy upstream loop (per-attempt retry in `upstream.go`)
       → profile detect (proxy/profiles)
       → endpoint dispatch + retry policy (proxy.retry_policy)

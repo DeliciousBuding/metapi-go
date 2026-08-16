@@ -132,7 +132,7 @@ func resolveStrategyLatencyMs(siteID int64, model string) (float64, bool) {
 func SelectLowestCostCandidate(
 	candidates []RouteChannelCandidate,
 	modelResolver func(RouteChannelCandidate) string,
-	pricingFn func(siteID, accountID int64, modelName string) *float64,
+	pricingFn CatalogPricingResolver,
 	fallbackUnitCost float64,
 ) *RouteChannelCandidate {
 	if len(candidates) == 0 {

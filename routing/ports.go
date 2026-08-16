@@ -34,6 +34,27 @@ type PricingProvider interface {
 	RefreshModelPricingCatalog(ctx context.Context, site store.Site, account store.Account, modelName string) error
 }
 
+// Catalog pricing provenance labels for cold-start cost routing.
+const (
+	// CatalogSourceOfficial labels an official vendor list price from the
+	// catalog (site points at the vendor's own API host).
+	CatalogSourceOfficial = "catalog"
+	// CatalogSourceRelayEstimate labels an official list price used only as
+	// an estimate for a third-party relay site — never a real payment price.
+	CatalogSourceRelayEstimate = "catalog_estimate"
+)
+
+// CatalogPricingResolver supplies catalog unit costs for cold-start routing
+// (no history, no configured unit_cost yet). Implementations must label
+// relay-site estimates CatalogSourceRelayEstimate instead of presenting an
+// official list price as a real relay price.
+type CatalogPricingResolver interface {
+	// ResolveCatalogPricing returns the catalog unit cost for a model on a
+	// site/account plus its provenance. (nil, "") declines the query, in
+	// which case EffectiveUnitCost falls through to the fallback cost.
+	ResolveCatalogPricing(siteID, accountID int64, modelName string) (unitCost *float64, source string)
+}
+
 // ChannelLoadSnapshotProvider supplies per-channel concurrency load snapshots.
 type ChannelLoadSnapshotProvider interface {
 	GetChannelLoadSnapshot(params ChannelLoadParams) ChannelLoadSnapshot
@@ -220,7 +241,7 @@ type SiteRuntimeFailureContext struct {
 // CostSignal describes the unit cost and its provenance.
 type CostSignal struct {
 	UnitCost float64
-	Source   string // "observed", "configured", "catalog", "fallback"
+	Source   string // "observed", "configured", "catalog", "catalog_estimate", "fallback"
 }
 
 // PricingReferenceRefreshOptions configures pricing refresh behavior.
