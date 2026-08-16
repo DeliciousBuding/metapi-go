@@ -125,10 +125,10 @@ jobs:
           retention-days: 3
 
   a11y:
-    # axe-core a11y gate against the real production SPA: the Go server embeds
-    # web/dist (built by the frontend job) and serves the admin app + API from
-    # one origin, so the scan exercises the exact shipped bundle instead of the
-    # dev server. Requires a fresh sqlite runtime DB (server auto-migrates).
+    # Real-browser production-SPA gates: axe accessibility + route/crash/mobile
+    # smoke. The Go server embeds web/dist (built by the frontend job) and serves
+    # the admin app + API from one origin, so these exercise the exact shipped
+    # bundle instead of the dev server. Requires a fresh sqlite runtime DB.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: frontend
@@ -157,7 +157,7 @@ jobs:
       - name: Install Playwright Chromium
         run: bunx playwright install --with-deps chromium
         working-directory: web
-      - name: Serve SPA and run axe a11y gate
+      - name: Serve SPA and run browser gates
         run: |
           set -euo pipefail
           AUTH_TOKEN=dev-admin-token-123 \
@@ -182,6 +182,7 @@ jobs:
           fi
           cd web
           BASE_URL=http://127.0.0.1:4099 bun run a11y:scan
+          BASE_URL=http://127.0.0.1:4099 AUTH_TOKEN=dev-admin-token-123 bun run ui:smoke
 
   test-sqlite-shard:
     # The race detector makes the full suite the pipeline's long pole (~5 min).

@@ -12,12 +12,14 @@ describe('accountsSearchSchema', () => {
       page: '2',
       pageSize: '50',
       q: 'alice',
+      sort: 'name:asc,status:desc',
       status: 'active,disabled',
       site: '1,3',
     })
     expect(result.page).toBe(2)
     expect(result.pageSize).toBe(50)
     expect(result.q).toBe('alice')
+    expect(result.sort).toBe('name:asc,status:desc')
     expect(result.status).toBe('active,disabled')
     expect(result.site).toBe('1,3')
   })

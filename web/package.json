@@ -43,7 +43,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "a11y:scan": "node scripts/a11y-scan.mjs"
+    "a11y:scan": "node scripts/a11y-scan.mjs",
+    "ui:smoke": "node scripts/route-smoke.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
