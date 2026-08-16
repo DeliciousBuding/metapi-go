@@ -80,10 +80,14 @@ const MOBILE_ROUTES = [
 ]
 
 if (DESKTOP_ROUTES.length !== 40) {
-  throw new Error(`route manifest drift: expected 40 desktop routes, got ${DESKTOP_ROUTES.length}`)
+  throw new Error(
+    `route manifest drift: expected 40 desktop routes, got ${DESKTOP_ROUTES.length}`
+  )
 }
 if (MOBILE_ROUTES.length !== 14) {
-  throw new Error(`route manifest drift: expected 14 mobile routes, got ${MOBILE_ROUTES.length}`)
+  throw new Error(
+    `route manifest drift: expected 14 mobile routes, got ${MOBILE_ROUTES.length}`
+  )
 }
 
 const KNOWN_FATAL_TEXT = [
@@ -161,7 +165,9 @@ async function assertRendererResponsive(page, label) {
     delay(RESPONSIVE_TIMEOUT_MS).then(() => 'timeout'),
   ])
   if (result !== 'ok') {
-    throw new Error(`${label}: renderer did not yield within ${RESPONSIVE_TIMEOUT_MS}ms`)
+    throw new Error(
+      `${label}: renderer did not yield within ${RESPONSIVE_TIMEOUT_MS}ms`
+    )
   }
 }
 
@@ -194,14 +200,20 @@ async function scanRoute(context, path, mode, failures) {
 
     if (mode === 'mobile') {
       const overflow = await page.evaluate(
-        () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth
       )
       if (overflow > 1) {
-        throw new Error(`${label}: document overflows horizontally by ${overflow}px`)
+        throw new Error(
+          `${label}: document overflows horizontally by ${overflow}px`
+        )
       }
     }
   } catch (error) {
-    failures.push(error instanceof Error ? error.message : `${label}: ${String(error)}`)
+    failures.push(
+      error instanceof Error ? error.message : `${label}: ${String(error)}`
+    )
   } finally {
     await page.close().catch(() => {})
   }
@@ -229,7 +241,9 @@ async function exerciseAccounts(context, failures) {
 
     const tabs = page.getByRole('tab')
     if ((await tabs.count()) !== 3) {
-      throw new Error(`${label}: expected 3 credential tabs, got ${await tabs.count()}`)
+      throw new Error(
+        `${label}: expected 3 credential tabs, got ${await tabs.count()}`
+      )
     }
     await page.getByRole('tab', { name: /password/i }).click({ timeout: 5_000 })
     await page.locator('input[type="password"]').waitFor({
@@ -239,7 +253,9 @@ async function exerciseAccounts(context, failures) {
     await assertRendererResponsive(page, `${label} password mode`)
     await assertNoFatalUi(page, label)
   } catch (error) {
-    failures.push(error instanceof Error ? error.message : `${label}: ${String(error)}`)
+    failures.push(
+      error instanceof Error ? error.message : `${label}: ${String(error)}`
+    )
   } finally {
     await page.close().catch(() => {})
   }
@@ -249,7 +265,9 @@ const browser = await chromium.launch({ headless: true })
 const failures = []
 
 try {
-  const desktop = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const desktop = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+  })
   await seedAuth(desktop)
   await seedInteractionData(desktop.request)
   for (const path of DESKTOP_ROUTES) {
