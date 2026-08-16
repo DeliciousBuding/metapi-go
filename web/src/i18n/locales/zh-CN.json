@@ -1674,6 +1674,7 @@
         "batchFailed": "批量操作失败",
         "cooldownClearFailed": "清除冷却失败",
         "channelAddFailed": "添加通道失败",
+        "channelAddPartial": "路由已创建，但有 {{failed}} 个通道添加失败（已添加 {{created}} 个）：{{error}}",
         "rebuildFailed": "重建路由失败",
         "refreshFailed": "刷新决策失败"
       },

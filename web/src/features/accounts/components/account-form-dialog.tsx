@@ -11,7 +11,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { CheckCircle2, Loader2, TriangleAlert } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   useForm,
   type SubmitErrorHandler,
@@ -52,6 +52,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/lib/toast'
 
 import {
+  resolveCreatedAccountId,
   useCreateAccount,
   useLoginAccount,
   useUpdateAccount,
@@ -113,7 +114,7 @@ export function AccountFormDialog({
   const verifyMutation = useVerifyAccountToken()
   const isEdit = mode === 'edit' && !!account
 
-  const schema = useMemo(() => getAccountFormSchema(), [])
+  const schema = useMemo(() => getAccountFormSchema(!isEdit), [isEdit])
   const form = useForm<AccountFormValues>({
     resolver: zodResolver(schema),
     defaultValues: getAccountFormDefaultValues(),
@@ -155,12 +156,14 @@ export function AccountFormDialog({
   const [verification, setVerification] = useState<VerificationState>({
     status: 'idle',
   })
+  const verificationRequestId = useRef(0)
   const watchedSiteId = form.watch('siteId')
   const watchedAccessToken = form.watch('accessToken')
   const watchedApiToken = form.watch('apiToken')
   useEffect(() => {
+    verificationRequestId.current += 1
     setVerification({ status: 'idle' })
-  }, [watchedSiteId, credentialMode, watchedAccessToken, watchedApiToken])
+  }, [open, watchedSiteId, credentialMode, watchedAccessToken, watchedApiToken])
 
   const handleVerify = async () => {
     const resolved = buildAccountVerifyPayload(form.getValues())
@@ -175,15 +178,19 @@ export function AccountFormDialog({
       })
       return
     }
+    const currentRequestId = verificationRequestId.current + 1
+    verificationRequestId.current = currentRequestId
     setVerification({ status: 'pending' })
     try {
       const result = await verifyMutation.mutateAsync(resolved.payload)
+      if (verificationRequestId.current !== currentRequestId) return
       setVerification({
         status: 'verified',
         tokenType: result.tokenType ?? 'unknown',
         modelCount: result.modelCount ?? 0,
       })
     } catch (error) {
+      if (verificationRequestId.current !== currentRequestId) return
       const backendMessage = resolveAxiosErrorMessage(error)
       setVerification({
         status: 'failed',
@@ -212,7 +219,10 @@ export function AccountFormDialog({
         return
       }
 
-      const payload = transformFormToPayload(values)
+      const payload = transformFormToPayload(
+        values,
+        isEdit ? 'update' : 'create'
+      )
       if (!payload) {
         toast.error(t('accounts.toast.loginFailed'))
         return
@@ -221,7 +231,7 @@ export function AccountFormDialog({
         await updateMutation.mutateAsync({ id: account.id, payload })
       } else {
         const result = await createMutation.mutateAsync(payload)
-        const newId = result?.data?.id ?? result?.data?.account?.id ?? undefined
+        const newId = resolveCreatedAccountId(result)
         showAccountCreatedToast(newId, values.siteId)
       }
       form.reset()

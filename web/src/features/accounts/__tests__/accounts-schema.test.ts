@@ -158,6 +158,21 @@ describe('getAccountFormSchema — superRefine', () => {
       true
     )
   })
+
+  it('allows redacted credentials when validating an existing account', () => {
+    expect(
+      getAccountFormSchema(false).safeParse({
+        ...validSessionForm(),
+        accessToken: '',
+      }).success
+    ).toBe(true)
+    expect(
+      getAccountFormSchema(false).safeParse({
+        ...validApikeyForm(),
+        apiToken: '',
+      }).success
+    ).toBe(true)
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -268,12 +283,19 @@ describe('transformFormToPayload', () => {
     expect(payload.accessToken).toBeUndefined()
   })
 
-  it('sends an empty accessTokens array when apiToken is blank', () => {
+  it('omits credentials when an API key remains redacted', () => {
     const payload = expectPayload({
       ...validApikeyForm(),
       apiToken: '',
     })
-    expect(payload.accessTokens).toEqual([])
+    expect(payload.accessTokens).toBeUndefined()
+    expect(payload.apiToken).toBeUndefined()
+  })
+
+  it('uses the update credential field when replacing an API key', () => {
+    const payload = transformFormToPayload(validApikeyForm(), 'update')
+    expect(payload?.apiToken).toBe('k')
+    expect(payload?.accessTokens).toBeUndefined()
   })
 
   it('parses tags on /[,，\\s]+/ and drops empties', () => {

@@ -133,7 +133,13 @@ export function useRouteChannels(
 export interface CreateRouteResult {
   success?: boolean
   message?: string
-  data?: { id?: number } & Record<string, unknown>
+  id?: number
+}
+
+export function resolveCreatedRouteId(
+  result: CreateRouteResult | undefined
+): number | undefined {
+  return result?.id && result.id > 0 ? result.id : undefined
 }
 
 export function useCreateRoute() {
@@ -247,7 +253,7 @@ export function useClearRouteCooldown() {
 export interface BatchAddChannelsResult {
   created?: number
   skipped?: number
-  errors?: Array<{ accountId?: number; message?: string }>
+  errors?: string[]
 }
 
 export function useBatchAddChannels() {
