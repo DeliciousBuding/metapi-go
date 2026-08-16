@@ -80,3 +80,7 @@ web/playwright/.cache/
 # Agent worktrees
 .worktrees/
 .claude/
+
+# Agent handoff files (never commit these)
+/BLOCKED.md
+/PROGRESS.md
