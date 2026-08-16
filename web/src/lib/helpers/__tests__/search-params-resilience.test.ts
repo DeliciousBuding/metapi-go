@@ -14,7 +14,11 @@ import {
 import { proxyLogsSearchSchema } from '@/features/proxy-logs/lib/proxy-logs-schema'
 import { routesSearchSchema } from '@/features/token-routes/lib/routes-schema'
 import { hasValidAuthSessionSafe } from '@/lib/auth-session'
-import { asStringParam, stringSearchParam } from '@/lib/helpers/searchParams'
+import {
+  asStringParam,
+  stringSearchParam,
+  tableSortingItemSchema,
+} from '@/lib/helpers/searchParams'
 import { signInSearchSchema } from '@/routes/sign-in'
 
 // ---------------------------------------------------------------------------
@@ -177,5 +181,19 @@ describe('hasValidAuthSessionSafe', () => {
       removeItem: () => {},
     }
     expect(hasValidAuthSessionSafe(validStorage)).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// tableSortingItemSchema — shared sorting item shape
+// ---------------------------------------------------------------------------
+
+describe('tableSortingItemSchema', () => {
+  it('requires both id and desc', () => {
+    expect(tableSortingItemSchema.safeParse({ id: 'a' }).success).toBe(false)
+    expect(tableSortingItemSchema.safeParse({ desc: true }).success).toBe(false)
+    expect(
+      tableSortingItemSchema.safeParse({ id: 'a', desc: true }).success
+    ).toBe(true)
   })
 })

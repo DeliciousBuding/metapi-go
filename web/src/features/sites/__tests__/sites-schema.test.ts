@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  COLUMN_FILTER_ITEM_SCHEMA,
-  PAGINATION_SCHEMA,
   SITE_FORM_DEFAULT_VALUES,
-  SORTING_ITEM_SCHEMA,
   siteFormSchema,
   sitesSearchSchema,
   type SiteFormValues,
@@ -258,34 +255,5 @@ describe('sitesSearchSchema', () => {
     expect(result.pageSize).toBe(20)
     expect(result.sort).toBeUndefined()
     expect(result.q).toBe(42)
-  })
-})
-
-describe('PAGINATION_SCHEMA + SORTING_ITEM_SCHEMA + COLUMN_FILTER_ITEM_SCHEMA', () => {
-  it('PAGINATION_SCHEMA applies defaults', () => {
-    expect(PAGINATION_SCHEMA.parse({})).toEqual({ pageIndex: 0, pageSize: 20 })
-  })
-
-  it('SORTING_ITEM_SCHEMA requires both fields', () => {
-    expect(SORTING_ITEM_SCHEMA.safeParse({ id: 'a' }).success).toBe(false)
-    expect(SORTING_ITEM_SCHEMA.safeParse({ id: 'a', desc: true }).success).toBe(
-      true
-    )
-  })
-
-  it('COLUMN_FILTER_ITEM_SCHEMA accepts string / string[] / boolean values', () => {
-    expect(
-      COLUMN_FILTER_ITEM_SCHEMA.safeParse({ id: 'a', value: 'x' }).success
-    ).toBe(true)
-    expect(
-      COLUMN_FILTER_ITEM_SCHEMA.safeParse({ id: 'a', value: ['x', 'y'] })
-        .success
-    ).toBe(true)
-    expect(
-      COLUMN_FILTER_ITEM_SCHEMA.safeParse({ id: 'a', value: true }).success
-    ).toBe(true)
-    expect(
-      COLUMN_FILTER_ITEM_SCHEMA.safeParse({ id: 'a', value: 42 }).success
-    ).toBe(false)
   })
 })

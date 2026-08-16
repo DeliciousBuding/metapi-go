@@ -1,5 +1,6 @@
-// metapi-go/helpers — URL search-param decode helpers shared by the feature
-// search schemas (sites / proxy-logs / models / oauth).
+// metapi-go/helpers — URL search-param decode helpers and shared Zod schema
+// fragments used by the feature search schemas (sites / proxy-logs / models /
+// oauth / channels).
 
 import { z } from 'zod'
 //
@@ -144,3 +145,13 @@ export function encodeStringListParam(
   if (trimmed.length === 0 || trimmed === '[]') return undefined
   return parseStringListParam(trimmed).join(',') || undefined
 }
+
+/**
+ * Shared Zod schema for a single TanStack sorting item (`{ id, desc }`).
+ * The feature search schemas reuse this in their `sort` field instead of
+ * re-declaring the shape per feature.
+ */
+export const tableSortingItemSchema = z.object({
+  id: z.string(),
+  desc: z.boolean(),
+})

@@ -7,6 +7,7 @@ import { z } from 'zod'
 import {
   encodeSortingParam,
   stringSearchParam,
+  tableSortingItemSchema,
 } from '@/lib/helpers/searchParams'
 
 export const channelsSearchSchema = z.object({
@@ -14,10 +15,7 @@ export const channelsSearchSchema = z.object({
   page: z.coerce.number().int().min(0).catch(0).default(0),
   pageSize: z.coerce.number().int().min(1).max(200).catch(20).default(20),
   sort: z
-    .union([
-      z.string(),
-      z.array(z.object({ id: z.string(), desc: z.boolean() })),
-    ])
+    .union([z.string(), z.array(tableSortingItemSchema)])
     .optional()
     .transform((value) => encodeSortingParam(value))
     .catch(undefined),

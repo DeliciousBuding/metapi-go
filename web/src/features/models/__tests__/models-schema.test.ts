@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  PAGINATION_SCHEMA,
-  SORTING_ITEM_SCHEMA,
-  modelsSearchSchema,
-} from '../lib/models-schema'
+import { modelsSearchSchema } from '../lib/models-schema'
 
 // ---------------------------------------------------------------------------
 // brand / capability transforms
@@ -93,37 +89,5 @@ describe('modelsSearchSchema — numerics', () => {
     expect(result.sort).toBeUndefined()
     expect(result.brand).toBeUndefined()
     expect(result.capability).toBeUndefined()
-  })
-})
-
-// ---------------------------------------------------------------------------
-// PAGINATION_SCHEMA + SORTING_ITEM_SCHEMA
-// ---------------------------------------------------------------------------
-
-describe('PAGINATION_SCHEMA', () => {
-  it('applies defaults to an empty input', () => {
-    expect(PAGINATION_SCHEMA.parse({})).toEqual({
-      pageIndex: 0,
-      pageSize: 20,
-    })
-  })
-
-  it('coerces string numerics', () => {
-    expect(PAGINATION_SCHEMA.parse({ pageIndex: '3', pageSize: '50' })).toEqual(
-      { pageIndex: 3, pageSize: 50 }
-    )
-  })
-
-  it('rejects pageSize above 200', () => {
-    expect(PAGINATION_SCHEMA.safeParse({ pageSize: '300' }).success).toBe(false)
-  })
-})
-
-describe('SORTING_ITEM_SCHEMA', () => {
-  it('requires both id and desc', () => {
-    expect(SORTING_ITEM_SCHEMA.safeParse({ id: 'a' }).success).toBe(false)
-    expect(SORTING_ITEM_SCHEMA.safeParse({ id: 'a', desc: true }).success).toBe(
-      true
-    )
   })
 })

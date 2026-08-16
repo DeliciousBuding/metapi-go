@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  OAUTH_COLUMN_FILTER_ITEM_SCHEMA,
-  OAUTH_PAGINATION_SCHEMA,
-  OAUTH_SORTING_ITEM_SCHEMA,
   OAUTH_START_DEFAULT_VALUES,
   oauthSearchSchema,
   oauthStartSchema,
@@ -157,34 +154,5 @@ describe('oauthSearchSchema', () => {
     expect(result.pageSize).toBe(20)
     expect(result.sort).toBeUndefined()
     expect(result.q).toBe(42)
-  })
-})
-
-// ---------------------------------------------------------------------------
-// shared item schemas
-// ---------------------------------------------------------------------------
-
-describe('shared OAuth item schemas', () => {
-  it('OAUTH_PAGINATION_SCHEMA applies defaults', () => {
-    expect(OAUTH_PAGINATION_SCHEMA.parse({})).toEqual({
-      pageIndex: 0,
-      pageSize: 20,
-    })
-  })
-
-  it('OAUTH_SORTING_ITEM_SCHEMA requires both fields', () => {
-    expect(OAUTH_SORTING_ITEM_SCHEMA.safeParse({ id: 'a' }).success).toBe(false)
-    expect(
-      OAUTH_SORTING_ITEM_SCHEMA.safeParse({ id: 'a', desc: true }).success
-    ).toBe(true)
-  })
-
-  it('OAUTH_COLUMN_FILTER_ITEM_SCHEMA accepts string / string[] / boolean', () => {
-    expect(
-      OAUTH_COLUMN_FILTER_ITEM_SCHEMA.safeParse({ id: 'a', value: 'x' }).success
-    ).toBe(true)
-    expect(
-      OAUTH_COLUMN_FILTER_ITEM_SCHEMA.safeParse({ id: 'a', value: 42 }).success
-    ).toBe(false)
   })
 })

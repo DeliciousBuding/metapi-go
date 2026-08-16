@@ -19,6 +19,7 @@ import { z } from 'zod'
 import {
   encodeSortingParam,
   stringSearchParam,
+  tableSortingItemSchema,
 } from '@/lib/helpers/searchParams'
 
 import type { SiteProbeScope } from '../types'
@@ -118,39 +119,14 @@ export const SITE_FORM_DEFAULT_VALUES: SiteFormValues = {
 
 // --- URL search state -------------------------------------------------------
 
-const sortingItemSchema = z.object({
-  id: z.string(),
-  desc: z.boolean(),
-})
-
-const paginationSchema = z.object({
-  pageIndex: z.coerce.number().int().min(0).default(0),
-  pageSize: z.coerce.number().int().min(1).max(200).default(20),
-})
-
-const columnFilterValueSchema = z.union([
-  z.string(),
-  z.array(z.string()),
-  z.boolean(),
-])
-
-const columnFilterItemSchema = z.object({
-  id: z.string(),
-  value: columnFilterValueSchema,
-})
-
 export const sitesSearchSchema = z.object({
   q: stringSearchParam,
   page: z.coerce.number().int().min(0).catch(0).default(0),
   pageSize: z.coerce.number().int().min(1).max(200).catch(20).default(20),
   sort: z
-    .union([z.string(), z.array(sortingItemSchema)])
+    .union([z.string(), z.array(tableSortingItemSchema)])
     .optional()
     .transform((value) => encodeSortingParam(value))
     .catch(undefined),
   status: stringSearchParam,
 })
-
-export const SORTING_ITEM_SCHEMA = sortingItemSchema
-export const PAGINATION_SCHEMA = paginationSchema
-export const COLUMN_FILTER_ITEM_SCHEMA = columnFilterItemSchema
