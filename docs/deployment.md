@@ -1,6 +1,6 @@
 # Deployment Guide
 
-**Last updated**: 2026-08-11
+**Last updated**: 2026-08-16
 
 ## Prerequisites
 
@@ -43,6 +43,9 @@
 | `TRUSTED_PROXY_CIDRS` | _(empty)_ | Comma-separated reverse-proxy CIDRs allowed to supply `X-Forwarded-For` / `X-Real-IP`; forwarded headers are ignored when empty |
 | `ADMIN_CORS_ALLOWED_ORIGINS` | _(empty)_ | Comma-separated exact `http(s)` browser origins allowed to call `/api/*`; empty keeps admin API same-origin only, and `*` is rejected |
 | `REDIS_URL` / `METAPI_REDIS_URL` | _(empty)_ | Optional Redis for multi-instance shared downstream-key **RPM/TPM admission** only (`internal/sharedcount`; fail-open). Empty = process-local counters; no Redis process required. Does **not** enable sticky session multi-instance sharing |
+| `PRICING_CATALOG_ENABLED` | `true` | Enables the models.dev official catalog pricing provider used as the cold-start cost signal for cost-aware routing (`lowest_cost` / weighted cost factor when a channel has no observed history or configured `unit_cost`). A failed fetch falls back to a small built-in preset table; the last good snapshot is kept on refresh errors |
+| `PRICING_CATALOG_REFRESH_MIN` | `60` | Catalog refresh period in minutes (`0` disables periodic refresh after the initial fetch) |
+| `PRICING_CATALOG_URL` | `https://models.dev/api.json` | models.dev dataset URL override (self-hosted mirror supported) |
 
 ## Docker Compose (Production)
 

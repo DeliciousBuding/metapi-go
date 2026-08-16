@@ -168,12 +168,13 @@ func TestEffectiveUnitCost_Configured(t *testing.T) {
 
 func TestEffectiveUnitCost_Catalog(t *testing.T) {
 	c := makeCandidate(1, 100, 1001, 10, 0, 0, 0, 0, 1.0, nil, 0, nil)
-	pricingFn := func(siteID, accountID int64, modelName string) *float64 {
-		return ptrFloat(0.002)
-	}
+	pricingFn := stubCatalogResolver{cost: ptrFloat(0.002)}
 	cost := EffectiveUnitCost(c, "gpt-4", pricingFn, 1.0)
 	if cost.Source != "catalog" {
 		t.Errorf("expected 'catalog' source, got %q", cost.Source)
+	}
+	if math.Abs(cost.UnitCost-0.002) > 0.0001 {
+		t.Errorf("expected unit cost 0.002, got %f", cost.UnitCost)
 	}
 }
 
@@ -524,9 +525,7 @@ func BenchmarkEffectiveUnitCost_Observed(b *testing.B) {
 
 func BenchmarkEffectiveUnitCost_Catalog(b *testing.B) {
 	c := makeCandidate(1, 100, 1001, 10, 0, 0, 0, 0, 1.0, nil, 0, nil)
-	pricingFn := func(siteID, accountID int64, modelName string) *float64 {
-		return ptrFloat(0.002)
-	}
+	pricingFn := stubCatalogResolver{cost: ptrFloat(0.002)}
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

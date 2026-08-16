@@ -31,7 +31,7 @@ type WeightedDetail struct {
 }
 
 // EffectiveUnitCost resolves the best available unit cost for a candidate.
-func EffectiveUnitCost(candidate RouteChannelCandidate, modelName string, pricingFn func(siteID, accountID int64, modelName string) *float64, fallbackUnitCost float64) CostSignal {
+func EffectiveUnitCost(candidate RouteChannelCandidate, modelName string, pricingFn CatalogPricingResolver, fallbackUnitCost float64) CostSignal {
 	minCost := 1e-6
 	successCount := candidate.Channel.SuccessCount
 	if successCount < 0 {
@@ -57,10 +57,15 @@ func EffectiveUnitCost(candidate RouteChannelCandidate, modelName string, pricin
 	}
 
 	if pricingFn != nil {
-		if catalogCost := pricingFn(candidate.Site.ID, candidate.Account.ID, modelName); catalogCost != nil && *catalogCost > 0 && isFiniteFloat(*catalogCost) {
+		catalogCost, catalogSource := pricingFn.ResolveCatalogPricing(candidate.Site.ID, candidate.Account.ID, modelName)
+		if catalogCost != nil && *catalogCost > 0 && isFiniteFloat(*catalogCost) {
+			source := catalogSource
+			if source == "" {
+				source = CatalogSourceOfficial
+			}
 			return CostSignal{
 				UnitCost: math.Max(*catalogCost, minCost),
-				Source:   "catalog",
+				Source:   source,
 			}
 		}
 	}
@@ -83,7 +88,7 @@ func CalculateWeightedSelection(
 	nowMs int64,
 	mode WeightedSelectionMode,
 	stableFirstRotationKey string,
-	pricingFn func(siteID, accountID int64, modelName string) *float64,
+	pricingFn CatalogPricingResolver,
 	fallbackUnitCost float64,
 ) WeightedSelectionResult {
 	if len(candidates) == 0 {

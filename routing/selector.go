@@ -15,7 +15,7 @@ type ChannelSelector struct {
 	cache               *RouteCache
 	configuredMaxSec    int
 	routingWeights      RoutingWeightsConfig
-	pricingFn           func(siteID, accountID int64, modelName string) *float64
+	pricingFn           CatalogPricingResolver
 	fallbackUnitCost    float64
 	channelLoadProvider ChannelLoadSnapshotProvider
 }
@@ -26,7 +26,7 @@ func NewChannelSelector(
 	cache *RouteCache,
 	configuredMaxSec int,
 	routingWeights RoutingWeightsConfig,
-	pricingFn func(siteID, accountID int64, modelName string) *float64,
+	pricingFn CatalogPricingResolver,
 	fallbackUnitCost float64,
 	channelLoadProvider ChannelLoadSnapshotProvider,
 ) *ChannelSelector {

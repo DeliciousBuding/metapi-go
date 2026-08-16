@@ -110,6 +110,8 @@ func main() {
 	a := app.New(cfg, r)
 	a.RegisterOnClose(func() {
 		app.StopBackgroundServices()
+		// Stop the models.dev catalog refresh loop before the store closes.
+		app.ShutdownPricingCatalog()
 		// Drain the proxy_log batch writer before app.cleanup() calls
 		// store.CloseDatabase() so the final batch flushes against an
 		// still-open DB. Bounded wait so a stuck flush cannot block shutdown.

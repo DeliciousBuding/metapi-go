@@ -272,6 +272,15 @@ type Config struct {
 	TokenRouterFailureCooldownMaxSec int
 	TokenRouterCacheTtlMs            int
 
+	// PricingCatalog (models.dev official list prices) feeds the cold-start
+	// catalog cost signal for cost-aware routing.
+	//   PRICING_CATALOG_ENABLED      — default true
+	//   PRICING_CATALOG_REFRESH_MIN  — refresh period in minutes (default 60)
+	//   PRICING_CATALOG_URL          — dataset URL (default https://models.dev/api.json)
+	PricingCatalogEnabled    bool
+	PricingCatalogRefreshMin int
+	PricingCatalogURL        string
+
 	// Proxy: Channel (3 fields)
 	ProxyMaxChannelAttempts   int
 	ProxyStickySessionEnabled bool
@@ -730,6 +739,14 @@ func Load(env map[string]string) *Config {
 		cfg.TokenRouterFailureCooldownMaxSec = TokenRouterFailureCooldownMaxSecCeiling
 	}
 	cfg.TokenRouterCacheTtlMs = maxInt(100, int(math.Trunc(parseNumber(get("TOKEN_ROUTER_CACHE_TTL_MS"), DefaultTokenRouterCacheTtlMs))))
+
+	// ---- §3.14b Pricing Catalog (models.dev official list prices) ----
+	cfg.PricingCatalogEnabled = parseBoolean(get("PRICING_CATALOG_ENABLED"), DefaultPricingCatalogEnabled)
+	cfg.PricingCatalogRefreshMin = maxInt(0, int(math.Trunc(parseNumber(get("PRICING_CATALOG_REFRESH_MIN"), float64(DefaultPricingCatalogRefreshMin)))))
+	cfg.PricingCatalogURL = strings.TrimSpace(get("PRICING_CATALOG_URL"))
+	if cfg.PricingCatalogURL == "" {
+		cfg.PricingCatalogURL = DefaultPricingCatalogURL
+	}
 
 	// ---- §3.15 Proxy: Channel ----
 	// Negative left intact so config.Validate can warn the operator; the
