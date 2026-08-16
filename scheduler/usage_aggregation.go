@@ -154,6 +154,14 @@ func (s *UsageAggregationScheduler) runPass(ctx context.Context) *ProjectionPass
 
 			batchOrphans, err := s.applyBatch(dbw, cp, rows)
 			if err != nil {
+				slog.Error("usage-aggregation: batch flush failed; increments preserved and watermark not advanced, retrying on next pass",
+					"error", err,
+					"batch", batch,
+					"watermark_id", watermark,
+					"batch_rows", len(rows),
+					"batch_first_id", rows[0].id,
+					"batch_last_id", rows[len(rows)-1].id,
+				)
 				passErr = err
 				return
 			}
@@ -354,6 +362,15 @@ func (s *UsageAggregationScheduler) fetchBatch(dbw *store.DB, afterID int64, lim
 	return result, nil
 }
 
+// applyBatch flushes one fetched batch into the usage aggregation tables.
+//
+// Failure-recovery semantics: proxy_logs rows above the checkpoint watermark
+// are the "dirty set" waiting to be projected. The aggregate upserts and the
+// watermark advance run inside a single transaction, so a flush failure rolls
+// both back together — no increment is lost and the watermark never moves
+// past un-persisted rows. The next pass re-fetches the same id range and
+// retries (the equivalent of octopus restoreStatsDirty putting the extracted
+// ids back into the dirty set).
 func (s *UsageAggregationScheduler) applyBatch(dbw *store.DB, cp projectionCheckpoint, rows []projectionRow) (orphanCount int, err error) {
 	// Aggregate deltas by key so one batch never multiplies the same bucket
 	// with repeated single-row upserts (correctness + fewer writes).
@@ -541,11 +558,19 @@ func (s *UsageAggregationScheduler) applyBatch(dbw *store.DB, cp projectionCheck
 		if rows[len(rows)-1].createdAt != nil && strings.TrimSpace(*rows[len(rows)-1].createdAt) != "" {
 			lastCreatedAt = strings.TrimSpace(*rows[len(rows)-1].createdAt)
 		}
-		if _, err := tx.Exec(tx.Rebind(`UPDATE analytics_projection_checkpoints
+		checkpointResult, err := tx.Exec(tx.Rebind(`UPDATE analytics_projection_checkpoints
 			SET last_proxy_log_id = ?, watermark_created_at = ?, last_projected_at = ?, last_successful_at = ?, updated_at = ?
 			WHERE projector_key = ?`),
-			lastID, lastCreatedAt, now, now, now, usageProjectorKey); err != nil {
+			lastID, lastCreatedAt, now, now, now, usageProjectorKey)
+		if err != nil {
 			return 0, fmt.Errorf("failed to update projection checkpoint: %w", err)
+		}
+		if affected, _ := checkpointResult.RowsAffected(); affected == 0 {
+			// Committing aggregates without advancing the watermark would
+			// re-project this batch on the next pass (double counting). Fail
+			// the whole batch instead; tryAcquireLease re-creates a missing
+			// checkpoint row on the next pass, so the retry converges.
+			return 0, fmt.Errorf("projection checkpoint update affected 0 rows (projector_key %s)", usageProjectorKey)
 		}
 	}
 
