@@ -18,8 +18,6 @@ import { AccountsPage } from '@/features/accounts/components/accounts-page'
 import { accountsSearchSchema } from '@/features/accounts/lib/accounts-search-schema'
 import { api } from '@/lib/api'
 
-export { accountsSearchSchema } from '@/features/accounts/lib/accounts-search-schema'
-
 export const Route = createFileRoute('/_authenticated/accounts')({
   validateSearch: accountsSearchSchema,
   staticData: { title: 'accounts.page.title' },
