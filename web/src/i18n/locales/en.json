@@ -166,6 +166,9 @@
         "model": "Model",
         "modelLoading": "Loading models…",
         "modelPlaceholder": "Select a model",
+        "channel": "Channel",
+        "channelNone": "No channel (default routing)",
+        "channelHint": "Run the test against a specific channel. Leave empty to use default routing.",
         "targetFormatLabel": "Target format",
         "targetFormat": {
           "openai": "OpenAI",
@@ -181,8 +184,6 @@
         "topP": "Top P",
         "maxTokens": "Max tokens",
         "maxTokensHint": "Maximum number of tokens to generate.",
-        "stream": "Stream",
-        "streamHint": "Stream the response token by token (backend support pending).",
         "stop": "Stop",
         "submit": "Send",
         "errors": {
@@ -209,7 +210,7 @@
       "error": {
         "stopped": "Request was stopped.",
         "unknown": "An unknown error occurred.",
-        "notAvailable": "Model testing isn't available yet: the backend needs a configured channel to run a test, and streaming support is still pending."
+        "notAvailable": "Model testing isn't available yet: select a channel to run a test through the forced-channel harness."
       },
       "viewer": {
         "title": "Response",
@@ -1428,6 +1429,14 @@
         "apiKeyRequired": "Please enter the API Key",
         "usernameRequired": "Please enter the site username",
         "passwordRequired": "Please enter the site password"
+      },
+      "verify": {
+        "button": "Verify",
+        "pending": "Verifying…",
+        "verified": "Verified — {{tokenType}} ({{modelCount}} models)",
+        "failed": "Verification failed",
+        "siteRequired": "Select a site first",
+        "tokenRequired": "Enter a credential to verify"
       },
       "tokens": {
         "title": "Access tokens",

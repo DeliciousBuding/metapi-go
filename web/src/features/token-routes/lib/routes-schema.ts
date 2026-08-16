@@ -188,6 +188,25 @@ export function transformRouteToFormValues(
 }
 
 // ---------------------------------------------------------------------------
+// Channel-draft seed (account → route guided chain)
+// ---------------------------------------------------------------------------
+
+/**
+ * Seed one `channelDrafts` entry from the guided-chain account deep link.
+ * Returns a single-element draft when the account id is a positive integer
+ * (the same validity contract as the channelDrafts schema), otherwise an
+ * empty array — so direct route entry and edit flows keep their normal
+ * defaults and never gain a phantom pre-selected channel.
+ */
+export function buildChannelDraftSeed(
+  accountId: number | undefined
+): Array<{ accountId: number }> {
+  return accountId && Number.isInteger(accountId) && accountId > 0
+    ? [{ accountId }]
+    : []
+}
+
+// ---------------------------------------------------------------------------
 // URL state schema
 // ---------------------------------------------------------------------------
 

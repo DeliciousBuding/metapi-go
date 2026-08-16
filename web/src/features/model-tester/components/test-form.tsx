@@ -2,11 +2,12 @@
 //
 // Renders the left column of the tester: a local template picker (fills
 // the prompt + sampling parameters from the localStorage template library),
-// model picker (populated from the models marketplace via `useModels`),
-// target protocol format, system + user prompts, and sampling parameters
-// (temperature / top_p / max_tokens / stream). The parent owns the
-// run/stop lifecycle; this form only emits validated values on submit.
-// When `defaultModel` is provided (deep link from the marketplace
+// model picker (populated from the models marketplace via `useModels`), a
+// channel picker (populated from the channels list via `useChannels`, targeting
+// the forced-channel sync harness), target protocol format, system + user
+// prompts, and sampling parameters (temperature / top_p / max_tokens). The
+// parent owns the run/stop lifecycle; this form only emits validated values on
+// submit. When `defaultModel` is provided (deep link from the marketplace
 // `/models?...` → `/model-tester?model=…`) the model field is pre-selected
 // as soon as the marketplace list loads.
 
@@ -35,8 +36,8 @@ import {
 } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { Spinner } from '@/components/ui/spinner'
-import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { useChannels } from '@/features/channels'
 import { useModels } from '@/features/models'
 import { cn } from '@/lib/utils'
 
@@ -72,6 +73,7 @@ export function TestForm({
 }: TestFormProps) {
   const { t } = useTranslation()
   const modelsQuery = useModels()
+  const channelsQuery = useChannels()
 
   const form = useForm<TesterFormValues>({
     resolver: zodResolver(testerSchema),
@@ -188,6 +190,55 @@ export function TestForm({
                   {t('modelTester.form.modelLoading')}
                 </FormDescription>
               )}
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name='channelId'
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t('modelTester.form.channel')}</FormLabel>
+              <Select
+                value={field.value ? String(field.value) : 'none'}
+                onValueChange={(value) =>
+                  field.onChange(value === 'none' ? undefined : Number(value))
+                }
+                disabled={isRunning}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue>
+                      {(selected) => {
+                        if (!selected || selected === 'none') {
+                          return t('modelTester.form.channelNone')
+                        }
+                        const channel = (channelsQuery.data ?? []).find(
+                          (item) => String(item.id) === selected
+                        )
+                        return channel
+                          ? `${channel.name} · ${channel.site.name}`
+                          : String(selected)
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value='none'>
+                    {t('modelTester.form.channelNone')}
+                  </SelectItem>
+                  {(channelsQuery.data ?? []).map((channel) => (
+                    <SelectItem key={channel.id} value={String(channel.id)}>
+                      {channel.name} · {channel.site.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                {t('modelTester.form.channelHint')}
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -333,61 +384,38 @@ export function TestForm({
           />
         </div>
 
-        <div className='grid gap-4 sm:grid-cols-2'>
-          <FormField
-            control={form.control}
-            name='maxTokens'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('modelTester.form.maxTokens')}</FormLabel>
-                <FormControl>
-                  <Input
-                    type='number'
-                    min={0}
-                    step={1}
-                    value={field.value}
-                    onChange={(event) =>
-                      field.onChange(
-                        Number.isNaN(event.target.valueAsNumber)
-                          ? 0
-                          : event.target.valueAsNumber
-                      )
-                    }
-                    onBlur={field.onBlur}
-                    name={field.name}
-                    ref={field.ref}
-                    disabled={isRunning}
-                  />
-                </FormControl>
-                <FormDescription>
-                  {t('modelTester.form.maxTokensHint')}
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name='stream'
-            render={({ field }) => (
-              <FormItem className='flex flex-row items-center justify-between rounded-lg border p-3'>
-                <div className='space-y-0.5'>
-                  <FormLabel>{t('modelTester.form.stream')}</FormLabel>
-                  <FormDescription>
-                    {t('modelTester.form.streamHint')}
-                  </FormDescription>
-                </div>
-                <FormControl>
-                  <Switch
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                    disabled={isRunning}
-                  />
-                </FormControl>
-              </FormItem>
-            )}
-          />
-        </div>
+        <FormField
+          control={form.control}
+          name='maxTokens'
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t('modelTester.form.maxTokens')}</FormLabel>
+              <FormControl>
+                <Input
+                  type='number'
+                  min={0}
+                  step={1}
+                  value={field.value}
+                  onChange={(event) =>
+                    field.onChange(
+                      Number.isNaN(event.target.valueAsNumber)
+                        ? 0
+                        : event.target.valueAsNumber
+                    )
+                  }
+                  onBlur={field.onBlur}
+                  name={field.name}
+                  ref={field.ref}
+                  disabled={isRunning}
+                />
+              </FormControl>
+              <FormDescription>
+                {t('modelTester.form.maxTokensHint')}
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <div className={cn('mt-auto flex gap-2')}>
           {isRunning ? (

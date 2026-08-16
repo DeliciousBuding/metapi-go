@@ -2,22 +2,25 @@
 // metapi-go/features/model-tester — TanStack Query mutation for the chat test.
 //
 // `useTestModel` is a `useMutation` whose `mutationFn` runs the chat test:
-// with `stream: true` it opens the SSE stream (`api.testChatStream`) and
-// consumes it in a reader loop; otherwise it posts a single sync request
-// (`api.testChatSync`) and parses the JSON body as one delta. Both paths
-// normalize across OpenAI / Claude / Responses / Gemini protocols (ported
-// from the legacy `pages/ModelTester.tsx` parser). Each parsed delta is
-// forwarded to the caller's `onDelta` callback so the response viewer can
-// render content/reasoning as it arrives; when the test finishes the
-// resolved `TestResponse` summary is returned and `onDone` fires. The
-// caller passes an `AbortSignal` so the Stop button cancels an in-flight
-// test.
+// it posts a single sync request (`api.testChatSync`) to `/api/test/chat`
+// (the forced-channel harness) and parses the JSON body as one delta,
+// normalizing across OpenAI / Claude / Responses / Gemini protocols (ported
+// from the legacy `pages/ModelTester.tsx` parser). The single delta is
+// forwarded to the caller's `onDelta` callback so the response viewer renders
+// the content/reasoning; when the test finishes the resolved `TestResponse`
+// summary is returned and `onDone` fires. The caller passes an `AbortSignal`
+// so the Stop button cancels an in-flight test.
+//
+// The tester is sync-only by design: the Go backend returns an honest 501 for
+// `/api/test/chat/stream` (SSE is not implemented), so the UI no longer offers
+// a stream toggle or a synthetic chunk path. `resolveTestResponseError` maps
+// that 501 residual (and the "requires channelId" residual) to a friendly
+// localized key.
 //
 // `buildChatPayload` renders the conversation history into the request
 // `messages` array (system → prior user/assistant turns → current prompt)
-// so multi-turn context travels on the wire. Backends that only consume a
-// single message keep working: they ignore the extra entries and read the
-// last user prompt.
+// so multi-turn context travels on the wire, and forwards the selected
+// `channelId` when the operator targets a specific channel.
 //
 // A mutation (rather than a query) is the right shape here: the test is a
 // user-initiated command with a single terminal resolution, not a cacheable
@@ -37,8 +40,6 @@ import type {
   TestStreamDelta,
 } from './types'
 
-const MAX_RAW_EVENTS = 200
-
 export function buildChatPayload(
   values: TestFormValues,
   history: ChatMessage[] = []
@@ -54,8 +55,8 @@ export function buildChatPayload(
   return {
     model: values.model,
     messages,
+    ...(values.channelId ? { channelId: values.channelId } : {}),
     targetFormat: values.targetFormat,
-    stream: values.stream,
     temperature: values.temperature,
     top_p: values.topP,
     max_tokens: values.maxTokens > 0 ? values.maxTokens : undefined,
@@ -76,27 +77,8 @@ function extractErrorMessage(payload: unknown): string {
   return typeof message === 'string' ? message : ''
 }
 
-function parseSseBlock(block: string): { event: string; data: string | null } {
-  const lines = block.split(/\r?\n/)
-  let event = 'message'
-  const dataLines: string[] = []
-  for (const line of lines) {
-    if (line.startsWith('event:')) {
-      event = line.slice(6).trim()
-      continue
-    }
-    if (line.startsWith('data:')) {
-      dataLines.push(line.slice(5).trimStart())
-    }
-  }
-  return {
-    event,
-    data: dataLines.length > 0 ? dataLines.join('\n') : null,
-  }
-}
-
 /**
- * Normalize a parsed SSE event payload into a content/reasoning/done delta.
+ * Normalize a parsed event payload into a content/reasoning/done delta.
  * Faithful port of the legacy `parseAnyStreamDelta`: handles OpenAI
  * `choices[].delta`, Anthropic `content_block_delta` / `message_stop`,
  * Responses-API `response.output_text.delta` /
@@ -263,152 +245,80 @@ export async function resolveTestResponseError(
 }
 
 /**
- * Run a single chat test (streaming or sync, per `payload.stream`). Streams
- * forward each parsed delta to `onDelta` and resolve to a `TestResponse`
- * summary when the stream closes; sync mode parses the single JSON body as
- * one delta. Throws on auth failure, non-ok responses, or caller abort.
+ * Run a single sync chat test. Posts to `/api/test/chat` (the forced-channel
+ * harness) and parses the single JSON body as one delta so the viewer renders
+ * the final content. Forwards the delta to `onDelta` and resolves to a
+ * `TestResponse` summary; throws on auth failure, non-ok responses, or caller
+ * abort.
  */
-async function runTestStream(
+async function runChatTest(
   variables: TestModelVariables
 ): Promise<TestResponse> {
   const { payload, history, onDelta, onDone, signal } = variables
   const chatPayload = buildChatPayload(payload, history)
   const startedAt = performance.now()
 
-  let content = ''
-  let reasoningContent = ''
-  let doneReceived = false
-  let chunks = 0
-  const rawEvents: string[] = []
-
-  const response = payload.stream
-    ? await api.testChatStream(chatPayload, signal)
-    : await api.testChatSync(chatPayload, signal)
+  const response = await api.testChatSync(chatPayload, signal)
 
   if (!response.ok) {
     throw new Error(await resolveTestResponseError(response))
   }
-  if (!response.body) {
-    throw new Error('modelTester.error.emptyStream')
-  }
 
-  // Non-streaming mode: the backend returns a single JSON body. Parse it as
-  // one delta so the viewer still renders the final content.
-  if (!payload.stream) {
-    const text = await response.text()
-    if (text) {
-      rawEvents.push(text)
-      try {
-        const parsed = JSON.parse(text) as unknown
-        const errorText = extractErrorMessage(parsed)
-        if (errorText) {
-          const summary: TestResponse = {
-            content: '',
-            reasoningContent: '',
-            doneReceived: true,
-            latencyMs: Math.round(performance.now() - startedAt),
-            chunks: 1,
-            rawEvents,
-            empty: true,
-            error: errorText,
-          }
-          onDone?.(summary)
-          return summary
-        }
-        const delta = parseAnyStreamDelta(parsed)
-        content = delta.contentDelta ?? ''
-        reasoningContent = delta.reasoningDelta ?? ''
-        doneReceived = Boolean(delta.done)
-      } catch {
-        content = text
-        doneReceived = true
-      }
-    }
-    const summary: TestResponse = {
-      content,
-      reasoningContent,
-      doneReceived,
-      latencyMs: Math.round(performance.now() - startedAt),
-      chunks: 1,
-      rawEvents,
-      empty: !content && !reasoningContent,
-    }
-    onDelta?.({
-      contentDelta: content,
-      reasoningDelta: reasoningContent,
-      done: true,
-    })
-    onDone?.(summary)
-    return summary
-  }
+  let content = ''
+  let reasoningContent = ''
+  let doneReceived = false
+  const rawEvents: string[] = []
 
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    if (!value) continue
-
-    buffer += decoder.decode(value, { stream: true })
-    const events = buffer.split(/\r?\n\r?\n/)
-    buffer = events.pop() ?? ''
-
-    for (const eventBlock of events) {
-      const parsed = parseSseBlock(eventBlock)
-      if (!parsed.data) continue
-
-      rawEvents.push(parsed.data)
-      if (rawEvents.length > MAX_RAW_EVENTS) {
-        rawEvents.splice(0, rawEvents.length - MAX_RAW_EVENTS)
-      }
-      chunks += 1
-
-      if (parsed.data === '[DONE]') {
-        doneReceived = true
-        continue
-      }
-
-      let eventPayload: unknown
-      try {
-        eventPayload = JSON.parse(parsed.data)
-      } catch {
-        continue
-      }
-
-      const errorText = extractErrorMessage(eventPayload)
+  const text = await response.text()
+  if (text) {
+    rawEvents.push(text)
+    try {
+      const parsed = JSON.parse(text) as unknown
+      const errorText = extractErrorMessage(parsed)
       if (errorText) {
-        throw new Error(errorText)
+        const summary: TestResponse = {
+          content: '',
+          reasoningContent: '',
+          doneReceived: true,
+          latencyMs: Math.round(performance.now() - startedAt),
+          chunks: 1,
+          rawEvents,
+          empty: true,
+          error: errorText,
+        }
+        onDone?.(summary)
+        return summary
       }
-
-      const delta = parseAnyStreamDelta(eventPayload)
-      if (delta.contentDelta) content += delta.contentDelta
-      if (delta.reasoningDelta) reasoningContent += delta.reasoningDelta
-      if (delta.done) doneReceived = true
-      if (delta.contentDelta || delta.reasoningDelta || delta.done) {
-        onDelta?.(delta)
-      }
+      const delta = parseAnyStreamDelta(parsed)
+      content = delta.contentDelta ?? ''
+      reasoningContent = delta.reasoningDelta ?? ''
+      doneReceived = Boolean(delta.done)
+    } catch {
+      content = text
+      doneReceived = true
     }
   }
 
-  const latencyMs = Math.round(performance.now() - startedAt)
-  const empty = !content && !reasoningContent
   const summary: TestResponse = {
     content,
     reasoningContent,
     doneReceived,
-    latencyMs,
-    chunks,
+    latencyMs: Math.round(performance.now() - startedAt),
+    chunks: 1,
     rawEvents,
-    empty,
+    empty: !content && !reasoningContent,
   }
+  onDelta?.({
+    contentDelta: content,
+    reasoningDelta: reasoningContent,
+    done: true,
+  })
   onDone?.(summary)
   return summary
 }
 
 export function useTestModel() {
   return useMutation<TestResponse, Error, TestModelVariables>({
-    mutationFn: runTestStream,
+    mutationFn: runChatTest,
   })
 }

@@ -166,6 +166,9 @@
         "model": "模型",
         "modelLoading": "加载模型中…",
         "modelPlaceholder": "选择模型",
+        "channel": "渠道",
+        "channelNone": "不指定渠道（默认路由）",
+        "channelHint": "针对指定渠道发起测试。留空则使用默认路由。",
         "targetFormatLabel": "目标格式",
         "targetFormat": {
           "openai": "OpenAI",
@@ -181,8 +184,6 @@
         "topP": "Top P",
         "maxTokens": "最大令牌数",
         "maxTokensHint": "生成的最大令牌数。",
-        "stream": "流式输出",
-        "streamHint": "逐令牌流式返回响应（后端支持待实现）。",
         "stop": "停止",
         "submit": "发送",
         "errors": {
@@ -209,7 +210,7 @@
       "error": {
         "stopped": "请求已停止。",
         "unknown": "发生未知错误。",
-        "notAvailable": "模型测试暂不可用：后端需要配置渠道才能运行测试，流式支持仍在开发中。"
+        "notAvailable": "模型测试暂不可用：请选择渠道，通过强制渠道测试通道发起测试。"
       },
       "viewer": {
         "title": "响应",
@@ -1428,6 +1429,14 @@
         "apiKeyRequired": "请填写 API Key",
         "usernameRequired": "请填写站点用户名",
         "passwordRequired": "请填写站点密码"
+      },
+      "verify": {
+        "button": "验证",
+        "pending": "验证中…",
+        "verified": "验证通过 — {{tokenType}}（{{modelCount}} 个模型）",
+        "failed": "验证失败",
+        "siteRequired": "请先选择站点",
+        "tokenRequired": "请先输入凭证"
       },
       "tokens": {
         "title": "访问令牌",

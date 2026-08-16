@@ -12,6 +12,7 @@ All notable changes to MetAPI-Go will be documented in this file.
 - 账号表单增加 password credential mode 并接入真实登录链；新增真实 new-api/one-api 服务容器 e2e、Sub2API/CLIProxyAPI token-import 验证链和公开测试床模板（#770/#772/#774/#775）。
 - 路由策略新增 `lowest_cost` / `least_busy` / `lowest_latency` 管理端选择，并接入 models.dev 官方价格目录作为冷启动成本信号（#783/#790）。
 - 站点/模型运行时熔断器增加 half-open 探测，恢复通道可受控重新进入候选集（#791）。
+- 接入向导收口：站点→账号→路由链路携带 `siteId`/`create` 深链预选、session/API key 凭证内联验证，创建路由时从链上下文预填 channelDrafts（#796）。
 
 ### Changed
 

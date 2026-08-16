@@ -14,7 +14,6 @@ function validOverrides(): Partial<TesterFormValues> {
     temperature: 0.7,
     topP: 1,
     maxTokens: 1024,
-    stream: false,
   }
 }
 
@@ -204,12 +203,20 @@ describe('testerSchema — no coercion + enum', () => {
     expect(result.error.issues[0]?.message).toContain('Invalid option')
   })
 
-  it('rejects a string stream flag (no coerce)', () => {
+  it('rejects a non-integer channelId (no coerce)', () => {
     const result = testerSchema.safeParse({
       ...validInput(),
-      stream: 'true' as unknown as boolean,
+      channelId: '42' as unknown as number,
     })
     expect(result.success).toBe(false)
+  })
+
+  it('accepts an omitted channelId (optional channel targeting)', () => {
+    const result = testerSchema.safeParse({
+      ...validInput(),
+      channelId: undefined,
+    })
+    expect(result.success).toBe(true)
   })
 })
 
@@ -221,13 +228,13 @@ describe('TESTER_FORM_DEFAULT_VALUES', () => {
   it('exposes the canonical default form shape', () => {
     expect(TESTER_FORM_DEFAULT_VALUES).toEqual({
       model: '',
+      channelId: undefined,
       systemPrompt: '',
       prompt: '',
       targetFormat: 'openai',
       temperature: 0.7,
       topP: 1,
       maxTokens: 1024,
-      stream: false,
     })
   })
 

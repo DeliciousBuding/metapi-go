@@ -226,6 +226,7 @@ export type TestChatRequestPayload = {
   messages: Array<{ role: string; content: string }>
   targetFormat?: 'openai' | 'claude' | 'responses' | 'gemini'
   stream?: boolean
+  channelId?: number | null
   forcedChannelId?: number | null
   temperature?: number
   top_p?: number
