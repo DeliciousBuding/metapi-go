@@ -1,9 +1,15 @@
 # log.md — MetAPI Go product milestones
 
-**Last updated**: 2026-08-15
+**Last updated**: 2026-08-16
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
+
+## 2026-08-16 — 前端架构化里程碑对账 + 工作区重排
+
+- **工作区重排**：主 root 回 `master`（快进至 #783/#784/#785）；`fix/uiux-state-stability-final`（PR #782）迁入 `.worktrees/fix-uiux-state-stability-final`
+- **WEB-ARCH 里程碑对账**（spec-driven `docs/plan/`，Issues #732–#740）：Phase 1/2 全落地——T1（4 页 URL 状态统一）在 PR #782；T2 404 壳内 catch-all、T3 checkIsActive/model deep-link、T4 动效 tw-animate-css + reduced-motion、T5 DirectionProvider 单一归属、T6 FOUC bootstrap 对齐测试、T7 图标 HugeIcons 收敛、T8 原语 token 化均已在 master；T9 文档销项 = 本次对账
+- **文档卫生**：STATE.md/MASTER.md/benchmark.md 版本基线 v0.12.0 → v0.13.0；`docs/plan/milestones.md` 状态 Pending → 落地
 
 ## 2026-08-15 — 真实平台测试战役：测试床 + 6 个实测 bug 修复 + CI e2e
 

@@ -37,7 +37,7 @@
 
 | Item | Note |
 |------|------|
-| 前端架构化（spec-driven run 2026-08-14） | 路由 URL 归属统一 + 设计系统单一来源；计划 `docs/plan/`，Issues #732–#740（milestone WEB-ARCH） |
+| 前端架构化（spec-driven run 2026-08-14） | **done**（2026-08-16 对账）：Phase 1/2 全落地——T1 在 PR #782，T2–T8 在 master，T9 文档销项；计划 `docs/plan/`，Issues #732–#740（milestone WEB-ARCH） |
 | CI 旧 schema 升级 job | 并入 test-sqlite/test-pg 或独立 job |
 | web api.ts any → Zod | 类型收窄（自 api.ts 拆分后剩余面） |
 | a11y 门禁增强 | moderate/minor + 375px + zh-CN + 键盘 + reduced-transparency |

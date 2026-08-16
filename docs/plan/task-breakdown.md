@@ -1,10 +1,14 @@
 # Task Breakdown — 前端架构化（路由 + 设计系统）
 
-**Last updated**: 2026-08-14
+**Last updated**: 2026-08-16
 
 > Spec-driven 运行产物。范围：架构层（路由 + 设计系统架构债务），不含功能 feature P1。
 > 跟踪模式：GITHUB_STANDARD（Issue + Milestone + Label + worktree + 分批 PR）。
 > 上游分析：`docs/analysis/ui-ux-audit-2026-08.md` + 两份运行时审计（路由 / 设计）。
+>
+> **执行状态（2026-08-16 对账）**：全部落地。T1（4 页 URL 状态）在 PR #782；
+> T2/T3 已合入 master；Phase 2 T4–T8 已合入 master；T9（文档销项）= 本次对账。
+> 详见 [`milestones.md`](milestones.md)。
 
 ## Overview
 - **Total Phases**: 2
