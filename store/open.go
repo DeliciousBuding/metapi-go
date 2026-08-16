@@ -384,8 +384,18 @@ func applyPostgresApplicationName(dsn string, appName string) string {
 
 var postgresKeywordSSLModeRE = regexp.MustCompile(`(^|\s)sslmode=\S+`)
 
-// applySQLitePragmas enables WAL mode and foreign key enforcement.
-// These are CRITICAL for SQLite correctness (FKs default to OFF in SQLite).
+// applySQLitePragmas enables WAL mode, foreign key enforcement, and the
+// runtime tuning pragmas for single-file SQLite databases.
+//
+// Correctness (fatal on failure):
+//   - journal_mode=WAL: concurrency + crash safety
+//   - foreign_keys=ON: FKs default to OFF in SQLite
+//
+// Performance/durability tuning (non-fatal, logged on failure):
+//   - synchronous=NORMAL: crash-safe in WAL mode, skips fsync per commit to
+//     cut write amplification (dev/test databases; Postgres is production)
+//   - busy_timeout=5000: wait instead of failing on concurrent writers
+//   - cache_size=10000: ~40MB page cache for faster reads on single-file DBs
 func applySQLitePragmas(db *DB) error {
 	if _, err := db.Exec("PRAGMA journal_mode = WAL"); err != nil {
 		return fmt.Errorf("PRAGMA journal_mode=WAL: %w", err)
@@ -393,8 +403,14 @@ func applySQLitePragmas(db *DB) error {
 	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
 		return fmt.Errorf("PRAGMA foreign_keys=ON: %w", err)
 	}
+	if _, err := db.Exec("PRAGMA synchronous = NORMAL"); err != nil {
+		slog.Warn("store: failed to set SQLite synchronous=NORMAL", "error", err)
+	}
 	if _, err := db.Exec("PRAGMA busy_timeout = 5000"); err != nil {
 		slog.Warn("store: failed to set SQLite busy_timeout", "error", err)
+	}
+	if _, err := db.Exec("PRAGMA cache_size = 10000"); err != nil {
+		slog.Warn("store: failed to set SQLite cache_size", "error", err)
 	}
 	return nil
 }
