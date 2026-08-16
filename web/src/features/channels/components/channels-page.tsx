@@ -15,6 +15,7 @@ import {
   useDataTable,
   useUrlTableState,
   type UrlTableState,
+  type UrlTableStateUpdate,
 } from '@/components/data-table'
 import { asStringParam, parseSortingParam } from '@/lib/helpers/searchParams'
 
@@ -57,7 +58,7 @@ function readSearch(searchString?: string): UrlTableState<ChannelsUrlFilters> {
   }
 }
 
-function buildHref(next: Partial<UrlTableState<ChannelsUrlFilters>>): string {
+function buildHref(next: UrlTableStateUpdate<ChannelsUrlFilters>): string {
   const current = readSearch()
   const merged = { ...current, ...next }
   const params = new URLSearchParams()

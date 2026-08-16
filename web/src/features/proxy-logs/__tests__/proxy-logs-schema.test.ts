@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import {
   PROXY_LOG_STATUS_FILTER_OPTIONS,
-  SORTING_ITEM_SCHEMA,
   proxyLogsSearchSchema,
 } from '../lib/proxy-logs-schema'
 
@@ -116,24 +115,6 @@ describe('proxyLogsSearchSchema — numerics', () => {
       sort: [{ id: 7, desc: 'yes' }],
     })
     expect(result.sort).toBeUndefined()
-  })
-})
-
-// ---------------------------------------------------------------------------
-// SORTING_ITEM_SCHEMA
-// ---------------------------------------------------------------------------
-
-describe('SORTING_ITEM_SCHEMA', () => {
-  it('parses a well-formed item', () => {
-    expect(SORTING_ITEM_SCHEMA.parse({ id: 'created', desc: true })).toEqual({
-      id: 'created',
-      desc: true,
-    })
-  })
-
-  it('requires both id and desc', () => {
-    expect(SORTING_ITEM_SCHEMA.safeParse({ id: 'created' }).success).toBe(false)
-    expect(SORTING_ITEM_SCHEMA.safeParse({ desc: true }).success).toBe(false)
   })
 })
 

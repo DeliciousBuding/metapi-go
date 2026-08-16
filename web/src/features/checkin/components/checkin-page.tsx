@@ -6,18 +6,25 @@
 // backend returns the real total, so date-range / status / reason / site /
 // search filters see the full log history instead of the legacy 500-row
 // client cap that silently dropped older records.
+//
+// URL state uses the shared useUrlTableState hook (same as sites/oauth/
+// models/accounts): the URL is the single source of truth and every control
+// navigates in one transaction (filter + page reset together), so there is no
+// local `useState` mirror + `useEffect` write-back that can feed back into an
+// infinite render loop.
 
-import { useNavigate, useSearch } from '@tanstack/react-router'
-import type {
-  ColumnFiltersState,
-  OnChangeFn,
-  PaginationState,
-} from '@tanstack/react-table'
+import type { ColumnFiltersState } from '@tanstack/react-table'
 import { CalendarRange, Loader2, RotateCw, Zap } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { DataTablePage, useDataTable } from '@/components/data-table'
+import {
+  DataTablePage,
+  type UrlTableState,
+  type UrlTableStateUpdate,
+  useDataTable,
+  useUrlTableState,
+} from '@/components/data-table'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -35,6 +42,7 @@ import { toast } from '@/lib/toast'
 import { useCheckinAccount, useCheckinLogs, useManualCheckin } from '../api'
 import {
   DEFAULT_CHECKIN_PAGE_SIZE,
+  parseCheckinSearch,
   parseFilterValues,
 } from '../lib/checkin-schema'
 import { localDatetimeInputToUtcRfc3339 } from '../lib/checkin-time'
@@ -45,35 +53,143 @@ import { ManualCheckinDialog } from './manual-checkin-dialog'
 
 const ACCOUNT_FILTER_ALL = 'all'
 
-export function CheckinPage() {
-  const { t } = useTranslation()
-  // URL state is owned by the router: read the validated search via
-  // `useSearch` (no `window.location.search`), write changes back via
-  // `navigate({ search, replace: true })` (no `history.replaceState`).
-  const search = useSearch({ from: '/_authenticated/checkin' })
-  const navigate = useNavigate()
-  const [pagination, setPagination] = useState<PaginationState>({
+/** Page-specific URL filters: comma-separated lists + date range + account. */
+type CheckinUrlFilters = {
+  status: string
+  reason: string
+  site: string
+  accountId: string
+  from: string
+  to: string
+}
+
+/**
+ * Parse the raw search string into URL table state. Reuses the route's
+ * `parseCheckinSearch` (same schema the loader uses) so the page's derived
+ * query payload exactly matches the prefetched cache key — no double fetch.
+ */
+function readCheckinSearch(
+  searchString: string
+): UrlTableState<CheckinUrlFilters> {
+  const search = parseCheckinSearch(searchString)
+  return {
+    q: asStringParam(search.q) ?? '',
     pageIndex: search.page - 1,
     pageSize: search.pageSize,
+    sorting: [],
+    filters: {
+      status: asStringParam(search.status) ?? '',
+      reason: asStringParam(search.reason) ?? '',
+      site: asStringParam(search.site) ?? '',
+      accountId: search.accountId === undefined ? '' : String(search.accountId),
+      from: asStringParam(search.from) ?? '',
+      to: asStringParam(search.to) ?? '',
+    },
+  }
+}
+
+/** Serialize a partial state update back to the checkin href, merging over
+ *  the CURRENT url state so a single filter change preserves all others. */
+function buildCheckinHref(
+  next: UrlTableStateUpdate<CheckinUrlFilters>
+): string {
+  const current = readCheckinSearch(window.location.search)
+  const merged: UrlTableState<CheckinUrlFilters> = {
+    ...current,
+    ...next,
+    filters: { ...current.filters, ...next.filters },
+  }
+  const params = new URLSearchParams()
+  if (merged.q) params.set('q', merged.q)
+  if (merged.pageIndex > 0) params.set('page', String(merged.pageIndex + 1))
+  if (merged.pageSize !== DEFAULT_CHECKIN_PAGE_SIZE) {
+    params.set('pageSize', String(merged.pageSize))
+  }
+  if (merged.filters.status) params.set('status', merged.filters.status)
+  if (merged.filters.reason) params.set('reason', merged.filters.reason)
+  if (merged.filters.site) params.set('site', merged.filters.site)
+  if (merged.filters.accountId) {
+    params.set('accountId', merged.filters.accountId)
+  }
+  if (merged.filters.from) params.set('from', merged.filters.from)
+  if (merged.filters.to) params.set('to', merged.filters.to)
+  const queryString = params.toString()
+  return queryString ? `/checkin?${queryString}` : '/checkin'
+}
+
+function useCheckinUrlState() {
+  return useUrlTableState<CheckinUrlFilters>({
+    basePath: '/checkin',
+    read: readCheckinSearch,
+    buildHref: buildCheckinHref,
+    toColumnFilters: (filters) => {
+      const out: ColumnFiltersState = []
+      const statusValues = parseFilterValues(filters.status)
+      const reasonValues = parseFilterValues(filters.reason)
+      const siteValues = parseFilterValues(filters.site)
+      if (statusValues.length) out.push({ id: 'status', value: statusValues })
+      if (reasonValues.length) out.push({ id: 'reason', value: reasonValues })
+      if (siteValues.length) out.push({ id: 'site', value: siteValues })
+      return out
+    },
+    fromColumnFilters: (filters) => {
+      const statusEntry = filters.find((filter) => filter.id === 'status')
+      const reasonEntry = filters.find((filter) => filter.id === 'reason')
+      const siteEntry = filters.find((filter) => filter.id === 'site')
+      return {
+        filters: {
+          status: Array.isArray(statusEntry?.value)
+            ? statusEntry.value.join(',')
+            : '',
+          reason: Array.isArray(reasonEntry?.value)
+            ? reasonEntry.value.join(',')
+            : '',
+          site: Array.isArray(siteEntry?.value)
+            ? siteEntry.value.join(',')
+            : '',
+        },
+      }
+    },
+    resetPageIndexOnFilterChange: true,
   })
-  const [globalFilter, setGlobalFilter] = useState(
-    asStringParam(search.q) ?? ''
-  )
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() => {
-    const filters: ColumnFiltersState = []
-    const statusValues = parseFilterValues(asStringParam(search.status))
-    if (statusValues.length) filters.push({ id: 'status', value: statusValues })
-    const reasonValues = parseFilterValues(asStringParam(search.reason))
-    if (reasonValues.length) filters.push({ id: 'reason', value: reasonValues })
-    const siteValues = parseFilterValues(asStringParam(search.site))
-    if (siteValues.length) filters.push({ id: 'site', value: siteValues })
-    return filters
-  })
-  const [accountId, setAccountId] = useState<number | undefined>(
-    search.accountId
-  )
-  const [from, setFrom] = useState(asStringParam(search.from) ?? '')
-  const [to, setTo] = useState(asStringParam(search.to) ?? '')
+}
+
+// Module-level so the table's globalFilterFn keeps a stable identity across
+// renders (a fresh inline function would re-resolve the table every render).
+function checkinGlobalFilterFn(
+  row: { original: unknown },
+  _columnId: string,
+  filterValue: string
+): boolean {
+  const log = checkinLogRowSchema.parse(row.original)
+  const haystack = [
+    log.accounts?.username ?? '',
+    log.sites?.name ?? '',
+    log.sites?.url ?? '',
+    log.checkin_logs.message ?? '',
+    log.checkin_logs.reward ?? '',
+  ]
+    .join(' ')
+    .toLowerCase()
+  return haystack.includes(String(filterValue).toLowerCase())
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
+export function CheckinPage() {
+  const { t } = useTranslation()
+  const {
+    globalFilter,
+    pagination,
+    columnFilters,
+    onGlobalFilterChange,
+    onPaginationChange,
+    onColumnFiltersChange,
+    filters,
+    updateUrlState,
+  } = useCheckinUrlState()
 
   const { data: accountsSnapshot } = useAccounts()
   const accountOptions = accountsSnapshot?.accounts ?? []
@@ -93,24 +209,23 @@ export function CheckinPage() {
   const [detailRow, setDetailRow] = useState<CheckinLogRow | null>(null)
   const [manualOpen, setManualOpen] = useState(false)
 
-  // Resolve the active server-side filter values from the column-filter
-  // state (the toolbar faceted filters drive these). status is single-select,
-  // so only the first value is forwarded to the backend.
-  const statusValues = useMemo(() => {
-    const statusFilter = columnFilters.find((filter) => filter.id === 'status')
-    const value = statusFilter?.value
-    return Array.isArray(value) ? (value as string[]) : []
-  }, [columnFilters])
-  const reasonValues = useMemo(() => {
-    const reasonFilter = columnFilters.find((filter) => filter.id === 'reason')
-    const value = reasonFilter?.value
-    return Array.isArray(value) ? (value as string[]) : []
-  }, [columnFilters])
-  const siteValues = useMemo(() => {
-    const siteFilter = columnFilters.find((filter) => filter.id === 'site')
-    const value = siteFilter?.value
-    return Array.isArray(value) ? (value as string[]) : []
-  }, [columnFilters])
+  // Derive the active server-side filter values directly from the URL-owned
+  // filters (single source of truth — no local mirror to sync back).
+  const accountId = filters.accountId ? Number(filters.accountId) : undefined
+  const from = filters.from
+  const to = filters.to
+  const statusValues = useMemo(
+    () => parseFilterValues(filters.status),
+    [filters.status]
+  )
+  const reasonValues = useMemo(
+    () => parseFilterValues(filters.reason),
+    [filters.reason]
+  )
+  const siteValues = useMemo(
+    () => parseFilterValues(filters.site),
+    [filters.site]
+  )
 
   const fromUtc = useMemo(
     () => localDatetimeInputToUtcRfc3339(from, false),
@@ -151,101 +266,44 @@ export function CheckinPage() {
   const logs = useMemo(() => logsPage?.items ?? [], [logsPage])
   const total = logsPage?.total ?? 0
 
-  // Write state back to the URL through the router (single source of truth).
-  // Skip the initial write — the URL already holds the search the state was
-  // initialised from.
-  const skipInitialWrite = useRef(true)
-  useEffect(() => {
-    if (skipInitialWrite.current) {
-      skipInitialWrite.current = false
-      return
-    }
-    navigate({
-      to: '/checkin',
-      search: {
-        page: pagination.pageIndex > 0 ? pagination.pageIndex + 1 : undefined,
-        pageSize:
-          pagination.pageSize !== DEFAULT_CHECKIN_PAGE_SIZE
-            ? pagination.pageSize
-            : undefined,
-        accountId: accountId || undefined,
-        status: statusValues.length ? statusValues.join(',') : undefined,
-        reason: reasonValues.length ? reasonValues.join(',') : undefined,
-        site: siteValues.length ? siteValues.join(',') : undefined,
-        from: from || undefined,
-        to: to || undefined,
-        q: globalFilter || undefined,
-      },
-      replace: true,
-    })
-  }, [
-    pagination,
-    accountId,
-    from,
-    to,
-    globalFilter,
-    statusValues,
-    reasonValues,
-    siteValues,
-    navigate,
-  ])
-
-  const onGlobalFilterChange = useMemo<OnChangeFn<string>>(
-    () => (updater) => {
-      setGlobalFilter((prev) =>
-        updater instanceof Function ? updater(prev) : updater
-      )
-      setPagination((prev) => ({ ...prev, pageIndex: 0 }))
-    },
-    []
-  )
-  const onColumnFiltersChange = useMemo<OnChangeFn<ColumnFiltersState>>(
-    () => (updater) => {
-      setColumnFilters((prev) =>
-        updater instanceof Function ? updater(prev) : updater
-      )
-      setPagination((prev) => ({ ...prev, pageIndex: 0 }))
-    },
-    []
-  )
-  const onPaginationChange = useMemo<OnChangeFn<PaginationState>>(
-    () => (updater) => {
-      setPagination((prev) =>
-        updater instanceof Function ? updater(prev) : updater
-      )
-    },
-    []
-  )
-
-  const handleTriggerOne = async (row: CheckinLogRow) => {
-    const targetAccountId = row.checkin_logs.accountId
-    try {
-      const result = await triggerOneMutation.mutateAsync(targetAccountId)
-      if (result.status === 'success') {
-        toast.success(t('checkin.toast.success'), {
-          description: result.reward
-            ? t('checkin.toast.successReward', { reward: result.reward })
-            : undefined,
-        })
-      } else if (result.status === 'skipped' || result.skipped) {
-        toast.info(t('checkin.toast.skipped'), {
-          description: result.message || undefined,
-        })
-      } else {
-        toast.error(t('checkin.toast.failed'), {
-          description: result.message || undefined,
-        })
+  const handleTriggerOne = useCallback(
+    async (row: CheckinLogRow) => {
+      const targetAccountId = row.checkin_logs.accountId
+      try {
+        const result = await triggerOneMutation.mutateAsync(targetAccountId)
+        if (result.status === 'success') {
+          toast.success(t('checkin.toast.success'), {
+            description: result.reward
+              ? t('checkin.toast.successReward', { reward: result.reward })
+              : undefined,
+          })
+        } else if (result.status === 'skipped' || result.skipped) {
+          toast.info(t('checkin.toast.skipped'), {
+            description: result.message || undefined,
+          })
+        } else {
+          toast.error(t('checkin.toast.failed'), {
+            description: result.message || undefined,
+          })
+        }
+      } catch {
+        // http-client toasted
       }
-    } catch {}
-  }
-
-  const rowActions = {
-    onViewDetail: (row: CheckinLogRow) => {
-      setDetailRow(row)
-      setDetailOpen(true)
     },
-    onTriggerAccount: handleTriggerOne,
-  }
+    [triggerOneMutation, t]
+  )
+
+  // Memoized so the column defs keep a stable identity across renders.
+  const rowActions = useMemo(
+    () => ({
+      onViewDetail: (row: CheckinLogRow) => {
+        setDetailRow(row)
+        setDetailOpen(true)
+      },
+      onTriggerAccount: handleTriggerOne,
+    }),
+    [handleTriggerOne]
+  )
 
   const columns = useCheckinColumns(rowActions)
   const { table } = useDataTable<CheckinLogRow>({
@@ -255,27 +313,17 @@ export function CheckinPage() {
     manualFiltering: true,
     manualSorting: true,
     enableRowSelection: false,
+    // The URL-synced callbacks already reset the page on every filter change
+    // (resetPageIndexOnFilterChange), so disable TanStack's own auto-reset to
+    // avoid a second redundant page update.
+    autoResetPageIndex: false,
     globalFilter,
     onGlobalFilterChange,
     columnFilters,
     onColumnFiltersChange,
     pagination,
     onPaginationChange,
-    globalFilterFn: (row, _columnId, filterValue) => {
-      // With manualFiltering the table does not run this; kept so the column
-      // definition stays valid if the table ever flips back to client mode.
-      const log = checkinLogRowSchema.parse(row.original)
-      const haystack = [
-        log.accounts?.username ?? '',
-        log.sites?.name ?? '',
-        log.sites?.url ?? '',
-        log.checkin_logs.message ?? '',
-        log.checkin_logs.reward ?? '',
-      ]
-        .join(' ')
-        .toLowerCase()
-      return haystack.includes(String(filterValue).toLowerCase())
-    },
+    globalFilterFn: checkinGlobalFilterFn,
     totalCount: total,
   })
 
@@ -302,12 +350,18 @@ export function CheckinPage() {
   }
 
   const handleResetFilters = () => {
-    setFrom('')
-    setTo('')
-    setAccountId(undefined)
-    setColumnFilters([])
-    setGlobalFilter('')
-    setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+    updateUrlState({
+      q: '',
+      pageIndex: 0,
+      filters: {
+        status: '',
+        reason: '',
+        site: '',
+        accountId: '',
+        from: '',
+        to: '',
+      },
+    })
   }
 
   const hasActiveDateRange = from !== '' || to !== ''
@@ -358,8 +412,10 @@ export function CheckinPage() {
           type='datetime-local'
           value={from}
           onChange={(event) => {
-            setFrom(event.target.value)
-            setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+            updateUrlState({
+              filters: { from: event.target.value },
+              pageIndex: 0,
+            })
           }}
           className='w-[200px]'
           aria-label={t('checkin.page.startTime')}
@@ -371,8 +427,10 @@ export function CheckinPage() {
           type='datetime-local'
           value={to}
           onChange={(event) => {
-            setTo(event.target.value)
-            setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+            updateUrlState({
+              filters: { to: event.target.value },
+              pageIndex: 0,
+            })
           }}
           className='w-[200px]'
           aria-label={t('checkin.page.endTime')}
@@ -380,10 +438,12 @@ export function CheckinPage() {
         <Select
           value={accountId ? String(accountId) : ACCOUNT_FILTER_ALL}
           onValueChange={(value) => {
-            setAccountId(
-              !value || value === ACCOUNT_FILTER_ALL ? undefined : Number(value)
-            )
-            setPagination((prev) => ({ ...prev, pageIndex: 0 }))
+            updateUrlState({
+              filters: {
+                accountId: !value || value === ACCOUNT_FILTER_ALL ? '' : value,
+              },
+              pageIndex: 0,
+            })
           }}
         >
           <SelectTrigger

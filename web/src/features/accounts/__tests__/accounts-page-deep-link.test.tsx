@@ -35,6 +35,15 @@ vi.mock('@tanstack/react-router', () => ({
 vi.mock('@/components/data-table', () => ({
   DataTableBulkActions: () => null,
   DataTablePage: () => null,
+  useUrlTableState: () => ({
+    globalFilter: '',
+    onGlobalFilterChange: vi.fn(),
+    columnFilters: [],
+    onColumnFiltersChange: vi.fn(),
+    pagination: { pageIndex: 0, pageSize: 20 },
+    onPaginationChange: vi.fn(),
+    ensurePageInRange: vi.fn(),
+  }),
   useDataTable: () => ({
     table: {
       getFilteredSelectedRowModel: () => ({ rows: [] }),
