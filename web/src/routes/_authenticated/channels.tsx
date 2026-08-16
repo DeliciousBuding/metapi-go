@@ -2,7 +2,11 @@
 
 import { createFileRoute } from '@tanstack/react-router'
 
-import { channelsKeys, channelsSearchSchema, getChannelsList } from '@/features/channels'
+import {
+  channelsKeys,
+  channelsSearchSchema,
+  getChannelsList,
+} from '@/features/channels'
 import { ChannelsPage } from '@/features/channels/components/channels-page'
 
 export const Route = createFileRoute('/_authenticated/channels')({

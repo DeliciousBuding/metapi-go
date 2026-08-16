@@ -212,7 +212,10 @@ describe('testerSchema — no coercion + enum', () => {
   })
 
   it('accepts an omitted channelId (optional channel targeting)', () => {
-    const result = testerSchema.safeParse({ ...validInput(), channelId: undefined })
+    const result = testerSchema.safeParse({
+      ...validInput(),
+      channelId: undefined,
+    })
     expect(result.success).toBe(true)
   })
 })
