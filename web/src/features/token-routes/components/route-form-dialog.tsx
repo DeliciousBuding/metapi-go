@@ -288,6 +288,15 @@ export function RouteFormDialog({
                       <SelectItem value='stable_first'>
                         {t('tokenRoutes.strategies.stable_first')}
                       </SelectItem>
+                      <SelectItem value='least_busy'>
+                        {t('tokenRoutes.strategies.least_busy')}
+                      </SelectItem>
+                      <SelectItem value='lowest_latency'>
+                        {t('tokenRoutes.strategies.lowest_latency')}
+                      </SelectItem>
+                      <SelectItem value='lowest_cost'>
+                        {t('tokenRoutes.strategies.lowest_cost')}
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                   <FormDescription>

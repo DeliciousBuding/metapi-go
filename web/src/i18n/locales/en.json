@@ -1529,7 +1529,7 @@
         "contextLength": "Context length (optional)",
         "contextLengthHint": "Route context window (tokens). Empty or 0 = unknown, not enforced.",
         "routingStrategy": "Routing strategy",
-        "routingStrategyHint": "Multi-channel selection strategy: weighted random (default), round-robin, stable-first.",
+        "routingStrategyHint": "Multi-channel selection strategy: weighted random (default), round-robin, stable-first, least-busy, lowest-latency, lowest-cost.",
         "modelMapping": "Model mapping (optional)",
         "modelMappingHint": "Map the matched model name to an upstream model name (JSON object).",
         "modelMappingPlaceholder": "{\"gpt-4\":\"gpt-4o\"} or leave empty",
@@ -1640,7 +1640,10 @@
       "strategies": {
         "weighted": "Weighted random",
         "round_robin": "Round-robin",
-        "stable_first": "Stable-first"
+        "stable_first": "Stable-first",
+        "least_busy": "Least-busy",
+        "lowest_latency": "Lowest-latency",
+        "lowest_cost": "Lowest-cost"
       },
       "utils": {
         "regexEmpty": "Regex body cannot be empty",

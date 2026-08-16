@@ -16,7 +16,13 @@ type RouteRowKind = 'persisted' | 'zero_channel'
 
 export type RouteMode = 'pattern' | 'explicit_group'
 
-export type RouteRoutingStrategy = 'weighted' | 'round_robin' | 'stable_first'
+export type RouteRoutingStrategy =
+  | 'weighted'
+  | 'round_robin'
+  | 'stable_first'
+  | 'least_busy'
+  | 'lowest_latency'
+  | 'lowest_cost'
 
 // Channel-level strategy for OAuth route units (re-exported for the detail
 // sheet; the canonical `OAuthRouteUnitStrategy` also lives in `@/lib/api`).
