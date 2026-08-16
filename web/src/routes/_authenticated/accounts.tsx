@@ -1,11 +1,9 @@
 // metapi-go/routes — accounts list.
 //
-// `validateSearch` validates the URL search state the accounts page reads via
-// `window.location.search`: `page` / `pageSize` (1-based, coerced from the
-// string URL), and `q` / `status` / `site` (strings; `status` + `site` are
-// comma-separated lists the page splits itself). Keeping them as strings
-// (not arrays) preserves the URL shape the page writes via
-// `history.replaceState`, so no search-param normalization rewrites the URL.
+// The route validates the canonical accounts table URL state. The feature page
+// consumes the same schema through the shared URL-table adapter, so search,
+// filters, sorting and pagination have one source of truth instead of being
+// mirrored into local state and written back from an effect.
 //
 // `loader` prefetches the accounts snapshot (`accountQueryKeys.snapshot()`),
 // which the backend returns as `{ accounts, sites, generatedAt }` — the
@@ -14,25 +12,13 @@
 // `autoCodeSplitting` splits it in production.
 
 import { createFileRoute } from '@tanstack/react-router'
-import { z } from 'zod'
 
 import { accountQueryKeys } from '@/features/accounts'
 import { AccountsPage } from '@/features/accounts/components/accounts-page'
+import { accountsSearchSchema } from '@/features/accounts/lib/accounts-search-schema'
 import { api } from '@/lib/api'
-import { stringSearchParam } from '@/lib/helpers/searchParams'
 
-// Tolerant URL search contract: TanStack Router JSON-parses search values, so
-// `?q=123` arrives as a number and `?status=true` as a boolean. The string
-// fields accept all three primitives (normalized to string by the page via
-// `asStringParam`), and the numerics fall back to sane defaults instead of
-// throwing a route error on stale bookmarks / legacy URLs.
-export const accountsSearchSchema = z.object({
-  page: z.coerce.number().int().positive().catch(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(200).catch(20).default(20),
-  q: stringSearchParam,
-  status: stringSearchParam,
-  site: stringSearchParam,
-})
+export { accountsSearchSchema } from '@/features/accounts/lib/accounts-search-schema'
 
 export const Route = createFileRoute('/_authenticated/accounts')({
   validateSearch: accountsSearchSchema,
