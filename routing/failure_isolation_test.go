@@ -41,6 +41,10 @@ type isolationDB struct {
 	lastCooldownUpdates map[string]interface{}
 	cooldownCalls       int
 
+	// lastSuccessUpdates records the most recent UpdateChannelSuccessFields call
+	lastSuccessUpdates map[string]interface{}
+	successCalls       int
+
 	// lastMemberUpdate records OAuth member cooldown writes
 	lastMemberID      int64
 	lastMemberUpdates map[string]interface{}
@@ -214,6 +218,17 @@ func (db *isolationDB) UpdateChannelCooldownFields(ctx context.Context, channelI
 	return nil
 }
 func (db *isolationDB) UpdateChannelSuccessFields(ctx context.Context, channelID int64, updates map[string]interface{}) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	db.successCalls++
+	db.lastSuccessUpdates = updates
+	row, ok := db.channels[channelID]
+	if !ok {
+		return nil
+	}
+	if v, ok := updates["failCount"].(int64); ok {
+		row.Channel.FailCount = v
+	}
 	return nil
 }
 func (db *isolationDB) UpdateRouteUnitMemberCooldownFields(ctx context.Context, memberID int64, updates map[string]interface{}) error {
@@ -248,6 +263,19 @@ func (db *isolationDB) UpdateRouteUnitMemberCooldownFields(ctx context.Context, 
 	return nil
 }
 func (db *isolationDB) UpdateRouteUnitMemberSuccessFields(ctx context.Context, memberID int64, updates map[string]interface{}) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	db.memberCalls++
+	db.lastMemberID = memberID
+	db.lastMemberUpdates = updates
+	for _, row := range db.members {
+		if row.Member.ID != memberID {
+			continue
+		}
+		if v, ok := updates["failCount"].(int64); ok {
+			row.Member.FailCount = v
+		}
+	}
 	return nil
 }
 func (db *isolationDB) LoadRouteUnitMemberWithAccount(ctx context.Context, unitID, accountID int64) (*struct {
