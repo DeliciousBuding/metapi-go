@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { accountsSearchSchema } from '@/routes/_authenticated/accounts'
+import { accountsSearchSchema } from '../lib/accounts-search-schema'
 
 // ---------------------------------------------------------------------------
-// accountsSearchSchema (route-level validateSearch) — tolerant URL contract
+// accountsSearchSchema — tolerant, canonical URL contract
 // ---------------------------------------------------------------------------
 
 describe('accountsSearchSchema', () => {
@@ -12,14 +12,26 @@ describe('accountsSearchSchema', () => {
       page: '2',
       pageSize: '50',
       q: 'alice',
+      sort: 'username:desc,site:asc',
       status: 'active,disabled',
       site: '1,3',
     })
     expect(result.page).toBe(2)
     expect(result.pageSize).toBe(50)
     expect(result.q).toBe('alice')
+    expect(result.sort).toBe('username:desc,site:asc')
     expect(result.status).toBe('active,disabled')
     expect(result.site).toBe('1,3')
+  })
+
+  it('canonicalizes router-parsed sorting arrays', () => {
+    const result = accountsSearchSchema.parse({
+      sort: [
+        { id: 'username', desc: true },
+        { id: 'status', desc: false },
+      ],
+    })
+    expect(result.sort).toBe('username:desc,status:asc')
   })
 
   it('tolerates router-parsed primitives without throwing', () => {
@@ -42,5 +54,6 @@ describe('accountsSearchSchema', () => {
     expect(result.page).toBe(1)
     expect(result.pageSize).toBe(20)
     expect(result.q).toBeUndefined()
+    expect(result.sort).toBeUndefined()
   })
 })
