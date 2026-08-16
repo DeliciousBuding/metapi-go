@@ -223,3 +223,57 @@ func TestStats_SQLiteModelPriceCompare_FallbackLabeledMissing(t *testing.T) {
 		t.Fatalf("ratesSource=%v want fallback", item["ratesSource"])
 	}
 }
+
+func TestStats_SQLiteModelPriceCompare_ExactModelExcludesFamilyMatches(t *testing.T) {
+	db, r := setupStatsSQLiteTest(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	_, err := db.Exec(`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
+		VALUES (?, ?, ?, 'active', ?, ?)`, "ExactSite", "https://exact.example.test", "openai", now, now)
+	if err != nil {
+		t.Fatalf("insert site: %v", err)
+	}
+	var siteID int64
+	if err := db.Get(&siteID, "SELECT id FROM sites WHERE name = ?", "ExactSite"); err != nil {
+		t.Fatalf("site id: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, balance, checkin_enabled, created_at, updated_at)
+		VALUES (?, ?, ?, 'active', ?, 0, ?, ?)`, siteID, "exact-user", "sk-exact", 1.0, now, now)
+	if err != nil {
+		t.Fatalf("insert account: %v", err)
+	}
+	var accountID int64
+	if err := db.Get(&accountID, "SELECT id FROM accounts WHERE username = ?", "exact-user"); err != nil {
+		t.Fatalf("account id: %v", err)
+	}
+	for _, model := range []string{"gpt-4o", "gpt-4o-mini"} {
+		_, err = db.Exec(`INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at)
+			VALUES (?, ?, 1, 0, ?)`, accountID, model, now)
+		if err != nil {
+			t.Fatalf("insert availability %q: %v", model, err)
+		}
+	}
+	for _, model := range []string{"gpt-4o", "gpt-4o-mini"} {
+		_, err = db.Exec(`INSERT INTO proxy_logs (account_id, model_requested, model_actual, status, total_tokens, estimated_cost, created_at)
+			VALUES (?, ?, ?, 'success', ?, ?, ?)`, accountID, model, model, 2000, 0.1, now)
+		if err != nil {
+			t.Fatalf("insert proxy log %q: %v", model, err)
+		}
+	}
+
+	resp := doGet(t, r, "/api/models/price-compare?model=gpt-4o&exactModel=true")
+	if resp.Code != 200 {
+		t.Fatalf("status %d: %s", resp.Code, resp.Body.String())
+	}
+	var body struct {
+		Items []struct {
+			Model string `json:"model"`
+		}
+	}
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(body.Items) != 1 || body.Items[0].Model != "gpt-4o" {
+		t.Fatalf("exact items=%#v, want only gpt-4o", body.Items)
+	}
+}

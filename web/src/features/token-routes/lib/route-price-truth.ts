@@ -109,14 +109,7 @@ function findRowsForModel(
   concreteModel: string,
   priceRowsByModel: ReadonlyMap<string, readonly PriceCompareItem[]>
 ): readonly PriceCompareItem[] {
-  const modelKey = normalizeModelKey(concreteModel)
-  const directRows = priceRowsByModel.get(modelKey)
-  if (directRows) return directRows
-
-  for (const [candidateModel, priceRows] of priceRowsByModel) {
-    if (normalizeModelKey(candidateModel) === modelKey) return priceRows
-  }
-  return []
+  return priceRowsByModel.get(normalizeModelKey(concreteModel)) ?? []
 }
 
 function findPriceCompareRowForChannel(

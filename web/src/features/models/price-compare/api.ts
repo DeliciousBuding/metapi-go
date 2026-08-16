@@ -17,6 +17,7 @@ export type PriceCompareParams = {
   days?: number
   limit?: number
   topModels?: number
+  exactModel?: boolean
 }
 
 async function fetchPriceCompare(

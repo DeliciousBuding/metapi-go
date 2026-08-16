@@ -64,5 +64,6 @@ export const priceCompareQueryKeys = {
     days?: number
     limit?: number
     topModels?: number
+    exactModel?: boolean
   }) => [...priceCompareQueryKeys.all, params] as const,
 }

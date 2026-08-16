@@ -85,7 +85,11 @@ export function RouteDetailSheet({
   )
   const priceQueries = useQueries({
     queries: concreteModels.map((concreteModel) => ({
-      ...priceCompareQueryOptions({ model: concreteModel, limit: 200 }),
+      ...priceCompareQueryOptions({
+        model: concreteModel,
+        limit: 200,
+        exactModel: true,
+      }),
       enabled: open && route !== null,
     })),
   })

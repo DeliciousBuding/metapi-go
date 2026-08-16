@@ -37,6 +37,7 @@ export const systemApi = {
     days?: number
     limit?: number
     topModels?: number
+    exactModel?: boolean
   }) => {
     const params = new URLSearchParams()
     if (options?.model) params.set('model', options.model)
@@ -45,6 +46,7 @@ export const systemApi = {
     if (options?.topModels != null) {
       params.set('topModels', String(options.topModels))
     }
+    if (options?.exactModel) params.set('exactModel', 'true')
     const query = params.toString()
     return request(`/api/models/price-compare${query ? `?${query}` : ''}`, {
       timeoutMs: 20_000,
