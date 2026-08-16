@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -57,6 +58,45 @@ func TestSQLiteOpenMemory(t *testing.T) {
 	if fkEnabled != 1 {
 		t.Errorf("expected foreign_keys=1, got %d", fkEnabled)
 	}
+}
+
+// TestSQLitePragmasOnFileDB verifies the full pragma contract applied at open
+// time on a file-backed database: WAL journal, synchronous=NORMAL, FK
+// enforcement, busy_timeout, and an enlarged page cache.
+func TestSQLitePragmasOnFileDB(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "pragma-test.db")
+	db, err := Open(DialectSQLite, dbPath, false)
+	if err != nil {
+		t.Fatalf("Open(file) failed: %v", err)
+	}
+	defer db.Close()
+
+	assertPragmaInt := func(name string, want int) {
+		t.Helper()
+		var got int
+		if err := db.QueryRow("PRAGMA " + name).Scan(&got); err != nil {
+			t.Fatalf("PRAGMA %s failed: %v", name, err)
+		}
+		if got != want {
+			t.Errorf("PRAGMA %s: expected %d, got %d", name, want, got)
+		}
+	}
+	assertPragmaText := func(name string, want string) {
+		t.Helper()
+		var got string
+		if err := db.QueryRow("PRAGMA " + name).Scan(&got); err != nil {
+			t.Fatalf("PRAGMA %s failed: %v", name, err)
+		}
+		if got != want {
+			t.Errorf("PRAGMA %s: expected %q, got %q", name, want, got)
+		}
+	}
+
+	assertPragmaText("journal_mode", "wal")
+	assertPragmaInt("synchronous", 1) // NORMAL
+	assertPragmaInt("foreign_keys", 1)
+	assertPragmaInt("busy_timeout", 5000)
+	assertPragmaInt("cache_size", 10000)
 }
 
 // TestSQLiteAutoMigrateAllTables verifies all 35 tables are created.
