@@ -120,16 +120,21 @@ function useControllableTableState<TValue>(
     React.useState<TValue>(defaultValue)
 
   const value = controlledValue ?? uncontrolledValue
+  const controlledValueRef = React.useRef(controlledValue)
+  const onChangeRef = React.useRef(onChange)
+  controlledValueRef.current = controlledValue
+  onChangeRef.current = onChange
 
-  const setValue = React.useCallback<OnChangeFn<TValue>>(
-    (updater) => {
-      if (controlledValue === undefined) {
-        setUncontrolledValue((previous) => resolveUpdater(updater, previous))
-      }
-      onChange?.(updater)
-    },
-    [controlledValue, onChange]
-  )
+  // TanStack Table may invoke controlled-state callbacks from effects. Keep
+  // this setter stable even when a page passes an inline onChange function or
+  // replaces the controlled array/object value, otherwise callback identity
+  // churn can become a render -> table effect -> URL navigation feedback loop.
+  const setValue = React.useCallback<OnChangeFn<TValue>>((updater) => {
+    if (controlledValueRef.current === undefined) {
+      setUncontrolledValue((previous) => resolveUpdater(updater, previous))
+    }
+    onChangeRef.current?.(updater)
+  }, [])
 
   return [value, setValue]
 }
