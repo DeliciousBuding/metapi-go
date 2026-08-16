@@ -14,38 +14,38 @@
 
 ### Required
 
-| Variable | Description |
-|----------|-------------|
-| `AUTH_TOKEN` | Admin API bearer token. Server exits if missing. |
+| Variable      | Description                                      |
+| ------------- | ------------------------------------------------ |
+| `AUTH_TOKEN`  | Admin API bearer token. Server exits if missing. |
 | `PROXY_TOKEN` | Proxy endpoint API key. Server exits if missing. |
 
 ### Optional
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `4000` | HTTP listen port |
-| `DATA_DIR` | `/app/data` | SQLite database directory |
-| `CHECKIN_CRON` | `0 8 * * *` | Daily checkin cron expression |
-| `BALANCE_REFRESH_CRON` | `0 * * * *` | Hourly balance refresh cron |
-| `TZ` | `Asia/Shanghai` | Timezone for cron scheduling |
-| `DB_TYPE` | `sqlite` | Database type: `sqlite` or `postgres`; inferred as `postgres` when a PostgreSQL URL is provided |
-| `DATABASE_URL` | _(empty)_ | PostgreSQL connection string; alias of `DB_URL`; when set to `postgres://` or `postgresql://`, uses PG instead of SQLite |
-| `DB_URL` | _(empty)_ | Database URL or SQLite file path; takes precedence over `DATABASE_URL` |
-| `DB_SSLMODE` | _(empty)_ | PostgreSQL TLS mode. Supports `disable`, `allow`, `prefer`, `require`, `verify-ca`, and `verify-full`; non-empty values override `sslmode` in the connection string |
-| `DB_PROFILE` / `METAPI_DB_PROFILE` | `normal` | Pool preset: `shared-tiny` (2/1), `normal` (10/3), `dedicated` (20/5). Explicit `DB_MAX_*` always override |
-| `DB_MAX_OPEN_CONNS` | profile default | PostgreSQL application pool ceiling; **must not exceed the database role CONNECTION LIMIT** |
-| `DB_MAX_IDLE_CONNS` | profile default | PostgreSQL idle pool ceiling; must not exceed `DB_MAX_OPEN_CONNS` |
-| `DB_CONN_MAX_LIFETIME_SEC` | `1800` | Maximum PostgreSQL connection lifetime; `0` disables rotation |
-| `DB_CONN_MAX_IDLE_TIME_SEC` | `300` | Maximum PostgreSQL idle time; `0` disables idle rotation |
-| `DB_APPLICATION_NAME` | `metapi-<hostname>` | Injected as PostgreSQL `application_name` when absent from DSN |
-| `PROXY_MAX_BUFFERED_RESPONSE_BYTES` | `20971520` | Maximum buffered non-streaming upstream response size; responses above the limit return 502 |
-| `METAPI_ENABLE_PROXY_STUB` | _(empty)_ | Test/demo-only local proxy stub. Leave empty in production; unconfigured upstream forwarding returns 503 |
-| `TRUSTED_PROXY_CIDRS` | _(empty)_ | Comma-separated reverse-proxy CIDRs allowed to supply `X-Forwarded-For` / `X-Real-IP`; forwarded headers are ignored when empty |
-| `ADMIN_CORS_ALLOWED_ORIGINS` | _(empty)_ | Comma-separated exact `http(s)` browser origins allowed to call `/api/*`; empty keeps admin API same-origin only, and `*` is rejected |
-| `REDIS_URL` / `METAPI_REDIS_URL` | _(empty)_ | Optional Redis for multi-instance shared downstream-key **RPM/TPM admission** only (`internal/sharedcount`; fail-open). Empty = process-local counters; no Redis process required. Does **not** enable sticky session multi-instance sharing |
-| `PRICING_CATALOG_ENABLED` | `true` | Enables the models.dev official catalog pricing provider used as the cold-start cost signal for cost-aware routing (`lowest_cost` / weighted cost factor when a channel has no observed history or configured `unit_cost`). A failed fetch falls back to a small built-in preset table; the last good snapshot is kept on refresh errors |
-| `PRICING_CATALOG_REFRESH_MIN` | `60` | Catalog refresh period in minutes (`0` disables periodic refresh after the initial fetch) |
-| `PRICING_CATALOG_URL` | `https://models.dev/api.json` | models.dev dataset URL override (self-hosted mirror supported) |
+| Variable                            | Default                       | Description                                                                                                                                                                                                                                                                                                                              |
+| ----------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`                              | `4000`                        | HTTP listen port                                                                                                                                                                                                                                                                                                                         |
+| `DATA_DIR`                          | `/app/data`                   | SQLite database directory                                                                                                                                                                                                                                                                                                                |
+| `CHECKIN_CRON`                      | `0 8 * * *`                   | Daily checkin cron expression                                                                                                                                                                                                                                                                                                            |
+| `BALANCE_REFRESH_CRON`              | `0 * * * *`                   | Hourly balance refresh cron                                                                                                                                                                                                                                                                                                              |
+| `TZ`                                | `Asia/Shanghai`               | Timezone for cron scheduling                                                                                                                                                                                                                                                                                                             |
+| `DB_TYPE`                           | `sqlite`                      | Database type: `sqlite` or `postgres`; inferred as `postgres` when a PostgreSQL URL is provided                                                                                                                                                                                                                                          |
+| `DATABASE_URL`                      | _(empty)_                     | PostgreSQL connection string; alias of `DB_URL`; when set to `postgres://` or `postgresql://`, uses PG instead of SQLite                                                                                                                                                                                                                 |
+| `DB_URL`                            | _(empty)_                     | Database URL or SQLite file path; takes precedence over `DATABASE_URL`                                                                                                                                                                                                                                                                   |
+| `DB_SSLMODE`                        | _(empty)_                     | PostgreSQL TLS mode. Supports `disable`, `allow`, `prefer`, `require`, `verify-ca`, and `verify-full`; non-empty values override `sslmode` in the connection string                                                                                                                                                                      |
+| `DB_PROFILE` / `METAPI_DB_PROFILE`  | `normal`                      | Pool preset: `shared-tiny` (2/1), `normal` (10/3), `dedicated` (20/5). Explicit `DB_MAX_*` always override                                                                                                                                                                                                                               |
+| `DB_MAX_OPEN_CONNS`                 | profile default               | PostgreSQL application pool ceiling; **must not exceed the database role CONNECTION LIMIT**                                                                                                                                                                                                                                              |
+| `DB_MAX_IDLE_CONNS`                 | profile default               | PostgreSQL idle pool ceiling; must not exceed `DB_MAX_OPEN_CONNS`                                                                                                                                                                                                                                                                        |
+| `DB_CONN_MAX_LIFETIME_SEC`          | `1800`                        | Maximum PostgreSQL connection lifetime; `0` disables rotation                                                                                                                                                                                                                                                                            |
+| `DB_CONN_MAX_IDLE_TIME_SEC`         | `300`                         | Maximum PostgreSQL idle time; `0` disables idle rotation                                                                                                                                                                                                                                                                                 |
+| `DB_APPLICATION_NAME`               | `metapi-<hostname>`           | Injected as PostgreSQL `application_name` when absent from DSN                                                                                                                                                                                                                                                                           |
+| `PROXY_MAX_BUFFERED_RESPONSE_BYTES` | `20971520`                    | Maximum buffered non-streaming upstream response size; responses above the limit return 502                                                                                                                                                                                                                                              |
+| `METAPI_ENABLE_PROXY_STUB`          | _(empty)_                     | Test/demo-only local proxy stub. Leave empty in production; unconfigured upstream forwarding returns 503                                                                                                                                                                                                                                 |
+| `TRUSTED_PROXY_CIDRS`               | _(empty)_                     | Comma-separated reverse-proxy CIDRs allowed to supply `X-Forwarded-For` / `X-Real-IP`; forwarded headers are ignored when empty                                                                                                                                                                                                          |
+| `ADMIN_CORS_ALLOWED_ORIGINS`        | _(empty)_                     | Comma-separated exact `http(s)` browser origins allowed to call `/api/*`; empty keeps admin API same-origin only, and `*` is rejected                                                                                                                                                                                                    |
+| `REDIS_URL` / `METAPI_REDIS_URL`    | _(empty)_                     | Optional Redis for multi-instance shared downstream-key **RPM/TPM admission** only (`internal/sharedcount`; fail-open). Empty = process-local counters; no Redis process required. Does **not** enable sticky session multi-instance sharing                                                                                             |
+| `PRICING_CATALOG_ENABLED`           | `true`                        | Enables the models.dev official catalog pricing provider used as the cold-start cost signal for cost-aware routing (`lowest_cost` / weighted cost factor when a channel has no observed history or configured `unit_cost`). A failed fetch falls back to a small built-in preset table; the last good snapshot is kept on refresh errors |
+| `PRICING_CATALOG_REFRESH_MIN`       | `60`                          | Catalog refresh period in minutes (`0` disables periodic refresh after the initial fetch)                                                                                                                                                                                                                                                |
+| `PRICING_CATALOG_URL`               | `https://models.dev/api.json` | models.dev dataset URL override (self-hosted mirror supported)                                                                                                                                                                                                                                                                           |
 
 ## Docker Compose (Production)
 
@@ -215,7 +215,7 @@ Docker Compose will automatically recreate the container with the new image. Aut
 Upgrade checklist:
 
 1. Back up the database first (cp data/hub.db ... or pg_dump -Fc ...).
-2. Prefer pinning a released image tag (e.g. ghcr.io/deliciousbuding/metapi-go:v0.11.0) over latest so rollback is reproducible.
+2. Prefer pinning the release selected for your deployment (for example `ghcr.io/deliciousbuding/metapi-go:vX.Y.Z`) over `latest` so rollback is reproducible.
 3. After upgrade, verify GET /ready returns 200 and run bash web/scripts/verify-live-assets.sh http://127.0.0.1:4000.
 4. Rollback = restore the pre-upgrade backup and re-run the previous pinned image tag. Schema changes are forward-only; do not downgrade the schema by deleting rows from schema_migrations.
 

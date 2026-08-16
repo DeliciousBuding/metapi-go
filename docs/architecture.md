@@ -1,6 +1,6 @@
 # Architecture Overview
 
-**Last updated**: 2026-08-14
+**Last updated**: 2026-08-16
 
 > **Navigation**: full docs map in [`docs/README.md`](README.md) · open items in [`progress/MASTER.md`](progress/MASTER.md).
 
@@ -48,7 +48,7 @@ MetAPI Go is a ground-up rewrite of the TypeScript MetAPI proxy gateway in Go. T
                         │
          ┌──────────────▼───────────────┐
          │   platform/  +  service/      │
-         │  14 adapters · domain logic   │
+         │  16 adapters · domain logic   │
          └──────────────┬───────────────┘
                         │
          ┌──────────────▼───────────────┐
@@ -76,7 +76,7 @@ metapi-go/
 │   ├── profiles/           # Client/profile detection (Claude Code, Codex, Gemini CLI, …)
 │   └── types/              # Shared proxy types
 ├── routing/                # TokenRouter: match, weights, cooldown, site runtime breaker
-├── platform/               # Upstream platform adapters (14) + site proxy
+├── platform/               # Upstream platform adapters (16) + site proxy
 ├── transform/              # Protocol transformers (NOT "protocol/"; no canonical IR)
 │   ├── openai/             # completions, embeddings, images, responses
 │   ├── gemini/             # generate_content (native OpenAI→Gemini bridge)
@@ -99,24 +99,24 @@ metapi-go/
 
 ### Package roles (one-liners)
 
-| Package | Responsibility |
-|---------|----------------|
-| `cmd/server` | Wire config → store → app → router; process entry |
-| `cmd/migrate` | Offline SQLite → PostgreSQL data move |
-| `app` | HTTP server lifecycle, readiness, metrics, upstream executor glue |
-| `router` | Route tree, CORS/security middleware, embed SPA |
-| `auth` | Fail-closed admin/proxy auth, downstream key policy |
-| `config` | Env → `Config` (names match TS; no `METAPI_` prefix) |
-| `handler/admin` | Admin CRUD + settings + ops endpoints |
-| `handler/proxy` | Protocol surfaces under `/v1/*` |
-| `proxy` | Coordinator + executor + channel selection + retry policy (the request loop itself lives in `handler/proxy/upstream.go`) |
-| `routing` | Model/route match, weighted selection, Fibonacci cooldown, site breaker |
-| `platform` | Per-upstream adapter behavior (detect, auth headers, admin APIs) |
-| `transform` | Request/response (+ SSE) conversion, native per protocol (no canonical intermediate) |
-| `service` | Business workflows used by handlers and schedulers |
-| `scheduler` | Cron-driven background work |
-| `store` | Dual-dialect persistence |
-| `web` | Embedded frontend assets |
+| Package         | Responsibility                                                                                                           |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `cmd/server`    | Wire config → store → app → router; process entry                                                                        |
+| `cmd/migrate`   | Offline SQLite → PostgreSQL data move                                                                                    |
+| `app`           | HTTP server lifecycle, readiness, metrics, upstream executor glue                                                        |
+| `router`        | Route tree, CORS/security middleware, embed SPA                                                                          |
+| `auth`          | Fail-closed admin/proxy auth, downstream key policy                                                                      |
+| `config`        | Env → `Config` (names match TS; no `METAPI_` prefix)                                                                     |
+| `handler/admin` | Admin CRUD + settings + ops endpoints                                                                                    |
+| `handler/proxy` | Protocol surfaces under `/v1/*`                                                                                          |
+| `proxy`         | Coordinator + executor + channel selection + retry policy (the request loop itself lives in `handler/proxy/upstream.go`) |
+| `routing`       | Model/route match, weighted selection, Fibonacci cooldown, site breaker                                                  |
+| `platform`      | Per-upstream adapter behavior (detect, auth headers, admin APIs)                                                         |
+| `transform`     | Request/response (+ SSE) conversion, native per protocol (no canonical intermediate)                                     |
+| `service`       | Business workflows used by handlers and schedulers                                                                       |
+| `scheduler`     | Cron-driven background work                                                                                              |
+| `store`         | Dual-dialect persistence                                                                                                 |
+| `web`           | Embedded frontend assets                                                                                                 |
 
 ## Data Flow
 
@@ -163,18 +163,18 @@ scheduler (robfig/cron)
 
 ## TS vs Go Comparison
 
-| Aspect | TypeScript | Go |
-|--------|-----------|-----|
-| Runtime | Node.js | Single static binary (`CGO_ENABLED=0`) |
-| Frontend | Static files from Node server | `web` + `//go:embed dist` |
-| Database | Drizzle (SQLite/MySQL/PG) | sqlx (SQLite + PostgreSQL only) |
-| MySQL support | Yes | Dropped |
-| Proxy engine package | `proxy-core` (TS) | `proxy/` |
-| Transformers package | `transformers` (TS) | `transform/` |
-| Routing | `tokenRouter` service | `routing/` |
-| Background jobs | timers + node-cron | `scheduler/` + robfig/cron |
-| Image size | ~80MB+ node base | Alpine + static binary |
-| Config env names | Unprefixed | Same unprefixed names |
+| Aspect               | TypeScript                    | Go                                     |
+| -------------------- | ----------------------------- | -------------------------------------- |
+| Runtime              | Node.js                       | Single static binary (`CGO_ENABLED=0`) |
+| Frontend             | Static files from Node server | `web` + `//go:embed dist`              |
+| Database             | Drizzle (SQLite/MySQL/PG)     | sqlx (SQLite + PostgreSQL only)        |
+| MySQL support        | Yes                           | Dropped                                |
+| Proxy engine package | `proxy-core` (TS)             | `proxy/`                               |
+| Transformers package | `transformers` (TS)           | `transform/`                           |
+| Routing              | `tokenRouter` service         | `routing/`                             |
+| Background jobs      | timers + node-cron            | `scheduler/` + robfig/cron             |
+| Image size           | ~80MB+ node base              | Alpine + static binary                 |
+| Config env names     | Unprefixed                    | Same unprefixed names                  |
 
 ## Key Design Decisions
 
