@@ -1,13 +1,19 @@
 # log.md — MetAPI Go product milestones
 
-**Last updated**: 2026-08-15
+**Last updated**: 2026-08-16
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
 
+## 2026-08-16 — 路由成本真值 + 恢复可靠性 + 知识收口
+
+- **路由/计价**：下游暴露三种策略；补 usage 缓存明细缺失时的全价计费、models.dev 冷启动价格目录、成功衰减 failCount 与 breaker half-open 探测（#783/#785/#788/#790/#791）。
+- **可靠性**：SQLite 默认调优；usage aggregation flush 失败时保留 delta/watermark，避免静默丢统计（#784/#789）。
+- **发布与知识卫生**：明确 #767–#791 位于 v0.13.0 之后并归入 Unreleased；删除已完成 WEB-ARCH 计划和 agent handoff，STATE/MASTER/benchmark 收敛为 3 条交付主线 + 1 条工程基线（#793 + 本轮）。
+
 ## 2026-08-15 — 真实平台测试战役：测试床 + 6 个实测 bug 修复 + CI e2e
 
-- **测试平台（真实上游，compose 管理）**：临时 ARM 机跑 metapi + new-api v1 + one-api v0.6.10 + sub2api + cliproxyapi 7 容器；私有层（host-local git + `.env` chmod 600）与公开层（`testbed/compose.template.yml` sanitized 模板 + env 驱动脚本）隔离，主机 IP/凭据不进公开仓；设计/SOP → [`plan/test-platform.md`](plan/test-platform.md)
+- **测试平台（真实上游，compose 管理）**：临时 ARM 机跑 metapi + new-api v1 + one-api v0.6.10 + sub2api + cliproxyapi 7 容器；私有层（host-local git + `.env` chmod 600）与公开层（`testbed/compose.template.yml` sanitized 模板 + env 驱动脚本）隔离，主机 IP/凭据不进公开仓；设计/SOP 现位于 [`testing.md`](testing.md)
 - **实测修 6 个真 bug（全部真实平台端到端复测通过）**：
   - #767 前端 10 路由严格 validateSearch 在旧 URL 参数下抛错 → error boundary「服务器错误」
   - #768 new-api v1 登录响应无顶层 `success`（token 在 `data.access_token`）

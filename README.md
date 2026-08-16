@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/DeliciousBuding/metapi-go/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/DeliciousBuding/metapi-go/actions/workflows/ci.yml/badge.svg?branch=master"></a>
+  <a href="https://github.com/DeliciousBuding/metapi-go/actions/workflows/main.yml"><img alt="CI" src="https://github.com/DeliciousBuding/metapi-go/actions/workflows/main.yml/badge.svg?branch=master"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/DeliciousBuding/metapi-go?logo=github&label=release&color=blue"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/DeliciousBuding/metapi-go?style=social"></a>
   <a href="https://github.com/DeliciousBuding/metapi-go/forks"><img alt="Forks" src="https://img.shields.io/github/forks/DeliciousBuding/metapi-go?style=social"></a>
@@ -26,7 +26,7 @@
 </p>
 
 <p align="center">
-  <img alt="Platforms" src="https://img.shields.io/badge/platforms-14-blueviolet">
+  <img alt="Platforms" src="https://img.shields.io/badge/platforms-16-blueviolet">
   <img alt="Notifications" src="https://img.shields.io/badge/notifications-9%20channels-success">
   <img alt="DB" src="https://img.shields.io/badge/DB-SQLite%20%7C%20PostgreSQL-informational">
   <img alt="Image" src="https://img.shields.io/badge/image-15MB-orange">
@@ -45,25 +45,25 @@ MetAPI 作为中转站之上的**元聚合层**，把多个站点统一到一个
 - 通用兼容接口：OpenAI、Claude、Gemini 兼容端点，以及 `cliproxyapi`
 - OAuth 连接：Codex、Claude、Gemini CLI、Antigravity
 
-| 痛点 | MetAPI 怎么解决 |
-|------|----------------|
-| 每个站点一个 Key，下游工具配置一堆 | **统一代理入口**，模型自动聚合到 `/v1/*` |
-| 不知道哪个站点用某个模型最便宜 | **智能路由**自动按成本、余额、使用率选最优通道 |
-| 某个站点挂了，手动切换好麻烦 | **自动故障转移**，一个通道失败自动冷却并切到下一个 |
-| 余额分散在各处，不知道还剩多少 | **集中看板**一目了然，余额不足自动告警 |
-| 每天得去各站签到领额度 | **自动签到**定时执行，奖励自动追踪 |
-| 不知道哪个站有什么模型 | **自动模型发现**，上游新增模型零配置出现在你的模型列表里 |
+| 痛点                               | MetAPI 怎么解决                                          |
+| ---------------------------------- | -------------------------------------------------------- |
+| 每个站点一个 Key，下游工具配置一堆 | **统一代理入口**，模型自动聚合到 `/v1/*`                 |
+| 不知道哪个站点用某个模型最便宜     | **智能路由**自动按成本、余额、使用率选最优通道           |
+| 某个站点挂了，手动切换好麻烦       | **自动故障转移**，一个通道失败自动冷却并切到下一个       |
+| 余额分散在各处，不知道还剩多少     | **集中看板**一目了然，余额不足自动告警                   |
+| 每天得去各站签到领额度             | **自动签到**定时执行，奖励自动追踪                       |
+| 不知道哪个站有什么模型             | **自动模型发现**，上游新增模型零配置出现在你的模型列表里 |
 
 ### Go 版有什么不同
 
 和原 TypeScript 版功能完全一致，换个运行时：
 
-| | Node.js（原版） | Go（本版） |
-|---|---|---|
-| 内存占用 | ~85 MB | ~20 MB |
-| Docker 镜像 | ~250 MB | ~15 MB |
-| 启动时间 | 5-10 秒 | 即时 |
-| 部署方式 | 需要 Node 运行时 | 单个二进制文件 |
+|             | Node.js（原版）  | Go（本版）     |
+| ----------- | ---------------- | -------------- |
+| 内存占用    | ~85 MB           | ~20 MB         |
+| Docker 镜像 | ~250 MB          | ~15 MB         |
+| 启动时间    | 5-10 秒          | 即时           |
+| 部署方式    | 需要 Node 运行时 | 单个二进制文件 |
 
 ---
 
@@ -138,16 +138,16 @@ Windows 本地运行且未设置 `HOST` 时，默认仅监听 `127.0.0.1`，避�
 
 ### 多平台聚合管理
 
-| 平台 | 适配器 | 说明 |
-|------|--------|------|
-| New API | `new-api` | 新一代大模型网关 |
-| One API | `one-api` | 经典 OpenAI 接口聚合 |
-| OneHub | `onehub` | One API 增强分支 |
-| DoneHub | `done-hub` | OneHub 增强分支 |
-| Veloera | `veloera` | API 网关平台 |
-| AnyRouter | `anyrouter` | 通用路由平台 |
-| Sub2API | `sub2api` | 订阅制中转平台 |
-| OpenAI / Claude / Gemini | `openapi` / `claude` / `gemini` | 标准兼容接口 |
+| 平台                     | 适配器                          | 说明                 |
+| ------------------------ | ------------------------------- | -------------------- |
+| New API                  | `new-api`                       | 新一代大模型网关     |
+| One API                  | `one-api`                       | 经典 OpenAI 接口聚合 |
+| OneHub                   | `onehub`                        | One API 增强分支     |
+| DoneHub                  | `done-hub`                      | OneHub 增强分支      |
+| Veloera                  | `veloera`                       | API 网关平台         |
+| AnyRouter                | `anyrouter`                     | 通用路由平台         |
+| Sub2API                  | `sub2api`                       | 订阅制中转平台       |
+| OpenAI / Claude / Gemini | `openapi` / `claude` / `gemini` | 标准兼容接口         |
 
 各平台适配器覆盖模型枚举、余额查询、Token 管理、代理接入等通用能力。
 
@@ -181,24 +181,24 @@ Cron 定时执行（默认每日 08:00），智能解析奖励金额，签到失
 
 所有环境变量与原 TypeScript 版完全一致，无缝替换。
 
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `AUTH_TOKEN` | `change-me-admin-token` | 管理员令牌 |
-| `PROXY_TOKEN` | `change-me-proxy-sk-token` | 代理 API Key |
-| `PROXY_MAX_BUFFERED_RESPONSE_BYTES` | `20971520` | 非流式上游响应的最大缓冲字节数，默认 20 MiB，超限返回 502 |
-| `METAPI_ENABLE_PROXY_STUB` | 空 | 测试/演示用本地代理 stub 开关；生产保持为空，未配置上游转发时返回 503 |
-| `PORT` | `4000` | 监听端口 |
-| `HOST` | Windows: `127.0.0.1`；其他平台: `0.0.0.0` | 显式值总是优先；容器配置固定为 `0.0.0.0` |
-| `DB_TYPE` | `sqlite` | 数据库类型（`sqlite` / `postgres`）；提供 PostgreSQL URL 时可自动推断为 `postgres` |
-| `DATABASE_URL` / `DB_URL` | 空 | PostgreSQL 连接串或 SQLite 文件路径；`DB_URL` 优先，`DATABASE_URL` 用于兼容部署平台 |
-| `DB_SSLMODE` | 空 | PostgreSQL TLS 模式；支持 `disable`、`allow`、`prefer`、`require`、`verify-ca`、`verify-full`；非空时覆盖连接串中的 `sslmode` |
-| `DB_PROFILE` | `normal` | 池预设：`shared-tiny`(2/1) / `normal`(10/3) / `dedicated`(20/5)；显式 `DB_MAX_*` 覆盖 |
-| `DB_MAX_OPEN_CONNS` / `DB_MAX_IDLE_CONNS` | 跟随 profile | PostgreSQL 应用池预算；生产值不得超过数据库 role connection limit |
-| `DB_CONN_MAX_LIFETIME_SEC` / `DB_CONN_MAX_IDLE_TIME_SEC` | `1800` / `300` | PostgreSQL 连接寿命与空闲回收时间（秒） |
-| `TRUSTED_PROXY_CIDRS` | 空 | 允许提供 `X-Forwarded-For` / `X-Real-IP` 的反向代理 CIDR CSV；默认忽略 forwarded headers |
-| `ADMIN_CORS_ALLOWED_ORIGINS` | 空 | 允许跨域访问 `/api/*` 管理接口的精确 `http(s)` origin CSV；默认只支持同源管理 UI，禁止 `*` |
-| `CHECKIN_CRON` | `0 8 * * *` | 签到时间 |
-| `BALANCE_REFRESH_CRON` | `0 * * * *` | 余额刷新频率 |
+| 变量                                                     | 默认值                                    | 说明                                                                                                                          |
+| -------------------------------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `AUTH_TOKEN`                                             | `change-me-admin-token`                   | 管理员令牌                                                                                                                    |
+| `PROXY_TOKEN`                                            | `change-me-proxy-sk-token`                | 代理 API Key                                                                                                                  |
+| `PROXY_MAX_BUFFERED_RESPONSE_BYTES`                      | `20971520`                                | 非流式上游响应的最大缓冲字节数，默认 20 MiB，超限返回 502                                                                     |
+| `METAPI_ENABLE_PROXY_STUB`                               | 空                                        | 测试/演示用本地代理 stub 开关；生产保持为空，未配置上游转发时返回 503                                                         |
+| `PORT`                                                   | `4000`                                    | 监听端口                                                                                                                      |
+| `HOST`                                                   | Windows: `127.0.0.1`；其他平台: `0.0.0.0` | 显式值总是优先；容器配置固定为 `0.0.0.0`                                                                                      |
+| `DB_TYPE`                                                | `sqlite`                                  | 数据库类型（`sqlite` / `postgres`）；提供 PostgreSQL URL 时可自动推断为 `postgres`                                            |
+| `DATABASE_URL` / `DB_URL`                                | 空                                        | PostgreSQL 连接串或 SQLite 文件路径；`DB_URL` 优先，`DATABASE_URL` 用于兼容部署平台                                           |
+| `DB_SSLMODE`                                             | 空                                        | PostgreSQL TLS 模式；支持 `disable`、`allow`、`prefer`、`require`、`verify-ca`、`verify-full`；非空时覆盖连接串中的 `sslmode` |
+| `DB_PROFILE`                                             | `normal`                                  | 池预设：`shared-tiny`(2/1) / `normal`(10/3) / `dedicated`(20/5)；显式 `DB_MAX_*` 覆盖                                         |
+| `DB_MAX_OPEN_CONNS` / `DB_MAX_IDLE_CONNS`                | 跟随 profile                              | PostgreSQL 应用池预算；生产值不得超过数据库 role connection limit                                                             |
+| `DB_CONN_MAX_LIFETIME_SEC` / `DB_CONN_MAX_IDLE_TIME_SEC` | `1800` / `300`                            | PostgreSQL 连接寿命与空闲回收时间（秒）                                                                                       |
+| `TRUSTED_PROXY_CIDRS`                                    | 空                                        | 允许提供 `X-Forwarded-For` / `X-Real-IP` 的反向代理 CIDR CSV；默认忽略 forwarded headers                                      |
+| `ADMIN_CORS_ALLOWED_ORIGINS`                             | 空                                        | 允许跨域访问 `/api/*` 管理接口的精确 `http(s)` origin CSV；默认只支持同源管理 UI，禁止 `*`                                    |
+| `CHECKIN_CRON`                                           | `0 8 * * *`                               | 签到时间                                                                                                                      |
+| `BALANCE_REFRESH_CRON`                                   | `0 * * * *`                               | 余额刷新频率                                                                                                                  |
 
 当前运行时支持两种数据库形态：单进程 SQLite；PostgreSQL 生产部署。PostgreSQL 模式下，产生外部请求、通知、上传、清理或同步副作用的后台任务使用 PG advisory lock，避免多副本重复执行同一批任务。可选 `REDIS_URL` / `METAPI_REDIS_URL` 仅用于多实例下游 Key 的 **RPM/TPM admission** 共享计数（`auth.ConfigureSharedAdmissionFromRedisURL` + `internal/sharedcount`，不可达时 fail-open 回退进程内窗口）；留空则无需 Redis 进程。Sticky session 仍是进程内绑定，**不会**因配置 Redis 而跨实例共享（STICKY-B 仍为 residual，非产品）。详见 [`docs/analysis/redis-shared-state.md`](docs/analysis/redis-shared-state.md)。
 
@@ -217,27 +217,27 @@ Cron 定时执行（默认每日 08:00），智能解析奖励金额，签到失
 
 ## 技术栈
 
-| 层 | 技术 |
-|----|------|
-| 后端 | [chi](https://github.com/go-chi/chi) 路由 + `net/http` |
-| 语言 | Go 1.26.6 |
-| 数据库 | SQLite / PostgreSQL + [sqlx](https://github.com/jmoiron/sqlx)；可选 Redis 仅用于 RPM/TPM admission（非必需） |
-| 定时任务 | [robfig/cron](https://github.com/robfig/cron) |
-| 容器化 | Docker（Alpine，15MB 镜像） |
-| 前端 | React 19 + Bun + Rsbuild 2 + TanStack Router/Query/Table + Zustand + Tailwind CSS v4 + shadcn Base UI + OKLCH 设计系统 + VChart + RHF + Zod + i18next（内嵌于 Go 二进制） |
+| 层       | 技术                                                                                                                                                                        |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 后端     | [chi](https://github.com/go-chi/chi) 路由 + `net/http`                                                                                                                      |
+| 语言     | Go 1.26.6                                                                                                                                                                   |
+| 数据库   | SQLite / PostgreSQL + [sqlx](https://github.com/jmoiron/sqlx)；可选 Redis 仅用于 RPM/TPM admission（非必需）                                                                |
+| 定时任务 | [robfig/cron](https://github.com/robfig/cron)                                                                                                                               |
+| 容器化   | Docker（Alpine，15MB 镜像）                                                                                                                                                 |
+| 前端     | React 19 + Bun + Rsbuild 2 + TanStack Router/Query/Table + Zustand + Tailwind CSS v4 + shadcn Base UI + OKLCH 设计系统 + Recharts + RHF + Zod + i18next（内嵌于 Go 二进制） |
 
 ---
 
 ## 前端架构
 
-v0.9.0 起前端 100% 对齐 [New API](https://github.com/QuantumNous/new-api) 技术栈，从原 TypeScript 版 MetAPI 无损迁移：API 契约（camelCase 字段、env var 名）与 DB（SQLite/PG dual dialect）完全保留。预构建产物经 `go:embed` 打包进单二进制，生产镜像不含 Node/Bun 运行时。
+v0.9.0 起前端采用 [New API](https://github.com/QuantumNous/new-api) 同类的 React 技术栈重写；兼容目标是原 TypeScript 版 MetAPI 的 API 契约（camelCase 字段、env var 名）与 DB（SQLite/PG dual dialect），而不是复制上游内部结构。预构建产物经 `go:embed` 打包进单二进制，生产镜像不含 Node/Bun 运行时。
 
 ### 模块组织
 
-- **13 个 feature 模块**：`auth`、`dashboard`（4 section + RealtimeOps WebSocket）、`sites`（引导式配置动线 站点→账号→路由）、`accounts`、`token-routes`（dnd-kit 拖拽）、`oauth`、`checkin`（嵌套响应解构 + 失败原因分类 badge）、`proxy-logs`（manual + 服务端分页 + 详情 Sheet）、`models`、`model-tester`（SSE 全协议流式）、`site-announcements`、`about`、`settings`（5 子区 drill-in）。
-- **data-table 四层架构**：`core`（TanStack table 渲染原语）+ `layout`（响应式页面组合）+ `toolbar`（filter/search/批量操作）+ `static`（本地数组轻量渲染）+ `hooks`（受控状态层，URL 三段式同步）。feature 经统一 `index.ts` 导入，专属列/动作留在各 feature 目录。
-- **OKLCH 设计系统**：三层 CSS（`theme.css` 语义 token + `theme-presets.css` 10 套预设 + `index.css` Tailwind 4 入口）；3 轴主题（preset/radius/scale）经 `<body data-theme-*>` 切换；暗色 class-based + cookie 持久化。图表取色用 JS 读 OKLCH token，MutationObserver 监听主题变化重采样。
-- **key-based i18n**：i18next + react-i18next，支持 `en` + `zh-CN`（各 1587 key，双向 0 缺失）；React 组件 `useTranslation()` + `t()`，非 React 模块用 `i18n.t()`；key 双向一致性由 `web/src/i18n/__tests__/i18n-keys.test.ts` 校验。
+- **领域化 feature 模块**：认证、仪表盘、站点/账号/通道、导入、签到、路由、模型与测试台、OAuth、可观测性、代理日志、设置和关于页各自归属 `src/features/*`；兼容 URL 只保留薄路由，不伪装成独立 feature。
+- **data-table 四层渲染架构 + hooks**：`core`（TanStack table 渲染原语）+ `layout`（响应式页面组合）+ `toolbar`（filter/search/批量操作）+ `static`（本地数组轻量渲染）；`hooks` 提供受控状态与 URL 同步。feature 经统一 `index.ts` 导入，专属列/动作留在各 feature 目录。
+- **OKLCH 设计系统**：三层 CSS（`theme.css` 语义 token + `theme-presets.css` 10 套预设 + `index.css` Tailwind 4 入口）；5 轴主题（preset/font/radius/scale/content-layout）经 `<body data-theme-*>` 切换；暗色 class-based + cookie 持久化。Recharts 直接读取语义 CSS 变量。
+- **key-based i18n**：i18next + react-i18next，支持 `en` + `zh-CN`；React 组件 `useTranslation()` + `t()`，非 React 模块用 `i18n.t()`；双向 key 一致性由 `web/src/i18n/__tests__/i18n-keys.test.ts` 校验，不在文档固化易漂移计数。
 
 ---
 
@@ -255,14 +255,13 @@ MetAPI 完全自托管，所有数据（账号、令牌、路由、日志）均�
 
 ## 文档导航
 
-| 文档 | 用途 |
-|------|------|
-| [docs/README.md](docs/README.md) | **文档地图**（先看这个） |
-| [docs/architecture.md](docs/architecture.md) | 包结构与请求路径 |
-| [docs/progress/MASTER.md](docs/progress/MASTER.md) | 当前里程碑 / 活跃 Issue |
-| [docs/benchmark.md](docs/benchmark.md) | 产品对标与路线图（New API × All API Hub） |
-
-| [CHANGELOG.md](CHANGELOG.md) | 版本变更 |
+| 文档                                               | 用途                                    |
+| -------------------------------------------------- | --------------------------------------- |
+| [docs/README.md](docs/README.md)                   | **文档地图**（先看这个）                |
+| [docs/architecture.md](docs/architecture.md)       | 包结构与请求路径                        |
+| [docs/progress/MASTER.md](docs/progress/MASTER.md) | 三条交付主线与开放结果                  |
+| [docs/benchmark.md](docs/benchmark.md)             | 产品对标与方向（New API × All API Hub） |
+| [CHANGELOG.md](CHANGELOG.md)                       | 版本变更                                |
 
 ---
 
@@ -292,7 +291,7 @@ bun run dev            # 本地开发（rsbuild dev，/api /v1 代理到后端�
 bun run typecheck      # tsgo 类型检查
 bun run lint           # oxlint
 bun run lint:fix       # oxlint --fix
-bun run test           # vitest run（全量，当前 337 tests / 29 files）
+bun run test           # vitest run（全量）
 bun run knip           # 未使用代码检测
 bun run build          # rsbuild build（产物经 go:embed 打包进 Go 二进制）
 bun run build:check    # tsgo + build（发布前完整检查）

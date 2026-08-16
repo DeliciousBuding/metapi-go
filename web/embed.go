@@ -1,7 +1,7 @@
 // Package web bundles the built React SPA frontend via go:embed.
 // Build before compile (from repo root):
 //
-//	cd web && npm ci && npm run build:web
+//	cd web && bun install --frozen-lockfile && bun run build:web
 //
 // Output lands in web/dist/ and is embedded by //go:embed dist.
 package web
