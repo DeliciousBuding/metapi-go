@@ -13,6 +13,7 @@ All notable changes to MetAPI-Go will be documented in this file.
 - 路由策略新增 `lowest_cost` / `least_busy` / `lowest_latency` 管理端选择，并接入 models.dev 官方价格目录作为冷启动成本信号（#783/#790）。
 - 站点/模型运行时熔断器增加 half-open 探测，恢复通道可受控重新进入候选集（#791）。
 - 接入向导收口：站点→账号→路由链路携带 `siteId`/`create` 深链预选、session/API key 凭证内联验证，创建路由时从链上下文预填 channelDrafts（#796）。
+- 路由详情真值：每个通道展示配置权重 + 启用占比（停用通道不计入分母）与规范化输入/输出单价（按具体模型 + accountId 关联，附价格来源），纯函数拆到 `route-price-truth` 并覆盖测试（#799）。
 
 ### Changed
 
