@@ -284,6 +284,79 @@ func CalculateModelUsageBreakdown(
 	}
 }
 
+// CalculateModelUsageFullPrice bills the no-cache-detail tier: every input
+// token at the input rate and every output token at the output rate, with no
+// cache discount. Upstreams that report token usage without cache detail must
+// not be discounted — octopus semantics (internal/relay/metrics.go): missing
+// cache detail means nonCachedTokens = promptTokens, so the whole input side
+// is billed at full input price. This tier sits between FallbackTokenCost
+// (token-divisor estimate) and CalculateModelUsageBreakdown (cache-aware
+// three-way split). Unit prices reuse the existing conversion
+// (inputPerMillion = modelRatio × 2 × multiplier) via CacheAwarePerMillionRates
+// instead of hardcoding new formulas. Returns nil for per-call quotaType (1),
+// matching CalculateModelUsageBreakdown.
+func CalculateModelUsageFullPrice(
+	model PricingModel,
+	usage UsageForCost,
+	groupRatio map[string]float64,
+) *ProxyBillingDetails {
+	if model.QuotaType == 1 {
+		return nil
+	}
+
+	multiplier := resolveGroupMultiplier(model, groupRatio)
+	normalized := normalizeUsageBreakdownInput(usage)
+
+	inputPerMillion, outputPerMillion, _, _ := CacheAwarePerMillionRates(model, multiplier)
+
+	// No cache subtraction: bill the entire input side at the input rate.
+	// When upstream reported only a total (no prompt/completion split), the
+	// total is billed as input — the conservative choice, matching the
+	// effectivePrompt selection in normalizeUsageBreakdownInput.
+	inputTokens := normalized.PromptTokens
+	if normalized.PromptTokens == 0 && normalized.CompletionTokens == 0 {
+		inputTokens = normalized.TotalTokens
+	}
+	inputCost := roundCost((float64(inputTokens) / 1_000_000) * inputPerMillion)
+	outputCost := roundCost((float64(normalized.CompletionTokens) / 1_000_000) * outputPerMillion)
+	totalCost := roundCost(inputCost + outputCost)
+
+	// Reflect that the full input side was billed without cache discounts.
+	normalized.BillablePromptTokens = inputTokens
+
+	modelRatio := model.ModelRatio
+	if modelRatio <= 0 || !isFiniteFloat(modelRatio) {
+		modelRatio = 1
+	}
+	completionRatio := model.CompletionRatio
+	if completionRatio <= 0 || !isFiniteFloat(completionRatio) {
+		completionRatio = 1
+	}
+
+	return &ProxyBillingDetails{
+		QuotaType: model.QuotaType,
+		Usage:     normalized,
+		Pricing: ProxyBillingPricing{
+			ModelRatio:         modelRatio,
+			CompletionRatio:    completionRatio,
+			CacheRatio:         0,
+			CacheCreationRatio: 0,
+			GroupRatio:         multiplier,
+		},
+		Breakdown: ProxyBillingBreakdown{
+			InputPerMillion:         inputPerMillion,
+			OutputPerMillion:        outputPerMillion,
+			CacheReadPerMillion:     0,
+			CacheCreationPerMillion: 0,
+			InputCost:               inputCost,
+			OutputCost:              outputCost,
+			CacheReadCost:           0,
+			CacheCreationCost:       0,
+			TotalCost:               totalCost,
+		},
+	}
+}
+
 // CalculateModelUsageCost returns the estimated cost for a model + usage.
 func CalculateModelUsageCost(
 	model PricingModel,
