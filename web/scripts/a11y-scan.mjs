@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 
 const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3000'
+const AUTH_TOKEN = process.env.AUTH_TOKEN ?? 'dev-admin-token-123'
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 const AXE_SOURCE = join(
   SCRIPT_DIR,
@@ -48,15 +49,18 @@ const browser = await chromium.launch({ headless: true })
 const context = await browser.newContext({
   viewport: { width: 1440, height: 900 },
 })
-await context.addInitScript(() => {
-  localStorage.setItem('auth_token', 'dev-admin-token-123')
-  localStorage.setItem(
-    'auth_token_expires_at',
-    String(Date.now() + 12 * 3600 * 1000)
-  )
-  localStorage.setItem('i18nextLng', 'en')
-  document.cookie = 'vite-ui-theme=light; path=/'
-})
+await context.addInitScript(
+  ({ token }) => {
+    localStorage.setItem('auth_token', token)
+    localStorage.setItem(
+      'auth_token_expires_at',
+      String(Date.now() + 12 * 3600 * 1000)
+    )
+    localStorage.setItem('i18nextLng', 'en')
+    document.cookie = 'vite-ui-theme=light; path=/'
+  },
+  { token: AUTH_TOKEN }
+)
 
 const failures = []
 for (const [name, path] of ROUTES) {
