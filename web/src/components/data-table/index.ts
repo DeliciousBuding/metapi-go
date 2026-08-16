@@ -6,4 +6,7 @@ export { DataTableBulkActions } from './toolbar/bulk-actions'
 export { DataTablePage } from './layout/data-table-page'
 export { useDataTable } from './hooks/use-data-table'
 export { encodeSorting, useUrlTableState } from './hooks/use-url-table-state'
-export type { UrlTableState } from './hooks/use-url-table-state'
+export type {
+  UrlTableState,
+  UrlTableStateUpdate,
+} from './hooks/use-url-table-state'

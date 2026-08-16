@@ -18,6 +18,7 @@ import {
   useDataTable,
   useUrlTableState,
   type UrlTableState,
+  type UrlTableStateUpdate,
 } from '@/components/data-table'
 import { Button } from '@/components/ui/button'
 import {
@@ -84,7 +85,7 @@ function readSearch(searchString?: string): UrlTableState<OAuthUrlFilters> {
   }
 }
 
-function buildHref(next: Partial<UrlTableState<OAuthUrlFilters>>): string {
+function buildHref(next: UrlTableStateUpdate<OAuthUrlFilters>): string {
   const current = readSearch()
   const merged: UrlTableState<OAuthUrlFilters> = {
     ...current,
