@@ -429,3 +429,15 @@ func TestPostgresEnsureColumnBooleanDefaultFALSE(t *testing.T) {
 		t.Fatal("column default is empty")
 	}
 }
+
+// TestClearPreparedPlanCachePostgres verifies that the prepared-plan cache
+// cleanup (DEALLOCATE ALL + DISCARD ALL) executes cleanly against a live
+// PostgreSQL database. Statement-issuance behavior is unit-tested without a
+// database in migrate_plan_cache_test.go; this test guards against real-PG
+// quirks (e.g. DISCARD ALL inside an implicit transaction).
+func TestClearPreparedPlanCachePostgres(t *testing.T) {
+	db := openTestPG(t)
+	if err := ClearPreparedPlanCache(db); err != nil {
+		t.Fatalf("ClearPreparedPlanCache on live PostgreSQL: %v", err)
+	}
+}

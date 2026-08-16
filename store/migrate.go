@@ -106,7 +106,43 @@ func AutoMigrate(db *DB) error {
 		return err
 	}
 
+	// PostgreSQL caches prepared statement plans server-side per session. Once
+	// DDL mutates the schema, a plan cached before the change can fail with
+	// "cached plan must not change result type" (SQLSTATE 0A000). Clear the
+	// plan cache and session state so the pool re-plans against the migrated
+	// schema (reference: octopus internal/db/db.go). Best-effort: a cleanup
+	// failure must not fail a migration that already completed.
+	if err := ClearPreparedPlanCache(db); err != nil {
+		slog.Warn("store: failed to clear prepared plan cache after migration", "error", err)
+	}
+
 	slog.Info("store: auto-migration complete", "dialect", dialect)
+	return nil
+}
+
+// ClearPreparedPlanCache clears PostgreSQL server-side prepared statements
+// (DEALLOCATE ALL) and resets the session state that backs them (DISCARD ALL).
+// The two statements are executed separately because the pgx driver uses the
+// extended protocol, which rejects multiple commands in a single prepared
+// statement. It is a no-op for dialects without a server-side plan cache
+// (SQLite has no prepared plan cache concept).
+//
+// Scope note: DEALLOCATE ALL only affects the session it runs on. Every
+// AutoMigrate caller (server startup, runtime dialect switch, migration
+// target) opens a fresh pool on which no result-bearing statements have been
+// cached yet, so a single execution is sufficient to keep that pool clean.
+func ClearPreparedPlanCache(db *DB) error {
+	if db == nil {
+		return nil
+	}
+	if db.Dialect != DialectPostgres {
+		return nil
+	}
+	for _, statement := range []string{"DEALLOCATE ALL", "DISCARD ALL"} {
+		if _, err := db.Exec(statement); err != nil {
+			return fmt.Errorf("store: %s after migration: %w", statement, err)
+		}
+	}
 	return nil
 }
 

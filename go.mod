@@ -3,6 +3,7 @@ module github.com/deliciousbuding/metapi-go
 go 1.26.6
 
 require (
+	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/coder/websocket v1.8.15
 	github.com/go-chi/chi/v5 v5.3.1
 	github.com/go-chi/cors v1.2.2
