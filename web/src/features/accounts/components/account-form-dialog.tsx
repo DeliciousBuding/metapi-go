@@ -143,7 +143,10 @@ export function AccountFormDialog({
     if (isEdit && account) {
       form.reset({ ...baseDefaults, ...transformAccountToFormValues(account) })
     } else {
-      form.reset({ ...baseDefaults, siteId: initialSiteId ?? baseDefaults.siteId })
+      form.reset({
+        ...baseDefaults,
+        siteId: initialSiteId ?? baseDefaults.siteId,
+      })
     }
   }, [open, isEdit, account, initializedFor, initialSiteId, form])
 
@@ -759,11 +762,7 @@ function PasswordFields({ form }: { form: UseFormReturn<AccountFormValues> }) {
 // API-Key-mode fields
 // ---------------------------------------------------------------------------
 
-function ApiKeyFields({
-  form,
-  verification,
-  onVerify,
-}: SessionFieldsProps) {
+function ApiKeyFields({ form, verification, onVerify }: SessionFieldsProps) {
   const { t } = useTranslation()
   return (
     <>

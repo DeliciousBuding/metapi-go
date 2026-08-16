@@ -167,9 +167,9 @@ export function AccountsPage() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteAccount, setDeleteAccount] = useState<Account | null>(null)
   const [importOpen, setImportOpen] = useState(false)
-  const [preselectedSiteId, setPreselectedSiteId] = useState<number | undefined>(
-    undefined
-  )
+  const [preselectedSiteId, setPreselectedSiteId] = useState<
+    number | undefined
+  >(undefined)
 
   const openCreate = () => {
     setFormMode('create')
