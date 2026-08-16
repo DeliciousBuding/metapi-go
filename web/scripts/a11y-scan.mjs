@@ -4,11 +4,11 @@
 // Scans the authenticated admin routes with axe-core and exits non-zero when
 // any serious/critical violation is found. Requires the dev/embedded server:
 //
-//   cd web && bun run a11y:scan
-//   BASE_URL=http://localhost:3000 AUTH_TOKEN=... bun run a11y:scan
+//   cd web && bun run a11y:axe
+//   BASE_URL=http://localhost:3000 AUTH_TOKEN=... bun run a11y:axe
 //
+// `bun run a11y:scan` is the composite browser gate and also runs ui:smoke.
 // axe-core is injected from node_modules (no @axe-core/playwright needed).
-import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
