@@ -1,20 +1,11 @@
 // metapi-go/data-table — shared URL-synced table state hook.
 //
-// The list pages (sites / oauth / models) each mirror
-// table state (search / page / page-size / sorting / faceted filters) to the
-// URL so a deep link restores the exact view. This hook owns the TanStack
-// Router plumbing that was previously duplicated per page:
-//
-//   - subscribing to `location.searchStr` (router does not re-render a route
-//     component on same-path search-only navigation otherwise)
-//   - the URL-sync guard that stops table callbacks from hijacking an
-//     in-flight navigation away from the page
-//   - the four controlled-state callbacks (globalFilter / pagination /
-//     sorting / columnFilters) that serialize changes back to the URL
-//
-// Each page supplies only the page-specific parts: how to parse the URL
-// (`read`), how to serialize it (`buildHref`), and how page filter values map
-// to TanStack column filters (`toColumnFilters` / `fromColumnFilters`).
+// List pages mirror table state (search / page / page-size / sorting / faceted
+// filters) to the URL so deep links restore the exact view. This hook owns the
+// TanStack Router plumbing and, critically, keeps every callback handed to
+// TanStack Table referentially stable. Table libraries may call controlled
+// state callbacks from effects; rebuilding those callbacks every render can
+// turn URL synchronization into a render/navigation feedback loop.
 
 import { useLocation, useNavigate } from '@tanstack/react-router'
 import type {
@@ -23,6 +14,7 @@ import type {
   SortingState,
   Updater,
 } from '@tanstack/react-table'
+import * as React from 'react'
 
 /** Validated URL state for a list page. `filters` holds page-specific values. */
 export type UrlTableState<TFilters> = {
@@ -34,9 +26,9 @@ export type UrlTableState<TFilters> = {
 }
 
 export type UrlTableStateOptions<TFilters> = {
-  /** Base pathname used to build hrefs (e.g. '/sites'). */
+  /** Canonical pathname for the page (e.g. '/sites'). */
   basePath: string
-  /** Parse the validated URL state from a raw search string. */
+  /** Parse validated URL state from a raw search string. */
   read: (searchString: string) => UrlTableState<TFilters>
   /** Serialize a partial state update back to a full href (path + query). */
   buildHref: (next: Partial<UrlTableState<TFilters>>) => string
@@ -67,65 +59,128 @@ export function encodeSorting(sorting: SortingState): string {
 /**
  * Controlled table state whose source of truth is the URL search string.
  * Re-exported fields plug straight into `useDataTable`.
+ *
+ * The page-supplied parser/serializer functions are intentionally read through
+ * refs. Callers commonly declare them inline; allowing those function
+ * identities into callback dependency arrays recreates every table callback on
+ * every render, which can produce an update-depth loop with controlled tables.
  */
 export function useUrlTableState<TFilters>(
   options: UrlTableStateOptions<TFilters>
 ) {
   const navigate = useNavigate()
-  // Subscribe to the router location so search-only navigation re-renders.
   const searchStr = useLocation({ select: (loc) => loc.searchStr })
-  const search = options.read(searchStr)
 
-  const columnFilters = options.toColumnFilters(search.filters)
+  const navigateRef = React.useRef(navigate)
+  const readRef = React.useRef(options.read)
+  const buildHrefRef = React.useRef(options.buildHref)
+  const toColumnFiltersRef = React.useRef(options.toColumnFilters)
+  const fromColumnFiltersRef = React.useRef(options.fromColumnFilters)
 
-  // URL-sync guard: table state callbacks can fire while the router is
-  // navigating away (the useLocation subscription re-renders this page with
-  // the *next* location's search string). Without the pathname check the
-  // callback would navigate straight back, hijacking the in-flight
-  // navigation — the "clicked a sidebar link but the page snapped back"
-  // bug. Only sync when we are still on this page.
-  function syncUrl(next: Partial<UrlTableState<TFilters>>) {
-    const href = options.buildHref(next)
-    if (!href.startsWith(window.location.pathname)) return
-    navigate({ href, replace: true })
-  }
+  navigateRef.current = navigate
+  readRef.current = options.read
+  buildHrefRef.current = options.buildHref
+  toColumnFiltersRef.current = options.toColumnFilters
+  fromColumnFiltersRef.current = options.fromColumnFilters
 
-  const onGlobalFilterChange = (updater: Updater<string>) => {
-    syncUrl({ q: resolveUpdater(updater, search.q) })
-  }
-  const onPaginationChange = (updater: Updater<PaginationState>) => {
-    const next = resolveUpdater(updater, {
-      pageIndex: search.pageIndex,
-      pageSize: search.pageSize,
-    })
-    syncUrl({ pageIndex: next.pageIndex, pageSize: next.pageSize })
-  }
-  const onSortingChange = (updater: Updater<SortingState>) => {
-    syncUrl({ sorting: resolveUpdater(updater, search.sorting) })
-  }
-  const onColumnFiltersChange = (updater: Updater<ColumnFiltersState>) => {
-    const next = resolveUpdater(updater, columnFilters)
-    syncUrl(options.fromColumnFilters(next))
-  }
+  const search = React.useMemo(() => readRef.current(searchStr), [searchStr])
+  const columnFilters = React.useMemo(
+    () => toColumnFiltersRef.current(search.filters),
+    [search.filters]
+  )
+  const pagination = React.useMemo<PaginationState>(
+    () => ({ pageIndex: search.pageIndex, pageSize: search.pageSize }),
+    [search.pageIndex, search.pageSize]
+  )
 
-  // Clamp the URL page when the data shrinks (deep-linked stale page numbers
-  // would otherwise render an empty page with a confusing "no results" empty
-  // state). Pass this directly to useDataTable's `ensurePageInRange`.
-  function ensurePageInRange(pageCount: number) {
-    if (pageCount <= 0) return
-    const maxIndex = pageCount - 1
-    if (search.pageIndex > maxIndex) {
-      syncUrl({ pageIndex: maxIndex })
-    }
-  }
+  const searchRef = React.useRef(search)
+  const columnFiltersRef = React.useRef(columnFilters)
+  searchRef.current = search
+  columnFiltersRef.current = columnFilters
+
+  // Navigation guard: controlled table callbacks can fire while a route is
+  // unmounting. Only synchronize when both the current and target pathname are
+  // this table page. Also suppress no-op replaces; besides avoiding needless
+  // history work, this removes another possible render loop edge.
+  const syncUrl = React.useCallback(
+    (next: Partial<UrlTableState<TFilters>>) => {
+      if (typeof window === 'undefined') return
+      if (window.location.pathname !== options.basePath) return
+
+      const href = buildHrefRef.current(next)
+      const target = new URL(href, window.location.origin)
+      if (target.pathname !== options.basePath) return
+
+      const currentHref = `${window.location.pathname}${window.location.search}`
+      const targetHref = `${target.pathname}${target.search}`
+      if (currentHref === targetHref) return
+
+      void navigateRef.current({ href, replace: true })
+    },
+    [options.basePath]
+  )
+
+  const onGlobalFilterChange = React.useCallback(
+    (updater: Updater<string>) => {
+      const current = searchRef.current
+      syncUrl({
+        q: resolveUpdater(updater, current.q),
+        pageIndex: 0,
+      })
+    },
+    [syncUrl]
+  )
+
+  const onPaginationChange = React.useCallback(
+    (updater: Updater<PaginationState>) => {
+      const current = searchRef.current
+      const next = resolveUpdater(updater, {
+        pageIndex: current.pageIndex,
+        pageSize: current.pageSize,
+      })
+      syncUrl({ pageIndex: next.pageIndex, pageSize: next.pageSize })
+    },
+    [syncUrl]
+  )
+
+  const onSortingChange = React.useCallback(
+    (updater: Updater<SortingState>) => {
+      const current = searchRef.current
+      syncUrl({
+        sorting: resolveUpdater(updater, current.sorting),
+        pageIndex: 0,
+      })
+    },
+    [syncUrl]
+  )
+
+  const onColumnFiltersChange = React.useCallback(
+    (updater: Updater<ColumnFiltersState>) => {
+      const next = resolveUpdater(updater, columnFiltersRef.current)
+      syncUrl({
+        ...fromColumnFiltersRef.current(next),
+        pageIndex: 0,
+      })
+    },
+    [syncUrl]
+  )
+
+  // Clamp stale deep-linked pages when the filtered data shrinks.
+  const ensurePageInRange = React.useCallback(
+    (pageCount: number) => {
+      if (pageCount <= 0) return
+      const maxIndex = pageCount - 1
+      if (searchRef.current.pageIndex > maxIndex) {
+        syncUrl({ pageIndex: maxIndex })
+      }
+    },
+    [syncUrl]
+  )
 
   return {
     globalFilter: search.q,
     onGlobalFilterChange,
-    pagination: {
-      pageIndex: search.pageIndex,
-      pageSize: search.pageSize,
-    } as PaginationState,
+    pagination,
     onPaginationChange,
     sorting: search.sorting,
     onSortingChange,
