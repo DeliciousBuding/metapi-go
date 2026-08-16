@@ -52,26 +52,58 @@ func EstimateBillingCostFromUsage(modelName, platform string, usage ParsedUsage)
 			CacheReadTokens:     usage.CacheReadTokens,
 			CacheCreationTokens: usage.CacheCreationTokens,
 		}
-		if detail := routing.CalculateModelUsageBreakdown(pm, u, map[string]float64{"default": 1}); detail != nil {
-			details["breakdown"] = map[string]any{
-				"input_cost":          detail.Breakdown.InputCost,
-				"output_cost":         detail.Breakdown.OutputCost,
-				"cache_read_cost":     detail.Breakdown.CacheReadCost,
-				"cache_creation_cost": detail.Breakdown.CacheCreationCost,
-				"total_cost":          detail.Breakdown.TotalCost,
-				"fallback_total_cost": cost,
+		groupRatios := map[string]float64{"default": 1}
+		hasCacheDetail := usage.CacheReadTokens > 0 || usage.CacheCreationTokens > 0
+		if hasCacheDetail {
+			// Cache detail present: cache-aware three-way split.
+			detail := routing.CalculateModelUsageBreakdown(pm, u, groupRatios)
+			if detail != nil {
+				details["breakdown"] = map[string]any{
+					"input_cost":          detail.Breakdown.InputCost,
+					"output_cost":         detail.Breakdown.OutputCost,
+					"cache_read_cost":     detail.Breakdown.CacheReadCost,
+					"cache_creation_cost": detail.Breakdown.CacheCreationCost,
+					"total_cost":          detail.Breakdown.TotalCost,
+					"fallback_total_cost": cost,
+				}
+				details["pricing"] = map[string]any{
+					"source":               "model_ratio_defaults",
+					"model_ratio":          detail.Pricing.ModelRatio,
+					"completion_ratio":     detail.Pricing.CompletionRatio,
+					"cache_ratio":          detail.Pricing.CacheRatio,
+					"cache_creation_ratio": detail.Pricing.CacheCreationRatio,
+					"platform":             strings.TrimSpace(platform),
+					"model":                strings.TrimSpace(modelName),
+				}
+				if detail.Breakdown.TotalCost > 0 {
+					cost = detail.Breakdown.TotalCost
+				}
 			}
-			details["pricing"] = map[string]any{
-				"source":               "model_ratio_defaults",
-				"model_ratio":          detail.Pricing.ModelRatio,
-				"completion_ratio":     detail.Pricing.CompletionRatio,
-				"cache_ratio":          detail.Pricing.CacheRatio,
-				"cache_creation_ratio": detail.Pricing.CacheCreationRatio,
-				"platform":             strings.TrimSpace(platform),
-				"model":                strings.TrimSpace(modelName),
-			}
-			if detail.Breakdown.TotalCost > 0 {
-				cost = detail.Breakdown.TotalCost
+		} else {
+			// Tokens reported but no cache detail: full-price tier. Bill every
+			// input token at the input rate and every output token at the
+			// output rate (no cache discount), instead of degrading to the
+			// token-divisor estimate.
+			detail := routing.CalculateModelUsageFullPrice(pm, u, groupRatios)
+			if detail != nil {
+				details["breakdown"] = map[string]any{
+					"input_cost":          detail.Breakdown.InputCost,
+					"output_cost":         detail.Breakdown.OutputCost,
+					"cache_read_cost":     detail.Breakdown.CacheReadCost,
+					"cache_creation_cost": detail.Breakdown.CacheCreationCost,
+					"total_cost":          detail.Breakdown.TotalCost,
+					"fallback_total_cost": cost,
+				}
+				details["pricing"] = map[string]any{
+					"source":           "full_price_fallback",
+					"model_ratio":      detail.Pricing.ModelRatio,
+					"completion_ratio": detail.Pricing.CompletionRatio,
+					"platform":         strings.TrimSpace(platform),
+					"model":            strings.TrimSpace(modelName),
+				}
+				if detail.Breakdown.TotalCost > 0 {
+					cost = detail.Breakdown.TotalCost
+				}
 			}
 		}
 	}

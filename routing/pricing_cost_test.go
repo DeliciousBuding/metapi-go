@@ -331,3 +331,144 @@ func TestCalculateModelUsageCost_TokenBasedNoCache(t *testing.T) {
 		t.Fatalf("cost=%v want 0.014", cost)
 	}
 }
+
+func TestCalculateModelUsageFullPrice_RealRatios(t *testing.T) {
+	// Full-price tier reuses the ratio-based unit prices: with a real model
+	// ratio the result must NOT collapse to the token-divisor fallback
+	// (1500/500000 = 0.003).
+	model := PricingModel{
+		ModelName:       "gpt-4o",
+		QuotaType:       0,
+		ModelRatio:      2,
+		CompletionRatio: 3,
+		EnableGroups:    []string{"vip"},
+	}
+	detail := CalculateModelUsageFullPrice(model, UsageForCost{
+		PromptTokens:     1000,
+		CompletionTokens: 500,
+		TotalTokens:      1500,
+	}, map[string]float64{"default": 1, "vip": 2})
+	if detail == nil {
+		t.Fatal("detail nil")
+	}
+	// inputPerMillion = modelRatio × 2 × multiplier = 2×2×2 = 8
+	// outputPerMillion = modelRatio × completionRatio × 2 × multiplier = 2×3×2×2 = 24
+	if detail.Breakdown.InputPerMillion != 8 {
+		t.Fatalf("inputPerMillion=%v want 8", detail.Breakdown.InputPerMillion)
+	}
+	if detail.Breakdown.OutputPerMillion != 24 {
+		t.Fatalf("outputPerMillion=%v want 24", detail.Breakdown.OutputPerMillion)
+	}
+	if detail.Breakdown.InputCost != 0.008 {
+		t.Fatalf("inputCost=%v want 0.008", detail.Breakdown.InputCost)
+	}
+	if detail.Breakdown.OutputCost != 0.012 {
+		t.Fatalf("outputCost=%v want 0.012", detail.Breakdown.OutputCost)
+	}
+	if detail.Breakdown.TotalCost != 0.02 {
+		t.Fatalf("totalCost=%v want 0.02", detail.Breakdown.TotalCost)
+	}
+	if detail.Breakdown.CacheReadCost != 0 || detail.Breakdown.CacheCreationCost != 0 {
+		t.Fatalf("cache costs must be zero in full-price tier: %+v", detail.Breakdown)
+	}
+	if detail.Breakdown.CacheReadPerMillion != 0 || detail.Breakdown.CacheCreationPerMillion != 0 {
+		t.Fatalf("cache rates must be zero in full-price tier: %+v", detail.Breakdown)
+	}
+	if detail.Usage.BillablePromptTokens != 1000 {
+		t.Fatalf("billablePromptTokens=%v want 1000 (whole input billed)", detail.Usage.BillablePromptTokens)
+	}
+	if math.Abs(FallbackTokenCost(1500, "openai")-0.003) > 1e-9 {
+		t.Fatalf("sanity: fallback division=%v want 0.003", FallbackTokenCost(1500, "openai"))
+	}
+}
+
+func TestCalculateModelUsageFullPrice_TotalOnlyBilledAsInput(t *testing.T) {
+	// No prompt/completion split: the whole total is billed as input at the
+	// input rate (conservative).
+	model := PricingModel{ModelName: "gpt-4o", QuotaType: 0, ModelRatio: 1, CompletionRatio: 1}
+	detail := CalculateModelUsageFullPrice(model, UsageForCost{
+		TotalTokens: 2000,
+	}, map[string]float64{"default": 1})
+	if detail == nil {
+		t.Fatal("detail nil")
+	}
+	if detail.Breakdown.InputCost != 0.004 {
+		t.Fatalf("inputCost=%v want 0.004", detail.Breakdown.InputCost)
+	}
+	if detail.Breakdown.OutputCost != 0 {
+		t.Fatalf("outputCost=%v want 0", detail.Breakdown.OutputCost)
+	}
+	if detail.Breakdown.TotalCost != 0.004 {
+		t.Fatalf("totalCost=%v want 0.004", detail.Breakdown.TotalCost)
+	}
+	if detail.Usage.BillablePromptTokens != 2000 {
+		t.Fatalf("billablePromptTokens=%v want 2000", detail.Usage.BillablePromptTokens)
+	}
+}
+
+func TestCalculateModelUsageFullPrice_IgnoresCacheDiscounts(t *testing.T) {
+	// Defensive: even when cache fields are present, the full-price tier bills
+	// the entire input side at the input rate — no subtraction, no cache lines.
+	model := PricingModel{ModelName: "gpt-4o", QuotaType: 0, ModelRatio: 2, CompletionRatio: 3}
+	detail := CalculateModelUsageFullPrice(model, UsageForCost{
+		PromptTokens:        1000,
+		CompletionTokens:    500,
+		TotalTokens:         1500,
+		CacheReadTokens:     300,
+		CacheCreationTokens: 200,
+	}, map[string]float64{"default": 1})
+	if detail == nil {
+		t.Fatal("detail nil")
+	}
+	// input = 1000 × 4/1e6 = 0.004, NOT (1000-300-200) × 4/1e6.
+	if detail.Breakdown.InputCost != 0.004 {
+		t.Fatalf("inputCost=%v want 0.004", detail.Breakdown.InputCost)
+	}
+	if detail.Breakdown.CacheReadCost != 0 || detail.Breakdown.CacheCreationCost != 0 {
+		t.Fatalf("cache costs must be zero in full-price tier: %+v", detail.Breakdown)
+	}
+	if detail.Usage.BillablePromptTokens != 1000 {
+		t.Fatalf("billablePromptTokens=%v want 1000", detail.Usage.BillablePromptTokens)
+	}
+}
+
+func TestCalculateModelUsageFullPrice_PerCallQuotaReturnsNil(t *testing.T) {
+	model := PricingModel{QuotaType: 1}
+	if got := CalculateModelUsageFullPrice(model, UsageForCost{PromptTokens: 10}, map[string]float64{"default": 1}); got != nil {
+		t.Fatalf("quotaType=1 should return nil, got %+v", got)
+	}
+}
+
+func TestCalculateModelUsageFullPrice_NoCacheMatchesBreakdownMath(t *testing.T) {
+	// With no cache tokens the full-price tier and the cache-aware breakdown
+	// agree numerically (both bill the whole input at the input rate), which
+	// is what keeps the existing three-way behavior unchanged.
+	model := PricingModel{
+		ModelName:       "gpt-4o",
+		QuotaType:       0,
+		ModelRatio:      2,
+		CompletionRatio: 1.5,
+		EnableGroups:    []string{"vip"},
+	}
+	usage := UsageForCost{
+		PromptTokens:     1000,
+		CompletionTokens: 500,
+		TotalTokens:      1500,
+	}
+	groups := map[string]float64{"default": 1, "vip": 2}
+	fullPrice := CalculateModelUsageFullPrice(model, usage, groups)
+	breakdown := CalculateModelUsageBreakdown(model, usage, groups)
+	if fullPrice == nil || breakdown == nil {
+		t.Fatal("nil details")
+	}
+	if fullPrice.Breakdown.TotalCost != breakdown.Breakdown.TotalCost {
+		t.Fatalf("fullPrice=%v breakdown=%v should match without cache tokens",
+			fullPrice.Breakdown.TotalCost, breakdown.Breakdown.TotalCost)
+	}
+	if fullPrice.Breakdown.InputCost != breakdown.Breakdown.InputCost {
+		t.Fatalf("inputCost fullPrice=%v breakdown=%v", fullPrice.Breakdown.InputCost, breakdown.Breakdown.InputCost)
+	}
+	if fullPrice.Breakdown.OutputCost != breakdown.Breakdown.OutputCost {
+		t.Fatalf("outputCost fullPrice=%v breakdown=%v", fullPrice.Breakdown.OutputCost, breakdown.Breakdown.OutputCost)
+	}
+}
