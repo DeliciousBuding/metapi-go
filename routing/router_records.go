@@ -27,6 +27,10 @@ func (tr *TokenRouter) RecordSuccess(ctx context.Context, channelID int64, laten
 	nextSuccessCount := max(0, ch.SuccessCount) + 1
 	nextTotalLatencyMs := max(0, ch.TotalLatencyMs) + int64(latencyMs)
 	nextTotalCost := math.Max(0, ch.TotalCost) + cost
+	// Decay (not zero) accumulated failCount on success: a recovered channel
+	// keeps a small memory of past failures, but its next failure is no longer
+	// over-penalized by Fibonacci backoff based on the historical peak.
+	nextFailCount := max(0, ch.FailCount) / 2
 
 	if ch.OAuthRouteUnitID != nil && *ch.OAuthRouteUnitID > 0 {
 		targetAccountID := account.ID
@@ -41,6 +45,7 @@ func (tr *TokenRouter) RecordSuccess(ctx context.Context, channelID int64, laten
 			memberTotalCost := math.Max(0, memberRow.Member.TotalCost) + cost
 			_ = tr.db.UpdateRouteUnitMemberSuccessFields(ctx, memberRow.Member.ID, map[string]interface{}{
 				"successCount":   memberSuccessCount,
+				"failCount":      max(0, memberRow.Member.FailCount) / 2,
 				"totalLatencyMs": memberTotalLatencyMs,
 				"totalCost":      memberTotalCost,
 				"lastUsedAt":     nowISO,
@@ -61,6 +66,7 @@ func (tr *TokenRouter) RecordSuccess(ctx context.Context, channelID int64, laten
 
 	_ = tr.db.UpdateChannelSuccessFields(ctx, channelID, map[string]interface{}{
 		"successCount":   nextSuccessCount,
+		"failCount":      nextFailCount,
 		"totalLatencyMs": nextTotalLatencyMs,
 		"totalCost":      nextTotalCost,
 		"lastUsedAt":     nowISO,
@@ -72,6 +78,7 @@ func (tr *TokenRouter) RecordSuccess(ctx context.Context, channelID int64, laten
 
 	tr.cache.PatchCachedChannel(channelID, func(ch *store.RouteChannel) {
 		ch.SuccessCount = nextSuccessCount
+		ch.FailCount = nextFailCount
 		ch.TotalLatencyMs = nextTotalLatencyMs
 		ch.TotalCost = nextTotalCost
 		ch.LastUsedAt = &nowISO
