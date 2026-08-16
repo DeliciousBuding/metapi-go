@@ -1,8 +1,8 @@
 # Roadmap
 
-**Last verified**: 2026-08-16
+**Last verified**: 2026-08-17
 
-**Release**: [v0.13.0](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.13.0) · current master continues after the release
+**Release**: [v0.14.0](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.14.0) · release candidate prepared on master; production promotion follows the release and soak gate
 
 > This is the only execution plan. It contains open work, order, ownership, and acceptance criteria. Current facts → [`../STATE.md`](../STATE.md) · product positioning → [`../benchmark.md`](../benchmark.md) · timeline → [`../log.md`](../log.md).
 
@@ -12,9 +12,9 @@ MetAPI Go has **3 delivery mainlines**. CI, dual-dialect support, security, rele
 
 | Mainline              | Current state                                                                                                                                 | Remaining outcome                                                                                                                                      |
 | :-------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **A. 路由与成本真值** | Core proxy, retry/cooldown/breaker, routing strategies, usage pricing, models.dev cold-start catalog, and half-open recovery are implemented. | Collect operator-gated live multi-channel cascade evidence; keep multi-instance limits explicit.                                                       |
-| **B. 上游兼容与实测** | 16 adapters; real new-api/one-api CI e2e plus Sub2API/CLIProxyAPI verification chains; six live-platform defects closed after v0.13.0.        | Run optional Codex and AnyRouter probes from [#558](https://github.com/DeliciousBuding/metapi-go/issues/558). No blocking compatibility issue is open. |
-| **C. 分发与管理体验** | Client export, global search, daily snapshot, enriched alerts, tester history/templates, guided onboarding, and route allocation/price truth are shipped. | Finish tester channel/latency truth (Waves 2–3). |
+| **A. 路由与成本真值** | Core proxy, retry/cooldown/breaker, routing strategies, usage pricing, models.dev cold-start catalog, half-open recovery, and route price truth are implemented. | Collect operator-gated live multi-channel cascade evidence; keep multi-instance limits explicit. |
+| **B. 上游兼容与实测** | 16 adapters; real new-api/one-api CI e2e plus Sub2API/CLIProxyAPI verification chains; live-platform defects are covered by CI and focused tests. | Run optional Codex and AnyRouter probes from [#558](https://github.com/DeliciousBuding/metapi-go/issues/558). No blocking compatibility issue is open. |
+| **C. 分发与管理体验** | Client export, global search, daily snapshot, enriched alerts, tester history/templates, guided onboarding, truthful channel comparison, and URL-owned table state are shipped. | No implementation slice is open; future work must be promoted here with an owner and acceptance criteria before coding. |
 
 ## Execution rules
 
@@ -24,41 +24,14 @@ MetAPI Go has **3 delivery mainlines**. CI, dual-dialect support, security, rele
 4. Unsupported behavior stays explicit. Do not turn a 501 residual, unavailable price, failed probe, or missing credential into fake success.
 5. Each slice lands with its focused regression test and updates `STATE.md` only after the behavior is verified. Historical detail belongs in `CHANGELOG.md` / `log.md`, not here.
 
-## Delivery sequence
+## Completed delivery outcomes
 
-### Wave 2 — P1 tester truth foundation
+- **Guided onboarding**: site → account → route handoff, one-shot deep links, typed IDs, credential verification, redacted-credential edit behavior, and partial batch failure truth are implemented and covered by focused tests.
+- **Tester truth**: forced-channel synchronous probes, explicit unsupported streaming behavior, enabled-channel filtering, bounded comparison concurrency, shared abort handling, and stopped-result rendering are implemented and covered by focused tests.
+- **Route truth**: enabled-weight allocation and account/model-specific price provenance use exact concrete-model joins and are covered by focused Go and frontend tests.
+- **URL state stability**: list-page table state has one URL owner, stable callbacks, latest-URL merge semantics, and real Chromium acceptance gates documented in [`../design/state-stability.md`](../design/state-stability.md).
 
-**Depends on**: no Wave 1 dependency; land before batch comparison because the current tester does not identify a forced channel.
-
-| Slice                         | Owner                                                                                                          | Implementation                                                                                                                                                                                                          | Acceptance                                                                                                                                         |
-| :---------------------------- | :------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------- |
-| C4. Channel response contract | `web/src/features/channels/api.ts` and channel types                                                           | Parse the actual `{items,total,page,pageSize}` response instead of casting the envelope to `ChannelRow[]`. Keep the list hook's public value as `ChannelRow[]` if existing consumers need it.                           | Channel pages and tester selectors receive real rows; malformed responses fail explicitly rather than masquerading as empty arrays.                |
-| C5. Forced-channel probe      | `web/src/features/model-tester/types.ts`, `lib/tester-schema.ts`, `api.ts`, `components/model-tester-page.tsx` | Add channel selection and send `channelId` through the existing synchronous `/api/test/chat` forced-channel harness. Use the chosen channel as the routing identity; do not infer it from a label.                      | A single run reaches the selected channel and reports measured wall-clock latency, response, and upstream error honestly. Stop aborts the request. |
-| C6. Streaming honesty         | same tester owner + `handler/admin/test.go` contract                                                           | Make the admin tester's supported path visibly sync-only while `/api/test/chat/stream` remains 501. Keep parser code only if it has a real supported caller; otherwise remove the dead branch in the implementation PR. | The UI cannot advertise a stream success path that the Go backend does not implement; no synthetic chunks or delayed sync-response theater.        |
-
-**Focused tests**
-
-- Add channel-envelope parsing coverage.
-- Extend `web/src/features/model-tester/__tests__/api.test.ts` and schema tests for `channelId`, sync payload construction, abort, and explicit server failure.
-- Add or retain the focused Go handler test proving missing channel identity returns the documented residual.
-
-**Non-goals**: implementing SSE, adding automatic routing to the admin harness, or creating another channel-discovery endpoint.
-
-### Wave 3 — P1 batch latency comparison
-
-**Depends on**: Wave 2 forced-channel sync probe.
-
-**Outcome**: run one model/prompt against selected channels and compare observed latency without hiding partial failure.
-
-| Slice                 | Owner                                                                                    | Implementation                                                                                                                                            | Acceptance                                                                                                                      |
-| :-------------------- | :--------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------ |
-| C7. Batch selection   | `web/src/features/model-tester/components/model-tester-page.tsx` and tester schema/types | Support explicit multi-channel selection while retaining the single-run path. Require at least two eligible channels for comparison.                      | The submitted batch is visible and deterministic; disabled/unselected channels are not probed.                                  |
-| C8. Bounded execution | `web/src/features/model-tester/api.ts` or one tester-local hook                          | Reuse the single sync probe with small fixed concurrency and one shared abort lifecycle. Settle every selected request independently.                     | One slow/failing channel does not erase successful rows; Stop cancels outstanding work; no unbounded fan-out.                   |
-| C9. Result contract   | tester components + i18n locales                                                         | Render channel/site identity, success/failure, latency, and concise error per row; sort completed successes by latency and show `N succeeded / M failed`. | Mixed outcomes remain visible, empty/error states are accessible, and rerun replaces or clearly separates the prior comparison. |
-
-**Focused tests**: success ordering, mixed success/failure, bounded scheduling, abort, empty selection, and rerun state. Prefer testing the orchestration helper plus one user-facing component interaction; do not mock the module under test.
-
-**Non-goals**: backend batch endpoints, cross-model Cartesian matrices, persistent benchmark history, percentile analytics, charts, or background jobs.
+These outcomes are closed. New work enters this plan only with a concrete owner, scope, and acceptance test; completed waves do not remain as open checklists.
 
 ## Evidence closeout
 
