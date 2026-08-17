@@ -915,22 +915,26 @@ func (h *statsHandler) tokenCandidates(w http.ResponseWriter, r *http.Request) {
 	allowed := h.loadGlobalAllowedModels()
 	models, err := h.buildTokenCandidateModels(allowed)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load token candidates")
+		slog.Error("token-candidates: buildTokenCandidateModels failed", "error", err)
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to load token candidates")
 		return
 	}
 	withoutToken, err := h.buildModelsWithoutToken(allowed)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load models without token")
+		slog.Error("token-candidates: buildModelsWithoutToken failed", "error", err)
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to load models without token")
 		return
 	}
 	missingGroups, err := h.buildModelsMissingTokenGroups(allowed)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load missing token groups")
+		slog.Error("token-candidates: buildModelsMissingTokenGroups failed", "error", err)
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to load missing token groups")
 		return
 	}
 	endpointTypes, err := h.buildEndpointTypesByModel(allowed)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load endpoint types")
+		slog.Error("token-candidates: buildEndpointTypesByModel failed", "error", err)
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to load endpoint types")
 		return
 	}
 

@@ -86,7 +86,7 @@ func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 		FROM model_availability ma
 		INNER JOIN accounts a ON a.id = ma.account_id
 		INNER JOIN sites s ON s.id = a.site_id
-		WHERE COALESCE(ma.available, 0) = 1
+		WHERE COALESCE(ma.available, false) = true
 			AND COALESCE(a.status, '') <> 'disabled'
 			AND COALESCE(s.status, '') <> 'disabled'
 		ORDER BY ma.model_name ASC, a.id ASC
@@ -117,7 +117,7 @@ func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 			SELECT id, name, is_default
 			FROM account_tokens
 			WHERE account_id = ?
-				AND enabled = 1
+				AND enabled = true
 				AND (value_status IS NULL OR value_status <> 'expired')
 			ORDER BY is_default DESC, id ASC
 		`, acc.ID)
@@ -157,8 +157,8 @@ func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 		INNER JOIN account_tokens at ON at.id = tma.token_id
 		INNER JOIN accounts a ON a.id = at.account_id
 		INNER JOIN sites s ON s.id = a.site_id
-		WHERE COALESCE(tma.available, 0) = 1
-			AND at.enabled = 1
+		WHERE COALESCE(tma.available, false) = true
+			AND at.enabled = true
 			AND (at.value_status IS NULL OR at.value_status <> 'expired')
 			AND COALESCE(a.status, '') <> 'disabled'
 			AND COALESCE(s.status, '') <> 'disabled'
@@ -205,7 +205,7 @@ func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 	routeRows, err := queryRowsErr(h.db, `
 		SELECT model_pattern
 		FROM token_routes
-		WHERE enabled = 1
+		WHERE enabled = true
 			AND route_mode <> 'explicit_group'
 	`)
 	if err != nil {
@@ -348,8 +348,8 @@ func (h *statsHandler) buildTokenCandidateModels(allowed map[string]struct{}) (m
 		INNER JOIN account_tokens at ON at.id = tma.token_id
 		INNER JOIN accounts a ON a.id = at.account_id
 		INNER JOIN sites s ON s.id = a.site_id
-		WHERE COALESCE(tma.available, 0) = 1
-			AND at.enabled = 1
+		WHERE COALESCE(tma.available, false) = true
+			AND at.enabled = true
 			AND (at.value_status IS NULL OR at.value_status <> 'expired')
 			AND COALESCE(a.status, '') <> 'disabled'
 			AND COALESCE(s.status, '') <> 'disabled'
@@ -410,7 +410,7 @@ func (h *statsHandler) buildModelsWithoutToken(allowed map[string]struct{}) (map
 		FROM model_availability ma
 		INNER JOIN accounts a ON a.id = ma.account_id
 		INNER JOIN sites s ON s.id = a.site_id
-		WHERE COALESCE(ma.available, 0) = 1
+		WHERE COALESCE(ma.available, false) = true
 			AND COALESCE(a.status, '') <> 'disabled'
 			AND COALESCE(s.status, '') <> 'disabled'
 			AND NOT EXISTS (
@@ -418,9 +418,9 @@ func (h *statsHandler) buildModelsWithoutToken(allowed map[string]struct{}) (map
 				FROM account_tokens at
 				INNER JOIN token_model_availability tma ON tma.token_id = at.id
 				WHERE at.account_id = a.id
-					AND at.enabled = 1
+					AND at.enabled = true
 					AND (at.value_status IS NULL OR at.value_status <> 'expired')
-					AND COALESCE(tma.available, 0) = 1
+					AND COALESCE(tma.available, false) = true
 					AND tma.model_name = ma.model_name
 			)
 			AND NOT EXISTS (
@@ -428,7 +428,7 @@ func (h *statsHandler) buildModelsWithoutToken(allowed map[string]struct{}) (map
 				-- are still "without token" for route channel binding when no account_tokens rows exist.
 				SELECT 1 FROM account_tokens at
 				WHERE at.account_id = a.id
-					AND at.enabled = 1
+					AND at.enabled = true
 					AND (at.value_status IS NULL OR at.value_status <> 'expired')
 			)
 		ORDER BY ma.model_name ASC, a.id ASC
@@ -488,10 +488,10 @@ func (h *statsHandler) buildModelsMissingTokenGroups(allowed map[string]struct{}
 		INNER JOIN accounts a ON a.id = ma.account_id
 		INNER JOIN sites s ON s.id = a.site_id
 		INNER JOIN account_tokens at ON at.account_id = a.id
-		WHERE COALESCE(ma.available, 0) = 1
+		WHERE COALESCE(ma.available, false) = true
 			AND COALESCE(a.status, '') <> 'disabled'
 			AND COALESCE(s.status, '') <> 'disabled'
-			AND at.enabled = 1
+			AND at.enabled = true
 			AND (at.value_status IS NULL OR at.value_status <> 'expired')
 		ORDER BY ma.model_name ASC, a.id ASC, at.id ASC
 	`)
@@ -602,9 +602,9 @@ func (h *statsHandler) buildEndpointTypesByModel(allowed map[string]struct{}) (m
 	// Union of endpoint types inferred from model names present in availability.
 	models := map[string]struct{}{}
 	availModels, err := queryRowsErr(h.db, `
-		SELECT DISTINCT model_name AS model_name FROM model_availability WHERE COALESCE(available, 0) = 1
+		SELECT DISTINCT model_name AS model_name FROM model_availability WHERE COALESCE(available, false) = true
 		UNION
-		SELECT DISTINCT model_name AS model_name FROM token_model_availability WHERE COALESCE(available, 0) = 1
+		SELECT DISTINCT model_name AS model_name FROM token_model_availability WHERE COALESCE(available, false) = true
 	`)
 	if err != nil {
 		return nil, err

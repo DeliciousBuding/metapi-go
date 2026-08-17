@@ -202,7 +202,7 @@ func ListRedirectFixCandidates(ctx context.Context, db *sqlx.DB) ([]RedirectFixC
 		INNER JOIN sites s ON s.id = sdm.site_id
 		WHERE EXISTS (
 			SELECT 1 FROM model_availability ma
-			WHERE ma.account_id = r.account_id AND ma.model_name = r.actual AND ma.available = 1
+			WHERE ma.account_id = r.account_id AND ma.model_name = r.actual AND ma.available = true
 		)
 		ORDER BY s.name ASC, sdm.model_name ASC`))
 	if err != nil {
