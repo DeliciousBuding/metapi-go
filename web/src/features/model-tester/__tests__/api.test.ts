@@ -167,11 +167,69 @@ describe('runChatProbe', () => {
       doneReceived: true,
       statusCode: 200,
       latencyMs: 321,
-      chunks: 0,
       rawEvents: [truncatedBody],
       empty: false,
       error: undefined,
     })
+  })
+
+  it('extracts token usage from the bounded upstream body', async () => {
+    const truncatedBody = JSON.stringify({
+      choices: [
+        {
+          message: { content: 'upstream answer' },
+          finish_reason: 'stop',
+        },
+      ],
+      usage: {
+        prompt_tokens: 12,
+        completion_tokens: 8,
+        total_tokens: 20,
+      },
+    })
+    testChatSync.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          statusCode: 200,
+          latencyMs: 321,
+          truncatedBody,
+          error: null,
+        }),
+        { status: 200 }
+      )
+    )
+
+    const result = await runChatProbe(buildChatPayload(formValues()))
+
+    expect(result.promptTokens).toBe(12)
+    expect(result.completionTokens).toBe(8)
+    expect(result.totalTokens).toBe(20)
+  })
+
+  it('derives total tokens when the upstream omits total_tokens', async () => {
+    const truncatedBody = JSON.stringify({
+      choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }],
+      usage: { input_tokens: 5, output_tokens: 7 },
+    })
+    testChatSync.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          statusCode: 200,
+          latencyMs: 10,
+          truncatedBody,
+          error: null,
+        }),
+        { status: 200 }
+      )
+    )
+
+    const result = await runChatProbe(buildChatPayload(formValues()))
+
+    expect(result.promptTokens).toBe(5)
+    expect(result.completionTokens).toBe(7)
+    expect(result.totalTokens).toBe(12)
   })
 
   it('surfaces the harness error instead of parsing it as model content', async () => {
