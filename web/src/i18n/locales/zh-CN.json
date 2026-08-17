@@ -428,6 +428,7 @@
       "form": {
         "addTitle": "添加站点",
         "editTitle": "编辑站点",
+        "invalid": "请检查表单标红字段",
         "addDescription": "注册一个新的上游站点。",
         "editDescription": "更新站点配置。",
         "name": "名称",

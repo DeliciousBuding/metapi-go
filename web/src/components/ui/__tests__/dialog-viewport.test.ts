@@ -23,4 +23,17 @@ describe('dialog viewport safety', () => {
 
     expect(source).toMatch(/sticky\s+bottom-0/)
   })
+
+  it('DialogFooter uses an opaque background (no see-through on scroll)', () => {
+    const source = readFileSync(DIALOG_PATH, 'utf8')
+    const footerMatch = source.match(
+      /function DialogFooter[\s\S]*?className=\{cn\(([\s\S]*?)\)\}/
+    )
+    expect(footerMatch).not.toBeNull()
+    const footerClasses = footerMatch![1]
+    // Semi-transparent bg (e.g. bg-muted/70) + backdrop-blur lets scrolling
+    // content bleed through the sticky footer. Require a solid bg instead.
+    expect(footerClasses).not.toMatch(/backdrop-blur/)
+    expect(footerClasses).not.toMatch(/bg-\w+\/\d+/)
+  })
 })
