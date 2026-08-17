@@ -67,8 +67,10 @@ function nullableBoolToSelectValue(value: boolean | null): string {
   return 'disabled'
 }
 
-function selectValueToNullableBool(value: string): boolean | null {
-  if (value === 'inherit') return null
+function selectValueToNullableBool(
+  value: string | null | undefined
+): boolean | null {
+  if (value === 'inherit' || value == null) return null
   if (value === 'enabled') return true
   return false
 }
