@@ -21,6 +21,7 @@ import {
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -40,7 +41,6 @@ import {
 } from '@/components/ui/table'
 import { api } from '@/lib/api'
 import { formatInt, formatRatio } from '@/lib/format'
-import { cn } from '@/lib/utils'
 
 import { AnnouncementBanner } from '../../components/announcement-banner'
 import { StatCard } from '../../components/stat-card'
@@ -79,23 +79,22 @@ type BalanceHistoryResponse = {
 /** Tone + label for a scheduler job last-status value. */
 const SCHEDULER_STATUS_BADGE: Record<
   string,
-  { className: string; key: string }
+  { variant: 'success' | 'destructive' | 'info' | 'secondary'; key: string }
 > = {
   success: {
-    className: 'border-success/40 bg-success/10 text-success-soft-fg',
+    variant: 'success',
     key: 'dashboard.overview.scheduledTasks.statusSuccess',
   },
   failed: {
-    className:
-      'border-destructive/40 bg-destructive/10 text-destructive-soft-fg',
+    variant: 'destructive',
     key: 'dashboard.overview.scheduledTasks.statusFailed',
   },
   running: {
-    className: 'border-info/40 bg-info/10 text-info-soft-fg',
+    variant: 'info',
     key: 'dashboard.overview.scheduledTasks.statusRunning',
   },
   never: {
-    className: 'border-border bg-muted text-muted-foreground',
+    variant: 'secondary',
     key: 'dashboard.overview.scheduledTasks.statusNever',
   },
 }
@@ -223,9 +222,6 @@ export function OverviewSection() {
             const status =
               SCHEDULER_STATUS_BADGE[row.lastStatus ?? ''] ??
               SCHEDULER_STATUS_BADGE.never
-            const enabledClassName = row.enabled
-              ? 'border-success/40 bg-success/10 text-success-soft-fg'
-              : 'border-border bg-muted text-muted-foreground'
             const enabledLabel = row.enabled
               ? t('dashboard.overview.scheduledTasks.enabled')
               : t('dashboard.overview.scheduledTasks.disabled')
@@ -233,24 +229,12 @@ export function OverviewSection() {
               <TableRow key={row.job}>
                 <TableCell className='font-medium'>{row.job}</TableCell>
                 <TableCell>
-                  <span
-                    className={cn(
-                      'inline-flex h-5 items-center rounded-full border px-2 text-xs font-medium',
-                      enabledClassName
-                    )}
-                  >
+                  <Badge variant={row.enabled ? 'success' : 'secondary'}>
                     {enabledLabel}
-                  </span>
+                  </Badge>
                 </TableCell>
                 <TableCell>
-                  <span
-                    className={cn(
-                      'inline-flex h-5 items-center rounded-full border px-2 text-xs font-medium',
-                      status.className
-                    )}
-                  >
-                    {t(status.key)}
-                  </span>
+                  <Badge variant={status.variant}>{t(status.key)}</Badge>
                 </TableCell>
                 <TableCell className='text-right tabular-nums'>
                   {formatInt(row.runs24h)}

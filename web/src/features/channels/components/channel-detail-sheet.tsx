@@ -35,14 +35,14 @@ const STATUS_CONFIG: Record<
   ChannelStatus,
   {
     labelKey: string
-    variant: 'default' | 'warning' | 'destructive' | 'secondary'
+    variant: 'success' | 'warning' | 'destructive' | 'secondary'
     dotClass: string
     Icon: typeof CheckCircle2
   }
 > = {
   enabled: {
     labelKey: 'channels.status.enabled',
-    variant: 'default',
+    variant: 'success',
     dotClass: 'bg-success',
     Icon: CheckCircle2,
   },
@@ -161,7 +161,7 @@ export function ChannelDetailSheet({
                   </Badge>
                 </DetailRow>
                 <DetailRow label={t('channels.detail.enabled')}>
-                  <Badge variant={channel.enabled ? 'default' : 'secondary'}>
+                  <Badge variant={channel.enabled ? 'success' : 'secondary'}>
                     {channel.enabled
                       ? t('channels.detail.enabled')
                       : t('channels.detail.disabled')}

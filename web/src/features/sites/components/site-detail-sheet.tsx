@@ -103,7 +103,7 @@ export function SiteDetailSheet({
 
         <div className='flex flex-col gap-4 overflow-y-auto px-4 pb-4'>
           <div className='flex items-center gap-2'>
-            <Badge variant={status === 'active' ? 'default' : 'secondary'}>
+            <Badge variant={status === 'active' ? 'success' : 'secondary'}>
               {t(STATUS_LABEL_KEY[status])}
             </Badge>
             {site.isPinned && (

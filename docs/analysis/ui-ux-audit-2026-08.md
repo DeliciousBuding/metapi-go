@@ -1,6 +1,6 @@
 # UI/UX 与动线审计 — 多 Agent 对照（New API × All API Hub）
 
-**Last updated**: 2026-08-16
+**Last updated**: 2026-08-18
 
 > 4 个审计 agent 的对照结论聚合（动线 / 视觉 / 交互 / 功能对标）+ 实施进展。
 > 对标基线：New API v1.0.0-rc.24、All API Hub 上游 #1290、Metapi-Go v0.13.0。
@@ -56,7 +56,7 @@
 | —   | 已交付（代码） | 批量操作反馈                 | `accounts-page.tsx` / `accounts/api.ts`                             | `useBatchUpdateAccounts` 已 toast `bulkPartial`（success/failed/items）；证据见 `accounts/api.ts` |
 | 1   | 未承诺         | checkin/oauth 死复选框       | `checkin-page.tsx` / `oauth-page.tsx`                               | 审计建议：有选择列无批量操作时补操作或删列                                                        |
 | 2   | 未承诺         | 排序清除                     | `data-table/core/column-header.tsx`                                 | 审计建议：菜单加「默认顺序」或表头三态循环                                                        |
-| 3   | 未承诺         | 徽章配方收敛                 | overview/availability/checkin/accounts/routes/channels 内联状态徽章 | success/info 变体已存在，但未做全量迁移                                                           |
+| 3   | 已交付（代码） | 徽章配方收敛                 | overview/availability/checkin/accounts/routes/channels 内联状态徽章 | 全量迁移完成：正态状态 default→success 软徽章（含 routes 通道计数 success/warning/secondary 阶梯、failure-reason network/state→info/success）；dashboard 手写 pill 改 Badge variant；23 个 data-variant 回归用例守卫 |
 | 4   | 未承诺         | Stat 卡升级                  | `dashboard/components/stat-card.tsx`                                | 审计建议：IconBadge + 三档 tone + 明细子格                                                        |
 | 5   | 已交付（代码） | RealtimeSparkline 图表 token | `availability-section.tsx`                                          | 已改 `bg-chart-1/70`；`useChartColors` 已随 VChart 移除                                           |
 | 6   | 未承诺         | 行内高频操作免菜单化         | `accounts-columns.tsx`                                              | 审计建议：高频动作采用行级 pending + 成功反馈                                                     |
@@ -82,6 +82,6 @@
 
 - 动线审计：5 条动线（首次接入 / 客户端分发 / 日常巡检 / 故障处理 / 模型测试），
   全部引用文件经验证；核心发现「建完路由之后系统撒手不管」已收口（#657 接入对话框 + 完成动线 toast 改接 `/settings/downstream`）。
-- 视觉审计：25 项问题（3 P0 / 10 P1 / 12 P2），已修复 3 P0（`text-*-foreground` 透明底误用 ×6、软徽章 success/info 变体、站点 active 徽章语义统一）+ 2 P1（站点 active 软徽章、12px 软徽章对比度 AA：浅色 success/info/warning 明度下调）。
+- 视觉审计：25 项问题（3 P0 / 10 P1 / 12 P2），已修复 3 P0（`text-*-foreground` 透明底误用 ×6、软徽章 success/info 变体、站点 active 徽章语义统一）+ 2 P1（站点 active 软徽章、12px 软徽章对比度 AA：浅色 success/info/warning 明度下调）；2026-08-18 完成徽章配方收敛（P1 #3）：正态状态统一 success 软徽章、dashboard 内联配方改 Badge variant。
 - 交互审计：1 P0 / 8 P1；已修复倍率行内编辑安全网、页码钳位、导入脏确认和 404/错误边界。其余内容保留为审计观察。
 - 功能对标：已落地客户端一键导出 #657、全局搜索 #658、首页今日快照 #659、告警富化 #660；后续承诺以 MASTER 为准，不从本审计表直接派生。

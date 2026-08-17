@@ -1,9 +1,15 @@
 # log.md — Metapi Go product milestones
 
-**Last updated**: 2026-08-17
+**Last updated**: 2026-08-18
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
+
+## 2026-08-18 — 徽章配方收敛（audit P1 #3）
+
+- **正态状态软徽章全量迁移**：checkin success / accounts healthy / oauth healthy / channels enabled / routes enabled / sites active 详情卡从实心 `default` 主色块统一为 `success` 软徽章（对齐 sites-columns 既有先例）；routes 通道计数徽章改 success（全启用）/ warning（部分禁用）/ secondary（全禁用）语义阶梯；`failure-reason-badge` network/state 从 secondary+彩点改 `info`/`success` 语义变体，清理悬空注释。
+- **Dashboard 内联配方消除**：overview scheduler 表与 availability attention 列表的手写 pill（复制软徽章配方字符串的 `<span>`）改走 `Badge` 语义 variant，`overview-section` 移除 `cn` 依赖。
+- **验证**：tsgo 0 error · oxlint 0 error · vitest 514 全绿（新增 7 个 `status-badge-variants` 测试文件共 23 例，断言 Base UI `data-variant` 语义契约）· knip exit 0 · production build pass。
 
 ## 2026-08-17 — 产品品牌升级（Metapi 改名 + logo + 登录 UI）
 

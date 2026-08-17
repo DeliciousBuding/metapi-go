@@ -376,7 +376,7 @@ function ChannelRow({
           </div>
         </div>
         <div className='flex flex-col items-end gap-1'>
-          <Badge variant={channel.enabled ? 'default' : 'secondary'}>
+          <Badge variant={channel.enabled ? 'success' : 'secondary'}>
             {channel.enabled
               ? t('tokenRoutes.columns.enable')
               : t('tokenRoutes.columns.disable')}
