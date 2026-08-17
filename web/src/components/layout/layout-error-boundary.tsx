@@ -48,7 +48,7 @@ export function LayoutErrorBoundary({ error }: { error: Error }) {
     <SidebarProvider className='flex-col'>
       <SkipToMain />
       <AppHeader />
-      <div className='flex min-h-0 w-full flex-1 [--app-header-height:3.5rem]'>
+      <div className='flex min-h-0 w-full flex-1'>
         <AppSidebar />
         <SidebarInset
           id='content'
