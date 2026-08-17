@@ -138,7 +138,7 @@ func LoadSiteAPIEndpoints(db *sqlx.DB, siteIDs []int64) (map[int64][]store.SiteA
 const SiteSelectColumns = `id, name, url, external_checkin_url, platform, proxy_url, use_system_proxy,
 	custom_headers, custom_headers_override_request_headers, status, is_pinned, sort_order, global_weight, api_key, max_concurrency,
 	post_refresh_probe_enabled, post_refresh_probe_model, post_refresh_probe_scope,
-	post_refresh_probe_latency_threshold_ms, tags, cf_clearance, browser_ua, resin_enabled, created_at, updated_at`
+	post_refresh_probe_latency_threshold_ms, tags, cf_clearance, browser_ua, resin_enabled, use_utls, created_at, updated_at`
 
 // LoadSiteWithEndpoints loads a single site with its apiEndpoints attached.
 func LoadSiteWithEndpoints(db *sqlx.DB, siteID int64) (map[string]any, error) {
@@ -183,6 +183,7 @@ func siteToMap(site store.Site, endpoints []store.SiteAPIEndpoint) map[string]an
 		"browserUa":                           site.BrowserUA,
 		"cfClearance":                         site.CfClearance,
 		"resinEnabled":                        site.ResinEnabled,
+		"useUtls":                             site.UseUTLS,
 		"createdAt":                           site.CreatedAt,
 		"updatedAt":                           site.UpdatedAt,
 		"apiEndpoints":                        endpoints,
@@ -402,14 +403,19 @@ func CreateSite(db *sqlx.DB, siteData map[string]any) (int64, error) {
 
 	// Use RETURNING so PostgreSQL (no LastInsertId) and SQLite both get a real id
 	// inside the open transaction before apiEndpoints FK inserts.
+	//
+	// resin_enabled / use_utls are nullable *bool columns: nil = inherit the
+	// global RESIN_ENABLED / UTLS_ENABLED flag, true/false = per-site override.
+	// They are passed through directly from siteData (same nullable pattern as
+	// proxyUrl / customHeaders) so a missing key or JSON null stores NULL.
 	var siteID int64
 	err = tx.QueryRowx(
 		tx.Rebind(`INSERT INTO sites (name, url, platform, proxy_url, use_system_proxy, custom_headers,
 		 custom_headers_override_request_headers,
 		 external_checkin_url, status, is_pinned, sort_order, global_weight, max_concurrency,
 		 post_refresh_probe_enabled, post_refresh_probe_model, post_refresh_probe_scope,
-		 post_refresh_probe_latency_threshold_ms, browser_ua, cf_clearance, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 post_refresh_probe_latency_threshold_ms, browser_ua, cf_clearance, resin_enabled, use_utls, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 RETURNING id`),
 		name, urlStr, platform,
 		siteData["proxyUrl"], useSystemProxy, siteData["customHeaders"],
@@ -419,6 +425,7 @@ func CreateSite(db *sqlx.DB, siteData map[string]any) (int64, error) {
 		postRefreshProbeEnabled, postRefreshProbeModel,
 		postRefreshProbeScope, postRefreshProbeLatencyThresholdMs,
 		siteData["browserUa"], siteData["cfClearance"],
+		siteData["resinEnabled"], siteData["useUtls"],
 		now, now,
 	).Scan(&siteID)
 	if err != nil {
@@ -599,6 +606,8 @@ func jsonKeyToColumn(key string) string {
 		"postRefreshProbeLatencyThresholdMs":  "post_refresh_probe_latency_threshold_ms",
 		"browserUa":                          "browser_ua",
 		"cfClearance":                        "cf_clearance",
+		"resinEnabled":                       "resin_enabled",
+		"useUtls":                            "use_utls",
 	}
 	return mapping[key]
 }
