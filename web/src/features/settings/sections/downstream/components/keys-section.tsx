@@ -150,7 +150,10 @@ function keyFormValuesFromItem(
   }
 }
 
-function KeySheetForm({
+// Exported so the edit-mode behavior test can render it in isolation,
+// mirroring the AccountsRowActions export pattern. The whole KeysSection
+// remains the only public entry in the settings surface.
+export function KeySheetForm({
   editingKey,
   onDone,
 }: {
