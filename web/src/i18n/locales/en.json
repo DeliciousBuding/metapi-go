@@ -2198,13 +2198,15 @@
       },
       "recommended": "Recommended",
       "missingPrice": "No price signal",
+      "goToRoutes": "Open {{model}} in routes",
       "columns": {
         "site": "Site",
         "grade": "Grade",
         "input": "Input / 1M",
         "output": "Output / 1M",
         "effective": "Effective cost",
-        "status": "Status"
+        "status": "Status",
+        "actions": "Actions"
       }
     },
     "fixCandidates": {

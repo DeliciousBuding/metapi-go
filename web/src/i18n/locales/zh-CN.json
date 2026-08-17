@@ -2198,13 +2198,15 @@
       },
       "recommended": "推荐",
       "missingPrice": "无价格信号",
+      "goToRoutes": "在路由中打开 {{model}}",
       "columns": {
         "site": "站点",
         "grade": "等级",
         "input": "输入 / 1M",
         "output": "输出 / 1M",
         "effective": "有效成本",
-        "status": "状态"
+        "status": "状态",
+        "actions": "操作"
       }
     },
     "fixCandidates": {
