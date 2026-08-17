@@ -5,6 +5,18 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
 
+## 2026-08-18 — 多角度复审驱动：动线 dead-end 收口 + proxy-logs 过滤服务端化 + downstream key edit
+
+三轮 PM/工程师/用户只读复审（发现写入审计 doc `## 2026-08-18 多角度复审`）后，按 backlog 交付：
+
+- **Dashboard stat 卡 drilldown + 凭证导出测试链**（#828）：`StatCard` 加 `to` → `<Link>`（四卡接线 `/accounts`/`/sites`/`/checkin`/`/proxy-logs`）；`credential-export-dialog` footer 加「发送测试请求」`<Link to='/model-tester'>`，闭合 onboarding 旅程最后一步 dead-end。503 测试。
+- **Proxy-logs 列表过滤服务端化**（功能 bug，#832）：`latencyMin`/`latencyMax` + 原 silent no-op 的 `client`/`from`/`to` 全部移入 `statsHandler.proxyLogs` 共享 `where`/`args`（items/count/summary 一致，`rebindAdminQuery` 双 dialect 安全），删客户端过滤 memo；6 后端 + 3 前端测试。
+- **Settings 边缘态硬化**（#832）：keys query 错误 → `SettingsSectionError`；enable `Switch` pending 禁用 + 唯一 `aria-label`；空态内联「Create」按钮；`update-center` 错误 → `SettingsSectionError`。506 测试。
+- **Downstream key edit mode**（#835）：`KeySheetForm` 加 `editingKey`，`editKeySchema = createKeySchema.omit({ key })`（secret 不可改），调 `api.updateDownstreamApiKey`（PATCH partial update，`key`/`description` 省略以保留）；Pencil 行按钮 + 4 测试。
+- **Price-compare → routes 深链**（#835）：`PriceRow` 加 `<Link to='/token-routes' search={{ q: row.model }}>`（routes 页 `q` 匹配 `modelPattern`）+ 4 测试。514 测试。
+- **验证**：go build/vet + handler/admin 测试绿；web tsgo/oxlint/oxfmt format:check/vitest 全绿；12 项 GHA CI 全绿（#832 首跑 golangci-lint schema 拉取超时 flaky，rerun 后绿）。
+- **工作流**：多 worktree 并行 + explore 子代理先核实审计真伪（proxy-logs 过滤 bug + client/from/to silent no-op 均经核实）+ 暗卷独立复跑聚焦测试。避让并行进程的 badge-feature 文件（accounts/checkin/routes/channels 列）。
+
 ## 2026-08-18 — UI/UX 批次：账户行内操作 + header SSOT + skeleton shimmer + 徽章机械迁移
 
 - **P2 #5 收口**：导入向导 focus-first-invalid 补 4 回归用例 + 2 处 `curly` lint 修复（#824）。
