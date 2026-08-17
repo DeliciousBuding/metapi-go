@@ -98,17 +98,19 @@ func TestStatsMarketplaceBuildersPostgres(t *testing.T) {
 		t.Fatalf("load token id: %v", err)
 	}
 
-	// Seed model_availability (account-level: available=true).
+	// Seed model_availability (account-level: available=true). This table
+	// has no created_at/updated_at columns — uses checked_at TEXT instead.
 	if _, err := db.Exec(db.Rebind(
-		`INSERT INTO model_availability (account_id, model_name, available, created_at, updated_at)
-		 VALUES (?, ?, true, NOW(), NOW())`), accountID, probeModel); err != nil {
+		`INSERT INTO model_availability (account_id, model_name, available)
+		 VALUES (?, ?, true)`), accountID, probeModel); err != nil {
 		t.Fatalf("seed model_availability: %v", err)
 	}
 
-	// Seed token_model_availability (token-level: available=true).
+	// Seed token_model_availability (token-level: available=true). Same
+	// schema as model_availability — no created_at/updated_at.
 	if _, err := db.Exec(db.Rebind(
-		`INSERT INTO token_model_availability (token_id, model_name, available, created_at, updated_at)
-		 VALUES (?, ?, true, NOW(), NOW())`), tokenID, probeModel); err != nil {
+		`INSERT INTO token_model_availability (token_id, model_name, available)
+		 VALUES (?, ?, true)`), tokenID, probeModel); err != nil {
 		t.Fatalf("seed token_model_availability: %v", err)
 	}
 
