@@ -413,9 +413,7 @@ export function ImportWizardDialog({
                 <Textarea
                   id='import-source-urls'
                   ref={registerFieldRef('source')}
-                  aria-invalid={
-                    invalidFields.has('source') ? true : undefined
-                  }
+                  aria-invalid={invalidFields.has('source') ? true : undefined}
                   rows={8}
                   value={sourceText}
                   onChange={(event) => {
@@ -465,9 +463,7 @@ export function ImportWizardDialog({
                         <div className='flex items-center gap-2'>
                           <Input
                             id={`${candidate.id}-platform`}
-                            ref={registerFieldRef(
-                              `${candidate.id}-platform`
-                            )}
+                            ref={registerFieldRef(`${candidate.id}-platform`)}
                             aria-invalid={
                               invalidFields.has(`${candidate.id}-platform`)
                                 ? true

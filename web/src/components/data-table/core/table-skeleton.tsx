@@ -42,9 +42,7 @@ export function TableSkeleton<TData>({
                     'h-4 rounded-sm',
                     isSelectColumn ? 'size-4' : undefined
                   )}
-                  style={
-                    isSelectColumn ? undefined : { width: barWidthPx }
-                  }
+                  style={isSelectColumn ? undefined : { width: barWidthPx }}
                 />
               </TableCell>
             )

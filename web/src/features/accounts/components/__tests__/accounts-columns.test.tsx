@@ -88,7 +88,11 @@ const baseAccount = {
   status: 'active',
   isPinned: false,
   checkinEnabled: false,
-  capabilities: { canCheckin: false, canRefreshBalance: false, proxyOnly: false },
+  capabilities: {
+    canCheckin: false,
+    canRefreshBalance: false,
+    proxyOnly: false,
+  },
 } as unknown as Account
 
 // Actions object that mirrors the page wiring: `onToggleStatus` forwards the
@@ -170,9 +174,7 @@ describe('AccountsRowActions inline enable/disable', () => {
     )
 
     await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: 'Disable' })
-      ).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Disable' })).toBeDisabled()
     })
     expect(
       screen.getByRole('button', { name: 'Account actions' })
@@ -193,9 +195,7 @@ describe('AccountsRowActions inline enable/disable', () => {
     )
 
     await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: 'Enable' })
-      ).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Enable' })).toBeInTheDocument()
     })
     // The "Disable" label (for an active account) must not also be present.
     expect(
@@ -217,9 +217,7 @@ describe('AccountsRowActions inline enable/disable', () => {
     )
 
     await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: 'Enable' })
-      ).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Enable' })).toBeInTheDocument()
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Enable' }))
