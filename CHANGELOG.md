@@ -5,6 +5,22 @@ All notable changes to MetAPI-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.15.0] — 2026-08-17
+
+### Added
+
+- 站点表单新增 Resin 粘性代理和 uTLS 指纹的 per-site tri-state 覆盖（继承全局 / 强制开启 / 强制关闭），前端 Select 配合后端 CreateSite/UpdateSite 写入路径（#807/#809）。
+
+### Fixed
+
+- 修复 Resin `resin_enabled` 和 `use_utls` 无法通过 REST API 写入的断裂：CreateSite INSERT 补齐两列、UpdateSite `jsonKeyToColumn` 补齐映射、`SiteSelectColumns` 补齐 `use_utls` 读回（#807）。
+- 修复通知设置 hydration 不对称：`ApplyRuntimeSettings` 补齐 `smtp_secure`、`notify_cooldown_sec`、`telegram_api_base_url`、`telegram_use_system_proxy`、`telegram_message_thread_id`、`system_proxy_url` 六个读侧 case，持久化设置不再在重启后静默回退（#807）。
+- 导入流程 UX 收口：渲染 per-item 失败原因、修复无法检测 URL 时的 toast 轰炸（`skipErrorHandler`）、加入 `aria-busy`/`aria-live` 无障碍区域、修复所有 label `htmlFor`/`id` 关联和 Switch `aria-label`、补齐 `ImportSiteItem.duplicateStrategy` 类型漂移（#808）。
+
+### Chore
+
+- 新增 17 个导入流程前端测试（`parseUrlLines`/`canonicalizeUrl` 12 个 + wizard 行为 5 个）和 14 个后端测试（Resin 写入路径 7 个 + settings hydration 7 个）。
+
 ## [v0.14.0] — 2026-08-17
 
 ### Added
