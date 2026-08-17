@@ -5,6 +5,12 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
 
+## 2026-08-18 — channels 空态 CTA（复审 dead-end 收口）
+
+- **背景**：2026-08-18 多角度复审发现 channels 页空态只有标题 + 描述，无任何下一步动作；通道由账号 + 路由物化而来，空态应引导去账号页。
+- **修复**：`channels-page.tsx` 经 `DataTablePage.emptyAction`（sites/accounts/oauth 既有模式）加「管理账号」outline 按钮跳转 `/accounts`；新增 `channels.empty.manageAccounts`（en + zh-CN）。页面保持只读定位不变（CTA 为导航非变更）。
+- **验证**：新增 `channels-page-empty.test.tsx` 3 个行为用例（空态出现 CTA / 点击跳转 / 有通道后隐藏）；tsgo 0 error · oxlint 0 error · oxfmt green · vitest 全绿 · knip exit 0 · production build pass。
+
 ## 2026-08-18 — UI/UX 批次：账户行内操作 + header SSOT + skeleton shimmer + 徽章机械迁移
 
 - **P2 #5 收口**：导入向导 focus-first-invalid 补 4 回归用例 + 2 处 `curly` lint 修复（#824）。

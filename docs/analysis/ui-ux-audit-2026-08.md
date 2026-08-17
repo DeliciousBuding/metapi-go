@@ -102,7 +102,7 @@
 - `channel-detail-sheet.tsx:216` — 无 `SheetFooter`，cooldown/breaker_open 通道无「清冷却 / 探测」动作（可复用 `useClearRouteCooldown` 模式）（M）。
 - `price-compare-page.tsx:184` — `PriceRow` 无动作列，比价结果不接 route weight 编辑（`/token-routes?model=` deep-link）（S）。
 - `keys-section.tsx:296` — downstream key 仅 create/toggle/delete/export，无 edit；改名/调 `maxCost`/`allowedIps` 需删重建（轮换 key 值，破坏所有客户端）（M）。
-- `channels-page.tsx:139` — 空态无 CTA（应接 `/accounts` 或触发 `rebuildMutation`）（S）。
+- `channels-page.tsx:139` — ~~空态无 CTA（应接 `/accounts` 或触发 `rebuildMutation`）~~ 2026-08-18 已修复：空态加「管理账号」CTA（`DataTablePage.emptyAction` 既有模式，跳转 `/accounts`），3 行为用例覆盖（S）。
 - `keys-section.tsx:221` — 空态仅一行文字，无内联「Create」按钮（仅 header 有）（S）。
 - `overview-section.tsx:253` — 首次落地（0 site）无 onboarding banner/CTA（M，#828 stat-card drilldown 部分缓解）。
 
