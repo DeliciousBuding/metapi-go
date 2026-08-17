@@ -1193,6 +1193,13 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 			"proxyUrl": service.NormalizeNullable(body.ProxyURL),
 		})
 	}
+	// Remark is a free-form human-readable note. An empty/whitespace string
+	// clears the column (NULL); otherwise the trimmed value is persisted.
+	// Do not store credentials here — remark is returned in plaintext on
+	// admin list/search responses (unlike accessToken/apiToken which are masked).
+	if body.Remark != nil {
+		updates["remark"] = service.NormalizeNullable(body.Remark)
+	}
 	// Sub2API managed auth: merge top-level / nested refreshToken+tokenExpiresAt
 	// into extraConfig.sub2apiAuth without clobbering unrelated keys.
 	if service.IsSub2ApiPlatform(row.Site.Platform) {
@@ -1291,6 +1298,7 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 		"extraConfig":        updated.ExtraConfig,
 		"createdAt":          updated.CreatedAt,
 		"updatedAt":          updated.UpdatedAt,
+		"remark":             updated.Remark,
 		"credentialMode":     string(service.ResolveStoredCredentialMode(&updated)),
 		"capabilities":       caps,
 		"runtimeHealth": service.BuildRuntimeHealthForAccount(service.RuntimeHealthInput{

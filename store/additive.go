@@ -193,6 +193,16 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "sites", "use_utls", "INTEGER", "BOOLEAN", "")
 		},
 	},
+	{
+		// #804: accounts.remark — free-form human-readable note (account
+		// source, expiry, donor). Complements the machine-readable tags
+		// column. NULL means no remark. Surfaced via PUT /api/accounts/{id}.
+		Version:     "sc2_016_account_remark",
+		Description: "accounts.remark TEXT NULL — free-form human-readable note; complements tags; NULL means no remark",
+		Apply: func(db *DB) error {
+			return EnsureColumn(db, "accounts", "remark", "TEXT", "TEXT", "")
+		},
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.

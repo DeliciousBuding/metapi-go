@@ -98,6 +98,14 @@ type Account struct {
 	// Tags holds a JSON array of operator labels.
 	// NULL/empty means no tags; JSON array text like ["prod","priority"].
 	Tags *string `db:"tags" json:"tags"`
+	// Remark holds a free-form human-readable note (e.g. account source,
+	// expiry, donor). NULL means no remark. Complements the machine-readable
+	// Tags column; surfaced via PUT /api/accounts/{id}.
+	//
+	// Do not store access tokens, passwords, or other secrets here. Unlike
+	// accessToken/apiToken (masked in list views), remark is returned in
+	// plaintext on admin list/search responses.
+	Remark *string `db:"remark" json:"remark"`
 }
 
 // ---- Table 5: account_tokens ----

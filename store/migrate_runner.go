@@ -709,7 +709,7 @@ func buildAccounts(rows []map[string]interface{}) []insertStmt {
 		"quota", "unit_cost", "value_score", "status", "is_pinned", "sort_order",
 		"checkin_enabled", "last_checkin_at", "last_balance_refresh",
 		"oauth_provider", "oauth_account_key", "oauth_project_id",
-		"extra_config", "created_at", "updated_at", "tags",
+		"extra_config", "created_at", "updated_at", "tags", "remark",
 	}
 	var stmts []insertStmt
 	for _, row := range rows {
@@ -739,6 +739,7 @@ func buildAccounts(rows []map[string]interface{}) []insertStmt {
 				asNullableString(v(row, "created_at")),
 				asNullableString(v(row, "updated_at")),
 				asNullableString(v(row, "tags")),
+				asNullableString(v(row, "remark")),
 			},
 		})
 	}

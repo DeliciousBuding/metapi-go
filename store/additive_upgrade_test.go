@@ -33,6 +33,7 @@ func additiveColumns() []additiveColumnSpec {
 		{"accounts", "tags"},
 		{"sites", "tags"},
 		{"checkin_logs", "failure_reason"},
+		{"accounts", "remark"},
 	}
 }
 
