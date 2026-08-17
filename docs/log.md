@@ -5,6 +5,12 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
 
+## 2026-08-18 — channel 详情冷却清除动作（复审 dead-end 收口）
+
+- **背景**：2026-08-18 多角度复审发现 `channel-detail-sheet` 对 cooldown/breaker_open 通道只读无动作（dead-end）；同批复审的 keys-section 边缘态、update-center 错误态、proxy-logs latency 过滤 bug 经核实已由 #832 收口。
+- **修复**：`channel-detail-sheet.tsx` 增 `SheetFooter`——cooldown/breaker_open 时提供「清除路由冷却」按钮，复用 token-routes `useClearRouteCooldown`（后端 `POST /api/routes/:id/cooldown/clear` 为路由级粒度，文案如实标注作用域），pending 时禁用 + `Loader2`，成功后 invalidate channels 查询；健康通道不渲染该动作。
+- **验证**：新增 `channel-detail-sheet.test.tsx` 5 个行为用例（出现条件 ×3 / routeId 接线 / pending 守卫）；tsgo 0 error · oxlint 0 error · oxfmt green · vitest 全绿 · knip exit 0 · production build pass。
+
 ## 2026-08-18 — UI/UX 批次：账户行内操作 + header SSOT + skeleton shimmer + 徽章机械迁移
 
 - **P2 #5 收口**：导入向导 focus-first-invalid 补 4 回归用例 + 2 处 `curly` lint 修复（#824）。

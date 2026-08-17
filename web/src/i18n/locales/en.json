@@ -2288,7 +2288,9 @@
         "manualOverrideNone": "None",
         "modelsList": "Model list",
         "notAvailable": "—",
-        "never": "Never"
+        "never": "Never",
+        "clearRouteCooldown": "Clear route cooldown",
+        "clearRouteCooldownHint": "Resets cooldown and failure counts for every channel on this channel's route."
       }
     },
     "connect": {

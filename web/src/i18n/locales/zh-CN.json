@@ -2288,7 +2288,9 @@
         "manualOverrideNone": "无",
         "modelsList": "模型列表",
         "notAvailable": "—",
-        "never": "从未"
+        "never": "从未",
+        "clearRouteCooldown": "清除路由冷却",
+        "clearRouteCooldownHint": "重置该通道所属路由下全部通道的冷却与失败计数。"
       }
     },
     "connect": {
