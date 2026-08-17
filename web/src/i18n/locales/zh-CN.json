@@ -886,6 +886,7 @@
             "name": "名称",
             "group": "分组",
             "enabled": "状态",
+            "enabledAria": "切换 {{name}} 的启用状态",
             "usage": "用量",
             "actions": "操作"
           },
