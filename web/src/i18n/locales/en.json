@@ -223,7 +223,7 @@
         "empty": "Empty",
         "done": "Done",
         "latency": "Latency: {{value}}",
-        "chunks": "Chunks: {{value}}",
+        "usage": "Tokens: {{total}} ({{prompt}} in / {{completion}} out)",
         "noDone": "No done signal",
         "error": "Error",
         "emptyHint": "Send a request to see the response here.",
