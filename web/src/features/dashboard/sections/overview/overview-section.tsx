@@ -266,6 +266,7 @@ export function OverviewSection() {
           spark={accountSpark}
           icon={Users}
           loading={snapshotLoading}
+          to='/accounts'
         />
         <StatCard
           title={t('dashboard.overview.statCards.siteCount')}
@@ -275,6 +276,7 @@ export function OverviewSection() {
           hint={t('dashboard.overview.statCards.siteCountHint')}
           icon={Globe}
           loading={snapshotLoading}
+          to='/sites'
         />
         <StatCard
           title={t('dashboard.overview.statCards.todayCheckin')}
@@ -283,6 +285,7 @@ export function OverviewSection() {
           tone='success'
           details={checkinDetails}
           loading={snapshotLoading}
+          to='/checkin'
         />
         <StatCard
           title={t('dashboard.overview.statCards.proxy24h')}
@@ -292,6 +295,7 @@ export function OverviewSection() {
           hint={proxyHint}
           icon={Activity}
           loading={snapshotLoading}
+          to='/proxy-logs'
         />
       </div>
 
