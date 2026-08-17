@@ -18,6 +18,17 @@ All notable changes to Metapi-Go will be documented in this file.
 - 新增 `handler/admin/stats_marketplace_pg_test.go`（build tag `integration`）：在真实 PG 上种子 site + account + token + availability 行，调用全部四个 builder，确保 SQL 在 PG 的 BOOLEAN 类型系统下不再回归。
 - `docs/deployment.md` nginx 反代模板补齐 WebSocket upgrade 头（`proxy_http_version 1.1` + `Upgrade`/`Connection $connection_upgrade` map 模式），防止 `wss://` 握手在代理层被掐断。
 
+### Changed
+
+- 产品品牌 MetAPI → Metapi 机械改名跨 62 文件（注释 / 用户文案 / docs / i18n / electron / 脚本 / 测试 / pre-push hook）；wire 标识（`modelsOwnedBy="metapi"`）、env var 名、行为零变更。
+- logo 系统由圆角徽章文本 π 换成透明底 π 字形 + 蓝青渐变 SVG（亮 / 暗双主题单资产可读）；栅格化 `logo.png`(512) / `favicon.png`(32) / `favicon-64.png`(64)，重生成 `desktop-icon.png` / `desktop-tray-template.png`；`generate-icons.mjs` 去掉徽章时代的圆角裁剪以免切掉无徽章字形。
+- 登录页标题升 `text-3xl font-bold`，删冗余脚注段；README 顶部加透明 hero banner（`README.md` / `README_EN.md`）。
+- flat-surface 渐变护栏为品牌 logomark 开文档化 allowlist（`logo.svg` / `favicon.svg`），UI 表面仍守 OKLCH 平涂。
+
+### Added
+
+- 本地前端 Vite dev server（`vite.dev.config.ts` + `bun run dev:vite` script + `@tailwindcss/vite` / `@tanstack/router-vite-plugin` devDeps）；dev entry 经 `transformIndexHtml` 钩子 dev-only 注入，生产 Rsbuild 构建不带失效 `/src/main.tsx` script tag。
+
 ## [v0.15.0] — 2026-08-17
 
 ### Added
