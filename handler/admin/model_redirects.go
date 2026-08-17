@@ -239,7 +239,7 @@ func (h *modelRedirectHandler) generate(w http.ResponseWriter, r *http.Request) 
 		models := body.Models
 		if len(models) == 0 {
 			// Deterministic order: insertion order ≈ upstream return order.
-			rows, err := queryRowsErr(h.db, "SELECT model_name FROM model_availability WHERE account_id = ? AND available = 1 ORDER BY id ASC", body.AccountID)
+			rows, err := queryRowsErr(h.db, "SELECT model_name FROM model_availability WHERE account_id = ? AND available = true ORDER BY id ASC", body.AccountID)
 			if err != nil {
 				writeError(w, http.StatusInternalServerError, "failed to load account models")
 				return
@@ -264,7 +264,7 @@ func (h *modelRedirectHandler) generate(w http.ResponseWriter, r *http.Request) 
 		ModelName string `db:"model_name"`
 	}
 	var rows []acctModel
-	if err := h.db.Select(&rows, "SELECT account_id, model_name FROM model_availability WHERE available = 1"); err != nil {
+	if err := h.db.Select(&rows, "SELECT account_id, model_name FROM model_availability WHERE available = true"); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "generate failed: " + err.Error()})
 		return
 	}
