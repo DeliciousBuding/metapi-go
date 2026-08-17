@@ -5,6 +5,20 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.15.3] — 2026-08-17
+
+### Fixed
+
+- DialogFooter 半透明背景（`bg-muted/70 backdrop-blur-sm`）导致滚动内容穿透，改为不透明 `bg-popover`（#822）。
+- AlertDialogContent 完全没有高度约束（与 DialogContent 修复前同 bug），补齐 `max-h-[calc(100dvh-2rem)]` + `overflow-y-auto` + `flex-col`；AlertDialogFooter 同步改不透明 + `sticky bottom-0`（#822）。
+- DialogHeader 不 sticky，长表单滚动时标题/描述滚走；补 `sticky top-0` + `bg-popover`（#822）。
+- PopoverContent 无 `max-h`，长内容溢出视界；补 `max-h-(--available-height)` + `overflow-y-auto`（#822）。
+- site-form-dialog 缺 `onInvalid` handler，Zod 校验失败时静默不反馈；补 toast + i18n key `sites.form.invalid`（#822）。
+
+### Added
+
+- `dialog-viewport.test.ts` 加断言：DialogFooter 不得用 `backdrop-blur` 或半透明 `bg-*/<digit>`，防穿透回归（#822）。
+
 ## [v0.15.2] — 2026-08-17
 
 ### Fixed
