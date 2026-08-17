@@ -421,6 +421,7 @@ func GetAccountWithSiteByID(db *sqlx.DB, id int64) (*AccountWithSite, error) {
 		a.oauth_provider AS "accounts.oauth_provider", a.oauth_account_key AS "accounts.oauth_account_key",
 		a.oauth_project_id AS "accounts.oauth_project_id", a.extra_config AS "accounts.extra_config",
 		a.created_at AS "accounts.created_at", a.updated_at AS "accounts.updated_at",
+		a.remark AS "accounts.remark",
 		s.id AS "sites.id", s.name AS "sites.name", s.url AS "sites.url",
 		s.platform AS "sites.platform", s.proxy_url AS "sites.proxy_url",
 		s.use_system_proxy AS "sites.use_system_proxy",
@@ -453,6 +454,7 @@ func GetAccountWithSiteByID(db *sqlx.DB, id int64) (*AccountWithSite, error) {
 			ExtraConfig        *string  `db:"extra_config"`
 			CreatedAt          string   `db:"created_at"`
 			UpdatedAt          string   `db:"updated_at"`
+			Remark             *string `db:"remark"`
 		} `db:"accounts"`
 		Sites struct {
 			ID                                  int64   `db:"id"`
@@ -483,6 +485,7 @@ func GetAccountWithSiteByID(db *sqlx.DB, id int64) (*AccountWithSite, error) {
 			OAuthProvider: row.Accounts.OAuthProvider, OAuthAccountKey: row.Accounts.OAuthAccountKey,
 			OAuthProjectID: row.Accounts.OAuthProjectID, ExtraConfig: row.Accounts.ExtraConfig,
 			CreatedAt: row.Accounts.CreatedAt, UpdatedAt: row.Accounts.UpdatedAt,
+			Remark: row.Accounts.Remark,
 		},
 		Site: store.Site{
 			ID: row.Sites.ID, Name: row.Sites.Name,
@@ -573,6 +576,7 @@ func UpdateAccountFields(db *sqlx.DB, accountID int64, updates map[string]any) e
 		"quota":              "quota",
 		"valueScore":         "value_score",
 		"lastBalanceRefresh": "last_balance_refresh",
+		"remark":             "remark",
 	}
 
 	for key, val := range updates {

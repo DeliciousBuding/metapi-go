@@ -30,6 +30,7 @@ type OauthInfo struct {
 	TokenExpiresAt       int64                  `json:"tokenExpiresAt,omitempty"`
 	RefreshToken         string                 `json:"refreshToken,omitempty"`
 	IDToken              string                 `json:"idToken,omitempty"`
+	SessionToken         string                 `json:"sessionToken,omitempty"`
 	ProviderData         map[string]interface{} `json:"providerData,omitempty"`
 	Quota                *OauthQuotaSnapshot     `json:"quota,omitempty"`
 	ModelDiscoveryStatus OauthModelDiscoveryStatus `json:"modelDiscoveryStatus,omitempty"`
@@ -45,6 +46,7 @@ type StoredOauthState struct {
 	TokenExpiresAt       int64                  `json:"tokenExpiresAt,omitempty"`
 	RefreshToken         string                 `json:"refreshToken,omitempty"`
 	IDToken              string                 `json:"idToken,omitempty"`
+	SessionToken         string                 `json:"sessionToken,omitempty"`
 	ProviderData         map[string]interface{} `json:"providerData,omitempty"`
 	Quota                *OauthQuotaSnapshot     `json:"quota,omitempty"`
 	ModelDiscoveryStatus OauthModelDiscoveryStatus `json:"modelDiscoveryStatus,omitempty"`
@@ -69,6 +71,7 @@ type parsedOauthInfo struct {
 	TokenExpiresAt       interface{} `json:"tokenExpiresAt"`
 	RefreshToken         interface{} `json:"refreshToken"`
 	IDToken              interface{} `json:"idToken"`
+	SessionToken         interface{} `json:"sessionToken"`
 	ProviderData         interface{} `json:"providerData"`
 	Quota                interface{} `json:"quota"`
 	ModelDiscoveryStatus interface{} `json:"modelDiscoveryStatus"`
@@ -118,6 +121,7 @@ func GetOauthInfoFromExtraConfig(extraConfig *string) *OauthInfo {
 	}
 	info.RefreshToken = asNonEmptyString(o.RefreshToken)
 	info.IDToken = asNonEmptyString(o.IDToken)
+	info.SessionToken = asNonEmptyString(o.SessionToken)
 	if pd, ok := o.ProviderData.(map[string]interface{}); ok {
 		info.ProviderData = pd
 	}
@@ -205,6 +209,7 @@ func GetOauthInfoFromAccount(account *store.Account) *OauthInfo {
 		info.TokenExpiresAt = storedIdentity.TokenExpiresAt
 		info.RefreshToken = storedIdentity.RefreshToken
 		info.IDToken = storedIdentity.IDToken
+		info.SessionToken = storedIdentity.SessionToken
 		info.ProviderData = storedIdentity.ProviderData
 		info.Quota = storedIdentity.Quota
 		info.ModelDiscoveryStatus = storedIdentity.ModelDiscoveryStatus
@@ -261,6 +266,9 @@ func BuildOauthInfo(extraConfig *string, patch *OauthInfo) (*OauthInfo, error) {
 		}
 		if patch.IDToken != "" {
 			info.IDToken = patch.IDToken
+		}
+		if patch.SessionToken != "" {
+			info.SessionToken = patch.SessionToken
 		}
 		if patch.ProviderData != nil {
 			info.ProviderData = patch.ProviderData
@@ -336,6 +344,9 @@ func BuildOauthInfoFromAccount(account *store.Account, patch *OauthInfo) (*Oauth
 		if patch.IDToken != "" {
 			info.IDToken = patch.IDToken
 		}
+		if patch.SessionToken != "" {
+			info.SessionToken = patch.SessionToken
+		}
 		if patch.ProviderData != nil {
 			info.ProviderData = patch.ProviderData
 		}
@@ -363,6 +374,7 @@ func BuildStoredOauthState(oauth *OauthInfo) *StoredOauthState {
 		TokenExpiresAt:       oauth.TokenExpiresAt,
 		RefreshToken:         oauth.RefreshToken,
 		IDToken:              oauth.IDToken,
+		SessionToken:         oauth.SessionToken,
 		ProviderData:         oauth.ProviderData,
 		Quota:                oauth.Quota,
 		ModelDiscoveryStatus: oauth.ModelDiscoveryStatus,

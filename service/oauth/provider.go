@@ -60,6 +60,7 @@ type TokenSet struct {
 	PlanType       string                 `json:"planType,omitempty"`
 	ProjectID      string                 `json:"projectId,omitempty"`
 	IDToken        string                 `json:"idToken,omitempty"`
+	SessionToken   string                 `json:"sessionToken,omitempty"`
 	ProviderData   map[string]interface{} `json:"providerData,omitempty"`
 }
 
@@ -139,15 +140,36 @@ type RefreshOAuthContext struct {
 	ProviderData map[string]interface{}
 }
 
+// SessionTokenInput carries the ChatGPT web session token used by the
+// session-cookie fallback when a refresh token has been revoked but the web
+// session is still valid.
+type SessionTokenInput struct {
+	SessionToken string
+	ProxyURL     *string
+}
+
 // OAuthProviderDefinition defines the interface for an OAuth provider.
 type OAuthProviderDefinition struct {
 	Metadata ProviderMetadata `json:"metadata"`
 	Site     ProviderSiteConfig `json:"site"`
 	Loopback LoopbackConfig   `json:"loopback"`
 
-	BuildAuthorizationURL  func(ctx context.Context, input BuildAuthURLInput) (string, error)
-	ResolveRedirectURI     func(ctx context.Context, input ResolveRedirectURIInput) (string, error)
+	BuildAuthorizationURL     func(ctx context.Context, input BuildAuthURLInput) (string, error)
+	ResolveRedirectURI        func(ctx context.Context, input ResolveRedirectURIInput) (string, error)
 	ExchangeAuthorizationCode func(ctx context.Context, input ExchangeCodeInput) (*TokenSet, error)
-	RefreshAccessToken     func(ctx context.Context, input RefreshTokenInput) (*TokenSet, error)
-	BuildProxyHeaders      func(ctx context.Context, input ProxyHeaderInput) map[string]string
+	RefreshAccessToken        func(ctx context.Context, input RefreshTokenInput) (*TokenSet, error)
+	BuildProxyHeaders         func(ctx context.Context, input ProxyHeaderInput) map[string]string
+
+	// RefreshWithSessionToken is an optional capability: when non-nil, the
+	// refresh orchestrator falls back to it after a non-retryable RT refresh
+	// failure (e.g. invalid_grant). Providers that do not support a web
+	// session fallback leave this nil.
+	RefreshWithSessionToken func(ctx context.Context, input SessionTokenInput) (*TokenSet, error)
+
+	// ParseAccessToken is an optional capability: when non-nil, the refresh
+	// orchestrator uses it to recover identity fields (email, account id,
+	// plan type) that the id_token omitted, by parsing the access_token JWT.
+	// Providers whose access tokens are not JWTs or carry no identity leave
+	// this nil.
+	ParseAccessToken func(accessToken string) *AccountIdentity
 }

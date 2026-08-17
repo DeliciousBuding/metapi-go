@@ -12,7 +12,7 @@ var tableColumnCount = map[string]int{
 	"Site":                          26, // +tags (I1) +browser_ua +cf_clearance (sc2_013) +resin_enabled (sc2_014) +use_utls (sc2_015)
 	"SiteAPIEndpoint":               11,
 	"SiteDisabledModel":             4,
-	"Account":                       23, // +tags (I1)
+	"Account":                       24, // +tags (I1) +remark (#804)
 	"AccountToken":                  11,
 	"CheckinLog":                    7, // +failure_reason (sc2_012)
 	"ModelAvailability":             7,

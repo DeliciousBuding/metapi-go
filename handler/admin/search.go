@@ -37,7 +37,7 @@ const accountPublicSelectColumns = `a.id, a.site_id, a.username, a.balance, a.ba
 	a.quota, a.unit_cost, a.value_score, a.status, a.is_pinned, a.sort_order,
 	a.checkin_enabled, a.last_checkin_at, a.last_balance_refresh, a.oauth_provider,
 	a.oauth_account_key, a.oauth_project_id, a.extra_config, a.created_at,
-	a.updated_at, a.tags`
+	a.updated_at, a.tags, a.remark`
 
 // accountTokenPublicSelectColumns lists every account_tokens column EXCEPT the
 // plaintext token. Paired with credentialFragmentsSelect("at.token", ...).

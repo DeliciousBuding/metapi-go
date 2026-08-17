@@ -446,6 +446,16 @@
         "maxConcurrencyHint": "最大并发请求数（0 = 不限）。",
         "useSystemProxy": "使用系统代理",
         "useSystemProxyHint": "通过系统配置的代理路由该站点的流量。",
+        "resinEnabled": "Resin 粘性代理",
+        "resinEnabledHint": "覆盖该站点的全局 Resin 出口设置。",
+        "resinInherit": "继承全局",
+        "resinForceOn": "强制开启",
+        "resinForceOff": "强制关闭",
+        "useUtls": "uTLS 指纹",
+        "useUtlsHint": "覆盖该站点的全局 uTLS TLS 指纹设置。",
+        "utlsInherit": "继承全局",
+        "utlsForceOn": "强制开启",
+        "utlsForceOff": "强制关闭",
         "customHeaders": "自定义请求头",
         "customHeadersHint": "额外请求头的 JSON 对象。",
         "postRefreshProbeEnabled": "刷新后探测",
@@ -2129,12 +2139,14 @@
         "duplicateWarning": "该站点已存在，请选择重复项处理方式。",
         "skip": "跳过",
         "merge": "将账号合并到已有站点",
-        "missingPlatform": "请为每个站点设置平台（未知站点可手动填写）。"
+        "missingPlatform": "请为每个站点设置平台（未知站点可手动填写）。",
+        "detectionComplete": "已完成 {{count}} 个站点的检测。"
       },
       "connect": {
         "username": "用户名",
         "accessToken": "访问令牌",
-        "apiToken": "API 令牌"
+        "apiToken": "API 令牌",
+        "includeAccount": "为 {{name}} 包含账号"
       },
       "routes": {
         "hint": "导入的站点默认启用，模型发现将在后台进行；请在下方设置路由权重。",
@@ -2145,13 +2157,15 @@
         "imported": "已导入 {{count}}",
         "skipped": "已跳过 {{count}}",
         "failed": "失败 {{count}}",
-        "close": "完成"
+        "close": "完成",
+        "announce": "已导入 {{imported}}，跳过 {{skipped}}，失败 {{failed}}。"
       },
       "result": {
         "imported": "已导入",
         "merged": "已合并",
         "skipped": "已跳过",
-        "failed": "失败"
+        "failed": "失败",
+        "reason": "原因：{{reason}}"
       },
       "discard": {
         "title": "放弃本次导入？",

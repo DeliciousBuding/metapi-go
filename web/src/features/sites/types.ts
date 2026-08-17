@@ -52,6 +52,10 @@ export type Site = {
   postRefreshProbeModel?: string | null
   postRefreshProbeScope?: SiteProbeScope | null
   postRefreshProbeLatencyThresholdMs?: number | null
+  resinEnabled?: boolean | null
+  useUtls?: boolean | null
+  browserUa?: string | null
+  cfClearance?: string | null
   apiEndpoints?: SiteApiEndpoint[]
   tags?: string[]
 }
@@ -80,6 +84,8 @@ export type SiteFormPayload = {
   postRefreshProbeModel?: string
   postRefreshProbeScope?: SiteProbeScope
   postRefreshProbeLatencyThresholdMs?: number
+  resinEnabled?: boolean | null
+  useUtls?: boolean | null
 }
 
 /**
