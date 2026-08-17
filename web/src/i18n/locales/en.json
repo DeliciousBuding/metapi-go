@@ -428,6 +428,7 @@
       "form": {
         "addTitle": "Add site",
         "editTitle": "Edit site",
+        "invalid": "Please check the highlighted form fields",
         "addDescription": "Register a new upstream site.",
         "editDescription": "Update the site configuration.",
         "name": "Name",

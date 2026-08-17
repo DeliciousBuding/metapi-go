@@ -251,7 +251,12 @@ export function SiteFormDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className='grid gap-4'>
+          <form
+            onSubmit={form.handleSubmit(onSubmit, () =>
+              toast.error(t('sites.form.invalid'))
+            )}
+            className='grid gap-4'
+          >
             <div className='grid gap-4 sm:grid-cols-2'>
               <FormField
                 control={form.control}
