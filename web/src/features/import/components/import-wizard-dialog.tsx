@@ -331,7 +331,10 @@ export function ImportWizardDialog({
 
           <ImportStepper steps={steps} currentIndex={currentIndex} />
 
-          <div className='mt-2 min-h-64' aria-busy={isSubmitting || isDetecting}>
+          <div
+            className='mt-2 min-h-64'
+            aria-busy={isSubmitting || isDetecting}
+          >
             {step === 'source' && (
               <div className='grid gap-3'>
                 <Label htmlFor='import-source-urls'>

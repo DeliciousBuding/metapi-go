@@ -11,16 +11,27 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
 import '@/i18n/config'
+
 import { ImportWizardDialog } from '../components/import-wizard-dialog'
 
-const { mockDetectMutate, mockImportMutate, mockToastError } = vi.hoisted(() => ({
-  mockDetectMutate: vi.fn(),
-  mockImportMutate: vi.fn(),
-  mockToastError: vi.fn(),
-}))
+const { mockDetectMutate, mockImportMutate, mockToastError } = vi.hoisted(
+  () => ({
+    mockDetectMutate: vi.fn(),
+    mockImportMutate: vi.fn(),
+    mockToastError: vi.fn(),
+  })
+)
 
 vi.mock('../api', () => ({
   useDetectSite: () => ({ mutateAsync: mockDetectMutate, isPending: false }),

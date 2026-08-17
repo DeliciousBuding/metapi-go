@@ -17,9 +17,10 @@ describe('parseUrlLines', () => {
   })
 
   it('trims leading and trailing whitespace from each line', () => {
-    expect(
-      parseUrlLines('  https://a.com  \n\t https://b.com\t')
-    ).toEqual(['https://a.com', 'https://b.com'])
+    expect(parseUrlLines('  https://a.com  \n\t https://b.com\t')).toEqual([
+      'https://a.com',
+      'https://b.com',
+    ])
   })
 
   it('dedups exact raw lines after trimming', () => {
