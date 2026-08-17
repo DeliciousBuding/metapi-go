@@ -1195,6 +1195,8 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 	}
 	// Remark is a free-form human-readable note. An empty/whitespace string
 	// clears the column (NULL); otherwise the trimmed value is persisted.
+	// Do not store credentials here — remark is returned in plaintext on
+	// admin list/search responses (unlike accessToken/apiToken which are masked).
 	if body.Remark != nil {
 		updates["remark"] = service.NormalizeNullable(body.Remark)
 	}

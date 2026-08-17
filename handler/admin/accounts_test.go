@@ -330,6 +330,56 @@ func TestAccounts_UpdateClearsSnapshotCache(t *testing.T) {
 
 // ---- Create Account ----
 
+func TestAccounts_UpdateRemark(t *testing.T) {
+	_, r, _ := setupAccountsTest(t)
+	_, accountID := setupAccountFixture(t, r)
+	endpoint := "/api/accounts/" + strconv.FormatInt(accountID, 10)
+
+	// Set a remark.
+	setResp := doPutJSON(t, r, endpoint, map[string]any{"remark": "donor: linux.do user foo"})
+	if setResp.Code != http.StatusOK {
+		t.Fatalf("set remark: %d %s", setResp.Code, setResp.Body.String())
+	}
+	var setBody map[string]any
+	if err := json.Unmarshal(setResp.Body.Bytes(), &setBody); err != nil {
+		t.Fatalf("unmarshal set response: %v", err)
+	}
+	if got := setBody["remark"]; got != "donor: linux.do user foo" {
+		t.Fatalf("set response remark = %v, want the echoed note", got)
+	}
+
+	// The list snapshot surfaces the persisted remark.
+	listResp := doGet(t, r, "/api/accounts")
+	if listResp.Code != http.StatusOK {
+		t.Fatalf("list: %d %s", listResp.Code, listResp.Body.String())
+	}
+	var listBody struct {
+		Accounts []map[string]any `json:"accounts"`
+	}
+	if err := json.Unmarshal(listResp.Body.Bytes(), &listBody); err != nil {
+		t.Fatalf("unmarshal list: %v", err)
+	}
+	if len(listBody.Accounts) != 1 {
+		t.Fatalf("list accounts len = %d, want 1", len(listBody.Accounts))
+	}
+	if got := listBody.Accounts[0]["remark"]; got != "donor: linux.do user foo" {
+		t.Fatalf("list remark = %v, want the persisted note", got)
+	}
+
+	// Empty/whitespace remark clears the column to NULL.
+	clearResp := doPutJSON(t, r, endpoint, map[string]any{"remark": "   "})
+	if clearResp.Code != http.StatusOK {
+		t.Fatalf("clear remark: %d %s", clearResp.Code, clearResp.Body.String())
+	}
+	var clearBody map[string]any
+	if err := json.Unmarshal(clearResp.Body.Bytes(), &clearBody); err != nil {
+		t.Fatalf("unmarshal clear response: %v", err)
+	}
+	if clearBody["remark"] != nil {
+		t.Fatalf("clear response remark = %v, want nil", clearBody["remark"])
+	}
+}
+
 func TestAccounts_Create(t *testing.T) {
 	_, r, _ := setupAccountsTest(t)
 	server := newOpenAIModelsServer(t, "sk-test-create-token-12345", []string{"gpt-4o-mini"})
