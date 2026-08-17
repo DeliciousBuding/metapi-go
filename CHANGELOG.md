@@ -5,6 +5,16 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.15.2] — 2026-08-17
+
+### Fixed
+
+- 修复 DialogContent 无高度约束导致长表单（如站点注册对话框 12+ 字段）溢出视界、提交按钮不可达：给 `DialogContent` 加 `max-h-[calc(100dvh-2rem)]` + `overflow-y-auto` + `flex-col`，`DialogFooter` 加 `sticky bottom-0` + `backdrop-blur` 使操作按钮在内容滚动时始终可见（#815）。
+
+### Added
+
+- 新增 `dialog-viewport.test.ts` 静态护栏：断言 `DialogContent` 携带 `max-h` + `overflow-y-auto` 合约、`DialogFooter` 携带 `sticky bottom-0`，防止设计系统原语静默回退（#815）。
+
 ## [v0.15.1] — 2026-08-17
 
 ### Fixed
