@@ -10,6 +10,7 @@
 // badge onto the semantic status tokens, and an optional two-cell details
 // grid (label + value) for extra information density.
 
+import { Link } from '@tanstack/react-router'
 import type { LucideIcon } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -52,6 +53,8 @@ type StatCardProps = {
   /** Optional detail sub-cells (label + value) under the metric. */
   details?: StatCardDetail[]
   className?: string
+  /** When set, the whole card becomes a navigable link to this route. */
+  to?: string
 }
 
 const DETAIL_TONE_CLASSES: Record<StatCardTone, string> = {
@@ -88,8 +91,14 @@ export function StatCard(props: StatCardProps) {
   )
   const Icon = props.icon
 
-  return (
-    <Card className={cn('overflow-hidden', props.className)}>
+  const card = (
+    <Card
+      className={cn(
+        'overflow-hidden',
+        props.to && 'cursor-pointer transition-colors hover:bg-muted/50',
+        props.className
+      )}
+    >
       <CardHeader className='pb-2'>
         <div className='flex items-center gap-2'>
           {Icon ? (
@@ -179,4 +188,17 @@ export function StatCard(props: StatCardProps) {
       </CardContent>
     </Card>
   )
+
+  if (props.to) {
+    return (
+      <Link
+        to={props.to}
+        className='focus-visible:ring-ring block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-offset-2'
+      >
+        {card}
+      </Link>
+    )
+  }
+
+  return card
 }
