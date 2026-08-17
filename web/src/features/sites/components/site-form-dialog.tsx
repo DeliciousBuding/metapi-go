@@ -61,6 +61,20 @@ type SiteFormDialogProps = {
   onCreated?: (site: Site) => void
 }
 
+function nullableBoolToSelectValue(value: boolean | null): string {
+  if (value === null) return 'inherit'
+  if (value) return 'enabled'
+  return 'disabled'
+}
+
+function selectValueToNullableBool(
+  value: string | null | undefined
+): boolean | null {
+  if (value === 'inherit' || value == null) return null
+  if (value === 'enabled') return true
+  return false
+}
+
 function siteToFormValues(site: Site): SiteFormValues {
   return {
     name: site.name ?? '',
@@ -79,6 +93,8 @@ function siteToFormValues(site: Site): SiteFormValues {
       (site.postRefreshProbeScope as SiteProbeScope | undefined) ?? 'single',
     postRefreshProbeLatencyThresholdMs:
       site.postRefreshProbeLatencyThresholdMs ?? 0,
+    resinEnabled: site.resinEnabled ?? null,
+    useUtls: site.useUtls ?? null,
   }
 }
 
@@ -111,6 +127,8 @@ function buildPayload(
     postRefreshProbeScope: values.postRefreshProbeScope,
     postRefreshProbeLatencyThresholdMs:
       values.postRefreshProbeLatencyThresholdMs,
+    resinEnabled: values.resinEnabled,
+    useUtls: values.useUtls,
   }
 }
 
@@ -421,6 +439,75 @@ export function SiteFormDialog({
                 </FormItem>
               )}
             />
+
+            <div className='grid gap-4 sm:grid-cols-2'>
+              <FormField
+                control={form.control}
+                name='resinEnabled'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('sites.form.resinEnabled')}</FormLabel>
+                    <Select
+                      value={nullableBoolToSelectValue(field.value)}
+                      onValueChange={(value) =>
+                        field.onChange(selectValueToNullableBool(value))
+                      }
+                    >
+                      <SelectTrigger className='w-full'>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value='inherit'>
+                          {t('sites.form.resinInherit')}
+                        </SelectItem>
+                        <SelectItem value='enabled'>
+                          {t('sites.form.resinForceOn')}
+                        </SelectItem>
+                        <SelectItem value='disabled'>
+                          {t('sites.form.resinForceOff')}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      {t('sites.form.resinEnabledHint')}
+                    </FormDescription>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name='useUtls'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('sites.form.useUtls')}</FormLabel>
+                    <Select
+                      value={nullableBoolToSelectValue(field.value)}
+                      onValueChange={(value) =>
+                        field.onChange(selectValueToNullableBool(value))
+                      }
+                    >
+                      <SelectTrigger className='w-full'>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value='inherit'>
+                          {t('sites.form.utlsInherit')}
+                        </SelectItem>
+                        <SelectItem value='enabled'>
+                          {t('sites.form.utlsForceOn')}
+                        </SelectItem>
+                        <SelectItem value='disabled'>
+                          {t('sites.form.utlsForceOff')}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      {t('sites.form.useUtlsHint')}
+                    </FormDescription>
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <FormField
               control={form.control}
