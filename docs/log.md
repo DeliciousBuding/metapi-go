@@ -5,6 +5,14 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
 
+## 2026-08-17 — 产品品牌升级（Metapi 改名 + logo + 登录 UI）
+
+- **品牌改名**：MetAPI → Metapi 机械改名跨 62 文件（注释、用户文案、docs、i18n、SVG aria-label、electron、脚本、测试）；wire 标识（`modelsOwnedBy="metapi"`）、env var 名、行为零变更。
+- **logo 系统**：圆角徽章文本 π 换成透明底 π 字形 + 蓝青渐变 SVG（亮/暗双主题可读，单资产免切换）；栅格化 logo.png(512)/favicon.png(32)/favicon-64.png(64)，重生成 desktop-icon/desktop-tray-template；`generate-icons.mjs` 去掉徽章时代的圆角裁剪以免切掉无徽章字形。
+- **登录页**：标题升 `text-3xl font-bold`，删冗余脚注段；README 顶部加透明底 hero banner。
+- **本地开发**：新增 `vite.dev.config.ts` + `@tailwindcss/vite`/`@tanstack/router-vite-plugin` devDeps，Vite dev server 跑 :5173（index.html module script 仅 dev 用，生产仍由 Rsbuild 注入）。
+- **验证**：go build/vet 绿；web tsgo typecheck + oxlint 0 error。
+
 ## 2026-08-17 — v0.14.0 发布收口
 
 - **交付闭环**：引导链、测试台真值、路由成本真值、URL 单一所有者与 Chromium smoke 全部合并；#800/#801/#802 CI 全绿并合入 master。
