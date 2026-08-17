@@ -16,6 +16,7 @@ export type ImportSiteItem = {
   platform?: string
   globalWeight?: number
   maxConcurrency?: number
+  duplicateStrategy?: ImportDuplicateStrategy
   accounts?: ImportAccountInput[]
 }
 

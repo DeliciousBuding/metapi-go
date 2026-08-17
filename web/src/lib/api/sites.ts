@@ -20,6 +20,7 @@ export const sitesApi = {
     request('/api/sites/detect', {
       method: 'POST',
       body: JSON.stringify({ url }),
+      skipErrorHandler: true,
     }),
   importSites: (data: unknown) =>
     request('/api/sites/import', {
