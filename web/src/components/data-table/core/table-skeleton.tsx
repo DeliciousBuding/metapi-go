@@ -5,19 +5,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { TableRow, TableCell } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 
-const SKELETON_WIDTHS = [
-  '75%',
-  '60%',
-  '85%',
-  '50%',
-  '70%',
-  '90%',
-  '55%',
-  '80%',
-  '65%',
-  '45%',
-]
-
 interface TableSkeletonProps<TData> {
   table: Table<TData>
   rowCount?: number
@@ -43,11 +30,10 @@ export function TableSkeleton<TData>({
           key={`${keyPrefix}-${rowIndex}`}
           className={cn(rowHeight, 'border-b')}
         >
-          {visibleColumns.map((column, colIndex) => {
+          {visibleColumns.map((column) => {
             const isSelectColumn = column.id === 'select'
-            const widthIndex =
-              (rowIndex * visibleColumns.length + colIndex) %
-              SKELETON_WIDTHS.length
+            const columnSize = column.getSize()
+            const barWidthPx = Math.min(Math.max(columnSize * 0.6, 32), 140)
 
             return (
               <TableCell key={column.id} className='py-3'>
@@ -57,9 +43,7 @@ export function TableSkeleton<TData>({
                     isSelectColumn ? 'size-4' : undefined
                   )}
                   style={
-                    isSelectColumn
-                      ? undefined
-                      : { width: SKELETON_WIDTHS[widthIndex] }
+                    isSelectColumn ? undefined : { width: barWidthPx }
                   }
                 />
               </TableCell>

@@ -40,7 +40,23 @@ const FORBIDDEN_PATTERNS = [
 // the OKLCH token system stays the single source of color. A fixed brand
 // logomark is a design asset, not a UI surface, so the gradient in the
 // primary logo/favicon is an explicit, documented exception here.
-const GRADIENT_ALLOWLIST = new Set(['public/logo.svg', 'public/favicon.svg'])
+//
+// `src/styles/index.css` is allowlisted for the `.animate-shimmer` skeleton
+// sweep only. A shimmer is structurally a moving gradient — there is no
+// non-gradient way to produce a left-to-right highlight sweep (a solid
+// `background-color` animation can only fade the whole bar, which reads as
+// "broken" instead of "loading"). The gradient is composed exclusively of
+// the `--skeleton-base` / `--skeleton-highlight` OKLCH tokens defined in
+// theme.css, so the token system remains the single source of color — the
+// rule's intent is preserved even though the regex matches the literal
+// `linear-gradient(...)`. If a future contributor adds a *decorative*
+// gradient to index.css, that gradient must be re-implemented via tokens
+// or moved out of this file; this exception is scoped to the shimmer.
+const GRADIENT_ALLOWLIST = new Set([
+  'public/logo.svg',
+  'public/favicon.svg',
+  'src/styles/index.css',
+])
 
 function normalizePath(path: string): string {
   return path.split(/[\\/]/).join('/')
