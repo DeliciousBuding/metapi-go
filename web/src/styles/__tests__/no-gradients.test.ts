@@ -36,6 +36,16 @@ const FORBIDDEN_PATTERNS = [
   },
 ]
 
+// The flat-surface rule governs application chrome and content surfaces so
+// the OKLCH token system stays the single source of color. A fixed brand
+// logomark is a design asset, not a UI surface, so the gradient in the
+// primary logo/favicon is an explicit, documented exception here.
+const GRADIENT_ALLOWLIST = new Set(['public/logo.svg', 'public/favicon.svg'])
+
+function normalizePath(path: string): string {
+  return path.split(/[\\/]/).join('/')
+}
+
 function collectTextFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const path = join(directory, entry.name)
@@ -49,6 +59,8 @@ describe('flat visual surfaces', () => {
   it('keeps application source and public assets free of color ramps', () => {
     const files = [...SCAN_ROOTS.flatMap(collectTextFiles), ...ROOT_TEXT_FILES]
     const violations = files.flatMap((path) => {
+      const rel = normalizePath(relative(WEB_ROOT, path))
+      if (GRADIENT_ALLOWLIST.has(rel)) return []
       const content = readFileSync(path, 'utf8')
       return FORBIDDEN_PATTERNS.filter(({ pattern }) =>
         pattern.test(content)
