@@ -84,3 +84,42 @@
 - 视觉审计：25 项问题（3 P0 / 10 P1 / 12 P2），已修复 3 P0（`text-*-foreground` 透明底误用 ×6、软徽章 success/info 变体、站点 active 徽章语义统一）+ 2 P1（站点 active 软徽章、12px 软徽章对比度 AA：浅色 success/info/warning 明度下调）。
 - 交互审计：1 P0 / 8 P1；已修复倍率行内编辑安全网、页码钳位、导入脏确认和 404/错误边界。其余内容保留为审计观察。
 - 功能对标：已落地客户端一键导出 #657、全局搜索 #658、首页今日快照 #659、告警富化 #660；后续承诺以 MASTER 为准，不从本审计表直接派生。
+
+## 2026-08-18 多角度复审（PM / 程序员 / 用户）
+
+三个只读 explore 子代理从产品经理、前端工程师、真实用户角度复审 5 条主流动线 + 边缘态 + 首次接入到首次代理请求的完整旅程。引导深链链路（site → account → route → downstream key）经核实完整。下列为**未升格为承诺的观察**（证据），立项须经 [`../progress/MASTER.md`](../progress/MASTER.md) 提升并附 owner + 验收标准。
+
+### 本轮已收口（#828，待合并）
+
+- **Dashboard stat 卡 drilldown**（PM #5 / User #1 partial）：`StatCard` 加 `to` prop → `<Link>`，四张卡接线 `/accounts`/`/sites`/`/checkin`/`/proxy-logs`（S）。
+- **接入凭证导出 → 测试请求深链**（User #5）：`credential-export-dialog.tsx` footer 加 secondary 按钮 `<Link to='/model-tester'>`，闭合旅程最后一步 dead-end（S）。
+
+### 剩余观察（按主题）
+
+**动线 dead-end / 缺 CTA**
+
+- `proxy-log-detail-sheet.tsx:143-177` — channel/account/route/token ID 渲染为不可点 `#NNN`；要做 drilldown 需目标页支持 `?channelId=` 等 deep-link 过滤（M）。
+- `channel-detail-sheet.tsx:216` — 无 `SheetFooter`，cooldown/breaker_open 通道无「清冷却 / 探测」动作（可复用 `useClearRouteCooldown` 模式）（M）。
+- `price-compare-page.tsx:184` — `PriceRow` 无动作列，比价结果不接 route weight 编辑（`/token-routes?model=` deep-link）（S）。
+- `keys-section.tsx:296` — downstream key 仅 create/toggle/delete/export，无 edit；改名/调 `maxCost`/`allowedIps` 需删重建（轮换 key 值，破坏所有客户端）（M）。
+- `channels-page.tsx:139` — 空态无 CTA（应接 `/accounts` 或触发 `rebuildMutation`）（S）。
+- `keys-section.tsx:221` — 空态仅一行文字，无内联「Create」按钮（仅 header 有）（S）。
+- `overview-section.tsx:253` — 首次落地（0 site）无 onboarding banner/CTA（M，#828 stat-card drilldown 部分缓解）。
+
+**错误 / 空态处理**
+
+- `keys-section.tsx:190` — `keysQuery` 失败时 `items=[]` 渲染为「无 key」空态而非错误/重试 UI（S）。
+- `update-center-section.tsx:85` — `statusQuery` 失败渲染「version: unknown」无可区分错误提示/重试（S）。
+
+**行级 pending + a11y**
+
+- `keys-section.tsx:268` — enable `Switch` 共享一个 mutation，pending 时不禁用（可连点重复 mutate）+ 全行 `aria-label="Enabled"` 非唯一（S）。
+- `accounts/api.ts:281` — `useToggleAccountPin`/`useToggleAccountStatus`/`useToggleAccountCheckin` `onSuccess` 只 invalidate 不 toast（status 已由 #824 行内 Loader2 救场；pin/checkin 仍走下拉菜单 fire-and-forget 无反馈）（S）。
+
+**功能 bug（非 polish）**
+
+- `proxy-logs-page.tsx:200` — 「Slow only」`latencyMin`/`latencyMax` 仅客户端过滤当前页，而 `total`/`manualPagination` 用服务端未过滤计数 → 分页与总数不一致，过滤结果页间漂移；`ProxyLogsQuery`（`lib/api/types.ts:479`）无 latency 字段，需后端支持或移除该过滤（M）。
+
+### 旅程链路核实结论
+
+`?siteId=…&create=1` 深链：`resolveDeepLinkPreselect` 校验 site 后预选 + 一次性消费 + `navigate(…, replace)`；`buildAccountsHref` 保留 transient 参数直至 effect strip；`showAccountCreatedToast` → `/token-routes?accountId=…&siteId=…` → `buildChannelDraftSeed(chainContext?.accountId)`。链路完整，唯一断点是 `route-form-dialog.tsx:423`：`accountOptions.length === 0` 时（未跑 Rebuild 模型发现）silently 隐藏 `channelDrafts` 段，深链 seed 的 account 不可见（M，需空态 hint + 「先 Rebuild」指引）。
