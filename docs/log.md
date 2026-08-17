@@ -5,6 +5,12 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
 
+## 2026-08-18 — settings 375px 导航收口（audit P2 #6）
+
+- **核实 + 修复**：P2 #6 的「移动端首帧侧栏」半经核实为 stale（#712 已把 `useIsMobile` 改 `useSyncExternalStore`，首渲染同步取 matchMedia 真值，无桌面侧栏闪烁）；「settings 375px 导航」半为真——section nav 在 <lg 渲染为全宽垂直列表（system-info 等 5–7 项把首个 section 卡挤出首屏）。
+- **修复**：`settings-sidebar.tsx` 单 DOM 双形态——<lg 降级为单行横向滚动 chip 条（`overflow-x-auto` + `shrink-0`/`whitespace-nowrap`/`rounded-full`，组标题 `hidden lg:block`），lg+ 保留 sticky w-60 垂直栏；active 项补 `aria-current="page"`。
+- **验证**：新增 `settings-sidebar.test.tsx` 6 个布局契约用例（chip 条方向/溢出策略、桌面 sticky 契约、aria-current 深链归一）；tsgo 0 error · oxlint 0 error · oxfmt green · vitest 全绿 · knip exit 0 · production build pass。
+
 ## 2026-08-18 — UI/UX 批次：账户行内操作 + header SSOT + skeleton shimmer + 徽章机械迁移
 
 - **P2 #5 收口**：导入向导 focus-first-invalid 补 4 回归用例 + 2 处 `curly` lint 修复（#824）。

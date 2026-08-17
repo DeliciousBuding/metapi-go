@@ -1,13 +1,21 @@
 // metapi-go/features/settings — in-page section sidebar.
 //
-// Renders the current subarea's sections as a vertical nav. This is the
-// secondary navigation shown inside the Settings workspace: once the user has
-// drilled into a subarea (e.g. /settings/general), this sidebar lists that
-// subarea's sections and highlights the active one. It complements the main
-// app sidebar (which lists the 5 subareas themselves).
+// Renders the current subarea's sections as the secondary navigation inside
+// the Settings workspace: once the user has drilled into a subarea (e.g.
+// /settings/general), this nav lists that subarea's sections and highlights
+// the active one. It complements the main app sidebar (which lists the 5
+// subareas themselves).
 //
-// Active-state is derived from the live URL so the sidebar stays correct
-// across browser back/forward and direct deep links.
+// Responsive contract (audit P2 #6 closeout): at `lg` and above this is the
+// classic sticky vertical sidebar (w-60); below `lg` the same DOM degrades
+// into a single-row horizontally scrollable chip strip so the section nav
+// never buries the page content on a 375px viewport (a full-height vertical
+// list pushed the first section card below the fold). Group labels collapse
+// on mobile — chips are self-explanatory and labels would add scroll noise.
+//
+// Active-state is derived from the live URL so the nav stays correct across
+// browser back/forward and direct deep links; the active link additionally
+// exposes `aria-current="page"`.
 
 import { Link, useLocation } from '@tanstack/react-router'
 import { useMemo } from 'react'
@@ -19,7 +27,7 @@ import type { SettingsSectionNavItem } from '../types'
 
 type SettingsSidebarProps = {
   items: SettingsSectionNavItem[]
-  /** Optional group label rendered above the section list. */
+  /** Optional group label rendered above the section list (desktop only). */
   title?: string
 }
 
@@ -41,19 +49,19 @@ export function SettingsSidebar({ items, title }: SettingsSidebarProps) {
 
   return (
     <aside className='w-full shrink-0 lg:sticky lg:top-6 lg:w-60'>
-      <nav className='flex flex-col gap-1'>
+      <nav className='flex flex-row gap-1 overflow-x-auto lg:flex-col lg:overflow-visible'>
         {title ? (
-          <p className='text-muted-foreground/70 px-3 pb-2 text-[11px] font-medium tracking-wider uppercase'>
+          <p className='text-muted-foreground/70 hidden px-3 pb-2 text-[11px] font-medium tracking-wider uppercase lg:block'>
             {title}
           </p>
         ) : null}
         {groups.map(([groupKey, groupItems]) => (
           <div
             key={groupKey ?? '__ungrouped__'}
-            className='flex flex-col gap-1'
+            className='flex shrink-0 flex-row gap-1 lg:flex-col'
           >
             {groupKey ? (
-              <p className='text-muted-foreground/75 px-3 pt-2 pb-1 text-[11px] font-medium tracking-wider uppercase'>
+              <p className='text-muted-foreground/75 hidden px-3 pt-2 pb-1 text-[11px] font-medium tracking-wider uppercase lg:block'>
                 {t(groupKey)}
               </p>
             ) : null}
@@ -64,14 +72,15 @@ export function SettingsSidebar({ items, title }: SettingsSidebarProps) {
                 <Link
                   key={String(item.url)}
                   to={item.url}
+                  aria-current={isActive ? 'page' : undefined}
                   className={cn(
-                    'flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
+                    'flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-sm whitespace-nowrap transition-colors lg:w-full lg:rounded-md lg:py-2 lg:whitespace-normal',
                     isActive
                       ? 'bg-accent font-medium text-accent-foreground'
                       : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   )}
                 >
-                  <span className='min-w-0 flex-1 truncate'>
+                  <span className='min-w-0 truncate lg:flex-1'>
                     {t(item.title)}
                   </span>
                   {item.readonly ? (

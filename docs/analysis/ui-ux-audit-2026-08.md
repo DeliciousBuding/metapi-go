@@ -69,7 +69,7 @@
 | 3   | 已交付 #757       | 文档漂移销项                              | DESIGN.md（9 vs 10 预设）、标题 400 vs 500           | 预设数、标题字重、状态色、图表栈和 CTA 对比度已对齐实现                 |
 | 4   | 已交付（代码）    | 圆角层级 / header 高度双来源              | `app-header.tsx`、`authenticated-layout.tsx`、`layout-error-boundary.tsx` | 圆角半 stale（`data-table-view` 已用 `rounded-lg` token，无双来源）；header 高度半已收口到单一 `--app-header-height` token + 删 2 处冗余 inline re-declaration + 静态守卫 `header-height-ssot.test.ts`（#824） |
 | 5   | 已交付（代码）    | 导入向导校验失败聚焦首错字段              | `import-wizard-dialog.tsx`                           | e1991ef 落地 `markInvalidAndFocusFirst` + `aria-invalid` + per-field clear，9 用例覆盖（`import-wizard-dialog.test.tsx`）；其他表单（`account-form-dialog.tsx` 等）仍为观察 |
-| 6   | 未承诺            | 移动端首帧侧栏 / settings 375px 导航      | `use-mobile.tsx` / `settings-sidebar.tsx`            | 审计观察，按复现证据再立项                                              |
+| 6   | 已交付          | 移动端首帧侧栏 / settings 375px 导航      | `use-mobile.tsx`、`settings-sidebar.tsx`           | 两半均收口：首帧闪烁 #712 已修（`useIsMobile` 改 `useSyncExternalStore`，首渲染同步取 matchMedia 真值）；settings section nav 在 <lg 降级为横向滚动 chip 条（原全宽垂直列表把内容挤出 375px 首屏），active 项补 `aria-current="page"`，6 个布局契约用例守卫 |
 | 7   | 已交付（代码）    | 骨架屏 shimmer / 表格骨架差异化           | `index.css`、`skeleton.tsx`、`table-skeleton.tsx`    | 唤醒休眠 `--skeleton-highlight` token（`.animate-shimmer` 渐变 + reduced-motion gate，替换 `animate-pulse`）；`table-skeleton` 按 `column.getSize()` 取宽替换固定百分比池；`no-gradients` allowlist 加 `index.css` 例外（#824） |
 | 8   | 部分交付 → MASTER | Playground 会话化 + 模板库 + 批量延迟对比 | `model-tester/`                                      | #662 已交付会话化 + 模板库；批量延迟对比由 MASTER Wave 2–3 接管         |
 
