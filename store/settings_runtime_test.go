@@ -174,3 +174,82 @@ func TestApplyRuntimeSettingsDecodesNotifyTaskTogglesObject(t *testing.T) {
 		t.Fatalf("NotifyTaskToggles = %#v", cfg.NotifyTaskToggles)
 	}
 }
+
+// ---- Hydration tests for settings that were written but never read back ----
+//
+// upsertSettingDB (handler/admin/settings.go) JSON-marshals every value
+// before persisting: bools become "true"/"false", strings become
+// "\"value\"", ints become "60". ApplyRuntimeSettings must decode those
+// exact formats. These tests simulate a restart where the settings table
+// already contains persisted values and LoadRuntimeSettings feeds them
+// through ApplyRuntimeSettings.
+
+func TestApplyRuntimeSettings_SmtpSecure_ReadBack(t *testing.T) {
+	cfg := &config.Config{SmtpSecure: false}
+	ApplyRuntimeSettings(cfg, map[string]string{
+		"smtp_secure": `true`,
+	})
+	if !cfg.SmtpSecure {
+		t.Fatalf("SmtpSecure = %v, want true", cfg.SmtpSecure)
+	}
+}
+
+func TestApplyRuntimeSettings_SmtpSecure_False_ReadBack(t *testing.T) {
+	cfg := &config.Config{SmtpSecure: true}
+	ApplyRuntimeSettings(cfg, map[string]string{
+		"smtp_secure": `false`,
+	})
+	if cfg.SmtpSecure {
+		t.Fatalf("SmtpSecure = %v, want false", cfg.SmtpSecure)
+	}
+}
+
+func TestApplyRuntimeSettings_NotifyCooldownSec_ReadBack(t *testing.T) {
+	cfg := &config.Config{NotifyCooldownSec: 0}
+	ApplyRuntimeSettings(cfg, map[string]string{
+		"notify_cooldown_sec": `120`,
+	})
+	if cfg.NotifyCooldownSec != 120 {
+		t.Fatalf("NotifyCooldownSec = %d, want 120", cfg.NotifyCooldownSec)
+	}
+}
+
+func TestApplyRuntimeSettings_TelegramApiBaseUrl_ReadBack(t *testing.T) {
+	cfg := &config.Config{}
+	ApplyRuntimeSettings(cfg, map[string]string{
+		"telegram_api_base_url": `"https://api.telegram.local"`,
+	})
+	if cfg.TelegramApiBaseUrl != "https://api.telegram.local" {
+		t.Fatalf("TelegramApiBaseUrl = %q, want %q", cfg.TelegramApiBaseUrl, "https://api.telegram.local")
+	}
+}
+
+func TestApplyRuntimeSettings_TelegramUseSystemProxy_ReadBack(t *testing.T) {
+	cfg := &config.Config{TelegramUseSystemProxy: false}
+	ApplyRuntimeSettings(cfg, map[string]string{
+		"telegram_use_system_proxy": `true`,
+	})
+	if !cfg.TelegramUseSystemProxy {
+		t.Fatalf("TelegramUseSystemProxy = %v, want true", cfg.TelegramUseSystemProxy)
+	}
+}
+
+func TestApplyRuntimeSettings_TelegramMessageThreadId_ReadBack(t *testing.T) {
+	cfg := &config.Config{}
+	ApplyRuntimeSettings(cfg, map[string]string{
+		"telegram_message_thread_id": `"12345"`,
+	})
+	if cfg.TelegramMessageThreadId != "12345" {
+		t.Fatalf("TelegramMessageThreadId = %q, want %q", cfg.TelegramMessageThreadId, "12345")
+	}
+}
+
+func TestApplyRuntimeSettings_SystemProxyUrl_ReadBack(t *testing.T) {
+	cfg := &config.Config{}
+	ApplyRuntimeSettings(cfg, map[string]string{
+		"system_proxy_url": `"http://proxy.local:8080"`,
+	})
+	if cfg.SystemProxyUrl != "http://proxy.local:8080" {
+		t.Fatalf("SystemProxyUrl = %q, want %q", cfg.SystemProxyUrl, "http://proxy.local:8080")
+	}
+}

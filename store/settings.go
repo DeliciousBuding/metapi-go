@@ -169,6 +169,12 @@ func ApplyRuntimeSettings(cfg *config.Config, settingsMap map[string]string) {
 		case "serverchan_enabled":
 			cfg.ServerChanEnabled = parseBoolSetting(value, cfg.ServerChanEnabled)
 
+		// Notify: General
+		case "notify_cooldown_sec":
+			cfg.NotifyCooldownSec = parseInt(value, cfg.NotifyCooldownSec)
+		case "system_proxy_url":
+			cfg.SystemProxyUrl = parseJSONSettingString(value)
+
 		// Telegram
 		case "telegram_enabled":
 			cfg.TelegramEnabled = parseBoolSetting(value, cfg.TelegramEnabled)
@@ -176,6 +182,12 @@ func ApplyRuntimeSettings(cfg *config.Config, settingsMap map[string]string) {
 			cfg.TelegramBotToken = parseJSONSettingString(value)
 		case "telegram_chat_id":
 			cfg.TelegramChatId = parseJSONSettingString(value)
+		case "telegram_api_base_url":
+			cfg.TelegramApiBaseUrl = parseJSONSettingString(value)
+		case "telegram_use_system_proxy":
+			cfg.TelegramUseSystemProxy = parseBoolSetting(value, cfg.TelegramUseSystemProxy)
+		case "telegram_message_thread_id":
+			cfg.TelegramMessageThreadId = parseJSONSettingString(value)
 
 		// SMTP
 		case "smtp_enabled":
@@ -192,6 +204,8 @@ func ApplyRuntimeSettings(cfg *config.Config, settingsMap map[string]string) {
 			cfg.SmtpFrom = parseJSONSettingString(value)
 		case "smtp_to":
 			cfg.SmtpTo = parseJSONSettingString(value)
+		case "smtp_secure":
+			cfg.SmtpSecure = parseBoolSetting(value, cfg.SmtpSecure)
 
 		// Log cleanup
 		case "log_cleanup.usage_logs_enabled":
@@ -285,7 +299,7 @@ func ApplyRuntimeSettings(cfg *config.Config, settingsMap map[string]string) {
 
 		default:
 			// Unknown setting — silently skip.
-			// Future: system_proxy_url, routing weights, admin_ip_allowlist, etc.
+			// Future: routing weights, admin_ip_allowlist, etc.
 		}
 	}
 }
