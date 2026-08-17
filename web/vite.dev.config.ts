@@ -38,6 +38,19 @@ export default defineConfig(({ mode }) => {
       TanStackRouterVite({ target: 'react', autoCodeSplitting: false }),
       tailwindcss(),
       react(),
+      // index.html is shared with the Rsbuild production build, which injects
+      // its own bundle and must NOT carry a stray /src/main.tsx module script
+      // (it would hit the SPA fallback and fail MIME checks). So the Vite dev
+      // entry is injected here, dev-only, via transformIndexHtml.
+      {
+        name: 'metapi-dev-entry-script',
+        transformIndexHtml(html) {
+          return html.replace(
+            /<\/body>/i,
+            '    <!-- Vite dev entry; production build injects via Rsbuild. -->\n    <script type="module" src="/src/main.tsx"></script>\n  </body>'
+          )
+        },
+      },
     ],
     resolve: {
       alias: {
