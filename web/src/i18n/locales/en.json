@@ -576,6 +576,11 @@
           "retry": "Retry"
         }
       },
+      "onboarding": {
+        "title": "Welcome to Metapi",
+        "description": "Create your first site to start aggregating AI APIs.",
+        "createSite": "Create site"
+      },
       "traffic": {
         "loadError": "Failed to load traffic data.",
         "incomeOutcome": {
