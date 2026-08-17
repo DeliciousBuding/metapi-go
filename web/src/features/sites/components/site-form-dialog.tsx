@@ -61,6 +61,18 @@ type SiteFormDialogProps = {
   onCreated?: (site: Site) => void
 }
 
+function nullableBoolToSelectValue(value: boolean | null): string {
+  if (value === null) return 'inherit'
+  if (value) return 'enabled'
+  return 'disabled'
+}
+
+function selectValueToNullableBool(value: string): boolean | null {
+  if (value === 'inherit') return null
+  if (value === 'enabled') return true
+  return false
+}
+
 function siteToFormValues(site: Site): SiteFormValues {
   return {
     name: site.name ?? '',
@@ -434,18 +446,10 @@ export function SiteFormDialog({
                   <FormItem>
                     <FormLabel>{t('sites.form.resinEnabled')}</FormLabel>
                     <Select
-                      value={
-                        field.value === null
-                          ? 'inherit'
-                          : field.value
-                            ? 'enabled'
-                            : 'disabled'
+                      value={nullableBoolToSelectValue(field.value)}
+                      onValueChange={(value) =>
+                        field.onChange(selectValueToNullableBool(value))
                       }
-                      onValueChange={(value) => {
-                        if (value === 'inherit') field.onChange(null)
-                        else if (value === 'enabled') field.onChange(true)
-                        else field.onChange(false)
-                      }}
                     >
                       <SelectTrigger className='w-full'>
                         <SelectValue />
@@ -475,18 +479,10 @@ export function SiteFormDialog({
                   <FormItem>
                     <FormLabel>{t('sites.form.useUtls')}</FormLabel>
                     <Select
-                      value={
-                        field.value === null
-                          ? 'inherit'
-                          : field.value
-                            ? 'enabled'
-                            : 'disabled'
+                      value={nullableBoolToSelectValue(field.value)}
+                      onValueChange={(value) =>
+                        field.onChange(selectValueToNullableBool(value))
                       }
-                      onValueChange={(value) => {
-                        if (value === 'inherit') field.onChange(null)
-                        else if (value === 'enabled') field.onChange(true)
-                        else field.onChange(false)
-                      }}
                     >
                       <SelectTrigger className='w-full'>
                         <SelectValue />
