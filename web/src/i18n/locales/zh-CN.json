@@ -2129,12 +2129,14 @@
         "duplicateWarning": "该站点已存在，请选择重复项处理方式。",
         "skip": "跳过",
         "merge": "将账号合并到已有站点",
-        "missingPlatform": "请为每个站点设置平台（未知站点可手动填写）。"
+        "missingPlatform": "请为每个站点设置平台（未知站点可手动填写）。",
+        "detectionComplete": "已完成 {{count}} 个站点的检测。"
       },
       "connect": {
         "username": "用户名",
         "accessToken": "访问令牌",
-        "apiToken": "API 令牌"
+        "apiToken": "API 令牌",
+        "includeAccount": "为 {{name}} 包含账号"
       },
       "routes": {
         "hint": "导入的站点默认启用，模型发现将在后台进行；请在下方设置路由权重。",
@@ -2145,13 +2147,15 @@
         "imported": "已导入 {{count}}",
         "skipped": "已跳过 {{count}}",
         "failed": "失败 {{count}}",
-        "close": "完成"
+        "close": "完成",
+        "announce": "已导入 {{imported}}，跳过 {{skipped}}，失败 {{failed}}。"
       },
       "result": {
         "imported": "已导入",
         "merged": "已合并",
         "skipped": "已跳过",
-        "failed": "失败"
+        "failed": "失败",
+        "reason": "原因：{{reason}}"
       },
       "discard": {
         "title": "放弃本次导入？",

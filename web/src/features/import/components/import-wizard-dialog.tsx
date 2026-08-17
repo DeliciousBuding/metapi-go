@@ -13,7 +13,7 @@ import {
   Upload as UploadIcon,
   X as XIcon,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -154,6 +154,35 @@ export function ImportWizardDialog({
   }, [sitesQuery.data])
 
   const currentIndex = STEP_ORDER.indexOf(step)
+
+  // Derived busy flags for the aria-busy region. isSubmitting covers the
+  // final POST; isDetecting covers the parallel detect fan-out.
+  const isSubmitting = importSites.isPending
+  const isDetecting = candidates.some((candidate) => candidate.detecting)
+
+  // Polite live region: announce detection completion (only on the true→false
+  // transition so the initial pre-detect render never fires a false "done")
+  // and the final imported/skipped/failed summary once results land.
+  const [liveMessage, setLiveMessage] = useState('')
+  const wasDetectingRef = useRef(false)
+  useEffect(() => {
+    if (step === 'done' && result) {
+      setLiveMessage(
+        t('import.done.announce', {
+          imported: result.imported,
+          skipped: result.skipped,
+          failed: result.failed,
+        })
+      )
+      return
+    }
+    if (step === 'identify' && wasDetectingRef.current && !isDetecting) {
+      setLiveMessage(
+        t('import.identify.detectionComplete', { count: candidates.length })
+      )
+    }
+    wasDetectingRef.current = isDetecting
+  }, [step, result, candidates.length, isDetecting, t])
 
   function reset() {
     setStep('source')
@@ -302,7 +331,7 @@ export function ImportWizardDialog({
 
           <ImportStepper steps={steps} currentIndex={currentIndex} />
 
-          <div className='mt-2 min-h-64'>
+          <div className='mt-2 min-h-64' aria-busy={isSubmitting || isDetecting}>
             {step === 'source' && (
               <div className='grid gap-3'>
                 <Label htmlFor='import-source-urls'>
@@ -333,8 +362,11 @@ export function ImportWizardDialog({
                       className='grid gap-3 rounded-lg border p-3'
                     >
                       <div className='grid gap-2'>
-                        <Label>{t('import.identify.name')}</Label>
+                        <Label htmlFor={`${candidate.id}-name`}>
+                          {t('import.identify.name')}
+                        </Label>
                         <Input
+                          id={`${candidate.id}-name`}
                           value={candidate.name}
                           onChange={(event) =>
                             updateCandidate(candidate.id, {
@@ -347,9 +379,12 @@ export function ImportWizardDialog({
                         {candidate.url}
                       </div>
                       <div className='grid gap-2'>
-                        <Label>{t('import.identify.platform')}</Label>
+                        <Label htmlFor={`${candidate.id}-platform`}>
+                          {t('import.identify.platform')}
+                        </Label>
                         <div className='flex items-center gap-2'>
                           <Input
+                            id={`${candidate.id}-platform`}
                             value={candidate.platform}
                             onChange={(event) =>
                               updateCandidate(candidate.id, {
@@ -439,13 +474,19 @@ export function ImportWizardDialog({
                             includeAccount: checked,
                           })
                         }
+                        aria-label={t('import.connect.includeAccount', {
+                          name: candidate.name,
+                        })}
                       />
                     </div>
                     {candidate.includeAccount && (
                       <div className='grid gap-2 sm:grid-cols-3'>
                         <div className='grid gap-1.5'>
-                          <Label>{t('import.connect.username')}</Label>
+                          <Label htmlFor={`${candidate.id}-username`}>
+                            {t('import.connect.username')}
+                          </Label>
                           <Input
+                            id={`${candidate.id}-username`}
                             value={candidate.username}
                             onChange={(event) =>
                               updateCandidate(candidate.id, {
@@ -455,8 +496,11 @@ export function ImportWizardDialog({
                           />
                         </div>
                         <div className='grid gap-1.5'>
-                          <Label>{t('import.connect.accessToken')}</Label>
+                          <Label htmlFor={`${candidate.id}-accessToken`}>
+                            {t('import.connect.accessToken')}
+                          </Label>
                           <Input
+                            id={`${candidate.id}-accessToken`}
                             type='password'
                             value={candidate.accessToken}
                             onChange={(event) =>
@@ -467,8 +511,11 @@ export function ImportWizardDialog({
                           />
                         </div>
                         <div className='grid gap-1.5'>
-                          <Label>{t('import.connect.apiToken')}</Label>
+                          <Label htmlFor={`${candidate.id}-apiToken`}>
+                            {t('import.connect.apiToken')}
+                          </Label>
                           <Input
+                            id={`${candidate.id}-apiToken`}
                             value={candidate.apiToken}
                             onChange={(event) =>
                               updateCandidate(candidate.id, {
@@ -503,8 +550,11 @@ export function ImportWizardDialog({
                       </div>
                     </div>
                     <div className='flex items-center gap-2'>
-                      <Label>{t('import.routes.weight')}</Label>
+                      <Label htmlFor={`${candidate.id}-weight`}>
+                        {t('import.routes.weight')}
+                      </Label>
                       <Input
+                        id={`${candidate.id}-weight`}
                         type='number'
                         min={0}
                         step={0.1}
@@ -542,10 +592,14 @@ export function ImportWizardDialog({
                   {result.results.map((item) => {
                     const badge = statusBadge(item.status)
                     const Icon = badge.icon
+                    const showReason =
+                      item.reason != null &&
+                      item.reason !== '' &&
+                      (item.status === 'failed' || item.status === 'skipped')
                     return (
                       <div
                         key={`${item.url}-${item.status}`}
-                        className='flex items-center justify-between gap-3 rounded-lg border p-2.5'
+                        className='flex items-start justify-between gap-3 rounded-lg border p-2.5'
                       >
                         <div className='min-w-0'>
                           <div className='truncate text-sm'>{item.name}</div>
@@ -553,16 +607,35 @@ export function ImportWizardDialog({
                             {item.url}
                           </div>
                         </div>
-                        <Badge variant={badge.variant}>
-                          <Icon className='size-3' />
-                          {t(badge.label)}
-                        </Badge>
+                        <div className='flex flex-col items-end gap-1'>
+                          <Badge variant={badge.variant}>
+                            <Icon className='size-3' />
+                            {t(badge.label)}
+                          </Badge>
+                          {showReason && (
+                            <span
+                              className={
+                                item.status === 'failed'
+                                  ? 'text-destructive text-xs'
+                                  : 'text-muted-foreground text-xs'
+                              }
+                            >
+                              {t('import.result.reason', {
+                                reason: item.reason,
+                              })}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     )
                   })}
                 </div>
               </div>
             )}
+          </div>
+
+          <div aria-live='polite' className='sr-only'>
+            {liveMessage}
           </div>
 
           <DialogFooter showCloseButton={false}>

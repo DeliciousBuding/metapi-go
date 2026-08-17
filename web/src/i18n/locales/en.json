@@ -2129,12 +2129,14 @@
         "duplicateWarning": "This site already exists. Choose how to handle the duplicate.",
         "skip": "Skip",
         "merge": "Merge accounts into existing site",
-        "missingPlatform": "Set a platform for every site (unknown sites stay manual)."
+        "missingPlatform": "Set a platform for every site (unknown sites stay manual).",
+        "detectionComplete": "Detection complete for {{count}} site(s)."
       },
       "connect": {
         "username": "Username",
         "accessToken": "Access token",
-        "apiToken": "API token"
+        "apiToken": "API token",
+        "includeAccount": "Include account for {{name}}"
       },
       "routes": {
         "hint": "Imported sites are created active. Model discovery runs in the background; set the routing weight below.",
@@ -2145,13 +2147,15 @@
         "imported": "Imported {{count}}",
         "skipped": "Skipped {{count}}",
         "failed": "Failed {{count}}",
-        "close": "Done"
+        "close": "Done",
+        "announce": "Imported {{imported}}, skipped {{skipped}}, failed {{failed}}."
       },
       "result": {
         "imported": "Imported",
         "merged": "Merged",
         "skipped": "Skipped",
-        "failed": "Failed"
+        "failed": "Failed",
+        "reason": "Reason: {{reason}}"
       },
       "discard": {
         "title": "Discard this import?",
