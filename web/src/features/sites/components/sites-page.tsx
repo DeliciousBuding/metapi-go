@@ -9,12 +9,13 @@
 // `/sites` route file lands its own `validateSearch`. Mobile cards are
 // handled by `DataTablePage` via the column `meta` flags.
 
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import {
   Plus as PlusIcon,
   Trash2 as Trash2Icon,
   Upload as UploadIcon,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -110,6 +111,12 @@ function buildHref(next: UrlTableStateUpdate<SitesUrlFilters>): string {
   const sortString = encodeSorting(merged.sorting)
   if (sortString) params.set('sort', sortString)
   if (merged.filters.status) params.set('status', merged.filters.status)
+  // Preserve the one-shot `create` deep-link param across table-state
+  // navigations (page-clamp / sort / filter) until the page's consumption
+  // effect strips it — mirrors the accounts page's buildAccountsHref guard
+  // for its guided-flow `siteId`/`create` params.
+  const guidedCreate = new URLSearchParams(window.location.search).get('create')
+  if (guidedCreate) params.set('create', guidedCreate)
   const queryString = params.toString()
   return queryString ? `/sites?${queryString}` : '/sites'
 }
@@ -142,6 +149,8 @@ function useSitesUrlState() {
 
 export function SitesPage() {
   const { t } = useTranslation()
+  const search = useSearch({ from: '/_authenticated/sites' })
+  const navigate = useNavigate()
   const sitesQuery = useSites()
   // The /api/sites endpoint does not include account counts; enrich the rows
   // from the already-cached accounts snapshot (the documented plan in
@@ -182,6 +191,26 @@ export function SitesPage() {
     ids: number[]
     count: number
   } | null>(null)
+
+  // Consume the one-shot `?create=1` deep link exactly once: open the create
+  // dialog (in create mode — no edit target), then strip the transient
+  // `create` param from the URL so a refetch / remount never reopens it.
+  // Mirrors the accounts page's create handling; the sites version is simpler
+  // — no `siteId` preselection, so it does not wait for the list snapshot.
+  // The `useRef` guard survives the strict-mode double-invoke and the
+  // post-navigate re-render (search.create becomes undefined).
+  const createConsumed = useRef(false)
+  useEffect(() => {
+    if (createConsumed.current || search.create !== true) return
+    setEditingSite(null)
+    setFormOpen(true)
+    createConsumed.current = true
+    navigate({
+      to: '/sites',
+      search: { ...search, create: undefined },
+      replace: true,
+    })
+  }, [search, navigate])
 
   const urlState = useSitesUrlState()
 

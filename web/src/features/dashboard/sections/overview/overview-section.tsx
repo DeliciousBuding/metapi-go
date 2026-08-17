@@ -271,7 +271,7 @@ export function OverviewSection() {
             </div>
             <Button
               className='self-start sm:self-auto'
-              render={<Link to='/sites' />}
+              render={<Link to='/sites' search={{ create: true }} />}
             >
               <Plus className='size-4' />
               {t('dashboard.onboarding.createSite')}
