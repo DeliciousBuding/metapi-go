@@ -56,9 +56,9 @@
 | —   | 已交付 #659    | attention 上提首页           | `availability-section.tsx`                                          | 首页快照横条提供 attention 直达，原「藏在第 4 个 Tab」已收口                                      |
 | —   | 已交付 #660    | 告警富化                     | `service/alert/alert.go`                                            | 3 条核心告警消息富化（受影响路由 + 替代站点 + 直达链接）                                          |
 | —   | 已交付（代码） | 批量操作反馈                 | `accounts-page.tsx` / `accounts/api.ts`                             | `useBatchUpdateAccounts` 已 toast `bulkPartial`（success/failed/items）；证据见 `accounts/api.ts` |
-| 1   | 未承诺         | 徽章配方收敛                 | overview/availability/checkin/accounts/routes/channels 内联状态徽章 | success/info 变体已存在，但未做全量迁移                                                           |
+| 1   | 部分交付（代码）| 徽章配方收敛                 | overview-section.tsx、availability-section.tsx       | #825 机械迁移：3 个手写 `<span>` 徽章 → `<Badge>` 语义变体（`SCHEDULER_STATUS_BADGE`/`SEVERITY_TONE` map `className`→`variant`）。剩余 7 处 `variant='default'+dot` → `variant='success'` 跨 accounts/checkin/routes/channels 需设计决策，按 feature 分批；`failure-reason-badge` 的 network/state 保留（文档化意图） |
 | 2   | 已交付（代码） | RealtimeSparkline 图表 token | `availability-section.tsx`                                          | 已改 `bg-chart-1/70`；`useChartColors` 已随 VChart 移除                                           |
-| 3   | 未承诺         | 行内高频操作免菜单化         | `accounts-columns.tsx`                                              | 审计建议：高频动作采用行级 pending + 成功反馈                                                     |
+| 3   | 已交付（代码）  | 行内高频操作免菜单化         | `accounts-columns.tsx`                              | #824 行内 Enable/Disable 按钮（`Power` + `Loader2` + 每行 pending via mutation `variables`，无全局锁，复用现有 i18n）；refresh/pin/checkin/edit/delete 仍走下拉菜单 |
 
 ### P2
 
@@ -67,10 +67,10 @@
 | 1   | 已交付 #744/#751  | URL 状态同步两套机制统一                  | accounts/checkin/token-routes/proxy-logs             | 页面统一 `useSearch` + `navigate`，loader 只读 `location.searchStr`     |
 | 2   | 已交付 #758       | 图标族统一（HugeIcons × lucide 同屏）     | ui 原语 vs feature 层                                | ui 原语用 HugeIcons 免费层，业务层沿用 lucide，约定写入 `web/AGENTS.md` |
 | 3   | 已交付 #757       | 文档漂移销项                              | DESIGN.md（9 vs 10 预设）、标题 400 vs 500           | 预设数、标题字重、状态色、图表栈和 CTA 对比度已对齐实现                 |
-| 4   | 未承诺            | 圆角层级 / header 高度双来源              | `data-table-view.tsx`、`app-header.tsx`、`theme.css` | 审计观察，未升格为重构任务                                              |
+| 4   | 已交付（代码）    | 圆角层级 / header 高度双来源              | `app-header.tsx`、`authenticated-layout.tsx`、`layout-error-boundary.tsx` | 圆角半 stale（`data-table-view` 已用 `rounded-lg` token，无双来源）；header 高度半已收口到单一 `--app-header-height` token + 删 2 处冗余 inline re-declaration + 静态守卫 `header-height-ssot.test.ts`（#824） |
 | 5   | 已交付（代码）    | 导入向导校验失败聚焦首错字段              | `import-wizard-dialog.tsx`                           | e1991ef 落地 `markInvalidAndFocusFirst` + `aria-invalid` + per-field clear，9 用例覆盖（`import-wizard-dialog.test.tsx`）；其他表单（`account-form-dialog.tsx` 等）仍为观察 |
 | 6   | 未承诺            | 移动端首帧侧栏 / settings 375px 导航      | `use-mobile.tsx` / `settings-sidebar.tsx`            | 审计观察，按复现证据再立项                                              |
-| 7   | 未承诺            | 骨架屏 shimmer / 表格骨架差异化           | `index.css` / `table-skeleton.tsx`                   | 纯 polish，不进入当前计划                                               |
+| 7   | 已交付（代码）    | 骨架屏 shimmer / 表格骨架差异化           | `index.css`、`skeleton.tsx`、`table-skeleton.tsx`    | 唤醒休眠 `--skeleton-highlight` token（`.animate-shimmer` 渐变 + reduced-motion gate，替换 `animate-pulse`）；`table-skeleton` 按 `column.getSize()` 取宽替换固定百分比池；`no-gradients` allowlist 加 `index.css` 例外（#824） |
 | 8   | 部分交付 → MASTER | Playground 会话化 + 模板库 + 批量延迟对比 | `model-tester/`                                      | #662 已交付会话化 + 模板库；批量延迟对比由 MASTER Wave 2–3 接管         |
 
 ### 明确不做（定位边界，见 benchmark.md）

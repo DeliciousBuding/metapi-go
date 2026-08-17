@@ -5,6 +5,16 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
 
+## 2026-08-18 — UI/UX 批次：账户行内操作 + header SSOT + skeleton shimmer + 徽章机械迁移
+
+- **P2 #5 收口**：导入向导 focus-first-invalid 补 4 回归用例 + 2 处 `curly` lint 修复（#824）。
+- **P1 #3 行内高频操作**：accounts 行内 Enable/Disable 按钮（`Power` 图标 + 每行 pending via mutation `variables`，无全局锁，复用现有 i18n），下拉菜单保留（#824）。
+- **P2 #4 header 高度 SSOT**：`app-header` `h-14` → `var(--app-header-height)`，删 2 处冗余 inline re-declaration，加静态守卫 `header-height-ssot.test.ts`；圆角半 stale 不动（#824）。
+- **P2 #7 skeleton shimmer**：唤醒休眠 `--skeleton-highlight` token（`.animate-shimmer` 渐变 + reduced-motion gate，替换 `animate-pulse`）；`table-skeleton` 按 `column.getSize()` 取宽替换固定百分比池；`no-gradients` allowlist 加 `index.css` 例外（#824）。
+- **P1 #1 徽章机械迁移**：3 个手写 `<span>` 徽章 → `<Badge>` 语义变体（overview `SCHEDULER_STATUS_BADGE` + availability `SEVERITY_TONE`，map `className`→`variant`）（#825）。剩余 7 处 `variant='default'+dot` 需设计决策，按 feature 分批。
+- **工作流**：3 worktree 并行开发（`wave-2-2`/`wave-3-2`/`wave-3-3`）+ explore 子代理核实审计真伪（P2 #4 圆角半 stale、P2 #7 valid）+ cherry-pick 合并为 PR #824；徽章机械迁移为 PR #825。
+- **验证**：tsgo 0 error · oxlint 0 error · oxfmt `format:check` green · vitest 500 全绿 · `go build`/`vet` clean · 12 项 GHA CI 全绿。
+
 ## 2026-08-18 — 导入向导 focus-first-invalid 回归覆盖 + lint 收尾
 
 - **P2 #5 收口**：`import-wizard-dialog.tsx` 的 focus-first-invalid（e1991ef 已落地 `markInvalidAndFocusFirst` + `aria-invalid` + per-field clear）补 4 个回归用例（source empty / identify missing platform / routes invalid weight / clear-on-edit），并修两处已提交 onChange clear 的 `curly` lint 错误（无行为变更）。审计观察 P2 #5 导入向导部分状态改「已交付（代码）」；`account-form-dialog.tsx` 等其他表单仍为观察。
