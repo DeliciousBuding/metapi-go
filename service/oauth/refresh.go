@@ -1,7 +1,9 @@
 package oauth
 
 import (
+	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -105,11 +107,41 @@ func doRefreshAccessToken(accountID int64) refreshResult {
 
 	proxyURL := resolveAccountProxyURL(account.SiteID, account.ExtraConfig)
 
-	refreshed, err := def.RefreshAccessToken(nil, RefreshTokenInput{
-		RefreshToken: oauth.RefreshToken,
-		OAuth:        oauthCtx,
-		ProxyURL:     proxyURL,
+	// RefreshWithRetry wraps the provider call with exponential backoff and
+	// non-retryable short-circuiting. A bounded context lets the retry loop
+	// abort during backoff if the process is shutting down; the budget
+	// comfortably fits MaxRefreshRetries (1+2+4=7s) plus one attempt's
+	// worth of network latency.
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	refreshed, err := RefreshWithRetry(ctx, func() (*TokenSet, error) {
+		return def.RefreshAccessToken(ctx, RefreshTokenInput{
+			RefreshToken: oauth.RefreshToken,
+			OAuth:        oauthCtx,
+			ProxyURL:     proxyURL,
+		})
 	})
+
+	// Chain 2: session-token fallback. When the RT refresh failed with a
+	// non-retryable error (invalid_grant etc.) and the provider exposes a
+	// session-cookie refresh capability, retry once with the stored web
+	// session token. This recovers accounts whose RT was revoked but whose
+	// ChatGPT web session is still alive — the same self-heal codex2api does.
+	if err != nil && IsNonRetryable(err) && def.RefreshWithSessionToken != nil && strings.TrimSpace(oauth.SessionToken) != "" {
+		sessionRefreshed, sessionErr := def.RefreshWithSessionToken(ctx, SessionTokenInput{
+			SessionToken: oauth.SessionToken,
+			ProxyURL:     proxyURL,
+		})
+		if sessionErr == nil {
+			refreshed = sessionRefreshed
+			err = nil
+		}
+		// On session-fallback failure, retain the original RT error so the
+		// account is marked with the root-cause (invalid_grant), not masked
+		// by a session-endpoint transport error.
+	}
+
 	if err != nil {
 		return refreshResult{AccountID: accountID, Err: err}
 	}
@@ -137,6 +169,7 @@ func doRefreshAccessToken(accountID int64) refreshResult {
 		"tokenExpiresAt": nextOauth.TokenExpiresAt,
 		"refreshToken":   nextOauth.RefreshToken,
 		"idToken":        nextOauth.IDToken,
+		"sessionToken":   nextOauth.SessionToken,
 	}
 	if nextOauth.ProviderData != nil {
 		oauthMap["providerData"] = nextOauth.ProviderData
