@@ -1582,7 +1582,8 @@
         "regexHint": "Currently using regex match (re: prefix).",
         "exactHint": "Currently using exact model match. Use re: prefix for regex.",
         "channels": "Channels (optional)",
-        "channelsHint": "Select accounts as channels for this route; they will be auto-bound on creation."
+        "channelsHint": "Select accounts as channels for this route; they will be auto-bound on creation.",
+        "channelsEmptyHint": "No channel candidates yet — accounts are discovered during the model scan. Run auto-rebuild to populate this list."
       },
       "formGroup": {
         "displayName": "External model name",

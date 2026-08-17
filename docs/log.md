@@ -5,6 +5,12 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
 
+## 2026-08-18 — route 表单 channelDrafts 旅程断点修复（复审结论收口）
+
+- **背景**：2026-08-18 旅程链路核实的唯一断点——首次模型发现（Auto-rebuild）之前 `accountOptions` 为空，`route-form-dialog` 的 channelDrafts 段被整体隐藏，引导深链 seed 的账号不可见，用户无从得知通道去哪了。
+- **修复**：channelDrafts `FormField` 恒渲染；空态改虚线框提示「账号在模型扫描时被发现」+ 内联 Auto-rebuild 按钮（复用 `useRebuildRoutes({ refreshModels: true })`，rebuild 成功后 invalidate `routeQueryKeys.all` 前缀 → candidates 查询刷新 → 列表原地出现，无需关闭表单）。
+- **验证**：新增 `route-form-dialog-channels.test.tsx` 4 个行为用例（空态提示 + rebuild 触发 + 有选项时 checkbox 列表 + 深链 seed 勾选可见）；tsgo 0 error · oxlint 0 error · oxfmt green · vitest 全绿 · knip exit 0 · production build pass。
+
 ## 2026-08-18 — UI/UX 批次：账户行内操作 + header SSOT + skeleton shimmer + 徽章机械迁移
 
 - **P2 #5 收口**：导入向导 focus-first-invalid 补 4 回归用例 + 2 处 `curly` lint 修复（#824）。

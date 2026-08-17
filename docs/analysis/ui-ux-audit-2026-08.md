@@ -122,4 +122,4 @@
 
 ### 旅程链路核实结论
 
-`?siteId=…&create=1` 深链：`resolveDeepLinkPreselect` 校验 site 后预选 + 一次性消费 + `navigate(…, replace)`；`buildAccountsHref` 保留 transient 参数直至 effect strip；`showAccountCreatedToast` → `/token-routes?accountId=…&siteId=…` → `buildChannelDraftSeed(chainContext?.accountId)`。链路完整，唯一断点是 `route-form-dialog.tsx:423`：`accountOptions.length === 0` 时（未跑 Rebuild 模型发现）silently 隐藏 `channelDrafts` 段，深链 seed 的 account 不可见（M，需空态 hint + 「先 Rebuild」指引）。
+`?siteId=…&create=1` 深链：`resolveDeepLinkPreselect` 校验 site 后预选 + 一次性消费 + `navigate(…, replace)`；`buildAccountsHref` 保留 transient 参数直至 effect strip；`showAccountCreatedToast` → `/token-routes?accountId=…&siteId=…` → `buildChannelDraftSeed(chainContext?.accountId)`。~~链路完整，唯一断点是 `route-form-dialog.tsx:423`：`accountOptions.length === 0` 时（未跑 Rebuild 模型发现）silently 隐藏 `channelDrafts` 段，深链 seed 的 account 不可见~~ 2026-08-18 已修复：channelDrafts 段恒渲染，空态显示「模型扫描后发现账号」提示 + 内联 Auto-rebuild 按钮（rebuild invalidate candidates 查询前缀，列表原地刷新），seed 账号可见性由行为用例覆盖。
