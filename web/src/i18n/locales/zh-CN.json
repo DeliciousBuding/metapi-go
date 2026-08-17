@@ -2307,6 +2307,7 @@
       "loadFailed": "接入配置加载失败。",
       "hint": "一键导入会唤起已安装的客户端；不支持导入链接的客户端请手动粘贴 JSON / 环境变量。",
       "copyFailed": "复制失败——剪贴板不可用。",
+      "testRequest": "发送测试请求",
       "toast": {
         "keyCopied": "API Key 已复制",
         "endpointCopied": "接入地址已复制",

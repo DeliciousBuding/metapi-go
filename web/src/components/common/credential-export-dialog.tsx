@@ -10,6 +10,7 @@
 // exposes an adjacent copy fallback.
 
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { Check, Copy, ExternalLink, Link2, Sparkles } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -342,6 +343,13 @@ export function CredentialExportDialog({
         {renderBody()}
 
         <DialogFooter>
+          <Button
+            variant='secondary'
+            render={<Link to='/model-tester' />}
+            onClick={() => onOpenChange(false)}
+          >
+            {t('connect.testRequest')}
+          </Button>
           <Button variant='ghost' onClick={() => onOpenChange(false)}>
             {t('settings.common.cancel')}
           </Button>

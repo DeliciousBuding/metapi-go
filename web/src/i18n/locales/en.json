@@ -2307,6 +2307,7 @@
       "loadFailed": "Failed to load credential export.",
       "hint": "Deep links open the client app if installed; JSON/env copies are pasted manually into clients that do not support import links.",
       "copyFailed": "Copy failed — clipboard unavailable.",
+      "testRequest": "Send a test request",
       "toast": {
         "keyCopied": "API key copied",
         "endpointCopied": "Endpoint copied",
