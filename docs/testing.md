@@ -16,7 +16,7 @@
 
 ## Public testbed assets
 
-- [`../testbed/compose.template.yml`](../testbed/compose.template.yml): sanitized loopback-only service template for MetAPI, New API, One API, and optional adapter targets.
+- [`../testbed/compose.template.yml`](../testbed/compose.template.yml): sanitized loopback-only service template for Metapi, New API, One API, and optional adapter targets.
 - [`../scripts/e2e/smoke.sh`](../scripts/e2e/smoke.sh): idempotent password-login chain from health and site detection through `/v1` proxying.
 - [`../scripts/e2e/verify-token-import.sh`](../scripts/e2e/verify-token-import.sh): equivalent chain for session JWTs, API keys, and management keys.
 - [`analysis/p0585-production-verification.md`](analysis/p0585-production-verification.md): operator-gated multi-channel cascade evidence procedure.

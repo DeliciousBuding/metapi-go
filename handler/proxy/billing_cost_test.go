@@ -71,7 +71,7 @@ func TestEstimateBillingCostFromUsage_NonClaudeMissingCacheRatiosStayOne(t *test
 		t.Fatalf("pricing missing: %#v", got.BillingDetails)
 	}
 
-	// Non-Claude models keep historical MetAPI fallback of 1.0 when ratios are missing.
+	// Non-Claude models keep historical Metapi fallback of 1.0 when ratios are missing.
 	if got := asFloat(t, pricing["cache_ratio"]); got != 1.0 {
 		t.Fatalf("non-claude pricing.cache_ratio=%v want 1.0", got)
 	}

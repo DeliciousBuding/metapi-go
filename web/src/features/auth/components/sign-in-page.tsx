@@ -33,16 +33,13 @@ export function SignInPage({ redirectTo }: SignInPageProps) {
             alt={metapiIdentity.name}
             className='mx-auto size-12'
           />
-          <h1 className='text-2xl font-normal tracking-tight'>
+          <h1 className='text-3xl font-bold tracking-tight'>
             {t('auth.login.brandName')}
           </h1>
           <CardDescription>{t('auth.login.brandTagline')}</CardDescription>
         </CardHeader>
         <CardContent className='grid gap-4'>
           <LoginForm redirectTo={redirectTo} />
-          <p className='text-muted-foreground text-center text-xs text-pretty'>
-            {t('auth.login.note')}
-          </p>
         </CardContent>
       </Card>
     </div>

@@ -29,7 +29,7 @@ This document states the **non-negotiable backend principles** for metapi-go. Im
 
 ### 1.3 camelCase JSON API parity with TS frontend
 
-- Wire JSON uses **camelCase** field names identical to the original MetAPI frontend expectations.
+- Wire JSON uses **camelCase** field names identical to the original Metapi frontend expectations.
 - Struct tags on API models and payloads follow `json:"fooBar"`, not snake_case, for public admin/proxy contracts.
 - Breaking renames require a versioned migration plan; silent format drift is a defect.
 
@@ -62,13 +62,13 @@ Rules of thumb:
 ### 1.6 Config via env (no prefix), matching TS names
 
 - Configuration is environment-driven (`config.Load` / `config.Get`).
-- Env var names match TS MetAPI **without** a `METAPI_` (or similar) prefix: e.g. `AUTH_TOKEN`, `PROXY_TOKEN`, `DB_TYPE`, `DB_URL`, `PORT`.
+- Env var names match TS Metapi **without** a `METAPI_` (or similar) prefix: e.g. `AUTH_TOKEN`, `PROXY_TOKEN`, `DB_TYPE`, `DB_URL`, `PORT`.
 - Defaults live in `config`; production unsafety (default tokens, weak secrets) is warned/validated, not silently accepted as secure.
 - Runtime settings that belong in DB stay in `store` settings; do not invent a second config language.
 
 ### 1.7 Feature parity with controlled evolution
 
-- Behavioral parity with original MetAPI remains the default for existing APIs.
+- Behavioral parity with original Metapi remains the default for existing APIs.
 - Enterprise upgrades (backend architecture and later) may clarify structure and fix CRITICAL defects without changing wire contracts unless the issue explicitly allows it.
 
 ### 1.8 Simplicity before abstraction

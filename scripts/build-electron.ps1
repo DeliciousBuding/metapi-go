@@ -1,4 +1,4 @@
-# Build the MetAPI Electron desktop shell (Windows).
+# Build the Metapi Electron desktop shell (Windows).
 #
 # Produces:
 #   - electron\metapi.exe                 — the Go server binary

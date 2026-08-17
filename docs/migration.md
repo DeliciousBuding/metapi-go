@@ -2,7 +2,7 @@
 
 **Last updated**: 2026-08-11
 
-This guide walks through migrating from the TypeScript MetAPI server to the Go rewrite.
+This guide walks through migrating from the TypeScript Metapi server to the Go rewrite.
 
 ## Overview
 
@@ -358,9 +358,9 @@ When implementing enterprise columns:
 
 ## Settings schema v1 migration
 
-Upgrades from the original MetAPI settings can be performed from **Settings → Scheduling → Upgrade legacy schedules**, or through `GET /api/settings/migration/preview` followed by `POST /api/settings/migration/apply`.
+Upgrades from the original Metapi settings can be performed from **Settings → Scheduling → Upgrade legacy schedules**, or through `GET /api/settings/migration/preview` followed by `POST /api/settings/migration/apply`.
 
-The migration is additive and transactional. It writes `checkin_schedule_v2`, `balance_refresh_schedule_v2`, `log_cleanup_schedule_v2`, and `settings_schema_version` only when missing. Existing `checkin_cron`, `balance_refresh_cron`, `log_cleanup_cron`, and check-in mode/window fields are preserved byte-for-byte, so an older MetAPI binary can still read the database. Re-running the migration returns `applied: 0`.
+The migration is additive and transactional. It writes `checkin_schedule_v2`, `balance_refresh_schedule_v2`, `log_cleanup_schedule_v2`, and `settings_schema_version` only when missing. Existing `checkin_cron`, `balance_refresh_cron`, `log_cleanup_cron`, and check-in mode/window fields are preserved byte-for-byte, so an older Metapi binary can still read the database. Re-running the migration returns `applied: 0`.
 
 Invalid legacy interval/window metadata is normalized only in the new semantic mirror; the legacy values are not rewritten.
 

@@ -1,4 +1,4 @@
-# Contributing to MetAPI Go
+# Contributing to Metapi Go
 
 Thanks for considering a contribution! This project follows a small, explicit
 set of rules so the master branch stays releasable at all times.
@@ -64,7 +64,7 @@ detector. The pre-push hook runs all of it automatically.
 ## Conventions to keep in mind
 
 - **API contract**: JSON responses use camelCase fields; env var names are
-  identical to the original TypeScript MetAPI (no prefix). Do not invent new
+  identical to the original TypeScript Metapi (no prefix). Do not invent new
   env var names or break the wire format.
 - **Dual dialect**: SQLite (dev/test) and PostgreSQL (production) are both
   supported — never write SQLite-only SQL. `store.Open(dialect, dsn)` is the

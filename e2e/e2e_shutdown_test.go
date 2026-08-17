@@ -1,4 +1,4 @@
-// Package e2e contains end-to-end integration tests for the MetAPI Go proxy flow.
+// Package e2e contains end-to-end integration tests for the Metapi Go proxy flow.
 package e2e
 
 import (
@@ -33,7 +33,7 @@ import (
 // Architecture:
 //   - Mock upstream that emits SSE chunks with configurable inter-chunk delay
 //     (simulates long-running streaming responses).
-//   - MetAPI proxy wired with real chi router, auth, admin, and proxy handlers.
+//   - Metapi proxy wired with real chi router, auth, admin, and proxy handlers.
 //   - Real http.Server started on a random port; shutdown triggered via
 //     srv.Shutdown(ctx) which mirrors the http.Server.Shutdown behaviour
 //     invoked by app.App.Start() on SIGTERM.

@@ -1,6 +1,6 @@
-# MetAPI Go — Engineering Rules
+# Metapi Go — Engineering Rules
 
-Go rewrite of [MetAPI](https://github.com/cita-777/metapi). Feature parity with the original TypeScript version.
+Go rewrite of [Metapi](https://github.com/cita-777/metapi). Feature parity with the original TypeScript version.
 
 ## Golden Rules
 
@@ -103,6 +103,6 @@ golangci-lint run --timeout=3m        # Lint check
 
 ## Related References
 
-- TS source: original TypeScript MetAPI repository, checked out separately when parity work needs it.
+- TS source: original TypeScript Metapi repository, checked out separately when parity work needs it.
 - Gateway fork: private deployment, not part of this public repo.
 - Ops skill: operator-local reference only. Do not publish private filesystem paths.

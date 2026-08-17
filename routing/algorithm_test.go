@@ -17,7 +17,7 @@ import (
 // This test verifies that the Go routing algorithm matches TS behavior across
 // all 3 strategies (weighted, round_robin, stable_first) and edge cases.
 //
-// Test data mirrors realistic MetAPI channel configurations across 3 sites
+// Test data mirrors realistic Metapi channel configurations across 3 sites
 // with different profiles (premium, mid-tier, budget).
 
 func staticModel(model string) func(RouteChannelCandidate) string {

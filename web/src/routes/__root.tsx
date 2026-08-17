@@ -34,7 +34,7 @@ function isDevtoolsEnabled() {
 /**
  * Keep `document.title` in sync with the current route: the deepest match's
  * `staticData.title` holds an i18n key, translated and suffixed with the
- * product name (`Accounts · MetAPI`); routes without a title fall back to the
+ * product name (`Accounts · Metapi`); routes without a title fall back to the
  * bare product name. Re-runs on navigation and on language change.
  */
 function useDocumentTitle() {

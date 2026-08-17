@@ -7,7 +7,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-func TestRequestIDFromContext_MetAPIKey(t *testing.T) {
+func TestRequestIDFromContext_MetapiKey(t *testing.T) {
 	ctx := WithRequestID(context.Background(), "req-metapi-1")
 	if got := RequestIDFromContext(ctx); got != "req-metapi-1" {
 		t.Fatalf("RequestIDFromContext = %q, want req-metapi-1", got)

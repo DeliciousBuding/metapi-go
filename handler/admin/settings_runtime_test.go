@@ -313,7 +313,7 @@ func TestSettingsRuntimeUpdateBrandingPersists(t *testing.T) {
 	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
 		"systemName":      "My Gateway",
 		"logo":            "https://example.com/logo.png",
-		"footer":          "Powered by MetAPI",
+		"footer":          "Powered by Metapi",
 		"about":           "About copy",
 		"homePageContent": "Welcome",
 		"serverAddress":   "https://gw.example.com",

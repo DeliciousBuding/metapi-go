@@ -1,6 +1,6 @@
-# MetAPI Design System
+# Metapi Design System
 
-**Product**: MetAPI admin
+**Product**: Metapi admin
 **Scope**: Enterprise ops control plane (sites, accounts, tokens, routes, monitors, logs)
 **Visual language**: GCP cloud console density + frosted glass shell + Apple detail
 **Source of truth**: this document + `web/src/styles/theme.css` + `web/src/styles/theme-presets.css` + `web/src/lib/theme-customization.ts` + `web/src/components/ui/**`
@@ -184,7 +184,7 @@ Checklist: [`a11y-checklist.md`](./a11y-checklist.md).
 | 2026-08-12 | Codified the two-tier page-title scale (landing/hub = `text-2xl`, data/list pages = `text-lg`, settings cards = `text-base` h1) so future pages stop inventing a third size                                                                                                                                                                     |
 | 2026-08-12 | DESIGN.md aligned to the shipped shadcn-OKLCH token system: documented `data-theme-*` axes, presets, glass recipe, status/focus tokens; removed stale `--color-bg*` / `--glass-*` / `--space-*` / `--content-max` contract                                                                                                                      |
 | 2026-08-11 | Settings workspace: unified section cards, dirty/save/error states, semantic schedule controls, desktop/mobile navigation, and migration confirmation flow                                                                                                                                                                                      |
-| 2026-08-11 | MetAPI brand: transparent SVG badge (real π glyph) + favicon; product label cleanup                                                                                                                                                                                                                                                             |
+| 2026-08-11 | Metapi brand: transparent SVG badge (real π glyph) + favicon; product label cleanup                                                                                                                                                                                                                                                             |
 | 2026-07-16 | Initial token freeze (indigo era)                                                                                                                                                                                                                                                                                                               |
 | 2026-07-19 | FOUC canvas, glass family, GCP primary, card density, shell glass                                                                                                                                                                                                                                                                               |
 | 2026-07-19 | Dual-theme semantic ink, purple badge, table/filter/pagination/toast retokenize                                                                                                                                                                                                                                                                 |

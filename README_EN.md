@@ -1,11 +1,15 @@
-<h1 align="center">MetAPI Go</h1>
+<p align="center">
+  <img src="docs/assets/hero.png" alt="Metapi Go" width="720">
+</p>
+
+<h1 align="center">Metapi Go</h1>
 
 <p align="center">
   <strong>The proxy for proxies — aggregate all your AI API resellers into one unified gateway</strong>
 </p>
 
 <p align="center">
-  Go rewrite of <a href="https://github.com/cita-777/metapi">MetAPI</a> · single binary · full feature parity with the TypeScript version
+  Go rewrite of <a href="https://github.com/cita-777/metapi">Metapi</a> · single binary · full feature parity with the TypeScript version
 </p>
 
 <p align="center">
@@ -76,7 +80,7 @@ Open `http://localhost:4000`.
 
 ## Frontend Architecture
 
-As of v0.9.0 the frontend uses a React stack in the same family as [New API](https://github.com/QuantumNous/new-api). Compatibility targets the original TypeScript MetAPI API contracts (camelCase fields and env var names) and SQLite/PostgreSQL data model rather than copying upstream internals. The prebuilt bundle is embedded into the single Go binary via `go:embed`; the production image ships no Node/Bun runtime.
+As of v0.9.0 the frontend uses a React stack in the same family as [New API](https://github.com/QuantumNous/new-api). Compatibility targets the original TypeScript Metapi API contracts (camelCase fields and env var names) and SQLite/PostgreSQL data model rather than copying upstream internals. The prebuilt bundle is embedded into the single Go binary via `go:embed`; the production image ships no Node/Bun runtime.
 
 - **Domain-owned feature modules**: authentication, dashboard, sites/accounts/channels, import, check-in, routing, models/tester, OAuth, observability, proxy logs, settings, and about each live under `src/features/*`. Compatibility URLs remain thin routes instead of pretending to be separate features.
 - **data-table four rendering layers plus hooks**: `core` (TanStack table primitives) + `layout` (responsive composition) + `toolbar` (filter/search/bulk actions) + `static` (local-array rendering); `hooks` owns controlled state and URL synchronization.
@@ -175,7 +179,7 @@ Dev proxy defaults to `http://localhost:4000`; override via `DEV_PROXY_TARGET` /
 
 ## Related Projects
 
-- [MetAPI (TypeScript)](https://github.com/cita-777/metapi) — Original Node.js implementation
+- [Metapi (TypeScript)](https://github.com/cita-777/metapi) — Original Node.js implementation
 
 ## Contributing & Security
 

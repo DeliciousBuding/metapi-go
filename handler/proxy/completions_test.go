@@ -26,7 +26,7 @@ func TestHandleCompletions_NonStream(t *testing.T) {
 	}
 	ch := choices[0].(map[string]any)
 	msg := ch["message"].(map[string]any)
-	if !strings.Contains(msg["content"].(string), "MetAPI Go") {
+	if !strings.Contains(msg["content"].(string), "Metapi Go") {
 		t.Errorf("content = %q", msg["content"])
 	}
 	if ch["finish_reason"] != "stop" {

@@ -1,9 +1,17 @@
-# log.md — MetAPI Go product milestones
+# log.md — Metapi Go product milestones
 
 **Last updated**: 2026-08-17
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
+
+## 2026-08-17 — 产品品牌升级（Metapi 改名 + logo + 登录 UI）
+
+- **品牌改名**：MetAPI → Metapi 机械改名跨 62 文件（注释、用户文案、docs、i18n、SVG aria-label、electron、脚本、测试）；wire 标识（`modelsOwnedBy="metapi"`）、env var 名、行为零变更。
+- **logo 系统**：圆角徽章文本 π 换成透明底 π 字形 + 蓝青渐变 SVG（亮/暗双主题可读，单资产免切换）；栅格化 logo.png(512)/favicon.png(32)/favicon-64.png(64)，重生成 desktop-icon/desktop-tray-template；`generate-icons.mjs` 去掉徽章时代的圆角裁剪以免切掉无徽章字形。
+- **登录页**：标题升 `text-3xl font-bold`，删冗余脚注段；README 顶部加透明底 hero banner。
+- **本地开发**：新增 `vite.dev.config.ts` + `@tailwindcss/vite`/`@tanstack/router-vite-plugin` devDeps，Vite dev server 跑 :5173（index.html module script 仅 dev 用，生产仍由 Rsbuild 注入）。
+- **验证**：go build/vet 绿；web tsgo typecheck + oxlint 0 error。
 
 ## 2026-08-17 — v0.14.0 发布收口
 
@@ -78,7 +86,7 @@
 - **Git workflow（GitHub Flow 落地，已实际启用）**：master 唯一长期分支 + 分支保护（要求 PR + 11 CI 检查必选 + enforce admins + 禁强推/删除）+ 仓库级 Squash-only 合并 + PR 模板；规则文档 `docs/git-workflow.md`；ci.yml 移除 paths-ignore（必选检查与跳过互斥）
 - **v0.9.0 发布补推（此前仅本地）**：本地 master 18+ commit（v0.9.0 重写 + UI completion）推上 GitHub；`v0.9.0` tag + Release 创建；CD 双跑成功 → `ghcr.io/deliciousbuding/metapi-go` 发布 `latest`/`0.9.0`/`0.9`/sha 镜像（首跑暴露 CI 盲点并修复：go:embed 需 web/dist，测试 job 构建真实前端；responses-websocket doc 指针 `.md` → 真实文档）
 - **前端修复收尾**：Base UI render prop + TanStack Link 冲突（侧栏点击 JSON circular 崩溃）→ SidebarNavLink 只透传 DOM-safe props；searchParams parse/encode 分离消除 `?sort=%5B%5D` URL 噪声；updateCenterReminder/updateCenterPresentation（501 residual 幽灵前端）删除
-- **品牌 rename → MetAPI**：display name unified (identity-branding / locales / About / index title); transparent SVG badge `logo.svg` (gradient rounded-square + real π glyph) + `favicon.svg` replace the white-background PNG; router root-file whitelist + table-driven regression test extended to `image/svg+xml`
+- **品牌 rename → Metapi**：display name unified (identity-branding / locales / About / index title); transparent SVG badge `logo.svg` (gradient rounded-square + real π glyph) + `favicon.svg` replace the white-background PNG; router root-file whitelist + table-driven regression test extended to `image/svg+xml`
 - **i18n language switcher**: header `LanguageSwitcher` dropdown (en/zh-CN) + browser auto-follow (localStorage → navigator) + `documentElement.lang`/`dir` sync via `toBcp47`; locale parity now 1381 keys each, bidirectional 0 missing
 - **URL-synced tables fix**: sites/models/oauth/site-announcements read the router location (`useLocation` + `searchStr`) so sort/pagination now update the table in place instead of waiting for an unrelated re-render
 - **Copy audit**: terminology unification (启用/停用, 额度, Check-in, 通道), internal plan codes (K1a/N9a) removed from user-visible copy, tokenRoutes toast/chain-banner concatenation bugs fixed, 9 hardcoded strings → t() (incl. TokenDance brand leak removed from the public settings copy)

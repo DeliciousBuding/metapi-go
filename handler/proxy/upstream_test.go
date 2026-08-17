@@ -896,7 +896,7 @@ func TestDispatchUpstream_MultiRetrySharesRequestIDInProxyLogsAndError(t *testin
 		// Terminal may be relayed upstream 429 or synthetic exhausted JSON depending on retry policy.
 		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
 	}
-	// When we emit MetAPI JSON errors, request_id is present; when we relay upstream
+	// When we emit Metapi JSON errors, request_id is present; when we relay upstream
 	// body, X-Request-Id may still be set if write path used writeJSONErrorWithRequest.
 	body := rec.Body.String()
 	if strings.Contains(body, `"request_id"`) && !strings.Contains(body, wantID) {

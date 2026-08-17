@@ -30,7 +30,7 @@ func main() {
 			fmt.Println("Usage: metapi [command]")
 			fmt.Println()
 			fmt.Println("Commands:")
-			fmt.Println("  (none)          Run the MetAPI server")
+			fmt.Println("  (none)          Run the Metapi server")
 			fmt.Println("  healthcheck     Run a health check and exit (for Docker HEALTHCHECK)")
 			fmt.Println("  --version, -v   Print version and exit")
 			fmt.Println("  --help, -h      Print this help and exit")

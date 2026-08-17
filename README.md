@@ -1,11 +1,15 @@
-<h1 align="center">MetAPI Go</h1>
+<p align="center">
+  <img src="docs/assets/hero.png" alt="Metapi Go" width="720">
+</p>
+
+<h1 align="center">Metapi Go</h1>
 
 <p align="center">
   <strong>中转站的中转站 — 将分散的 AI API 站点聚合为一个统一网关</strong>
 </p>
 
 <p align="center">
-  MetAPI 的 Go 语言重写 · 单二进制部署 · 与原 TypeScript 版功能对等
+  Metapi 的 Go 语言重写 · 单二进制部署 · 与原 TypeScript 版功能对等
 </p>
 
 <p align="center">
@@ -39,13 +43,13 @@
 
 把你在各处注册的 New API / One API / OneHub / DoneHub / Veloera / AnyRouter / Sub2API 等站点，汇聚成**一个 API Key、一个入口**，自动发现模型、智能路由、成本最优。
 
-MetAPI 作为中转站之上的**元聚合层**，把多个站点统一到一个入口，下游所有工具（Cursor、Claude Code、Codex、Open WebUI 等）即可无感接入全部模型。当前支持的上游范围不止传统聚合面板，还包括：
+Metapi 作为中转站之上的**元聚合层**，把多个站点统一到一个入口，下游所有工具（Cursor、Claude Code、Codex、Open WebUI 等）即可无感接入全部模型。当前支持的上游范围不止传统聚合面板，还包括：
 
 - 聚合面板：New API、One API、OneHub、DoneHub、Veloera、AnyRouter、Sub2API
 - 通用兼容接口：OpenAI、Claude、Gemini 兼容端点，以及 `cliproxyapi`
 - OAuth 连接：Codex、Claude、Gemini CLI、Antigravity
 
-| 痛点                               | MetAPI 怎么解决                                          |
+| 痛点                               | Metapi 怎么解决                                          |
 | ---------------------------------- | -------------------------------------------------------- |
 | 每个站点一个 Key，下游工具配置一堆 | **统一代理入口**，模型自动聚合到 `/v1/*`                 |
 | 不知道哪个站点用某个模型最便宜     | **智能路由**自动按成本、余额、使用率选最优通道           |
@@ -230,7 +234,7 @@ Cron 定时执行（默认每日 08:00），智能解析奖励金额，签到失
 
 ## 前端架构
 
-v0.9.0 起前端采用 [New API](https://github.com/QuantumNous/new-api) 同类的 React 技术栈重写；兼容目标是原 TypeScript 版 MetAPI 的 API 契约（camelCase 字段、env var 名）与 DB（SQLite/PG dual dialect），而不是复制上游内部结构。预构建产物经 `go:embed` 打包进单二进制，生产镜像不含 Node/Bun 运行时。
+v0.9.0 起前端采用 [New API](https://github.com/QuantumNous/new-api) 同类的 React 技术栈重写；兼容目标是原 TypeScript 版 Metapi 的 API 契约（camelCase 字段、env var 名）与 DB（SQLite/PG dual dialect），而不是复制上游内部结构。预构建产物经 `go:embed` 打包进单二进制，生产镜像不含 Node/Bun 运行时。
 
 ### 模块组织
 
@@ -243,7 +247,7 @@ v0.9.0 起前端采用 [New API](https://github.com/QuantumNous/new-api) 同类�
 
 ## 数据与隐私
 
-MetAPI 完全自托管，所有数据（账号、令牌、路由、日志）均存储在你自己的部署环境中，不会向任何第三方发送数据。代理请求仅在你的服务器与上游站点之间直连传输。
+Metapi 完全自托管，所有数据（账号、令牌、路由、日志）均存储在你自己的部署环境中，不会向任何第三方发送数据。代理请求仅在你的服务器与上游站点之间直连传输。
 
 ---
 
@@ -322,7 +326,7 @@ Dev proxy 默认指向 `http://localhost:4000`，可经 `DEV_PROXY_TARGET` / `VI
 
 ## 相关项目
 
-- [MetAPI (TypeScript)](https://github.com/cita-777/metapi)，原版 Node.js 实现
+- [Metapi (TypeScript)](https://github.com/cita-777/metapi)，原版 Node.js 实现
 - [New API](https://github.com/QuantumNous/new-api)，主要上游之一
 - [One API](https://github.com/songquanpeng/one-api)，经典 OpenAI 接口聚合
 

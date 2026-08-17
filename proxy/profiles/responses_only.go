@@ -7,7 +7,7 @@ import (
 )
 
 // Site protocol preference control headers (site.custom_headers).
-// These are configuration signals for MetAPI and must not be forwarded upstream.
+// These are configuration signals for Metapi and must not be forwarded upstream.
 const (
 	HeaderResponsesOnly       = "x-metapi-responses-only"
 	HeaderStreamOnly          = "x-metapi-stream-only"
@@ -72,7 +72,7 @@ func IsResponsesOnlySite(platform, siteURL string, customHeaders map[string]stri
 	return DetectSiteProtocolPreference(platform, siteURL, customHeaders).ResponsesOnly
 }
 
-// IsMetapiControlHeader reports whether a custom header is a MetAPI control signal
+// IsMetapiControlHeader reports whether a custom header is a Metapi control signal
 // that must not be forwarded to upstream. Only known preference keys are blocked;
 // other x-metapi-* values (e.g. operator tracing headers) still pass through.
 func IsMetapiControlHeader(name string) bool {

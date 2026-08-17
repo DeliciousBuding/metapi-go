@@ -41,7 +41,7 @@ function Test-IsWithinRoot {
     return $Path.StartsWith($normalizedRoot, [StringComparison]::OrdinalIgnoreCase)
 }
 
-function Get-MetAPIFirewallCandidates {
+function Get-MetapiFirewallCandidates {
     $tempRoots = @(
         $env:TEMP,
         (Join-Path $env:USERPROFILE 'tmp')
@@ -102,9 +102,9 @@ if ($Mode -eq 'Cleanup' -and -not (Test-IsAdministrator)) {
     exit $child.ExitCode
 }
 
-$candidates = @(Get-MetAPIFirewallCandidates | Sort-Object Program, RuleName -Unique)
+$candidates = @(Get-MetapiFirewallCandidates | Sort-Object Program, RuleName -Unique)
 if ($candidates.Count -eq 0) {
-    Write-Output 'No stale MetAPI inbound firewall rules found.'
+    Write-Output 'No stale Metapi inbound firewall rules found.'
 }
 elseif ($Mode -eq 'Audit') {
     $candidates | Format-Table DisplayName, Enabled, Profile, Protocol, LocalPort, Reason, Program -AutoSize
@@ -114,11 +114,11 @@ else {
     $candidates | Format-Table DisplayName, Enabled, Profile, Protocol, LocalPort, Reason, Program -AutoSize
     $removed = 0
     foreach ($candidate in $candidates) {
-        if ($PSCmdlet.ShouldProcess($candidate.RuleName, "remove stale MetAPI firewall rule for $($candidate.Program)")) {
+        if ($PSCmdlet.ShouldProcess($candidate.RuleName, "remove stale Metapi firewall rule for $($candidate.Program)")) {
             Get-NetFirewallRule -PolicyStore PersistentStore -Name $candidate.RuleName -ErrorAction Stop |
                 Remove-NetFirewallRule -ErrorAction Stop
             $removed++
         }
     }
-    Write-Output "Removed $removed stale MetAPI inbound firewall rule(s)."
+    Write-Output "Removed $removed stale Metapi inbound firewall rule(s)."
 }

@@ -1,4 +1,4 @@
-// Package e2e contains end-to-end integration tests for the MetAPI Go proxy flow.
+// Package e2e contains end-to-end integration tests for the Metapi Go proxy flow.
 
 // These tests cover the full pipeline: auth middleware → handler → channel selection →
 // upstream dispatch, using httptest.Server as the mock upstream and a mock routing

@@ -1,4 +1,4 @@
-# STATE.md — MetAPI Go product status
+# STATE.md — Metapi Go product status
 
 **Last verified**: 2026-08-17
 
@@ -18,7 +18,7 @@
 | Open issues / PRs  | [#558](https://github.com/DeliciousBuding/metapi-go/issues/558)（可选真实运行探针）；其余当前工作按 [`progress/MASTER.md`](progress/MASTER.md) 收口                                                                                                                                                                                                                                                                                                                                                                                            |
 | Stack              | Go 1.26.6 · React 19 + Bun + Rsbuild 2 + TanStack Router/Query/Table + Tailwind 4 + shadcn Base UI + OKLCH + i18next · dual dialect SQLite/PostgreSQL                                                                                                                                                                                                                                                                                                                                                                                          |
 | Runtime shape      | single embedded SPA binary · **16** default background schedulers（update-center 仅显式启用时注册）· OAuth callback listeners start only with an active flow                                                                                                                                                                                                                                                                                                                                                                                   |
-| Brand              | **MetAPI** · transparent solid-blue SVG badge `web/public/logo.svg` (real U+03C0 π glyph) + `favicon.svg` · served from the embedded SPA root by the router whitelist                                                                                                                                                                                                                                                                                                                                                                          |
+| Brand              | **Metapi** · transparent solid-blue SVG badge `web/public/logo.svg` (real U+03C0 π glyph) + `favicon.svg` · served from the embedded SPA root by the router whitelist                                                                                                                                                                                                                                                                                                                                                                          |
 
 ## Product honesty
 

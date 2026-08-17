@@ -1,4 +1,4 @@
-# docs/ — MetAPI Go documentation map
+# docs/ — Metapi Go documentation map
 
 **Last updated**: 2026-08-16
 **Purpose**: one-screen orientation for humans and contributors.

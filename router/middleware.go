@@ -17,7 +17,7 @@ import (
 	"github.com/go-chi/cors"
 )
 
-// CORS returns a CORS middleware handler configured for MetAPI.
+// CORS returns a CORS middleware handler configured for Metapi.
 // It is intentionally permissive for public health and proxy endpoints.
 func CORS() func(http.Handler) http.Handler {
 	return cors.Handler(corsOptions([]string{"*"}))

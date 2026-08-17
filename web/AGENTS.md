@@ -266,7 +266,7 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 ## 六、隐私与迁移约束
 
 - metapi-go 是**公开仓**（MIT）。本文档与所有公开材料不写内部部署路径、主机名、密钥、内部文档引用；运维事实（主机/镜像 tag/端口）不属于本仓，公开部署见仓库根 `docs/deployment.md`。
-- **无缝迁移**：从 TS 版 MetAPI 迁移无损——后端 + DB（SQLite/PG dual dialect）+ API 契约（camelCase 字段、env var 名）100% 保留；`store.Open(dialect, dsn)` 不假设 SQLite-only 特性。
+- **无缝迁移**：从 TS 版 Metapi 迁移无损——后端 + DB（SQLite/PG dual dialect）+ API 契约（camelCase 字段、env var 名）100% 保留；`store.Open(dialect, dsn)` 不假设 SQLite-only 特性。
 - 原 TS 参考检出（reference checkout）保持在仓外，不在本仓记录本地检出路径。
 
 ---

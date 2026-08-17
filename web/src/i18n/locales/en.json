@@ -5,7 +5,7 @@
     },
     "auth": {
       "login": {
-        "brandName": "MetAPI",
+        "brandName": "Metapi",
         "brandTagline": "The relay station of relay stations",
         "tokenLabel": "Admin Token",
         "tokenPlaceholder": "Enter your admin token",
@@ -110,7 +110,7 @@
         "author": "Author"
       },
       "footer": {
-        "copyright": "© {{year}} MetAPI. All rights reserved."
+        "copyright": "© {{year}} Metapi. All rights reserved."
       }
     },
     "models": {
@@ -272,7 +272,7 @@
           },
           "longContext": {
             "label": "Long context",
-            "prompt": "Read the passage below and answer the question that follows.\n\nPassage:\nMetAPI is a meta-layer management and unified proxy for AI API aggregation platforms. It centralizes sites, accounts, token routes and channels so that one entry point can fan out to many upstream AI providers. Operators configure provider sites (OpenAI, Anthropic, Gemini, and others), connect accounts with their credentials, and define token routes that pick channels by model, weight and priority. Downstream clients then talk to a single MetAPI endpoint that behaves like each upstream API, while logs, quotas and alerts keep the fleet observable.\n\nQuestion:\nIn one short paragraph, list the four building blocks an operator configures in MetAPI."
+            "prompt": "Read the passage below and answer the question that follows.\n\nPassage:\nMetapi is a meta-layer management and unified proxy for AI API aggregation platforms. It centralizes sites, accounts, token routes and channels so that one entry point can fan out to many upstream AI providers. Operators configure provider sites (OpenAI, Anthropic, Gemini, and others), connect accounts with their credentials, and define token routes that pick channels by model, weight and priority. Downstream clients then talk to a single Metapi endpoint that behaves like each upstream API, while logs, quotas and alerts keep the fleet observable.\n\nQuestion:\nIn one short paragraph, list the four building blocks an operator configures in Metapi."
           },
           "toolCalling": {
             "label": "Tool calling",

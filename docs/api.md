@@ -884,7 +884,7 @@ Forwarded client IP headers are ignored by default. Set `TRUSTED_PROXY_CIDRS` on
 
 ## Proxy files (`/v1/files`)
 
-OpenAI-compatible Files surface (proxy auth required). Forwards to the selected upstream channel; does not persist customer file bytes on MetAPI disk.
+OpenAI-compatible Files surface (proxy auth required). Forwards to the selected upstream channel; does not persist customer file bytes on Metapi disk.
 
 | Method | Path | Notes |
 |--------|------|--------|

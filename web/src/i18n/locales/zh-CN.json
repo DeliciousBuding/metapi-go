@@ -5,7 +5,7 @@
     },
     "auth": {
       "login": {
-        "brandName": "MetAPI",
+        "brandName": "Metapi",
         "brandTagline": "中转站的中转站",
         "tokenLabel": "管理员令牌",
         "tokenPlaceholder": "请输入管理员令牌",
@@ -110,7 +110,7 @@
         "author": "作者"
       },
       "footer": {
-        "copyright": "© {{year}} MetAPI。版权所有。"
+        "copyright": "© {{year}} Metapi。版权所有。"
       }
     },
     "models": {
@@ -272,7 +272,7 @@
           },
           "longContext": {
             "label": "长上下文",
-            "prompt": "阅读下面的材料，然后回答问题。\n\n材料：\nMetAPI 是 AI API 聚合平台的元层管理与统一代理。它把站点、账号、令牌路由和渠道集中在一起，让一个入口可以分发到多个上游 AI 提供商。运营人员配置供应商站点（OpenAI、Anthropic、Gemini 等），用凭证接入账号，并定义按模型、权重和优先级选择渠道的令牌路由。下游客户端只需对接一个 MetAPI 端点即可获得与各上游 API 一致的体验，同时日志、配额和告警让整个集群保持可观测。\n\n问题：\n用一段简短的话列出运营人员在 MetAPI 中配置的四个基本模块。"
+            "prompt": "阅读下面的材料，然后回答问题。\n\n材料：\nMetapi 是 AI API 聚合平台的元层管理与统一代理。它把站点、账号、令牌路由和渠道集中在一起，让一个入口可以分发到多个上游 AI 提供商。运营人员配置供应商站点（OpenAI、Anthropic、Gemini 等），用凭证接入账号，并定义按模型、权重和优先级选择渠道的令牌路由。下游客户端只需对接一个 Metapi 端点即可获得与各上游 API 一致的体验，同时日志、配额和告警让整个集群保持可观测。\n\n问题：\n用一段简短的话列出运营人员在 Metapi 中配置的四个基本模块。"
           },
           "toolCalling": {
             "label": "工具调用",
