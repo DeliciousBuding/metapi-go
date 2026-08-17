@@ -72,6 +72,13 @@ curl http://localhost:4000/health
 ## Nginx Reverse Proxy
 
 ```nginx
+# Map for WebSocket Connection header: only send "upgrade" when the client
+# actually requested an upgrade; otherwise close (standard nginx WS pattern).
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
 server {
     listen 443 ssl http2;
     server_name metapi.example.com;
@@ -83,7 +90,7 @@ server {
         proxy_pass http://127.0.0.1:4000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
+        proxy_set_header Connection $connection_upgrade;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

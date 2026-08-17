@@ -509,9 +509,9 @@ func (h *sitesHandler) batchSites(w http.ResponseWriter, r *http.Request) {
 		case "delete":
 			h.db.Exec(h.db.Rebind("DELETE FROM sites WHERE id = ?"), id)
 		case "enableSystemProxy":
-			h.db.Exec(h.db.Rebind("UPDATE sites SET use_system_proxy = 1, updated_at = ? WHERE id = ?"), now, id)
+			h.db.Exec(h.db.Rebind("UPDATE sites SET use_system_proxy = true, updated_at = ? WHERE id = ?"), now, id)
 		case "disableSystemProxy":
-			h.db.Exec(h.db.Rebind("UPDATE sites SET use_system_proxy = 0, updated_at = ? WHERE id = ?"), now, id)
+			h.db.Exec(h.db.Rebind("UPDATE sites SET use_system_proxy = false, updated_at = ? WHERE id = ?"), now, id)
 		case "enable":
 			h.db.Exec(h.db.Rebind("UPDATE sites SET status = 'active', updated_at = ? WHERE id = ?"), now, id)
 			service.ApplySiteStatusSideEffects(h.db, id, existing.Name, "active")

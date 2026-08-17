@@ -30,22 +30,37 @@ import (
 //	COALESCE(<optional-table-alias.><bool-col>, 0)
 //	<bool-col> = 0 | 1
 //	<bool-col> <> 0 | 1
+//	<bool-col> != 0 | 1
 //
-// where <bool-col> is one of the known BOOLEAN columns: available, enabled,
-// is_default, resin_enabled, use_utls, post_refresh_probe_enabled. Use
-// COALESCE(<col>, false) = true / <col> = true / IS TRUE instead — these are
-// portable across both SQLite and PostgreSQL.
+// where <bool-col> is one of the known BOOLEAN columns declared in
+// store/schema_ddl.go (the full 16-column inventory is in knownBooleanColumns
+// below). Matching is case-insensitive so uppercase identifiers (AVAILABLE,
+// COALESCE) are also caught. Use COALESCE(<col>, false) = true /
+// <col> = true / IS TRUE instead — these are portable across both SQLite
+// and PostgreSQL.
 
 var (
 	// knownBooleanColumns is the set of column names declared BOOLEAN in
 	// store/schema_ddl.go. Adding a new BOOLEAN column here extends the gate.
+	// The list is the complete inventory from schema_ddl.go as of 2026-08-17;
+	// when adding a new BOOLEAN column to the schema, add it here too.
 	knownBooleanColumns = []string{
 		"available",
+		"checkin_enabled",
+		"custom_headers_override_request_headers",
+		"downgrade_decision",
 		"enabled",
 		"is_default",
-		"resin_enabled",
-		"use_utls",
+		"is_manual",
+		"is_pinned",
+		"is_stream",
+		"manual_override",
 		"post_refresh_probe_enabled",
+		"read",
+		"recover_applied",
+		"resin_enabled",
+		"use_system_proxy",
+		"use_utls",
 	}
 
 	// booleanColumnAlternation builds `(?:available|enabled|is_default|...)`
@@ -54,16 +69,17 @@ var (
 
 	// coalesceBoolIntRe matches COALESCE(<optional-alias.><bool-col>, 0) or
 	// COALESCE(<bool-col>, 0). The column may be prefixed by a table alias
-	// like "tma." or "at.". Captures the column name for the violation
-	// message.
+	// like "tma." or "at.". Case-insensitive (?i) so uppercase identifiers
+	// (AVAILABLE, COALESCE) are also caught — SQL is case-insensitive.
 	coalesceBoolIntRe = regexp.MustCompile(
-		`COALESCE\(\s*(?:[a-z_]+\.)?` + booleanColumnAlternation + `\s*,\s*0\s*\)`,
+		`(?i)COALESCE\(\s*(?:[a-z_]+\.)?` + booleanColumnAlternation + `\s*,\s*0\s*\)`,
 	)
 
-	// boolEqualsIntRe matches <optional-alias.><bool-col> = 0|1 or <> 0|1.
+	// boolEqualsIntRe matches <optional-alias.><bool-col> = 0|1 or <> 0|1 or != 0|1.
 	// Word boundaries prevent matching substrings like "not_available".
+	// Case-insensitive (?i) so uppercase identifiers are also caught.
 	boolEqualsIntRe = regexp.MustCompile(
-		`(?:[a-z_]+\.)?\b` + booleanColumnAlternation + `\b\s*(?:=|<>)\s*[01]\b`,
+		`(?i)(?:[a-z_]+\.)?\b` + booleanColumnAlternation + `\b\s*(?:=|<>|!=)\s*[01]\b`,
 	)
 )
 
@@ -141,7 +157,7 @@ func TestPgBooleanLiteralGateRegexpSanity(t *testing.T) {
 		t.Fatalf("regexp must not flag dialect-safe COALESCE: %s", coalesceSafe)
 	}
 
-	// Direct = 1 / = 0 / <> 1 must be flagged.
+	// Direct = 1 / = 0 / <> 1 / != 1 must be flagged.
 	equalsOne := "AND at.enabled = 1"
 	if !boolEqualsIntRe.MatchString(equalsOne) {
 		t.Fatalf("regexp must match <bool> = 1: %s", equalsOne)
@@ -153,6 +169,20 @@ func TestPgBooleanLiteralGateRegexpSanity(t *testing.T) {
 	notEqualsOne := "AND at.enabled <> 1"
 	if !boolEqualsIntRe.MatchString(notEqualsOne) {
 		t.Fatalf("regexp must match <bool> <> 1: %s", notEqualsOne)
+	}
+	bangNotEquals := "AND at.enabled != 1"
+	if !boolEqualsIntRe.MatchString(bangNotEquals) {
+		t.Fatalf("regexp must match <bool> != 1: %s", bangNotEquals)
+	}
+
+	// Case-insensitivity: uppercase identifiers must be flagged.
+	upperCase := "WHERE AVAILABLE = 1"
+	if !boolEqualsIntRe.MatchString(upperCase) {
+		t.Fatalf("regexp must match uppercase AVAILABLE = 1: %s", upperCase)
+	}
+	upperCoalesce := "WHERE COALESCE(TMA.AVAILABLE, 0) = 1"
+	if !coalesceBoolIntRe.MatchString(upperCoalesce) {
+		t.Fatalf("regexp must match uppercase COALESCE: %s", upperCoalesce)
 	}
 
 	// = true / = false must NOT be flagged (dialect-safe).

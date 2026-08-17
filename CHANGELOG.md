@@ -9,14 +9,14 @@ All notable changes to MetAPI-Go will be documented in this file.
 
 ### Fixed
 
-- 修复 PostgreSQL BOOLEAN 列与整数字面量比较的 dialect 不兼容（#805）：`/api/models/token-candidates` 在生产 PG 上返回 500，根因是 `stats_marketplace.go` 四条 builder 查询用了 SQLite-only 的 `COALESCE(<bool>, 0) = 1` / `<bool> = 1`，PG 报 SQLSTATE 42804。改为 `COALESCE(<bool>, false) = true` / `<bool> = true`（双 dialect 通用）。同模式波及 `model_redirects.go` × 2 + `service/model_redirects.go` × 1，一并修复。
+- 修复 PostgreSQL BOOLEAN 列与整数字面量比较的 dialect 不兼容（#805）：`/api/models/token-candidates` 在生产 PG 上返回 500，根因是 `stats_marketplace.go` 等文件用了 SQLite-only 的 `COALESCE(<bool>, 0) = 1` / `<bool> = 1`，PG 报 SQLSTATE 42804。改为 `COALESCE(<bool>, false) = true` / `<bool> = true`（双 dialect 通用）。波及 `stats_marketplace.go`（15 处）、`model_redirects.go` × 2、`service/model_redirects.go` × 1、`sites.go` × 2（`use_system_proxy = 1/0`）。
 - `tokenCandidates` handler 的四个 builder `err` 之前被静默丢弃（`writeError(500)` 不打日志），导致服务端日志无任何线索。现在每个 builder 失败时走 `slog.Error` 记录错误 + `writeErrorWithRequest` 带上 request_id。
 
 ### Added
 
-- 新增 `docs/pg_boolean_gate_test.go` 静态 gate：扫描 `handler/ service/ scheduler/` 非测试 `.go` 文件，禁止 `COALESCE(<bool>, 0)` 和 `<bool> = [01]` 模式出现在已知 BOOLEAN 列（`available`/`enabled`/`is_default` 等）上。与既有 `pg_rebind_gate_test.go`（42601）互补，覆盖 42804 类 dialect drift，将"reactive per-incident gate"升级为"systematic dialect-compatibility contract"。
+- 新增 `docs/pg_boolean_gate_test.go` 静态 gate：扫描 `handler/ service/ scheduler/` 非测试 `.go` 文件，禁止 `COALESCE(<bool>, 0)` 和 `<bool> = [01]` / `<> [01]` / `!= [01]` 模式出现在全部 16 个已知 BOOLEAN 列上（大小写不敏感）。与既有 `pg_rebind_gate_test.go`（42601）互补，覆盖 42804 类 dialect drift，将"reactive per-incident gate"升级为"systematic dialect-compatibility contract"。
 - 新增 `handler/admin/stats_marketplace_pg_test.go`（build tag `integration`）：在真实 PG 上种子 site + account + token + availability 行，调用全部四个 builder，确保 SQL 在 PG 的 BOOLEAN 类型系统下不再回归。
-- `docs/deployment.md` nginx 反代模板补齐 WebSocket upgrade 头（`proxy_http_version 1.1` + `Upgrade`/`Connection: upgrade`），防止 `wss://` 握手在代理层被掐断。
+- `docs/deployment.md` nginx 反代模板补齐 WebSocket upgrade 头（`proxy_http_version 1.1` + `Upgrade`/`Connection $connection_upgrade` map 模式），防止 `wss://` 握手在代理层被掐断。
 
 ## [v0.14.0] — 2026-08-17
 

@@ -26,10 +26,10 @@ func pgDSN() string {
 // and exercises all four builders so the SQL runs against PG's BOOLEAN type
 // system — catching any future regression to integer-literal comparisons.
 //
-// It mirrors service/balance/balance_pg_test.go's pattern: build tag
-// "integration", skip when PG_TEST_DSN is unset, AutoMigrate on a fresh
-// connection, unique probe rows to avoid collisions with other PG integration
-// tests, and cleanup via t.Cleanup.
+// Diverges from service/balance/balance_pg_test.go in two ways: (1) uses a
+// //go:build integration tag so the file compiles only when -tags=integration
+// is passed (the balance test relies solely on t.Skip); (2) uses NOW() which
+// is PG-native (the test is PG-only via the build tag + PG_TEST_DSN guard).
 func TestStatsMarketplaceBuildersPostgres(t *testing.T) {
 	if pgDSN() == "" {
 		t.Skip("PG_TEST_DSN not set; skipping PostgreSQL integration test")
@@ -44,9 +44,10 @@ func TestStatsMarketplaceBuildersPostgres(t *testing.T) {
 		t.Fatalf("auto-migrate: %v", err)
 	}
 
-	// Seed a site + account + token + availability rows. Use NOW() (PG) —
-	// the rebind helper handles placeholder conversion; NOW() is portable
-	// across SQLite (returns current timestamp) and PG.
+	// Seed a site + account + token + availability rows. NOW() is PG-native;
+	// the rebind helper handles placeholder conversion (? → $N). The test is
+	// PG-only (build tag + PG_TEST_DSN guard) so cross-dialect portability
+	// of NOW() is not a concern here.
 	probeSite := "pg-tc-probe-site"
 	probeAccount := "pg-tc-probe-account"
 	probeToken := "pg-tc-probe-token"
@@ -113,7 +114,7 @@ func TestStatsMarketplaceBuildersPostgres(t *testing.T) {
 	// Exercise all four builders. Before the dialect-safe SQL fix, every one
 	// of these would fail with PG 42804 because the SQL used
 	// COALESCE(<bool>, 0) = 1 and <bool> = 1.
-	h := &statsHandler{db: db}
+	h := &statsHandler{db: db.DB}
 	allowed := h.loadGlobalAllowedModels()
 
 	t.Run("buildTokenCandidateModels", func(t *testing.T) {
