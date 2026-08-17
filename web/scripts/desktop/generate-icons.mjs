@@ -6,33 +6,23 @@ import sharp from 'sharp'
 
 export const DESKTOP_ICON_SIZE = 512
 export const DESKTOP_ICON_PADDING = 40
-export const DESKTOP_ICON_RADIUS = 96
 export const DESKTOP_TRAY_TEMPLATE_PADDING = 152
-
-function createRoundedMask(size, cornerRadius) {
-  return Buffer.from(
-    `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg"><rect width="${size}" height="${size}" rx="${cornerRadius}" ry="${cornerRadius}" fill="#fff"/></svg>`
-  )
-}
 
 async function renderDesktopIconBuffer({
   sourcePath,
   size = DESKTOP_ICON_SIZE,
   padding = DESKTOP_ICON_PADDING,
-  cornerRadius = DESKTOP_ICON_RADIUS,
 }) {
   const innerSize = size - padding * 2
-  const roundedMask = createRoundedMask(
-    innerSize,
-    Math.min(cornerRadius, Math.floor(innerSize / 2))
-  )
 
-  const roundedInner = await sharp(sourcePath)
+  // The brand logo is a transparent pi glyph (no badge background), so the
+  // desktop icon is just the glyph centered on a transparent canvas. Do NOT
+  // clip to a rounded square — that would cut the glyph's arm ends.
+  const innerImage = await sharp(sourcePath)
     .resize(innerSize, innerSize, {
       fit: 'contain',
       background: { r: 0, g: 0, b: 0, alpha: 0 },
     })
-    .composite([{ input: roundedMask, blend: 'dest-in' }])
     .png()
     .toBuffer()
 
@@ -44,7 +34,7 @@ async function renderDesktopIconBuffer({
       background: { r: 0, g: 0, b: 0, alpha: 0 },
     },
   })
-    .composite([{ input: roundedInner, left: padding, top: padding }])
+    .composite([{ input: innerImage, left: padding, top: padding }])
     .png()
     .toBuffer()
 }
@@ -91,14 +81,12 @@ export async function generateDesktopIconAssets({
   ),
   size = DESKTOP_ICON_SIZE,
   padding = DESKTOP_ICON_PADDING,
-  cornerRadius = DESKTOP_ICON_RADIUS,
 } = {}) {
   const [outputBuffer, trayTemplateBuffer] = await Promise.all([
     renderDesktopIconBuffer({
       sourcePath,
       size,
       padding,
-      cornerRadius,
     }),
     renderTrayTemplateIconBuffer({
       sourcePath,
