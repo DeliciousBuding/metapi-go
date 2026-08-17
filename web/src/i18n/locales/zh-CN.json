@@ -876,6 +876,8 @@
           "create": "创建密钥",
           "createTitle": "创建下游密钥",
           "createDescription": "签发新的下游 API 密钥，含配额与元数据。",
+          "editTitle": "编辑下游密钥",
+          "editDescription": "更新密钥的元数据。密钥值本身不可在此更改。",
           "generate": "生成",
           "empty": "暂无下游密钥。创建一个以开始签发令牌。",
           "requests": "请求：{{used}} / {{max}}",
@@ -887,6 +889,7 @@
             "group": "分组",
             "enabled": "状态",
             "enabledAria": "切换 {{name}} 的启用状态",
+            "editAria": "编辑 {{name}}",
             "usage": "用量",
             "actions": "操作"
           },
@@ -2195,13 +2198,15 @@
       },
       "recommended": "推荐",
       "missingPrice": "无价格信号",
+      "goToRoutes": "在路由中打开 {{model}}",
       "columns": {
         "site": "站点",
         "grade": "等级",
         "input": "输入 / 1M",
         "output": "输出 / 1M",
         "effective": "有效成本",
-        "status": "状态"
+        "status": "状态",
+        "actions": "操作"
       }
     },
     "fixCandidates": {
