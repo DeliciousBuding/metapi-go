@@ -876,6 +876,8 @@
           "create": "Create key",
           "createTitle": "Create downstream key",
           "createDescription": "Issue a new downstream API key with quotas and metadata.",
+          "editTitle": "Edit downstream key",
+          "editDescription": "Update the key's metadata. The key value cannot be changed here.",
           "generate": "Generate",
           "empty": "No downstream keys yet. Create one to start issuing tokens.",
           "requests": "Requests: {{used}} / {{max}}",
@@ -887,6 +889,7 @@
             "group": "Group",
             "enabled": "Enabled",
             "enabledAria": "Toggle enabled for {{name}}",
+            "editAria": "Edit {{name}}",
             "usage": "Usage",
             "actions": "Actions"
           },
