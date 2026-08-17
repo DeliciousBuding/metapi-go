@@ -96,7 +96,7 @@
     "happy-dom": "^20.11.1",
     "jsdom": "^29.1.1",
     "knip": "^6.24.0",
-    "oxfmt": "^0.62.0",
+    "oxfmt": "^0.63.0",
     "oxlint": "^1.72.0",
     "playwright": "1.62.1",
     "react-test-renderer": "^19.2.7",
