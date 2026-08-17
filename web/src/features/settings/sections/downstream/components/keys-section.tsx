@@ -59,6 +59,7 @@ import {
   SettingsSectionCard,
   SettingsSectionSkeleton,
 } from '../../../components/settings-section-card'
+import { SettingsSectionError } from '../../../components/settings-section-error'
 
 type DownstreamApiKeyItem = {
   id: number
@@ -218,12 +219,23 @@ export function KeysSection() {
       }
     >
       {isLoading ? <SettingsSectionSkeleton /> : null}
-      {!isLoading && items.length === 0 ? (
-        <p className='text-muted-foreground py-8 text-center text-sm'>
-          {t('settings.downstream.keys.empty')}
-        </p>
+      {keysQuery.isError ? (
+        <SettingsSectionError
+          title={t('settings.downstream.keys.title')}
+          onRetry={() => void keysQuery.refetch()}
+        />
       ) : null}
-      {!isLoading && items.length > 0 ? (
+      {!isLoading && !keysQuery.isError && items.length === 0 ? (
+        <div className='flex flex-col items-center gap-3 py-8'>
+          <p className='text-muted-foreground text-sm'>
+            {t('settings.downstream.keys.empty')}
+          </p>
+          <Button size='sm' onClick={() => onCreateOpenChange(true)}>
+            {t('settings.downstream.keys.create')}
+          </Button>
+        </div>
+      ) : null}
+      {!isLoading && !keysQuery.isError && items.length > 0 ? (
         <Table>
           <TableHeader>
             <TableRow>
@@ -267,10 +279,14 @@ export function KeysSection() {
                 <TableCell>
                   <Switch
                     checked={item.enabled}
+                    disabled={toggleMutation.isPending}
                     onCheckedChange={(checked) =>
                       toggleMutation.mutate({ id: item.id, enabled: checked })
                     }
-                    aria-label={t('settings.downstream.keys.columns.enabled')}
+                    aria-label={t(
+                      'settings.downstream.keys.columns.enabledAria',
+                      { name: item.name }
+                    )}
                   />
                 </TableCell>
                 <TableCell className='text-muted-foreground text-xs'>

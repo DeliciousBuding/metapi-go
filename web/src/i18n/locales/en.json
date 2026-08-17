@@ -886,6 +886,7 @@
             "name": "Name",
             "group": "Group",
             "enabled": "Enabled",
+            "enabledAria": "Toggle enabled for {{name}}",
             "usage": "Usage",
             "actions": "Actions"
           },
