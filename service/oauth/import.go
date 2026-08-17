@@ -162,10 +162,16 @@ func resolveImportedNativeOauthIdentity(payload map[string]interface{}) (*import
 		return nil, fmt.Errorf("oauth credentials missing access_token/session_token")
 	}
 
+	// Preserve the web session token independently so the refresh
+	// orchestrator can fall back to the session-cookie path when the RT
+	// is revoked. Only set when the payload actually carried one.
+	sessionToken := asNonEmptyString(payload["session_token"])
+
 	derived := resolveImportedOauthIdentityFields(provider, payload)
 
 	exchange := &TokenSet{
-		AccessToken: accessToken,
+		AccessToken:  accessToken,
+		SessionToken: sessionToken,
 	}
 	if v := asNonEmptyString(payload["refresh_token"]); v != "" {
 		exchange.RefreshToken = v

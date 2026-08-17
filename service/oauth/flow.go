@@ -404,6 +404,7 @@ func activatePersistedOAuthAccount(ctx context.Context, input ActivateInput) (*P
 		RefreshToken:   input.Exchange.RefreshToken,
 		TokenExpiresAt: input.Exchange.TokenExpiresAt,
 		IDToken:        input.Exchange.IDToken,
+		SessionToken:   input.Exchange.SessionToken,
 		ProviderData:   input.Exchange.ProviderData,
 	})
 	if err != nil {
