@@ -6,9 +6,9 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import react from '@vitejs/plugin-react'
-import { TanStackRouterVite } from '@tanstack/router-vite-plugin'
 import tailwindcss from '@tailwindcss/vite'
+import { TanStackRouterVite } from '@tanstack/router-vite-plugin'
+import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -17,8 +17,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // (DEV_PROXY_TARGET / VITE_DEV_PROXY_TARGET / PORT / VITE_BACKEND_PORT).
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, __dirname, 'VITE_')
-  const backendPort =
-    process.env.VITE_BACKEND_PORT || env.VITE_BACKEND_PORT
+  const backendPort = process.env.VITE_BACKEND_PORT || env.VITE_BACKEND_PORT
   const serverUrl =
     process.env.VITE_DEV_PROXY_TARGET ||
     env.VITE_DEV_PROXY_TARGET ||
