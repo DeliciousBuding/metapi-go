@@ -576,6 +576,11 @@
           "retry": "重试"
         }
       },
+      "onboarding": {
+        "title": "欢迎使用 Metapi",
+        "description": "创建你的第一个站点，开始聚合 AI API。",
+        "createSite": "创建站点"
+      },
       "traffic": {
         "loadError": "加载流量数据失败。",
         "incomeOutcome": {
