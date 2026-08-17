@@ -5,6 +5,13 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
 
+## 2026-08-18 — focus-first-invalid 全量核实收口（audit P2 #5）
+
+- **核实结论**：审计观察「account-form-dialog.tsx 等其他表单未做 focus-first-invalid」为 stale —— 设计系统 `ui/form.tsx` 的 `FormValidationFocus`（初始 baseline 即存在）对所有 `<Form>` 包裹的 RHF 表单全局生效：校验失败后按 DOM 顺序定位首个 `aria-invalid` 控件（fallback 首个 `form-message`），`scrollIntoView` + 聚焦。
+- **行为验证**：新增 2 个端到端用例（`form-focus-first-invalid.test.tsx` × accounts/sites）：空表单提交 → toast 提示 + 首错字段获焦并标记 `aria-invalid`；覆盖 Sheet 抽屉 + `form` 属性外挂提交按钮（accounts）与 Dialog + 内联提交（sites）两种形态。
+- **约定固化**：`web/AGENTS.md` §5.7 明确 RHF 表单一律经 `<Form {...form}>` 包裹以获得该行为，不逐表单手写聚焦逻辑。
+- **验证**：tsgo 0 error · oxlint 0 error · oxfmt green · vitest 全绿 · knip exit 0 · production build pass。
+
 ## 2026-08-18 — UI/UX 批次：账户行内操作 + header SSOT + skeleton shimmer + 徽章机械迁移
 
 - **P2 #5 收口**：导入向导 focus-first-invalid 补 4 回归用例 + 2 处 `curly` lint 修复（#824）。

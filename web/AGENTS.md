@@ -194,6 +194,7 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 ### 5.7 表单
 
 - RHF + Zod：feature 的 `lib/` 下定义 schema，`z.infer` 导出表单类型；`useForm` 配 `@hookform/resolvers/zod` 校验。
+- 表单一律经 `ui/form.tsx` 的 `<Form {...form}>` 包裹：内置 `FormValidationFocus` 在校验失败提交后自动滚动并聚焦首个 `aria-invalid` 字段（focus-first-invalid），不得绕过 `<Form>` 或逐表单手写聚焦逻辑；字段须经 `FormField`/`FormControl` 渲染以获得 `aria-invalid` 联动。
 - 提交逻辑放 `onSubmit`，展示加载与错误状态；成功后视场景重置或关闭弹窗。服务端校验错误映射到对应字段（见 [5.9](#59-错误处理)）。
 
 ### 5.8 路由
