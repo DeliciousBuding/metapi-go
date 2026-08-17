@@ -17,13 +17,13 @@ import (
 //	cache read = 0.10 × input
 //	cache creation = 1.25 × input
 
-// Non-Claude models keep the original MetAPI fallback of 1.0 so we do not
+// Non-Claude models keep the original Metapi fallback of 1.0 so we do not
 // invent vendor-specific multipliers without evidence.
 const (
-	// DefaultCacheRatio is the historical MetAPI fallback when cache_ratio is
+	// DefaultCacheRatio is the historical Metapi fallback when cache_ratio is
 	// missing for non-Claude models (input × 1.0).
 	DefaultCacheRatio = 1.0
-	// DefaultCacheCreationRatio is the historical MetAPI fallback when
+	// DefaultCacheCreationRatio is the historical Metapi fallback when
 	// cache_creation_ratio is missing for non-Claude models.
 	DefaultCacheCreationRatio = 1.0
 
@@ -167,7 +167,7 @@ func IsClaudeModel(modelName string) bool {
 
 // DefaultCacheRatioForModel returns the intentional cache_ratio fallback when
 // an upstream pricing row omits the field. Claude models use Anthropic public
-// ratios; everything else keeps the historical MetAPI 1.0 fallback. Both are
+// ratios; everything else keeps the historical Metapi 1.0 fallback. Both are
 // admin-overridable via SetCacheRatioDefaults.
 func DefaultCacheRatioForModel(modelName string) float64 {
 	if IsClaudeModel(modelName) {

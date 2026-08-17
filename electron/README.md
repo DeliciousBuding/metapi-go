@@ -1,6 +1,6 @@
-# MetAPI Desktop
+# Metapi Desktop
 
-A minimal Electron wrapper that turns the MetAPI Go server + its web admin UI into a desktop app with a system-tray icon.
+A minimal Electron wrapper that turns the Metapi Go server + its web admin UI into a desktop app with a system-tray icon.
 
 This is a **thin shell** — it does not reimplement the original TypeScript Electron app's full feature set. It only:
 
@@ -77,10 +77,10 @@ The admin API is auth-gated, so the desktop shell only polls `/api/admin/notific
 
 ## Packaging
 
-`npm run package` (in `electron/`) runs `electron-packager` and emits `electron/dist/<platform>-<arch>/MetAPI-Desktop*`. Override platforms/arches by editing the `package` script in `electron/package.json`.
+`npm run package` (in `electron/`) runs `electron-packager` and emits `electron/dist/<platform>-<arch>/Metapi-Desktop*`. Override platforms/arches by editing the `package` script in `electron/package.json`.
 
 ## Notes
 
 - The window closing does **not** quit the app — the tray icon and the Go server keep running. Use **Quit** from the tray to stop the server and exit.
 - On Windows, `Stop Server` uses a hard process-tree kill (Node's `SIGTERM` maps to `taskkill`), which is acceptable for a stop action.
-- Logs from the spawned Go server are appended to `<logs dir>/metapi-server.log` (`%APPDATA%/MetAPI/logs` on Windows, `~/Library/Logs/MetAPI` on macOS, `~/.config/MetAPI/logs` on Linux).
+- Logs from the spawned Go server are appended to `<logs dir>/metapi-server.log` (`%APPDATA%/Metapi/logs` on Windows, `~/Library/Logs/Metapi` on macOS, `~/.config/Metapi/logs` on Linux).

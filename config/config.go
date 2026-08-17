@@ -57,7 +57,7 @@ type RoutingWeights struct {
 	UsageWeight      float64
 }
 
-// Config holds ALL configuration fields for the MetAPI server.
+// Config holds ALL configuration fields for the Metapi server.
 // Field names use Go exported (PascalCase) but each maps 1:1 to a TS config field
 // as documented in section 3.
 type Config struct {

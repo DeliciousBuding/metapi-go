@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the MetAPI Electron desktop shell.
+# Build the Metapi Electron desktop shell.
 #
 # Produces:
 #   - electron/metapi (or electron/metapi.exe)  — the Go server binary

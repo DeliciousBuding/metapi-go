@@ -93,7 +93,7 @@ server {
 }
 ```
 
-If this service is reachable only through that proxy and admin IP allowlists depend on the client IP, set `TRUSTED_PROXY_CIDRS` to the proxy source CIDR. Leave it empty when clients can reach MetAPI directly.
+If this service is reachable only through that proxy and admin IP allowlists depend on the client IP, set `TRUSTED_PROXY_CIDRS` to the proxy source CIDR. Leave it empty when clients can reach Metapi directly.
 
 ## TLS with Let's Encrypt
 
@@ -132,7 +132,7 @@ For container releases, the Dockerfile builds the React frontend inside a Bun st
 
 ### SQLite (default)
 
-Data is stored in `$DATA_DIR/hub.db`. The directory is created automatically on first start. Auto-migration runs at startup. SQLite is intended for a single MetAPI process.
+Data is stored in `$DATA_DIR/hub.db`. The directory is created automatically on first start. Auto-migration runs at startup. SQLite is intended for a single Metapi process.
 
 ### PostgreSQL (production)
 

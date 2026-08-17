@@ -821,7 +821,7 @@ func writeStubResponse(w http.ResponseWriter, ctx *Ctx) {
 			return payload
 		}
 
-		w.Write(sseEvent(string(stubChunk("Hello from MetAPI Go (stub)", nil))))
+		w.Write(sseEvent(string(stubChunk("Hello from Metapi Go (stub)", nil))))
 		if flusher != nil {
 			flusher.Flush()
 		}
@@ -844,7 +844,7 @@ func writeStubResponse(w http.ResponseWriter, ctx *Ctx) {
 		"choices": []map[string]any{
 			{
 				"index":         0,
-				"message":       map[string]any{"role": "assistant", "content": "Hello from MetAPI Go (stub)"},
+				"message":       map[string]any{"role": "assistant", "content": "Hello from Metapi Go (stub)"},
 				"finish_reason": "stop",
 			},
 		},

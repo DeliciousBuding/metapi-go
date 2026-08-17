@@ -1,6 +1,6 @@
 # Security Policy
 
-MetAPI Go is a self-hosted API gateway. We take security seriously and
+Metapi Go is a self-hosted API gateway. We take security seriously and
 appreciate responsible disclosure.
 
 ## Reporting a vulnerability

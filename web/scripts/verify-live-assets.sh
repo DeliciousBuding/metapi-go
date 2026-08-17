@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # verify-live-assets.sh — post-deploy asset smoke (bash + curl, no node on target).
 #
-# Replays the browser asset graph against a live MetAPI instance:
+# Replays the browser asset graph against a live Metapi instance:
 #   1. index.html entry assets must answer 200 with a real content type
 #   2. lazy chunks referenced by entry bundles must answer 200
 #   3. any asset answered as text/html = SPA fallback swallowed it (fail)

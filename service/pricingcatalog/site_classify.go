@@ -22,7 +22,7 @@ type SiteSnapshot struct {
 	URL      string
 }
 
-// officialHosts maps canonical MetAPI platform ids (see platform.PlatformAliases)
+// officialHosts maps canonical Metapi platform ids (see platform.PlatformAliases)
 // to the vendor's official API hosts. Anything not listed classifies as relay
 // (honest default): models.dev prices are official list prices and must not be
 // claimed as the real payment price of a third-party relay.

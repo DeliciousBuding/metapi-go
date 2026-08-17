@@ -1,4 +1,4 @@
-// Package e2e contains end-to-end integration tests for the MetAPI Go proxy flow.
+// Package e2e contains end-to-end integration tests for the Metapi Go proxy flow.
 package e2e
 
 import (

@@ -6,7 +6,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-// requestIDCtxKey is a private context key for MetAPI request/trace IDs.
+// requestIDCtxKey is a private context key for Metapi request/trace IDs.
 // Values mirror chi middleware.RequestID so retries and proxy_logs share one id.
 type requestIDCtxKey struct{}
 
@@ -18,7 +18,7 @@ func WithRequestID(ctx context.Context, requestID string) context.Context {
 	return context.WithValue(ctx, requestIDCtxKey{}, requestID)
 }
 
-// RequestIDFromContext returns the MetAPI request/trace id when present.
+// RequestIDFromContext returns the Metapi request/trace id when present.
 // Falls back to chi's middleware.GetReqID so ingress middleware and
 // attempt loops share the same correlation value without extra wiring.
 func RequestIDFromContext(ctx context.Context) string {
@@ -34,7 +34,7 @@ func RequestIDFromContext(ctx context.Context) string {
 }
 
 // EnsureRequestID returns ctx carrying a non-empty request id when possible.
-// Prefer the existing chi/MetAPI id; only copies an explicit fallback when
+// Prefer the existing chi/Metapi id; only copies an explicit fallback when
 // neither context source already has a value.
 func EnsureRequestID(ctx context.Context, fallback string) (context.Context, string) {
 	if ctx == nil {

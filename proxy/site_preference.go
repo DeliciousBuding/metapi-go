@@ -30,7 +30,7 @@ func IsResponsesOnlySite(platform, siteURL string, customHeaders map[string]stri
 	return profiles.IsResponsesOnlySite(platform, siteURL, customHeaders)
 }
 
-// IsMetapiControlHeader reports whether a custom header is a MetAPI control signal
+// IsMetapiControlHeader reports whether a custom header is a Metapi control signal
 // that must not be forwarded upstream (responses-only / stream preference marks).
 func IsMetapiControlHeader(name string) bool {
 	return profiles.IsMetapiControlHeader(name)

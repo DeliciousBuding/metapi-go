@@ -1,4 +1,4 @@
-// MetAPI Desktop — Electron main process.
+// Metapi Desktop — Electron main process.
 //
 // A thin wrapper around the Go admin server:
 //   - spawns/manages the `metapi` Go binary (cwd = this app's directory),
@@ -110,7 +110,7 @@ function startServer() {
   if (!binaryExists()) {
     const resolved = resolveBinaryPath();
     new Notification({
-      title: 'MetAPI Desktop',
+      title: 'Metapi Desktop',
       body: `Go binary not found at ${resolved}. Build it with: make electron-build`,
     }).show();
     return;
@@ -130,7 +130,7 @@ function startServer() {
     isStartingServer = false;
     stream.end(`failed to spawn metapi: ${err.stack || err}\n`);
     new Notification({
-      title: 'MetAPI Desktop',
+      title: 'Metapi Desktop',
       body: `Failed to start server: ${err.message}`,
     }).show();
     return;
@@ -149,7 +149,7 @@ function startServer() {
     isStartingServer = false;
     stream.write(`server process error: ${err.stack || err}\n`);
     new Notification({
-      title: 'MetAPI Desktop',
+      title: 'Metapi Desktop',
       body: `Server process error: ${err.message}`,
     }).show();
   });
@@ -163,7 +163,7 @@ function startServer() {
     // Surface unexpected exits (Quit/Stop set the flag before killing).
     if (prev && !prev._stoppedByDesktop) {
       new Notification({
-        title: 'MetAPI Desktop',
+        title: 'Metapi Desktop',
         body: `Server stopped (code ${code}). Use "Start Server" to relaunch.`,
       }).show();
     }
@@ -198,7 +198,7 @@ function stopServer() {
 
 function waitingScreenHtml(reason) {
   return `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html>
-<html><head><meta charset="utf-8"><title>MetAPI Desktop</title>
+<html><head><meta charset="utf-8"><title>Metapi Desktop</title>
 <style>
   html,body{height:100%;margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#e2e8f0}
   main{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center}
@@ -209,7 +209,7 @@ function waitingScreenHtml(reason) {
 </style></head>
 <body><main>
   <div class="dot"></div>
-  <h1>Waiting for MetAPI server…</h1>
+  <h1>Waiting for Metapi server…</h1>
   <p>${reason || 'The Go server is starting. The admin UI will load automatically.'}</p>
 </main></body></html>`)}`;
 }
@@ -224,7 +224,7 @@ function createWindow() {
     height: 860,
     minWidth: 960,
     minHeight: 600,
-    title: 'MetAPI Desktop',
+    title: 'Metapi Desktop',
     backgroundColor: '#0f172a',
     autoHideMenuBar: true,
     webPreferences: {
@@ -321,7 +321,7 @@ function buildTrayMenu() {
   const serverRunning = !!serverProcess && !serverProcess.killed;
   const autoStartOn = app.getLoginItemSettings().openAtLogin;
   return Menu.buildFromTemplate([
-    { label: 'MetAPI Desktop', enabled: false },
+    { label: 'Metapi Desktop', enabled: false },
     { type: 'separator' },
     {
       label: 'Open Admin',
@@ -367,7 +367,7 @@ function updateTrayMenu() {
 
 function createTray() {
   tray = new Tray(trayIconImage());
-  tray.setToolTip('MetAPI Desktop');
+  tray.setToolTip('Metapi Desktop');
   tray.setContextMenu(buildTrayMenu());
   // Click the tray icon to bring the window forward (common desktop idiom).
   tray.on('click', () => {
@@ -432,7 +432,7 @@ function pollNotifications() {
             if (shownNotificationIds.has(id)) continue;
             shownNotificationIds.add(id);
             const notification = new Notification({
-              title: item.title || 'MetAPI',
+              title: item.title || 'Metapi',
               body: typeof item.body === 'string' ? item.body : JSON.stringify(item.body || ''),
             });
             notification.on('click', () => {

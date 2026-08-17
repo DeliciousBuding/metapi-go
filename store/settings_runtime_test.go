@@ -126,12 +126,12 @@ func TestApplyRuntimeSettingsAppliesBranding(t *testing.T) {
 	ApplyRuntimeSettings(cfg, map[string]string{
 		"system_name":       `"My Gateway"`,
 		"logo":              `"https://example.com/logo.png"`,
-		"footer":            `"Powered by MetAPI"`,
+		"footer":            `"Powered by Metapi"`,
 		"about":             `"About copy"`,
 		"home_page_content": `"Welcome"`,
 		"server_address":    `"https://gw.example.com"`,
 	})
-	if cfg.SystemName != "My Gateway" || cfg.Logo != "https://example.com/logo.png" || cfg.Footer != "Powered by MetAPI" {
+	if cfg.SystemName != "My Gateway" || cfg.Logo != "https://example.com/logo.png" || cfg.Footer != "Powered by Metapi" {
 		t.Fatalf("branding = %+v", cfg)
 	}
 	if cfg.About != "About copy" || cfg.HomePageContent != "Welcome" || cfg.ServerAddress != "https://gw.example.com" {

@@ -443,7 +443,7 @@ func TestLoadParsesBrandingEnv(t *testing.T) {
 	cfg := Load(map[string]string{
 		"SYSTEM_NAME":       "My Gateway",
 		"LOGO":              "https://example.com/logo.png",
-		"FOOTER":            "Powered by MetAPI",
+		"FOOTER":            "Powered by Metapi",
 		"ABOUT":             "About page copy",
 		"HOME_PAGE_CONTENT": "Welcome",
 		"SERVER_ADDRESS":    "https://gw.example.com",
@@ -454,7 +454,7 @@ func TestLoadParsesBrandingEnv(t *testing.T) {
 	if cfg.Logo != "https://example.com/logo.png" {
 		t.Fatalf("Logo = %q", cfg.Logo)
 	}
-	if cfg.Footer != "Powered by MetAPI" {
+	if cfg.Footer != "Powered by Metapi" {
 		t.Fatalf("Footer = %q", cfg.Footer)
 	}
 	if cfg.About != "About page copy" {

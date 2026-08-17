@@ -4,7 +4,7 @@
 
 > **Navigation**: full docs map in [`docs/README.md`](README.md) · open items in [`progress/MASTER.md`](progress/MASTER.md).
 
-MetAPI Go is a ground-up rewrite of the TypeScript MetAPI proxy gateway in Go. This document describes the **as-built** package layout, request paths, and key design decisions. Design philosophy and package dependency rules live in [`docs/design/BACKEND.md`](design/BACKEND.md).
+Metapi Go is a ground-up rewrite of the TypeScript Metapi proxy gateway in Go. This document describes the **as-built** package layout, request paths, and key design decisions. Design philosophy and package dependency rules live in [`docs/design/BACKEND.md`](design/BACKEND.md).
 
 > **Naming truth:** There is **no** `proxycore/` or `protocol/` package in this repository. The proxy engine is `proxy/` (with `proxy/profiles` and `proxy/types`). Protocol conversion is `transform/` (with `openai` [completions/embeddings/images/responses], `gemini`, and `shared`). There is **no** `transform/canonical` intermediate layer — cross-protocol conversion is native (e.g. OpenAI→Gemini) and bypasses any canonical representation. Older docs or TS-era names that say “ProxyCore package” or “protocol package” refer to these real packages.
 
@@ -205,7 +205,7 @@ Routing isolates bad channels instead of cascading:
 
 ### 6. Config via env, TS-compatible names
 
-`config.Load` reads the same env var names as TS MetAPI (`AUTH_TOKEN`, `PROXY_TOKEN`, `DB_TYPE`, …) with **no** project prefix. Defaults and validation live in `config/`.
+`config.Load` reads the same env var names as TS Metapi (`AUTH_TOKEN`, `PROXY_TOKEN`, `DB_TYPE`, …) with **no** project prefix. Defaults and validation live in `config/`.
 
 ### 7. Pure Go, no CGO
 

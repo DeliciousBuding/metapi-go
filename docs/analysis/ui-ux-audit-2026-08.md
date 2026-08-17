@@ -3,7 +3,7 @@
 **Last updated**: 2026-08-16
 
 > 4 个审计 agent 的对照结论聚合（动线 / 视觉 / 交互 / 功能对标）+ 实施进展。
-> 对标基线：New API v1.0.0-rc.24、All API Hub 上游 #1290、MetAPI-Go v0.13.0。
+> 对标基线：New API v1.0.0-rc.24、All API Hub 上游 #1290、Metapi-Go v0.13.0。
 > 本文件保留 2026-08 审计证据，不是当前 backlog；开放结果只在 [`../progress/MASTER.md`](../progress/MASTER.md) 维护。
 
 ## 本轮已实施（2026-08-14）

@@ -1,6 +1,6 @@
 package config
 
-// Default constants for MetAPI Go configuration.
+// Default constants for Metapi Go configuration.
 // These mirror the original TypeScript runtime defaults.
 
 const (

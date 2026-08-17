@@ -36,7 +36,7 @@ var geminiSupportedGenerationMethods = []any{
 }
 
 // HandleGeminiModelsList handles GET /v1beta/models.
-// Returns a Gemini-shaped models list built from the MetAPI-owned catalog
+// Returns a Gemini-shaped models list built from the Metapi-owned catalog
 // (resolveOwnedModelCatalog / AvailableModelsSource), not a hard-coded stub and
 // not a live upstream Generative Language models scrape. See
 //

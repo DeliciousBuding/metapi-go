@@ -1,6 +1,6 @@
-# MetAPI Accessibility & Responsive Checklist
+# Metapi Accessibility & Responsive Checklist
 
-**Product**: MetAPI admin
+**Product**: Metapi admin
 **Scope**: accessibility checklist
 **Related source of truth**: `docs/design/DESIGN.md`, `web/src/styles/theme.css`
 **Last updated**: 2026-08-16
@@ -97,7 +97,7 @@ This document records keyboard, name, contrast, and responsive expectations. Kno
 | Element                        | Rule                                                    |
 | ------------------------------ | ------------------------------------------------------- |
 | Inline SVG in labeled buttons  | `aria-hidden="true"`                                    |
-| Logo mark next to product name | `alt="MetAPI"` or empty alt if adjacent text duplicates |
+| Logo mark next to product name | `alt="Metapi"` or empty alt if adjacent text duplicates |
 | Status color dots              | Not sole channel; pair with text/badge                  |
 
 ---

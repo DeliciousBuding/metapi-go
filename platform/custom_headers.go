@@ -9,7 +9,7 @@ import (
 
 // IsDeniedCustomHeader reports whether a site custom_headers entry must not be
 // forwarded upstream. Blocks identity, framing, hop-by-hop, cookies, Proxy-*,
-// and MetAPI control preference headers.
+// and Metapi control preference headers.
 //
 // Security: custom Authorization must never override the Bearer set from the
 // selected account token; Host/Connection/etc. must not be attacker-controlled.

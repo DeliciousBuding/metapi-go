@@ -113,7 +113,7 @@ func logProxy(ctx context.Context, cfg *UpstreamConfig, entry proxy.ProxyLogEntr
 	if cfg == nil {
 		return
 	}
-	// Prefer explicit entry.RequestID; otherwise inherit chi/MetAPI request id.
+	// Prefer explicit entry.RequestID; otherwise inherit chi/Metapi request id.
 	if entry.RequestID == "" {
 		entry.RequestID = proxy.RequestIDFromContext(ctx)
 	}

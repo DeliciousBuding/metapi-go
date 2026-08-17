@@ -12,12 +12,12 @@ import (
 	"github.com/deliciousbuding/metapi-go/auth"
 )
 
-// modelsOwnedBy is the OpenAI-compatible owned_by value for MetAPI-owned listings.
+// modelsOwnedBy is the OpenAI-compatible owned_by value for Metapi-owned listings.
 // Clients that special-case owned_by (e.g. Hermes llama.cpp detection) treat this
 // as a generic OpenAI-compatible gateway, not llamacpp.
 const modelsOwnedBy = "metapi"
 
-// AvailableModelsSource is implemented by routers that can list MetAPI-owned models
+// AvailableModelsSource is implemented by routers that can list Metapi-owned models
 // from enabled token_routes (notably routing.TokenRouter.GetAvailableModels).
 // Channel-selection-only mocks may omit this method; listing then uses the
 // documented last-resort catalog (see resolveOwnedModelCatalog).
@@ -48,7 +48,7 @@ func HandleModels(w http.ResponseWriter, r *http.Request) {
 	// Detect response format: if anthropic-version or x-api-key header present → Claude format
 	wantsClaude := r.Header.Get("anthropic-version") != "" || r.Header.Get("x-api-key") != ""
 
-	// Build model list (MetAPI-owned listing;
+	// Build model list (Metapi-owned listing;
 	models := getAvailableModels(r.Context(), authCtx.Policy)
 	now := time.Now().UTC()
 
@@ -138,7 +138,7 @@ func buildClaudeModelsResponse(models []string, now time.Time) map[string]any {
 }
 
 // getAvailableModels returns the list of available model names for this caller.
-// This is the MetAPI-owned listing path (not a live upstream /v1/models proxy):
+// This is the Metapi-owned listing path (not a live upstream /v1/models proxy):
 // resolveOwnedModelCatalog loads route-backed names when TokenRouter is wired,
 // then downstream routing policy filters the catalog.
 func getAvailableModels(ctx context.Context, policy auth.DownstreamRoutingPolicy) []string {
@@ -164,7 +164,7 @@ func getAvailableModels(ctx context.Context, policy auth.DownstreamRoutingPolicy
 	return filtered
 }
 
-// resolveOwnedModelCatalog loads the MetAPI-owned model name catalog.
+// resolveOwnedModelCatalog loads the Metapi-owned model name catalog.
 //
 // Priority:
 // 1. UpstreamConfig.Router implementing AvailableModelsSource (TokenRouter.GetAvailableModels)

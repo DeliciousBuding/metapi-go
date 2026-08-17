@@ -8,7 +8,7 @@ import (
 )
 
 // defaultFilesModel is used when the client does not provide a model for channel
-// selection. OpenAI Files API itself is model-agnostic; MetAPI still needs a
+// selection. OpenAI Files API itself is model-agnostic; Metapi still needs a
 // model key so TokenRouter can pick a files-capable upstream channel.
 // Operators should bind this model (or an override via body/query/header) to a
 // channel whose site exposes /v1/files.

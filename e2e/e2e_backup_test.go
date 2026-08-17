@@ -1,4 +1,4 @@
-// Package e2e contains end-to-end integration tests for the MetAPI Go proxy flow.
+// Package e2e contains end-to-end integration tests for the Metapi Go proxy flow.
 package e2e
 
 import (
@@ -201,7 +201,7 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 
 	// Table 27: events (2 rows)
 	db.Exec(`INSERT INTO events (id, type, title, message, level, created_at)
-		VALUES (1, 'info', 'System started', 'MetAPI started successfully', 'info', ?)`, now)
+		VALUES (1, 'info', 'System started', 'Metapi started successfully', 'info', ?)`, now)
 	db.Exec(`INSERT INTO events (id, type, title, message, level, read, created_at)
 		VALUES (2, 'warn', 'High latency', 'Proxy latency above threshold', 'warn', 0, ?)`, now)
 
