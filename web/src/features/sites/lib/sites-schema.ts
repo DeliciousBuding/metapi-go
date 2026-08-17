@@ -96,6 +96,8 @@ export const siteFormSchema = z.object({
     .number()
     .int('sites.form.errors.latencyInteger')
     .min(0, 'sites.form.errors.latencyMin'),
+  resinEnabled: z.boolean().nullable(),
+  useUtls: z.boolean().nullable(),
 })
 
 export type SiteFormValues = z.infer<typeof siteFormSchema>
@@ -115,6 +117,8 @@ export const SITE_FORM_DEFAULT_VALUES: SiteFormValues = {
   postRefreshProbeModel: '',
   postRefreshProbeScope: 'single',
   postRefreshProbeLatencyThresholdMs: 0,
+  resinEnabled: null,
+  useUtls: null,
 }
 
 // --- URL search state -------------------------------------------------------
