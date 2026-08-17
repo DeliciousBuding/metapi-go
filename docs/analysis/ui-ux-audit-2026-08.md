@@ -1,6 +1,6 @@
 # UI/UX 与动线审计 — 多 Agent 对照（New API × All API Hub）
 
-**Last updated**: 2026-08-16
+**Last updated**: 2026-08-18
 
 > 4 个审计 agent 的对照结论聚合（动线 / 视觉 / 交互 / 功能对标）+ 实施进展。
 > 对标基线：New API v1.0.0-rc.24、All API Hub 上游 #1290、Metapi-Go v0.13.0。
@@ -41,9 +41,11 @@
 - **导入向导脏确认**：`import-wizard-dialog.tsx` 有输入时关闭先确认（全站最后一个无守卫表单）
 - **站点状态徽章**、**对比度 token** 见上
 
-## 审计快照（截至 2026-08-16）
+## 审计快照（截至 2026-08-18）
 
 > “未承诺”表示审计时未实施，仅保留为历史观察，不是待办。下表只有“批量延迟对比”的剩余部分已进入 [`../progress/MASTER.md`](../progress/MASTER.md)；其他观察需要新的用户需求或缺陷证据才会重新立项。
+>
+> **2026-08-18 知识卫生收口**：原 P1 #1（checkin/oauth 死复选框）、#2（排序清除）、#4（Stat 卡升级）三项经核实已交付，从下表移除。证据：`checkin-page.tsx`/`oauth-page.tsx` 均为 `enableRowSelection: false`；`data-table/core/column-header.tsx` 已有「Default order」菜单调 `clearSorting()`；`dashboard/components/stat-card.tsx` 已有 IconBadge + 三档 tone + 明细子格（注释标注 audit upgrade）。原编号 #3/#5/#6 重排为 #1/#2/#3。P2 #5（导入向导 focus-first-invalid）经核实 e1991ef 已落地 `markInvalidAndFocusFirst` + `aria-invalid` + per-field clear，本日补 4 个回归用例（`import-wizard-dialog.test.tsx` 共 9 例），状态改「已交付（代码）」；`account-form-dialog.tsx` 等其他表单仍未做，保留为观察。
 
 ### P1
 
@@ -54,12 +56,9 @@
 | —   | 已交付 #659    | attention 上提首页           | `availability-section.tsx`                                          | 首页快照横条提供 attention 直达，原「藏在第 4 个 Tab」已收口                                      |
 | —   | 已交付 #660    | 告警富化                     | `service/alert/alert.go`                                            | 3 条核心告警消息富化（受影响路由 + 替代站点 + 直达链接）                                          |
 | —   | 已交付（代码） | 批量操作反馈                 | `accounts-page.tsx` / `accounts/api.ts`                             | `useBatchUpdateAccounts` 已 toast `bulkPartial`（success/failed/items）；证据见 `accounts/api.ts` |
-| 1   | 未承诺         | checkin/oauth 死复选框       | `checkin-page.tsx` / `oauth-page.tsx`                               | 审计建议：有选择列无批量操作时补操作或删列                                                        |
-| 2   | 未承诺         | 排序清除                     | `data-table/core/column-header.tsx`                                 | 审计建议：菜单加「默认顺序」或表头三态循环                                                        |
-| 3   | 未承诺         | 徽章配方收敛                 | overview/availability/checkin/accounts/routes/channels 内联状态徽章 | success/info 变体已存在，但未做全量迁移                                                           |
-| 4   | 未承诺         | Stat 卡升级                  | `dashboard/components/stat-card.tsx`                                | 审计建议：IconBadge + 三档 tone + 明细子格                                                        |
-| 5   | 已交付（代码） | RealtimeSparkline 图表 token | `availability-section.tsx`                                          | 已改 `bg-chart-1/70`；`useChartColors` 已随 VChart 移除                                           |
-| 6   | 未承诺         | 行内高频操作免菜单化         | `accounts-columns.tsx`                                              | 审计建议：高频动作采用行级 pending + 成功反馈                                                     |
+| 1   | 未承诺         | 徽章配方收敛                 | overview/availability/checkin/accounts/routes/channels 内联状态徽章 | success/info 变体已存在，但未做全量迁移                                                           |
+| 2   | 已交付（代码） | RealtimeSparkline 图表 token | `availability-section.tsx`                                          | 已改 `bg-chart-1/70`；`useChartColors` 已随 VChart 移除                                           |
+| 3   | 未承诺         | 行内高频操作免菜单化         | `accounts-columns.tsx`                                              | 审计建议：高频动作采用行级 pending + 成功反馈                                                     |
 
 ### P2
 
@@ -69,7 +68,7 @@
 | 2   | 已交付 #758       | 图标族统一（HugeIcons × lucide 同屏）     | ui 原语 vs feature 层                                | ui 原语用 HugeIcons 免费层，业务层沿用 lucide，约定写入 `web/AGENTS.md` |
 | 3   | 已交付 #757       | 文档漂移销项                              | DESIGN.md（9 vs 10 预设）、标题 400 vs 500           | 预设数、标题字重、状态色、图表栈和 CTA 对比度已对齐实现                 |
 | 4   | 未承诺            | 圆角层级 / header 高度双来源              | `data-table-view.tsx`、`app-header.tsx`、`theme.css` | 审计观察，未升格为重构任务                                              |
-| 5   | 未承诺            | 导入向导校验失败聚焦首错字段              | `account-form-dialog.tsx` 等                         | 审计观察，按真实表单缺陷再立项                                          |
+| 5   | 已交付（代码）    | 导入向导校验失败聚焦首错字段              | `import-wizard-dialog.tsx`                           | e1991ef 落地 `markInvalidAndFocusFirst` + `aria-invalid` + per-field clear，9 用例覆盖（`import-wizard-dialog.test.tsx`）；其他表单（`account-form-dialog.tsx` 等）仍为观察 |
 | 6   | 未承诺            | 移动端首帧侧栏 / settings 375px 导航      | `use-mobile.tsx` / `settings-sidebar.tsx`            | 审计观察，按复现证据再立项                                              |
 | 7   | 未承诺            | 骨架屏 shimmer / 表格骨架差异化           | `index.css` / `table-skeleton.tsx`                   | 纯 polish，不进入当前计划                                               |
 | 8   | 部分交付 → MASTER | Playground 会话化 + 模板库 + 批量延迟对比 | `model-tester/`                                      | #662 已交付会话化 + 模板库；批量延迟对比由 MASTER Wave 2–3 接管         |

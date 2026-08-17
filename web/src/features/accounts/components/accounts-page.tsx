@@ -203,7 +203,17 @@ export function AccountsPage() {
   const { mutate: refreshAccount } = useRefreshAccount()
   const deleteMutation = useDeleteAccount()
   const { mutate: toggleAccountPin } = useToggleAccountPin()
-  const { mutate: toggleAccountStatus } = useToggleAccountStatus()
+  // Keep the full mutation object so we can derive `pendingStatusId` from
+  // `isPending` + `variables` — the inline enable/disable button in each row
+  // uses it to show a per-row spinner without a separate state manager.
+  const statusMutation = useToggleAccountStatus()
+  // Destructure `mutate` to a stable top-level identifier. The
+  // `react-hooks/exhaustive-deps` linter flags property accesses like
+  // `statusMutation.mutate` inside the memo deps (it wants the whole
+  // `statusMutation` object, which is NOT stable across renders and would
+  // re-trigger the render loop). The mutate fn identity itself is stable,
+  // so a top-level const keeps both the linter and the memo happy.
+  const toggleStatusMutate = statusMutation.mutate
   const { mutate: toggleAccountCheckin } = useToggleAccountCheckin()
 
   // --- dialog state ---
@@ -281,7 +291,7 @@ export function AccountsPage() {
       onTogglePin: (account) =>
         toggleAccountPin({ id: account.id, isPinned: !account.isPinned }),
       onToggleStatus: (account) =>
-        toggleAccountStatus({
+        toggleStatusMutate({
           id: account.id,
           status: account.status === 'active' ? 'disabled' : 'active',
         }),
@@ -295,12 +305,22 @@ export function AccountsPage() {
       openEdit,
       refreshAccount,
       toggleAccountPin,
-      toggleAccountStatus,
+      toggleStatusMutate,
       toggleAccountCheckin,
     ]
   )
 
-  const columns = useAccountsColumns(rowActions)
+  // Derive the per-row pending id from the TanStack Query mutation's
+  // `variables` (the last mutate input). Passing this as a SEPARATE arg to
+  // useAccountsColumns is safe: useDataTable stabilizes onChange callbacks
+  // via a ref, NOT the columns array ref — so the actions handlers stay
+  // memoized and only the cell render closures capture the new pending state.
+  // The table instance does NOT re-instantiate (no autoResetPageIndex loop).
+  const pendingStatusId = statusMutation.isPending
+    ? (statusMutation.variables?.id ?? null)
+    : null
+
+  const columns = useAccountsColumns(rowActions, pendingStatusId)
 
   const { table } = useDataTable({
     data: accounts,

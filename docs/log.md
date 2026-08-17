@@ -1,9 +1,22 @@
 # log.md — Metapi Go product milestones
 
-**Last updated**: 2026-08-17
+**Last updated**: 2026-08-18
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
+
+## 2026-08-18 — 导入向导 focus-first-invalid 回归覆盖 + lint 收尾
+
+- **P2 #5 收口**：`import-wizard-dialog.tsx` 的 focus-first-invalid（e1991ef 已落地 `markInvalidAndFocusFirst` + `aria-invalid` + per-field clear）补 4 个回归用例（source empty / identify missing platform / routes invalid weight / clear-on-edit），并修两处已提交 onChange clear 的 `curly` lint 错误（无行为变更）。审计观察 P2 #5 导入向导部分状态改「已交付（代码）」；`account-form-dialog.tsx` 等其他表单仍为观察。
+- **验证**：tsgo 0 error · oxlint 0 error（wizard 文件）· vitest 486 全绿（`import-wizard-dialog` 9/9）。
+
+## 2026-08-17 — v0.15.x Resin per-site + 弹窗视口合约 + 设计系统溢出安全
+
+- **Resin per-site（v0.15.0）**：站点表单新增 `resin_enabled`/`use_utls` per-site tri-state 覆盖（继承 / 强制开 / 强制关），CreateSite INSERT 补齐两列、UpdateSite `jsonKeyToColumn` 补齐映射、`SiteSelectColumns` 补齐 `use_utls` 读回；`ApplyRuntimeSettings` 补齐 `smtp_secure`/`notify_cooldown_sec`/`telegram_*`/`system_proxy_url` 六个读侧 case，持久化设置不再重启静默回退（#807/#809）。
+- **导入流程 UX 收口（v0.15.0）**：per-item 失败原因渲染、URL 检测失败时 toast 防误炸（`skipErrorHandler`）、`aria-busy`/`aria-live` 无障碍区域、label `htmlFor`/`id` 关联 + Switch `aria-label`、`ImportSiteItem.duplicateStrategy` 类型漂移修复（#808）。17 个前端测试 + 14 个后端测试。
+- **PG BOOLEAN dialect gate（v0.15.1）**：`stats_marketplace.go` 等 15 处 SQLite-only `COALESCE(<bool>, 0) = 1`/`<bool> = 1` 在生产 PG 报 SQLSTATE 42804，改为双 dialect 通用 `false`/`true`；`tokenCandidates` handler builder `err` 静默丢失改 `slog.Error` + `writeErrorWithRequest` 带 request_id；新增 `docs/pg_boolean_gate_test.go` 静态 gate 覆盖全部 16 个 BOOLEAN 列 + 真实 PG integration test（#805）。
+- **弹窗视口合约（v0.15.2 + v0.15.3）**：`DialogContent` 无高度约束致长表单溢出视界、提交按钮不可达 → 补 `max-h-[calc(100dvh-2rem)]` + `overflow-y-auto` + `flex-col`，`DialogFooter` `sticky bottom-0`；v0.15.3 扩展到 `AlertDialogContent`/`PopoverContent` + `DialogHeader` sticky top + footer 不透明 `bg-popover` 防穿透；`site-form-dialog` 补 `onInvalid` handler + i18n key；新增 `dialog-viewport.test.ts` 静态护栏（#815/#822）。
+- **nginx 反代 WebSocket（v0.15.1）**：`docs/deployment.md` 补 `proxy_http_version 1.1` + `Upgrade`/`Connection $connection_upgrade` map 模式，防 `wss://` 握手在代理层被掐断。本地 Vite dev server 见下条「产品品牌升级」。
 
 ## 2026-08-17 — 产品品牌升级（Metapi 改名 + logo + 登录 UI）
 

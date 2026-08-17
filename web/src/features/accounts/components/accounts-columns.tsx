@@ -12,6 +12,7 @@ import {
   Clock,
   Eye,
   HelpCircle,
+  Loader2,
   MoreHorizontal,
   PauseCircle,
   Pencil,
@@ -142,66 +143,107 @@ function useResolveDisplayName() {
 // Row actions cell
 // ---------------------------------------------------------------------------
 
-function AccountsRowActions({
+/**
+ * Inline enable/disable button + the existing "more actions" dropdown.
+ *
+ * The inline `Power` button surfaces the highest-frequency row action (status
+ * toggle) as a single click, BEFORE the `MoreHorizontal` dropdown trigger. The
+ * pending state is per-row: when `pendingStatusId === account.id`, this row's
+ * button shows a `Loader2` spinner and is disabled, while every other row's
+ * button stays clickable (no global lock). The dropdown menu items are
+ * unchanged — refresh/pin/checkin/edit/delete all stay where they were.
+ */
+export function AccountsRowActions({
   account,
   actions,
+  pendingStatusId = null,
 }: {
   account: Account
   actions: AccountRowActions
+  pendingStatusId?: number | null
 }) {
   const { t } = useTranslation()
   const canCheckin = account.capabilities?.canCheckin ?? false
+  const isThisRowPending = pendingStatusId === account.id
+  const toggleLabel =
+    account.status === 'disabled'
+      ? t('accounts.columns.enable')
+      : t('accounts.columns.disable')
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        className='text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 items-center justify-center rounded-md transition-colors outline-none'
-        aria-label={t('accounts.columns.rowActions')}
-      >
-        <MoreHorizontal className='size-4' />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align='end' sideOffset={4}>
-        <DropdownMenuItem onClick={() => actions.onViewDetail(account)}>
-          <Eye />
-          {t('accounts.columns.viewDetails')}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => actions.onRefresh(account)}>
-          <RefreshCw />
-          {t('accounts.columns.refreshBalance')}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => actions.onTogglePin(account)}>
-          {account.isPinned ? <PinOff /> : <Pin />}
-          {account.isPinned
-            ? t('accounts.columns.unpin')
-            : t('accounts.columns.pin')}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => actions.onToggleStatus(account)}>
-          <Power />
-          {account.status === 'disabled'
-            ? t('accounts.columns.enable')
-            : t('accounts.columns.disable')}
-        </DropdownMenuItem>
-        {canCheckin && (
-          <DropdownMenuItem onClick={() => actions.onToggleCheckin(account)}>
-            <CalendarCheck />
-            {account.checkinEnabled
-              ? t('accounts.columns.disableCheckin')
-              : t('accounts.columns.enableCheckin')}
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => actions.onEdit(account)}>
-          <Pencil />
-          {t('common.edit')}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          variant='destructive'
-          onClick={() => actions.onDelete(account)}
+    <div className='flex items-center gap-1'>
+      <TooltipProvider delay={200}>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                type='button'
+                disabled={isThisRowPending}
+                aria-label={toggleLabel}
+                onClick={() => actions.onToggleStatus(account)}
+                className='text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 items-center justify-center rounded-md transition-colors outline-none disabled:opacity-50'
+              >
+                {isThisRowPending ? (
+                  <Loader2 className='size-4 animate-spin' />
+                ) : (
+                  <Power className='size-4' />
+                )}
+              </button>
+            }
+          />
+          <TooltipContent side='top'>{toggleLabel}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className='text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 items-center justify-center rounded-md transition-colors outline-none'
+          aria-label={t('accounts.columns.rowActions')}
         >
-          <Trash2 />
-          {t('common.delete')}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <MoreHorizontal className='size-4' />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align='end' sideOffset={4}>
+          <DropdownMenuItem onClick={() => actions.onViewDetail(account)}>
+            <Eye />
+            {t('accounts.columns.viewDetails')}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => actions.onRefresh(account)}>
+            <RefreshCw />
+            {t('accounts.columns.refreshBalance')}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => actions.onTogglePin(account)}>
+            {account.isPinned ? <PinOff /> : <Pin />}
+            {account.isPinned
+              ? t('accounts.columns.unpin')
+              : t('accounts.columns.pin')}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => actions.onToggleStatus(account)}>
+            <Power />
+            {account.status === 'disabled'
+              ? t('accounts.columns.enable')
+              : t('accounts.columns.disable')}
+          </DropdownMenuItem>
+          {canCheckin && (
+            <DropdownMenuItem onClick={() => actions.onToggleCheckin(account)}>
+              <CalendarCheck />
+              {account.checkinEnabled
+                ? t('accounts.columns.disableCheckin')
+                : t('accounts.columns.enableCheckin')}
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => actions.onEdit(account)}>
+            <Pencil />
+            {t('common.edit')}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            variant='destructive'
+            onClick={() => actions.onDelete(account)}
+          >
+            <Trash2 />
+            {t('common.delete')}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   )
 }
 
@@ -210,7 +252,8 @@ function AccountsRowActions({
 // ---------------------------------------------------------------------------
 
 export function useAccountsColumns(
-  actions: AccountRowActions
+  actions: AccountRowActions,
+  pendingStatusId: number | null = null
 ): ColumnDef<Account>[] {
   const { t } = useTranslation()
   const resolveHealth = useResolveHealth()
@@ -415,13 +458,19 @@ export function useAccountsColumns(
     },
     {
       id: 'actions',
-      size: 48,
+      size: 80,
       enableSorting: false,
       enableHiding: false,
       header: () => <span className='sr-only'>{t('common.actions')}</span>,
       cell: ({ row }) => {
         const account = accountSchema.parse(row.original)
-        return <AccountsRowActions account={account} actions={actions} />
+        return (
+          <AccountsRowActions
+            account={account}
+            actions={actions}
+            pendingStatusId={pendingStatusId}
+          />
+        )
       },
       meta: { pinned: 'right' },
     },

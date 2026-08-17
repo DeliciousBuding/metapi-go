@@ -55,7 +55,7 @@ export function AppHeader({
       className={cn(
         'bg-background/95 supports-[backdrop-filter]:bg-background/60 backdrop-blur-lg',
         'sticky top-0 z-50 w-full',
-        'flex h-14 items-center gap-2 border-b px-4'
+        'flex h-[var(--app-header-height)] items-center gap-2 border-b px-4'
       )}
     >
       <SidebarTrigger className='md:hidden' />

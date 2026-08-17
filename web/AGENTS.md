@@ -1,4 +1,4 @@
-最后更新：2026-08-16 18:00
+最后更新：2026-08-18 14:00
 
 # 前端开发规范
 
@@ -211,15 +211,12 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 
 ### 5.10 样式与设计系统
 
+设计系统 SSOT 是 `docs/design/DESIGN.md`（视觉语言、OKLCH token、5 轴主题 preset/font/radius/scale/content-layout、图表取色 `--chart-1…5`、玻璃材料、焦点环、间距/圆角/字型）；组件归属见 `docs/design/components.md`；可访问性见 `docs/design/a11y-checklist.md`。本节只列前端落地约定：
+
 - Tailwind 工具类为主，动态类名用 `cn()` 合并；非动态场景避免内联样式。响应式用移动优先与 Tailwind 断点（`sm:`/`md:`/`lg:`）。
-- **三层 CSS**（`src/styles/`）：
-  - `theme.css`：OKLCH 语义 token（背景/前景/主色/边框等）+ radius/scale 变量。
-  - `theme-presets.css`：10 套预设主题（每套覆盖语义 token）。
-  - `index.css`：Tailwind 4 入口（`@import 'tailwindcss'` + `@custom-variant dark` + `@theme inline` 桥接 token 到 Tailwind）。
-- **5 轴主题**：preset / font / radius / scale / content-layout，经 `<body data-theme-*>` 切换；暗色模式 class-based（`<html class="dark">`，`@custom-variant dark (&:is(.dark *))`），cookie 持久化。
-- **图表取色**：Recharts/shadcn chart 直接使用 `--chart-1…5` 语义 CSS 变量；不再维护 canvas 取色和 MutationObserver 双轨。
-- **图标选型**：`components/ui/*` 设计系统原语统一用 HugeIcons 免费层（`@hugeicons/core-free-icons` + `@hugeicons/react` 的 `HugeiconsIcon`，`strokeWidth={2}`）；`features/`、`layout/`、`data-table/` 等业务/页面层沿用 lucide-react 既有视觉。免费层缺等价 glyph 时才用 lucide 兜底；禁止新增付费 HugeIcons；同一文件不得混用两套图标来源。
-- 组件内尽量少写自定义 CSS。
+- 三层 CSS 在 `src/styles/`：`theme.css`（OKLCH 语义 token）/ `theme-presets.css`（10 套预设覆盖）/ `index.css`（Tailwind 4 入口 + `@theme inline` 桥接）。新增 token 改这里，不在页面硬编码 hex。
+- 组件内尽量少写自定义 CSS；新增 UI 先从 shadcn Base UI 原语（`@/components/ui/*`）出发。
+- 图标分层：`components/ui/*` 设计系统原语统一用 HugeIcons 免费层（`@hugeicons/core-free-icons` + `HugeiconsIcon`，`strokeWidth={2}`）；`features/`、`layout/`、`data-table/` 业务层沿用 lucide-react；免费层缺 glyph 时用 lucide 兜底；禁止新增付费 HugeIcons；同一文件不得混用两套图标来源。
 
 ### 5.11 文件组织
 
@@ -228,9 +225,11 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 
 ### 5.12 可访问性
 
+可访问性 SSOT 是 `docs/design/a11y-checklist.md`（键盘焦点与陷阱、accessible name 清单、对比度实测表、响应式 375/768/1280、已知残差）。本节只列前端落地约定：
+
 - 语义化 HTML（`header`/`nav`/`main`/`footer`），表单用 `label` 关联输入。
-- 键盘可操作与焦点顺序合理；必要时用 ARIA（`aria-label`/`aria-expanded`/`aria-hidden`）；装饰图标加 `aria-hidden="true"`。Base UI 组件自带 focus trap/Escape/ARIA，优先用 shadcn 封装。
-- 对比度满足 WCAG 2.1 AA（正文至少 4.5:1）。
+- icon-only 控件必 `aria-label`；装饰图标 `aria-hidden="true"`；状态不只靠颜色（配文字/徽章）。
+- 优先用 shadcn 封装（自带 focus trap/Escape/ARIA），不重复造轮子。
 
 ### 5.13 安全
 
