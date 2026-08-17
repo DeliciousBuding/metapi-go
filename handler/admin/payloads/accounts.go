@@ -29,6 +29,7 @@ type AccountUpdatePayload struct {
 	IsPinned       *bool    `json:"isPinned,omitempty"`
 	SortOrder      *int     `json:"sortOrder,omitempty"`
 	ProxyURL       *string  `json:"proxyUrl,omitempty"`
+	Remark         *string  `json:"remark,omitempty"`
 }
 
 // AccountBatchPayload mirrors TS AccountBatchPayload.
