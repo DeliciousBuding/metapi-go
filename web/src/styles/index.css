@@ -226,6 +226,34 @@
     animation-delay: 1000ms;
   }
 
+  /*
+   * Shimmer: subtle highlight sweep across skeleton bars. Reuses the
+   * --skeleton-base / --skeleton-highlight tokens (defined in theme.css
+   * for both light and dark) so the sweep tracks the surrounding surface
+   * in either mode. Replaces the prior `animate-pulse` opacity flicker —
+   * the gradient travels left-to-right instead of the whole bar fading,
+   * which reads as "loading" rather than "broken/frozen".
+   */
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  .animate-shimmer {
+    background-image: linear-gradient(
+      90deg,
+      var(--skeleton-base) 0%,
+      var(--skeleton-highlight) 50%,
+      var(--skeleton-base) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.6s ease-in-out infinite;
+  }
+
   @keyframes appear {
     0% {
       opacity: 0;
@@ -289,6 +317,20 @@
     animation: none !important;
     opacity: 1;
     transform: none;
+  }
+}
+
+/*
+ * Per-class reduced-motion gate for `.animate-shimmer`. The global
+ * reduced-motion safety net at the EOF of this file already collapses
+ * every animation's duration/iteration-count, so this rule is a
+ * belt-and-suspenders explicit guard that also stops the gradient sweep
+ * (animation: none) — keeping the static gradient fill visible instead
+ * of leaving a mid-flight `background-position` frozen mid-sweep.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .animate-shimmer {
+    animation: none !important;
   }
 }
 

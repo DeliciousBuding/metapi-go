@@ -133,6 +133,63 @@ export function ImportWizardDialog({
   const [result, setResult] = useState<ImportSitesResult | null>(null)
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false)
 
+  // Fields flagged invalid by a failed validation pass. Cleared per-field
+  // the moment the user edits that field, so an error never outlives the
+  // input that caused it. The single source of truth for aria-invalid on
+  // wizard inputs — no new error visuals, the design system already wires
+  // aria-invalid styling into Input/Textarea.
+  const [invalidFields, setInvalidFields] = useState<Set<string>>(
+    () => new Set()
+  )
+
+  // Live registry of focusable field elements keyed by a stable field id
+  // ("source", `${candidate.id}-platform`, `${candidate.id}-weight`). Ref
+  // callbacks keep this current on mount/unmount so the focus target for
+  // "first invalid field" is always the committed DOM node. Callbacks are
+  // cached per key so React does not tear down and reattach on each render.
+  const fieldRefs = useRef<Map<string, HTMLElement>>(new Map())
+  const fieldRefCallbacks = useRef<
+    Map<string, (element: HTMLElement | null) => void>
+  >(new Map())
+  function registerFieldRef(key: string) {
+    let callback = fieldRefCallbacks.current.get(key)
+    if (callback === undefined) {
+      callback = (element) => {
+        if (element) {
+          fieldRefs.current.set(key, element)
+        } else {
+          fieldRefs.current.delete(key)
+        }
+      }
+      fieldRefCallbacks.current.set(key, callback)
+    }
+    return callback
+  }
+
+  // Mark the given field keys invalid and move focus to the first one, so
+  // the user lands directly on the error they need to fix. Returns false
+  // (no-op) when no focus target is registered yet — e.g. the field has
+  // not mounted, which never happens for the step being validated.
+  function markInvalidAndFocusFirst(keys: string[]): boolean {
+    setInvalidFields(new Set(keys))
+    const firstKey = keys[0]
+    const target = firstKey ? fieldRefs.current.get(firstKey) : undefined
+    if (target) {
+      target.focus()
+      return true
+    }
+    return false
+  }
+
+  function clearFieldInvalid(key: string) {
+    setInvalidFields((prev) => {
+      if (!prev.has(key)) return prev
+      const next = new Set(prev)
+      next.delete(key)
+      return next
+    })
+  }
+
   const steps: ImportStep[] = useMemo(
     () => [
       { id: 'source', label: t('import.steps.source') },
@@ -189,6 +246,7 @@ export function ImportWizardDialog({
     setSourceText('')
     setCandidates([])
     setResult(null)
+    setInvalidFields(new Set())
   }
 
   function handleOpenChange(next: boolean) {
@@ -245,8 +303,10 @@ export function ImportWizardDialog({
     const urls = parseUrlLines(sourceText)
     if (urls.length === 0) {
       toast.error(t('import.source.empty'))
+      markInvalidAndFocusFirst(['source'])
       return
     }
+    setInvalidFields(new Set())
     const initial = urls.map((url, index) => makeCandidate(url, index))
     setCandidates(initial)
     setStep('identify')
@@ -263,8 +323,12 @@ export function ImportWizardDialog({
     )
     if (missing.length > 0) {
       toast.error(t('import.identify.missingPlatform'))
+      markInvalidAndFocusFirst(
+        missing.map((candidate) => `${candidate.id}-platform`)
+      )
       return
     }
+    setInvalidFields(new Set())
     setStep('connect')
   }
 
@@ -273,12 +337,18 @@ export function ImportWizardDialog({
   }
 
   async function handleSubmit() {
+    const invalidWeightKeys: string[] = []
     for (const candidate of candidates) {
       if (!Number.isFinite(candidate.weight) || candidate.weight < 0) {
-        toast.error(t('import.routes.invalidWeight'))
-        return
+        invalidWeightKeys.push(`${candidate.id}-weight`)
       }
     }
+    if (invalidWeightKeys.length > 0) {
+      toast.error(t('import.routes.invalidWeight'))
+      markInvalidAndFocusFirst(invalidWeightKeys)
+      return
+    }
+    setInvalidFields(new Set())
 
     const items: ImportSiteItem[] = candidates.map((candidate) => {
       const accessToken = candidate.accessToken.trim()
@@ -342,9 +412,14 @@ export function ImportWizardDialog({
                 </Label>
                 <Textarea
                   id='import-source-urls'
+                  ref={registerFieldRef('source')}
+                  aria-invalid={invalidFields.has('source') ? true : undefined}
                   rows={8}
                   value={sourceText}
-                  onChange={(event) => setSourceText(event.target.value)}
+                  onChange={(event) => {
+                    setSourceText(event.target.value)
+                    if (invalidFields.has('source')) clearFieldInvalid('source')
+                  }}
                   placeholder={t('import.source.placeholder')}
                   className='font-mono text-xs'
                   autoFocus
@@ -388,14 +463,25 @@ export function ImportWizardDialog({
                         <div className='flex items-center gap-2'>
                           <Input
                             id={`${candidate.id}-platform`}
+                            ref={registerFieldRef(`${candidate.id}-platform`)}
+                            aria-invalid={
+                              invalidFields.has(`${candidate.id}-platform`)
+                                ? true
+                                : undefined
+                            }
                             value={candidate.platform}
-                            onChange={(event) =>
+                            onChange={(event) => {
                               updateCandidate(candidate.id, {
                                 platform: event.target.value,
                                 detected: false,
                                 confidence: null,
                               })
-                            }
+                              if (
+                                invalidFields.has(`${candidate.id}-platform`)
+                              ) {
+                                clearFieldInvalid(`${candidate.id}-platform`)
+                              }
+                            }}
                             className='flex-1'
                           />
                           {candidate.detecting && <Spinner />}
@@ -558,15 +644,24 @@ export function ImportWizardDialog({
                       </Label>
                       <Input
                         id={`${candidate.id}-weight`}
+                        ref={registerFieldRef(`${candidate.id}-weight`)}
+                        aria-invalid={
+                          invalidFields.has(`${candidate.id}-weight`)
+                            ? true
+                            : undefined
+                        }
                         type='number'
                         min={0}
                         step={0.1}
                         value={candidate.weight}
-                        onChange={(event) =>
+                        onChange={(event) => {
                           updateCandidate(candidate.id, {
                             weight: Number(event.target.value),
                           })
-                        }
+                          if (invalidFields.has(`${candidate.id}-weight`)) {
+                            clearFieldInvalid(`${candidate.id}-weight`)
+                          }
+                        }}
                         className='w-24'
                       />
                     </div>

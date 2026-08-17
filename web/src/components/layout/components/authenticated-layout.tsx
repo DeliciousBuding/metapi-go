@@ -25,7 +25,7 @@ export function AuthenticatedLayout() {
     <SidebarProvider defaultOpen={defaultOpen} className='flex-col'>
       <SkipToMain />
       <AppHeader onSearchClick={() => setSearchOpen(true)} />
-      <div className='flex min-h-0 w-full flex-1 [--app-header-height:3.5rem]'>
+      <div className='flex min-h-0 w-full flex-1'>
         <AppSidebar />
         <SidebarInset
           id='content'
