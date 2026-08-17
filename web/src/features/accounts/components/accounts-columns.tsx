@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
+import { resolveAccountDisplayName } from '../lib/accounts-display-name'
 import {
   type Account,
   type AccountRowActions,
@@ -132,10 +133,11 @@ function formatPercent(used: number, total: number): string {
 function useResolveDisplayName() {
   const { t } = useTranslation()
   return function resolveDisplayName(account: Account): string {
-    if (account.username && account.username.trim()) return account.username
-    return account.credentialMode === 'apikey'
-      ? t('accounts.columns.fallbackApiKey')
-      : t('accounts.columns.fallbackUnnamed')
+    return resolveAccountDisplayName(
+      account,
+      t('accounts.columns.fallbackApiKey'),
+      t('accounts.columns.fallbackUnnamed')
+    )
   }
 }
 

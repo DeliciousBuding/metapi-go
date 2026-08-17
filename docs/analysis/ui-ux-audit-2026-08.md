@@ -103,7 +103,7 @@
 - `price-compare-page.tsx:184` — `PriceRow` 无动作列，比价结果不接 route weight 编辑（`/token-routes?model=` deep-link）（S）。
 - `keys-section.tsx:296` — downstream key 仅 create/toggle/delete/export，无 edit；改名/调 `maxCost`/`allowedIps` 需删重建（轮换 key 值，破坏所有客户端）（M）。
 - `channels-page.tsx:139` — 空态无 CTA（应接 `/accounts` 或触发 `rebuildMutation`）（S）。
-- `keys-section.tsx:221` — 空态仅一行文字，无内联「Create」按钮（仅 header 有）（S）。
+- `keys-section.tsx:221` — ~~空态仅一行文字，无内联「Create」按钮（仅 header 有）~~ 2026-08-18 核实 #832/#835 已收口：空态块内已有内联 Create 按钮（S）。
 - `overview-section.tsx:253` — 首次落地（0 site）无 onboarding banner/CTA（M，#828 stat-card drilldown 部分缓解）。
 
 **错误 / 空态处理**
@@ -113,8 +113,8 @@
 
 **行级 pending + a11y**
 
-- `keys-section.tsx:268` — enable `Switch` 共享一个 mutation，pending 时不禁用（可连点重复 mutate）+ 全行 `aria-label="Enabled"` 非唯一（S）。
-- `accounts/api.ts:281` — `useToggleAccountPin`/`useToggleAccountStatus`/`useToggleAccountCheckin` `onSuccess` 只 invalidate 不 toast（status 已由 #824 行内 Loader2 救场；pin/checkin 仍走下拉菜单 fire-and-forget 无反馈）（S）。
+- `keys-section.tsx:268` — ~~enable `Switch` 共享一个 mutation，pending 时不禁用（可连点重复 mutate）+ 全行 `aria-label="Enabled"` 非唯一~~ 2026-08-18 核实 #832/#835 已收口：`disabled={toggleMutation.isPending}` + 按 key 名插值的唯一 `enabledAria` label（S）。
+- `accounts/api.ts:281` — ~~`useToggleAccountPin`/`useToggleAccountStatus`/`useToggleAccountCheckin` `onSuccess` 只 invalidate 不 toast（status 已由 #824 行内 Loader2 救场；pin/checkin 仍走下拉菜单 fire-and-forget 无反馈）~~ 2026-08-18 已修复：pin/checkin 成功在调用点 toast（账号名经共享 `resolveAccountDisplayName` 解析，与表格行标签同口径）；status 维持行内 Loader2 不加 toast；3 行为用例覆盖（S）。
 
 **功能 bug（非 polish）**
 

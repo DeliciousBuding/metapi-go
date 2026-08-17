@@ -5,6 +5,12 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
 
+## 2026-08-18 — accounts pin/checkin 切换反馈 + keys-section 核实收口
+
+- **背景**：复审 S 级观察——accounts 的 pin/checkin 走下拉菜单 fire-and-forget，mutation 成功只 invalidate 无 toast；keys-section 另两项（空态 Create、Switch pending/aria-label）经核实已随 #832/#835 落地。
+- **修复**：`accounts-page.tsx` 的 `onTogglePin`/`onToggleCheckin` 在调用点挂 `onSuccess` toast（钩子保持通用，行名只有调用点知道）；新增共享纯函数 `resolveAccountDisplayName`（`username ?? apikey/unnamed fallback`），columns 行标签与 toast 同口径，消除显示名双来源漂移。status 切换维持 #824 行内 Loader2，不叠加 toast。
+- **验证**：新增 `accounts-toggle-feedback.test.tsx` 3 行为用例（pin toast 带账号名 / checkin toast 带账号名 / 未成功不 toast）；tsgo 0 error · oxlint 0 error · oxfmt green · vitest 全绿 · knip exit 0 · production build pass。
+
 ## 2026-08-18 — UI/UX 批次：账户行内操作 + header SSOT + skeleton shimmer + 徽章机械迁移
 
 - **P2 #5 收口**：导入向导 focus-first-invalid 补 4 回归用例 + 2 处 `curly` lint 修复（#824）。
