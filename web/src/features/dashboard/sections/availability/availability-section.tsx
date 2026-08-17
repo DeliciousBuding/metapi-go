@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Inbox, Radio, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { Badge } from '@/components/ui/badge'
 import {
   Card,
   CardContent,
@@ -39,19 +40,19 @@ type AttentionResponse = {
 
 const SEVERITY_TONE: Record<
   'critical' | 'warning' | 'info',
-  { dot: string; badge: string }
+  { dot: string; variant: 'destructive' | 'warning' | 'info' }
 > = {
   critical: {
     dot: 'bg-destructive',
-    badge: 'border-destructive/40 bg-destructive/10 text-destructive-soft-fg',
+    variant: 'destructive',
   },
   warning: {
     dot: 'bg-warning',
-    badge: 'border-warning/40 bg-warning/10 text-warning-soft-fg',
+    variant: 'warning',
   },
   info: {
     dot: 'bg-info',
-    badge: 'border-info/40 bg-info/10 text-info-soft-fg',
+    variant: 'info',
   },
 }
 
@@ -217,15 +218,10 @@ function AttentionPanel() {
                   key={`${item.target}-${index}`}
                   className='flex items-start gap-3'
                 >
-                  <span
-                    className={cn(
-                      'mt-1 inline-flex h-5 shrink-0 items-center gap-1 rounded-full border px-2 text-xs font-medium',
-                      tone.badge
-                    )}
-                  >
+                  <Badge variant={tone.variant} className='mt-1 shrink-0'>
                     <span className={cn('size-1.5 rounded-full', tone.dot)} />
                     {label}
-                  </span>
+                  </Badge>
                   <div className='min-w-0 flex-1'>
                     {item.target ? (
                       <a
