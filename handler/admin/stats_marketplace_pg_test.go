@@ -86,10 +86,11 @@ func TestStatsMarketplaceBuildersPostgres(t *testing.T) {
 		t.Fatalf("load account id: %v", err)
 	}
 
-	// Seed account_token (enabled, not expired).
+	// Seed account_token (enabled, not expired). value_status is NOT NULL on PG;
+	// use 'active' so the token is treated as valid by the builder WHERE clauses.
 	if _, err := db.Exec(db.Rebind(
 		`INSERT INTO account_tokens (account_id, name, token, enabled, is_default, value_status, created_at, updated_at)
-		 VALUES (?, ?, 'tok-probe', true, true, NULL, NOW(), NOW())`), accountID, probeToken); err != nil {
+		 VALUES (?, ?, 'tok-probe', true, true, 'active', NOW(), NOW())`), accountID, probeToken); err != nil {
 		t.Fatalf("seed account_token: %v", err)
 	}
 	var tokenID int64
