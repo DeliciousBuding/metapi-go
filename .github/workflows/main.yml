@@ -39,7 +39,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/go-toolchain
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v9
         with:
           version: v1.64.8
           # goinstall builds with the current toolchain (go.mod go directive is
