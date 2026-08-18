@@ -5,6 +5,54 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.16.0] — 2026-08-18
+
+### Fixed
+
+- **Sites form silent data loss**（P1）：`customHeadersOverrideRequestHeaders` 在 `siteToFormValues` 硬编码 `false`，编辑站点名等不相关字段会静默把 header-merge 从「site-wins」降级为「request-wins」。修复：round-trip 真实值 + 加可见 Switch FormField（#851）。
+- **Token-routes `siteNames` 死列**（P1）：`listSummary` 硬编码 `siteNames: []string{}`，「Sites」列 + detail 恒为 `—`，全局过滤也搜不到 site 名。修复：批量 `GROUP BY` JOIN 填充，dual-dialect 安全（#854）。
+- **Token-routes `requireChannelAllocation` render-path throw**（P2）：refetch race 可经 layout error boundary 崩整页。改 `resolveChannelAllocation` graceful fallback（#855）。
+- **Realtime WS give-up 静默死亡**（P1）：5 次重连失败后面板永久放弃，归零 metrics 看起来像「无流量」。加「Connection lost — Reconnect」notice + 稳定 `reconnect` callback（#850）。
+- **Accounts 行内高频操作**：Enable/Disable 改行内 `Power` 按钮 + 每行 pending，免下拉菜单（#824）。
+- **Header 高度双来源**：`h-14` → `var(--app-header-height)` 单一 token + 静态守卫（#824）。
+- **Skeleton shimmer**：唤醒休眠 `--skeleton-highlight` token，`animate-shimmer` 渐变替换 `animate-pulse`，`table-skeleton` 按列宽取值（#824）。
+- **Proxy-logs 列表过滤服务端化**：`latencyMin`/`latencyMax` + silent no-op 的 `client`/`from`/`to` 全部移入后端共享 `where`/`args`，删客户端过滤（#832）。
+- **Settings 边缘态硬化**：keys/update-center query 错误 → `SettingsSectionError`；enable `Switch` pending 禁用 + `aria-label`；空态内联「Create」按钮（#832）。
+- **Sites 表单打磨**：i18n 限额文案对齐 Zod（120/64）；error 态抑制空态 CTA + 加 Retry 按钮；`platform` placeholder 改「Enter a platform」；`SiteCreatedModal` 迁移 typed navigate（#851）。
+- **Token-routes 列表/详情打磨**：删误导性行「Refresh decision」（实为全局）；first-run 空态加 CTA；error banner 加 Retry；detail「Rebuild」改「Rebuild all routes」+ 图标修正（#855）。
+- **Status badge 语义收敛**：overview/availability 手写 `<span>` 徽章 → `<Badge>` 语义变体（#825）；accounts/checkin/routes/channels `variant='default'+dot` → `variant='success'` 软变体收敛（#827）。
+- **Channels 空态无 CTA**：加「Manage accounts」outline 按钮接 `/accounts`（#839）。
+- **Channel detail 无 cooldown 清除动作**：detail sheet 加 route cooldown clear action（#834）。
+- **Keys 行内 CTA + toggle toast**：account pin/check-in toggle 加 named toast 确认（#841）。
+- **Route form drafts 空态 hint**：`channelDrafts` 段在 `accountOptions.length===0` 时加 inline rebuild 指引（#837）。
+- **Settings mobile 导航**：375px 视口 settings section nav 塌缩为水平滚动 chip strip，`lg` 以上保持 sticky vertical sidebar（#831）。
+- **Proxy-log detail drilldown**：channel/account/route/token ID 渲染为可点深链，跳转到目标页 filtered view（#843）。
+- **OAuth per-row pending + error toast**：refresh/rebind 行级 `Loader2` + per-account error toast（`skipErrorHandler` 防双 toast）（#845）。
+- **a11y 残差核实**：axe-core 15 路由 0 serious/critical；菜单 Esc 行为钉死 2 个行为用例；清理 stale checklist 项（#833）。
+
+### Added
+
+- **Realtime WS reconnect affordance**：`useRealtimeOps` 重构为 `{ sample, reconnect }`（稳定 `useCallback`，经 `connectRef` 重入 `connect`，reset `failsRef`/`backoffRef`/socket）；`gaveUp` 态渲染 notice + Reconnect 按钮（#850）。
+- **Sites `customHeadersOverrideRequestHeaders` Switch FormField**：probe/header-merge 配置可见可编辑（#851）。
+- **Sites `postRefreshProbeLatencyThresholdMs` FormField**：probe 配置表面完整（model + scope + threshold）（#853）。
+- **Token-routes `siteNames` 批量 JOIN**：`listSummary` 新增 `GROUP BY (route_id, site_name)` 查询填充 site 名称列表（#854）。
+- **Token-routes empty-state CTA + error Retry**：first-run 空态加「Add route」+「Auto-rebuild」CTA；error 态加 Retry 按钮调 `refetch`（#855）。
+- **Dashboard onboarding banner + sites `?create=1` 深链闭环**：`siteCount===0` 时 brand-tinted `<Card>` + CTA；sites-page 一次性消费 `create` param（#838/#842）。
+- **Dashboard stat-card drilldown**：`StatCard` 加 `to` prop → `<Link>`，四张卡接线（#828）。
+- **Credential export → model-tester 深链**：接入凭证导出 dialog footer 加「Send a test request」按钮（#828）。
+- **Downstream key edit mode**：`KeySheetForm` 加 `editingKey` + `editKeySchema`（secret 不可改），PATCH partial update（#835）。
+- **Price-compare → routes 深链**：`PriceRow` 加 ghost 图标按钮深链到 `/token-routes?q=<model>`（#835）。
+- **Model-tester token 用量展示**：`parseUsage` 从 upstream body 解析 prompt/completion/total 跨四协议（cost 不在 wire 上，记 residual）（#840）。
+- **Availability sparkline 健康分档着色**：success-rate 按 healthy/degraded/unhealthy/idle 着色 + `role="img"`/`aria-label`（#846）。
+- **Attention `createdAt` 相对时间**：`Intl.RelativeTimeFormat` via `toBcp47`，零新 key（#847）。
+- **Form focus-first-invalid 覆盖**：跨 RHF 表单的 focus-first-invalid 行为回归用例（#830）。
+- **actions/cache 6 bump**（#818）。
+
+### Changed
+
+- 四轮 PM/工程师/用户多角度复审覆盖 5 feature 区（accounts/sites/channels/token-routes/proxy-logs + model-tester/oauth/availability + sites + token-routes），43+ gap 发现 → 30 PR 交付。审计证据在 `docs/analysis/ui-ux-audit-2026-08.md`。
+- 测试总数从 ~340 增至 546（+206 测试），覆盖 error 态、empty CTA、表单 round-trip、a11y 行为、WS reconnect、probe 配置等。
+
 ## [v0.15.3] — 2026-08-17
 
 ### Fixed
