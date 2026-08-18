@@ -4,7 +4,7 @@
 // `routingStrategyLabel()` returns an i18n key; wrapped with `t()`.
 
 import { useQueries } from '@tanstack/react-query'
-import { ExternalLink, Loader2, RefreshCw, Snowflake } from 'lucide-react'
+import { Loader2, RefreshCw, Snowflake } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -25,7 +25,6 @@ import type { PriceCompareItem } from '@/features/models/price-compare/types'
 import {
   useClearRouteCooldown,
   useRebuildRoutes,
-  useRefreshRouteDecisions,
   useRouteChannels,
 } from '../api'
 import {
@@ -57,15 +56,24 @@ type PriceQueryState = {
   hasError: boolean
 }
 
-function requireChannelAllocation(
+function resolveChannelAllocation(
   allocationsByChannelId: ReadonlyMap<number, RouteChannelAllocation>,
-  channelId: number
+  channel: RouteChannel
 ): RouteChannelAllocation {
-  const allocation = allocationsByChannelId.get(channelId)
-  if (!allocation) {
-    throw new Error(`Missing allocation for route channel ${channelId}`)
+  const allocation = allocationsByChannelId.get(channel.id)
+  if (allocation) return allocation
+  // A refetch race could momentarily deliver a channel whose allocation
+  // hasn't been computed yet. Throwing in the render path would surface to
+  // the layout error boundary and blank the whole page, so fall back to a
+  // zero-share allocation derived from the channel's own weight instead.
+  if (import.meta.env.DEV) {
+    console.warn(`Missing allocation for route channel ${channel.id}`)
   }
-  return allocation
+  return {
+    channelId: channel.id,
+    configuredWeight: channel.weight,
+    enabledWeightShare: null,
+  }
 }
 
 export function RouteDetailSheet({
@@ -76,7 +84,6 @@ export function RouteDetailSheet({
   const { t } = useTranslation()
   const channelsQuery = useRouteChannels(route?.id ?? null)
   const clearCooldownMutation = useClearRouteCooldown()
-  const refreshDecisionMutation = useRefreshRouteDecisions()
   const rebuildMutation = useRebuildRoutes()
   const channels = useMemo(() => channelsQuery.data ?? [], [channelsQuery.data])
   const concreteModels = useMemo(
@@ -132,12 +139,6 @@ export function RouteDetailSheet({
     if (!route) return
     try {
       await clearCooldownMutation.mutateAsync(route.id)
-    } catch {}
-  }
-
-  const handleRefreshDecision = async () => {
-    try {
-      await refreshDecisionMutation.mutateAsync()
     } catch {}
   }
 
@@ -221,8 +222,8 @@ export function RouteDetailSheet({
             </div>
           )}
 
-          <div className='flex flex-wrap justify-end gap-2'>
-            {!isReadOnly && (
+          {!isReadOnly && (
+            <div className='flex flex-wrap justify-end gap-2'>
               <Button
                 variant='outline'
                 size='sm'
@@ -232,21 +233,8 @@ export function RouteDetailSheet({
                 <Snowflake />
                 {t('tokenRoutes.detail.clearCooldown')}
               </Button>
-            )}
-            <Button
-              variant='outline'
-              size='sm'
-              onClick={handleRefreshDecision}
-              disabled={refreshDecisionMutation.isPending}
-            >
-              <RefreshCw
-                className={
-                  refreshDecisionMutation.isPending ? 'animate-spin' : undefined
-                }
-              />
-              {t('tokenRoutes.detail.refreshDecision')}
-            </Button>
-          </div>
+            </div>
+          )}
 
           <Separator />
 
@@ -273,9 +261,9 @@ export function RouteDetailSheet({
             ) : (
               <ul className='space-y-1.5'>
                 {channels.map((channel) => {
-                  const allocation = requireChannelAllocation(
+                  const allocation = resolveChannelAllocation(
                     allocationsByChannelId,
-                    channel.id
+                    channel
                   )
                   const priceTruth = resolveRouteChannelPriceTruth(
                     route,
@@ -308,7 +296,11 @@ export function RouteDetailSheet({
         <SheetFooter>
           {isReadOnly ? (
             <Button onClick={handleRebuild} variant='default'>
-              <ExternalLink />
+              <RefreshCw
+                className={
+                  rebuildMutation.isPending ? 'animate-spin' : undefined
+                }
+              />
               {t('tokenRoutes.detail.rebuildRoutes')}
             </Button>
           ) : (
