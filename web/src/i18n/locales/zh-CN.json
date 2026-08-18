@@ -1609,7 +1609,8 @@
         "regexHint": "当前为正则匹配（re: 前缀）。",
         "exactHint": "当前为精确模型匹配。正则请使用 re: 前缀。",
         "channels": "通道（可选）",
-        "channelsHint": "勾选账号作为该路由的通道，创建后将自动绑定。"
+        "channelsHint": "勾选账号作为该路由的通道，创建后将自动绑定。",
+        "channelsEmptyHint": "暂无可选通道——账号在模型扫描时被发现。运行自动重建即可填充此列表。"
       },
       "formGroup": {
         "displayName": "对外模型名",
