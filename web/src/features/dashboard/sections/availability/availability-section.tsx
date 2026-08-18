@@ -11,6 +11,7 @@ import { Inbox, Radio, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -132,7 +133,7 @@ function RealtimeSparkline({ points }: { points: RealtimeOpsSamplePoint[] }) {
 
 function RealtimeOpsPanel() {
   const { t } = useTranslation()
-  const sample = useRealtimeOps()
+  const { sample, reconnect } = useRealtimeOps()
 
   const tone = sample.gaveUp
     ? 'border-destructive/40 bg-destructive/5'
@@ -180,33 +181,47 @@ function RealtimeOpsPanel() {
         </CardDescription>
       </CardHeader>
       <CardContent className='space-y-3'>
-        <div className='flex flex-wrap items-end justify-between gap-x-4 gap-y-2'>
-          <div>
-            <div className='text-muted-foreground text-xs'>
-              {t('dashboard.availability.realtime.metricQps')}
-            </div>
-            <div className='text-2xl font-semibold tabular-nums'>
-              {sample.qps}
-            </div>
+        {sample.gaveUp ? (
+          <div className='border-destructive/40 flex min-h-[8rem] flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-6 text-center'>
+            <TriangleAlert className='text-destructive/80 size-5' />
+            <p className='text-destructive text-sm'>
+              {t('dashboard.availability.realtime.connectionLost')}
+            </p>
+            <Button variant='outline' size='sm' onClick={reconnect}>
+              {t('dashboard.availability.realtime.reconnect')}
+            </Button>
           </div>
-          <div>
-            <div className='text-muted-foreground text-xs'>
-              {t('dashboard.availability.realtime.metricSuccess')}
+        ) : (
+          <>
+            <div className='flex flex-wrap items-end justify-between gap-x-4 gap-y-2'>
+              <div>
+                <div className='text-muted-foreground text-xs'>
+                  {t('dashboard.availability.realtime.metricQps')}
+                </div>
+                <div className='text-2xl font-semibold tabular-nums'>
+                  {sample.qps}
+                </div>
+              </div>
+              <div>
+                <div className='text-muted-foreground text-xs'>
+                  {t('dashboard.availability.realtime.metricSuccess')}
+                </div>
+                <div className='text-2xl font-semibold tabular-nums'>
+                  {formatRate(sample.successRate)}
+                </div>
+              </div>
+              <div>
+                <div className='text-muted-foreground text-xs'>
+                  {t('dashboard.availability.realtime.metricUptime')}
+                </div>
+                <div className='text-2xl font-semibold tabular-nums'>
+                  {Math.floor(sample.lifetime / 60)}m
+                </div>
+              </div>
             </div>
-            <div className='text-2xl font-semibold tabular-nums'>
-              {formatRate(sample.successRate)}
-            </div>
-          </div>
-          <div>
-            <div className='text-muted-foreground text-xs'>
-              {t('dashboard.availability.realtime.metricUptime')}
-            </div>
-            <div className='text-2xl font-semibold tabular-nums'>
-              {Math.floor(sample.lifetime / 60)}m
-            </div>
-          </div>
-        </div>
-        <RealtimeSparkline points={sample.spark} />
+            <RealtimeSparkline points={sample.spark} />
+          </>
+        )}
       </CardContent>
     </Card>
   )
