@@ -177,8 +177,22 @@ export function ProxyLogsPage() {
       client: client || undefined,
       from: from || undefined,
       to: to || undefined,
+      // Latency bounds are sent to the server so total + summary agree with
+      // the returned items (manualPagination relies on the server total).
+      latencyMin: latencyMin ?? undefined,
+      latencyMax: latencyMax ?? undefined,
     }),
-    [pagination, status, globalFilter, siteId, client, from, to]
+    [
+      pagination,
+      status,
+      globalFilter,
+      siteId,
+      client,
+      from,
+      to,
+      latencyMin,
+      latencyMax,
+    ]
   )
 
   const metaPayload = useMemo(
@@ -189,6 +203,8 @@ export function ProxyLogsPage() {
       client: queryPayload.client,
       from: queryPayload.from,
       to: queryPayload.to,
+      latencyMin: queryPayload.latencyMin,
+      latencyMax: queryPayload.latencyMax,
     }),
     [queryPayload]
   )
@@ -200,16 +216,9 @@ export function ProxyLogsPage() {
   const rawItems = useMemo(() => logsQuery.data?.items ?? [], [logsQuery.data])
   const total = logsQuery.data?.total ?? 0
 
-  const items = useMemo(() => {
-    if (latencyMin === null && latencyMax === null) return rawItems
-    return rawItems.filter((log) => {
-      const latency = log.latencyMs
-      if (typeof latency !== 'number' || latency < 0) return false
-      if (latencyMin !== null && latency < latencyMin) return false
-      if (latencyMax !== null && latency > latencyMax) return false
-      return true
-    })
-  }, [rawItems, latencyMin, latencyMax])
+  // The server now applies the latency filter, so the page items are used
+  // directly — no client-side re-filter that would desync from `total`.
+  const items = rawItems
 
   // Memoized so the column defs keep a stable identity across renders.
   const columnActions = useMemo<ProxyLogsColumnActions>(

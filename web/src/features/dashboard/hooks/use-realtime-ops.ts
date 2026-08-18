@@ -9,13 +9,18 @@
 // consecutive failures the hook gives up permanently (the panel then renders
 // the disconnected state rather than retrying forever).
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { getAuthToken } from '@/lib/auth-session'
 
-import type { RealtimeOpsFrame, RealtimeOpsSample } from '../types'
+import type {
+  RealtimeOpsFrame,
+  RealtimeOpsSample,
+  RealtimeOpsSamplePoint,
+} from '../types'
 
 const MAX_FAILS = 5
+const INITIAL_BACKOFF_MS = 1_000
 const MAX_BACKOFF_MS = 15_000
 const SPARK_WINDOW = 60
 
@@ -57,25 +62,40 @@ const IDLE: RealtimeOpsSample = {
   gaveUp: false,
 }
 
+/** Return shape of {@link useRealtimeOps}. */
+export type UseRealtimeOpsReturn = {
+  sample: RealtimeOpsSample
+  reconnect: () => void
+}
+
 /**
  * Subscribe to the realtime ops WebSocket. Returns a rolling 60-sample
  * sparkline + derived qps / successRate / lifetime. Renders nothing usable
  * when there is no token (the panel hides itself in that case).
+ *
+ * Auto-reconnect with exponential backoff runs until MAX_FAILS consecutive
+ * failures, after which the hook gives up and surfaces `sample.gaveUp`. The
+ * returned `reconnect` callback lets the operator manually re-enter the
+ * connection from that gave-up state (it resets failure accounting, tears
+ * down any live socket, and re-invokes the effect's `connect`).
  */
-export function useRealtimeOps(): RealtimeOpsSample {
+export function useRealtimeOps(): UseRealtimeOpsReturn {
   const [sample, setSample] = useState<RealtimeOpsSample>(IDLE)
   const socketRef = useRef<WebSocket | null>(null)
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const failsRef = useRef(0)
   const previousTotalRef = useRef<number | null>(null)
-  const sparkRef = useRef<number[]>([])
+  const sparkRef = useRef<RealtimeOpsSamplePoint[]>([])
+  // Latest connect() captured by the effect so the stable reconnect callback
+  // can re-enter it without a stale-closure.
+  const connectRef = useRef<(() => void) | null>(null)
+  const backoffRef = useRef(INITIAL_BACKOFF_MS)
 
   useEffect(() => {
     const token = getAuthToken()
     if (!token) return undefined
 
     let disposed = false
-    let backoff = 1000
 
     const connect = () => {
       if (disposed) return
@@ -92,7 +112,7 @@ export function useRealtimeOps(): RealtimeOpsSample {
 
       socket.onopen = () => {
         failsRef.current = 0
-        backoff = 1000
+        backoffRef.current = INITIAL_BACKOFF_MS
         setSample((prev) => ({ ...prev, connected: true, gaveUp: false }))
       }
 
@@ -113,7 +133,10 @@ export function useRealtimeOps(): RealtimeOpsSample {
         previousTotalRef.current = latest.total
         const successRate = computeSuccessRate(latest.success, latest.total)
 
-        const nextSpark = [...sparkRef.current, qps]
+        const nextSpark: RealtimeOpsSamplePoint[] = [
+          ...sparkRef.current,
+          { qps, successRate },
+        ]
         if (nextSpark.length > SPARK_WINDOW) nextSpark.shift()
         sparkRef.current = nextSpark
 
@@ -140,15 +163,17 @@ export function useRealtimeOps(): RealtimeOpsSample {
           setSample(DISCONNECTED)
           return
         }
-        backoff = Math.min(backoff * 2, MAX_BACKOFF_MS)
-        reconnectTimer.current = setTimeout(connect, backoff)
+        backoffRef.current = Math.min(backoffRef.current * 2, MAX_BACKOFF_MS)
+        reconnectTimer.current = setTimeout(connect, backoffRef.current)
       }
     }
 
+    connectRef.current = connect
     connect()
 
     return () => {
       disposed = true
+      connectRef.current = null
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current)
       const socket = socketRef.current
       if (socket) {
@@ -162,5 +187,36 @@ export function useRealtimeOps(): RealtimeOpsSample {
     }
   }, [])
 
-  return sample
+  // Stable manual reconnect for the gave-up state. Resets failure accounting
+  // + pending backoff, tears down any live socket WITHOUT triggering
+  // auto-reconnect accounting (handlers nulled before close), clears the
+  // rolling window for a clean slate, then re-enters the latest connect().
+  const reconnect = useCallback(() => {
+    failsRef.current = 0
+    backoffRef.current = INITIAL_BACKOFF_MS
+    if (reconnectTimer.current) {
+      clearTimeout(reconnectTimer.current)
+      reconnectTimer.current = null
+    }
+    const socket = socketRef.current
+    if (socket) {
+      socket.onopen = null
+      socket.onmessage = null
+      socket.onerror = null
+      socket.onclose = null
+      if (
+        socket.readyState === WebSocket.OPEN ||
+        socket.readyState === WebSocket.CONNECTING
+      ) {
+        socket.close()
+      }
+      socketRef.current = null
+    }
+    sparkRef.current = []
+    previousTotalRef.current = null
+    setSample(IDLE)
+    connectRef.current?.()
+  }, [])
+
+  return { sample, reconnect }
 }

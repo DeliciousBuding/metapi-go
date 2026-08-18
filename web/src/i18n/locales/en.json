@@ -223,7 +223,7 @@
         "empty": "Empty",
         "done": "Done",
         "latency": "Latency: {{value}}",
-        "chunks": "Chunks: {{value}}",
+        "usage": "Tokens: {{total}} ({{prompt}} in / {{completion}} out)",
         "noDone": "No done signal",
         "error": "Error",
         "emptyHint": "Send a request to see the response here.",
@@ -314,6 +314,11 @@
         "useSystemProxyDescription": "Route the OAuth flow through the system-configured proxy.",
         "cancel": "Cancel",
         "start": "Start",
+        "loadingProviders": "Loading providers…",
+        "providersLoadFailed": "Failed to load providers.",
+        "retry": "Retry",
+        "noProviders": "No OAuth providers are enabled.",
+        "goToSettings": "Go to settings",
         "errors": {
           "projectIdRequired": "Please enter the project ID.",
           "invalidProxyUrl": "Please enter a valid http or https URL.",
@@ -323,7 +328,9 @@
       "toast": {
         "quotaRefreshed": "Quota refresh requested for #{{id}}.",
         "rebindStarted": "Rebind started for #{{id}}.",
-        "deleted": "Connection #{{id}} deleted."
+        "deleted": "Connection #{{id}} deleted.",
+        "refreshFailed": "Failed to refresh quota for {{name}}.",
+        "rebindFailed": "Failed to rebind {{name}}."
       },
       "empty": {
         "title": "No connections",
@@ -363,6 +370,7 @@
     "sites": {
       "page": {
         "loadError": "Failed to load sites: {{message}}",
+        "retry": "Retry",
         "title": "Sites",
         "description": "Manage connected sites, their status, and routing weight."
       },
@@ -434,7 +442,7 @@
         "name": "Name",
         "namePlaceholder": "Enter a site name",
         "platform": "Platform",
-        "platformPlaceholder": "Select a platform",
+        "platformPlaceholder": "Enter a platform (e.g. openai)",
         "url": "URL",
         "detect": "Detect",
         "detectRequiresUrl": "Enter a URL to auto-detect the platform.",
@@ -459,6 +467,8 @@
         "utlsForceOff": "Force off",
         "customHeaders": "Custom headers",
         "customHeadersHint": "JSON object of extra request headers.",
+        "customHeadersOverrideRequestHeaders": "Override request headers",
+        "customHeadersOverrideRequestHeadersHint": "When enabled, the site's custom headers override the incoming request's headers.",
         "postRefreshProbeEnabled": "Post-refresh probe",
         "postRefreshProbeEnabledHint": "Send a probe request after each token refresh to verify the account.",
         "postRefreshProbeModel": "Probe model",
@@ -467,6 +477,8 @@
         "scopePlaceholder": "Select a scope",
         "scopeAll": "All accounts",
         "scopeSingle": "Single account",
+        "postRefreshProbeLatencyThresholdMsLabel": "Probe latency threshold (ms)",
+        "postRefreshProbeLatencyThresholdMsHint": "Only probe if the last response latency exceeds this threshold. 0 = always probe.",
         "cancel": "Cancel",
         "save": "Save",
         "create": "Create",
@@ -477,9 +489,9 @@
           "invalidUrlOrEmpty": "Please enter a valid URL, or leave it empty.",
           "invalidJson": "Please enter valid JSON.",
           "nameRequired": "Please enter a name.",
-          "nameTooLong": "Name must be at most 100 characters.",
+          "nameTooLong": "Name must be at most 120 characters.",
           "urlRequired": "Please enter a URL.",
-          "platformTooLong": "Platform must be at most 50 characters.",
+          "platformTooLong": "Platform must be at most 64 characters.",
           "globalWeightMin": "Weight must be at least 0.",
           "maxConcurrencyInteger": "Max concurrency must be an integer.",
           "maxConcurrencyMin": "Max concurrency must be at least 0.",
@@ -576,6 +588,11 @@
           "retry": "Retry"
         }
       },
+      "onboarding": {
+        "title": "Welcome to Metapi",
+        "description": "Create your first site to start aggregating AI APIs.",
+        "createSite": "Create site"
+      },
       "traffic": {
         "loadError": "Failed to load traffic data.",
         "incomeOutcome": {
@@ -632,9 +649,15 @@
           "statusDisconnected": "disconnected",
           "statusLive": "live",
           "statusConnecting": "connecting",
+          "connectionLost": "Realtime connection lost.",
+          "reconnect": "Reconnect",
           "metricQps": "QPS",
           "metricSuccess": "success",
-          "metricUptime": "uptime"
+          "metricUptime": "uptime",
+          "healthHealthy": "Traffic healthy",
+          "healthDegraded": "Traffic degraded",
+          "healthUnhealthy": "Traffic unhealthy",
+          "healthIdle": "No recent traffic"
         },
         "monitors": {
           "title": "Attention required",
@@ -876,6 +899,8 @@
           "create": "Create key",
           "createTitle": "Create downstream key",
           "createDescription": "Issue a new downstream API key with quotas and metadata.",
+          "editTitle": "Edit downstream key",
+          "editDescription": "Update the key's metadata. The key value cannot be changed here.",
           "generate": "Generate",
           "empty": "No downstream keys yet. Create one to start issuing tokens.",
           "requests": "Requests: {{used}} / {{max}}",
@@ -886,6 +911,8 @@
             "name": "Name",
             "group": "Group",
             "enabled": "Enabled",
+            "enabledAria": "Toggle enabled for {{name}}",
+            "editAria": "Edit {{name}}",
             "usage": "Usage",
             "actions": "Actions"
           },
@@ -1538,6 +1565,7 @@
         "chainContextSite": "site #{{id}}",
         "chainContextSuffix": "— add a route to complete the configuration flow.",
         "loadError": "Failed to load routes: {{message}}",
+        "retry": "Retry",
         "emptyTitle": "No routes",
         "emptyDescription": "Add a route to start configuring, or click \"Auto-rebuild\" to let the system generate routes from account models.",
         "searchPlaceholder": "Search model / name…",
@@ -1637,7 +1665,7 @@
         "channelEmptyReadOnly": "No channels, complete the connection config first then rebuild routes.",
         "channelEmptyEditable": "No channels, edit the route to add channels or wait for auto-rebuild.",
         "rebuildRoutes": "Auto-rebuild routes",
-        "rebuild": "Auto-rebuild",
+        "rebuild": "Rebuild all routes",
         "channelToken": "Token",
         "channelTokenUnbound": "Unbound",
         "channelUpstream": "· Upstream:",
@@ -2194,13 +2222,15 @@
       },
       "recommended": "Recommended",
       "missingPrice": "No price signal",
+      "goToRoutes": "Open {{model}} in routes",
       "columns": {
         "site": "Site",
         "grade": "Grade",
         "input": "Input / 1M",
         "output": "Output / 1M",
         "effective": "Effective cost",
-        "status": "Status"
+        "status": "Status",
+        "actions": "Actions"
       }
     },
     "fixCandidates": {
@@ -2307,6 +2337,7 @@
       "loadFailed": "Failed to load credential export.",
       "hint": "Deep links open the client app if installed; JSON/env copies are pasted manually into clients that do not support import links.",
       "copyFailed": "Copy failed — clipboard unavailable.",
+      "testRequest": "Send a test request",
       "toast": {
         "keyCopied": "API key copied",
         "endpointCopied": "Endpoint copied",

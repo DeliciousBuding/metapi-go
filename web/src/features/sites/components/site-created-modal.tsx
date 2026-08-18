@@ -32,19 +32,6 @@ type SiteCreatedModalProps = {
   onOpenChange: (open: boolean) => void
 }
 
-/**
- * Build the accounts-page deep link. Uses the untyped `href` overload so it
- * works whether or not the `/accounts` route is registered in the typed
- * route tree yet (the accounts feature may land in a later phase).
- */
-function buildAccountsHref(siteId: number): string {
-  const params = new URLSearchParams({
-    siteId: String(siteId),
-    create: '1',
-  })
-  return `/accounts?${params.toString()}`
-}
-
 export function SiteCreatedModal({
   site,
   open,
@@ -56,7 +43,11 @@ export function SiteCreatedModal({
   function handleGoToAccounts() {
     if (!site) return
     onOpenChange(false)
-    navigate({ href: buildAccountsHref(site.id), replace: true })
+    navigate({
+      to: '/accounts',
+      search: { siteId: site.id, create: true },
+      replace: true,
+    })
   }
 
   return (
