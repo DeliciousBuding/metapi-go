@@ -134,10 +134,30 @@
 
 - ✅ **#846**：realtime sparkline 按 success-rate 健康分档着色（healthy/degraded/unhealthy/idle → `bg-success`/`bg-warning`/`bg-destructive`/`bg-muted-foreground`，原单色）+ `role="img"`/`aria-label`。Latency 不在 realtime wire 上（后端 `RealtimePoint` 无 latency）→ 未伪造，记为后端 residual。
 - ✅ **#847**：attention 项 `createdAt` 渲染为相对时间（`Intl.RelativeTimeFormat` via `toBcp47`，零新 key，en/zh-CN 自动本地化）+ `<time dateTime>` + absolute `title` tooltip。
-- ⚠️ attention alert 点击 dead-end 到通用落地页（plain `<a href>` + 不支持的 `?accountId=` 参数）（M，触 accounts schema）；realtime 面板 success 下降时无 drill-down 到 per-channel 健康（M，触 channels）；WS 重连 5 次后永久放弃——无 retry 按钮、metrics 归零看起来像「无流量」（M，后端 `handler/shared/realtime.go` + 前端 hook）。
+- ✅ **#850**：WS 重连 5 次永久放弃后，面板渲染「Connection lost — Reconnect」notice（dashed destructive border + TriangleAlert + outline button）替代归零 metrics（原看起来像「无流量」）；`useRealtimeOps` 重构为 `{ sample, reconnect }`，`reconnect` 是稳定 `useCallback`（reset `failsRef`/`backoffRef`/socket + 经 `connectRef` 重入 `connect`）；`min-h-[8rem]` 防面板塌缩。
+- ⚠️ attention alert 点击 dead-end 到通用落地页（plain `<a href>` + 不支持的 `?accountId=` 参数）（M，触 accounts schema）；realtime 面板 success 下降时无 drill-down 到 per-channel 健康（M，触 channels）。
 
 **已收口（续，#838 + #840 + #842 + #846 + #847）**
 
 - **Dashboard onboarding banner**（User #1，#838）：`siteCount===0` 时显示 brand-tinted `<Card>` + 「Create site」CTA → `/sites`；`=== 0` 排除 loading 防误闪。
 - **Sites `?create=1` auto-open**（#838 follow-up，#842）：`sitesSearchSchema` 加 `create`，sites-page 一次性消费 + strip（镜像 accounts `?create`），overview CTA 改 `<Link to='/sites' search={{ create: true }}>` 直达 create dialog。
 - 详见上方 model-tester / availability 各 ✅ 项。
+
+### 三轮复审（sites）—— 2026-08-18 续
+
+一个只读 explore 子代理从 PM / 工程师 / 用户视角复审 sites feature（此前一轮/二轮未深覆盖区）。下列为证据，标 ✅ 已收口（#851），⚠️ 仍开放/暂缓。
+
+**sites** (`web/src/features/sites/`)
+
+- ✅ **gap-1 (P1)**（#851）：`customHeadersOverrideRequestHeaders` 在 `siteToFormValues` 硬编码 `false` → 编辑站点名等不相关字段会静默把 header-merge 从「site-wins」降级为「request-wins」（生产影响）。修复：round-trip 真实值 + 加可见 Switch FormField（label + hint）；`Site` type 加 optional 字段（原仅在 `SiteFormPayload`）。
+- ✅ **gap-2 (P2)**（#851）：i18n 错误文案限额（100/50）与 Zod schema（120/64）不一致 → 用户输 110 字符名看到「最多 100 字符」。修复：en/zh-CN 对齐 120/64。
+- ✅ **gap-4 (P2)**（#851）：sites 页/form dialog 零测试 → 加 `sites-page.test.tsx`（3 例：create 深链、error+retry、no-error table）+ `site-form-dialog.test.tsx`（4 例：Zod 错误、create payload、edit round-trip `customHeadersOverrideRequestHeaders`、dirty-close guard）。
+- ✅ **gap-8 (P3)**（#851）：`platform` 是 free-text Input 但 placeholder 写「Select a platform」→ 改「Enter a platform (e.g. openai)」。
+- ✅ **gap-10 (P3)**（#851）：error 态同时渲染空态 CTA「Add site」（误导——加站点不修 load error）→ error 态只显 error banner + Retry 按钮（`sitesQuery.refetch()`），抑制 `<DataTablePage>`。
+- ✅ **gap-12 (P3)**（#851）：`SiteCreatedModal` 用 stale untyped `href` 导航（注释自承 workaround）→ 迁移到 typed `navigate({ to: '/accounts', search: { siteId, create: true } })`，匹配 `site-detail-sheet.tsx`。
+- ⚠️ **gap-3 (P2)**：无 `apiEndpoints` 增删/启用/排序 UI（form preserve-only，detail sheet read-only）。后端 `SiteAPIEndpointInput` 已支持完整数组。当前行为诚实（edit 保留既有、create 空），未做 UI 属 feature gap 暂缓（按真实需求再立项，或 document 为 residual）。
+- ⚠️ **gap-5 (P2)**：form `Select`/`Textarea` 未经 `id`/`htmlFor` 与 `FormLabel` 程序化关联（a11y）——跨 feature 模式问题（accounts form 同样），需在 `Form` primitive 层修，暂缓避免与并行进程 accounts 范围冲突。
+- ⚠️ **gap-9 (P3)**：后端 `probe-now`/`available-models`/`disabled-models` endpoint 未在 sites UI 呈现（`lib/api/sites.ts` 已封装未用）。需与 `features/models`/`model-tester` 协调 ownership，暂缓。
+- ⚠️ **gap-6 (P3)**：无 `?edit=<id>` 深链（打开 edit dialog 纯本地 state）——低优先级，除非运营者分享 edit 链接。
+- ⚠️ **gap-7 (P3)**：load error 无 Retry 按钮（#851 已为 sites 加，但 accounts/channels 同模式未统一——可抽 `<QueryErrorBanner>` shared 组件）。
+- ⚠️ **gap-11 (P3)**：`postRefreshProbeLatencyThresholdMs` 不可编辑（round-trips 但无 FormField）——probe 配置表面不完整，低优先级。
