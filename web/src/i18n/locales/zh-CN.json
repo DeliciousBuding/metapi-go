@@ -475,6 +475,8 @@
         "scopePlaceholder": "选择范围",
         "scopeAll": "全部账号",
         "scopeSingle": "单个账号",
+        "postRefreshProbeLatencyThresholdMsLabel": "探测延迟阈值（毫秒）",
+        "postRefreshProbeLatencyThresholdMsHint": "仅当上次响应延迟超过此阈值时探测。0 = 始终探测。",
         "cancel": "取消",
         "save": "保存",
         "create": "创建",

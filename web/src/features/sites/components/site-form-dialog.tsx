@@ -584,7 +584,7 @@ export function SiteFormDialog({
                 )}
               />
               {probeEnabled && (
-                <div className='mt-3 grid gap-4 sm:grid-cols-3'>
+                <div className='mt-3 grid gap-4 sm:grid-cols-2'>
                   <FormField
                     control={form.control}
                     name='postRefreshProbeModel'
@@ -639,6 +639,43 @@ export function SiteFormDialog({
                             </SelectItem>
                           </SelectContent>
                         </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='postRefreshProbeLatencyThresholdMs'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          {t(
+                            'sites.form.postRefreshProbeLatencyThresholdMsLabel'
+                          )}
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            type='number'
+                            min={0}
+                            step={100}
+                            value={field.value}
+                            onChange={(event) =>
+                              field.onChange(
+                                Number.isNaN(event.target.valueAsNumber)
+                                  ? 0
+                                  : event.target.valueAsNumber
+                              )
+                            }
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            ref={field.ref}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t(
+                            'sites.form.postRefreshProbeLatencyThresholdMsHint'
+                          )}
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
