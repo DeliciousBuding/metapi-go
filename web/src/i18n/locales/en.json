@@ -2265,7 +2265,8 @@
       },
       "empty": {
         "title": "No channels",
-        "description": "No routing channels have been materialised yet."
+        "description": "No routing channels have been materialised yet.",
+        "manageAccounts": "Manage accounts"
       },
       "toolbar": {
         "searchPlaceholder": "Search channels..."

@@ -2265,7 +2265,8 @@
       },
       "empty": {
         "title": "暂无通道",
-        "description": "当前尚未生成任何路由通道。"
+        "description": "当前尚未生成任何路由通道。",
+        "manageAccounts": "管理账号"
       },
       "toolbar": {
         "searchPlaceholder": "搜索通道..."
