@@ -5,6 +5,15 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
 
+## 2026-08-18 — 四轮复审驱动：token-routes siteNames 死列 + 列表/详情打磨
+
+四轮 PM/工程师/用户复审（token-routes list/columns/detail，避开 form dialog——并行进程 `route-form-drafts-hint` 拥有；发现写入审计 doc `### 四轮复审`）后交付：
+
+- **Routes siteNames 死列修复**（gap-1 P1，#854）：`listSummary` 硬编码 `siteNames: []string{}` → 「Sites」列 + detail 恒为 `—`，全局过滤也搜不到 site 名。修复：加批量 `GROUP BY (route_id, site_name)` JOIN（route_channels→accounts→sites），dedup per route，nil→`[]string{}`；后端测试覆盖 linked（dedup）+ empty。Dual-dialect 安全。
+- **Routes 列表/详情打磨**（gap-2/3/4/8/9，#855）：删误导性行「Refresh decision」（实为全局，与 header 冗余）；first-run 空态加 CTA（Add route + Auto-rebuild）；error banner 加 Retry + 抑制 table；detail「Rebuild」改「Rebuild all routes」+ 图标 `ExternalLink`→`RefreshCw`；`requireChannelAllocation` render-path throw → `resolveChannelAllocation` graceful fallback（防 refetch race 崩整页）。546 测试。
+- 四轮 token-routes 共 11 gap：6 已收口（#854 后端 + #855 前端），5 暂缓（chain-context #ID→name / detail edit callback / per-row pending——均轻触 form dialog 需协调；showZeroChannel 布局 + barrel stub——P3）。
+- **Sites gap-11 收口**（#853）：`postRefreshProbeLatencyThresholdMs` 加 number FormField inside `probeEnabled` block，probe 配置表面完整（model + scope + threshold）。543 测试。
+
 ## 2026-08-18 — 三轮复审驱动：availability WS 重连 + sites 表单数据丢失修复
 
 三轮 PM/工程师/用户复审（sites feature，此前未深覆盖；发现写入审计 doc `### 三轮复审（sites）`）+ availability Gap 3 收口后交付：
