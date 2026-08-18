@@ -42,7 +42,7 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 function requireElement(container: HTMLElement, selector: string): HTMLElement {
-  const element = container.querySelector(selector)
+  const element = container.querySelector<HTMLElement>(selector)
   if (!element) throw new Error(`Expected element matching ${selector}`)
   return element
 }
