@@ -145,10 +145,40 @@ func (h *tokenRoutesHandler) listSummary(w http.ResponseWriter, r *http.Request)
 		countsByRoute[c.RouteID] = c
 	}
 
+	// Batch-load distinct site names per route via a single GROUP BY query
+	// (route_channels → accounts → sites). A route with no channels has no
+	// row in route_channels and falls through to a non-nil empty slice —
+	// matching the frontend's `route.siteNames ?? []` render. GROUP BY on
+	// (route_id, site_name) collapses multiple channels that share a site
+	// so each site name appears at most once per route. No bind params means
+	// the dual-dialect rebind gate is a no-op here (same as the counts query).
+	type routeSiteName struct {
+		RouteID  int64  `db:"route_id"`
+		SiteName string `db:"site_name"`
+	}
+	var siteNameRows []routeSiteName
+	if err := h.db.Select(&siteNameRows, `
+		SELECT rc.route_id AS route_id, s.name AS site_name
+		FROM route_channels rc
+		JOIN accounts a ON rc.account_id = a.id
+		JOIN sites s ON a.site_id = s.id
+		WHERE s.name IS NOT NULL AND s.name <> ''
+		GROUP BY rc.route_id, s.name`); err != nil {
+		slog.Warn("listSummary: batch site names failed", "err", err)
+	}
+	siteNamesByRoute := make(map[int64][]string)
+	for _, sn := range siteNameRows {
+		siteNamesByRoute[sn.RouteID] = append(siteNamesByRoute[sn.RouteID], sn.SiteName)
+	}
+
 	result := make([]map[string]any, 0)
 	for _, route := range rows {
 		routeID := coerceInt64(route["id"])
 		c := countsByRoute[routeID]
+		siteNames := siteNamesByRoute[routeID]
+		if siteNames == nil {
+			siteNames = []string{}
+		}
 
 		item := map[string]any{
 			"id":                  route["id"],
@@ -163,7 +193,7 @@ func (h *tokenRoutesHandler) listSummary(w http.ResponseWriter, r *http.Request)
 			"enabled":             route["enabled"],
 			"channelCount":        c.Total,
 			"enabledChannelCount": c.EnabledCount,
-			"siteNames":           []string{},
+			"siteNames":           siteNames,
 			"decisionSnapshot":    nil,
 			"decisionRefreshedAt": route["decisionRefreshedAt"],
 		}
