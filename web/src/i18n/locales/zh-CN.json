@@ -328,7 +328,9 @@
       "toast": {
         "quotaRefreshed": "已请求刷新 #{{id}} 的额度。",
         "rebindStarted": "已开始重新绑定 #{{id}}。",
-        "deleted": "连接 #{{id}} 已删除。"
+        "deleted": "连接 #{{id}} 已删除。",
+        "refreshFailed": "刷新 {{name}} 的额度失败。",
+        "rebindFailed": "重新绑定 {{name}} 失败。"
       },
       "empty": {
         "title": "暂无连接",

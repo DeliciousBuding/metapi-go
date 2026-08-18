@@ -129,6 +129,37 @@ function useOAuthUrlState() {
   })
 }
 
+/**
+ * Pick the account id of whichever mutation (refresh-quota or rebind) is
+ * currently pending. Both mutations take a bare `accountId: number` as
+ * variables. Returns `null` when neither is in flight — the actions cell
+ * renders all rows as clickable. Kept as a plain function (not a hook) so
+ * the page render stays cheap and the derivation is grep-able/testable.
+ */
+function resolvePendingAccountId(
+  refresh: { isPending: boolean; variables?: number },
+  rebind: { isPending: boolean; variables?: number }
+): number | null {
+  if (refresh.isPending) return refresh.variables ?? null
+  if (rebind.isPending) return rebind.variables ?? null
+  return null
+}
+
+/**
+ * Resolve a human-readable display name for an OAuth connection, falling
+ * back through username → email → accountKey → stringified account id. Used
+ * in error toasts so the operator can tell WHICH account failed (the bare
+ * `accountId` number is opaque without cross-referencing the table).
+ */
+function resolveOAuthDisplayName(client: OAuthClient): string {
+  return (
+    client.username ??
+    client.email ??
+    client.accountKey ??
+    String(client.accountId)
+  )
+}
+
 export function OAuthPage() {
   const { t } = useTranslation()
   const connectionsQuery = useOAuthConnections()
@@ -141,35 +172,62 @@ export function OAuthPage() {
 
   const urlState = useOAuthUrlState()
 
-  const columns = useOAuthColumns({
-    onRefreshQuota: (client) => {
-      refreshQuota.mutate(client.accountId, {
-        onSuccess: () =>
-          toast.success(
-            t('oauth.toast.quotaRefreshed', { id: client.accountId })
-          ),
-      })
-    },
-    onRebind: (client) => {
-      rebindConnection.mutate(client.accountId, {
-        onSuccess: (result) => {
-          if (result.authorizationUrl) {
-            window.open(
-              result.authorizationUrl,
-              '_blank',
-              'noopener,noreferrer'
+  // Derive the per-row pending account id from whichever mutation is in
+  // flight. A single value is sufficient because BOTH row actions (refresh +
+  // rebind) should be disabled for the row with an action pending, while
+  // every other row stays clickable (no global lock) — mirroring the
+  // accounts page's `pendingStatusId` pattern. `useRefreshOAuthQuota` and
+  // `useRebindOAuthConnection` both take a bare `accountId: number` as
+  // variables, so the pending id is `mutation.variables` when pending.
+  const pendingAccountId = resolvePendingAccountId(
+    refreshQuota,
+    rebindConnection
+  )
+
+  const columns = useOAuthColumns(
+    {
+      onRefreshQuota: (client) => {
+        refreshQuota.mutate(client.accountId, {
+          onSuccess: () =>
+            toast.success(
+              t('oauth.toast.quotaRefreshed', { id: client.accountId })
+            ),
+          onError: () =>
+            toast.error(
+              t('oauth.toast.refreshFailed', {
+                name: resolveOAuthDisplayName(client),
+              })
+            ),
+        })
+      },
+      onRebind: (client) => {
+        rebindConnection.mutate(client.accountId, {
+          onSuccess: (result) => {
+            if (result.authorizationUrl) {
+              window.open(
+                result.authorizationUrl,
+                '_blank',
+                'noopener,noreferrer'
+              )
+            }
+            toast.success(
+              t('oauth.toast.rebindStarted', { id: client.accountId })
             )
-          }
-          toast.success(
-            t('oauth.toast.rebindStarted', { id: client.accountId })
-          )
-        },
-      })
+          },
+          onError: () =>
+            toast.error(
+              t('oauth.toast.rebindFailed', {
+                name: resolveOAuthDisplayName(client),
+              })
+            ),
+        })
+      },
+      onDelete: (client) => {
+        setDeletingClient(client)
+      },
     },
-    onDelete: (client) => {
-      setDeletingClient(client)
-    },
-  })
+    pendingAccountId
+  )
 
   const { table } = useDataTable<OAuthClient>({
     data: connectionsQuery.data ?? [],
