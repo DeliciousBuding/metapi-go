@@ -18,7 +18,7 @@ import {
   type UseQueryOptions,
 } from '@tanstack/react-query'
 
-import { api } from '@/lib/api'
+import { api, type OAuthSessionInfo } from '@/lib/api'
 
 import {
   oauthKeys,
@@ -169,6 +169,61 @@ export function useRebindOAuthConnection(
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: oauthKeys.connections() })
+    },
+    ...options,
+  })
+}
+
+/**
+ * Poll a pending OAuth session by `state` until the backend reports success
+ * or error. Refetches every 2s while `status === 'pending'` and stops once
+ * the session settles. Pass `null` to disable (e.g. before the start-authorization
+ * mutation has returned a `state`).
+ */
+export function useOAuthSession(
+  state: string | null,
+  options?: Omit<UseQueryOptions<OAuthSessionInfo>, 'queryKey' | 'queryFn'>
+) {
+  return useQuery<OAuthSessionInfo>({
+    queryKey: oauthKeys.session(state ?? ''),
+    queryFn: async () => {
+      // `enabled: !!state` guarantees `state` is non-null here; the guard
+      // satisfies the type checker without a non-null assertion.
+      if (!state) throw new Error('OAuth session state is required')
+      return api.getOAuthSession(state)
+    },
+    enabled: !!state,
+    refetchInterval: (query) =>
+      query.state.data?.status === 'pending' ? 2000 : false,
+    ...options,
+  })
+}
+
+/**
+ * Submit a manual callback URL for a pending OAuth session. Used when the
+ * provider's redirect cannot reach the local callback port directly (e.g.
+ * behind a firewall); the operator pastes the full redirect URL. Invalidates
+ * the session query so polling resumes immediately, plus the connections
+ * list so a newly created connection shows up.
+ */
+export function useSubmitOAuthManualCallback(
+  options?: UseMutationOptions<
+    { success: true },
+    Error,
+    { state: string; callbackUrl: string }
+  >
+) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ state, callbackUrl }) =>
+      api.submitOAuthManualCallback(state, callbackUrl),
+    onSettled: (_data, _err, vars) => {
+      void queryClient.invalidateQueries({
+        queryKey: oauthKeys.session(vars.state),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: oauthKeys.connections(),
+      })
     },
     ...options,
   })

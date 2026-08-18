@@ -68,6 +68,13 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),
 }))
 
+vi.mock('@/features/accounts/api', () => ({
+  useAccounts: () => ({ data: undefined }),
+}))
+vi.mock('@/features/sites/api', () => ({
+  useSites: () => ({ data: undefined }),
+}))
+
 vi.mock('../../api', () => ({
   useRoutes: () => testState.routesQuery,
   useModelTokenCandidates: () => ({ data: undefined }),

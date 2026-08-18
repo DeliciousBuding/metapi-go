@@ -18,6 +18,7 @@ import { CalendarRange, Loader2, RotateCw, Zap } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import {
   DataTablePage,
   type UrlTableState,
@@ -262,6 +263,7 @@ export function CheckinPage() {
     isLoading,
     isFetching,
     error,
+    refetch,
   } = useCheckinLogs(queryPayload)
   const logs = useMemo(() => logsPage?.items ?? [], [logsPage])
   const total = logsPage?.total ?? 0
@@ -400,11 +402,12 @@ export function CheckinPage() {
         </div>
       </div>
 
-      {error && (
-        <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
-          {t('checkin.page.loadError', { message: (error as Error).message })}
-        </div>
-      )}
+      <QueryErrorBanner
+        error={error as Error | null}
+        messageKey='checkin.page.loadError'
+        onRetry={() => refetch()}
+        isRetrying={isFetching}
+      />
 
       <div className='flex flex-wrap items-center gap-2'>
         <CalendarRange className='text-muted-foreground size-4' />

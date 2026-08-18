@@ -55,7 +55,10 @@ function makeChannel(overrides: Partial<ChannelRow>): ChannelRow {
   } as ChannelRow
 }
 
-function renderSheet(channel: ChannelRow | null) {
+function renderSheet(
+  channel: ChannelRow | null,
+  onEdit?: (channel: ChannelRow) => void
+) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
@@ -65,7 +68,12 @@ function renderSheet(channel: ChannelRow | null) {
     )
   }
   return render(
-    <ChannelDetailSheet channel={channel} open onOpenChange={() => {}} />,
+    <ChannelDetailSheet
+      channel={channel}
+      open
+      onOpenChange={() => {}}
+      onEdit={onEdit}
+    />,
     { wrapper: Wrapper }
   )
 }
@@ -144,6 +152,47 @@ describe('ChannelDetailSheet cooldown action', () => {
 
     expect(
       screen.getByRole('button', { name: 'Clear route cooldown' })
+    ).toBeDisabled()
+  })
+})
+
+describe('ChannelDetailSheet edit-route action', () => {
+  it('renders the edit-route button in the footer for a healthy channel', () => {
+    renderSheet(makeChannel({ status: 'enabled' }))
+
+    expect(
+      screen.getByRole('button', { name: 'Edit route' })
+    ).toBeInTheDocument()
+  })
+
+  it('renders the edit-route button alongside the cooldown action', () => {
+    renderSheet(makeChannel({ status: 'cooldown' }))
+
+    expect(
+      screen.getByRole('button', { name: 'Edit route' })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Clear route cooldown' })
+    ).toBeInTheDocument()
+  })
+
+  it('calls onEdit with the channel when the edit-route button is clicked', () => {
+    const onEdit = vi.fn()
+    renderSheet(makeChannel({ routeId: 42 }), onEdit)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit route' }))
+
+    expect(onEdit).toHaveBeenCalledTimes(1)
+    expect(onEdit).toHaveBeenCalledWith(
+      expect.objectContaining({ routeId: 42 })
+    )
+  })
+
+  it('disables the edit-route button when the channel has no routeId', () => {
+    renderSheet(makeChannel({ routeId: 0 }))
+
+    expect(
+      screen.getByRole('button', { name: 'Edit route' })
     ).toBeDisabled()
   })
 })

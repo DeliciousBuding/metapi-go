@@ -140,4 +140,10 @@ export const sitesSearchSchema = z.object({
     .catch(undefined),
   status: stringSearchParam,
   create: z.coerce.boolean().optional().catch(undefined),
+  // `edit` is a one-shot transient deep-link param (`?edit=<id>`): it
+  // auto-opens the edit dialog for the referenced site once, then the page
+  // strips it. Mirrors `create` but resolves the id against the loaded list
+  // snapshot before opening, so a stale/unknown id is ignored rather than
+  // creating data.
+  edit: z.coerce.number().int().positive().optional().catch(undefined),
 })

@@ -112,12 +112,15 @@ function buildHref(next: UrlTableStateUpdate<SitesUrlFilters>): string {
   const sortString = encodeSorting(merged.sorting)
   if (sortString) params.set('sort', sortString)
   if (merged.filters.status) params.set('status', merged.filters.status)
-  // Preserve the one-shot `create` deep-link param across table-state
+  // Preserve the one-shot `create`/`edit` deep-link params across table-state
   // navigations (page-clamp / sort / filter) until the page's consumption
-  // effect strips it — mirrors the accounts page's buildAccountsHref guard
+  // effect strips them — mirrors the accounts page's buildAccountsHref guard
   // for its guided-flow `siteId`/`create` params.
-  const guidedCreate = new URLSearchParams(window.location.search).get('create')
+  const searchParams = new URLSearchParams(window.location.search)
+  const guidedCreate = searchParams.get('create')
   if (guidedCreate) params.set('create', guidedCreate)
+  const guidedEdit = searchParams.get('edit')
+  if (guidedEdit) params.set('edit', guidedEdit)
   const queryString = params.toString()
   return queryString ? `/sites?${queryString}` : '/sites'
 }
@@ -212,6 +215,35 @@ export function SitesPage() {
       replace: true,
     })
   }, [search, navigate])
+
+  // Consume the one-shot `?edit=<id>` deep link exactly once: resolve the
+  // referenced id against the loaded sites snapshot, open the edit dialog
+  // for it, then strip the transient `edit` param so a refetch / remount
+  // never reopens it. Waits for the list to resolve (isLoading false) so a
+  // stale or unknown id is ignored instead of opening a blank dialog —
+  // mirrors the accounts page's deep-link wait. The `useRef` guard survives
+  // the strict-mode double-invoke and the post-navigate re-render.
+  const editConsumed = useRef(false)
+  useEffect(() => {
+    if (
+      editConsumed.current ||
+      search.edit === undefined ||
+      sitesQuery.isLoading
+    ) {
+      return
+    }
+    const site = sitesQuery.data?.find((s) => s.id === search.edit)
+    editConsumed.current = true
+    if (site) {
+      setEditingSite(site)
+      setFormOpen(true)
+    }
+    navigate({
+      to: '/sites',
+      search: { ...search, edit: undefined },
+      replace: true,
+    })
+  }, [search, sitesQuery.isLoading, sitesQuery.data, navigate])
 
   const urlState = useSitesUrlState()
 

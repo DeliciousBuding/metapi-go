@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Clock,
   Loader2,
+  Pencil,
   Snowflake,
   TriangleAlert,
 } from 'lucide-react'
@@ -40,6 +41,7 @@ type ChannelDetailSheetProps = {
   channel: ChannelRow | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  onEdit?: (channel: ChannelRow) => void
 }
 
 const STATUS_CONFIG: Record<
@@ -107,6 +109,7 @@ export function ChannelDetailSheet({
   channel,
   open,
   onOpenChange,
+  onEdit,
 }: ChannelDetailSheetProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -242,26 +245,39 @@ export function ChannelDetailSheet({
           </div>
         </ScrollArea>
 
-        {showCooldownAction ? (
-          <SheetFooter>
-            <p className='text-muted-foreground mr-auto max-w-[220px] text-xs'>
-              {t('channels.detail.clearRouteCooldownHint')}
-            </p>
-            <Button
-              type='button'
-              variant='outline'
-              onClick={handleClearRouteCooldown}
-              disabled={clearCooldownMutation.isPending}
-            >
-              {clearCooldownMutation.isPending ? (
-                <Loader2 className='animate-spin' />
-              ) : (
-                <Snowflake />
-              )}
-              {t('channels.detail.clearRouteCooldown')}
-            </Button>
-          </SheetFooter>
-        ) : null}
+        <SheetFooter className='sm:flex-row sm:items-center'>
+          <Button
+            type='button'
+            variant='outline'
+            className='sm:mr-auto'
+            onClick={() => onEdit?.(channel)}
+            disabled={!channel || !channel.routeId}
+            title={t('channels.detail.editRouteHint')}
+          >
+            <Pencil />
+            {t('channels.detail.editRoute')}
+          </Button>
+          {showCooldownAction ? (
+            <>
+              <p className='text-muted-foreground max-w-[220px] text-xs'>
+                {t('channels.detail.clearRouteCooldownHint')}
+              </p>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={handleClearRouteCooldown}
+                disabled={clearCooldownMutation.isPending}
+              >
+                {clearCooldownMutation.isPending ? (
+                  <Loader2 className='animate-spin' />
+                ) : (
+                  <Snowflake />
+                )}
+                {t('channels.detail.clearRouteCooldown')}
+              </Button>
+            </>
+          ) : null}
+        </SheetFooter>
       </SheetContent>
     </Sheet>
   )

@@ -1,6 +1,6 @@
-// Regression tests for the sites list page. Covers the three behaviors that
-// previously regressed: the one-shot `?create=1` deep link, the error state
-// suppressing the empty-state CTA, and the Retry button calling refetch.
+// Regression tests for the sites list page. Covers the one-shot deep-link
+// params (`?create=1` and `?edit=<id>`), the error state suppressing the
+// empty-state CTA, and the Retry button calling refetch.
 import '@testing-library/jest-dom/vitest'
 import {
   cleanup,
@@ -16,10 +16,13 @@ import '@/i18n/config'
 import { SitesPage } from '../sites-page'
 
 const testState = vi.hoisted(() => ({
-  search: { create: false as boolean | undefined },
+  search: {
+    create: false as boolean | undefined,
+    edit: undefined as number | undefined,
+  } as { create?: boolean | undefined; edit?: number | undefined },
   navigate: vi.fn(),
   sitesQuery: {
-    data: [],
+    data: [] as unknown[],
     error: null as Error | null,
     isLoading: false,
     isFetching: false,
@@ -27,6 +30,7 @@ const testState = vi.hoisted(() => ({
   },
   formOpenCount: 0,
   previousFormOpen: undefined as boolean | undefined,
+  lastEditingSiteId: null as number | null,
   dataTableRendered: false,
 }))
 
@@ -88,9 +92,13 @@ vi.mock('../site-detail-sheet', () => ({
 }))
 
 vi.mock('../site-form-dialog', () => ({
-  SiteFormDialog: (props: { open: boolean }) => {
+  SiteFormDialog: (props: {
+    open: boolean
+    editingSite?: { id: number } | null
+  }) => {
     if (props.open && testState.previousFormOpen !== true) {
       testState.formOpenCount += 1
+      testState.lastEditingSiteId = props.editingSite?.id ?? null
     }
     testState.previousFormOpen = props.open
     return null
@@ -110,6 +118,7 @@ beforeEach(() => {
   testState.sitesQuery.refetch.mockResolvedValue({})
   testState.formOpenCount = 0
   testState.previousFormOpen = undefined
+  testState.lastEditingSiteId = null
   testState.dataTableRendered = false
   testState.search = { create: false }
   testState.sitesQuery.data = []
@@ -141,6 +150,99 @@ describe('SitesPage create deep link', () => {
         to: '/sites',
         replace: true,
         search: expect.objectContaining({ create: undefined }),
+      })
+    )
+  })
+})
+
+describe('SitesPage edit deep link', () => {
+  it('opens the edit dialog for the referenced site and strips the edit param', async () => {
+    const site = {
+      id: 5,
+      name: 'Edit Me',
+      url: 'https://edit.example.com',
+    }
+    testState.sitesQuery.data = [site]
+    testState.search = { edit: 5 }
+
+    const { rerender } = render(<SitesPage />)
+
+    await waitFor(() => {
+      expect(testState.formOpenCount).toBe(1)
+    })
+    expect(testState.lastEditingSiteId).toBe(5)
+
+    // After consumption, the page navigates to strip `edit`; a remount
+    // (search.edit now gone) must not reopen the dialog.
+    testState.search = {}
+    rerender(<SitesPage />)
+
+    await waitFor(() => {
+      expect(testState.formOpenCount).toBe(1)
+    })
+    expect(testState.navigate).toHaveBeenCalledTimes(1)
+    expect(testState.navigate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: '/sites',
+        replace: true,
+        search: expect.objectContaining({ edit: undefined }),
+      })
+    )
+  })
+
+  it('strips the edit param without opening the dialog when the id is unknown', async () => {
+    testState.sitesQuery.data = [
+      { id: 1, name: 'Other', url: 'https://other.example.com' },
+    ]
+    testState.search = { edit: 999 }
+
+    render(<SitesPage />)
+
+    await waitFor(() => {
+      expect(testState.navigate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: '/sites',
+          replace: true,
+          search: expect.objectContaining({ edit: undefined }),
+        })
+      )
+    })
+    expect(testState.formOpenCount).toBe(0)
+    expect(testState.lastEditingSiteId).toBeNull()
+  })
+
+  it('waits for the list to resolve before opening the edit dialog', async () => {
+    const site = {
+      id: 5,
+      name: 'Edit Me',
+      url: 'https://edit.example.com',
+    }
+    testState.sitesQuery.data = []
+    testState.sitesQuery.isLoading = true
+    testState.search = { edit: 5 }
+
+    const { rerender } = render(<SitesPage />)
+
+    // While loading, the edit param must NOT be consumed and no navigate
+    // call (strip) must happen yet.
+    expect(testState.formOpenCount).toBe(0)
+    expect(testState.navigate).not.toHaveBeenCalled()
+
+    // Once the list resolves with the referenced site, the dialog opens and
+    // the param is stripped.
+    testState.sitesQuery.isLoading = false
+    testState.sitesQuery.data = [site]
+    rerender(<SitesPage />)
+
+    await waitFor(() => {
+      expect(testState.formOpenCount).toBe(1)
+    })
+    expect(testState.lastEditingSiteId).toBe(5)
+    expect(testState.navigate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: '/sites',
+        replace: true,
+        search: expect.objectContaining({ edit: undefined }),
       })
     )
   })

@@ -11,6 +11,7 @@ import { Users } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import {
   DataTablePage,
   encodeSorting,
@@ -152,13 +153,12 @@ export function ChannelsPage() {
         </p>
       </div>
 
-      {channelsQuery.error && (
-        <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
-          {t('channels.page.loadError', {
-            message: (channelsQuery.error as Error).message,
-          })}
-        </div>
-      )}
+      <QueryErrorBanner
+        error={channelsQuery.error as Error | null}
+        messageKey='channels.page.loadError'
+        onRetry={() => channelsQuery.refetch()}
+        isRetrying={channelsQuery.isFetching}
+      />
 
       <DataTablePage
         table={table}
@@ -187,6 +187,13 @@ export function ChannelsPage() {
         channel={detailChannel}
         open={detailOpen}
         onOpenChange={setDetailOpen}
+        onEdit={(channel) => {
+          setDetailOpen(false)
+          void navigate({
+            to: '/token-routes',
+            search: { routeId: channel.routeId },
+          })
+        }}
       />
     </div>
   )

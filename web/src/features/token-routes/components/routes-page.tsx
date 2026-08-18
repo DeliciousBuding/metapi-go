@@ -27,6 +27,8 @@ import {
 } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
 import { asStringParam } from '@/lib/helpers/searchParams'
+import { useAccounts } from '@/features/accounts/api'
+import { useSites } from '@/features/sites/api'
 
 import {
   type BatchRouteAction,
@@ -277,7 +279,13 @@ export function RoutesPage() {
     [openEdit, updateMutation, clearCooldownMutation, refreshDecisionsMutation]
   )
 
-  const columns = useRoutesColumns(rowActions)
+  const columns = useRoutesColumns(
+    rowActions,
+    updateMutation.isPending ? (updateMutation.variables?.id ?? null) : null,
+    clearCooldownMutation.isPending
+      ? (clearCooldownMutation.variables ?? null)
+      : null
+  )
 
   const { table } = useDataTable({
     data: rows,
@@ -319,6 +327,22 @@ export function RoutesPage() {
     }),
     [accountId, siteId]
   )
+
+  // The loader already prefetches both the accounts snapshot and the sites
+  // list into the query cache, so these are cache hits (no extra round-trip).
+  // Resolve chain-context IDs to human-readable names with `#ID` fallback.
+  const { data: accountsSnapshot } = useAccounts()
+  const { data: sitesList } = useSites()
+  const chainAccountName = useMemo(() => {
+    if (!accountId) return undefined
+    const match = accountsSnapshot?.accounts.find((a) => a.id === accountId)
+    return match?.username ?? `#${accountId}`
+  }, [accountId, accountsSnapshot])
+  const chainSiteName = useMemo(() => {
+    if (!siteId) return undefined
+    const match = sitesList?.find((s) => s.id === siteId)
+    return match?.name ?? `#${siteId}`
+  }, [siteId, sitesList])
 
   const confirmDelete = async () => {
     if (!deleteRouteState) return
@@ -377,11 +401,11 @@ export function RoutesPage() {
       {(accountId || siteId) && (
         <div className='bg-muted/40 text-muted-foreground rounded-lg border p-2 text-sm'>
           {t('tokenRoutes.page.chainContext')}
-          {accountId
-            ? ` ${t('tokenRoutes.page.chainContextAccount', { id: accountId })}`
+          {chainAccountName
+            ? ` ${t('tokenRoutes.page.chainContextAccount', { name: chainAccountName })}`
             : ''}
-          {siteId
-            ? ` / ${t('tokenRoutes.page.chainContextSite', { id: siteId })} `
+          {chainSiteName
+            ? ` / ${t('tokenRoutes.page.chainContextSite', { name: chainSiteName })} `
             : ' '}
           {t('tokenRoutes.page.chainContextSuffix')}
         </div>
@@ -441,6 +465,15 @@ export function RoutesPage() {
           toolbarProps={{
             searchPlaceholder: t('tokenRoutes.page.searchPlaceholder'),
             searchDebounceMs: 300,
+            viewToggle: (
+              <label className='text-muted-foreground flex items-center gap-2 text-sm'>
+                <Switch
+                  checked={showZeroChannel}
+                  onCheckedChange={setShowZeroChannel}
+                />
+                {t('tokenRoutes.page.showZeroChannel')}
+              </label>
+            ),
             filters: [
               {
                 columnId: 'enabled',
@@ -462,14 +495,6 @@ export function RoutesPage() {
           bulkActions={<RoutesBulkActions table={table} />}
         />
       )}
-
-      <label className='text-muted-foreground flex items-center gap-2 text-sm'>
-        <Switch
-          checked={showZeroChannel}
-          onCheckedChange={setShowZeroChannel}
-        />
-        {t('tokenRoutes.page.showZeroChannel')}
-      </label>
 
       <RouteFormDialog
         open={formOpen}
