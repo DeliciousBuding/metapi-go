@@ -15,8 +15,11 @@ web/dist/
 # Binaries
 /bin/
 /dist/
+/metapi
 /metapi-go
+/metapi.exe
 /metapi-go.exe
+/server
 *.exe
 
 # Certificates & private keys (never commit)

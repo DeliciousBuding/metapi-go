@@ -12,6 +12,7 @@ import { Plus as PlusIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import {
   DataTablePage,
   encodeSorting,
@@ -279,13 +280,12 @@ export function OAuthPage() {
         </p>
       </div>
 
-      {connectionsQuery.error && (
-        <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
-          {t('oauth.page.loadError', {
-            message: (connectionsQuery.error as Error).message,
-          })}
-        </div>
-      )}
+      <QueryErrorBanner
+        error={connectionsQuery.error as Error | null}
+        messageKey='oauth.page.loadError'
+        onRetry={() => connectionsQuery.refetch()}
+        isRetrying={connectionsQuery.isFetching}
+      />
       <DataTablePage
         table={table}
         columns={columns}

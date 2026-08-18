@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import {
@@ -56,13 +57,12 @@ export function FixCandidatesPage() {
         </div>
       )}
 
-      {list.error && (
-        <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
-          {t('fixCandidates.page.loadError', {
-            message: (list.error as Error).message,
-          })}
-        </div>
-      )}
+      <QueryErrorBanner
+        error={list.error as Error | null}
+        messageKey='fixCandidates.page.loadError'
+        onRetry={() => list.refetch()}
+        isRetrying={list.isFetching}
+      />
 
       {!list.isLoading && !list.error && count === 0 && (
         <div className='text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm'>

@@ -7,6 +7,7 @@ import { ArrowRight, Search, Star } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -110,13 +111,12 @@ export function PriceComparePage() {
         </div>
       )}
 
-      {query.error && (
-        <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
-          {t('priceCompare.page.loadError', {
-            message: (query.error as Error).message,
-          })}
-        </div>
-      )}
+      <QueryErrorBanner
+        error={query.error as Error | null}
+        messageKey='priceCompare.page.loadError'
+        onRetry={() => query.refetch()}
+        isRetrying={query.isFetching}
+      />
 
       {!query.isLoading && !query.error && groups.length === 0 && (
         <div className='text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm'>

@@ -27,6 +27,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import {
   DataTableBulkActions,
   DataTablePage,
@@ -197,7 +198,7 @@ export function AccountsPage() {
   const search = useSearch({ from: '/_authenticated/accounts' })
   const navigate = useNavigate()
   const urlState = useAccountsUrlState()
-  const { data, isLoading, isFetching, error } = useAccounts()
+  const { data, isLoading, isFetching, error, refetch } = useAccounts()
   const accounts = data?.accounts ?? []
   const sites = data?.sites ?? []
 
@@ -392,11 +393,12 @@ export function AccountsPage() {
         </Button>
       </div>
 
-      {error && (
-        <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
-          {t('accounts.page.loadError', { message: (error as Error).message })}
-        </div>
-      )}
+      <QueryErrorBanner
+        error={error as Error | null}
+        messageKey='accounts.page.loadError'
+        onRetry={() => refetch()}
+        isRetrying={isFetching}
+      />
 
       <DataTablePage
         table={table}

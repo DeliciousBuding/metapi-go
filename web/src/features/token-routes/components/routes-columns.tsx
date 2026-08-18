@@ -7,6 +7,7 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   Eye,
+  Loader2,
   MoreHorizontal,
   Pencil,
   Power,
@@ -98,12 +99,18 @@ function resolveChannelSummary(
 function RoutesRowActions({
   route,
   actions,
+  pendingToggleId = null,
+  pendingCooldownId = null,
 }: {
   route: RouteSummaryRow
   actions: RouteRowActions
+  pendingToggleId?: number | null
+  pendingCooldownId?: number | null
 }) {
   const { t } = useTranslation()
   const readOnly = isReadOnlyRoute(route)
+  const isTogglePending = pendingToggleId === route.id
+  const isCooldownPending = pendingCooldownId === route.id
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -119,18 +126,22 @@ function RoutesRowActions({
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => actions.onToggleEnabled(route)}
-          disabled={readOnly}
+          disabled={readOnly || isTogglePending}
         >
-          <Power />
+          {isTogglePending ? <Loader2 className='animate-spin' /> : <Power />}
           {route.enabled
             ? t('tokenRoutes.columns.disable')
             : t('tokenRoutes.columns.enable')}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => actions.onClearCooldown(route)}
-          disabled={readOnly}
+          disabled={readOnly || isCooldownPending}
         >
-          <Snowflake />
+          {isCooldownPending ? (
+            <Loader2 className='animate-spin' />
+          ) : (
+            <Snowflake />
+          )}
           {t('tokenRoutes.columns.clearCooldown')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
@@ -155,7 +166,9 @@ function RoutesRowActions({
 }
 
 export function useRoutesColumns(
-  actions: RouteRowActions
+  actions: RouteRowActions,
+  pendingToggleId: number | null = null,
+  pendingCooldownId: number | null = null
 ): ColumnDef<RouteSummaryRow>[] {
   const { t } = useTranslation()
   return [
@@ -350,7 +363,14 @@ export function useRoutesColumns(
       header: () => <span className='sr-only'>{t('common.actions')}</span>,
       cell: ({ row }) => {
         const route = row.original as RouteSummaryRow
-        return <RoutesRowActions route={route} actions={actions} />
+        return (
+          <RoutesRowActions
+            route={route}
+            actions={actions}
+            pendingToggleId={pendingToggleId}
+            pendingCooldownId={pendingCooldownId}
+          />
+        )
       },
       meta: { pinned: 'right' },
     },

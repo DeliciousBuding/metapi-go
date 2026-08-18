@@ -16,6 +16,7 @@ import { RefreshCw as RefreshCwIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import {
   DataTablePage,
   encodeSorting,
@@ -224,13 +225,12 @@ export function ModelsPage() {
         </p>
       </div>
 
-      {modelsQuery.error && (
-        <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
-          {t('models.page.loadError', {
-            message: (modelsQuery.error as Error).message,
-          })}
-        </div>
-      )}
+      <QueryErrorBanner
+        error={modelsQuery.error as Error | null}
+        messageKey='models.page.loadError'
+        onRetry={() => modelsQuery.refetch()}
+        isRetrying={modelsQuery.isFetching}
+      />
       <DataTablePage
         table={table}
         columns={columns}

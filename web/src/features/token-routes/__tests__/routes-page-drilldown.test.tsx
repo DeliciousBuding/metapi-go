@@ -54,6 +54,13 @@ vi.mock('@/lib/toast', () => ({
   toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() },
 }))
 
+vi.mock('@/features/accounts/api', () => ({
+  useAccounts: () => ({ data: undefined }),
+}))
+vi.mock('@/features/sites/api', () => ({
+  useSites: () => ({ data: undefined }),
+}))
+
 vi.mock('../api', () => ({
   useRoutes: () => ({
     data: testState.routes,

@@ -51,6 +51,7 @@
       "create": "Create",
       "close": "Close",
       "no": "No",
+      "retry": "Retry",
       "actions": "Actions",
       "status": "Status",
       "language": "Language",
@@ -324,6 +325,16 @@
           "invalidProxyUrl": "Please enter a valid http or https URL.",
           "providerRequired": "Please select a provider."
         }
+      },
+      "session": {
+        "waiting": "Waiting for authorization…",
+        "waitingDescription": "Complete the authorization in the opened tab, or paste the callback URL manually.",
+        "callbackLabel": "Manual callback URL",
+        "callbackPlaceholder": "Paste the callback URL from the OAuth redirect",
+        "callbackSubmit": "Submit callback",
+        "succeeded": "Authorization completed.",
+        "failed": "Authorization failed: {{error}}",
+        "sshTunnelHint": "If the callback port is not reachable from your browser, run this SSH tunnel:"
       },
       "toast": {
         "quotaRefreshed": "Quota refresh requested for #{{id}}.",
@@ -1563,8 +1574,8 @@
         "refreshDecisions": "Refresh decisions",
         "addButton": "Add route",
         "chainContext": "Configuring routes for",
-        "chainContextAccount": "account #{{id}}",
-        "chainContextSite": "site #{{id}}",
+        "chainContextAccount": "account \"{{name}}\"",
+        "chainContextSite": "site \"{{name}}\"",
         "chainContextSuffix": "— add a route to complete the configuration flow.",
         "loadError": "Failed to load routes: {{message}}",
         "retry": "Retry",
@@ -2323,7 +2334,9 @@
         "notAvailable": "—",
         "never": "Never",
         "clearRouteCooldown": "Clear route cooldown",
-        "clearRouteCooldownHint": "Resets cooldown and failure counts for every channel on this channel's route."
+        "clearRouteCooldownHint": "Resets cooldown and failure counts for every channel on this channel's route.",
+        "editRoute": "Edit route",
+        "editRouteHint": "Open the parent token route"
       }
     },
     "connect": {

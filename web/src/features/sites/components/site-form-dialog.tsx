@@ -459,9 +459,11 @@ export function SiteFormDialog({
                         field.onChange(selectValueToNullableBool(value))
                       }
                     >
-                      <SelectTrigger className='w-full'>
-                        <SelectValue />
-                      </SelectTrigger>
+                      <FormControl>
+                        <SelectTrigger className='w-full'>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
                       <SelectContent>
                         <SelectItem value='inherit'>
                           {t('sites.form.resinInherit')}
@@ -492,9 +494,11 @@ export function SiteFormDialog({
                         field.onChange(selectValueToNullableBool(value))
                       }
                     >
-                      <SelectTrigger className='w-full'>
-                        <SelectValue />
-                      </SelectTrigger>
+                      <FormControl>
+                        <SelectTrigger className='w-full'>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
                       <SelectContent>
                         <SelectItem value='inherit'>
                           {t('sites.form.utlsInherit')}
@@ -619,17 +623,19 @@ export function SiteFormDialog({
                             field.onChange(value as SiteProbeScope)
                           }
                         >
-                          <SelectTrigger className='w-full'>
-                            <SelectValue
-                              placeholder={t('sites.form.scopePlaceholder')}
-                            >
-                              {(value: unknown) =>
-                                value === 'all'
-                                  ? t('sites.form.scopeAll')
-                                  : t('sites.form.scopeSingle')
-                              }
-                            </SelectValue>
-                          </SelectTrigger>
+                          <FormControl>
+                            <SelectTrigger className='w-full'>
+                              <SelectValue
+                                placeholder={t('sites.form.scopePlaceholder')}
+                              >
+                                {(value: unknown) =>
+                                  value === 'all'
+                                    ? t('sites.form.scopeAll')
+                                    : t('sites.form.scopeSingle')
+                                }
+                              </SelectValue>
+                            </SelectTrigger>
+                          </FormControl>
                           <SelectContent>
                             <SelectItem value='single'>
                               {t('sites.form.scopeSingle')}

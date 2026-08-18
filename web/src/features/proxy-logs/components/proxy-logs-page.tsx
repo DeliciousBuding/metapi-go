@@ -6,6 +6,7 @@ import { Download as DownloadIcon, RefreshCw } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import {
   DataTablePage,
   type UrlTableState,
@@ -366,13 +367,12 @@ export function ProxyLogsPage() {
         </div>
       )}
 
-      {logsQuery.error && (
-        <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
-          {t('proxyLogs.page.loadError', {
-            message: (logsQuery.error as Error).message,
-          })}
-        </div>
-      )}
+      <QueryErrorBanner
+        error={logsQuery.error as Error | null}
+        messageKey='proxyLogs.page.loadError'
+        onRetry={() => logsQuery.refetch()}
+        isRetrying={logsQuery.isFetching}
+      />
 
       <DataTablePage
         table={table}

@@ -51,6 +51,7 @@
       "create": "新建",
       "close": "关闭",
       "no": "否",
+      "retry": "重试",
       "actions": "操作",
       "status": "状态",
       "language": "语言",
@@ -324,6 +325,16 @@
           "invalidProxyUrl": "请输入有效的 http 或 https 地址。",
           "providerRequired": "请选择提供商。"
         }
+      },
+      "session": {
+        "waiting": "等待授权完成…",
+        "waitingDescription": "请在打开的标签页中完成授权，或手动粘贴回调地址。",
+        "callbackLabel": "手动回调地址",
+        "callbackPlaceholder": "粘贴 OAuth 回调跳转的地址",
+        "callbackSubmit": "提交回调",
+        "succeeded": "授权完成。",
+        "failed": "授权失败：{{error}}",
+        "sshTunnelHint": "如果回调端口无法从浏览器访问，请运行以下 SSH 隧道："
       },
       "toast": {
         "quotaRefreshed": "已请求刷新 #{{id}} 的额度。",
@@ -1563,8 +1574,8 @@
         "refreshDecisions": "刷新决策",
         "addButton": "添加路由",
         "chainContext": "正在为",
-        "chainContextAccount": "账号 #{{id}}",
-        "chainContextSite": "站点 #{{id}}",
+        "chainContextAccount": "账号「{{name}}」",
+        "chainContextSite": "站点「{{name}}」",
         "chainContextSuffix": "配置路由。添加一条路由即可完成配置动线。",
         "loadError": "加载路由失败：{{message}}",
         "retry": "重试",
@@ -2323,7 +2334,9 @@
         "notAvailable": "—",
         "never": "从未",
         "clearRouteCooldown": "清除路由冷却",
-        "clearRouteCooldownHint": "重置该通道所属路由下全部通道的冷却与失败计数。"
+        "clearRouteCooldownHint": "重置该通道所属路由下全部通道的冷却与失败计数。",
+        "editRoute": "编辑路由",
+        "editRouteHint": "打开所属令牌路由"
       }
     },
     "connect": {
