@@ -160,4 +160,22 @@
 - ⚠️ **gap-9 (P3)**：后端 `probe-now`/`available-models`/`disabled-models` endpoint 未在 sites UI 呈现（`lib/api/sites.ts` 已封装未用）。需与 `features/models`/`model-tester` 协调 ownership，暂缓。
 - ⚠️ **gap-6 (P3)**：无 `?edit=<id>` 深链（打开 edit dialog 纯本地 state）——低优先级，除非运营者分享 edit 链接。
 - ⚠️ **gap-7 (P3)**：load error 无 Retry 按钮（#851 已为 sites 加，但 accounts/channels 同模式未统一——可抽 `<QueryErrorBanner>` shared 组件）。
-- ⚠️ **gap-11 (P3)**：`postRefreshProbeLatencyThresholdMs` 不可编辑（round-trips 但无 FormField）——probe 配置表面不完整，低优先级。
+- ✅ **gap-11 (P3)**（#853）：`postRefreshProbeLatencyThresholdMs` 不可编辑（round-trips 但无 FormField）→ 加 number FormField inside `probeEnabled` block（2-col grid：model full-width，scope + latency 并排），镜像 `valueAsNumber` + NaN→0 绑定 + 测试。probe 配置表面完整（model + scope + threshold）。
+
+### 四轮复审（token-routes list/columns/detail）—— 2026-08-18 续
+
+一个只读 explore 子代理从 PM / 工程师 / 用户视角复审 token-routes 的 LIST、COLUMNS、DETAIL SHEET（避开 form dialog——并行进程 `route-form-drafts-hint` 拥有）。下列为证据，标 ✅ 已收口（#854 后端 / #855 前端），⚠️ 仍开放/暂缓。
+
+**token-routes** (`web/src/features/token-routes/` — list/columns/detail，不含 form dialog)
+
+- ✅ **gap-1 (P1)**（#854）：`listSummary` 硬编码 `siteNames: []string{}` → 「Sites」列 + detail 字段每行恒为 `—`，全局过滤也搜不到 site 名。修复：`listSummary` 加批量 `GROUP BY (route_id, site_name)` JOIN（route_channels→accounts→sites），dedup per route，nil→`[]string{}`；后端测试覆盖 linked（3 channel 同 site→dedup 1）+ empty。
+- ✅ **gap-2 (P2)**（#855）：行「Refresh decision」dropdown 项 + detail sheet 按钮实为全局 `POST /api/routes/decision/refresh`（handler 忽略 route arg），与 header 按钮冗余且误导 → 删除行项 + detail 按钮（保留 header）。
+- ✅ **gap-3 (P2)**（#855）：first-run 空态无 CTA → 加 `emptyAction`（primary「Add route」+ secondary「Auto-rebuild」outline），镜像 accounts-page。
+- ✅ **gap-4 (P2)**（#855）：error banner 无 retry → 拉 `useRoutes().refetch` + Retry 按钮，error 态抑制 table（镜像 sites-page gap-10）。
+- ✅ **gap-8 (P2)**（#855）：detail「Rebuild」是 fleet-wide 全局动作但标签「Auto-rebuild」不传达范围 → 改「Rebuild all routes」+ 图标 `ExternalLink`→`RefreshCw`。
+- ✅ **gap-9 (P2)**（#855）：`requireChannelAllocation` 在 render path throw → refetch race 可经 layout error boundary 崩整页 → 改 `resolveChannelAllocation` graceful fallback（zeroed allocation + dev `console.warn`，永不 throw）。
+- ⚠️ **gap-5 (P2)**：chain-context banner 显示 raw `#ID` 而非 account/site name（loader 已 prefetch 名称在 query cache，page 未读）——需读 `useAccounts()`/`useSites()` snapshot 解析（轻触 form dialog `chainContext` shape，需协调）。
+- ⚠️ **gap-6 (P2)**：detail sheet footer 无「Edit」动作（需关闭 sheet 再用行下拉）——加 `onEdit` callback thread from page（coordinate openEdit callback signature only，不触 form dialog 内部）。
+- ⚠️ **gap-7 (P2)**：toggle/clear-cooldown 无 per-row pending（镜像 accounts `pendingStatusId` pattern，触 routes-columns）。
+- ⚠️ **gap-10 (P3)**：`showZeroChannel` toggle 在 table 下方而非 toolbar（viewOptions slot）——布局/视觉，低优先级。
+- ⚠️ **gap-11 (P3)**：`index.ts` barrel 是 stub，consumer 直接 import feature 内部路径——项目级一致性观察，非 token-routes 专属。
