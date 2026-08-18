@@ -9,10 +9,10 @@
 // Category → colour mapping (mirrors service/checkin/failure_reason.go):
 //   auth         → destructive (red)    — credentials expired, re-login
 //   verification → warning     (amber)  — Cloudflare / Turnstile, human action
-//   network      → secondary    (blue)  — transient, retry later
-//   site         → outline      (gray)  — site-side issue
-//   state        → secondary    (green) — already checked in, not an error
-//   unknown      → outline      (gray)  — investigate
+//   network      → info        (blue)   — transient, retry later
+//   site         → outline     (gray)   — site-side issue
+//   state        → success     (green)  — already checked in, not an error
+//   unknown      → outline     (gray)   — investigate
 
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils'
 import type { FailureReason, FailureReasonCategory } from '../types'
 
 export interface FailureCategoryConfig {
-  variant: 'default' | 'secondary' | 'destructive' | 'warning' | 'outline'
+  variant: 'destructive' | 'warning' | 'info' | 'success' | 'outline'
   dotClassName: string
 }
 
@@ -30,9 +30,9 @@ const FAILURE_CATEGORY_CONFIG: Record<
 > = {
   auth: { variant: 'destructive', dotClassName: 'bg-destructive' },
   verification: { variant: 'warning', dotClassName: 'bg-warning' },
-  network: { variant: 'secondary', dotClassName: 'bg-info' },
+  network: { variant: 'info', dotClassName: 'bg-info' },
   site: { variant: 'outline', dotClassName: 'bg-muted-foreground' },
-  state: { variant: 'secondary', dotClassName: 'bg-success' },
+  state: { variant: 'success', dotClassName: 'bg-success' },
   unknown: { variant: 'outline', dotClassName: 'bg-muted-foreground' },
 }
 
@@ -65,8 +65,3 @@ export function FailureReasonBadge({
     </Badge>
   )
 }
-
-/**
- * Convenience helper for consumers that need the badge variant for a given
- * category string (e.g. detail-sheet styling).
- */

@@ -90,4 +90,36 @@ describe('interface controls', () => {
     await waitFor(() => expect(document.documentElement).toHaveClass('dark'))
     expect(document.documentElement.style.colorScheme).toBe('dark')
   })
+
+  // Checklist residual §7 #2 verification: the header's non-modal menus must
+  // dismiss on Escape, not only on click-outside. Base UI Menu/Popover wire
+  // this natively; these tests pin the behavior so a primitive swap cannot
+  // silently drop it.
+  it('dismisses the language menu on Escape', async () => {
+    renderControls()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Language' }))
+    const menu = await screen.findByRole('menu')
+
+    fireEvent.keyDown(menu, { key: 'Escape' })
+
+    await waitFor(() => {
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    })
+  })
+
+  it('dismisses the appearance popover on Escape', async () => {
+    renderControls()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Customize appearance' })
+    )
+    const popover = await screen.findByRole('dialog')
+
+    fireEvent.keyDown(popover, { key: 'Escape' })
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+  })
 })

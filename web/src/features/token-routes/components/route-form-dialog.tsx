@@ -4,7 +4,7 @@
 // `getModelPatternError()` returns pre-translated strings via i18n.t().
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Zap } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useForm, type SubmitErrorHandler } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -45,6 +45,7 @@ import {
   resolveCreatedRouteId,
   useBatchAddChannels,
   useCreateRoute,
+  useRebuildRoutes,
   useUpdateRoute,
 } from '../api'
 import {
@@ -389,6 +390,7 @@ function PatternModeFields({
   accountOptions: RouteAccountOption[]
 }) {
   const { t } = useTranslation()
+  const rebuildMutation = useRebuildRoutes()
   const modelPattern = form.watch('modelPattern') ?? ''
   const isRegex = isRegexModelPattern(modelPattern)
   return (
@@ -420,30 +422,28 @@ function PatternModeFields({
           </FormItem>
         )}
       />
-      {accountOptions.length > 0 && (
-        <FormField
-          control={form.control}
-          name='channelDrafts'
-          render={({ field }) => {
-            const selected = field.value ?? []
-            const selectedIds = new Set(
-              selected.map((draft) => draft.accountId)
-            )
-            const toggleAccount = (accountId: number, checked: boolean) => {
-              if (checked) {
-                field.onChange([...selected, { accountId }])
-              } else {
-                field.onChange(
-                  selected.filter((draft) => draft.accountId !== accountId)
-                )
-              }
+      <FormField
+        control={form.control}
+        name='channelDrafts'
+        render={({ field }) => {
+          const selected = field.value ?? []
+          const selectedIds = new Set(selected.map((draft) => draft.accountId))
+          const toggleAccount = (accountId: number, checked: boolean) => {
+            if (checked) {
+              field.onChange([...selected, { accountId }])
+            } else {
+              field.onChange(
+                selected.filter((draft) => draft.accountId !== accountId)
+              )
             }
-            return (
-              <FormItem>
-                <FormLabel>{t('tokenRoutes.formPattern.channels')}</FormLabel>
-                <FormDescription>
-                  {t('tokenRoutes.formPattern.channelsHint')}
-                </FormDescription>
+          }
+          return (
+            <FormItem>
+              <FormLabel>{t('tokenRoutes.formPattern.channels')}</FormLabel>
+              <FormDescription>
+                {t('tokenRoutes.formPattern.channelsHint')}
+              </FormDescription>
+              {accountOptions.length > 0 ? (
                 <div className='max-h-48 space-y-1 overflow-y-auto rounded-lg border p-2'>
                   {accountOptions.map((account) => (
                     <label
@@ -460,12 +460,40 @@ function PatternModeFields({
                     </label>
                   ))}
                 </div>
-                <FormMessage />
-              </FormItem>
-            )
-          }}
-        />
-      )}
+              ) : (
+                // Journey break fix (2026-08-18 review): the section used to
+                // vanish entirely before the first model discovery, so the
+                // guided chain's preselected account was invisible. Show the
+                // reason plus an inline rebuild that repopulates the list in
+                // place (rebuild invalidates the candidates query prefix).
+                <div className='flex flex-col gap-2 rounded-lg border border-dashed p-3'>
+                  <p className='text-muted-foreground text-sm'>
+                    {t('tokenRoutes.formPattern.channelsEmptyHint')}
+                  </p>
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='sm'
+                    className='w-fit'
+                    onClick={() =>
+                      rebuildMutation.mutate({ refreshModels: true })
+                    }
+                    disabled={rebuildMutation.isPending}
+                  >
+                    {rebuildMutation.isPending ? (
+                      <Loader2 className='animate-spin' />
+                    ) : (
+                      <Zap />
+                    )}
+                    {t('tokenRoutes.page.rebuild')}
+                  </Button>
+                </div>
+              )}
+              <FormMessage />
+            </FormItem>
+          )
+        }}
+      />
     </>
   )
 }

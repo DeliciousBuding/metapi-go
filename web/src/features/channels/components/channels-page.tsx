@@ -7,6 +7,7 @@
 
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import type { ColumnFiltersState } from '@tanstack/react-table'
+import { Users } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -18,6 +19,7 @@ import {
   type UrlTableState,
   type UrlTableStateUpdate,
 } from '@/components/data-table'
+import { Button } from '@/components/ui/button'
 import { asStringParam, parseSortingParam } from '@/lib/helpers/searchParams'
 
 import { useChannels } from '../api'
@@ -165,6 +167,15 @@ export function ChannelsPage() {
         isFetching={channelsQuery.isFetching}
         emptyTitle={t('channels.empty.title')}
         emptyDescription={t('channels.empty.description')}
+        emptyAction={
+          <Button
+            variant='outline'
+            onClick={() => void navigate({ to: '/accounts' })}
+          >
+            <Users className='mr-1 size-4' />
+            {t('channels.empty.manageAccounts')}
+          </Button>
+        }
         skeletonKeyPrefix='channel-skeleton'
         toolbarProps={{
           searchPlaceholder: t('channels.toolbar.searchPlaceholder'),

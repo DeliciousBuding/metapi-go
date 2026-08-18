@@ -1473,8 +1473,10 @@
         "bulkSucceeded": "Processed {{count}} account(s).",
         "bulkPartial": "{{success}} succeeded, {{failed}} failed: {{items}}",
         "pinFailed": "Failed to update pin",
+        "pinToggled": "Pin for \"{{name}}\" updated.",
         "statusFailed": "Failed to update status",
         "checkinFailed": "Failed to update check-in",
+        "checkinToggled": "Check-in for \"{{name}}\" updated.",
         "loginSucceeded": "Account bound successfully",
         "loginRelogged": "Account session refreshed",
         "loginFailed": "Failed to bind account"
@@ -1609,7 +1611,8 @@
         "regexHint": "Currently using regex match (re: prefix).",
         "exactHint": "Currently using exact model match. Use re: prefix for regex.",
         "channels": "Channels (optional)",
-        "channelsHint": "Select accounts as channels for this route; they will be auto-bound on creation."
+        "channelsHint": "Select accounts as channels for this route; they will be auto-bound on creation.",
+        "channelsEmptyHint": "No channel candidates yet — accounts are discovered during the model scan. Run auto-rebuild to populate this list."
       },
       "formGroup": {
         "displayName": "External model name",
@@ -2264,7 +2267,8 @@
       },
       "empty": {
         "title": "No channels",
-        "description": "No routing channels have been materialised yet."
+        "description": "No routing channels have been materialised yet.",
+        "manageAccounts": "Manage accounts"
       },
       "toolbar": {
         "searchPlaceholder": "Search channels..."
@@ -2317,7 +2321,9 @@
         "manualOverrideNone": "None",
         "modelsList": "Model list",
         "notAvailable": "—",
-        "never": "Never"
+        "never": "Never",
+        "clearRouteCooldown": "Clear route cooldown",
+        "clearRouteCooldownHint": "Resets cooldown and failure counts for every channel on this channel's route."
       }
     },
     "connect": {

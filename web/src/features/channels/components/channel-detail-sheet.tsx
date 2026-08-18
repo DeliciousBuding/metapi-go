@@ -7,23 +7,34 @@
 // displays (status / cooldown / avg latency / models) in a denser layout so
 // an operator can inspect a single channel without losing the list context.
 
-import { Ban, CheckCircle2, Clock, TriangleAlert } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import {
+  Ban,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  Snowflake,
+  TriangleAlert,
+} from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import {
   Sheet,
   SheetContent,
   SheetDescription,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { useClearRouteCooldown } from '@/features/token-routes/api'
 import { cn } from '@/lib/utils'
 
-import type { ChannelRow, ChannelStatus } from '../types'
+import { channelsKeys, type ChannelRow, type ChannelStatus } from '../types'
 
 type ChannelDetailSheetProps = {
   channel: ChannelRow | null
@@ -35,14 +46,14 @@ const STATUS_CONFIG: Record<
   ChannelStatus,
   {
     labelKey: string
-    variant: 'default' | 'warning' | 'destructive' | 'secondary'
+    variant: 'success' | 'warning' | 'destructive' | 'secondary'
     dotClass: string
     Icon: typeof CheckCircle2
   }
 > = {
   enabled: {
     labelKey: 'channels.status.enabled',
-    variant: 'default',
+    variant: 'success',
     dotClass: 'bg-success',
     Icon: CheckCircle2,
   },
@@ -98,6 +109,8 @@ export function ChannelDetailSheet({
   onOpenChange,
 }: ChannelDetailSheetProps) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const clearCooldownMutation = useClearRouteCooldown()
 
   if (!channel) {
     return (
@@ -114,6 +127,20 @@ export function ChannelDetailSheet({
   const siteLabel = site.name || `#${site.id}`
   const typeLabel = t(`channels.type.${channel.type}`)
   const models = channel.models || t('channels.detail.notAvailable')
+
+  // Cooldown/breaker state is route-scoped on the backend (the clear
+  // endpoint resets every route_channels row of the route), so the action
+  // is labeled "route cooldown" to make its blast radius honest.
+  const showCooldownAction = status === 'cooldown' || status === 'breaker_open'
+
+  function handleClearRouteCooldown() {
+    if (!channel) return
+    clearCooldownMutation.mutate(channel.routeId, {
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: channelsKeys.all })
+      },
+    })
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -161,7 +188,7 @@ export function ChannelDetailSheet({
                   </Badge>
                 </DetailRow>
                 <DetailRow label={t('channels.detail.enabled')}>
-                  <Badge variant={channel.enabled ? 'default' : 'secondary'}>
+                  <Badge variant={channel.enabled ? 'success' : 'secondary'}>
                     {channel.enabled
                       ? t('channels.detail.enabled')
                       : t('channels.detail.disabled')}
@@ -214,6 +241,27 @@ export function ChannelDetailSheet({
             </section>
           </div>
         </ScrollArea>
+
+        {showCooldownAction ? (
+          <SheetFooter>
+            <p className='text-muted-foreground mr-auto max-w-[220px] text-xs'>
+              {t('channels.detail.clearRouteCooldownHint')}
+            </p>
+            <Button
+              type='button'
+              variant='outline'
+              onClick={handleClearRouteCooldown}
+              disabled={clearCooldownMutation.isPending}
+            >
+              {clearCooldownMutation.isPending ? (
+                <Loader2 className='animate-spin' />
+              ) : (
+                <Snowflake />
+              )}
+              {t('channels.detail.clearRouteCooldown')}
+            </Button>
+          </SheetFooter>
+        ) : null}
       </SheetContent>
     </Sheet>
   )

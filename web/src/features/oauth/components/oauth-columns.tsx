@@ -45,9 +45,9 @@ const STATUS_LABEL_KEY: Record<OAuthClientStatus, string> = {
 
 const STATUS_BADGE_VARIANT: Record<
   OAuthClientStatus,
-  'default' | 'destructive'
+  'success' | 'destructive'
 > = {
-  healthy: 'default',
+  healthy: 'success',
   abnormal: 'destructive',
 }
 

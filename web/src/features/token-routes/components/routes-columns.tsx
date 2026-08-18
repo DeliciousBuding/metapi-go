@@ -57,7 +57,7 @@ function resolveChannelSummary(
   t: (key: string, params?: Record<string, unknown>) => string
 ): {
   label: string
-  variant: 'default' | 'warning' | 'secondary'
+  variant: 'success' | 'warning' | 'secondary'
   hint?: string
 } {
   if (isReadOnlyRoute(route)) {
@@ -85,7 +85,7 @@ function resolveChannelSummary(
   }
   return {
     label: `${enabled}/${total}`,
-    variant: 'default',
+    variant: enabled === total ? 'success' : 'warning',
     hint:
       enabled < total
         ? t('tokenRoutes.columns.channelDisabledCount', {
@@ -320,7 +320,7 @@ export function useRoutesColumns(
           )
         }
         return (
-          <Badge variant={route.enabled ? 'default' : 'secondary'}>
+          <Badge variant={route.enabled ? 'success' : 'secondary'}>
             <span
               className={cn(
                 'size-1.5 rounded-full',

@@ -60,6 +60,7 @@ import {
   useToggleAccountStatus,
 } from '../api'
 import { resolveDeepLinkPreselect } from '../lib/accounts-deep-link'
+import { resolveAccountDisplayName } from '../lib/accounts-display-name'
 import { type Account, type AccountRowActions, accountSchema } from '../types'
 import { AccountDetailSheet } from './account-detail-sheet'
 import { AccountFormDialog } from './account-form-dialog'
@@ -289,17 +290,45 @@ export function AccountsPage() {
         setDetailOpen(true)
       },
       onTogglePin: (account) =>
-        toggleAccountPin({ id: account.id, isPinned: !account.isPinned }),
+        toggleAccountPin(
+          { id: account.id, isPinned: !account.isPinned },
+          {
+            onSuccess: () =>
+              toast.success(
+                t('accounts.toast.pinToggled', {
+                  name: resolveAccountDisplayName(
+                    account,
+                    t('accounts.columns.fallbackApiKey'),
+                    t('accounts.columns.fallbackUnnamed')
+                  ),
+                })
+              ),
+          }
+        ),
       onToggleStatus: (account) =>
         toggleStatusMutate({
           id: account.id,
           status: account.status === 'active' ? 'disabled' : 'active',
         }),
       onToggleCheckin: (account) =>
-        toggleAccountCheckin({
-          id: account.id,
-          checkinEnabled: !account.checkinEnabled,
-        }),
+        toggleAccountCheckin(
+          {
+            id: account.id,
+            checkinEnabled: !account.checkinEnabled,
+          },
+          {
+            onSuccess: () =>
+              toast.success(
+                t('accounts.toast.checkinToggled', {
+                  name: resolveAccountDisplayName(
+                    account,
+                    t('accounts.columns.fallbackApiKey'),
+                    t('accounts.columns.fallbackUnnamed')
+                  ),
+                })
+              ),
+          }
+        ),
     }),
     [
       openEdit,
@@ -307,6 +336,7 @@ export function AccountsPage() {
       toggleAccountPin,
       toggleStatusMutate,
       toggleAccountCheckin,
+      t,
     ]
   )
 
