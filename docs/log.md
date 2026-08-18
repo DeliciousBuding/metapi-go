@@ -5,6 +5,18 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
 
+## 2026-08-18 — 二轮复审驱动：onboarding 闭环 + model-tester 结果清晰度 + availability 健康可视化
+
+二轮 PM/工程师/用户复审（model-tester / oauth / availability，发现写入审计 doc `### 二轮复审`）后交付：
+
+- **Dashboard onboarding banner + sites `?create=1` 深链闭环**（#838 + #842）：`siteCount===0` 时 brand-tinted `<Card>` + 「Create site」CTA；sites-page 加 `create` schema + 一次性消费 strip（镜像 accounts `?create`）；overview CTA 改 `<Link search={{ create: true }}>` 直达 create dialog。闭合首次落地 dead-end。
+- **Model-tester 结果清晰度**（#840）：`parseUsage` 从 upstream body 解析 token 用量跨四协议（cost 不在 wire 上，harness 绕过计费——未伪造，记 residual）；删 always-dead `chunks: 0` stat；failed run 抑制 empty badge 只显 error。516 测试。
+- **Availability realtime sparkline 健康分档着色**（#846）：success-rate 按 healthy/degraded/unhealthy/idle 着色（原单色 `bg-chart-1/70`）+ `role="img"`/`aria-label`。Latency 不在 realtime wire 上（后端 `RealtimePoint` 无 latency）→ 未伪造，记后端 residual。
+- **Attention 项 `createdAt` 相对时间**（#847）：`Intl.RelativeTimeFormat` via `toBcp47`（零新 key，en/zh-CN 自动本地化）+ `<time dateTime>` + absolute `title` tooltip。`formatRelativeTime`/`formatAbsoluteDateTime` 入 `lib/format.ts` 共享。
+- **OAuth 二轮**（并行进程 #844/#845）：start-dialog provider 三态分支 + refresh/rebind 行级 pending + per-account error。
+- **验证**：go build/vet 绿；web tsgo/oxlint/oxfmt format:check/vitest 全绿（529→531 测试）；GHA CI 全绿（#832 + #847 首跑 golangci-lint schema 拉取超时 flaky，rerun 后绿）。
+- **工作流**：多 worktree 并行 + explore 子代理二轮深覆盖（model-tester/oauth/availability）+ 暗卷独立复跑聚焦测试。避让并行进程的 badge-feature 文件；2 处（oauth Gap 4/Gap 1）与并行进程 #844/#845 重复→本地丢弃未强推。剩余 entangled 项（proxy-log drilldown / WS 重连 / oauth quota 列）写入审计 doc 供协调。
+
 ## 2026-08-18 — 多角度复审驱动：动线 dead-end 收口 + proxy-logs 过滤服务端化 + downstream key edit
 
 三轮 PM/工程师/用户只读复审（发现写入审计 doc `## 2026-08-18 多角度复审`）后，按 backlog 交付：
