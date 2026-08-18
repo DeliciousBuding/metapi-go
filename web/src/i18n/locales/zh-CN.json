@@ -314,6 +314,11 @@
         "useSystemProxyDescription": "通过系统配置的代理路由 OAuth 流程。",
         "cancel": "取消",
         "start": "开始",
+        "loadingProviders": "正在加载提供商…",
+        "providersLoadFailed": "加载提供商失败。",
+        "retry": "重试",
+        "noProviders": "没有已启用的 OAuth 提供商。",
+        "goToSettings": "前往设置",
         "errors": {
           "projectIdRequired": "请输入项目 ID。",
           "invalidProxyUrl": "请输入有效的 http 或 https 地址。",
