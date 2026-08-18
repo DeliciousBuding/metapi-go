@@ -13,7 +13,11 @@ import { useEffect, useRef, useState } from 'react'
 
 import { getAuthToken } from '@/lib/auth-session'
 
-import type { RealtimeOpsFrame, RealtimeOpsSample } from '../types'
+import type {
+  RealtimeOpsFrame,
+  RealtimeOpsSample,
+  RealtimeOpsSamplePoint,
+} from '../types'
 
 const MAX_FAILS = 5
 const MAX_BACKOFF_MS = 15_000
@@ -68,7 +72,7 @@ export function useRealtimeOps(): RealtimeOpsSample {
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const failsRef = useRef(0)
   const previousTotalRef = useRef<number | null>(null)
-  const sparkRef = useRef<number[]>([])
+  const sparkRef = useRef<RealtimeOpsSamplePoint[]>([])
 
   useEffect(() => {
     const token = getAuthToken()
@@ -113,7 +117,10 @@ export function useRealtimeOps(): RealtimeOpsSample {
         previousTotalRef.current = latest.total
         const successRate = computeSuccessRate(latest.success, latest.total)
 
-        const nextSpark = [...sparkRef.current, qps]
+        const nextSpark: RealtimeOpsSamplePoint[] = [
+          ...sparkRef.current,
+          { qps, successRate },
+        ]
         if (nextSpark.length > SPARK_WINDOW) nextSpark.shift()
         sparkRef.current = nextSpark
 

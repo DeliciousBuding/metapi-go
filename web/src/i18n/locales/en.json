@@ -644,7 +644,11 @@
           "statusConnecting": "connecting",
           "metricQps": "QPS",
           "metricSuccess": "success",
-          "metricUptime": "uptime"
+          "metricUptime": "uptime",
+          "healthHealthy": "Traffic healthy",
+          "healthDegraded": "Traffic degraded",
+          "healthUnhealthy": "Traffic unhealthy",
+          "healthIdle": "No recent traffic"
         },
         "monitors": {
           "title": "Attention required",

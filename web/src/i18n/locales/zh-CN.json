@@ -644,7 +644,11 @@
           "statusConnecting": "连接中",
           "metricQps": "QPS",
           "metricSuccess": "成功率",
-          "metricUptime": "运行时间"
+          "metricUptime": "运行时间",
+          "healthHealthy": "流量健康",
+          "healthDegraded": "流量降级",
+          "healthUnhealthy": "流量异常",
+          "healthIdle": "近期无流量"
         },
         "monitors": {
           "title": "需要关注",
