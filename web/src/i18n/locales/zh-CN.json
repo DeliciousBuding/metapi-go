@@ -368,6 +368,7 @@
     "sites": {
       "page": {
         "loadError": "加载站点失败：{{message}}",
+        "retry": "重试",
         "title": "站点",
         "description": "管理已连接的站点、状态与路由权重。"
       },
@@ -439,7 +440,7 @@
         "name": "名称",
         "namePlaceholder": "输入站点名称",
         "platform": "平台",
-        "platformPlaceholder": "选择平台",
+        "platformPlaceholder": "输入平台（如 openai）",
         "url": "地址",
         "detect": "自动检测",
         "detectRequiresUrl": "输入地址后可自动检测平台。",
@@ -464,6 +465,8 @@
         "utlsForceOff": "强制关闭",
         "customHeaders": "自定义请求头",
         "customHeadersHint": "额外请求头的 JSON 对象。",
+        "customHeadersOverrideRequestHeaders": "覆盖请求头",
+        "customHeadersOverrideRequestHeadersHint": "启用后，站点的自定义请求头将覆盖传入请求的请求头。",
         "postRefreshProbeEnabled": "刷新后探测",
         "postRefreshProbeEnabledHint": "每次令牌刷新后发送探测请求以验证账号。",
         "postRefreshProbeModel": "探测模型",
@@ -482,9 +485,9 @@
           "invalidUrlOrEmpty": "请输入有效的地址，或留空。",
           "invalidJson": "请输入有效的 JSON。",
           "nameRequired": "请输入名称。",
-          "nameTooLong": "名称不能超过 100 个字符。",
+          "nameTooLong": "名称不能超过 120 个字符。",
           "urlRequired": "请输入地址。",
-          "platformTooLong": "平台不能超过 50 个字符。",
+          "platformTooLong": "平台不能超过 64 个字符。",
           "globalWeightMin": "权重不能小于 0。",
           "maxConcurrencyInteger": "最大并发必须为整数。",
           "maxConcurrencyMin": "最大并发不能小于 0。",
