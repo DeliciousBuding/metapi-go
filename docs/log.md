@@ -5,6 +5,15 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
 
+## 2026-08-18 — 三轮复审驱动：availability WS 重连 + sites 表单数据丢失修复
+
+三轮 PM/工程师/用户复审（sites feature，此前未深覆盖；发现写入审计 doc `### 三轮复审（sites）`）+ availability Gap 3 收口后交付：
+
+- **Realtime WS 重连 affordance**（#850）：`useRealtimeOps` 重构为 `{ sample, reconnect }`（稳定 `useCallback`，经 `connectRef` 重入 `connect`，reset `failsRef`/`backoffRef`/socket）；`gaveUp` 态渲染「Connection lost — Reconnect」notice 替代归零 metrics（原看起来像「无流量」的 incident-handling gap）；`min-h-[8rem]` 防塌缩 + 3 测试。
+- **Sites 表单静默数据丢失修复**（gap-1 P1，#851）：`customHeadersOverrideRequestHeaders` 在 `siteToFormValues` 硬编码 `false` → 编辑站点名等不相关字段会静默把 header-merge 从「site-wins」降级为「request-wins」。修复：round-trip 真实值 + 加可见 Switch FormField（label + hint）；`Site` type 加 optional 字段。
+- **Sites 批量打磨**（#851）：i18n 限额文案对齐 Zod（120/64）；error 态抑制空态 CTA + 加 Retry 按钮；`platform` placeholder 改「Enter a platform」；`SiteCreatedModal` 迁移 typed navigate；加 `sites-page` + `site-form-dialog` 测试（7 例）。
+- 三轮 sites 复审共 12 gap：6 已收口（#851），6 暂缓（endpoints editor feature gap / a11y label linkage 跨 feature / probe-now surfacing 跨 models / edit 深链 + retry shared 组件 + latency threshold 字段，均低优先级或需协调）。
+
 ## 2026-08-18 — 二轮复审驱动：onboarding 闭环 + model-tester 结果清晰度 + availability 健康可视化
 
 二轮 PM/工程师/用户复审（model-tester / oauth / availability，发现写入审计 doc `### 二轮复审`）后交付：
