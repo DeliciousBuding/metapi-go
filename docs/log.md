@@ -5,6 +5,13 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
 
+## 2026-08-18 — proxy-log 详情 → route/channel 钻取链路（复审 M 级收口）
+
+- **背景**：复审发现 proxy-log 详情 sheet 的 route/channel/account/token ID 是不可点 `#NNN`，排障动线「这条请求为什么失败 → 是哪条路由/通道」断在日志页。
+- **修复**：route/channel ID 改为 router Link（`/token-routes?routeId=N` / `/channels?channelId=N`）；`routesSearchSchema`/`channelsSearchSchema` 各加一个 tolerant 数字参数；两个目标页按 accounts create/siteId 既有消费模式一次性消费：等列表加载 → 打开对应详情 sheet → `navigate(replace)` strip 参数（stale id 静默清除，routes 页 strip 时保留 accountId/siteId chain context）。`routeId` 有意不写回 href 序列化。
+- **范围诚实**：account/token 字段已有名字回显（仅无名时回退 `#NNN`），drilldown 留作后续观察。
+- **验证**：新增 3 个测试文件 9 行为用例（链接目标 + search 参数 / 两页开 sheet + strip / stale id / 无参数不导航）；tsgo 0 error · oxlint 0 error · oxfmt green · vitest 全绿 · knip exit 0 · production build pass。
+
 ## 2026-08-18 — 多角度复审驱动：动线 dead-end 收口 + proxy-logs 过滤服务端化 + downstream key edit
 
 三轮 PM/工程师/用户只读复审（发现写入审计 doc `## 2026-08-18 多角度复审`）后，按 backlog 交付：

@@ -5,8 +5,9 @@
 // from the row eye action) surfaces the routing-health fields the columns
 // already render, mirroring the model / route / account detail pattern.
 
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import type { ColumnFiltersState } from '@tanstack/react-table'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -83,10 +84,36 @@ function useChannelsUrlState() {
 
 export function ChannelsPage() {
   const { t } = useTranslation()
+  const search = useSearch({ from: '/_authenticated/channels' })
+  const navigate = useNavigate()
   const channelsQuery = useChannels()
   const urlState = useChannelsUrlState()
   const [detailChannel, setDetailChannel] = useState<ChannelRow | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
+
+  // One-shot channel drilldown (proxy-log detail -> `?channelId=N`): wait
+  // for the list, open the detail sheet for the referenced channel, then
+  // strip the param so a refetch or remount never reopens the sheet. A
+  // stale or unknown id is stripped without opening anything.
+  const drilldownConsumed = useRef(false)
+  useEffect(() => {
+    if (drilldownConsumed.current || !search.channelId) return
+    if (channelsQuery.isLoading) return
+
+    const target = (channelsQuery.data ?? []).find(
+      (channel) => channel.id === search.channelId
+    )
+    drilldownConsumed.current = true
+    if (target) {
+      setDetailChannel(target)
+      setDetailOpen(true)
+    }
+    navigate({
+      to: '/channels',
+      search: { ...search, channelId: undefined },
+      replace: true,
+    })
+  }, [search, channelsQuery.isLoading, channelsQuery.data, navigate])
 
   const columnActions: ChannelsColumnActions = {
     onView: (channel) => {

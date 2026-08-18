@@ -1,6 +1,7 @@
 // metapi-go/features/proxy-logs/components — proxy log detail Sheet.
 // i18n: all user-visible strings migrated to t() calls.
 
+import { Link } from '@tanstack/react-router'
 import { Copy as CopyIcon, Check as CheckIcon } from 'lucide-react'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -171,10 +172,30 @@ function DetailOverview({ detail }: { detail: ProxyLogDetail }) {
           {detail.retryCount ? `×${detail.retryCount}` : '0'}
         </DetailField>
         <DetailField label={t('proxyLogs.detail.route')}>
-          {detail.routeId ? `#${detail.routeId}` : '—'}
+          {detail.routeId ? (
+            <Link
+              to='/token-routes'
+              search={{ routeId: detail.routeId }}
+              className='text-primary hover:underline'
+            >
+              {`#${detail.routeId}`}
+            </Link>
+          ) : (
+            '—'
+          )}
         </DetailField>
         <DetailField label={t('proxyLogs.detail.channel')}>
-          {detail.channelId ? `#${detail.channelId}` : '—'}
+          {detail.channelId ? (
+            <Link
+              to='/channels'
+              search={{ channelId: detail.channelId }}
+              className='text-primary hover:underline'
+            >
+              {`#${detail.channelId}`}
+            </Link>
+          ) : (
+            '—'
+          )}
         </DetailField>
         <DetailField label={t('proxyLogs.detail.estimatedCost')}>
           {detail.estimatedCost !== null && detail.estimatedCost !== undefined

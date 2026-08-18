@@ -19,4 +19,8 @@ export const channelsSearchSchema = z.object({
     .optional()
     .transform((value) => encodeSortingParam(value))
     .catch(undefined),
+  // One-shot drilldown from the proxy-log detail sheet: open the detail
+  // view for this channel, then the page strips the param (same consume
+  // pattern as the accounts `create`/`siteId` deep link).
+  channelId: z.coerce.number().int().positive().optional().catch(undefined),
 })

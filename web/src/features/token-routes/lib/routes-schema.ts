@@ -222,6 +222,9 @@ export const routesSearchSchema = z.object({
   enabled: stringSearchParam,
   accountId: z.coerce.number().int().positive().optional().catch(undefined),
   siteId: z.coerce.number().int().positive().optional().catch(undefined),
+  // One-shot drilldown from the proxy-log detail sheet: open the detail
+  // sheet for this route, then the page strips the param.
+  routeId: z.coerce.number().int().positive().optional().catch(undefined),
   page: z.coerce.number().int().positive().catch(1).default(1),
   pageSize: z.coerce.number().int().positive().catch(20).default(20),
 })

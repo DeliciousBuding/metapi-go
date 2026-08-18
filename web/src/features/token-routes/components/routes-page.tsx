@@ -2,9 +2,10 @@
 // metapi-go features/token-routes/components — the routes list page.
 // i18n: all user-visible strings migrated to t() calls.
 
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import type { ColumnFiltersState, Table } from '@tanstack/react-table'
 import { Loader2, Plus, Power, RefreshCw, Zap } from 'lucide-react'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -52,11 +53,15 @@ import { useRoutesColumns } from './routes-columns'
 
 const DEFAULT_PAGE_SIZE = 20
 
-/** Page-specific URL filters: the `enabled` column filter + chain context. */
+/** Page-specific URL filters: the `enabled` column filter + chain context.
+ * `routeId` is a one-shot drilldown param (proxy-log detail sheet) that the
+ * page consumes into the detail sheet and then strips; it is deliberately
+ * never serialized back into hrefs. */
 type TokenRoutesUrlFilters = {
   enabled: string
   accountId: string
   siteId: string
+  routeId: string
 }
 
 /**
@@ -84,6 +89,7 @@ function readTokenRoutesSearch(
       accountId:
         search?.accountId === undefined ? '' : String(search.accountId),
       siteId: search?.siteId === undefined ? '' : String(search.siteId),
+      routeId: search?.routeId === undefined ? '' : String(search.routeId),
     },
   }
 }
@@ -161,6 +167,8 @@ function routesGlobalFilterFn(
 
 export function RoutesPage() {
   const { t } = useTranslation()
+  const routerSearch = useSearch({ from: '/_authenticated/token-routes' })
+  const navigate = useNavigate()
   const {
     globalFilter,
     pagination,
@@ -200,6 +208,29 @@ export function RoutesPage() {
   const [deleteRouteState, setDeleteRoute] = useState<RouteSummaryRow | null>(
     null
   )
+
+  // One-shot route drilldown (proxy-log detail -> `?routeId=N`): wait for
+  // the list, open the detail sheet for the referenced route, then strip
+  // the param so a refetch or remount never reopens the sheet. A stale or
+  // unknown id is stripped without opening anything.
+  const routeDrilldownConsumed = useRef(false)
+  useEffect(() => {
+    if (routeDrilldownConsumed.current || !filters.routeId) return
+    if (isLoading) return
+
+    const targetId = Number(filters.routeId)
+    const target = routes.find((route) => route.id === targetId)
+    routeDrilldownConsumed.current = true
+    if (target) {
+      setDetailRoute(target)
+      setDetailOpen(true)
+    }
+    navigate({
+      to: '/token-routes',
+      search: { ...routerSearch, routeId: undefined },
+      replace: true,
+    })
+  }, [filters.routeId, isLoading, routes, routerSearch, navigate])
 
   const openCreate = () => {
     setFormMode('create')
