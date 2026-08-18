@@ -9,6 +9,7 @@
 // a toast instructs the user to complete the flow in the popup.
 
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Link } from '@tanstack/react-router'
 import { ExternalLink as ExternalLinkIcon } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
@@ -68,6 +69,16 @@ export function OAuthStartDialog({
     () => (providersQuery.data ?? []).filter((provider) => provider.enabled),
     [providersQuery.data]
   )
+
+  // The provider <Select> collapses three distinct non-ready states into an
+  // empty dropdown otherwise. Branch on the query state so the user sees
+  // why there is nothing to pick and how to recover, instead of clicking
+  // Start and getting a bare "Please select a provider." validation error.
+  const providersLoading = providersQuery.isLoading
+  const providersError = providersQuery.isError
+  const hasEnabledProviders = enabledProviders.length > 0
+  const providersReady =
+    !providersLoading && !providersError && hasEnabledProviders
 
   const form = useForm<OAuthStartValues>({
     resolver: zodResolver(oauthStartSchema),
@@ -136,7 +147,7 @@ export function OAuthStartDialog({
                   <FormLabel>{t('oauth.form.provider')}</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger disabled={!providersReady}>
                         <SelectValue>
                           {(selected) => {
                             if (!selected) {
@@ -163,6 +174,39 @@ export function OAuthStartDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                  {providersLoading && (
+                    <div className='text-muted-foreground flex items-center gap-1.5 text-sm'>
+                      <Spinner className='size-3.5' />
+                      {t('oauth.form.loadingProviders')}
+                    </div>
+                  )}
+                  {providersError && (
+                    <div className='text-destructive flex items-center gap-2 text-sm'>
+                      <span>{t('oauth.form.providersLoadFailed')}</span>
+                      <Button
+                        type='button'
+                        variant='link'
+                        size='sm'
+                        className='h-auto px-0'
+                        onClick={() => providersQuery.refetch()}
+                      >
+                        {t('oauth.form.retry')}
+                      </Button>
+                    </div>
+                  )}
+                  {!providersLoading &&
+                    !providersError &&
+                    !hasEnabledProviders && (
+                      <FormDescription>
+                        {t('oauth.form.noProviders')}{' '}
+                        <Link
+                          to='/settings'
+                          className='text-primary hover:underline'
+                        >
+                          {t('oauth.form.goToSettings')}
+                        </Link>
+                      </FormDescription>
+                    )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -238,7 +282,7 @@ export function OAuthStartDialog({
               >
                 {t('oauth.form.cancel')}
               </Button>
-              <Button type='submit' disabled={isSubmitting}>
+              <Button type='submit' disabled={isSubmitting || !providersReady}>
                 {isSubmitting ? (
                   <Spinner className='mr-1' />
                 ) : (

@@ -40,6 +40,7 @@ export type Site = {
   proxyUrl?: string | null
   useSystemProxy?: boolean
   customHeaders?: string | null
+  customHeadersOverrideRequestHeaders?: boolean
   globalWeight?: number
   maxConcurrency?: number
   isPinned?: boolean

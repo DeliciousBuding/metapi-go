@@ -10,11 +10,13 @@
 // the scheduled-tasks table.
 
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import {
   Activity,
   CalendarCheck,
   ClipboardList,
   Globe,
+  Plus,
   RefreshCw,
   Users,
 } from 'lucide-react'
@@ -255,6 +257,28 @@ export function OverviewSection() {
       <AnnouncementBanner />
 
       <TodaySnapshotStrip />
+
+      {siteCount === 0 && (
+        <Card className='border-primary/40 bg-primary/5 border'>
+          <CardContent className='flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
+            <div className='space-y-1'>
+              <h2 className='text-base font-semibold'>
+                {t('dashboard.onboarding.title')}
+              </h2>
+              <p className='text-muted-foreground text-sm'>
+                {t('dashboard.onboarding.description')}
+              </p>
+            </div>
+            <Button
+              className='self-start sm:self-auto'
+              render={<Link to='/sites' search={{ create: true }} />}
+            >
+              <Plus className='size-4' />
+              {t('dashboard.onboarding.createSite')}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4'>
         <StatCard

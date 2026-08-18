@@ -1674,3 +1674,89 @@ func TestTokenRoutes_SummaryBatchedCounts(t *testing.T) {
 		}
 	}
 }
+
+// TestTokenRoutes_Summary_PopulatesSiteNames verifies that GET
+// /api/routes/summary returns the distinct site names per route
+// (route_channels → accounts → sites) instead of the previous hardcoded
+// empty array. Covers the linked route (non-empty, deduped when multiple
+// channels share a site) and the empty route (no channels → non-nil empty
+// array, not JSON null) so the frontend's `route.siteNames ?? []` render
+// and the `routesGlobalFilterFn` site-name search both work.
+func TestTokenRoutes_Summary_PopulatesSiteNames(t *testing.T) {
+	db, r := setupTokenRoutesTest(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	// seedRouteChannelRefs creates a site named "Route Site" + account +
+	// token + one 'gpt-*' route.
+	linkedRouteID, accountID, tokenID := seedRouteChannelRefs(t, db)
+
+	// A second route with no channels — its siteNames must be a non-nil
+	// empty array. Inserted via SQL to bypass the createRoute handler's
+	// auto-populate side effect (deterministic, no model-availability seed).
+	res, err := db.Exec(
+		`INSERT INTO token_routes (model_pattern, enabled, created_at, updated_at)
+		 VALUES ('no-channel-*', 1, ?, ?)`, now, now)
+	if err != nil {
+		t.Fatalf("insert empty route: %v", err)
+	}
+	emptyRouteID, _ := res.LastInsertId()
+
+	// Attach three channels to the linked route, all pointing at the same
+	// account/site under different source models. All three resolve to the
+	// single site "Route Site", so siteNames must be deduped to one entry.
+	for _, sourceModel := range []string{"gpt-4o", "gpt-4o-mini", "gpt-4.1"} {
+		if _, err := db.Exec(
+			`INSERT INTO route_channels (route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override)
+			 VALUES (?, ?, ?, ?, 0, 10, 1, 0)`,
+			linkedRouteID, accountID, tokenID, sourceModel); err != nil {
+			t.Fatalf("insert linked route channel %s: %v", sourceModel, err)
+		}
+	}
+
+	resp := doGet(t, r, "/api/routes/summary")
+	if resp.Code != http.StatusOK {
+		t.Fatalf("summary status = %d body=%s", resp.Code, resp.Body.String())
+	}
+	var items []map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &items); err != nil {
+		t.Fatalf("decode summary: %v", err)
+	}
+	itemByID := make(map[int64]map[string]any, len(items))
+	for _, item := range items {
+		itemByID[int64(item["id"].(float64))] = item
+	}
+
+	// Linked route: three channels, same site → one deduped name.
+	linked, ok := itemByID[linkedRouteID]
+	if !ok {
+		t.Fatalf("linked route %d missing from summary", linkedRouteID)
+	}
+	siteNames, ok := linked["siteNames"].([]any)
+	if !ok {
+		t.Fatalf("linked route siteNames = %T (%v), want []any; body=%s",
+			linked["siteNames"], linked["siteNames"], resp.Body.String())
+	}
+	if len(siteNames) != 1 {
+		t.Fatalf("linked route siteNames len = %d, want 1 (deduped from 3 channels); got %v",
+			len(siteNames), siteNames)
+	}
+	if name, _ := siteNames[0].(string); name != "Route Site" {
+		t.Fatalf("linked route siteNames[0] = %q, want %q", name, "Route Site")
+	}
+
+	// Empty route: no channels → non-nil empty array (not JSON null), so the
+	// frontend renders "—" via `siteNames.length === 0` rather than crashing
+	// on a null dereference.
+	empty, ok := itemByID[emptyRouteID]
+	if !ok {
+		t.Fatalf("empty route %d missing from summary", emptyRouteID)
+	}
+	emptyNames, ok := empty["siteNames"].([]any)
+	if !ok {
+		t.Fatalf("empty route siteNames = %T (%v), want non-nil empty array; body=%s",
+			empty["siteNames"], empty["siteNames"], resp.Body.String())
+	}
+	if len(emptyNames) != 0 {
+		t.Fatalf("empty route siteNames len = %d, want 0; got %v", len(emptyNames), emptyNames)
+	}
+}

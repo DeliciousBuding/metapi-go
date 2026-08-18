@@ -223,7 +223,7 @@
         "empty": "空响应",
         "done": "完成",
         "latency": "延迟：{{value}}",
-        "chunks": "分块：{{value}}",
+        "usage": "Token：{{total}}（入 {{prompt}} / 出 {{completion}}）",
         "noDone": "未收到完成信号",
         "error": "错误",
         "emptyHint": "发送请求后可在此查看响应。",
@@ -314,6 +314,11 @@
         "useSystemProxyDescription": "通过系统配置的代理路由 OAuth 流程。",
         "cancel": "取消",
         "start": "开始",
+        "loadingProviders": "正在加载提供商…",
+        "providersLoadFailed": "加载提供商失败。",
+        "retry": "重试",
+        "noProviders": "没有已启用的 OAuth 提供商。",
+        "goToSettings": "前往设置",
         "errors": {
           "projectIdRequired": "请输入项目 ID。",
           "invalidProxyUrl": "请输入有效的 http 或 https 地址。",
@@ -323,7 +328,9 @@
       "toast": {
         "quotaRefreshed": "已请求刷新 #{{id}} 的额度。",
         "rebindStarted": "已开始重新绑定 #{{id}}。",
-        "deleted": "连接 #{{id}} 已删除。"
+        "deleted": "连接 #{{id}} 已删除。",
+        "refreshFailed": "刷新 {{name}} 的额度失败。",
+        "rebindFailed": "重新绑定 {{name}} 失败。"
       },
       "empty": {
         "title": "暂无连接",
@@ -363,6 +370,7 @@
     "sites": {
       "page": {
         "loadError": "加载站点失败：{{message}}",
+        "retry": "重试",
         "title": "站点",
         "description": "管理已连接的站点、状态与路由权重。"
       },
@@ -434,7 +442,7 @@
         "name": "名称",
         "namePlaceholder": "输入站点名称",
         "platform": "平台",
-        "platformPlaceholder": "选择平台",
+        "platformPlaceholder": "输入平台（如 openai）",
         "url": "地址",
         "detect": "自动检测",
         "detectRequiresUrl": "输入地址后可自动检测平台。",
@@ -459,6 +467,8 @@
         "utlsForceOff": "强制关闭",
         "customHeaders": "自定义请求头",
         "customHeadersHint": "额外请求头的 JSON 对象。",
+        "customHeadersOverrideRequestHeaders": "覆盖请求头",
+        "customHeadersOverrideRequestHeadersHint": "启用后，站点的自定义请求头将覆盖传入请求的请求头。",
         "postRefreshProbeEnabled": "刷新后探测",
         "postRefreshProbeEnabledHint": "每次令牌刷新后发送探测请求以验证账号。",
         "postRefreshProbeModel": "探测模型",
@@ -467,6 +477,8 @@
         "scopePlaceholder": "选择范围",
         "scopeAll": "全部账号",
         "scopeSingle": "单个账号",
+        "postRefreshProbeLatencyThresholdMsLabel": "探测延迟阈值（毫秒）",
+        "postRefreshProbeLatencyThresholdMsHint": "仅当上次响应延迟超过此阈值时探测。0 = 始终探测。",
         "cancel": "取消",
         "save": "保存",
         "create": "创建",
@@ -477,9 +489,9 @@
           "invalidUrlOrEmpty": "请输入有效的地址，或留空。",
           "invalidJson": "请输入有效的 JSON。",
           "nameRequired": "请输入名称。",
-          "nameTooLong": "名称不能超过 100 个字符。",
+          "nameTooLong": "名称不能超过 120 个字符。",
           "urlRequired": "请输入地址。",
-          "platformTooLong": "平台不能超过 50 个字符。",
+          "platformTooLong": "平台不能超过 64 个字符。",
           "globalWeightMin": "权重不能小于 0。",
           "maxConcurrencyInteger": "最大并发必须为整数。",
           "maxConcurrencyMin": "最大并发不能小于 0。",
@@ -576,6 +588,11 @@
           "retry": "重试"
         }
       },
+      "onboarding": {
+        "title": "欢迎使用 Metapi",
+        "description": "创建你的第一个站点，开始聚合 AI API。",
+        "createSite": "创建站点"
+      },
       "traffic": {
         "loadError": "加载流量数据失败。",
         "incomeOutcome": {
@@ -632,9 +649,15 @@
           "statusDisconnected": "已断开",
           "statusLive": "实时",
           "statusConnecting": "连接中",
+          "connectionLost": "实时连接已断开。",
+          "reconnect": "重新连接",
           "metricQps": "QPS",
           "metricSuccess": "成功率",
-          "metricUptime": "运行时间"
+          "metricUptime": "运行时间",
+          "healthHealthy": "流量健康",
+          "healthDegraded": "流量降级",
+          "healthUnhealthy": "流量异常",
+          "healthIdle": "近期无流量"
         },
         "monitors": {
           "title": "需要关注",
@@ -1544,6 +1567,7 @@
         "chainContextSite": "站点 #{{id}}",
         "chainContextSuffix": "配置路由。添加一条路由即可完成配置动线。",
         "loadError": "加载路由失败：{{message}}",
+        "retry": "重试",
         "emptyTitle": "暂无路由",
         "emptyDescription": "添加一条路由开始配置，或点击「自动重建」让系统按账号模型生成路由。",
         "searchPlaceholder": "搜索模型 / 名称…",
@@ -1643,7 +1667,7 @@
         "channelEmptyReadOnly": "暂无通道，先补齐连接配置后再重建路由。",
         "channelEmptyEditable": "暂无通道，编辑路由添加通道或等待自动重建。",
         "rebuildRoutes": "自动重建路由",
-        "rebuild": "自动重建",
+        "rebuild": "重建全部路由",
         "channelToken": "令牌",
         "channelTokenUnbound": "未绑定",
         "channelUpstream": "· 上游：",
