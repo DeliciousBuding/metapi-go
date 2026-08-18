@@ -1473,8 +1473,10 @@
         "bulkSucceeded": "Processed {{count}} account(s).",
         "bulkPartial": "{{success}} succeeded, {{failed}} failed: {{items}}",
         "pinFailed": "Failed to update pin",
+        "pinToggled": "Pin for \"{{name}}\" updated.",
         "statusFailed": "Failed to update status",
         "checkinFailed": "Failed to update check-in",
+        "checkinToggled": "Check-in for \"{{name}}\" updated.",
         "loginSucceeded": "Account bound successfully",
         "loginRelogged": "Account session refreshed",
         "loginFailed": "Failed to bind account"
