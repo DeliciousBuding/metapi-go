@@ -5,6 +5,23 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.16.1] — 2026-08-19
+
+### Fixed
+
+- **OAuth Start-OAuth 流断链**（P1）：`onSubmit` 丢弃后端返回的 `state`/`instructions`，用户无法轮询会话或手动提交回调。修复：保留 pending state，渲染 pending 面板（2s `getOAuthSession` 轮询 + SSH 隧道命令复制 + 手动回调输入框绑 `submitOAuthManualCallback`），成功自动关闭、失败保留重试（后端 endpoint 已存在、前端 wrapper 此前未用）（#862）。
+- **Token-routes chain-context banner 显 raw `#ID`**（P2）：banner 渲染 `account #7 / site #3` 而非名字。修复：读 loader 预取的 `useAccounts()`/`useSites()` cache 解析 `accountId→username` `siteId→name`，`#ID` 兜底（#862）。
+- **Form Select a11y 关联缺失**（P2）：site-form 的 3 个 Select（`resinEnabled`/`useUtls`/`postRefreshProbeScope`）的 `SelectTrigger` 未包 `FormControl`，`FormLabel.htmlFor` 指向不存在的 id。修复：补 `FormControl` 包裹，恢复 label↔control 关联（#862）。
+- **8 页面 load-error 无 Retry**（P2）：accounts/channels/oauth/models/proxy-logs/fix-candidates/price-compare/checkin 页面错误态只显 banner 无重试。新增共享 `<QueryErrorBanner>`（`role=alert` + 可选 Retry + spinner），8 页面统一接入获得 Retry（#862）。
+- **Routes 行级操作无 pending 反馈**（P3）：toggle/clear-cooldown 走下拉菜单 fire-and-forget。修复：`useRoutesColumns` 加 `pendingToggleId`/`pendingCooldownId`（镜像 accounts `pendingStatusId`），匹配行 dropdown 项 swap `Loader2` + disabled（#862）。
+- **showZeroChannel toggle 位置**（P3）：toggle 在表格下方而非 toolbar。移入 toolbar `viewToggle` slot（此前未用的 prop）（#862）。
+- **Sites `?edit=<id>` 深链缺失**（P3）：编辑站点纯本地 state，无法深链直达。新增 `edit` schema 字段 + `buildHref` 保留 + 一次性消费 effect（镜像 `?create=1`，等 list 加载后开 edit dialog 并 strip 参数）（#862）。
+- **Channel-detail 无 Edit 动作**（P3）：detail sheet footer 仅 cooldown 时渲染，无编辑入口。改为常驻 footer + 加「Edit route」按钮 → `navigate('/token-routes', { routeId })`（复用 routes drilldown）（#862）。
+
+### Changed
+
+- 收口 `docs/analysis/ui-ux-audit-2026-08.md` 剩余开放观察（⚠️ 项），全部提升为本 slice 的 owner + 验收测试交付。前端测试总数从 546 增至 632（+86），新增 OAuth session 轮询、sites `?edit` 深链、channel-detail Edit、routes per-row pending 等聚焦回归用例。本 slice 无 Go 代码改动。
+
 ## [v0.16.0] — 2026-08-18
 
 ### Fixed
