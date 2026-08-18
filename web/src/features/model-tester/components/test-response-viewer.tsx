@@ -4,7 +4,7 @@
 // assistant response) in order, with the live round streaming at the
 // bottom while a run is in flight. The reasoning and raw/JSON tabs keep
 // showing the current (or last) run's artifacts, and the stats bar reports
-// the last run's latency / chunk count / done sentinel / error. The parent
+// the last run's latency / token usage / done sentinel / error. The parent
 // owns the streaming accumulation state and passes the current strings down
 // each render so the viewer re-renders on every delta.
 
@@ -17,7 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Spinner } from '@/components/ui/spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { formatLatency } from '@/lib/format'
+import { formatInt, formatLatency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type { ChatMessage, TestResponse } from '../types'
@@ -150,6 +150,11 @@ export function TestResponseViewer(props: TestResponseViewerProps) {
   const hasReasoning = props.reasoningContent.length > 0
   const lastMessage = props.messages.at(-1)
   const hasLiveRound = props.isRunning || lastMessage?.role === 'user'
+  const hasUsage =
+    !!props.response &&
+    (props.response.promptTokens !== undefined ||
+      props.response.completionTokens !== undefined ||
+      props.response.totalTokens !== undefined)
   const isEmpty =
     !props.isRunning &&
     !hasContent &&
@@ -267,20 +272,30 @@ export function TestResponseViewer(props: TestResponseViewerProps) {
         )}
         {props.response && !props.isRunning && (
           <>
-            <Badge variant={props.response.empty ? 'secondary' : 'default'}>
-              {props.response.empty
-                ? t('modelTester.viewer.empty')
-                : t('modelTester.viewer.done')}
-            </Badge>
-            <span className='text-muted-foreground text-xs'>
+            {!props.error && (
+              <Badge variant={props.response.empty ? 'secondary' : 'default'}>
+                {props.response.empty
+                  ? t('modelTester.viewer.empty')
+                  : t('modelTester.viewer.done')}
+              </Badge>
+            )}
+            <span className='text-muted-foreground text-xs tabular-nums'>
               {t('modelTester.viewer.latency', {
                 value: formatLatency(props.response.latencyMs),
               })}
             </span>
-            <span className='text-muted-foreground text-xs'>
-              {t('modelTester.viewer.chunks', { value: props.response.chunks })}
-            </span>
-            {!props.response.doneReceived && (
+            {hasUsage && (
+              <span className='text-muted-foreground text-xs tabular-nums'>
+                {t('modelTester.viewer.usage', {
+                  total: formatInt(props.response.totalTokens ?? null),
+                  prompt: formatInt(props.response.promptTokens ?? null),
+                  completion: formatInt(
+                    props.response.completionTokens ?? null
+                  ),
+                })}
+              </span>
+            )}
+            {!props.response.doneReceived && !props.error && (
               <span className='text-muted-foreground text-xs'>
                 {t('modelTester.viewer.noDone')}
               </span>

@@ -5,12 +5,35 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
 
-## 2026-08-18 — proxy-log 详情 → route/channel 钻取链路（复审 M 级收口）
+## 2026-08-18 — 四轮复审驱动：token-routes siteNames 死列 + 列表/详情打磨
 
-- **背景**：复审发现 proxy-log 详情 sheet 的 route/channel/account/token ID 是不可点 `#NNN`，排障动线「这条请求为什么失败 → 是哪条路由/通道」断在日志页。
-- **修复**：route/channel ID 改为 router Link（`/token-routes?routeId=N` / `/channels?channelId=N`）；`routesSearchSchema`/`channelsSearchSchema` 各加一个 tolerant 数字参数；两个目标页按 accounts create/siteId 既有消费模式一次性消费：等列表加载 → 打开对应详情 sheet → `navigate(replace)` strip 参数（stale id 静默清除，routes 页 strip 时保留 accountId/siteId chain context）。`routeId` 有意不写回 href 序列化。
-- **范围诚实**：account/token 字段已有名字回显（仅无名时回退 `#NNN`），drilldown 留作后续观察。
-- **验证**：新增 3 个测试文件 9 行为用例（链接目标 + search 参数 / 两页开 sheet + strip / stale id / 无参数不导航）；tsgo 0 error · oxlint 0 error · oxfmt green · vitest 全绿 · knip exit 0 · production build pass。
+四轮 PM/工程师/用户复审（token-routes list/columns/detail，避开 form dialog——并行进程 `route-form-drafts-hint` 拥有；发现写入审计 doc `### 四轮复审`）后交付：
+
+- **Routes siteNames 死列修复**（gap-1 P1，#854）：`listSummary` 硬编码 `siteNames: []string{}` → 「Sites」列 + detail 恒为 `—`，全局过滤也搜不到 site 名。修复：加批量 `GROUP BY (route_id, site_name)` JOIN（route_channels→accounts→sites），dedup per route，nil→`[]string{}`；后端测试覆盖 linked（dedup）+ empty。Dual-dialect 安全。
+- **Routes 列表/详情打磨**（gap-2/3/4/8/9，#855）：删误导性行「Refresh decision」（实为全局，与 header 冗余）；first-run 空态加 CTA（Add route + Auto-rebuild）；error banner 加 Retry + 抑制 table；detail「Rebuild」改「Rebuild all routes」+ 图标 `ExternalLink`→`RefreshCw`；`requireChannelAllocation` render-path throw → `resolveChannelAllocation` graceful fallback（防 refetch race 崩整页）。546 测试。
+- 四轮 token-routes 共 11 gap：6 已收口（#854 后端 + #855 前端），5 暂缓（chain-context #ID→name / detail edit callback / per-row pending——均轻触 form dialog 需协调；showZeroChannel 布局 + barrel stub——P3）。
+- **Sites gap-11 收口**（#853）：`postRefreshProbeLatencyThresholdMs` 加 number FormField inside `probeEnabled` block，probe 配置表面完整（model + scope + threshold）。543 测试。
+
+## 2026-08-18 — 三轮复审驱动：availability WS 重连 + sites 表单数据丢失修复
+
+三轮 PM/工程师/用户复审（sites feature，此前未深覆盖；发现写入审计 doc `### 三轮复审（sites）`）+ availability Gap 3 收口后交付：
+
+- **Realtime WS 重连 affordance**（#850）：`useRealtimeOps` 重构为 `{ sample, reconnect }`（稳定 `useCallback`，经 `connectRef` 重入 `connect`，reset `failsRef`/`backoffRef`/socket）；`gaveUp` 态渲染「Connection lost — Reconnect」notice 替代归零 metrics（原看起来像「无流量」的 incident-handling gap）；`min-h-[8rem]` 防塌缩 + 3 测试。
+- **Sites 表单静默数据丢失修复**（gap-1 P1，#851）：`customHeadersOverrideRequestHeaders` 在 `siteToFormValues` 硬编码 `false` → 编辑站点名等不相关字段会静默把 header-merge 从「site-wins」降级为「request-wins」。修复：round-trip 真实值 + 加可见 Switch FormField（label + hint）；`Site` type 加 optional 字段。
+- **Sites 批量打磨**（#851）：i18n 限额文案对齐 Zod（120/64）；error 态抑制空态 CTA + 加 Retry 按钮；`platform` placeholder 改「Enter a platform」；`SiteCreatedModal` 迁移 typed navigate；加 `sites-page` + `site-form-dialog` 测试（7 例）。
+- 三轮 sites 复审共 12 gap：6 已收口（#851），6 暂缓（endpoints editor feature gap / a11y label linkage 跨 feature / probe-now surfacing 跨 models / edit 深链 + retry shared 组件 + latency threshold 字段，均低优先级或需协调）。
+
+## 2026-08-18 — 二轮复审驱动：onboarding 闭环 + model-tester 结果清晰度 + availability 健康可视化
+
+二轮 PM/工程师/用户复审（model-tester / oauth / availability，发现写入审计 doc `### 二轮复审`）后交付：
+
+- **Dashboard onboarding banner + sites `?create=1` 深链闭环**（#838 + #842）：`siteCount===0` 时 brand-tinted `<Card>` + 「Create site」CTA；sites-page 加 `create` schema + 一次性消费 strip（镜像 accounts `?create`）；overview CTA 改 `<Link search={{ create: true }}>` 直达 create dialog。闭合首次落地 dead-end。
+- **Model-tester 结果清晰度**（#840）：`parseUsage` 从 upstream body 解析 token 用量跨四协议（cost 不在 wire 上，harness 绕过计费——未伪造，记 residual）；删 always-dead `chunks: 0` stat；failed run 抑制 empty badge 只显 error。516 测试。
+- **Availability realtime sparkline 健康分档着色**（#846）：success-rate 按 healthy/degraded/unhealthy/idle 着色（原单色 `bg-chart-1/70`）+ `role="img"`/`aria-label`。Latency 不在 realtime wire 上（后端 `RealtimePoint` 无 latency）→ 未伪造，记后端 residual。
+- **Attention 项 `createdAt` 相对时间**（#847）：`Intl.RelativeTimeFormat` via `toBcp47`（零新 key，en/zh-CN 自动本地化）+ `<time dateTime>` + absolute `title` tooltip。`formatRelativeTime`/`formatAbsoluteDateTime` 入 `lib/format.ts` 共享。
+- **OAuth 二轮**（并行进程 #844/#845）：start-dialog provider 三态分支 + refresh/rebind 行级 pending + per-account error。
+- **验证**：go build/vet 绿；web tsgo/oxlint/oxfmt format:check/vitest 全绿（529→531 测试）；GHA CI 全绿（#832 + #847 首跑 golangci-lint schema 拉取超时 flaky，rerun 后绿）。
+- **工作流**：多 worktree 并行 + explore 子代理二轮深覆盖（model-tester/oauth/availability）+ 暗卷独立复跑聚焦测试。避让并行进程的 badge-feature 文件；2 处（oauth Gap 4/Gap 1）与并行进程 #844/#845 重复→本地丢弃未强推。剩余 entangled 项（proxy-log drilldown / WS 重连 / oauth quota 列）写入审计 doc 供协调。
 
 ## 2026-08-18 — 多角度复审驱动：动线 dead-end 收口 + proxy-logs 过滤服务端化 + downstream key edit
 

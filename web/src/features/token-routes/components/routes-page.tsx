@@ -4,7 +4,7 @@
 
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import type { ColumnFiltersState, Table } from '@tanstack/react-table'
-import { Loader2, Plus, Power, RefreshCw, Zap } from 'lucide-react'
+import { Loader2, Plus, Power, RefreshCw, RotateCcw, Zap } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -179,7 +179,13 @@ export function RoutesPage() {
     filters,
   } = useTokenRoutesUrlState()
 
-  const { data: routesData, isLoading, isFetching, error } = useRoutes()
+  const {
+    data: routesData,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useRoutes()
   const candidatesQuery = useModelTokenCandidates()
 
   const deleteMutation = useDeleteRoute()
@@ -381,45 +387,81 @@ export function RoutesPage() {
         </div>
       )}
 
-      {error && (
-        <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
-          {t('tokenRoutes.page.loadError', {
-            message: (error as Error).message,
-          })}
+      {error ? (
+        <div className='flex flex-col gap-3'>
+          <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
+            {t('tokenRoutes.page.loadError', {
+              message: (error as Error).message,
+            })}
+          </div>
+          <div>
+            <Button
+              variant='secondary'
+              onClick={() => refetch()}
+              disabled={isFetching}
+            >
+              {isFetching ? (
+                <Loader2 className='animate-spin' />
+              ) : (
+                <RotateCcw className='size-4' />
+              )}
+              {t('tokenRoutes.page.retry')}
+            </Button>
+          </div>
         </div>
+      ) : (
+        <DataTablePage
+          table={table}
+          columns={columns}
+          isLoading={isLoading}
+          isFetching={isFetching}
+          emptyTitle={t('tokenRoutes.page.emptyTitle')}
+          emptyDescription={t('tokenRoutes.page.emptyDescription')}
+          emptyAction={
+            <div className='flex items-center gap-2'>
+              <Button onClick={openCreate}>
+                <Plus />
+                {t('tokenRoutes.page.addButton')}
+              </Button>
+              <Button
+                variant='outline'
+                onClick={() => rebuildMutation.mutate({ refreshModels: true })}
+                disabled={rebuildMutation.isPending}
+              >
+                {rebuildMutation.isPending ? (
+                  <Loader2 className='animate-spin' />
+                ) : (
+                  <Zap />
+                )}
+                {t('tokenRoutes.page.rebuild')}
+              </Button>
+            </div>
+          }
+          skeletonKeyPrefix='routes-skeleton'
+          toolbarProps={{
+            searchPlaceholder: t('tokenRoutes.page.searchPlaceholder'),
+            searchDebounceMs: 300,
+            filters: [
+              {
+                columnId: 'enabled',
+                title: t('tokenRoutes.page.filterStatusTitle'),
+                singleSelect: true,
+                options: [
+                  {
+                    label: t('tokenRoutes.page.filterStatusEnabled'),
+                    value: 'enabled',
+                  },
+                  {
+                    label: t('tokenRoutes.page.filterStatusDisabled'),
+                    value: 'disabled',
+                  },
+                ],
+              },
+            ],
+          }}
+          bulkActions={<RoutesBulkActions table={table} />}
+        />
       )}
-
-      <DataTablePage
-        table={table}
-        columns={columns}
-        isLoading={isLoading}
-        isFetching={isFetching}
-        emptyTitle={t('tokenRoutes.page.emptyTitle')}
-        emptyDescription={t('tokenRoutes.page.emptyDescription')}
-        skeletonKeyPrefix='routes-skeleton'
-        toolbarProps={{
-          searchPlaceholder: t('tokenRoutes.page.searchPlaceholder'),
-          searchDebounceMs: 300,
-          filters: [
-            {
-              columnId: 'enabled',
-              title: t('tokenRoutes.page.filterStatusTitle'),
-              singleSelect: true,
-              options: [
-                {
-                  label: t('tokenRoutes.page.filterStatusEnabled'),
-                  value: 'enabled',
-                },
-                {
-                  label: t('tokenRoutes.page.filterStatusDisabled'),
-                  value: 'disabled',
-                },
-              ],
-            },
-          ],
-        }}
-        bulkActions={<RoutesBulkActions table={table} />}
-      />
 
       <label className='text-muted-foreground flex items-center gap-2 text-sm'>
         <Switch

@@ -9,12 +9,14 @@
 // `/sites` route file lands its own `validateSearch`. Mobile cards are
 // handled by `DataTablePage` via the column `meta` flags.
 
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import {
   Plus as PlusIcon,
+  RotateCcw as RotateCcwIcon,
   Trash2 as Trash2Icon,
   Upload as UploadIcon,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -110,6 +112,12 @@ function buildHref(next: UrlTableStateUpdate<SitesUrlFilters>): string {
   const sortString = encodeSorting(merged.sorting)
   if (sortString) params.set('sort', sortString)
   if (merged.filters.status) params.set('status', merged.filters.status)
+  // Preserve the one-shot `create` deep-link param across table-state
+  // navigations (page-clamp / sort / filter) until the page's consumption
+  // effect strips it — mirrors the accounts page's buildAccountsHref guard
+  // for its guided-flow `siteId`/`create` params.
+  const guidedCreate = new URLSearchParams(window.location.search).get('create')
+  if (guidedCreate) params.set('create', guidedCreate)
   const queryString = params.toString()
   return queryString ? `/sites?${queryString}` : '/sites'
 }
@@ -142,6 +150,8 @@ function useSitesUrlState() {
 
 export function SitesPage() {
   const { t } = useTranslation()
+  const search = useSearch({ from: '/_authenticated/sites' })
+  const navigate = useNavigate()
   const sitesQuery = useSites()
   // The /api/sites endpoint does not include account counts; enrich the rows
   // from the already-cached accounts snapshot (the documented plan in
@@ -182,6 +192,26 @@ export function SitesPage() {
     ids: number[]
     count: number
   } | null>(null)
+
+  // Consume the one-shot `?create=1` deep link exactly once: open the create
+  // dialog (in create mode — no edit target), then strip the transient
+  // `create` param from the URL so a refetch / remount never reopens it.
+  // Mirrors the accounts page's create handling; the sites version is simpler
+  // — no `siteId` preselection, so it does not wait for the list snapshot.
+  // The `useRef` guard survives the strict-mode double-invoke and the
+  // post-navigate re-render (search.create becomes undefined).
+  const createConsumed = useRef(false)
+  useEffect(() => {
+    if (createConsumed.current || search.create !== true) return
+    setEditingSite(null)
+    setFormOpen(true)
+    createConsumed.current = true
+    navigate({
+      to: '/sites',
+      search: { ...search, create: undefined },
+      replace: true,
+    })
+  }, [search, navigate])
 
   const urlState = useSitesUrlState()
 
@@ -328,84 +358,101 @@ export function SitesPage() {
         </p>
       </div>
 
-      {sitesQuery.error && (
-        <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
-          {t('sites.page.loadError', {
-            message: (sitesQuery.error as Error).message,
-          })}
+      {sitesQuery.error ? (
+        <div className='flex flex-col gap-3'>
+          <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
+            {t('sites.page.loadError', {
+              message: (sitesQuery.error as Error).message,
+            })}
+          </div>
+          <div>
+            <Button
+              variant='secondary'
+              onClick={() => sitesQuery.refetch()}
+              disabled={sitesQuery.isFetching}
+            >
+              {sitesQuery.isFetching ? (
+                <Spinner className='mr-1' />
+              ) : (
+                <RotateCcwIcon className='mr-1 size-4' />
+              )}
+              {t('sites.page.retry')}
+            </Button>
+          </div>
         </div>
+      ) : (
+        <DataTablePage
+          table={table}
+          columns={columns}
+          isLoading={sitesQuery.isLoading}
+          isFetching={sitesQuery.isFetching}
+          emptyTitle={t('sites.empty.title')}
+          emptyDescription={t('sites.empty.description')}
+          emptyAction={
+            <>
+              <Button onClick={() => setImportOpen(true)}>
+                <UploadIcon className='mr-1 size-4' />
+                {t('sites.empty.import')}
+              </Button>
+              <Button variant='outline' onClick={handleAddSite}>
+                <PlusIcon className='mr-1 size-4' />
+                {t('sites.empty.addSite')}
+              </Button>
+            </>
+          }
+          skeletonKeyPrefix='site-skeleton'
+          toolbarProps={{
+            searchPlaceholder: t('sites.toolbar.searchPlaceholder'),
+            searchDebounceMs: 400,
+            filters: [
+              {
+                columnId: 'status',
+                title: t('sites.columns.status'),
+                options: statusFilters,
+                singleSelect: true,
+              },
+            ],
+            preActions: (
+              <Button onClick={handleAddSite}>
+                <PlusIcon className='mr-1 size-4' />
+                {t('sites.toolbar.addSite')}
+              </Button>
+            ),
+          }}
+          bulkActions={
+            <DataTableBulkActions
+              table={table}
+              entityName={t('sites.entityName')}
+            >
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => handleBulkAction('enable')}
+                disabled={batchUpdateSites.isPending}
+              >
+                {t('sites.bulk.enable')}
+              </Button>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => handleBulkAction('disable')}
+                disabled={batchUpdateSites.isPending}
+              >
+                {t('sites.bulk.disable')}
+              </Button>
+              <Button
+                variant='destructive'
+                size='sm'
+                onClick={() => handleBulkAction('delete')}
+                disabled={batchUpdateSites.isPending}
+              >
+                <Trash2Icon className='mr-1 size-3.5' />
+                {t('sites.bulk.delete')}
+              </Button>
+            </DataTableBulkActions>
+          }
+        />
       )}
-      <DataTablePage
-        table={table}
-        columns={columns}
-        isLoading={sitesQuery.isLoading}
-        isFetching={sitesQuery.isFetching}
-        emptyTitle={t('sites.empty.title')}
-        emptyDescription={t('sites.empty.description')}
-        emptyAction={
-          <>
-            <Button onClick={() => setImportOpen(true)}>
-              <UploadIcon className='mr-1 size-4' />
-              {t('sites.empty.import')}
-            </Button>
-            <Button variant='outline' onClick={handleAddSite}>
-              <PlusIcon className='mr-1 size-4' />
-              {t('sites.empty.addSite')}
-            </Button>
-          </>
-        }
-        skeletonKeyPrefix='site-skeleton'
-        toolbarProps={{
-          searchPlaceholder: t('sites.toolbar.searchPlaceholder'),
-          searchDebounceMs: 400,
-          filters: [
-            {
-              columnId: 'status',
-              title: t('sites.columns.status'),
-              options: statusFilters,
-              singleSelect: true,
-            },
-          ],
-          preActions: (
-            <Button onClick={handleAddSite}>
-              <PlusIcon className='mr-1 size-4' />
-              {t('sites.toolbar.addSite')}
-            </Button>
-          ),
-        }}
-        bulkActions={
-          <DataTableBulkActions
-            table={table}
-            entityName={t('sites.entityName')}
-          >
-            <Button
-              variant='outline'
-              size='sm'
-              onClick={() => handleBulkAction('enable')}
-              disabled={batchUpdateSites.isPending}
-            >
-              {t('sites.bulk.enable')}
-            </Button>
-            <Button
-              variant='outline'
-              size='sm'
-              onClick={() => handleBulkAction('disable')}
-              disabled={batchUpdateSites.isPending}
-            >
-              {t('sites.bulk.disable')}
-            </Button>
-            <Button
-              variant='destructive'
-              size='sm'
-              onClick={() => handleBulkAction('delete')}
-              disabled={batchUpdateSites.isPending}
-            >
-              <Trash2Icon className='mr-1 size-3.5' />
-              {t('sites.bulk.delete')}
-            </Button>
-          </DataTableBulkActions>
-        }
-      />
 
       <SiteFormDialog
         open={formOpen}
