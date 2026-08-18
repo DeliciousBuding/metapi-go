@@ -19,7 +19,9 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
+import { formatAbsoluteDateTime, formatRelativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { useRealtimeOps } from '../../hooks/use-realtime-ops'
@@ -211,7 +213,8 @@ function RealtimeOpsPanel() {
 }
 
 function AttentionPanel() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
   const { data, isLoading, isError } = useQuery({
     queryKey: ['dashboard-attention', 20],
     queryFn: () => api.getAttention(20) as Promise<AttentionResponse>,
@@ -258,6 +261,7 @@ function AttentionPanel() {
               const label = t(
                 `dashboard.availability.monitors.severity.${item.severity}`
               )
+              const relativeTime = formatRelativeTime(item.createdAt, locale)
               return (
                 <li
                   // eslint-disable-next-line react/no-array-index-key
@@ -282,6 +286,15 @@ function AttentionPanel() {
                       </span>
                     )}
                   </div>
+                  {relativeTime ? (
+                    <time
+                      dateTime={item.createdAt}
+                      title={formatAbsoluteDateTime(item.createdAt, locale)}
+                      className='text-muted-foreground mt-0.5 shrink-0 text-xs tabular-nums'
+                    >
+                      {relativeTime}
+                    </time>
+                  ) : null}
                 </li>
               )
             })}
