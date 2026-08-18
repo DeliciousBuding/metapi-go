@@ -114,3 +114,30 @@
 ### 旅程链路核实结论
 
 `?siteId=…&create=1` 深链：`resolveDeepLinkPreselect` 校验 site 后预选 + 一次性消费 + `navigate(…, replace)`；`buildAccountsHref` 保留 transient 参数直至 effect strip；`showAccountCreatedToast` → `/token-routes?accountId=…&siteId=…` → `buildChannelDraftSeed(chainContext?.accountId)`。链路完整，唯一断点是 `route-form-dialog.tsx:423`：`accountOptions.length === 0` 时（未跑 Rebuild 模型发现）silently 隐藏 `channelDrafts` 段，深链 seed 的 account 不可见（M，需空态 hint + 「先 Rebuild」指引）。
+
+### 二轮复审（model-tester / oauth / availability）—— 2026-08-18 续
+
+三个只读 explore 子代理复审 model-tester / oauth / availability（一轮未深覆盖区）。下列为证据，未升格为承诺；标 ✅ 已收口，⚠️ 仍开放。
+
+**model-tester** (`web/src/features/model-tester/`)
+
+- ✅ **#840**：token 用量展示（`parseUsage` 从 upstream body 解析 prompt/completion/total，跨 OpenAI/Claude/Responses/Gemini；cost 不在 wire 上——harness 绕过计费，未伪造，记为 residual）；删 always-dead `chunks: 0` stat；failed run 抑制 empty badge 只显 error。
+- ⚠️ 批量对比行 dead-end（无 re-run / channel drilldown）（M，触 channels 列）；cooldown/breaker 通道可选可静默失败（M，触 channels 列）。
+
+**oauth** (`web/src/features/oauth/`)
+
+- ✅ **#844**（并行进程）：start-dialog provider loading/error/empty 三态分支 + retry/settings 链。
+- ✅ **#845**（并行进程）：refresh/rebind 行级 pending（`pendingActionId` 镜像 accounts `pendingStatusId`）+ per-account error toast（`skipErrorHandler` 防双 toast）。
+- ⚠️ quota / lastModelSyncError / routeUnit 字段未呈现（M，加 quota 列 + 状态 tooltip 或 OAuthDetailSheet）；Start-OAuth 流 dead-end——丢 `result.state`/`instructions`，无 pending session 轮询、无 manual-callback UI（L，后端 `getOAuthSession`/`submitOAuthManualCallback` 已存在未用）；无批量 refresh + `updateOAuthConnectionProxy` PATCH 未用（proxy 改需删重建）（M+S）。
+
+**availability** (`web/src/features/dashboard/sections/availability/`)
+
+- ✅ **#846**：realtime sparkline 按 success-rate 健康分档着色（healthy/degraded/unhealthy/idle → `bg-success`/`bg-warning`/`bg-destructive`/`bg-muted-foreground`，原单色）+ `role="img"`/`aria-label`。Latency 不在 realtime wire 上（后端 `RealtimePoint` 无 latency）→ 未伪造，记为后端 residual。
+- ✅ **#847**：attention 项 `createdAt` 渲染为相对时间（`Intl.RelativeTimeFormat` via `toBcp47`，零新 key，en/zh-CN 自动本地化）+ `<time dateTime>` + absolute `title` tooltip。
+- ⚠️ attention alert 点击 dead-end 到通用落地页（plain `<a href>` + 不支持的 `?accountId=` 参数）（M，触 accounts schema）；realtime 面板 success 下降时无 drill-down 到 per-channel 健康（M，触 channels）；WS 重连 5 次后永久放弃——无 retry 按钮、metrics 归零看起来像「无流量」（M，后端 `handler/shared/realtime.go` + 前端 hook）。
+
+**已收口（续，#838 + #840 + #842 + #846 + #847）**
+
+- **Dashboard onboarding banner**（User #1，#838）：`siteCount===0` 时显示 brand-tinted `<Card>` + 「Create site」CTA → `/sites`；`=== 0` 排除 loading 防误闪。
+- **Sites `?create=1` auto-open**（#838 follow-up，#842）：`sitesSearchSchema` 加 `create`，sites-page 一次性消费 + strip（镜像 accounts `?create`），overview CTA 改 `<Link to='/sites' search={{ create: true }}>` 直达 create dialog。
+- 详见上方 model-tester / availability 各 ✅ 项。
