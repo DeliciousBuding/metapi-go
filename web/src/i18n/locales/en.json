@@ -475,6 +475,8 @@
         "scopePlaceholder": "Select a scope",
         "scopeAll": "All accounts",
         "scopeSingle": "Single account",
+        "postRefreshProbeLatencyThresholdMsLabel": "Probe latency threshold (ms)",
+        "postRefreshProbeLatencyThresholdMsHint": "Only probe if the last response latency exceeds this threshold. 0 = always probe.",
         "cancel": "Cancel",
         "save": "Save",
         "create": "Create",

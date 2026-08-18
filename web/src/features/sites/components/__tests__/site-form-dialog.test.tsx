@@ -147,6 +147,62 @@ describe('SiteFormDialog create payload', () => {
   })
 })
 
+describe('SiteFormDialog post-refresh probe latency threshold (gap-11)', () => {
+  it('renders the latency threshold field when probe is enabled and round-trips the value into the payload', async () => {
+    // A successful create resolves with a minimal site object; only the
+    // payload contract is asserted, not the created echo.
+    mockCreateMutate.mockResolvedValue({
+      id: 99,
+      name: 'Probe site',
+      url: 'https://probe.example',
+      platform: '',
+      status: 'active',
+    })
+
+    render(<SiteFormDialog open onOpenChange={vi.fn()} editingSite={null} />)
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Name')).toBeInTheDocument()
+    })
+
+    // Fill the required fields so a valid submit can fire.
+    typeField('Name', 'Probe site')
+    typeField('URL', 'https://probe.example')
+
+    // The latency threshold field must NOT render while the probe is off.
+    expect(
+      screen.queryByLabelText('Probe latency threshold (ms)')
+    ).not.toBeInTheDocument()
+
+    // Toggle the post-refresh probe switch on; the conditional block
+    // (model + scope + latency threshold) must now render.
+    fireEvent.click(screen.getByRole('switch', { name: 'Post-refresh probe' }))
+
+    const latencyField = await screen.findByLabelText(
+      'Probe latency threshold (ms)'
+    )
+    expect(latencyField).toBeInTheDocument()
+
+    // Enter a threshold; the numeric onChange (valueAsNumber) must
+    // round-trip the entered value into the submit payload.
+    fireEvent.change(latencyField, { target: { value: '1500' } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+
+    await waitFor(() => {
+      expect(mockCreateMutate).toHaveBeenCalledTimes(1)
+    })
+
+    const payload = mockCreateMutate.mock.calls[0]?.[0]
+    expect(payload).toMatchObject({
+      name: 'Probe site',
+      url: 'https://probe.example',
+      postRefreshProbeEnabled: true,
+      postRefreshProbeLatencyThresholdMs: 1500,
+    })
+  })
+})
+
 describe('SiteFormDialog edit round-trip (gap-1)', () => {
   it('checks the override-headers switch when editing a site with it enabled', async () => {
     const editingSite: Site = {
