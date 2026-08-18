@@ -56,9 +56,9 @@
 | —   | 已交付 #659    | attention 上提首页           | `availability-section.tsx`                                          | 首页快照横条提供 attention 直达，原「藏在第 4 个 Tab」已收口                                      |
 | —   | 已交付 #660    | 告警富化                     | `service/alert/alert.go`                                            | 3 条核心告警消息富化（受影响路由 + 替代站点 + 直达链接）                                          |
 | —   | 已交付（代码） | 批量操作反馈                 | `accounts-page.tsx` / `accounts/api.ts`                             | `useBatchUpdateAccounts` 已 toast `bulkPartial`（success/failed/items）；证据见 `accounts/api.ts` |
-| 1   | 部分交付（代码）| 徽章配方收敛                 | overview-section.tsx、availability-section.tsx       | #825 机械迁移：3 个手写 `<span>` 徽章 → `<Badge>` 语义变体（`SCHEDULER_STATUS_BADGE`/`SEVERITY_TONE` map `className`→`variant`）。剩余 7 处 `variant='default'+dot` → `variant='success'` 跨 accounts/checkin/routes/channels 需设计决策，按 feature 分批；`failure-reason-badge` 的 network/state 保留（文档化意图） |
+| 1   | 已交付（代码） | 徽章配方收敛                 | overview/availability/checkin/accounts/routes/channels 内联状态徽章 | 全量迁移完成：#825 迁移 dashboard 3 个手写 `<span>` 徽章 → `<Badge>` 语义变体；本 PR 收口正态状态 default→success 软徽章（含 routes 通道计数 success/warning/secondary 阶梯、failure-reason network/state→info/success）；23 个 data-variant 回归用例守卫 |
 | 2   | 已交付（代码） | RealtimeSparkline 图表 token | `availability-section.tsx`                                          | 已改 `bg-chart-1/70`；`useChartColors` 已随 VChart 移除                                           |
-| 3   | 已交付（代码）  | 行内高频操作免菜单化         | `accounts-columns.tsx`                              | #824 行内 Enable/Disable 按钮（`Power` + `Loader2` + 每行 pending via mutation `variables`，无全局锁，复用现有 i18n）；refresh/pin/checkin/edit/delete 仍走下拉菜单 |
+| 3   | 已交付（代码） | 行内高频操作免菜单化         | `accounts-columns.tsx`                                              | #824 行内 Enable/Disable 按钮（`Power` + `Loader2` + 每行 pending via mutation `variables`，无全局锁，复用现有 i18n）；refresh/pin/checkin/edit/delete 仍走下拉菜单 |
 
 ### P2
 
@@ -81,7 +81,7 @@
 
 - 动线审计：5 条动线（首次接入 / 客户端分发 / 日常巡检 / 故障处理 / 模型测试），
   全部引用文件经验证；核心发现「建完路由之后系统撒手不管」已收口（#657 接入对话框 + 完成动线 toast 改接 `/settings/downstream`）。
-- 视觉审计：25 项问题（3 P0 / 10 P1 / 12 P2），已修复 3 P0（`text-*-foreground` 透明底误用 ×6、软徽章 success/info 变体、站点 active 徽章语义统一）+ 2 P1（站点 active 软徽章、12px 软徽章对比度 AA：浅色 success/info/warning 明度下调）。
+- 视觉审计：25 项问题（3 P0 / 10 P1 / 12 P2），已修复 3 P0（`text-*-foreground` 透明底误用 ×6、软徽章 success/info 变体、站点 active 徽章语义统一）+ 2 P1（站点 active 软徽章、12px 软徽章对比度 AA：浅色 success/info/warning 明度下调）；2026-08-18 完成徽章配方收敛（P1 #3）：正态状态统一 success 软徽章、dashboard 内联配方改 Badge variant。
 - 交互审计：1 P0 / 8 P1；已修复倍率行内编辑安全网、页码钳位、导入脏确认和 404/错误边界。其余内容保留为审计观察。
 - 功能对标：已落地客户端一键导出 #657、全局搜索 #658、首页今日快照 #659、告警富化 #660；后续承诺以 MASTER 为准，不从本审计表直接派生。
 

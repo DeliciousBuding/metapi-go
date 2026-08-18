@@ -56,7 +56,7 @@ import {
 
 interface HealthBadgeConfig {
   labelKey: string
-  variant: 'default' | 'secondary' | 'destructive' | 'warning' | 'outline'
+  variant: 'success' | 'secondary' | 'destructive' | 'warning' | 'outline'
   dotClassName: string
   icon: LucideIcon
 }
@@ -64,7 +64,7 @@ interface HealthBadgeConfig {
 const HEALTH_BADGE_CONFIG: Record<RuntimeHealthState, HealthBadgeConfig> = {
   healthy: {
     labelKey: 'accounts.columns.healthHealthy',
-    variant: 'default',
+    variant: 'success',
     dotClassName: 'bg-success',
     icon: CheckCircle2,
   },

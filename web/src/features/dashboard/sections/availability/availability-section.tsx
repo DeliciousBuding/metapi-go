@@ -284,7 +284,10 @@ function AttentionPanel() {
                   className='flex items-start gap-3'
                 >
                   <Badge variant={tone.variant} className='mt-1 shrink-0'>
-                    <span className={cn('size-1.5 rounded-full', tone.dot)} />
+                    <span
+                      aria-hidden='true'
+                      className={cn('size-1.5 rounded-full', tone.dot)}
+                    />
                     {label}
                   </Badge>
                   <div className='min-w-0 flex-1'>
