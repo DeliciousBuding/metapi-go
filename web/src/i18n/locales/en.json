@@ -368,6 +368,7 @@
     "sites": {
       "page": {
         "loadError": "Failed to load sites: {{message}}",
+        "retry": "Retry",
         "title": "Sites",
         "description": "Manage connected sites, their status, and routing weight."
       },
@@ -439,7 +440,7 @@
         "name": "Name",
         "namePlaceholder": "Enter a site name",
         "platform": "Platform",
-        "platformPlaceholder": "Select a platform",
+        "platformPlaceholder": "Enter a platform (e.g. openai)",
         "url": "URL",
         "detect": "Detect",
         "detectRequiresUrl": "Enter a URL to auto-detect the platform.",
@@ -464,6 +465,8 @@
         "utlsForceOff": "Force off",
         "customHeaders": "Custom headers",
         "customHeadersHint": "JSON object of extra request headers.",
+        "customHeadersOverrideRequestHeaders": "Override request headers",
+        "customHeadersOverrideRequestHeadersHint": "When enabled, the site's custom headers override the incoming request's headers.",
         "postRefreshProbeEnabled": "Post-refresh probe",
         "postRefreshProbeEnabledHint": "Send a probe request after each token refresh to verify the account.",
         "postRefreshProbeModel": "Probe model",
@@ -482,9 +485,9 @@
           "invalidUrlOrEmpty": "Please enter a valid URL, or leave it empty.",
           "invalidJson": "Please enter valid JSON.",
           "nameRequired": "Please enter a name.",
-          "nameTooLong": "Name must be at most 100 characters.",
+          "nameTooLong": "Name must be at most 120 characters.",
           "urlRequired": "Please enter a URL.",
-          "platformTooLong": "Platform must be at most 50 characters.",
+          "platformTooLong": "Platform must be at most 64 characters.",
           "globalWeightMin": "Weight must be at least 0.",
           "maxConcurrencyInteger": "Max concurrency must be an integer.",
           "maxConcurrencyMin": "Max concurrency must be at least 0.",

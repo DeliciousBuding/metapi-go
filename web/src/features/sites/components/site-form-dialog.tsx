@@ -84,7 +84,8 @@ function siteToFormValues(site: Site): SiteFormValues {
     proxyUrl: site.proxyUrl ?? '',
     useSystemProxy: site.useSystemProxy ?? false,
     customHeaders: site.customHeaders ?? '',
-    customHeadersOverrideRequestHeaders: false,
+    customHeadersOverrideRequestHeaders:
+      site.customHeadersOverrideRequestHeaders ?? false,
     globalWeight: site.globalWeight ?? 1,
     maxConcurrency: site.maxConcurrency ?? 0,
     postRefreshProbeEnabled: site.postRefreshProbeEnabled ?? false,
@@ -532,6 +533,29 @@ export function SiteFormDialog({
                     {t('sites.form.customHeadersHint')}
                   </FormDescription>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='customHeadersOverrideRequestHeaders'
+              render={({ field }) => (
+                <FormItem className='flex items-center justify-between rounded-lg border p-3'>
+                  <div className='space-y-0.5'>
+                    <FormLabel>
+                      {t('sites.form.customHeadersOverrideRequestHeaders')}
+                    </FormLabel>
+                    <FormDescription>
+                      {t('sites.form.customHeadersOverrideRequestHeadersHint')}
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={(checked) => field.onChange(checked)}
+                    />
+                  </FormControl>
                 </FormItem>
               )}
             />

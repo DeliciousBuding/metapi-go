@@ -12,6 +12,7 @@
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import {
   Plus as PlusIcon,
+  RotateCcw as RotateCcwIcon,
   Trash2 as Trash2Icon,
   Upload as UploadIcon,
 } from 'lucide-react'
@@ -357,84 +358,101 @@ export function SitesPage() {
         </p>
       </div>
 
-      {sitesQuery.error && (
-        <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
-          {t('sites.page.loadError', {
-            message: (sitesQuery.error as Error).message,
-          })}
+      {sitesQuery.error ? (
+        <div className='flex flex-col gap-3'>
+          <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
+            {t('sites.page.loadError', {
+              message: (sitesQuery.error as Error).message,
+            })}
+          </div>
+          <div>
+            <Button
+              variant='secondary'
+              onClick={() => sitesQuery.refetch()}
+              disabled={sitesQuery.isFetching}
+            >
+              {sitesQuery.isFetching ? (
+                <Spinner className='mr-1' />
+              ) : (
+                <RotateCcwIcon className='mr-1 size-4' />
+              )}
+              {t('sites.page.retry')}
+            </Button>
+          </div>
         </div>
+      ) : (
+        <DataTablePage
+          table={table}
+          columns={columns}
+          isLoading={sitesQuery.isLoading}
+          isFetching={sitesQuery.isFetching}
+          emptyTitle={t('sites.empty.title')}
+          emptyDescription={t('sites.empty.description')}
+          emptyAction={
+            <>
+              <Button onClick={() => setImportOpen(true)}>
+                <UploadIcon className='mr-1 size-4' />
+                {t('sites.empty.import')}
+              </Button>
+              <Button variant='outline' onClick={handleAddSite}>
+                <PlusIcon className='mr-1 size-4' />
+                {t('sites.empty.addSite')}
+              </Button>
+            </>
+          }
+          skeletonKeyPrefix='site-skeleton'
+          toolbarProps={{
+            searchPlaceholder: t('sites.toolbar.searchPlaceholder'),
+            searchDebounceMs: 400,
+            filters: [
+              {
+                columnId: 'status',
+                title: t('sites.columns.status'),
+                options: statusFilters,
+                singleSelect: true,
+              },
+            ],
+            preActions: (
+              <Button onClick={handleAddSite}>
+                <PlusIcon className='mr-1 size-4' />
+                {t('sites.toolbar.addSite')}
+              </Button>
+            ),
+          }}
+          bulkActions={
+            <DataTableBulkActions
+              table={table}
+              entityName={t('sites.entityName')}
+            >
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => handleBulkAction('enable')}
+                disabled={batchUpdateSites.isPending}
+              >
+                {t('sites.bulk.enable')}
+              </Button>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => handleBulkAction('disable')}
+                disabled={batchUpdateSites.isPending}
+              >
+                {t('sites.bulk.disable')}
+              </Button>
+              <Button
+                variant='destructive'
+                size='sm'
+                onClick={() => handleBulkAction('delete')}
+                disabled={batchUpdateSites.isPending}
+              >
+                <Trash2Icon className='mr-1 size-3.5' />
+                {t('sites.bulk.delete')}
+              </Button>
+            </DataTableBulkActions>
+          }
+        />
       )}
-      <DataTablePage
-        table={table}
-        columns={columns}
-        isLoading={sitesQuery.isLoading}
-        isFetching={sitesQuery.isFetching}
-        emptyTitle={t('sites.empty.title')}
-        emptyDescription={t('sites.empty.description')}
-        emptyAction={
-          <>
-            <Button onClick={() => setImportOpen(true)}>
-              <UploadIcon className='mr-1 size-4' />
-              {t('sites.empty.import')}
-            </Button>
-            <Button variant='outline' onClick={handleAddSite}>
-              <PlusIcon className='mr-1 size-4' />
-              {t('sites.empty.addSite')}
-            </Button>
-          </>
-        }
-        skeletonKeyPrefix='site-skeleton'
-        toolbarProps={{
-          searchPlaceholder: t('sites.toolbar.searchPlaceholder'),
-          searchDebounceMs: 400,
-          filters: [
-            {
-              columnId: 'status',
-              title: t('sites.columns.status'),
-              options: statusFilters,
-              singleSelect: true,
-            },
-          ],
-          preActions: (
-            <Button onClick={handleAddSite}>
-              <PlusIcon className='mr-1 size-4' />
-              {t('sites.toolbar.addSite')}
-            </Button>
-          ),
-        }}
-        bulkActions={
-          <DataTableBulkActions
-            table={table}
-            entityName={t('sites.entityName')}
-          >
-            <Button
-              variant='outline'
-              size='sm'
-              onClick={() => handleBulkAction('enable')}
-              disabled={batchUpdateSites.isPending}
-            >
-              {t('sites.bulk.enable')}
-            </Button>
-            <Button
-              variant='outline'
-              size='sm'
-              onClick={() => handleBulkAction('disable')}
-              disabled={batchUpdateSites.isPending}
-            >
-              {t('sites.bulk.disable')}
-            </Button>
-            <Button
-              variant='destructive'
-              size='sm'
-              onClick={() => handleBulkAction('delete')}
-              disabled={batchUpdateSites.isPending}
-            >
-              <Trash2Icon className='mr-1 size-3.5' />
-              {t('sites.bulk.delete')}
-            </Button>
-          </DataTableBulkActions>
-        }
-      />
 
       <SiteFormDialog
         open={formOpen}
