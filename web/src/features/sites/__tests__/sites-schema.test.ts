@@ -257,3 +257,31 @@ describe('sitesSearchSchema', () => {
     expect(result.q).toBe(42)
   })
 })
+
+// ---------------------------------------------------------------------------
+// create deep-link param (one-shot transient — not a persisted filter)
+// ---------------------------------------------------------------------------
+
+describe('sitesSearchSchema — create deep-link', () => {
+  it('coerces the router-parsed `?create=1` (number) to true', () => {
+    expect(sitesSearchSchema.parse({ create: 1 }).create).toBe(true)
+  })
+
+  it('coerces a literal boolean true to true', () => {
+    expect(sitesSearchSchema.parse({ create: true }).create).toBe(true)
+  })
+
+  it('omits create (undefined) when the param is absent', () => {
+    expect(sitesSearchSchema.parse({}).create).toBeUndefined()
+  })
+
+  it('coerces 0 to false so a `?create=0` deep link never opens the dialog', () => {
+    expect(sitesSearchSchema.parse({ create: 0 }).create).toBe(false)
+  })
+
+  it('does not throw on a malformed create value (graceful fallback)', () => {
+    expect(
+      sitesSearchSchema.safeParse({ create: { weird: true } }).success
+    ).toBe(true)
+  })
+})

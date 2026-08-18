@@ -11,6 +11,7 @@ import { Inbox, Radio, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -19,10 +20,13 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
+import { formatAbsoluteDateTime, formatRelativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { useRealtimeOps } from '../../hooks/use-realtime-ops'
+import type { RealtimeOpsSamplePoint } from '../../types'
 
 const SPARK_BARS = 60
 
@@ -60,20 +64,65 @@ function formatRate(rate: number): string {
   return `${(rate * 100).toFixed(1)}%`
 }
 
-function RealtimeSparkline({ samples }: { samples: number[] }) {
-  const max = Math.max(1, ...samples)
+// Health bands for the realtime sparkline. A second with no traffic is idle
+// (neutral); otherwise the success fraction at that second maps to a band:
+// healthy >= 0.95, degraded >= 0.80, unhealthy < 0.80. The bars stay shaped
+// by qps, so volume + health read together — a slow degradation (success
+// falling while volume holds) shifts the bars green → amber → red.
+const HEALTHY_SUCCESS_THRESHOLD = 0.95
+const DEGRADED_SUCCESS_THRESHOLD = 0.8
+
+type SparkHealth = 'healthy' | 'degraded' | 'unhealthy' | 'idle'
+
+const SPARK_HEALTH_TONE: Record<SparkHealth, string> = {
+  healthy: 'bg-success/70',
+  degraded: 'bg-warning/70',
+  unhealthy: 'bg-destructive/70',
+  idle: 'bg-muted-foreground/30',
+}
+
+const SPARK_HEALTH_LABEL_KEY: Record<SparkHealth, string> = {
+  healthy: 'dashboard.availability.realtime.healthHealthy',
+  degraded: 'dashboard.availability.realtime.healthDegraded',
+  unhealthy: 'dashboard.availability.realtime.healthUnhealthy',
+  idle: 'dashboard.availability.realtime.healthIdle',
+}
+
+const IDLE_SPARK_POINT: RealtimeOpsSamplePoint = { qps: 0, successRate: 0 }
+
+function sparkHealthFor(point: RealtimeOpsSamplePoint): SparkHealth {
+  if (point.qps <= 0) return 'idle'
+  if (point.successRate >= HEALTHY_SUCCESS_THRESHOLD) return 'healthy'
+  if (point.successRate >= DEGRADED_SUCCESS_THRESHOLD) return 'degraded'
+  return 'unhealthy'
+}
+
+function RealtimeSparkline({ points }: { points: RealtimeOpsSamplePoint[] }) {
+  const { t } = useTranslation()
+  const max = Math.max(1, ...points.map((point) => point.qps))
   const bars =
-    samples.length > 0 ? samples : Array.from({ length: SPARK_BARS }, () => 0)
+    points.length > 0
+      ? points
+      : Array.from({ length: SPARK_BARS }, () => IDLE_SPARK_POINT)
+  const latestHealth = sparkHealthFor(points.at(-1) ?? IDLE_SPARK_POINT)
 
   return (
-    <div className='flex h-16 w-full items-end gap-px' aria-hidden='true'>
-      {bars.map((sample, index) => {
-        const ratio = Math.max(0.04, sample / max)
+    <div
+      role='img'
+      aria-label={t(SPARK_HEALTH_LABEL_KEY[latestHealth])}
+      className='flex h-16 w-full items-end gap-px'
+    >
+      {bars.map((point, index) => {
+        const ratio = Math.max(0.04, point.qps / max)
+        const health = sparkHealthFor(point)
         return (
           <div
             // eslint-disable-next-line react/no-array-index-key
             key={index}
-            className='bg-chart-1/70 min-w-0 flex-1 rounded-sm'
+            className={cn(
+              'min-w-0 flex-1 rounded-sm',
+              SPARK_HEALTH_TONE[health]
+            )}
             style={{ height: `${ratio * 100}%` }}
           />
         )
@@ -84,7 +133,7 @@ function RealtimeSparkline({ samples }: { samples: number[] }) {
 
 function RealtimeOpsPanel() {
   const { t } = useTranslation()
-  const sample = useRealtimeOps()
+  const { sample, reconnect } = useRealtimeOps()
 
   const tone = sample.gaveUp
     ? 'border-destructive/40 bg-destructive/5'
@@ -132,40 +181,55 @@ function RealtimeOpsPanel() {
         </CardDescription>
       </CardHeader>
       <CardContent className='space-y-3'>
-        <div className='flex flex-wrap items-end justify-between gap-x-4 gap-y-2'>
-          <div>
-            <div className='text-muted-foreground text-xs'>
-              {t('dashboard.availability.realtime.metricQps')}
-            </div>
-            <div className='text-2xl font-semibold tabular-nums'>
-              {sample.qps}
-            </div>
+        {sample.gaveUp ? (
+          <div className='border-destructive/40 flex min-h-[8rem] flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-6 text-center'>
+            <TriangleAlert className='text-destructive/80 size-5' />
+            <p className='text-destructive text-sm'>
+              {t('dashboard.availability.realtime.connectionLost')}
+            </p>
+            <Button variant='outline' size='sm' onClick={reconnect}>
+              {t('dashboard.availability.realtime.reconnect')}
+            </Button>
           </div>
-          <div>
-            <div className='text-muted-foreground text-xs'>
-              {t('dashboard.availability.realtime.metricSuccess')}
+        ) : (
+          <>
+            <div className='flex flex-wrap items-end justify-between gap-x-4 gap-y-2'>
+              <div>
+                <div className='text-muted-foreground text-xs'>
+                  {t('dashboard.availability.realtime.metricQps')}
+                </div>
+                <div className='text-2xl font-semibold tabular-nums'>
+                  {sample.qps}
+                </div>
+              </div>
+              <div>
+                <div className='text-muted-foreground text-xs'>
+                  {t('dashboard.availability.realtime.metricSuccess')}
+                </div>
+                <div className='text-2xl font-semibold tabular-nums'>
+                  {formatRate(sample.successRate)}
+                </div>
+              </div>
+              <div>
+                <div className='text-muted-foreground text-xs'>
+                  {t('dashboard.availability.realtime.metricUptime')}
+                </div>
+                <div className='text-2xl font-semibold tabular-nums'>
+                  {Math.floor(sample.lifetime / 60)}m
+                </div>
+              </div>
             </div>
-            <div className='text-2xl font-semibold tabular-nums'>
-              {formatRate(sample.successRate)}
-            </div>
-          </div>
-          <div>
-            <div className='text-muted-foreground text-xs'>
-              {t('dashboard.availability.realtime.metricUptime')}
-            </div>
-            <div className='text-2xl font-semibold tabular-nums'>
-              {Math.floor(sample.lifetime / 60)}m
-            </div>
-          </div>
-        </div>
-        <RealtimeSparkline samples={sample.spark} />
+            <RealtimeSparkline points={sample.spark} />
+          </>
+        )}
       </CardContent>
     </Card>
   )
 }
 
 function AttentionPanel() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
   const { data, isLoading, isError } = useQuery({
     queryKey: ['dashboard-attention', 20],
     queryFn: () => api.getAttention(20) as Promise<AttentionResponse>,
@@ -212,6 +276,7 @@ function AttentionPanel() {
               const label = t(
                 `dashboard.availability.monitors.severity.${item.severity}`
               )
+              const relativeTime = formatRelativeTime(item.createdAt, locale)
               return (
                 <li
                   // eslint-disable-next-line react/no-array-index-key
@@ -236,6 +301,15 @@ function AttentionPanel() {
                       </span>
                     )}
                   </div>
+                  {relativeTime ? (
+                    <time
+                      dateTime={item.createdAt}
+                      title={formatAbsoluteDateTime(item.createdAt, locale)}
+                      className='text-muted-foreground mt-0.5 shrink-0 text-xs tabular-nums'
+                    >
+                      {relativeTime}
+                    </time>
+                  ) : null}
                 </li>
               )
             })}

@@ -90,12 +90,25 @@ export type RealtimeOpsFrame = {
   points: Array<{ ts: number; total: number; success: number }>
 }
 
+/**
+ * One sparkline sample — a single second's derived traffic + the success
+ * fraction observed at that second. The success fraction drives the bar's
+ * health colour (healthy / degraded / unhealthy), so a slow degradation is
+ * visible at a glance even while volume stays normal. The realtime ops
+ * stream itself carries no latency (see handler/shared/realtime.go), so
+ * volume + success are the only signals on the wire.
+ */
+export type RealtimeOpsSamplePoint = {
+  qps: number
+  successRate: number
+}
+
 /** Live traffic sparkline sample (rolling 60s window). */
 export type RealtimeOpsSample = {
   qps: number
   successRate: number
   lifetime: number
-  spark: number[]
+  spark: RealtimeOpsSamplePoint[]
   connected: boolean
   gaveUp: boolean
 }

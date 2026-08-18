@@ -55,6 +55,9 @@ type ParsedUpstreamBody = {
   doneReceived: boolean
   rawEvents: string[]
   error?: string
+  promptTokens?: number
+  completionTokens?: number
+  totalTokens?: number
 }
 
 export function buildChatPayload(
@@ -280,12 +283,14 @@ function parseUpstreamBody(truncatedBody: string): ParsedUpstreamBody {
     const payload = JSON.parse(truncatedBody) as unknown
     const delta = parseAnyStreamDelta(payload)
     const error = extractErrorMessage(payload)
+    const usage = parseUsage(payload)
     return {
       content: delta.contentDelta ?? '',
       reasoningContent: delta.reasoningDelta ?? '',
       doneReceived: Boolean(delta.done),
       rawEvents: [truncatedBody],
       error: error || undefined,
+      ...usage,
     }
   } catch {
     return {
@@ -295,6 +300,79 @@ function parseUpstreamBody(truncatedBody: string): ParsedUpstreamBody {
       rawEvents: [truncatedBody],
     }
   }
+}
+
+function toTokenNumber(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string') {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return undefined
+}
+
+/**
+ * Extract token usage from a parsed upstream body. Reads the OpenAI /
+ * Responses `usage` object (`prompt_tokens` / `completion_tokens` /
+ * `total_tokens`), the Claude `usage` object (`input_tokens` /
+ * `output_tokens`, total derived), and the Gemini `usageMetadata` object
+ * (`promptTokenCount` / `candidatesTokenCount` / `totalTokenCount`).
+ * Returns an empty object when the upstream body carries no usage (errors,
+ * non-JSON, or truncated bodies that failed to parse).
+ */
+function parseUsage(payload: unknown): {
+  promptTokens?: number
+  completionTokens?: number
+  totalTokens?: number
+} {
+  if (!payload || typeof payload !== 'object') return {}
+  const record = payload as Record<string, unknown>
+
+  const usage = record.usage as Record<string, unknown> | undefined
+  if (usage && typeof usage === 'object') {
+    const prompt = toTokenNumber(usage.prompt_tokens ?? usage.input_tokens)
+    const completion = toTokenNumber(
+      usage.completion_tokens ?? usage.output_tokens
+    )
+    const total = toTokenNumber(usage.total_tokens)
+    if (
+      prompt !== undefined ||
+      completion !== undefined ||
+      total !== undefined
+    ) {
+      const promptValue = prompt ?? 0
+      const completionValue = completion ?? 0
+      return {
+        promptTokens: promptValue,
+        completionTokens: completionValue,
+        totalTokens: total ?? promptValue + completionValue,
+      }
+    }
+  }
+
+  const usageMetadata = record.usageMetadata as
+    | Record<string, unknown>
+    | undefined
+  if (usageMetadata && typeof usageMetadata === 'object') {
+    const prompt = toTokenNumber(usageMetadata.promptTokenCount)
+    const completion = toTokenNumber(usageMetadata.candidatesTokenCount)
+    const total = toTokenNumber(usageMetadata.totalTokenCount)
+    if (
+      prompt !== undefined ||
+      completion !== undefined ||
+      total !== undefined
+    ) {
+      const promptValue = prompt ?? 0
+      const completionValue = completion ?? 0
+      return {
+        promptTokens: promptValue,
+        completionTokens: completionValue,
+        totalTokens: total ?? promptValue + completionValue,
+      }
+    }
+  }
+
+  return {}
 }
 
 function resolveHarnessError(
@@ -349,7 +427,9 @@ export async function resolveTestResponseError(
  * Run a single sync probe against `/api/test/chat` (the forced-channel
  * harness), unwrap its response envelope, and normalize the bounded upstream
  * body. The returned status, latency, and error come from the harness rather
- * than browser timing. No stream chunks or terminal SSE events are invented.
+ * than browser timing. Token usage is extracted from the upstream body when
+ * present; the harness does not compute estimated cost (only the proxy
+ * executor billing path does, which this probe bypasses).
  */
 export async function runChatProbe(
   chatPayload: ChatTestPayload,
@@ -371,10 +451,12 @@ export async function runChatProbe(
     doneReceived: upstreamBody.doneReceived,
     statusCode: envelope.statusCode,
     latencyMs: envelope.latencyMs,
-    chunks: 0,
     rawEvents: upstreamBody.rawEvents,
     empty: !upstreamBody.content && !upstreamBody.reasoningContent,
     error,
+    promptTokens: upstreamBody.promptTokens,
+    completionTokens: upstreamBody.completionTokens,
+    totalTokens: upstreamBody.totalTokens,
   }
 }
 
