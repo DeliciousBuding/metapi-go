@@ -18,7 +18,6 @@ function response(overrides: Partial<TestResponse> = {}): TestResponse {
     doneReceived: true,
     statusCode: 200,
     latencyMs: 100,
-    chunks: 1,
     rawEvents: [],
     empty: false,
     ...overrides,

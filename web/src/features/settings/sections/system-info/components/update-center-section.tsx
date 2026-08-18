@@ -15,6 +15,7 @@ import {
   SettingsSectionCard,
   SettingsSectionSkeleton,
 } from '../../../components/settings-section-card'
+import { SettingsSectionError } from '../../../components/settings-section-error'
 
 type UpdateCenterStatus = {
   currentVersion?: string
@@ -53,6 +54,15 @@ export function UpdateCenterSection() {
       ? status.latestVersion
       : undefined
   const hasComparableVersions = Boolean(currentVersion && latestVersion)
+
+  if (statusQuery.isError) {
+    return (
+      <SettingsSectionError
+        title={t('settings.systemInfo.updateCenter.title')}
+        onRetry={() => void statusQuery.refetch()}
+      />
+    )
+  }
 
   return (
     <SettingsSectionCard

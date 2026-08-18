@@ -2,11 +2,13 @@
 // Groups the backend's cheaper-first candidate rows by model and surfaces the
 // provenance grade + best-channel recommendation for every source.
 
-import { Search, Star } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
+import { ArrowRight, Search, Star } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -165,6 +167,9 @@ function ModelGroupCard({ group }: { group: ModelGroup }) {
                 {t('priceCompare.columns.effective')}
               </TableHead>
               <TableHead>{t('priceCompare.columns.status')}</TableHead>
+              <TableHead className='text-right'>
+                {t('priceCompare.columns.actions')}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -181,7 +186,8 @@ function ModelGroupCard({ group }: { group: ModelGroup }) {
   )
 }
 
-function PriceRow({ row }: { row: PriceCompareItem }) {
+export function PriceRow({ row }: { row: PriceCompareItem }) {
+  const { t } = useTranslation()
   return (
     <TableRow>
       <TableCell>
@@ -204,6 +210,16 @@ function PriceRow({ row }: { row: PriceCompareItem }) {
       </TableCell>
       <TableCell>
         <PriceRowStatus row={row} />
+      </TableCell>
+      <TableCell className='text-right'>
+        <Button
+          variant='ghost'
+          size='icon-sm'
+          render={<Link to='/token-routes' search={{ q: row.model }} />}
+          aria-label={t('priceCompare.goToRoutes', { model: row.model })}
+        >
+          <ArrowRight aria-hidden='true' />
+        </Button>
       </TableCell>
     </TableRow>
   )
