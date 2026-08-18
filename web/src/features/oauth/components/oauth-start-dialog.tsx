@@ -84,9 +84,8 @@ export function OAuthStartDialog({
   // set, the dialog swaps the form for a pending panel that polls the
   // session and offers a manual-callback fallback.
   const [pendingState, setPendingState] = useState<string | null>(null)
-  const [instructions, setInstructions] = useState<OAuthStartInstructions | null>(
-    null
-  )
+  const [instructions, setInstructions] =
+    useState<OAuthStartInstructions | null>(null)
   const [callbackUrl, setCallbackUrl] = useState('')
   const [copiedTunnel, setCopiedTunnel] = useState(false)
 
@@ -293,9 +292,7 @@ export function OAuthStartDialog({
                   type='submit'
                   disabled={!callbackUrl.trim() || isSubmittingCallback}
                 >
-                  {isSubmittingCallback ? (
-                    <Spinner className='mr-1' />
-                  ) : null}
+                  {isSubmittingCallback ? <Spinner className='mr-1' /> : null}
                   {t('oauth.session.callbackSubmit')}
                 </Button>
               </form>
@@ -410,9 +407,7 @@ export function OAuthStartDialog({
                         <FormLabel>{t('oauth.form.projectId')}</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder={t(
-                              'oauth.form.projectIdPlaceholder'
-                            )}
+                            placeholder={t('oauth.form.projectIdPlaceholder')}
                             autoFocus
                             {...field}
                           />

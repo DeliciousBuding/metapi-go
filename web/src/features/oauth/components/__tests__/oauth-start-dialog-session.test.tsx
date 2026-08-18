@@ -17,12 +17,21 @@ import {
   waitFor,
 } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
 import '@/i18n/config'
 
-import { OAuthStartDialog } from '../oauth-start-dialog'
 import type { OAuthStartInstructions } from '../../types'
+import { OAuthStartDialog } from '../oauth-start-dialog'
 
 // ---------------------------------------------------------------------------
 // Shared jsdom stubs (Base UI dropdown positioning needs both)
@@ -231,9 +240,7 @@ describe('OAuthStartDialog pending session', () => {
     })
 
     // Click the "Submit callback" button.
-    fireEvent.click(
-      screen.getByRole('button', { name: /^submit callback$/i })
-    )
+    fireEvent.click(screen.getByRole('button', { name: /^submit callback$/i }))
 
     await waitFor(() =>
       expect(mockState.callbackMutate).toHaveBeenCalledTimes(1)

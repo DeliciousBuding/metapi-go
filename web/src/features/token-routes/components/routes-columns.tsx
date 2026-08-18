@@ -137,7 +137,11 @@ function RoutesRowActions({
           onClick={() => actions.onClearCooldown(route)}
           disabled={readOnly || isCooldownPending}
         >
-          {isCooldownPending ? <Loader2 className='animate-spin' /> : <Snowflake />}
+          {isCooldownPending ? (
+            <Loader2 className='animate-spin' />
+          ) : (
+            <Snowflake />
+          )}
           {t('tokenRoutes.columns.clearCooldown')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />

@@ -191,8 +191,6 @@ describe('ChannelDetailSheet edit-route action', () => {
   it('disables the edit-route button when the channel has no routeId', () => {
     renderSheet(makeChannel({ routeId: 0 }))
 
-    expect(
-      screen.getByRole('button', { name: 'Edit route' })
-    ).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Edit route' })).toBeDisabled()
   })
 })
