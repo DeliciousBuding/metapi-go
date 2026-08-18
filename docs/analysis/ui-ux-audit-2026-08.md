@@ -102,7 +102,7 @@
 
 **动线 dead-end / 缺 CTA**
 
-- `proxy-log-detail-sheet.tsx:143-177` — channel/account/route/token ID 渲染为不可点 `#NNN`；要做 drilldown 需目标页支持 `?channelId=` 等 deep-link 过滤（M）。
+- `proxy-log-detail-sheet.tsx:143-177` — ~~channel/account/route/token ID 渲染为不可点 `#NNN`~~ 2026-08-18 部分修复：route/channel ID 改为 router Link（`/token-routes?routeId=N` / `/channels?channelId=N`），两目标页各自一次性消费参数打开详情 sheet 后 strip（accounts create/siteId 同款消费模式，stale id 静默清除），9 行为用例覆盖；account/token 字段已有名字回显（仅无名时显示 `#NNN`），留作后续观察（M）。
 - `channel-detail-sheet.tsx:216` — 无 `SheetFooter`，cooldown/breaker_open 通道无「清冷却 / 探测」动作（可复用 `useClearRouteCooldown` 模式）（M）。
 - `channels-page.tsx:139` — 空态无 CTA（应接 `/accounts` 或触发 `rebuildMutation`）（S，但 channels 列属并行进程 badge 范围，需协调）。
 - `overview-section.tsx:253` — 首次落地（0 site）无 onboarding banner/CTA（M，#828 stat-card drilldown 部分缓解）。

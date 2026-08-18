@@ -53,7 +53,7 @@ vi.mock('@/components/data-table', () => ({
     onPaginationChange: vi.fn(),
     sorting: [],
     onSortingChange: vi.fn(),
-    filters: { enabled: '', accountId: '', siteId: '' },
+    filters: { enabled: '', accountId: '', siteId: '', routeId: '' },
   }),
   useDataTable: () => ({
     table: {
@@ -61,6 +61,11 @@ vi.mock('@/components/data-table', () => ({
       resetRowSelection: vi.fn(),
     },
   }),
+}))
+
+vi.mock('@tanstack/react-router', () => ({
+  useSearch: () => ({}),
+  useNavigate: () => vi.fn(),
 }))
 
 vi.mock('../../api', () => ({
