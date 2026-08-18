@@ -314,6 +314,11 @@
         "useSystemProxyDescription": "Route the OAuth flow through the system-configured proxy.",
         "cancel": "Cancel",
         "start": "Start",
+        "loadingProviders": "Loading providers…",
+        "providersLoadFailed": "Failed to load providers.",
+        "retry": "Retry",
+        "noProviders": "No OAuth providers are enabled.",
+        "goToSettings": "Go to settings",
         "errors": {
           "projectIdRequired": "Please enter the project ID.",
           "invalidProxyUrl": "Please enter a valid http or https URL.",
