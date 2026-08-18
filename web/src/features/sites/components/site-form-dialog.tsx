@@ -84,7 +84,8 @@ function siteToFormValues(site: Site): SiteFormValues {
     proxyUrl: site.proxyUrl ?? '',
     useSystemProxy: site.useSystemProxy ?? false,
     customHeaders: site.customHeaders ?? '',
-    customHeadersOverrideRequestHeaders: false,
+    customHeadersOverrideRequestHeaders:
+      site.customHeadersOverrideRequestHeaders ?? false,
     globalWeight: site.globalWeight ?? 1,
     maxConcurrency: site.maxConcurrency ?? 0,
     postRefreshProbeEnabled: site.postRefreshProbeEnabled ?? false,
@@ -536,6 +537,29 @@ export function SiteFormDialog({
               )}
             />
 
+            <FormField
+              control={form.control}
+              name='customHeadersOverrideRequestHeaders'
+              render={({ field }) => (
+                <FormItem className='flex items-center justify-between rounded-lg border p-3'>
+                  <div className='space-y-0.5'>
+                    <FormLabel>
+                      {t('sites.form.customHeadersOverrideRequestHeaders')}
+                    </FormLabel>
+                    <FormDescription>
+                      {t('sites.form.customHeadersOverrideRequestHeadersHint')}
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={(checked) => field.onChange(checked)}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
             <div className='rounded-lg border p-3'>
               <FormField
                 control={form.control}
@@ -560,7 +584,7 @@ export function SiteFormDialog({
                 )}
               />
               {probeEnabled && (
-                <div className='mt-3 grid gap-4 sm:grid-cols-3'>
+                <div className='mt-3 grid gap-4 sm:grid-cols-2'>
                   <FormField
                     control={form.control}
                     name='postRefreshProbeModel'
@@ -615,6 +639,43 @@ export function SiteFormDialog({
                             </SelectItem>
                           </SelectContent>
                         </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='postRefreshProbeLatencyThresholdMs'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          {t(
+                            'sites.form.postRefreshProbeLatencyThresholdMsLabel'
+                          )}
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            type='number'
+                            min={0}
+                            step={100}
+                            value={field.value}
+                            onChange={(event) =>
+                              field.onChange(
+                                Number.isNaN(event.target.valueAsNumber)
+                                  ? 0
+                                  : event.target.valueAsNumber
+                              )
+                            }
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            ref={field.ref}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t(
+                            'sites.form.postRefreshProbeLatencyThresholdMsHint'
+                          )}
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

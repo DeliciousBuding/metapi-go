@@ -6,6 +6,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Pencil } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -104,6 +105,321 @@ const createKeySchema = z.object({
 
 type CreateKeyFormValues = z.infer<typeof createKeySchema>
 
+// Edit mode reuses the create schema but drops the secret `key` field — the
+// key value is never editable here (rotation is a separate action). The
+// backend applies a PATCH-style partial update (only fields present in the
+// request body are changed; the toggle path already relies on this), so the
+// edit payload omits `key` and `description` to preserve both as-is.
+const editKeySchema = createKeySchema.omit({ key: true })
+
+// datetime-local input format: "YYYY-MM-DDTHH:MM" in the browser's local
+// timezone. The backend stores the value as-is when it cannot parse it as
+// RFC3339, so create/edit round-trip the same local string.
+function isoToLocalDatetimeInput(iso?: string | null): string {
+  if (!iso) return ''
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function blankKeyFormValues(): CreateKeyFormValues {
+  return {
+    name: '',
+    key: '',
+    groupName: '',
+    maxRequests: undefined,
+    maxCost: undefined,
+    enabled: true,
+    expiresAt: '',
+    description: '',
+  }
+}
+
+function keyFormValuesFromItem(
+  item: DownstreamApiKeyItem
+): CreateKeyFormValues {
+  return {
+    ...blankKeyFormValues(),
+    name: item.name,
+    groupName: item.groupName ?? '',
+    maxRequests: item.maxRequests ?? undefined,
+    maxCost: item.maxCost ?? undefined,
+    enabled: item.enabled,
+    expiresAt: isoToLocalDatetimeInput(item.expiresAt),
+  }
+}
+
+// Exported so the edit-mode behavior test can render it in isolation,
+// mirroring the AccountsRowActions export pattern. The whole KeysSection
+// remains the only public entry in the settings surface.
+export function KeySheetForm({
+  editingKey,
+  onDone,
+}: {
+  editingKey: DownstreamApiKeyItem | null
+  onDone: () => void
+}) {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const isEdit = editingKey !== null
+
+  const form = useForm<CreateKeyFormValues>({
+    resolver: zodResolver(
+      editingKey ? editKeySchema : createKeySchema
+    ) as never,
+    defaultValues: editingKey
+      ? keyFormValuesFromItem(editingKey)
+      : blankKeyFormValues(),
+  })
+
+  function generateKey() {
+    form.setValue('key', `sk-${generateDownstreamSkSuffix()}`, {
+      shouldDirty: true,
+    })
+  }
+
+  const submitMutation = useMutation({
+    mutationFn: async (values: CreateKeyFormValues) => {
+      if (!editingKey) {
+        return api.createDownstreamApiKey(values)
+      }
+      return api.updateDownstreamApiKey(editingKey.id, {
+        name: values.name,
+        groupName: values.groupName,
+        maxRequests: values.maxRequests,
+        maxCost: values.maxCost,
+        enabled: values.enabled,
+        expiresAt: values.expiresAt,
+      })
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: downstreamKeysQueryKeys.all,
+      })
+      toast.success(
+        isEdit
+          ? t('settings.downstream.keys.toast.updated')
+          : t('settings.downstream.keys.toast.created')
+      )
+      onDone()
+    },
+    onError: () =>
+      toast.error(
+        isEdit
+          ? t('settings.downstream.keys.toast.updateFailed')
+          : t('settings.downstream.keys.toast.createFailed')
+      ),
+  })
+
+  function onSubmit(values: CreateKeyFormValues) {
+    submitMutation.mutate(values)
+  }
+
+  function resolveSubmitLabel(): string {
+    if (submitMutation.isPending) return t('settings.common.saving')
+    if (isEdit) return t('settings.common.save')
+    return t('settings.common.create')
+  }
+
+  return (
+    <>
+      <SheetHeader>
+        <SheetTitle>
+          {isEdit
+            ? t('settings.downstream.keys.editTitle')
+            : t('settings.downstream.keys.createTitle')}
+        </SheetTitle>
+        <SheetDescription>
+          {isEdit
+            ? t('settings.downstream.keys.editDescription')
+            : t('settings.downstream.keys.createDescription')}
+        </SheetDescription>
+      </SheetHeader>
+      <Form {...form}>
+        <form
+          id={CREATE_FORM_ID}
+          onSubmit={form.handleSubmit(onSubmit)}
+          className='space-y-4'
+        >
+          <FormField
+            control={form.control}
+            name='name'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  {t('settings.downstream.keys.fields.name')}
+                </FormLabel>
+                <FormControl>
+                  <Input {...field} value={field.value ?? ''} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          {isEdit ? null : (
+            <FormField
+              control={form.control}
+              name='key'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {t('settings.downstream.keys.fields.key')}
+                  </FormLabel>
+                  <div className='flex gap-2'>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        className='font-mono'
+                        placeholder='sk-…'
+                      />
+                    </FormControl>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='sm'
+                      onClick={generateKey}
+                    >
+                      {t('settings.downstream.keys.generate')}
+                    </Button>
+                  </div>
+                  <FormDescription>
+                    {t('settings.downstream.keys.fields.keyHint')}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+          <FormField
+            control={form.control}
+            name='groupName'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  {t('settings.downstream.keys.fields.groupName')}
+                </FormLabel>
+                <FormControl>
+                  <Input {...field} value={field.value ?? ''} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <div className='grid grid-cols-2 gap-4'>
+            <FormField
+              control={form.control}
+              name='maxRequests'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {t('settings.downstream.keys.fields.maxRequests')}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      value={field.value ?? ''}
+                      type='number'
+                      min={0}
+                      placeholder={t('settings.common.unlimited')}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name='maxCost'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {t('settings.downstream.keys.fields.maxCost')}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      value={field.value ?? ''}
+                      type='number'
+                      min={0}
+                      step={0.01}
+                      placeholder={t('settings.common.unlimited')}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+          <FormField
+            control={form.control}
+            name='expiresAt'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  {t('settings.downstream.keys.fields.expiresAt')}
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    value={field.value ?? ''}
+                    type='datetime-local'
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name='enabled'
+            render={({ field }) => (
+              <FormItem className='flex flex-row items-center gap-3'>
+                <FormControl>
+                  <Switch
+                    checked={Boolean(field.value)}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+                <FormLabel className='cursor-pointer'>
+                  {t('settings.downstream.keys.fields.enabled')}
+                </FormLabel>
+              </FormItem>
+            )}
+          />
+          {isEdit ? null : (
+            <FormField
+              control={form.control}
+              name='description'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {t('settings.downstream.keys.fields.description')}
+                  </FormLabel>
+                  <FormControl>
+                    <Input {...field} value={field.value ?? ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+        </form>
+      </Form>
+      <SheetFooter>
+        <Button
+          type='submit'
+          form={CREATE_FORM_ID}
+          disabled={submitMutation.isPending}
+        >
+          {resolveSubmitLabel()}
+        </Button>
+      </SheetFooter>
+    </>
+  )
+}
+
 export function KeysSection() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -121,59 +437,26 @@ export function KeysSection() {
     staleTime: 15 * 1000,
   })
 
-  const createForm = useForm<CreateKeyFormValues>({
-    resolver: zodResolver(createKeySchema) as never,
-    defaultValues: {
-      name: '',
-      key: '',
-      groupName: '',
-      maxRequests: undefined,
-      maxCost: undefined,
-      enabled: true,
-      expiresAt: '',
-      description: '',
-    },
-  })
+  const [editingKey, setEditingKey] = useState<DownstreamApiKeyItem | null>(
+    null
+  )
 
-  function resetCreateForm() {
-    createForm.reset({
-      name: '',
-      key: '',
-      groupName: '',
-      maxRequests: undefined,
-      maxCost: undefined,
-      enabled: true,
-      expiresAt: '',
-      description: '',
-    })
+  function openCreate() {
+    setEditingKey(null)
+    setCreateOpen(true)
   }
 
-  function onCreateOpenChange(open: boolean) {
+  function openEdit(item: DownstreamApiKeyItem) {
+    setEditingKey(item)
+    setCreateOpen(true)
+  }
+
+  function onSheetOpenChange(open: boolean) {
     setCreateOpen(open)
-    if (open) {
-      resetCreateForm()
+    if (!open) {
+      setEditingKey(null)
     }
   }
-
-  function generateKey() {
-    createForm.setValue('key', `sk-${generateDownstreamSkSuffix()}`, {
-      shouldDirty: true,
-    })
-  }
-
-  const createMutation = useMutation({
-    mutationFn: async (values: CreateKeyFormValues) =>
-      api.createDownstreamApiKey(values),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: downstreamKeysQueryKeys.all,
-      })
-      toast.success(t('settings.downstream.keys.toast.created'))
-      onCreateOpenChange(false)
-    },
-    onError: () =>
-      toast.error(t('settings.downstream.keys.toast.createFailed')),
-  })
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, enabled }: { id: number; enabled: boolean }) =>
@@ -201,10 +484,6 @@ export function KeysSection() {
       toast.error(t('settings.downstream.keys.toast.deleteFailed')),
   })
 
-  function onCreateSubmit(values: CreateKeyFormValues) {
-    createMutation.mutate(values)
-  }
-
   const items = keysQuery.data?.items ?? []
   const isLoading = keysQuery.isLoading
 
@@ -213,7 +492,7 @@ export function KeysSection() {
       title={t('settings.downstream.keys.title')}
       description={t('settings.downstream.keys.description')}
       actions={
-        <Button size='sm' onClick={() => onCreateOpenChange(true)}>
+        <Button size='sm' onClick={() => openCreate()}>
           {t('settings.downstream.keys.create')}
         </Button>
       }
@@ -230,7 +509,7 @@ export function KeysSection() {
           <p className='text-muted-foreground text-sm'>
             {t('settings.downstream.keys.empty')}
           </p>
-          <Button size='sm' onClick={() => onCreateOpenChange(true)}>
+          <Button size='sm' onClick={() => openCreate()}>
             {t('settings.downstream.keys.create')}
           </Button>
         </div>
@@ -316,6 +595,18 @@ export function KeysSection() {
                     <Button
                       type='button'
                       variant='ghost'
+                      size='icon-sm'
+                      aria-label={t(
+                        'settings.downstream.keys.columns.editAria',
+                        { name: item.name }
+                      )}
+                      onClick={() => openEdit(item)}
+                    >
+                      <Pencil />
+                    </Button>
+                    <Button
+                      type='button'
+                      variant='ghost'
                       size='sm'
                       onClick={() => setDeleteTarget(item)}
                     >
@@ -329,192 +620,13 @@ export function KeysSection() {
         </Table>
       ) : null}
 
-      <Sheet open={createOpen} onOpenChange={onCreateOpenChange}>
+      <Sheet open={createOpen} onOpenChange={onSheetOpenChange}>
         <SheetContent className='flex flex-col gap-4 overflow-y-auto'>
-          <SheetHeader>
-            <SheetTitle>{t('settings.downstream.keys.createTitle')}</SheetTitle>
-            <SheetDescription>
-              {t('settings.downstream.keys.createDescription')}
-            </SheetDescription>
-          </SheetHeader>
-          <Form {...createForm}>
-            <form
-              id={CREATE_FORM_ID}
-              onSubmit={createForm.handleSubmit(onCreateSubmit)}
-              className='space-y-4'
-            >
-              <FormField
-                control={createForm.control}
-                name='name'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {t('settings.downstream.keys.fields.name')}
-                    </FormLabel>
-                    <FormControl>
-                      <Input {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={createForm.control}
-                name='key'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {t('settings.downstream.keys.fields.key')}
-                    </FormLabel>
-                    <div className='flex gap-2'>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          value={field.value ?? ''}
-                          className='font-mono'
-                          placeholder='sk-…'
-                        />
-                      </FormControl>
-                      <Button
-                        type='button'
-                        variant='outline'
-                        size='sm'
-                        onClick={generateKey}
-                      >
-                        {t('settings.downstream.keys.generate')}
-                      </Button>
-                    </div>
-                    <FormDescription>
-                      {t('settings.downstream.keys.fields.keyHint')}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={createForm.control}
-                name='groupName'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {t('settings.downstream.keys.fields.groupName')}
-                    </FormLabel>
-                    <FormControl>
-                      <Input {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className='grid grid-cols-2 gap-4'>
-                <FormField
-                  control={createForm.control}
-                  name='maxRequests'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        {t('settings.downstream.keys.fields.maxRequests')}
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          value={field.value ?? ''}
-                          type='number'
-                          min={0}
-                          placeholder={t('settings.common.unlimited')}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={createForm.control}
-                  name='maxCost'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        {t('settings.downstream.keys.fields.maxCost')}
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          value={field.value ?? ''}
-                          type='number'
-                          min={0}
-                          step={0.01}
-                          placeholder={t('settings.common.unlimited')}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <FormField
-                control={createForm.control}
-                name='expiresAt'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {t('settings.downstream.keys.fields.expiresAt')}
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        value={field.value ?? ''}
-                        type='datetime-local'
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={createForm.control}
-                name='enabled'
-                render={({ field }) => (
-                  <FormItem className='flex flex-row items-center gap-3'>
-                    <FormControl>
-                      <Switch
-                        checked={Boolean(field.value)}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormLabel className='cursor-pointer'>
-                      {t('settings.downstream.keys.fields.enabled')}
-                    </FormLabel>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={createForm.control}
-                name='description'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>
-                      {t('settings.downstream.keys.fields.description')}
-                    </FormLabel>
-                    <FormControl>
-                      <Input {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </form>
-          </Form>
-          <SheetFooter>
-            <Button
-              type='submit'
-              form={CREATE_FORM_ID}
-              disabled={createMutation.isPending}
-            >
-              {createMutation.isPending
-                ? t('settings.common.saving')
-                : t('settings.common.create')}
-            </Button>
-          </SheetFooter>
+          <KeySheetForm
+            key={editingKey?.id ?? 'create'}
+            editingKey={editingKey}
+            onDone={() => onSheetOpenChange(false)}
+          />
         </SheetContent>
       </Sheet>
 
