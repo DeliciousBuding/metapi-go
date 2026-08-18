@@ -119,7 +119,7 @@ export function TodaySnapshotStrip() {
     queryFn: () => api.getAttention(20) as Promise<AttentionResponse>,
   })
 
-  const realtime = useRealtimeOps()
+  const { sample: realtime } = useRealtimeOps()
 
   const trend = useMemo(
     () => computeBalanceTrend(balanceHistory),
