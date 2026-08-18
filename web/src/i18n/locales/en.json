@@ -323,7 +323,9 @@
       "toast": {
         "quotaRefreshed": "Quota refresh requested for #{{id}}.",
         "rebindStarted": "Rebind started for #{{id}}.",
-        "deleted": "Connection #{{id}} deleted."
+        "deleted": "Connection #{{id}} deleted.",
+        "refreshFailed": "Failed to refresh quota for {{name}}.",
+        "rebindFailed": "Failed to rebind {{name}}."
       },
       "empty": {
         "title": "No connections",
