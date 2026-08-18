@@ -10,7 +10,6 @@ import {
   MoreHorizontal,
   Pencil,
   Power,
-  RefreshCw,
   Snowflake,
   Trash2,
 } from 'lucide-react'
@@ -133,13 +132,6 @@ function RoutesRowActions({
         >
           <Snowflake />
           {t('tokenRoutes.columns.clearCooldown')}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => actions.onRefreshDecision(route)}
-          disabled={readOnly}
-        >
-          <RefreshCw />
-          {t('tokenRoutes.columns.refreshDecision')}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem

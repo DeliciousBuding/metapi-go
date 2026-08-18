@@ -122,7 +122,13 @@ export const SITE_FORM_DEFAULT_VALUES: SiteFormValues = {
 }
 
 // --- URL search state -------------------------------------------------------
-
+//
+// `create` is a one-shot transient deep-link param (written by the dashboard
+// onboarding CTA as `?create=1`): it auto-opens the create dialog once, then
+// the page strips it so a refetch / remount never reopens it. TanStack Router
+// JSON-parses `?create=1` into the number `1`, so `z.coerce.boolean()` mirrors
+// the accounts route's `create` field exactly (truthy → true). It is NOT a
+// persisted filter and never reaches `readSearch` / `buildHref`'s table state.
 export const sitesSearchSchema = z.object({
   q: stringSearchParam,
   page: z.coerce.number().int().min(0).catch(0).default(0),
@@ -133,4 +139,5 @@ export const sitesSearchSchema = z.object({
     .transform((value) => encodeSortingParam(value))
     .catch(undefined),
   status: stringSearchParam,
+  create: z.coerce.boolean().optional().catch(undefined),
 })

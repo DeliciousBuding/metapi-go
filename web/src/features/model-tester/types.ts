@@ -75,8 +75,12 @@ export type TestStreamDelta = {
  * Finalised test response the viewer renders after the run finishes.
  * `content` / `reasoningContent` come from the harness's bounded upstream
  * body. `statusCode`, `latencyMs`, and `error` preserve upstream harness
- * truth. The synchronous harness does not emit stream chunks, so `chunks` is
- * zero; `rawEvents` contains the actual upstream body for the raw debug tab.
+ * truth. `promptTokens` / `completionTokens` / `totalTokens` are extracted
+ * from the upstream body's `usage` object (OpenAI `prompt_tokens` /
+ * Claude `input_tokens` / Gemini `usageMetadata`) when the upstream
+ * response carries them; absent for non-JSON or truncated bodies. The
+ * synchronous harness does not emit stream chunks. `rawEvents` contains
+ * the actual upstream body for the raw debug tab.
  */
 export type TestResponse = {
   content: string
@@ -84,10 +88,12 @@ export type TestResponse = {
   doneReceived: boolean
   statusCode: number
   latencyMs: number
-  chunks: number
   rawEvents: string[]
   empty: boolean
   error?: string
+  promptTokens?: number
+  completionTokens?: number
+  totalTokens?: number
 }
 
 /**

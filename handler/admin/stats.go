@@ -523,7 +523,15 @@ func (h *statsHandler) dashboardError(w http.ResponseWriter, operation string, e
 }
 
 // ---- Proxy Logs ----
-// GET /api/stats/proxy-logs?view=&limit=&offset=&status=&search=&client=&siteId=&from=&to=
+// GET /api/stats/proxy-logs?view=&limit=&offset=&status=&search=&client=&siteId=&from=&to=&latencyMin=&latencyMax=
+//
+// All list filters (status/search/client/siteId/from/to/latencyMin/latencyMax)
+// are applied SERVER-SIDE so that items, total, and summary share one
+// `where`/`args` slice and never disagree (the previous client-side latency
+// filter produced a wrong `total` + broken manualPagination). The `client`
+// param matches `client_family` exactly; `from`/`to` compare against
+// `created_at` (RFC3339 TEXT, lexicographic compare is correct); latency
+// bounds compare against `latency_ms` (INTEGER).
 func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 	view := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("view")))
 	if view != "query" && view != "meta" {
@@ -535,6 +543,11 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 	status := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("status")))
 	search := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("search")))
 	siteID := getQueryInt(r, "siteId", 0)
+	client := strings.TrimSpace(r.URL.Query().Get("client"))
+	from := strings.TrimSpace(r.URL.Query().Get("from"))
+	to := strings.TrimSpace(r.URL.Query().Get("to"))
+	latencyMin := getQueryInt(r, "latencyMin", 0)
+	latencyMax := getQueryInt(r, "latencyMax", 0)
 
 	var conditions []string
 	var args []any
@@ -552,6 +565,35 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 	if siteID > 0 {
 		conditions = append(conditions, "s.id = ?")
 		args = append(args, siteID)
+	}
+	// client filters on the upstream client family detected from the
+	// User-Agent (e.g. "openai-node"). Exact match: the dropdown sends a
+	// discrete value from clientOptions, not a free-text substring.
+	if client != "" {
+		conditions = append(conditions, "pl.client_family = ?")
+		args = append(args, client)
+	}
+	// from/to bound created_at (RFC3339 TEXT). Lexicographic ordering of
+	// RFC3339 strings is chronological, so `>=` / `<=` compare correctly
+	// without parsing to a datetime type — matches how rows are inserted
+	// (time.Now().UTC().Format(time.RFC3339) in handler/proxy/proxy_log.go).
+	if from != "" {
+		conditions = append(conditions, "pl.created_at >= ?")
+		args = append(args, from)
+	}
+	if to != "" {
+		conditions = append(conditions, "pl.created_at <= ?")
+		args = append(args, to)
+	}
+	// latency_ms bounds for the "Slow only" filter. 0 means unset (the
+	// frontend sends null/undefined → omitted from the query string).
+	if latencyMin > 0 {
+		conditions = append(conditions, "pl.latency_ms >= ?")
+		args = append(args, latencyMin)
+	}
+	if latencyMax > 0 {
+		conditions = append(conditions, "pl.latency_ms <= ?")
+		args = append(args, latencyMax)
 	}
 
 	var where string

@@ -10,6 +10,7 @@
 
 import type { ColumnDef } from '@tanstack/react-table'
 import {
+  Loader2 as Loader2Icon,
   MoreHorizontal as MoreHorizontalIcon,
   RefreshCw as RefreshCwIcon,
   Trash2 as Trash2Icon,
@@ -84,13 +85,95 @@ function formatTimestamp(value?: string | null): string {
   return date.toLocaleString()
 }
 
+// ---------------------------------------------------------------------------
+// Row actions cell
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-row dropdown trigger + refresh/rebind/delete actions.
+ *
+ * The pending state is per-row (mirrors the accounts page's
+ * `pendingStatusId` pattern): when `pendingAccountId === client.accountId`,
+ * the trigger swaps `MoreHorizontal` for a `Loader2` spinner and the
+ * refresh/rebind menu items are disabled so the user cannot spam-click the
+ * same row into duplicate requests. The delete item stays enabled so the
+ * connection can still be removed while a refresh/rebind is in flight.
+ * Every other row stays fully clickable — there is no global lock.
+ */
+export function OAuthRowActions({
+  client,
+  actions,
+  pendingAccountId = null,
+}: {
+  client: OAuthClient
+  actions: OAuthColumnActions
+  pendingAccountId?: number | null
+}) {
+  const { t } = useTranslation()
+  const isThisRowPending = pendingAccountId === client.accountId
+  return (
+    <div className={cn('flex justify-end')}>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant='ghost'
+              size='icon-sm'
+              className='data-popup-open:bg-accent'
+              aria-label={t('oauth.columns.rowActions')}
+            />
+          }
+        >
+          {isThisRowPending ? (
+            <Loader2Icon className='size-4 animate-spin' />
+          ) : (
+            <MoreHorizontalIcon className='size-4' />
+          )}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align='end' className='w-48'>
+          <DropdownMenuItem
+            onClick={() => actions.onRefreshQuota(client)}
+            disabled={isThisRowPending}
+          >
+            <RefreshCwIcon className='text-muted-foreground/70 size-3.5' />
+            {t('oauth.actions.refreshQuota')}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => actions.onRebind(client)}
+            disabled={isThisRowPending}
+          >
+            <UnplugIcon className='text-muted-foreground/70 size-3.5' />
+            {t('oauth.actions.rebind')}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant='destructive'
+            onClick={() => actions.onDelete(client)}
+          >
+            <Trash2Icon className='size-3.5' />
+            {t('oauth.actions.delete')}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Columns hook
+// ---------------------------------------------------------------------------
+
 /**
  * Build the OAuth connections columns. Must be called during render (it is
  * a hook because it reads i18n state). The `actions` callbacks are supplied
  * by the page so the columns stay free of mutation/query concerns.
+ * `pendingAccountId` threads the per-row pending state (derived from the
+ * TanStack Query mutation's `variables` on the page) into the actions cell
+ * — see {@link OAuthRowActions}.
  */
 export function useOAuthColumns(
-  actions: OAuthColumnActions
+  actions: OAuthColumnActions,
+  pendingAccountId: number | null = null
 ): ColumnDef<OAuthClient>[] {
   const { t } = useTranslation()
 
@@ -219,47 +302,13 @@ export function useOAuthColumns(
           {t('oauth.columns.actions')}
         </span>
       ),
-      cell: ({ row }) => {
-        const client = row.original
-        return (
-          <div className={cn('flex justify-end')}>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant='ghost'
-                    size='icon-sm'
-                    className='data-popup-open:bg-accent'
-                    aria-label={t('oauth.columns.rowActions')}
-                  />
-                }
-              >
-                <MoreHorizontalIcon className='size-4' />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align='end' className='w-48'>
-                <DropdownMenuItem
-                  onClick={() => actions.onRefreshQuota(client)}
-                >
-                  <RefreshCwIcon className='text-muted-foreground/70 size-3.5' />
-                  {t('oauth.actions.refreshQuota')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => actions.onRebind(client)}>
-                  <UnplugIcon className='text-muted-foreground/70 size-3.5' />
-                  {t('oauth.actions.rebind')}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  variant='destructive'
-                  onClick={() => actions.onDelete(client)}
-                >
-                  <Trash2Icon className='size-3.5' />
-                  {t('oauth.actions.delete')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )
-      },
+      cell: ({ row }) => (
+        <OAuthRowActions
+          client={row.original}
+          actions={actions}
+          pendingAccountId={pendingAccountId}
+        />
+      ),
     },
   ]
 

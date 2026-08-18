@@ -485,6 +485,10 @@ export type ProxyLogsQuery = {
   siteId?: number
   from?: string
   to?: string
+  // Latency bounds (ms) for the "Slow only" filter. Applied server-side so
+  // total + summary agree with the returned items (no client-side re-filter).
+  latencyMin?: number | null
+  latencyMax?: number | null
 }
 
 type ProxyLogClientOption = {
