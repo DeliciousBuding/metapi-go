@@ -3,7 +3,7 @@
 **Product**: Metapi admin
 **Scope**: accessibility checklist
 **Related source of truth**: `docs/design/DESIGN.md`, `web/src/styles/theme.css`
-**Last updated**: 2026-08-16
+**Last updated**: 2026-08-18
 **Status**: living acceptance checklist; known limitations are documented, not an implicit backlog
 
 This document records keyboard, name, contrast, and responsive expectations. Known limitations are evidence only unless promoted to [`../progress/MASTER.md`](../progress/MASTER.md) or a scoped GitHub issue.
@@ -18,6 +18,7 @@ This document records keyboard, name, contrast, and responsive expectations. Kno
 | `aria-label` on icon-only controls       | **pass for chrome**          | Topbar icon buttons labeled; mobile nav open/close labeled; SearchModal close labeled; sidebar collapse labeled when icon-only. Page action grids still have mixed coverage (debt). |
 | Contrast notes for primary text/surfaces | **documented**               | §4 below; body primary ≥ 4.5:1 both themes; muted/meta may fall near threshold.                                                                                                     |
 | Responsive checklist 375 / 768 / 1280    | **documented + shell pass**  | §5; shell breakpoints via `useIsMobile` (~768) and CSS media queries; no wholesale page redesign.                                                                                   |
+| axe-core live scan (authenticated routes)| **pass**                     | 2026-08-18 `bun run a11y:scan`: 15 routes (dashboard/models/sites/accounts/checkin/token-routes/proxy-logs/oauth/about/settings ×6), 0 serious/critical violations.              |
 | Residual a11y debt documented            | **yes**                      | §7                                                                                                                                                                                  |
 
 ---
@@ -29,11 +30,10 @@ This document records keyboard, name, contrast, and responsive expectations. Kno
 | Step                                    | Expected behavior                                                             | Current                |
 | --------------------------------------- | ----------------------------------------------------------------------------- | ---------------------- |
 | Login                                   | Tab: theme tools → token field → submit → external GitHub link; Enter submits | Pass                   |
-| Authenticated topbar                    | Tab order: mobile hamburger (if any) → language → search → theme → avatar     | Pass                   |
+| Authenticated topbar                    | Tab order: mobile hamburger (if any) → language → appearance → theme toggle → search | Pass            |
 | Search (`Ctrl/Cmd+K` or search trigger) | Focus moves to search input on open; Esc closes                               | Pass                   |
 | Mobile nav                              | Hamburger opens drawer; Esc / backdrop / close button dismisses               | Pass                   |
 | Sidebar collapse (desktop)              | Button remains focusable when collapsed (icon-only)                           | Pass after aria fix    |
-| Profile modal                           | Esc + explicit close when enabled; cancel/save in footer                      | Pass (`CenteredModal`) |
 
 ### 2.2 Focus visibility
 
@@ -53,7 +53,7 @@ This document records keyboard, name, contrast, and responsive expectations. Kno
 | Search modal         | Esc exits; Tab cycles within modal                          | **Pass** — `useFocusTrap` on panel |
 | Centered modal       | Esc optional via `closeOnEscape`; close button always named | **Pass** — trap + dialog name      |
 | Mobile drawer        | Esc exits; role=`dialog` + `aria-modal`                     | **Pass** — trap on panel           |
-| Theme/user dropdowns | Click-outside closes; Esc residual                          | Residual (non-modal menus)         |
+| Theme/user dropdowns | Esc dismisses non-modal menus                               | **Pass** (2026-08-18) — Base UI `DropdownMenu`/`Popover` close on Esc natively; pinned by `interface-controls.test.tsx` (language menu + appearance popover) |
 
 ### 2.4 Focus order anti-patterns (do not introduce)
 
@@ -75,7 +75,6 @@ This document records keyboard, name, contrast, and responsive expectations. Kno
 | Language toggle          | bilingual explicit labels            | `web/src/components/layout/components/app-header.tsx`  |
 | Search trigger           | `搜索 (Ctrl+K)`                      | `web/src/components/layout/components/app-header.tsx`  |
 | Theme menu trigger       | mode label (+ resolved system theme) | `web/src/components/layout/components/app-header.tsx`  |
-| Avatar menu              | display name                         | `web/src/components/layout/components/app-header.tsx`  |
 | Sidebar item (collapsed) | item label                           | `web/src/components/layout/components/app-sidebar.tsx` |
 | Sidebar collapse         | `收起侧边栏` / `展开侧边栏`          | `web/src/components/layout/components/app-sidebar.tsx` |
 | Mobile drawer close      | `关闭导航` (or `closeLabel`)         | `web/src/components/ui/sheet.tsx`                      |
@@ -83,6 +82,10 @@ This document records keyboard, name, contrast, and responsive expectations. Kno
 | Search modal close       | `关闭`                               | `web/src/components/ui/command.tsx`                    |
 | Login GitHub icon link   | `GitHub`                             | `web/src/features/auth/components/login-form.tsx`      |
 | Login theme tools group  | `外观设置`                           | `web/src/features/auth/components/login-form.tsx`      |
+
+> 2026-08-18 hygiene: the historical `Avatar menu` row was removed — the
+> current header ships no avatar/account menu (auth is token-based), so
+> there is no control to name.
 
 ### 3.2 Shared component rules
 
@@ -204,10 +207,9 @@ Breakpoints used by product:
 This section lists open residuals only. Closure history lives in [`../log.md`](../log.md) and root [`../../CHANGELOG.md`](../../CHANGELOG.md). Open work is committed through [`../progress/MASTER.md`](../progress/MASTER.md) or a scoped issue.
 
 1. **Charts keyboard series access** — recharts renders series as non-focusable SVG; assistive tech relies on the text axes, legends, and rich text tooltips (balance/cost, accounts, calls, tokens, share) that already carry the data. Non-color status encoding (text labels on availability buckets, attention badges) is in place; no color-only status.
-2. **Theme/user dropdown Esc** — non-modal menus close on click-outside; Esc dismissal is residual (modal surfaces already trap + close on Esc).
-3. **Global focus-ring utility** — chrome controls share the `--ring` recipe; a single shared rule for every page-level action grid is not yet in place (`.modal-close-button:focus-visible` uses a primary outline).
-4. **Hex hygiene** — no new brand hex is allowed in pages (see [`DESIGN.md`](./DESIGN.md) §1 Principles). Existing brand assets and other justified exceptions are reviewed when their owning surface changes; this is not a standalone sweep.
-5. **Preset contrast (audit-only)** — the default theme passes AA/AAA; user-chosen presets are explicit choices and out of scope. Underground/rose-garden/sunset-glow pass with white; forest-whisper, ocean-breeze, and lavender-dream remain below AA on white text — a preset-specific fix is deferred until a real user need appears.
+2. **Global focus-ring utility** — chrome controls share the `--ring` recipe; a single shared rule for every page-level action grid is not yet in place (`.modal-close-button:focus-visible` uses a primary outline).
+3. **Hex hygiene** — no new brand hex is allowed in pages (see [`DESIGN.md`](./DESIGN.md) §1 Principles). Existing brand assets and other justified exceptions are reviewed when their owning surface changes; this is not a standalone sweep.
+4. **Preset contrast (audit-only)** — the default theme passes AA/AAA; user-chosen presets are explicit choices and out of scope. Underground/rose-garden/sunset-glow pass with white; forest-whisper, ocean-breeze, and lavender-dream remain below AA on white text — a preset-specific fix is deferred until a real user need appears.
 
 ---
 

@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
+import { resolveAccountDisplayName } from '../lib/accounts-display-name'
 import {
   type Account,
   type AccountRowActions,
@@ -56,7 +57,7 @@ import {
 
 interface HealthBadgeConfig {
   labelKey: string
-  variant: 'default' | 'secondary' | 'destructive' | 'warning' | 'outline'
+  variant: 'success' | 'secondary' | 'destructive' | 'warning' | 'outline'
   dotClassName: string
   icon: LucideIcon
 }
@@ -64,7 +65,7 @@ interface HealthBadgeConfig {
 const HEALTH_BADGE_CONFIG: Record<RuntimeHealthState, HealthBadgeConfig> = {
   healthy: {
     labelKey: 'accounts.columns.healthHealthy',
-    variant: 'default',
+    variant: 'success',
     dotClassName: 'bg-success',
     icon: CheckCircle2,
   },
@@ -132,10 +133,11 @@ function formatPercent(used: number, total: number): string {
 function useResolveDisplayName() {
   const { t } = useTranslation()
   return function resolveDisplayName(account: Account): string {
-    if (account.username && account.username.trim()) return account.username
-    return account.credentialMode === 'apikey'
-      ? t('accounts.columns.fallbackApiKey')
-      : t('accounts.columns.fallbackUnnamed')
+    return resolveAccountDisplayName(
+      account,
+      t('accounts.columns.fallbackApiKey'),
+      t('accounts.columns.fallbackUnnamed')
+    )
   }
 }
 

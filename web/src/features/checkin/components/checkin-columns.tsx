@@ -24,7 +24,7 @@ import {
 import { FailureReasonBadge } from './failure-reason-badge'
 
 interface StatusConfig {
-  variant: 'default' | 'secondary' | 'destructive'
+  variant: 'success' | 'secondary' | 'destructive'
   dotClassName: string
   labelKey: string
 }
@@ -32,7 +32,7 @@ interface StatusConfig {
 function resolveStatusConfig(status: string): StatusConfig {
   if (status === 'success') {
     return {
-      variant: 'default',
+      variant: 'success',
       dotClassName: 'bg-success',
       labelKey: 'checkin.columns.statusSuccess',
     }

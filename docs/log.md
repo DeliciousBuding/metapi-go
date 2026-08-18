@@ -5,6 +5,13 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
 
+## 2026-08-18 — a11y 拡差核实：axe 全绿 + 菜单 Esc 行为钉死（a11y-checklist 卫生）
+
+- **活体扫描**：`bun run a11y:scan`（Playwright + axe-core，dev-admin 会话）15 条认证路由 0 serious/critical 违规；结果进 `a11y-checklist.md` §1 AC。
+- **残差 #2（菜单 Esc）核实为 stale**：header 语言菜单（Base UI `DropdownMenu modal={false}`）与外观定制（`Popover`）原生支持 Esc 关闭；补 2 个行为用例钉死（`interface-controls.test.tsx`），防原语替换静默丢行为。§7 移除该项。
+- **清单卫生**：§3.1 删除已不存在的 `Avatar menu` 行、§2.1 删除 stale `Profile modal` 并修正 topbar Tab 顺序描述。
+- **验证**：vitest 布局/行为用例全绿（interface-controls 4/4）· tsgo/oxlint/oxfmt green。
+
 ## 2026-08-18 — 四轮复审驱动：token-routes siteNames 死列 + 列表/详情打磨
 
 四轮 PM/工程师/用户复审（token-routes list/columns/detail，避开 form dialog——并行进程 `route-form-drafts-hint` 拥有；发现写入审计 doc `### 四轮复审`）后交付：
