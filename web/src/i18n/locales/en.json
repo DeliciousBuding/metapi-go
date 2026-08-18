@@ -642,6 +642,8 @@
           "statusDisconnected": "disconnected",
           "statusLive": "live",
           "statusConnecting": "connecting",
+          "connectionLost": "Realtime connection lost.",
+          "reconnect": "Reconnect",
           "metricQps": "QPS",
           "metricSuccess": "success",
           "metricUptime": "uptime",

@@ -44,6 +44,14 @@ vi.mock('@/features/dashboard/hooks/use-realtime-ops', () => ({
 const mockGetAttention = vi.mocked(api.getAttention)
 const mockUseRealtimeOps = vi.mocked(useRealtimeOps)
 
+/**
+ * Wrap a realtime sample in the hook's `{ sample, reconnect }` return shape so
+ * each case only spells out the sample under test.
+ */
+function realtimeReturn(sample: RealtimeOpsSample) {
+  return { sample, reconnect: vi.fn() }
+}
+
 function createQueryClient() {
   return new QueryClient({
     defaultOptions: {
@@ -103,7 +111,7 @@ afterEach(() => cleanup())
 describe('AvailabilitySection realtime sparkline health', () => {
   it('labels the sparkline healthy when the latest sample is healthy', async () => {
     mockUseRealtimeOps.mockReturnValue(
-      sampleWithLatest({ qps: 12, successRate: 0.99 })
+      realtimeReturn(sampleWithLatest({ qps: 12, successRate: 0.99 }))
     )
 
     renderWithClient(<AvailabilitySection />)
@@ -115,7 +123,7 @@ describe('AvailabilitySection realtime sparkline health', () => {
 
   it('labels the sparkline degraded when success falls to the amber band', async () => {
     mockUseRealtimeOps.mockReturnValue(
-      sampleWithLatest({ qps: 12, successRate: 0.85 })
+      realtimeReturn(sampleWithLatest({ qps: 12, successRate: 0.85 }))
     )
 
     renderWithClient(<AvailabilitySection />)
@@ -127,7 +135,7 @@ describe('AvailabilitySection realtime sparkline health', () => {
 
   it('labels the sparkline unhealthy when success drops below the degraded band', async () => {
     mockUseRealtimeOps.mockReturnValue(
-      sampleWithLatest({ qps: 12, successRate: 0.5 })
+      realtimeReturn(sampleWithLatest({ qps: 12, successRate: 0.5 }))
     )
 
     renderWithClient(<AvailabilitySection />)
@@ -138,7 +146,7 @@ describe('AvailabilitySection realtime sparkline health', () => {
   })
 
   it('labels the sparkline idle when there is no recent traffic', async () => {
-    mockUseRealtimeOps.mockReturnValue(IDLE_SAMPLE)
+    mockUseRealtimeOps.mockReturnValue(realtimeReturn(IDLE_SAMPLE))
 
     renderWithClient(<AvailabilitySection />)
 
@@ -151,7 +159,7 @@ describe('AvailabilitySection realtime sparkline health', () => {
     // History is healthy, but the latest second is unhealthy — the name must
     // reflect the current state, not the historical baseline.
     mockUseRealtimeOps.mockReturnValue(
-      sampleWithLatest({ qps: 12, successRate: 0.4 })
+      realtimeReturn(sampleWithLatest({ qps: 12, successRate: 0.4 }))
     )
 
     renderWithClient(<AvailabilitySection />)

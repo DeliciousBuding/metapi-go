@@ -51,6 +51,11 @@ const IDLE_SAMPLE: RealtimeOpsSample = {
   gaveUp: false,
 }
 
+/** Wrap a realtime sample in the hook's `{ sample, reconnect }` return shape. */
+function realtimeReturn(sample: RealtimeOpsSample) {
+  return { sample, reconnect: vi.fn() }
+}
+
 function createQueryClient() {
   return new QueryClient({
     defaultOptions: {
@@ -70,7 +75,7 @@ beforeEach(() => {
   mockGetAttention.mockReset()
   mockUseRealtimeOps.mockReset()
   // Sibling realtime ops panel renders idle without a live WebSocket.
-  mockUseRealtimeOps.mockReturnValue(IDLE_SAMPLE)
+  mockUseRealtimeOps.mockReturnValue(realtimeReturn(IDLE_SAMPLE))
   vi.spyOn(Date, 'now').mockReturnValue(FIXED_NOW)
 })
 
