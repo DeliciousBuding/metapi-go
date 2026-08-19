@@ -1090,7 +1090,20 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	row, err := service.GetAccountWithSiteByID(h.db, id)
+	// Wrap the read-merge-write in a transaction so concurrent patches of
+	// extra_config compose instead of overwriting each other (lost updates).
+	// PostgreSQL takes a FOR UPDATE row lock on the read; SQLite serializes via
+	// its single-connection pool. The deferred Rollback is a harmless no-op once
+	// committed and unwinds the tx on every early-return path.
+	tx, err := h.db.Beginx()
+	if err != nil {
+		slog.Error("Failed to begin account update transaction", "err", err, "account_id", id)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to update account"})
+		return
+	}
+	defer tx.Rollback()
+
+	row, err := service.GetAccountWithSiteByIDForUpdate(tx, id)
 	if err != nil {
 		writeErrorWithRequest(w, r, http.StatusNotFound, "account not found")
 		return
@@ -1226,8 +1239,13 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	if err := service.UpdateAccountFields(h.db, id, updates); err != nil {
+	if err := service.UpdateAccountFieldsTx(tx, id, updates); err != nil {
 		slog.Error("Failed to update account", "err", err, "account_id", id)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to update account"})
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		slog.Error("Failed to commit account update", "err", err, "account_id", id)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "Failed to update account"})
 		return
 	}

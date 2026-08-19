@@ -169,7 +169,7 @@ func (s *Sub2ApiAdapter) GetBalance(ctx context.Context, baseURL, accessToken st
 	subsRes := <-subsCh
 
 	if userRes.err != nil {
-		return &BalanceInfo{}, nil
+		return nil, fmt.Errorf("sub2api /api/v1/auth/me: %w", userRes.err)
 	}
 
 	quotaValue := s.usdToQuota(userRes.user.balance)

@@ -5,6 +5,15 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
 
+## 2026-08-19 — Deep backend testing: 6 defect fixes (balance corruption + lost updates + routing edge cases)
+
+Deep-test audit (full suite + race + static analysis + concurrency/SQL review) surfaced 6 real defects, all now fixed with regression probes:
+
+- **HIGH — Sub2API balance refresh corruption**: `platform.Sub2ApiAdapter.GetBalance` swallowed the `/api/v1/auth/me` fetch error and returned an empty `BalanceInfo`; `RefreshBalance` then wrote `balance=0/quota=0` and flipped `expired`→`active` on a transient upstream failure. Now surfaces the error (nil `BalanceInfo`) so refresh aborts instead of corrupting stored data; `VerifyToken` keeps a non-nil balance for its best-effort path.
+- **MEDIUM — account extraConfig lost updates**: `PUT /api/accounts/{id}` read-merge-write of `extra_config` was non-atomic — 16 concurrent patches lost up to 12/16 keys. Now wraps read→merge→write in a transaction with a `FOR UPDATE OF a` row lock on PostgreSQL (SQLite serializes via its single-connection pool).
+- **LOW routing edge cases (4)**: mixed-case `re:`/`RE:` regex prefixes were accepted but never stripped (compiled with the prefix, matching nothing); glob `?` matched one byte instead of one rune (broke non-ASCII model names); the hand-rolled JSON mapping parser skipped `\uXXXX` escapes; int64 overflow in usage-total repair now saturates instead of silently disabling the total≥components invariant.
+- **Regression probes**: 3 deeptest probe files (routing matcher/mapping/usage, concurrent extraConfig, Sub2API balance) added as permanent tests. All 38 packages pass non-race; affected packages pass under `-race`.
+
 ## 2026-08-19 — v0.17 onboarding polish + per-key usage + positioning honesty
 
 三线并行交付（platform picker / client export / downstream-key usage）+ 定位诚实性修正，基于 PM 视角分析与竞品对标（new-api/octopus/sub2api/all-api-hub）产出的机会清单：

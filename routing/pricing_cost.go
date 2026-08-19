@@ -454,7 +454,12 @@ func normalizeUsageBreakdownInput(usage UsageForCost) ProxyBillingUsage {
 	completionTokens := toPositiveInt64(usage.CompletionTokens)
 	totalTokensRaw := toPositiveInt64(usage.TotalTokens)
 	totalTokens := totalTokensRaw
-	if promptTokens+completionTokens > totalTokens {
+	// Saturate instead of wrapping when prompt+completion overflows int64: a
+	// wrapped (negative) sum would silently skip the total repair and leave
+	// TotalTokens smaller than its own components.
+	if completionTokens > math.MaxInt64-promptTokens {
+		totalTokens = math.MaxInt64
+	} else if promptTokens+completionTokens > totalTokens {
 		totalTokens = promptTokens + completionTokens
 	}
 	cacheReadTokens := toPositiveInt64(usage.CacheReadTokens)
