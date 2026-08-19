@@ -1251,6 +1251,11 @@
             "markReadFailed": "标记事件已读失败。",
             "cleared": "程序事件已清空。",
             "clearFailed": "清空事件失败。"
+          },
+          "level": {
+            "info": "信息",
+            "warning": "警告",
+            "error": "错误"
           }
         },
         "auditLogs": {
@@ -1283,7 +1288,7 @@
           "upToDate": "已是最新",
           "mode": "模式",
           "repoLink": "GitHub 仓库",
-          "releasesLink": "Releases",
+          "releasesLink": "版本发布",
           "ghcrLink": "GHCR 镜像",
           "opsNote": "应用内部署已禁用；请使用 metapi-migrate CLI 或容器编排工具。"
         },
@@ -1944,7 +1949,8 @@
         "clientError": "客户端错误",
         "serverError": "服务端错误",
         "unknown": "未知",
-        "titlePrefix": "状态 {{label}}"
+        "titlePrefix": "状态 {{label}}",
+        "failed": "失败"
       },
       "latency": {
         "totalLatency": "总延迟 {{label}}",

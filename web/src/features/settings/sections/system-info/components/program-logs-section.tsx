@@ -261,10 +261,17 @@ export function ProgramLogsSection() {
                 </TableCell>
                 <TableCell>
                   <Badge variant={levelVariant(event.level)}>
-                    {event.level ?? 'info'}
+                    {t(
+                      `settings.systemInfo.programLogs.level.${event.level ?? 'info'}`
+                    )}
                   </Badge>
                 </TableCell>
-                <TableCell className='text-xs'>{event.type}</TableCell>
+                <TableCell className='text-xs'>
+                  {t(
+                    `settings.systemInfo.programLogs.type.${event.type ?? ''}`,
+                    { defaultValue: event.type ?? '—' }
+                  )}
+                </TableCell>
                 <TableCell>
                   <div className='flex flex-col'>
                     <span

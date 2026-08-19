@@ -22,6 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { StatusBadge } from '@/features/proxy-logs/components/status-badge'
 import { formatLatency } from '@/lib/format'
 
 import { useSlowRequests, useUsageHeatmap } from '../../api'
@@ -203,7 +204,12 @@ function renderSlowRequestsBody(
             <TableCell className='text-right tabular-nums'>
               {item.httpStatus || '—'}
             </TableCell>
-            <TableCell className='truncate'>{item.status || '—'}</TableCell>
+            <TableCell>
+              <StatusBadge
+                httpStatus={item.httpStatus ?? null}
+                status={item.status ?? null}
+              />
+            </TableCell>
             <TableCell className='text-right tabular-nums'>
               {formatClock(item.createdAt)}
             </TableCell>

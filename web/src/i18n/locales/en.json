@@ -1251,6 +1251,11 @@
             "markReadFailed": "Failed to mark event read.",
             "cleared": "Program events cleared.",
             "clearFailed": "Failed to clear events."
+          },
+          "level": {
+            "info": "Info",
+            "warning": "Warning",
+            "error": "Error"
           }
         },
         "auditLogs": {
@@ -1944,7 +1949,8 @@
         "clientError": "Client error",
         "serverError": "Server error",
         "unknown": "Unknown",
-        "titlePrefix": "Status {{label}}"
+        "titlePrefix": "Status {{label}}",
+        "failed": "Failed"
       },
       "latency": {
         "totalLatency": "Total latency {{label}}",
