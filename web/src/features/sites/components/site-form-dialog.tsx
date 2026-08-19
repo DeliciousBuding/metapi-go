@@ -332,9 +332,8 @@ export function SiteFormDialog({
                             <SelectContent>
                               {isCustomPlatform && (
                                 <SelectItem value={field.value}>
-                                  {field.value} ({t(
-                                    'sites.form.platformCustom'
-                                  )})
+                                  {field.value} (
+                                  {t('sites.form.platformCustom')})
                                 </SelectItem>
                               )}
                               {PLATFORM_OPTIONS.map((platform) => (

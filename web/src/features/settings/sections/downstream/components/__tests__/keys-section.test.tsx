@@ -281,7 +281,10 @@ describe('KeyUsageCell — 24h usage line', () => {
   it('renders the 24h request/token/cost summary when usage24h is present', () => {
     render(
       <KeyUsageCell
-        item={{ ...baseItem, usage24h: { requests: 7, tokens: 1234, cost: 0.42 } }}
+        item={{
+          ...baseItem,
+          usage24h: { requests: 7, tokens: 1234, cost: 0.42 },
+        }}
       />
     )
 
