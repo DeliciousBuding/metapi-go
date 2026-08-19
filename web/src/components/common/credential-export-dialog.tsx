@@ -99,6 +99,14 @@ function buildCcSwitchLink(
   return `ccswitch://v1/import?${params.toString()}`
 }
 
+/** Render profile content as clipboard text. */
+function stringifyProfileContent(profile: ExportProfile): string {
+  if (typeof profile.content === 'string') {
+    return profile.content
+  }
+  return JSON.stringify(profile.content, null, 2)
+}
+
 export type CredentialExportTarget = {
   id: number
   name: string
@@ -137,6 +145,9 @@ export function CredentialExportDialog({
   const genericProfile = data?.profiles.find((p) => p.id === 'generic')
   const envProfile = data?.profiles.find((p) => p.id === 'openai')
   const cherryProfile = data?.profiles.find((p) => p.id === 'cherry')
+  const claudeCodeProfile = data?.profiles.find((p) => p.id === 'claude-code')
+  const codexProfile = data?.profiles.find((p) => p.id === 'codex')
+  const openWebUiProfile = data?.profiles.find((p) => p.id === 'openwebui')
   const apiKey =
     (cherryProfile?.content as { apiKey?: string } | undefined)?.apiKey ??
     (genericProfile?.content as { apiKey?: string } | undefined)?.apiKey ??
@@ -316,6 +327,36 @@ export function CredentialExportDialog({
                 title={t('connect.genericJson')}
                 description={genericProfile.description ?? ''}
                 content={genericJson}
+                onCopy={(text) =>
+                  void copyText(text, 'connect.toast.jsonCopied', t)
+                }
+              />
+            ) : null}
+            {claudeCodeProfile ? (
+              <ProfileRow
+                title={claudeCodeProfile.label}
+                description={claudeCodeProfile.description ?? ''}
+                content={stringifyProfileContent(claudeCodeProfile)}
+                onCopy={(text) =>
+                  void copyText(text, 'connect.toast.jsonCopied', t)
+                }
+              />
+            ) : null}
+            {codexProfile ? (
+              <ProfileRow
+                title={codexProfile.label}
+                description={codexProfile.description ?? ''}
+                content={stringifyProfileContent(codexProfile)}
+                onCopy={(text) =>
+                  void copyText(text, 'connect.toast.jsonCopied', t)
+                }
+              />
+            ) : null}
+            {openWebUiProfile ? (
+              <ProfileRow
+                title={openWebUiProfile.label}
+                description={openWebUiProfile.description ?? ''}
+                content={stringifyProfileContent(openWebUiProfile)}
                 onCopy={(text) =>
                   void copyText(text, 'connect.toast.jsonCopied', t)
                 }

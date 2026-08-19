@@ -62,6 +62,12 @@ import {
 } from '../../../components/settings-section-card'
 import { SettingsSectionError } from '../../../components/settings-section-error'
 
+type DownstreamKeyUsage24h = {
+  requests?: number
+  tokens?: number
+  cost?: number
+}
+
 type DownstreamApiKeyItem = {
   id: number
   name: string
@@ -73,6 +79,7 @@ type DownstreamApiKeyItem = {
   usedCost?: number | null
   maxRequests?: number | null
   usedRequests?: number | null
+  usage24h?: DownstreamKeyUsage24h
 }
 
 type DownstreamKeysResponse = { items: DownstreamApiKeyItem[] }
@@ -420,6 +427,35 @@ export function KeySheetForm({
   )
 }
 
+// Exported so the usage-cell test can render it in isolation (same pattern as
+// KeySheetForm). Renders quota usage plus the per-key 24h proxy_logs summary.
+export function KeyUsageCell({ item }: { item: DownstreamApiKeyItem }) {
+  const { t } = useTranslation()
+  return (
+    <div>
+      <div>
+        {t('settings.downstream.keys.requests', {
+          used: item.usedRequests ?? 0,
+          max: item.maxRequests ?? t('settings.common.unlimited'),
+        })}
+      </div>
+      <div>
+        {t('settings.downstream.keys.cost', {
+          used: item.usedCost ?? 0,
+          max: item.maxCost ?? t('settings.common.unlimited'),
+        })}
+      </div>
+      <div className='mt-1 border-t pt-1'>
+        {t('settings.downstream.keys.usage24h', {
+          requests: item.usage24h?.requests ?? 0,
+          tokens: item.usage24h?.tokens ?? 0,
+          cost: item.usage24h?.cost ?? 0,
+        })}
+      </div>
+    </div>
+  )
+}
+
 export function KeysSection() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -569,18 +605,7 @@ export function KeysSection() {
                   />
                 </TableCell>
                 <TableCell className='text-muted-foreground text-xs'>
-                  <div>
-                    {t('settings.downstream.keys.requests', {
-                      used: item.usedRequests ?? 0,
-                      max: item.maxRequests ?? t('settings.common.unlimited'),
-                    })}
-                  </div>
-                  <div>
-                    {t('settings.downstream.keys.cost', {
-                      used: item.usedCost ?? 0,
-                      max: item.maxCost ?? t('settings.common.unlimited'),
-                    })}
-                  </div>
+                  <KeyUsageCell item={item} />
                 </TableCell>
                 <TableCell className='text-right'>
                   <div className='flex justify-end gap-1'>

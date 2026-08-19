@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 )
@@ -143,6 +144,7 @@ func (h *downstreamKeysHandler) listKeys(w http.ResponseWriter, r *http.Request)
 		redactDownstreamKeySecret(row)
 		enrichKeyRateWindow(row)
 	}
+	h.enrichKeyUsage24h(rows)
 
 	if paginate {
 		writeJSON(w, http.StatusOK, map[string]any{
@@ -968,4 +970,52 @@ func enrichKeyRateWindow(row map[string]any) {
 	usedRPM, usedTPM := keyAdmissionSnapshot(id)
 	row["windowUsedRpm"] = usedRPM
 	row["windowUsedTpm"] = usedTPM
+}
+
+// enrichKeyUsage24h attaches a per-key 24h proxy_logs aggregate to every list
+// row as usage24h {requests, tokens, cost}. One grouped query serves all keys;
+// keys without traffic in the window get a zero-valued object so the JSON
+// shape is uniform. Token sums reuse EffectiveProxyTokensSQL (total_tokens
+// with prompt+completion fallback), matching the stats proxy24h metric. The
+// enrichment is best-effort: a failed aggregate leaves usage24h unset rather
+// than breaking the key list.
+func (h *downstreamKeysHandler) enrichKeyUsage24h(rows []map[string]any) {
+	if len(rows) == 0 {
+		return
+	}
+	since := time.Now().UTC().Add(-24 * time.Hour).Format(time.RFC3339)
+	aggRows, err := queryRowsErr(h.db, `
+		SELECT
+			pl.downstream_api_key_id AS key_id,
+			COUNT(*) AS requests,
+			COALESCE(SUM(`+service.EffectiveProxyTokensSQL+`), 0) AS tokens,
+			COALESCE(SUM(COALESCE(pl.estimated_cost, 0)), 0) AS cost
+		FROM proxy_logs pl
+		WHERE pl.created_at >= ? AND pl.downstream_api_key_id IS NOT NULL
+		GROUP BY pl.downstream_api_key_id`, since)
+	if err != nil {
+		return
+	}
+
+	usageByKey := make(map[int64]map[string]any, len(aggRows))
+	for _, agg := range aggRows {
+		keyID := coerceInt64(agg["keyId"])
+		if keyID <= 0 {
+			continue
+		}
+		usageByKey[keyID] = map[string]any{
+			"requests": coerceInt64(agg["requests"]),
+			"tokens":   coerceInt64(agg["tokens"]),
+			"cost":     roundMicro(coerceFloat(agg["cost"])),
+		}
+	}
+
+	for _, row := range rows {
+		id := coerceInt64(mustRowValue(row, "id"))
+		usage := usageByKey[id]
+		if usage == nil {
+			usage = map[string]any{"requests": int64(0), "tokens": int64(0), "cost": float64(0)}
+		}
+		row["usage24h"] = usage
+	}
 }

@@ -1,8 +1,8 @@
 # Roadmap
 
-**Last verified**: 2026-08-18
+**Last verified**: 2026-08-19
 
-**Release**: [v0.15.3](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.15.3) · released on master; production promotion follows the release and soak gate
+**Release**: [v0.16.1](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.1) · released on master; production promotion follows the release and soak gate
 
 > This is the only execution plan. It contains open work, order, ownership, and acceptance criteria. Current facts → [`../STATE.md`](../STATE.md) · product positioning → [`../benchmark.md`](../benchmark.md) · timeline → [`../log.md`](../log.md).
 

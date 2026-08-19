@@ -147,6 +147,122 @@ describe('SiteFormDialog create payload', () => {
   })
 })
 
+describe('SiteFormDialog platform picker', () => {
+  // Canonical adapter platforms from platform/registry.go `orderedPlatformNames`.
+  const CANONICAL_PLATFORMS = [
+    'openai',
+    'codex',
+    'claude',
+    'gemini',
+    'gemini-cli',
+    'antigravity',
+    'grok',
+    'cliproxyapi',
+    'sensetime',
+    'anyrouter',
+    'done-hub',
+    'one-hub',
+    'veloera',
+    'new-api',
+    'sub2api',
+    'one-api',
+  ]
+
+  it('lists the 16 canonical platforms in the platform select', async () => {
+    render(<SiteFormDialog open onOpenChange={vi.fn()} editingSite={null} />)
+
+    const platformSelect = await screen.findByRole('combobox', {
+      name: 'Platform',
+    })
+
+    fireEvent.mouseDown(platformSelect)
+
+    for (const platform of CANONICAL_PLATFORMS) {
+      expect(
+        await screen.findByRole('option', { name: platform })
+      ).toBeInTheDocument()
+    }
+  })
+
+  it('sets the platform form value when a canonical platform is selected', async () => {
+    mockCreateMutate.mockResolvedValue({
+      id: 42,
+      name: 'My Site',
+      url: 'https://example.com',
+      platform: 'claude',
+      status: 'active',
+    })
+
+    render(<SiteFormDialog open onOpenChange={vi.fn()} editingSite={null} />)
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Name')).toBeInTheDocument()
+    })
+
+    typeField('Name', 'My Site')
+    typeField('URL', 'https://example.com')
+
+    fireEvent.mouseDown(
+      await screen.findByRole('combobox', { name: 'Platform' })
+    )
+    const claudeOption = await screen.findByRole('option', { name: 'claude' })
+    fireEvent.pointerDown(claudeOption)
+    fireEvent.click(claudeOption)
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('combobox', { name: 'Platform' })
+      ).toHaveTextContent('claude')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+
+    await waitFor(() => {
+      expect(mockCreateMutate).toHaveBeenCalledTimes(1)
+    })
+
+    expect(mockCreateMutate.mock.calls[0]?.[0]).toMatchObject({
+      platform: 'claude',
+    })
+  })
+
+  it('keeps manual entry for unknown platforms via the custom toggle', async () => {
+    mockCreateMutate.mockResolvedValue({
+      id: 42,
+      name: 'My Site',
+      url: 'https://example.com',
+      platform: 'my-unknown-platform',
+      status: 'active',
+    })
+
+    render(<SiteFormDialog open onOpenChange={vi.fn()} editingSite={null} />)
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Name')).toBeInTheDocument()
+    })
+
+    typeField('Name', 'My Site')
+    typeField('URL', 'https://example.com')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Enter manually' }))
+
+    const platformInput = screen.getByLabelText('Platform')
+    fireEvent.change(platformInput, {
+      target: { value: 'my-unknown-platform' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+
+    await waitFor(() => {
+      expect(mockCreateMutate).toHaveBeenCalledTimes(1)
+    })
+
+    expect(mockCreateMutate.mock.calls[0]?.[0]).toMatchObject({
+      platform: 'my-unknown-platform',
+    })
+  })
+})
+
 describe('SiteFormDialog post-refresh probe latency threshold (gap-11)', () => {
   it('renders the latency threshold field when probe is enabled and round-trips the value into the payload', async () => {
     // A successful create resolves with a minimal site object; only the

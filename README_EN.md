@@ -5,7 +5,11 @@
 <h1 align="center">Metapi Go</h1>
 
 <p align="center">
-  <strong>The proxy for proxies — aggregate all your AI API resellers into one unified gateway</strong>
+  <strong>One key for every AI gateway you already pay for.</strong>
+</p>
+
+<p align="center">
+  The proxy for proxies — aggregate all your AI API resellers into one unified gateway
 </p>
 
 <p align="center">
