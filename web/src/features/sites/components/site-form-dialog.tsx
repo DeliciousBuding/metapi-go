@@ -555,13 +555,17 @@ export function SiteFormDialog({
                       <FormControl>
                         <SelectTrigger className='w-full'>
                           <SelectValue>
-                            {(selected) =>
-                              selected === 'enabled'
-                                ? t('sites.form.resinForceOn')
-                                : selected === 'disabled'
-                                  ? t('sites.form.resinForceOff')
-                                  : t('sites.form.resinInherit')
-                            }
+                            {(selected) => {
+                              const resinLabels: Record<string, string> = {
+                                enabled: t('sites.form.resinForceOn'),
+                                disabled: t('sites.form.resinForceOff'),
+                                inherit: t('sites.form.resinInherit'),
+                              }
+                              return (
+                                resinLabels[String(selected)] ??
+                                t('sites.form.resinInherit')
+                              )
+                            }}
                           </SelectValue>
                         </SelectTrigger>
                       </FormControl>
@@ -598,13 +602,17 @@ export function SiteFormDialog({
                       <FormControl>
                         <SelectTrigger className='w-full'>
                           <SelectValue>
-                            {(selected) =>
-                              selected === 'enabled'
-                                ? t('sites.form.utlsForceOn')
-                                : selected === 'disabled'
-                                  ? t('sites.form.utlsForceOff')
-                                  : t('sites.form.utlsInherit')
-                            }
+                            {(selected) => {
+                              const utlsLabels: Record<string, string> = {
+                                enabled: t('sites.form.utlsForceOn'),
+                                disabled: t('sites.form.utlsForceOff'),
+                                inherit: t('sites.form.utlsInherit'),
+                              }
+                              return (
+                                utlsLabels[String(selected)] ??
+                                t('sites.form.utlsInherit')
+                              )
+                            }}
                           </SelectValue>
                         </SelectTrigger>
                       </FormControl>
