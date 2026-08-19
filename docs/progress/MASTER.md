@@ -1,8 +1,8 @@
 # Roadmap
 
-**Last verified**: 2026-08-18
+**Last verified**: 2026-08-19
 
-**Release**: [v0.15.3](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.15.3) · released on master; production promotion follows the release and soak gate
+**Release**: [v0.16.1](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.1) · released on master; production promotion follows the release and soak gate
 
 > This is the only execution plan. It contains open work, order, ownership, and acceptance criteria. Current facts → [`../STATE.md`](../STATE.md) · product positioning → [`../benchmark.md`](../benchmark.md) · timeline → [`../log.md`](../log.md).
 
@@ -30,6 +30,7 @@ Metapi Go has **3 delivery mainlines**. CI, dual-dialect support, security, rele
 - **Tester truth**: forced-channel synchronous probes, explicit unsupported streaming behavior, enabled-channel filtering, bounded comparison concurrency, shared abort handling, and stopped-result rendering are implemented and covered by focused tests.
 - **Route truth**: enabled-weight allocation and account/model-specific price provenance use exact concrete-model joins and are covered by focused Go and frontend tests.
 - **URL state stability**: list-page table state has one URL owner, stable callbacks, latest-URL merge semantics, and real Chromium acceptance gates documented in [`../design/state-stability.md`](../design/state-stability.md).
+- **Onboarding polish + team visibility (v0.17)**: platform picker (16-adapter searchable Select with manual-entry fallback), client export breadth (claude-code/codex/openwebui profiles), and downstream-key 24h usage summary (requests/tokens/cost) are implemented and covered by focused Go + frontend tests.
 
 These outcomes are closed. New work enters this plan only with a concrete owner, scope, and acceptance test; completed waves do not remain as open checklists.
 

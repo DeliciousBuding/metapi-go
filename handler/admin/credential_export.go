@@ -79,6 +79,19 @@ func resolveExportBaseURL(r *http.Request) string {
 func buildCredentialExportProfiles(name, key, baseURL string) []map[string]any {
 	v1 := strings.TrimRight(baseURL, "/") + "/v1"
 	env := "export OPENAI_BASE_URL=" + strconv.Quote(v1) + "\nexport OPENAI_API_KEY=" + strconv.Quote(key) + "\n"
+	claudeSettings := "// Save to ~/.claude/settings.json\n" +
+		"{\n" +
+		"  \"env\": {\n" +
+		"    \"ANTHROPIC_BASE_URL\": " + strconv.Quote(v1) + ",\n" +
+		"    \"ANTHROPIC_AUTH_TOKEN\": " + strconv.Quote(key) + "\n" +
+		"  }\n" +
+		"}\n"
+	codexConfig := "# Save to ~/.codex/config.toml\n" +
+		"model_provider = \"metapi\"\n" +
+		"\n" +
+		"[model_providers.metapi]\n" +
+		"base_url = " + strconv.Quote(v1) + "\n" +
+		"api_key = " + strconv.Quote(key) + "\n"
 	return []map[string]any{
 		{
 			"id":          "openai",
@@ -109,6 +122,30 @@ func buildCredentialExportProfiles(name, key, baseURL string) []map[string]any {
 				"apiBase": v1,
 				"apiKey":  key,
 				"headers": map[string]string{"Authorization": "Bearer " + key},
+			},
+		},
+		{
+			"id":          "claude-code",
+			"label":       "Claude Code",
+			"description": "env block for ~/.claude/settings.json (ANTHROPIC_BASE_URL + ANTHROPIC_AUTH_TOKEN)",
+			"contentType": "text/plain",
+			"content":     claudeSettings,
+		},
+		{
+			"id":          "codex",
+			"label":       "OpenAI Codex CLI",
+			"description": "model_providers.metapi block for ~/.codex/config.toml",
+			"contentType": "text/plain",
+			"content":     codexConfig,
+		},
+		{
+			"id":          "openwebui",
+			"label":       "Open WebUI",
+			"description": "Add as an \"OpenAI API\" connection in Open WebUI Admin → Settings → Connections",
+			"contentType": "application/json",
+			"content": map[string]any{
+				"baseUrl": v1,
+				"apiKey":  key,
 			},
 		},
 	}

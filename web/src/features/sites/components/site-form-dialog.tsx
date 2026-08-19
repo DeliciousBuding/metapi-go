@@ -10,7 +10,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Search as SearchIcon } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
@@ -60,6 +60,27 @@ type SiteFormDialogProps = {
   editingSite: Site | null
   onCreated?: (site: Site) => void
 }
+
+// Canonical adapter platforms from platform/registry.go `orderedPlatformNames`.
+// Unknown platforms stay manually specifiable via the inline manual toggle.
+const PLATFORM_OPTIONS: readonly string[] = [
+  'openai',
+  'codex',
+  'claude',
+  'gemini',
+  'gemini-cli',
+  'antigravity',
+  'grok',
+  'cliproxyapi',
+  'sensetime',
+  'anyrouter',
+  'done-hub',
+  'one-hub',
+  'veloera',
+  'new-api',
+  'sub2api',
+  'one-api',
+]
 
 function nullableBoolToSelectValue(value: boolean | null): string {
   if (value === null) return 'inherit'
@@ -157,6 +178,9 @@ export function SiteFormDialog({
   const updateSite = useUpdateSite()
   const detectSite = useDetectSite()
   const detectSiteAsync = detectSite.mutateAsync
+  const [platformMode, setPlatformMode] = useState<'select' | 'custom'>(
+    'select'
+  )
 
   useEffect(() => {
     if (!open) return
@@ -165,6 +189,7 @@ export function SiteFormDialog({
     } else {
       form.reset(SITE_FORM_DEFAULT_VALUES)
     }
+    setPlatformMode('select')
   }, [open, editingSite, form])
 
   const watchedUrl = form.watch('url')
@@ -279,18 +304,86 @@ export function SiteFormDialog({
               <FormField
                 control={form.control}
                 name='platform'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('sites.form.platform')}</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder={t('sites.form.platformPlaceholder')}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const trimmedPlatform = field.value.trim()
+                  const isCustomPlatform =
+                    trimmedPlatform !== '' &&
+                    !PLATFORM_OPTIONS.includes(trimmedPlatform)
+                  return (
+                    <FormItem>
+                      <FormLabel>{t('sites.form.platform')}</FormLabel>
+                      {platformMode === 'select' ? (
+                        <>
+                          <Select
+                            value={field.value}
+                            onValueChange={(value) =>
+                              field.onChange(value ?? '')
+                            }
+                          >
+                            <FormControl>
+                              <SelectTrigger className='w-full'>
+                                <SelectValue
+                                  placeholder={t(
+                                    'sites.form.platformSelectPlaceholder'
+                                  )}
+                                />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {isCustomPlatform && (
+                                <SelectItem value={field.value}>
+                                  {field.value} (
+                                  {t('sites.form.platformCustom')})
+                                </SelectItem>
+                              )}
+                              {PLATFORM_OPTIONS.map((platform) => (
+                                <SelectItem key={platform} value={platform}>
+                                  {platform}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <div className='flex items-center justify-between gap-2'>
+                            <FormDescription>
+                              {t('sites.form.platformSelectHint')}
+                            </FormDescription>
+                            <Button
+                              type='button'
+                              variant='link'
+                              size='xs'
+                              onClick={() => setPlatformMode('custom')}
+                            >
+                              {t('sites.form.platformCustomToggle')}
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <FormControl>
+                            <Input
+                              placeholder={t('sites.form.platformPlaceholder')}
+                              {...field}
+                            />
+                          </FormControl>
+                          <div className='flex items-center justify-between gap-2'>
+                            <FormDescription>
+                              {t('sites.form.platformCustomHint')}
+                            </FormDescription>
+                            <Button
+                              type='button'
+                              variant='link'
+                              size='xs'
+                              onClick={() => setPlatformMode('select')}
+                            >
+                              {t('sites.form.platformSelectToggle')}
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )
+                }}
               />
             </div>
 

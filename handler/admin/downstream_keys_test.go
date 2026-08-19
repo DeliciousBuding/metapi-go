@@ -981,3 +981,92 @@ func TestDownstreamKeysIPAllowBlockListCRUD(t *testing.T) {
 		t.Fatalf("stored ip_blocklist after update = %q", block.String)
 	}
 }
+
+func TestDownstreamKeysListUsage24hAggregatesProxyLogs(t *testing.T) {
+	db, r := setupDownstreamKeysTest(t)
+	now := time.Now().UTC()
+	nowStr := now.Format(time.RFC3339)
+	staleStr := now.Add(-25 * time.Hour).Format(time.RFC3339)
+
+	insertKey := func(name, key string) int64 {
+		res, err := db.Exec(
+			`INSERT INTO downstream_api_keys (name, key, enabled, created_at, updated_at)
+			 VALUES (?, ?, 1, ?, ?)`,
+			name, key, nowStr, nowStr,
+		)
+		if err != nil {
+			t.Fatalf("insert downstream key: %v", err)
+		}
+		id, err := res.LastInsertId()
+		if err != nil {
+			t.Fatalf("downstream key id: %v", err)
+		}
+		return id
+	}
+	insertLog := func(keyID int64, tokens int64, cost float64, createdAt string) {
+		if _, err := db.Exec(
+			`INSERT INTO proxy_logs (downstream_api_key_id, model_requested, model_actual, status, total_tokens, estimated_cost, created_at)
+			 VALUES (?, 'gpt-4o', 'gpt-4o', 'success', ?, ?, ?)`,
+			keyID, tokens, cost, createdAt,
+		); err != nil {
+			t.Fatalf("insert proxy log: %v", err)
+		}
+	}
+
+	keyA := insertKey("usage-24h-a", "sk-usage-24h-a")
+	keyB := insertKey("usage-24h-b", "sk-usage-24h-b")
+
+	// Key A: two in-window rows plus one stale row that must be excluded.
+	insertLog(keyA, 10, 0.5, nowStr)
+	insertLog(keyA, 20, 1.5, nowStr)
+	insertLog(keyA, 999, 99.0, staleStr)
+	// Key B: one in-window row.
+	insertLog(keyB, 5, 0.25, nowStr)
+
+	resp := doGet(t, r, "/api/downstream-keys")
+	if resp.Code != http.StatusOK {
+		t.Fatalf("list returned %d: %s", resp.Code, resp.Body.String())
+	}
+
+	var body map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal list: %v", err)
+	}
+	items, ok := body["items"].([]any)
+	if !ok {
+		t.Fatalf("items missing: %#v", body)
+	}
+
+	usageByKey := make(map[int64]map[string]any)
+	for _, raw := range items {
+		item, ok := raw.(map[string]any)
+		if !ok {
+			t.Fatalf("item is %T, want map", raw)
+		}
+		usage, ok := item["usage24h"].(map[string]any)
+		if !ok {
+			t.Fatalf("item missing usage24h: %#v", item)
+		}
+		usageByKey[int64(item["id"].(float64))] = usage
+	}
+
+	assertUsage := func(keyID int64, wantRequests, wantTokens int64, wantCost float64) {
+		t.Helper()
+		usage, ok := usageByKey[keyID]
+		if !ok {
+			t.Fatalf("key %d missing from list", keyID)
+		}
+		if got := usage["requests"].(float64); int64(got) != wantRequests {
+			t.Fatalf("key %d usage24h.requests = %v, want %d", keyID, got, wantRequests)
+		}
+		if got := usage["tokens"].(float64); int64(got) != wantTokens {
+			t.Fatalf("key %d usage24h.tokens = %v, want %d", keyID, got, wantTokens)
+		}
+		if got := usage["cost"].(float64); got != wantCost {
+			t.Fatalf("key %d usage24h.cost = %v, want %v", keyID, got, wantCost)
+		}
+	}
+
+	assertUsage(keyA, 2, 30, 2.0)
+	assertUsage(keyB, 1, 5, 0.25)
+}

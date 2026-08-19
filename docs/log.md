@@ -1,9 +1,19 @@
 # log.md — Metapi Go product milestones
 
-**Last updated**: 2026-08-18
+**Last updated**: 2026-08-19
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
+
+## 2026-08-19 — v0.17 onboarding polish + per-key usage + positioning honesty
+
+三线并行交付（platform picker / client export / downstream-key usage）+ 定位诚实性修正，基于 PM 视角分析与竞品对标（new-api/octopus/sub2api/all-api-hub）产出的机会清单：
+
+- **Platform picker**：site-form `platform` 自由文本 → 16 适配器可搜索 Select（openai..one-api）；auto-detect 保留；未知平台经「手动输入」切换保留（诚实规则）。3 测试。
+- **Client export 广度**：新增 claude-code / codex / openwebui profile（backend `buildCredentialExportProfiles` + export dialog）。Go 测试扩至 6 profile。
+- **Downstream-key 24h 用量**：`proxy_logs` 按 key 聚合 requests/tokens/cost（单条 GROUP BY 查询 + 内存 join，dual-dialect `db.Rebind`），keys 表 usage cell 呈现。Go + 前端测试。
+- **定位诚实性**：benchmark.md「唯一做真实流量转发」最高级修正（New API 也转发）→「唯一做跨网关聚合转发」；MASTER.md 版本漂移 v0.15.3→v0.16.1；README_EN 加「One key for every AI gateway」主张。
+- **验证**：go build/vet + admin/docs 测试 + typecheck/lint/knip + i18n parity 8/8 全绿。
 
 ## 2026-08-18 — a11y 拡差核实：axe 全绿 + 菜单 Esc 行为钉死（a11y-checklist 卫生）
 

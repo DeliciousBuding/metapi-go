@@ -37,7 +37,7 @@ import {
 import '@/i18n/config'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 
-import { KeySheetForm } from '../keys-section'
+import { KeySheetForm, KeyUsageCell } from '../keys-section'
 
 // vi.hoisted keeps the mock fn identities stable across the factory's
 // re-evaluation, so the vi.mock below can reference them by closure.
@@ -260,5 +260,42 @@ describe('KeySheetForm — create mode', () => {
       expect(onDone).toHaveBeenCalledTimes(1)
     })
     expect(mockToastSuccess).toHaveBeenCalledTimes(1)
+  })
+})
+
+// KeyUsageCell locks the 24h usage line rendering: when the backend returns
+// usage24h the requests/tokens/cost surface verbatim; when the field is
+// absent (older server or failed aggregate) the line degrades to zeros
+// instead of rendering "undefined".
+describe('KeyUsageCell — 24h usage line', () => {
+  const baseItem = {
+    id: 1,
+    name: 'usage key',
+    enabled: true,
+    usedRequests: 10,
+    maxRequests: 100,
+    usedCost: 2,
+    maxCost: 50,
+  } as const
+
+  it('renders the 24h request/token/cost summary when usage24h is present', () => {
+    render(
+      <KeyUsageCell
+        item={{
+          ...baseItem,
+          usage24h: { requests: 7, tokens: 1234, cost: 0.42 },
+        }}
+      />
+    )
+
+    expect(
+      screen.getByText('24h: 7 req · 1234 tok · $0.42')
+    ).toBeInTheDocument()
+  })
+
+  it('falls back to zeros when usage24h is absent', () => {
+    render(<KeyUsageCell item={baseItem} />)
+
+    expect(screen.getByText('24h: 0 req · 0 tok · $0')).toBeInTheDocument()
   })
 })
