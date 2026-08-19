@@ -22,9 +22,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { formatLatency } from '@/lib/format'
-
 import { StatusBadge } from '@/features/proxy-logs/components/status-badge'
+import { formatLatency } from '@/lib/format'
 
 import { useSlowRequests, useUsageHeatmap } from '../../api'
 import { ObservabilityErrorBanner } from '../../components/observability-error-banner'

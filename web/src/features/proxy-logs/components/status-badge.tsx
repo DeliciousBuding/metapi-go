@@ -67,7 +67,10 @@ function resolveTierFromStatusString(status: string): {
     }
   }
   if (normalized.includes('redirect')) {
-    return { tier: STATUS_TIERS.redirect, labelKey: 'proxyLogs.status.redirect' }
+    return {
+      tier: STATUS_TIERS.redirect,
+      labelKey: 'proxyLogs.status.redirect',
+    }
   }
   if (normalized.includes('client')) {
     return {
