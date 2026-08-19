@@ -48,33 +48,47 @@ function resolveTierFromHttpStatus(httpStatus: number): StatusTier {
   return STATUS_TIERS.neutral
 }
 
-function resolveTierFromStatusString(status: string): StatusTier {
+function resolveTierFromStatusString(status: string): {
+  tier: StatusTier
+  labelKey: string | null
+} {
   const normalized = status.toLowerCase()
   if (['success', 'ok', 'succeeded', 'succeed'].includes(normalized)) {
-    return STATUS_TIERS.success
+    return { tier: STATUS_TIERS.success, labelKey: 'proxyLogs.status.success' }
   }
   if (
     ['failed', 'error', 'failure', 'timeout', 'timeouterror'].includes(
       normalized
     )
   ) {
-    return STATUS_TIERS.serverError
+    return {
+      tier: STATUS_TIERS.serverError,
+      labelKey: 'proxyLogs.status.failed',
+    }
   }
-  if (normalized.includes('redirect')) return STATUS_TIERS.redirect
-  if (normalized.includes('client')) return STATUS_TIERS.clientError
-  return STATUS_TIERS.neutral
+  if (normalized.includes('redirect')) {
+    return { tier: STATUS_TIERS.redirect, labelKey: 'proxyLogs.status.redirect' }
+  }
+  if (normalized.includes('client')) {
+    return {
+      tier: STATUS_TIERS.clientError,
+      labelKey: 'proxyLogs.status.clientError',
+    }
+  }
+  return { tier: STATUS_TIERS.neutral, labelKey: null }
 }
 
 function resolveTier(
   httpStatus: number | null | undefined,
   status: string | null | undefined
-): { tier: StatusTier; label: string } {
+): { tier: StatusTier; labelKey: string | null; rawLabel: string | null } {
   const numericStatus =
     typeof httpStatus === 'number' && httpStatus > 0 ? httpStatus : null
   if (numericStatus !== null) {
     return {
       tier: resolveTierFromHttpStatus(numericStatus),
-      label: String(numericStatus),
+      labelKey: null,
+      rawLabel: String(numericStatus),
     }
   }
   const statusString =
@@ -84,16 +98,23 @@ function resolveTier(
   if (statusString !== null) {
     const parsed = Number.parseInt(statusString, 10)
     if (Number.isFinite(parsed) && parsed > 0) {
-      return { tier: resolveTierFromHttpStatus(parsed), label: String(parsed) }
+      return {
+        tier: resolveTierFromHttpStatus(parsed),
+        labelKey: null,
+        rawLabel: String(parsed),
+      }
     }
+    const resolved = resolveTierFromStatusString(statusString)
     return {
-      tier: resolveTierFromStatusString(statusString),
-      label: statusString,
+      tier: resolved.tier,
+      labelKey: resolved.labelKey,
+      rawLabel: statusString,
     }
   }
   return {
     tier: STATUS_TIERS.neutral,
-    label: STATUS_TIERS.neutral.fallbackLabelKey,
+    labelKey: STATUS_TIERS.neutral.fallbackLabelKey,
+    rawLabel: null,
   }
 }
 
@@ -113,10 +134,9 @@ export function StatusBadge({
   const { t } = useTranslation()
   const resolved = resolveTier(httpStatus, status)
   const tier = resolved.tier
-  const label =
-    resolved.tier === STATUS_TIERS.neutral && !httpStatus && !status
-      ? t(tier.fallbackLabelKey)
-      : resolved.label
+  const label = resolved.labelKey
+    ? t(resolved.labelKey)
+    : (resolved.rawLabel ?? '')
   return (
     <span
       title={t('proxyLogs.status.titlePrefix', { label })}

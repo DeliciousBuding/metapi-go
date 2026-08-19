@@ -24,6 +24,8 @@ import {
 } from '@/components/ui/table'
 import { formatLatency } from '@/lib/format'
 
+import { StatusBadge } from '@/features/proxy-logs/components/status-badge'
+
 import { useSlowRequests, useUsageHeatmap } from '../../api'
 import { ObservabilityErrorBanner } from '../../components/observability-error-banner'
 import type { SlowRequestItem, UsageHeatmapCell } from '../../types'
@@ -203,7 +205,12 @@ function renderSlowRequestsBody(
             <TableCell className='text-right tabular-nums'>
               {item.httpStatus || '—'}
             </TableCell>
-            <TableCell className='truncate'>{item.status || '—'}</TableCell>
+            <TableCell>
+              <StatusBadge
+                httpStatus={item.httpStatus ?? null}
+                status={item.status ?? null}
+              />
+            </TableCell>
             <TableCell className='text-right tabular-nums'>
               {formatClock(item.createdAt)}
             </TableCell>
