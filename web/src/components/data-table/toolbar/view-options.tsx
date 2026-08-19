@@ -1,5 +1,6 @@
 // metapi-go/data-table — ported from newapi
 import type { Table } from '@tanstack/react-table'
+import { Columns3 } from 'lucide-react'
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -44,6 +45,7 @@ export function DataTableViewOptions<TData>({
           />
         }
       >
+        <Columns3 />
         {t('View')}
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end' className='w-[150px]'>

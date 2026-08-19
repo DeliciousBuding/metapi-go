@@ -59,7 +59,7 @@ export function SettingsOverview() {
                     <li key={String(section.url)}>
                       <Link
                         to={section.url}
-                        className='text-muted-foreground hover:text-foreground flex items-center gap-2 rounded-md px-1 py-1 text-sm transition-colors'
+                        className='text-muted-foreground hover:text-foreground flex items-center gap-2 rounded-md px-1 py-1.5 text-sm transition-colors'
                       >
                         <span className='min-w-0 flex-1 truncate'>
                           {t(section.title)}

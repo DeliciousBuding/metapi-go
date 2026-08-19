@@ -1353,7 +1353,7 @@
         "addButton": "Add account",
         "loadError": "Failed to load accounts: {{message}}",
         "emptyTitle": "No accounts",
-        "emptyDescription": "Add an account to start managing connections, or visit the Sites page to add a site first.",
+        "emptyDescription": "Add an account to start managing connections, or import sites first.",
         "searchPlaceholder": "Search account name / site…",
         "filterStatusTitle": "Status",
         "filterStatusActive": "Active",

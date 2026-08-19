@@ -5,6 +5,16 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
 
+## 2026-08-19 — Real-e2e UIUX audit: self-hosted brand icons + audit tooling
+
+真实启动服务器(种子数据:6 站点/10 账号/7 路由/60 代理日志/16 签到)+ Playwright 全路由截图(light/dark × desktop/mobile,110 张)+ DOM 级审计脚本驱动本轮修复:
+
+- **品牌图标自托管(CSP 修复)**:`BrandIcon` 原从 `registry.npmmirror.com` CDN 加载 55 个品牌图标,但生产 CSP `img-src 'self' …` 拦截该域名 → 所有品牌图标在模型/路由等页面全部回退为字母头像(DOM 审计抓到 5+ 条 console CSP 违规)。现下载 110 个图标(暗/亮 96×96,460KB)本地化到 `src/assets/brand-icons/icons/`,静态导入索引(`icons.ts`)+ `getBrandIconUrl` 改本地解析;`rsbuild.config.ts` 设 `dataUriLimit: 0` 防小图标内联成 `data:` URI(同样会被 CSP 拦截)。验证:模型页 6/6 图标真实加载、0 console 错误。
+- **空态文案对齐**:账号页空态描述「或先到「站点」页添加站点」与 CTA「导入站点」不一致 → 统一为「或先导入站点」(zh/en)。
+- **小打磨**:表格「查看」列开关按钮加 `Columns3` 图标;设置总览子区链接 `py-1`→`py-1.5`(更大点击区)。
+- **审计工具链入库**(`web/scripts/`,knip 可见):`screenshot-scan.mjs`(全路由截图)、`dom-audit.mjs`(溢出/截断/对比度/空标签/console 错误审计)、`fetch-brand-icons.mjs` + `generate-brand-icon-index.mjs`(图标再生成)、`verify-brand-icons.mjs`(渲染验证);package.json 加 `screenshots`/`ui:audit`/`icons:fetch`/`icons:verify` 脚本。
+- **验证**:tsgo 0 error · oxlint 0 error · oxfmt green · knip clean · vitest 637/637 · 服务器 `go build` 干净。
+
 ## 2026-08-19 — Deep backend testing: 6 defect fixes (balance corruption + lost updates + routing edge cases)
 
 Deep-test audit (full suite + race + static analysis + concurrency/SQL review) surfaced 6 real defects, all now fixed with regression probes:

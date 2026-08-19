@@ -1,3 +1,5 @@
+import { BRAND_ICONS } from './icons.js'
+
 export { getBrand, type BrandInfo } from '../../../shared/modelBrand.js'
 
 const LEGACY_ICON_ALIASES: Record<string, string> = {
@@ -47,11 +49,11 @@ export function normalizeBrandIconKey(
 
 export function getBrandIconUrl(
   icon: string | null | undefined,
-  cdn: string
+  variant: 'dark' | 'light'
 ): string | null {
   const normalized = normalizeBrandIconKey(icon)
   if (!normalized) return null
-  return `${cdn}/${normalized}.png`
+  return BRAND_ICONS[normalized]?.[variant] ?? null
 }
 
 export function hashColor(name: string): string {
