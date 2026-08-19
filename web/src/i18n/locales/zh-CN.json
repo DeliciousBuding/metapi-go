@@ -1353,7 +1353,7 @@
         "addButton": "添加账号",
         "loadError": "加载账号失败：{{message}}",
         "emptyTitle": "暂无账号",
-        "emptyDescription": "添加一个账号以开始管理连接，或先到「站点」页添加站点。",
+        "emptyDescription": "添加一个账号以开始管理连接，或先导入站点。",
         "searchPlaceholder": "搜索账号名称 / 站点…",
         "filterStatusTitle": "状态",
         "filterStatusActive": "启用",

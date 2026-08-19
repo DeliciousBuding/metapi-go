@@ -45,7 +45,11 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "a11y:scan": "node scripts/a11y-scan.mjs",
-    "ui:smoke": "node scripts/route-smoke.mjs"
+    "ui:smoke": "node scripts/route-smoke.mjs",
+    "screenshots": "node scripts/screenshot-scan.mjs",
+    "ui:audit": "node scripts/dom-audit.mjs",
+    "icons:fetch": "node scripts/fetch-brand-icons.mjs && node scripts/generate-brand-icon-index.mjs",
+    "icons:verify": "node scripts/verify-brand-icons.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

@@ -84,6 +84,10 @@ export default defineConfig(({ envMode }) => {
         // web/embed.go expects assets under web/dist/
         root: 'dist',
       },
+      // Force every asset to a hashed file instead of inlining small ones as
+      // data: URIs — the production CSP img-src does not allow data:, so
+      // inlined brand icons would be blocked just like the old CDN ones.
+      dataUriLimit: 0,
       // Rely on Rsbuild default legalComments ("linked" → per-chunk *.LICENSE.txt) in all modes.
       // Do not set "none" in production: that strips minifier-preserved third-party notices and
       // extracted license files, which some distributions require for open-source compliance.

@@ -12,11 +12,11 @@ import {
 
 export { getBrand } from './brandRegistry.js'
 
-const BRAND_ICON_VERSION = '1.83.0'
-const ICON_CDN = `https://registry.npmmirror.com/@lobehub/icons-static-png/${BRAND_ICON_VERSION}/files/dark`
-const ICON_CDN_LIGHT = `https://registry.npmmirror.com/@lobehub/icons-static-png/${BRAND_ICON_VERSION}/files/light`
-
-function useIconCdn() {
+/**
+ * Tracks the active theme so brand glyphs can pick the matching dark/light
+ * variant of the vendored icon set (see scripts/fetch-brand-icons.mjs).
+ */
+function useIsDarkTheme() {
   const [isDark, setIsDark] = useState(() => {
     if (typeof document === 'undefined') return false
     return document.documentElement.getAttribute('data-theme') === 'dark'
@@ -37,7 +37,7 @@ function useIconCdn() {
     })
     return () => observer.disconnect()
   }, [])
-  return isDark ? ICON_CDN : ICON_CDN_LIGHT
+  return isDark
 }
 
 type BrandGlyphProps = {
@@ -59,7 +59,7 @@ function BrandGlyph({
   fallbackText,
   style,
 }: BrandGlyphProps) {
-  const cdn = useIconCdn()
+  const isDark = useIsDarkTheme()
   const resolvedBrand = brand || (model ? getBrand(model) : null)
   const resolvedIcon = normalizeBrandIconKey(
     icon || resolvedBrand?.icon || null
@@ -71,7 +71,7 @@ function BrandGlyph({
   }, [resolvedIcon])
 
   if (resolvedIcon && !imgError) {
-    const src = getBrandIconUrl(resolvedIcon, cdn)
+    const src = getBrandIconUrl(resolvedIcon, isDark ? 'dark' : 'light')
     if (src) {
       return (
         <img
