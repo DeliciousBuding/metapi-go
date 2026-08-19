@@ -49,6 +49,7 @@
     "screenshots": "node scripts/screenshot-scan.mjs",
     "ui:audit": "node scripts/dom-audit.mjs",
     "ui:probe-dialog": "node scripts/probe-sites-dialog.mjs",
+    "ui:contrast": "node scripts/dark-contrast-probe.mjs",
     "icons:fetch": "node scripts/fetch-brand-icons.mjs && node scripts/generate-brand-icon-index.mjs",
     "icons:verify": "node scripts/verify-brand-icons.mjs"
   },
