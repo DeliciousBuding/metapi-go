@@ -554,7 +554,15 @@ export function SiteFormDialog({
                     >
                       <FormControl>
                         <SelectTrigger className='w-full'>
-                          <SelectValue />
+                          <SelectValue>
+                            {(selected) =>
+                              selected === 'enabled'
+                                ? t('sites.form.resinForceOn')
+                                : selected === 'disabled'
+                                  ? t('sites.form.resinForceOff')
+                                  : t('sites.form.resinInherit')
+                            }
+                          </SelectValue>
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -589,7 +597,15 @@ export function SiteFormDialog({
                     >
                       <FormControl>
                         <SelectTrigger className='w-full'>
-                          <SelectValue />
+                          <SelectValue>
+                            {(selected) =>
+                              selected === 'enabled'
+                                ? t('sites.form.utlsForceOn')
+                                : selected === 'disabled'
+                                  ? t('sites.form.utlsForceOff')
+                                  : t('sites.form.utlsInherit')
+                            }
+                          </SelectValue>
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
