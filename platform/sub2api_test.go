@@ -115,13 +115,16 @@ func TestSub2ApiAdapter_GetBalance(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	// On unreachable URL, GetBalance returns empty BalanceInfo without error
+	// On an unreachable URL, GetBalance must surface the fetch error instead
+	// of swallowing it into an empty BalanceInfo. Otherwise balance-refresh
+	// callers would overwrite stored balance/quota with zeros and revive
+	// expired accounts on a transient upstream failure.
 	bi, err := s.GetBalance(ctx, unreachableBaseURL(t), "token", nil, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+	if err == nil {
+		t.Errorf("GetBalance on unreachable should surface the fetch error")
 	}
-	if bi.Balance != 0 {
-		t.Errorf("Balance on unreachable should be 0, got %f", bi.Balance)
+	if bi != nil {
+		t.Errorf("GetBalance on unreachable should return nil BalanceInfo, got %+v", bi)
 	}
 }
 

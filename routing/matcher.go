@@ -2,23 +2,35 @@ package routing
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 )
 
+// isRegexPrefix reports whether s starts with the "re:" prefix in any letter
+// casing. Allocation-free: checks the three ASCII bytes directly. Acceptance
+// and stripping must agree on casing (see ParseRegexModelPattern), otherwise a
+// mixed-case prefix like "Re:" would be accepted but never stripped.
+func isRegexPrefix(s string) bool {
+	return len(s) >= 3 &&
+		(s[0] == 'r' || s[0] == 'R') &&
+		(s[1] == 'e' || s[1] == 'E') &&
+		s[2] == ':'
+}
+
 // IsRegexModelPattern returns true if the pattern is a regex pattern (starts with "re:").
 func IsRegexModelPattern(pattern string) bool {
-	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(pattern)), "re:")
+	return isRegexPrefix(strings.TrimSpace(pattern))
 }
 
 // ParseRegexModelPattern parses a "re:..." pattern into a compiled regexp.
 func ParseRegexModelPattern(pattern string) *regexp.Regexp {
 	raw := strings.TrimSpace(pattern)
-	if !IsRegexModelPattern(raw) {
+	if !isRegexPrefix(raw) {
 		return nil
 	}
-	reBody := strings.TrimPrefix(raw, "re:")
-	reBody = strings.TrimPrefix(reBody, "RE:")
-	reBody = strings.TrimSpace(reBody)
+	// Strip the 3-byte prefix regardless of its letter casing; the body is
+	// preserved verbatim (regex bodies stay case-sensitive).
+	reBody := strings.TrimSpace(raw[len("re:"):])
 	if reBody == "" {
 		return nil
 	}
@@ -70,17 +82,22 @@ func MatchesModelPattern(model, pattern string) bool {
 	return globMatch(normalizedPattern, normalizedModel)
 }
 
-// globMatch implements simple glob matching with * and ?.
+// globMatch implements simple glob matching with * and ?. Matching operates on
+// runes, not bytes, so `?` consumes exactly one rune and multi-byte UTF-8 model
+// names (legal in operator-authored patterns) match correctly. For pure-ASCII
+// inputs rune and byte semantics are identical.
 func globMatch(pattern, value string) bool {
+	pRunes := []rune(pattern)
+	vRunes := []rune(value)
 	p, v := 0, 0
-	pLen, vLen := len(pattern), len(value)
+	pLen, vLen := len(pRunes), len(vRunes)
 	pStar, vStar := -1, 0
 
 	for v < vLen {
-		if p < pLen && (pattern[p] == '?' || pattern[p] == value[v]) {
+		if p < pLen && (pRunes[p] == '?' || pRunes[p] == vRunes[v]) {
 			p++
 			v++
-		} else if p < pLen && pattern[p] == '*' {
+		} else if p < pLen && pRunes[p] == '*' {
 			pStar = p
 			vStar = v
 			p++
@@ -93,7 +110,7 @@ func globMatch(pattern, value string) bool {
 		}
 	}
 
-	for p < pLen && pattern[p] == '*' {
+	for p < pLen && pRunes[p] == '*' {
 		p++
 	}
 	return p == pLen
@@ -302,16 +319,17 @@ func splitJSONPair(s string) []string {
 	return nil
 }
 
-// unquoteJSON removes surrounding double quotes and unescapes.
+// unquoteJSON removes surrounding double quotes and unescapes. Delegates to
+// strconv.Unquote so all JSON string escapes decode faithfully — including
+// \uXXXX (with surrogate pairs), \b, \f, \r — and escape handling is
+// left-to-right correct (a hand-rolled ReplaceAll cascade is order-dependent
+// and mis-tokenizes even runs of backslashes). On any parse error the original
+// token is returned unchanged.
 func unquoteJSON(s string) string {
 	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
-		inner := s[1 : len(s)-1]
-		inner = strings.ReplaceAll(inner, "\\\"", "\"")
-		inner = strings.ReplaceAll(inner, "\\\\", "\\")
-		inner = strings.ReplaceAll(inner, "\\n", "\n")
-		inner = strings.ReplaceAll(inner, "\\t", "\t")
-		inner = strings.ReplaceAll(inner, "\\/", "/")
-		return inner
+		if unquoted, err := strconv.Unquote(s); err == nil {
+			return unquoted
+		}
 	}
 	return s
 }

@@ -23,6 +23,11 @@ func (s *Sub2ApiAdapter) VerifyToken(ctx context.Context, baseURL, token string,
 		balance, _ := s.GetBalance(ctx, normalized, token, platformUserId, proxy)
 		apiToken, _ := s.GetAPIToken(ctx, normalized, token, platformUserId, proxy)
 
+		// GetBalance surfaces the auth/me fetch error as a nil BalanceInfo;
+		// VerifyToken is best-effort, so keep the result's Balance non-nil.
+		if balance == nil {
+			balance = &BalanceInfo{}
+		}
 		apiTokenStr := ""
 		if apiToken != nil {
 			apiTokenStr = *apiToken

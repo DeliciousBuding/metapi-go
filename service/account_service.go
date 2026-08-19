@@ -1,6 +1,7 @@
 package service
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -409,7 +410,30 @@ type AccountWithSite struct {
 }
 
 // GetAccountWithSiteByID fetches an account with its site.
+// accountQueryExecer is the minimal executor surface shared by *sqlx.DB and
+// *sqlx.Tx, sufficient for the account read/write helpers below.
+type accountQueryExecer interface {
+	Get(dest interface{}, query string, args ...interface{}) error
+	Exec(query string, args ...interface{}) (sql.Result, error)
+	Rebind(query string) string
+	DriverName() string
+}
+
+// GetAccountWithSiteByID reads an account joined with its site (no row lock).
 func GetAccountWithSiteByID(db *sqlx.DB, id int64) (*AccountWithSite, error) {
+	return getAccountWithSiteBy(db, id, false)
+}
+
+// GetAccountWithSiteByIDForUpdate reads the account joined with its site while
+// locking the accounts row (PostgreSQL only: FOR UPDATE OF a; SQLite's
+// single-connection pool already serializes transactions). Call it inside a
+// transaction to make read-merge-write of mutable columns — notably
+// extra_config — safe against concurrent lost updates.
+func GetAccountWithSiteByIDForUpdate(q accountQueryExecer, id int64) (*AccountWithSite, error) {
+	return getAccountWithSiteBy(q, id, true)
+}
+
+func getAccountWithSiteBy(q accountQueryExecer, id int64, forUpdate bool) (*AccountWithSite, error) {
 	query := `SELECT a.id AS "accounts.id", a.site_id AS "accounts.site_id", a.username AS "accounts.username",
 		a.access_token AS "accounts.access_token", a.api_token AS "accounts.api_token",
 		a.balance AS "accounts.balance", a.balance_used AS "accounts.balance_used",
@@ -429,6 +453,12 @@ func GetAccountWithSiteByID(db *sqlx.DB, id int64) (*AccountWithSite, error) {
 			s.custom_headers_override_request_headers AS "sites.custom_headers_override_request_headers",
 			s.status AS "sites.status"
 			FROM accounts a INNER JOIN sites s ON a.site_id = s.id WHERE a.id = ?`
+	if forUpdate && q.DriverName() == "pgx" {
+		// Lock only the accounts row (the join also reads sites). A concurrent
+		// writer blocks here until this transaction commits, so its merge reads
+		// the committed extra_config instead of overwriting it.
+		query += " FOR UPDATE OF a"
+	}
 
 	var row struct {
 		Accounts struct {
@@ -469,7 +499,7 @@ func GetAccountWithSiteByID(db *sqlx.DB, id int64) (*AccountWithSite, error) {
 		} `db:"sites"`
 	}
 
-	if err := db.Get(&row, db.Rebind(query), id); err != nil {
+	if err := q.Get(&row, q.Rebind(query), id); err != nil {
 		return nil, err
 	}
 	return &AccountWithSite{
@@ -552,7 +582,19 @@ func InsertAccount(db *sqlx.DB, account map[string]any) (int64, error) {
 }
 
 // UpdateAccountFields updates specific fields on an account.
+// UpdateAccountFields writes a set of account columns in one UPDATE.
 func UpdateAccountFields(db *sqlx.DB, accountID int64, updates map[string]any) error {
+	return updateAccountFieldsOn(db, accountID, updates)
+}
+
+// UpdateAccountFieldsTx is the transaction variant of UpdateAccountFields. Use
+// it within the same transaction that read-locked the account row so the
+// read-merge-write of extra_config commits atomically (no lost updates).
+func UpdateAccountFieldsTx(tx *sqlx.Tx, accountID int64, updates map[string]any) error {
+	return updateAccountFieldsOn(tx, accountID, updates)
+}
+
+func updateAccountFieldsOn(q accountQueryExecer, accountID int64, updates map[string]any) error {
 	if len(updates) == 0 {
 		return nil
 	}
@@ -595,7 +637,7 @@ func UpdateAccountFields(db *sqlx.DB, accountID int64, updates map[string]any) e
 	args = append(args, accountID)
 
 	query := fmt.Sprintf("UPDATE accounts SET %s WHERE id = ?", strings.Join(setClauses, ", "))
-	_, err := db.Exec(db.Rebind(query), args...)
+	_, err := q.Exec(q.Rebind(query), args...)
 	return err
 }
 
