@@ -144,6 +144,21 @@ async function scanRoute(context, route, failures, mobile = false) {
     })
     await page.waitForTimeout(500)
 
+    // Scroll through the page before collecting console errors: lazy-loaded
+    // content below the fold (e.g. brand icons) only fires its request when
+    // it approaches the viewport, so a CSP-blocked lazy image would stay
+    // silent without this pass (regression for the brand-icon CSP fix).
+    await page.evaluate(async () => {
+      const step = Math.max(1, Math.floor(window.innerHeight * 0.8))
+      const total = document.body.scrollHeight
+      for (let y = 0; y <= total; y += step) {
+        window.scrollTo(0, y)
+        await new Promise((resolve) => setTimeout(resolve, 30))
+      }
+      window.scrollTo(0, 0)
+    })
+    await page.waitForTimeout(300)
+
     if (response && response.status() >= 500) {
       failures.push(`${label}: document returned HTTP ${response.status()}`)
     }
