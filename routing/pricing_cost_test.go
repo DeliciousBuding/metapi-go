@@ -11,8 +11,8 @@ func boolPtr(v bool) *bool { return &v }
 
 func TestIsClaudeModel(t *testing.T) {
 	cases := []struct {
-		name  string
-		want  bool
+		name string
+		want bool
 	}{
 		{"claude-opus-4-7", true},
 		{"Claude-Sonnet-4", true},
@@ -470,5 +470,56 @@ func TestCalculateModelUsageFullPrice_NoCacheMatchesBreakdownMath(t *testing.T) 
 	}
 	if fullPrice.Breakdown.OutputCost != breakdown.Breakdown.OutputCost {
 		t.Fatalf("outputCost fullPrice=%v breakdown=%v", fullPrice.Breakdown.OutputCost, breakdown.Breakdown.OutputCost)
+	}
+}
+
+func TestEstimateProxyCostFromModel_MatchesCalculateModelUsageCost(t *testing.T) {
+	// EstimateProxyCostFromModel is a thin alias over CalculateModelUsageCost;
+	// pin the equivalence so the public entry point cannot drift from the
+	// canonical math.
+	model := PricingModel{ModelName: "probe-estimate", QuotaType: 0, ModelRatio: 2, CompletionRatio: 6}
+	usage := UsageForCost{PromptTokens: 1000, CompletionTokens: 500, TotalTokens: 1500}
+	groupRatio := map[string]float64{"default": 1.5}
+
+	got := EstimateProxyCostFromModel(model, usage, groupRatio)
+	want := CalculateModelUsageCost(model, usage, groupRatio)
+	if got != want {
+		t.Fatalf("EstimateProxyCostFromModel = %v, want %v (alias must match)", got, want)
+	}
+	if got <= 0 {
+		t.Fatalf("expected a positive cost, got %v", got)
+	}
+}
+
+func TestCalculatePerCallCost(t *testing.T) {
+	cases := []struct {
+		name       string
+		price      *ModelPrice
+		multiplier float64
+		want       float64
+	}{
+		{name: "nil price", price: nil, multiplier: 1, want: 0},
+		{name: "flat price", price: &ModelPrice{Flat: ptrF(0.5)}, multiplier: 2, want: 1.0},
+		{name: "pair price uses input ratio", price: &ModelPrice{IsPair: true, Input: 100, Output: 200}, multiplier: 1, want: 100 * 0.002},
+		{name: "pair price respects multiplier", price: &ModelPrice{IsPair: true, Input: 100, Output: 200}, multiplier: 2, want: 100 * 0.002 * 2},
+		{name: "scalar without flat is zero", price: &ModelPrice{}, multiplier: 1, want: 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := calculatePerCallCost(tc.price, tc.multiplier); got != tc.want {
+				t.Fatalf("calculatePerCallCost = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestCalculateModelUsageCost_PerCallQuotaAppliesGroupMultiplier(t *testing.T) {
+	flat := 0.25
+	model := PricingModel{ModelName: "per-call", QuotaType: 1, ModelPrice: &ModelPrice{Flat: &flat}}
+	if got := CalculateModelUsageCost(model, UsageForCost{}, map[string]float64{"default": 4}); got != 1.0 {
+		t.Fatalf("per-call cost with multiplier 4 = %v, want 1.0", got)
+	}
+	if got := CalculateModelUsageCost(model, UsageForCost{}, nil); got != 0.25 {
+		t.Fatalf("per-call cost with no group ratio = %v, want 0.25", got)
 	}
 }
