@@ -10,6 +10,7 @@ import (
 	"time"
 
 	backupsvc "github.com/deliciousbuding/metapi-go/service/backup"
+	"github.com/deliciousbuding/metapi-go/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 )
@@ -111,7 +112,7 @@ func isKnownTable(name string) bool {
 
 // POST /api/settings/backup/import
 func (h *backupHandler) importBackup(w http.ResponseWriter, r *http.Request) {
-	body, err := decodeBackupImportBody(r)
+	raw, err := readLimitedWebdavBody(r.Body, backupWebdavImportMaxBytes)
 	if err != nil {
 		status := http.StatusBadRequest
 		message := "导入数据格式错误：需要 JSON 对象且包含 tables 字段"
@@ -121,6 +122,18 @@ func (h *backupHandler) importBackup(w http.ResponseWriter, r *http.Request) {
 			message = err.Error()
 		}
 		writeError(w, status, message)
+		return
+	}
+
+	// TS (cita-777/metapi) backup v2.1 payloads take the dedicated parser.
+	if backupsvc.IsTSV21Payload(raw) {
+		h.importTSV21Backup(w, raw)
+		return
+	}
+
+	body, err := decodeBackupImportBodyFrom(raw)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "导入数据格式错误：需要 JSON 对象且包含 tables 字段")
 		return
 	}
 
@@ -137,13 +150,67 @@ func (h *backupHandler) importBackup(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// importTSV21Backup handles the TS backup v2.1 branch of the import endpoint.
+func (h *backupHandler) importTSV21Backup(w http.ResponseWriter, raw []byte) {
+	if err := rejectDuplicateJSONKeys(raw); err != nil {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("导入数据格式错误：%v", err))
+		return
+	}
+	result, err := backupsvc.ImportTSV21(backupStoreDB(h.db), raw)
+	if err != nil {
+		writeError(w, backupImportErrorStatus(err), err.Error())
+		return
+	}
+
+	response := map[string]any{
+		"success":  true,
+		"message":  "导入完成",
+		"imported": result.Imported,
+	}
+	if result.SkippedSettings > 0 {
+		response["skippedSettings"] = result.SkippedSettings
+	}
+	if len(result.Warnings) > 0 {
+		response["warnings"] = result.Warnings
+	}
+	writeJSON(w, http.StatusOK, response)
+}
+
 // F1: preview backup import BEFORE committing. Reuses the
 // same decode + validate path as importBackup but returns a plan — per-table
 // rows to insert, rows that would be skipped (runtime-local settings), and
 // rows whose PK (id, or key for settings) already exists in the target DB
 // (ON CONFLICT DO NOTHING would drop them). No rows are written.
 func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Request) {
-	body, err := decodeBackupImportBody(r)
+	raw, err := readLimitedWebdavBody(r.Body, backupWebdavImportMaxBytes)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "导入数据格式错误：需要 JSON 对象且包含 tables 字段")
+		return
+	}
+
+	// TS (cita-777/metapi) backup v2.1 payloads take the dedicated parser.
+	if backupsvc.IsTSV21Payload(raw) {
+		if err := rejectDuplicateJSONKeys(raw); err != nil {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("导入数据格式错误：%v", err))
+			return
+		}
+		preview, err := backupsvc.PreviewTSV21(backupStoreDB(h.db), raw)
+		if err != nil {
+			writeError(w, backupImportErrorStatus(err), err.Error())
+			return
+		}
+		response := map[string]any{
+			"success": true,
+			"plan":    preview.Plan,
+		}
+		if len(preview.Warnings) > 0 {
+			response["warnings"] = preview.Warnings
+		}
+		writeJSON(w, http.StatusOK, response)
+		return
+	}
+
+	body, err := decodeBackupImportBodyFrom(raw)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "导入数据格式错误：需要 JSON 对象且包含 tables 字段")
 		return
@@ -165,8 +232,8 @@ func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Reque
 	})
 }
 
-// decodeBackupImportBody decodes a backup import request body and returns the
-// tables map. Accepts both shapes:
+// decodeBackupImportBodyFrom decodes a backup import request body and returns
+// the tables map. Accepts both shapes:
 // - {"tables": {...}} (backend/webdav canonical)
 // - {"data": {"tables": {...}}} (legacy frontend wrapper — api.importBackup
 // sends JSON.stringify({data}) around the pasted export which itself is
@@ -174,14 +241,14 @@ func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Reque
 
 // Normalizing here fixes the manual JSON-import path that previously always
 // 400'd because the top-level key was "data" not "tables".
-func decodeBackupImportBody(r *http.Request) (map[string]json.RawMessage, error) {
+func decodeBackupImportBodyFrom(raw []byte) (map[string]json.RawMessage, error) {
 	var body struct {
 		Tables map[string]json.RawMessage `json:"tables"`
 		Data   *struct {
 			Tables map[string]json.RawMessage `json:"tables"`
 		} `json:"data"`
 	}
-	if err := decodeBackupImportRequest(r, &body); err != nil {
+	if err := decodeBackupPayload(raw, &body); err != nil {
 		return nil, err
 	}
 	if body.Tables != nil {
@@ -191,6 +258,16 @@ func decodeBackupImportBody(r *http.Request) (map[string]json.RawMessage, error)
 		return body.Data.Tables, nil
 	}
 	return nil, fmt.Errorf("导入数据格式错误：需要 JSON 对象且包含 tables 字段")
+}
+
+// backupStoreDB wraps the handler's *sqlx.DB in a store.DB so v2.1 import
+// helpers get automatic ? → $N rebinding on PostgreSQL.
+func backupStoreDB(db *sqlx.DB) *store.DB {
+	dialect := store.DialectSQLite
+	if db.DriverName() == "pgx" {
+		dialect = store.DialectPostgres
+	}
+	return &store.DB{DB: db, Dialect: dialect}
 }
 
 // backupImportPreview is the per-table preview summary.
@@ -307,14 +384,6 @@ func queryExistingPKs(db *sqlx.DB, table, pkCol string, values []string) map[str
 	return out
 }
 
-func decodeBackupImportRequest(r *http.Request, dst any) error {
-	raw, err := readLimitedWebdavBody(r.Body, backupWebdavImportMaxBytes)
-	if err != nil {
-		return err
-	}
-	return decodeBackupPayload(raw, dst)
-}
-
 func importBackupTables(db *sqlx.DB, tables map[string]json.RawMessage) (map[string]int64, error) {
 	if tables == nil {
 		return nil, fmt.Errorf("导入数据格式错误：需要 JSON 对象且包含 tables 字段")
@@ -401,6 +470,10 @@ func (e backupImportClientError) Error() string {
 func backupImportErrorStatus(err error) int {
 	var clientErr backupImportClientError
 	if errors.As(err, &clientErr) {
+		return http.StatusBadRequest
+	}
+	var tsClientErr backupsvc.TSV21ClientError
+	if errors.As(err, &tsClientErr) {
 		return http.StatusBadRequest
 	}
 	return http.StatusInternalServerError
@@ -501,14 +574,6 @@ func validateBackupImportCellValue(column string, value any) error {
 	}
 }
 
-var runtimeLocalSettingKeys = map[string]bool{
-	"auth_token":             true,
-	"backup_webdav_state_v1": true,
-	"db_ssl":                 true,
-	"db_type":                true,
-	"db_url":                 true,
-}
-
 func shouldSkipBackupImportRow(table string, row map[string]any) bool {
 	if table != "settings" {
 		return false
@@ -517,7 +582,7 @@ func shouldSkipBackupImportRow(table string, row map[string]any) bool {
 	if !ok {
 		return false
 	}
-	return runtimeLocalSettingKeys[key]
+	return backupsvc.RuntimeLocalSettingKeys[key]
 }
 
 func tableColumns(conn backupImportConn, table string) (map[string]bool, error) {

@@ -939,3 +939,97 @@ func TestWebdavSaveAcceptsValidAutoSyncCron(t *testing.T) {
 		t.Fatalf("status = %d body=%s, want 200", rec.Code, rec.Body.String())
 	}
 }
+
+// tsV21EndpointBackup is a minimal TS (cita-777/metapi) v2.1 payload used to
+// exercise the endpoint-level branch in importBackup / previewBackupImport.
+const tsV21EndpointBackup = `{
+  "version": "2.1",
+  "timestamp": 1755678900000,
+  "accounts": {
+    "sites": [{"id": 1, "name": "站A", "url": "https://a.example.com", "platform": "new-api"}],
+    "futureSection": {"x": 1}
+  },
+  "preferences": {
+    "settings": [{"key": "theme", "value": "dark"}]
+  }
+}`
+
+func TestImportTSV21Endpoint(t *testing.T) {
+	db := setupBackupTestDB(t)
+	r := chi.NewRouter()
+	RegisterBackupRoutes(r, db.DB)
+
+	rec := doPostJSON(t, r, "/api/settings/backup/import", json.RawMessage(tsV21EndpointBackup))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s, want 200", rec.Code, rec.Body.String())
+	}
+
+	var response struct {
+		Success  bool             `json:"success"`
+		Imported map[string]int64 `json:"imported"`
+		Warnings []string         `json:"warnings"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v (body=%s)", err, rec.Body.String())
+	}
+	if !response.Success {
+		t.Fatalf("success = false, body=%s", rec.Body.String())
+	}
+	if response.Imported["sites"] != 1 || response.Imported["settings"] != 1 {
+		t.Fatalf("imported = %#v, want sites=1 settings=1", response.Imported)
+	}
+	if len(response.Warnings) == 0 || !strings.Contains(strings.Join(response.Warnings, "\n"), "accounts.futureSection") {
+		t.Fatalf("warnings = %q, want unknown section warning", response.Warnings)
+	}
+
+	var siteName string
+	if err := db.Get(&siteName, "SELECT name FROM sites WHERE id = 1"); err != nil {
+		t.Fatalf("read site: %v", err)
+	}
+	if siteName != "站A" {
+		t.Fatalf("site name = %q, want 站A", siteName)
+	}
+	var themeValue string
+	if err := db.Get(&themeValue, "SELECT value FROM settings WHERE key = ?", "theme"); err != nil {
+		t.Fatalf("read setting: %v", err)
+	}
+	if themeValue != `"dark"` {
+		t.Fatalf("settings[theme] = %q, want %q", themeValue, `"dark"`)
+	}
+}
+
+func TestPreviewTSV21Endpoint(t *testing.T) {
+	db := setupBackupTestDB(t)
+	r := chi.NewRouter()
+	RegisterBackupRoutes(r, db.DB)
+
+	rec := doPostJSON(t, r, "/api/settings/backup/import/preview", json.RawMessage(tsV21EndpointBackup))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s, want 200", rec.Code, rec.Body.String())
+	}
+
+	var response struct {
+		Success bool `json:"success"`
+		Plan    map[string]struct {
+			Rows     int64 `json:"rows"`
+			ToInsert int64 `json:"toInsert"`
+		} `json:"plan"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v (body=%s)", err, rec.Body.String())
+	}
+	if !response.Success {
+		t.Fatalf("success = false, body=%s", rec.Body.String())
+	}
+	if plan := response.Plan["sites"]; plan.Rows != 1 || plan.ToInsert != 1 {
+		t.Fatalf("sites plan = %+v, want rows=1 toInsert=1", plan)
+	}
+
+	var siteCount int
+	if err := db.Get(&siteCount, "SELECT COUNT(*) FROM sites"); err != nil {
+		t.Fatalf("count sites: %v", err)
+	}
+	if siteCount != 0 {
+		t.Fatalf("preview wrote %d site rows, want 0", siteCount)
+	}
+}
