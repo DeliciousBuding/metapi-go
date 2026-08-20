@@ -694,6 +694,7 @@
           "statusConnecting": "connecting",
           "connectionLost": "Realtime connection lost.",
           "reconnect": "Reconnect",
+          "dataAsOf": "Data as of {{time}}",
           "metricQps": "QPS",
           "metricSuccess": "success",
           "metricUptime": "uptime",

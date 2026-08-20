@@ -694,6 +694,7 @@
           "statusConnecting": "连接中",
           "connectionLost": "实时连接已断开。",
           "reconnect": "重新连接",
+          "dataAsOf": "数据截至 {{time}}",
           "metricQps": "QPS",
           "metricSuccess": "成功率",
           "metricUptime": "运行时间",

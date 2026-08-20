@@ -18,8 +18,9 @@ import { useTranslation } from 'react-i18next'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
-import { formatCurrency, formatInt } from '@/lib/format'
+import { formatCurrency, formatInt, formatTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { useRealtimeOps } from '../hooks/use-realtime-ops'
@@ -84,7 +85,8 @@ function computeBalanceTrend(
 }
 
 export function TodaySnapshotStrip() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
 
   const { data: snapshot, isLoading: snapshotLoading } = useQuery({
     queryKey: ['dashboard-snapshot'],
@@ -102,7 +104,7 @@ export function TodaySnapshotStrip() {
     queryFn: () => api.getAttention(20) as Promise<AttentionResponse>,
   })
 
-  const { sample: realtime } = useRealtimeOps()
+  const { sample: realtime, lastFrameAt } = useRealtimeOps()
 
   const trend = useMemo(
     () => computeBalanceTrend(balanceHistory),
@@ -232,6 +234,13 @@ export function TodaySnapshotStrip() {
               />
               {t(statusKey)}
             </div>
+            {!realtime.connected && lastFrameAt !== null ? (
+              <div className='text-muted-foreground truncate text-[11px] tabular-nums'>
+                {t('dashboard.availability.realtime.dataAsOf', {
+                  time: formatTime(lastFrameAt, locale),
+                })}
+              </div>
+            ) : null}
           </div>
         </div>
       </CardContent>

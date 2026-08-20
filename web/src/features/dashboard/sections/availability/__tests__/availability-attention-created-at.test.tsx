@@ -51,9 +51,9 @@ const IDLE_SAMPLE: RealtimeOpsSample = {
   gaveUp: false,
 }
 
-/** Wrap a realtime sample in the hook's `{ sample, reconnect }` return shape. */
+/** Wrap a realtime sample in the hook's `{ sample, lastFrameAt, reconnect }` return shape. */
 function realtimeReturn(sample: RealtimeOpsSample) {
-  return { sample, reconnect: vi.fn() }
+  return { sample, lastFrameAt: null, reconnect: vi.fn() }
 }
 
 function createQueryClient() {

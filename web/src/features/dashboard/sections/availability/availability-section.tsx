@@ -22,7 +22,11 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
-import { formatAbsoluteDateTime, formatRelativeTime } from '@/lib/format'
+import {
+  formatAbsoluteDateTime,
+  formatRelativeTime,
+  formatTime,
+} from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { useRealtimeOps } from '../../hooks/use-realtime-ops'
@@ -157,8 +161,9 @@ function RealtimeSparkline({ points }: { points: RealtimeOpsSamplePoint[] }) {
 }
 
 function RealtimeOpsPanel() {
-  const { t } = useTranslation()
-  const { sample, reconnect } = useRealtimeOps()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
+  const { sample, reconnect, lastFrameAt } = useRealtimeOps()
 
   const tone = sample.gaveUp
     ? 'border-destructive/40 bg-destructive/5'
@@ -204,6 +209,16 @@ function RealtimeOpsPanel() {
         <CardDescription className='text-xs'>
           {t('dashboard.availability.realtime.description')}
         </CardDescription>
+        {!sample.connected && lastFrameAt !== null ? (
+          <p
+            aria-live='polite'
+            className='text-muted-foreground text-xs tabular-nums'
+          >
+            {t('dashboard.availability.realtime.dataAsOf', {
+              time: formatTime(lastFrameAt, locale),
+            })}
+          </p>
+        ) : null}
       </CardHeader>
       <CardContent className='space-y-3'>
         {sample.gaveUp ? (
