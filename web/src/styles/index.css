@@ -199,31 +199,9 @@
   }
 }
 
-/* Launch UI animations. */
 @layer utilities {
-  /* Animations */
-  .animate-appear {
-    animation: appear 0.6s forwards ease-out;
-  }
-
-  .animate-appear-zoom {
-    animation: appear-zoom 0.6s forwards ease-out;
-  }
-
   .animation-delay-100 {
     animation-delay: 100ms;
-  }
-
-  .animation-delay-300 {
-    animation-delay: 300ms;
-  }
-
-  .animation-delay-700 {
-    animation-delay: 700ms;
-  }
-
-  .animation-delay-1000 {
-    animation-delay: 1000ms;
   }
 
   /*
@@ -253,66 +231,9 @@
     background-size: 200% 100%;
     animation: shimmer 1.6s ease-in-out infinite;
   }
-
-  @keyframes appear {
-    0% {
-      opacity: 0;
-      transform: translateY(1rem);
-      filter: blur(0.5rem);
-    }
-    50% {
-      filter: blur(0);
-    }
-    100% {
-      opacity: 1;
-      transform: translateY(0);
-      filter: blur(0);
-    }
-  }
-
-  @keyframes appear-zoom {
-    0% {
-      opacity: 0;
-      transform: scale(0.5);
-    }
-    100% {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
-  /* Vertical scroll animation for icon lists */
-  @keyframes scroll-up {
-    0% {
-      transform: translateY(0);
-    }
-    100% {
-      transform: translateY(-50%);
-    }
-  }
-
-  .animate-scroll-up {
-    animation: scroll-up 20s linear infinite;
-    will-change: transform;
-  }
-
-  .animate-scroll-down {
-    animation: scroll-up 20s linear infinite reverse;
-    will-change: transform;
-  }
-
-  /* Pause animation on hover */
-  .scroll-container:hover .animate-scroll-up,
-  .scroll-container:hover .animate-scroll-down {
-    animation-play-state: paused;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-appear,
-  .animate-appear-zoom,
-  .animate-scroll-up,
-  .animate-scroll-down,
   [data-slot='table'][data-table-stagger='true'] tbody tr {
     animation: none !important;
     opacity: 1;
@@ -331,84 +252,6 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-shimmer {
     animation: none !important;
-  }
-}
-
-/* ── Landing page scroll-triggered animations ── */
-@keyframes landing-fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(24px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-@keyframes landing-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-@keyframes landing-scale-in {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-@keyframes landing-fade-left {
-  from {
-    opacity: 0;
-    transform: translateX(24px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-@keyframes landing-fade-right {
-  from {
-    opacity: 0;
-    transform: translateX(-24px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.landing-animate-fade-up {
-  animation: landing-fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-.landing-animate-fade-in {
-  animation: landing-fade-in 0.6s ease-out both;
-}
-.landing-animate-scale-in {
-  animation: landing-scale-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-.landing-animate-fade-left {
-  animation: landing-fade-left 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-.landing-animate-fade-right {
-  animation: landing-fade-right 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .landing-animate-fade-up,
-  .landing-animate-fade-in,
-  .landing-animate-scale-in,
-  .landing-animate-fade-left,
-  .landing-animate-fade-right {
-    animation: none !important;
-    opacity: 1 !important;
-    transform: none !important;
   }
 }
 
