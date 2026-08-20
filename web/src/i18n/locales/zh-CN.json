@@ -74,6 +74,7 @@
       "reveal": "显示",
       "copy": "复制",
       "sessionExpired": "会话已过期！",
+      "tokenInvalid": "当前管理员令牌已失效，请重新登录。",
       "requestFailed": "请求失败",
       "requestTimeout": "请求超时（{{seconds}}s）"
     },

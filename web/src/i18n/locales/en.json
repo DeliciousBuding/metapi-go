@@ -74,6 +74,7 @@
       "reveal": "Reveal",
       "copy": "Copy",
       "sessionExpired": "Session expired!",
+      "tokenInvalid": "The admin token is no longer valid. Sign in again.",
       "requestFailed": "Request failed",
       "requestTimeout": "Request timeout ({{seconds}}s)"
     },
