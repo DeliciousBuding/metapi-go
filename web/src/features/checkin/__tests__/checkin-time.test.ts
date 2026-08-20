@@ -76,23 +76,32 @@ describe('formatCheckinLogTime', () => {
     expect(formatted).toContain('03:51:58')
   })
 
-  it('uses zh-CN as the default locale', () => {
-    const formatted = formatCheckinLogTime(
+  it('renders in the caller-provided locale (no hardcoded default)', () => {
+    const zhFormatted = formatCheckinLogTime(
       '2026-02-25 03:51:58',
-      undefined,
+      'zh-CN',
       'UTC'
     )
-    expect(formatted).toContain('2026')
-    expect(formatted).toContain('03:51:58')
+    const enFormatted = formatCheckinLogTime(
+      '2026-02-25 03:51:58',
+      'en-US',
+      'UTC'
+    )
+    expect(zhFormatted).toContain('2026')
+    expect(zhFormatted).toContain('03:51:58')
+    // The locale actually drives the output: zh-CN leads with the year
+    // ("2026-02-25 …") while en-US leads with month/day.
+    expect(zhFormatted).not.toBe(enFormatted)
+    expect(zhFormatted.startsWith('2026')).toBe(true)
   })
 
   it('returns the raw trimmed input for an unparseable value', () => {
-    expect(formatCheckinLogTime('not-a-date')).toBe('not-a-date')
+    expect(formatCheckinLogTime('not-a-date', 'en-US')).toBe('not-a-date')
   })
 
-  it('returns a dash placeholder for nullish input', () => {
-    expect(formatCheckinLogTime(null)).toBe('-')
-    expect(formatCheckinLogTime('')).toBe('-')
+  it('returns an em dash placeholder for nullish input', () => {
+    expect(formatCheckinLogTime(null, 'en-US')).toBe('—')
+    expect(formatCheckinLogTime('', 'en-US')).toBe('—')
   })
 })
 

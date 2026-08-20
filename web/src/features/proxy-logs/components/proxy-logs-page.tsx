@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
+import { formatCurrency, formatInt } from '@/lib/format'
 import { asStringParam } from '@/lib/helpers/searchParams'
 import { toast } from '@/lib/toast'
 
@@ -332,21 +333,21 @@ export function ProxyLogsPage() {
         <div className='grid grid-cols-2 gap-2 sm:grid-cols-4'>
           <SummaryCard
             label={t('proxyLogs.page.summaryTotal')}
-            value={String(summary.totalCount)}
+            value={formatInt(summary.totalCount)}
           />
           <SummaryCard
             label={t('proxyLogs.page.summarySuccess')}
-            value={String(summary.successCount)}
+            value={formatInt(summary.successCount)}
             tone='success'
           />
           <SummaryCard
             label={t('proxyLogs.page.summaryFailed')}
-            value={String(summary.failedCount)}
+            value={formatInt(summary.failedCount)}
             tone='danger'
           />
           <SummaryCard
             label={t('proxyLogs.page.summaryCost')}
-            value={`$${summary.totalCost.toFixed(4)}`}
+            value={formatCurrency(summary.totalCost, { fractionDigits: 4 })}
           />
         </div>
       )}

@@ -9,6 +9,7 @@ import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import type { ChannelRow } from '@/features/channels'
+import { formatLatency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type { BatchProbeResult } from '../types'
@@ -118,9 +119,10 @@ export function BatchResults({
                       </span>
                     </td>
                     <td className='px-3 py-2 tabular-nums'>
-                      {result.latencyMs != null
-                        ? `${result.latencyMs} ms`
-                        : '—'}
+                      {formatLatency(result.latencyMs, {
+                        autoSeconds: true,
+                        spaced: true,
+                      })}
                     </td>
                     <td className='text-muted-foreground max-w-56 px-3 py-2 break-words'>
                       {result.error || '—'}

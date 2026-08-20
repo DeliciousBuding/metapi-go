@@ -102,12 +102,22 @@ export function AccountDetailSheet({
         <div className='flex-1 space-y-4 overflow-y-auto p-4'>
           {/* Overview grid */}
           <dl className='grid grid-cols-2 gap-x-3 gap-y-2 text-sm'>
-            <DetailField label={t('accounts.detail.site')}>
+            <DetailField
+              label={t('accounts.detail.site')}
+              title={
+                site
+                  ? site.name || site.url || `#${site.id}`
+                  : `#${account.siteId}`
+              }
+            >
               {site
                 ? site.name || site.url || `#${site.id}`
                 : `#${account.siteId}`}
             </DetailField>
-            <DetailField label={t('accounts.detail.platform')}>
+            <DetailField
+              label={t('accounts.detail.platform')}
+              title={site?.platform || undefined}
+            >
               {site?.platform || '—'}
             </DetailField>
             <DetailField label={t('accounts.detail.balance')}>
@@ -129,7 +139,10 @@ export function AccountDetailSheet({
                   : t('accounts.detail.checkinOff')
                 : t('accounts.detail.checkinUnsupported')}
             </DetailField>
-            <DetailField label={t('accounts.detail.lastBalanceRefresh')}>
+            <DetailField
+              label={t('accounts.detail.lastBalanceRefresh')}
+              title={account.lastBalanceRefresh || undefined}
+            >
               {account.lastBalanceRefresh || '—'}
             </DetailField>
             <DetailField label={t('accounts.detail.quota')}>
@@ -223,14 +236,18 @@ export function AccountDetailSheet({
 function DetailField({
   label,
   children,
+  title,
 }: {
   label: string
   children: ReactNode
+  title?: string
 }) {
   return (
     <div className='flex flex-col'>
       <dt className='text-muted-foreground text-[11px]'>{label}</dt>
-      <dd className='truncate'>{children}</dd>
+      <dd className='truncate' title={title}>
+        {children}
+      </dd>
     </div>
   )
 }

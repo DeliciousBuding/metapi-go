@@ -33,6 +33,8 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { useClearRouteCooldown } from '@/features/token-routes/api'
+import { toBcp47 } from '@/i18n/languages'
+import { formatDateTime, formatLatency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { channelsKeys, type ChannelRow, type ChannelStatus } from '../types'
@@ -79,17 +81,6 @@ const STATUS_CONFIG: Record<
   },
 }
 
-function formatResponse(ms: number | null): string {
-  if (ms === null || ms === undefined) return '—'
-  return `${Math.round(ms)}ms`
-}
-
-function formatCooldown(until: string | null): string {
-  if (!until) return '—'
-  const date = new Date(until)
-  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
-}
-
 function DetailRow({
   label,
   children,
@@ -111,7 +102,8 @@ export function ChannelDetailSheet({
   onOpenChange,
   onEdit,
 }: ChannelDetailSheetProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
   const queryClient = useQueryClient()
   const clearCooldownMutation = useClearRouteCooldown()
 
@@ -214,10 +206,10 @@ export function ChannelDetailSheet({
                   {channel.weight}
                 </DetailRow>
                 <DetailRow label={t('channels.detail.avgLatency')}>
-                  {formatResponse(channel.responseMs)}
+                  {formatLatency(channel.responseMs, { autoSeconds: true })}
                 </DetailRow>
                 <DetailRow label={t('channels.detail.cooldownUntil')}>
-                  {formatCooldown(channel.cooldownUntil)}
+                  {formatDateTime(channel.cooldownUntil, locale)}
                 </DetailRow>
                 <DetailRow label={t('channels.detail.manualOverride')}>
                   {channel.manualOverride

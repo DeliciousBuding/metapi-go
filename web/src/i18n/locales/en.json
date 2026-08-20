@@ -696,7 +696,10 @@
           "healthHealthy": "Traffic healthy",
           "healthDegraded": "Traffic degraded",
           "healthUnhealthy": "Traffic unhealthy",
-          "healthIdle": "No recent traffic"
+          "healthIdle": "No recent traffic",
+          "uptimeMinutes": "{{value}} min",
+          "uptimeHours": "{{value}} h",
+          "uptimeDays": "{{value}} d"
         },
         "monitors": {
           "title": "Attention required",
@@ -716,6 +719,10 @@
       },
       "statCard": {
         "trendLabel": "Trend"
+      },
+      "charts": {
+        "income": "Income",
+        "outcome": "Outcome"
       }
     },
     "settings": {
@@ -1792,7 +1799,9 @@
         "decisionCandidateCount": "Candidate count",
         "decisionSelectedChannel": "Selected channel",
         "decisionReason": "Decision reason",
-        "moreCandidates": "+{{count}} candidates"
+        "moreCandidates": "+{{count}} candidates",
+        "fallbackAccount": "Account #{{id}}",
+        "fallbackToken": "Token #{{id}}"
       },
       "completion": {
         "title": "Configuration flow complete",
@@ -1929,7 +1938,7 @@
         "summaryTotal": "Total",
         "summarySuccess": "Success",
         "summaryFailed": "Failed",
-        "summaryCost": "Total cost",
+        "summaryCost": "Total cost (filtered)",
         "loadError": "Failed to load proxy logs: {{message}}",
         "emptyTitle": "No proxy logs",
         "emptyDescription": "Adjust the filter conditions or refresh to view proxy request records.",
@@ -1979,13 +1988,7 @@
         "retry": "Retry",
         "actions": "Actions",
         "rowActions": "Row actions",
-        "viewDetails": "View details",
-        "relativeBefore": "ago",
-        "relativeAfter": "later",
-        "relativeSeconds": "seconds",
-        "relativeMinutes": "minutes",
-        "relativeHours": "hours",
-        "relativeDays": "days"
+        "viewDetails": "View details"
       },
       "detail": {
         "description": "Log #{{id}} · {{time}}",
@@ -2176,7 +2179,8 @@
           "loadFailed": "Failed to load usage heatmap data.",
           "empty": "No usage density data for the selected range.",
           "legendLow": "Less",
-          "legendHigh": "More"
+          "legendHigh": "More",
+          "utcNote": "Bucket times are UTC"
         }
       },
       "health": {
@@ -2349,7 +2353,8 @@
         "effective": "Effective cost",
         "status": "Status",
         "actions": "Actions"
-      }
+      },
+      "effectiveCostPrecision": "Sample cost keeps 6 decimals so sub-cent per-call prices stay accurate."
     },
     "fixCandidates": {
       "page": {

@@ -23,7 +23,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { StatusBadge } from '@/features/proxy-logs/components/status-badge'
-import { formatLatency } from '@/lib/format'
+import { toBcp47 } from '@/i18n/languages'
+import { formatDateTime, formatLatency } from '@/lib/format'
 
 import { useSlowRequests, useUsageHeatmap } from '../../api'
 import { ObservabilityErrorBanner } from '../../components/observability-error-banner'
@@ -31,20 +32,15 @@ import type { SlowRequestItem, UsageHeatmapCell } from '../../types'
 
 const MAX_HEATMAP_KEYS = 16
 
-function formatClock(iso: string): string {
-  if (!iso) return '—'
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return iso
-  return date.toLocaleString()
-}
-
+// Heatmap buckets are keyed by UTC hour server-side; labels keep UTC so the
+// grid lines up with the bucket strings instead of drifting per viewer zone.
 function formatBucket(iso: string): string {
   if (!iso) return ''
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return iso
   return `${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(
     date.getUTCDate()
-  ).padStart(2, '0')} ${String(date.getUTCHours()).padStart(2, '0')}:00`
+  ).padStart(2, '0')} ${String(date.getUTCHours()).padStart(2, '0')}:00 UTC`
 }
 
 function heatmapLayout(cells: UsageHeatmapCell[]) {
@@ -72,7 +68,8 @@ function heatmapLayout(cells: UsageHeatmapCell[]) {
 }
 
 export function OverviewSection() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
   const slow = useSlowRequests({ limit: 20, minLatencyMs: 1000, hours: 24 })
   const heatmap = useUsageHeatmap({ days: 7, dimension: 'site' })
 
@@ -103,7 +100,7 @@ export function OverviewSection() {
               onRetry={() => void slow.refetch()}
             />
           ) : (
-            renderSlowRequestsBody(slow.isLoading, slowItems, t)
+            renderSlowRequestsBody(slow.isLoading, slowItems, t, locale)
           )}
         </CardContent>
       </Card>
@@ -137,7 +134,8 @@ export function OverviewSection() {
 function renderSlowRequestsBody(
   loading: boolean,
   items: SlowRequestItem[],
-  t: (key: string) => string
+  t: (key: string) => string,
+  locale: string
 ): ReactNode {
   if (loading) {
     return <Skeleton className='h-48 w-full rounded-md' />
@@ -181,10 +179,16 @@ function renderSlowRequestsBody(
       <TableBody>
         {items.map((item) => (
           <TableRow key={item.id}>
-            <TableCell className='max-w-56 truncate font-medium'>
+            <TableCell
+              className='max-w-56 truncate font-medium'
+              title={item.model || undefined}
+            >
               {item.model || '—'}
             </TableCell>
-            <TableCell className='max-w-40 truncate'>
+            <TableCell
+              className='max-w-40 truncate'
+              title={item.siteName || undefined}
+            >
               {item.siteName || '—'}
             </TableCell>
             <TableCell className='text-right tabular-nums'>
@@ -211,7 +215,7 @@ function renderSlowRequestsBody(
               />
             </TableCell>
             <TableCell className='text-right tabular-nums'>
-              {formatClock(item.createdAt)}
+              {formatDateTime(item.createdAt, locale)}
             </TableCell>
           </TableRow>
         ))}
@@ -266,6 +270,7 @@ function renderHeatmapBody(
           ))}
         </div>
         <div className='text-muted-foreground mt-2 flex items-center justify-end gap-2 text-xs'>
+          <span>{t('observability.overview.heatmap.utcNote')}</span>
           <span>{t('observability.overview.heatmap.legendLow')}</span>
           <div className='flex gap-px'>
             {[0, 0.25, 0.5, 0.75, 1].map((alpha) => (
@@ -314,7 +319,11 @@ function HeatmapRow({
             style={{
               backgroundColor: `color-mix(in srgb, var(--chart-1) ${Math.round(intensity * 100)}%, transparent)`,
             }}
-            title={cell ? `${label} · ${bucket} · ${cell.calls}` : undefined}
+            title={
+              cell
+                ? `${label} · ${formatBucket(bucket)} · ${cell.calls}`
+                : undefined
+            }
           />
         )
       })}

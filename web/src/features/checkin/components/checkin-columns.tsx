@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { toBcp47 } from '@/i18n/languages'
 import { cn } from '@/lib/utils'
 
 import { formatCheckinLogTime } from '../lib/checkin-time'
@@ -103,7 +104,8 @@ function CheckinRowActions({
 export function useCheckinColumns(
   actions: CheckinRowActions
 ): ColumnDef<CheckinLogRow>[] {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
   return [
     {
       accessorKey: 'checkin_logs.createdAt',
@@ -113,7 +115,7 @@ export function useCheckinColumns(
         const log = checkinLogRowSchema.parse(row.original)
         return (
           <span className='text-sm tabular-nums'>
-            {formatCheckinLogTime(log.checkin_logs.createdAt)}
+            {formatCheckinLogTime(log.checkin_logs.createdAt, locale)}
           </span>
         )
       },

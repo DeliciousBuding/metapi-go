@@ -22,23 +22,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { toBcp47 } from '@/i18n/languages'
+import { formatDateTime, formatInt } from '@/lib/format'
 
 import { useMonitorHealth } from '../../api'
 import { ObservabilityErrorBanner } from '../../components/observability-error-banner'
 import type { CooldownChannel, RuntimeHealthBreaker } from '../../types'
 
 type Translate = (key: string) => string
-
-function formatCount(value: number | undefined): string {
-  return typeof value === 'number' ? value.toLocaleString() : '—'
-}
-
-function formatClock(ms?: number | null): string {
-  if (!ms) return '—'
-  const date = new Date(ms)
-  if (Number.isNaN(date.getTime())) return String(ms)
-  return date.toLocaleString()
-}
 
 function resolveToneClass(tone: 'neutral' | 'warning' | 'success'): string {
   if (tone === 'warning') return 'text-warning-soft-fg'
@@ -68,7 +59,8 @@ function StatCell({
 }
 
 export function HealthSection() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
   const health = useMonitorHealth()
 
   const data = health.data
@@ -120,7 +112,8 @@ export function HealthSection() {
             {renderBreakersBody(
               health.isLoading,
               runtime?.openBreakers ?? [],
-              t
+              t,
+              locale
             )}
           </CardContent>
         </Card>
@@ -136,7 +129,7 @@ export function HealthSection() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {renderCooldownBody(health.isLoading, cooldown, t)}
+            {renderCooldownBody(health.isLoading, cooldown, t, locale)}
           </CardContent>
         </Card>
       </div>
@@ -199,20 +192,20 @@ function renderRuntimeStats(
     <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
       <StatCell
         label={t('observability.health.runtime.sitesTracked')}
-        value={formatCount(runtime?.sitesTracked)}
+        value={formatInt(runtime?.sitesTracked)}
       />
       <StatCell
         label={t('observability.health.runtime.sitesBreakerOpen')}
-        value={formatCount(runtime?.sitesBreakerOpen)}
+        value={formatInt(runtime?.sitesBreakerOpen)}
         tone={runtime?.sitesBreakerOpen ? 'warning' : 'success'}
       />
       <StatCell
         label={t('observability.health.runtime.modelsTracked')}
-        value={formatCount(runtime?.modelsTracked)}
+        value={formatInt(runtime?.modelsTracked)}
       />
       <StatCell
         label={t('observability.health.runtime.modelsBreakerOpen')}
-        value={formatCount(runtime?.modelsBreakerOpen)}
+        value={formatInt(runtime?.modelsBreakerOpen)}
         tone={runtime?.modelsBreakerOpen ? 'warning' : 'success'}
       />
     </div>
@@ -222,7 +215,8 @@ function renderRuntimeStats(
 function renderBreakersBody(
   loading: boolean,
   breakers: RuntimeHealthBreaker[],
-  t: Translate
+  t: Translate,
+  locale: string
 ) {
   if (loading) {
     return <Skeleton className='h-40 w-full rounded-md' />
@@ -271,7 +265,7 @@ function renderBreakersBody(
               {breaker.breakerLevel}
             </TableCell>
             <TableCell className='text-right tabular-nums'>
-              {formatClock(breaker.breakerUntilMs)}
+              {formatDateTime(breaker.breakerUntilMs, locale)}
             </TableCell>
           </TableRow>
         ))}
@@ -290,7 +284,8 @@ function renderCooldownBody(
         cooling: CooldownChannel[]
       }
     | undefined,
-  t: Translate
+  t: Translate,
+  locale: string
 ) {
   if (loading) {
     return <Skeleton className='h-40 w-full rounded-md' />
@@ -300,24 +295,28 @@ function renderCooldownBody(
       <div className='mb-3 grid grid-cols-3 gap-2'>
         <StatCell
           label={t('observability.health.cooldown.channelsCooling')}
-          value={formatCount(cooldown?.channelsCooling)}
+          value={formatInt(cooldown?.channelsCooling)}
           tone={cooldown?.channelsCooling ? 'warning' : 'success'}
         />
         <StatCell
           label={t('observability.health.cooldown.channelsWithFailures')}
-          value={formatCount(cooldown?.channelsWithFailures)}
+          value={formatInt(cooldown?.channelsWithFailures)}
         />
         <StatCell
           label={t('observability.health.cooldown.channelsRecentlyFailed')}
-          value={formatCount(cooldown?.channelsRecentlyFailed)}
+          value={formatInt(cooldown?.channelsRecentlyFailed)}
         />
       </div>
-      {renderCoolingTable(cooldown?.cooling ?? [], t)}
+      {renderCoolingTable(cooldown?.cooling ?? [], t, locale)}
     </>
   )
 }
 
-function renderCoolingTable(channels: CooldownChannel[], t: Translate) {
+function renderCoolingTable(
+  channels: CooldownChannel[],
+  t: Translate,
+  locale: string
+) {
   if (channels.length === 0) {
     return (
       <div className='flex min-h-16 items-center justify-center gap-2 rounded-lg border border-dashed py-6 text-center'>
@@ -362,7 +361,7 @@ function renderCoolingTable(channels: CooldownChannel[], t: Translate) {
               {channel.failCount}
             </TableCell>
             <TableCell className='text-right tabular-nums'>
-              {channel.cooldownUntil || '—'}
+              {formatDateTime(channel.cooldownUntil, locale)}
             </TableCell>
           </TableRow>
         ))}
@@ -386,22 +385,22 @@ function InventoryCard({
       <div className='grid grid-cols-4 gap-2 text-center'>
         <InventoryMetric
           label={t('observability.health.inventory.total')}
-          value={formatCount(data?.total)}
+          value={formatInt(data?.total)}
           className='text-foreground'
         />
         <InventoryMetric
           label={t('observability.health.inventory.active')}
-          value={formatCount(data?.active)}
+          value={formatInt(data?.active)}
           className='text-success'
         />
         <InventoryMetric
           label={t('observability.health.inventory.disabled')}
-          value={formatCount(data?.disabled)}
+          value={formatInt(data?.disabled)}
           className='text-muted-foreground'
         />
         <InventoryMetric
           label={t('observability.health.inventory.other')}
-          value={formatCount(data?.other)}
+          value={formatInt(data?.other)}
           className='text-foreground'
         />
       </div>

@@ -2,6 +2,11 @@
 // normalization. Kept out of the section component so the react-refresh rule
 // (only-export-components) stays clean and the pure mapping is unit-testable.
 
+import i18n from 'i18next'
+
+import { toBcp47 } from '@/i18n/languages'
+import { formatDateTime } from '@/lib/format'
+
 /**
  * A single operational event from GET /api/events.
  *
@@ -48,10 +53,12 @@ export function normalizeEvent(raw: Record<string, unknown>): ProgramEvent {
   }
 }
 
-/** Render a raw event timestamp as a local datetime string. */
+/**
+ * Render a raw event timestamp as a localized datetime string. Reads the
+ * active i18next language at call time (the section re-renders on language
+ * change), converting it to BCP-47 for the shared formatter.
+ */
 export function formatTimestamp(value?: string): string {
   if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleString()
+  return formatDateTime(value, toBcp47(i18n.language || 'en'))
 }

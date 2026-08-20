@@ -696,7 +696,10 @@
           "healthHealthy": "流量健康",
           "healthDegraded": "流量降级",
           "healthUnhealthy": "流量异常",
-          "healthIdle": "近期无流量"
+          "healthIdle": "近期无流量",
+          "uptimeMinutes": "{{value}} 分钟",
+          "uptimeHours": "{{value}} 小时",
+          "uptimeDays": "{{value}} 天"
         },
         "monitors": {
           "title": "需要关注",
@@ -716,6 +719,10 @@
       },
       "statCard": {
         "trendLabel": "趋势"
+      },
+      "charts": {
+        "income": "收入",
+        "outcome": "支出"
       }
     },
     "settings": {
@@ -1792,7 +1799,9 @@
         "decisionCandidateCount": "候选数",
         "decisionSelectedChannel": "选中通道",
         "decisionReason": "决策理由",
-        "moreCandidates": "+{{count}} 个候选"
+        "moreCandidates": "+{{count}} 个候选",
+        "fallbackAccount": "账户 #{{id}}",
+        "fallbackToken": "令牌 #{{id}}"
       },
       "completion": {
         "title": "配置动线完成",
@@ -1929,7 +1938,7 @@
         "summaryTotal": "总数",
         "summarySuccess": "成功",
         "summaryFailed": "失败",
-        "summaryCost": "总成本",
+        "summaryCost": "筛选结果总成本",
         "loadError": "加载代理日志失败：{{message}}",
         "emptyTitle": "暂无代理日志",
         "emptyDescription": "调整筛选条件或稍后刷新以查看代理请求记录。",
@@ -1979,13 +1988,7 @@
         "retry": "重试",
         "actions": "操作",
         "rowActions": "行操作",
-        "viewDetails": "查看详情",
-        "relativeBefore": "前",
-        "relativeAfter": "后",
-        "relativeSeconds": "秒",
-        "relativeMinutes": "分钟",
-        "relativeHours": "小时",
-        "relativeDays": "天"
+        "viewDetails": "查看详情"
       },
       "detail": {
         "description": "日志 #{{id}} · {{time}}",
@@ -2176,7 +2179,8 @@
           "loadFailed": "用量热力图数据加载失败。",
           "empty": "所选范围内没有用量密度数据。",
           "legendLow": "少",
-          "legendHigh": "多"
+          "legendHigh": "多",
+          "utcNote": "时间桶按 UTC 计"
         }
       },
       "health": {
@@ -2349,7 +2353,8 @@
         "effective": "有效成本",
         "status": "状态",
         "actions": "操作"
-      }
+      },
+      "effectiveCostPrecision": "示例成本保留 6 位小数，以保证低于 1 美分的单次调用价格依然精确。"
     },
     "fixCandidates": {
       "page": {

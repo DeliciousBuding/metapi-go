@@ -64,6 +64,31 @@ function formatRate(rate: number): string {
   return `${(rate * 100).toFixed(1)}%`
 }
 
+/**
+ * Escalate the realtime uptime from minutes to hours/days once the value
+ * outgrows the unit (a multi-day session must not render "4320m").
+ */
+function formatUptime(
+  lifetimeSeconds: number,
+  t: (key: string, options?: Record<string, unknown>) => string
+): string {
+  const minutes = Math.floor(lifetimeSeconds / 60)
+  if (minutes < 60) {
+    return t('dashboard.availability.realtime.uptimeMinutes', {
+      value: minutes,
+    })
+  }
+  const hours = minutes / 60
+  if (hours < 24) {
+    return t('dashboard.availability.realtime.uptimeHours', {
+      value: Number(hours.toFixed(1)),
+    })
+  }
+  return t('dashboard.availability.realtime.uptimeDays', {
+    value: Number((hours / 24).toFixed(1)),
+  })
+}
+
 // Health bands for the realtime sparkline. A second with no traffic is idle
 // (neutral); otherwise the success fraction at that second maps to a band:
 // healthy >= 0.95, degraded >= 0.80, unhealthy < 0.80. The bars stay shaped
@@ -215,7 +240,7 @@ function RealtimeOpsPanel() {
                   {t('dashboard.availability.realtime.metricUptime')}
                 </div>
                 <div className='text-2xl font-semibold tabular-nums'>
-                  {Math.floor(sample.lifetime / 60)}m
+                  {formatUptime(sample.lifetime, t)}
                 </div>
               </div>
             </div>

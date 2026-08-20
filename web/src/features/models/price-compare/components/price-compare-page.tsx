@@ -33,11 +33,11 @@ import type { PriceCompareItem } from '../types'
 import { PriceGradeBadge } from './price-grade-badge'
 
 function formatPerMillion(value: number): string {
-  return value.toFixed(4)
+  return '$' + value.toFixed(4)
 }
 
 function formatSampleCost(value: number): string {
-  return `$${value.toFixed(6)}`
+  return '$' + value.toFixed(6)
 }
 
 type ModelGroup = {
@@ -205,7 +205,14 @@ export function PriceRow({ row }: { row: PriceCompareItem }) {
       <TableCell className='text-right tabular-nums'>
         {formatPerMillion(row.outputPerMillion)}
       </TableCell>
-      <TableCell className='text-right tabular-nums'>
+      <TableCell
+        className='text-right tabular-nums'
+        title={
+          row.missingPrice
+            ? undefined
+            : t('priceCompare.effectiveCostPrecision')
+        }
+      >
         {row.missingPrice ? '—' : formatSampleCost(row.estimatedCostSample)}
       </TableCell>
       <TableCell>

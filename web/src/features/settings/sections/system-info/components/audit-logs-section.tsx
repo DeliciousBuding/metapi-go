@@ -24,7 +24,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
+import { formatDateTime } from '@/lib/format'
 
 import {
   SettingsSectionCard,
@@ -60,7 +62,8 @@ const auditQueryKeys = {
 const METHOD_FILTERS = ['all', 'POST', 'PUT', 'PATCH', 'DELETE'] as const
 
 export function AuditLogsSection() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
   const [methodFilter, setMethodFilter] = useState<string>('all')
   const [pathSearch, setPathSearch] = useState('')
   const [submittedPath, setSubmittedPath] = useState('')
@@ -182,8 +185,8 @@ export function AuditLogsSection() {
             <TableBody>
               {items.map((entry) => (
                 <TableRow key={entry.id}>
-                  <TableCell className='text-muted-foreground text-xs'>
-                    {entry.createdAt}
+                  <TableCell className='text-muted-foreground text-xs tabular-nums'>
+                    {formatDateTime(entry.createdAt, locale)}
                   </TableCell>
                   <TableCell>
                     <Badge variant={methodVariant(entry.method)}>

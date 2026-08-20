@@ -26,6 +26,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { toBcp47 } from '@/i18n/languages'
+import { formatDateTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type {
@@ -178,7 +180,8 @@ export function useRoutesColumns(
   pendingToggleId: number | null = null,
   pendingCooldownId: number | null = null
 ): ColumnDef<RouteSummaryRow>[] {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
   return [
     {
       id: 'select',
@@ -247,7 +250,7 @@ export function useRoutesColumns(
               {route.decisionRefreshedAt && (
                 <span>
                   {t('tokenRoutes.columns.decisionCachedAt', {
-                    time: route.decisionRefreshedAt,
+                    time: formatDateTime(route.decisionRefreshedAt, locale),
                   })}
                 </span>
               )}

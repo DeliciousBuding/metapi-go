@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
+import { formatInt } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import {
@@ -47,7 +48,11 @@ export function DataTableView<TData>(props: DataTableViewProps<TData>) {
   const totalRows = props.table.getRowCount()
   const start = totalRows === 0 ? 0 : pageIndex * pageSize + 1
   const end = pageIndex * pageSize + rows.length
-  const caption = t('dataTable.summary', { start, end, total: totalRows })
+  const caption = t('dataTable.summary', {
+    start: formatInt(start),
+    end: formatInt(end),
+    total: formatInt(totalRows),
+  })
 
   return (
     <div

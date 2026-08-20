@@ -53,11 +53,11 @@ export function parseServerUtcDateTime(
 function formatWithParts(
   value: string | null | undefined,
   options: Intl.DateTimeFormatOptions,
-  locale = 'zh-CN',
+  locale: string,
   timeZone?: string
 ): string {
   const { date, raw } = parseServerUtcDate(value)
-  if (!date) return raw || '-'
+  if (!date) return raw || '—'
   return new Intl.DateTimeFormat(locale, {
     ...options,
     ...(timeZone ? { timeZone } : {}),
@@ -66,7 +66,7 @@ function formatWithParts(
 
 export function formatCheckinLogTime(
   value: string | null | undefined,
-  locale?: string,
+  locale: string,
   timeZone?: string
 ): string {
   return formatWithParts(
@@ -87,7 +87,7 @@ export function formatCheckinLogTime(
 
 export function formatDateTimeMinuteLocal(
   value: string | null | undefined,
-  locale = 'zh-CN',
+  locale: string,
   timeZone?: string
 ): string {
   return formatWithParts(

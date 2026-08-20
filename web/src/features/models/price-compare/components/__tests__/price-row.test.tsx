@@ -127,3 +127,44 @@ describe('PriceRow routes deep-link', () => {
     expect(link).toHaveAttribute('href', '/token-routes?q=gpt-4o-mini')
   })
 })
+
+describe('PriceRow currency display', () => {
+  it('prefixes unit prices and the sample cost with the currency symbol', () => {
+    render(
+      <PriceRow
+        row={buildRow({
+          inputPerMillion: 2.5,
+          outputPerMillion: 10,
+          estimatedCostSample: 0.0125,
+        })}
+      />
+    )
+
+    // Unit prices keep 4 decimals, the sample cost keeps 6 — all carry $.
+    expect(screen.getByText('$2.5000')).toBeInTheDocument()
+    expect(screen.getByText('$10.0000')).toBeInTheDocument()
+    expect(screen.getByText('$0.012500')).toBeInTheDocument()
+  })
+
+  it('explains the 6-decimal sample cost precision in a tooltip', () => {
+    render(<PriceRow row={buildRow({ estimatedCostSample: 0.000001 })} />)
+
+    const costCell = screen.getByText('$0.000001').closest('td')
+    expect(costCell).not.toBeNull()
+    expect(costCell).toHaveAttribute(
+      'title',
+      'Sample cost keeps 6 decimals so sub-cent per-call prices stay accurate.'
+    )
+  })
+
+  it('renders a dash without the precision tooltip when the price is missing', () => {
+    const { container } = render(
+      <PriceRow row={buildRow({ missingPrice: true })} />
+    )
+
+    // The effective-cost cell falls back to a dash and no cell carries the
+    // precision hint (unit-price columns keep their values).
+    expect(container.querySelector('td[title]')).toBeNull()
+    expect(screen.queryByText(/\$0\.0125/)).not.toBeInTheDocument()
+  })
+})

@@ -42,6 +42,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { resolveAccountDisplayName } from '../lib/accounts-display-name'
@@ -119,11 +120,6 @@ function useResolveHealth() {
 // ---------------------------------------------------------------------------
 // Formatting helpers
 // ---------------------------------------------------------------------------
-
-function formatBalance(value: number | undefined | null): string {
-  if (value === undefined || value === null) return '—'
-  return `$${value.toFixed(2)}`
-}
 
 function formatPercent(used: number, total: number): string {
   if (!total || total <= 0) return '—'
@@ -411,11 +407,11 @@ export function useAccountsColumns(
         return (
           <div className='flex flex-col'>
             <span className='tabular-nums'>
-              {formatBalance(account.balance)}
+              {formatCurrency(account.balance)}
             </span>
             {account.todayReward ? (
               <span className='text-success text-[11px]'>
-                +{formatBalance(account.todayReward)}
+                +{formatCurrency(account.todayReward)}
               </span>
             ) : null}
           </div>
@@ -431,7 +427,7 @@ export function useAccountsColumns(
         return (
           <div className='flex flex-col'>
             <span className='tabular-nums'>
-              {formatBalance(account.balanceUsed)}
+              {formatCurrency(account.balanceUsed)}
             </span>
             <span className='text-muted-foreground text-[11px]'>
               {formatPercent(account.balanceUsed ?? 0, account.quota ?? 0)}

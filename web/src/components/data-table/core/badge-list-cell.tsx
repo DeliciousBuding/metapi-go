@@ -27,7 +27,7 @@ export function BadgeListCell({
   tooltipClassName,
 }: BadgeListCellProps) {
   if (items.length === 0) {
-    return <span className='text-muted-foreground text-xs'>-</span>
+    return <span className='text-muted-foreground text-xs'>—</span>
   }
 
   const showTooltip = items.length > max

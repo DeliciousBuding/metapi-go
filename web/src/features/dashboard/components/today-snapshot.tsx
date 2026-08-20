@@ -19,7 +19,7 @@ import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
-import { formatInt } from '@/lib/format'
+import { formatCurrency, formatInt } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { useRealtimeOps } from '../hooks/use-realtime-ops'
@@ -51,23 +51,6 @@ type AttentionResponse = {
 type BalanceTrend = {
   total: number | undefined
   deltaPercent: number | undefined
-}
-
-/** Adaptive currency formatting (mirrors the legacy chart tooltips). */
-function formatBalance(value: number | null | undefined): string {
-  if (value === null || value === undefined || !Number.isFinite(value)) {
-    return '—'
-  }
-  let fractionDigits = 6
-  if (value >= 1) fractionDigits = 3
-  if (value >= 1000) fractionDigits = 2
-  return [
-    '$',
-    value.toLocaleString(undefined, {
-      minimumFractionDigits: fractionDigits,
-      maximumFractionDigits: fractionDigits,
-    }),
-  ].join('')
 }
 
 /**
@@ -132,7 +115,7 @@ export function TodaySnapshotStrip() {
     if (balanceLoading) return <Skeleton className='h-7 w-28' />
     return (
       <div className='truncate text-xl font-semibold tabular-nums'>
-        {formatBalance(trend.total)}
+        {formatCurrency(trend.total)}
       </div>
     )
   }

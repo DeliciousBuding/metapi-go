@@ -17,6 +17,8 @@ import { useTranslation } from 'react-i18next'
 import { DataTableColumnHeader } from '@/components/data-table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { toBcp47 } from '@/i18n/languages'
+import { formatDateTime, formatLatency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type { ChannelRow, ChannelStatus } from '../types'
@@ -58,20 +60,11 @@ const STATUS_CONFIG: Record<
   },
 }
 
-function formatResponse(ms: number | null): string {
-  if (ms === null || ms === undefined) return '—'
-  return `${Math.round(ms)}ms`
-}
-
-function formatCooldown(until: string | null): string {
-  if (!until) return '—'
-  return new Date(until).toLocaleString()
-}
-
 export function useChannelsColumns(
   actions?: ChannelsColumnActions
 ): ColumnDef<ChannelRow>[] {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
 
   return useMemo<ColumnDef<ChannelRow>[]>(
     () => [
@@ -166,7 +159,10 @@ export function useChannelsColumns(
           />
         ),
         cell: ({ row }) => (
-          <span className='text-muted-foreground text-sm'>
+          <span
+            className='text-muted-foreground block max-w-[180px] truncate text-sm'
+            title={row.original.models || undefined}
+          >
             {row.original.models || '—'}
           </span>
         ),
@@ -183,7 +179,9 @@ export function useChannelsColumns(
           />
         ),
         cell: ({ row }) => (
-          <span className='text-sm'>{row.original.priority}</span>
+          <span className='text-sm tabular-nums'>
+            {row.original.priority}
+          </span>
         ),
       },
       {
@@ -198,7 +196,7 @@ export function useChannelsColumns(
           />
         ),
         cell: ({ row }) => (
-          <span className='text-sm'>{row.original.weight}</span>
+          <span className='text-sm tabular-nums'>{row.original.weight}</span>
         ),
       },
       {
@@ -213,8 +211,8 @@ export function useChannelsColumns(
           />
         ),
         cell: ({ row }) => (
-          <span className='text-muted-foreground text-sm'>
-            {formatResponse(row.original.responseMs)}
+          <span className='text-muted-foreground text-sm tabular-nums'>
+            {formatLatency(row.original.responseMs, { autoSeconds: true })}
           </span>
         ),
       },
@@ -230,8 +228,8 @@ export function useChannelsColumns(
           />
         ),
         cell: ({ row }) => (
-          <span className='text-muted-foreground text-sm'>
-            {formatCooldown(row.original.cooldownUntil)}
+          <span className='text-muted-foreground text-sm tabular-nums'>
+            {formatDateTime(row.original.cooldownUntil, locale)}
           </span>
         ),
       },
@@ -266,6 +264,6 @@ export function useChannelsColumns(
         },
       },
     ],
-    [t, actions]
+    [t, locale, actions]
   )
 }

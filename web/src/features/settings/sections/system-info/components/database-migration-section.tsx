@@ -31,7 +31,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
+import { formatDateTime } from '@/lib/format'
 import { toast } from '@/lib/toast'
 
 import {
@@ -148,7 +150,8 @@ function MigrationResultSummary({
   result,
   finishedAt,
 }: MigrationResultSummaryProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
   const tableEntries = Object.entries(result.rows).sort(([left], [right]) =>
     left.localeCompare(right)
   )
@@ -172,7 +175,7 @@ function MigrationResultSummary({
             <dt>
               {t('settings.systemInfo.database.migration.status.finishedAt')}
             </dt>
-            <dd>{new Date(finishedAt).toLocaleString()}</dd>
+            <dd>{formatDateTime(finishedAt, locale)}</dd>
           </>
         ) : null}
       </dl>

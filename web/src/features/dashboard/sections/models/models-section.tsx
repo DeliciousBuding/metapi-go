@@ -132,7 +132,7 @@ export function ModelsSection() {
       <ChartShell
         title={t('dashboard.models.costDistribution.title')}
         description={t('dashboard.models.costDistribution.description')}
-        height={320}
+        height={300}
         loading={costQuery.isLoading}
       >
         {renderChartBody(
@@ -147,7 +147,7 @@ export function ModelsSection() {
       <ChartShell
         title={t('dashboard.models.latencyHistogram.title')}
         description={t('dashboard.models.latencyHistogram.description')}
-        height={320}
+        height={300}
         loading={histogramQuery.isLoading}
       >
         {renderChartBody(
