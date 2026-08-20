@@ -1791,7 +1791,7 @@
         "withRouteId": "Route #{{id}} created. {{suffix}}",
         "withoutRouteId": "Route created. {{suffix}}",
         "action": "Back to Dashboard",
-        "connectAction": "接入客户端"
+        "connectAction": "Connect a client"
       },
       "toast": {
         "updated": "Route updated",
@@ -2281,7 +2281,10 @@
         "skipped": "Skipped {{count}}",
         "failed": "Failed {{count}}",
         "close": "Done",
-        "announce": "Imported {{imported}}, skipped {{skipped}}, failed {{failed}}."
+        "announce": "Imported {{imported}}, skipped {{skipped}}, failed {{failed}}.",
+        "rebuildHint": "Imported sites only become routable after a route rebuild — rebuild now or later from the Routes page.",
+        "rebuildRoutes": "Rebuild routes",
+        "addAccount": "Add account"
       },
       "result": {
         "imported": "Imported",

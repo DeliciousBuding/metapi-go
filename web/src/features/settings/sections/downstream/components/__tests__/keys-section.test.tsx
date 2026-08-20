@@ -105,6 +105,7 @@ afterEach(() => cleanup())
 function renderKeySheetForm(props: {
   editingKey: Parameters<typeof KeySheetForm>[0]['editingKey']
   onDone?: () => void
+  onCreated?: (target: { id: number; name: string; keyMasked?: string }) => void
 }) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -113,14 +114,20 @@ function renderKeySheetForm(props: {
     },
   })
   const onDone = props.onDone ?? vi.fn()
+  const onCreated = props.onCreated ?? vi.fn()
   return {
     onDone,
+    onCreated,
     ...render(
       (
         <QueryClientProvider client={queryClient}>
           <Sheet open onOpenChange={() => {}}>
             <SheetContent>
-              <KeySheetForm editingKey={props.editingKey} onDone={onDone} />
+              <KeySheetForm
+                editingKey={props.editingKey}
+                onDone={onDone}
+                onCreated={onCreated}
+              />
             </SheetContent>
           </Sheet>
         </QueryClientProvider>
@@ -260,6 +267,70 @@ describe('KeySheetForm — create mode', () => {
       expect(onDone).toHaveBeenCalledTimes(1)
     })
     expect(mockToastSuccess).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports the created key to onCreated so KeysSection can auto-open Connect', async () => {
+    // The real backend envelope: POST /api/downstream-keys re-reads the
+    // inserted row and answers { success, item }.
+    mockCreateKey.mockResolvedValue({
+      success: true,
+      item: { id: 7, name: 'New key', keyMasked: 'sk-…5678' },
+    })
+
+    const { onDone, onCreated } = renderKeySheetForm({ editingKey: null })
+
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'New key' },
+    })
+    fireEvent.change(screen.getByLabelText('Key'), {
+      target: { value: 'sk-12345678' },
+    })
+
+    const form = document.querySelector('form')
+    if (!form) {
+      throw new Error('KeySheetForm did not render its <form>')
+    }
+    fireEvent.submit(form)
+
+    await waitFor(() => {
+      expect(onCreated).toHaveBeenCalledWith({
+        id: 7,
+        name: 'New key',
+        keyMasked: 'sk-…5678',
+      })
+    })
+    // The sheet still closes exactly once — Connect opens as the sheet
+    // dismisses, not instead of it.
+    await waitFor(() => {
+      expect(onDone).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it('skips onCreated (keeps toast-only feedback) when the response lacks the created row', async () => {
+    // Legacy/empty envelope: nothing to build a dialog target from, and
+    // nothing may be fabricated.
+    mockCreateKey.mockResolvedValue({ success: true })
+
+    const { onDone, onCreated } = renderKeySheetForm({ editingKey: null })
+
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'New key' },
+    })
+    fireEvent.change(screen.getByLabelText('Key'), {
+      target: { value: 'sk-12345678' },
+    })
+
+    const form = document.querySelector('form')
+    if (!form) {
+      throw new Error('KeySheetForm did not render its <form>')
+    }
+    fireEvent.submit(form)
+
+    await waitFor(() => {
+      expect(onDone).toHaveBeenCalledTimes(1)
+    })
+    expect(mockToastSuccess).toHaveBeenCalledTimes(1)
+    expect(onCreated).not.toHaveBeenCalled()
   })
 })
 

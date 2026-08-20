@@ -6,12 +6,15 @@
 // weight, then commits one idempotent POST /api/sites/import and reports the
 // imported/skipped/failed breakdown.
 
+import { useNavigate } from '@tanstack/react-router'
 import {
   Check as CheckIcon,
   Minus as MinusIcon,
   TriangleAlert as AlertIcon,
   Upload as UploadIcon,
+  UserPlus as UserPlusIcon,
   X as XIcon,
+  Zap as ZapIcon,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -35,6 +38,7 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { useSites } from '@/features/sites/api'
 import type { Site } from '@/features/sites/types'
+import { useRebuildRoutes } from '@/features/token-routes/api'
 
 import { useDetectSite, useImportSites } from '../api'
 import { canonicalizeUrl, parseUrlLines } from '../lib/utils'
@@ -123,9 +127,11 @@ export function ImportWizardDialog({
   onOpenChange,
 }: ImportWizardDialogProps) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const sitesQuery = useSites()
   const detectSite = useDetectSite()
   const importSites = useImportSites()
+  const rebuildRoutes = useRebuildRoutes()
 
   const [step, setStep] = useState<ImportStepId>('source')
   const [sourceText, setSourceText] = useState('')
@@ -388,6 +394,25 @@ export function ImportWizardDialog({
   function handleDone() {
     reset()
     onOpenChange(false)
+  }
+
+  // Imported sites are not routable until a route rebuild picks them up.
+  // Reuse the shared rebuild mutation (it already toasts queued/complete
+  // outcomes); close the wizard once the rebuild request lands. On failure
+  // the wizard stays open so the operator can retry.
+  function handleRebuildRoutes() {
+    rebuildRoutes.mutate(undefined, {
+      onSuccess: () => {
+        reset()
+        onOpenChange(false)
+      },
+    })
+  }
+
+  function handleGoToAccounts() {
+    reset()
+    onOpenChange(false)
+    navigate({ to: '/accounts' })
   }
 
   return (
@@ -686,6 +711,9 @@ export function ImportWizardDialog({
                     {t('import.done.failed', { count: result.failed })}
                   </Badge>
                 </div>
+                <p className='text-muted-foreground text-xs'>
+                  {t('import.done.rebuildHint')}
+                </p>
                 <div className='grid gap-2'>
                   {result.results.map((item) => {
                     const badge = statusBadge(item.status)
@@ -777,10 +805,32 @@ export function ImportWizardDialog({
               </Button>
             )}
             {step === 'done' && (
-              <Button type='button' onClick={handleDone}>
-                <CheckIcon className='mr-1 size-4' />
-                {t('import.done.close')}
-              </Button>
+              <>
+                <Button type='button' variant='ghost' onClick={handleDone}>
+                  <CheckIcon className='mr-1 size-4' />
+                  {t('import.done.close')}
+                </Button>
+                <Button
+                  type='button'
+                  variant='outline'
+                  onClick={handleGoToAccounts}
+                >
+                  <UserPlusIcon className='mr-1 size-4' />
+                  {t('import.done.addAccount')}
+                </Button>
+                <Button
+                  type='button'
+                  onClick={handleRebuildRoutes}
+                  disabled={rebuildRoutes.isPending}
+                >
+                  {rebuildRoutes.isPending ? (
+                    <Spinner className='mr-2' />
+                  ) : (
+                    <ZapIcon className='mr-1 size-4' />
+                  )}
+                  {t('import.done.rebuildRoutes')}
+                </Button>
+              </>
             )}
           </DialogFooter>
         </DialogContent>
