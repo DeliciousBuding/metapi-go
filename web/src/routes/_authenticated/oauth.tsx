@@ -6,32 +6,39 @@
 // Router (non-strict default) does not rewrite the URL on transforms, so the
 // page's own `window.location.search` reads stay consistent.
 //
-// `loader` prefetches the connections list (`oauthKeys.connections()`) and
-// the providers list (`oauthKeys.providers()`) the page's
-// `useOAuthConnections` / `useOAuthProviders` will request. The queryFns
-// mirror the hooks (unwrap `.items` / `.providers` from the backend
-// envelopes) so the cached payloads match the hooks' output types exactly.
+// `loader` prefetches the ONE server-paginated connections page the deep
+// link points at (page/pageSize parsed from the router location via
+// `oauthSearchSchema`) plus the providers list. It reuses the hook's
+// query-key factory + fetcher so the prefetched page is served from cache
+// on mount instead of re-fetching — mirroring the checkin-logs pattern.
 
 import { createFileRoute } from '@tanstack/react-router'
 
-import { oauthKeys, oauthSearchSchema } from '@/features/oauth'
+import {
+  fetchOAuthConnectionsPage,
+  oauthConnectionsPageQueryKey,
+  oauthKeys,
+  oauthSearchSchema,
+} from '@/features/oauth'
 import { OAuthPage } from '@/features/oauth/components/oauth-page'
 import { api } from '@/lib/api'
 
 export const Route = createFileRoute('/_authenticated/oauth')({
   validateSearch: oauthSearchSchema,
   staticData: { title: 'oauth.page.title' },
-  loader: async ({ context }) => {
+  loader: async ({ context, location }) => {
+    const params = new URLSearchParams(location.searchStr)
+    const parsed = oauthSearchSchema.safeParse({
+      page: params.get('page') ?? undefined,
+      pageSize: params.get('pageSize') ?? undefined,
+    })
+    const page = parsed.success ? (parsed.data.page ?? 0) : 0
+    const pageSize = parsed.success ? (parsed.data.pageSize ?? 20) : 20
+
     await Promise.all([
       context.queryClient.prefetchQuery({
-        queryKey: oauthKeys.connections(),
-        queryFn: async () => {
-          const response = await api.getOAuthConnections({
-            limit: 1000,
-            offset: 0,
-          })
-          return response.items ?? []
-        },
+        queryKey: oauthConnectionsPageQueryKey({ page, pageSize }),
+        queryFn: () => fetchOAuthConnectionsPage({ page, pageSize }),
       }),
       context.queryClient.prefetchQuery({
         queryKey: oauthKeys.providers(),

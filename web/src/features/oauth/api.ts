@@ -1,14 +1,19 @@
 // metapi-go/features/oauth — TanStack Query hooks wrapping `lib/api.ts`.
 //
-// `useOAuthConnections` fetches the full connection list with a large limit
-// (the backend paginates server-side, but the table does client-side
-// pagination/sorting/filtering via `useDataTable`). `useOAuthProviders`
-// fetches the available providers for the start-authorization dialog.
-// Mutations invalidate the connections key on success so the table refreshes
-// without a manual refetch. `useStartOAuth` and `useRebindOAuthConnection`
-// return an `OAuthStartResponse` whose `authorizationUrl` the caller opens
-// in a new tab — they do not optimistically patch the list (the connection
-// is created after the OAuth callback completes).
+// `useOAuthConnections` fetches ONE server-side page at a time
+// (GET /api/oauth/connections?limit=&offset= returns items + total), so the
+// table runs in manualPagination mode and the page count reflects the real
+// total. The previous implementation fetched `limit:1000` and silently
+// truncated larger fleets. The backend has no server-side q/status/sort
+// params, so the toolbar search + status filter + column sorting stay
+// client-side over the fetched page only (documented backend gap).
+// `useOAuthProviders` fetches the available providers for the
+// start-authorization dialog. Mutations invalidate the connections key
+// prefix on success so the current page refreshes without a manual refetch.
+// `useStartOAuth` and `useRebindOAuthConnection` return an
+// `OAuthStartResponse` whose `authorizationUrl` the caller opens in a new
+// tab — they do not optimistically patch the list (the connection is created
+// after the OAuth callback completes).
 
 import {
   useMutation,
@@ -43,19 +48,64 @@ export function useOAuthProviders(
   })
 }
 
+/** One server-side page of OAuth connections plus the fleet total. */
+export type OAuthConnectionsPage = {
+  items: OAuthClient[]
+  total: number
+}
+
+/** Query key for one server-side connections page. */
+export function oauthConnectionsPageQueryKey(params: {
+  page: number
+  pageSize: number
+}) {
+  return [
+    ...oauthKeys.connections(),
+    { page: params.page, pageSize: params.pageSize },
+  ]
+}
+
 /**
- * Fetch all OAuth connections. The backend paginates server-side; we fetch
- * with a large limit so the table can do client-side pagination/sorting.
+ * Fetch + shape one server-side connections page. Shared by the hook and
+ * the route loader so the prefetched page reuses the hook's cache key and
+ * payload shape exactly. A missing / malformed `total` degrades to the
+ * returned page length (the pager then shows one page — never an invented
+ * total).
+ */
+export async function fetchOAuthConnectionsPage(params: {
+  page: number
+  pageSize: number
+}): Promise<OAuthConnectionsPage> {
+  const response = await api.getOAuthConnections({
+    limit: params.pageSize,
+    offset: params.page * params.pageSize,
+  })
+  const items = (response.items ?? []) as OAuthClient[]
+  const total =
+    typeof response.total === 'number' && Number.isFinite(response.total)
+      ? response.total
+      : items.length
+  return { items, total }
+}
+
+/**
+ * Fetch a single server-side page of OAuth connections. The backend returns
+ * `{ items, total, limit, offset }`; `total` drives the table's page count
+ * (manualPagination). `placeholderData` keeps the previous page on screen
+ * while the next one loads, matching the checkin-logs pattern.
  */
 export function useOAuthConnections(
-  options?: Omit<UseQueryOptions<OAuthClient[]>, 'queryKey' | 'queryFn'>
+  params: { page: number; pageSize: number },
+  options?: Omit<
+    UseQueryOptions<OAuthConnectionsPage>,
+    'queryKey' | 'queryFn'
+  >
 ) {
-  return useQuery<OAuthClient[]>({
-    queryKey: oauthKeys.connections(),
-    queryFn: async () => {
-      const response = await api.getOAuthConnections({ limit: 1000, offset: 0 })
-      return (response.items ?? []) as OAuthClient[]
-    },
+  return useQuery<OAuthConnectionsPage>({
+    queryKey: oauthConnectionsPageQueryKey(params),
+    queryFn: () => fetchOAuthConnectionsPage(params),
+    placeholderData: (previous) => previous,
+    staleTime: 10 * 1000,
     ...options,
   })
 }
@@ -85,10 +135,16 @@ export function useStartOAuth(
   })
 }
 
-type DeleteOAuthConnectionContext = { previous: OAuthClient[] | undefined }
+type DeleteOAuthConnectionContext = {
+  previousPages: Array<
+    [readonly unknown[], OAuthConnectionsPage | undefined]
+  >
+}
 
 /**
- * Delete an OAuth connection by account id. Removes the row optimistically.
+ * Delete an OAuth connection by account id. Removes the row optimistically
+ * from every cached connections page (the query key now carries the page
+ * params) and adjusts each page's total. Rolls back all pages on error.
  */
 export function useDeleteOAuthConnection(
   options?: UseMutationOptions<
@@ -105,19 +161,26 @@ export function useDeleteOAuthConnection(
     },
     onMutate: async (accountId) => {
       await queryClient.cancelQueries({ queryKey: oauthKeys.connections() })
-      const previous = queryClient.getQueryData<OAuthClient[]>(
-        oauthKeys.connections()
-      )
-      queryClient.setQueryData<OAuthClient[]>(
-        oauthKeys.connections(),
+      const previousPages = queryClient.getQueriesData<OAuthConnectionsPage>({
+        queryKey: oauthKeys.connections(),
+      })
+      queryClient.setQueriesData<OAuthConnectionsPage>(
+        { queryKey: oauthKeys.connections() },
         (current) =>
-          (current ?? []).filter((client) => client.accountId !== accountId)
+          current
+            ? {
+                items: current.items.filter(
+                  (client) => client.accountId !== accountId
+                ),
+                total: Math.max(0, current.total - 1),
+              }
+            : current
       )
-      return { previous }
+      return { previousPages }
     },
     onError: (_error, _accountId, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(oauthKeys.connections(), context.previous)
+      for (const [queryKey, previous] of context?.previousPages ?? []) {
+        queryClient.setQueryData(queryKey, previous)
       }
     },
     onSettled: () => {
