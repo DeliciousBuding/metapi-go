@@ -2,9 +2,9 @@
 
 **Last updated**: 2026-08-16
 
-> **Navigation**: full docs map in [`docs/README.md`](README.md) · open items in [`progress/MASTER.md`](progress/MASTER.md).
+> **Navigation**: full docs map in [`docs/README.md`](README.md) · open items in [`progress/MASTER.md`](internal/progress/MASTER.md).
 
-Metapi Go is a ground-up rewrite of the TypeScript Metapi proxy gateway in Go. This document describes the **as-built** package layout, request paths, and key design decisions. Design philosophy and package dependency rules live in [`docs/design/BACKEND.md`](design/BACKEND.md).
+Metapi Go is a ground-up rewrite of the TypeScript Metapi proxy gateway in Go. This document describes the **as-built** package layout, request paths, and key design decisions. Design philosophy and package dependency rules live in [`docs/internal/design/BACKEND.md`](internal/design/BACKEND.md).
 
 > **Naming truth:** There is **no** `proxycore/` or `protocol/` package in this repository. The proxy engine is `proxy/` (with `proxy/profiles` and `proxy/types`). Protocol conversion is `transform/` (with `openai` [completions/embeddings/images/responses], `gemini`, and `shared`). There is **no** `transform/canonical` intermediate layer — cross-protocol conversion is native (e.g. OpenAI→Gemini) and bypasses any canonical representation. Older docs or TS-era names that say “ProxyCore package” or “protocol package” refer to these real packages.
 
@@ -213,7 +213,7 @@ Routing isolates bad channels instead of cascading:
 
 ## Package dependency overview
 
-High-level allowed direction (see [`docs/design/BACKEND.md`](design/BACKEND.md) for forbidden edges):
+High-level allowed direction (see [`docs/internal/design/BACKEND.md`](internal/design/BACKEND.md) for forbidden edges):
 
 ```
 cmd → app, router, config, store, …
@@ -229,7 +229,7 @@ store → config
 config, web, handler/shared → leaves
 ```
 
-**Package ownership inventory:** as-built public entrypoints, import edges, approved exceptions, and recommended cleanups live in [`docs/analysis/package-boundaries.md`](analysis/package-boundaries.md). Prefer that file when deciding where new code belongs or whether an import edge is intentional.
+**Package ownership inventory:** as-built public entrypoints, import edges, approved exceptions, and recommended cleanups live in [`docs/internal/analysis/package-boundaries.md`](internal/analysis/package-boundaries.md). Prefer that file when deciding where new code belongs or whether an import edge is intentional.
 
 ## S.U.P.E.R. Compliance
 
@@ -241,8 +241,8 @@ config, web, handler/shared → leaves
 
 ## Related docs
 
-- [`docs/design/BACKEND.md`](design/BACKEND.md) — backend design philosophy, dependency rules, forbidden imports
-- [`docs/analysis/package-boundaries.md`](analysis/package-boundaries.md) — package ownership inventory, public entrypoints, import exceptions
+- [`docs/internal/design/BACKEND.md`](internal/design/BACKEND.md) — backend design philosophy, dependency rules, forbidden imports
+- [`docs/internal/analysis/package-boundaries.md`](internal/analysis/package-boundaries.md) — package ownership inventory, public entrypoints, import exceptions
 - [`docs/api.md`](api.md) — admin API reference
 - [`docs/deployment.md`](deployment.md) — deploy guide
 - [`docs/migration.md`](migration.md) — TS → Go migration notes

@@ -12,8 +12,8 @@ import (
 )
 
 // TestPackageBoundaries encodes the forbidden-import hard rules from
-// docs/design/BACKEND.md §2.3 as a machine assertion, so the package
-// dependency discipline documented in docs/analysis/package-boundaries.md
+// docs/internal/design/BACKEND.md §2.3 as a machine assertion, so the package
+// dependency discipline documented in docs/internal/analysis/package-boundaries.md
 // cannot silently drift.
 
 // This is the Go analogue of a grep-based architecture boundary check
@@ -63,7 +63,7 @@ func TestPackageBoundaries(t *testing.T) {
 			return violations[i].file < violations[j].file
 		})
 		var b strings.Builder
-		b.WriteString("package boundary violations (docs/design/BACKEND.md §2.3):\n")
+		b.WriteString("package boundary violations (docs/internal/design/BACKEND.md §2.3):\n")
 		for _, v := range violations {
 			b.WriteString("  ")
 			b.WriteString(v.file)

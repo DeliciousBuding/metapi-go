@@ -2,7 +2,7 @@
 
 **Last verified**: 2026-08-16
 
-> Public, environment-agnostic test guidance. Product state lives in [`STATE.md`](STATE.md); open outcomes live in [`progress/MASTER.md`](progress/MASTER.md).
+> Public, environment-agnostic test guidance. Product state lives in [`STATE.md`](internal/STATE.md); open outcomes live in [`progress/MASTER.md`](internal/progress/MASTER.md).
 
 ## Test layers
 
@@ -19,7 +19,7 @@
 - [`../testbed/compose.template.yml`](../testbed/compose.template.yml): sanitized loopback-only service template for Metapi, New API, One API, and optional adapter targets.
 - [`../scripts/e2e/smoke.sh`](../scripts/e2e/smoke.sh): idempotent password-login chain from health and site detection through `/v1` proxying.
 - [`../scripts/e2e/verify-token-import.sh`](../scripts/e2e/verify-token-import.sh): equivalent chain for session JWTs, API keys, and management keys.
-- [`analysis/p0585-production-verification.md`](analysis/p0585-production-verification.md): operator-gated multi-channel cascade evidence procedure.
+- [`analysis/p0585-production-verification.md`](internal/analysis/p0585-production-verification.md): operator-gated multi-channel cascade evidence procedure.
 
 ## Run a real-platform chain
 

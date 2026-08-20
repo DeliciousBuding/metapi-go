@@ -597,7 +597,7 @@ Update checkin schedule (cron, interval, or random-window mode). The handler kee
 
 ## Update Center
 
-> **501 residual**：本组接口当前返回 501（未实现）。版本更新提示走 GitHub Releases / GHCR 镜像 tag，前端不依赖此 API。详见 [`STATE.md`](STATE.md)。
+> **501 residual**：本组接口当前返回 501（未实现）。版本更新提示走 GitHub Releases / GHCR 镜像 tag，前端不依赖此 API。详见 [`STATE.md`](internal/STATE.md)。
 
 ### GET /api/update-center/status
 

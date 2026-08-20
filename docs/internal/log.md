@@ -3,7 +3,7 @@
 **Last updated**: 2026-08-19
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
-> Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
+> Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
 ## 2026-08-19 — Real-e2e UIUX audit: self-hosted brand icons + audit tooling
 
@@ -128,7 +128,7 @@ Deep-test audit (full suite + race + static analysis + concurrency/SQL review) s
 
 ## 2026-08-15 — 真实平台测试战役：测试床 + 6 个实测 bug 修复 + CI e2e
 
-- **测试平台（真实上游，compose 管理）**：临时 ARM 机跑 metapi + new-api v1 + one-api v0.6.10 + sub2api + cliproxyapi 7 容器；私有层（host-local git + `.env` chmod 600）与公开层（`testbed/compose.template.yml` sanitized 模板 + env 驱动脚本）隔离，主机 IP/凭据不进公开仓；设计/SOP 现位于 [`testing.md`](testing.md)
+- **测试平台（真实上游，compose 管理）**：临时 ARM 机跑 metapi + new-api v1 + one-api v0.6.10 + sub2api + cliproxyapi 7 容器；私有层（host-local git + `.env` chmod 600）与公开层（`testbed/compose.template.yml` sanitized 模板 + env 驱动脚本）隔离，主机 IP/凭据不进公开仓；设计/SOP 现位于 [`testing.md`](../testing.md)
 - **实测修 6 个真 bug（全部真实平台端到端复测通过）**：
   - #767 前端 10 路由严格 validateSearch 在旧 URL 参数下抛错 → error boundary「服务器错误」
   - #768 new-api v1 登录响应无顶层 `success`（token 在 `data.access_token`）
@@ -143,13 +143,13 @@ Deep-test audit (full suite + race + static analysis + concurrency/SQL review) s
 ## 2026-08-14 — Leader/Worker 并行 fan-out：5 分支合入 + strict 模式关闭
 
 - **并行开发**：5 个 Flash worker 各自在 `.worktrees/` 独立分支实现，PR #658-#662 全部 squash 合入 master（全局搜索 / 首页今日快照+StatCard / 告警富化 / 表格交互 / 测试台会话化+模板库），连同 #657 共 6 个 PR
-- **工程策略**：关闭分支保护 strict「分支必须最新」——保留 12 项必检 + squash 线性历史，允许并行分支各自 CI 绿后直接合入（`docs/git-workflow.md` §3 已记录）
+- **工程策略**：关闭分支保护 strict「分支必须最新」——保留 12 项必检 + squash 线性历史，允许并行分支各自 CI 绿后直接合入（`docs/internal/git-workflow.md` §3 已记录）
 - **hook-kit 修复**：修 `leak_guard.py` 新分支 push 用空树 diff 误报历史占位符的 bug，改为与远端 merge-base 求差（补回归测试）
 - 剩余 P1：接入向导 onboarding checklist、价格对比权重对照、测试台批量延迟对比
 
 ## 2026-08-14 — 多 Agent UI/UX 对照审计 + 分发端 P0 落地
 
-- **4 个审计 agent**（动线/视觉/交互/功能对标，对照 New API × All API Hub）：结论聚合进 `docs/analysis/ui-ux-audit-2026-08.md`（25 视觉项 / 9 交互项 / 5 动线 / 8 功能差距）
+- **4 个审计 agent**（动线/视觉/交互/功能对标，对照 New API × All API Hub）：结论聚合进 `docs/internal/analysis/ui-ux-audit-2026-08.md`（25 视觉项 / 9 交互项 / 5 动线 / 8 功能差距）
 - **分发端 P0**：客户端接入导出对话框（Cherry Studio/CC Switch 深链 + env/JSON 复制，复用后端 credential_export）；建路由完成 toast CTA 改接 `/settings/downstream`
 - **视觉 P0**：6 处 `-foreground` 误用修复 + badge success/info 变体 + 站点徽章语义 + 软徽章对比度 token 修正
 - **交互 P0/P1**：rates 行内编辑安全网（防重/空值/丢 draft）；404 与错误边界页；深链页码钳位（4 页接线）；导入向导脏确认
@@ -157,7 +157,7 @@ Deep-test audit (full suite + race + static analysis + concurrency/SQL review) s
 
 ## 2026-08-14 — 产品对标 + 文档卫生（neat-freak）
 
-- **产品对标文档**：`docs/benchmark.md`（New API v1.0.0-rc.24 × All API Hub 上游 #1290）；结论 P0 = 客户端一键导出 + 接入向导；roadmap 表进 MASTER.md；"明确不做"= 多租户计费/支付/桌面版
+- **产品对标文档**：`docs/internal/benchmark.md`（New API v1.0.0-rc.24 × All API Hub 上游 #1290）；结论 P0 = 客户端一键导出 + 接入向导；roadmap 表进 MASTER.md；"明确不做"= 多租户计费/支付/桌面版
 - **文档卫生**：STATE.md 发行/生产 pin/i18n/RE2 事实对齐 v0.12.0；package-boundaries.md 清除 canonical/anthropic/Conductor 残留 + 修正 transform 接线状态（部分接线）；AGENTS.md 结构注释对齐 as-built（35 表/16 调度器/transform 3 协议族）；删除 .claude/UPGRADE-POLISH-PLAN.md（未完成项转入 MASTER backlog）
 
 ## 2026-08-14 — v0.12.0 架构简化（净删 ~21K 行）
@@ -184,7 +184,7 @@ Deep-test audit (full suite + race + static analysis + concurrency/SQL review) s
 
 ## 2026-08-11 — post-v0.9.0 UI completion batch
 
-- **Git workflow（GitHub Flow 落地，已实际启用）**：master 唯一长期分支 + 分支保护（要求 PR + 11 CI 检查必选 + enforce admins + 禁强推/删除）+ 仓库级 Squash-only 合并 + PR 模板；规则文档 `docs/git-workflow.md`；ci.yml 移除 paths-ignore（必选检查与跳过互斥）
+- **Git workflow（GitHub Flow 落地，已实际启用）**：master 唯一长期分支 + 分支保护（要求 PR + 11 CI 检查必选 + enforce admins + 禁强推/删除）+ 仓库级 Squash-only 合并 + PR 模板；规则文档 `docs/internal/git-workflow.md`；ci.yml 移除 paths-ignore（必选检查与跳过互斥）
 - **v0.9.0 发布补推（此前仅本地）**：本地 master 18+ commit（v0.9.0 重写 + UI completion）推上 GitHub；`v0.9.0` tag + Release 创建；CD 双跑成功 → `ghcr.io/deliciousbuding/metapi-go` 发布 `latest`/`0.9.0`/`0.9`/sha 镜像（首跑暴露 CI 盲点并修复：go:embed 需 web/dist，测试 job 构建真实前端；responses-websocket doc 指针 `.md` → 真实文档）
 - **前端修复收尾**：Base UI render prop + TanStack Link 冲突（侧栏点击 JSON circular 崩溃）→ SidebarNavLink 只透传 DOM-safe props；searchParams parse/encode 分离消除 `?sort=%5B%5D` URL 噪声；updateCenterReminder/updateCenterPresentation（501 residual 幽灵前端）删除
 - **品牌 rename → Metapi**：display name unified (identity-branding / locales / About / index title); transparent SVG badge `logo.svg` (gradient rounded-square + real π glyph) + `favicon.svg` replace the white-background PNG; router root-file whitelist + table-driven regression test extended to `image/svg+xml`

@@ -3,7 +3,7 @@
 **Last verified**: 2026-08-18
 
 > **Current state** (product repository). Only current facts and pointers, no narrative.
-> Deployment facts live in the deployment guide; open items → [`progress/MASTER.md`](progress/MASTER.md) · timeline → [`log.md`](log.md) · version narrative → root [`CHANGELOG.md`](../CHANGELOG.md)
+> Deployment facts live in the deployment guide; open items → [`progress/MASTER.md`](progress/MASTER.md) · timeline → [`log.md`](log.md) · version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
 ## Current
 
@@ -48,8 +48,8 @@
 ## Current pointers
 
 - Open work and three delivery mainlines: [`progress/MASTER.md`](progress/MASTER.md)
-- As-built package and request flow: [`architecture.md`](architecture.md)
-- Public deployment variables and upgrade procedure: [`deployment.md`](deployment.md)
+- As-built package and request flow: [`architecture.md`](../architecture.md)
+- Public deployment variables and upgrade procedure: [`deployment.md`](../deployment.md)
 
 ## Branch hygiene
 

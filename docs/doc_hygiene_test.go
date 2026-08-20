@@ -16,7 +16,19 @@ var (
 	// Public markdown must only link public repositories under this owner.
 	// Private deployment forks (e.g. tokendance-gateway) must never be cited.
 	ownerRepoLinkRE = regexp.MustCompile(`(?i)github\.com/DeliciousBuding/([A-Za-z0-9_.-]+)`)
+	// Inline markdown link target: [text](target). Targets containing spaces
+	// (optional-title form) and HTML tags are deliberately out of scope.
+	markdownLinkRE = regexp.MustCompile(`\[[^\]]*\]\(([^)\s]+)\)`)
 )
+
+// storefrontMarkdown names the README files: the public storefront of the
+// repository. They must never deep-link into docs/internal/ — maintainer
+// process context (roadmap, audit waves, state tables) stays internal and
+// user-facing facts are stated inline instead.
+var storefrontMarkdown = map[string]bool{
+	"README.md":    true,
+	"README_EN.md": true,
+}
 
 func TestPublicMarkdownHygiene(t *testing.T) {
 	root := repoRoot(t)
@@ -196,4 +208,123 @@ func itoa(n int) string {
 		n /= 10
 	}
 	return string(buf[i:])
+}
+
+// TestStorefrontDoesNotLinkInternalDocs pins the public/internal docs split:
+// the README files are the storefront and may only link user-facing material.
+// Maintainer process docs under docs/internal/ (roadmap, state, audits,
+// design notes) are discoverable through docs/README.md, never through the
+// storefront.
+func TestStorefrontDoesNotLinkInternalDocs(t *testing.T) {
+	root := repoRoot(t)
+	var findings []string
+
+	for name := range storefrontMarkdown {
+		path := filepath.Join(root, name)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		lines := strings.Split(string(data), "\n")
+		for i, line := range lines {
+			for _, match := range markdownLinkRE.FindAllStringSubmatch(line, -1) {
+				target := match[1]
+				if isExternalLinkTarget(target) {
+					continue
+				}
+				resolved := resolveLinkTarget(root, name, target)
+				if strings.HasPrefix(resolved, "docs/internal/") {
+					findings = append(findings, formatFinding(name, i+1, "storefront link into docs/internal/", line))
+				}
+			}
+		}
+	}
+
+	if len(findings) > 0 {
+		t.Fatalf("storefront docs must not link maintainer-internal docs:\n%s", strings.Join(findings, "\n"))
+	}
+}
+
+// TestRelativeMarkdownLinksResolve catches dead relative links in tracked
+// markdown (dead links are the defect readers report most often, and they are
+// trivially automatable). Links inside fenced code blocks and external URLs
+// are out of scope.
+func TestRelativeMarkdownLinksResolve(t *testing.T) {
+	root := repoRoot(t)
+	var findings []string
+
+	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			name := entry.Name()
+			if name == ".git" || name == "node_modules" || name == "dist" ||
+				name == ".claude" || name == ".worktrees" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if filepath.Ext(path) != ".md" {
+			return nil
+		}
+
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		rel := filepath.ToSlash(mustRel(t, root, path))
+		inFence := false
+		lines := strings.Split(string(data), "\n")
+		for i, line := range lines {
+			if strings.HasPrefix(strings.TrimSpace(line), "```") {
+				inFence = !inFence
+				continue
+			}
+			if inFence {
+				continue
+			}
+			for _, match := range markdownLinkRE.FindAllStringSubmatch(line, -1) {
+				target := match[1]
+				if isExternalLinkTarget(target) {
+					continue
+				}
+				resolved := filepath.Join(root, filepath.FromSlash(resolveLinkTarget(root, rel, target)))
+				if _, err := os.Stat(resolved); err != nil {
+					findings = append(findings, formatFinding(rel, i+1, "dead relative link -> "+target, line))
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) > 0 {
+		t.Fatalf("dead markdown links:\n%s", strings.Join(findings, "\n"))
+	}
+}
+
+// isExternalLinkTarget reports link targets that are not local file paths.
+func isExternalLinkTarget(target string) bool {
+	return strings.Contains(target, "://") ||
+		strings.HasPrefix(target, "mailto:") ||
+		strings.HasPrefix(target, "#") ||
+		strings.HasPrefix(target, "<") ||
+		strings.HasPrefix(target, "{")
+}
+
+// resolveLinkTarget resolves a relative markdown link target against the
+// directory of the linking file and returns a repo-root-relative slash path.
+// Anchors are stripped before resolution.
+func resolveLinkTarget(root, linkingFileRel, target string) string {
+	if idx := strings.Index(target, "#"); idx >= 0 {
+		target = target[:idx]
+	}
+	if target == "" {
+		return ""
+	}
+	dir := filepath.Dir(filepath.FromSlash(linkingFileRel))
+	resolved := filepath.ToSlash(filepath.Clean(filepath.Join(dir, filepath.FromSlash(target))))
+	return resolved
 }

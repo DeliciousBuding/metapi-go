@@ -4,7 +4,7 @@
 
 **Status**: architecture baseline — backend architecture truth
 **Authority**: package layout and import edges as they exist in this repo
-**Companion**: [`docs/architecture.md`](../architecture.md) (as-built map)
+**Companion**: [`docs/architecture.md`](../../architecture.md) (as-built map)
 
 This document states the **non-negotiable backend principles** for metapi-go. Implementation work under backend architecture (package boundaries, concurrency, unified errors) must not violate these rules without an explicit design revision.
 
@@ -200,7 +200,7 @@ Only `cmd/server` (and tests/e2e helpers) should construct the full graph: load 
 
 - Open outcomes and priorities live in [`docs/progress/MASTER.md`](../progress/MASTER.md).
 - Package ownership and approved exception edges live in [`docs/analysis/package-boundaries.md`](../analysis/package-boundaries.md).
-- When principles change, revise this file. When only layout or request-flow facts change, update [`docs/architecture.md`](../architecture.md).
+- When principles change, revise this file. When only layout or request-flow facts change, update [`docs/architecture.md`](../../architecture.md).
 
 ---
 

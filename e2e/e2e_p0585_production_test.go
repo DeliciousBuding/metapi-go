@@ -296,7 +296,7 @@ func TestP0585_ProductionCascade_Staging(t *testing.T) {
 	if len(matchingRows) < 2 {
 		t.Skipf("no cascade observed for request_id=%q (only %d proxy_log row). "+
 			"Instance upstreams were healthy; cascade is only observable on a real 5xx. "+
-			"This is an honest residual — see docs/analysis/p0585-production-verification.md.",
+			"This is an honest residual — see docs/internal/analysis/p0585-production-verification.md.",
 			requestID, len(matchingRows))
 	}
 

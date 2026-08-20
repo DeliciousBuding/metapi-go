@@ -2,7 +2,7 @@
 
 **Product**: Metapi admin
 **Scope**: accessibility checklist
-**Related source of truth**: `docs/design/DESIGN.md`, `web/src/styles/theme.css`
+**Related source of truth**: `docs/internal/design/DESIGN.md`, `web/src/styles/theme.css`
 **Last updated**: 2026-08-18
 **Status**: living acceptance checklist; known limitations are documented, not an implicit backlog
 
@@ -204,7 +204,7 @@ Breakpoints used by product:
 
 ## 7. Known limitations
 
-This section lists open residuals only. Closure history lives in [`../log.md`](../log.md) and root [`../../CHANGELOG.md`](../../CHANGELOG.md). Open work is committed through [`../progress/MASTER.md`](../progress/MASTER.md) or a scoped issue.
+This section lists open residuals only. Closure history lives in [`../log.md`](../log.md) and root [`../../CHANGELOG.md`](../../../CHANGELOG.md). Open work is committed through [`../progress/MASTER.md`](../progress/MASTER.md) or a scoped issue.
 
 1. **Charts keyboard series access** — recharts renders series as non-focusable SVG; assistive tech relies on the text axes, legends, and rich text tooltips (balance/cost, accounts, calls, tokens, share) that already carry the data. Non-color status encoding (text labels on availability buckets, attention badges) is in place; no color-only status.
 2. **Global focus-ring utility** — chrome controls share the `--ring` recipe; a single shared rule for every page-level action grid is not yet in place (`.modal-close-button:focus-visible` uses a primary outline).

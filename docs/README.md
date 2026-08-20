@@ -1,64 +1,67 @@
 # docs/ — Metapi Go documentation map
 
-**Last updated**: 2026-08-16
-**Purpose**: one-screen orientation for humans and contributors.
+**Last updated**: 2026-08-20
+**Purpose**: one-screen orientation for users and contributors.
 
-## Progress source of truth roles
+This directory is split into **public docs** (written for users and
+contributors) and **[`internal/`](internal/)** (maintainer process docs:
+product state, roadmap, progress log, audits, design notes). User-facing
+documents never deep-link into `internal/` — they state the fact directly.
+`docs/doc_hygiene_test.go` enforces both rules in CI.
 
-| File                                       | Role                              | Not for                                        |
-| :----------------------------------------- | :-------------------------------- | :--------------------------------------------- |
-| [`STATE.md`](STATE.md)                     | **现状** — verified product facts | Session diary, open TODO lists                 |
-| [`progress/MASTER.md`](progress/MASTER.md) | **3 条交付主线 + 唯一执行计划**   | Full changelog, completed plans, ops host pins |
-| [`log.md`](log.md)                         | **进度日志** (append-only)        | Overriding STATE                               |
+## Public docs
 
-## Start here
+| If you need…                        | Read                                                                                     |
+| :---------------------------------- | :--------------------------------------------------------------------------------------- |
+| Deploy / ops vars / reverse proxy   | [`deployment.md`](deployment.md)                                                         |
+| HTTP API surface                    | [`api.md`](api.md)                                                                       |
+| Package architecture & request path | [`architecture.md`](architecture.md)                                                     |
+| TS→Go migration / SQLite→PG         | [`migration.md`](migration.md)                                                           |
+| Test layers / real-platform testbed | [`testing.md`](testing.md)                                                               |
+| Version history                     | root [`CHANGELOG.md`](../CHANGELOG.md)                                                   |
+| Contribute / report                 | root [`CONTRIBUTING.md`](../CONTRIBUTING.md) · [`SECURITY.md`](../SECURITY.md)           |
 
-| If you need…                           | Read                                                                           |
-| :------------------------------------- | :----------------------------------------------------------------------------- |
-| Current product status                 | [`STATE.md`](STATE.md)                                                         |
-| Delivery mainlines and executable plan | [`progress/MASTER.md`](progress/MASTER.md)                                     |
-| Progress timeline                      | [`log.md`](log.md)                                                             |
-| Product benchmark / direction          | [`benchmark.md`](benchmark.md)                                                 |
-| Package architecture                   | [`architecture.md`](architecture.md)                                           |
-| Backend design rules                   | [`design/BACKEND.md`](design/BACKEND.md)                                       |
-| UI design system                       | [`design/DESIGN.md`](design/DESIGN.md)                                         |
-| Version history                        | root [`CHANGELOG.md`](../CHANGELOG.md)                                         |
-| Deploy / ops vars                      | [`deployment.md`](deployment.md)                                               |
-| HTTP API                               | [`api.md`](api.md)                                                             |
-| Test layers / real-platform testbed    | [`testing.md`](testing.md)                                                     |
-| Git branch & PR workflow               | [`git-workflow.md`](git-workflow.md)                                           |
-| Contribute / report                    | root [`CONTRIBUTING.md`](../CONTRIBUTING.md) · [`SECURITY.md`](../SECURITY.md) |
+## Internal docs (maintainer process)
+
+| Path                                             | Role                                                        |
+| :----------------------------------------------- | :---------------------------------------------------------- |
+| [`internal/STATE.md`](internal/STATE.md)         | **现状** — verified product facts (keep slim)               |
+| [`internal/progress/MASTER.md`](internal/progress/MASTER.md) | **3 条交付主线 + 唯一执行计划**（不是 changelog） |
+| [`internal/log.md`](internal/log.md)             | **进度日志** (append-only，不覆盖 STATE)                    |
+| [`internal/benchmark.md`](internal/benchmark.md) | 产品对标（New API × All API Hub）+ direction                |
+| [`internal/git-workflow.md`](internal/git-workflow.md) | 分支模型 / PR / 保护规则                              |
+| [`internal/design/`](internal/design/)           | 设计系统 SSOT（BACKEND / DESIGN / a11y / components）       |
+| [`internal/analysis/`](internal/analysis/)       | 证据型分析（pool budget / package boundaries / audit 证据） |
+| [`internal/responses-websocket-residual.md`](internal/responses-websocket-residual.md) | Responses WS 501 residual 说明 |
 
 ## Layout
 
 ```
 docs/
   README.md                 ← this map
-  STATE.md                  ← 现状 source of truth (keep slim)
-  log.md                    ← progress log (append-only)
-  benchmark.md              ← product benchmark (New API × All API Hub) + direction
-  architecture.md           ← as-built package & request path
   api.md                    ← public API notes
+  architecture.md           ← as-built package & request path
   deployment.md             ← run / Docker / ops vars
-  git-workflow.md           ← branch model / PR / protection rules
-  migration.md              ← SQLite → PG / schema upgrade
+  migration.md              ← TS→Go / SQLite→PG / schema upgrade
   testing.md                ← test layers + public real-platform testbed SOP
-  responses-websocket-residual.md ← Responses API WS transport (501 residual)
-  design/                   ← living design source of truth
-    BACKEND.md                backend design philosophy, dependency rules
-    DESIGN.md                 design system, tokens, visual language
-    a11y-checklist.md         accessibility checklist
-    components.md             live component ownership map
-  analysis/                 ← evidence-based design docs
-    db-pool-budget.md         PG pool profiles
-    package-boundaries.md     B1 package ownership inventory
-    redis-shared-state.md     Redis shared state design
-    ui-ux-audit-2026-08.md    historical UI/UX audit evidence
-  progress/                 ← MASTER only (mainlines + executable open plan)
+  assets/                   ← public images (hero, screenshots)
+  internal/                 ← maintainer process docs (never linked from README)
+    STATE.md                  现状 source of truth (keep slim)
+    log.md                    progress log (append-only)
+    benchmark.md              product benchmark + direction
+    git-workflow.md           branch model / PR / protection rules
+    responses-websocket-residual.md
+    progress/                 MASTER only (mainlines + executable open plan)
+    design/                   living design source of truth
+    analysis/                 evidence-based analysis docs
 ```
 
 ## Hygiene rules
 
 - Prefer **merge/update** over new parallel analysis files.
 - Absolute dates, not "recently".
-- `docs/doc_hygiene_test.go` enforces public markdown hygiene (no local paths / false Redis sticky claims).
+- Public docs state facts for users; process context (waves, gaps, audit
+  rounds) belongs in `internal/`.
+- `docs/doc_hygiene_test.go` enforces public markdown hygiene (no local
+  paths / no credential DSNs / no false Redis sticky claims) and the
+  README → `internal/` link boundary.

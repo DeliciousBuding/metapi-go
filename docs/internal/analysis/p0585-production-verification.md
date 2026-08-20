@@ -4,7 +4,7 @@
 **Issue**: [#557](https://github.com/DeliciousBuding/metapi-go/issues/557)
 **Last updated**: 2026-08-15
 
-> Companion to the cascade isolation SSOT in [`docs/architecture.md`](../architecture.md) §"Channel isolation, cooldown, circuit breaker" and the honesty row in [`docs/STATE.md`](../STATE.md) (`cascade | partial`). This document closes out the production-evidence gap referenced there.
+> Companion to the cascade isolation SSOT in [`docs/architecture.md`](../../architecture.md) §"Channel isolation, cooldown, circuit breaker" and the honesty row in [`docs/STATE.md`](../STATE.md) (`cascade | partial`). This document closes out the production-evidence gap referenced there.
 
 ## 1. What the P0-585 cascade is
 

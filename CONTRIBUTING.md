@@ -32,7 +32,7 @@ All work happens on short-lived branches:
 | `perf/`    | Performance                | `perf/dashboard-lazy-load`  |
 | `refactor/`| Refactoring, no behavior change | `refactor/search-params` |
 | `chore/`   | Engineering (CI, deps, cleanup) | `chore/ci-hardening`     |
-| `docs/`    | Documentation              | `docs/git-workflow`         |
+| `docs/`    | Documentation              | `docs/internal/git-workflow`         |
 
 Never commit directly to `master` — branch protection requires a PR.
 
@@ -72,8 +72,8 @@ detector. The pre-push hook runs all of it automatically.
 - **Frontend i18n**: all user-facing text goes through `t()` keys in
   `web/src/i18n/locales/{en,zh-CN}.json` — both languages must stay in sync
   (checked by `web/src/i18n/__tests__/i18n-keys.test.ts`).
-- **Docs**: user-facing behavior changes update `docs/STATE.md` /
-  `docs/progress/MASTER.md` / `CHANGELOG.md`. Public docs must never contain
+- **Docs**: user-facing behavior changes update `docs/internal/STATE.md` /
+  `docs/internal/progress/MASTER.md` / `CHANGELOG.md`. Public docs must never contain
   local paths, private hostnames, or credentials (`make docs-hygiene` enforces
   this).
 - **Single binary**: the production image ships no Node/Bun runtime. Don't

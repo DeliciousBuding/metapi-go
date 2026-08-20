@@ -164,7 +164,7 @@ All notable changes to Metapi-Go will be documented in this file.
 ### Chore
 
 - 将 tester channel/latency truth Waves 2–3 从开放计划毕业为已交付能力；剩余工作仅为 operator-gated 的真实 Codex/AnyRouter 探针（#558）。
-- 将列表页 URL 状态稳定性规则固化到 [`docs/design/state-stability.md`](docs/design/state-stability.md)，并把 `ui:smoke` 纳入 CI a11y acceptance gate。
+- 将列表页 URL 状态稳定性规则固化到 [`docs/internal/design/state-stability.md`](docs/internal/design/state-stability.md)，并把 `ui:smoke` 纳入 CI a11y acceptance gate。
 
 ## [v0.13.0] — 2026-08-15
 
