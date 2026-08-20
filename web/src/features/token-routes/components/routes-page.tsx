@@ -4,7 +4,7 @@
 
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import type { ColumnFiltersState, Table } from '@tanstack/react-table'
-import { Loader2, Plus, Power, RefreshCw, RotateCcw, Zap } from 'lucide-react'
+import { Loader2, Plus, Power, RotateCcw, Zap } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -52,6 +52,7 @@ import {
 import { RouteDetailSheet } from './route-detail-sheet'
 import { RouteFormDialog, type RouteAccountOption } from './route-form-dialog'
 import { useRoutesColumns } from './routes-columns'
+import { RoutesHeaderActions } from './routes-header-actions'
 
 const DEFAULT_PAGE_SIZE = 20
 
@@ -388,45 +389,20 @@ export function RoutesPage() {
 
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
-      <div className='flex items-center justify-between gap-4'>
+      <div className='flex flex-wrap items-center justify-between gap-4'>
         <div>
           <h1 className='text-lg font-normal'>{t('tokenRoutes.page.title')}</h1>
           <p className='text-muted-foreground text-sm'>
             {t('tokenRoutes.page.description')}
           </p>
         </div>
-        <div className='flex items-center gap-2'>
-          <Button
-            variant='outline'
-            size='sm'
-            onClick={() => rebuildMutation.mutate({ refreshModels: true })}
-            disabled={rebuildMutation.isPending}
-          >
-            {rebuildMutation.isPending ? (
-              <Loader2 className='animate-spin' />
-            ) : (
-              <Zap />
-            )}
-            {t('tokenRoutes.page.rebuild')}
-          </Button>
-          <Button
-            variant='outline'
-            size='sm'
-            onClick={() => refreshDecisionsMutation.mutate()}
-            disabled={refreshDecisionsMutation.isPending}
-          >
-            <RefreshCw
-              className={
-                refreshDecisionsMutation.isPending ? 'animate-spin' : undefined
-              }
-            />
-            {t('tokenRoutes.page.refreshDecisions')}
-          </Button>
-          <Button onClick={openCreate}>
-            <Plus />
-            {t('tokenRoutes.page.addButton')}
-          </Button>
-        </div>
+        <RoutesHeaderActions
+          onRebuild={() => rebuildMutation.mutate({ refreshModels: true })}
+          isRebuildPending={rebuildMutation.isPending}
+          onRefreshDecisions={() => refreshDecisionsMutation.mutate()}
+          isRefreshDecisionsPending={refreshDecisionsMutation.isPending}
+          onAddRoute={openCreate}
+        />
       </div>
 
       {(accountId || siteId) && (

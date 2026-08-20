@@ -57,6 +57,7 @@
       "no": "否",
       "retry": "重试",
       "actions": "操作",
+      "moreActions": "更多操作",
       "status": "状态",
       "language": "语言",
       "languageName": {

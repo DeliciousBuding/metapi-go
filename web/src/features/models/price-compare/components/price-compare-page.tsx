@@ -80,7 +80,7 @@ export function PriceComparePage() {
 
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
-      <div className='flex items-end justify-between gap-3'>
+      <div className='flex flex-wrap items-end justify-between gap-3'>
         <div>
           <h1 className='text-lg font-normal'>
             {t('priceCompare.page.title')}
@@ -89,7 +89,7 @@ export function PriceComparePage() {
             {t('priceCompare.page.description')}
           </p>
         </div>
-        <div className='relative w-64'>
+        <div className='relative w-full sm:w-64'>
           <Search
             aria-hidden='true'
             className='text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2'
