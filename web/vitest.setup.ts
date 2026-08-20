@@ -15,24 +15,65 @@ if (typeof window !== 'undefined') {
 }
 
 // Node 25+ ships an experimental global `localStorage` (`--localstorage-file`).
-// When the file path is invalid the global exists but has no working getItem —
-// that breaks components reading `localStorage` directly (e.g. RealtimeOpsPanel
-// → getAuthToken). jsdom's window.localStorage is always complete; prefer it.
-if (
-  typeof globalThis !== 'undefined' &&
-  typeof window !== 'undefined' &&
-  typeof (globalThis as { localStorage?: Storage }).localStorage !==
-    'undefined' &&
-  typeof (globalThis as { localStorage?: Storage }).localStorage?.getItem !==
-    'function'
-) {
-  try {
-    Object.defineProperty(globalThis, 'localStorage', {
-      value: window.localStorage,
-      configurable: true,
-    })
-  } catch {
-    /* non-configurable global in some environments — jsdom path still fine */
+// Without a valid backing file the global exists but is a dead stub (no
+// getItem/setItem/clear), which breaks code reading `localStorage` directly
+// (RealtimeOpsPanel → getAuthToken, the i18n detector, tests calling
+// `localStorage.clear()`). Under vitest's jsdom environment `window
+// .localStorage` resolves to that SAME stub, so prefer any complete Storage
+// (global or window) and otherwise install an in-memory one on both.
+function isUsableStorage(candidate: unknown): candidate is Storage {
+  if (typeof candidate !== 'object' || candidate === null) return false
+  const storage = candidate as Storage
+  return (
+    typeof storage.getItem === 'function' &&
+    typeof storage.setItem === 'function' &&
+    typeof storage.removeItem === 'function' &&
+    typeof storage.clear === 'function'
+  )
+}
+
+function createMemoryStorage(): Storage {
+  const entries = new Map<string, string>()
+  return {
+    get length() {
+      return entries.size
+    },
+    clear: () => {
+      entries.clear()
+    },
+    getItem: (key: string) =>
+      entries.has(key) ? (entries.get(key) as string) : null,
+    key: (index: number) => [...entries.keys()][index] ?? null,
+    removeItem: (key: string) => {
+      entries.delete(key)
+    },
+    setItem: (key: string, value: string) => {
+      entries.set(String(key), String(value))
+    },
+  }
+}
+
+if (typeof window !== 'undefined') {
+  let usableStorage: Storage | null = null
+  if (isUsableStorage(globalThis.localStorage)) {
+    usableStorage = globalThis.localStorage
+  } else if (isUsableStorage(window.localStorage)) {
+    usableStorage = window.localStorage
+  }
+  if (usableStorage === null || globalThis.localStorage !== usableStorage) {
+    const storage = usableStorage ?? createMemoryStorage()
+    try {
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: storage,
+        configurable: true,
+      })
+      Object.defineProperty(window, 'localStorage', {
+        value: storage,
+        configurable: true,
+      })
+    } catch {
+      /* non-configurable global in some environments — jsdom path still fine */
+    }
   }
 }
 

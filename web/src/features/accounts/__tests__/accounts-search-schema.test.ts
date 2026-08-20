@@ -86,3 +86,39 @@ describe('accountsSearchSchema — deep-link params', () => {
     expect(result.create).toBeUndefined()
   })
 })
+
+// ---------------------------------------------------------------------------
+// accountsSearchSchema — dashboard attention deep-link param (accountId)
+// ---------------------------------------------------------------------------
+
+describe('accountsSearchSchema — accountId deep-link param', () => {
+  it('accepts the attention deep-link shape (accountId)', () => {
+    const result = accountsSearchSchema.parse({ accountId: '3' })
+    expect(result.accountId).toBe(3)
+  })
+
+  it('accepts a router-parsed number for accountId', () => {
+    const result = accountsSearchSchema.parse({ accountId: 3 })
+    expect(result.accountId).toBe(3)
+  })
+
+  it('degrades malformed or non-positive accountId to undefined', () => {
+    expect(
+      accountsSearchSchema.parse({ accountId: 'bogus' }).accountId
+    ).toBeUndefined()
+    expect(
+      accountsSearchSchema.parse({ accountId: 0 }).accountId
+    ).toBeUndefined()
+    expect(
+      accountsSearchSchema.parse({ accountId: -4 }).accountId
+    ).toBeUndefined()
+    expect(
+      accountsSearchSchema.parse({ accountId: 2.5 }).accountId
+    ).toBeUndefined()
+  })
+
+  it('omits accountId when absent', () => {
+    const result = accountsSearchSchema.parse({})
+    expect(result.accountId).toBeUndefined()
+  })
+})

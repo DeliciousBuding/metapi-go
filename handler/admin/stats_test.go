@@ -591,10 +591,18 @@ func TestStats_SQLiteAttentionAggregatesExpiredLowBalanceDisabled(t *testing.T) 
 	if err != nil {
 		t.Fatalf("insert expired account: %v", err)
 	}
+	var expiredAccountID int64
+	if err := db.Get(&expiredAccountID, "SELECT id FROM accounts WHERE username = ?", "expired-user"); err != nil {
+		t.Fatalf("expired account id: %v", err)
+	}
 	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, balance, created_at, updated_at)
 		VALUES (?, ?, ?, 'active', ?, 0.3, ?, ?)`, siteID, "lowbal-user", "tok", true, nowStr, nowStr)
 	if err != nil {
 		t.Fatalf("insert lowbal account: %v", err)
+	}
+	var lowBalanceAccountID int64
+	if err := db.Get(&lowBalanceAccountID, "SELECT id FROM accounts WHERE username = ?", "lowbal-user"); err != nil {
+		t.Fatalf("lowbal account id: %v", err)
 	}
 	// recent warning event
 	_, err = db.Exec(`INSERT INTO events (type, title, message, level, read, created_at)
@@ -627,6 +635,26 @@ func TestStats_SQLiteAttentionAggregatesExpiredLowBalanceDisabled(t *testing.T) 
 	}
 	if !cats["low_balance"] || !cats["disabled_site"] {
 		t.Fatalf("missing categories: %v", cats)
+	}
+
+	// Deep-link targets must match the frontend URL contract: the accounts
+	// page consumes `accountId`, the sites page consumes `edit`, and the
+	// event log lives under settings → system-info → program-logs.
+	targets := map[string]string{}
+	for _, it := range items {
+		item := it.(map[string]any)
+		targets[item["category"].(string)] = item["target"].(string)
+	}
+	wantTargets := map[string]string{
+		"expired_account": "/accounts?accountId=" + strconv.FormatInt(expiredAccountID, 10),
+		"low_balance":     "/accounts?accountId=" + strconv.FormatInt(lowBalanceAccountID, 10),
+		"disabled_site":   "/sites?edit=" + strconv.FormatInt(siteID, 10),
+		"event":           "/settings/system-info/program-logs",
+	}
+	for category, wantTarget := range wantTargets {
+		if targets[category] != wantTarget {
+			t.Fatalf("%s target = %q, want %q", category, targets[category], wantTarget)
+		}
 	}
 }
 

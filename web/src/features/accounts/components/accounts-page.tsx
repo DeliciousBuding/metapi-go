@@ -130,10 +130,15 @@ function buildAccountsHref(
   if (sortString) params.set('sort', sortString)
   if (merged.filters.status) params.set('status', merged.filters.status)
   if (merged.filters.site) params.set('site', merged.filters.site)
+  // Transient deep-link params are preserved across table-state syncs until
+  // the page's one-shot consume effects below have stripped them (a toolbar
+  // commit or page clamp firing first would otherwise drop the deep link).
   const guidedSiteId = currentParams.get('siteId')
   const guidedCreate = currentParams.get('create')
+  const attentionAccountId = currentParams.get('accountId')
   if (guidedSiteId) params.set('siteId', guidedSiteId)
   if (guidedCreate) params.set('create', guidedCreate)
+  if (attentionAccountId) params.set('accountId', attentionAccountId)
   const queryString = params.toString()
   return queryString ? `/accounts?${queryString}` : '/accounts'
 }
@@ -264,6 +269,35 @@ export function AccountsPage() {
     navigate({
       to: '/accounts',
       search: { ...search, siteId: undefined, create: undefined },
+      replace: true,
+    })
+  }, [search, isLoading, data, navigate])
+
+  // Consume the one-shot attention deep link exactly once (dashboard
+  // attention items link `/accounts?accountId=N` for expired / low-balance
+  // accounts): resolve the referenced id against the loaded snapshot, open
+  // the detail sheet with the same state the row "view detail" action uses,
+  // then strip the transient param so a refetch or remount never reopens
+  // the sheet. Waits for the snapshot so a stale or unknown id is cleared
+  // silently instead of opening a blank sheet — mirrors the channels page's
+  // `channelId` drilldown. The `useRef` guard survives the strict-mode
+  // double-invoke and the post-navigate re-render.
+  const accountDeepLinkConsumed = useRef(false)
+  useEffect(() => {
+    if (accountDeepLinkConsumed.current || !search.accountId) return
+    if (isLoading) return
+
+    const targetAccount = (data?.accounts ?? []).find(
+      (account) => account.id === search.accountId
+    )
+    accountDeepLinkConsumed.current = true
+    if (targetAccount) {
+      setDetailAccount(targetAccount)
+      setDetailOpen(true)
+    }
+    navigate({
+      to: '/accounts',
+      search: { ...search, accountId: undefined },
       replace: true,
     })
   }, [search, isLoading, data, navigate])

@@ -235,8 +235,11 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 	for _, row := range disabledSites {
 		items = append(items, attentionItem{
 			Severity: "warning", Category: "disabled_site",
-			Label:     "站点已禁用：" + coerceString(row["name"]),
-			Target:    "/sites?siteId=" + coerceString(row["id"]),
+			Label: "站点已禁用：" + coerceString(row["name"]),
+			// `/sites?edit=N` is the sites page's one-shot edit deep link
+			// (opens the edit dialog for the referenced site then strips
+			// the param); `siteId` is not part of the sites URL contract.
+			Target:    "/sites?edit=" + coerceString(row["id"]),
 			CreatedAt: coerceString(row["updatedAt"]),
 		})
 		if len(items) >= limit {
@@ -260,10 +263,13 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 			severity = "critical"
 		}
 		items = append(items, attentionItem{
-			Severity:  severity,
-			Category:  "event",
-			Label:     coerceString(row["title"]),
-			Target:    "/settings", // events surface lives in settings/notifications area
+			Severity: severity,
+			Category: "event",
+			Label:    coerceString(row["title"]),
+			// The event log lives under settings → system-info → program-logs
+			// (/settings/<subarea>/<section>); a bare /settings link landed on
+			// the general section with no events in sight.
+			Target:    "/settings/system-info/program-logs",
 			CreatedAt: coerceString(row["createdAt"]),
 		})
 		if len(items) >= limit {
