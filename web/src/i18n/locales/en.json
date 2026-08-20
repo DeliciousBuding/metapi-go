@@ -1839,6 +1839,8 @@
         "updateFailed": "Failed to update route",
         "deleteFailed": "Failed to delete route",
         "batchFailed": "Bulk operation failed",
+        "batchSucceeded": "{{count}} route(s) updated successfully.",
+        "batchPartial": "{{success}} succeeded, {{failed}} failed.",
         "cooldownClearFailed": "Failed to clear cooldown",
         "channelAddFailed": "Failed to add channels",
         "channelAddPartial": "Route created, but {{failed}} channel(s) were not added ({{created}} added): {{error}}",

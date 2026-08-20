@@ -1839,6 +1839,8 @@
         "updateFailed": "更新路由失败",
         "deleteFailed": "删除路由失败",
         "batchFailed": "批量操作失败",
+        "batchSucceeded": "已成功更新 {{count}} 条路由。",
+        "batchPartial": "{{success}} 个成功，{{failed}} 个失败。",
         "cooldownClearFailed": "清除冷却失败",
         "channelAddFailed": "添加通道失败",
         "channelAddPartial": "路由已创建，但有 {{failed}} 个通道添加失败（已添加 {{created}} 个）：{{error}}",

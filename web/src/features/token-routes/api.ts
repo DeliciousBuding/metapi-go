@@ -221,10 +221,29 @@ export function useBatchUpdateRoutes() {
       action: BatchRouteAction
     }) => {
       const result = await api.batchUpdateRoutes({ ids, action })
-      return assertBusinessOk(result, 'tokenRoutes.toast.batchFailed')
+      return assertBusinessOk<{ updatedCount?: number }>(
+        result,
+        'tokenRoutes.toast.batchFailed'
+      )
     },
-    onSuccess: () => {
+    onSuccess: (result, variables) => {
       void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
+      // The backend reports how many rows it actually flipped; anything short
+      // of the requested count is a partial success and gets a warning.
+      const requestedCount = variables.ids.length
+      const updatedCount = result?.updatedCount ?? 0
+      if (updatedCount >= requestedCount) {
+        toast.success(
+          i18n.t('tokenRoutes.toast.batchSucceeded', { count: updatedCount })
+        )
+      } else {
+        toast.warning(
+          i18n.t('tokenRoutes.toast.batchPartial', {
+            success: updatedCount,
+            failed: requestedCount - updatedCount,
+          })
+        )
+      }
     },
   })
 }
