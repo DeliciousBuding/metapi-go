@@ -277,27 +277,6 @@ export function formatRelativeTime(
 }
 
 /**
- * Format a timestamp as a localized wall-clock time ("10:15:42 AM" in en,
- * "10:15:42" in zh-CN — the exact shape is locale-driven). Used for the
- * realtime panel's "data as of" freshness marker during reconnect gaps.
- * Returns an empty string for null / empty / invalid input so the caller
- * can conditionally render. The `locale` MUST be a BCP-47 tag — pass
- * i18next's `i18n.language` through `toBcp47()` first.
- */
-export function formatTime(
-  value: string | number | Date | null | undefined,
-  locale: string
-): string {
-  const timestamp = toTimestamp(value)
-  if (timestamp === null) return ''
-  return new Intl.DateTimeFormat(locale, {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(timestamp)
-}
-
-/**
  * Format a timestamp as a localized absolute date+time for a `title`
  * tooltip (e.g. "Jan 15, 2026, 10:00 AM"). Returns an empty string for
  * null / empty / invalid input so the caller can omit the attribute. Uses

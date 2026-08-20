@@ -25,7 +25,7 @@ import { api } from '@/lib/api'
 import {
   formatAbsoluteDateTime,
   formatRelativeTime,
-  formatTime,
+  formatTimeOfDay,
 } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -215,7 +215,7 @@ function RealtimeOpsPanel() {
             className='text-muted-foreground text-xs tabular-nums'
           >
             {t('dashboard.availability.realtime.dataAsOf', {
-              time: formatTime(lastFrameAt, locale),
+              time: formatTimeOfDay(lastFrameAt, locale),
             })}
           </p>
         ) : null}

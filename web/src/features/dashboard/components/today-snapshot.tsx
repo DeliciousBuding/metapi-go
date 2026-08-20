@@ -20,7 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
-import { formatCurrency, formatInt, formatTime } from '@/lib/format'
+import { formatCurrency, formatInt, formatTimeOfDay } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { useRealtimeOps } from '../hooks/use-realtime-ops'
@@ -237,7 +237,7 @@ export function TodaySnapshotStrip() {
             {!realtime.connected && lastFrameAt !== null ? (
               <div className='text-muted-foreground truncate text-[11px] tabular-nums'>
                 {t('dashboard.availability.realtime.dataAsOf', {
-                  time: formatTime(lastFrameAt, locale),
+                  time: formatTimeOfDay(lastFrameAt, locale),
                 })}
               </div>
             ) : null}
