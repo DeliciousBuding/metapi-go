@@ -208,6 +208,8 @@ describe('formatRelativeTime', () => {
   it('returns an empty string for missing input', () => {
     expect(formatRelativeTime(null, 'en-US')).toBe('')
     expect(formatRelativeTime('', 'en-US')).toBe('')
+  })
+})
 
 describe('formatUsd', () => {
   it('formats whole and fractional dollar amounts with two decimals', () => {

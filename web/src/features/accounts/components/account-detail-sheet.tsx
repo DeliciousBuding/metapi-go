@@ -157,7 +157,7 @@ export function AccountDetailSheet({
                 '—'
               ) : (
                 <span className='tabular-nums'>
-                  ${formatPrice(account.unitCost)}
+                  {formatPrice(account.unitCost)}
                 </span>
               )}
             </DetailField>
