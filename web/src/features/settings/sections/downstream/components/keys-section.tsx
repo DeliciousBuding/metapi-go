@@ -84,6 +84,15 @@ type DownstreamApiKeyItem = {
 
 type DownstreamKeysResponse = { items: DownstreamApiKeyItem[] }
 
+// POST /api/downstream-keys responds with the created row under `item` (the
+// handler re-reads the inserted row and adds a camelCase `keyMasked`). Only
+// the fields the connect dialog target needs are typed here; the dialog
+// fetches the full export payload (endpoint + plaintext key) on its own.
+type CreateDownstreamKeyResponse = {
+  success?: boolean
+  item?: Pick<DownstreamApiKeyItem, 'id' | 'name' | 'keyMasked'>
+}
+
 const downstreamKeysQueryKeys = {
   all: ['downstream-keys'] as const,
   list: () => [...downstreamKeysQueryKeys.all, 'list'] as const,
@@ -160,12 +169,18 @@ function keyFormValuesFromItem(
 // Exported so the edit-mode behavior test can render it in isolation,
 // mirroring the AccountsRowActions export pattern. The whole KeysSection
 // remains the only public entry in the settings surface.
+//
+// `onCreated` (create mode only) receives the created key's export-dialog
+// target straight from the create response so KeysSection can auto-open the
+// Connect surface — the operator no longer has to hunt the row down.
 export function KeySheetForm({
   editingKey,
   onDone,
+  onCreated,
 }: {
   editingKey: DownstreamApiKeyItem | null
   onDone: () => void
+  onCreated?: (target: CredentialExportTarget) => void
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -200,7 +215,7 @@ export function KeySheetForm({
         expiresAt: values.expiresAt,
       })
     },
-    onSuccess: () => {
+    onSuccess: (result, values) => {
       void queryClient.invalidateQueries({
         queryKey: downstreamKeysQueryKeys.all,
       })
@@ -209,6 +224,23 @@ export function KeySheetForm({
           ? t('settings.downstream.keys.toast.updated')
           : t('settings.downstream.keys.toast.created')
       )
+      if (!isEdit) {
+        // Auto-open the Connect dialog for the freshly created key. The
+        // dialog target only needs id/name/keyMasked, which the create
+        // response carries under `item`; the plaintext key itself is pulled
+        // by the dialog's own export query. When the response lacks the row
+        // (older/unexpected payloads) nothing is fabricated — the success
+        // toast above stays the only feedback.
+        const createdItem = (result as CreateDownstreamKeyResponse | undefined)
+          ?.item
+        if (createdItem && createdItem.id > 0) {
+          onCreated?.({
+            id: createdItem.id,
+            name: createdItem.name || values.name,
+            keyMasked: createdItem.keyMasked,
+          })
+        }
+      }
       onDone()
     },
     onError: () =>
@@ -651,6 +683,7 @@ export function KeysSection() {
             key={editingKey?.id ?? 'create'}
             editingKey={editingKey}
             onDone={() => onSheetOpenChange(false)}
+            onCreated={(target) => setExportTarget(target)}
           />
         </SheetContent>
       </Sheet>

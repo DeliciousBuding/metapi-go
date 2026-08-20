@@ -2259,7 +2259,10 @@
         "skipped": "已跳过 {{count}}",
         "failed": "失败 {{count}}",
         "close": "完成",
-        "announce": "已导入 {{imported}}，跳过 {{skipped}}，失败 {{failed}}。"
+        "announce": "已导入 {{imported}}，跳过 {{skipped}}，失败 {{failed}}。",
+        "rebuildHint": "导入的站点需要重建路由后模型才可路由，可立即重建，或稍后在路由页执行。",
+        "rebuildRoutes": "重建路由",
+        "addAccount": "添加账号"
       },
       "result": {
         "imported": "已导入",

@@ -2,8 +2,12 @@
 // complete" toast shown after a route is created. This is the **final step**
 // of the site → account → route guided configuration chain.
 //
-// Navigation uses window.location.assign rather than TanStack Router's
-// type-safe `navigate`; a hard navigation keeps the deep-link working today.
+// Navigation goes through the shared router instance (lib/router) because
+// the toast action outlives the route form component that created it — a
+// router.navigate keeps it a SPA transition instead of a hard reload. The
+// router is imported lazily inside the click handler: a static import here
+// would cycle back through routeTree.gen (router → routes → features →
+// this toast).
 
 import i18n from '@/i18n/config'
 import { toast } from '@/lib/toast'
@@ -34,7 +38,13 @@ export function showRouteCompletionToast(
     duration: 8000,
     action: {
       label: i18n.t('tokenRoutes.completion.connectAction'),
-      onClick: () => window.location.assign('/settings/downstream'),
+      onClick: async () => {
+        const { router } = await import('@/lib/router')
+        await router.navigate({
+          to: '/settings/$subarea',
+          params: { subarea: 'downstream' },
+        })
+      },
     },
   })
 }

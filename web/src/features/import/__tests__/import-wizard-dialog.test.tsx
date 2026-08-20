@@ -25,13 +25,19 @@ import '@/i18n/config'
 
 import { ImportWizardDialog } from '../components/import-wizard-dialog'
 
-const { mockDetectMutate, mockImportMutate, mockToastError } = vi.hoisted(
-  () => ({
-    mockDetectMutate: vi.fn(),
-    mockImportMutate: vi.fn(),
-    mockToastError: vi.fn(),
-  })
-)
+const {
+  mockDetectMutate,
+  mockImportMutate,
+  mockToastError,
+  mockNavigate,
+  mockRebuildMutate,
+} = vi.hoisted(() => ({
+  mockDetectMutate: vi.fn(),
+  mockImportMutate: vi.fn(),
+  mockToastError: vi.fn(),
+  mockNavigate: vi.fn(),
+  mockRebuildMutate: vi.fn(),
+}))
 
 vi.mock('../api', () => ({
   useDetectSite: () => ({ mutateAsync: mockDetectMutate, isPending: false }),
@@ -40,6 +46,16 @@ vi.mock('../api', () => ({
 
 vi.mock('@/features/sites/api', () => ({
   useSites: () => ({ data: [], isPending: false }),
+}))
+
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => mockNavigate,
+}))
+
+// The wizard's done step reuses the shared rebuild mutation; mock it so the
+// tests never need a QueryClientProvider for it.
+vi.mock('@/features/token-routes/api', () => ({
+  useRebuildRoutes: () => ({ mutate: mockRebuildMutate, isPending: false }),
 }))
 
 vi.mock('sonner', () => ({
@@ -69,6 +85,8 @@ beforeEach(() => {
   mockDetectMutate.mockReset()
   mockImportMutate.mockReset()
   mockToastError.mockReset()
+  mockNavigate.mockReset()
+  mockRebuildMutate.mockReset()
   // Default: detection returns undetectable (empty platform).
   mockDetectMutate.mockResolvedValue({})
 })
@@ -343,5 +361,129 @@ describe('ImportWizardDialog', () => {
     await waitFor(() => {
       expect(sourceField).not.toHaveAttribute('aria-invalid')
     })
+  })
+})
+
+// Done-step next-step guidance. Import does not trigger a route rebuild on
+// the backend, so the done step must hand the operator the next actions:
+// rebuild routes (primary), add an account (secondary), or just close.
+describe('ImportWizardDialog — done step next steps', () => {
+  async function advanceToDoneStep(onOpenChange: (open: boolean) => void) {
+    mockDetectMutate.mockResolvedValue({
+      platform: 'new-api',
+      confidence: 0.9,
+    })
+    mockImportMutate.mockResolvedValue({
+      imported: 1,
+      skipped: 0,
+      failed: 0,
+      results: [
+        {
+          name: 'a.com',
+          url: 'https://a.com',
+          status: 'imported',
+        },
+      ],
+    })
+
+    render(<ImportWizardDialog open onOpenChange={onOpenChange} />)
+
+    // source → identify
+    await waitFor(() => {
+      expect(screen.getByLabelText('Site URLs')).toBeInTheDocument()
+    })
+    fireEvent.change(screen.getByLabelText('Site URLs'), {
+      target: { value: 'https://a.com' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('new-api')).toBeInTheDocument()
+    })
+
+    // identify → connect → routes
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await waitFor(() => {
+      expect(screen.getByRole('switch')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await waitFor(() => {
+      expect(screen.getByRole('spinbutton')).toBeInTheDocument()
+    })
+
+    // routes → done
+    fireEvent.click(screen.getByRole('button', { name: 'Import' }))
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Rebuild routes' })
+      ).toBeInTheDocument()
+    })
+  }
+
+  it('explains that imported sites need a route rebuild and offers both CTAs', async () => {
+    await advanceToDoneStep(() => {})
+
+    // The explainer line tells the operator models are not routable yet.
+    expect(
+      screen.getByText(/only become routable after a route rebuild/)
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Rebuild routes' })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Add account' })
+    ).toBeInTheDocument()
+    // The original close affordance survives.
+    expect(screen.getByRole('button', { name: 'Done' })).toBeInTheDocument()
+  })
+
+  it('fires the rebuild mutation and closes the wizard once it succeeds', async () => {
+    const onOpenChange = vi.fn()
+    // Simulate a mutation that settles synchronously with success.
+    mockRebuildMutate.mockImplementation(
+      (_variables: unknown, callbacks?: { onSuccess?: () => void }) => {
+        callbacks?.onSuccess?.()
+      }
+    )
+
+    await advanceToDoneStep(onOpenChange)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rebuild routes' }))
+
+    expect(mockRebuildMutate).toHaveBeenCalledTimes(1)
+    await waitFor(() => {
+      expect(onOpenChange).toHaveBeenCalledWith(false)
+    })
+  })
+
+  it('keeps the wizard open when the rebuild request fails', async () => {
+    const onOpenChange = vi.fn()
+    // Failure path: mutate settles with onError, never onSuccess.
+    mockRebuildMutate.mockImplementation(
+      (_variables: unknown, callbacks?: { onError?: () => void }) => {
+        callbacks?.onError?.()
+      }
+    )
+
+    await advanceToDoneStep(onOpenChange)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rebuild routes' }))
+
+    expect(mockRebuildMutate).toHaveBeenCalledTimes(1)
+    expect(onOpenChange).not.toHaveBeenCalledWith(false)
+    // Still on the done step: the CTA is still available for a retry.
+    expect(
+      screen.getByRole('button', { name: 'Rebuild routes' })
+    ).toBeInTheDocument()
+  })
+
+  it('navigates to /accounts and closes the wizard on Add account', async () => {
+    const onOpenChange = vi.fn()
+
+    await advanceToDoneStep(onOpenChange)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add account' }))
+
+    expect(mockNavigate).toHaveBeenCalledWith({ to: '/accounts' })
+    expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 })

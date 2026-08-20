@@ -3,19 +3,15 @@
 // guided configuration chain (research/10-user-flows.md §4.2): the account
 // is added, and the operator is nudged to configure routes for it next.
 //
-// Navigation uses a hard assignment because the toast action outlives the
-// account form component that created it.
+// Navigation goes through the shared router instance (lib/router) because
+// the toast action outlives the account form component that created it —
+// a router.navigate keeps it a SPA transition instead of a hard reload.
+// The router is imported lazily inside the click handler: a static import
+// here would cycle back through routeTree.gen (router → routes → features
+// → this toast).
 
 import i18n from '@/i18n/config'
 import { toast } from '@/lib/toast'
-
-function buildRouteTarget(accountId?: number, siteId?: number): string {
-  const params = new URLSearchParams()
-  if (accountId) params.set('accountId', String(accountId))
-  if (siteId) params.set('siteId', String(siteId))
-  const query = params.toString()
-  return query ? `/token-routes?${query}` : '/token-routes'
-}
 
 /**
  * Fire the post-create guided toast. Call from the create-account form's
@@ -26,13 +22,18 @@ export function showAccountCreatedToast(
   accountId?: number,
   siteId?: number
 ): void {
-  const target = buildRouteTarget(accountId, siteId)
   toast.success(i18n.t('accounts.created.title'), {
     description: i18n.t('accounts.created.description'),
     duration: 8000,
     action: {
       label: i18n.t('accounts.created.action'),
-      onClick: () => window.location.assign(target),
+      onClick: async () => {
+        const { router } = await import('@/lib/router')
+        await router.navigate({
+          to: '/token-routes',
+          search: { accountId, siteId },
+        })
+      },
     },
   })
 }
