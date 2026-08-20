@@ -13,8 +13,9 @@
 // local `useState` mirror + `useEffect` write-back that can feed back into an
 // infinite render loop.
 
+import { useNavigate } from '@tanstack/react-router'
 import type { ColumnFiltersState } from '@tanstack/react-table'
-import { CalendarRange, Loader2, RotateCw, Zap } from 'lucide-react'
+import { CalendarRange, Loader2, RotateCw, Users, Zap } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -181,6 +182,7 @@ function checkinGlobalFilterFn(
 
 export function CheckinPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const {
     globalFilter,
     pagination,
@@ -492,6 +494,26 @@ export function CheckinPage() {
         isFetching={isFetching}
         emptyTitle={t('checkin.page.emptyTitle')}
         emptyDescription={t('checkin.page.emptyDescription')}
+        emptyAction={
+          // With accounts present the CTA reuses the header's manual
+          // check-in flow (same dialog, same mutation) to generate logs;
+          // without accounts there is nothing to check in, so the exit
+          // points to the accounts page instead of a disabled button.
+          accountOptions.length > 0 ? (
+            <Button onClick={() => setManualOpen(true)}>
+              <Zap className='mr-1 size-4' />
+              {t('checkin.page.manualCheckin')}
+            </Button>
+          ) : (
+            <Button
+              variant='outline'
+              onClick={() => void navigate({ to: '/accounts' })}
+            >
+              <Users className='mr-1 size-4' />
+              {t('checkin.page.manageAccounts')}
+            </Button>
+          )
+        }
         skeletonKeyPrefix='checkin-skeleton'
         toolbarProps={{
           searchPlaceholder: t('checkin.page.searchPlaceholder'),

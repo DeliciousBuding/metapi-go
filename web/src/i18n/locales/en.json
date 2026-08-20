@@ -125,7 +125,8 @@
       },
       "empty": {
         "title": "No models",
-        "description": "Models will appear here once accounts are connected."
+        "description": "Models will appear here once accounts are connected.",
+        "manageAccounts": "Manage accounts"
       },
       "toolbar": {
         "searchPlaceholder": "Search models…",
@@ -1813,6 +1814,7 @@
         "title": "Check-in records",
         "description": "View check-in execution logs and failure reasons; supports manual single-account or all-account check-in.",
         "manualCheckin": "Manual check-in",
+        "manageAccounts": "Manage accounts",
         "runAll": "Run all check-ins",
         "loadError": "Failed to load check-in records: {{message}}",
         "startTime": "Start time",

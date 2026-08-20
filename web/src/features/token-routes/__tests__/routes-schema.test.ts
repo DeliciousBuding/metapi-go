@@ -49,6 +49,20 @@ describe('routesSearchSchema', () => {
     expect(result.pageSize).toBe(20)
     expect(result.q).toBeUndefined()
   })
+
+  it('parses the one-shot edit deep-link param like routeId', () => {
+    // String form arrives from raw URL parsing, number form from the
+    // router's JSON parsing — both must land on the same positive int.
+    expect(routesSearchSchema.parse({ edit: '12' }).edit).toBe(12)
+    expect(routesSearchSchema.parse({ edit: 12 }).edit).toBe(12)
+  })
+
+  it('drops a stale or malformed edit param instead of throwing', () => {
+    expect(routesSearchSchema.parse({ edit: 'bogus' }).edit).toBeUndefined()
+    expect(routesSearchSchema.parse({ edit: 0 }).edit).toBeUndefined()
+    expect(routesSearchSchema.parse({ edit: -3 }).edit).toBeUndefined()
+    expect(routesSearchSchema.parse({}).edit).toBeUndefined()
+  })
 })
 
 // ---------------------------------------------------------------------------

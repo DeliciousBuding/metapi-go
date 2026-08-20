@@ -225,6 +225,12 @@ export const routesSearchSchema = z.object({
   // One-shot drilldown from the proxy-log detail sheet: open the detail
   // sheet for this route, then the page strips the param.
   routeId: z.coerce.number().int().positive().optional().catch(undefined),
+  // One-shot drilldown from the channel detail sheet (`?edit=<id>`): open
+  // the edit dialog for this route once, then the page strips the param.
+  // Mirrors the sites page's `edit` deep link: the id is resolved against
+  // the loaded list snapshot before opening, so a stale/unknown id is
+  // stripped silently instead of opening a blank dialog.
+  edit: z.coerce.number().int().positive().optional().catch(undefined),
   page: z.coerce.number().int().positive().catch(1).default(1),
   pageSize: z.coerce.number().int().positive().catch(20).default(20),
 })

@@ -1,7 +1,11 @@
-// Behavior tests for the token-routes one-shot drilldown (proxy-log detail
-// -> `/token-routes?routeId=N`): the page opens the route detail sheet for
-// the referenced route and strips the param, without disturbing the
-// persistent accountId/siteId chain context. A stale id strips silently.
+// Behavior tests for the token-routes one-shot drilldowns:
+// - proxy-log detail -> `/token-routes?routeId=N`: the page opens the route
+//   detail sheet for the referenced route and strips the param, without
+//   disturbing the persistent accountId/siteId chain context.
+// - channel detail sheet -> `/token-routes?edit=N`: the page opens the edit
+//   dialog (same state as the row edit action) for the referenced route and
+//   strips the param.
+// A stale id strips silently in both flows.
 
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, waitFor } from '@testing-library/react'
@@ -17,10 +21,16 @@ const testState = vi.hoisted(() => ({
   routeIdParam: '',
   routerSearch: {} as Record<string, unknown>,
   routes: [] as RouteSummaryRow[],
+  routesLoading: false,
   navigate: vi.fn(),
   detailSheetProps: null as {
     route: RouteSummaryRow | null
     open: boolean
+  } | null,
+  formDialogProps: null as {
+    route: RouteSummaryRow | null
+    open: boolean
+    mode: 'create' | 'edit'
   } | null,
 }))
 
@@ -64,7 +74,7 @@ vi.mock('@/features/sites/api', () => ({
 vi.mock('../api', () => ({
   useRoutes: () => ({
     data: testState.routes,
-    isLoading: false,
+    isLoading: testState.routesLoading,
     isFetching: false,
     error: null,
   }),
@@ -89,7 +99,14 @@ vi.mock('../components/route-detail-sheet', () => ({
 }))
 
 vi.mock('../components/route-form-dialog', () => ({
-  RouteFormDialog: () => null,
+  RouteFormDialog: (props: {
+    route: RouteSummaryRow | null
+    open: boolean
+    mode: 'create' | 'edit'
+  }) => {
+    testState.formDialogProps = props
+    return null
+  },
 }))
 
 vi.mock('../components/routes-columns', () => ({
@@ -109,8 +126,10 @@ beforeEach(() => {
   testState.routeIdParam = ''
   testState.routerSearch = {}
   testState.routes = []
+  testState.routesLoading = false
   testState.navigate.mockReset()
   testState.detailSheetProps = null
+  testState.formDialogProps = null
 })
 
 afterEach(() => cleanup())
@@ -163,5 +182,103 @@ describe('RoutesPage drilldown', () => {
     })
     expect(testState.navigate).not.toHaveBeenCalled()
     expect(testState.detailSheetProps?.open).toBe(false)
+  })
+})
+
+describe('RoutesPage edit drilldown', () => {
+  it('opens the edit dialog for the referenced route and strips the param', async () => {
+    testState.routerSearch = { edit: 5, accountId: 7 }
+    testState.routes = [makeRoute(5), makeRoute(6)]
+
+    render(<RoutesPage />)
+
+    await waitFor(() => {
+      expect(testState.formDialogProps?.open).toBe(true)
+    })
+    expect(testState.formDialogProps?.mode).toBe('edit')
+    expect(testState.formDialogProps?.route?.id).toBe(5)
+    // The detail sheet (the old `routeId` target) must stay closed — the
+    // edit deep link opens the editor, not the read-only panel.
+    expect(testState.detailSheetProps?.open).toBe(false)
+    // Strip is a replace-navigation that keeps the chain context intact.
+    expect(testState.navigate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: '/token-routes',
+        replace: true,
+        search: expect.objectContaining({
+          edit: undefined,
+          accountId: 7,
+        }),
+      })
+    )
+  })
+
+  it('strips a stale edit id without opening the dialog', async () => {
+    testState.routerSearch = { edit: 99 }
+    testState.routes = [makeRoute(5)]
+
+    render(<RoutesPage />)
+
+    await waitFor(() => {
+      expect(testState.navigate).toHaveBeenCalled()
+    })
+    expect(testState.formDialogProps?.open).toBe(false)
+    expect(testState.formDialogProps?.route).toBeNull()
+    expect(testState.navigate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: '/token-routes',
+        replace: true,
+        search: expect.objectContaining({ edit: undefined }),
+      })
+    )
+  })
+
+  it('waits for the list to resolve before consuming the edit param', async () => {
+    testState.routerSearch = { edit: 5 }
+    testState.routes = []
+    testState.routesLoading = true
+
+    const { rerender } = render(<RoutesPage />)
+
+    // While loading, the param must NOT be consumed and no strip navigate
+    // may happen yet.
+    expect(testState.formDialogProps?.open).toBe(false)
+    expect(testState.navigate).not.toHaveBeenCalled()
+
+    // Once the list resolves with the referenced route, the dialog opens
+    // and the param is stripped.
+    testState.routesLoading = false
+    testState.routes = [makeRoute(5)]
+    rerender(<RoutesPage />)
+
+    await waitFor(() => {
+      expect(testState.formDialogProps?.open).toBe(true)
+    })
+    expect(testState.formDialogProps?.route?.id).toBe(5)
+    expect(testState.navigate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: '/token-routes',
+        replace: true,
+        search: expect.objectContaining({ edit: undefined }),
+      })
+    )
+  })
+
+  it('opens the dialog exactly once across remount-like re-renders', async () => {
+    testState.routerSearch = { edit: 5 }
+    testState.routes = [makeRoute(5)]
+
+    const { rerender } = render(<RoutesPage />)
+
+    await waitFor(() => {
+      expect(testState.formDialogProps?.open).toBe(true)
+    })
+
+    // After consumption the page strips `edit`; a re-render with the
+    // stripped search must not navigate again (consumed-ref guard).
+    testState.routerSearch = {}
+    rerender(<RoutesPage />)
+
+    expect(testState.navigate).toHaveBeenCalledTimes(1)
   })
 })

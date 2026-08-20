@@ -2,6 +2,7 @@
 // routing breaker/cooldown aggregation. Reads the read-only
 // /api/monitor/health projection; never mutates routing state.
 
+import { Link } from '@tanstack/react-router'
 import { AlertTriangle, CheckCircle2, Server, ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -253,7 +254,18 @@ function renderBreakersBody(
       <TableBody>
         {breakers.map((breaker) => (
           <TableRow key={`${breaker.siteId}:${breaker.model}`}>
-            <TableCell className='tabular-nums'>{breaker.siteId}</TableCell>
+            <TableCell className='tabular-nums'>
+              {/* The breaker projection carries no site name, so the cell
+                  keeps the raw id but deep-links into the sites page edit
+                  dialog (one-shot `edit` param). */}
+              <Link
+                to='/sites'
+                search={{ edit: breaker.siteId }}
+                className='text-primary hover:underline'
+              >
+                {breaker.siteId}
+              </Link>
+            </TableCell>
             <TableCell className='truncate'>{breaker.model || '—'}</TableCell>
             <TableCell className='text-right tabular-nums'>
               {breaker.breakerLevel}
@@ -338,7 +350,13 @@ function renderCoolingTable(channels: CooldownChannel[], t: Translate) {
               {channel.siteName || channel.siteId}
             </TableCell>
             <TableCell className='text-right tabular-nums'>
-              {channel.channelId}
+              <Link
+                to='/channels'
+                search={{ channelId: channel.channelId }}
+                className='text-primary hover:underline'
+              >
+                {channel.channelId}
+              </Link>
             </TableCell>
             <TableCell className='text-right tabular-nums'>
               {channel.failCount}

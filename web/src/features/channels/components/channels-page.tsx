@@ -189,9 +189,12 @@ export function ChannelsPage() {
         onOpenChange={setDetailOpen}
         onEdit={(channel) => {
           setDetailOpen(false)
+          // One-shot `edit` deep link: the routes page opens the edit
+          // dialog for this route (a `routeId` link would only open the
+          // read-only detail sheet).
           void navigate({
             to: '/token-routes',
-            search: { routeId: channel.routeId },
+            search: { edit: channel.routeId },
           })
         }}
       />

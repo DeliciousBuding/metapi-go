@@ -118,6 +118,12 @@ function buildTokenRoutesHref(
     params.set('accountId', merged.filters.accountId)
   }
   if (merged.filters.siteId) params.set('siteId', merged.filters.siteId)
+  // Preserve the one-shot `edit` deep-link param across table-state
+  // navigations (page-clamp / sort / filter) until the page's consumption
+  // effect strips it — mirrors the sites page's buildHref guard for its
+  // guided `create`/`edit` params.
+  const guidedEdit = new URLSearchParams(window.location.search).get('edit')
+  if (guidedEdit) params.set('edit', guidedEdit)
   const queryString = params.toString()
   return queryString ? `/token-routes?${queryString}` : '/token-routes'
 }
@@ -251,6 +257,31 @@ export function RoutesPage() {
     setEditRoute(route)
     setFormOpen(true)
   }, [])
+
+  // One-shot edit drilldown (channel detail sheet -> `?edit=N`): wait for
+  // the list, open the edit dialog for the referenced route (the same state
+  // the row edit action uses), then strip the param so a refetch or remount
+  // never reopens it. A stale or unknown id is stripped without opening
+  // anything — mirrors the sites page's `edit` consumption and this page's
+  // `routeId` drilldown, including the strict-mode re-entry guard.
+  const editDrilldownConsumed = useRef(false)
+  useEffect(() => {
+    if (editDrilldownConsumed.current || routerSearch.edit === undefined) {
+      return
+    }
+    if (isLoading) return
+
+    const target = routes.find((route) => route.id === routerSearch.edit)
+    editDrilldownConsumed.current = true
+    if (target) {
+      openEdit(target)
+    }
+    navigate({
+      to: '/token-routes',
+      search: { ...routerSearch, edit: undefined },
+      replace: true,
+    })
+  }, [routerSearch, isLoading, routes, navigate, openEdit])
 
   // Memoized so the column defs keep a stable identity across renders.
   const rowActions = useMemo<RouteRowActions>(
