@@ -328,6 +328,51 @@ func TestAccounts_UpdateClearsSnapshotCache(t *testing.T) {
 	}
 }
 
+// A freshly created site must invalidate the accounts snapshot cache so the
+// accounts page reflects it immediately (previously only update/delete
+// invalidated it, leaving "Add account" disabled after creating the first site).
+func TestAccounts_CreateSiteClearsSnapshotCache(t *testing.T) {
+	_, r, _ := setupAccountsTest(t)
+
+	first := doGet(t, r, "/api/accounts")
+	if first.Code != http.StatusOK {
+		t.Fatalf("first list accounts: %d %s", first.Code, first.Body.String())
+	}
+	second := doGet(t, r, "/api/accounts")
+	if second.Header().Get("x-accounts-snapshot-cache") != "hit" {
+		t.Fatalf("second list should hit cache, header=%q", second.Header().Get("x-accounts-snapshot-cache"))
+	}
+
+	create := doPostJSON(t, r, "/api/sites", map[string]any{
+		"name":     "cache-invalidation-site",
+		"url":      "http://cache-invalidation.example.com",
+		"platform": "new-api",
+	})
+	if create.Code != http.StatusOK {
+		t.Fatalf("create site: %d %s", create.Code, create.Body.String())
+	}
+
+	after := doGet(t, r, "/api/accounts")
+	if after.Code != http.StatusOK {
+		t.Fatalf("after list accounts: %d %s", after.Code, after.Body.String())
+	}
+	if after.Header().Get("x-accounts-snapshot-cache") == "hit" {
+		t.Fatal("site create should have invalidated the accounts snapshot cache")
+	}
+	var result map[string]any
+	json.Unmarshal(after.Body.Bytes(), &result)
+	sites, _ := result["sites"].([]any)
+	found := false
+	for _, s := range sites {
+		if m, ok := s.(map[string]any); ok && m["name"] == "cache-invalidation-site" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected newly created site in accounts snapshot, got %d sites", len(sites))
+	}
+}
+
 // ---- Create Account ----
 
 func TestAccounts_UpdateRemark(t *testing.T) {

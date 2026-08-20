@@ -258,6 +258,10 @@ func (h *sitesHandler) createSite(w http.ResponseWriter, r *http.Request) {
 	if initializationPresetID != "" {
 		result["initializationPresetId"] = initializationPresetID
 	}
+	// Match update/delete: clear the process-local accounts snapshot cache (via
+	// the registered site-cache invalidator) so a freshly created site shows up
+	// on the accounts page immediately instead of waiting out the snapshot TTL.
+	service.InvalidateSiteCaches()
 	routing.InvalidateCache()
 	writeJSON(w, http.StatusOK, result)
 }

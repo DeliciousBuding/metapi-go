@@ -6,19 +6,25 @@
 // backend that is itself pointed at a REAL upstream platform (new-api/one-api).
 // It is an operator-gated acceptance gate, NOT part of the blocking PR CI: it
 // needs live credentials and a running upstream, so it runs on demand via
-// `bun run acceptance:e2e` or the workflow_dispatch acceptance workflow.
+// `bun run acceptance:e2e` (see docs/internal/analysis/e2e-acceptance-platform.md).
 //
 // Journey 1 — Site onboarding: open the sites page, add a site by URL, pick the
-//   platform, submit, and assert the site lands in the table. This exercises the
-//   exact path a user takes to connect metapi to a real gateway, including the
-//   real platform detect round-trip against the live upstream.
+//   platform, submit, and assert it lands in the table (fires the real detect
+//   round-trip).
+// Journey 2 — Account login (opt-in via ACCEPT_LOGIN=1): add an account with the
+//   password credential mode against the site from journey 1 and submit; the
+//   backend performs a REAL login against the live upstream and the account must
+//   appear in the table.
 //
 // Configuration (environment variables):
 //   BASE_URL          metapi admin origin      (default http://127.0.0.1:4000)
 //   AUTH_TOKEN        admin Bearer token       (default e2e-admin-token)
 //   UPSTREAM_URL      real upstream platform   (default http://127.0.0.1:3000)
+//   UPSTREAM_USERNAME upstream login user      (default metapi-e2e)
+//   UPSTREAM_PASSWORD upstream login password  (required for journey 2)
 //   PLATFORM          platform to select       (default new-api)
 //   ACCEPT_SITE_NAME  site name to create      (default acceptance-real-site)
+//   ACCEPT_LOGIN      set to "1" to also run journey 2
 //
 // Requires a Chromium install (`bunx playwright install chromium`).
 
@@ -52,7 +58,6 @@ function collectPageFailures(page, label) {
     const text = message.text()
     // A 4xx "Failed to load resource" is a handled HTTP outcome (e.g. the
     // idempotent site-create race returns 409), not an application defect.
-    // Real failures are 5xx resources and app-thrown console errors.
     if (/Failed to load resource.*\b4\d\d\b/.test(text)) return
     fail(`${label}: console.error — ${text}`)
   })
@@ -148,8 +153,7 @@ async function journeySiteOnboarding(context) {
       .first()
       .click()
 
-    // The created site must appear in the sites table. Wait for a row cell
-    // containing the site name.
+    // The created site must appear in the sites table.
     await page
       .getByText(ACCEPT_SITE_NAME, { exact: false })
       .first()
@@ -165,17 +169,6 @@ async function journeySiteOnboarding(context) {
   }
 }
 
-// Journey 2 — Account login via UI: open the accounts page, add an account with
-//   the password credential mode against the site from journey 1, and submit.
-//   The backend performs a REAL login against the live upstream (new-api) and
-//   stores the session; the created account must then appear in the table. This
-//   is the genuine login-system acceptance, end to end through the UI.
-//
-//   Opt-in via ACCEPT_LOGIN=1. It is gated because, when run immediately after
-//   journey 1 creates a FRESH site in the same process, the accounts page header
-//   transiently overlaps the toolbar and intercepts the "Add account" click (a
-//   real UI quirk under freshly-created-site state). Run it against a settled
-//   site (e.g. a second run, or standalone) for a clean pass.
 async function journeyAccountLogin(context) {
   const label = 'journey: account login via UI'
   if (!UPSTREAM_PASSWORD) {
@@ -193,36 +186,36 @@ async function journeyAccountLogin(context) {
       )
     }
   }
-  // Poll until the element is genuinely on top (nothing intercepts the hit-test),
-  // then let Playwright click it. A freshly created upstream site briefly renders
-  // a transient overlay, so a blind click races it; this waits it out instead.
-  const clickWhenClickable = async (locator, timeoutMs = 40_000) => {
+  // Poll the accounts snapshot until it includes the freshly created site,
+  // BEFORE navigating. The "Add account" button is disabled while the snapshot
+  // reports zero sites, and the page pins the first prefetched snapshot; waiting
+  // here ensures the first render already sees the site so the button enables.
+  const waitForSiteInSnapshot = async (timeoutMs = 45_000) => {
     const deadline = Date.now() + timeoutMs
+    const headers = { Authorization: `Bearer ${AUTH_TOKEN}` }
     for (;;) {
-      const onTop = await locator
-        .evaluate((el) => {
-          const rect = el.getBoundingClientRect()
-          const hit = document.elementFromPoint(
-            rect.left + rect.width / 2,
-            rect.top + rect.height / 2
-          )
-          return !!hit && (el === hit || el.contains(hit) || hit.contains(el))
-        })
-        .catch(() => false)
-      if (onTop) return locator.click({ timeout: 10_000 })
+      const resp = await context.request.get(`${BASE_URL}/api/accounts`, {
+        headers,
+      })
+      if (resp.status() === 200) {
+        const data = await resp.json().catch(() => null)
+        const sites = data?.sites ?? []
+        if (sites.some((site) => site?.name === ACCEPT_SITE_NAME)) return
+      }
       if (Date.now() > deadline)
-        throw new Error('element never became click-interceptable')
+        throw new Error('site never appeared in the accounts snapshot')
       await page.waitForTimeout(500)
     }
   }
   try {
+    await act('site in accounts snapshot', () => waitForSiteInSnapshot())
     await act('goto /accounts', () =>
       page.goto(`${BASE_URL}/accounts`, {
         waitUntil: 'networkidle',
         timeout: 30_000,
       })
     )
-    await page.waitForTimeout(1500)
+    await page.waitForTimeout(1000)
 
     const addAccount = page
       .getByRole('button', { name: /Add account/i })
@@ -230,7 +223,7 @@ async function journeyAccountLogin(context) {
     await act('Add account visible', () =>
       addAccount.waitFor({ state: 'visible', timeout: 10_000 })
     )
-    await act('click Add account', () => clickWhenClickable(addAccount))
+    await act('click Add account', () => addAccount.click({ timeout: 10_000 }))
     await page.waitForTimeout(500)
 
     // Switch to the password credential mode. Tabs: Session / API Key / Password.
@@ -314,11 +307,10 @@ try {
   await browser.close()
 }
 
-// Journey 2 (login) is opt-in; see its doc comment for why. When enabled, let
-// the freshly created site's background activity settle first, then run the
-// login journey in its own browser process.
+// Journey 2 (login) is opt-in. Give the freshly created site a brief moment to
+// commit, then run the login journey in its own browser process.
 if (process.env.ACCEPT_LOGIN === '1') {
-  await new Promise((resolve) => setTimeout(resolve, 12_000))
+  await new Promise((resolve) => setTimeout(resolve, 3_000))
 
   const loginBrowser = await chromium.launch({ headless: true })
   try {
