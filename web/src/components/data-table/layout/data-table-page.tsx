@@ -365,7 +365,9 @@ function renderDesktop<TData>(
       containerClassName={cn(
         fixedHeight && 'min-h-0 flex-1',
         'transition-opacity duration-150',
-        isFetchingOnly && 'pointer-events-none opacity-60',
+        // Subtle dim only while background-refetching; never block pointer
+        // events — rows stay rendered (placeholderData) and interactive.
+        isFetchingOnly && 'opacity-80',
         props.tableClassName
       )}
       getRowClassName={(row) =>
