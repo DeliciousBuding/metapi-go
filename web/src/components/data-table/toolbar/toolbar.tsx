@@ -38,7 +38,9 @@ export type DataTableToolbarProps<TData> = {
    */
   searchPlaceholder?: string
   /**
-   * Delay committing the default search input. Defaults to immediate updates.
+   * Delay committing the default search input. Defaults to 300ms so
+   * filter-as-you-type pages do not re-filter (or re-fetch) on every
+   * keystroke; pass 0 for pages that explicitly want immediate commits.
    */
   searchDebounceMs?: number
   /**
@@ -160,7 +162,7 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
       ? searchDraft
       : null
   const searchValue = activeSearchDraft?.value ?? currentSearchValue
-  const searchDebounceMs = Math.max(0, props.searchDebounceMs ?? 0)
+  const searchDebounceMs = Math.max(0, props.searchDebounceMs ?? 300)
   const debouncedSearchValue = useDebounce(searchValue, searchDebounceMs)
 
   const commitSearchValue = React.useCallback(

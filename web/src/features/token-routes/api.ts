@@ -10,6 +10,7 @@ import {
   useQueryClient,
   type UseQueryOptions,
 } from '@tanstack/react-query'
+import { useMemo } from 'react'
 
 import i18n from '@/i18n/config'
 import { api } from '@/lib/api'
@@ -352,19 +353,27 @@ export function useRefreshRouteDecisions() {
 // useZeroChannelRoutes
 // ---------------------------------------------------------------------------
 
+/**
+ * Merge zero-channel placeholder routes into the summary list. Memoized so
+ * the returned array keeps a stable identity across renders that change
+ * none of the inputs — an unstable reference re-resolves the routes table
+ * on every parent render (and re-runs TanStack's autoResetPageIndex).
+ */
 export function useZeroChannelRoutes(
   routes: RouteSummaryRow[] | undefined,
   candidates: ModelTokenCandidatesResponse | undefined,
   showZeroChannel: boolean
 ): RouteSummaryRow[] {
-  const base = routes ?? []
-  if (!showZeroChannel || !candidates) return base
-  const placeholders = buildZeroChannelPlaceholderRoutes(
-    base,
-    candidates.modelsWithoutToken ?? {},
-    candidates.modelsMissingTokenGroups ?? {}
-  )
-  return [...base, ...placeholders]
+  return useMemo(() => {
+    const base = routes ?? []
+    if (!showZeroChannel || !candidates) return base
+    const placeholders = buildZeroChannelPlaceholderRoutes(
+      base,
+      candidates.modelsWithoutToken ?? {},
+      candidates.modelsMissingTokenGroups ?? {}
+    )
+    return [...base, ...placeholders]
+  }, [routes, candidates, showZeroChannel])
 }
 
 // ---------------------------------------------------------------------------
