@@ -199,56 +199,58 @@ export function OverviewSection() {
       )
     }
     return (
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className='w-1/3'>
-              {t('dashboard.overview.scheduledTasks.colJob')}
-            </TableHead>
-            <TableHead>
-              {t('dashboard.overview.scheduledTasks.colEnabled')}
-            </TableHead>
-            <TableHead>
-              {t('dashboard.overview.scheduledTasks.colLastStatus')}
-            </TableHead>
-            <TableHead className='text-right'>
-              {t('dashboard.overview.scheduledTasks.colRuns24h')}
-            </TableHead>
-            <TableHead className='text-right'>
-              {t('dashboard.overview.scheduledTasks.colSuccess24h')}
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {schedulerRows.map((row) => {
-            const status =
-              SCHEDULER_STATUS_BADGE[row.lastStatus ?? ''] ??
-              SCHEDULER_STATUS_BADGE.never
-            const enabledLabel = row.enabled
-              ? t('dashboard.overview.scheduledTasks.enabled')
-              : t('dashboard.overview.scheduledTasks.disabled')
-            return (
-              <TableRow key={row.job}>
-                <TableCell className='font-medium'>{row.job}</TableCell>
-                <TableCell>
-                  <Badge variant={row.enabled ? 'success' : 'secondary'}>
-                    {enabledLabel}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={status.variant}>{t(status.key)}</Badge>
-                </TableCell>
-                <TableCell className='text-right tabular-nums'>
-                  {formatInt(row.runs24h)}
-                </TableCell>
-                <TableCell className='text-right tabular-nums'>
-                  {formatInt(row.success24h)}
-                </TableCell>
-              </TableRow>
-            )
-          })}
-        </TableBody>
-      </Table>
+      <div className='overflow-x-auto rounded-lg border'>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className='w-1/3'>
+                {t('dashboard.overview.scheduledTasks.colJob')}
+              </TableHead>
+              <TableHead>
+                {t('dashboard.overview.scheduledTasks.colEnabled')}
+              </TableHead>
+              <TableHead>
+                {t('dashboard.overview.scheduledTasks.colLastStatus')}
+              </TableHead>
+              <TableHead className='text-right'>
+                {t('dashboard.overview.scheduledTasks.colRuns24h')}
+              </TableHead>
+              <TableHead className='text-right'>
+                {t('dashboard.overview.scheduledTasks.colSuccess24h')}
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {schedulerRows.map((row) => {
+              const status =
+                SCHEDULER_STATUS_BADGE[row.lastStatus ?? ''] ??
+                SCHEDULER_STATUS_BADGE.never
+              const enabledLabel = row.enabled
+                ? t('dashboard.overview.scheduledTasks.enabled')
+                : t('dashboard.overview.scheduledTasks.disabled')
+              return (
+                <TableRow key={row.job}>
+                  <TableCell className='font-medium'>{row.job}</TableCell>
+                  <TableCell>
+                    <Badge variant={row.enabled ? 'success' : 'secondary'}>
+                      {enabledLabel}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={status.variant}>{t(status.key)}</Badge>
+                  </TableCell>
+                  <TableCell className='text-right tabular-nums'>
+                    {formatInt(row.runs24h)}
+                  </TableCell>
+                  <TableCell className='text-right tabular-nums'>
+                    {formatInt(row.success24h)}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      </div>
     )
   }
 
