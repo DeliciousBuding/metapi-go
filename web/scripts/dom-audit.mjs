@@ -1,18 +1,20 @@
 #!/usr/bin/env node
 // metapi-go — DOM-level UI/UX audit (no vision required).
-// For each route it dumps visible text, flags layout/accessibility anomalies:
-//   - horizontal document overflow (desktop + mobile)
-//   - truncated text without tooltip (ellipsis + scrollWidth > clientWidth)
-//   - interactive elements with empty accessible names or tiny hit areas
-//   - text/background contrast pairs sampled from computed styles
-//   - duplicate element ids, empty headings, zero-size images
-//   - console errors / pageerrors
-// Also opens a few key dialogs and dumps their content.
+//
+// Modes:
+//   default     full audit: route pass + interaction dumps + soft heuristics
+//   --hard      CI gate: route pass only; fails on HARD signals exclusively
+//               (console errors / pageerrors / HTTP 5xx / horizontal overflow)
+//
+// Hard signals stay deterministic against a fresh DB so the same script can
+// gate CI (a11y job boots the real server + built SPA). Soft heuristics
+// (tiny hit areas, truncation, contrast) are review aids, not gates.
 
 import { chromium } from 'playwright'
 
 const BASE_URL = process.env.BASE_URL ?? 'http://127.0.0.1:4099'
 const AUTH_TOKEN = process.env.AUTH_TOKEN ?? 'dev-admin-token-123'
+const HARD = process.argv.includes('--hard')
 
 const ROUTES = [
   '/',
@@ -52,6 +54,19 @@ const ROUTES = [
   '/about',
 ]
 
+const MOBILE_ROUTES = [
+  '/',
+  '/sites',
+  '/accounts',
+  '/models',
+  '/token-routes',
+  '/proxy-logs',
+  '/settings',
+]
+
+const hardFailures = []
+const softFindings = []
+
 function luminance([r, g, b]) {
   const f = (v) => {
     const c = v / 255
@@ -59,21 +74,17 @@ function luminance([r, g, b]) {
   }
   return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
 }
-
 function parseColor(css) {
   const m = css?.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)
   if (!m) return null
   return [Number(m[1]), Number(m[2]), Number(m[3])]
 }
-
 function contrast(fg, bg) {
   const l1 = luminance(fg)
   const l2 = luminance(bg)
   const [hi, lo] = l1 > l2 ? [l1, l2] : [l2, l1]
   return (hi + 0.05) / (lo + 0.05)
 }
-
-const findings = []
 
 async function seedAuth(context) {
   await context.addCookies([
@@ -92,32 +103,34 @@ async function seedAuth(context) {
   )
 }
 
-async function auditPage(page, label) {
+async function auditPage(page, label, mobile = false) {
   const errors = []
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`))
   page.on('console', (m) => {
     if (m.type() === 'error') errors.push(`console.error: ${m.text()}`)
   })
+  page.on('response', (r) => {
+    if (r.status() >= 500) {
+      errors.push(`HTTP ${r.status()}: ${r.request().method()} ${r.url()}`)
+    }
+  })
 
-  await page.goto(BASE_URL + label.route, {
+  await page.goto(BASE_URL + label, {
     waitUntil: 'domcontentloaded',
     timeout: 20_000,
   })
-  await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {})
-  await page.waitForTimeout(500)
+  await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {})
+  await page.waitForTimeout(400)
 
-  const audit = await page.evaluate(() => {
+  const audit = await page.evaluate((isMobile) => {
     const out = {
-      texts: [],
       truncated: [],
       tinyHits: [],
       emptyLabels: [],
       dupIds: [],
-      zeroImages: [],
       overflow: null,
     }
     const seen = new Map()
-
     const visible = (el) => {
       const s = getComputedStyle(el)
       const r = el.getBoundingClientRect()
@@ -128,39 +141,21 @@ async function auditPage(page, label) {
         r.height > 0
       )
     }
-
-    // Document overflow
     const de = document.documentElement
-    out.overflow = {
-      viewport: de.clientWidth,
-      document: de.scrollWidth,
-      bodyScroll: document.body.scrollWidth,
-    }
+    out.overflow = { viewport: de.clientWidth, document: de.scrollWidth }
 
-    // Text dump of main headings + first paragraph
-    for (const sel of ['h1', 'h2']) {
-      document.querySelectorAll(sel).forEach((el) => {
-        if (visible(el))
-          out.texts.push(`${sel}: ${el.textContent.trim().slice(0, 120)}`)
+    if (!isMobile) {
+      document.querySelectorAll('*').forEach((el) => {
+        if (!visible(el) || el.children.length > 0) return
+        const s = getComputedStyle(el)
+        if (
+          s.textOverflow === 'ellipsis' &&
+          el.scrollWidth > el.clientWidth + 2
+        ) {
+          out.truncated.push(el.textContent.trim().slice(0, 60))
+        }
       })
-    }
-
-    // Truncated text
-    document.querySelectorAll('*').forEach((el) => {
-      if (!visible(el) || el.children.length > 0) return
-      const s = getComputedStyle(el)
-      if (
-        s.textOverflow === 'ellipsis' &&
-        el.scrollWidth > el.clientWidth + 2
-      ) {
-        out.truncated.push(el.textContent.trim().slice(0, 60))
-      }
-    })
-
-    // Interactive elements
-    document
-      .querySelectorAll('button, a, [role="button"], input, [tabindex]')
-      .forEach((el) => {
+      document.querySelectorAll('button, a, [role="button"]').forEach((el) => {
         if (!visible(el)) return
         const r = el.getBoundingClientRect()
         const name =
@@ -168,14 +163,9 @@ async function auditPage(page, label) {
           el.textContent.trim() ||
           el.getAttribute('title') ||
           ''
-        if (!name && el.tagName !== 'INPUT') {
-          out.emptyLabels.push(
-            `<${el.tagName.toLowerCase()} class="${el.className?.toString().slice(0, 50)}">`
-          )
-        }
+        if (!name) out.emptyLabels.push(`<${el.tagName.toLowerCase()}>`)
         if (
           (r.width < 22 || r.height < 22) &&
-          el.tagName !== 'INPUT' &&
           !el.closest('[role="menuitem"]')
         ) {
           out.tinyHits.push(
@@ -183,85 +173,253 @@ async function auditPage(page, label) {
           )
         }
       })
-
-    // Duplicate ids
-    document.querySelectorAll('[id]').forEach((el) => {
-      const id = el.id
-      seen.set(id, (seen.get(id) ?? 0) + 1)
-    })
-    for (const [id, n] of seen) if (n > 1) out.dupIds.push(`${id} x${n}`)
-
-    // Zero-size images
-    document.querySelectorAll('img, svg').forEach((el) => {
-      const r = el.getBoundingClientRect()
-      if (r.width === 0 && r.height === 0) out.zeroImages.push(el.tagName)
-    })
-    return out
-  })
-
-  // Contrast sampling: body text and muted text vs their backgrounds
-  const contrastInfo = await page.evaluate(() => {
-    const samples = []
-    const bg = (el) => {
-      let node = el
-      while (node && node !== document.documentElement) {
-        const c = getComputedStyle(node).backgroundColor
-        if (c && c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent') return c
-        node = node.parentElement
-      }
-      return getComputedStyle(document.body).backgroundColor
-    }
-    document
-      .querySelectorAll('p, span, div, td, th, label, a, button')
-      .forEach((el) => {
-        if (el.children.length > 0) return
-        const r = el.getBoundingClientRect()
-        if (r.width === 0 || r.height === 0) return
-        const s = getComputedStyle(el)
-        if (s.fontSize === '0px') return
-        samples.push({
-          text: el.textContent.trim().slice(0, 30),
-          color: s.color,
-          bg: bg(el),
-        })
+      document.querySelectorAll('[id]').forEach((el) => {
+        seen.set(el.id, (seen.get(el.id) ?? 0) + 1)
       })
-    return samples.slice(0, 400)
-  })
-
-  const lowContrast = []
-  for (const s of contrastInfo) {
-    const fg = parseColor(s.color)
-    const bg = parseColor(s.bg)
-    if (!fg || !bg) continue
-    const ratio = contrast(fg, bg)
-    if (ratio < 3.0 && s.text) {
-      lowContrast.push(
-        `${ratio.toFixed(2)} "${s.text}" fg=${s.color} bg=${s.bg}`
-      )
+      for (const [id, n] of seen) if (n > 1) out.dupIds.push(`${id} x${n}`)
     }
-  }
-  if (lowContrast.length) {
-    findings.push(`${label}: LOW CONTRAST x${lowContrast.length}:`)
-    for (const c of [...new Set(lowContrast)].slice(0, 12))
-      findings.push(`    ${c}`)
-  }
+    return out
+  }, mobile)
 
+  for (const e of errors)
+    hardFailures.push(`${mobile ? 'mobile:' : 'light:'}${label}: ${e}`)
   if (audit.overflow && audit.overflow.document > audit.overflow.viewport + 1) {
-    findings.push(
-      `${label}: H-OVERFLOW doc=${audit.overflow.document} > viewport=${audit.overflow.viewport}`
+    hardFailures.push(
+      `${mobile ? 'mobile:' : 'light:'}${label}: H-OVERFLOW doc=${audit.overflow.document} > viewport=${audit.overflow.viewport}`
     )
   }
-  for (const t of [...new Set(audit.truncated)].slice(0, 8))
-    findings.push(`${label}: TRUNCATED "${t}"`)
-  for (const t of [...new Set(audit.emptyLabels)].slice(0, 8))
-    findings.push(`${label}: EMPTY-LABEL ${t}`)
-  for (const t of [...new Set(audit.tinyHits)].slice(0, 8))
-    findings.push(`${label}: TINY-HIT ${t}`)
-  for (const t of audit.dupIds.slice(0, 4))
-    findings.push(`${label}: DUP-ID ${t}`)
-  for (const e of errors.slice(0, 6)) findings.push(`${label}: ${e}`)
 
-  return audit
+  if (!HARD) {
+    for (const t of [...new Set(audit.truncated)].slice(0, 6))
+      softFindings.push(`light:${label}: TRUNCATED "${t}"`)
+    for (const t of [...new Set(audit.emptyLabels)].slice(0, 6))
+      softFindings.push(`light:${label}: EMPTY-LABEL ${t}`)
+    for (const t of [...new Set(audit.tinyHits)].slice(0, 10))
+      softFindings.push(`light:${label}: TINY-HIT ${t}`)
+    for (const t of audit.dupIds.slice(0, 4))
+      softFindings.push(`light:${label}: DUP-ID ${t}`)
+  }
+
+  // Contrast pass (desktop only, non-hard).
+  if (!HARD && !mobile) {
+    const samples = await page.evaluate(() => {
+      const bg = (el) => {
+        let node = el
+        while (node && node !== document.documentElement) {
+          const c = getComputedStyle(node).backgroundColor
+          if (c && c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent') return c
+          node = node.parentElement
+        }
+        return getComputedStyle(document.body).backgroundColor
+      }
+      const out = []
+      document
+        .querySelectorAll('p, span, div, td, th, label, a, button, li')
+        .forEach((el) => {
+          if (el.children.length > 0) return
+          const r = el.getBoundingClientRect()
+          if (r.width === 0 || r.height === 0) return
+          const s = getComputedStyle(el)
+          if (s.fontSize === '0px') return
+          const text = el.textContent.trim()
+          if (!text || text.length > 40) return
+          out.push({
+            text: text.slice(0, 30),
+            color: s.color,
+            bg: bg(el),
+            fontSize: parseFloat(s.fontSize),
+          })
+        })
+      return out.slice(0, 300)
+    })
+    const low = []
+    for (const s of samples) {
+      const fg = parseColor(s.color)
+      const bgc = parseColor(s.bg)
+      if (!fg || !bgc) continue
+      const ratio = contrast(fg, bgc)
+      const threshold = s.fontSize >= 18 ? 3 : 4.5
+      if (ratio < threshold)
+        low.push(`${ratio.toFixed(2)} "${s.text}" fg=${s.color} bg=${s.bg}`)
+    }
+    if (low.length) {
+      softFindings.push(`light:${label}: LOW CONTRAST x${low.length}:`)
+      for (const c of [...new Set(low)].slice(0, 8))
+        softFindings.push(`    ${c}`)
+    }
+  }
+}
+
+/** Dump the accessible structure of whatever dialog/sheet is currently open. */
+async function dumpDialogSurface(page, label) {
+  await page.waitForTimeout(700)
+  const text = await page.evaluate(() => {
+    const dialog = document.querySelector(
+      '[role="dialog"], [data-slot="dialog-content"], [data-slot="sheet-content"]'
+    )
+    if (!dialog) return null
+    const heading =
+      dialog
+        .querySelector(
+          'h2, [data-slot="dialog-title"], [data-slot="sheet-title"]'
+        )
+        ?.textContent.trim() ?? ''
+    const labels = [...dialog.querySelectorAll('label')]
+      .map((l) => l.textContent.trim())
+      .filter(Boolean)
+      .slice(0, 40)
+    const inputs = [...dialog.querySelectorAll('input, select, textarea')]
+      .map((i) => ({
+        type: i.type || i.tagName,
+        placeholder: i.placeholder?.slice(0, 40),
+        name: i.name,
+      }))
+      .slice(0, 40)
+    const buttons = [...dialog.querySelectorAll('button')]
+      .map((b) => b.textContent.trim())
+      .filter(Boolean)
+      .slice(0, 20)
+    return { heading, labels, inputs, buttons }
+  })
+  console.log(`\n=== ${label} ===`)
+  if (!text) {
+    console.log('(no dialog surface opened)')
+    return
+  }
+  console.log(`heading: ${text.heading || '(none)'}`)
+  console.log(`labels: ${JSON.stringify(text.labels)}`)
+  console.log(`inputs: ${JSON.stringify(text.inputs)}`)
+  console.log(`buttons: ${JSON.stringify(text.buttons)}`)
+}
+
+async function interactionPass(desktop) {
+  async function openRowMenuThenDetail(route, menuLabel, detailLabel) {
+    const page = await desktop.newPage()
+    await page.goto(`${BASE_URL}${route}`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 20_000,
+    })
+    await page
+      .waitForLoadState('networkidle', { timeout: 6000 })
+      .catch(() => {})
+    await page.waitForTimeout(600)
+    try {
+      const trigger = page.getByRole('button', { name: menuLabel }).first()
+      await trigger.waitFor({ state: 'visible', timeout: 6000 })
+      await trigger.click()
+      await page.waitForTimeout(400)
+      const items = await page.evaluate(() =>
+        [...document.querySelectorAll('[role="menuitem"]')]
+          .map((m) => m.textContent.trim())
+          .filter(Boolean)
+          .slice(0, 12)
+      )
+      console.log(`\n=== ${route} row menu items ===`)
+      console.log(JSON.stringify(items))
+      const detail = page.getByRole('menuitem', { name: detailLabel }).first()
+      if (await detail.count()) {
+        await detail.click()
+        await dumpDialogSurface(page, `${route} detail sheet`)
+      }
+    } catch (e) {
+      console.log(
+        `${route} interaction skipped: ${String(e?.message ?? e).split('\n')[0]}`
+      )
+    }
+    await page.close()
+  }
+
+  // 1. Accounts detail sheet.
+  await openRowMenuThenDetail('/accounts', /账号操作/, /详情/)
+  // 2. Models detail sheet.
+  await openRowMenuThenDetail('/models', /行操作/, /查看详情/)
+  // 3. Token-routes detail sheet.
+  await openRowMenuThenDetail('/token-routes', /路由操作/, /详情/)
+
+  // 4. Sites import wizard (toolbar entry is now always present).
+  {
+    const page = await desktop.newPage()
+    await page.goto(`${BASE_URL}/sites`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 20_000,
+    })
+    await page
+      .waitForLoadState('networkidle', { timeout: 6000 })
+      .catch(() => {})
+    try {
+      const importBtn = page.getByRole('button', { name: /导入站点/ }).first()
+      await importBtn.waitFor({ state: 'visible', timeout: 6000 })
+      await importBtn.click()
+      await dumpDialogSurface(page, 'import wizard (first step)')
+    } catch (e) {
+      console.log(
+        `import wizard skipped: ${String(e?.message ?? e).split('\n')[0]}`
+      )
+    }
+    await page.close()
+  }
+
+  // 5. Downstream keys create dialog.
+  {
+    const page = await desktop.newPage()
+    await page.goto(`${BASE_URL}/settings/downstream/keys`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 20_000,
+    })
+    await page
+      .waitForLoadState('networkidle', { timeout: 6000 })
+      .catch(() => {})
+    try {
+      const create = page
+        .getByRole('button', { name: /创建|新建|Create/ })
+        .first()
+      await create.waitFor({ state: 'visible', timeout: 6000 })
+      await create.click()
+      await dumpDialogSurface(page, 'downstream key create dialog')
+    } catch (e) {
+      console.log(
+        `key create skipped: ${String(e?.message ?? e).split('\n')[0]}`
+      )
+    }
+    await page.close()
+  }
+
+  // 6. Global search modal (Ctrl+K).
+  {
+    const page = await desktop.newPage()
+    await page.goto(`${BASE_URL}/dashboard`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 20_000,
+    })
+    await page
+      .waitForLoadState('networkidle', { timeout: 6000 })
+      .catch(() => {})
+    await page.keyboard.press('Control+k')
+    await page.waitForTimeout(700)
+    const search = await page.evaluate(() => {
+      const modal = document.querySelector(
+        '[role="dialog"], [data-slot="command-menu"], [data-slot="command"]'
+      )
+      if (!modal) return null
+      const items = [...modal.querySelectorAll('[role="option"], [data-value]')]
+        .map((el) => el.textContent.trim().slice(0, 60))
+        .filter(Boolean)
+        .slice(0, 15)
+      const input = modal.querySelector('input')
+      return {
+        placeholder: input?.placeholder?.slice(0, 40) ?? '',
+        items,
+      }
+    })
+    console.log('\n=== global search modal ===')
+    if (!search) {
+      console.log('(no search modal found)')
+    } else {
+      console.log(`placeholder: ${search.placeholder}`)
+      console.log(`items: ${JSON.stringify(search.items)}`)
+    }
+    await page.close()
+  }
 }
 
 const browser = await chromium.launch({
@@ -269,105 +427,28 @@ const browser = await chromium.launch({
   args: ['--no-proxy-server', '--disable-dev-shm-usage'],
 })
 try {
-  // ---- desktop light ----
   const desktop = await browser.newContext({
     viewport: { width: 1440, height: 900 },
     locale: 'zh-CN',
   })
   await seedAuth(desktop)
-  const pages = new Map()
   for (const route of ROUTES) {
     const page = await desktop.newPage()
-    const label = `light:${route}`
-    const audit = await auditPage(page, { route })
-    pages.set(route, { page, audit })
+    await auditPage(page, route, false)
     await page.close()
   }
-
-  // ---- key dialogs (sites add, account detail, model detail, route detail) ----
-  async function dialogDump(route, openLabel, done) {
-    const page = await desktop.newPage()
-    await page.goto(BASE_URL + route, {
-      waitUntil: 'domcontentloaded',
-      timeout: 20_000,
-    })
-    await page
-      .waitForLoadState('networkidle', { timeout: 5000 })
-      .catch(() => {})
-    await page.waitForTimeout(400)
-    try {
-      const trigger = page.getByRole('button', { name: openLabel }).first()
-      await trigger.waitFor({ state: 'visible', timeout: 5000 })
-      await trigger.click()
-      await page.waitForTimeout(700)
-      const text = await page.evaluate(() => {
-        const dialog = document.querySelector(
-          '[role="dialog"], [data-slot="dialog-content"], [data-slot="sheet-content"]'
-        )
-        if (!dialog) return '(no dialog found)'
-        const labels = [...dialog.querySelectorAll('label')]
-          .map((l) => l.textContent.trim())
-          .slice(0, 30)
-        const inputs = [...dialog.querySelectorAll('input, select, textarea')]
-          .map((i) => ({
-            type: i.type || i.tagName,
-            placeholder: i.placeholder?.slice(0, 40),
-            name: i.name,
-          }))
-          .slice(0, 30)
-        const buttons = [...dialog.querySelectorAll('button')]
-          .map((b) => b.textContent.trim())
-          .filter(Boolean)
-          .slice(0, 15)
-        return {
-          labels,
-          inputs,
-          buttons,
-          heading: dialog
-            .querySelector(
-              'h2, [data-slot="dialog-title"], [data-slot="sheet-title"]'
-            )
-            ?.textContent.trim(),
-        }
-      })
-      console.log(`\n=== DIALOG ${route} (${openLabel}) ===`)
-      console.log(`heading: ${text.heading ?? '(none)'}`)
-      console.log(`labels: ${JSON.stringify(text.labels)}`)
-      console.log(`inputs: ${JSON.stringify(text.inputs)}`)
-      console.log(`buttons: ${JSON.stringify(text.buttons)}`)
-      done && (await done(page))
-    } catch (e) {
-      console.log(
-        `\n=== DIALOG ${route} (${openLabel}) === FAILED: ${String(e?.message ?? e).split('\n')[0]}`
-      )
-    }
-    await page.close()
-  }
-
-  await dialogDump('/sites', /添加站点|Add site/)
-  await dialogDump('/accounts', /添加账号|Add account/)
-  await dialogDump('/downstream-keys', /创建|Create/) // may not exist as route; skip silently
+  if (!HARD) await interactionPass(desktop)
   await desktop.close()
 
-  // ---- mobile light: overflow + tiny hits ----
   const mobile = await browser.newContext({
     viewport: { width: 375, height: 812 },
     locale: 'zh-CN',
     isMobile: true,
   })
   await seedAuth(mobile)
-  for (const route of [
-    '/',
-    '/sites',
-    '/accounts',
-    '/models',
-    '/token-routes',
-    '/proxy-logs',
-    '/settings',
-    '/model-tester',
-  ]) {
+  for (const route of MOBILE_ROUTES) {
     const page = await mobile.newPage()
-    await auditPage(page, { route: route, mobile: true })
+    await auditPage(page, route, true)
     await page.close()
   }
   await mobile.close()
@@ -375,5 +456,17 @@ try {
   await browser.close()
 }
 
-console.log(`\n=== FINDINGS (${findings.length}) ===`)
-for (const f of [...new Set(findings)]) console.log(f)
+if (hardFailures.length > 0) {
+  console.error(`\n=== HARD FAILURES (${hardFailures.length}) ===`)
+  for (const f of [...new Set(hardFailures)]) console.error(`  ${f}`)
+  process.exit(1)
+}
+
+if (!HARD && softFindings.length > 0) {
+  console.log(`\n=== SOFT FINDINGS (${softFindings.length}) ===`)
+  for (const f of [...new Set(softFindings)]) console.log(`  ${f}`)
+}
+
+console.log(
+  `[ui-audit] ${HARD ? 'hard gate clean' : 'audit complete'} — ${ROUTES.length} desktop routes + ${MOBILE_ROUTES.length} mobile routes.`
+)
