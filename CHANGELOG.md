@@ -5,6 +5,14 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.16.2] — 2026-08-20
+
+### Fixed
+
+- **老 TS 库迁移后启动/查询崩溃**（#849 后续，hb0730 报告）：`SQL logic error: no such column: post_refresh_probe_enabled` — additive 迁移注册表只覆盖了 Go 独有新增列，漏了 TS 历史迁移加过的列；老版本 TS 的 `hub.db` 迁到 Go 后一查 `sites` 就崩。新增 sc2_017~024 共 8 个 additive 步骤，补齐 34 个 TS-heritage 列（sites probe/proxy/headers、token_routes、route_channels、proxy_logs、accounts OAuth、account_tokens、model_availability），并加回归测试防止 TS 后续迁移再加列时漏同步（#878）。老库无需手动操作，启动时自动补列。
+- **Docker 数据目录权限导致启动失败**（#849）：Go 镜像以非 root 用户（uid 1001）运行，旧 TS 容器以 root 写入的 bind mount 数据目录会触发 `attempt to write a readonly database` / `unable to open database file`。现在启动前探测数据目录与既有库文件的可写性，失败时报可操作的 `chown -R 1001:1001 <dir>` / `chmod` 提示；README、docker-compose.prod、迁移与部署文档补充命名卷零配置 vs bind mount + chown 指引与 `ACCOUNT_CREDENTIAL_SECRET` 说明（#875）。
+- **`metapi-migrate --verify` 校验和误报**：修复 4 处——目标侧哈希限定源列集合（列序无关）、settings 源侧过滤运行时键（db_type/db_url/db_ssl）、行哈希按规范化串排序（行序无关）、跨方言布尔规范化（SQLite 0/1 vs PG true/false）。裸 TS 源与 Go 迁移源 `--verify` 均 "All checksums match"（#875）。
+
 ## [v0.16.1] — 2026-08-19
 
 ### Fixed
