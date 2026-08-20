@@ -2,9 +2,25 @@
 
 **Last verified**: 2026-08-20
 
-**Release**: [v0.16.1](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.1) · released on master; production promotion follows the release and soak gate
+**Release**: [v0.16.2](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.2) · released on master; production promotion follows the release and soak gate
 
 > This is the only execution plan. It contains open work, order, ownership, and acceptance criteria. Current facts → [`../STATE.md`](../STATE.md) · product positioning → [`../benchmark.md`](../benchmark.md) · timeline → [`../log.md`](../log.md).
+
+## Active milestone — TS 兼容与迁移收官（2026-08-20 起）
+
+分析依据：[`../analysis/ts-go-migration-gap.md`](../analysis/ts-go-migration-gap.md)。用户确认的四项决策：MySQL 走 TS 自带迁移（零 Go 新依赖）、实现反向检测、Admin UI 表面化迁移、TS 备份 v2.1 导入兼容。
+
+| 批次 | 内容 | 验收基线 |
+|---|---|---|
+| A CLI 诚实化 | `--verify` 失败 exit≠0；buildSummary 真实方言；`--batch-size` 实现批量 INSERT；注释修正 | 校验和不匹配 → exit≠0；SQLite→SQLite summary 显示 sqlite |
+| B 反向检测 | `__drizzle_migrations` 判龄 + 未知列扫描 → 启动警告（列名 + 升级建议），不阻断 | TS 新版库夹具启动出现警告；干净库不误报 |
+| C 启动汇总 | AutoMigrate 有实际变更时输出「added N columns across M tables」汇总 | 老库有汇总行，空库无 |
+| D 迁移 UI | database-section 接入 migrate 端点 + task 轮询进度 + 危险确认 + i18n；启用 migrateExternalDatabase | UI 完成 SQLite→PG 真实迁移（本地 PG 55432） |
+| E 文档全修 | migration.md 三 personas（SQLite 接管/PG 接管/MySQL 经 TS 迁移）重写 + 版本锁定；README/FAQ 矛盾修复 | docs 门禁全绿；三种 persona 可照做 |
+| F TS 备份导入 | Go import 兼容 TS v2.1 备份格式 | TS v2.1 样本导入成功且数据正确 |
+| G PG 接管实测 | TS 契约 PG schema 被 Go 直接接管实测 | 不崩、数据可读；缺口记录归档 |
+
+批次完成即关闭；不再保留开放清单。
 
 ## Delivery model
 
