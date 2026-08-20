@@ -122,14 +122,22 @@ export const settingsApi = {
     request('/api/downstream-keys', {
       method: 'POST',
       body: JSON.stringify(data),
+      // The keys section surfaces its own createFailed toast.
+      skipErrorHandler: true,
     }),
   updateDownstreamApiKey: (id: number, data: unknown) =>
     request(`/api/downstream-keys/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
+      // The keys section surfaces its own updateFailed toast (form + toggle).
+      skipErrorHandler: true,
     }),
   deleteDownstreamApiKey: (id: number) =>
-    request(`/api/downstream-keys/${id}`, { method: 'DELETE' }),
+    request(`/api/downstream-keys/${id}`, {
+      method: 'DELETE',
+      // The keys section surfaces its own deleteFailed toast.
+      skipErrorHandler: true,
+    }),
   batchDownstreamApiKeys: (data: {
     ids: number[]
     action: 'enable' | 'disable' | 'delete' | 'resetUsage' | 'updateMetadata'

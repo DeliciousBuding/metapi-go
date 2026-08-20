@@ -27,6 +27,8 @@ export const oauthApi = {
     request(`/api/oauth/providers/${encodeURIComponent(provider)}/start`, {
       method: 'POST',
       body: JSON.stringify(data || {}),
+      // The start dialog surfaces its own specific startFailed message.
+      skipErrorHandler: true,
     }) as Promise<OAuthStartResponse>,
   getOAuthSession: (state: string) =>
     request(
@@ -38,6 +40,8 @@ export const oauthApi = {
       {
         method: 'POST',
         body: JSON.stringify({ callbackUrl }),
+        // The pending-session panel surfaces its own error toast.
+        skipErrorHandler: true,
       }
     ) as Promise<{ success: true }>,
   getOAuthConnections: (params?: { limit?: number; offset?: number }) =>
@@ -48,6 +52,8 @@ export const oauthApi = {
     request(`/api/oauth/connections/${accountId}/quota/refresh`, {
       method: 'POST',
       body: JSON.stringify({}),
+      // The row action surfaces a per-account refreshFailed toast.
+      skipErrorHandler: true,
     }) as Promise<{ success: true; quota: OAuthQuotaInfo }>,
   refreshOAuthConnectionQuotaBatch: (accountIds: number[]) =>
     request('/api/oauth/connections/quota/refresh-batch', {
@@ -69,6 +75,8 @@ export const oauthApi = {
     request(`/api/oauth/connections/${accountId}/rebind`, {
       method: 'POST',
       body: JSON.stringify(data || {}),
+      // The row action surfaces a per-account rebindFailed toast.
+      skipErrorHandler: true,
     }) as Promise<OAuthStartResponse>,
   deleteOAuthConnection: (accountId: number) =>
     request(`/api/oauth/connections/${accountId}`, {
