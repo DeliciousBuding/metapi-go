@@ -6,7 +6,6 @@
 
 import type { ColumnDef } from '@tanstack/react-table'
 import {
-  AlertTriangle,
   CalendarCheck,
   CheckCircle2,
   Clock,
@@ -21,6 +20,7 @@ import {
   Power,
   RefreshCw,
   Trash2,
+  TriangleAlert,
   XCircle,
   type LucideIcon,
 } from 'lucide-react'
@@ -75,7 +75,7 @@ const HEALTH_BADGE_CONFIG: Record<RuntimeHealthState, HealthBadgeConfig> = {
     labelKey: 'accounts.columns.healthDegraded',
     variant: 'warning',
     dotClassName: 'bg-warning',
-    icon: AlertTriangle,
+    icon: TriangleAlert,
   },
   unhealthy: {
     labelKey: 'accounts.columns.healthUnhealthy',

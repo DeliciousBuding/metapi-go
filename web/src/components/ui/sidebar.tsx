@@ -317,6 +317,10 @@ function SidebarInset({ className, ...props }: React.ComponentProps<'main'>) {
       data-slot='sidebar-inset'
       className={cn(
         'bg-background relative flex w-full flex-1 flex-col md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2',
+        // shadow-sm alone disappears against the dark sidebar background,
+        // merging the panel into the shell; a dark-only ring restores the
+        // edge without touching the light-theme look.
+        'md:peer-data-[variant=inset]:dark:ring-border md:peer-data-[variant=inset]:dark:ring-1',
         className
       )}
       {...props}
