@@ -1,11 +1,13 @@
 // metapi-go/layout — application header.
-// Brand on the left; global-search trigger plus the shared language,
-// appearance, and color-scheme controls on the right.
+// Brand on the left; global-search trigger, the shared language /
+// appearance / color-scheme controls, and the user menu (version, About,
+// documentation, sign-out) on the right.
 
 import { Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { InterfaceControls } from '@/components/layout/components/interface-controls'
+import { UserMenu } from '@/components/layout/components/user-menu'
 import { Button } from '@/components/ui/button'
 import { isMacPlatform, Kbd } from '@/components/ui/kbd'
 import { SidebarTrigger } from '@/components/ui/sidebar'
@@ -76,6 +78,7 @@ export function AppHeader({
         <div className='ms-auto flex items-center gap-1'>
           <SearchTrigger onClick={onSearchClick} />
           <InterfaceControls showThemeToggle={showThemeToggle} />
+          <UserMenu />
         </div>
       )}
     </header>

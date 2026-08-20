@@ -26,6 +26,8 @@ const ABOUT_INFO: AboutInfo = {
   author: 'DeliciousBuding',
 }
 
+export { ABOUT_INFO }
+
 /**
  * Fetch about/build info. Resolves build-time constants synchronously — no
  * network call. Pass `options.enabled` etc. to override.
