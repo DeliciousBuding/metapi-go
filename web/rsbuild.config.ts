@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -7,6 +8,10 @@ import { pluginTailwindcss } from '@rsbuild/plugin-tailwindcss'
 import { tanstackRouter } from '@tanstack/router-plugin/rspack'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+const webPackageJson = JSON.parse(
+  readFileSync(path.join(__dirname, 'package.json'), 'utf-8')
+) as { version: string }
 
 export default defineConfig(({ envMode }) => {
   // VITE_ prefix kept for parity with legacy env var names
@@ -61,6 +66,12 @@ export default defineConfig(({ envMode }) => {
     source: {
       entry: {
         index: './src/main.tsx',
+      },
+      // Compile-time constant consumed by features/about; keeping it in sync
+      // with the package.json `version` field prevents the displayed SPA
+      // version from drifting at release time. Applied to dev and build.
+      define: {
+        METAPI_WEB_VERSION: JSON.stringify(webPackageJson.version),
       },
     },
     resolve: {

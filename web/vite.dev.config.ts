@@ -3,6 +3,7 @@
 // exists so we can run a native Vite dev server with HMR while iterating on
 // the login page visuals. NOT used for production builds.
 
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -12,6 +13,13 @@ import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+// Mirrors the `METAPI_WEB_VERSION` compile-time constant that
+// rsbuild.config.ts injects via `source.define`, so the About page also
+// resolves it under this throwaway Vite dev server.
+const webPackageJson = JSON.parse(
+  readFileSync(path.join(__dirname, 'package.json'), 'utf-8')
+) as { version: string }
 
 // VITE_ prefix kept for parity with rsbuild.config.ts env handling
 // (DEV_PROXY_TARGET / VITE_DEV_PROXY_TARGET / PORT / VITE_BACKEND_PORT).
@@ -56,6 +64,9 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, './src'),
       },
+    },
+    define: {
+      METAPI_WEB_VERSION: JSON.stringify(webPackageJson.version),
     },
     server: {
       host: '0.0.0.0',
