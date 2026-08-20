@@ -316,36 +316,32 @@ describe('DatabaseMigrationSection — background task polling', () => {
     }
   )
 
-  it(
-    'surfaces the task error on failure',
-    { timeout: 15_000 },
-    async () => {
-      mockGetTask
-        .mockResolvedValueOnce({ success: true, task: runningTask })
-        .mockResolvedValueOnce({
-          success: true,
-          task: {
-            ...runningTask,
-            status: 'failed',
-            error: 'open target: connection refused',
-            finishedAt: '2026-08-20T10:00:05Z',
-          },
-        })
-      renderMigrationSection()
-
-      await fillConnection('postgres://user:pass@host:5432/db')
-      fireEvent.click(screen.getByRole('button', { name: 'Start migration' }))
-      await screen.findByText('Confirm data migration')
-      clickConfirmAction()
-
-      await waitFor(
-        () => {
-          expect(mockToastError).toHaveBeenCalledWith(
-            'open target: connection refused'
-          )
+  it('surfaces the task error on failure', { timeout: 15_000 }, async () => {
+    mockGetTask
+      .mockResolvedValueOnce({ success: true, task: runningTask })
+      .mockResolvedValueOnce({
+        success: true,
+        task: {
+          ...runningTask,
+          status: 'failed',
+          error: 'open target: connection refused',
+          finishedAt: '2026-08-20T10:00:05Z',
         },
-        { timeout: 6000 }
-      )
-    }
-  )
+      })
+    renderMigrationSection()
+
+    await fillConnection('postgres://user:pass@host:5432/db')
+    fireEvent.click(screen.getByRole('button', { name: 'Start migration' }))
+    await screen.findByText('Confirm data migration')
+    clickConfirmAction()
+
+    await waitFor(
+      () => {
+        expect(mockToastError).toHaveBeenCalledWith(
+          'open target: connection refused'
+        )
+      },
+      { timeout: 6000 }
+    )
+  })
 })
