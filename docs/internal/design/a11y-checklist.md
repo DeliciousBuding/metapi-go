@@ -3,7 +3,7 @@
 **Product**: Metapi admin
 **Scope**: accessibility checklist
 **Related source of truth**: `docs/internal/design/DESIGN.md`, `web/src/styles/theme.css`
-**Last updated**: 2026-08-18
+**Last updated**: 2026-08-21
 **Status**: living acceptance checklist; known limitations are documented, not an implicit backlog
 
 This document records keyboard, name, contrast, and responsive expectations. Known limitations are evidence only unless promoted to [`../progress/MASTER.md`](../progress/MASTER.md) or a scoped GitHub issue.
@@ -153,11 +153,11 @@ Breakpoints used by product:
 | Check         | Expected                                                            | Status                   |
 | ------------- | ------------------------------------------------------------------- | ------------------------ |
 | Topbar        | Hamburger + logo + compact tools; search may iconify                | Pass (shell)             |
-| Sidebar       | Hidden; content via `MobileDrawer`                                  | Pass                     |
+| Sidebar       | Hidden; content via mobile drawer                                   | Pass — `components/ui/sidebar.tsx` renders itself as a `Sheet` drawer on mobile |
 | Main padding  | Reduced; no clipped primary CTA                                     | Pass / page debt         |
-| Tables        | Card/list alternative or horizontal scroll inside table region only | Partial (page-dependent) |
-| Batch actions | `MobileBatchBar` / responsive batch bar                             | Partial                  |
-| Filters       | `ResponsiveFilterPanel` → bottom/side sheet                         | Partial                  |
+| Tables        | Card/list alternative or horizontal scroll inside table region only | `MobileCardList` (`data-table/layout/mobile-card-list.tsx`) auto-swaps at ≤640px for every `DataTablePage` consumer; remaining pages debt |
+| Batch actions | Floating selection bar reachable on mobile                          | Pass — shared `data-table/toolbar/bulk-actions.tsx` fixed bottom-center bar (sites / accounts / token-routes); no width-specific variant needed |
+| Filters       | Toolbar filters usable at narrow widths                             | Pass — single `flex-wrap` toolbar row (`data-table/toolbar/toolbar.tsx`: search / faceted filter / view options) wraps instead of moving into a sheet |
 | Touch targets | ≥36–44px for chrome icons                                           | Pass topbar              |
 | Safe areas    | Avoid fixed bars covering primary content                           | Residual on some pages   |
 
@@ -168,7 +168,7 @@ Breakpoints used by product:
 | Layout switch    | Mobile drawer path active at ≤768              | Pass              |
 | Topbar density   | Tools remain usable without overlap            | Pass              |
 | Modals           | Max-width constrained; close control reachable | Pass shared modal |
-| Two-column forms | Stack via `ResponsiveFormGrid` where used      | Partial adoption  |
+| Two-column forms | Stack at narrow widths where used               | Partial adoption — per-form responsive grid classes (`sm:/md:grid-cols-2`, e.g. site form dialog, model-tester form, several settings sections); no shared grid component |
 
 ### 5.3 1280px (desktop)
 
@@ -194,7 +194,7 @@ Breakpoints used by product:
 | Topic                                  | Expectation                                                                                                                     | Status                                                                                                                                                          |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `prefers-reduced-motion: reduce`       | Collapse non-essential transitions/animations                                                                                   | **Pass** — token durations → ~0 in `theme.css`; global hard-cut `animation/transition-duration` in `web/src/styles/index.css`                                   |
-| `prefers-reduced-transparency: reduce` | Glass → solid elevated; strip backdrop blur                                                                                     | **Pass** — glass family + sidebar/topbar tokens solidify; shell/login/toast/overlay blur stripped in `web/src/styles/index.css` + shadcn Base UI glass surfaces |
+| `prefers-reduced-transparency: reduce` | Glass → solid elevated; strip backdrop blur                                                                                     | **Pass** (2026-08-21) — `@media (prefers-reduced-transparency: reduce)` in `web/src/styles/index.css`: the shared glass recipe (topbar + floating bulk-actions bar: `.backdrop-blur-lg` over translucent `bg-background/*`) and the dialog/sheet/alert-dialog scrims (`bg-overlay` + `backdrop-blur-xs`) lose backdrop blur and solidify to opaque `--background`; borders/shadows untouched. Toasts already sit on opaque `--popover`; sidebar and sign-in are flat, so no fallback needed there. |
 | Dialog semantics                       | `role="dialog"` + `aria-modal` for blocking overlays                                                                            | Mobile drawer pass; SearchModal improved; not all legacy overlays                                                                                               |
 | Live regions                           | Toasts/errors announced                                                                                                         | Residual                                                                                                                                                        |
 | Language                               | `t()` for user-visible chrome strings; `aria-label` included in i18n attr list                                                  | Pass pattern                                                                                                                                                    |

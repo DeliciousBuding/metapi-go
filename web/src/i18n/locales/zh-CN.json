@@ -12,8 +12,7 @@
         "tokenRequired": "请输入管理员令牌",
         "submit": "登录",
         "submitting": "登录中…",
-        "welcomeBack": "欢迎回来！",
-        "note": "仅校验本地服务访问权限，不会把令牌发送给第三方。"
+        "welcomeBack": "欢迎回来！"
       }
     },
     "errors": {
@@ -48,9 +47,7 @@
       "noResultsDescription": "没有符合当前筛选条件的记录。",
       "resetFilters": "重置筛选",
       "edit": "编辑",
-      "create": "新建",
       "close": "关闭",
-      "no": "否",
       "retry": "重试",
       "actions": "操作",
       "status": "状态",
@@ -140,6 +137,8 @@
         "successRate": "成功率",
         "capabilities": "能力",
         "pricing": "价格",
+        "inputPrice": "输入 ${{price}}/M",
+        "outputPrice": "输出 ${{price}}/M",
         "unknownUser": "未知用户",
         "availableAccounts": "可用账号",
         "testModel": "测试模型",
@@ -303,7 +302,6 @@
       "form": {
         "startTitle": "开始授权",
         "startDescription": "连接一个 OAuth 账号以启用路由。",
-        "startSucceeded": "授权已开始。",
         "startFailed": "开始授权失败。",
         "provider": "提供商",
         "providerPlaceholder": "选择提供商",
@@ -388,7 +386,6 @@
     "sites": {
       "page": {
         "loadError": "加载站点失败：{{message}}",
-        "retry": "重试",
         "title": "站点",
         "description": "管理已连接的站点、状态与路由权重。"
       },
@@ -1579,7 +1576,6 @@
       },
       "verify": {
         "button": "验证",
-        "pending": "验证中…",
         "verified": "验证通过 — {{tokenType}}（{{modelCount}} 个模型）",
         "failed": "验证失败",
         "siteRequired": "请先选择站点",
@@ -1724,7 +1720,6 @@
         "selectRow": "选择此行",
         "viewDetails": "查看详情",
         "clearCooldown": "清除冷却",
-        "refreshDecision": "刷新决策",
         "notGenerated": "未生成",
         "decisionCachedAt": "决策缓存于 {{time}}",
         "modelAndName": "模型 / 名称",
@@ -1750,7 +1745,6 @@
         "decisionRefresh": "决策刷新",
         "modelMapping": "模型映射",
         "clearCooldown": "清除冷却",
-        "refreshDecision": "刷新决策",
         "channelTruthList": "通道分配与价格",
         "channelTruthDescription": "同一行展示配置权重、启用占比，以及来自价格对比的标准化价格。",
         "channelEmptyReadOnly": "暂无通道，先补齐连接配置后再重建路由。",
@@ -1790,7 +1784,6 @@
         "flowComplete": "配置动线已完成。",
         "withRouteId": "路由 #{{id}} 已创建。{{suffix}}",
         "withoutRouteId": "路由已创建。{{suffix}}",
-        "action": "返回 Dashboard",
         "connectAction": "接入客户端"
       },
       "toast": {
@@ -1869,7 +1862,6 @@
         "createdAt": "签到时间",
         "account": "账号",
         "site": "站点",
-        "status": "状态",
         "failureReason": "失败原因",
         "message": "信息",
         "reward": "奖励"
@@ -2391,7 +2383,6 @@
         "oauth_unit": "OAuth 单元"
       },
       "detail": {
-        "title": "通道详情",
         "description": "单个通道的只读路由健康视图。",
         "sectionOverview": "概览",
         "sectionHealth": "路由健康",
@@ -2403,9 +2394,6 @@
         "enabled": "已启用",
         "disabled": "已停用",
         "routePattern": "路由匹配规则",
-        "oauthUnit": "OAuth 单元",
-        "tokenName": "令牌名称",
-        "accountName": "账号",
         "priority": "优先级",
         "weight": "权重",
         "avgLatency": "平均延迟",
@@ -2413,9 +2401,7 @@
         "manualOverride": "手动覆盖",
         "manualOverrideActive": "已启用",
         "manualOverrideNone": "无",
-        "modelsList": "模型列表",
         "notAvailable": "—",
-        "never": "从未",
         "clearRouteCooldown": "清除路由冷却",
         "clearRouteCooldownHint": "重置该通道所属路由下全部通道的冷却与失败计数。",
         "editRoute": "编辑路由",
