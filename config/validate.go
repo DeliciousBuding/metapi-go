@@ -259,14 +259,14 @@ func (c *Config) Validate() []error {
 			errs = append(errs, &configError{
 				field:    "account_credential_secret",
 				value:    fmt.Sprintf("%d bytes", secretLen),
-				msg:      "UNSAFE: secret is shorter than 8 bytes — trivially brute-forceable; use a 32+ byte random secret",
+				msg:      "UNSAFE: secret is shorter than 8 bytes — trivially brute-forceable; set ACCOUNT_CREDENTIAL_SECRET to a 32+ byte random secret (an unset secret falls back to AUTH_TOKEN)",
 				critical: true,
 			})
 		} else if secretLen < 16 {
 			errs = append(errs, &configError{
 				field:    "account_credential_secret",
 				value:    fmt.Sprintf("%d bytes", secretLen),
-				msg:      "weak: secret is shorter than 16 bytes — use a 32+ byte random secret for production",
+				msg:      "weak: secret is shorter than 16 bytes — use a 32+ byte random ACCOUNT_CREDENTIAL_SECRET for production",
 				critical: false,
 			})
 		}

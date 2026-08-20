@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -53,10 +52,13 @@ func EnsureRuntimeDatabase(cfg *config.Config) error {
 
 	if dialect == DialectSQLite {
 		sqlitePath := ResolveSQLitePath(dsn, dataDir)
-		// Create parent directory for SQLite file if not :memory:.
+		// Verify the data directory and any existing database file are
+		// writable before SQLite opens them, so a Docker bind mount owned by
+		// root fails with an actionable message instead of a cryptic SQLite
+		// error (issue #849: "readonly database" / "unable to open database file").
 		if sqlitePath != ":memory:" {
-			if err := os.MkdirAll(filepath.Dir(sqlitePath), 0755); err != nil {
-				return fmt.Errorf("bootstrap: failed to create SQLite parent dir: %w", err)
+			if err := probeSQLiteWritable(sqlitePath); err != nil {
+				return fmt.Errorf("bootstrap: %w", err)
 			}
 		}
 		slog.Info("bootstrap: opening SQLite database", "path", sqlitePath)
