@@ -253,10 +253,18 @@ func (h *databaseHandler) migrate(w http.ResponseWriter, r *http.Request) {
 		Dialect          string `json:"dialect"`
 		ConnectionString string `json:"connectionString"`
 		Ssl              bool   `json:"ssl"`
+		Overwrite        *bool  `json:"overwrite"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
 		return
+	}
+
+	// Overwrite defaults to true (matches the TS admin migration behaviour);
+	// the admin UI sends an explicit flag so an operator can keep target data.
+	overwrite := true
+	if body.Overwrite != nil {
+		overwrite = *body.Overwrite
 	}
 
 	targetDialect, ok := normalizeRuntimeDatabaseDialect(body.Dialect)
@@ -301,7 +309,7 @@ func (h *databaseHandler) migrate(w http.ResponseWriter, r *http.Request) {
 		summary, runErr := store.RunMigration(store.RunMigrationOptions{
 			FromPath:  sourceURL,
 			ToURL:     targetURL,
-			Overwrite: true,
+			Overwrite: overwrite,
 			Progress:  true,
 			Verify:    false,
 			LogWriter: progress,
