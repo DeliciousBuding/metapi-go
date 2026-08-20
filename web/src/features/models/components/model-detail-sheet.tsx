@@ -25,7 +25,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import { formatLatency, formatPrice, formatSuccessRate } from '@/lib/format'
+import {
+  formatCurrency,
+  formatLatency,
+  formatPrice,
+  formatSuccessRate,
+} from '@/lib/format'
 
 import type { ModelGroupPricing, ModelRow } from '../types'
 
@@ -62,10 +67,10 @@ function GroupPricingRow({
     <li className='flex flex-wrap items-center gap-2 text-xs'>
       <Badge variant='outline'>{groupKey}</Badge>
       <span className='text-muted-foreground'>
-        in ${formatPrice(pricing.inputPerMillion)}/M
+        in {formatPrice(pricing.inputPerMillion)}/M
       </span>
       <span className='text-muted-foreground'>
-        out ${formatPrice(pricing.outputPerMillion)}/M
+        out {formatPrice(pricing.outputPerMillion)}/M
       </span>
     </li>
   )
@@ -216,7 +221,7 @@ export function ModelDetailSheet({
                           {formatLatency(account.latency)}
                         </span>
                         <span className='text-muted-foreground tabular-nums'>
-                          ${formatPrice(account.balance)}
+                          {formatCurrency(account.balance)}
                         </span>
                       </li>
                     ))}
