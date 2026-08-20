@@ -73,12 +73,12 @@ export function SiteCreatedModal({
         </div>
 
         <DialogFooter>
-          <Button variant='ghost' onClick={() => onOpenChange(false)}>
+          <Button variant='outline' onClick={() => onOpenChange(false)}>
             {t('sites.created.dismiss')}
           </Button>
           <Button onClick={handleGoToAccounts} disabled={!site}>
             {t('sites.created.goToAccounts')}
-            <ArrowRightIcon className='ml-1 size-4' />
+            <ArrowRightIcon className='size-4' />
           </Button>
         </DialogFooter>
       </DialogContent>

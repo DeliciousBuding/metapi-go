@@ -172,7 +172,7 @@ export function ChannelsPage() {
             variant='outline'
             onClick={() => void navigate({ to: '/accounts' })}
           >
-            <Users className='mr-1 size-4' />
+            <Users className='size-4' />
             {t('channels.empty.manageAccounts')}
           </Button>
         }

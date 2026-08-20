@@ -246,7 +246,7 @@ export function ModelTesterPage() {
           onClick={() => setClearDialogOpen(true)}
           disabled={isRunning}
         >
-          <TrashIcon className='mr-1 size-3.5' />
+          <TrashIcon className='size-3.5' />
           {t('modelTester.clear.button')}
         </Button>
       </div>

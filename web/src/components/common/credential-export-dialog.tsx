@@ -266,7 +266,7 @@ export function CredentialExportDialog({
                 )
               }
             >
-              <Sparkles className='mr-1 size-3.5' />
+              <Sparkles className='size-3.5' />
               {t('connect.cherryStudio')}
             </Button>
             <div className='flex gap-2'>
@@ -299,7 +299,7 @@ export function CredentialExportDialog({
                   )
                 }
               >
-                <ExternalLink className='mr-1 size-3.5' />
+                <ExternalLink className='size-4' />
                 {t('connect.ccSwitch')}
               </Button>
             </div>
@@ -391,7 +391,7 @@ export function CredentialExportDialog({
           >
             {t('connect.testRequest')}
           </Button>
-          <Button variant='ghost' onClick={() => onOpenChange(false)}>
+          <Button variant='outline' onClick={() => onOpenChange(false)}>
             {t('settings.common.cancel')}
           </Button>
         </DialogFooter>

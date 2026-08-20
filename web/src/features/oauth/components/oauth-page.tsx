@@ -314,7 +314,7 @@ export function OAuthPage() {
         emptyDescription={t('oauth.empty.description')}
         emptyAction={
           <Button onClick={handleStart}>
-            <PlusIcon className='mr-1 size-4' />
+            <PlusIcon className='size-4' />
             {t('oauth.empty.startAuth')}
           </Button>
         }
@@ -332,7 +332,7 @@ export function OAuthPage() {
           ],
           preActions: (
             <Button onClick={handleStart}>
-              <PlusIcon className='mr-1 size-4' />
+              <PlusIcon className='size-4' />
               {t('oauth.toolbar.startAuth')}
             </Button>
           ),

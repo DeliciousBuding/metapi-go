@@ -419,11 +419,11 @@ export function SitesPage() {
           emptyAction={
             <>
               <Button onClick={() => setImportOpen(true)}>
-                <UploadIcon className='mr-1 size-4' />
+                <UploadIcon className='size-4' />
                 {t('sites.empty.import')}
               </Button>
               <Button variant='outline' onClick={handleAddSite}>
-                <PlusIcon className='mr-1 size-4' />
+                <PlusIcon className='size-4' />
                 {t('sites.empty.addSite')}
               </Button>
             </>
@@ -442,7 +442,7 @@ export function SitesPage() {
             ],
             preActions: (
               <Button onClick={handleAddSite}>
-                <PlusIcon className='mr-1 size-4' />
+                <PlusIcon className='size-4' />
                 {t('sites.toolbar.addSite')}
               </Button>
             ),
@@ -474,7 +474,7 @@ export function SitesPage() {
                 onClick={() => handleBulkAction('delete')}
                 disabled={batchUpdateSites.isPending}
               >
-                <Trash2Icon className='mr-1 size-3.5' />
+                <Trash2Icon className='size-3.5' />
                 {t('sites.bulk.delete')}
               </Button>
             </DataTableBulkActions>
@@ -540,7 +540,7 @@ export function SitesPage() {
               onClick={confirmDelete}
               disabled={deleteSite.isPending}
             >
-              {deleteSite.isPending && <Spinner className='mr-2' />}
+              {deleteSite.isPending && <Spinner />}
               {t('sites.deleteConfirm.confirm')}
             </Button>
           </DialogFooter>

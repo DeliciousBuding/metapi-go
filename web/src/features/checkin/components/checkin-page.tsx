@@ -508,7 +508,7 @@ export function CheckinPage() {
           // points to the accounts page instead of a disabled button.
           accountOptions.length > 0 ? (
             <Button onClick={() => setManualOpen(true)}>
-              <Zap className='mr-1 size-4' />
+              <Zap className='size-4' />
               {t('checkin.page.manualCheckin')}
             </Button>
           ) : (
@@ -516,7 +516,7 @@ export function CheckinPage() {
               variant='outline'
               onClick={() => void navigate({ to: '/accounts' })}
             >
-              <Users className='mr-1 size-4' />
+              <Users className='size-4' />
               {t('checkin.page.manageAccounts')}
             </Button>
           )

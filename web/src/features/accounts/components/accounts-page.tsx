@@ -443,7 +443,7 @@ export function AccountsPage() {
         emptyDescription={t('accounts.page.emptyDescription')}
         emptyAction={
           <Button onClick={() => setImportOpen(true)}>
-            <UploadIcon className='mr-1 size-4' />
+            <UploadIcon className='size-4' />
             {t('accounts.page.emptyImport')}
           </Button>
         }
@@ -609,7 +609,7 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
         entityName={t('accounts.bulk.entityName')}
       >
         <Button
-          size='xs'
+          size='sm'
           variant='outline'
           onClick={() => runBatch('refreshBalance')}
           disabled={batchMutation.isPending}
@@ -618,7 +618,7 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
           {t('accounts.bulk.refreshBalance')}
         </Button>
         <Button
-          size='xs'
+          size='sm'
           variant='outline'
           onClick={() => runBatch('enable')}
           disabled={batchMutation.isPending}
@@ -627,7 +627,7 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
           {t('accounts.bulk.enable')}
         </Button>
         <Button
-          size='xs'
+          size='sm'
           variant='outline'
           onClick={() => runBatch('disable')}
           disabled={batchMutation.isPending}
@@ -635,7 +635,7 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
           {t('accounts.bulk.disable')}
         </Button>
         <Button
-          size='xs'
+          size='sm'
           variant='destructive'
           onClick={() => setConfirmDeleteOpen(true)}
           disabled={batchMutation.isPending}

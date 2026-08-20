@@ -411,9 +411,9 @@ export function SiteFormDialog({
                       disabled={detectSite.isPending}
                     >
                       {detectSite.isPending ? (
-                        <Spinner className='mr-1' />
+                        <Spinner />
                       ) : (
-                        <SearchIcon className='mr-1 size-3.5' />
+                        <SearchIcon className='size-3.5' />
                       )}
                       {t('sites.form.detect')}
                     </Button>
@@ -819,7 +819,7 @@ export function SiteFormDialog({
                 {t('sites.form.cancel')}
               </Button>
               <Button type='submit' disabled={isSubmitting}>
-                {isSubmitting && <Spinner className='mr-2' />}
+                {isSubmitting && <Spinner />}
                 {isEditing ? t('sites.form.save') : t('sites.form.create')}
               </Button>
             </DialogFooter>

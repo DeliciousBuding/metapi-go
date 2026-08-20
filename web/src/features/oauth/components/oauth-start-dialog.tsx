@@ -316,7 +316,7 @@ export function OAuthStartDialog({
                   type='submit'
                   disabled={!callbackUrl.trim() || isSubmittingCallback}
                 >
-                  {isSubmittingCallback ? <Spinner className='mr-1' /> : null}
+                  {isSubmittingCallback ? <Spinner /> : null}
                   {t('oauth.session.callbackSubmit')}
                 </Button>
               </form>
@@ -497,9 +497,9 @@ export function OAuthStartDialog({
                     disabled={isSubmitting || !providersReady}
                   >
                     {isSubmitting ? (
-                      <Spinner className='mr-1' />
+                      <Spinner />
                     ) : (
-                      <ExternalLinkIcon className='mr-1 size-3.5' />
+                      <ExternalLinkIcon className='size-4' />
                     )}
                     {t('oauth.form.start')}
                   </Button>
