@@ -5,10 +5,13 @@
 // not on a standalone page. A footer CTA continues the site → account → route
 // guided chain ("下一步：配置路由").
 
+import { useNavigate } from '@tanstack/react-router'
 import { ExternalLink, RefreshCw } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -44,22 +47,48 @@ export function AccountDetailSheet({
   onOpenChange,
 }: AccountDetailSheetProps) {
   const { t, i18n } = useTranslation()
+  const navigate = useNavigate()
   const refreshMutation = useRefreshAccount()
   const locale = toBcp47(i18n.language || 'en')
 
+  // Dirty state of the embedded token form (reported by TokensPanel). Both
+  // the sheet close and the "configure routes" CTA confirm before discarding.
+  const [tokensFormDirty, setTokensFormDirty] = useState(false)
+  const [confirmNavigateOpen, setConfirmNavigateOpen] = useState(false)
+
+  const { handleOpenChange: guardedOpenChange, guard: dirtyCloseGuard } =
+    useDirtyDialogClose({
+      enabled: tokensFormDirty,
+      onDiscard: () => setTokensFormDirty(false),
+      onOpenChange,
+    })
+
   if (!account) {
     return (
-      <Sheet open={open} onOpenChange={onOpenChange}>
+      <Sheet open={open} onOpenChange={guardedOpenChange}>
         <SheetContent side='right' className='sm:max-w-md' />
       </Sheet>
     )
   }
 
+  function navigateToTokenRoutes() {
+    if (!account) return
+    void navigate({
+      to: '/token-routes',
+      search: {
+        accountId: account.id,
+        ...(account.siteId ? { siteId: account.siteId } : {}),
+      },
+    })
+    onOpenChange(false)
+  }
+
   const handleConfigureRoutes = () => {
-    const params = new URLSearchParams()
-    params.set('accountId', String(account.id))
-    if (account.siteId) params.set('siteId', String(account.siteId))
-    window.location.assign(`/token-routes?${params.toString()}`)
+    if (tokensFormDirty) {
+      setConfirmNavigateOpen(true)
+      return
+    }
+    navigateToTokenRoutes()
   }
 
   const handleRefresh = async () => {
@@ -81,7 +110,7 @@ export function AccountDetailSheet({
   const healthReason = account.runtimeHealth?.reason?.trim() || null
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={guardedOpenChange}>
       <SheetContent
         side='right'
         className='flex w-full flex-col gap-0 sm:max-w-md'
@@ -215,7 +244,10 @@ export function AccountDetailSheet({
           <Separator />
 
           {/* Embedded tokens sub-module */}
-          <TokensPanel accountId={account.id} />
+          <TokensPanel
+            accountId={account.id}
+            onFormDirtyChange={setTokensFormDirty}
+          />
         </div>
 
         <SheetFooter>
@@ -224,6 +256,23 @@ export function AccountDetailSheet({
             {t('accounts.detail.configureRoutes')}
           </Button>
         </SheetFooter>
+
+        {dirtyCloseGuard}
+
+        <ConfirmDialog
+          open={confirmNavigateOpen}
+          title={t('settings.common.unsavedTitle')}
+          description={t('settings.common.unsavedDescription')}
+          confirmLabel={t('settings.common.discardChanges')}
+          cancelLabel={t('settings.common.keepEditing')}
+          destructive
+          onConfirm={() => {
+            setConfirmNavigateOpen(false)
+            setTokensFormDirty(false)
+            navigateToTokenRoutes()
+          }}
+          onCancel={() => setConfirmNavigateOpen(false)}
+        />
       </SheetContent>
     </Sheet>
   )

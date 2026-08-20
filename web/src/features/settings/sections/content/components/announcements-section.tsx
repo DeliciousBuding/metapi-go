@@ -10,6 +10,7 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -185,6 +186,18 @@ export function AnnouncementsSection() {
     })
   }
 
+  // User-initiated closes (X / Escape / overlay / Cancel) are intercepted
+  // while the form is dirty. The post-save path closes via setEditMode(null)
+  // on purpose so a successful save never trips the discard prompt.
+  const { handleOpenChange: guardedEditOpenChange, guard: editDirtyGuard } =
+    useDirtyDialogClose({
+      enabled: form.formState.isDirty,
+      onDiscard: () => form.reset(),
+      onOpenChange: (open) => {
+        if (!open) setEditMode(null)
+      },
+    })
+
   const items = announcementsQuery.data?.items ?? []
   const isLoading = announcementsQuery.isLoading
 
@@ -279,11 +292,7 @@ export function AnnouncementsSection() {
 
       <Dialog
         open={editMode !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setEditMode(null)
-          }
-        }}
+        onOpenChange={guardedEditOpenChange}
       >
         <DialogContent>
           <DialogHeader>
@@ -414,7 +423,7 @@ export function AnnouncementsSection() {
             </form>
           </Form>
           <DialogFooter>
-            <Button variant='outline' onClick={() => setEditMode(null)}>
+            <Button variant='outline' onClick={() => guardedEditOpenChange(false)}>
               {t('settings.common.cancel')}
             </Button>
             <Button
@@ -427,6 +436,7 @@ export function AnnouncementsSection() {
                 : t('settings.common.save')}
             </Button>
           </DialogFooter>
+          {editDirtyGuard}
         </DialogContent>
       </Dialog>
 

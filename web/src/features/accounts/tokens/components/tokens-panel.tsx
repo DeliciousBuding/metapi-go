@@ -55,9 +55,17 @@ import {
 
 interface TokensPanelProps {
   accountId: number
+  /**
+   * Reports the inline token form's dirty state so the hosting account
+   * detail sheet can confirm before it closes over unsaved edits.
+   */
+  onFormDirtyChange?: (dirty: boolean) => void
 }
 
-export function TokensPanel({ accountId }: TokensPanelProps) {
+export function TokensPanel({
+  accountId,
+  onFormDirtyChange,
+}: TokensPanelProps) {
   const { t } = useTranslation()
   const { data: tokens = [], isLoading } = useAccountTokens(accountId)
   const syncMutation = useSyncAccountTokens()
@@ -122,6 +130,7 @@ export function TokensPanel({ accountId }: TokensPanelProps) {
           accountId={accountId}
           token={editingToken}
           onClose={closeForm}
+          onDirtyChange={onFormDirtyChange}
         />
       )}
 
@@ -272,17 +281,20 @@ interface AccountTokenFormProps {
   accountId: number
   token: AccountToken | null
   onClose: () => void
+  onDirtyChange?: (dirty: boolean) => void
 }
 
 function AccountTokenForm({
   accountId,
   token,
   onClose,
+  onDirtyChange,
 }: AccountTokenFormProps) {
   const { t } = useTranslation()
   const isEdit = !!token
   const createMutation = useCreateAccountToken()
   const updateMutation = useUpdateAccountToken()
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false)
 
   const schema = useMemo(() => getAccountTokenFormSchema(), [])
   const form = useForm<AccountTokenFormValues>({
@@ -308,6 +320,25 @@ function AccountTokenForm({
       form.reset(getAccountTokenFormDefaultValues(accountId))
     }
   }, [token, accountId, form])
+
+  // Keep the hosting sheet's dirty flag in sync so it can confirm before
+  // closing over unsaved token edits; clear on unmount to avoid stale state.
+  const isFormDirty = form.formState.isDirty
+  useEffect(() => {
+    onDirtyChange?.(isFormDirty)
+    return () => onDirtyChange?.(false)
+  }, [isFormDirty, onDirtyChange])
+
+  // The inline form has no overlay of its own — its only close affordance is
+  // Cancel — so the discard confirmation lives here; the post-save close
+  // calls onClose directly and never trips the prompt.
+  function requestClose() {
+    if (form.formState.isDirty) {
+      setConfirmDiscardOpen(true)
+      return
+    }
+    onClose()
+  }
 
   const onSubmit = async (values: AccountTokenFormValues) => {
     const payload = transformTokenFormToPayload(values)
@@ -342,11 +373,12 @@ function AccountTokenForm({
   const isSubmitting = createMutation.isPending || updateMutation.isPending
 
   return (
-    <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(onSubmit, onInvalid)}
-        className='bg-muted/30 flex flex-col gap-3 rounded-lg border p-3'
-      >
+    <>
+      <Form {...form}>
+        <form
+          onSubmit={form.handleSubmit(onSubmit, onInvalid)}
+          className='bg-muted/30 flex flex-col gap-3 rounded-lg border p-3'
+        >
         <FormField
           control={form.control}
           name='name'
@@ -504,7 +536,7 @@ function AccountTokenForm({
             type='button'
             variant='outline'
             size='sm'
-            onClick={onClose}
+            onClick={requestClose}
             disabled={isSubmitting}
           >
             {t('common.cancel')}
@@ -515,6 +547,22 @@ function AccountTokenForm({
           </Button>
         </div>
       </form>
-    </Form>
+      </Form>
+
+      <ConfirmDialog
+        open={confirmDiscardOpen}
+        title={t('settings.common.unsavedTitle')}
+        description={t('settings.common.unsavedDescription')}
+        confirmLabel={t('settings.common.discardChanges')}
+        cancelLabel={t('settings.common.keepEditing')}
+        destructive
+        onConfirm={() => {
+          setConfirmDiscardOpen(false)
+          form.reset()
+          onClose()
+        }}
+        onCancel={() => setConfirmDiscardOpen(false)}
+      />
+    </>
   )
 }

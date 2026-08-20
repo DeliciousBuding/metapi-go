@@ -7,7 +7,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Pencil } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
@@ -16,6 +16,7 @@ import {
   CredentialExportDialog,
   type CredentialExportTarget,
 } from '@/components/common/credential-export-dialog'
+import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -177,10 +178,13 @@ export function KeySheetForm({
   editingKey,
   onDone,
   onCreated,
+  onDirtyChange,
 }: {
   editingKey: DownstreamApiKeyItem | null
   onDone: () => void
   onCreated?: (target: CredentialExportTarget) => void
+  /** Reports RHF dirty state so the hosting Sheet can guard dirty closes. */
+  onDirtyChange?: (dirty: boolean) => void
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -194,6 +198,14 @@ export function KeySheetForm({
       ? keyFormValuesFromItem(editingKey)
       : blankKeyFormValues(),
   })
+
+  // Keep the parent's dirty flag in sync; clearing it on unmount guarantees
+  // a reopened sheet never inherits a stale "unsaved" state.
+  const isFormDirty = form.formState.isDirty
+  useEffect(() => {
+    onDirtyChange?.(isFormDirty)
+    return () => onDirtyChange?.(false)
+  }, [isFormDirty, onDirtyChange])
 
   function generateKey() {
     form.setValue('key', `sk-${generateDownstreamSkSuffix()}`, {
@@ -492,6 +504,7 @@ export function KeysSection() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [createOpen, setCreateOpen] = useState(false)
+  const [formDirty, setFormDirty] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<DownstreamApiKeyItem | null>(
     null
   )
@@ -525,6 +538,16 @@ export function KeysSection() {
       setEditingKey(null)
     }
   }
+
+  // User-initiated closes (X / Escape / overlay) are intercepted while the
+  // form is dirty; the post-save close path calls onSheetOpenChange directly
+  // on purpose so a successful submit never trips the discard prompt.
+  const { handleOpenChange: guardedSheetOpenChange, guard: sheetDirtyGuard } =
+    useDirtyDialogClose({
+      enabled: formDirty,
+      onDiscard: () => setFormDirty(false),
+      onOpenChange: onSheetOpenChange,
+    })
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, enabled }: { id: number; enabled: boolean }) =>
@@ -677,7 +700,7 @@ export function KeysSection() {
         </Table>
       ) : null}
 
-      <Sheet open={createOpen} onOpenChange={onSheetOpenChange}>
+      <Sheet open={createOpen} onOpenChange={guardedSheetOpenChange}>
         {/* Mobile contract comes from the SheetContent base: full-width panel
             below `sm` + flex-column layout. The form body is the scroll
             region (flex-1), so the submit footer (SheetFooter `mt-auto`)
@@ -688,7 +711,9 @@ export function KeysSection() {
             editingKey={editingKey}
             onDone={() => onSheetOpenChange(false)}
             onCreated={(target) => setExportTarget(target)}
+            onDirtyChange={setFormDirty}
           />
+          {sheetDirtyGuard}
         </SheetContent>
       </Sheet>
 

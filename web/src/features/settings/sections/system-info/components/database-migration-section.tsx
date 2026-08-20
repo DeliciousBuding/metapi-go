@@ -36,6 +36,7 @@ import { api } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { toast } from '@/lib/toast'
 
+import { FormNavigationGuard } from '../../../components/form-navigation-guard'
 import {
   SettingsSectionCard,
   SettingsSectionSkeleton,
@@ -599,6 +600,8 @@ export function DatabaseMigrationSection() {
         onCancel={() => setConfirmOpen(false)}
         onConfirm={() => startMutation.mutate(form.getValues())}
       />
+
+      <FormNavigationGuard enabled={form.formState.isDirty} />
     </SettingsSectionCard>
   )
 }
