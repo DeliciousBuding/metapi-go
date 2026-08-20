@@ -21,6 +21,7 @@ import {
 import { priceCompareQueryOptions } from '@/features/models/price-compare/api'
 import { PriceGradeBadge } from '@/features/models/price-compare/components/price-grade-badge'
 import type { PriceCompareItem } from '@/features/models/price-compare/types'
+import { formatInt } from '@/lib/format'
 
 import {
   useClearRouteCooldown,
@@ -379,7 +380,7 @@ function ChannelRow({
         </div>
       </div>
 
-      <dl className='bg-muted/30 mt-2 grid grid-cols-2 gap-2 rounded-md p-2 sm:grid-cols-4'>
+      <dl className='bg-muted/30 mt-2 grid grid-cols-2 gap-2 rounded-md p-2 sm:grid-cols-5'>
         <ChannelMetric label={t('tokenRoutes.detail.channelConfiguredWeight')}>
           {allocation.configuredWeight}
         </ChannelMetric>
@@ -394,6 +395,23 @@ function ChannelRow({
                 : t('tokenRoutes.detail.channelShareExcluded')}
             </span>
           )}
+        </ChannelMetric>
+        <ChannelMetric label={t('tokenRoutes.detail.channelHits')}>
+          <span className='tabular-nums'>
+            <span className='text-success'>
+              {formatInt(channel.successCount)}
+            </span>
+            <span className='text-muted-foreground'> / </span>
+            <span
+              className={
+                channel.failCount > 0
+                  ? 'text-destructive'
+                  : 'text-muted-foreground'
+              }
+            >
+              {formatInt(channel.failCount)}
+            </span>
+          </span>
         </ChannelMetric>
         <ChannelMetric label={t('tokenRoutes.detail.channelInputPrice')}>
           <PriceValue value={priceTruth.inputPerMillion} />
