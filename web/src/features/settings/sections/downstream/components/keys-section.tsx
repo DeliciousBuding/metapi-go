@@ -279,7 +279,7 @@ export function KeySheetForm({
         <form
           id={CREATE_FORM_ID}
           onSubmit={form.handleSubmit(onSubmit)}
-          className='space-y-4'
+          className='min-h-0 flex-1 space-y-4 overflow-y-auto px-4'
         >
           <FormField
             control={form.control}
@@ -678,7 +678,11 @@ export function KeysSection() {
       ) : null}
 
       <Sheet open={createOpen} onOpenChange={onSheetOpenChange}>
-        <SheetContent className='flex flex-col gap-4 overflow-y-auto'>
+        {/* Mobile contract comes from the SheetContent base: full-width panel
+            below `sm` + flex-column layout. The form body is the scroll
+            region (flex-1), so the submit footer (SheetFooter `mt-auto`)
+            stays pinned at the bottom instead of scrolling out of reach. */}
+        <SheetContent>
           <KeySheetForm
             key={editingKey?.id ?? 'create'}
             editingKey={editingKey}

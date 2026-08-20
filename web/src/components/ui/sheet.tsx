@@ -55,6 +55,14 @@ function SheetContent({
   // `sm:max-w-2xl` can be correctly merged by `tailwind-merge` and the CSS
   // cascade — the data-attribute variants would otherwise win on specificity
   // and trap the panel at the default `sm:max-w-sm` width.
+  //
+  // Small-screen contract (≤640px): right/left panels are full-width
+  // (`w-full`) and only narrow to `sm:w-3/4` (capped by `sm:max-w-sm`) at
+  // `sm+`, so a 375px viewport gets an edge-to-edge panel. The panel itself
+  // is the scroll container (`overflow-y-auto`) so tall content scrolls
+  // instead of being clipped; consumers that manage their own scroll region
+  // (e.g. a `flex-1 overflow-y-auto` body with a sticky footer) simply never
+  // overflow the panel. Desktop sizing/behavior is unchanged.
   return (
     <SheetPortal>
       <SheetOverlay />
@@ -62,15 +70,15 @@ function SheetContent({
         data-slot='sheet-content'
         data-side={side}
         className={cn(
-          'bg-background text-foreground motion-reduce:animate-none! data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 fixed z-50 flex flex-col gap-4 overflow-hidden bg-clip-padding text-sm shadow-none duration-200',
+          'bg-background text-foreground motion-reduce:animate-none! data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 fixed z-50 flex flex-col gap-4 overflow-y-auto bg-clip-padding text-sm shadow-none duration-200',
           side === 'right' &&
-            'inset-y-0 right-0 h-full w-3/4 border-l data-open:slide-in-from-right data-closed:slide-out-to-right sm:max-w-sm',
+            'inset-y-0 right-0 h-full w-full border-l data-open:slide-in-from-right data-closed:slide-out-to-right sm:w-3/4 sm:max-w-sm',
           side === 'left' &&
-            'inset-y-0 left-0 h-full w-3/4 border-r data-open:slide-in-from-left data-closed:slide-out-to-left sm:max-w-sm',
+            'inset-y-0 left-0 h-full w-full border-r data-open:slide-in-from-left data-closed:slide-out-to-left sm:w-3/4 sm:max-w-sm',
           side === 'top' &&
-            'inset-x-0 top-0 h-auto border-b data-open:slide-in-from-top data-closed:slide-out-to-top',
+            'inset-x-0 top-0 max-h-full h-auto border-b data-open:slide-in-from-top data-closed:slide-out-to-top',
           side === 'bottom' &&
-            'inset-x-0 bottom-0 h-auto border-t data-open:slide-in-from-bottom data-closed:slide-out-to-bottom',
+            'inset-x-0 bottom-0 max-h-full h-auto border-t data-open:slide-in-from-bottom data-closed:slide-out-to-bottom',
           className
         )}
         {...props}
