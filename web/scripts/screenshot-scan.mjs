@@ -17,6 +17,8 @@ import { chromium } from 'playwright'
 const BASE_URL = process.env.BASE_URL ?? 'http://127.0.0.1:4099'
 const AUTH_TOKEN = process.env.AUTH_TOKEN ?? 'dev-admin-token-123'
 const OUT_DIR = process.env.OUT_DIR ?? '/root/metapi-shots'
+// Retina capture by default so README screenshots stay crisp on HiDPI screens.
+const DEVICE_SCALE = Number(process.env.DPR ?? '2')
 
 const DESKTOP_ROUTES = [
   '/',
@@ -136,6 +138,7 @@ try {
     // Sign-in page (no auth token) — the first thing an operator sees.
     const authless = await browser.newContext({
       viewport: { width: 1440, height: 900 },
+      deviceScaleFactor: DEVICE_SCALE,
       locale: 'zh-CN',
     })
     await authless.addCookies([
@@ -153,6 +156,7 @@ try {
     // Desktop authenticated routes.
     const desktop = await browser.newContext({
       viewport: { width: 1440, height: 900 },
+      deviceScaleFactor: DEVICE_SCALE,
       locale: 'zh-CN',
     })
     await seedAuth(desktop, theme)
@@ -169,6 +173,7 @@ try {
     // Mobile authenticated routes.
     const mobile = await browser.newContext({
       viewport: { width: 375, height: 812 },
+      deviceScaleFactor: DEVICE_SCALE,
       locale: 'zh-CN',
       isMobile: true,
     })
