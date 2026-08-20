@@ -46,6 +46,7 @@
     "test:ui": "vitest --ui",
     "a11y:scan": "node scripts/a11y-scan.mjs",
     "ui:smoke": "node scripts/route-smoke.mjs",
+    "acceptance:e2e": "node scripts/acceptance-e2e.mjs",
     "screenshots": "node scripts/screenshot-scan.mjs",
     "ui:audit": "node scripts/dom-audit.mjs",
     "ui:probe-dialog": "node scripts/probe-sites-dialog.mjs",
