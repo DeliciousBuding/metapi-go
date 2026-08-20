@@ -203,6 +203,146 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "accounts", "remark", "TEXT", "TEXT", "")
 		},
 	},
+	{
+		// TS-heritage sites columns: columns added by TypeScript drizzle
+		// migrations (0008 backfill, 0025/0026 probe) that a TS-era database
+		// may predate. AutoMigrate's CREATE TABLE IF NOT EXISTS never mutates
+		// an existing table, so every column the Go code SELECTs must be
+		// converged here or a legacy TS hub.db crashes on startup with
+		// "no such column".
+		Version:     "sc2_017_ts_legacy_sites_columns",
+		Description: "sites TS-heritage columns — proxy_url, use_system_proxy, custom_headers, external_checkin_url, global_weight",
+		Apply: func(db *DB) error {
+			if err := EnsureColumn(db, "sites", "proxy_url", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			if err := EnsureColumn(db, "sites", "use_system_proxy", "INTEGER", "BOOLEAN", "DEFAULT 0"); err != nil {
+				return err
+			}
+			if err := EnsureColumn(db, "sites", "custom_headers", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			if err := EnsureColumn(db, "sites", "external_checkin_url", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			return EnsureColumn(db, "sites", "global_weight", "REAL", "DOUBLE PRECISION", "DEFAULT 1")
+		},
+	},
+	{
+		Version:     "sc2_018_site_post_refresh_probe",
+		Description: "sites post-refresh probe columns (TS 0025/0026) — post_refresh_probe_enabled / _model / _scope / _latency_threshold_ms",
+		Apply: func(db *DB) error {
+			if err := EnsureColumn(db, "sites", "post_refresh_probe_enabled", "INTEGER", "BOOLEAN", "DEFAULT 0"); err != nil {
+				return err
+			}
+			if err := EnsureColumn(db, "sites", "post_refresh_probe_model", "TEXT", "TEXT", "DEFAULT ''"); err != nil {
+				return err
+			}
+			if err := EnsureColumn(db, "sites", "post_refresh_probe_scope", "TEXT", "TEXT", "DEFAULT 'single'"); err != nil {
+				return err
+			}
+			return EnsureColumn(db, "sites", "post_refresh_probe_latency_threshold_ms", "INTEGER", "INTEGER", "DEFAULT 0")
+		},
+	},
+	{
+		Version:     "sc2_019_ts_legacy_token_routes_columns",
+		Description: "token_routes TS-heritage columns (0008 backfill, 0014) — display_name, display_icon, decision_snapshot, decision_refreshed_at, route_mode, routing_strategy",
+		Apply: func(db *DB) error {
+			if err := EnsureColumn(db, "token_routes", "display_name", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			if err := EnsureColumn(db, "token_routes", "display_icon", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			if err := EnsureColumn(db, "token_routes", "decision_snapshot", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			if err := EnsureColumn(db, "token_routes", "decision_refreshed_at", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			if err := EnsureColumn(db, "token_routes", "route_mode", "TEXT", "TEXT", "DEFAULT 'pattern'"); err != nil {
+				return err
+			}
+			return EnsureColumn(db, "token_routes", "routing_strategy", "TEXT", "TEXT", "DEFAULT 'weighted'")
+		},
+	},
+	{
+		Version:     "sc2_020_ts_legacy_route_channels_columns",
+		Description: "route_channels TS-heritage columns (0008 backfill, 0014, 0021) — oauth_route_unit_id, source_model, last_selected_at, consecutive_fail_count, cooldown_level",
+		Apply: func(db *DB) error {
+			if err := EnsureColumn(db, "route_channels", "oauth_route_unit_id", "INTEGER", "INTEGER", ""); err != nil {
+				return err
+			}
+			if err := EnsureColumn(db, "route_channels", "source_model", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			if err := EnsureColumn(db, "route_channels", "last_selected_at", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			if err := EnsureColumn(db, "route_channels", "consecutive_fail_count", "INTEGER", "INTEGER", "NOT NULL DEFAULT 0"); err != nil {
+				return err
+			}
+			return EnsureColumn(db, "route_channels", "cooldown_level", "INTEGER", "INTEGER", "NOT NULL DEFAULT 0")
+		},
+	},
+	{
+		Version:     "sc2_021_ts_legacy_proxy_logs_columns",
+		Description: "proxy_logs TS-heritage columns (0005, 0010, 0016, 0019) — billing_details, downstream_api_key_id, client_family, client_app_id, client_app_name, client_confidence, is_stream, first_byte_latency_ms",
+		Apply: func(db *DB) error {
+			if err := EnsureColumn(db, "proxy_logs", "billing_details", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			if err := EnsureColumn(db, "proxy_logs", "downstream_api_key_id", "INTEGER", "INTEGER", ""); err != nil {
+				return err
+			}
+			if err := EnsureColumn(db, "proxy_logs", "client_family", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			if err := EnsureColumn(db, "proxy_logs", "client_app_id", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			if err := EnsureColumn(db, "proxy_logs", "client_app_name", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			if err := EnsureColumn(db, "proxy_logs", "client_confidence", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			if err := EnsureColumn(db, "proxy_logs", "is_stream", "INTEGER", "BOOLEAN", ""); err != nil {
+				return err
+			}
+			return EnsureColumn(db, "proxy_logs", "first_byte_latency_ms", "INTEGER", "INTEGER", "")
+		},
+	},
+	{
+		Version:     "sc2_022_ts_legacy_account_oauth_columns",
+		Description: "accounts TS-heritage OAuth columns (0013) — oauth_provider, oauth_account_key, oauth_project_id",
+		Apply: func(db *DB) error {
+			if err := EnsureColumn(db, "accounts", "oauth_provider", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			if err := EnsureColumn(db, "accounts", "oauth_account_key", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			return EnsureColumn(db, "accounts", "oauth_project_id", "TEXT", "TEXT", "")
+		},
+	},
+	{
+		Version:     "sc2_023_ts_legacy_account_tokens_columns",
+		Description: "account_tokens TS-heritage columns (0007, 0012) — token_group, value_status",
+		Apply: func(db *DB) error {
+			if err := EnsureColumn(db, "account_tokens", "token_group", "TEXT", "TEXT", ""); err != nil {
+				return err
+			}
+			return EnsureColumn(db, "account_tokens", "value_status", "TEXT", "TEXT", "DEFAULT 'ready' NOT NULL")
+		},
+	},
+	{
+		Version:     "sc2_024_model_availability_is_manual",
+		Description: "model_availability.is_manual (TS 0009) — manual availability override flag",
+		Apply: func(db *DB) error {
+			return EnsureColumn(db, "model_availability", "is_manual", "INTEGER", "BOOLEAN", "DEFAULT 0")
+		},
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.
