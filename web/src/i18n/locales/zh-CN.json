@@ -1299,7 +1299,6 @@
           "restartRequired": "已保存待生效——需重启以应用。",
           "testConnection": "测试连接",
           "saveAsRuntime": "保存配置",
-          "migrationCliOnly": "数据迁移不会在管理界面中执行。请使用 metapi-migrate CLI，并在操作前备份数据库。",
           "fields": {
             "dialect": "方言",
             "connectionString": "连接字符串",
@@ -1318,6 +1317,52 @@
             "saveFailed": "保存数据库配置失败。",
             "testOk": "连接正常。",
             "testFailed": "连接测试失败。"
+          },
+          "migration": {
+            "title": "数据迁移",
+            "description": "将当前运行库的全部数据复制到目标数据库，迁移作为后台任务执行。目标库已有数据将被清空；迁移期间请勿重启服务。",
+            "sourceLabel": "迁移源（当前运行库）",
+            "fields": {
+              "dialect": "目标方言",
+              "connectionString": "连接字符串",
+              "connectionStringHint": "sqlite 路径或 postgres URL。",
+              "overwrite": "覆盖已有数据",
+              "overwriteHint": "写入前清空目标库中的现有数据。",
+              "ssl": "启用 SSL/TLS",
+              "sslHint": "仅 postgres。"
+            },
+            "testConnection": "测试连接",
+            "startMigration": "开始迁移",
+            "migrating": "迁移中…",
+            "confirm": {
+              "title": "确认数据迁移",
+              "description": "将把当前运行库的全部数据复制到目标库，目标库已有数据将被清空。迁移期间请勿重启。",
+              "confirmLabel": "开始迁移"
+            },
+            "schema": {
+              "connectionRequired": "请输入目标数据库连接字符串。",
+              "testConnectionRequired": "请输入要测试的连接字符串。"
+            },
+            "status": {
+              "pending": "排队中",
+              "running": "迁移中",
+              "succeeded": "已完成",
+              "failed": "失败",
+              "logsTitle": "任务日志",
+              "resultTitle": "迁移结果",
+              "target": "目标",
+              "version": "版本",
+              "finishedAt": "完成时间",
+              "rowsTitle": "各表行数",
+              "rowsTotal": "共 {{count}} 行"
+            },
+            "toast": {
+              "started": "迁移任务已启动，正在后台执行。",
+              "completed": "数据迁移完成。",
+              "failed": "数据迁移失败。",
+              "startFailed": "启动迁移失败。",
+              "sameTarget": "目标数据库与当前运行库相同，无法迁移。"
+            }
           }
         },
         "maintenance": {
