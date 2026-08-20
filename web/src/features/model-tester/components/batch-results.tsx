@@ -5,6 +5,7 @@
 // parent (successes by ascending latency, then failures in input order); the
 // summary line reports "N succeeded / M failed".
 
+import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
 import type { ChannelRow } from '@/features/channels'
@@ -89,7 +90,17 @@ export function BatchResults({
                 return (
                   <tr key={result.channelId} className='border-t'>
                     <td className='px-3 py-2'>
-                      {channel?.name ?? result.channelId}
+                      {/* Every settled result carries its channelId, so the
+                          channel identity deep-links into the channels page
+                          detail sheet (one-shot `channelId` param) — failed
+                          rows are no longer a dead end. */}
+                      <Link
+                        to='/channels'
+                        search={{ channelId: result.channelId }}
+                        className='text-primary hover:underline'
+                      >
+                        {channel?.name ?? result.channelId}
+                      </Link>
                     </td>
                     <td className='text-muted-foreground px-3 py-2'>
                       {channel?.site.name ?? '—'}

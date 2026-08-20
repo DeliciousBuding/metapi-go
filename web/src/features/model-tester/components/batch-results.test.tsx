@@ -1,11 +1,36 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import type { ReactNode } from 'react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
 import type { ChannelRow } from '@/features/channels'
 
 import { BatchResults } from './batch-results'
+
+// The comparison table runs outside a mounted router in this unit test, so
+// render `Link` as a plain anchor that serializes `to` + `search` — enough
+// to assert the channel deep-link targets.
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    children,
+    to,
+    search,
+  }: {
+    children?: ReactNode
+    to: string
+    search?: Record<string, number | string | undefined>
+  }) => {
+    const query = search
+      ? new URLSearchParams(
+          Object.entries(search)
+            .filter(([, value]) => value !== undefined)
+            .map(([key, value]) => [key, String(value)])
+        ).toString()
+      : ''
+    return <a href={query ? `${to}?${query}` : to}>{children}</a>
+  },
+}))
 
 const channels: ChannelRow[] = [
   {
@@ -48,6 +73,11 @@ describe('BatchResults', () => {
     expect(screen.getByText('Primary channel')).toBeInTheDocument()
     expect(screen.getByText('Primary site')).toBeInTheDocument()
     expect(screen.getByText('upstream unavailable')).toBeInTheDocument()
+    // The failed row's channel identity deep-links into the channels page
+    // detail sheet instead of ending as plain text.
+    expect(
+      screen.getByRole('link', { name: 'Primary channel' })
+    ).toHaveAttribute('href', '/channels?channelId=1')
   })
 
   it('announces a pending comparison before rows settle', () => {

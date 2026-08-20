@@ -12,7 +12,7 @@
 import { useMutation } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import type { ColumnFiltersState } from '@tanstack/react-table'
-import { RefreshCw as RefreshCwIcon } from 'lucide-react'
+import { RefreshCw as RefreshCwIcon, Users as UsersIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -238,6 +238,15 @@ export function ModelsPage() {
         isFetching={modelsQuery.isFetching}
         emptyTitle={t('models.empty.title')}
         emptyDescription={t('models.empty.description')}
+        emptyAction={
+          <Button
+            variant='outline'
+            onClick={() => void navigate({ to: '/accounts' })}
+          >
+            <UsersIcon className='mr-1 size-4' />
+            {t('models.empty.manageAccounts')}
+          </Button>
+        }
         skeletonKeyPrefix='model-skeleton'
         toolbarProps={{
           searchPlaceholder: t('models.toolbar.searchPlaceholder'),
