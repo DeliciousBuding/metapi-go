@@ -13,7 +13,11 @@
         "submit": "Sign in",
         "submitting": "Signing in…",
         "welcomeBack": "Welcome back!",
-        "note": "Only local server access is verified; the token is never sent to a third party."
+        "note": "Only local server access is verified; the token is never sent to a third party.",
+        "tokenChangedNotice": "The admin token was updated. Sign in with your new token.",
+        "tokenSourceHint": "The admin token comes from the AUTH_TOKEN environment variable (or .env file) set when this instance was deployed.",
+        "tokenSourceForgot": "If you don't know it, ask your deployment administrator.",
+        "tokenSourceDocs": "Deployment docs"
       }
     },
     "errors": {
