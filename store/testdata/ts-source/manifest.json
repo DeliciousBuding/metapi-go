@@ -1,0 +1,90 @@
+{
+  "description": "Golden TypeScript fixture for the TS→Go migration compatibility test (store/migration_compat_test.go). Built by a REAL cita-777/metapi server: schema from its own drizzle migrations, data written through its admin API. All data is dummy. Regenerate with scripts/regen-ts-fixture.sh.",
+  "generated_at": "2026-08-20T12:31:21.664Z",
+  "table_count": 27,
+  "site_count": 10,
+  "account_count": 5,
+  "downstream_key_count": 2,
+  "check_sites": [
+    {
+      "name": "OpenAI 官方",
+      "url": "https://api.openai.com",
+      "platform": "openai"
+    },
+    {
+      "name": "Claude 官方",
+      "url": "https://api.anthropic.com",
+      "platform": "claude"
+    },
+    {
+      "name": "Gemini 官方",
+      "url": "https://generativelanguage.googleapis.com",
+      "platform": "gemini"
+    },
+    {
+      "name": "CLIProxyAPI",
+      "url": "http://127.0.0.1:8317",
+      "platform": "cliproxyapi"
+    },
+    {
+      "name": "ChatGPT Codex OAuth",
+      "url": "https://chatgpt.com/backend-api/codex",
+      "platform": "codex"
+    },
+    {
+      "name": "Google Gemini CLI OAuth",
+      "url": "https://cloudcode-pa.googleapis.com",
+      "platform": "gemini-cli"
+    },
+    {
+      "name": "Google Antigravity OAuth",
+      "url": "https://cloudcode-pa.googleapis.com",
+      "platform": "antigravity"
+    },
+    {
+      "name": "测试中转站A",
+      "url": "https://zhongzhuan-a.example.invalid",
+      "platform": "new-api"
+    },
+    {
+      "name": "测试中转站B",
+      "url": "https://zhongzhuan-b.example.invalid",
+      "platform": "one-api"
+    },
+    {
+      "name": "订阅站C",
+      "url": "https://sub-c.example.invalid",
+      "platform": "sub2api"
+    }
+  ],
+  "check_accounts": [
+    {
+      "username": "zhongzhuan-a-user",
+      "site_name": "测试中转站A"
+    },
+    {
+      "username": "zhongzhuan-b-user",
+      "site_name": "测试中转站B"
+    },
+    {
+      "username": "sub-c-user",
+      "site_name": "订阅站C"
+    },
+    {
+      "username": "openai-dummy",
+      "site_name": "OpenAI 官方"
+    },
+    {
+      "username": "claude-dummy",
+      "site_name": "Claude 官方"
+    }
+  ],
+  "check_downstream_keys": [
+    {
+      "name": "fixture-cursor-key"
+    },
+    {
+      "name": "fixture-codex-key"
+    }
+  ]
+}

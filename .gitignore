@@ -48,6 +48,10 @@ Thumbs.db
 *.db
 *.sqlite
 
+# Golden TS fixture for the migration-compat tests — intentionally tracked
+# (dummy data, built by scripts/regen-ts-fixture.sh).
+!store/testdata/ts-source/hub.db
+
 # Build
 /tmp/
 metapi.exe
