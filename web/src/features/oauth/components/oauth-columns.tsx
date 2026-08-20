@@ -14,6 +14,7 @@ import {
   MoreHorizontal as MoreHorizontalIcon,
   RefreshCw as RefreshCwIcon,
   Trash2 as Trash2Icon,
+  TriangleAlert as TriangleAlertIcon,
   Unplug as UnplugIcon,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -83,6 +84,56 @@ function formatTimestamp(value?: string | null): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   return date.toLocaleString()
+}
+
+// ---------------------------------------------------------------------------
+// Quota cell
+// ---------------------------------------------------------------------------
+
+type OAuthQuotaWindow = NonNullable<OAuthClient['quota']>['windows']['fiveHour']
+
+/** Compact `used/limit` pair for one quota window ("12/50"). */
+function formatQuotaWindowUsage(window: OAuthQuotaWindow): string {
+  if (window.used != null && window.limit != null) {
+    return `${window.used}/${window.limit}`
+  }
+  if (window.used != null) return `${window.used}`
+  if (window.limit != null) return `—/${window.limit}`
+  return '—'
+}
+
+/**
+ * Renders the provider quota windows (5-hour / 7-day) as compact
+ * `used/limit` lines. Only supported windows that carry at least one number
+ * render; anything else (unsupported provider, sync error, empty payload)
+ * degrades to an em dash instead of a fabricated "0/0".
+ */
+function QuotaCell({ client }: { client: OAuthClient }) {
+  const { t } = useTranslation()
+  const quota = client.quota
+  if (!quota || quota.status !== 'supported' || !quota.windows) {
+    return <span className='text-muted-foreground text-sm'>—</span>
+  }
+  const supportedWindows = [
+    { labelKey: 'oauth.columns.quotaFiveHour', window: quota.windows.fiveHour },
+    { labelKey: 'oauth.columns.quotaSevenDay', window: quota.windows.sevenDay },
+  ].filter(
+    ({ window }) =>
+      window.supported && (window.used != null || window.limit != null)
+  )
+  if (supportedWindows.length === 0) {
+    return <span className='text-muted-foreground text-sm'>—</span>
+  }
+  return (
+    <div className='flex flex-col gap-0.5 text-xs tabular-nums'>
+      {supportedWindows.map(({ labelKey, window }) => (
+        <span key={labelKey} className='whitespace-nowrap'>
+          <span className='text-muted-foreground'>{t(labelKey)}</span>{' '}
+          {formatQuotaWindowUsage(window)}
+        </span>
+      ))}
+    </div>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -257,6 +308,43 @@ export function useOAuthColumns(
       },
     },
     {
+      id: 'planType',
+      accessorFn: (row) =>
+        row.planType ?? row.quota?.subscription?.planType ?? '',
+      size: 120,
+      meta: { mobileHidden: true, mobileOrder: 21 },
+      header: ({ column }) => (
+        <DataTableColumnHeader
+          column={column}
+          title={t('oauth.columns.planType')}
+        />
+      ),
+      cell: ({ row }) => {
+        const planType =
+          row.original.planType ??
+          row.original.quota?.subscription?.planType ??
+          null
+        return (
+          <span className='text-muted-foreground text-sm'>
+            {planType ?? '—'}
+          </span>
+        )
+      },
+    },
+    {
+      id: 'quota',
+      enableSorting: false,
+      size: 160,
+      meta: { mobileHidden: true, mobileOrder: 22 },
+      header: ({ column }) => (
+        <DataTableColumnHeader
+          column={column}
+          title={t('oauth.columns.quota')}
+        />
+      ),
+      cell: ({ row }) => <QuotaCell client={row.original} />,
+    },
+    {
       id: 'modelCount',
       accessorKey: 'modelCount',
       size: 120,
@@ -270,6 +358,23 @@ export function useOAuthColumns(
       cell: ({ row }) => (
         <span className='text-sm tabular-nums'>
           {row.original.modelCount ?? 0}
+        </span>
+      ),
+    },
+    {
+      id: 'routeChannelCount',
+      accessorFn: (row) => row.routeChannelCount ?? -1,
+      size: 130,
+      meta: { mobileHidden: true, mobileOrder: 23 },
+      header: ({ column }) => (
+        <DataTableColumnHeader
+          column={column}
+          title={t('oauth.columns.routeChannelCount')}
+        />
+      ),
+      cell: ({ row }) => (
+        <span className='text-sm tabular-nums'>
+          {row.original.routeChannelCount ?? '—'}
         </span>
       ),
     },
@@ -289,6 +394,36 @@ export function useOAuthColumns(
           {formatTimestamp(row.original.lastModelSyncAt)}
         </span>
       ),
+    },
+    {
+      id: 'lastModelSyncError',
+      enableSorting: false,
+      size: 180,
+      meta: { mobileHidden: true, mobileOrder: 31 },
+      header: ({ column }) => (
+        <DataTableColumnHeader
+          column={column}
+          title={t('oauth.columns.lastModelSyncError')}
+        />
+      ),
+      cell: ({ row }) => {
+        const syncError = row.original.lastModelSyncError?.trim() || null
+        if (!syncError) {
+          return <span className='text-muted-foreground text-sm'>—</span>
+        }
+        return (
+          <span
+            className='flex max-w-[16rem] items-center gap-1.5 text-sm'
+            title={syncError}
+          >
+            <TriangleAlertIcon
+              className='text-warning size-4 shrink-0'
+              aria-label={t('oauth.columns.lastModelSyncError')}
+            />
+            <span className='text-muted-foreground truncate'>{syncError}</span>
+          </span>
+        )
+      },
     },
     {
       id: 'actions',
