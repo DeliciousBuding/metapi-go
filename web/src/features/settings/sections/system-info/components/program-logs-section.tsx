@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -61,6 +62,7 @@ export function ProgramLogsSection() {
   const queryClient = useQueryClient()
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [unreadOnly, setUnreadOnly] = useState(false)
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
 
   const filterQuery = useMemo(() => {
     const params = new URLSearchParams()
@@ -170,7 +172,7 @@ export function ProgramLogsSection() {
             variant='destructive'
             size='sm'
             disabled={clearMutation.isPending}
-            onClick={() => clearMutation.mutate()}
+            onClick={() => setClearConfirmOpen(true)}
           >
             {t('settings.systemInfo.programLogs.clear')}
           </Button>
@@ -306,6 +308,20 @@ export function ProgramLogsSection() {
           </TableBody>
         </Table>
       ) : null}
+
+      <ConfirmDialog
+        open={clearConfirmOpen}
+        title={t('settings.systemInfo.programLogs.clearTitle')}
+        description={t('settings.systemInfo.programLogs.clearDescription')}
+        confirmLabel={t('settings.systemInfo.programLogs.clear')}
+        cancelLabel={t('settings.common.cancel')}
+        destructive
+        onConfirm={() => {
+          setClearConfirmOpen(false)
+          clearMutation.mutate()
+        }}
+        onCancel={() => setClearConfirmOpen(false)}
+      />
     </SettingsSectionCard>
   )
 }

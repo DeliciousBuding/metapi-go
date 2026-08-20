@@ -151,7 +151,7 @@ export type Announcement = {
 export type AnnouncementsResponse = { items: Announcement[] }
 
 // K1a: model name redirects.
-type ModelRedirect = {
+export type ModelRedirect = {
   id: number
   accountId: number
   username?: string

@@ -23,6 +23,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -88,6 +89,10 @@ export function OAuthStartDialog({
     useState<OAuthStartInstructions | null>(null)
   const [callbackUrl, setCallbackUrl] = useState('')
   const [copiedTunnel, setCopiedTunnel] = useState(false)
+  // Closing while a session is pending would silently abandon the OAuth wait,
+  // so every close affordance (X / Escape / overlay / Cancel) first routes
+  // through the abandon confirmation.
+  const [confirmAbandonOpen, setConfirmAbandonOpen] = useState(false)
 
   const sessionQuery = useOAuthSession(pendingState)
   const submitManualCallback = useSubmitOAuthManualCallback()
@@ -216,9 +221,27 @@ export function OAuthStartDialog({
   const isSubmitting = startOAuth.isPending
   const isSubmittingCallback = submitManualCallback.isPending
 
+  function requestClose() {
+    if (pendingState) {
+      setConfirmAbandonOpen(true)
+      return
+    }
+    onOpenChange(false)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='sm:max-w-lg'>
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          if (next) {
+            onOpenChange(true)
+          } else {
+            requestClose()
+          }
+        }}
+      >
+        <DialogContent className='sm:max-w-lg'>
         {pendingState ? (
           <>
             <DialogHeader>
@@ -301,7 +324,7 @@ export function OAuthStartDialog({
                 <Button
                   type='button'
                   variant='outline'
-                  onClick={() => onOpenChange(false)}
+                  onClick={requestClose}
                 >
                   {t('oauth.form.cancel')}
                 </Button>
@@ -484,7 +507,22 @@ export function OAuthStartDialog({
             </Form>
           </>
         )}
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={confirmAbandonOpen}
+        title={t('oauth.session.abandonTitle')}
+        description={t('oauth.session.abandonDescription')}
+        confirmLabel={t('oauth.session.abandonConfirm')}
+        cancelLabel={t('oauth.session.keepWaiting')}
+        destructive
+        onConfirm={() => {
+          setConfirmAbandonOpen(false)
+          onOpenChange(false)
+        }}
+        onCancel={() => setConfirmAbandonOpen(false)}
+      />
+    </>
   )
 }

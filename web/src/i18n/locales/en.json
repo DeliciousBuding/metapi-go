@@ -336,6 +336,10 @@
       "session": {
         "waiting": "Waiting for authorization…",
         "waitingDescription": "Complete the authorization in the opened tab, or paste the callback URL manually.",
+        "abandonTitle": "Abort authorization?",
+        "abandonDescription": "Authorization is still in progress. Closing now stops waiting, and the connection will not be added.",
+        "abandonConfirm": "Abort",
+        "keepWaiting": "Keep waiting",
         "callbackLabel": "Manual callback URL",
         "callbackPlaceholder": "Paste the callback URL from the OAuth redirect",
         "callbackSubmit": "Submit callback",
@@ -1021,6 +1025,10 @@
           "generate": "Generate",
           "preview": "Preview",
           "apply": "Apply",
+          "applyTitle": "Apply redirects?",
+          "applyDescription": "Applying removes stale redirects from routing. This cannot be undone.",
+          "deleteTitle": "Delete redirect",
+          "deleteDescription": "This removes the redirect {{canonical}} → {{actual}}. This cannot be undone.",
           "promote": "To manual",
           "empty": "No model redirects. Click Generate to scan accounts.",
           "columns": {
@@ -1268,6 +1276,8 @@
           "markAllRead": "Mark all read",
           "exportCsv": "Export CSV",
           "clear": "Clear",
+          "clearTitle": "Clear program logs?",
+          "clearDescription": "All operational events will be permanently deleted. This cannot be undone.",
           "empty": "No program events.",
           "type": {
             "checkin": "Checkin",

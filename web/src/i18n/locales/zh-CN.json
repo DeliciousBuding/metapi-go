@@ -336,6 +336,10 @@
       "session": {
         "waiting": "等待授权完成…",
         "waitingDescription": "请在打开的标签页中完成授权，或手动粘贴回调地址。",
+        "abandonTitle": "中止授权？",
+        "abandonDescription": "授权仍在进行中。现在关闭将停止等待，且不会添加该连接。",
+        "abandonConfirm": "中止",
+        "keepWaiting": "继续等待",
         "callbackLabel": "手动回调地址",
         "callbackPlaceholder": "粘贴 OAuth 回调跳转的地址",
         "callbackSubmit": "提交回调",
@@ -1021,6 +1025,10 @@
           "generate": "生成",
           "preview": "预览",
           "apply": "应用",
+          "applyTitle": "应用重定向？",
+          "applyDescription": "应用后将从路由中移除失效的重定向。此操作无法撤销。",
+          "deleteTitle": "删除重定向",
+          "deleteDescription": "将删除重定向 {{canonical}} → {{actual}}。此操作无法撤销。",
           "promote": "转手动",
           "empty": "暂无模型重定向。点击「生成」扫描账号。",
           "columns": {
@@ -1268,6 +1276,8 @@
           "markAllRead": "全部标为已读",
           "exportCsv": "导出 CSV",
           "clear": "清空",
+          "clearTitle": "清空程序日志？",
+          "clearDescription": "所有运行事件将被永久删除。此操作无法撤销。",
           "empty": "暂无程序事件。",
           "type": {
             "checkin": "签到",
