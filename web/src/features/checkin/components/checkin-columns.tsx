@@ -7,6 +7,7 @@ import { Eye, MoreHorizontal, Play } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -73,8 +74,14 @@ function CheckinRowActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className='text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 items-center justify-center rounded-md transition-colors outline-none'
-        aria-label={t('checkin.columns.rowActions')}
+        render={
+          <Button
+            variant='ghost'
+            size='icon-sm'
+            className='data-popup-open:bg-accent'
+            aria-label={t('checkin.columns.rowActions')}
+          />
+        }
       >
         <MoreHorizontal className='size-4' />
       </DropdownMenuTrigger>

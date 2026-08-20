@@ -27,6 +27,7 @@ import {
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   DropdownMenu,
@@ -177,28 +178,34 @@ export function AccountsRowActions({
         <Tooltip>
           <TooltipTrigger
             render={
-              <button
-                type='button'
+              <Button
+                variant='ghost'
+                size='icon-sm'
                 disabled={isThisRowPending}
                 aria-label={toggleLabel}
                 onClick={() => actions.onToggleStatus(account)}
-                className='text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 items-center justify-center rounded-md transition-colors outline-none disabled:opacity-50'
-              >
-                {isThisRowPending ? (
-                  <Loader2 className='size-4 animate-spin' />
-                ) : (
-                  <Power className='size-4' />
-                )}
-              </button>
+              />
             }
-          />
+          >
+            {isThisRowPending ? (
+              <Loader2 className='size-4 animate-spin' />
+            ) : (
+              <Power className='size-4' />
+            )}
+          </TooltipTrigger>
           <TooltipContent side='top'>{toggleLabel}</TooltipContent>
         </Tooltip>
       </TooltipProvider>
       <DropdownMenu>
         <DropdownMenuTrigger
-          className='text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-8 items-center justify-center rounded-md transition-colors outline-none'
-          aria-label={t('accounts.columns.rowActions')}
+          render={
+            <Button
+              variant='ghost'
+              size='icon-sm'
+              className='data-popup-open:bg-accent'
+              aria-label={t('accounts.columns.rowActions')}
+            />
+          }
         >
           <MoreHorizontal className='size-4' />
         </DropdownMenuTrigger>
