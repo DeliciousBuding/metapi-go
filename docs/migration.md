@@ -1,406 +1,262 @@
-# Migration Guide: TypeScript to Go
+# 迁移指南：TypeScript → Go
 
 **Last updated**: 2026-08-20
 
-This guide walks through migrating from the TypeScript Metapi server to the Go rewrite.
+本文覆盖把 TypeScript 版 Metapi 部署迁到 Go 版的完整过程。走哪条路取决于旧版使用哪种数据库：SQLite 与 PostgreSQL 库**停止旧服务后由 Go 直接接管**；MySQL 库必须**先在 TypeScript 版内完成转换**。文末是 `metapi-migrate` CLI 参考、镜像版本锁定与故障排查。
 
-## Overview
+## 三种场景总览
 
-The migration involves:
-1. Stopping the old TS server
-2. Transferring SQLite data to PostgreSQL (optional, if switching to PG)
-3. Starting the Go binary
-4. Verifying functionality
+| 旧版数据库 | 路径 | 关键步骤 |
+| ---------- | ---- | -------- |
+| SQLite | 直接接管（场景 A） | 停 TS → 备份 `hub.db` → bind mount 目录 `chown -R 1001:1001` → 用同样环境变量启动 Go（首启自动补列） |
+| PostgreSQL | 直接接管（场景 B） | 停 TS → `pg_dump` 备份 → `DB_TYPE=postgres` + `DB_URL` 指向同一库 → 启动 Go（首启自动迁移） |
+| MySQL | 两段式（场景 C） | 在 TS 版「设置 → 数据库」把库迁到 SQLite 或 PostgreSQL → 停 TS → 按场景 A / B 接管 |
 
-## Prerequisites
+为什么 MySQL 特殊：Go 版只支持 SQLite 与 PostgreSQL 两种运行数据库（启动时对未知 `DB_TYPE` 直接报错），`metapi-migrate` 工具同样只在 SQLite 与 PostgreSQL 之间搬运数据，**不支持 MySQL 源**。MySQL 用户不要试图用 `metapi-migrate` 读 MySQL 库——正确的转换入口是 TS 版自己的迁移功能（见场景 C）。
 
-- Go 1.26.6+ installed
-- Built `metapi-migrate` binary: `make migrate-build`
-- PostgreSQL 16+ running (if migrating to PG)
-- Backed up your existing SQLite database
+## 场景 A：TS SQLite 库 → 直接接管
 
-## Step 1: Stop the TS Server
+Go 启动时自动执行 schema 升级。老 TS 库缺的列——包括 TS 历史迁移加过、Go 早期 registry 漏掉的 34 个 TS-heritage 列（additive 步骤 `sc2_017`~`sc2_024` 补齐，见 v0.16.2 CHANGELOG）——会在首次启动时自动补上，**无需任何手动 DDL**。
 
-```bash
-# Stop the old server (method depends on your deployment)
-docker compose down        # if using Docker
-# or
-systemctl stop metapi      # if using systemd
-# or
-kill $(pgrep -f "node.*metapi")
-```
-
-The server must be stopped to ensure a consistent database snapshot.
-
-## Step 2: Back Up Your Data
+### A.1 备份
 
 ```bash
-# Backup SQLite database
 cp data/hub.db "backups/hub-pre-migration-$(date +%Y%m%d-%H%M%S).db"
-
-# Backup other important files
-cp .env "backups/env-pre-migration-$(date +%Y%m%d-%H%M%S)"
 ```
 
-## Step 3: Migrate Data (SQLite to PostgreSQL)
+这份副本同时是回滚依据。TS 与 Go 使用同样的文件名约定（`DATA_DIR` 默认 `./data`、库文件 `hub.db`）。
 
-If you are staying with SQLite, skip to Step 4.
+### A.2 停止 TS 服务
 
 ```bash
-# Dry-run first to see what will be transferred
+docker compose down     # 或 systemctl stop metapi，按原部署方式
+```
+
+必须停止后再启动 Go：两边会读写同一个 `hub.db` 文件，不能同时运行。
+
+### A.3 数据目录权限（Docker 部署最常见的坑）
+
+Go 镜像以**非 root 用户（uid 1001）**运行；旧 TS 容器以 root 写入的 bind mount 目录归 root 所有，Go 进程写不进去：
+
+- **bind mount**（`./data:/app/data`）：先在宿主机执行一次
+
+  ```bash
+  sudo chown -R 1001:1001 ./data
+  ```
+
+  否则启动报 `attempt to write a readonly database`（带旧库）或 `unable to open database file`（新目录）。
+- **命名卷**（`-v metapi_data:/app/data`）：属主自动从镜像继承，**无需 chown**。把 TS 的 `hub.db` 放进卷后直接可用。
+
+### A.4 用同样的环境变量启动 Go 版
+
+环境变量名与 TS 版一致（`DATA_DIR`、`DB_TYPE`、`DB_URL`、`AUTH_TOKEN`、`PROXY_TOKEN`、`ACCOUNT_CREDENTIAL_SECRET` 等），指向同一数据目录即可：
+
+```yaml
+# docker-compose 片段（bind mount 指向旧 data 目录）
+services:
+  metapi:
+    image: ghcr.io/deliciousbuding/metapi-go:v0.16.2
+    volumes:
+      - ./data:/app/data
+    environment:
+      AUTH_TOKEN: ${AUTH_TOKEN:?AUTH_TOKEN is required}
+      PROXY_TOKEN: ${PROXY_TOKEN:?PROXY_TOKEN is required}
+      ACCOUNT_CREDENTIAL_SECRET: ${ACCOUNT_CREDENTIAL_SECRET:-}
+      DATA_DIR: /app/data
+      TZ: ${TZ:-Asia/Shanghai}
+    restart: unless-stopped
+```
+
+首次启动日志应出现：
+
+```
+store: running auto-migration
+store: applying additive migration ...   # 仅当有未应用的补列步骤
+store: auto-migration complete
+```
+
+老库不需要任何手动操作；补列的默认值保证旧行、旧客户端行为不变。
+
+### A.5 验证
+
+```bash
+curl http://localhost:4000/ready
+# {"status":"ok","database":"ok"}
+```
+
+打开 `http://localhost:4000`，用 `AUTH_TOKEN` 登录，确认站点、账号、路由、下游密钥与使用日志都在。
+
+### A.6 回滚
+
+Go 的补列是 additive（只加列、不改旧数据），但最稳妥的回滚还是用 A.1 的副本：停 Go，把 `hub.db` 副本放回原路径，重启 TS 即可。TS 不会因为多出的列受影响。
+
+## 场景 B：TS PostgreSQL 库 → 直接接管
+
+Go 原生支持 PostgreSQL，TS 与 Go 的连接串格式一致（`postgres://` / `postgresql://`）。停掉 TS 后让 Go 指向同一个库即可。
+
+### B.1 备份
+
+```bash
+pg_dump -Fc metapi -f "backups/hub-pre-migration-$(date +%Y%m%d-%H%M%S).dump"
+```
+
+### B.2 停止 TS 服务
+
+同 A.2。TS 与 Go 不能同时连同一个库跑调度任务。
+
+### B.3 让 Go 指向同一库
+
+设置 `DB_TYPE=postgres` 与 `DB_URL`（或 `DATABASE_URL`，二者等效）为同一连接串。只提供 `postgres://` URL 时不写 `DB_TYPE` 也会自动推断为 postgres：
+
+```
+DB_TYPE=postgres
+DB_URL=postgres://USER:PASS@HOST:5432/metapi?sslmode=require
+```
+
+### B.4 启动 Go 版并观察首次迁移
+
+镜像与 compose 结构同场景 A（把 `DB_TYPE` / `DB_URL` 加进 environment）。首次启动对 PG 库执行同样的自动迁移（基础 DDL 幂等 + additive 补列），日志同样以 `store: auto-migration complete` 收尾。
+
+> PG 直接接管的列兼容由启动自动迁移处理。若启动或查询报错（如 `no such column`），先看日志定位：这类报错通常意味着 TS 库比当前 Go 版本新（TS 后续迁移加过列而 Go 还没跟上），把 Go 升级到更新版本（见「版本锁定与升级」）。其它错误从日志的 `store: ...` 行入手，必要时回滚到 B.1 的备份。
+
+### B.5 验证
+
+`curl http://localhost:4000/ready` → `{"status":"ok","database":"ok"}`；管理界面核对站点、账号与路由。
+
+### B.6 回滚
+
+停 Go，用 B.1 的备份恢复库（`pg_restore`），重启 TS。
+
+## 场景 C：TS MySQL 库 → 两段式迁移
+
+**Go 版不支持 MySQL，`metapi-migrate` 也不支持 MySQL 源。** MySQL 用户的路径是：
+
+1. 在 TS 版管理界面里用其内置迁移功能，把库迁成 SQLite（或 PostgreSQL）；
+2. 停止 TS；
+3. 按场景 A（SQLite）或场景 B（PostgreSQL）接管。
+
+### C.1 TS 版操作要点
+
+TS 版管理界面的「设置 → 数据库」卡片（标题「数据库迁移（SQLite / MySQL / PostgreSQL）」）提供完整的库间迁移功能，源库是 TS 当前正在运行的库（即你的 MySQL 库）：
+
+1. 打开 TS 管理界面 → **设置**，找到 **数据库迁移** 卡片。
+2. **目标方言**选 `SQLite`（推荐：迁移产物是一个 SQLite 文件，之后按场景 A 接管）；也可以选 `PostgreSQL`（之后按场景 B 接管）。
+3. 填目标连接：
+   - 选 `SQLite` 时填目标文件路径（如 `./data/hub-go.db` 或 `file://` 绝对路径）；
+   - 选 `PostgreSQL` 时填 `postgres://` 连接串（TS 界面提供简写模式：host / user / password）。
+4. 点 **测试连接**，确认目标可达。
+5. 保持 **允许覆盖目标数据库现有数据** 勾选（默认勾选），点 **开始迁移**。
+6. 迁移完成后卡片会显示各表行数（站点 / 账号 / 令牌 / 路由 / 通道 / 设置）。此时得到：
+   - 一个 SQLite 文件（步骤 3 填的路径），或
+   - 一个已写入数据的 PostgreSQL 库。
+
+> SQLite 产物文件名若不是 Go 默认的 `hub.db`：把该文件复制到 Go 的 `DATA_DIR` 下并命名为 `hub.db`，或直接用 `DB_URL` 指向该文件路径（Go 的 `DB_URL` 支持普通文件路径与 `sqlite://` 前缀）。
+>
+> 「保存为运行数据库（重启后生效）」按钮不是本路径必需——它只是让 TS 自己换库运行；迁移完成后直接停 TS 即可。
+
+### C.2 停 TS、按场景 A / B 接管
+
+C.1 完成后停止 TS 服务，然后按场景 A（SQLite 产物）或场景 B（PostgreSQL 产物）继续。
+
+### C.3 额外保险：JSON 备份
+
+TS 版还提供 JSON 备份（Schema v2.1）导出/导入，可作为 MySQL 数据的离线副本；但主路径是 C.1 的库间迁移，不要用 JSON 导出代替迁移。
+
+> 转换必须在 TS 版还在运行、还能连上 MySQL 时完成。停掉 TS 之后，没有任何本仓库工具能直接读 MySQL 库。
+
+## metapi-migrate CLI 参考
+
+`metapi-migrate`（`make migrate-build` 构建）在 SQLite 与 PostgreSQL 之间搬运 18 张应用表的数据（含逐列类型转换与 JSON 列序列化，行为对齐 TS 原版 databaseMigrationService）。支持的方向：
+
+| 方向 | 说明 |
+| ---- | ---- |
+| SQLite → PostgreSQL | 正向迁移 |
+| PostgreSQL → SQLite | 反向迁移 |
+| SQLite → SQLite | 复制 / 方言校验 |
+| PostgreSQL → PostgreSQL | **不支持**（工具直接报错拒绝） |
+| MySQL → 任意 | **不支持**（工具只能读 SQLite 文件或 `postgres://` 源） |
+
+### Flags
+
+| Flag | 说明 |
+| ---- | ---- |
+| `--from` | 源库：SQLite 路径（`sqlite://path` 或普通路径）或 `postgres://` URL |
+| `--to` | 目标库，编码规则同上 |
+| `--overwrite` | 迁移前按 FK 安全顺序清空目标数据（默认 true，与 TS 一致） |
+| `--dry-run` | 只打印迁移计划，不写数据 |
+| `--progress` | 每 100 行打印一次进度 |
+| `--verify` | 迁移后做行数 + 校验和核对 |
+| `--batch-size N` | 保留以兼容 TS CLI；当前实现固定逐行插入 |
+
+### 示例：SQLite → PostgreSQL
+
+```bash
+# 先 dry-run 看迁移计划
 ./metapi-migrate \
   --from sqlite://data/hub.db \
-  --to 'postgres://<user>:<password>@<host>:5432/metapi?sslmode=require' \
+  --to 'postgres://USER:PASS@HOST:5432/metapi?sslmode=require' \
   --dry-run
 
-# Run actual migration with progress and verification
+# 实际迁移（overwrite 默认开启），带进度与校验
 ./metapi-migrate \
   --from sqlite://data/hub.db \
-  --to 'postgres://<user>:<password>@<host>:5432/metapi?sslmode=require' \
+  --to 'postgres://USER:PASS@HOST:5432/metapi?sslmode=require' \
   --overwrite \
   --progress \
   --verify
 ```
 
-Expected output:
-```
-Reading source SQLite database...
-  sites:                     5 rows
-  site_api_endpoints:       12 rows
-  ...
-  settings:                  8 rows
+`--verify` 迁移完成后输出 `Verifying checksums...`，确认无误时打印 **`All checksums match.`**（以日志为准核对；若打印 `Verification warning: ...`，按警告内容排查后再核对数据）。
 
-Clearing target data (FK-safe order)...
-
-Inserting 1234 rows...
-  100/1234 rows inserted (2.3s elapsed)
-  200/1234 rows inserted (4.1s elapsed)
-  ...
-  Done: 1234 rows in 12.5s
-
-Syncing PostgreSQL sequences...
-
-Verifying checksums...
-  All checksums match.
-
-Migration Summary:
-  dialect:    postgres
-  connection: postgres://<user>:***@<host>:5432/metapi
-  overwrite:  true
-  version:    live-db-snapshot
-  timestamp:  1720000000000
-  rows:
-    sites:                  5
-    ...
-```
-
-### Migration flags
-
-| Flag | Description |
-|------|-------------|
-| `--from` | Source SQLite path (`sqlite://path` or plain path) |
-| `--to` | Target PostgreSQL connection string |
-| `--overwrite` | Clear target data before inserting (default: true) |
-| `--dry-run` | Print migration plan without writing data |
-| `--progress` | Show per-table progress during transfer |
-| `--verify` | Compute row-count and checksum verification |
-| `--batch-size N` | Rows per multi-row INSERT (default: 1, row-by-row) |
-
-### What gets migrated
-
-18 tables are transferred with full type coercion:
-
-- sites, site_api_endpoints, site_announcements, site_disabled_models
-- accounts, account_tokens
-- checkin_logs, model_availability, token_model_availability
-- token_routes, route_channels, route_group_sources
-- proxy_logs, proxy_video_tasks, proxy_files
-- downstream_api_keys, events, settings
-
-System settings `db_type`, `db_url`, `db_ssl` are automatically filtered (they control the database connection and should not be copied).
-
-## Step 4: Start the Go Server
-
-> **Docker 数据目录权限（最常见启动失败原因）**
-> Go 版镜像以非 root 用户（uid 1001）运行，而旧 TypeScript 版容器以 root 运行，
-> 所以宿主机上由旧容器创建的 `./data` 和 `hub.db` 归 root 所有，Go 版写不进去。
-> 迁移前先在宿主机执行一次：
->
-> ```bash
-> sudo chown -R 1001:1001 ./data
-> ```
->
-> 否则启动会报 `attempt to write a readonly database`（带旧库）或
-> `PRAGMA journal_mode=WAL: unable to open database file`（新目录）并退出。
-> 全新部署则建议直接用命名卷（`-v metapi_data:/app/data`），无需任何 chown。
-
-### With SQLite (same data)
+### 示例：PostgreSQL → SQLite
 
 ```bash
-export AUTH_TOKEN=<your-token>
-export PROXY_TOKEN=<your-proxy-token>
-export ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32)   # 建议设置，不设置则回退为 AUTH_TOKEN
-export DATA_DIR=./data
-./metapi
+./metapi-migrate \
+  --from 'postgres://USER:PASS@HOST:5432/metapi?sslmode=require' \
+  --to sqlite://data/hub-go.db \
+  --overwrite \
+  --progress \
+  --verify
 ```
 
-### With PostgreSQL
+### 说明
 
-```bash
-export AUTH_TOKEN=<your-token>
-export PROXY_TOKEN=<your-proxy-token>
-export ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32)
-export DATABASE_URL='postgres://<user>:<password>@<host>:5432/metapi?sslmode=require'
-./metapi
+- 迁移只搬运数据行；目标库的 schema 由迁移器调用 `AutoMigrate` 建立，之后启动一次 Go 服务让 additive 迁移把目标库补到当前版本。
+- settings 表的运行时键（`db_type`、`db_url`、`db_ssl`）会被过滤，不会覆盖目标库的连接配置。
+- 源 SQLite 文件只读、不会被修改；目标库已有数据且未开 `--overwrite` 时迁移会拒绝执行。
+
+## 版本锁定与升级
+
+生产环境**不要用 `:latest`**，把镜像固定到具体版本标签：
+
+```yaml
+image: ghcr.io/deliciousbuding/metapi-go:v0.16.2
 ```
 
-### With Docker (production)
+升级步骤：
 
-```bash
-# Edit .env with your tokens
-docker compose -f docker-compose.prod.yml up -d
-```
+1. **读 [CHANGELOG](../CHANGELOG.md)**：确认目标版本对老库 / 迁移的改动（例如 v0.16.2 补齐了 34 个 TS-heritage 列，老 TS 库无需手动操作）。
+2. **备份**：SQLite 复制 `hub.db`；PostgreSQL `pg_dump -Fc`。
+3. **换 tag**：改 compose 的 `image:` 后 `docker compose up -d`（或 `docker pull` 新 tag 后重建容器）。
+4. **观察日志**：启动日志应出现 `store: running auto-migration` / `store: auto-migration complete`，然后 `curl http://localhost:4000/ready` 确认 `database` 为 `ok`。
 
-The Go server auto-runs DDL migrations at startup.
+schema 升级是 forward-only（只加列 / 表，不做自动降级）；回退版本时旧二进制会忽略新列，数据回滚靠步骤 2 的备份。
 
-## Step 5: Verify
+## 故障排查
 
-### Health and readiness checks
+| 现象 | 处理 |
+| ---- | ---- |
+| 启动报 `attempt to write a readonly database` 或 `unable to open database file` | 数据目录权限：bind mount 目录归 root 所有。宿主机执行 `chown -R 1001:1001 ./data`；全新部署改用命名卷免配置 |
+| 查询报 `no such column: <列名>` | 老 TS 库缺列，正常情况首启自动补列（additive `sc2_001`~`sc2_024`）。**仍出现**说明 TS 库比当前 Go 版本新（TS 后续迁移加过列），升级 Go 到更新版本 |
+| `metapi-migrate` 报 `target database already contains data` | 目标库已有数据且未开 `--overwrite`。确认覆盖意图后加 `--overwrite`（默认即开启） |
+| `metapi-migrate` 报 `unsupported direction: PostgreSQL source to PostgreSQL target` | PG→PG 数据搬运不支持；PG 库用场景 B 直接接管 |
+| `metapi-migrate` 对 MySQL URL 报错 | 工具不支持 MySQL 源；MySQL 库走场景 C（TS 版内迁移） |
+| 启动报 `AUTH_TOKEN is required` | 必填环境变量缺失，见 [配置参考](configuration.md) |
+| 迁移后数据对不上 | 先看 `metapi-migrate --verify` 的输出；仍不对就用 A.1 / B.1 的备份回滚重来 |
 
-```bash
-curl http://localhost:4000/health
-# {"status":"ok"}
+## 附：Go 版内的其它迁移
 
-curl http://localhost:4000/ready
-# {"status":"ok","database":"ok"}
-```
+与 TS→Go 迁移无关、但同属「迁移」主题的两个入口：
 
-### Frontend
-
-Open `http://localhost:4000` in a browser. The React SPA should load.
-
-### API check
-
-```bash
-curl -H "Authorization: Bearer $AUTH_TOKEN" http://localhost:4000/api/stats/dashboard
-```
-
-### Data integrity
-
-- Verify site and account counts match the old server
-- Confirm route configurations are intact
-- Check that downstream API keys work
-- Test a proxy request through the new server
-
-## Rollback Plan
-
-If the Go server has issues:
-
-```bash
-# Stop Go server
-kill $(pgrep metapi)
-
-# Restore old TS server
-cd /path/to/metapi-ts
-docker compose up -d
-
-# If you migrated to PG and want to revert to SQLite:
-# The SQLite file was not modified (the migration tool reads only).
-# Simply restart the TS server with the original SQLite database.
-```
-
-The SQLite database is never modified by the migration tool (it only reads). You can always fall back to the TS server with the original SQLite file.
-
-## Key Differences
-
-| Feature | TypeScript | Go |
-|---------|-----------|-----|
-| Startup time | ~5-10s (Node.js JIT) | ~100ms |
-| Memory usage | ~150MB+ (Node.js baseline) | ~20-30MB |
-| MySQL support | Yes | No (SQLite + PG only) |
-| Frontend serving | Separate volume / Express static | Embedded in binary |
-| Migration tool | Integrated in server | Standalone binary |
-| Container image | ~80MB+ | <25MB |
-| CI/CD | Manual / CD-only | Full CI (lint + test + build) |
-
-## Additive enterprise upgrades
-
-This section is the operator-facing contract for **forward-only schema upgrades**
-on existing SQLite and PostgreSQL installs. It complements the one-shot
-TS→Go / SQLite→PG data transfer tool above.
-
-### Why CREATE TABLE IF NOT EXISTS is not enough
-
-Startup already runs `store.AutoMigrate`:
-
-1. **Base bootstrap** — `CREATE TABLE IF NOT EXISTS` for all 35 product tables +
-   `CREATE INDEX IF NOT EXISTS` for non-unique indexes.
-2. **Additive upgrades** — ordered steps recorded in `schema_migrations`.
-
-`CREATE TABLE IF NOT EXISTS` only creates **missing tables**. It never adds
-columns to a table that already exists. Enterprise upgrades such as:
-
-| Column | Table | Default / meaning |
-|:-------|:------|:------------------|
-| `proxy_url` | `downstream_api_keys` | `NULL` → fall back to site / system proxy |
-| `max_concurrency` | `sites` | `NULL` or `0` → unlimited (current behavior) |
-| `context_length` | `token_routes` (or catalog) | `NULL` → unknown / no enforcement |
-
-must use **`ALTER TABLE … ADD COLUMN`** (or new tables) on live databases. The additive-migration
-machinery ships the dual-dialect handler; concrete steps register incrementally.
-
-### Versioning model
-
-Bookkeeping table (created automatically on every startup):
-
-```sql
-CREATE TABLE IF NOT EXISTS schema_migrations (
-  version     TEXT PRIMARY KEY,
-  applied_at  TEXT NOT NULL,   -- ISO-8601 UTC, app-filled
-  description TEXT
-);
-```
-
-| Rule | Detail |
-|:-----|:-------|
-| Version ID | Stable **string** primary key (e.g. `sc2_001_downstream_proxy_url`), not a dense integer sequence |
-| Ordering | Registry order in `store/additive.go` (`enterpriseAdditiveSteps`); append-only |
-| Applied set | `SELECT version FROM schema_migrations`; skip if already present |
-| Fresh install | Base DDL creates full current tables; additive steps that only `EnsureColumn` become no-ops if the column is already in CREATE TABLE, then still get a bookkeeping row when registered |
-| Old install | Missing columns are added; defaults preserve pre-upgrade behavior |
-| Concurrency | `INSERT OR IGNORE` (SQLite) / `ON CONFLICT DO NOTHING` (PG) when marking applied |
-
-**Do not** renumber, rename, or delete a shipped `version` string. New work is
-always a new ID appended to the registry.
-
-### How new columns get defaults
-
-Additive columns must leave **old rows and old clients** behaving as today:
-
-1. Prefer **nullable** columns with application-level fallback
-   (`NULL` = “feature off / use previous resolver path”).
-2. Or **`DEFAULT`** values that encode the historical unlimited / empty behavior
-   (e.g. `max_concurrency DEFAULT 0` meaning unlimited).
-3. Never add `NOT NULL` without a default on an existing table (blocks upgrade).
-4. Never change type, rename, or drop columns in an additive step.
-5. Dual-dialect type fragments:
-   - booleans: SQLite `INTEGER` + `DEFAULT 0/1`; PG `BOOLEAN` + `DEFAULT FALSE/TRUE`
-   - floats: SQLite `REAL`; PG **`DOUBLE PRECISION`** (never bare PG `REAL`)
-   - JSON: always `TEXT` (app marshal), not PG `JSONB`
-   - datetimes: `TEXT` ISO-8601 filled by the app
-
-Primitive used by additive steps:
-
-```go
-// store.EnsureColumn — inspects then ALTER TABLE ADD COLUMN if missing
-EnsureColumn(db, "downstream_api_keys", "proxy_url", "TEXT", "TEXT", "")
-EnsureColumn(db, "sites", "max_concurrency", "INTEGER", "INTEGER", "DEFAULT 0")
-```
-
-`columnExists` uses `PRAGMA table_info` on SQLite and
-`information_schema.columns` on PostgreSQL.
-
-### Dual-dialect notes
-
-| Concern | SQLite | PostgreSQL |
-|:--------|:-------|:-----------|
-| Base bootstrap | `INTEGER PRIMARY KEY AUTOINCREMENT`, bool as INTEGER | `SERIAL PRIMARY KEY`, native BOOLEAN, DOUBLE PRECISION |
-| Additive DDL | `ALTER TABLE … ADD COLUMN` | Same (PG also supports `IF NOT EXISTS` on newer versions; we use inspect-then-add for both) |
-| Index create | `CREATE INDEX IF NOT EXISTS` | Same |
-| Bookkeeping insert | `INSERT OR IGNORE` | `ON CONFLICT (version) DO NOTHING` |
-| Placeholders | `?` | `?` rebound to `$N` via `store.DB` |
-| Startup path | `EnsureRuntimeDatabase` → `AutoMigrate` → `ApplyAdditiveMigrations` | Same |
-
-The standalone `metapi-migrate` binary (**SQLite → PostgreSQL data copy**) is
-orthogonal: it transfers rows after the target schema exists. Additive upgrades
-run inside the **server** process on whatever dialect is configured. After a
-SQLite→PG transfer, start the Go server once so base + additive migrations run
-on the PG target (or rely on the migrator’s minimal `ensureTargetSchema` plus a
-server boot).
-
-### Safe upgrade path for existing deployments
-
-1. **Back up** the database (SQLite file copy or `pg_dump`).
-2. Deploy the new binary (or image). No separate migrate CLI is required for
-   additive column upgrades.
-3. On first start, logs should include:
-   - `store: running auto-migration`
-   - `store: applying additive migration` (only for pending versions)
-   - `store: auto-migration complete`
-4. Verify with health/ready endpoints and a spot-check of row counts.
-5. Optional: inspect bookkeeping
-   `SELECT version, applied_at, description FROM schema_migrations ORDER BY applied_at;`
-
-Failed steps **do not** write a `schema_migrations` row. The next process start
-retries the same version. Steps should keep DDL idempotent (`EnsureColumn`) so a
-crash between `ALTER TABLE` and the bookkeeping insert recovers cleanly.
-
-### Rollback philosophy
-
-Additive migrations are **forward-only**. There is no automatic schema downgrade: running an older binary against a newer schema is supported only because additive columns are nullable/defaulted and ignored by old code, but the schema itself never rewinds.
-
-| Policy | Rationale |
-|:-------|:----------|
-| No automatic `DROP COLUMN` / down migrations | Dual-dialect drop semantics differ; dropping data is operator-dangerous |
-| Binary rollback | Older binaries ignore unknown columns; keep defaults so old code paths remain valid |
-| True rollback of data | Restore from pre-upgrade backup (SQLite file or `pg_dump`) |
-| Failed deploy | Fix forward (new additive step or hotfix); do not rewrite history in `schema_migrations` |
-| Column retirement (rare) | Stop writing the column in app code first; physical drop is a later, explicit ops task outside the initial migration |
-
-**Compatibility invariant:** every additive column’s default / NULL semantics
-must preserve pre-upgrade behavior until a feature flag or UI explicitly opts in.
-
-### Code map
-
-| Path | Role |
-|:-----|:-----|
-| `store/migrate.go` | Base 35-table DDL; `AutoMigrate` calls `ApplyAdditiveMigrations` |
-| `store/additive.go` | `schema_migrations`, `ApplyAdditiveMigrations`, `EnsureColumn`, `columnExists` |
-| `store/additive_test.go` | SQLite unit tests + optional PG (`PG_TEST_DSN`) dual-dialect smoke |
-| Schema parity notes | Dialect differences |
-| `cmd/migrate/` | **Not** the additive engine — SQLite→PG **data** transfer only |
-
-### Registration checklist
-
-When implementing enterprise columns:
-
-1. Add / update Go structs in `store/schema.go` and base `CREATE TABLE` builders
-   so **new** installs get the column from bootstrap.
-2. Append an `AdditiveStep` with a new `version` that calls `EnsureColumn` (and
-   optional `EnsureIndex`) so **old** installs converge.
-3. Keep defaults compatible; wire feature code to treat NULL/0 as “legacy”.
-4. Extend dual-dialect tests; run `go test ./store/ -count=1` (and PG if available).
-
-## Settings schema v1 migration
-
-Upgrades from the original Metapi settings can be performed from **Settings → Scheduling → Upgrade legacy schedules**, or through `GET /api/settings/migration/preview` followed by `POST /api/settings/migration/apply`.
-
-The migration is additive and transactional. It writes `checkin_schedule_v2`, `balance_refresh_schedule_v2`, `log_cleanup_schedule_v2`, and `settings_schema_version` only when missing. Existing `checkin_cron`, `balance_refresh_cron`, `log_cleanup_cron`, and check-in mode/window fields are preserved byte-for-byte, so an older Metapi binary can still read the database. Re-running the migration returns `applied: 0`.
-
-Invalid legacy interval/window metadata is normalized only in the new semantic mirror; the legacy values are not rewritten.
-
-## Troubleshooting
-
-### "web/dist: no matching files found" at build time
-
-Build the frontend first: `make web-build`
-
-### "target database already contains data"
-
-Use `--overwrite` to clear and replace existing data.
-
-### Foreign key violations during migration
-
-Ensure you are using `--overwrite` (default). The migration tool deletes data in FK-safe order before inserting.
-
-### Server exits with "AUTH_TOKEN is required"
-
-Set the `AUTH_TOKEN` environment variable. Both `AUTH_TOKEN` and `PROXY_TOKEN` are required.
-
-### Additive migration fails on startup
-
-1. Read the log line `store: additive migration <version>: …` for the failing step.
-2. Confirm disk / DB permissions and that the dialect matches `DB_TYPE`.
-3. After fixing, restart — pending versions retry automatically.
-4. Do not manually delete rows from `schema_migrations` unless recovering from a
-   partial operator experiment; prefer re-running with idempotent steps.
+- **Additive 列升级**：由服务启动自动执行，记录在 `schema_migrations` 表；forward-only，失败不会写记录、下次启动自动重试。运维细节见上文各场景与「版本锁定与升级」。
+- **Settings schema v1 升级**：Go 版管理界面的「设置 → 定时任务 → 升级旧版计划」，或调用 `GET /api/settings/migration/preview` + `POST /api/settings/migration/apply`；additive 且事务化，重复执行返回 `applied: 0`（接口见 [API 文档](api.md)）。

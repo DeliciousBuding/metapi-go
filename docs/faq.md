@@ -23,9 +23,12 @@ See [migration.md](migration.md) to move an existing deployment.
 **Is MySQL supported?**
 No. Runtime databases are SQLite (single node, zero-config) and PostgreSQL
 (production). The `metapi-migrate` tool transfers data between SQLite and
-PostgreSQL snapshots; TS-version MySQL deployments should first dump their
-data to a SQLite snapshot, then migrate — full steps in
-[migration.md](migration.md).
+PostgreSQL only (either direction, plus a SQLite→SQLite copy) — it cannot
+read a MySQL source. If your TypeScript deployment runs on MySQL, convert
+it from inside the TS admin UI first (Settings → Database migration: pick
+SQLite or PostgreSQL as the target, test the connection, keep the overwrite
+box checked, run it), then take over the resulting database with Metapi Go.
+Full walkthrough in [migration.md](migration.md), scenario C.
 
 **Where is my data stored?**
 Entirely in your own deployment (`DATA_DIR`, default `./data`). Metapi never
