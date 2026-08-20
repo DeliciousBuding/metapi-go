@@ -30,8 +30,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { formatUsd } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
+import { resolveSiteBalanceUsd } from '../lib/site-balance'
 import type { Site, SiteStatus } from '../types'
 
 export type SitesColumnActions = {
@@ -204,6 +206,23 @@ export function useSitesColumns(
           </span>
         )
       },
+    },
+    {
+      id: 'balance',
+      accessorFn: (row) => resolveSiteBalanceUsd(row),
+      size: 140,
+      meta: { mobileHidden: true, mobileOrder: 35 },
+      header: ({ column }) => (
+        <DataTableColumnHeader
+          column={column}
+          title={t('sites.columns.balance')}
+        />
+      ),
+      cell: ({ row }) => (
+        <span className='text-sm tabular-nums'>
+          {formatUsd(resolveSiteBalanceUsd(row.original))}
+        </span>
+      ),
     },
     {
       id: 'globalWeight',

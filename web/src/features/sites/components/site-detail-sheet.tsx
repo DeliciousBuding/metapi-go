@@ -23,8 +23,15 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { toBcp47 } from '@/i18n/languages'
+import {
+  formatAbsoluteDateTime,
+  formatRelativeTime,
+  formatUsd,
+} from '@/lib/format'
 
-import type { Site, SiteStatus } from '../types'
+import { resolveSiteBalanceUsd } from '../lib/site-balance'
+import type { Site, SiteApiEndpoint, SiteStatus } from '../types'
 
 type SiteDetailSheetProps = {
   site: Site | null
@@ -59,8 +66,9 @@ export function SiteDetailSheet({
   onOpenChange,
   onEdit,
 }: SiteDetailSheetProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
+  const locale = toBcp47(i18n.language || 'en')
 
   if (!site) {
     return (
@@ -117,6 +125,8 @@ export function SiteDetailSheet({
           </div>
 
           <Separator />
+
+          <SiteBalanceSection site={site} locale={locale} />
 
           <section>
             <DetailRow label={t('sites.detail.url')}>
@@ -175,23 +185,13 @@ export function SiteDetailSheet({
                 <h3 className='text-sm font-medium'>
                   {t('sites.detail.endpoints')}
                 </h3>
-                <ul className='mt-2 space-y-1'>
+                <ul className='mt-2 space-y-2'>
                   {endpoints.map((endpoint) => (
-                    <li
+                    <EndpointRow
                       key={endpoint.url}
-                      className='flex items-center gap-2 text-sm'
-                    >
-                      <Badge
-                        variant={
-                          endpoint.enabled === false ? 'secondary' : 'outline'
-                        }
-                      >
-                        {endpoint.enabled === false
-                          ? t('sites.detail.disabled')
-                          : t('sites.detail.enabled')}
-                      </Badge>
-                      <span className='truncate'>{endpoint.url}</span>
-                    </li>
+                      endpoint={endpoint}
+                      locale={locale}
+                    />
                   ))}
                 </ul>
               </section>
@@ -236,5 +236,139 @@ export function SiteDetailSheet({
         </div>
       </SheetContent>
     </Sheet>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Balance & subscription block
+// ---------------------------------------------------------------------------
+
+/**
+ * Renders only when the backend provided at least one displayable balance /
+ * subscription value — a site without this data keeps the plain registry
+ * view. The balance row prefers `totalBalance` and falls back to the
+ * subscription summary's remaining USD (shared with the list column via
+ * `resolveSiteBalanceUsd`); the separate "Remaining" row is suppressed in
+ * the fallback case so the same number is never shown twice.
+ */
+function SiteBalanceSection({ site, locale }: { site: Site; locale: string }) {
+  const { t } = useTranslation()
+  const summary = site.subscriptionSummary ?? null
+  const balanceUsd = resolveSiteBalanceUsd(site)
+  const planNames = summary?.planNames ?? []
+  const hasSubscriptionDetail =
+    planNames.length > 0 ||
+    typeof summary?.totalUsedUsd === 'number' ||
+    typeof summary?.totalRemainingUsd === 'number' ||
+    Boolean(summary?.nextExpiresAt)
+  if (balanceUsd === null && !hasSubscriptionDetail) {
+    return null
+  }
+  const showRemainingRow =
+    typeof site.totalBalance === 'number' &&
+    typeof summary?.totalRemainingUsd === 'number'
+  return (
+    <>
+      <section>
+        <h3 className='text-sm font-medium'>
+          {t('sites.detail.balanceTitle')}
+        </h3>
+        {balanceUsd !== null && (
+          <DetailRow label={t('sites.detail.balance')}>
+            <span className='tabular-nums'>{formatUsd(balanceUsd)}</span>
+          </DetailRow>
+        )}
+        {planNames.length > 0 && (
+          <DetailRow label={t('sites.detail.plans')}>
+            <div className='flex flex-wrap gap-1'>
+              {planNames.map((planName) => (
+                <Badge key={planName} variant='outline'>
+                  {planName}
+                </Badge>
+              ))}
+            </div>
+          </DetailRow>
+        )}
+        {typeof summary?.totalUsedUsd === 'number' && (
+          <DetailRow label={t('sites.detail.monthlyUsage')}>
+            <span className='tabular-nums'>
+              {formatUsd(summary.totalUsedUsd)}
+              {typeof summary.totalMonthlyLimitUsd === 'number'
+                ? ` / ${formatUsd(summary.totalMonthlyLimitUsd)}`
+                : ''}
+            </span>
+          </DetailRow>
+        )}
+        {showRemainingRow && (
+          <DetailRow label={t('sites.detail.remaining')}>
+            <span className='tabular-nums'>
+              {formatUsd(summary?.totalRemainingUsd)}
+            </span>
+          </DetailRow>
+        )}
+        {summary?.nextExpiresAt && (
+          <DetailRow label={t('sites.detail.nextExpires')}>
+            <span
+              title={
+                formatAbsoluteDateTime(summary.nextExpiresAt, locale) ||
+                undefined
+              }
+            >
+              {formatRelativeTime(summary.nextExpiresAt, locale)}
+            </span>
+          </DetailRow>
+        )}
+      </section>
+      <Separator />
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// API endpoint row (enabled state + live cooldown / failure signals)
+// ---------------------------------------------------------------------------
+
+function EndpointRow({
+  endpoint,
+  locale,
+}: {
+  endpoint: SiteApiEndpoint
+  locale: string
+}) {
+  const { t } = useTranslation()
+  const cooldownActive =
+    Boolean(endpoint.cooldownUntil) &&
+    new Date(endpoint.cooldownUntil as string) > new Date()
+  const failureReason = endpoint.lastFailureReason?.trim() || null
+  return (
+    <li className='flex flex-col gap-1 text-sm'>
+      <div className='flex items-center gap-2'>
+        <Badge variant={endpoint.enabled === false ? 'secondary' : 'outline'}>
+          {endpoint.enabled === false
+            ? t('sites.detail.disabled')
+            : t('sites.detail.enabled')}
+        </Badge>
+        <span className='truncate'>{endpoint.url}</span>
+      </div>
+      {cooldownActive && (
+        <div className='flex items-center gap-1.5'>
+          <Badge variant='warning'>{t('sites.detail.endpointCooldown')}</Badge>
+          <span
+            className='text-muted-foreground text-xs tabular-nums'
+            title={
+              formatAbsoluteDateTime(endpoint.cooldownUntil, locale) ||
+              undefined
+            }
+          >
+            {formatRelativeTime(endpoint.cooldownUntil, locale)}
+          </span>
+        </div>
+      )}
+      {failureReason && (
+        <p className='text-destructive truncate text-xs' title={failureReason}>
+          {t('sites.detail.endpointFailureReason')}: {failureReason}
+        </p>
+      )}
+    </li>
   )
 }
