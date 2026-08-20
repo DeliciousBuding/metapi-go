@@ -4,7 +4,7 @@
 **Date**: 2026-08-14
 **Base**: `origin/master` @ v0.12.0 (`9cd5ca0`)
 **Authority companions**:
-- [`docs/design/BACKEND.md`](../design/BACKEND.md) — principles + allowed import edges
+- [`docs/internal/design/BACKEND.md`](../design/BACKEND.md) — principles + allowed import edges
 - [`docs/architecture.md`](../../architecture.md) — as-built package map and request flows
 
 This document is the **B1 ownership inventory**. It does **not** rewrite packages. Prefer docs and tiny zero-behavior moves; large boundary refactors need their own issues.
@@ -17,7 +17,7 @@ This document is the **B1 ownership inventory**. It does **not** rewrite package
 |--------|-----|
 | `go list -json ./...` | Non-test internal import graph |
 | Package `doc.go` / constructors | Public entrypoints |
-| `docs/design/BACKEND.md` §2 | Allowed / forbidden edges |
+| `docs/internal/design/BACKEND.md` §2 | Allowed / forbidden edges |
 | Static call-site scan | Singletons, exception edges, unused leaves |
 
 **Scope**: Go packages under module `github.com/deliciousbuding/metapi-go` (excluding pure frontend under `web/*`).

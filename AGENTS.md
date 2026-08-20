@@ -66,12 +66,7 @@ golangci-lint run --timeout=3m        # Lint check
 3. 发布助手：`bash scripts/release.sh X.Y.Z`（校验 CHANGELOG 节、`web/package.json` 版本、master 与远端同步后打 annotated tag 并推送）；或手动 `git tag -a vX.Y.Z` → `git push origin vX.Y.Z`（仅 SemVer tag 触发发布）
 4. Tag push 触发单一管道 `.github/workflows/main.yml`：全量 12 项检查通过 → 推送 `ghcr.io/deliciousbuding/metapi-go:vX.Y.Z`（amd64+arm64，provenance+SBOM）→ 5 平台二进制附件 + checksums + 二进制冒烟 → 自动创建 GitHub Release（body 取自 CHANGELOG 对应节）
 
-**版本号**：`vMAJOR.MINOR.PATCH`（SemVer 2.0）
-
-- PATCH：bug 修复
-- MINOR：新功能/性能优化
-- MAJOR：不兼容 API 变更
-- v0.x 阶段 minor 可用于新功能
+**版本号**：`vMAJOR.MINOR.PATCH`（SemVer 2.0）。**节奏为 patch-first —— 1.0 前最后一位持续迭代**（每波合入即 bump 最后一位并发布；中间位留给成体系的里程碑；第一位留到 1.0）。决策权威与 1.0 就绪标准见 [`docs/internal/git-workflow.md` §6.1](docs/internal/git-workflow.md)。拿不准下一版用 `bash scripts/next-version.sh`。
 
 ## CI Discipline
 
