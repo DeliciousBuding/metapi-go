@@ -75,3 +75,34 @@ describe('AccountFormDialog credential modes', () => {
     })
   })
 })
+
+describe('AccountFormDialog dirty-close guard', () => {
+  it('opens the discard confirm when Cancel is clicked with unsaved edits', async () => {
+    const onOpenChange = vi.fn()
+    render(
+      <AccountFormDialog
+        open
+        onOpenChange={onOpenChange}
+        mode='create'
+        account={null}
+        sites={sites}
+      />
+    )
+
+    const accessTokenField = await screen.findByLabelText(
+      'Access Token / Cookie'
+    )
+    fireEvent.change(accessTokenField, { target: { value: 'dirty-token' } })
+
+    // The explicit Cancel button must route through the same dirty-close
+    // guard as Esc/X — never silently discard the input (issue #889).
+    fireEvent.click(screen.getByRole('button', { name: /取消|Cancel/i }))
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/放弃未保存的更改？|Discard unsaved changes\?/)
+      ).toBeInTheDocument()
+    })
+    expect(onOpenChange).not.toHaveBeenCalledWith(false)
+  })
+})

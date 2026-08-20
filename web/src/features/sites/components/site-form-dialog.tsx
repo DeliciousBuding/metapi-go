@@ -811,7 +811,7 @@ export function SiteFormDialog({
               <Button
                 type='button'
                 variant='outline'
-                onClick={() => onOpenChange(false)}
+                onClick={() => handleOpenChange(false)}
                 disabled={isSubmitting}
               >
                 {t('sites.form.cancel')}
