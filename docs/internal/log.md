@@ -1,9 +1,24 @@
 # log.md — Metapi Go product milestones
 
-**Last updated**: 2026-08-19
+**Last updated**: 2026-08-20
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
+
+## 2026-08-20 — 仓库店头重建：docs 公私分离 + README/Diátaxis 文档集 + llms.txt（#872 #873）
+
+对照原版 TS 仓库（cita-777/metapi，clone 于 `/root/metapi/metapi-ts`）与 2026 GitHub 开源最佳实践（Diátaxis 文档四象限、紧迫度递减 README 序、徽章 3-5 个上限、死链 CI 自动化、llms.txt）重做仓库对外门面：
+
+- **docs 公私分离（#872）**：按受众边界重组 `docs/`——用户/贡献者文档留在 `docs/` 根（api/architecture/deployment/migration/testing/assets），维护者流程文档全部移入 `docs/internal/`（STATE/log/MASTER roadmap/benchmark/git-workflow/residual 说明/design/analysis/progress）。内部上下文与对外文档结构性隔离，不再可能渗进店面。门禁测试（`docs/doc_hygiene_test.go`）把边界变成机器断言：`TestStorefrontDoesNotLinkInternalDocs`（README 禁深链 internal）+ `TestRelativeMarkdownLinksResolve`（全站 markdown 相对链接必须可解析，抓出 1 个存量死链）。全部交叉引用同步（AGENTS.md/web/AGENTS.md/CONTRIBUTING.md/docs 地图/Go doc 指针）。
+- **对外店头重建（#873）**：README.md/README_EN.md 重写——hero + 徽章裁剪到 5 个、8 张 retina 截图墙（2x DPR webp，`screenshot-scan` 加 DPR 支持）、痛点表、copy-paste 快速上手、首个 `/v1` curl 示例、精简配置节指向新 reference。补齐 Diátaxis 四象限公开文档：`getting-started.md`（tutorial）/ `configuration.md`（reference，完整 env 矩阵）/ `client-integration.md`（how-to：Cursor/Claude Code/Codex/Open WebUI + 配置导出）/ `faq.md`（诚实问答）。根目录 `llms.txt`：面向 coding agent 的精选索引（一句描述 + 纯 markdown 链接，内部文档明确排除）。顺手清除 `.env.example` 指向已不存在 analysis 文档的残留指针；仓库 topics 已设置为 ai-aggregation/api-gateway/go/llm/metapi/new-api/one-api/openai/react/self-hosted/single-binary。
+
+## 2026-08-20 — 工程与测试基线加固（#866 #868 #869 #870 #871）
+
+- **Dependabot 安全告警清零（#866）**：golang.org/x/crypto `0.36.0 → 0.55.0`（15 条告警，含 7 critical——2026-06 ssh 包 CVE 系列）+ electron `^31 → ^39.8.10`（31 条，仅可选桌面壳 devDependency），仓库 46 条安全告警全部关闭。
+- **route-smoke 滚动补强（#868）**：`loading='lazy'` 图片在首屏外不触发请求，导致品牌图标 CSP bug 在 CI 烟测中漏检。现每页加载后、断言前滚动一遍，懒加载资产请求必发，CSP 拦截/加载失败以 console error 形式被 CI 捕获。
+- **i18n 残留本地化（#869）**：36 路由 zh-CN 全量扫查修复 3 处 raw 内部值泄漏——observability 慢请求表 `success/failed` 复用 proxy-logs `StatusBadge`；program-logs 表格 level 徽章（`warning/info/error`）与事件类型 cell 走新增 `programLogs.level.*` + 既有 `type.*` key。
+- **TokenRouter 公共面覆盖（#870）**：deep-test 审计标记的 0% 覆盖收口——`routing/router_test.go`（ChannelSelectorDB fake：构造默认值/GetAvailableModels 去重与通配名覆盖/上下文长度 max-wins/SelectChannel 委托）+ `pricing_cost_test.go`（别名等价/逐调用成本/配额组乘数）+ StatusBadge 标签。
+- **dom-audit 硬/软门分离（#871）**：`dom-audit.mjs` 重构为确定性硬信号门（console errors/pageerrors/HTTP 5xx/横向溢出 → exit 1）可在 CI 当门禁，软启发式（小点击区/截断/对比度/重复 id）仅全量模式输出；合并两个一次性逐路由探针为参数化 `probe-page.mjs`（`ui:probe-page`），移动端路由 pass + 行菜单→详情 sheet 交互 dump。
 
 ## 2026-08-19 — Real-e2e UIUX audit: self-hosted brand icons + audit tooling
 

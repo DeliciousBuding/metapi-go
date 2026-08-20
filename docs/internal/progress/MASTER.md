@@ -1,6 +1,6 @@
 # Roadmap
 
-**Last verified**: 2026-08-19
+**Last verified**: 2026-08-20
 
 **Release**: [v0.16.1](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.1) · released on master; production promotion follows the release and soak gate
 
