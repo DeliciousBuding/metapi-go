@@ -28,8 +28,9 @@ describe('retry button icon vocabulary', () => {
       /onClick=\{onRetry\}[\s\S]*?<\/Button>/
     )
     expect(retryButtonRegion).not.toBeNull()
-    expect(retryButtonRegion![0]).toMatch(/<RefreshCw/)
-    expect(retryButtonRegion![0]).not.toMatch(/<TriangleAlert/)
+    const retryButton = retryButtonRegion?.[0] ?? ''
+    expect(retryButton).toMatch(/<RefreshCw/)
+    expect(retryButton).not.toMatch(/<TriangleAlert/)
   })
 
   it('the route-level ErrorPage retry button uses RefreshCw', () => {
