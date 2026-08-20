@@ -5,20 +5,35 @@
 #   1. Create a .env file with required values:
 #        AUTH_TOKEN=<your-admin-token>
 #        PROXY_TOKEN=<your-proxy-token>
+#        ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32)   # recommended
 #   2. Start: docker compose -f docker-compose.prod.yml up -d
 #   3. Place nginx/Caddy reverse proxy in front of 127.0.0.1:4000
 
 services:
   metapi:
+    # Pin a release tag (e.g. ghcr.io/deliciousbuding/metapi-go:v0.16.1) instead
+    # of :latest for reproducible production deploys.
     image: ghcr.io/deliciousbuding/metapi-go:latest
     ports:
       - "127.0.0.1:4000:4000"
+    # Data directory. The image runs as non-root uid 1001, so:
+    #   - Named volume (recommended for fresh installs): ownership is copied
+    #     from the image automatically — no chown needed.
+    #       volumes: [ "metapi_data:/app/data" ]
+    #   - Bind mount (required when migrating existing TS data): the host
+    #     directory must be writable by uid 1001, otherwise startup fails with
+    #     "readonly database" / "unable to open database file". Fix on the host:
+    #       chown -R 1001:1001 ./data
     volumes:
       - ./data:/app/data
     environment:
       # Required (validated at startup -- missing = exit with error)
       AUTH_TOKEN: ${AUTH_TOKEN:?AUTH_TOKEN is required}
       PROXY_TOKEN: ${PROXY_TOKEN:?PROXY_TOKEN is required}
+      # Recommended: 32+ byte random secret for credential encryption.
+      # Generate: openssl rand -hex 32. Falls back to AUTH_TOKEN when unset;
+      # a short fallback makes startup fail with a critical validation error.
+      ACCOUNT_CREDENTIAL_SECRET: ${ACCOUNT_CREDENTIAL_SECRET:-}
       # Optional with defaults
       HOST: 0.0.0.0
       CHECKIN_CRON: ${CHECKIN_CRON:-0 8 * * *}

@@ -433,10 +433,42 @@ func configurePostgresPool(db *DB, pool PostgresPoolConfig) error {
 	return nil
 }
 
-// EnsureDataDir creates the data directory if it does not exist.
-func EnsureDataDir(dataDir string) error {
-	if dataDir == "" || dataDir == ":memory:" {
-		return nil
+// probeSQLiteWritable verifies, before SQLite opens the file, that the data
+// directory (and an existing database file) are writable by the current
+// process. The container image runs as a non-root user (uid 1001), so a Docker
+// bind-mounted data directory owned by root produces cryptic failures later:
+// "unable to open database file" on fresh installs and "attempt to write a
+// readonly database" when migrating data created by the old root-running
+// TypeScript container. Fail fast with an actionable fix instead.
+func probeSQLiteWritable(dbPath string) error {
+	dir := filepath.Dir(dbPath)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("store: failed to create data directory %q: %w", dir, err)
 	}
-	return os.MkdirAll(filepath.Dir(dataDir), 0755)
+
+	// An existing database file (e.g. hub.db left behind by the TypeScript
+	// container) must be writable, not just the directory.
+	if _, err := os.Stat(dbPath); err == nil {
+		file, openErr := os.OpenFile(dbPath, os.O_WRONLY, 0)
+		if openErr != nil {
+			return writableDataDirError(dir)
+		}
+		_ = file.Close()
+	}
+
+	// WAL mode creates sibling files (-wal/-shm), so the directory itself must
+	// accept new files, not only the existing database file.
+	probe, err := os.CreateTemp(dir, ".metapi-write-probe-*")
+	if err != nil {
+		return writableDataDirError(dir)
+	}
+	_ = probe.Close()
+	_ = os.Remove(probe.Name())
+	return nil
+}
+
+func writableDataDirError(dir string) error {
+	return fmt.Errorf(
+		"store: data directory %q is not writable by the current process (uid %d). The metapi image runs as non-root uid 1001 — on the Docker host, make the mounted data directory writable by uid 1001, e.g. 'chown -R 1001:1001 <host-data-dir>' or 'chmod -R a+rwX <host-data-dir>'",
+		dir, os.Getuid())
 }

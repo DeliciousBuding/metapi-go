@@ -1,6 +1,6 @@
 # Deployment Guide
 
-**Last updated**: 2026-08-17
+**Last updated**: 2026-08-20
 
 ## Prerequisites
 
@@ -12,6 +12,8 @@
 
 ## Environment Variables
 
+完整的环境变量清单见仓库根目录 [`.env.example`](../.env.example)（约 150 项，含通知、代理、调试等高级配置）；下表仅列部署必需与常用项。
+
 ### Required
 
 | Variable      | Description                                      |
@@ -21,12 +23,14 @@
 
 ### Optional
 
-| Variable                            | Default                       | Description                                                                                                                                                                                                                                                                                                                              |
-| ----------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PORT`                              | `4000`                        | HTTP listen port                                                                                                                                                                                                                                                                                                                         |
-| `DATA_DIR`                          | `/app/data`                   | SQLite database directory                                                                                                                                                                                                                                                                                                                |
-| `CHECKIN_CRON`                      | `0 8 * * *`                   | Daily checkin cron expression                                                                                                                                                                                                                                                                                                            |
-| `BALANCE_REFRESH_CRON`              | `0 * * * *`                   | Hourly balance refresh cron                                                                                                                                                                                                                                                                                                              |
+| Variable                            | Default                       | Description                                                                                                                                                                                                                                                                                                                                                                                        |
+| ----------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ACCOUNT_CREDENTIAL_SECRET`         | fallback to `AUTH_TOKEN`      | Key used to encrypt stored account credentials. **Recommended**: a unique 32+ byte random secret (`openssl rand -hex 32`). `< 8` bytes is a critical startup error; `< 16` logs a weak-secret warning. Do not reuse `AUTH_TOKEN`.                                                                                                                                                                 |
+| `PORT`                              | `4000`                        | HTTP listen port                                                                                                                                                                                                                                                                                                                                                                                    |
+| `DATA_DIR`                          | `/app/data`                   | SQLite database directory                                                                                                                                                                                                                                                                                                                                                                           |
+| `LOG_LEVEL`                         | `info`                        | slog threshold: `debug`/`info`/`warn`/`error`. Raise to `warn` to quiet hot-path logs.                                                                                                                                                                                                                                                                                                              |
+| `CHECKIN_CRON`                      | `0 8 * * *`                   | Daily checkin cron expression                                                                                                                                                                                                                                                                                                                                                                      |
+| `BALANCE_REFRESH_CRON`              | `0 * * * *`                   | Hourly balance refresh cron                                                                                                                                                                                                                                                                                                                                                                        |
 | `TZ`                                | `Asia/Shanghai`               | Timezone for cron scheduling                                                                                                                                                                                                                                                                                                             |
 | `DB_TYPE`                           | `sqlite`                      | Database type: `sqlite` or `postgres`; inferred as `postgres` when a PostgreSQL URL is provided                                                                                                                                                                                                                                          |
 | `DATABASE_URL`                      | _(empty)_                     | PostgreSQL connection string; alias of `DB_URL`; when set to `postgres://` or `postgresql://`, uses PG instead of SQLite                                                                                                                                                                                                                 |
@@ -54,6 +58,7 @@
 ```bash
 AUTH_TOKEN=<your-admin-token>
 PROXY_TOKEN=<your-proxy-token>
+ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32)   # recommended
 ```
 
 2. Start the service:
@@ -68,6 +73,19 @@ docker compose -f docker-compose.prod.yml up -d
 curl http://localhost:4000/health
 # {"status":"ok"}
 ```
+
+### 数据目录与卷
+
+容器以**非 root 用户（uid 1001）**运行，数据目录的可写性是 Docker 部署最常见的坑：
+
+- **命名卷（全新部署推荐）**：Docker 首次使用时会把镜像内 `/app/data` 的内容连同属主一起拷入卷，容器用户天然可写，无需任何 chown。
+- **Bind mount（迁移旧数据时必须用）**：宿主目录保持宿主属主。旧 TypeScript 版以 root 运行，留下的 `./data` 和 `hub.db` 归 root 所有，Go 版写不进去，启动即报 `attempt to write a readonly database` 或 `unable to open database file`。启动前在宿主机执行一次：
+
+  ```bash
+  sudo chown -R 1001:1001 ./data
+  ```
+
+- **镜像标签**：`latest` 便于尝鲜；生产建议固定到版本标签（如 `ghcr.io/deliciousbuding/metapi-go:v0.16.1`），保证可复现部署。
 
 ## Nginx Reverse Proxy
 

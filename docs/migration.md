@@ -1,6 +1,6 @@
 # Migration Guide: TypeScript to Go
 
-**Last updated**: 2026-08-11
+**Last updated**: 2026-08-20
 
 This guide walks through migrating from the TypeScript Metapi server to the Go rewrite.
 
@@ -121,11 +121,25 @@ System settings `db_type`, `db_url`, `db_ssl` are automatically filtered (they c
 
 ## Step 4: Start the Go Server
 
+> **Docker 数据目录权限（最常见启动失败原因）**
+> Go 版镜像以非 root 用户（uid 1001）运行，而旧 TypeScript 版容器以 root 运行，
+> 所以宿主机上由旧容器创建的 `./data` 和 `hub.db` 归 root 所有，Go 版写不进去。
+> 迁移前先在宿主机执行一次：
+>
+> ```bash
+> sudo chown -R 1001:1001 ./data
+> ```
+>
+> 否则启动会报 `attempt to write a readonly database`（带旧库）或
+> `PRAGMA journal_mode=WAL: unable to open database file`（新目录）并退出。
+> 全新部署则建议直接用命名卷（`-v metapi_data:/app/data`），无需任何 chown。
+
 ### With SQLite (same data)
 
 ```bash
 export AUTH_TOKEN=<your-token>
 export PROXY_TOKEN=<your-proxy-token>
+export ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32)   # 建议设置，不设置则回退为 AUTH_TOKEN
 export DATA_DIR=./data
 ./metapi
 ```
@@ -135,6 +149,7 @@ export DATA_DIR=./data
 ```bash
 export AUTH_TOKEN=<your-token>
 export PROXY_TOKEN=<your-proxy-token>
+export ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32)
 export DATABASE_URL='postgres://<user>:<password>@<host>:5432/metapi?sslmode=require'
 ./metapi
 ```

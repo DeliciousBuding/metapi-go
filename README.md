@@ -116,8 +116,9 @@ docker run -d --name metapi \
   -p 4000:4000 \
   -e AUTH_TOKEN=your-admin-token \
   -e PROXY_TOKEN=your-proxy-sk-token \
+  -e ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32) \
   -e TZ=Asia/Shanghai \
-  -v ./data:/app/data \
+  -v metapi_data:/app/data \
   --restart unless-stopped \
   ghcr.io/deliciousbuding/metapi-go:latest
 ```
@@ -125,7 +126,10 @@ docker run -d --name metapi \
 启动后访问 `http://localhost:4000`，用 `AUTH_TOKEN` 登录即可。
 
 > [!IMPORTANT]
-> 请务必修改 `AUTH_TOKEN` 和 `PROXY_TOKEN`，不要使用默认值。数据存储在 `./data` 目录，升级不会丢失。
+> 请务必修改 `AUTH_TOKEN` 和 `PROXY_TOKEN`，不要使用默认值。
+> `ACCOUNT_CREDENTIAL_SECRET` 用于加密存储的账号凭据，建议生成独立的 32+ 字节随机串（不设置时会回退为 `AUTH_TOKEN`，过短会直接启动失败）。
+> 数据建议用**命名卷**（如上 `metapi_data`）存放，容器以非 root 用户（uid 1001）运行，命名卷会自动继承属主、无需额外授权；若改用 `./data:/app/data` 这类 bind mount，需先在宿主机执行 `chown -R 1001:1001 ./data`。
+> 生产环境建议把镜像固定到具体版本标签（如 `ghcr.io/deliciousbuding/metapi-go:v0.16.1`），而不是 `latest`。
 
 ### Docker Compose
 
@@ -139,22 +143,29 @@ services:
     ports:
       - "4000:4000"
     volumes:
-      - ./data:/app/data
+      - metapi_data:/app/data
     environment:
       AUTH_TOKEN: ${AUTH_TOKEN:?AUTH_TOKEN is required}
       PROXY_TOKEN: ${PROXY_TOKEN:?PROXY_TOKEN is required}
+      ACCOUNT_CREDENTIAL_SECRET: ${ACCOUNT_CREDENTIAL_SECRET:-}
       CHECKIN_CRON: "0 8 * * *"
       BALANCE_REFRESH_CRON: "0 * * * *"
       PORT: ${PORT:-4000}
       DATA_DIR: /app/data
       TZ: ${TZ:-Asia/Shanghai}
     restart: unless-stopped
+
+volumes:
+  metapi_data:
 EOF
 
 export AUTH_TOKEN=your-admin-token
 export PROXY_TOKEN=your-proxy-sk-token
+export ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32)
 docker compose up -d
 ```
+
+> 如需从旧的 TypeScript 版迁移数据，改用 bind mount 指向原 `data` 目录，并先在宿主机执行 `chown -R 1001:1001 ./data`（详见 [迁移指南](docs/migration.md)）。
 
 Compose、反向代理、PostgreSQL 与升级细节见 [部署指南](docs/deployment.md)；从安装到发出第一个代理请求的完整 walkthrough 见 [快速上手](docs/getting-started.md)。
 
@@ -275,7 +286,7 @@ Cron 定时签到（默认每日 08:00），智能解析奖励金额，失败自
 
 ## 从 TypeScript 版迁移
 
-数据库 Schema 完全一致，Go 版启动时自动执行幂等迁移：停止旧服务，用同样的环境变量启动 Go 版即可，`./data` 目录原样复用。使用 MySQL 的部署需先经 `metapi-migrate` 工具迁到 PostgreSQL。完整步骤与回滚方案见 [迁移指南](docs/migration.md)。
+数据库 Schema 完全一致，Go 版启动时自动执行幂等迁移：停止旧服务，用同样的环境变量启动 Go 版即可。Go 镜像以非 root 用户（uid 1001）运行，若数据目录是 bind mount（如 `./data:/app/data`）且由旧版以 root 写入，需先在宿主机执行 `chown -R 1001:1001 ./data`（命名卷则无需处理）。使用 MySQL 的部署需先经 `metapi-migrate` 工具迁到 PostgreSQL。完整步骤与回滚方案见 [迁移指南](docs/migration.md)。
 
 ---
 

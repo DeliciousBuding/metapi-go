@@ -419,7 +419,11 @@ func openSourceDB(raw string) (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return sql.Open("sqlite", sourcePath+"?_journal_mode=WAL")
+	// Open the source without touching its journal mode. Forcing
+	// `_journal_mode=WAL` would contradict the documented read-only promise for
+	// the source (docs/migration.md) and fails on a read-only source; a WAL
+	// source (the TypeScript version's default) is read correctly regardless.
+	return sql.Open("sqlite", sourcePath)
 }
 
 // openTargetDB opens a SQLite path or a PostgreSQL URL as the target via
@@ -437,6 +441,13 @@ func openTargetDB(raw string) (*DB, error) {
 		sqlitePath, pathErr := normalizeSQLitePath(raw)
 		if pathErr != nil {
 			return nil, pathErr
+		}
+		// Surface a writable data directory instead of a cryptic SQLite error
+		// (same probe the server bootstrap uses for its SQLite database).
+		if sqlitePath != ":memory:" {
+			if probeErr := probeSQLiteWritable(sqlitePath); probeErr != nil {
+				return nil, probeErr
+			}
 		}
 		db, err = Open(DialectSQLite, sqlitePath, false)
 	}
@@ -1128,7 +1139,34 @@ func buildInsertSQLite(s insertStmt) (string, []interface{}) {
 
 func verifyChecksums(srcDB *sql.DB, tgtDB *DB, snapshot map[string][]map[string]interface{}) error {
 	for _, table := range AllTableNames() {
-		srcCount := len(snapshot[table])
+		srcRows := snapshot[table]
+
+		// Runtime DB settings (db_type/db_url/db_ssl) are intentionally not
+		// copied by buildSettings, so exclude them from the source side too —
+		// otherwise settings always reports a false mismatch on real TS DBs.
+		if table == "settings" {
+			filtered := make([]map[string]interface{}, 0, len(srcRows))
+			for _, row := range srcRows {
+				if !runtimeDBSettingKeys[asString(v(row, "key"))] {
+					filtered = append(filtered, row)
+				}
+			}
+			srcRows = filtered
+		}
+
+		// The column set actually present in the source is the data being
+		// copied. A raw TypeScript database does not carry the Go additive
+		// columns, so only hash this set on the target side too — otherwise
+		// --verify always reports a false mismatch against a Go-created
+		// target schema.
+		sourceCols := make(map[string]struct{})
+		for _, row := range srcRows {
+			for col := range row {
+				sourceCols[col] = struct{}{}
+			}
+		}
+
+		srcCount := len(srcRows)
 
 		var tgtCount int
 		if err := tgtDB.QueryRow(fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, table)).Scan(&tgtCount); err != nil {
@@ -1140,8 +1178,8 @@ func verifyChecksums(srcDB *sql.DB, tgtDB *DB, snapshot map[string][]map[string]
 		}
 
 		// Compute hash of source and target for this table
-		srcHash := hashRows(snapshot[table])
-		tgtHash, err := hashPGTable(tgtDB, table)
+		srcHash := hashRows(srcRows)
+		tgtHash, err := hashPGTable(tgtDB, table, sourceCols)
 		if err != nil {
 			return fmt.Errorf("hash %s: %w", table, err)
 		}
@@ -1154,9 +1192,17 @@ func verifyChecksums(srcDB *sql.DB, tgtDB *DB, snapshot map[string][]map[string]
 }
 
 func hashRows(rows []map[string]interface{}) []byte {
+	// The source snapshot comes from an unordered SELECT *, so sort rows by
+	// their canonical serialization before hashing — otherwise the hash
+	// depends on the source row order and never matches the target side
+	// (which orders by primary key).
+	sortedRows := append([]map[string]interface{}(nil), rows...)
+	sort.SliceStable(sortedRows, func(i, j int) bool {
+		return serializeRowForHash(sortedRows[i]) < serializeRowForHash(sortedRows[j])
+	})
+
 	h := sha256.New()
-	// Sort keys for deterministic serialization
-	for _, row := range rows {
+	for _, row := range sortedRows {
 		keys := make([]string, 0, len(row))
 		for k := range row {
 			keys = append(keys, k)
@@ -1164,14 +1210,37 @@ func hashRows(rows []map[string]interface{}) []byte {
 		sort.Strings(keys)
 		for _, k := range keys {
 			h.Write([]byte(k))
-			h.Write([]byte(fmt.Sprintf("%v", row[k])))
+			h.Write([]byte(fmt.Sprintf("%v", normalizeHashValue(row[k]))))
 		}
 	}
 	return h.Sum(nil)
 }
 
-func hashPGTable(db *DB, table string) ([]byte, error) {
-	rows, err := db.Query(fmt.Sprintf(`SELECT * FROM "%s" ORDER BY id`, table))
+// serializeRowForHash renders a row as a deterministic "k=v,k=v,..." string so
+// rows can be ordered independently of the source query plan.
+func serializeRowForHash(row map[string]interface{}) string {
+	keys := make([]string, 0, len(row))
+	for k := range row {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	for _, k := range keys {
+		b.WriteString(k)
+		b.WriteByte('=')
+		b.WriteString(fmt.Sprintf("%v", normalizeHashValue(row[k])))
+		b.WriteByte(',')
+	}
+	return b.String()
+}
+
+// hashPGTable hashes the target table restricted to the given allowed column
+// set (the columns present in the source snapshot). A target created by
+// store.AutoMigrate carries extra Go-only columns; hashing only the migrated
+// column set keeps the checksum a pure data-copy verification that works for
+// raw TypeScript sources as well as already-migrated ones.
+func hashPGTable(db *DB, table string, allowedCols map[string]struct{}) ([]byte, error) {
+	rows, err := db.Query(fmt.Sprintf(`SELECT * FROM "%s"`, table))
 	if err != nil {
 		return nil, err
 	}
@@ -1182,7 +1251,17 @@ func hashPGTable(db *DB, table string) ([]byte, error) {
 		return nil, err
 	}
 
-	h := sha256.New()
+	// Scan the target side into the same map form hashRows consumes, keeping
+	// only the migrated columns, then reuse hashRows so both sides hash under
+	// the identical canonical (sorted-key, sorted-row) serialization. An
+	// ORDER BY in the query would be insufficient: the source snapshot's row
+	// order is arbitrary, so the row order must come from the row content.
+	colIndex := make(map[string]int, len(cols))
+	for i, col := range cols {
+		colIndex[col] = i
+	}
+
+	var scanned []map[string]interface{}
 	for rows.Next() {
 		values := make([]interface{}, len(cols))
 		valuePtrs := make([]interface{}, len(cols))
@@ -1192,12 +1271,32 @@ func hashPGTable(db *DB, table string) ([]byte, error) {
 		if err := rows.Scan(valuePtrs...); err != nil {
 			return nil, err
 		}
-		for i, col := range cols {
-			h.Write([]byte(col))
-			h.Write([]byte(fmt.Sprintf("%v", values[i])))
+		row := make(map[string]interface{}, len(cols))
+		for col, i := range colIndex {
+			if _, ok := allowedCols[col]; ok {
+				row[col] = normalizeHashValue(values[i])
+			}
 		}
+		scanned = append(scanned, row)
 	}
-	return h.Sum(nil), rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return hashRows(scanned), nil
+}
+
+// normalizeHashValue canonicalizes values that scan differently across
+// dialects so checksums agree on both sides of a migration: SQLite stores
+// booleans as INTEGER 0/1 while PostgreSQL scans them as bool true/false.
+func normalizeHashValue(v interface{}) interface{} {
+	if b, ok := v.(bool); ok {
+		if b {
+			return int64(1)
+		}
+		return int64(0)
+	}
+	return v
 }
 
 // ---- Drift guard ----
