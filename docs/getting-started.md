@@ -46,6 +46,10 @@ Open `http://localhost:4000` and log in with `$AUTH_TOKEN`.
 
 > All data lives in `./data` on your host. Upgrading = pull a new image and
 > `docker compose up -d`; the schema migrates automatically at startup.
+> Coming from the TypeScript version? [migration.md](migration.md) covers the
+> three takeover paths: SQLite and PostgreSQL data are taken over directly
+> after stopping the old server; MySQL data moves via the TS admin's database
+> migration first.
 
 ## 2. Add your first site
 

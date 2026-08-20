@@ -20,7 +20,7 @@ documents never deep-link into `internal/` — they state the fact directly.
 | Common questions                    | [`faq.md`](faq.md)                                                                       |
 | HTTP API surface                    | [`api.md`](api.md)                                                                       |
 | Package architecture & request path | [`architecture.md`](architecture.md)                                                     |
-| TS→Go migration / SQLite→PG         | [`migration.md`](migration.md)                                                           |
+| TS→Go migration (SQLite / PG / MySQL) | [`migration.md`](migration.md)                                                           |
 | Test layers / real-platform testbed | [`testing.md`](testing.md)                                                               |
 | Version history                     | root [`CHANGELOG.md`](../CHANGELOG.md)                                                   |
 | Contribute / report                 | root [`CONTRIBUTING.md`](../CONTRIBUTING.md) · [`SECURITY.md`](../SECURITY.md)           |
@@ -50,7 +50,7 @@ docs/
   configuration.md          ← environment variable reference
   deployment.md             ← run / Docker / ops vars
   faq.md                    ← common questions
-  migration.md              ← TS→Go / SQLite→PG / schema upgrade
+  migration.md              ← TS→Go takeover paths (SQLite / PG / MySQL) + version pinning
   testing.md                ← test layers + public real-platform testbed SOP
   assets/                   ← public images (hero, screenshots)
   internal/                 ← maintainer process docs (never linked from README)

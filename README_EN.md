@@ -301,9 +301,17 @@ proxy CIDRs, notification providers, …) lives in
 ## Migrating from the TypeScript version
 
 The schema is identical: stop the old server and start Metapi Go with the
-same environment — `./data` is reused and the schema migrates itself.
-MySQL-based deployments convert to PostgreSQL with the standalone
-`metapi-migrate` tool. Steps and rollback: [migration guide](docs/migration.md).
+same environment — `./data` is reused and the schema migrates itself
+(additive column upgrades run automatically on first start). The Go image
+runs as non-root (uid 1001); for a bind-mounted data directory previously
+written by the root-owned TS container, run `chown -R 1001:1001 ./data` on
+the host first (named volumes need no chown). There are three migration
+paths depending on the database the old deployment used: SQLite and
+PostgreSQL databases are taken over directly after stopping the old server;
+MySQL databases must first be converted to SQLite or PostgreSQL from inside
+the TypeScript admin UI (Settings → Database migration), then taken over
+like the other two. Full steps, the `metapi-migrate` CLI reference, image
+version pinning and rollback: [migration guide](docs/migration.md).
 
 ---
 
@@ -316,7 +324,7 @@ MySQL-based deployments convert to PostgreSQL with the standalone
 | [docs/configuration.md](docs/configuration.md)                 | Full environment reference       |
 | [docs/client-integration.md](docs/client-integration.md)       | Cursor / Claude Code / Codex / Open WebUI |
 | [docs/api.md](docs/api.md)                                     | HTTP API inventory               |
-| [docs/migration.md](docs/migration.md)                         | TS → Go / SQLite → PG            |
+| [docs/migration.md](docs/migration.md)                         | TS → Go migration (SQLite / PG / MySQL) |
 | [docs/faq.md](docs/faq.md)                                     | Frequently asked questions       |
 | [docs/architecture.md](docs/architecture.md)                   | Package map & request paths      |
 | [docs/README.md](docs/README.md)                               | Docs map (incl. maintainer docs) |

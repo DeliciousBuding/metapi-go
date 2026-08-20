@@ -129,7 +129,7 @@ docker run -d --name metapi \
 > 请务必修改 `AUTH_TOKEN` 和 `PROXY_TOKEN`，不要使用默认值。
 > `ACCOUNT_CREDENTIAL_SECRET` 用于加密存储的账号凭据，建议生成独立的 32+ 字节随机串（不设置时会回退为 `AUTH_TOKEN`，过短会直接启动失败）。
 > 数据建议用**命名卷**（如上 `metapi_data`）存放，容器以非 root 用户（uid 1001）运行，命名卷会自动继承属主、无需额外授权；若改用 `./data:/app/data` 这类 bind mount，需先在宿主机执行 `chown -R 1001:1001 ./data`。
-> 生产环境建议把镜像固定到具体版本标签（如 `ghcr.io/deliciousbuding/metapi-go:v0.16.1`），而不是 `latest`。
+> 生产环境建议把镜像固定到具体版本标签（如 `ghcr.io/deliciousbuding/metapi-go:v0.16.2`），而不是 `latest`（升级步骤见 [迁移指南](docs/migration.md)）。
 
 ### Docker Compose
 
@@ -286,7 +286,7 @@ Cron 定时签到（默认每日 08:00），智能解析奖励金额，失败自
 
 ## 从 TypeScript 版迁移
 
-数据库 Schema 完全一致，Go 版启动时自动执行幂等迁移：停止旧服务，用同样的环境变量启动 Go 版即可。Go 镜像以非 root 用户（uid 1001）运行，若数据目录是 bind mount（如 `./data:/app/data`）且由旧版以 root 写入，需先在宿主机执行 `chown -R 1001:1001 ./data`（命名卷则无需处理）。使用 MySQL 的部署需先经 `metapi-migrate` 工具迁到 PostgreSQL。完整步骤与回滚方案见 [迁移指南](docs/migration.md)。
+数据库 Schema 完全一致，Go 版启动时自动执行幂等迁移：停止旧服务，用同样的环境变量启动 Go 版即可。Go 镜像以非 root 用户（uid 1001）运行，若数据目录是 bind mount（如 `./data:/app/data`）且由旧版以 root 写入，需先在宿主机执行 `chown -R 1001:1001 ./data`（命名卷则无需处理）。迁移路径按旧版数据库分三种：SQLite / PostgreSQL 库停止旧服务后由 Go 直接接管（首次启动自动补列）；MySQL 库需先在 TypeScript 版管理界面「设置 → 数据库」用其内置迁移功能迁到 SQLite 或 PostgreSQL，再按前两种方式接管。三种场景的完整步骤、`metapi-migrate` 工具参考、镜像版本锁定与回滚方案见 [迁移指南](docs/migration.md)。
 
 ---
 
@@ -299,7 +299,7 @@ Cron 定时签到（默认每日 08:00），智能解析奖励金额，失败自
 | [docs/configuration.md](docs/configuration.md)         | 环境变量完整参考                      |
 | [docs/client-integration.md](docs/client-integration.md) | 客户端接入（Cursor / Claude Code / Codex / Open WebUI） |
 | [docs/api.md](docs/api.md)                             | HTTP API 端点清单                     |
-| [docs/migration.md](docs/migration.md)                 | TS → Go / SQLite → PG 迁移            |
+| [docs/migration.md](docs/migration.md)                 | TS → Go 迁移（SQLite / PG / MySQL）   |
 | [docs/faq.md](docs/faq.md)                             | 常见问题                              |
 | [docs/architecture.md](docs/architecture.md)           | 包结构与请求路径（开发者）            |
 | [docs/README.md](docs/README.md)                       | 文档地图（含维护者文档索引）          |
