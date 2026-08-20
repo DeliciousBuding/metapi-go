@@ -137,6 +137,8 @@
         "successRate": "成功率",
         "capabilities": "能力",
         "pricing": "价格",
+        "inputPrice": "输入 ${{price}}/M",
+        "outputPrice": "输出 ${{price}}/M",
         "unknownUser": "未知用户",
         "availableAccounts": "可用账号",
         "testModel": "测试模型",

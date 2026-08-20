@@ -58,14 +58,19 @@ function GroupPricingRow({
   groupKey: string
   pricing: ModelGroupPricing
 }) {
+  const { t } = useTranslation()
   return (
     <li className='flex flex-wrap items-center gap-2 text-xs'>
       <Badge variant='outline'>{groupKey}</Badge>
       <span className='text-muted-foreground'>
-        in ${formatPrice(pricing.inputPerMillion)}/M
+        {t('models.detail.inputPrice', {
+          price: formatPrice(pricing.inputPerMillion),
+        })}
       </span>
       <span className='text-muted-foreground'>
-        out ${formatPrice(pricing.outputPerMillion)}/M
+        {t('models.detail.outputPrice', {
+          price: formatPrice(pricing.outputPerMillion),
+        })}
       </span>
     </li>
   )

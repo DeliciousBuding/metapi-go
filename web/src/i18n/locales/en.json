@@ -137,6 +137,8 @@
         "successRate": "Success rate",
         "capabilities": "Capabilities",
         "pricing": "Pricing",
+        "inputPrice": "in ${{price}}/M",
+        "outputPrice": "out ${{price}}/M",
         "unknownUser": "Unknown user",
         "availableAccounts": "Available accounts",
         "testModel": "Test model",
