@@ -14,6 +14,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
+import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
 interface SecretFieldProps {
@@ -50,6 +51,7 @@ export function SecretField({
       setTimeout(() => setCopied(false), 1500)
     } catch {
       // Clipboard may be unavailable (non-secure context / permissions).
+      toast.error(t('common.copyFailed'))
     }
   }
 

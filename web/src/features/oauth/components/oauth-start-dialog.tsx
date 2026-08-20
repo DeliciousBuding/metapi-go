@@ -197,6 +197,7 @@ export function OAuthStartDialog({
       setTimeout(() => setCopiedTunnel(false), 1500)
     } catch {
       // Clipboard may be unavailable (non-secure context / permissions).
+      toast.error(t('common.copyFailed'))
     }
   }
 

@@ -4,9 +4,11 @@
 // yet present in metapi-go. When the shared @/components/status-badge lands, the
 // imports in badge-list-cell.tsx and layout/card-row-content.tsx can switch back.
 /* eslint-disable react-refresh/only-export-components */
-import type { LucideIcon } from 'lucide-react'
+import { Check as CheckIcon, type LucideIcon } from 'lucide-react'
 import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 
+import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
 const dotColorMap = {
@@ -89,22 +91,31 @@ function stringToColor(value: string): StatusVariant {
 
 function useCopyToClipboard() {
   const [copied, setCopied] = React.useState(false)
+  const { t } = useTranslation()
 
-  const copyToClipboard = React.useCallback((value: string) => {
-    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
-      return
-    }
+  const copyToClipboard = React.useCallback(
+    (value: string) => {
+      if (
+        typeof navigator === 'undefined' ||
+        !navigator.clipboard?.writeText
+      ) {
+        toast.error(t('common.copyFailed'))
+        return
+      }
 
-    navigator.clipboard
-      .writeText(value)
-      .then(() => {
-        setCopied(true)
-        window.setTimeout(() => setCopied(false), 1500)
-      })
-      .catch(() => {
-        // clipboard write rejected — controls still work, just no feedback
-      })
-  }, [])
+      navigator.clipboard
+        .writeText(value)
+        .then(() => {
+          setCopied(true)
+          window.setTimeout(() => setCopied(false), 1500)
+        })
+        .catch(() => {
+          // Clipboard write rejected (permissions / non-secure context).
+          toast.error(t('common.copyFailed'))
+        })
+    },
+    [t]
+  )
 
   return { copied, copyToClipboard }
 }
@@ -126,7 +137,7 @@ interface StatusBadgeProps extends Omit<
   type?: StatusBadgeType
 }
 
-function StatusBadge({
+export function StatusBadge({
   label,
   children,
   icon: Icon,
@@ -142,7 +153,8 @@ function StatusBadge({
   onClick,
   ...props
 }: StatusBadgeProps) {
-  const { copyToClipboard } = useCopyToClipboard()
+  const { copied, copyToClipboard } = useCopyToClipboard()
+  const { t } = useTranslation()
   const contextType = React.useContext(StatusBadgeTypeContext)
   const type = typeProp ?? contextType
 
@@ -165,9 +177,15 @@ function StatusBadge({
     ) : null)
 
   const isBadge = type === 'badge'
-  const title = copyable
-    ? `Click to copy: ${copyText || label || ''}`
-    : label || undefined
+
+  // While the copied check is visible, swap the hint for a "copied" state so
+  // the click→feedback loop closes without relying on the clipboard target.
+  function resolveTitle(): string | undefined {
+    if (!copyable) return label || undefined
+    if (copied) return t('common.copied')
+    return t('common.clickToCopyValue', { value: copyText || label || '' })
+  }
+  const title = resolveTitle()
 
   return (
     <span
@@ -201,6 +219,12 @@ function StatusBadge({
       )}
       {Icon && <Icon className='size-3.5 shrink-0' />}
       {content}
+      {copyable && copied && (
+        <CheckIcon
+          className='text-success size-3 shrink-0'
+          aria-hidden='true'
+        />
+      )}
     </span>
   )
 }

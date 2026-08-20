@@ -19,6 +19,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { toBcp47 } from '@/i18n/languages'
 import { EM_DASH, formatCurrency, formatDateTime } from '@/lib/format'
 import { parseProxyLogPathMeta } from '@/lib/helpers/proxyLogPathMeta'
+import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
 import { useProxyLog } from '../api'
@@ -364,17 +365,21 @@ function JsonBlock({ value }: { value: unknown }) {
   const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
   const text = useMemo(() => prettyPrintJson(value), [value])
-  function handleCopy() {
-    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
-      return
+  async function handleCopy() {
+    try {
+      if (
+        typeof navigator === 'undefined' ||
+        !navigator.clipboard?.writeText
+      ) {
+        throw new Error('clipboard unavailable')
+      }
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Clipboard may be unavailable (non-secure context / permissions).
+      toast.error(t('common.copyFailed'))
     }
-    navigator.clipboard
-      .writeText(text)
-      .then(() => {
-        setCopied(true)
-        window.setTimeout(() => setCopied(false), 1500)
-      })
-      .catch(() => {})
   }
   return (
     <div className='relative'>
