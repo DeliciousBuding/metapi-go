@@ -47,8 +47,8 @@ func TestAuthSettingsChange_WrongOldTokenForbidden(t *testing.T) {
 	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode body: %v", err)
 	}
-	if body["error"] != "旧 Token 验证失败" {
-		t.Fatalf("error = %v, want 旧 Token 验证失败", body["error"])
+	if body["error"] != "Old token verification failed" {
+		t.Fatalf("error = %v, want Old token verification failed", body["error"])
 	}
 	if cfg.AuthToken != "admin-auth-settings-token" {
 		t.Fatalf("AuthToken mutated to %q", cfg.AuthToken)
