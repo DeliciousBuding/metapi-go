@@ -68,6 +68,12 @@ vi.mock('@/lib/toast', () => ({
   },
 }))
 
+// The section renders a FormNavigationGuard (useBlocker) for its dirty form;
+// the test has no router, so stub the blocker in its idle state.
+vi.mock('@tanstack/react-router', () => ({
+  useBlocker: () => ({ status: 'idle', reset: vi.fn(), proceed: vi.fn() }),
+}))
+
 const sqliteRuntimeConfig = {
   active: { dialect: 'sqlite', connection: './data/metapi.db', ssl: false },
   saved: null,
