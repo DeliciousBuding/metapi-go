@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { DetailField } from '@/components/common/detail-field'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -43,21 +44,6 @@ type SiteDetailSheetProps = {
 const STATUS_LABEL_KEY: Record<SiteStatus, string> = {
   active: 'sites.status.active',
   disabled: 'sites.status.disabled',
-}
-
-function DetailRow({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className='grid grid-cols-3 gap-2 py-1.5 text-sm'>
-      <span className='text-muted-foreground col-span-1'>{label}</span>
-      <div className='col-span-2 break-words'>{children}</div>
-    </div>
-  )
 }
 
 export function SiteDetailSheet({
@@ -129,53 +115,62 @@ export function SiteDetailSheet({
           <SiteBalanceSection site={site} locale={locale} />
 
           <section>
-            <DetailRow label={t('sites.detail.url')}>
-              <a
-                href={site.url}
-                target='_blank'
-                rel='noopener noreferrer'
-                className='text-primary inline-flex items-center gap-1 hover:underline'
-              >
-                {site.url}
-                <ExternalLinkIcon className='size-3' />
-              </a>
-            </DetailRow>
-            {site.externalCheckinUrl ? (
-              <DetailRow label={t('sites.detail.externalCheckinUrl')}>
+            <dl className='grid grid-cols-2 gap-x-3 gap-y-2 text-sm'>
+              <DetailField label={t('sites.detail.url')} full title={site.url}>
                 <a
-                  href={site.externalCheckinUrl}
+                  href={site.url}
                   target='_blank'
                   rel='noopener noreferrer'
-                  className='text-primary inline-flex items-center gap-1 hover:underline'
+                  className='text-primary inline-flex max-w-full items-center gap-1 hover:underline'
                 >
-                  {site.externalCheckinUrl}
-                  <ExternalLinkIcon className='size-3' />
+                  <span className='truncate'>{site.url}</span>
+                  <ExternalLinkIcon className='size-4 shrink-0' />
                 </a>
-              </DetailRow>
-            ) : null}
-            {site.platform ? (
-              <DetailRow label={t('sites.detail.platform')}>
-                {site.platform}
-              </DetailRow>
-            ) : null}
-            <DetailRow label={t('sites.detail.globalWeight')}>
-              {site.globalWeight ?? 1}
-            </DetailRow>
-            <DetailRow label={t('sites.detail.maxConcurrency')}>
-              {site.maxConcurrency
-                ? site.maxConcurrency
-                : t('sites.detail.unlimited')}
-            </DetailRow>
-            <DetailRow label={t('sites.detail.useSystemProxy')}>
-              {site.useSystemProxy
-                ? t('sites.detail.yes')
-                : t('sites.detail.no')}
-            </DetailRow>
-            {site.proxyUrl ? (
-              <DetailRow label={t('sites.detail.proxyUrl')}>
-                {site.proxyUrl}
-              </DetailRow>
-            ) : null}
+              </DetailField>
+              {site.externalCheckinUrl ? (
+                <DetailField
+                  label={t('sites.detail.externalCheckinUrl')}
+                  full
+                  title={site.externalCheckinUrl}
+                >
+                  <a
+                    href={site.externalCheckinUrl}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='text-primary inline-flex max-w-full items-center gap-1 hover:underline'
+                  >
+                    <span className='truncate'>{site.externalCheckinUrl}</span>
+                    <ExternalLinkIcon className='size-4 shrink-0' />
+                  </a>
+                </DetailField>
+              ) : null}
+              {site.platform ? (
+                <DetailField label={t('sites.detail.platform')}>
+                  {site.platform}
+                </DetailField>
+              ) : null}
+              <DetailField label={t('sites.detail.globalWeight')}>
+                {site.globalWeight ?? 1}
+              </DetailField>
+              <DetailField label={t('sites.detail.maxConcurrency')}>
+                {site.maxConcurrency
+                  ? site.maxConcurrency
+                  : t('sites.detail.unlimited')}
+              </DetailField>
+              <DetailField label={t('sites.detail.useSystemProxy')}>
+                {site.useSystemProxy
+                  ? t('sites.detail.yes')
+                  : t('sites.detail.no')}
+              </DetailField>
+              {site.proxyUrl ? (
+                <DetailField
+                  label={t('sites.detail.proxyUrl')}
+                  title={site.proxyUrl}
+                >
+                  {site.proxyUrl}
+                </DetailField>
+              ) : null}
+            </dl>
           </section>
 
           {endpoints.length > 0 && (
@@ -221,11 +216,11 @@ export function SiteDetailSheet({
           <section className='flex flex-col gap-2'>
             <Button variant='outline' onClick={goToAccounts}>
               {t('sites.detail.manageAccounts')}
-              <ArrowRightIcon className='ml-1 size-4' />
+              <ArrowRightIcon className='size-4' />
             </Button>
             <Button variant='outline' onClick={goToRoutes}>
               {t('sites.detail.manageRoutes')}
-              <ArrowRightIcon className='ml-1 size-4' />
+              <ArrowRightIcon className='size-4' />
             </Button>
             {onEdit && (
               <Button variant='ghost' onClick={() => onEdit(site)}>
@@ -273,51 +268,52 @@ function SiteBalanceSection({ site, locale }: { site: Site; locale: string }) {
         <h3 className='text-sm font-medium'>
           {t('sites.detail.balanceTitle')}
         </h3>
-        {balanceUsd !== null && (
-          <DetailRow label={t('sites.detail.balance')}>
-            <span className='tabular-nums'>{formatUsd(balanceUsd)}</span>
-          </DetailRow>
-        )}
-        {planNames.length > 0 && (
-          <DetailRow label={t('sites.detail.plans')}>
-            <div className='flex flex-wrap gap-1'>
-              {planNames.map((planName) => (
-                <Badge key={planName} variant='outline'>
-                  {planName}
-                </Badge>
-              ))}
-            </div>
-          </DetailRow>
-        )}
-        {typeof summary?.totalUsedUsd === 'number' && (
-          <DetailRow label={t('sites.detail.monthlyUsage')}>
-            <span className='tabular-nums'>
-              {formatUsd(summary.totalUsedUsd)}
-              {typeof summary.totalMonthlyLimitUsd === 'number'
-                ? ` / ${formatUsd(summary.totalMonthlyLimitUsd)}`
-                : ''}
-            </span>
-          </DetailRow>
-        )}
-        {showRemainingRow && (
-          <DetailRow label={t('sites.detail.remaining')}>
-            <span className='tabular-nums'>
-              {formatUsd(summary?.totalRemainingUsd)}
-            </span>
-          </DetailRow>
-        )}
-        {summary?.nextExpiresAt && (
-          <DetailRow label={t('sites.detail.nextExpires')}>
-            <span
+        <dl className='mt-2 grid grid-cols-2 gap-x-3 gap-y-2 text-sm'>
+          {balanceUsd !== null && (
+            <DetailField label={t('sites.detail.balance')}>
+              <span className='tabular-nums'>{formatUsd(balanceUsd)}</span>
+            </DetailField>
+          )}
+          {planNames.length > 0 && (
+            <DetailField label={t('sites.detail.plans')}>
+              <span className='flex flex-wrap gap-1'>
+                {planNames.map((planName) => (
+                  <Badge key={planName} variant='outline'>
+                    {planName}
+                  </Badge>
+                ))}
+              </span>
+            </DetailField>
+          )}
+          {typeof summary?.totalUsedUsd === 'number' && (
+            <DetailField label={t('sites.detail.monthlyUsage')}>
+              <span className='tabular-nums'>
+                {formatUsd(summary.totalUsedUsd)}
+                {typeof summary.totalMonthlyLimitUsd === 'number'
+                  ? ` / ${formatUsd(summary.totalMonthlyLimitUsd)}`
+                  : ''}
+              </span>
+            </DetailField>
+          )}
+          {showRemainingRow && (
+            <DetailField label={t('sites.detail.remaining')}>
+              <span className='tabular-nums'>
+                {formatUsd(summary?.totalRemainingUsd)}
+              </span>
+            </DetailField>
+          )}
+          {summary?.nextExpiresAt && (
+            <DetailField
+              label={t('sites.detail.nextExpires')}
               title={
                 formatAbsoluteDateTime(summary.nextExpiresAt, locale) ||
                 undefined
               }
             >
               {formatRelativeTime(summary.nextExpiresAt, locale)}
-            </span>
-          </DetailRow>
-        )}
+            </DetailField>
+          )}
+        </dl>
       </section>
       <Separator />
     </>

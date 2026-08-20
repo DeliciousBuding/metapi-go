@@ -7,10 +7,11 @@
 
 import { useNavigate } from '@tanstack/react-router'
 import { ExternalLink, RefreshCw } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { DetailField } from '@/components/common/detail-field'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -281,25 +282,6 @@ export function AccountDetailSheet({
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function DetailField({
-  label,
-  children,
-  title,
-}: {
-  label: string
-  children: ReactNode
-  title?: string
-}) {
-  return (
-    <div className='flex flex-col'>
-      <dt className='text-muted-foreground text-[11px]'>{label}</dt>
-      <dd className='truncate' title={title}>
-        {children}
-      </dd>
-    </div>
-  )
-}
 
 // A null amount means "never refreshed", not zero — rendering $0.00 would
 // misreport a missing value. Show a bare em dash (no currency prefix),

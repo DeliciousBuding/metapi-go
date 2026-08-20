@@ -3,9 +3,9 @@
 // i18n: all user-visible strings migrated to t() calls.
 
 import { ExternalLink } from 'lucide-react'
-import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { DetailField } from '@/components/common/detail-field'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -181,24 +181,5 @@ export function CheckinDetailSheet({
         </SheetFooter>
       </SheetContent>
     </Sheet>
-  )
-}
-
-function DetailField({
-  label,
-  children,
-  title,
-}: {
-  label: string
-  children: ReactNode
-  title?: string
-}) {
-  return (
-    <div className='flex flex-col'>
-      <dt className='text-muted-foreground text-[11px]'>{label}</dt>
-      <dd className='truncate' title={title}>
-        {children}
-      </dd>
-    </div>
   )
 }

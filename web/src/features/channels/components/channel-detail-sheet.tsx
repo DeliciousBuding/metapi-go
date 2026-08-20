@@ -17,9 +17,9 @@ import {
   Snowflake,
   TriangleAlert,
 } from 'lucide-react'
-import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { DetailField } from '@/components/common/detail-field'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -79,21 +79,6 @@ const STATUS_CONFIG: Record<
     dotClass: 'bg-muted-foreground',
     Icon: Ban,
   },
-}
-
-function DetailRow({
-  label,
-  children,
-}: {
-  label: string
-  children: ReactNode
-}) {
-  return (
-    <div className='grid grid-cols-3 gap-2 py-1.5 text-sm'>
-      <span className='text-muted-foreground col-span-1'>{label}</span>
-      <div className='col-span-2 break-words'>{children}</div>
-    </div>
-  )
 }
 
 export function ChannelDetailSheet({
@@ -157,19 +142,19 @@ export function ChannelDetailSheet({
               <h3 className='text-sm font-medium'>
                 {t('channels.detail.sectionOverview')}
               </h3>
-              <div className='mt-2'>
-                <DetailRow label={t('channels.detail.name')}>
+              <dl className='mt-2 grid grid-cols-2 gap-x-3 gap-y-2 text-sm'>
+                <DetailField label={t('channels.detail.name')}>
                   <span className='font-medium'>{channel.name}</span>
-                </DetailRow>
-                <DetailRow label={t('channels.detail.site')}>
+                </DetailField>
+                <DetailField label={t('channels.detail.site')}>
                   {siteLabel}
-                </DetailRow>
-                <DetailRow label={t('channels.detail.type')}>
+                </DetailField>
+                <DetailField label={t('channels.detail.type')}>
                   <Badge variant='outline' className='capitalize'>
                     {typeLabel}
                   </Badge>
-                </DetailRow>
-                <DetailRow label={t('channels.detail.status')}>
+                </DetailField>
+                <DetailField label={t('channels.detail.status')}>
                   <Badge variant={statusConfig.variant} className='gap-1.5'>
                     <span
                       aria-hidden='true'
@@ -181,15 +166,15 @@ export function ChannelDetailSheet({
                     <StatusIcon aria-hidden='true' />
                     {t(statusConfig.labelKey)}
                   </Badge>
-                </DetailRow>
-                <DetailRow label={t('channels.detail.enabled')}>
+                </DetailField>
+                <DetailField label={t('channels.detail.enabled')}>
                   <Badge variant={channel.enabled ? 'success' : 'secondary'}>
                     {channel.enabled
                       ? t('channels.detail.enabled')
                       : t('channels.detail.disabled')}
                   </Badge>
-                </DetailRow>
-              </div>
+                </DetailField>
+              </dl>
             </section>
 
             <Separator />
@@ -198,25 +183,28 @@ export function ChannelDetailSheet({
               <h3 className='text-sm font-medium'>
                 {t('channels.detail.sectionHealth')}
               </h3>
-              <div className='mt-2'>
-                <DetailRow label={t('channels.detail.priority')}>
+              <dl className='mt-2 grid grid-cols-2 gap-x-3 gap-y-2 text-sm'>
+                <DetailField label={t('channels.detail.priority')}>
                   {channel.priority}
-                </DetailRow>
-                <DetailRow label={t('channels.detail.weight')}>
+                </DetailField>
+                <DetailField label={t('channels.detail.weight')}>
                   {channel.weight}
-                </DetailRow>
-                <DetailRow label={t('channels.detail.avgLatency')}>
+                </DetailField>
+                <DetailField label={t('channels.detail.avgLatency')}>
                   {formatLatency(channel.responseMs, { autoSeconds: true })}
-                </DetailRow>
-                <DetailRow label={t('channels.detail.cooldownUntil')}>
+                </DetailField>
+                <DetailField label={t('channels.detail.cooldownUntil')}>
                   {formatDateTime(channel.cooldownUntil, locale)}
-                </DetailRow>
-                <DetailRow label={t('channels.detail.manualOverride')}>
+                </DetailField>
+                <DetailField
+                  label={t('channels.detail.manualOverride')}
+                  full
+                >
                   {channel.manualOverride
                     ? t('channels.detail.manualOverrideActive')
                     : t('channels.detail.manualOverrideNone')}
-                </DetailRow>
-              </div>
+                </DetailField>
+              </dl>
             </section>
 
             <Separator />

@@ -8,6 +8,7 @@ import { Loader2, RefreshCw, Snowflake } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { DetailField } from '@/components/common/detail-field'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -306,25 +307,16 @@ export function RouteDetailSheet({
         </div>
 
         <SheetFooter>
-          {isReadOnly ? (
-            <Button onClick={handleRebuild} variant='default'>
-              <RefreshCw
-                className={
-                  rebuildMutation.isPending ? 'animate-spin' : undefined
-                }
-              />
-              {t('tokenRoutes.detail.rebuildRoutes')}
-            </Button>
-          ) : (
-            <Button onClick={handleRebuild} variant='outline'>
-              <RefreshCw
-                className={
-                  rebuildMutation.isPending ? 'animate-spin' : undefined
-                }
-              />
-              {t('tokenRoutes.detail.rebuild')}
-            </Button>
-          )}
+          <Button onClick={handleRebuild} variant='default'>
+            <RefreshCw
+              className={
+                rebuildMutation.isPending ? 'animate-spin' : undefined
+              }
+            />
+            {isReadOnly
+              ? t('tokenRoutes.detail.rebuildRoutes')
+              : t('tokenRoutes.detail.rebuild')}
+          </Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>
@@ -610,25 +602,6 @@ function DecisionSnapshotSection({
           )}
         </ul>
       )}
-    </div>
-  )
-}
-
-function DetailField({
-  label,
-  children,
-  title,
-}: {
-  label: string
-  children: ReactNode
-  title?: string
-}) {
-  return (
-    <div className='flex flex-col'>
-      <dt className='text-muted-foreground text-[11px]'>{label}</dt>
-      <dd className='truncate' title={title}>
-        {children}
-      </dd>
     </div>
   )
 }

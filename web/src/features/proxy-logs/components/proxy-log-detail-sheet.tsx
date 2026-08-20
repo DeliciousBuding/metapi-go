@@ -3,9 +3,10 @@
 
 import { Link } from '@tanstack/react-router'
 import { Copy as CopyIcon, Check as CheckIcon } from 'lucide-react'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { DetailField } from '@/components/common/detail-field'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -20,7 +21,6 @@ import { toBcp47 } from '@/i18n/languages'
 import { EM_DASH, formatCurrency, formatDateTime } from '@/lib/format'
 import { parseProxyLogPathMeta } from '@/lib/helpers/proxyLogPathMeta'
 import { toast } from '@/lib/toast'
-import { cn } from '@/lib/utils'
 
 import { useProxyLog } from '../api'
 import type { ProxyLog, ProxyLogBillingDetails, ProxyLogDetail } from '../types'
@@ -248,18 +248,26 @@ function ConversationFileLinks({
           <DetailField label={t('proxyLogs.detail.sessionId')}>
             {sessionId || '—'}
           </DetailField>
-          <DetailField label={t('proxyLogs.detail.downstreamPath')} full>
+          <DetailField
+            label={t('proxyLogs.detail.downstreamPath')}
+            full
+            title={downstreamPath || undefined}
+          >
             {downstreamPath ? (
-              <code className='bg-muted block rounded px-1.5 py-0.5 text-xs break-all'>
+              <code className='bg-muted rounded px-1.5 py-0.5 text-xs'>
                 {downstreamPath}
               </code>
             ) : (
               '—'
             )}
           </DetailField>
-          <DetailField label={t('proxyLogs.detail.upstreamPath')} full>
+          <DetailField
+            label={t('proxyLogs.detail.upstreamPath')}
+            full
+            title={upstreamPath || undefined}
+          >
             {upstreamPath ? (
-              <code className='bg-muted block rounded px-1.5 py-0.5 text-xs break-all'>
+              <code className='bg-muted rounded px-1.5 py-0.5 text-xs'>
                 {upstreamPath}
               </code>
             ) : (
@@ -325,23 +333,6 @@ function RawBodySection({
         <JsonBlock value={body} />
       </section>
     </>
-  )
-}
-
-function DetailField({
-  label,
-  children,
-  full,
-}: {
-  label: string
-  children: ReactNode
-  full?: boolean
-}) {
-  return (
-    <div className={cn('flex flex-col', full && 'col-span-2')}>
-      <dt className='text-muted-foreground text-[11px]'>{label}</dt>
-      <dd className='min-w-0 break-words'>{children}</dd>
-    </div>
   )
 }
 
