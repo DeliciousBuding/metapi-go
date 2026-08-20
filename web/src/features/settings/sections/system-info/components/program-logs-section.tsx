@@ -145,6 +145,11 @@ export function ProgramLogsSection() {
     anchor.download = 'metapi-events.csv'
     anchor.click()
     URL.revokeObjectURL(url)
+    toast.success(
+      t('settings.systemInfo.programLogs.toast.exported', {
+        count: events.length,
+      })
+    )
   }
 
   const items = eventsQuery.data?.items ?? []
@@ -284,7 +289,10 @@ export function ProgramLogsSection() {
                       {event.title}
                     </span>
                     {event.message ? (
-                      <span className='text-muted-foreground text-xs'>
+                      <span
+                        className='text-muted-foreground line-clamp-2 max-w-[360px] text-xs break-all'
+                        title={event.message}
+                      >
                         {event.message}
                       </span>
                     ) : null}

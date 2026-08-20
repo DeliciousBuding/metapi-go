@@ -192,6 +192,7 @@ export function useToggleAccountTokenEnabled() {
         queryKey: accountTokenQueryKeys.all,
       })
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
+      toast.success(i18n.t('accounts.tokens.toast.statusUpdated'))
     },
   })
 }

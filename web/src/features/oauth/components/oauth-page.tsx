@@ -17,7 +17,7 @@
 // sortable header would promise cross-page sorting the backend cannot
 // honour). Deep links keep parsing `sort` tolerantly for old URLs.
 
-import { Plus as PlusIcon } from 'lucide-react'
+import { Loader2 as Loader2Icon, Plus as PlusIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -370,6 +370,9 @@ export function OAuthPage() {
               onClick={confirmDelete}
               disabled={deleteConnection.isPending}
             >
+              {deleteConnection.isPending && (
+                <Loader2Icon className='animate-spin' />
+              )}
               {t('oauth.delete.confirm')}
             </Button>
           </DialogFooter>

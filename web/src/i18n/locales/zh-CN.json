@@ -1,7 +1,15 @@
 {
   "translation": {
     "dataTable": {
-      "summary": "显示第 {{start}}-{{end}} 条，共 {{total}} 条"
+      "summary": "显示第 {{start}}-{{end}} 条，共 {{total}} 条",
+      "bulkActions": {
+        "announcement": "已选择 {{count}} 个{{entityName}}，批量操作工具栏可用。",
+        "toolbarAria": "已选 {{count}} 个{{entityName}}的批量操作",
+        "selectedAria": "已选 {{count}} 个",
+        "entityPlural_one": "{{entityName}}",
+        "entityPlural_other": "{{entityName}}",
+        "selected": "已选择"
+      }
     },
     "auth": {
       "login": {
@@ -195,6 +203,7 @@
         "systemPromptPlaceholder": "输入系统提示词（可选）",
         "prompt": "提示词",
         "promptPlaceholder": "输入提示词",
+        "promptSubmitHint": "按 ⌘/Ctrl + Enter 发送。",
         "temperature": "温度",
         "topP": "Top P",
         "maxTokens": "最大令牌数",
@@ -1300,7 +1309,8 @@
             "markAllFailed": "标记已读失败。",
             "markReadFailed": "标记事件已读失败。",
             "cleared": "程序事件已清空。",
-            "clearFailed": "清空事件失败。"
+            "clearFailed": "清空事件失败。",
+            "exported": "已导出 {{count}} 条事件到 CSV。"
           },
           "level": {
             "info": "信息",
@@ -1663,6 +1673,7 @@
           "deleted": "令牌已删除",
           "defaultSet": "已设为默认令牌",
           "synced": "令牌已同步",
+          "statusUpdated": "令牌状态已更新",
           "createFailed": "添加令牌失败",
           "updateFailed": "更新令牌失败",
           "deleteFailed": "删除令牌失败",

@@ -21,6 +21,14 @@ import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   Form,
   FormControl,
   FormDescription,
@@ -164,22 +172,54 @@ export function TokensPanel({
         </ul>
       )}
 
-      <ConfirmDialog
+      <Dialog
         open={deletingToken !== null}
-        title={t('accounts.tokens.deleteConfirm.title')}
-        description={t('accounts.tokens.deleteConfirm.description', {
-          name: deletingToken?.name || t('accounts.tokens.unnamed'),
-        })}
-        confirmLabel={t('accounts.tokens.deleteConfirm.confirm')}
-        cancelLabel={t('accounts.tokens.deleteConfirm.cancel')}
-        destructive
-        onConfirm={() => {
-          if (!deletingToken) return
-          deleteMutation.mutate(deletingToken.id)
-          setDeletingToken(null)
+        onOpenChange={(open) => {
+          // Keep the dialog open until the delete settles: closing early
+          // hides the pending state and the failure toast would arrive with
+          // no visible context.
+          if (!open && !deleteMutation.isPending) {
+            setDeletingToken(null)
+          }
         }}
-        onCancel={() => setDeletingToken(null)}
-      />
+      >
+        <DialogContent className='sm:max-w-md'>
+          <DialogHeader>
+            <DialogTitle>
+              {t('accounts.tokens.deleteConfirm.title')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('accounts.tokens.deleteConfirm.description', {
+                name: deletingToken?.name || t('accounts.tokens.unnamed'),
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant='outline'
+              onClick={() => setDeletingToken(null)}
+              disabled={deleteMutation.isPending}
+            >
+              {t('accounts.tokens.deleteConfirm.cancel')}
+            </Button>
+            <Button
+              variant='destructive'
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (!deletingToken) return
+                deleteMutation.mutate(deletingToken.id, {
+                  onSuccess: () => setDeletingToken(null),
+                })
+              }}
+            >
+              {deleteMutation.isPending && (
+                <Loader2 className='animate-spin' />
+              )}
+              {t('accounts.tokens.deleteConfirm.confirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

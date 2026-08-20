@@ -396,9 +396,25 @@ export function TestForm({
                   className='min-h-[140px] resize-y'
                   disabled={isRunning}
                   autoFocus
+                  onKeyDown={(event) => {
+                    // ⌘/Ctrl+Enter sends without leaving the textarea, the
+                    // same shortcut operators expect from chat surfaces.
+                    if (
+                      event.key !== 'Enter' ||
+                      (!event.metaKey && !event.ctrlKey) ||
+                      isRunning
+                    ) {
+                      return
+                    }
+                    event.preventDefault()
+                    void form.handleSubmit((values) => onSubmit(values))()
+                  }}
                   {...field}
                 />
               </FormControl>
+              <FormDescription>
+                {t('modelTester.form.promptSubmitHint')}
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}

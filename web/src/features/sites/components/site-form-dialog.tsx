@@ -223,7 +223,9 @@ export function SiteFormDialog({
   async function handleDetect() {
     const url = watchedUrl.trim()
     if (!url) {
-      toast.error(t('sites.form.detectRequiresUrl'))
+      // Surface the missing URL next to the field instead of a detached
+      // toast — the operator needs to know WHICH input to fix.
+      form.setError('url', { message: t('sites.form.detectRequiresUrl') })
       return
     }
     try {

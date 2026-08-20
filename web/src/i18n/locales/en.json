@@ -1,7 +1,15 @@
 {
   "translation": {
     "dataTable": {
-      "summary": "Showing {{start}}-{{end}} of {{total}} rows"
+      "summary": "Showing {{start}}-{{end}} of {{total}} rows",
+      "bulkActions": {
+        "announcement": "{{count}} {{entityName}} selected. Bulk actions toolbar is available.",
+        "toolbarAria": "Bulk actions for {{count}} selected {{entityName}}",
+        "selectedAria": "{{count}} selected",
+        "entityPlural_one": "{{entityName}}",
+        "entityPlural_other": "{{entityName}}s",
+        "selected": "selected"
+      }
     },
     "auth": {
       "login": {
@@ -195,6 +203,7 @@
         "systemPromptPlaceholder": "Enter a system prompt (optional)",
         "prompt": "Prompt",
         "promptPlaceholder": "Enter a prompt",
+        "promptSubmitHint": "Press ⌘/Ctrl + Enter to send.",
         "temperature": "Temperature",
         "topP": "Top P",
         "maxTokens": "Max tokens",
@@ -1300,7 +1309,8 @@
             "markAllFailed": "Failed to mark events read.",
             "markReadFailed": "Failed to mark event read.",
             "cleared": "Program events cleared.",
-            "clearFailed": "Failed to clear events."
+            "clearFailed": "Failed to clear events.",
+            "exported": "Exported {{count}} event(s) to CSV."
           },
           "level": {
             "info": "Info",
@@ -1663,6 +1673,7 @@
           "deleted": "Token deleted",
           "defaultSet": "Set as default token",
           "synced": "Tokens synced",
+          "statusUpdated": "Token status updated",
           "createFailed": "Failed to add token",
           "updateFailed": "Failed to update token",
           "deleteFailed": "Failed to delete token",

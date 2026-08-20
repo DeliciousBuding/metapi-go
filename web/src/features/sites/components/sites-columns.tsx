@@ -122,11 +122,16 @@ export function useSitesColumns(
       cell: ({ row }) => {
         const site = row.original
         return (
-          <div className='flex items-center gap-2'>
+          <div className='flex min-w-0 items-center gap-2'>
             {site.isPinned && (
               <PinIcon className='text-muted-foreground size-3.5 shrink-0' />
             )}
-            <span className='font-medium'>{site.name}</span>
+            <span
+              className='max-w-[220px] truncate font-medium'
+              title={site.name}
+            >
+              {site.name}
+            </span>
           </div>
         )
       },

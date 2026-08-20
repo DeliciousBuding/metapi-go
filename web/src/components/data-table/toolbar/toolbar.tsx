@@ -227,6 +227,18 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
     queueSearchValue(value)
   }
 
+  // Enter commits the draft immediately instead of waiting out the debounce,
+  // so "type → Enter" feels like an explicit search even with debounced
+  // filtering enabled.
+  const handleSearchKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement>
+  ) => {
+    if (event.key !== 'Enter') return
+    event.preventDefault()
+    setIsSearchComposing(false)
+    commitSearchValue(searchValue)
+  }
+
   const hasSearchValue = searchValue.length > 0
 
   const clearSearchValue = () => {
@@ -242,6 +254,7 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
         placeholder={placeholder}
         value={searchValue}
         onChange={handleSearchChange}
+        onKeyDown={handleSearchKeyDown}
         onCompositionStart={handleSearchCompositionStart}
         onCompositionEnd={handleSearchCompositionEnd}
         className={cn('w-full', hasSearchValue && 'pe-8')}

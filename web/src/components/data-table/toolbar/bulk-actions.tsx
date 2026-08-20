@@ -49,7 +49,13 @@ export function DataTableBulkActions<TData>({
   // Announce selection changes to screen readers
   useEffect(() => {
     if (selectedCount > 0) {
-      const message = `${selectedCount} ${entityName}${selectedCount > 1 ? 's' : ''} selected. Bulk actions toolbar is available.`
+      const message = t('dataTable.bulkActions.announcement', {
+        count: selectedCount,
+        entityName: t('dataTable.bulkActions.entityPlural', {
+          count: selectedCount,
+          entityName,
+        }),
+      })
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setAnnouncement(message)
 
@@ -57,7 +63,7 @@ export function DataTableBulkActions<TData>({
       const timer = setTimeout(() => setAnnouncement(''), 3000)
       return () => clearTimeout(timer)
     }
-  }, [selectedCount, entityName])
+  }, [selectedCount, entityName, t])
 
   const handleClearSelection = () => {
     table.resetRowSelection()
@@ -144,7 +150,13 @@ export function DataTableBulkActions<TData>({
       <div
         ref={toolbarRef}
         role='toolbar'
-        aria-label={`Bulk actions for ${selectedCount} selected ${entityName}${selectedCount > 1 ? 's' : ''}`}
+        aria-label={t('dataTable.bulkActions.toolbarAria', {
+          count: selectedCount,
+          entityName: t('dataTable.bulkActions.entityPlural', {
+            count: selectedCount,
+            entityName,
+          }),
+        })}
         aria-describedby='bulk-actions-description'
         tabIndex={-1}
         onKeyDown={handleKeyDown}
@@ -196,15 +208,19 @@ export function DataTableBulkActions<TData>({
             <Badge
               variant='default'
               className='min-w-8 rounded-lg'
-              aria-label={`${selectedCount} selected`}
+              aria-label={t('dataTable.bulkActions.selectedAria', {
+                count: selectedCount,
+              })}
             >
               {selectedCount}
             </Badge>{' '}
             <span className='hidden sm:inline'>
-              {entityName}
-              {selectedCount > 1 ? 's' : ''}
+              {t('dataTable.bulkActions.entityPlural', {
+                count: selectedCount,
+                entityName,
+              })}{' '}
+              {t('dataTable.bulkActions.selected')}
             </span>{' '}
-            {t('selected')}
           </div>
 
           <Separator
