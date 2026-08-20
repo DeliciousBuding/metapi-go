@@ -13,7 +13,11 @@ documents never deep-link into `internal/` — they state the fact directly.
 
 | If you need…                        | Read                                                                                     |
 | :---------------------------------- | :--------------------------------------------------------------------------------------- |
+| Install → first proxied request     | [`getting-started.md`](getting-started.md)                                               |
 | Deploy / ops vars / reverse proxy   | [`deployment.md`](deployment.md)                                                         |
+| Environment variable reference      | [`configuration.md`](configuration.md)                                                   |
+| Client wiring (Cursor etc.)         | [`client-integration.md`](client-integration.md)                                         |
+| Common questions                    | [`faq.md`](faq.md)                                                                       |
 | HTTP API surface                    | [`api.md`](api.md)                                                                       |
 | Package architecture & request path | [`architecture.md`](architecture.md)                                                     |
 | TS→Go migration / SQLite→PG         | [`migration.md`](migration.md)                                                           |
@@ -39,9 +43,13 @@ documents never deep-link into `internal/` — they state the fact directly.
 ```
 docs/
   README.md                 ← this map
+  getting-started.md        ← tutorial: install → first proxied request
   api.md                    ← public API notes
   architecture.md           ← as-built package & request path
+  client-integration.md     ← client wiring (Cursor / Claude Code / Codex / Open WebUI)
+  configuration.md          ← environment variable reference
   deployment.md             ← run / Docker / ops vars
+  faq.md                    ← common questions
   migration.md              ← TS→Go / SQLite→PG / schema upgrade
   testing.md                ← test layers + public real-platform testbed SOP
   assets/                   ← public images (hero, screenshots)

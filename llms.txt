@@ -1,0 +1,33 @@
+# Metapi Go
+
+> Self-hosted meta-aggregation gateway for AI relay sites (New API / One API
+> / OneHub / Sub2API / …): one API key and one OpenAI-compatible entrypoint
+> with automatic model discovery, cost-aware routing, failover, check-in and
+> balance tracking. Go rewrite of cita-777/metapi; single ~15 MB binary,
+> SQLite or PostgreSQL. MIT licensed.
+
+This repository is docs-as-code: every page below is plain markdown at the
+given raw URL and mirrors the in-repo file. User-facing docs live in `docs/`;
+maintainer process docs live in `docs/internal/` and are intentionally not
+indexed here.
+
+## Start here
+
+- [README (中文)](https://raw.githubusercontent.com/DeliciousBuding/metapi-go/master/README.md): product overview, screenshots, quick start and feature summary.
+- [README (English)](https://raw.githubusercontent.com/DeliciousBuding/metapi-go/master/README_EN.md): English mirror of the overview and quick start.
+- [Getting started](https://raw.githubusercontent.com/DeliciousBuding/metapi-go/master/docs/getting-started.md): single-path tutorial from install to the first proxied /v1 request.
+- [Deployment guide](https://raw.githubusercontent.com/DeliciousBuding/metapi-go/master/docs/deployment.md): Docker/compose, reverse proxy templates, PostgreSQL, upgrades.
+- [Configuration reference](https://raw.githubusercontent.com/DeliciousBuding/metapi-go/master/docs/configuration.md): every environment variable grouped by concern, with defaults.
+
+## Guides
+
+- [Client integration](https://raw.githubusercontent.com/DeliciousBuding/metapi-go/master/docs/client-integration.md): wiring Cursor, Claude Code, Codex CLI, Open WebUI and generic OpenAI clients to the /v1 entrypoint.
+- [Migration guide](https://raw.githubusercontent.com/DeliciousBuding/metapi-go/master/docs/migration.md): TypeScript→Go and SQLite→PostgreSQL transfers, additive schema upgrade model, rollback.
+- [FAQ](https://raw.githubusercontent.com/DeliciousBuding/metapi-go/master/docs/faq.md): supported databases, multi-instance semantics, honest 503 behavior, credential encryption.
+
+## Reference
+
+- [HTTP API inventory](https://raw.githubusercontent.com/DeliciousBuding/metapi-go/master/docs/api.md): admin and proxy endpoint surface, including documented 501 residuals.
+- [Architecture](https://raw.githubusercontent.com/DeliciousBuding/metapi-go/master/docs/architecture.md): as-built Go package map, request paths, routing/retry/breaker design.
+- [Testing strategy](https://raw.githubusercontent.com/DeliciousBuding/metapi-go/master/docs/testing.md): test layers and the sanitized real-platform testbed SOP.
+- [Changelog](https://raw.githubusercontent.com/DeliciousBuding/metapi-go/master/CHANGELOG.md): Keep-a-Changelog release history; release notes are extracted from it.
