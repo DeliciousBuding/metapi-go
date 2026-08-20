@@ -33,6 +33,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+} from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -174,29 +181,37 @@ export function OverviewSection() {
     }
     if (schedulerError) {
       return (
-        <div className='border-destructive/40 bg-destructive/10 flex min-h-24 flex-col items-center justify-center gap-3 rounded-lg border py-8 text-center'>
-          <p className='text-destructive text-sm'>
-            {t('dashboard.overview.scheduledTasks.loadError')}
-          </p>
-          <Button
-            variant='outline'
-            size='sm'
-            onClick={() => void refetchScheduler()}
-          >
-            <RefreshCw className='mr-1 size-3.5' />
-            {t('dashboard.overview.scheduledTasks.retry')}
-          </Button>
-        </div>
+        <Empty className='border-destructive/40 bg-destructive/10 min-h-24 border'>
+          <EmptyHeader>
+            <EmptyDescription className='text-destructive'>
+              {t('dashboard.overview.scheduledTasks.loadError')}
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => void refetchScheduler()}
+            >
+              <RefreshCw className='size-3.5' />
+              {t('dashboard.overview.scheduledTasks.retry')}
+            </Button>
+          </EmptyContent>
+        </Empty>
       )
     }
     if (schedulerRows.length === 0) {
       return (
-        <div className='flex min-h-24 flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center'>
-          <ClipboardList className='text-muted-foreground/60 size-5' />
-          <p className='text-muted-foreground text-sm'>
-            {t('dashboard.overview.scheduledTasks.empty')}
-          </p>
-        </div>
+        <Empty className='min-h-24 border'>
+          <EmptyHeader>
+            <EmptyMedia variant='icon'>
+              <ClipboardList />
+            </EmptyMedia>
+            <EmptyDescription>
+              {t('dashboard.overview.scheduledTasks.empty')}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )
     }
     return (
@@ -262,7 +277,7 @@ export function OverviewSection() {
       <TodaySnapshotStrip />
 
       {siteCount === 0 && (
-        <Card className='border-primary/40 bg-primary/5 border'>
+        <Card className='ring-primary/40 bg-primary/5'>
           <CardContent className='flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between'>
             <div className='space-y-1'>
               <h2 className='text-base font-semibold'>

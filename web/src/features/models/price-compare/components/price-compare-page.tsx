@@ -17,6 +17,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+} from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 import {
@@ -119,9 +124,13 @@ export function PriceComparePage() {
       />
 
       {!query.isLoading && !query.error && groups.length === 0 && (
-        <div className='text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm'>
-          {t('priceCompare.page.emptyDescription')}
-        </div>
+        <Empty className='border'>
+          <EmptyHeader>
+            <EmptyDescription>
+              {t('priceCompare.page.emptyDescription')}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
 
       <div className='flex flex-col gap-4'>

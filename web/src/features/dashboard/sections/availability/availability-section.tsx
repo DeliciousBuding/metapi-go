@@ -19,6 +19,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+} from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
@@ -222,15 +229,24 @@ function RealtimeOpsPanel() {
       </CardHeader>
       <CardContent className='space-y-3'>
         {sample.gaveUp ? (
-          <div className='border-destructive/40 flex min-h-[8rem] flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-6 text-center'>
-            <TriangleAlert className='text-destructive/80 size-5' />
-            <p className='text-destructive text-sm'>
-              {t('dashboard.availability.realtime.connectionLost')}
-            </p>
-            <Button variant='outline' size='sm' onClick={reconnect}>
-              {t('dashboard.availability.realtime.reconnect')}
-            </Button>
-          </div>
+          <Empty className='border-destructive/40 min-h-32 border'>
+            <EmptyHeader>
+              <EmptyMedia
+                variant='icon'
+                className='bg-destructive/10 text-destructive'
+              >
+                <TriangleAlert />
+              </EmptyMedia>
+              <EmptyDescription className='text-destructive'>
+                {t('dashboard.availability.realtime.connectionLost')}
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <Button variant='outline' size='sm' onClick={reconnect}>
+                {t('dashboard.availability.realtime.reconnect')}
+              </Button>
+            </EmptyContent>
+          </Empty>
         ) : (
           <>
             <div className='flex flex-wrap items-end justify-between gap-x-4 gap-y-2'>
@@ -296,19 +312,30 @@ function AttentionPanel() {
         {isLoading ? (
           <Skeleton className='h-48 w-full rounded-md' />
         ) : isError ? (
-          <div className='flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center'>
-            <TriangleAlert className='text-destructive/80 size-5' />
-            <p className='text-destructive text-xs'>
-              {t('dashboard.availability.monitors.loadError')}
-            </p>
-          </div>
+          <Empty className='min-h-48 border'>
+            <EmptyHeader>
+              <EmptyMedia
+                variant='icon'
+                className='bg-destructive/10 text-destructive'
+              >
+                <TriangleAlert />
+              </EmptyMedia>
+              <EmptyDescription className='text-destructive'>
+                {t('dashboard.availability.monitors.loadError')}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : items.length === 0 ? (
-          <div className='flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center'>
-            <Inbox className='text-muted-foreground/60 size-5' />
-            <p className='text-muted-foreground text-sm'>
-              {t('dashboard.availability.monitors.empty')}
-            </p>
-          </div>
+          <Empty className='min-h-48 border'>
+            <EmptyHeader>
+              <EmptyMedia variant='icon'>
+                <Inbox />
+              </EmptyMedia>
+              <EmptyDescription>
+                {t('dashboard.availability.monitors.empty')}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <ul className='space-y-2'>
             {items.map((item, index) => {

@@ -3,7 +3,7 @@
 // /api/monitor/health projection; never mutates routing state.
 
 import { Link } from '@tanstack/react-router'
-import { AlertTriangle, CheckCircle2, Server, ShieldCheck } from 'lucide-react'
+import { CheckCircle2, Server, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -13,6 +13,12 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+} from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -101,7 +107,7 @@ export function HealthSection() {
         <Card>
           <CardHeader>
             <CardTitle className='flex items-center gap-2 text-sm font-medium'>
-              <AlertTriangle className='size-4' />
+              <TriangleAlert className='size-4' />
               {t('observability.health.breakers.title')}
             </CardTitle>
             <CardDescription className='text-xs'>
@@ -223,12 +229,16 @@ function renderBreakersBody(
   }
   if (breakers.length === 0) {
     return (
-      <div className='flex min-h-24 items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center'>
-        <CheckCircle2 className='text-success size-4' />
-        <p className='text-muted-foreground text-sm'>
-          {t('observability.health.breakers.empty')}
-        </p>
-      </div>
+      <Empty className='min-h-24 border'>
+        <EmptyHeader>
+          <EmptyMedia variant='icon' className='bg-success/10 text-success'>
+            <CheckCircle2 />
+          </EmptyMedia>
+          <EmptyDescription>
+            {t('observability.health.breakers.empty')}
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     )
   }
   return (
@@ -319,11 +329,13 @@ function renderCoolingTable(
 ) {
   if (channels.length === 0) {
     return (
-      <div className='flex min-h-16 items-center justify-center gap-2 rounded-lg border border-dashed py-6 text-center'>
-        <p className='text-muted-foreground text-sm'>
-          {t('observability.health.cooldown.empty')}
-        </p>
-      </div>
+      <Empty className='min-h-16 border'>
+        <EmptyHeader>
+          <EmptyDescription>
+            {t('observability.health.cooldown.empty')}
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     )
   }
   return (
