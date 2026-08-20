@@ -2076,6 +2076,12 @@
       "title": "外观",
       "reset": "重置",
       "appearance": "自定义外观",
+      "colorScheme": "配色模式",
+      "colorSchemeOptions": {
+        "light": "浅色",
+        "dark": "深色",
+        "system": "跟随系统"
+      },
       "colorPreset": "颜色预设",
       "font": "字体",
       "fontOptions": {
@@ -2098,6 +2104,11 @@
         "sm": "小",
         "lg": "大",
         "xl": "特大"
+      },
+      "contentLayout": "内容布局",
+      "contentLayoutOptions": {
+        "full": "全宽",
+        "centered": "居中"
       },
       "preset": {
         "default": "默认",

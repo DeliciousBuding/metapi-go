@@ -1,10 +1,12 @@
-// metapi-go/components — theme customizer panel (preset / font / radius / scale).
+// metapi-go/components — theme customizer panel
+// (color scheme / preset / font / radius / scale / content-layout).
 // Adapted from newapi's config-drawer (AGPL header stripped): a compact
 // popover for the app header instead of a full sheet. Consumes the
-// ThemeCustomizationProvider axes; contentLayout stays out of the header UI.
+// ThemeCustomizationProvider axes plus the ThemeProvider color scheme, so the
+// mode can always be returned to "follow system".
 
 import { Radio as RadioPrimitive } from '@base-ui/react/radio'
-import { Check, Palette, RotateCcw } from 'lucide-react'
+import { Check, Monitor, Moon, Palette, RotateCcw, Sun } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -16,14 +18,30 @@ import {
 import { RadioGroup } from '@/components/ui/radio-group'
 import { Separator } from '@/components/ui/separator'
 import { useThemeCustomization } from '@/context/theme-customization-provider'
+import { useTheme, type Theme } from '@/context/theme-provider'
 import {
   THEME_PRESETS,
+  type ContentLayout,
   type ThemeFont,
   type ThemePreset,
   type ThemeRadius,
   type ThemeScale,
 } from '@/lib/theme-customization'
 import { cn } from '@/lib/utils'
+
+const COLOR_SCHEME_OPTIONS: {
+  value: Theme
+  labelKey: string
+  icon: typeof Sun
+}[] = [
+  { value: 'light', labelKey: 'theme.colorSchemeOptions.light', icon: Sun },
+  { value: 'dark', labelKey: 'theme.colorSchemeOptions.dark', icon: Moon },
+  {
+    value: 'system',
+    labelKey: 'theme.colorSchemeOptions.system',
+    icon: Monitor,
+  },
+]
 
 const FONT_OPTIONS: {
   value: ThemeFont
@@ -75,6 +93,14 @@ const SCALE_OPTIONS: {
   { value: 'xl', labelKey: 'theme.scaleOptions.xl', fontSize: '1.25rem' },
 ]
 
+const CONTENT_LAYOUT_OPTIONS: {
+  value: ContentLayout
+  labelKey: string
+}[] = [
+  { value: 'full', labelKey: 'theme.contentLayoutOptions.full' },
+  { value: 'centered', labelKey: 'theme.contentLayoutOptions.centered' },
+]
+
 const TILE_CLASSES = cn(
   'ring-border relative h-12 rounded-md ring-[1px] transition',
   'group-data-checked:ring-primary group-data-checked:shadow-md',
@@ -116,6 +142,46 @@ function SectionTitle(props: {
         </Button>
       )}
     </div>
+  )
+}
+
+function ColorSchemeSection() {
+  const { t } = useTranslation()
+  const { defaultTheme, theme, setTheme, resetTheme } = useTheme()
+  return (
+    <section>
+      <SectionTitle
+        title={t('theme.colorScheme')}
+        showReset={theme !== defaultTheme}
+        onReset={resetTheme}
+      />
+      <RadioGroup
+        value={theme}
+        onValueChange={(value) => setTheme(value as Theme)}
+        className='grid grid-cols-3 gap-2'
+        aria-label={t('theme.colorScheme')}
+      >
+        {COLOR_SCHEME_OPTIONS.map((option) => (
+          <RadioPrimitive.Root
+            key={option.value}
+            value={option.value}
+            className='group flex flex-col items-stretch outline-none'
+            aria-label={t(option.labelKey)}
+          >
+            <div className={TILE_CLASSES}>
+              <option.icon
+                aria-hidden='true'
+                className='text-foreground absolute inset-0 m-auto size-4.5'
+              />
+              <TileCheck />
+            </div>
+            <div className='mt-1.5 text-center text-xs'>
+              {t(option.labelKey)}
+            </div>
+          </RadioPrimitive.Root>
+        ))}
+      </RadioGroup>
+    </section>
   )
 }
 
@@ -293,9 +359,60 @@ function ScaleSection() {
   )
 }
 
+function ContentLayoutSection() {
+  const { t } = useTranslation()
+  const { defaults, customization, setContentLayout } = useThemeCustomization()
+  return (
+    <section>
+      <SectionTitle
+        title={t('theme.contentLayout')}
+        showReset={customization.contentLayout !== defaults.contentLayout}
+        onReset={() => setContentLayout(defaults.contentLayout)}
+      />
+      <RadioGroup
+        value={customization.contentLayout}
+        onValueChange={(value) => setContentLayout(value as ContentLayout)}
+        className='grid grid-cols-2 gap-2'
+        aria-label={t('theme.contentLayout')}
+      >
+        {CONTENT_LAYOUT_OPTIONS.map((option) => (
+          <RadioPrimitive.Root
+            key={option.value}
+            value={option.value}
+            className='group flex flex-col items-stretch outline-none'
+            aria-label={t(option.labelKey)}
+          >
+            <div className={TILE_CLASSES}>
+              {/* Mini page diagram: full-width content vs a centered column. */}
+              <span
+                aria-hidden='true'
+                className='border-border/80 bg-muted-foreground/25 absolute inset-x-1.5 inset-y-2 rounded-[3px] border'
+              />
+              <span
+                aria-hidden='true'
+                className={cn(
+                  'bg-muted-foreground absolute inset-y-3.5 rounded-[2px]',
+                  option.value === 'full'
+                    ? 'inset-x-3'
+                    : 'left-1/2 w-1/3 -translate-x-1/2'
+                )}
+              />
+              <TileCheck />
+            </div>
+            <div className='mt-1.5 text-center text-xs'>
+              {t(option.labelKey)}
+            </div>
+          </RadioPrimitive.Root>
+        ))}
+      </RadioGroup>
+    </section>
+  )
+}
+
 /**
  * Header entry for the theme customizer. Renders the trigger button and
- * hosts the 4-axis panel (color preset / font / radius / scale) in a popover.
+ * hosts the appearance panel (color scheme / color preset / font / radius /
+ * scale / content layout) in a popover.
  */
 export function ThemeCustomizer() {
   const { t } = useTranslation()
@@ -333,6 +450,8 @@ export function ThemeCustomizer() {
         </div>
         <Separator className='my-2.5' />
         <div className='flex flex-col gap-3.5'>
+          <ColorSchemeSection />
+          <Separator />
           <PresetSection />
           <Separator />
           <FontSection />
@@ -340,6 +459,8 @@ export function ThemeCustomizer() {
           <RadiusSection />
           <Separator />
           <ScaleSection />
+          <Separator />
+          <ContentLayoutSection />
         </div>
       </PopoverContent>
     </Popover>

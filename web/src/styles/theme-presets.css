@@ -29,8 +29,6 @@
   --chart-5: oklch(0.9564 0.0234 159.23);
   --sidebar-primary: oklch(0.5315 0.0694 156.19);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.9687 0.0051 247.88);
-  --sidebar-accent-foreground: oklch(0.279 0.0299 260.05);
   --sidebar-ring: oklch(0.5315 0.0694 156.19);
   --radius: 0.5rem;
 }
@@ -47,7 +45,6 @@
   --chart-5: oklch(0.781 0.0975 156.24);
   --sidebar-primary: oklch(0.6147 0.0867 154.73);
   --sidebar-primary-foreground: oklch(0.129 0.0306 264.71);
-  --sidebar-accent: oklch(0.279 0.0299 260.05);
   --sidebar-accent-foreground: oklch(0.929 0.0095 255.53);
   --sidebar-ring: oklch(0.6147 0.0867 154.73);
 }
@@ -63,11 +60,9 @@
   --chart-2: oklch(0.8938 0.0563 3.77);
   --chart-3: oklch(0.7135 0.1879 7.69);
   --chart-4: oklch(0.8131 0.1129 5.67);
-  --chart-5: oklch(0.9429 0.0283 5.52);
+  --chart-5: oklch(0.74 0.12 5.52);
   --sidebar-primary: oklch(0.5827 0.2418 12.23);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.5827 0.2418 12.23);
-  --sidebar-accent-foreground: oklch(1 0 0);
   --sidebar-ring: oklch(0.5827 0.2418 12.23);
   --radius: 1rem;
 }
@@ -84,7 +79,6 @@
   --chart-5: oklch(0.9429 0.0283 5.52);
   --sidebar-primary: oklch(0.6476 0.2348 10.36);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.6476 0.2348 10.36);
   --sidebar-accent-foreground: oklch(1 0 0);
   --sidebar-ring: oklch(0.6476 0.2348 10.36);
 }
@@ -100,11 +94,9 @@
   --chart-2: oklch(0.551 0.0899 200.52);
   --chart-3: oklch(0.845 0.143 164.98);
   --chart-4: oklch(0.8576 0.1202 192.38);
-  --chart-5: oklch(0.95 0.052 163.05);
+  --chart-5: oklch(0.75 0.13 163.05);
   --sidebar-primary: oklch(0.765 0.177 163.22);
   --sidebar-primary-foreground: oklch(0 0 0);
-  --sidebar-accent: oklch(0.765 0.177 163.22);
-  --sidebar-accent-foreground: oklch(0.2742 0.0208 165.96);
   --sidebar-ring: oklch(0.765 0.177 163.22);
   --radius: 0.75rem;
 }
@@ -121,7 +113,6 @@
   --chart-5: oklch(0.95 0.052 163.05);
   --sidebar-primary: oklch(0.765 0.177 163.22);
   --sidebar-primary-foreground: oklch(0 0 0);
-  --sidebar-accent: oklch(0.765 0.177 163.22);
   --sidebar-accent-foreground: oklch(0 0 0);
   --sidebar-ring: oklch(0.765 0.177 163.22);
 }
@@ -140,16 +131,16 @@
   --chart-5: oklch(0.9381 0.0241 16.66);
   --sidebar-primary: oklch(0.5591 0.1882 25.33);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.5591 0.1882 25.33);
-  --sidebar-accent-foreground: oklch(1 0 0);
   --sidebar-ring: oklch(0.5591 0.1882 25.33);
   --radius: 1rem;
 }
 .dark [data-theme-preset='sunset-glow'] {
   --primary: oklch(0.6387 0.1822 23.51);
   --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.7938 0.1248 42.42);
-  --secondary-foreground: oklch(0 0 0);
+  /* Darkened to match the other presets' dark strategy: a muted surface
+   * with light text, instead of the light mode's bright secondary. */
+  --secondary: oklch(0.42 0.08 42.42);
+  --secondary-foreground: oklch(1 0 0);
   --ring: oklch(0.6387 0.1822 23.51);
   --chart-1: oklch(0.6387 0.1822 23.51);
   --chart-2: oklch(0.7938 0.1248 42.42);
@@ -158,7 +149,6 @@
   --chart-5: oklch(0.9381 0.0241 16.66);
   --sidebar-primary: oklch(0.6387 0.1822 23.51);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.6387 0.1822 23.51);
   --sidebar-accent-foreground: oklch(1 0 0);
   --sidebar-ring: oklch(0.6387 0.1822 23.51);
 }
@@ -174,11 +164,9 @@
   --chart-2: oklch(0.5236 0.0505 250.18);
   --chart-3: oklch(0.7741 0.1676 178.16);
   --chart-4: oklch(0.7294 0.0416 244.67);
-  --chart-5: oklch(0.9511 0.0547 177.24);
+  --chart-5: oklch(0.75 0.13 177.24);
   --sidebar-primary: oklch(0.5276 0.1072 182.22);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.5276 0.1072 182.22);
-  --sidebar-accent-foreground: oklch(1 0 0);
   --sidebar-ring: oklch(0.5276 0.1072 182.22);
   --radius: 0.5rem;
 }
@@ -195,7 +183,6 @@
   --chart-5: oklch(0.9511 0.0547 177.24);
   --sidebar-primary: oklch(0.5991 0.1318 180.39);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.5991 0.1318 180.39);
   --sidebar-accent-foreground: oklch(1 0 0);
   --sidebar-ring: oklch(0.5991 0.1318 180.39);
 }
@@ -214,8 +201,6 @@
   --chart-5: oklch(0.932 0.0281 255.58);
   --sidebar-primary: oklch(0.5461 0.2152 262.88);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.5461 0.2152 262.88);
-  --sidebar-accent-foreground: oklch(1 0 0);
   --sidebar-ring: oklch(0.5461 0.2152 262.88);
   --radius: 0.3rem;
 }
@@ -232,7 +217,6 @@
   --chart-5: oklch(0.932 0.0281 255.58);
   --sidebar-primary: oklch(0.623 0.188 259.81);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.623 0.188 259.81);
   --sidebar-accent-foreground: oklch(1 0 0);
   --sidebar-ring: oklch(0.623 0.188 259.81);
 }
@@ -251,16 +235,16 @@
   --chart-5: oklch(0.947 0.0212 309.77);
   --sidebar-primary: oklch(0.5709 0.1808 306.89);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.5709 0.1808 306.89);
-  --sidebar-accent-foreground: oklch(1 0 0);
   --sidebar-ring: oklch(0.5709 0.1808 306.89);
   --radius: 1rem;
 }
 .dark [data-theme-preset='lavender-dream'] {
   --primary: oklch(0.6359 0.1699 307.95);
   --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.811 0.0589 201.14);
-  --secondary-foreground: oklch(0 0 0);
+  /* Darkened to match the other presets' dark strategy: a muted surface
+   * with light text, instead of the light mode's bright secondary. */
+  --secondary: oklch(0.4 0.045 201.14);
+  --secondary-foreground: oklch(1 0 0);
   --ring: oklch(0.6359 0.1699 307.95);
   --chart-1: oklch(0.6359 0.1699 307.95);
   --chart-2: oklch(0.811 0.0589 201.14);
@@ -269,7 +253,6 @@
   --chart-5: oklch(0.947 0.0212 309.77);
   --sidebar-primary: oklch(0.6359 0.1699 307.95);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.6359 0.1699 307.95);
   --sidebar-accent-foreground: oklch(1 0 0);
   --sidebar-ring: oklch(0.6359 0.1699 307.95);
 }
@@ -390,6 +373,11 @@
  * NOTE: `:not()` contributes its argument's specificity, so this selector
  * resolves to (0,3,0). Presets that define bespoke surfaces below need to
  * either match that specificity or opt out here — the latter is cleaner.
+ *
+ * Preset blocks must NOT declare `--sidebar-accent` /
+ * `--sidebar-accent-foreground` for light mode (or `--sidebar-accent` for
+ * dark mode): this bridge owns those slots at higher specificity, so preset
+ * declarations would be dead code.
  *
  * Opt-outs:
  *   - `default`: keeps neutral surfaces from :root.

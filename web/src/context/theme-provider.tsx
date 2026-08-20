@@ -13,8 +13,8 @@ import {
 
 import { getCookie, removeCookie, setCookie } from '@/lib/cookies'
 
-type Theme = 'dark' | 'light' | 'system'
-type ResolvedTheme = Exclude<Theme, 'system'>
+export type Theme = 'dark' | 'light' | 'system'
+export type ResolvedTheme = Exclude<Theme, 'system'>
 
 const DEFAULT_THEME = 'system'
 const THEME_COOKIE_NAME = 'vite-ui-theme'
@@ -95,6 +95,14 @@ export function ThemeProvider({
     }
 
     applyTheme()
+
+    // The index.html FOUC bootstrap paints an inline background on <html> so
+    // the first frame matches the theme before React mounts. Once the
+    // provider owns the document, drop it: the themed body background (which
+    // propagates to the canvas) takes over, so overscroll no longer reveals
+    // the stale pre-mount color.
+    root.style.removeProperty('background-color')
+    root.style.removeProperty('--bootstrap-background')
 
     mediaQuery.addEventListener('change', applyTheme)
 

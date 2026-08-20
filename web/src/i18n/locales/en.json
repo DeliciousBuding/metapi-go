@@ -2076,6 +2076,12 @@
       "title": "Appearance",
       "reset": "Reset",
       "appearance": "Customize appearance",
+      "colorScheme": "Color scheme",
+      "colorSchemeOptions": {
+        "light": "Light",
+        "dark": "Dark",
+        "system": "System"
+      },
       "colorPreset": "Color preset",
       "font": "Font",
       "fontOptions": {
@@ -2098,6 +2104,11 @@
         "sm": "Small",
         "lg": "Large",
         "xl": "Extra large"
+      },
+      "contentLayout": "Content layout",
+      "contentLayoutOptions": {
+        "full": "Full width",
+        "centered": "Centered"
       },
       "preset": {
         "default": "Default",
