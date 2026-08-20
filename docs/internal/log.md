@@ -5,6 +5,18 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-08-20 — TS 兼容与迁移收官：CLI 诚实化 + 反向检测 + 迁移 UI + 备份兼容 + 三场景文档
+
+一次综合设计解决 TS 版兼容与迁移的全部已知问题（技术 + UX），分析依据 `docs/internal/analysis/ts-go-migration-gap.md`，五个 PR 并行交付（#880 计划 / #881 后端 / #882 UI / #883 备份 / #884 文档）：
+
+- **CLI 诚实化（#881）**：`--verify` 校验和失败现在非零退出（此前只 warning、exit 0——脚本里等于没校验）；顺带修复一个「假绿」测试（NULL 被强转默认值吞掉校验和不匹配）。`buildSummary` 按目标报真实方言（不再硬编码 postgres）；`--batch-size` 从「接受但丢弃」变为真实批量 INSERT。
+- **反向检测（#881）**：防 hb0730 事故翻版——TS 库比 Go 认知新时启动即警告（读 `__drizzle_migrations` 判龄 + 以内存库 AutoMigrate 为权威清单扫未知列，列出列名 + 建议升级），永不阻断。干净库不误报（4 用例测试）。
+- **启动汇总（#881）**：AutoMigrate 有实际变更时输出 `store: converged legacy schema` 汇总。
+- **管理 UI 数据迁移（#882）**：此前被雪藏的迁移能力（后端 task 轮询早已就绪）接入 database-section——危险确认 + 2s 轮询进度 + 结果统计；`migrateExternalDatabase` 死代码复活为类型化 API；i18n 双语全量。后端补解析 overwrite 字段（#881）。
+- **TS 备份 v2.1 导入兼容（#883）**：Go import/preview 兼容 TS 原版备份 JSON（11 节 camelCase→snake_case 完整映射，FK 安全序单事务，未知字段忽略并计 warnings，settings value 重新 marshal），作为迁移最后兜底路径。
+- **文档三场景（#884）**：migration.md 重写——场景 A（TS SQLite 直接接管）/ B（TS PG 直接接管）/ C（TS MySQL 两段式：TS 管理界面自带迁移迁到 SQLite/PG 再接管）+ 版本锁定 + 故障排查；消除 README「metapi-migrate 支持 MySQL」的谎言与 FAQ 矛盾。
+- **PG 直接接管实测**：真实 TS 服务器在 PG 16 建 27 表 + 种子数据 → Go 直接接管：`/ready` OK、`/api/sites` 返回 TS 数据、additive 在 PG 上逐列收敛无崩溃。
+
 ## 2026-08-20 — 仓库店头重建：docs 公私分离 + README/Diátaxis 文档集 + llms.txt（#872 #873）
 
 对照原版 TS 仓库（cita-777/metapi，已 clone 到本机对照）与 2026 GitHub 开源最佳实践（Diátaxis 文档四象限、紧迫度递减 README 序、徽章 3-5 个上限、死链 CI 自动化、llms.txt）重做仓库对外门面：
