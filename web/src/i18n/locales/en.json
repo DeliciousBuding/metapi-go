@@ -1097,6 +1097,8 @@
           "importPreview": "Preview import",
           "importConfirmTitle": "Confirm import?",
           "importConfirmDescription": "Importing inserts or overwrites the rows shown in the preview. Review the plan before continuing.",
+          "webdavImportConfirmTitle": "Import backup from WebDAV?",
+          "webdavImportConfirmDescription": "Importing replaces the current data with the WebDAV backup file. Existing rows will be overwritten. Continue?",
           "importPreviewTitle": "Import plan",
           "importPreviewRow": "{{table}}: {{toInsert}} insert(s), {{duplicates}} duplicate(s) skipped, {{skipped}} skipped by policy.",
           "lastSync": "Last sync: {{at}}",
@@ -1388,6 +1390,8 @@
           "clearing": "Clearing…",
           "clearCache": "Clear cache & rebuild routes",
           "clearUsage": "Clear usage logs",
+          "clearUsageConfirmTitle": "Clear usage logs?",
+          "clearUsageConfirmDescription": "This permanently deletes all recorded usage data. This action cannot be undone.",
           "eventsHint": "Cleanup events are recorded in Program Logs.",
           "viewEvents": "View Program Logs",
           "toast": {

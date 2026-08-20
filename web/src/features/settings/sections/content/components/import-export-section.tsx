@@ -119,6 +119,7 @@ export function ImportExportSection() {
   const [importText, setImportText] = useState('')
   const [importPlan, setImportPlan] = useState<BackupImportPlan | null>(null)
   const [confirmImportOpen, setConfirmImportOpen] = useState(false)
+  const [confirmWebdavImportOpen, setConfirmWebdavImportOpen] = useState(false)
 
   const webdavQuery = useQuery<BackupWebdavResponse>({
     queryKey: webdavQueryKeys.all,
@@ -557,7 +558,7 @@ export function ImportExportSection() {
                   variant='outline'
                   size='sm'
                   disabled={importWebdavMutation.isPending}
-                  onClick={() => importWebdavMutation.mutate()}
+                  onClick={() => setConfirmWebdavImportOpen(true)}
                 >
                   {t('settings.content.importExport.importFromWebdav')}
                 </Button>
@@ -595,6 +596,21 @@ export function ImportExportSection() {
           importMutation.mutate(importText)
         }}
         onCancel={() => setConfirmImportOpen(false)}
+      />
+      <ConfirmDialog
+        open={confirmWebdavImportOpen}
+        title={t('settings.content.importExport.webdavImportConfirmTitle')}
+        description={t(
+          'settings.content.importExport.webdavImportConfirmDescription'
+        )}
+        confirmLabel={t('settings.content.importExport.importFromWebdav')}
+        cancelLabel={t('settings.common.cancel')}
+        destructive
+        onConfirm={() => {
+          setConfirmWebdavImportOpen(false)
+          importWebdavMutation.mutate()
+        }}
+        onCancel={() => setConfirmWebdavImportOpen(false)}
       />
       {importPlan && planEntries.length > 0 ? (
         <div className='mt-4 space-y-2 rounded-lg border p-4'>

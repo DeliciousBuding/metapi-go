@@ -1098,6 +1098,8 @@
           "importPreview": "预览导入",
           "importConfirmTitle": "确认导入？",
           "importConfirmDescription": "导入将按预览所示插入或覆盖行数据，请先核对计划。",
+          "webdavImportConfirmTitle": "从 WebDAV 导入备份？",
+          "webdavImportConfirmDescription": "导入将用 WebDAV 备份文件替换当前数据，现有数据会被覆盖。确定继续吗？",
           "importPreviewTitle": "导入计划",
           "importPreviewRow": "{{table}}：插入 {{toInsert}} 行，跳过重复 {{duplicates}} 行，策略跳过 {{skipped}} 行。",
           "lastError": "上次错误：{{error}}",
@@ -1388,6 +1390,8 @@
           "clearing": "清理中…",
           "clearCache": "清除缓存并重建路由",
           "clearUsage": "清除用量日志",
+          "clearUsageConfirmTitle": "清除用量日志？",
+          "clearUsageConfirmDescription": "此操作将永久删除所有已记录的用量数据，且不可撤销。",
           "eventsHint": "清理事件会记录在「程序日志」中。",
           "viewEvents": "查看程序日志",
           "toast": {

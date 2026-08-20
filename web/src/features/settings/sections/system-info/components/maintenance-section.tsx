@@ -5,8 +5,10 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, type LinkProps } from '@tanstack/react-router'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
@@ -16,6 +18,7 @@ import { SettingsSectionCard } from '../../../components/settings-section-card'
 export function MaintenanceSection() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const [confirmClearUsageOpen, setConfirmClearUsageOpen] = useState(false)
 
   const clearCacheMutation = useMutation({
     mutationFn: async () => api.clearRuntimeCache(),
@@ -61,7 +64,7 @@ export function MaintenanceSection() {
             variant='outline'
             size='sm'
             disabled={clearUsageMutation.isPending}
-            onClick={() => clearUsageMutation.mutate()}
+            onClick={() => setConfirmClearUsageOpen(true)}
           >
             {clearUsageMutation.isPending
               ? t('settings.systemInfo.maintenance.clearing')
@@ -82,6 +85,22 @@ export function MaintenanceSection() {
           </Link>
         </p>
       </div>
+
+      <ConfirmDialog
+        open={confirmClearUsageOpen}
+        title={t('settings.systemInfo.maintenance.clearUsageConfirmTitle')}
+        description={t(
+          'settings.systemInfo.maintenance.clearUsageConfirmDescription'
+        )}
+        confirmLabel={t('settings.systemInfo.maintenance.clearUsage')}
+        cancelLabel={t('settings.common.cancel')}
+        destructive
+        onConfirm={() => {
+          setConfirmClearUsageOpen(false)
+          clearUsageMutation.mutate()
+        }}
+        onCancel={() => setConfirmClearUsageOpen(false)}
+      />
     </SettingsSectionCard>
   )
 }
