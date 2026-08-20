@@ -56,10 +56,20 @@ detector. The pre-push hook runs all of it automatically.
 1. Branch from `master`, commit with [Conventional Commits](https://www.conventionalcommits.org/).
 2. Open a PR against `master` — the template is auto-filled; keep the summary
    about *why*, not a file-by-file list.
-3. All 11 required CI checks must pass (they run on every PR, docs-only PRs
+3. All 12 required CI checks must pass (they run on every PR, docs-only PRs
    included — no `paths-ignore` shortcuts).
 4. PRs are **squash merged** (merge commits are disabled). The PR title becomes
    the commit message, so make it a good Conventional Commit line.
+
+## Versioning & release cadence
+
+Releases follow a **patch-first** cadence (pre-1.0 the last digit iterates
+continuously): each merged wave with user-visible changes bumps the **patch**
+digit and ships immediately; the minor digit is reserved for themed
+milestones; the major digit stays `0` until the 1.0 readiness criteria. The
+single source of truth is
+[`docs/internal/git-workflow.md` §6.1](docs/internal/git-workflow.md) —
+`bash scripts/next-version.sh` suggests the next candidate.
 
 ## Conventions to keep in mind
 

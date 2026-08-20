@@ -68,6 +68,7 @@ Every wave inherits root [`AGENTS.md`](../../../AGENTS.md) and backend simplicit
 - Frontend slices: i18n parity, focused Vitest coverage, `bun run typecheck`, `bun run lint`, `bun run knip`, and production build.
 - Any Go slice: SQLite + PostgreSQL-safe implementation, focused tests, then `go build ./cmd/server`, `go vet ./...`, and `go test ./... -count=1 -race` before push.
 - No new dependency unless the existing stack cannot express the slice directly.
+- Release cadence is **patch-first** ([`../git-workflow.md` §6.1](../git-workflow.md)): each merged wave with user-visible changes bumps the patch digit; minor only for themed milestones; major stays `0` until the 1.0 readiness criteria.
 - Update `STATE.md` and this plan in the same PR that closes an outcome; do not leave completed checklists here.
 
 ## Deferred or out of scope

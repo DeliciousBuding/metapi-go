@@ -1,8 +1,8 @@
 # Git Workflow — 分支策略与协作规范
 
-**最后更新**：2026-08-11
+**最后更新**：2026-08-20
 
-> 本文定义 metapi-go 的分支模型、保护规则、PR 流程与提交规范。规则已在 GitHub 仓库实际落地（见下文"已启用设置"），不依赖个人自觉。
+> 本文定义 metapi-go 的分支模型、保护规则、PR 流程、提交规范与**版本号策略**。规则已在 GitHub 仓库实际落地（见下文"已启用设置"），不依赖个人自觉。
 
 ## 1. 分支模型：GitHub Flow（单主线）
 
@@ -50,7 +50,7 @@ master (唯一长期分支，受保护，随时可发布)
 2. 本地门禁全绿后提交（Conventional Commits 风格，见 §5），`git push -u origin fix/xxx`
    - push 前 `.githooks/pre-push` 自动跑本地 CI（`go build` + `go vet` + 前端门禁 + `-race` 测试）；安装：`git config core.hooksPath .githooks`；紧急跳过 `git push --no-verify`
 3. 开 PR（`gh pr create`，模板自动填充），base = master
-4. CI 11 job 全绿（含 PG 集成测试）后 Squash merge
+4. CI 12 job 全绿（含 PG 集成测试）后 Squash merge
 5. 合并时把 PR 标题改写为最终提交信息（符合 Conventional Commits）
 6. 删除已合并分支（`gh pr merge --delete-branch` 自动处理；若远端分支残留——如合并时本地有未提交改动——手动 `git push origin --delete <branch>`）
 
@@ -72,6 +72,31 @@ master (唯一长期分支，受保护，随时可发布)
 3. Tag 推送触发单一管道 `.github/workflows/main.yml`：全量 12 项检查通过 → 推送 `ghcr.io/deliciousbuding/metapi-go`（**amd64 + arm64**，provenance + SBOM）→ 构建 5 平台二进制附件（linux/darwin/windows × amd64/arm64）+ `checksums.txt` → 冒烟 `metapi-linux-amd64 --version` → 创建 GitHub Release（body 取自 CHANGELOG 对应节）
 4. Tag 只从 master 打（master 即发布线）；SemVer 格式 `vX.Y.Z`（其他 tag 不触发发布）
 5. 版本号经 `-ldflags -X .../internal/version.Version` 注入二进制（`metapi --version` 可查）；tag 与 `web/package.json` 版本不一致会在发布前失败
+6. 拿不准下一个版本号时：`bash scripts/next-version.sh`（只读，从最新 tag 打印 patch/minor/major 三个候选，默认走 patch，见 §6.1）
+
+## 6.1 版本号策略（SemVer · patch-first 节奏）
+
+> **本节是版本号决策的唯一权威来源**。AGENTS.md / CONTRIBUTING.md / MASTER.md 只做引用，不重复定义。
+
+格式 `0.MAJOR.MINOR.PATCH`（SemVer 2.0）。1.0 之前主版本号恒为 `0`；下文「中间位」指 `0.X.Y` 的 `X`，「最后一位」指 `Y`。
+
+**节奏：默认 patch-first —— 最后一位持续迭代。**
+
+| 段 | 何时 bump | 说明 |
+|:---|:---|:---|
+| **最后一位（PATCH）** | **默认，每波都动** | 每波合入 master 且含用户可见变更 → 立即 bump 最后一位并发布。`0.16.2 → 0.16.3 → 0.16.4 …` 小步、高频，最后一位一直往前走。 |
+| **中间位（MINOR）** | 克制，里程碑才动 | 仅当一次交付构成一个有主题的里程碑（新子系统 / 新界面大类 / 成体系的交付波）时 bump 中间位并把最后一位归零。不为单点改动 bump。 |
+| **第一位（MAJOR）** | 1.0 及之后 | 1.0 前恒 `0`；只有 1.0 落地与其后的不兼容 API 变更才动用。 |
+
+**为什么 patch-first**：1.0 前的软件高频交付，最后一位持续递增表达「master 随时可发布」，同时避免中间位被琐碎改动快速吃满、稀释「里程碑」语义。发版频率由变更驱动，不由日历驱动。
+
+**1.0 就绪标准**（到齐才把第一位从 0 提走）：
+
+- 生产多通道级联证据落地（见 [`progress/MASTER.md`](progress/MASTER.md) Evidence closeout · A）
+- API / wire 契约冻结（无计划内的破坏性演进）
+- 备份 / 迁移双向路径文档化且有实测覆盖
+
+**与发布流程的关系**：选定版本号后，仍走 §6 的 CHANGELOG + `web/package.json` + tag 一致性校验（`scripts/release.sh` / CI release job 强制三者一致）。
 
 ## 6.5 处理 Dependabot 升级（别人追升级时的 SOP）
 
