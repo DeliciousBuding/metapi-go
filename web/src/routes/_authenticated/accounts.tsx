@@ -32,8 +32,12 @@ import {
 // `siteId` / `create` are the one-shot deep-link params written by the sites
 // guided-flow CTA (`/accounts?siteId=…&create=1`): `siteId` preseeds the
 // referenced site in the create dialog, and `create` opens it once before the
-// page neutralizes both. They accept router-parsed primitives (`create=1`
-// arrives as number `1`) and degrade to `undefined` on stale/malformed values.
+// page neutralizes both. `accountId` is the one-shot deep-link param written
+// by the dashboard attention items (`/accounts?accountId=…` for expired /
+// low-balance accounts): the page opens the referenced account's detail
+// sheet once before neutralizing it. They accept router-parsed primitives
+// (`create=1` arrives as number `1`) and degrade to `undefined` on
+// stale/malformed values.
 export const accountsSearchSchema = z.object({
   page: z.coerce.number().int().positive().catch(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(200).catch(20).default(20),
@@ -49,6 +53,7 @@ export const accountsSearchSchema = z.object({
   status: stringSearchParam,
   site: stringSearchParam,
   siteId: z.coerce.number().int().positive().optional().catch(undefined),
+  accountId: z.coerce.number().int().positive().optional().catch(undefined),
   create: z.coerce.boolean().optional().catch(undefined),
 })
 
