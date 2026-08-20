@@ -4,7 +4,7 @@
 
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import type { ColumnFiltersState, Table } from '@tanstack/react-table'
-import { Loader2, Plus, Power, RotateCcw, Zap } from 'lucide-react'
+import { Loader2, Plus, Power, RefreshCw, Zap } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -434,7 +434,7 @@ export function RoutesPage() {
               {isFetching ? (
                 <Loader2 className='animate-spin' />
               ) : (
-                <RotateCcw className='size-4' />
+                <RefreshCw className='size-4' />
               )}
               {t('tokenRoutes.page.retry')}
             </Button>
@@ -583,7 +583,7 @@ function RoutesBulkActions({ table }: { table: Table<RouteSummaryRow> }) {
       entityName={t('tokenRoutes.page.bulkEntityName')}
     >
       <Button
-        size='xs'
+        size='sm'
         variant='outline'
         onClick={() => runBatch('enable')}
         disabled={batchMutation.isPending}
@@ -592,7 +592,7 @@ function RoutesBulkActions({ table }: { table: Table<RouteSummaryRow> }) {
         {t('tokenRoutes.page.bulkEnable')}
       </Button>
       <Button
-        size='xs'
+        size='sm'
         variant='outline'
         onClick={() => runBatch('disable')}
         disabled={batchMutation.isPending}

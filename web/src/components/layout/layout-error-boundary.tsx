@@ -12,7 +12,7 @@
 // swaps to the error card with Retry / Reload / show-detail controls.
 
 import { SearchParamError, useRouter } from '@tanstack/react-router'
-import { Link2Off, RotateCw, TriangleAlert } from 'lucide-react'
+import { Link2Off, RefreshCw, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -94,13 +94,13 @@ export function LayoutErrorBoundary({ error }: { error: Error }) {
             </div>
             {isSearchParamError ? (
               <Button onClick={resetUrl}>
-                <Link2Off className='mr-1.5 size-4' />
+                <Link2Off className='size-4' />
                 {t('errors.searchParamReset')}
               </Button>
             ) : (
               <div className='flex gap-2'>
                 <Button onClick={() => router.invalidate()}>
-                  <RotateCw className='mr-1.5 size-4' />
+                  <RefreshCw className='size-4' />
                   {t('errors.retry')}
                 </Button>
                 <Button
