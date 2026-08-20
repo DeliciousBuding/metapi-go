@@ -69,6 +69,7 @@ describe('realtime uptime unit escalation', () => {
     mockUseRealtimeOps.mockReturnValue({
       sample: sampleWithLifetime(45 * 60),
       reconnect: vi.fn(),
+      lastFrameAt: null,
     })
 
     renderSection()
@@ -80,6 +81,7 @@ describe('realtime uptime unit escalation', () => {
     mockUseRealtimeOps.mockReturnValue({
       sample: sampleWithLifetime(150 * 60),
       reconnect: vi.fn(),
+      lastFrameAt: null,
     })
 
     renderSection()
@@ -91,6 +93,7 @@ describe('realtime uptime unit escalation', () => {
     mockUseRealtimeOps.mockReturnValue({
       sample: sampleWithLifetime(3 * 24 * 60 * 60),
       reconnect: vi.fn(),
+      lastFrameAt: null,
     })
 
     renderSection()
