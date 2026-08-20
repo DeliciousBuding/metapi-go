@@ -82,6 +82,14 @@ func EnsureRuntimeDatabase(cfg *config.Config) error {
 		return fmt.Errorf("bootstrap: auto-migration failed: %w", err)
 	}
 
+	// TS→Go reverse-drift detection (SQLite only, warn-only): a database
+	// produced by a NEWER TypeScript build may carry columns or migration
+	// journal entries this Go build has never seen; surface that at startup
+	// instead of crashing at the first SELECT (hb0730 failure mode).
+	if db.Dialect == DialectSQLite {
+		warnTSSchemaDrift(db)
+	}
+
 	activeDB = db
 	initialized = true
 

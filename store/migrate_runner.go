@@ -6,7 +6,7 @@
 //
 // The migration matches the TS databaseMigrationService.ts behaviour:
 // - Per-column type coercion with fallback defaults
-// - JSON column serialization (13 columns across 5 tables)
+// - JSON column serialization (14 columns across 6 tables)
 // - FK-safe DELETE order during overwrite
 // - PostgreSQL sequence synchronization after insert (PG targets only;
 // SQLite AUTOINCREMENT handles itself)
@@ -49,6 +49,10 @@ type RunMigrationOptions struct {
 	Progress bool
 	// Verify computes row-count + hash checksums after migration.
 	Verify bool
+	// BatchSize groups consecutive same-table rows into multi-row INSERT
+	// statements of at most BatchSize rows. <= 0 keeps the row-by-row path
+	// (the TS default); the CLI --batch-size flag maps here.
+	BatchSize int
 	// LogWriter receives structural + progress log lines. nil discards output;
 	// the CLI passes os.Stderr, the admin handler passes a task-log-backed writer
 	// so /api/tasks/{id} polling surfaces meaningful migration progress.
@@ -128,7 +132,7 @@ func asNullableBool(v interface{}) interface{} {
 // ---- JSON column serialization (matching TS serializeColumnValue) ----
 
 // jsonColumnSet records which columns have logical type 'json'.
-// 14 columns across 5 tables, matching the TS schemaContract.json logical types.
+// 14 columns across 6 tables, matching the TS schemaContract.json logical types.
 // (downstream_api_keys.tags is intentionally absent: it migrated as a plain
 // TEXT passthrough before this refactor and keeps that behavior.)
 var jsonColumnSet = map[string]bool{
@@ -331,24 +335,34 @@ func RunMigration(opts RunMigrationOptions) (*MigrationSummary, error) {
 		}
 	}
 
-	// 9. Insert all rows (dialect-specific placeholders)
+	// 9. Insert all rows (dialect-specific placeholders). BatchSize > 0 groups
+	// consecutive same-table rows into multi-row INSERT statements of at most
+	// BatchSize rows; BatchSize <= 0 keeps the row-by-row path (TS default).
 	fmt.Fprintf(logw, "\nInserting %d rows...\n", len(inserts))
 	inserted := 0
 	start := time.Now()
 
-	for _, stmt := range inserts {
+	for _, group := range groupInsertStatements(inserts, opts.BatchSize) {
 		var sqlText string
 		var args []interface{}
-		if toSQLite {
-			sqlText, args = buildInsertSQLite(stmt)
+		if len(group) == 1 {
+			if toSQLite {
+				sqlText, args = buildInsertSQLite(group[0])
+			} else {
+				sqlText, args = buildInsertPG(group[0])
+			}
 		} else {
-			sqlText, args = buildInsertPG(stmt)
+			if toSQLite {
+				sqlText, args = buildInsertBatchSQLite(group)
+			} else {
+				sqlText, args = buildInsertBatchPG(group)
+			}
 		}
 		if _, err := tx.Exec(sqlText, args...); err != nil {
-			return nil, fmt.Errorf("insert into %s: %w", stmt.table, err)
+			return nil, fmt.Errorf("insert into %s: %w", group[0].table, err)
 		}
-		inserted++
-		if progress && inserted%100 == 0 {
+		inserted += len(group)
+		if progress && (inserted%100 == 0 || inserted == len(inserts)) {
 			elapsed := time.Since(start)
 			fmt.Fprintf(logw, "  %d/%d rows inserted (%s elapsed)\n", inserted, len(inserts), elapsed.Round(time.Millisecond))
 		}
@@ -378,14 +392,16 @@ func RunMigration(opts RunMigrationOptions) (*MigrationSummary, error) {
 
 	summary := buildSummary(snapshot, toURL, overwrite)
 
-	// 12. Verify checksums (if requested)
+	// 12. Verify checksums (if requested). A verification failure is a hard
+	// error: the copy demonstrably diverged from the source, so the CLI must
+	// exit non-zero instead of printing a "warning" and claiming success.
 	if verify {
 		fmt.Fprintf(logw, "\nVerifying checksums...\n")
 		if err := verifyChecksums(srcDB, tgtDB, snapshot); err != nil {
-			fmt.Fprintf(logw, "  Verification warning: %v\n", err)
-		} else {
-			fmt.Fprintf(logw, "  All checksums match.\n")
+			fmt.Fprintf(logw, "  Verification failed: %v\n", err)
+			return nil, fmt.Errorf("verification failed: %w", err)
 		}
+		fmt.Fprintf(logw, "  All checksums match.\n")
 	}
 
 	return summary, nil
@@ -1135,6 +1151,100 @@ func buildInsertSQLite(s insertStmt) (string, []interface{}) {
 	return sqlText, s.values
 }
 
+// groupInsertStatements splits the flat row list into executable groups.
+// Consecutive statements that share table + column list are merged into one
+// multi-row INSERT of at most batchSize rows; batchSize <= 0 degenerates to
+// single-row groups (the row-by-row TS default). buildStatements emits
+// per-table runs in order, so grouping never reorders rows.
+func groupInsertStatements(inserts []insertStmt, batchSize int) [][]insertStmt {
+	if batchSize <= 0 {
+		batchSize = 1
+	}
+	var groups [][]insertStmt
+	var current []insertStmt
+	flush := func() {
+		if len(current) > 0 {
+			groups = append(groups, current)
+			current = nil
+		}
+	}
+	for _, stmt := range inserts {
+		if len(current) > 0 {
+			sameShape := current[0].table == stmt.table && equalStringSlices(current[0].columns, stmt.columns)
+			if !sameShape || len(current) >= batchSize {
+				flush()
+			}
+		}
+		current = append(current, stmt)
+	}
+	flush()
+	return groups
+}
+
+func equalStringSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// buildInsertBatchSQLite renders one multi-row INSERT for a group of
+// statements sharing the same table + column list: one VALUES tuple per row,
+// all rows using "?" placeholders.
+func buildInsertBatchSQLite(stmts []insertStmt) (string, []interface{}) {
+	first := stmts[0]
+	quotedCols := make([]string, len(first.columns))
+	for i, c := range first.columns {
+		quotedCols[i] = `"` + c + `"`
+	}
+	rowPlaceholders := "(" + strings.TrimSuffix(strings.Repeat("?, ", len(first.columns)), ", ") + ")"
+	tuples := make([]string, len(stmts))
+	args := make([]interface{}, 0, len(stmts)*len(first.columns))
+	for i, s := range stmts {
+		tuples[i] = rowPlaceholders
+		args = append(args, s.values...)
+	}
+	sqlText := fmt.Sprintf("INSERT INTO \"%s\" (%s) VALUES %s",
+		first.table,
+		strings.Join(quotedCols, ", "),
+		strings.Join(tuples, ", "),
+	)
+	return sqlText, args
+}
+
+// buildInsertBatchPG renders one multi-row INSERT for a group of statements
+// sharing the same table + column list, with $N placeholders numbered across
+// all rows.
+func buildInsertBatchPG(stmts []insertStmt) (string, []interface{}) {
+	first := stmts[0]
+	quotedCols := make([]string, len(first.columns))
+	for i, c := range first.columns {
+		quotedCols[i] = quoteIdentPG(c)
+	}
+	colsPerRow := len(first.columns)
+	tuples := make([]string, len(stmts))
+	args := make([]interface{}, 0, len(stmts)*colsPerRow)
+	for i, s := range stmts {
+		placeholders := make([]string, colsPerRow)
+		for j := range placeholders {
+			placeholders[j] = fmt.Sprintf("$%d", i*colsPerRow+j+1)
+		}
+		tuples[i] = "(" + strings.Join(placeholders, ", ") + ")"
+		args = append(args, s.values...)
+	}
+	sqlText := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s",
+		first.table,
+		strings.Join(quotedCols, ", "),
+		strings.Join(tuples, ", "),
+	)
+	return sqlText, args
+}
+
 // ---- Checksum verification ----
 
 func verifyChecksums(srcDB *sql.DB, tgtDB *DB, snapshot map[string][]map[string]interface{}) error {
@@ -1377,8 +1487,14 @@ func diffColumnSets(expected, actual []string) (missing, extra []string) {
 // ---- Summary ----
 
 func buildSummary(snapshot map[string][]map[string]interface{}, toURL string, overwrite bool) *MigrationSummary {
+	// Report the TARGET's real dialect (previously hardcoded "postgres",
+	// which mislabeled SQLite→SQLite copies in the CLI summary).
+	dialect := "postgres"
+	if isSQLiteTarget(toURL) {
+		dialect = "sqlite"
+	}
 	s := &MigrationSummary{
-		Dialect:    "postgres",
+		Dialect:    dialect,
 		Connection: maskPassword(toURL),
 		Overwrite:  overwrite,
 		Version:    "live-db-snapshot",

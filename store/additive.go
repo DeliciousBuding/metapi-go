@@ -408,30 +408,42 @@ func ApplyAdditiveMigrations(db *DB) error {
 	return applyAdditiveMigrations(db, enterpriseAdditiveSteps)
 }
 
-// applyAdditiveMigrations is the testable core that accepts an explicit step list.
+// applyAdditiveMigrations is the testable core that accepts an explicit step
+// list. It preserves the original signature; callers that need the count of
+// steps actually executed use applyAdditiveMigrationsCounted.
 func applyAdditiveMigrations(db *DB, steps []AdditiveStep) error {
+	_, err := applyAdditiveMigrationsCounted(db, steps)
+	return err
+}
+
+// applyAdditiveMigrationsCounted runs the additive core and reports how many
+// steps actually executed in this call. Steps already recorded in
+// schema_migrations are skipped and not counted, so a fully converged
+// database reports 0.
+func applyAdditiveMigrationsCounted(db *DB, steps []AdditiveStep) (int, error) {
 	if db == nil {
-		return fmt.Errorf("store: ApplyAdditiveMigrations: db is nil")
+		return 0, fmt.Errorf("store: ApplyAdditiveMigrations: db is nil")
 	}
 
 	if err := ensureSchemaMigrationsTable(db); err != nil {
-		return err
+		return 0, err
 	}
 
 	applied, err := appliedVersions(db)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
+	appliedCount := 0
 	for _, step := range steps {
 		if step.Version == "" {
-			return fmt.Errorf("store: additive step missing version")
+			return 0, fmt.Errorf("store: additive step missing version")
 		}
 		if _, ok := applied[step.Version]; ok {
 			continue
 		}
 		if step.Apply == nil {
-			return fmt.Errorf("store: additive step %s has nil Apply", step.Version)
+			return 0, fmt.Errorf("store: additive step %s has nil Apply", step.Version)
 		}
 
 		slog.Info("store: applying additive migration",
@@ -440,15 +452,16 @@ func applyAdditiveMigrations(db *DB, steps []AdditiveStep) error {
 			"dialect", db.Dialect,
 		)
 		if err := step.Apply(db); err != nil {
-			return fmt.Errorf("store: additive migration %s: %w", step.Version, err)
+			return 0, fmt.Errorf("store: additive migration %s: %w", step.Version, err)
 		}
 		if err := markMigrationApplied(db, step.Version, step.Description); err != nil {
-			return err
+			return 0, err
 		}
 		applied[step.Version] = struct{}{}
+		appliedCount++
 	}
 
-	return nil
+	return appliedCount, nil
 }
 
 // columnExists reports whether table.column is present.

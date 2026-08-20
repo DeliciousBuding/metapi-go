@@ -248,3 +248,82 @@ func TestTSHeritageColumnsCoveredByAdditiveRegistry(t *testing.T) {
 		}
 	}
 }
+
+// TestApplyAdditiveMigrationsCounted pins the startup summary contract used
+// by AutoMigrate: the counted core reports the number of steps actually
+// executed (first run on a legacy schema = every step; a converged re-run = 0).
+func TestApplyAdditiveMigrationsCounted(t *testing.T) {
+	db, err := Open(DialectSQLite, ":memory:", false)
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	defer db.Close()
+
+	for _, ddl := range legacySchemaDDL {
+		if _, err := db.Exec(ddl); err != nil {
+			t.Fatalf("create legacy table: %v", err)
+		}
+	}
+
+	firstCount, err := applyAdditiveMigrationsCounted(db, enterpriseAdditiveSteps)
+	if err != nil {
+		t.Fatalf("first counted run: %v", err)
+	}
+	if firstCount != len(enterpriseAdditiveSteps) {
+		t.Fatalf("first run applied %d steps, want %d", firstCount, len(enterpriseAdditiveSteps))
+	}
+
+	secondCount, err := applyAdditiveMigrationsCounted(db, enterpriseAdditiveSteps)
+	if err != nil {
+		t.Fatalf("second counted run: %v", err)
+	}
+	if secondCount != 0 {
+		t.Fatalf("converged re-run applied %d steps, want 0", secondCount)
+	}
+}
+
+// TestAutoMigrateConvergesLegacySchema pins the AutoMigrate side of the
+// startup summary: when an install's additive bookkeeping is missing
+// (simulated by wiping schema_migrations on a converged schema), AutoMigrate
+// re-applies every step idempotently, re-records the bookkeeping, and a
+// subsequent counted run converges to zero new applications.
+func TestAutoMigrateConvergesLegacySchema(t *testing.T) {
+	db, err := Open(DialectSQLite, ":memory:", false)
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	defer db.Close()
+
+	// Fresh install first: full schema + bookkeeping.
+	if err := AutoMigrate(db); err != nil {
+		t.Fatalf("AutoMigrate fresh: %v", err)
+	}
+
+	// Wipe the bookkeeping to simulate an install whose schema predates the
+	// additive registry. The columns already exist, so the steps re-run as
+	// no-op EnsureColumn calls and only the bookkeeping converges.
+	if _, err := db.Exec(`DELETE FROM schema_migrations`); err != nil {
+		t.Fatalf("wipe schema_migrations: %v", err)
+	}
+
+	// Second AutoMigrate must re-record every additive step.
+	if err := AutoMigrate(db); err != nil {
+		t.Fatalf("AutoMigrate after bookkeeping wipe: %v", err)
+	}
+	var recorded int
+	if err := db.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&recorded); err != nil {
+		t.Fatalf("count schema_migrations: %v", err)
+	}
+	if recorded != len(enterpriseAdditiveSteps) {
+		t.Fatalf("schema_migrations = %d after AutoMigrate, want %d", recorded, len(enterpriseAdditiveSteps))
+	}
+
+	// Now fully converged: the counted core reports 0 pending steps.
+	remaining, err := applyAdditiveMigrationsCounted(db, enterpriseAdditiveSteps)
+	if err != nil {
+		t.Fatalf("counted run after AutoMigrate: %v", err)
+	}
+	if remaining != 0 {
+		t.Fatalf("converged database still reports %d pending steps, want 0", remaining)
+	}
+}

@@ -1,9 +1,12 @@
 package store
 
 import (
+	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -204,10 +207,218 @@ func TestBuildersMatchStoreSchema(t *testing.T) {
 	}
 }
 
-// TestBuildSitesIncludesPreviouslyDroppedColumns pins the exact regression:
-// before the refactor buildSites copied only 15 columns and silently dropped
-// max_concurrency, the post_refresh_probe_* group,
-// custom_headers_override_request_headers and tags.
+// TestRunMigrationVerifyFailureReturnsError pins the CLI-honesty fix: a
+// checksum mismatch must surface as an error (and a nil summary) so
+// cmd/migrate exits non-zero instead of printing a "warning" and claiming
+// success. The mismatch is forced by pre-seeding the target with a row the
+// (empty) source lacks; Overwrite=false keeps the seed alive while passing
+// the target-state gate (which only inspects sites).
+func TestRunMigrationVerifyFailureReturnsError(t *testing.T) {
+	sourcePath := filepath.Join(t.TempDir(), "source.db")
+	targetPath := filepath.Join(t.TempDir(), "target.db")
+
+	// 1. Source: canonical schema, zero rows.
+	srcDB, err := Open(DialectSQLite, sourcePath, false)
+	if err != nil {
+		t.Fatalf("open source: %v", err)
+	}
+	if err := AutoMigrate(srcDB); err != nil {
+		t.Fatalf("auto-migrate source: %v", err)
+	}
+	if err := srcDB.Close(); err != nil {
+		t.Fatalf("close source: %v", err)
+	}
+
+	// 2. Target: canonical schema plus one settings row the source lacks.
+	tgtSeed, err := Open(DialectSQLite, targetPath, false)
+	if err != nil {
+		t.Fatalf("open target seed: %v", err)
+	}
+	if err := AutoMigrate(tgtSeed); err != nil {
+		t.Fatalf("auto-migrate target seed: %v", err)
+	}
+	if _, err := tgtSeed.Exec(`INSERT INTO settings (key, value) VALUES (?, ?)`, "extra_key", "extra"); err != nil {
+		t.Fatalf("seed target settings: %v", err)
+	}
+	if err := tgtSeed.Close(); err != nil {
+		t.Fatalf("close target seed: %v", err)
+	}
+
+	// 3. Migrate with --verify: the target's extra settings row must trip the
+	// checksum comparison and RunMigration must fail.
+	summary, err := RunMigration(RunMigrationOptions{
+		FromPath:  sourcePath,
+		ToURL:     targetPath,
+		Overwrite: false,
+		Verify:    true,
+		LogWriter: io.Discard,
+	})
+	if err == nil {
+		t.Fatal("RunMigration with --verify succeeded despite a checksum mismatch, want error")
+	}
+	if summary != nil {
+		t.Fatalf("summary = %+v, want nil when verification fails", summary)
+	}
+}
+
+// TestBuildSummaryReportsTargetDialect pins the dialect fix: the summary must
+// describe the TARGET's real dialect (SQLite targets were previously
+// mislabeled "postgres").
+func TestBuildSummaryReportsTargetDialect(t *testing.T) {
+	empty := map[string][]map[string]interface{}{}
+
+	sqliteSummary := buildSummary(empty, "data/hub.db", true)
+	if sqliteSummary.Dialect != "sqlite" {
+		t.Errorf("SQLite target summary dialect = %q, want sqlite", sqliteSummary.Dialect)
+	}
+
+	sqliteURLSummary := buildSummary(empty, "sqlite://data/hub.db", true)
+	if sqliteURLSummary.Dialect != "sqlite" {
+		t.Errorf("sqlite:// target summary dialect = %q, want sqlite", sqliteURLSummary.Dialect)
+	}
+
+	pgSummary := buildSummary(empty, "postgres://host:5432/db", true)
+	if pgSummary.Dialect != "postgres" {
+		t.Errorf("PostgreSQL target summary dialect = %q, want postgres", pgSummary.Dialect)
+	}
+}
+
+// TestRunMigrationBatchInsertMatchesRowByRow pins the --batch-size
+// implementation: BatchSize=3 must land the same 10 rows a row-by-row
+// migration lands (same counts, same hashed content).
+func TestRunMigrationBatchInsertMatchesRowByRow(t *testing.T) {
+	sourcePath := filepath.Join(t.TempDir(), "source.db")
+
+	srcDB, err := Open(DialectSQLite, sourcePath, false)
+	if err != nil {
+		t.Fatalf("open source: %v", err)
+	}
+	if err := AutoMigrate(srcDB); err != nil {
+		t.Fatalf("auto-migrate source: %v", err)
+	}
+	for i := 1; i <= 10; i++ {
+		// sites carries a UNIQUE (platform, url) constraint, so every row
+		// needs a distinct url.
+		url := fmt.Sprintf("https://batch-%02d.example.com", i)
+		if _, err := srcDB.Exec(
+			`INSERT INTO sites (name, url, platform, status, global_weight) VALUES (?, ?, ?, ?, ?)`,
+			fmt.Sprintf("site-%02d", i), url, "openai", "active", float64(i),
+		); err != nil {
+			t.Fatalf("seed site %d: %v", i, err)
+		}
+	}
+	if err := srcDB.Close(); err != nil {
+		t.Fatalf("close source: %v", err)
+	}
+
+	batchTarget := filepath.Join(t.TempDir(), "batch-target.db")
+	rowTarget := filepath.Join(t.TempDir(), "row-target.db")
+
+	batchSummary, err := RunMigration(RunMigrationOptions{
+		FromPath:  sourcePath,
+		ToURL:     batchTarget,
+		Overwrite: true,
+		BatchSize: 3,
+		LogWriter: io.Discard,
+	})
+	if err != nil {
+		t.Fatalf("batched RunMigration: %v", err)
+	}
+	rowSummary, err := RunMigration(RunMigrationOptions{
+		FromPath:  sourcePath,
+		ToURL:     rowTarget,
+		Overwrite: true,
+		BatchSize: 0,
+		LogWriter: io.Discard,
+	})
+	if err != nil {
+		t.Fatalf("row-by-row RunMigration: %v", err)
+	}
+	if batchSummary == nil || batchSummary.Rows["sites"] != 10 {
+		t.Fatalf("batched summary sites rows = %+v, want 10", batchSummary)
+	}
+	if rowSummary == nil || rowSummary.Rows["sites"] != 10 {
+		t.Fatalf("row-by-row summary sites rows = %+v, want 10", rowSummary)
+	}
+
+	// Both targets must contain the identical sites content (hashed under the
+	// same canonical serialization verifyChecksums uses).
+	batchDB, err := Open(DialectSQLite, batchTarget, false)
+	if err != nil {
+		t.Fatalf("open batch target: %v", err)
+	}
+	defer batchDB.Close()
+	rowDB, err := Open(DialectSQLite, rowTarget, false)
+	if err != nil {
+		t.Fatalf("open row target: %v", err)
+	}
+	defer rowDB.Close()
+
+	batchSnapshot, err := readAllTables(batchDB.DB.DB)
+	if err != nil {
+		t.Fatalf("read batch target: %v", err)
+	}
+	rowSnapshot, err := readAllTables(rowDB.DB.DB)
+	if err != nil {
+		t.Fatalf("read row target: %v", err)
+	}
+	if !bytes.Equal(hashRows(batchSnapshot["sites"]), hashRows(rowSnapshot["sites"])) {
+		t.Fatal("batched migration content differs from row-by-row migration")
+	}
+}
+
+// TestGroupInsertStatements pins the batching shape: BatchSize splits runs,
+// a column-list change breaks a run, and BatchSize <= 0 yields single rows.
+func TestGroupInsertStatements(t *testing.T) {
+	mk := func(table string, cols []string, n int) []insertStmt {
+		var out []insertStmt
+		for i := 0; i < n; i++ {
+			out = append(out, insertStmt{table: table, columns: cols, values: []interface{}{i}})
+		}
+		return out
+	}
+	inserts := append(mk("sites", []string{"id", "name"}, 5),
+		mk("accounts", []string{"id", "name"}, 1)...)
+
+	groups := groupInsertStatements(inserts, 3)
+	if len(groups) != 3 {
+		t.Fatalf("groups = %d, want 3 (3+2 sites, 1 accounts)", len(groups))
+	}
+	if len(groups[0]) != 3 || len(groups[1]) != 2 || len(groups[2]) != 1 {
+		t.Fatalf("group sizes = %d/%d/%d, want 3/2/1", len(groups[0]), len(groups[1]), len(groups[2]))
+	}
+	if groups[2][0].table != "accounts" {
+		t.Fatalf("third group table = %q, want accounts (column-list change must split)", groups[2][0].table)
+	}
+
+	single := groupInsertStatements(inserts, 0)
+	if len(single) != 6 {
+		t.Fatalf("row-by-row groups = %d, want 6", len(single))
+	}
+	for _, g := range single {
+		if len(g) != 1 {
+			t.Fatalf("row-by-row group size = %d, want 1", len(g))
+		}
+	}
+}
+
+// TestBuildInsertBatchPGNumbering pins the PostgreSQL batch builder: $N
+// placeholders must count across all rows in order.
+func TestBuildInsertBatchPGNumbering(t *testing.T) {
+	stmts := []insertStmt{
+		{table: "sites", columns: []string{"id", "name", "weight"}, values: []interface{}{int64(1), "a", 2.5}},
+		{table: "sites", columns: []string{"id", "name", "weight"}, values: []interface{}{int64(2), "b", 3.5}},
+	}
+	sqlText, args := buildInsertBatchPG(stmts)
+	wantTuple := "($1, $2, $3), ($4, $5, $6)"
+	if !strings.Contains(sqlText, wantTuple) {
+		t.Errorf("batch PG SQL = %q, want it to contain %q", sqlText, wantTuple)
+	}
+	if len(args) != 6 {
+		t.Fatalf("batch PG args = %d, want 6", len(args))
+	}
+}
+
 func TestBuildSitesIncludesPreviouslyDroppedColumns(t *testing.T) {
 	stmts := buildSites([]map[string]interface{}{{}})
 	if len(stmts) != 1 {

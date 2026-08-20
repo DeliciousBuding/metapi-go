@@ -7,8 +7,10 @@ import (
 
 // AutoMigrate creates all 35 tables with indexes, unique constraints, foreign keys,
 // and check constraints. Uses CREATE TABLE IF NOT EXISTS for idempotency.
-// After the base bootstrap it runs ApplyAdditiveMigrations (schema_migrations
-// bookkeeping + ordered enterprise steps). Run on startup after Open().
+// After the base bootstrap it runs the additive enterprise steps
+// (schema_migrations bookkeeping + ordered ALTER TABLE upgrades) and logs a
+// one-line summary when legacy-schema convergence actually happened. Run on
+// startup after Open().
 func AutoMigrate(db *DB) error {
 	dialect := db.Dialect
 	slog.Info("store: running auto-migration", "dialect", dialect)
@@ -102,8 +104,17 @@ func AutoMigrate(db *DB) error {
 
 	// Additive upgrades for existing installs (ALTER TABLE ADD COLUMN, etc.).
 	// CREATE TABLE IF NOT EXISTS alone never mutates an already-created table.
-	if err := ApplyAdditiveMigrations(db); err != nil {
+	// The counted variant reports how many steps actually executed so startup
+	// logs can summarize schema convergence for old databases.
+	appliedAdditive, err := applyAdditiveMigrationsCounted(db, enterpriseAdditiveSteps)
+	if err != nil {
 		return err
+	}
+	if appliedAdditive > 0 {
+		slog.Info("store: converged legacy schema",
+			"additive_migrations", appliedAdditive,
+			"dialect", dialect,
+		)
 	}
 
 	slog.Info("store: auto-migration complete", "dialect", dialect)

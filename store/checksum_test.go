@@ -82,8 +82,8 @@ func TestRunMigrationVerifyTSSchemaOrder(t *testing.T) {
 		"新API站A", "https://a.example.com", "new-api", "active", "sk-a", 1.0, 0, `["prod"]`); err != nil {
 		t.Fatalf("seed sites: %v", err)
 	}
-	if _, err := srcDB.Exec(`INSERT INTO sites (name, url, platform, status, api_key) VALUES (?, ?, ?, ?, ?)`,
-		"站B", "https://b.example.com", "one-api", "active", "sk-b"); err != nil {
+	if _, err := srcDB.Exec(`INSERT INTO sites (name, url, platform, status, api_key, global_weight, max_concurrency) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"站B", "https://b.example.com", "one-api", "active", "sk-b", 1.0, 0); err != nil {
 		t.Fatalf("seed sites 2: %v", err)
 	}
 	// Runtime DB settings keys are documented as filtered out of migrations;

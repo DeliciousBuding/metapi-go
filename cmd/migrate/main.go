@@ -14,7 +14,7 @@
 //
 // The migration matches the TS databaseMigrationService.ts behaviour:
 // - Per-column type coercion with fallback defaults
-// - JSON column serialization (13 columns across 5 tables)
+// - JSON column serialization (14 columns across 6 tables)
 // - FK-safe DELETE order during overwrite
 // - PostgreSQL sequence synchronization after insert (PG targets only;
 // SQLite AUTOINCREMENT handles itself)
@@ -62,6 +62,7 @@ func main() {
 		DryRun:    *flagDryRun,
 		Progress:  *flagProgress,
 		Verify:    *flagVerify,
+		BatchSize: *flagBatchSize,
 		LogWriter: os.Stderr,
 	})
 	if err != nil {
@@ -69,10 +70,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	// batchSize is accepted for CLI compatibility but the row-by-row insert
-	// path is the only one the store.RunMigration implementation uses today.
-	_ = flagBatchSize
-
+	// RunMigration returns a nil summary together with an error (e.g. a
+	// failed --verify), so the err check above always exits before this
+	// print path is reached with a nil summary.
 	printSummary(summary)
 }
 
