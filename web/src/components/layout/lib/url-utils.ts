@@ -39,7 +39,17 @@ function stripQueryAndHash(url: string): string {
 export function checkIsActive(href: string, item: NavItem): boolean {
   const hrefPath = stripQueryAndHash(href)
 
-  if (item.activeUrls?.some((url) => urlToString(url) === hrefPath)) {
+  // Active URLs are query-aware: an entry matches the *bare* path only when
+  // the current href itself carries no query, so `/observability` highlights
+  // the default-section item without also matching `/observability?section=…`
+  // variants (which belong to their exact-match entries).
+  if (
+    item.activeUrls?.some((url) => {
+      const activeUrl = urlToString(url)
+      if (!activeUrl) return false
+      return activeUrl === href || (activeUrl === hrefPath && !href.includes('?'))
+    })
+  ) {
     return true
   }
 

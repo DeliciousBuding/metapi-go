@@ -10,7 +10,7 @@
 // the scheduled-tasks table.
 
 import { useQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { Link, type LinkProps } from '@tanstack/react-router'
 import {
   Activity,
   CalendarCheck,
@@ -24,9 +24,10 @@ import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -334,6 +335,18 @@ export function OverviewSection() {
           <CardDescription className='text-xs'>
             {t('dashboard.overview.scheduledTasks.description')}
           </CardDescription>
+          <CardAction>
+            <Link
+              to={
+                '/settings/general/scheduling' as
+                  | LinkProps['to']
+                  | (string & {})
+              }
+              className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+            >
+              {t('dashboard.overview.scheduledTasks.editSchedule')}
+            </Link>
+          </CardAction>
         </CardHeader>
         <CardContent>{renderSchedulerBody()}</CardContent>
       </Card>

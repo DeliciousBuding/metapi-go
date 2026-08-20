@@ -5,12 +5,14 @@
 // The legacy "test checkin" button is preserved (POST /api/checkin/trigger).
 
 import { useMutation } from '@tanstack/react-query'
+import { Link, type LinkProps } from '@tanstack/react-router'
+import { ScrollText } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Form,
@@ -28,6 +30,7 @@ import {
   type ScheduleSpecV1,
 } from '@/lib/api'
 import { toast } from '@/lib/toast'
+import { cn } from '@/lib/utils'
 
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
 import { ScheduleEditor } from '../../../components/schedule-editor'
@@ -323,9 +326,25 @@ export function SchedulingSection() {
           </div>
 
           <div className='space-y-3 rounded-lg border p-4'>
-            <h4 className='text-sm font-medium'>
-              {t('settings.general.scheduling.fields.logCleanupGroup')}
-            </h4>
+            <div className='flex items-center justify-between gap-2'>
+              <h4 className='text-sm font-medium'>
+                {t('settings.general.scheduling.fields.logCleanupGroup')}
+              </h4>
+              <Link
+                to={
+                  '/settings/system-info/program-logs' as
+                    | LinkProps['to']
+                    | (string & {})
+                }
+                className={cn(
+                  buttonVariants({ variant: 'ghost', size: 'sm' }),
+                  'text-muted-foreground h-7 px-2 text-xs'
+                )}
+              >
+                <ScrollText className='size-3.5' />
+                {t('settings.general.scheduling.viewProgramLogs')}
+              </Link>
+            </div>
             <FormField
               control={form.control}
               name='logCleanupSchedule'

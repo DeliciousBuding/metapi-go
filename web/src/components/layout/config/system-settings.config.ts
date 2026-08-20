@@ -5,6 +5,7 @@
 // sidebar-view-header.tsx).
 
 import { getSettingsSubareas } from '@/features/settings'
+import { LayoutGrid } from 'lucide-react'
 
 import type { NavGroup, SidebarView } from '../types'
 
@@ -25,6 +26,7 @@ function getSettingsNavGroups(): NavGroup[] {
         {
           title: 'sidebar.settingsOverview',
           url: '/settings',
+          icon: LayoutGrid,
           // The overview is the workspace root: only exact /settings is the
           // current page, never /settings/<subarea>/... descendants.
           activeOptions: { exact: true },

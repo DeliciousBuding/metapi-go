@@ -14,9 +14,6 @@ describe('observabilitySearchSchema', () => {
     expect(observabilitySearchSchema.parse({ section: 'health' }).section).toBe(
       'health'
     )
-    expect(
-      observabilitySearchSchema.parse({ section: 'proxy-logs' }).section
-    ).toBe('proxy-logs')
   })
 
   it('falls back to overview for an absent section', () => {
@@ -33,5 +30,13 @@ describe('observabilitySearchSchema', () => {
     expect(observabilitySearchSchema.parse({ section: true }).section).toBe(
       'overview'
     )
+  })
+
+  it('treats the retired proxy-logs section as a stale link (overview)', () => {
+    // Proxy logs moved to the dedicated /proxy-logs workspace; old
+    // `?section=proxy-logs` bookmarks must land on overview, not an error.
+    expect(
+      observabilitySearchSchema.parse({ section: 'proxy-logs' }).section
+    ).toBe('overview')
   })
 })

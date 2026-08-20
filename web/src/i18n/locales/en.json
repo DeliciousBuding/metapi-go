@@ -2229,12 +2229,6 @@
           "disabled": "Disabled",
           "other": "Other"
         }
-      },
-      "proxyLogs": {
-        "title": "Proxy request logs",
-        "description": "The full proxy request log workspace.",
-        "hint": "Open the dedicated proxy logs page for filters, columns and detail.",
-        "open": "Open proxy logs"
       }
     },
     "sidebar": {

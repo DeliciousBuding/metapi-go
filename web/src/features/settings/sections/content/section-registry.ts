@@ -54,7 +54,9 @@ type ContentSectionId = (typeof CONTENT_SECTIONS)[number]['id']
 
 const registry = createSectionRegistry<ContentSectionId>({
   sections: CONTENT_SECTIONS,
-  defaultSection: 'notifications',
+  // Matches the first section above so the sidebar drill-in lands on the
+  // entry the user sees at the top of the list.
+  defaultSection: 'import-export',
   basePath: '/settings/content',
 })
 

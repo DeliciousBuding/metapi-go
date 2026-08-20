@@ -2229,12 +2229,6 @@
           "disabled": "停用",
           "other": "其他"
         }
-      },
-      "proxyLogs": {
-        "title": "使用日志",
-        "description": "完整的使用日志工作区。",
-        "hint": "打开独立的使用日志页面查看筛选、列与详情。",
-        "open": "打开使用日志"
       }
     },
     "sidebar": {
