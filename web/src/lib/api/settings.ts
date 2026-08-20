@@ -98,18 +98,25 @@ export const settingsApi = {
       body: JSON.stringify(data),
       skipErrorHandler: true,
     }),
-  migrateExternalDatabase: (data: {
+  /**
+   * Queue a migration of the live runtime database onto an external target as
+   * an admin background task. Resolves with the task ID once the backend has
+   * accepted the job (202); progress is observed by polling `eventsApi.getTask`.
+   */
+  startDatabaseMigration: (data: {
     dialect: 'sqlite' | 'postgres'
     connectionString: string
     overwrite?: boolean
     ssl?: boolean
   }) =>
-    request('/api/settings/database/migrate', {
-      method: 'POST',
-      body: JSON.stringify(data),
-      timeoutMs: 120_000,
-      skipErrorHandler: true,
-    }),
+    request<{ success: boolean; message: string; taskId: string }>(
+      '/api/settings/database/migrate',
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+        skipErrorHandler: true,
+      }
+    ),
   getDownstreamApiKeys: () => request('/api/downstream-keys'),
   createDownstreamApiKey: (data: unknown) =>
     request('/api/downstream-keys', {

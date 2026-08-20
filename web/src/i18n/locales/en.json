@@ -1299,7 +1299,6 @@
           "restartRequired": "Saved config pending — restart required to apply.",
           "testConnection": "Test connection",
           "saveAsRuntime": "Save configuration",
-          "migrationCliOnly": "Data migration is not executed in the admin UI. Use the metapi-migrate CLI and back up the database first.",
           "fields": {
             "dialect": "Dialect",
             "connectionString": "Connection string",
@@ -1318,6 +1317,52 @@
             "saveFailed": "Failed to save database config.",
             "testOk": "Connection OK.",
             "testFailed": "Connection test failed."
+          },
+          "migration": {
+            "title": "Data migration",
+            "description": "Copy all data from the live runtime database to a target database; the migration runs as a background task. Existing target data will be wiped. Do not restart the server during migration.",
+            "sourceLabel": "Migration source (live runtime database)",
+            "fields": {
+              "dialect": "Target dialect",
+              "connectionString": "Connection string",
+              "connectionStringHint": "sqlite path or postgres URL.",
+              "overwrite": "Overwrite existing data",
+              "overwriteHint": "Wipe the target database before writing.",
+              "ssl": "Enable SSL/TLS",
+              "sslHint": "postgres only."
+            },
+            "testConnection": "Test connection",
+            "startMigration": "Start migration",
+            "migrating": "Migrating…",
+            "confirm": {
+              "title": "Confirm data migration",
+              "description": "All data from the live runtime database will be copied to the target, and existing target data will be wiped. Do not restart during migration.",
+              "confirmLabel": "Start migration"
+            },
+            "schema": {
+              "connectionRequired": "Enter a target database connection string.",
+              "testConnectionRequired": "Enter the connection string to test."
+            },
+            "status": {
+              "pending": "Queued",
+              "running": "Running",
+              "succeeded": "Completed",
+              "failed": "Failed",
+              "logsTitle": "Task logs",
+              "resultTitle": "Migration result",
+              "target": "Target",
+              "version": "Version",
+              "finishedAt": "Finished",
+              "rowsTitle": "Rows per table",
+              "rowsTotal": "{{count}} rows total"
+            },
+            "toast": {
+              "started": "Migration task started; it is running in the background.",
+              "completed": "Data migration completed.",
+              "failed": "Data migration failed.",
+              "startFailed": "Failed to start the migration.",
+              "sameTarget": "The target database is the same as the live runtime database; migration is not possible."
+            }
           }
         },
         "maintenance": {
