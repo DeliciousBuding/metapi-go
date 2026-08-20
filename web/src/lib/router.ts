@@ -14,6 +14,7 @@ import i18next from 'i18next'
 import { ErrorPage } from '@/components/layout/error-page'
 import { NotFoundPage } from '@/components/layout/not-found-page'
 import { RoutePending } from '@/components/layout/route-pending'
+import type { RouteTitleSpec } from '@/lib/helpers/document-title'
 import { toast } from '@/lib/toast'
 // Generated route tree (TanStack Router plugin overwrites on dev/build)
 import { routeTree } from '@/routeTree.gen'
@@ -75,6 +76,12 @@ declare module '@tanstack/react-router' {
     router: typeof router
   }
   interface StaticDataRouteOption {
-    title?: string
+    /**
+     * i18n key(s) for the route's `document.title` (see __root.tsx
+     * useDocumentTitle). Static routes use a plain key (or key list);
+     * param-driven routes (`$section`, `$subarea/$section`) use a resolver
+     * over the route params.
+     */
+    title?: RouteTitleSpec
   }
 }

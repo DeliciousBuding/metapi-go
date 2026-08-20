@@ -16,6 +16,7 @@ import {
 
 export const Route = createFileRoute('/_authenticated/observability')({
   validateSearch: observabilitySearchSchema,
+  staticData: { title: 'observability.title' },
   component: ObservabilityRoute,
 })
 

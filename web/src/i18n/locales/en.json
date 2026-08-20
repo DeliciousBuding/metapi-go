@@ -569,6 +569,9 @@
       }
     },
     "dashboard": {
+      "page": {
+        "title": "Dashboard"
+      },
       "sections": {
         "overview": {
           "title": "Overview",
@@ -611,6 +614,7 @@
         "scheduledTasks": {
           "title": "Scheduled tasks",
           "description": "Health of background jobs (check-in, balance refresh, log cleanup).",
+          "editSchedule": "Edit schedule",
           "colJob": "Job",
           "colEnabled": "Enabled",
           "colLastStatus": "Last status",
@@ -844,6 +848,7 @@
           "title": "Scheduled Tasks",
           "description": "Check-in, balance refresh, and log cleanup schedules.",
           "triggerCheckin": "Trigger check-in now",
+          "viewProgramLogs": "View logs",
           "migration": {
             "title": "Upgrade legacy schedules",
             "summary": "v{{current}} → v{{target}}: {{pending}} schedule(s) can be migrated to the semantic format.",
@@ -2244,8 +2249,8 @@
       "items": {
         "dashboard": "Dashboard",
         "sites": "Sites",
-        "accounts": "Accounts",
-        "checkin": "Check-in",
+        "accounts": "Account management",
+        "checkin": "Check-in records",
         "proxyLogs": "Proxy Logs",
         "observability": "Observability",
         "tokenRoutes": "Token Routes",
@@ -2255,7 +2260,7 @@
         "settings": "Settings",
         "about": "About",
         "priceCompare": "Price Compare",
-        "fixCandidates": "Fix Candidates",
+        "fixCandidates": "Redirect Fix Candidates",
         "channels": "Channels"
       },
       "backToHome": "Back to Home",
@@ -2474,21 +2479,19 @@
     },
     "search": {
       "trigger": "Search…",
-      "placeholder": "Search sites, accounts, tokens, models, logs…",
+      "placeholder": "Search pages, settings, sites, accounts, logs…",
       "title": "Global search",
-      "description": "Search across sites, accounts, tokens, models, check-in and proxy logs.",
+      "description": "Search pages and settings, or find sites, accounts, tokens, models, check-in and proxy logs.",
       "searching": "Searching…",
       "unknown": "Unknown",
       "modelTokens": "{{count}} tokens",
-      "empty": {
-        "title": "Search everything",
-        "description": "Find sites, accounts, tokens, models, check-in and proxy logs."
-      },
       "noResults": {
         "title": "No results",
         "description": "Nothing matched \"{{query}}\"."
       },
       "groups": {
+        "pages": "Pages",
+        "settings": "Settings",
         "sites": "Sites",
         "accounts": "Accounts",
         "tokens": "Tokens",
@@ -2496,6 +2499,12 @@
         "proxyLogs": "Proxy logs",
         "models": "Models"
       }
+    },
+    "userMenu": {
+      "trigger": "User menu",
+      "about": "About",
+      "documentation": "Documentation",
+      "signOut": "Sign out"
     }
   }
 }

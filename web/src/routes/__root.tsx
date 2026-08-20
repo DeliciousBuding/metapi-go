@@ -17,6 +17,10 @@ import { useTranslation } from 'react-i18next'
 
 import { Toaster } from '@/components/ui/sonner'
 import { bootstrapAuthentication } from '@/lib/auth-session'
+import {
+  resolveDocumentTitleKeys,
+  type RouteTitleSpec,
+} from '@/lib/helpers/document-title'
 import { metapiIdentity } from '@/lib/identity-branding'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -33,22 +37,34 @@ function isDevtoolsEnabled() {
 
 /**
  * Keep `document.title` in sync with the current route: the deepest match's
- * `staticData.title` holds an i18n key, translated and suffixed with the
- * product name (`Accounts · Metapi`); routes without a title fall back to the
- * bare product name. Re-runs on navigation and on language change.
+ * `staticData.title` holds an i18n key (or a resolver over the route params
+ * for `$section` / `$subarea/$section` routes); keys are translated, joined
+ * with " · " and suffixed with the product name
+ * (`General · Site & Branding · Metapi`). Routes without a title fall back
+ * to the bare product name. Re-runs on navigation and on language change.
  */
 function useDocumentTitle() {
   const { t, i18n } = useTranslation()
-  const titleKey = useRouterState({
-    select: (state) => state.matches.at(-1)?.staticData?.title,
+  const titleKeys = useRouterState({
+    select: (state) => {
+      const lastMatch = state.matches.at(-1)
+      const title = lastMatch?.staticData?.title as
+        | RouteTitleSpec
+        | undefined
+      return resolveDocumentTitleKeys(
+        title,
+        (lastMatch?.params ?? {}) as Record<string, string>
+      )
+    },
   })
 
   useEffect(() => {
-    const pageTitle = titleKey ? t(titleKey) : ''
-    document.title = pageTitle
-      ? `${pageTitle} · ${metapiIdentity.name}`
-      : metapiIdentity.name
-  }, [titleKey, t, i18n.language])
+    const labels = titleKeys.map((key) => t(key)).filter(Boolean)
+    document.title =
+      labels.length > 0
+        ? `${labels.join(' · ')} · ${metapiIdentity.name}`
+        : metapiIdentity.name
+  }, [titleKeys, t, i18n.language])
 }
 
 function RootComponent() {

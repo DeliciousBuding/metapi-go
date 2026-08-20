@@ -5,6 +5,7 @@
 // `@/features/dashboard`.
 
 // Types
+export type { DashboardSectionId } from './types'
 
 // Generic factory + registry types
 
@@ -12,6 +13,7 @@
 export {
   DASHBOARD_DEFAULT_SECTION,
   DASHBOARD_SECTION_IDS,
+  getDashboardSectionMeta,
 } from './config/dashboard-config'
 
 // Section dispatcher

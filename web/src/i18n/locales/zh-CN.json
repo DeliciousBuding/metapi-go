@@ -569,6 +569,9 @@
       }
     },
     "dashboard": {
+      "page": {
+        "title": "仪表盘"
+      },
       "sections": {
         "overview": {
           "title": "概览",
@@ -611,6 +614,7 @@
         "scheduledTasks": {
           "title": "定时任务",
           "description": "后台任务健康（签到、余额刷新与日志清理）。",
+          "editSchedule": "编辑调度",
           "colJob": "任务",
           "colEnabled": "启用",
           "colLastStatus": "上次状态",
@@ -844,6 +848,7 @@
           "title": "定时任务",
           "description": "签到、余额刷新与日志清理计划。",
           "triggerCheckin": "立即签到",
+          "viewProgramLogs": "查看日志",
           "triggering": "触发中…",
           "migration": {
             "title": "升级旧版计划",
@@ -2155,8 +2160,8 @@
           "description": "站点/账号健康以及路由熔断与冷却状态。"
         },
         "proxyLogs": {
-          "title": "使用日志",
-          "description": "完整的使用日志工作区。"
+          "title": "代理日志",
+          "description": "完整的代理日志工作区。"
         }
       },
       "overview": {
@@ -2244,18 +2249,18 @@
       "items": {
         "dashboard": "仪表盘",
         "sites": "站点",
-        "accounts": "账号",
-        "checkin": "签到",
-        "proxyLogs": "使用日志",
+        "accounts": "账号管理",
+        "checkin": "签到记录",
+        "proxyLogs": "代理日志",
         "observability": "可观测性",
         "tokenRoutes": "路由",
         "oauth": "OAuth",
         "models": "模型",
-        "modelTester": "操练场",
+        "modelTester": "模型测试器",
         "settings": "设置",
         "about": "关于",
         "priceCompare": "价格对比",
-        "fixCandidates": "修复候选项",
+        "fixCandidates": "重定向修复候选项",
         "channels": "通道"
       },
       "backToHome": "返回首页",
@@ -2474,21 +2479,19 @@
     },
     "search": {
       "trigger": "搜索…",
-      "placeholder": "搜索站点、账号、令牌、模型、日志…",
+      "placeholder": "搜索页面、设置、站点、账号、日志…",
       "title": "全局搜索",
-      "description": "跨站点、账号、令牌、模型、签到与代理日志搜索。",
+      "description": "搜索页面与设置，或查找站点、账号、令牌、模型、签到与代理日志。",
       "searching": "搜索中…",
       "unknown": "未知",
       "modelTokens": "{{count}} 个令牌",
-      "empty": {
-        "title": "全局搜索",
-        "description": "可搜索站点、账号、令牌、模型、签到与代理日志。"
-      },
       "noResults": {
         "title": "无匹配结果",
         "description": "没有找到与「{{query}}」匹配的内容。"
       },
       "groups": {
+        "pages": "页面",
+        "settings": "设置",
         "sites": "站点",
         "accounts": "账号",
         "tokens": "令牌",
@@ -2496,6 +2499,12 @@
         "proxyLogs": "代理日志",
         "models": "模型"
       }
+    },
+    "userMenu": {
+      "trigger": "用户菜单",
+      "about": "关于",
+      "documentation": "文档",
+      "signOut": "退出登录"
     }
   }
 }

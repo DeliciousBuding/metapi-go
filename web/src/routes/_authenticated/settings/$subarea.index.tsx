@@ -7,9 +7,12 @@
 
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import { resolveDefaultSection } from '@/features/settings'
+import { getSettingsSubarea, resolveDefaultSection } from '@/features/settings'
 
 export const Route = createFileRoute('/_authenticated/settings/$subarea/')({
+  staticData: {
+    title: ({ subarea }) => getSettingsSubarea(subarea)?.title,
+  },
   beforeLoad: ({ params }) => {
     const defaultSection = resolveDefaultSection(params.subarea) ?? 'site'
     throw redirect({
