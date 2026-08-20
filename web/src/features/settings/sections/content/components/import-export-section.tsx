@@ -262,7 +262,7 @@ export function ImportExportSection() {
       title={t('settings.content.importExport.title')}
       description={t('settings.content.importExport.description')}
     >
-      <div className='space-y-6'>
+      <div className='space-y-4'>
         <div className='space-y-3'>
           <h4 className='text-sm font-medium'>
             {t('settings.content.importExport.exportGroup')}

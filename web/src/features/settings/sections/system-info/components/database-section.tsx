@@ -206,7 +206,7 @@ export function DatabaseSection() {
         title={t('settings.systemInfo.database.title')}
         description={t('settings.systemInfo.database.description')}
       >
-        <div className='space-y-5'>
+        <div className='space-y-4'>
           {active ? (
             <div className='bg-muted/25 rounded-lg border p-3'>
               <p className='text-muted-foreground text-xs font-medium'>

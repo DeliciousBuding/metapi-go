@@ -272,7 +272,7 @@ export function SchedulingSection() {
         <form
           id={FORM_ID}
           onSubmit={form.handleSubmit(onSubmit)}
-          className='space-y-6'
+          className='space-y-4'
         >
           <div className='space-y-3 rounded-lg border p-4'>
             <h4 className='text-sm font-medium'>

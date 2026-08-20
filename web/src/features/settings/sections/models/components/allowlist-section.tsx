@@ -247,7 +247,7 @@ export function AllowlistSection() {
       title={t('settings.models.allowlist.title')}
       description={t('settings.models.allowlist.description')}
     >
-      <div className='space-y-6'>
+      <div className='space-y-4'>
         <Form {...form}>
           <form
             id={ALLOWLIST_FORM_ID}

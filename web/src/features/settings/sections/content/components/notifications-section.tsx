@@ -306,7 +306,7 @@ export function NotificationsSection() {
         <form
           id={FORM_ID}
           onSubmit={form.handleSubmit(onSubmit)}
-          className='space-y-6'
+          className='space-y-4'
         >
           <FormField
             control={form.control}

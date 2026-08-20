@@ -187,7 +187,7 @@ export function AuthenticationSection() {
       title={t('settings.general.authentication.title')}
       description={t('settings.general.authentication.description')}
     >
-      <div className='space-y-6'>
+      <div className='space-y-4'>
         <div className='space-y-3'>
           <div className='flex items-center gap-3'>
             <span className='text-muted-foreground text-sm'>
