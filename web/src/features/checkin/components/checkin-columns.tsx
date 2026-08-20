@@ -80,6 +80,7 @@ function CheckinRowActions({
             size='icon-sm'
             className='data-popup-open:bg-accent'
             aria-label={t('checkin.columns.rowActions')}
+            data-hit-area
           />
         }
       >

@@ -49,6 +49,10 @@ function isNativeButtonRender(render: ButtonPrimitive.Props['render']) {
   return render.type === 'button'
 }
 
+function isIconSize(size: VariantProps<typeof buttonVariants>['size']) {
+  return typeof size === 'string' && size.startsWith('icon')
+}
+
 function Button({
   className,
   variant = 'default',
@@ -60,6 +64,11 @@ function Button({
   return (
     <ButtonPrimitive
       data-slot='button'
+      // Icon-only buttons are the densest controls in the app (row actions,
+      // dialog/sheet close). Mark them so the coarse-pointer hit-area rule in
+      // styles/index.css expands their tap target to ≥40px without changing
+      // the visual size (fine pointers keep the current density).
+      data-hit-area={isIconSize(size) ? true : undefined}
       className={cn(buttonVariants({ variant, size, className }))}
       nativeButton={nativeButton ?? isNativeButtonRender(render)}
       render={render}

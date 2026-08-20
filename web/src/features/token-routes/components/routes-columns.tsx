@@ -121,6 +121,7 @@ function RoutesRowActions({
             size='icon-sm'
             className='data-popup-open:bg-accent'
             aria-label={t('tokenRoutes.columns.rowActions')}
+            data-hit-area
           />
         }
       >

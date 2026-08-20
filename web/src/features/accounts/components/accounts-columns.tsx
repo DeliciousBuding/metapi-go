@@ -183,6 +183,7 @@ export function AccountsRowActions({
                 size='icon-sm'
                 disabled={isThisRowPending}
                 aria-label={toggleLabel}
+                data-hit-area
                 onClick={() => actions.onToggleStatus(account)}
               />
             }
@@ -204,6 +205,7 @@ export function AccountsRowActions({
               size='icon-sm'
               className='data-popup-open:bg-accent'
               aria-label={t('accounts.columns.rowActions')}
+              data-hit-area
             />
           }
         >
