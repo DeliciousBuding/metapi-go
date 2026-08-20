@@ -8,15 +8,19 @@
 //
 // Usage:
 //   BASE_URL=http://127.0.0.1:4099 AUTH_TOKEN=dev-admin-token-123 \
-//     OUT_DIR=/root/metapi-shots node scripts/screenshot-scan.mjs
+//     OUT_DIR=<output-dir> node scripts/screenshot-scan.mjs
 
 import { mkdirSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 import { chromium } from 'playwright'
 
 const BASE_URL = process.env.BASE_URL ?? 'http://127.0.0.1:4099'
 const AUTH_TOKEN = process.env.AUTH_TOKEN ?? 'dev-admin-token-123'
-const OUT_DIR = process.env.OUT_DIR ?? '/root/metapi-shots'
+// Portable default: OS temp dir. Override OUT_DIR to keep screenshots
+// somewhere durable (e.g. when collecting README gallery material).
+const OUT_DIR = process.env.OUT_DIR ?? join(tmpdir(), 'metapi-shots')
 // Retina capture by default so README screenshots stay crisp on HiDPI screens.
 const DEVICE_SCALE = Number(process.env.DPR ?? '2')
 

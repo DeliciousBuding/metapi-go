@@ -7,7 +7,7 @@
 
 ## 2026-08-20 — 仓库店头重建：docs 公私分离 + README/Diátaxis 文档集 + llms.txt（#872 #873）
 
-对照原版 TS 仓库（cita-777/metapi，clone 于 `/root/metapi/metapi-ts`）与 2026 GitHub 开源最佳实践（Diátaxis 文档四象限、紧迫度递减 README 序、徽章 3-5 个上限、死链 CI 自动化、llms.txt）重做仓库对外门面：
+对照原版 TS 仓库（cita-777/metapi，已 clone 到本机对照）与 2026 GitHub 开源最佳实践（Diátaxis 文档四象限、紧迫度递减 README 序、徽章 3-5 个上限、死链 CI 自动化、llms.txt）重做仓库对外门面：
 
 - **docs 公私分离（#872）**：按受众边界重组 `docs/`——用户/贡献者文档留在 `docs/` 根（api/architecture/deployment/migration/testing/assets），维护者流程文档全部移入 `docs/internal/`（STATE/log/MASTER roadmap/benchmark/git-workflow/residual 说明/design/analysis/progress）。内部上下文与对外文档结构性隔离，不再可能渗进店面。门禁测试（`docs/doc_hygiene_test.go`）把边界变成机器断言：`TestStorefrontDoesNotLinkInternalDocs`（README 禁深链 internal）+ `TestRelativeMarkdownLinksResolve`（全站 markdown 相对链接必须可解析，抓出 1 个存量死链）。全部交叉引用同步（AGENTS.md/web/AGENTS.md/CONTRIBUTING.md/docs 地图/Go doc 指针）。
 - **对外店头重建（#873）**：README.md/README_EN.md 重写——hero + 徽章裁剪到 5 个、8 张 retina 截图墙（2x DPR webp，`screenshot-scan` 加 DPR 支持）、痛点表、copy-paste 快速上手、首个 `/v1` curl 示例、精简配置节指向新 reference。补齐 Diátaxis 四象限公开文档：`getting-started.md`（tutorial）/ `configuration.md`（reference，完整 env 矩阵）/ `client-integration.md`（how-to：Cursor/Claude Code/Codex/Open WebUI + 配置导出）/ `faq.md`（诚实问答）。根目录 `llms.txt`：面向 coding agent 的精选索引（一句描述 + 纯 markdown 链接，内部文档明确排除）。顺手清除 `.env.example` 指向已不存在 analysis 文档的残留指针；仓库 topics 已设置为 ai-aggregation/api-gateway/go/llm/metapi/new-api/one-api/openai/react/self-hosted/single-binary。
