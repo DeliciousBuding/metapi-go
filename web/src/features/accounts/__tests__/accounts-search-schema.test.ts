@@ -45,6 +45,22 @@ describe('accountsSearchSchema', () => {
     expect(result.pageSize).toBe(20)
     expect(result.q).toBeUndefined()
   })
+
+  it('accepts pageSize up to the 100-row UI selector cap', () => {
+    const result = accountsSearchSchema.parse({ pageSize: '100' })
+    expect(result.pageSize).toBe(100)
+  })
+
+  it('rejects pageSize above the 100-row cap back to the default', () => {
+    // 150 used to pass the old 200 cap; stale deep links above the UI
+    // selector max (PAGE_SIZE_OPTIONS tops out at 100) now degrade to the
+    // default instead of rendering an unselectable page size.
+    const oversized = accountsSearchSchema.parse({ pageSize: '150' })
+    expect(oversized.pageSize).toBe(20)
+
+    const legacyMax = accountsSearchSchema.parse({ pageSize: 200 })
+    expect(legacyMax.pageSize).toBe(20)
+  })
 })
 
 // ---------------------------------------------------------------------------

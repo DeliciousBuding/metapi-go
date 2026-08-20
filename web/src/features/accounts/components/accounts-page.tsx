@@ -92,7 +92,7 @@ function readAccountsSearch(
     Number.isFinite(rawPage) && rawPage > 0 ? Math.max(0, rawPage - 1) : 0
   const pageSize =
     Number.isFinite(rawPageSize) && rawPageSize > 0
-      ? Math.min(200, Math.max(1, rawPageSize))
+      ? Math.min(100, Math.max(1, rawPageSize))
       : DEFAULT_PAGE_SIZE
   return {
     q: params.get('q') ?? '',
