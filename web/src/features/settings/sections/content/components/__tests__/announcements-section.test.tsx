@@ -16,7 +16,6 @@ import type { ReactElement } from 'react'
 import {
   afterEach,
   beforeAll,
-  beforeEach,
   describe,
   expect,
   it,

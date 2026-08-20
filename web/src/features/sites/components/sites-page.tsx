@@ -247,37 +247,48 @@ export function SitesPage() {
 
   const urlState = useSitesUrlState()
 
-  const columns = useSitesColumns({
-    onEdit: (site) => {
-      setEditingSite(site)
-      setFormOpen(true)
+  // Per-row pending state for the inline status/pin toggles: only the row
+  // whose update is in flight disables those actions and shows a spinner.
+  const pendingSiteId = updateSite.isPending
+    ? (updateSite.variables?.id ?? null)
+    : null
+
+  const columns = useSitesColumns(
+    {
+      onEdit: (site) => {
+        setEditingSite(site)
+        setFormOpen(true)
+      },
+      onView: (site) => {
+        setViewingSite(site)
+      },
+      onToggleStatus: (site) => {
+        const nextStatus = site.status === 'disabled' ? 'active' : 'disabled'
+        updateSite.mutate(
+          { id: site.id, payload: { status: nextStatus } },
+          {
+            onSuccess: () =>
+              toast.success(
+                t('sites.toast.statusToggled', { name: site.name })
+              ),
+          }
+        )
+      },
+      onTogglePin: (site) => {
+        updateSite.mutate(
+          { id: site.id, payload: { isPinned: !site.isPinned } },
+          {
+            onSuccess: () =>
+              toast.success(t('sites.toast.pinToggled', { name: site.name })),
+          }
+        )
+      },
+      onDelete: (site) => {
+        setDeletingSite(site)
+      },
     },
-    onView: (site) => {
-      setViewingSite(site)
-    },
-    onToggleStatus: (site) => {
-      const nextStatus = site.status === 'disabled' ? 'active' : 'disabled'
-      updateSite.mutate(
-        { id: site.id, payload: { status: nextStatus } },
-        {
-          onSuccess: () =>
-            toast.success(t('sites.toast.statusToggled', { name: site.name })),
-        }
-      )
-    },
-    onTogglePin: (site) => {
-      updateSite.mutate(
-        { id: site.id, payload: { isPinned: !site.isPinned } },
-        {
-          onSuccess: () =>
-            toast.success(t('sites.toast.pinToggled', { name: site.name })),
-        }
-      )
-    },
-    onDelete: (site) => {
-      setDeletingSite(site)
-    },
-  })
+    pendingSiteId
+  )
 
   const { table } = useDataTable<Site>({
     data: sites,

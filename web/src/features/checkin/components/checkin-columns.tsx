@@ -3,7 +3,7 @@
 // i18n: all user-visible strings migrated to t() calls.
 
 import type { ColumnDef } from '@tanstack/react-table'
-import { Eye, MoreHorizontal, Play } from 'lucide-react'
+import { Eye, Loader2, MoreHorizontal, Play } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
@@ -67,9 +67,11 @@ function StatusBadge({ status }: { status: string }) {
 function CheckinRowActions({
   row,
   actions,
+  isTriggerPending,
 }: {
   row: CheckinLogRow
   actions: CheckinRowActions
+  isTriggerPending: boolean
 }) {
   const { t } = useTranslation()
   return (
@@ -92,8 +94,15 @@ function CheckinRowActions({
           <Eye />
           {t('checkin.columns.viewDetails')}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => actions.onTriggerAccount(row)}>
-          <Play />
+        <DropdownMenuItem
+          disabled={isTriggerPending}
+          onClick={() => actions.onTriggerAccount(row)}
+        >
+          {isTriggerPending ? (
+            <Loader2 className='animate-spin' />
+          ) : (
+            <Play />
+          )}
           {t('checkin.columns.triggerCheckin')}
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -102,7 +111,8 @@ function CheckinRowActions({
 }
 
 export function useCheckinColumns(
-  actions: CheckinRowActions
+  actions: CheckinRowActions,
+  pendingAccountId: number | null = null
 ): ColumnDef<CheckinLogRow>[] {
   const { t, i18n } = useTranslation()
   const locale = toBcp47(i18n.language || 'en')
@@ -241,7 +251,16 @@ export function useCheckinColumns(
       header: () => <span className='sr-only'>{t('common.actions')}</span>,
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
-        return <CheckinRowActions row={log} actions={actions} />
+        return (
+          <CheckinRowActions
+            row={log}
+            actions={actions}
+            isTriggerPending={
+              pendingAccountId !== null &&
+              pendingAccountId === log.checkin_logs.accountId
+            }
+          />
+        )
       },
       meta: { pinned: 'right' },
     },

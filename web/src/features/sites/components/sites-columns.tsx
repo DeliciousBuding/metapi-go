@@ -10,6 +10,7 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   Eye as EyeIcon,
+  Loader2 as Loader2Icon,
   MoreHorizontal as MoreHorizontalIcon,
   Pencil as PencilIcon,
   Pin as PinIcon,
@@ -70,10 +71,13 @@ function TruncatedUrl({ url }: { url: string }) {
 /**
  * Build the site list columns. Must be called during render (it is a hook
  * because it reads i18n state). The `actions` callbacks are supplied by the
- * page so the columns stay free of mutation/query concerns.
+ * page so the columns stay free of mutation/query concerns. `pendingSiteId`
+ * threads per-row pending state: the row whose status/pin update is in
+ * flight disables those toggles and shows a spinner (no global lock).
  */
 export function useSitesColumns(
-  actions: SitesColumnActions
+  actions: SitesColumnActions,
+  pendingSiteId: number | null = null
 ): ColumnDef<Site>[] {
   const { t } = useTranslation()
 
@@ -256,6 +260,20 @@ export function useSitesColumns(
       cell: ({ row }) => {
         const site = row.original
         const isActive = site.status !== 'disabled'
+        const isThisRowPending =
+          pendingSiteId !== null && pendingSiteId === site.id
+
+        let pinToggleIcon = (
+          <PinIcon className='text-muted-foreground/70 size-3.5' />
+        )
+        if (isThisRowPending) {
+          pinToggleIcon = <Loader2Icon className='size-3.5 animate-spin' />
+        } else if (site.isPinned) {
+          pinToggleIcon = (
+            <PinOffIcon className='text-muted-foreground/70 size-3.5' />
+          )
+        }
+
         return (
           <div className={cn('flex justify-end')}>
             <DropdownMenu>
@@ -280,18 +298,24 @@ export function useSitesColumns(
                   <PencilIcon className='text-muted-foreground/70 size-3.5' />
                   {t('sites.actions.edit')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => actions.onToggleStatus(site)}>
-                  <PowerIcon className='text-muted-foreground/70 size-3.5' />
+                <DropdownMenuItem
+                  disabled={isThisRowPending}
+                  onClick={() => actions.onToggleStatus(site)}
+                >
+                  {isThisRowPending ? (
+                    <Loader2Icon className='size-3.5 animate-spin' />
+                  ) : (
+                    <PowerIcon className='text-muted-foreground/70 size-3.5' />
+                  )}
                   {isActive
                     ? t('sites.actions.disable')
                     : t('sites.actions.enable')}
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => actions.onTogglePin(site)}>
-                  {site.isPinned ? (
-                    <PinOffIcon className='text-muted-foreground/70 size-3.5' />
-                  ) : (
-                    <PinIcon className='text-muted-foreground/70 size-3.5' />
-                  )}
+                <DropdownMenuItem
+                  disabled={isThisRowPending}
+                  onClick={() => actions.onTogglePin(site)}
+                >
+                  {pinToggleIcon}
                   {site.isPinned
                     ? t('sites.actions.unpin')
                     : t('sites.actions.pin')}

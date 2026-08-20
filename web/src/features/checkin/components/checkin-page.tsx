@@ -309,7 +309,14 @@ export function CheckinPage() {
     [handleTriggerOne]
   )
 
-  const columns = useCheckinColumns(rowActions)
+  // Per-row pending state (accounts-columns' pendingStatusId pattern): only
+  // the row whose single-account check-in is in flight shows a spinner, so
+  // the trigger stays a seconds-long external request without a global lock.
+  const pendingCheckinAccountId = triggerOneMutation.isPending
+    ? (triggerOneMutation.variables ?? null)
+    : null
+
+  const columns = useCheckinColumns(rowActions, pendingCheckinAccountId)
   const { table } = useDataTable<CheckinLogRow>({
     data: logs,
     columns,
