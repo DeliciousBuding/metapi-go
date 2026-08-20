@@ -15,11 +15,13 @@
 
 import * as React from 'react'
 
-const MOBILE_BREAKPOINT = 768
-// `max-width: ${MOBILE_BREAKPOINT - 1}px` mirrors the original `innerWidth <
-// MOBILE_BREAKPOINT` check, so a 768px viewport stays classified as desktop
-// (no behavior change — only the first-render flash is fixed).
-const MOBILE_MEDIA_QUERY = `(max-width: ${MOBILE_BREAKPOINT - 1}px)`
+import { SIDEBAR_MOBILE_MEDIA_QUERY } from '@/lib/breakpoints'
+
+// `SIDEBAR_MOBILE_MEDIA_QUERY` (`max-width: 767px`) mirrors the original
+// `innerWidth < 768` check, so a 768px viewport stays classified as desktop
+// (no behavior change — only the first-render flash is fixed). The constant
+// lives in lib/breakpoints so the sidebar/table thresholds stay in sync.
+const MOBILE_MEDIA_QUERY = SIDEBAR_MOBILE_MEDIA_QUERY
 
 type Listener = () => void
 
