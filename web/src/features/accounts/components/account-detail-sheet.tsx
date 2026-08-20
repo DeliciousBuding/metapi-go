@@ -19,6 +19,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { toBcp47 } from '@/i18n/languages'
+import {
+  formatAbsoluteDateTime,
+  formatPrice,
+  formatRelativeTime,
+  formatUsd,
+} from '@/lib/format'
 
 import { useRefreshAccount } from '../api'
 import { TokensPanel } from '../tokens/components/tokens-panel'
@@ -35,8 +42,9 @@ export function AccountDetailSheet({
   open,
   onOpenChange,
 }: AccountDetailSheetProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const refreshMutation = useRefreshAccount()
+  const locale = toBcp47(i18n.language || 'en')
 
   if (!account) {
     return (
@@ -67,6 +75,9 @@ export function AccountDetailSheet({
     (account.credentialMode === 'apikey'
       ? t('accounts.detail.fallbackApiKey')
       : t('accounts.detail.fallbackUnnamed'))
+  // Same field the accounts list health tooltip surfaces; rendered here as a
+  // full block so long reasons are not squeezed into a grid cell.
+  const healthReason = account.runtimeHealth?.reason?.trim() || null
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -120,7 +131,46 @@ export function AccountDetailSheet({
             <DetailField label={t('accounts.detail.lastBalanceRefresh')}>
               {account.lastBalanceRefresh || '—'}
             </DetailField>
+            <DetailField label={t('accounts.detail.quota')}>
+              {(account.quota ?? 0) > 0 ? (
+                <span className='tabular-nums'>{formatUsd(account.quota)}</span>
+              ) : (
+                '—'
+              )}
+            </DetailField>
+            <DetailField label={t('accounts.detail.unitCost')}>
+              {account.unitCost === null || account.unitCost === undefined ? (
+                '—'
+              ) : (
+                <span className='tabular-nums'>
+                  ${formatPrice(account.unitCost)}
+                </span>
+              )}
+            </DetailField>
+            <DetailField label={t('accounts.detail.lastCheckin')}>
+              {account.lastCheckinAt ? (
+                <span
+                  title={
+                    formatAbsoluteDateTime(account.lastCheckinAt, locale) ||
+                    undefined
+                  }
+                >
+                  {formatRelativeTime(account.lastCheckinAt, locale)}
+                </span>
+              ) : (
+                '—'
+              )}
+            </DetailField>
           </dl>
+
+          {healthReason && (
+            <div className='bg-muted/40 rounded-lg border p-2 text-xs'>
+              <div className='text-muted-foreground text-[11px]'>
+                {t('accounts.detail.healthReason')}
+              </div>
+              <p className='break-words'>{healthReason}</p>
+            </div>
+          )}
 
           {account.tags && account.tags.length > 0 && (
             <div className='flex flex-wrap gap-1'>

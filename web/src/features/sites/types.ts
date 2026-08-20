@@ -11,7 +11,7 @@ export type SiteStatus = 'active' | 'disabled'
 
 export type SiteProbeScope = 'single' | 'all'
 
-type SiteApiEndpoint = {
+export type SiteApiEndpoint = {
   id?: number
   url: string
   enabled?: boolean

@@ -35,6 +35,14 @@ export function formatRatio(
   return formatPercent(numerator / denominator, fractionDigits)
 }
 
+/** Format a US dollar amount: 1234.5 → "$1234.50"; "—" for null/NaN. */
+export function formatUsd(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return EM_DASH
+  }
+  return `$${value.toFixed(2)}`
+}
+
 /** Format a per-million USD price with adaptive precision. */
 export function formatPrice(price: number | null | undefined): string {
   if (price === null || price === undefined || !Number.isFinite(price)) {
