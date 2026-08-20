@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   cleanup,
   fireEvent,
@@ -6,6 +7,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import {
   afterEach,
   beforeAll,
@@ -59,6 +61,26 @@ beforeAll(() => {
   })
 })
 
+// The banner now reads announcements through TanStack Query so dashboard
+// section switches reuse the cached list — each case gets a fresh client.
+function createQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, staleTime: 0, refetchOnWindowFocus: false },
+    },
+  })
+}
+
+function renderWithClient(ui: ReactNode) {
+  const queryClient = createQueryClient()
+  return {
+    queryClient,
+    ...render(
+      <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+    ),
+  }
+}
+
 beforeEach(() => {
   mockGetActive.mockReset()
   mockDismiss.mockReset()
@@ -72,7 +94,7 @@ describe('AnnouncementBanner', () => {
       items: [active, { ...active, id: 2, dismissed: true }],
     })
 
-    render(<AnnouncementBanner />)
+    renderWithClient(<AnnouncementBanner />)
 
     await waitFor(() => {
       expect(screen.getByText('Scheduled maintenance')).toBeInTheDocument()
@@ -84,7 +106,7 @@ describe('AnnouncementBanner', () => {
   it('renders null when there are no active announcements', async () => {
     mockGetActive.mockResolvedValue({ items: [] })
 
-    const { container } = render(<AnnouncementBanner />)
+    const { container } = renderWithClient(<AnnouncementBanner />)
 
     await waitFor(() => {
       expect(mockGetActive).toHaveBeenCalledTimes(1)
@@ -92,11 +114,36 @@ describe('AnnouncementBanner', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
+  it('reuses the cached announcements on remount within staleTime', async () => {
+    mockGetActive.mockResolvedValue({ items: [active] })
+
+    const queryClient = createQueryClient()
+    const renderBanner = () =>
+      render(
+        <QueryClientProvider client={queryClient}>
+          <AnnouncementBanner />
+        </QueryClientProvider>
+      )
+
+    const firstMount = renderBanner()
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument()
+    })
+    firstMount.unmount()
+
+    // Second mount within the 60s stale window must not refetch.
+    renderBanner()
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument()
+    })
+    expect(mockGetActive).toHaveBeenCalledTimes(1)
+  })
+
   it('persists dismissal via the API and removes the banner', async () => {
     mockGetActive.mockResolvedValue({ items: [active] })
     mockDismiss.mockResolvedValue({ success: true })
 
-    render(<AnnouncementBanner />)
+    const { queryClient } = renderWithClient(<AnnouncementBanner />)
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeInTheDocument()
@@ -112,13 +159,15 @@ describe('AnnouncementBanner', () => {
     await waitFor(() => {
       expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     })
+    // The cached list is patched in place so a remount stays dismissed.
+    expect(queryClient.getQueryData(['dashboard-announcements'])).toEqual([])
   })
 
   it('keeps the banner visible when dismissal fails', async () => {
     mockGetActive.mockResolvedValue({ items: [active] })
     mockDismiss.mockRejectedValue(new Error('boom'))
 
-    render(<AnnouncementBanner />)
+    renderWithClient(<AnnouncementBanner />)
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeInTheDocument()

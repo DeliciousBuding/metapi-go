@@ -6,13 +6,20 @@
 // Dismissal persists server-side via POST /api/announcements/{id}/dismiss;
 // a failed dismiss keeps the banner visible (silent degrade) instead of
 // pretending the announcement was dismissed.
+//
+// Data flows through TanStack Query (like every other dashboard widget) so
+// section switches reuse the cached banner instead of refetching on every
+// mount; dismissal patches the cached list in place.
 
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Info, Megaphone, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, type Announcement } from '@/lib/api'
 import { cn } from '@/lib/utils'
+
+const ANNOUNCEMENTS_QUERY_KEY = ['dashboard-announcements'] as const
 
 const SEVERITY_TONE: Record<
   Announcement['severity'],
@@ -34,37 +41,30 @@ const SEVERITY_TONE: Record<
 
 export function AnnouncementBanner() {
   const { t } = useTranslation()
-  const [items, setItems] = useState<Announcement[]>([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [dismissing, setDismissing] = useState<number | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      setLoading(true)
-      try {
-        const response = await api.getActiveAnnouncements()
-        if (cancelled) return
-        setItems((response.items ?? []).filter((item) => !item.dismissed))
-      } catch {
-        // Silent degrade — the banner is never a blocker.
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ANNOUNCEMENTS_QUERY_KEY,
+    queryFn: async () => {
+      const response = await api.getActiveAnnouncements()
+      return (response.items ?? []).filter((item) => !item.dismissed)
+    },
+    // Announcements change rarely (admin-managed banners); keep the cached
+    // list across dashboard section switches for a minute before revalidating.
+    staleTime: 60 * 1000,
+  })
 
-  if (loading || items.length === 0) return null
+  if (isLoading || items.length === 0) return null
 
   const dismiss = async (id: number) => {
     setDismissing(id)
     try {
       await api.dismissAnnouncement(id)
-      setItems((prev) => prev.filter((item) => item.id !== id))
+      queryClient.setQueryData<Announcement[]>(
+        ANNOUNCEMENTS_QUERY_KEY,
+        (current) => (current ?? []).filter((item) => item.id !== id)
+      )
     } catch {
       // Dismissal did not persist — keep the banner visible.
     } finally {
