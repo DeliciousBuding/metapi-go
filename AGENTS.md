@@ -60,7 +60,7 @@ golangci-lint run --timeout=3m        # Lint check
 
 ## Release Workflow
 
-0. 所有改动经 `fix/*` / `feature/*` 等短命分支 → PR → Squash merge 回 master（详见 [`docs/git-workflow.md`](docs/git-workflow.md)；master 受保护，禁止直接 push）
+0. 所有改动经 `fix/*` / `feature/*` 等短命分支 → PR → Squash merge 回 master（详见 [`docs/git-workflow.md`](docs/internal/git-workflow.md)；master 受保护，禁止直接 push）
 1. 确保本地 CI 全部通过（pre-push hook 自动检查）
 2. 更新 `CHANGELOG.md`（按 Keep a Changelog 格式；**必须包含 `## [vX.Y.Z]` 节**，Release 说明从该节提取）；同步 `web/package.json` 的 version 字段
 3. 发布助手：`bash scripts/release.sh X.Y.Z`（校验 CHANGELOG 节、`web/package.json` 版本、master 与远端同步后打 annotated tag 并推送）；或手动 `git tag -a vX.Y.Z` → `git push origin vX.Y.Z`（仅 SemVer tag 触发发布）
@@ -86,13 +86,13 @@ golangci-lint run --timeout=3m        # Lint check
 
 | Path                                                       | Role                                                                           |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `docs/STATE.md`                                            | **Current state** (verified product facts; keep slim)                          |
-| `docs/progress/MASTER.md`                                  | **Three delivery mainlines + the only executable open plan** (not a changelog) |
-| `docs/log.md`                                              | **Progress log** append-only (never overrides STATE)                           |
+| `docs/internal/STATE.md`                                            | **Current state** (verified product facts; keep slim)                          |
+| `docs/internal/progress/MASTER.md`                                  | **Three delivery mainlines + the only executable open plan** (not a changelog) |
+| `docs/internal/log.md`                                              | **Progress log** append-only (never overrides STATE)                           |
 | `docs/architecture.md`                                     | As-built package map (proxy/transform/routing; not proxycore/protocol)         |
-| `docs/design/BACKEND.md`                                   | Backend philosophy, dependency rules, forbidden imports                        |
-| `docs/design/DESIGN.md`                                    | UI design system source of truth                                               |
-| `docs/benchmark.md`                                        | 产品对标（New API × All API Hub）+ direction                                   |
+| `docs/internal/design/BACKEND.md`                                   | Backend philosophy, dependency rules, forbidden imports                        |
+| `docs/internal/design/DESIGN.md`                                    | UI design system source of truth                                               |
+| `docs/internal/benchmark.md`                                        | 产品对标（New API × All API Hub）+ direction                                   |
 | `docs/testing.md`                                          | Test layers + sanitized real-platform testbed SOP                              |
 | `docs/api.md` / `docs/deployment.md` / `docs/migration.md` | API · deploy · migration                                                       |
 | `CHANGELOG.md`                                             | Version narrative                                                              |

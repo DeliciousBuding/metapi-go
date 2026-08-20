@@ -204,7 +204,7 @@ Cron 定时执行（默认每日 08:00），智能解析奖励金额，签到失
 | `CHECKIN_CRON`                                           | `0 8 * * *`                               | 签到时间                                                                                                                      |
 | `BALANCE_REFRESH_CRON`                                   | `0 * * * *`                               | 余额刷新频率                                                                                                                  |
 
-当前运行时支持两种数据库形态：单进程 SQLite；PostgreSQL 生产部署。PostgreSQL 模式下，产生外部请求、通知、上传、清理或同步副作用的后台任务使用 PG advisory lock，避免多副本重复执行同一批任务。可选 `REDIS_URL` / `METAPI_REDIS_URL` 仅用于多实例下游 Key 的 **RPM/TPM admission** 共享计数（`auth.ConfigureSharedAdmissionFromRedisURL` + `internal/sharedcount`，不可达时 fail-open 回退进程内窗口）；留空则无需 Redis 进程。Sticky session 仍是进程内绑定，**不会**因配置 Redis 而跨实例共享（STICKY-B 仍为 residual，非产品）。详见 [`docs/analysis/redis-shared-state.md`](docs/analysis/redis-shared-state.md)。
+当前运行时支持两种数据库形态：单进程 SQLite；PostgreSQL 生产部署。PostgreSQL 模式下，产生外部请求、通知、上传、清理或同步副作用的后台任务使用 PG advisory lock，避免多副本重复执行同一批任务。可选 `REDIS_URL` / `METAPI_REDIS_URL` 仅用于多实例下游 Key 的 **RPM/TPM admission** 共享计数（`auth.ConfigureSharedAdmissionFromRedisURL` + `internal/sharedcount`，不可达时 fail-open 回退进程内窗口）；留空则无需 Redis 进程。Sticky session 仍是进程内绑定，**不会**因配置 Redis 而跨实例共享（STICKY-B 仍为 residual，非产品）。
 
 代理转发没有配置路由和上游依赖时，生产默认返回 HTTP 503。`METAPI_ENABLE_PROXY_STUB=1` 只用于测试或演示，避免把本地假响应误当成真实上游调用。
 
@@ -259,13 +259,11 @@ Metapi 完全自托管，所有数据（账号、令牌、路由、日志）均�
 
 ## 文档导航
 
-| 文档                                               | 用途                                    |
-| -------------------------------------------------- | --------------------------------------- |
-| [docs/README.md](docs/README.md)                   | **文档地图**（先看这个）                |
-| [docs/architecture.md](docs/architecture.md)       | 包结构与请求路径                        |
-| [docs/progress/MASTER.md](docs/progress/MASTER.md) | 三条交付主线与开放结果                  |
-| [docs/benchmark.md](docs/benchmark.md)             | 产品对标与方向（New API × All API Hub） |
-| [CHANGELOG.md](CHANGELOG.md)                       | 版本变更                                |
+| 文档                                         | 用途                     |
+| -------------------------------------------- | ------------------------ |
+| [docs/README.md](docs/README.md)             | **文档地图**（先看这个） |
+| [docs/architecture.md](docs/architecture.md) | 包结构与请求路径         |
+| [CHANGELOG.md](CHANGELOG.md)                 | 版本变更                 |
 
 ---
 
@@ -320,7 +318,6 @@ Dev proxy 默认指向 `http://localhost:4000`，可经 `DEV_PROXY_TARGET` / `VI
 - [CONTRIBUTING.md](CONTRIBUTING.md) — 分支模型、PR 流程、本地门禁
 - [SECURITY.md](SECURITY.md) — 漏洞报告（Security Advisory）
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — 社区行为准则
-- [docs/git-workflow.md](docs/git-workflow.md) — Git 分支与保护规则
 
 ---
 

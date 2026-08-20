@@ -212,7 +212,7 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 
 ### 5.10 样式与设计系统
 
-设计系统 SSOT 是 `docs/design/DESIGN.md`（视觉语言、OKLCH token、5 轴主题 preset/font/radius/scale/content-layout、图表取色 `--chart-1…5`、玻璃材料、焦点环、间距/圆角/字型）；组件归属见 `docs/design/components.md`；可访问性见 `docs/design/a11y-checklist.md`。本节只列前端落地约定：
+设计系统 SSOT 是 `docs/internal/design/DESIGN.md`（视觉语言、OKLCH token、5 轴主题 preset/font/radius/scale/content-layout、图表取色 `--chart-1…5`、玻璃材料、焦点环、间距/圆角/字型）；组件归属见 `docs/internal/design/components.md`；可访问性见 `docs/internal/design/a11y-checklist.md`。本节只列前端落地约定：
 
 - Tailwind 工具类为主，动态类名用 `cn()` 合并；非动态场景避免内联样式。响应式用移动优先与 Tailwind 断点（`sm:`/`md:`/`lg:`）。
 - 三层 CSS 在 `src/styles/`：`theme.css`（OKLCH 语义 token）/ `theme-presets.css`（10 套预设覆盖）/ `index.css`（Tailwind 4 入口 + `@theme inline` 桥接）。新增 token 改这里，不在页面硬编码 hex。
@@ -226,7 +226,7 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 
 ### 5.12 可访问性
 
-可访问性 SSOT 是 `docs/design/a11y-checklist.md`（键盘焦点与陷阱、accessible name 清单、对比度实测表、响应式 375/768/1280、已知残差）。本节只列前端落地约定：
+可访问性 SSOT 是 `docs/internal/design/a11y-checklist.md`（键盘焦点与陷阱、accessible name 清单、对比度实测表、响应式 375/768/1280、已知残差）。本节只列前端落地约定：
 
 - 语义化 HTML（`header`/`nav`/`main`/`footer`），表单用 `label` 关联输入。
 - icon-only 控件必 `aria-label`；装饰图标 `aria-hidden="true"`；状态不只靠颜色（配文字/徽章）。

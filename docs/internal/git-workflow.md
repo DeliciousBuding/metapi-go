@@ -106,4 +106,4 @@ Dependabot 每周一自动开升级 PR（Go / npm / GitHub Actions / Docker）�
 | CI + CD + Release | `.github/workflows/main.yml` | 单一管道：PR / master push / SemVer tag 全量 12 项检查；master push 推送镜像（latest+sha）；SemVer tag：镜像（amd64+arm64）→ 多平台二进制 + GitHub Release |
 | 本地门禁 | `.githooks/pre-push` | `git config core.hooksPath .githooks` 安装后 push 前自动运行（build + vet + 前端 + race） |
 
-相关文档：[`deployment.md`](deployment.md)（部署）· [`STATE.md`](STATE.md)（当前状态）· `AGENTS.md`（工程规则）
+相关文档：[`deployment.md`](../deployment.md)（部署）· [`STATE.md`](STATE.md)（当前状态）· `AGENTS.md`（工程规则）

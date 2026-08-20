@@ -5,7 +5,7 @@
 **Base**: `origin/master` @ v0.12.0 (`9cd5ca0`)
 **Authority companions**:
 - [`docs/design/BACKEND.md`](../design/BACKEND.md) — principles + allowed import edges
-- [`docs/architecture.md`](../architecture.md) — as-built package map and request flows
+- [`docs/architecture.md`](../../architecture.md) — as-built package map and request flows
 
 This document is the **B1 ownership inventory**. It does **not** rewrite packages. Prefer docs and tiny zero-behavior moves; large boundary refactors need their own issues.
 
@@ -353,7 +353,7 @@ Do **not** batch these into B1 unless marked tiny/safe.
 ## 10. Related docs
 
 - [`docs/design/BACKEND.md`](../design/BACKEND.md) — principles + dependency rules
-- [`docs/architecture.md`](../architecture.md) — as-built map
+- [`docs/architecture.md`](../../architecture.md) — as-built map
 
 ---
 

@@ -43,7 +43,7 @@ import (
 // Forbidden always: Hijack-silent-close · invent terminal frames for failed bridges.
 const (
 	ResponsesWebsocketResidualStatus = "c3_codex_upstream_wss"
-	ResponsesWebsocketResidualDoc    = "docs/responses-websocket-residual.md"
+	ResponsesWebsocketResidualDoc    = "docs/internal/responses-websocket-residual.md"
 
 	wsTurnStateHeader                 = "x-codex-turn-state"
 	responsesWebsocketTransportHeader = "x-metapi-responses-websocket-transport"
