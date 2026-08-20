@@ -4,7 +4,7 @@
 // formatLatency/formatSuccessRate) into one vocabulary so number/price/
 // latency/token display stays consistent across the admin console.
 
-const EM_DASH = '—'
+export const EM_DASH = '—'
 
 /** Format an integer with locale grouping; returns "—" for null/NaN. */
 export function formatInt(value: number | null | undefined): string {

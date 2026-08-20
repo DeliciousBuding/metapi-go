@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/sheet'
 import { toBcp47 } from '@/i18n/languages'
 import {
+  EM_DASH,
   formatAbsoluteDateTime,
   formatPrice,
   formatRelativeTime,
@@ -110,16 +111,16 @@ export function AccountDetailSheet({
               {site?.platform || '—'}
             </DetailField>
             <DetailField label={t('accounts.detail.balance')}>
-              ${formatNumber(account.balance)}
+              {formatAmount(account.balance)}
             </DetailField>
             <DetailField label={t('accounts.detail.used')}>
-              ${formatNumber(account.balanceUsed)}
+              {formatAmount(account.balanceUsed)}
             </DetailField>
             <DetailField label={t('accounts.detail.todayReward')}>
-              +${formatNumber(account.todayReward)}
+              {formatAmount(account.todayReward, '+$')}
             </DetailField>
             <DetailField label={t('accounts.detail.todaySpend')}>
-              ${formatNumber(account.todaySpend)}
+              {formatAmount(account.todaySpend)}
             </DetailField>
             <DetailField label={t('accounts.detail.checkin')}>
               {account.capabilities?.canCheckin
@@ -234,7 +235,10 @@ function DetailField({
   )
 }
 
-function formatNumber(value: number | undefined | null): string {
-  if (value === undefined || value === null) return '0.00'
-  return value.toFixed(2)
+// A null amount means "never refreshed", not zero — rendering $0.00 would
+// misreport a missing value. Show a bare em dash (no currency prefix),
+// matching lib/format's null-display convention.
+function formatAmount(value: number | undefined | null, prefix = '$'): string {
+  if (value === undefined || value === null) return EM_DASH
+  return `${prefix}${value.toFixed(2)}`
 }
