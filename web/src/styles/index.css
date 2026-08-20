@@ -433,3 +433,27 @@
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * Reduced-transparency fallback for the glass material (DESIGN.md §2.6).
+ * The only surfaces that actually layer backdrop blur over a translucent
+ * fill are the shared glass recipe (`bg-background/95
+ * supports-[backdrop-filter]:bg-background/60 backdrop-blur-lg` — topbar in
+ * layout/app-header and the floating bulk-actions bar) and the
+ * dialog/sheet/alert-dialog scrims (`bg-overlay` + `backdrop-blur-xs`).
+ * Toasts already sit on opaque --popover, and the sidebar / sign-in page are
+ * flat, so nothing else needs a fallback. Under the preference the blur is
+ * stripped and the see-through fill becomes opaque --background; borders and
+ * shadows stay untouched so the elevation hierarchy survives. The query is
+ * the only activation gate — default appearance is unchanged.
+ */
+@media (prefers-reduced-transparency: reduce) {
+  .backdrop-blur-lg,
+  [data-slot='dialog-overlay'],
+  [data-slot='sheet-overlay'],
+  [data-slot='alert-dialog-overlay'] {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    background-color: var(--background) !important;
+  }
+}
