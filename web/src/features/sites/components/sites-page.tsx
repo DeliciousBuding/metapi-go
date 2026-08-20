@@ -12,13 +12,13 @@
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import {
   Plus as PlusIcon,
-  RotateCcw as RotateCcwIcon,
   Trash2 as Trash2Icon,
   Upload as UploadIcon,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import {
   DataTableBulkActions,
   DataTablePage,
@@ -391,27 +391,12 @@ export function SitesPage() {
       </div>
 
       {sitesQuery.error ? (
-        <div className='flex flex-col gap-3'>
-          <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
-            {t('sites.page.loadError', {
-              message: (sitesQuery.error as Error).message,
-            })}
-          </div>
-          <div>
-            <Button
-              variant='secondary'
-              onClick={() => sitesQuery.refetch()}
-              disabled={sitesQuery.isFetching}
-            >
-              {sitesQuery.isFetching ? (
-                <Spinner className='mr-1' />
-              ) : (
-                <RotateCcwIcon className='mr-1 size-4' />
-              )}
-              {t('sites.page.retry')}
-            </Button>
-          </div>
-        </div>
+        <QueryErrorBanner
+          error={sitesQuery.error as Error | null}
+          messageKey='sites.page.loadError'
+          onRetry={() => sitesQuery.refetch()}
+          isRetrying={sitesQuery.isFetching}
+        />
       ) : (
         <DataTablePage
           table={table}
