@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 )
@@ -223,6 +224,15 @@ func (h *monitorHandler) ldohProxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	wildcardPath := resolveLdohProxyPath(r)
+	// Wave 4 security handoff M1: reject ".." segments before joining the
+	// LDOH base URL. The request path arrives percent-decoded, so %2e%2e is
+	// caught in the same scan. Without this check a monitor-session cookie
+	// holder could normalize outside the LDOH base subpath on the upstream
+	// host once the surface is reachable with cookie-only auth (F1).
+	if proxy.ContainsPathTraversal(wildcardPath) {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid proxy path"})
+		return
+	}
 	baseURL := h.cfg.LDOHBaseURL
 	targetURL, err := url.Parse(baseURL + "/" + wildcardPath)
 	if err != nil {
