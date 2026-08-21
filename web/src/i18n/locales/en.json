@@ -60,9 +60,7 @@
       "noResultsDescription": "No records match your current filters.",
       "resetFilters": "Reset filters",
       "edit": "Edit",
-      "create": "Create",
       "close": "Close",
-      "no": "No",
       "retry": "Retry",
       "actions": "Actions",
       "moreActions": "More actions",
@@ -157,6 +155,8 @@
         "successRate": "Success rate",
         "capabilities": "Capabilities",
         "pricing": "Pricing",
+        "inputPrice": "in ${{price}}/M",
+        "outputPrice": "out ${{price}}/M",
         "unknownUser": "Unknown user",
         "availableAccounts": "Available accounts",
         "testModel": "Test model",
@@ -321,7 +321,6 @@
       "form": {
         "startTitle": "Start authorization",
         "startDescription": "Connect an OAuth account to enable it for routing.",
-        "startSucceeded": "Authorization started.",
         "startFailed": "Failed to start authorization.",
         "provider": "Provider",
         "providerPlaceholder": "Select a provider",
@@ -410,7 +409,6 @@
     "sites": {
       "page": {
         "loadError": "Failed to load sites: {{message}}",
-        "retry": "Retry",
         "title": "Sites",
         "description": "Manage connected sites, their status, and routing weight."
       },
@@ -1625,7 +1623,6 @@
       },
       "verify": {
         "button": "Verify",
-        "pending": "Verifying…",
         "verified": "Verified — {{tokenType}} ({{modelCount}} models)",
         "failed": "Verification failed",
         "siteRequired": "Select a site first",
@@ -1771,7 +1768,6 @@
         "selectRow": "Select row",
         "viewDetails": "View details",
         "clearCooldown": "Clear cooldown",
-        "refreshDecision": "Refresh decision",
         "notGenerated": "Not generated",
         "decisionCachedAt": "Decision cached at {{time}}",
         "modelAndName": "Model / name",
@@ -1797,7 +1793,6 @@
         "decisionRefresh": "Decision refresh",
         "modelMapping": "Model mapping",
         "clearCooldown": "Clear cooldown",
-        "refreshDecision": "Refresh decision",
         "channelTruthList": "Channel allocation and price",
         "channelTruthDescription": "Configured weights, enabled shares, and normalized prices from Price Compare.",
         "channelEmptyReadOnly": "No channels, complete the connection config first then rebuild routes.",
@@ -1839,7 +1834,6 @@
         "flowComplete": "Configuration flow complete.",
         "withRouteId": "Route #{{id}} created. {{suffix}}",
         "withoutRouteId": "Route created. {{suffix}}",
-        "action": "Back to Dashboard",
         "connectAction": "Connect a client"
       },
       "toast": {
@@ -1920,7 +1914,6 @@
         "createdAt": "Check-in time",
         "account": "Account",
         "site": "Site",
-        "status": "Status",
         "failureReason": "Failure reason",
         "message": "Message",
         "reward": "Reward"
@@ -2443,7 +2436,6 @@
         "oauth_unit": "OAuth unit"
       },
       "detail": {
-        "title": "Channel detail",
         "description": "Read-only routing health for a single channel.",
         "sectionOverview": "Overview",
         "sectionHealth": "Routing health",
@@ -2455,9 +2447,6 @@
         "enabled": "Enabled",
         "disabled": "Disabled",
         "routePattern": "Route pattern",
-        "oauthUnit": "OAuth unit",
-        "tokenName": "Token name",
-        "accountName": "Account",
         "priority": "Priority",
         "weight": "Weight",
         "avgLatency": "Average latency",
@@ -2465,9 +2454,7 @@
         "manualOverride": "Manual override",
         "manualOverrideActive": "Active",
         "manualOverrideNone": "None",
-        "modelsList": "Model list",
         "notAvailable": "—",
-        "never": "Never",
         "clearRouteCooldown": "Clear route cooldown",
         "clearRouteCooldownHint": "Resets cooldown and failure counts for every channel on this channel's route.",
         "editRoute": "Edit route",

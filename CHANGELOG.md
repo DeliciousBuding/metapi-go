@@ -5,6 +5,28 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.16.3] — 2026-08-21
+
+前端细节打磨专项（#887 审计驱动，四路并行审计：空壳扫描 / 五动线逐跳追踪 / PM 内容完整度 / 设计系统落地）。
+
+### Fixed
+
+- **Dashboard 告警（attention）深链全线失效（P0）**：后端发出 SPA 不消费的 target（`/sites?siteId=N`、裸 `/settings`），点击 100% 落空。后端改发 `/sites?edit=N` 与 `/settings/system-info/program-logs`；前端 accounts 新增 `accountId` 一次性深链消费（打开账号详情 sheet，stale id 静默清除）（#890）。
+- **首次接入动线死胡同（P0）**：导入向导 done 步只有统计 + 关闭，且导入不触发路由重建，用户不知道模型还不可路由——加主 CTA「重建路由」（复用共享 mutation）+ 次 CTA「添加账号」+ 说明文案；下游密钥创建成功后自动打开「接入」对话框；account-created / route-completion 引导 toast 改 SPA 导航（此前 `window.location.assign` 整页刷新丢状态）（#892）。
+- **下钻死胡同**：channel 详情「编辑路由」按钮实际打开只读详情——routes 页新增一次性 `edit` 参数改开真编辑对话框；observability 熔断/冷却表补出口链接（`/sites?edit=N` / `/channels?channelId=N`）；model-tester 对比结果每行通道可点跳转；models / checkin 空态补 CTA（#893）。
+- **站点创建后账号页快照缓存滞后**：createSite 只失效路由缓存，未失效 accounts 快照缓存，新建首个站点后「添加账号」按钮最长 30 秒被陈旧快照禁用。createSite 补 `InvalidateSiteCaches()`，与 update/delete 对齐（#895）。
+
+### Added
+
+- **契约已有、从未渲染的运营数据**：站点页新增「余额」列（totalBalance → 订阅 remaining 阶梯兜底）+ 详情余额/订阅区块（Plans / 月用量 / Remaining / 下次到期）+ 端点冷却与失败原因状态；账号详情补 quota / unitCost / lastCheckinAt / 健康原因；路由详情通道指标新增 success/fail 命中计数；OAuth 新增 quota（5h/7d 窗口真实形状）/ planType / 参与路由数 / 最近同步错误四列。空值一律 em-dash 或整块隐藏，不伪造数据（#894）。
+- **`prefers-reduced-transparency` 无障碍支持**：topbar、批量操作浮动条与 dialog/sheet/alert-dialog 三个 scrim 共 5 个玻璃表面，在系统"降低透明度"偏好下降级为实心底并移除 blur；默认外观零变化（#896）。
+- **E2E 验收平台**：Playwright 真实浏览器驱动打包后 SPA 打真后端 + 真上游的验收脚本（operator-gated，不进阻塞式 PR CI）（#888）。
+
+### Changed
+
+- **设计系统收口**：accounts/checkin/token-routes 手搓 `outline-none` 行操作按钮换 ui/button 原语恢复键盘焦点环；sign-in 页标题回到 DESIGN 规定字阶；删除 157 行零引用 landing 动画死 CSS；sites 页迁移共享 QueryErrorBanner；about 页版本号改构建期从 package.json 注入（此前硬编码 0.9.0 与实际版本脱节）（#891）。
+- **卫生**：清理 16 个经验证零引用的 i18n key（字面量 + 动态前缀双重匹配，含复数后缀运行时引用的刻意保留）；model-detail 定价文案走 i18n；a11y-checklist 文档诚实化（修正 4 个幽灵组件名，reduced-transparency 改为基于真实实现的 Pass）（#896）。
+
 ## [v0.16.2] — 2026-08-20
 
 ### Fixed
