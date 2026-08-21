@@ -149,36 +149,70 @@ func ListTokensWithRelations(db *sqlx.DB, accountID *int64) ([]map[string]any, e
 		if isAPIKeyConnFromRow(row) {
 			continue
 		}
-		// Add tokenMasked
+		// MapScan exposes raw snake_case DB column names; the wire contract
+		// (web/src/features/accounts/types.ts accountTokenSchema) expects
+		// camelCase fields and no internal join columns. Rebuild a clean map
+		// so `accountId` / `tokenGroup` / `isDefault` / `createdAt` /
+		// `updatedAt` are present and `account_id`, `token_group`,
+		// `is_default`, `value_status`, `account_id_val`, `site_id`, ... do
+		// not leak into the response.
 		tokenVal, _ := row["token"].(string)
 		platform, _ := row["site_platform"].(string)
-		row["tokenMasked"] = MaskToken(tokenVal, platform)
-		// Add valueStatus
-		vs, _ := row["value_status"].(string)
-		if IsMaskedTokenValue(tokenVal) && vs != TokenValueStatusMaskedPending {
-			row["valueStatus"] = TokenValueStatusMaskedPending
-		} else {
-			row["valueStatus"] = vs
+		valueStatus, _ := row["value_status"].(string)
+		if IsMaskedTokenValue(tokenVal) && valueStatus != TokenValueStatusMaskedPending {
+			valueStatus = TokenValueStatusMaskedPending
 		}
-		delete(row, "token") // Remove plain token
-		// Drop account secrets that were only needed for API-key connection filter.
-		delete(row, "access_token")
-		delete(row, "extra_config")
-		// Add account and site sub-objects
-		row["account"] = map[string]any{
-			"id":       row["account_id_val"],
-			"username": row["username"],
-			"status":   row["account_status"],
+		item := map[string]any{
+			"id":          row["id"],
+			"accountId":   row["account_id"],
+			"name":        row["name"],
+			"tokenGroup":  row["token_group"],
+			"valueStatus": valueStatus,
+			"source":      row["source"],
+			"enabled":     rowBoolValue(row["enabled"]),
+			"isDefault":   rowBoolValue(row["is_default"]),
+			"createdAt":   row["created_at"],
+			"updatedAt":   row["updated_at"],
+			// No plain `token` key: masked form only (secret never crosses
+			// the list response; same as the pre-contract-fix behavior).
+			"tokenMasked": MaskToken(tokenVal, platform),
+			"account": map[string]any{
+				"id":       row["account_id_val"],
+				"username": row["username"],
+				"status":   row["account_status"],
+			},
+			"site": map[string]any{
+				"id":       row["site_id"],
+				"name":     row["site_name"],
+				"url":      row["site_url"],
+				"platform": row["site_platform"],
+			},
 		}
-		row["site"] = map[string]any{
-			"id":       row["site_id"],
-			"name":     row["site_name"],
-			"url":      row["site_url"],
-			"platform": row["site_platform"],
-		}
-		result = append(result, row)
+		result = append(result, item)
 	}
 	return result, nil
+}
+
+// rowBoolValue coerces a scanned boolean-ish column value (SQLite integer,
+// Postgres bool, possible string/bytes) into a JSON boolean so both dialects
+// emit the same wire shape for enabled/isDefault.
+func rowBoolValue(v any) bool {
+	switch b := v.(type) {
+	case bool:
+		return b
+	case int64:
+		return b != 0
+	case int:
+		return b != 0
+	case float64:
+		return b != 0
+	case string:
+		return strings.EqualFold(strings.TrimSpace(b), "true") || b == "1"
+	case []byte:
+		return rowBoolValue(string(b))
+	default:
+		return false
+	}
 }
 
 func isAPIKeyConnFromRow(row map[string]any) bool {

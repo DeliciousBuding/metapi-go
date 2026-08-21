@@ -154,6 +154,120 @@ func TestTokens_List_AllWithoutFilter(t *testing.T) {
 	}
 }
 
+// TestTokens_List_WireContractCamelCase verifies the GET /api/account-tokens
+// response carries the camelCase wire contract fields and does not leak raw
+// snake_case DB column names. Regression for the Round 3 D-domain contract
+// audit: MapScan exposed `account_id`, `token_group`, `is_default`, ... while
+// the frontend accountTokenSchema requires `accountId`, `tokenGroup`,
+// `isDefault`, `createdAt`, `updatedAt`.
+func TestTokens_List_WireContractCamelCase(t *testing.T) {
+	db, r := setupTokensTest(t)
+	_, accountID := tokenFixture(t, db, r)
+	createTokenFixture(t, db, accountID, "vip-token", "sk-abc123", "vip", true, true)
+
+	resp := doGet(t, r, "/api/account-tokens?accountId="+itoa(accountID))
+	if resp.Code != http.StatusOK {
+		t.Fatalf("list tokens: %d %s", resp.Code, resp.Body.String())
+	}
+
+	var tokens []map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &tokens); err != nil {
+		t.Fatalf("decode list: %v", err)
+	}
+	if len(tokens) != 1 {
+		t.Fatalf("expected 1 token, got %d", len(tokens))
+	}
+	tok := tokens[0]
+
+	// Contract fields must be present with the correct casing.
+	if got := int64(tok["accountId"].(float64)); got != accountID {
+		t.Fatalf("accountId = %v, want %d", tok["accountId"], accountID)
+	}
+	if tok["tokenGroup"] != "vip" {
+		t.Fatalf("tokenGroup = %v, want vip", tok["tokenGroup"])
+	}
+	if tok["valueStatus"] != "ready" {
+		t.Fatalf("valueStatus = %v, want ready", tok["valueStatus"])
+	}
+	if tok["enabled"] != true {
+		t.Fatalf("enabled = %v, want true (JSON bool, not int)", tok["enabled"])
+	}
+	if tok["isDefault"] != true {
+		t.Fatalf("isDefault = %v, want true (JSON bool, not int)", tok["isDefault"])
+	}
+	if s, _ := tok["createdAt"].(string); s == "" {
+		t.Fatalf("createdAt = %v, want non-empty string", tok["createdAt"])
+	}
+	if s, _ := tok["updatedAt"].(string); s == "" {
+		t.Fatalf("updatedAt = %v, want non-empty string", tok["updatedAt"])
+	}
+	if tok["tokenMasked"] == nil || tok["tokenMasked"] == "" {
+		t.Fatalf("tokenMasked = %v, want non-empty", tok["tokenMasked"])
+	}
+	if tok["source"] != "manual" {
+		t.Fatalf("source = %v, want manual", tok["source"])
+	}
+
+	// Relation sub-objects keep their camelCase contract keys.
+	account, _ := tok["account"].(map[string]any)
+	if account == nil || account["id"] == nil || account["username"] == nil {
+		t.Fatalf("account sub-object malformed: %#v", tok["account"])
+	}
+	site, _ := tok["site"].(map[string]any)
+	if site == nil || site["id"] == nil || site["platform"] == nil {
+		t.Fatalf("site sub-object malformed: %#v", tok["site"])
+	}
+
+	// Raw snake_case DB columns and internal join aliases must not leak.
+	snakeKeys := []string{
+		"account_id", "token_group", "value_status", "is_default",
+		"created_at", "updated_at", "account_id_val", "account_status",
+		"site_id", "site_name", "site_url", "site_platform",
+		"access_token", "extra_config", "username", "token",
+	}
+	for _, key := range snakeKeys {
+		if _, leaked := tok[key]; leaked {
+			t.Fatalf("response leaks internal key %q: %#v", key, tok[key])
+		}
+	}
+}
+
+// TestTokens_List_WireContractCamelCase_Postgres runs the same contract
+// assertions against PostgreSQL when PG_TEST_DSN is set.
+func TestTokens_List_WireContractCamelCase_Postgres(t *testing.T) {
+	db, r := setupTokensPostgresTest(t)
+	_, accountID := tokenFixture(t, db, r)
+	createTokenFixture(t, db, accountID, "vip-token", "sk-abc123", "vip", true, true)
+
+	resp := doGet(t, r, "/api/account-tokens?accountId="+itoa(accountID))
+	if resp.Code != http.StatusOK {
+		t.Fatalf("list tokens: %d %s", resp.Code, resp.Body.String())
+	}
+	var tokens []map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &tokens); err != nil {
+		t.Fatalf("decode list: %v", err)
+	}
+	if len(tokens) != 1 {
+		t.Fatalf("expected 1 token, got %d", len(tokens))
+	}
+	tok := tokens[0]
+	if got := int64(tok["accountId"].(float64)); got != accountID {
+		t.Fatalf("accountId = %v, want %d", tok["accountId"], accountID)
+	}
+	if tok["tokenGroup"] != "vip" {
+		t.Fatalf("tokenGroup = %v, want vip", tok["tokenGroup"])
+	}
+	if tok["isDefault"] != true {
+		t.Fatalf("isDefault = %v, want true", tok["isDefault"])
+	}
+	if _, leaked := tok["token_group"]; leaked {
+		t.Fatalf("response leaks snake_case token_group: %#v", tok["token_group"])
+	}
+	if _, leaked := tok["is_default"]; leaked {
+		t.Fatalf("response leaks snake_case is_default: %#v", tok["is_default"])
+	}
+}
+
 // ---- Create Token (Local Path) ----
 
 func TestTokens_Create_Local(t *testing.T) {
