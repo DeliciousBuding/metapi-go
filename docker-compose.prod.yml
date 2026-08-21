@@ -11,21 +11,21 @@
 
 services:
   metapi:
-    # Pin a release tag (e.g. ghcr.io/deliciousbuding/metapi-go:v0.16.1) instead
+    # Pin a release tag (e.g. ghcr.io/deliciousbuding/metapi-go:v0.16.6) instead
     # of :latest for reproducible production deploys.
     image: ghcr.io/deliciousbuding/metapi-go:latest
     ports:
       - "127.0.0.1:4000:4000"
     # Data directory. The image runs as non-root uid 1001, so:
-    #   - Named volume (recommended for fresh installs): ownership is copied
-    #     from the image automatically — no chown needed.
-    #       volumes: [ "metapi_data:/app/data" ]
-    #   - Bind mount (required when migrating existing TS data): the host
+    #   - Named volume (recommended default, zero config): ownership is copied
+    #     from the image automatically on first mount — no chown needed.
+    #   - Bind mount (e.g. migrating existing TS data in ./data): the host
     #     directory must be writable by uid 1001, otherwise startup fails with
-    #     "readonly database" / "unable to open database file". Fix on the host:
-    #       chown -R 1001:1001 ./data
+    #     "readonly database" / "unable to open database file". On the host run
+    #     `chown -R 1001:1001 ./data` first, then swap the volumes entry for:
+    #       - ./data:/app/data
     volumes:
-      - ./data:/app/data
+      - metapi_data:/app/data
     environment:
       # Required (validated at startup -- missing = exit with error)
       AUTH_TOKEN: ${AUTH_TOKEN:?AUTH_TOKEN is required}
@@ -86,3 +86,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+volumes:
+  metapi_data:

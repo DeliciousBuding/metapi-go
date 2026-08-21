@@ -46,7 +46,7 @@
   <tr>
     <td align="center">
       <img src="docs/assets/screenshots/routes.webp" alt="Smart routing" style="width:100%;height:auto;"/>
-      <div><b>Smart routing</b> — probabilistic multi-channel allocation</div>
+      <div><b>Smart routing</b> — probabilistic multi-channel allocation, cost-first</div>
     </td>
     <td align="center">
       <img src="docs/assets/screenshots/accounts.webp" alt="Accounts" style="width:100%;height:auto;"/>
@@ -77,34 +77,32 @@
 
 ---
 
-## Introduction
+## What is Metapi
 
 The AI ecosystem is full of aggregation relays built on New API / One API and
-friends. Managing balances, model lists and API keys across many of them is
-scattered and slow.
+friends, and balances, model lists and API keys end up scattered across many
+of them. **Metapi** is the **meta-aggregation layer** above those relays: it
+unifies your sites behind **one entrypoint**, so every downstream tool —
+Cursor, Claude Code, Codex, Open WebUI and anything that speaks OpenAI —
+reaches all of your models transparently.
 
-**Metapi** is a **meta-aggregation layer** above those relays: it unifies your
-sites behind **one entrypoint (with per-project downstream keys)**, so every
-downstream tool — Cursor, Claude Code, Codex, Open WebUI and anything that
-speaks OpenAI — reaches all of your models transparently. Supported upstreams:
+Supported upstreams:
 
 - **Aggregation panels**: New API, One API, OneHub, DoneHub, Veloera, AnyRouter, Sub2API
 - **Compatible endpoints**: OpenAI / Claude / Gemini compatible APIs, plus `cliproxyapi` / CPA
 - **OAuth connections**: Codex, Claude, Gemini CLI, Antigravity
 
-| Pain point                                    | How Metapi solves it                                        |
-| --------------------------------------------- | ----------------------------------------------------------- |
-| One key per site, a pile of client configs    | **Unified proxy entry + downstream keys**, models aggregated on `/v1/*` |
-| No idea which site is cheapest for a model    | **Smart routing** picks the best channel by cost, balance and usage |
-| A site goes down, manual switching            | **Automatic failover** with per-channel cooldown            |
-| Balances scattered everywhere                 | **Central dashboard** with low-balance alerts               |
-| Daily check-ins on every site                 | **Scheduled auto check-in** with reward tracking            |
-| No idea which site has which model            | **Auto model discovery** — new upstream models appear with zero config |
+| Pain point                                 | How Metapi solves it                                                    |
+| ------------------------------------------ | ----------------------------------------------------------------------- |
+| One key per site, a pile of client configs | **Unified proxy entry + multiple downstream keys**, models aggregated on `/v1/*` |
+| No idea which site is cheapest for a model | **Smart routing** picks the best channel by cost, balance and usage     |
+| A site goes down, manual switching         | **Automatic failover**: failed channels cool down, request retries on the next |
+| Balances scattered everywhere              | **Central dashboard** at a glance, with low-balance alerts              |
+| Daily check-ins on every site              | **Scheduled auto check-in** with reward tracking                        |
+| No idea which site has which model         | **Auto model discovery** — new upstream models enter routing with zero config |
 
-### How the Go version differs
-
-A ground-up Go rewrite of [Metapi (TypeScript)](https://github.com/cita-777/metapi)
-with client-visible compatibility, in a much lighter runtime:
+This project is a Go rewrite of [Metapi (TypeScript)](https://github.com/cita-777/metapi)
+with client-visible compatibility:
 
 |                | Node.js (original) | Go (this repo)   |
 | -------------- | ------------------ | ---------------- |
@@ -115,94 +113,130 @@ with client-visible compatibility, in a much lighter runtime:
 
 ---
 
-## Quick start
+## Quick start (3 minutes)
 
-### Docker (recommended)
+The release page ships pre-built binaries for Linux / macOS / Windows — one file, no runtime.
+
+**1. Install** (Linux / macOS; on Windows download `metapi-windows-amd64.exe` directly from [Releases](https://github.com/DeliciousBuding/metapi-go/releases/latest)):
+
+```bash
+curl -fsSL https://github.com/DeliciousBuding/metapi-go/releases/latest/download/install.sh | bash
+```
+
+The script verifies the SHA-256 checksum and installs to `/usr/local/bin/metapi`.
+If `/usr/local` is not writable, point `METAPI_INSTALL_PREFIX` at a directory of
+your choice (e.g. `METAPI_INSTALL_PREFIX=~/.local` installs to `~/.local/bin/metapi`).
+
+**2. Start** (only two tokens are required):
+
+```bash
+export AUTH_TOKEN=$(openssl rand -hex 16)      # admin UI login token
+export PROXY_TOKEN=sk-$(openssl rand -hex 24)  # downstream key for /v1/* calls
+metapi
+```
+
+**3. Verify**:
+
+```bash
+curl http://localhost:4000/health
+# {"status":"ok"}
+curl http://localhost:4000/ready
+# {"status":"ok","database":"ok"}
+```
+
+Open `http://localhost:4000` and sign in with `AUTH_TOKEN`. Data lives in `./data`
+(SQLite) by default and survives removing the token environment variables.
+
+> The path above was tested end to end. If the port is taken, override with
+> `PORT=<port>` (default 4000). Then add sites and accounts in the UI, run the
+> automatic route rebuild, and make your first proxied request — full walkthrough:
+> [getting started](docs/getting-started.md).
+
+## Deployment
+
+### Docker
+
+> The commands below were cross-checked line by line against the repo `Dockerfile` /
+> `docker-compose.prod.yml` (no Docker available in the test environment; not executed).
 
 ```bash
 docker run -d --name metapi \
   -p 4000:4000 \
   -e AUTH_TOKEN=your-admin-token \
   -e PROXY_TOKEN=your-proxy-sk-token \
+  -e ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32) \
   -e TZ=Asia/Shanghai \
-  -v ./data:/app/data \
+  -v metapi_data:/app/data \
   --restart unless-stopped \
   ghcr.io/deliciousbuding/metapi-go:latest
 ```
 
-Open `http://localhost:4000` and sign in with `AUTH_TOKEN`.
+Key points:
 
-> [!IMPORTANT]
-> Change `AUTH_TOKEN` and `PROXY_TOKEN` — never ship the defaults. Data lives
-> in `./data` and survives upgrades.
+- The image runs as a non-root user (uid 1001). A **named volume** (`metapi_data`
+  above) inherits the image ownership on first mount — zero configuration. If you
+  use a bind mount such as `./data:/app/data` instead, run
+  `chown -R 1001:1001 ./data` on the host first; see the
+  [deployment guide](docs/deployment.md).
+- `ACCOUNT_CREDENTIAL_SECRET` encrypts the upstream credentials stored in the
+  database. Generate an independent 32+ byte random secret; when unset it falls
+  back to `AUTH_TOKEN`.
+- For production, pin a version tag (e.g. `:v0.16.6`) instead of `latest`.
 
 ### Docker Compose
 
+`docker-compose.prod.yml` (GHCR image + production hardening) or
+`docker-compose.yml` (local build):
+
 ```bash
-mkdir metapi && cd metapi
-
-cat > docker-compose.yml << 'EOF'
-services:
-  metapi:
-    image: ghcr.io/deliciousbuding/metapi-go:latest
-    ports:
-      - "4000:4000"
-    volumes:
-      - ./data:/app/data
-    environment:
-      AUTH_TOKEN: ${AUTH_TOKEN:?AUTH_TOKEN is required}
-      PROXY_TOKEN: ${PROXY_TOKEN:?PROXY_TOKEN is required}
-      CHECKIN_CRON: "0 8 * * *"
-      BALANCE_REFRESH_CRON: "0 * * * *"
-      PORT: ${PORT:-4000}
-      DATA_DIR: /app/data
-      TZ: ${TZ:-Asia/Shanghai}
-    restart: unless-stopped
-EOF
-
-export AUTH_TOKEN=your-admin-token
-export PROXY_TOKEN=your-proxy-sk-token
-docker compose up -d
+cp .env.example .env   # fill in AUTH_TOKEN / PROXY_TOKEN / ACCOUNT_CREDENTIAL_SECRET
+docker compose -f docker-compose.prod.yml up -d
 ```
 
-Reverse proxy, PostgreSQL and hardening details: [deployment guide](docs/deployment.md).
-A full install-to-first-request walkthrough: [getting started](docs/getting-started.md).
-
 ### From source
+
+Requires Go 1.26+ and Bun 1.x (the frontend must be built first; the output is
+embedded into the binary via `go:embed`):
 
 ```bash
 git clone https://github.com/DeliciousBuding/metapi-go.git
 cd metapi-go
+cd web && bun install --frozen-lockfile && bun run build:web && cd ..
 go build -o metapi ./cmd/server
 AUTH_TOKEN=your-admin-token PROXY_TOKEN=your-proxy-sk-token ./metapi
 ```
 
-On Windows, an empty `HOST` binds `127.0.0.1` by default to avoid recurring
-firewall prompts; set `HOST=0.0.0.0` for LAN access.
+Reverse proxy, PostgreSQL, upgrades and rollback: [deployment guide](docs/deployment.md).
 
 ---
 
 ## Your first proxied request
 
-Create a downstream key in the UI (or use `PROXY_TOKEN`), then call Metapi
-exactly like OpenAI:
+After adding at least one upstream site with an account in the UI and running
+"Auto-rebuild routes" (see [getting started](docs/getting-started.md)), call
+Metapi exactly like OpenAI:
 
 ```bash
 curl http://localhost:4000/v1/chat/completions \
   -H "Authorization: Bearer $PROXY_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-3-5-sonnet",
+    "model": "<any routed model>",
     "messages": [{ "role": "user", "content": "hello" }]
   }'
 ```
 
-Metapi selects the cheapest healthy channel across all your sites; failed
-channels cool down and the request retries on the next one. Claude native
-(`/v1/messages`), Responses, Embeddings, Images, `/v1/models` and `/v1/files`
-work the same way. Full endpoint inventory: [HTTP API](docs/api.md); client
-setup for Cursor / Claude Code / Codex / Open WebUI:
-[client integration](docs/client-integration.md).
+Metapi picks the cheapest healthy channel across all of your upstream sites;
+failed channels cool down automatically and the request retries on the next one.
+Claude native format (`/v1/messages`), Responses, Embeddings, Images,
+`/v1/models` and `/v1/files` are supported the same way; full endpoint inventory:
+[HTTP API](docs/api.md), client setup: [client-integration](docs/client-integration.md).
+
+With no routes configured, proxy requests return an honest 503 (tested):
+
+```json
+{ "error": { "message": "No available channels", "type": "server_error", "request_id": "…" } }
+```
 
 ---
 
@@ -220,56 +254,59 @@ automatic OpenAI ⇄ Claude conversion.
 - Zero-config route tables from automatic model discovery
 - Four-level cost truth: measured → configured → models.dev catalog → fallback
 - Probabilistic multi-channel allocation weighted by cost, balance and usage
-- Failure cooldown + half-open probing so recovering channels re-enter safely
+- Automatic cooldown and avoidance of failed channels; requests retry on other channels
+- Runtime circuit breaker + half-open probing so recovering channels re-enter under control
 
 ### Multi-platform aggregation
 
-**16 adapters**: `new-api`, `one-api`, `onehub`, `done-hub`, `veloera`,
-`anyrouter`, `sub2api`, `openai`, `claude`, `gemini` and more — covering model
-enumeration, balance queries, token management and proxying; login/check-in
-capabilities per platform.
+**16** adapters in total (`platform/`): `new-api`, `one-api`, `one-hub`,
+`done-hub`, `veloera`, `anyrouter`, `sub2api`, `openai`, `claude`, `gemini`,
+`gemini-cli`, `codex`, `antigravity`, `grok`, `cliproxyapi`, `sensetime`.
+Model enumeration, balance queries, token management and proxying are generic;
+login/check-in capabilities vary per platform.
 
 ### Accounts & tokens
 
 Multi-site, multi-account, multiple API tokens per account. Four-state health
-machine; credentials encrypted at rest; automatic re-login on expiry;
-disabling a site cascades to its accounts.
+machine (`healthy` / `unhealthy` / `degraded` / `disabled`); credentials
+encrypted at rest; automatic re-login on token expiry; disabling a site cascades
+to its accounts.
 
 ### Model marketplace & tester
 
-Cross-site model coverage, per-site price comparison, latency and success
-metrics; an interactive tester that forces specific channels and preserves
-honest status/latency/errors.
+Cross-site model coverage, per-site price comparison, latency and success-rate
+metrics; an interactive tester that forces specific channels and compares outputs.
 
 ### Check-in & balances
 
-Scheduled check-in (default 08:00 daily) with reward parsing and failure
-alerts; hourly balance refresh; daily/cumulative spend trends.
+Scheduled check-in (default daily at 08:00) with reward parsing, failure
+notifications and a concurrency lock against duplicates; scheduled balance
+refresh (default hourly) with income tracking and spend trend analysis.
 
 ### Alerts
 
-Nine channels: Webhook, Bark, ServerChan, Telegram Bot, SMTP, Feishu (HMAC),
-DingTalk (HMAC), WeCom, ntfy. Low balance, site/account incidents, check-in
-failures, proxy failures, token expiry, daily digests — with per-type muting
-and cooldowns.
+Nine channels: Webhook, Bark, ServerChan, Telegram Bot, SMTP email, Feishu,
+DingTalk, WeCom, ntfy. Covers low balance, site/account incidents, check-in
+failures, proxy failures, token expiry and daily digests — with per-type muting
+and cooldowns against duplicates.
 
 ### Operations & audit
 
-Admin audit log for mutating operations; realtime QPS/success-rate panel
-(WebSocket with reconnect); batch model verification; model rate overview
-with inline editing; redirect mapping; tags; dashboard snapshot PNG export.
+Audit log for admin operations; realtime QPS / success-rate panel (WebSocket
+stream); batch model verification, model rate editing, model redirect mappings,
+tags; dashboard snapshot PNG export.
 
 ### Lightweight deployment
 
-One container plus a local data directory, or external PostgreSQL. SQLite
-and PostgreSQL dual dialect with automatic additive schema upgrades at
-startup. ~15 MB image, instant start, full import/export.
+A single binary plus a local data directory is enough to run, or attach an
+external PostgreSQL; SQLite / PostgreSQL dual dialect with idempotent schema
+upgrades at startup; full data import/export.
 
 ---
 
 ## Configuration
 
-Two required variables to boot:
+All configuration is driven by environment variables; only two are required to boot:
 
 | Variable      | Description                                  |
 | ------------- | -------------------------------------------- |
@@ -278,82 +315,97 @@ Two required variables to boot:
 
 Common options:
 
-| Variable           | Default     | Description                              |
-| ------------------ | ----------- | ---------------------------------------- |
-| `PORT`             | `4000`      | Listen port                              |
-| `HOST`             | per-platform | Windows defaults `127.0.0.1`, servers `0.0.0.0`; containers fixed `0.0.0.0` |
-| `DATABASE_URL`     | empty       | PostgreSQL DSN; empty = SQLite           |
-| `CHECKIN_CRON`     | `0 8 * * *` | Check-in schedule                        |
-| `BALANCE_REFRESH_CRON` | `0 * * * *` | Balance refresh schedule             |
+| Variable                  | Default              | Description                                          |
+| ------------------------- | -------------------- | ---------------------------------------------------- |
+| `ACCOUNT_CREDENTIAL_SECRET` | falls back to `AUTH_TOKEN` | Upstream credential encryption key; a 32+ byte random secret is recommended |
+| `PORT`                    | `4000`               | Listen port                                          |
+| `HOST`                    | platform-dependent   | Windows defaults to `127.0.0.1`, other platforms `0.0.0.0` |
+| `DATA_DIR`                | `./data`             | Data directory (SQLite database and uploaded files)  |
+| `DATABASE_URL`            | empty                | PostgreSQL connection string; empty = SQLite         |
+| `LOG_LEVEL`               | `info`               | Log level: `debug` / `info` / `warn` / `error`       |
+| `CHECKIN_CRON`            | `0 8 * * *`          | Check-in schedule                                    |
+| `BALANCE_REFRESH_CRON`    | `0 * * * *`          | Balance refresh schedule                             |
 
-The complete reference (PostgreSQL pool presets, proxy limits, CORS, trusted
-proxy CIDRs, notification providers, …) lives in
+The complete reference (~150 variables: PostgreSQL pool presets, proxy limits,
+rate limiting, CORS, trusted proxies, notification channels, …) lives in the
 [configuration reference](docs/configuration.md) and [`.env.example`](.env.example).
 
 ### Health checks
 
-- `GET /health` — liveness
-- `GET /ready` — readiness incl. database; 503 while unavailable or draining
-- Docker runs `metapi healthcheck`, equivalent to probing `/ready`
-
----
-
-## Migrating from the TypeScript version
-
-The schema is identical: stop the old server and start Metapi Go with the
-same environment — `./data` is reused and the schema migrates itself
-(additive column upgrades run automatically on first start). The Go image
-runs as non-root (uid 1001); for a bind-mounted data directory previously
-written by the root-owned TS container, run `chown -R 1001:1001 ./data` on
-the host first (named volumes need no chown). There are three migration
-paths depending on the database the old deployment used: SQLite and
-PostgreSQL databases are taken over directly after stopping the old server;
-MySQL databases must first be converted to SQLite or PostgreSQL from inside
-the TypeScript admin UI (Settings → Database migration), then taken over
-like the other two. Full steps, the `metapi-migrate` CLI reference, image
-version pinning and rollback: [migration guide](docs/migration.md).
+- `GET /health` — liveness; 200 as long as the HTTP process is alive
+- `GET /ready` — readiness; checks the database; 503 while unavailable or draining
+- The Docker image ships `metapi healthcheck` (equivalent to probing `/ready`; exit codes tested)
 
 ---
 
 ## Documentation
 
-| Document                                                       | Purpose                          |
-| -------------------------------------------------------------- | -------------------------------- |
-| [docs/getting-started.md](docs/getting-started.md)             | Install → first proxied request  |
-| [docs/deployment.md](docs/deployment.md)                       | Deployment / reverse proxy / PG  |
-| [docs/configuration.md](docs/configuration.md)                 | Full environment reference       |
-| [docs/client-integration.md](docs/client-integration.md)       | Cursor / Claude Code / Codex / Open WebUI |
-| [docs/api.md](docs/api.md)                                     | HTTP API inventory               |
-| [docs/migration.md](docs/migration.md)                         | TS → Go migration (SQLite / PG / MySQL) |
-| [docs/faq.md](docs/faq.md)                                     | Frequently asked questions       |
-| [docs/architecture.md](docs/architecture.md)                   | Package map & request paths      |
-| [docs/README.md](docs/README.md)                               | Docs map (incl. maintainer docs) |
-| [CHANGELOG.md](CHANGELOG.md)                                   | Release notes                    |
+| Document                                                     | Purpose                          |
+| ------------------------------------------------------------ | -------------------------------- |
+| [docs/getting-started.md](docs/getting-started.md)           | **Getting started**: install → first proxied request |
+| [docs/deployment.md](docs/deployment.md)                     | Deployment / reverse proxy / PostgreSQL / upgrades |
+| [docs/configuration.md](docs/configuration.md)               | Full environment variable reference |
+| [docs/client-integration.md](docs/client-integration.md)     | Client setup (Cursor / Claude Code / Codex / Open WebUI) |
+| [docs/api.md](docs/api.md)                                   | HTTP API endpoint inventory      |
+| [docs/migration.md](docs/migration.md)                       | TS → Go migration (SQLite / PG / MySQL) |
+| [docs/faq.md](docs/faq.md)                                   | Frequently asked questions       |
+| [docs/architecture.md](docs/architecture.md)                 | Package map & request paths (developers) |
+| [docs/README.md](docs/README.md)                             | Documentation map                |
+| [CHANGELOG.md](CHANGELOG.md)                                 | Release notes                    |
+
+## Migrating from the TypeScript version
+
+The database schema is identical: stop the old server and start the Go version
+with the same environment variables; the idempotent migration runs at startup.
+The Go image runs as uid 1001 — a bind-mounted data directory previously written
+by the root-owned TypeScript container needs `chown -R 1001:1001 ./data` first
+(named volumes need no action). SQLite / PostgreSQL deployments are taken over
+directly; MySQL data must be exported through the TypeScript version's built-in
+migration first. Full steps, the `metapi-migrate` tool and rollback:
+[migration guide](docs/migration.md).
+
+## Known limitations
+
+- A few admin endpoints currently return an honest `501` (not implemented); see
+  the "501 residual" markers in [api.md](docs/api.md). For version updates use
+  GitHub Releases / GHCR image tags.
+- With no upstream configured, proxy requests return 503 — never a synthetic success.
+- Single-process semantics are the primary target; the shared semantics for
+  multi-instance deployments (Redis-shared RPM/TPM admission, PostgreSQL
+  advisory locks) are described in the [FAQ](docs/faq.md).
 
 ---
 
 ## Development
 
-```bash
-# backend
-make build && make test && make vet && make lint && make vuln
+### Backend (Go)
 
-# frontend (web/, Bun)
-cd web && bun install && bun run dev     # /api /v1 proxy to :4000
-bun run typecheck && bun run test && bun run build
+```bash
+make build    # build
+make test     # all tests (incl. -race)
+make vet      # go vet
+make lint     # golangci-lint
+make vuln     # govulncheck vulnerability scan
+```
+
+### Frontend (`web/`, Bun)
+
+```bash
+cd web
+bun install
+bun run dev         # local dev (/api /v1 proxied to the backend on :4000)
+bun run typecheck   # tsgo type check
+bun run test        # vitest full suite
+bun run build       # rsbuild build (output embedded into the Go binary via go:embed)
 ```
 
 Contribution flow (branch model, PR gates): [CONTRIBUTING.md](CONTRIBUTING.md).
 
----
-
 ## Contributing & security
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) — branch model, PR flow, local gates
-- [SECURITY.md](SECURITY.md) — responsible disclosure
+- [SECURITY.md](SECURITY.md) — vulnerability disclosure (Security Advisory)
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — community conduct
-
----
 
 ## Related projects
 
@@ -361,16 +413,8 @@ Contribution flow (branch model, PR gates): [CONTRIBUTING.md](CONTRIBUTING.md).
 - [New API](https://github.com/QuantumNous/new-api) — a primary upstream
 - [One API](https://github.com/songquanpeng/one-api) — the classic OpenAI-interface aggregator
 
----
-
-## Privacy
-
-Metapi is fully self-hosted: all data (accounts, tokens, routes, logs) stays
-in your deployment and nothing is reported anywhere; proxy traffic flows only
-between your server and your upstream sites.
-
----
-
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). Metapi is fully self-hosted: all data stays in your own
+deployment, and proxy traffic flows directly between your server and your
+upstream sites.

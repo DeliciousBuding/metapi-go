@@ -1,6 +1,6 @@
 # Configuration Reference
 
-**Last updated**: 2026-08-20
+**Last updated**: 2026-08-22
 
 Complete environment-variable reference. The single machine-readable source
 is [`.env.example`](../.env.example); this page groups and explains every
@@ -19,7 +19,7 @@ knob a deployment is likely to touch. Docker Compose users pass these via
 | Variable | Default | Description |
 |:---------|:--------|:------------|
 | `ACCOUNT_CREDENTIAL_SECRET` | falls back to `AUTH_TOKEN` | Independent secret for encrypting stored upstream credentials (AES key derived via SHA-256). Set a unique 32+ byte random value in production; empty falls back to `AUTH_TOKEN` with a startup warning, short values log weak-secret warnings. |
-| `TZ` | `Asia/Shanghai` | Timezone for cron schedules and daily aggregation. |
+| `TZ` | system local time | Timezone for cron schedules and daily aggregation. No code-level default; `.env.example` and the compose files preset `Asia/Shanghai`. |
 
 ## Server
 
@@ -52,11 +52,11 @@ knob a deployment is likely to touch. Docker Compose users pass these via
 | Variable | Default | Description |
 |:---------|:--------|:------------|
 | `CHECKIN_CRON` | `0 8 * * *` | Daily check-in cron. |
-| `CHECKIN_SCHEDULE_MODE` | `cron` | `cron`, `interval`, or `random-window` scheduling modes. |
+| `CHECKIN_SCHEDULE_MODE` | `cron` | `cron`, `interval`, or `window` scheduling modes (other values are rejected at startup). |
 | `CHECKIN_INTERVAL_HOURS` | `6` | Interval-mode period. |
 | `CHECKIN_WINDOW_START` / `CHECKIN_WINDOW_END` | `00:00` / `23:59` | Random-window mode bounds. |
 | `BALANCE_REFRESH_CRON` | `0 * * * *` | Balance refresh cron (hourly). |
-| `LOG_CLEANUP_CRON` | `0 3 * * *` | Retention pruning cron. |
+| `LOG_CLEANUP_CRON` | `0 6 * * *` | Retention pruning cron. |
 | `LOG_CLEANUP_USAGE_LOGS_ENABLED` / `LOG_CLEANUP_PROGRAM_LOGS_ENABLED` | auto | Which log families the cleanup prunes. |
 | `LOG_CLEANUP_RETENTION_DAYS` | `30` | Proxy/program log retention. |
 
