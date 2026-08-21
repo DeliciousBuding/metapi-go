@@ -76,8 +76,17 @@ func IsAllowedWebdavTargetHost(host string, allowPrivate bool) bool {
 // IsUnsafeAddr reports whether an IP address falls in an unsafe range for
 // outbound SSRF-sensitive traffic: unspecified, loopback, private,
 // link-local unicast, link-local multicast, or multicast.
+//
+// The whole 0.0.0.0/8 block is treated as unsafe, not just the exact
+// unspecified address: RFC 5735 defines 0.0.0.0/8 as "this network", and
+// several kernels/containers route it to the local stack. netip's
+// IsUnspecified() only matches the all-zero address, so the first octet is
+// checked explicitly to match the documented intent.
 func IsUnsafeAddr(addr netip.Addr) bool {
 	addr = addr.Unmap()
+	if addr.Is4() && addr.As4()[0] == 0 {
+		return true // 0.0.0.0/8 — this-network / unspecified
+	}
 	return addr.IsUnspecified() ||
 		addr.IsLoopback() ||
 		addr.IsPrivate() ||
