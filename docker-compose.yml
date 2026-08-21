@@ -6,7 +6,12 @@ services:
     ports:
       - "127.0.0.1:4000:4000"
     volumes:
-      - ./data:/app/data
+      # Named volume is the zero-config default: the image runs as uid 1001
+      # and ownership is copied from the image on first mount.
+      # To reuse a host directory instead (e.g. existing ./data from the
+      # TypeScript version), run `chown -R 1001:1001 ./data` on the host
+      # first, then swap the entry below for: - ./data:/app/data
+      - metapi_data:/app/data
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -31,3 +36,6 @@ services:
       HOST: 0.0.0.0
       AUTH_TOKEN: ${AUTH_TOKEN:?Set AUTH_TOKEN in .env}
       PROXY_TOKEN: ${PROXY_TOKEN:?Set PROXY_TOKEN in .env}
+
+volumes:
+  metapi_data:

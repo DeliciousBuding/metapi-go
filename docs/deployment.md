@@ -1,14 +1,94 @@
 # Deployment Guide
 
-**Last updated**: 2026-08-20
+**Last updated**: 2026-08-22
 
 ## Prerequisites
 
-- Docker (for containerized deployment)
-- Go 1.26.6+ (for bare-metal deployment)
-- Bun 1.x (for frontend build)
-- PostgreSQL 16+ (optional, for production database)
-- A reverse proxy (nginx or Caddy) with TLS
+Pick the prerequisites for the path you deploy with:
+
+- **Release binary (fastest, recommended for first-time users)** — none.
+  Pre-built binaries ship with every [GitHub Release](https://github.com/DeliciousBuding/metapi-go/releases/latest);
+  `install.sh` only needs `curl` + `sha256sum`.
+- **Docker** — any recent Docker Engine with Compose v2 (for containerized deployment).
+- **From source** — Go 1.26.6+ **and** Bun 1.x. Bun is only needed to build the
+  embedded frontend (`cd web && bun install --frozen-lockfile && bun run build:web`
+  must run before `go build`); release binaries and GHCR images already include it.
+- PostgreSQL 16+ (optional, for a production database)
+- A reverse proxy (nginx or Caddy) with TLS (optional, for public exposure)
+
+## Quick paths
+
+Three equivalent ways to a running server. All commands below were executed
+against a real release/source build during documentation review; default port
+is 4000.
+
+### 1. Release binary (3 minutes)
+
+```bash
+curl -fsSL https://github.com/DeliciousBuding/metapi-go/releases/latest/download/install.sh | bash
+```
+
+The script downloads the matching platform binary from GitHub Releases,
+verifies its SHA-256 against `checksums.txt`, and installs to
+`/usr/local/bin/metapi` (override with `METAPI_INSTALL_PREFIX`; pin a version
+with `METAPI_VERSION=v0.16.6`). Windows: download `metapi-windows-amd64.exe`
+from the release page instead. Then start with the two required tokens:
+
+```bash
+export AUTH_TOKEN=$(openssl rand -hex 16)      # admin UI login token
+export PROXY_TOKEN=sk-$(openssl rand -hex 24)  # downstream key for /v1/* calls
+metapi
+```
+
+Data lands in `./data` (SQLite, code default) unless `DATA_DIR` / `DATABASE_URL` say otherwise.
+
+### 2. Docker
+
+```bash
+docker run -d --name metapi \
+  -p 4000:4000 \
+  -e AUTH_TOKEN=your-admin-token \
+  -e PROXY_TOKEN=your-proxy-sk-token \
+  -e ACCOUNT_CREDENTIAL_SECRET=$(openssl rand -hex 32) \
+  -e TZ=Asia/Shanghai \
+  -v metapi_data:/app/data \
+  --restart unless-stopped \
+  ghcr.io/deliciousbuding/metapi-go:latest
+```
+
+Named volume is the zero-config default; bind mounts need a one-time
+`chown -R 1001:1001` — see [数据目录与卷](#数据目录与卷). Compose variants:
+[Docker Compose (Production)](#docker-compose-production).
+
+### 3. From source
+
+```bash
+git clone https://github.com/DeliciousBuding/metapi-go.git
+cd metapi-go
+cd web && bun install --frozen-lockfile && bun run build:web && cd ..
+go build -o metapi ./cmd/server
+AUTH_TOKEN=your-admin-token PROXY_TOKEN=your-proxy-sk-token ./metapi
+```
+
+The frontend build step is mandatory: `web/dist/` is gitignored and `go build`
+fails with `pattern dist: no matching files found` without it.
+
+### Verify
+
+```bash
+curl http://localhost:4000/health
+# {"status":"ok"}
+curl http://localhost:4000/ready
+# {"status":"ok","database":"ok"}
+```
+
+Open `http://localhost:4000` and sign in with `AUTH_TOKEN`.
+
+> **First proxied request**: `/v1/*` needs at least one upstream site with a
+> verified account and a route rebuild first — without them the proxy answers
+> an honest `503 {"error":{"message":"No available channels","type":"server_error"}}`
+> (tested). The full walkthrough lives in
+> [getting-started.md](getting-started.md) (§2–§5).
 
 ## Environment Variables
 
@@ -27,11 +107,11 @@
 | ----------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ACCOUNT_CREDENTIAL_SECRET`         | fallback to `AUTH_TOKEN`      | Key used to encrypt stored account credentials. **Recommended**: a unique 32+ byte random secret (`openssl rand -hex 32`). `< 8` bytes is a critical startup error; `< 16` logs a weak-secret warning. Do not reuse `AUTH_TOKEN`.                                                                                                                                                                 |
 | `PORT`                              | `4000`                        | HTTP listen port                                                                                                                                                                                                                                                                                                                                                                                    |
-| `DATA_DIR`                          | `/app/data`                   | SQLite database directory                                                                                                                                                                                                                                                                                                                                                                           |
+| `DATA_DIR`                          | `./data`                      | Data directory (SQLite database and uploaded files). Code default is `./data` relative to the working directory; the container image sets `DATA_DIR=/app/data` via its `ENV`, and compose files pass it through explicitly |
 | `LOG_LEVEL`                         | `info`                        | slog threshold: `debug`/`info`/`warn`/`error`. Raise to `warn` to quiet hot-path logs.                                                                                                                                                                                                                                                                                                              |
 | `CHECKIN_CRON`                      | `0 8 * * *`                   | Daily checkin cron expression                                                                                                                                                                                                                                                                                                                                                                      |
 | `BALANCE_REFRESH_CRON`              | `0 * * * *`                   | Hourly balance refresh cron                                                                                                                                                                                                                                                                                                                                                                        |
-| `TZ`                                | `Asia/Shanghai`               | Timezone for cron scheduling                                                                                                                                                                                                                                                                                                             |
+| `TZ`                                | system local time             | Timezone for cron scheduling. No code-level default; `.env.example` and the compose files preset `Asia/Shanghai`                                                                                                                                                                                                                                                                                   |
 | `DB_TYPE`                           | `sqlite`                      | Database type: `sqlite` or `postgres`; inferred as `postgres` when a PostgreSQL URL is provided                                                                                                                                                                                                                                          |
 | `DATABASE_URL`                      | _(empty)_                     | PostgreSQL connection string; alias of `DB_URL`; when set to `postgres://` or `postgresql://`, uses PG instead of SQLite                                                                                                                                                                                                                 |
 | `DB_URL`                            | _(empty)_                     | Database URL or SQLite file path; takes precedence over `DATABASE_URL`                                                                                                                                                                                                                                                                   |
@@ -52,6 +132,10 @@
 | `PRICING_CATALOG_URL`               | `https://models.dev/api.json` | models.dev dataset URL override (self-hosted mirror supported)                                                                                                                                                                                                                                                                           |
 
 ## Docker Compose (Production)
+
+Both compose files mount a **named volume** (`metapi_data:/app/data`) by
+default — zero configuration. To use a bind mount instead, follow the chown
+instructions in the compose file comments and in [数据目录与卷](#数据目录与卷).
 
 1. Create a `.env` file:
 
