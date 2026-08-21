@@ -76,6 +76,11 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		// /debug/vars moved behind admin auth
 		r.Get("/api/debug/vars", app.MetricsHandler)
 
+		// Build provenance for the About page. Registered outside the
+		// db != nil block because every field comes from the linker or the
+		// Go runtime, never the database.
+		admin.RegisterAboutRoutes(r)
+
 		// Sites + Accounts + AccountTokens CRUD API
 		db := store.GetDB()
 		if db != nil {

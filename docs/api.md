@@ -1,6 +1,6 @@
 # Admin API Reference
 
-**Last updated**: 2026-08-15
+**Last updated**: 2026-08-21
 
 Base URL: `http://localhost:4000/api`
 
@@ -849,6 +849,18 @@ Readiness check (no auth required). It pings the active database and returns `20
 
 Desktop health check. Returns `{"status":"ok"}`.
 
+---
+
+## About
+
+### GET /api/about
+
+Build provenance of the running binary, rendered by the admin About page.
+
+**Response**: `{ version, commit, buildTime, goVersion }`
+
+`version` is the `-ldflags` injected build version (`dev` for local builds). `commit` is the git SHA and `buildTime` the UTC RFC3339 build timestamp, both injected by the Makefile / Dockerfile / release pipeline; they are **empty strings** for builds without injection (plain `go build`, plain `docker build`) and the UI renders an em-dash rather than a fabricated value. `goVersion` comes from `runtime.Version()` and is always populated. The endpoint reads no database, so it keeps answering while the database is unavailable.
+
 ## Security Notes
 
 ### LDOH monitor proxy
@@ -953,6 +965,7 @@ Mounted under `/v1/*` so it inherits ProxyAuth + wildcard CORS.
 Complete list of registered `/api` admin routes (generated from the router registration). Path parameters use `:param` syntax.
 
 ### GET
+- `/api/about`
 - `/api/account-tokens`
 - `/api/account-tokens/:id/value`
 - `/api/account-tokens/account/:accountId/default`

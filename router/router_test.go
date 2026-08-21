@@ -84,6 +84,49 @@ func TestAdminRouteStillRequiresAuth(t *testing.T) {
 	}
 }
 
+// TestAboutRouteRequiresAuthAndServesBuildInfoWithoutDatabase
+//
+// /api/about is registered outside the db != nil block (every field comes from
+// the linker or the Go runtime), so it must still answer when the database was
+// never initialized — while staying behind the admin auth middleware like the
+// rest of /api.
+func TestAboutRouteRequiresAuthAndServesBuildInfoWithoutDatabase(t *testing.T) {
+	if err := store.CloseDatabase(); err != nil {
+		t.Fatalf("CloseDatabase: %v", err)
+	}
+	cfg := &config.Config{
+		AuthToken:        "admin-token",
+		ProxyToken:       "proxy-token",
+		RequestBodyLimit: config.DefaultRequestBodyLimit,
+	}
+	r := New(cfg, web.Dist)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/about", nil)
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("/api/about without auth status = %d, want 401", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api/about", nil)
+	req.Header.Set("Authorization", "Bearer admin-token")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("/api/about status = %d body=%s, want 200", rec.Code, rec.Body.String())
+	}
+	var body map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode about: %v", err)
+	}
+	if body["goVersion"] == "" {
+		t.Fatalf("goVersion empty in %v, want the runtime version", body)
+	}
+	if body["version"] == "" {
+		t.Fatalf("version empty in %v, want the injected binary version", body)
+	}
+}
+
 func TestAdminRoutesAreMountedWithoutDoubleAPIPrefix(t *testing.T) {
 	dataDir := t.TempDir()
 	cfg := &config.Config{
