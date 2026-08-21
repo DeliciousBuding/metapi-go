@@ -35,6 +35,10 @@ func setupOpsAdminStubsTest(t *testing.T) (*store.DB, chi.Router, *config.Config
 	r := chi.NewRouter()
 	RegisterNotifyRoutes(r)
 	RegisterMonitorRoutes(r, db.DB, cfg)
+	// The LDOH iframe proxy surface is a separate registrar since Wave 4 F1
+	// (it must stay outside the Bearer admin auth group in production); the
+	// stub harness mounts both so handler-level tests keep their routes.
+	RegisterMonitorProxyRoutes(r, db.DB, cfg)
 	RegisterTasksRoutes(r, db.DB)
 	RegisterSiteAnnouncementsRoutes(r, db.DB)
 	return db, r, cfg

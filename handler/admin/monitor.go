@@ -18,7 +18,10 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// RegisterMonitorRoutes registers all /api/monitor and /monitor-proxy routes.
+// RegisterMonitorRoutes registers the Bearer-protected /api/monitor
+// configuration surface. The cookie-authenticated iframe proxy lives in
+// RegisterMonitorProxyRoutes and must be wired OUTSIDE the admin auth group
+// (see router/router.go).
 func RegisterMonitorRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
 	handler := &monitorHandler{db: db, cfg: cfg}
 
@@ -29,8 +32,18 @@ func RegisterMonitorRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
 	// DELETE clears the HttpOnly meta_monitor_auth cookie on admin logout.
 	// Frontend JS cannot clear HttpOnly cookies; this is the honest clear path.
 	r.Delete("/api/monitor/session", handler.clearSession)
+}
 
-	// LDOH proxy routes - rate limited at 60 req/min at the router layer when wired.
+// RegisterMonitorProxyRoutes registers the /monitor-proxy/ldoh* iframe proxy
+// surface. Authentication is the HttpOnly meta_monitor_auth cookie minted by
+// createSession — iframe sub-resource requests cannot carry an Authorization
+// header, so mounting these routes behind the Bearer AdminAuth middleware
+// breaks the LDOH iframe (Wave 4 security handoff F1). The handler enforces
+// the cookie itself via ensureMonitorAuth; keep this registrar outside any
+// Bearer-gated group.
+func RegisterMonitorProxyRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
+	handler := &monitorHandler{db: db, cfg: cfg}
+
 	r.HandleFunc("/monitor-proxy/ldoh", handler.ldohProxy)
 	r.HandleFunc("/monitor-proxy/ldoh/", handler.ldohProxy)
 	r.HandleFunc("/monitor-proxy/ldoh/*", handler.ldohProxy)

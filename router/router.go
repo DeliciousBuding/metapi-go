@@ -131,7 +131,9 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 			slog.Warn("router: database not initialized, P3 routes skipped")
 		}
 
-		// Monitor routes (includes LDOH proxy outside /api)
+		// Monitor configuration routes (/api/monitor/*) stay inside this
+		// Bearer-gated group. The cookie-authenticated LDOH iframe proxy
+		// (/monitor-proxy/*) is registered outside the group below.
 		if db := store.GetDB(); db != nil {
 			admin.RegisterMonitorRoutes(r, db.DB, cfg)
 		}
@@ -142,6 +144,16 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 			w.Write([]byte(`{"status":"ok"}`))
 		})
 	})
+
+	// Wave 4 security handoff F1: the LDOH iframe proxy authenticates via the
+	// HttpOnly meta_monitor_auth cookie — iframe sub-resource requests cannot
+	// carry an Authorization header, so this surface must stay OUTSIDE the
+	// Bearer AdminAuth group above (which answered 401 "Missing Authorization
+	// header" and broke the iframe). The handler enforces its own cookie auth
+	// (ensureMonitorAuth) and rejects ".." traversal paths (M1).
+	if db := store.GetDB(); db != nil {
+		admin.RegisterMonitorProxyRoutes(r, db.DB, cfg)
+	}
 
 	// /v1/* proxy routes → proxy rate limiting + proxy auth middleware.
 	// Per-IP RPM limiter runs BEFORE auth so unauthenticated brute-force floods
