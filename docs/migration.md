@@ -55,7 +55,7 @@ Go 镜像以**非 root 用户（uid 1001）**运行；旧 TS 容器以 root 写�
 # docker-compose 片段（bind mount 指向旧 data 目录）
 services:
   metapi:
-    image: ghcr.io/deliciousbuding/metapi-go:v0.16.2
+    image: ghcr.io/deliciousbuding/metapi-go:v0.16.6
     volumes:
       - ./data:/app/data
     environment:
@@ -230,7 +230,7 @@ TS 版还提供 JSON 备份（Schema v2.1）导出/导入，可作为 MySQL 数�
 生产环境**不要用 `:latest`**，把镜像固定到具体版本标签：
 
 ```yaml
-image: ghcr.io/deliciousbuding/metapi-go:v0.16.2
+image: ghcr.io/deliciousbuding/metapi-go:v0.16.6
 ```
 
 升级步骤：

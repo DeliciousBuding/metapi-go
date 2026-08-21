@@ -2,32 +2,26 @@
 
 **Last verified**: 2026-08-21
 
-**Release**: [v0.16.5](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.5) · released on master; production promotion follows the release and soak gate
+**Release**: [v0.16.6](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.6) · released on master; production promotion follows the release and soak gate
 
 > This is the only execution plan. It contains open work, order, ownership, and acceptance criteria. Current facts → [`../STATE.md`](../STATE.md) · product positioning → [`../benchmark.md`](../benchmark.md) · timeline → [`../log.md`](../log.md).
 
-## Current active work — v0.16.6（Round 3 修复波）
+## Current active work — 剩余收尾（v0.16.7+，需求驱动）
 
-历史完成冻结：Round 1 #887 → v0.16.3、Round 2 #889 → v0.16.4、#887 补遗 + E2E → v0.16.5 均已发布。
+历史完成冻结：Round 1 #887 → v0.16.3、Round 2 #889 → v0.16.4、#887 补遗 + E2E → v0.16.5、Round 3 修复波 → v0.16.6 均已发布。
 
-### 已收口（v0.16.5，勿再当 active）
+### 已收口（v0.16.6，勿再当 active）
 
-- #901 死 CSS · #902 全局告警红点 · #903 OAuth sheet · #904 About 构建信息 · #905 proxy-log 过滤 · #899 E2E Journey 3，全部 squash 合入。
+- Round 3 D 域 4 个 P0 契约 bug（#911）· H 域性能 gzip + accounts 冻结 + recharts 按需（#910）· Spinner 双轨收口（#912），全部 squash 合入。
 
-### 剩余 Active（v0.16.6 范围）
+### 剩余 Active（需求驱动，非阻塞）
 
 | 项 | 优先级 | 状态 |
 |---|---|---|
-| Round 3 D 域 4 个运行时 P0 契约 bug | P0 | 审计完成，需补 file:line 证据 + 立项 issue |
-| Round 3 H 域性能（零 gzip / accounts 2s 冻结 / recharts 白下载） | P1 | 同上 |
-| Spinner 双轨收口 | P1 | 老尾巴未完成 |
-| Round 3 C a11y / G 安全 两域 | P2 | provider 故障中断，待补审计 |
+| Round 3 C a11y / G 安全 两域补审计 | P2 | provider 故障中断，待补 |
+| Codex / AnyRouter 真实运行探针 | 可选 | [#558](https://github.com/DeliciousBuding/metapi-go/issues/558) |
 
-### 执行顺序（v0.16.6）
-
-1. 找回/重跑 Round 3 审计证据（D 域 4 P0 file:line + H 域复现），补 C/G 两域。
-2. 立项 issue（公开），逐项转 P0/P1 修复切片。
-3. worktree 并行修复 → 12 项 CI 全绿 → squash 合入 → patch release v0.16.6。
+> Round 3 修复波已闭环，无 P0/P1 开放项。下一波按需求驱动立项（方向见 `../benchmark.md`）。
 
 ## Completed milestone — TS 兼容与迁移收官（2026-08-20 交付）
 

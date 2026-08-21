@@ -129,7 +129,7 @@ docker run -d --name metapi \
 > 请务必修改 `AUTH_TOKEN` 和 `PROXY_TOKEN`，不要使用默认值。
 > `ACCOUNT_CREDENTIAL_SECRET` 用于加密存储的账号凭据，建议生成独立的 32+ 字节随机串（不设置时会回退为 `AUTH_TOKEN`，过短会直接启动失败）。
 > 数据建议用**命名卷**（如上 `metapi_data`）存放，容器以非 root 用户（uid 1001）运行，命名卷会自动继承属主、无需额外授权；若改用 `./data:/app/data` 这类 bind mount，需先在宿主机执行 `chown -R 1001:1001 ./data`。
-> 生产环境建议把镜像固定到具体版本标签（如 `ghcr.io/deliciousbuding/metapi-go:v0.16.2`），而不是 `latest`（升级步骤见 [迁移指南](docs/migration.md)）。
+> 生产环境建议把镜像固定到具体版本标签（如 `ghcr.io/deliciousbuding/metapi-go:v0.16.6`），而不是 `latest`（升级步骤见 [迁移指南](docs/migration.md)）。
 
 ### Docker Compose
 
