@@ -97,6 +97,16 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 	if upstreamPath == "" {
 		upstreamPath = r.URL.Path
 	}
+	// Wave 4 security handoff T1: never forward a downstream path containing
+	// ".." segments. Go's http.Client preserves ".." on the wire, and the
+	// upstream host would normalize it outside the site API prefix — letting
+	// any authenticated downstream key holder reach arbitrary upstream paths.
+	// Reject before channel selection; clean paths pass through untouched.
+	if proxy.ContainsPathTraversal(upstreamPath) {
+		writeJSONErrorWithRequest(w, http.StatusBadRequest, "Invalid request path", "invalid_request_error", requestID)
+		observeProxyTerminal(ctx, shared.OutcomeClientError, ctx != nil && ctx.IsStream, time.Since(startedAt))
+		return
+	}
 	var pendingFailure *pendingUpstreamFailure
 
 	for retry := 0; retry <= maxRetries; retry++ {
