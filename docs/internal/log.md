@@ -5,6 +5,13 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-08-21 — Round 3 修复波 → v0.16.6
+
+- **D 域 4 个 P0 契约 bug（#911）**：account-token snake_case 丢失 / site-account-route 表单静默丢弃 / channels 截断 50 / route channels 缺 success-fail-cooldown，双方言回归测试。
+- **H 域性能（#910）**：静态资源 gzip（stdlib）· accounts 100 行 2s 冻结（parse-once + memo）· dashboard recharts 按需加载。
+- **Spinner 双轨收口（#912）**：21 文件 56 处裸 Loader2 统一到 canonical Spinner。
+- 发布：#913 release → v0.16.6。
+
 ## 2026-08-21 — #887 补遗收口 + E2E Journey 3 → v0.16.5
 
 - #902 全局告警红点 / #903 OAuth sheet / #904 About 构建信息 / #905 proxy-log channel 过滤 + channels status facet / #899 E2E Journey 3 / #901 死 CSS / #906 docs-sync，7 PR squash 合入；#907 release → v0.16.5 发布。

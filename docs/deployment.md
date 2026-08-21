@@ -85,7 +85,7 @@ curl http://localhost:4000/health
   sudo chown -R 1001:1001 ./data
   ```
 
-- **镜像标签**：`latest` 便于尝鲜；生产建议固定到版本标签（如 `ghcr.io/deliciousbuding/metapi-go:v0.16.1`），保证可复现部署。
+- **镜像标签**：`latest` 便于尝鲜；生产建议固定到版本标签（如 `ghcr.io/deliciousbuding/metapi-go:v0.16.6`），保证可复现部署。
 
 ## Nginx Reverse Proxy
 

@@ -1,6 +1,6 @@
 # 产品对标 — New API × All API Hub
 
-**Last updated**: 2026-08-17
+**Last updated**: 2026-08-21
 
 > 产品经理视角的对标基线（非架构文档）。实现层面的开放结果只在
 > [`progress/MASTER.md`](progress/MASTER.md) 维护。
@@ -11,7 +11,7 @@
 | ------------------------------------ | ----------------------------- | -------------------------------------------- | --------------------- |
 | New API（QuantumNous/new-api）       | v1.0.0-rc.24（2026-08-07）    | Go 单体 + React + Electron 桌面版 + relaykit | 卖 API 的站长         |
 | All API Hub（qixing-jk/all-api-hub） | 上游 #1290（2026-08-13 检出） | 浏览器插件（Chrome/Edge/Firefox）            | 个人玩家 / 小型网关主 |
-| Metapi-Go（本项目）                  | v0.14.0                       | Go 单二进制 + 内嵌 SPA                       | 自用 / 小团队         |
+| Metapi-Go（本项目）                  | v0.16.6                       | Go 单二进制 + 内嵌 SPA                       | 自用 / 小团队         |
 
 ## 三方定位
 
