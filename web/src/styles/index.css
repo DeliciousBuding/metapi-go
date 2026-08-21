@@ -222,10 +222,6 @@
 }
 
 @layer utilities {
-  .animation-delay-100 {
-    animation-delay: 100ms;
-  }
-
   /*
    * Shimmer: subtle highlight sweep across skeleton bars. Reuses the
    * --skeleton-base / --skeleton-highlight tokens (defined in theme.css
@@ -391,50 +387,6 @@
 .content-auto {
   content-visibility: auto;
   contain-intrinsic-size: 0 80px;
-}
-
-/* ── Hero terminal demo animations ── */
-@keyframes terminal-demo-blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
-}
-.terminal-demo-blink {
-  animation: terminal-demo-blink 1s step-end infinite;
-}
-
-@keyframes terminal-demo-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-.terminal-demo-spin {
-  animation: terminal-demo-spin 0.8s linear infinite;
-}
-
-@keyframes terminal-demo-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.3;
-  }
-}
-.terminal-demo-pulse {
-  animation: terminal-demo-pulse 1.5s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .terminal-demo-blink,
-  .terminal-demo-spin,
-  .terminal-demo-pulse {
-    animation: none !important;
-  }
 }
 
 /*
