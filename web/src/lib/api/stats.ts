@@ -156,6 +156,8 @@ export const statsApi = {
     request('/api/announcements', {
       method: 'POST',
       body: JSON.stringify(payload),
+      // The announcements section surfaces its own saveFailed toast.
+      skipErrorHandler: true,
     }) as Promise<AnnouncementsResponse>,
   updateAnnouncement: (
     id: number,
@@ -170,10 +172,14 @@ export const statsApi = {
     request(`/api/announcements/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
+      // The announcements section surfaces its own saveFailed toast.
+      skipErrorHandler: true,
     }) as Promise<{ success: boolean; revision: boolean }>,
   deleteAnnouncement: (id: number) =>
     request(`/api/announcements/${id}`, {
       method: 'DELETE',
+      // The announcements section surfaces its own deleteFailed toast.
+      skipErrorHandler: true,
     }) as Promise<{ success: boolean }>,
   dismissAnnouncement: (id: number) =>
     request(`/api/announcements/${id}/dismiss`, {
@@ -192,15 +198,21 @@ export const statsApi = {
     request(`/api/model-redirects/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
+      // The redirects section surfaces its own promoteFailed toast.
+      skipErrorHandler: true,
     }) as Promise<{ success: boolean }>,
   deleteModelRedirect: (id: number) =>
     request(`/api/model-redirects/${id}`, {
       method: 'DELETE',
+      // The redirects section surfaces its own deleteFailed toast.
+      skipErrorHandler: true,
     }) as Promise<{ success: boolean }>,
   generateModelRedirects: (accountId = 0) =>
     request('/api/model-redirects/generate', {
       method: 'POST',
       body: JSON.stringify({ accountId }),
+      // The redirects section surfaces its own generateFailed toast.
+      skipErrorHandler: true,
     }) as Promise<{
       success: boolean
       created: number
@@ -210,6 +222,8 @@ export const statsApi = {
     request('/api/model-redirects/apply', {
       method: 'POST',
       body: JSON.stringify({ dryRun }),
+      // The redirects section surfaces its own applyFailed toast.
+      skipErrorHandler: true,
     }) as Promise<RedirectApplyResponse>,
   // K1a: model-governance fix candidates (list + apply).
   getRedirectFixCandidates: () =>

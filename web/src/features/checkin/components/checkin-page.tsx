@@ -309,7 +309,14 @@ export function CheckinPage() {
     [handleTriggerOne]
   )
 
-  const columns = useCheckinColumns(rowActions)
+  // Per-row pending state (accounts-columns' pendingStatusId pattern): only
+  // the row whose single-account check-in is in flight shows a spinner, so
+  // the trigger stays a seconds-long external request without a global lock.
+  const pendingCheckinAccountId = triggerOneMutation.isPending
+    ? (triggerOneMutation.variables ?? null)
+    : null
+
+  const columns = useCheckinColumns(rowActions, pendingCheckinAccountId)
   const { table } = useDataTable<CheckinLogRow>({
     data: logs,
     columns,
@@ -374,14 +381,14 @@ export function CheckinPage() {
 
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
-      <div className='flex items-center justify-between'>
+      <div className='flex flex-wrap items-center justify-between gap-3'>
         <div>
           <h1 className='text-lg font-normal'>{t('checkin.page.title')}</h1>
           <p className='text-muted-foreground text-sm'>
             {t('checkin.page.description')}
           </p>
         </div>
-        <div className='flex items-center gap-2'>
+        <div className='flex flex-wrap items-center gap-2'>
           <Button
             variant='outline'
             onClick={() => setManualOpen(true)}
@@ -501,7 +508,7 @@ export function CheckinPage() {
           // points to the accounts page instead of a disabled button.
           accountOptions.length > 0 ? (
             <Button onClick={() => setManualOpen(true)}>
-              <Zap className='mr-1 size-4' />
+              <Zap className='size-4' />
               {t('checkin.page.manualCheckin')}
             </Button>
           ) : (
@@ -509,7 +516,7 @@ export function CheckinPage() {
               variant='outline'
               onClick={() => void navigate({ to: '/accounts' })}
             >
-              <Users className='mr-1 size-4' />
+              <Users className='size-4' />
               {t('checkin.page.manageAccounts')}
             </Button>
           )

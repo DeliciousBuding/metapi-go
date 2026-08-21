@@ -7,12 +7,12 @@
 // (e.g. the sign-in route or the root outlet).
 //
 // The error boundary reuses the same AppHeader + AppSidebar + SidebarProvider
-// shell as AuthenticatedLayout, so the sidebar, brand, and interface controls
-// (language/theme) stay interactive — only the page area swaps to the error
-// card with Retry / Reload / show-detail controls.
+// shell as AuthenticatedLayout, so the sidebar, brand, global search, and
+// interface controls (language/theme) stay interactive — only the page area
+// swaps to the error card with Retry / Reload / show-detail controls.
 
 import { SearchParamError, useRouter } from '@tanstack/react-router'
-import { Link2Off, RotateCw, TriangleAlert } from 'lucide-react'
+import { Link2Off, RefreshCw, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -23,11 +23,16 @@ import { cn } from '@/lib/utils'
 
 import { AppHeader } from './components/app-header'
 import { AppSidebar } from './components/app-sidebar'
+import { SearchModal } from './search-modal'
 
 export function LayoutErrorBoundary({ error }: { error: Error }) {
   const { t } = useTranslation()
   const router = useRouter()
   const [showDetail, setShowDetail] = useState(false)
+  // The boundary reuses the full shell, so the header search trigger gets
+  // the same wiring as AuthenticatedLayout (state + SearchModal mounted
+  // inside the router, where result clicks can navigate).
+  const [searchOpen, setSearchOpen] = useState(false)
 
   // A throwing `validateSearch` (stale bookmarks / legacy URLs with
   // JSON-parsed primitives like `?q=123` or `?enabled=true`) surfaces here
@@ -47,7 +52,7 @@ export function LayoutErrorBoundary({ error }: { error: Error }) {
   return (
     <SidebarProvider className='flex-col'>
       <SkipToMain />
-      <AppHeader />
+      <AppHeader onSearchClick={() => setSearchOpen(true)} />
       <div className='flex min-h-0 w-full flex-1'>
         <AppSidebar />
         <SidebarInset
@@ -89,13 +94,13 @@ export function LayoutErrorBoundary({ error }: { error: Error }) {
             </div>
             {isSearchParamError ? (
               <Button onClick={resetUrl}>
-                <Link2Off className='mr-1.5 size-4' />
+                <Link2Off className='size-4' />
                 {t('errors.searchParamReset')}
               </Button>
             ) : (
               <div className='flex gap-2'>
                 <Button onClick={() => router.invalidate()}>
-                  <RotateCw className='mr-1.5 size-4' />
+                  <RefreshCw className='size-4' />
                   {t('errors.retry')}
                 </Button>
                 <Button
@@ -121,6 +126,7 @@ export function LayoutErrorBoundary({ error }: { error: Error }) {
           </div>
         </SidebarInset>
       </div>
+      <SearchModal open={searchOpen} onOpenChange={setSearchOpen} />
     </SidebarProvider>
   )
 }

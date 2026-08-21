@@ -3,8 +3,10 @@
 // generate / preview / apply / promote-to-manual / delete actions.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,6 +19,7 @@ import {
 } from '@/components/ui/table'
 import {
   api,
+  type ModelRedirect,
   type ModelRedirectsResponse,
   type RedirectApplyResponse,
 } from '@/lib/api'
@@ -37,6 +40,8 @@ type RedirectPreview = RedirectApplyResponse
 export function RedirectsSection() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const [deleteTarget, setDeleteTarget] = useState<ModelRedirect | null>(null)
+  const [applyConfirmOpen, setApplyConfirmOpen] = useState(false)
 
   const redirectsQuery = useQuery<ModelRedirectsResponse>({
     queryKey: modelRedirectsQueryKeys.list(),
@@ -148,7 +153,7 @@ export function RedirectsSection() {
           <Button
             size='sm'
             disabled={applyMutation.isPending}
-            onClick={() => applyMutation.mutate(false)}
+            onClick={() => setApplyConfirmOpen(true)}
           >
             {t('settings.models.redirects.apply')}
           </Button>
@@ -223,7 +228,7 @@ export function RedirectsSection() {
                       variant='ghost'
                       size='sm'
                       disabled={deleteMutation.isPending}
-                      onClick={() => deleteMutation.mutate(redirect.id)}
+                      onClick={() => setDeleteTarget(redirect)}
                     >
                       {t('settings.common.delete')}
                     </Button>
@@ -234,6 +239,39 @@ export function RedirectsSection() {
           </TableBody>
         </Table>
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={t('settings.models.redirects.deleteTitle')}
+        description={t('settings.models.redirects.deleteDescription', {
+          canonical: deleteTarget?.canonical ?? '',
+          actual: deleteTarget?.actual ?? '',
+        })}
+        confirmLabel={t('settings.common.delete')}
+        cancelLabel={t('settings.common.cancel')}
+        destructive
+        onConfirm={() => {
+          if (deleteTarget) {
+            deleteMutation.mutate(deleteTarget.id)
+          }
+          setDeleteTarget(null)
+        }}
+        onCancel={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={applyConfirmOpen}
+        title={t('settings.models.redirects.applyTitle')}
+        description={t('settings.models.redirects.applyDescription')}
+        confirmLabel={t('settings.models.redirects.apply')}
+        cancelLabel={t('settings.common.cancel')}
+        destructive
+        onConfirm={() => {
+          setApplyConfirmOpen(false)
+          applyMutation.mutate(false)
+        }}
+        onCancel={() => setApplyConfirmOpen(false)}
+      />
     </SettingsSectionCard>
   )
 }

@@ -48,6 +48,8 @@ let tray = null;
 let serverProcess = null;
 let isStartingServer = false;
 let notificationTimer = null;
+// Path of the current server log file (shown via "Open log" on failure).
+let lastServerLogFile = null;
 // IDs of notifications already shown natively, to avoid duplicates.
 const shownNotificationIds = new Set();
 
@@ -98,6 +100,7 @@ function openServerLogStream() {
     // logs dir creation is best-effort; fall back to /dev/null-like behavior
   }
   const logFile = path.join(logsDir, 'metapi-server.log');
+  lastServerLogFile = logFile;
   const stream = fs.createWriteStream(logFile, { flags: 'a' });
   stream.write(`\n==== metapi server log ${new Date().toISOString()} ====\n`);
   return { stream, logFile };
@@ -109,10 +112,9 @@ function startServer() {
   }
   if (!binaryExists()) {
     const resolved = resolveBinaryPath();
-    new Notification({
-      title: 'Metapi Desktop',
-      body: `Go binary not found at ${resolved}. Build it with: make electron-build`,
-    }).show();
+    const message = `Go binary not found at ${resolved}. Build it with: make electron-build`;
+    showServerFailureScreen(message);
+    new Notification({ title: 'Metapi Desktop', body: message }).show();
     return;
   }
 
@@ -129,6 +131,7 @@ function startServer() {
   } catch (err) {
     isStartingServer = false;
     stream.end(`failed to spawn metapi: ${err.stack || err}\n`);
+    showServerFailureScreen(`Failed to start the server: ${err.message}`);
     new Notification({
       title: 'Metapi Desktop',
       body: `Failed to start server: ${err.message}`,
@@ -148,6 +151,7 @@ function startServer() {
   serverProcess.on('error', (err) => {
     isStartingServer = false;
     stream.write(`server process error: ${err.stack || err}\n`);
+    showServerFailureScreen(`Server process error: ${err.message}`);
     new Notification({
       title: 'Metapi Desktop',
       body: `Server process error: ${err.message}`,
@@ -162,9 +166,14 @@ function startServer() {
     stream.end();
     // Surface unexpected exits (Quit/Stop set the flag before killing).
     if (prev && !prev._stoppedByDesktop) {
+      const detail = signal ? `signal ${signal}` : `code ${code ?? 'unknown'}`;
+      showServerFailureScreen(
+        `The Metapi server stopped unexpectedly (${detail}). ` +
+          'Common cause: AUTH_TOKEN is not set. Check the server log for details.'
+      );
       new Notification({
         title: 'Metapi Desktop',
-        body: `Server stopped (code ${code}). Use "Start Server" to relaunch.`,
+        body: `Server stopped (${detail}). Use "Start Server" to relaunch.`,
       }).show();
     }
     updateTrayMenu();
@@ -196,6 +205,20 @@ function stopServer() {
 
 // --- Window management ------------------------------------------------------
 
+// The waiting/failure screens are data: URLs (no preload, no IPC bridge),
+// so their action links navigate to a custom scheme that the main process
+// intercepts in the will-navigate handler below.
+const RETRY_ACTION_URL = 'metapi-desktop://retry';
+const OPEN_LOG_ACTION_URL = 'metapi-desktop://open-log';
+
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 function waitingScreenHtml(reason) {
   return `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html>
 <html><head><meta charset="utf-8"><title>Metapi Desktop</title>
@@ -212,6 +235,53 @@ function waitingScreenHtml(reason) {
   <h1>Waiting for Metapi server…</h1>
   <p>${reason || 'The Go server is starting. The admin UI will load automatically.'}</p>
 </main></body></html>`)}`;
+}
+
+// Shown when the Go server cannot start or exits on its own (e.g. missing
+// AUTH_TOKEN). Replaces the waiting screen so the user gets a reason and
+// next steps instead of an endless spinner.
+function failureScreenHtml(reason) {
+  return `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html>
+<html><head><meta charset="utf-8"><title>Metapi Desktop</title>
+<style>
+  html,body{height:100%;margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0f172a;color:#e2e8f0}
+  main{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:0 24px}
+  .badge{width:14px;height:14px;border-radius:50%;background:#f87171}
+  h1{font-size:18px;font-weight:600;margin:0}
+  p{font-size:13px;color:#94a3b8;margin:0;max-width:420px;line-height:1.5}
+  nav{display:flex;gap:12px;margin-top:8px}
+  a{font-size:13px;color:#e2e8f0;text-decoration:none;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:8px 16px}
+  a:hover{background:#334155}
+</style></head>
+<body><main>
+  <div class="badge"></div>
+  <h1>Metapi server failed to start</h1>
+  <p>${escapeHtml(reason)}</p>
+  <nav>
+    <a href="${RETRY_ACTION_URL}">Retry</a>
+    <a href="${OPEN_LOG_ACTION_URL}">Open log file</a>
+  </nav>
+</main></body></html>`)}`;
+}
+
+function showServerFailureScreen(reason) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.loadURL(failureScreenHtml(reason));
+}
+
+// Retry from the failure screen: relaunch the server (no-op when it is
+// already running) and return to the waiting/connect flow.
+function retryServerFromFailureScreen() {
+  startServer();
+  loadAdminUI();
+}
+
+function openServerLogFile() {
+  if (lastServerLogFile && fs.existsSync(lastServerLogFile)) {
+    shell.showItemInFolder(lastServerLogFile);
+  } else if (lastServerLogFile) {
+    shell.openPath(path.dirname(lastServerLogFile));
+  }
 }
 
 function createWindow() {
@@ -242,6 +312,20 @@ function createWindow() {
       return { action: 'deny' };
     }
     return { action: 'allow' };
+  });
+
+  // Action links on the failure screen (a data: URL page without preload)
+  // navigate to a custom scheme; intercept them here instead of loading them.
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (url.startsWith(RETRY_ACTION_URL)) {
+      event.preventDefault();
+      retryServerFromFailureScreen();
+      return;
+    }
+    if (url.startsWith(OPEN_LOG_ACTION_URL)) {
+      event.preventDefault();
+      openServerLogFile();
+    }
   });
 
   // If the SPA later fails to load (e.g. server restarted mid-session), fall

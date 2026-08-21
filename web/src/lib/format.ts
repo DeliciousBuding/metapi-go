@@ -1,10 +1,11 @@
 // metapi-go/lib/format — shared display formatters.
-// Pure functions, no i18n runtime deps. Consolidates the per-feature
+// Pure functions, no i18n runtime deps (locale-aware formatters take an
+// explicit BCP-47 locale argument instead). Consolidates the per-feature
 // formatters (dashboard formatInt/formatRatio, models formatPrice/
 // formatLatency/formatSuccessRate) into one vocabulary so number/price/
 // latency/token display stays consistent across the admin console.
 
-const EM_DASH = '—'
+export const EM_DASH = '—'
 
 /** Format an integer with locale grouping; returns "—" for null/NaN. */
 export function formatInt(value: number | null | undefined): string {
@@ -12,6 +13,29 @@ export function formatInt(value: number | null | undefined): string {
     return EM_DASH
   }
   return value.toLocaleString()
+}
+
+/**
+ * Format a USD amount (balance / cost / spend): "$" + locale grouping +
+ * fixed fraction digits (default 2). Returns "—" for null/undefined/NaN so
+ * missing money is never rendered as $0.
+ */
+export function formatCurrency(
+  value: number | null | undefined,
+  options?: {
+    /** Fraction digits (default 2; proxy-log costs use 4). */
+    fractionDigits?: number
+  }
+): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return EM_DASH
+  }
+  const fractionDigits = options?.fractionDigits ?? 2
+  const sign = value < 0 ? '-' : ''
+  return `${sign}$${Math.abs(value).toLocaleString(undefined, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  })}`
 }
 
 /** Format a 0..1 ratio as a percentage: 0.853 → "85.3%". */
@@ -35,22 +59,25 @@ export function formatRatio(
   return formatPercent(numerator / denominator, fractionDigits)
 }
 
-/** Format a US dollar amount: 1234.5 → "$1234.50"; "—" for null/NaN. */
+/** Format a US dollar amount: 1234.5 -> "$1234.50"; "—" for null/NaN. */
 export function formatUsd(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value)) {
     return EM_DASH
   }
-  return `$${value.toFixed(2)}`
+  return '$' + value.toFixed(2)
 }
 
-/** Format a per-million USD price with adaptive precision. */
+/**
+ * Format a per-million USD price with adaptive precision, currency symbol
+ * included so zero prices align with their non-zero neighbours.
+ */
 export function formatPrice(price: number | null | undefined): string {
   if (price === null || price === undefined || !Number.isFinite(price)) {
     return EM_DASH
   }
-  if (price === 0) return '0'
-  if (price < 0.01) return price.toFixed(4)
-  return price.toFixed(2)
+  if (price === 0) return '$0'
+  if (price < 0.01) return `$${price.toFixed(4)}`
+  return `$${price.toFixed(2)}`
 }
 
 /** Format latency in milliseconds. */
@@ -83,12 +110,12 @@ export function formatLatency(
   return `${Math.round(latency)}${separator}ms`
 }
 
-/** Format an already-percentage (0-100) value without re-scaling. */
+/** Format an already-percentage (0-100) value with one decimal: 99.95 → "100.0%". */
 export function formatSuccessRate(rate: number | null | undefined): string {
   if (rate === null || rate === undefined || !Number.isFinite(rate)) {
     return EM_DASH
   }
-  return `${Math.round(rate)}%`
+  return `${rate.toFixed(1)}%`
 }
 
 const SECONDS_PER_MINUTE = 60
@@ -98,13 +125,108 @@ const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR
 // date so a stale alert still reads clearly instead of "8 days ago".
 const ABSOLUTE_THRESHOLD_SECONDS = 7 * SECONDS_PER_DAY
 
+/**
+ * Normalize a server timestamp to epoch milliseconds.
+ *
+ * Accepts epoch numbers, Dates, and ISO-like strings. The backend stores
+ * `created_at` as naive UTC strings ("2026-08-11 12:30:00", no timezone
+ * suffix); those are interpreted as UTC (not browser-local) so rendered
+ * times never shift by the viewer's offset. Bare offsets (+0800 / +08) are
+ * normalized, and 10/13-digit epoch strings are supported.
+ */
 function toTimestamp(
   value: string | number | Date | null | undefined
 ): number | null {
   if (value === null || value === undefined || value === '') return null
-  const timestamp =
-    typeof value === 'number' ? value : new Date(value).getTime()
+  if (value instanceof Date) {
+    const dateMs = value.getTime()
+    return Number.isFinite(dateMs) ? dateMs : null
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null
+  }
+  const raw = String(value).trim()
+  if (!raw) return null
+  if (/^\d{10,13}$/.test(raw)) {
+    const asNumber = Number(raw)
+    return raw.length === 13 ? asNumber : asNumber * 1000
+  }
+  let normalized = raw
+  if (!normalized.includes('T') && normalized.includes(' ')) {
+    normalized = normalized.replace(' ', 'T')
+  }
+  normalized = normalized.replace(/([+-]\d{2})(\d{2})$/, '$1:$2')
+  normalized = normalized.replace(/([+-]\d{2})$/, '$1:00')
+  const hasTimeZone = /[zZ]$|[+-]\d{2}:\d{2}$/.test(normalized)
+  if (!hasTimeZone) {
+    normalized = `${normalized}Z`
+  }
+  const timestamp = new Date(normalized).getTime()
   return Number.isFinite(timestamp) ? timestamp : null
+}
+
+/**
+ * Format a timestamp as a localized absolute date+time WITH seconds
+ * (e.g. "2026-08-21 15:04:05" in zh-CN). Returns "—" for null / empty /
+ * invalid input — raw ISO strings must never reach the render tree.
+ * The `locale` MUST be a BCP-47 tag — pass i18next's `i18n.language`
+ * through `toBcp47()` first (`zhCN` would throw `RangeError`).
+ */
+export function formatDateTime(
+  value: string | number | Date | null | undefined,
+  locale: string
+): string {
+  const timestamp = toTimestamp(value)
+  if (timestamp === null) return EM_DASH
+  return new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(timestamp)
+}
+
+/**
+ * Format a timestamp as a localized time-of-day with seconds ("15:04:05").
+ * Returns "—" for null / empty / invalid input. The `locale` MUST be a
+ * BCP-47 tag (pass `i18n.language` through `toBcp47()` first).
+ */
+export function formatTimeOfDay(
+  value: string | number | Date | null | undefined,
+  locale: string
+): string {
+  const timestamp = toTimestamp(value)
+  if (timestamp === null) return EM_DASH
+  return new Intl.DateTimeFormat(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(timestamp)
+}
+
+/**
+ * Format a timestamp as a compact localized date for tight list cells
+ * ("Aug 21"; the year is appended when it differs from the current year so
+ * stale rows stay unambiguous). Returns "—" for null / empty / invalid
+ * input. The `locale` MUST be a BCP-47 tag.
+ */
+export function formatShortDate(
+  value: string | number | Date | null | undefined,
+  locale: string
+): string {
+  const timestamp = toTimestamp(value)
+  if (timestamp === null) return EM_DASH
+  const sameYear =
+    new Date(timestamp).getFullYear() === new Date().getFullYear()
+  return new Intl.DateTimeFormat(locale, {
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  }).format(timestamp)
 }
 
 /**

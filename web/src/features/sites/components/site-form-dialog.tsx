@@ -223,7 +223,9 @@ export function SiteFormDialog({
   async function handleDetect() {
     const url = watchedUrl.trim()
     if (!url) {
-      toast.error(t('sites.form.detectRequiresUrl'))
+      // Surface the missing URL next to the field instead of a detached
+      // toast — the operator needs to know WHICH input to fix.
+      form.setError('url', { message: t('sites.form.detectRequiresUrl') })
       return
     }
     try {
@@ -409,9 +411,9 @@ export function SiteFormDialog({
                       disabled={detectSite.isPending}
                     >
                       {detectSite.isPending ? (
-                        <Spinner className='mr-1' />
+                        <Spinner />
                       ) : (
-                        <SearchIcon className='mr-1 size-3.5' />
+                        <SearchIcon className='size-3.5' />
                       )}
                       {t('sites.form.detect')}
                     </Button>
@@ -811,13 +813,13 @@ export function SiteFormDialog({
               <Button
                 type='button'
                 variant='outline'
-                onClick={() => onOpenChange(false)}
+                onClick={() => handleOpenChange(false)}
                 disabled={isSubmitting}
               >
                 {t('sites.form.cancel')}
               </Button>
               <Button type='submit' disabled={isSubmitting}>
-                {isSubmitting && <Spinner className='mr-2' />}
+                {isSubmitting && <Spinner />}
                 {isEditing ? t('sites.form.save') : t('sites.form.create')}
               </Button>
             </DialogFooter>

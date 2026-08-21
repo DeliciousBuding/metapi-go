@@ -2,14 +2,13 @@
 //
 // The Observability workspace is a single route (`/observability`) whose
 // active section lives in the `section` search param (mirrors the proxy-logs
-// / models search-schema contract). `section` is validated against the three
-// registered sections and falls back to `overview` when absent/unknown.
+// / models search-schema contract). `section` is validated against the two
+// registered sections and falls back to `overview` when absent/unknown —
+// including stale `?section=proxy-logs` links, since proxy logs moved to
+// the dedicated `/proxy-logs` workspace.
 
 import { z } from 'zod'
 
 export const observabilitySearchSchema = z.object({
-  section: z
-    .enum(['overview', 'health', 'proxy-logs'])
-    .catch('overview')
-    .default('overview'),
+  section: z.enum(['overview', 'health']).catch('overview').default('overview'),
 })

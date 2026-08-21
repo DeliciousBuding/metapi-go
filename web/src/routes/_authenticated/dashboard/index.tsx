@@ -9,6 +9,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { DASHBOARD_DEFAULT_SECTION } from '@/features/dashboard'
 
 export const Route = createFileRoute('/_authenticated/dashboard/')({
+  staticData: { title: 'dashboard.page.title' },
   beforeLoad: () => {
     throw redirect({
       to: '/dashboard/$section',

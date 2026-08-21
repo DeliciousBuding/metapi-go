@@ -1,7 +1,7 @@
 // metapi-go/features/proxy-logs/components — latency badge.
 // i18n: title attributes resolved via t().
 
-import { AlertTriangle, Clock, Zap } from 'lucide-react'
+import { Clock, TriangleAlert, Zap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { formatLatency } from '@/lib/format'
@@ -25,7 +25,7 @@ const LATENCY_TIERS = {
     className:
       'bg-destructive/10 text-destructive-soft-fg border-destructive/30',
     dotClassName: 'bg-destructive',
-    icon: AlertTriangle,
+    icon: TriangleAlert,
   },
 } as const
 

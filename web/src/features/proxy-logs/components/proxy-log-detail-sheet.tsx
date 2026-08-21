@@ -3,9 +3,10 @@
 
 import { Link } from '@tanstack/react-router'
 import { Copy as CopyIcon, Check as CheckIcon } from 'lucide-react'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { DetailField } from '@/components/common/detail-field'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -16,13 +17,22 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
+import { toBcp47 } from '@/i18n/languages'
+import { EM_DASH, formatCurrency, formatDateTime } from '@/lib/format'
 import { parseProxyLogPathMeta } from '@/lib/helpers/proxyLogPathMeta'
-import { cn } from '@/lib/utils'
+import { toast } from '@/lib/toast'
 
 import { useProxyLog } from '../api'
 import type { ProxyLog, ProxyLogBillingDetails, ProxyLogDetail } from '../types'
 import { LatencyBadge } from './latency-badge'
 import { StatusBadge } from './status-badge'
+
+/** Count 0 renders as "0" (no retry happened); only a missing count is a dash. */
+function formatRetryCount(retryCount: number | null | undefined): string {
+  if (retryCount === null || retryCount === undefined) return EM_DASH
+  if (retryCount <= 0) return '0'
+  return `×${retryCount}`
+}
 
 type ProxyLogDetailSheetProps = {
   log: ProxyLog | null
@@ -35,7 +45,8 @@ export function ProxyLogDetailSheet({
   open,
   onOpenChange,
 }: ProxyLogDetailSheetProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
   const detailQuery = useProxyLog(log?.id ?? null)
   const detail: ProxyLogDetail | null =
     detailQuery.data ?? (log ? ({ ...log } as unknown as ProxyLogDetail) : null)
@@ -73,7 +84,7 @@ export function ProxyLogDetailSheet({
           <SheetDescription className='truncate'>
             {t('proxyLogs.detail.description', {
               id: log.id,
-              time: log.createdAt,
+              time: formatDateTime(log.createdAt, locale),
             })}
           </SheetDescription>
         </SheetHeader>
@@ -124,7 +135,8 @@ export function ProxyLogDetailSheet({
 }
 
 function DetailOverview({ detail }: { detail: ProxyLogDetail }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
   return (
     <section>
       <h3 className='mb-2 text-sm font-medium'>
@@ -132,7 +144,7 @@ function DetailOverview({ detail }: { detail: ProxyLogDetail }) {
       </h3>
       <dl className='grid grid-cols-2 gap-x-3 gap-y-2 text-sm'>
         <DetailField label={t('proxyLogs.detail.createdAt')}>
-          {detail.createdAt}
+          {formatDateTime(detail.createdAt, locale)}
         </DetailField>
         <DetailField label={t('proxyLogs.detail.httpStatus')}>
           <StatusBadge
@@ -169,7 +181,7 @@ function DetailOverview({ detail }: { detail: ProxyLogDetail }) {
             (detail.downstreamKeyId ? `#${detail.downstreamKeyId}` : '—')}
         </DetailField>
         <DetailField label={t('proxyLogs.detail.retry')}>
-          {detail.retryCount ? `×${detail.retryCount}` : '0'}
+          {formatRetryCount(detail.retryCount)}
         </DetailField>
         <DetailField label={t('proxyLogs.detail.route')}>
           {detail.routeId ? (
@@ -198,9 +210,7 @@ function DetailOverview({ detail }: { detail: ProxyLogDetail }) {
           )}
         </DetailField>
         <DetailField label={t('proxyLogs.detail.estimatedCost')}>
-          {detail.estimatedCost !== null && detail.estimatedCost !== undefined
-            ? `$${detail.estimatedCost.toFixed(4)}`
-            : '—'}
+          {formatCurrency(detail.estimatedCost, { fractionDigits: 4 })}
         </DetailField>
       </dl>
     </section>
@@ -238,18 +248,26 @@ function ConversationFileLinks({
           <DetailField label={t('proxyLogs.detail.sessionId')}>
             {sessionId || '—'}
           </DetailField>
-          <DetailField label={t('proxyLogs.detail.downstreamPath')} full>
+          <DetailField
+            label={t('proxyLogs.detail.downstreamPath')}
+            full
+            title={downstreamPath || undefined}
+          >
             {downstreamPath ? (
-              <code className='bg-muted block rounded px-1.5 py-0.5 text-xs break-all'>
+              <code className='bg-muted rounded px-1.5 py-0.5 text-xs'>
                 {downstreamPath}
               </code>
             ) : (
               '—'
             )}
           </DetailField>
-          <DetailField label={t('proxyLogs.detail.upstreamPath')} full>
+          <DetailField
+            label={t('proxyLogs.detail.upstreamPath')}
+            full
+            title={upstreamPath || undefined}
+          >
             {upstreamPath ? (
-              <code className='bg-muted block rounded px-1.5 py-0.5 text-xs break-all'>
+              <code className='bg-muted rounded px-1.5 py-0.5 text-xs'>
                 {upstreamPath}
               </code>
             ) : (
@@ -318,23 +336,6 @@ function RawBodySection({
   )
 }
 
-function DetailField({
-  label,
-  children,
-  full,
-}: {
-  label: string
-  children: ReactNode
-  full?: boolean
-}) {
-  return (
-    <div className={cn('flex flex-col', full && 'col-span-2')}>
-      <dt className='text-muted-foreground text-[11px]'>{label}</dt>
-      <dd className='min-w-0 break-words'>{children}</dd>
-    </div>
-  )
-}
-
 function prettyPrintJson(value: unknown): string {
   if (typeof value === 'string') {
     const trimmed = value.trim()
@@ -355,17 +356,18 @@ function JsonBlock({ value }: { value: unknown }) {
   const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
   const text = useMemo(() => prettyPrintJson(value), [value])
-  function handleCopy() {
-    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
-      return
+  async function handleCopy() {
+    try {
+      if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+        throw new Error('clipboard unavailable')
+      }
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Clipboard may be unavailable (non-secure context / permissions).
+      toast.error(t('common.copyFailed'))
     }
-    navigator.clipboard
-      .writeText(text)
-      .then(() => {
-        setCopied(true)
-        window.setTimeout(() => setCopied(false), 1500)
-      })
-      .catch(() => {})
   }
   return (
     <div className='relative'>

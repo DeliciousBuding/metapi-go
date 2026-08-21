@@ -91,6 +91,28 @@
     cursor: pointer;
   }
 
+  /*
+   * Coarse-pointer (touch) hit-area expansion. Icon-sized controls opt in via
+   * the `data-hit-area` attribute (Button icon-* sizes, row-action dropdown
+   * triggers, dialog/sheet close buttons). A centered pseudo-element grows
+   * the clickable box to at least 40×40 CSS px without changing the visual
+   * size or the desktop (fine-pointer) density.
+   */
+  @media (pointer: coarse) {
+    [data-hit-area] {
+      position: relative;
+    }
+    [data-hit-area]::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: max(100%, 40px);
+      height: max(100%, 40px);
+      translate: -50% -50%;
+    }
+  }
+
   /* Prevent focus zoom on mobile devices */
   @media screen and (max-width: 767px) {
     input,

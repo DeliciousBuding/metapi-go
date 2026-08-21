@@ -38,7 +38,9 @@ export type DataTableToolbarProps<TData> = {
    */
   searchPlaceholder?: string
   /**
-   * Delay committing the default search input. Defaults to immediate updates.
+   * Delay committing the default search input. Defaults to 300ms so
+   * filter-as-you-type pages do not re-filter (or re-fetch) on every
+   * keystroke; pass 0 for pages that explicitly want immediate commits.
    */
   searchDebounceMs?: number
   /**
@@ -160,7 +162,7 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
       ? searchDraft
       : null
   const searchValue = activeSearchDraft?.value ?? currentSearchValue
-  const searchDebounceMs = Math.max(0, props.searchDebounceMs ?? 0)
+  const searchDebounceMs = Math.max(0, props.searchDebounceMs ?? 300)
   const debouncedSearchValue = useDebounce(searchValue, searchDebounceMs)
 
   const commitSearchValue = React.useCallback(
@@ -225,6 +227,18 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
     queueSearchValue(value)
   }
 
+  // Enter commits the draft immediately instead of waiting out the debounce,
+  // so "type → Enter" feels like an explicit search even with debounced
+  // filtering enabled.
+  const handleSearchKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement>
+  ) => {
+    if (event.key !== 'Enter') return
+    event.preventDefault()
+    setIsSearchComposing(false)
+    commitSearchValue(searchValue)
+  }
+
   const hasSearchValue = searchValue.length > 0
 
   const clearSearchValue = () => {
@@ -240,6 +254,7 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
         placeholder={placeholder}
         value={searchValue}
         onChange={handleSearchChange}
+        onKeyDown={handleSearchKeyDown}
         onCompositionStart={handleSearchCompositionStart}
         onCompositionEnd={handleSearchCompositionEnd}
         className={cn('w-full', hasSearchValue && 'pe-8')}

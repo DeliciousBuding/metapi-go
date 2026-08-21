@@ -7,6 +7,7 @@ import type {
 import * as React from 'react'
 
 import { useMediaQuery } from '@/hooks/use-media-query'
+import { TABLE_MOBILE_MEDIA_QUERY } from '@/lib/breakpoints'
 import { cn } from '@/lib/utils'
 
 import {
@@ -227,7 +228,11 @@ export type DataTablePageProps<TData> = {
  * `toolbar` / `mobile` / `renderRow` slots instead of the `*Props` variants.
  */
 export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
-  const isMobile = useMediaQuery('(max-width: 640px)')
+  // Shared constant (lib/breakpoints): ≤640px renders the MobileCardList;
+  // above it the desktop table keeps horizontal scrolling. The 641–767px
+  // band intentionally still uses the mobile drawer navigation (768px
+  // threshold in useIsMobile) — see lib/breakpoints for the rationale.
+  const isMobile = useMediaQuery(TABLE_MOBILE_MEDIA_QUERY)
   const showMobile = isMobile && !props.hideMobile
 
   const toolbarNode = renderToolbar(props)
@@ -365,7 +370,9 @@ function renderDesktop<TData>(
       containerClassName={cn(
         fixedHeight && 'min-h-0 flex-1',
         'transition-opacity duration-150',
-        isFetchingOnly && 'pointer-events-none opacity-60',
+        // Subtle dim only while background-refetching; never block pointer
+        // events — rows stay rendered (placeholderData) and interactive.
+        isFetchingOnly && 'opacity-80',
         props.tableClassName
       )}
       getRowClassName={(row) =>

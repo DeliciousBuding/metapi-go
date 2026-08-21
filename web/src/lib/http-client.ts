@@ -1,5 +1,6 @@
 import axios, { type AxiosRequestConfig } from 'axios'
 
+import { sanitizeAuthRedirect } from '@/features/auth/lib/auth-redirect'
 import i18n from '@/i18n/config'
 import {
   clearAuthentication,
@@ -82,13 +83,36 @@ apiClient.interceptors.request.use((config) => {
 // another tab replaced the token, and a catch-all error toast.
 // ---------------------------------------------------------------------------
 
+function buildSignInHref(): string {
+  if (typeof window === 'undefined') return '/sign-in'
+  // Preserve the interrupted location so sign-in can send the user back.
+  // The value is built from the current location (always same-origin) but
+  // still runs through the redirect sanitizer — the same whitelist the
+  // sign-in page applies when consuming the param.
+  const returnTarget = sanitizeAuthRedirect(
+    `${window.location.pathname}${window.location.search}`,
+    window.location.origin
+  )
+  if (!returnTarget) return '/sign-in'
+  return `/sign-in?redirect=${encodeURIComponent(returnTarget)}`
+}
+
 function redirectToSignIn(): void {
   if (
     typeof window !== 'undefined' &&
     window.location.pathname !== '/sign-in'
   ) {
-    window.location.replace('/sign-in')
+    window.location.replace(buildSignInHref())
   }
+}
+
+/**
+ * True when a 403 body carries the backend's "Invalid token" semantics
+ * (rotated/expired admin token) rather than an IP-allowlist rejection.
+ * Mirrors the classification in features/auth/api.ts.
+ */
+function isInvalidTokenMessage(message: string | undefined): boolean {
+  return !!message && message.toLowerCase().includes('invalid token')
 }
 
 function resolveResponseMessage(data: unknown): string | undefined {
@@ -119,7 +143,18 @@ apiClient.interceptors.response.use(
     const skipErrorHandler = config?.skipErrorHandler
     const status = error?.response?.status
 
-    if (status === 401) {
+    // A 403 with the backend's "Invalid token" body ends the session exactly
+    // like a 401 (the token was rotated elsewhere). IP-allowlist 403s carry
+    // "IP not allowed" and must NOT clear the session — they fall through to
+    // the generic error toast below.
+    const sessionInvalid =
+      status === 401 ||
+      (status === 403 &&
+        isInvalidTokenMessage(resolveResponseMessage(error?.response?.data)))
+    const sessionInvalidMessageKey =
+      status === 401 ? 'common.sessionExpired' : 'common.tokenInvalid'
+
+    if (sessionInvalid) {
       if (config && !config.skipAuthRetry && !config.authRetry) {
         config.authRetry = true
         const outcome = resolveAuthenticationAfterUnauthorized()
@@ -134,14 +169,14 @@ apiClient.interceptors.response.use(
           return apiClient.request(config)
         }
 
-        if (!skipErrorHandler) toast.error(i18n.t('common.sessionExpired'))
+        if (!skipErrorHandler) toast.error(i18n.t(sessionInvalidMessageKey))
         redirectToSignIn()
       } else if (config?.authRetry) {
         clearAuthentication()
-        if (!skipErrorHandler) toast.error(i18n.t('common.sessionExpired'))
+        if (!skipErrorHandler) toast.error(i18n.t(sessionInvalidMessageKey))
         redirectToSignIn()
       } else if (!skipErrorHandler) {
-        toast.error(i18n.t('common.sessionExpired'))
+        toast.error(i18n.t(sessionInvalidMessageKey))
       }
     } else if (!skipErrorHandler) {
       const message =
@@ -159,10 +194,12 @@ apiClient.interceptors.response.use(
 // endpoints (SSE log streams, /v1/files content, test chat/proxy streams)
 // that cannot flow through the axios JSON interceptors.
 //
-// Auth + timeout + 401 handling mirror the legacy `fetchAuthenticatedResponse`
-// contract so the streaming method bodies in api.ts stay byte-for-byte
-// faithful. 401/403 here clear the session and reload the page (legacy
-// behaviour); the axios path above re-reads storage and retries once instead.
+// Auth failure handling matches the axios interceptor contract: a 401 or an
+// "Invalid token" 403 clears the session and redirects to /sign-in (keeping
+// the return path). Reloading the page instead would loop: the reload lands
+// on the same authenticated page, which re-requests with the same dead token.
+// An IP-allowlist 403 does NOT end the session — it surfaces as a plain
+// error so callers can toast it.
 // ---------------------------------------------------------------------------
 
 export type FetchAuthenticatedOptions = RequestInit & {
@@ -198,6 +235,16 @@ async function extractResponseErrorMessage(res: Response): Promise<string> {
   return message
 }
 
+async function isInvalidTokenResponse(res: Response): Promise<boolean> {
+  try {
+    // Clone so classification never consumes the body the caller may need.
+    const text = await res.clone().text()
+    return text.toLowerCase().includes('invalid token')
+  } catch {
+    return false
+  }
+}
+
 export async function fetchAuthenticatedResponse(
   url: string,
   options: FetchAuthenticatedOptions = {}
@@ -227,12 +274,7 @@ export async function fetchAuthenticatedResponse(
   const token = getAccessToken()
   if (!token) {
     clearAuthSession()
-    if (
-      typeof window !== 'undefined' &&
-      typeof window.location?.reload === 'function'
-    ) {
-      window.location.reload()
-    }
+    redirectToSignIn()
     throw new Error('Session expired')
   }
 
@@ -249,14 +291,15 @@ export async function fetchAuthenticatedResponse(
       headers,
     })
     if (res.status === 401 || res.status === 403) {
-      clearAuthSession()
-      if (
-        typeof window !== 'undefined' &&
-        typeof window.location?.reload === 'function'
-      ) {
-        window.location.reload()
+      const sessionEnded =
+        res.status === 401 || (await isInvalidTokenResponse(res))
+      if (sessionEnded) {
+        clearAuthSession()
+        redirectToSignIn()
+        throw new Error('Session expired')
       }
-      throw new Error('Session expired')
+      // IP-allowlist (or other) 403: keep the session, surface the body.
+      throw new Error(await extractResponseErrorMessage(res))
     }
     return res
   } catch (error: unknown) {

@@ -20,6 +20,16 @@ import {
 export const Route = createFileRoute(
   '/_authenticated/settings/$subarea/$section'
 )({
+  // Document title combines the subarea and section labels
+  // (`General · Site & Branding · Metapi`), resolved from the settings
+  // registry so the route file carries no hard-coded key mapping.
+  staticData: {
+    title: ({ subarea, section }) => {
+      const subareaConfig = getSettingsSubarea(subarea)
+      if (!subareaConfig) return undefined
+      return [subareaConfig.title, subareaConfig.getSectionMeta(section).title]
+    },
+  },
   beforeLoad: ({ params }) => {
     const subareaConfig = getSettingsSubarea(params.subarea)
     if (!subareaConfig) {

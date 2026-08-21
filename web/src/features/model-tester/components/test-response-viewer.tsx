@@ -194,14 +194,14 @@ export function TestResponseViewer(props: TestResponseViewerProps) {
             {t('modelTester.viewer.tabContent')}
           </TabsTrigger>
           <TabsTrigger value='reasoning'>
-            <BrainIcon className='mr-1 size-3.5' />
+            <BrainIcon className='size-3.5' />
             {t('modelTester.viewer.tabReasoning')}
             {hasReasoning && (
               <span className='text-muted-foreground ml-1 text-xs'>●</span>
             )}
           </TabsTrigger>
           <TabsTrigger value='raw'>
-            <CodeIcon className='mr-1 size-3.5' />
+            <CodeIcon className='size-3.5' />
             {t('modelTester.viewer.tabRaw')}
           </TabsTrigger>
         </TabsList>
@@ -266,7 +266,7 @@ export function TestResponseViewer(props: TestResponseViewerProps) {
         </span>
         {props.isRunning && (
           <Badge variant='secondary'>
-            <Spinner className='mr-1' />
+            <Spinner />
             {t('modelTester.viewer.streaming')}
           </Badge>
         )}

@@ -14,6 +14,7 @@ import {
 import { useTranslation } from 'react-i18next'
 
 import { BrandIcon } from '@/assets/brand-icons/BrandIcon'
+import { DetailField } from '@/components/common/detail-field'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -25,7 +26,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import { formatLatency, formatPrice, formatSuccessRate } from '@/lib/format'
+import {
+  formatCurrency,
+  formatLatency,
+  formatPrice,
+  formatSuccessRate,
+} from '@/lib/format'
 
 import type { ModelGroupPricing, ModelRow } from '../types'
 
@@ -34,21 +40,6 @@ type ModelDetailSheetProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onTest?: (model: ModelRow) => void
-}
-
-function DetailRow({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className='grid grid-cols-3 gap-2 py-1.5 text-sm'>
-      <span className='text-muted-foreground col-span-1'>{label}</span>
-      <div className='col-span-2 break-words'>{children}</div>
-    </div>
-  )
 }
 
 function GroupPricingRow({
@@ -121,20 +112,20 @@ export function ModelDetailSheet({
 
         <ScrollArea className='flex-1'>
           <div className='flex flex-col gap-4 px-4 pb-4'>
-            <section className='grid grid-cols-2 gap-2 text-sm sm:grid-cols-4'>
-              <DetailRow label={t('models.detail.accounts')}>
+            <dl className='grid grid-cols-2 gap-3 text-sm sm:grid-cols-4'>
+              <DetailField label={t('models.detail.accounts')}>
                 {model.accountCount}
-              </DetailRow>
-              <DetailRow label={t('models.detail.tokens')}>
+              </DetailField>
+              <DetailField label={t('models.detail.tokens')}>
                 {model.tokenCount}
-              </DetailRow>
-              <DetailRow label={t('models.detail.latency')}>
+              </DetailField>
+              <DetailField label={t('models.detail.latency')}>
                 {formatLatency(model.avgLatency)}
-              </DetailRow>
-              <DetailRow label={t('models.detail.successRate')}>
+              </DetailField>
+              <DetailField label={t('models.detail.successRate')}>
                 {formatSuccessRate(model.successRate)}
-              </DetailRow>
-            </section>
+              </DetailField>
+            </dl>
 
             {(endpointTypes.length > 0 || tags.length > 0) && (
               <>
@@ -221,7 +212,7 @@ export function ModelDetailSheet({
                           {formatLatency(account.latency)}
                         </span>
                         <span className='text-muted-foreground tabular-nums'>
-                          ${formatPrice(account.balance)}
+                          {formatCurrency(account.balance)}
                         </span>
                       </li>
                     ))}
@@ -235,13 +226,13 @@ export function ModelDetailSheet({
             <section className='flex flex-col gap-2'>
               {onTest && (
                 <Button variant='default' onClick={() => onTest(model)}>
-                  <FlaskConicalIcon className='mr-1 size-4' />
+                  <FlaskConicalIcon className='size-4' />
                   {t('models.detail.testModel')}
                 </Button>
               )}
               <Button variant='outline' onClick={goToTester}>
                 {t('models.detail.openTester')}
-                <ArrowRightIcon className='ml-1 size-4' />
+                <ArrowRightIcon className='size-4' />
               </Button>
             </section>
           </div>

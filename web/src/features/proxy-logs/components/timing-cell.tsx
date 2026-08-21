@@ -8,14 +8,22 @@
 
 import { useTranslation } from 'react-i18next'
 
+import { formatLatency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const SLOW_THRESHOLD_MS = 2000
 
+// Matches the legacy local formatter (and LatencyBadge): ms below 1s,
+// seconds above, dropping decimals once the value reaches 100s.
+const LATENCY_FORMAT = {
+  autoSeconds: true,
+  spaced: true,
+  secondsDigits: 2,
+  wholeSecondsThreshold: 100,
+} as const
+
 function formatDuration(ms: number): string {
-  if (ms < 1000) return `${Math.round(ms)} ms`
-  const seconds = ms / 1000
-  return seconds >= 100 ? `${seconds.toFixed(0)} s` : `${seconds.toFixed(2)} s`
+  return formatLatency(ms, LATENCY_FORMAT)
 }
 
 export type TimingCellProps = {

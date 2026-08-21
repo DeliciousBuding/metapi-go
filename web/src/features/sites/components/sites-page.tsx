@@ -247,37 +247,48 @@ export function SitesPage() {
 
   const urlState = useSitesUrlState()
 
-  const columns = useSitesColumns({
-    onEdit: (site) => {
-      setEditingSite(site)
-      setFormOpen(true)
+  // Per-row pending state for the inline status/pin toggles: only the row
+  // whose update is in flight disables those actions and shows a spinner.
+  const pendingSiteId = updateSite.isPending
+    ? (updateSite.variables?.id ?? null)
+    : null
+
+  const columns = useSitesColumns(
+    {
+      onEdit: (site) => {
+        setEditingSite(site)
+        setFormOpen(true)
+      },
+      onView: (site) => {
+        setViewingSite(site)
+      },
+      onToggleStatus: (site) => {
+        const nextStatus = site.status === 'disabled' ? 'active' : 'disabled'
+        updateSite.mutate(
+          { id: site.id, payload: { status: nextStatus } },
+          {
+            onSuccess: () =>
+              toast.success(
+                t('sites.toast.statusToggled', { name: site.name })
+              ),
+          }
+        )
+      },
+      onTogglePin: (site) => {
+        updateSite.mutate(
+          { id: site.id, payload: { isPinned: !site.isPinned } },
+          {
+            onSuccess: () =>
+              toast.success(t('sites.toast.pinToggled', { name: site.name })),
+          }
+        )
+      },
+      onDelete: (site) => {
+        setDeletingSite(site)
+      },
     },
-    onView: (site) => {
-      setViewingSite(site)
-    },
-    onToggleStatus: (site) => {
-      const nextStatus = site.status === 'disabled' ? 'active' : 'disabled'
-      updateSite.mutate(
-        { id: site.id, payload: { status: nextStatus } },
-        {
-          onSuccess: () =>
-            toast.success(t('sites.toast.statusToggled', { name: site.name })),
-        }
-      )
-    },
-    onTogglePin: (site) => {
-      updateSite.mutate(
-        { id: site.id, payload: { isPinned: !site.isPinned } },
-        {
-          onSuccess: () =>
-            toast.success(t('sites.toast.pinToggled', { name: site.name })),
-        }
-      )
-    },
-    onDelete: (site) => {
-      setDeletingSite(site)
-    },
-  })
+    pendingSiteId
+  )
 
   const { table } = useDataTable<Site>({
     data: sites,
@@ -408,11 +419,11 @@ export function SitesPage() {
           emptyAction={
             <>
               <Button onClick={() => setImportOpen(true)}>
-                <UploadIcon className='mr-1 size-4' />
+                <UploadIcon className='size-4' />
                 {t('sites.empty.import')}
               </Button>
               <Button variant='outline' onClick={handleAddSite}>
-                <PlusIcon className='mr-1 size-4' />
+                <PlusIcon className='size-4' />
                 {t('sites.empty.addSite')}
               </Button>
             </>
@@ -431,7 +442,7 @@ export function SitesPage() {
             ],
             preActions: (
               <Button onClick={handleAddSite}>
-                <PlusIcon className='mr-1 size-4' />
+                <PlusIcon className='size-4' />
                 {t('sites.toolbar.addSite')}
               </Button>
             ),
@@ -463,7 +474,7 @@ export function SitesPage() {
                 onClick={() => handleBulkAction('delete')}
                 disabled={batchUpdateSites.isPending}
               >
-                <Trash2Icon className='mr-1 size-3.5' />
+                <Trash2Icon className='size-3.5' />
                 {t('sites.bulk.delete')}
               </Button>
             </DataTableBulkActions>
@@ -529,7 +540,7 @@ export function SitesPage() {
               onClick={confirmDelete}
               disabled={deleteSite.isPending}
             >
-              {deleteSite.isPending && <Spinner className='mr-2' />}
+              {deleteSite.isPending && <Spinner />}
               {t('sites.deleteConfirm.confirm')}
             </Button>
           </DialogFooter>

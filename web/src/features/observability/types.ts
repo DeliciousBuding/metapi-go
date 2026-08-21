@@ -4,7 +4,7 @@
 
 import type { ReactNode } from 'react'
 
-export type ObservabilitySectionId = 'overview' | 'health' | 'proxy-logs'
+export type ObservabilitySectionId = 'overview' | 'health'
 
 export type ObservabilitySection = {
   id: ObservabilitySectionId

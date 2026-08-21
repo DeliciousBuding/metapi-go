@@ -6,9 +6,11 @@
 // section's content. Keeping it presentational (no URL reading) means route
 // files stay ~10 lines and the component is trivially testable.
 //
-// The header is a breadcrumb (Settings / subarea) instead of the section
-// title: each section card already carries its own h1 + description, so the
-// page header only needs to say where the user is inside the settings tree.
+// The header is a breadcrumb (Settings / subarea / section): each section
+// card already carries its own h1 + description, so the page header only
+// needs to say where the user is inside the settings tree. The subarea
+// crumb links back to the subarea's default section so users can step up
+// one level without losing the drill-in context.
 //
 // Phase 3 will extend this to fetch the runtime-settings map and pass it into
 // each section's `build` (mirroring newapi's SettingsPage + useSystemOptions).
@@ -39,6 +41,7 @@ type SettingsPageProps = {
 export function SettingsPage({ subarea, activeSection }: SettingsPageProps) {
   const { t } = useTranslation()
   const navItems = subarea.getSectionNavItems()
+  const activeSectionMeta = subarea.getSectionMeta(activeSection)
 
   return (
     <div className='flex flex-col gap-6 p-6'>
@@ -55,7 +58,20 @@ export function SettingsPage({ subarea, activeSection }: SettingsPageProps) {
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>{t(subarea.title)}</BreadcrumbPage>
+              <Link
+                to={
+                  `${subarea.basePath}/${subarea.defaultSection}` as
+                    | LinkProps['to']
+                    | (string & {})
+                }
+                className='hover:text-foreground transition-colors'
+              >
+                {t(subarea.title)}
+              </Link>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>{t(activeSectionMeta.title)}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>

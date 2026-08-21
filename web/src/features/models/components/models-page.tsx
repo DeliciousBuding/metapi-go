@@ -243,7 +243,7 @@ export function ModelsPage() {
             variant='outline'
             onClick={() => void navigate({ to: '/accounts' })}
           >
-            <UsersIcon className='mr-1 size-4' />
+            <UsersIcon className='size-4' />
             {t('models.empty.manageAccounts')}
           </Button>
         }
@@ -271,9 +271,9 @@ export function ModelsPage() {
               disabled={refreshMutation.isPending}
             >
               {refreshMutation.isPending ? (
-                <Spinner className='mr-1' />
+                <Spinner />
               ) : (
-                <RefreshCwIcon className='mr-1 size-3.5' />
+                <RefreshCwIcon className='size-3.5' />
               )}
               {t('models.toolbar.refresh')}
             </Button>

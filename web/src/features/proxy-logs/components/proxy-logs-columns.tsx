@@ -17,6 +17,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { toBcp47 } from '@/i18n/languages'
+import {
+  formatDateTime,
+  formatRelativeTime,
+  formatShortDate,
+  formatTimeOfDay,
+} from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type { ProxyLog } from '../types'
@@ -24,52 +31,6 @@ import { StatusBadge } from './status-badge'
 import { TimingCell } from './timing-cell'
 
 export type ProxyLogsColumnActions = { onView: (log: ProxyLog) => void }
-
-function parseServerDate(value: string | null | undefined): Date | null {
-  if (!value || typeof value !== 'string') return null
-  const normalized = value.endsWith('Z') ? value : `${value}Z`
-  const parsed = new Date(normalized)
-  return Number.isNaN(parsed.getTime()) ? null : parsed
-}
-
-function pad2(value: number): string {
-  return value < 10 ? `0${value}` : String(value)
-}
-
-function formatTime(value: string | null | undefined): string {
-  const date = parseServerDate(value)
-  if (!date) return '—'
-  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`
-}
-
-function useFormatRelativeShort() {
-  const { t } = useTranslation()
-  return function formatRelativeShort(
-    value: string | null | undefined
-  ): string {
-    const date = parseServerDate(value)
-    if (!date) return ''
-    const deltaMs = Date.now() - date.getTime()
-    const abs = Math.abs(deltaMs)
-    const suffix =
-      deltaMs >= 0
-        ? t('proxyLogs.columns.relativeBefore')
-        : t('proxyLogs.columns.relativeAfter')
-    if (abs < 60_000) {
-      return `${Math.max(1, Math.round(abs / 1000))} ${t('proxyLogs.columns.relativeSeconds')}${suffix}`
-    }
-    if (abs < 3_600_000) {
-      return `${Math.round(abs / 60_000)} ${t('proxyLogs.columns.relativeMinutes')}${suffix}`
-    }
-    if (abs < 86_400_000) {
-      return `${Math.round(abs / 3_600_000)} ${t('proxyLogs.columns.relativeHours')}${suffix}`
-    }
-    if (abs < 2_592_000_000) {
-      return `${Math.round(abs / 86_400_000)} ${t('proxyLogs.columns.relativeDays')}${suffix}`
-    }
-    return `${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
-  }
-}
 
 function formatModelCell(
   modelRequested: string | null | undefined,
@@ -83,8 +44,8 @@ function formatModelCell(
 export function useProxyLogsColumns(
   actions: ProxyLogsColumnActions
 ): ColumnDef<ProxyLog>[] {
-  const { t } = useTranslation()
-  const formatRelativeShort = useFormatRelativeShort()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
   const columns: ColumnDef<ProxyLog>[] = [
     {
       id: 'createdAt',
@@ -100,12 +61,16 @@ export function useProxyLogsColumns(
       cell: ({ row }) => {
         const createdAt = row.original.createdAt
         return (
-          <div className='flex flex-col'>
+          <div
+            className='flex flex-col'
+            title={formatDateTime(createdAt, locale)}
+          >
             <span className='text-sm tabular-nums'>
-              {formatTime(createdAt)}
+              {formatTimeOfDay(createdAt, locale)}
             </span>
             <span className='text-muted-foreground text-[10px]'>
-              {formatRelativeShort(createdAt)}
+              {formatShortDate(createdAt, locale)} ·{' '}
+              {formatRelativeTime(createdAt, locale)}
             </span>
           </div>
         )
@@ -251,8 +216,15 @@ export function useProxyLogsColumns(
       ),
       cell: ({ row }) => {
         const retryCount = row.original.retryCount
-        if (!retryCount || retryCount <= 0) {
+        if (retryCount === null || retryCount === undefined) {
           return <span className='text-muted-foreground text-sm'>—</span>
+        }
+        if (retryCount <= 0) {
+          return (
+            <span className='text-muted-foreground text-sm tabular-nums'>
+              0
+            </span>
+          )
         }
         return (
           <Badge variant='warning' className='tabular-nums'>

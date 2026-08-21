@@ -20,8 +20,20 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import type { AuthBundle, LoginError, LoginPayload } from './types'
 
-function resolveLoginErrorMessageKey(status: number, reason: string): string {
+/**
+ * Map a failed token-validation response to an i18n message key.
+ * `status === 0` covers axios network errors (no response at all — server
+ * down or unreachable), which previously fell through to the generic
+ * "login failed" copy.
+ */
+export function resolveLoginErrorMessageKey(
+  status: number,
+  reason: string
+): string {
   const normalized = (reason || '').trim().toLowerCase()
+  if (status === 0) {
+    return 'errors.login.serverUnreachable'
+  }
   if (status === 403 && normalized.includes('ip not allowed')) {
     return 'errors.login.ipNotAllowed'
   }

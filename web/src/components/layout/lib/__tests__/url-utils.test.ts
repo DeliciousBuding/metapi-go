@@ -60,4 +60,43 @@ describe('checkIsActive', () => {
     expect(checkIsActive('/settings/general/site#header', item)).toBe(true)
     expect(checkIsActive('/settings/general/auth#x', item)).toBe(true)
   })
+
+  it('activates an activeUrls entry on the bare path (default section)', () => {
+    const item = link({
+      url: '/observability?section=overview',
+      activeUrls: ['/observability'],
+    })
+    expect(checkIsActive('/observability', item)).toBe(true)
+    expect(checkIsActive('/observability#top', item)).toBe(true)
+  })
+
+  it('does not leak the bare-path activeUrls match to other sections', () => {
+    const overviewItem = link({
+      url: '/observability?section=overview',
+      activeUrls: ['/observability'],
+    })
+    const healthItem = link({ url: '/observability?section=health' })
+
+    // On a non-default section URL only the exact-match entry is active.
+    expect(checkIsActive('/observability?section=health', overviewItem)).toBe(
+      false
+    )
+    expect(checkIsActive('/observability?section=health', healthItem)).toBe(
+      true
+    )
+    // On the explicit default section URL the exact match still works.
+    expect(checkIsActive('/observability?section=overview', overviewItem)).toBe(
+      true
+    )
+  })
+
+  it('matches activeUrls entries carrying their own query exactly', () => {
+    const item = link({
+      url: '/other',
+      activeUrls: ['/page?tab=a'],
+    })
+    expect(checkIsActive('/page?tab=a', item)).toBe(true)
+    expect(checkIsActive('/page?tab=b', item)).toBe(false)
+    expect(checkIsActive('/page', item)).toBe(false)
+  })
 })

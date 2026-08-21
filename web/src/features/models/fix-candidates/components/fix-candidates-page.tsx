@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { Button } from '@/components/ui/button'
+import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty'
 import { Spinner } from '@/components/ui/spinner'
 import {
   Table,
@@ -31,7 +32,7 @@ export function FixCandidatesPage() {
 
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
-      <div className='flex items-end justify-between gap-3'>
+      <div className='flex flex-wrap items-end justify-between gap-3'>
         <div>
           <h1 className='text-lg font-normal'>
             {t('fixCandidates.page.title')}
@@ -45,7 +46,7 @@ export function FixCandidatesPage() {
           disabled={count === 0 || list.isLoading || apply.isPending}
           onClick={() => setConfirmOpen(true)}
         >
-          <CheckCircle2 className='mr-1 size-3.5' />
+          <CheckCircle2 className='size-3.5' />
           {t('fixCandidates.apply')}
         </Button>
       </div>
@@ -65,42 +66,48 @@ export function FixCandidatesPage() {
       />
 
       {!list.isLoading && !list.error && count === 0 && (
-        <div className='text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm'>
-          {t('fixCandidates.page.emptyDescription')}
-        </div>
+        <Empty className='border'>
+          <EmptyHeader>
+            <EmptyDescription>
+              {t('fixCandidates.page.emptyDescription')}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
 
       {!list.isLoading && !list.error && count > 0 && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('fixCandidates.columns.site')}</TableHead>
-              <TableHead>{t('fixCandidates.columns.model')}</TableHead>
-              <TableHead>{t('fixCandidates.columns.redirect')}</TableHead>
-              <TableHead>{t('fixCandidates.columns.account')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {candidates.map((candidate) => (
-              <TableRow
-                key={`${candidate.siteId}-${candidate.accountId}-${candidate.modelName}`}
-              >
-                <TableCell className='font-medium'>
-                  {candidate.siteName}
-                </TableCell>
-                <TableCell className='font-mono'>
-                  {candidate.modelName}
-                </TableCell>
-                <TableCell className='text-muted-foreground font-mono'>
-                  {candidate.canonical} → {candidate.actual}
-                </TableCell>
-                <TableCell className='tabular-nums'>
-                  #{candidate.accountId}
-                </TableCell>
+        <div className='overflow-x-auto rounded-lg border'>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('fixCandidates.columns.site')}</TableHead>
+                <TableHead>{t('fixCandidates.columns.model')}</TableHead>
+                <TableHead>{t('fixCandidates.columns.redirect')}</TableHead>
+                <TableHead>{t('fixCandidates.columns.account')}</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {candidates.map((candidate) => (
+                <TableRow
+                  key={`${candidate.siteId}-${candidate.accountId}-${candidate.modelName}`}
+                >
+                  <TableCell className='font-medium'>
+                    {candidate.siteName}
+                  </TableCell>
+                  <TableCell className='font-mono'>
+                    {candidate.modelName}
+                  </TableCell>
+                  <TableCell className='text-muted-foreground font-mono'>
+                    {candidate.canonical} → {candidate.actual}
+                  </TableCell>
+                  <TableCell className='tabular-nums'>
+                    #{candidate.accountId}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       <ConfirmDialog

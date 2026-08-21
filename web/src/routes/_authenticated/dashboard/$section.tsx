@@ -17,9 +17,19 @@ import {
   DASHBOARD_DEFAULT_SECTION,
   DASHBOARD_SECTION_IDS,
   DashboardPage,
+  getDashboardSectionMeta,
+  type DashboardSectionId,
 } from '@/features/dashboard'
 
 export const Route = createFileRoute('/_authenticated/dashboard/$section')({
+  // Document title follows the active section (resolved from the `$section`
+  // param via the section registry; the cast is safe because the registry
+  // falls back to the default section on unknown ids, and `beforeLoad`
+  // redirects them anyway).
+  staticData: {
+    title: ({ section }) =>
+      getDashboardSectionMeta(section as DashboardSectionId).title,
+  },
   beforeLoad: ({ params }) => {
     const knownSections = DASHBOARD_SECTION_IDS as readonly string[]
     if (!knownSections.includes(params.section)) {

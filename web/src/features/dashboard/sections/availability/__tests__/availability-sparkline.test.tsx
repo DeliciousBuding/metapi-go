@@ -45,11 +45,11 @@ const mockGetAttention = vi.mocked(api.getAttention)
 const mockUseRealtimeOps = vi.mocked(useRealtimeOps)
 
 /**
- * Wrap a realtime sample in the hook's `{ sample, reconnect }` return shape so
- * each case only spells out the sample under test.
+ * Wrap a realtime sample in the hook's `{ sample, lastFrameAt, reconnect }`
+ * return shape so each case only spells out the sample under test.
  */
 function realtimeReturn(sample: RealtimeOpsSample) {
-  return { sample, reconnect: vi.fn() }
+  return { sample, lastFrameAt: null, reconnect: vi.fn() }
 }
 
 function createQueryClient() {

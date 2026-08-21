@@ -19,10 +19,21 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+} from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
-import { formatAbsoluteDateTime, formatRelativeTime } from '@/lib/format'
+import {
+  formatAbsoluteDateTime,
+  formatRelativeTime,
+  formatTimeOfDay,
+} from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { useRealtimeOps } from '../../hooks/use-realtime-ops'
@@ -62,6 +73,31 @@ const SEVERITY_TONE: Record<
 
 function formatRate(rate: number): string {
   return `${(rate * 100).toFixed(1)}%`
+}
+
+/**
+ * Escalate the realtime uptime from minutes to hours/days once the value
+ * outgrows the unit (a multi-day session must not render "4320m").
+ */
+function formatUptime(
+  lifetimeSeconds: number,
+  t: (key: string, options?: Record<string, unknown>) => string
+): string {
+  const minutes = Math.floor(lifetimeSeconds / 60)
+  if (minutes < 60) {
+    return t('dashboard.availability.realtime.uptimeMinutes', {
+      value: minutes,
+    })
+  }
+  const hours = minutes / 60
+  if (hours < 24) {
+    return t('dashboard.availability.realtime.uptimeHours', {
+      value: Number(hours.toFixed(1)),
+    })
+  }
+  return t('dashboard.availability.realtime.uptimeDays', {
+    value: Number((hours / 24).toFixed(1)),
+  })
 }
 
 // Health bands for the realtime sparkline. A second with no traffic is idle
@@ -132,8 +168,9 @@ function RealtimeSparkline({ points }: { points: RealtimeOpsSamplePoint[] }) {
 }
 
 function RealtimeOpsPanel() {
-  const { t } = useTranslation()
-  const { sample, reconnect } = useRealtimeOps()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
+  const { sample, reconnect, lastFrameAt } = useRealtimeOps()
 
   const tone = sample.gaveUp
     ? 'border-destructive/40 bg-destructive/5'
@@ -179,18 +216,37 @@ function RealtimeOpsPanel() {
         <CardDescription className='text-xs'>
           {t('dashboard.availability.realtime.description')}
         </CardDescription>
+        {!sample.connected && lastFrameAt !== null ? (
+          <p
+            aria-live='polite'
+            className='text-muted-foreground text-xs tabular-nums'
+          >
+            {t('dashboard.availability.realtime.dataAsOf', {
+              time: formatTimeOfDay(lastFrameAt, locale),
+            })}
+          </p>
+        ) : null}
       </CardHeader>
       <CardContent className='space-y-3'>
         {sample.gaveUp ? (
-          <div className='border-destructive/40 flex min-h-[8rem] flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-6 text-center'>
-            <TriangleAlert className='text-destructive/80 size-5' />
-            <p className='text-destructive text-sm'>
-              {t('dashboard.availability.realtime.connectionLost')}
-            </p>
-            <Button variant='outline' size='sm' onClick={reconnect}>
-              {t('dashboard.availability.realtime.reconnect')}
-            </Button>
-          </div>
+          <Empty className='border-destructive/40 min-h-32 border'>
+            <EmptyHeader>
+              <EmptyMedia
+                variant='icon'
+                className='bg-destructive/10 text-destructive'
+              >
+                <TriangleAlert />
+              </EmptyMedia>
+              <EmptyDescription className='text-destructive'>
+                {t('dashboard.availability.realtime.connectionLost')}
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <Button variant='outline' size='sm' onClick={reconnect}>
+                {t('dashboard.availability.realtime.reconnect')}
+              </Button>
+            </EmptyContent>
+          </Empty>
         ) : (
           <>
             <div className='flex flex-wrap items-end justify-between gap-x-4 gap-y-2'>
@@ -215,7 +271,7 @@ function RealtimeOpsPanel() {
                   {t('dashboard.availability.realtime.metricUptime')}
                 </div>
                 <div className='text-2xl font-semibold tabular-nums'>
-                  {Math.floor(sample.lifetime / 60)}m
+                  {formatUptime(sample.lifetime, t)}
                 </div>
               </div>
             </div>
@@ -256,19 +312,30 @@ function AttentionPanel() {
         {isLoading ? (
           <Skeleton className='h-48 w-full rounded-md' />
         ) : isError ? (
-          <div className='flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center'>
-            <TriangleAlert className='text-destructive/80 size-5' />
-            <p className='text-destructive text-xs'>
-              {t('dashboard.availability.monitors.loadError')}
-            </p>
-          </div>
+          <Empty className='min-h-48 border'>
+            <EmptyHeader>
+              <EmptyMedia
+                variant='icon'
+                className='bg-destructive/10 text-destructive'
+              >
+                <TriangleAlert />
+              </EmptyMedia>
+              <EmptyDescription className='text-destructive'>
+                {t('dashboard.availability.monitors.loadError')}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : items.length === 0 ? (
-          <div className='flex min-h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center'>
-            <Inbox className='text-muted-foreground/60 size-5' />
-            <p className='text-muted-foreground text-sm'>
-              {t('dashboard.availability.monitors.empty')}
-            </p>
-          </div>
+          <Empty className='min-h-48 border'>
+            <EmptyHeader>
+              <EmptyMedia variant='icon'>
+                <Inbox />
+              </EmptyMedia>
+              <EmptyDescription>
+                {t('dashboard.availability.monitors.empty')}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <ul className='space-y-2'>
             {items.map((item, index) => {

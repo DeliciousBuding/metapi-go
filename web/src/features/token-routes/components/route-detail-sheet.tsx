@@ -8,6 +8,7 @@ import { Loader2, RefreshCw, Snowflake } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { DetailField } from '@/components/common/detail-field'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -21,7 +22,8 @@ import {
 import { priceCompareQueryOptions } from '@/features/models/price-compare/api'
 import { PriceGradeBadge } from '@/features/models/price-compare/components/price-grade-badge'
 import type { PriceCompareItem } from '@/features/models/price-compare/types'
-import { formatInt } from '@/lib/format'
+import { toBcp47 } from '@/i18n/languages'
+import { formatDateTime, formatInt } from '@/lib/format'
 
 import {
   useClearRouteCooldown,
@@ -82,7 +84,8 @@ export function RouteDetailSheet({
   open,
   onOpenChange,
 }: RouteDetailSheetProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
   const channelsQuery = useRouteChannels(route?.id ?? null)
   const clearCooldownMutation = useClearRouteCooldown()
   const rebuildMutation = useRebuildRoutes()
@@ -180,7 +183,10 @@ export function RouteDetailSheet({
             <DetailField label={t('tokenRoutes.detail.matchRule')}>
               <code className='font-mono text-xs'>{route.modelPattern}</code>
             </DetailField>
-            <DetailField label={t('tokenRoutes.detail.displayName')}>
+            <DetailField
+              label={t('tokenRoutes.detail.displayName')}
+              title={route.displayName || undefined}
+            >
               {route.displayName || '—'}
             </DetailField>
             <DetailField label={t('common.status')}>
@@ -204,11 +210,19 @@ export function RouteDetailSheet({
                 enabled: route.enabledChannelCount,
               })}
             </DetailField>
-            <DetailField label={t('tokenRoutes.detail.sites')}>
+            <DetailField
+              label={t('tokenRoutes.detail.sites')}
+              title={
+                route.siteNames?.length ? route.siteNames.join(', ') : undefined
+              }
+            >
               {route.siteNames?.length ? route.siteNames.join(', ') : '—'}
             </DetailField>
-            <DetailField label={t('tokenRoutes.detail.decisionRefresh')}>
-              {route.decisionRefreshedAt || '—'}
+            <DetailField
+              label={t('tokenRoutes.detail.decisionRefresh')}
+              title={formatDateTime(route.decisionRefreshedAt, locale)}
+            >
+              {formatDateTime(route.decisionRefreshedAt, locale)}
             </DetailField>
           </dl>
 
@@ -295,25 +309,14 @@ export function RouteDetailSheet({
         </div>
 
         <SheetFooter>
-          {isReadOnly ? (
-            <Button onClick={handleRebuild} variant='default'>
-              <RefreshCw
-                className={
-                  rebuildMutation.isPending ? 'animate-spin' : undefined
-                }
-              />
-              {t('tokenRoutes.detail.rebuildRoutes')}
-            </Button>
-          ) : (
-            <Button onClick={handleRebuild} variant='outline'>
-              <RefreshCw
-                className={
-                  rebuildMutation.isPending ? 'animate-spin' : undefined
-                }
-              />
-              {t('tokenRoutes.detail.rebuild')}
-            </Button>
-          )}
+          <Button onClick={handleRebuild} variant='default'>
+            <RefreshCw
+              className={rebuildMutation.isPending ? 'animate-spin' : undefined}
+            />
+            {isReadOnly
+              ? t('tokenRoutes.detail.rebuildRoutes')
+              : t('tokenRoutes.detail.rebuild')}
+          </Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>
@@ -333,12 +336,13 @@ function ChannelRow({
 }) {
   const { t } = useTranslation()
   const accountLabel =
-    channel.account?.username || `account-${channel.accountId}`
+    channel.account?.username ||
+    t('tokenRoutes.detail.fallbackAccount', { id: channel.accountId })
   const siteLabel = channel.site?.name || channel.site?.platform || ''
   const tokenLabel =
     channel.token?.name ||
     (channel.tokenId
-      ? `token-${channel.tokenId}`
+      ? t('tokenRoutes.detail.fallbackToken', { id: channel.tokenId })
       : t('tokenRoutes.detail.channelTokenUnbound'))
   const sourceModel = priceTruth.concreteModel || '—'
   const cooldownActive =
@@ -518,7 +522,8 @@ function DecisionSnapshotSection({
 }: {
   decision: RouteDecision | null
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
   if (!decision) {
     return (
       <div className='space-y-1'>
@@ -532,7 +537,7 @@ function DecisionSnapshotSection({
     )
   }
   const candidates = decision.candidates ?? []
-  const generatedAt = decision.generatedAt || '—'
+  const generatedAt = formatDateTime(decision.generatedAt, locale)
   const reasonText = decision.reasonText || decision.matchedRoutePattern || ''
   return (
     <div className='space-y-2'>
@@ -540,10 +545,16 @@ function DecisionSnapshotSection({
         {t('tokenRoutes.detail.decisionSnapshot')}
       </h3>
       <dl className='grid grid-cols-2 gap-x-3 gap-y-1 text-xs'>
-        <DetailField label={t('tokenRoutes.detail.decisionModel')}>
+        <DetailField
+          label={t('tokenRoutes.detail.decisionModel')}
+          title={decision.model || undefined}
+        >
           {decision.model || '—'}
         </DetailField>
-        <DetailField label={t('tokenRoutes.detail.decisionGeneratedAt')}>
+        <DetailField
+          label={t('tokenRoutes.detail.decisionGeneratedAt')}
+          title={generatedAt}
+        >
           {generatedAt}
         </DetailField>
         <DetailField label={t('tokenRoutes.detail.decisionCandidateCount')}>
@@ -569,7 +580,10 @@ function DecisionSnapshotSection({
               className='flex items-center justify-between rounded border px-2 py-1 text-xs'
             >
               <span className='truncate'>
-                {candidate.username || `account-${candidate.accountId}`}
+                {candidate.username ||
+                  t('tokenRoutes.detail.fallbackAccount', {
+                    id: candidate.accountId,
+                  })}
                 {candidate.sourceModel ? ` · ${candidate.sourceModel}` : ''}
               </span>
               <span className='text-muted-foreground tabular-nums'>
@@ -588,21 +602,6 @@ function DecisionSnapshotSection({
           )}
         </ul>
       )}
-    </div>
-  )
-}
-
-function DetailField({
-  label,
-  children,
-}: {
-  label: string
-  children: ReactNode
-}) {
-  return (
-    <div className='flex flex-col'>
-      <dt className='text-muted-foreground text-[11px]'>{label}</dt>
-      <dd className='truncate'>{children}</dd>
     </div>
   )
 }

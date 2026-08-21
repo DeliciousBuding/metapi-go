@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { api } from '@/lib/api'
+import { clearAuthentication } from '@/lib/auth-session'
 import { toast } from '@/lib/toast'
 
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
@@ -104,9 +105,13 @@ export function AuthenticationSection() {
     mutationFn: async (values: TokenFormValues) =>
       api.changeAuthToken(values.oldToken, values.newToken),
     onSuccess: () => {
-      void authInfoQuery.refetch()
       toast.success(t('settings.general.authentication.toast.tokenChanged'))
-      setShowTokenFields(false)
+      // The old token stops working immediately, so the current session is
+      // dead the moment rotation succeeds. Clear it and send the operator to
+      // sign in with the new token — staying on this page would just loop
+      // on invalid-token 403s.
+      clearAuthentication()
+      window.location.replace('/sign-in?reason=tokenChanged')
     },
     onError: () =>
       toast.error(t('settings.general.authentication.toast.tokenChangeFailed')),
@@ -182,7 +187,7 @@ export function AuthenticationSection() {
       title={t('settings.general.authentication.title')}
       description={t('settings.general.authentication.description')}
     >
-      <div className='space-y-6'>
+      <div className='space-y-4'>
         <div className='space-y-3'>
           <div className='flex items-center gap-3'>
             <span className='text-muted-foreground text-sm'>

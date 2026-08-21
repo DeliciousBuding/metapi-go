@@ -44,7 +44,7 @@ func (h *authSettingsHandler) changeToken(w http.ResponseWriter, r *http.Request
 		NewToken string `json:"newToken"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeError(w, http.StatusBadRequest, "请填写所有字段")
+		writeError(w, http.StatusBadRequest, "All fields are required")
 		return
 	}
 
@@ -52,12 +52,12 @@ func (h *authSettingsHandler) changeToken(w http.ResponseWriter, r *http.Request
 	body.NewToken = strings.TrimSpace(body.NewToken)
 
 	if body.OldToken == "" || body.NewToken == "" {
-		writeError(w, http.StatusBadRequest, "请填写所有字段")
+		writeError(w, http.StatusBadRequest, "All fields are required")
 		return
 	}
 
 	if len(body.NewToken) < 6 {
-		writeError(w, http.StatusBadRequest, "新 Token 至少 6 个字符")
+		writeError(w, http.StatusBadRequest, "New token must be at least 6 characters")
 		return
 	}
 
@@ -65,7 +65,7 @@ func (h *authSettingsHandler) changeToken(w http.ResponseWriter, r *http.Request
 	// lengths after a dummy compare so length mismatches do not short-circuit
 	// before crypto/subtle.ConstantTimeCompare.
 	if !constantTimeTokenEqual(body.OldToken, h.cfg.AuthToken) {
-		writeError(w, http.StatusForbidden, "旧 Token 验证失败")
+		writeError(w, http.StatusForbidden, "Old token verification failed")
 		return
 	}
 
@@ -93,7 +93,7 @@ func (h *authSettingsHandler) changeToken(w http.ResponseWriter, r *http.Request
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success": true,
-		"message": "Token 已更新",
+		"message": "Token updated",
 	})
 }
 

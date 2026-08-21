@@ -7,8 +7,17 @@
 // OAuth flow in a new tab. Row actions: refresh quota, rebind (re-run the
 // OAuth flow), delete. Mobile cards are handled by `DataTablePage` via the
 // column `meta` flags.
+//
+// Pagination is SERVER-side (manualPagination): the connections query
+// fetches one limit/offset page at a time and the pager reflects the
+// backend's real total — the old client-side mode fetched limit:1000 and
+// silently truncated larger fleets. The backend has no server-side
+// q/status/sort params, so the toolbar search + status filter remain
+// client-side over the fetched page and column sorting is disabled (a
+// sortable header would promise cross-page sorting the backend cannot
+// honour). Deep links keep parsing `sort` tolerantly for old URLs.
 
-import { Plus as PlusIcon } from 'lucide-react'
+import { Loader2 as Loader2Icon, Plus as PlusIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -163,15 +172,19 @@ function resolveOAuthDisplayName(client: OAuthClient): string {
 
 export function OAuthPage() {
   const { t } = useTranslation()
-  const connectionsQuery = useOAuthConnections()
+  const urlState = useOAuthUrlState()
+  const connectionsQuery = useOAuthConnections({
+    page: urlState.pagination.pageIndex,
+    pageSize: urlState.pagination.pageSize,
+  })
+  const connections = connectionsQuery.data?.items ?? []
+  const connectionsTotal = connectionsQuery.data?.total ?? 0
   const deleteConnection = useDeleteOAuthConnection()
   const refreshQuota = useRefreshOAuthQuota()
   const rebindConnection = useRebindOAuthConnection()
 
   const [startOpen, setStartOpen] = useState(false)
   const [deletingClient, setDeletingClient] = useState<OAuthClient | null>(null)
-
-  const urlState = useOAuthUrlState()
 
   // Derive the per-row pending account id from whichever mutation is in
   // flight. A single value is sufficient because BOTH row actions (refresh +
@@ -231,8 +244,16 @@ export function OAuthPage() {
   )
 
   const { table } = useDataTable<OAuthClient>({
-    data: connectionsQuery.data ?? [],
+    data: connections,
     columns,
+    manualPagination: true,
+    // The backend list endpoint has no sort param; keep headers static
+    // instead of offering sorting that cannot work across server pages.
+    manualSorting: true,
+    // Server-paged data changes on every page fetch; TanStack's auto page
+    // reset would snap deep-linked pages back to the first one.
+    autoResetPageIndex: false,
+    totalCount: connectionsTotal,
     enableRowSelection: false,
     enableColumnResizing: true,
     columnVisibilityStorageKey: OAUTH_COLUMN_VISIBILITY_STORAGE_KEY,
@@ -241,8 +262,6 @@ export function OAuthPage() {
     onGlobalFilterChange: urlState.onGlobalFilterChange,
     pagination: urlState.pagination,
     onPaginationChange: urlState.onPaginationChange,
-    sorting: urlState.sorting,
-    onSortingChange: urlState.onSortingChange,
     columnFilters: urlState.columnFilters,
     onColumnFiltersChange: urlState.onColumnFiltersChange,
     ensurePageInRange: urlState.ensurePageInRange,
@@ -295,7 +314,7 @@ export function OAuthPage() {
         emptyDescription={t('oauth.empty.description')}
         emptyAction={
           <Button onClick={handleStart}>
-            <PlusIcon className='mr-1 size-4' />
+            <PlusIcon className='size-4' />
             {t('oauth.empty.startAuth')}
           </Button>
         }
@@ -313,7 +332,7 @@ export function OAuthPage() {
           ],
           preActions: (
             <Button onClick={handleStart}>
-              <PlusIcon className='mr-1 size-4' />
+              <PlusIcon className='size-4' />
               {t('oauth.toolbar.startAuth')}
             </Button>
           ),
@@ -351,6 +370,9 @@ export function OAuthPage() {
               onClick={confirmDelete}
               disabled={deleteConnection.isPending}
             >
+              {deleteConnection.isPending && (
+                <Loader2Icon className='animate-spin' />
+              )}
               {t('oauth.delete.confirm')}
             </Button>
           </DialogFooter>

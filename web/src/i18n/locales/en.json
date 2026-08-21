@@ -1,7 +1,15 @@
 {
   "translation": {
     "dataTable": {
-      "summary": "Showing {{start}}-{{end}} of {{total}} rows"
+      "summary": "Showing {{start}}-{{end}} of {{total}} rows",
+      "bulkActions": {
+        "announcement": "{{count}} {{entityName}} selected. Bulk actions toolbar is available.",
+        "toolbarAria": "Bulk actions for {{count}} selected {{entityName}}",
+        "selectedAria": "{{count}} selected",
+        "entityPlural_one": "{{entityName}}",
+        "entityPlural_other": "{{entityName}}s",
+        "selected": "selected"
+      }
     },
     "auth": {
       "login": {
@@ -12,7 +20,12 @@
         "tokenRequired": "Please enter the admin token",
         "submit": "Sign in",
         "submitting": "Signing in…",
-        "welcomeBack": "Welcome back!"
+        "welcomeBack": "Welcome back!",
+        "note": "Only local server access is verified; the token is never sent to a third party.",
+        "tokenChangedNotice": "The admin token was updated. Sign in with your new token.",
+        "tokenSourceHint": "The admin token comes from the AUTH_TOKEN environment variable (or .env file) set when this instance was deployed.",
+        "tokenSourceForgot": "If you don't know it, ask your deployment administrator.",
+        "tokenSourceDocs": "Deployment docs"
       }
     },
     "errors": {
@@ -50,6 +63,7 @@
       "close": "Close",
       "retry": "Retry",
       "actions": "Actions",
+      "moreActions": "More actions",
       "status": "Status",
       "language": "Language",
       "languageName": {
@@ -66,7 +80,11 @@
       "hide": "Hide",
       "reveal": "Reveal",
       "copy": "Copy",
+      "copied": "Copied",
+      "clickToCopyValue": "Click to copy: {{value}}",
+      "copyFailed": "Copy failed",
       "sessionExpired": "Session expired!",
+      "tokenInvalid": "The admin token is no longer valid. Sign in again.",
       "requestFailed": "Request failed",
       "requestTimeout": "Request timeout ({{seconds}}s)"
     },
@@ -185,6 +203,7 @@
         "systemPromptPlaceholder": "Enter a system prompt (optional)",
         "prompt": "Prompt",
         "promptPlaceholder": "Enter a prompt",
+        "promptSubmitHint": "Press ⌘/Ctrl + Enter to send.",
         "temperature": "Temperature",
         "topP": "Top P",
         "maxTokens": "Max tokens",
@@ -328,6 +347,10 @@
       "session": {
         "waiting": "Waiting for authorization…",
         "waitingDescription": "Complete the authorization in the opened tab, or paste the callback URL manually.",
+        "abandonTitle": "Abort authorization?",
+        "abandonDescription": "Authorization is still in progress. Closing now stops waiting, and the connection will not be added.",
+        "abandonConfirm": "Abort",
+        "keepWaiting": "Keep waiting",
         "callbackLabel": "Manual callback URL",
         "callbackPlaceholder": "Paste the callback URL from the OAuth redirect",
         "callbackSubmit": "Submit callback",
@@ -560,6 +583,9 @@
       }
     },
     "dashboard": {
+      "page": {
+        "title": "Dashboard"
+      },
       "sections": {
         "overview": {
           "title": "Overview",
@@ -602,6 +628,7 @@
         "scheduledTasks": {
           "title": "Scheduled tasks",
           "description": "Health of background jobs (check-in, balance refresh, log cleanup).",
+          "editSchedule": "Edit schedule",
           "colJob": "Job",
           "colEnabled": "Enabled",
           "colLastStatus": "Last status",
@@ -681,13 +708,17 @@
           "statusConnecting": "connecting",
           "connectionLost": "Realtime connection lost.",
           "reconnect": "Reconnect",
+          "dataAsOf": "Data as of {{time}}",
           "metricQps": "QPS",
           "metricSuccess": "success",
           "metricUptime": "uptime",
           "healthHealthy": "Traffic healthy",
           "healthDegraded": "Traffic degraded",
           "healthUnhealthy": "Traffic unhealthy",
-          "healthIdle": "No recent traffic"
+          "healthIdle": "No recent traffic",
+          "uptimeMinutes": "{{value}} min",
+          "uptimeHours": "{{value}} h",
+          "uptimeDays": "{{value}} d"
         },
         "monitors": {
           "title": "Attention required",
@@ -707,6 +738,10 @@
       },
       "statCard": {
         "trendLabel": "Trend"
+      },
+      "charts": {
+        "income": "Income",
+        "outcome": "Outcome"
       }
     },
     "settings": {
@@ -753,6 +788,8 @@
           "everyHours": "Every {{count}} hours",
           "everyHours_one": "Every {{count}} hour",
           "everyHours_other": "Every {{count}} hours",
+          "kindLabel": "Schedule kind",
+          "intervalLabel": "Interval hours",
           "kinds": {
             "daily": "Daily at",
             "interval": "Every N hours",
@@ -828,6 +865,7 @@
           "title": "Scheduled Tasks",
           "description": "Check-in, balance refresh, and log cleanup schedules.",
           "triggerCheckin": "Trigger check-in now",
+          "viewProgramLogs": "View logs",
           "migration": {
             "title": "Upgrade legacy schedules",
             "summary": "v{{current}} → v{{target}}: {{pending}} schedule(s) can be migrated to the semantic format.",
@@ -999,6 +1037,10 @@
           "generate": "Generate",
           "preview": "Preview",
           "apply": "Apply",
+          "applyTitle": "Apply redirects?",
+          "applyDescription": "Applying removes stale redirects from routing. This cannot be undone.",
+          "deleteTitle": "Delete redirect",
+          "deleteDescription": "This removes the redirect {{canonical}} → {{actual}}. This cannot be undone.",
           "promote": "To manual",
           "empty": "No model redirects. Click Generate to scan accounts.",
           "columns": {
@@ -1094,6 +1136,8 @@
           "importPreview": "Preview import",
           "importConfirmTitle": "Confirm import?",
           "importConfirmDescription": "Importing inserts or overwrites the rows shown in the preview. Review the plan before continuing.",
+          "webdavImportConfirmTitle": "Import backup from WebDAV?",
+          "webdavImportConfirmDescription": "Importing replaces the current data with the WebDAV backup file. Existing rows will be overwritten. Continue?",
           "importPreviewTitle": "Import plan",
           "importPreviewRow": "{{table}}: {{toInsert}} insert(s), {{duplicates}} duplicate(s) skipped, {{skipped}} skipped by policy.",
           "lastSync": "Last sync: {{at}}",
@@ -1244,6 +1288,8 @@
           "markAllRead": "Mark all read",
           "exportCsv": "Export CSV",
           "clear": "Clear",
+          "clearTitle": "Clear program logs?",
+          "clearDescription": "All operational events will be permanently deleted. This cannot be undone.",
           "empty": "No program events.",
           "type": {
             "checkin": "Checkin",
@@ -1263,7 +1309,8 @@
             "markAllFailed": "Failed to mark events read.",
             "markReadFailed": "Failed to mark event read.",
             "cleared": "Program events cleared.",
-            "clearFailed": "Failed to clear events."
+            "clearFailed": "Failed to clear events.",
+            "exported": "Exported {{count}} event(s) to CSV."
           },
           "level": {
             "info": "Info",
@@ -1385,6 +1432,8 @@
           "clearing": "Clearing…",
           "clearCache": "Clear cache & rebuild routes",
           "clearUsage": "Clear usage logs",
+          "clearUsageConfirmTitle": "Clear usage logs?",
+          "clearUsageConfirmDescription": "This permanently deletes all recorded usage data. This action cannot be undone.",
           "eventsHint": "Cleanup events are recorded in Program Logs.",
           "viewEvents": "View Program Logs",
           "toast": {
@@ -1623,6 +1672,7 @@
           "deleted": "Token deleted",
           "defaultSet": "Set as default token",
           "synced": "Tokens synced",
+          "statusUpdated": "Token status updated",
           "createFailed": "Failed to add token",
           "updateFailed": "Failed to update token",
           "deleteFailed": "Failed to delete token",
@@ -1776,7 +1826,9 @@
         "decisionCandidateCount": "Candidate count",
         "decisionSelectedChannel": "Selected channel",
         "decisionReason": "Decision reason",
-        "moreCandidates": "+{{count}} candidates"
+        "moreCandidates": "+{{count}} candidates",
+        "fallbackAccount": "Account #{{id}}",
+        "fallbackToken": "Token #{{id}}"
       },
       "completion": {
         "title": "Configuration flow complete",
@@ -1797,6 +1849,8 @@
         "updateFailed": "Failed to update route",
         "deleteFailed": "Failed to delete route",
         "batchFailed": "Bulk operation failed",
+        "batchSucceeded": "{{count}} route(s) updated successfully.",
+        "batchPartial": "{{success}} succeeded, {{failed}} failed.",
         "cooldownClearFailed": "Failed to clear cooldown",
         "channelAddFailed": "Failed to add channels",
         "channelAddPartial": "Route created, but {{failed}} channel(s) were not added ({{created}} added): {{error}}",
@@ -1911,7 +1965,7 @@
         "summaryTotal": "Total",
         "summarySuccess": "Success",
         "summaryFailed": "Failed",
-        "summaryCost": "Total cost",
+        "summaryCost": "Total cost (filtered)",
         "loadError": "Failed to load proxy logs: {{message}}",
         "emptyTitle": "No proxy logs",
         "emptyDescription": "Adjust the filter conditions or refresh to view proxy request records.",
@@ -1961,13 +2015,7 @@
         "retry": "Retry",
         "actions": "Actions",
         "rowActions": "Row actions",
-        "viewDetails": "View details",
-        "relativeBefore": "ago",
-        "relativeAfter": "later",
-        "relativeSeconds": "seconds",
-        "relativeMinutes": "minutes",
-        "relativeHours": "hours",
-        "relativeDays": "days"
+        "viewDetails": "View details"
       },
       "detail": {
         "description": "Log #{{id}} · {{time}}",
@@ -2064,6 +2112,12 @@
       "title": "Appearance",
       "reset": "Reset",
       "appearance": "Customize appearance",
+      "colorScheme": "Color scheme",
+      "colorSchemeOptions": {
+        "light": "Light",
+        "dark": "Dark",
+        "system": "System"
+      },
       "colorPreset": "Color preset",
       "font": "Font",
       "fontOptions": {
@@ -2086,6 +2140,11 @@
         "sm": "Small",
         "lg": "Large",
         "xl": "Extra large"
+      },
+      "contentLayout": "Content layout",
+      "contentLayoutOptions": {
+        "full": "Full width",
+        "centered": "Centered"
       },
       "preset": {
         "default": "Default",
@@ -2147,7 +2206,8 @@
           "loadFailed": "Failed to load usage heatmap data.",
           "empty": "No usage density data for the selected range.",
           "legendLow": "Less",
-          "legendHigh": "More"
+          "legendHigh": "More",
+          "utcNote": "Bucket times are UTC"
         }
       },
       "health": {
@@ -2191,12 +2251,6 @@
           "disabled": "Disabled",
           "other": "Other"
         }
-      },
-      "proxyLogs": {
-        "title": "Proxy request logs",
-        "description": "The full proxy request log workspace.",
-        "hint": "Open the dedicated proxy logs page for filters, columns and detail.",
-        "open": "Open proxy logs"
       }
     },
     "sidebar": {
@@ -2211,8 +2265,8 @@
       "items": {
         "dashboard": "Dashboard",
         "sites": "Sites",
-        "accounts": "Accounts",
-        "checkin": "Check-in",
+        "accounts": "Account management",
+        "checkin": "Check-in records",
         "proxyLogs": "Proxy Logs",
         "observability": "Observability",
         "tokenRoutes": "Token Routes",
@@ -2222,7 +2276,7 @@
         "settings": "Settings",
         "about": "About",
         "priceCompare": "Price Compare",
-        "fixCandidates": "Fix Candidates",
+        "fixCandidates": "Redirect Fix Candidates",
         "channels": "Channels"
       },
       "backToHome": "Back to Home",
@@ -2320,7 +2374,8 @@
         "effective": "Effective cost",
         "status": "Status",
         "actions": "Actions"
-      }
+      },
+      "effectiveCostPrecision": "Sample cost keeps 6 decimals so sub-cent per-call prices stay accurate."
     },
     "fixCandidates": {
       "page": {
@@ -2434,21 +2489,19 @@
     },
     "search": {
       "trigger": "Search…",
-      "placeholder": "Search sites, accounts, tokens, models, logs…",
+      "placeholder": "Search pages, settings, sites, accounts, logs…",
       "title": "Global search",
-      "description": "Search across sites, accounts, tokens, models, check-in and proxy logs.",
+      "description": "Search pages and settings, or find sites, accounts, tokens, models, check-in and proxy logs.",
       "searching": "Searching…",
       "unknown": "Unknown",
       "modelTokens": "{{count}} tokens",
-      "empty": {
-        "title": "Search everything",
-        "description": "Find sites, accounts, tokens, models, check-in and proxy logs."
-      },
       "noResults": {
         "title": "No results",
         "description": "Nothing matched \"{{query}}\"."
       },
       "groups": {
+        "pages": "Pages",
+        "settings": "Settings",
         "sites": "Sites",
         "accounts": "Accounts",
         "tokens": "Tokens",
@@ -2456,6 +2509,12 @@
         "proxyLogs": "Proxy logs",
         "models": "Models"
       }
+    },
+    "userMenu": {
+      "trigger": "User menu",
+      "about": "About",
+      "documentation": "Documentation",
+      "signOut": "Sign out"
     }
   }
 }

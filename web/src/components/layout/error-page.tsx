@@ -6,7 +6,7 @@
 // internals; the console still logs the full error.
 
 import { useRouter } from '@tanstack/react-router'
-import { RotateCw, TriangleAlert } from 'lucide-react'
+import { RefreshCw, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -30,7 +30,7 @@ export function ErrorPage({ error }: { error: Error }) {
       </div>
       <div className='flex gap-2'>
         <Button onClick={() => router.invalidate()}>
-          <RotateCw className='mr-1.5 size-4' />
+          <RefreshCw className='size-4' />
           {t('errors.retry')}
         </Button>
         <Button variant='outline' onClick={() => window.location.reload()}>

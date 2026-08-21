@@ -92,7 +92,7 @@ function readAccountsSearch(
     Number.isFinite(rawPage) && rawPage > 0 ? Math.max(0, rawPage - 1) : 0
   const pageSize =
     Number.isFinite(rawPageSize) && rawPageSize > 0
-      ? Math.min(200, Math.max(1, rawPageSize))
+      ? Math.min(100, Math.max(1, rawPageSize))
       : DEFAULT_PAGE_SIZE
   return {
     q: params.get('q') ?? '',
@@ -443,7 +443,7 @@ export function AccountsPage() {
         emptyDescription={t('accounts.page.emptyDescription')}
         emptyAction={
           <Button onClick={() => setImportOpen(true)}>
-            <UploadIcon className='mr-1 size-4' />
+            <UploadIcon className='size-4' />
             {t('accounts.page.emptyImport')}
           </Button>
         }
@@ -609,7 +609,7 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
         entityName={t('accounts.bulk.entityName')}
       >
         <Button
-          size='xs'
+          size='sm'
           variant='outline'
           onClick={() => runBatch('refreshBalance')}
           disabled={batchMutation.isPending}
@@ -618,7 +618,7 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
           {t('accounts.bulk.refreshBalance')}
         </Button>
         <Button
-          size='xs'
+          size='sm'
           variant='outline'
           onClick={() => runBatch('enable')}
           disabled={batchMutation.isPending}
@@ -627,7 +627,7 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
           {t('accounts.bulk.enable')}
         </Button>
         <Button
-          size='xs'
+          size='sm'
           variant='outline'
           onClick={() => runBatch('disable')}
           disabled={batchMutation.isPending}
@@ -635,7 +635,7 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
           {t('accounts.bulk.disable')}
         </Button>
         <Button
-          size='xs'
+          size='sm'
           variant='destructive'
           onClick={() => setConfirmDeleteOpen(true)}
           disabled={batchMutation.isPending}

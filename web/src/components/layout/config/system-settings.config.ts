@@ -4,6 +4,8 @@
 // Titles are i18n keys resolved via t() at render time (nav-group.tsx /
 // sidebar-view-header.tsx).
 
+import { LayoutGrid } from 'lucide-react'
+
 import { getSettingsSubareas } from '@/features/settings'
 
 import type { NavGroup, SidebarView } from '../types'
@@ -25,6 +27,7 @@ function getSettingsNavGroups(): NavGroup[] {
         {
           title: 'sidebar.settingsOverview',
           url: '/settings',
+          icon: LayoutGrid,
           // The overview is the workspace root: only exact /settings is the
           // current page, never /settings/<subarea>/... descendants.
           activeOptions: { exact: true },

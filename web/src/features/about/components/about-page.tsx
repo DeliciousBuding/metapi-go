@@ -81,7 +81,7 @@ export function AboutPage() {
   const authorUrl = `https://github.com/${info.author}`
 
   return (
-    <div className='mx-auto w-full max-w-4xl space-y-6 p-4 sm:p-6 lg:p-8'>
+    <div className='mx-auto w-full max-w-4xl space-y-6 p-6'>
       <div className='space-y-1'>
         <h1 className='text-2xl font-normal tracking-tight'>
           {t('about.title')}
@@ -203,7 +203,7 @@ export function AboutPage() {
                 {t('about.links.repository')}
               </span>
             </span>
-            <ExternalLinkIcon className='text-muted-foreground size-3.5' />
+            <ExternalLinkIcon className='text-muted-foreground size-4' />
           </a>
           <a
             href={info.homepage}
@@ -217,7 +217,7 @@ export function AboutPage() {
                 {t('about.links.homepage')}
               </span>
             </span>
-            <ExternalLinkIcon className='text-muted-foreground size-3.5' />
+            <ExternalLinkIcon className='text-muted-foreground size-4' />
           </a>
           <a
             href={issueUrl}
@@ -231,7 +231,7 @@ export function AboutPage() {
                 {t('about.links.issues')}
               </span>
             </span>
-            <ExternalLinkIcon className='text-muted-foreground size-3.5' />
+            <ExternalLinkIcon className='text-muted-foreground size-4' />
           </a>
           <a
             href={authorUrl}
@@ -245,7 +245,7 @@ export function AboutPage() {
                 {t('about.links.author')}
               </span>
             </span>
-            <ExternalLinkIcon className='text-muted-foreground size-3.5' />
+            <ExternalLinkIcon className='text-muted-foreground size-4' />
           </a>
         </CardContent>
       </Card>

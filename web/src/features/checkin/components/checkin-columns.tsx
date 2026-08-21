@@ -3,7 +3,7 @@
 // i18n: all user-visible strings migrated to t() calls.
 
 import type { ColumnDef } from '@tanstack/react-table'
-import { Eye, MoreHorizontal, Play } from 'lucide-react'
+import { Eye, Loader2, MoreHorizontal, Play } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { toBcp47 } from '@/i18n/languages'
 import { cn } from '@/lib/utils'
 
 import { formatCheckinLogTime } from '../lib/checkin-time'
@@ -66,9 +67,11 @@ function StatusBadge({ status }: { status: string }) {
 function CheckinRowActions({
   row,
   actions,
+  isTriggerPending,
 }: {
   row: CheckinLogRow
   actions: CheckinRowActions
+  isTriggerPending: boolean
 }) {
   const { t } = useTranslation()
   return (
@@ -80,6 +83,7 @@ function CheckinRowActions({
             size='icon-sm'
             className='data-popup-open:bg-accent'
             aria-label={t('checkin.columns.rowActions')}
+            data-hit-area
           />
         }
       >
@@ -90,8 +94,11 @@ function CheckinRowActions({
           <Eye />
           {t('checkin.columns.viewDetails')}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => actions.onTriggerAccount(row)}>
-          <Play />
+        <DropdownMenuItem
+          disabled={isTriggerPending}
+          onClick={() => actions.onTriggerAccount(row)}
+        >
+          {isTriggerPending ? <Loader2 className='animate-spin' /> : <Play />}
           {t('checkin.columns.triggerCheckin')}
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -100,9 +107,11 @@ function CheckinRowActions({
 }
 
 export function useCheckinColumns(
-  actions: CheckinRowActions
+  actions: CheckinRowActions,
+  pendingAccountId: number | null = null
 ): ColumnDef<CheckinLogRow>[] {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
   return [
     {
       accessorKey: 'checkin_logs.createdAt',
@@ -112,7 +121,7 @@ export function useCheckinColumns(
         const log = checkinLogRowSchema.parse(row.original)
         return (
           <span className='text-sm tabular-nums'>
-            {formatCheckinLogTime(log.checkin_logs.createdAt)}
+            {formatCheckinLogTime(log.checkin_logs.createdAt, locale)}
           </span>
         )
       },
@@ -238,7 +247,16 @@ export function useCheckinColumns(
       header: () => <span className='sr-only'>{t('common.actions')}</span>,
       cell: ({ row }) => {
         const log = checkinLogRowSchema.parse(row.original)
-        return <CheckinRowActions row={log} actions={actions} />
+        return (
+          <CheckinRowActions
+            row={log}
+            actions={actions}
+            isTriggerPending={
+              pendingAccountId !== null &&
+              pendingAccountId === log.checkin_logs.accountId
+            }
+          />
+        )
       },
       meta: { pinned: 'right' },
     },

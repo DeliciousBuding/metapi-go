@@ -1,17 +1,23 @@
 // metapi-go/layout — global search command palette (⌘K / Ctrl+K).
 //
-// A cmdk-based palette over the backend `POST /api/search` endpoint. The
-// trigger button lives in `app-header.tsx`; this component is mounted once
-// in `AuthenticatedLayout` (inside the router, because result clicks use
-// `useNavigate`) and owns:
+// A cmdk-based palette with two result layers:
+//   - a local navigation layer over the primary pages (root sidebar data)
+//     and the Settings workspace (5 subareas + sections from the settings
+//     registry): quick entries when the query is empty, local fuzzy
+//     matching while typing,
+//   - the backend entity layer over `POST /api/search` (six categories).
+//
+// The trigger button lives in `app-header.tsx`; this component is mounted
+// once in `AuthenticatedLayout` (inside the router, because result clicks
+// use `useNavigate`) and owns:
 //   - the global ⌘K/Ctrl+K toggle (registered once, never hijacked inside
 //     editable targets),
 //   - a ~250 ms debounced search against `searchApi.search`,
-//   - grouped rendering of the six result categories (8 items max each).
+//   - grouped rendering of navigation + entity results.
 //
 // cmdk's own filtering is disabled (`shouldFilter={false}`): results are
-// already filtered by the backend, so empty/loading/hint states are rendered
-// explicitly instead of relying on cmdk's Empty semantics.
+// already filtered locally / by the backend, so empty/loading states are
+// rendered explicitly instead of relying on cmdk's Empty semantics.
 
 import { useNavigate } from '@tanstack/react-router'
 import {
@@ -19,8 +25,10 @@ import {
   CalendarCheck,
   Globe,
   KeyRound,
+  LayoutGrid,
   ScrollText,
   Search as SearchIcon,
+  Settings,
   UserRound,
   type LucideIcon,
 } from 'lucide-react'
@@ -36,6 +44,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Spinner } from '@/components/ui/spinner'
+import { useSidebarData } from '@/hooks/use-sidebar-data'
 import {
   searchApi,
   type SearchAccount,
@@ -46,6 +55,13 @@ import {
   type SearchResponse,
   type SearchSite,
 } from '@/lib/api/search'
+
+import {
+  getSettingsNavEntries,
+  matchNavEntries,
+  pageEntriesFromNavGroups,
+  type SearchNavEntry,
+} from './lib/search-nav'
 
 const SEARCH_DEBOUNCE_MS = 250
 const MAX_ITEMS_PER_GROUP = 8
@@ -59,6 +75,7 @@ type SearchItem = {
   key: string
   label: string
   description: string | null
+  icon?: React.ElementType
   onSelect: () => void
 }
 
@@ -90,6 +107,7 @@ function firstNonEmpty(
 export function SearchModal(props: SearchModalProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const sidebarData = useSidebarData()
 
   const [query, setQuery] = React.useState('')
   const [results, setResults] = React.useState<SearchResponse | null>(null)
@@ -130,7 +148,7 @@ export function SearchModal(props: SearchModalProps) {
   }, [])
 
   // Reset transient state whenever the palette closes so the next open
-  // starts from the hint state instead of stale results.
+  // starts from the quick-entry state instead of stale results.
   React.useEffect(() => {
     if (!props.open) {
       setQuery('')
@@ -175,25 +193,137 @@ export function SearchModal(props: SearchModalProps) {
     }
   }, [trimmedQuery])
 
-  const navigateToQueryPage = React.useCallback(
-    (to: '/sites' | '/accounts' | '/models') => {
+  // Navigation targets come from the validated nav config (root sidebar +
+  // settings registry) and the log deep links below, which the generated
+  // route tree cannot enumerate — cast once here instead of per call site.
+  const closeAndNavigate = React.useCallback(
+    (target: { to: string; search?: Record<string, unknown> }) => {
       props.onOpenChange(false)
-      navigate({ to, search: { q: trimmedQuery } })
+      navigate(target as unknown as Parameters<typeof navigate>[0])
     },
-    [navigate, props, trimmedQuery]
+    [navigate, props]
   )
 
-  const navigateToCheckin = React.useCallback(() => {
-    props.onOpenChange(false)
-    navigate({ to: '/checkin' })
-  }, [navigate, props])
+  const navigateToQueryPage = React.useCallback(
+    (to: '/sites' | '/accounts' | '/models') => {
+      closeAndNavigate({ to, search: { q: trimmedQuery } })
+    },
+    [closeAndNavigate, trimmedQuery]
+  )
 
-  const navigateToProxyLogs = React.useCallback(() => {
-    props.onOpenChange(false)
-    navigate({ to: '/observability', search: { section: 'proxy-logs' } })
-  }, [navigate, props])
+  // Check-in log hits deep-link with the filters the /checkin schema
+  // supports: the owning account (when the backend returned it) plus the
+  // typed text, which the page matches against username / site / message.
+  const navigateToCheckin = React.useCallback(
+    (log: SearchCheckinLog) => {
+      const search: { accountId?: number; q?: string } = {}
+      if (log.accountId != null) search.accountId = log.accountId
+      if (trimmedQuery) search.q = trimmedQuery
+      closeAndNavigate({ to: '/checkin', search })
+    },
+    [closeAndNavigate, trimmedQuery]
+  )
 
-  const groups = React.useMemo(() => {
+  // Proxy log hits go straight to the dedicated /proxy-logs workspace with
+  // the matched model as the text filter (and the status filter when the
+  // log carries one the page supports).
+  const navigateToProxyLogs = React.useCallback(
+    (log: SearchProxyLog) => {
+      const searchText = firstNonEmpty(log.modelRequested, trimmedQuery)
+      const search: { q?: string; status?: 'success' | 'failed' } = {}
+      if (searchText) search.q = searchText
+      if (log.status === 'success' || log.status === 'failed') {
+        search.status = log.status
+      }
+      closeAndNavigate({ to: '/proxy-logs', search })
+    },
+    [closeAndNavigate, trimmedQuery]
+  )
+
+  // ---- Local navigation layer --------------------------------------------
+
+  const pageEntries = React.useMemo(
+    () => pageEntriesFromNavGroups(sidebarData.navGroups),
+    [sidebarData]
+  )
+  const settingsEntries = React.useMemo(() => getSettingsNavEntries(), [])
+
+  const navigationGroups = React.useMemo((): SearchGroup[] => {
+    // Quick entries (empty query) list every page/subarea; typed matches are
+    // capped so the mixed navigation + entity list stays scannable.
+    const toItems = (entries: SearchNavEntry[], cap?: number): SearchItem[] =>
+      (cap ? entries.slice(0, cap) : entries).map((entry) => ({
+        key: entry.key,
+        label: t(entry.titleKey),
+        description: null,
+        ...(entry.icon ? { icon: entry.icon } : {}),
+        onSelect: () => closeAndNavigate({ to: entry.url }),
+      }))
+
+    if (!hasQuery) {
+      // Quick entries: primary pages + the 5 settings subareas.
+      return [
+        {
+          key: 'nav-pages',
+          heading: t('search.groups.pages'),
+          icon: LayoutGrid,
+          items: toItems(pageEntries),
+        },
+        {
+          key: 'nav-settings',
+          heading: t('search.groups.settings'),
+          icon: Settings,
+          items: toItems(
+            settingsEntries.filter((entry) =>
+              entry.key.startsWith('settings-subarea-')
+            )
+          ),
+        },
+      ]
+    }
+
+    const resolveLabel = (titleKey: string) => t(titleKey)
+    const matchedPages = matchNavEntries(
+      pageEntries,
+      trimmedQuery,
+      resolveLabel
+    )
+    const matchedSettings = matchNavEntries(
+      settingsEntries,
+      trimmedQuery,
+      resolveLabel
+    )
+
+    const groups: SearchGroup[] = []
+    if (matchedPages.length > 0) {
+      groups.push({
+        key: 'nav-pages',
+        heading: t('search.groups.pages'),
+        icon: LayoutGrid,
+        items: toItems(matchedPages, MAX_ITEMS_PER_GROUP),
+      })
+    }
+    if (matchedSettings.length > 0) {
+      groups.push({
+        key: 'nav-settings',
+        heading: t('search.groups.settings'),
+        icon: Settings,
+        items: toItems(matchedSettings, MAX_ITEMS_PER_GROUP),
+      })
+    }
+    return groups
+  }, [
+    hasQuery,
+    trimmedQuery,
+    t,
+    pageEntries,
+    settingsEntries,
+    closeAndNavigate,
+  ])
+
+  // ---- Backend entity layer ----------------------------------------------
+
+  const entityGroups = React.useMemo(() => {
     if (!results) return []
 
     const unknownLabel = t('search.unknown')
@@ -232,7 +362,7 @@ export function SearchModal(props: SearchModalProps) {
         label:
           firstNonEmpty(log.message, log.reward, log.status) ?? unknownLabel,
         description: firstNonEmpty(log.accountUsername),
-        onSelect: navigateToCheckin,
+        onSelect: () => navigateToCheckin(log),
       }))
 
     const proxyLogItems: SearchItem[] = (results.proxyLogs ?? [])
@@ -242,7 +372,7 @@ export function SearchModal(props: SearchModalProps) {
         label:
           firstNonEmpty(log.modelRequested, log.modelActual) ?? unknownLabel,
         description: firstNonEmpty(log.status),
-        onSelect: navigateToProxyLogs,
+        onSelect: () => navigateToProxyLogs(log),
       }))
 
     const modelItems: SearchItem[] = (results.models ?? [])
@@ -299,7 +429,7 @@ export function SearchModal(props: SearchModalProps) {
     return builtGroups.filter((group) => group.items.length > 0)
   }, [results, t, navigateToCheckin, navigateToProxyLogs, navigateToQueryPage])
 
-  const showHint = !hasQuery && !isSearching
+  const groups = [...navigationGroups, ...entityGroups]
   const showEmpty = hasQuery && !isSearching && groups.length === 0
 
   return (
@@ -326,17 +456,9 @@ export function SearchModal(props: SearchModalProps) {
               <span>{t('search.searching')}</span>
             </div>
           )}
-          {showHint && (
-            <div className='flex flex-col items-center gap-1 px-4 py-10 text-center'>
-              <SearchIcon className='text-muted-foreground/60 size-5' />
-              <p className='text-sm font-medium'>{t('search.empty.title')}</p>
-              <p className='text-muted-foreground text-xs'>
-                {t('search.empty.description')}
-              </p>
-            </div>
-          )}
           {showEmpty && (
             <div className='flex flex-col items-center gap-1 px-4 py-10 text-center'>
+              <SearchIcon className='text-muted-foreground/60 size-5' />
               <p className='text-sm font-medium'>
                 {t('search.noResults.title')}
               </p>
@@ -347,23 +469,26 @@ export function SearchModal(props: SearchModalProps) {
           )}
           {groups.map((group) => (
             <CommandGroup key={group.key} heading={group.heading}>
-              {group.items.map((item) => (
-                <CommandItem
-                  key={item.key}
-                  value={item.key}
-                  onSelect={item.onSelect}
-                >
-                  <group.icon className='text-muted-foreground size-4 shrink-0' />
-                  <span className='flex min-w-0 flex-1 flex-col'>
-                    <span className='truncate'>{item.label}</span>
-                    {item.description ? (
-                      <span className='text-muted-foreground truncate text-xs'>
-                        {item.description}
-                      </span>
-                    ) : null}
-                  </span>
-                </CommandItem>
-              ))}
+              {group.items.map((item) => {
+                const ItemIcon = item.icon ?? group.icon
+                return (
+                  <CommandItem
+                    key={item.key}
+                    value={item.key}
+                    onSelect={item.onSelect}
+                  >
+                    <ItemIcon className='text-muted-foreground size-4 shrink-0' />
+                    <span className='flex min-w-0 flex-1 flex-col'>
+                      <span className='truncate'>{item.label}</span>
+                      {item.description ? (
+                        <span className='text-muted-foreground truncate text-xs'>
+                          {item.description}
+                        </span>
+                      ) : null}
+                    </span>
+                  </CommandItem>
+                )
+              })}
             </CommandGroup>
           ))}
         </CommandList>

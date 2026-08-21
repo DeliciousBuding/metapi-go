@@ -260,7 +260,7 @@ export function useModelsColumns(
             return <span className='text-muted-foreground text-sm'>—</span>
           }
           const detail = resolvePriceDetail(row.original)
-          const priceLabel = `$${formatPrice(price)}/M`
+          const priceLabel = `${formatPrice(price)}/M`
           if (detail.length === 0) {
             return <span className='text-sm tabular-nums'>{priceLabel}</span>
           }
@@ -281,7 +281,7 @@ export function useModelsColumns(
                     </span>
                     {detail.map((item) => (
                       <span key={item.site} className='text-xs tabular-nums'>
-                        {item.site}: ${formatPrice(item.price)}/M
+                        {item.site}: {formatPrice(item.price)}/M
                       </span>
                     ))}
                   </div>

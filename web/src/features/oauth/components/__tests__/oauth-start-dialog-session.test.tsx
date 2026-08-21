@@ -284,4 +284,45 @@ describe('OAuthStartDialog pending session', () => {
       'Authorization completed.'
     )
   })
+
+  // -------------------------------------------------------------------------
+  // 4. Closing while pending requires the abandon confirmation (#889)
+  // -------------------------------------------------------------------------
+
+  it('asks for confirmation when closing while the session is pending', async () => {
+    const onOpenChange = vi.fn()
+    renderDialog(onOpenChange)
+
+    await submitStartForm()
+
+    // Sanity: the pending panel is showing (its footer Cancel button).
+    await waitFor(() => {
+      expect(
+        screen.getAllByText('Waiting for authorization…').length
+      ).toBeGreaterThan(0)
+    })
+
+    // Closing via the pending panel's Cancel must NOT close the dialog
+    // directly — it surfaces the abandon confirmation instead.
+    fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }))
+    expect(onOpenChange).not.toHaveBeenCalledWith(false)
+
+    // The abandon confirmation is visible.
+    expect(await screen.findByText('Abort authorization?')).toBeInTheDocument()
+
+    // Keeping the wait dismisses the confirmation and leaves the dialog open.
+    fireEvent.click(screen.getByRole('button', { name: 'Keep waiting' }))
+    await waitFor(() => {
+      expect(screen.queryByText('Abort authorization?')).toBeNull()
+    })
+    expect(onOpenChange).not.toHaveBeenCalledWith(false)
+
+    // Re-opening the confirmation and confirming the abandon finally closes.
+    fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }))
+    await screen.findByText('Abort authorization?')
+    fireEvent.click(screen.getByRole('button', { name: /^abort$/i }))
+    await waitFor(() => {
+      expect(onOpenChange).toHaveBeenCalledWith(false)
+    })
+  })
 })

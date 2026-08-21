@@ -17,6 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 import {
@@ -33,11 +34,11 @@ import type { PriceCompareItem } from '../types'
 import { PriceGradeBadge } from './price-grade-badge'
 
 function formatPerMillion(value: number): string {
-  return value.toFixed(4)
+  return '$' + value.toFixed(4)
 }
 
 function formatSampleCost(value: number): string {
-  return `$${value.toFixed(6)}`
+  return '$' + value.toFixed(6)
 }
 
 type ModelGroup = {
@@ -80,7 +81,7 @@ export function PriceComparePage() {
 
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
-      <div className='flex items-end justify-between gap-3'>
+      <div className='flex flex-wrap items-end justify-between gap-3'>
         <div>
           <h1 className='text-lg font-normal'>
             {t('priceCompare.page.title')}
@@ -89,7 +90,7 @@ export function PriceComparePage() {
             {t('priceCompare.page.description')}
           </p>
         </div>
-        <div className='relative w-64'>
+        <div className='relative w-full sm:w-64'>
           <Search
             aria-hidden='true'
             className='text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2'
@@ -119,9 +120,13 @@ export function PriceComparePage() {
       />
 
       {!query.isLoading && !query.error && groups.length === 0 && (
-        <div className='text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm'>
-          {t('priceCompare.page.emptyDescription')}
-        </div>
+        <Empty className='border'>
+          <EmptyHeader>
+            <EmptyDescription>
+              {t('priceCompare.page.emptyDescription')}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
 
       <div className='flex flex-col gap-4'>
@@ -205,7 +210,14 @@ export function PriceRow({ row }: { row: PriceCompareItem }) {
       <TableCell className='text-right tabular-nums'>
         {formatPerMillion(row.outputPerMillion)}
       </TableCell>
-      <TableCell className='text-right tabular-nums'>
+      <TableCell
+        className='text-right tabular-nums'
+        title={
+          row.missingPrice
+            ? undefined
+            : t('priceCompare.effectiveCostPrecision')
+        }
+      >
         {row.missingPrice ? '—' : formatSampleCost(row.estimatedCostSample)}
       </TableCell>
       <TableCell>

@@ -1,6 +1,8 @@
-// metapi-go/features/observability/config — 3-section manifest (Overview /
-// Health / Proxy Logs). Registered through a local section-registry factory
-// and consumed by ObservabilityPage + the route file + the sidebar drill-in.
+// metapi-go/features/observability/config — 2-section manifest (Overview /
+// Health). Registered through a local section-registry factory and consumed
+// by ObservabilityPage + the route file + the sidebar drill-in. Proxy logs
+// are intentionally not a section: the drill-in sidebar links straight to
+// the dedicated `/proxy-logs` workspace (see observability-nav.ts).
 
 import {
   createElement,
@@ -25,11 +27,6 @@ const LazyHealthSection = lazy(() =>
     default: module.HealthSection,
   }))
 )
-const LazyProxyLogsSection = lazy(() =>
-  import('../sections/proxy-logs').then((module) => ({
-    default: module.ProxyLogsSection,
-  }))
-)
 
 function mountSection(component: ComponentType): () => ReactNode {
   return () =>
@@ -52,12 +49,6 @@ const OBSERVABILITY_SECTIONS: readonly ObservabilitySection[] = [
     title: 'observability.sections.health.title',
     description: 'observability.sections.health.description',
     build: mountSection(LazyHealthSection),
-  },
-  {
-    id: 'proxy-logs',
-    title: 'observability.sections.proxyLogs.title',
-    description: 'observability.sections.proxyLogs.description',
-    build: mountSection(LazyProxyLogsSection),
   },
 ]
 

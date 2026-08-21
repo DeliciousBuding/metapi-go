@@ -18,8 +18,9 @@ import { useTranslation } from 'react-i18next'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
-import { formatInt } from '@/lib/format'
+import { formatCurrency, formatInt, formatTimeOfDay } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { useRealtimeOps } from '../hooks/use-realtime-ops'
@@ -53,23 +54,6 @@ type BalanceTrend = {
   deltaPercent: number | undefined
 }
 
-/** Adaptive currency formatting (mirrors the legacy chart tooltips). */
-function formatBalance(value: number | null | undefined): string {
-  if (value === null || value === undefined || !Number.isFinite(value)) {
-    return '—'
-  }
-  let fractionDigits = 6
-  if (value >= 1) fractionDigits = 3
-  if (value >= 1000) fractionDigits = 2
-  return [
-    '$',
-    value.toLocaleString(undefined, {
-      minimumFractionDigits: fractionDigits,
-      maximumFractionDigits: fractionDigits,
-    }),
-  ].join('')
-}
-
 /**
  * Aggregate the balance across all account series. The delta compares the
  * newest captured point with the oldest point of the window (~7 days ago).
@@ -101,7 +85,8 @@ function computeBalanceTrend(
 }
 
 export function TodaySnapshotStrip() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
 
   const { data: snapshot, isLoading: snapshotLoading } = useQuery({
     queryKey: ['dashboard-snapshot'],
@@ -119,7 +104,7 @@ export function TodaySnapshotStrip() {
     queryFn: () => api.getAttention(20) as Promise<AttentionResponse>,
   })
 
-  const { sample: realtime } = useRealtimeOps()
+  const { sample: realtime, lastFrameAt } = useRealtimeOps()
 
   const trend = useMemo(
     () => computeBalanceTrend(balanceHistory),
@@ -132,7 +117,7 @@ export function TodaySnapshotStrip() {
     if (balanceLoading) return <Skeleton className='h-7 w-28' />
     return (
       <div className='truncate text-xl font-semibold tabular-nums'>
-        {formatBalance(trend.total)}
+        {formatCurrency(trend.total)}
       </div>
     )
   }
@@ -249,6 +234,13 @@ export function TodaySnapshotStrip() {
               />
               {t(statusKey)}
             </div>
+            {!realtime.connected && lastFrameAt !== null ? (
+              <div className='text-muted-foreground truncate text-[11px] tabular-nums'>
+                {t('dashboard.availability.realtime.dataAsOf', {
+                  time: formatTimeOfDay(lastFrameAt, locale),
+                })}
+              </div>
+            ) : null}
           </div>
         </div>
       </CardContent>

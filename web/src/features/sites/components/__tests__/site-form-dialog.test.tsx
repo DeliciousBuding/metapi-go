@@ -363,4 +363,26 @@ describe('SiteFormDialog dirty-close guard', () => {
       expect(screen.getByText('Discard unsaved changes?')).toBeInTheDocument()
     })
   })
+
+  it('opens the discard confirm when Cancel is clicked with unsaved edits', async () => {
+    const onOpenChange = vi.fn()
+    render(
+      <SiteFormDialog open onOpenChange={onOpenChange} editingSite={null} />
+    )
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Name')).toBeInTheDocument()
+    })
+
+    typeField('Name', 'dirty value')
+
+    // The explicit Cancel button must route through the same dirty-close
+    // guard as Esc/X — never silently discard the input (issue #889).
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Discard unsaved changes?')).toBeInTheDocument()
+    })
+    expect(onOpenChange).not.toHaveBeenCalledWith(false)
+  })
 })

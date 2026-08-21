@@ -6,7 +6,6 @@
 
 import type { ColumnDef } from '@tanstack/react-table'
 import {
-  AlertTriangle,
   CalendarCheck,
   CheckCircle2,
   Clock,
@@ -21,6 +20,7 @@ import {
   Power,
   RefreshCw,
   Trash2,
+  TriangleAlert,
   XCircle,
   type LucideIcon,
 } from 'lucide-react'
@@ -42,6 +42,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { resolveAccountDisplayName } from '../lib/accounts-display-name'
@@ -74,7 +75,7 @@ const HEALTH_BADGE_CONFIG: Record<RuntimeHealthState, HealthBadgeConfig> = {
     labelKey: 'accounts.columns.healthDegraded',
     variant: 'warning',
     dotClassName: 'bg-warning',
-    icon: AlertTriangle,
+    icon: TriangleAlert,
   },
   unhealthy: {
     labelKey: 'accounts.columns.healthUnhealthy',
@@ -119,11 +120,6 @@ function useResolveHealth() {
 // ---------------------------------------------------------------------------
 // Formatting helpers
 // ---------------------------------------------------------------------------
-
-function formatBalance(value: number | undefined | null): string {
-  if (value === undefined || value === null) return '—'
-  return `$${value.toFixed(2)}`
-}
 
 function formatPercent(used: number, total: number): string {
   if (!total || total <= 0) return '—'
@@ -183,6 +179,7 @@ export function AccountsRowActions({
                 size='icon-sm'
                 disabled={isThisRowPending}
                 aria-label={toggleLabel}
+                data-hit-area
                 onClick={() => actions.onToggleStatus(account)}
               />
             }
@@ -204,6 +201,7 @@ export function AccountsRowActions({
               size='icon-sm'
               className='data-popup-open:bg-accent'
               aria-label={t('accounts.columns.rowActions')}
+              data-hit-area
             />
           }
         >
@@ -409,11 +407,11 @@ export function useAccountsColumns(
         return (
           <div className='flex flex-col'>
             <span className='tabular-nums'>
-              {formatBalance(account.balance)}
+              {formatCurrency(account.balance)}
             </span>
             {account.todayReward ? (
               <span className='text-success text-[11px]'>
-                +{formatBalance(account.todayReward)}
+                +{formatCurrency(account.todayReward)}
               </span>
             ) : null}
           </div>
@@ -429,7 +427,7 @@ export function useAccountsColumns(
         return (
           <div className='flex flex-col'>
             <span className='tabular-nums'>
-              {formatBalance(account.balanceUsed)}
+              {formatCurrency(account.balanceUsed)}
             </span>
             <span className='text-muted-foreground text-[11px]'>
               {formatPercent(account.balanceUsed ?? 0, account.quota ?? 0)}

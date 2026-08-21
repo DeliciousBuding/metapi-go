@@ -14,6 +14,7 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type QueryClient,
   type UseQueryOptions,
 } from '@tanstack/react-query'
 
@@ -23,6 +24,7 @@ import { assertBusinessOk } from '@/lib/assert-business-ok'
 import { toast } from '@/lib/toast'
 
 import type {
+  Account,
   AccountPayload,
   AccountStatus,
   AccountsSnapshot,
@@ -276,7 +278,44 @@ export function useBatchUpdateAccounts() {
 
 // ---------------------------------------------------------------------------
 // Field-level toggle mutations
+//
+// All three toggles run the sites-feature optimistic pattern: onMutate
+// patches the snapshot row in place (instant flip), onError rolls the cache
+// back to the pre-mutation snapshot, and onSettled invalidates so the server
+// truth wins either way. The row stays interactive — the optimistic flip IS
+// the feedback; the accounts page keeps its mutation-derived per-row pending
+// spinner for the status toggle.
 // ---------------------------------------------------------------------------
+
+type AccountToggleContext = { previous: AccountsSnapshot | undefined }
+
+function patchAccountInSnapshot(
+  queryClient: QueryClient,
+  accountId: number,
+  patch: Partial<Account>
+) {
+  queryClient.setQueryData<AccountsSnapshot>(
+    accountQueryKeys.snapshot(),
+    (current) =>
+      current
+        ? {
+            ...current,
+            accounts: current.accounts.map((account) =>
+              account.id === accountId ? { ...account, ...patch } : account
+            ),
+          }
+        : current
+  )
+}
+
+function rollbackSnapshot(
+  queryClient: QueryClient,
+  context: AccountToggleContext | undefined
+) {
+  if (context?.previous) {
+    queryClient.setQueryData(accountQueryKeys.snapshot(), context.previous)
+  }
+}
 
 export function useToggleAccountPin() {
   const queryClient = useQueryClient()
@@ -285,7 +324,18 @@ export function useToggleAccountPin() {
       const result = await api.updateAccount(id, { isPinned })
       return assertBusinessOk(result, 'accounts.toast.pinFailed')
     },
-    onSuccess: () => {
+    onMutate: async ({ id, isPinned }) => {
+      await queryClient.cancelQueries({ queryKey: accountQueryKeys.snapshot() })
+      const previous = queryClient.getQueryData<AccountsSnapshot>(
+        accountQueryKeys.snapshot()
+      )
+      patchAccountInSnapshot(queryClient, id, { isPinned })
+      return { previous }
+    },
+    onError: (_error, _variables, context) => {
+      rollbackSnapshot(queryClient, context)
+    },
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
     },
   })
@@ -304,7 +354,18 @@ export function useToggleAccountStatus() {
       const result = await api.updateAccount(id, { status })
       return assertBusinessOk(result, 'accounts.toast.statusFailed')
     },
-    onSuccess: () => {
+    onMutate: async ({ id, status }) => {
+      await queryClient.cancelQueries({ queryKey: accountQueryKeys.snapshot() })
+      const previous = queryClient.getQueryData<AccountsSnapshot>(
+        accountQueryKeys.snapshot()
+      )
+      patchAccountInSnapshot(queryClient, id, { status })
+      return { previous }
+    },
+    onError: (_error, _variables, context) => {
+      rollbackSnapshot(queryClient, context)
+    },
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
     },
   })
@@ -323,7 +384,18 @@ export function useToggleAccountCheckin() {
       const result = await api.updateAccount(id, { checkinEnabled })
       return assertBusinessOk(result, 'accounts.toast.checkinFailed')
     },
-    onSuccess: () => {
+    onMutate: async ({ id, checkinEnabled }) => {
+      await queryClient.cancelQueries({ queryKey: accountQueryKeys.snapshot() })
+      const previous = queryClient.getQueryData<AccountsSnapshot>(
+        accountQueryKeys.snapshot()
+      )
+      patchAccountInSnapshot(queryClient, id, { checkinEnabled })
+      return { previous }
+    },
+    onError: (_error, _variables, context) => {
+      rollbackSnapshot(queryClient, context)
+    },
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
     },
   })

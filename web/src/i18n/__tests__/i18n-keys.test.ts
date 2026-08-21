@@ -169,11 +169,18 @@ describe('i18n key coverage', () => {
       if (seen.has(key)) continue
       seen.add(key)
       // Dynamic template bases are object nodes, plain keys are leaves —
-      // accept either form in each locale.
-      if (!enKeys.has(key) && resolveSegments(enRoot, key) === undefined) {
+      // accept either form in each locale. i18next plural calls write the
+      // base key (`key`) but the locales define suffixed forms
+      // (`key_one`/`key_other`), so accept those as coverage too.
+      const covered = (root: TranslationNode, keys: Set<string>) =>
+        keys.has(key) ||
+        resolveSegments(root, key) !== undefined ||
+        keys.has(`${key}_one`) ||
+        keys.has(`${key}_other`)
+      if (!covered(enRoot, enKeys)) {
         missingInEn.push(`${key}  (${location})`)
       }
-      if (!zhKeys.has(key) && resolveSegments(zhRoot, key) === undefined) {
+      if (!covered(zhRoot, zhKeys)) {
         missingInZh.push(`${key}  (${location})`)
       }
     }

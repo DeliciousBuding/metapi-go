@@ -4,7 +4,7 @@
 // Pass `onRetry` to render the Retry button; omit it for a banner-only
 // inline warning above the table.
 
-import { TriangleAlert } from 'lucide-react'
+import { RefreshCw, TriangleAlert } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -57,11 +57,7 @@ export function QueryErrorBanner({
               onClick={onRetry}
               disabled={isRetrying}
             >
-              {isRetrying ? (
-                <Spinner className='mr-1' />
-              ) : (
-                <TriangleAlert className='mr-1 size-3.5' />
-              )}
+              {isRetrying ? <Spinner /> : <RefreshCw className='size-3.5' />}
               {t(retryKey)}
             </Button>
           )}

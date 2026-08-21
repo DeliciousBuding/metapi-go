@@ -1,7 +1,8 @@
 // metapi-go/routes — sign-in route (public).
 // validateSearch accepts an optional `redirect` param (sanitized before
-// navigation). beforeLoad short-circuits to the redirect target if already
-// authenticated.
+// navigation) and an optional `reason` param (contextual notice, e.g. a
+// token rotation elsewhere ended the session). beforeLoad short-circuits to
+// the redirect target if already authenticated.
 
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { z } from 'zod'
@@ -13,11 +14,17 @@ import { asStringParam, stringSearchParam } from '@/lib/helpers/searchParams'
 
 export const signInSearchSchema = z.object({
   redirect: stringSearchParam,
+  reason: stringSearchParam,
 })
 
 function SignInComponent() {
-  const { redirect } = Route.useSearch()
-  return <SignInPage redirectTo={asStringParam(redirect)} />
+  const { redirect, reason } = Route.useSearch()
+  return (
+    <SignInPage
+      redirectTo={asStringParam(redirect)}
+      noticeReason={asStringParam(reason)}
+    />
+  )
 }
 
 export const Route = createFileRoute('/sign-in')({

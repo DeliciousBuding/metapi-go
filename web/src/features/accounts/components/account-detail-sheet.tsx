@@ -5,10 +5,14 @@
 // not on a standalone page. A footer CTA continues the site → account → route
 // guided chain ("下一步：配置路由").
 
+import { useNavigate } from '@tanstack/react-router'
 import { ExternalLink, RefreshCw } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { DetailField } from '@/components/common/detail-field'
+import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -21,6 +25,7 @@ import {
 } from '@/components/ui/sheet'
 import { toBcp47 } from '@/i18n/languages'
 import {
+  EM_DASH,
   formatAbsoluteDateTime,
   formatPrice,
   formatRelativeTime,
@@ -43,22 +48,48 @@ export function AccountDetailSheet({
   onOpenChange,
 }: AccountDetailSheetProps) {
   const { t, i18n } = useTranslation()
+  const navigate = useNavigate()
   const refreshMutation = useRefreshAccount()
   const locale = toBcp47(i18n.language || 'en')
 
+  // Dirty state of the embedded token form (reported by TokensPanel). Both
+  // the sheet close and the "configure routes" CTA confirm before discarding.
+  const [tokensFormDirty, setTokensFormDirty] = useState(false)
+  const [confirmNavigateOpen, setConfirmNavigateOpen] = useState(false)
+
+  const { handleOpenChange: guardedOpenChange, guard: dirtyCloseGuard } =
+    useDirtyDialogClose({
+      enabled: tokensFormDirty,
+      onDiscard: () => setTokensFormDirty(false),
+      onOpenChange,
+    })
+
   if (!account) {
     return (
-      <Sheet open={open} onOpenChange={onOpenChange}>
+      <Sheet open={open} onOpenChange={guardedOpenChange}>
         <SheetContent side='right' className='sm:max-w-md' />
       </Sheet>
     )
   }
 
+  function navigateToTokenRoutes() {
+    if (!account) return
+    void navigate({
+      to: '/token-routes',
+      search: {
+        accountId: account.id,
+        ...(account.siteId ? { siteId: account.siteId } : {}),
+      },
+    })
+    onOpenChange(false)
+  }
+
   const handleConfigureRoutes = () => {
-    const params = new URLSearchParams()
-    params.set('accountId', String(account.id))
-    if (account.siteId) params.set('siteId', String(account.siteId))
-    window.location.assign(`/token-routes?${params.toString()}`)
+    if (tokensFormDirty) {
+      setConfirmNavigateOpen(true)
+      return
+    }
+    navigateToTokenRoutes()
   }
 
   const handleRefresh = async () => {
@@ -80,7 +111,7 @@ export function AccountDetailSheet({
   const healthReason = account.runtimeHealth?.reason?.trim() || null
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={guardedOpenChange}>
       <SheetContent
         side='right'
         className='flex w-full flex-col gap-0 sm:max-w-md'
@@ -101,25 +132,35 @@ export function AccountDetailSheet({
         <div className='flex-1 space-y-4 overflow-y-auto p-4'>
           {/* Overview grid */}
           <dl className='grid grid-cols-2 gap-x-3 gap-y-2 text-sm'>
-            <DetailField label={t('accounts.detail.site')}>
+            <DetailField
+              label={t('accounts.detail.site')}
+              title={
+                site
+                  ? site.name || site.url || `#${site.id}`
+                  : `#${account.siteId}`
+              }
+            >
               {site
                 ? site.name || site.url || `#${site.id}`
                 : `#${account.siteId}`}
             </DetailField>
-            <DetailField label={t('accounts.detail.platform')}>
+            <DetailField
+              label={t('accounts.detail.platform')}
+              title={site?.platform || undefined}
+            >
               {site?.platform || '—'}
             </DetailField>
             <DetailField label={t('accounts.detail.balance')}>
-              ${formatNumber(account.balance)}
+              {formatAmount(account.balance)}
             </DetailField>
             <DetailField label={t('accounts.detail.used')}>
-              ${formatNumber(account.balanceUsed)}
+              {formatAmount(account.balanceUsed)}
             </DetailField>
             <DetailField label={t('accounts.detail.todayReward')}>
-              +${formatNumber(account.todayReward)}
+              {formatAmount(account.todayReward, '+$')}
             </DetailField>
             <DetailField label={t('accounts.detail.todaySpend')}>
-              ${formatNumber(account.todaySpend)}
+              {formatAmount(account.todaySpend)}
             </DetailField>
             <DetailField label={t('accounts.detail.checkin')}>
               {account.capabilities?.canCheckin
@@ -128,7 +169,10 @@ export function AccountDetailSheet({
                   : t('accounts.detail.checkinOff')
                 : t('accounts.detail.checkinUnsupported')}
             </DetailField>
-            <DetailField label={t('accounts.detail.lastBalanceRefresh')}>
+            <DetailField
+              label={t('accounts.detail.lastBalanceRefresh')}
+              title={account.lastBalanceRefresh || undefined}
+            >
               {account.lastBalanceRefresh || '—'}
             </DetailField>
             <DetailField label={t('accounts.detail.quota')}>
@@ -143,7 +187,7 @@ export function AccountDetailSheet({
                 '—'
               ) : (
                 <span className='tabular-nums'>
-                  ${formatPrice(account.unitCost)}
+                  {formatPrice(account.unitCost)}
                 </span>
               )}
             </DetailField>
@@ -201,7 +245,10 @@ export function AccountDetailSheet({
           <Separator />
 
           {/* Embedded tokens sub-module */}
-          <TokensPanel accountId={account.id} />
+          <TokensPanel
+            accountId={account.id}
+            onFormDirtyChange={setTokensFormDirty}
+          />
         </div>
 
         <SheetFooter>
@@ -210,6 +257,23 @@ export function AccountDetailSheet({
             {t('accounts.detail.configureRoutes')}
           </Button>
         </SheetFooter>
+
+        {dirtyCloseGuard}
+
+        <ConfirmDialog
+          open={confirmNavigateOpen}
+          title={t('settings.common.unsavedTitle')}
+          description={t('settings.common.unsavedDescription')}
+          confirmLabel={t('settings.common.discardChanges')}
+          cancelLabel={t('settings.common.keepEditing')}
+          destructive
+          onConfirm={() => {
+            setConfirmNavigateOpen(false)
+            setTokensFormDirty(false)
+            navigateToTokenRoutes()
+          }}
+          onCancel={() => setConfirmNavigateOpen(false)}
+        />
       </SheetContent>
     </Sheet>
   )
@@ -219,22 +283,10 @@ export function AccountDetailSheet({
 // Helpers
 // ---------------------------------------------------------------------------
 
-function DetailField({
-  label,
-  children,
-}: {
-  label: string
-  children: ReactNode
-}) {
-  return (
-    <div className='flex flex-col'>
-      <dt className='text-muted-foreground text-[11px]'>{label}</dt>
-      <dd className='truncate'>{children}</dd>
-    </div>
-  )
-}
-
-function formatNumber(value: number | undefined | null): string {
-  if (value === undefined || value === null) return '0.00'
-  return value.toFixed(2)
+// A null amount means "never refreshed", not zero — rendering $0.00 would
+// misreport a missing value. Show a bare em dash (no currency prefix),
+// matching lib/format's null-display convention.
+function formatAmount(value: number | undefined | null, prefix = '$'): string {
+  if (value === undefined || value === null) return EM_DASH
+  return `${prefix}${value.toFixed(2)}`
 }

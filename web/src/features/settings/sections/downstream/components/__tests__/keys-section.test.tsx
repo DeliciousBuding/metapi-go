@@ -106,6 +106,7 @@ function renderKeySheetForm(props: {
   editingKey: Parameters<typeof KeySheetForm>[0]['editingKey']
   onDone?: () => void
   onCreated?: (target: { id: number; name: string; keyMasked?: string }) => void
+  onDirtyChange?: (dirty: boolean) => void
 }) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -127,6 +128,7 @@ function renderKeySheetForm(props: {
                 editingKey={props.editingKey}
                 onDone={onDone}
                 onCreated={onCreated}
+                onDirtyChange={props.onDirtyChange}
               />
             </SheetContent>
           </Sheet>
@@ -331,6 +333,22 @@ describe('KeySheetForm — create mode', () => {
     })
     expect(mockToastSuccess).toHaveBeenCalledTimes(1)
     expect(onCreated).not.toHaveBeenCalled()
+  })
+})
+
+describe('KeySheetForm — dirty reporting', () => {
+  it('reports dirty state changes through onDirtyChange', () => {
+    const onDirtyChange = vi.fn()
+    renderKeySheetForm({ editingKey: null, onDirtyChange })
+
+    // Initial mount reports a clean form.
+    expect(onDirtyChange).toHaveBeenLastCalledWith(false)
+
+    // Editing a field flips the report to dirty.
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'My new key' },
+    })
+    expect(onDirtyChange).toHaveBeenLastCalledWith(true)
   })
 })
 

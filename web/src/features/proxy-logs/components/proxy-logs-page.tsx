@@ -2,7 +2,6 @@
 // metapi-go/features/proxy-logs/components — proxy logs list page.
 // i18n: all user-visible strings migrated to t() calls.
 
-import { Download as DownloadIcon, RefreshCw } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -24,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
+import { formatCurrency, formatInt } from '@/lib/format'
 import { asStringParam } from '@/lib/helpers/searchParams'
 import { toast } from '@/lib/toast'
 
@@ -42,6 +42,7 @@ import {
   useProxyLogsColumns,
   type ProxyLogsColumnActions,
 } from './proxy-logs-columns'
+import { ProxyLogsHeaderActions } from './proxy-logs-header-actions'
 
 const PROXY_LOGS_COLUMN_VISIBILITY_STORAGE_KEY =
   'metapi-go:proxy-logs:column-visibility'
@@ -310,37 +311,21 @@ export function ProxyLogsPage() {
 
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
-      <div className='flex items-center justify-between'>
+      <div className='flex flex-wrap items-center justify-between gap-3'>
         <div>
           <h1 className='text-lg font-normal'>{t('proxyLogs.page.title')}</h1>
           <p className='text-muted-foreground text-sm'>
             {t('proxyLogs.page.description')}
           </p>
         </div>
-        <div className='flex items-center gap-2'>
+        <div className='flex flex-wrap items-center gap-2'>
           <ProxyLogsAutoRefreshToggle />
-          <Button
-            variant='outline'
-            size='sm'
-            onClick={handleExportCsv}
-            disabled={isExporting}
-          >
-            <DownloadIcon
-              className={isExporting ? 'animate-pulse' : undefined}
-            />
-            {t('proxyLogs.page.exportCsv')}
-          </Button>
-          <Button
-            variant='outline'
-            size='sm'
-            onClick={() => logsQuery.refetch()}
-            disabled={logsQuery.isFetching}
-          >
-            <RefreshCw
-              className={logsQuery.isFetching ? 'animate-spin' : undefined}
-            />
-            {t('proxyLogs.page.refresh')}
-          </Button>
+          <ProxyLogsHeaderActions
+            onExport={handleExportCsv}
+            isExporting={isExporting}
+            onRefresh={() => logsQuery.refetch()}
+            isRefreshing={logsQuery.isFetching}
+          />
         </div>
       </div>
 
@@ -348,21 +333,21 @@ export function ProxyLogsPage() {
         <div className='grid grid-cols-2 gap-2 sm:grid-cols-4'>
           <SummaryCard
             label={t('proxyLogs.page.summaryTotal')}
-            value={String(summary.totalCount)}
+            value={formatInt(summary.totalCount)}
           />
           <SummaryCard
             label={t('proxyLogs.page.summarySuccess')}
-            value={String(summary.successCount)}
+            value={formatInt(summary.successCount)}
             tone='success'
           />
           <SummaryCard
             label={t('proxyLogs.page.summaryFailed')}
-            value={String(summary.failedCount)}
+            value={formatInt(summary.failedCount)}
             tone='danger'
           />
           <SummaryCard
             label={t('proxyLogs.page.summaryCost')}
-            value={`$${summary.totalCost.toFixed(4)}`}
+            value={formatCurrency(summary.totalCost, { fractionDigits: 4 })}
           />
         </div>
       )}

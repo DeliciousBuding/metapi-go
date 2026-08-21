@@ -29,6 +29,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { toBcp47 } from '@/i18n/languages'
+import { formatDateTime, formatInt } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type { OAuthClient, OAuthClientStatus } from '../types'
@@ -77,13 +79,6 @@ function TruncatedText({
       {display}
     </span>
   )
-}
-
-function formatTimestamp(value?: string | null): string {
-  if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleString()
 }
 
 // ---------------------------------------------------------------------------
@@ -226,7 +221,8 @@ export function useOAuthColumns(
   actions: OAuthColumnActions,
   pendingAccountId: number | null = null
 ): ColumnDef<OAuthClient>[] {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
 
   const columns: ColumnDef<OAuthClient>[] = [
     {
@@ -357,7 +353,7 @@ export function useOAuthColumns(
       ),
       cell: ({ row }) => (
         <span className='text-sm tabular-nums'>
-          {row.original.modelCount ?? 0}
+          {formatInt(row.original.modelCount)}
         </span>
       ),
     },
@@ -391,7 +387,7 @@ export function useOAuthColumns(
       ),
       cell: ({ row }) => (
         <span className='text-muted-foreground text-sm tabular-nums'>
-          {formatTimestamp(row.original.lastModelSyncAt)}
+          {formatDateTime(row.original.lastModelSyncAt, locale)}
         </span>
       ),
     },

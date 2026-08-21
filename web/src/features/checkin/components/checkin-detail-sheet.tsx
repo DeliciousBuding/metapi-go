@@ -3,9 +3,9 @@
 // i18n: all user-visible strings migrated to t() calls.
 
 import { ExternalLink } from 'lucide-react'
-import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { DetailField } from '@/components/common/detail-field'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -16,6 +16,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { toBcp47 } from '@/i18n/languages'
 
 import { formatCheckinLogTime } from '../lib/checkin-time'
 import { type CheckinLogRow, checkinLogRowSchema } from '../types'
@@ -32,7 +33,8 @@ export function CheckinDetailSheet({
   open,
   onOpenChange,
 }: CheckinDetailSheetProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
   if (!row) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
@@ -81,12 +83,18 @@ export function CheckinDetailSheet({
         <div className='flex-1 space-y-4 overflow-y-auto p-4'>
           <dl className='grid grid-cols-2 gap-x-3 gap-y-2 text-sm'>
             <DetailField label={t('checkin.detail.createdAt')}>
-              {formatCheckinLogTime(inner.createdAt)}
+              {formatCheckinLogTime(inner.createdAt, locale)}
             </DetailField>
-            <DetailField label={t('checkin.detail.account')}>
+            <DetailField
+              label={t('checkin.detail.account')}
+              title={account?.username || `#${inner.accountId}`}
+            >
               {account?.username || `#${inner.accountId}`}
             </DetailField>
-            <DetailField label={t('checkin.detail.site')}>
+            <DetailField
+              label={t('checkin.detail.site')}
+              title={site ? site.name || site.url || undefined : undefined}
+            >
               {site ? site.name || site.url || '—' : '—'}
             </DetailField>
             {site?.url && (
@@ -101,7 +109,10 @@ export function CheckinDetailSheet({
                 </a>
               </DetailField>
             )}
-            <DetailField label={t('checkin.detail.reward')}>
+            <DetailField
+              label={t('checkin.detail.reward')}
+              title={inner.reward || undefined}
+            >
               {inner.reward || '—'}
             </DetailField>
             <DetailField
@@ -135,16 +146,25 @@ export function CheckinDetailSheet({
                   <DetailField label={t('checkin.detail.errorCode')}>
                     {reason.code}
                   </DetailField>
-                  <DetailField label={t('checkin.detail.description')}>
+                  <DetailField
+                    label={t('checkin.detail.description')}
+                    title={reason.title || undefined}
+                  >
                     {reason.title || '—'}
                   </DetailField>
                   {reason.actionHint && (
-                    <DetailField label={t('checkin.detail.actionHint')}>
+                    <DetailField
+                      label={t('checkin.detail.actionHint')}
+                      title={reason.actionHint}
+                    >
                       {reason.actionHint}
                     </DetailField>
                   )}
                   {reason.detailHint && (
-                    <DetailField label={t('checkin.detail.detailHint')}>
+                    <DetailField
+                      label={t('checkin.detail.detailHint')}
+                      title={reason.detailHint}
+                    >
                       {reason.detailHint}
                     </DetailField>
                   )}
@@ -161,20 +181,5 @@ export function CheckinDetailSheet({
         </SheetFooter>
       </SheetContent>
     </Sheet>
-  )
-}
-
-function DetailField({
-  label,
-  children,
-}: {
-  label: string
-  children: ReactNode
-}) {
-  return (
-    <div className='flex flex-col'>
-      <dt className='text-muted-foreground text-[11px]'>{label}</dt>
-      <dd className='truncate'>{children}</dd>
-    </div>
   )
 }

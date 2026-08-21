@@ -246,7 +246,7 @@ export function ModelTesterPage() {
           onClick={() => setClearDialogOpen(true)}
           disabled={isRunning}
         >
-          <TrashIcon className='mr-1 size-3.5' />
+          <TrashIcon className='size-3.5' />
           {t('modelTester.clear.button')}
         </Button>
       </div>
@@ -291,7 +291,6 @@ export function ModelTesterPage() {
         description={t('modelTester.clear.description')}
         confirmLabel={t('modelTester.clear.confirm')}
         cancelLabel={t('modelTester.clear.cancel')}
-        destructive
         onConfirm={handleClearSession}
         onCancel={() => setClearDialogOpen(false)}
       />

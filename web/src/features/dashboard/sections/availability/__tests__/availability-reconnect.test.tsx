@@ -86,7 +86,11 @@ afterEach(() => cleanup())
 describe('AvailabilitySection realtime reconnect affordance', () => {
   it('renders the connection-lost notice + Reconnect button when gaveUp', () => {
     const reconnect = vi.fn()
-    mockUseRealtimeOps.mockReturnValue({ sample: GAVE_UP_SAMPLE, reconnect })
+    mockUseRealtimeOps.mockReturnValue({
+      sample: GAVE_UP_SAMPLE,
+      lastFrameAt: null,
+      reconnect,
+    })
 
     renderWithClient(<AvailabilitySection />)
 
@@ -97,7 +101,11 @@ describe('AvailabilitySection realtime reconnect affordance', () => {
 
   it('calls reconnect when the operator clicks the Reconnect button', () => {
     const reconnect = vi.fn()
-    mockUseRealtimeOps.mockReturnValue({ sample: GAVE_UP_SAMPLE, reconnect })
+    mockUseRealtimeOps.mockReturnValue({
+      sample: GAVE_UP_SAMPLE,
+      lastFrameAt: null,
+      reconnect,
+    })
 
     renderWithClient(<AvailabilitySection />)
 
@@ -110,6 +118,7 @@ describe('AvailabilitySection realtime reconnect affordance', () => {
     const reconnect = vi.fn()
     mockUseRealtimeOps.mockReturnValue({
       sample: CONNECTED_SAMPLE,
+      lastFrameAt: null,
       reconnect,
     })
 

@@ -780,7 +780,7 @@ export function ImportWizardDialog({
             )}
             {step === 'source' && (
               <Button type='button' onClick={handleSourceNext}>
-                <UploadIcon className='mr-1 size-4' />
+                <UploadIcon className='size-4' />
                 {t('import.next')}
               </Button>
             )}
@@ -800,14 +800,14 @@ export function ImportWizardDialog({
                 onClick={handleSubmit}
                 disabled={importSites.isPending}
               >
-                {importSites.isPending && <Spinner className='mr-2' />}
+                {importSites.isPending && <Spinner />}
                 {t('import.submit')}
               </Button>
             )}
             {step === 'done' && (
               <>
                 <Button type='button' variant='ghost' onClick={handleDone}>
-                  <CheckIcon className='mr-1 size-4' />
+                  <CheckIcon className='size-4' />
                   {t('import.done.close')}
                 </Button>
                 <Button
@@ -815,7 +815,7 @@ export function ImportWizardDialog({
                   variant='outline'
                   onClick={handleGoToAccounts}
                 >
-                  <UserPlusIcon className='mr-1 size-4' />
+                  <UserPlusIcon className='size-4' />
                   {t('import.done.addAccount')}
                 </Button>
                 <Button
@@ -824,9 +824,9 @@ export function ImportWizardDialog({
                   disabled={rebuildRoutes.isPending}
                 >
                   {rebuildRoutes.isPending ? (
-                    <Spinner className='mr-2' />
+                    <Spinner />
                   ) : (
-                    <ZapIcon className='mr-1 size-4' />
+                    <ZapIcon className='size-4' />
                   )}
                   {t('import.done.rebuildRoutes')}
                 </Button>

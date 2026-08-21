@@ -27,7 +27,7 @@ export function NotFoundPage() {
         </p>
       </div>
       <Button render={<Link to='/' />}>
-        <House className='mr-1.5 size-4' />
+        <House className='size-4' />
         {t('errors.backHome')}
       </Button>
     </div>

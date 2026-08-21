@@ -529,7 +529,7 @@ export function AccountFormDialog({
         <SheetFooter>
           <Button
             variant='outline'
-            onClick={() => onOpenChange(false)}
+            onClick={() => handleOpenChange(false)}
             disabled={isSubmitting}
           >
             {t('common.cancel')}

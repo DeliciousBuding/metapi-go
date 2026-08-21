@@ -48,4 +48,56 @@ describe('sign-in page interface controls', () => {
       screen.getByRole('button', { name: 'Toggle theme' })
     ).toBeInTheDocument()
   })
+
+  it('shows the token-source guidance with the deployment docs link', () => {
+    render(
+      <ThemeProvider defaultTheme='light'>
+        <ThemeCustomizationProvider>
+          <SignInPage />
+        </ThemeCustomizationProvider>
+      </ThemeProvider>
+    )
+
+    expect(
+      screen.getByText(
+        'The admin token comes from the AUTH_TOKEN environment variable (or .env file) set when this instance was deployed.'
+      )
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: 'Deployment docs' })
+    ).toHaveAttribute(
+      'href',
+      'https://github.com/DeliciousBuding/metapi-go/blob/master/docs/deployment.md'
+    )
+  })
+
+  it('shows the token-changed notice only when the reason param says so', () => {
+    const { unmount } = render(
+      <ThemeProvider defaultTheme='light'>
+        <ThemeCustomizationProvider>
+          <SignInPage noticeReason='tokenChanged' />
+        </ThemeCustomizationProvider>
+      </ThemeProvider>
+    )
+
+    expect(
+      screen.getByText(
+        'The admin token was updated. Sign in with your new token.'
+      )
+    ).toBeInTheDocument()
+    unmount()
+
+    render(
+      <ThemeProvider defaultTheme='light'>
+        <ThemeCustomizationProvider>
+          <SignInPage />
+        </ThemeCustomizationProvider>
+      </ThemeProvider>
+    )
+    expect(
+      screen.queryByText(
+        'The admin token was updated. Sign in with your new token.'
+      )
+    ).not.toBeInTheDocument()
+  })
 })

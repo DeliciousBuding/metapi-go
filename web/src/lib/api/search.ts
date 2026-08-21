@@ -25,6 +25,7 @@ export type SearchAccountToken = {
 
 export type SearchCheckinLog = {
   id: number
+  accountId?: number | null
   accountUsername?: string | null
   status?: string | null
   message?: string | null

@@ -10,6 +10,7 @@
 // from ChartTooltipContent / ChartLegendContent so the look matches stat-card.
 
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Bar,
   BarChart,
@@ -31,6 +32,8 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
+import { toBcp47 } from '@/i18n/languages'
+import { EM_DASH } from '@/lib/format'
 
 import type {
   IncomeOutcomePoint,
@@ -52,16 +55,73 @@ function seriesKey(index: number): string {
   return `s${index}`
 }
 
-/** Adaptive currency formatting — mirrors the legacy VChart tooltip format. */
-function formatCurrency(value: number): string {
-  if (value >= 1000) return `$${value.toFixed(2)}`
-  if (value >= 1) return `$${value.toFixed(3)}`
+/**
+ * Adaptive currency formatting for chart axes/tooltips — mirrors the legacy
+ * VChart tooltip format (sub-cent values keep 6 decimals so tiny per-call
+ * costs stay legible).
+ */
+function formatChartCurrency(value: number): string {
+  if (!Number.isFinite(value)) return EM_DASH
+  const magnitude = Math.abs(value)
+  if (magnitude >= 1000) return `$${value.toFixed(2)}`
+  if (magnitude >= 1) return `$${value.toFixed(3)}`
   return `$${value.toFixed(6)}`
 }
 
 /** Percent-of-total string for the donut tooltip share row. */
 function percentOf(value: number, total: number): string {
   return `${total > 0 ? ((value / total) * 100).toFixed(1) : '0.0'}%`
+}
+
+// ---------------------------------------------------------------------------
+// Locale-aware date axis/tooltip helpers. The stats endpoints emit plain
+// `YYYY-MM-DD` day strings; parse the calendar parts directly so the tick
+// never shifts a day across timezones (a bare `new Date('2026-08-21')` is
+// UTC midnight and renders as the previous evening in negative offsets).
+// ---------------------------------------------------------------------------
+
+function parseDayLabel(value: string | number): Date | null {
+  const text = String(value)
+  const calendarMatch = /^(\d{4})-(\d{2})-(\d{2})/.exec(text)
+  if (calendarMatch) {
+    const date = new Date(
+      Number(calendarMatch[1]),
+      Number(calendarMatch[2]) - 1,
+      Number(calendarMatch[3])
+    )
+    return Number.isNaN(date.getTime()) ? null : date
+  }
+  const parsed = new Date(text)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+/** Hook returning a locale-aware "Aug 21" tick formatter for date axes. */
+function useDateTickFormatter(): (value: string | number) => string {
+  const { i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
+  return (value) => {
+    const date = parseDayLabel(value)
+    if (!date) return String(value)
+    return new Intl.DateTimeFormat(locale, {
+      month: 'short',
+      day: 'numeric',
+    }).format(date)
+  }
+}
+
+/** Hook returning a locale-aware "Aug 21, 2026" formatter for tooltip headers. */
+function useDateTooltipFormatter(): (value: string | number) => string {
+  const { i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
+  return (value) => {
+    const date = parseDayLabel(value)
+    if (!date) return String(value)
+    return new Intl.DateTimeFormat(locale, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    }).format(date)
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -229,26 +289,55 @@ function DonutLegend({ payload }: { payload?: DonutLegendPayload[] }) {
 // Chart components.
 // ---------------------------------------------------------------------------
 
-const INCOME_OUTCOME_CONFIG: ChartConfig = {
-  income: { label: 'Income', color: chartColor(0) },
-  outcome: { label: 'Outcome', color: chartColor(1) },
-}
-
 /** Daily balance inflow vs spend — grouped bar chart (30d). */
 export function IncomeOutcomeChart({ data }: { data: IncomeOutcomePoint[] }) {
+  const { t } = useTranslation()
   const rows = useMemo(() => pivotIncomeOutcome(data), [data])
+  const formatTick = useDateTickFormatter()
+  const formatTooltipDate = useDateTooltipFormatter()
+  const config = useMemo<ChartConfig>(
+    () => ({
+      income: {
+        label: t('dashboard.charts.income'),
+        color: chartColor(0),
+      },
+      outcome: {
+        label: t('dashboard.charts.outcome'),
+        color: chartColor(1),
+      },
+    }),
+    [t]
+  )
   return (
-    <ChartContainer config={INCOME_OUTCOME_CONFIG} className='h-full w-full'>
+    <ChartContainer config={config} className='h-full w-full'>
       <BarChart data={rows} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
         <CartesianGrid vertical={false} strokeDasharray='4 4' />
-        <XAxis dataKey='day' tickMargin={8} minTickGap={24} />
-        <YAxis axisLine={false} tickLine={false} width={48} tickMargin={4} />
+        <XAxis
+          dataKey='day'
+          tickMargin={8}
+          minTickGap={24}
+          tickFormatter={formatTick}
+        />
+        <YAxis
+          axisLine={false}
+          tickLine={false}
+          width={48}
+          tickMargin={4}
+          tickFormatter={(value: number) => formatChartCurrency(value)}
+        />
         <ChartLegend
           content={<ChartLegendContent />}
-          verticalAlign='top'
+          verticalAlign='bottom'
           height={36}
         />
-        <ChartTooltip content={<ChartTooltipContent />} />
+        <ChartTooltip
+          content={
+            <ChartTooltipContent
+              labelFormatter={(label) => formatTooltipDate(String(label))}
+              formatter={(value) => formatChartCurrency(Number(value))}
+            />
+          }
+        />
         <Bar
           dataKey='income'
           fill='var(--color-income)'
@@ -269,6 +358,8 @@ export function IncomeOutcomeChart({ data }: { data: IncomeOutcomePoint[] }) {
 /** Per-site spend over time — one line per site. */
 export function SiteTrendChart({ data }: { data: SiteTrendPoint[] }) {
   const { rows, sites } = useMemo(() => pivotSiteTrend(data), [data])
+  const formatTick = useDateTickFormatter()
+  const formatTooltipDate = useDateTooltipFormatter()
   const config = useMemo<ChartConfig>(() => {
     const cfg: ChartConfig = {}
     sites.forEach((site, index) => {
@@ -280,14 +371,32 @@ export function SiteTrendChart({ data }: { data: SiteTrendPoint[] }) {
     <ChartContainer config={config} className='h-full w-full'>
       <LineChart data={rows} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
         <CartesianGrid vertical={false} strokeDasharray='4 4' />
-        <XAxis dataKey='date' tickMargin={8} minTickGap={24} />
-        <YAxis axisLine={false} tickLine={false} width={48} tickMargin={4} />
+        <XAxis
+          dataKey='date'
+          tickMargin={8}
+          minTickGap={24}
+          tickFormatter={formatTick}
+        />
+        <YAxis
+          axisLine={false}
+          tickLine={false}
+          width={48}
+          tickMargin={4}
+          tickFormatter={(value: number) => formatChartCurrency(value)}
+        />
         <ChartLegend
           content={<ChartLegendContent />}
           verticalAlign='bottom'
           height={36}
         />
-        <ChartTooltip content={<ChartTooltipContent />} />
+        <ChartTooltip
+          content={
+            <ChartTooltipContent
+              labelFormatter={(label) => formatTooltipDate(String(label))}
+              formatter={(value) => formatChartCurrency(Number(value))}
+            />
+          }
+        />
         {sites.map((_, index) => {
           const key = seriesKey(index)
           return (
@@ -338,9 +447,9 @@ export function SiteDistributionChart({
     return cfg
   }, [pieData])
   const render: DonutTooltipRender = (datum, value) => ({
-    title: String(datum.siteName ?? '-'),
+    title: String(datum.siteName ?? EM_DASH),
     rows: [
-      { label: labels.balance, value: formatCurrency(value) },
+      { label: labels.balance, value: formatChartCurrency(value) },
       { label: labels.accounts, value: String(datum.accountCount ?? 0) },
       { label: labels.share, value: percentOf(value, total) },
     ],
@@ -358,8 +467,8 @@ export function SiteDistributionChart({
           data={pieData}
           dataKey='value'
           nameKey='siteName'
-          innerRadius='55%'
-          outerRadius='80%'
+          innerRadius='62%'
+          outerRadius='85%'
           paddingAngle={2}
           stroke='var(--border)'
           strokeWidth={1}
@@ -422,6 +531,8 @@ export function LatencyTrendChart({
     () => pivotLatencyTrend(data, avgLabel, p95Label),
     [data, avgLabel, p95Label]
   )
+  const formatTick = useDateTickFormatter()
+  const formatTooltipDate = useDateTooltipFormatter()
   const config = useMemo<ChartConfig>(
     () => ({
       s0: { label: avgLabel, color: chartColor(0) },
@@ -433,14 +544,25 @@ export function LatencyTrendChart({
     <ChartContainer config={config} className='h-full w-full'>
       <LineChart data={rows} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
         <CartesianGrid vertical={false} strokeDasharray='4 4' />
-        <XAxis dataKey='date' tickMargin={8} minTickGap={24} />
+        <XAxis
+          dataKey='date'
+          tickMargin={8}
+          minTickGap={24}
+          tickFormatter={formatTick}
+        />
         <YAxis axisLine={false} tickLine={false} width={48} tickMargin={4} />
         <ChartLegend
           content={<ChartLegendContent />}
           verticalAlign='bottom'
           height={36}
         />
-        <ChartTooltip content={<ChartTooltipContent />} />
+        <ChartTooltip
+          content={
+            <ChartTooltipContent
+              labelFormatter={(label) => formatTooltipDate(String(label))}
+            />
+          }
+        />
         <Line
           dataKey='s0'
           type='monotone'
@@ -493,9 +615,9 @@ export function ModelCostChart({
     return cfg
   }, [pieData])
   const render: DonutTooltipRender = (datum, value) => ({
-    title: String(datum.model ?? '-'),
+    title: String(datum.model ?? EM_DASH),
     rows: [
-      { label: labels.cost, value: formatCurrency(value) },
+      { label: labels.cost, value: formatChartCurrency(value) },
       { label: labels.calls, value: String(datum.calls ?? 0) },
       {
         label: labels.tokens,
