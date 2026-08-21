@@ -18,6 +18,7 @@ import {
 import type { OAuthClient } from '../types'
 
 const noopActions: OAuthColumnActions = {
+  onViewDetails: () => {},
   onRefreshQuota: () => {},
   onRebind: () => {},
   onDelete: () => {},

@@ -10,6 +10,7 @@
 
 import type { ColumnDef } from '@tanstack/react-table'
 import {
+  Eye as EyeIcon,
   Loader2 as Loader2Icon,
   MoreHorizontal as MoreHorizontalIcon,
   RefreshCw as RefreshCwIcon,
@@ -36,6 +37,7 @@ import { cn } from '@/lib/utils'
 import type { OAuthClient, OAuthClientStatus } from '../types'
 
 export type OAuthColumnActions = {
+  onViewDetails: (client: OAuthClient) => void
   onRefreshQuota: (client: OAuthClient) => void
   onRebind: (client: OAuthClient) => void
   onDelete: (client: OAuthClient) => void
@@ -54,7 +56,16 @@ const STATUS_BADGE_VARIANT: Record<
   abnormal: 'destructive',
 }
 
-function StatusBadge({ status }: { status: OAuthClientStatus | undefined }) {
+/**
+ * Health badge for one connection. Exported so the detail sheet renders the
+ * exact same semantic variant as the list column (a private copy would let
+ * the two drift).
+ */
+export function OAuthStatusBadge({
+  status,
+}: {
+  status: OAuthClientStatus | undefined
+}) {
   const { t } = useTranslation()
   const resolved: OAuthClientStatus =
     status === 'abnormal' ? 'abnormal' : 'healthy'
@@ -136,15 +147,17 @@ function QuotaCell({ client }: { client: OAuthClient }) {
 // ---------------------------------------------------------------------------
 
 /**
- * Per-row dropdown trigger + refresh/rebind/delete actions.
+ * Per-row dropdown trigger + view-details/refresh/rebind/delete actions.
  *
  * The pending state is per-row (mirrors the accounts page's
  * `pendingStatusId` pattern): when `pendingAccountId === client.accountId`,
  * the trigger swaps `MoreHorizontal` for a `Loader2` spinner and the
  * refresh/rebind menu items are disabled so the user cannot spam-click the
- * same row into duplicate requests. The delete item stays enabled so the
- * connection can still be removed while a refresh/rebind is in flight.
- * Every other row stays fully clickable — there is no global lock.
+ * same row into duplicate requests. The view-details item stays enabled
+ * (opening a read-only panel cannot conflict with an in-flight request) and
+ * so does delete, so the connection can still be removed while a
+ * refresh/rebind is in flight. Every other row stays fully clickable —
+ * there is no global lock.
  */
 export function OAuthRowActions({
   client,
@@ -177,6 +190,11 @@ export function OAuthRowActions({
           )}
         </DropdownMenuTrigger>
         <DropdownMenuContent align='end' className='w-48'>
+          <DropdownMenuItem onClick={() => actions.onViewDetails(client)}>
+            <EyeIcon className='text-muted-foreground/70 size-3.5' />
+            {t('oauth.actions.viewDetails')}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() => actions.onRefreshQuota(client)}
             disabled={isThisRowPending}
@@ -292,7 +310,7 @@ export function useOAuthColumns(
           title={t('oauth.columns.status')}
         />
       ),
-      cell: ({ row }) => <StatusBadge status={row.original.status} />,
+      cell: ({ row }) => <OAuthStatusBadge status={row.original.status} />,
       filterFn: (row, columnId, filterValue) => {
         const value = row.getValue(columnId) as OAuthClientStatus | undefined
         const resolved: OAuthClientStatus =

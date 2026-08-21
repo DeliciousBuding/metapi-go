@@ -80,6 +80,7 @@ const baseClient = {
 
 function buildActions(): OAuthColumnActions {
   return {
+    onViewDetails: vi.fn(),
     onRefreshQuota: vi.fn(),
     onRebind: vi.fn(),
     onDelete: vi.fn(),
@@ -103,6 +104,44 @@ describe('OAuthRowActions per-row pending', () => {
     expect(
       screen.getByRole('button', { name: 'Row actions' })
     ).toBeInTheDocument()
+  })
+
+  it('calls onViewDetails with the client when the view-details item is clicked', async () => {
+    const actions = buildActions()
+    render(
+      <OAuthRowActions
+        client={baseClient}
+        actions={actions}
+        pendingAccountId={null}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Row actions' }))
+    const viewItem = await screen.findByRole('menuitem', {
+      name: 'View details',
+    })
+    fireEvent.click(viewItem)
+
+    expect(actions.onViewDetails).toHaveBeenCalledTimes(1)
+    expect(actions.onViewDetails).toHaveBeenCalledWith(baseClient)
+  })
+
+  it('keeps view-details clickable while the row has a mutation in flight', async () => {
+    render(
+      <OAuthRowActions
+        client={baseClient}
+        actions={buildActions()}
+        pendingAccountId={42}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Row actions' }))
+    const viewItem = await screen.findByRole('menuitem', {
+      name: 'View details',
+    })
+
+    // Opening a read-only panel cannot conflict with an in-flight request.
+    expect(viewItem).not.toHaveAttribute('data-disabled')
   })
 
   it('calls onRefreshQuota with the client when the refresh item is clicked', async () => {
