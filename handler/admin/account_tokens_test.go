@@ -57,16 +57,29 @@ func tokenFixture(t *testing.T, db *store.DB, r chi.Router) (int64, int64) {
 	// Create account with accessToken (session mode, not apikey connection)
 	extraConfig := `{"credentialMode":"session"}`
 	username := "tokuser"
+	var accountID int64
+	if db.Dialect == store.DialectPostgres {
+		// pgx does not support LastInsertId: fetch the new row's id via RETURNING.
+		if err := db.QueryRow(
+			`INSERT INTO accounts (site_id, username, access_token, status, is_pinned, sort_order,
+			 checkin_enabled, extra_config, created_at, updated_at)
+			 VALUES (?, ?, 'sk-session-token', 'active', FALSE, 0, TRUE, ?, ?, ?) RETURNING id`,
+			siteID, &username, &extraConfig, now, now,
+		).Scan(&accountID); err != nil {
+			t.Fatalf("INSERT account: %v", err)
+		}
+		return siteID, accountID
+	}
 	res, err := db.Exec(
 		`INSERT INTO accounts (site_id, username, access_token, status, is_pinned, sort_order,
 		 checkin_enabled, extra_config, created_at, updated_at)
-		 VALUES (?, ?, 'sk-session-token', 'active', 0, 0, 1, ?, ?, ?)`,
+		 VALUES (?, ?, 'sk-session-token', 'active', FALSE, 0, TRUE, ?, ?, ?)`,
 		siteID, &username, &extraConfig, now, now,
 	)
 	if err != nil {
 		t.Fatalf("INSERT account: %v", err)
 	}
-	accountID, _ := res.LastInsertId()
+	accountID, _ = res.LastInsertId()
 	return siteID, accountID
 }
 
@@ -528,7 +541,7 @@ func TestTokens_Create_Upstream_APIKeyConnection(t *testing.T) {
 	extraConfig := `{"credentialMode":"apikey"}`
 	res, _ := db.Exec(
 		`INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at)
-		 VALUES (?, '', 'active', 1, ?, ?, ?)`,
+		 VALUES (?, '', 'active', TRUE, ?, ?, ?)`,
 		siteID, &extraConfig, now, now,
 	)
 	accountID, _ := res.LastInsertId()
@@ -556,7 +569,7 @@ func TestTokens_Create_Upstream_DisabledSite(t *testing.T) {
 	extraConfig := `{"credentialMode":"session"}`
 	res, _ = db.Exec(
 		`INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at)
-		 VALUES (?, 'sk-tok', 'active', 1, ?, ?, ?)`,
+		 VALUES (?, 'sk-tok', 'active', TRUE, ?, ?, ?)`,
 		siteID, &extraConfig, now, now,
 	)
 	accountID, _ := res.LastInsertId()
@@ -671,7 +684,7 @@ func TestTokens_Batch_NestedAPIKeyConnection(t *testing.T) {
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	extraConfig := `{"credentialMode":"apikey"}`
 	res, _ := db.Exec(
-		"INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, '', 'active', 1, ?, ?, ?)",
+		"INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, '', 'active', TRUE, ?, ?, ?)",
 		siteID, &extraConfig, now, now,
 	)
 	accountID, _ := res.LastInsertId()
@@ -854,7 +867,7 @@ func TestTokens_GetValue_APIKeyConnection(t *testing.T) {
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	ec := `{"credentialMode":"apikey"}`
 	res, _ := db.Exec(
-		"INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, '', 'active', 1, ?, ?, ?)",
+		"INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, '', 'active', TRUE, ?, ?, ?)",
 		siteID, &ec, now, now,
 	)
 	accID, _ := res.LastInsertId()
@@ -995,7 +1008,7 @@ func TestTokens_GetGroups(t *testing.T) {
 	extra := `{"credentialMode":"session"}`
 	res, err = db.Exec(
 		`INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at)
-		 VALUES (?, 'session-token', 'active', 1, ?, ?, ?)`,
+		 VALUES (?, 'session-token', 'active', TRUE, ?, ?, ?)`,
 		siteID, &extra, now, now,
 	)
 	if err != nil {
@@ -1038,7 +1051,7 @@ func TestTokens_GetGroups_APIKeyConnection(t *testing.T) {
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	ec := `{"credentialMode":"apikey"}`
 	res, _ := db.Exec(
-		"INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, '', 'active', 1, ?, ?, ?)",
+		"INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, '', 'active', TRUE, ?, ?, ?)",
 		siteID, &ec, now, now,
 	)
 	accID, _ := res.LastInsertId()
@@ -1083,7 +1096,7 @@ func TestTokens_GetAccountDefault_APIKeyConnection(t *testing.T) {
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	ec := `{"credentialMode":"apikey"}`
 	res, _ := db.Exec(
-		"INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, '', 'active', 1, ?, ?, ?)",
+		"INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, '', 'active', TRUE, ?, ?, ?)",
 		siteID, &ec, now, now,
 	)
 	accID, _ := res.LastInsertId()
@@ -1146,6 +1159,6 @@ func TestIsMaskedTokenValue_False(t *testing.T) {
 
 func defaultID(db *store.DB, accountID int64) int64 {
 	var id int64
-	db.QueryRow("SELECT id FROM account_tokens WHERE account_id = ? AND is_default = 1", accountID).Scan(&id)
+	db.QueryRow("SELECT id FROM account_tokens WHERE account_id = ? AND is_default = TRUE", accountID).Scan(&id)
 	return id
 }
