@@ -234,7 +234,7 @@ func setupSPAFallback(r chi.Router, distFS fs.FS) {
 	for name, contentType := range rootFiles {
 		fileName := name
 		fileType := contentType
-		r.Get("/"+fileName, func(w http.ResponseWriter, r *http.Request) {
+		r.Get("/"+fileName, withGzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			data, err := fs.ReadFile(distFS, fileName)
 			if err != nil {
 				http.NotFound(w, r)
@@ -243,11 +243,11 @@ func setupSPAFallback(r chi.Router, distFS fs.FS) {
 			w.Header().Set("Content-Type", fileType)
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 			w.Write(data)
-		})
+		})))
 	}
 
 	// SPA fallback: non-API paths → index.html; API → 404 JSON
-	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+	r.NotFound(withGzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/v1/") {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusNotFound)
@@ -264,7 +264,7 @@ func setupSPAFallback(r chi.Router, distFS fs.FS) {
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write(data)
-	})
+	})))
 }
 
 // mountStaticSubdir serves a subtree of the embedded dist under route with an
@@ -285,8 +285,8 @@ func mountStaticSubdir(r chi.Router, distFS fs.FS, dir, route, stripPrefix strin
 		slog.Warn("embedded web/dist subtree not readable, serving disabled", "dir", dir, "error", err)
 		return
 	}
-	r.Handle(route, http.StripPrefix(stripPrefix, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	r.Handle(route, http.StripPrefix(stripPrefix, withGzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		http.FileServer(http.FS(subFS)).ServeHTTP(w, r)
-	})))
+	}))))
 }
