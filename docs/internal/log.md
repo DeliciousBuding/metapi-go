@@ -1,9 +1,19 @@
 # log.md — Metapi Go product milestones
 
-**Last updated**: 2026-08-20
+**Last updated**: 2026-08-21
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
+
+## 2026-08-21 — UI/UX Round 2 收口（v0.16.4）+ Round 3 审计启动
+
+- **Round 2 #889 八域 → #898 squash 合入（`1604f49`）→ v0.16.4 发布**：交互/移动端/视觉/IA/呈现/性能/主题/会话八域并行修复，含 oxfmt CI 门禁。
+- **#901 死 CSS 清理（`4cf12fd`）**：落地页移除后的零引用 CSS 残留。
+- **Round 3 审计启动**：运行时/契约/代码健康/产品能力/性能/安全 8 域，A/B/D/E/F/H 完成、C/G 因 provider 故障中断；产出 D 域 4 个 P0 契约 bug + H 域性能（零 gzip / accounts ~2041ms 冻结 / recharts 332KB 白下载），转 v0.16.5 立项。
+
+## 2026-08-21 — UI/UX Round 1 #887 → v0.16.3
+
+- 四路审计立 #887，六 PR（#890–#896）并行修复 + #897 发布 v0.16.3。详情见根 `CHANGELOG.md` v0.16.3。
 
 ## 2026-08-20 — TS 兼容与迁移收官：CLI 诚实化 + 反向检测 + 迁移 UI + 备份兼容 + 三场景文档
 
