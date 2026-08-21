@@ -24,6 +24,7 @@ import {
   XCircle,
   type LucideIcon,
 } from 'lucide-react'
+import { memo, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
@@ -46,12 +47,7 @@ import { formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { resolveAccountDisplayName } from '../lib/accounts-display-name'
-import {
-  type Account,
-  type AccountRowActions,
-  type RuntimeHealthState,
-  accountSchema,
-} from '../types'
+import type { Account, AccountRowActions, RuntimeHealthState } from '../types'
 
 // ---------------------------------------------------------------------------
 // Health badge mapping
@@ -99,22 +95,28 @@ const HEALTH_BADGE_CONFIG: Record<RuntimeHealthState, HealthBadgeConfig> = {
 
 function useResolveHealth() {
   const { t } = useTranslation()
-  return function resolveHealth(
-    account: Account
-  ): HealthBadgeConfig & { label: string } {
-    if (account.status === 'expired') {
-      return {
-        labelKey: 'accounts.columns.healthExpired',
-        label: t('accounts.columns.healthExpired'),
-        variant: 'destructive',
-        dotClassName: 'bg-destructive',
-        icon: Clock,
+  // Stable identity: the columns array is memoized below and must not
+  // re-build just because this page re-rendered, otherwise every row's
+  // memoization is defeated on each unrelated state change.
+  return useCallback(
+    function resolveHealth(
+      account: Account
+    ): HealthBadgeConfig & { label: string } {
+      if (account.status === 'expired') {
+        return {
+          labelKey: 'accounts.columns.healthExpired',
+          label: t('accounts.columns.healthExpired'),
+          variant: 'destructive',
+          dotClassName: 'bg-destructive',
+          icon: Clock,
+        }
       }
-    }
-    const state = account.runtimeHealth?.state ?? 'unknown'
-    const config = HEALTH_BADGE_CONFIG[state] ?? HEALTH_BADGE_CONFIG.unknown
-    return { ...config, label: t(config.labelKey) }
-  }
+      const state = account.runtimeHealth?.state ?? 'unknown'
+      const config = HEALTH_BADGE_CONFIG[state] ?? HEALTH_BADGE_CONFIG.unknown
+      return { ...config, label: t(config.labelKey) }
+    },
+    [t]
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -129,13 +131,17 @@ function formatPercent(used: number, total: number): string {
 
 function useResolveDisplayName() {
   const { t } = useTranslation()
-  return function resolveDisplayName(account: Account): string {
-    return resolveAccountDisplayName(
-      account,
-      t('accounts.columns.fallbackApiKey'),
-      t('accounts.columns.fallbackUnnamed')
-    )
-  }
+  // Stable identity — see useResolveHealth.
+  return useCallback(
+    function resolveDisplayName(account: Account): string {
+      return resolveAccountDisplayName(
+        account,
+        t('accounts.columns.fallbackApiKey'),
+        t('accounts.columns.fallbackUnnamed')
+      )
+    },
+    [t]
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -151,8 +157,13 @@ function useResolveDisplayName() {
  * button shows a `Loader2` spinner and is disabled, while every other row's
  * button stays clickable (no global lock). The dropdown menu items are
  * unchanged — refresh/pin/checkin/edit/delete all stay where they were.
+ *
+ * Memoized: the row re-renders on selection/pending-state changes while
+ * `account` / `actions` keep the same identity, and this cell (Tooltip +
+ * DropdownMenu) is the heaviest subtree per row — skipping it keeps bulk
+ * select and status toggles from re-rendering every row's popover machinery.
  */
-export function AccountsRowActions({
+export const AccountsRowActions = memo(function AccountsRowActions({
   account,
   actions,
   pendingStatusId = null,
@@ -252,7 +263,7 @@ export function AccountsRowActions({
       </DropdownMenu>
     </div>
   )
-}
+})
 
 // ---------------------------------------------------------------------------
 // Columns hook
@@ -265,221 +276,228 @@ export function useAccountsColumns(
   const { t } = useTranslation()
   const resolveHealth = useResolveHealth()
   const resolveDisplayName = useResolveDisplayName()
-  return [
-    {
-      id: 'select',
-      size: 40,
-      enableSorting: false,
-      enableHiding: false,
-      header: ({ table }) => (
-        <Checkbox
-          checked={table.getIsAllPageRowsSelected()}
-          onCheckedChange={(value) =>
-            table.toggleAllPageRowsSelected(Boolean(value))
-          }
-          aria-label={t('accounts.columns.selectAll')}
-        />
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(Boolean(value))}
-          aria-label={t('accounts.columns.selectRow')}
-        />
-      ),
-      meta: { mobileHidden: true },
-    },
-    {
-      id: 'name',
-      accessorFn: (row) => {
-        const account = accountSchema.parse(row)
-        return account.username ?? ''
-      },
-      header: t('accounts.columns.name'),
-      cell: ({ row }) => {
-        const account = accountSchema.parse(row.original)
-        return (
-          <div className='flex flex-col gap-1'>
-            <div className='flex items-center gap-2'>
-              <span className='max-w-[220px] truncate font-medium'>
-                {resolveDisplayName(account)}
-              </span>
-              <Badge
-                variant={
-                  account.credentialMode === 'session' ? 'default' : 'secondary'
-                }
-              >
-                {account.credentialMode === 'session' ? 'Session' : 'API Key'}
-              </Badge>
-            </div>
-            {account.tags && account.tags.length > 0 && (
-              <div className='flex flex-wrap gap-1'>
-                {account.tags.slice(0, 3).map((tag) => (
-                  <Badge key={tag} variant='outline' className='text-[10px]'>
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
-        )
-      },
-      meta: { mobileTitle: true },
-    },
-    {
-      id: 'site',
-      accessorFn: (row) => String(accountSchema.parse(row).siteId),
-      header: t('accounts.columns.site'),
-      cell: ({ row }) => {
-        const account = accountSchema.parse(row.original)
-        const site = account.site
-        if (!site) return <span className='text-muted-foreground'>—</span>
-        return (
-          <div className='flex flex-col'>
-            <span className='max-w-[160px] truncate'>
-              {site.name || site.url || `#${site.id}`}
-            </span>
-            {site.platform && (
-              <span className='text-muted-foreground text-[11px]'>
-                {site.platform}
-              </span>
-            )}
-          </div>
-        )
-      },
-      filterFn: (row, _columnId, filterValue: unknown) => {
-        if (!Array.isArray(filterValue) || filterValue.length === 0) return true
-        const account = accountSchema.parse(row.original)
-        return filterValue.includes(String(account.siteId))
-      },
-      meta: { mobileOrder: 1 },
-    },
-    {
-      id: 'status',
-      accessorFn: (row) => accountSchema.parse(row).status,
-      header: t('common.status'),
-      cell: ({ row }) => {
-        const account = accountSchema.parse(row.original)
-        const config = resolveHealth(account)
-        const HealthIcon = config.icon
-        const reason = account.runtimeHealth?.reason?.trim()
-        const badge = (
-          <Badge variant={config.variant}>
-            <HealthIcon className='size-3' aria-hidden='true' />
-            <span
-              className={cn('size-1.5 rounded-full', config.dotClassName)}
-              aria-hidden='true'
-            />
-            {config.label}
-          </Badge>
-        )
-        if (!reason) {
-          return badge
-        }
-        return (
-          <TooltipProvider delay={200}>
-            <Tooltip>
-              <TooltipTrigger render={<span className='w-fit'>{badge}</span>} />
-              <TooltipContent side='top' className='max-w-xs'>
-                <div className='flex flex-col gap-0.5'>
-                  <span className='font-medium'>
-                    {t('accounts.columns.healthDetail')}
-                  </span>
-                  <span className='text-xs'>{reason}</span>
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )
-      },
-      filterFn: (row, _columnId, filterValue: unknown) => {
-        if (!Array.isArray(filterValue) || filterValue.length === 0) return true
-        const account = accountSchema.parse(row.original)
-        return filterValue.includes(account.status)
-      },
-      meta: { mobileBadge: true },
-    },
-    {
-      accessorKey: 'balance',
-      header: t('accounts.columns.balance'),
-      cell: ({ row }) => {
-        const account = accountSchema.parse(row.original)
-        return (
-          <div className='flex flex-col'>
-            <span className='tabular-nums'>
-              {formatCurrency(account.balance)}
-            </span>
-            {account.todayReward ? (
-              <span className='text-success text-[11px]'>
-                +{formatCurrency(account.todayReward)}
-              </span>
-            ) : null}
-          </div>
-        )
-      },
-      meta: { mobileOrder: 2 },
-    },
-    {
-      accessorKey: 'balanceUsed',
-      header: t('accounts.columns.used'),
-      cell: ({ row }) => {
-        const account = accountSchema.parse(row.original)
-        return (
-          <div className='flex flex-col'>
-            <span className='tabular-nums'>
-              {formatCurrency(account.balanceUsed)}
-            </span>
-            <span className='text-muted-foreground text-[11px]'>
-              {formatPercent(account.balanceUsed ?? 0, account.quota ?? 0)}
-            </span>
-          </div>
-        )
-      },
-      meta: { mobileHidden: true },
-    },
-    {
-      id: 'checkin',
-      accessorFn: (row) => {
-        const account = accountSchema.parse(row)
-        return account.checkinEnabled ? 'on' : 'off'
-      },
-      header: t('accounts.columns.checkin'),
-      cell: ({ row }) => {
-        const account = accountSchema.parse(row.original)
-        if (!account.capabilities?.canCheckin) {
-          return (
-            <span className='text-muted-foreground text-xs'>
-              {t('accounts.columns.checkinUnsupported')}
-            </span>
-          )
-        }
-        return (
-          <Badge variant={account.checkinEnabled ? 'default' : 'outline'}>
-            {account.checkinEnabled
-              ? t('accounts.columns.checkinOn')
-              : t('accounts.columns.checkinOff')}
-          </Badge>
-        )
-      },
-      meta: { mobileOrder: 3 },
-    },
-    {
-      id: 'actions',
-      size: 80,
-      enableSorting: false,
-      enableHiding: false,
-      header: () => <span className='sr-only'>{t('common.actions')}</span>,
-      cell: ({ row }) => {
-        const account = accountSchema.parse(row.original)
-        return (
-          <AccountsRowActions
-            account={account}
-            actions={actions}
-            pendingStatusId={pendingStatusId}
+  // Memoized: the shared data-table row component skips re-rendering a row
+  // only when the column defs keep the same identity (table.options.columns),
+  // so a fresh array every render re-renders all 100+ rows on any unrelated
+  // state change — the previous ~2s freeze on interaction.
+  return useMemo<ColumnDef<Account>[]>(
+    () => [
+      {
+        id: 'select',
+        size: 40,
+        enableSorting: false,
+        enableHiding: false,
+        header: ({ table }) => (
+          <Checkbox
+            checked={table.getIsAllPageRowsSelected()}
+            onCheckedChange={(value) =>
+              table.toggleAllPageRowsSelected(Boolean(value))
+            }
+            aria-label={t('accounts.columns.selectAll')}
           />
-        )
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(Boolean(value))}
+            aria-label={t('accounts.columns.selectRow')}
+          />
+        ),
+        meta: { mobileHidden: true },
       },
-      meta: { pinned: 'right' },
-    },
-  ]
+      {
+        id: 'name',
+        accessorFn: (row) => row.username ?? '',
+        header: t('accounts.columns.name'),
+        cell: ({ row }) => {
+          const account = row.original
+          return (
+            <div className='flex flex-col gap-1'>
+              <div className='flex items-center gap-2'>
+                <span className='max-w-[220px] truncate font-medium'>
+                  {resolveDisplayName(account)}
+                </span>
+                <Badge
+                  variant={
+                    account.credentialMode === 'session'
+                      ? 'default'
+                      : 'secondary'
+                  }
+                >
+                  {account.credentialMode === 'session' ? 'Session' : 'API Key'}
+                </Badge>
+              </div>
+              {account.tags && account.tags.length > 0 && (
+                <div className='flex flex-wrap gap-1'>
+                  {account.tags.slice(0, 3).map((tag) => (
+                    <Badge key={tag} variant='outline' className='text-[10px]'>
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        },
+        meta: { mobileTitle: true },
+      },
+      {
+        id: 'site',
+        accessorFn: (row) => String(row.siteId),
+        header: t('accounts.columns.site'),
+        cell: ({ row }) => {
+          const account = row.original
+          const site = account.site
+          if (!site) return <span className='text-muted-foreground'>—</span>
+          return (
+            <div className='flex flex-col'>
+              <span className='max-w-[160px] truncate'>
+                {site.name || site.url || `#${site.id}`}
+              </span>
+              {site.platform && (
+                <span className='text-muted-foreground text-[11px]'>
+                  {site.platform}
+                </span>
+              )}
+            </div>
+          )
+        },
+        filterFn: (row, _columnId, filterValue: unknown) => {
+          if (!Array.isArray(filterValue) || filterValue.length === 0) {
+            return true
+          }
+          return filterValue.includes(String(row.original.siteId))
+        },
+        meta: { mobileOrder: 1 },
+      },
+      {
+        id: 'status',
+        accessorFn: (row) => row.status,
+        header: t('common.status'),
+        cell: ({ row }) => {
+          const account = row.original
+          const config = resolveHealth(account)
+          const HealthIcon = config.icon
+          const reason = account.runtimeHealth?.reason?.trim()
+          const badge = (
+            <Badge variant={config.variant}>
+              <HealthIcon className='size-3' aria-hidden='true' />
+              <span
+                className={cn('size-1.5 rounded-full', config.dotClassName)}
+                aria-hidden='true'
+              />
+              {config.label}
+            </Badge>
+          )
+          if (!reason) {
+            return badge
+          }
+          return (
+            <TooltipProvider delay={200}>
+              <Tooltip>
+                <TooltipTrigger
+                  render={<span className='w-fit'>{badge}</span>}
+                />
+                <TooltipContent side='top' className='max-w-xs'>
+                  <div className='flex flex-col gap-0.5'>
+                    <span className='font-medium'>
+                      {t('accounts.columns.healthDetail')}
+                    </span>
+                    <span className='text-xs'>{reason}</span>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )
+        },
+        filterFn: (row, _columnId, filterValue: unknown) => {
+          if (!Array.isArray(filterValue) || filterValue.length === 0) {
+            return true
+          }
+          return filterValue.includes(row.original.status)
+        },
+        meta: { mobileBadge: true },
+      },
+      {
+        accessorKey: 'balance',
+        header: t('accounts.columns.balance'),
+        cell: ({ row }) => {
+          const account = row.original
+          return (
+            <div className='flex flex-col'>
+              <span className='tabular-nums'>
+                {formatCurrency(account.balance)}
+              </span>
+              {account.todayReward ? (
+                <span className='text-success text-[11px]'>
+                  +{formatCurrency(account.todayReward)}
+                </span>
+              ) : null}
+            </div>
+          )
+        },
+        meta: { mobileOrder: 2 },
+      },
+      {
+        accessorKey: 'balanceUsed',
+        header: t('accounts.columns.used'),
+        cell: ({ row }) => {
+          const account = row.original
+          return (
+            <div className='flex flex-col'>
+              <span className='tabular-nums'>
+                {formatCurrency(account.balanceUsed)}
+              </span>
+              <span className='text-muted-foreground text-[11px]'>
+                {formatPercent(account.balanceUsed ?? 0, account.quota ?? 0)}
+              </span>
+            </div>
+          )
+        },
+        meta: { mobileHidden: true },
+      },
+      {
+        id: 'checkin',
+        accessorFn: (row) => (row.checkinEnabled ? 'on' : 'off'),
+        header: t('accounts.columns.checkin'),
+        cell: ({ row }) => {
+          const account = row.original
+          if (!account.capabilities?.canCheckin) {
+            return (
+              <span className='text-muted-foreground text-xs'>
+                {t('accounts.columns.checkinUnsupported')}
+              </span>
+            )
+          }
+          return (
+            <Badge variant={account.checkinEnabled ? 'default' : 'outline'}>
+              {account.checkinEnabled
+                ? t('accounts.columns.checkinOn')
+                : t('accounts.columns.checkinOff')}
+            </Badge>
+          )
+        },
+        meta: { mobileOrder: 3 },
+      },
+      {
+        id: 'actions',
+        size: 80,
+        enableSorting: false,
+        enableHiding: false,
+        header: () => <span className='sr-only'>{t('common.actions')}</span>,
+        cell: ({ row }) => {
+          const account = row.original
+          return (
+            <AccountsRowActions
+              account={account}
+              actions={actions}
+              pendingStatusId={pendingStatusId}
+            />
+          )
+        },
+        meta: { pinned: 'right' },
+      },
+    ],
+    [actions, pendingStatusId, resolveHealth, resolveDisplayName, t]
+  )
 }

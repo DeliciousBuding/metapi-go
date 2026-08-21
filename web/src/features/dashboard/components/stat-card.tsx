@@ -12,16 +12,23 @@
 
 import { Link } from '@tanstack/react-router'
 import type { LucideIcon } from 'lucide-react'
-import { useMemo } from 'react'
+import { lazy, Suspense, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Area, AreaChart } from 'recharts'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ChartContainer, type ChartConfig } from '@/components/ui/chart'
+import type { ChartConfig } from '@/components/ui/chart'
 import { CountUp } from '@/components/ui/count-up'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+
+// Loaded on demand: the sparkline is the only recharts surface reachable
+// through the eager overview section. Keeping recharts behind a dynamic
+// import means the dashboard entry chunk no longer downloads ~332KB of chart
+// library when no sparkline renders (empty balance history, fresh install).
+// The lazy reference lives at module level so its identity is stable across
+// re-renders (React.lazy would otherwise remount on every render).
+const LazyStatCardSparkline = lazy(() => import('./stat-card-sparkline'))
 
 type StatCardTone = 'default' | 'success' | 'warning'
 
@@ -162,26 +169,13 @@ export function StatCard(props: StatCardProps) {
               </div>
             ) : null}
             {data.length > 1 ? (
-              <ChartContainer
-                config={sparkConfig}
-                className='h-10 w-full'
-                initialDimension={{ width: 200, height: 40 }}
-              >
-                <AreaChart
+              <Suspense fallback={null}>
+                <LazyStatCardSparkline
                   data={data}
-                  margin={{ top: 4, right: 0, bottom: 0, left: 0 }}
-                >
-                  <Area
-                    dataKey='value'
-                    stroke='var(--color-value)'
-                    strokeWidth={1.5}
-                    fill='var(--color-value)'
-                    fillOpacity={0.16}
-                    isAnimationActive={false}
-                    className={props.accentClassName}
-                  />
-                </AreaChart>
-              </ChartContainer>
+                  config={sparkConfig}
+                  accentClassName={props.accentClassName}
+                />
+              </Suspense>
             ) : null}
           </>
         )}

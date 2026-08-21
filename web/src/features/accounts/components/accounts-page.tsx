@@ -176,12 +176,15 @@ function useAccountsUrlState() {
 
 // Module-level so the table's globalFilterFn keeps a stable identity across
 // renders (a fresh inline function would re-resolve the table every render).
+// Rows arrive here already parsed (see parseAccountRow below), so the filter
+// reads the typed fields directly instead of re-running the 25-field Zod
+// schema per row per keystroke.
 function accountsGlobalFilterFn(
   row: { original: unknown },
   _columnId: string,
   filterValue: string
 ): boolean {
-  const account = accountSchema.parse(row.original)
+  const account = row.original as Account
   const haystack = [
     account.username ?? '',
     account.site?.name ?? '',
@@ -195,6 +198,27 @@ function accountsGlobalFilterFn(
 }
 
 // ---------------------------------------------------------------------------
+// Row parsing (once per raw object)
+// ---------------------------------------------------------------------------
+
+// The snapshot rows are raw JSON; every column cell / accessorFn / filterFn
+// used to call accountSchema.parse(row.original) itself, i.e. ~900 full Zod
+// parses per render for a 100-row table — the bulk of the ~2s main-thread
+// freeze measured on the accounts page. Parse each raw row exactly once and
+// hand the parsed Account[] to the table. The WeakMap keeps the cache
+// keyed by the raw object identity, so the optimistic toggles (which replace
+// only the touched row via spread) re-parse a single row instead of all 100.
+const parsedAccountRowCache = new WeakMap<object, Account>()
+
+function parseAccountRow(rawRow: object): Account {
+  const cached = parsedAccountRowCache.get(rawRow)
+  if (cached) return cached
+  const parsed = accountSchema.parse(rawRow)
+  parsedAccountRowCache.set(rawRow, parsed)
+  return parsed
+}
+
+// ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
@@ -204,7 +228,12 @@ export function AccountsPage() {
   const navigate = useNavigate()
   const urlState = useAccountsUrlState()
   const { data, isLoading, isFetching, error, refetch } = useAccounts()
-  const accounts = data?.accounts ?? []
+  // Parse the raw snapshot rows once (WeakMap-cached per raw object) instead
+  // of per cell/per accessor/per filter — see parseAccountRow above.
+  const accounts = useMemo(
+    () => (data?.accounts ?? []).map(parseAccountRow),
+    [data]
+  )
   const sites = data?.sites ?? []
 
   const { mutate: refreshAccount } = useRefreshAccount()
@@ -552,9 +581,7 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
 
   const selectedIds = useMemo(
     () =>
-      table
-        .getFilteredSelectedRowModel()
-        .rows.map((row) => accountSchema.parse(row.original).id),
+      table.getFilteredSelectedRowModel().rows.map((row) => row.original.id),
     [table]
   )
 
