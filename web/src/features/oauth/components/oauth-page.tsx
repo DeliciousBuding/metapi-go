@@ -4,9 +4,9 @@
 // URL. Table state (search query / page / page-size / sorting / status
 // faceted filter) is mirrored to the URL search string so a deep link
 // restores the exact view. The "start authorization" dialog opens an
-// OAuth flow in a new tab. Row actions: refresh quota, rebind (re-run the
-// OAuth flow), delete. Mobile cards are handled by `DataTablePage` via the
-// column `meta` flags.
+// OAuth flow in a new tab. Row actions: view details (opens the read-only
+// detail sheet), refresh quota, rebind (re-run the OAuth flow), delete.
+// Mobile cards are handled by `DataTablePage` via the column `meta` flags.
 //
 // Pagination is SERVER-side (manualPagination): the connections query
 // fetches one limit/offset page at a time and the pager reflects the
@@ -48,9 +48,11 @@ import {
   useRebindOAuthConnection,
   useRefreshOAuthQuota,
 } from '../api'
+import { resolveOAuthConnectionLabel } from '../lib/oauth-connection-label'
 import { oauthSearchSchema } from '../lib/oauth-schema'
 import type { OAuthClient } from '../types'
 import { OAUTH_STATUS_FILTER_OPTIONS, useOAuthColumns } from './oauth-columns'
+import { OAuthDetailSheet } from './oauth-detail-sheet'
 import { OAuthStartDialog } from './oauth-start-dialog'
 
 const OAUTH_COLUMN_VISIBILITY_STORAGE_KEY = 'metapi-go:oauth:column-visibility'
@@ -155,21 +157,6 @@ function resolvePendingAccountId(
   return null
 }
 
-/**
- * Resolve a human-readable display name for an OAuth connection, falling
- * back through username → email → accountKey → stringified account id. Used
- * in error toasts so the operator can tell WHICH account failed (the bare
- * `accountId` number is opaque without cross-referencing the table).
- */
-function resolveOAuthDisplayName(client: OAuthClient): string {
-  return (
-    client.username ??
-    client.email ??
-    client.accountKey ??
-    String(client.accountId)
-  )
-}
-
 export function OAuthPage() {
   const { t } = useTranslation()
   const urlState = useOAuthUrlState()
@@ -185,6 +172,16 @@ export function OAuthPage() {
 
   const [startOpen, setStartOpen] = useState(false)
   const [deletingClient, setDeletingClient] = useState<OAuthClient | null>(null)
+  // The detail sheet tracks the account id rather than a row snapshot: the
+  // sheet's own refresh-quota action invalidates the connections query, and a
+  // frozen snapshot would keep showing the pre-refresh quota. Re-deriving
+  // from the current page makes the refreshed numbers appear in place.
+  const [detailAccountId, setDetailAccountId] = useState<number | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
+  const detailConnection =
+    connections.find(
+      (connection) => connection.accountId === detailAccountId
+    ) ?? null
 
   // Derive the per-row pending account id from whichever mutation is in
   // flight. A single value is sufficient because BOTH row actions (refresh +
@@ -198,44 +195,49 @@ export function OAuthPage() {
     rebindConnection
   )
 
+  // Both entry points (row action menu + detail sheet footer) call these, so
+  // there is exactly one mutation instance and one toast vocabulary per
+  // operation.
+  function handleRefreshQuota(client: OAuthClient) {
+    refreshQuota.mutate(client.accountId, {
+      onSuccess: () =>
+        toast.success(
+          t('oauth.toast.quotaRefreshed', { id: client.accountId })
+        ),
+      onError: () =>
+        toast.error(
+          t('oauth.toast.refreshFailed', {
+            name: resolveOAuthConnectionLabel(client),
+          })
+        ),
+    })
+  }
+
+  function handleRebind(client: OAuthClient) {
+    rebindConnection.mutate(client.accountId, {
+      onSuccess: (result) => {
+        if (result.authorizationUrl) {
+          window.open(result.authorizationUrl, '_blank', 'noopener,noreferrer')
+        }
+        toast.success(t('oauth.toast.rebindStarted', { id: client.accountId }))
+      },
+      onError: () =>
+        toast.error(
+          t('oauth.toast.rebindFailed', {
+            name: resolveOAuthConnectionLabel(client),
+          })
+        ),
+    })
+  }
+
   const columns = useOAuthColumns(
     {
-      onRefreshQuota: (client) => {
-        refreshQuota.mutate(client.accountId, {
-          onSuccess: () =>
-            toast.success(
-              t('oauth.toast.quotaRefreshed', { id: client.accountId })
-            ),
-          onError: () =>
-            toast.error(
-              t('oauth.toast.refreshFailed', {
-                name: resolveOAuthDisplayName(client),
-              })
-            ),
-        })
+      onViewDetails: (client) => {
+        setDetailAccountId(client.accountId)
+        setDetailOpen(true)
       },
-      onRebind: (client) => {
-        rebindConnection.mutate(client.accountId, {
-          onSuccess: (result) => {
-            if (result.authorizationUrl) {
-              window.open(
-                result.authorizationUrl,
-                '_blank',
-                'noopener,noreferrer'
-              )
-            }
-            toast.success(
-              t('oauth.toast.rebindStarted', { id: client.accountId })
-            )
-          },
-          onError: () =>
-            toast.error(
-              t('oauth.toast.rebindFailed', {
-                name: resolveOAuthDisplayName(client),
-              })
-            ),
-        })
-      },
+      onRefreshQuota: handleRefreshQuota,
+      onRebind: handleRebind,
       onDelete: (client) => {
         setDeletingClient(client)
       },
@@ -340,6 +342,27 @@ export function OAuthPage() {
       />
 
       <OAuthStartDialog open={startOpen} onOpenChange={setStartOpen} />
+
+      <OAuthDetailSheet
+        connection={detailConnection}
+        // A row that leaves the current page (deleted, or the operator paged
+        // away) closes its own sheet instead of leaving an empty panel open.
+        open={detailOpen && detailConnection !== null}
+        onOpenChange={(open) => {
+          setDetailOpen(open)
+          if (!open) setDetailAccountId(null)
+        }}
+        onRefreshQuota={handleRefreshQuota}
+        onRebind={handleRebind}
+        isRefreshingQuota={
+          refreshQuota.isPending &&
+          refreshQuota.variables === detailConnection?.accountId
+        }
+        isRebinding={
+          rebindConnection.isPending &&
+          rebindConnection.variables === detailConnection?.accountId
+        }
+      />
 
       <Dialog
         open={deletingClient !== null}
