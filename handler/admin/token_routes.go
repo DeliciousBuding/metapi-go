@@ -344,7 +344,13 @@ func (h *tokenRoutesHandler) enrichRoutesWithChannels(rows []map[string]any, sco
 			"weight":           ch["weight"],
 			"enabled":          ch["enabled"],
 			"manualOverride":   ch["manualOverride"],
-			"account":          routeChannelAccountPublic(ch),
+			// Same RouteChannel wire contract as GET /api/routes/{id}/channels:
+			// runtime hit counts + cooldown must not be dropped from the
+			// embedded list.
+			"successCount":  ch["successCount"],
+			"failCount":     ch["failCount"],
+			"cooldownUntil": ch["cooldownUntil"],
+			"account":       routeChannelAccountPublic(ch),
 			"site": map[string]any{
 				"id":       ch["siteId"],
 				"name":     ch["siteName"],
@@ -504,6 +510,37 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Validate the resulting mode configuration before writing anything —
+	// mirrors the createRoute invariants (pattern → modelPattern required,
+	// explicit_group → displayName required) so a mode switch can never
+	// persist an inconsistent route.
+	nextMode, _ := existing["routeMode"].(string)
+	if v, ok := body["routeMode"]; ok {
+		if s, ok2 := v.(string); ok2 {
+			nextMode = strings.TrimSpace(s)
+		}
+	}
+	nextPattern, _ := existing["modelPattern"].(string)
+	if v, ok := body["modelPattern"]; ok {
+		if s, ok2 := v.(string); ok2 {
+			nextPattern = strings.TrimSpace(s)
+		}
+	}
+	nextDisplayName, _ := existing["displayName"].(string)
+	if v, ok := body["displayName"]; ok {
+		if s, ok2 := v.(string); ok2 {
+			nextDisplayName = strings.TrimSpace(s)
+		}
+	}
+	if nextMode != "explicit_group" && nextPattern == "" {
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "模型匹配不能为空")
+		return
+	}
+	if nextMode == "explicit_group" && nextDisplayName == "" {
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "显式群组必须填写对外模型名")
+		return
+	}
+
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	tx, err := h.db.Beginx()
@@ -541,6 +578,19 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 		if _, err := tx.Exec(tx.Rebind("UPDATE token_routes SET enabled = ?, updated_at = ? WHERE id = ?"), toBool(v), now, id); err != nil {
 			writeErrorWithRequest(w, r, http.StatusInternalServerError, "更新路由失败")
 			return
+		}
+	}
+	if v, ok := body["routeMode"]; ok {
+		if s, ok2 := v.(string); ok2 {
+			mode := strings.TrimSpace(s)
+			if mode != "pattern" && mode != "explicit_group" {
+				writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid routeMode. Expected pattern or explicit_group.")
+				return
+			}
+			if _, err := tx.Exec(tx.Rebind("UPDATE token_routes SET route_mode = ?, updated_at = ? WHERE id = ?"), mode, now, id); err != nil {
+				writeErrorWithRequest(w, r, http.StatusInternalServerError, "更新路由失败")
+				return
+			}
 		}
 	}
 	if v, ok := body["routingStrategy"]; ok {

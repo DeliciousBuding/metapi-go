@@ -20,6 +20,13 @@ type SiteCreatePayload struct {
 	// MaxConcurrency caps concurrent upstream calls for this site (0 = unlimited).
 	MaxConcurrency *int64                 `json:"maxConcurrency,omitempty"`
 	APIEndpoints   []SiteAPIEndpointInput `json:"apiEndpoints,omitempty"`
+	// ResinEnabled / UseUTLS are nullable per-site overrides: true/false set
+	// the override, null clears it back to inheriting the global flag. Value
+	// types (not pointers) so a JSON null reaches UnmarshalJSON — a *T field
+	// would be left nil by encoding/json and null/absent would be
+	// indistinguishable.
+	ResinEnabled NullableBool `json:"resinEnabled"`
+	UseUTLS      NullableBool `json:"useUtls"`
 }
 
 // SiteAPIEndpointInput is an embedded sub-resource input for apiEndpoints.
@@ -51,6 +58,11 @@ type SiteUpdatePayload struct {
 	PostRefreshProbeModel              *string                `json:"postRefreshProbeModel,omitempty"`
 	PostRefreshProbeScope              *string                `json:"postRefreshProbeScope,omitempty"`
 	PostRefreshProbeLatencyThresholdMs *int                   `json:"postRefreshProbeLatencyThresholdMs,omitempty"`
+	// ResinEnabled / UseUTLS are nullable per-site overrides: true/false set
+	// the override, null clears it back to inheriting the global flag. Value
+	// types (not pointers) so a JSON null reaches UnmarshalJSON.
+	ResinEnabled NullableBool `json:"resinEnabled"`
+	UseUTLS      NullableBool `json:"useUtls"`
 }
 
 // SiteBatchPayload mirrors TS SiteBatchPayload.

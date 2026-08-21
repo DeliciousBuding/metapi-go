@@ -619,6 +619,7 @@ func updateAccountFieldsOn(q accountQueryExecer, accountID int64, updates map[st
 		"valueScore":         "value_score",
 		"lastBalanceRefresh": "last_balance_refresh",
 		"remark":             "remark",
+		"tags":               "tags",
 	}
 
 	for key, val := range updates {

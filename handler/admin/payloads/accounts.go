@@ -30,6 +30,13 @@ type AccountUpdatePayload struct {
 	SortOrder      *int     `json:"sortOrder,omitempty"`
 	ProxyURL       *string  `json:"proxyUrl,omitempty"`
 	Remark         *string  `json:"remark,omitempty"`
+	// PlatformUserID is merged into extraConfig (same storage as the create
+	// path) so session-account edits persist it instead of dropping it.
+	PlatformUserID *int `json:"platformUserId,omitempty"`
+	// SkipModelFetch is merged into extraConfig (same storage as create).
+	SkipModelFetch *bool `json:"skipModelFetch,omitempty"`
+	// Tags is stored in accounts.tags as a JSON array text (see tags.go).
+	Tags *[]string `json:"tags,omitempty"`
 }
 
 // AccountBatchPayload mirrors TS AccountBatchPayload.
