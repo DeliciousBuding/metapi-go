@@ -69,6 +69,7 @@ for (const route of ROUTES) {
   // right after mount, which destroys the evaluation context mid-run. Retry
   // sampling once the navigation settles instead of crashing.
   let samples = []
+  let sampleError = null
   for (let attempt = 0; attempt < 3 && samples.length === 0; attempt += 1) {
     if (attempt > 0) await page.waitForTimeout(600)
     try {
@@ -102,9 +103,21 @@ for (const route of ROUTES) {
           })
         return out.slice(0, 300)
       })
-    } catch {
+      sampleError = null
+    } catch (error) {
       // Navigation raced the evaluate; retry after the route settles.
+      sampleError = error
     }
+  }
+  if (samples.length === 0) {
+    // Never emit a false "ok": an un-sampled route is an audit failure.
+    const reason = sampleError
+      ? String(sampleError.message ?? sampleError).split('\n')[0]
+      : 'no text samples collected'
+    console.log(`[${route}] SAMPLE-FAILED (${reason})`)
+    process.exitCode = 1
+    await page.close()
+    continue
   }
   const fails = []
   for (const s of samples) {
