@@ -788,6 +788,8 @@
           "everyHours": "每 {{count}} 小时",
           "everyHours_one": "每 {{count}} 小时",
           "everyHours_other": "每 {{count}} 小时",
+          "kindLabel": "调度类型",
+          "intervalLabel": "间隔小时数",
           "kinds": {
             "daily": "每天固定时间",
             "interval": "每隔 N 小时",

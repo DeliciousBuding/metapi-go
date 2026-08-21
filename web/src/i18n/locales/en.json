@@ -788,6 +788,8 @@
           "everyHours": "Every {{count}} hours",
           "everyHours_one": "Every {{count}} hour",
           "everyHours_other": "Every {{count}} hours",
+          "kindLabel": "Schedule kind",
+          "intervalLabel": "Interval hours",
           "kinds": {
             "daily": "Daily at",
             "interval": "Every N hours",

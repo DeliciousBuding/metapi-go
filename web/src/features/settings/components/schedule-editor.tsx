@@ -87,7 +87,10 @@ export function ScheduleEditor({
           onValueChange={(next) => switchKind(next as ScheduleSpecV1['kind'])}
           disabled={disabled}
         >
-          <SelectTrigger className='w-44'>
+          <SelectTrigger
+            className='w-44'
+            aria-label={t('settings.common.schedule.kindLabel')}
+          >
             <SelectValue>
               {(selected) =>
                 t(`settings.common.schedule.kinds.${String(selected)}`)
@@ -138,7 +141,10 @@ export function ScheduleEditor({
             }
             disabled={disabled}
           >
-            <SelectTrigger className='w-32'>
+            <SelectTrigger
+              className='w-32'
+              aria-label={t('settings.common.schedule.intervalLabel')}
+            >
               <SelectValue>
                 {(selected) =>
                   t('settings.common.schedule.everyHours', {
