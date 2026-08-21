@@ -7,7 +7,6 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   Eye,
-  Loader2,
   MoreHorizontal,
   Pencil,
   Power,
@@ -26,6 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Spinner } from '@/components/ui/spinner'
 import { toBcp47 } from '@/i18n/languages'
 import { formatDateTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -138,7 +138,7 @@ function RoutesRowActions({
           onClick={() => actions.onToggleEnabled(route)}
           disabled={readOnly || isTogglePending}
         >
-          {isTogglePending ? <Loader2 className='animate-spin' /> : <Power />}
+          {isTogglePending ? <Spinner /> : <Power />}
           {route.enabled
             ? t('tokenRoutes.columns.disable')
             : t('tokenRoutes.columns.enable')}
@@ -148,7 +148,7 @@ function RoutesRowActions({
           disabled={readOnly || isCooldownPending}
         >
           {isCooldownPending ? (
-            <Loader2 className='animate-spin' />
+            <Spinner />
           ) : (
             <Snowflake />
           )}

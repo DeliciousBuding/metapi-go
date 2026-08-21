@@ -92,7 +92,7 @@ afterAll(() => {
 
 async function openRowMenu() {
   fireEvent.click(screen.getByRole('button', { name: 'Row actions' }))
-  return screen.findByRole('menuitem', { name: 'Disable' })
+  return screen.findByRole('menuitem', { name: /Disable/ })
 }
 
 describe('sites actions cell per-row pending', () => {
@@ -100,8 +100,10 @@ describe('sites actions cell per-row pending', () => {
     render(<ActionsCell site={makeSite({ id: 7 })} pendingSiteId={7} />)
 
     await openRowMenu()
-    const statusToggle = screen.getByRole('menuitem', { name: 'Disable' })
-    const pinToggle = screen.getByRole('menuitem', { name: 'Pin' })
+    // The canonical Spinner (role=status) prepends its localized label to
+    // the menu item's accessible name while pending.
+    const statusToggle = screen.getByRole('menuitem', { name: /Disable/ })
+    const pinToggle = screen.getByRole('menuitem', { name: /Pin/ })
 
     expect(statusToggle).toHaveAttribute('aria-disabled', 'true')
     expect(pinToggle).toHaveAttribute('aria-disabled', 'true')

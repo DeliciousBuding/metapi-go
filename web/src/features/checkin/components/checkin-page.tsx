@@ -15,7 +15,7 @@
 
 import { useNavigate } from '@tanstack/react-router'
 import type { ColumnFiltersState } from '@tanstack/react-table'
-import { CalendarRange, Loader2, RotateCw, Users, Zap } from 'lucide-react'
+import { CalendarRange, RotateCw, Users, Zap } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Spinner } from '@/components/ui/spinner'
 import { useAccounts } from '@/features/accounts'
 import { useSites } from '@/features/sites/api'
 import { asStringParam } from '@/lib/helpers/searchParams'
@@ -402,7 +403,7 @@ export function CheckinPage() {
             disabled={triggerAllMutation.isPending}
           >
             {triggerAllMutation.isPending ? (
-              <Loader2 className='animate-spin' />
+              <Spinner />
             ) : (
               <RotateCw />
             )}

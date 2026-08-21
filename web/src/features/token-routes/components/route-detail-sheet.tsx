@@ -4,7 +4,7 @@
 // `routingStrategyLabel()` returns an i18n key; wrapped with `t()`.
 
 import { useQueries } from '@tanstack/react-query'
-import { Loader2, RefreshCw, Snowflake } from 'lucide-react'
+import { RefreshCw, Snowflake } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -19,6 +19,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { Spinner } from '@/components/ui/spinner'
 import { priceCompareQueryOptions } from '@/features/models/price-compare/api'
 import { PriceGradeBadge } from '@/features/models/price-compare/components/price-grade-badge'
 import type { PriceCompareItem } from '@/features/models/price-compare/types'
@@ -264,7 +265,7 @@ export function RouteDetailSheet({
                 </p>
               </div>
               {(channelsQuery.isFetching || isPriceFetching) && (
-                <Loader2 className='text-muted-foreground size-3.5 animate-spin' />
+                <Spinner className='text-muted-foreground size-3.5' />
               )}
             </div>
             {channels.length === 0 ? (
@@ -478,7 +479,7 @@ function PriceProvenance({
   if (priceQueryState?.isLoading) {
     return (
       <span className='text-muted-foreground inline-flex items-center gap-1'>
-        <Loader2 className='size-3 animate-spin' />
+        <Spinner className='size-3' />
         {t('tokenRoutes.detail.channelPriceLoading')}
       </span>
     )

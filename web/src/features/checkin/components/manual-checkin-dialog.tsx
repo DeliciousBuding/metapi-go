@@ -1,7 +1,7 @@
 // metapi-go features/checkin/components — manual checkin trigger dialog.
 // i18n: all user-visible strings migrated to t() calls.
 
-import { Loader2, Zap } from 'lucide-react'
+import { Zap } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Spinner } from '@/components/ui/spinner'
 import { useAccounts } from '@/features/accounts'
 import { toast } from '@/lib/toast'
 
@@ -135,7 +136,7 @@ export function ManualCheckinDialog({
             onClick={handleTrigger}
             disabled={isSubmitting || selectedId === NO_SELECTION}
           >
-            {isSubmitting && <Loader2 className='animate-spin' />}
+            {isSubmitting && <Spinner />}
             <Zap />
             {t('checkin.manual.trigger')}
           </Button>

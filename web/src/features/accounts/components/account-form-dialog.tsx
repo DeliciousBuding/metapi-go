@@ -10,7 +10,7 @@
 // chain — rather than a plain confirmation.
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CheckCircle2, Loader2, TriangleAlert } from 'lucide-react'
+import { CheckCircle2, TriangleAlert } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   useForm,
@@ -46,6 +46,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
@@ -539,7 +540,7 @@ export function AccountFormDialog({
             form='account-form'
             disabled={isSubmitting || !isInitialized}
           >
-            {isSubmitting && <Loader2 className='animate-spin' />}
+            {isSubmitting && <Spinner />}
             {isEdit ? t('accounts.form.save') : t('accounts.form.create')}
           </Button>
         </SheetFooter>
@@ -571,7 +572,7 @@ function VerifyCredentialFeedback({
         disabled={verification.status === 'pending'}
       >
         {verification.status === 'pending' ? (
-          <Loader2 className='animate-spin' />
+          <Spinner className='size-3.5' />
         ) : null}
         {t('accounts.verify.button')}
       </Button>

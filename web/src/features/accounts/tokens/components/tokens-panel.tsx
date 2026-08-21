@@ -7,7 +7,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   CheckCircle2,
-  Loader2,
   Pencil,
   Plus,
   RefreshCw,
@@ -40,6 +39,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { SecretField } from '@/components/ui/secret-field'
 import { Separator } from '@/components/ui/separator'
+import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
@@ -120,7 +120,7 @@ export function TokensPanel({
             disabled={syncMutation.isPending}
           >
             {syncMutation.isPending ? (
-              <Loader2 className='animate-spin' />
+              <Spinner className='size-3' />
             ) : (
               <RefreshCw />
             )}
@@ -146,7 +146,7 @@ export function TokensPanel({
 
       {isLoading ? (
         <div className='text-muted-foreground flex items-center justify-center py-6 text-sm'>
-          <Loader2 className='size-4 animate-spin' />
+          <Spinner />
           {t('accounts.tokens.loading')}
         </div>
       ) : tokens.length === 0 ? (
@@ -212,7 +212,7 @@ export function TokensPanel({
                 })
               }}
             >
-              {deleteMutation.isPending && <Loader2 className='animate-spin' />}
+              {deleteMutation.isPending && <Spinner />}
               {t('accounts.tokens.deleteConfirm.confirm')}
             </Button>
           </DialogFooter>
@@ -580,7 +580,7 @@ function AccountTokenForm({
               {t('common.cancel')}
             </Button>
             <Button type='submit' size='sm' disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className='animate-spin' />}
+              {isSubmitting && <Spinner className='size-3.5' />}
               {isEdit ? t('common.save') : t('accounts.tokens.form.create')}
             </Button>
           </div>

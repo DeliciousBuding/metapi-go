@@ -8,7 +8,7 @@
 // clipped by the SidebarInset `overflow-x-hidden` ancestor.
 // ≥sm renders every action inline (no visual change from the old layout).
 
-import { Loader2, MoreHorizontal, Plus, RefreshCw, Zap } from 'lucide-react'
+import { MoreHorizontal, Plus, RefreshCw, Zap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Spinner } from '@/components/ui/spinner'
 
 type RoutesHeaderActionsProps = {
   onRebuild: () => void
@@ -41,7 +42,7 @@ export function RoutesHeaderActions(props: RoutesHeaderActionsProps) {
           disabled={props.isRebuildPending}
         >
           {props.isRebuildPending ? (
-            <Loader2 className='animate-spin' />
+            <Spinner className='size-3.5' />
           ) : (
             <Zap />
           )}
@@ -82,7 +83,7 @@ export function RoutesHeaderActions(props: RoutesHeaderActionsProps) {
               disabled={props.isRebuildPending}
             >
               {props.isRebuildPending ? (
-                <Loader2 className='animate-spin' />
+                <Spinner />
               ) : (
                 <Zap />
               )}

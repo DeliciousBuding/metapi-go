@@ -150,8 +150,10 @@ describe('ChannelDetailSheet cooldown action', () => {
     clearState.isPending = true
     renderSheet(makeChannel({ status: 'cooldown' }))
 
+    // The canonical Spinner (role=status) prepends its localized label to
+    // the button's accessible name while pending.
     expect(
-      screen.getByRole('button', { name: 'Clear route cooldown' })
+      screen.getByRole('button', { name: /Clear route cooldown/ })
     ).toBeDisabled()
   })
 })

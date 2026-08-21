@@ -4,7 +4,7 @@
 
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import type { ColumnFiltersState, Table } from '@tanstack/react-table'
-import { Loader2, Plus, Power, RefreshCw, Zap } from 'lucide-react'
+import { Plus, Power, RefreshCw, Zap } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -25,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { useAccounts } from '@/features/accounts/api'
 import { useSites } from '@/features/sites/api'
@@ -431,11 +432,7 @@ export function RoutesPage() {
               onClick={() => refetch()}
               disabled={isFetching}
             >
-              {isFetching ? (
-                <Loader2 className='animate-spin' />
-              ) : (
-                <RefreshCw className='size-4' />
-              )}
+              {isFetching ? <Spinner /> : <RefreshCw className='size-4' />}
               {t('tokenRoutes.page.retry')}
             </Button>
           </div>
@@ -459,11 +456,7 @@ export function RoutesPage() {
                 onClick={() => rebuildMutation.mutate({ refreshModels: true })}
                 disabled={rebuildMutation.isPending}
               >
-                {rebuildMutation.isPending ? (
-                  <Loader2 className='animate-spin' />
-                ) : (
-                  <Zap />
-                )}
+                {rebuildMutation.isPending ? <Spinner /> : <Zap />}
                 {t('tokenRoutes.page.rebuild')}
               </Button>
             </div>
@@ -544,7 +537,7 @@ export function RoutesPage() {
               onClick={confirmDelete}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending && <Loader2 className='animate-spin' />}
+              {deleteMutation.isPending && <Spinner />}
               {t('common.delete')}
             </Button>
           </DialogFooter>

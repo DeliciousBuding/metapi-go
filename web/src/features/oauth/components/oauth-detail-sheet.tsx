@@ -17,7 +17,6 @@
 // content scrolls.
 
 import {
-  Loader2 as Loader2Icon,
   RefreshCw as RefreshCwIcon,
   TriangleAlert as TriangleAlertIcon,
   Unplug as UnplugIcon,
@@ -36,6 +35,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { Spinner } from '@/components/ui/spinner'
 import { toBcp47 } from '@/i18n/languages'
 import {
   EM_DASH,
@@ -251,7 +251,7 @@ export function OAuthDetailSheet(props: OAuthDetailSheetProps) {
             disabled={props.isRefreshingQuota || props.isRebinding}
           >
             {props.isRefreshingQuota ? (
-              <Loader2Icon aria-hidden='true' className='animate-spin' />
+              <Spinner />
             ) : (
               <RefreshCwIcon aria-hidden='true' />
             )}
@@ -264,7 +264,7 @@ export function OAuthDetailSheet(props: OAuthDetailSheetProps) {
             disabled={props.isRefreshingQuota || props.isRebinding}
           >
             {props.isRebinding ? (
-              <Loader2Icon aria-hidden='true' className='animate-spin' />
+              <Spinner />
             ) : (
               <UnplugIcon aria-hidden='true' />
             )}
