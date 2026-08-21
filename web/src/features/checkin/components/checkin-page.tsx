@@ -402,11 +402,7 @@ export function CheckinPage() {
             onClick={handleTriggerAll}
             disabled={triggerAllMutation.isPending}
           >
-            {triggerAllMutation.isPending ? (
-              <Spinner />
-            ) : (
-              <RotateCw />
-            )}
+            {triggerAllMutation.isPending ? <Spinner /> : <RotateCw />}
             {t('checkin.page.runAll')}
           </Button>
         </div>

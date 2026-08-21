@@ -379,18 +379,14 @@ describe('OAuthDetailSheet footer actions', () => {
 
     // The canonical Spinner (role=status) prepends its localized label to
     // the button's accessible name while pending.
-    expect(
-      screen.getByRole('button', { name: /Refresh quota/ })
-    ).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Refresh quota/ })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Rebind' })).toBeDisabled()
   })
 
   it('disables both actions while the rebind is pending', () => {
     renderSheet(buildConnection({}), { isRebinding: true })
 
-    expect(
-      screen.getByRole('button', { name: 'Refresh quota' })
-    ).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Refresh quota' })).toBeDisabled()
     expect(screen.getByRole('button', { name: /Rebind/ })).toBeDisabled()
   })
 

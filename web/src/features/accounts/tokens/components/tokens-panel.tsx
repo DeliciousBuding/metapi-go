@@ -5,13 +5,7 @@
 // token form (RHF + Zod) + sync-from-site action.
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import {
-  CheckCircle2,
-  Pencil,
-  Plus,
-  RefreshCw,
-  Trash2,
-} from 'lucide-react'
+import { CheckCircle2, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useForm, type SubmitErrorHandler } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'

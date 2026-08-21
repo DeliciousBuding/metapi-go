@@ -245,11 +245,7 @@ export function ChannelDetailSheet({
                 onClick={handleClearRouteCooldown}
                 disabled={clearCooldownMutation.isPending}
               >
-                {clearCooldownMutation.isPending ? (
-                  <Spinner />
-                ) : (
-                  <Snowflake />
-                )}
+                {clearCooldownMutation.isPending ? <Spinner /> : <Snowflake />}
                 {t('channels.detail.clearRouteCooldown')}
               </Button>
             </>

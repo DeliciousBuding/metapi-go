@@ -41,11 +41,7 @@ export function RoutesHeaderActions(props: RoutesHeaderActionsProps) {
           onClick={props.onRebuild}
           disabled={props.isRebuildPending}
         >
-          {props.isRebuildPending ? (
-            <Spinner className='size-3.5' />
-          ) : (
-            <Zap />
-          )}
+          {props.isRebuildPending ? <Spinner className='size-3.5' /> : <Zap />}
           {t('tokenRoutes.page.rebuild')}
         </Button>
         <Button
@@ -82,11 +78,7 @@ export function RoutesHeaderActions(props: RoutesHeaderActionsProps) {
               onClick={props.onRebuild}
               disabled={props.isRebuildPending}
             >
-              {props.isRebuildPending ? (
-                <Spinner />
-              ) : (
-                <Zap />
-              )}
+              {props.isRebuildPending ? <Spinner /> : <Zap />}
               {t('tokenRoutes.page.rebuild')}
             </DropdownMenuItem>
             <DropdownMenuItem

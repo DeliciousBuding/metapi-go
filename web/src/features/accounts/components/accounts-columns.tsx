@@ -184,11 +184,7 @@ export function AccountsRowActions({
               />
             }
           >
-            {isThisRowPending ? (
-              <Spinner />
-            ) : (
-              <Power className='size-4' />
-            )}
+            {isThisRowPending ? <Spinner /> : <Power className='size-4' />}
           </TooltipTrigger>
           <TooltipContent side='top'>{toggleLabel}</TooltipContent>
         </Tooltip>
