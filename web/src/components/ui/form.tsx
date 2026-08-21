@@ -249,6 +249,10 @@ function FormMessage({ className, ...props }: React.ComponentProps<'p'>) {
       data-slot='form-message'
       data-form-root={formContext?.id}
       id={formMessageId}
+      // Assertive live region: errors mount after a failed submit, and the
+      // role makes screen readers announce them without waiting for focus to
+      // reach the (aria-describedby-linked) control.
+      role='alert'
       className={cn('text-destructive text-sm', className)}
       {...props}
     >

@@ -4,6 +4,7 @@
 import { chromium } from 'playwright'
 
 const BASE_URL = process.env.BASE_URL ?? 'http://127.0.0.1:4099'
+const AUTH_TOKEN = process.env.AUTH_TOKEN ?? 'dev-admin-token-123'
 const ROUTES = [
   '/',
   '/sites',
@@ -53,7 +54,7 @@ await context.addInitScript(
     )
     localStorage.setItem('i18nextLng', 'zh-CN')
   },
-  { token: 'dev-admin-token-123' }
+  { token: AUTH_TOKEN }
 )
 
 for (const route of ROUTES) {
@@ -64,36 +65,60 @@ for (const route of ROUTES) {
   })
   await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {})
   await page.waitForTimeout(500)
-  const samples = await page.evaluate(() => {
-    const bg = (el) => {
-      let node = el
-      while (node && node !== document.documentElement) {
-        const c = getComputedStyle(node).backgroundColor
-        if (c && c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent') return c
-        node = node.parentElement
-      }
-      return getComputedStyle(document.body).backgroundColor
-    }
-    const out = []
-    document
-      .querySelectorAll('p, span, div, td, th, label, a, button, li')
-      .forEach((el) => {
-        if (el.children.length > 0) return
-        const r = el.getBoundingClientRect()
-        if (r.width === 0 || r.height === 0) return
-        const s = getComputedStyle(el)
-        if (s.fontSize === '0px') return
-        const text = el.textContent.trim()
-        if (!text || text.length > 40) return
-        out.push({
-          text: text.slice(0, 30),
-          color: s.color,
-          bg: bg(el),
-          fontSize: parseFloat(s.fontSize),
-        })
+  // List pages sync list state into the URL (e.g. /sites -> ?page=0&pageSize=20)
+  // right after mount, which destroys the evaluation context mid-run. Retry
+  // sampling once the navigation settles instead of crashing.
+  let samples = []
+  let sampleError = null
+  for (let attempt = 0; attempt < 3 && samples.length === 0; attempt += 1) {
+    if (attempt > 0) await page.waitForTimeout(600)
+    try {
+      samples = await page.evaluate(() => {
+        const bg = (el) => {
+          let node = el
+          while (node && node !== document.documentElement) {
+            const c = getComputedStyle(node).backgroundColor
+            if (c && c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent') return c
+            node = node.parentElement
+          }
+          return getComputedStyle(document.body).backgroundColor
+        }
+        const out = []
+        document
+          .querySelectorAll('p, span, div, td, th, label, a, button, li')
+          .forEach((el) => {
+            if (el.children.length > 0) return
+            const r = el.getBoundingClientRect()
+            if (r.width === 0 || r.height === 0) return
+            const s = getComputedStyle(el)
+            if (s.fontSize === '0px') return
+            const text = el.textContent.trim()
+            if (!text || text.length > 40) return
+            out.push({
+              text: text.slice(0, 30),
+              color: s.color,
+              bg: bg(el),
+              fontSize: parseFloat(s.fontSize),
+            })
+          })
+        return out.slice(0, 300)
       })
-    return out.slice(0, 300)
-  })
+      sampleError = null
+    } catch (error) {
+      // Navigation raced the evaluate; retry after the route settles.
+      sampleError = error
+    }
+  }
+  if (samples.length === 0) {
+    // Never emit a false "ok": an un-sampled route is an audit failure.
+    const reason = sampleError
+      ? String(sampleError.message ?? sampleError).split('\n')[0]
+      : 'no text samples collected'
+    console.log(`[${route}] SAMPLE-FAILED (${reason})`)
+    process.exitCode = 1
+    await page.close()
+    continue
+  }
   const fails = []
   for (const s of samples) {
     const fg = parseColor(s.color)

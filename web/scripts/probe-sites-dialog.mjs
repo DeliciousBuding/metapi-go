@@ -3,6 +3,7 @@
 import { chromium } from 'playwright'
 
 const BASE_URL = process.env.BASE_URL ?? 'http://127.0.0.1:4099'
+const AUTH_TOKEN = process.env.AUTH_TOKEN ?? 'dev-admin-token-123'
 const browser = await chromium.launch({
   headless: true,
   args: ['--no-proxy-server'],
@@ -20,7 +21,7 @@ await context.addInitScript(
     )
     localStorage.setItem('i18nextLng', 'zh-CN')
   },
-  { token: 'dev-admin-token-123' }
+  { token: AUTH_TOKEN }
 )
 const page = await context.newPage()
 await page.goto(`${BASE_URL}/sites`, {
