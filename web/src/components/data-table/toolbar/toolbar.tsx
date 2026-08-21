@@ -1,12 +1,13 @@
 // metapi-go/data-table — ported from newapi
 import type { Table } from '@tanstack/react-table'
-import { ChevronDown, Loader2, X as Cross2Icon } from 'lucide-react'
+import { ChevronDown, X as Cross2Icon } from 'lucide-react'
 import * as React from 'react'
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
 
 import { useDebounce } from '../hooks/use-debounce'
@@ -326,7 +327,7 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
 
   const searchButton = hasSearch ? (
     <Button onClick={props.onSearch} disabled={props.searchLoading}>
-      {props.searchLoading && <Loader2 className='animate-spin' />}
+      {props.searchLoading && <Spinner />}
       {t('Search')}
     </Button>
   ) : null

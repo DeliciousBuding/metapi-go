@@ -3,7 +3,7 @@
 // i18n: all user-visible strings migrated to t() calls.
 
 import type { ColumnDef } from '@tanstack/react-table'
-import { Eye, Loader2, MoreHorizontal, Play } from 'lucide-react'
+import { Eye, MoreHorizontal, Play } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
@@ -14,6 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Spinner } from '@/components/ui/spinner'
 import { toBcp47 } from '@/i18n/languages'
 import { cn } from '@/lib/utils'
 
@@ -98,7 +99,7 @@ function CheckinRowActions({
           disabled={isTriggerPending}
           onClick={() => actions.onTriggerAccount(row)}
         >
-          {isTriggerPending ? <Loader2 className='animate-spin' /> : <Play />}
+          {isTriggerPending ? <Spinner /> : <Play />}
           {t('checkin.columns.triggerCheckin')}
         </DropdownMenuItem>
       </DropdownMenuContent>

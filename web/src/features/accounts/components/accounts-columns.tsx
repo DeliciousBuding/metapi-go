@@ -11,7 +11,6 @@ import {
   Clock,
   Eye,
   HelpCircle,
-  Loader2,
   MoreHorizontal,
   PauseCircle,
   Pencil,
@@ -37,6 +36,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Spinner } from '@/components/ui/spinner'
 import {
   Tooltip,
   TooltipContent,
@@ -154,7 +154,7 @@ function useResolveDisplayName() {
  * The inline `Power` button surfaces the highest-frequency row action (status
  * toggle) as a single click, BEFORE the `MoreHorizontal` dropdown trigger. The
  * pending state is per-row: when `pendingStatusId === account.id`, this row's
- * button shows a `Loader2` spinner and is disabled, while every other row's
+ * button shows a `Spinner` and is disabled, while every other row's
  * button stays clickable (no global lock). The dropdown menu items are
  * unchanged — refresh/pin/checkin/edit/delete all stay where they were.
  *
@@ -195,11 +195,7 @@ export const AccountsRowActions = memo(function AccountsRowActions({
               />
             }
           >
-            {isThisRowPending ? (
-              <Loader2 className='size-4 animate-spin' />
-            ) : (
-              <Power className='size-4' />
-            )}
+            {isThisRowPending ? <Spinner /> : <Power className='size-4' />}
           </TooltipTrigger>
           <TooltipContent side='top'>{toggleLabel}</TooltipContent>
         </Tooltip>

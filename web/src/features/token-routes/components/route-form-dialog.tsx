@@ -4,7 +4,7 @@
 // `getModelPatternError()` returns pre-translated strings via i18n.t().
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, Zap } from 'lucide-react'
+import { Zap } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useForm, type SubmitErrorHandler } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -37,6 +37,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { Spinner } from '@/components/ui/spinner'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/lib/toast'
@@ -370,7 +371,7 @@ export function RouteFormDialog({
             form='route-form'
             disabled={isSubmitting || !isInitialized}
           >
-            {isSubmitting && <Loader2 className='animate-spin' />}
+            {isSubmitting && <Spinner />}
             {isEdit ? t('tokenRoutes.form.save') : t('tokenRoutes.form.create')}
           </Button>
         </SheetFooter>
@@ -481,7 +482,7 @@ function PatternModeFields({
                     disabled={rebuildMutation.isPending}
                   >
                     {rebuildMutation.isPending ? (
-                      <Loader2 className='animate-spin' />
+                      <Spinner className='size-3.5' />
                     ) : (
                       <Zap />
                     )}

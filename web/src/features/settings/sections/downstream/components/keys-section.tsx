@@ -6,7 +6,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2, Pencil } from 'lucide-react'
+import { Pencil } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -45,6 +45,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import {
   Table,
@@ -753,7 +754,7 @@ export function KeysSection() {
                 }
               }}
             >
-              {deleteMutation.isPending && <Loader2 className='animate-spin' />}
+              {deleteMutation.isPending && <Spinner />}
               {t('settings.common.delete')}
             </Button>
           </DialogFooter>

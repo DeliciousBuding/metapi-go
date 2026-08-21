@@ -17,7 +17,6 @@
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import type { ColumnFiltersState, Table } from '@tanstack/react-table'
 import {
-  Loader2,
   Plus,
   Power,
   RefreshCw,
@@ -46,6 +45,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Spinner } from '@/components/ui/spinner'
 import { ImportWizardDialog } from '@/features/import'
 import { parseSortingParam } from '@/lib/helpers/searchParams'
 import { toast } from '@/lib/toast'
@@ -560,7 +560,7 @@ export function AccountsPage() {
               onClick={confirmDelete}
               disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending && <Loader2 className='animate-spin' />}
+              {deleteMutation.isPending && <Spinner />}
               {t('common.delete')}
             </Button>
           </DialogFooter>
@@ -695,7 +695,7 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
               onClick={confirmBulkDelete}
               disabled={batchMutation.isPending}
             >
-              {batchMutation.isPending && <Loader2 className='animate-spin' />}
+              {batchMutation.isPending && <Spinner />}
               {t('accounts.bulk.deleteConfirmConfirm')}
             </Button>
           </DialogFooter>

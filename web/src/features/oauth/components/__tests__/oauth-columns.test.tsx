@@ -194,7 +194,7 @@ describe('OAuthRowActions per-row pending', () => {
     )
 
     const trigger = screen.getByRole('button', { name: 'Row actions' })
-    // The trigger swaps MoreHorizontal for a spinning Loader2.
+    // The trigger swaps MoreHorizontal for a spinning Spinner.
     expect(trigger.querySelector('svg.animate-spin')).toBeInTheDocument()
 
     fireEvent.click(trigger)

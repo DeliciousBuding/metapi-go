@@ -11,7 +11,6 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   Eye as EyeIcon,
-  Loader2 as Loader2Icon,
   MoreHorizontal as MoreHorizontalIcon,
   RefreshCw as RefreshCwIcon,
   Trash2 as Trash2Icon,
@@ -30,6 +29,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Spinner } from '@/components/ui/spinner'
 import { toBcp47 } from '@/i18n/languages'
 import { formatDateTime, formatInt } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -151,7 +151,7 @@ function QuotaCell({ client }: { client: OAuthClient }) {
  *
  * The pending state is per-row (mirrors the accounts page's
  * `pendingStatusId` pattern): when `pendingAccountId === client.accountId`,
- * the trigger swaps `MoreHorizontal` for a `Loader2` spinner and the
+ * the trigger swaps `MoreHorizontal` for a `Spinner` and the
  * refresh/rebind menu items are disabled so the user cannot spam-click the
  * same row into duplicate requests. The view-details item stays enabled
  * (opening a read-only panel cannot conflict with an in-flight request) and
@@ -184,7 +184,7 @@ export function OAuthRowActions({
           }
         >
           {isThisRowPending ? (
-            <Loader2Icon className='size-4 animate-spin' />
+            <Spinner />
           ) : (
             <MoreHorizontalIcon className='size-4' />
           )}

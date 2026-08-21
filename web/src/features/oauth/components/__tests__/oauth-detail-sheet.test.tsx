@@ -377,7 +377,9 @@ describe('OAuthDetailSheet footer actions', () => {
   it('disables both actions while the refresh is pending', () => {
     renderSheet(buildConnection({}), { isRefreshingQuota: true })
 
-    expect(screen.getByRole('button', { name: 'Refresh quota' })).toBeDisabled()
+    // The canonical Spinner (role=status) prepends its localized label to
+    // the button's accessible name while pending.
+    expect(screen.getByRole('button', { name: /Refresh quota/ })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Rebind' })).toBeDisabled()
   })
 
@@ -385,7 +387,7 @@ describe('OAuthDetailSheet footer actions', () => {
     renderSheet(buildConnection({}), { isRebinding: true })
 
     expect(screen.getByRole('button', { name: 'Refresh quota' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Rebind' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Rebind/ })).toBeDisabled()
   })
 
   it('warns that rebind reopens the provider authorization flow', () => {

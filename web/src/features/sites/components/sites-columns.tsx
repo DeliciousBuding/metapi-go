@@ -10,7 +10,6 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   Eye as EyeIcon,
-  Loader2 as Loader2Icon,
   MoreHorizontal as MoreHorizontalIcon,
   Pencil as PencilIcon,
   Pin as PinIcon,
@@ -31,6 +30,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Spinner } from '@/components/ui/spinner'
 import { formatUsd } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -272,7 +272,7 @@ export function useSitesColumns(
           <PinIcon className='text-muted-foreground/70 size-3.5' />
         )
         if (isThisRowPending) {
-          pinToggleIcon = <Loader2Icon className='size-3.5 animate-spin' />
+          pinToggleIcon = <Spinner className='size-3.5' />
         } else if (site.isPinned) {
           pinToggleIcon = (
             <PinOffIcon className='text-muted-foreground/70 size-3.5' />
@@ -308,7 +308,7 @@ export function useSitesColumns(
                   onClick={() => actions.onToggleStatus(site)}
                 >
                   {isThisRowPending ? (
-                    <Loader2Icon className='size-3.5 animate-spin' />
+                    <Spinner className='size-3.5' />
                   ) : (
                     <PowerIcon className='text-muted-foreground/70 size-3.5' />
                   )}

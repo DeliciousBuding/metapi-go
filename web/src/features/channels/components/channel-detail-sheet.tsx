@@ -12,7 +12,6 @@ import {
   Ban,
   CheckCircle2,
   Clock,
-  Loader2,
   Pencil,
   Snowflake,
   TriangleAlert,
@@ -32,6 +31,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { Spinner } from '@/components/ui/spinner'
 import { useClearRouteCooldown } from '@/features/token-routes/api'
 import { toBcp47 } from '@/i18n/languages'
 import { formatDateTime, formatLatency } from '@/lib/format'
@@ -245,11 +245,7 @@ export function ChannelDetailSheet({
                 onClick={handleClearRouteCooldown}
                 disabled={clearCooldownMutation.isPending}
               >
-                {clearCooldownMutation.isPending ? (
-                  <Loader2 className='animate-spin' />
-                ) : (
-                  <Snowflake />
-                )}
+                {clearCooldownMutation.isPending ? <Spinner /> : <Snowflake />}
                 {t('channels.detail.clearRouteCooldown')}
               </Button>
             </>
