@@ -12,7 +12,7 @@ import { Area, AreaChart } from 'recharts'
 
 import { ChartContainer, type ChartConfig } from '@/components/ui/chart'
 
-export type SparklinePoint = {
+type SparklinePoint = {
   index: number
   value: number
 }
