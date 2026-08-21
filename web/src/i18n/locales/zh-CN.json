@@ -91,6 +91,7 @@
     "about": {
       "title": "关于",
       "description": "项目信息、构建详情与相关链接。",
+      "loadError": "加载构建信息失败：{{message}}",
       "sections": {
         "projectInfo": "项目信息",
         "projectInfoDescription": "当前部署的基本元数据。",

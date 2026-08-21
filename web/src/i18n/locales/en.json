@@ -91,6 +91,7 @@
     "about": {
       "title": "About",
       "description": "Project information, build details, and useful links.",
+      "loadError": "Failed to load build info: {{message}}",
       "sections": {
         "projectInfo": "Project info",
         "projectInfoDescription": "Basic metadata about this deployment.",

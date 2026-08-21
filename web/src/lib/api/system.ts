@@ -1,6 +1,13 @@
 import { request } from './transport'
+import type { AboutBuildInfoResponse } from './types'
 
 export const systemApi = {
+  /**
+   * Build provenance of the running Go binary: version, commit, build time and
+   * Go runtime version. Uninjected local builds report empty commit/buildTime.
+   */
+  getAbout: () => request<AboutBuildInfoResponse>('/api/about'),
+
   // Monitor embed
   getMonitorConfig: () => request('/api/monitor/config'),
   getMonitorHealth: () => request('/api/monitor/health'),

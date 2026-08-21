@@ -739,6 +739,21 @@ export type DownstreamApiKeyTrendResponse = {
   buckets: DownstreamApiKeyTrendBucket[]
 }
 
+/**
+ * GET /api/about — build provenance of the running Go binary.
+ *
+ * `commit` and `buildTime` are only populated when the binary was linked with
+ * ldflags injection (release/Docker builds); a plain local `go build` reports
+ * them as empty strings, which the About page renders as an em-dash. Every
+ * field is optional here so a trimmed or older backend cannot crash the page.
+ */
+export type AboutBuildInfoResponse = {
+  version?: string
+  commit?: string
+  buildTime?: string
+  goVersion?: string
+}
+
 // ---------------------------------------------------------------------------
 // Business API — 179 methods across 13 domain groups.
 // Signatures preserved 1:1 from legacy api.ts; only the transport is swapped.
