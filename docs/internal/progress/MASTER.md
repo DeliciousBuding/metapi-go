@@ -2,35 +2,32 @@
 
 **Last verified**: 2026-08-21
 
-**Release**: [v0.16.4](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.4) · released on master; production promotion follows the release and soak gate
+**Release**: [v0.16.5](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.5) · released on master; production promotion follows the release and soak gate
 
 > This is the only execution plan. It contains open work, order, ownership, and acceptance criteria. Current facts → [`../STATE.md`](../STATE.md) · product positioning → [`../benchmark.md`](../benchmark.md) · timeline → [`../log.md`](../log.md).
 
-## Current active work — UI/UX 收口波（2026-08-21）
+## Current active work — v0.16.6（Round 3 修复波）
 
-两条 Active，其余历史完成冻结（Round 1 #887 → v0.16.3、Round 2 #889 → v0.16.4 已发布）：
+历史完成冻结：Round 1 #887 → v0.16.3、Round 2 #889 → v0.16.4、#887 补遗 + E2E → v0.16.5 均已发布。
 
-### A — #887 补遗切片
+### 已收口（v0.16.5，勿再当 active）
 
-| 切片 | 状态 |
-|---|---|
-| #901 死 CSS 清理 | 已合并（`4cf12fd`） |
-| #902 全局 attention 铃铛 | open / mergeable / CI 绿，待集成 |
-| #903 OAuth 详情 sheet | open / mergeable / CI 绿，待集成 |
-| #904 About 构建信息 | open / mergeable / CI 绿，待集成 |
-| list-filter-dimensions | 本地已抢救（commit + rebase master），待 PR |
-| Spinner 双轨收口 | 未完成 |
+- #901 死 CSS · #902 全局告警红点 · #903 OAuth sheet · #904 About 构建信息 · #905 proxy-log 过滤 · #899 E2E Journey 3，全部 squash 合入。
 
-### B — Round 3 审计 → v0.16.5 修复波
+### 剩余 Active（v0.16.6 范围）
 
-- 审计 A/B/D/E/F/H 域完成；C a11y / G 安全不完整（provider 故障中断）。
-- D 域 4 个运行时 P0 契约 bug：account-token snake_case 字段丢失、表单部分字段后端静默丢弃、channels 固定截断 50 条、route channels 不返回 success/fail/cooldown。
-- H 域性能：Go 静态资源零 gzip（冷加载 ~1.5–1.8 MB）、accounts 100 行 ~2041 ms 主线程冻结、dashboard 白下 332 KB recharts。
-- 修复尚未启动；需先固化立项 issue，再按 P0/P1 分批。
+| 项 | 优先级 | 状态 |
+|---|---|---|
+| Round 3 D 域 4 个运行时 P0 契约 bug | P0 | 审计完成，需补 file:line 证据 + 立项 issue |
+| Round 3 H 域性能（零 gzip / accounts 2s 冻结 / recharts 白下载） | P1 | 同上 |
+| Spinner 双轨收口 | P1 | 老尾巴未完成 |
+| Round 3 C a11y / G 安全 两域 | P2 | provider 故障中断，待补审计 |
 
-### E2E（独立归 acceptance）
+### 执行顺序（v0.16.6）
 
-- #899 E2E Journey 3 open / mergeable / CI 绿，不混入 UI/UX 波。
+1. 找回/重跑 Round 3 审计证据（D 域 4 P0 file:line + H 域复现），补 C/G 两域。
+2. 立项 issue（公开），逐项转 P0/P1 修复切片。
+3. worktree 并行修复 → 12 项 CI 全绿 → squash 合入 → patch release v0.16.6。
 
 ## Completed milestone — TS 兼容与迁移收官（2026-08-20 交付）
 
