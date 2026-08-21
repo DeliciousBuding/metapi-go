@@ -36,8 +36,7 @@ type SignInPageProps = {
 
 export function SignInPage({ redirectTo, noticeReason }: SignInPageProps) {
   const { t } = useTranslation()
-  const showTokenChangedNotice =
-    noticeReason === TOKEN_CHANGED_NOTICE_REASON
+  const showTokenChangedNotice = noticeReason === TOKEN_CHANGED_NOTICE_REASON
 
   return (
     <div className='bg-background relative flex min-h-svh items-center justify-center px-4 pt-16 pb-4'>

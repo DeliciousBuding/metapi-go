@@ -3,12 +3,7 @@
 // and Pin/Unpin menu items are disabled; other rows stay fully interactive.
 
 import '@testing-library/jest-dom/vitest'
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-} from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import {
   afterAll,
@@ -124,8 +119,9 @@ describe('sites actions cell per-row pending', () => {
     expect(
       screen.getByRole('menuitem', { name: 'Disable' })
     ).not.toHaveAttribute('aria-disabled', 'true')
-    expect(
-      screen.getByRole('menuitem', { name: 'Pin' })
-    ).not.toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('menuitem', { name: 'Pin' })).not.toHaveAttribute(
+      'aria-disabled',
+      'true'
+    )
   })
 })

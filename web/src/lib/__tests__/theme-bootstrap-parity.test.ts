@@ -8,12 +8,10 @@
 
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+
 import { describe, expect, it } from 'vitest'
 
-import {
-  THEME_PRESETS,
-  THEME_PRESET_VALUES,
-} from '../theme-customization'
+import { THEME_PRESETS, THEME_PRESET_VALUES } from '../theme-customization'
 
 // Tests always run from the web/ project root (`bun run test`).
 const INDEX_HTML_PATH = resolve(process.cwd(), 'index.html')

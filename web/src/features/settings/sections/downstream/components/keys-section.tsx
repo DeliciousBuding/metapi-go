@@ -753,9 +753,7 @@ export function KeysSection() {
                 }
               }}
             >
-              {deleteMutation.isPending && (
-                <Loader2 className='animate-spin' />
-              )}
+              {deleteMutation.isPending && <Loader2 className='animate-spin' />}
               {t('settings.common.delete')}
             </Button>
           </DialogFooter>

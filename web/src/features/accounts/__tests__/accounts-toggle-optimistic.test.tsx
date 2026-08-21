@@ -10,10 +10,7 @@
 // answers, then drive success / failure.
 
 import '@testing-library/jest-dom/vitest'
-import {
-  QueryClient,
-  QueryClientProvider,
-} from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -78,9 +75,7 @@ function accountField(
   const snapshot = queryClient.getQueryData<AccountsSnapshot>(
     accountQueryKeys.snapshot()
   )
-  return snapshot?.accounts.find((account) => account.id === accountId)?.[
-    field
-  ]
+  return snapshot?.accounts.find((account) => account.id === accountId)?.[field]
 }
 
 /** Deferred promise so cases can inspect the optimistic cache mid-flight. */

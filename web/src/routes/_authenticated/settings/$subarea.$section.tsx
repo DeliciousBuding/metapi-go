@@ -27,10 +27,7 @@ export const Route = createFileRoute(
     title: ({ subarea, section }) => {
       const subareaConfig = getSettingsSubarea(subarea)
       if (!subareaConfig) return undefined
-      return [
-        subareaConfig.title,
-        subareaConfig.getSectionMeta(section).title,
-      ]
+      return [subareaConfig.title, subareaConfig.getSectionMeta(section).title]
     },
   },
   beforeLoad: ({ params }) => {

@@ -130,9 +130,7 @@ describe('ProgramLogsSection clear confirmation', () => {
     const clearButton = await screen.findByRole('button', { name: 'Clear' })
     fireEvent.click(clearButton)
 
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Cancel' })
-    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }))
 
     expect(mockClearEvents).not.toHaveBeenCalled()
   })

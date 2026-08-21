@@ -11,12 +11,11 @@
 
 import { useSyncExternalStore } from 'react'
 
+import type { RealtimeOpsSample } from '../types'
 import {
   realtimeOpsConnection,
   type RealtimeOpsState,
 } from './realtime-ops-connection'
-
-import type { RealtimeOpsSample } from '../types'
 
 /** Return shape of {@link useRealtimeOps}. */
 export type UseRealtimeOpsReturn = {

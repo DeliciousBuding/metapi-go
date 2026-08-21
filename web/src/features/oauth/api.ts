@@ -96,10 +96,7 @@ export async function fetchOAuthConnectionsPage(params: {
  */
 export function useOAuthConnections(
   params: { page: number; pageSize: number },
-  options?: Omit<
-    UseQueryOptions<OAuthConnectionsPage>,
-    'queryKey' | 'queryFn'
-  >
+  options?: Omit<UseQueryOptions<OAuthConnectionsPage>, 'queryKey' | 'queryFn'>
 ) {
   return useQuery<OAuthConnectionsPage>({
     queryKey: oauthConnectionsPageQueryKey(params),
@@ -136,9 +133,7 @@ export function useStartOAuth(
 }
 
 type DeleteOAuthConnectionContext = {
-  previousPages: Array<
-    [readonly unknown[], OAuthConnectionsPage | undefined]
-  >
+  previousPages: Array<[readonly unknown[], OAuthConnectionsPage | undefined]>
 }
 
 /**

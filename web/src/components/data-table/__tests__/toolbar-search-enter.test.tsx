@@ -3,13 +3,7 @@
 // commit immediately so "type → Enter" behaves like an explicit search.
 
 import '@testing-library/jest-dom/vitest'
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-} from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'

@@ -48,9 +48,7 @@ function useDocumentTitle() {
   const titleKeys = useRouterState({
     select: (state) => {
       const lastMatch = state.matches.at(-1)
-      const title = lastMatch?.staticData?.title as
-        | RouteTitleSpec
-        | undefined
+      const title = lastMatch?.staticData?.title as RouteTitleSpec | undefined
       return resolveDocumentTitleKeys(
         title,
         (lastMatch?.params ?? {}) as Record<string, string>

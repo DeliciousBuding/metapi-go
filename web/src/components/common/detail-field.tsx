@@ -31,11 +31,7 @@ export function DetailField({
 }: DetailFieldProps) {
   return (
     <div
-      className={cn(
-        'flex min-w-0 flex-col',
-        full && 'col-span-2',
-        className
-      )}
+      className={cn('flex min-w-0 flex-col', full && 'col-span-2', className)}
     >
       <dt className='text-muted-foreground text-[11px]'>{label}</dt>
       <dd className='truncate' title={title}>

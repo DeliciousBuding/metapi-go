@@ -100,9 +100,9 @@ describe('formatLatency', () => {
 
   it('promotes >= 1000ms to seconds with autoSeconds', () => {
     expect(formatLatency(12345, { autoSeconds: true })).toBe('12.3s')
-    expect(
-      formatLatency(12345, { autoSeconds: true, spaced: true })
-    ).toBe('12.3 s')
+    expect(formatLatency(12345, { autoSeconds: true, spaced: true })).toBe(
+      '12.3 s'
+    )
   })
 
   it('drops fraction digits past the whole-seconds threshold', () => {

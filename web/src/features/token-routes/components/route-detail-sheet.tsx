@@ -212,7 +212,9 @@ export function RouteDetailSheet({
             </DetailField>
             <DetailField
               label={t('tokenRoutes.detail.sites')}
-              title={route.siteNames?.length ? route.siteNames.join(', ') : undefined}
+              title={
+                route.siteNames?.length ? route.siteNames.join(', ') : undefined
+              }
             >
               {route.siteNames?.length ? route.siteNames.join(', ') : '—'}
             </DetailField>
@@ -309,9 +311,7 @@ export function RouteDetailSheet({
         <SheetFooter>
           <Button onClick={handleRebuild} variant='default'>
             <RefreshCw
-              className={
-                rebuildMutation.isPending ? 'animate-spin' : undefined
-              }
+              className={rebuildMutation.isPending ? 'animate-spin' : undefined}
             />
             {isReadOnly
               ? t('tokenRoutes.detail.rebuildRoutes')

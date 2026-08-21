@@ -308,9 +308,7 @@ describe('OAuthStartDialog pending session', () => {
     expect(onOpenChange).not.toHaveBeenCalledWith(false)
 
     // The abandon confirmation is visible.
-    expect(
-      await screen.findByText('Abort authorization?')
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Abort authorization?')).toBeInTheDocument()
 
     // Keeping the wait dismisses the confirmation and leaves the dialog open.
     fireEvent.click(screen.getByRole('button', { name: 'Keep waiting' }))

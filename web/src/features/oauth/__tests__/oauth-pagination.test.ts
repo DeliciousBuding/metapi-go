@@ -11,10 +11,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { api } from '@/lib/api'
 
-import {
-  fetchOAuthConnectionsPage,
-  oauthConnectionsPageQueryKey,
-} from '../api'
+import { fetchOAuthConnectionsPage, oauthConnectionsPageQueryKey } from '../api'
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -101,9 +98,11 @@ describe('fetchOAuthConnectionsPage — total handling', () => {
 
 describe('oauthConnectionsPageQueryKey', () => {
   it('nests the page params under the shared connections prefix', () => {
-    expect(
-      oauthConnectionsPageQueryKey({ page: 1, pageSize: 20 })
-    ).toEqual(['oauth', 'connections', { page: 1, pageSize: 20 }])
+    expect(oauthConnectionsPageQueryKey({ page: 1, pageSize: 20 })).toEqual([
+      'oauth',
+      'connections',
+      { page: 1, pageSize: 20 },
+    ])
   })
 
   it('stays under the connections prefix so mutations invalidate all pages', () => {

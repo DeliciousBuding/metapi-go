@@ -7,14 +7,7 @@
 import '@testing-library/jest-dom/vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactElement } from 'react'
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
 
@@ -56,7 +49,9 @@ describe('StatusBadge copy feedback', () => {
   it('copies the label, renders the copied check and reverts after 1.5s', async () => {
     render((<StatusBadge label='gpt-4o' />) as ReactElement)
 
-    const badge = screen.getByText('gpt-4o').closest('[data-slot="status-badge"]')
+    const badge = screen
+      .getByText('gpt-4o')
+      .closest('[data-slot="status-badge"]')
     if (!badge) throw new Error('badge root not rendered')
 
     // Before the click the hint title embeds the value (i18n, not hardcoded).
@@ -96,7 +91,9 @@ describe('StatusBadge copy feedback', () => {
   it('non-copyable badges keep a plain title and never hit the clipboard', () => {
     render((<StatusBadge label='static' copyable={false} />) as ReactElement)
 
-    const badge = screen.getByText('static').closest('[data-slot="status-badge"]')
+    const badge = screen
+      .getByText('static')
+      .closest('[data-slot="status-badge"]')
     if (!badge) throw new Error('badge root not rendered')
 
     expect(badge).toHaveAttribute('title', 'static')

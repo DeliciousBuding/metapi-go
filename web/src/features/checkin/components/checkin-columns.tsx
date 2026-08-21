@@ -98,11 +98,7 @@ function CheckinRowActions({
           disabled={isTriggerPending}
           onClick={() => actions.onTriggerAccount(row)}
         >
-          {isTriggerPending ? (
-            <Loader2 className='animate-spin' />
-          ) : (
-            <Play />
-          )}
+          {isTriggerPending ? <Loader2 className='animate-spin' /> : <Play />}
           {t('checkin.columns.triggerCheckin')}
         </DropdownMenuItem>
       </DropdownMenuContent>

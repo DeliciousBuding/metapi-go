@@ -243,271 +243,273 @@ export function OAuthStartDialog({
         }}
       >
         <DialogContent className='sm:max-w-lg'>
-        {pendingState ? (
-          <>
-            <DialogHeader>
-              <DialogTitle>{t('oauth.session.waiting')}</DialogTitle>
-              <DialogDescription>
-                {t('oauth.session.waitingDescription')}
-              </DialogDescription>
-            </DialogHeader>
+          {pendingState ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>{t('oauth.session.waiting')}</DialogTitle>
+                <DialogDescription>
+                  {t('oauth.session.waitingDescription')}
+                </DialogDescription>
+              </DialogHeader>
 
-            <div className='grid gap-4'>
-              {sessionStatus === 'pending' && (
-                <div className='text-muted-foreground flex items-center gap-2 text-sm'>
-                  <Spinner className='size-3.5' />
-                  <span>{t('oauth.session.waiting')}</span>
-                </div>
-              )}
-
-              {sessionStatus === 'error' && (
-                <div className='text-destructive text-sm'>
-                  {t('oauth.session.failed', {
-                    error: sessionQuery.data?.error ?? '',
-                  })}
-                </div>
-              )}
-
-              {instructions?.sshTunnelCommand && (
-                <div className='grid gap-2'>
-                  <p className='text-muted-foreground text-sm'>
-                    {t('oauth.session.sshTunnelHint')}
-                  </p>
-                  <div className='flex items-center gap-2'>
-                    <code className='bg-muted flex-1 overflow-x-auto rounded px-2 py-1.5 text-xs'>
-                      {instructions.sshTunnelCommand}
-                    </code>
-                    <Button
-                      type='button'
-                      variant='outline'
-                      size='icon-sm'
-                      onClick={handleCopySshTunnel}
-                      aria-label={t('common.copy')}
-                    >
-                      {copiedTunnel ? (
-                        <CheckIcon className='size-3.5' />
-                      ) : (
-                        <CopyIcon className='size-3.5' />
-                      )}
-                    </Button>
+              <div className='grid gap-4'>
+                {sessionStatus === 'pending' && (
+                  <div className='text-muted-foreground flex items-center gap-2 text-sm'>
+                    <Spinner className='size-3.5' />
+                    <span>{t('oauth.session.waiting')}</span>
                   </div>
-                </div>
-              )}
-
-              <form
-                onSubmit={handleManualCallbackSubmit}
-                className='grid gap-2'
-              >
-                <label
-                  className='text-sm font-medium'
-                  htmlFor='oauth-manual-callback-url'
-                >
-                  {t('oauth.session.callbackLabel')}
-                </label>
-                <Input
-                  id='oauth-manual-callback-url'
-                  value={callbackUrl}
-                  onChange={(event) => setCallbackUrl(event.target.value)}
-                  placeholder={t('oauth.session.callbackPlaceholder')}
-                  autoComplete='off'
-                  spellCheck={false}
-                />
-                <Button
-                  type='submit'
-                  disabled={!callbackUrl.trim() || isSubmittingCallback}
-                >
-                  {isSubmittingCallback ? <Spinner /> : null}
-                  {t('oauth.session.callbackSubmit')}
-                </Button>
-              </form>
-
-              <DialogFooter>
-                <Button
-                  type='button'
-                  variant='outline'
-                  onClick={requestClose}
-                >
-                  {t('oauth.form.cancel')}
-                </Button>
-              </DialogFooter>
-            </div>
-          </>
-        ) : (
-          <>
-            <DialogHeader>
-              <DialogTitle>{t('oauth.form.startTitle')}</DialogTitle>
-              <DialogDescription>
-                {t('oauth.form.startDescription')}
-              </DialogDescription>
-            </DialogHeader>
-
-            <Form {...form}>
-              <form
-                onSubmit={form.handleSubmit(onSubmit)}
-                className='grid gap-4'
-              >
-                <FormField
-                  control={form.control}
-                  name='provider'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('oauth.form.provider')}</FormLabel>
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
-                      >
-                        <FormControl>
-                          <SelectTrigger disabled={!providersReady}>
-                            <SelectValue>
-                              {(selected) => {
-                                if (!selected) {
-                                  return t('oauth.form.providerPlaceholder')
-                                }
-                                const provider = enabledProviders.find(
-                                  (item) => item.provider === selected
-                                )
-                                return provider
-                                  ? provider.label || provider.provider
-                                  : String(selected)
-                              }}
-                            </SelectValue>
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {enabledProviders.map((provider) => (
-                            <SelectItem
-                              key={provider.provider}
-                              value={provider.provider}
-                            >
-                              {provider.label || provider.provider}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {providersLoading && (
-                        <div className='text-muted-foreground flex items-center gap-1.5 text-sm'>
-                          <Spinner className='size-3.5' />
-                          {t('oauth.form.loadingProviders')}
-                        </div>
-                      )}
-                      {providersError && (
-                        <div className='text-destructive flex items-center gap-2 text-sm'>
-                          <span>{t('oauth.form.providersLoadFailed')}</span>
-                          <Button
-                            type='button'
-                            variant='link'
-                            size='sm'
-                            className='h-auto px-0'
-                            onClick={() => providersQuery.refetch()}
-                          >
-                            {t('oauth.form.retry')}
-                          </Button>
-                        </div>
-                      )}
-                      {!providersLoading &&
-                        !providersError &&
-                        !hasEnabledProviders && (
-                          <FormDescription>
-                            {t('oauth.form.noProviders')}{' '}
-                            <Link
-                              to='/settings'
-                              className='text-primary hover:underline'
-                            >
-                              {t('oauth.form.goToSettings')}
-                            </Link>
-                          </FormDescription>
-                        )}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {requiresProjectId && (
-                  <FormField
-                    control={form.control}
-                    name='projectId'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t('oauth.form.projectId')}</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder={t('oauth.form.projectIdPlaceholder')}
-                            autoFocus
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          {t('oauth.form.projectIdDescription')}
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                 )}
 
-                <FormField
-                  control={form.control}
-                  name='proxyUrl'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('oauth.form.proxyUrl')}</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder={t('oauth.form.optionalUrlPlaceholder')}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {sessionStatus === 'error' && (
+                  <div className='text-destructive text-sm'>
+                    {t('oauth.session.failed', {
+                      error: sessionQuery.data?.error ?? '',
+                    })}
+                  </div>
+                )}
 
-                <FormField
-                  control={form.control}
-                  name='useSystemProxy'
-                  render={({ field }) => (
-                    <FormItem className='border-border flex flex-row items-center justify-between rounded-lg border p-3'>
-                      <div className='space-y-0.5'>
-                        <FormLabel>{t('oauth.form.useSystemProxy')}</FormLabel>
-                        <FormDescription>
-                          {t('oauth.form.useSystemProxyDescription')}
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
+                {instructions?.sshTunnelCommand && (
+                  <div className='grid gap-2'>
+                    <p className='text-muted-foreground text-sm'>
+                      {t('oauth.session.sshTunnelHint')}
+                    </p>
+                    <div className='flex items-center gap-2'>
+                      <code className='bg-muted flex-1 overflow-x-auto rounded px-2 py-1.5 text-xs'>
+                        {instructions.sshTunnelCommand}
+                      </code>
+                      <Button
+                        type='button'
+                        variant='outline'
+                        size='icon-sm'
+                        onClick={handleCopySshTunnel}
+                        aria-label={t('common.copy')}
+                      >
+                        {copiedTunnel ? (
+                          <CheckIcon className='size-3.5' />
+                        ) : (
+                          <CopyIcon className='size-3.5' />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <form
+                  onSubmit={handleManualCallbackSubmit}
+                  className='grid gap-2'
+                >
+                  <label
+                    className='text-sm font-medium'
+                    htmlFor='oauth-manual-callback-url'
+                  >
+                    {t('oauth.session.callbackLabel')}
+                  </label>
+                  <Input
+                    id='oauth-manual-callback-url'
+                    value={callbackUrl}
+                    onChange={(event) => setCallbackUrl(event.target.value)}
+                    placeholder={t('oauth.session.callbackPlaceholder')}
+                    autoComplete='off'
+                    spellCheck={false}
+                  />
+                  <Button
+                    type='submit'
+                    disabled={!callbackUrl.trim() || isSubmittingCallback}
+                  >
+                    {isSubmittingCallback ? <Spinner /> : null}
+                    {t('oauth.session.callbackSubmit')}
+                  </Button>
+                </form>
 
                 <DialogFooter>
                   <Button
                     type='button'
                     variant='outline'
-                    onClick={() => onOpenChange(false)}
-                    disabled={isSubmitting}
+                    onClick={requestClose}
                   >
                     {t('oauth.form.cancel')}
                   </Button>
-                  <Button
-                    type='submit'
-                    disabled={isSubmitting || !providersReady}
-                  >
-                    {isSubmitting ? (
-                      <Spinner />
-                    ) : (
-                      <ExternalLinkIcon className='size-4' />
-                    )}
-                    {t('oauth.form.start')}
-                  </Button>
                 </DialogFooter>
-              </form>
-            </Form>
-          </>
-        )}
+              </div>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>{t('oauth.form.startTitle')}</DialogTitle>
+                <DialogDescription>
+                  {t('oauth.form.startDescription')}
+                </DialogDescription>
+              </DialogHeader>
+
+              <Form {...form}>
+                <form
+                  onSubmit={form.handleSubmit(onSubmit)}
+                  className='grid gap-4'
+                >
+                  <FormField
+                    control={form.control}
+                    name='provider'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('oauth.form.provider')}</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <FormControl>
+                            <SelectTrigger disabled={!providersReady}>
+                              <SelectValue>
+                                {(selected) => {
+                                  if (!selected) {
+                                    return t('oauth.form.providerPlaceholder')
+                                  }
+                                  const provider = enabledProviders.find(
+                                    (item) => item.provider === selected
+                                  )
+                                  return provider
+                                    ? provider.label || provider.provider
+                                    : String(selected)
+                                }}
+                              </SelectValue>
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {enabledProviders.map((provider) => (
+                              <SelectItem
+                                key={provider.provider}
+                                value={provider.provider}
+                              >
+                                {provider.label || provider.provider}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {providersLoading && (
+                          <div className='text-muted-foreground flex items-center gap-1.5 text-sm'>
+                            <Spinner className='size-3.5' />
+                            {t('oauth.form.loadingProviders')}
+                          </div>
+                        )}
+                        {providersError && (
+                          <div className='text-destructive flex items-center gap-2 text-sm'>
+                            <span>{t('oauth.form.providersLoadFailed')}</span>
+                            <Button
+                              type='button'
+                              variant='link'
+                              size='sm'
+                              className='h-auto px-0'
+                              onClick={() => providersQuery.refetch()}
+                            >
+                              {t('oauth.form.retry')}
+                            </Button>
+                          </div>
+                        )}
+                        {!providersLoading &&
+                          !providersError &&
+                          !hasEnabledProviders && (
+                            <FormDescription>
+                              {t('oauth.form.noProviders')}{' '}
+                              <Link
+                                to='/settings'
+                                className='text-primary hover:underline'
+                              >
+                                {t('oauth.form.goToSettings')}
+                              </Link>
+                            </FormDescription>
+                          )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {requiresProjectId && (
+                    <FormField
+                      control={form.control}
+                      name='projectId'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('oauth.form.projectId')}</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder={t('oauth.form.projectIdPlaceholder')}
+                              autoFocus
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            {t('oauth.form.projectIdDescription')}
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  <FormField
+                    control={form.control}
+                    name='proxyUrl'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('oauth.form.proxyUrl')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder={t('oauth.form.optionalUrlPlaceholder')}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name='useSystemProxy'
+                    render={({ field }) => (
+                      <FormItem className='border-border flex flex-row items-center justify-between rounded-lg border p-3'>
+                        <div className='space-y-0.5'>
+                          <FormLabel>
+                            {t('oauth.form.useSystemProxy')}
+                          </FormLabel>
+                          <FormDescription>
+                            {t('oauth.form.useSystemProxyDescription')}
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <DialogFooter>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      onClick={() => onOpenChange(false)}
+                      disabled={isSubmitting}
+                    >
+                      {t('oauth.form.cancel')}
+                    </Button>
+                    <Button
+                      type='submit'
+                      disabled={isSubmitting || !providersReady}
+                    >
+                      {isSubmitting ? (
+                        <Spinner />
+                      ) : (
+                        <ExternalLinkIcon className='size-4' />
+                      )}
+                      {t('oauth.form.start')}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 

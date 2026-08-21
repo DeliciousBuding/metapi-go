@@ -57,9 +57,7 @@ export function UserMenu() {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem
-            render={(props) => <Link to='/about' {...props} />}
-          >
+          <DropdownMenuItem render={(props) => <Link to='/about' {...props} />}>
             <Info />
             {t('userMenu.about')}
           </DropdownMenuItem>

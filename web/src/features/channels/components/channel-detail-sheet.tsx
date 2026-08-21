@@ -196,10 +196,7 @@ export function ChannelDetailSheet({
                 <DetailField label={t('channels.detail.cooldownUntil')}>
                   {formatDateTime(channel.cooldownUntil, locale)}
                 </DetailField>
-                <DetailField
-                  label={t('channels.detail.manualOverride')}
-                  full
-                >
+                <DetailField label={t('channels.detail.manualOverride')} full>
                   {channel.manualOverride
                     ? t('channels.detail.manualOverrideActive')
                     : t('channels.detail.manualOverrideNone')}

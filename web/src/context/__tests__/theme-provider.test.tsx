@@ -5,7 +5,15 @@
 
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, waitFor } from '@testing-library/react'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
 import { ThemeProvider } from '@/context/theme-provider'
 
@@ -37,7 +45,8 @@ describe('ThemeProvider bootstrap cleanup', () => {
     const root = document.documentElement
     // Simulate the FOUC bootstrap state from index.html.
     root.style.setProperty('--bootstrap-background', '#ffffff')
-    root.style.backgroundColor = 'var(--background, var(--bootstrap-background))'
+    root.style.backgroundColor =
+      'var(--background, var(--bootstrap-background))'
     expect(root.style.backgroundColor).not.toBe('')
 
     render(

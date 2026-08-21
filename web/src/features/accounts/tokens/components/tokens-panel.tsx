@@ -212,9 +212,7 @@ export function TokensPanel({
                 })
               }}
             >
-              {deleteMutation.isPending && (
-                <Loader2 className='animate-spin' />
-              )}
+              {deleteMutation.isPending && <Loader2 className='animate-spin' />}
               {t('accounts.tokens.deleteConfirm.confirm')}
             </Button>
           </DialogFooter>
@@ -419,60 +417,15 @@ function AccountTokenForm({
           onSubmit={form.handleSubmit(onSubmit, onInvalid)}
           className='bg-muted/30 flex flex-col gap-3 rounded-lg border p-3'
         >
-        <FormField
-          control={form.control}
-          name='name'
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('accounts.tokens.form.name')}</FormLabel>
-              <FormControl>
-                <Input
-                  placeholder={t('accounts.tokens.form.namePlaceholder')}
-                  {...field}
-                  value={field.value ?? ''}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name='token'
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('accounts.tokens.form.value')}</FormLabel>
-              <FormControl>
-                <Input
-                  className='font-mono text-xs'
-                  placeholder={
-                    isEdit
-                      ? t('accounts.tokens.form.valuePlaceholder')
-                      : 'sk-...'
-                  }
-                  {...field}
-                  value={field.value ?? ''}
-                />
-              </FormControl>
-              <FormDescription>
-                {isEdit ? t('accounts.tokens.form.valueHint') : undefined}
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className='grid grid-cols-2 gap-3'>
           <FormField
             control={form.control}
-            name='tokenGroup'
+            name='name'
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t('accounts.tokens.form.group')}</FormLabel>
+                <FormLabel>{t('accounts.tokens.form.name')}</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder='default'
+                    placeholder={t('accounts.tokens.form.namePlaceholder')}
                     {...field}
                     value={field.value ?? ''}
                   />
@@ -484,109 +437,154 @@ function AccountTokenForm({
 
           <FormField
             control={form.control}
-            name='quota'
+            name='token'
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t('accounts.tokens.form.quota')}</FormLabel>
+                <FormLabel>{t('accounts.tokens.form.value')}</FormLabel>
                 <FormControl>
                   <Input
-                    type='number'
-                    placeholder={t('accounts.tokens.form.quotaPlaceholder')}
-                    disabled={unlimited}
-                    value={field.value ?? ''}
-                    onChange={(event) =>
-                      field.onChange(
-                        event.target.value === ''
-                          ? undefined
-                          : Number(event.target.value)
-                      )
+                    className='font-mono text-xs'
+                    placeholder={
+                      isEdit
+                        ? t('accounts.tokens.form.valuePlaceholder')
+                        : 'sk-...'
                     }
-                    onBlur={field.onBlur}
+                    {...field}
+                    value={field.value ?? ''}
                   />
                 </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <FormField
-          control={form.control}
-          name='unlimited'
-          render={({ field }) => (
-            <FormItem className='flex flex-row items-center justify-between rounded-lg border p-2.5'>
-              <div className='space-y-0.5'>
-                <FormLabel>{t('accounts.tokens.form.unlimited')}</FormLabel>
                 <FormDescription>
-                  {t('accounts.tokens.form.unlimitedHint')}
+                  {isEdit ? t('accounts.tokens.form.valueHint') : undefined}
                 </FormDescription>
-              </div>
-              <FormControl>
-                <Switch
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                />
-              </FormControl>
-            </FormItem>
-          )}
-        />
-
-        <div className='grid grid-cols-2 gap-3'>
-          <FormField
-            control={form.control}
-            name='expiresAt'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('accounts.tokens.form.expiresAt')}</FormLabel>
-                <FormControl>
-                  <Input
-                    type='datetime-local'
-                    {...field}
-                    value={field.value ?? ''}
-                  />
-                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
 
+          <div className='grid grid-cols-2 gap-3'>
+            <FormField
+              control={form.control}
+              name='tokenGroup'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('accounts.tokens.form.group')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder='default'
+                      {...field}
+                      value={field.value ?? ''}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='quota'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('accounts.tokens.form.quota')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type='number'
+                      placeholder={t('accounts.tokens.form.quotaPlaceholder')}
+                      disabled={unlimited}
+                      value={field.value ?? ''}
+                      onChange={(event) =>
+                        field.onChange(
+                          event.target.value === ''
+                            ? undefined
+                            : Number(event.target.value)
+                        )
+                      }
+                      onBlur={field.onBlur}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
           <FormField
             control={form.control}
-            name='allowedIps'
+            name='unlimited'
             render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('accounts.tokens.form.allowedIps')}</FormLabel>
+              <FormItem className='flex flex-row items-center justify-between rounded-lg border p-2.5'>
+                <div className='space-y-0.5'>
+                  <FormLabel>{t('accounts.tokens.form.unlimited')}</FormLabel>
+                  <FormDescription>
+                    {t('accounts.tokens.form.unlimitedHint')}
+                  </FormDescription>
+                </div>
                 <FormControl>
-                  <Input
-                    placeholder={t(
-                      'accounts.tokens.form.allowedIpsPlaceholder'
-                    )}
-                    {...field}
-                    value={field.value ?? ''}
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
                   />
                 </FormControl>
-                <FormMessage />
               </FormItem>
             )}
           />
-        </div>
 
-        <div className='flex justify-end gap-2'>
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            onClick={requestClose}
-            disabled={isSubmitting}
-          >
-            {t('common.cancel')}
-          </Button>
-          <Button type='submit' size='sm' disabled={isSubmitting}>
-            {isSubmitting && <Loader2 className='animate-spin' />}
-            {isEdit ? t('common.save') : t('accounts.tokens.form.create')}
-          </Button>
-        </div>
-      </form>
+          <div className='grid grid-cols-2 gap-3'>
+            <FormField
+              control={form.control}
+              name='expiresAt'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('accounts.tokens.form.expiresAt')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type='datetime-local'
+                      {...field}
+                      value={field.value ?? ''}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='allowedIps'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('accounts.tokens.form.allowedIps')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder={t(
+                        'accounts.tokens.form.allowedIpsPlaceholder'
+                      )}
+                      {...field}
+                      value={field.value ?? ''}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className='flex justify-end gap-2'>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              onClick={requestClose}
+              disabled={isSubmitting}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button type='submit' size='sm' disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className='animate-spin' />}
+              {isEdit ? t('common.save') : t('accounts.tokens.form.create')}
+            </Button>
+          </div>
+        </form>
       </Form>
 
       <ConfirmDialog

@@ -179,9 +179,7 @@ export function useChannelsColumns(
           />
         ),
         cell: ({ row }) => (
-          <span className='text-sm tabular-nums'>
-            {row.original.priority}
-          </span>
+          <span className='text-sm tabular-nums'>{row.original.priority}</span>
         ),
       },
       {

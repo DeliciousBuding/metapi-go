@@ -128,9 +128,7 @@ describe('apiClient auth interceptor', () => {
     // Initial request + exactly one replay — never an infinite retry loop.
     expect(adapterCalls).toHaveLength(2)
     // The interrupted path is preserved so sign-in can send the user back.
-    expect(replaceMock).toHaveBeenCalledWith(
-      '/sign-in?redirect=%2Faccounts'
-    )
+    expect(replaceMock).toHaveBeenCalledWith('/sign-in?redirect=%2Faccounts')
     // The exhausted retry clears the persisted token.
     expect(storage.has(TOKEN_KEY)).toBe(false)
   })

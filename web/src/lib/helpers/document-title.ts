@@ -16,9 +16,7 @@
 export type RouteTitleSpec =
   | string
   | readonly string[]
-  | ((
-      params: Record<string, string>
-    ) => string | readonly string[] | undefined)
+  | ((params: Record<string, string>) => string | readonly string[] | undefined)
 
 /**
  * Normalize a `staticData.title` spec into a flat i18n key list for the

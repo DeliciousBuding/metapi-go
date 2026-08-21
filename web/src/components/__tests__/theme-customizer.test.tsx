@@ -106,7 +106,9 @@ describe('theme customizer color scheme section', () => {
     const colorSchemeGroup = screen.getByRole('radiogroup', {
       name: 'Color scheme',
     })
-    fireEvent.click(within(colorSchemeGroup).getByRole('radio', { name: 'Dark' }))
+    fireEvent.click(
+      within(colorSchemeGroup).getByRole('radio', { name: 'Dark' })
+    )
 
     await waitFor(() =>
       expect(document.documentElement.classList.contains('dark')).toBe(true)
@@ -130,7 +132,9 @@ describe('theme customizer color scheme section', () => {
     const colorSchemeGroup = screen.getByRole('radiogroup', {
       name: 'Color scheme',
     })
-    fireEvent.click(within(colorSchemeGroup).getByRole('radio', { name: 'Dark' }))
+    fireEvent.click(
+      within(colorSchemeGroup).getByRole('radio', { name: 'Dark' })
+    )
     await waitFor(() =>
       expect(document.documentElement.classList.contains('dark')).toBe(true)
     )
@@ -180,9 +184,7 @@ describe('theme customizer content layout section', () => {
         'centered'
       )
     )
-    expect(document.cookie).toContain(
-      `${CONTENT_LAYOUT_COOKIE_NAME}=centered`
-    )
+    expect(document.cookie).toContain(`${CONTENT_LAYOUT_COOKIE_NAME}=centered`)
   })
 
   it('the section reset returns to full width and clears the cookie', async () => {

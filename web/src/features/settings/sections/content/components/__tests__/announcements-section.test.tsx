@@ -13,14 +13,7 @@ import {
   waitFor,
 } from '@testing-library/react'
 import type { ReactElement } from 'react'
-import {
-  afterEach,
-  beforeAll,
-  describe,
-  expect,
-  it,
-  vi,
-} from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
 

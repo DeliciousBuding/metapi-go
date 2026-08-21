@@ -312,7 +312,14 @@ export function SearchModal(props: SearchModalProps) {
       })
     }
     return groups
-  }, [hasQuery, trimmedQuery, t, pageEntries, settingsEntries, closeAndNavigate])
+  }, [
+    hasQuery,
+    trimmedQuery,
+    t,
+    pageEntries,
+    settingsEntries,
+    closeAndNavigate,
+  ])
 
   // ---- Backend entity layer ----------------------------------------------
 

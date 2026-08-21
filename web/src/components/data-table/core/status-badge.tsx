@@ -95,10 +95,7 @@ function useCopyToClipboard() {
 
   const copyToClipboard = React.useCallback(
     (value: string) => {
-      if (
-        typeof navigator === 'undefined' ||
-        !navigator.clipboard?.writeText
-      ) {
+      if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
         toast.error(t('common.copyFailed'))
         return
       }

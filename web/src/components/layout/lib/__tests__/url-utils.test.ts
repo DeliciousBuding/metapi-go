@@ -85,9 +85,9 @@ describe('checkIsActive', () => {
       true
     )
     // On the explicit default section URL the exact match still works.
-    expect(
-      checkIsActive('/observability?section=overview', overviewItem)
-    ).toBe(true)
+    expect(checkIsActive('/observability?section=overview', overviewItem)).toBe(
+      true
+    )
   })
 
   it('matches activeUrls entries carrying their own query exactly', () => {

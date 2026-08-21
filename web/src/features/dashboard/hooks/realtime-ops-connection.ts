@@ -145,7 +145,10 @@ export function createRealtimeOpsConnection(
   function connect() {
     if (!sessionActive) return
     // Paused-while-hidden: the visibilitychange handler re-dials on show.
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+    if (
+      typeof document !== 'undefined' &&
+      document.visibilityState === 'hidden'
+    ) {
       return
     }
     const token = getToken()

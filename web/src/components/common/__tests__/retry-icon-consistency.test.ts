@@ -19,7 +19,9 @@ describe('retry button icon vocabulary', () => {
   it('QueryErrorBanner retry button uses RefreshCw, not TriangleAlert', () => {
     const source = readSource('src/components/common/query-error-banner.tsx')
 
-    expect(source).toMatch(/import\s*\{[^}]*RefreshCw[^}]*\}\s*from\s*'lucide-react'/)
+    expect(source).toMatch(
+      /import\s*\{[^}]*RefreshCw[^}]*\}\s*from\s*'lucide-react'/
+    )
 
     // The Retry button region (from the onRetry handler to its closing tag)
     // must show the refresh glyph; the warning triangle stays on the banner

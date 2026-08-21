@@ -47,7 +47,9 @@ export function checkIsActive(href: string, item: NavItem): boolean {
     item.activeUrls?.some((url) => {
       const activeUrl = urlToString(url)
       if (!activeUrl) return false
-      return activeUrl === href || (activeUrl === hrefPath && !href.includes('?'))
+      return (
+        activeUrl === href || (activeUrl === hrefPath && !href.includes('?'))
+      )
     })
   ) {
     return true

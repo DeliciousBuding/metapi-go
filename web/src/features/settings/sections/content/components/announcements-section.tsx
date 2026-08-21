@@ -291,10 +291,7 @@ export function AnnouncementsSection() {
         </Table>
       ) : null}
 
-      <Dialog
-        open={editMode !== null}
-        onOpenChange={guardedEditOpenChange}
-      >
+      <Dialog open={editMode !== null} onOpenChange={guardedEditOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -424,7 +421,10 @@ export function AnnouncementsSection() {
             </form>
           </Form>
           <DialogFooter>
-            <Button variant='outline' onClick={() => guardedEditOpenChange(false)}>
+            <Button
+              variant='outline'
+              onClick={() => guardedEditOpenChange(false)}
+            >
               {t('settings.common.cancel')}
             </Button>
             <Button
@@ -477,9 +477,7 @@ export function AnnouncementsSection() {
                 }
               }}
             >
-              {deleteMutation.isPending && (
-                <Loader2 className='animate-spin' />
-              )}
+              {deleteMutation.isPending && <Loader2 className='animate-spin' />}
               {t('settings.common.delete')}
             </Button>
           </DialogFooter>

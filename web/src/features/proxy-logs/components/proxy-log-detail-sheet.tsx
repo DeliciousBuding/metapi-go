@@ -358,10 +358,7 @@ function JsonBlock({ value }: { value: unknown }) {
   const text = useMemo(() => prettyPrintJson(value), [value])
   async function handleCopy() {
     try {
-      if (
-        typeof navigator === 'undefined' ||
-        !navigator.clipboard?.writeText
-      ) {
+      if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
         throw new Error('clipboard unavailable')
       }
       await navigator.clipboard.writeText(text)
