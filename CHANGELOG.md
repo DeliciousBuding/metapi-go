@@ -5,6 +5,24 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.16.6] — 2026-08-21
+
+Round 3 审计修复波：D 域 4 个 P0 契约 bug + H 域性能 + Spinner 双轨收口。
+
+### Fixed
+
+- **前后端契约 4 个 P0（#911）**：account-token snake_case 字段丢失（DB 列名直出 → 重建 camelCase、bool 统一）；site/account/route 更新静默丢弃字段（resinEnabled/useUtls/routeMode/tags/platformUserId 补持久化）；channels 固定截断 50 条（未传分页返回全量）；route channels 缺 success/fail/cooldown（补齐运行时计数与冷却状态）。双方言回归测试。
+- **accounts 100 行主线程冻结（#910）**：每渲染 ~900 次 Zod parse + 不稳定 columns 打破 memo → 边界解析一次 + memo/useCallback，消除全表重渲染。
+- **dashboard 白下载 recharts（#910）**：recharts 静态导入 → React.lazy 按需加载，移出入口 chunk。
+
+### Added
+
+- **静态资源 gzip（#910）**：内嵌 SPA 静态资源新增 gzip 压缩（stdlib、零依赖、按 Content-Type 决策、CSP 保留）。
+
+### Changed
+
+- **Spinner 双轨收口（#912）**：21 文件 56 处裸 Loader2 统一到 canonical Spinner 原语。
+
 ## [v0.16.5] — 2026-08-21
 
 #887 补遗切片收口 + E2E Journey 3：全局告警红点、OAuth 详情 sheet、About 真实构建信息、proxy-log channel 过滤与 channels status facet。
