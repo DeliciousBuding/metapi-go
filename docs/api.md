@@ -1,6 +1,6 @@
 # Admin API Reference
 
-**Last updated**: 2026-08-21
+**Last updated**: 2026-08-22
 
 Base URL: `http://localhost:4000/api`
 
@@ -12,23 +12,40 @@ Authorization: Bearer <AUTH_TOKEN>
 
 ## Response Format
 
-### Success
+All responses are JSON (`Content-Type: application/json`) with camelCase
+field names. There is no single global envelope; the shape depends on the
+endpoint family (the frontend consumes all of the shapes below):
+
+### Success (2xx)
+
+- **Resource lists (legacy shape)**: a bare JSON array of objects
+  (`GET /api/sites`, `GET /api/routes` without `?page`, `GET /api/account-tokens`).
+- **Paginated lists**: `{ "items": [...], "total": N, "page": N, "pageSize": N }`
+  (`GET /api/channels`, `GET /api/accounts?page=`, `GET /api/routes?page=`,
+  `GET /api/downstream-keys?page=`, `GET /api/checkin/logs`).
+  `total` is the true filtered row count, not the page size.
+- **Snapshot lists**: `{ "generatedAt": "...", "accounts": [...], "sites": [...] }`
+  (`GET /api/accounts` without `?page`).
+- **Operation results**: `{ "success": true, ... }` with operation-specific
+  fields (`POST /api/routes/rebuild`, downstream-keys summary, batch
+  endpoints). Batch endpoints report partial failures per item.
+
+### Error (non-2xx)
+
+Failures always use a non-2xx status code (never HTTP 200 with an error
+body). The unified error body is:
 
 ```json
 {
-  "success": true,
-  "data": { ... }
+  "error": "Error description",
+  "request_id": "optional correlation id"
 }
 ```
 
-### Error
-
-```json
-{
-  "success": false,
-  "message": "Error description"
-}
-```
+`request_id` is additive and omitted when no request ID is present. A few
+legacy endpoints (some batch/500 paths under `/api/accounts`, sites import)
+still answer with the TS-era `{ "message": "Error description" }` shape; the
+frontend reads both keys, so both forms surface identically.
 
 HTTP status codes: 200 (OK), 201 (Created), 202 (Accepted), 400 (Bad Request), 401 (Unauthorized), 404 (Not Found), 500 (Internal Server Error).
 
@@ -50,9 +67,11 @@ Returns the admin dashboard snapshot.
 
 ### GET /api/stats/proxy-logs
 
-Query proxy request logs.
+Query proxy request logs (server-side filtered and paginated).
 
-**Query params**: `page`, `limit`, `status`, `model`, `client`, `from`, `to`
+**Query params**: `view` (`full`|`query`|`meta`, default `full`), `limit` (1–100, default 50), `offset` (≥0), `status` (`success`|`failed`), `search` (substring on requested/actual model), `client` (exact client family), `siteId`, `channelId`, `from`/`to` (RFC3339 bounds on createdAt), `latencyMin`/`latencyMax` (ms bounds).
+
+**Response** (`view=query`/`full`): `{ items, total, page, pageSize }` where `total` respects all active filters; `view=meta`/`full` adds `summary` (totalCount/successCount/failedCount/totalCost/totalTokensAll), `sites`, `clientOptions`.
 
 ### GET /api/stats/proxy-logs/:id
 
