@@ -14,11 +14,15 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 )
 
-// RegisterMonitorRoutes registers all /api/monitor and /monitor-proxy routes.
+// RegisterMonitorRoutes registers the Bearer-protected /api/monitor
+// configuration surface. The cookie-authenticated iframe proxy lives in
+// RegisterMonitorProxyRoutes and must be wired OUTSIDE the admin auth group
+// (see router/router.go).
 func RegisterMonitorRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
 	handler := &monitorHandler{db: db, cfg: cfg}
 
@@ -29,8 +33,18 @@ func RegisterMonitorRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
 	// DELETE clears the HttpOnly meta_monitor_auth cookie on admin logout.
 	// Frontend JS cannot clear HttpOnly cookies; this is the honest clear path.
 	r.Delete("/api/monitor/session", handler.clearSession)
+}
 
-	// LDOH proxy routes - rate limited at 60 req/min at the router layer when wired.
+// RegisterMonitorProxyRoutes registers the /monitor-proxy/ldoh* iframe proxy
+// surface. Authentication is the HttpOnly meta_monitor_auth cookie minted by
+// createSession — iframe sub-resource requests cannot carry an Authorization
+// header, so mounting these routes behind the Bearer AdminAuth middleware
+// breaks the LDOH iframe (Wave 4 security handoff F1). The handler enforces
+// the cookie itself via ensureMonitorAuth; keep this registrar outside any
+// Bearer-gated group.
+func RegisterMonitorProxyRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
+	handler := &monitorHandler{db: db, cfg: cfg}
+
 	r.HandleFunc("/monitor-proxy/ldoh", handler.ldohProxy)
 	r.HandleFunc("/monitor-proxy/ldoh/", handler.ldohProxy)
 	r.HandleFunc("/monitor-proxy/ldoh/*", handler.ldohProxy)
@@ -210,6 +224,15 @@ func (h *monitorHandler) ldohProxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	wildcardPath := resolveLdohProxyPath(r)
+	// Wave 4 security handoff M1: reject ".." segments before joining the
+	// LDOH base URL. The request path arrives percent-decoded, so %2e%2e is
+	// caught in the same scan. Without this check a monitor-session cookie
+	// holder could normalize outside the LDOH base subpath on the upstream
+	// host once the surface is reachable with cookie-only auth (F1).
+	if proxy.ContainsPathTraversal(wildcardPath) {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "invalid proxy path"})
+		return
+	}
 	baseURL := h.cfg.LDOHBaseURL
 	targetURL, err := url.Parse(baseURL + "/" + wildcardPath)
 	if err != nil {

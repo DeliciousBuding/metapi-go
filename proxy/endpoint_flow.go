@@ -90,6 +90,21 @@ func BuildUpstreamURL(siteURL, path string) string {
 	return siteURL + path
 }
 
+// ContainsPathTraversal reports whether a request path contains a ".."
+// segment. Callers pass percent-decoded paths (net/http decodes the request
+// target into r.URL.Path before handlers run, so %2e%2e arrives as ".."),
+// which makes a plain segment scan sufficient for both literal and encoded
+// traversal. Single-dot segments are not traversal on their own and are left
+// alone so legitimate paths are never altered.
+func ContainsPathTraversal(path string) bool {
+	for _, segment := range strings.Split(path, "/") {
+		if segment == ".." {
+			return true
+		}
+	}
+	return false
+}
+
 func hasVersionedBasePath(siteURL string) bool {
 	base := siteURL
 	if i := strings.IndexAny(base, "?#"); i >= 0 {
