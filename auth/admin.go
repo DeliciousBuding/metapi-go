@@ -84,12 +84,34 @@ func AdminAuth(cfg *config.Config) func(http.Handler) http.Handler {
 
 // isPublicAPIRoute returns true for routes that do not require admin auth.
 // Whitelist: /api/desktop/health, /api/oauth/callback/*
+//
+// A ".." path segment anywhere in the URL disqualifies the bypass. chi does
+// not clean request paths, so today traversal strings never reach a
+// registered handler — but the middleware predicate itself must not hand out
+// a bypass for a path that merely starts with a public prefix, or a future
+// path-normalizing refactor (before or instead of chi routing) would turn
+// this prefix match into a full admin auth bypass.
 func isPublicAPIRoute(urlPath string) bool {
+	if containsDotDotSegment(urlPath) {
+		return false
+	}
 	if urlPath == "/api/desktop/health" {
 		return true
 	}
 	if strings.HasPrefix(urlPath, "/api/oauth/callback/") {
 		return true
+	}
+	return false
+}
+
+// containsDotDotSegment reports whether any "/"-separated segment is exactly
+// "..". net/http decodes percent-escapes into r.URL.Path before routing, so
+// "%2e%2e" has already become ".." by the time middleware sees the path.
+func containsDotDotSegment(urlPath string) bool {
+	for _, segment := range strings.Split(urlPath, "/") {
+		if segment == ".." {
+			return true
+		}
 	}
 	return false
 }
