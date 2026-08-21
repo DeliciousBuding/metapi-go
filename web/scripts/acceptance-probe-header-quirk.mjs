@@ -273,9 +273,9 @@ const clickedTrials = results.filter(
 )
 console.log(
   `== header-overlap probe summary: ${clickedTrials.length}/${results.length} clean clicks, ` +
-    `${failedTrials.length} failed (${failedTrials
-      .map((r) => r.clickOutcome)
-      .join(', ') || '-'}), load-time interception samples=${loadTimeInterceptionTotal} ==`
+    `${failedTrials.length} failed (${
+      failedTrials.map((r) => r.clickOutcome).join(', ') || '-'
+    }), load-time interception samples=${loadTimeInterceptionTotal} ==`
 )
 if (loadTimeInterceptionTotal > 0) {
   console.log(
@@ -285,6 +285,6 @@ if (loadTimeInterceptionTotal > 0) {
 } else {
   console.log(
     'NOT reproduced at load time: every interception sample occurred AFTER the ' +
-      'probe\'s own click opened the create sheet (expected coverage, not the §6 quirk).'
+      "probe's own click opened the create sheet (expected coverage, not the §6 quirk)."
   )
 }
