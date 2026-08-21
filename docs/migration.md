@@ -1,6 +1,6 @@
 # 迁移指南：TypeScript → Go
 
-**Last updated**: 2026-08-20
+**Last updated**: 2026-08-22
 
 本文覆盖把 TypeScript 版 Metapi 部署迁到 Go 版的完整过程。走哪条路取决于旧版使用哪种数据库：SQLite 与 PostgreSQL 库**停止旧服务后由 Go 直接接管**；MySQL 库必须**先在 TypeScript 版内完成转换**。文末是 `metapi-migrate` CLI 参考、镜像版本锁定与故障排查。
 
@@ -44,7 +44,10 @@ Go 镜像以**非 root 用户（uid 1001）**运行；旧 TS 容器以 root 写�
   sudo chown -R 1001:1001 ./data
   ```
 
-  否则启动报 `attempt to write a readonly database`（带旧库）或 `unable to open database file`（新目录）。
+  否则启动会被写权限探针拦下，直接报可操作的修复提示（而不是裸 SQLite 错误）：
+  `store: data directory "/app/data" is not writable by the current process (uid ...) ... 'chown -R 1001:1001 <host-data-dir>'`。
+  只有以 root 直接运行二进制（探针的权限检查对 root 不生效）且目录确实不可写时，
+  才会落到裸错误 `attempt to write a readonly database`（带旧库）或 `unable to open database file`（新目录）。
 - **命名卷**（`-v metapi_data:/app/data`）：属主自动从镜像继承，**无需 chown**。把 TS 的 `hub.db` 放进卷后直接可用。
 
 ### A.4 用同样的环境变量启动 Go 版
@@ -72,6 +75,7 @@ services:
 ```
 store: running auto-migration
 store: applying additive migration ...   # 仅当有未应用的补列步骤
+store: converged legacy schema ...       # 仅当确实收敛了旧 schema（打印本次应用的补列步数）
 store: auto-migration complete
 ```
 
@@ -186,7 +190,7 @@ TS 版还提供 JSON 备份（Schema v2.1）导出/导入，可作为 MySQL 数�
 | `--dry-run` | 只打印迁移计划，不写数据 |
 | `--progress` | 每 100 行打印一次进度 |
 | `--verify` | 迁移后做行数 + 校验和核对 |
-| `--batch-size N` | 保留以兼容 TS CLI；当前实现固定逐行插入 |
+| `--batch-size N` | 每条多行 INSERT 最多 N 行（默认 1 = 逐行插入，与 TS 默认一致）；兼容 TS CLI 保留 |
 
 ### 示例：SQLite → PostgreSQL
 
@@ -206,7 +210,10 @@ TS 版还提供 JSON 备份（Schema v2.1）导出/导入，可作为 MySQL 数�
   --verify
 ```
 
-`--verify` 迁移完成后输出 `Verifying checksums...`，确认无误时打印 **`All checksums match.`**（以日志为准核对；若打印 `Verification warning: ...`，按警告内容排查后再核对数据）。
+`--verify` 迁移完成后输出 `Verifying checksums...`，确认无误时打印 **`All checksums match.`**。
+校验失败时打印 `Verification failed: ...`（含失败表与 source/target 校验和）并以非零码退出。
+注意 `--verify` 是**随本次迁移执行**的核对（拷贝完成后立即比对源快照与目标）；工具没有
+独立的「只复核已迁移目标」模式——迁移完成后对目标库的外部改动，要靠备份/再次迁移发现。
 
 ### 示例：PostgreSQL → SQLite
 
@@ -221,7 +228,7 @@ TS 版还提供 JSON 备份（Schema v2.1）导出/导入，可作为 MySQL 数�
 
 ### 说明
 
-- 迁移只搬运数据行；目标库的 schema 由迁移器调用 `AutoMigrate` 建立，之后启动一次 Go 服务让 additive 迁移把目标库补到当前版本。
+- 迁移只搬运数据行；目标库的 schema 由迁移器调用 `AutoMigrate` 建立（基础 DDL + additive 补列一步到位，迁移日志可见 `store: converged legacy schema`）；迁移完成后启动 Go 服务是幂等的。
 - settings 表的运行时键（`db_type`、`db_url`、`db_ssl`）会被过滤，不会覆盖目标库的连接配置。
 - 源 SQLite 文件只读、不会被修改；目标库已有数据且未开 `--overwrite` 时迁移会拒绝执行。
 
@@ -246,7 +253,8 @@ schema 升级是 forward-only（只加列 / 表，不做自动降级）；回退
 
 | 现象 | 处理 |
 | ---- | ---- |
-| 启动报 `attempt to write a readonly database` 或 `unable to open database file` | 数据目录权限：bind mount 目录归 root 所有。宿主机执行 `chown -R 1001:1001 ./data`；全新部署改用命名卷免配置 |
+| 启动报 `store: data directory ... is not writable by the current process` | 数据目录权限：bind mount 目录归 root 所有（#849/#875 探针，报错自带修复提示）。宿主机执行 `chown -R 1001:1001 ./data`；全新部署改用命名卷免配置 |
+| 启动报 `attempt to write a readonly database` 或 `unable to open database file` | 同上（以 root 运行绕过探针时才会看到的裸 SQLite 错误）。宿主机执行 `chown -R 1001:1001 ./data`；全新部署改用命名卷免配置 |
 | 查询报 `no such column: <列名>` | 老 TS 库缺列，正常情况首启自动补列（additive `sc2_001`~`sc2_024`）。**仍出现**说明 TS 库比当前 Go 版本新（TS 后续迁移加过列），升级 Go 到更新版本 |
 | `metapi-migrate` 报 `target database already contains data` | 目标库已有数据且未开 `--overwrite`。确认覆盖意图后加 `--overwrite`（默认即开启） |
 | `metapi-migrate` 报 `unsupported direction: PostgreSQL source to PostgreSQL target` | PG→PG 数据搬运不支持；PG 库用场景 B 直接接管 |
