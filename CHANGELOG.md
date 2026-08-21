@@ -5,6 +5,32 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.16.4] — 2026-08-21
+
+前端细节打磨专项第二批（#889 八域并行修复波：P0 安全网 / 移动端契约 / 信息架构 / 数据呈现真值 / 交互反馈 / 性能稳定 / 主题会话收尾 / 视觉一致性）。
+
+### Fixed
+
+- **永不刷新的账号金额渲染成 0（P0）**：后端不主动刷新的金额字段此前恒显 `0`，制造「余额归零」假象。修复：从未刷新的金额一律渲染 em dash，不伪造数据（#889）。
+- **危险操作无确认**：WebDAV 导入与 usage-log 清空前补确认对话框；路由表单 Cancel 与脏表单关闭统一走守卫（#889）。
+- **写操作双 toast / 无反馈**：调用方已 toast 的写操作跳过全局错误 toast 防双弹；批量路由启用/停用补结果 toast；复制操作补反馈闭环；checkin trigger 与站点开关补行级 pending（#889）。
+- **移动端契约**：页头动作簇响应式收纳（换行 + More 菜单）；sheet 小屏全宽面板 + 可滚主体；图标按钮 coarse-pointer 40px 触控目标；表格/侧栏断点常量共享（#889）。
+- **IA 断链**：全部 workspace 页面补 `document.title`；observability proxy-logs 直达入口与跨页链接；侧栏打磨（#889）。
+- **数据呈现真值收敛**：共享 format 层扩展（locale 感知日期时间、货币、图表/延迟、千分位、em dash 统一），全站替换散落实现并修掉货币双前缀（#889）。
+- **性能与稳定**：共享自愈 realtime WebSocket + 数据新鲜度标记；accounts 行开关乐观更新；账号深链 pageSize 收敛 UI 上限；OAuth 连接列表服务端分页；公告 banner 走 TanStack Query 缓存；工具栏搜索 300ms 防抖（#889）。
+- **主题与会话**：content-layout 轴 + 系统色彩方案 + preset 清理收尾主题系统；登录页 token 指引与 token 轮换后登出；会话过期保留返回路径、无效 token 403 主动登出；Electron 等待屏服务器退出失败态；语言中立的 auth settings 错误消息（#889）。
+
+### Added
+
+- **⌘K 命令面板**：全局导航层 + 过滤日志深链（#889）。
+- **header 用户菜单**：登出 / 版本 / About / 文档入口（#889）。
+- **共享 DetailField 原语**：七个详情 sheet 收敛为同一堆叠字段布局；非表格空态收敛 Empty 原语（#889）。
+
+### Changed
+
+- **视觉一致性收口**：错误重试图标统一 RefreshCw + 静态守卫；gap 控件双重图标间距清理；settings 分区 space-y-4 垂直节奏；批量栏尺寸与 RoutePending 壳同构；dark inset 边缘等视觉 P2 九散件（#889）。
+- **门禁**：前端 vitest 132 文件 885 用例全绿；typecheck / lint / knip / 生产构建通过；本波无 Go 代码改动（#889）。
+
 ## [v0.16.3] — 2026-08-21
 
 前端细节打磨专项（#887 审计驱动，四路并行审计：空壳扫描 / 五动线逐跳追踪 / PM 内容完整度 / 设计系统落地）。
