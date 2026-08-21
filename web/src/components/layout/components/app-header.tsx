@@ -1,11 +1,12 @@
 // metapi-go/layout — application header.
-// Brand on the left; global-search trigger, the shared language /
-// appearance / color-scheme controls, and the user menu (version, About,
-// documentation, sign-out) on the right.
+// Brand on the left; global-search trigger, the attention bell, the shared
+// language / appearance / color-scheme controls, and the user menu (version,
+// About, documentation, sign-out) on the right.
 
 import { Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { AttentionBell } from '@/components/layout/components/attention-bell'
 import { InterfaceControls } from '@/components/layout/components/interface-controls'
 import { UserMenu } from '@/components/layout/components/user-menu'
 import { Button } from '@/components/ui/button'
@@ -62,21 +63,25 @@ export function AppHeader({
     >
       <SidebarTrigger className='md:hidden' />
       {leftContent ?? (
-        <div className='flex items-center gap-2'>
+        // The brand is the only flexible header cell: on narrow viewports it
+        // truncates so the right-hand controls (search, attention bell,
+        // interface controls, user menu) keep their full hit targets.
+        <div className='flex min-w-0 items-center gap-2'>
           <img
             src={metapiIdentity.logoPath}
             alt={metapiIdentity.name}
-            className='size-6 rounded-sm'
+            className='size-6 shrink-0 rounded-sm'
           />
-          <span className='text-sm font-semibold tracking-tight'>
+          <span className='truncate text-sm font-semibold tracking-tight'>
             {metapiIdentity.name}
           </span>
         </div>
       )}
 
       {rightContent ?? (
-        <div className='ms-auto flex items-center gap-1'>
+        <div className='ms-auto flex shrink-0 items-center gap-1'>
           <SearchTrigger onClick={onSearchClick} />
+          <AttentionBell />
           <InterfaceControls showThemeToggle={showThemeToggle} />
           <UserMenu />
         </div>

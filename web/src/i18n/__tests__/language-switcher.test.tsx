@@ -5,6 +5,7 @@
 // DirectionProvider, so a language change must NOT touch it.
 
 import '@testing-library/jest-dom/vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   cleanup,
   fireEvent,
@@ -26,6 +27,14 @@ import { AppHeader } from '@/components/layout/components/app-header'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { ThemeProvider } from '@/context/theme-provider'
 import i18n from '@/i18n/config'
+
+// The header's attention bell polls GET /api/stats/attention — stub the
+// transport so this i18n test never reaches the network.
+vi.mock('@/lib/api', () => ({
+  api: {
+    getAttention: vi.fn().mockResolvedValue({ items: [], total: 0 }),
+  },
+}))
 
 // jsdom has no window.matchMedia (ThemeProvider reads prefers-color-scheme)
 // and no ResizeObserver (Base UI positions the dropdown popup with it).
@@ -70,12 +79,17 @@ afterEach(() => {
 })
 
 function renderHeader() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
+  })
   return render(
-    <ThemeProvider>
-      <SidebarProvider defaultOpen={false}>
-        <AppHeader />
-      </SidebarProvider>
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <SidebarProvider defaultOpen={false}>
+          <AppHeader />
+        </SidebarProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   )
 }
 

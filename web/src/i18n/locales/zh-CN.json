@@ -2515,6 +2515,19 @@
       "about": "关于",
       "documentation": "文档",
       "signOut": "退出登录"
+    },
+    "attention": {
+      "trigger": "待关注告警",
+      "triggerWithCount": "待关注告警（{{value}} 项待处理）",
+      "title": "需要关注",
+      "empty": "暂无待关注项。",
+      "loadError": "加载关注事项失败。",
+      "viewAll": "查看全部待关注项",
+      "severity": {
+        "critical": "严重",
+        "warning": "警告",
+        "info": "提示"
+      }
     }
   }
 }

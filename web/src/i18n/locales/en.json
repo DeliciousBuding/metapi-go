@@ -2515,6 +2515,19 @@
       "about": "About",
       "documentation": "Documentation",
       "signOut": "Sign out"
+    },
+    "attention": {
+      "trigger": "Attention items",
+      "triggerWithCount": "Attention items ({{value}} pending)",
+      "title": "Attention required",
+      "empty": "Nothing needs attention right now.",
+      "loadError": "Failed to load attention items.",
+      "viewAll": "View all attention items",
+      "severity": {
+        "critical": "critical",
+        "warning": "warning",
+        "info": "info"
+      }
     }
   }
 }
