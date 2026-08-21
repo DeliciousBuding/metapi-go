@@ -1,9 +1,10 @@
-// metapi-go/routes — about (static info page).
+// metapi-go/routes — about (project + build info page).
 //
-// No `validateSearch` and no `loader`: the about page renders build-time
-// constants resolved synchronously by `useAboutInfo()` (no network round
-// trip), so there is nothing to prefetch. The component is declared directly;
-// the router plugin's `autoCodeSplitting` splits it in production.
+// No `validateSearch` and no `loader`: the page shell renders the curated
+// project metadata immediately and `useAboutInfo()` fetches the binary's build
+// provenance (`GET /api/about`) into the Build Info card, which owns its own
+// skeleton/error states. The component is declared directly; the router
+// plugin's `autoCodeSplitting` splits it in production.
 
 import { createFileRoute } from '@tanstack/react-router'
 

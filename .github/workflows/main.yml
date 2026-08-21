@@ -443,6 +443,9 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Resolve build provenance
+        id: provenance
+        run: echo "build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
       - uses: docker/metadata-action@v6
         id: meta
         with:
@@ -461,6 +464,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VERSION=${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'dev' }}
+            COMMIT=${{ github.sha }}
+            BUILD_TIME=${{ steps.provenance.outputs.build_time }}
             BUN_VERSION=${{ env.BUN_VERSION }}
           cache-from: type=gha,scope=${{ env.DOCKER_CACHE_SCOPE }}
           cache-to: type=gha,mode=max,scope=${{ env.DOCKER_CACHE_SCOPE }}
@@ -504,7 +509,9 @@ jobs:
       - name: Build multi-platform release binaries
         run: |
           set -euo pipefail
-          ldflags="-s -w -X github.com/deliciousbuding/metapi-go/internal/version.Version=${GITHUB_REF_NAME}"
+          version_pkg="github.com/deliciousbuding/metapi-go/internal/version"
+          build_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          ldflags="-s -w -X ${version_pkg}.Version=${GITHUB_REF_NAME} -X ${version_pkg}.Commit=${GITHUB_SHA} -X ${version_pkg}.BuildTime=${build_time}"
           mkdir -p dist-bin
           for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
             os="${target%/*}"

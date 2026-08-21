@@ -2,7 +2,13 @@
 
 # Version injected into the binary at build time; "dev" when not on a tag.
 VERSION ?= $(shell git describe --tags --exact-match 2>/dev/null || echo dev)
-LDFLAGS := -s -w -X github.com/deliciousbuding/metapi-go/internal/version.Version=$(VERSION)
+# Build provenance injected alongside VERSION and surfaced by GET /api/about.
+# COMMIT stays empty outside a git checkout; the About page then renders an
+# em-dash instead of a fabricated SHA.
+COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null)
+BUILD_TIME ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+VERSION_PKG := github.com/deliciousbuding/metapi-go/internal/version
+LDFLAGS := -s -w -X $(VERSION_PKG).Version=$(VERSION) -X $(VERSION_PKG).Commit=$(COMMIT) -X $(VERSION_PKG).BuildTime=$(BUILD_TIME)
 
 # Build the server binary (requires web/dist/ to exist for go:embed)
 build:

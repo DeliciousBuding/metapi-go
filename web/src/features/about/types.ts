@@ -1,20 +1,20 @@
 // metapi-go/features/about — domain types for the About feature.
 //
-// The About page renders build/runtime metadata. There is no backend
-// `/api/about` endpoint today, so `useAboutInfo` resolves build-time
-// constants; the optional `buildTime` / `commit` / `goVersion` fields are
-// reserved for when the endpoint lands — the page shows an em-dash for any
-// field the backend does not yet supply. The public GitHub repository link
-// is the only external reference (metapi-go is a public repo).
+// The About page renders build/runtime metadata. `buildTime` / `commit` /
+// `goVersion` come from `GET /api/about` (the running Go binary); they stay
+// undefined when the binary was linked without ldflags injection (a local
+// `go build` reports no commit or build time), and the page then shows an
+// em-dash rather than a fabricated value. The public GitHub repository link is
+// the only external reference (metapi-go is a public repo).
 
 export type AboutInfo = {
-  /** Semver version, sourced from package.json at build time. */
+  /** Semver version: the binary version from /api/about, else the bundle version. */
   version: string
-  /** ISO build timestamp. Undefined until a backend endpoint supplies it. */
+  /** UTC RFC3339 build timestamp. Undefined when the binary carries none. */
   buildTime?: string
-  /** Git commit SHA. Undefined until a backend endpoint supplies it. */
+  /** Git commit SHA. Undefined when the binary carries none. */
   commit?: string
-  /** Go runtime version string. Undefined until a backend endpoint supplies it. */
+  /** Go runtime version string reported by the backend. */
   goVersion?: string
   /** Human-readable product name. */
   projectName: string

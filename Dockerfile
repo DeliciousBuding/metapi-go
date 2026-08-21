@@ -7,6 +7,12 @@
 
 # ARG declared before the first FROM is visible to every stage.
 ARG VERSION=dev
+# Build provenance surfaced by GET /api/about. No default: a plain
+# `docker build` produces an empty commit/build time, which the About page
+# renders as an em-dash instead of a fabricated SHA/timestamp. CI passes the
+# real values (see .github/workflows/main.yml docker-push).
+ARG COMMIT
+ARG BUILD_TIME
 # Single source of truth: .github/workflows/main.yml env.BUN_VERSION
 # (docker-push/docker-build pass it as a build-arg; default matches).
 ARG BUN_VERSION=1.3.14
@@ -25,6 +31,8 @@ RUN bun run build:web
 # Stage 2: Go build
 FROM golang:1.26.6-alpine AS build
 ARG VERSION
+ARG COMMIT
+ARG BUILD_TIME
 WORKDIR /app
 COPY go.mod go.sum ./
 # Module cache mount: `go mod download` becomes a no-op when go.sum hasn't
@@ -57,12 +65,12 @@ COPY --from=web /app/web/dist ./web/dist
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 go build -trimpath -buildvcs=false \
-    -ldflags="-s -w -X github.com/deliciousbuding/metapi-go/internal/version.Version=${VERSION}" \
+    -ldflags="-s -w -X github.com/deliciousbuding/metapi-go/internal/version.Version=${VERSION} -X github.com/deliciousbuding/metapi-go/internal/version.Commit=${COMMIT} -X github.com/deliciousbuding/metapi-go/internal/version.BuildTime=${BUILD_TIME}" \
     -o metapi ./cmd/server
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 go build -trimpath -buildvcs=false \
-    -ldflags="-s -w -X github.com/deliciousbuding/metapi-go/internal/version.Version=${VERSION}" \
+    -ldflags="-s -w -X github.com/deliciousbuding/metapi-go/internal/version.Version=${VERSION} -X github.com/deliciousbuding/metapi-go/internal/version.Commit=${COMMIT} -X github.com/deliciousbuding/metapi-go/internal/version.BuildTime=${BUILD_TIME}" \
     -o metapi-migrate ./cmd/migrate
 
 # Stage 3: Runtime
