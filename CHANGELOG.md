@@ -5,6 +5,23 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.16.5] — 2026-08-21
+
+#887 补遗切片收口 + E2E Journey 3：全局告警红点、OAuth 详情 sheet、About 真实构建信息、proxy-log channel 过滤与 channels status facet。
+
+### Added
+
+- **全局告警红点（attention 入口）**：顶栏新增告警铃铛，attention 告警全局可及（#902）。
+- **OAuth 连接详情 sheet**：OAuth 连接列表下钻详情（#887 S4，#903）。
+- **About 真实构建信息**：后端 `GET /api/about` 暴露真实版本/构建信息，About 页展示（#904）。
+- **proxy-log channel 过滤 + channels status facet**：proxy-log 列表新增 channel 维度过滤；channels 列表新增 status facet（#905）。
+
+### Changed
+
+- **E2E Journey 3**：签到 UI 全链路 round-trip 验收（#899）。
+- **卫生**：落地页移除后的零引用 CSS 残留清理（#901）。
+- **文档**：docs/internal STATE/MASTER/log 对齐 v0.16.4 基线 + active work（#906）。
+
 ## [v0.16.4] — 2026-08-21
 
 前端细节打磨专项第二批（#889 八域并行修复波：P0 安全网 / 移动端契约 / 信息架构 / 数据呈现真值 / 交互反馈 / 性能稳定 / 主题会话收尾 / 视觉一致性）。
