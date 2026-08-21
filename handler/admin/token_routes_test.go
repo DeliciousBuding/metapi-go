@@ -1587,6 +1587,141 @@ func TestRedactSearchSecrets(t *testing.T) {
 	}
 }
 
+// TestRouteChannels_IncludeRuntimeCounters verifies GET /api/routes/{id}/channels
+// returns each channel's success/fail hit counts and persisted cooldown — the
+// fields the route detail sheet renders. Regression for the Round 3 contract
+// audit: the enriched map dropped successCount/failCount/cooldownUntil even
+// though rc.* carried them.
+func TestRouteChannels_IncludeRuntimeCounters(t *testing.T) {
+	db, r := setupTokenRoutesTest(t)
+	routeID, accountID, tokenID := seedRouteChannelRefs(t, db)
+
+	cooldownUntil := time.Now().Add(time.Hour).UTC().Format(time.RFC3339)
+	if _, err := db.Exec(
+		`INSERT INTO route_channels
+			(route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override,
+			 success_count, fail_count, cooldown_until)
+		 VALUES (?, ?, ?, 'gpt-4o', 5, 20, 1, 0, 42, 7, ?)`,
+		routeID, accountID, tokenID, cooldownUntil); err != nil {
+		t.Fatalf("insert channel: %v", err)
+	}
+
+	resp := doGet(t, r, "/api/routes/"+itoa(routeID)+"/channels")
+	if resp.Code != http.StatusOK {
+		t.Fatalf("get route channels: %d %s", resp.Code, resp.Body.String())
+	}
+	var chans []map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &chans); err != nil {
+		t.Fatalf("decode channels: %v", err)
+	}
+	if len(chans) != 1 {
+		t.Fatalf("channels = %d, want 1", len(chans))
+	}
+	ch := chans[0]
+	if got := int64(ch["successCount"].(float64)); got != 42 {
+		t.Fatalf("successCount = %v, want 42", ch["successCount"])
+	}
+	if got := int64(ch["failCount"].(float64)); got != 7 {
+		t.Fatalf("failCount = %v, want 7", ch["failCount"])
+	}
+	if ch["cooldownUntil"] != cooldownUntil {
+		t.Fatalf("cooldownUntil = %v, want %q", ch["cooldownUntil"], cooldownUntil)
+	}
+
+	// The routes list embeds the same RouteChannel contract; the counters
+	// must not be dropped there either.
+	listResp := doGet(t, r, "/api/routes")
+	if listResp.Code != http.StatusOK {
+		t.Fatalf("list routes: %d %s", listResp.Code, listResp.Body.String())
+	}
+	var routes []map[string]any
+	if err := json.Unmarshal(listResp.Body.Bytes(), &routes); err != nil {
+		t.Fatalf("decode routes: %v", err)
+	}
+	var embedded []map[string]any
+	for _, route := range routes {
+		if int64(route["id"].(float64)) == routeID {
+			for _, raw := range route["channels"].([]any) {
+				embedded = append(embedded, raw.(map[string]any))
+			}
+		}
+	}
+	if len(embedded) != 1 {
+		t.Fatalf("embedded channels = %d, want 1", len(embedded))
+	}
+	if got := int64(embedded[0]["successCount"].(float64)); got != 42 {
+		t.Fatalf("embedded successCount = %v, want 42", embedded[0]["successCount"])
+	}
+	if got := int64(embedded[0]["failCount"].(float64)); got != 7 {
+		t.Fatalf("embedded failCount = %v, want 7", embedded[0]["failCount"])
+	}
+	if embedded[0]["cooldownUntil"] != cooldownUntil {
+		t.Fatalf("embedded cooldownUntil = %v, want %q", embedded[0]["cooldownUntil"], cooldownUntil)
+	}
+}
+
+// TestTokenRoutes_Update_PersistsRouteMode verifies the route edit form field
+// `routeMode` is persisted on PUT /api/routes/{id} instead of silently
+// dropped, with the same mode invariants as createRoute.
+func TestTokenRoutes_Update_PersistsRouteMode(t *testing.T) {
+	db, r := setupTokenRoutesTest(t)
+	routeID, _, _ := seedRouteChannelRefs(t, db)
+
+	// Switch the seeded pattern route (model_pattern 'gpt-*') to an
+	// explicit group. displayName is required for explicit_group.
+	upd := doPutJSON(t, r, "/api/routes/"+itoa(routeID), map[string]any{
+		"routeMode":   "explicit_group",
+		"displayName": "my-group",
+	})
+	if upd.Code != http.StatusOK {
+		t.Fatalf("update routeMode: %d %s", upd.Code, upd.Body.String())
+	}
+	var updated map[string]any
+	if err := json.Unmarshal(upd.Body.Bytes(), &updated); err != nil {
+		t.Fatalf("decode update: %v", err)
+	}
+	if updated["routeMode"] != "explicit_group" {
+		t.Fatalf("routeMode = %v, want explicit_group", updated["routeMode"])
+	}
+	var storedMode *string
+	if err := db.Get(&storedMode, db.Rebind("SELECT route_mode FROM token_routes WHERE id = ?"), routeID); err != nil {
+		t.Fatalf("read route_mode: %v", err)
+	}
+	if storedMode == nil || *storedMode != "explicit_group" {
+		t.Fatalf("stored route_mode = %v, want explicit_group", storedMode)
+	}
+
+	// Switch back to pattern with a modelPattern (required for pattern).
+	back := doPutJSON(t, r, "/api/routes/"+itoa(routeID), map[string]any{
+		"routeMode":    "pattern",
+		"modelPattern": "gpt-*",
+	})
+	if back.Code != http.StatusOK {
+		t.Fatalf("switch back to pattern: %d %s", back.Code, back.Body.String())
+	}
+	var switched map[string]any
+	if err := json.Unmarshal(back.Body.Bytes(), &switched); err != nil {
+		t.Fatalf("decode switch: %v", err)
+	}
+	if switched["routeMode"] != "pattern" {
+		t.Fatalf("routeMode = %v, want pattern", switched["routeMode"])
+	}
+
+	// Invalid mode value is rejected without touching the row.
+	bad := doPutJSON(t, r, "/api/routes/"+itoa(routeID), map[string]any{
+		"routeMode": "bogus",
+	})
+	if bad.Code != http.StatusBadRequest {
+		t.Fatalf("invalid routeMode: got %d, want 400", bad.Code)
+	}
+	if err := db.Get(&storedMode, db.Rebind("SELECT route_mode FROM token_routes WHERE id = ?"), routeID); err != nil {
+		t.Fatalf("read route_mode after invalid: %v", err)
+	}
+	if storedMode == nil || *storedMode != "pattern" {
+		t.Fatalf("route_mode after invalid update = %v, want unchanged pattern", storedMode)
+	}
+}
+
 // TestTokenRoutes_SummaryBatchedCounts verifies that listSummary returns
 // correct per-route channelCount / enabledChannelCount via the single
 // GROUP BY query (covers routes with mixed enabled/disabled channels and a

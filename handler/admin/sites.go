@@ -219,6 +219,24 @@ func (h *sitesHandler) createSite(w http.ResponseWriter, r *http.Request) {
 	} else {
 		siteData["externalCheckinUrl"] = nil
 	}
+	// Per-site nullable overrides (resin / uTLS): explicit true/false stores
+	// the override, explicit null clears it back to inheriting the global
+	// flag, and an absent key leaves the column NULL (inherit) — matching
+	// the tri-state the frontend form sends.
+	if body.ResinEnabled.Present {
+		if body.ResinEnabled.Null {
+			siteData["resinEnabled"] = nil
+		} else {
+			siteData["resinEnabled"] = body.ResinEnabled.Value
+		}
+	}
+	if body.UseUTLS.Present {
+		if body.UseUTLS.Null {
+			siteData["useUtls"] = nil
+		} else {
+			siteData["useUtls"] = body.UseUTLS.Value
+		}
+	}
 
 	// Convert apiEndpoints
 	if eps != nil {
@@ -396,6 +414,22 @@ func (h *sitesHandler) updateSite(w http.ResponseWriter, r *http.Request) {
 			ms = 0
 		}
 		updates["postRefreshProbeLatencyThresholdMs"] = ms
+	}
+	// Per-site nullable overrides (resin / uTLS): true/false stores the
+	// override, null clears it (inherit global flag), absent leaves it alone.
+	if body.ResinEnabled.Present {
+		if body.ResinEnabled.Null {
+			updates["resinEnabled"] = nil
+		} else {
+			updates["resinEnabled"] = body.ResinEnabled.Value
+		}
+	}
+	if body.UseUTLS.Present {
+		if body.UseUTLS.Null {
+			updates["useUtls"] = nil
+		} else {
+			updates["useUtls"] = body.UseUTLS.Value
+		}
 	}
 
 	// Handle API endpoints

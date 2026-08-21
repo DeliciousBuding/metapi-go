@@ -133,6 +133,106 @@ func TestSites_CreateWithExplicitPlatform(t *testing.T) {
 	}
 }
 
+// TestSites_Create_PersistsResinEnabledAndUseUtls verifies the create form
+// fields resinEnabled/useUtls are persisted instead of silently dropped.
+// Regression for the Round 3 contract audit (site update/create handlers
+// dropped fields).
+func TestSites_Create_PersistsResinEnabledAndUseUtls(t *testing.T) {
+	_, r := setupSitesTest(t)
+
+	resp := doPostJSON(t, r, "/api/sites", map[string]any{
+		"name":         "Resin Site",
+		"url":          "https://api.openai.com",
+		"resinEnabled": true,
+		"useUtls":      false,
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("create site: %d %s", resp.Code, resp.Body.String())
+	}
+	var created map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if created["resinEnabled"] != true {
+		t.Fatalf("resinEnabled = %v, want true", created["resinEnabled"])
+	}
+	if created["useUtls"] != false {
+		t.Fatalf("useUtls = %v, want false", created["useUtls"])
+	}
+}
+
+// TestSites_Update_PersistsResinEnabledAndUseUtls verifies the tri-state
+// update semantics: true/false stores an override, null clears it back to
+// inherit, and an absent key leaves the stored value untouched.
+func TestSites_Update_PersistsResinEnabledAndUseUtls(t *testing.T) {
+	_, r := setupSitesTest(t)
+	site := newSiteFixture(t, r, "ResinUpdateSite", "https://api.openai.com")
+	siteID := itoa(int64(site["id"].(float64)))
+
+	// Store explicit overrides.
+	upd := doPutJSON(t, r, "/api/sites/"+siteID, map[string]any{
+		"resinEnabled": true,
+		"useUtls":      false,
+	})
+	if upd.Code != http.StatusOK {
+		t.Fatalf("update: %d %s", upd.Code, upd.Body.String())
+	}
+	var updated map[string]any
+	if err := json.Unmarshal(upd.Body.Bytes(), &updated); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if updated["resinEnabled"] != true {
+		t.Fatalf("resinEnabled = %v, want true", updated["resinEnabled"])
+	}
+	if updated["useUtls"] != false {
+		t.Fatalf("useUtls = %v, want false", updated["useUtls"])
+	}
+
+	// Explicit null clears the overrides back to inherit (NULL).
+	clear := doPutJSON(t, r, "/api/sites/"+siteID, map[string]any{
+		"resinEnabled": nil,
+		"useUtls":      nil,
+	})
+	if clear.Code != http.StatusOK {
+		t.Fatalf("clear: %d %s", clear.Code, clear.Body.String())
+	}
+	var cleared map[string]any
+	if err := json.Unmarshal(clear.Body.Bytes(), &cleared); err != nil {
+		t.Fatalf("decode clear: %v", err)
+	}
+	if cleared["resinEnabled"] != nil {
+		t.Fatalf("resinEnabled = %#v, want null after explicit null", cleared["resinEnabled"])
+	}
+	if cleared["useUtls"] != nil {
+		t.Fatalf("useUtls = %#v, want null after explicit null", cleared["useUtls"])
+	}
+
+	// Re-store, then update an unrelated field: overrides must survive.
+	redo := doPutJSON(t, r, "/api/sites/"+siteID, map[string]any{
+		"resinEnabled": false,
+		"useUtls":      true,
+	})
+	if redo.Code != http.StatusOK {
+		t.Fatalf("redo: %d %s", redo.Code, redo.Body.String())
+	}
+	other := doPutJSON(t, r, "/api/sites/"+siteID, map[string]any{
+		"status": "disabled",
+	})
+	if other.Code != http.StatusOK {
+		t.Fatalf("unrelated update: %d %s", other.Code, other.Body.String())
+	}
+	var final map[string]any
+	if err := json.Unmarshal(other.Body.Bytes(), &final); err != nil {
+		t.Fatalf("decode final: %v", err)
+	}
+	if final["resinEnabled"] != false {
+		t.Fatalf("resinEnabled = %v, want false (untouched by unrelated update)", final["resinEnabled"])
+	}
+	if final["useUtls"] != true {
+		t.Fatalf("useUtls = %v, want true (untouched by unrelated update)", final["useUtls"])
+	}
+}
+
 func TestSites_Postgres_CreateUpdateAndDisabledModels(t *testing.T) {
 	db, r := setupSitesPostgresTest(t)
 	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)

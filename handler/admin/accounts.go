@@ -1206,6 +1206,33 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 			"proxyUrl": service.NormalizeNullable(body.ProxyURL),
 		})
 	}
+	// PlatformUserID and skipModelFetch live in extraConfig (same storage as
+	// the create path); merge instead of dropping the form fields.
+	if body.PlatformUserID != nil {
+		mergeExtraConfigUpdate(map[string]any{"platformUserId": *body.PlatformUserID})
+	}
+	if body.SkipModelFetch != nil {
+		mergeExtraConfigUpdate(map[string]any{"skipModelFetch": *body.SkipModelFetch})
+	}
+	// Tags persist to the accounts.tags JSON-array column with the same
+	// normalization as the dedicated PUT /api/accounts/{id}/tags endpoint
+	// (trim + dedupe + drop empties).
+	if body.Tags != nil {
+		seen := make(map[string]struct{}, len(*body.Tags))
+		normalizedTags := make([]string, 0, len(*body.Tags))
+		for _, tag := range *body.Tags {
+			tag = strings.TrimSpace(tag)
+			if tag == "" {
+				continue
+			}
+			if _, duplicate := seen[tag]; duplicate {
+				continue
+			}
+			seen[tag] = struct{}{}
+			normalizedTags = append(normalizedTags, tag)
+		}
+		updates["tags"] = encodeTagsJSON(normalizedTags)
+	}
 	// Remark is a free-form human-readable note. An empty/whitespace string
 	// clears the column (NULL); otherwise the trimmed value is persisted.
 	// Do not store credentials here — remark is returned in plaintext on

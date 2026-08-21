@@ -38,8 +38,8 @@ func TestChannels_ListProjection(t *testing.T) {
 	if resp["page"] != float64(1) {
 		t.Fatalf("page = %v, want 1", resp["page"])
 	}
-	if resp["pageSize"] != float64(50) {
-		t.Fatalf("pageSize = %v, want 50", resp["pageSize"])
+	if resp["pageSize"] != float64(1) {
+		t.Fatalf("pageSize = %v, want 1 (unbounded mode reports the full row count)", resp["pageSize"])
 	}
 	if resp["total"] != float64(1) {
 		t.Fatalf("total = %v, want 1", resp["total"])
@@ -109,5 +109,63 @@ func TestChannels_ManuallyDisabledStatus(t *testing.T) {
 	item := rawItems[0].(map[string]any)
 	if item["status"] != "manually_disabled" {
 		t.Fatalf("status = %v, want manually_disabled", item["status"])
+	}
+}
+
+// TestChannels_List_UnboundedReturnsAllRows verifies GET /api/channels no
+// longer hard-truncates at the default pageSize of 50 when the client omits
+// pagination params: the channels page paginates client-side, so a fleet
+// larger than 50 must come back in full. Explicit ?page/?pageSize still opts
+// into server-side paging. Regression for the Round 3 contract audit.
+func TestChannels_List_UnboundedReturnsAllRows(t *testing.T) {
+	db, r := setupTokenRoutesTest(t)
+	routeID, accountID, tokenID := seedRouteChannelRefs(t, db)
+
+	const fleetSize = 120
+	for i := 0; i < fleetSize; i++ {
+		if _, err := db.Exec(
+			`INSERT INTO route_channels
+				(route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override)
+			 VALUES (?, ?, ?, ?, 0, 10, 1, 0)`,
+			routeID, accountID, tokenID, "gpt-unbounded-"+itoa(int64(i))); err != nil {
+			t.Fatalf("insert channel %d: %v", i, err)
+		}
+	}
+
+	// No pagination params → full list, no 50-row truncation.
+	full := doGet(t, r, "/api/channels")
+	if full.Code != http.StatusOK {
+		t.Fatalf("unbounded list: %d %s", full.Code, full.Body.String())
+	}
+	var resp map[string]any
+	if err := json.Unmarshal(full.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode unbounded: %v", err)
+	}
+	items, _ := resp["items"].([]any)
+	if len(items) != fleetSize {
+		t.Fatalf("unbounded items = %d, want %d (no truncation)", len(items), fleetSize)
+	}
+	if resp["total"] != float64(fleetSize) {
+		t.Fatalf("unbounded total = %v, want %d", resp["total"], fleetSize)
+	}
+	if resp["pageSize"] != float64(fleetSize) {
+		t.Fatalf("unbounded pageSize = %v, want %d", resp["pageSize"], fleetSize)
+	}
+
+	// Explicit paging still works and reports the true total.
+	paged := doGet(t, r, "/api/channels?page=1&pageSize=50")
+	if paged.Code != http.StatusOK {
+		t.Fatalf("paged list: %d %s", paged.Code, paged.Body.String())
+	}
+	var pagedResp map[string]any
+	if err := json.Unmarshal(paged.Body.Bytes(), &pagedResp); err != nil {
+		t.Fatalf("decode paged: %v", err)
+	}
+	pagedItems, _ := pagedResp["items"].([]any)
+	if len(pagedItems) != 50 {
+		t.Fatalf("paged items = %d, want 50", len(pagedItems))
+	}
+	if pagedResp["total"] != float64(fleetSize) {
+		t.Fatalf("paged total = %v, want %d", pagedResp["total"], fleetSize)
 	}
 }

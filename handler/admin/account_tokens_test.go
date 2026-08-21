@@ -57,16 +57,29 @@ func tokenFixture(t *testing.T, db *store.DB, r chi.Router) (int64, int64) {
 	// Create account with accessToken (session mode, not apikey connection)
 	extraConfig := `{"credentialMode":"session"}`
 	username := "tokuser"
+	var accountID int64
+	if db.Dialect == store.DialectPostgres {
+		// pgx does not support LastInsertId: fetch the new row's id via RETURNING.
+		if err := db.QueryRow(
+			`INSERT INTO accounts (site_id, username, access_token, status, is_pinned, sort_order,
+			 checkin_enabled, extra_config, created_at, updated_at)
+			 VALUES (?, ?, 'sk-session-token', 'active', FALSE, 0, TRUE, ?, ?, ?) RETURNING id`,
+			siteID, &username, &extraConfig, now, now,
+		).Scan(&accountID); err != nil {
+			t.Fatalf("INSERT account: %v", err)
+		}
+		return siteID, accountID
+	}
 	res, err := db.Exec(
 		`INSERT INTO accounts (site_id, username, access_token, status, is_pinned, sort_order,
 		 checkin_enabled, extra_config, created_at, updated_at)
-		 VALUES (?, ?, 'sk-session-token', 'active', 0, 0, 1, ?, ?, ?)`,
+		 VALUES (?, ?, 'sk-session-token', 'active', FALSE, 0, TRUE, ?, ?, ?)`,
 		siteID, &username, &extraConfig, now, now,
 	)
 	if err != nil {
 		t.Fatalf("INSERT account: %v", err)
 	}
-	accountID, _ := res.LastInsertId()
+	accountID, _ = res.LastInsertId()
 	return siteID, accountID
 }
 
@@ -151,6 +164,120 @@ func TestTokens_List_AllWithoutFilter(t *testing.T) {
 	json.Unmarshal(resp.Body.Bytes(), &tokens)
 	if len(tokens) != 1 {
 		t.Errorf("expected 1 token, got %d", len(tokens))
+	}
+}
+
+// TestTokens_List_WireContractCamelCase verifies the GET /api/account-tokens
+// response carries the camelCase wire contract fields and does not leak raw
+// snake_case DB column names. Regression for the Round 3 D-domain contract
+// audit: MapScan exposed `account_id`, `token_group`, `is_default`, ... while
+// the frontend accountTokenSchema requires `accountId`, `tokenGroup`,
+// `isDefault`, `createdAt`, `updatedAt`.
+func TestTokens_List_WireContractCamelCase(t *testing.T) {
+	db, r := setupTokensTest(t)
+	_, accountID := tokenFixture(t, db, r)
+	createTokenFixture(t, db, accountID, "vip-token", "sk-abc123", "vip", true, true)
+
+	resp := doGet(t, r, "/api/account-tokens?accountId="+itoa(accountID))
+	if resp.Code != http.StatusOK {
+		t.Fatalf("list tokens: %d %s", resp.Code, resp.Body.String())
+	}
+
+	var tokens []map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &tokens); err != nil {
+		t.Fatalf("decode list: %v", err)
+	}
+	if len(tokens) != 1 {
+		t.Fatalf("expected 1 token, got %d", len(tokens))
+	}
+	tok := tokens[0]
+
+	// Contract fields must be present with the correct casing.
+	if got := int64(tok["accountId"].(float64)); got != accountID {
+		t.Fatalf("accountId = %v, want %d", tok["accountId"], accountID)
+	}
+	if tok["tokenGroup"] != "vip" {
+		t.Fatalf("tokenGroup = %v, want vip", tok["tokenGroup"])
+	}
+	if tok["valueStatus"] != "ready" {
+		t.Fatalf("valueStatus = %v, want ready", tok["valueStatus"])
+	}
+	if tok["enabled"] != true {
+		t.Fatalf("enabled = %v, want true (JSON bool, not int)", tok["enabled"])
+	}
+	if tok["isDefault"] != true {
+		t.Fatalf("isDefault = %v, want true (JSON bool, not int)", tok["isDefault"])
+	}
+	if s, _ := tok["createdAt"].(string); s == "" {
+		t.Fatalf("createdAt = %v, want non-empty string", tok["createdAt"])
+	}
+	if s, _ := tok["updatedAt"].(string); s == "" {
+		t.Fatalf("updatedAt = %v, want non-empty string", tok["updatedAt"])
+	}
+	if tok["tokenMasked"] == nil || tok["tokenMasked"] == "" {
+		t.Fatalf("tokenMasked = %v, want non-empty", tok["tokenMasked"])
+	}
+	if tok["source"] != "manual" {
+		t.Fatalf("source = %v, want manual", tok["source"])
+	}
+
+	// Relation sub-objects keep their camelCase contract keys.
+	account, _ := tok["account"].(map[string]any)
+	if account == nil || account["id"] == nil || account["username"] == nil {
+		t.Fatalf("account sub-object malformed: %#v", tok["account"])
+	}
+	site, _ := tok["site"].(map[string]any)
+	if site == nil || site["id"] == nil || site["platform"] == nil {
+		t.Fatalf("site sub-object malformed: %#v", tok["site"])
+	}
+
+	// Raw snake_case DB columns and internal join aliases must not leak.
+	snakeKeys := []string{
+		"account_id", "token_group", "value_status", "is_default",
+		"created_at", "updated_at", "account_id_val", "account_status",
+		"site_id", "site_name", "site_url", "site_platform",
+		"access_token", "extra_config", "username", "token",
+	}
+	for _, key := range snakeKeys {
+		if _, leaked := tok[key]; leaked {
+			t.Fatalf("response leaks internal key %q: %#v", key, tok[key])
+		}
+	}
+}
+
+// TestTokens_List_WireContractCamelCase_Postgres runs the same contract
+// assertions against PostgreSQL when PG_TEST_DSN is set.
+func TestTokens_List_WireContractCamelCase_Postgres(t *testing.T) {
+	db, r := setupTokensPostgresTest(t)
+	_, accountID := tokenFixture(t, db, r)
+	createTokenFixture(t, db, accountID, "vip-token", "sk-abc123", "vip", true, true)
+
+	resp := doGet(t, r, "/api/account-tokens?accountId="+itoa(accountID))
+	if resp.Code != http.StatusOK {
+		t.Fatalf("list tokens: %d %s", resp.Code, resp.Body.String())
+	}
+	var tokens []map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &tokens); err != nil {
+		t.Fatalf("decode list: %v", err)
+	}
+	if len(tokens) != 1 {
+		t.Fatalf("expected 1 token, got %d", len(tokens))
+	}
+	tok := tokens[0]
+	if got := int64(tok["accountId"].(float64)); got != accountID {
+		t.Fatalf("accountId = %v, want %d", tok["accountId"], accountID)
+	}
+	if tok["tokenGroup"] != "vip" {
+		t.Fatalf("tokenGroup = %v, want vip", tok["tokenGroup"])
+	}
+	if tok["isDefault"] != true {
+		t.Fatalf("isDefault = %v, want true", tok["isDefault"])
+	}
+	if _, leaked := tok["token_group"]; leaked {
+		t.Fatalf("response leaks snake_case token_group: %#v", tok["token_group"])
+	}
+	if _, leaked := tok["is_default"]; leaked {
+		t.Fatalf("response leaks snake_case is_default: %#v", tok["is_default"])
 	}
 }
 
@@ -414,7 +541,7 @@ func TestTokens_Create_Upstream_APIKeyConnection(t *testing.T) {
 	extraConfig := `{"credentialMode":"apikey"}`
 	res, _ := db.Exec(
 		`INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at)
-		 VALUES (?, '', 'active', 1, ?, ?, ?)`,
+		 VALUES (?, '', 'active', TRUE, ?, ?, ?)`,
 		siteID, &extraConfig, now, now,
 	)
 	accountID, _ := res.LastInsertId()
@@ -442,7 +569,7 @@ func TestTokens_Create_Upstream_DisabledSite(t *testing.T) {
 	extraConfig := `{"credentialMode":"session"}`
 	res, _ = db.Exec(
 		`INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at)
-		 VALUES (?, 'sk-tok', 'active', 1, ?, ?, ?)`,
+		 VALUES (?, 'sk-tok', 'active', TRUE, ?, ?, ?)`,
 		siteID, &extraConfig, now, now,
 	)
 	accountID, _ := res.LastInsertId()
@@ -557,7 +684,7 @@ func TestTokens_Batch_NestedAPIKeyConnection(t *testing.T) {
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	extraConfig := `{"credentialMode":"apikey"}`
 	res, _ := db.Exec(
-		"INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, '', 'active', 1, ?, ?, ?)",
+		"INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, '', 'active', TRUE, ?, ?, ?)",
 		siteID, &extraConfig, now, now,
 	)
 	accountID, _ := res.LastInsertId()
@@ -740,7 +867,7 @@ func TestTokens_GetValue_APIKeyConnection(t *testing.T) {
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	ec := `{"credentialMode":"apikey"}`
 	res, _ := db.Exec(
-		"INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, '', 'active', 1, ?, ?, ?)",
+		"INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, '', 'active', TRUE, ?, ?, ?)",
 		siteID, &ec, now, now,
 	)
 	accID, _ := res.LastInsertId()
@@ -881,7 +1008,7 @@ func TestTokens_GetGroups(t *testing.T) {
 	extra := `{"credentialMode":"session"}`
 	res, err = db.Exec(
 		`INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at)
-		 VALUES (?, 'session-token', 'active', 1, ?, ?, ?)`,
+		 VALUES (?, 'session-token', 'active', TRUE, ?, ?, ?)`,
 		siteID, &extra, now, now,
 	)
 	if err != nil {
@@ -924,7 +1051,7 @@ func TestTokens_GetGroups_APIKeyConnection(t *testing.T) {
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	ec := `{"credentialMode":"apikey"}`
 	res, _ := db.Exec(
-		"INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, '', 'active', 1, ?, ?, ?)",
+		"INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, '', 'active', TRUE, ?, ?, ?)",
 		siteID, &ec, now, now,
 	)
 	accID, _ := res.LastInsertId()
@@ -969,7 +1096,7 @@ func TestTokens_GetAccountDefault_APIKeyConnection(t *testing.T) {
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	ec := `{"credentialMode":"apikey"}`
 	res, _ := db.Exec(
-		"INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, '', 'active', 1, ?, ?, ?)",
+		"INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, '', 'active', TRUE, ?, ?, ?)",
 		siteID, &ec, now, now,
 	)
 	accID, _ := res.LastInsertId()
@@ -1032,6 +1159,6 @@ func TestIsMaskedTokenValue_False(t *testing.T) {
 
 func defaultID(db *store.DB, accountID int64) int64 {
 	var id int64
-	db.QueryRow("SELECT id FROM account_tokens WHERE account_id = ? AND is_default = 1", accountID).Scan(&id)
+	db.QueryRow("SELECT id FROM account_tokens WHERE account_id = ? AND is_default = TRUE", accountID).Scan(&id)
 	return id
 }

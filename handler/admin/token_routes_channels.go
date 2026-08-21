@@ -44,7 +44,12 @@ func (h *tokenRoutesHandler) getRouteChannels(w http.ResponseWriter, r *http.Req
 			"weight":           ch["weight"],
 			"enabled":          ch["enabled"],
 			"manualOverride":   ch["manualOverride"],
-			"account":          routeChannelAccountPublic(ch),
+			// Runtime counters the route detail sheet renders (channel truth
+			// list): hit counts and persisted cooldown must reach the wire.
+			"successCount":  ch["successCount"],
+			"failCount":     ch["failCount"],
+			"cooldownUntil": ch["cooldownUntil"],
+			"account":       routeChannelAccountPublic(ch),
 			"site": map[string]any{
 				"id":       ch["siteId"],
 				"name":     ch["siteName"],

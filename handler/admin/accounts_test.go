@@ -1405,6 +1405,58 @@ func TestAccounts_Update(t *testing.T) {
 	}
 }
 
+// TestAccounts_Update_PersistsTagsAndPlatformUserId verifies the account
+// edit form fields `tags` (accounts.tags JSON column) and `platformUserId`
+// (extraConfig) are persisted instead of silently dropped. Regression for
+// the Round 3 contract audit.
+func TestAccounts_Update_PersistsTagsAndPlatformUserId(t *testing.T) {
+	db, r, _ := setupAccountsTest(t)
+	_, accountID := setupAccountFixtureWithSite(t, db, r, "UpdateContract", "https://api.openai.com")
+
+	resp := doPutJSON(t, r, "/api/accounts/"+itoa(accountID), map[string]any{
+		"tags":           []string{"prod", "priority", "prod"},
+		"platformUserId": 1001,
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("update: %d %s", resp.Code, resp.Body.String())
+	}
+
+	// tags → accounts.tags JSON array text (deduped, same shape as the
+	// dedicated PUT /api/accounts/{id}/tags endpoint).
+	var storedTags string
+	if err := db.Get(&storedTags, db.Rebind("SELECT COALESCE(tags, '') FROM accounts WHERE id = ?"), accountID); err != nil {
+		t.Fatalf("read tags: %v", err)
+	}
+	if storedTags != `["prod","priority"]` {
+		t.Fatalf("tags = %q, want deduped JSON [\"prod\",\"priority\"]", storedTags)
+	}
+
+	// platformUserId → extraConfig.platformUserId (same storage as create).
+	var extraConfig *string
+	if err := db.Get(&extraConfig, db.Rebind("SELECT extra_config FROM accounts WHERE id = ?"), accountID); err != nil {
+		t.Fatalf("read extraConfig: %v", err)
+	}
+	if extraConfig == nil || !strings.Contains(*extraConfig, `"platformUserId":1001`) {
+		t.Fatalf("extraConfig = %v, want merged platformUserId", extraConfig)
+	}
+
+	// An unrelated partial update must not clobber the previously stored
+	// tags (update merges, it does not replace whole rows).
+	resp = doPutJSON(t, r, "/api/accounts/"+itoa(accountID), map[string]any{
+		"status": "disabled",
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("partial update: %d %s", resp.Code, resp.Body.String())
+	}
+	var tagsAfter string
+	if err := db.Get(&tagsAfter, db.Rebind("SELECT COALESCE(tags, '') FROM accounts WHERE id = ?"), accountID); err != nil {
+		t.Fatalf("read tags after partial update: %v", err)
+	}
+	if tagsAfter != `["prod","priority"]` {
+		t.Fatalf("tags after partial update = %q, want preserved", tagsAfter)
+	}
+}
+
 func TestAccounts_UpdateRejectsInvalidStatus(t *testing.T) {
 	db, r, _ := setupAccountsTest(t)
 	_, accountID := setupAccountFixtureWithSite(t, db, r, "UpdateInvalidStatus", "https://api.openai.com")
