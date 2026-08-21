@@ -10,15 +10,16 @@ import (
 )
 
 // seedProxyLogsForFilterTests inserts three proxy_logs rows with distinct
-// latency_ms / client_family / created_at values so that every list filter
-// (latencyMin, latencyMax, client, from, to) has at least one matching and
-// one non-matching row. The rows are standalone (no account_id) — the LEFT
-// JOINs in the handler yield NULL site/user fields, which is fine for filter
-// assertions. Returns the three created_at timestamps in RFC3339 form.
+// latency_ms / client_family / channel_id / created_at values so that every
+// list filter (latencyMin, latencyMax, client, from, to, channelId) has at
+// least one matching and one non-matching row. The rows are standalone (no
+// account_id) — the LEFT JOINs in the handler yield NULL site/user fields,
+// which is fine for filter assertions. Returns the three created_at
+// timestamps in RFC3339 form.
 //
-// Row A: latency 3000, client "openai-node",   created_at = t3 (latest)
-// Row B: latency  500, client "anthropic-sdk", created_at = t2 (middle)
-// Row C: latency 2500, client "openai-node",   created_at = t1 (earliest)
+// Row A: latency 3000, client "openai-node",   channel 7, created_at = t3 (latest)
+// Row B: latency  500, client "anthropic-sdk", channel 8, created_at = t2 (middle)
+// Row C: latency 2500, client "openai-node",   channel 7, created_at = t1 (earliest)
 func seedProxyLogsForFilterTests(t *testing.T, db *store.DB) (t1, t2, t3 string) {
 	t.Helper()
 	t1 = "2026-01-01T01:00:00Z"
@@ -28,16 +29,17 @@ func seedProxyLogsForFilterTests(t *testing.T, db *store.DB) (t1, t2, t3 string)
 		model        string
 		latencyMs    int
 		clientFamily string
+		channelID    int
 		createdAt    string
 	}{
-		{"slow-A", 3000, "openai-node", t3},
-		{"fast-B", 500, "anthropic-sdk", t2},
-		{"slow-C", 2500, "openai-node", t1},
+		{"slow-A", 3000, "openai-node", 7, t3},
+		{"fast-B", 500, "anthropic-sdk", 8, t2},
+		{"slow-C", 2500, "openai-node", 7, t1},
 	}
 	for _, row := range rows {
-		if _, err := db.Exec(`INSERT INTO proxy_logs (model_requested, model_actual, status, latency_ms, client_family, created_at)
-			VALUES (?, ?, ?, ?, ?, ?)`,
-			row.model, row.model, "success", row.latencyMs, row.clientFamily, row.createdAt); err != nil {
+		if _, err := db.Exec(`INSERT INTO proxy_logs (model_requested, model_actual, status, latency_ms, client_family, channel_id, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			row.model, row.model, "success", row.latencyMs, row.clientFamily, row.channelID, row.createdAt); err != nil {
 			t.Fatalf("insert %s: %v", row.model, err)
 		}
 	}
@@ -210,5 +212,121 @@ func TestStats_SQLiteProxyLogsCombinedFilters(t *testing.T) {
 	}
 	if len(body.Items) != 2 {
 		t.Fatalf("combined items=%d, want 2", len(body.Items))
+	}
+}
+
+func TestStats_SQLiteProxyLogsChannelIDFilter(t *testing.T) {
+	db, r := setupStatsSQLiteTest(t)
+	seedProxyLogsForFilterTests(t, db)
+
+	// channelId=7 → rows A + C (both served by channel 7); row B (channel 8)
+	// is excluded. items, total, AND summary must agree because channelId
+	// lives in the shared `where`/`args` slice like every other list filter.
+	body := fetchProxyLogsFiltered(t, r, "channelId=7")
+	if body.Total != 2 {
+		t.Fatalf("channelId=7 total=%d, want 2", body.Total)
+	}
+	if len(body.Items) != 2 {
+		t.Fatalf("channelId=7 items=%d, want 2", len(body.Items))
+	}
+	if body.Summary.TotalCount != 2 {
+		t.Fatalf("channelId=7 summary.totalCount=%d, want 2", body.Summary.TotalCount)
+	}
+	got := modelSet(body.Items)
+	if _, ok := got["slow-A"]; !ok {
+		t.Fatalf("channelId=7 missing slow-A in items: %v", got)
+	}
+	if _, ok := got["slow-C"]; !ok {
+		t.Fatalf("channelId=7 missing slow-C in items: %v", got)
+	}
+	if _, ok := got["fast-B"]; ok {
+		t.Fatalf("channelId=7 should NOT include fast-B (channel 8): %v", got)
+	}
+
+	// channelId=8 → only row B.
+	bodyOther := fetchProxyLogsFiltered(t, r, "channelId=8")
+	if bodyOther.Total != 1 {
+		t.Fatalf("channelId=8 total=%d, want 1", bodyOther.Total)
+	}
+	if bodyOther.Summary.TotalCount != 1 {
+		t.Fatalf("channelId=8 summary.totalCount=%d, want 1", bodyOther.Summary.TotalCount)
+	}
+	gotOther := modelSet(bodyOther.Items)
+	if _, ok := gotOther["fast-B"]; !ok {
+		t.Fatalf("channelId=8 expected fast-B, got %v", gotOther)
+	}
+
+	// An unknown channel yields a consistent empty page (not an unfiltered
+	// total): the guard against re-introducing the items/total disagreement.
+	bodyNone := fetchProxyLogsFiltered(t, r, "channelId=4242")
+	if bodyNone.Total != 0 {
+		t.Fatalf("channelId=4242 total=%d, want 0", bodyNone.Total)
+	}
+	if len(bodyNone.Items) != 0 {
+		t.Fatalf("channelId=4242 items=%d, want 0", len(bodyNone.Items))
+	}
+	if bodyNone.Summary.TotalCount != 0 {
+		t.Fatalf("channelId=4242 summary.totalCount=%d, want 0", bodyNone.Summary.TotalCount)
+	}
+}
+
+func TestStats_SQLiteProxyLogsChannelIDIgnoresNullAndZero(t *testing.T) {
+	db, r := setupStatsSQLiteTest(t)
+	seedProxyLogsForFilterTests(t, db)
+
+	// A legacy row written before channel attribution existed has a NULL
+	// channel_id. `pl.channel_id = ?` must exclude it (SQL NULL never equals
+	// a value) so a channel drilldown never shows unattributed traffic.
+	if _, err := db.Exec(`INSERT INTO proxy_logs (model_requested, model_actual, status, latency_ms, client_family, channel_id, created_at)
+		VALUES (?, ?, ?, ?, ?, NULL, ?)`,
+		"legacy-D", "legacy-D", "success", 1200, "openai-node", "2026-01-01T04:00:00Z"); err != nil {
+		t.Fatalf("insert legacy-D: %v", err)
+	}
+
+	body := fetchProxyLogsFiltered(t, r, "channelId=7")
+	if body.Total != 2 {
+		t.Fatalf("channelId=7 total=%d, want 2 (NULL channel row must be excluded)", body.Total)
+	}
+	got := modelSet(body.Items)
+	if _, ok := got["legacy-D"]; ok {
+		t.Fatalf("channelId=7 must NOT include the NULL-channel row: %v", got)
+	}
+
+	// channelId=0 / absent means "no channel filter": all four rows, including
+	// the NULL-channel one, stay visible (0 is the getQueryInt unset default).
+	bodyZero := fetchProxyLogsFiltered(t, r, "channelId=0")
+	if bodyZero.Total != 4 {
+		t.Fatalf("channelId=0 total=%d, want 4 (unset filter)", bodyZero.Total)
+	}
+	bodyAll := fetchProxyLogsFiltered(t, r, "")
+	if bodyAll.Total != bodyZero.Total {
+		t.Fatalf("channelId=0 total=%d must match unfiltered total=%d", bodyZero.Total, bodyAll.Total)
+	}
+}
+
+func TestStats_SQLiteProxyLogsChannelIDCombinedWithOtherFilters(t *testing.T) {
+	db, r := setupStatsSQLiteTest(t)
+	seedProxyLogsForFilterTests(t, db)
+
+	// channelId composes with the other shared-`where` filters: channel 7 AND
+	// latency >= 2600 leaves only row A (3000); row C (2500) is too fast.
+	body := fetchProxyLogsFiltered(t, r, "channelId=7&latencyMin=2600")
+	if body.Total != 1 {
+		t.Fatalf("channelId=7&latencyMin=2600 total=%d, want 1", body.Total)
+	}
+	if body.Summary.TotalCount != 1 {
+		t.Fatalf("channelId=7&latencyMin=2600 summary.totalCount=%d, want 1", body.Summary.TotalCount)
+	}
+	got := modelSet(body.Items)
+	if _, ok := got["slow-A"]; !ok {
+		t.Fatalf("channelId=7&latencyMin=2600 expected slow-A, got %v", got)
+	}
+
+	// Contradictory filters (channel 8 is the fast row) collapse to empty
+	// consistently across items, total, and summary.
+	bodyEmpty := fetchProxyLogsFiltered(t, r, "channelId=8&latencyMin=2000")
+	if bodyEmpty.Total != 0 || len(bodyEmpty.Items) != 0 || bodyEmpty.Summary.TotalCount != 0 {
+		t.Fatalf("channelId=8&latencyMin=2000 want all-zero, got total=%d items=%d summary=%d",
+			bodyEmpty.Total, len(bodyEmpty.Items), bodyEmpty.Summary.TotalCount)
 	}
 }

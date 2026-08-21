@@ -67,12 +67,14 @@ describe('proxyLogsSearchSchema — numerics', () => {
       page: '5',
       pageSize: '50',
       siteId: '7',
+      channelId: '42',
       latencyMin: '10',
       latencyMax: '100',
     })
     expect(result.page).toBe(5)
     expect(result.pageSize).toBe(50)
     expect(result.siteId).toBe(7)
+    expect(result.channelId).toBe(42)
     expect(result.latencyMin).toBe(10)
     expect(result.latencyMax).toBe(100)
   })
@@ -86,6 +88,11 @@ describe('proxyLogsSearchSchema — numerics', () => {
     ['pageSize above 200', { pageSize: '201' }, { pageSize: 20 }],
     ['latencyMin negative', { latencyMin: '-1' }, { latencyMin: undefined }],
     ['non-numeric page', { page: 'abc' }, { page: 0 }],
+    // channelId is positive-only: the backend reads 0 as "no channel filter",
+    // so a non-positive value must degrade to unset rather than be sent.
+    ['channelId zero', { channelId: '0' }, { channelId: undefined }],
+    ['channelId negative', { channelId: '-3' }, { channelId: undefined }],
+    ['channelId non-numeric', { channelId: 'abc' }, { channelId: undefined }],
   ])('falls back instead of throwing for %s', (_label, input, fallback) => {
     const result = proxyLogsSearchSchema.safeParse(input)
     expect(result.success).toBe(true)

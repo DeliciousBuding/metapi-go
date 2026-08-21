@@ -28,6 +28,7 @@ import { channelsSearchSchema } from '../lib/channels-schema'
 import type { ChannelRow } from '../types'
 import { ChannelDetailSheet } from './channel-detail-sheet'
 import {
+  CHANNELS_STATUS_FILTER_OPTIONS,
   useChannelsColumns,
   type ChannelsColumnActions,
 } from './channels-columns'
@@ -36,11 +37,22 @@ const CHANNELS_COLUMN_VISIBILITY_STORAGE_KEY =
   'metapi-go:channels:column-visibility'
 const CHANNELS_COLUMN_SIZING_STORAGE_KEY = 'metapi-go:channels:column-sizing'
 
-type ChannelsUrlFilters = Record<string, never>
+/** Page-specific URL filters: comma-separated status list for the facet. */
+type ChannelsUrlFilters = {
+  status: string
+}
+
+const EMPTY_URL_STATE: UrlTableState<ChannelsUrlFilters> = {
+  q: '',
+  pageIndex: 0,
+  pageSize: 20,
+  sorting: [],
+  filters: { status: '' },
+}
 
 function readSearch(searchString?: string): UrlTableState<ChannelsUrlFilters> {
   if (typeof window === 'undefined') {
-    return { q: '', pageIndex: 0, pageSize: 20, sorting: [], filters: {} }
+    return EMPTY_URL_STATE
   }
   const params = new URLSearchParams(searchString ?? window.location.search)
   const parsed = channelsSearchSchema.safeParse({
@@ -48,9 +60,10 @@ function readSearch(searchString?: string): UrlTableState<ChannelsUrlFilters> {
     page: params.get('page') ?? undefined,
     pageSize: params.get('pageSize') ?? undefined,
     sort: params.get('sort') ?? undefined,
+    status: params.get('status') ?? undefined,
   })
   if (!parsed.success) {
-    return { q: '', pageIndex: 0, pageSize: 20, sorting: [], filters: {} }
+    return EMPTY_URL_STATE
   }
   const data = parsed.data
   return {
@@ -58,19 +71,24 @@ function readSearch(searchString?: string): UrlTableState<ChannelsUrlFilters> {
     pageIndex: data.page ?? 0,
     pageSize: data.pageSize ?? 20,
     sorting: parseSortingParam(data.sort),
-    filters: {},
+    filters: { status: asStringParam(data.status) ?? '' },
   }
 }
 
 function buildHref(next: UrlTableStateUpdate<ChannelsUrlFilters>): string {
   const current = readSearch()
-  const merged = { ...current, ...next }
+  const merged: UrlTableState<ChannelsUrlFilters> = {
+    ...current,
+    ...next,
+    filters: { ...current.filters, ...next.filters },
+  }
   const params = new URLSearchParams()
   if (merged.q) params.set('q', merged.q)
   if (merged.pageIndex > 0) params.set('page', String(merged.pageIndex))
   if (merged.pageSize !== 20) params.set('pageSize', String(merged.pageSize))
   const sortString = encodeSorting(merged.sorting)
   if (sortString) params.set('sort', sortString)
+  if (merged.filters.status) params.set('status', merged.filters.status)
   const queryString = params.toString()
   return queryString ? `/channels?${queryString}` : '/channels'
 }
@@ -80,8 +98,21 @@ function useChannelsUrlState() {
     basePath: '/channels',
     read: readSearch,
     buildHref,
-    toColumnFilters: () => [] as ColumnFiltersState,
-    fromColumnFilters: () => ({}),
+    toColumnFilters: (filters) => {
+      const statusValues = filters.status.split(',').filter(Boolean)
+      if (statusValues.length === 0) return [] as ColumnFiltersState
+      return [{ id: 'status', value: statusValues }]
+    },
+    fromColumnFilters: (columnFilters) => {
+      const statusEntry = columnFilters.find((filter) => filter.id === 'status')
+      return {
+        filters: {
+          status: Array.isArray(statusEntry?.value)
+            ? statusEntry.value.join(',')
+            : '',
+        },
+      }
+    },
   })
 }
 
@@ -180,6 +211,16 @@ export function ChannelsPage() {
         toolbarProps={{
           searchPlaceholder: t('channels.toolbar.searchPlaceholder'),
           searchDebounceMs: 400,
+          filters: [
+            {
+              columnId: 'status',
+              title: t('channels.columns.status'),
+              options: CHANNELS_STATUS_FILTER_OPTIONS.map((option) => ({
+                label: t(option.labelKey),
+                value: option.value,
+              })),
+            },
+          ],
         }}
       />
 

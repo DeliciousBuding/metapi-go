@@ -2017,6 +2017,7 @@
         "filterAllSites": "All sites",
         "filterClientPlaceholder": "Client",
         "filterAllClients": "All clients",
+        "filterChannelPlaceholder": "Channel ID",
         "startTime": "Start time",
         "endTime": "End time",
         "latencyMin": "Latency ≥",

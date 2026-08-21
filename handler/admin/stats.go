@@ -523,15 +523,18 @@ func (h *statsHandler) dashboardError(w http.ResponseWriter, operation string, e
 }
 
 // ---- Proxy Logs ----
-// GET /api/stats/proxy-logs?view=&limit=&offset=&status=&search=&client=&siteId=&from=&to=&latencyMin=&latencyMax=
+// GET /api/stats/proxy-logs?view=&limit=&offset=&status=&search=&client=&siteId=&channelId=&from=&to=&latencyMin=&latencyMax=
 //
-// All list filters (status/search/client/siteId/from/to/latencyMin/latencyMax)
-// are applied SERVER-SIDE so that items, total, and summary share one
-// `where`/`args` slice and never disagree (the previous client-side latency
+// All list filters (status/search/client/siteId/channelId/from/to/latencyMin/
+// latencyMax) are applied SERVER-SIDE so that items, total, and summary share
+// one `where`/`args` slice and never disagree (the previous client-side latency
 // filter produced a wrong `total` + broken manualPagination). The `client`
 // param matches `client_family` exactly; `from`/`to` compare against
 // `created_at` (RFC3339 TEXT, lexicographic compare is correct); latency
-// bounds compare against `latency_ms` (INTEGER).
+// bounds compare against `latency_ms` (INTEGER); `channelId` matches the
+// nullable `channel_id` (INTEGER) of the route_channels row that served the
+// request, which lets operators answer "why is this channel failing" without
+// a global search.
 func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 	view := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("view")))
 	if view != "query" && view != "meta" {
@@ -543,6 +546,7 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 	status := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("status")))
 	search := strings.TrimSpace(strings.ToLower(r.URL.Query().Get("search")))
 	siteID := getQueryInt(r, "siteId", 0)
+	channelID := getQueryInt(r, "channelId", 0)
 	client := strings.TrimSpace(r.URL.Query().Get("client"))
 	from := strings.TrimSpace(r.URL.Query().Get("from"))
 	to := strings.TrimSpace(r.URL.Query().Get("to"))
@@ -565,6 +569,16 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 	if siteID > 0 {
 		conditions = append(conditions, "s.id = ?")
 		args = append(args, siteID)
+	}
+	// channelId narrows to the route_channels row that served the request
+	// ("why is this channel failing"). `channel_id` is a nullable INTEGER, so
+	// an equality match on a positive id naturally excludes the NULL rows
+	// written before channel attribution existed. Integer comparison is
+	// dialect-neutral (no boolean/COALESCE literal), so SQLite and PostgreSQL
+	// agree without a dialect branch.
+	if channelID > 0 {
+		conditions = append(conditions, "pl.channel_id = ?")
+		args = append(args, channelID)
 	}
 	// client filters on the upstream client family detected from the
 	// User-Agent (e.g. "openai-node"). Exact match: the dropdown sends a

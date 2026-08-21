@@ -27,6 +27,11 @@ export const proxyLogsSearchSchema = z.object({
     .catch(undefined),
   status: z.enum(['all', 'success', 'failed']).catch('all').default('all'),
   siteId: z.coerce.number().int().optional().catch(undefined),
+  // channelId scopes the list to the channel that served each request, so an
+  // operator debugging "why is this channel failing" can drill straight in
+  // instead of eyeballing a global search. Positive-only: the backend treats
+  // 0 as "no channel filter", so a bogus `?channelId=0` degrades to unset.
+  channelId: z.coerce.number().int().positive().optional().catch(undefined),
   // Client name and datetime-local bounds. Tolerant of router-parsed
   // primitives (null literals, duplicate-param arrays, numeric epochs) via
   // `stringSearchParam`; read sites normalize with `asStringParam`.

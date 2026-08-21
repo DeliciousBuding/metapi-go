@@ -55,6 +55,7 @@ const PROXY_LOGS_CSV_EXPORT_LIMIT = 10_000
 type ProxyLogsUrlFilters = {
   status: string
   siteId: string
+  channelId: string
   client: string
   from: string
   to: string
@@ -86,6 +87,8 @@ function readProxyLogsSearch(
     filters: {
       status: search?.status ?? 'all',
       siteId: search?.siteId === undefined ? '' : String(search.siteId),
+      channelId:
+        search?.channelId === undefined ? '' : String(search.channelId),
       client: asStringParam(search?.client) ?? '',
       from: asStringParam(search?.from) ?? '',
       to: asStringParam(search?.to) ?? '',
@@ -118,6 +121,12 @@ function buildProxyLogsHref(
     params.set('status', merged.filters.status)
   }
   if (merged.filters.siteId) params.set('siteId', merged.filters.siteId)
+  // Only a positive channel id is a real filter — the backend reads 0 as
+  // "unset", so writing `channelId=0` would leave the URL disagreeing with
+  // the rendered (unfiltered) list.
+  if (Number(merged.filters.channelId) > 0) {
+    params.set('channelId', merged.filters.channelId)
+  }
   if (merged.filters.client) params.set('client', merged.filters.client)
   if (merged.filters.from) params.set('from', merged.filters.from)
   if (merged.filters.to) params.set('to', merged.filters.to)
@@ -159,6 +168,7 @@ export function ProxyLogsPage() {
   // filters (single source of truth — no local mirror to sync back).
   const status = filters.status as ProxyLogFilters['status']
   const siteId = filters.siteId ? Number(filters.siteId) : null
+  const channelId = filters.channelId ? Number(filters.channelId) : null
   const client = filters.client
   const from = filters.from
   const to = filters.to
@@ -176,6 +186,7 @@ export function ProxyLogsPage() {
       status: status === 'all' ? undefined : status,
       search: globalFilter.trim() || undefined,
       siteId: siteId ?? undefined,
+      channelId: channelId ?? undefined,
       client: client || undefined,
       from: from || undefined,
       to: to || undefined,
@@ -189,6 +200,7 @@ export function ProxyLogsPage() {
       status,
       globalFilter,
       siteId,
+      channelId,
       client,
       from,
       to,
@@ -202,6 +214,7 @@ export function ProxyLogsPage() {
       status: queryPayload.status,
       search: queryPayload.search,
       siteId: queryPayload.siteId,
+      channelId: queryPayload.channelId,
       client: queryPayload.client,
       from: queryPayload.from,
       to: queryPayload.to,
@@ -266,6 +279,7 @@ export function ProxyLogsPage() {
       filters: {
         status: 'all',
         siteId: '',
+        channelId: '',
         client: '',
         from: '',
         to: '',
@@ -492,6 +506,20 @@ export function ProxyLogsPage() {
                 </Select>
               )}
               <Input
+                type='number'
+                min={1}
+                aria-label={t('proxyLogs.page.filterChannelPlaceholder')}
+                placeholder={t('proxyLogs.page.filterChannelPlaceholder')}
+                value={filters.channelId}
+                onChange={(event) => {
+                  updateUrlState({
+                    filters: { channelId: event.target.value },
+                    pageIndex: 0,
+                  })
+                }}
+                className='w-[130px]'
+              />
+              <Input
                 type='datetime-local'
                 aria-label={t('proxyLogs.page.startTime')}
                 value={from}
@@ -593,7 +621,12 @@ export function ProxyLogsPage() {
           ),
           hasExpandedActiveFilters: hasLatencyFilter,
           hasAdditionalFilters:
-            siteId !== null || !!client || !!from || !!to || status !== 'all',
+            siteId !== null ||
+            channelId !== null ||
+            !!client ||
+            !!from ||
+            !!to ||
+            status !== 'all',
           onReset: handleReset,
         }}
       />
