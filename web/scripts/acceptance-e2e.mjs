@@ -15,6 +15,9 @@
 //   password credential mode against the site from journey 1 and submit; the
 //   backend performs a REAL login against the live upstream and the account must
 //   appear in the table.
+// Journey 3 — Check-in (opt-in, needs journey 2's account): enable check-in on
+//   the account, run all check-ins from the check-in page, and assert a check-in
+//   log row is recorded.
 //
 // Configuration (environment variables):
 //   BASE_URL          metapi admin origin      (default http://127.0.0.1:4000)
@@ -24,7 +27,7 @@
 //   UPSTREAM_PASSWORD upstream login password  (required for journey 2)
 //   PLATFORM          platform to select       (default new-api)
 //   ACCEPT_SITE_NAME  site name to create      (default acceptance-real-site)
-//   ACCEPT_LOGIN      set to "1" to also run journey 2
+//   ACCEPT_LOGIN      set to "1" to also run journeys 2 and 3
 //
 // Requires a Chromium install (`bunx playwright install chromium`).
 
@@ -293,6 +296,84 @@ async function journeyAccountLogin(context) {
   }
 }
 
+// Journey 3 — Check-in via UI: enable check-in on the account from journey 2,
+//   open the check-in page, run all check-ins, and assert a check-in log row
+//   appears. Against a real upstream that does not enable check-in the result is
+//   an honest skipped/failed log — the point is the full UI + backend round-trip
+//   runs and records something, not that the upstream grants reward.
+async function journeyCheckin(context) {
+  const label = 'journey: check-in via UI'
+  const headers = {
+    Authorization: `Bearer ${AUTH_TOKEN}`,
+    'Content-Type': 'application/json',
+  }
+  const page = await context.newPage()
+  collectPageFailures(page, label)
+  const act = async (name, fn) => {
+    try {
+      await fn()
+    } catch (error) {
+      throw new Error(
+        `step "${name}": ${String(error?.message ?? error).split('\n')[0]}`
+      )
+    }
+  }
+  try {
+    // Find the account created in journey 2 and make sure check-in is enabled
+    // so "run all" actually targets it.
+    let accountId = null
+    await act('locate account', async () => {
+      const resp = await context.request.get(`${BASE_URL}/api/accounts`, {
+        headers,
+      })
+      const data = await resp.json().catch(() => null)
+      const accounts = data?.accounts ?? []
+      const match = accounts.find((a) => a?.username === UPSTREAM_USERNAME)
+      if (!match) throw new Error(`account "${UPSTREAM_USERNAME}" not found`)
+      accountId = match.id
+    })
+    await act('enable check-in', async () => {
+      const resp = await context.request.put(
+        `${BASE_URL}/api/accounts/${accountId}`,
+        { headers, data: { checkinEnabled: true } }
+      )
+      if (resp.status() !== 200) {
+        throw new Error(`enable check-in HTTP ${resp.status()}`)
+      }
+    })
+
+    await act('goto /checkin', () =>
+      page.goto(`${BASE_URL}/checkin`, {
+        waitUntil: 'networkidle',
+        timeout: 30_000,
+      })
+    )
+    await page.waitForTimeout(800)
+
+    await act('click Run all check-ins', () =>
+      page
+        .getByRole('button', { name: /Run all check-ins|运行所有签到|签到/i })
+        .first()
+        .click({ timeout: 10_000 })
+    )
+
+    // The run records a check-in log row (success / skipped / failed). Wait for
+    // any row to appear in the check-in records table.
+    await act('check-in log appears', () =>
+      page
+        .locator('table tbody tr')
+        .first()
+        .waitFor({ state: 'visible', timeout: 25_000 })
+    )
+
+    pass(`${label}: ran all check-ins and a check-in log row was recorded`)
+  } catch (error) {
+    fail(`${label}: ${String(error?.message ?? error).split('\n')[0]}`)
+  } finally {
+    await page.close().catch(() => {})
+  }
+}
+
 const browser = await chromium.launch({ headless: true })
 try {
   const onboardingContext = await browser.newContext({
@@ -307,8 +388,9 @@ try {
   await browser.close()
 }
 
-// Journey 2 (login) is opt-in. Give the freshly created site a brief moment to
-// commit, then run the login journey in its own browser process.
+// Journey 2 (login) + Journey 3 (check-in) are opt-in. Give the freshly created
+// site a brief moment to commit, then run the login journey, then the check-in
+// journey (which needs the account journey 2 created), each in its own browser.
 if (process.env.ACCEPT_LOGIN === '1') {
   await new Promise((resolve) => setTimeout(resolve, 3_000))
 
@@ -321,6 +403,14 @@ if (process.env.ACCEPT_LOGIN === '1') {
     await seedAuth(loginContext)
     await journeyAccountLogin(loginContext)
     await loginContext.close()
+
+    const checkinContext = await loginBrowser.newContext({
+      viewport: { width: 1440, height: 900 },
+      locale: 'en',
+    })
+    await seedAuth(checkinContext)
+    await journeyCheckin(checkinContext)
+    await checkinContext.close()
   } finally {
     await loginBrowser.close()
   }
