@@ -5,11 +5,16 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-08-21 — #887 补遗收口 + E2E Journey 3 → v0.16.5
+
+- #902 全局告警红点 / #903 OAuth sheet / #904 About 构建信息 / #905 proxy-log channel 过滤 + channels status facet / #899 E2E Journey 3 / #901 死 CSS / #906 docs-sync，7 PR squash 合入；#907 release → v0.16.5 发布。
+- 抢救 list-filter 未提交工作（commit + rebase）→ #905；清理 9 stale 本地分支 + 3 空壳 worktree；落地「主 checkout 只挂 master + worktree」工作流 + `post-checkout` 告警 hook。
+
 ## 2026-08-21 — UI/UX Round 2 收口（v0.16.4）+ Round 3 审计启动
 
 - **Round 2 #889 八域 → #898 squash 合入（`1604f49`）→ v0.16.4 发布**：交互/移动端/视觉/IA/呈现/性能/主题/会话八域并行修复，含 oxfmt CI 门禁。
 - **#901 死 CSS 清理（`4cf12fd`）**：落地页移除后的零引用 CSS 残留。
-- **Round 3 审计启动**：运行时/契约/代码健康/产品能力/性能/安全 8 域，A/B/D/E/F/H 完成、C/G 因 provider 故障中断；产出 D 域 4 个 P0 契约 bug + H 域性能（零 gzip / accounts ~2041ms 冻结 / recharts 332KB 白下载），转 v0.16.5 立项。
+- **Round 3 审计启动**：运行时/契约/代码健康/产品能力/性能/安全 8 域，A/B/D/E/F/H 完成、C/G 因 provider 故障中断；产出 D 域 4 个 P0 契约 bug + H 域性能（零 gzip / accounts ~2041ms 冻结 / recharts 332KB 白下载），转 v0.16.6 立项。
 
 ## 2026-08-21 — UI/UX Round 1 #887 → v0.16.3
 
