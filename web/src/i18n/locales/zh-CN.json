@@ -2017,6 +2017,7 @@
         "filterAllSites": "全部站点",
         "filterClientPlaceholder": "客户端",
         "filterAllClients": "全部客户端",
+        "filterChannelPlaceholder": "通道 ID",
         "startTime": "起始时间",
         "endTime": "结束时间",
         "latencyMin": "延迟 ≥",

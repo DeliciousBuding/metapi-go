@@ -148,3 +148,60 @@ describe('useProxyLogs — latency filter payload', () => {
     expect(requestedUrl).not.toContain('latencyMax')
   })
 })
+
+describe('useProxyLogs — channel filter payload', () => {
+  it('serializes channelId into the request URL when set', async () => {
+    const params: ProxyLogsQuery = { limit: 20, offset: 0, channelId: 42 }
+    const queryClient = createQueryClient()
+    renderHook(() => useProxyLogs(params), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    await waitFor(() => {
+      expect(mockApiClientGet).toHaveBeenCalledTimes(1)
+    })
+
+    const requestedUrl = firstRequestedUrl()
+    expect(requestedUrl).toContain('/api/stats/proxy-logs')
+    expect(requestedUrl).toContain('channelId=42')
+  })
+
+  it('omits channelId from the URL when it is undefined', async () => {
+    const params: ProxyLogsQuery = { limit: 20, offset: 0 }
+    const queryClient = createQueryClient()
+    renderHook(() => useProxyLogs(params), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    await waitFor(() => {
+      expect(mockApiClientGet).toHaveBeenCalledTimes(1)
+    })
+
+    expect(firstRequestedUrl()).not.toContain('channelId')
+  })
+
+  it('composes channelId with the other server-side filters', async () => {
+    const params: ProxyLogsQuery = {
+      limit: 20,
+      offset: 0,
+      channelId: 7,
+      siteId: 3,
+      status: 'failed',
+      latencyMin: 2000,
+    }
+    const queryClient = createQueryClient()
+    renderHook(() => useProxyLogs(params), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    await waitFor(() => {
+      expect(mockApiClientGet).toHaveBeenCalledTimes(1)
+    })
+
+    const requestedUrl = firstRequestedUrl()
+    expect(requestedUrl).toContain('channelId=7')
+    expect(requestedUrl).toContain('siteId=3')
+    expect(requestedUrl).toContain('status=failed')
+    expect(requestedUrl).toContain('latencyMin=2000')
+  })
+})

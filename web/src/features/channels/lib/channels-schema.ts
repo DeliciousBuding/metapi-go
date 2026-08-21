@@ -1,6 +1,7 @@
 // metapi-go/features/channels — Zod schema for the list URL search state.
-// Only search / page / page-size / sorting are URL-backed; the channels list
-// has no faceted filters today.
+// Search / page / page-size / sorting / status are URL-backed; status is the
+// only faceted filter and is applied client-side like the search box (the
+// channels list is fetched in full and filtered by the data table).
 
 import { z } from 'zod'
 
@@ -19,6 +20,10 @@ export const channelsSearchSchema = z.object({
     .optional()
     .transform((value) => encodeSortingParam(value))
     .catch(undefined),
+  // Comma-separated `routing.ChannelRuntimeStatus` values (enabled /
+  // cooldown / breaker_open / manually_disabled) for the toolbar status
+  // facet, so a failing-channel view is shareable as a link.
+  status: stringSearchParam,
   // One-shot drilldown from the proxy-log detail sheet: open the detail
   // view for this channel, then the page strips the param (same consume
   // pattern as the accounts `create`/`siteId` deep link).

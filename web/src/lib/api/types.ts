@@ -483,6 +483,9 @@ export type ProxyLogsQuery = {
   search?: string
   client?: string
   siteId?: number
+  // Channel that served the request (`proxy_logs.channel_id`). Server-side
+  // like every other list filter so total + summary stay consistent.
+  channelId?: number
   from?: string
   to?: string
   // Latency bounds (ms) for the "Slow only" filter. Applied server-side so

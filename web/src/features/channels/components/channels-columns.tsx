@@ -60,6 +60,16 @@ const STATUS_CONFIG: Record<
   },
 }
 
+// Toolbar status facet options, in routing-precedence display order. Values are
+// the exact `routing.ChannelRuntimeStatus` vocabulary and the labels are read
+// back out of STATUS_CONFIG so the facet can never drift from the badges.
+export const CHANNELS_STATUS_FILTER_OPTIONS: {
+  value: ChannelStatus
+  labelKey: string
+}[] = (
+  ['enabled', 'cooldown', 'breaker_open', 'manually_disabled'] as const
+).map((status) => ({ value: status, labelKey: STATUS_CONFIG[status].labelKey }))
+
 export function useChannelsColumns(
   actions?: ChannelsColumnActions
 ): ColumnDef<ChannelRow>[] {
@@ -145,6 +155,14 @@ export function useChannelsColumns(
               {t(config.labelKey)}
             </Badge>
           )
+        },
+        // The toolbar status facet is multi-select, so the filter value is an
+        // array of statuses; an empty selection means "no filter".
+        filterFn: (row, _columnId, filterValue: unknown) => {
+          if (!Array.isArray(filterValue) || filterValue.length === 0) {
+            return true
+          }
+          return filterValue.includes(row.original.status)
         },
       },
       {

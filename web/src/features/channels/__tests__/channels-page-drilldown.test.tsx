@@ -65,6 +65,7 @@ vi.mock('../components/channel-detail-sheet', () => ({
 
 vi.mock('../components/channels-columns', () => ({
   useChannelsColumns: () => [],
+  CHANNELS_STATUS_FILTER_OPTIONS: [],
 }))
 
 function makeChannel(id: number): ChannelRow {

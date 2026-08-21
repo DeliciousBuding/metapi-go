@@ -37,3 +37,39 @@ describe('channelsSearchSchema', () => {
     expect(result.pageSize).toBe(20)
   })
 })
+
+// ---------------------------------------------------------------------------
+// status facet param — comma-separated routing status vocabulary
+// ---------------------------------------------------------------------------
+
+describe('channelsSearchSchema — status facet', () => {
+  it('accepts the page-written URL shape with a multi-select status list', () => {
+    const result = channelsSearchSchema.parse({
+      q: 'gpt',
+      page: '2',
+      pageSize: '50',
+      sort: 'name:asc,status:desc',
+      status: 'cooldown,breaker_open',
+    })
+    expect(result.q).toBe('gpt')
+    expect(result.page).toBe(2)
+    expect(result.pageSize).toBe(50)
+    expect(result.sort).toBe('name:asc,status:desc')
+    expect(result.status).toBe('cooldown,breaker_open')
+  })
+
+  it('round-trips each real routing status value verbatim', () => {
+    for (const status of [
+      'enabled',
+      'cooldown',
+      'breaker_open',
+      'manually_disabled',
+    ]) {
+      expect(channelsSearchSchema.parse({ status }).status).toBe(status)
+    }
+  })
+
+  it('leaves status undefined when the param is absent', () => {
+    expect(channelsSearchSchema.parse({}).status).toBeUndefined()
+  })
+})

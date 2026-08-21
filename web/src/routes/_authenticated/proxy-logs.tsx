@@ -12,9 +12,10 @@
 // / `useProxyLogsMeta` will request, building the same `ProxyLogsQuery`
 // payload from the router's `location.searchStr` (SSR-safe, rather than the
 // global `window.location.search`) so the prefetched pages are reused and the
-// cache key matches the page's first fetch. Latency range is client-side only
-// (not part of the backend query) so it is intentionally absent from the
-// prefetch payload.
+// cache key matches the page's first fetch. The payload covers status /
+// search / siteId / channelId / client / from / to; the latency bounds are a
+// known residual (the page sends them server-side, so a URL that carries
+// latencyMin/latencyMax simply misses this prefetch and refetches).
 
 import { createFileRoute } from '@tanstack/react-router'
 
@@ -57,6 +58,7 @@ export const Route = createFileRoute('/_authenticated/proxy-logs')({
     const status = search.status === 'all' ? undefined : search.status
     const searchText = asStringParam(search.q)?.trim() || undefined
     const siteId = search.siteId ?? undefined
+    const channelId = search.channelId ?? undefined
     const client = asStringParam(search.client) || undefined
     const from = asStringParam(search.from) || undefined
     const to = asStringParam(search.to) || undefined
@@ -67,11 +69,20 @@ export const Route = createFileRoute('/_authenticated/proxy-logs')({
       status,
       search: searchText,
       siteId,
+      channelId,
       client,
       from,
       to,
     }
-    const metaPayload = { status, search: searchText, siteId, client, from, to }
+    const metaPayload = {
+      status,
+      search: searchText,
+      siteId,
+      channelId,
+      client,
+      from,
+      to,
+    }
 
     await Promise.all([
       context.queryClient.prefetchQuery({
