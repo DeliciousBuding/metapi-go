@@ -40,7 +40,10 @@ export function SignInPage({ redirectTo, noticeReason }: SignInPageProps) {
 
   return (
     <div className='bg-background relative flex min-h-svh items-center justify-center px-4 pt-16 pb-4'>
-      <InterfaceControls className='absolute top-3 right-3 sm:top-4 sm:right-4' />
+      {/* DOM order = tab order: the card (the page's primary task) comes
+          first so the keyboard cycle runs form → docs link → controls with
+          no focus stop in between (F-line residual F). The controls stay
+          visually pinned to the corner via absolute positioning. */}
       <Card className='relative w-full max-w-sm shadow-sm'>
         <CardHeader className='gap-2 text-center'>
           <img
@@ -80,6 +83,7 @@ export function SignInPage({ redirectTo, noticeReason }: SignInPageProps) {
           </div>
         </CardContent>
       </Card>
+      <InterfaceControls className='absolute top-3 right-3 sm:top-4 sm:right-4' />
     </div>
   )
 }
