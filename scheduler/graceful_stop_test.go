@@ -59,7 +59,9 @@ func TestCronRunnerStopDrainsInFlightJob(t *testing.T) {
 // time stop() returns. Fails before the fix because ticks are
 // fire-and-forget with no WaitGroup.
 func TestIntervalRunnerStopDrainsInFlightRun(t *testing.T) {
-	r := &intervalRunner{}
+	// Zero jitter: this test isolates the stop-drain behavior; startup
+	// jitter has its own tests (startup_jitter_test.go).
+	r := &intervalRunner{jitter: func(time.Duration) time.Duration { return 0 }}
 	var started, done atomic.Bool
 	// Interval far longer than the test window: only the immediate run matters.
 	if err := r.start(context.Background(), time.Hour, true, func() {
