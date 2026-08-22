@@ -58,7 +58,9 @@ afterEach(() => cleanup())
 
 describe('SettingsPage breadcrumb link hit area', () => {
   it('gives every clickable breadcrumb link 24px hit height without growing the row', () => {
-    render(<SettingsPage subarea={stubSubarea} activeSection='authentication' />)
+    render(
+      <SettingsPage subarea={stubSubarea} activeSection='authentication' />
+    )
 
     const breadcrumb = screen.getByRole('navigation', { name: 'breadcrumb' })
     // Only real anchors are clickable; the aria-disabled BreadcrumbPage span

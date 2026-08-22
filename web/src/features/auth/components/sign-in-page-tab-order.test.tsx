@@ -51,9 +51,7 @@ const TABBABLE_SELECTOR = [
 ].join(', ')
 
 function accessibleName(element: HTMLElement): string {
-  return (
-    element.getAttribute('aria-label') ?? element.textContent?.trim() ?? ''
-  )
+  return element.getAttribute('aria-label') ?? element.textContent?.trim() ?? ''
 }
 
 describe('sign-in page tab order', () => {

@@ -54,7 +54,7 @@ export function SettingsPage({ subarea, activeSection }: SettingsPageProps) {
                 // WCAG 2.5.8 best-effort (F-line residual D): 20px text links
                 // get `py-0.5` click padding → 24px hit height; the matching
                 // `-my-0.5` keeps the breadcrumb row exactly as tall as before.
-                className='-my-0.5 py-0.5 hover:text-foreground transition-colors'
+                className='hover:text-foreground -my-0.5 py-0.5 transition-colors'
               >
                 {t('settings.overview.title')}
               </Link>
@@ -67,7 +67,7 @@ export function SettingsPage({ subarea, activeSection }: SettingsPageProps) {
                     | LinkProps['to']
                     | (string & {})
                 }
-                className='-my-0.5 py-0.5 hover:text-foreground transition-colors'
+                className='hover:text-foreground -my-0.5 py-0.5 transition-colors'
               >
                 {t(subarea.title)}
               </Link>
