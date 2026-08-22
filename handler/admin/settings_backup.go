@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -111,6 +112,14 @@ func isKnownTable(name string) bool {
 }
 
 // POST /api/settings/backup/import
+//
+// SECURITY: a backup import is semi-trusted input. Settings rows whose keys
+// are bound to the current deployment (credentials, DB wiring, scheduler
+// state — see backupsvc.RuntimeLocalSettingKeys) are always skipped and
+// reported via skippedSettings. Importing an untrusted backup is equivalent
+// to accepting the downstream API keys it carries: newly admitted keys are
+// working proxy credentials, so they are listed by name (never by key value)
+// in the response and in the events audit trail (newDownstreamApiKeys).
 func (h *backupHandler) importBackup(w http.ResponseWriter, r *http.Request) {
 	raw, err := readLimitedWebdavBody(r.Body, backupWebdavImportMaxBytes)
 	if err != nil {
@@ -137,17 +146,25 @@ func (h *backupHandler) importBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	imported, err := importBackupTables(h.db, body)
+	result, err := importBackupTables(h.db, body)
 	if err != nil {
 		writeError(w, backupImportErrorStatus(err), err.Error())
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
+	response := map[string]any{
 		"success":  true,
 		"message":  "import completed",
-		"imported": imported,
-	})
+		"imported": result.imported,
+	}
+	if result.skippedSettings > 0 {
+		response["skippedSettings"] = result.skippedSettings
+	}
+	if len(result.newDownstreamApiKeys) > 0 {
+		response["newDownstreamApiKeys"] = result.newDownstreamApiKeys
+	}
+	logImportedDownstreamKeys(h.db, result.newDownstreamApiKeys)
+	writeJSON(w, http.StatusOK, response)
 }
 
 // importTSV21Backup handles the TS backup v2.1 branch of the import endpoint.
@@ -170,9 +187,13 @@ func (h *backupHandler) importTSV21Backup(w http.ResponseWriter, raw []byte) {
 	if result.SkippedSettings > 0 {
 		response["skippedSettings"] = result.SkippedSettings
 	}
+	if len(result.NewDownstreamApiKeys) > 0 {
+		response["newDownstreamApiKeys"] = result.NewDownstreamApiKeys
+	}
 	if len(result.Warnings) > 0 {
 		response["warnings"] = result.Warnings
 	}
+	logImportedDownstreamKeys(h.db, result.NewDownstreamApiKeys)
 	writeJSON(w, http.StatusOK, response)
 }
 
@@ -384,7 +405,22 @@ func queryExistingPKs(db *sqlx.DB, table, pkCol string, values []string) map[str
 	return out
 }
 
-func importBackupTables(db *sqlx.DB, tables map[string]json.RawMessage) (map[string]int64, error) {
+// backupImportResult reports what a tables-format import actually did.
+type backupImportResult struct {
+	// imported maps Go table names to the number of rows inserted. Rows whose
+	// primary key already existed are skipped (ON CONFLICT DO NOTHING).
+	imported map[string]int64
+	// skippedSettings counts settings rows excluded by policy (runtime-local
+	// keys from backupsvc.RuntimeLocalSettingKeys).
+	skippedSettings int64
+	// newDownstreamApiKeys lists the names (never the key values) of
+	// downstream_api_keys entries actually inserted by this import. Importing
+	// an untrusted backup is equivalent to accepting the keys it carries; the
+	// list is surfaced in the response and the events audit trail.
+	newDownstreamApiKeys []string
+}
+
+func importBackupTables(db *sqlx.DB, tables map[string]json.RawMessage) (*backupImportResult, error) {
 	if tables == nil {
 		return nil, fmt.Errorf("invalid import data: expected a JSON object with a tables field")
 	}
@@ -403,7 +439,7 @@ func importBackupTables(db *sqlx.DB, tables map[string]json.RawMessage) (map[str
 		}
 	}()
 
-	imported, err := importBackupTablesWithConn(tx, tables)
+	result, err := importBackupTablesWithConn(tx, tables)
 	if err != nil {
 		return nil, err
 	}
@@ -411,7 +447,7 @@ func importBackupTables(db *sqlx.DB, tables map[string]json.RawMessage) (map[str
 		return nil, fmt.Errorf("commit import tx: %w", err)
 	}
 	committed = true
-	return imported, nil
+	return result, nil
 }
 
 func validateBackupImportTableKeys(tables map[string]json.RawMessage) error {
@@ -429,8 +465,8 @@ type backupImportConn interface {
 	Exec(query string, args ...any) (sql.Result, error)
 }
 
-func importBackupTablesWithConn(conn backupImportConn, tables map[string]json.RawMessage) (map[string]int64, error) {
-	imported := map[string]int64{}
+func importBackupTablesWithConn(conn backupImportConn, tables map[string]json.RawMessage) (*backupImportResult, error) {
+	result := &backupImportResult{imported: map[string]int64{}}
 	for _, table := range allTables {
 		raw, ok := tables[table]
 		if !ok {
@@ -450,13 +486,149 @@ func importBackupTablesWithConn(conn backupImportConn, tables map[string]json.Ra
 			continue
 		}
 
-		count, err := importTableRowsWithConn(conn, table, rows)
+		// SECURITY: downstream_api_keys rows are usable credentials. Snapshot
+		// which payload keys already exist before inserting so the entries
+		// this import actually admits can be reported (by name only) in the
+		// response and the events audit trail.
+		var downstreamCandidates []string
+		var downstreamBefore map[string]bool
+		if table == "downstream_api_keys" {
+			downstreamCandidates = downstreamKeyValues(rows)
+			downstreamBefore = queryExistingDownstreamKeysOnConn(conn, downstreamCandidates)
+		}
+
+		count, skipped, err := importTableRowsWithConn(conn, table, rows)
 		if err != nil {
 			return nil, fmt.Errorf("import failed: table %s: %w", table, err)
 		}
-		imported[table] = count
+		result.imported[table] = count
+		result.skippedSettings += skipped
+
+		if table == "downstream_api_keys" && len(downstreamCandidates) > 0 {
+			downstreamAfter := queryExistingDownstreamKeysOnConn(conn, downstreamCandidates)
+			result.newDownstreamApiKeys = downstreamNamesForNewKeys(rows, downstreamCandidates, downstreamBefore, downstreamAfter)
+		}
 	}
-	return imported, nil
+	return result, nil
+}
+
+// downstreamKeyValues extracts the unique, payload-ordered key values from
+// downstream_api_keys rows.
+func downstreamKeyValues(rows []map[string]any) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, row := range rows {
+		key, ok := row["key"].(string)
+		if !ok || key == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, key)
+	}
+	return out
+}
+
+// queryExistingDownstreamKeysOnConn returns which of keys already exist in
+// downstream_api_keys, chunked to stay under SQL variable limits.
+func queryExistingDownstreamKeysOnConn(conn backupImportConn, keys []string) map[string]bool {
+	out := map[string]bool{}
+	if len(keys) == 0 {
+		return out
+	}
+	pgStyle := false
+	switch conn.DriverName() {
+	case "pgx", "postgres":
+		pgStyle = true
+	}
+	const chunkSize = 500
+	for start := 0; start < len(keys); start += chunkSize {
+		end := start + chunkSize
+		if end > len(keys) {
+			end = len(keys)
+		}
+		chunk := keys[start:end]
+		placeholders := make([]string, len(chunk))
+		args := make([]any, len(chunk))
+		for i, value := range chunk {
+			if pgStyle {
+				placeholders[i] = fmt.Sprintf("$%d", i+1)
+			} else {
+				placeholders[i] = "?"
+			}
+			args[i] = value
+		}
+		query := fmt.Sprintf(`SELECT "key" FROM "downstream_api_keys" WHERE "key" IN (%s)`,
+			strings.Join(placeholders, ","))
+		rows, err := conn.Queryx(query, args...)
+		if err != nil {
+			// Best-effort reporting: a read failure degrades to "no existing
+			// keys known" rather than blocking the import itself.
+			return out
+		}
+		for rows.Next() {
+			var value string
+			if err := rows.Scan(&value); err == nil {
+				out[value] = true
+			}
+		}
+		_ = rows.Close()
+	}
+	return out
+}
+
+// downstreamNamesForNewKeys returns the names of the downstream_api_keys
+// entries present after the import but not before, in payload order. Only
+// names are returned: key values must never surface in import responses or
+// audit events. The name comes from the first payload row carrying each key,
+// which is the row ON CONFLICT DO NOTHING admits.
+func downstreamNamesForNewKeys(rows []map[string]any, candidates []string, before, after map[string]bool) []string {
+	if len(candidates) == 0 {
+		return nil
+	}
+	namesByKey := make(map[string]string, len(candidates))
+	for _, row := range rows {
+		key, ok := row["key"].(string)
+		if !ok || key == "" {
+			continue
+		}
+		if _, exists := namesByKey[key]; exists {
+			continue
+		}
+		name, _ := row["name"].(string)
+		namesByKey[key] = name
+	}
+	var out []string
+	for _, key := range candidates {
+		if after[key] && !before[key] {
+			out = append(out, namesByKey[key])
+		}
+	}
+	return out
+}
+
+// logImportedDownstreamKeys records a warning event listing the downstream
+// API keys a backup import admitted. Names only — key values are never
+// logged. Importing an untrusted backup is equivalent to accepting the keys
+// it carries; this event gives operators a durable trail. Best-effort: a
+// failed insert never blocks the import response.
+func logImportedDownstreamKeys(db *sqlx.DB, names []string) {
+	if len(names) == 0 {
+		return
+	}
+	listed := names
+	suffix := ""
+	const maxListed = 20
+	if len(listed) > maxListed {
+		suffix = fmt.Sprintf(" (%d in total)", len(names))
+		listed = listed[:maxListed]
+	}
+	message := fmt.Sprintf("New downstream API keys: %s%s", strings.Join(listed, ", "), suffix)
+	now := time.Now().UTC().Format(time.RFC3339)
+	query := db.Rebind(`INSERT INTO events (type, title, message, level, related_type, created_at, "read")
+		VALUES (?, ?, ?, ?, 'backup', ?, 0)`)
+	if _, err := db.Exec(query, "backup", "Backup import added downstream API keys", message, "warning", now); err != nil {
+		slog.Warn("backup import: failed to log downstream key event", "error", err)
+	}
 }
 
 type backupImportClientError struct {
@@ -481,29 +653,33 @@ func backupImportErrorStatus(err error) int {
 
 // importTableRowsWithConn inserts rows into a table using a shared connection,
 // skipping conflicts on primary key. Backup imports pass a shared transaction.
-func importTableRowsWithConn(conn backupImportConn, table string, rows []map[string]any) (int64, error) {
+// It returns the number of rows inserted and the number of rows skipped by
+// policy (runtime-local settings keys).
+func importTableRowsWithConn(conn backupImportConn, table string, rows []map[string]any) (int64, int64, error) {
 	if !isKnownTable(table) {
-		return 0, fmt.Errorf("unknown table: %s", table)
+		return 0, 0, fmt.Errorf("unknown table: %s", table)
 	}
 	if len(rows) == 0 {
-		return 0, nil
+		return 0, 0, nil
 	}
 	knownColumns, err := tableColumns(conn, table)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
 	var imported int64
+	var skipped int64
 	for _, row := range rows {
 		if len(row) == 0 {
 			continue
 		}
 		if backupImportMaxColumnsPerRow > 0 && len(row) > backupImportMaxColumnsPerRow {
-			return 0, backupImportClientError{
+			return 0, 0, backupImportClientError{
 				message: fmt.Sprintf("row has %d columns, exceeds limit %d", len(row), backupImportMaxColumnsPerRow),
 			}
 		}
 		if shouldSkipBackupImportRow(table, row) {
+			skipped++
 			continue
 		}
 
@@ -512,10 +688,10 @@ func importTableRowsWithConn(conn backupImportConn, table string, rows []map[str
 
 		for col, val := range row {
 			if !knownColumns[col] {
-				return 0, fmt.Errorf("unknown column %q for table %s", col, table)
+				return 0, 0, fmt.Errorf("unknown column %q for table %s", col, table)
 			}
 			if err := validateBackupImportCellValue(col, val); err != nil {
-				return 0, err
+				return 0, 0, err
 			}
 			columns = append(columns, col)
 			values = append(values, val)
@@ -549,13 +725,13 @@ func importTableRowsWithConn(conn backupImportConn, table string, rows []map[str
 
 		result, err := conn.Exec(query, values...)
 		if err != nil {
-			return 0, fmt.Errorf("insert row: %w", err)
+			return 0, 0, fmt.Errorf("insert row: %w", err)
 		}
 		n, _ := result.RowsAffected()
 		imported += n
 	}
 
-	return imported, nil
+	return imported, skipped, nil
 }
 
 func validateBackupImportCellValue(column string, value any) error {
@@ -574,6 +750,11 @@ func validateBackupImportCellValue(column string, value any) error {
 	}
 }
 
+// shouldSkipBackupImportRow reports whether a row must be dropped by policy.
+// Only settings rows are filtered: keys bound to the current deployment
+// (credentials, DB wiring, scheduler state) may never be planted by an
+// import. The deny-list lives in backupsvc.RuntimeLocalSettingKeys so the
+// tables path and the TS v2.1 path enforce the same policy.
 func shouldSkipBackupImportRow(table string, row map[string]any) bool {
 	if table != "settings" {
 		return false
