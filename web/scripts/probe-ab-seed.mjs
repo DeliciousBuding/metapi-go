@@ -42,21 +42,21 @@ function insertAccount(siteId, username, balance, extra = {}) {
 function insertProxyLog(fields) {
   db.query(
     `INSERT INTO proxy_logs (account_id, model_requested, model_actual, status, http_status, is_stream, latency_ms, prompt_tokens, completion_tokens, total_tokens, estimated_cost, error_message, retry_count, created_at)
-     VALUES (@accountId, @modelRequested, @modelActual, @status, @httpStatus, 0, @latencyMs, @promptTokens, @completionTokens, @totalTokens, @estimatedCost, @errorMessage, 0, @createdAt)`
-  ).run({
-    accountId: fields.accountId ?? null,
-    modelRequested: fields.modelRequested,
-    modelActual: fields.modelActual ?? fields.modelRequested,
-    status: fields.status ?? 'success',
-    httpStatus: fields.httpStatus ?? 200,
-    latencyMs: fields.latencyMs ?? 120,
-    promptTokens: fields.promptTokens ?? 10,
-    completionTokens: fields.completionTokens ?? 20,
-    totalTokens: fields.totalTokens ?? 30,
-    estimatedCost: fields.estimatedCost ?? null,
-    errorMessage: fields.errorMessage ?? null,
-    createdAt: fields.createdAt,
-  })
+     VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, 0, ?)`
+  ).run(
+    fields.accountId ?? null,
+    fields.modelRequested,
+    fields.modelActual ?? fields.modelRequested,
+    fields.status ?? 'success',
+    fields.httpStatus ?? 200,
+    fields.latencyMs ?? 120,
+    fields.promptTokens ?? 10,
+    fields.completionTokens ?? 20,
+    fields.totalTokens ?? 30,
+    fields.estimatedCost ?? null,
+    fields.errorMessage ?? null,
+    fields.createdAt ?? null
+  )
 }
 
 function insertEvent(type, level, title, message, createdAt) {
