@@ -350,7 +350,8 @@ jobs:
           REDIS_PORT: "6379"
           ADMIN_EMAIL: admin@sub2api.local
           ADMIN_PASSWORD: sub2api-pass-123
-          JWT_SECRET: ci-e2e-sub2api-jwt-secret
+          # Upstream config validation rejects jwt.secret shorter than 32 bytes.
+          JWT_SECRET: ci-e2e-sub2api-jwt-secret-0123456789abcdef0123456789abcdef012345
           TZ: "UTC"
         options: >-
           --add-host host.docker.internal:host-gateway
@@ -513,9 +514,10 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest, ubuntu-24.04-arm]
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
+      # Same pattern as the build job: go-toolchain sets up Go and creates the
+      # web/dist placeholder so the //go:embed dist directive compiles on a
+      # fresh checkout (the runtime smoke only needs the API, not the real SPA).
+      - uses: ./.github/actions/go-toolchain
       - name: Build native binary
         shell: bash
         run: |
