@@ -6,7 +6,14 @@ package scheduler
 import (
 	"context"
 	"log/slog"
+	"sync"
+	"time"
 )
+
+// registryStopBudget bounds the overall StopAll wait. Individual schedulers
+// already cap their own drain (see stopDrainBudget in cron.go); this outer
+// budget is belt-and-braces so a stuck Stop cannot stall graceful shutdown.
+const registryStopBudget = 10 * time.Second
 
 // Scheduler is the interface for all background schedulers.
 type Scheduler interface {
@@ -54,15 +61,51 @@ func (r *Registry) StartAll(ctx context.Context) {
 }
 
 // StopAll stops all registered schedulers, logging errors but continuing
-// through all schedulers.
+// through all schedulers. Stops run concurrently and the call is bounded by
+// registryStopBudget so a stuck Stop cannot stall graceful shutdown.
 func (r *Registry) StopAll() {
+	r.StopAllWithTimeout(registryStopBudget)
+}
+
+// StopAllWithTimeout stops all registered schedulers concurrently, waiting
+// up to budget for every Stop to return. Each scheduler's Stop is internally
+// bounded (see cron.go), so this outer deadline only matters if a Stop hangs
+// outright. Stops still running when the budget expires are logged and left
+// to finish on their own (process exit follows shortly after).
+func (r *Registry) StopAllWithTimeout(budget time.Duration) {
+	var wg sync.WaitGroup
 	for _, s := range r.schedulers {
-		if err := s.Stop(); err != nil {
-			slog.Warn("scheduler stop failed",
-				"name", s.Name(),
-				"error", err,
-			)
-		}
+		wg.Add(1)
+		go func(s Scheduler) {
+			defer wg.Done()
+			defer func() {
+				if rec := recover(); rec != nil {
+					slog.Error("scheduler panicked during stop",
+						"name", s.Name(),
+						"panic", rec,
+					)
+				}
+			}()
+			if err := s.Stop(); err != nil {
+				slog.Warn("scheduler stop failed",
+					"name", s.Name(),
+					"error", err,
+				)
+			}
+		}(s)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(budget):
+		slog.Warn("scheduler StopAll budget exceeded; some schedulers may still be draining",
+			"budget", budget,
+		)
 	}
 }
 
