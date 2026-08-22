@@ -936,7 +936,8 @@
             "saved": "Schedule saved.",
             "saveFailed": "Failed to save schedule.",
             "checkinTriggered": "Check-in triggered.",
-            "checkinTriggerFailed": "Failed to trigger check-in."
+            "checkinTriggerFailed": "Failed to trigger check-in.",
+            "checkinPartialFailed": "Check-in partially failed"
           }
         },
         "proxyTransport": {

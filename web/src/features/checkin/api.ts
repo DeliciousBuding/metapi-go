@@ -6,7 +6,9 @@ import {
   useQueryClient,
   type UseQueryOptions,
 } from '@tanstack/react-query'
+import type { z } from 'zod'
 
+import i18n from '@/i18n/config'
 import { api } from '@/lib/api'
 import { assertBusinessOk } from '@/lib/assert-business-ok'
 
@@ -91,14 +93,35 @@ export function useCheckinLogs(
   })
 }
 
+export type TriggerCheckinAllResult = z.infer<
+  typeof triggerCheckinAllResultSchema
+>
+
+/**
+ * Parse the POST /api/checkin/trigger envelope. The backend answers 200 with
+ * `success: (failed == 0)` plus a real per-account summary. A partial
+ * completion is a genuine outcome the caller must present (some succeeded,
+ * some failed), so it is returned — not thrown — and only an envelope failure
+ * that carries no summary at all counts as a hard error. Throwing on every
+ * `success:false` here used to swallow the breakdown before any UI could
+ * show it.
+ */
+export function parseTriggerCheckinAllResult(
+  raw: unknown
+): TriggerCheckinAllResult {
+  const parsed = triggerCheckinAllResultSchema.parse(raw)
+  if (!parsed.success && !parsed.summary) {
+    throw new Error(parsed.message || i18n.t('checkin.toast.triggerFailed'))
+  }
+  return parsed
+}
+
 export function useManualCheckin() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async () => {
       const result = await api.triggerCheckinAll()
-      return triggerCheckinAllResultSchema.parse(
-        assertBusinessOk(result, 'checkin.toast.triggerFailed')
-      )
+      return parseTriggerCheckinAllResult(result)
     },
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: checkinQueryKeys.logs() })

@@ -15,6 +15,7 @@
 
 import { useNavigate } from '@tanstack/react-router'
 import type { ColumnFiltersState } from '@tanstack/react-table'
+import axios from 'axios'
 import { CalendarRange, RotateCw, Users, Zap } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -358,7 +359,18 @@ export function CheckinPage() {
       } else {
         toast.success(result.message || t('checkin.toast.complete'))
       }
-    } catch {}
+    } catch (error) {
+      // Transport failures (non-2xx) are already toasted by the http-client
+      // error interceptor; envelope failures thrown by the parser are not, so
+      // they get their own honest error toast instead of being swallowed.
+      if (!axios.isAxiosError(error)) {
+        toast.error(
+          error instanceof Error && error.message
+            ? error.message
+            : t('checkin.toast.triggerFailed')
+        )
+      }
+    }
   }
 
   const handleResetFilters = () => {

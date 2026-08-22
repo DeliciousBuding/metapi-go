@@ -40,7 +40,16 @@ export const tokenRoutesApi = {
     }),
 
   // Check-in
-  triggerCheckinAll: () => request('/api/checkin/trigger', { method: 'POST' }),
+  // skipBusinessError: the trigger answers 200 with `success:(failed==0)` + a
+  // per-account summary. Both callers (checkin page, scheduling section)
+  // render that breakdown themselves, so the generic interceptor toast — whose
+  // message is the always-"执行完成" envelope text and would read as success
+  // even on partial failure — is suppressed in favour of the precise feedback.
+  triggerCheckinAll: () =>
+    request('/api/checkin/trigger', {
+      method: 'POST',
+      skipBusinessError: true,
+    }),
   triggerCheckin: (id: number) =>
     request(`/api/checkin/trigger/${id}`, { method: 'POST' }),
   getCheckinLogs: (

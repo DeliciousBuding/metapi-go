@@ -536,7 +536,17 @@ Test a SQLite or PostgreSQL connection string. Returns `400` when the dialect is
 
 ### POST /api/settings/database/migrate
 
-Returns `501`. Runtime database migration is not wired into the admin API yet. Use `metapi-migrate` for SQLite to PostgreSQL migration.
+Queues a migration of the live runtime database onto an external target as an
+admin background task and returns `202` with the task ID:
+`{ "success": true, "taskId": "...", "task": {...} }`. Progress is observed by
+polling `GET /api/tasks/{id}` until the task reaches `succeeded` (result
+carries per-table row counts) or `failed` (error carries the reason). The
+migration runs the same `store.RunMigration` code path as the `metapi-migrate`
+CLI; it is not wired to any remote helper.
+
+Returns `400` when the dialect is unsupported, the connection string is empty,
+or the target resolves to the live runtime database (migrating onto the
+database currently in use is refused).
 
 ---
 
@@ -616,15 +626,44 @@ Update checkin schedule (cron, interval, or random-window mode). The handler kee
 
 ## Update Center
 
-> **501 residual**：本组接口当前返回 501（未实现）。版本更新提示走 GitHub Releases / GHCR 镜像 tag，前端不依赖此 API。详见 [`STATE.md`](internal/STATE.md)。
+Local-only residual surface. Version updates ship via GitHub Releases / GHCR
+image tags; the admin UI renders this section read-only with external links
+and does not depend on in-app update discovery. Honest residuals: the
+status/check payloads always report `updateAvailable: false` and expose a
+`residual` string describing the limitation; deploy/rollback/task-stream
+return `501` rather than inventing task ids or fake SSE streams.
 
 ### GET /api/update-center/status
 
-Get update center status.
+Local status only. Returns `200` with
+`{ "currentVersion": "0.0.0", "latestVersion": "0.0.0", "updateAvailable": false, "lastCheckedAt": null, "mode": "external", "residual": "..." }`.
+Never invents `updateAvailable: true` or a fake `lastCheckedAt`.
 
 ### POST /api/update-center/check
 
-Trigger update center check.
+Same local-only payload as status (no remote registry polling, no deploy
+tasks started).
+
+### PUT /api/update-center/config
+
+Echo-only: accepts the config body and returns it with `success: true` plus a
+`residual` note. Not persisted as an update-center product config; deploy and
+rollback remain residual regardless of the echoed values.
+
+### POST /api/update-center/deploy
+
+Returns `501` (`{ "success": false, "message": "Update-center deploy is not implemented in Go", "residual": "..." }`).
+Remote binary/Helm deploy via a helper service is out of scope; use external
+deploy tooling (CI/CD or helper).
+
+### POST /api/update-center/rollback
+
+Returns `501` — same honest residual shape as deploy.
+
+### GET /api/update-center/tasks/:id/stream
+
+Returns `501`. No deploy/rollback task registry exists, so there is no SSE log
+stream to serve.
 
 ---
 
