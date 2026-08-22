@@ -76,11 +76,6 @@ type ChannelLoadSnapshot struct {
 	Saturated        bool
 }
 
-// RouteRebuilder rebuilds token routes from model availability data.
-type RouteRebuilder interface {
-	RebuildTokenRoutesFromAvailability(ctx context.Context) error
-}
-
 // DownstreamRoutingPolicy mirrors TS DownstreamRoutingPolicy.
 type DownstreamRoutingPolicy struct {
 	ExcludedSiteIDs        []int64
