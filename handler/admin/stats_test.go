@@ -14,9 +14,10 @@ import (
 
 func setupStatsPostgresTest(t *testing.T) (*store.DB, chi.Router) {
 	t.Helper()
-	// Process-global cache must start empty per test so a prior test's cached
-	// summary never leaks in (especially for the DB-closed 500 test).
+	// Process-global caches must start empty per test so a prior test's
+	// cached payload never leaks in (especially for the DB-closed 500 test).
 	globalDashboardCache.clear()
+	globalProxyLogsSummaryCache.clear()
 
 	dsn := strings.TrimSpace(os.Getenv("PG_TEST_DSN"))
 	if dsn == "" {
@@ -40,9 +41,10 @@ func setupStatsPostgresTest(t *testing.T) (*store.DB, chi.Router) {
 
 func setupStatsSQLiteTest(t *testing.T) (*store.DB, chi.Router) {
 	t.Helper()
-	// Process-global cache must start empty per test so a prior test's cached
-	// summary never leaks in (especially for the DB-closed 500 test).
+	// Process-global caches must start empty per test so a prior test's
+	// cached payload never leaks in (especially for the DB-closed 500 test).
 	globalDashboardCache.clear()
+	globalProxyLogsSummaryCache.clear()
 	db, err := store.Open(store.DialectSQLite, ":memory:", false)
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
