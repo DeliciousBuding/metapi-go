@@ -362,4 +362,9 @@ bash web/scripts/verify-live-assets.sh http://127.0.0.1:4000
 # verify-live-assets OK: N referenced assets all 200
 ```
 
+The script discovers entry assets from index.html (both the rsbuild `/static/`
+and legacy Vite `/assets/` prefixes) plus the lazy async chunks listed in the
+runtime chunk map, and fails closed (exit 1) if it discovers zero assets or any
+asset is missing/swallowed — an empty set never passes.
+
 The script needs only bash + curl (no node on the target).
