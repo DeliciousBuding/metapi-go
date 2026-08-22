@@ -1,7 +1,10 @@
 // Behavior test for the useProxyLogs query payload. Mocks the shared
 // axios instance (http-client) so the real `request()` transport runs end
 // to end and the request URL can be inspected — asserting the latency
-// bounds added to ProxyLogsQuery are serialized server-side.
+// bounds added to ProxyLogsQuery are serialized server-side, and that the
+// list fetch uses the list-only `view=query` endpoint (the five-way summary
+// aggregate travels exclusively via useProxyLogsMeta — fetching it in the
+// list payload too was the double-compute perf regression).
 //
 // The original bug kept `latencyMin`/`latencyMax` OUT of the page's query
 // payload (filtering client-side), so `total` (server, unfiltered) and
@@ -90,6 +93,27 @@ function firstRequestedUrl(): string {
   }
   return url
 }
+
+describe('useProxyLogs — list-only view contract', () => {
+  it('requests view=query so the list fetch never recomputes the summary', async () => {
+    const params: ProxyLogsQuery = { limit: 20, offset: 0 }
+    const queryClient = createQueryClient()
+    renderHook(() => useProxyLogs(params), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    await waitFor(() => {
+      expect(mockApiClientGet).toHaveBeenCalledTimes(1)
+    })
+
+    const requestedUrl = firstRequestedUrl()
+    expect(requestedUrl).toContain('/api/stats/proxy-logs')
+    // view=query returns items/total only — summary/sites/clientOptions are
+    // owned by useProxyLogsMeta (view=meta). A default (full) fetch here
+    // would double the summary aggregate work per page load.
+    expect(requestedUrl).toContain('view=query')
+  })
+})
 
 describe('useProxyLogs — latency filter payload', () => {
   it('serializes latencyMin and latencyMax into the request URL when set', async () => {

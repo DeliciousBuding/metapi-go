@@ -228,7 +228,12 @@ export function ProxyLogsPage() {
   const logsQuery = useProxyLogs(queryPayload, {
     refetchInterval: intervalMs === false ? false : intervalMs,
   })
-  const metaQuery = useProxyLogsMeta(metaPayload)
+  // The meta query is the single owner of the summary aggregate (the list
+  // fetch is view=query and carries no summary) — refetch it on the same
+  // interval so auto-refresh keeps the summary strip as fresh as the rows.
+  const metaQuery = useProxyLogsMeta(metaPayload, {
+    refetchInterval: intervalMs === false ? false : intervalMs,
+  })
   const rawItems = useMemo(() => logsQuery.data?.items ?? [], [logsQuery.data])
   const total = logsQuery.data?.total ?? 0
 
@@ -269,7 +274,7 @@ export function ProxyLogsPage() {
     totalCount: total,
   })
 
-  const summary = logsQuery.data?.summary
+  const summary = metaQuery.data?.summary
   const clientOptions = metaQuery.data?.clientOptions ?? []
   const siteOptions = metaQuery.data?.sites ?? []
 
@@ -298,7 +303,7 @@ export function ProxyLogsPage() {
         limit: PROXY_LOGS_CSV_EXPORT_LIMIT,
         offset: 0,
       }
-      const response = await api.getProxyLogs(exportPayload)
+      const response = await api.getProxyLogsQuery(exportPayload)
       const rows = response.items ?? []
       const csv = proxyLogsToCsv(rows, t)
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -338,8 +343,13 @@ export function ProxyLogsPage() {
           <ProxyLogsHeaderActions
             onExport={handleExportCsv}
             isExporting={isExporting}
-            onRefresh={() => logsQuery.refetch()}
-            isRefreshing={logsQuery.isFetching}
+            onRefresh={() => {
+              // Refresh both halves of the split fetch: the list (view=query)
+              // and the meta facets/summary (view=meta).
+              logsQuery.refetch()
+              metaQuery.refetch()
+            }}
+            isRefreshing={logsQuery.isFetching || metaQuery.isFetching}
           />
         </div>
       </div>
