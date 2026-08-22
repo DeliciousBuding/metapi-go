@@ -101,7 +101,7 @@ func (h *tokenRoutesHandler) addChannel(w http.ResponseWriter, r *http.Request) 
 		 AND (source_model = ? OR (source_model IS NULL AND ? IS NULL))`),
 		routeID, body.AccountID, body.TokenID, body.TokenID, body.SourceModel, body.SourceModel)
 	if dupCount > 0 {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "该来源模型的通道已存在")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "a channel for this source model already exists")
 		return
 	}
 
@@ -113,7 +113,7 @@ func (h *tokenRoutesHandler) addChannel(w http.ResponseWriter, r *http.Request) 
 		routeID, body.AccountID, body.TokenID, body.SourceModel, priority, weight, true, true,
 	)
 	if err != nil {
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "创建通道失败")
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to create channel")
 		return
 	}
 
@@ -303,7 +303,7 @@ func (h *tokenRoutesHandler) updateChannel(w http.ResponseWriter, r *http.Reques
 	idStr := chi.URLParam(r, "channelId")
 	channelID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil || channelID <= 0 {
-		writeErrorWithRequest(w, r, http.StatusNotFound, "通道不存在")
+		writeErrorWithRequest(w, r, http.StatusNotFound, "channel not found")
 		return
 	}
 

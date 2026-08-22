@@ -19,9 +19,9 @@ import (
 const (
 	routeDecisionBatchMaxItems     = 500
 	routeDecisionRefreshTaskType   = "route-decision.refresh"
-	routeDecisionRefreshTaskTitle  = "刷新路由选中概率"
+	routeDecisionRefreshTaskTitle  = "Refresh route selection probabilities"
 	routeDecisionRefreshDedupeKey  = "route-decision-refresh"
-	routeDecisionRouterUnavailable = "路由决策引擎未配置"
+	routeDecisionRouterUnavailable = "route decision engine is not configured"
 )
 
 // RouteDecisionExplainer is the router surface used by decision admin APIs.
@@ -421,12 +421,12 @@ func (h *tokenRoutesHandler) createRoute(w http.ResponseWriter, r *http.Request)
 	}
 
 	if routeMode != "explicit_group" && modelPattern == "" {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "模型匹配不能为空")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "model match pattern is required")
 		return
 	}
 
 	if routeMode == "explicit_group" && displayName == "" {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "显式群组必须填写对外模型名")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "explicit groups must specify an external model name")
 		return
 	}
 
@@ -458,7 +458,7 @@ func (h *tokenRoutesHandler) createRoute(w http.ResponseWriter, r *http.Request)
 		modelMapping, routingStrategy, contextLength, enabled, now, now,
 	)
 	if err != nil {
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "创建路由失败")
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to create route")
 		return
 	}
 
@@ -466,7 +466,7 @@ func (h *tokenRoutesHandler) createRoute(w http.ResponseWriter, r *http.Request)
 	if routeMode == "explicit_group" && len(body.SourceRouteIds) > 0 {
 		for _, srcID := range body.SourceRouteIds {
 			if _, err := h.db.Exec(h.db.Rebind("INSERT INTO route_group_sources (group_route_id, source_route_id) VALUES (?, ?)"), id, srcID); err != nil {
-				writeErrorWithRequest(w, r, http.StatusInternalServerError, "创建路由分组来源失败")
+				writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to create route group source")
 				return
 			}
 		}
@@ -481,7 +481,7 @@ func (h *tokenRoutesHandler) createRoute(w http.ResponseWriter, r *http.Request)
 
 	created := queryRow(h.db, "SELECT * FROM token_routes WHERE id = ?", id)
 	if created == nil {
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "创建路由失败")
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to create route")
 		return
 	}
 	created["sourceRouteIds"] = body.SourceRouteIds
@@ -500,7 +500,7 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 
 	existing := queryRow(h.db, "SELECT * FROM token_routes WHERE id = ?", id)
 	if existing == nil {
-		writeErrorWithRequest(w, r, http.StatusNotFound, "路由不存在")
+		writeErrorWithRequest(w, r, http.StatusNotFound, "route not found")
 		return
 	}
 
@@ -533,11 +533,11 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 		}
 	}
 	if nextMode != "explicit_group" && nextPattern == "" {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "模型匹配不能为空")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "model match pattern is required")
 		return
 	}
 	if nextMode == "explicit_group" && nextDisplayName == "" {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "显式群组必须填写对外模型名")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "explicit groups must specify an external model name")
 		return
 	}
 
@@ -545,7 +545,7 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 
 	tx, err := h.db.Beginx()
 	if err != nil {
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "开启事务失败")
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to begin transaction")
 		return
 	}
 	defer tx.Rollback()
@@ -553,7 +553,7 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 	if v, ok := body["modelPattern"]; ok {
 		if s, ok2 := v.(string); ok2 {
 			if _, err := tx.Exec(tx.Rebind("UPDATE token_routes SET model_pattern = ?, updated_at = ? WHERE id = ?"), strings.TrimSpace(s), now, id); err != nil {
-				writeErrorWithRequest(w, r, http.StatusInternalServerError, "更新路由失败")
+				writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to update route")
 				return
 			}
 		}
@@ -561,7 +561,7 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 	if v, ok := body["displayName"]; ok {
 		if s, ok2 := v.(string); ok2 {
 			if _, err := tx.Exec(tx.Rebind("UPDATE token_routes SET display_name = ?, updated_at = ? WHERE id = ?"), s, now, id); err != nil {
-				writeErrorWithRequest(w, r, http.StatusInternalServerError, "更新路由失败")
+				writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to update route")
 				return
 			}
 		}
@@ -569,14 +569,14 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 	if v, ok := body["displayIcon"]; ok {
 		if s, ok2 := v.(string); ok2 {
 			if _, err := tx.Exec(tx.Rebind("UPDATE token_routes SET display_icon = ?, updated_at = ? WHERE id = ?"), s, now, id); err != nil {
-				writeErrorWithRequest(w, r, http.StatusInternalServerError, "更新路由失败")
+				writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to update route")
 				return
 			}
 		}
 	}
 	if v, ok := body["enabled"]; ok {
 		if _, err := tx.Exec(tx.Rebind("UPDATE token_routes SET enabled = ?, updated_at = ? WHERE id = ?"), toBool(v), now, id); err != nil {
-			writeErrorWithRequest(w, r, http.StatusInternalServerError, "更新路由失败")
+			writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to update route")
 			return
 		}
 	}
@@ -588,7 +588,7 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 				return
 			}
 			if _, err := tx.Exec(tx.Rebind("UPDATE token_routes SET route_mode = ?, updated_at = ? WHERE id = ?"), mode, now, id); err != nil {
-				writeErrorWithRequest(w, r, http.StatusInternalServerError, "更新路由失败")
+				writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to update route")
 				return
 			}
 		}
@@ -596,7 +596,7 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 	if v, ok := body["routingStrategy"]; ok {
 		if s, ok2 := v.(string); ok2 {
 			if _, err := tx.Exec(tx.Rebind("UPDATE token_routes SET routing_strategy = ?, updated_at = ? WHERE id = ?"), s, now, id); err != nil {
-				writeErrorWithRequest(w, r, http.StatusInternalServerError, "更新路由失败")
+				writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to update route")
 				return
 			}
 		}
@@ -604,7 +604,7 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 	if v, ok := body["modelMapping"]; ok {
 		mappingJSON, _ := json.Marshal(v)
 		if _, err := tx.Exec(tx.Rebind("UPDATE token_routes SET model_mapping = ?, updated_at = ? WHERE id = ?"), string(mappingJSON), now, id); err != nil {
-			writeErrorWithRequest(w, r, http.StatusInternalServerError, "更新路由失败")
+			writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to update route")
 			return
 		}
 	}
@@ -612,7 +612,7 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 	// Metadata only — no proxy max-token enforcement is wired from this field yet.
 	if v, ok := body["contextLength"]; ok {
 		if _, err := tx.Exec(tx.Rebind("UPDATE token_routes SET context_length = ?, updated_at = ? WHERE id = ?"), normalizeContextLengthOrNull(v), now, id); err != nil {
-			writeErrorWithRequest(w, r, http.StatusInternalServerError, "更新路由失败")
+			writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to update route")
 			return
 		}
 	}
@@ -621,14 +621,14 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 	if v, ok := body["sourceRouteIds"]; ok {
 		if ids, ok2 := v.([]any); ok2 {
 			if _, err := tx.Exec(tx.Rebind("DELETE FROM route_group_sources WHERE group_route_id = ?"), id); err != nil {
-				writeErrorWithRequest(w, r, http.StatusInternalServerError, "更新路由分组来源失败")
+				writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to update route group source")
 				return
 			}
 			for _, rawID := range ids {
 				switch rid := rawID.(type) {
 				case float64:
 					if _, err := tx.Exec(tx.Rebind("INSERT INTO route_group_sources (group_route_id, source_route_id) VALUES (?, ?)"), id, int64(rid)); err != nil {
-						writeErrorWithRequest(w, r, http.StatusInternalServerError, "更新路由分组来源失败")
+						writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to update route group source")
 						return
 					}
 				}
@@ -637,7 +637,7 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 	}
 
 	if err := tx.Commit(); err != nil {
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "提交事务失败")
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to commit transaction")
 		return
 	}
 
@@ -676,30 +676,30 @@ func (h *tokenRoutesHandler) deleteRoute(w http.ResponseWriter, r *http.Request)
 
 	tx, err := h.db.Beginx()
 	if err != nil {
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "开启事务失败")
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to begin transaction")
 		return
 	}
 	defer tx.Rollback()
 
 	if _, err := tx.Exec(tx.Rebind("DELETE FROM route_group_sources WHERE group_route_id = ?"), id); err != nil {
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "删除路由失败")
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to delete route")
 		return
 	}
 	if _, err := tx.Exec(tx.Rebind("DELETE FROM route_group_sources WHERE source_route_id = ?"), id); err != nil {
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "删除路由失败")
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to delete route")
 		return
 	}
 	if _, err := tx.Exec(tx.Rebind("DELETE FROM route_channels WHERE route_id = ?"), id); err != nil {
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "删除路由失败")
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to delete route")
 		return
 	}
 	if _, err := tx.Exec(tx.Rebind("DELETE FROM token_routes WHERE id = ?"), id); err != nil {
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "删除路由失败")
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to delete route")
 		return
 	}
 
 	if err := tx.Commit(); err != nil {
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "提交事务失败")
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to commit transaction")
 		return
 	}
 
@@ -721,13 +721,13 @@ func (h *tokenRoutesHandler) batchRoutes(w http.ResponseWriter, r *http.Request)
 	}
 
 	if len(body.IDs) == 0 {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "ids 必须是非空数组")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "ids must be a non-empty array")
 		return
 	}
 
 	action := strings.TrimSpace(body.Action)
 	if action != "enable" && action != "disable" {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "action 必须是 enable 或 disable")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "action must be enable or disable")
 		return
 	}
 
@@ -764,7 +764,7 @@ func (h *tokenRoutesHandler) rebuildRoutes(w http.ResponseWriter, r *http.Reques
 			"queued":  false,
 			"reused":  false,
 			"status":  "failed",
-			"message": "路由重建失败",
+			"message": "route rebuild failed",
 		})
 		return
 	}
@@ -786,7 +786,7 @@ func (h *tokenRoutesHandler) rebuildRoutes(w http.ResponseWriter, r *http.Reques
 		"queued":           false,
 		"reused":           false,
 		"status":           "completed",
-		"message":          "路由通道已重建并刷新缓存",
+		"message":          "route channels rebuilt and cache refreshed",
 		"routesConsidered": stats.RoutesConsidered,
 		"patternRoutes":    stats.PatternRoutes,
 		"groupRoutes":      stats.GroupRoutes,

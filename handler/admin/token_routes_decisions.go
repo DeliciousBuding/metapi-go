@@ -14,7 +14,7 @@ import (
 func (h *tokenRoutesHandler) routeDecision(w http.ResponseWriter, r *http.Request) {
 	model := strings.TrimSpace(r.URL.Query().Get("model"))
 	if model == "" {
-		writeError(w, http.StatusBadRequest, "model 不能为空")
+		writeError(w, http.StatusBadRequest, "model is required")
 		return
 	}
 	if h.router == nil {
@@ -25,7 +25,7 @@ func (h *tokenRoutesHandler) routeDecision(w http.ResponseWriter, r *http.Reques
 	decision, err := h.router.ExplainSelection(r.Context(), model, nil, routing.EmptyDownstreamRoutingPolicy)
 	if err != nil {
 		slog.Error("route decision explain failed", "model", model, "error", err)
-		writeError(w, http.StatusInternalServerError, "路由决策查询失败")
+		writeError(w, http.StatusInternalServerError, "failed to query route decisions")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -47,11 +47,11 @@ func (h *tokenRoutesHandler) routeDecisionBatch(w http.ResponseWriter, r *http.R
 	}
 	models := uniqueNonEmptyStrings(body.Models)
 	if len(models) == 0 {
-		writeError(w, http.StatusBadRequest, "models 必须是非空数组")
+		writeError(w, http.StatusBadRequest, "models must be a non-empty array")
 		return
 	}
 	if len(models) > routeDecisionBatchMaxItems {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("models 最多 %d 项", routeDecisionBatchMaxItems))
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("models accepts at most %d items", routeDecisionBatchMaxItems))
 		return
 	}
 	if h.router == nil {
@@ -92,11 +92,11 @@ func (h *tokenRoutesHandler) routeDecisionByRouteBatch(w http.ResponseWriter, r 
 		return
 	}
 	if len(body.Items) == 0 {
-		writeError(w, http.StatusBadRequest, "items 必须是非空数组")
+		writeError(w, http.StatusBadRequest, "items must be a non-empty array")
 		return
 	}
 	if len(body.Items) > routeDecisionBatchMaxItems {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("items 最多 %d 项", routeDecisionBatchMaxItems))
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("items accepts at most %d items", routeDecisionBatchMaxItems))
 		return
 	}
 	if h.router == nil {
@@ -144,11 +144,11 @@ func (h *tokenRoutesHandler) routeDecisionRouteWideBatch(w http.ResponseWriter, 
 	}
 	routeIDs := uniquePositiveInt64(body.RouteIDs)
 	if len(routeIDs) == 0 {
-		writeError(w, http.StatusBadRequest, "routeIds 必须是非空数组")
+		writeError(w, http.StatusBadRequest, "routeIds must be a non-empty array")
 		return
 	}
 	if len(routeIDs) > routeDecisionBatchMaxItems {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("routeIds 最多 %d 项", routeDecisionBatchMaxItems))
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("routeIds accepts at most %d items", routeDecisionBatchMaxItems))
 		return
 	}
 	if h.router == nil {
@@ -216,6 +216,6 @@ func (h *tokenRoutesHandler) routeDecisionRefresh(w http.ResponseWriter, r *http
 		"jobId":   task.ID,
 		"taskId":  task.ID,
 		"status":  string(task.Status),
-		"message": "已开始后台刷新路由选中概率，可稍后返回查看",
+		"message": "route selection probability refresh started in the background; check back later",
 	})
 }
