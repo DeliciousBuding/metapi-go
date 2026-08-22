@@ -6,8 +6,9 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { ColumnDef } from '@tanstack/react-table'
 import { Pencil } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
@@ -16,6 +17,7 @@ import {
   CredentialExportDialog,
   type CredentialExportTarget,
 } from '@/components/common/credential-export-dialog'
+import { DataTablePage, useDataTable } from '@/components/data-table'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -47,21 +49,10 @@ import {
 } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
 
-import {
-  SettingsSectionCard,
-  SettingsSectionSkeleton,
-} from '../../../components/settings-section-card'
+import { SettingsSectionCard } from '../../../components/settings-section-card'
 import { SettingsSectionError } from '../../../components/settings-section-error'
 
 type DownstreamKeyUsage24h = {
@@ -579,6 +570,118 @@ export function KeysSection() {
   const items = keysQuery.data?.items ?? []
   const isLoading = keysQuery.isLoading
 
+  // Stable top-level refs for the columns memo (same pattern as the
+  // accounts page's toggleStatusMutate): the mutation object's identity
+  // changes every render, the memo only needs the stable mutate fn plus the
+  // derived pending flag.
+  const toggleKeyMutate = toggleMutation.mutate
+  const toggleKeyPending = toggleMutation.isPending
+
+  // One column set serves the desktop table and the ≤640px card list — the
+  // same DataTablePage contract every list page uses: `mobileTitle` lifts
+  // the key name into the card header, `mobileBadge` docks the enable
+  // switch beside it, and the `actions` column id renders the
+  // Connect/Edit/Delete buttons at the card bottom. Before this migration
+  // the section rendered a bare <Table> that horizontally scrolled the
+  // whole row set on phones, pushing Connect/Delete off-screen.
+  const columns = useMemo<ColumnDef<DownstreamApiKeyItem, unknown>[]>(
+    () => [
+      {
+        id: 'name',
+        header: t('settings.downstream.keys.columns.name'),
+        meta: { mobileTitle: true },
+        cell: ({ row }) => (
+          <div className='flex flex-col'>
+            <span className='font-medium'>{row.original.name}</span>
+            {row.original.keyMasked ? (
+              <code className='text-muted-foreground text-xs'>
+                {row.original.keyMasked}
+              </code>
+            ) : null}
+          </div>
+        ),
+      },
+      {
+        id: 'group',
+        header: t('settings.downstream.keys.columns.group'),
+        cell: ({ row }) =>
+          row.original.groupName ? (
+            <Badge variant='secondary'>{row.original.groupName}</Badge>
+          ) : (
+            <span className='text-muted-foreground'>—</span>
+          ),
+      },
+      {
+        id: 'enabled',
+        header: t('settings.downstream.keys.columns.enabled'),
+        meta: { mobileBadge: true },
+        cell: ({ row }) => (
+          <Switch
+            checked={row.original.enabled}
+            disabled={toggleKeyPending}
+            onCheckedChange={(checked) =>
+              toggleKeyMutate({ id: row.original.id, enabled: checked })
+            }
+            aria-label={t('settings.downstream.keys.columns.enabledAria', {
+              name: row.original.name,
+            })}
+          />
+        ),
+      },
+      {
+        id: 'usage',
+        header: t('settings.downstream.keys.columns.usage'),
+        cell: ({ row }) => (
+          <div className='text-muted-foreground text-xs'>
+            <KeyUsageCell item={row.original} />
+          </div>
+        ),
+      },
+      {
+        id: 'actions',
+        header: t('settings.downstream.keys.columns.actions'),
+        cell: ({ row }) => (
+          <div className='flex justify-end gap-1'>
+            <Button
+              type='button'
+              variant='ghost'
+              size='sm'
+              onClick={() => setExportTarget(row.original)}
+            >
+              {t('settings.downstream.keys.connect')}
+            </Button>
+            <Button
+              type='button'
+              variant='ghost'
+              size='icon-sm'
+              aria-label={t('settings.downstream.keys.columns.editAria', {
+                name: row.original.name,
+              })}
+              onClick={() => openEdit(row.original)}
+            >
+              <Pencil />
+            </Button>
+            <Button
+              type='button'
+              variant='ghost'
+              size='sm'
+              onClick={() => setDeleteTarget(row.original)}
+            >
+              {t('settings.common.delete')}
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    [t, toggleKeyPending, toggleKeyMutate]
+  )
+
+  const { table } = useDataTable<DownstreamApiKeyItem>({
+    data: items,
+    columns,
+    getRowId: (row) => String(row.id),
+  })
+
   return (
     <SettingsSectionCard
       title={t('settings.downstream.keys.title')}
@@ -589,117 +692,30 @@ export function KeysSection() {
         </Button>
       }
     >
-      {isLoading ? <SettingsSectionSkeleton /> : null}
       {keysQuery.isError ? (
         <SettingsSectionError
           title={t('settings.downstream.keys.title')}
           onRetry={() => void keysQuery.refetch()}
         />
-      ) : null}
-      {!isLoading && !keysQuery.isError && items.length === 0 ? (
-        <div className='flex flex-col items-center gap-3 py-8'>
-          <p className='text-muted-foreground text-sm'>
-            {t('settings.downstream.keys.empty')}
-          </p>
-          <Button size='sm' onClick={() => openCreate()}>
-            {t('settings.downstream.keys.create')}
-          </Button>
-        </div>
-      ) : null}
-      {!isLoading && !keysQuery.isError && items.length > 0 ? (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>
-                {t('settings.downstream.keys.columns.name')}
-              </TableHead>
-              <TableHead>
-                {t('settings.downstream.keys.columns.group')}
-              </TableHead>
-              <TableHead>
-                {t('settings.downstream.keys.columns.enabled')}
-              </TableHead>
-              <TableHead>
-                {t('settings.downstream.keys.columns.usage')}
-              </TableHead>
-              <TableHead className='text-right'>
-                {t('settings.downstream.keys.columns.actions')}
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell>
-                  <div className='flex flex-col'>
-                    <span className='font-medium'>{item.name}</span>
-                    {item.keyMasked ? (
-                      <code className='text-muted-foreground text-xs'>
-                        {item.keyMasked}
-                      </code>
-                    ) : null}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  {item.groupName ? (
-                    <Badge variant='secondary'>{item.groupName}</Badge>
-                  ) : (
-                    <span className='text-muted-foreground'>—</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Switch
-                    checked={item.enabled}
-                    disabled={toggleMutation.isPending}
-                    onCheckedChange={(checked) =>
-                      toggleMutation.mutate({ id: item.id, enabled: checked })
-                    }
-                    aria-label={t(
-                      'settings.downstream.keys.columns.enabledAria',
-                      { name: item.name }
-                    )}
-                  />
-                </TableCell>
-                <TableCell className='text-muted-foreground text-xs'>
-                  <KeyUsageCell item={item} />
-                </TableCell>
-                <TableCell className='text-right'>
-                  <div className='flex justify-end gap-1'>
-                    <Button
-                      type='button'
-                      variant='ghost'
-                      size='sm'
-                      onClick={() => setExportTarget(item)}
-                    >
-                      {t('settings.downstream.keys.connect')}
-                    </Button>
-                    <Button
-                      type='button'
-                      variant='ghost'
-                      size='icon-sm'
-                      aria-label={t(
-                        'settings.downstream.keys.columns.editAria',
-                        { name: item.name }
-                      )}
-                      onClick={() => openEdit(item)}
-                    >
-                      <Pencil />
-                    </Button>
-                    <Button
-                      type='button'
-                      variant='ghost'
-                      size='sm'
-                      onClick={() => setDeleteTarget(item)}
-                    >
-                      {t('settings.common.delete')}
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      ) : null}
+      ) : (
+        <DataTablePage
+          table={table}
+          columns={columns}
+          isLoading={isLoading}
+          emptyTitle={t('settings.downstream.keys.empty')}
+          emptyAction={
+            <Button size='sm' onClick={() => openCreate()}>
+              {t('settings.downstream.keys.create')}
+            </Button>
+          }
+          toolbarProps={null}
+          fixedHeight={false}
+          skeletonKeyPrefix='downstream-keys-skeleton'
+        />
+      )}
+      {/* The mobile empty state carries no action button (MobileCardList
+          contract) — the section header's Create action stays visible on
+          every viewport, so the empty flow loses nothing. */}
 
       <Sheet open={createOpen} onOpenChange={guardedSheetOpenChange}>
         {/* Mobile contract comes from the SheetContent base: full-width panel
