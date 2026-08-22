@@ -224,7 +224,11 @@ func ListSites(db *sqlx.DB) ([]map[string]any, error) {
 	// non-sub2api accounts in-memory (GetSub2ApiAuthFromExtraConfig returns nil
 	// for them, so they never allocate a map entry).
 	var accounts []accountAgg
-	if err := db.Select(&accounts, "SELECT site_id, balance, extra_config FROM accounts"); err != nil {
+	// COALESCE(balance, 0): accounts migrated from the TS version (or never
+	// refreshed) may carry a NULL balance, which sqlx cannot scan into float64
+	// and would 500 the whole /api/sites response. Aggregation treats an
+	// unknown balance as 0, matching the stats endpoints' existing convention.
+	if err := db.Select(&accounts, "SELECT site_id, COALESCE(balance, 0) AS balance, extra_config FROM accounts"); err != nil {
 		return nil, err
 	}
 

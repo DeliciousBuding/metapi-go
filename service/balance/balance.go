@@ -654,8 +654,11 @@ func RefreshAllBalances(cfg *config.Config, db *sqlx.DB) []struct {
 	AccountID int64
 	Balance   *float64
 } {
-	var accounts []store.Account
-	if err := db.Select(&accounts, "SELECT * FROM accounts WHERE status = 'active'"); err != nil {
+	// Select only IDs: a SELECT * here would scan every column into store.Account,
+	// whose balance/balance_used/quota are non-nullable float64 — a NULL balance
+	// (migrated/never-refreshed account) would abort the whole refresh job.
+	var accountIDs []int64
+	if err := db.Select(&accountIDs, "SELECT id FROM accounts WHERE status = 'active'"); err != nil {
 		slog.Error("RefreshAllBalances: failed to query accounts", "error", err)
 		return nil
 	}
@@ -665,21 +668,21 @@ func RefreshAllBalances(cfg *config.Config, db *sqlx.DB) []struct {
 		Balance   *float64
 	}
 
-	results := make([]resultEntry, len(accounts))
+	results := make([]resultEntry, len(accountIDs))
 	var wg sync.WaitGroup
 
-	for i, account := range accounts {
+	for i, accountID := range accountIDs {
 		wg.Add(1)
-		go func(idx int, acc store.Account) {
+		go func(idx int, accID int64) {
 			defer wg.Done()
-			balanceResult, err := RefreshBalance(cfg, db, acc.ID)
+			balanceResult, err := RefreshBalance(cfg, db, accID)
 			if err != nil || balanceResult == nil {
-				results[idx] = resultEntry{AccountID: acc.ID, Balance: nil}
+				results[idx] = resultEntry{AccountID: accID, Balance: nil}
 			} else {
 				b := balanceResult.Balance
-				results[idx] = resultEntry{AccountID: acc.ID, Balance: &b}
+				results[idx] = resultEntry{AccountID: accID, Balance: &b}
 			}
-		}(i, account)
+		}(i, accountID)
 	}
 	wg.Wait()
 

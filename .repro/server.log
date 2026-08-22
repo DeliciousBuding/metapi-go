@@ -1,0 +1,4 @@
+time=2026-08-22T14:18:49.926+08:00 level=ERROR msg="config validation" error="config critical: proxy_token=(default) — UNSAFE: using default proxy token — set PROXY_TOKEN"
+time=2026-08-22T14:18:49.926+08:00 level=WARN msg="config validation" error="config warning: claude_client_id=(placeholder) — Claude OAuth login will fail — set CLAUDE_CLIENT_ID"
+time=2026-08-22T14:18:49.926+08:00 level=WARN msg="config validation" error="config warning: codex_client_id=(placeholder) — Codex OAuth login will fail — set CODEX_CLIENT_ID"
+time=2026-08-22T14:18:49.926+08:00 level=WARN msg="config validation" error="config warning: gemini_cli_client_id=(placeholder) — Gemini CLI OAuth login will fail — set GEMINI_CLI_CLIENT_ID"
