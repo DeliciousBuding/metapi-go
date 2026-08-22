@@ -489,6 +489,16 @@ export function AccountsPage() {
         toolbarProps={{
           searchPlaceholder: t('accounts.page.searchPlaceholder'),
           searchDebounceMs: 300,
+          // The wizard was only reachable from the empty-state CTA, i.e.
+          // unreachable once the first account existed. The accounts toolbar
+          // keeps a permanent Import entry (same batch site+account path the
+          // sites page exposes), reusing the already-mounted setImportOpen.
+          preActions: (
+            <Button variant='outline' onClick={() => setImportOpen(true)}>
+              <UploadIcon className='size-4' />
+              {t('accounts.page.toolbarImport')}
+            </Button>
+          ),
           filters: [
             {
               columnId: 'status',

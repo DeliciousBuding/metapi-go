@@ -441,10 +441,20 @@ export function SitesPage() {
               },
             ],
             preActions: (
-              <Button onClick={handleAddSite}>
-                <PlusIcon className='size-4' />
-                {t('sites.toolbar.addSite')}
-              </Button>
+              <>
+                <Button onClick={handleAddSite}>
+                  <PlusIcon className='size-4' />
+                  {t('sites.toolbar.addSite')}
+                </Button>
+                {/* The wizard was only reachable from the empty-state CTA,
+                    i.e. unreachable once the first site existed — keep a
+                    permanent toolbar entry. The wizard is the only flow that
+                    creates sites together with their accounts in one batch. */}
+                <Button variant='outline' onClick={() => setImportOpen(true)}>
+                  <UploadIcon className='size-4' />
+                  {t('sites.toolbar.import')}
+                </Button>
+              </>
             ),
           }}
           bulkActions={
