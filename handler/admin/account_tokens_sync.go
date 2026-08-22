@@ -23,13 +23,13 @@ func (h *accountTokensHandler) syncAccount(w http.ResponseWriter, r *http.Reques
 	accountIDStr := chi.URLParam(r, "accountId")
 	accountID, err := strconv.ParseInt(accountIDStr, 10, 64)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "账号 ID 无效")
+		writeError(w, http.StatusBadRequest, "invalid account ID")
 		return
 	}
 
 	row, err := service.GetAccountWithSiteByID(h.db, accountID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "账号不存在")
+		writeError(w, http.StatusNotFound, "account not found")
 		return
 	}
 
@@ -69,7 +69,7 @@ func (h *accountTokensHandler) syncAll(w http.ResponseWriter, r *http.Request) {
 
 	task, reused := StartBackgroundTask(BackgroundTaskStartOptions{
 		Type:      "sync-all-account-tokens",
-		Title:     "同步全部账号令牌",
+		Title:     "Sync all account tokens",
 		DedupeKey: "sync-all-account-tokens",
 	}, func() (any, error) {
 		summary, results := executeSyncAllAccountTokens(context.Background(), db, cfg)
@@ -86,7 +86,7 @@ func (h *accountTokensHandler) syncAll(w http.ResponseWriter, r *http.Request) {
 		"jobId":   task.ID,
 		"taskId":  task.ID,
 		"status":  string(task.Status),
-		"message": "已开始全部账号令牌同步，请稍后查看程序日志",
+		"message": "all-account token sync started; check the program logs later",
 	})
 }
 
@@ -96,18 +96,18 @@ func (h *accountTokensHandler) getGroups(w http.ResponseWriter, r *http.Request)
 	accountIDStr := chi.URLParam(r, "accountId")
 	accountID, err := strconv.ParseInt(accountIDStr, 10, 64)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "账号 ID 无效")
+		writeError(w, http.StatusBadRequest, "invalid account ID")
 		return
 	}
 
 	row, err := service.GetAccountWithSiteByID(h.db, accountID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "账号不存在")
+		writeError(w, http.StatusNotFound, "account not found")
 		return
 	}
 
 	if service.IsAPIKeyConnection(&row.Account) {
-		writeError(w, http.StatusBadRequest, "API Key 连接不支持拉取账号令牌分组")
+		writeError(w, http.StatusBadRequest, "API key connections do not support fetching account token groups")
 		return
 	}
 
@@ -147,7 +147,7 @@ func (h *accountTokensHandler) getAccountDefault(w http.ResponseWriter, r *http.
 	accountIDStr := chi.URLParam(r, "accountId")
 	accountID, err := strconv.ParseInt(accountIDStr, 10, 64)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "账号 ID 无效")
+		writeError(w, http.StatusBadRequest, "invalid account ID")
 		return
 	}
 
@@ -170,7 +170,7 @@ func (h *accountTokensHandler) getAccountDefault(w http.ResponseWriter, r *http.
 
 	var site store.Site
 	if err := h.db.Get(&site, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), account.SiteID); err != nil {
-		writeError(w, http.StatusInternalServerError, "读取站点失败")
+		writeError(w, http.StatusInternalServerError, "failed to read the site")
 		return
 	}
 
@@ -217,7 +217,7 @@ func parseFlexibleEpochSeconds(v any) (int64, bool) {
 
 func executeAccountTokenSync(ctx context.Context, db *sqlx.DB, cfg *config.Config, row *service.AccountWithSite) (map[string]any, error) {
 	if row == nil {
-		return nil, fmt.Errorf("账号不存在")
+		return nil, fmt.Errorf("account not found")
 	}
 	accountID := row.Account.ID
 
@@ -233,13 +233,13 @@ func executeAccountTokenSync(ctx context.Context, db *sqlx.DB, cfg *config.Confi
 	if strings.EqualFold(strings.TrimSpace(row.Site.Status), "disabled") {
 		base["status"] = "skipped"
 		base["reason"] = "site_disabled"
-		base["message"] = "站点已禁用，跳过令牌同步"
+		base["message"] = "site is disabled; skipping token sync"
 		return base, nil
 	}
 	if service.IsAPIKeyConnection(&row.Account) {
 		base["status"] = "skipped"
 		base["reason"] = "apikey_connection"
-		base["message"] = "API Key 连接不支持同步账号令牌"
+		base["message"] = "API key connections do not support syncing account tokens"
 		return base, nil
 	}
 
@@ -259,12 +259,12 @@ func executeAccountTokenSync(ctx context.Context, db *sqlx.DB, cfg *config.Confi
 			}
 			base["status"] = "skipped"
 			base["reason"] = "no_access_token"
-			base["message"] = "账号缺少访问令牌，已保留本地默认令牌"
+			base["message"] = "account has no access token; kept the local default token"
 			return base, nil
 		}
 		base["status"] = "skipped"
 		base["reason"] = "no_access_token"
-		base["message"] = "账号缺少访问令牌，无法同步站点令牌"
+		base["message"] = "account has no access token; cannot sync site tokens"
 		return base, nil
 	}
 
@@ -272,7 +272,7 @@ func executeAccountTokenSync(ctx context.Context, db *sqlx.DB, cfg *config.Confi
 	if adapter == nil {
 		base["status"] = "skipped"
 		base["reason"] = "unsupported_platform"
-		base["message"] = "不支持的平台，无法同步站点令牌: " + row.Site.Platform
+		base["message"] = "unsupported platform; cannot sync site tokens: " + row.Site.Platform
 		return base, nil
 	}
 
@@ -298,8 +298,8 @@ func executeAccountTokenSync(ctx context.Context, db *sqlx.DB, cfg *config.Confi
 		proxyCfg,
 	)
 	if err != nil {
-		_ = service.CreateEvent(db, "token_sync", "账号令牌同步失败", err.Error(), "error", accountID, "account")
-		return nil, fmt.Errorf("同步上游令牌失败: %w", err)
+		_ = service.CreateEvent(db, "token_sync", "account token sync failed", err.Error(), "error", accountID, "account")
+		return nil, fmt.Errorf("failed to sync upstream tokens: %w", err)
 	}
 	if len(upstreamTokens) == 0 {
 		base["status"] = "skipped"
@@ -310,7 +310,7 @@ func executeAccountTokenSync(ctx context.Context, db *sqlx.DB, cfg *config.Confi
 
 	syncResult, syncErr := service.SyncTokensFromUpstream(db, accountID, upstreamTokens)
 	if syncErr != nil {
-		_ = service.CreateEvent(db, "token_sync", "账号令牌同步失败", syncErr.Error(), "error", accountID, "account")
+		_ = service.CreateEvent(db, "token_sync", "account token sync failed", syncErr.Error(), "error", accountID, "account")
 		return nil, syncErr
 	}
 
@@ -323,12 +323,12 @@ func executeAccountTokenSync(ctx context.Context, db *sqlx.DB, cfg *config.Confi
 	if syncResult.DefaultTokenID != nil {
 		base["defaultTokenId"] = *syncResult.DefaultTokenID
 	}
-	base["message"] = fmt.Sprintf("同步完成：新增 %d，更新 %d，合计 %d", syncResult.Created, syncResult.Updated, syncResult.Total)
+	base["message"] = fmt.Sprintf("sync completed: %d created, %d updated, %d total", syncResult.Created, syncResult.Updated, syncResult.Total)
 
 	_ = service.CreateEvent(
 		db,
 		"token_sync",
-		"账号令牌同步完成",
+		"Account token sync completed",
 		base["message"].(string),
 		"info",
 		accountID,
@@ -378,7 +378,7 @@ func executeSyncAllAccountTokens(ctx context.Context, db *sqlx.DB, cfg *config.C
 						"accountId": accountID,
 						"status":    "failed",
 						"reason":    "account_not_found",
-						"message":   "账号不存在",
+						"message":   "account not found",
 						"synced":    false,
 						"created":   0,
 						"updated":   0,

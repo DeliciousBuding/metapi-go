@@ -87,12 +87,12 @@ func (h *accountTokensHandler) createToken(w http.ResponseWriter, r *http.Reques
 	// Get account with site
 	row, err := service.GetAccountWithSiteByID(h.db, int64(body.AccountID))
 	if err != nil {
-		writeError(w, http.StatusNotFound, "账号不存在")
+		writeError(w, http.StatusNotFound, "account not found")
 		return
 	}
 
 	if service.IsAPIKeyConnection(&row.Account) {
-		writeError(w, http.StatusBadRequest, "API Key 连接不支持创建账号令牌")
+		writeError(w, http.StatusBadRequest, "API key connections do not support creating account tokens")
 		return
 	}
 
@@ -115,11 +115,11 @@ func (h *accountTokensHandler) createToken(w http.ResponseWriter, r *http.Reques
 
 	// Upstream path: create token on the target site
 	if row.Site.Status == "disabled" || strings.TrimSpace(row.Site.Status) == "disabled" {
-		writeError(w, http.StatusBadRequest, "站点已禁用，无法创建令牌")
+		writeError(w, http.StatusBadRequest, "site is disabled; cannot create tokens")
 		return
 	}
 	if strings.TrimSpace(row.Account.AccessToken) == "" {
-		writeError(w, http.StatusBadRequest, "账号缺少访问令牌，无法创建站点令牌")
+		writeError(w, http.StatusBadRequest, "account has no access token; cannot create site tokens")
 		return
 	}
 
@@ -131,7 +131,7 @@ func (h *accountTokensHandler) createToken(w http.ResponseWriter, r *http.Reques
 
 	adapter := platform.GetAdapter(row.Site.Platform)
 	if adapter == nil {
-		writeError(w, http.StatusBadGateway, "不支持的平台，无法创建站点令牌: "+row.Site.Platform)
+		writeError(w, http.StatusBadGateway, "unsupported platform; cannot create site tokens: "+row.Site.Platform)
 		return
 	}
 
@@ -151,18 +151,18 @@ func (h *accountTokensHandler) createToken(w http.ResponseWriter, r *http.Reques
 	)
 	if createErr != nil {
 		slog.Warn("Upstream create API token failed", "err", createErr, "account_id", row.Account.ID, "platform", row.Site.Platform)
-		writeError(w, http.StatusBadGateway, "站点创建令牌失败: "+createErr.Error())
+		writeError(w, http.StatusBadGateway, "site token creation failed: "+createErr.Error())
 		return
 	}
 	if !created {
-		writeError(w, http.StatusBadGateway, "站点创建令牌失败（上游返回失败）")
+		writeError(w, http.StatusBadGateway, "site token creation failed (upstream reported failure)")
 		return
 	}
 
 	syncResult, syncErr := executeAccountTokenSync(ctx, h.db, h.cfg, row)
 	if syncErr != nil {
 		slog.Warn("Token sync after upstream create failed", "err", syncErr, "account_id", row.Account.ID)
-		writeError(w, http.StatusBadGateway, "站点令牌已创建，但同步本地令牌失败: "+syncErr.Error())
+		writeError(w, http.StatusBadGateway, "site token created, but syncing the local token failed: "+syncErr.Error())
 		return
 	}
 
@@ -182,7 +182,7 @@ func (h *accountTokensHandler) createToken(w http.ResponseWriter, r *http.Reques
 			"created": syncResult["created"],
 			"updated": syncResult["updated"],
 			"total":   syncResult["total"],
-			"message": "上游令牌已创建并完成同步",
+			"message": "upstream token created and synced",
 		})
 		return
 	}
@@ -202,7 +202,7 @@ func (h *accountTokensHandler) createLocalToken(body payloads.AccountTokenCreate
 
 	var existingTokens []store.AccountToken
 	if err := h.db.Select(&existingTokens, h.db.Rebind("SELECT * FROM account_tokens WHERE account_id = ?"), body.AccountID); err != nil {
-		return nil, fmt.Errorf("加载已有令牌失败: %w", err)
+		return nil, fmt.Errorf("failed to load existing tokens: %w", err)
 	}
 
 	valueStatus := TokenValueStatusReady
@@ -246,14 +246,14 @@ func (h *accountTokensHandler) createLocalToken(body payloads.AccountTokenCreate
 		body.AccountID, name, tokenValue, nullIfEmpty(tokenGroup), valueStatus, source, enabled, isDefault, now, now,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("创建令牌失败: %w", err)
+		return nil, fmt.Errorf("failed to create token: %w", err)
 	}
 
 	tokenID, err := result.LastInsertId()
 	if err != nil {
 		// Fallback for Postgres which doesn't support LastInsertId.
 		if err := h.db.Get(&tokenID, h.db.Rebind("SELECT id FROM account_tokens WHERE account_id = ? AND token = ? ORDER BY id DESC LIMIT 1"), body.AccountID, tokenValue); err != nil {
-			return nil, fmt.Errorf("读取新令牌失败: %w", err)
+			return nil, fmt.Errorf("failed to read the new token: %w", err)
 		}
 	}
 	cleanupInsertedToken := func() {
@@ -264,25 +264,25 @@ func (h *accountTokensHandler) createLocalToken(body payloads.AccountTokenCreate
 	if valueStatus == TokenValueStatusReady && (isDefault || (len(existingTokens) == 0 && enabled)) {
 		if ok, err := service.SetDefaultToken(h.db, tokenID); err != nil {
 			cleanupInsertedToken()
-			return nil, fmt.Errorf("设置默认令牌失败: %w", err)
+			return nil, fmt.Errorf("failed to set default token: %w", err)
 		} else if !ok {
 			cleanupInsertedToken()
-			return nil, fmt.Errorf("设置默认令牌失败")
+			return nil, fmt.Errorf("failed to set default token")
 		}
 	} else if valueStatus == TokenValueStatusReady && !hasDefaultToken(existingTokens) && enabled {
 		if ok, err := service.SetDefaultToken(h.db, tokenID); err != nil {
 			cleanupInsertedToken()
-			return nil, fmt.Errorf("设置默认令牌失败: %w", err)
+			return nil, fmt.Errorf("failed to set default token: %w", err)
 		} else if !ok {
 			cleanupInsertedToken()
-			return nil, fmt.Errorf("设置默认令牌失败")
+			return nil, fmt.Errorf("failed to set default token")
 		}
 	}
 
 	// Fetch the created token
 	var token store.AccountToken
 	if err := h.db.Get(&token, h.db.Rebind("SELECT * FROM account_tokens WHERE id = ?"), tokenID); err != nil {
-		return nil, fmt.Errorf("读取新令牌失败: %w", err)
+		return nil, fmt.Errorf("failed to read the new token: %w", err)
 	}
 
 	return map[string]any{
@@ -334,7 +334,7 @@ func (h *accountTokensHandler) batchTokens(w http.ResponseWriter, r *http.Reques
 			continue
 		}
 		if service.IsAPIKeyConnection(owner) {
-			failedItems = append(failedItems, map[string]any{"id": id, "message": "API Key 连接不支持管理账号令牌"})
+			failedItems = append(failedItems, map[string]any{"id": id, "message": "API key connections do not support managing account tokens"})
 			continue
 		}
 
@@ -346,7 +346,7 @@ func (h *accountTokensHandler) batchTokens(w http.ResponseWriter, r *http.Reques
 			}
 		} else {
 			if service.IsMaskedPendingAccountToken(existing) {
-				failedItems = append(failedItems, map[string]any{"id": id, "message": "待补全令牌不能修改启用状态，请先补全明文 token"})
+				failedItems = append(failedItems, map[string]any{"id": id, "message": "pending tokens cannot change their enabled state; complete the plaintext token first"})
 				continue
 			}
 			now := time.Now().UTC().Format(time.RFC3339)
@@ -390,21 +390,21 @@ func (h *accountTokensHandler) updateToken(w http.ResponseWriter, r *http.Reques
 
 	existing, err := service.GetTokenByID(h.db, tokenID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "令牌不存在")
+		writeError(w, http.StatusNotFound, "token not found")
 		return
 	}
 
 	owner, err := service.GetAccountByID(h.db, existing.AccountID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "账号不存在")
+		writeError(w, http.StatusNotFound, "account not found")
 		return
 	}
 	if owner == nil {
-		writeError(w, http.StatusNotFound, "账号不存在")
+		writeError(w, http.StatusNotFound, "account not found")
 		return
 	}
 	if service.IsAPIKeyConnection(owner) {
-		writeError(w, http.StatusBadRequest, "API Key 连接不支持管理账号令牌")
+		writeError(w, http.StatusBadRequest, "API key connections do not support managing account tokens")
 		return
 	}
 
@@ -418,7 +418,7 @@ func (h *accountTokensHandler) updateToken(w http.ResponseWriter, r *http.Reques
 	if body.Token != nil {
 		tv := strings.TrimSpace(*body.Token)
 		if tv == "" {
-			writeError(w, http.StatusBadRequest, "令牌不能为空")
+			writeError(w, http.StatusBadRequest, "token must not be empty")
 			return
 		}
 		updates["token"] = tv
@@ -449,52 +449,52 @@ func (h *accountTokensHandler) updateToken(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err := service.UpdateTokenFields(h.db, tokenID, updates); err != nil {
-		writeError(w, http.StatusInternalServerError, "更新失败")
+		writeError(w, http.StatusInternalServerError, "update failed")
 		return
 	}
 
 	// Refresh and handle default logic
 	latest, err := service.GetTokenByID(h.db, tokenID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "更新失败")
+		writeError(w, http.StatusInternalServerError, "update failed")
 		return
 	}
 	if latest == nil {
-		writeError(w, http.StatusInternalServerError, "更新失败")
+		writeError(w, http.StatusInternalServerError, "update failed")
 		return
 	}
 
 	if body.IsDefault != nil && *body.IsDefault && service.IsUsableAccountToken(latest) {
 		if ok, err := service.SetDefaultToken(h.db, tokenID); err != nil {
-			writeError(w, http.StatusInternalServerError, "设置默认令牌失败")
+			writeError(w, http.StatusInternalServerError, "failed to set default token")
 			return
 		} else if !ok {
-			writeError(w, http.StatusBadRequest, "令牌不能设为默认")
+			writeError(w, http.StatusBadRequest, "token cannot be set as default")
 			return
 		}
 	} else if latest.IsDefault && service.IsUsableAccountToken(latest) {
 		if ok, err := service.SetDefaultToken(h.db, tokenID); err != nil {
-			writeError(w, http.StatusInternalServerError, "设置默认令牌失败")
+			writeError(w, http.StatusInternalServerError, "failed to set default token")
 			return
 		} else if !ok {
-			writeError(w, http.StatusBadRequest, "令牌不能设为默认")
+			writeError(w, http.StatusBadRequest, "token cannot be set as default")
 			return
 		}
 	} else if existing.IsDefault && !service.IsUsableAccountToken(latest) {
 		if _, err := service.RepairDefaultToken(h.db, existing.AccountID); err != nil {
-			writeError(w, http.StatusInternalServerError, "修复默认令牌失败")
+			writeError(w, http.StatusInternalServerError, "failed to repair the default token")
 			return
 		}
 	} else if body.IsDefault != nil && !(*body.IsDefault) && existing.IsDefault {
 		if _, err := service.RepairDefaultToken(h.db, existing.AccountID); err != nil {
-			writeError(w, http.StatusInternalServerError, "修复默认令牌失败")
+			writeError(w, http.StatusInternalServerError, "failed to repair the default token")
 			return
 		}
 	}
 
 	latest, err = service.GetTokenByID(h.db, tokenID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "读取令牌失败")
+		writeError(w, http.StatusInternalServerError, "failed to read tokens")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -513,35 +513,35 @@ func (h *accountTokensHandler) setDefault(w http.ResponseWriter, r *http.Request
 
 	token, err := service.GetTokenByID(h.db, tokenID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "令牌不存在")
+		writeError(w, http.StatusNotFound, "token not found")
 		return
 	}
 
 	owner, err := service.GetAccountByID(h.db, token.AccountID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "账号不存在")
+		writeError(w, http.StatusNotFound, "account not found")
 		return
 	}
 	if owner == nil {
-		writeError(w, http.StatusNotFound, "账号不存在")
+		writeError(w, http.StatusNotFound, "account not found")
 		return
 	}
 	if service.IsAPIKeyConnection(owner) {
-		writeError(w, http.StatusBadRequest, "API Key 连接不支持管理账号令牌")
+		writeError(w, http.StatusBadRequest, "API key connections do not support managing account tokens")
 		return
 	}
 	if service.IsMaskedPendingAccountToken(token) {
-		writeError(w, http.StatusBadRequest, "待补全令牌不能设为默认，请先补全明文 token")
+		writeError(w, http.StatusBadRequest, "pending tokens cannot be set as default; complete the plaintext token first")
 		return
 	}
 
 	defaultSet, err := service.SetDefaultToken(h.db, tokenID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "设置默认令牌失败")
+		writeError(w, http.StatusInternalServerError, "failed to set default token")
 		return
 	}
 	if !defaultSet {
-		writeError(w, http.StatusNotFound, "令牌不存在")
+		writeError(w, http.StatusNotFound, "token not found")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
@@ -557,26 +557,26 @@ func (h *accountTokensHandler) getTokenValue(w http.ResponseWriter, r *http.Requ
 
 	token, err := service.GetTokenByID(h.db, tokenID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "令牌不存在")
+		writeError(w, http.StatusNotFound, "token not found")
 		return
 	}
 
 	owner, err := service.GetAccountByID(h.db, token.AccountID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "令牌不存在")
+		writeError(w, http.StatusNotFound, "token not found")
 		return
 	}
 	if owner == nil {
-		writeError(w, http.StatusNotFound, "令牌不存在")
+		writeError(w, http.StatusNotFound, "token not found")
 		return
 	}
 	if service.IsAPIKeyConnection(owner) {
-		writeError(w, http.StatusBadRequest, "API Key 连接不支持管理账号令牌")
+		writeError(w, http.StatusBadRequest, "API key connections do not support managing account tokens")
 		return
 	}
 
 	if service.IsMaskedPendingAccountToken(token) || IsMaskedTokenValue(token.Token) {
-		writeError(w, http.StatusConflict, "当前仅保存了脱敏令牌，无法展开/复制。请在站点重新生成并同步，或手动更新为完整令牌。")
+		writeError(w, http.StatusConflict, "only a masked token is stored, so it cannot be revealed or copied; regenerate and sync it on the site, or update it manually with the full token")
 		return
 	}
 
@@ -584,11 +584,11 @@ func (h *accountTokensHandler) getTokenValue(w http.ResponseWriter, r *http.Requ
 	var site store.Site
 	var account store.Account
 	if err := h.db.Get(&account, h.db.Rebind("SELECT * FROM accounts WHERE id = ?"), token.AccountID); err != nil {
-		writeError(w, http.StatusInternalServerError, "读取账号失败")
+		writeError(w, http.StatusInternalServerError, "failed to read the account")
 		return
 	}
 	if err := h.db.Get(&site, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), account.SiteID); err != nil {
-		writeError(w, http.StatusInternalServerError, "读取站点失败")
+		writeError(w, http.StatusInternalServerError, "failed to read the site")
 		return
 	}
 
@@ -612,21 +612,21 @@ func (h *accountTokensHandler) deleteToken(w http.ResponseWriter, r *http.Reques
 
 	token, err := service.GetTokenByID(h.db, tokenID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "令牌不存在")
+		writeError(w, http.StatusNotFound, "token not found")
 		return
 	}
 
 	owner, err := service.GetAccountByID(h.db, token.AccountID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "令牌不存在")
+		writeError(w, http.StatusNotFound, "token not found")
 		return
 	}
 	if owner == nil {
-		writeError(w, http.StatusNotFound, "令牌不存在")
+		writeError(w, http.StatusNotFound, "token not found")
 		return
 	}
 	if service.IsAPIKeyConnection(owner) {
-		writeError(w, http.StatusBadRequest, "API Key 连接不支持管理账号令牌")
+		writeError(w, http.StatusBadRequest, "API key connections do not support managing account tokens")
 		return
 	}
 
@@ -640,7 +640,7 @@ func (h *accountTokensHandler) deleteToken(w http.ResponseWriter, r *http.Reques
 
 func (h *accountTokensHandler) deleteTokenWithUpstream(ctx context.Context, token *store.AccountToken) error {
 	if token == nil {
-		return fmt.Errorf("令牌不存在")
+		return fmt.Errorf("token not found")
 	}
 
 	// Known limitation: masked_pending tokens only store redacted key material, so remote
@@ -663,7 +663,7 @@ func (h *accountTokensHandler) deleteTokenWithUpstream(ctx context.Context, toke
 			proxyCfg := service.BuildPlatformProxyConfig(h.cfg, &row.Account, &row.Site)
 			platformUserID := service.ResolvePlatformUserIDPtr(&row.Account)
 			if delErr := adapter.DeleteAPIToken(callCtx, row.Site.URL, accessToken, token.Token, platformUserID, proxyCfg); delErr != nil {
-				return fmt.Errorf("上游删除令牌失败: %w", delErr)
+				return fmt.Errorf("failed to delete the upstream token: %w", delErr)
 			}
 		}
 	}
