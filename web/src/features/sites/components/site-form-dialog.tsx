@@ -4,9 +4,12 @@
 // mode; when null the dialog is in "add" mode and a successful submit
 // triggers `onCreated(createdSite)` so the page can open the guided
 // `SiteCreatedModal`. On edit, the form preserves fields the dialog does
-// not expose (notably `apiEndpoints` and `customHeaders` when untouched) by
-// passing the original values through to the payload — editing the name
-// must not wipe the endpoint list.
+// not expose (notably `customHeaders` when untouched) by passing the
+// original values through to the payload — editing the name must not wipe
+// the endpoint list. `apiEndpoints` IS exposed: the editor textarea carries
+// one plain URL or compact JSON object per line (see `lib/endpoints.ts`),
+// and the untouched-preserve path still applies — when the textarea is not
+// dirty the original endpoint objects are passed through unparsed.
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Search as SearchIcon } from 'lucide-react'
@@ -47,6 +50,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/lib/toast'
 
 import { useCreateSite, useDetectSite, useUpdateSite } from '../api'
+import {
+  parseEndpointsEditorText,
+  serializeEndpointsForEditor,
+  type ParsedEndpoint,
+} from '../lib/endpoints'
 import {
   SITE_FORM_DEFAULT_VALUES,
   siteFormSchema,
@@ -117,12 +125,14 @@ function siteToFormValues(site: Site): SiteFormValues {
       site.postRefreshProbeLatencyThresholdMs ?? 0,
     resinEnabled: site.resinEnabled ?? null,
     useUtls: site.useUtls ?? null,
+    apiEndpointsText: serializeEndpointsForEditor(site.apiEndpoints),
   }
 }
 
 function buildPayload(
   values: SiteFormValues,
-  editingSite: Site | null
+  editingSite: Site | null,
+  apiEndpointsTouched: boolean
 ): SiteFormPayload {
   const preservedEndpoints = (editingSite?.apiEndpoints ?? []).map(
     (endpoint) => ({
@@ -131,6 +141,15 @@ function buildPayload(
       sortOrder: endpoint.sortOrder ?? 0,
     })
   )
+  // Untouched preserve: as long as the operator did not edit the endpoints
+  // textarea, the original endpoint objects pass through unparsed (the
+  // textarea-free behaviour for name-only edits). When touched, the schema
+  // has already validated the text, so the parse cannot fail.
+  const parsedEndpoints = parseEndpointsEditorText(values.apiEndpointsText)
+  let apiEndpoints: ParsedEndpoint[] = preservedEndpoints
+  if (apiEndpointsTouched && 'endpoints' in parsedEndpoints) {
+    apiEndpoints = parsedEndpoints.endpoints
+  }
   return {
     name: values.name,
     url: values.url,
@@ -138,7 +157,7 @@ function buildPayload(
     platform: values.platform,
     proxyUrl: values.proxyUrl,
     useSystemProxy: values.useSystemProxy,
-    apiEndpoints: preservedEndpoints,
+    apiEndpoints,
     customHeaders: values.customHeaders,
     customHeadersOverrideRequestHeaders:
       values.customHeadersOverrideRequestHeaders,
@@ -245,7 +264,8 @@ export function SiteFormDialog({
   }
 
   async function onSubmit(values: SiteFormValues) {
-    const payload = buildPayload(values, editingSite)
+    const endpointsTouched = form.getFieldState('apiEndpointsText').isDirty
+    const payload = buildPayload(values, editingSite, endpointsTouched)
     try {
       if (isEditing && editingSite) {
         await updateSite.mutateAsync({ id: editingSite.id, payload })
@@ -418,6 +438,28 @@ export function SiteFormDialog({
                       {t('sites.form.detect')}
                     </Button>
                   </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='apiEndpointsText'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('sites.form.apiEndpoints')}</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      rows={4}
+                      placeholder='{"url":"https://api.example.com","enabled":true}'
+                      className='font-mono text-xs'
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t('sites.form.apiEndpointsHint')}
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
