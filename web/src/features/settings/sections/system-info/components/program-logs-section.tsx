@@ -26,6 +26,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { api } from '@/lib/api'
+import { neutralizeCsvFormulaCell } from '@/lib/helpers/csv-injection'
 import { toast } from '@/lib/toast'
 
 import {
@@ -131,10 +132,13 @@ export function ProgramLogsSection() {
         event.createdAt ?? '',
         event.level ?? '',
         event.type,
-        event.title.replaceAll('"', '""'),
-        (event.message ?? '').replaceAll('"', '""'),
+        event.title,
+        event.message ?? '',
       ]
-        .map((field) => `"${field}"`)
+        .map(
+          (field) =>
+            `"${neutralizeCsvFormulaCell(String(field)).replaceAll('"', '""')}"`
+        )
         .join(',')
     )
     const csv = [header, ...rows].join('\n')
