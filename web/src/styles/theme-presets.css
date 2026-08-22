@@ -67,20 +67,23 @@
   --radius: 1rem;
 }
 .dark [data-theme-preset='rose-garden'] {
-  --primary: oklch(0.6476 0.2348 10.36);
+  /* Darkened (L −0.06) so white CTA text clears WCAG AA 4.5:1. */
+  --primary: oklch(0.5876 0.2348 10.36);
   --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.8131 0.1129 5.67);
+  /* Dark rose surface for dark mode (light mode's pale pink with a
+   * near-white foreground measured 1.50:1 — the lowest ratio shipped). */
+  --secondary: oklch(0.4 0.08 8);
   --secondary-foreground: oklch(0.9227 0.0029 34.49);
-  --ring: oklch(0.6476 0.2348 10.36);
-  --chart-1: oklch(0.6476 0.2348 10.36);
+  --ring: oklch(0.5876 0.2348 10.36);
+  --chart-1: oklch(0.5876 0.2348 10.36);
   --chart-2: oklch(0.8938 0.0563 3.77);
   --chart-3: oklch(0.7135 0.1879 7.69);
   --chart-4: oklch(0.8131 0.1129 5.67);
   --chart-5: oklch(0.9429 0.0283 5.52);
-  --sidebar-primary: oklch(0.6476 0.2348 10.36);
+  --sidebar-primary: oklch(0.5876 0.2348 10.36);
   --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent-foreground: oklch(1 0 0);
-  --sidebar-ring: oklch(0.6476 0.2348 10.36);
+  --sidebar-ring: oklch(0.5876 0.2348 10.36);
 }
 
 /* ── Lake View ────────────────────────────────────────────────────────── */
@@ -113,7 +116,9 @@
   --chart-5: oklch(0.95 0.052 163.05);
   --sidebar-primary: oklch(0.765 0.177 163.22);
   --sidebar-primary-foreground: oklch(0 0 0);
-  --sidebar-accent-foreground: oklch(0 0 0);
+  /* No --sidebar-accent-foreground override here: the theme.css dark value
+   * (light blue ink) is used. The previous pure-black override measured
+   * 1.75:1 on the dark accent surface. */
   --sidebar-ring: oklch(0.765 0.177 163.22);
 }
 
@@ -135,22 +140,23 @@
   --radius: 1rem;
 }
 .dark [data-theme-preset='sunset-glow'] {
-  --primary: oklch(0.6387 0.1822 23.51);
+  /* Darkened (L −0.06) so white CTA text clears WCAG AA 4.5:1. */
+  --primary: oklch(0.5787 0.1822 23.51);
   --primary-foreground: oklch(1 0 0);
   /* Darkened to match the other presets' dark strategy: a muted surface
    * with light text, instead of the light mode's bright secondary. */
   --secondary: oklch(0.42 0.08 42.42);
   --secondary-foreground: oklch(1 0 0);
-  --ring: oklch(0.6387 0.1822 23.51);
-  --chart-1: oklch(0.6387 0.1822 23.51);
+  --ring: oklch(0.5787 0.1822 23.51);
+  --chart-1: oklch(0.5787 0.1822 23.51);
   --chart-2: oklch(0.7938 0.1248 42.42);
   --chart-3: oklch(0.809 0.0875 17.95);
   --chart-4: oklch(0.8964 0.0724 43.73);
   --chart-5: oklch(0.9381 0.0241 16.66);
-  --sidebar-primary: oklch(0.6387 0.1822 23.51);
+  --sidebar-primary: oklch(0.5787 0.1822 23.51);
   --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent-foreground: oklch(1 0 0);
-  --sidebar-ring: oklch(0.6387 0.1822 23.51);
+  --sidebar-ring: oklch(0.5787 0.1822 23.51);
 }
 
 /* ── Forest Whisper ───────────────────────────────────────────────────── */
@@ -171,20 +177,22 @@
   --radius: 0.5rem;
 }
 .dark [data-theme-preset='forest-whisper'] {
-  --primary: oklch(0.5991 0.1318 180.39);
+  /* Darkened (L −0.07, C trimmed to stay in sRGB gamut at the lower
+   * lightness) so white CTA text clears WCAG AA 4.5:1. */
+  --primary: oklch(0.529 0.12 180.39);
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.6578 0.0485 247.35);
   --secondary-foreground: oklch(1 0 0);
-  --ring: oklch(0.5991 0.1318 180.39);
-  --chart-1: oklch(0.5991 0.1318 180.39);
+  --ring: oklch(0.529 0.12 180.39);
+  --chart-1: oklch(0.529 0.12 180.39);
   --chart-2: oklch(0.6578 0.0485 247.35);
   --chart-3: oklch(0.7741 0.1676 178.16);
   --chart-4: oklch(0.7294 0.0416 244.67);
   --chart-5: oklch(0.9511 0.0547 177.24);
-  --sidebar-primary: oklch(0.5991 0.1318 180.39);
+  --sidebar-primary: oklch(0.529 0.12 180.39);
   --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent-foreground: oklch(1 0 0);
-  --sidebar-ring: oklch(0.5991 0.1318 180.39);
+  --sidebar-ring: oklch(0.529 0.12 180.39);
 }
 
 /* ── Ocean Breeze ─────────────────────────────────────────────────────── */
@@ -205,20 +213,21 @@
   --radius: 0.3rem;
 }
 .dark [data-theme-preset='ocean-breeze'] {
-  --primary: oklch(0.623 0.188 259.81);
+  /* Darkened (L −0.06) so white CTA text clears WCAG AA 4.5:1. */
+  --primary: oklch(0.563 0.188 259.81);
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.5854 0.2041 277.12);
   --secondary-foreground: oklch(0 0 0);
-  --ring: oklch(0.623 0.188 259.81);
-  --chart-1: oklch(0.623 0.188 259.81);
+  --ring: oklch(0.563 0.188 259.81);
+  --chart-1: oklch(0.563 0.188 259.81);
   --chart-2: oklch(0.5854 0.2041 277.12);
   --chart-3: oklch(0.809 0.0922 251.81);
   --chart-4: oklch(0.785 0.1007 274.72);
   --chart-5: oklch(0.932 0.0281 255.58);
-  --sidebar-primary: oklch(0.623 0.188 259.81);
+  --sidebar-primary: oklch(0.563 0.188 259.81);
   --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent-foreground: oklch(1 0 0);
-  --sidebar-ring: oklch(0.623 0.188 259.81);
+  --sidebar-ring: oklch(0.563 0.188 259.81);
 }
 
 /* ── Lavender Dream ───────────────────────────────────────────────────── */
@@ -239,22 +248,23 @@
   --radius: 1rem;
 }
 .dark [data-theme-preset='lavender-dream'] {
-  --primary: oklch(0.6359 0.1699 307.95);
+  /* Darkened (L −0.06) so white CTA text clears WCAG AA 4.5:1. */
+  --primary: oklch(0.5759 0.1699 307.95);
   --primary-foreground: oklch(1 0 0);
   /* Darkened to match the other presets' dark strategy: a muted surface
    * with light text, instead of the light mode's bright secondary. */
   --secondary: oklch(0.4 0.045 201.14);
   --secondary-foreground: oklch(1 0 0);
-  --ring: oklch(0.6359 0.1699 307.95);
-  --chart-1: oklch(0.6359 0.1699 307.95);
+  --ring: oklch(0.5759 0.1699 307.95);
+  --chart-1: oklch(0.5759 0.1699 307.95);
   --chart-2: oklch(0.811 0.0589 201.14);
   --chart-3: oklch(0.8281 0.078 309.73);
   --chart-4: oklch(0.8611 0.0504 198.03);
   --chart-5: oklch(0.947 0.0212 309.77);
-  --sidebar-primary: oklch(0.6359 0.1699 307.95);
+  --sidebar-primary: oklch(0.5759 0.1699 307.95);
   --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent-foreground: oklch(1 0 0);
-  --sidebar-ring: oklch(0.6359 0.1699 307.95);
+  --sidebar-ring: oklch(0.5759 0.1699 307.95);
 }
 
 /* ── Simple ───────────────────────────────────────────────────────────── */
@@ -445,7 +455,8 @@
  *
  * OKLCH hue 95 = warm yellow-cream (matches #faf9f5 family);
  * OKLCH hue 60 = warm slate (matches #141413 family);
- * OKLCH hue 38 = clay/coral (matches #d97757).
+ * OKLCH hue 38 = clay/coral (#d97757 family; light-mode lightness darkened
+ * for WCAG AA contrast with the cream foreground).
  */
 [data-theme-preset='anthropic'] {
   /* Canvas + ink — the defining pair. */
@@ -459,8 +470,10 @@
   --popover: oklch(0.97 0.006 92); /* slight cream lift */
   --popover-foreground: oklch(0.205 0.005 60);
 
-  /* Clay/coral — Anthropic's signature accent, used scarcely on CTAs. */
-  --primary: oklch(0.685 0.142 38); /* ≈ #d97757 */
+  /* Clay/coral — Anthropic's signature accent, used scarcely on CTAs.
+   * Darkened from the brand's #d97757 (oklch 0.685 0.142 38) so the cream
+   * foreground clears WCAG AA 4.5:1 on solid CTA surfaces (was 2.91:1). */
+  --primary: oklch(0.57 0.15 38);
   --primary-foreground: oklch(0.99 0.005 95);
 
   --secondary: oklch(0.925 0.008 92);
@@ -477,7 +490,9 @@
   --success-foreground: oklch(0.985 0 0);
   --warning: oklch(0.78 0.13 70); /* kraft amber */
   --warning-foreground: oklch(0.205 0.005 60);
-  --info: oklch(0.67 0.075 248); /* sky #6a9bcc */
+  --info: oklch(
+    0.55 0.075 248
+  ); /* sky — darkened from #6a9bcc so white foreground clears AA (was 2.85:1) */
   --info-foreground: oklch(0.985 0 0);
   --neutral: oklch(0.51 0.006 75);
   --neutral-foreground: oklch(0.205 0.005 60);
@@ -485,23 +500,23 @@
   /* Hairline borders — warm gray, not coral. */
   --border: oklch(0.895 0.008 92); /* ≈ #e8e6dc */
   --input: oklch(0.895 0.008 92);
-  --ring: oklch(0.685 0.142 38);
+  --ring: oklch(0.57 0.15 38);
 
   /* Chart palette uses Anthropic's dormant accent swatches. */
-  --chart-1: oklch(0.685 0.142 38); /* clay */
+  --chart-1: oklch(0.57 0.15 38); /* clay (AA-darkened, matches --primary) */
   --chart-2: oklch(0.59 0.082 130); /* olive */
-  --chart-3: oklch(0.67 0.075 248); /* sky */
+  --chart-3: oklch(0.55 0.075 248); /* sky (AA-darkened, matches --info) */
   --chart-4: oklch(0.7 0.115 0); /* fig */
   --chart-5: oklch(0.83 0.027 175); /* cactus */
 
   --sidebar: oklch(0.955 0.008 92);
   --sidebar-foreground: oklch(0.255 0.005 60);
-  --sidebar-primary: oklch(0.685 0.142 38);
+  --sidebar-primary: oklch(0.57 0.15 38);
   --sidebar-primary-foreground: oklch(0.99 0.005 95);
   --sidebar-accent: oklch(0.915 0.009 92);
   --sidebar-accent-foreground: oklch(0.205 0.005 60);
   --sidebar-border: oklch(0.895 0.008 92);
-  --sidebar-ring: oklch(0.685 0.142 38);
+  --sidebar-ring: oklch(0.57 0.15 38);
 
   --skeleton-base: oklch(0.93 0.008 92);
   --skeleton-highlight: oklch(0.96 0.006 92);

@@ -3,7 +3,7 @@
 **Product**: Metapi admin
 **Scope**: accessibility checklist
 **Related source of truth**: `docs/internal/design/DESIGN.md`, `web/src/styles/theme.css`
-**Last updated**: 2026-08-21
+**Last updated**: 2026-08-23
 **Status**: living acceptance checklist; known limitations are documented, not an implicit backlog
 
 This document records keyboard, name, contrast, and responsive expectations. Known limitations are evidence only unless promoted to [`../progress/MASTER.md`](../progress/MASTER.md) or a scoped GitHub issue.
@@ -107,7 +107,7 @@ This document records keyboard, name, contrast, and responsive expectations. Kno
 
 ## 4. Contrast notes (primary text / surfaces)
 
-Ratios computed 2026-08-12 from the shipped `web/src/styles/theme.css` OKLCH values (WCAG 2.x relative luminance; token map in `DESIGN.md` §2). The light-theme primary CTA uses ink `--primary-foreground` on `--primary` (7.28:1, AAA) by design.
+Ratios computed 2026-08-12 from the shipped `web/src/styles/theme.css` OKLCH values (WCAG 2.x relative luminance; token map in `DESIGN.md` §2); preset pairs re-audited and fixed 2026-08-23 (OKLCH→sRGB→WCAG pipeline, pinned by `web/src/styles/__tests__/contrast-gate.test.ts`). The light-theme primary CTA uses ink `--primary-foreground` on `--primary` (7.28:1, AAA) by design.
 
 ### 4.1 Light theme
 
@@ -118,7 +118,7 @@ Ratios computed 2026-08-12 from the shipped `web/src/styles/theme.css` OKLCH val
 | `--secondary-foreground` on `--secondary`                             | 11.8:1  | Pass                 | Nested wells                                                                                                                                           |
 | `--primary-foreground` on `--primary`                                 | 7.28:1  | Pass                 | Light-theme CTA — ink-on-brand (`--primary-foreground` = `oklch(0.145 0 0)` on the brand primary), AAA by design                                                          |
 | White text on `--destructive`                                         | 4.8:1   | Pass                 | Errors, deletes                                                                                                                                        |
-| Soft-badge text (`--success` / `--info` / `--warning`) on `/10` fills | ≥ 4.5:1 | Pass                 | 12px soft badges — light `--success`/`--info`/`--warning` lightness lowered (0.53 / 0.53 / 0.62) 2026-08-14; `*-soft-fg` tokens ship the readable tone |
+| Soft-badge text (`--success` / `--info` / `--warning` / `--destructive`) on `/10` fills | ≥ 4.5:1 | Pass                 | 12px soft badges — light `--success`/`--info`/`--warning` lightness lowered (0.53 / 0.53 / 0.62) 2026-08-14; `*-soft-fg` tokens ship the readable tone. 2026-08-23: light `--destructive-soft-fg` is now a standalone darker ink `oklch(0.5 0.2 27)` (aliasing `--destructive` only reached 3.84–3.99:1 on the tint; now 4.93–5.70 across presets) |
 
 ### 4.2 Dark theme
 
@@ -129,6 +129,8 @@ Ratios computed 2026-08-12 from the shipped `web/src/styles/theme.css` OKLCH val
 | `--muted-foreground` on `--card`          | 7.2:1  | Pass                 | Labels / secondary text |
 | `--secondary-foreground` on `--secondary` | 8.9:1  | Pass                 | Nested wells            |
 | White text on `--primary`                 | 5.0:1  | Pass                 | CTA                     |
+| White text on `--destructive`             | 4.6:1  | Pass                 | 2026-08-23: darkened to `oklch(0.575 0.19 25)` (was 2.77:1); attention-bell critical badge |
+| Soft-badge text on `/10` fills            | ≥ 5.2:1 | Pass                | 2026-08-23: dark `--info-soft-fg` lifted to `oklch(0.72 0.12 245)` (was 3.45–3.74 on card surfaces) |
 
 ### 4.3 Contrast rules for implementers
 
@@ -209,7 +211,7 @@ This section lists open residuals only. Closure history lives in [`../log.md`](.
 1. **Charts keyboard series access** — recharts renders series as non-focusable SVG; assistive tech relies on the text axes, legends, and rich text tooltips (balance/cost, accounts, calls, tokens, share) that already carry the data. Non-color status encoding (text labels on availability buckets, attention badges) is in place; no color-only status.
 2. **Global focus-ring utility** — chrome controls share the `--ring` recipe; a single shared rule for every page-level action grid is not yet in place (`.modal-close-button:focus-visible` uses a primary outline).
 3. **Hex hygiene** — no new brand hex is allowed in pages (see [`DESIGN.md`](./DESIGN.md) §1 Principles). Existing brand assets and other justified exceptions are reviewed when their owning surface changes; this is not a standalone sweep.
-4. **Preset contrast (audit-only)** — the default theme passes AA/AAA; user-chosen presets are explicit choices and out of scope. Underground/rose-garden/sunset-glow pass with white; forest-whisper, ocean-breeze, and lavender-dream remain below AA on white text — a preset-specific fix is deferred until a real user need appears.
+4. **Preset contrast** — 2026-08-23: a static WCAG audit (OKLCH→sRGB→WCAG ratio pipeline) found and **fixed** six sub-AA defects; all fixed pairs are pinned by `web/src/styles/__tests__/contrast-gate.test.ts`. New baselines: rose-garden dark `--secondary` 1.50→7.64 (dark rose surface `oklch(0.4 0.08 8)`); default dark solid `--destructive` 2.77→4.61 (`oklch(0.575 0.19 25)`, attention-bell critical badge); white CTA text on five preset dark primaries — forest-whisper 3.59→4.81, ocean-breeze 3.68→4.72, lavender-dream 3.68→4.72, rose-garden 3.68→4.71, sunset-glow 3.69→4.72 (L lowered 0.06–0.07); anthropic light clay `--primary` 2.91→4.64 (`oklch(0.57 0.15 38)`) and sky `--info` 2.85→4.62 (`oklch(0.55 0.075 248)`); soft-badge foregrounds — light `--destructive-soft-fg` standalone `oklch(0.5 0.2 27)` (3.84–3.99→4.93–5.70) and dark `--info-soft-fg` `oklch(0.72 0.12 245)` (3.45–3.74→5.17–5.70); sidebar active item — default light `--sidebar-accent-foreground` 3.95→5.38 and the lake-view dark pure-black override deleted (1.75→8.95). Remaining documented sub-AA preset residuals (exemption list in the gate): forest-whisper dark `--secondary` 3.12, ocean-breeze light `--secondary` 4.47, simple-large/anthropic dark bespoke `--destructive` 2.97/2.79, anthropic light olive `--success` 3.83 (soft 4.48); the `bg-sidebar-primary` pairs (3.40/4.11) are a dormant token no component consumes.
 
 ---
 

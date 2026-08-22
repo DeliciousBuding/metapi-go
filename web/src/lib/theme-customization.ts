@@ -13,7 +13,7 @@ export const THEME_PRESETS = [
     // with clay/coral as the single accent.
     value: 'anthropic',
     name: 'Anthropic',
-    swatches: ['oklch(0.984 0.005 95)', 'oklch(0.685 0.142 38)'],
+    swatches: ['oklch(0.984 0.005 95)', 'oklch(0.57 0.15 38)'],
   },
   {
     value: 'simple-large',
