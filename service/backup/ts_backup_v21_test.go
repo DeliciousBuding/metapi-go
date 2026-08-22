@@ -301,10 +301,10 @@ func TestParseTSV21NormalizesFieldsAndWarns(t *testing.T) {
 	// Unknown top-level field, unknown section, unknown row field and the
 	// key-less settings row must all surface as warnings.
 	wantWarnings := []string{
-		"忽略未知顶层字段 futureTopLevelField",
-		"忽略未知节 accounts.futureSection",
-		"忽略未知字段 sites.futureSiteField",
-		"忽略 preferences.settings 第 4 行：key 缺失或为空",
+		"ignored unknown top-level field futureTopLevelField",
+		"ignored unknown section accounts.futureSection",
+		"ignored unknown field sites.futureSiteField",
+		"ignored preferences.settings row 4: key missing or empty",
 	}
 	joined := strings.Join(parsed.Warnings, "\n")
 	for _, want := range wantWarnings {
@@ -537,37 +537,37 @@ func TestParseTSV21RejectsMalformedPayloads(t *testing.T) {
 		{
 			name:    "missing timestamp",
 			payload: `{"version":"2.1","accounts":{"sites":[]}}`,
-			wantSub: "缺少 timestamp",
+			wantSub: "missing timestamp",
 		},
 		{
 			name:    "no recognizable sections",
 			payload: `{"version":"2.1","timestamp":1}`,
-			wantSub: "没有可识别的账号或设置数据",
+			wantSub: "no recognizable account or settings data",
 		},
 		{
 			name:    "type accounts without accounts section",
 			payload: `{"version":"2.1","timestamp":1,"type":"accounts"}`,
-			wantSub: "账号数据结构不正确",
+			wantSub: "accounts section structure is incorrect",
 		},
 		{
 			name:    "type preferences without preferences section",
 			payload: `{"version":"2.1","timestamp":1,"type":"preferences"}`,
-			wantSub: "设置数据结构不正确",
+			wantSub: "preferences section structure is incorrect",
 		},
 		{
 			name:    "sites not an array",
 			payload: `{"version":"2.1","timestamp":1,"accounts":{"sites":{"a":1}}}`,
-			wantSub: "accounts.sites 必须是数组",
+			wantSub: "accounts.sites must be an array",
 		},
 		{
 			name:    "missing required field",
 			payload: `{"version":"2.1","timestamp":1,"accounts":{"sites":[{"url":"https://a.example.com","platform":"new-api"}]}}`,
-			wantSub: "缺少必填字段 name",
+			wantSub: "missing required field name",
 		},
 		{
 			name:    "preferences settings not an array",
 			payload: `{"version":"2.1","timestamp":1,"preferences":{"settings":{"theme":"dark"}}}`,
-			wantSub: "preferences.settings 必须是数组",
+			wantSub: "preferences.settings must be an array",
 		},
 	}
 
