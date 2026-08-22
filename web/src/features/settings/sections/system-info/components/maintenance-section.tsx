@@ -79,7 +79,10 @@ export function MaintenanceSection() {
                 | LinkProps['to']
                 | (string & {})
             }
-            className='text-primary underline-offset-4 hover:underline'
+            // WCAG 2.5.8 best-effort (F-line residual E): vertical click
+            // padding on an inline element widens the hit area to ~24px
+            // without growing the line box, so the hint layout is untouched.
+            className='text-primary py-1 underline-offset-4 hover:underline'
           >
             {t('settings.systemInfo.maintenance.viewEvents')}
           </Link>
