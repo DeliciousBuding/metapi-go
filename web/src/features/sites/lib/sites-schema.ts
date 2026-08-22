@@ -23,18 +23,24 @@ import {
 } from '@/lib/helpers/searchParams'
 
 import type { SiteProbeScope } from '../types'
+import {
+  isHttpUrl,
+  parseEndpointsEditorText,
+  type EndpointsTextError,
+} from './endpoints'
 
 const HTTP_URL_MESSAGE_KEY = 'sites.form.errors.invalidUrl'
 const HTTP_OR_EMPTY_MESSAGE_KEY = 'sites.form.errors.invalidUrlOrEmpty'
 const JSON_OR_EMPTY_MESSAGE_KEY = 'sites.form.errors.invalidJson'
 
-function isHttpUrl(value: string): boolean {
-  try {
-    const parsed = new URL(value)
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
-  } catch {
-    return false
-  }
+// apiEndpoints editor: the textarea content (one plain URL or compact JSON
+// object per line) is validated here; the error message maps the parse
+// failure category onto an i18next key rendered by <FormMessage>.
+const ENDPOINTS_TEXT_ERROR_KEYS: Record<EndpointsTextError, string> = {
+  invalidJson: 'sites.form.errors.apiEndpointsInvalidJson',
+  invalidEntry: 'sites.form.errors.apiEndpointsInvalidEntry',
+  invalidUrl: 'sites.form.errors.apiEndpointsInvalidUrl',
+  duplicate: 'sites.form.errors.apiEndpointsDuplicate',
 }
 
 function isEmptyOrHttpUrl(value: string): boolean {
@@ -98,6 +104,15 @@ export const siteFormSchema = z.object({
     .min(0, 'sites.form.errors.latencyMin'),
   resinEnabled: z.boolean().nullable(),
   useUtls: z.boolean().nullable(),
+  apiEndpointsText: z.string().superRefine((text, ctx) => {
+    const result = parseEndpointsEditorText(text)
+    if ('error' in result) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: ENDPOINTS_TEXT_ERROR_KEYS[result.error],
+      })
+    }
+  }),
 })
 
 export type SiteFormValues = z.infer<typeof siteFormSchema>
@@ -119,6 +134,7 @@ export const SITE_FORM_DEFAULT_VALUES: SiteFormValues = {
   postRefreshProbeLatencyThresholdMs: 0,
   resinEnabled: null,
   useUtls: null,
+  apiEndpointsText: '',
 }
 
 // --- URL search state -------------------------------------------------------
