@@ -21,7 +21,6 @@
         "submit": "登录",
         "submitting": "登录中…",
         "welcomeBack": "欢迎回来！",
-        "note": "仅校验本地服务访问权限，不会把令牌发送给第三方。",
         "tokenChangedNotice": "管理员令牌已更新，请使用新令牌登录。",
         "tokenSourceHint": "管理员令牌来自部署本实例时设置的 AUTH_TOKEN 环境变量（或 .env 文件）。",
         "tokenSourceForgot": "如果不清楚令牌内容，请咨询部署管理员。",
@@ -70,9 +69,6 @@
         "en": "English",
         "zhCN": "简体中文"
       },
-      "pagination": "分页",
-      "previousPage": "上一页",
-      "nextPage": "下一页",
       "morePages": "更多页",
       "hideSecret": "隐藏密钥",
       "revealSecret": "显示密钥",
@@ -2128,7 +2124,6 @@
     "Toggle columns": "切换列",
     "selected": "已选",
     "No results found.": "未找到结果。",
-    "No option found.": "未找到选项。",
     "Press Enter to use \"{{value}}\"": "按回车使用「{{value}}」",
     "Clear filters": "清除筛选",
     "Clear search": "清除搜索",
@@ -2226,8 +2221,7 @@
           "description": "站点/账号健康以及路由熔断与冷却状态。"
         },
         "proxyLogs": {
-          "title": "代理日志",
-          "description": "完整的代理日志工作区。"
+          "title": "代理日志"
         }
       },
       "overview": {

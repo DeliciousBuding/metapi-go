@@ -116,19 +116,6 @@ function SelectContent({
   return <SelectPortal>{content}</SelectPortal>
 }
 
-function SelectLabel({
-  className,
-  ...props
-}: SelectPrimitive.GroupLabel.Props) {
-  return (
-    <SelectPrimitive.GroupLabel
-      data-slot='select-label'
-      className={cn('text-muted-foreground px-1.5 py-1 text-xs', className)}
-      {...props}
-    />
-  )
-}
-
 function SelectItem({
   className,
   children,
@@ -161,19 +148,6 @@ function SelectItem({
         />
       </SelectPrimitive.ItemIndicator>
     </SelectPrimitive.Item>
-  )
-}
-
-function SelectSeparator({
-  className,
-  ...props
-}: SelectPrimitive.Separator.Props) {
-  return (
-    <SelectPrimitive.Separator
-      data-slot='select-separator'
-      className={cn('bg-border pointer-events-none -mx-1 my-1 h-px', className)}
-      {...props}
-    />
   )
 }
 
@@ -218,11 +192,6 @@ export {
   SelectContent,
   SelectGroup,
   SelectItem,
-  SelectLabel,
-  SelectPortal,
-  SelectScrollDownButton,
-  SelectScrollUpButton,
-  SelectSeparator,
   SelectTrigger,
   SelectValue,
 }
