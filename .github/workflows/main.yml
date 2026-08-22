@@ -306,9 +306,9 @@ jobs:
       # sub2api first-run needs postgres + redis (AUTO_SETUP migrates the DB and
       # creates the admin account); cliproxyapi bootstraps its config store from
       # the same postgres (PGSTORE_DSN -> /CLIProxyAPI/config.example.yaml inside
-      # the image). host.docker.internal + --add-host lets both containers reach
-      # the runner's published ports (5432/6379) while the job itself keeps
-      # reaching them via localhost.
+      # the image). Service containers of one job share a docker network, so
+      # sub2api/cliproxyapi reach PG/Redis by service hostname (postgres/redis)
+      # while the job steps themselves reach everything via localhost ports.
       postgres:
         image: postgres:16-alpine
         env:
@@ -340,13 +340,13 @@ jobs:
           SERVER_HOST: 0.0.0.0
           SERVER_PORT: "8080"
           SERVER_MODE: release
-          DATABASE_HOST: host.docker.internal
+          DATABASE_HOST: postgres
           DATABASE_PORT: "5432"
           DATABASE_USER: sub2api
           DATABASE_PASSWORD: sub2api-test-pw
           DATABASE_DBNAME: sub2api
           DATABASE_SSLMODE: disable
-          REDIS_HOST: host.docker.internal
+          REDIS_HOST: redis
           REDIS_PORT: "6379"
           ADMIN_EMAIL: admin@sub2api.local
           ADMIN_PASSWORD: sub2api-pass-123
@@ -354,7 +354,6 @@ jobs:
           JWT_SECRET: ci-e2e-sub2api-jwt-secret-0123456789abcdef0123456789abcdef012345
           TZ: "UTC"
         options: >-
-          --add-host host.docker.internal:host-gateway
           --restart on-failure
           --health-cmd "wget -q -T 5 -O /dev/null http://127.0.0.1:8080/health || exit 1"
           --health-interval 10s
@@ -366,7 +365,7 @@ jobs:
         ports:
           - "3005:8317"
         env:
-          PGSTORE_DSN: postgres://sub2api:sub2api-test-pw@host.docker.internal:5432/sub2api?sslmode=disable
+          PGSTORE_DSN: postgres://sub2api:sub2api-test-pw@postgres:5432/sub2api?sslmode=disable
           PGSTORE_SCHEMA: cliproxy
           PGSTORE_LOCAL_PATH: /CLIProxyAPI/pgstore
           # MANAGEMENT_PASSWORD exposes the /v0/management routes and enables
@@ -375,7 +374,6 @@ jobs:
           MANAGEMENT_PASSWORD: e2e-cliproxyapi-mgmt-key
           TZ: "UTC"
         options: >-
-          --add-host host.docker.internal:host-gateway
           --restart on-failure
     steps:
       - uses: actions/checkout@v7
@@ -424,12 +422,18 @@ jobs:
           echo "sub2api admin login OK"
           echo "SUB2API_ACCESS_TOKEN=$sub2api_token" >> "$GITHUB_ENV"
 
-          # cliproxyapi first-run (no auth files): /v1/models answers 200 with
-          # an empty list; the throwaway management key is validated later by
-          # metapi's verify path against /v0/management (Bearer).
+          # cliproxyapi first-run: the config bootstrapped from the image's
+          # config.example.yaml still carries template api-keys, which triggers
+          # the upstream "unsafe example API key" safe mode that disables all
+          # proxy endpoints (and makes /v1/* answer 403, so it cannot serve as
+          # the readiness probe). Wait on the management API instead, then
+          # replace the template api-keys via PUT /v0/management/api-keys; the
+          # hot reload re-enables the proxy endpoints. The management key
+          # doubles as the api-key so metapi's single stored credential
+          # authenticates both the /v1 and /v0/management probes.
           cpa_ready=
           for i in $(seq 1 60); do
-            if curl -fsS http://127.0.0.1:3005/v1/models >/dev/null 2>&1; then
+            if curl -fsS http://127.0.0.1:3005/v0/management/api-keys               -H 'Authorization: Bearer e2e-cliproxyapi-mgmt-key' >/dev/null 2>&1; then
               cpa_ready=1
               break
             fi
@@ -439,7 +443,20 @@ jobs:
             echo "cliproxyapi failed to become ready" >&2
             exit 1
           fi
-          echo "cliproxyapi ready"
+          curl -fsS -X PUT http://127.0.0.1:3005/v0/management/api-keys             -H 'Authorization: Bearer e2e-cliproxyapi-mgmt-key'             -H 'Content-Type: application/json'             -d '["e2e-cliproxyapi-mgmt-key"]' >/dev/null
+          cpa_proxy=
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3005/v1/models               -H 'Authorization: Bearer e2e-cliproxyapi-mgmt-key' >/dev/null 2>&1; then
+              cpa_proxy=1
+              break
+            fi
+            sleep 1
+          done
+          if [ -z "$cpa_proxy" ]; then
+            echo "cliproxyapi proxy endpoints stayed disabled after api-key update" >&2
+            exit 1
+          fi
+          echo "cliproxyapi ready (template api-keys replaced, safe mode cleared)"
       - name: Run live server + smoke chains
         run: |
           set -euo pipefail
@@ -529,7 +546,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          bin="$(ls metapi-smoke*)"
+          bin="./$(ls metapi-smoke*)"
           "$bin" --version
           data_dir="$RUNNER_TEMP/metapi-smoke-data-$RANDOM"
           mkdir -p "$data_dir"
