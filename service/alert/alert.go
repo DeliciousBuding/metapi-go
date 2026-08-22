@@ -138,9 +138,37 @@ type ProxyAllFailedParams struct {
 	Reason string
 }
 
+// proxyAllFailedThrottle dedupes proxy all-failed alerts per model using the
+// same signature-level cooldown mechanism as notify.GlobalThrottle. Without
+// it, a permanently dead upstream would fire an event + notification on
+// every single request (alert storm).
+var proxyAllFailedThrottle = notifypkg.NewNotificationThrottle()
+
+// proxyAllFailedCooldownFloorMs floors the dedup window even when
+// NOTIFY_COOLDOWN_SEC=0: one event per request on a dead upstream is never
+// acceptable, so the throttle always applies.
+const proxyAllFailedCooldownFloorMs = int64(config.DefaultNotifyCooldownSec) * 1000
+
 // ReportProxyAllFailed reports a proxy all-failed event.
-// Mirrors TS reportProxyAllFailed().
+// Mirrors TS reportProxyAllFailed(). Deduped per model: at most one event +
+// notification per cooldown window (cfg.NotifyCooldownSec, floored at
+// proxyAllFailedCooldownFloorMs) so a dead upstream cannot spam operators on
+// every request.
 func ReportProxyAllFailed(cfg *config.Config, db *sqlx.DB, params ProxyAllFailedParams) {
+	if db == nil || params.Model == "" {
+		return
+	}
+
+	cooldownMs := int64(proxyAllFailedCooldownFloorMs)
+	if cfg != nil && cfg.NotifyCooldownSec > 0 {
+		cooldownMs = int64(cfg.NotifyCooldownSec) * 1000
+	}
+	signature := "proxy_all_failed:" + params.Model
+	if !proxyAllFailedThrottle.EvaluateNotificationThrottle(signature, time.Now().UnixMilli(), cooldownMs).ShouldSend {
+		slog.Debug("proxy all-failed alert throttled", "model", params.Model)
+		return
+	}
+
 	createdAt := service.FormatUtcSqlDateTime(time.Now())
 
 	message := enrichAlertMessage(db,

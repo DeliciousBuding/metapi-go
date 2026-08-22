@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -20,6 +21,8 @@ import (
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/service/alert"
+	"github.com/deliciousbuding/metapi-go/store"
 )
 
 // UpstreamConfig holds the dependencies needed for upstream forwarding.
@@ -132,10 +135,12 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 				"request_id", requestID,
 			)
 			if pendingFailure != nil {
-				pendingFailure.write(w, requestID)
+				reportProxyAllFailedTerminal(ctx, pendingFailure.reason())
+				pendingFailure.write(w, requestID, ctx.RequestedModel)
 				observeProxyTerminal(ctx, pendingFailure.outcomeStatus(), ctx != nil && ctx.IsStream, time.Since(startedAt))
 				return
 			}
+			reportProxyAllFailedTerminal(ctx, "no available channels")
 			writeJSONErrorWithRequest(w, 503, "No available channels", "server_error", requestID)
 			observeProxyTerminal(ctx, shared.OutcomeUnavailable, ctx != nil && ctx.IsStream, time.Since(startedAt))
 			return
@@ -177,8 +182,33 @@ func dispatchUpstream(w http.ResponseWriter, r *http.Request, ctx *Ctx) {
 		}
 	}
 
+	reason := "all channels exhausted"
+	if pendingFailure != nil {
+		reason = pendingFailure.reason()
+	}
+	reportProxyAllFailedTerminal(ctx, reason)
 	writeJSONErrorWithRequest(w, 503, "All channels exhausted", "server_error", requestID)
 	observeProxyTerminal(ctx, shared.OutcomeUnavailable, ctx != nil && ctx.IsStream, time.Since(startedAt))
+}
+
+// reportProxyAllFailedTerminal reports a terminal all-channels-failed outcome
+// so operators get an event + notification instead of a silent 5xx. Dedup is
+// handled inside alert.ReportProxyAllFailed (per-model cooldown) so a dead
+// upstream cannot spam on every request. No-op when the DB is not wired.
+func reportProxyAllFailedTerminal(ctx *Ctx, reason string) {
+	model := ""
+	if ctx != nil {
+		model = ctx.RequestedModel
+	}
+	reportProxyAllFailed(model, reason)
+}
+
+func reportProxyAllFailed(model, reason string) {
+	db := store.GetDB()
+	if db == nil {
+		return
+	}
+	alert.ReportProxyAllFailed(config.GetSafe(), db.DB, alert.ProxyAllFailedParams{Model: model, Reason: reason})
 }
 
 // observeProxyTerminal records labeled counters, latency histogram, and optional export hook.
@@ -662,8 +692,23 @@ func (p *pendingUpstreamFailure) outcomeStatus() string {
 	return shared.StatusFromHTTP(p.jsonStatus)
 }
 
-func (p *pendingUpstreamFailure) write(w http.ResponseWriter, requestID string) {
+// reason describes the last upstream failure for proxy all-failed alerting.
+func (p *pendingUpstreamFailure) reason() string {
 	if p == nil {
+		return "upstream request failed"
+	}
+	if p.resp != nil {
+		return fmt.Sprintf("upstream status %d", p.resp.StatusCode)
+	}
+	if p.jsonMessage != "" {
+		return p.jsonMessage
+	}
+	return "upstream request failed"
+}
+
+func (p *pendingUpstreamFailure) write(w http.ResponseWriter, requestID, model string) {
+	if p == nil {
+		reportProxyAllFailed(model, "no available channels")
 		writeJSONErrorWithRequest(w, http.StatusServiceUnavailable, "No available channels", "server_error", requestID)
 		return
 	}
