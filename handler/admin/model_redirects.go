@@ -342,8 +342,8 @@ func recordRedirectEvent(db *sqlx.DB, c service.RedirectFixCandidate) error {
 	_, err := db.Exec(rebindAdminQuery(db, `
 		INSERT INTO events (type, title, message, level, related_id, related_type, created_at, read)
 		VALUES ('model_redirect_applied', ?, ?, 'info', ?, 'site', ?, 0)`),
-		"已修复禁用模型（映射自动恢复）",
-		"站点 "+c.SiteName+" 的禁用模型 "+c.ModelName+" 已通过映射 "+c.Canonical+" → "+c.Actual+" 恢复可用。",
+		"Disabled model repaired (mapping auto-restored)",
+		"Disabled model "+c.ModelName+" on site "+c.SiteName+" was restored via mapping "+c.Canonical+" → "+c.Actual+".",
 		c.SiteID, now)
 	return err
 }

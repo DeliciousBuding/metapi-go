@@ -183,11 +183,11 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
-	logSettingsEvent(h.db, "status", "运行时设置已更新", "运行时设置已更新", "info", now)
+	logSettingsEvent(h.db, "status", "Runtime settings updated", "Runtime settings updated", "info", now)
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success":             true,
-		"message":             "运行时设置已更新",
+		"message":             "Runtime settings updated",
 		"globalAllowedModels": stringSliceOrEmpty(h.cfg.GlobalAllowedModels),
 		"globalBlockedBrands": stringSliceOrEmpty(h.cfg.GlobalBlockedBrands),
 	})
@@ -232,7 +232,7 @@ func (h *settingsHandler) testSystemProxy(w http.ResponseWriter, r *http.Request
 		proxyURL = strings.TrimSpace(*body.ProxyUrl)
 	}
 	if proxyURL == "" {
-		writeError(w, http.StatusBadRequest, "请先填写系统代理地址")
+		writeError(w, http.StatusBadRequest, "enter the system proxy address first")
 		return
 	}
 

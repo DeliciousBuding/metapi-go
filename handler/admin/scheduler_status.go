@@ -48,9 +48,9 @@ func (h *schedulerStatusHandler) status(w http.ResponseWriter, r *http.Request) 
 		h.balanceRefreshStatus(),
 		h.modelProbeStatus(),
 		h.announcementsStatus(),
-		h.eventsStatus("daily-summary", "每日摘要"),
-		h.eventsStatus("log-cleanup", "日志清理"),
-		h.eventsStatus("usage-aggregation", "用量聚合"),
+		h.eventsStatus("daily-summary", "Daily summary"),
+		h.eventsStatus("log-cleanup", "Log cleanup"),
+		h.eventsStatus("usage-aggregation", "Usage aggregation"),
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"items": items,

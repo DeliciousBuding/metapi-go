@@ -341,7 +341,7 @@ func (h *accountsHandler) createAccount(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if len(requestedTokens) == 0 {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "请填写 Token")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "token is required")
 		return
 	}
 
@@ -394,7 +394,7 @@ func (h *accountsHandler) createAccount(w http.ResponseWriter, r *http.Request) 
 				"totalCount":   len(requestedTokens),
 				"createdCount": 0,
 				"failedCount":  len(requestedTokens),
-				"message":      "批量添加失败（0/" + strconv.Itoa(len(requestedTokens)) + "）",
+				"message":      "batch add failed (0/" + strconv.Itoa(len(requestedTokens)) + ")",
 				"items":        items,
 			})
 			return
@@ -408,7 +408,7 @@ func (h *accountsHandler) createAccount(w http.ResponseWriter, r *http.Request) 
 			"totalCount":   len(requestedTokens),
 			"createdCount": createdCount,
 			"failedCount":  len(requestedTokens) - createdCount,
-			"message":      "批量添加完成：成功 " + strconv.Itoa(createdCount) + "，失败 " + strconv.Itoa(len(requestedTokens)-createdCount),
+			"message":      "batch add completed: " + strconv.Itoa(createdCount) + " succeeded, " + strconv.Itoa(len(requestedTokens)-createdCount) + " failed",
 			"items":        items,
 		})
 		return
@@ -488,7 +488,7 @@ func (h *accountsHandler) createSingleAccount(ctx context.Context, body payloads
 	now := time.Now().UTC().Format(time.RFC3339)
 	rawAccessToken = strings.TrimSpace(rawAccessToken)
 	if rawAccessToken == "" {
-		return nil, &accountCreateError{Message: "请填写 Token", RequiresVerification: false}
+		return nil, &accountCreateError{Message: "token is required", RequiresVerification: false}
 	}
 
 	adp := platform.GetAdapter(site.Platform)
@@ -528,7 +528,7 @@ func (h *accountsHandler) createSingleAccount(ctx context.Context, body payloads
 			models, err := adp.GetModels(verifyCtx, site.URL, rawAccessToken, body.PlatformUserID, proxyCfg)
 			if err != nil {
 				return nil, &accountCreateError{
-					Message:              "API Key 验证失败：" + err.Error(),
+					Message:              "API key verification failed: " + err.Error(),
 					RequiresVerification: true,
 				}
 			}
@@ -540,7 +540,7 @@ func (h *accountsHandler) createSingleAccount(ctx context.Context, body payloads
 			}
 			if len(verifiedModels) == 0 {
 				return nil, &accountCreateError{
-					Message:              "API Key 验证失败：未获取到可用模型",
+					Message:              "API key verification failed: no available models found",
 					RequiresVerification: true,
 				}
 			}
@@ -561,7 +561,7 @@ func (h *accountsHandler) createSingleAccount(ctx context.Context, body payloads
 		}
 		if result == nil || result.TokenType == "" || result.TokenType == "unknown" {
 			return nil, &accountCreateError{
-				Message:              "Token 验证失败，请先点击“验证 Token”，验证成功后再绑定账号",
+				Message:              "token verification failed; click \"Verify Token\" first, then bind the account after verification succeeds",
 				RequiresVerification: true,
 			}
 		}
@@ -569,7 +569,7 @@ func (h *accountsHandler) createSingleAccount(ctx context.Context, body payloads
 
 		if credentialMode == service.CredentialModeSession && tokenType != "session" {
 			return nil, &accountCreateError{
-				Message:              "当前凭证是 API Key，请切换到 API Key 模式，或改用 Session Token",
+				Message:              "the current credential is an API key; switch to API key mode or use a session token instead",
 				RequiresVerification: false,
 			}
 		}
@@ -837,7 +837,7 @@ func (h *accountsHandler) verifyToken(w http.ResponseWriter, r *http.Request) {
 		accessToken = strings.TrimSpace(*body.AccessToken)
 	}
 	if accessToken == "" {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "Token 不能为空")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "token must not be empty")
 		return
 	}
 
@@ -1023,13 +1023,13 @@ func (h *accountsHandler) rebindSession(w http.ResponseWriter, r *http.Request) 
 		nextAccessToken = strings.TrimSpace(*body.AccessToken)
 	}
 	if nextAccessToken == "" {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "请提供新的 Session Token")
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "provide a new session token")
 		return
 	}
 
 	row, err := service.GetAccountWithSiteByID(h.db, accountID)
 	if err != nil {
-		writeErrorWithRequest(w, r, http.StatusNotFound, "账号不存在")
+		writeErrorWithRequest(w, r, http.StatusNotFound, "account not found")
 		return
 	}
 
@@ -1293,7 +1293,7 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 	if status, ok := updates["status"].(string); ok && status == "expired" {
 		_ = service.SetAccountRuntimeHealth(h.db, id, service.RuntimeHealthEntry{
 			State:  service.HealthUnhealthy,
-			Reason: "连接凭证已过期，请更新凭证",
+			Reason: "connection credential expired; update the credential",
 			Source: service.HealthSourceAuth,
 		})
 	}
@@ -1304,7 +1304,7 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 		if modelRefreshSucceeded(modelRefresh) {
 			if err := service.UpdateAccountFields(h.db, id, map[string]any{"status": "active"}); err != nil {
 				slog.Error("Failed to reactivate account after model refresh", "err", err, "account_id", id)
-				writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "模型刷新成功但账号激活失败"})
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "model refresh succeeded but account activation failed"})
 				return
 			}
 			// Best-effort: clear stale auth-unhealthy runtime health after successful recovery.
@@ -1377,7 +1377,7 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 	if recovery {
 		resp["modelRefresh"] = modelRefresh
 		if !modelRefreshSucceeded(modelRefresh) {
-			resp["message"] = "凭证已更新，但模型刷新失败，账号仍为 expired: " + modelRefreshErrorMessage(modelRefresh)
+			resp["message"] = "credential updated, but model refresh failed; account remains expired: " + modelRefreshErrorMessage(modelRefresh)
 		}
 	}
 	routing.InvalidateCache()

@@ -194,7 +194,7 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 	for _, row := range expired {
 		items = append(items, attentionItem{
 			Severity: "critical", Category: "expired_account",
-			Label:     "账号已过期：" + coerceString(row["username"]),
+			Label:     "Account expired: " + coerceString(row["username"]),
 			Target:    "/accounts?accountId=" + coerceString(row["id"]),
 			CreatedAt: coerceString(row["updatedAt"]),
 		})
@@ -215,7 +215,7 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 	for _, row := range low {
 		items = append(items, attentionItem{
 			Severity: "warning", Category: "low_balance",
-			Label:     fmt.Sprintf("余额不足：%s（%.2f）", coerceString(row["username"]), coerceFloat(row["balance"])),
+			Label:     fmt.Sprintf("Low balance: %s (%.2f)", coerceString(row["username"]), coerceFloat(row["balance"])),
 			Target:    "/accounts?accountId=" + coerceString(row["id"]),
 			CreatedAt: coerceString(row["updatedAt"]),
 		})
@@ -235,7 +235,7 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 	for _, row := range disabledSites {
 		items = append(items, attentionItem{
 			Severity: "warning", Category: "disabled_site",
-			Label: "站点已禁用：" + coerceString(row["name"]),
+			Label: "Site disabled: " + coerceString(row["name"]),
 			// `/sites?edit=N` is the sites page's one-shot edit deep link
 			// (opens the edit dialog for the referenced site then strips
 			// the param); `siteId` is not part of the sites URL contract.

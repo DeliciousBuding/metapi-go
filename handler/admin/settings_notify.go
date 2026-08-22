@@ -36,7 +36,7 @@ func testNotify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	message := fmt.Sprintf("测试通知已发送（成功 %d/%d）", result.Succeeded, result.Attempted)
+	message := fmt.Sprintf("test notification sent (%d/%d succeeded)", result.Succeeded, result.Attempted)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success": true,
 		"message": message,

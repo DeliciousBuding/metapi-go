@@ -124,7 +124,7 @@ func (h *monitorHandler) saveConfig(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusOK, map[string]any{
 			"success":              true,
-			"message":              "LDOH Cookie 已清空",
+			"message":              "LDOH cookie cleared",
 			"ldohCookieConfigured": false,
 			"ldohCookieMasked":     "",
 		})
@@ -133,7 +133,7 @@ func (h *monitorHandler) saveConfig(w http.ResponseWriter, r *http.Request) {
 
 	normalized := normalizeLdohCookie(raw)
 	if !strings.HasPrefix(normalized, "ld_auth_session=") || len(normalized) < 24 {
-		writeError(w, http.StatusBadRequest, "Cookie 格式无效，请填写 ld_auth_session 或其值")
+		writeError(w, http.StatusBadRequest, "invalid cookie format; provide ld_auth_session or its value")
 		return
 	}
 
@@ -144,7 +144,7 @@ func (h *monitorHandler) saveConfig(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success":              true,
-		"message":              "LDOH Cookie 已保存",
+		"message":              "LDOH cookie saved",
 		"ldohCookieConfigured": true,
 		"ldohCookieMasked":     maskValue(normalized),
 	})

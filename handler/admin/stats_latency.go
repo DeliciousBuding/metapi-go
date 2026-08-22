@@ -124,7 +124,7 @@ func (h *statsHandler) modelCostDistribution(w http.ResponseWriter, r *http.Requ
 	if otherCost > 0 || otherCalls > 0 {
 		items = append(items, map[string]any{
 			"model":  "other",
-			"label":  "其他模型",
+			"label":  "Other models",
 			"cost":   roundMicro(otherCost),
 			"calls":  int64(otherCalls),
 			"tokens": int64(otherTokens),

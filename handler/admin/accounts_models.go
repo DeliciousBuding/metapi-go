@@ -20,7 +20,7 @@ func (h *accountsHandler) getAccountModels(w http.ResponseWriter, r *http.Reques
 
 	row, err := service.GetAccountWithSiteByID(h.db, id)
 	if err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"message": "账号不存在"})
+		writeJSON(w, http.StatusNotFound, map[string]string{"message": "account not found"})
 		return
 	}
 
@@ -78,7 +78,7 @@ func (h *accountsHandler) manualModels(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(body.Models) == 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "模型列表不能为空"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "model list must not be empty"})
 		return
 	}
 
@@ -93,13 +93,13 @@ func (h *accountsHandler) manualModels(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(models) == 0 {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "模型列表不能为空"})
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "model list must not be empty"})
 		return
 	}
 
 	var account store.Account
 	if err := h.db.Get(&account, h.db.Rebind("SELECT * FROM accounts WHERE id = ?"), id); err != nil {
-		writeJSON(w, http.StatusNotFound, map[string]string{"message": "账号不存在"})
+		writeJSON(w, http.StatusNotFound, map[string]string{"message": "account not found"})
 		return
 	}
 
