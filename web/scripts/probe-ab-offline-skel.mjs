@@ -26,9 +26,7 @@ await page.goto(`${BASE_URL}/accounts`, {
   timeout: 20000,
 })
 await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {})
-await context.route('**/api/**', (route) =>
-  route.abort('internetdisconnected')
-)
+await context.route('**/api/**', (route) => route.abort('internetdisconnected'))
 await page.locator('a[href="/sites"]').first().click()
 await page.waitForTimeout(15000)
 const skeletonInfo = await page.evaluate(() => {
@@ -49,7 +47,10 @@ const skeletonInfo = await page.evaluate(() => {
       current = current.parentElement
     }
     const rect = node.getBoundingClientRect()
-    return { chain: chain.join(' < '), visible: rect.width > 0 && rect.height > 0 }
+    return {
+      chain: chain.join(' < '),
+      visible: rect.width > 0 && rect.height > 0,
+    }
   })
 })
 console.log(JSON.stringify(skeletonInfo, null, 1))

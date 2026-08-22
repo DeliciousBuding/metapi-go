@@ -54,7 +54,9 @@ const pollTimer = setInterval(() => {
       token: localStorage.getItem('auth_token') ? 'Y' : 'N',
     }))
     .then((snapshot) =>
-      storageTimeline.push(`t=${Date.now() - startedAt} ${snapshot.url} tok=${snapshot.token}`)
+      storageTimeline.push(
+        `t=${Date.now() - startedAt} ${snapshot.url} tok=${snapshot.token}`
+      )
     )
     .catch(() => storageTimeline.push(`t=${Date.now() - startedAt} <nav>`))
 }, 250)

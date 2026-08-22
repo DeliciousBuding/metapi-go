@@ -72,14 +72,34 @@ function insertCheckinLog(accountId, status, createdAt, failureReason) {
 }
 
 // ---- sites: unicode / emoji / long / CSV-hostile names ----
-const siteUnicode = insertSite('测试站点🚀にほんご', 'https://unicode.example.com', 'new-api')
-const siteLongName = insertSite('L'.repeat(300), 'https://long.example.com', 'new-api')
-const siteCsvName = insertSite('=@SUM(site)', 'https://csvsite.example.com', 'new-api')
+const siteUnicode = insertSite(
+  '测试站点🚀にほんご',
+  'https://unicode.example.com',
+  'new-api'
+)
+const siteLongName = insertSite(
+  'L'.repeat(300),
+  'https://long.example.com',
+  'new-api'
+)
+const siteCsvName = insertSite(
+  '=@SUM(site)',
+  'https://csvsite.example.com',
+  'new-api'
+)
 
 // ---- accounts: extreme balances + hostile usernames ----
 const accountNullBalance = insertAccount(siteUnicode, '=1+1', null)
-const accountHugeBalance = insertAccount(siteUnicode, '巨额账号💰', 99999999999.99)
-const accountNegativeBalance = insertAccount(siteLongName, 'negative-bal', -123.456789)
+const accountHugeBalance = insertAccount(
+  siteUnicode,
+  '巨额账号💰',
+  99999999999.99
+)
+const accountNegativeBalance = insertAccount(
+  siteLongName,
+  'negative-bal',
+  -123.456789
+)
 const accountTinyBalance = insertAccount(siteLongName, 'tiny-bal', 0.0000001)
 const accountLongName = insertAccount(
   siteCsvName,
@@ -149,10 +169,28 @@ insertProxyLog({
 })
 
 // ---- events: CSV-injection + formatting payloads for program-logs export ----
-insertEvent('system', 'error', '=1+1', '=HYPERLINK("http://evil.example")', '2026-08-22 12:00:00')
+insertEvent(
+  'system',
+  'error',
+  '=1+1',
+  '=HYPERLINK("http://evil.example")',
+  '2026-08-22 12:00:00'
+)
 insertEvent('system', 'warn', '-cmd', '+calc', '0')
-insertEvent('system', 'info', '@SUM(A1:A2)', 'line1\nline2 "quoted", comma', '3026-01-01 00:00:00')
-insertEvent('checkin', 'info', '正常事件标题', '正常消息内容', '2026-08-22 11:00:00')
+insertEvent(
+  'system',
+  'info',
+  '@SUM(A1:A2)',
+  'line1\nline2 "quoted", comma',
+  '3026-01-01 00:00:00'
+)
+insertEvent(
+  'checkin',
+  'info',
+  '正常事件标题',
+  '正常消息内容',
+  '2026-08-22 11:00:00'
+)
 insertEvent('system', 'error', 'tab\tafter', 'cr\rlf', '1950-01-01 00:00:00')
 
 // ---- checkin_logs: extreme timestamps ----

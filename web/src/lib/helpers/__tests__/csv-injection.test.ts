@@ -12,13 +12,13 @@ describe('neutralizeCsvFormulaCell', () => {
     expect(neutralizeCsvFormulaCell('=1+1')).toBe("'=1+1")
     expect(neutralizeCsvFormulaCell('+1+1')).toBe("'+1+1")
     expect(neutralizeCsvFormulaCell('@SUM(A1:A2)')).toBe("'@SUM(A1:A2)")
-    expect(neutralizeCsvFormulaCell('=cmd|\'/C calc\'!A0')).toBe(
+    expect(neutralizeCsvFormulaCell("=cmd|'/C calc'!A0")).toBe(
       "'=cmd|'/C calc'!A0"
     )
   })
 
   it('prefixes DDE-style dash payloads but keeps plain negative numbers', () => {
-    expect(neutralizeCsvFormulaCell('-cmd|\'/C calc\'!A0')).toBe(
+    expect(neutralizeCsvFormulaCell("-cmd|'/C calc'!A0")).toBe(
       "'-cmd|'/C calc'!A0"
     )
     expect(neutralizeCsvFormulaCell('-1-1')).toBe("'-1-1")

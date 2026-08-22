@@ -40,7 +40,12 @@ if (target === 'proxy-logs') {
   ])
   const saveTo = '/tmp/probe-ab-export-proxy-logs.csv'
   await download.saveAs(saveTo)
-  console.log('saved:', saveTo, 'suggestedFilename:', download.suggestedFilename())
+  console.log(
+    'saved:',
+    saveTo,
+    'suggestedFilename:',
+    download.suggestedFilename()
+  )
 } else {
   await page.goto(`${BASE_URL}/settings/system-info/program-logs`, {
     waitUntil: 'domcontentloaded',
@@ -48,7 +53,12 @@ if (target === 'proxy-logs') {
   })
   await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {})
   await page.waitForTimeout(1500)
-  console.log('page title text:', (await page.evaluate(() => document.body.innerText.slice(0, 200))).replaceAll('\n', ' | '))
+  console.log(
+    'page title text:',
+    (
+      await page.evaluate(() => document.body.innerText.slice(0, 200))
+    ).replaceAll('\n', ' | ')
+  )
   const exportButton = page
     .locator('button', { hasText: /导出|Export/ })
     .first()
@@ -58,7 +68,12 @@ if (target === 'proxy-logs') {
   ])
   const saveTo = '/tmp/probe-ab-export-events.csv'
   await download.saveAs(saveTo)
-  console.log('saved:', saveTo, 'suggestedFilename:', download.suggestedFilename())
+  console.log(
+    'saved:',
+    saveTo,
+    'suggestedFilename:',
+    download.suggestedFilename()
+  )
 }
 
 await browser.close()

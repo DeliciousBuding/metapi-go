@@ -98,8 +98,13 @@ addLog({
 db.exec('COMMIT')
 
 const verify = db
-  .query('SELECT id, model_requested, estimated_cost, created_at FROM proxy_logs ORDER BY id LIMIT 5')
+  .query(
+    'SELECT id, model_requested, estimated_cost, created_at FROM proxy_logs ORDER BY id LIMIT 5'
+  )
   .all()
-console.log('proxy_logs reseeded:', db.query('SELECT COUNT(*) AS n FROM proxy_logs').get().n)
+console.log(
+  'proxy_logs reseeded:',
+  db.query('SELECT COUNT(*) AS n FROM proxy_logs').get().n
+)
 console.log('verify:', JSON.stringify(verify))
 db.close()

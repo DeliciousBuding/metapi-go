@@ -73,7 +73,9 @@ function summarizeRequests(requestLog) {
 }
 
 if (mode === 'pages') {
-  const routes = (process.env.ROUTES ?? '/accounts,/sites,/channels,/proxy-logs,/checkin').split(',')
+  const routes = (
+    process.env.ROUTES ?? '/accounts,/sites,/channels,/proxy-logs,/checkin'
+  ).split(',')
   for (const route of routes) {
     const { context, page, consoleErrors, pageErrors } =
       await newPageWithAuth(AUTH_TOKEN)
@@ -126,8 +128,16 @@ if (mode === 'pages') {
       return { rows, skeletons, bodyText }
     })
     console.log('=== route:', route)
-    console.log('api request counts:', JSON.stringify(summarizeRequests(requestLog)))
-    console.log('rows:', info.rows, '| skeletons still visible:', info.skeletons)
+    console.log(
+      'api request counts:',
+      JSON.stringify(summarizeRequests(requestLog))
+    )
+    console.log(
+      'rows:',
+      info.rows,
+      '| skeletons still visible:',
+      info.skeletons
+    )
     console.log(
       'console errors:',
       consoleErrors.length,
@@ -140,8 +150,9 @@ if (mode === 'pages') {
 } else if (mode === 'auth') {
   // Wrong token → backend answers 401. Expect: toast + redirect to /sign-in,
   // no infinite retry.
-  const { context, page, consoleErrors, pageErrors } =
-    await newPageWithAuth('definitely-wrong-token')
+  const { context, page, consoleErrors, pageErrors } = await newPageWithAuth(
+    'definitely-wrong-token'
+  )
   if (process.env.STACKS === '1') {
     await page.addInitScript(() => {
       const originalOpen = XMLHttpRequest.prototype.open
@@ -174,9 +185,7 @@ if (mode === 'pages') {
   const authBodyText = await page
     .evaluate(() => document.body.innerText.slice(0, 500))
     .catch(() => '<evaluate failed>')
-  await page
-    .screenshot({ path: '/tmp/probe-ab-auth.png' })
-    .catch(() => {})
+  await page.screenshot({ path: '/tmp/probe-ab-auth.png' }).catch(() => {})
   const toastText = await page
     .evaluate(() => {
       const toasts = [...document.querySelectorAll('[data-sonner-toast]')]
@@ -187,8 +196,15 @@ if (mode === 'pages') {
   console.log('final location:', page.url())
   console.log('toast text:', toastText)
   console.log('body text:', authBodyText.replaceAll('\n', ' | ').slice(0, 400))
-  console.log('api request counts:', JSON.stringify(summarizeRequests(requestLog)))
-  console.log('console errors:', consoleErrors.length, consoleErrors.slice(0, 3))
+  console.log(
+    'api request counts:',
+    JSON.stringify(summarizeRequests(requestLog))
+  )
+  console.log(
+    'console errors:',
+    consoleErrors.length,
+    consoleErrors.slice(0, 3)
+  )
   console.log('page errors:', pageErrors.length, pageErrors.slice(0, 2))
   await context.close()
 } else if (mode === 'ws') {
@@ -231,7 +247,9 @@ if (mode === 'pages') {
     timeout: 20000,
   })
   await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {})
-  await context.route('**/api/**', (route) => route.abort('internetdisconnected'))
+  await context.route('**/api/**', (route) =>
+    route.abort('internetdisconnected')
+  )
   requestLog.length = 0
   const sitesNavLink = page.locator('a[href="/sites"]').first()
   await sitesNavLink.click()
@@ -243,10 +261,17 @@ if (mode === 'pages') {
     return { skeletons, bodyText: document.body.innerText.slice(0, 500) }
   })
   console.log('=== offline navigation scenario')
-  console.log('api request counts:', JSON.stringify(summarizeRequests(requestLog)))
+  console.log(
+    'api request counts:',
+    JSON.stringify(summarizeRequests(requestLog))
+  )
   console.log('skeletons still visible:', info.skeletons)
   console.log('body:', info.bodyText.replaceAll('\n', ' | ').slice(0, 350))
-  console.log('console errors:', consoleErrors.length, consoleErrors.slice(0, 3))
+  console.log(
+    'console errors:',
+    consoleErrors.length,
+    consoleErrors.slice(0, 3)
+  )
   console.log('page errors:', pageErrors.length, pageErrors.slice(0, 2))
   await context.close()
 } else if (mode === 'resp') {

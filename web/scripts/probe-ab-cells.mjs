@@ -35,7 +35,10 @@ for (const route of routes) {
   })
   page.on('pageerror', (error) => pageErrors.push(String(error)))
   await page
-    .goto(`${BASE_URL}${route}`, { waitUntil: 'domcontentloaded', timeout: 20000 })
+    .goto(`${BASE_URL}${route}`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 20000,
+    })
     .catch((error) => console.log('goto error:', String(error).slice(0, 120)))
   await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {})
   await page.waitForTimeout(2500)
@@ -43,21 +46,26 @@ for (const route of routes) {
     const headers = [...document.querySelectorAll('thead th')].map((th) =>
       (th.textContent ?? '').trim().replace(/\s+/g, ' ')
     )
-    const rows = [...document.querySelectorAll('tbody tr')].slice(0, 20).map((tr) =>
-      [...tr.querySelectorAll('td')].map((td) =>
-        (td.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 60)
+    const rows = [...document.querySelectorAll('tbody tr')]
+      .slice(0, 20)
+      .map((tr) =>
+        [...tr.querySelectorAll('td')].map((td) =>
+          (td.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 60)
+        )
       )
-    )
     return {
       headers,
       rows,
       bodyLen: document.body.innerText.length,
-      rootEmpty: (document.getElementById('root')?.childElementCount ?? 0) === 0,
+      rootEmpty:
+        (document.getElementById('root')?.childElementCount ?? 0) === 0,
     }
   })
   console.log(`=== ${route}`)
   console.log('headers:', JSON.stringify(dump.headers))
-  dump.rows.forEach((row, index) => console.log(`row${index}:`, JSON.stringify(row)))
+  dump.rows.forEach((row, index) =>
+    console.log(`row${index}:`, JSON.stringify(row))
+  )
   console.log(
     'health:',
     JSON.stringify({
@@ -68,7 +76,9 @@ for (const route of routes) {
     })
   )
   await page
-    .screenshot({ path: `/tmp/probe-ab-cells-${route.replaceAll('/', '_')}.png` })
+    .screenshot({
+      path: `/tmp/probe-ab-cells-${route.replaceAll('/', '_')}.png`,
+    })
     .catch(() => {})
   await context.close()
 }
