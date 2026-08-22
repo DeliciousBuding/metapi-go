@@ -2,6 +2,14 @@
 
 **Last updated**: 2026-08-22
 
+> **How to read this page**: just getting started? The README Quick Start covers
+> the 3-minute paths — this page is the full reference behind them. Start with
+> [Prerequisites](#prerequisites) and [Quick paths](#quick-paths), then jump to
+> the production topics you need: reverse proxy and TLS, PostgreSQL, backup,
+> upgrades and rollback. Every environment variable is listed in
+> [`.env.example`](../.env.example); the grouped reference with explanations is
+> [configuration.md](configuration.md).
+
 ## Prerequisites
 
 Pick the prerequisites for the path you deploy with:
@@ -57,8 +65,8 @@ docker run -d --name metapi \
 ```
 
 Named volume is the zero-config default; bind mounts need a one-time
-`chown -R 1001:1001` — see [数据目录与卷](#数据目录与卷). Compose variants:
-[Docker Compose (Production)](#docker-compose-production).
+`chown -R 1001:1001` — see [Data directory & volumes](#data-directory--volumes).
+Compose variants: [Docker Compose (Production)](#docker-compose-production).
 
 ### 3. From source
 
@@ -92,7 +100,9 @@ Open `http://localhost:4000` and sign in with `AUTH_TOKEN`.
 
 ## Environment Variables
 
-完整的环境变量清单见仓库根目录 [`.env.example`](../.env.example)（约 150 项，含通知、代理、调试等高级配置）；下表仅列部署必需与常用项。
+The complete variable inventory (~150 entries, including notifications, proxy
+and debugging options) lives in [`.env.example`](../.env.example) at the repo
+root; the tables below list only what a deployment needs plus common options.
 
 ### Required
 
@@ -135,7 +145,8 @@ Open `http://localhost:4000` and sign in with `AUTH_TOKEN`.
 
 Both compose files mount a **named volume** (`metapi_data:/app/data`) by
 default — zero configuration. To use a bind mount instead, follow the chown
-instructions in the compose file comments and in [数据目录与卷](#数据目录与卷).
+instructions in the compose file comments and in
+[Data directory & volumes](#data-directory--volumes).
 
 1. Create a `.env` file:
 
@@ -158,18 +169,27 @@ curl http://localhost:4000/health
 # {"status":"ok"}
 ```
 
-### 数据目录与卷
+## Data directory & volumes
 
-容器以**非 root 用户（uid 1001）**运行，数据目录的可写性是 Docker 部署最常见的坑：
+The container runs as a **non-root user (uid 1001)**, and writability of the
+data directory is the most common Docker deployment pitfall:
 
-- **命名卷（全新部署推荐）**：Docker 首次使用时会把镜像内 `/app/data` 的内容连同属主一起拷入卷，容器用户天然可写，无需任何 chown。
-- **Bind mount（迁移旧数据时必须用）**：宿主目录保持宿主属主。旧 TypeScript 版以 root 运行，留下的 `./data` 和 `hub.db` 归 root 所有，Go 版写不进去，启动即报 `attempt to write a readonly database` 或 `unable to open database file`。启动前在宿主机执行一次：
+- **Named volume (recommended for fresh deployments)**: on first use Docker
+  copies the image's `/app/data` contents — including ownership — into the
+  volume, so the container user can write immediately. No `chown` needed.
+- **Bind mount (required when migrating existing data)**: a host directory
+  keeps its host ownership. The old TypeScript version ran as root, so a
+  leftover `./data` / `hub.db` is root-owned and the Go container cannot write
+  it — startup fails with `attempt to write a readonly database` or `unable to
+  open database file`. Fix it once on the host before starting:
 
   ```bash
   sudo chown -R 1001:1001 ./data
   ```
 
-- **镜像标签**：`latest` 便于尝鲜；生产建议固定到版本标签（如 `ghcr.io/deliciousbuding/metapi-go:v0.16.6`），保证可复现部署。
+- **Image tags**: `latest` is convenient for trying things out; for production,
+  pin a version tag (e.g. `ghcr.io/deliciousbuding/metapi-go:v0.16.6`) so
+  deployments stay reproducible.
 
 ## Nginx Reverse Proxy
 

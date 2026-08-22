@@ -7,6 +7,14 @@ is [`.env.example`](../.env.example); this page groups and explains every
 knob a deployment is likely to touch. Docker Compose users pass these via
 `environment:` (see [`deployment.md`](deployment.md)).
 
+> **How to read this page**: first-time deployment only needs the two
+> [Required](#required) variables (plus the
+> [Recommended](#recommended) credential secret). Everything else is optional
+> and grouped by area — [Server](#server), [Database](#database),
+> [Scheduling](#scheduling), [Notifications](#notifications),
+> [Proxy behavior](#proxy-behavior), [Routing](#routing) and so on. When in
+> doubt, `.env.example` is the source of truth for names and defaults.
+
 ## Required
 
 | Variable | Default | Description |
