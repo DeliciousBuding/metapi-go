@@ -298,7 +298,11 @@ function SidebarRail({ className, ...props }: React.ComponentProps<'button'>) {
       onClick={toggleSidebar}
       title={t('Toggle Sidebar')}
       className={cn(
-        'hover:after:bg-sidebar-border absolute inset-y-0 z-20 hidden w-4 transition-[transform,background-color] ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:start-1/2 after:w-[2px] sm:flex ltr:-translate-x-1/2 rtl:-translate-x-1/2',
+        // WCAG 2.5.8: 24px hit width (was w-4/16px, F-line residual C). The
+        // rail is an invisible strip, so `-right-6` moves with the width to
+        // keep the box centered on the sidebar edge (translate-x-1/2 halves
+        // it either way); the visible 2px hover bar is unchanged.
+        'hover:after:bg-sidebar-border absolute inset-y-0 z-20 hidden w-6 transition-[transform,background-color] ease-linear group-data-[side=left]:-right-6 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:start-1/2 after:w-[2px] sm:flex ltr:-translate-x-1/2 rtl:-translate-x-1/2',
         'in-data-[side=left]:cursor-w-resize in-data-[side=right]:cursor-e-resize',
         '[[data-side=left][data-state=collapsed]_&]:cursor-e-resize [[data-side=right][data-state=collapsed]_&]:cursor-w-resize',
         'hover:group-data-[collapsible=offcanvas]:bg-sidebar group-data-[collapsible=offcanvas]:translate-x-0 group-data-[collapsible=offcanvas]:after:left-full',

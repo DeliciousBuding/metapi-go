@@ -53,8 +53,13 @@ vi.mock('@/lib/toast', () => ({
 }))
 
 // The section only uses the router Link; stub it so the test needs no router.
+// className passes through so hit-area assertions can read it.
 vi.mock('@tanstack/react-router', () => ({
-  Link: (props: { children?: React.ReactNode }) => <a>{props.children}</a>,
+  Link: (props: { children?: React.ReactNode; className?: string }) => (
+    <a href='#' className={props.className}>
+      {props.children}
+    </a>
+  ),
 }))
 
 beforeAll(() => {
@@ -157,5 +162,22 @@ describe('MaintenanceSection — clear usage guard', () => {
     await waitFor(() => {
       expect(mockClearRuntimeCache).toHaveBeenCalledTimes(1)
     })
+  })
+})
+
+// WCAG 2.5.8 closeout (F-line residual E): the "View Program Logs" hint is a
+// text-xs inline link whose ~16px line measured as a TINY-HIT. Inline text
+// links are exempt from 2.5.8, so this is best-effort: `py-1` click padding
+// widens the hit area to ~24px without moving the line (vertical padding on
+// an inline element never grows the line box).
+describe('MaintenanceSection — program-logs link hit area', () => {
+  it('adds vertical click padding to the inline program-logs link', () => {
+    renderMaintenanceSection()
+
+    const programLogsLink = screen.getByRole('link', {
+      name: 'View Program Logs',
+    })
+
+    expect(programLogsLink.classList).toContain('py-1')
   })
 })

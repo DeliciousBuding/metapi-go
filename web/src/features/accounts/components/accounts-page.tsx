@@ -450,7 +450,16 @@ export function AccountsPage() {
             {t('accounts.page.description')}
           </p>
         </div>
-        <Button onClick={openCreate} disabled={sites.length === 0}>
+        {/* `sites` is `[]` both while the snapshot is still fetching and for
+            a genuinely empty library; pinning disabled to the raw array kept
+            the button inoperable for the whole fetch window right after
+            creating a fresh site. Only the loaded-and-empty state disables
+            it — during load the dialog opens and picks up the sites as the
+            snapshot lands (the form consumes the live `sites` prop). */}
+        <Button
+          onClick={openCreate}
+          disabled={!isLoading && sites.length === 0}
+        >
           <Plus />
           {t('accounts.page.addButton')}
         </Button>
