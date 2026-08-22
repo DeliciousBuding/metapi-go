@@ -1509,7 +1509,7 @@ func TestBackupWebdavSchedulerDoesNotUploadOversizedPayload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read backup state: %v", err)
 	}
-	if !strings.Contains(raw, "备份导出超过") {
+	if !strings.Contains(raw, "backup export exceeds max payload") {
 		t.Fatalf("state = %s, want export limit error", raw)
 	}
 }
