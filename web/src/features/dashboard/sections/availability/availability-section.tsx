@@ -7,7 +7,9 @@
 // operator eyes — expired accounts, low balances, disabled sites, events).
 
 import { useQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { Inbox, Radio, ShieldCheck, TriangleAlert } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
@@ -38,6 +40,10 @@ import { cn } from '@/lib/utils'
 
 import { useRealtimeOps } from '../../hooks/use-realtime-ops'
 import type { RealtimeOpsSamplePoint } from '../../types'
+import {
+  resolveAttentionTarget,
+  type AttentionTargetLocation,
+} from './attention-target'
 
 const SPARK_BARS = 60
 
@@ -283,6 +289,55 @@ function RealtimeOpsPanel() {
   )
 }
 
+/**
+ * Router-aware rendering of a parsed attention target. The backend target
+ * contract is small and pinned by handler tests, so a switch over the parsed
+ * discriminant keeps `to` / `search` / `params` fully typed (a union `Link`
+ * props object would need a cast). A parsed target is always SPA-navigable:
+ * the settings route redirects unknown sections to the subarea default, and
+ * the accounts/sites one-shot params resolve against the loaded snapshot.
+ */
+function AttentionTargetLink({
+  location,
+  children,
+}: {
+  location: AttentionTargetLocation
+  children: ReactNode
+}) {
+  switch (location.to) {
+    case '/accounts':
+      return (
+        <Link
+          to='/accounts'
+          search={{ accountId: location.search.accountId }}
+          className='block truncate text-sm hover:underline'
+        >
+          {children}
+        </Link>
+      )
+    case '/sites':
+      return (
+        <Link
+          to='/sites'
+          search={{ edit: location.search.edit }}
+          className='block truncate text-sm hover:underline'
+        >
+          {children}
+        </Link>
+      )
+    case '/settings/$subarea/$section':
+      return (
+        <Link
+          to='/settings/$subarea/$section'
+          params={location.params}
+          className='block truncate text-sm hover:underline'
+        >
+          {children}
+        </Link>
+      )
+  }
+}
+
 function AttentionPanel() {
   const { t, i18n } = useTranslation()
   const locale = toBcp47(i18n.language || 'en')
@@ -344,6 +399,11 @@ function AttentionPanel() {
                 `dashboard.availability.monitors.severity.${item.severity}`
               )
               const relativeTime = formatRelativeTime(item.createdAt, locale)
+              // Unrecognized targets (backend drift, malformed url) render as
+              // plain text — never a dead anchor.
+              const targetLocation = item.target
+                ? resolveAttentionTarget(item.target)
+                : null
               return (
                 <li
                   // eslint-disable-next-line react/no-array-index-key
@@ -358,13 +418,10 @@ function AttentionPanel() {
                     {label}
                   </Badge>
                   <div className='min-w-0 flex-1'>
-                    {item.target ? (
-                      <a
-                        href={item.target}
-                        className='block truncate text-sm hover:underline'
-                      >
+                    {targetLocation ? (
+                      <AttentionTargetLink location={targetLocation}>
                         {item.label}
-                      </a>
+                      </AttentionTargetLink>
                     ) : (
                       <span className='block truncate text-sm'>
                         {item.label}
