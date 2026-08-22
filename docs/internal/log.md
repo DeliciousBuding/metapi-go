@@ -1,9 +1,15 @@
 # log.md — Metapi Go product milestones
 
-**Last updated**: 2026-08-21
+**Last updated**: 2026-08-23
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
+
+## 2026-08-22 — Wave 4 综合质量波 → v0.16.7
+
+- Wave 4 首轮 9 条 PR（#916 契约回归 / #917 安全审计 / #920 a11y / #921 部署体验 / #922 安全移交 / #919 迁移兼容 / #918 实测验收 / #924 残留打磨 / #925 A/B 域重审）+ 本轮 4 条（#928 空快照 / #929 对外门面 / #930 三处假成功 / #931 NULL 余额 500）全部 squash 合入；Round 3 审计 8 域闭环，#915 关闭。
+- #933 可空余额列根治（`store.Account` 数值列 `float64 → *float64`）关闭 #927。
+- 发布：#932 release → v0.16.7。
 
 ## 2026-08-21 — Round 3 修复波 → v0.16.6
 

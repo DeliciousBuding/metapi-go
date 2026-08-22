@@ -1,24 +1,25 @@
 # Roadmap
 
-**Last verified**: 2026-08-21
+**Last verified**: 2026-08-23
 
-**Release**: [v0.16.6](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.6) · released on master; production promotion follows the release and soak gate
+**Release**: [v0.16.7](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.7) · released on master; production promotion follows the release and soak gate
 
 > This is the only execution plan. It contains open work, order, ownership, and acceptance criteria. Current facts → [`../STATE.md`](../STATE.md) · product positioning → [`../benchmark.md`](../benchmark.md) · timeline → [`../log.md`](../log.md).
 
 ## Current active work — 剩余收尾（v0.16.7+，需求驱动）
 
-历史完成冻结：Round 1 #887 → v0.16.3、Round 2 #889 → v0.16.4、#887 补遗 + E2E → v0.16.5、Round 3 修复波 → v0.16.6 均已发布。
+历史完成冻结：Round 1 #887 → v0.16.3、Round 2 #889 → v0.16.4、#887 补遗 + E2E → v0.16.5、Round 3 修复波 → v0.16.6、Wave 4 综合质量波 → v0.16.7 均已发布。
 
-### 已收口（v0.16.6，勿再当 active）
+### 已收口（v0.16.7，勿再当 active）
 
-- Round 3 D 域 4 个 P0 契约 bug（#911）· H 域性能 gzip + accounts 冻结 + recharts 按需（#910）· Spinner 双轨收口（#912），全部 squash 合入。
+- Wave 4 综合质量波：首轮 9 条（#916 / #917 / #920 / #921 / #922 / #919 / #918 / #924 / #925）+ 本轮 4 条（#928 / #929 / #930 / #931）+ 可空列根治 #933（关 #927），全部 squash 合入；Round 3 审计 8 域闭环，#915 关闭。
 
 ### 剩余 Active（需求驱动，非阻塞）
 
 | 项 | 优先级 | 状态 |
 |---|---|---|
-| Round 3 C a11y / G 安全 两域补审计 | P2 | provider 故障中断，待补 |
+| W 后端用户可见消息英文化 | P2 | [#926](https://github.com/DeliciousBuding/metapi-go/issues/926)，WIP ~40%（分支 `wave4/message-consistency`） |
+| Sites apiEndpoints editor | P2 | [#861](https://github.com/DeliciousBuding/metapi-go/issues/861)，preserve-only → 需求驱动 |
 | Codex / AnyRouter 真实运行探针 | 可选 | [#558](https://github.com/DeliciousBuding/metapi-go/issues/558) |
 
 > Round 3 修复波已闭环，无 P0/P1 开放项。下一波按需求驱动立项（方向见 `../benchmark.md`）。
