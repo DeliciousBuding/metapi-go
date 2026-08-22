@@ -194,10 +194,22 @@ func (h *accountsHandler) computeAccountsSnapshot() ([]byte, error) {
 
 	resp := map[string]any{
 		"generatedAt": time.Now().UTC().Format(time.RFC3339),
-		"accounts":    accounts,
-		"sites":       sites,
+		"accounts":    normalizeSlice(accounts),
+		"sites":       sitesOrEmpty(sites),
 	}
 	return json.Marshal(resp)
+}
+
+// sitesOrEmpty keeps the snapshot contract array-shaped on an empty database:
+// a nil []store.Site marshals to JSON null, which trips the admin frontend's
+// Array.isArray guards (useAccounts) into treating an empty fleet as a broken
+// payload. normalizeSlice covers the []map[string]any accounts slice; sites is
+// a typed slice so it gets its own one-liner instead of widening the helper.
+func sitesOrEmpty(sites []store.Site) []store.Site {
+	if sites == nil {
+		return []store.Site{}
+	}
+	return sites
 }
 
 // listAccountsPaginated serves GET /api/accounts?page=&pageSize= with a bounded
@@ -234,7 +246,7 @@ func (h *accountsHandler) listAccountsPaginated(w http.ResponseWriter, r *http.R
 		"page":        page,
 		"pageSize":    pageSize,
 		"generatedAt": time.Now().UTC().Format(time.RFC3339),
-		"sites":       sites,
+		"sites":       sitesOrEmpty(sites),
 	})
 }
 
