@@ -95,8 +95,15 @@ describe('formatCheckinLogTime', () => {
     expect(zhFormatted.startsWith('2026')).toBe(true)
   })
 
-  it('returns the raw trimmed input for an unparseable value', () => {
-    expect(formatCheckinLogTime('not-a-date', 'en-US')).toBe('not-a-date')
+  it('renders the shared em-dash placeholder for an unparseable value', () => {
+    // Contract decision (2026-08-23): the checkin formatter now forwards to
+    // the shared `@/lib/format` stack, whose contract is "invalid input never
+    // reaches the render tree" → "—". The previous raw-string passthrough was
+    // retired. Adopting lib's contract has the smaller blast radius: the only
+    // live callers render server-generated `created_at` timestamps (always
+    // valid), whereas keeping passthrough would have required loosening
+    // `formatDateTime` for every consumer codebase-wide.
+    expect(formatCheckinLogTime('not-a-date', 'en-US')).toBe('—')
   })
 
   it('returns an em dash placeholder for nullish input', () => {
