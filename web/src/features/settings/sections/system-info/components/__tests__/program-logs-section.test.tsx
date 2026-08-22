@@ -135,3 +135,83 @@ describe('ProgramLogsSection clear confirmation', () => {
     expect(mockClearEvents).not.toHaveBeenCalled()
   })
 })
+
+describe('ProgramLogsSection CSV export neutralizes formula injection', () => {
+  it('prefixes =/+/-/@ starter cells so spreadsheets keep them inert', async () => {
+    mockGetEvents.mockResolvedValue({
+      items: [
+        {
+          id: 1,
+          type: 'system',
+          title: '=1+1',
+          message: '=HYPERLINK("http://evil.example")',
+          level: 'error',
+          read: 0,
+          created_at: '2026-08-22 12:00:00',
+        },
+        {
+          id: 2,
+          type: 'system',
+          title: '-cmd',
+          message: '+calc',
+          level: 'warn',
+          read: 0,
+          created_at: '2026-08-22 12:01:00',
+        },
+        {
+          id: 3,
+          type: 'system',
+          title: '@SUM(A1:A2)',
+          message: 'benign, "quoted" text',
+          level: 'info',
+          read: 0,
+          created_at: '2026-08-22 12:02:00',
+        },
+      ],
+      total: 3,
+    })
+
+    let exportedBlob: Blob | null = null
+    const createObjectUrlSpy = vi
+      .spyOn(URL, 'createObjectURL')
+      .mockImplementation((blob: Blob | MediaSource) => {
+        exportedBlob = blob instanceof Blob ? blob : null
+        return 'blob:mock'
+      })
+    const revokeObjectUrlSpy = vi
+      .spyOn(URL, 'revokeObjectURL')
+      .mockImplementation(() => {})
+
+    try {
+      renderSection()
+
+      // Wait for the query to land so the export sees the mocked items.
+      await screen.findByText('=1+1')
+
+      const exportButton = await screen.findByRole('button', {
+        name: 'Export CSV',
+      })
+      fireEvent.click(exportButton)
+
+      await waitFor(() => {
+        expect(exportedBlob).not.toBeNull()
+      })
+      const csvText = await (exportedBlob as unknown as Blob).text()
+      const lines = csvText.split('\n')
+      expect(lines[0]).toBe('time,level,type,title,message')
+      expect(lines[1]).toBe(
+        '"2026-08-22 12:00:00","error","system","\'=1+1","\'=HYPERLINK(""http://evil.example"")"'
+      )
+      expect(lines[2]).toBe(
+        '"2026-08-22 12:01:00","warn","system","\'-cmd","\'+calc"'
+      )
+      // Benign cells keep the pre-fix shape (quoted, inner quotes doubled).
+      expect(lines[3]).toBe(
+        '"2026-08-22 12:02:00","info","system","\'@SUM(A1:A2)","benign, ""quoted"" text"'
+      )
+    } finally {
+      createObjectUrlSpy.mockRestore()
+      revokeObjectUrlSpy.mockRestore()
+    }
+  })
+})

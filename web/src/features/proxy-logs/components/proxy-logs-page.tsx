@@ -28,6 +28,7 @@ import { asStringParam } from '@/lib/helpers/searchParams'
 import { toast } from '@/lib/toast'
 
 import { useProxyLogs, useProxyLogsMeta } from '../api'
+import { proxyLogsToCsv } from '../lib/proxy-logs-csv'
 import {
   PROXY_LOG_STATUS_FILTER_OPTIONS,
   proxyLogsSearchSchema,
@@ -675,63 +676,4 @@ function formatExportStamp(): string {
   const now = new Date()
   const pad = (value: number) => String(value).padStart(2, '0')
   return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`
-}
-
-// CSV export column header keys. The proxy_logs table does not persist the
-// HTTP method or upstream path (only the downstream trace surface does), so
-// the CSV sticks to the columns the /api/stats/proxy-logs response actually
-// returns. httpStatus IS in the response (pl.*) even though the list type
-// historically omitted it, so it is surfaced here as a bonus column.
-const PROXY_LOGS_CSV_COLUMNS = [
-  'timestamp',
-  'httpStatus',
-  'status',
-  'model',
-  'account',
-  'site',
-  'duration',
-  'tokens',
-  'estimatedCost',
-] as const
-
-function csvEscape(value: string | number | null | undefined): string {
-  if (value === null || value === undefined) return ''
-  const text = String(value)
-  if (/[",\n\r]/.test(text)) {
-    return `"${text.replaceAll('"', '""')}"`
-  }
-  return text
-}
-
-function proxyLogsToCsv(
-  rows: ProxyLog[],
-  t: (key: string, params?: Record<string, unknown>) => string
-): string {
-  const header = PROXY_LOGS_CSV_COLUMNS.map((column) =>
-    csvEscape(
-      t(`proxyLogs.page.exportCsvColumn.${column}`, { defaultValue: column })
-    )
-  ).join(',')
-  const body = rows
-    .map((log) => {
-      const accountLabel =
-        log.username || (log.accountId ? `#${log.accountId}` : '')
-      const siteLabel = log.siteName || (log.siteId ? `#${log.siteId}` : '')
-      const modelLabel =
-        log.modelActual?.trim() || log.modelRequested?.trim() || ''
-      const cells = [
-        log.createdAt,
-        log.httpStatus ?? '',
-        log.status,
-        modelLabel,
-        accountLabel,
-        siteLabel,
-        log.latencyMs ?? '',
-        log.totalTokens ?? '',
-        log.estimatedCost ?? '',
-      ]
-      return cells.map(csvEscape).join(',')
-    })
-    .join('\n')
-  return `${header}\n${body}`
 }
