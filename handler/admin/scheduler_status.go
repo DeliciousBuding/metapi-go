@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
-	"github.com/deliciousbuding/metapi-go/scheduler"
 )
 
 // RegisterSchedulerStatusRoutes exposes a unified run-history view of the
@@ -40,6 +40,22 @@ type schedulerRunStatus struct {
 	Runs24h    int64  `json:"runs24h"`
 	Success24h int64  `json:"success24h"`
 	Note       string `json:"note,omitempty"`
+	// RecentRuns is populated only by model-probe (in-memory ring buffer).
+	// Other jobs keep it empty — their history surfaces via per-job pages.
+	RecentRuns []probeRunSummaryJSON `json:"recentRuns,omitempty"`
+}
+
+// probeRunSummaryJSON is the wire form of one scheduler.ProbeRunSummary pass.
+type probeRunSummaryJSON struct {
+	StartedAt          string `json:"startedAt,omitempty"`
+	CompletedAt        string `json:"completedAt,omitempty"`
+	AccountsConsidered int    `json:"accountsConsidered"`
+	AccountsProbed     int    `json:"accountsProbed"`
+	TargetsScanned     int    `json:"targetsScanned"`
+	Success            int    `json:"success"`
+	Failed             int    `json:"failed"`
+	Inconclusive       int    `json:"inconclusive"`
+	Skipped            int    `json:"skipped"`
 }
 
 func (h *schedulerStatusHandler) status(w http.ResponseWriter, r *http.Request) {
@@ -53,7 +69,7 @@ func (h *schedulerStatusHandler) status(w http.ResponseWriter, r *http.Request) 
 		h.eventsStatus("usage-aggregation", "用量聚合"),
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"items": items,
+		"items":       items,
 		"generatedAt": time.Now().UTC().Format(time.RFC3339),
 	})
 }
@@ -123,12 +139,28 @@ func (h *schedulerStatusHandler) modelProbeStatus() schedulerRunStatus {
 			status = "failed"
 		}
 	}
+	runs := probe.RecentRunSummaries()
+	recent := make([]probeRunSummaryJSON, 0, len(runs))
+	for _, r := range runs {
+		recent = append(recent, probeRunSummaryJSON{
+			StartedAt:          msToRFC3339(r.StartedAtMs),
+			CompletedAt:        msToRFC3339(r.CompletedAtMs),
+			AccountsConsidered: r.AccountsConsidered,
+			AccountsProbed:     r.AccountsProbed,
+			TargetsScanned:     r.TargetsScanned,
+			Success:            r.Success,
+			Failed:             r.Failed,
+			Inconclusive:       r.Inconclusive,
+			Skipped:            r.Skipped,
+		})
+	}
 	return schedulerRunStatus{
 		Job:        "model-probe",
 		Enabled:    true,
 		LastRunAt:  msToRFC3339(summary.CompletedAtMs),
 		LastStatus: status,
 		Note:       "success=" + numStr(int64(summary.Success)) + " failed=" + numStr(int64(summary.Failed)),
+		RecentRuns: recent,
 	}
 }
 
