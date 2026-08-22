@@ -1,6 +1,7 @@
 # Admin API Reference
 
-**Last updated**: 2026-08-22
+**Last updated**: 2026-08-23
+**Coverage note**: every `/api` route registered by the Go server gets a `### METHOD /path` detail section — the authoritative route list is the [Admin Route Inventory](#admin-route-inventory) at the bottom. Backward-compat aliases (e.g. `GET /api/stats/model-prices`) are documented as aliases rather than duplicating the canonical handler.
 
 Base URL: `http://localhost:4000/api`
 
@@ -105,6 +106,40 @@ Top slow proxy requests by `latency_ms` within a time window.
 
 **Response**: `{ hours, minLatencyMs, limit, since, count, items:[{id,model,status,latencyMs,firstByteLatencyMs,httpStatus,requestId,accountId,siteId,siteName,createdAt}] }`. Metadata only — no request/response bodies.
 
+### GET /api/stats/attention
+
+Severity-ranked actionable items for the dashboard ("what needs my eyes"): expired accounts (critical), low-balance accounts with `balance < 1.0` (warning), disabled sites (warning), and the last 24h of warning/error events.
+
+**Query params**: `limit` (default 20, max 100).
+**Response** (200): `{ "items": [ { "severity": "critical", "category": "expired_account", "label": "账号已过期：svc-1", "target": "/accounts?accountId=5", "createdAt": "2026-08-22T00:00:00Z" } ], "total": 1 }`. `severity` is `critical` | `warning` | `info`; `category` is `expired_account` | `low_balance` | `disabled_site` | `event`; `target` is a frontend deep link.
+
+### GET /api/stats/balance-history, GET /api/stats/balance-income-outcome
+
+Daily balance snapshots per account (`balance-history`) and the derived income/outcome accounting (`balance-income-outcome`).
+
+**Response** (`balance-history`): `{ series: [{ accountId, points: [{ day, balance, balanceUsed, quota, capturedAt }] }], days }` — only days with actual snapshots are emitted.
+**Response** (`balance-income-outcome`): `{ generatedAt, days, points: [{ day, income, outcome, net }], summary: { totalIncome, totalOutcome, net, accounts } }` — derived from the snapshots via `income - outcome = Δbalance`; an account's first snapshot day counts as initial income.
+**Query params** (both): `days` (1–365, default 30), `accountId` (optional).
+
+### GET /api/stats/latency-histogram, GET /api/stats/latency-trend
+
+Request-count histogram over `latency_ms` buckets (`latency-histogram`) and the per-day latency/throughput series (`latency-trend`).
+
+**Query params** (both): `days` (1–90, default 7); histogram adds `bucketMs` (100–60000, default 500).
+**Response** (`latency-histogram`): `{ days, since, bucketMs, total, buckets: [{ bucketStartMs, bucketEndMs, label, count, percent }] }` — zero-count buckets are omitted.
+**Response** (`latency-trend`): `{ days, points: [{ date, requests, avgLatencyMs, maxLatencyMs, avgFirstByteMs, p95LatencyMs, successRate }], truncatedDays }` — `truncatedDays` flags days whose p95 sample exceeded the 10000-row cap (honest under-reporting).
+
+### GET /api/stats/model-cost-distribution
+
+Top-N model cost concentration aggregated from `proxy_logs`; everything below top-N is grouped as `other`.
+
+**Query params**: `days` (1–90, default 30), `topN` (1–20, default 8).
+**Response** (200): `{ "days": 30, "since": "2026-07-24T00:00:00Z", "topN": 8, "items": [ { "model": "gpt-4o", "label": "gpt-4o", "cost": 1.23, "calls": 1200, "tokens": 450000 } ], "totals": { "cost": 4.56, "calls": 3000, "tokens": 1000000 } }`
+
+### GET /api/stats/model-prices
+
+Alias of `GET /api/models/price-compare` (same handler) — kept for frontend/back-compat.
+
 ---
 
 ## Models & Routes
@@ -125,6 +160,16 @@ Full route list with channels, accounts, and site information.
 
 Channels for a specific route.
 
+### GET /api/channels
+
+Full route-channel list (5-way JOIN) with a 30s snapshot cache; `?refresh=true` bypasses it.
+
+**Query params**: `page`/`pageSize` (when present the response is paginated; without them the bare full shape is returned and `pageSize` reports the real row count), `refresh`.
+
+**Response** (200): `{ "items": [ { "id": 12, "routeId": 1, "name": "svc-1", "site": { "id": 3, "name": "anthropic" }, "type": "account", "status": "enabled", "models": "gpt-4o", "priority": 10, "weight": 20, "responseMs": 842, "cooldownUntil": null, "enabled": true, "manualOverride": false } ], "total": 1, "page": 1, "pageSize": 1 }`
+
+`type` is `account` | `token` | `oauth_unit`; `status` is `enabled` | `cooldown` | `breaker_open` | `manually_disabled`.
+
 ### POST /api/routes
 
 Create a new route.
@@ -140,6 +185,12 @@ Delete a route and its channels.
 ### POST /api/routes/batch
 
 Batch enable/disable/delete routes. Body: `{ "ids": [1, 2, 3], "action": "enable" }`.
+
+### PUT /api/routes/reorder
+
+Persist route sort order. Body: `{ "items": [{ "id": 1, "sortOrder": 10 }] }` — max 1000 items; `sortOrder >= 0`; duplicate ids in the payload are rejected per item.
+
+**Response**: `{ success, successIds, failedItems }` — `success` is `false` when any item failed.
 
 ### POST /api/routes/rebuild
 
@@ -274,6 +325,36 @@ Check model availability for a specific account. Returns `{ "success": true, "mo
 
 Trigger a model probe. Body: `{ "models": ["gpt-4o"], "wait": false }`. Returns 202 with probe job.
 
+### POST /api/models/verify-batch, GET /api/models/verify-history
+
+Operator-initiated verification of route-channel model targets (same lightweight probe the background scheduler uses) with durable per-row history, and the recent verification rows.
+
+**Body** (verify-batch): `{ "models": ["gpt-5"], "accountId": 0, "limit": 50 }` — empty `models` = all enabled route channels; `accountId > 0` narrows to one account; `limit` 1–200 (default 50). 503 when the probe scheduler is not running.
+**Response** (verify-batch): `{ "success": true, "batchId": "vb-...", "probed": 2, "summary": { "success": 1, "failure": 0, "inconclusive": 1, "skipped": 0 }, "items": [ { "model": "gpt-4o", "channelId": 12, "accountId": 5, "siteId": 3, "status": "success", "latencyMs": 842, "httpStatus": 200, "errorText": "", "healthApplied": true } ] }` — no matching targets answers with `probed: 0` and a `note`.
+**Query params** (verify-history): `limit` (default 50, max 200), `model` (exact match). Response: `{ items: [{ id, batchId, model, channelId, accountId, siteId, siteName, status, latencyMs, httpStatus, errorText, createdAt }] }`.
+
+---
+
+## Model Redirects
+
+Canonical→actual model name mappings, created by availability sync (`source: sync`) or operator edits (`source: manual`). Rows live in `model_name_redirects` and feed the in-process redirect registry (`service.ReloadRedirectRegistry`), so every write below reloads it immediately.
+
+### GET /api/model-redirects, PUT /api/model-redirects/{id}, DELETE /api/model-redirects/{id}
+
+List, correct, and delete redirect mappings.
+
+**Query params** (list): `accountId`, `source` (`sync`|`manual`).
+**Body** (update): `{ "actual": "gpt-4o", "source": "manual" }` — partial update; empty `actual` or an unknown `source` is 400, "nothing to update" is 400, missing row is 404.
+
+**Response** (list): `{ items: [{ id, accountId, username, siteName, canonical, actual, source, lastSeenAt, createdAt, updatedAt }] }` (updatedAt descending). Update/delete: `{ "success": true }`.
+
+### POST /api/model-redirects/generate, POST /api/model-redirects/apply
+
+Generate sync mappings idempotently (per account or all accounts), or apply redirect fixes to models disabled by availability drift.
+
+**Body** (generate): `{ "accountId": 0, "models": ["gpt-4o"] }` — `accountId: 0` = all accounts; omitted `models` = every available model of the target account; manual mappings are never overwritten. Response: `{ success, created }` (all-accounts mode adds `accounts`).
+**Body** (apply): `{ "dryRun": false }` (default `true` = report only). Dry run: `{ success, dryRun: true, candidates, count }`; applied: `{ success, dryRun: false, removed, count }` — each removal writes a `model_redirect_applied` event.
+
 ---
 
 ## Proxy Debug
@@ -370,6 +451,34 @@ Idempotent batch import of sites (and optional accounts) from the import wizard.
 
 `status` is one of `imported` | `merged` | `skipped` | `failed`; `reason` and `siteId` are omitted when not applicable. `imported` counts newly created sites plus accounts merged into an existing site; `skipped` counts idempotent no-ops; `failed` counts hard errors. Returns `400` with `{"error":"items is required"}` for an empty `items` array and `500` with `{"error":"Import sites failed"}` on internal failure. Site/route caches are invalidated when at least one site was imported.
 
+### POST /api/sites/batch
+
+Batch enable/disable/delete sites and toggle their system-proxy usage. Body: `{ "ids": [1, 2], "action": "enable|disable|delete|enableSystemProxy|disableSystemProxy" }`.
+
+**Response**: `{ success, successIds, failedItems }` — site/routing caches are invalidated after any mutating action.
+
+### POST /api/sites/{id}/probe-now, GET /api/sites/{id}/probe-stream
+
+Probe the site's active channels (bounded to 32 targets, 8-way parallel, 30s wall clock): synchronously for `probe-now`, as server-sent events for `probe-stream`.
+
+**Body** (probe-now, optional): `{ "modelName": "gpt-4o" }` — filters which results are surfaced.
+**Response** (probe-now): `{ success, totalModels, available, unavailable, results: [{ channelId, accountId, model, status, latencyMs, error? }], complete }` — `complete: false` adds `truncated` and `reason`. `status` is `success` | `failure`.
+**Stream** (probe-stream): `text/event-stream`; events are `probe-start` (`{ startedAt, streaming, modelFilter }`), one `probe-result` per probed model (same row shape), `complete` (`{ totalModels, available, unavailable }`), then a `data: [DONE]` sentinel. `?modelName=` filters streamed results. The stream clears the server WriteTimeout so long probe passes are not cut off.
+
+### GET /api/sites/{id}/available-models, GET /api/sites/{id}/disabled-models, PUT /api/sites/{id}/disabled-models
+
+Available (account+token merged, case-insensitive sorted) and disabled model lists for a site.
+
+**Response** (GETs): `{ siteId, models: ["gpt-4o", ...] }`.
+**Body** (PUT disabled): `{ "models": ["gpt-4o"] }` — deduped/trimmed, full replace; returns `{ siteId, models }` and invalidates the routing cache.
+
+### PUT /api/sites/{id}/tags, PUT /api/accounts/{id}/tags, GET /api/tags
+
+Global tag system: per-row writes and the aggregated index driving the Accounts/Sites filter chips.
+
+**Body** (PUT): `{ "tags": ["prod", "priority"] }` (a raw JSON array is also accepted). Tags are trimmed/deduped and stored as JSON-array text; returns `{ success, tags }` (400 for a malformed body, 404 for unknown rows).
+**Response** (GET): `{ items: [{ name, accounts, sites, total }] }` — union of all account + site tags, sorted by total usage descending (`total` = accounts + sites).
+
 ---
 
 ## Accounts
@@ -382,6 +491,48 @@ List all accounts. Create a new account.
 
 Get, update, delete an account.
 
+### POST /api/accounts/login
+
+Log in against the site with username/password and create the account — or update the existing one for `(siteId, username)` — with the session token and an encrypted `autoRelogin` credential (`extraConfig.credentialMode = session`).
+
+**Body**: `{ "siteId": 3, "username": "me@example.com", "password": "..." }` — `siteId`/`username`/`password` are required; unsupported platforms are 400, failed logins are 401 with the platform message.
+**Response** (200): `{ "success": true, "account": { "id": 12, "siteId": 3, "username": "me@example.com", "accessToken": "sk-...", "apiToken": null, "balance": 9.5, "status": "active", "isPinned": false, "sortOrder": 1, "checkinEnabled": true, "extraConfig": "{}", "createdAt": "...", "updatedAt": "..." }, "apiTokenFound": false, "tokenCount": 1, "reusedAccount": false }`
+
+### POST /api/accounts/verify-token
+
+Verify an access token against the site (token type, models, user info, balance) without saving it.
+
+**Body**: `{ "siteId": 3, "accessToken": "sk-...", "platformUserId": 123, "credentialMode": "session" }` — `accessToken` is required.
+**Response**: `{ success, tokenType, modelCount, models, userInfo, balance, apiToken, apiTokenFound }` — 400 `token verification failed` when the token type is unknown.
+
+### POST /api/accounts/batch, POST /api/accounts/health/refresh
+
+Batch enable/disable/delete/balance-refresh accounts, or refresh runtime health (balance probe + persisted runtime health) for all accounts or one account.
+
+**Body** (batch): `{ "ids": [1, 2], "action": "enable|disable|delete|refreshBalance" }` — deletes trigger a route rebuild; enable/disable invalidate the routing cache. Response: `{ success, successIds, failedItems, skippedItems }` (`skippedItems` only for `refreshBalance`).
+**Body** (health): `{ "accountId": 5, "wait": true }` (default `wait: false` = background task).
+**Response** (health, wait): `{ success, summary: { total, healthy, unhealthy, degraded, disabled, unknown, success, failed, skipped }, results: [{ accountId, status, state, reason, message, proxyOnly? }], message }` — `status` is `success` | `failed` | `skipped`; `state` is the persisted runtime-health state. Queued: `202 { success, queued, reused, jobId, taskId, status, message }`; progress via `GET /api/tasks/{id}`.
+
+### POST /api/accounts/{id}/balance
+
+Refresh one account's balance/quota now. Disabled accounts/sites and API-key connections do not probe — they return the stored values with `skipped: true`.
+
+**Response**: `{ balance, balanceUsed, quota, skipped, reason }` — `reason` is `account_disabled` | `site_disabled` | `proxy_only` when skipped; 404 for unknown account or unsupported platform, 502 on upstream failure.
+
+### GET /api/accounts/{id}/models, POST /api/accounts/{id}/models/manual
+
+The account's proven model list (with site-disabled and operator-pinned flags) and the pinned manual-model upsert.
+
+**Response** (GET): `{ siteId, siteName, models: [{ name, latencyMs, disabled, isManual }], totalCount, disabledCount }`.
+**Body** (manual): `{ "models": ["gpt-4o"] }` — upserts `model_availability` rows with `is_manual = true`, invalidates the routing cache. `{ "success": true }`; empty model list is 400.
+
+### POST /api/accounts/{id}/rebind-session
+
+Replace a session account's access token (session-credential rebind; Sub2API auth merges `refreshToken`/`tokenExpiresAt` into `extraConfig.sub2apiAuth`).
+
+**Body**: `{ "accessToken": "sk-...", "refreshToken": "...", "tokenExpiresAt": 1710000000 }` — `accessToken` is required (400 otherwise).
+**Response**: `{ success, account, tokenType: "session", credentialMode: "session", capabilities, apiTokenFound: false }`.
+
 ---
 
 ## Account Tokens
@@ -393,6 +544,32 @@ List all account tokens. Create a new account token.
 ### GET /api/account-tokens/:id, PUT /api/account-tokens/:id, DELETE /api/account-tokens/:id
 
 Get, update, delete an account token.
+
+### GET /api/account-tokens/{id}/value
+
+Reveal one token for copy, in display and masked forms. API-key connections are refused (400).
+
+**Response**: `{ success, id, name, token, tokenMasked }` — `409` when only a masked placeholder is stored ("待补全令牌").
+
+### GET /api/account-tokens/groups/{accountId}, GET /api/account-tokens/account/{accountId}/default
+
+Upstream token groups of an account, and the account's current default local token (masked).
+
+**Response** (groups): `{ success, groups }`; (default): `{ success, token }` — `token: null` when the account has no default token or is an API-key connection. The default token object uses the masked list shape `{ id, accountId, name, tokenGroup, valueStatus, source, enabled, isDefault, tokenMasked, createdAt, updatedAt }`.
+
+### POST /api/account-tokens/batch, POST /api/account-tokens/{id}/default
+
+Batch enable/disable/delete tokens, or mark one token as the account default (clears the previous default).
+
+**Body** (batch): `{ "ids": [1, 2], "action": "enable|disable|delete" }` — deletion also removes the token upstream; disabling the default token repairs the account default. Response: `{ success, successIds, failedItems }`.
+**Response** (default): `{ "success": true }` — 400 for masked-pending tokens and API-key connections.
+
+### POST /api/account-tokens/sync/{accountId}, POST /api/account-tokens/sync-all
+
+Sync one account's tokens from upstream (session credential token list), or all active accounts.
+
+**Response** (one): `{ "success": true, "accountId": 12, "status": "synced", "synced": true, "created": 1, "updated": 0, "total": 3, "maskedPending": 0, "defaultTokenId": 7, "message": "..." }` — `status: "skipped"` with `reason` `site_disabled` | `apikey_connection` | `no_access_token` | `no_upstream_tokens` | `unsupported_platform` keeps `synced: false`; sync failures write a `token_sync` error event and answer 502.
+**Body** (sync-all): `{ "wait": true }` (default `false` = background task). Wait mode returns `{ success, summary: { total, synced, skipped, failed, created, updated }, results: [...] }`; queued mode returns `202 { success, queued, reused, jobId, taskId, status, message }`.
 
 ---
 
@@ -420,6 +597,29 @@ Delete all site announcements.
 
 ---
 
+## Announcements
+
+Operator-authored severity-ranked product banners (替代邮件群发). The dashboard renders the `active` list; editing content resets the dismissal so a new revision surfaces again (dismiss-revision semantics).
+
+### GET /api/announcements, GET /api/announcements/active
+
+Admin list (all announcements with dismissal state) and dashboard list (enabled and not dismissed).
+
+**Response**: `{ items: [{ id, title, message, severity, link, enabled, dismissed, dismissedAt, createdAt, updatedAt }] }` — `active` filters `enabled = TRUE` in SQL and drops dismissed rows in Go; both sort by severity (`critical` first) then updatedAt descending.
+
+### POST /api/announcements, PUT /api/announcements/{id}, DELETE /api/announcements/{id}
+
+Create, update, delete an announcement.
+
+**Body**: `{ "title": "...", "message": "...", "severity": "warning", "link": "https://...", "enabled": true }` — `title`/`message` required; `severity` is `info` (default) | `warning` | `critical`.
+**Response**: create `{ success, items }` (reloaded list); update `{ success, revision }` where `revision: true` when the content changed (dismissal reset); delete `{ "success": true }` (404 for unknown id).
+
+### POST /api/announcements/{id}/dismiss
+
+Record a dismissal for the current operator (upsert). `{ "success": true }`; 404 for unknown id.
+
+---
+
 ## Events
 
 ### GET /api/events
@@ -437,6 +637,10 @@ Mark all events as read.
 ### POST /api/events/{id}/read
 
 Mark a single event as read.
+
+### DELETE /api/events
+
+Delete all system events. `{ "success": true }`.
 
 ---
 
@@ -487,6 +691,12 @@ Delete a downstream API key.
 ### POST /api/downstream-keys/:id/reset-usage
 
 Reset usage counters (used_cost, used_requests) to zero.
+
+### POST /api/downstream-keys/batch
+
+Batch enable/disable/delete/reset-usage/updateMetadata on downstream keys. Body: `{ "ids": [1, 2], "action": "enable|disable|delete|resetUsage|updateMetadata", "groupName": "prod", "groupOperation": "set|clear" }` — `groupOperation`/`groupName` only apply to `updateMetadata`.
+
+**Response**: `{ success, successIds, failedItems }`.
 
 ---
 
@@ -577,6 +787,12 @@ Export a restorable backup payload to `fileUrl` with HTTP `PUT`. The payload use
 ### POST /api/settings/backup/webdav/import
 
 Download a backup payload from `fileUrl` with HTTP `GET` and import its `tables`. Runtime-local settings are skipped. The response includes imported row counts and updated sync state. The maximum downloaded backup size is 64 MiB.
+
+### POST /api/settings/backup/import/preview
+
+Preview a backup import without writing anything (F1). Same body shapes as `POST /api/settings/backup/import` (`{ "tables": {...} }`, optional `{ "data": { "tables": {...} } }` wrapper, TS backup v2.1 payloads).
+
+**Response**: `{ success, plan: { "<table>": { rows, toInsert, duplicates, skippedRows } } }` — `duplicates` are rows whose PK already exists in the target DB (they would be dropped by `ON CONFLICT DO NOTHING`); `skippedRows` are runtime-local settings skipped by policy. No rows are written.
 
 ---
 
@@ -815,6 +1031,25 @@ Batch update account unit cost and route-channel weight. Pure config writes; `un
 }
 ```
 
+### GET /api/admin/audit-logs
+
+List recent authenticated admin write operations (B1), newest first. GET/HEAD/OPTIONS are not recorded; the middleware records best-effort and never blocks a request.
+
+**Query params**: `limit` (default 50, max 200), `offset`, `method` (exact `POST`/`PUT`/`PATCH`/`DELETE`), `path` (substring).
+**Response**: `{ items: [{ id, actor, method, path, status, requestId, remoteIp, createdAt }], total, limit, offset }`. `actor` is the first 8 hex chars of the bearer token's SHA-256 — stable, non-reversible, never the token itself.
+
+### GET /api/debug/vars
+
+Runtime debug snapshot (Go memory/goroutine stats, `/debug/vars` parity for the TS-era operator surface).
+
+**Response**: `{ goroutines, mem: { alloc, totalAlloc, sys, heapAlloc, heapSys, heapIdle, heapInuse, heapReleased, heapObjects, stackInuse, stackSys, numGC, numForcedGC, gcPauseTotalNs, lastGCUnixNs } }`.
+
+### GET /api/admin/ops/ws
+
+Live ops WebSocket (B2): one JSON frame per second over the current proxy-traffic window. **Auth**: `?token=<admin token>` — browser WebSocket cannot set the Authorization header, and the endpoint is mounted outside the header-auth group; the token is compared in constant time. CORS origins follow the `ADMIN_CORS_ALLOWED_ORIGINS` configuration (same-origin when unset).
+
+**Frame**: `{ lifetime, points: [{ ts, total, success }] }` — points cover the last 300s (zero-filled), this instance's traffic only; no cross-instance aggregation. Invalid token: `403 {"message":"invalid token"}`.
+
 ---
 
 ## Search
@@ -839,29 +1074,22 @@ Get task status.
 
 ## Test
 
-### GET /api/test/read
+Developer/QA test harness surfaces. The legacy TS-era `/api/test/read|write|update|patch|delete|boom` endpoints are **not registered** by the Go server; the inventory below only lists what the router actually mounts.
 
-Read-only test endpoint.
+### POST /api/test/proxy, POST /api/test/chat
 
-### POST /api/test/write
+Sync forced-channel probe: delegates to the same forced-channel harness as `POST /api/admin/test-channel` when `channelId`/`siteId`/`forcedChannelId` is given; without a forced channel the full path/multipart matrix is a known limitation and the endpoint answers an honest `501` residual rather than inventing a successful probe.
 
-Write test endpoint.
+**Body**: `{ "channelId": 12, "siteId": 3, "forcedChannelId": 12, "model": "gpt-4o-mini", "prompt": "ping", "mode": "chat", "timeoutMs": 15000, "path": "...", "jsonBody": {...}, "messages": [{ "role": "user", "content": "..." }] }` — `jsonBody`/`messages` are read for model/prompt extraction when the flat fields are absent. `mode` defaults to `chat` (or `models` when `path` contains `/models` and not `/chat`).
+**Response**: same shape as `POST /api/admin/test-channel` (see above).
 
-### PUT /api/test/update
+### POST /api/test/chat/stream, POST /api/test/proxy/stream, POST /api/test/chat/jobs, POST /api/test/proxy/jobs, GET /api/test/chat/jobs/{jobId}, GET /api/test/proxy/jobs/{jobId}, DELETE /api/test/chat/jobs/{jobId}, DELETE /api/test/proxy/jobs/{jobId}
 
-Update test endpoint.
+Stream and async-job test surfaces — honest residuals (see `handler/admin/test.go`): stream and job-create answer `501` with a `residual` note (no fake SSE chunks, no stub job ids); job status/cancel answer `404` (no in-process `/api/test` job registry). Use the sync endpoints above or `POST /api/admin/test-channel` instead.
 
-### PATCH /api/test/patch
+### POST /api/debug/channel-probe
 
-Patch test endpoint.
-
-### DELETE /api/test/delete
-
-Delete test endpoint.
-
-### POST /api/test/boom
-
-Intentional panic test endpoint.
+Alias of `POST /api/admin/test-channel` (same handler).
 
 ---
 
@@ -877,7 +1105,37 @@ Start OAuth authorization flow for a provider.
 
 ### GET /api/oauth/callback/{provider}
 
-OAuth callback endpoint for a provider.
+OAuth callback endpoint for a provider (acknowledges the browser redirect; session state was already issued by `start`/`rebind` and is validated on session lookup).
+
+### GET /api/oauth/connections
+
+Paginated list of OAuth-managed accounts (provider identity backfill runs once at startup, not per page load).
+
+**Query params**: `limit` (1–200, default 50), `offset`.
+**Response**: `{ connections/items: [{ accountId, siteId, provider, username, email, accountKey, planType?, projectId?, modelCount, modelsPreview, quota?, status, routeChannelCount, lastModelSyncAt?, lastModelSyncError?, proxyUrl?, useSystemProxy, routeParticipation?, site? }], total, limit, offset }` — `quota` is the cached `OauthQuotaSnapshot`; `routeParticipation` lists the route units this account feeds.
+
+### GET /api/oauth/sessions/{state}, POST /api/oauth/sessions/{state}/manual-callback
+
+Poll the flow state after `start`/`rebind`, or complete it with a manually pasted callback URL (for flows without a browser redirect).
+
+**Response** (session): `{ provider, state, status, accountId?, siteId?, error?, createdAt, updatedAt }` — 404 when the session/state is unknown or expired (10m TTL).
+**Body** (manual-callback): `{ "callbackUrl": "https://..." }` — required; unknown/expired state is 404, state mismatch is 400. Success: `{ "success": true }`.
+
+### POST /api/oauth/connections/{accountId}/rebind, PATCH /api/oauth/connections/{accountId}/proxy, DELETE /api/oauth/connections/{accountId}
+
+Rebind flow start, per-connection proxy update, and OAuth identity removal. Body (rebind): optional `{ "projectId", "proxyUrl", "useSystemProxy" }`; body (proxy PATCH): `{ "proxyUrl": "http://...", "useSystemProxy": true }` — empty body clears the proxy back to the system proxy.
+
+**Responses**: rebind `{ provider, state, authorizationUrl, instructions, accountId }`; proxy PATCH `{ success, accountId, proxyUrl, useSystemProxy, refreshedRoutes, modelRefresh: { success, status, ... } }`; delete `{ "success": true }`. Non-OAuth accounts answer 404.
+
+### POST /api/oauth/connections/{accountId}/quota/refresh, POST /api/oauth/connections/quota/refresh-batch
+
+Refetch the upstream quota snapshot for one connection or a batch (batch runs 4-way concurrent). Batch body: `{ "accountIds": [1, 2] }` — omitted/empty body = all connections.
+**Response** (single): `{ success, quota }` — `quota` is the persisted `OauthQuotaSnapshot` (`{ status, source, lastSyncAt?, lastError?, providerMessage?, subscription?, windows, lastLimitResetAt? }`); 404 for unknown/not-OAuth accounts.
+**Response** (batch): `{ success, refreshed, failed, items: [{ accountId, success, quota?, error? }] }`.
+
+### POST /api/oauth/import, POST /api/oauth/route-units, PATCH /api/oauth/route-units/{routeUnitId}, DELETE /api/oauth/route-units/{routeUnitId}
+
+Stubs — each answers `{ "success": true }`. Connection import and route-unit state are orchestrated inside `service/oauth` (the connection list reports `routeParticipation`); these endpoints exist for UI path parity only.
 
 ---
 
@@ -949,6 +1207,11 @@ Forwarded client IP headers are ignored by default. Set `TRUSTED_PROXY_CIDRS` on
 
 ### GET /api/downstream-keys/:id/export
 
+Export a downstream key's full secret as one-click credentials profiles. **Query params**: `profile` (`all` default, or one profile id such as `openai` | `cherry` | `claude` | `codex` | `generic`).
+
+**Response** (200): `{ "success": true, "formatVersion": "1.0.0", "keyId": 1, "keyName": "prod-key", "baseUrl": "http://localhost:4000", "profiles": [ { "id": "openai", "label": "...", "description": "...", "contentType": "text/plain", "content": "..." } ], "notes": ["..."] }`
+
+The full secret is intentionally returned by this endpoint only (see `handler/admin/credential_export.go`); 400 for unknown profile ids.
 
 ---
 
@@ -1032,6 +1295,7 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/accounts/:id/models`
 - `/api/admin/audit-logs`
 - `/api/admin/ops/ws`
+- `/api/admin/resin/status`
 - `/api/announcements`
 - `/api/announcements/active`
 - `/api/channels`
@@ -1058,7 +1322,6 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/oauth/connections`
 - `/api/oauth/providers`
 - `/api/oauth/sessions/:state`
-- `/api/ping`
 - `/api/routes`
 - `/api/routes/:id/channels`
 - `/api/routes/decision`
@@ -1099,7 +1362,6 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/tasks/:id`
 - `/api/test/chat/jobs/:jobId`
 - `/api/test/proxy/jobs/:jobId`
-- `/api/test/read`
 - `/api/update-center/status`
 - `/api/update-center/tasks/:id/stream`
 
@@ -1142,7 +1404,6 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/oauth/providers/:provider/start`
 - `/api/oauth/route-units`
 - `/api/oauth/sessions/:state/manual-callback`
-- `/api/ping`
 - `/api/routes`
 - `/api/routes/:id/channels`
 - `/api/routes/:id/channels/batch`
@@ -1175,14 +1436,12 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/sites/batch`
 - `/api/sites/detect`
 - `/api/sites/import`
-- `/api/test/boom`
 - `/api/test/chat`
 - `/api/test/chat/jobs`
 - `/api/test/chat/stream`
 - `/api/test/proxy`
 - `/api/test/proxy/jobs`
 - `/api/test/proxy/stream`
-- `/api/test/write`
 - `/api/update-center/check`
 - `/api/update-center/deploy`
 - `/api/update-center/rollback`
@@ -1207,13 +1466,11 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/sites/:id`
 - `/api/sites/:id/disabled-models`
 - `/api/sites/:id/tags`
-- `/api/test/update`
 - `/api/update-center/config`
 
 ### PATCH
 - `/api/oauth/connections/:accountId/proxy`
 - `/api/oauth/route-units/:routeUnitId`
-- `/api/test/patch`
 
 ### DELETE
 - `/api/account-tokens/:id`
@@ -1230,5 +1487,5 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/site-announcements`
 - `/api/sites/:id`
 - `/api/test/chat/jobs/:jobId`
-- `/api/test/delete`
 - `/api/test/proxy/jobs/:jobId`
+
