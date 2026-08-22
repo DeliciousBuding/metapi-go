@@ -1,6 +1,6 @@
 # docs/ — Metapi Go documentation map
 
-**Last updated**: 2026-08-20
+**Last updated**: 2026-08-23
 **Purpose**: one-screen orientation for users and contributors.
 
 This directory is split into **public docs** (written for users and
@@ -21,7 +21,8 @@ documents never deep-link into `internal/` — they state the fact directly.
 | HTTP API surface                    | [`api.md`](api.md)                                                                       |
 | Package architecture & request path | [`architecture.md`](architecture.md)                                                     |
 | TS→Go migration (SQLite / PG / MySQL) | [`migration.md`](migration.md)                                                           |
-| Test layers / real-platform testbed | [`testing.md`](testing.md)                                                               |
+| Test layers / real-platform testbed | [`testing.md`](testing.md) |
+| UI screenshot evidence & golden visual regression | [`visual-regression.md`](visual-regression.md) |
 | Version history                     | root [`CHANGELOG.md`](../CHANGELOG.md)                                                   |
 | Contribute / report                 | root [`CONTRIBUTING.md`](../CONTRIBUTING.md) · [`SECURITY.md`](../SECURITY.md)           |
 

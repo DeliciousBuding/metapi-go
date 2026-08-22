@@ -62,6 +62,7 @@
     "ui:probe-ab-schema": "bun scripts/probe-ab-schema.mjs",
     "ui:probe-ab-seed": "bun scripts/probe-ab-seed.mjs",
     "icons:fetch": "node scripts/fetch-brand-icons.mjs && node scripts/generate-brand-icon-index.mjs",
+    "visual:regression": "playwright test --config playwright.visual.config.mjs",
     "icons:verify": "node scripts/verify-brand-icons.mjs"
   },
   "dependencies": {

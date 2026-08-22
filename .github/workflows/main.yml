@@ -768,3 +768,146 @@ jobs:
           else
             gh release create "$tag" dist-bin/* --title "$tag" --notes-file release-body.md --latest
           fi
+
+  ui-screenshots:
+    # Visual evidence pipeline: real-browser screenshots of the shipped SPA
+    # (40 desktop + 14 mobile routes x light/dark at DPR 2) uploaded as an
+    # artifact with a MANIFEST.md. Serving pattern mirrors the a11y job
+    # (embedded dist + fresh sqlite runtime DB + dev-seed auth). The full
+    # 110-shot sweep was measured at ~6 min, well inside the job timeout;
+    # screenshot-scan.mjs env knobs (VIEWPORTS/MOBILE_SAMPLE/DPR) can trim
+    # it further if the 15-min capture budget ever needs it.
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Download frontend dist
+        uses: actions/download-artifact@v8
+        with:
+          name: web-dist
+          path: web/dist
+      - name: Install web deps (playwright + sharp + axe-core)
+        run: bun install --frozen-lockfile
+        working-directory: web
+      - name: Install CJK fonts (screenshots must render zh-CN glyphs)
+        run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
+      - name: Cache Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/bun.lockb') }}
+          restore-keys: playwright-${{ runner.os }}-
+      - name: Install Playwright Chromium
+        run: bunx playwright install --with-deps chromium
+        working-directory: web
+      - name: Serve SPA and capture screenshots
+        run: |
+          set -euo pipefail
+          AUTH_TOKEN=dev-admin-token-123 \
+          PROXY_TOKEN=dev-proxy-token-123 \
+          DATA_DIR="$(mktemp -d)/data" \
+          PORT=4099 \
+          go run ./cmd/server >${RUNNER_TEMP}/screenshots-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" >/dev/null 2>&1 || true' EXIT
+          ready=
+          for _ in $(seq 1 90); do
+            if curl -fsS "http://127.0.0.1:4099/ready" | grep -q '"status":"ok"'; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ -z "$ready" ]; then
+            echo "server failed to become ready; log:"
+            cat ${RUNNER_TEMP}/screenshots-server.log
+            exit 1
+          fi
+          cd web
+          OUT_DIR="${RUNNER_TEMP}/ui-screenshots" BASE_URL=http://127.0.0.1:4099 \
+            AUTH_TOKEN=dev-admin-token-123 bun run screenshots
+      - name: Upload screenshot evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-screenshots
+          path: ${{ runner.temp }}/ui-screenshots
+          if-no-files-found: error
+          retention-days: 7
+
+  visual-regression:
+    # Golden screenshot regression: 4 key pages (dashboard / token-routes /
+    # accounts / sites, light desktop only) compared against committed
+    # baselines in web/visual-baselines/ via expect(page).toHaveScreenshot().
+    # Drift (or a missing baseline) fails the job; on failure the
+    # visual-regression-diffs artifact carries actual/baseline/diff images.
+    # Intentional UI changes rebaseline locally (UPDATE_SNAPSHOTS=all) and the
+    # new PNGs get committed — see docs/visual-regression.md.
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Download frontend dist
+        uses: actions/download-artifact@v8
+        with:
+          name: web-dist
+          path: web/dist
+      - name: Install web deps (playwright)
+        run: bun install --frozen-lockfile
+        working-directory: web
+      - name: Install CJK fonts (baselines render zh-CN glyphs)
+        run: sudo apt-get update && sudo apt-get install -y fonts-noto-cjk
+      - name: Cache Playwright browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/bun.lockb') }}
+          restore-keys: playwright-${{ runner.os }}-
+      - name: Install Playwright Chromium
+        run: bunx playwright install --with-deps chromium
+        working-directory: web
+      - name: Serve SPA and run golden comparison
+        run: |
+          set -euo pipefail
+          AUTH_TOKEN=dev-admin-token-123 \
+          PROXY_TOKEN=dev-proxy-token-123 \
+          DATA_DIR="$(mktemp -d)/data" \
+          PORT=4099 \
+          go run ./cmd/server >${RUNNER_TEMP}/visualreg-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" >/dev/null 2>&1 || true' EXIT
+          ready=
+          for _ in $(seq 1 90); do
+            if curl -fsS "http://127.0.0.1:4099/ready" | grep -q '"status":"ok"'; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ -z "$ready" ]; then
+            echo "server failed to become ready; log:"
+            cat ${RUNNER_TEMP}/visualreg-server.log
+            exit 1
+          fi
+          cd web
+          BASE_URL=http://127.0.0.1:4099 bun run visual:regression
+      - name: Upload visual diff artifacts (failure only)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-regression-diffs
+          path: web/test-results
+          retention-days: 7

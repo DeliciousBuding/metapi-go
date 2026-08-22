@@ -9,12 +9,25 @@
 // Usage:
 //   BASE_URL=http://127.0.0.1:4099 AUTH_TOKEN=dev-admin-token-123 \
 //     OUT_DIR=<output-dir> node scripts/screenshot-scan.mjs
+//
+// Env knobs:
+//   THEMES         light,dark (default) — comma-separated theme list
+//   VIEWPORTS      desktop,mobile (default) — trim the sweep to a subset
+//   MOBILE_SAMPLE  comma-separated mobile route subset (default: all mobile
+//                  routes; only consulted when mobile is in VIEWPORTS)
+//   DPR            device pixel ratio (default 2)
+//   OUT_DIR        output directory (default: OS temp dir)
+//
+// MANIFEST.md (route/theme/viewport/dimensions, always written to OUT_DIR) is
+// the CI evidence list. Any route that fails to capture makes the script exit
+// non-zero — the ui-screenshots CI job gates on full coverage.
 
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 
 import { chromium } from 'playwright'
+import sharp from 'sharp'
 
 const BASE_URL = process.env.BASE_URL ?? 'http://127.0.0.1:4099'
 const AUTH_TOKEN = process.env.AUTH_TOKEN ?? 'dev-admin-token-123'
@@ -23,6 +36,14 @@ const AUTH_TOKEN = process.env.AUTH_TOKEN ?? 'dev-admin-token-123'
 const OUT_DIR = process.env.OUT_DIR ?? join(tmpdir(), 'metapi-shots')
 // Retina capture by default so README screenshots stay crisp on HiDPI screens.
 const DEVICE_SCALE = Number(process.env.DPR ?? '2')
+const VIEWPORTS = (process.env.VIEWPORTS ?? 'desktop,mobile')
+  .split(',')
+  .map((v) => v.trim())
+  .filter(Boolean)
+const MOBILE_SAMPLE = (process.env.MOBILE_SAMPLE ?? '')
+  .split(',')
+  .map((r) => r.trim())
+  .filter(Boolean)
 
 const DESKTOP_ROUTES = [
   '/',
@@ -112,7 +133,10 @@ async function settle(page) {
   await page.waitForTimeout(400)
 }
 
-async function capture(context, route, outFile) {
+const rows = []
+const failures = []
+
+async function capture(context, route, outFile, theme, viewport) {
   const page = await context.newPage()
   try {
     await page.goto(BASE_URL + route, {
@@ -121,13 +145,38 @@ async function capture(context, route, outFile) {
     })
     await settle(page)
     await page.screenshot({ path: outFile, fullPage: true })
+    rows.push({ theme, viewport, route, file: outFile })
   } catch (error) {
-    console.error(
-      `[screenshot] FAILED ${route} -> ${outFile}: ${String(error?.message ?? error).split('\n')[0]}`
-    )
+    const reason = String(error?.message ?? error).split('\n')[0]
+    console.error(`[screenshot] FAILED ${route} -> ${outFile}: ${reason}`)
+    failures.push(`${route} (${theme}/${viewport}): ${reason}`)
   } finally {
     await page.close().catch(() => {})
   }
+}
+
+async function writeManifest() {
+  const lines = [
+    '# Screenshot manifest',
+    '',
+    `Generated: ${new Date().toISOString()}`,
+    `Source: screenshot-scan.mjs — base URL: ${BASE_URL} · DPR: ${DEVICE_SCALE} · themes: ${THEMES.join(', ')} · viewports: ${VIEWPORTS.join(', ')}`,
+    '',
+    '| Theme | Viewport | Route | File | Size (KB) | Dimensions |',
+    '| --- | --- | --- | --- | ---: | --- |',
+  ]
+  for (const row of rows) {
+    const meta = await sharp(row.file).metadata()
+    const sizeKB = Math.round(statSync(row.file).size / 1024)
+    lines.push(
+      `| ${row.theme} | ${row.viewport} | ${row.route} | \`${basename(row.file)}\` | ${sizeKB} | ${meta.width ?? '?'}x${meta.height ?? '?'} |`
+    )
+  }
+  lines.push(
+    '',
+    `Total: ${rows.length} screenshots in ${OUT_DIR}${failures.length > 0 ? `; ${failures.length} failed` : ''}.`
+  )
+  writeFileSync(join(OUT_DIR, 'MANIFEST.md'), lines.join('\n') + '\n')
 }
 
 const browser = await chromium.launch({
@@ -136,67 +185,90 @@ const browser = await chromium.launch({
 })
 
 const themes = THEMES.map((t) => t.trim()).filter(Boolean)
-let count = 0
+const wantDesktop = VIEWPORTS.includes('desktop')
+const wantMobile = VIEWPORTS.includes('mobile')
+
 try {
   for (const theme of themes) {
-    // Sign-in page (no auth token) — the first thing an operator sees.
-    const authless = await browser.newContext({
-      viewport: { width: 1440, height: 900 },
-      deviceScaleFactor: DEVICE_SCALE,
-      locale: 'zh-CN',
-    })
-    await authless.addCookies([
-      { name: 'vite-ui-theme', value: theme, url: BASE_URL },
-    ])
-    mkdirSync(`${OUT_DIR}/${theme}/desktop`, { recursive: true })
-    await capture(
-      authless,
-      '/sign-in',
-      `${OUT_DIR}/${theme}/desktop/sign-in.png`
-    )
-    await authless.close()
-    count++
+    if (wantDesktop) {
+      const desktopDir = `${OUT_DIR}/${theme}/desktop`
+      mkdirSync(desktopDir, { recursive: true })
 
-    // Desktop authenticated routes.
-    const desktop = await browser.newContext({
-      viewport: { width: 1440, height: 900 },
-      deviceScaleFactor: DEVICE_SCALE,
-      locale: 'zh-CN',
-    })
-    await seedAuth(desktop, theme)
-    for (const route of DESKTOP_ROUTES) {
+      // Sign-in page (no auth token) — the first thing an operator sees.
+      const authless = await browser.newContext({
+        viewport: { width: 1440, height: 900 },
+        deviceScaleFactor: DEVICE_SCALE,
+        locale: 'zh-CN',
+      })
+      await authless.addCookies([
+        { name: 'vite-ui-theme', value: theme, url: BASE_URL },
+      ])
       await capture(
-        desktop,
-        route,
-        `${OUT_DIR}/${theme}/desktop/${slug(route)}.png`
+        authless,
+        '/sign-in',
+        `${desktopDir}/sign-in.png`,
+        theme,
+        'desktop'
       )
-      count++
-    }
-    await desktop.close()
+      await authless.close()
 
-    // Mobile authenticated routes.
-    const mobile = await browser.newContext({
-      viewport: { width: 375, height: 812 },
-      deviceScaleFactor: DEVICE_SCALE,
-      locale: 'zh-CN',
-      isMobile: true,
-    })
-    await seedAuth(mobile, theme)
-    mkdirSync(`${OUT_DIR}/${theme}/mobile`, { recursive: true })
-    for (const route of MOBILE_ROUTES) {
-      await capture(
-        mobile,
-        route,
-        `${OUT_DIR}/${theme}/mobile/${slug(route)}.png`
-      )
-      count++
+      // Desktop authenticated routes.
+      const desktop = await browser.newContext({
+        viewport: { width: 1440, height: 900 },
+        deviceScaleFactor: DEVICE_SCALE,
+        locale: 'zh-CN',
+      })
+      await seedAuth(desktop, theme)
+      for (const route of DESKTOP_ROUTES) {
+        await capture(
+          desktop,
+          route,
+          `${desktopDir}/${slug(route)}.png`,
+          theme,
+          'desktop'
+        )
+      }
+      await desktop.close()
     }
-    await mobile.close()
+
+    if (wantMobile) {
+      const mobileDir = `${OUT_DIR}/${theme}/mobile`
+      mkdirSync(mobileDir, { recursive: true })
+      const routes =
+        MOBILE_SAMPLE.length > 0
+          ? MOBILE_ROUTES.filter((r) => MOBILE_SAMPLE.includes(r))
+          : MOBILE_ROUTES
+
+      // Mobile authenticated routes.
+      const mobile = await browser.newContext({
+        viewport: { width: 375, height: 812 },
+        deviceScaleFactor: DEVICE_SCALE,
+        locale: 'zh-CN',
+        isMobile: true,
+      })
+      await seedAuth(mobile, theme)
+      for (const route of routes) {
+        await capture(
+          mobile,
+          route,
+          `${mobileDir}/${slug(route)}.png`,
+          theme,
+          'mobile'
+        )
+      }
+      await mobile.close()
+    }
   }
 } finally {
   await browser.close()
 }
 
-console.log(
-  `[screenshot] captured ${count} screenshots into ${OUT_DIR} (themes: ${themes.join(', ')})`
-)
+await writeManifest()
+const summary = `[screenshot] captured ${rows.length} screenshots into ${OUT_DIR} (themes: ${themes.join(', ')}, viewports: ${VIEWPORTS.join(', ')})`
+if (failures.length > 0) {
+  console.error(`[screenshot] ${failures.length} route(s) failed:`)
+  for (const f of failures) console.error('  ' + f)
+  console.error(summary)
+  process.exit(1)
+}
+console.log(summary)
