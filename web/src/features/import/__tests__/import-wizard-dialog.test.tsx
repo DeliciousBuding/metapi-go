@@ -368,23 +368,28 @@ describe('ImportWizardDialog', () => {
 // the backend, so the done step must hand the operator the next actions:
 // rebuild routes (primary), add an account (secondary), or just close.
 describe('ImportWizardDialog — done step next steps', () => {
-  async function advanceToDoneStep(onOpenChange: (open: boolean) => void) {
+  async function advanceToDoneStep(
+    onOpenChange: (open: boolean) => void,
+    importResult?: Parameters<typeof mockImportMutate.mockResolvedValue>[0]
+  ) {
     mockDetectMutate.mockResolvedValue({
       platform: 'new-api',
       confidence: 0.9,
     })
-    mockImportMutate.mockResolvedValue({
-      imported: 1,
-      skipped: 0,
-      failed: 0,
-      results: [
-        {
-          name: 'a.com',
-          url: 'https://a.com',
-          status: 'imported',
-        },
-      ],
-    })
+    mockImportMutate.mockResolvedValue(
+      importResult ?? {
+        imported: 1,
+        skipped: 0,
+        failed: 0,
+        results: [
+          {
+            name: 'a.com',
+            url: 'https://a.com',
+            status: 'imported',
+          },
+        ],
+      }
+    )
 
     render(<ImportWizardDialog open onOpenChange={onOpenChange} />)
 
@@ -476,14 +481,171 @@ describe('ImportWizardDialog — done step next steps', () => {
     ).toBeInTheDocument()
   })
 
-  it('navigates to /accounts and closes the wizard on Add account', async () => {
+  it('deep-links /accounts with create (no site to preselect) when the single imported row has no siteId, and closes the wizard', async () => {
     const onOpenChange = vi.fn()
 
     await advanceToDoneStep(onOpenChange)
 
     fireEvent.click(screen.getByRole('button', { name: 'Add account' }))
 
-    expect(mockNavigate).toHaveBeenCalledWith({ to: '/accounts' })
+    // The batch succeeded, so the accounts page must at least open its
+    // create flow — a bare jump (the old behavior) dropped the intent.
+    expect(mockNavigate).toHaveBeenCalledWith({
+      to: '/accounts',
+      search: { create: true },
+      replace: true,
+    })
     expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+})
+
+// Done-step → accounts deep link. Mirrors the manual site-created modal's
+// exit (`/accounts?siteId=…&create=1`) so the accounts page's one-shot
+// consumption (resolveDeepLinkPreselect) can preselect the imported site.
+// Three branches: exactly one imported/merged row WITH siteId carries it;
+// any other successful batch at least carries create; an all-skipped/failed
+// batch keeps the plain navigation.
+describe('ImportWizardDialog — done step accounts deep link', () => {
+  async function advanceWithResult(
+    importResult: Parameters<typeof mockImportMutate.mockResolvedValue>[0]
+  ) {
+    // Reuse the shared walker from the next-steps suite by re-driving the
+    // same steps here with a caller-controlled import outcome.
+    mockDetectMutate.mockResolvedValue({
+      platform: 'new-api',
+      confidence: 0.9,
+    })
+    mockImportMutate.mockResolvedValue(importResult)
+
+    render(<ImportWizardDialog open onOpenChange={() => {}} />)
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Site URLs')).toBeInTheDocument()
+    })
+    fireEvent.change(screen.getByLabelText('Site URLs'), {
+      target: { value: 'https://a.com' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('new-api')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await waitFor(() => {
+      expect(screen.getByRole('switch')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    await waitFor(() => {
+      expect(screen.getByRole('spinbutton')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Import' }))
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Add account' })
+      ).toBeInTheDocument()
+    })
+  }
+
+  it('carries siteId + create for exactly one imported row with a siteId', async () => {
+    await advanceWithResult({
+      imported: 1,
+      skipped: 0,
+      failed: 0,
+      results: [
+        {
+          name: 'a.com',
+          url: 'https://a.com',
+          status: 'imported',
+          siteId: 9,
+        },
+      ],
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add account' }))
+
+    expect(mockNavigate).toHaveBeenCalledWith({
+      to: '/accounts',
+      search: { siteId: 9, create: true },
+      replace: true,
+    })
+  })
+
+  it('also treats a single merged row with a siteId as preselectable', async () => {
+    await advanceWithResult({
+      imported: 0,
+      skipped: 0,
+      failed: 0,
+      results: [
+        {
+          name: 'a.com',
+          url: 'https://a.com',
+          status: 'merged',
+          siteId: 12,
+        },
+      ],
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add account' }))
+
+    expect(mockNavigate).toHaveBeenCalledWith({
+      to: '/accounts',
+      search: { siteId: 12, create: true },
+      replace: true,
+    })
+  })
+
+  it('carries at least create:true for a multi-site batch', async () => {
+    await advanceWithResult({
+      imported: 2,
+      skipped: 0,
+      failed: 0,
+      results: [
+        {
+          name: 'a.com',
+          url: 'https://a.com',
+          status: 'imported',
+          siteId: 9,
+        },
+        {
+          name: 'b.com',
+          url: 'https://b.com',
+          status: 'imported',
+          siteId: 10,
+        },
+      ],
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add account' }))
+
+    expect(mockNavigate).toHaveBeenCalledWith({
+      to: '/accounts',
+      search: { create: true },
+      replace: true,
+    })
+  })
+
+  it('keeps the plain navigation when every row was skipped or failed', async () => {
+    await advanceWithResult({
+      imported: 0,
+      skipped: 1,
+      failed: 1,
+      results: [
+        {
+          name: 'a.com',
+          url: 'https://a.com',
+          status: 'skipped',
+          reason: 'duplicate',
+        },
+        {
+          name: 'b.com',
+          url: 'https://b.com',
+          status: 'failed',
+          reason: 'platform unsupported',
+        },
+      ],
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add account' }))
+
+    expect(mockNavigate).toHaveBeenCalledWith({ to: '/accounts' })
   })
 })
