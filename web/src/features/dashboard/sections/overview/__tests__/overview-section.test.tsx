@@ -19,7 +19,13 @@
 
 import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -33,6 +39,7 @@ vi.mock('@/lib/api', () => ({
     getDashboardSnapshot: vi.fn(),
     getBalanceHistory: vi.fn(),
     getSchedulerStatus: vi.fn(),
+    probeModelsNow: vi.fn(),
   },
 }))
 
@@ -54,9 +61,22 @@ vi.mock('@/features/dashboard/components/stat-card', () => ({
   StatCard: () => <div data-testid='stat-card' />,
 }))
 
+const { mockToastSuccess } = vi.hoisted(() => ({
+  mockToastSuccess: vi.fn(),
+}))
+vi.mock('@/lib/toast', () => ({
+  toast: {
+    success: mockToastSuccess,
+    error: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
+  },
+}))
+
 const mockGetDashboardSnapshot = vi.mocked(api.getDashboardSnapshot)
 const mockGetBalanceHistory = vi.mocked(api.getBalanceHistory)
 const mockGetSchedulerStatus = vi.mocked(api.getSchedulerStatus)
+const mockProbeModelsNow = vi.mocked(api.probeModelsNow)
 
 function createQueryClient() {
   return new QueryClient({
@@ -77,6 +97,7 @@ beforeEach(() => {
   mockGetDashboardSnapshot.mockReset()
   mockGetBalanceHistory.mockReset()
   mockGetSchedulerStatus.mockReset()
+  mockProbeModelsNow.mockReset()
   // Non-banner queries resolve to empty-but-valid shapes so the section
   // renders without throwing; the snapshot is overridden per test.
   mockGetBalanceHistory.mockResolvedValue({ series: [], days: 8 })
@@ -140,5 +161,137 @@ describe('OverviewSection onboarding banner', () => {
     expect(
       screen.queryByRole('link', { name: /Create site/i })
     ).not.toBeInTheDocument()
+  })
+})
+
+describe('OverviewSection model-probe scheduler card', () => {
+  it('offers a manual trigger for the model-probe job and queues it', async () => {
+    mockGetDashboardSnapshot.mockResolvedValue({ siteCount: 3 })
+    mockGetSchedulerStatus.mockResolvedValue({
+      items: [
+        {
+          job: 'model-probe',
+          enabled: true,
+          lastStatus: 'success',
+          runs24h: 2,
+          success24h: 2,
+        },
+        {
+          job: 'checkin',
+          enabled: true,
+          lastStatus: 'success',
+          runs24h: 1,
+          success24h: 1,
+        },
+      ],
+      generatedAt: '',
+    })
+    mockProbeModelsNow.mockResolvedValue({
+      success: true,
+      queued: true,
+      reused: false,
+      jobId: 'probe-1',
+      status: 'pending',
+    })
+
+    renderWithClient(<OverviewSection />)
+
+    const trigger = await screen.findByRole('button', {
+      name: 'Run now',
+    })
+    expect(trigger).toBeInTheDocument()
+    // Only model-probe exposes a manual trigger — other jobs stay honest.
+    expect(screen.getAllByRole('button', { name: 'Run now' })).toHaveLength(1)
+
+    fireEvent.click(trigger)
+    await waitFor(() => {
+      expect(mockProbeModelsNow).toHaveBeenCalledTimes(1)
+    })
+    await waitFor(() => {
+      expect(mockToastSuccess).toHaveBeenCalledWith(
+        'Model availability probe queued — recent runs appear here when the pass completes.'
+      )
+    })
+  })
+
+  it('shows the recent runs list when expanded, with honest failure verdicts', async () => {
+    mockGetDashboardSnapshot.mockResolvedValue({ siteCount: 3 })
+    mockGetSchedulerStatus.mockResolvedValue({
+      items: [
+        {
+          job: 'model-probe',
+          enabled: true,
+          lastStatus: 'failed',
+          runs24h: 2,
+          success24h: 1,
+          recentRuns: [
+            {
+              startedAt: '2026-08-23T01:00:00Z',
+              completedAt: '2026-08-23T01:00:05Z',
+              accountsConsidered: 2,
+              accountsProbed: 2,
+              targetsScanned: 3,
+              success: 2,
+              failed: 1,
+              inconclusive: 0,
+              skipped: 0,
+            },
+            {
+              startedAt: '2026-08-23T00:30:00Z',
+              completedAt: '2026-08-23T00:30:04Z',
+              accountsConsidered: 2,
+              accountsProbed: 2,
+              targetsScanned: 2,
+              success: 2,
+              failed: 0,
+              inconclusive: 0,
+              skipped: 0,
+            },
+          ],
+        },
+      ],
+      generatedAt: '',
+    })
+
+    renderWithClient(<OverviewSection />)
+
+    const toggle = await screen.findByRole('button', {
+      name: 'Recent runs',
+    })
+    fireEvent.click(toggle)
+
+    // The failed pass carries the destructive verdict; the clean pass stays
+    // success — the list never hides a failed run behind a green badge.
+    expect(await screen.findByText('Failed')).toBeInTheDocument()
+    expect(screen.getByText('Completed')).toBeInTheDocument()
+    expect(screen.getByText('3 targets')).toBeInTheDocument()
+    expect(
+      screen.getByText('ok 2 / failed 1 / inconclusive 0 / skipped 0')
+    ).toBeInTheDocument()
+  })
+
+  it('hides the trigger when the model-probe scheduler is disabled', async () => {
+    mockGetDashboardSnapshot.mockResolvedValue({ siteCount: 3 })
+    mockGetSchedulerStatus.mockResolvedValue({
+      items: [
+        {
+          job: 'model-probe',
+          enabled: false,
+          lastStatus: 'never',
+          note: 'not enabled (MODEL_AVAILABILITY_PROBE_ENABLED)',
+          runs24h: 0,
+          success24h: 0,
+        },
+      ],
+      generatedAt: '',
+    })
+
+    renderWithClient(<OverviewSection />)
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Run now' })
+      ).not.toBeInTheDocument()
+    )
   })
 })
