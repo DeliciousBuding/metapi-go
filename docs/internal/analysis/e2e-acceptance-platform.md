@@ -35,6 +35,21 @@ The PR pipeline already runs the first regime (`test-e2e` job boots **real** new
 | **Real-environment acceptance (backend)** | `scripts/e2e/smoke.sh` + `verify-token-import.sh` against a standing host | **real deployed upstream** | ❌ | the same chain against a live, non-container upstream |
 | **Real-environment acceptance (frontend)** | `web/scripts/acceptance-e2e.mjs` | **real backend + real upstream** | ❌ | actual user journeys through the built SPA |
 
+### Active `web/scripts/` × trigger (live inventory, 2026-08-23)
+
+One-off probes are archived under [`web/scripts/oneoff/`](../../../web/scripts/oneoff/) — kept for reference but stripped of package.json entries and excluded from every pipeline. Everything still in `web/scripts/` has at least one live trigger:
+
+| Script | Invocation | Trigger |
+|:---|:---|:---|
+| `a11y-scan.mjs` | `bun run a11y:scan` | CI `a11y` job against the embedded production SPA (`main.yml`) · manual |
+| `route-smoke.mjs` | `bun run ui:smoke` | CI `a11y` job · manual (default `BASE_URL=http://localhost:4000`) |
+| `acceptance-e2e.mjs` | `bun run acceptance:e2e` | Operator-gated real-environment acceptance (§3) |
+| `acceptance-probe-header-quirk.mjs` | `bun run acceptance:probe-header-quirk` | Operator manual — quirk regression re-probe (§6) |
+| `screenshot-scan.mjs` | `bun run screenshots` | README screenshot pipeline (manual) |
+| `fetch-brand-icons.mjs` + `generate-brand-icon-index.mjs` | `bun run icons:fetch` | Manual brand-icon regeneration |
+| `verify-brand-icons.mjs` | `bun run icons:verify` | Manual render verification of generated icons |
+| `verify-live-assets.sh` | `bash web/scripts/verify-live-assets.sh <url>` | Mandatory post-deploy asset smoke ([`docs/deployment.md`](../../deployment.md)) |
+
 ---
 
 ## 3. Real-environment acceptance (the new layer)

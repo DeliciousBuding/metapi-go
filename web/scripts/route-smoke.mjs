@@ -9,7 +9,7 @@
 
 import { chromium } from 'playwright'
 
-const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3000'
+const BASE_URL = process.env.BASE_URL ?? 'http://localhost:4000'
 const AUTH_TOKEN = process.env.AUTH_TOKEN ?? 'dev-admin-token-123'
 
 const DESKTOP_ROUTES = [
