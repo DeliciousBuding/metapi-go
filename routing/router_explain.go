@@ -135,7 +135,7 @@ func explainSelectionFromMatch(selector *ChannelSelector, match *RouteMatch, req
 		eligible := len(reasons) == 0
 		recentlyFailed := false
 		if strategy != StrategyRoundRobin {
-			recentlyFailed = IsChannelRecentlyFailed(&row.Channel.FailCount, row.Channel.LastFailAt, nowMs, configuredMaxSec)
+			recentlyFailed = IsChannelRecentlyFailed(row.Channel.FailCount, row.Channel.LastFailAt, nowMs, configuredMaxSec)
 		}
 		candidate := RouteDecisionCandidate{
 			ChannelID:              row.Channel.ID,
@@ -143,8 +143,8 @@ func explainSelectionFromMatch(selector *ChannelSelector, match *RouteMatch, req
 			Username:               formatUsername(row.Account.Username, row.Account.ID),
 			SiteName:               formatSiteName(row.Site.Name),
 			TokenName:              getTokenName(row.Token),
-			Priority:               row.Channel.Priority,
-			Weight:                 row.Channel.Weight,
+			Priority:               row.Channel.PriorityOrZero(),
+			Weight:                 row.Channel.WeightOrZero(),
 			Eligible:               eligible,
 			RecentlyFailed:         recentlyFailed,
 			AvoidedByRecentFailure: false,

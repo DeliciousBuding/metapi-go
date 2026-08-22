@@ -17,7 +17,7 @@ func TestRecordProbeSuccess_ClearsCooldownAndStampsProbeStatus(t *testing.T) {
 	until := "2099-01-01T00:00:00Z"
 	lastFail := "2020-01-01T00:00:00Z"
 	ch := isolationChannel(101, 1, 11)
-	ch.FailCount = 3
+	ch.FailCount = int64Ptr(3)
 	ch.ConsecutiveFailCount = 2
 	ch.CooldownLevel = 1
 	ch.CooldownUntil = &until
@@ -109,7 +109,7 @@ func TestRecordProbeFailure_CoolsOnlyProbedChannelAndUpdatesHealth(t *testing.T)
 	if failed == nil {
 		t.Fatal("channel 201 missing")
 	}
-	if failed.FailCount != 1 {
+	if failed.FailCountOrZero() != 1 {
 		t.Fatalf("failCount = %d, want 1", failed.FailCount)
 	}
 	if failed.CooldownUntil == nil {
@@ -123,7 +123,7 @@ func TestRecordProbeFailure_CoolsOnlyProbedChannelAndUpdatesHealth(t *testing.T)
 	if clean == nil {
 		t.Fatal("sibling missing")
 	}
-	if clean.FailCount != 0 || clean.CooldownUntil != nil || clean.LastFailAt != nil {
+	if clean.FailCountOrZero() != 0 || clean.CooldownUntil != nil || clean.LastFailAt != nil {
 		t.Fatalf("probe failure cascaded to sibling: %+v", clean)
 	}
 	if db.cooldownCalls != 1 || len(db.lastCooldownIDs) != 1 || db.lastCooldownIDs[0] != 201 {
@@ -171,7 +171,7 @@ func TestRecordProbeFailure_AuthLookingErrorDoesNotCascadeCredentialScope(t *tes
 	}
 
 	// Only probed channel cooled; no credential cascade (unlike short-window usage limit).
-	if got := db.getChannel(302); got.FailCount != 0 || got.CooldownUntil != nil {
+	if got := db.getChannel(302); got.FailCountOrZero() != 0 || got.CooldownUntil != nil {
 		t.Fatalf("auth-looking probe failure cascaded: %+v", got)
 	}
 	// Account row is not mutated by isolationDB (and production path never writes account.status).

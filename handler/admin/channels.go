@@ -23,12 +23,15 @@ type channelListRow struct {
 	TokenID           *int64  `db:"token_id"`
 	OAuthRouteUnitID  *int64  `db:"oauth_route_unit_id"`
 	SourceModel       *string `db:"source_model"`
-	Priority          int64   `db:"priority"`
-	Weight            int64   `db:"weight"`
+	// Priority/Weight/SuccessCount/TotalLatencyMs are nullable in route_channels
+	// (DEFAULT without NOT NULL): NULL must scan to nil, not crash the list
+	// with "converting NULL to int64" (#933 family).
+	Priority          *int64  `db:"priority"`
+	Weight            *int64  `db:"weight"`
 	Enabled           bool    `db:"enabled"`
 	ManualOverride    bool    `db:"manual_override"`
-	SuccessCount      int64   `db:"success_count"`
-	TotalLatencyMs    int64   `db:"total_latency_ms"`
+	SuccessCount      *int64  `db:"success_count"`
+	TotalLatencyMs    *int64  `db:"total_latency_ms"`
 	CooldownUntil     *string `db:"cooldown_until"`
 	Username          string  `db:"username"`
 	SiteID            int64   `db:"site_id"`
@@ -294,8 +297,8 @@ func channelListItem(row channelListRow) map[string]any {
 	}
 
 	var responseMs *int64
-	if row.SuccessCount > 0 && row.TotalLatencyMs > 0 {
-		ms := row.TotalLatencyMs / row.SuccessCount
+	if row.SuccessCount != nil && *row.SuccessCount > 0 && row.TotalLatencyMs != nil && *row.TotalLatencyMs > 0 {
+		ms := *row.TotalLatencyMs / *row.SuccessCount
 		responseMs = &ms
 	}
 

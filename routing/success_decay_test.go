@@ -27,7 +27,7 @@ func newDecayFixture(t *testing.T, failCount int64) (*isolationDB, *TokenRouter)
 	db := newIsolationDB()
 	route := isolationRoute(1, "weighted")
 	ch := isolationChannel(501, 1, 5001)
-	ch.FailCount = failCount
+	ch.FailCount = &failCount
 	acc := isolationAccount(5001, 50)
 	db.seedChannel(ch, acc, route)
 	return db, newIsolationRouter(db)
@@ -79,7 +79,7 @@ func TestRecordSuccess_DecaysFailCount(t *testing.T) {
 	if raw, exists := db.lastSuccessUpdates["cooldownUntil"]; !exists || raw != nil {
 		t.Fatalf("success write cooldownUntil = %v (present=%v), want nil", raw, exists)
 	}
-	if got := db.getChannel(501); got == nil || got.FailCount != 5 {
+	if got := db.getChannel(501); got == nil || got.FailCountOrZero() != 5 {
 		t.Fatalf("channel failCount after success = %v, want 5", got)
 	}
 
@@ -88,7 +88,7 @@ func TestRecordSuccess_DecaysFailCount(t *testing.T) {
 		if err := tr.RecordSuccess(ctx, 501, 100, 0.001, nil, nil); err != nil {
 			t.Fatalf("RecordSuccess (want %d): %v", want, err)
 		}
-		if got := db.getChannel(501); got == nil || got.FailCount != want {
+		if got := db.getChannel(501); got == nil || got.FailCountOrZero() != want {
 			t.Fatalf("channel failCount = %v, want %d", got, want)
 		}
 	}
@@ -135,7 +135,7 @@ func TestRecordSuccess_DecayShortensNextFailureCooldown(t *testing.T) {
 	if decayedMs >= controlMs {
 		t.Fatalf("decayed cooldown %dms not shorter than control %dms", decayedMs, controlMs)
 	}
-	if got := decayedDB.getChannel(501); got == nil || got.FailCount != 6 {
+	if got := decayedDB.getChannel(501); got == nil || got.FailCountOrZero() != 6 {
 		t.Fatalf("channel failCount after decay+failure = %v, want 6", got)
 	}
 }
@@ -158,7 +158,7 @@ func TestRecordSuccess_DecaysMemberFailCount(t *testing.T) {
 	unit := store.OAuthRouteUnit{
 		ID: unitID, SiteID: 30, Provider: "codex", Name: "unit", Strategy: "round_robin", Enabled: true,
 	}
-	db.seedMember(store.OAuthRouteUnitMember{ID: 1, UnitID: unitID, AccountID: 3001, FailCount: 10}, acc, unit)
+	db.seedMember(store.OAuthRouteUnitMember{ID: 1, UnitID: unitID, AccountID: 3001, FailCount: int64Ptr(10)}, acc, unit)
 
 	tr := newIsolationRouter(db)
 	if err := tr.RecordSuccess(context.Background(), 301, 100, 0.001, nil, nil); err != nil {
@@ -175,7 +175,7 @@ func TestRecordSuccess_DecaysMemberFailCount(t *testing.T) {
 		t.Fatalf("member success write failCount = %v (present=%v), want 5", v, ok)
 	}
 	// Outer OAuth channel never accumulated failCount; success keeps it clean.
-	if got := db.getChannel(301); got == nil || got.FailCount != 0 {
+	if got := db.getChannel(301); got == nil || got.FailCountOrZero() != 0 {
 		t.Fatalf("outer oauth channel failCount mutated: %v, want 0", got)
 	}
 }

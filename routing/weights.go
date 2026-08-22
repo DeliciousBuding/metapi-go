@@ -33,11 +33,11 @@ type WeightedDetail struct {
 // EffectiveUnitCost resolves the best available unit cost for a candidate.
 func EffectiveUnitCost(candidate RouteChannelCandidate, modelName string, pricingFn CatalogPricingResolver, fallbackUnitCost float64) CostSignal {
 	minCost := 1e-6
-	successCount := candidate.Channel.SuccessCount
+	successCount := candidate.Channel.SuccessCountOrZero()
 	if successCount < 0 {
 		successCount = 0
 	}
-	totalCost := candidate.Channel.TotalCost
+	totalCost := candidate.Channel.TotalCostOrZero()
 	if totalCost < 0 {
 		totalCost = 0
 	}
@@ -140,7 +140,7 @@ func CalculateWeightedSelection(
 	for i, c := range candidates {
 		unitCost := effectiveCosts[i].UnitCost
 		balance := c.Account.BalanceOrZero()
-		totalUsed := float64(c.Channel.SuccessCount + c.Channel.FailCount)
+		totalUsed := float64(c.Channel.SuccessCountOrZero() + c.Channel.FailCountOrZero())
 		recentUsage := math.Max(totalUsed, 1)
 		valueScore := routingWeights.CostWeight*(1/unitCost) + routingWeights.BalanceWeight*balance + routingWeights.UsageWeight*(1/recentUsage)
 		valueScores[i] = valueScore
@@ -199,7 +199,7 @@ func CalculateWeightedSelection(
 		}
 
 		normalizedVS := (valueScores[i] - minVS) / vsRange
-		baseContribution := (float64(candidate.Channel.Weight)*effectiveKeyWeight + 10) *
+		baseContribution := (float64(candidate.Channel.WeightOrZero())*effectiveKeyWeight + 10) *
 			(routingWeights.BaseWeightFactor + normalizedVS*routingWeights.ValueScoreFactor)
 		contribution := baseContribution / siteChannels
 
@@ -209,8 +209,8 @@ func CalculateWeightedSelection(
 			downstreamSiteMultiplier = w
 		}
 		siteGlobalWeight := 1.0
-		if candidate.Site.GlobalWeight > 0 && isFiniteFloat(candidate.Site.GlobalWeight) {
-			siteGlobalWeight = candidate.Site.GlobalWeight
+		if gw := candidate.Site.GlobalWeightOrZero(); gw > 0 && isFiniteFloat(gw) {
+			siteGlobalWeight = gw
 		}
 		combinedSiteWeight := siteGlobalWeight * downstreamSiteMultiplier
 		if combinedSiteWeight > 0 && isFiniteFloat(combinedSiteWeight) {
@@ -431,8 +431,8 @@ func getStableFirstSiteOrder(candidates []RouteChannelCandidate, siteID int64) i
 		if c.Site.ID != siteID {
 			continue
 		}
-		if c.Channel.Priority < order {
-			order = c.Channel.Priority
+		if p := c.Channel.PriorityOrZero(); p < order {
+			order = p
 		}
 	}
 	if order == (1<<63 - 1) {

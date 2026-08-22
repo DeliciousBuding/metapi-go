@@ -151,7 +151,7 @@ func (s *ChannelSelector) SelectPreferredChannel(
 
 	// Check recent failure (skip for round_robin and stable_first)
 	if strategy != StrategyRoundRobin && !IsOAuthRouteUnitCandidate(*preferred) {
-		if IsChannelRecentlyFailed(&preferred.Channel.FailCount, preferred.Channel.LastFailAt, nowMs, s.configuredMaxSec) {
+		if IsChannelRecentlyFailed(preferred.Channel.FailCount, preferred.Channel.LastFailAt, nowMs, s.configuredMaxSec) {
 			return nil, nil
 		}
 	}
@@ -277,7 +277,7 @@ func (s *ChannelSelector) selectFromMatch(
 	if strategy == StrategyLeastBusy || strategy == StrategyLowestLatency || strategy == StrategyLowestCost {
 		breakerHealthy, _ := FilterSiteRuntimeBrokenCandidatesByModelResolver(available, resolveModel)
 		filteredCandidates := FilterRecentlyFailedCandidates(breakerHealthy,
-			func(c RouteChannelCandidate) (*int64, *string) { return &c.Channel.FailCount, c.Channel.LastFailAt },
+			func(c RouteChannelCandidate) (*int64, *string) { return c.Channel.FailCount, c.Channel.LastFailAt },
 			nowMs, s.configuredMaxSec)
 		var selected *RouteChannelCandidate
 		switch strategy {
@@ -339,7 +339,7 @@ func selectAcrossPriorityLayers(
 
 	layers := make(map[int64][]RouteChannelCandidate)
 	for _, c := range available {
-		layers[c.Channel.Priority] = append(layers[c.Channel.Priority], c)
+		layers[c.Channel.PriorityOrZero()] = append(layers[c.Channel.PriorityOrZero()], c)
 	}
 
 	priorities := make([]int64, 0, len(layers))
@@ -374,7 +374,7 @@ func selectAcrossPriorityLayers(
 	// starvation prevention, not cascade-complete (tests: known limitation).
 	breakerHealthy, _ := FilterSiteRuntimeBrokenCandidatesByModelResolver(available, resolveModel)
 	filteredGlobal := FilterRecentlyFailedCandidates(breakerHealthy,
-		func(c RouteChannelCandidate) (*int64, *string) { return &c.Channel.FailCount, c.Channel.LastFailAt },
+		func(c RouteChannelCandidate) (*int64, *string) { return c.Channel.FailCount, c.Channel.LastFailAt },
 		nowMs, configuredMaxSec)
 	return selectFromPool(filteredGlobal)
 }
@@ -405,7 +405,7 @@ func softFilterCandidatesStrict(
 			details.GlobalHalfOpen || details.ModelHalfOpen {
 			continue
 		}
-		if IsChannelRecentlyFailed(&c.Channel.FailCount, c.Channel.LastFailAt, nowMs, configuredMaxSec) {
+		if IsChannelRecentlyFailed(c.Channel.FailCount, c.Channel.LastFailAt, nowMs, configuredMaxSec) {
 			continue
 		}
 		healthy = append(healthy, c)

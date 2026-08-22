@@ -24,13 +24,13 @@ func (tr *TokenRouter) RecordSuccess(ctx context.Context, channelID int64, laten
 	ch := row.Channel
 	account := row.Account
 	nowISO := time.Now().UTC().Format(time.RFC3339)
-	nextSuccessCount := max(0, ch.SuccessCount) + 1
-	nextTotalLatencyMs := max(0, ch.TotalLatencyMs) + int64(latencyMs)
-	nextTotalCost := math.Max(0, ch.TotalCost) + cost
+	nextSuccessCount := max(0, ch.SuccessCountOrZero()) + 1
+	nextTotalLatencyMs := max(0, ch.TotalLatencyMsOrZero()) + int64(latencyMs)
+	nextTotalCost := math.Max(0, ch.TotalCostOrZero()) + cost
 	// Decay (not zero) accumulated failCount on success: a recovered channel
 	// keeps a small memory of past failures, but its next failure is no longer
 	// over-penalized by Fibonacci backoff based on the historical peak.
-	nextFailCount := max(0, ch.FailCount) / 2
+	nextFailCount := max(0, ch.FailCountOrZero()) / 2
 
 	if ch.OAuthRouteUnitID != nil && *ch.OAuthRouteUnitID > 0 {
 		targetAccountID := account.ID
@@ -40,12 +40,12 @@ func (tr *TokenRouter) RecordSuccess(ctx context.Context, channelID int64, laten
 
 		memberRow, err := tr.db.LoadRouteUnitMemberWithAccount(ctx, *ch.OAuthRouteUnitID, targetAccountID)
 		if err == nil && memberRow != nil {
-			memberSuccessCount := max(0, memberRow.Member.SuccessCount) + 1
-			memberTotalLatencyMs := max(0, memberRow.Member.TotalLatencyMs) + int64(latencyMs)
-			memberTotalCost := math.Max(0, memberRow.Member.TotalCost) + cost
+			memberSuccessCount := max(0, memberRow.Member.SuccessCountOrZero()) + 1
+			memberTotalLatencyMs := max(0, memberRow.Member.TotalLatencyMsOrZero()) + int64(latencyMs)
+			memberTotalCost := math.Max(0, memberRow.Member.TotalCostOrZero()) + cost
 			_ = tr.db.UpdateRouteUnitMemberSuccessFields(ctx, memberRow.Member.ID, map[string]interface{}{
 				"successCount":   memberSuccessCount,
-				"failCount":      max(0, memberRow.Member.FailCount) / 2,
+				"failCount":      max(0, memberRow.Member.FailCountOrZero()) / 2,
 				"totalLatencyMs": memberTotalLatencyMs,
 				"totalCost":      memberTotalCost,
 				"lastUsedAt":     nowISO,
@@ -77,10 +77,10 @@ func (tr *TokenRouter) RecordSuccess(ctx context.Context, channelID int64, laten
 	})
 
 	tr.cache.PatchCachedChannel(channelID, func(ch *store.RouteChannel) {
-		ch.SuccessCount = nextSuccessCount
-		ch.FailCount = nextFailCount
-		ch.TotalLatencyMs = nextTotalLatencyMs
-		ch.TotalCost = nextTotalCost
+		ch.SuccessCount = &nextSuccessCount
+		ch.FailCount = &nextFailCount
+		ch.TotalLatencyMs = &nextTotalLatencyMs
+		ch.TotalCost = &nextTotalCost
 		ch.LastUsedAt = &nowISO
 		ch.CooldownUntil = nil
 		ch.LastFailAt = nil
@@ -217,7 +217,7 @@ func (tr *TokenRouter) RecordProbeFailure(ctx context.Context, channelID int64, 
 		if err == nil && memberRow != nil {
 			// Probe path intentionally ignores usage-limit credential cascade and
 			// never zeros failCount for short-window limits: probes are synthetic.
-			failCount := max(0, memberRow.Member.FailCount) + 1
+			failCount := max(0, memberRow.Member.FailCountOrZero()) + 1
 			routeUnitStrategy := memberRow.Unit.Strategy
 			if routeUnitStrategy == "" {
 				routeUnitStrategy = "round_robin"
@@ -248,7 +248,7 @@ func (tr *TokenRouter) RecordProbeFailure(ctx context.Context, channelID int64, 
 	}
 
 	// Regular channel: probe failure cools only the probed channel (no credential cascade).
-	failCount := max(0, ch.FailCount) + 1
+	failCount := max(0, ch.FailCountOrZero()) + 1
 	routeStrategy := NormalizeRouteRoutingStrategy(route.RoutingStrategy)
 	affectedChannelIDs := []int64{channelID}
 
@@ -271,7 +271,7 @@ func (tr *TokenRouter) RecordProbeFailure(ctx context.Context, channelID int64, 
 
 	for _, id := range affectedChannelIDs {
 		tr.cache.PatchCachedChannel(id, func(ch *store.RouteChannel) {
-			ch.FailCount = failCount
+			ch.FailCount = &failCount
 			ch.LastFailAt = &nowISO
 			ch.ConsecutiveFailCount = consecutiveFailCount
 			ch.CooldownLevel = cooldownLevel
@@ -311,7 +311,7 @@ func (tr *TokenRouter) RecordFailure(ctx context.Context, channelID int64, failu
 		memberRow, err := tr.db.LoadRouteUnitMemberWithAccount(ctx, *ch.OAuthRouteUnitID, targetAccountID)
 		if err == nil && memberRow != nil {
 			shortWindowCooldown := resolveShortWindowLimitCooldownTS(memberRow.Account, failureCtx, nowMs)
-			failCount := max(0, memberRow.Member.FailCount)
+			failCount := max(0, memberRow.Member.FailCountOrZero())
 			if shortWindowCooldown == nil {
 				failCount++
 			} else {
@@ -354,7 +354,7 @@ func (tr *TokenRouter) RecordFailure(ctx context.Context, channelID int64, failu
 
 	// Regular channel
 	shortWindowCooldown := resolveShortWindowLimitCooldownTS(account, failureCtx, nowMs)
-	failCount := max(0, ch.FailCount)
+	failCount := max(0, ch.FailCountOrZero())
 	if shortWindowCooldown == nil {
 		failCount++
 	} else {
@@ -401,7 +401,7 @@ func (tr *TokenRouter) RecordFailure(ctx context.Context, channelID int64, failu
 
 	for _, id := range affectedChannelIDs {
 		tr.cache.PatchCachedChannel(id, func(ch *store.RouteChannel) {
-			ch.FailCount = failCount
+			ch.FailCount = &failCount
 			ch.LastFailAt = &nowISO
 			ch.ConsecutiveFailCount = consecutiveFailCount
 			ch.CooldownLevel = cooldownLevel

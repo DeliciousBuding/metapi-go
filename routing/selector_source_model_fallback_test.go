@@ -180,30 +180,30 @@ func TestLoadRouteMatch_GroupRouteNilSourceModelGetsSourceRoutePattern(t *testin
 				// nil SourceModel → should fall back to source route pattern
 				Channel: store.RouteChannel{
 					ID: 1, RouteID: 10, AccountID: 1, TokenID: &token.ID,
-					SourceModel: nil, Priority: 0, Weight: 10, Enabled: true,
+					SourceModel: nil, Priority: int64Ptr(0), Weight: int64Ptr(10), Enabled: true,
 				},
 				Account: store.Account{ID: 1, SiteID: 1, Status: "active", APIToken: &apiToken},
-				Site:    store.Site{ID: 1, Name: "site-a", Status: "active", GlobalWeight: 1},
+				Site:    store.Site{ID: 1, Name: "site-a", Status: "active", GlobalWeight: ptrFloat(1)},
 				Token:   &token,
 			},
 			{
 				// empty SourceModel → same fallback
 				Channel: store.RouteChannel{
 					ID: 2, RouteID: 20, AccountID: 2, TokenID: &token.ID,
-					SourceModel: &emptySource, Priority: 0, Weight: 10, Enabled: true,
+					SourceModel: &emptySource, Priority: int64Ptr(0), Weight: int64Ptr(10), Enabled: true,
 				},
 				Account: store.Account{ID: 2, SiteID: 1, Status: "active", APIToken: &apiToken},
-				Site:    store.Site{ID: 1, Name: "site-a", Status: "active", GlobalWeight: 1},
+				Site:    store.Site{ID: 1, Name: "site-a", Status: "active", GlobalWeight: ptrFloat(1)},
 				Token:   &token,
 			},
 			{
 				// explicit SourceModel must be preserved
 				Channel: store.RouteChannel{
 					ID: 3, RouteID: 10, AccountID: 3, TokenID: &token.ID,
-					SourceModel: &explicitSource, Priority: 0, Weight: 10, Enabled: true,
+					SourceModel: &explicitSource, Priority: int64Ptr(0), Weight: int64Ptr(10), Enabled: true,
 				},
 				Account: store.Account{ID: 3, SiteID: 1, Status: "active", APIToken: &apiToken},
-				Site:    store.Site{ID: 1, Name: "site-a", Status: "active", GlobalWeight: 1},
+				Site:    store.Site{ID: 1, Name: "site-a", Status: "active", GlobalWeight: ptrFloat(1)},
 				Token:   &token,
 			},
 		},

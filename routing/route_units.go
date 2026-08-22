@@ -42,7 +42,7 @@ func SelectRouteUnitMember(
 	var candidateMembers []OAuthRouteUnitMemberCandidate
 	if isFailover {
 		for _, m := range eligibleMembers {
-			if !IsChannelRecentlyFailed(&m.Member.FailCount, m.Member.LastFailAt, nowMs, configuredMaxSec) {
+			if !IsChannelRecentlyFailed(m.Member.FailCount, m.Member.LastFailAt, nowMs, configuredMaxSec) {
 				candidateMembers = append(candidateMembers, m)
 			}
 		}
@@ -134,7 +134,7 @@ func getRoundRobinRouteUnitMembers(members []OAuthRouteUnitMemberCandidate) []OA
 		if cmp != 0 {
 			return cmp < 0
 		}
-		so := left.Member.SortOrder - right.Member.SortOrder
+		so := left.Member.SortOrderOrZero() - right.Member.SortOrderOrZero()
 		if so != 0 {
 			return so < 0
 		}
@@ -164,7 +164,7 @@ func getStickyPreferredRouteUnitMember(members []OAuthRouteUnitMemberCandidate) 
 		if cmp != 0 {
 			return cmp < 0
 		}
-		so := left.Member.SortOrder - right.Member.SortOrder
+		so := left.Member.SortOrderOrZero() - right.Member.SortOrderOrZero()
 		if so != 0 {
 			return so < 0
 		}
@@ -183,7 +183,7 @@ func filterRecentlyFailedMembers(
 	}
 	var healthy []OAuthRouteUnitMemberCandidate
 	for _, m := range members {
-		if !IsChannelRecentlyFailed(&m.Member.FailCount, m.Member.LastFailAt, nowMs, configuredMaxSec) {
+		if !IsChannelRecentlyFailed(m.Member.FailCount, m.Member.LastFailAt, nowMs, configuredMaxSec) {
 			healthy = append(healthy, m)
 		}
 	}

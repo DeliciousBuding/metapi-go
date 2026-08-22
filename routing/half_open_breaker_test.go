@@ -294,7 +294,7 @@ func TestHalfOpenProbe_FilterBlocksProbingCandidates(t *testing.T) {
 		return RouteChannelCandidate{
 			Channel: store.RouteChannel{
 				ID: channelID, RouteID: 1, AccountID: accountID,
-				SourceModel: &model, Priority: 0, Weight: 10, Enabled: true,
+				SourceModel: &model, Priority: int64Ptr(0), Weight: int64Ptr(10), Enabled: true,
 			},
 			Account: store.Account{ID: accountID, SiteID: candidateSiteID, Status: "active", APIToken: &token, Balance: ptrFloat(100)},
 			Site:    store.Site{ID: candidateSiteID, Status: "active"},

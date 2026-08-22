@@ -130,13 +130,13 @@ func TestRouteCache_MatchExpiry(t *testing.T) {
 func TestRouteCache_PatchCachedChannel(t *testing.T) {
 	cache := NewRouteCache(5000)
 
-	ch := store.RouteChannel{ID: 42, Priority: 1}
+	ch := store.RouteChannel{ID: 42, Priority: int64Ptr(1)}
 	match := &RouteMatch{
 		Route: store.TokenRoute{ID: 1},
 		Channels: []RouteChannelCandidate{
-			{Channel: store.RouteChannel{ID: 10, Priority: 5}},
+			{Channel: store.RouteChannel{ID: 10, Priority: int64Ptr(5)}},
 			{Channel: ch},
-			{Channel: store.RouteChannel{ID: 99, Priority: 9}},
+			{Channel: store.RouteChannel{ID: 99, Priority: int64Ptr(9)}},
 		},
 	}
 	cache.SetMatch(1, match)
@@ -144,8 +144,8 @@ func TestRouteCache_PatchCachedChannel(t *testing.T) {
 	// Patch channel 42
 	var patchedPriority int64
 	cache.PatchCachedChannel(42, func(ch *store.RouteChannel) {
-		ch.Priority = 100
-		patchedPriority = ch.Priority
+		ch.Priority = int64Ptr(100)
+		patchedPriority = ch.PriorityOrZero()
 	})
 
 	if patchedPriority != 100 {
@@ -159,15 +159,15 @@ func TestRouteCache_PatchCachedChannel(t *testing.T) {
 	}
 	for _, c := range got.Channels {
 		if c.Channel.ID == 42 {
-			if c.Channel.Priority != 100 {
-				t.Errorf("expected priority 100 in cached match, got %d", c.Channel.Priority)
+			if c.Channel.PriorityOrZero() != 100 {
+				t.Errorf("expected priority 100 in cached match, got %d", c.Channel.PriorityOrZero())
 			}
 		}
 	}
 
 	// Patch non-existent channel (no-op)
 	cache.PatchCachedChannel(99999, func(ch *store.RouteChannel) {
-		ch.Priority = 999
+		ch.Priority = int64Ptr(999)
 	})
 }
 

@@ -134,8 +134,8 @@ func TestSelectChannel_MultiTierContext(t *testing.T) {
 		ID: 20, ModelPattern: "gpt-4o", RouteMode: "pattern",
 		RoutingStrategy: "weighted", Enabled: true, ContextLength: int64p(128_000),
 	}
-	chSmall := store.RouteChannel{ID: 100, RouteID: 10, AccountID: 1, SourceModel: &sm, Priority: 0, Weight: 10, Enabled: true}
-	chLarge := store.RouteChannel{ID: 200, RouteID: 20, AccountID: 2, SourceModel: &sm, Priority: 0, Weight: 10, Enabled: true}
+	chSmall := store.RouteChannel{ID: 100, RouteID: 10, AccountID: 1, SourceModel: &sm, Priority: int64Ptr(0), Weight: int64Ptr(10), Enabled: true}
+	chLarge := store.RouteChannel{ID: 200, RouteID: 20, AccountID: 2, SourceModel: &sm, Priority: int64Ptr(0), Weight: int64Ptr(10), Enabled: true}
 	site := store.Site{ID: 1, Name: "s", Platform: "openai", URL: "https://example.com", Status: "active"}
 	acc1 := store.Account{ID: 1, SiteID: 1, Status: "active", AccessToken: token, APIToken: &token}
 	acc2 := store.Account{ID: 2, SiteID: 1, Status: "active", AccessToken: token, APIToken: &token}

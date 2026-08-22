@@ -184,7 +184,7 @@ func (db *isolationDB) UpdateChannelCooldownFields(ctx context.Context, channelI
 			continue
 		}
 		if v, ok := updates["failCount"].(int64); ok {
-			row.Channel.FailCount = v
+			row.Channel.FailCount = &v
 		}
 		if raw, exists := updates["lastFailAt"]; exists {
 			switch v := raw.(type) {
@@ -227,7 +227,7 @@ func (db *isolationDB) UpdateChannelSuccessFields(ctx context.Context, channelID
 		return nil
 	}
 	if v, ok := updates["failCount"].(int64); ok {
-		row.Channel.FailCount = v
+		row.Channel.FailCount = &v
 	}
 	return nil
 }
@@ -242,7 +242,7 @@ func (db *isolationDB) UpdateRouteUnitMemberCooldownFields(ctx context.Context, 
 			continue
 		}
 		if v, ok := updates["failCount"].(int64); ok {
-			row.Member.FailCount = v
+			row.Member.FailCount = &v
 		}
 		if v, ok := updates["lastFailAt"].(string); ok {
 			s := v
@@ -273,7 +273,7 @@ func (db *isolationDB) UpdateRouteUnitMemberSuccessFields(ctx context.Context, m
 			continue
 		}
 		if v, ok := updates["failCount"].(int64); ok {
-			row.Member.FailCount = v
+			row.Member.FailCount = &v
 		}
 	}
 	return nil
@@ -352,8 +352,8 @@ func isolationChannel(id, routeID, accountID int64) store.RouteChannel {
 		RouteID:     routeID,
 		AccountID:   accountID,
 		SourceModel: &model,
-		Priority:    0,
-		Weight:      10,
+		Priority: int64Ptr(0),
+		Weight: int64Ptr(10),
 		Enabled:     true,
 	}
 }
@@ -432,7 +432,7 @@ func TestRecordFailure_RoundRobinConsecutiveFailThreshold(t *testing.T) {
 		t.Fatal("after 3 RR failures cooldownUntil should be set")
 	}
 	// failCount still accumulates independently of RR consecutive counter
-	if got.FailCount != 3 {
+	if got.FailCountOrZero() != 3 {
 		t.Fatalf("after 3 RR failures failCount=%d, want 3", got.FailCount)
 	}
 }
@@ -492,7 +492,7 @@ func TestRecordFailure_DoesNotCascadeToSiblingChannels(t *testing.T) {
 		t.Fatal("expected all seeded channels present")
 	}
 
-	if failed.FailCount != 1 {
+	if failed.FailCountOrZero() != 1 {
 		t.Errorf("failed channel failCount=%d, want 1", failed.FailCount)
 	}
 	if failed.LastFailAt == nil || *failed.LastFailAt == "" {
@@ -502,7 +502,7 @@ func TestRecordFailure_DoesNotCascadeToSiblingChannels(t *testing.T) {
 		t.Error("failed channel cooldownUntil should be set (fibonacci path)")
 	}
 
-	if sibling.FailCount != 0 {
+	if sibling.FailCountOrZero() != 0 {
 		t.Errorf("sibling channel failCount cascaded: got %d, want 0", sibling.FailCount)
 	}
 	if sibling.LastFailAt != nil {
@@ -516,7 +516,7 @@ func TestRecordFailure_DoesNotCascadeToSiblingChannels(t *testing.T) {
 			sibling.ConsecutiveFailCount, sibling.CooldownLevel)
 	}
 
-	if otherSite.FailCount != 0 || otherSite.LastFailAt != nil || otherSite.CooldownUntil != nil {
+	if otherSite.FailCountOrZero() != 0 || otherSite.LastFailAt != nil || otherSite.CooldownUntil != nil {
 		t.Errorf("unrelated site channel poisoned: failCount=%d lastFailAt=%v cooldownUntil=%v",
 			otherSite.FailCount, otherSite.LastFailAt, otherSite.CooldownUntil)
 	}
@@ -602,10 +602,10 @@ func TestRecordFailure_UsageLimitScopesCredentialSiblingsOnly(t *testing.T) {
 		t.Fatalf("usage-limit must not cascade beyond credential scope, got %v", db.lastCooldownIDs)
 	}
 
-	if c := db.getChannel(103); c.FailCount != 0 || c.CooldownUntil != nil {
+	if c := db.getChannel(103); c.FailCountOrZero() != 0 || c.CooldownUntil != nil {
 		t.Errorf("same-site different credential poisoned: failCount=%d cooldown=%v", c.FailCount, c.CooldownUntil)
 	}
-	if c := db.getChannel(201); c.FailCount != 0 || c.CooldownUntil != nil {
+	if c := db.getChannel(201); c.FailCountOrZero() != 0 || c.CooldownUntil != nil {
 		t.Errorf("other-site channel poisoned: failCount=%d cooldown=%v", c.FailCount, c.CooldownUntil)
 	}
 	// Credential siblings should carry short-window cooldown
@@ -615,7 +615,7 @@ func TestRecordFailure_UsageLimitScopesCredentialSiblingsOnly(t *testing.T) {
 			t.Errorf("channel %d missing short-window cooldown", id)
 		}
 		// short-window path resets failCount to 0 by design
-		if c.FailCount != 0 {
+		if c.FailCountOrZero() != 0 {
 			t.Errorf("channel %d failCount=%d want 0 under short-window path", id, c.FailCount)
 		}
 	}
@@ -670,11 +670,11 @@ func TestRecordFailure_OAuthMemberIsolation(t *testing.T) {
 	}
 
 	// Sibling regular channel untouched
-	if c := db.getChannel(302); c.FailCount != 0 || c.CooldownUntil != nil {
+	if c := db.getChannel(302); c.FailCountOrZero() != 0 || c.CooldownUntil != nil {
 		t.Errorf("sibling regular channel cascaded: failCount=%d cooldown=%v", c.FailCount, c.CooldownUntil)
 	}
 	// Outer OAuth channel itself not mutated (member path only)
-	if c := db.getChannel(301); c.FailCount != 0 || c.CooldownUntil != nil {
+	if c := db.getChannel(301); c.FailCountOrZero() != 0 || c.CooldownUntil != nil {
 		t.Errorf("outer oauth channel fields mutated: failCount=%d cooldown=%v", c.FailCount, c.CooldownUntil)
 	}
 }
@@ -705,7 +705,7 @@ func TestSelectionFilter_PrefersHealthySiblingAfterOneFailure(t *testing.T) {
 		return out
 	}
 	getInfo := func(c RouteChannelCandidate) (*int64, *string) {
-		return &c.Channel.FailCount, c.Channel.LastFailAt
+		return c.Channel.FailCount, c.Channel.LastFailAt
 	}
 
 	tests := []struct {
@@ -805,7 +805,7 @@ func TestSelectionFilter_PrefersHealthySiblingAfterOneFailure(t *testing.T) {
 				if selected == nil {
 					t.Fatal("expected RR selection")
 				}
-				if selected.Channel.FailCount > 0 {
+				if selected.Channel.FailCountOrZero() > 0 {
 					t.Errorf("RR selected recently-failed channel %d", selected.Channel.ID)
 				}
 			}
@@ -889,7 +889,7 @@ func TestRoundRobinFilterStack_MatchesWeightedRecentFailurePolicy(t *testing.T) 
 	candidates := []RouteChannelCandidate{failed, healthy}
 	breakerHealthy, _ := FilterSiteRuntimeBrokenCandidatesByModel(candidates, model)
 	filtered := FilterRecentlyFailedCandidates(breakerHealthy,
-		func(c RouteChannelCandidate) (*int64, *string) { return &c.Channel.FailCount, c.Channel.LastFailAt },
+		func(c RouteChannelCandidate) (*int64, *string) { return c.Channel.FailCount, c.Channel.LastFailAt },
 		nowMs, 0)
 
 	selected := SelectRoundRobinCandidate(filtered)
@@ -947,10 +947,10 @@ func TestWeightedSoftFilter_EmptyPriorityDemotesToNext(t *testing.T) {
 
 	// Priority 0: two recently-failed channels (would previously pin via full-set fallback)
 	c0a := buildTestCandidate(1, 10, 101, 10, 0, 100, 1, 50.0, 1.0, nil, 50.0, &model)
-	c0a.Channel.FailCount = 2
+	c0a.Channel.FailCount = int64Ptr(2)
 	c0a.Channel.LastFailAt = &recentISO
 	c0b := buildTestCandidate(2, 11, 102, 10, 0, 100, 1, 50.0, 1.0, nil, 50.0, &model)
-	c0b.Channel.FailCount = 3
+	c0b.Channel.FailCount = int64Ptr(3)
 	c0b.Channel.LastFailAt = &recentISO
 	// Priority 1: healthy channel
 	c1 := buildTestCandidate(3, 20, 201, 10, 1, 100, 0, 50.0, 1.0, nil, 50.0, &model)
@@ -964,7 +964,7 @@ func TestWeightedSoftFilter_EmptyPriorityDemotesToNext(t *testing.T) {
 	}
 	// Legacy full-set filter would return both failed channels.
 	legacy0 := FilterRecentlyFailedCandidates([]RouteChannelCandidate{c0a, c0b},
-		func(c RouteChannelCandidate) (*int64, *string) { return &c.Channel.FailCount, c.Channel.LastFailAt },
+		func(c RouteChannelCandidate) (*int64, *string) { return c.Channel.FailCount, c.Channel.LastFailAt },
 		nowMs, 3600)
 	if len(legacy0) != 2 {
 		t.Fatalf("expected legacy filter full-set fallback size 2, got %d", len(legacy0))
@@ -991,7 +991,7 @@ func TestWeightedSoftFilter_EmptyPriorityDemotesToNext(t *testing.T) {
 		t.Fatalf("expected priority-1 channel 3, got channel %d priority %d",
 			selected.Channel.ID, selected.Channel.Priority)
 	}
-	if selected.Channel.Priority != 1 {
+	if selected.Channel.PriorityOrZero() != 1 {
 		t.Fatalf("expected priority 1, got %d", selected.Channel.Priority)
 	}
 }
@@ -1010,10 +1010,10 @@ func TestWeightedSoftFilter_AllLayersSoftEmptyAllowsGlobalFallback(t *testing.T)
 	resolve := staticModel(model)
 
 	c0 := buildTestCandidate(1, 10, 101, 10, 0, 100, 1, 50.0, 1.0, nil, 50.0, &model)
-	c0.Channel.FailCount = 2
+	c0.Channel.FailCount = int64Ptr(2)
 	c0.Channel.LastFailAt = &recentISO
 	c1 := buildTestCandidate(2, 20, 201, 10, 1, 100, 1, 50.0, 1.0, nil, 50.0, &model)
-	c1.Channel.FailCount = 2
+	c1.Channel.FailCount = int64Ptr(2)
 	c1.Channel.LastFailAt = &recentISO
 
 	selected := selectAcrossPriorityLayers([]RouteChannelCandidate{c0, c1}, resolve, nowMs, 3600,
@@ -1048,7 +1048,7 @@ func TestRoundRobinSoftFilter_EmptyPriorityDemotesToNext(t *testing.T) {
 	// Priority 0: recently-failed channel (would previously pin via full-set fallback
 	// when RR applied FilterRecentlyFailedCandidates to the whole available set).
 	c0 := buildTestCandidate(1, 10, 101, 10, 0, 100, 1, 50.0, 1.0, nil, 50.0, &model)
-	c0.Channel.FailCount = 2
+	c0.Channel.FailCount = int64Ptr(2)
 	c0.Channel.LastFailAt = &recentISO
 	// Make prio-0 "earlier" in RR order so without demotion it would win.
 	old := time.UnixMilli(nowMs - 86_400_000).UTC().Format(time.RFC3339)
@@ -1068,7 +1068,7 @@ func TestRoundRobinSoftFilter_EmptyPriorityDemotesToNext(t *testing.T) {
 
 	// Legacy FilterRecentlyFailedCandidates on prio-0 alone would return c0 via full-set fallback.
 	legacy0 := FilterRecentlyFailedCandidates([]RouteChannelCandidate{c0},
-		func(c RouteChannelCandidate) (*int64, *string) { return &c.Channel.FailCount, c.Channel.LastFailAt },
+		func(c RouteChannelCandidate) (*int64, *string) { return c.Channel.FailCount, c.Channel.LastFailAt },
 		nowMs, 3600)
 	if len(legacy0) != 1 || legacy0[0].Channel.ID != 1 {
 		t.Fatalf("expected legacy filter full-set fallback to pin prio-0 channel 1, got %v", healthyIDs(legacy0))
@@ -1085,7 +1085,7 @@ func TestRoundRobinSoftFilter_EmptyPriorityDemotesToNext(t *testing.T) {
 		t.Fatalf("expected priority-1 channel 2, got channel %d priority %d",
 			selected.Channel.ID, selected.Channel.Priority)
 	}
-	if selected.Channel.Priority != 1 {
+	if selected.Channel.PriorityOrZero() != 1 {
 		t.Fatalf("expected priority 1, got %d", selected.Channel.Priority)
 	}
 }
@@ -1106,13 +1106,13 @@ func TestStableFirstSoftFilter_EmptyPriorityDemotesToNext(t *testing.T) {
 	// Priority 0: soft-unhealthy (recent fail). Give it high success history so that
 	// if it leaked into the pool plan it would be primary material.
 	c0 := buildTestCandidate(1, 10, 101, 10, 0, 100, 1, 50.0, 1.0, nil, 50.0, &model)
-	c0.Channel.FailCount = 2
+	c0.Channel.FailCount = int64Ptr(2)
 	c0.Channel.LastFailAt = &recentISO
-	c0.Channel.SuccessCount = 50
+	c0.Channel.SuccessCount = int64Ptr(50)
 
 	// Priority 1: healthy channel with enough history for primary pool.
 	c1 := buildTestCandidate(2, 20, 201, 10, 1, 100, 0, 50.0, 1.0, nil, 50.0, &model)
-	c1.Channel.SuccessCount = 50
+	c1.Channel.SuccessCount = int64Ptr(50)
 
 	available := []RouteChannelCandidate{c0, c1}
 
@@ -1159,7 +1159,7 @@ func TestStableFirstSoftFilter_EmptyPriorityDemotesToNext(t *testing.T) {
 		t.Fatalf("expected priority-1 channel 2, got channel %d priority %d",
 			selected.Channel.ID, selected.Channel.Priority)
 	}
-	if selected.Channel.Priority != 1 {
+	if selected.Channel.PriorityOrZero() != 1 {
 		t.Fatalf("expected priority 1, got %d", selected.Channel.Priority)
 	}
 }
@@ -1179,10 +1179,10 @@ func TestRoundRobinAndStableFirstSoftFilter_AllLayersSoftEmptyAllowsGlobalFallba
 	resolve := staticModel(model)
 
 	c0 := buildTestCandidate(1, 10, 101, 10, 0, 100, 1, 50.0, 1.0, nil, 50.0, &model)
-	c0.Channel.FailCount = 2
+	c0.Channel.FailCount = int64Ptr(2)
 	c0.Channel.LastFailAt = &recentISO
 	c1 := buildTestCandidate(2, 20, 201, 10, 1, 100, 1, 50.0, 1.0, nil, 50.0, &model)
-	c1.Channel.FailCount = 2
+	c1.Channel.FailCount = int64Ptr(2)
 	c1.Channel.LastFailAt = &recentISO
 
 	available := []RouteChannelCandidate{c0, c1}
@@ -1256,10 +1256,10 @@ func TestCascadeIsolation_EmptyFilterFullSetStarvationGuard_AllPriorityLayersSof
 
 	// Two priority layers, both entirely soft-unhealthy (recent fail).
 	c0 := buildTestCandidate(1, 10, 101, 10, 0, 100, 1, 50.0, 1.0, nil, 50.0, &model)
-	c0.Channel.FailCount = 3
+	c0.Channel.FailCount = int64Ptr(3)
 	c0.Channel.LastFailAt = &recentISO
 	c1 := buildTestCandidate(2, 20, 201, 10, 1, 100, 1, 50.0, 1.0, nil, 50.0, &model)
-	c1.Channel.FailCount = 2
+	c1.Channel.FailCount = int64Ptr(2)
 	c1.Channel.LastFailAt = &recentISO
 	available := []RouteChannelCandidate{c0, c1}
 
@@ -1277,7 +1277,7 @@ func TestCascadeIsolation_EmptyFilterFullSetStarvationGuard_AllPriorityLayersSof
 	// Global empty-filter full-set fallback intentionally re-exposes both.
 	breakerHealthy, _ := FilterSiteRuntimeBrokenCandidatesByModelResolver(available, resolve)
 	fullSet := FilterRecentlyFailedCandidates(breakerHealthy,
-		func(c RouteChannelCandidate) (*int64, *string) { return &c.Channel.FailCount, c.Channel.LastFailAt },
+		func(c RouteChannelCandidate) (*int64, *string) { return c.Channel.FailCount, c.Channel.LastFailAt },
 		nowMs, 3600)
 	if len(fullSet) != 2 {
 		t.Fatalf("honesty residual: global full-set starvation guard must return both candidates, got %v", healthyIDs(fullSet))
@@ -1327,17 +1327,17 @@ func TestCascadeIsolation_PriorityLayerDemotes_DoesNotPinBrokenLayerViaFullSet(t
 	// Priority 0: soft-unhealthy. Give it RR ordering advantage so a full-set pin
 	// on the broken layer would prefer it over healthy prio-1.
 	c0 := buildTestCandidate(1, 10, 101, 10, 0, 100, 1, 50.0, 1.0, nil, 50.0, &model)
-	c0.Channel.FailCount = 2
+	c0.Channel.FailCount = int64Ptr(2)
 	c0.Channel.LastFailAt = &recentISO
 	oldSel := time.UnixMilli(nowMs - 86_400_000).UTC().Format(time.RFC3339)
 	c0.Channel.LastSelectedAt = &oldSel
-	c0.Channel.SuccessCount = 50
+	c0.Channel.SuccessCount = int64Ptr(50)
 
 	// Priority 1: healthy.
 	c1 := buildTestCandidate(2, 20, 201, 10, 1, 100, 0, 50.0, 1.0, nil, 50.0, &model)
 	recentSel := time.UnixMilli(nowMs - 1_000).UTC().Format(time.RFC3339)
 	c1.Channel.LastSelectedAt = &recentSel
-	c1.Channel.SuccessCount = 50
+	c1.Channel.SuccessCount = int64Ptr(50)
 
 	available := []RouteChannelCandidate{c0, c1}
 
@@ -1354,7 +1354,7 @@ func TestCascadeIsolation_PriorityLayerDemotes_DoesNotPinBrokenLayerViaFullSet(t
 	// Legacy global FilterRecentlyFailedCandidates on the whole set would keep only
 	// healthy channel 2 (not pin broken); on prio-0 alone it would full-set pin c0.
 	legacyBrokenLayer := FilterRecentlyFailedCandidates([]RouteChannelCandidate{c0},
-		func(c RouteChannelCandidate) (*int64, *string) { return &c.Channel.FailCount, c.Channel.LastFailAt },
+		func(c RouteChannelCandidate) (*int64, *string) { return c.Channel.FailCount, c.Channel.LastFailAt },
 		nowMs, 3600)
 	if len(legacyBrokenLayer) != 1 || legacyBrokenLayer[0].Channel.ID != 1 {
 		t.Fatalf("sanity: legacy full-set on broken layer alone pins channel 1, got %v", healthyIDs(legacyBrokenLayer))
@@ -1398,7 +1398,7 @@ func TestCascadeIsolation_PriorityLayerDemotes_DoesNotPinBrokenLayerViaFullSet(t
 				t.Fatalf(" honesty residual: must demote to healthy prio-1 channel 2, not pin broken prio-0 via full-set; got channel %d priority %d",
 					selected.Channel.ID, selected.Channel.Priority)
 			}
-			if selected.Channel.Priority != 1 {
+			if selected.Channel.PriorityOrZero() != 1 {
 				t.Fatalf("expected priority 1 after demotion, got %d", selected.Channel.Priority)
 			}
 		})
@@ -1509,7 +1509,7 @@ func TestCascadeIsolation_UsageLimitCoolsCredentialSiblingsOnly_NotSiteOrRoutePe
 		if c.CooldownUntil == nil || *c.CooldownUntil == "" {
 			t.Errorf("credential sibling %d missing short-window cooldown", id)
 		}
-		if c.FailCount != 0 {
+		if c.FailCountOrZero() != 0 {
 			t.Errorf("credential sibling %d failCount=%d want 0 under short-window path", id, c.FailCount)
 		}
 	}
@@ -1520,7 +1520,7 @@ func TestCascadeIsolation_UsageLimitCoolsCredentialSiblingsOnly_NotSiteOrRoutePe
 		if c == nil {
 			t.Fatalf("missing channel %d", id)
 		}
-		if c.FailCount != 0 || c.LastFailAt != nil || c.CooldownUntil != nil {
+		if c.FailCountOrZero() != 0 || c.LastFailAt != nil || c.CooldownUntil != nil {
 			t.Errorf("non-credential peer %d poisoned: failCount=%d lastFailAt=%v cooldownUntil=%v",
 				id, c.FailCount, c.LastFailAt, c.CooldownUntil)
 		}
@@ -1583,17 +1583,17 @@ func TestCascadeIsolation_NonUsageLimitFailureRemainsChannelScopedExclude(t *tes
 	if failed == nil || sibling == nil || peer == nil {
 		t.Fatal("expected all seeded channels present")
 	}
-	if failed.FailCount != 1 {
+	if failed.FailCountOrZero() != 1 {
 		t.Errorf("failed channel failCount=%d, want 1", failed.FailCount)
 	}
 	if failed.CooldownUntil == nil || *failed.CooldownUntil == "" {
 		t.Error("failed channel cooldownUntil should be set (fibonacci path)")
 	}
-	if sibling.FailCount != 0 || sibling.LastFailAt != nil || sibling.CooldownUntil != nil {
+	if sibling.FailCountOrZero() != 0 || sibling.LastFailAt != nil || sibling.CooldownUntil != nil {
 		t.Errorf("same-credential sibling must NOT cool on non-usage-limit: failCount=%d lastFailAt=%v cooldownUntil=%v",
 			sibling.FailCount, sibling.LastFailAt, sibling.CooldownUntil)
 	}
-	if peer.FailCount != 0 || peer.LastFailAt != nil || peer.CooldownUntil != nil {
+	if peer.FailCountOrZero() != 0 || peer.LastFailAt != nil || peer.CooldownUntil != nil {
 		t.Errorf("different-credential peer poisoned: failCount=%d lastFailAt=%v cooldownUntil=%v",
 			peer.FailCount, peer.LastFailAt, peer.CooldownUntil)
 	}
