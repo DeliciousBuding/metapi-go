@@ -11,7 +11,7 @@
 | Go unit and integration   | `go test ./... -count=1 -race`                                                       | Package behavior, dual dialect, concurrency, handlers, routing, transforms   |
 | Frontend static gates     | `bun run typecheck`, `lint`, `format:check`, `knip`, `test`, `build:check` in `web/` | Types, lint, dead code, UI contracts, production bundle                      |
 | Repository e2e            | `e2e/`                                                                               | Full HTTP paths with controlled upstream fixtures                            |
-| Real-service CI           | `.github/workflows/main.yml`                                                         | New API and One API detect/login/route/proxy chains in service containers    |
+| Real-service CI           | `.github/workflows/main.yml`                                                         | New API, One API, Sub2API and CLIProxyAPI detect/login/route/proxy chains in service containers, plus cross-OS binary runtime smoke (`runtime-smoke-matrix`) |
 | Frontend acceptance       | [`../web/scripts/acceptance-e2e.mjs`](../web/scripts/acceptance-e2e.mjs) (+ [`acceptance-probe-header-quirk.mjs`](../web/scripts/acceptance-probe-header-quirk.mjs) for the fresh-site accounts-page race) | Real-browser user journeys (Playwright) against a live metapi + real upstream; operator-gated, not a PR check |
 | Operator runtime evidence | `scripts/e2e/*.sh` and focused staging procedures                                    | Compatibility that requires real credentials, topology, or upstream behavior |
 

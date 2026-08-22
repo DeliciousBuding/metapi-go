@@ -283,15 +283,17 @@ jobs:
       - run: go build -trimpath ./cmd/server
       - run: go build -trimpath ./cmd/migrate
 
-  # Real-platform e2e: boots REAL upstreams (new-api v1, one-api) as service
-  # containers, starts a live metapi server on the runner, and drives
-  # scripts/e2e/smoke.sh through the full admin + proxy chain (detect → login →
-  # verify → account → models → balance → checkin → downstream token → route →
-  # /v1 relay). This is the durable, free-on-Actions version of the transient
-  # ARM testbed: no external infra, no secrets, re-runnable per push.
+  # Real-platform e2e: boots REAL upstreams as service containers — new-api v1
+  # and one-api (password-login chains via scripts/e2e/smoke.sh) plus sub2api
+  # and cliproxyapi (token-import chains via scripts/e2e/verify-token-import.sh)
+  # — starts a live metapi server on the runner, and drives the full admin +
+  # proxy chain (detect → login/verify → account → models → balance → checkin →
+  # downstream token → route → /v1 relay). This is the durable, free-on-Actions
+  # version of the transient ARM testbed: no external infra, no secrets,
+  # re-runnable per push.
   test-e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     services:
       new-api:
         image: calciumion/new-api:latest
@@ -301,6 +303,79 @@ jobs:
         image: justsong/one-api:latest
         ports:
           - 3001:3000
+      # sub2api first-run needs postgres + redis (AUTO_SETUP migrates the DB and
+      # creates the admin account); cliproxyapi bootstraps its config store from
+      # the same postgres (PGSTORE_DSN -> /CLIProxyAPI/config.example.yaml inside
+      # the image). host.docker.internal + --add-host lets both containers reach
+      # the runner's published ports (5432/6379) while the job itself keeps
+      # reaching them via localhost.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: sub2api
+          POSTGRES_PASSWORD: sub2api-test-pw
+          POSTGRES_DB: sub2api
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      sub2api:
+        image: weishaw/sub2api:latest
+        ports:
+          - "3004:8080"
+        env:
+          AUTO_SETUP: "true"
+          SERVER_HOST: 0.0.0.0
+          SERVER_PORT: "8080"
+          SERVER_MODE: release
+          DATABASE_HOST: host.docker.internal
+          DATABASE_PORT: "5432"
+          DATABASE_USER: sub2api
+          DATABASE_PASSWORD: sub2api-test-pw
+          DATABASE_DBNAME: sub2api
+          DATABASE_SSLMODE: disable
+          REDIS_HOST: host.docker.internal
+          REDIS_PORT: "6379"
+          ADMIN_EMAIL: admin@sub2api.local
+          ADMIN_PASSWORD: sub2api-pass-123
+          JWT_SECRET: ci-e2e-sub2api-jwt-secret
+          TZ: "UTC"
+        options: >-
+          --add-host host.docker.internal:host-gateway
+          --restart on-failure
+          --health-cmd "wget -q -T 5 -O /dev/null http://127.0.0.1:8080/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 24
+          --health-start-period 20s
+      cliproxyapi:
+        image: eceasy/cli-proxy-api:latest
+        ports:
+          - "3005:8317"
+        env:
+          PGSTORE_DSN: postgres://sub2api:sub2api-test-pw@host.docker.internal:5432/sub2api?sslmode=disable
+          PGSTORE_SCHEMA: cliproxy
+          PGSTORE_LOCAL_PATH: /CLIProxyAPI/pgstore
+          # MANAGEMENT_PASSWORD exposes the /v0/management routes and enables
+          # remote management without a config.yaml; the key below is a
+          # throwaway CI value (no real secret, minted per run).
+          MANAGEMENT_PASSWORD: e2e-cliproxyapi-mgmt-key
+          TZ: "UTC"
+        options: >-
+          --add-host host.docker.internal:host-gateway
+          --restart on-failure
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/go-toolchain
@@ -322,6 +397,48 @@ jobs:
             curl -fsS http://127.0.0.1:3001/api/status >/dev/null 2>&1 && { echo "one-api ready"; break; }
             sleep 2
           done
+
+          # sub2api first-run: AUTO_SETUP=true (container env) migrates the
+          # postgres DB and creates the admin from ADMIN_EMAIL/ADMIN_PASSWORD.
+          # No CI secrets: the session JWT below is minted in this step by
+          # logging in with that throwaway admin, so the token-import chain can
+          # exercise metapi's real JWT verify path against the fresh instance.
+          sub2api_ready=
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3004/health >/dev/null 2>&1; then
+              sub2api_ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ -z "$sub2api_ready" ]; then
+            echo "sub2api failed to become ready" >&2
+            exit 1
+          fi
+          curl -fsS -X POST http://127.0.0.1:3004/api/v1/auth/login \
+            -H 'Content-Type: application/json' \
+            -d '{"email":"admin@sub2api.local","password":"sub2api-pass-123"}' \
+            -o sub2api-login.json
+          sub2api_token="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["data"]["access_token"])' sub2api-login.json)"
+          echo "sub2api admin login OK"
+          echo "SUB2API_ACCESS_TOKEN=$sub2api_token" >> "$GITHUB_ENV"
+
+          # cliproxyapi first-run (no auth files): /v1/models answers 200 with
+          # an empty list; the throwaway management key is validated later by
+          # metapi's verify path against /v0/management (Bearer).
+          cpa_ready=
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3005/v1/models >/dev/null 2>&1; then
+              cpa_ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ -z "$cpa_ready" ]; then
+            echo "cliproxyapi failed to become ready" >&2
+            exit 1
+          fi
+          echo "cliproxyapi ready"
       - name: Run live server + smoke chains
         run: |
           set -euo pipefail
@@ -361,6 +478,81 @@ jobs:
           UPSTREAM_USERNAME=root UPSTREAM_PASSWORD=123456 \
           PLATFORM=one-api SITE_NAME=e2e-smoke-oneapi TOKEN_NAME=e2e-smoke-oneapi-token \
           bash scripts/e2e/smoke.sh
+
+          echo "===== sub2api token-import chain ====="
+          METAPI_URL=http://127.0.0.1:4010 \
+          METAPI_AUTH_TOKEN=e2e-admin-token \
+          UPSTREAM_URL=http://127.0.0.1:3004 \
+          UPSTREAM_TOKEN="$SUB2API_ACCESS_TOKEN" \
+          PLATFORM=sub2api CREDENTIAL_MODE=session \
+          SKIP_MODEL_FETCH=true \
+          SITE_NAME=e2e-smoke-sub2api TOKEN_NAME=e2e-smoke-sub2api-token \
+          bash scripts/e2e/verify-token-import.sh
+
+          echo "===== cliproxyapi token-import chain ====="
+          METAPI_URL=http://127.0.0.1:4010 \
+          METAPI_AUTH_TOKEN=e2e-admin-token \
+          UPSTREAM_URL=http://127.0.0.1:3005 \
+          UPSTREAM_TOKEN=e2e-cliproxyapi-mgmt-key \
+          PLATFORM=cliproxyapi CREDENTIAL_MODE=apikey \
+          SKIP_MODEL_FETCH=true \
+          SITE_NAME=e2e-smoke-cliproxyapi TOKEN_NAME=e2e-smoke-cliproxyapi-token \
+          bash scripts/e2e/verify-token-import.sh
+
+  # Cross-platform runtime smoke: release binaries are cross-compiled for 5
+  # targets but only linux/amd64 ever gets executed (release smoke step). This
+  # job builds + boots the real binary on each shipped OS (macOS x64, Windows
+  # x64, Linux x64 + arm64) against an in-memory SQLite store: --version,
+  # startup, /ready + /health, and one minimal authenticated /v1 request.
+  runtime-smoke-matrix:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest, ubuntu-24.04-arm]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Build native binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Native GOOS/GOARCH of the runner (ubuntu-24.04-arm -> linux/arm64);
+          # go build appends .exe automatically on windows.
+          go build -trimpath -o metapi-smoke ./cmd/server
+      - name: Version + runtime smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          bin="$(ls metapi-smoke*)"
+          "$bin" --version
+          data_dir="$RUNNER_TEMP/metapi-smoke-data-$RANDOM"
+          mkdir -p "$data_dir"
+          HOST=127.0.0.1 PORT=4097 DATA_DIR="$data_dir" DB_URL=:memory: \
+          AUTH_TOKEN=smoke-admin-token PROXY_TOKEN=smoke-proxy-token \
+          "$bin" >"$RUNNER_TEMP/metapi-smoke.log" 2>&1 &
+          pid=$!
+          trap 'kill "$pid" >/dev/null 2>&1 || true' EXIT
+          ready=
+          for _ in $(seq 1 60); do
+            if curl -fsS "http://127.0.0.1:4097/ready" 2>/dev/null | grep -q '"status":"ok"'; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ -z "$ready" ]; then
+            echo "server failed to become ready; log:"
+            cat "$RUNNER_TEMP/metapi-smoke.log"
+            exit 1
+          fi
+          curl -fsS "http://127.0.0.1:4097/health" | grep -q '"status":"ok"'
+          curl -fsS "http://127.0.0.1:4097/v1/models" \
+            -H "Authorization: Bearer smoke-proxy-token" | grep -q '"object":"list"'
+          echo "runtime smoke OK: $bin ($(uname -s)/$(uname -m))"
 
   # Build + smoke the image on every run (this is also a required check on PRs).
   # It does not push; docker-push publishes the same image via shared cache.
