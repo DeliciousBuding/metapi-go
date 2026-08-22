@@ -1,7 +1,11 @@
-// metapi-go/features/auth — auth-redirect sanitizer.
+// metapi-go/lib/helpers — auth-redirect sanitizer.
 // Prevents open-redirect attacks by constraining the `redirect` search param
 // to same-origin paths. Ported from newapi (simplified: no getSavedLanguage
 // since metapi-go tokens carry no user profile in the skeleton).
+//
+// Lives in lib/ (not features/auth) because the shared HTTP client
+// (src/lib/http-client.ts) applies the same whitelist when building its 401
+// sign-in redirect — lib must never import from features/.
 
 const allowedRedirectProtocols = new Set(['http:', 'https:'])
 

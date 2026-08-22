@@ -8,8 +8,8 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { z } from 'zod'
 
 import { SignInPage } from '@/features/auth'
-import { sanitizeAuthRedirect } from '@/features/auth/lib/auth-redirect'
 import { hasValidAuthSessionSafe } from '@/lib/auth-session'
+import { sanitizeAuthRedirect } from '@/lib/helpers/sanitize-auth-redirect'
 import { asStringParam, stringSearchParam } from '@/lib/helpers/searchParams'
 
 export const signInSearchSchema = z.object({

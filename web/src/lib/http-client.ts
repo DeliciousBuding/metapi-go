@@ -1,6 +1,5 @@
 import axios, { type AxiosRequestConfig } from 'axios'
 
-import { sanitizeAuthRedirect } from '@/features/auth/lib/auth-redirect'
 import i18n from '@/i18n/config'
 import {
   clearAuthentication,
@@ -8,6 +7,7 @@ import {
   getAccessToken,
   resolveAuthenticationAfterUnauthorized,
 } from '@/lib/auth-session'
+import { sanitizeAuthRedirect } from '@/lib/helpers/sanitize-auth-redirect'
 import { toast } from '@/lib/toast'
 
 declare module 'axios' {
