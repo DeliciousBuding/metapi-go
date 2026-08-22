@@ -42,7 +42,22 @@ func bodyLooksResponsesShaped(bodyBytes []byte) bool {
 	return false
 }
 
+// upstreamStreamRewriteGates computes the per-candidate gates for the
+// single-pass stream rewrite: stream forcing (responses-only / stream-
+// preferring sites, codex/sub2api platforms) and include_usage injection
+// (OpenAI-compatible chat/completions paths on accepting platforms).
+func upstreamStreamRewriteGates(sitePlatform, upstreamPath string, pref proxy.SiteProtocolPreference) (forceStream, injectUsage bool) {
+	pathLower := strings.ToLower(upstreamPath)
+	isCompact := strings.Contains(pathLower, "/responses/compact")
+	forceStream = responses.ShouldForceResponsesUpstreamStream(sitePlatform, isCompact) ||
+		proxy.ShouldForceUpstreamStream(pref, upstreamPath, isCompact)
+	injectUsage = acceptsOpenAIStreamIncludeUsagePath(upstreamPath) && !rejectsOpenAIStreamOptions(sitePlatform)
+	return forceStream, injectUsage
+}
+
 // applyUpstreamStreamPreference forces stream=true when site/platform requires it.
+// The rewrite is a single allocation-free scan + splice; irregular bodies fall
+// back to the legacy full-decode path for exact semantics.
 func applyUpstreamStreamPreference(bodyBytes []byte, sitePlatform, upstreamPath string, pref proxy.SiteProtocolPreference) ([]byte, bool) {
 	pathLower := strings.ToLower(upstreamPath)
 	isCompact := strings.Contains(pathLower, "/responses/compact")
@@ -52,6 +67,16 @@ func applyUpstreamStreamPreference(bodyBytes []byte, sitePlatform, upstreamPath 
 	if !force {
 		return bodyBytes, false
 	}
+	out, forced, _, ok := rewriteUpstreamStreamFlags(bodyBytes, scanBodyStreamHints(bodyBytes), true, false, false)
+	if ok {
+		return out, forced
+	}
+	return legacyApplyStreamPreference(bodyBytes)
+}
+
+// legacyApplyStreamPreference is the original map[string]any implementation,
+// retained as the fallback for bodies the allocation-free scanner declines.
+func legacyApplyStreamPreference(bodyBytes []byte) ([]byte, bool) {
 	if len(bodyBytes) == 0 {
 		return []byte(`{"stream":true}`), true
 	}
@@ -84,6 +109,8 @@ func applyUpstreamStreamPreference(bodyBytes []byte, sitePlatform, upstreamPath 
 // chat/completions and legacy /v1/completions stream bodies so upstream SSE emits a final usage chunk (known limitation).
 // Platform-safe: skips non-chat endpoints and platforms known to reject stream_options (codex/sub2api).
 // Does not invent tokens; only asks the provider to include usage when streaming.
+// The rewrite is a single allocation-free scan + splice; irregular bodies fall
+// back to the legacy full-decode path for exact semantics.
 
 // The bool is true when the outbound stream body is expected to carry usage via include_usage
 // (we injected it, or the client already set include_usage=true on an accepting path). Callers
@@ -98,12 +125,18 @@ func applyUpstreamStreamIncludeUsage(bodyBytes []byte, sitePlatform, upstreamPat
 	if rejectsOpenAIStreamOptions(sitePlatform) {
 		return bodyBytes, false
 	}
+	out, _, expect, ok := rewriteUpstreamStreamFlags(bodyBytes, scanBodyStreamHints(bodyBytes), false, isStream, true)
+	if ok {
+		return out, expect
+	}
+	return legacyApplyStreamIncludeUsage(bodyBytes)
+}
+
+// legacyApplyStreamIncludeUsage is the original map[string]any implementation,
+// retained as the fallback for bodies the allocation-free scanner declines.
+func legacyApplyStreamIncludeUsage(bodyBytes []byte) ([]byte, bool) {
 	var body map[string]any
 	if err := json.Unmarshal(bodyBytes, &body); err != nil {
-		return bodyBytes, false
-	}
-	// Only when this attempt is streaming (client or forced).
-	if !jsonTruthyBool(body["stream"]) && !isStream {
 		return bodyBytes, false
 	}
 	opts, _ := body["stream_options"].(map[string]any)

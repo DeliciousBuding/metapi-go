@@ -10,6 +10,19 @@ import (
 	"github.com/deliciousbuding/metapi-go/transform/openai/responses"
 )
 
+// Sanitize gate markers; long needles go through the SIMD-friendly
+// containsLongMarker instead of bytes.Contains (Rabin-Karp slowdown).
+var (
+	previousResponseIDMarker = []byte(`"previous_response_id"`)
+	reasoningTightMarker     = []byte(`"type":"reasoning"`)
+	reasoningSpacedMarker    = []byte(`"type": "reasoning"`)
+	encryptedContentMarker   = []byte(`"encrypted_content"`)
+	inputKeyMarker           = []byte(`"input"`)
+	functionCallMarker       = []byte(`"functionCall"`)
+	functionCallSnakeMarker  = []byte(`"function_call"`)
+	toolCallsMarker          = []byte(`"tool_calls"`)
+)
+
 func sanitizeUpstreamJSONBody(bodyBytes []byte, sitePlatform, upstreamPath, upstreamModel string) ([]byte, error) {
 	if len(bodyBytes) == 0 {
 		return bodyBytes, nil
@@ -20,16 +33,16 @@ func sanitizeUpstreamJSONBody(bodyBytes []byte, sitePlatform, upstreamPath, upst
 	pathLower := strings.ToLower(upstreamPath)
 	needsCompact := strings.Contains(pathLower, "/responses/compact")
 	isResponsesPath := needsCompact || strings.Contains(pathLower, "/responses")
-	needsContinuity := bytes.Contains(bodyBytes, []byte(`"previous_response_id"`))
+	needsContinuity := containsLongMarker(bodyBytes, previousResponseIDMarker)
 	// Multi-turn Hermes/Codex ():
 	// 1) Exact compact markers (common client encoding).
 	// 2) Responses path + "input" always parse - covers pretty-printed /
 	// spaced JSON where "type" : "reasoning" does not match contiguous bytes.
 	// 3) encrypted_content anywhere (continuity payload even without type key).
-	needsReasoningInput := bytes.Contains(bodyBytes, []byte(`"type":"reasoning"`)) ||
-		bytes.Contains(bodyBytes, []byte(`"type": "reasoning"`)) ||
-		bytes.Contains(bodyBytes, []byte(`"encrypted_content"`)) ||
-		(isResponsesPath && bytes.Contains(bodyBytes, []byte(`"input"`)))
+	needsReasoningInput := containsLongMarker(bodyBytes, reasoningTightMarker) ||
+		containsLongMarker(bodyBytes, reasoningSpacedMarker) ||
+		containsLongMarker(bodyBytes, encryptedContentMarker) ||
+		(isResponsesPath && bytes.Contains(bodyBytes, inputKeyMarker))
 	needsGeminiThought := needsGeminiThoughtSignatureSanitize(sitePlatform, upstreamPath, bodyBytes)
 	if !needsCompact && !needsContinuity && !needsReasoningInput && !needsGeminiThought {
 		return bodyBytes, nil
@@ -83,9 +96,9 @@ func needsGeminiThoughtSignatureSanitize(sitePlatform, upstreamPath string, body
 		return false
 	}
 	// Tool-history markers only (functionCall native or OpenAI tool_calls).
-	return bytes.Contains(bodyBytes, []byte(`"functionCall"`)) ||
-		bytes.Contains(bodyBytes, []byte(`"function_call"`)) ||
-		bytes.Contains(bodyBytes, []byte(`"tool_calls"`))
+	return containsLongMarker(bodyBytes, functionCallMarker) ||
+		containsLongMarker(bodyBytes, functionCallSnakeMarker) ||
+		containsLongMarker(bodyBytes, toolCallsMarker)
 }
 
 func isGeminiThoughtSignaturePlatform(sitePlatform string) bool {
@@ -200,10 +213,10 @@ func cloneJSONMapShallow(in map[string]any) map[string]any {
 	return out
 }
 
-// swapModelInJSON performs a shallow JSON re-encode to replace the "model" field.
-// It uses json.RawMessage to avoid deep-unmarshalling nested values, then sets
-// the model key and marshals once. This replaces the previous approach of:
-
-//	cloneAndSetModel(ctx.Body) -> json.Marshal
-
-// which allocated a full map copy PLUS serialized the deep structure twice.
+// swapModelInJSON (upstream.go) short-circuits with an allocation-free
+// top-level scan when the body already carries the target model (the
+// no-mapping norm) and otherwise splices only the model value span, keeping
+// the rest of the payload byte-identical. The previous shallow re-encode
+// (map[string]json.RawMessage round-trip) survives only as the fallback for
+// irregular bodies, alongside the stream-forcing / include_usage single-pass
+// splice in upstream_body_rewrite.go.
