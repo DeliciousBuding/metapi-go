@@ -12,7 +12,7 @@ import type { ProxyLog } from '../types'
 // the CSV sticks to the columns the /api/stats/proxy-logs response actually
 // returns. httpStatus IS in the response (pl.*) even though the list type
 // historically omitted it, so it is surfaced here as a bonus column.
-export const PROXY_LOGS_CSV_COLUMNS = [
+const PROXY_LOGS_CSV_COLUMNS = [
   'timestamp',
   'httpStatus',
   'status',
