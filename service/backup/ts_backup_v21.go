@@ -507,7 +507,7 @@ func convertTSV21Row(spec tsV21TableSpec, row map[string]any, rowIndex int) (map
 	}
 	for _, required := range spec.required {
 		if _, ok := converted[required]; !ok {
-			return nil, TSV21ClientError{Message: fmt.Sprintf("import failed: account row %d in %s is missing required field %s", spec.section, rowIndex, required)}
+			return nil, TSV21ClientError{Message: fmt.Sprintf("import failed: account row %d in %s is missing required field %s", rowIndex, spec.section, required)}
 		}
 	}
 	return converted, nil
