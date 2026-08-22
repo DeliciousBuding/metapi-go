@@ -854,7 +854,7 @@ func TestTokens_GetValue_Masked(t *testing.T) {
 	var result map[string]any
 	json.Unmarshal(resp.Body.Bytes(), &result)
 	errMsg, _ := result["error"].(string)
-	if !strings.Contains(errMsg, "脱敏") {
+	if !strings.Contains(errMsg, "masked token") {
 		t.Errorf("expected masked token error message, got %#v", result)
 	}
 }

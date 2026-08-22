@@ -264,7 +264,7 @@ func TestRuntimeDatabaseTestConnectionPostgresFailureDoesNotLeakPassword(t *test
 	if err := json.NewDecoder(rec.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if !strings.Contains(payload.Error, "数据库测试连接失败") {
+	if !strings.Contains(payload.Error, "database connection test failed") {
 		t.Fatalf("error = %q, want connection failure message", payload.Error)
 	}
 }
@@ -414,7 +414,7 @@ func TestRuntimeDatabaseMigrateRejectsSameTarget(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400; body=%s", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), "相同") {
+	if !strings.Contains(rec.Body.String(), "same as") {
 		t.Fatalf("body = %s, want same-target rejection message", rec.Body.String())
 	}
 }
@@ -439,7 +439,7 @@ func TestRuntimeDatabaseMigrateRejectsEmptyConnectionString(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400; body=%s", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), "连接字符串") {
+	if !strings.Contains(rec.Body.String(), "connection string") {
 		t.Fatalf("body = %s, want empty-connection-string rejection", rec.Body.String())
 	}
 }

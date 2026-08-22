@@ -63,7 +63,7 @@ func TestStats_ModelCostDistribution_TopNWithOther(t *testing.T) {
 		t.Fatalf("items[0].cost = %v, want 5.0", got)
 	}
 	last := items[2].(map[string]any)
-	if last["model"] != "other" || last["label"] != "其他模型" {
+	if last["model"] != "other" || last["label"] != "Other models" {
 		t.Fatalf("items[2] = %#v, want Other bucket", last)
 	}
 	if got := last["cost"].(float64); got != 0.5 {
