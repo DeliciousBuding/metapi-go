@@ -198,15 +198,15 @@ func (h *downstreamKeysHandler) createKey(w http.ResponseWriter, r *http.Request
 	body.Key = strings.TrimSpace(body.Key)
 
 	if body.Name == "" {
-		writeError(w, http.StatusBadRequest, "name 不能为空")
+		writeError(w, http.StatusBadRequest, "name is required")
 		return
 	}
 	if body.Key == "" {
-		writeError(w, http.StatusBadRequest, "key 不能为空")
+		writeError(w, http.StatusBadRequest, "key is required")
 		return
 	}
 	if !strings.HasPrefix(body.Key, "sk-") || len(body.Key) < 6 {
-		writeError(w, http.StatusBadRequest, "key 必须以 sk- 开头且长度至少 6")
+		writeError(w, http.StatusBadRequest, "key must start with sk- and be at least 6 characters long")
 		return
 	}
 
@@ -214,7 +214,7 @@ func (h *downstreamKeysHandler) createKey(w http.ResponseWriter, r *http.Request
 	var count int
 	h.db.Get(&count, rebindAdminQuery(h.db, "SELECT COUNT(*) FROM downstream_api_keys WHERE key = ?"), body.Key)
 	if count > 0 {
-		writeError(w, http.StatusConflict, "API key 已存在")
+		writeError(w, http.StatusConflict, "API key already exists")
 		return
 	}
 
@@ -292,10 +292,10 @@ func (h *downstreamKeysHandler) createKey(w http.ResponseWriter, r *http.Request
 	)
 	if err != nil {
 		if isUniqueConstraintError(err) {
-			writeError(w, http.StatusConflict, "API key 已存在")
+			writeError(w, http.StatusConflict, "API key already exists")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "创建失败")
+		writeError(w, http.StatusInternalServerError, "creation failed")
 		return
 	}
 	created := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)
@@ -320,7 +320,7 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 
 	existing := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)
 	if existing == nil {
-		writeError(w, http.StatusNotFound, "API key 不存在")
+		writeError(w, http.StatusNotFound, "API key not found")
 		return
 	}
 
@@ -562,15 +562,15 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 
 	// Validate.
 	if name == "" {
-		writeError(w, http.StatusBadRequest, "name 不能为空")
+		writeError(w, http.StatusBadRequest, "name is required")
 		return
 	}
 	if key == "" {
-		writeError(w, http.StatusBadRequest, "key 不能为空")
+		writeError(w, http.StatusBadRequest, "key is required")
 		return
 	}
 	if !strings.HasPrefix(key, "sk-") || len(key) < 6 {
-		writeError(w, http.StatusBadRequest, "key 必须以 sk- 开头且长度至少 6")
+		writeError(w, http.StatusBadRequest, "key must start with sk- and be at least 6 characters long")
 		return
 	}
 
@@ -579,7 +579,7 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 		var dupCount int
 		h.db.Get(&dupCount, rebindAdminQuery(h.db, "SELECT COUNT(*) FROM downstream_api_keys WHERE key = ? AND id != ?"), key, id)
 		if dupCount > 0 {
-			writeError(w, http.StatusConflict, "API key 已存在")
+			writeError(w, http.StatusConflict, "API key already exists")
 			return
 		}
 	}
@@ -621,10 +621,10 @@ func (h *downstreamKeysHandler) updateKey(w http.ResponseWriter, r *http.Request
 	)
 	if err != nil {
 		if isUniqueConstraintError(err) {
-			writeError(w, http.StatusConflict, "API key 已存在")
+			writeError(w, http.StatusConflict, "API key already exists")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "更新失败")
+		writeError(w, http.StatusInternalServerError, "update failed")
 		return
 	}
 
@@ -647,7 +647,7 @@ func (h *downstreamKeysHandler) resetUsage(w http.ResponseWriter, r *http.Reques
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	if _, err := h.db.Exec(rebindAdminQuery(h.db, "UPDATE downstream_api_keys SET used_cost = 0, used_requests = 0, updated_at = ? WHERE id = ?"), now, id); err != nil {
-		writeError(w, http.StatusInternalServerError, "重置失败")
+		writeError(w, http.StatusInternalServerError, "reset failed")
 		return
 	}
 
@@ -668,7 +668,7 @@ func (h *downstreamKeysHandler) deleteKey(w http.ResponseWriter, r *http.Request
 	}
 
 	if _, err := h.db.Exec(rebindAdminQuery(h.db, "DELETE FROM downstream_api_keys WHERE id = ?"), id); err != nil {
-		writeError(w, http.StatusInternalServerError, "删除失败")
+		writeError(w, http.StatusInternalServerError, "delete failed")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
@@ -683,7 +683,7 @@ func (h *downstreamKeysHandler) overview(w http.ResponseWriter, r *http.Request)
 
 	row := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)
 	if row == nil {
-		writeError(w, http.StatusNotFound, "API key 不存在")
+		writeError(w, http.StatusNotFound, "API key not found")
 		return
 	}
 
@@ -710,7 +710,7 @@ func (h *downstreamKeysHandler) trend(w http.ResponseWriter, r *http.Request) {
 
 	row := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)
 	if row == nil {
-		writeError(w, http.StatusNotFound, "API key 不存在")
+		writeError(w, http.StatusNotFound, "API key not found")
 		return
 	}
 
@@ -762,7 +762,7 @@ func (h *downstreamKeysHandler) batchKeys(w http.ResponseWriter, r *http.Request
 	for _, id := range body.IDs {
 		row := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)
 		if row == nil {
-			failedItems = append(failedItems, map[string]any{"id": id, "message": "API key 不存在"})
+			failedItems = append(failedItems, map[string]any{"id": id, "message": "API key not found"})
 			continue
 		}
 		now := time.Now().UTC().Format(time.RFC3339)
@@ -843,7 +843,7 @@ func (h *downstreamKeysHandler) validateDownstreamPolicyReferences(
 				}
 			}
 			if len(missing) > 0 {
-				return fmt.Sprintf("allowedRouteIds 包含不存在的路由: %s", strings.Join(missing, ", ")), nil
+				return fmt.Sprintf("allowedRouteIds contains unknown routes: %s", strings.Join(missing, ", ")), nil
 			}
 		}
 	}
@@ -890,7 +890,7 @@ func (h *downstreamKeysHandler) validateDownstreamPolicyReferences(
 				}
 			}
 			if len(missing) > 0 {
-				return fmt.Sprintf("策略中包含不存在的站点: %s", strings.Join(missing, ", ")), nil
+				return fmt.Sprintf("policy contains unknown sites: %s", strings.Join(missing, ", ")), nil
 			}
 		}
 	}
@@ -907,7 +907,7 @@ func (h *downstreamKeysHandler) validateDownstreamPolicyReferences(
 			accountId := coerceInt64(obj["accountId"])
 			siteId := coerceInt64(obj["siteId"])
 			if tokenId <= 0 {
-				return fmt.Sprintf("credentialRefs 包含不存在的令牌: %v", obj["tokenId"]), nil
+				return fmt.Sprintf("credentialRefs contains an invalid token reference: %v", obj["tokenId"]), nil
 			}
 			row := queryRow(h.db,
 				`SELECT at.id as token_id, at.account_id, a.site_id
@@ -915,12 +915,12 @@ func (h *downstreamKeysHandler) validateDownstreamPolicyReferences(
 				 INNER JOIN accounts a ON at.account_id = a.id
 				 WHERE at.id = ?`, tokenId)
 			if row == nil {
-				return fmt.Sprintf("credentialRefs 包含不存在的令牌: %d", tokenId), nil
+				return fmt.Sprintf("credentialRefs contains an unknown token: %d", tokenId), nil
 			}
 			dbAccountId := coerceInt64(mustRowValue(row, "account_id"))
 			dbSiteId := coerceInt64(mustRowValue(row, "site_id"))
 			if dbAccountId != accountId || dbSiteId != siteId {
-				return fmt.Sprintf("credentialRefs 中的 account_token 引用与账号/站点不匹配: %d", tokenId), nil
+				return fmt.Sprintf("credentialRefs account_token reference does not match the account/site: %d", tokenId), nil
 			}
 		} else if kind == "default_api_key" {
 			accountId := coerceInt64(obj["accountId"])
@@ -929,15 +929,15 @@ func (h *downstreamKeysHandler) validateDownstreamPolicyReferences(
 				`SELECT id as account_id, site_id, api_token
 				 FROM accounts WHERE id = ?`, accountId)
 			if row == nil {
-				return fmt.Sprintf("credentialRefs 包含不存在的账号: %d", accountId), nil
+				return fmt.Sprintf("credentialRefs contains an unknown account: %d", accountId), nil
 			}
 			dbSiteId := coerceInt64(mustRowValue(row, "site_id"))
 			if dbSiteId != siteId {
-				return fmt.Sprintf("credentialRefs 中的 default_api_key 引用与站点不匹配: %d", accountId), nil
+				return fmt.Sprintf("credentialRefs default_api_key reference does not match the site: %d", accountId), nil
 			}
 			apiToken, _ := mustRowValue(row, "api_token").(string)
 			if strings.TrimSpace(apiToken) == "" {
-				return fmt.Sprintf("credentialRefs 中的 default_api_key 账号缺少默认 API Key: %d", accountId), nil
+				return fmt.Sprintf("credentialRefs default_api_key account has no default API key: %d", accountId), nil
 			}
 		}
 	}

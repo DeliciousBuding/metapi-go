@@ -434,7 +434,7 @@ func normalizeDownstreamProxyURL(input *string) (*string, string) {
 		}
 	}
 	if !supported {
-		return nil, "proxyUrl 必须以 http://、https:// 或 socks 代理 scheme 开头"
+		return nil, "proxyUrl must start with http://, https:// or a socks proxy scheme"
 	}
 	return &v, ""
 }
