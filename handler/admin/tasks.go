@@ -161,7 +161,7 @@ func StartBackgroundTask(opts BackgroundTaskStartOptions, runner func() (any, er
 		Type:      opts.Type,
 		Title:     opts.Title,
 		Status:    BackgroundTaskPending,
-		Message:   opts.Title + " 已开始执行",
+		Message:   opts.Title + " started",
 		Error:     nil,
 		Result:    nil,
 		DedupeKey: dedupePtr,
@@ -194,7 +194,7 @@ func runBackgroundTask(taskID, title, dedupeKey string, runner func() (any, erro
 	if task, ok := backgroundTasks[taskID]; ok {
 		task.Status = BackgroundTaskRunning
 		task.StartedAt = &started
-		task.Message = title + " 正在执行"
+		task.Message = title + " running"
 		task.UpdatedAt = started
 	}
 	backgroundTasksMu.Unlock()
@@ -220,13 +220,13 @@ func runBackgroundTask(taskID, title, dedupeKey string, runner func() (any, erro
 		errPtr = &msg
 		task.Status = BackgroundTaskFailed
 		task.Error = &msg
-		task.Message = title + " 失败：" + msg
+		task.Message = title + " failed: " + msg
 		status = BackgroundTaskFailed
 	} else {
 		task.Status = BackgroundTaskSucceeded
 		task.Error = nil
 		task.Result = result
-		task.Message = title + " 已完成"
+		task.Message = title + " completed"
 		status = BackgroundTaskSucceeded
 	}
 	if dedupeKey != "" && backgroundDedupeIDs[dedupeKey] == taskID {

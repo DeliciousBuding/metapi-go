@@ -22,8 +22,8 @@ func testNotify(w http.ResponseWriter, r *http.Request) {
 
 	result, err := notify.SendNotification(
 		cfg,
-		"测试通知",
-		"您好，这是一条来自系统设置的连通性测试通知，您的通知相关配置目前工作正常！",
+		"Test notification",
+		"This is a connectivity test notification from system settings; your notification configuration is working correctly!",
 		"info",
 		&notify.SendNotificationOptions{
 			BypassThrottle: true,

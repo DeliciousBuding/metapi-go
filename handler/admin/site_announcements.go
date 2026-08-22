@@ -242,10 +242,10 @@ func (h *siteAnnouncementsHandler) syncAnnouncements(w http.ResponseWriter, r *h
 		}
 	}
 
-	title := "同步站点公告"
+	title := "Sync site announcements"
 	dedupeKey := "site-announcements:all"
 	if siteID != nil {
-		title = fmt.Sprintf("同步站点公告 #%d", *siteID)
+		title = fmt.Sprintf("Sync site announcements #%d", *siteID)
 		dedupeKey = fmt.Sprintf("site-announcements:%d", *siteID)
 	}
 
@@ -402,7 +402,7 @@ func SyncSiteAnnouncements(db *sqlx.DB, siteID *int64) SiteAnnouncementSyncResul
 			announcementID, _ := insertRes.LastInsertId()
 			result.Inserted++
 
-			title := "站点公告：" + site.Name
+			title := "Site announcement: " + site.Name
 			message := buildAnnouncementMessage(announcement)
 			_, _ = db.Exec(db.Rebind(`
 				INSERT INTO events (type, title, message, level, related_id, related_type, created_at, read)

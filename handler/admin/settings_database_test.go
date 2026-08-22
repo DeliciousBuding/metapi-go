@@ -358,14 +358,14 @@ func TestRuntimeDatabaseMigrateQueuesBackgroundTask(t *testing.T) {
 		t.Fatalf("migrate task status = %s, want succeeded; message=%q error=%v logs=%d",
 			final.Status, final.Message, final.Error, len(final.Logs))
 	}
-	// Progress logging: the runner must have appended at least the "开始迁移"
+	// Progress logging: the runner must have appended at least the "migration started"
 	// start line plus RunMigration's structural output.
 	if len(final.Logs) == 0 {
 		t.Fatalf("migrate task produced no progress logs; message=%q", final.Message)
 	}
 	var hasStartLine bool
 	for _, entry := range final.Logs {
-		if strings.Contains(entry.Message, "开始迁移") {
+		if strings.Contains(entry.Message, "migration started") {
 			hasStartLine = true
 			break
 		}

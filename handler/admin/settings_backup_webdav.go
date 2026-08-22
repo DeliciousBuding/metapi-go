@@ -25,7 +25,7 @@ import (
 func (h *backupHandler) getWebdavConfig(w http.ResponseWriter, r *http.Request) {
 	cfg, err := loadWebdavBackupConfig(h.db)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "读取 WebDAV 配置失败")
+		writeError(w, http.StatusInternalServerError, "failed to read WebDAV config")
 		return
 	}
 
@@ -51,7 +51,7 @@ func (h *backupHandler) saveWebdavConfig(w http.ResponseWriter, r *http.Request)
 
 	cfg, err := loadWebdavBackupConfig(h.db)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "读取 WebDAV 配置失败")
+		writeError(w, http.StatusInternalServerError, "failed to read WebDAV config")
 		return
 	}
 
@@ -81,7 +81,7 @@ func (h *backupHandler) saveWebdavConfig(w http.ResponseWriter, r *http.Request)
 	normalizeWebdavBackupConfig(&cfg)
 
 	if cfg.AutoSyncEnabled && !scheduler.ValidateCronExpr(cfg.AutoSyncCron) {
-		writeError(w, http.StatusBadRequest, "自动同步 cron 表达式无效")
+		writeError(w, http.StatusBadRequest, "invalid auto-sync cron expression")
 		return
 	}
 	if err := validateWebdavBackupConfig(cfg, false); err != nil {
@@ -89,7 +89,7 @@ func (h *backupHandler) saveWebdavConfig(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if err := saveWebdavBackupConfig(h.db, cfg); err != nil {
-		writeError(w, http.StatusInternalServerError, "保存 WebDAV 配置失败")
+		writeError(w, http.StatusInternalServerError, "failed to save WebDAV config")
 		return
 	}
 	if err := app.ReloadWebdavBackup(); err != nil {
@@ -103,7 +103,7 @@ func (h *backupHandler) saveWebdavConfig(w http.ResponseWriter, r *http.Request)
 func (h *backupHandler) exportToWebdav(w http.ResponseWriter, r *http.Request) {
 	cfg, err := loadWebdavBackupConfig(h.db)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "读取 WebDAV 配置失败")
+		writeError(w, http.StatusInternalServerError, "failed to read WebDAV config")
 		return
 	}
 	if err := validateWebdavBackupConfig(cfg, true); err != nil {
@@ -131,14 +131,14 @@ func (h *backupHandler) exportToWebdav(w http.ResponseWriter, r *http.Request) {
 	}
 	data, err := json.Marshal(backup)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "序列化备份数据失败")
+		writeError(w, http.StatusInternalServerError, "failed to serialize backup data")
 		return
 	}
 
 	client := newWebdavHTTPClient()
 	req, err := http.NewRequestWithContext(r.Context(), http.MethodPut, cfg.FileURL, bytes.NewReader(data))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "WebDAV 文件 URL 无效")
+		writeError(w, http.StatusBadRequest, "invalid WebDAV file URL")
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -149,7 +149,7 @@ func (h *backupHandler) exportToWebdav(w http.ResponseWriter, r *http.Request) {
 	resp, err := client.Do(req)
 	if err != nil {
 		state := updateWebdavBackupState(h.db, err)
-		writeWebdavFailureResponse(w, http.StatusBadGateway, cfg, state, "WebDAV 导出请求失败")
+		writeWebdavFailureResponse(w, http.StatusBadGateway, cfg, state, "WebDAV export request failed")
 		return
 	}
 	defer resp.Body.Close()
@@ -164,7 +164,7 @@ func (h *backupHandler) exportToWebdav(w http.ResponseWriter, r *http.Request) {
 
 	state := updateWebdavBackupState(h.db, nil)
 	respPayload := webdavConfigResponsePayload(true, cfg, state)
-	respPayload["message"] = "WebDAV 导出成功"
+	respPayload["message"] = "WebDAV export succeeded"
 	respPayload["fileUrl"] = cfg.FileURL
 	writeJSON(w, http.StatusOK, respPayload)
 }
@@ -232,13 +232,13 @@ func validateWebdavBackupConfig(cfg webdavBackupConfig, requireEnabled bool) err
 		return errInvalidBackupExportType
 	}
 	if requireEnabled && !cfg.Enabled {
-		return fmt.Errorf("WebDAV 未启用")
+		return fmt.Errorf("WebDAV not enabled")
 	}
 	if (cfg.Enabled || requireEnabled) && !isValidWebdavFileURL(cfg.FileURL) {
-		return fmt.Errorf("WebDAV 文件 URL 无效")
+		return fmt.Errorf("invalid WebDAV file URL")
 	}
 	if cfg.AutoSyncEnabled && !cfg.Enabled {
-		return fmt.Errorf("自动同步需要先启用 WebDAV")
+		return fmt.Errorf("auto sync requires WebDAV to be enabled first")
 	}
 	return nil
 }
@@ -393,7 +393,7 @@ func sanitizeWebdavError(message string, cfg webdavBackupConfig) string {
 func (h *backupHandler) importFromWebdav(w http.ResponseWriter, r *http.Request) {
 	cfg, err := loadWebdavBackupConfig(h.db)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "读取 WebDAV 配置失败")
+		writeError(w, http.StatusInternalServerError, "failed to read WebDAV config")
 		return
 	}
 	if err := validateWebdavBackupConfig(cfg, true); err != nil {
@@ -404,7 +404,7 @@ func (h *backupHandler) importFromWebdav(w http.ResponseWriter, r *http.Request)
 	client := newWebdavHTTPClient()
 	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, cfg.FileURL, nil)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "WebDAV 文件 URL 无效")
+		writeError(w, http.StatusBadRequest, "invalid WebDAV file URL")
 		return
 	}
 	if cfg.Username != "" || cfg.Password != "" {
@@ -414,7 +414,7 @@ func (h *backupHandler) importFromWebdav(w http.ResponseWriter, r *http.Request)
 	resp, err := client.Do(req)
 	if err != nil {
 		state := updateWebdavBackupState(h.db, errors.New(sanitizeWebdavError(err.Error(), cfg)))
-		writeWebdavFailureResponse(w, http.StatusBadGateway, cfg, state, "WebDAV 导入请求失败")
+		writeWebdavFailureResponse(w, http.StatusBadGateway, cfg, state, "WebDAV import request failed")
 		return
 	}
 	defer resp.Body.Close()
@@ -444,7 +444,7 @@ func (h *backupHandler) importFromWebdav(w http.ResponseWriter, r *http.Request)
 		Tables map[string]json.RawMessage `json:"tables"`
 	}
 	if err := decodeBackupPayload(body, &backup); err != nil || backup.Tables == nil {
-		errMsg := "WebDAV 备份数据格式错误：需要 JSON 对象且包含 tables 字段"
+		errMsg := "invalid WebDAV backup data: expected a JSON object with a tables field"
 		if err != nil {
 			errMsg = fmt.Sprintf("%s：%v", errMsg, err)
 		}
@@ -463,7 +463,7 @@ func (h *backupHandler) importFromWebdav(w http.ResponseWriter, r *http.Request)
 
 	state := updateWebdavBackupState(h.db, nil)
 	payload := webdavConfigResponsePayload(true, cfg, state)
-	payload["message"] = "WebDAV 导入完成"
+	payload["message"] = "WebDAV import completed"
 	payload["imported"] = imported
 	payload["appliedSettings"] = []any{}
 	writeJSON(w, http.StatusOK, payload)
@@ -514,7 +514,7 @@ func readLimitedWebdavBody(body io.Reader, maxBytes int64) ([]byte, error) {
 	limited := &io.LimitedReader{R: body, N: maxBytes + 1}
 	data, err := io.ReadAll(limited)
 	if err != nil {
-		return nil, fmt.Errorf("读取 WebDAV 备份失败：%w", err)
+		return nil, fmt.Errorf("failed to read WebDAV backup: %w", err)
 	}
 	if int64(len(data)) > maxBytes {
 		return nil, webdavImportTooLargeError{maxBytes: maxBytes}
@@ -527,7 +527,7 @@ type webdavImportTooLargeError struct {
 }
 
 func (e webdavImportTooLargeError) Error() string {
-	return fmt.Sprintf("备份文件超过 %d 字节限制", e.maxBytes)
+	return fmt.Sprintf("backup file exceeds the max size of %d bytes", e.maxBytes)
 }
 
 func decodeBackupPayload(raw []byte, dst any) error {
