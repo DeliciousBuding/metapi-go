@@ -38,7 +38,7 @@ func makeCandidate(channelID, siteID, accountID int64, weight int64, priority in
 			SiteID:        siteID,
 			Status:        "active",
 			UnitCost:      unitCost,
-			Balance:       balance,
+			Balance:       ptrFloat(balance),
 			OAuthProvider: oauthProvider,
 		},
 		Site: store.Site{

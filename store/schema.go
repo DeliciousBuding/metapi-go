@@ -78,11 +78,16 @@ type Account struct {
 	Username           *string  `db:"username" json:"username"`
 	AccessToken        string   `db:"access_token" json:"accessToken"`
 	APIToken           *string  `db:"api_token" json:"apiToken"`
-	Balance            float64  `db:"balance" json:"balance"`
-	BalanceUsed        float64  `db:"balance_used" json:"balanceUsed"`
-	Quota              float64  `db:"quota" json:"quota"`
+	// Balance/BalanceUsed/Quota/ValueScore are nullable in the accounts table
+	// (DEFAULT 0 without NOT NULL): rows migrated from the TS version, or never
+	// refreshed, carry NULL. Keep them as pointers so a NULL column scans to nil
+	// (JSON null) instead of failing with "converting NULL to float64". Readers
+	// that need a numeric default use the OrZero helpers below.
+	Balance            *float64 `db:"balance" json:"balance"`
+	BalanceUsed        *float64 `db:"balance_used" json:"balanceUsed"`
+	Quota              *float64 `db:"quota" json:"quota"`
 	UnitCost           *float64 `db:"unit_cost" json:"unitCost"`
-	ValueScore         float64  `db:"value_score" json:"valueScore"`
+	ValueScore         *float64 `db:"value_score" json:"valueScore"`
 	Status             string   `db:"status" json:"status"`
 	IsPinned           bool     `db:"is_pinned" json:"isPinned"`
 	SortOrder          int64    `db:"sort_order" json:"sortOrder"`
@@ -106,6 +111,38 @@ type Account struct {
 	// accessToken/apiToken (masked in list views), remark is returned in
 	// plaintext on admin list/search responses.
 	Remark *string `db:"remark" json:"remark"`
+}
+
+// OrZero helpers coerce the nullable numeric account columns for callers that
+// need a numeric default (routing weights, balance aggregation, refresh
+// results). Callers that must preserve the unknown/nil semantics (e.g. the
+// daily low-balance check, JSON display) should read the pointer directly.
+func (a Account) BalanceOrZero() float64 {
+	if a.Balance == nil {
+		return 0
+	}
+	return *a.Balance
+}
+
+func (a Account) BalanceUsedOrZero() float64 {
+	if a.BalanceUsed == nil {
+		return 0
+	}
+	return *a.BalanceUsed
+}
+
+func (a Account) QuotaOrZero() float64 {
+	if a.Quota == nil {
+		return 0
+	}
+	return *a.Quota
+}
+
+func (a Account) ValueScoreOrZero() float64 {
+	if a.ValueScore == nil {
+		return 0
+	}
+	return *a.ValueScore
 }
 
 // ---- Table 5: account_tokens ----

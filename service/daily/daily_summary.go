@@ -70,7 +70,10 @@ func CollectDailySummaryMetrics(db *sqlx.DB, now time.Time) (*DailySummaryMetric
 		if a.Status == "active" {
 			activeAccounts++
 		}
-		if a.Balance < 1 {
+		// A NULL balance means "never refreshed", which is unknown — not
+		// "low". Only count accounts with a known balance below the floor so
+		// migrated/never-refreshed rows don't produce false low-balance flags.
+		if a.Balance != nil && *a.Balance < 1 {
 			lowBalanceAccounts++
 		}
 	}

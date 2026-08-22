@@ -329,9 +329,9 @@ func isolationAccount(id, siteID int64) store.Account {
 		AccessToken: token,
 		APIToken:    &token,
 		Status:      "active",
-		Balance:     100,
-		Quota:       1000,
-		ValueScore:  1,
+		Balance:     ptrFloat(100),
+		Quota:       ptrFloat(1000),
+		ValueScore:  ptrFloat(1),
 	}
 }
 

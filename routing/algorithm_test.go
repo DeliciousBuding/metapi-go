@@ -132,17 +132,17 @@ func TestRoundRobinStrategy_Ordering(t *testing.T) {
 	candidates := []RouteChannelCandidate{
 		{
 			Channel: store.RouteChannel{ID: 1, RouteID: 1, SourceModel: &gpt4, Priority: 0, Weight: 10, Enabled: true, LastSelectedAt: &now3},
-			Account: store.Account{ID: 101, SiteID: 10, Status: "active", Balance: 100, OAuthProvider: &gpt4},
+			Account: store.Account{ID: 101, SiteID: 10, Status: "active", Balance: ptrFloat(100), OAuthProvider: &gpt4},
 			Site:    store.Site{ID: 10, Status: "active", GlobalWeight: 1.0},
 		},
 		{
 			Channel: store.RouteChannel{ID: 2, RouteID: 1, SourceModel: &gpt4, Priority: 0, Weight: 10, Enabled: true, LastSelectedAt: &now1},
-			Account: store.Account{ID: 102, SiteID: 20, Status: "active", Balance: 100, OAuthProvider: &gpt4},
+			Account: store.Account{ID: 102, SiteID: 20, Status: "active", Balance: ptrFloat(100), OAuthProvider: &gpt4},
 			Site:    store.Site{ID: 20, Status: "active", GlobalWeight: 1.0},
 		},
 		{
 			Channel: store.RouteChannel{ID: 3, RouteID: 1, SourceModel: &gpt4, Priority: 0, Weight: 10, Enabled: true, LastSelectedAt: &now2},
-			Account: store.Account{ID: 103, SiteID: 30, Status: "active", Balance: 100, OAuthProvider: &gpt4},
+			Account: store.Account{ID: 103, SiteID: 30, Status: "active", Balance: ptrFloat(100), OAuthProvider: &gpt4},
 			Site:    store.Site{ID: 30, Status: "active", GlobalWeight: 1.0},
 		},
 	}
@@ -814,7 +814,7 @@ func buildTestCandidate(channelID, siteID, accountID int64, weight int64, priori
 			SiteID:        siteID,
 			Status:        "active",
 			UnitCost:      unitCost,
-			Balance:       balance,
+			Balance:       ptrFloat(balance),
 			OAuthProvider: oauthProvider,
 		},
 		Site: store.Site{
@@ -848,27 +848,27 @@ func makeRoundRobinTestCandidates() []RouteChannelCandidate {
 	return []RouteChannelCandidate{
 		{
 			Channel: store.RouteChannel{ID: 1, RouteID: 1, SourceModel: &gpt4, Priority: 0, Weight: 10, Enabled: true, LastSelectedAt: &now5, LastUsedAt: &now5},
-			Account: store.Account{ID: 101, SiteID: 10, Status: "active", Balance: 100, OAuthProvider: &gpt4},
+			Account: store.Account{ID: 101, SiteID: 10, Status: "active", Balance: ptrFloat(100), OAuthProvider: &gpt4},
 			Site:    store.Site{ID: 10, Status: "active", GlobalWeight: 1.0},
 		},
 		{
 			Channel: store.RouteChannel{ID: 2, RouteID: 1, SourceModel: &gpt4, Priority: 0, Weight: 10, Enabled: true, LastSelectedAt: &now1, LastUsedAt: &now1},
-			Account: store.Account{ID: 102, SiteID: 20, Status: "active", Balance: 100, OAuthProvider: &gpt4},
+			Account: store.Account{ID: 102, SiteID: 20, Status: "active", Balance: ptrFloat(100), OAuthProvider: &gpt4},
 			Site:    store.Site{ID: 20, Status: "active", GlobalWeight: 1.0},
 		},
 		{
 			Channel: store.RouteChannel{ID: 3, RouteID: 1, SourceModel: &gpt4, Priority: 0, Weight: 10, Enabled: true, LastSelectedAt: &now3, LastUsedAt: &now3},
-			Account: store.Account{ID: 103, SiteID: 30, Status: "active", Balance: 100, OAuthProvider: &gpt4},
+			Account: store.Account{ID: 103, SiteID: 30, Status: "active", Balance: ptrFloat(100), OAuthProvider: &gpt4},
 			Site:    store.Site{ID: 30, Status: "active", GlobalWeight: 1.0},
 		},
 		{
 			Channel: store.RouteChannel{ID: 4, RouteID: 1, SourceModel: &gpt4, Priority: 0, Weight: 10, Enabled: true, LastSelectedAt: &now2, LastUsedAt: &now2},
-			Account: store.Account{ID: 104, SiteID: 40, Status: "active", Balance: 100, OAuthProvider: &gpt4},
+			Account: store.Account{ID: 104, SiteID: 40, Status: "active", Balance: ptrFloat(100), OAuthProvider: &gpt4},
 			Site:    store.Site{ID: 40, Status: "active", GlobalWeight: 1.0},
 		},
 		{
 			Channel: store.RouteChannel{ID: 5, RouteID: 1, SourceModel: &gpt4, Priority: 0, Weight: 10, Enabled: true, LastSelectedAt: &now4, LastUsedAt: &now4},
-			Account: store.Account{ID: 105, SiteID: 50, Status: "active", Balance: 100, OAuthProvider: &gpt4},
+			Account: store.Account{ID: 105, SiteID: 50, Status: "active", Balance: ptrFloat(100), OAuthProvider: &gpt4},
 			Site:    store.Site{ID: 50, Status: "active", GlobalWeight: 1.0},
 		},
 	}
