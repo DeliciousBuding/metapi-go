@@ -278,7 +278,7 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 	if isAccountDisabled(account.Status) {
 		createdAt := time.Now().UTC().Format(time.RFC3339)
 		if err := service.SetAccountRuntimeHealth(db, account.ID, service.RuntimeHealthEntry{
-			State: service.HealthDisabled, Reason: "账号已禁用", Source: service.HealthSourceCheckin,
+			State: service.HealthDisabled, Reason: "account disabled", Source: service.HealthSourceCheckin,
 		}); err != nil {
 			return CheckinResult{Success: false, Status: CheckinFailed, Message: "failed to persist runtime health: " + err.Error()}
 		}
@@ -304,7 +304,7 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 	if IsSiteDisabled(site.Status) {
 		createdAt := time.Now().UTC().Format(time.RFC3339)
 		if err := service.SetAccountRuntimeHealth(db, account.ID, service.RuntimeHealthEntry{
-			State: service.HealthDisabled, Reason: "站点已禁用", Source: service.HealthSourceCheckin,
+			State: service.HealthDisabled, Reason: "site disabled", Source: service.HealthSourceCheckin,
 		}); err != nil {
 			return CheckinResult{Success: false, Status: CheckinFailed, Message: "failed to persist runtime health: " + err.Error()}
 		}
@@ -414,7 +414,7 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 	alreadyCheckedIn := isAlreadyCheckedInMessage(result.Message)
 	unsupportedCheckin := isUnsupportedCheckinMessage(result.Message)
 	manualVerificationRequired := isManualVerificationRequiredMessage(result.Message)
-	manualVerificationMessage := "站点开启了 Turnstile 校验，需要人工签到"
+	manualVerificationMessage := "the site requires Turnstile verification; manual check-in is needed"
 	logMessage := result.Message
 	if manualVerificationRequired {
 		logMessage = manualVerificationMessage
@@ -440,16 +440,16 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 		healthReason := ""
 		if unsupportedCheckin {
 			healthState = service.HealthDegraded
-			healthReason = "站点不支持签到接口"
+			healthReason = "site does not support check-in endpoint"
 		} else if manualVerificationRequired {
 			healthState = service.HealthDegraded
 			healthReason = manualVerificationMessage
 		} else if alreadyCheckedIn {
 			healthState = service.HealthHealthy
-			healthReason = "今日已签到"
+			healthReason = "already checked in today"
 		} else {
 			healthState = service.HealthHealthy
-			healthReason = "签到成功"
+			healthReason = "check-in succeeded"
 			if result.Message != "" {
 				healthReason = result.Message
 			}

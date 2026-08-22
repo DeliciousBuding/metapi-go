@@ -395,7 +395,7 @@ func RefreshBalance(cfg *config.Config, db *sqlx.DB, accountID int64) (*BalanceR
 	// Disabled checks
 	if isAccountDisabled(account.Status) {
 		service.SetAccountRuntimeHealth(db, account.ID, service.RuntimeHealthEntry{
-			State: service.HealthDisabled, Reason: "账号已禁用", Source: service.HealthSourceBalance,
+			State: service.HealthDisabled, Reason: "account disabled", Source: service.HealthSourceBalance,
 		})
 		return &BalanceResult{
 			Balance: account.BalanceOrZero(),
@@ -408,7 +408,7 @@ func RefreshBalance(cfg *config.Config, db *sqlx.DB, accountID int64) (*BalanceR
 
 	if IsSiteDisabled(site.Status) {
 		service.SetAccountRuntimeHealth(db, account.ID, service.RuntimeHealthEntry{
-			State: service.HealthDisabled, Reason: "站点已禁用", Source: service.HealthSourceBalance,
+			State: service.HealthDisabled, Reason: "site disabled", Source: service.HealthSourceBalance,
 		})
 		return &BalanceResult{
 			Balance: account.BalanceOrZero(),
@@ -582,7 +582,7 @@ afterRetry:
 
 	// Set runtime health
 	if keepUnsupportedCheckinDegraded {
-		reason := "站点不支持签到接口"
+		reason := "site does not support check-in endpoint"
 		source := service.HealthSourceCheckin
 		if existingHealth != nil && existingHealth.Reason != "" {
 			reason = existingHealth.Reason
@@ -595,7 +595,7 @@ afterRetry:
 		})
 	} else {
 		service.SetAccountRuntimeHealth(db, account.ID, service.RuntimeHealthEntry{
-			State: service.HealthHealthy, Reason: "余额刷新成功", Source: service.HealthSourceBalance,
+			State: service.HealthHealthy, Reason: "balance refresh succeeded", Source: service.HealthSourceBalance,
 		})
 	}
 
