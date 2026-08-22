@@ -1202,8 +1202,8 @@ func TestAccounts_VerifyToken_EmptyToken(t *testing.T) {
 	if result["error"] == nil || result["error"] == "" {
 		t.Errorf("expected error field for empty token, got %#v", result)
 	}
-	if errMsg, _ := result["error"].(string); !strings.Contains(errMsg, "Token") {
-		t.Fatalf("error = %v, want Token empty message", result["error"])
+	if errMsg, _ := result["error"].(string); !strings.Contains(errMsg, "token must not be empty") {
+		t.Fatalf("error = %v, want empty-token message", result["error"])
 	}
 }
 

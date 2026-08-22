@@ -120,27 +120,27 @@ func TestFormatHealthRefreshMessage(t *testing.T) {
 		{
 			name:    "all success",
 			summary: healthRefreshSummary{Total: 3, Success: 3, Healthy: 3},
-			want:    "账号健康刷新完成：成功 3，失败 0，跳过 0（共 3）",
+			want:    "account health refresh finished: 3 succeeded, 0 failed, 0 skipped (3 total)",
 		},
 		{
 			name:    "all failure",
 			summary: healthRefreshSummary{Total: 2, Failed: 2, Unhealthy: 2},
-			want:    "账号健康刷新完成：成功 0，失败 2，跳过 0（共 2）",
+			want:    "account health refresh finished: 0 succeeded, 2 failed, 0 skipped (2 total)",
 		},
 		{
 			name:    "mixed success failure skipped",
 			summary: healthRefreshSummary{Total: 4, Success: 2, Failed: 1, Skipped: 1, Healthy: 2, Unhealthy: 1, Degraded: 1},
-			want:    "账号健康刷新完成：成功 2，失败 1，跳过 1（共 4）",
+			want:    "account health refresh finished: 2 succeeded, 1 failed, 1 skipped (4 total)",
 		},
 		{
 			name:    "all skipped",
 			summary: healthRefreshSummary{Total: 5, Skipped: 5, Disabled: 5},
-			want:    "账号健康刷新完成：成功 0，失败 0，跳过 5（共 5）",
+			want:    "account health refresh finished: 0 succeeded, 0 failed, 5 skipped (5 total)",
 		},
 		{
 			name:    "zero summary",
 			summary: healthRefreshSummary{},
-			want:    "账号健康刷新完成：成功 0，失败 0，跳过 0（共 0）",
+			want:    "account health refresh finished: 0 succeeded, 0 failed, 0 skipped (0 total)",
 		},
 	}
 	for _, tc := range cases {
