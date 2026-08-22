@@ -30,8 +30,8 @@ func TestBuildDailySummaryNotification(t *testing.T) {
 
 	title, message := BuildDailySummaryNotification(metrics)
 
-	if title != "每日总结 2026-07-04" {
-		t.Errorf("title = %q, want '每日总结 2026-07-04'", title)
+	if title != "Daily summary 2026-07-04" {
+		t.Errorf("title = %q, want 'Daily summary 2026-07-04'", title)
 	}
 
 	// Verify key parts are present in the message.
@@ -43,14 +43,14 @@ func TestBuildDailySummaryNotification(t *testing.T) {
 		"2026-07-04",
 		"2026-07-04 23:58:00",
 		"Asia/Shanghai",
-		"总计 10",
-		"活跃 8",
-		"低余额(<$1) 2",
-		"成功 7",
-		"跳过 2",
-		"失败 1",
-		"成功 95",
-		"失败 5",
+		"total 10",
+		"active 8",
+		"low balance (<$1) 2",
+		"success 7",
+		"skipped 2",
+		"failed 1",
+		"success 95",
+		"failed 5",
 		"1,234,567",
 	}
 	for _, check := range checks {
@@ -128,7 +128,7 @@ func TestBuildDailySummaryNotificationLabelsPartialRewardTruth(t *testing.T) {
 		TodayRewardStatus: "partial",
 	})
 
-	if count := strings.Count(message, "(部分可观测)"); count != 2 {
+	if count := strings.Count(message, "(partially observable)"); count != 2 {
 		t.Fatalf("partial marker count = %d, want reward and net markers; message=%q", count, message)
 	}
 }

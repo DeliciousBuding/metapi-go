@@ -269,15 +269,15 @@ func BuildDailySummaryNotification(metrics *DailySummaryMetrics) (title, message
 	net := Round6(metrics.TodayReward - metrics.TodaySpend)
 	rewardTruthSuffix := ""
 	if metrics.TodayRewardStatus != "complete" {
-		rewardTruthSuffix = " (部分可观测)"
+		rewardTruthSuffix = " (partially observable)"
 	}
-	title = fmt.Sprintf("每日总结 %s", metrics.LocalDay)
+	title = fmt.Sprintf("Daily summary %s", metrics.LocalDay)
 	message = fmt.Sprintf(
-		"日期: %s\n生成时间: %s (%s)\n\n"+
-			"账号概览: 总计 %d | 活跃 %d | 低余额(<$1) %d\n"+
-			"签到统计: 总计 %d | 成功 %d | 跳过 %d | 失败 %d\n"+
-			"代理统计: 总计 %d | 成功 %d | 失败 %d | 未知 %d | 未归属 %d | Tokens %s\n"+
-			"费用统计: 支出 $%s | 奖励 $%s%s | 净值 $%s%s",
+		"Date: %s\nGenerated at: %s (%s)\n\n"+
+			"Accounts: total %d | active %d | low balance (<$1) %d\n"+
+			"Check-in: total %d | success %d | skipped %d | failed %d\n"+
+			"Proxy: total %d | success %d | failed %d | unknown %d | unattributed %d | tokens %s\n"+
+			"Cost: spend $%s | reward $%s%s | net $%s%s",
 		metrics.LocalDay, metrics.GeneratedAtLocal, metrics.TimeZone,
 		metrics.TotalAccounts, metrics.ActiveAccounts, metrics.LowBalanceAccounts,
 		metrics.CheckinTotal, metrics.CheckinSuccess, metrics.CheckinSkipped, metrics.CheckinFailed,

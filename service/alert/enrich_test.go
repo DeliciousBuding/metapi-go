@@ -103,14 +103,14 @@ func TestEnrichAlertMessage_AccountScope(t *testing.T) {
 	seedEnrichChannel(t, db, claudeRoute, gammaAccount, true)
 
 	message := enrichAlertMessage(db.DB,
-		"alice @ acme 的 Token 无效或已过期 (jwt expired)",
+		"alice @ acme token is invalid or expired (jwt expired)",
 		alertEnrichmentScope{accountID: &failingAccount})
 
 	want := strings.Join([]string{
-		"alice @ acme 的 Token 无效或已过期 (jwt expired)",
-		"受影响路由: gpt-*, claude-*",
-		"替代站点: gamma(2), beta(1)",
-		"面板: /observability?section=health",
+		"alice @ acme token is invalid or expired (jwt expired)",
+		"Affected routes: gpt-*, claude-*",
+		"Alternative sites: gamma(2), beta(1)",
+		"Panel: /observability?section=health",
 	}, "\n")
 	if message != want {
 		t.Fatalf("message mismatch:\n got: %q\nwant: %q", message, want)
@@ -131,10 +131,10 @@ func TestEnrichAlertMessage_ExcludesOwnSiteAndDisabledChannels(t *testing.T) {
 	seedEnrichChannel(t, db, route, betaAccount, false)
 
 	message := enrichAlertMessage(db.DB, "base line", alertEnrichmentScope{accountID: &failingAccount})
-	if !strings.Contains(message, "受影响路由: gpt-*") {
+	if !strings.Contains(message, "Affected routes: gpt-*") {
 		t.Fatalf("missing affected routes: %q", message)
 	}
-	if !strings.Contains(message, "替代站点: 无") {
+	if !strings.Contains(message, "Alternative sites: none") {
 		t.Fatalf("expected no alternative sites (same site + disabled channel), got: %q", message)
 	}
 }
@@ -146,9 +146,9 @@ func TestEnrichAlertMessage_NoWiring(t *testing.T) {
 	message := enrichAlertMessage(db.DB, "base line", alertEnrichmentScope{accountID: &orphanAccount})
 	want := strings.Join([]string{
 		"base line",
-		"受影响路由: 无",
-		"替代站点: 无",
-		"面板: /observability?section=health",
+		"Affected routes: none",
+		"Alternative sites: none",
+		"Panel: /observability?section=health",
 	}, "\n")
 	if message != want {
 		t.Fatalf("message mismatch:\n got: %q\nwant: %q", message, want)
@@ -170,11 +170,11 @@ func TestEnrichAlertMessage_Truncation(t *testing.T) {
 	}
 
 	message := enrichAlertMessage(db.DB, "base line", alertEnrichmentScope{accountID: &failingAccount})
-	if !strings.Contains(message, "受影响路由: r1, r2, r3 等 5 条") {
+	if !strings.Contains(message, "Affected routes: r1, r2, r3 (5 routes in total)") {
 		t.Fatalf("expected truncated route list, got: %q", message)
 	}
 	// Sites are ordered by count DESC then name ASC; all have count 1.
-	if !strings.Contains(message, "替代站点: beta(1), delta(1) 等 4 个站点") {
+	if !strings.Contains(message, "Alternative sites: beta(1), delta(1) (4 sites in total)") {
 		t.Fatalf("expected truncated site list, got: %q", message)
 	}
 	if lines := strings.Split(message, "\n"); len(lines) != 4 {
@@ -192,14 +192,14 @@ func TestEnrichAlertMessage_ModelScope(t *testing.T) {
 	seedEnrichRoute(t, db, "gpt-disabled", false) // disabled — excluded from dispatch surface
 	seedEnrichChannel(t, db, globRoute, betaAccount, true)
 
-	message := enrichAlertMessage(db.DB, "模型=gpt-4o, 原因=all channels exhausted",
+	message := enrichAlertMessage(db.DB, "model=gpt-4o, reason=all channels exhausted",
 		alertEnrichmentScope{model: "gpt-4o"})
 
 	want := strings.Join([]string{
-		"模型=gpt-4o, 原因=all channels exhausted",
-		"受影响路由: gpt-*",
-		"替代站点: beta(1)",
-		"面板: /observability?section=health",
+		"model=gpt-4o, reason=all channels exhausted",
+		"Affected routes: gpt-*",
+		"Alternative sites: beta(1)",
+		"Panel: /observability?section=health",
 	}, "\n")
 	if message != want {
 		t.Fatalf("message mismatch:\n got: %q\nwant: %q", message, want)
@@ -211,10 +211,10 @@ func TestEnrichAlertMessage_ModelScopeNoMatch(t *testing.T) {
 	seedEnrichRoute(t, db, "gpt-*", true)
 
 	message := enrichAlertMessage(db.DB, "base line", alertEnrichmentScope{model: "claude-3-opus"})
-	if !strings.Contains(message, "受影响路由: 无") {
+	if !strings.Contains(message, "Affected routes: none") {
 		t.Fatalf("expected no matching routes, got: %q", message)
 	}
-	if !strings.Contains(message, "替代站点: 无") {
+	if !strings.Contains(message, "Alternative sites: none") {
 		t.Fatalf("expected no alternative sites, got: %q", message)
 	}
 }
@@ -258,16 +258,16 @@ func TestReportLowBalance_EnrichedEventMessage(t *testing.T) {
 		`SELECT message FROM events WHERE type = 'balance' AND related_id = ?`, accountID); err != nil {
 		t.Fatalf("load event: %v", err)
 	}
-	if !strings.Contains(message, "alice @ acme 余额不足：当前 $0.42（阈值 $1.00）") {
+	if !strings.Contains(message, "alice @ acme low balance: current $0.42 (threshold $1.00)") {
 		t.Fatalf("missing base message: %q", message)
 	}
-	if !strings.Contains(message, "受影响路由: gpt-*") {
+	if !strings.Contains(message, "Affected routes: gpt-*") {
 		t.Fatalf("missing affected routes: %q", message)
 	}
-	if !strings.Contains(message, "替代站点: 无") {
+	if !strings.Contains(message, "Alternative sites: none") {
 		t.Fatalf("expected no alternative sites: %q", message)
 	}
-	if !strings.Contains(message, "面板: /observability?section=health") {
+	if !strings.Contains(message, "Panel: /observability?section=health") {
 		t.Fatalf("missing panel link: %q", message)
 	}
 	if lines := strings.Split(message, "\n"); len(lines) > 6 {
@@ -294,13 +294,13 @@ func TestReportTokenExpired_EnrichedEventMessage(t *testing.T) {
 		`SELECT message FROM events WHERE type = 'token' AND related_id = ?`, accountID); err != nil {
 		t.Fatalf("load event: %v", err)
 	}
-	if !strings.Contains(message, "alice @ acme 的 Token 无效或已过期") {
+	if !strings.Contains(message, "alice @ acme token is invalid or expired") {
 		t.Fatalf("missing base message: %q", message)
 	}
-	if !strings.Contains(message, "受影响路由: gpt-*") {
+	if !strings.Contains(message, "Affected routes: gpt-*") {
 		t.Fatalf("missing affected routes: %q", message)
 	}
-	if !strings.Contains(message, "面板: /observability?section=health") {
+	if !strings.Contains(message, "Panel: /observability?section=health") {
 		t.Fatalf("missing panel link: %q", message)
 	}
 }
@@ -321,16 +321,16 @@ func TestReportProxyAllFailed_EnrichedEventMessage(t *testing.T) {
 		`SELECT message FROM events WHERE type = 'proxy' ORDER BY id DESC LIMIT 1`); err != nil {
 		t.Fatalf("load event: %v", err)
 	}
-	if !strings.Contains(message, "模型=gpt-4o, 原因=all channels exhausted") {
+	if !strings.Contains(message, "model=gpt-4o, reason=all channels exhausted") {
 		t.Fatalf("missing base message: %q", message)
 	}
-	if !strings.Contains(message, "受影响路由: gpt-*") {
+	if !strings.Contains(message, "Affected routes: gpt-*") {
 		t.Fatalf("missing affected routes: %q", message)
 	}
-	if !strings.Contains(message, "替代站点: beta(1)") {
+	if !strings.Contains(message, "Alternative sites: beta(1)") {
 		t.Fatalf("missing alternative sites: %q", message)
 	}
-	if !strings.Contains(message, "面板: /observability?section=health") {
+	if !strings.Contains(message, "Panel: /observability?section=health") {
 		t.Fatalf("missing panel link: %q", message)
 	}
 	if lines := strings.Split(message, "\n"); len(lines) > 6 {
