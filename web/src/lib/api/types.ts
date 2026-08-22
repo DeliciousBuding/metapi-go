@@ -41,6 +41,31 @@ export type SchedulerRunStatus = {
   runs24h: number
   success24h: number
   note?: string
+  /** Populated only for model-probe (in-memory ring buffer of recent passes). */
+  recentRuns?: SchedulerProbeRunSummary[]
+}
+
+/** One completed model-probe scheduler pass (in-memory ring buffer entry). */
+export type SchedulerProbeRunSummary = {
+  startedAt?: string
+  completedAt?: string
+  accountsConsidered: number
+  accountsProbed: number
+  targetsScanned: number
+  success: number
+  failed: number
+  inconclusive: number
+  skipped: number
+}
+
+/** POST /api/models/probe — queue a background availability probe pass. */
+export type TriggerModelProbeResponse = {
+  success: boolean
+  queued: boolean
+  reused: boolean
+  jobId: string
+  status: string
+  message?: string
 }
 
 // A2: model cost distribution + latency chart gallery.
@@ -94,7 +119,9 @@ export type LatencyTrendResponse = {
 }
 
 // G1: batch model verification + history.
-type ModelVerifyItem = {
+export type ModelVerifyItem = {
+  id?: number | null
+  batchId?: string
   model: string
   channelId?: number | null
   accountId?: number | null
