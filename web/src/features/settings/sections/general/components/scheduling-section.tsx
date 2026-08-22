@@ -200,10 +200,47 @@ export function SchedulingSection() {
       serverValues,
     })
 
+  // POST /api/checkin/trigger answers 200 with `success:(failed==0)` plus a
+  // per-account summary. A partial failure must be reported as one — with the
+  // real counts — instead of the blanket "triggered" success the old code
+  // toasted regardless of the envelope.
   const triggerCheckinMutation = useMutation({
-    mutationFn: async () => api.triggerCheckinAll(),
-    onSuccess: () =>
-      toast.success(t('settings.general.scheduling.toast.checkinTriggered')),
+    mutationFn: async () =>
+      api.triggerCheckinAll() as Promise<{
+        success?: boolean
+        message?: string
+        summary?: {
+          total: number
+          success: number
+          failed: number
+          skipped: number
+        } | null
+      }>,
+    onSuccess: (result) => {
+      const summary = result?.summary
+      if (summary && summary.failed > 0) {
+        toast.warning(
+          t('settings.general.scheduling.toast.checkinPartialFailed'),
+          {
+            description: t('checkin.toast.summary', {
+              total: summary.total,
+              success: summary.success,
+              failed: summary.failed,
+              skipped: summary.skipped,
+            }),
+          }
+        )
+        return
+      }
+      if (result && result.success === false) {
+        toast.error(
+          result.message ||
+            t('settings.general.scheduling.toast.checkinTriggerFailed')
+        )
+        return
+      }
+      toast.success(t('settings.general.scheduling.toast.checkinTriggered'))
+    },
     onError: () =>
       toast.error(t('settings.general.scheduling.toast.checkinTriggerFailed')),
   })

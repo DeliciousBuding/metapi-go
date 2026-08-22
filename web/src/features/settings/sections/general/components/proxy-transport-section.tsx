@@ -180,11 +180,30 @@ export function ProxyTransportSection() {
       serverValues,
     })
 
+  // POST /api/settings/system-proxy/test reports an unreachable proxy as
+  // HTTP 200 + `{success:false, reachable:false, message}` — the verdict lives
+  // in the envelope, not the status code. A failed probe must surface its real
+  // outcome (and reason), never a "proxy reachable" celebration.
   const testProxyMutation = useMutation({
-    mutationFn: async (proxyUrl: string) => api.testSystemProxy({ proxyUrl }),
-    onSuccess: (result) => {
-      const latency = (result as { latencyMs?: number } | null)?.latencyMs
-      if (typeof latency === 'number') {
+    mutationFn: async (proxyUrl: string) => {
+      const result = await api.testSystemProxy({ proxyUrl })
+      const probe = result as {
+        success?: boolean
+        reachable?: boolean
+        latencyMs?: number
+        message?: string
+      } | null
+      if (probe && probe.success === false) {
+        throw new Error(
+          probe.message ||
+            t('settings.general.proxyTransport.toast.proxyFailed')
+        )
+      }
+      return probe
+    },
+    onSuccess: (probe) => {
+      const latency = probe?.latencyMs
+      if (typeof latency === 'number' && latency > 0) {
         toast.success(
           t('settings.general.proxyTransport.toast.proxyOk', { ms: latency })
         )
@@ -192,8 +211,19 @@ export function ProxyTransportSection() {
         toast.success(t('settings.general.proxyTransport.toast.proxyOkGeneric'))
       }
     },
-    onError: () =>
-      toast.error(t('settings.general.proxyTransport.toast.proxyFailed')),
+    onError: (error) => {
+      const responseData = (
+        error as {
+          response?: { data?: { message?: string; error?: string } }
+        } | null
+      )?.response?.data
+      const message =
+        responseData?.message ||
+        responseData?.error ||
+        (error instanceof Error ? error.message : '') ||
+        t('settings.general.proxyTransport.toast.proxyFailed')
+      toast.error(message)
+    },
   })
 
   function onSubmit(values: ProxyTransportFormValues) {

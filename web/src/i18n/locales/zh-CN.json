@@ -936,7 +936,8 @@
             "saved": "计划已保存。",
             "saveFailed": "保存计划失败。",
             "checkinTriggered": "已触发签到。",
-            "checkinTriggerFailed": "触发签到失败。"
+            "checkinTriggerFailed": "触发签到失败。",
+            "checkinPartialFailed": "签到部分失败"
           }
         },
         "proxyTransport": {

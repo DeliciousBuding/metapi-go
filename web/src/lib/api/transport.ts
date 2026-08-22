@@ -22,6 +22,7 @@ export type RequestOptions = {
   signal?: AbortSignal
   headers?: Record<string, string>
   skipErrorHandler?: boolean
+  skipBusinessError?: boolean
 }
 
 /**
@@ -40,6 +41,7 @@ export async function request<T = unknown>(
     signal,
     headers,
     skipErrorHandler = false,
+    skipBusinessError = false,
   } = options
 
   const requestHeaders: Record<string, string> | undefined = body
@@ -51,6 +53,7 @@ export async function request<T = unknown>(
     signal,
     headers: requestHeaders,
     skipErrorHandler,
+    skipBusinessError,
   }
 
   const response =
