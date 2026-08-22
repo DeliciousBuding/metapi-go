@@ -159,7 +159,7 @@ func TestFormatHealthRefreshMessage_MatchesWaitModeResponse(t *testing.T) {
 	// message equals the formatter output.
 	summary := healthRefreshSummary{Total: 2, Success: 1, Failed: 1, Skipped: 0}
 	want := formatHealthRefreshMessage(summary)
-	if !strings.Contains(want, "succeeded 1") || !strings.Contains(want, "failed 1") || !strings.Contains(want, "(2 total)") {
+	if !strings.Contains(want, "1 succeeded") || !strings.Contains(want, "1 failed") || !strings.Contains(want, "(2 total)") {
 		t.Fatalf("message %q missing expected counts", want)
 	}
 }
@@ -261,7 +261,7 @@ func TestHealthRefresh_WaitModeSkipsApiKeyAccountWithoutNetwork(t *testing.T) {
 	if int64(item["accountId"].(float64)) != accountID {
 		t.Fatalf("result accountId = %v, want %d", item["accountId"], accountID)
 	}
-	if !strings.Contains(body["message"].(string), "succeeded 0") || !strings.Contains(body["message"].(string), "skipped 1") {
+	if !strings.Contains(body["message"].(string), "0 succeeded") || !strings.Contains(body["message"].(string), "1 skipped") {
 		t.Fatalf("message = %v, want skip counts reflected", body["message"])
 	}
 }
