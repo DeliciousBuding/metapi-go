@@ -146,7 +146,7 @@ func preferredEligibleJoined(channelID, siteID, accountID int64, model string) s
 			SiteID:   siteID,
 			Status:   "active",
 			APIToken: &token,
-			Balance:  100,
+			Balance:  ptrFloat(100),
 		},
 		Site: store.Site{
 			ID:     siteID,

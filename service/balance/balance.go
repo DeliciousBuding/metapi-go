@@ -398,9 +398,9 @@ func RefreshBalance(cfg *config.Config, db *sqlx.DB, accountID int64) (*BalanceR
 			State: service.HealthDisabled, Reason: "账号已禁用", Source: service.HealthSourceBalance,
 		})
 		return &BalanceResult{
-			Balance: account.Balance,
-			Used:    account.BalanceUsed,
-			Quota:   account.Quota,
+			Balance: account.BalanceOrZero(),
+			Used:    account.BalanceUsedOrZero(),
+			Quota:   account.QuotaOrZero(),
 			Skipped: true,
 			Reason:  "account_disabled",
 		}, nil
@@ -411,9 +411,9 @@ func RefreshBalance(cfg *config.Config, db *sqlx.DB, accountID int64) (*BalanceR
 			State: service.HealthDisabled, Reason: "站点已禁用", Source: service.HealthSourceBalance,
 		})
 		return &BalanceResult{
-			Balance: account.Balance,
-			Used:    account.BalanceUsed,
-			Quota:   account.Quota,
+			Balance: account.BalanceOrZero(),
+			Used:    account.BalanceUsedOrZero(),
+			Quota:   account.QuotaOrZero(),
 			Skipped: true,
 			Reason:  "site_disabled",
 		}, nil
@@ -428,9 +428,9 @@ func RefreshBalance(cfg *config.Config, db *sqlx.DB, accountID int64) (*BalanceR
 	// API key connection check — skip balance refresh for apikey accounts
 	if service.IsAPIKeyConnection(account) {
 		return &BalanceResult{
-			Balance: account.Balance,
-			Used:    account.BalanceUsed,
-			Quota:   account.Quota,
+			Balance: account.BalanceOrZero(),
+			Used:    account.BalanceUsedOrZero(),
+			Quota:   account.QuotaOrZero(),
 			Skipped: true,
 			Reason:  "proxy_only",
 		}, nil

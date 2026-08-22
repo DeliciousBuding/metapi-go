@@ -467,11 +467,11 @@ func getAccountWithSiteBy(q accountQueryExecer, id int64, forUpdate bool) (*Acco
 			Username           *string  `db:"username"`
 			AccessToken        string   `db:"access_token"`
 			APIToken           *string  `db:"api_token"`
-			Balance            float64  `db:"balance"`
-			BalanceUsed        float64  `db:"balance_used"`
-			Quota              float64  `db:"quota"`
+			Balance            *float64 `db:"balance"`
+			BalanceUsed        *float64 `db:"balance_used"`
+			Quota              *float64 `db:"quota"`
 			UnitCost           *float64 `db:"unit_cost"`
-			ValueScore         float64  `db:"value_score"`
+			ValueScore         *float64 `db:"value_score"`
 			Status             string   `db:"status"`
 			IsPinned           bool     `db:"is_pinned"`
 			SortOrder          int64    `db:"sort_order"`

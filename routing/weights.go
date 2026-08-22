@@ -139,7 +139,7 @@ func CalculateWeightedSelection(
 	minVS := math.Inf(1)
 	for i, c := range candidates {
 		unitCost := effectiveCosts[i].UnitCost
-		balance := c.Account.Balance
+		balance := c.Account.BalanceOrZero()
 		totalUsed := float64(c.Channel.SuccessCount + c.Channel.FailCount)
 		recentUsage := math.Max(totalUsed, 1)
 		valueScore := routingWeights.CostWeight*(1/unitCost) + routingWeights.BalanceWeight*balance + routingWeights.UsageWeight*(1/recentUsage)

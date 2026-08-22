@@ -510,8 +510,10 @@ func CheckinAccount(cfg *config.Config, db *sqlx.DB, accountID int64, options *C
 			}
 		}
 		if directCheckinSuccess && parsedReward <= 0 {
-			if refreshedBalanceInfo != nil {
-				inferredReward := InferRewardFromBalanceDelta(account.Balance, refreshedBalanceInfo.Balance)
+			// Only infer a reward delta when the pre-checkin balance is known;
+			// a NULL (never-refreshed) balance gives no baseline to diff against.
+			if refreshedBalanceInfo != nil && account.Balance != nil {
+				inferredReward := InferRewardFromBalanceDelta(*account.Balance, refreshedBalanceInfo.Balance)
 				if inferredReward > 0 {
 					parsedReward = inferredReward
 					logReward = fmt.Sprintf("%v", parsedReward)

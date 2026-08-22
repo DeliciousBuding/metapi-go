@@ -296,7 +296,7 @@ func TestHalfOpenProbe_FilterBlocksProbingCandidates(t *testing.T) {
 				ID: channelID, RouteID: 1, AccountID: accountID,
 				SourceModel: &model, Priority: 0, Weight: 10, Enabled: true,
 			},
-			Account: store.Account{ID: accountID, SiteID: candidateSiteID, Status: "active", APIToken: &token, Balance: 100},
+			Account: store.Account{ID: accountID, SiteID: candidateSiteID, Status: "active", APIToken: &token, Balance: ptrFloat(100)},
 			Site:    store.Site{ID: candidateSiteID, Status: "active"},
 		}
 	}
