@@ -5,6 +5,32 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.16.7] — 2026-08-22
+
+Wave 4「综合质量波」：Round 3 审计 8 域（A–H）全部闭环——C a11y / G 安全补审计、契约回归复验、前端动线实测、后端安全移交、迁移兼容实测、部署体验与对外展示门面；查实修复若干 P0/P1。
+
+### Fixed
+
+- **上游路径穿越（P1，#922）**：`..` 路径段在代理转发前拒绝，堵住合法下游 key 逃出站点 API 前缀；monitor LDOH 接线修正（cookie 认证回归可用）+ 穿越联动校验，回归测试 7 个。
+- **NULL 余额 500（#931）**：迁移/未刷新账号 `balance IS NULL` 不再让 `/api/sites` 整页 500（`COALESCE`），余额刷新 job 不再因 `SELECT *` 中断。
+- **空库快照序列化（#928）**：`accounts`/`sites` 空快照 `null → []`，消除空库下前端静默重试。
+- **3 处假成功（#930）**：签到触发忽略 `success:false`、trigger-all 部分失败死代码、代理测试 `200+success:false` 弹「可用」——均改为呈现真实结果。
+- **CSV 注入（#925）**：导出面公式前缀单元格转义/加引号。
+- **accounts 快照竞态 + 命中区域 + 焦点序（#924）**：新建站点后 Add account 0.4–2.3s 不可点、sidebar rail 24px 命中区、登录页 Tab 序连续。
+- **a11y（#920）**：FormMessage role=alert、对比度探针导航竞态；a11y:scan 0 serious/critical。
+- **契约回归（#916）**：Round 3 四契约点 +23 具名测试固化（零行为改动），docs/api.md 诚实化。
+- **安全硬化（#917）**：公共路由 `..` 段拒绝、SSRF 0.0.0.0/8 全段；G 域六类审计 + govulncheck 0 可达漏洞。
+
+### Added
+
+- **实测验收（#918）**：Go e2e 套件 31 PASS、SQLite+PG 双方言启动、acceptance 旅程脚本层修正。
+- **迁移兼容实测（#919）**：TS→Go 接管演练 + `metapi-migrate` 6 格矩阵 + 篡改 checksum 红证据 + 文档对账。
+
+### Changed
+
+- **部署体验（#921）**：新用户 3 分钟路径（release 二进制 install.sh）、中英 README 一致、compose 命名卷默认。
+- **对外展示门面（#929）**：README/README_EN 重构（徽章+定位+特性矩阵+三段快速开始），防御性文字归拢，docs 导读。
+
 ## [v0.16.6] — 2026-08-21
 
 Round 3 审计修复波：D 域 4 个 P0 契约 bug + H 域性能 + Spinner 双轨收口。

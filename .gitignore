@@ -91,3 +91,6 @@ web/playwright/.cache/
 # Agent handoff files (never commit these)
 /BLOCKED.md
 /PROGRESS.md
+
+# Local repro/scratch artifacts (never commit)
+.repro/
