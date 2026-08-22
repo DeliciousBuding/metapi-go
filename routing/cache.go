@@ -35,9 +35,10 @@ func InvalidateCache() {
 	}
 }
 
-// RouteCache caches the routes list and per-route matches with TTL.
-// The routes list is used by handler/admin tests to assert cache invalidation
-// semantics; the selector itself reads routes straight from the DB.
+// RouteCache caches the routes list and per-route matches with TTL. The
+// selector serves both from cache on the hot path and falls back to the DB on
+// miss/expiry. Cached matches are immutable snapshots: patching clones (see
+// PatchCachedChannel), so lock-free readers never race the patcher.
 type RouteCache struct {
 	mu           sync.RWMutex
 	routesLoaded bool
@@ -113,20 +114,34 @@ func (c *RouteCache) SetMatch(routeID int64, match *RouteMatch) {
 	}
 }
 
-// PatchCachedChannel applies a mutation to a channel in all cached matches.
+// PatchCachedChannel applies a mutation to a channel across all cached
+// matches. Cached matches are treated as immutable snapshots: the mutation is
+// applied to a clone that atomically replaces the cached entry, so goroutines
+// holding a previously returned snapshot (GetMatch readers use the match
+// outside the cache lock) keep reading consistent data instead of racing the
+// patcher.
 func (c *RouteCache) PatchCachedChannel(channelID int64, apply func(ch *store.RouteChannel)) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	for _, entry := range c.matchCache {
+	for routeID, entry := range c.matchCache {
 		if entry.match == nil {
 			continue
 		}
+		idx := -1
 		for i := range entry.match.Channels {
 			if entry.match.Channels[i].Channel.ID == channelID {
-				apply(&entry.match.Channels[i].Channel)
+				idx = i
 				break
 			}
 		}
+		if idx < 0 {
+			continue
+		}
+		cloned := &RouteMatch{Route: entry.match.Route}
+		cloned.Channels = make([]RouteChannelCandidate, len(entry.match.Channels))
+		copy(cloned.Channels, entry.match.Channels)
+		apply(&cloned.Channels[idx].Channel)
+		c.matchCache[routeID] = &routeMatchEntry{loadedAt: entry.loadedAt, match: cloned}
 	}
 }
 
