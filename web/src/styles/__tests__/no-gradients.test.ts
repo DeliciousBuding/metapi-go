@@ -56,6 +56,13 @@ const GRADIENT_ALLOWLIST = new Set([
   'public/logo.svg',
   'public/favicon.svg',
   'src/styles/index.css',
+  // Alpha-only scroll-edge mask for the mobile card list(s): the gradient
+  // fades `mask-image` alpha so rows desolve at the container boundary
+  // instead of hard-cutting into a 2px sliver. It carries NO color (black →
+  // transparent in an alpha mask), so the OKLCH token system remains the
+  // single source of color — the regex only sees the literal
+  // `linear-gradient(...)`.
+  'src/components/data-table/layout/data-table-page.tsx',
 ])
 
 function normalizePath(path: string): string {

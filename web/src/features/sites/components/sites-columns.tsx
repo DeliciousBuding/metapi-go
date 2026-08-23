@@ -237,7 +237,7 @@ export function useSitesColumns(
       id: 'globalWeight',
       accessorKey: 'globalWeight',
       size: 120,
-      meta: { mobileHidden: true, mobileOrder: 40 },
+      meta: { mobileOrder: 40, label: t('sites.columns.globalWeight') },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}

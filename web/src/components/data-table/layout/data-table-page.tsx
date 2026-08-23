@@ -334,8 +334,14 @@ function renderMobile<TData>(
     )
   }
 
+  // Bottom-safe scroll edge: the mask fades the final stretch of the mobile
+  // list instead of hard-cutting rows at the container boundary (previously
+  // a 2px sliver of the last row's badge rendered at the edge as a stray
+  // colored bar). The gradient is an ALPHA ramp only — it carries no color,
+  // so the OKLCH token system stays the only source of color (see the
+  // no-gradients test allowlist note).
   return (
-    <div className='min-h-0 flex-1 overflow-y-auto [mask-image:linear-gradient(to_bottom,black_calc(100%_-_2.5rem),transparent)]'>
+    <div className='min-h-0 flex-1 overflow-y-auto pb-10 [mask-image:linear-gradient(to_bottom,black_calc(100%_-_2.5rem),transparent)]'>
       {mobileContent}
     </div>
   )
