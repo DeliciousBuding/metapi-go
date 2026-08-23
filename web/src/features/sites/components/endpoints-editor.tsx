@@ -43,8 +43,12 @@ type EndpointRow = {
 type EndpointsEditorProps = {
   value: string
   onChange: (value: string) => void
-  /** Live status data for the site being edited (cooldown / failures). */
-  liveEndpoints?: SiteApiEndpoint[]
+  /**
+   * Live status data for the site being edited (cooldown / failures).
+   * A site without an endpoint pool persists `apiEndpoints: null`, so the
+   * prop may arrive as null — treat it as no live data.
+   */
+  liveEndpoints?: SiteApiEndpoint[] | null
 }
 
 function nextRowKey(): string {
@@ -76,11 +80,11 @@ function rowsToText(rows: EndpointRow[]): string {
 }
 
 function findLiveEndpoint(
-  liveEndpoints: SiteApiEndpoint[],
+  liveEndpoints: SiteApiEndpoint[] | null | undefined,
   rowUrl: string
 ): SiteApiEndpoint | undefined {
   const normalized = normalizeEndpointBaseUrl(rowUrl)
-  if (!normalized) return undefined
+  if (!normalized || !liveEndpoints) return undefined
   return liveEndpoints.find(
     (endpoint) => normalizeEndpointBaseUrl(endpoint.url) === normalized
   )
