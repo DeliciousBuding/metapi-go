@@ -3,6 +3,7 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math/rand"
 	"strings"
 	"sync"
@@ -11,6 +12,37 @@ import (
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/robfig/cron/v3"
 )
+
+// stopDrainBudget bounds how long cronRunner.stop waits for in-flight cron
+// jobs and intervalRunner.stop waits for in-flight runs before giving up.
+// Mirrors the bounded proxy_log batch-writer drain in cmd/server/main.go:
+// graceful shutdown must see a drained scheduler, but a stuck job cannot be
+// allowed to block shutdown indefinitely.
+const stopDrainBudget = 5 * time.Second
+
+// maxStartupJitter caps the immediate-run startup jitter. Without a cap,
+// long intervals (e.g. 60min retention passes) would delay their first run
+// by up to interval/10 (6min); 30s spreads the startup burst without
+// meaningfully delaying any first pass.
+const maxStartupJitter = 30 * time.Second
+
+// defaultStartupJitter returns a uniform random delay in [0, interval/10),
+// capped at maxStartupJitter. Registry.StartAll starts every scheduler in
+// the same instant; without jitter all immediate first runs hit the DB
+// within the same ~2ms window and same-interval passes stay aligned on the
+// same millisecond forever. Injecting a per-runner delay both spreads the
+// startup burst and de-synchronizes steady-state ticks. math/rand is
+// auto-seeded since Go 1.20, so every process gets a fresh spread.
+func defaultStartupJitter(interval time.Duration) time.Duration {
+	spread := interval / 10
+	if spread > maxStartupJitter {
+		spread = maxStartupJitter
+	}
+	if spread <= 0 {
+		return 0
+	}
+	return time.Duration(rand.Int63n(int64(spread)))
+}
 
 // RandomCronInWindow picks a random HH:mm inside [start, end] and returns a
 // daily cron expression "m h * * *" (5-field). Bounds are "HH:mm" in 24h
@@ -111,8 +143,8 @@ func (cr *cronRunner) addJob(spec string, fn func()) (cron.EntryID, error) {
 	spec = normalizeCronExpr(spec)
 	return cr.cron.AddFunc(spec, func() {
 		defer func() {
-			if r := recover(); r != nil {
-				_ = r // panic recovered; logged inside the job itself
+			if rec := recover(); rec != nil {
+				slog.Error("cron job panicked", "spec", spec, "panic", rec)
 			}
 		}()
 		fn()
@@ -129,9 +161,18 @@ func (cr *cronRunner) start() {
 	cr.cron.Start()
 }
 
-// stop returns a context that is done when all running jobs have completed.
-func (cr *cronRunner) stop() context.Context {
-	return cr.cron.Stop()
+// stop halts scheduling and waits (boundedly) for in-flight jobs to finish.
+// robfig's Cron.Stop returns a context that closes once every running job
+// has returned; waiting on it instead of discarding it is what makes a
+// graceful shutdown actually observe a drained scheduler. Waits are capped
+// by stopDrainBudget so a stuck job cannot block shutdown forever.
+func (cr *cronRunner) stop() {
+	drained := cr.cron.Stop()
+	select {
+	case <-drained.Done():
+	case <-time.After(stopDrainBudget):
+		slog.Warn("cron stop: in-flight jobs did not drain within budget", "budget", stopDrainBudget)
+	}
 }
 
 // intervalRunner owns the ticker/stopCh/running boilerplate shared by the
@@ -139,19 +180,38 @@ func (cr *cronRunner) stop() context.Context {
 // channel-recovery, usage-aggregation, admin-snapshot, oauth-refresh,
 // sub2api-refresh and the retention trio). Semantics:
 //   - Start creates a ticker, marks running, optionally fires the first run
-//     immediately in its own goroutine, then spawns the select loop (one
-//     goroutine per tick).
+//     after a startup jitter delay (see defaultStartupJitter) in its own
+//     goroutine, then spawns the select loop (one goroutine per tick).
+//   - Every run (immediate or tick-fired) is tracked in wg so stop can
+//     drain in-flight runs instead of abandoning them.
 //   - The loop exits on stopCh close or ctx.Done; Stop is idempotent.
 type intervalRunner struct {
 	ticker  *time.Ticker
 	stopCh  chan struct{}
 	running bool
 	mu      sync.Mutex
+	// wg tracks in-flight runs so stop can wait for them to finish.
+	wg sync.WaitGroup
+	// jitter overrides the immediate-run startup delay; nil means
+	// defaultStartupJitter. Injectable so tests can pin the delay instead of
+	// depending on the random draw.
+	jitter func(interval time.Duration) time.Duration
+}
+
+// startupJitter resolves the immediate-run startup delay.
+func (r *intervalRunner) startupJitter(interval time.Duration) time.Duration {
+	if r.jitter != nil {
+		return r.jitter(interval)
+	}
+	return defaultStartupJitter(interval)
 }
 
 // start begins the tick loop. The run func is executed once per tick in its
-// own goroutine; when immediate is true it is also executed once right away.
-// Returns nil when the runner is already running.
+// own goroutine; when immediate is true it is also executed once right away,
+// delayed by a startup jitter (see defaultStartupJitter) so a full registry
+// start does not fire every scheduler in the same instant. All runs are
+// tracked by the drain WaitGroup. Returns nil when the runner is already
+// running.
 func (r *intervalRunner) start(ctx context.Context, interval time.Duration, immediate bool, run func()) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -163,14 +223,32 @@ func (r *intervalRunner) start(ctx context.Context, interval time.Duration, imme
 	r.running = true
 
 	if immediate {
-		go run()
+		// Safe to Add under the lock: stop only Waits after observing
+		// running==true under the same lock.
+		r.wg.Add(1)
+		delay := r.startupJitter(interval)
+		go func() {
+			defer r.wg.Done()
+			if delay > 0 {
+				timer := time.NewTimer(delay)
+				defer timer.Stop()
+				select {
+				case <-timer.C:
+				case <-r.stopCh:
+					// Stopped while waiting out the jitter delay: drop the
+					// run instead of starting work during shutdown.
+					return
+				}
+			}
+			run()
+		}()
 	}
 
 	go func() {
 		for {
 			select {
 			case <-r.ticker.C:
-				go run()
+				r.launch(run)
 			case <-r.stopCh:
 				return
 			case <-ctx.Done():
@@ -182,15 +260,47 @@ func (r *intervalRunner) start(ctx context.Context, interval time.Duration, imme
 	return nil
 }
 
-// stop halts the tick loop. Idempotent; returns nil when not running.
+// launch starts run in its own goroutine tracked by the drain WaitGroup.
+// The mutex serializes with stop so a late Add cannot race a Wait that
+// already observed zero in-flight runs; a tick dropped because stop won the
+// race is intended — stop means "no new runs".
+func (r *intervalRunner) launch(run func()) {
+	r.mu.Lock()
+	if !r.running {
+		r.mu.Unlock()
+		return
+	}
+	r.wg.Add(1)
+	r.mu.Unlock()
+	go func() {
+		defer r.wg.Done()
+		run()
+	}()
+}
+
+// stop halts the tick loop and waits (boundedly) for in-flight runs to
+// finish. Idempotent; returns nil when not running. The wait is capped by
+// stopDrainBudget so a stuck run cannot block shutdown forever.
 func (r *intervalRunner) stop() error {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	if !r.running {
+		r.mu.Unlock()
 		return nil
 	}
 	r.running = false
 	r.ticker.Stop()
 	close(r.stopCh)
+	r.mu.Unlock()
+
+	drained := make(chan struct{})
+	go func() {
+		r.wg.Wait()
+		close(drained)
+	}()
+	select {
+	case <-drained:
+	case <-time.After(stopDrainBudget):
+		slog.Warn("interval runner stop: in-flight runs did not finish within budget", "budget", stopDrainBudget)
+	}
 	return nil
 }
