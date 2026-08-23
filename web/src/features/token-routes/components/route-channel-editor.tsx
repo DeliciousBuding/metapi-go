@@ -167,7 +167,6 @@ function ChannelEditRow({
           <Spinner className='size-4' />
         ) : (
           <Switch
-            type='button'
             checked={channel.enabled}
             aria-label={t('tokenRoutes.formChannel.enabledLabel')}
             disabled={rowBusy}
