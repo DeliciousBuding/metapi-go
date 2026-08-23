@@ -44,10 +44,10 @@ func (h *settingsHandler) applyProxyAccessSettings(body map[string]any) *setting
 	if v, ok := body["proxyToken"]; ok {
 		token := normalizeString(v)
 		if !strings.HasPrefix(token, "sk-") {
-			return failSettings(http.StatusBadRequest, "下游访问令牌必须以 sk- 开头")
+			return failSettings(http.StatusBadRequest, "downstream access token must start with sk-")
 		}
 		if len(token) < 6 {
-			return failSettings(http.StatusBadRequest, "下游访问令牌至少 6 位（含 sk-）")
+			return failSettings(http.StatusBadRequest, "downstream access token must be at least 6 characters (including sk-)")
 		}
 		h.cfg.ProxyToken = token
 		upsertSettingDB(h.db, "proxy_token", token)
@@ -76,10 +76,10 @@ func (h *settingsHandler) applyCheckinSettings(body map[string]any) *settingsApp
 		if v, ok := body["checkinIntervalHours"]; ok {
 			hours, err := toFloat64Strict(v)
 			if err != nil {
-				return failSettings(http.StatusBadRequest, "checkinIntervalHours 必须是数字类型")
+				return failSettings(http.StatusBadRequest, "checkinIntervalHours must be a number")
 			}
 			if hours != float64(int(hours)) {
-				return failSettings(http.StatusBadRequest, "签到间隔必须是 1 到 24 的整数小时")
+				return failSettings(http.StatusBadRequest, "check-in interval must be an integer number of hours between 1 and 24")
 			}
 			intervalHours := int(hours)
 			patch.IntervalHours = &intervalHours
@@ -91,7 +91,7 @@ func (h *settingsHandler) applyCheckinSettings(body map[string]any) *settingsApp
 	if v, ok := body["checkinSchedule"]; ok {
 		spec, err := decodeScheduleSpec(v)
 		if err != nil {
-			return failSettings(http.StatusBadRequest, "checkinSchedule 格式无效")
+			return failSettings(http.StatusBadRequest, "invalid checkinSchedule format")
 		}
 		if err := spec.Validate(); err != nil {
 			return failSettings(http.StatusBadRequest, err.Error())
@@ -132,10 +132,10 @@ func (h *settingsHandler) applyBalanceScheduleSettings(body map[string]any) *set
 	if v, ok := body["balanceRefreshCron"]; ok {
 		cron := normalizeString(v)
 		if !scheduler.ValidateCronExpr(cron) {
-			return failSettings(http.StatusBadRequest, "balanceRefreshCron 不是有效的 cron 表达式")
+			return failSettings(http.StatusBadRequest, "balanceRefreshCron is not a valid cron expression")
 		}
 		if err := persistDualSchedule(h.db, "balance_refresh_cron", cron, "balance_refresh_schedule_v2", scheduler.CronToSchedule(cron)); err != nil {
-			return failSettings(http.StatusInternalServerError, "保存余额刷新调度失败")
+			return failSettings(http.StatusInternalServerError, "failed to save balance refresh schedule")
 		}
 		h.cfg.BalanceRefreshCron = cron
 		if err := app.UpdateBalanceCron(cron); err != nil {
@@ -145,7 +145,7 @@ func (h *settingsHandler) applyBalanceScheduleSettings(body map[string]any) *set
 	if v, ok := body["balanceRefreshSchedule"]; ok {
 		spec, err := decodeScheduleSpec(v)
 		if err != nil {
-			return failSettings(http.StatusBadRequest, "balanceRefreshSchedule 格式无效")
+			return failSettings(http.StatusBadRequest, "invalid balanceRefreshSchedule format")
 		}
 		if err := spec.Validate(); err != nil {
 			return failSettings(http.StatusBadRequest, err.Error())
@@ -155,10 +155,10 @@ func (h *settingsHandler) applyBalanceScheduleSettings(body map[string]any) *set
 			return failSettings(http.StatusBadRequest, err.Error())
 		}
 		if cron == "" {
-			return failSettings(http.StatusBadRequest, "balanceRefreshSchedule 无法转换为 cron 表达式")
+			return failSettings(http.StatusBadRequest, "balanceRefreshSchedule cannot be converted to a cron expression")
 		}
 		if err := persistDualSchedule(h.db, "balance_refresh_cron", cron, "balance_refresh_schedule_v2", spec); err != nil {
-			return failSettings(http.StatusInternalServerError, "保存余额刷新调度失败")
+			return failSettings(http.StatusInternalServerError, "failed to save balance refresh schedule")
 		}
 		h.cfg.BalanceRefreshCron = cron
 		if err := app.UpdateBalanceCron(cron); err != nil {
@@ -176,10 +176,10 @@ func (h *settingsHandler) applyLogCleanupSettings(body map[string]any) *settings
 	if v, ok := body["logCleanupCron"]; ok {
 		cron := normalizeString(v)
 		if !scheduler.ValidateCronExpr(cron) {
-			return failSettings(http.StatusBadRequest, "logCleanupCron 不是有效的 cron 表达式")
+			return failSettings(http.StatusBadRequest, "logCleanupCron is not a valid cron expression")
 		}
 		if err := persistDualSchedule(h.db, "log_cleanup_cron", cron, "log_cleanup_schedule_v2", scheduler.CronToSchedule(cron)); err != nil {
-			return failSettings(http.StatusInternalServerError, "保存日志清理调度失败")
+			return failSettings(http.StatusInternalServerError, "failed to save log cleanup schedule")
 		}
 		h.cfg.LogCleanupCron = cron
 		logCleanupChanged = true
@@ -187,7 +187,7 @@ func (h *settingsHandler) applyLogCleanupSettings(body map[string]any) *settings
 	if v, ok := body["logCleanupUsageLogsEnabled"]; ok {
 		enabled, err := toBoolStrict(v)
 		if err != nil {
-			return failSettings(http.StatusBadRequest, "logCleanupUsageLogsEnabled 必须是布尔类型 (true/false)")
+			return failSettings(http.StatusBadRequest, "logCleanupUsageLogsEnabled must be a boolean (true/false)")
 		}
 		h.cfg.LogCleanupUsageLogsEnabled = enabled
 		upsertSettingDB(h.db, "log_cleanup_usage_logs_enabled", enabled)
@@ -195,7 +195,7 @@ func (h *settingsHandler) applyLogCleanupSettings(body map[string]any) *settings
 	if v, ok := body["logCleanupProgramLogsEnabled"]; ok {
 		enabled, err := toBoolStrict(v)
 		if err != nil {
-			return failSettings(http.StatusBadRequest, "logCleanupProgramLogsEnabled 必须是布尔类型 (true/false)")
+			return failSettings(http.StatusBadRequest, "logCleanupProgramLogsEnabled must be a boolean (true/false)")
 		}
 		h.cfg.LogCleanupProgramLogsEnabled = enabled
 		upsertSettingDB(h.db, "log_cleanup_program_logs_enabled", enabled)
@@ -203,10 +203,10 @@ func (h *settingsHandler) applyLogCleanupSettings(body map[string]any) *settings
 	if v, ok := body["logCleanupRetentionDays"]; ok {
 		days, err := toFloat64Strict(v)
 		if err != nil {
-			return failSettings(http.StatusBadRequest, "logCleanupRetentionDays 必须是数字类型")
+			return failSettings(http.StatusBadRequest, "logCleanupRetentionDays must be a number")
 		}
 		if days < 1 {
-			return failSettings(http.StatusBadRequest, "日志清理保留天数必须是大于等于 1 的整数")
+			return failSettings(http.StatusBadRequest, "log cleanup retention days must be an integer >= 1")
 		}
 		h.cfg.LogCleanupRetentionDays = int(days)
 		upsertSettingDB(h.db, "log_cleanup_retention_days", int(days))
@@ -214,7 +214,7 @@ func (h *settingsHandler) applyLogCleanupSettings(body map[string]any) *settings
 	if v, ok := body["logCleanupSchedule"]; ok {
 		spec, err := decodeScheduleSpec(v)
 		if err != nil {
-			return failSettings(http.StatusBadRequest, "logCleanupSchedule 格式无效")
+			return failSettings(http.StatusBadRequest, "invalid logCleanupSchedule format")
 		}
 		if err := spec.Validate(); err != nil {
 			return failSettings(http.StatusBadRequest, err.Error())
@@ -224,10 +224,10 @@ func (h *settingsHandler) applyLogCleanupSettings(body map[string]any) *settings
 			return failSettings(http.StatusBadRequest, err.Error())
 		}
 		if cron == "" {
-			return failSettings(http.StatusBadRequest, "logCleanupSchedule 无法转换为 cron 表达式")
+			return failSettings(http.StatusBadRequest, "logCleanupSchedule cannot be converted to a cron expression")
 		}
 		if err := persistDualSchedule(h.db, "log_cleanup_cron", cron, "log_cleanup_schedule_v2", spec); err != nil {
-			return failSettings(http.StatusInternalServerError, "保存日志清理调度失败")
+			return failSettings(http.StatusInternalServerError, "failed to save log cleanup schedule")
 		}
 		h.cfg.LogCleanupCron = cron
 		logCleanupChanged = true
@@ -246,7 +246,7 @@ func (h *settingsHandler) applyFeatureToggleSettings(body map[string]any) *setti
 	if v, ok := body["modelAvailabilityProbeEnabled"]; ok {
 		enabled, err := toBoolStrict(v)
 		if err != nil {
-			return failSettings(http.StatusBadRequest, "modelAvailabilityProbeEnabled 必须是布尔类型 (true/false)")
+			return failSettings(http.StatusBadRequest, "modelAvailabilityProbeEnabled must be a boolean (true/false)")
 		}
 		h.cfg.ModelAvailabilityProbeEnabled = enabled
 		upsertSettingDB(h.db, "model_availability_probe_enabled", enabled)
@@ -256,7 +256,7 @@ func (h *settingsHandler) applyFeatureToggleSettings(body map[string]any) *setti
 	if v, ok := body["codexUpstreamWebsocketEnabled"]; ok {
 		enabled, err := toBoolStrict(v)
 		if err != nil {
-			return failSettings(http.StatusBadRequest, "codexUpstreamWebsocketEnabled 必须是布尔类型 (true/false)")
+			return failSettings(http.StatusBadRequest, "codexUpstreamWebsocketEnabled must be a boolean (true/false)")
 		}
 		h.cfg.CodexUpstreamWebsocketEnabled = enabled
 		upsertSettingDB(h.db, "codex_upstream_websocket_enabled", enabled)
@@ -266,7 +266,7 @@ func (h *settingsHandler) applyFeatureToggleSettings(body map[string]any) *setti
 	if v, ok := body["responsesCompactFallbackToResponsesEnabled"]; ok {
 		enabled, err := toBoolStrict(v)
 		if err != nil {
-			return failSettings(http.StatusBadRequest, "responsesCompactFallbackToResponsesEnabled 必须是布尔类型 (true/false)")
+			return failSettings(http.StatusBadRequest, "responsesCompactFallbackToResponsesEnabled must be a boolean (true/false)")
 		}
 		h.cfg.ResponsesCompactFallbackToResponsesEnabled = enabled
 		upsertSettingDB(h.db, "responses_compact_fallback_to_responses_enabled", enabled)
@@ -276,7 +276,7 @@ func (h *settingsHandler) applyFeatureToggleSettings(body map[string]any) *setti
 	if v, ok := body["disableCrossProtocolFallback"]; ok {
 		enabled, err := toBoolStrict(v)
 		if err != nil {
-			return failSettings(http.StatusBadRequest, "disableCrossProtocolFallback 必须是布尔类型 (true/false)")
+			return failSettings(http.StatusBadRequest, "disableCrossProtocolFallback must be a boolean (true/false)")
 		}
 		h.cfg.DisableCrossProtocolFallback = enabled
 		upsertSettingDB(h.db, "disable_cross_protocol_fallback", enabled)
@@ -296,10 +296,10 @@ func (h *settingsHandler) applyProxySessionSettings(body map[string]any) *settin
 	if v, ok := body["proxySessionChannelConcurrencyLimit"]; ok {
 		n, err := toFloat64Strict(v)
 		if err != nil {
-			return failSettings(http.StatusBadRequest, "proxySessionChannelConcurrencyLimit 必须是数字类型")
+			return failSettings(http.StatusBadRequest, "proxySessionChannelConcurrencyLimit must be a number")
 		}
 		if n < 0 {
-			return failSettings(http.StatusBadRequest, "会话通道并发上限必须是大于等于 0 的整数")
+			return failSettings(http.StatusBadRequest, "session channel concurrency limit must be an integer >= 0")
 		}
 		h.cfg.ProxySessionChannelConcurrencyLimit = int(n)
 		upsertSettingDB(h.db, "proxy_session_channel_concurrency_limit", int(n))
@@ -307,10 +307,10 @@ func (h *settingsHandler) applyProxySessionSettings(body map[string]any) *settin
 	if v, ok := body["proxySessionChannelQueueWaitMs"]; ok {
 		n, err := toFloat64Strict(v)
 		if err != nil {
-			return failSettings(http.StatusBadRequest, "proxySessionChannelQueueWaitMs 必须是数字类型")
+			return failSettings(http.StatusBadRequest, "proxySessionChannelQueueWaitMs must be a number")
 		}
 		if n < 0 {
-			return failSettings(http.StatusBadRequest, "会话通道排队等待时间必须是大于等于 0 的整数毫秒")
+			return failSettings(http.StatusBadRequest, "session channel queue wait time must be an integer number of milliseconds >= 0")
 		}
 		h.cfg.ProxySessionChannelQueueWaitMs = int(n)
 		upsertSettingDB(h.db, "proxy_session_channel_queue_wait_ms", int(n))
@@ -347,10 +347,10 @@ func (h *settingsHandler) applyProxyDebugSettings(body map[string]any) *settings
 	if v, ok := body["proxyDebugRetentionHours"]; ok {
 		n, err := toFloat64Strict(v)
 		if err != nil {
-			return failSettings(http.StatusBadRequest, "proxyDebugRetentionHours 必须是数字类型")
+			return failSettings(http.StatusBadRequest, "proxyDebugRetentionHours must be a number")
 		}
 		if n < 1 {
-			return failSettings(http.StatusBadRequest, "代理调试保留时长必须是大于等于 1 的整数小时")
+			return failSettings(http.StatusBadRequest, "proxy debug retention hours must be an integer >= 1")
 		}
 		h.cfg.ProxyDebugRetentionHours = int(n)
 		upsertSettingDB(h.db, "proxy_debug_retention_hours", int(n))
@@ -358,10 +358,10 @@ func (h *settingsHandler) applyProxyDebugSettings(body map[string]any) *settings
 	if v, ok := body["proxyDebugMaxBodyBytes"]; ok {
 		n, err := toFloat64Strict(v)
 		if err != nil {
-			return failSettings(http.StatusBadRequest, "proxyDebugMaxBodyBytes 必须是数字类型")
+			return failSettings(http.StatusBadRequest, "proxyDebugMaxBodyBytes must be a number")
 		}
 		if n < 1024 {
-			return failSettings(http.StatusBadRequest, "代理调试抓取体积上限必须是大于等于 1024 的整数字节")
+			return failSettings(http.StatusBadRequest, "proxy debug capture size limit must be an integer >= 1024 bytes")
 		}
 		h.cfg.ProxyDebugMaxBodyBytes = int(n)
 		upsertSettingDB(h.db, "proxy_debug_max_body_bytes", int(n))
@@ -376,10 +376,10 @@ func (h *settingsHandler) applyRoutingSettings(body map[string]any) *settingsApp
 	if v, ok := body["routingFallbackUnitCost"]; ok {
 		n, err := toFloat64Strict(v)
 		if err != nil {
-			return failSettings(http.StatusBadRequest, "routingFallbackUnitCost 必须是数字类型")
+			return failSettings(http.StatusBadRequest, "routingFallbackUnitCost must be a number")
 		}
 		if n <= 0 {
-			return failSettings(http.StatusBadRequest, "无价模型默认单价必须是大于 0 的数字")
+			return failSettings(http.StatusBadRequest, "default unit cost for unpriced models must be a number greater than 0")
 		}
 		if n < 1e-6 {
 			n = 1e-6
@@ -390,10 +390,10 @@ func (h *settingsHandler) applyRoutingSettings(body map[string]any) *settingsApp
 	if v, ok := body["proxyFirstByteTimeoutSec"]; ok {
 		n, err := toFloat64Strict(v)
 		if err != nil {
-			return failSettings(http.StatusBadRequest, "proxyFirstByteTimeoutSec 必须是数字类型")
+			return failSettings(http.StatusBadRequest, "proxyFirstByteTimeoutSec must be a number")
 		}
 		if n < 0 {
-			return failSettings(http.StatusBadRequest, "首字超时必须是大于等于 0 的数字（秒）")
+			return failSettings(http.StatusBadRequest, "first byte timeout must be a number >= 0 (seconds)")
 		}
 		h.cfg.ProxyFirstByteTimeoutSec = int(n)
 		upsertSettingDB(h.db, "proxy_first_byte_timeout_sec", int(n))
@@ -401,10 +401,10 @@ func (h *settingsHandler) applyRoutingSettings(body map[string]any) *settingsApp
 	if v, ok := body["tokenRouterFailureCooldownMaxSec"]; ok {
 		n, err := toFloat64Strict(v)
 		if err != nil {
-			return failSettings(http.StatusBadRequest, "tokenRouterFailureCooldownMaxSec 必须是数字类型")
+			return failSettings(http.StatusBadRequest, "tokenRouterFailureCooldownMaxSec must be a number")
 		}
 		if n <= 0 {
-			return failSettings(http.StatusBadRequest, "路由失败冷却上限必须是大于 0 的数字（秒）")
+			return failSettings(http.StatusBadRequest, "route failure cooldown cap must be a number > 0 (seconds)")
 		}
 		h.cfg.TokenRouterFailureCooldownMaxSec = int(n)
 		upsertSettingDB(h.db, "token_router_failure_cooldown_max_sec", int(n))
@@ -416,35 +416,35 @@ func (h *settingsHandler) applyRoutingSettings(body map[string]any) *settingsApp
 			if bf, ok3 := rw["baseWeightFactor"]; ok3 {
 				val, err := toFloat64Strict(bf)
 				if err != nil {
-					return failSettings(http.StatusBadRequest, "routingWeights.baseWeightFactor 必须是数字类型")
+					return failSettings(http.StatusBadRequest, "routingWeights.baseWeightFactor must be a number")
 				}
 				h.cfg.RoutingWeights.BaseWeightFactor = val
 			}
 			if vsf, ok3 := rw["valueScoreFactor"]; ok3 {
 				val, err := toFloat64Strict(vsf)
 				if err != nil {
-					return failSettings(http.StatusBadRequest, "routingWeights.valueScoreFactor 必须是数字类型")
+					return failSettings(http.StatusBadRequest, "routingWeights.valueScoreFactor must be a number")
 				}
 				h.cfg.RoutingWeights.ValueScoreFactor = val
 			}
 			if cw, ok3 := rw["costWeight"]; ok3 {
 				val, err := toFloat64Strict(cw)
 				if err != nil {
-					return failSettings(http.StatusBadRequest, "routingWeights.costWeight 必须是数字类型")
+					return failSettings(http.StatusBadRequest, "routingWeights.costWeight must be a number")
 				}
 				h.cfg.RoutingWeights.CostWeight = val
 			}
 			if bw, ok3 := rw["balanceWeight"]; ok3 {
 				val, err := toFloat64Strict(bw)
 				if err != nil {
-					return failSettings(http.StatusBadRequest, "routingWeights.balanceWeight 必须是数字类型")
+					return failSettings(http.StatusBadRequest, "routingWeights.balanceWeight must be a number")
 				}
 				h.cfg.RoutingWeights.BalanceWeight = val
 			}
 			if uw, ok3 := rw["usageWeight"]; ok3 {
 				val, err := toFloat64Strict(uw)
 				if err != nil {
-					return failSettings(http.StatusBadRequest, "routingWeights.usageWeight 必须是数字类型")
+					return failSettings(http.StatusBadRequest, "routingWeights.usageWeight must be a number")
 				}
 				h.cfg.RoutingWeights.UsageWeight = val
 			}
@@ -527,7 +527,7 @@ func (h *settingsHandler) applyNotifySettings(body map[string]any) *settingsAppl
 	if v, ok := body["smtpPort"]; ok {
 		n, err := toFloat64Strict(v)
 		if err != nil {
-			return failSettings(http.StatusBadRequest, "smtpPort 必须是数字类型")
+			return failSettings(http.StatusBadRequest, "smtpPort must be a number")
 		}
 		h.cfg.SmtpPort = int(n)
 		upsertSettingDB(h.db, "smtp_port", h.cfg.SmtpPort)
@@ -605,10 +605,10 @@ func (h *settingsHandler) applyNotifySettings(body map[string]any) *settingsAppl
 	if v, ok := body["notifyCooldownSec"]; ok {
 		n, err := toFloat64Strict(v)
 		if err != nil {
-			return failSettings(http.StatusBadRequest, "notifyCooldownSec 必须是数字类型")
+			return failSettings(http.StatusBadRequest, "notifyCooldownSec must be a number")
 		}
 		if n < 0 {
-			return failSettings(http.StatusBadRequest, "告警冷静期必须是大于等于 0 的数字（秒）")
+			return failSettings(http.StatusBadRequest, "alert cooldown must be a number >= 0 (seconds)")
 		}
 		h.cfg.NotifyCooldownSec = int(n)
 		upsertSettingDB(h.db, "notify_cooldown_sec", int(n))
@@ -647,7 +647,7 @@ func (h *settingsHandler) applyFilterSettings(body map[string]any) *settingsAppl
 		}
 		h.cfg.GlobalBlockedBrands = brands
 		if err := upsertSettingDB(h.db, "global_blocked_brands", brands); err != nil {
-			return failSettings(http.StatusInternalServerError, "保存品牌屏蔽失败")
+			return failSettings(http.StatusInternalServerError, "failed to save brand blocking")
 		}
 	}
 
@@ -661,7 +661,7 @@ func (h *settingsHandler) applyFilterSettings(body map[string]any) *settingsAppl
 		}
 		h.cfg.GlobalAllowedModels = models
 		if err := upsertSettingDB(h.db, "global_allowed_models", models); err != nil {
-			return failSettings(http.StatusInternalServerError, "保存模型白名单失败")
+			return failSettings(http.StatusInternalServerError, "failed to save model allowlist")
 		}
 	}
 

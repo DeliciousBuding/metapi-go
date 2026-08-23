@@ -64,7 +64,7 @@ var AccountsTables = []string{
 	"site_announcements",
 }
 
-var ErrInvalidExportType = errors.New("导出类型无效，仅支持 all/accounts/preferences")
+var ErrInvalidExportType = errors.New("invalid export type; only all/accounts/preferences are supported")
 
 var (
 	MaxExportRowsPerTable = 50_000
@@ -94,7 +94,7 @@ func BuildPayload(db *sqlx.DB, exportType string) (map[string]any, error) {
 		}
 		rows, err := queryTableAsJSON(db, table, &estimatedPayloadBytes)
 		if err != nil {
-			return nil, fmt.Errorf("导出失败：无法读取表 %s：%w", table, err)
+			return nil, fmt.Errorf("export failed: unable to read table %s: %w", table, err)
 		}
 		result[table] = rows
 	}
@@ -146,7 +146,7 @@ func queryTableAsJSON(db *sqlx.DB, table string, estimatedPayloadBytes *int64) (
 	for rows.Next() {
 		if MaxExportRowsPerTable > 0 && len(result) >= MaxExportRowsPerTable {
 			return nil, ExportLimitError{
-				message: fmt.Sprintf("表 %s 导出行数超过上限 %d", table, MaxExportRowsPerTable),
+				message: fmt.Sprintf("table %s exceeds max export rows of %d", table, MaxExportRowsPerTable),
 			}
 		}
 		row := make(map[string]any)
@@ -182,13 +182,13 @@ func validateExportCell(table string, column string, value any) error {
 	case string:
 		if len(v) > MaxExportCellBytes {
 			return ExportLimitError{
-				message: fmt.Sprintf("表 %s 字段 %s 超过 %d 字节导出上限", table, column, MaxExportCellBytes),
+				message: fmt.Sprintf("table %s column %s exceeds max export cell size of %d bytes", table, column, MaxExportCellBytes),
 			}
 		}
 	case []byte:
 		if len(v) > MaxExportCellBytes {
 			return ExportLimitError{
-				message: fmt.Sprintf("表 %s 字段 %s 超过 %d 字节导出上限", table, column, MaxExportCellBytes),
+				message: fmt.Sprintf("table %s column %s exceeds max export cell size of %d bytes", table, column, MaxExportCellBytes),
 			}
 		}
 	}
@@ -298,7 +298,7 @@ func addEstimatedPayloadBytes(total *int64, delta int64) error {
 	*total += delta
 	if MaxExportPayloadBytes > 0 && *total > MaxExportPayloadBytes {
 		return ExportLimitError{
-			message: fmt.Sprintf("备份导出超过 %d 字节上限", MaxExportPayloadBytes),
+			message: fmt.Sprintf("backup export exceeds max payload of %d bytes", MaxExportPayloadBytes),
 		}
 	}
 	return nil

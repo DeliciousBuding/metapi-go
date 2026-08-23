@@ -250,16 +250,16 @@ func TestAppendSessionTokenRebindHint_NoAppend(t *testing.T) {
 }
 
 func TestAppendSessionTokenRebindHint_NoDoubleAppend(t *testing.T) {
-	hint := "请在中转站重新生成系统访问令牌后重新绑定账号"
+	hint := "please regenerate the system access token on the relay site and rebind the account"
 	// Message already contains the hint
-	msg1 := "invalid access token，" + hint
+	msg1 := "invalid access token; " + hint
 	result1 := AppendSessionTokenRebindHint(msg1)
 	if result1 != msg1 {
 		t.Errorf("should not double-append hint: got %q", result1)
 	}
 
 	// Message already contains the hint fully
-	msg2 := "access token is invalid，" + hint
+	msg2 := "access token is invalid; " + hint
 	result2 := AppendSessionTokenRebindHint(msg2)
 	if result2 != msg2 {
 		t.Errorf("should not double-append hint: got %q", result2)

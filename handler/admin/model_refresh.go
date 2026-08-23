@@ -49,7 +49,7 @@ func refreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, all
 				"id":           accountID,
 				"status":       "failed",
 				"errorCode":    "not_found",
-				"errorMessage": "账号不存在",
+				"errorMessage": "account not found",
 			},
 			"rebuild": map[string]any{},
 		}
@@ -61,12 +61,12 @@ func refreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, all
 	if strings.EqualFold(status, "disabled") {
 		return map[string]any{
 			"success": false,
-			"message": "账号已禁用，无法刷新模型",
+			"message": "account disabled; cannot refresh models",
 			"refresh": map[string]any{
 				"id":           accountID,
 				"status":       "failed",
 				"errorCode":    "disabled",
-				"errorMessage": "账号已禁用",
+				"errorMessage": "account disabled",
 			},
 			"rebuild": map[string]any{},
 		}
@@ -74,12 +74,12 @@ func refreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, all
 	if !allowInactive && !strings.EqualFold(status, "active") && status != "" {
 		return map[string]any{
 			"success": false,
-			"message": "账号未激活，无法刷新模型",
+			"message": "account not active; cannot refresh models",
 			"refresh": map[string]any{
 				"id":           accountID,
 				"status":       "failed",
 				"errorCode":    "inactive",
-				"errorMessage": "账号未激活",
+				"errorMessage": "account not active",
 			},
 			"rebuild": map[string]any{},
 		}
@@ -94,7 +94,7 @@ func refreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, all
 				"id":           accountID,
 				"status":       "failed",
 				"errorCode":    "unsupported_platform",
-				"errorMessage": "不支持的平台: " + site.Platform,
+				"errorMessage": "unsupported platform: " + site.Platform,
 			},
 			"rebuild": map[string]any{},
 		}
@@ -104,12 +104,12 @@ func refreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, all
 	if token == "" {
 		return map[string]any{
 			"success": false,
-			"message": "账号缺少可用凭证",
+			"message": "account has no usable credentials",
 			"refresh": map[string]any{
 				"id":           accountID,
 				"status":       "failed",
 				"errorCode":    "missing_credential",
-				"errorMessage": "账号缺少 access_token / api_token",
+				"errorMessage": "account is missing access_token / api_token",
 			},
 			"rebuild": map[string]any{},
 		}
@@ -155,12 +155,12 @@ func refreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, all
 	if len(clean) == 0 {
 		return map[string]any{
 			"success": false,
-			"message": "未获取到可用模型",
+			"message": "no models available",
 			"refresh": map[string]any{
 				"id":           accountID,
 				"status":       "failed",
 				"errorCode":    "empty_models",
-				"errorMessage": "未获取到可用模型",
+				"errorMessage": "no models available",
 				"modelCount":   0,
 				"models":       []string{},
 			},
@@ -172,7 +172,7 @@ func refreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, all
 	if err := persistAccountModelAvailability(db, accountID, clean, now); err != nil {
 		return map[string]any{
 			"success": false,
-			"message": "模型写入失败: " + err.Error(),
+			"message": "failed to write models: " + err.Error(),
 			"refresh": map[string]any{
 				"id":           accountID,
 				"status":       "failed",
@@ -266,7 +266,7 @@ func resolvePlatformUserIDPtr(extraConfig *string, username *string) *int {
 
 func classifyModelRefreshError(err error, ctx context.Context) (code, message string) {
 	if err == nil {
-		return "unknown", "模型获取失败"
+		return "unknown", "model fetch failed"
 	}
 	msg := strings.TrimSpace(err.Error())
 	lower := strings.ToLower(msg)
@@ -274,13 +274,13 @@ func classifyModelRefreshError(err error, ctx context.Context) (code, message st
 		strings.Contains(lower, "timeout") ||
 		strings.Contains(lower, "deadline exceeded")
 	if timedOut {
-		return "timeout", "模型获取失败（请求超时）"
+		return "timeout", "model fetch failed (request timed out)"
 	}
 	if strings.Contains(lower, "unauthorized") || strings.Contains(lower, "401") || strings.Contains(lower, "invalid api key") || strings.Contains(lower, "authentication") {
-		return "unauthorized", "模型获取失败，API Key 已无效"
+		return "unauthorized", "model fetch failed: API key is invalid"
 	}
 	if msg == "" {
-		msg = "模型获取失败"
+		msg = "model fetch failed"
 	}
 	return "upstream_error", msg
 }
@@ -434,7 +434,7 @@ func modelRefreshSucceeded(result map[string]any) bool {
 
 func modelRefreshErrorMessage(result map[string]any) string {
 	if result == nil {
-		return "模型刷新失败"
+		return "model refresh failed"
 	}
 	if msg, ok := result["message"].(string); ok && strings.TrimSpace(msg) != "" {
 		return strings.TrimSpace(msg)
@@ -447,5 +447,5 @@ func modelRefreshErrorMessage(result map[string]any) string {
 			return strings.TrimSpace(msg)
 		}
 	}
-	return "模型刷新失败"
+	return "model refresh failed"
 }

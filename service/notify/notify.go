@@ -114,7 +114,7 @@ func SendNotification(cfg *config.Config, title, message, level string, options 
 			}, nil
 		}
 		if decision.MergedCount > 0 {
-			resolvedMessage = fmt.Sprintf("%s\n\n[通知合并] 冷静期内已合并 %d 条重复告警", message, decision.MergedCount)
+			resolvedMessage = fmt.Sprintf("%s\n\n[merged] %d duplicate alerts suppressed during cooldown", message, decision.MergedCount)
 		}
 	}
 

@@ -564,10 +564,10 @@ func ApplySiteStatusSideEffects(db *sqlx.DB, siteID int64, siteName string, newS
 		db.Exec(db.Rebind("UPDATE accounts SET status = 'disabled', updated_at = ? WHERE site_id = ?"), now, siteID)
 
 		// Create event
-		msg := fmt.Sprintf("%s 已禁用，关联账号已全部置为禁用", siteName)
+		msg := fmt.Sprintf("%s disabled; all linked accounts disabled", siteName)
 		db.Exec(
 			db.Rebind(`INSERT INTO events (type, title, message, level, related_id, related_type, created_at)
-			 VALUES ('status', '站点已禁用', ?, 'warning', ?, 'site', ?)`),
+			 VALUES ('status', 'Site disabled', ?, 'warning', ?, 'site', ?)`),
 			msg, siteID, now,
 		)
 	} else {
@@ -577,10 +577,10 @@ func ApplySiteStatusSideEffects(db *sqlx.DB, siteID int64, siteName string, newS
 			now, siteID,
 		)
 
-		msg := fmt.Sprintf("%s 已启用，关联禁用账号已恢复为活跃", siteName)
+		msg := fmt.Sprintf("%s enabled; disabled linked accounts restored to active", siteName)
 		db.Exec(
 			db.Rebind(`INSERT INTO events (type, title, message, level, related_id, related_type, created_at)
-			 VALUES ('status', '站点已启用', ?, 'info', ?, 'site', ?)`),
+			 VALUES ('status', 'Site enabled', ?, 'info', ?, 'site', ?)`),
 			msg, siteID, now,
 		)
 	}

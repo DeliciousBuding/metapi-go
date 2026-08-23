@@ -512,7 +512,7 @@ func TestAccounts_Create_RejectsUnknownToken(t *testing.T) {
 		t.Fatalf("requiresVerification = %v, want true", result["requiresVerification"])
 	}
 	msg, _ := result["message"].(string)
-	if !strings.Contains(msg, "Token 验证失败") {
+	if !strings.Contains(msg, "verification failed") {
 		t.Fatalf("message = %q, want verify failure", msg)
 	}
 	var count int
@@ -653,7 +653,7 @@ func TestAccounts_Create_InvalidAccessTokenFailClosed(t *testing.T) {
 		t.Fatalf("requiresVerification = %v, want true", result["requiresVerification"])
 	}
 	msg, _ := result["message"].(string)
-	if !strings.Contains(msg, "Token 验证失败") && !strings.Contains(msg, "重新绑定账号") {
+	if !strings.Contains(msg, "verification failed") && !strings.Contains(msg, "rebind the account") {
 		t.Fatalf("message = %q, want verify failure or rebind hint", msg)
 	}
 	var count int
@@ -669,7 +669,7 @@ func TestAccounts_Create_AppendsRebindHintOnVerifyError(t *testing.T) {
 	// Directly exercise the response path used when VerifyToken returns a
 	// concrete invalid-access-token error (TS parity).
 	msg := alert.AppendSessionTokenRebindHint("无权进行此操作，access token 无效")
-	if !strings.Contains(msg, "重新绑定账号") {
+	if !strings.Contains(msg, "rebind the account") {
 		t.Fatalf("message = %q, want rebind hint", msg)
 	}
 }
@@ -812,8 +812,8 @@ func TestAccounts_Create_NoToken(t *testing.T) {
 	}
 	var result map[string]any
 	json.Unmarshal(resp.Body.Bytes(), &result)
-	if result["error"] != "请填写 Token" {
-		t.Errorf("expected '请填写 Token', got %v", result["error"])
+	if result["error"] != "token is required" {
+		t.Errorf("expected 'token is required', got %v", result["error"])
 	}
 }
 
@@ -1202,8 +1202,8 @@ func TestAccounts_VerifyToken_EmptyToken(t *testing.T) {
 	if result["error"] == nil || result["error"] == "" {
 		t.Errorf("expected error field for empty token, got %#v", result)
 	}
-	if errMsg, _ := result["error"].(string); !strings.Contains(errMsg, "Token") {
-		t.Fatalf("error = %v, want Token empty message", result["error"])
+	if errMsg, _ := result["error"].(string); !strings.Contains(errMsg, "token must not be empty") {
+		t.Fatalf("error = %v, want empty-token message", result["error"])
 	}
 }
 

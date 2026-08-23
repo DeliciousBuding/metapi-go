@@ -54,9 +54,9 @@ func ReportTokenExpired(cfg *config.Config, db *sqlx.DB, params TokenExpiredPara
 
 	// Write events
 	_ = createdAt
-	message := enrichAlertMessage(db, fmt.Sprintf("%s @ %s 的 Token 无效或已过期%s", accountLabel, siteLabel, detail),
+	message := enrichAlertMessage(db, fmt.Sprintf("%s @ %s token is invalid or expired%s", accountLabel, siteLabel, detail),
 		alertEnrichmentScope{accountID: &params.AccountID})
-	service.CreateEvent(db, "token", "Token 已失效",
+	service.CreateEvent(db, "token", "Token expired",
 		message, "error", params.AccountID, "account")
 
 	// Update account status
@@ -64,16 +64,16 @@ func ReportTokenExpired(cfg *config.Config, db *sqlx.DB, params TokenExpiredPara
 		time.Now().UTC().Format(time.RFC3339), params.AccountID)
 
 	// Set runtime health
-	healthReason := "访问令牌失效"
+	healthReason := "access token expired"
 	if detailText != "" {
-		healthReason = "访问令牌失效：" + detailText
+		healthReason = "access token expired: " + detailText
 	}
 	service.SetAccountRuntimeHealth(db, params.AccountID, service.RuntimeHealthEntry{
 		State: service.HealthUnhealthy, Reason: healthReason, Source: service.HealthSourceAuth,
 	})
 
 	// Send notification
-	notifypkg.SendNotification(cfg, "Token 已失效", message,
+	notifypkg.SendNotification(cfg, "Token expired", message,
 		"error", &notifypkg.SendNotificationOptions{TaskTag: "token_expired"})
 }
 
@@ -122,14 +122,14 @@ func ReportLowBalance(cfg *config.Config, db *sqlx.DB, params LowBalanceParams) 
 	}
 
 	msg := enrichAlertMessage(db,
-		fmt.Sprintf("%s @ %s 余额不足：当前 $%.2f（阈值 $%.2f）",
+		fmt.Sprintf("%s @ %s low balance: current $%.2f (threshold $%.2f)",
 			accountLabel, siteLabel, params.Balance, params.Threshold),
 		alertEnrichmentScope{accountID: &params.AccountID})
 
-	service.CreateEvent(db, "balance", "余额不足", msg, "warning",
+	service.CreateEvent(db, "balance", "Low balance", msg, "warning",
 		params.AccountID, "account")
 
-	notifypkg.SendNotification(cfg, "余额不足", msg, "warning",
+	notifypkg.SendNotification(cfg, "Low balance", msg, "warning",
 		&notifypkg.SendNotificationOptions{TaskTag: "low_balance"})
 }
 
@@ -144,13 +144,13 @@ func ReportProxyAllFailed(cfg *config.Config, db *sqlx.DB, params ProxyAllFailed
 	createdAt := service.FormatUtcSqlDateTime(time.Now())
 
 	message := enrichAlertMessage(db,
-		fmt.Sprintf("模型=%s, 原因=%s", params.Model, params.Reason),
+		fmt.Sprintf("model=%s, reason=%s", params.Model, params.Reason),
 		alertEnrichmentScope{model: params.Model})
 
-	service.CreateEvent(db, "proxy", "代理全部失败",
+	service.CreateEvent(db, "proxy", "All proxies failed",
 		message, "error", 0, "route")
 
-	notifypkg.SendNotification(cfg, "代理全部失败", message,
+	notifypkg.SendNotification(cfg, "All proxies failed", message,
 		"error", &notifypkg.SendNotificationOptions{TaskTag: "proxy_all_failed"})
 
 	_ = createdAt // already used above

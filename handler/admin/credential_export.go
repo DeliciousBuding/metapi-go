@@ -15,13 +15,13 @@ func (h *downstreamKeysHandler) exportKey(w http.ResponseWriter, r *http.Request
 	}
 	row := queryRow(h.db, "SELECT * FROM downstream_api_keys WHERE id = ?", id)
 	if row == nil {
-		writeError(w, http.StatusNotFound, "API key 不存在")
+		writeError(w, http.StatusNotFound, "API key not found")
 		return
 	}
 	key, _ := row["key"].(string)
 	name, _ := row["name"].(string)
 	if key == "" {
-		writeError(w, http.StatusInternalServerError, "key 缺失")
+		writeError(w, http.StatusInternalServerError, "key is missing")
 		return
 	}
 	baseURL := resolveExportBaseURL(r)

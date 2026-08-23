@@ -22,7 +22,7 @@ func TestBuildRuntimeHealthForAccount_ExpiredOverridesHealthyStored(t *testing.T
 	if health.Source != HealthSourceAuth {
 		t.Fatalf("source = %q, want auth", health.Source)
 	}
-	if health.Reason != "连接已过期，请更新 API Key" {
+	if health.Reason != "Connection expired; update the API key" {
 		t.Fatalf("reason = %q, want API Key expiry message", health.Reason)
 	}
 }
@@ -38,7 +38,7 @@ func TestBuildRuntimeHealthForAccount_ExpiredSessionMessage(t *testing.T) {
 	if health.State != HealthUnhealthy {
 		t.Fatalf("state = %q, want unhealthy", health.State)
 	}
-	if health.Reason != "访问令牌已过期" {
+	if health.Reason != "Access token expired" {
 		t.Fatalf("reason = %q, want session expiry message", health.Reason)
 	}
 	if health.Source != HealthSourceAuth {
@@ -58,7 +58,7 @@ func TestBuildRuntimeHealthForAccount_ExpiredOauthMessage(t *testing.T) {
 	if health.State != HealthUnhealthy {
 		t.Fatalf("state = %q, want unhealthy", health.State)
 	}
-	if health.Reason != "连接凭证已过期，请更新凭证" {
+	if health.Reason != "Credentials expired; update the credentials" {
 		t.Fatalf("reason = %q", health.Reason)
 	}
 }

@@ -38,7 +38,7 @@ func (h *checkinHandler) triggerAll(w http.ResponseWriter, r *http.Request) {
 		"success": summary.Failed == 0,
 		"queued":  false,
 		"status":  "completed",
-		"message": "签到执行完成",
+		"message": "check-in run completed",
 		"summary": summary,
 		"results": results,
 	})

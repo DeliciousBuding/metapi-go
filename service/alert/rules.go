@@ -6,7 +6,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/platform"
 )
 
-const sessionTokenRebindHint = "请在中转站重新生成系统访问令牌后重新绑定账号"
+const sessionTokenRebindHint = "please regenerate the system access token on the relay site and rebind the account"
 
 // IsCloudflareChallenge detects Cloudflare challenge messages.
 // Mirrors TS isCloudflareChallenge().
@@ -57,5 +57,5 @@ func AppendSessionTokenRebindHint(message string) string {
 		return raw
 	}
 
-	return raw + "，" + sessionTokenRebindHint
+	return raw + "; " + sessionTokenRebindHint
 }

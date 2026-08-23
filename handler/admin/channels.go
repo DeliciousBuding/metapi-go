@@ -168,7 +168,7 @@ func (h *tokenRoutesHandler) listChannels(w http.ResponseWriter, r *http.Request
 	})
 	if err != nil {
 		slog.Error("channels list failed", "error", err)
-		writeErrorWithRequest(w, r, http.StatusInternalServerError, "加载通道列表失败")
+		writeErrorWithRequest(w, r, http.StatusInternalServerError, "failed to load channel list")
 		return
 	}
 

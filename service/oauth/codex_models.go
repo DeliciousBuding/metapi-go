@@ -387,7 +387,7 @@ func DiscoverCodexModelsFromCloud(ctx context.Context, input CodexModelDiscovery
 	}
 	models := ExtractCodexModelIDs(payload)
 	if len(models) == 0 {
-		return nil, fmt.Errorf("未获取到可用模型")
+		return nil, fmt.Errorf("no models available")
 	}
 	return models, nil
 }
@@ -509,7 +509,7 @@ func formatCodexDiscoveryFailure(
 	if err != nil {
 		raw = err.Error()
 	}
-	return fmt.Sprintf("Codex 模型获取失败（%s）", raw)
+	return fmt.Sprintf("codex model discovery failed (%s)", raw)
 }
 
 // BuildOauthModelDiscoveryPatch builds the OauthInfo patch used to persist

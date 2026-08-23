@@ -77,7 +77,7 @@ func TestSystemProxyTest_EmptyProxyURL(t *testing.T) {
 	if called {
 		t.Fatal("probe must not run when proxy URL is empty")
 	}
-	if !bytes.Contains(rec.Body.Bytes(), []byte("请先填写系统代理地址")) {
+	if !bytes.Contains(rec.Body.Bytes(), []byte("enter the system proxy address first")) {
 		t.Fatalf("body=%s", rec.Body.String())
 	}
 }

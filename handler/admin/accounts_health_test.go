@@ -120,27 +120,27 @@ func TestFormatHealthRefreshMessage(t *testing.T) {
 		{
 			name:    "all success",
 			summary: healthRefreshSummary{Total: 3, Success: 3, Healthy: 3},
-			want:    "账号健康刷新完成：成功 3，失败 0，跳过 0（共 3）",
+			want:    "account health refresh finished: 3 succeeded, 0 failed, 0 skipped (3 total)",
 		},
 		{
 			name:    "all failure",
 			summary: healthRefreshSummary{Total: 2, Failed: 2, Unhealthy: 2},
-			want:    "账号健康刷新完成：成功 0，失败 2，跳过 0（共 2）",
+			want:    "account health refresh finished: 0 succeeded, 2 failed, 0 skipped (2 total)",
 		},
 		{
 			name:    "mixed success failure skipped",
 			summary: healthRefreshSummary{Total: 4, Success: 2, Failed: 1, Skipped: 1, Healthy: 2, Unhealthy: 1, Degraded: 1},
-			want:    "账号健康刷新完成：成功 2，失败 1，跳过 1（共 4）",
+			want:    "account health refresh finished: 2 succeeded, 1 failed, 1 skipped (4 total)",
 		},
 		{
 			name:    "all skipped",
 			summary: healthRefreshSummary{Total: 5, Skipped: 5, Disabled: 5},
-			want:    "账号健康刷新完成：成功 0，失败 0，跳过 5（共 5）",
+			want:    "account health refresh finished: 0 succeeded, 0 failed, 5 skipped (5 total)",
 		},
 		{
 			name:    "zero summary",
 			summary: healthRefreshSummary{},
-			want:    "账号健康刷新完成：成功 0，失败 0，跳过 0（共 0）",
+			want:    "account health refresh finished: 0 succeeded, 0 failed, 0 skipped (0 total)",
 		},
 	}
 	for _, tc := range cases {
@@ -159,7 +159,7 @@ func TestFormatHealthRefreshMessage_MatchesWaitModeResponse(t *testing.T) {
 	// message equals the formatter output.
 	summary := healthRefreshSummary{Total: 2, Success: 1, Failed: 1, Skipped: 0}
 	want := formatHealthRefreshMessage(summary)
-	if !strings.Contains(want, "成功 1") || !strings.Contains(want, "失败 1") || !strings.Contains(want, "共 2") {
+	if !strings.Contains(want, "1 succeeded") || !strings.Contains(want, "1 failed") || !strings.Contains(want, "(2 total)") {
 		t.Fatalf("message %q missing expected counts", want)
 	}
 }
@@ -261,7 +261,7 @@ func TestHealthRefresh_WaitModeSkipsApiKeyAccountWithoutNetwork(t *testing.T) {
 	if int64(item["accountId"].(float64)) != accountID {
 		t.Fatalf("result accountId = %v, want %d", item["accountId"], accountID)
 	}
-	if !strings.Contains(body["message"].(string), "成功 0") || !strings.Contains(body["message"].(string), "跳过 1") {
+	if !strings.Contains(body["message"].(string), "0 succeeded") || !strings.Contains(body["message"].(string), "1 skipped") {
 		t.Fatalf("message = %v, want skip counts reflected", body["message"])
 	}
 }
@@ -299,7 +299,7 @@ func TestHealthRefresh_AsyncModeQueuesTask(t *testing.T) {
 	if body["status"] == nil || body["status"] == "" {
 		t.Fatalf("status = %v, want a task status string", body["status"])
 	}
-	if !strings.Contains(body["message"].(string), "刷新") {
+	if !strings.Contains(body["message"].(string), "refresh") {
 		t.Fatalf("message = %v, want refresh wording", body["message"])
 	}
 }

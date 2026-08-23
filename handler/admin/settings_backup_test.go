@@ -783,7 +783,7 @@ func TestImportBackupTablesRejectsUnknownTableKey(t *testing.T) {
 
 	if _, err := importBackupTables(db.DB, tables); err == nil {
 		t.Fatal("importBackupTables succeeded, want unknown table error")
-	} else if !strings.Contains(err.Error(), "未知表 settings_typo") {
+	} else if !strings.Contains(err.Error(), "unknown table settings_typo") {
 		t.Fatalf("error = %v, want unknown table", err)
 	}
 
@@ -809,7 +809,7 @@ func TestImportBackupTablesRejectsTooManyRowsBeforeInsert(t *testing.T) {
 
 	if _, err := importBackupTables(db.DB, tables); err == nil {
 		t.Fatal("importBackupTables succeeded, want row limit error")
-	} else if !strings.Contains(err.Error(), "行数超过上限 1") {
+	} else if !strings.Contains(err.Error(), "exceeds the max rows of 1") {
 		t.Fatalf("error = %v, want row limit", err)
 	}
 

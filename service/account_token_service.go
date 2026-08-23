@@ -794,7 +794,7 @@ func GetTokenGroups(
 func DeleteTokenByID(db *sqlx.DB, tokenID int64) error {
 	token, err := GetTokenByID(db, tokenID)
 	if err != nil {
-		return fmt.Errorf("令牌不存在")
+		return fmt.Errorf("token not found")
 	}
 
 	_, err = db.Exec(db.Rebind("DELETE FROM account_tokens WHERE id = ?"), tokenID)

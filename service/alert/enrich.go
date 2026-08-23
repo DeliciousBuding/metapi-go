@@ -60,9 +60,9 @@ func buildEnrichmentLines(db *sqlx.DB, scope alertEnrichmentScope) ([]string, er
 		return nil, err
 	}
 	return []string{
-		"受影响路由: " + formatAffectedRoutes(routes),
-		"替代站点: " + formatAlternativeSites(sites),
-		"面板: " + alertPanelLink,
+		"Affected routes: " + formatAffectedRoutes(routes),
+		"Alternative sites: " + formatAlternativeSites(sites),
+		"Panel: " + alertPanelLink,
 	}, nil
 }
 
@@ -183,7 +183,7 @@ func loadAlternativeSites(db *sqlx.DB, scope alertEnrichmentScope, routeIDs []in
 
 func formatAffectedRoutes(labels []string) string {
 	if len(labels) == 0 {
-		return "无"
+		return "none"
 	}
 	shown := labels
 	if len(shown) > enrichMaxRoutesShown {
@@ -191,14 +191,14 @@ func formatAffectedRoutes(labels []string) string {
 	}
 	line := strings.Join(shown, ", ")
 	if len(labels) > enrichMaxRoutesShown {
-		line += fmt.Sprintf(" 等 %d 条", len(labels))
+		line += fmt.Sprintf(" (%d routes in total)", len(labels))
 	}
 	return line
 }
 
 func formatAlternativeSites(sites []siteChannelCount) string {
 	if len(sites) == 0 {
-		return "无"
+		return "none"
 	}
 	shown := sites
 	if len(shown) > enrichMaxSitesShown {
@@ -210,7 +210,7 @@ func formatAlternativeSites(sites []siteChannelCount) string {
 	}
 	line := strings.Join(parts, ", ")
 	if len(sites) > enrichMaxSitesShown {
-		line += fmt.Sprintf(" 等 %d 个站点", len(sites))
+		line += fmt.Sprintf(" (%d sites in total)", len(sites))
 	}
 	return line
 }

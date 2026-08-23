@@ -1040,6 +1040,6 @@ func (h *statsHandler) modelProbe(w http.ResponseWriter, r *http.Request) {
 		"reused":  false,
 		"jobId":   jobID,
 		"status":  "pending",
-		"message": "已开始模型可用性探测，请稍后查看任务列表或 LastRunSummary",
+		"message": "model availability probe started; check the task list or LastRunSummary later",
 	})
 }

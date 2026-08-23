@@ -180,7 +180,7 @@ func (h *databaseHandler) saveRuntime(w http.ResponseWriter, r *http.Request) {
 	if body.Dialect != nil {
 		dialect, ok := normalizeRuntimeDatabaseDialect(*body.Dialect)
 		if !ok {
-			writeError(w, http.StatusBadRequest, "数据库类型仅支持 sqlite 或 postgres")
+			writeError(w, http.StatusBadRequest, "database type must be sqlite or postgres")
 			return
 		}
 		upsertSettingDB(h.db, "db_type", dialect)
@@ -196,7 +196,7 @@ func (h *databaseHandler) saveRuntime(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success":         true,
-		"message":         "数据库运行配置已保存",
+		"message":         "database runtime configuration saved",
 		"active":          activeRuntimeDatabaseConfig(h.cfg),
 		"saved":           saved,
 		"restartRequired": savedDatabaseRequiresRestart(saved, h.cfg),
@@ -217,19 +217,19 @@ func (h *databaseHandler) testConnection(w http.ResponseWriter, r *http.Request)
 
 	dialect, ok := normalizeRuntimeDatabaseDialect(body.Dialect)
 	if !ok {
-		writeError(w, http.StatusBadRequest, "数据库类型仅支持 sqlite 或 postgres")
+		writeError(w, http.StatusBadRequest, "database type must be sqlite or postgres")
 		return
 	}
 
 	maskedConnection, err := testRuntimeDatabaseConnection(dialect, body.ConnectionString, body.Ssl)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "数据库测试连接失败: "+sanitizeConnectionError(err, body.ConnectionString))
+		writeError(w, http.StatusBadRequest, "database connection test failed: "+sanitizeConnectionError(err, body.ConnectionString))
 		return
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success":    true,
-		"message":    "目标数据库连接成功",
+		"message":    "target database connection succeeded",
 		"dialect":    dialect,
 		"connection": maskedConnection,
 	})
@@ -269,13 +269,13 @@ func (h *databaseHandler) migrate(w http.ResponseWriter, r *http.Request) {
 
 	targetDialect, ok := normalizeRuntimeDatabaseDialect(body.Dialect)
 	if !ok {
-		writeError(w, http.StatusBadRequest, "数据库类型仅支持 sqlite 或 postgres")
+		writeError(w, http.StatusBadRequest, "database type must be sqlite or postgres")
 		return
 	}
 
 	targetURL := strings.TrimSpace(body.ConnectionString)
 	if targetURL == "" {
-		writeError(w, http.StatusBadRequest, "目标数据库连接字符串不能为空")
+		writeError(w, http.StatusBadRequest, "target database connection string must not be empty")
 		return
 	}
 
@@ -288,7 +288,7 @@ func (h *databaseHandler) migrate(w http.ResponseWriter, r *http.Request) {
 	// Refuse to migrate onto the live runtime database: overwriting the DB
 	// the server is currently using would be destructive mid-request.
 	if sameMigrationTarget(sourceURL, sourceDialect, targetURL, targetDialect) {
-		writeError(w, http.StatusBadRequest, "目标数据库与当前运行库相同，无法迁移")
+		writeError(w, http.StatusBadRequest, "target database is the same as the running database; migration aborted")
 		return
 	}
 
@@ -304,8 +304,8 @@ func (h *databaseHandler) migrate(w http.ResponseWriter, r *http.Request) {
 	}, func() (any, error) {
 		taskID := <-idCh
 		progress := &backgroundTaskLogWriter{taskID: taskID}
-		AppendBackgroundTaskLog(taskID, "开始迁移：源="+describeMigrationEndpoint(sourceURL, sourceDialect)+
-			" 目标="+describeMigrationEndpoint(targetURL, targetDialect))
+		AppendBackgroundTaskLog(taskID, "migration started: source="+describeMigrationEndpoint(sourceURL, sourceDialect)+
+			" target="+describeMigrationEndpoint(targetURL, targetDialect))
 		summary, runErr := store.RunMigration(store.RunMigrationOptions{
 			FromPath:  sourceURL,
 			ToURL:     targetURL,
@@ -326,7 +326,7 @@ func (h *databaseHandler) migrate(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusAccepted, map[string]any{
 		"success": true,
-		"message": "数据库迁移已加入后台任务队列，请通过任务 ID 轮询进度",
+		"message": "database migration queued as a background task; poll progress by task ID",
 		"taskId":  task.ID,
 		"task":    task,
 	})
@@ -334,7 +334,7 @@ func (h *databaseHandler) migrate(w http.ResponseWriter, r *http.Request) {
 
 const (
 	databaseMigrationTaskType      = "database_migration"
-	databaseMigrationTaskTitle     = "数据库迁移"
+	databaseMigrationTaskTitle     = "Database migration"
 	databaseMigrationTaskDedupeKey = "database_migration"
 )
 
@@ -344,7 +344,7 @@ const (
 // triggered from the admin UI.
 func resolveMigrationSource(cfg *config.Config) (connection, dialect string, err error) {
 	if cfg == nil {
-		return "", "", fmt.Errorf("运行时配置未加载，无法确定迁移源")
+		return "", "", fmt.Errorf("runtime config not loaded; unable to determine migration source")
 	}
 	resolved, ok := normalizeRuntimeDatabaseDialect(cfg.DbType)
 	if !ok {
@@ -359,7 +359,7 @@ func resolveMigrationSource(cfg *config.Config) (connection, dialect string, err
 		conn = store.ResolveSQLitePath(conn, dataDir)
 	}
 	if conn == "" {
-		return "", "", fmt.Errorf("当前运行库连接为空，无法作为迁移源")
+		return "", "", fmt.Errorf("current running database connection is empty; cannot be used as migration source")
 	}
 	return conn, resolved, nil
 }

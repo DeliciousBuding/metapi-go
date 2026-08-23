@@ -188,7 +188,7 @@ func BuildRuntimeHealthForAccount(input RuntimeHealthInput) RuntimeHealthEntry {
 		}
 		return RuntimeHealthEntry{
 			State:     HealthHealthy,
-			Reason:    "模型探测成功",
+			Reason:    "Model probe succeeded",
 			Source:    HealthSourceModel,
 			CheckedAt: checkedAt,
 		}
@@ -213,32 +213,32 @@ func normalizeRuntimeHealthState(value string) RuntimeHealthState {
 func defaultHealthReason(state RuntimeHealthState) string {
 	switch state {
 	case HealthHealthy:
-		return "运行状态正常"
+		return "Running normally"
 	case HealthUnhealthy:
-		return "最近一次检查失败"
+		return "Last check failed"
 	case HealthDegraded:
-		return "运行状态波动"
+		return "Performance fluctuating"
 	case HealthDisabled:
-		return "账号或站点已禁用"
+		return "Account or site disabled"
 	case HealthUnknown:
 		fallthrough
 	default:
-		return "尚未检测"
+		return "Not checked yet"
 	}
 }
 
 func expiredHealthReason(extraConfig *string, oauthProvider *string) string {
 	if hasOauthProvider(oauthProvider, extraConfig) {
-		return "连接凭证已过期，请更新凭证"
+		return "Credentials expired; update the credentials"
 	}
 	mode := GetCredentialModeFromExtraConfig(extraConfig)
 	switch mode {
 	case CredentialModeAPIKey:
-		return "连接已过期，请更新 API Key"
+		return "Connection expired; update the API key"
 	case CredentialModeSession:
-		return "访问令牌已过期"
+		return "Access token expired"
 	default:
-		return "连接凭证已过期，请更新凭证"
+		return "Credentials expired; update the credentials"
 	}
 }
 

@@ -22,8 +22,8 @@ func testNotify(w http.ResponseWriter, r *http.Request) {
 
 	result, err := notify.SendNotification(
 		cfg,
-		"测试通知",
-		"您好，这是一条来自系统设置的连通性测试通知，您的通知相关配置目前工作正常！",
+		"Test notification",
+		"This is a connectivity test notification from system settings; your notification configuration is working correctly!",
 		"info",
 		&notify.SendNotificationOptions{
 			BypassThrottle: true,
@@ -36,7 +36,7 @@ func testNotify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	message := fmt.Sprintf("测试通知已发送（成功 %d/%d）", result.Succeeded, result.Attempted)
+	message := fmt.Sprintf("test notification sent (%d/%d succeeded)", result.Succeeded, result.Attempted)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success": true,
 		"message": message,

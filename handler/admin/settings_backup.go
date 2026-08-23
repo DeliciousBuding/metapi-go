@@ -115,7 +115,7 @@ func (h *backupHandler) importBackup(w http.ResponseWriter, r *http.Request) {
 	raw, err := readLimitedWebdavBody(r.Body, backupWebdavImportMaxBytes)
 	if err != nil {
 		status := http.StatusBadRequest
-		message := "导入数据格式错误：需要 JSON 对象且包含 tables 字段"
+		message := "invalid import data: expected a JSON object with a tables field"
 		var tooLarge webdavImportTooLargeError
 		if errors.As(err, &tooLarge) {
 			status = http.StatusRequestEntityTooLarge
@@ -133,7 +133,7 @@ func (h *backupHandler) importBackup(w http.ResponseWriter, r *http.Request) {
 
 	body, err := decodeBackupImportBodyFrom(raw)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "导入数据格式错误：需要 JSON 对象且包含 tables 字段")
+		writeError(w, http.StatusBadRequest, "invalid import data: expected a JSON object with a tables field")
 		return
 	}
 
@@ -145,7 +145,7 @@ func (h *backupHandler) importBackup(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success":  true,
-		"message":  "导入完成",
+		"message":  "import completed",
 		"imported": imported,
 	})
 }
@@ -153,7 +153,7 @@ func (h *backupHandler) importBackup(w http.ResponseWriter, r *http.Request) {
 // importTSV21Backup handles the TS backup v2.1 branch of the import endpoint.
 func (h *backupHandler) importTSV21Backup(w http.ResponseWriter, raw []byte) {
 	if err := rejectDuplicateJSONKeys(raw); err != nil {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("导入数据格式错误：%v", err))
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid import data: %v", err))
 		return
 	}
 	result, err := backupsvc.ImportTSV21(backupStoreDB(h.db), raw)
@@ -164,7 +164,7 @@ func (h *backupHandler) importTSV21Backup(w http.ResponseWriter, raw []byte) {
 
 	response := map[string]any{
 		"success":  true,
-		"message":  "导入完成",
+		"message":  "import completed",
 		"imported": result.Imported,
 	}
 	if result.SkippedSettings > 0 {
@@ -184,14 +184,14 @@ func (h *backupHandler) importTSV21Backup(w http.ResponseWriter, raw []byte) {
 func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Request) {
 	raw, err := readLimitedWebdavBody(r.Body, backupWebdavImportMaxBytes)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "导入数据格式错误：需要 JSON 对象且包含 tables 字段")
+		writeError(w, http.StatusBadRequest, "invalid import data: expected a JSON object with a tables field")
 		return
 	}
 
 	// TS (cita-777/metapi) backup v2.1 payloads take the dedicated parser.
 	if backupsvc.IsTSV21Payload(raw) {
 		if err := rejectDuplicateJSONKeys(raw); err != nil {
-			writeError(w, http.StatusBadRequest, fmt.Sprintf("导入数据格式错误：%v", err))
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("invalid import data: %v", err))
 			return
 		}
 		preview, err := backupsvc.PreviewTSV21(backupStoreDB(h.db), raw)
@@ -212,7 +212,7 @@ func (h *backupHandler) previewBackupImport(w http.ResponseWriter, r *http.Reque
 
 	body, err := decodeBackupImportBodyFrom(raw)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "导入数据格式错误：需要 JSON 对象且包含 tables 字段")
+		writeError(w, http.StatusBadRequest, "invalid import data: expected a JSON object with a tables field")
 		return
 	}
 	if err := validateBackupImportTableKeys(body); err != nil {
@@ -257,7 +257,7 @@ func decodeBackupImportBodyFrom(raw []byte) (map[string]json.RawMessage, error) 
 	if body.Data != nil && body.Data.Tables != nil {
 		return body.Data.Tables, nil
 	}
-	return nil, fmt.Errorf("导入数据格式错误：需要 JSON 对象且包含 tables 字段")
+	return nil, fmt.Errorf("invalid import data: expected a JSON object with a tables field")
 }
 
 // backupStoreDB wraps the handler's *sqlx.DB in a store.DB so v2.1 import
@@ -289,11 +289,11 @@ func previewBackupImportTables(db *sqlx.DB, tables map[string]json.RawMessage) (
 		}
 		var rows []map[string]any
 		if err := json.Unmarshal(raw, &rows); err != nil {
-			return nil, backupImportClientError{message: fmt.Sprintf("导入失败：表 %s 数据格式错误：%v", table, err)}
+			return nil, backupImportClientError{message: fmt.Sprintf("import failed: table %s has invalid data: %v", table, err)}
 		}
 		if backupImportMaxRowsPerTable > 0 && len(rows) > backupImportMaxRowsPerTable {
 			return nil, backupImportClientError{
-				message: fmt.Sprintf("导入失败：表 %s 行数超过上限 %d", table, backupImportMaxRowsPerTable),
+				message: fmt.Sprintf("import failed: table %s exceeds the max rows of %d", table, backupImportMaxRowsPerTable),
 			}
 		}
 
@@ -386,7 +386,7 @@ func queryExistingPKs(db *sqlx.DB, table, pkCol string, values []string) map[str
 
 func importBackupTables(db *sqlx.DB, tables map[string]json.RawMessage) (map[string]int64, error) {
 	if tables == nil {
-		return nil, fmt.Errorf("导入数据格式错误：需要 JSON 对象且包含 tables 字段")
+		return nil, fmt.Errorf("invalid import data: expected a JSON object with a tables field")
 	}
 	if err := validateBackupImportTableKeys(tables); err != nil {
 		return nil, err
@@ -417,7 +417,7 @@ func importBackupTables(db *sqlx.DB, tables map[string]json.RawMessage) (map[str
 func validateBackupImportTableKeys(tables map[string]json.RawMessage) error {
 	for table := range tables {
 		if !isKnownTable(table) {
-			return backupImportClientError{message: fmt.Sprintf("导入失败：未知表 %s", table)}
+			return backupImportClientError{message: fmt.Sprintf("import failed: unknown table %s", table)}
 		}
 	}
 	return nil
@@ -439,11 +439,11 @@ func importBackupTablesWithConn(conn backupImportConn, tables map[string]json.Ra
 
 		var rows []map[string]any
 		if err := json.Unmarshal(raw, &rows); err != nil {
-			return nil, backupImportClientError{message: fmt.Sprintf("导入失败：表 %s 数据格式错误：%v", table, err)}
+			return nil, backupImportClientError{message: fmt.Sprintf("import failed: table %s has invalid data: %v", table, err)}
 		}
 		if backupImportMaxRowsPerTable > 0 && len(rows) > backupImportMaxRowsPerTable {
 			return nil, backupImportClientError{
-				message: fmt.Sprintf("导入失败：表 %s 行数超过上限 %d", table, backupImportMaxRowsPerTable),
+				message: fmt.Sprintf("import failed: table %s exceeds the max rows of %d", table, backupImportMaxRowsPerTable),
 			}
 		}
 		if len(rows) == 0 {
@@ -452,7 +452,7 @@ func importBackupTablesWithConn(conn backupImportConn, tables map[string]json.Ra
 
 		count, err := importTableRowsWithConn(conn, table, rows)
 		if err != nil {
-			return nil, fmt.Errorf("导入失败：表 %s：%w", table, err)
+			return nil, fmt.Errorf("import failed: table %s: %w", table, err)
 		}
 		imported[table] = count
 	}

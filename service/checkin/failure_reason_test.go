@@ -19,7 +19,7 @@ func TestClassifyFailureReason_SiteDisabled(t *testing.T) {
 	if result.Category != CategorySite {
 		t.Errorf("expected CategorySite, got %s", result.Category)
 	}
-	if result.Title != "站点已禁用" {
+	if result.Title != "Site disabled" {
 		t.Errorf("unexpected title: %s", result.Title)
 	}
 }
@@ -237,12 +237,12 @@ func TestClassifyFailureReason_UnknownError(t *testing.T) {
 }
 
 func TestClassifyFailureReason_SuccessStatus(t *testing.T) {
-	// when status is 'success', returns '执行成功' unknown
+	// when status is 'success', returns 'Success' unknown
 	result := ClassifyFailureReason(ClassifyFailureInput{
 		Status: "success",
 	})
-	if result.Title != "执行成功" {
-		t.Errorf("expected 执行成功, got %s", result.Title)
+	if result.Title != "Success" {
+		t.Errorf("expected Success, got %s", result.Title)
 	}
 }
 

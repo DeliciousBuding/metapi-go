@@ -62,8 +62,8 @@ func ClassifyFailureReason(input ClassifyFailureInput) FailureReason {
 	if status == "skipped" && includesAny(text, []string{"site disabled"}) {
 		return FailureReason{
 			Code: CodeSiteDisabled, Category: CategorySite,
-			Title: "站点已禁用", ActionHint: "启用站点后再试",
-			DetailHint: "该账号所属站点处于禁用状态，任务会自动跳过。",
+			Title: "Site disabled", ActionHint: "Re-enable the site and retry",
+			DetailHint: "The site of this account is disabled; the task will be skipped automatically.",
 		}
 	}
 
@@ -75,8 +75,8 @@ func ClassifyFailureReason(input ClassifyFailureInput) FailureReason {
 	}) {
 		return FailureReason{
 			Code: CodeCheckinNotSupported, Category: CategorySite,
-			Title: "站点未开启签到", ActionHint: "无需重试（非故障）",
-			DetailHint: "该站点未提供签到端点，账号会被自动跳过。",
+			Title: "Check-in not supported", ActionHint: "No retry needed (not a failure)",
+			DetailHint: "This site does not provide a check-in endpoint; the account will be skipped automatically.",
 		}
 	}
 
@@ -85,8 +85,8 @@ func ClassifyFailureReason(input ClassifyFailureInput) FailureReason {
 		includesAny(text, []string{"校验", "token", "验证", "manual"}) {
 		return FailureReason{
 			Code: CodeManualTurnstileRequired, Category: CategoryVerification,
-			Title: "需要人工验证", ActionHint: "浏览器先人工签到一次",
-			DetailHint: "站点开启了 Turnstile 人机验证，自动签到无法直接通过。",
+			Title: "Manual verification required", ActionHint: "Sign in manually in a browser once",
+			DetailHint: "The site requires Turnstile verification; automated check-in cannot pass directly.",
 		}
 	}
 
@@ -94,8 +94,8 @@ func ClassifyFailureReason(input ClassifyFailureInput) FailureReason {
 	if includesAny(text, []string{"cloudflare tunnel error", "error 1033", "unable to resolve it"}) {
 		return FailureReason{
 			Code: CodeCloudflareTunnelUnavail, Category: CategoryNetwork,
-			Title: "站点隧道不可用", ActionHint: "稍后重试或联系站点方",
-			DetailHint: "Cloudflare Tunnel 当前不可达，通常是站点侧网络或隧道进程问题。",
+			Title: "Site tunnel unavailable", ActionHint: "Retry later or contact the site operator",
+			DetailHint: "The Cloudflare Tunnel is currently unreachable, usually due to site-side network or tunnel process issues.",
 		}
 	}
 
@@ -103,8 +103,8 @@ func ClassifyFailureReason(input ClassifyFailureInput) FailureReason {
 	if alert.IsCloudflareChallenge(rawMessage) {
 		return FailureReason{
 			Code: CodeCloudflareChallenge, Category: CategoryVerification,
-			Title: "触发 Cloudflare 验证", ActionHint: "降低频率并稍后重试",
-			DetailHint: "请求触发了防护挑战，建议稍后再试或更换稳定站点。",
+			Title: "Cloudflare challenge triggered", ActionHint: "Slow down and retry later",
+			DetailHint: "The request triggered a protection challenge; retry later or switch to a stable site.",
 		}
 	}
 
@@ -116,8 +116,8 @@ func ClassifyFailureReason(input ClassifyFailureInput) FailureReason {
 	if alert.IsTokenExpiredError(tokStatus, rawMessage) {
 		return FailureReason{
 			Code: CodeTokenExpired, Category: CategoryAuth,
-			Title: "令牌失效", ActionHint: "重新登录或同步新令牌",
-			DetailHint: "账号访问令牌可能过期或无效，需更新认证信息。",
+			Title: "Token expired", ActionHint: "Re-login or refresh the token",
+			DetailHint: "The account access token may be expired or invalid; update the credentials.",
 		}
 	}
 
@@ -125,8 +125,8 @@ func ClassifyFailureReason(input ClassifyFailureInput) FailureReason {
 	if includesAny(text, []string{"already checked in", "already signed", "今天已经签到", "今日已签到", "已经签到"}) {
 		return FailureReason{
 			Code: CodeAlreadyCheckedIn, Category: CategoryState,
-			Title: "今日已签到", ActionHint: "无需重复执行",
-			DetailHint: "该账号当天签到已完成，重复请求会被站点拒绝或跳过。",
+			Title: "Already checked in today", ActionHint: "Nothing to do",
+			DetailHint: "This account has already checked in today; repeated requests will be rejected or skipped.",
 		}
 	}
 
@@ -134,8 +134,8 @@ func ClassifyFailureReason(input ClassifyFailureInput) FailureReason {
 	if includesAny(text, []string{"timeout", "timed out", "etimedout", "请求超时"}) {
 		return FailureReason{
 			Code: CodeNetworkTimeout, Category: CategoryNetwork,
-			Title: "请求超时", ActionHint: "稍后重试并检查网络",
-			DetailHint: "请求在超时时间内未完成，可能是网络波动或站点响应慢。",
+			Title: "Request timed out", ActionHint: "Retry later and check the network",
+			DetailHint: "The request did not finish within the timeout; possible network fluctuation or slow site response.",
 		}
 	}
 
@@ -143,8 +143,8 @@ func ClassifyFailureReason(input ClassifyFailureInput) FailureReason {
 	if httpStatus >= 500 || includesAny(text, []string{"http 5", "upstream", "internal server error"}) {
 		return FailureReason{
 			Code: CodeUpstreamError, Category: CategorySite,
-			Title: "上游站点错误", ActionHint: "稍后重试",
-			DetailHint: "站点返回服务端错误，通常需要站点恢复后才可成功。",
+			Title: "Upstream site error", ActionHint: "Retry later",
+			DetailHint: "The site returned a server-side error; it usually succeeds only after the site recovers.",
 		}
 	}
 
@@ -152,14 +152,14 @@ func ClassifyFailureReason(input ClassifyFailureInput) FailureReason {
 	if status == "success" {
 		return FailureReason{
 			Code: CodeUnknownError, Category: CategoryUnknown,
-			Title: "执行成功", ActionHint: "无需操作",
-			DetailHint: "任务已成功完成。",
+			Title: "Success", ActionHint: "No action needed",
+			DetailHint: "The task completed successfully.",
 		}
 	}
 	return FailureReason{
 		Code: CodeUnknownError, Category: CategoryUnknown,
-		Title: "未知错误", ActionHint: "查看详细日志后重试",
-		DetailHint: "暂未识别到明确错误类型，可根据原始信息进一步排查。",
+		Title: "Unknown error", ActionHint: "Check detailed logs and retry",
+		DetailHint: "No specific error type recognized; investigate using the raw message.",
 	}
 }
 

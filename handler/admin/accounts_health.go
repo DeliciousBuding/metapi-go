@@ -55,10 +55,10 @@ func (h *accountsHandler) healthRefresh(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Async path: in-process task registry (no durable multi-instance job store).
-	title := "刷新账号运行健康状态"
+	title := "Refresh account runtime health"
 	dedupeKey := "refresh-all-account-runtime-health"
 	if body.AccountID != nil {
-		title = fmt.Sprintf("刷新账号 #%d 运行健康状态", *body.AccountID)
+		title = fmt.Sprintf("Refresh runtime health of account #%d", *body.AccountID)
 		dedupeKey = fmt.Sprintf("refresh-account-runtime-health-%d", *body.AccountID)
 	}
 
@@ -86,7 +86,7 @@ func (h *accountsHandler) healthRefresh(w http.ResponseWriter, r *http.Request) 
 		"jobId":   task.ID,
 		"taskId":  task.ID,
 		"status":  string(task.Status),
-		"message": "已开始刷新账号运行健康状态，请稍后查看账号列表",
+		"message": "account runtime health refresh started; check the account list later",
 	})
 }
 
@@ -237,7 +237,7 @@ func (h *accountsHandler) refreshOneAccountHealth(accountID int64) healthRefresh
 	}
 	reason := health.Reason
 	if reason == "" {
-		reason = "余额刷新成功"
+		reason = "balance refreshed"
 	}
 	return healthRefreshResultItem{
 		AccountID: accountID,
@@ -250,7 +250,7 @@ func (h *accountsHandler) refreshOneAccountHealth(accountID int64) healthRefresh
 
 func formatHealthRefreshMessage(summary healthRefreshSummary) string {
 	return fmt.Sprintf(
-		"账号健康刷新完成：成功 %d，失败 %d，跳过 %d（共 %d）",
+		"account health refresh finished: %d succeeded, %d failed, %d skipped (%d total)",
 		summary.Success, summary.Failed, summary.Skipped, summary.Total,
 	)
 }

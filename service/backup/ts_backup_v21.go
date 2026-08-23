@@ -120,10 +120,10 @@ type TSV21Parsed struct {
 func ParseTSV21(raw []byte) (*TSV21Parsed, error) {
 	var top map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &top); err != nil {
-		return nil, TSV21ClientError{Message: fmt.Sprintf("导入数据格式错误：无法解析 JSON：%v", err)}
+		return nil, TSV21ClientError{Message: fmt.Sprintf("invalid import data: unable to parse JSON: %v", err)}
 	}
 	if top == nil {
-		return nil, TSV21ClientError{Message: "导入数据格式错误：必须为 JSON 对象"}
+		return nil, TSV21ClientError{Message: "invalid import data: must be a JSON object"}
 	}
 
 	parsed := &TSV21Parsed{Tables: map[string][]map[string]any{}}
@@ -131,7 +131,7 @@ func ParseTSV21(raw []byte) (*TSV21Parsed, error) {
 	// The TS importer refuses payloads without a timestamp; mirror that so
 	// truncated files fail with a clear message instead of importing half data.
 	if rawTimestamp, ok := top["timestamp"]; !ok || isRawJSONNull(rawTimestamp) {
-		return nil, TSV21ClientError{Message: "导入数据格式错误：缺少 timestamp"}
+		return nil, TSV21ClientError{Message: "invalid import data: missing timestamp"}
 	}
 
 	if rawType, ok := top["type"]; ok && !isRawJSONNull(rawType) {
@@ -142,7 +142,7 @@ func ParseTSV21(raw []byte) (*TSV21Parsed, error) {
 		switch key {
 		case "version", "timestamp", "type", "accounts", "preferences":
 		default:
-			parsed.Warnings = append(parsed.Warnings, fmt.Sprintf("忽略未知顶层字段 %s", key))
+			parsed.Warnings = append(parsed.Warnings, fmt.Sprintf("ignored unknown top-level field %s", key))
 		}
 	}
 
@@ -160,13 +160,13 @@ func ParseTSV21(raw []byte) (*TSV21Parsed, error) {
 	accountsRequested := parsed.Type == "accounts" || hasAccounts
 	preferencesRequested := parsed.Type == "preferences" || hasPreferences
 	if !accountsRequested && !preferencesRequested {
-		return nil, TSV21ClientError{Message: "导入数据中没有可识别的账号或设置数据"}
+		return nil, TSV21ClientError{Message: "no recognizable account or settings data in import payload"}
 	}
 	if parsed.Type == "accounts" && !hasAccounts {
-		return nil, TSV21ClientError{Message: "导入数据格式错误：账号数据结构不正确"}
+		return nil, TSV21ClientError{Message: "invalid import data: accounts section structure is incorrect"}
 	}
 	if parsed.Type == "preferences" && !hasPreferences {
-		return nil, TSV21ClientError{Message: "导入数据格式错误：设置数据结构不正确"}
+		return nil, TSV21ClientError{Message: "invalid import data: preferences section structure is incorrect"}
 	}
 
 	if hasAccounts {
@@ -398,12 +398,12 @@ var tsV21KnownAccountSections = map[string]bool{
 func parseTSV21AccountsSectionInto(raw json.RawMessage, parsed *TSV21Parsed) error {
 	var section map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &section); err != nil || section == nil {
-		return TSV21ClientError{Message: "导入数据格式错误：accounts 必须是 JSON 对象"}
+		return TSV21ClientError{Message: "invalid import data: accounts must be a JSON object"}
 	}
 
 	for key := range section {
 		if !tsV21KnownAccountSections[key] {
-			parsed.Warnings = append(parsed.Warnings, fmt.Sprintf("忽略未知节 accounts.%s", key))
+			parsed.Warnings = append(parsed.Warnings, fmt.Sprintf("ignored unknown section accounts.%s", key))
 		}
 	}
 
@@ -444,10 +444,10 @@ func appendTSV21SectionRows(section map[string]json.RawMessage, spec tsV21TableS
 func parseTSV21SectionRows(spec tsV21TableSpec, raw json.RawMessage, warnings *[]string) ([]map[string]any, error) {
 	var rawRows []json.RawMessage
 	if err := json.Unmarshal(raw, &rawRows); err != nil {
-		return nil, TSV21ClientError{Message: fmt.Sprintf("导入数据格式错误：accounts.%s 必须是数组", spec.section)}
+		return nil, TSV21ClientError{Message: fmt.Sprintf("invalid import data: accounts.%s must be an array", spec.section)}
 	}
 	if TSV21MaxRowsPerTable > 0 && len(rawRows) > TSV21MaxRowsPerTable {
-		return nil, TSV21ClientError{Message: fmt.Sprintf("导入失败：accounts.%s 行数超过上限 %d", spec.section, TSV21MaxRowsPerTable)}
+		return nil, TSV21ClientError{Message: fmt.Sprintf("import failed: accounts.%s exceeds the max rows of %d", spec.section, TSV21MaxRowsPerTable)}
 	}
 
 	unknownFieldCounts := map[string]int{}
@@ -455,7 +455,7 @@ func parseTSV21SectionRows(spec tsV21TableSpec, raw json.RawMessage, warnings *[
 	for i, rawRow := range rawRows {
 		var row map[string]any
 		if err := json.Unmarshal(rawRow, &row); err != nil || row == nil {
-			*warnings = append(*warnings, fmt.Sprintf("忽略 accounts.%s 第 %d 行：不是 JSON 对象", spec.section, i+1))
+			*warnings = append(*warnings, fmt.Sprintf("ignored account row %d in %s: not a JSON object", i+1, spec.section))
 			continue
 		}
 
@@ -464,7 +464,7 @@ func parseTSV21SectionRows(spec tsV21TableSpec, raw json.RawMessage, warnings *[
 			return nil, err
 		}
 		if TSV21MaxColumnsPerRow > 0 && len(converted) > TSV21MaxColumnsPerRow {
-			return nil, TSV21ClientError{Message: fmt.Sprintf("导入失败：accounts.%s 第 %d 行超过 %d 列上限", spec.section, i+1, TSV21MaxColumnsPerRow)}
+			return nil, TSV21ClientError{Message: fmt.Sprintf("import failed: account row %d in %s exceeds the max columns of %d", i+1, spec.section, TSV21MaxColumnsPerRow)}
 		}
 		for field := range row {
 			if !spec.fieldSet[field] {
@@ -484,9 +484,9 @@ func parseTSV21SectionRows(spec tsV21TableSpec, raw json.RawMessage, warnings *[
 	for _, field := range unknownFields {
 		count := unknownFieldCounts[field]
 		if count > 1 {
-			*warnings = append(*warnings, fmt.Sprintf("忽略未知字段 %s.%s（%d 行）", spec.section, field, count))
+			*warnings = append(*warnings, fmt.Sprintf("ignored unknown field %s.%s (%d rows)", spec.section, field, count))
 		} else {
-			*warnings = append(*warnings, fmt.Sprintf("忽略未知字段 %s.%s", spec.section, field))
+			*warnings = append(*warnings, fmt.Sprintf("ignored unknown field %s.%s", spec.section, field))
 		}
 	}
 	return rows, nil
@@ -507,7 +507,7 @@ func convertTSV21Row(spec tsV21TableSpec, row map[string]any, rowIndex int) (map
 	}
 	for _, required := range spec.required {
 		if _, ok := converted[required]; !ok {
-			return nil, TSV21ClientError{Message: fmt.Sprintf("导入失败：accounts.%s 第 %d 行缺少必填字段 %s", spec.section, rowIndex, required)}
+			return nil, TSV21ClientError{Message: fmt.Sprintf("import failed: account row %d in %s is missing required field %s", rowIndex, spec.section, required)}
 		}
 	}
 	return converted, nil
@@ -525,7 +525,7 @@ func convertTSV21FieldValue(field tsV21Field, value any) (any, error) {
 			}
 			return v, nil
 		default:
-			return nil, TSV21ClientError{Message: fmt.Sprintf("导入失败：字段 %s 必须是字符串或 null", field.tsName)}
+			return nil, TSV21ClientError{Message: fmt.Sprintf("import failed: field %s must be a string or null", field.tsName)}
 		}
 	case tsV21JSONText:
 		switch v := value.(type) {
@@ -539,7 +539,7 @@ func convertTSV21FieldValue(field tsV21Field, value any) (any, error) {
 		default:
 			raw, err := json.Marshal(v)
 			if err != nil {
-				return nil, TSV21ClientError{Message: fmt.Sprintf("导入失败：字段 %s 无法序列化：%v", field.tsName, err)}
+				return nil, TSV21ClientError{Message: fmt.Sprintf("import failed: field %s cannot be serialized: %v", field.tsName, err)}
 			}
 			if err := checkTSV21CellBytes(field.tsName, string(raw)); err != nil {
 				return nil, err
@@ -552,13 +552,13 @@ func convertTSV21FieldValue(field tsV21Field, value any) (any, error) {
 			return nil, nil
 		case float64:
 			if math.IsNaN(v) || math.IsInf(v, 0) || math.Trunc(v) != v {
-				return nil, TSV21ClientError{Message: fmt.Sprintf("导入失败：字段 %s 必须是整数", field.tsName)}
+				return nil, TSV21ClientError{Message: fmt.Sprintf("import failed: field %s must be an integer", field.tsName)}
 			}
 			return int64(v), nil
 		case int64:
 			return v, nil
 		default:
-			return nil, TSV21ClientError{Message: fmt.Sprintf("导入失败：字段 %s 必须是整数", field.tsName)}
+			return nil, TSV21ClientError{Message: fmt.Sprintf("import failed: field %s must be an integer", field.tsName)}
 		}
 	case tsV21Bool:
 		switch v := value.(type) {
@@ -574,7 +574,7 @@ func convertTSV21FieldValue(field tsV21Field, value any) (any, error) {
 				return true, nil
 			}
 		}
-		return nil, TSV21ClientError{Message: fmt.Sprintf("导入失败：字段 %s 必须是布尔值", field.tsName)}
+		return nil, TSV21ClientError{Message: fmt.Sprintf("import failed: field %s must be a boolean", field.tsName)}
 	case tsV21Real:
 		switch v := value.(type) {
 		case nil:
@@ -584,15 +584,15 @@ func convertTSV21FieldValue(field tsV21Field, value any) (any, error) {
 		case int64:
 			return float64(v), nil
 		}
-		return nil, TSV21ClientError{Message: fmt.Sprintf("导入失败：字段 %s 必须是数字", field.tsName)}
+		return nil, TSV21ClientError{Message: fmt.Sprintf("import failed: field %s must be a number", field.tsName)}
 	default:
-		return nil, TSV21ClientError{Message: fmt.Sprintf("导入失败：字段 %s 类型无法识别", field.tsName)}
+		return nil, TSV21ClientError{Message: fmt.Sprintf("import failed: field %s has an unrecognized type", field.tsName)}
 	}
 }
 
 func checkTSV21CellBytes(field, value string) error {
 	if TSV21MaxCellBytes > 0 && len(value) > TSV21MaxCellBytes {
-		return TSV21ClientError{Message: fmt.Sprintf("导入失败：字段 %s 超过 %d 字节上限", field, TSV21MaxCellBytes)}
+		return TSV21ClientError{Message: fmt.Sprintf("import failed: field %s exceeds the max cell size of %d bytes", field, TSV21MaxCellBytes)}
 	}
 	return nil
 }
@@ -606,10 +606,10 @@ func appendTSV21ManualModels(section map[string]json.RawMessage, parsed *TSV21Pa
 	}
 	var rawList []json.RawMessage
 	if err := json.Unmarshal(rawRows, &rawList); err != nil {
-		return TSV21ClientError{Message: "导入数据格式错误：accounts.manualModels 必须是数组"}
+		return TSV21ClientError{Message: "invalid import data: accounts.manualModels must be an array"}
 	}
 	if TSV21MaxRowsPerTable > 0 && len(rawList) > TSV21MaxRowsPerTable {
-		return TSV21ClientError{Message: fmt.Sprintf("导入失败：accounts.manualModels 行数超过上限 %d", TSV21MaxRowsPerTable)}
+		return TSV21ClientError{Message: fmt.Sprintf("import failed: accounts.manualModels exceeds the max rows of %d", TSV21MaxRowsPerTable)}
 	}
 
 	checkedAt := time.Now().UTC().Format(time.RFC3339)
@@ -617,7 +617,7 @@ func appendTSV21ManualModels(section map[string]json.RawMessage, parsed *TSV21Pa
 	for i, rawRow := range rawList {
 		var row map[string]any
 		if err := json.Unmarshal(rawRow, &row); err != nil || row == nil {
-			parsed.Warnings = append(parsed.Warnings, fmt.Sprintf("忽略 accounts.manualModels 第 %d 行：不是 JSON 对象", i+1))
+			parsed.Warnings = append(parsed.Warnings, fmt.Sprintf("ignored accounts.manualModels row %d: not a JSON object", i+1))
 			continue
 		}
 		accountID, err := convertTSV21FieldValue(tsV21Field{tsName: "accountId", goColumn: "account_id", kind: tsV21Int}, row["accountId"])
@@ -625,16 +625,16 @@ func appendTSV21ManualModels(section map[string]json.RawMessage, parsed *TSV21Pa
 			return err
 		}
 		if accountID == nil {
-			return TSV21ClientError{Message: fmt.Sprintf("导入失败：accounts.manualModels 第 %d 行缺少必填字段 accountId", i+1)}
+			return TSV21ClientError{Message: fmt.Sprintf("import failed: accounts.manualModels row %d is missing required field accountId", i+1)}
 		}
 		modelName, ok := row["modelName"].(string)
 		modelName = strings.TrimSpace(modelName)
 		if !ok || modelName == "" {
-			return TSV21ClientError{Message: fmt.Sprintf("导入失败：accounts.manualModels 第 %d 行缺少必填字段 modelName", i+1)}
+			return TSV21ClientError{Message: fmt.Sprintf("import failed: accounts.manualModels row %d is missing required field modelName", i+1)}
 		}
 		for field := range row {
 			if field != "accountId" && field != "modelName" {
-				parsed.Warnings = append(parsed.Warnings, fmt.Sprintf("忽略未知字段 manualModels.%s", field))
+				parsed.Warnings = append(parsed.Warnings, fmt.Sprintf("ignored unknown field manualModels.%s", field))
 			}
 		}
 		rows = append(rows, map[string]any{
@@ -656,31 +656,31 @@ func appendTSV21ManualModels(section map[string]json.RawMessage, parsed *TSV21Pa
 func parseTSV21PreferencesSectionInto(raw json.RawMessage, parsed *TSV21Parsed) error {
 	var section map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &section); err != nil || section == nil {
-		return TSV21ClientError{Message: "导入数据格式错误：preferences 必须是 JSON 对象"}
+		return TSV21ClientError{Message: "invalid import data: preferences must be a JSON object"}
 	}
 	for key := range section {
 		if key != "settings" {
-			parsed.Warnings = append(parsed.Warnings, fmt.Sprintf("忽略未知节 preferences.%s", key))
+			parsed.Warnings = append(parsed.Warnings, fmt.Sprintf("ignored unknown section preferences.%s", key))
 		}
 	}
 
 	rawSettings, present := section["settings"]
 	if !present || isRawJSONNull(rawSettings) {
-		return TSV21ClientError{Message: "导入数据格式错误：preferences.settings 必须是数组"}
+		return TSV21ClientError{Message: "invalid import data: preferences.settings must be an array"}
 	}
 	var rawRows []json.RawMessage
 	if err := json.Unmarshal(rawSettings, &rawRows); err != nil {
-		return TSV21ClientError{Message: "导入数据格式错误：preferences.settings 必须是数组"}
+		return TSV21ClientError{Message: "invalid import data: preferences.settings must be an array"}
 	}
 	if TSV21MaxRowsPerTable > 0 && len(rawRows) > TSV21MaxRowsPerTable {
-		return TSV21ClientError{Message: fmt.Sprintf("导入失败：preferences.settings 行数超过上限 %d", TSV21MaxRowsPerTable)}
+		return TSV21ClientError{Message: fmt.Sprintf("import failed: preferences.settings exceeds the max rows of %d", TSV21MaxRowsPerTable)}
 	}
 
 	rows := make([]map[string]any, 0, len(rawRows))
 	for i, rawRow := range rawRows {
 		var row map[string]any
 		if err := json.Unmarshal(rawRow, &row); err != nil || row == nil {
-			parsed.Warnings = append(parsed.Warnings, fmt.Sprintf("忽略 preferences.settings 第 %d 行：不是 JSON 对象", i+1))
+			parsed.Warnings = append(parsed.Warnings, fmt.Sprintf("ignored preferences.settings row %d: not a JSON object", i+1))
 			continue
 		}
 
@@ -688,7 +688,7 @@ func parseTSV21PreferencesSectionInto(raw json.RawMessage, parsed *TSV21Parsed) 
 		key = strings.TrimSpace(key)
 		if key == "" {
 			parsed.SkippedSettings++
-			parsed.Warnings = append(parsed.Warnings, fmt.Sprintf("忽略 preferences.settings 第 %d 行：key 缺失或为空", i+1))
+			parsed.Warnings = append(parsed.Warnings, fmt.Sprintf("ignored preferences.settings row %d: key missing or empty", i+1))
 			continue
 		}
 		if RuntimeLocalSettingKeys[key] {
@@ -698,7 +698,7 @@ func parseTSV21PreferencesSectionInto(raw json.RawMessage, parsed *TSV21Parsed) 
 
 		for field := range row {
 			if field != "key" && field != "value" {
-				parsed.Warnings = append(parsed.Warnings, fmt.Sprintf("忽略未知字段 settings.%s", field))
+				parsed.Warnings = append(parsed.Warnings, fmt.Sprintf("ignored unknown field settings.%s", field))
 			}
 		}
 
@@ -710,7 +710,7 @@ func parseTSV21PreferencesSectionInto(raw json.RawMessage, parsed *TSV21Parsed) 
 		// also holds JSON-encoded text, so re-marshal the parsed value.
 		rawValue, err := json.Marshal(value)
 		if err != nil {
-			return TSV21ClientError{Message: fmt.Sprintf("导入失败：preferences.settings 第 %d 行 value 无法序列化：%v", i+1, err)}
+			return TSV21ClientError{Message: fmt.Sprintf("import failed: preferences.settings row %d value cannot be serialized: %v", i+1, err)}
 		}
 		if err := checkTSV21CellBytes("value", string(rawValue)); err != nil {
 			return err
@@ -784,7 +784,7 @@ func importTSV21Parsed(conn tsV21Conn, parsed *TSV21Parsed) (*TSV21ImportResult,
 	for _, table := range parsed.TableOrder {
 		count, err := importTSV21TableRows(conn, table, parsed.Tables[table])
 		if err != nil {
-			return nil, fmt.Errorf("导入失败：表 %s：%w", table, err)
+			return nil, fmt.Errorf("import failed: table %s: %w", table, err)
 		}
 		result.Imported[table] = count
 	}
@@ -809,7 +809,7 @@ func importTSV21TableRows(conn tsV21Conn, table string, rows []map[string]any) (
 		values := make([]any, 0, len(row))
 		for column, value := range row {
 			if !knownColumns[column] {
-				return 0, fmt.Errorf("目标库中表 %s 不存在列 %q", table, column)
+				return 0, fmt.Errorf("target table %s has no column %q", table, column)
 			}
 			columns = append(columns, column)
 			values = append(values, value)
