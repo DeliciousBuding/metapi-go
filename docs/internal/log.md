@@ -5,6 +5,20 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-08-23 — Wave 8 收官 + Wave 9 冻结交接
+
+- #971（wave8/integration）squash 合并（6f44088）：模型数据源多源注册表（llm-metadata + models.dev，自动/手动同步）+ models 页水合 + fix-candidates 删页合并 + settings IA 重构 + 14 条产品语义修复。
+- 生产实例滚动部署 master 6f44088（digest d75bf354，23:19，免备份直上）；10 分钟 soak 0 错误；生产验证 2235 模型双源合并、水合近半。版本号不动，攒波待批。
+- **Wave 9 三线冻结**（用户指令全员停止）：交接与恢复 SOP 见 [`handoff-2026-08-23-wave9-freeze.md`](handoff-2026-08-23-wave9-freeze.md)。
+
+## 2026-08-23 — Wave 7 收官：合并 master + 生产滚动部署（未发版）
+
+- #970（wave7/integration）squash 合并（4802ffa）：55 修复 + 2 授权跳过 + 治理改动（Release draft + notes 卫生门禁 + CHANGELOG 19 段公开化重写）。
+- 集成期修复：CI lint/knip/typecheck 三轮、站点移动卡 l3a 合并覆盖回归（四字段标签实测回归）、golden 基线刷新。
+- 检查矩阵（4 agent）：60 条 finding 算术闭合无无归宿；49/49 lane commit 零丢失；仓库卫生清零；发布就绪缺口仅剩 bump+CHANGELOG+tag（均停手待批）。
+- 生产实例滚动部署 master 4802ffa（digest b0e229cf，19:35，免备份直上）；版本号不动，攒波待批。
+- 19 份历史 Release notes 全部改写为公开安全版（P0 漏洞利用细节/内部覆盖率数字/波次术语清除）；Release 流程改 draft + 黑名单门禁（防复发三道闸）。
+
 ## 2026-08-23 — Wave 7 前端体验波启动（目标 v0.16.9）
 
 - P0：clickability 门禁（`aeda771`，遮挡中心+四角检测 + 24px 命中区，发现 81 条真实硬失败）；种子实例 ×3（4100/4101/4102）；桌面 82 + 移动 28 张预采集截图。
