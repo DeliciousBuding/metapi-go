@@ -303,7 +303,9 @@ export function useUpdateChannel() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
-      void queryClient.invalidateQueries({ queryKey: routeQueryKeys.channelsAll() })
+      void queryClient.invalidateQueries({
+        queryKey: routeQueryKeys.channelsAll(),
+      })
       void queryClient.invalidateQueries({ queryKey: channelsKeys.list() })
       toast.success(i18n.t('tokenRoutes.toast.channelUpdated'))
     },
@@ -323,7 +325,9 @@ export function useDeleteChannel() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
-      void queryClient.invalidateQueries({ queryKey: routeQueryKeys.channelsAll() })
+      void queryClient.invalidateQueries({
+        queryKey: routeQueryKeys.channelsAll(),
+      })
       void queryClient.invalidateQueries({ queryKey: channelsKeys.list() })
       toast.success(i18n.t('tokenRoutes.toast.channelDeleted'))
     },

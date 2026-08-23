@@ -4,13 +4,27 @@
 // Covers: existing channels are listed with their fetched values, a weight
 // commit PUTs, the enabled switch PUTs, and delete requires confirmation.
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react'
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
 import i18n from '@/i18n/config'
 
-import { RouteChannelEditor } from '../route-channel-editor'
 import type { RouteChannel } from '../../types'
+import { RouteChannelEditor } from '../route-channel-editor'
 
 const testState = vi.hoisted(() => ({
   channels: [
@@ -137,9 +151,7 @@ describe('RouteChannelEditor', () => {
   it('removes a channel only after confirm', () => {
     render(<RouteChannelEditor routeId={1} />)
     const rows = screen.getAllByRole('listitem')
-    fireEvent.click(
-      within(rows[1]).getByRole('button', { name: '移除通道' })
-    )
+    fireEvent.click(within(rows[1]).getByRole('button', { name: '移除通道' }))
     expect(testState.deleteMutate).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: '移除' }))
     expect(testState.deleteMutate.mock.calls[0]?.[0]).toEqual(2)

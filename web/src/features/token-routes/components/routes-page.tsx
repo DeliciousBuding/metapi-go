@@ -500,7 +500,7 @@ export function RoutesPage() {
                   checked={showZeroChannel}
                   onCheckedChange={setShowZeroChannel}
                 />
-                <span className='min-w-0 max-w-[150px] truncate sm:max-w-[280px]'>
+                <span className='max-w-[150px] min-w-0 truncate sm:max-w-[280px]'>
                   {t('tokenRoutes.page.showZeroChannel')}
                 </span>
               </label>

@@ -112,7 +112,9 @@ function ChannelEditRow({
     channel.account?.username ||
     t('tokenRoutes.detail.fallbackAccount', { id: channel.accountId })
   const secondLine = [
-    channel.site?.name || channel.site?.platform ? `@ ${channel.site?.name || channel.site?.platform}` : null,
+    channel.site?.name || channel.site?.platform
+      ? `@ ${channel.site?.name || channel.site?.platform}`
+      : null,
     channel.sourceModel || null,
     channel.token?.name
       ? `${t('tokenRoutes.formChannel.tokenLabel')}: ${channel.token.name}`
@@ -141,7 +143,10 @@ function ChannelEditRow({
           {accountLabel}
         </div>
         {secondLine && (
-          <div className='text-muted-foreground truncate text-[11px]' title={secondLine}>
+          <div
+            className='text-muted-foreground truncate text-[11px]'
+            title={secondLine}
+          >
             {secondLine}
           </div>
         )}
@@ -181,7 +186,7 @@ function ChannelEditRow({
       </div>
 
       {pending && deleteMutation.variables === channel.id ? (
-        <Spinner className='justify-self-center size-4' />
+        <Spinner className='size-4 justify-self-center' />
       ) : (
         <Button
           type='button'
