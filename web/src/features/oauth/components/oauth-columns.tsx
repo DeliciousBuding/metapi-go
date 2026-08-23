@@ -86,7 +86,7 @@ function TruncatedText({
   const display =
     text.length > maxLength ? `${text.slice(0, maxLength)}…` : text
   return (
-    <span className='block max-w-[18rem] truncate text-sm' title={text}>
+    <span className='block max-w-[9.5rem] truncate text-sm' title={text}>
       {display}
     </span>
   )
@@ -256,7 +256,7 @@ export function useOAuthColumns(
       ),
       cell: ({ row }) => (
         <span
-          className='block truncate font-medium'
+          className='block max-w-[5.5rem] truncate font-medium'
           title={row.original.provider}
         >
           {row.original.provider}
@@ -299,7 +299,7 @@ export function useOAuthColumns(
         const siteName = row.original.site?.name
         return siteName ? (
           <span
-            className='text-muted-foreground block truncate text-sm'
+            className='text-muted-foreground block max-w-[6rem] truncate text-sm'
             title={siteName}
           >
             {siteName}
@@ -358,7 +358,7 @@ export function useOAuthColumns(
     {
       id: 'quota',
       enableSorting: false,
-      size: 130,
+      size: 100,
       meta: { mobileHidden: true, mobileOrder: 22 },
       header: ({ column }) => (
         <DataTableColumnHeader
@@ -388,7 +388,7 @@ export function useOAuthColumns(
     {
       id: 'routeChannelCount',
       accessorFn: (row) => row.routeChannelCount ?? -1,
-      size: 85,
+      size: 150,
       meta: { mobileHidden: true, mobileOrder: 23 },
       header: ({ column }) => (
         <DataTableColumnHeader
@@ -414,7 +414,10 @@ export function useOAuthColumns(
         />
       ),
       cell: ({ row }) => (
-        <span className='text-muted-foreground text-sm tabular-nums'>
+        <span
+          className='text-muted-foreground block max-w-[7rem] truncate text-sm tabular-nums'
+          title={formatDateTime(row.original.lastModelSyncAt, locale)}
+        >
           {formatDateTime(row.original.lastModelSyncAt, locale)}
         </span>
       ),
