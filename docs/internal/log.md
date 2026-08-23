@@ -5,6 +5,13 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-08-24 — Wave 9 发布 v0.16.9
+
+- PR #972（Wave 9，mobile audit + entry-chunk split + contrast zero-exemption）squash 合入 master（9d864bf）。
+- release PR #973（chore(release): v0.16.9，CHANGELOG 节 + web/package.json 0.16.9）squash 合入 master（592f1ba）。
+- tag v0.16.9 推送 → CI/CD 全 12-check 全绿 + docker-push（linux/amd64+arm64，provenance+SBOM）+ release job 构建 5 平台二进制（10 个）+ checksums.txt + install.sh。
+- GitHub Release v0.16.9 由 draft 发布（12 assets）；生产滚动部署为运维面后续动作（本仓只到 Release 收口）。
+
 ## 2026-08-24 — Wave 9 冻结恢复 + 集成
 
 - 恢复 SOP 执行：a rebase 受阻（远端已推）改 merge 到 6f44088 → 重写两个 env-independent 不变式测试 → 375×812 Chromium 连续 5 次侧栏开合无冻结 → push；b 全前端门禁 + 41 desktop/19 mobile smoke + 旧 URL redirect + 拖拽持久实测通过 → push；c 门禁复核发现 models.dev catalog vendor 误标 Claude 为 openai 协议，修 dialect 优先 + 真实实例验证 anthropic → push。

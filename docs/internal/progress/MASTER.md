@@ -2,20 +2,22 @@
 
 **Last verified**: 2026-08-24
 
-**Release**: [v0.16.8](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.8) · released on master; production promotion follows the release and soak gate
+**Release**: [v0.16.9](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.9) · released on master; production promotion follows the release and soak gate
 
 > This is the only execution plan. It contains open work, order, ownership, and acceptance criteria. Current facts → [`../STATE.md`](../STATE.md) · product positioning → [`../benchmark.md`](../benchmark.md) · timeline → [`../log.md`](../log.md).
 
-## Current active work — 需求驱动（v0.16.8+）
+## Current active work — 需求驱动（v0.16.9+）
 
-历史完成冻结：Round 1 #887 → v0.16.3、Round 2 #889 → v0.16.4、#887 补遗 + E2E → v0.16.5、Round 3 修复波 → v0.16.6、Wave 4 综合质量波 → v0.16.7、Wave 5+6 开发 + 深审计波 → v0.16.8 均已发布。
+历史完成冻结：Round 1 #887 → v0.16.3、Round 2 #889 → v0.16.4、#887 补遗 + E2E → v0.16.5、Round 3 修复波 → v0.16.6、Wave 4 综合质量波 → v0.16.7、Wave 5+6 开发 + 深审计波 → v0.16.8、Wave 7+8+9 前端体验/语义/设置/catalog/移动端审计波 → v0.16.9 均已发布。
 
-### 已收口（v0.16.8，勿再当 active）
+### 已收口（v0.16.9 及以前，勿再当 active）
 
 - Wave 5：功能闭环 #861（#935 apiEndpoints 编辑器）、#558（#939 探针产品化）、#926（#938 后端消息英文化收官）；测试矩阵（#937 真实上游 4/16 + 运行时矩阵 4/5）；截图证据管道 + golden 门禁（#951）；审计残留 P1（#936）；docs/api.md 74 条补齐（#940）。
 - Wave 6 六维深审计（架构/动线/视觉/性能/安全，22 项坐实全修复）：P0 备份凭据植入（#941）、全失败告警（#942）、可空列同族（#943）、代理零拷贝（#944）、proxy-logs 单遍+缓存（#945）、后端卫生（#946）、路由缓存（#947）、UX 动线 4 项（#948）、对比度 6 项 + 320 对守卫（#949）、前端卫生（#950）。
+- Wave 7 前端体验整修（#970）：12 域 55 项交互/视觉/移动端/无障碍修复，含侧边栏「路由」导航静默失败。
+- Wave 8 模型数据源 + 设置 IA + 产品语义（#971）：llm-metadata/models.dev 双源注册表、settings 语义重组、14 条产品语义修复。
 
-### Wave 9 集成中（a/b/c/d 已并入 integration，待 PR）
+### Wave 9（#972）—— 已收口
 
 | Lane | 内容 | 状态 |
 |---|---|---|
@@ -24,7 +26,7 @@
 | c | catalog ratio 倍率计价 + supportedEndpointTypes 目录推导（含 dialect 修复） | 已并入 integration，真实实例验证 anthropic 方言 |
 | d | 375×812 全站移动端逐页真实交互深审（P0-P2 清单 + 修 P0/P1） | 已并入 integration；修 2 处 <24px 行内按钮（checkin 查看原始信息 / rates 行内编辑）→24px；其余硬信号逐条核验为误报 |
 
-> 交付路径：integration 分支全量门禁 → PR 进 master（12-check）→ squash → 生产滚动部署 + 10 分钟 soak → 版本号问管理员后 bump+CHANGELOG+tag。
+> 已交付：integration → PR #972 squash 合入（12-check 全绿）→ #973 bump CHANGELOG + web/package.json → tag v0.16.9 → Release 发布。生产滚动部署为运维面后续动作。
 
 ### 需求驱动候选（开放 issue 0，下波按需求立项）
 
