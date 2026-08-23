@@ -5,6 +5,11 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-08-23 — Wave 5+6 → v0.16.8
+
+- Wave 5 功能线（#935 #861 编辑器 / #939 #558 探针 / #938 #926 英文化 / #936 审计残留 / #937 测试矩阵 / #951 截图双管道）+ Wave 6 六维深审计线（22 项坐实全修复：#941 P0 备份凭据植入 / #942 全失败告警 / #943 可空列同族 / #944-#947 性能 / #946 后端卫生 / #948 UX 动线 / #949 对比度+守卫 / #950 前端卫生 / #940 api.md 74 条），15 PR 全部 squash 合入，开放 issue 归零；发布 #954 → v0.16.8（Release 12 assets）。
+- 测试矩阵：CI 真实上游 2/16→4/16（+sub2api/+cliproxyapi 容器链）；`runtime-smoke-matrix` 4 平台（ubuntu/macos/windows/arm64）运行时冒烟；截图证据管道 + 4 页 golden 门禁。
+
 ## 2026-08-22 — Wave 4 综合质量波 → v0.16.7
 
 - Wave 4 首轮 9 条 PR（#916 契约回归 / #917 安全审计 / #920 a11y / #921 部署体验 / #922 安全移交 / #919 迁移兼容 / #918 实测验收 / #924 残留打磨 / #925 A/B 域重审）+ 本轮 4 条（#928 空快照 / #929 对外门面 / #930 三处假成功 / #931 NULL 余额 500）全部 squash 合入；Round 3 审计 8 域闭环，#915 关闭。

@@ -2,27 +2,28 @@
 
 **Last verified**: 2026-08-23
 
-**Release**: [v0.16.7](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.7) · released on master; production promotion follows the release and soak gate
+**Release**: [v0.16.8](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.8) · released on master; production promotion follows the release and soak gate
 
 > This is the only execution plan. It contains open work, order, ownership, and acceptance criteria. Current facts → [`../STATE.md`](../STATE.md) · product positioning → [`../benchmark.md`](../benchmark.md) · timeline → [`../log.md`](../log.md).
 
-## Current active work — 剩余收尾（v0.16.7+，需求驱动）
+## Current active work — 需求驱动（v0.16.8+）
 
-历史完成冻结：Round 1 #887 → v0.16.3、Round 2 #889 → v0.16.4、#887 补遗 + E2E → v0.16.5、Round 3 修复波 → v0.16.6、Wave 4 综合质量波 → v0.16.7 均已发布。
+历史完成冻结：Round 1 #887 → v0.16.3、Round 2 #889 → v0.16.4、#887 补遗 + E2E → v0.16.5、Round 3 修复波 → v0.16.6、Wave 4 综合质量波 → v0.16.7、Wave 5+6 开发 + 深审计波 → v0.16.8 均已发布。
 
-### 已收口（v0.16.7，勿再当 active）
+### 已收口（v0.16.8，勿再当 active）
 
-- Wave 4 综合质量波：首轮 9 条（#916 / #917 / #920 / #921 / #922 / #919 / #918 / #924 / #925）+ 本轮 4 条（#928 / #929 / #930 / #931）+ 可空列根治 #933（关 #927），全部 squash 合入；Round 3 审计 8 域闭环，#915 关闭。
+- Wave 5：功能闭环 #861（#935 apiEndpoints 编辑器）、#558（#939 探针产品化）、#926（#938 后端消息英文化收官）；测试矩阵（#937 真实上游 4/16 + 运行时矩阵 4/5）；截图证据管道 + golden 门禁（#951）；审计残留 P1（#936）；docs/api.md 74 条补齐（#940）。
+- Wave 6 六维深审计（架构/动线/视觉/性能/安全，22 项坐实全修复）：P0 备份凭据植入（#941）、全失败告警（#942）、可空列同族（#943）、代理零拷贝（#944）、proxy-logs 单遍+缓存（#945）、后端卫生（#946）、路由缓存（#947）、UX 动线 4 项（#948）、对比度 6 项 + 320 对守卫（#949）、前端卫生（#950）。
 
-### 剩余 Active（需求驱动，非阻塞）
+### 需求驱动候选（开放 issue 0，下波按需求立项）
 
-| 项 | 优先级 | 状态 |
-|---|---|---|
-| W 后端用户可见消息英文化 | P2 | [#926](https://github.com/DeliciousBuding/metapi-go/issues/926)，WIP ~40%（分支 `wave4/message-consistency`） |
-| Sites apiEndpoints editor | P2 | [#861](https://github.com/DeliciousBuding/metapi-go/issues/861)，preserve-only → 需求驱动 |
-| Codex / AnyRouter 真实运行探针 | 可选 | [#558](https://github.com/DeliciousBuding/metapi-go/issues/558) |
+| 项 | 说明 |
+|---|---|
+| 首屏 bundle 拆分 | audit 已坐实：eager 混入业务 API 层 + 双语言 locale 66% 占比；Wave 6 曾开线未完成（agent 中断），修复方案已验证一半 |
+| formatDateTimeMinuteLocal 清理 | fe-cleanup 残留：生产零消费（仅测试引用） |
+| 8 项存量 sub-AA 对比度豁免 | contrast-gate 豁免表记录在案，逐项收口需设计决策 |
 
-> Round 3 修复波已闭环，无 P0/P1 开放项。下一波按需求驱动立项（方向见 `../benchmark.md`）。
+> 无 P0/P1 开放项，开放 issue 0。下一波按需求驱动立项（方向见 `../benchmark.md`）。
 
 ## Completed milestone — TS 兼容与迁移收官（2026-08-20 交付）
 
