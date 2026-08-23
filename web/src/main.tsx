@@ -13,8 +13,7 @@ import { ThemeCustomizationProvider } from '@/context/theme-customization-provid
 import { ThemeProvider } from '@/context/theme-provider'
 import { queryClient, router } from '@/lib/router'
 
-// i18next side-effect init (config.ts calls i18n.init)
-import './i18n/config'
+import { initI18n } from './i18n/config'
 
 // Global styles (Tailwind 4 entry + theme tokens)
 import './styles/index.css'
@@ -23,6 +22,10 @@ const rootElement = document.querySelector<HTMLElement>('#root')
 if (!rootElement) {
   throw new Error('Root element not found')
 }
+
+// Load the active language bundle before first paint so the SPA never
+// renders untranslated keys. The sibling locale lazy-loads on first switch.
+await initI18n()
 
 if (!rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement)

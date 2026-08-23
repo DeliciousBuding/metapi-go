@@ -2,25 +2,53 @@
 // Skeleton: 2 languages (en + zhCN), key-based translation, localStorage
 // detection. nsSeparator disabled so literal colons in keys are preserved;
 // nested objects still traverse via keySeparator ('.').
+//
+// Locale bundles are lazy-loaded through a tiny i18next backend so the entry
+// chunk no longer statically carries both en + zh-CN JSON (~120KB). The active
+// language loads on init (main.tsx awaits initI18n before first paint); the
+// sibling loads on first switch.
 
-import i18n from 'i18next'
+import i18n, { type BackendModule, type ResourceLanguage } from 'i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
 import { initReactI18next } from 'react-i18next'
 
 import { convertDetectedLanguage, toBcp47 } from './languages'
-import en from './locales/en.json'
-import zhCN from './locales/zh-CN.json'
 
-const resources = {
-  en,
-  zhCN,
+const localeLoaders = {
+  en: () => import('./locales/en.json'),
+  zhCN: () => import('./locales/zh-CN.json'),
 } as const
 
-i18n
-  .use(LanguageDetector)
-  .use(initReactI18next)
-  .init({
-    resources,
+function normalizeLanguage(language: string): keyof typeof localeLoaders {
+  return language.startsWith('zh') ? 'zhCN' : 'en'
+}
+
+const localeBackend: BackendModule = {
+  type: 'backend',
+  init() {},
+  async read(language, namespace, callback) {
+    if (namespace !== 'translation') {
+      callback(null, {})
+      return
+    }
+    try {
+      const module = await localeLoaders[normalizeLanguage(language)]()
+      callback(null, module.default.translation as ResourceLanguage)
+    } catch (error) {
+      callback(error as Error, null)
+    }
+  },
+}
+
+i18n.use(localeBackend).use(LanguageDetector).use(initReactI18next)
+
+/**
+ * Initialize i18next. The returned promise resolves once the active language
+ * bundle is loaded, so callers that gate rendering on it never paint
+ * untranslated keys.
+ */
+export function initI18n(): Promise<unknown> {
+  return i18n.init({
     fallbackLng: 'en',
     supportedLngs: ['en', 'zhCN'],
     // Treat browser variants like `en-US` as supported (they resolve to the
@@ -39,6 +67,7 @@ i18n
       convertDetectedLanguage,
     },
   })
+}
 
 /**
  * Keep `<html lang>` in sync with the active language so assistive tech,
