@@ -179,6 +179,30 @@ export function getAccessToken(
   return getAuthToken(storage, nowMs)
 }
 
+/**
+ * True only when a token exists and its expiry has already passed (or the
+ * expiry value is corrupt). Missing token and live token both return false,
+ * so a caller can distinguish "no session at all" from "session expired" —
+ * {@link getAuthToken} collapses both to null and cannot tell them apart
+ * ({@link clearAuthSession} already wiped the stale entry by then).
+ */
+export function isAuthSessionExpired(
+  storage?: StorageLike | null,
+  nowMs: number = Date.now()
+): boolean {
+  const target = resolveStorage(storage)
+  if (!target) return false
+
+  const token = (target.getItem(AUTH_TOKEN_STORAGE_KEY) || '').trim()
+  if (!token) return false
+
+  const expiresAtRaw = target.getItem(AUTH_TOKEN_EXPIRES_AT_STORAGE_KEY)
+  if (!expiresAtRaw) return false
+
+  const expiresAt = Number(expiresAtRaw)
+  return !Number.isFinite(expiresAt) || expiresAt <= nowMs
+}
+
 export function hasValidAuthSession(
   storage?: StorageLike | null,
   nowMs: number = Date.now()

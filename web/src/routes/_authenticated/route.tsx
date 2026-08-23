@@ -21,14 +21,19 @@ import {
   LayoutErrorBoundary,
   NotFoundPage,
 } from '@/components/layout'
-import { hasValidAuthSession } from '@/lib/auth-session'
+import { hasValidAuthSession, isAuthSessionExpired } from '@/lib/auth-session'
 
 export const Route = createFileRoute('/_authenticated')({
   beforeLoad: ({ location }) => {
     // localStorage can throw (SecurityError) in sandboxed/blocked-storage
     // contexts; treat that as unauthenticated rather than crashing the guard.
     let authenticated = false
+    let sessionExpired = false
     try {
+      // Probe the raw storage BEFORE hasValidAuthSession: the session
+      // check wipes expired entries via clearAuthSession, after which
+      // "was expired" is indistinguishable from "never had a session".
+      sessionExpired = isAuthSessionExpired(localStorage)
       authenticated = hasValidAuthSession(localStorage)
     } catch {
       authenticated = false
@@ -36,7 +41,9 @@ export const Route = createFileRoute('/_authenticated')({
     if (!authenticated) {
       throw redirect({
         to: '/sign-in',
-        search: { redirect: location.href },
+        search: sessionExpired
+          ? { redirect: location.href, reason: 'sessionExpired' }
+          : { redirect: location.href },
       })
     }
   },

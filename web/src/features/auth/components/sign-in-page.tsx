@@ -23,11 +23,20 @@ const DEPLOYMENT_DOC_URL =
   'https://github.com/DeliciousBuding/metapi-go/blob/master/docs/deployment.md'
 
 /**
- * The only notice currently carried by `?reason=`. Sent by the settings
+ * Notices carried by `?reason=`. `tokenChanged` is sent by the settings
  * screen after rotating the admin token (the old token stops working
- * immediately, so the operator must sign in again with the new one).
+ * immediately, so the operator must sign in again with the new one);
+ * `sessionExpired` comes from the authenticated route guard when a stored
+ * token has passed its 12h TTL (otherwise the deep link would silently
+ * bounce back to login with no explanation).
  */
 const TOKEN_CHANGED_NOTICE_REASON = 'tokenChanged'
+const SESSION_EXPIRED_NOTICE_REASON = 'sessionExpired'
+
+const NOTICE_REASON_KEY_MAP: Record<string, string> = {
+  [TOKEN_CHANGED_NOTICE_REASON]: 'auth.login.tokenChangedNotice',
+  [SESSION_EXPIRED_NOTICE_REASON]: 'auth.login.sessionExpiredNotice',
+}
 
 type SignInPageProps = {
   redirectTo?: string
@@ -36,7 +45,7 @@ type SignInPageProps = {
 
 export function SignInPage({ redirectTo, noticeReason }: SignInPageProps) {
   const { t } = useTranslation()
-  const showTokenChangedNotice = noticeReason === TOKEN_CHANGED_NOTICE_REASON
+  const noticeReasonKey = NOTICE_REASON_KEY_MAP[noticeReason ?? ''] ?? null
 
   return (
     <div className='bg-background relative flex min-h-svh items-center justify-center px-4 pt-16 pb-4'>
@@ -57,13 +66,13 @@ export function SignInPage({ redirectTo, noticeReason }: SignInPageProps) {
           <CardDescription>{t('auth.login.brandTagline')}</CardDescription>
         </CardHeader>
         <CardContent className='grid gap-4'>
-          {showTokenChangedNotice && (
+          {noticeReasonKey && (
             <div
               role='status'
               className='bg-muted/60 text-foreground flex items-start gap-2 rounded-md px-3 py-2.5 text-sm'
             >
               <Info aria-hidden='true' className='mt-0.5 size-4 shrink-0' />
-              <span>{t('auth.login.tokenChangedNotice')}</span>
+              <span>{t(noticeReasonKey)}</span>
             </div>
           )}
           <LoginForm redirectTo={redirectTo} />
@@ -75,7 +84,13 @@ export function SignInPage({ redirectTo, noticeReason }: SignInPageProps) {
                 href={DEPLOYMENT_DOC_URL}
                 target='_blank'
                 rel='noreferrer'
-                className='text-primary underline underline-offset-2'
+                // Inline text link with a ≥24px vertical hit target
+                // (WCAG 2.5.8): py-2 + the 12px line makes the box ~32px;
+                // negative py margins keep the visual line spacing neutral.
+                // text-primary on this token is only ~2.7:1 in both themes
+                // (measured), so swap to the foreground color — underline
+                // keeps the affordance with real AA contrast.
+                className='text-foreground -my-1 inline-block px-1 py-2 font-medium underline underline-offset-2'
               >
                 {t('auth.login.tokenSourceDocs')}
               </a>

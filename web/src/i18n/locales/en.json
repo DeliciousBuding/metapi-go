@@ -22,6 +22,7 @@
         "submitting": "Signing in…",
         "welcomeBack": "Welcome back!",
         "tokenChangedNotice": "The admin token was updated. Sign in with your new token.",
+        "sessionExpiredNotice": "Your session has expired. Please sign in again.",
         "tokenSourceHint": "The admin token comes from the AUTH_TOKEN environment variable (or .env file) set when this instance was deployed.",
         "tokenSourceForgot": "If you don't know it, ask your deployment administrator.",
         "tokenSourceDocs": "Deployment docs"
