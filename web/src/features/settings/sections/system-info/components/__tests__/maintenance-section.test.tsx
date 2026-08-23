@@ -175,7 +175,7 @@ describe('MaintenanceSection — program-logs link hit area', () => {
     renderMaintenanceSection()
 
     const programLogsLink = screen.getByRole('link', {
-      name: 'View Program Logs',
+      name: 'View Operational Events',
     })
 
     expect(programLogsLink.classList).toContain('py-1')

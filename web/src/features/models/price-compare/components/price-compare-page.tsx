@@ -148,7 +148,10 @@ function ModelGroupCard({ group }: { group: ModelGroup }) {
         <CardTitle className='flex items-center gap-2 text-base font-normal'>
           <span className='font-mono'>{group.model}</span>
           {hasRecommended && (
-            <Badge variant='secondary'>
+            <Badge
+              variant='secondary'
+              title={t('priceCompare.recommendedHint')}
+            >
               <Star aria-hidden='true' className='size-3!' />
               {t('priceCompare.recommended')}
             </Badge>
@@ -251,7 +254,7 @@ function PriceRowStatus({ row }: { row: PriceCompareItem }) {
   }
   if (row.recommended) {
     return (
-      <Badge variant='default'>
+      <Badge variant='default' title={t('priceCompare.recommendedHint')}>
         <Star aria-hidden='true' className='size-3!' />
         {t('priceCompare.recommended')}
       </Badge>

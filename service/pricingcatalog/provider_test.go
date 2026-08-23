@@ -114,7 +114,7 @@ func TestProvider_RefreshPublishesAndKeepsSnapshotOnFailure(t *testing.T) {
 	}
 
 	// First refresh fails → presets retained, error returned.
-	if err := provider.Refresh(context.Background()); err == nil {
+	if _, err := provider.Refresh(context.Background()); err == nil {
 		t.Fatal("refresh against failing endpoint must error")
 	}
 	if provider.Snapshot().Source != PresetSnapshotSource {
@@ -123,7 +123,7 @@ func TestProvider_RefreshPublishesAndKeepsSnapshotOnFailure(t *testing.T) {
 
 	// Second refresh succeeds → live snapshot published.
 	payloads <- sampleCatalogJSON
-	if err := provider.Refresh(context.Background()); err != nil {
+	if _, err := provider.Refresh(context.Background()); err != nil {
 		t.Fatalf("refresh: %v", err)
 	}
 	if provider.Snapshot().Source != "models.dev api.json" {
@@ -134,7 +134,7 @@ func TestProvider_RefreshPublishesAndKeepsSnapshotOnFailure(t *testing.T) {
 	}
 
 	// Endpoint fails again → live snapshot retained (never downgraded).
-	if err := provider.Refresh(context.Background()); err == nil {
+	if _, err := provider.Refresh(context.Background()); err == nil {
 		t.Fatal("refresh against failing endpoint must error")
 	}
 	if provider.Snapshot().Source != "models.dev api.json" {

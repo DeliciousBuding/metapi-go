@@ -53,9 +53,14 @@ const (
 	// 0 disables the per-IP limiter entirely.
 	DefaultProxyRateLimitRPM = 60
 
-	// Pricing catalog (models.dev official list prices) cold-start cost signal.
+	// Pricing catalog (model data source registry: llm-metadata primary +
+	// models.dev fallback by default) cold-start cost signal + marketplace
+	// hydration. Refresh cadence is 12h — the primary upstream dataset is
+	// rebuilt daily, so the old 60min cadence wasted bandwidth.
+	// PRICING_CATALOG_URL is honored as a legacy single-source override and
+	// migrated into the registry as the top-priority custom source.
 	DefaultPricingCatalogEnabled    = true
-	DefaultPricingCatalogRefreshMin = 60
+	DefaultPricingCatalogRefreshMin = 720
 	DefaultPricingCatalogURL        = "https://models.dev/api.json"
 
 	// Admin/OAuth per-IP token-bucket rate limits. These mirror the original
@@ -75,12 +80,11 @@ const (
 
 	// Site & Branding defaults. Empty means the embedded frontend branding and
 	// login-page copy are used unchanged.
-	DefaultSystemName      = ""
-	DefaultLogo            = ""
-	DefaultFooter          = ""
-	DefaultAbout           = ""
-	DefaultHomePageContent = ""
-	DefaultServerAddress   = ""
+	DefaultSystemName    = ""
+	DefaultLogo          = ""
+	DefaultFooter        = ""
+	DefaultAbout         = ""
+	DefaultServerAddress = ""
 
 	DefaultNotifyCooldownSec = 300
 	DefaultSmtpPort          = 587
@@ -108,8 +112,8 @@ const (
 	// Proxy log batch writer (async INSERT batching). Default async=true so
 	// production gets the latency/lock-contention win automatically; tests and
 	// e2e suites set PROXY_LOG_ASYNC=false for write-through visibility.
-	DefaultProxyLogAsync             = true
-	DefaultProxyLogBatchSize        = 50
+	DefaultProxyLogAsync           = true
+	DefaultProxyLogBatchSize       = 50
 	DefaultProxyLogFlushIntervalMs = 1000
 
 	DefaultProxyDebugRetentionHours = 24

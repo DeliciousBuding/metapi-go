@@ -71,8 +71,8 @@ function resolveLowestInputPrice(model: ModelRow): number | null {
 
 function resolvePriceDetail(
   model: ModelRow
-): Array<{ site: string; price: number }> {
-  const rows: Array<{ site: string; price: number }> = []
+): Array<{ site: string; siteId: number; price: number }> {
+  const rows: Array<{ site: string; siteId: number; price: number }> = []
   for (const source of model.pricingSources ?? []) {
     let lowest: number | null = null
     for (const groupKey of Object.keys(source.groupPricing ?? {})) {
@@ -82,11 +82,28 @@ function resolvePriceDetail(
       }
     }
     if (lowest !== null) {
-      rows.push({ site: source.siteName || `#${source.siteId}`, price: lowest })
+      rows.push({
+        site: source.siteName || `#${source.siteId}`,
+        siteId: source.siteId,
+        price: lowest,
+      })
     }
   }
   rows.sort((a, b) => a.price - b.price)
   return rows
+}
+
+/** Localized label for a pricing-source site (the synthetic catalog source
+ * uses siteId 0 + siteName "catalog" as its sentinel). */
+export function pricingSiteLabel(
+  site: string,
+  siteId: number,
+  t: (key: string) => string
+): string {
+  if (siteId === 0 && site === 'catalog') {
+    return t('models.price.catalogEstimate')
+  }
+  return site
 }
 /**
  * Build the model list columns. Must be called during render (it is a hook
@@ -146,7 +163,17 @@ export function useModelsColumns(
           const model = row.original
           return (
             <div className='flex flex-col'>
-              <span className='font-medium'>{model.name}</span>
+              <div className='flex items-center gap-2'>
+                <span className='font-medium'>{model.name}</span>
+                {model.deprecated ? (
+                  <Badge
+                    variant='outline'
+                    className='text-muted-foreground gap-1'
+                  >
+                    {t('models.columns.deprecated')}
+                  </Badge>
+                ) : null}
+              </div>
               {model.description ? (
                 <TruncatedCell className='text-muted-foreground max-w-[20rem] text-xs'>
                   {model.description}
@@ -157,14 +184,14 @@ export function useModelsColumns(
         },
       },
       {
-        id: 'capabilities',
+        id: 'endpointTypes',
         accessorFn: (row) => row.supportedEndpointTypes,
-        size: 240,
+        size: 160,
         meta: { mobileHidden: true, mobileOrder: 20 },
         header: ({ column }) => (
           <DataTableColumnHeader
             column={column}
-            title={t('models.columns.capabilities')}
+            title={t('models.columns.endpointTypes')}
           />
         ),
         cell: ({ row }) => {
@@ -177,6 +204,43 @@ export function useModelsColumns(
               items={endpointTypes.map((type) => (
                 <Badge key={type} variant='outline' className='gap-1'>
                   {type}
+                </Badge>
+              ))}
+              max={3}
+            />
+          )
+        },
+        filterFn: (row, columnId, filterValue) => {
+          const value = row.getValue(columnId)
+          const values: string[] = Array.isArray(value) ? value : []
+          if (Array.isArray(filterValue)) {
+            if (filterValue.length === 0) return true
+            return filterValue.some((facet) => values.includes(String(facet)))
+          }
+          return values.includes(String(filterValue))
+        },
+      },
+      {
+        id: 'capabilities',
+        accessorFn: (row) => row.tags,
+        size: 200,
+        meta: { mobileHidden: true, mobileOrder: 21 },
+        header: ({ column }) => (
+          <DataTableColumnHeader
+            column={column}
+            title={t('models.columns.capabilities')}
+          />
+        ),
+        cell: ({ row }) => {
+          const tags = row.original.tags ?? []
+          if (tags.length === 0) {
+            return <span className='text-muted-foreground text-sm'>—</span>
+          }
+          return (
+            <BadgeListCell
+              items={tags.map((tag) => (
+                <Badge key={tag} variant='secondary' className='gap-1'>
+                  {tag}
                 </Badge>
               ))}
               max={3}
@@ -282,7 +346,8 @@ export function useModelsColumns(
                     </span>
                     {detail.map((item) => (
                       <span key={item.site} className='text-xs tabular-nums'>
-                        {item.site}: {formatPrice(item.price)}/M
+                        {pricingSiteLabel(item.site, item.siteId, t)}:{' '}
+                        {formatPrice(item.price)}/M
                       </span>
                     ))}
                   </div>
@@ -362,7 +427,24 @@ export function buildBrandFilterOptions(models: ModelRow[]): Array<{
 }
 
 /**
- * Build the capability faceted-filter options from the live model list.
+ * Build the endpoint-type faceted-filter options from the live model list.
+ */
+export function buildEndpointTypeFilterOptions(models: ModelRow[]): Array<{
+  label: string
+  value: string
+}> {
+  const set = new Set<string>()
+  for (const model of models) {
+    for (const endpointType of model.supportedEndpointTypes ?? []) {
+      set.add(endpointType)
+    }
+  }
+  return [...set].sort().map((name) => ({ label: name, value: name }))
+}
+
+/**
+ * Build the capability faceted-filter options from the live model list
+ * (catalog tags).
  */
 export function buildCapabilityFilterOptions(models: ModelRow[]): Array<{
   label: string
@@ -370,10 +452,7 @@ export function buildCapabilityFilterOptions(models: ModelRow[]): Array<{
 }> {
   const set = new Set<string>()
   for (const model of models) {
-    for (const endpointType of model.supportedEndpointTypes) {
-      set.add(endpointType)
-    }
-    for (const tag of model.tags) {
+    for (const tag of model.tags ?? []) {
       set.add(tag)
     }
   }

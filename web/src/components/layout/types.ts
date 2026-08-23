@@ -10,6 +10,7 @@ import type { LinkProps } from '@tanstack/react-router'
  */
 type BaseNavItem = {
   title: string
+  /** Optional i18n key of a small badge rendered beside the title (resolved via t()). */
   badge?: string
   icon?: React.ElementType
   activeUrls?: (LinkProps['to'] | (string & {}))[]

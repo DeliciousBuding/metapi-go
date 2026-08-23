@@ -1,13 +1,14 @@
 // metapi-go/features/dashboard/components — today snapshot strip.
 //
 // The overview's one-screen aggregation row (audit ui-ux-2026-08: the home
-// page lacked an at-a-glance "today" surface). Four cells:
+// page lacked an at-a-glance "today" surface). Three cells:
 //   - aggregate balance + 7-day delta (newest vs oldest captured point of the
 //     8-day balance-history window; the backend serves points chronologically
 //     ASC, so the oldest point is ~7 days ago),
-//   - today's successful check-ins (dashboard snapshot),
 //   - actionable attention count (deep-links to the availability section),
 //   - a live availability dot backed by the realtime ops WebSocket.
+// Today's check-in counts live in the stat-card row below (success/skip),
+// so the snapshot keeps only what the stat cards don't already show.
 // Missing data renders "—" — numbers are never invented.
 
 import { useQuery } from '@tanstack/react-query'
@@ -124,7 +125,6 @@ export function TodaySnapshotStrip() {
     () => computeBalanceTrend(balanceHistory, snapshot?.totalBalance),
     [balanceHistory, snapshot]
   )
-  const checkinSuccess = snapshot?.todayCheckin?.success
   const attentionTotal = attention?.total
 
   const renderBalanceValue = (): ReactNode => {
@@ -143,7 +143,10 @@ export function TodaySnapshotStrip() {
     const delta = trend.deltaPercent
     if (delta === undefined || !Number.isFinite(delta)) {
       return (
-        <div className='text-muted-foreground flex items-center gap-1 text-xs'>
+        <div
+          className='text-muted-foreground flex items-center gap-1 text-xs'
+          title={t('dashboard.overview.snapshot.vs7dUnavailable')}
+        >
           <Minus className='size-3' />
           <span className='tabular-nums'>—</span>
           <span>{t('dashboard.overview.snapshot.vs7d')}</span>
@@ -192,26 +195,13 @@ export function TodaySnapshotStrip() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className='grid grid-cols-2 gap-4 lg:grid-cols-4 lg:gap-6'>
+        <div className='grid grid-cols-2 gap-4 lg:grid-cols-3 lg:gap-6'>
           <div className='flex min-w-0 flex-col gap-1'>
             <div className='text-muted-foreground truncate text-xs'>
               {t('dashboard.overview.snapshot.totalBalance')}
             </div>
             {renderBalanceValue()}
             {renderBalanceDelta()}
-          </div>
-
-          <div className='flex min-w-0 flex-col gap-1'>
-            <div className='text-muted-foreground truncate text-xs'>
-              {t('dashboard.overview.snapshot.checkinSuccess')}
-            </div>
-            {snapshotLoading ? (
-              <Skeleton className='h-7 w-12' />
-            ) : (
-              <div className='text-xl font-semibold tabular-nums'>
-                {formatInt(checkinSuccess ?? null)}
-              </div>
-            )}
           </div>
 
           <Link

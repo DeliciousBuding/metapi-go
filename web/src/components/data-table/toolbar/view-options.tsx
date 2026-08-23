@@ -41,12 +41,12 @@ export function DataTableViewOptions<TData>({
           <Button
             variant='outline'
             className='shrink-0'
-            aria-label={t('View')}
+            aria-label={t('columnSettings')}
           />
         }
       >
         <Columns3 />
-        {t('View')}
+        {t('columnSettings')}
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end' className='w-[150px]'>
         <DropdownMenuGroup>

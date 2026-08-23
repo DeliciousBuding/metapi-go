@@ -217,12 +217,15 @@ export function useCheckinColumns(
         const message = log.checkin_logs.message
         if (!message) return <span className='text-muted-foreground'>—</span>
         return (
-          <span
-            className='text-muted-foreground block max-w-[360px] truncate text-sm'
-            title={message}
+          <button
+            type='button'
+            className='text-muted-foreground hover:text-foreground block max-w-[360px] cursor-pointer truncate text-left text-sm underline-offset-2 hover:underline'
+            title={t('checkin.detail.viewFullMessage')}
+            aria-label={t('checkin.detail.viewFullMessage')}
+            onClick={() => actions.onViewDetail(log)}
           >
             {message}
-          </span>
+          </button>
         )
       },
       meta: { mobileHidden: true },

@@ -89,6 +89,8 @@ func AutoMigrate(db *DB) error {
 		{"admin_audit_logs", buildAdminAuditLogsDDL(dialect)},
 		// Table 35: model_probe_results
 		{"model_probe_results", buildModelProbeResultsDDL(dialect)},
+		// Table 36: catalog_sources (model-catalog data source registry)
+		{"catalog_sources", buildCatalogSourcesDDL(dialect)},
 	}
 
 	// Non-UNIQUE indexes are created separately via CREATE INDEX IF NOT EXISTS
@@ -179,6 +181,7 @@ func AllTableNames() []string {
 		"downstream_api_keys",
 		"site_announcements",
 		"events",
+		"catalog_sources",
 	}
 }
 
@@ -206,6 +209,7 @@ func ClearTableNames() []string {
 		"sites",
 		"downstream_api_keys",
 		"events",
+		"catalog_sources",
 		"settings",
 	}
 }

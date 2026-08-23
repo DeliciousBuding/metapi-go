@@ -147,10 +147,8 @@ func ApplyRuntimeSettings(cfg *config.Config, settingsMap map[string]string) {
 			if v := parseJSONSettingString(value); v != "" {
 				cfg.About = v
 			}
-		case "home_page_content":
-			if v := parseJSONSettingString(value); v != "" {
-				cfg.HomePageContent = v
-			}
+		// home_page_content was removed (Wave 8 Lane D): the setting was stored
+		// but never rendered. Legacy rows are intentionally ignored here.
 		case "server_address":
 			if v := parseJSONSettingString(value); v != "" {
 				cfg.ServerAddress = v

@@ -3,12 +3,21 @@
 // content / system-info). The 7-section newapi registry is collapsed to metapi's 5.
 // Titles are i18n keys resolved via t() at render time (nav-group.tsx /
 // sidebar-view-header.tsx).
+//
+// IA restructure (wave 8 lane C): the 5 subareas render as NavCollapsible
+// nested-tree entries whose sub-items are the subarea's sections (from the
+// shared section-registry manifest). Together with the removed in-page
+// settings sidebar, breadcrumbs and overview section lists, the sidebar tree
+// is now the single navigation surface for the Settings workspace — aligned
+// with the newapi "System Administration" drill-in view. The active subarea
+// auto-expands (activePrefix + checkIsActive) and the active section is
+// highlighted with aria-current.
 
 import { LayoutGrid } from 'lucide-react'
 
 import { getSettingsSubareas } from '@/features/settings'
 
-import type { NavGroup, SidebarView } from '../types'
+import type { NavCollapsible, NavGroup, SidebarView } from '../types'
 
 /**
  * Sidebar nav groups for the Settings nested view.
@@ -32,15 +41,26 @@ function getSettingsNavGroups(): NavGroup[] {
           // current page, never /settings/<subarea>/... descendants.
           activeOptions: { exact: true },
         },
-        ...subareas.map((subarea) => ({
-          title: subarea.title,
-          icon: subarea.icon,
-          // Drill straight to the subarea's default section - the bare
-          // basePath URL 302-redirects there anyway (one extra hop).
-          url: `${subarea.basePath}/${subarea.defaultSection}`,
-          // Keep the subarea highlighted on every one of its section URLs.
-          activePrefix: subarea.basePath,
-        })),
+        ...subareas.map((subarea) => {
+          const collapsible: NavCollapsible = {
+            title: subarea.title,
+            icon: subarea.icon,
+            // Keep the subarea open + highlighted on every one of its
+            // section URLs (checkIsActive → SidebarMenuCollapsible opens it).
+            activePrefix: subarea.basePath,
+            items: subarea.getSectionNavItems().map((section) => ({
+              title: section.title,
+              url: section.url,
+              // Read-only surfaces (audit logs, update center) keep their
+              // "readonly" marker as a small inline badge instead of the
+              // retired chip strip (audit P2 #6 regression-intent change).
+              ...(section.readonly
+                ? { badge: 'settings.common.readonly' }
+                : {}),
+            })),
+          }
+          return collapsible
+        }),
       ],
     },
   ]

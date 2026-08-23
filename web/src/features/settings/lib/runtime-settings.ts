@@ -29,7 +29,6 @@ export type RuntimeSettings = {
   logo?: string
   footer?: string
   about?: string
-  homePageContent?: string
   serverAddress?: string
   // authentication
   currentAdminIp?: string

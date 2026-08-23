@@ -12,7 +12,6 @@ import type {
   Announcement,
   AnnouncementsResponse,
   ModelRedirectsResponse,
-  RedirectFixCandidate,
   RedirectApplyResponse,
   RateOverviewResponse,
   ProxyLogDetail,
@@ -241,22 +240,6 @@ export const statsApi = {
       // The redirects section surfaces its own applyFailed toast.
       skipErrorHandler: true,
     }) as Promise<RedirectApplyResponse>,
-  // K1a: model-governance fix candidates (list + apply).
-  getRedirectFixCandidates: () =>
-    request('/api/models/redirect-fix-candidates') as Promise<{
-      items: RedirectFixCandidate[]
-      count: number
-    }>,
-  applyRedirectFixCandidates: (dryRun = false) =>
-    request('/api/models/redirect-fix-candidates', {
-      method: 'POST',
-      body: JSON.stringify({ dryRun }),
-    }) as Promise<{
-      success: boolean
-      dryRun: boolean
-      removed?: number
-      count?: number
-    }>,
   // multiplier/rate overview (GET) + batch edit (PUT).
   getRateOverview: () =>
     request('/api/models/rates') as Promise<RateOverviewResponse>,
