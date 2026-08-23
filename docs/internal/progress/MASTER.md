@@ -57,10 +57,14 @@
 - model-detail-sheet 移除从未传入的 `onTest` prop +「Test model」死按钮 + 图标 import + 死 i18n key。
 - token-routes/index.ts 删除空占位注释块（barrel stub 收敛为真实重导出）。
 
+**Batch 5（本 PR）—— i18n 收尾 + 装饰图标 a11y**
+- catalog-sources Switch aria-label、tokens-panel group placeholder 去硬编码 → i18n（`toggleEnabled` / `groupPlaceholder`）。
+- checkin 装饰性 CalendarRange 补 `aria-hidden`。
+
 **剩余 P3（后续批）**
 - test-response-viewer useEffect 缺依赖数组。
-- 硬编码 `$` 前缀、`#siteId` 回退、"enabled"/"default" aria/placeholder 未 i18n。
-- lib/api/sites.ts 4 个未用 wrapper；checkin CalendarRange 缺 aria-hidden；endpoints-editor URL 无可见 label。
+- 硬编码 `$` 前缀、`#siteId` 回退未 i18n。
+- lib/api/sites.ts 4 个未用 wrapper；endpoints-editor URL 无可见 label。
 
 ## Completed milestone — TS 兼容与迁移收官（2026-08-20 交付）
 

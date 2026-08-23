@@ -519,7 +519,12 @@ export function CatalogSourcesSection() {
                           toggleEnabledMutation.mutate(source)
                         }
                         disabled={toggleEnabledMutation.isPending}
-                        aria-label={`${source.name} enabled`}
+                        aria-label={t(
+                          'settings.proxyModels.catalogSources.toggleEnabled',
+                          {
+                            name: source.name,
+                          }
+                        )}
                       />
                     </TableCell>
                     <TableCell>{<LastSyncCell source={source} />}</TableCell>
