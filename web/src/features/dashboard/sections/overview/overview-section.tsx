@@ -239,7 +239,7 @@ export function OverviewSection() {
   const accountHint = t('dashboard.overview.statCards.accountCountHint', {
     active: activeAccounts !== undefined ? formatInt(activeAccounts) : '—',
   })
-  const proxyHint = t('dashboard.overview.statCards.proxy24hHint', {
+  const proxyHint = t('dashboard.overview.statCards.proxy24hHintRpm', {
     success: proxy?.success ?? 0,
     rpm: performance?.requestsPerMinute ?? 0,
   })
@@ -464,7 +464,15 @@ export function OverviewSection() {
           title={t('dashboard.overview.statCards.todayCheckin')}
           value={!checkin ? '—' : formatRatio(checkin.success, checkin.total)}
           icon={CalendarCheck}
-          tone='success'
+          tone={
+            !checkin
+              ? 'default'
+              : checkin.success > 0
+                ? 'success'
+                : checkin.failed > 0
+                  ? 'warning'
+                  : 'default'
+          }
           details={checkinDetails}
           loading={snapshotLoading}
           to='/checkin'
