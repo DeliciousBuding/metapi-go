@@ -346,10 +346,16 @@ export function OverviewSection() {
               const expanded = expandedJob === row.job
               const showRunsToggle =
                 row.job === 'model-probe' && (row.recentRuns?.length ?? 0) > 0
+              const jobLabel = t(
+                `dashboard.overview.scheduledTasks.jobLabels.${row.job}`,
+                { defaultValue: row.job }
+              )
+              const showCheckinLogsLink =
+                row.job === 'checkin' && row.lastStatus === 'failed'
               return (
                 <Fragment key={row.job}>
                   <TableRow>
-                    <TableCell className='font-medium'>{row.job}</TableCell>
+                    <TableCell className='font-medium'>{jobLabel}</TableCell>
                     <TableCell>
                       <Badge variant={row.enabled ? 'success' : 'secondary'}>
                         {enabledLabel}
@@ -366,6 +372,22 @@ export function OverviewSection() {
                     </TableCell>
                     <TableCell className='text-right'>
                       <div className='flex items-center justify-end gap-1'>
+                        {showCheckinLogsLink && (
+                          <Button
+                            variant='outline'
+                            size='sm'
+                            render={
+                              <Link
+                                to='/checkin'
+                                search={{ status: 'failed' }}
+                              />
+                            }
+                          >
+                            {t(
+                              'dashboard.overview.scheduledTasks.viewCheckinLogs'
+                            )}
+                          </Button>
+                        )}
                         {canTrigger && (
                           <Button
                             variant='outline'
