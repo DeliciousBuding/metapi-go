@@ -75,12 +75,11 @@ const (
 
 	// Site & Branding defaults. Empty means the embedded frontend branding and
 	// login-page copy are used unchanged.
-	DefaultSystemName      = ""
-	DefaultLogo            = ""
-	DefaultFooter          = ""
-	DefaultAbout           = ""
-	DefaultHomePageContent = ""
-	DefaultServerAddress   = ""
+	DefaultSystemName    = ""
+	DefaultLogo          = ""
+	DefaultFooter        = ""
+	DefaultAbout         = ""
+	DefaultServerAddress = ""
 
 	DefaultNotifyCooldownSec = 300
 	DefaultSmtpPort          = 587
@@ -108,8 +107,8 @@ const (
 	// Proxy log batch writer (async INSERT batching). Default async=true so
 	// production gets the latency/lock-contention win automatically; tests and
 	// e2e suites set PROXY_LOG_ASYNC=false for write-through visibility.
-	DefaultProxyLogAsync             = true
-	DefaultProxyLogBatchSize        = 50
+	DefaultProxyLogAsync           = true
+	DefaultProxyLogBatchSize       = 50
 	DefaultProxyLogFlushIntervalMs = 1000
 
 	DefaultProxyDebugRetentionHours = 24

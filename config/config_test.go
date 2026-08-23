@@ -460,9 +460,6 @@ func TestLoadParsesBrandingEnv(t *testing.T) {
 	if cfg.About != "About page copy" {
 		t.Fatalf("About = %q", cfg.About)
 	}
-	if cfg.HomePageContent != "Welcome" {
-		t.Fatalf("HomePageContent = %q", cfg.HomePageContent)
-	}
 	if cfg.ServerAddress != "https://gw.example.com" {
 		t.Fatalf("ServerAddress = %q", cfg.ServerAddress)
 	}
@@ -470,7 +467,7 @@ func TestLoadParsesBrandingEnv(t *testing.T) {
 
 func TestLoadBrandingDefaultsEmpty(t *testing.T) {
 	cfg := Load(map[string]string{})
-	if cfg.SystemName != "" || cfg.Logo != "" || cfg.Footer != "" || cfg.About != "" || cfg.HomePageContent != "" || cfg.ServerAddress != "" {
+	if cfg.SystemName != "" || cfg.Logo != "" || cfg.Footer != "" || cfg.About != "" || cfg.ServerAddress != "" {
 		t.Fatalf("branding defaults not empty: %+v", cfg)
 	}
 }

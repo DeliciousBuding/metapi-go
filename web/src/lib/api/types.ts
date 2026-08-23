@@ -304,7 +304,6 @@ export type RuntimeSettingsPayload = {
   logo?: string
   footer?: string
   about?: string
-  homePageContent?: string
   serverAddress?: string
   proxyToken?: string
   systemProxyUrl?: string

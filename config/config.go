@@ -112,14 +112,14 @@ type Config struct {
 	CheckinWindowEnd   string
 	BalanceRefreshCron string
 	LogCleanupCron     string
-	// Site & Branding (6 fields) - empty defaults keep the embedded frontend
-	// branding and login-page copy unchanged.
-	SystemName      string
-	Logo            string
-	Footer          string
-	About           string
-	HomePageContent string
-	ServerAddress   string
+	// Site & Branding (5 fields) - empty defaults keep the embedded frontend
+	// branding and login-page copy unchanged. homePageContent was removed
+	// (Wave 8 Lane D): the value was stored but never rendered anywhere.
+	SystemName    string
+	Logo          string
+	Footer        string
+	About         string
+	ServerAddress string
 
 	// Log Cleanup (4 fields)
 	LogCleanupUsageLogsEnabled   bool
@@ -310,9 +310,9 @@ type Config struct {
 	// instead of re-parsing os.Getenv + strconv.ParseInt on every proxied
 	// request. 0/negative/invalid falls back to the default at Load time.
 	ProxyMaxBufferedResponseBytes int
-	ProxyErrorKeywords                         []string
-	GlobalBlockedBrands                        []string
-	GlobalAllowedModels                        []string
+	ProxyErrorKeywords            []string
+	GlobalBlockedBrands           []string
+	GlobalAllowedModels           []string
 
 	// Prompt Filter (OAuth account pool protection, #681).
 	// PROMPT_FILTER_ENABLED gates a pre-upstream pattern-based safety filter
@@ -616,7 +616,6 @@ func Load(env map[string]string) *Config {
 	cfg.Logo = firstNonEmpty(get("LOGO"), DefaultLogo)
 	cfg.Footer = firstNonEmpty(get("FOOTER"), DefaultFooter)
 	cfg.About = firstNonEmpty(get("ABOUT"), DefaultAbout)
-	cfg.HomePageContent = firstNonEmpty(get("HOME_PAGE_CONTENT"), DefaultHomePageContent)
 	cfg.ServerAddress = firstNonEmpty(get("SERVER_ADDRESS"), DefaultServerAddress)
 
 	// ---- §3.5 Log Cleanup ----
