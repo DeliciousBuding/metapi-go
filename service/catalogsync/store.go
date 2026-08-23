@@ -31,12 +31,16 @@ const (
 
 // DefaultSourcePresets is the seed registry: llm-metadata (primary,
 // native-provider filtered, daily rebuilt) followed by models.dev
-// (fallback). A legacy PRICING_CATALOG_URL value that differs from both
-// presets is inserted in front at seed time (see EnsureDefaults).
+// (fallback), then the llm-metadata newapi ratio set (same origin as
+// llm-metadata; supplies the NewAPI ratio multipliers used for relay-site
+// cost estimates and tiered billing metadata). A legacy
+// PRICING_CATALOG_URL value that differs from both presets is inserted in
+// front at seed time (see EnsureDefaults).
 func DefaultSourcePresets() []pricingcatalog.SourceSpec {
 	return []pricingcatalog.SourceSpec{
 		{Name: "llm-metadata", URL: pricingcatalog.DefaultLLMMetadataURL, Kind: pricingcatalog.SourceKindLLMMetadata},
 		{Name: "models.dev", URL: pricingcatalog.DefaultCatalogURL, Kind: pricingcatalog.SourceKindModelsDev},
+		{Name: "llm-metadata ratios", URL: pricingcatalog.DefaultLLMMetadataRatioURL, Kind: pricingcatalog.SourceKindNewAPIRatios},
 	}
 }
 

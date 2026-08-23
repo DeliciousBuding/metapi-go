@@ -99,18 +99,20 @@ func parseLLMMetadataEntry(providerSlug, providerID string, model llmMetadataMod
 	}
 
 	entry := CatalogEntry{
-		ModelID:        modelID,
-		Provider:       provider,
-		ReleaseDate:    strings.TrimSpace(model.ReleaseDate),
-		Description:    strings.TrimSpace(model.Description),
-		DisplayName:    strings.TrimSpace(model.Name),
-		Family:         strings.TrimSpace(model.Family),
-		Status:         strings.TrimSpace(model.Status),
-		Tags:           synthesizeLLMTags(model),
-		ContextLimit:   validLimit(model.Limit.Context),
-		MaxOutputLimit: validLimit(model.Limit.Output),
-		Modalities:     synthesizeModalities(model.Modalities),
-		LastUpdated:    strings.TrimSpace(model.LastUpdated),
+		ModelID:          modelID,
+		Provider:         provider,
+		ReleaseDate:      strings.TrimSpace(model.ReleaseDate),
+		Description:      strings.TrimSpace(model.Description),
+		DisplayName:      strings.TrimSpace(model.Name),
+		Family:           strings.TrimSpace(model.Family),
+		Status:           strings.TrimSpace(model.Status),
+		Tags:             synthesizeLLMTags(model),
+		ContextLimit:     validLimit(model.Limit.Context),
+		MaxOutputLimit:   validLimit(model.Limit.Output),
+		Modalities:       synthesizeModalities(model.Modalities),
+		ModalitiesInput:  normalizeModalityItems(model.Modalities.Input),
+		ModalitiesOutput: normalizeModalityItems(model.Modalities.Output),
+		LastUpdated:      strings.TrimSpace(model.LastUpdated),
 	}
 
 	// Cost is optional: metadata-only entries keep zero pricing.
@@ -178,9 +180,8 @@ func synthesizeModalities(modalities llmMetadataModalities) []string {
 	seen := make(map[string]struct{}, 6)
 	out := make([]string, 0, 6)
 	for _, list := range [][]string{modalities.Input, modalities.Output} {
-		for _, name := range list {
-			name = strings.ToLower(strings.TrimSpace(name))
-			if name == "" || name == "text" {
+		for _, name := range normalizeModalityItems(list) {
+			if name == "text" {
 				continue
 			}
 			if _, dup := seen[name]; dup {
@@ -189,6 +190,26 @@ func synthesizeModalities(modalities llmMetadataModalities) []string {
 			seen[name] = struct{}{}
 			out = append(out, name)
 		}
+	}
+	return out
+}
+
+// normalizeModalityItems lowercases, trims, and dedupes a modality name list
+// while preserving order. "text" is kept (unlike the union used for tags):
+// the directed inference needs to see it.
+func normalizeModalityItems(items []string) []string {
+	seen := make(map[string]struct{}, len(items))
+	out := make([]string, 0, len(items))
+	for _, name := range items {
+		name = strings.ToLower(strings.TrimSpace(name))
+		if name == "" {
+			continue
+		}
+		if _, dup := seen[name]; dup {
+			continue
+		}
+		seen[name] = struct{}{}
+		out = append(out, name)
 	}
 	return out
 }
