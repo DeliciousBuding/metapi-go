@@ -74,6 +74,9 @@ vi.mock('@/features/accounts/api', () => ({
 vi.mock('@/features/sites/api', () => ({
   useSites: () => ({ data: undefined }),
 }))
+vi.mock('@/features/channels/api', () => ({
+  useChannels: () => ({ data: [] }),
+}))
 
 vi.mock('../../api', () => ({
   useRoutes: () => testState.routesQuery,

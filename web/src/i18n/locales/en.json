@@ -1861,7 +1861,8 @@
         "exactHint": "Currently using exact model match. Use re: prefix for regex.",
         "channels": "Channels (optional)",
         "channelsHint": "Select accounts as channels for this route; they will be auto-bound on creation.",
-        "channelsEmptyHint": "No channel candidates yet — accounts are discovered during the model scan. Run auto-rebuild to populate this list."
+        "channelsEmptyHint": "No channel candidates yet — accounts are discovered during the model scan. Run auto-rebuild to populate this list.",
+        "channelsEmptyHintEdit": "No further candidate accounts — accounts are discovered during the model scan. Run auto-rebuild to populate this list."
       },
       "formGroup": {
         "displayName": "External model name",
@@ -1970,7 +1971,11 @@
         "channelAddFailed": "Failed to add channels",
         "channelAddPartial": "Route created, but {{failed}} channel(s) were not added ({{created}} added): {{error}}",
         "rebuildFailed": "Failed to rebuild routes",
-        "refreshFailed": "Failed to refresh decisions"
+        "refreshFailed": "Failed to refresh decisions",
+        "channelUpdated": "Channel updated",
+        "channelUpdateFailed": "Failed to update channel",
+        "channelDeleted": "Channel removed",
+        "channelDeleteFailed": "Failed to remove channel"
       },
       "strategies": {
         "weighted": "Weighted random",
@@ -1989,6 +1994,20 @@
         "displayNameRequired": "Please enter an external model name",
         "sourceRoutesRequired": "Select at least one source route",
         "contextLengthPositive": "Context length must be a positive integer"
+      },
+      "formChannel": {
+        "title": "Route channels",
+        "hint": "Adjust weight, priority, or enabled state, and remove channels. Changes apply immediately.",
+        "loading": "Loading channels…",
+        "empty": "This route has no channels yet — pick accounts in the channels section below.",
+        "weightLabel": "Weight",
+        "priorityLabel": "Priority",
+        "enabledLabel": "Enable",
+        "removeLabel": "Remove channel",
+        "removeTitle": "Remove channel",
+        "removeDescription": "Remove the channel for account {{name}} from this route? A rebuild will not restore removed channels.",
+        "removeConfirm": "Remove",
+        "tokenLabel": "Token"
       }
     },
     "checkin": {
@@ -2574,7 +2593,9 @@
         "clearRouteCooldown": "Clear route cooldown",
         "clearRouteCooldownHint": "Resets cooldown and failure counts for every channel on this channel's route.",
         "editRoute": "Edit route",
-        "editRouteHint": "Open the parent token route"
+        "editRouteHint": "Open the parent token route",
+        "enabledLabel": "Enabled state",
+        "manualOverrideSetActive": "Manually set"
       }
     },
     "connect": {

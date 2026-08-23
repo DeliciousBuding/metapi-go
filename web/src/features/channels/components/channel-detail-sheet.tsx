@@ -167,7 +167,11 @@ export function ChannelDetailSheet({
                     {t(statusConfig.labelKey)}
                   </Badge>
                 </DetailField>
-                <DetailField label={t('channels.detail.enabled')}>
+                {/* The field name uses a dedicated key ("启用状态") so it can
+                    never render the same word as its value ("已启用"/"已停用")
+                    — the old `enabled` key served as both label and value and
+                    produced "已启用 | 已启用" for every enabled channel. */}
+                <DetailField label={t('channels.detail.enabledLabel')}>
                   <Badge variant={channel.enabled ? 'success' : 'secondary'}>
                     {channel.enabled
                       ? t('channels.detail.enabled')
@@ -198,7 +202,11 @@ export function ChannelDetailSheet({
                 </DetailField>
                 <DetailField label={t('channels.detail.manualOverride')} full>
                   {channel.manualOverride
-                    ? t('channels.detail.manualOverrideActive')
+                    ? // "Set by the operator", not "enabled" — the old
+                      // manualOverrideActive value read "已启用", which
+                      // contradicts the "已手动停用" status badge of a
+                      // manually disabled channel in the same grid.
+                      t('channels.detail.manualOverrideSetActive')
                     : t('channels.detail.manualOverrideNone')}
                 </DetailField>
               </dl>

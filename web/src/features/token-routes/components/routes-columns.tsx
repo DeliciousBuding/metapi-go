@@ -104,16 +104,26 @@ function RoutesRowActions({
   actions,
   pendingToggleId = null,
   pendingCooldownId = null,
+  cooldownRouteIds,
 }: {
   route: RouteSummaryRow
   actions: RouteRowActions
   pendingToggleId?: number | null
   pendingCooldownId?: number | null
+  /** Route ids with at least one channel in cooldown/breaker state (derived
+   * from the channels-list query by the page). `undefined` means still
+   * loading — the item renders disabled until the set resolves. */
+  cooldownRouteIds?: ReadonlySet<number>
 }) {
   const { t } = useTranslation()
   const readOnly = isReadOnlyRoute(route)
   const isTogglePending = pendingToggleId === route.id
   const isCooldownPending = pendingCooldownId === route.id
+  // No active cooldown → hide the item entirely. Clicking it with nothing
+  // to clear only produced a false "已清除冷却" success toast (the detail
+  // sheet gates the same action on `hasActiveCooldown`).
+  const showClearCooldown =
+    cooldownRouteIds === undefined || cooldownRouteIds.has(route.id)
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -143,13 +153,15 @@ function RoutesRowActions({
             ? t('tokenRoutes.columns.disable')
             : t('tokenRoutes.columns.enable')}
         </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => actions.onClearCooldown(route)}
-          disabled={readOnly || isCooldownPending}
-        >
-          {isCooldownPending ? <Spinner /> : <Snowflake />}
-          {t('tokenRoutes.columns.clearCooldown')}
-        </DropdownMenuItem>
+        {showClearCooldown && (
+          <DropdownMenuItem
+            onClick={() => actions.onClearCooldown(route)}
+            disabled={readOnly || isCooldownPending}
+          >
+            {isCooldownPending ? <Spinner /> : <Snowflake />}
+            {t('tokenRoutes.columns.clearCooldown')}
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => actions.onEdit(route)}
@@ -174,7 +186,8 @@ function RoutesRowActions({
 export function useRoutesColumns(
   actions: RouteRowActions,
   pendingToggleId: number | null = null,
-  pendingCooldownId: number | null = null
+  pendingCooldownId: number | null = null,
+  cooldownRouteIds?: ReadonlySet<number>
 ): ColumnDef<RouteSummaryRow>[] {
   const { t, i18n } = useTranslation()
   const locale = toBcp47(i18n.language || 'en')
@@ -376,6 +389,7 @@ export function useRoutesColumns(
             actions={actions}
             pendingToggleId={pendingToggleId}
             pendingCooldownId={pendingCooldownId}
+            cooldownRouteIds={cooldownRouteIds}
           />
         )
       },
