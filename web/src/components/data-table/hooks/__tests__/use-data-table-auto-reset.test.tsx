@@ -27,10 +27,17 @@ import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
-
 import { DataTablePage, useDataTable } from '@/components/data-table'
 
 type ProbeRow = { id: number; name: string }
+type ProbeTable = ReturnType<typeof useDataTable<ProbeRow>>['table']
+
+function requireTable(table: ProbeTable | null): ProbeTable {
+  if (table === null) {
+    throw new Error('table instance was not initialized')
+  }
+  return table
+}
 
 const rowsA: ProbeRow[] = [
   { id: 1, name: 'alpha' },
@@ -63,8 +70,7 @@ afterEach(() => cleanup())
 
 describe('useDataTable auto-reset state stability', () => {
   it('keeps the columnFilters reference stable across renders', () => {
-    let tableInstance: ReturnType<typeof useDataTable<ProbeRow>>['table'] | null =
-      null
+    let tableInstance: ProbeTable | null = null
     let renderCount = 0
 
     function Harness() {
@@ -86,10 +92,11 @@ describe('useDataTable auto-reset state stability', () => {
 
     const view = render(<Harness />)
     const filtersAfterFirstRender =
-      tableInstance!.getState().columnFilters
+      requireTable(tableInstance).getState().columnFilters
 
     view.rerender(<Harness />)
-    const filtersAfterRerender = tableInstance!.getState().columnFilters
+    const filtersAfterRerender =
+      requireTable(tableInstance).getState().columnFilters
 
     // A fresh `?? []` per render was the loop's fuel: the filtered row model
     // memo recomputed on every render and re-queued the page-index reset.
@@ -98,8 +105,7 @@ describe('useDataTable auto-reset state stability', () => {
   })
 
   it('keeps the pagination reference when a reset is a no-op', async () => {
-    let tableInstance: ReturnType<typeof useDataTable<ProbeRow>>['table'] | null =
-      null
+    let tableInstance: ProbeTable | null = null
 
     function Harness() {
       const { table } = useDataTable<ProbeRow>({
@@ -120,18 +126,20 @@ describe('useDataTable auto-reset state stability', () => {
     render(<Harness />)
     expect(screen.getByText('alpha')).toBeInTheDocument()
 
-    const paginationBefore = tableInstance!.getState().pagination
+    const paginationBefore = requireTable(tableInstance).getState().pagination
 
     // Same sequence the autoResetPageIndex microtask runs: reset the page
     // index to its current value (TanStack always emits a fresh
     // `{ ...old, pageIndex }` object even when nothing changes).
     await act(async () => {
-      tableInstance!.setPageIndex(0)
+      requireTable(tableInstance).setPageIndex(0)
       await new Promise((resolve) => setTimeout(resolve, 20))
     })
 
     // The shallow-equal bail-out must preserve the previous reference so
     // React's eager state bail-out skips the re-render entirely.
-    expect(tableInstance!.getState().pagination).toBe(paginationBefore)
+    expect(requireTable(tableInstance).getState().pagination).toBe(
+      paginationBefore
+    )
   })
 })
