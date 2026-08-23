@@ -7,7 +7,7 @@
 // module previously carried its own duplicate parse/format stack; it now only
 // keeps the check-in-specific `datetime-local` input helpers.
 
-import { formatDateTime, formatDateTimeMinute, toTimestamp } from '@/lib/format'
+import { formatDateTime, toTimestamp } from '@/lib/format'
 
 export function parseServerUtcDateTime(
   value: string | null | undefined
@@ -28,15 +28,6 @@ export function formatCheckinLogTime(
   timeZone?: string
 ): string {
   return formatDateTime(value, locale, timeZone)
-}
-
-/** Minute-precision variant (seconds dropped). */
-export function formatDateTimeMinuteLocal(
-  value: string | null | undefined,
-  locale: string,
-  timeZone?: string
-): string {
-  return formatDateTimeMinute(value, locale, timeZone)
 }
 
 /**
