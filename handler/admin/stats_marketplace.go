@@ -437,15 +437,24 @@ func inferEndpointTypesForModel(snapshot *pricingcatalog.CatalogSnapshot, modelN
 // families still come from the model name.
 func catalogEndpointTypes(entry pricingcatalog.CatalogEntry, modelName string) []string {
 	var types []string
-	switch strings.ToLower(strings.TrimSpace(entry.Provider)) {
+	provider := strings.ToLower(strings.TrimSpace(entry.Provider))
+	switch provider {
 	case "anthropic":
 		types = append(types, "anthropic")
 	case "google":
 		types = append(types, "gemini")
+	case "":
+		// Ratio-only rows have no provider metadata. Preserve the
+		// recognizable big-three dialect from the model name instead of
+		// mislabeling a Claude/Gemini ratio entry as OpenAI-compatible.
+		if dialect := endpointDialectByName(modelName); dialect != "" {
+			types = append(types, dialect)
+		} else {
+			types = append(types, "openai")
+		}
 	default:
-		// OpenAI-compatible dialect is the honest default: catalog-only
-		// providers (deepseek, meta, mistral, x-ai, ...) and newapi ratio
-		// entries without a provider slug all speak the openai surface.
+		// Catalog-only providers (deepseek, meta, mistral, x-ai, ...)
+		// use the OpenAI-compatible surface.
 		types = append(types, "openai")
 	}
 
@@ -492,16 +501,10 @@ func endpointTypesByName(modelName string) []string {
 // supplied yet. Values are deduped and order-stable.
 func appendEndpointFamilies(types []string, modelName string) []string {
 	lower := strings.ToLower(modelName)
-	if strings.Contains(lower, "claude") || strings.HasPrefix(lower, "anthropic") {
-		if len(types) == 0 {
-			types = append(types, "anthropic")
+	if len(types) == 0 {
+		if dialect := endpointDialectByName(modelName); dialect != "" {
+			types = append(types, dialect)
 		}
-	} else if strings.Contains(lower, "gemini") {
-		if len(types) == 0 {
-			types = append(types, "gemini")
-		}
-	} else if len(types) == 0 && (strings.Contains(lower, "gpt") || strings.Contains(lower, "o1") || strings.Contains(lower, "o3") || strings.Contains(lower, "o4")) {
-		types = append(types, "openai")
 	}
 	if containsAnyFold(lower, "embedding", "-embed", "bge-", "e5-") {
 		types = append(types, "embeddings")
@@ -510,6 +513,20 @@ func appendEndpointFamilies(types []string, modelName string) []string {
 		types = append(types, "rerank")
 	}
 	return dedupeStrings(types)
+}
+
+func endpointDialectByName(modelName string) string {
+	lower := strings.ToLower(modelName)
+	switch {
+	case strings.Contains(lower, "claude"), strings.HasPrefix(lower, "anthropic"):
+		return "anthropic"
+	case strings.Contains(lower, "gemini"):
+		return "gemini"
+	case strings.Contains(lower, "gpt"), strings.Contains(lower, "o1"), strings.Contains(lower, "o3"), strings.Contains(lower, "o4"):
+		return "openai"
+	default:
+		return ""
+	}
 }
 
 func containsAnyFold(haystack string, needles ...string) bool {

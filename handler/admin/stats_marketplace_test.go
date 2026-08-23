@@ -101,4 +101,19 @@ func TestInferEndpointTypes_RerankAndNilSnapshot(t *testing.T) {
 	if !reflect.DeepEqual(got, []string{"gemini"}) {
 		t.Errorf("nil snapshot gemini = %v, want [gemini]", got)
 	}
+
+	// Ratio-only catalog entries have no provider slug. Their model name
+	// must retain a recognizable Claude/Gemini dialect; unknown names keep
+	// the OpenAI-compatible default.
+	ratio := 3.0
+	for model, want := range map[string][]string{
+		"claude-sonnet-4-20250514": {"anthropic"},
+		"gemini-2.5-pro":           {"gemini"},
+		"relay-private-model":      {"openai"},
+	} {
+		got = catalogEndpointTypes(pricingcatalog.CatalogEntry{ModelID: model, ModelRatio: &ratio}, model)
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("ratio-only %s = %v, want %v", model, got, want)
+		}
+	}
 }
