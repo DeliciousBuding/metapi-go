@@ -77,6 +77,10 @@ interface AccountFormDialogProps {
   account?: Account | null
   sites: Site[]
   initialSiteId?: number
+  /** Credential-mode hint from the sites guided-flow deep link
+   *  (`segment=apikey`) — applied as the create default only; the operator
+   *  can switch tabs freely afterwards. Ignored in edit mode. */
+  initialCredentialMode?: CredentialMode
 }
 
 // Inline verification state for the session/apikey credential fields. Resets
@@ -107,6 +111,7 @@ export function AccountFormDialog({
   account,
   sites,
   initialSiteId,
+  initialCredentialMode,
 }: AccountFormDialogProps) {
   const { t } = useTranslation()
   const createMutation = useCreateAccount()
@@ -139,8 +144,12 @@ export function AccountFormDialog({
     const targetKey = isEdit && account ? `edit:${account.id}` : 'create'
     if (initializedFor === targetKey) return
     setInitializedFor(targetKey)
+    // Create default credential mode: deep-link hint wins (apikey), otherwise
+    // session. Edit always follows the account's own stored mode.
     const baseDefaults = getAccountFormDefaultValues(
-      account?.credentialMode ?? 'session'
+      isEdit
+        ? (account?.credentialMode ?? 'session')
+        : (initialCredentialMode ?? 'session')
     )
     if (isEdit && account) {
       form.reset({ ...baseDefaults, ...transformAccountToFormValues(account) })
@@ -150,7 +159,15 @@ export function AccountFormDialog({
         siteId: initialSiteId ?? baseDefaults.siteId,
       })
     }
-  }, [open, isEdit, account, initializedFor, initialSiteId, form])
+  }, [
+    open,
+    isEdit,
+    account,
+    initializedFor,
+    initialSiteId,
+    initialCredentialMode,
+    form,
+  ])
 
   // Inline credential verification (session / apikey only). Password mode
   // binds through the real login submit path, so it never verifies inline.

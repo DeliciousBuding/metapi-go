@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { resolveDeepLinkPreselect } from '../lib/accounts-deep-link'
+import {
+  resolveDeepLinkCredentialMode,
+  resolveDeepLinkPreselect,
+} from '../lib/accounts-deep-link'
 import type { Site } from '../types'
 
 function site(id: number): Site {
@@ -37,5 +40,19 @@ describe('resolveDeepLinkPreselect', () => {
 
   it('returns null for an empty snapshot', () => {
     expect(resolveDeepLinkPreselect(true, 3, [])).toBeNull()
+  })
+})
+
+describe('resolveDeepLinkCredentialMode', () => {
+  it('resolves the apikey segment from the add-API-Key CTA', () => {
+    expect(resolveDeepLinkCredentialMode('apikey')).toBe('apikey')
+  })
+
+  it('returns null for unknown or absent segments (session default rules)', () => {
+    expect(resolveDeepLinkCredentialMode(undefined)).toBeNull()
+    expect(resolveDeepLinkCredentialMode('')).toBeNull()
+    expect(resolveDeepLinkCredentialMode('session')).toBeNull()
+    expect(resolveDeepLinkCredentialMode('password')).toBeNull()
+    expect(resolveDeepLinkCredentialMode('apikey2')).toBeNull()
   })
 })
