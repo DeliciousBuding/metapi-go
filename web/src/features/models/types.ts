@@ -60,8 +60,9 @@ type ModelAccountInfo = {
 
 /**
  * A single model row in the marketplace. `supportedEndpointTypes` is the set
- * of API surfaces the model answers (e.g. `chat/completions`,
- * `embeddings`, `images/generations`) and doubles as the capability set.
+ * of API surfaces the model answers (e.g. `anthropic`, `openai`); `tags`
+ * carries the real capability set hydrated from the model catalog
+ * (reasoning / tool_call / vision / ...).
  */
 export type ModelRow = {
   name: string
@@ -74,6 +75,14 @@ export type ModelRow = {
   supportedEndpointTypes: string[]
   pricingSources: ModelPricingSource[]
   accounts: ModelAccountInfo[]
+  /** Catalog lifecycle status: true when the catalog marks the model deprecated. */
+  deprecated?: boolean
+  /** Catalog release date (ISO). */
+  releaseDate?: string | null
+  /** Catalog context window in tokens. */
+  contextWindow?: number | null
+  /** Catalog hydration state: "hydrated" (metadata from catalog) or "unknown". */
+  catalogStatus?: 'hydrated' | 'unknown'
 }
 
 /**
