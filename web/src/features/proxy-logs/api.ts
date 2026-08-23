@@ -1,11 +1,13 @@
 // metapi-go/features/proxy-logs — TanStack Query hooks wrapping `lib/api.ts`.
 //
-// The proxy-logs backend is server-paginated (`getProxyLogs` returns
-// items + total + page + pageSize), so `useProxyLogs` accepts the full
-// `ProxyLogsQuery` (limit/offset/status/search/client/siteId/from/to) and
-// the list page drives it from the URL-synced filter state. `useProxyLog`
-// fetches the detail payload by id. `useProxyLogsMeta` returns the
-// clientOptions / summary / sites facets used by the toolbar.
+// The proxy-logs backend is server-paginated. The list and the facets are
+// split across two endpoints so the expensive five-way summary aggregate is
+// computed exactly once per page load: `useProxyLogs` hits `view=query`
+// (items + total only — no summary/sites/clientOptions payload), while
+// `useProxyLogsMeta` (view=meta) is the single owner of the summary strip +
+// toolbar facets. The previous wiring fetched the default `full` view (which
+// embeds the summary) AND `view=meta`, running the aggregate twice per load.
+// `useProxyLog` fetches the detail payload by id.
 
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query'
 
@@ -16,21 +18,23 @@ import { proxyLogsKeys, type ProxyLogDetail } from './types'
 // Resolve the data type returned by each backend method. The methods return
 // `Promise<T>`; `Awaited<...>` unwraps the promise so the query data type is
 // the parsed payload, not the promise wrapper.
-type ProxyLogsResponseData = Awaited<ReturnType<typeof api.getProxyLogs>>
+type ProxyLogsQueryData = Awaited<ReturnType<typeof api.getProxyLogsQuery>>
 type ProxyLogsMetaData = Awaited<ReturnType<typeof api.getProxyLogsMeta>>
 
 /**
- * Fetch a page of proxy logs. The query key embeds the full filter object so
- * cache reuse is exact; the page passes a stable `ProxyLogsQuery` (built
- * from URL state) so re-renders with the same filters don't refetch.
+ * Fetch a page of proxy logs via the list-only `view=query` endpoint
+ * (items/total/page/pageSize — the summary aggregate travels exclusively via
+ * `useProxyLogsMeta`). The query key embeds the full filter object so cache
+ * reuse is exact; the page passes a stable `ProxyLogsQuery` (built from URL
+ * state) so re-renders with the same filters don't refetch.
  */
 export function useProxyLogs(
   params: ProxyLogsQuery,
-  options?: Omit<UseQueryOptions<ProxyLogsResponseData>, 'queryKey' | 'queryFn'>
+  options?: Omit<UseQueryOptions<ProxyLogsQueryData>, 'queryKey' | 'queryFn'>
 ) {
   return useQuery({
     queryKey: proxyLogsKeys.list(params),
-    queryFn: async () => api.getProxyLogs(params),
+    queryFn: async () => api.getProxyLogsQuery(params),
     placeholderData: (previous) => previous,
     ...options,
   })

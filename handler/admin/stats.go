@@ -166,6 +166,122 @@ func (c *dashboardSummaryCache) getOrCompute(view string, compute func() ([]byte
 
 var globalDashboardCache = &dashboardSummaryCache{ttl: 10 * time.Second}
 
+// proxyLogsSummary is the five-way aggregate behind the proxy-logs summary
+// strip (total/success/failed counts + cost + effective tokens). It is the
+// most expensive query on the page — five SUM/CASE passes over the filtered
+// proxy_logs table (~0.6-1.0s at 500k rows on the audit fixture) — so it is
+// cached per filter fingerprint below.
+type proxyLogsSummary struct {
+	TotalCount     int     `db:"total_count"`
+	SuccessCount   int     `db:"success_count"`
+	FailedCount    int     `db:"failed_count"`
+	TotalCost      float64 `db:"total_cost"`
+	TotalTokensAll int64   `db:"total_tokens_all"`
+}
+
+// proxyLogsSummaryCacheMaxEntries bounds the fingerprint map. Entries expire
+// after the TTL anyway; the cap only protects against a burst of distinct
+// filter combinations inside one TTL window. On overflow the expired entries
+// are pruned first, then the whole map is dropped (a 10s-TTL cache rebuilds
+// quickly; bounded memory beats LRU bookkeeping here).
+const proxyLogsSummaryCacheMaxEntries = 128
+
+// proxyLogsSummaryCache is a short-TTL in-memory cache for the proxy-logs
+// summary aggregate, keyed by the request's filter fingerprint (every query
+// param that shapes the WHERE clause; limit/offset excluded). Mirrors the
+// dashboardSummaryCache pattern: RWMutex-guarded entries + single-flight
+// dedup so N admin sessions polling an expired fingerprint share one
+// aggregation run instead of running it N× (thundering herd).
+//
+// Keying by fingerprint (not by view) is the point: pagination only changes
+// offset, and the list page's split view=query + view=meta fetches carry the
+// same filters, so one TTL window computes the summary once per filter set —
+// the pre-fix page computed it twice per load (full + meta) plus once per
+// page turn. Only successful computes are cached; errors bypass the cache.
+// ?force=1 / ?refresh=1 clears it (admin "force refresh").
+type proxyLogsSummaryCache struct {
+	mu      sync.RWMutex
+	entries map[string]proxyLogsSummaryEntry
+	ttl     time.Duration
+	// flight deduplicates concurrent cache-miss computes for the same
+	// fingerprint (see dashboardSummaryCache.flight).
+	flight singleflight.Group
+}
+
+type proxyLogsSummaryEntry struct {
+	summary   proxyLogsSummary
+	expiresAt time.Time
+}
+
+func (c *proxyLogsSummaryCache) get(key string) (proxyLogsSummary, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	e, ok := c.entries[key]
+	if !ok || time.Now().After(e.expiresAt) {
+		return proxyLogsSummary{}, false
+	}
+	return e.summary, true
+}
+
+func (c *proxyLogsSummaryCache) set(key string, summary proxyLogsSummary) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.entries == nil {
+		c.entries = make(map[string]proxyLogsSummaryEntry)
+	}
+	if len(c.entries) >= proxyLogsSummaryCacheMaxEntries {
+		now := time.Now()
+		for k, e := range c.entries {
+			if now.After(e.expiresAt) {
+				delete(c.entries, k)
+			}
+		}
+		if len(c.entries) >= proxyLogsSummaryCacheMaxEntries {
+			// All entries still live: drop the lot rather than grow unbounded.
+			c.entries = make(map[string]proxyLogsSummaryEntry)
+		}
+	}
+	c.entries[key] = proxyLogsSummaryEntry{summary: summary, expiresAt: time.Now().Add(c.ttl)}
+}
+
+func (c *proxyLogsSummaryCache) clear() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.entries = nil
+}
+
+// getOrCompute returns the cached summary for key, or computes it via the
+// supplied function under single-flight dedup. Returns (summary, hit, err):
+// hit reports whether the fast-path cache served the value (for the
+// x-proxy-logs-summary-cache response header). A single-flight-shared
+// compute is reported as a miss since this request did not get an instant
+// cached response — only successful computes are stored, so errors never
+// poison the cache.
+func (c *proxyLogsSummaryCache) getOrCompute(key string, compute func() (proxyLogsSummary, error)) (proxyLogsSummary, bool, error) {
+	if cached, hit := c.get(key); hit {
+		return cached, true, nil
+	}
+	result, err, _ := c.flight.Do(key, func() (any, error) {
+		// Re-check: a concurrent leader may have populated the cache while we
+		// waited for the single-flight slot.
+		if cached, hit := c.get(key); hit {
+			return cached, nil
+		}
+		summary, err := compute()
+		if err != nil {
+			return proxyLogsSummary{}, err
+		}
+		c.set(key, summary)
+		return summary, nil
+	})
+	if err != nil {
+		return proxyLogsSummary{}, false, err
+	}
+	return result.(proxyLogsSummary), false, nil
+}
+
+var globalProxyLogsSummaryCache = &proxyLogsSummaryCache{ttl: 10 * time.Second}
+
 // ---- Dashboard ----
 // GET /api/stats/dashboard?force=&view=
 func (h *statsHandler) dashboard(w http.ResponseWriter, r *http.Request) {
@@ -553,6 +669,32 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 	latencyMin := getQueryInt(r, "latencyMin", 0)
 	latencyMax := getQueryInt(r, "latencyMax", 0)
 
+	// ?force=1 / ?refresh=1 is the admin "force refresh" hook (the meta
+	// client speaks `refresh`, the dashboard convention is `force`; both are
+	// honored): invalidate every cached summary fingerprint so this request
+	// recomputes from the DB.
+	if parseDashboardForceRefresh(r.URL.Query().Get("force")) ||
+		parseDashboardForceRefresh(r.URL.Query().Get("refresh")) {
+		globalProxyLogsSummaryCache.clear()
+	}
+
+	// Fingerprint keys the summary cache: every filter that shapes the WHERE
+	// clause, spelled the same way the conditions below parse them. limit and
+	// offset are deliberately excluded — the summary is page-independent, so
+	// pagination and the split view=query + view=meta fetches all reuse one
+	// cached aggregate per filter set per TTL window.
+	fingerprint := strings.Join([]string{
+		"status=" + status,
+		"search=" + search,
+		"siteId=" + strconv.Itoa(siteID),
+		"channelId=" + strconv.Itoa(channelID),
+		"client=" + client,
+		"from=" + from,
+		"to=" + to,
+		"latencyMin=" + strconv.Itoa(latencyMin),
+		"latencyMax=" + strconv.Itoa(latencyMax),
+	}, "&")
+
 	var conditions []string
 	var args []any
 
@@ -650,33 +792,42 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 		queryPayload["items"] = normalizeSlice(items)
 
 		var total int
-		countQuery := "SELECT COUNT(*) FROM proxy_logs pl LEFT JOIN accounts a ON pl.account_id = a.id LEFT JOIN sites s ON a.site_id = s.id" + where
+		// The aggregate COUNT runs off the conditional FROM (no accounts/sites
+		// join unless the site filter needs s.id) — at 500k rows the join
+		// roughly doubled the count time on the audit fixture.
+		countQuery := "SELECT COUNT(*) " + proxyLogsAggregateFrom(siteID) + where
 		h.db.Get(&total, rebindAdminQuery(h.db, countQuery), args...)
 		queryPayload["total"] = total
 	}
 
+	// summaryCacheHit is reported via the x-proxy-logs-summary-cache response
+	// header for meta/full views (the views that compute the summary).
+	summaryCacheHit := false
 	if view == "meta" || view == "full" {
-		// Use effective token expression so partial logs are not under-counted,
-		// and never sum prompt+completion on top of total_tokens.
-		summaryQuery := `SELECT COUNT(*) as total_count,
-			COALESCE(SUM(CASE WHEN pl.status = 'success' THEN 1 ELSE 0 END), 0) as success_count,
-			COALESCE(SUM(CASE WHEN COALESCE(pl.status, '') <> 'success' THEN 1 ELSE 0 END), 0) as failed_count,
-			COALESCE(SUM(COALESCE(pl.estimated_cost, 0)), 0) as total_cost,
-			COALESCE(SUM(` + service.EffectiveProxyTokensSQL + `), 0) as total_tokens_all
-			FROM proxy_logs pl
-			LEFT JOIN accounts a ON pl.account_id = a.id
-			LEFT JOIN sites s ON a.site_id = s.id` + where
-		metaArgs := make([]any, len(args))
-		copy(metaArgs, args)
-
-		var summary struct {
-			TotalCount     int     `db:"total_count"`
-			SuccessCount   int     `db:"success_count"`
-			FailedCount    int     `db:"failed_count"`
-			TotalCost      float64 `db:"total_cost"`
-			TotalTokensAll int64   `db:"total_tokens_all"`
+		// The five-way summary aggregate is the expensive part of this
+		// endpoint (~0.6-1.0s at 500k rows): it is cached per filter
+		// fingerprint with single-flight dedup, mirroring the dashboard
+		// summary cache. The list page's view=query + view=meta split carries
+		// the same fingerprint, so the summary computes once per filter set
+		// per TTL window instead of twice per page load.
+		summary, cacheHit, summaryErr := globalProxyLogsSummaryCache.getOrCompute(fingerprint, func() (proxyLogsSummary, error) {
+			// Use effective token expression so partial logs are not under-counted,
+			// and never sum prompt+completion on top of total_tokens.
+			summaryQuery := proxyLogsSummaryQuerySQL(proxyLogsAggregateFrom(siteID), where)
+			var s proxyLogsSummary
+			if err := h.db.Get(&s, rebindAdminQuery(h.db, summaryQuery), args...); err != nil {
+				return proxyLogsSummary{}, err
+			}
+			return s, nil
+		})
+		if summaryErr != nil {
+			// Fail-open preserves the pre-cache behavior: a failed summary
+			// degraded silently to zeroes rather than blanking the whole list
+			// page. Errors are never cached, so the next request retries the DB.
+			slog.Error("proxy logs summary query failed; degrading to zero summary", "error", summaryErr)
+			summary = proxyLogsSummary{}
 		}
-		h.db.Get(&summary, rebindAdminQuery(h.db, summaryQuery), metaArgs...)
+		summaryCacheHit = cacheHit
 		metaPayload["summary"] = map[string]any{
 			"totalCount":     summary.TotalCount,
 			"successCount":   summary.SuccessCount,
@@ -695,7 +846,15 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 
 	if view == "query" {
 		writeJSON(w, http.StatusOK, queryPayload)
-	} else if view == "meta" {
+		return
+	}
+
+	if summaryCacheHit {
+		w.Header().Set("x-proxy-logs-summary-cache", "hit")
+	} else {
+		w.Header().Set("x-proxy-logs-summary-cache", "miss")
+	}
+	if view == "meta" {
 		writeJSON(w, http.StatusOK, metaPayload)
 	} else {
 		result := queryPayload
@@ -704,6 +863,32 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 		result["sites"] = metaPayload["sites"]
 		writeJSON(w, http.StatusOK, result)
 	}
+}
+
+// proxyLogsAggregateFrom returns the FROM clause for the proxy-logs COUNT and
+// summary aggregates. The site filter is the only condition that references a
+// joined table (s.id), so without a siteId the aggregates run straight off
+// proxy_logs — at 500k rows the audit measured the LEFT JOINs adding ~90ms to
+// the summary and ~100ms to the COUNT. With a siteId the WHERE needs s.id, so
+// the join stays (and the summary query's CASE/COALESCE never needs the join
+// for row preservation: it is a LEFT JOIN on primary keys).
+func proxyLogsAggregateFrom(siteID int) string {
+	if siteID > 0 {
+		return "FROM proxy_logs pl LEFT JOIN accounts a ON pl.account_id = a.id LEFT JOIN sites s ON a.site_id = s.id"
+	}
+	return "FROM proxy_logs pl"
+}
+
+// proxyLogsSummaryQuerySQL builds the five-way summary aggregate over the
+// given FROM clause + WHERE suffix. Kept a pure string builder (no db handle)
+// so tests can assert the join-free shape without a live database.
+func proxyLogsSummaryQuerySQL(from, where string) string {
+	return `SELECT COUNT(*) as total_count,
+		COALESCE(SUM(CASE WHEN pl.status = 'success' THEN 1 ELSE 0 END), 0) as success_count,
+		COALESCE(SUM(CASE WHEN COALESCE(pl.status, '') <> 'success' THEN 1 ELSE 0 END), 0) as failed_count,
+		COALESCE(SUM(COALESCE(pl.estimated_cost, 0)), 0) as total_cost,
+		COALESCE(SUM(` + service.EffectiveProxyTokensSQL + `), 0) as total_tokens_all
+		` + from + where
 }
 
 // ---- Proxy Log Detail ----

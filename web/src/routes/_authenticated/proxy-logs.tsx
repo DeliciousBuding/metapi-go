@@ -87,7 +87,9 @@ export const Route = createFileRoute('/_authenticated/proxy-logs')({
     await Promise.all([
       context.queryClient.prefetchQuery({
         queryKey: proxyLogsKeys.list(queryPayload),
-        queryFn: () => api.getProxyLogs(queryPayload),
+        // List-only view=query: the summary aggregate is owned by the meta
+        // prefetch below, so a route load computes it once, not twice.
+        queryFn: () => api.getProxyLogsQuery(queryPayload),
       }),
       context.queryClient.prefetchQuery({
         queryKey: proxyLogsKeys.meta(metaPayload),
