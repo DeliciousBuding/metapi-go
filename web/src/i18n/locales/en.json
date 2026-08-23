@@ -1705,7 +1705,11 @@
         "checkinUnsupported": "Not supported",
         "checkinOn": "On",
         "checkinOff": "Off",
-        "healthDetail": "Health detail"
+        "healthDetail": "Health detail",
+        "credentialModeSession": "Session",
+        "credentialModeApiKey": "API Key",
+        "checkinTooltipOn": "Click to turn off check-in; daily check-ins skip this account",
+        "checkinTooltipOff": "Click to turn on check-in; the account joins daily check-ins"
       },
       "detail": {
         "fallbackApiKey": "API Key connection",

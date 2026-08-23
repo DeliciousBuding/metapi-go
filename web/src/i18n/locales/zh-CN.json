@@ -1637,7 +1637,7 @@
         "credentialMode": "凭证模式",
         "modeSession": "Session",
         "modeApiKey": "API Key",
-        "modePassword": "密码登录",
+        "modePassword": "Password",
         "connectionName": "连接名称（可选）",
         "connectionNamePlaceholder": "留空则使用站点用户名",
         "status": "状态",
@@ -1705,7 +1705,11 @@
         "checkinUnsupported": "不支持",
         "checkinOn": "已开启",
         "checkinOff": "未开启",
-        "healthDetail": "健康详情"
+        "healthDetail": "健康详情",
+        "credentialModeSession": "Session",
+        "credentialModeApiKey": "API Key",
+        "checkinTooltipOn": "点击关闭签到，全部签到将忽略此账号",
+        "checkinTooltipOff": "点击开启签到，账号将参与每日签到"
       },
       "detail": {
         "fallbackApiKey": "API Key 连接",

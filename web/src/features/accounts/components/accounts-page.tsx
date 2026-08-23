@@ -263,7 +263,11 @@ export function AccountsPage() {
   // re-trigger the render loop). The mutate fn identity itself is stable,
   // so a top-level const keeps both the linter and the memo happy.
   const toggleStatusMutate = statusMutation.mutate
-  const { mutate: toggleAccountCheckin } = useToggleAccountCheckin()
+  // Same shape as statusMutation: keep the full mutation object so the inline
+  // check-in badge button can derive `pendingCheckinId` for a per-row spinner
+  // (mirrors the Power button's pendingStatusId flow).
+  const checkinMutation = useToggleAccountCheckin()
+  const toggleCheckinMutate = checkinMutation.mutate
 
   // --- dialog state ---
   const [formOpen, setFormOpen] = useState(false)
@@ -420,7 +424,7 @@ export function AccountsPage() {
           status: account.status === 'active' ? 'disabled' : 'active',
         }),
       onToggleCheckin: (account) =>
-        toggleAccountCheckin(
+        toggleCheckinMutate(
           {
             id: account.id,
             checkinEnabled: !account.checkinEnabled,
@@ -444,7 +448,7 @@ export function AccountsPage() {
       refreshAccount,
       toggleAccountPin,
       toggleStatusMutate,
-      toggleAccountCheckin,
+      toggleCheckinMutate,
       t,
     ]
   )
@@ -458,8 +462,15 @@ export function AccountsPage() {
   const pendingStatusId = statusMutation.isPending
     ? (statusMutation.variables?.id ?? null)
     : null
+  const pendingCheckinId = checkinMutation.isPending
+    ? (checkinMutation.variables?.id ?? null)
+    : null
 
-  const columns = useAccountsColumns(rowActions, pendingStatusId)
+  const columns = useAccountsColumns(
+    rowActions,
+    pendingStatusId,
+    pendingCheckinId
+  )
 
   const { table } = useDataTable({
     data: accounts,
@@ -471,6 +482,8 @@ export function AccountsPage() {
     onColumnFiltersChange: urlState.onColumnFiltersChange,
     pagination: urlState.pagination,
     onPaginationChange: urlState.onPaginationChange,
+    sorting: urlState.sorting,
+    onSortingChange: urlState.onSortingChange,
     ensurePageInRange: urlState.ensurePageInRange,
     globalFilterFn: accountsGlobalFilterFn,
   })
