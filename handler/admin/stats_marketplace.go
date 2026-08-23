@@ -310,18 +310,21 @@ func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 		}
 		entry, catalogHit := catalogLookup(catalogSnapshot, name)
 		out = append(out, map[string]any{
-			"name":                   name,
-			"accountCount":           len(accounts),
-			"tokenCount":             tokenCount,
-			"avgLatency":             avgLatency,
-			"successRate":            successRate,
-			"description":            catalogDescription(entry, catalogHit),
-			"tags":                   catalogTags(entry, catalogHit),
-			"deprecated":             catalogHit && entry.Status == "deprecated",
-			"releaseDate":            catalogReleaseDate(entry, catalogHit),
-			"contextWindow":          entry.ContextLimit,
-			"catalogStatus":          catalogStatusOf(catalogHit),
-			"supportedEndpointTypes": inferEndpointTypesForModel(name, accounts),
+			"name":          name,
+			"accountCount":  len(accounts),
+			"tokenCount":    tokenCount,
+			"avgLatency":    avgLatency,
+			"successRate":   successRate,
+			"description":   catalogDescription(entry, catalogHit),
+			"tags":          catalogTags(entry, catalogHit),
+			"deprecated":    catalogHit && entry.Status == "deprecated",
+			"releaseDate":   catalogReleaseDate(entry, catalogHit),
+			"contextWindow": entry.ContextLimit,
+			"catalogStatus": catalogStatusOf(catalogHit),
+			// supportedEndpointTypes: catalog-driven (provider dialect + modality
+			// surfaces) when the model is cataloged; name-prefix heuristic only as a
+			// catalog-miss fallback.
+			"supportedEndpointTypes": inferEndpointTypesForModel(catalogSnapshot, name, accounts),
 			// Official catalog list price as a synthetic pricing source; the
 			// frontend labels it "catalog estimate" because marketplace sites
 			// are third-party relays (siteName "catalog" is the sentinel).
@@ -379,10 +382,15 @@ func catalogStatusOf(hit bool) string {
 
 // catalogPricingSources builds the synthetic catalog list-price source:
 // {siteId: 0, siteName: "catalog", groupPricing: {"catalog": {input/output}}}.
-// Only emitted when the catalog carries both input and output rates so a
-// partial price never misleads.
+// Uses the explicit USD list price when present; otherwise derives the
+// per-million rates from the NewAPI ratio set (ratio × $2 base). Only emitted
+// when a usable input rate exists so a partial price never misleads.
 func catalogPricingSources(entry pricingcatalog.CatalogEntry, hit bool) []any {
-	if !hit || entry.InputPerMillion <= 0 || entry.OutputPerMillion <= 0 {
+	if !hit {
+		return []any{}
+	}
+	input, output, ok := entry.ReferencePerMillionRates()
+	if !ok {
 		return []any{}
 	}
 	return []any{map[string]any{
@@ -395,26 +403,135 @@ func catalogPricingSources(entry pricingcatalog.CatalogEntry, hit bool) []any {
 		"groupPricing": map[string]any{
 			"catalog": map[string]any{
 				"quotaType":        0,
-				"inputPerMillion":  entry.InputPerMillion,
-				"outputPerMillion": entry.OutputPerMillion,
+				"inputPerMillion":  input,
+				"outputPerMillion": output,
 			},
 		},
 	}}
 }
 
-func inferEndpointTypesForModel(modelName string, accounts []map[string]any) []string {
-	// Prefer model-name heuristics; fall back to empty when unknown.
-	lower := strings.ToLower(modelName)
-	switch {
-	case strings.Contains(lower, "claude") || strings.HasPrefix(lower, "anthropic"):
-		return []string{"anthropic"}
-	case strings.Contains(lower, "gemini"):
-		return []string{"gemini"}
-	case strings.Contains(lower, "gpt") || strings.Contains(lower, "o1") || strings.Contains(lower, "o3") || strings.Contains(lower, "o4"):
-		return []string{"openai"}
-	default:
-		return []string{}
+// inferEndpointTypesForModel derives the model's routeable endpoint types:
+// the API dialect (anthropic / gemini / openai) and the non-chat endpoint
+// families (images, audio, videos, embeddings, rerank). When the model is
+// cataloged, the dialect comes from the catalog provider (replaces the name
+// prefix guess) and non-chat families from the catalog modalities
+// (vision/audio/video output). The name-suffix heuristic is retained for
+// embeddings/rerank (no modality signal exists for them) and as the
+// catalog-miss fallback.
+func inferEndpointTypesForModel(snapshot *pricingcatalog.CatalogSnapshot, modelName string, accounts []map[string]any) []string {
+	if entry, ok := catalogLookup(snapshot, modelName); ok {
+		return catalogEndpointTypes(entry, modelName)
 	}
+	return endpointTypesByName(modelName)
+}
+
+// catalogEndpointTypes builds the endpoint type set from catalog metadata.
+// The dialect maps the catalog provider slug to the API dialect metapi
+// serves (anthropic → Messages surface, google → Gemini surface, every
+// other provider → OpenAI-compatible surface). Non-chat families come from
+// the directed modality lists: an image output means image generation (with
+// the edit surface when the model also takes image input), an audio output
+// means speech, an audio input means transcription, a video output means
+// video creation. A vision chat model (image in, text out) stays on the
+// chat surface. Embeddings and rerank have no modality signal, so their
+// families still come from the model name.
+func catalogEndpointTypes(entry pricingcatalog.CatalogEntry, modelName string) []string {
+	var types []string
+	switch strings.ToLower(strings.TrimSpace(entry.Provider)) {
+	case "anthropic":
+		types = append(types, "anthropic")
+	case "google":
+		types = append(types, "gemini")
+	default:
+		// OpenAI-compatible dialect is the honest default: catalog-only
+		// providers (deepseek, meta, mistral, x-ai, ...) and newapi ratio
+		// entries without a provider slug all speak the openai surface.
+		types = append(types, "openai")
+	}
+
+	input := modalitySet(entry.ModalitiesInput)
+	output := modalitySet(entry.ModalitiesOutput)
+	if output["image"] {
+		types = append(types, "images.generations")
+		if input["image"] {
+			// Generation models that accept an input image also serve the
+			// edit surface; a vision-only chat model does not.
+			types = append(types, "images.edits")
+		}
+	}
+	if output["audio"] {
+		types = append(types, "audio.speech")
+	}
+	if input["audio"] {
+		types = append(types, "audio.transcriptions")
+	}
+	if output["video"] {
+		types = append(types, "videos.create")
+	}
+	return appendEndpointFamilies(types, modelName)
+}
+
+// modalitySet is the ordered membership check helper for modality lists.
+func modalitySet(modalities []string) map[string]bool {
+	set := make(map[string]bool, len(modalities))
+	for _, modality := range modalities {
+		set[strings.ToLower(strings.TrimSpace(modality))] = true
+	}
+	return set
+}
+
+// endpointTypesByName is the catalog-miss fallback: name-prefix heuristics
+// for the big-three dialects plus name-suffix families that no field can
+// express (embedding/rerank models are text-in/text-out like chat models).
+func endpointTypesByName(modelName string) []string {
+	return appendEndpointFamilies(nil, modelName)
+}
+
+// appendEndpointFamilies adds the name-derived endpoint families
+// (embeddings / rerank) and the big-three dialect when no dialect value was
+// supplied yet. Values are deduped and order-stable.
+func appendEndpointFamilies(types []string, modelName string) []string {
+	lower := strings.ToLower(modelName)
+	if strings.Contains(lower, "claude") || strings.HasPrefix(lower, "anthropic") {
+		if len(types) == 0 {
+			types = append(types, "anthropic")
+		}
+	} else if strings.Contains(lower, "gemini") {
+		if len(types) == 0 {
+			types = append(types, "gemini")
+		}
+	} else if len(types) == 0 && (strings.Contains(lower, "gpt") || strings.Contains(lower, "o1") || strings.Contains(lower, "o3") || strings.Contains(lower, "o4")) {
+		types = append(types, "openai")
+	}
+	if containsAnyFold(lower, "embedding", "-embed", "bge-", "e5-") {
+		types = append(types, "embeddings")
+	}
+	if containsAnyFold(lower, "rerank") {
+		types = append(types, "rerank")
+	}
+	return dedupeStrings(types)
+}
+
+func containsAnyFold(haystack string, needles ...string) bool {
+	for _, needle := range needles {
+		if strings.Contains(haystack, needle) {
+			return true
+		}
+	}
+	return false
+}
+
+func dedupeStrings(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if _, dup := seen[value]; dup {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	return out
 }
 
 func (h *statsHandler) buildTokenCandidateModels(allowed map[string]struct{}) (map[string][]map[string]any, error) {
@@ -701,8 +818,9 @@ func (h *statsHandler) buildEndpointTypesByModel(allowed map[string]struct{}) (m
 		models[model] = struct{}{}
 	}
 	out := map[string][]string{}
+	catalogSnapshot := appCatalogSnapshot()
 	for model := range models {
-		types := inferEndpointTypesForModel(model, nil)
+		types := inferEndpointTypesForModel(catalogSnapshot, model, nil)
 		if len(types) == 0 {
 			// default OpenAI-compatible when unknown
 			types = []string{"openai"}
@@ -744,4 +862,3 @@ func (h *statsHandler) loadGlobalAllowedModels() map[string]struct{} {
 	}
 	return out
 }
-
