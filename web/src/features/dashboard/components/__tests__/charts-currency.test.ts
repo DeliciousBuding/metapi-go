@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 
 import { EM_DASH } from '@/lib/format'
 
-import { formatChartCurrency } from '../charts'
+import { formatChartCurrency } from '../charts-currency'
 
 describe('formatChartCurrency', () => {
   it('renders the zero tick as $0.000 (not $0.000000)', () => {

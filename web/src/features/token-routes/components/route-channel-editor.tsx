@@ -242,16 +242,18 @@ export function RouteChannelEditor({ routeId }: { routeId: number }) {
         )}
       </div>
 
-      {channelsQuery.isLoading ? (
+      {channelsQuery.isLoading && (
         <div className='text-muted-foreground flex items-center gap-2 rounded-lg border p-3 text-sm'>
           <Spinner className='size-4' />
           {t('tokenRoutes.formChannel.loading')}
         </div>
-      ) : channels.length === 0 ? (
+      )}
+      {!channelsQuery.isLoading && channels.length === 0 && (
         <p className='text-muted-foreground rounded-lg border border-dashed p-3 text-sm'>
           {t('tokenRoutes.formChannel.empty')}
         </p>
-      ) : (
+      )}
+      {!channelsQuery.isLoading && channels.length > 0 && (
         <div className='rounded-lg border'>
           <div
             className={`${GRID_CLASS} text-muted-foreground border-b px-2 py-1 text-[11px]`}

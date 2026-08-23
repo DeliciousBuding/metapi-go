@@ -495,7 +495,7 @@ function AttentionPanel() {
           </Empty>
         ) : (
           <ul className='space-y-2'>
-            {mergedItems.map(({ item, count }, index) => {
+            {mergedItems.map(({ item, count }) => {
               const tone = SEVERITY_TONE[item.severity] ?? SEVERITY_TONE.info
               const label = t(
                 `dashboard.availability.monitors.severity.${item.severity}`
@@ -509,7 +509,7 @@ function AttentionPanel() {
                 : null
               return (
                 <li
-                  key={`${item.category}:${item.label}:${item.target}:${index}`}
+                  key={`${item.category}:${item.label}:${item.target}`}
                   className='flex items-start gap-3'
                 >
                   <div className='mt-1 flex shrink-0 items-center gap-1'>
