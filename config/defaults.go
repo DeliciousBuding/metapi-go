@@ -53,9 +53,14 @@ const (
 	// 0 disables the per-IP limiter entirely.
 	DefaultProxyRateLimitRPM = 60
 
-	// Pricing catalog (models.dev official list prices) cold-start cost signal.
+	// Pricing catalog (model data source registry: llm-metadata primary +
+	// models.dev fallback by default) cold-start cost signal + marketplace
+	// hydration. Refresh cadence is 12h — the primary upstream dataset is
+	// rebuilt daily, so the old 60min cadence wasted bandwidth.
+	// PRICING_CATALOG_URL is honored as a legacy single-source override and
+	// migrated into the registry as the top-priority custom source.
 	DefaultPricingCatalogEnabled    = true
-	DefaultPricingCatalogRefreshMin = 60
+	DefaultPricingCatalogRefreshMin = 720
 	DefaultPricingCatalogURL        = "https://models.dev/api.json"
 
 	// Admin/OAuth per-IP token-bucket rate limits. These mirror the original

@@ -272,11 +272,13 @@ type Config struct {
 	TokenRouterFailureCooldownMaxSec int
 	TokenRouterCacheTtlMs            int
 
-	// PricingCatalog (models.dev official list prices) feeds the cold-start
-	// catalog cost signal for cost-aware routing.
+	// PricingCatalog (model data source registry) feeds the cold-start
+	// catalog cost signal for cost-aware routing and hydrates the models
+	// marketplace.
 	//   PRICING_CATALOG_ENABLED      — default true
-	//   PRICING_CATALOG_REFRESH_MIN  — refresh period in minutes (default 60)
-	//   PRICING_CATALOG_URL          — dataset URL (default https://models.dev/api.json)
+	//   PRICING_CATALOG_REFRESH_MIN  — auto-sync period in minutes (default 720 = 12h)
+	//   PRICING_CATALOG_URL          — legacy single-source dataset URL; migrated
+	//                                  into the registry as the top custom source
 	PricingCatalogEnabled    bool
 	PricingCatalogRefreshMin int
 	PricingCatalogURL        string

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/routing"
 	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/deliciousbuding/metapi-go/service"
+	"github.com/deliciousbuding/metapi-go/service/catalogsync"
 	"github.com/deliciousbuding/metapi-go/service/pricingcatalog"
 	"github.com/deliciousbuding/metapi-go/store"
 )
@@ -141,30 +143,44 @@ func ShutdownProxyLogBatchWriter(ctx context.Context) error {
 
 var (
 	pricingCatalogMu       sync.Mutex
-	pricingCatalogProvider *pricingcatalog.Provider
+	pricingCatalogManager  *catalogsync.Manager
 )
 
-// pricingCatalogResolver returns the process-global models.dev catalog pricing
-// provider wired into the TokenRouter as the cold-start cost signal, or nil
-// when PRICING_CATALOG_ENABLED=false. Reconfigure calls reuse the existing
-// provider (and its refresh loop) instead of stacking duplicate tickers.
+// pricingCatalogResolver returns the process-global model-catalog manager
+// wired into the TokenRouter as the cold-start cost signal, or nil when
+// PRICING_CATALOG_ENABLED=false. Reconfigure calls reuse the existing
+// manager (and its sync loop) instead of stacking duplicate tickers.
 func pricingCatalogResolver(cfg *config.Config, db *store.DB) routing.CatalogPricingResolver {
 	if cfg == nil || !cfg.PricingCatalogEnabled {
 		return nil
 	}
 	pricingCatalogMu.Lock()
 	defer pricingCatalogMu.Unlock()
-	if pricingCatalogProvider != nil {
-		return pricingCatalogProvider
+	if pricingCatalogManager != nil {
+		return pricingCatalogManager
 	}
-	provider := pricingcatalog.NewProvider(pricingcatalog.Options{
-		RefreshInterval:    time.Duration(cfg.PricingCatalogRefreshMin) * time.Minute,
-		FetchURL:           cfg.PricingCatalogURL,
+	manager, err := catalogsync.NewManager(db.DB, catalogsync.Options{
+		Interval:           time.Duration(cfg.PricingCatalogRefreshMin) * time.Minute,
+		LegacyURL:          cfg.PricingCatalogURL,
 		SiteSnapshotSource: &siteSnapshotSource{db: db},
 	})
-	provider.Start()
-	pricingCatalogProvider = provider
-	return provider
+	if err != nil {
+		slog.Warn("pricingcatalog: manager init failed; catalog disabled", "error", err)
+		return nil
+	}
+	manager.Start()
+	pricingCatalogManager = manager
+	return manager
+}
+
+// CatalogManager returns the process-global model-catalog manager (nil when
+// the pricing catalog is disabled or failed to initialize). The admin
+// catalog-sources / catalog-sync endpoints and the marketplace hydration use
+// it to read the merged snapshot and drive manual syncs.
+func CatalogManager() *catalogsync.Manager {
+	pricingCatalogMu.Lock()
+	defer pricingCatalogMu.Unlock()
+	return pricingCatalogManager
 }
 
 // siteSnapshotSource resolves site platform/URL from the runtime DB for
@@ -191,14 +207,14 @@ func (s *siteSnapshotSource) GetSiteSnapshot(ctx context.Context, siteID int64) 
 	return pricingcatalog.SiteSnapshot{Platform: row.Platform, URL: row.URL}, true, nil
 }
 
-// ShutdownPricingCatalog stops the catalog pricing refresh loop. Registered as
+// ShutdownPricingCatalog stops the catalog sync loop. Registered as
 // an app OnClose hook during server startup; no-op when the catalog was never
 // enabled.
 func ShutdownPricingCatalog() {
 	pricingCatalogMu.Lock()
-	provider := pricingCatalogProvider
+	manager := pricingCatalogManager
 	pricingCatalogMu.Unlock()
-	if provider != nil {
-		provider.Stop()
+	if manager != nil {
+		manager.Stop()
 	}
 }

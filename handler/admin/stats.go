@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/app"
 	"github.com/deliciousbuding/metapi-go/scheduler"
 	"github.com/deliciousbuding/metapi-go/service"
 	dailyservice "github.com/deliciousbuding/metapi-go/service/daily"
@@ -1155,10 +1156,28 @@ func (h *statsHandler) marketplace(w http.ResponseWriter, r *http.Request) {
 		"includePricing": includePricing,
 		"source":         "db_availability",
 	}
+	// Catalog observability: which sources built the merged snapshot, when,
+	// and how many entries it carries.
+	if catalogMeta, ok := catalogSnapshotMeta(); ok {
+		meta["catalogSource"] = catalogMeta.Source
+		meta["catalogFetchedAt"] = catalogMeta.FetchedAt
+		meta["catalogModels"] = catalogMeta.Models
+	} else {
+		meta["catalogSource"] = "disabled"
+		meta["catalogFetchedAt"] = nil
+		meta["catalogModels"] = 0
+	}
 	if includePricing {
-		// Explicit known limitation: full remote /api/pricing hydration is out of scope.
-		meta["pricingStatus"] = "unavailable"
-		meta["pricingNote"] = "Remote marketplace pricing catalog is not hydrated; use /api/models/price-compare for effective rates. pricingSources intentionally empty."
+		if _, ok := catalogSnapshotMeta(); ok {
+			// Catalog list prices hydrate pricingSources, but marketplace
+			// sites are third-party relays — the official list price is an
+			// estimate, never a real payment price.
+			meta["pricingStatus"] = "catalog_estimate"
+			meta["pricingNote"] = "pricingSources carry the official catalog list price as an estimate for relay sites; use /api/models/price-compare for effective observed rates."
+		} else {
+			meta["pricingStatus"] = "unavailable"
+			meta["pricingNote"] = "Remote marketplace pricing catalog is not hydrated; use /api/models/price-compare for effective rates. pricingSources intentionally empty."
+		}
 	}
 	if refreshRequested {
 		meta["refreshNote"] = "refresh=true acknowledged but no remote marketplace scrape is performed; response is rebuilt from local model_availability / token_model_availability / token_routes."
@@ -1168,6 +1187,30 @@ func (h *statsHandler) marketplace(w http.ResponseWriter, r *http.Request) {
 		"models": models,
 		"meta":   meta,
 	})
+}
+
+// catalogSnapshotMeta reports the merged catalog snapshot's provenance for
+// the marketplace meta block. ok=false when the catalog is disabled.
+func catalogSnapshotMeta() (meta struct {
+	Source    string
+	FetchedAt *time.Time
+	Models    int
+}, ok bool) {
+	manager := app.CatalogManager()
+	if manager == nil {
+		return meta, false
+	}
+	snapshot := manager.Snapshot()
+	if snapshot == nil {
+		return meta, false
+	}
+	meta.Source = snapshot.Source
+	meta.Models = snapshot.Len()
+	if !snapshot.FetchedAt.IsZero() {
+		t := snapshot.FetchedAt
+		meta.FetchedAt = &t
+	}
+	return meta, true
 }
 
 // ---- Token Candidates ----

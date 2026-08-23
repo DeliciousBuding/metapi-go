@@ -112,6 +112,8 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 			admin.RegisterModelRedirectFixRoutes(r, db.DB)
 			// Read-only multiplier/rate overview.
 			admin.RegisterModelRatesRoutes(r, db.DB)
+			// Model-catalog data source registry + manual/auto sync control.
+			admin.RegisterCatalogSourceRoutes(r, db.DB)
 			// B1: admin write-operation audit log.
 			admin.RegisterAuditLogsRoutes(r, db.DB)
 			// C1: unified recurring-scheduler run history.
