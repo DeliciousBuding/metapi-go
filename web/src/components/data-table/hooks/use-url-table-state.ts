@@ -30,7 +30,7 @@
 // functions are read through a ref so inline definitions do not break the
 // contract.
 
-import { useLocation, useNavigate } from '@tanstack/react-router'
+import { useLocation, useNavigate, useRouterState } from '@tanstack/react-router'
 import type {
   ColumnFiltersState,
   PaginationState,
@@ -109,6 +109,20 @@ export function useUrlTableState<TFilters>(
   const navigate = useNavigate()
   // Subscribe to the router location so search-only navigation re-renders.
   const searchStr = useLocation({ select: (loc) => loc.searchStr })
+  // The router-side *current* pathname. This is the source of truth for the
+  // URL-sync guard below: the router's location store moves to the target
+  // route at the *start* of a navigation, while `window.location.pathname`
+  // (browser history) does not update until the route commits — so for a
+  // code-split page the pending window leaves `window.location` on the old
+  // page. The old page re-renders with the next location's search (the
+  // `searchStr` subscription above), its table callbacks fire, and with the
+  // lagging history pathname the old guard let them navigate straight back —
+  // the "clicked a sidebar link but the page snapped back" bug. Comparing
+  // against the router location (already at the target) makes any write-back
+  // from a leaving page a no-op.
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  })
   const resetPageIndexOnFilterChange =
     options.resetPageIndexOnFilterChange ?? false
 
@@ -141,14 +155,16 @@ export function useUrlTableState<TFilters>(
   // the *next* location's search string). Without the pathname check the
   // callback would navigate straight back, hijacking the in-flight
   // navigation — the "clicked a sidebar link but the page snapped back"
-  // bug. Only sync when we are still on this page.
+  // bug. Only sync when we are still on this page; the router pathname (not
+  // `window.location.pathname`, which lags behind during a pending
+  // transition for code-split routes) says whether that is true.
   const updateUrlState = React.useCallback(
     (next: UrlTableStateUpdate<TFilters>) => {
       const href = buildHrefRef.current(next)
-      if (!href.startsWith(window.location.pathname)) return
+      if (!href.startsWith(pathname)) return
       navigate({ href, replace: true })
     },
-    [navigate]
+    [navigate, pathname]
   )
 
   const onGlobalFilterChange = React.useCallback(
