@@ -11,10 +11,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
 
+import type { UsageHeatmapCell } from '../../../types'
 import { OverviewSection } from '../overview-section'
 
-function makeCells(hours: number[]): Array<Record<string, unknown>> {
-  const cells: Array<Record<string, unknown>> = []
+function makeCells(hours: number[]): UsageHeatmapCell[] {
+  const cells: UsageHeatmapCell[] = []
   for (const h of hours) {
     for (const k of [1, 2, 3]) {
       cells.push({
@@ -28,6 +29,18 @@ function makeCells(hours: number[]): Array<Record<string, unknown>> {
     }
   }
   return cells
+}
+
+function makeHeatmapData(hours: number[]) {
+  return {
+    dimension: 'site' as const,
+    days: 30,
+    since: '2026-07-25T00:00:00Z',
+    source: 'seed',
+    cellLimit: 200,
+    count: hours.length * 3,
+    cells: makeCells(hours),
+  }
 }
 
 vi.mock('../../../api', () => ({
@@ -53,12 +66,12 @@ afterEach(() => {
 describe('OverviewSection heatmap time axis', () => {
   it('renders visible HH:00 ticks over a 6-bucket span, spaced without collision', () => {
     mockedHeatmap.mockReturnValue({
-      data: { cells: makeCells([5, 6, 7, 8, 9, 10]) },
+      data: makeHeatmapData([5, 6, 7, 8, 9, 10]),
       isLoading: false,
       isFetching: false,
       isError: false,
       refetch: vi.fn(),
-    })
+    } as never)
     render(<OverviewSection />)
 
     // tickEvery = max(2, ceil(6/6)) = 2 → ticks at tracks 0, 2, 4
@@ -76,12 +89,12 @@ describe('OverviewSection heatmap time axis', () => {
 
   it('keeps the exact UTC bucket title on the hover-only cells', () => {
     mockedHeatmap.mockReturnValue({
-      data: { cells: makeCells([5, 6, 7, 8, 9, 10]) },
+      data: makeHeatmapData([5, 6, 7, 8, 9, 10]),
       isLoading: false,
       isFetching: false,
       isError: false,
       refetch: vi.fn(),
-    })
+    } as never)
     const { container } = render(<OverviewSection />)
 
     const headers = container.querySelectorAll('[aria-label]')
@@ -96,12 +109,12 @@ describe('OverviewSection heatmap time axis', () => {
 
   it('renders at least one tick when the seed holds a single non-empty bucket', () => {
     mockedHeatmap.mockReturnValue({
-      data: { cells: makeCells([5]) },
+      data: makeHeatmapData([5]),
       isLoading: false,
       isFetching: false,
       isError: false,
       refetch: vi.fn(),
-    })
+    } as never)
     render(<OverviewSection />)
 
     expect(screen.getByText('05:00')).toBeInTheDocument()

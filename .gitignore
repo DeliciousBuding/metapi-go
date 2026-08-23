@@ -94,3 +94,6 @@ web/playwright/.cache/
 
 # Local repro/scratch artifacts (never commit)
 .repro/
+
+# local dev instance matrix (Wave 7 local toolchain)
+.dev-local/
