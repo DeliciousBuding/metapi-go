@@ -5,7 +5,6 @@
 // DirectionProvider, so a language change must NOT touch it.
 
 import '@testing-library/jest-dom/vitest'
-import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   cleanup,
@@ -14,6 +13,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import {
   afterEach,
   beforeAll,
