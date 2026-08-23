@@ -49,10 +49,6 @@
 - model-tester：models/channels 查询加载失败时静默空下拉 → 接入 QueryErrorBanner + Retry。
 - schedule-editor：daily/window/custom 的 time/cron 输入补 aria-label（en/zh 词条）。
 
-**剩余 P2（后续批）**
-- import 空响应、manual-checkin schema-parse 失败被 `catch {}` 静默吞。
-- site-form-dialog（EndpointsEditor）自定义组件未透传 id/aria（FormLabel htmlFor 悬空）。
-
 **Batch 4（本 PR）—— 死代码清理**
 - model-detail-sheet 移除从未传入的 `onTest` prop +「Test model」死按钮 + 图标 import + 死 i18n key。
 - token-routes/index.ts 删除空占位注释块（barrel stub 收敛为真实重导出）。
@@ -61,10 +57,16 @@
 - catalog-sources Switch aria-label、tokens-panel group placeholder 去硬编码 → i18n（`toggleEnabled` / `groupPlaceholder`）。
 - checkin 装饰性 CalendarRange 补 `aria-hidden`。
 
-**剩余 P3（后续批）**
-- test-response-viewer useEffect 缺依赖数组。
-- 硬编码 `$` 前缀、`#siteId` 回退未 i18n。
-- lib/api/sites.ts 4 个未用 wrapper；endpoints-editor URL 无可见 label。
+**Batch 6（本 PR）—— 死 wrapper 清理 + import 静默失败**
+- lib/api/sites.ts 移除 4 个未用 API wrapper + `SiteProbeNowResponse` 类型 + 测试 mock。
+- import wizard：非 axios 失败（如空响应体）补 `toast`（`import.submitFailed`），不再静默吞。
+
+**已知残差（记录，不作为待办）**
+- manual-checkin `catch {}`：用户可见失败均由 http-client 或结果分支覆盖，仅后端 schema 漂移的编程错误会静默；naive 补 toast 会对 `success:false` 二次提示。
+- `$` 前缀：定价固定 USD，`$` 为货币符号非界面文案，不属于 i18n 目录。
+- `#siteId` 回退：位于纯函数 `resolvePriceDetail`，需透传 `t` 才可本地化，低频残留。
+- test-response-viewer useEffect 无依赖：对话区每次渲染滚到底为流式跟随意图，非缺陷。
+- endpoints-editor URL：已有 `aria-label`，仅 WCAG 3.3.2 可见标签待补。
 
 ## Completed milestone — TS 兼容与迁移收官（2026-08-20 交付）
 

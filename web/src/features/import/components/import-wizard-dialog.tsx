@@ -7,6 +7,7 @@
 // imported/skipped/failed breakdown.
 
 import { useNavigate } from '@tanstack/react-router'
+import axios from 'axios'
 import {
   Check as CheckIcon,
   Minus as MinusIcon,
@@ -386,8 +387,13 @@ export function ImportWizardDialog({
       })
       setResult(importResult)
       setStep('done')
-    } catch {
-      // http-client toasted
+    } catch (error) {
+      // Transport failures (non-2xx) are toasted by the http-client error
+      // interceptor; a plain error thrown by the mutation (e.g. an empty
+      // response body) is not, so surface it instead of swallowing.
+      if (!axios.isAxiosError(error)) {
+        toast.error(t('import.submitFailed'))
+      }
     }
   }
 

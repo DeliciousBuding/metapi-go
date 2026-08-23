@@ -20,14 +20,12 @@ import type { SiteProbeResult } from '@/lib/api/sites'
 
 import { SiteProbePanel } from '../site-probe-panel'
 
-const { mockStreamSiteProbe, mockProbeSiteNow } = vi.hoisted(() => ({
+const { mockStreamSiteProbe } = vi.hoisted(() => ({
   mockStreamSiteProbe: vi.fn(),
-  mockProbeSiteNow: vi.fn(),
 }))
 
 vi.mock('@/lib/api/sites', () => ({
   sitesApi: {
-    probeSiteNow: mockProbeSiteNow,
     streamSiteProbe: mockStreamSiteProbe,
   },
 }))
@@ -49,7 +47,6 @@ let streamPromise: Promise<void> | null = null
 
 beforeEach(() => {
   mockStreamSiteProbe.mockReset()
-  mockProbeSiteNow.mockReset()
   captured = null
   streamPromise = null
   mockStreamSiteProbe.mockImplementation(

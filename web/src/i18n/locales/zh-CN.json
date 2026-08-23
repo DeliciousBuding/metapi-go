@@ -2607,6 +2607,7 @@
       "back": "上一步",
       "next": "下一步",
       "submit": "导入",
+      "submitFailed": "导入失败",
       "stepper": {
         "progressLabel": "导入进度"
       },
