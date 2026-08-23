@@ -1,20 +1,23 @@
-// metapi-go/features/settings/sections/models — model-catalog data source
-// registry panel (Wave 8 Lane A). Lists the DB-persisted catalog sources in
-// merge order (earlier sources override later ones), exposes per-source
-// enable/URL edit/reorder/delete + "sync now", a global auto-sync toggle,
-// and the merged-snapshot status. All mutations go through the
+// metapi-go/features/settings/sections/proxy-models — model-catalog data
+// source registry panel (Wave 8 Lane A, reorder rework Wave 9 Lane B). Lists
+// the DB-persisted catalog sources in merge order (earlier sources override
+// later ones), exposes per-source enable/URL edit/drag-reorder/delete +
+// "sync now", a global auto-sync toggle, and the merged-snapshot status.
+// Reorder is a pointer-drag on the row handle (Wave 9 Lane B: the retired
+// up/down arrow buttons); each drop writes the absolute target index through
+// PUT /api/models/catalog-sources/{id} { sortOrder } (the backend repositions
+// and renumbers contiguously). All mutations go through the
 // /api/models/catalog-sources + /api/models/catalog-sync admin endpoints.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowDown as ArrowDownIcon,
-  ArrowUp as ArrowUpIcon,
+  GripVertical as GripVerticalIcon,
   Pencil as PencilIcon,
   Plus as PlusIcon,
   RefreshCw as RefreshCwIcon,
   Trash2 as Trash2Icon,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
@@ -51,6 +54,7 @@ import { toBcp47 } from '@/i18n/languages'
 import { api, type CatalogSource, type CatalogSyncStatus } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { toast } from '@/lib/toast'
+import { cn } from '@/lib/utils'
 
 import {
   SettingsSectionCard,
@@ -108,6 +112,15 @@ export function CatalogSourcesSection() {
   const [dialog, setDialog] = useState<SourceDialogState | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<CatalogSource | null>(null)
   const [syncingId, setSyncingId] = useState<number | 'all' | null>(null)
+
+  // --- pointer-drag reorder state (Wave 9 Lane B) ---
+  // Declared with the other hooks — BEFORE the loading/error early returns —
+  // so the hook count stays stable across status states.
+  const rowRefs = useRef<Array<HTMLTableRowElement | null>>([])
+  const dragState = useRef<{ index: number } | null>(null)
+  const overIndexRef = useRef<number | null>(null)
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [overIndex, setOverIndex] = useState<number | null>(null)
 
   const statusQuery = useQuery<CatalogSyncStatus>({
     queryKey: catalogSyncKeys.status(),
@@ -203,31 +216,33 @@ export function CatalogSourcesSection() {
 
   const reorderMutation = useMutation({
     mutationFn: async ({
-      source,
-      target,
+      sourceId,
+      targetIndex,
     }: {
-      source: CatalogSource
-      target: CatalogSource
-    }) => api.updateCatalogSource(source.id, { sortOrder: target.sortOrder }),
-    onSuccess: (_result, { source, target }) => {
+      sourceId: number
+      targetIndex: number
+    }) => api.updateCatalogSource(sourceId, { sortOrder: targetIndex }),
+    // Optimistic move: splice the row to its drop position so the drag feels
+    // immediate; the backend repositions + renumbers sort_order server-side.
+    onMutate: async ({ sourceId, targetIndex }) => {
       const status = statusQuery.data
-      if (status) {
-        const rows = [...status.sources]
-        const from = rows.findIndex((row) => row.id === source.id)
-        const to = rows.findIndex((row) => row.id === target.id)
-        if (from >= 0 && to >= 0) {
-          const [moved] = rows.splice(from, 1)
-          rows.splice(to, 0, moved)
-        }
-        refreshStatus({ ...status, sources: rows })
-      }
+      if (!status) return undefined
+      const rows = [...status.sources]
+      const from = rows.findIndex((row) => row.id === sourceId)
+      if (from < 0) return undefined
+      const [moved] = rows.splice(from, 1)
+      rows.splice(Math.min(targetIndex, rows.length), 0, moved)
+      refreshStatus({ ...status, sources: rows })
+      return status
     },
-    onError: (error: Error) =>
+    onError: (error: Error, _vars, context) => {
+      if (context) refreshStatus(context)
       toast.error(
         t('settings.proxyModels.catalogSources.toast.saveFailed', {
           message: error.message,
         })
-      ),
+      )
+    },
   })
 
   const deleteMutation = useMutation({
@@ -269,6 +284,57 @@ export function CatalogSourcesSection() {
   const status = statusQuery.data as CatalogSyncStatus
   const sources = status.sources ?? []
   const busy = syncingId !== null
+
+  // --- pointer-drag reorder helpers (Wave 9 Lane B) ---
+  // The row handle captures the pointer and tracks the row under the cursor;
+  // on release the drop index is committed as an absolute sortOrder. Storing
+  // the live target in a ref keeps the pointerup handler race-free even when
+  // the last pointermove and pointerup land in the same frame.
+  function findRowIndexAt(clientY: number): number {
+    const rows = rowRefs.current
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      if (!row) continue
+      if (clientY < row.getBoundingClientRect().bottom) return i
+    }
+    return Math.max(rows.length - 1, 0)
+  }
+
+  function onDragHandlePointerDown(
+    event: ReactPointerEvent<HTMLButtonElement>,
+    index: number
+  ) {
+    if (busy || reorderMutation.isPending) return
+    dragState.current = { index }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  function onDragHandlePointerMove(
+    event: ReactPointerEvent<HTMLButtonElement>
+  ) {
+    const state = dragState.current
+    if (!state) return
+    const next = findRowIndexAt(event.clientY)
+    setDragIndex(state.index)
+    setOverIndex(next)
+    overIndexRef.current = next
+  }
+
+  function onDragHandlePointerEnd(commit: boolean) {
+    const state = dragState.current
+    if (!state) return
+    dragState.current = null
+    setDragIndex(null)
+    setOverIndex(null)
+    const targetIndex = overIndexRef.current
+    overIndexRef.current = null
+    if (commit && targetIndex !== null && targetIndex !== state.index) {
+      reorderMutation.mutate({
+        sourceId: sources[state.index].id,
+        targetIndex,
+      })
+    }
+  }
 
   return (
     <div className='flex flex-col gap-4'>
@@ -362,6 +428,8 @@ export function CatalogSourcesSection() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  {/* Drag-handle column (reorder, Wave 9 Lane B). */}
+                  <TableHead className='w-7' />
                   <TableHead>
                     {t('settings.proxyModels.catalogSources.columns.source')}
                   </TableHead>
@@ -384,7 +452,44 @@ export function CatalogSourcesSection() {
               </TableHeader>
               <TableBody>
                 {sources.map((source, index) => (
-                  <TableRow key={source.id}>
+                  <TableRow
+                    key={source.id}
+                    ref={(row) => {
+                      rowRefs.current[index] = row
+                    }}
+                    className={cn(
+                      dragIndex !== null &&
+                        overIndex === index &&
+                        'bg-accent/60',
+                      dragIndex === index && 'opacity-40'
+                    )}
+                  >
+                    <TableCell className='w-7 px-0'>
+                      <Button
+                        type='button'
+                        variant='ghost'
+                        size='icon-sm'
+                        className={cn(
+                          'cursor-grab touch-none select-none',
+                          dragIndex === index && 'cursor-grabbing'
+                        )}
+                        disabled={busy || reorderMutation.isPending}
+                        onPointerDown={(event) =>
+                          onDragHandlePointerDown(event, index)
+                        }
+                        onPointerMove={onDragHandlePointerMove}
+                        onPointerUp={() => onDragHandlePointerEnd(true)}
+                        onPointerCancel={() => onDragHandlePointerEnd(false)}
+                        aria-label={t(
+                          'settings.proxyModels.catalogSources.dragToReorder'
+                        )}
+                        title={t(
+                          'settings.proxyModels.catalogSources.dragToReorder'
+                        )}
+                      >
+                        <GripVerticalIcon className='size-3.5' />
+                      </Button>
+                    </TableCell>
                     <TableCell className='text-sm font-medium'>
                       {source.name}
                     </TableCell>
@@ -420,38 +525,6 @@ export function CatalogSourcesSection() {
                     <TableCell>{<LastSyncCell source={source} />}</TableCell>
                     <TableCell>
                       <div className='flex justify-end gap-1'>
-                        <Button
-                          variant='ghost'
-                          size='icon-sm'
-                          disabled={busy || index === 0}
-                          onClick={() =>
-                            reorderMutation.mutate({
-                              source,
-                              target: sources[index - 1],
-                            })
-                          }
-                          aria-label={t(
-                            'settings.proxyModels.catalogSources.moveUp'
-                          )}
-                        >
-                          <ArrowUpIcon className='size-3.5' />
-                        </Button>
-                        <Button
-                          variant='ghost'
-                          size='icon-sm'
-                          disabled={busy || index === sources.length - 1}
-                          onClick={() =>
-                            reorderMutation.mutate({
-                              source,
-                              target: sources[index + 1],
-                            })
-                          }
-                          aria-label={t(
-                            'settings.proxyModels.catalogSources.moveDown'
-                          )}
-                        >
-                          <ArrowDownIcon className='size-3.5' />
-                        </Button>
                         <Button
                           variant='ghost'
                           size='icon-sm'

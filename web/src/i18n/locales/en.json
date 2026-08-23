@@ -1123,8 +1123,6 @@
           "modelCount": "{{count}} models",
           "syncNow": "Sync now",
           "syncing": "Syncing…",
-          "moveUp": "Move up",
-          "moveDown": "Move down",
           "edit": "Edit",
           "delete": "Delete",
           "editTitle": "Edit source",
@@ -1160,7 +1158,8 @@
             "deleteFailed": "Failed to delete source: {{message}}",
             "loadFailed": "Failed to load sources: {{message}}",
             "disabled": "The pricing catalog is not enabled (PRICING_CATALOG_ENABLED=false)."
-          }
+          },
+          "dragToReorder": "Drag to reorder"
         },
         "proxyTransport": {
           "title": "Proxy & Transport",

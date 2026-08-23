@@ -1123,8 +1123,6 @@
           "modelCount": "{{count}} 条模型",
           "syncNow": "立即同步",
           "syncing": "同步中…",
-          "moveUp": "上移",
-          "moveDown": "下移",
           "edit": "编辑",
           "delete": "删除",
           "editTitle": "编辑数据源",
@@ -1160,7 +1158,8 @@
             "deleteFailed": "删除失败：{{message}}",
             "loadFailed": "加载数据源失败：{{message}}",
             "disabled": "价格目录未启用（PRICING_CATALOG_ENABLED=false）。"
-          }
+          },
+          "dragToReorder": "拖拽调整顺序"
         },
         "proxyTransport": {
           "title": "代理与传输",
