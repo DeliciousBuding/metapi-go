@@ -12,12 +12,19 @@
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { useUrlTableState, type UrlTableState, type UrlTableStateUpdate } from '../use-url-table-state'
+import {
+  useUrlTableState,
+  type UrlTableState,
+  type UrlTableStateUpdate,
+} from '../use-url-table-state'
 
 type Location = { searchStr: string; pathname: string }
 
 const locationState = vi.hoisted(() => ({
-  current: { searchStr: '?page=1&pageSize=20', pathname: '/channels' } as Location,
+  current: {
+    searchStr: '?page=1&pageSize=20',
+    pathname: '/channels',
+  } as Location,
   navigate: vi.fn(),
 }))
 
