@@ -421,7 +421,11 @@ export function AccountsPage() {
     ? (checkinMutation.variables?.id ?? null)
     : null
 
-  const columns = useAccountsColumns(rowActions, pendingStatusId, pendingCheckinId)
+  const columns = useAccountsColumns(
+    rowActions,
+    pendingStatusId,
+    pendingCheckinId
+  )
 
   const { table } = useDataTable({
     data: accounts,

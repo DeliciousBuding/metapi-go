@@ -531,6 +531,13 @@ export function useAccountsColumns(
         meta: { pinned: 'right' },
       },
     ],
-    [actions, pendingStatusId, pendingCheckinId, resolveHealth, resolveDisplayName, t]
+    [
+      actions,
+      pendingStatusId,
+      pendingCheckinId,
+      resolveHealth,
+      resolveDisplayName,
+      t,
+    ]
   )
 }

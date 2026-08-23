@@ -5,7 +5,18 @@
 // per-row spinner while the mutation is pending, and stays a plain muted
 // "Not supported" text when the account cannot check in.
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from '@tanstack/react-table'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import {
   afterEach,
   beforeAll,
@@ -15,7 +26,7 @@ import {
   it,
   vi,
 } from 'vitest'
-import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
+
 import i18n from '@/i18n/config'
 
 import type { Account, AccountRowActions } from '../../types'
@@ -105,19 +116,37 @@ afterEach(() => cleanup())
 
 describe('accounts check-in badge toggle', () => {
   it('renders a real button labeled with the on state and the turn-off action', async () => {
-    render(<Harness account={makeAccount({ checkinEnabled: true })} actions={buildActions()} />)
+    render(
+      <Harness
+        account={makeAccount({ checkinEnabled: true })}
+        actions={buildActions()}
+      />
+    )
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: '关闭签到' })).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: '关闭签到' })
+      ).toBeInTheDocument()
     })
-    expect(screen.getByRole('button', { name: '关闭签到' })).toHaveTextContent('已开启')
+    expect(screen.getByRole('button', { name: '关闭签到' })).toHaveTextContent(
+      '已开启'
+    )
   })
 
   it('renders the turn-on action label when check-in is off', async () => {
-    render(<Harness account={makeAccount({ checkinEnabled: false })} actions={buildActions()} />)
+    render(
+      <Harness
+        account={makeAccount({ checkinEnabled: false })}
+        actions={buildActions()}
+      />
+    )
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: '开启签到' })).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: '开启签到' })
+      ).toBeInTheDocument()
     })
-    expect(screen.getByRole('button', { name: '开启签到' })).toHaveTextContent('未开启')
+    expect(screen.getByRole('button', { name: '开启签到' })).toHaveTextContent(
+      '未开启'
+    )
   })
 
   it('clicking the badge calls onToggleCheckin with the account', async () => {
@@ -125,7 +154,9 @@ describe('accounts check-in badge toggle', () => {
     const account = makeAccount({ checkinEnabled: true })
     render(<Harness account={account} actions={actions} />)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: '关闭签到' })).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: '关闭签到' })
+      ).toBeInTheDocument()
     })
     fireEvent.click(screen.getByRole('button', { name: '关闭签到' }))
     expect(actions.onToggleCheckin).toHaveBeenCalledTimes(1)
@@ -134,7 +165,13 @@ describe('accounts check-in badge toggle', () => {
 
   it('disables only the pending row badge (per-row spinner contract)', async () => {
     const account = makeAccount({ checkinEnabled: false })
-    render(<Harness account={account} actions={buildActions()} pendingCheckinId={42} />)
+    render(
+      <Harness
+        account={account}
+        actions={buildActions()}
+        pendingCheckinId={42}
+      />
+    )
     await waitFor(() => {
       expect(screen.getByRole('button', { name: '开启签到' })).toBeDisabled()
     })
@@ -143,7 +180,13 @@ describe('accounts check-in badge toggle', () => {
   it('keeps the plain muted "unsupported" text (no button) when canCheckin is false', async () => {
     render(
       <Harness
-        account={makeAccount({ capabilities: { canCheckin: false, canRefreshBalance: false, proxyOnly: false } })}
+        account={makeAccount({
+          capabilities: {
+            canCheckin: false,
+            canRefreshBalance: false,
+            proxyOnly: false,
+          },
+        })}
         actions={buildActions()}
       />
     )
@@ -152,8 +195,12 @@ describe('accounts check-in badge toggle', () => {
     })
     // No check-in toggle button (the harness also renders the row-actions
     // Power/⋮ buttons, so scope the negative assertion to check-in labels).
-    expect(screen.queryByRole('button', { name: '关闭签到' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '开启签到' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '关闭签到' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '开启签到' })
+    ).not.toBeInTheDocument()
   })
 
   it('localizes the credential mode badge from the i18n resources (en)', async () => {
