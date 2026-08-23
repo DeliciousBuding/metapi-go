@@ -99,8 +99,8 @@ func countingEligibleJoined(routeID, channelID, siteID, accountID int64, model s
 			RouteID:     routeID,
 			AccountID:   accountID,
 			SourceModel: &m,
-			Priority:    0,
-			Weight:      10,
+			Priority:    int64Ptr(0),
+			Weight:      int64Ptr(10),
 			Enabled:     true,
 		},
 		Account: store.Account{

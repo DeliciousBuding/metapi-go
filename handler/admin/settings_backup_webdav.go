@@ -453,7 +453,7 @@ func (h *backupHandler) importFromWebdav(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	imported, err := importBackupTables(h.db, backup.Tables)
+	result, err := importBackupTables(h.db, backup.Tables)
 	if err != nil {
 		status := backupImportErrorStatus(err)
 		state := updateWebdavBackupState(h.db, errors.New(sanitizeWebdavError(err.Error(), cfg)))
@@ -464,8 +464,15 @@ func (h *backupHandler) importFromWebdav(w http.ResponseWriter, r *http.Request)
 	state := updateWebdavBackupState(h.db, nil)
 	payload := webdavConfigResponsePayload(true, cfg, state)
 	payload["message"] = "WebDAV import completed"
-	payload["imported"] = imported
+	payload["imported"] = result.imported
 	payload["appliedSettings"] = []any{}
+	if result.skippedSettings > 0 {
+		payload["skippedSettings"] = result.skippedSettings
+	}
+	if len(result.newDownstreamApiKeys) > 0 {
+		payload["newDownstreamApiKeys"] = result.newDownstreamApiKeys
+	}
+	logImportedDownstreamKeys(h.db, result.newDownstreamApiKeys)
 	writeJSON(w, http.StatusOK, payload)
 }
 

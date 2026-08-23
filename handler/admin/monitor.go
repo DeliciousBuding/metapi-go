@@ -68,6 +68,11 @@ const monitorAuthCookie = "meta_monitor_auth"
 // encrypt this secret at rest (e.g. AES-GCM keyed by AccountCredentialSecret)
 // so a database read alone does not yield a usable session cookie. Until then,
 // treat DB access as equivalent to LDOH credential disclosure.
+//
+// Backup imports are therefore forbidden from setting this key: it is listed
+// in service/backup.RuntimeLocalSettingKeys, which both import paths enforce.
+// A malicious import planting monitor_ldoh_cookie would pin the monitored
+// session to an attacker-controlled credential.
 
 // monitorCookiePath is scoped to the iframe proxy surface only.
 // Path=/ is intentionally avoided so a stolen cookie cannot be presented

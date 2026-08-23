@@ -60,16 +60,50 @@ var (
 	TSV21MaxCellBytes     = 4 << 20
 )
 
-// RuntimeLocalSettingKeys are settings whose values are bound to the current
-// deployment (admin credentials, DB wiring, webdav sync state). Backup imports
-// must never overwrite them. Shared with the tables-path import in
-// handler/admin so both paths apply the same policy.
+// RuntimeLocalSettingKeys are settings that a backup import must never set or
+// overwrite. Both import paths (the tables-path import in handler/admin and
+// the TS v2.1 parser in this package) share this policy.
+//
+// Policy: deny-list, not allow-list. The settings table holds ~90 feature keys
+// scattered across handler/admin, store and the schedulers, and new benign
+// keys are added with most features; an allow-list would have to track every
+// addition or imports would silently drop legitimate settings. The dangerous
+// class — credentials, deployment-bound wiring, and state that background
+// schedulers consume automatically at startup — is small and stable, so we
+// deny it explicitly instead.
+//
+// Threat model: a backup can come from an untrusted source. A malicious
+// import that could plant backup_webdav_config_v1 would turn the backup-webdav
+// scheduler into a periodic exfiltration job shipping the whole database to
+// an attacker endpoint after the next restart, and a planted
+// monitor_ldoh_cookie pins the monitor session to an attacker credential.
+//
+// MAINTAINERS: any new setting that stores a credential, session token or
+// encryption key, wires the database, or makes the server push data to a
+// configured endpoint on its own MUST be added here.
 var RuntimeLocalSettingKeys = map[string]bool{
-	"auth_token":             true,
+	// Master key encrypting stored account credentials: bound to the rows
+	// already in this deployment; importing it breaks their decryption and
+	// lets the backup's author read every credential stored afterwards.
+	"account_credential_secret": true,
+	// Admin API bearer token.
+	"auth_token": true,
+	// WebDAV endpoint + credentials; read by the backup-webdav scheduler at
+	// startup (see scheduler/backup_webdav.go). Planting it exfiltrates the
+	// full database to an attacker-controlled endpoint.
+	"backup_webdav_config_v1": true,
+	// WebDAV sync bookkeeping; deployment-local state.
 	"backup_webdav_state_v1": true,
-	"db_ssl":                 true,
-	"db_type":                true,
-	"db_url":                 true,
+	// Database wiring.
+	"db_ssl":  true,
+	"db_type": true,
+	"db_url":  true,
+	// Plaintext LDOH upstream session cookie (handler/admin/monitor.go);
+	// planting it pins the monitor session to an attacker value.
+	"monitor_ldoh_cookie": true,
+	// Downstream proxy API bearer token; planting it hands the attacker a
+	// known working credential for the proxy surface.
+	"proxy_token": true,
 }
 
 // TSV21ClientError reports a payload problem that is the caller's fault
@@ -749,13 +783,25 @@ type TSV21ImportResult struct {
 	// primary key already existed are skipped (ON CONFLICT DO NOTHING).
 	Imported map[string]int64 `json:"imported"`
 	// SkippedSettings counts settings rows excluded by policy.
-	SkippedSettings int64    `json:"skippedSettings,omitempty"`
-	Warnings        []string `json:"warnings,omitempty"`
+	SkippedSettings int64 `json:"skippedSettings,omitempty"`
+	// NewDownstreamApiKeys lists the names (never the key values) of
+	// downstream_api_keys entries actually inserted by this import. Importing
+	// an untrusted backup is equivalent to accepting the keys it carries;
+	// this list (mirrored into the events audit trail) lets operators see
+	// exactly which new downstream keys were admitted.
+	NewDownstreamApiKeys []string `json:"newDownstreamApiKeys,omitempty"`
+	Warnings             []string `json:"warnings,omitempty"`
 }
 
 // ImportTSV21 parses a v2.1 payload and imports it into db inside a single
 // transaction. Duplicate handling matches the tables-path import: rows whose
 // primary key already exists are skipped, nothing is overwritten.
+//
+// SECURITY: importing an untrusted backup is equivalent to accepting the
+// downstream API keys it carries — newly admitted keys are working
+// credentials for the proxy surface. They are listed by name (never by key
+// value) in the result so callers can surface them in the response and audit
+// trail; runtime-local settings (RuntimeLocalSettingKeys) are always skipped.
 func ImportTSV21(db *store.DB, raw []byte) (*TSV21ImportResult, error) {
 	parsed, err := ParseTSV21(raw)
 	if err != nil {
@@ -799,13 +845,75 @@ func importTSV21Parsed(conn tsV21Conn, parsed *TSV21Parsed) (*TSV21ImportResult,
 		Warnings:        parsed.Warnings,
 	}
 	for _, table := range parsed.TableOrder {
+		// SECURITY: downstream_api_keys rows are usable credentials. Snapshot
+		// which payload keys already exist before inserting so the entries
+		// this import actually admits can be reported (by name only) to the
+		// caller and the audit trail.
+		var downstreamCandidates []string
+		var downstreamBefore map[string]bool
+		if table == "downstream_api_keys" {
+			downstreamCandidates = downstreamKeyValues(parsed.Tables[table])
+			downstreamBefore = tsV21QueryExistingPKs(conn, table, "key", downstreamCandidates)
+		}
+
 		count, err := importTSV21TableRows(conn, table, parsed.Tables[table])
 		if err != nil {
 			return nil, fmt.Errorf("import failed: table %s: %w", table, err)
 		}
 		result.Imported[table] = count
+
+		if table == "downstream_api_keys" && len(downstreamCandidates) > 0 {
+			downstreamAfter := tsV21QueryExistingPKs(conn, table, "key", downstreamCandidates)
+			result.NewDownstreamApiKeys = downstreamNamesForNewKeys(parsed.Tables[table], downstreamCandidates, downstreamBefore, downstreamAfter)
+		}
 	}
 	return result, nil
+}
+
+// downstreamKeyValues extracts the unique, payload-ordered key values from
+// downstream_api_keys rows.
+func downstreamKeyValues(rows []map[string]any) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, row := range rows {
+		key, ok := row["key"].(string)
+		if !ok || key == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, key)
+	}
+	return out
+}
+
+// downstreamNamesForNewKeys returns the names of the downstream_api_keys
+// entries present after the import but not before, in payload order. Only
+// names are returned: key values must never surface in import responses or
+// audit events. The name comes from the first payload row carrying each key,
+// which is the row ON CONFLICT DO NOTHING admits.
+func downstreamNamesForNewKeys(rows []map[string]any, candidates []string, before, after map[string]bool) []string {
+	if len(candidates) == 0 {
+		return nil
+	}
+	namesByKey := make(map[string]string, len(candidates))
+	for _, row := range rows {
+		key, ok := row["key"].(string)
+		if !ok || key == "" {
+			continue
+		}
+		if _, exists := namesByKey[key]; exists {
+			continue
+		}
+		name, _ := row["name"].(string)
+		namesByKey[key] = name
+	}
+	var out []string
+	for _, key := range candidates {
+		if after[key] && !before[key] {
+			out = append(out, namesByKey[key])
+		}
+	}
+	return out
 }
 
 func importTSV21TableRows(conn tsV21Conn, table string, rows []map[string]any) (int64, error) {

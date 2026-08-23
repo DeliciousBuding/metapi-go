@@ -82,8 +82,8 @@ func TestReportProxyAllFailed_EventCarriesModelAndReason(t *testing.T) {
 		`SELECT title FROM events WHERE type = 'proxy' ORDER BY id DESC LIMIT 1`); err != nil {
 		t.Fatalf("load event title: %v", err)
 	}
-	if title != "代理全部失败" {
-		t.Fatalf("title = %q, want 代理全部失败", title)
+	if title != "All proxies failed" {
+		t.Fatalf("title = %q, want All proxies failed", title)
 	}
 	if err := db.Get(&message,
 		`SELECT message FROM events WHERE type = 'proxy' ORDER BY id DESC LIMIT 1`); err != nil {

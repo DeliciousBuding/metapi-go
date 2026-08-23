@@ -371,12 +371,30 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 
 	t.Log("import: all 28 tables imported successfully")
 
+	// Admitting new downstream API keys is security-relevant, so an import
+	// that admits one or more keys appends exactly one warning audit event
+	// (events.type = "backup") listing the admitted key names. Derive the
+	// expected increment from the import response itself so the events-table
+	// assertions below tolerate exactly those rows — and nothing else.
+	importAuditEvents := 0
+	if newKeys, _ := importPayload["newDownstreamApiKeys"].([]any); len(newKeys) > 0 {
+		importAuditEvents = 1
+	}
+
 	// ══════════════════════════════════════════════════════════════════════════
 	// Phase 6: Verify data integrity — re-export and compare
 	// ══════════════════════════════════════════════════════════════════════════
 
-	// 6a. Verify row counts restored.
-	verifyRowCounts(t, db, expectedCounts, "after import")
+	// 6a. Verify row counts restored. The import itself appends audit event(s)
+	// (events.type = "backup") for newly admitted downstream API keys, so the
+	// events count is expected to be seed+importAuditEvents; every other table
+	// must match the seed counts exactly.
+	afterImportCounts := make(map[string]int, len(expectedCounts))
+	for table, count := range expectedCounts {
+		afterImportCounts[table] = count
+	}
+	afterImportCounts["events"] += importAuditEvents
+	verifyRowCounts(t, db, afterImportCounts, "after import")
 
 	// 6b. Verify specific data values survived the roundtrip.
 	verifySpotChecks(t, db)
@@ -395,6 +413,47 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 	for table := range expectedCounts {
 		origRows, _ := tablesRaw[table].([]any)
 		reRows, _ := reTables[table].([]any)
+
+		if table == "events" {
+			// The import appends its own audit event(s) for newly admitted
+			// downstream API keys. Tolerate exactly that increment: every
+			// original row must survive verbatim, and every added row must be
+			// an import audit row (type = "backup").
+			if len(reRows) != len(origRows)+importAuditEvents {
+				t.Errorf("roundtrip: table %q row count mismatch: orig=%d, re=%d, want re=orig+%d import audit event(s)",
+					table, len(origRows), len(reRows), importAuditEvents)
+				continue
+			}
+			origByID := make(map[string]any, len(origRows))
+			for _, row := range origRows {
+				if rm, ok := row.(map[string]any); ok {
+					origByID[fmt.Sprintf("%v", rm["id"])] = row
+				}
+			}
+			added := 0
+			for _, row := range reRows {
+				rm, ok := row.(map[string]any)
+				if !ok {
+					continue
+				}
+				id := fmt.Sprintf("%v", rm["id"])
+				if origRow, present := origByID[id]; present {
+					if !compareRowMaps(t, table, origRow, row) {
+						t.Errorf("roundtrip: table %q row id=%s data mismatch", table, id)
+					}
+					continue
+				}
+				added++
+				if typ, _ := rm["type"].(string); typ != "backup" {
+					t.Errorf("roundtrip: added events row id=%s has type %q, want the import audit type \"backup\"", id, typ)
+				}
+			}
+			if added != importAuditEvents {
+				t.Errorf("roundtrip: events gained %d new row(s), want exactly %d import audit event(s)", added, importAuditEvents)
+			}
+			continue
+		}
+
 		if len(origRows) != len(reRows) {
 			t.Errorf("roundtrip: table %q row count mismatch: orig=%d, re=%d", table, len(origRows), len(reRows))
 			continue
