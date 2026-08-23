@@ -208,17 +208,20 @@ export function RoutesPage() {
   const routes = useMemo(() => routesData ?? [], [routesData])
   const candidates = candidatesQuery.data
 
-  // Route ids with at least one channel actively cooling (or breaker-open):
-  // the channels list carries per-channel runtime status, and the summary
+  // Route ids with at least one channel in an ACTIVE persisted cooldown:
+  // the channels list carries per-channel cooldownUntil, and the summary
   // rows do not. The row menu's "清除冷却" item is hidden for routes with
-  // nothing to clear (mirrors the detail sheet gate).
+  // nothing to clear — same predicate as the route detail sheet gate
+  // (cooldownUntil > now), so the two surfaces can never disagree.
   const { data: channelList } = useChannels()
   const cooldownRouteIds = useMemo(
     () =>
       new Set(
         (channelList ?? [])
           .filter(
-            (c) => c.status === 'cooldown' || c.status === 'breaker_open'
+            (c) =>
+              Boolean(c.cooldownUntil) &&
+              new Date(c.cooldownUntil as string) > new Date()
           )
           .map((c) => c.routeId)
       ),
