@@ -20,3 +20,20 @@ export function retainEnabledComparisonChannelIds(
     enabledChannelIds.has(channelId)
   )
 }
+
+/**
+ * Human-readable label for a channel row in the tester pickers. Several
+ * routes can share the same account+site (one channel per model), which
+ * makes `name · site` labels identical for different choices, so the label
+ * carries the model list and the channel id to keep every row
+ * distinguishable.
+ */
+export function formatChannelLabel(channel: {
+  id: number
+  name: string
+  site: { name: string }
+  models?: string
+}): string {
+  const model = channel.models?.trim() ? ' · ' + channel.models.trim() : ''
+  return channel.name + model + ' · ' + channel.site.name + ' (#' + channel.id + ')'
+}

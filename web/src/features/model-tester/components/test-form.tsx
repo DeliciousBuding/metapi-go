@@ -43,7 +43,10 @@ import { useChannels } from '@/features/channels'
 import { useModels } from '@/features/models'
 import { cn } from '@/lib/utils'
 
-import { filterEnabledComparisonChannels } from '../lib/comparison-channels'
+import {
+  filterEnabledComparisonChannels,
+  formatChannelLabel,
+} from '../lib/comparison-channels'
 import { defaultTemplateStorage, loadTesterTemplates } from '../lib/templates'
 import {
   TESTER_FORM_DEFAULT_VALUES,
@@ -138,7 +141,7 @@ export function TestForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={handleSubmit} className='flex h-full flex-col gap-4'>
+      <form onSubmit={handleSubmit} className='flex flex-col gap-4'>
         <FormItem>
           <FormLabel>{t('modelTester.template.label')}</FormLabel>
           <Select
@@ -252,7 +255,7 @@ export function TestForm({
                             (item) => String(item.id) === selected
                           )
                           return channel
-                            ? `${channel.name} · ${channel.site.name}`
+                            ? formatChannelLabel(channel)
                             : String(selected)
                         }}
                       </SelectValue>
@@ -264,7 +267,7 @@ export function TestForm({
                     </SelectItem>
                     {(channelsQuery.data ?? []).map((channel) => (
                       <SelectItem key={channel.id} value={String(channel.id)}>
-                        {channel.name} · {channel.site.name}
+                        {formatChannelLabel(channel)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -310,7 +313,7 @@ export function TestForm({
                           disabled={isRunning}
                         />
                         <span className='truncate text-sm'>
-                          {channel.name} · {channel.site.name}
+                          {formatChannelLabel(channel)}
                         </span>
                       </label>
                     )

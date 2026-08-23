@@ -15,6 +15,7 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   Eye as EyeIcon,
+  FlaskConical as FlaskConicalIcon,
   MoreHorizontal as MoreHorizontalIcon,
 } from 'lucide-react'
 import { useMemo } from 'react'
@@ -326,7 +327,7 @@ export function useModelsColumns(
                     {t('models.actions.viewDetails')}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => actions.onTest(model)}>
-                    <EyeIcon className='text-muted-foreground/70 size-3.5' />
+                    <FlaskConicalIcon className='text-muted-foreground/70 size-3.5' />
                     {t('models.actions.testModel')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>

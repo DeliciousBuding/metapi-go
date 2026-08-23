@@ -157,18 +157,20 @@ function ModelGroupCard({ group }: { group: ModelGroup }) {
         <CardDescription>{t('priceCompare.group.description')}</CardDescription>
       </CardHeader>
       <CardContent>
-        <Table>
+        <Table className='max-sm:[&_th]:px-1 max-sm:[&_td]:px-1'>
           <TableHeader>
             <TableRow>
               <TableHead>{t('priceCompare.columns.site')}</TableHead>
-              <TableHead>{t('priceCompare.columns.grade')}</TableHead>
+              <TableHead className='hidden sm:table-cell'>
+                {t('priceCompare.columns.grade')}
+              </TableHead>
               <TableHead className='text-right'>
                 {t('priceCompare.columns.input')}
               </TableHead>
-              <TableHead className='text-right'>
+              <TableHead className='hidden text-right sm:table-cell'>
                 {t('priceCompare.columns.output')}
               </TableHead>
-              <TableHead className='text-right'>
+              <TableHead className='hidden text-right sm:table-cell'>
                 {t('priceCompare.columns.effective')}
               </TableHead>
               <TableHead>{t('priceCompare.columns.status')}</TableHead>
@@ -201,17 +203,17 @@ export function PriceRow({ row }: { row: PriceCompareItem }) {
           <div className='text-muted-foreground text-xs'>{row.username}</div>
         )}
       </TableCell>
-      <TableCell>
+      <TableCell className='hidden sm:table-cell'>
         <PriceGradeBadge grade={row.source} />
       </TableCell>
       <TableCell className='text-right tabular-nums'>
         {formatPerMillion(row.inputPerMillion)}
       </TableCell>
-      <TableCell className='text-right tabular-nums'>
+      <TableCell className='hidden text-right tabular-nums sm:table-cell'>
         {formatPerMillion(row.outputPerMillion)}
       </TableCell>
       <TableCell
-        className='text-right tabular-nums'
+        className='hidden text-right tabular-nums sm:table-cell'
         title={
           row.missingPrice
             ? undefined
