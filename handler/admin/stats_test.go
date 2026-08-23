@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
 )
 
 func setupStatsPostgresTest(t *testing.T) (*store.DB, chi.Router) {
@@ -657,6 +657,89 @@ func TestStats_SQLiteAttentionAggregatesExpiredLowBalanceDisabled(t *testing.T) 
 		if targets[category] != wantTarget {
 			t.Fatalf("%s target = %q, want %q", category, targets[category], wantTarget)
 		}
+	}
+}
+
+func TestStats_SQLiteAttentionNullBalanceIsUnknownNotZero(t *testing.T) {
+	db, r := setupStatsSQLiteTest(t)
+	now := time.Now().UTC()
+	nowStr := now.Format(time.RFC3339)
+
+	_, err := db.Exec(`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
+		VALUES (?, ?, ?, 'active', ?, ?)`, "null-site", "https://null.example.test", "new-api", nowStr, nowStr)
+	if err != nil {
+		t.Fatalf("insert site: %v", err)
+	}
+	var siteID int64
+	if err := db.Get(&siteID, "SELECT id FROM sites WHERE name = ?", "null-site"); err != nil {
+		t.Fatalf("site id: %v", err)
+	}
+	// Active account with a NULL (never-fetched) balance.
+	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, balance, created_at, updated_at)
+		VALUES (?, ?, ?, 'active', ?, NULL, ?, ?)`, siteID, "nullbal-user", "tok", true, nowStr, nowStr)
+	if err != nil {
+		t.Fatalf("insert null-balance account: %v", err)
+	}
+	var nullAccountID int64
+	if err := db.Get(&nullAccountID, "SELECT id FROM accounts WHERE username = ?", "nullbal-user"); err != nil {
+		t.Fatalf("null account id: %v", err)
+	}
+	// A genuinely low balance must still be reported.
+	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, balance, created_at, updated_at)
+		VALUES (?, ?, ?, 'active', ?, 0.4, ?, ?)`, siteID, "real-low-user", "tok", true, nowStr, nowStr)
+	if err != nil {
+		t.Fatalf("insert real low account: %v", err)
+	}
+	var lowAccountID int64
+	if err := db.Get(&lowAccountID, "SELECT id FROM accounts WHERE username = ?", "real-low-user"); err != nil {
+		t.Fatalf("low account id: %v", err)
+	}
+
+	resp := doGet(t, r, "/api/stats/attention?limit=20")
+	if resp.Code != 200 {
+		t.Fatalf("attention returned %d: %s", resp.Code, resp.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	items, ok := body["items"].([]any)
+	if !ok {
+		t.Fatalf("items = %#v", body["items"])
+	}
+
+	var sawLowBalance, sawUnknown bool
+	for _, it := range items {
+		item := it.(map[string]any)
+		category := item["category"].(string)
+		if category == "low_balance" && item["target"] == "/accounts?accountId="+strconv.FormatInt(nullAccountID, 10) {
+			t.Fatalf("NULL-balance account misreported as low_balance: %v", item)
+		}
+		if category == "low_balance" && item["target"] == "/accounts?accountId="+strconv.FormatInt(lowAccountID, 10) {
+			sawLowBalance = true
+			// numeric balance param must be present for localized rendering
+			params, hasParams := item["params"].(map[string]any)
+			if !hasParams || params["username"] != "real-low-user" {
+				t.Fatalf("low_balance params missing username: %v", item)
+			}
+		}
+		if category == "balance_unknown" && item["target"] == "/accounts?accountId="+strconv.FormatInt(nullAccountID, 10) {
+			sawUnknown = true
+			label, _ := item["label"].(string)
+			if label != "Balance unknown: nullbal-user" {
+				t.Fatalf("balance_unknown label = %q, want 'Balance unknown: nullbal-user'", label)
+			}
+			params, hasParams := item["params"].(map[string]any)
+			if !hasParams || params["username"] != "nullbal-user" {
+				t.Fatalf("balance_unknown params missing username: %v", item)
+			}
+		}
+	}
+	if !sawLowBalance {
+		t.Fatalf("no low_balance item for real low balance account")
+	}
+	if !sawUnknown {
+		t.Fatalf("no balance_unknown item for NULL-balance account")
 	}
 }
 

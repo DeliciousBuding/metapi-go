@@ -47,15 +47,24 @@ import {
 
 const SPARK_BARS = 60
 
+/** One attention item from GET /api/stats/attention. */
+type AttentionItem = {
+  severity: 'critical' | 'warning' | 'info'
+  category: string
+  label: string
+  target: string
+  createdAt: string
+  /**
+   * Structured label params from the backend (username / site name /
+   * numeric balance) so the label can be rendered through i18n. Absent on
+   * items from old backends → raw `label` is rendered instead.
+   */
+  params?: Record<string, string | number>
+}
+
 /** Attention response (GET /api/stats/attention). */
 type AttentionResponse = {
-  items: Array<{
-    severity: 'critical' | 'warning' | 'info'
-    category: string
-    label: string
-    target: string
-    createdAt: string
-  }>
+  items: AttentionItem[]
   total: number
 }
 
@@ -82,14 +91,100 @@ function formatRate(rate: number): string {
 }
 
 /**
+ * Backend event titles are English strings taken verbatim from the events
+ * table (alert.go writes "All proxies failed"). Known titles map to
+ * localized keys so the panel reads in the active language; unknown titles
+ * fall through as-is.
+ */
+const EVENT_TITLE_KEYS: Record<string, string> = {
+  'All proxies failed': 'dashboard.availability.monitors.eventAllProxiesFailed',
+}
+
+/**
+ * Localized label for an attention item. The backend keeps an English
+ * `label` for API compat and sends structured `params` alongside; when the
+ * params a category needs are missing (old backend, malformed payload) the
+ * raw label is used instead of a string with empty placeholders.
+ */
+function attentionLabel(
+  item: AttentionItem,
+  t: (key: string, options?: Record<string, unknown>) => string
+): string {
+  switch (item.category) {
+    case 'expired_account': {
+      const name = item.params?.username
+      return typeof name === 'string' && name !== ''
+        ? t('dashboard.availability.monitors.expiredAccount', { name })
+        : item.label
+    }
+    case 'low_balance': {
+      const name = item.params?.username
+      const balance = item.params?.balance
+      return typeof name === 'string' && name !== '' && balance != null
+        ? t('dashboard.availability.monitors.lowBalance', {
+            name,
+            amount: Number(balance).toFixed(2),
+          })
+        : item.label
+    }
+    case 'disabled_site': {
+      const name = item.params?.name
+      return typeof name === 'string' && name !== ''
+        ? t('dashboard.availability.monitors.disabledSite', { name })
+        : item.label
+    }
+    case 'balance_unknown': {
+      const name = item.params?.username
+      return typeof name === 'string' && name !== ''
+        ? t('dashboard.availability.monitors.balanceUnknown', { name })
+        : item.label
+    }
+    case 'event': {
+      const key = EVENT_TITLE_KEYS[item.label]
+      return key ? t(key) : item.label
+    }
+    default:
+      return item.label
+  }
+}
+
+/**
+ * Merge consecutive duplicate items (same category / label / severity /
+ * target — e.g. a persistent "All proxies failed" storm pushing one row per
+ * scan window) into a single row carrying a ×N count. The row keeps the
+ * newest createdAt; distinct events stay separate.
+ */
+function mergeAttentionItems(
+  items: AttentionItem[]
+): Array<{ item: AttentionItem; count: number }> {
+  const merged: Array<{ item: AttentionItem; count: number }> = []
+  for (const item of items) {
+    const previous = merged.at(-1)
+    if (
+      previous &&
+      previous.item.category === item.category &&
+      previous.item.label === item.label &&
+      previous.item.severity === item.severity &&
+      previous.item.target === item.target
+    ) {
+      previous.count += 1
+      if (item.createdAt > previous.item.createdAt) previous.item = item
+    } else {
+      merged.push({ item, count: 1 })
+    }
+  }
+  return merged
+}
+
+/**
  * Escalate the realtime uptime from minutes to hours/days once the value
  * outgrows the unit (a multi-day session must not render "4320m").
  */
 function formatUptime(
-  lifetimeSeconds: number,
+  seconds: number,
   t: (key: string, options?: Record<string, unknown>) => string
 ): string {
-  const minutes = Math.floor(lifetimeSeconds / 60)
+  const minutes = Math.floor(seconds / 60)
   if (minutes < 60) {
     return t('dashboard.availability.realtime.uptimeMinutes', {
       value: minutes,
@@ -277,7 +372,7 @@ function RealtimeOpsPanel() {
                   {t('dashboard.availability.realtime.metricUptime')}
                 </div>
                 <div className='text-2xl font-semibold tabular-nums'>
-                  {formatUptime(sample.lifetime, t)}
+                  {formatUptime(sample.uptimeSeconds, t)}
                 </div>
               </div>
             </div>
@@ -300,9 +395,12 @@ function RealtimeOpsPanel() {
 function AttentionTargetLink({
   location,
   children,
+  title,
 }: {
   location: AttentionTargetLocation
   children: ReactNode
+  /** Full label text — hover tooltip when the row is truncated. */
+  title: string
 }) {
   switch (location.to) {
     case '/accounts':
@@ -310,6 +408,7 @@ function AttentionTargetLink({
         <Link
           to='/accounts'
           search={{ accountId: location.search.accountId }}
+          title={title}
           className='block truncate text-sm hover:underline'
         >
           {children}
@@ -320,6 +419,7 @@ function AttentionTargetLink({
         <Link
           to='/sites'
           search={{ edit: location.search.edit }}
+          title={title}
           className='block truncate text-sm hover:underline'
         >
           {children}
@@ -330,6 +430,7 @@ function AttentionTargetLink({
         <Link
           to='/settings/$subarea/$section'
           params={location.params}
+          title={title}
           className='block truncate text-sm hover:underline'
         >
           {children}
@@ -351,6 +452,7 @@ function AttentionPanel() {
   })
 
   const items = data?.items ?? []
+  const mergedItems = mergeAttentionItems(items)
 
   return (
     <Card>
@@ -393,11 +495,12 @@ function AttentionPanel() {
           </Empty>
         ) : (
           <ul className='space-y-2'>
-            {items.map((item, index) => {
+            {mergedItems.map(({ item, count }, index) => {
               const tone = SEVERITY_TONE[item.severity] ?? SEVERITY_TONE.info
               const label = t(
                 `dashboard.availability.monitors.severity.${item.severity}`
               )
+              const itemLabel = attentionLabel(item, t)
               const relativeTime = formatRelativeTime(item.createdAt, locale)
               // Unrecognized targets (backend drift, malformed url) render as
               // plain text — never a dead anchor.
@@ -406,25 +509,43 @@ function AttentionPanel() {
                 : null
               return (
                 <li
-                  // eslint-disable-next-line react/no-array-index-key
-                  key={`${item.target}-${index}`}
+                  key={`${item.category}:${item.label}:${item.target}:${index}`}
                   className='flex items-start gap-3'
                 >
-                  <Badge variant={tone.variant} className='mt-1 shrink-0'>
-                    <span
-                      aria-hidden='true'
-                      className={cn('size-1.5 rounded-full', tone.dot)}
-                    />
-                    {label}
-                  </Badge>
+                  <div className='mt-1 flex shrink-0 items-center gap-1'>
+                    <Badge variant={tone.variant}>
+                      <span
+                        aria-hidden='true'
+                        className={cn('size-1.5 rounded-full', tone.dot)}
+                      />
+                      {label}
+                    </Badge>
+                    {count > 1 ? (
+                      <Badge
+                        variant='outline'
+                        title={t(
+                          'dashboard.availability.monitors.mergedCount',
+                          { count }
+                        )}
+                      >
+                        ×{count}
+                      </Badge>
+                    ) : null}
+                  </div>
                   <div className='min-w-0 flex-1'>
                     {targetLocation ? (
-                      <AttentionTargetLink location={targetLocation}>
-                        {item.label}
+                      <AttentionTargetLink
+                        location={targetLocation}
+                        title={itemLabel}
+                      >
+                        {itemLabel}
                       </AttentionTargetLink>
                     ) : (
-                      <span className='block truncate text-sm'>
-                        {item.label}
+                      <span
+                        className='block truncate text-sm'
+                        title={itemLabel}
+                      >
+                        {itemLabel}
                       </span>
                     )}
                   </div>

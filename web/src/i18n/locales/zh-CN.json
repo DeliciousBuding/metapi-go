@@ -861,6 +861,12 @@
           "description": "按严重级别排列、需要运维介入的事项（账号、余额、站点）。",
           "empty": "一切正常——暂无需要关注的事项。",
           "loadError": "加载关注事项失败。",
+          "expiredAccount": "账号已过期：{{name}}",
+          "lowBalance": "余额低：{{name}}（{{amount}}）",
+          "disabledSite": "站点已停用：{{name}}",
+          "balanceUnknown": "余额未知：{{name}}",
+          "eventAllProxiesFailed": "全部代理失败",
+          "mergedCount": "合并 {{count}} 条事件",
           "severity": {
             "critical": "严重",
             "warning": "警告",

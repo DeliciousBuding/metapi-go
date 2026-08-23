@@ -28,11 +28,12 @@ vi.mock('@/features/dashboard/hooks/use-realtime-ops', () => ({
 const mockGetAttention = vi.mocked(api.getAttention)
 const mockUseRealtimeOps = vi.mocked(useRealtimeOps)
 
-function sampleWithLifetime(lifetimeSeconds: number): RealtimeOpsSample {
+function sampleWithUptime(uptimeSeconds: number): RealtimeOpsSample {
   return {
     qps: 0,
     successRate: 0,
-    lifetime: lifetimeSeconds,
+    lifetime: 0,
+    uptimeSeconds,
     spark: [],
     connected: true,
     gaveUp: false,
@@ -65,9 +66,32 @@ beforeEach(() => {
 afterEach(() => cleanup())
 
 describe('realtime uptime unit escalation', () => {
+  it('renders wall-clock uptime, not the lifetime request counter', async () => {
+    // The backend sends lifetime = monotonic request count (here 3 real
+    // requests) alongside uptimeSeconds = wall-clock runtime. The panel must
+    // render the runtime: a 45-minute-old process is "45 min", never "0 min".
+    mockUseRealtimeOps.mockReturnValue({
+      sample: {
+        qps: 0,
+        successRate: 0,
+        lifetime: 3,
+        uptimeSeconds: 45 * 60,
+        spark: [],
+        connected: true,
+        gaveUp: false,
+      },
+      reconnect: vi.fn(),
+      lastFrameAt: null,
+    })
+
+    renderSection()
+
+    expect(await screen.findByText('45 min')).toBeInTheDocument()
+    expect(screen.queryByText('0 min')).not.toBeInTheDocument()
+  })
   it('shows minutes while the session is under an hour', async () => {
     mockUseRealtimeOps.mockReturnValue({
-      sample: sampleWithLifetime(45 * 60),
+      sample: sampleWithUptime(45 * 60),
       reconnect: vi.fn(),
       lastFrameAt: null,
     })
@@ -79,7 +103,7 @@ describe('realtime uptime unit escalation', () => {
 
   it('escalates to hours once the session passes an hour', async () => {
     mockUseRealtimeOps.mockReturnValue({
-      sample: sampleWithLifetime(150 * 60),
+      sample: sampleWithUptime(150 * 60),
       reconnect: vi.fn(),
       lastFrameAt: null,
     })
@@ -91,7 +115,7 @@ describe('realtime uptime unit escalation', () => {
 
   it('escalates to days for multi-day sessions instead of 4-digit minutes', async () => {
     mockUseRealtimeOps.mockReturnValue({
-      sample: sampleWithLifetime(3 * 24 * 60 * 60),
+      sample: sampleWithUptime(3 * 24 * 60 * 60),
       reconnect: vi.fn(),
       lastFrameAt: null,
     })

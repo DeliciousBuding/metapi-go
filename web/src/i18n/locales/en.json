@@ -861,6 +861,12 @@
           "description": "Severity-ranked items requiring attention (accounts, balances, sites).",
           "empty": "All clear — nothing needs attention.",
           "loadError": "Failed to load attention items.",
+          "expiredAccount": "Account expired: {{name}}",
+          "lowBalance": "Low balance: {{name}} ({{amount}})",
+          "disabledSite": "Site disabled: {{name}}",
+          "balanceUnknown": "Balance unknown: {{name}}",
+          "eventAllProxiesFailed": "All proxies failed",
+          "mergedCount": "{{count}} merged events",
           "severity": {
             "critical": "critical",
             "warning": "warning",

@@ -80,6 +80,7 @@ function sampleWithLatest(point: {
     qps: point.qps,
     successRate: point.successRate,
     lifetime: 120,
+    uptimeSeconds: 120,
     spark: [
       { qps: 10, successRate: 0.99 },
       { qps: 10, successRate: 0.97 },
@@ -94,6 +95,7 @@ const IDLE_SAMPLE: RealtimeOpsSample = {
   qps: 0,
   successRate: 0,
   lifetime: 0,
+  uptimeSeconds: 0,
   spark: [],
   connected: false,
   gaveUp: false,

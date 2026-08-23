@@ -56,16 +56,17 @@ function seriesKey(index: number): string {
 }
 
 /**
- * Adaptive currency formatting for chart axes/tooltips — mirrors the legacy
- * VChart tooltip format (sub-cent values keep 6 decimals so tiny per-call
- * costs stay legible).
+ * Adaptive currency formatting for chart axes/tooltips. One precision per
+ * magnitude band — the 6-decimal branch is gone because it rendered the zero
+ * tick as "$0.000000" next to "$1.000" on the same axis (mixed precision
+ * reads as a rounding bug). 3 decimals stays legible for sub-cent per-call
+ * costs ($0.002) and keeps every tick on an axis in the same format.
  */
-function formatChartCurrency(value: number): string {
+export function formatChartCurrency(value: number): string {
   if (!Number.isFinite(value)) return EM_DASH
   const magnitude = Math.abs(value)
   if (magnitude >= 1000) return `$${value.toFixed(2)}`
-  if (magnitude >= 1) return `$${value.toFixed(3)}`
-  return `$${value.toFixed(6)}`
+  return `$${value.toFixed(3)}`
 }
 
 /** Percent-of-total string for the donut tooltip share row. */

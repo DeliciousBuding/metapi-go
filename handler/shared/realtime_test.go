@@ -13,9 +13,16 @@ func TestRealtimeRingBuffer_RecordsAndSnapshots(t *testing.T) {
 	RecordRealtimeOutcome(false)
 	RecordRealtimeOutcome(true)
 
-	points, lifetime := RealtimeSnapshot()
+	points, lifetime, uptime := RealtimeSnapshot()
 	if lifetime != 3 {
 		t.Fatalf("lifetime = %d, want 3", lifetime)
+	}
+	// Uptime is wall-clock seconds of the test process (not the request counter).
+	if uptime < 0 {
+		t.Fatalf("uptime = %d, want >= 0", uptime)
+	}
+	if uptime > 600 {
+		t.Fatalf("uptime = %d, want < 600 (fresh test process)", uptime)
 	}
 	if len(points) != realtimeWindowSecs {
 		t.Fatalf("points = %d, want %d window seconds", len(points), realtimeWindowSecs)
@@ -39,7 +46,7 @@ func TestRealtimeRingBuffer_MissingSecondsZeroFilled(t *testing.T) {
 
 	RecordRealtimeOutcome(true)
 
-	points, _ := RealtimeSnapshot()
+	points, _, _ := RealtimeSnapshot()
 	// Every non-current second must be zero.
 	for i := 0; i < len(points)-1; i++ {
 		if points[i].Total != 0 {
@@ -64,7 +71,7 @@ func TestRealtimeRingBuffer_ConcurrentSafe(t *testing.T) {
 		RealtimeSnapshot()
 	}
 	<-done
-	_, lifetime := RealtimeSnapshot()
+	_, lifetime, _ := RealtimeSnapshot()
 	if lifetime != 50_000 {
 		t.Fatalf("lifetime = %d, want 50000", lifetime)
 	}

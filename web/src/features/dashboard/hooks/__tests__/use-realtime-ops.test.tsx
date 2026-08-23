@@ -106,12 +106,14 @@ describe('useRealtimeOps shared connection', () => {
       socket.open()
       socket.sendFrame({
         lifetime: 30,
+        uptimeSeconds: 600,
         points: [{ ts: 1, total: 12, success: 12 }],
       })
     })
 
     expect(firstHook.result.current.lastFrameAt).not.toBeNull()
     expect(secondHook.result.current.sample.lifetime).toBe(30)
+    expect(secondHook.result.current.sample.uptimeSeconds).toBe(600)
     expect(secondHook.result.current.sample.spark).toHaveLength(1)
 
     firstHook.unmount()

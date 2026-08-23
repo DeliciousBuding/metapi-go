@@ -22,6 +22,12 @@ var realtimeMetrics struct {
 	requests atomic.Int64 // lifetime total (cheap monotonic counter)
 }
 
+// processStartedAt anchors the uptime reported on the ops WebSocket: the
+// monotonic request counter is NOT a duration, so the frontend must not
+// render it as runtime. Both live in-process (multi-instance honesty — each
+// process reports its own start, matching the per-process traffic counts).
+var processStartedAt = time.Now()
+
 // RecordRealtimeOutcome records one terminal proxy outcome into the live ring
 // buffer. Called from ObserveProxyOutcome (the unified terminal observation
 // point) — never from per-attempt intermediate steps.
@@ -43,9 +49,12 @@ type RealtimePoint struct {
 }
 
 // RealtimeSnapshot returns the live traffic series, oldest first, plus the
-// lifetime request count. Missing seconds are zero-filled so the frontend can
-// render a contiguous line without guessing.
-func RealtimeSnapshot() (points []RealtimePoint, lifetime int64) {
+// lifetime request count and the process uptime in whole seconds. The two
+// counters are distinct signals: lifetime is a monotonic request counter,
+// uptimeSeconds is wall-clock runtime — the frontend renders the latter as
+// "uptime". Missing seconds are zero-filled so the frontend can render a
+// contiguous line without guessing.
+func RealtimeSnapshot() (points []RealtimePoint, lifetime int64, uptimeSeconds int64) {
 	now := time.Now().Unix()
 	points = make([]RealtimePoint, 0, realtimeWindowSecs)
 	for sec := now - realtimeWindowSecs + 1; sec <= now; sec++ {
@@ -56,7 +65,7 @@ func RealtimeSnapshot() (points []RealtimePoint, lifetime int64) {
 			Success: realtimeMetrics.success[idx].Load(),
 		})
 	}
-	return points, realtimeMetrics.requests.Load()
+	return points, realtimeMetrics.requests.Load(), int64(time.Since(processStartedAt).Seconds())
 }
 
 // ResetRealtimeForTest clears the ring buffer (test-only).

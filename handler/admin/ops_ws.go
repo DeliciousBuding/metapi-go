@@ -24,10 +24,12 @@ import (
 
 // Server pushes one JSON frame per second:
 
-//	{"lifetime": 1234, "points": [{"ts":..., "total": 5, "success": 4},...]}
+//	{"lifetime": 1234, "uptimeSeconds": 3600, "points": [{"ts":..., "total": 5, "success": 4},...]}
 
-// where points cover the last 300s (zero-filled). This instance's own traffic
-// only (multi-instance honesty: no cross-instance aggregation).
+// where points cover the last 300s (zero-filled). `lifetime` is the monotonic
+// request counter; `uptimeSeconds` is the process wall-clock runtime — the
+// frontend renders the latter as the panel's uptime metric. This instance's
+// own traffic only (multi-instance honesty: no cross-instance aggregation).
 
 // RegisterOpsWSRoutes mounts the live ops WebSocket endpoint.
 func RegisterOpsWSRoutes(r chi.Router, cfg *config.Config) {
@@ -92,10 +94,11 @@ func (h *opsWSHandler) serve(w http.ResponseWriter, r *http.Request) {
 
 // pushOpsFrame writes one snapshot frame; returns false when the peer is gone.
 func pushOpsFrame(ctx context.Context, conn *websocket.Conn) bool {
-	points, lifetime := shared.RealtimeSnapshot()
+	points, lifetime, uptimeSeconds := shared.RealtimeSnapshot()
 	payload := map[string]any{
-		"lifetime": lifetime,
-		"points":   points,
+		"lifetime":      lifetime,
+		"uptimeSeconds": uptimeSeconds,
+		"points":        points,
 	}
 	b, err := json.Marshal(payload)
 	if err != nil {

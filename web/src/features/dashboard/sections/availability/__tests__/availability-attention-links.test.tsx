@@ -40,11 +40,13 @@ vi.mock('@tanstack/react-router', () => ({
     to,
     search,
     params,
+    title,
   }: {
     children?: ReactNode
     to: string
     search?: Record<string, number | string | undefined>
     params?: Record<string, string | undefined>
+    title?: string
   }) => {
     const query = search
       ? new URLSearchParams(
@@ -60,7 +62,11 @@ vi.mock('@tanstack/react-router', () => ({
           to
         )
       : to
-    return <a href={query ? `${path}?${query}` : path}>{children}</a>
+    return (
+      <a href={query ? path + '?' + query : path} title={title}>
+        {children}
+      </a>
+    )
   },
 }))
 
@@ -71,6 +77,7 @@ const IDLE_SAMPLE: RealtimeOpsSample = {
   qps: 0,
   successRate: 0,
   lifetime: 0,
+  uptimeSeconds: 0,
   spark: [],
   connected: false,
   gaveUp: false,
@@ -113,9 +120,10 @@ describe('AvailabilitySection attention deep links', () => {
         {
           severity: 'critical',
           category: 'expired_account',
-          label: 'Account expired',
+          label: 'Account expired: expired-user',
           target: '/accounts?accountId=5',
           createdAt: '',
+          params: { username: 'expired-user' },
         },
       ],
       total: 1,
@@ -123,8 +131,12 @@ describe('AvailabilitySection attention deep links', () => {
 
     renderWithClient(<AvailabilitySection />)
 
-    const link = await screen.findByRole('link', { name: 'Account expired' })
+    const link = await screen.findByRole('link', {
+      name: 'Account expired: expired-user',
+    })
     expect(link).toHaveAttribute('href', '/accounts?accountId=5')
+    // Full text available as an unhover tooltip when the row truncates.
+    expect(link).toHaveAttribute('title', 'Account expired: expired-user')
   })
 
   it('links a disabled-site item to /sites?edit=N', async () => {
@@ -133,9 +145,10 @@ describe('AvailabilitySection attention deep links', () => {
         {
           severity: 'warning',
           category: 'disabled_site',
-          label: 'Site disabled',
+          label: 'Site disabled: legacy-site',
           target: '/sites?edit=3',
           createdAt: '',
+          params: { name: 'legacy-site' },
         },
       ],
       total: 1,
@@ -143,8 +156,11 @@ describe('AvailabilitySection attention deep links', () => {
 
     renderWithClient(<AvailabilitySection />)
 
-    const link = await screen.findByRole('link', { name: 'Site disabled' })
+    const link = await screen.findByRole('link', {
+      name: 'Site disabled: legacy-site',
+    })
     expect(link).toHaveAttribute('href', '/sites?edit=3')
+    expect(link).toHaveAttribute('title', 'Site disabled: legacy-site')
   })
 
   it('links an event item to the settings program-logs section', async () => {
@@ -187,5 +203,81 @@ describe('AvailabilitySection attention deep links', () => {
 
     expect(await screen.findByText('Legacy payload')).toBeInTheDocument()
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
+  })
+
+  it('falls back to the raw English label when category params are missing', async () => {
+    // Old backend payload: category present but no structured params.
+    // The panel must render the verbatim label, not a string with empty
+    // placeholders.
+    mockGetAttention.mockResolvedValue({
+      items: [
+        {
+          severity: 'warning',
+          category: 'low_balance',
+          label: 'Low balance: svc-oneapi-02 (0.00)',
+          target: '/accounts?accountId=2',
+          createdAt: '',
+        },
+      ],
+      total: 1,
+    })
+
+    renderWithClient(<AvailabilitySection />)
+
+    expect(
+      await screen.findByText('Low balance: svc-oneapi-02 (0.00)')
+    ).toBeInTheDocument()
+  })
+
+  it('localizes a low-balance item from its structured params', async () => {
+    // New backend payload: params drive the i18n template. The rendered
+    // amount comes from params.balance (5.43), not the English verbatim
+    // label (which says 0.32) — proving the template path is used.
+    mockGetAttention.mockResolvedValue({
+      items: [
+        {
+          severity: 'warning',
+          category: 'low_balance',
+          label: 'Low balance: svc-oneapi-02 (0.32)',
+          target: '/accounts?accountId=2',
+          createdAt: '',
+          params: { username: 'svc-oneapi-02', balance: 5.432 },
+        },
+      ],
+      total: 1,
+    })
+
+    renderWithClient(<AvailabilitySection />)
+
+    expect(
+      await screen.findByText('Low balance: svc-oneapi-02 (5.43)')
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText('Low balance: svc-oneapi-02 (0.32)')
+    ).not.toBeInTheDocument()
+  })
+
+  it('localizes an unknown-balance item without a numeric amount', async () => {
+    // A NULL balance must read as "unknown" — never "(0.00)".
+    mockGetAttention.mockResolvedValue({
+      items: [
+        {
+          severity: 'warning',
+          category: 'balance_unknown',
+          label: 'Balance unknown: svc-oneapi-02',
+          target: '/accounts?accountId=2',
+          createdAt: '',
+          params: { username: 'svc-oneapi-02' },
+        },
+      ],
+      total: 1,
+    })
+
+    renderWithClient(<AvailabilitySection />)
+
+    expect(
+      await screen.findByText('Balance unknown: svc-oneapi-02')
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/0\.00/)).not.toBeInTheDocument()
   })
 })
