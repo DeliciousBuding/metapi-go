@@ -716,8 +716,8 @@
           "description": "核心指标、公告与定时任务健康。"
         },
         "traffic": {
-          "title": "流量",
-          "description": "收入/支出、站点趋势与分布图表。"
+          "title": "收支",
+          "description": "收入/支出、站点支出趋势与余额分布图表。"
         },
         "models": {
           "title": "模型",
@@ -745,6 +745,7 @@
           "title": "今日快照",
           "totalBalance": "总余额",
           "vs7d": "较 7 天前",
+          "vs7dUnavailable": "余额历史不足 7 天，暂无法计算环比",
           "checkinSuccess": "今日签到成功",
           "attention": "待处理",
           "attentionOpen": "打开可用性",
@@ -754,6 +755,16 @@
           "title": "定时任务",
           "description": "后台任务健康（签到、余额刷新与日志清理）。",
           "editSchedule": "编辑调度",
+          "viewCheckinLogs": "查看签到记录",
+          "jobLabels": {
+            "checkin": "签到",
+            "balance-refresh": "余额刷新",
+            "model-probe": "模型探测",
+            "site-announcements": "站点公告",
+            "daily-summary": "每日汇总",
+            "log-cleanup": "日志清理",
+            "usage-aggregation": "用量聚合"
+          },
           "colJob": "任务",
           "colEnabled": "启用",
           "colLastStatus": "上次状态",
@@ -786,11 +797,11 @@
         "createSite": "创建站点"
       },
       "traffic": {
-        "loadError": "加载流量数据失败。",
+        "loadError": "加载收支数据失败。",
         "incomeOutcome": {
           "title": "收入 vs 支出",
           "description": "每日余额收入与支出（30 天）。",
-          "empty": "所选区间暂无余额流动数据。"
+          "empty": "近 30 天暂无余额流动数据。"
         },
         "siteTrend": {
           "title": "站点趋势",
@@ -967,7 +978,7 @@
             "homePageContentHint": "支持 Markdown；渲染在落地页。",
             "homePageContentPlaceholder": "编写你的落地页内容…",
             "serverAddress": "服务器地址",
-            "serverAddressHint": "用于外链与 OpenAPI 文档的公开基础 URL。"
+            "serverAddressHint": "展示给下游用户的网关公开地址（用于接入指引与文档生成）。"
           },
           "toast": {
             "saved": "站点品牌已保存。",
@@ -1030,7 +1041,7 @@
             "balanceRefreshSchedule": "余额刷新计划",
             "logCleanupGroup": "日志清理",
             "logCleanupSchedule": "日志清理计划",
-            "logCleanupProgramLogsEnabled": "清理程序日志",
+            "logCleanupProgramLogsEnabled": "清理运行事件",
             "logCleanupProgramLogsEnabledHint": "按计划删除程序事件。两个清理开关均关闭时不执行删除。"
           },
           "toast": {
@@ -1046,6 +1057,7 @@
           "description": "系统代理、负载规则、上游并发与探测。",
           "testProxy": "测试",
           "codexUpstreamGroup": "Codex 上游并发",
+          "codexUpstreamGroupHint": "Codex 上游的会话级控制：WebSocket/Compact 行为、每会话通道并发上限与队列等待时间。",
           "fields": {
             "systemProxyUrl": "系统代理 URL",
             "systemProxyUrlHint": "可选出站代理（http:// 或 socks5://）。留空则禁用。",
@@ -1054,7 +1066,7 @@
             "proxyEmptyContentFailEnabled": "空 completion 视为失败",
             "proxyEmptyContentFailEnabledHint": "completion=0 的响应视为失败。",
             "payloadRules": "负载规则（JSON）",
-            "payloadRulesHint": "原始 JSON 对象。复杂规则请用旧版可视化编辑器。",
+            "payloadRulesHint": "按模型重写请求负载的 JSON 对象（键为模型名，值为要覆盖的字段）。",
             "codexUpstreamWebsocketEnabled": "对 Codex 上游使用 WebSocket",
             "responsesCompactFallbackEnabled": "Compact 回退到 Responses",
             "proxySessionChannelConcurrencyLimit": "会话通道并发",
@@ -1078,6 +1090,7 @@
           "description": "兜底成本、权重、冷却与超时。",
           "weightsGroup": "路由权重",
           "weightsHint": "预设应用典型权重档位；可手动微调。",
+          "fallbackGroup": "价格兜底",
           "preset": {
             "balanced": "均衡",
             "stable": "稳定优先",
@@ -1093,10 +1106,15 @@
             "disableCrossProtocolFallback": "禁用跨协议回退",
             "disableCrossProtocolFallbackHint": "失败时不重试其他协议。",
             "baseWeightFactor": "基础权重因子",
+            "baseWeightFactorHint": "每个候选通道的基础权重加数；调高可缩小通道间权重差距、分配更均衡。",
             "valueScoreFactor": "价值评分因子",
+            "valueScoreFactorHint": "价值评分（成本/余额/用量综合）在路由贡献中的放大系数。",
             "costWeight": "成本权重",
+            "costWeightHint": "价值评分中单价的权重：单价越低得分越高，通道越优先。",
             "balanceWeight": "余额权重",
-            "usageWeight": "用量权重"
+            "balanceWeightHint": "价值评分中账户余额的权重：余额越充足，通道越优先。",
+            "usageWeight": "用量权重",
+            "usageWeightHint": "价值评分中近期用量的权重：用量越少，通道越优先（负载均衡）。"
           },
           "toast": {
             "saved": "路由策略已保存。",
@@ -1422,8 +1440,8 @@
           "dangerZone": "危险区"
         },
         "programLogs": {
-          "title": "程序日志",
-          "description": "操作事件日志（事件流）。",
+          "title": "运行事件",
+          "description": "程序运行产生的告警与异常事件（签到、余额、令牌、代理）。",
           "allTypes": "全部类型",
           "filterType": "类型",
           "unreadOnly": "只看未读",
@@ -1432,9 +1450,23 @@
           "markAllRead": "全部标为已读",
           "exportCsv": "导出 CSV",
           "clear": "清空",
-          "clearTitle": "清空程序日志？",
+          "clearTitle": "清空运行事件？",
           "clearDescription": "所有运行事件将被永久删除。此操作无法撤销。",
-          "empty": "暂无程序事件。",
+          "empty": "暂无运行事件。",
+          "eventTitles": {
+            "tokenExpired": "令牌失效",
+            "lowBalance": "余额不足",
+            "allProxiesFailed": "代理全部失败",
+            "checkinSuccess": "签到成功",
+            "checkinSkipped": "签到已跳过",
+            "checkinFailed": "签到失败",
+            "checkinFailedCloudflare": "签到失败（Cloudflare 验证）"
+          },
+          "messageParts": {
+            "affectedRoutes": "受影响路由",
+            "alternativeSites": "替代站点",
+            "openPanel": "打开面板"
+          },
           "type": {
             "checkin": "签到",
             "balance": "余额",
@@ -1452,7 +1484,7 @@
             "allMarkedRead": "所有事件已标记已读。",
             "markAllFailed": "标记已读失败。",
             "markReadFailed": "标记事件已读失败。",
-            "cleared": "程序事件已清空。",
+            "cleared": "运行事件已清空。",
             "clearFailed": "清空事件失败。",
             "exported": "已导出 {{count}} 条事件到 CSV。"
           },
@@ -1491,10 +1523,12 @@
           "updateAvailable": "有新版本",
           "upToDate": "已是最新",
           "mode": "模式",
+          "modeExternal": "外部部署（容器/手动）",
+          "externalResidual": "外部部署模式下不提供应用内版本发现与自动更新；请通过部署平台升级。",
           "repoLink": "GitHub 仓库",
           "releasesLink": "版本发布",
           "ghcrLink": "GHCR 镜像",
-          "opsNote": "应用内部署已禁用；请使用 metapi-migrate CLI 或容器编排工具。"
+          "opsNote": "应用内升级/回滚已禁用；请通过容器镜像或 CI/CD 完成升级，数据库迁移请使用 metapi-migrate CLI。"
         },
         "database": {
           "title": "数据库",
@@ -1578,8 +1612,8 @@
           "clearUsage": "清除用量日志",
           "clearUsageConfirmTitle": "清除用量日志？",
           "clearUsageConfirmDescription": "此操作将永久删除所有已记录的用量数据，且不可撤销。",
-          "eventsHint": "清理事件会记录在「程序日志」中。",
-          "viewEvents": "查看程序日志",
+          "eventsHint": "清理事件会记录在「运行事件」中。",
+          "viewEvents": "查看运行事件",
           "toast": {
             "cacheCleared": "缓存已清理。",
             "cacheClearFailed": "清理缓存失败。",
@@ -2105,7 +2139,62 @@
         "description": "描述",
         "actionHint": "建议操作",
         "detailHint": "详细信息",
-        "viewAccount": "查看账号"
+        "viewAccount": "查看账号",
+        "viewFullMessage": "点击查看原始信息"
+      },
+      "failureReason": {
+        "code": {
+          "site_disabled": {
+            "title": "站点已停用",
+            "action": "重新启用站点后重试",
+            "detail": "该账号所属站点已停用，任务将自动跳过。"
+          },
+          "checkin_not_supported": {
+            "title": "站点不支持签到",
+            "action": "无需重试（并非失败）",
+            "detail": "该站点未提供签到接口，账号将自动跳过。"
+          },
+          "manual_turnstile_required": {
+            "title": "需要手动验证",
+            "action": "在浏览器中手动登录一次",
+            "detail": "站点要求 Turnstile 验证，自动签到无法直接通过。"
+          },
+          "cloudflare_tunnel_unavailable": {
+            "title": "站点隧道不可用",
+            "action": "稍后重试或联系站点运营",
+            "detail": "Cloudflare Tunnel 当前不可达，通常是站点侧网络或隧道进程问题。"
+          },
+          "cloudflare_challenge": {
+            "title": "触发 Cloudflare 验证",
+            "action": "放慢频率，稍后重试",
+            "detail": "请求触发了防护验证；稍后重试或切换到稳定的站点。"
+          },
+          "token_expired": {
+            "title": "令牌已过期",
+            "action": "重新登录或刷新令牌",
+            "detail": "账号访问令牌可能已过期或失效，请更新凭据。"
+          },
+          "already_checked_in": {
+            "title": "今日已签到",
+            "action": "无需操作",
+            "detail": "该账号今日已签到，重复请求会被拒绝或跳过。"
+          },
+          "network_timeout": {
+            "title": "请求超时",
+            "action": "稍后重试并检查网络",
+            "detail": "请求未在超时内完成；可能是网络波动或站点响应缓慢。"
+          },
+          "upstream_error": {
+            "title": "上游站点错误",
+            "action": "稍后重试",
+            "detail": "站点返回服务端错误；通常需等站点恢复后才会成功。"
+          },
+          "unknown_error": {
+            "title": "未知错误",
+            "action": "查看详细日志后重试",
+            "detail": "未能识别具体错误类型；请结合原始信息排查。"
+          }
+        }
       },
       "manual": {
         "title": "手动签到",
@@ -2250,6 +2339,7 @@
     "Reset": "重置",
     "Search": "搜索",
     "View": "查看",
+    "columnSettings": "列设置",
     "Toggle columns": "切换列",
     "selected": "已选",
     "No results found.": "未找到结果。",
@@ -2516,13 +2606,13 @@
     "priceCompare": {
       "page": {
         "title": "价格对比",
-        "description": "跨站点有效模型价格，附价格来源等级。",
+        "description": "跨站点有效模型价格，含价格来源与推荐（同模型最低有效成本）。",
         "searchPlaceholder": "按模型筛选…",
         "loadError": "加载价格对比失败：{{message}}",
         "emptyDescription": "暂无价格数据。连接账号或产生流量后即可查看有效价格。"
       },
       "group": {
-        "description": "按来源站点的有效价格，从低到高。"
+        "description": "按来源站点的有效价格从低到高。来源优先级：计费明细 > 观测 > 已配置 > 兜底，取可用且优先级最高者。"
       },
       "grade": {
         "billing_details": "计费明细",
@@ -2531,14 +2621,15 @@
         "fallback": "兜底"
       },
       "recommended": "推荐",
+      "recommendedHint": "同模型各来源中最低的有效成本",
       "missingPrice": "无价格信号",
       "goToRoutes": "在路由中打开 {{model}}",
       "columns": {
         "site": "站点",
-        "grade": "等级",
+        "grade": "价格来源",
         "input": "输入 / 1M",
         "output": "输出 / 1M",
-        "effective": "有效成本",
+        "effective": "示例成本（1K in + 1K out）",
         "status": "状态",
         "actions": "操作"
       },
@@ -2570,7 +2661,7 @@
     "channels": {
       "page": {
         "title": "通道",
-        "description": "跨站点、账号、令牌与 OAuth 单元的只读路由健康视图。",
+        "description": "由站点、账号、令牌与 OAuth 账号生成的通道，及其只读路由健康状态。",
         "loadError": "加载通道失败：{{message}}"
       },
       "empty": {
@@ -2589,8 +2680,8 @@
         "models": "模型",
         "priority": "优先级",
         "weight": "权重",
-        "response": "响应",
-        "cooldown": "冷却",
+        "response": "响应延迟",
+        "cooldown": "冷却至",
         "viewDetails": "查看详情"
       },
       "status": {

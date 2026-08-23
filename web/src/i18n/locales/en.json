@@ -716,8 +716,8 @@
           "description": "Core metrics, announcements, and scheduled-task health."
         },
         "traffic": {
-          "title": "Traffic",
-          "description": "Income / spend, site trend, and distribution charts."
+          "title": "Income & spend",
+          "description": "Income vs spend, per-site spend trend, and balance distribution charts."
         },
         "models": {
           "title": "Models",
@@ -745,6 +745,7 @@
           "title": "Today snapshot",
           "totalBalance": "Total balance",
           "vs7d": "vs 7d ago",
+          "vs7dUnavailable": "Balance history spans less than 7 days; comparison unavailable",
           "checkinSuccess": "Successful check-ins today",
           "attention": "Needs attention",
           "attentionOpen": "Open availability",
@@ -754,6 +755,16 @@
           "title": "Scheduled tasks",
           "description": "Health of background jobs (check-in, balance refresh, log cleanup).",
           "editSchedule": "Edit schedule",
+          "viewCheckinLogs": "View check-in logs",
+          "jobLabels": {
+            "checkin": "Check-in",
+            "balance-refresh": "Balance refresh",
+            "model-probe": "Model probe",
+            "site-announcements": "Site announcements",
+            "daily-summary": "Daily summary",
+            "log-cleanup": "Log cleanup",
+            "usage-aggregation": "Usage aggregation"
+          },
           "colJob": "Job",
           "colEnabled": "Enabled",
           "colLastStatus": "Last status",
@@ -786,11 +797,11 @@
         "createSite": "Create site"
       },
       "traffic": {
-        "loadError": "Failed to load traffic data.",
+        "loadError": "Failed to load income/spend data.",
         "incomeOutcome": {
           "title": "Income vs spend",
           "description": "Daily balance inflow vs spend (30d).",
-          "empty": "No balance flow data for the selected range."
+          "empty": "No balance flow data in the last 30 days."
         },
         "siteTrend": {
           "title": "Site trend",
@@ -967,7 +978,7 @@
             "homePageContentHint": "Markdown supported; rendered on the landing page.",
             "homePageContentPlaceholder": "Write your landing page content…",
             "serverAddress": "Server address",
-            "serverAddressHint": "Public base URL used for outbound links and OpenAPI docs."
+            "serverAddressHint": "Public gateway address shown to downstream users (used in onboarding guides and generated docs)."
           },
           "toast": {
             "saved": "Site branding saved.",
@@ -1030,7 +1041,7 @@
             "logCleanupGroup": "Log cleanup",
             "logCleanupSchedule": "Log cleanup schedule",
             "logCleanupUsageLogsEnabledHint": "Delete accumulated proxy usage logs on the cleanup schedule.",
-            "logCleanupProgramLogsEnabled": "Purge program logs",
+            "logCleanupProgramLogsEnabled": "Purge operational events",
             "logCleanupProgramLogsEnabledHint": "Delete program events on the cleanup schedule. No-op if both cleanup toggles are off."
           },
           "toast": {
@@ -1046,6 +1057,7 @@
           "description": "System proxy, payload rules, upstream concurrency, and probe.",
           "testProxy": "Test",
           "codexUpstreamGroup": "Codex upstream concurrency",
+          "codexUpstreamGroupHint": "Session-level controls for Codex upstreams: WebSocket/Compact behavior, per-session channel concurrency cap, and queue wait time.",
           "fields": {
             "systemProxyUrl": "System proxy URL",
             "systemProxyUrlHint": "Optional outbound proxy (http:// or socks5://). Leave empty to disable.",
@@ -1054,7 +1066,7 @@
             "proxyEmptyContentFailEnabled": "Treat empty completion as failure",
             "proxyEmptyContentFailEnabledHint": "A response with zero completion tokens counts as failure.",
             "payloadRules": "Payload rules (JSON)",
-            "payloadRulesHint": "Raw JSON object for advanced rules.",
+            "payloadRulesHint": "Per-model payload rewrite rules as a JSON object (model name as key, override fields as value).",
             "codexUpstreamWebsocketEnabled": "Use WebSocket with Codex upstream",
             "responsesCompactFallbackEnabled": "Fallback Compact to Responses",
             "proxySessionChannelConcurrencyLimit": "Session channel concurrency",
@@ -1078,6 +1090,7 @@
           "description": "Fallback cost, weights, cooldown, and timeouts.",
           "weightsGroup": "Routing weights",
           "weightsHint": "Presets apply canonical weight profiles; fine-tune individually as needed.",
+          "fallbackGroup": "Price fallback",
           "preset": {
             "balanced": "Balanced",
             "stable": "Stable-first",
@@ -1093,10 +1106,15 @@
             "disableCrossProtocolFallback": "Disable cross-protocol fallback",
             "disableCrossProtocolFallbackHint": "On failure, do not retry with a different protocol.",
             "baseWeightFactor": "Base weight factor",
+            "baseWeightFactorHint": "Base weight added to every candidate channel; raise it to narrow the gap between channels and balance allocation.",
             "valueScoreFactor": "Value score factor",
+            "valueScoreFactorHint": "Multiplier applied to the value score (cost/balance/usage composite) in route contribution.",
             "costWeight": "Cost weight",
+            "costWeightHint": "Weight of unit cost in the value score: cheaper channels score higher and win preference.",
             "balanceWeight": "Balance weight",
-            "usageWeight": "Usage weight"
+            "balanceWeightHint": "Weight of account balance in the value score: better-funded accounts win preference.",
+            "usageWeight": "Usage weight",
+            "usageWeightHint": "Weight of recent usage in the value score: lightly used channels win preference (load balancing)."
           },
           "toast": {
             "saved": "Routing strategy saved.",
@@ -1363,9 +1381,9 @@
             "ntfyUrl": "NTFY URL",
             "ntfyTopic": "NTFY topic",
             "ntfyToken": "NTFY token (optional)",
-            "muteTokenExpired": "Mute \"token expired\"",
-            "muteLowBalance": "Mute \"low balance\"",
-            "muteProxyAllFailed": "Mute \"proxy all failed\""
+            "muteTokenExpired": "Mute \"Token expired\"",
+            "muteLowBalance": "Mute \"Low balance\"",
+            "muteProxyAllFailed": "Mute \"All proxies failed\""
           },
           "toast": {
             "saved": "Notification channels saved.",
@@ -1422,8 +1440,8 @@
           "dangerZone": "Danger Zone"
         },
         "programLogs": {
-          "title": "Program Logs",
-          "description": "Operational event log (events stream).",
+          "title": "Operational Events",
+          "description": "Alerts and abnormal events produced by the running program (check-in, balance, token, proxy).",
           "allTypes": "All types",
           "filterType": "Type",
           "unreadOnly": "Unread only",
@@ -1432,9 +1450,23 @@
           "markAllRead": "Mark all read",
           "exportCsv": "Export CSV",
           "clear": "Clear",
-          "clearTitle": "Clear program logs?",
+          "clearTitle": "Clear operational events?",
           "clearDescription": "All operational events will be permanently deleted. This cannot be undone.",
-          "empty": "No program events.",
+          "empty": "No operational events.",
+          "eventTitles": {
+            "tokenExpired": "Token expired",
+            "lowBalance": "Low balance",
+            "allProxiesFailed": "All proxies failed",
+            "checkinSuccess": "Check-in succeeded",
+            "checkinSkipped": "Check-in skipped",
+            "checkinFailed": "Check-in failed",
+            "checkinFailedCloudflare": "Check-in failed (Cloudflare challenge)"
+          },
+          "messageParts": {
+            "affectedRoutes": "Affected routes",
+            "alternativeSites": "Alternative sites",
+            "openPanel": "Open panel"
+          },
           "type": {
             "checkin": "Checkin",
             "balance": "Balance",
@@ -1452,7 +1484,7 @@
             "allMarkedRead": "All events marked read.",
             "markAllFailed": "Failed to mark events read.",
             "markReadFailed": "Failed to mark event read.",
-            "cleared": "Program events cleared.",
+            "cleared": "Operational events cleared.",
             "clearFailed": "Failed to clear events.",
             "exported": "Exported {{count}} event(s) to CSV."
           },
@@ -1491,10 +1523,12 @@
           "updateAvailable": "Update available",
           "upToDate": "Up to date",
           "mode": "Mode",
+          "modeExternal": "External deploy (container/manual)",
+          "externalResidual": "External deploy mode has no in-app version discovery or auto-update; upgrade through your deployment platform.",
           "repoLink": "GitHub repo",
           "releasesLink": "Releases",
           "ghcrLink": "GHCR package",
-          "opsNote": "In-app deploy is disabled; use the metapi-migrate CLI or your container orchestrator."
+          "opsNote": "In-app upgrade/rollback is disabled; upgrade via container images or CI/CD, and use the metapi-migrate CLI for database migrations."
         },
         "database": {
           "title": "Database",
@@ -1578,8 +1612,8 @@
           "clearUsage": "Clear usage logs",
           "clearUsageConfirmTitle": "Clear usage logs?",
           "clearUsageConfirmDescription": "This permanently deletes all recorded usage data. This action cannot be undone.",
-          "eventsHint": "Cleanup events are recorded in Program Logs.",
-          "viewEvents": "View Program Logs",
+          "eventsHint": "Cleanup events are recorded in Operational Events.",
+          "viewEvents": "View Operational Events",
           "toast": {
             "cacheCleared": "Cache cleared.",
             "cacheClearFailed": "Failed to clear cache.",
@@ -2105,7 +2139,62 @@
         "description": "Description",
         "actionHint": "Suggested action",
         "detailHint": "Detail",
-        "viewAccount": "View account"
+        "viewAccount": "View account",
+        "viewFullMessage": "Click to view the raw message"
+      },
+      "failureReason": {
+        "code": {
+          "site_disabled": {
+            "title": "Site disabled",
+            "action": "Re-enable the site and retry",
+            "detail": "The site of this account is disabled; the task is skipped automatically."
+          },
+          "checkin_not_supported": {
+            "title": "Check-in not supported",
+            "action": "No retry needed (not a failure)",
+            "detail": "This site has no check-in endpoint; the account is skipped automatically."
+          },
+          "manual_turnstile_required": {
+            "title": "Manual verification required",
+            "action": "Sign in manually in a browser once",
+            "detail": "The site requires Turnstile verification; automated check-in cannot pass directly."
+          },
+          "cloudflare_tunnel_unavailable": {
+            "title": "Site tunnel unavailable",
+            "action": "Retry later or contact the site operator",
+            "detail": "The Cloudflare Tunnel is currently unreachable, usually a site-side network or tunnel process issue."
+          },
+          "cloudflare_challenge": {
+            "title": "Cloudflare challenge triggered",
+            "action": "Slow down and retry later",
+            "detail": "The request triggered a protection challenge; retry later or switch to a stable site."
+          },
+          "token_expired": {
+            "title": "Token expired",
+            "action": "Re-login or refresh the token",
+            "detail": "The account access token may be expired or invalid; update the credentials."
+          },
+          "already_checked_in": {
+            "title": "Already checked in today",
+            "action": "Nothing to do",
+            "detail": "This account already checked in today; repeated requests are rejected or skipped."
+          },
+          "network_timeout": {
+            "title": "Request timed out",
+            "action": "Retry later and check the network",
+            "detail": "The request did not finish within the timeout; possible network fluctuation or slow site response."
+          },
+          "upstream_error": {
+            "title": "Upstream site error",
+            "action": "Retry later",
+            "detail": "The site returned a server-side error; it usually succeeds after the site recovers."
+          },
+          "unknown_error": {
+            "title": "Unknown error",
+            "action": "Check detailed logs and retry",
+            "detail": "No specific error type recognized; investigate using the raw message."
+          }
+        }
       },
       "manual": {
         "title": "Manual check-in",
@@ -2250,6 +2339,7 @@
     "Reset": "Reset",
     "Search": "Search",
     "View": "View",
+    "columnSettings": "Columns",
     "Toggle columns": "Toggle columns",
     "selected": "selected",
     "No results found.": "No results found.",
@@ -2516,13 +2606,13 @@
     "priceCompare": {
       "page": {
         "title": "Price Compare",
-        "description": "Cross-site effective model pricing with provenance grades.",
+        "description": "Cross-site effective model pricing with price sources and recommendations (lowest effective cost per model).",
         "searchPlaceholder": "Filter by model…",
         "loadError": "Failed to load price comparison: {{message}}",
         "emptyDescription": "No price data yet. Connect accounts or run traffic to see effective pricing."
       },
       "group": {
-        "description": "Effective price per source site, cheapest first."
+        "description": "Effective price per source site, cheapest first. Source priority: billing > observed > configured > fallback (first available wins)."
       },
       "grade": {
         "billing_details": "Billing",
@@ -2531,14 +2621,15 @@
         "fallback": "Fallback"
       },
       "recommended": "Recommended",
+      "recommendedHint": "Lowest effective cost among sources for this model",
       "missingPrice": "No price signal",
       "goToRoutes": "Open {{model}} in routes",
       "columns": {
         "site": "Site",
-        "grade": "Grade",
+        "grade": "Price source",
         "input": "Input / 1M",
         "output": "Output / 1M",
-        "effective": "Effective cost",
+        "effective": "Sample cost (1K in + 1K out)",
         "status": "Status",
         "actions": "Actions"
       },
@@ -2570,7 +2661,7 @@
     "channels": {
       "page": {
         "title": "Channels",
-        "description": "Read-only routing health across every site, account, token and OAuth unit.",
+        "description": "Channels generated from sites, accounts, tokens, and OAuth accounts, with read-only route health.",
         "loadError": "Failed to load channels: {{message}}"
       },
       "empty": {
@@ -2589,8 +2680,8 @@
         "models": "Models",
         "priority": "Priority",
         "weight": "Weight",
-        "response": "Response",
-        "cooldown": "Cooldown",
+        "response": "Response latency",
+        "cooldown": "Cooldown until",
         "viewDetails": "View details"
       },
       "status": {
