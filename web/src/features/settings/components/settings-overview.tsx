@@ -47,7 +47,7 @@ export function SettingsOverview() {
                   // before. `hover:bg-accent` gives the row a visible hover
                   // state (title text is already foreground, so a text-color
                   // hover alone would be invisible).
-                  className='group/subarea hover:bg-accent hover:text-accent-foreground -my-0.5 flex items-center gap-2 rounded-sm py-0.5 font-medium transition-colors focus-visible:ring-ring/50 focus-visible:ring-2 focus-visible:outline-none'
+                  className='group/subarea hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring/50 -my-0.5 flex items-center gap-2 rounded-sm py-0.5 font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none'
                 >
                   {Icon ? (
                     <Icon className='text-primary size-4 shrink-0' />
