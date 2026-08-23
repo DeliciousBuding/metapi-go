@@ -283,7 +283,7 @@ func TestStats_ProxyLogsSummaryCache_SiteIdFilterStillAggregates(t *testing.T) {
 // measured: the LEFT JOINs added ~90ms to the summary and ~100ms to the
 // COUNT). Pure string assertions — no database needed.
 func TestStats_ProxyLogsAggregateSQL_NoJoinWithoutSiteID(t *testing.T) {
-	from := proxyLogsAggregateFrom(0)
+	from := proxyLogsAggregateFrom(0, "")
 	if strings.Contains(from, "JOIN") {
 		t.Fatalf("aggregate FROM without siteId must be join-free, got %q", from)
 	}
@@ -291,12 +291,12 @@ func TestStats_ProxyLogsAggregateSQL_NoJoinWithoutSiteID(t *testing.T) {
 		t.Fatalf("aggregate FROM without siteId must scan proxy_logs directly, got %q", from)
 	}
 
-	countQuery := "SELECT COUNT(*) " + proxyLogsAggregateFrom(0) + " WHERE pl.status = 'success'"
+	countQuery := "SELECT COUNT(*) " + proxyLogsAggregateFrom(0, "") + " WHERE pl.status = 'success'"
 	if strings.Contains(countQuery, "JOIN") {
 		t.Fatalf("COUNT query without siteId must be join-free, got %q", countQuery)
 	}
 
-	summaryQuery := proxyLogsSummaryQuerySQL(proxyLogsAggregateFrom(0), "")
+	summaryQuery := proxyLogsSummaryQuerySQL(proxyLogsAggregateFrom(0, ""), "")
 	if strings.Contains(summaryQuery, "JOIN") {
 		t.Fatalf("summary query without siteId must be join-free, got %q", summaryQuery)
 	}
@@ -307,7 +307,7 @@ func TestStats_ProxyLogsAggregateSQL_NoJoinWithoutSiteID(t *testing.T) {
 	}
 
 	// With a siteId the WHERE references s.id, so the join must stay.
-	fromSite := proxyLogsAggregateFrom(3)
+	fromSite := proxyLogsAggregateFrom(3, "")
 	if !strings.Contains(fromSite, "LEFT JOIN accounts a ON pl.account_id = a.id") {
 		t.Fatalf("aggregate FROM with siteId must join accounts, got %q", fromSite)
 	}
@@ -317,6 +317,23 @@ func TestStats_ProxyLogsAggregateSQL_NoJoinWithoutSiteID(t *testing.T) {
 	summarySite := proxyLogsSummaryQuerySQL(fromSite, " WHERE s.id = ?")
 	if !strings.Contains(summarySite, "JOIN") {
 		t.Fatalf("summary query with siteId must keep the join, got %q", summarySite)
+	}
+
+	// With a search active the WHERE references a.username / dk.key / dk.name,
+	// so the accounts sites AND downstream_api_keys joins must all stay.
+	fromSearch := proxyLogsAggregateFrom(0, "oneapi")
+	for _, fragment := range []string{
+		"LEFT JOIN accounts a ON pl.account_id = a.id",
+		"LEFT JOIN sites s ON a.site_id = s.id",
+		"LEFT JOIN downstream_api_keys dk ON pl.downstream_api_key_id = dk.id",
+	} {
+		if !strings.Contains(fromSearch, fragment) {
+			t.Fatalf("aggregate FROM with search must contain %q, got %q", fragment, fromSearch)
+		}
+	}
+	summarySearch := proxyLogsSummaryQuerySQL(fromSearch, " WHERE dk.key LIKE ?")
+	if !strings.Contains(summarySearch, "LEFT JOIN downstream_api_keys dk") {
+		t.Fatalf("summary query with search must keep the key join, got %q", summarySearch)
 	}
 }
 
@@ -328,8 +345,8 @@ func TestStats_SQLiteProxyLogsAggregatePlan_NoJoinWithoutSiteID(t *testing.T) {
 	seedProxyLogsCacheFixture(t, db)
 
 	for label, sql := range map[string]string{
-		"count":   "SELECT COUNT(*) " + proxyLogsAggregateFrom(0),
-		"summary": proxyLogsSummaryQuerySQL(proxyLogsAggregateFrom(0), ""),
+		"count":   "SELECT COUNT(*) " + proxyLogsAggregateFrom(0, ""),
+		"summary": proxyLogsSummaryQuerySQL(proxyLogsAggregateFrom(0, ""), ""),
 	} {
 		planRows, err := queryRowsErr(db.DB, "EXPLAIN QUERY PLAN "+sql)
 		if err != nil {
@@ -351,7 +368,7 @@ func TestStats_SQLiteProxyLogsAggregatePlan_NoJoinWithoutSiteID(t *testing.T) {
 
 	// Sanity check the other direction: with a siteId the plan does join
 	// (SQLite reports the joined tables by alias, e.g. "SEARCH s ... LEFT-JOIN").
-	planRows, err := queryRowsErr(db.DB, "EXPLAIN QUERY PLAN "+proxyLogsSummaryQuerySQL(proxyLogsAggregateFrom(1), " WHERE s.id = 1"))
+	planRows, err := queryRowsErr(db.DB, "EXPLAIN QUERY PLAN "+proxyLogsSummaryQuerySQL(proxyLogsAggregateFrom(1, ""), " WHERE s.id = 1"))
 	if err != nil {
 		t.Fatalf("explain siteId summary: %v", err)
 	}
@@ -409,7 +426,7 @@ func TestStats_PostgresProxyLogsSummaryCache_MissThenHit(t *testing.T) {
 
 	// The join-free aggregate must also hold on PG: no siteId → no join in the
 	// executed SQL (string-level check is dialect-neutral).
-	if strings.Contains(proxyLogsAggregateFrom(0), "JOIN") {
+	if strings.Contains(proxyLogsAggregateFrom(0, ""), "JOIN") {
 		t.Fatal("aggregate FROM without siteId must be join-free on every dialect")
 	}
 }
