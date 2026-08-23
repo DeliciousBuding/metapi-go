@@ -12,6 +12,7 @@ import {
 } from '@tanstack/react-query'
 import { useMemo } from 'react'
 
+import { channelsKeys } from '@/features/channels/types'
 import i18n from '@/i18n/config'
 import { api } from '@/lib/api'
 import { assertBusinessOk } from '@/lib/assert-business-ok'
@@ -38,6 +39,7 @@ export const routeQueryKeys = {
   summary: () => [...routeQueryKeys.all, 'summary'] as const,
   candidates: () => [...routeQueryKeys.all, 'candidates'] as const,
   channels: (id: number) => ['routes', 'channels', id] as const,
+  channelsAll: () => ['routes', 'channels'] as const,
 }
 
 // ---------------------------------------------------------------------------
@@ -259,9 +261,71 @@ export function useClearRouteCooldown() {
       const result = await api.clearRouteCooldown(id)
       return assertBusinessOk(result, 'tokenRoutes.toast.cooldownClearFailed')
     },
+    onSuccess: (_data, routeId) => {
+      void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
+      // The route detail sheet renders cooldown badges from the per-route
+      // channel list; invalidate it so the badges (and the gated clear
+      // button) flip back to enabled immediately instead of after the
+      // 15s staleTime.
+      void queryClient.invalidateQueries({
+        queryKey: routeQueryKeys.channels(routeId),
+      })
+      // Channels page status badges (`cooldown`/`breaker_open`) derive from
+      // the same rows — refresh them too.
+      void queryClient.invalidateQueries({ queryKey: channelsKeys.list() })
+      toast.success(i18n.t('tokenRoutes.toast.cooldownCleared'))
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// useUpdateChannel
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-channel operator edits (weight / priority / enabled). The backend
+ * marks `manual_override=true` on any edit so a route rebuild cannot wipe
+ * operator tuning; the route detail sheet and channel detail sheet surface
+ * the same fields, so the summary + both channel lists are invalidated.
+ */
+export function useUpdateChannel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: number
+      data: { weight?: number; priority?: number; enabled?: boolean }
+    }) => {
+      const result = await api.updateChannel(id, data)
+      return assertBusinessOk(result, 'tokenRoutes.toast.channelUpdateFailed')
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
-      toast.success(i18n.t('tokenRoutes.toast.cooldownCleared'))
+      void queryClient.invalidateQueries({ queryKey: routeQueryKeys.channelsAll() })
+      void queryClient.invalidateQueries({ queryKey: channelsKeys.list() })
+      toast.success(i18n.t('tokenRoutes.toast.channelUpdated'))
+    },
+  })
+}
+
+// ---------------------------------------------------------------------------
+// useDeleteChannel
+// ---------------------------------------------------------------------------
+
+export function useDeleteChannel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const result = await api.deleteChannel(id)
+      return assertBusinessOk(result, 'tokenRoutes.toast.channelDeleteFailed')
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
+      void queryClient.invalidateQueries({ queryKey: routeQueryKeys.channelsAll() })
+      void queryClient.invalidateQueries({ queryKey: channelsKeys.list() })
+      toast.success(i18n.t('tokenRoutes.toast.channelDeleted'))
     },
   })
 }

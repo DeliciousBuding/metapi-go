@@ -59,6 +59,7 @@ import {
 } from '../lib/routes-schema'
 import type { RouteMode, RouteRoutingStrategy, RouteSummaryRow } from '../types'
 import { getModelPatternError, isRegexModelPattern } from '../utils'
+import { RouteChannelEditor } from './route-channel-editor'
 import { showRouteCompletionToast } from './route-completion-toast'
 
 export type RouteAccountOption = { id: number; label: string }
@@ -232,11 +233,15 @@ export function RouteFormDialog({
                   : t('tokenRoutes.form.modePatternHint')}
               </FormDescription>
             </FormItem>
+            {isEdit && route && route.id > 0 && (
+              <RouteChannelEditor routeId={route.id} />
+            )}
             {routeMode === 'pattern' ? (
               <PatternModeFields
                 form={form}
                 patternError={patternError}
                 accountOptions={accountOptions}
+                isEdit={isEdit}
               />
             ) : (
               <GroupModeFields form={form} availableRoutes={availableRoutes} />
@@ -385,10 +390,12 @@ function PatternModeFields({
   form,
   patternError,
   accountOptions,
+  isEdit,
 }: {
   form: ReturnType<typeof useForm<RouteFormValues>>
   patternError: string | null
   accountOptions: RouteAccountOption[]
+  isEdit: boolean
 }) {
   const { t } = useTranslation()
   const rebuildMutation = useRebuildRoutes()
@@ -467,9 +474,18 @@ function PatternModeFields({
                 // guided chain's preselected account was invisible. Show the
                 // reason plus an inline rebuild that repopulates the list in
                 // place (rebuild invalidates the candidates query prefix).
+                //
+                // Edit-mode copy differentiates: the route's own channels are
+                // listed in the editor above, so here the hint says "no
+                // further candidates" instead of implying the route has no
+                // channels at all.
                 <div className='flex flex-col gap-2 rounded-lg border border-dashed p-3'>
                   <p className='text-muted-foreground text-sm'>
-                    {t('tokenRoutes.formPattern.channelsEmptyHint')}
+                    {t(
+                      isEdit
+                        ? 'tokenRoutes.formPattern.channelsEmptyHintEdit'
+                        : 'tokenRoutes.formPattern.channelsEmptyHint'
+                    )}
                   </p>
                   <Button
                     type='button'

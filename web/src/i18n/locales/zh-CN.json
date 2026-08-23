@@ -1853,7 +1853,8 @@
         "exactHint": "当前为精确模型匹配。正则请使用 re: 前缀。",
         "channels": "通道（可选）",
         "channelsHint": "勾选账号作为该路由的通道，创建后将自动绑定。",
-        "channelsEmptyHint": "暂无可选通道——账号在模型扫描时被发现。运行自动重建即可填充此列表。"
+        "channelsEmptyHint": "暂无可选通道——账号在模型扫描时被发现。运行自动重建即可填充此列表。",
+        "channelsEmptyHintEdit": "暂无其他候选账号——账号在模型扫描时被发现。运行自动重建即可填充此列表。"
       },
       "formGroup": {
         "displayName": "对外模型名",
@@ -1962,7 +1963,11 @@
         "channelAddFailed": "添加通道失败",
         "channelAddPartial": "路由已创建，但有 {{failed}} 个通道添加失败（已添加 {{created}} 个）：{{error}}",
         "rebuildFailed": "重建路由失败",
-        "refreshFailed": "刷新决策失败"
+        "refreshFailed": "刷新决策失败",
+        "channelUpdated": "通道已更新",
+        "channelUpdateFailed": "更新通道失败",
+        "channelDeleted": "通道已移除",
+        "channelDeleteFailed": "移除通道失败"
       },
       "strategies": {
         "weighted": "权重随机",
@@ -1981,6 +1986,20 @@
         "displayNameRequired": "请填写对外模型名",
         "sourceRoutesRequired": "至少选择一个来源路由",
         "contextLengthPositive": "上下文长度需为正整数"
+      },
+      "formChannel": {
+        "title": "路由通道",
+        "hint": "调整权重、优先级与启用状态，或移除通道。修改即刻应用。",
+        "loading": "加载通道…",
+        "empty": "该路由暂无通道。可在下方「通道（可选）」勾选账号添加。",
+        "weightLabel": "权重",
+        "priorityLabel": "优先级",
+        "enabledLabel": "启用",
+        "removeLabel": "移除通道",
+        "removeTitle": "移除通道",
+        "removeDescription": "从该路由移除账户 {{name}} 的通道？路由重建不会恢复已移除的通道。",
+        "removeConfirm": "移除",
+        "tokenLabel": "令牌"
       }
     },
     "checkin": {
@@ -2566,7 +2585,9 @@
         "clearRouteCooldown": "清除路由冷却",
         "clearRouteCooldownHint": "重置该通道所属路由下全部通道的冷却与失败计数。",
         "editRoute": "编辑路由",
-        "editRouteHint": "打开所属令牌路由"
+        "editRouteHint": "打开所属令牌路由",
+        "enabledLabel": "启用状态",
+        "manualOverrideSetActive": "已手动设置"
       }
     },
     "connect": {

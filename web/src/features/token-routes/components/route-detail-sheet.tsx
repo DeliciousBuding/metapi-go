@@ -139,6 +139,15 @@ export function RouteDetailSheet({
   const isReadOnly = route.kind === 'zero_channel' || route.readOnly === true
   const title = resolveRouteTitle(route)
   const decision = route.decisionSnapshot ?? null
+  // A clear-cooldown action with nothing to clear is a false "已清除冷却"
+  // toast. The backend endpoint clears the WHOLE route's channels, so the
+  // button only appears while at least one channel is actually cooling
+  // (mirrors the channel detail sheet's status gate).
+  const hasActiveCooldown = channels.some(
+    (channel) =>
+      Boolean(channel.cooldownUntil) &&
+      new Date(channel.cooldownUntil as string) > new Date()
+  )
 
   const handleClearCooldown = async () => {
     if (!route) return
@@ -238,7 +247,7 @@ export function RouteDetailSheet({
             </div>
           )}
 
-          {!isReadOnly && (
+          {!isReadOnly && hasActiveCooldown && (
             <div className='flex flex-wrap justify-end gap-2'>
               <Button
                 variant='outline'
