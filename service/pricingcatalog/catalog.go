@@ -23,27 +23,52 @@ const (
 )
 
 // CatalogEntry is one model's official pricing row. Rates are USD per 1M
-// tokens (models.dev cost unit).
+// tokens (models.dev cost unit). The metadata fields beyond the models.dev
+// cost shape (Description / Tags / Status / limits / Modalities) are
+// hydrated by the llm-metadata parser and stay empty for models.dev rows.
 type CatalogEntry struct {
 	// ModelID is the normalized (lowercase, provider prefix stripped)
-	// models.dev model id, e.g. "gpt-4o" or "claude-sonnet-4-20250514".
+	// catalog model id, e.g. "gpt-4o" or "claude-sonnet-4-20250514".
 	ModelID string
-	// Provider is the models.dev provider slug, e.g. "openai".
+	// Provider is the catalog provider slug, e.g. "openai".
 	Provider string
-	// InputPerMillion / OutputPerMillion are USD per 1M tokens.
+	// InputPerMillion / OutputPerMillion are USD per 1M tokens. Zero when
+	// the catalog entry carries metadata but no usable price.
 	InputPerMillion  float64
 	OutputPerMillion float64
 	// CacheReadPerMillion / CacheWritePerMillion are optional prompt-cache
 	// rates; nil when the catalog omits them.
 	CacheReadPerMillion  *float64
 	CacheWritePerMillion *float64
-	// ReleaseDate is the models.dev release_date (ISO), used to pick the
+	// ReleaseDate is the catalog release_date (ISO), used to pick the
 	// latest snapshot when a Claude family alias is ambiguous.
 	ReleaseDate string
 	// Aliased is true when the entry was resolved through a Claude family
 	// alias (e.g. "claude-3-5-sonnet" → latest dated snapshot) instead of an
 	// exact model id.
 	Aliased bool
+	// ---- llm-metadata superset (empty for plain models.dev rows) ----
+	// Description is the model's short prose description.
+	Description string
+	// DisplayName is the human-facing model name (e.g. "GPT-4o").
+	DisplayName string
+	// Family is the model family slug (e.g. "gpt-4o").
+	Family string
+	// Status is the catalog lifecycle status: "" (active), "deprecated",
+	// "beta", "experimental".
+	Status string
+	// Tags are synthesized capability tags (reasoning, tool_call, vision,
+	// audio, ...) shown as the model's capability set.
+	Tags []string
+	// ContextLimit is the context window in tokens (nil when unknown).
+	ContextLimit *int64
+	// MaxOutputLimit is the max output tokens (nil when unknown).
+	MaxOutputLimit *int64
+	// Modalities is the union of input/output modalities (text, image,
+	// audio, video, pdf).
+	Modalities []string
+	// LastUpdated is the catalog row's last_updated date (ISO).
+	LastUpdated string
 }
 
 // ReferenceUnitCost converts a catalog entry into the per-request unit cost
@@ -210,6 +235,13 @@ func (s *CatalogSnapshot) addExact(entry CatalogEntry) {
 		return
 	}
 	s.models[entry.ModelID] = entry
+	s.addAlias(entry)
+}
+
+// addAlias maintains the Claude family alias table for an already-registered
+// exact entry. Kept separate from addExact so merged snapshots can rebuild
+// their alias table without re-inserting models.
+func (s *CatalogSnapshot) addAlias(entry CatalogEntry) {
 	if !strings.HasPrefix(entry.ModelID, "claude-") {
 		return
 	}
@@ -221,6 +253,32 @@ func (s *CatalogSnapshot) addExact(entry CatalogEntry) {
 	if !exists || claudeEntryNewer(entry, previous) {
 		s.claudeAliases[family] = entry
 	}
+}
+
+// MergeSnapshots merges per-source snapshots with first-wins priority:
+// parts[0] overrides parts[1], which overrides parts[2], and so on. nil
+// parts and empty snapshots are skipped. The Claude alias table is rebuilt
+// from the merged exact entries. The merged snapshot's Source / FetchedAt
+// are left for the caller to set (per-source snapshots carry their own
+// provenance there).
+func MergeSnapshots(parts []*CatalogSnapshot) *CatalogSnapshot {
+	merged := NewCatalogSnapshot()
+	for i := 0; i < len(parts); i++ {
+		part := parts[i]
+		if part == nil {
+			continue
+		}
+		for key, entry := range part.models {
+			if _, exists := merged.models[key]; exists {
+				continue // earlier source wins
+			}
+			merged.models[key] = entry
+		}
+	}
+	for _, entry := range merged.models {
+		merged.addAlias(entry)
+	}
+	return merged
 }
 
 // claudeFamilyOf strips the trailing dated suffix (-\d{8}) from a Claude
