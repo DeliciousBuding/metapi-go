@@ -119,10 +119,12 @@ function readAccountsSearch(
  *  status / site — stripping them re-triggered the toolbar's debounced
  *  search commit and looped the renderer). */
 function buildAccountsHref(
-  next: UrlTableStateUpdate<AccountsUrlFilters>
+  next: UrlTableStateUpdate<AccountsUrlFilters>,
+  currentSearch?: string
 ): string {
-  const currentParams = new URLSearchParams(window.location.search)
-  const current = readAccountsSearch(window.location.search)
+  const currentSearchString = currentSearch ?? window.location.search
+  const currentParams = new URLSearchParams(currentSearchString)
+  const current = readAccountsSearch(currentSearchString)
   const merged: UrlTableState<AccountsUrlFilters> = {
     ...current,
     ...next,
@@ -141,6 +143,9 @@ function buildAccountsHref(
   // Transient deep-link params are preserved across table-state syncs until
   // the page's one-shot consume effects below have stripped them (a toolbar
   // commit or page clamp firing first would otherwise drop the deep link).
+  // Reads the router search string (not window.location, which lags until the
+  // transition commits — right after the strip, a stale snapshot would
+  // resurrect siteId/create and reopen the dialog on the next reload).
   const guidedSiteId = currentParams.get('siteId')
   const guidedCreate = currentParams.get('create')
   const attentionAccountId = currentParams.get('accountId')
@@ -289,38 +294,58 @@ export function AccountsPage() {
   // it preselected (apikey mode when the CTA passed the segment hint), then
   // strip the transient params from the URL so a refetch or remount never
   // reopens the dialog. Waits for the snapshot so a stale or unknown
-  // `siteId` falls back safely instead of creating data.
+  // `siteId` falls back safely instead of creating data. The snapshot query
+  // is shared with the sites page (10s staleTime), so right after a guided
+  // create the cached snapshot may still miss the new site — retry with a
+  // refetch (bounded) before treating the id as unknown.
   const deepLinkConsumed = useRef(false)
+  const deepLinkRefetchAttempts = useRef(0)
   useEffect(() => {
     if (deepLinkConsumed.current || search.create !== true) return
-    if (isLoading) return
+    if (isLoading || !data) return
+
+    const stripDeepLink = () => {
+      deepLinkConsumed.current = true
+      navigate({
+        to: '/accounts',
+        search: {
+          ...search,
+          siteId: undefined,
+          create: undefined,
+          segment: undefined,
+        },
+        replace: true,
+      })
+    }
 
     const resolvedSiteId = resolveDeepLinkPreselect(
       search.create,
       search.siteId,
       data?.sites ?? []
     )
-    const resolvedMode = resolveDeepLinkCredentialMode(search.segment)
     if (resolvedSiteId !== null) {
+      const resolvedMode = resolveDeepLinkCredentialMode(search.segment)
       setPreselectedSiteId(resolvedSiteId)
       setPreselectedCredentialMode(resolvedMode ?? undefined)
       setFormMode('create')
       setEditAccount(null)
       setFormOpen(true)
+      stripDeepLink()
+      return
     }
 
-    deepLinkConsumed.current = true
-    navigate({
-      to: '/accounts',
-      search: {
-        ...search,
-        siteId: undefined,
-        create: undefined,
-        segment: undefined,
-      },
-      replace: true,
+    // Site missing from the snapshot. Refetch once, a few times max, so a
+    // just-created site resolves; an unknown stays silently consumed.
+    if (deepLinkRefetchAttempts.current >= 3) {
+      stripDeepLink()
+      return
+    }
+    deepLinkRefetchAttempts.current += 1
+    void refetch().catch(() => {
+      // Fetch failures fall through; the next data change re-runs this
+      // effect and eventually the retry bound consumes the link.
     })
-  }, [search, isLoading, data, navigate])
+  }, [search, isLoading, data, refetch, navigate])
 
   // Consume the one-shot attention deep link exactly once (dashboard
   // attention items link `/accounts?accountId=N` for expired / low-balance

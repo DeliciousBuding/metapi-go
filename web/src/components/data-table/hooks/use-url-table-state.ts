@@ -30,7 +30,7 @@
 // functions are read through a ref so inline definitions do not break the
 // contract.
 
-import { useLocation, useNavigate } from '@tanstack/react-router'
+import { useLocation, useNavigate, useRouterState } from '@tanstack/react-router'
 import type {
   ColumnFiltersState,
   PaginationState,
@@ -64,8 +64,17 @@ export type UrlTableStateOptions<TFilters> = {
   basePath: string
   /** Parse the validated URL state from a raw search string. */
   read: (searchString: string) => UrlTableState<TFilters>
-  /** Serialize a partial state update back to a full href (path + query). */
-  buildHref: (next: UrlTableStateUpdate<TFilters>) => string
+  /**
+   * Serialize a partial state update back to a full href (path + query).
+   * Receives the ROUTER's current search string (updates at transition
+   * start, unlike `window.location.search` which lags until commit) so
+   * page-specific guided-param preservation never resurrects a deep-link
+   * param that a consume effect just stripped.
+   */
+  buildHref: (
+    next: UrlTableStateUpdate<TFilters>,
+    currentSearch: string
+  ) => string
   /** Map page filter values to table column filters. */
   toColumnFilters: (filters: TFilters) => ColumnFiltersState
   /** Map table column filters back to page filter values. */
@@ -109,6 +118,19 @@ export function useUrlTableState<TFilters>(
   const navigate = useNavigate()
   // Subscribe to the router location so search-only navigation re-renders.
   const searchStr = useLocation({ select: (loc) => loc.searchStr })
+  // The router's own location pathname, which updates at the START of a
+  // navigation rather than at commit. Table callbacks can fire while a
+  // navigation is in flight (the useLocation subscription re-renders this
+  // page with the *next* location's search string and TanStack's
+  // autoResetPageIndex reacts to it); that window is exactly when the
+  // updateUrlState guard must NOT write, or the sync replaces the pending
+  // navigation and the page snaps back — the modal-CTA deep links and
+  // sidebar links both hit it. `window.location.pathname` is only committed
+  // AFTER the transition resolves, so it reads the old path during the
+  // pending window and lets the hijack through.
+  const routerPathname = useRouterState({
+    select: (state) => state.location.pathname,
+  })
   const resetPageIndexOnFilterChange =
     options.resetPageIndexOnFilterChange ?? false
 
@@ -144,11 +166,11 @@ export function useUrlTableState<TFilters>(
   // bug. Only sync when we are still on this page.
   const updateUrlState = React.useCallback(
     (next: UrlTableStateUpdate<TFilters>) => {
-      const href = buildHrefRef.current(next)
-      if (!href.startsWith(window.location.pathname)) return
+      const href = buildHrefRef.current(next, searchStr)
+      if (!href.startsWith(routerPathname)) return
       navigate({ href, replace: true })
     },
-    [navigate]
+    [navigate, routerPathname, searchStr]
   )
 
   const onGlobalFilterChange = React.useCallback(
