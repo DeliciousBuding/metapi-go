@@ -323,18 +323,12 @@ const SOLID_PAIRS: Array<[string, string]> = [
   ['muted-foreground', 'card'],
   ['accent-foreground', 'accent'],
   ['sidebar-accent-foreground', 'sidebar-accent'],
-  ['sidebar-primary-foreground', 'sidebar-primary'],
 ]
 const SOFT_TONES = ['destructive', 'info', 'success', 'warning']
 
 /** Known residuals outside the 2026-08-23 fix scope (a11y-checklist §7).
  * Key: `${preset}|${mode}|${label}`. */
 const EXEMPTIONS: Record<string, string> = {
-  // Dormant token pair: no component consumes bg-sidebar-primary today.
-  'default|light|sidebar-primary-foreground on sidebar-primary':
-    'dormant: bg-sidebar-primary unused by components',
-  'default|dark|sidebar-primary-foreground on sidebar-primary':
-    'dormant: bg-sidebar-primary unused by components',
   'forest-whisper|dark|secondary-foreground on secondary':
     'preset residual deferred per a11y-checklist §7.4',
   'ocean-breeze|light|secondary-foreground on secondary':
