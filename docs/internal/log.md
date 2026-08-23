@@ -15,6 +15,7 @@
 - 对比度豁免收口：删除 dormant `--sidebar-primary`/`--sidebar-primary-foreground` token（全仓 0 消费，theme.css + 10 preset 共 42 行）→ 豁免表 8→6 项；剩余 6 项为 preset residual（forest-whisper dark secondary 3.12 / ocean-breeze light secondary 4.47 / simple-large+anthropic dark destructive 2.97+2.79 / anthropic light success 3.83+soft 4.48），留待设计决策。
 - 对比度清零：6 项 preset residual 全部按「只降 lightness、保 hue/chroma」最小改色修复——forest-whisper dark secondary 3.12→4.60、ocean-breeze light secondary 4.47→4.60、simple-large dark destructive 2.97→4.60、anthropic dark destructive 2.79→4.60、anthropic light success 3.83→4.60、success-soft 4.48→4.61（新增 anthropic light `--success-soft-fg` override）；contrast-gate 豁免表归零，10 preset × light/dark 全过 AA。
 - 集成交付：开 PR #972（Wave 9，26 commits，93 files，+3769/−2245）；版本号仍未动，待管理员批后 bump+CHANGELOG+tag。
+- PR #972 12-check CI 全绿（vet / frontend / a11y / test-sqlite 4 shard / test-pg / vulncheck / secret-scan / runtime-smoke 3 平台 / docker-build）；待管理员 squash 合入 + 生产滚动部署 + 版本号。
 - 冻结交接文档已消化（恢复 + 集成完成），随 integration PR 删除。
 
 ## 2026-08-23 — Wave 8 收官 + Wave 9 冻结交接
