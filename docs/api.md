@@ -303,16 +303,6 @@ Returns `{ model, days, limit, sampleUsage, items: [{ siteId, siteName, platform
 
 Alias: `GET /api/stats/model-prices` (same handler).
 
-### GET /api/models/redirect-fix-candidates
-
-List disabled models that an existing redirect mapping can restore.
-
-Returns `{ items: [{ siteId, siteName, accountId, modelName, canonical, actual }], count }`.
-
-### POST /api/models/redirect-fix-candidates
-
-Apply the listed redirect fixes. Body: `{ "dryRun": false }` (`false` applies; `true` previews without deleting). Returns `{ success, dryRun, removed, count }`.
-
 ### GET /api/models/token-candidates
 
 Available token candidates for route configuration.
@@ -1313,7 +1303,6 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/models/marketplace`
 - `/api/models/price-compare`
 - `/api/models/rates`
-- `/api/models/redirect-fix-candidates`
 - `/api/models/token-candidates`
 - `/api/models/verify-history`
 - `/api/monitor/config`
@@ -1394,7 +1383,6 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/model-redirects/generate`
 - `/api/models/check/:accountId`
 - `/api/models/probe`
-- `/api/models/redirect-fix-candidates`
 - `/api/models/verify-batch`
 - `/api/monitor/session`
 - `/api/oauth/connections/:accountId/quota/refresh`
