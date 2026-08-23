@@ -30,7 +30,7 @@
 // functions are read through a ref so inline definitions do not break the
 // contract.
 
-import { useLocation, useNavigate, useRouterState } from '@tanstack/react-router'
+import { useLocation, useNavigate } from '@tanstack/react-router'
 import type {
   ColumnFiltersState,
   PaginationState,
@@ -97,6 +97,12 @@ export function encodeSorting(sorting: SortingState): string {
     .join(',')
 }
 
+/** The pathname part of an href string (drops search/hash, trailing slash). */
+function pathnameOf(href: string): string {
+  const cut = href.search(/[?#]/)
+  return (cut === -1 ? href : href.slice(0, cut)).replace(/\/+$/, '')
+}
+
 /**
  * Controlled table state whose source of truth is the URL search string.
  * Re-exported fields plug straight into `useDataTable`; `filters` +
@@ -107,22 +113,12 @@ export function useUrlTableState<TFilters>(
   options: UrlTableStateOptions<TFilters>
 ) {
   const navigate = useNavigate()
-  // Subscribe to the router location so search-only navigation re-renders.
+  // Subscribe to the router location so search-only navigation re-renders,
+  // and so the URL-sync guard below can compare against the router-side
+  // *current* pathname. (Separate primitive selectors — a compound object
+  // selector would break useSyncExternalStore snapshot identity.)
   const searchStr = useLocation({ select: (loc) => loc.searchStr })
-  // The router-side *current* pathname. This is the source of truth for the
-  // URL-sync guard below: the router's location store moves to the target
-  // route at the *start* of a navigation, while `window.location.pathname`
-  // (browser history) does not update until the route commits — so for a
-  // code-split page the pending window leaves `window.location` on the old
-  // page. The old page re-renders with the next location's search (the
-  // `searchStr` subscription above), its table callbacks fire, and with the
-  // lagging history pathname the old guard let them navigate straight back —
-  // the "clicked a sidebar link but the page snapped back" bug. Comparing
-  // against the router location (already at the target) makes any write-back
-  // from a leaving page a no-op.
-  const pathname = useRouterState({
-    select: (state) => state.location.pathname,
-  })
+  const pathname = useLocation({ select: (loc) => loc.pathname })
   const resetPageIndexOnFilterChange =
     options.resetPageIndexOnFilterChange ?? false
 
@@ -155,13 +151,24 @@ export function useUrlTableState<TFilters>(
   // the *next* location's search string). Without the pathname check the
   // callback would navigate straight back, hijacking the in-flight
   // navigation — the "clicked a sidebar link but the page snapped back"
-  // bug. Only sync when we are still on this page; the router pathname (not
-  // `window.location.pathname`, which lags behind during a pending
-  // transition for code-split routes) says whether that is true.
+  // bug. Only sync when we are still on this page.
+  //
+  // Must compare against the router-side pathname, never
+  // `window.location.pathname`: @tanstack/history coalesces push/replace
+  // calls queued within the same tick (a microtask flush applies only the
+  // last href, keeping the push), so while the browser URL still shows this
+  // page, the router location store has already moved to the target route.
+  // The router pathname is the source of truth for whether a write-back is
+  // still on the page it belongs to.
+  //
+  // Exact path match (not a `startsWith` prefix test): hrefs are always
+  // built on this page's own path, so a match is exactly "still on this
+  // page", and a sibling that merely shares a prefix (e.g. `/channels` vs
+  // `/channels-foo`) can never sneak a write-back through.
   const updateUrlState = React.useCallback(
     (next: UrlTableStateUpdate<TFilters>) => {
       const href = buildHrefRef.current(next)
-      if (!href.startsWith(pathname)) return
+      if (pathnameOf(href) !== pathname) return
       navigate({ href, replace: true })
     },
     [navigate, pathname]
