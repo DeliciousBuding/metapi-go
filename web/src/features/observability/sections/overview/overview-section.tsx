@@ -266,16 +266,14 @@ function renderHeatmapBody(
   return (
     <div className='overflow-x-auto'>
       <div className='min-w-max'>
-        <div
-          className='relative h-3'
-        >
+        <div className='relative h-3'>
           {
             // Ticks align with the grid's bucket tracks: 160px label track +
             // 1px gap between the 14px tracks (track i starts at 161+i*15px).
             tickSpanValues(layout.buckets.length).map((index) => (
               <span
                 key={layout.buckets[index]}
-                className='text-muted-foreground absolute top-0 whitespace-nowrap text-[9px] leading-3 tabular-nums'
+                className='text-muted-foreground absolute top-0 text-[9px] leading-3 whitespace-nowrap tabular-nums'
                 style={{ left: 161 + index * 15 }}
               >
                 {formatBucketHourUtc(layout.buckets[index])}

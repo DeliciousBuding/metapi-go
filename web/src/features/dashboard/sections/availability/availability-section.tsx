@@ -97,8 +97,7 @@ function formatRate(rate: number): string {
  * fall through as-is.
  */
 const EVENT_TITLE_KEYS: Record<string, string> = {
-  'All proxies failed':
-    'dashboard.availability.monitors.eventAllProxiesFailed',
+  'All proxies failed': 'dashboard.availability.monitors.eventAllProxiesFailed',
 }
 
 /**
@@ -182,10 +181,10 @@ function mergeAttentionItems(
  * outgrows the unit (a multi-day session must not render "4320m").
  */
 function formatUptime(
-  lifetimeSeconds: number,
+  seconds: number,
   t: (key: string, options?: Record<string, unknown>) => string
 ): string {
-  const minutes = Math.floor(lifetimeSeconds / 60)
+  const minutes = Math.floor(seconds / 60)
   if (minutes < 60) {
     return t('dashboard.availability.realtime.uptimeMinutes', {
       value: minutes,
@@ -542,7 +541,10 @@ function AttentionPanel() {
                         {itemLabel}
                       </AttentionTargetLink>
                     ) : (
-                      <span className='block truncate text-sm' title={itemLabel}>
+                      <span
+                        className='block truncate text-sm'
+                        title={itemLabel}
+                      >
                         {itemLabel}
                       </span>
                     )}
