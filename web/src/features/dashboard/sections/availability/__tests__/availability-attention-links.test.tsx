@@ -170,7 +170,7 @@ describe('AvailabilitySection attention deep links', () => {
           severity: 'warning',
           category: 'event',
           label: 'Upstream rate limited',
-          target: '/settings/system-info/program-logs',
+          target: '/settings/operations/program-logs',
           createdAt: '',
         },
       ],
@@ -182,7 +182,7 @@ describe('AvailabilitySection attention deep links', () => {
     const link = await screen.findByRole('link', {
       name: 'Upstream rate limited',
     })
-    expect(link).toHaveAttribute('href', '/settings/system-info/program-logs')
+    expect(link).toHaveAttribute('href', '/settings/operations/program-logs')
   })
 
   it('renders plain text (no dead link) for an unrecognized target', async () => {

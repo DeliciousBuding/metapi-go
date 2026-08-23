@@ -41,6 +41,7 @@ import { ScheduleEditor } from '../../../components/schedule-editor'
 import { SettingsFormActions } from '../../../components/settings-form-actions'
 import { SettingsSectionCard } from '../../../components/settings-section-card'
 import { SettingsSectionError } from '../../../components/settings-section-error'
+import { SettingsSubsection } from '../../../components/settings-subsection'
 import { useSettingsForm } from '../../../hooks/use-settings-form'
 import {
   collectChangedFields,
@@ -263,10 +264,9 @@ export function ImportExportSection() {
       description={t('settings.content.importExport.description')}
     >
       <div className='space-y-4'>
-        <div className='space-y-3'>
-          <h4 className='text-sm font-medium'>
-            {t('settings.content.importExport.exportGroup')}
-          </h4>
+        <SettingsSubsection
+          title={t('settings.content.importExport.exportGroup')}
+        >
           <div className='flex flex-wrap gap-2'>
             <Button
               type='button'
@@ -296,12 +296,11 @@ export function ImportExportSection() {
               {t('settings.content.importExport.exportPreferences')}
             </Button>
           </div>
-        </div>
+        </SettingsSubsection>
 
-        <div className='space-y-3'>
-          <h4 className='text-sm font-medium'>
-            {t('settings.content.importExport.importGroup')}
-          </h4>
+        <SettingsSubsection
+          title={t('settings.content.importExport.importGroup')}
+        >
           <Textarea
             value={importText}
             onChange={(event) => setImportText(event.target.value)}
@@ -322,7 +321,7 @@ export function ImportExportSection() {
                 : t('settings.content.importExport.importPreview')}
             </Button>
           </div>
-        </div>
+        </SettingsSubsection>
 
         {webdavQuery.isLoading ? (
           <p className='text-muted-foreground text-sm'>
@@ -342,9 +341,9 @@ export function ImportExportSection() {
               onSubmit={form.handleSubmit(onWebdavSubmit)}
               className='space-y-4 rounded-lg border p-4'
             >
-              <h4 className='text-sm font-medium'>
+              <h3 className='text-sm font-medium'>
                 {t('settings.content.importExport.webdavGroup')}
-              </h4>
+              </h3>
               <FormField
                 control={form.control}
                 name='enabled'
@@ -614,9 +613,9 @@ export function ImportExportSection() {
       />
       {importPlan && planEntries.length > 0 ? (
         <div className='mt-4 space-y-2 rounded-lg border p-4'>
-          <h4 className='text-sm font-medium'>
+          <h3 className='text-sm font-medium'>
             {t('settings.content.importExport.importPreviewTitle')}
-          </h4>
+          </h3>
           <ul className='text-muted-foreground list-inside list-disc space-y-1 text-xs'>
             {planEntries.map(([table, plan]) => (
               <li key={table}>

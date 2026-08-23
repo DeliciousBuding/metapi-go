@@ -526,9 +526,7 @@ export function OverviewSection() {
           <CardAction>
             <Link
               to={
-                '/settings/general/scheduling' as
-                  | LinkProps['to']
-                  | (string & {})
+                '/settings/basic/scheduling' as LinkProps['to'] | (string & {})
               }
               className={buttonVariants({ variant: 'ghost', size: 'sm' })}
             >

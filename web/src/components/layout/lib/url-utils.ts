@@ -56,7 +56,7 @@ export function checkIsActive(href: string, item: NavItem): boolean {
   }
 
   // Prefix match for drill-in items (e.g. a settings subarea stays active for
-  // any of its section URLs: /settings/general matches /settings/general/*).
+  // any of its section URLs: /settings/basic matches /settings/basic/*).
   if (item.activePrefix) {
     const prefix = item.activePrefix.split('?')[0]
     const cleanPrefix = prefix.length > 1 ? prefix.replace(/\/+$/, '') : prefix

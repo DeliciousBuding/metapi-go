@@ -114,7 +114,7 @@ const PROXY_EVENT = {
   severity: 'critical',
   category: 'event',
   label: 'All proxies failed',
-  target: '/settings/system-info/program-logs',
+  target: '/settings/operations/program-logs',
 }
 
 describe('AvailabilitySection attention duplicate merging', () => {
@@ -153,7 +153,7 @@ describe('AvailabilitySection attention duplicate merging', () => {
           severity: 'warning',
           category: 'event',
           label: 'Upstream rate limited',
-          target: '/settings/system-info/program-logs',
+          target: '/settings/operations/program-logs',
           createdAt: '2026-08-23T05:02:00Z',
         },
       ],
@@ -179,14 +179,14 @@ describe('AvailabilitySection attention duplicate merging', () => {
           severity: 'critical',
           category: 'event',
           label: 'All proxies failed',
-          target: '/settings/system-info/program-logs',
+          target: '/settings/operations/program-logs',
           createdAt: '2026-08-23T05:01:14Z',
         },
         {
           severity: 'warning',
           category: 'event',
           label: 'All proxies failed',
-          target: '/settings/system-info/program-logs',
+          target: '/settings/operations/program-logs',
           createdAt: '2026-08-23T05:02:00Z',
         },
       ],

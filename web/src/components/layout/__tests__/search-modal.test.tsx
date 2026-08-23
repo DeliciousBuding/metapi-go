@@ -114,9 +114,9 @@ describe('search palette navigation layer', () => {
     // (the heading itself also reads "Settings"; the /settings page entry
     // adds a third occurrence).
     expect(screen.getAllByText('Settings').length).toBeGreaterThanOrEqual(2)
-    expect(screen.getByText('General')).toBeInTheDocument()
+    expect(screen.getByText('Basics')).toBeInTheDocument()
     expect(screen.getByText('Downstream')).toBeInTheDocument()
-    expect(screen.getByText('System & Maintenance')).toBeInTheDocument()
+    expect(screen.getByText('System & Ops')).toBeInTheDocument()
     expect(searchMock).not.toHaveBeenCalled()
   })
 
@@ -147,7 +147,7 @@ describe('search palette navigation layer', () => {
     fireEvent.click(entry)
 
     expect(navigateMock).toHaveBeenCalledWith({
-      to: '/settings/system-info/program-logs',
+      to: '/settings/operations/program-logs',
     })
   })
 })

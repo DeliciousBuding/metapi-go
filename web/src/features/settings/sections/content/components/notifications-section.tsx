@@ -723,9 +723,9 @@ export function NotificationsSection() {
           </ChannelGroup>
 
           <div className='space-y-3 rounded-lg border p-4'>
-            <h4 className='text-sm font-medium'>
+            <h3 className='text-sm font-medium'>
               {t('settings.content.notifications.muteGroup')}
-            </h4>
+            </h3>
             <FormField
               control={form.control}
               name='muteTokenExpired'
@@ -790,7 +790,7 @@ function ChannelGroup({
 }) {
   return (
     <div className='space-y-3 rounded-lg border p-4'>
-      <h4 className='text-sm font-medium'>{title}</h4>
+      <h3 className='text-sm font-medium'>{title}</h3>
       {children}
     </div>
   )

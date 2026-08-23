@@ -12,7 +12,7 @@ describe('resolveDocumentTitleKeys', () => {
   })
 
   it('passes a key list through unchanged', () => {
-    const keys = ['settings.subareas.general', 'settings.general.site.title']
+    const keys = ['settings.subareas.basic', 'settings.basic.site.title']
     expect(resolveDocumentTitleKeys(keys, {})).toEqual(keys)
   })
 
@@ -25,9 +25,9 @@ describe('resolveDocumentTitleKeys', () => {
   })
 
   it('supports resolvers returning a key list (subarea + section)', () => {
-    const resolver = () => ['settings.subareas.general', 'section.title']
+    const resolver = () => ['settings.subareas.basic', 'section.title']
     expect(resolveDocumentTitleKeys(resolver, { subarea: 'general' })).toEqual([
-      'settings.subareas.general',
+      'settings.subareas.basic',
       'section.title',
     ])
   })
