@@ -104,7 +104,9 @@
   --accent-foreground: oklch(0.145 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --destructive-soft-fg: var(--destructive);
+  /* Independent of `--destructive`: the base red on a `destructive/10` tint
+   * only reaches ~4.0:1; this darker ink clears AA on soft badges. */
+  --destructive-soft-fg: oklch(0.5 0.2 27);
   --success: oklch(0.53 0.145 163.225);
   --success-foreground: oklch(0.985 0 0);
   --warning: oklch(0.62 0.162 75.834);
@@ -134,7 +136,9 @@
   --sidebar-primary: oklch(0.64 0.197 253.892);
   --sidebar-primary-foreground: oklch(1 0 0);
   --sidebar-accent: color-mix(in oklch, var(--primary) 12%, var(--background));
-  --sidebar-accent-foreground: oklch(0.579 0.196 255.909);
+  /* Darkened from oklch(0.579 0.196 255.909): the active sidebar item must
+   * clear WCAG AA (4.5:1) on the 12% primary-tinted accent surface. */
+  --sidebar-accent-foreground: oklch(0.505 0.18 256);
   --sidebar-border: oklch(0.93 0 0);
   --sidebar-ring: oklch(0.58 0.2 250);
   --skeleton-base: oklch(0.97 0 0);
@@ -191,7 +195,10 @@
   --muted-foreground: oklch(0.78 0 0);
   --accent: color-mix(in oklch, var(--primary) 20%, var(--background));
   --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
+  /* Darkened from oklch(0.704 0.191 22.216): white foreground on the old
+   * value only reached 2.77:1; solid destructive surfaces (e.g. the
+   * attention bell's critical badge) must clear WCAG AA. */
+  --destructive: oklch(0.575 0.19 25);
   --destructive-foreground: oklch(0.985 0 0);
   --destructive-soft-fg: oklch(0.8 0.15 22);
   --success: oklch(0.696 0.17 162.48);
@@ -200,11 +207,12 @@
   --warning-foreground: oklch(0.145 0 0);
   --info: oklch(0.613 0.14 239.919);
   --info-foreground: oklch(0.145 0 0);
-  /* Soft-tint foregrounds match the light, readable tones; dark mode already
-     passes AA so these mirror the base tones. */
+  /* Soft-tint foregrounds: warning/success mirror their base tones (dark
+   * mode already passes AA there); info is lifted lighter than `--info` so
+   * 12px text on `bg-info/10` clears WCAG AA on dark card surfaces. */
   --warning-soft-fg: oklch(0.769 0.188 70.08);
   --success-soft-fg: oklch(0.696 0.17 162.48);
-  --info-soft-fg: oklch(0.613 0.14 239.919);
+  --info-soft-fg: oklch(0.72 0.12 245);
   --neutral: oklch(0.76 0 0);
   --neutral-foreground: oklch(0.155 0 0);
   --border: oklch(1 0 0 / 10%);

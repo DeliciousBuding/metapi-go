@@ -78,7 +78,7 @@ Each maps a Tailwind alias `--color-*` (e.g. `--color-background: var(--backgrou
 | `--neutral`                                            | `oklch(0.708 0 0)`                                           | `oklch(0.76 0 0)`                                            | Cool gray secondary                 |
 | `--sidebar` / `--sidebar-primary` / `--sidebar-accent` | derived from background/primary                              | derived from background/primary                              | Sidebar canvas, brand, active tones |
 
-Presets replace `--primary`/`--background` per `data-theme-preset` (e.g. Anthropic clay `oklch(0.685 0.142 38)` on cream `oklch(0.984 0.005 95)`).
+Presets replace `--primary`/`--background` per `data-theme-preset` (e.g. Anthropic clay `oklch(0.57 0.15 38)` on cream `oklch(0.984 0.005 95)`).
 
 ### 2.4 Status semantics
 
@@ -86,7 +86,7 @@ Presets replace `--primary`/`--background` per `data-theme-preset` (e.g. Anthrop
 | -------------------------------------------- | ------------------------------------------------ | ------------------------------------------------ | ------------------ |
 | `--success` / `--success-foreground`         | `oklch(0.53 0.145 163.225)` / `oklch(0.985 0 0)` | `oklch(0.696 0.17 162.48)` / `oklch(0.145 0 0)`  | Healthy / active   |
 | `--warning` / `--warning-foreground`         | `oklch(0.62 0.162 75.834)` / `oklch(0.145 0 0)`  | `oklch(0.769 0.188 70.08)` / `oklch(0.145 0 0)`  | Degraded / pending |
-| `--destructive` / `--destructive-foreground` | `oklch(0.577 0.245 27.325)` / `oklch(0.985 0 0)` | `oklch(0.704 0.191 22.216)` / `oklch(0.985 0 0)` | Errors, deletes    |
+| `--destructive` / `--destructive-foreground` | `oklch(0.577 0.245 27.325)` / `oklch(0.985 0 0)` | `oklch(0.575 0.19 25)` / `oklch(0.985 0 0)`     | Errors, deletes    |
 | `--info` / `--info-foreground`               | `oklch(0.53 0.158 241.966)` / `oklch(0.985 0 0)` | `oklch(0.613 0.14 239.919)` / `oklch(0.145 0 0)` | Informational      |
 
 Badge pattern: solid on soft fill (e.g. `bg-success/10 text-success`); each status also maps a `--color-*` Tailwind alias.
