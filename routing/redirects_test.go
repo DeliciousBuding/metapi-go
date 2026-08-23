@@ -36,10 +36,10 @@ func TestSelectChannel_RedirectRegistryEnablesActualChannel(t *testing.T) {
 			{
 				Channel: store.RouteChannel{
 					ID: 1, RouteID: 1, AccountID: 7, TokenID: &token.ID,
-					SourceModel: &actualSource, Priority: 0, Weight: 10, Enabled: true,
+					SourceModel: &actualSource, Priority: int64Ptr(0), Weight: int64Ptr(10), Enabled: true,
 				},
 				Account: store.Account{ID: 7, SiteID: 1, Status: "active"},
-				Site:    store.Site{ID: 1, Name: "site-a", Status: "active", GlobalWeight: 1},
+				Site:    store.Site{ID: 1, Name: "site-a", Status: "active", GlobalWeight: ptrFloat(1)},
 				Token:   &token,
 			},
 		},

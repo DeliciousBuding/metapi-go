@@ -730,8 +730,8 @@ func BuildSiteHistoricalHealthMetrics(candidates []RouteChannelCandidate) map[in
 			st = &siteTotal{}
 			totals[siteID] = st
 		}
-		sc := c.Channel.SuccessCount
-		fc := c.Channel.FailCount
+		sc := c.Channel.SuccessCountOrZero()
+		fc := c.Channel.FailCountOrZero()
 		if sc < 0 {
 			sc = 0
 		}
@@ -742,7 +742,7 @@ func BuildSiteHistoricalHealthMetrics(candidates []RouteChannelCandidate) map[in
 		st.failCount += fc
 		st.totalCalls += sc + fc
 		if sc > 0 {
-			st.totalLatencyMs += max(0, c.Channel.TotalLatencyMs)
+			st.totalLatencyMs += max(0, c.Channel.TotalLatencyMsOrZero())
 			st.latencySamples += sc
 		}
 	}

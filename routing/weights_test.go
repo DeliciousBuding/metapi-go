@@ -26,12 +26,12 @@ func makeCandidate(channelID, siteID, accountID int64, weight int64, priority in
 			RouteID:      1,
 			AccountID:    accountID,
 			SourceModel:  &sourceModel,
-			Priority:     priority,
-			Weight:       weight,
+			Priority: int64Ptr(priority),
+			Weight: int64Ptr(weight),
 			Enabled:      true,
-			SuccessCount: successCount,
-			FailCount:    failCount,
-			TotalCost:    totalCost,
+			SuccessCount: int64Ptr(successCount),
+			FailCount: int64Ptr(failCount),
+			TotalCost: ptrFloat(totalCost),
 		},
 		Account: store.Account{
 			ID:            accountID,
@@ -44,7 +44,7 @@ func makeCandidate(channelID, siteID, accountID int64, weight int64, priority in
 		Site: store.Site{
 			ID:           siteID,
 			Status:       "active",
-			GlobalWeight: siteGlobalWeight,
+			GlobalWeight: ptrFloat(siteGlobalWeight),
 		},
 	}
 }

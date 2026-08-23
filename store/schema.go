@@ -13,12 +13,18 @@ type Site struct {
 	// CustomHeadersOverrideRequestHeaders: when true, site custom headers
 	// overwrite same-name request headers (site-wins). Default false =
 	// request-wins (only set when the request lacks that header).
-	CustomHeadersOverrideRequestHeaders bool    `db:"custom_headers_override_request_headers" json:"customHeadersOverrideRequestHeaders"`
-	Status                              string  `db:"status" json:"status"`
-	IsPinned                            bool    `db:"is_pinned" json:"isPinned"`
-	SortOrder                           int64   `db:"sort_order" json:"sortOrder"`
-	GlobalWeight                        float64 `db:"global_weight" json:"globalWeight"`
-	APIKey                              *string `db:"api_key" json:"apiKey"`
+	CustomHeadersOverrideRequestHeaders bool   `db:"custom_headers_override_request_headers" json:"customHeadersOverrideRequestHeaders"`
+	Status                              string `db:"status" json:"status"`
+	// IsPinned/SortOrder/GlobalWeight are nullable in the sites table
+	// (DEFAULT without NOT NULL): rows migrated from the TS version can carry
+	// NULL. Keep them as pointers so a NULL column scans to nil (JSON null)
+	// instead of failing with "converting NULL to ..." in the routing join
+	// scans (channelAccountSiteSelect). Readers that need a numeric default
+	// use the OrZero helpers below.
+	IsPinned     *bool    `db:"is_pinned" json:"isPinned"`
+	SortOrder    *int64   `db:"sort_order" json:"sortOrder"`
+	GlobalWeight *float64 `db:"global_weight" json:"globalWeight"`
+	APIKey       *string  `db:"api_key" json:"apiKey"`
 	// MaxConcurrency caps concurrent upstream calls for this site.
 	// 0 (default) means unlimited — preserves pre-SC2 behavior.
 	MaxConcurrency                     int64  `db:"max_concurrency" json:"maxConcurrency"`
@@ -46,6 +52,30 @@ type Site struct {
 	// true = force-enable uTLS Chrome-ClientHello masking for this site
 	// false = force-disable uTLS masking even when global is enabled
 	UseUTLS *bool `db:"use_utls" json:"useUtls"`
+}
+
+// OrZero helpers coerce the nullable numeric site columns for callers that
+// need a numeric default (routing weights, ordering). Callers that must
+// preserve the unknown/nil semantics (JSON display) read the pointer directly.
+func (s Site) IsPinnedOrFalse() bool {
+	if s.IsPinned == nil {
+		return false
+	}
+	return *s.IsPinned
+}
+
+func (s Site) SortOrderOrZero() int64 {
+	if s.SortOrder == nil {
+		return 0
+	}
+	return *s.SortOrder
+}
+
+func (s Site) GlobalWeightOrZero() float64 {
+	if s.GlobalWeight == nil {
+		return 0
+	}
+	return *s.GlobalWeight
 }
 
 // ---- Table 2: site_api_endpoints ----
@@ -212,10 +242,21 @@ type TokenRoute struct {
 	// No dedicated model_catalog table exists; token_routes is the SC0 Option A home.
 	ContextLength *int64 `db:"context_length" json:"contextLength"`
 	// SortOrder controls admin list order (lower first, then id). Default 0.
-	SortOrder int64  `db:"sort_order" json:"sortOrder"`
+	// Nullable in the DDL (DEFAULT 0 without NOT NULL): TS-migrated rows can
+	// carry NULL, so keep a pointer — NULL scans to nil instead of failing
+	// LoadEnabledRoutes with "converting NULL to int64".
+	SortOrder *int64 `db:"sort_order" json:"sortOrder"`
 	Enabled   bool   `db:"enabled" json:"enabled"`
 	CreatedAt string `db:"created_at" json:"createdAt"`
 	UpdatedAt string `db:"updated_at" json:"updatedAt"`
+}
+
+// SortOrderOrZero coerces the nullable sort_order for ordering callers.
+func (r TokenRoute) SortOrderOrZero() int64 {
+	if r.SortOrder == nil {
+		return 0
+	}
+	return *r.SortOrder
 }
 
 // ---- Table 10: route_group_sources ----
@@ -239,46 +280,140 @@ type OAuthRouteUnit struct {
 
 // ---- Table 12: oauth_route_unit_members ----
 type OAuthRouteUnitMember struct {
-	ID                   int64   `db:"id" json:"id"`
-	UnitID               int64   `db:"unit_id" json:"unitId"`
-	AccountID            int64   `db:"account_id" json:"accountId"`
-	SortOrder            int64   `db:"sort_order" json:"sortOrder"`
-	SuccessCount         int64   `db:"success_count" json:"successCount"`
-	FailCount            int64   `db:"fail_count" json:"failCount"`
-	TotalLatencyMs       int64   `db:"total_latency_ms" json:"totalLatencyMs"`
-	TotalCost            float64 `db:"total_cost" json:"totalCost"`
-	LastUsedAt           *string `db:"last_used_at" json:"lastUsedAt"`
-	LastSelectedAt       *string `db:"last_selected_at" json:"lastSelectedAt"`
-	LastFailAt           *string `db:"last_fail_at" json:"lastFailAt"`
-	ConsecutiveFailCount int64   `db:"consecutive_fail_count" json:"consecutiveFailCount"`
-	CooldownLevel        int64   `db:"cooldown_level" json:"cooldownLevel"`
-	CooldownUntil        *string `db:"cooldown_until" json:"cooldownUntil"`
-	CreatedAt            string  `db:"created_at" json:"createdAt"`
-	UpdatedAt            string  `db:"updated_at" json:"updatedAt"`
+	ID        int64 `db:"id" json:"id"`
+	UnitID    int64 `db:"unit_id" json:"unitId"`
+	AccountID int64 `db:"account_id" json:"accountId"`
+	// SortOrder/SuccessCount/FailCount/TotalLatencyMs/TotalCost are nullable
+	// in the DDL (DEFAULT 0 without NOT NULL): TS-migrated rows can carry
+	// NULL. Keep pointers so NULL scans to nil instead of failing
+	// LoadOAuthRouteUnitMembers with "converting NULL to int64". Numeric
+	// callers use the OrZero helpers below.
+	SortOrder            *int64   `db:"sort_order" json:"sortOrder"`
+	SuccessCount         *int64   `db:"success_count" json:"successCount"`
+	FailCount            *int64   `db:"fail_count" json:"failCount"`
+	TotalLatencyMs       *int64   `db:"total_latency_ms" json:"totalLatencyMs"`
+	TotalCost            *float64 `db:"total_cost" json:"totalCost"`
+	LastUsedAt           *string  `db:"last_used_at" json:"lastUsedAt"`
+	LastSelectedAt       *string  `db:"last_selected_at" json:"lastSelectedAt"`
+	LastFailAt           *string  `db:"last_fail_at" json:"lastFailAt"`
+	ConsecutiveFailCount int64    `db:"consecutive_fail_count" json:"consecutiveFailCount"`
+	CooldownLevel        int64    `db:"cooldown_level" json:"cooldownLevel"`
+	CooldownUntil        *string  `db:"cooldown_until" json:"cooldownUntil"`
+	CreatedAt            string   `db:"created_at" json:"createdAt"`
+	UpdatedAt            string   `db:"updated_at" json:"updatedAt"`
+}
+
+// OrZero helpers coerce the nullable numeric member columns for callers that
+// need a numeric default (ordering, success/failure recording).
+func (m OAuthRouteUnitMember) SortOrderOrZero() int64 {
+	if m.SortOrder == nil {
+		return 0
+	}
+	return *m.SortOrder
+}
+
+func (m OAuthRouteUnitMember) SuccessCountOrZero() int64 {
+	if m.SuccessCount == nil {
+		return 0
+	}
+	return *m.SuccessCount
+}
+
+func (m OAuthRouteUnitMember) FailCountOrZero() int64 {
+	if m.FailCount == nil {
+		return 0
+	}
+	return *m.FailCount
+}
+
+func (m OAuthRouteUnitMember) TotalLatencyMsOrZero() int64 {
+	if m.TotalLatencyMs == nil {
+		return 0
+	}
+	return *m.TotalLatencyMs
+}
+
+func (m OAuthRouteUnitMember) TotalCostOrZero() float64 {
+	if m.TotalCost == nil {
+		return 0
+	}
+	return *m.TotalCost
 }
 
 // ---- Table 13: route_channels ----
 type RouteChannel struct {
-	ID                   int64   `db:"id" json:"id"`
-	RouteID              int64   `db:"route_id" json:"routeId"`
-	AccountID            int64   `db:"account_id" json:"accountId"`
-	TokenID              *int64  `db:"token_id" json:"tokenId"`
-	OAuthRouteUnitID     *int64  `db:"oauth_route_unit_id" json:"oauthRouteUnitId"`
-	SourceModel          *string `db:"source_model" json:"sourceModel"`
-	Priority             int64   `db:"priority" json:"priority"`
-	Weight               int64   `db:"weight" json:"weight"`
-	Enabled              bool    `db:"enabled" json:"enabled"`
-	ManualOverride       bool    `db:"manual_override" json:"manualOverride"`
-	SuccessCount         int64   `db:"success_count" json:"successCount"`
-	FailCount            int64   `db:"fail_count" json:"failCount"`
-	TotalLatencyMs       int64   `db:"total_latency_ms" json:"totalLatencyMs"`
-	TotalCost            float64 `db:"total_cost" json:"totalCost"`
-	LastUsedAt           *string `db:"last_used_at" json:"lastUsedAt"`
-	LastSelectedAt       *string `db:"last_selected_at" json:"lastSelectedAt"`
-	LastFailAt           *string `db:"last_fail_at" json:"lastFailAt"`
-	ConsecutiveFailCount int64   `db:"consecutive_fail_count" json:"consecutiveFailCount"`
-	CooldownLevel        int64   `db:"cooldown_level" json:"cooldownLevel"`
-	CooldownUntil        *string `db:"cooldown_until" json:"cooldownUntil"`
+	ID               int64   `db:"id" json:"id"`
+	RouteID          int64   `db:"route_id" json:"routeId"`
+	AccountID        int64   `db:"account_id" json:"accountId"`
+	TokenID          *int64  `db:"token_id" json:"tokenId"`
+	OAuthRouteUnitID *int64  `db:"oauth_route_unit_id" json:"oauthRouteUnitId"`
+	SourceModel      *string `db:"source_model" json:"sourceModel"`
+	// Priority/Weight/SuccessCount/FailCount/TotalLatencyMs/TotalCost are
+	// nullable in the DDL (DEFAULT without NOT NULL): TS-migrated rows can
+	// carry NULL. Keep pointers so NULL scans to nil instead of failing
+	// LoadRouteChannels with "converting NULL to int64" (a single NULL row
+	// used to take down the whole routing load). Numeric callers use the
+	// OrZero helpers below.
+	Priority             *int64   `db:"priority" json:"priority"`
+	Weight               *int64   `db:"weight" json:"weight"`
+	Enabled              bool     `db:"enabled" json:"enabled"`
+	ManualOverride       bool     `db:"manual_override" json:"manualOverride"`
+	SuccessCount         *int64   `db:"success_count" json:"successCount"`
+	FailCount            *int64   `db:"fail_count" json:"failCount"`
+	TotalLatencyMs       *int64   `db:"total_latency_ms" json:"totalLatencyMs"`
+	TotalCost            *float64 `db:"total_cost" json:"totalCost"`
+	LastUsedAt           *string  `db:"last_used_at" json:"lastUsedAt"`
+	LastSelectedAt       *string  `db:"last_selected_at" json:"lastSelectedAt"`
+	LastFailAt           *string  `db:"last_fail_at" json:"lastFailAt"`
+	ConsecutiveFailCount int64    `db:"consecutive_fail_count" json:"consecutiveFailCount"`
+	CooldownLevel        int64    `db:"cooldown_level" json:"cooldownLevel"`
+	CooldownUntil        *string  `db:"cooldown_until" json:"cooldownUntil"`
+}
+
+// OrZero helpers coerce the nullable numeric channel columns for callers that
+// need a numeric default (priority layers, weighted selection, success/failure
+// recording). Callers that must preserve unknown/nil semantics (JSON display,
+// IsChannelRecentlyFailed) read the pointer directly.
+func (c RouteChannel) PriorityOrZero() int64 {
+	if c.Priority == nil {
+		return 0
+	}
+	return *c.Priority
+}
+
+func (c RouteChannel) WeightOrZero() int64 {
+	if c.Weight == nil {
+		return 0
+	}
+	return *c.Weight
+}
+
+func (c RouteChannel) SuccessCountOrZero() int64 {
+	if c.SuccessCount == nil {
+		return 0
+	}
+	return *c.SuccessCount
+}
+
+func (c RouteChannel) FailCountOrZero() int64 {
+	if c.FailCount == nil {
+		return 0
+	}
+	return *c.FailCount
+}
+
+func (c RouteChannel) TotalLatencyMsOrZero() int64 {
+	if c.TotalLatencyMs == nil {
+		return 0
+	}
+	return *c.TotalLatencyMs
+}
+
+func (c RouteChannel) TotalCostOrZero() float64 {
+	if c.TotalCost == nil {
+		return 0
+	}
+	return *c.TotalCost
 }
 
 // ---- Table 14: proxy_logs ----

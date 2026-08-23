@@ -349,15 +349,15 @@ func TestGetRoundRobinRouteUnitMembers_SortOrderTiebreaker(t *testing.T) {
 	sameTime := "2024-01-01T00:00:00Z"
 	members := []OAuthRouteUnitMemberCandidate{
 		{
-			Member:  store.OAuthRouteUnitMember{ID: 1, AccountID: 300, LastSelectedAt: &sameTime, SortOrder: 5},
+			Member:  store.OAuthRouteUnitMember{ID: 1, AccountID: 300, LastSelectedAt: &sameTime, SortOrder: int64Ptr(5)},
 			Account: store.Account{ID: 300},
 		},
 		{
-			Member:  store.OAuthRouteUnitMember{ID: 2, AccountID: 100, LastSelectedAt: &sameTime, SortOrder: 1},
+			Member:  store.OAuthRouteUnitMember{ID: 2, AccountID: 100, LastSelectedAt: &sameTime, SortOrder: int64Ptr(1)},
 			Account: store.Account{ID: 100},
 		},
 		{
-			Member:  store.OAuthRouteUnitMember{ID: 3, AccountID: 200, LastSelectedAt: &sameTime, SortOrder: 3},
+			Member:  store.OAuthRouteUnitMember{ID: 3, AccountID: 200, LastSelectedAt: &sameTime, SortOrder: int64Ptr(3)},
 			Account: store.Account{ID: 200},
 		},
 	}
@@ -425,14 +425,14 @@ func TestSelectRouteUnitMember_Failover(t *testing.T) {
 			RouteUnitMembers: []OAuthRouteUnitMemberCandidate{
 				{
 					Member: store.OAuthRouteUnitMember{
-						ID: 1, AccountID: 100, FailCount: fc, LastFailAt: &recentFail,
+						ID: 1, AccountID: 100, FailCount: int64Ptr(fc), LastFailAt: &recentFail,
 					},
 					Account: store.Account{ID: 100, Status: "active", AccessToken: "t1"},
 					Site:    store.Site{ID: 1000, Status: "active"},
 				},
 				{
 					Member: store.OAuthRouteUnitMember{
-						ID: 2, AccountID: 101, FailCount: 0,
+						ID: 2, AccountID: 101, FailCount: int64Ptr(0),
 					},
 					Account: store.Account{ID: 101, Status: "active", AccessToken: "t2"},
 					Site:    store.Site{ID: 1010, Status: "active"},
@@ -464,7 +464,7 @@ func TestSelectRouteUnitMember_Failover(t *testing.T) {
 			RouteUnitMembers: []OAuthRouteUnitMemberCandidate{
 				{
 					Member: store.OAuthRouteUnitMember{
-						ID: 1, AccountID: 100, FailCount: fc, LastFailAt: &recentFail,
+						ID: 1, AccountID: 100, FailCount: int64Ptr(fc), LastFailAt: &recentFail,
 					},
 					Account: store.Account{ID: 100, Status: "active", AccessToken: "t1"},
 					Site:    store.Site{ID: 1000, Status: "active"},

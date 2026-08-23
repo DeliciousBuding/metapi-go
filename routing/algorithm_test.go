@@ -131,19 +131,19 @@ func TestRoundRobinStrategy_Ordering(t *testing.T) {
 
 	candidates := []RouteChannelCandidate{
 		{
-			Channel: store.RouteChannel{ID: 1, RouteID: 1, SourceModel: &gpt4, Priority: 0, Weight: 10, Enabled: true, LastSelectedAt: &now3},
+			Channel: store.RouteChannel{ID: 1, RouteID: 1, SourceModel: &gpt4, Priority: int64Ptr(0), Weight: int64Ptr(10), Enabled: true, LastSelectedAt: &now3},
 			Account: store.Account{ID: 101, SiteID: 10, Status: "active", Balance: ptrFloat(100), OAuthProvider: &gpt4},
-			Site:    store.Site{ID: 10, Status: "active", GlobalWeight: 1.0},
+			Site:    store.Site{ID: 10, Status: "active", GlobalWeight: ptrFloat(1.0)},
 		},
 		{
-			Channel: store.RouteChannel{ID: 2, RouteID: 1, SourceModel: &gpt4, Priority: 0, Weight: 10, Enabled: true, LastSelectedAt: &now1},
+			Channel: store.RouteChannel{ID: 2, RouteID: 1, SourceModel: &gpt4, Priority: int64Ptr(0), Weight: int64Ptr(10), Enabled: true, LastSelectedAt: &now1},
 			Account: store.Account{ID: 102, SiteID: 20, Status: "active", Balance: ptrFloat(100), OAuthProvider: &gpt4},
-			Site:    store.Site{ID: 20, Status: "active", GlobalWeight: 1.0},
+			Site:    store.Site{ID: 20, Status: "active", GlobalWeight: ptrFloat(1.0)},
 		},
 		{
-			Channel: store.RouteChannel{ID: 3, RouteID: 1, SourceModel: &gpt4, Priority: 0, Weight: 10, Enabled: true, LastSelectedAt: &now2},
+			Channel: store.RouteChannel{ID: 3, RouteID: 1, SourceModel: &gpt4, Priority: int64Ptr(0), Weight: int64Ptr(10), Enabled: true, LastSelectedAt: &now2},
 			Account: store.Account{ID: 103, SiteID: 30, Status: "active", Balance: ptrFloat(100), OAuthProvider: &gpt4},
-			Site:    store.Site{ID: 30, Status: "active", GlobalWeight: 1.0},
+			Site:    store.Site{ID: 30, Status: "active", GlobalWeight: ptrFloat(1.0)},
 		},
 	}
 
@@ -182,14 +182,14 @@ func TestRoundRobinStrategy_TieBreak(t *testing.T) {
 
 	candidates := []RouteChannelCandidate{
 		{
-			Channel: store.RouteChannel{ID: 10, RouteID: 1, SourceModel: &gpt4, Priority: 0, Weight: 10, Enabled: true, LastSelectedAt: &sameTime, LastUsedAt: &used2},
+			Channel: store.RouteChannel{ID: 10, RouteID: 1, SourceModel: &gpt4, Priority: int64Ptr(0), Weight: int64Ptr(10), Enabled: true, LastSelectedAt: &sameTime, LastUsedAt: &used2},
 			Account: store.Account{ID: 201, SiteID: 10, Status: "active"},
-			Site:    store.Site{ID: 10, Status: "active", GlobalWeight: 1.0},
+			Site:    store.Site{ID: 10, Status: "active", GlobalWeight: ptrFloat(1.0)},
 		},
 		{
-			Channel: store.RouteChannel{ID: 20, RouteID: 1, SourceModel: &gpt4, Priority: 0, Weight: 10, Enabled: true, LastSelectedAt: &sameTime, LastUsedAt: &used1},
+			Channel: store.RouteChannel{ID: 20, RouteID: 1, SourceModel: &gpt4, Priority: int64Ptr(0), Weight: int64Ptr(10), Enabled: true, LastSelectedAt: &sameTime, LastUsedAt: &used1},
 			Account: store.Account{ID: 202, SiteID: 20, Status: "active"},
-			Site:    store.Site{ID: 20, Status: "active", GlobalWeight: 1.0},
+			Site:    store.Site{ID: 20, Status: "active", GlobalWeight: ptrFloat(1.0)},
 		},
 	}
 
@@ -380,7 +380,7 @@ func TestAllCandidatesCooldown(t *testing.T) {
 
 	filtered := FilterRecentlyFailedCandidates(candidates,
 		func(c RouteChannelCandidate) (*int64, *string) {
-			return &c.Channel.FailCount, c.Channel.LastFailAt
+			return c.Channel.FailCount, c.Channel.LastFailAt
 		},
 		nowMs, 30*24*60*60, // max allowed = 30 days
 	)
@@ -802,12 +802,12 @@ func buildTestCandidate(channelID, siteID, accountID int64, weight int64, priori
 			RouteID:      1,
 			AccountID:    accountID,
 			SourceModel:  &sourceModel,
-			Priority:     priority,
-			Weight:       weight,
+			Priority: int64Ptr(priority),
+			Weight: int64Ptr(weight),
 			Enabled:      true,
-			SuccessCount: successCount,
-			FailCount:    failCount,
-			TotalCost:    totalCost,
+			SuccessCount: int64Ptr(successCount),
+			FailCount: int64Ptr(failCount),
+			TotalCost: ptrFloat(totalCost),
 		},
 		Account: store.Account{
 			ID:            accountID,
@@ -820,7 +820,7 @@ func buildTestCandidate(channelID, siteID, accountID int64, weight int64, priori
 		Site: store.Site{
 			ID:           siteID,
 			Status:       "active",
-			GlobalWeight: siteGlobalWeight,
+			GlobalWeight: ptrFloat(siteGlobalWeight),
 		},
 	}
 }
@@ -832,7 +832,7 @@ func buildTestCandidateRef(channelID, siteID, accountID int64, weight int64, pri
 
 	c := buildTestCandidate(channelID, siteID, accountID, weight, priority,
 		successCount, failCount, totalCost, siteGlobalWeight, unitCost, balance, oauthProvider)
-	c.Channel.FailCount = failCountOverride
+	c.Channel.FailCount = &failCountOverride
 	c.Channel.LastFailAt = lastFailAt
 	return c
 }
@@ -847,29 +847,29 @@ func makeRoundRobinTestCandidates() []RouteChannelCandidate {
 
 	return []RouteChannelCandidate{
 		{
-			Channel: store.RouteChannel{ID: 1, RouteID: 1, SourceModel: &gpt4, Priority: 0, Weight: 10, Enabled: true, LastSelectedAt: &now5, LastUsedAt: &now5},
+			Channel: store.RouteChannel{ID: 1, RouteID: 1, SourceModel: &gpt4, Priority: int64Ptr(0), Weight: int64Ptr(10), Enabled: true, LastSelectedAt: &now5, LastUsedAt: &now5},
 			Account: store.Account{ID: 101, SiteID: 10, Status: "active", Balance: ptrFloat(100), OAuthProvider: &gpt4},
-			Site:    store.Site{ID: 10, Status: "active", GlobalWeight: 1.0},
+			Site:    store.Site{ID: 10, Status: "active", GlobalWeight: ptrFloat(1.0)},
 		},
 		{
-			Channel: store.RouteChannel{ID: 2, RouteID: 1, SourceModel: &gpt4, Priority: 0, Weight: 10, Enabled: true, LastSelectedAt: &now1, LastUsedAt: &now1},
+			Channel: store.RouteChannel{ID: 2, RouteID: 1, SourceModel: &gpt4, Priority: int64Ptr(0), Weight: int64Ptr(10), Enabled: true, LastSelectedAt: &now1, LastUsedAt: &now1},
 			Account: store.Account{ID: 102, SiteID: 20, Status: "active", Balance: ptrFloat(100), OAuthProvider: &gpt4},
-			Site:    store.Site{ID: 20, Status: "active", GlobalWeight: 1.0},
+			Site:    store.Site{ID: 20, Status: "active", GlobalWeight: ptrFloat(1.0)},
 		},
 		{
-			Channel: store.RouteChannel{ID: 3, RouteID: 1, SourceModel: &gpt4, Priority: 0, Weight: 10, Enabled: true, LastSelectedAt: &now3, LastUsedAt: &now3},
+			Channel: store.RouteChannel{ID: 3, RouteID: 1, SourceModel: &gpt4, Priority: int64Ptr(0), Weight: int64Ptr(10), Enabled: true, LastSelectedAt: &now3, LastUsedAt: &now3},
 			Account: store.Account{ID: 103, SiteID: 30, Status: "active", Balance: ptrFloat(100), OAuthProvider: &gpt4},
-			Site:    store.Site{ID: 30, Status: "active", GlobalWeight: 1.0},
+			Site:    store.Site{ID: 30, Status: "active", GlobalWeight: ptrFloat(1.0)},
 		},
 		{
-			Channel: store.RouteChannel{ID: 4, RouteID: 1, SourceModel: &gpt4, Priority: 0, Weight: 10, Enabled: true, LastSelectedAt: &now2, LastUsedAt: &now2},
+			Channel: store.RouteChannel{ID: 4, RouteID: 1, SourceModel: &gpt4, Priority: int64Ptr(0), Weight: int64Ptr(10), Enabled: true, LastSelectedAt: &now2, LastUsedAt: &now2},
 			Account: store.Account{ID: 104, SiteID: 40, Status: "active", Balance: ptrFloat(100), OAuthProvider: &gpt4},
-			Site:    store.Site{ID: 40, Status: "active", GlobalWeight: 1.0},
+			Site:    store.Site{ID: 40, Status: "active", GlobalWeight: ptrFloat(1.0)},
 		},
 		{
-			Channel: store.RouteChannel{ID: 5, RouteID: 1, SourceModel: &gpt4, Priority: 0, Weight: 10, Enabled: true, LastSelectedAt: &now4, LastUsedAt: &now4},
+			Channel: store.RouteChannel{ID: 5, RouteID: 1, SourceModel: &gpt4, Priority: int64Ptr(0), Weight: int64Ptr(10), Enabled: true, LastSelectedAt: &now4, LastUsedAt: &now4},
 			Account: store.Account{ID: 105, SiteID: 50, Status: "active", Balance: ptrFloat(100), OAuthProvider: &gpt4},
-			Site:    store.Site{ID: 50, Status: "active", GlobalWeight: 1.0},
+			Site:    store.Site{ID: 50, Status: "active", GlobalWeight: ptrFloat(1.0)},
 		},
 	}
 }

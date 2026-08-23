@@ -34,8 +34,8 @@ func SelectLeastBusyCandidate(
 			return ranked[a].score < ranked[b].score
 		}
 		ca, cb := candidates[ranked[a].idx], candidates[ranked[b].idx]
-		if ca.Channel.Weight != cb.Channel.Weight {
-			return ca.Channel.Weight > cb.Channel.Weight
+		if ca.Channel.WeightOrZero() != cb.Channel.WeightOrZero() {
+			return ca.Channel.WeightOrZero() > cb.Channel.WeightOrZero()
 		}
 		return ca.Channel.ID < cb.Channel.ID
 	})
@@ -59,7 +59,7 @@ func leastBusyScore(c RouteChannelCandidate, loadProvider ChannelLoadSnapshotPro
 			return active + 0.5*waiting + sat
 		}
 	}
-	total := float64(c.Channel.SuccessCount + c.Channel.FailCount)
+	total := float64(c.Channel.SuccessCountOrZero() + c.Channel.FailCountOrZero())
 	return total
 }
 

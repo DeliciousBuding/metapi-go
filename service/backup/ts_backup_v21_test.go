@@ -614,3 +614,138 @@ func TestImportTSV21RollsBackOnFailure(t *testing.T) {
 		t.Fatalf("sites count = %d after rollback, want 0", siteCount)
 	}
 }
+
+// TestImportTSV21NormalizesExplicitNullStats guards the #933-family residual
+// at the import edge: explicit JSON nulls on the nullable numeric/boolean stat
+// columns of sites / token_routes / route_channels must import as their DDL
+// defaults (0 / 10 / 1 / false / true) instead of NULL, so a TS backup can
+// never seed a row that breaks the routing loaders' scans. Truly nullable
+// columns (accounts.balance) keep NULL semantics.
+func TestImportTSV21NormalizesExplicitNullStats(t *testing.T) {
+	db := setupBackupServiceTestDB(t)
+
+	payload := `{
+	  "version": "2.1",
+	  "timestamp": 1755678900000,
+	  "type": "accounts",
+	  "accounts": {
+	    "sites": [
+	      {"id": 1, "name": "站Null", "url": "https://null.example.com", "platform": "new-api",
+	       "useSystemProxy": null, "isPinned": null, "sortOrder": null, "globalWeight": null,
+	       "postRefreshProbeEnabled": null, "postRefreshProbeLatencyThresholdMs": null}
+	    ],
+	    "accounts": [
+	      {"id": 1, "siteId": 1, "accessToken": "acc-null", "balance": null}
+	    ],
+	    "tokenRoutes": [
+	      {"id": 1, "modelPattern": "gpt-*", "enabled": null}
+	    ],
+	    "routeChannels": [
+	      {"id": 1, "routeId": 1, "accountId": 1, "priority": null, "weight": null,
+	       "enabled": null, "manualOverride": null, "successCount": null, "failCount": null,
+	       "totalLatencyMs": null, "totalCost": null, "consecutiveFailCount": null, "cooldownLevel": null}
+	    ]
+	  }
+	}`
+
+	if _, err := backupsvc.ImportTSV21(db, []byte(payload)); err != nil {
+		t.Fatalf("ImportTSV21 with explicit-null stat columns: %v", err)
+	}
+
+	var site struct {
+		UseSystemProxy    sql.NullBool  `db:"use_system_proxy"`
+		IsPinned          sql.NullBool  `db:"is_pinned"`
+		SortOrder         sql.NullInt64 `db:"sort_order"`
+		GlobalWeight      sql.NullFloat64 `db:"global_weight"`
+		ProbeEnabled      sql.NullBool  `db:"post_refresh_probe_enabled"`
+		ProbeLatencyThrMs sql.NullInt64 `db:"post_refresh_probe_latency_threshold_ms"`
+	}
+	if err := db.Get(&site, `SELECT use_system_proxy, is_pinned, sort_order, global_weight,
+		post_refresh_probe_enabled, post_refresh_probe_latency_threshold_ms FROM sites WHERE id = 1`); err != nil {
+		t.Fatalf("read imported site: %v", err)
+	}
+	if !site.UseSystemProxy.Valid || site.UseSystemProxy.Bool != false {
+		t.Errorf("use_system_proxy = %+v, want false (DDL default), not NULL", site.UseSystemProxy)
+	}
+	if !site.IsPinned.Valid || site.IsPinned.Bool != false {
+		t.Errorf("is_pinned = %+v, want false (DDL default), not NULL", site.IsPinned)
+	}
+	if !site.SortOrder.Valid || site.SortOrder.Int64 != 0 {
+		t.Errorf("sort_order = %+v, want 0 (DDL default), not NULL", site.SortOrder)
+	}
+	if !site.GlobalWeight.Valid || site.GlobalWeight.Float64 != 1 {
+		t.Errorf("global_weight = %+v, want 1 (DDL default), not NULL", site.GlobalWeight)
+	}
+	if !site.ProbeEnabled.Valid || site.ProbeEnabled.Bool != false {
+		t.Errorf("post_refresh_probe_enabled = %+v, want false (DDL default), not NULL", site.ProbeEnabled)
+	}
+	if !site.ProbeLatencyThrMs.Valid || site.ProbeLatencyThrMs.Int64 != 0 {
+		t.Errorf("post_refresh_probe_latency_threshold_ms = %+v, want 0 (DDL default), not NULL", site.ProbeLatencyThrMs)
+	}
+
+	var routeEnabled sql.NullBool
+	if err := db.Get(&routeEnabled, "SELECT enabled FROM token_routes WHERE id = 1"); err != nil {
+		t.Fatalf("read imported token_route: %v", err)
+	}
+	if !routeEnabled.Valid || routeEnabled.Bool != true {
+		t.Errorf("token_routes.enabled = %+v, want true (DDL default), not NULL", routeEnabled)
+	}
+
+	var channel struct {
+		Priority             sql.NullInt64   `db:"priority"`
+		Weight               sql.NullInt64   `db:"weight"`
+		Enabled              sql.NullBool    `db:"enabled"`
+		ManualOverride       sql.NullBool    `db:"manual_override"`
+		SuccessCount         sql.NullInt64   `db:"success_count"`
+		FailCount            sql.NullInt64   `db:"fail_count"`
+		TotalLatencyMs       sql.NullInt64   `db:"total_latency_ms"`
+		TotalCost            sql.NullFloat64 `db:"total_cost"`
+		ConsecutiveFailCount sql.NullInt64   `db:"consecutive_fail_count"`
+		CooldownLevel        sql.NullInt64   `db:"cooldown_level"`
+	}
+	if err := db.Get(&channel, `SELECT priority, weight, enabled, manual_override, success_count,
+		fail_count, total_latency_ms, total_cost, consecutive_fail_count, cooldown_level
+		FROM route_channels WHERE id = 1`); err != nil {
+		t.Fatalf("read imported route_channel: %v", err)
+	}
+	if !channel.Priority.Valid || channel.Priority.Int64 != 0 {
+		t.Errorf("priority = %+v, want 0 (DDL default), not NULL", channel.Priority)
+	}
+	if !channel.Weight.Valid || channel.Weight.Int64 != 10 {
+		t.Errorf("weight = %+v, want 10 (DDL default), not NULL", channel.Weight)
+	}
+	if !channel.Enabled.Valid || channel.Enabled.Bool != true {
+		t.Errorf("enabled = %+v, want true (DDL default), not NULL", channel.Enabled)
+	}
+	if !channel.ManualOverride.Valid || channel.ManualOverride.Bool != false {
+		t.Errorf("manual_override = %+v, want false (DDL default), not NULL", channel.ManualOverride)
+	}
+	if !channel.SuccessCount.Valid || channel.SuccessCount.Int64 != 0 {
+		t.Errorf("success_count = %+v, want 0 (DDL default), not NULL", channel.SuccessCount)
+	}
+	if !channel.FailCount.Valid || channel.FailCount.Int64 != 0 {
+		t.Errorf("fail_count = %+v, want 0 (DDL default), not NULL", channel.FailCount)
+	}
+	if !channel.TotalLatencyMs.Valid || channel.TotalLatencyMs.Int64 != 0 {
+		t.Errorf("total_latency_ms = %+v, want 0 (DDL default), not NULL", channel.TotalLatencyMs)
+	}
+	if !channel.TotalCost.Valid || channel.TotalCost.Float64 != 0 {
+		t.Errorf("total_cost = %+v, want 0 (DDL default), not NULL", channel.TotalCost)
+	}
+	if !channel.ConsecutiveFailCount.Valid || channel.ConsecutiveFailCount.Int64 != 0 {
+		t.Errorf("consecutive_fail_count = %+v, want 0, not NULL", channel.ConsecutiveFailCount)
+	}
+	if !channel.CooldownLevel.Valid || channel.CooldownLevel.Int64 != 0 {
+		t.Errorf("cooldown_level = %+v, want 0, not NULL", channel.CooldownLevel)
+	}
+
+	// accounts.balance is truly nullable (unknown balance per #933): explicit
+	// null must stay NULL, not be coerced to 0.
+	var balance sql.NullFloat64
+	if err := db.Get(&balance, "SELECT balance FROM accounts WHERE id = 1"); err != nil {
+		t.Fatalf("read imported account: %v", err)
+	}
+	if balance.Valid {
+		t.Errorf("accounts.balance = %v, want NULL preserved", balance.Float64)
+	}
+}

@@ -314,8 +314,8 @@ func collectDesiredChannels(ctx context.Context, db *sqlx.DB, routeID int64, mod
 			AccountID   int64   `db:"account_id"`
 			TokenID     *int64  `db:"token_id"`
 			SourceModel *string `db:"source_model"`
-			Priority    int64   `db:"priority"`
-			Weight      int64   `db:"weight"`
+			Priority    *int64  `db:"priority"`
+			Weight      *int64  `db:"weight"`
 			Enabled     bool    `db:"enabled"`
 		}
 		var channels []chRow
@@ -335,15 +335,22 @@ func collectDesiredChannels(ctx context.Context, db *sqlx.DB, routeID int64, mod
 			if _, exists := desired[key]; exists {
 				continue // first occurrence wins (exact-route channels first)
 			}
-			weight := ch.Weight
+			weight := int64(0)
+			if ch.Weight != nil {
+				weight = *ch.Weight
+			}
 			if weight <= 0 {
 				weight = 10
+			}
+			priority := int64(0)
+			if ch.Priority != nil {
+				priority = *ch.Priority
 			}
 			desired[key] = desiredChannel{
 				AccountID:   ch.AccountID,
 				TokenID:     ch.TokenID,
 				SourceModel: sm,
-				Priority:    ch.Priority,
+				Priority:    priority,
 				Weight:      weight,
 				Enabled:     true,
 			}

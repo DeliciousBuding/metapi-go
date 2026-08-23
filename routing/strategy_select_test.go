@@ -10,9 +10,9 @@ func mkStrategyCandidate(channelID, siteID, weight, success, fail int64, unitCos
 	return RouteChannelCandidate{
 		Channel: store.RouteChannel{
 			ID:           channelID,
-			Weight:       weight,
-			SuccessCount: success,
-			FailCount:    fail,
+			Weight: int64Ptr(weight),
+			SuccessCount: int64Ptr(success),
+			FailCount: int64Ptr(fail),
 		},
 		Account: store.Account{ID: channelID, UnitCost: unitCost},
 		Site:    store.Site{ID: siteID, Name: "s"},
