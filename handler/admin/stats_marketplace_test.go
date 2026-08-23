@@ -102,18 +102,23 @@ func TestInferEndpointTypes_RerankAndNilSnapshot(t *testing.T) {
 		t.Errorf("nil snapshot gemini = %v, want [gemini]", got)
 	}
 
-	// Ratio-only catalog entries have no provider slug. Their model name
-	// must retain a recognizable Claude/Gemini dialect; unknown names keep
-	// the OpenAI-compatible default.
+	// Catalog provider slugs can identify a relay/vendor rather than the
+	// model protocol. Recognizable Claude/Gemini names retain their native
+	// dialect; an unknown ratio-only row keeps the OpenAI-compatible default.
 	ratio := 3.0
-	for model, want := range map[string][]string{
-		"claude-sonnet-4-20250514": {"anthropic"},
-		"gemini-2.5-pro":           {"gemini"},
-		"relay-private-model":      {"openai"},
-	} {
-		got = catalogEndpointTypes(pricingcatalog.CatalogEntry{ModelID: model, ModelRatio: &ratio}, model)
-		if !reflect.DeepEqual(got, want) {
-			t.Errorf("ratio-only %s = %v, want %v", model, got, want)
+	cases := []struct {
+		model    string
+		provider string
+		want     []string
+	}{
+		{model: "claude-sonnet-4-20250514", provider: "nano-gpt", want: []string{"anthropic"}},
+		{model: "gemini-2.5-pro", provider: "openrouter", want: []string{"gemini"}},
+		{model: "relay-private-model", want: []string{"openai"}},
+	}
+	for _, tc := range cases {
+		got = catalogEndpointTypes(pricingcatalog.CatalogEntry{ModelID: tc.model, Provider: tc.provider, ModelRatio: &ratio}, tc.model)
+		if !reflect.DeepEqual(got, tc.want) {
+			t.Errorf("catalog row %s/%s = %v, want %v", tc.provider, tc.model, got, tc.want)
 		}
 	}
 }

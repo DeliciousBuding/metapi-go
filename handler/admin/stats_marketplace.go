@@ -413,8 +413,9 @@ func catalogPricingSources(entry pricingcatalog.CatalogEntry, hit bool) []any {
 // inferEndpointTypesForModel derives the model's routeable endpoint types:
 // the API dialect (anthropic / gemini / openai) and the non-chat endpoint
 // families (images, audio, videos, embeddings, rerank). When the model is
-// cataloged, the dialect comes from the catalog provider (replaces the name
-// prefix guess) and non-chat families from the catalog modalities
+// cataloged, recognizable big-three model families keep their native dialect;
+// other models use the catalog provider/default dialect. Non-chat families
+// come from the catalog modalities
 // (vision/audio/video output). The name-suffix heuristic is retained for
 // embeddings/rerank (no modality signal exists for them) and as the
 // catalog-miss fallback.
@@ -426,9 +427,10 @@ func inferEndpointTypesForModel(snapshot *pricingcatalog.CatalogSnapshot, modelN
 }
 
 // catalogEndpointTypes builds the endpoint type set from catalog metadata.
-// The dialect maps the catalog provider slug to the API dialect metapi
-// serves (anthropic → Messages surface, google → Gemini surface, every
-// other provider → OpenAI-compatible surface). Non-chat families come from
+// The dialect first recognizes native big-three model families because catalog
+// provider slugs can name a reseller rather than the model protocol. Otherwise
+// it maps anthropic/google providers and defaults to OpenAI-compatible. Non-chat
+// families come from
 // the directed modality lists: an image output means image generation (with
 // the edit surface when the model also takes image input), an audio output
 // means speech, an audio input means transcription, a video output means
@@ -437,25 +439,24 @@ func inferEndpointTypesForModel(snapshot *pricingcatalog.CatalogSnapshot, modelN
 // families still come from the model name.
 func catalogEndpointTypes(entry pricingcatalog.CatalogEntry, modelName string) []string {
 	var types []string
-	provider := strings.ToLower(strings.TrimSpace(entry.Provider))
-	switch provider {
-	case "anthropic":
-		types = append(types, "anthropic")
-	case "google":
-		types = append(types, "gemini")
-	case "":
-		// Ratio-only rows have no provider metadata. Preserve the
-		// recognizable big-three dialect from the model name instead of
-		// mislabeling a Claude/Gemini ratio entry as OpenAI-compatible.
-		if dialect := endpointDialectByName(modelName); dialect != "" {
-			types = append(types, dialect)
-		} else {
+	if dialect := endpointDialectByName(modelName); dialect != "" {
+		// models.dev provider slugs identify the listing/vendor, not always
+		// the model protocol (for example, a Claude row can be listed under
+		// a relay provider). Keep recognizable big-three model families on
+		// their native API surface.
+		types = append(types, dialect)
+	} else {
+		switch strings.ToLower(strings.TrimSpace(entry.Provider)) {
+		case "anthropic":
+			types = append(types, "anthropic")
+		case "google":
+			types = append(types, "gemini")
+		default:
+			// Catalog-only providers (deepseek, meta, mistral, x-ai,
+			// relay vendors, and ratio-only rows) use the
+			// OpenAI-compatible surface.
 			types = append(types, "openai")
 		}
-	default:
-		// Catalog-only providers (deepseek, meta, mistral, x-ai, ...)
-		// use the OpenAI-compatible surface.
-		types = append(types, "openai")
 	}
 
 	input := modalitySet(entry.ModalitiesInput)
