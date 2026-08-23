@@ -161,17 +161,17 @@ export function DataTableBulkActions<TData>({
         tabIndex={-1}
         onKeyDown={handleKeyDown}
         className={cn(
-          'fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl',
+          'fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl max-w-[calc(100vw_-_0.5rem)]',
           'transition-transform delay-100 duration-300 ease-out hover:scale-105',
           'focus-visible:ring-ring/50 focus-visible:ring-2 focus-visible:outline-none'
         )}
       >
         <div
           className={cn(
-            'p-2 shadow-xl',
+            'p-1.5 shadow-xl max-w-full overflow-x-auto sm:p-2',
             'rounded-xl border',
             'bg-background/95 supports-[backdrop-filter]:bg-background/60 backdrop-blur-lg',
-            'flex items-center gap-x-2'
+            'flex items-center gap-x-1.5 sm:gap-x-2'
           )}
         >
           <Tooltip>
@@ -196,7 +196,7 @@ export function DataTableBulkActions<TData>({
           </Tooltip>
 
           <Separator
-            className='h-5'
+            className='h-5 max-sm:hidden'
             orientation='vertical'
             aria-hidden='true'
           />
@@ -224,7 +224,7 @@ export function DataTableBulkActions<TData>({
           </div>
 
           <Separator
-            className='h-5'
+            className='h-5 max-sm:hidden'
             orientation='vertical'
             aria-hidden='true'
           />

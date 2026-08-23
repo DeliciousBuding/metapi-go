@@ -172,7 +172,7 @@ export function useSitesColumns(
       id: 'platform',
       accessorKey: 'platform',
       size: 140,
-      meta: { mobileHidden: true, mobileOrder: 20 },
+      meta: { mobileOrder: 50, label: t('sites.columns.platform') },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}
@@ -192,7 +192,7 @@ export function useSitesColumns(
       id: 'accountCount',
       accessorKey: 'accountCount',
       size: 120,
-      meta: { mobileOrder: 30 },
+      meta: { mobileOrder: 30, label: t('sites.columns.accountCount') },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}
@@ -220,7 +220,7 @@ export function useSitesColumns(
       id: 'balance',
       accessorFn: (row) => resolveSiteBalanceUsd(row),
       size: 140,
-      meta: { mobileHidden: true, mobileOrder: 35 },
+      meta: { mobileOrder: 35, label: t('sites.columns.balance') },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}

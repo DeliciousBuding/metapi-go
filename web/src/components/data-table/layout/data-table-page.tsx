@@ -257,8 +257,10 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
       </div>
 
       {/* Bulk actions are typically a fixed-position toolbar; let the consumer
-          handle its own visibility, we just gate it to non-mobile. */}
-      {!showMobile && props.bulkActions}
+          handle its own visibility. Rendered on mobile too — MobileCardList
+          surfaces the row-selection checkbox when the table has a `select`
+          column, so bulk enable/disable/delete are reachable on touch. */}
+      {props.bulkActions}
 
       {paginationNode}
     </>
@@ -332,7 +334,11 @@ function renderMobile<TData>(
     )
   }
 
-  return <div className='min-h-0 flex-1 overflow-y-auto'>{mobileContent}</div>
+  return (
+    <div className='min-h-0 flex-1 overflow-y-auto [mask-image:linear-gradient(to_bottom,black_calc(100%_-_2.5rem),transparent)]'>
+      {mobileContent}
+    </div>
+  )
 }
 
 function renderDesktop<TData>(
