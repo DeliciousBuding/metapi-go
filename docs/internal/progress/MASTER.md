@@ -45,10 +45,13 @@
 - token-routes detail sheet footer 增「Edit」（gap-6），routes-page 接线（关 sheet → 开 edit dialog）；decision snapshot selected channel 显示 account 名。
 - transport.ts:151 硬编码中文流式错误 → 英文技术消息。
 
+**Batch 3（本 PR）—— model-tester 错误态 + schedule-editor 可访问标签**
+- model-tester：models/channels 查询加载失败时静默空下拉 → 接入 QueryErrorBanner + Retry。
+- schedule-editor：daily/window/custom 的 time/cron 输入补 aria-label（en/zh 词条）。
+
 **剩余 P2（后续批）**
-- model-tester 无 error 态（模型/渠道下拉静默为空）。
 - import 空响应、manual-checkin schema-parse 失败被 `catch {}` 静默吞。
-- schedule-editor / site-form-dialog 自定义组件未透传 id/aria（FormLabel htmlFor 悬空）。
+- site-form-dialog（EndpointsEditor）自定义组件未透传 id/aria（FormLabel htmlFor 悬空）。
 
 **剩余 P3（后续批）**
 - token-routes/index.ts barrel stub；model-detail-sheet onTest 死代码；test-response-viewer useEffect 缺依赖数组。

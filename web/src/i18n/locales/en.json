@@ -216,6 +216,8 @@
       "form": {
         "model": "Model",
         "modelLoading": "Loading models…",
+        "modelsLoadError": "Failed to load models: {{message}}",
+        "channelsLoadError": "Failed to load channels: {{message}}",
         "modelPlaceholder": "Select a model",
         "channel": "Channel",
         "channelNone": "No channel (default routing)",
@@ -949,6 +951,10 @@
           "everyHours_other": "Every {{count}} hours",
           "kindLabel": "Schedule kind",
           "intervalLabel": "Interval hours",
+          "dailyTimeLabel": "Daily time",
+          "windowStartLabel": "Window start",
+          "windowEndLabel": "Window end",
+          "cronLabel": "Cron expression",
           "kinds": {
             "daily": "Daily at",
             "interval": "Every N hours",

@@ -117,6 +117,7 @@ export function ScheduleEditor({
         {kind === 'daily' ? (
           <Input
             type='time'
+            aria-label={t('settings.common.schedule.dailyTimeLabel')}
             className='w-32 font-mono'
             value={spec.kind === 'daily' ? spec.time : '08:00'}
             disabled={disabled}
@@ -167,6 +168,7 @@ export function ScheduleEditor({
         <div className='flex flex-wrap items-center gap-2'>
           <Input
             type='time'
+            aria-label={t('settings.common.schedule.windowStartLabel')}
             className='w-32 font-mono'
             value={spec.kind === 'window' ? spec.windowStart : '00:00'}
             disabled={disabled}
@@ -182,6 +184,7 @@ export function ScheduleEditor({
           <span className='text-muted-foreground text-xs'>→</span>
           <Input
             type='time'
+            aria-label={t('settings.common.schedule.windowEndLabel')}
             className='w-32 font-mono'
             value={spec.kind === 'window' ? spec.windowEnd : '23:59'}
             disabled={disabled}
@@ -202,6 +205,7 @@ export function ScheduleEditor({
           className='w-full font-mono'
           value={spec.kind === 'custom' ? spec.cron : ''}
           disabled={disabled}
+          aria-label={t('settings.common.schedule.cronLabel')}
           placeholder='0 8 * * *'
           onChange={(event) =>
             onChange({
