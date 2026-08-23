@@ -193,19 +193,21 @@ export type ModelRedirect = {
 
 export type ModelRedirectsResponse = { items: ModelRedirect[] }
 
-export type RedirectFixCandidate = {
-  siteId: number
-  siteName: string
-  accountId: number
-  modelName: string
-  canonical: string
-  actual: string
-}
-
+// Disabled-model entries that a redirect mapping can repair (K1a fix
+// candidates). Only surfaced via the candidates field of the model-redirects
+// apply endpoint (Settings > Models > Redirects preview/apply) since the
+// standalone fix-candidates page was folded in (Wave 8 Lane B).
 export type RedirectApplyResponse = {
   success: boolean
   dryRun: boolean
-  candidates?: RedirectFixCandidate[]
+  candidates?: Array<{
+    siteId: number
+    siteName: string
+    accountId: number
+    modelName: string
+    canonical: string
+    actual: string
+  }>
   count: number
   removed?: number
 }

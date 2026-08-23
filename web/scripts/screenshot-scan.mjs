@@ -64,7 +64,6 @@ const DESKTOP_ROUTES = [
   '/observability',
   '/price-compare',
   '/site-announcements',
-  '/fix-candidates',
   '/about',
   '/settings',
   '/settings/general/site',

@@ -2443,7 +2443,6 @@
         "settings": "Settings",
         "about": "About",
         "priceCompare": "Price Compare",
-        "fixCandidates": "Redirect Fix Candidates",
         "channels": "Channels"
       },
       "backToHome": "Back to Home",
@@ -2543,29 +2542,6 @@
         "actions": "Actions"
       },
       "effectiveCostPrecision": "Sample cost keeps 6 decimals so sub-cent per-call prices stay accurate."
-    },
-    "fixCandidates": {
-      "page": {
-        "title": "Redirect Fix Candidates",
-        "description": "Disabled models that an existing redirect mapping can restore.",
-        "loadError": "Failed to load fix candidates: {{message}}",
-        "emptyDescription": "No disabled models are repairable by an existing redirect."
-      },
-      "apply": "Apply fixes",
-      "confirm": {
-        "title": "Apply redirect fixes?",
-        "description": "This re-enables {{count}} disabled model(s) via their redirect mapping."
-      },
-      "toast": {
-        "applySucceeded": "Applied {{count}} fix(es).",
-        "applyFailed": "Failed to apply fixes: {{message}}"
-      },
-      "columns": {
-        "site": "Site",
-        "model": "Model",
-        "redirect": "Redirect",
-        "account": "Account"
-      }
     },
     "channels": {
       "page": {

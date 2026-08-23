@@ -2443,7 +2443,6 @@
         "settings": "设置",
         "about": "关于",
         "priceCompare": "价格对比",
-        "fixCandidates": "重定向修复候选项",
         "channels": "通道"
       },
       "backToHome": "返回首页",
@@ -2543,29 +2542,6 @@
         "actions": "操作"
       },
       "effectiveCostPrecision": "示例成本保留 6 位小数，以保证低于 1 美分的单次调用价格依然精确。"
-    },
-    "fixCandidates": {
-      "page": {
-        "title": "重定向修复候选项",
-        "description": "可通过已有重定向映射恢复的禁用模型。",
-        "loadError": "加载修复候选项失败：{{message}}",
-        "emptyDescription": "没有可通过现有重定向修复的禁用模型。"
-      },
-      "apply": "应用修复",
-      "confirm": {
-        "title": "应用重定向修复？",
-        "description": "将恢复 {{count}} 个禁用模型（通过其重定向映射）。"
-      },
-      "toast": {
-        "applySucceeded": "已应用 {{count}} 项修复。",
-        "applyFailed": "应用修复失败：{{message}}"
-      },
-      "columns": {
-        "site": "站点",
-        "model": "模型",
-        "redirect": "重定向",
-        "account": "账号"
-      }
     },
     "channels": {
       "page": {
