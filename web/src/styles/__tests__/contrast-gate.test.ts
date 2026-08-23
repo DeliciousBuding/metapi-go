@@ -328,20 +328,7 @@ const SOFT_TONES = ['destructive', 'info', 'success', 'warning']
 
 /** Known residuals outside the 2026-08-23 fix scope (a11y-checklist §7).
  * Key: `${preset}|${mode}|${label}`. */
-const EXEMPTIONS: Record<string, string> = {
-  'forest-whisper|dark|secondary-foreground on secondary':
-    'preset residual deferred per a11y-checklist §7.4',
-  'ocean-breeze|light|secondary-foreground on secondary':
-    'preset residual (4.47) deferred per a11y-checklist §7.4',
-  'simple-large|dark|destructive-foreground on destructive':
-    'preset bespoke destructive deferred per a11y-checklist §7.4',
-  'anthropic|dark|destructive-foreground on destructive':
-    'preset bespoke destructive deferred per a11y-checklist §7.4',
-  'anthropic|light|success-foreground on success':
-    'olive success preset residual deferred per a11y-checklist §7.4',
-  'anthropic|light|success-soft-fg on success/10':
-    'olive success preset residual deferred per a11y-checklist §7.4',
-}
+const EXEMPTIONS: Record<string, string> = {}
 
 describe('theme contrast gate (WCAG AA 4.5:1)', () => {
   it('every tracked pair passes AA across 10 presets x both modes (or is a documented exemption)', () => {

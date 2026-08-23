@@ -163,7 +163,7 @@
    * lightness) so white CTA text clears WCAG AA 4.5:1. */
   --primary: oklch(0.529 0.12 180.39);
   --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.6578 0.0485 247.35);
+  --secondary: oklch(0.5614 0.0485 247.35);
   --secondary-foreground: oklch(1 0 0);
   --ring: oklch(0.529 0.12 180.39);
   --chart-1: oklch(0.529 0.12 180.39);
@@ -179,7 +179,7 @@
 [data-theme-preset='ocean-breeze'] {
   --primary: oklch(0.5461 0.2152 262.88);
   --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.5854 0.2041 277.12);
+  --secondary: oklch(0.5785 0.2041 277.12);
   --secondary-foreground: oklch(1 0 0);
   --ring: oklch(0.5461 0.2152 262.88);
   --chart-1: oklch(0.5461 0.2152 262.88);
@@ -307,7 +307,7 @@
   --accent: oklch(0.36 0 0);
   --accent-foreground: oklch(0.98 0 0);
 
-  --destructive: oklch(0.68 0.19 25);
+  --destructive: oklch(0.572 0.19 25);
   --destructive-foreground: oklch(0.98 0 0);
   --success: oklch(0.72 0.13 145);
   --success-foreground: oklch(0.145 0 0);
@@ -454,8 +454,11 @@
 
   --destructive: oklch(0.55 0.18 27);
   --destructive-foreground: oklch(0.985 0 0);
-  --success: oklch(0.59 0.082 130); /* olive #788c5d */
+  --success: oklch(0.5458 0.082 130); /* olive */
   --success-foreground: oklch(0.985 0 0);
+  --success-soft-fg: oklch(
+    0.47 0.14 163.225
+  ); /* olive badge ink (AA-darkened) */
   --warning: oklch(0.78 0.13 70); /* kraft amber */
   --warning-foreground: oklch(0.205 0.005 60);
   --info: oklch(
@@ -513,7 +516,7 @@
   --accent: oklch(0.33 0.006 60);
   --accent-foreground: oklch(0.985 0.005 92);
 
-  --destructive: oklch(0.7 0.19 22);
+  --destructive: oklch(0.5758 0.19 22);
   --destructive-foreground: oklch(0.985 0 0);
   --success: oklch(0.7 0.105 135);
   --success-foreground: oklch(0.18 0.005 60);
