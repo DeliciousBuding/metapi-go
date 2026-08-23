@@ -36,8 +36,8 @@ func TestStore_EnsureDefaultsSeedsPresetsAndLegacyURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListSources: %v", err)
 	}
-	if len(rows) != 2 {
-		t.Fatalf("sources = %d, want 2 presets", len(rows))
+	if len(rows) != 3 {
+		t.Fatalf("sources = %d, want 3 presets", len(rows))
 	}
 	if rows[0].Name != "llm-metadata" || rows[0].Type != SourceTypeOfficial || !rows[0].Enabled {
 		t.Errorf("first preset = %+v, want enabled official llm-metadata", rows[0])
@@ -45,14 +45,17 @@ func TestStore_EnsureDefaultsSeedsPresetsAndLegacyURL(t *testing.T) {
 	if rows[1].Name != "models.dev" {
 		t.Errorf("second preset = %q, want models.dev", rows[1].Name)
 	}
+	if rows[2].Name != "llm-metadata ratios" {
+		t.Errorf("third preset = %q, want llm-metadata ratios", rows[2].Name)
+	}
 
 	// Idempotent: second call must not duplicate.
 	if err := s.EnsureDefaults(ctx, ""); err != nil {
 		t.Fatalf("EnsureDefaults (2nd): %v", err)
 	}
 	rows, _ = s.ListSources(ctx)
-	if len(rows) != 2 {
-		t.Fatalf("sources after 2nd seed = %d, want 2", len(rows))
+	if len(rows) != 3 {
+		t.Fatalf("sources after 2nd seed = %d, want 3", len(rows))
 	}
 
 	// Legacy PRICING_CATALOG_URL value becomes the top custom source.
@@ -65,8 +68,8 @@ func TestStore_EnsureDefaultsSeedsPresetsAndLegacyURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListSources legacy: %v", err)
 	}
-	if len(rows) != 3 {
-		t.Fatalf("sources = %d, want 3 (legacy + 2 presets)", len(rows))
+	if len(rows) != 4 {
+		t.Fatalf("sources = %d, want 4 (legacy + 3 presets)", len(rows))
 	}
 	if rows[0].URL != "https://internal.example.com/catalog.json" || rows[0].Type != SourceTypeCustom {
 		t.Errorf("legacy row = %+v, want top-priority custom source", rows[0])
@@ -79,8 +82,8 @@ func TestStore_EnsureDefaultsSeedsPresetsAndLegacyURL(t *testing.T) {
 		t.Fatalf("EnsureDefaults dedup: %v", err)
 	}
 	rows, _ = s3.ListSources(ctx)
-	if len(rows) != 2 {
-		t.Fatalf("sources = %d, want 2 after URL dedup", len(rows))
+	if len(rows) != 3 {
+		t.Fatalf("sources = %d, want 3 after URL dedup", len(rows))
 	}
 }
 
@@ -96,8 +99,8 @@ func TestStore_CRUDAndReposition(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateSource: %v", err)
 	}
-	if created.SortOrder != 2 || created.Type != SourceTypeCustom {
-		t.Errorf("created = %+v, want order 2 custom", created)
+	if created.SortOrder != 3 || created.Type != SourceTypeCustom {
+		t.Errorf("created = %+v, want order 3 custom (after 3 presets)", created)
 	}
 
 	// Update name + toggle enabled.
@@ -122,7 +125,7 @@ func TestStore_CRUDAndReposition(t *testing.T) {
 		for i, r := range rows {
 			names[i] = r.Name
 		}
-		t.Errorf("order after reposition = %v, want [renamed-mirror llm-metadata models.dev]", names)
+		t.Errorf("order after reposition = %v, want [renamed-mirror llm-metadata models.dev ...]", names)
 	}
 
 	// Invalid URL rejected.
@@ -134,8 +137,8 @@ func TestStore_CRUDAndReposition(t *testing.T) {
 		t.Fatalf("DeleteSource: %v", err)
 	}
 	rows, _ = s.ListSources(ctx)
-	if len(rows) != 2 {
-		t.Errorf("sources after delete = %d, want 2", len(rows))
+	if len(rows) != 3 {
+		t.Errorf("sources after delete = %d, want 3 (presets)", len(rows))
 	}
 }
 
@@ -210,8 +213,8 @@ func TestManager_SyncAllAndSingleSourceMerge(t *testing.T) {
 	// Sync the legacy custom source only (presets are real internet URLs —
 	// must not be fetched in this test).
 	rows, _ := manager.ListSources(ctx)
-	if len(rows) != 3 {
-		t.Fatalf("sources = %d, want 3", len(rows))
+	if len(rows) != 4 {
+		t.Fatalf("sources = %d, want 4 (legacy + 3 presets)", len(rows))
 	}
 	status, err := manager.SyncNow(ctx, rows[0].ID)
 	if err != nil {

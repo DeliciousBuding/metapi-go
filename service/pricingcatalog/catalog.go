@@ -67,8 +67,94 @@ type CatalogEntry struct {
 	// Modalities is the union of input/output modalities (text, image,
 	// audio, video, pdf).
 	Modalities []string
+	// ModalitiesInput / ModalitiesOutput are the directed modality lists
+	// ("text", "image", "audio", "video", "pdf"). They carry the input vs
+	// output direction the union loses — the endpoint-type inference needs
+	// it to tell a vision chat model (image in, text out) from an image
+	// generator (image output) or a TTS model (audio output).
+	ModalitiesInput  []string
+	ModalitiesOutput []string
 	// LastUpdated is the catalog row's last_updated date (ISO).
 	LastUpdated string
+	// ---- llm-metadata /api/newapi ratio set (empty for non-newapi rows) ----
+	// ModelRatio is the NewAPI model multiplier: the upstream bills
+	// ModelRatio × NewAPIRatioBasePerMillion ($2) per 1M input tokens, so
+	// the ratio set is the true cost basis of NewAPI-family relay sites.
+	ModelRatio *float64
+	// CompletionRatio is the output relative multiplier (output rate =
+	// ModelRatio × CompletionRatio × base).
+	CompletionRatio *float64
+	// CacheRatio is the cache-read relative multiplier (cache rate =
+	// ModelRatio × CacheRatio × base).
+	CacheRatio *float64
+	// BillingMode is the NewAPI billing mode: "" (flat) or "tiered_expr".
+	BillingMode string
+	// BillingExpr is the NewAPI tiered billing expression (expr-lang
+	// syntax, opaque to metapi — used by upstream to compute tiered rates).
+	BillingExpr string
+}
+
+// HasRatioData reports whether the entry carries a usable NewAPI ratio set.
+func (e CatalogEntry) HasRatioData() bool {
+	return e.ModelRatio != nil && isUsableAmount(*e.ModelRatio)
+}
+
+// ReferenceUnitCostFromRatios estimates the per-request unit cost from the
+// NewAPI ratio set with the canonical $2/1M input anchor — the same 1k
+// input + 1k output reference sample as ReferenceUnitCost. Ratios are the
+// upstream's actual billing multipliers for NewAPI-family relays, so this
+// estimate matches how such relays charge (ratio × base × group ratio).
+// ok=false when the model ratio is missing or not positive-finite.
+func (e CatalogEntry) ReferenceUnitCostFromRatios() (cost float64, ok bool) {
+	if !e.HasRatioData() {
+		return 0, false
+	}
+	modelRatio := *e.ModelRatio
+	completion := 1.0
+	if e.CompletionRatio != nil && isUsableAmount(*e.CompletionRatio) {
+		completion = *e.CompletionRatio
+	}
+	input := modelRatio * NewAPIRatioBasePerMillion
+	output := modelRatio * completion * NewAPIRatioBasePerMillion
+	cost = (input + output) / 1000
+	if !(cost > 0) || math.IsNaN(cost) || math.IsInf(cost, 0) {
+		return 0, false
+	}
+	return cost, true
+}
+
+// ReferencePerMillionRates returns the entry's USD per-1M input/output
+// rates. The explicit list price wins when both rates are usable; otherwise
+// the rates are derived from the NewAPI ratio set (ratio × $2 base). An
+// explicit 0 output rate (e.g. embedding rows where only input is billed)
+// is treated as usable only when input is also usable — the zero is real. A
+// ratio-derived fallback keeps metadata-only rows priceable. ok=false when
+// neither path yields a usable input rate.
+func (e CatalogEntry) ReferencePerMillionRates() (input, output float64, ok bool) {
+	if isUsableAmount(e.InputPerMillion) && isUsableAmount(e.OutputPerMillion) {
+		return e.InputPerMillion, e.OutputPerMillion, true
+	}
+	if isUsableAmount(e.InputPerMillion) && e.OutputPerMillion == 0 && e.OutputPerMillion >= 0 {
+		// Explicit zero output: embedded-style pricing, input only.
+		return e.InputPerMillion, 0, true
+	}
+	if !e.HasRatioData() {
+		return 0, 0, false
+	}
+	rate := *e.ModelRatio * NewAPIRatioBasePerMillion
+	outRate := rate
+	if e.CompletionRatio != nil && isUsableAmount(*e.CompletionRatio) {
+		outRate = rate * *e.CompletionRatio
+	}
+	if !isUsableAmount(rate) {
+		return 0, 0, false
+	}
+	return rate, outRate, true
+}
+
+// isUsableAmount reports a positive finite value.
+func isUsableAmount(value float64) bool {
+	return value > 0 && !math.IsNaN(value) && !math.IsInf(value, 0)
 }
 
 // ReferenceUnitCost converts a catalog entry into the per-request unit cost
@@ -261,6 +347,13 @@ func (s *CatalogSnapshot) addAlias(entry CatalogEntry) {
 // from the merged exact entries. The merged snapshot's Source / FetchedAt
 // are left for the caller to set (per-source snapshots carry their own
 // provenance there).
+//
+// Late sources carrying augmentation-only data (the newapi ratio set from
+// llm-metadata, registered after the price dataset) do not replace an
+// earlier entry wholesale: entries that already exist only gain the ratio
+// fields and, when they carry no usable USD price, the incoming price. This
+// keeps the official list price (first source) authoritative while making
+// the ratio set available to the resolver for relay-site estimates.
 func MergeSnapshots(parts []*CatalogSnapshot) *CatalogSnapshot {
 	merged := NewCatalogSnapshot()
 	for i := 0; i < len(parts); i++ {
@@ -269,8 +362,9 @@ func MergeSnapshots(parts []*CatalogSnapshot) *CatalogSnapshot {
 			continue
 		}
 		for key, entry := range part.models {
-			if _, exists := merged.models[key]; exists {
-				continue // earlier source wins
+			if existing, exists := merged.models[key]; exists {
+				merged.models[key] = augmentEntry(existing, entry)
+				continue
 			}
 			merged.models[key] = entry
 		}
@@ -279,6 +373,41 @@ func MergeSnapshots(parts []*CatalogSnapshot) *CatalogSnapshot {
 		merged.addAlias(entry)
 	}
 	return merged
+}
+
+// augmentEntry fills augmentation-only fields from an incoming entry into a
+// previously merged one. Never touches the existing entry's authoritative
+// fields (USD prices, description, modalities, provider), so an earlier
+// high-priority source always wins its own data.
+func augmentEntry(existing, incoming CatalogEntry) CatalogEntry {
+	if incoming.ModelRatio == nil && incoming.InputPerMillion <= 0 && incoming.OutputPerMillion <= 0 {
+		return existing
+	}
+	out := existing
+	if out.ModelRatio == nil && incoming.ModelRatio != nil {
+		out.ModelRatio = incoming.ModelRatio
+		out.CompletionRatio = incoming.CompletionRatio
+		out.CacheRatio = incoming.CacheRatio
+		if out.BillingMode == "" {
+			out.BillingMode = incoming.BillingMode
+		}
+		if out.BillingExpr == "" {
+			out.BillingExpr = incoming.BillingExpr
+		}
+	}
+	if !isUsableAmount(out.InputPerMillion) && isUsableAmount(incoming.InputPerMillion) {
+		out.InputPerMillion = incoming.InputPerMillion
+		if isUsableAmount(incoming.OutputPerMillion) {
+			out.OutputPerMillion = incoming.OutputPerMillion
+		}
+		if out.CacheReadPerMillion == nil || *out.CacheReadPerMillion < 0 {
+			out.CacheReadPerMillion = incoming.CacheReadPerMillion
+		}
+		if out.CacheWritePerMillion == nil || *out.CacheWritePerMillion < 0 {
+			out.CacheWritePerMillion = incoming.CacheWritePerMillion
+		}
+	}
+	return out
 }
 
 // claudeFamilyOf strips the trailing dated suffix (-\d{8}) from a Claude

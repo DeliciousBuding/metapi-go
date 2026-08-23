@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -22,14 +21,18 @@ const maxCatalogPayloadBytes = 32 << 20
 type SourceKind string
 
 const (
-	// SourceKindAuto tries the llm-metadata parser first (superset shape)
-	// and falls back to the models.dev parser, so both official datasets
-	// and custom mirrors of either shape work without URL sniffing.
+	// SourceKindAuto tries the llm-metadata parser first (superset shape),
+	// then the newapi ratio parser, then the models.dev parser, so official
+	// datasets, ratio payloads and custom mirrors of either shape work
+	// without URL sniffing.
 	SourceKindAuto SourceKind = "auto"
 	// SourceKindLLMMetadata forces the llm-metadata all.json parser.
 	SourceKindLLMMetadata SourceKind = "llm-metadata"
 	// SourceKindModelsDev forces the models.dev api.json parser.
 	SourceKindModelsDev SourceKind = "models.dev"
+	// SourceKindNewAPIRatios forces the llm-metadata /api/newapi ratio
+	// parser (ratio_config-v1-base.json and models.json shapes).
+	SourceKindNewAPIRatios SourceKind = "newapi-ratios"
 )
 
 // SourceSpec describes one catalog source to fetch. Sources are fetched in
@@ -507,15 +510,22 @@ func (p *Provider) fetchSource(ctx context.Context, spec SourceSpec) *CatalogSna
 }
 
 // parseSourceData parses payload bytes with the source-kind-selected parser.
-// SourceKindAuto tries llm-metadata (superset shape) first and falls back to
-// the models.dev parser when the payload does not carry llm-metadata data.
+// SourceKindAuto tries llm-metadata (superset shape) first, then the newapi
+// ratio payloads, and falls back to the models.dev parser — so official
+// datasets, ratio endpoints and custom mirrors of either shape work without
+// URL sniffing.
 func parseSourceData(kind SourceKind, data []byte) (*CatalogSnapshot, error) {
 	switch kind {
 	case SourceKindLLMMetadata:
 		return ParseLLMMetadata(data)
 	case SourceKindModelsDev:
 		return ParseCatalog(data)
+	case SourceKindNewAPIRatios:
+		return ParseNewAPIRatios(data)
 	default:
+		if isNewAPIPayload(data) {
+			return ParseNewAPIRatios(data)
+		}
 		snapshot, err := ParseLLMMetadata(data)
 		if err == nil && snapshot.Len() > 0 {
 			return snapshot, nil
@@ -553,11 +563,17 @@ func (p *Provider) Snapshot() *CatalogSnapshot {
 // (this package must not import routing per design/BACKEND.md — see the
 // source literal constants at the top of catalog.go).
 //
-// unitCost is the estimated per-request cost derived from the official list
-// price (1k input + 1k output reference sample). source is SourceOfficial for
-// vendor-hosted sites and SourceRelayEstimate for third-party relays, so the
-// official list price is never presented as a real relay payment price.
-// (nil, "") declines the query (unknown model, no catalog data).
+// unitCost is the estimated per-request cost derived for the 1k input + 1k
+// output reference sample. Official-vendor sites use the official list
+// price; NewAPI-family relays (whose cost basis is ModelRatio × $2 per 1M)
+// use the ratio-derived rate when the catalog carries the ratio set — the
+// ratio set is what such upstreams actually bill, so it is a better
+// cold-start estimate than the official list price. A ratio-derived rate
+// also backstops metadata-only entries that list no USD price. source is
+// SourceOfficial for vendor-hosted sites and SourceRelayEstimate for
+// third-party relays, so the official list price is never presented as a
+// real relay payment price. (nil, "") declines the query (unknown model, no
+// catalog data).
 func (p *Provider) ResolveCatalogPricing(siteID, accountID int64, modelName string) (unitCost *float64, source string) {
 	if p == nil {
 		return nil, ""
@@ -570,14 +586,32 @@ func (p *Provider) ResolveCatalogPricing(siteID, accountID int64, modelName stri
 	if !ok {
 		return nil, ""
 	}
-	unit := entry.ReferenceUnitCost()
-	if !(unit > 0) || math.IsNaN(unit) || math.IsInf(unit, 0) {
-		return nil, ""
-	}
+
+	listCost := entry.ReferenceUnitCost()
+	listUsable := isUsableAmount(listCost)
+	ratioCost, ratioUsable := entry.ReferenceUnitCostFromRatios()
 
 	source = SourceRelayEstimate
-	if p.classifySiteCached(siteID) == SiteClassOfficial {
+	official := p.classifySiteCached(siteID) == SiteClassOfficial
+	if official {
 		source = SourceOfficial
+	}
+
+	// Official sites: the vendor list price is the honest estimate; the
+	// ratio rate only backstops a missing list price. Relay sites: the
+	// ratio set (upstream's own billing basis) wins over the list price.
+	var unit float64
+	switch {
+	case official && listUsable:
+		unit = listCost
+	case !official && ratioUsable:
+		unit = ratioCost
+	case listUsable:
+		unit = listCost
+	case ratioUsable:
+		unit = ratioCost
+	default:
+		return nil, ""
 	}
 	return &unit, source
 }
