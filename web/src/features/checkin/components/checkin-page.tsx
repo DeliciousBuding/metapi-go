@@ -433,7 +433,10 @@ export function CheckinPage() {
       />
 
       <div className='flex flex-wrap items-center gap-2'>
-        <CalendarRange className='text-muted-foreground size-4' />
+        <CalendarRange
+          aria-hidden='true'
+          className='text-muted-foreground size-4'
+        />
         <Input
           type='datetime-local'
           value={from}

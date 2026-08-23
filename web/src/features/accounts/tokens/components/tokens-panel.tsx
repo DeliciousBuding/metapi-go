@@ -464,7 +464,7 @@ function AccountTokenForm({
                   <FormLabel>{t('accounts.tokens.form.group')}</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder='default'
+                      placeholder={t('accounts.tokens.form.groupPlaceholder')}
                       {...field}
                       value={field.value ?? ''}
                     />
