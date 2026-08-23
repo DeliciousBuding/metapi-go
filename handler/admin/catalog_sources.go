@@ -142,9 +142,11 @@ func (h *catalogSourceHandler) sync(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		SourceID *int64 `json:"sourceId"`
 	}
-	if err := decodeJSONRequest(r, &body); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid JSON body"})
-		return
+	if r.ContentLength > 0 {
+		if err := decodeJSONRequest(r, &body); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"message": "invalid JSON body"})
+			return
+		}
 	}
 	sourceID := int64(0)
 	if body.SourceID != nil {
