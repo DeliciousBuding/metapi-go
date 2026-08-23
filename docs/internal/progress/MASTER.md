@@ -30,7 +30,6 @@
 
 | 项 | 说明 |
 |---|---|
-| 首屏 bundle 拆分 | audit 已坐实：eager 混入业务 API 层 + 双语言 locale 66% 占比；Wave 6 曾开线未完成（agent 中断），修复方案已验证一半 |
 | 8 项存量 sub-AA 对比度豁免 | contrast-gate 豁免表记录在案，逐项收口需设计决策 |
 
 > 无 P0/P1 开放项，开放 issue 0。下一波按需求驱动立项（方向见 `../benchmark.md`）。
