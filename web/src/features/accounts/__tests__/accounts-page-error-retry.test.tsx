@@ -28,7 +28,7 @@ vi.mock('@tanstack/react-router', () => ({
 
 vi.mock('@/components/data-table', () => ({
   DataTableBulkActions: () => null,
-  DataTablePage: () => null,
+  DataTablePage: () => <div data-testid='data-table-page' />,
   useUrlTableState: () => ({
     globalFilter: '',
     onGlobalFilterChange: vi.fn(),
@@ -120,5 +120,21 @@ describe('AccountsPage load error state', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
 
     expect(testState.accountsQuery.refetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('suppresses the table (and its empty-state CTA) while the load error is present', () => {
+    testState.accountsQuery.error = new Error('boom')
+
+    render(<AccountsPage />)
+
+    expect(screen.queryByTestId('data-table-page')).not.toBeInTheDocument()
+  })
+
+  it('renders the table when the snapshot loads without error', () => {
+    testState.accountsQuery.error = null
+
+    render(<AccountsPage />)
+
+    expect(screen.getByTestId('data-table-page')).toBeInTheDocument()
   })
 })

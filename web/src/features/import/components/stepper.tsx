@@ -6,6 +6,7 @@
 // a text label, so the states remain distinguishable without color.
 
 import { Check as CheckIcon } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/lib/utils'
 
@@ -29,8 +30,12 @@ function stepState(
 }
 
 export function ImportStepper({ steps, currentIndex }: StepperProps) {
+  const { t } = useTranslation()
   return (
-    <ol aria-label='Import progress' className='flex items-center gap-1.5'>
+    <ol
+      aria-label={t('import.stepper.progressLabel')}
+      className='flex items-center gap-1.5'
+    >
       {steps.map((step, index) => {
         const state = stepState(index, currentIndex)
         const isCompleted = state === 'completed'
