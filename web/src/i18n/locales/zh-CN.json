@@ -249,7 +249,9 @@
           "maxTokensMin": "最大令牌数不能小于 0。",
           "maxTokensMax": "最大令牌数不能超过 128000。",
           "compareMinChannels": "请至少选择两个渠道进行对比。"
-        }
+        },
+        "channelNoneForced": "请选择渠道",
+        "channelHintForced": "当前仅支持指定渠道测试：请先选择渠道再发送；默认路由测试通道未启用。"
       },
       "toast": {
         "empty": "响应为空。",

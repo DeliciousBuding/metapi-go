@@ -249,7 +249,9 @@
           "maxTokensMin": "Max tokens must be at least 0.",
           "maxTokensMax": "Max tokens must be at most 128000.",
           "compareMinChannels": "Select at least two channels to compare."
-        }
+        },
+        "channelNoneForced": "Select a channel",
+        "channelHintForced": "Only channel-specified tests are supported: pick a channel before sending; the default-routing harness is not available."
       },
       "toast": {
         "empty": "The response is empty.",
