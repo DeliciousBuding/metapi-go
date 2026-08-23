@@ -148,7 +148,7 @@ export async function streamSse(
     throw new Error(await extractResponseErrorMessage(response))
   }
   if (!response.body) {
-    throw new Error('响应未返回流式内容')
+    throw new Error('Stream response body is missing')
   }
 
   const decoder = new TextDecoder()

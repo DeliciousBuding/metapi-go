@@ -541,6 +541,10 @@ export function RoutesPage() {
         route={detailRoute}
         open={detailOpen}
         onOpenChange={setDetailOpen}
+        onEdit={(route) => {
+          setDetailOpen(false)
+          openEdit(route)
+        }}
       />
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>

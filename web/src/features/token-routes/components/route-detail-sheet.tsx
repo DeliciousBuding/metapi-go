@@ -4,7 +4,7 @@
 // `routingStrategyLabel()` returns an i18n key; wrapped with `t()`.
 
 import { useQueries } from '@tanstack/react-query'
-import { RefreshCw, Snowflake } from 'lucide-react'
+import { Pencil, RefreshCw, Snowflake } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -53,6 +53,7 @@ interface RouteDetailSheetProps {
   route: RouteSummaryRow | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  onEdit?: (route: RouteSummaryRow) => void
 }
 
 type PriceQueryState = {
@@ -84,6 +85,7 @@ export function RouteDetailSheet({
   route,
   open,
   onOpenChange,
+  onEdit,
 }: RouteDetailSheetProps) {
   const { t, i18n } = useTranslation()
   const locale = toBcp47(i18n.language || 'en')
@@ -319,6 +321,12 @@ export function RouteDetailSheet({
         </div>
 
         <SheetFooter>
+          {!isReadOnly && onEdit ? (
+            <Button variant='outline' onClick={() => onEdit(route)}>
+              <Pencil className='size-4' />
+              {t('common.edit')}
+            </Button>
+          ) : null}
           <Button onClick={handleRebuild} variant='default'>
             <RefreshCw
               className={rebuildMutation.isPending ? 'animate-spin' : undefined}
@@ -571,7 +579,18 @@ function DecisionSnapshotSection({
           {candidates.length}
         </DetailField>
         <DetailField label={t('tokenRoutes.detail.decisionSelectedChannel')}>
-          {decision.selectedChannelId ?? '—'}
+          {(() => {
+            const selected = candidates.find(
+              (candidate) => candidate.channelId === decision.selectedChannelId
+            )
+            if (selected?.username) return selected.username
+            if (decision.selectedChannelId != null) {
+              return t('tokenRoutes.detail.fallbackAccount', {
+                id: decision.selectedChannelId,
+              })
+            }
+            return '—'
+          })()}
         </DetailField>
       </dl>
       {reasonText && (

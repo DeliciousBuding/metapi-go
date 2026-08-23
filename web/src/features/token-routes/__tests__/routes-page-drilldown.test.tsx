@@ -8,7 +8,7 @@
 // A stale id strips silently in both flows.
 
 import '@testing-library/jest-dom/vitest'
-import { cleanup, render, waitFor } from '@testing-library/react'
+import { act, cleanup, render, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -26,6 +26,7 @@ const testState = vi.hoisted(() => ({
   detailSheetProps: null as {
     route: RouteSummaryRow | null
     open: boolean
+    onEdit?: (route: RouteSummaryRow) => void
   } | null,
   formDialogProps: null as {
     route: RouteSummaryRow | null
@@ -284,5 +285,30 @@ describe('RoutesPage edit drilldown', () => {
     rerender(<RoutesPage />)
 
     expect(testState.navigate).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('RoutesPage detail sheet Edit action', () => {
+  it('closes the sheet and opens the edit dialog when onEdit fires', async () => {
+    testState.routeIdParam = '5'
+    testState.routerSearch = { routeId: 5 }
+    testState.routes = [makeRoute(5)]
+
+    render(<RoutesPage />)
+
+    await waitFor(() => {
+      expect(testState.detailSheetProps?.open).toBe(true)
+    })
+    const onEdit = testState.detailSheetProps?.onEdit
+    expect(onEdit).toBeTypeOf('function')
+
+    act(() => onEdit?.(makeRoute(5)))
+
+    await waitFor(() => {
+      expect(testState.detailSheetProps?.open).toBe(false)
+    })
+    expect(testState.formDialogProps?.open).toBe(true)
+    expect(testState.formDialogProps?.mode).toBe('edit')
+    expect(testState.formDialogProps?.route?.id).toBe(5)
   })
 })
