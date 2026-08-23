@@ -157,7 +157,7 @@ function ModelGroupCard({ group }: { group: ModelGroup }) {
         <CardDescription>{t('priceCompare.group.description')}</CardDescription>
       </CardHeader>
       <CardContent>
-        <Table className='max-sm:[&_th]:px-1 max-sm:[&_td]:px-1'>
+        <Table className='max-sm:[&_td]:px-1 max-sm:[&_th]:px-1'>
           <TableHeader>
             <TableRow>
               <TableHead>{t('priceCompare.columns.site')}</TableHead>

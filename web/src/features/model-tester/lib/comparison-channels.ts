@@ -35,5 +35,7 @@ export function formatChannelLabel(channel: {
   models?: string
 }): string {
   const model = channel.models?.trim() ? ' · ' + channel.models.trim() : ''
-  return channel.name + model + ' · ' + channel.site.name + ' (#' + channel.id + ')'
+  return (
+    channel.name + model + ' · ' + channel.site.name + ' (#' + channel.id + ')'
+  )
 }

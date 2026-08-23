@@ -251,7 +251,7 @@ export function ModelTesterPage() {
         </Button>
       </div>
 
-      <div className='grid grid-cols-1 gap-4 lg:grid-cols-2 lg:min-h-0 lg:flex-1 lg:overflow-hidden'>
+      <div className='grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-2 lg:overflow-hidden'>
         <Card className='flex h-full min-h-0 flex-col'>
           <CardContent className='flex min-h-0 flex-1 flex-col overflow-y-auto p-4'>
             <TestForm
