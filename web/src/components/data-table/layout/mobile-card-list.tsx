@@ -14,7 +14,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
-import { tableHasCompactMeta } from './card-cell-utils'
+import { renderCellContent, tableHasCompactMeta } from './card-cell-utils'
 import { CardRowContent } from './card-row-content'
 
 interface MobileCardListProps<TData> {
@@ -104,6 +104,9 @@ export function MobileCardList<TData>(props: MobileCardListProps<TData>) {
   }
 
   const rows = table.getRowModel().rows
+  const hasSelectColumn = table
+    .getVisibleLeafColumns()
+    .some((column) => column.id === 'select')
 
   if (!rows || rows.length === 0) {
     return (
@@ -125,15 +128,44 @@ export function MobileCardList<TData>(props: MobileCardListProps<TData>) {
     <div className='divide-y overflow-hidden rounded-lg border'>
       {rows.map((row) => {
         const key = getRowKey ? getRowKey(row) : row.id
+        const isSelected = row.getIsSelected()
+        const selectCell = hasSelectColumn
+          ? row.getVisibleCells().find((cell) => cell.column.id === 'select')
+          : undefined
         return (
           <div
             key={key}
+            data-state={isSelected ? 'selected' : undefined}
             className={cn(
-              '[background-color:var(--data-table-card-bg,var(--table-row))] px-3 py-2.5',
+              '[background-color:var(--data-table-card-bg,var(--table-row))] px-3 py-2.5 transition-colors data-[state=selected]:bg-(--table-row-selected-bg)',
               getRowClassName?.(row)
             )}
+            onClick={
+              selectCell
+                ? (event) => {
+                    const target = event.target as HTMLElement
+                    if (
+                      target.closest(
+                        'button, a, input, [data-slot=checkbox], [data-slot=dropdown-menu-content], [role=menuitem]'
+                      )
+                    ) {
+                      return
+                    }
+                    row.toggleSelected()
+                  }
+                : undefined
+            }
           >
-            <CardRowContent row={row} compact={hasCompactMeta} />
+            <div className='flex items-start gap-1.5'>
+              {selectCell && (
+                <div className='shrink-0 pt-0.5'>
+                  {renderCellContent(selectCell)}
+                </div>
+              )}
+              <div className='min-w-0 flex-1'>
+                <CardRowContent row={row} compact={hasCompactMeta} />
+              </div>
+            </div>
           </div>
         )
       })}

@@ -551,14 +551,13 @@ function RoutesBulkActions({ table }: { table: Table<RouteSummaryRow> }) {
   const { t } = useTranslation()
   const batchMutation = useBatchUpdateRoutes()
 
-  const selectedIds = useMemo(
-    () =>
-      table
-        .getFilteredSelectedRowModel()
-        .rows.map((row) => (row.original as RouteSummaryRow).id)
-        .filter((id) => id > 0),
-    [table]
-  )
+  // Derived per render — `table` identity is stable across selection changes
+  // then a `useMemo([table])` would freeze the ids at their mount-time value
+  // and every batch action would silently no-op.
+  const selectedIds = table
+    .getFilteredSelectedRowModel()
+    .rows.map((row) => (row.original as RouteSummaryRow).id)
+    .filter((id) => id > 0)
 
   const runBatch = async (action: BatchRouteAction) => {
     if (selectedIds.length === 0) return
