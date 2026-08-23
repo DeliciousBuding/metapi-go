@@ -14,19 +14,6 @@ export type SiteProbeResult = {
   error?: string
 }
 
-/** Synchronous probe-now response (POST /api/sites/{id}/probe-now). */
-export type SiteProbeNowResponse = {
-  success: boolean
-  totalModels: number
-  available: number
-  unavailable: number
-  results: SiteProbeResult[]
-  /** False when the probe pass was aborted (timeout / client disconnect). */
-  complete: boolean
-  truncated?: boolean
-  reason?: string
-}
-
 /** Incremental probe-stream complete payload. */
 export type SiteProbeCompletePayload = {
   totalModels: number
@@ -63,28 +50,6 @@ export const sitesApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
-  getSiteDisabledModels: (siteId: number) =>
-    request(`/api/sites/${siteId}/disabled-models`),
-  updateSiteDisabledModels: (siteId: number, models: string[]) =>
-    request(`/api/sites/${siteId}/disabled-models`, {
-      method: 'PUT',
-      body: JSON.stringify({ models }),
-    }),
-  getSiteAvailableModels: (siteId: number) =>
-    request(`/api/sites/${siteId}/available-models`),
-  probeSiteNow: (
-    siteId: number,
-    options?: {
-      scope?: 'single' | 'all'
-      modelName?: string
-      latencyThresholdMs?: number
-    }
-  ) =>
-    request(`/api/sites/${siteId}/probe-now`, {
-      method: 'POST',
-      body: JSON.stringify(options || {}),
-      timeoutMs: options?.scope === 'all' ? 120_000 : 30_000,
-    }) as Promise<SiteProbeNowResponse>,
   /**
    * Live probe pass (GET /api/sites/{id}/probe-stream, SSE). Each run of the
    * stream performs its own probe pass; results arrive incrementally as

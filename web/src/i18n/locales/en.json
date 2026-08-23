@@ -2607,6 +2607,7 @@
       "back": "Back",
       "next": "Next",
       "submit": "Import",
+      "submitFailed": "Import failed",
       "stepper": {
         "progressLabel": "Import progress"
       },
