@@ -2,6 +2,7 @@
 import { request, buildQueryString } from './transport'
 import type {
   SchedulerRunStatus,
+  TriggerModelProbeResponse,
   ModelCostDistributionResponse,
   LatencyHistogramResponse,
   LatencyTrendResponse,
@@ -119,11 +120,26 @@ export const statsApi = {
     request(
       `/api/stats/latency-trend?days=${days}`
     ) as Promise<LatencyTrendResponse>,
+  // Model availability probe: queue a background scheduler pass. Results
+  // land in the scheduler-status recentRuns + model_probe_results history.
+  probeModelsNow: () =>
+    request('/api/models/probe', {
+      method: 'POST',
+      skipErrorHandler: true,
+    }) as Promise<TriggerModelProbeResponse>,
   // G1: batch model verification + history.
-  verifyModelsBatch: (models: string[], accountId = 0, limit = 50) =>
+  verifyModelsBatch: (
+    models: string[],
+    accountId = 0,
+    limit = 50,
+    // A large batch with the 15s per-probe ceiling can outgrow the 30s
+    // default; allow long-running verification passes.
+    timeoutMs = 180_000
+  ) =>
     request('/api/models/verify-batch', {
       method: 'POST',
       body: JSON.stringify({ models, accountId, limit }),
+      timeoutMs,
     }) as Promise<VerifyBatchResponse>,
   getModelVerifyHistory: (limit = 50, model = '') =>
     request(

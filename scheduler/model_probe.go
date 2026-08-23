@@ -57,6 +57,9 @@ type ModelProbeScheduler struct {
 
 	// lastRunSummary is retained for tests / operator diagnostics.
 	lastRunSummary ProbeRunSummary
+	// lastRuns is the ring buffer of recent completed passes (newest first,
+	// capped at 10) so the scheduler-status surface can show honest history.
+	lastRuns []ProbeRunSummary
 }
 
 // ProbeRunSummary summarizes one background probe pass.
@@ -68,6 +71,7 @@ type ProbeRunSummary struct {
 	Failed             int
 	Inconclusive       int
 	Skipped            int
+	StartedAtMs        int64
 	CompletedAtMs      int64
 }
 
@@ -153,11 +157,27 @@ func (s *ModelProbeScheduler) ResetLeases() {
 	s.accountLeases = make(map[int64]bool)
 }
 
+// probeRunHistoryDepth caps how many completed passes RecentRunSummaries
+// retains. Enough for the "last few runs" scheduler-status view without
+// unbounded memory growth (each entry is a handful of ints).
+const probeRunHistoryDepth = 10
+
 // LastRunSummary returns a copy of the most recent probe pass summary.
 func (s *ModelProbeScheduler) LastRunSummary() ProbeRunSummary {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.lastRunSummary
+}
+
+// RecentRunSummaries returns up to probeRunHistoryDepth completed passes,
+// newest first. Only background passes (runProbe) land in the ring buffer —
+// one-shot site probe-now passes are not scheduler runs and are excluded.
+func (s *ModelProbeScheduler) RecentRunSummaries() []ProbeRunSummary {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]ProbeRunSummary, len(s.lastRuns))
+	copy(out, s.lastRuns)
+	return out
 }
 
 // BatchProbeResult is one row of an operator-initiated batch verification
@@ -265,11 +285,15 @@ func (s *ModelProbeScheduler) runProbe() {
 func (s *ModelProbeScheduler) runProbeLocked(dbw *store.DB) {
 	slog.Info("model-probe: starting availability probe")
 
-	summary := ProbeRunSummary{}
+	summary := ProbeRunSummary{StartedAtMs: time.Now().UnixMilli()}
 	defer func() {
 		summary.CompletedAtMs = time.Now().UnixMilli()
 		s.mu.Lock()
 		s.lastRunSummary = summary
+		s.lastRuns = append([]ProbeRunSummary{summary}, s.lastRuns...)
+		if len(s.lastRuns) > probeRunHistoryDepth {
+			s.lastRuns = s.lastRuns[:probeRunHistoryDepth]
+		}
 		s.mu.Unlock()
 	}()
 

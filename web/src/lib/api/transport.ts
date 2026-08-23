@@ -126,6 +126,12 @@ export async function streamSse(
   handlers: {
     onLog?: (entry: unknown) => void
     onDone?: (payload: unknown) => void
+    /**
+     * Fires for every parsed SSE event (the raw event name + payload), so
+     * callers with custom event vocabularies (e.g. probe-stream's
+     * probe-start / probe-result / complete) do not need a second reader.
+     */
+    onEvent?: (event: string, payload: unknown) => void
     signal?: AbortSignal
   }
 ) {
@@ -176,6 +182,7 @@ export async function streamSse(
         // keep string payload
       }
 
+      handlers.onEvent?.(eventName, payload)
       if (eventName === 'log') {
         handlers.onLog?.(payload)
       } else if (eventName === 'done') {

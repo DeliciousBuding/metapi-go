@@ -146,7 +146,8 @@
       },
       "toolbar": {
         "searchPlaceholder": "搜索模型…",
-        "refresh": "刷新"
+        "refresh": "刷新",
+        "batchProbe": "批量探针"
       },
       "detail": {
         "noDescription": "暂无描述。",
@@ -179,6 +180,34 @@
       "actions": {
         "viewDetails": "查看详情",
         "testModel": "测试模型"
+      },
+      "verify": {
+        "title": "批量可用性探针",
+        "description": "对启用路由渠道（上限 50 个目标）执行一次同步探测，复用后台调度器同一套轻量检查，并展示每个目标的真实结果。",
+        "modelLabel": "模型过滤（可选）",
+        "modelPlaceholder": "gpt-4o、claude-sonnet-4 …",
+        "modelHint": "留空则探测全部启用路由渠道；多个模型用逗号或空格分隔。",
+        "runButton": "开始批量探针",
+        "runningLabel": "探测中…",
+        "errorMessage": "批量探针失败：{{message}}",
+        "probedCount": "已探测 {{count}}",
+        "noRows": "没有匹配过滤条件的目标。",
+        "summarySuccess": "成功",
+        "summaryFailure": "失败",
+        "summaryInconclusive": "不确定",
+        "summarySkipped": "跳过",
+        "colModel": "模型",
+        "colSite": "站点",
+        "colStatus": "状态",
+        "colLatency": "延迟",
+        "colError": "错误信息",
+        "statusSuccess": "可用",
+        "statusFailure": "失败",
+        "statusInconclusive": "不确定",
+        "statusSkipped": "跳过",
+        "viewHistory": "查看历史",
+        "hideHistory": "收起历史",
+        "historyLoadFailed": "加载验证历史失败：{{message}}"
       }
     },
     "modelTester": {
@@ -628,6 +657,27 @@
         "nextStepBody": "连接一个账号即可开始通过该站点路由。",
         "dismiss": "知道了",
         "goToAccounts": "前往账号"
+      },
+      "probe": {
+        "title": "可用性探针",
+        "description": "探测该站点所有启用路由渠道，实时展示每个模型的探测结果。",
+        "runButton": "开始探针",
+        "stopButton": "停止",
+        "awaitingResults": "探针运行中 —— 每个模型完成后结果实时流入。",
+        "stoppedNotice": "探针已停止 —— 仅显示已返回的结果。",
+        "empty": "暂无探针结果。运行一次探针以检查该站点可用的模型。",
+        "summary": "共 {{total}} · 可用 {{available}} · 不可用 {{unavailable}}",
+        "finishedAt": "完成于 {{time}}",
+        "truncatedWarning": "探针被提前截断：{{reason}}",
+        "truncatedNoReason": "未检查完所有目标即超出探测时限或服务端限制",
+        "errorMessage": "探针失败：{{message}}",
+        "colModel": "模型",
+        "colStatus": "状态",
+        "colLatency": "延迟",
+        "colError": "错误信息",
+        "statusSuccess": "可用",
+        "statusFailure": "失败",
+        "statusError": "探针错误"
       }
     },
     "dashboard": {
@@ -690,7 +740,17 @@
           "disabled": "已停用",
           "empty": "未配置定时任务。",
           "loadError": "加载定时任务失败。",
-          "retry": "重试"
+          "retry": "重试",
+          "colActions": "操作",
+          "triggerButton": "立即运行",
+          "triggerQueued": "模型可用性探测已排队 —— 运行完成后会在下方显示最近结果。",
+          "triggerFailed": "触发失败：{{message}}",
+          "latestRuns": "最近运行",
+          "runsEmpty": "暂无已完成的探测运行。",
+          "runSuccess": "完成",
+          "runFailed": "失败",
+          "runTargets": "{{count}} 个目标",
+          "runCounts": "成功 {{success}} / 失败 {{failed}} / 不确定 {{inconclusive}} / 跳过 {{skipped}}"
         }
       },
       "onboarding": {

@@ -33,6 +33,7 @@ import {
 
 import { resolveSiteBalanceUsd } from '../lib/site-balance'
 import type { Site, SiteApiEndpoint, SiteStatus } from '../types'
+import { SiteProbePanel } from './site-probe-panel'
 
 type SiteDetailSheetProps = {
   site: Site | null
@@ -113,6 +114,10 @@ export function SiteDetailSheet({
           <Separator />
 
           <SiteBalanceSection site={site} locale={locale} />
+
+          <SiteProbePanel key={site.id} siteId={site.id} />
+
+          <Separator />
 
           <section>
             <dl className='grid grid-cols-2 gap-x-3 gap-y-2 text-sm'>

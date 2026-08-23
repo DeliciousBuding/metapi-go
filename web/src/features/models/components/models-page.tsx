@@ -12,7 +12,11 @@
 import { useMutation } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import type { ColumnFiltersState } from '@tanstack/react-table'
-import { RefreshCw as RefreshCwIcon, Users as UsersIcon } from 'lucide-react'
+import {
+  FlaskConical as FlaskConicalIcon,
+  RefreshCw as RefreshCwIcon,
+  Users as UsersIcon,
+} from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -40,6 +44,7 @@ import { useModels } from '../api'
 import { modelsSearchSchema } from '../lib/models-schema'
 import type { ModelRow } from '../types'
 import { ModelDetailSheet } from './model-detail-sheet'
+import { ModelVerifyDialog } from './model-verify-dialog'
 import {
   buildBrandFilterOptions,
   buildCapabilityFilterOptions,
@@ -163,6 +168,7 @@ export function ModelsPage() {
   const navigate = useNavigate()
 
   const [viewingModel, setViewingModel] = useState<ModelRow | null>(null)
+  const [verifyOpen, setVerifyOpen] = useState(false)
 
   const urlState = useModelsUrlState()
 
@@ -264,19 +270,29 @@ export function ModelsPage() {
             },
           ],
           preActions: (
-            <Button
-              variant='outline'
-              size='sm'
-              onClick={() => refreshMutation.mutate()}
-              disabled={refreshMutation.isPending}
-            >
-              {refreshMutation.isPending ? (
-                <Spinner />
-              ) : (
-                <RefreshCwIcon className='size-3.5' />
-              )}
-              {t('models.toolbar.refresh')}
-            </Button>
+            <>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => setVerifyOpen(true)}
+              >
+                <FlaskConicalIcon className='size-3.5' />
+                {t('models.toolbar.batchProbe')}
+              </Button>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => refreshMutation.mutate()}
+                disabled={refreshMutation.isPending}
+              >
+                {refreshMutation.isPending ? (
+                  <Spinner />
+                ) : (
+                  <RefreshCwIcon className='size-3.5' />
+                )}
+                {t('models.toolbar.refresh')}
+              </Button>
+            </>
           ),
         }}
       />
@@ -288,6 +304,8 @@ export function ModelsPage() {
           if (!open) setViewingModel(null)
         }}
       />
+
+      <ModelVerifyDialog open={verifyOpen} onOpenChange={setVerifyOpen} />
     </div>
   )
 }

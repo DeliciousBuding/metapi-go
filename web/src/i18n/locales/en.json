@@ -146,7 +146,8 @@
       },
       "toolbar": {
         "searchPlaceholder": "Search models…",
-        "refresh": "Refresh"
+        "refresh": "Refresh",
+        "batchProbe": "Batch probe"
       },
       "detail": {
         "noDescription": "No description available.",
@@ -179,6 +180,34 @@
       "actions": {
         "viewDetails": "View details",
         "testModel": "Test model"
+      },
+      "verify": {
+        "title": "Batch availability probe",
+        "description": "Runs a synchronous probe pass over the enabled route channels (up to 50 targets) using the same lightweight checker as the background scheduler, then shows the honest per-target outcome.",
+        "modelLabel": "Model filter (optional)",
+        "modelPlaceholder": "gpt-4o, claude-sonnet-4 …",
+        "modelHint": "Leave empty to probe all enabled route channels; separate multiple models with commas or spaces.",
+        "runButton": "Run batch probe",
+        "runningLabel": "Probing…",
+        "errorMessage": "Batch probe failed: {{message}}",
+        "probedCount": "probed {{count}}",
+        "noRows": "No targets matched the filter.",
+        "summarySuccess": "Success",
+        "summaryFailure": "Failed",
+        "summaryInconclusive": "Inconclusive",
+        "summarySkipped": "Skipped",
+        "colModel": "Model",
+        "colSite": "Site",
+        "colStatus": "Status",
+        "colLatency": "Latency",
+        "colError": "Error",
+        "statusSuccess": "OK",
+        "statusFailure": "Failed",
+        "statusInconclusive": "Inconclusive",
+        "statusSkipped": "Skipped",
+        "viewHistory": "View history",
+        "hideHistory": "Hide history",
+        "historyLoadFailed": "Failed to load verification history: {{message}}"
       }
     },
     "modelTester": {
@@ -628,6 +657,27 @@
         "nextStepBody": "Connect an account to start routing through this site.",
         "dismiss": "Dismiss",
         "goToAccounts": "Go to accounts"
+      },
+      "probe": {
+        "title": "Availability probe",
+        "description": "Probes every enabled route channel on this site and shows the live per-model outcome.",
+        "runButton": "Run probe",
+        "stopButton": "Stop",
+        "awaitingResults": "Probe running — results stream in as each model finishes.",
+        "stoppedNotice": "Probe stopped — only the results received so far are shown.",
+        "empty": "No probe results yet. Run a probe to check the models available on this site.",
+        "summary": "Total {{total}} · available {{available}} · unavailable {{unavailable}}",
+        "finishedAt": "finished {{time}}",
+        "truncatedWarning": "Probe pass was cut short: {{reason}}",
+        "truncatedNoReason": "probe timeout or server limit reached before all targets were checked",
+        "errorMessage": "Probe failed: {{message}}",
+        "colModel": "Model",
+        "colStatus": "Status",
+        "colLatency": "Latency",
+        "colError": "Error",
+        "statusSuccess": "OK",
+        "statusFailure": "Failed",
+        "statusError": "Probe error"
       }
     },
     "dashboard": {
@@ -690,7 +740,17 @@
           "disabled": "disabled",
           "empty": "No scheduled jobs configured.",
           "loadError": "Failed to load scheduled tasks.",
-          "retry": "Retry"
+          "retry": "Retry",
+          "colActions": "Actions",
+          "triggerButton": "Run now",
+          "triggerQueued": "Model availability probe queued — recent runs appear here when the pass completes.",
+          "triggerFailed": "Trigger failed: {{message}}",
+          "latestRuns": "Recent runs",
+          "runsEmpty": "No completed probe passes yet.",
+          "runSuccess": "Completed",
+          "runFailed": "Failed",
+          "runTargets": "{{count}} targets",
+          "runCounts": "ok {{success}} / failed {{failed}} / inconclusive {{inconclusive}} / skipped {{skipped}}"
         }
       },
       "onboarding": {

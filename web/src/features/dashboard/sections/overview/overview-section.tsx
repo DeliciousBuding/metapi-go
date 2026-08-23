@@ -9,18 +9,20 @@
 // balance over the last 8 captured points), and api.getSchedulerStatus() for
 // the scheduled-tasks table.
 
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link, type LinkProps } from '@tanstack/react-router'
 import {
   Activity,
   CalendarCheck,
+  ChevronDown,
   ClipboardList,
   Globe,
+  Play,
   Plus,
   RefreshCw,
   Users,
 } from 'lucide-react'
-import { useMemo, type ReactNode } from 'react'
+import { Fragment, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
@@ -49,8 +51,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
-import { formatInt, formatRatio } from '@/lib/format'
+import type { SchedulerProbeRunSummary } from '@/lib/api/types'
+import { formatInt, formatRatio, formatRelativeTime } from '@/lib/format'
+import { toast } from '@/lib/toast'
+import { cn } from '@/lib/utils'
 
 import { AnnouncementBanner } from '../../components/announcement-banner'
 import { StatCard } from '../../components/stat-card'
@@ -109,8 +115,67 @@ const SCHEDULER_STATUS_BADGE: Record<
   },
 }
 
-export function OverviewSection() {
+/** Compact list of the model-probe scheduler's last completed passes. */
+function ProbeRecentRuns({
+  runs,
+  locale,
+}: {
+  runs: SchedulerProbeRunSummary[]
+  locale: string
+}) {
   const { t } = useTranslation()
+  if (runs.length === 0) {
+    return (
+      <p className='text-muted-foreground text-xs'>
+        {t('dashboard.overview.scheduledTasks.runsEmpty')}
+      </p>
+    )
+  }
+  return (
+    <ul className='space-y-1.5'>
+      {runs.map((run) => {
+        // Pass-level verdict stays honest: any failed target makes the pass
+        // a failure even when others succeeded.
+        const failed = run.failed > 0
+        return (
+          <li
+            key={`${run.startedAt ?? ''}-${run.completedAt ?? ''}`}
+            className='flex flex-wrap items-center gap-x-2 gap-y-1 text-xs'
+          >
+            <Badge variant={failed ? 'destructive' : 'success'}>
+              {failed
+                ? t('dashboard.overview.scheduledTasks.runFailed')
+                : t('dashboard.overview.scheduledTasks.runSuccess')}
+            </Badge>
+            <span className='text-muted-foreground tabular-nums'>
+              {run.completedAt
+                ? formatRelativeTime(run.completedAt, locale)
+                : '—'}
+            </span>
+            <span className='text-muted-foreground tabular-nums'>
+              {t('dashboard.overview.scheduledTasks.runTargets', {
+                count: run.targetsScanned,
+              })}
+            </span>
+            <span className='text-muted-foreground tabular-nums'>
+              {t('dashboard.overview.scheduledTasks.runCounts', {
+                success: run.success,
+                failed: run.failed,
+                inconclusive: run.inconclusive,
+                skipped: run.skipped,
+              })}
+            </span>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+export function OverviewSection() {
+  const { t, i18n } = useTranslation()
+  const locale = toBcp47(i18n.language || 'en')
+  const [expandedJob, setExpandedJob] = useState<string | null>(null)
 
   const { data: snapshot, isLoading: snapshotLoading } = useQuery({
     queryKey: ['dashboard-snapshot'],
@@ -142,6 +207,24 @@ export function OverviewSection() {
   }, [balanceHistory])
 
   const schedulerRows = schedulerStatus?.items ?? []
+
+  const triggerProbeMutation = useMutation({
+    mutationFn: () => api.probeModelsNow(),
+    onSuccess: () => {
+      toast.success(t('dashboard.overview.scheduledTasks.triggerQueued'))
+      // The pass runs asynchronously server-side; a delayed refetch picks up
+      // the finished run for the recent-runs view.
+      window.setTimeout(() => {
+        void refetchScheduler()
+      }, 5000)
+    },
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error)
+      toast.error(
+        t('dashboard.overview.scheduledTasks.triggerFailed', { message })
+      )
+    },
+  })
 
   const totalAccounts = snapshot?.totalAccounts ?? snapshot?.accountCount
   const activeAccounts = snapshot?.activeAccounts
@@ -234,6 +317,9 @@ export function OverviewSection() {
               <TableHead className='text-right'>
                 {t('dashboard.overview.scheduledTasks.colSuccess24h')}
               </TableHead>
+              <TableHead className='text-right'>
+                {t('dashboard.overview.scheduledTasks.colActions')}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -244,24 +330,78 @@ export function OverviewSection() {
               const enabledLabel = row.enabled
                 ? t('dashboard.overview.scheduledTasks.enabled')
                 : t('dashboard.overview.scheduledTasks.disabled')
+              const canTrigger =
+                row.job === 'model-probe' && row.enabled === true
+              const expanded = expandedJob === row.job
+              const showRunsToggle =
+                row.job === 'model-probe' && (row.recentRuns?.length ?? 0) > 0
               return (
-                <TableRow key={row.job}>
-                  <TableCell className='font-medium'>{row.job}</TableCell>
-                  <TableCell>
-                    <Badge variant={row.enabled ? 'success' : 'secondary'}>
-                      {enabledLabel}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={status.variant}>{t(status.key)}</Badge>
-                  </TableCell>
-                  <TableCell className='text-right tabular-nums'>
-                    {formatInt(row.runs24h)}
-                  </TableCell>
-                  <TableCell className='text-right tabular-nums'>
-                    {formatInt(row.success24h)}
-                  </TableCell>
-                </TableRow>
+                <Fragment key={row.job}>
+                  <TableRow>
+                    <TableCell className='font-medium'>{row.job}</TableCell>
+                    <TableCell>
+                      <Badge variant={row.enabled ? 'success' : 'secondary'}>
+                        {enabledLabel}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={status.variant}>{t(status.key)}</Badge>
+                    </TableCell>
+                    <TableCell className='text-right tabular-nums'>
+                      {formatInt(row.runs24h)}
+                    </TableCell>
+                    <TableCell className='text-right tabular-nums'>
+                      {formatInt(row.success24h)}
+                    </TableCell>
+                    <TableCell className='text-right'>
+                      <div className='flex items-center justify-end gap-1'>
+                        {canTrigger && (
+                          <Button
+                            variant='outline'
+                            size='sm'
+                            disabled={triggerProbeMutation.isPending}
+                            onClick={() => triggerProbeMutation.mutate()}
+                          >
+                            <Play className='size-3.5' />
+                            {t(
+                              'dashboard.overview.scheduledTasks.triggerButton'
+                            )}
+                          </Button>
+                        )}
+                        {showRunsToggle && (
+                          <Button
+                            variant='ghost'
+                            size='sm'
+                            aria-expanded={expanded}
+                            aria-label={t(
+                              'dashboard.overview.scheduledTasks.latestRuns'
+                            )}
+                            onClick={() =>
+                              setExpandedJob(expanded ? null : row.job)
+                            }
+                          >
+                            <ChevronDown
+                              className={cn(
+                                'size-3.5 transition-transform',
+                                expanded && 'rotate-180'
+                              )}
+                            />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                  {expanded && row.recentRuns && (
+                    <TableRow className='bg-muted/30'>
+                      <TableCell colSpan={6} className='px-3 py-2'>
+                        <ProbeRecentRuns
+                          runs={row.recentRuns}
+                          locale={locale}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </Fragment>
               )
             })}
           </TableBody>
