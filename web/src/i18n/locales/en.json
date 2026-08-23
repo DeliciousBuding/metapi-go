@@ -172,7 +172,9 @@
         "priceInput": "Input price",
         "actions": "Actions",
         "rowActions": "Row actions",
-        "priceDetail": "Price detail"
+        "priceDetail": "Price detail",
+        "endpointTypes": "Endpoint types",
+        "deprecated": "Deprecated"
       },
       "actions": {
         "viewDetails": "View details",
@@ -205,6 +207,9 @@
         "viewHistory": "View history",
         "hideHistory": "Hide history",
         "historyLoadFailed": "Failed to load verification history: {{message}}"
+      },
+      "price": {
+        "catalogEstimate": "Official catalog estimate"
       }
     },
     "modelTester": {
@@ -1274,6 +1279,67 @@
             "rebuildFailed": "Saved, but route rebuild failed — rebuild manually.",
             "brandsSaved": "Brand blocking updated; routes rebuilt.",
             "brandsSaveFailed": "Failed to update brand blocking."
+          }
+        },
+        "catalogSources": {
+          "title": "Model Catalog Sources",
+          "description": "Registry of model catalog data sources: fetched in list order, with earlier sources taking precedence.",
+          "autoSync": "Auto-sync",
+          "autoSyncHint": "By default, all enabled sources are fetched automatically every 12 hours (the interval is controlled by PRICING_CATALOG_REFRESH_MIN).",
+          "syncAll": "Sync all",
+          "syncAllPending": "Syncing…",
+          "add": "Add source",
+          "columns": {
+            "source": "Source",
+            "type": "Type",
+            "url": "URL",
+            "enabled": "Enabled",
+            "lastSync": "Last sync",
+            "actions": "Actions"
+          },
+          "typeOfficial": "Official",
+          "typeCustom": "Custom",
+          "neverSynced": "Never synced",
+          "modelCount": "{{count}} models",
+          "syncNow": "Sync now",
+          "syncing": "Syncing…",
+          "moveUp": "Move up",
+          "moveDown": "Move down",
+          "edit": "Edit",
+          "delete": "Delete",
+          "editTitle": "Edit source",
+          "addTitle": "Add source",
+          "nameLabel": "Name",
+          "namePlaceholder": "e.g. llm-metadata mirror",
+          "urlLabel": "URL",
+          "urlPlaceholder": "https://example.com/api/all.json",
+          "urlHint": "Supports both the llm-metadata all.json and models.dev api.json formats, detected automatically.",
+          "typeLabel": "Type",
+          "enabledLabel": "Enabled",
+          "save": "Save",
+          "cancel": "Cancel",
+          "deleteTitle": "Delete source?",
+          "deleteDescription": "Once deleted, the source no longer participates in catalog merging. This action cannot be undone.",
+          "snapshot": {
+            "title": "Current merged snapshot",
+            "source": "Source",
+            "fetchedAt": "Synced at",
+            "models": "Model entries",
+            "never": "Not synced yet"
+          },
+          "toast": {
+            "syncSucceeded": "Sync completed: {{count}} models.",
+            "syncFailed": "Sync failed: {{message}}",
+            "syncBusy": "A sync is already in progress. Please try again later.",
+            "created": "Source added.",
+            "updated": "Source updated.",
+            "deleted": "Source deleted.",
+            "autoSyncOn": "Auto-sync turned on.",
+            "autoSyncOff": "Auto-sync turned off.",
+            "saveFailed": "Failed to save source: {{message}}",
+            "deleteFailed": "Failed to delete source: {{message}}",
+            "loadFailed": "Failed to load sources: {{message}}",
+            "disabled": "The pricing catalog is not enabled (PRICING_CATALOG_ENABLED=false)."
           }
         }
       },
