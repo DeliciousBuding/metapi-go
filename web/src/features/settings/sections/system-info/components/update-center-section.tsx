@@ -100,13 +100,20 @@ export function UpdateCenterSection() {
             ) : null}
             {status.mode ? (
               <Badge variant='secondary'>
-                {t('settings.systemInfo.updateCenter.mode')}: {status.mode}
+                {t('settings.systemInfo.updateCenter.mode')}:{' '}
+                {status.mode === 'external'
+                  ? t('settings.systemInfo.updateCenter.modeExternal')
+                  : status.mode}
               </Badge>
             ) : null}
           </div>
 
-          {status.residual ? (
-            <p className='text-muted-foreground text-xs'>{status.residual}</p>
+          {status.mode === 'external' || status.residual ? (
+            <p className='text-muted-foreground text-xs'>
+              {status.mode === 'external'
+                ? t('settings.systemInfo.updateCenter.externalResidual')
+                : status.residual}
+            </p>
           ) : null}
 
           <div className='flex flex-wrap gap-2'>
