@@ -34,6 +34,7 @@ import {
 } from '@/lib/format'
 
 import type { ModelGroupPricing, ModelRow } from '../types'
+import { pricingSiteLabel } from './models-columns'
 
 type ModelDetailSheetProps = {
   model: ModelRow | null
@@ -166,11 +167,19 @@ export function ModelDetailSheet({
                           className='flex flex-col gap-1.5'
                         >
                           <div className='flex flex-wrap items-center gap-2 text-xs'>
-                            <Badge variant='default'>{source.siteName}</Badge>
-                            <span className='text-muted-foreground'>
-                              {source.username ??
-                                t('models.detail.unknownUser')}
-                            </span>
+                            <Badge variant='default'>
+                              {pricingSiteLabel(
+                                source.siteName,
+                                source.siteId,
+                                t
+                              )}
+                            </Badge>
+                            {source.siteId !== 0 ? (
+                              <span className='text-muted-foreground'>
+                                {source.username ??
+                                  t('models.detail.unknownUser')}
+                              </span>
+                            ) : null}
                           </div>
                           {groupKeys.length > 0 && (
                             <ul className='ml-2 flex flex-col gap-1 border-l pl-3'>

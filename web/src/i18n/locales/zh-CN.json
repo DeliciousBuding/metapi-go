@@ -131,7 +131,7 @@
       "page": {
         "loadError": "加载模型失败：{{message}}",
         "title": "模型",
-        "description": "模型市场：品牌、能力、延迟与成功率。"
+        "description": "模型清单：品牌、接口类型、能力、延迟与成功率。"
       },
       "toast": {
         "refreshSucceeded": "模型已刷新。"
@@ -172,7 +172,9 @@
         "priceInput": "输入价格",
         "actions": "操作",
         "rowActions": "行操作",
-        "priceDetail": "价格明细"
+        "priceDetail": "价格明细",
+        "endpointTypes": "接口类型",
+        "deprecated": "已弃用"
       },
       "actions": {
         "viewDetails": "查看详情",
@@ -205,6 +207,9 @@
         "viewHistory": "查看历史",
         "hideHistory": "收起历史",
         "historyLoadFailed": "加载验证历史失败：{{message}}"
+      },
+      "price": {
+        "catalogEstimate": "官方目录参考价"
       }
     },
     "modelTester": {
@@ -1256,6 +1261,67 @@
             "rebuildFailed": "已保存，但路由重建失败——请手动重建。",
             "brandsSaved": "品牌屏蔽已更新；路由已重建。",
             "brandsSaveFailed": "更新品牌屏蔽失败。"
+          }
+        },
+        "catalogSources": {
+          "title": "模型数据源",
+          "description": "模型目录数据源注册表：按列表顺序拉取，靠前的源优先覆盖。",
+          "autoSync": "自动同步",
+          "autoSyncHint": "默认每 12 小时自动拉取一次全部启用的源（周期由 PRICING_CATALOG_REFRESH_MIN 控制）。",
+          "syncAll": "全部同步",
+          "syncAllPending": "同步中…",
+          "add": "添加数据源",
+          "columns": {
+            "source": "数据源",
+            "type": "类型",
+            "url": "URL",
+            "enabled": "启用",
+            "lastSync": "上次同步",
+            "actions": "操作"
+          },
+          "typeOfficial": "官方",
+          "typeCustom": "自定义",
+          "neverSynced": "从未同步",
+          "modelCount": "{{count}} 条模型",
+          "syncNow": "立即同步",
+          "syncing": "同步中…",
+          "moveUp": "上移",
+          "moveDown": "下移",
+          "edit": "编辑",
+          "delete": "删除",
+          "editTitle": "编辑数据源",
+          "addTitle": "添加数据源",
+          "nameLabel": "名称",
+          "namePlaceholder": "例如 llm-metadata 镜像",
+          "urlLabel": "URL",
+          "urlPlaceholder": "https://example.com/api/all.json",
+          "urlHint": "支持 llm-metadata all.json 或 models.dev api.json 两种格式，自动识别。",
+          "typeLabel": "类型",
+          "enabledLabel": "启用",
+          "save": "保存",
+          "cancel": "取消",
+          "deleteTitle": "删除数据源？",
+          "deleteDescription": "删除后该源不再参与目录合并。此操作不可撤销。",
+          "snapshot": {
+            "title": "当前合并快照",
+            "source": "来源",
+            "fetchedAt": "同步时间",
+            "models": "模型条目",
+            "never": "尚未同步"
+          },
+          "toast": {
+            "syncSucceeded": "同步完成：{{count}} 条模型。",
+            "syncFailed": "同步失败：{{message}}",
+            "syncBusy": "同步正在进行中，请稍后再试。",
+            "created": "数据源已添加。",
+            "updated": "数据源已更新。",
+            "deleted": "数据源已删除。",
+            "autoSyncOn": "自动同步已开启。",
+            "autoSyncOff": "自动同步已关闭。",
+            "saveFailed": "保存失败：{{message}}",
+            "deleteFailed": "删除失败：{{message}}",
+            "loadFailed": "加载数据源失败：{{message}}",
+            "disabled": "价格目录未启用（PRICING_CATALOG_ENABLED=false）。"
           }
         }
       },
@@ -2438,7 +2504,7 @@
         "observability": "可观测性",
         "tokenRoutes": "路由",
         "oauth": "OAuth",
-        "models": "模型",
+        "models": "模型清单",
         "modelTester": "模型测试器",
         "settings": "设置",
         "about": "关于",

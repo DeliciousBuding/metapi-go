@@ -1243,6 +1243,44 @@ func buildModelNameRedirectsDDL(d string) string {
 	)`
 }
 
+// buildCatalogSourcesDDL creates the catalog_sources table.
+// The model-catalog data source registry (llm-metadata / models.dev presets
+// plus operator-added custom sources). Sources are fetched in sort_order
+// order and merged first-wins. Status columns record the last sync attempt
+// (success time / error / parsed entry count) per source.
+func buildCatalogSourcesDDL(d string) string {
+	if isPG(d) {
+		return `CREATE TABLE IF NOT EXISTS catalog_sources (
+			id SERIAL PRIMARY KEY,
+			name TEXT NOT NULL,
+			url TEXT NOT NULL,
+			enabled BOOLEAN NOT NULL DEFAULT TRUE,
+			type TEXT NOT NULL DEFAULT 'custom',
+			sort_order INTEGER NOT NULL DEFAULT 0,
+			last_success_at TEXT,
+			last_error TEXT,
+			last_count INTEGER NOT NULL DEFAULT 0,
+			last_attempt_at TEXT,
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)`
+	}
+	return `CREATE TABLE IF NOT EXISTS catalog_sources (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL,
+		url TEXT NOT NULL,
+		enabled INTEGER NOT NULL DEFAULT 1,
+		type TEXT NOT NULL DEFAULT 'custom',
+		sort_order INTEGER NOT NULL DEFAULT 0,
+		last_success_at TEXT,
+		last_error TEXT,
+		last_count INTEGER NOT NULL DEFAULT 0,
+		last_attempt_at TEXT,
+		created_at TEXT NOT NULL,
+		updated_at TEXT NOT NULL
+	)`
+}
+
 func buildEventsDDL(d string) string {
 	if isPG(d) {
 		return `CREATE TABLE IF NOT EXISTS events (

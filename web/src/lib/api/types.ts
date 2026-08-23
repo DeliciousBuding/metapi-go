@@ -770,6 +770,41 @@ export type DownstreamApiKeyTrendResponse = {
 }
 
 /**
+ * Model-catalog data source registry (Wave 8 Lane A).
+ */
+export type CatalogSource = {
+  id: number
+  name: string
+  url: string
+  enabled: boolean
+  type: 'official' | 'custom'
+  sortOrder: number
+  lastSuccessAt: string | null
+  lastError: string | null
+  lastCount: number
+  lastAttemptAt: string | null
+}
+
+export type CatalogSourceInput = {
+  name?: string
+  url?: string
+  enabled?: boolean
+  type?: 'official' | 'custom'
+  sortOrder?: number
+}
+
+export type CatalogSyncStatus = {
+  autoSync: boolean
+  intervalMin: number
+  snapshot: {
+    source: string
+    fetchedAt: string | null
+    models: number
+  }
+  sources: CatalogSource[]
+}
+
+/**
  * GET /api/about — build provenance of the running Go binary.
  *
  * `commit` and `buildTime` are only populated when the binary was linked with

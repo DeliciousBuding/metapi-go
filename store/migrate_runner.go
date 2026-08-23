@@ -589,6 +589,7 @@ func buildStatements(snapshot map[string][]map[string]interface{}) []insertStmt 
 	stmts = append(stmts, buildDownstreamAPIKeys(snapshot["downstream_api_keys"])...)
 	stmts = append(stmts, buildEvents(snapshot["events"])...)
 	stmts = append(stmts, buildSettings(snapshot["settings"])...)
+	stmts = append(stmts, buildCatalogSources(snapshot["catalog_sources"])...)
 
 	return stmts
 }
@@ -1100,6 +1101,37 @@ func buildSettings(rows []map[string]interface{}) []insertStmt {
 			values: []interface{}{
 				key,
 				asNullableString(v(row, "value")),
+			},
+		})
+	}
+	return stmts
+}
+
+func buildCatalogSources(rows []map[string]interface{}) []insertStmt {
+	// Column list mirrors store.buildCatalogSourcesDDL exactly;
+	// verifyBuilderColumnsMatchTarget enforces this at migration time.
+	cols := []string{
+		"id", "name", "url", "enabled", "type", "sort_order",
+		"last_success_at", "last_error", "last_count", "last_attempt_at",
+		"created_at", "updated_at",
+	}
+	var stmts []insertStmt
+	for _, row := range rows {
+		stmts = append(stmts, insertStmt{
+			table: "catalog_sources", columns: cols,
+			values: []interface{}{
+				asNumber(v(row, "id"), float64(0)),
+				asNullableString(v(row, "name")),
+				asNullableString(v(row, "url")),
+				asBoolean(v(row, "enabled"), true),
+				coalesceNullString(asNullableString(v(row, "type")), "custom"),
+				asNumber(v(row, "sort_order"), float64(0)),
+				asNullableString(v(row, "last_success_at")),
+				asNullableString(v(row, "last_error")),
+				asNumber(v(row, "last_count"), float64(0)),
+				asNullableString(v(row, "last_attempt_at")),
+				asNullableString(v(row, "created_at")),
+				asNullableString(v(row, "updated_at")),
 			},
 		})
 	}
