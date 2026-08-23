@@ -249,7 +249,7 @@ export function TestForm({
                       <SelectValue>
                         {(selected) => {
                           if (!selected || selected === 'none') {
-                            return t('modelTester.form.channelNone')
+                            return t('modelTester.form.channelNoneForced')
                           }
                           const channel = (channelsQuery.data ?? []).find(
                             (item) => String(item.id) === selected
@@ -263,7 +263,7 @@ export function TestForm({
                   </FormControl>
                   <SelectContent>
                     <SelectItem value='none'>
-                      {t('modelTester.form.channelNone')}
+                      {t('modelTester.form.channelNoneForced')}
                     </SelectItem>
                     {(channelsQuery.data ?? []).map((channel) => (
                       <SelectItem key={channel.id} value={String(channel.id)}>
@@ -273,7 +273,7 @@ export function TestForm({
                   </SelectContent>
                 </Select>
                 <FormDescription>
-                  {t('modelTester.form.channelHint')}
+                  {t('modelTester.form.channelHintForced')}
                 </FormDescription>
                 <FormMessage />
               </FormItem>

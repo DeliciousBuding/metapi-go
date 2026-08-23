@@ -212,8 +212,8 @@
         "modelLoading": "Loading models…",
         "modelPlaceholder": "Select a model",
         "channel": "Channel",
-        "channelNone": "Select a channel",
-        "channelHint": "Only channel-specified tests are supported: pick a channel above before sending; the default-routing harness is not available.",
+        "channelNone": "No channel (default routing)",
+        "channelHint": "Run the test against a specific channel. Leave empty to use default routing.",
         "compareChannels": "Compare channels",
         "compareChannelsHint": "Run the same prompt across several channels and compare latency.",
         "compareChannelsLabel": "Channels to compare",
@@ -249,7 +249,9 @@
           "maxTokensMin": "Max tokens must be at least 0.",
           "maxTokensMax": "Max tokens must be at most 128000.",
           "compareMinChannels": "Select at least two channels to compare."
-        }
+        },
+        "channelNoneForced": "Select a channel",
+        "channelHintForced": "Only channel-specified tests are supported: pick a channel before sending; the default-routing harness is not available."
       },
       "toast": {
         "empty": "The response is empty.",
