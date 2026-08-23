@@ -598,11 +598,13 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
   const batchMutation = useBatchUpdateAccounts()
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
 
-  const selectedIds = useMemo(
-    () =>
-      table.getFilteredSelectedRowModel().rows.map((row) => row.original.id),
-    [table]
-  )
+  // Derived per render — `table` identity is stable across selection changes
+  // (TanStack `useReactTable` memoizes the instance), so a `useMemo([table])`
+  // here would freeze the ids at their mount-time (empty) value and every
+  // batch action would silently no-op.
+  const selectedIds = table
+    .getFilteredSelectedRowModel()
+    .rows.map((row) => row.original.id)
 
   const runBatch = async (action: BatchAccountAction) => {
     if (selectedIds.length === 0) return
