@@ -93,10 +93,14 @@ export function NavGroup({ title, items }: NavGroupProps) {
 }
 
 /**
- * Navigation badge component
+ * Navigation badge component.
+ *
+ * `badge` values are i18n keys (matching `title`), resolved via t() here so
+ * nav configs stay locale-agnostic.
  */
-function NavBadge({ children }: { children: ReactNode }) {
-  return <Badge className='shrink-0 px-1 py-0 text-xs'>{children}</Badge>
+function NavBadge({ labelKey }: { labelKey: string }) {
+  const { t } = useTranslation()
+  return <Badge className='shrink-0 px-1 py-0 text-xs'>{t(labelKey)}</Badge>
 }
 
 /**
@@ -189,7 +193,7 @@ function SidebarMenuLink({ item, href }: { item: NavLink; href: string }) {
       >
         {item.icon && <item.icon className='shrink-0' />}
         <span className='min-w-0 flex-1 truncate'>{t(item.title)}</span>
-        {item.badge && <NavBadge>{item.badge}</NavBadge>}
+        {item.badge && <NavBadge labelKey={item.badge} />}
       </SidebarMenuButton>
     </SidebarMenuItem>
   )
@@ -229,7 +233,7 @@ function SidebarMenuCollapsible({
       >
         {item.icon && <item.icon className='shrink-0' />}
         <span className='min-w-0 flex-1 truncate'>{t(item.title)}</span>
-        {item.badge && <NavBadge>{item.badge}</NavBadge>}
+        {item.badge && <NavBadge labelKey={item.badge} />}
         <ChevronRight className='ms-auto size-4 shrink-0 transition-transform duration-200 group-data-[panel-open]/collapsible-trigger:rotate-90' />
       </CollapsibleTrigger>
       <CollapsibleContent className='CollapsibleContent'>
@@ -250,7 +254,7 @@ function SidebarMenuCollapsible({
                 <span className='min-w-0 flex-1 truncate'>
                   {t(subItem.title)}
                 </span>
-                {subItem.badge && <NavBadge>{subItem.badge}</NavBadge>}
+                {subItem.badge && <NavBadge labelKey={subItem.badge} />}
               </SidebarMenuSubButton>
             </SidebarMenuSubItem>
           ))}
@@ -285,13 +289,13 @@ function SidebarMenuCollapsedDropdown({
         >
           {item.icon && <item.icon className='shrink-0' />}
           <span className='min-w-0 flex-1 truncate'>{t(item.title)}</span>
-          {item.badge && <NavBadge>{item.badge}</NavBadge>}
+          {item.badge && <NavBadge labelKey={item.badge} />}
           <ChevronRight className='ms-auto size-4 shrink-0 transition-transform duration-200 group-data-[popup-open]/dropdown-trigger:rotate-90' />
         </DropdownMenuTrigger>
         <DropdownMenuContent side='right' align='start' sideOffset={4}>
           <DropdownMenuGroup>
             <DropdownMenuLabel>
-              {t(item.title)} {item.badge ? `(${item.badge})` : ''}
+              {t(item.title)} {item.badge ? `(${t(item.badge)})` : ''}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             {item.items.map((sub) => (
@@ -314,7 +318,7 @@ function SidebarMenuCollapsedDropdown({
                 {sub.icon && <sub.icon />}
                 <span className='max-w-52 text-wrap'>{t(sub.title)}</span>
                 {sub.badge && (
-                  <span className='ms-auto text-xs'>{sub.badge}</span>
+                  <span className='ms-auto text-xs'>{t(sub.badge)}</span>
                 )}
               </DropdownMenuItem>
             ))}

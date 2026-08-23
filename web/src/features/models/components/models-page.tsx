@@ -48,6 +48,7 @@ import { ModelVerifyDialog } from './model-verify-dialog'
 import {
   buildBrandFilterOptions,
   buildCapabilityFilterOptions,
+  buildEndpointTypeFilterOptions,
   useModelsColumns,
 } from './models-columns'
 
@@ -58,6 +59,7 @@ const MODELS_COLUMN_SIZING_STORAGE_KEY = 'metapi-go:models:column-sizing'
 type ModelsUrlFilters = {
   brand: string[]
   capability: string[]
+  endpointType: string[]
 }
 
 function readSearch(searchString?: string): UrlTableState<ModelsUrlFilters> {
@@ -67,7 +69,7 @@ function readSearch(searchString?: string): UrlTableState<ModelsUrlFilters> {
       pageIndex: 0,
       pageSize: 20,
       sorting: [],
-      filters: { brand: [], capability: [] },
+      filters: { brand: [], capability: [], endpointType: [] },
     }
   }
   const params = new URLSearchParams(searchString ?? window.location.search)
@@ -78,6 +80,7 @@ function readSearch(searchString?: string): UrlTableState<ModelsUrlFilters> {
     sort: params.get('sort') ?? undefined,
     brand: params.get('brand') ?? undefined,
     capability: params.get('capability') ?? undefined,
+    endpointType: params.get('endpointType') ?? undefined,
   })
   if (!parsed.success) {
     return {
@@ -85,7 +88,7 @@ function readSearch(searchString?: string): UrlTableState<ModelsUrlFilters> {
       pageIndex: 0,
       pageSize: 20,
       sorting: [],
-      filters: { brand: [], capability: [] },
+      filters: { brand: [], capability: [], endpointType: [] },
     }
   }
   const data = parsed.data
@@ -97,6 +100,7 @@ function readSearch(searchString?: string): UrlTableState<ModelsUrlFilters> {
     filters: {
       brand: parseStringListParam(data.brand),
       capability: parseStringListParam(data.capability),
+      endpointType: parseStringListParam(data.endpointType),
     },
   }
 }
@@ -118,6 +122,8 @@ function buildHref(next: UrlTableStateUpdate<ModelsUrlFilters>): string {
   if (brandString) params.set('brand', brandString)
   const capabilityString = encodeStringListParam(merged.filters.capability)
   if (capabilityString) params.set('capability', capabilityString)
+  const endpointTypeString = encodeStringListParam(merged.filters.endpointType)
+  if (endpointTypeString) params.set('endpointType', endpointTypeString)
   const queryString = params.toString()
   return queryString ? `/models?${queryString}` : '/models'
 }
@@ -141,12 +147,18 @@ function useModelsUrlState() {
       if (filters.capability.length > 0) {
         columnFilters.push({ id: 'capabilities', value: filters.capability })
       }
+      if (filters.endpointType.length > 0) {
+        columnFilters.push({ id: 'endpointTypes', value: filters.endpointType })
+      }
       return columnFilters
     },
     fromColumnFilters: (filters) => {
       const brandEntry = filters.find((filter) => filter.id === 'brand')
       const capabilityEntry = filters.find(
         (filter) => filter.id === 'capabilities'
+      )
+      const endpointTypeEntry = filters.find(
+        (filter) => filter.id === 'endpointTypes'
       )
       return {
         filters: {
@@ -155,6 +167,9 @@ function useModelsUrlState() {
             : [],
           capability: Array.isArray(capabilityEntry?.value)
             ? (capabilityEntry.value as string[])
+            : [],
+          endpointType: Array.isArray(endpointTypeEntry?.value)
+            ? (endpointTypeEntry.value as string[])
             : [],
         },
       }
@@ -221,6 +236,10 @@ export function ModelsPage() {
     () => buildCapabilityFilterOptions(models),
     [models]
   )
+  const endpointTypeFilterOptions = useMemo(
+    () => buildEndpointTypeFilterOptions(models),
+    [models]
+  )
 
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
@@ -262,6 +281,11 @@ export function ModelsPage() {
               columnId: 'brand',
               title: t('models.columns.brand'),
               options: brandFilterOptions,
+            },
+            {
+              columnId: 'endpointTypes',
+              title: t('models.columns.endpointTypes'),
+              options: endpointTypeFilterOptions,
             },
             {
               columnId: 'capabilities',

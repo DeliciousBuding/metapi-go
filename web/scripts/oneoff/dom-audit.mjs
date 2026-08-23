@@ -39,7 +39,6 @@ const ROUTES = [
   '/model-tester',
   '/observability',
   '/price-compare',
-  '/fix-candidates',
   '/site-announcements',
   '/settings',
   '/settings/general/site',

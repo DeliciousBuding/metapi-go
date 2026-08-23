@@ -14,6 +14,8 @@
 //   state        → success     (green)  — already checked in, not an error
 //   unknown      → outline     (gray)   — investigate
 
+import { useTranslation } from 'react-i18next'
+
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
@@ -50,13 +52,30 @@ export function FailureReasonBadge({
   reason,
   className,
 }: FailureReasonBadgeProps) {
+  const { t } = useTranslation()
   if (!reason || !reason.code) {
     return <span className='text-muted-foreground'>—</span>
   }
 
   const config = resolveCategoryConfig(reason.category)
-  const label = reason.title || reason.code
-  const tooltip = reason.detailHint || reason.actionHint || undefined
+  // Titles/hints arrive from the backend in English; the classifier codes are
+  // stable, so localize by code with the backend string as fallback.
+  const label = t(`checkin.failureReason.code.${reason.code}.title`, {
+    defaultValue: reason.title || reason.code,
+  })
+  const localizedDetail = t(
+    `checkin.failureReason.code.${reason.code}.detail`,
+    {
+      defaultValue: reason.detailHint || '',
+    }
+  )
+  const localizedAction = t(
+    `checkin.failureReason.code.${reason.code}.action`,
+    {
+      defaultValue: reason.actionHint || '',
+    }
+  )
+  const tooltip = localizedDetail || localizedAction || undefined
 
   return (
     <Badge variant={config.variant} className={className} title={tooltip}>

@@ -311,12 +311,11 @@ func TestSettingsRuntimeUpdateCheckinScheduleObjectRejectsBadVersion(t *testing.
 func TestSettingsRuntimeUpdateBrandingPersists(t *testing.T) {
 	db, r, cfg := setupEdgeTest(t)
 	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
-		"systemName":      "My Gateway",
-		"logo":            "https://example.com/logo.png",
-		"footer":          "Powered by Metapi",
-		"about":           "About copy",
-		"homePageContent": "Welcome",
-		"serverAddress":   "https://gw.example.com",
+		"systemName":    "My Gateway",
+		"logo":          "https://example.com/logo.png",
+		"footer":        "Powered by Metapi",
+		"about":         "About copy",
+		"serverAddress": "https://gw.example.com",
 	})
 	if resp.Code != http.StatusOK {
 		t.Fatalf("status = %d body=%s", resp.Code, resp.Body.String())
@@ -347,7 +346,7 @@ func TestSettingsRuntimeGetIncludesWindowAndScheduleFields(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode GET: %v", err)
 	}
-	for _, key := range []string{"checkinWindowStart", "checkinWindowEnd", "checkinSchedule", "balanceRefreshSchedule", "logCleanupSchedule", "systemName", "logo", "footer", "about", "homePageContent", "serverAddress"} {
+	for _, key := range []string{"checkinWindowStart", "checkinWindowEnd", "checkinSchedule", "balanceRefreshSchedule", "logCleanupSchedule", "systemName", "logo", "footer", "about", "serverAddress"} {
 		if _, ok := body[key]; !ok {
 			t.Fatalf("GET runtime missing key %s", key)
 		}

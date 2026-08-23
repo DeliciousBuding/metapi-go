@@ -67,6 +67,7 @@ vi.mock('../models-columns', () => ({
   useModelsColumns: () => [],
   buildBrandFilterOptions: () => [],
   buildCapabilityFilterOptions: () => [],
+  buildEndpointTypeFilterOptions: () => [],
 }))
 
 beforeEach(() => {

@@ -211,7 +211,7 @@ export function RoutingSection() {
         >
           <div className='space-y-3 rounded-lg border p-4'>
             <h4 className='text-sm font-medium'>
-              {t('settings.general.routing.fields.routingFallbackUnitCost')}
+              {t('settings.general.routing.fallbackGroup')}
             </h4>
             <FormField
               control={form.control}
@@ -360,6 +360,11 @@ export function RoutingSection() {
                         step={0.05}
                       />
                     </FormControl>
+                    <FormDescription>
+                      {t(
+                        'settings.general.routing.fields.baseWeightFactorHint'
+                      )}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -381,6 +386,11 @@ export function RoutingSection() {
                         step={0.05}
                       />
                     </FormControl>
+                    <FormDescription>
+                      {t(
+                        'settings.general.routing.fields.valueScoreFactorHint'
+                      )}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -402,6 +412,9 @@ export function RoutingSection() {
                         step={0.05}
                       />
                     </FormControl>
+                    <FormDescription>
+                      {t('settings.general.routing.fields.costWeightHint')}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -423,6 +436,9 @@ export function RoutingSection() {
                         step={0.05}
                       />
                     </FormControl>
+                    <FormDescription>
+                      {t('settings.general.routing.fields.balanceWeightHint')}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -444,6 +460,9 @@ export function RoutingSection() {
                         step={0.05}
                       />
                     </FormControl>
+                    <FormDescription>
+                      {t('settings.general.routing.fields.usageWeightHint')}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

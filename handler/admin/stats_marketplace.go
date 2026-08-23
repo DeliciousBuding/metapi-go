@@ -6,6 +6,9 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/deliciousbuding/metapi-go/app"
+	"github.com/deliciousbuding/metapi-go/service/pricingcatalog"
 )
 
 // Stats marketplace / model-coverage builders extracted from stats.go.
@@ -261,6 +264,10 @@ func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 	}
 	sort.Strings(names)
 
+	// Hydrate the merged model-catalog snapshot (nil when the catalog is
+	// disabled) so description/tags/pricing stop being hardcoded empties.
+	catalogSnapshot := appCatalogSnapshot()
+
 	out := make([]map[string]any, 0, len(names))
 	for _, name := range names {
 		agg := byModel[name]
@@ -301,21 +308,98 @@ func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 		} else {
 			successRate = nil
 		}
+		entry, catalogHit := catalogLookup(catalogSnapshot, name)
 		out = append(out, map[string]any{
 			"name":                   name,
 			"accountCount":           len(accounts),
 			"tokenCount":             tokenCount,
 			"avgLatency":             avgLatency,
 			"successRate":            successRate,
-			"description":            nil,
-			"tags":                   []string{},
+			"description":            catalogDescription(entry, catalogHit),
+			"tags":                   catalogTags(entry, catalogHit),
+			"deprecated":             catalogHit && entry.Status == "deprecated",
+			"releaseDate":            catalogReleaseDate(entry, catalogHit),
+			"contextWindow":          entry.ContextLimit,
+			"catalogStatus":          catalogStatusOf(catalogHit),
 			"supportedEndpointTypes": inferEndpointTypesForModel(name, accounts),
-			// Pricing intentionally empty — labeled known limitation; use price-compare for rates.
-			"pricingSources": []any{},
+			// Official catalog list price as a synthetic pricing source; the
+			// frontend labels it "catalog estimate" because marketplace sites
+			// are third-party relays (siteName "catalog" is the sentinel).
+			"pricingSources": catalogPricingSources(entry, catalogHit),
 			"accounts":       accounts,
 		})
 	}
 	return out, nil
+}
+
+// appCatalogSnapshot returns the merged model-catalog snapshot, or nil when
+// the catalog manager is unavailable (PRICING_CATALOG_ENABLED=false).
+func appCatalogSnapshot() *pricingcatalog.CatalogSnapshot {
+	manager := app.CatalogManager()
+	if manager == nil {
+		return nil
+	}
+	return manager.Snapshot()
+}
+
+func catalogLookup(snapshot *pricingcatalog.CatalogSnapshot, name string) (pricingcatalog.CatalogEntry, bool) {
+	if snapshot == nil {
+		return pricingcatalog.CatalogEntry{}, false
+	}
+	return snapshot.Lookup(name)
+}
+
+func catalogDescription(entry pricingcatalog.CatalogEntry, hit bool) any {
+	if !hit || strings.TrimSpace(entry.Description) == "" {
+		return nil
+	}
+	return entry.Description
+}
+
+func catalogTags(entry pricingcatalog.CatalogEntry, hit bool) []string {
+	if !hit || len(entry.Tags) == 0 {
+		return []string{}
+	}
+	return entry.Tags
+}
+
+func catalogReleaseDate(entry pricingcatalog.CatalogEntry, hit bool) any {
+	if !hit || strings.TrimSpace(entry.ReleaseDate) == "" {
+		return nil
+	}
+	return entry.ReleaseDate
+}
+
+func catalogStatusOf(hit bool) string {
+	if hit {
+		return "hydrated"
+	}
+	return "unknown"
+}
+
+// catalogPricingSources builds the synthetic catalog list-price source:
+// {siteId: 0, siteName: "catalog", groupPricing: {"catalog": {input/output}}}.
+// Only emitted when the catalog carries both input and output rates so a
+// partial price never misleads.
+func catalogPricingSources(entry pricingcatalog.CatalogEntry, hit bool) []any {
+	if !hit || entry.InputPerMillion <= 0 || entry.OutputPerMillion <= 0 {
+		return []any{}
+	}
+	return []any{map[string]any{
+		"siteId":       0,
+		"siteName":     "catalog",
+		"accountId":    0,
+		"username":     nil,
+		"ownerBy":      nil,
+		"enableGroups": []string{},
+		"groupPricing": map[string]any{
+			"catalog": map[string]any{
+				"quotaType":        0,
+				"inputPerMillion":  entry.InputPerMillion,
+				"outputPerMillion": entry.OutputPerMillion,
+			},
+		},
+	}}
 }
 
 func inferEndpointTypesForModel(modelName string, accounts []map[string]any) []string {

@@ -41,4 +41,9 @@ export const modelsSearchSchema = z.object({
     .optional()
     .transform((value) => encodeStringListParam(value))
     .catch(undefined),
+  endpointType: z
+    .union([z.string(), z.array(z.string())])
+    .optional()
+    .transform((value) => encodeStringListParam(value))
+    .catch(undefined),
 })
