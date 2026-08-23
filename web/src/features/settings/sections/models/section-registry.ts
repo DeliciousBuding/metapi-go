@@ -26,6 +26,11 @@ const LazyAllowlistSection = lazy(() =>
     default: module.AllowlistSection,
   }))
 )
+const LazyCatalogSourcesSection = lazy(() =>
+  import('./components/catalog-sources-section').then((module) => ({
+    default: module.CatalogSourcesSection,
+  }))
+)
 
 const MODELS_SECTIONS = [
   {
@@ -45,6 +50,12 @@ const MODELS_SECTIONS = [
     title: 'settings.models.allowlist.title',
     description: 'settings.models.allowlist.description',
     build: () => createElement(LazyAllowlistSection),
+  },
+  {
+    id: 'catalog-sources',
+    title: 'settings.models.catalogSources.title',
+    description: 'settings.models.catalogSources.description',
+    build: () => createElement(LazyCatalogSourcesSection),
   },
 ] as const
 

@@ -8,6 +8,7 @@
  */
 
 import { accountsApi } from './api/accounts.ts'
+import { catalogSourcesApi } from './api/catalog-sources.ts'
 import { eventsApi } from './api/events.ts'
 import { oauthApi } from './api/oauth.ts'
 import { searchApi } from './api/search.ts'
@@ -31,4 +32,5 @@ export const api = {
   ...settingsApi,
   ...systemApi,
   ...testChatApi,
+  ...catalogSourcesApi,
 }
