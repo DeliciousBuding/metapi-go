@@ -2600,6 +2600,9 @@
       "back": "上一步",
       "next": "下一步",
       "submit": "导入",
+      "stepper": {
+        "progressLabel": "导入进度"
+      },
       "steps": {
         "source": "来源",
         "identify": "识别",

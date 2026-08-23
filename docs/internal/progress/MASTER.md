@@ -32,6 +32,27 @@
 
 > 对比度门禁已全量达标（0 豁免，10 preset × light/dark 全过 WCAG AA 4.5:1）。无 P0/P1 开放项，开放 issue 0。下一波按需求驱动立项（方向见 `../benchmark.md`）。
 
+### UI/UX 深修波（进行中：自行探索 + 整理 + 优化）
+
+> 2026-08-24 三轮只读探索（token-routes/models/model-tester · settings/sites/accounts/channels · dashboard/observability/checkin/oauth/import + 全局横切）产出证据化清单，按优先级分批落地，每批带回归测试与门禁。
+
+**Batch 1（本 PR）—— 错误态一致性 + i18n + 文档漂移**
+- accounts/channels 页 load error 时同时渲染 QueryErrorBanner 与 DataTablePage 空态（含误导 CTA）→ 镜像 sites 页三元分支抑制 table（+ 回归测试）。
+- import stepper `aria-label` 硬编码英文 → `t('import.stepper.progressLabel')`（en/zh 词条补齐）。
+- a11y-checklist §7「preset contrast」残留清单过时（Wave 9 已清零）→ 改为 0 豁免现状。
+
+**剩余 P2（后续批）**
+- token-routes detail sheet footer 缺 Edit（gap-6）；decision snapshot 显示 raw channelId。
+- model-tester 无 error 态（模型/渠道下拉静默为空）。
+- import 空响应、manual-checkin schema-parse 失败被 `catch {}` 静默吞。
+- transport.ts:151 硬编码中文错误串。
+- schedule-editor / site-form-dialog 自定义组件未透传 id/aria（FormLabel htmlFor 悬空）。
+
+**剩余 P3（后续批）**
+- token-routes/index.ts barrel stub；model-detail-sheet onTest 死代码；test-response-viewer useEffect 缺依赖数组。
+- 硬编码 `$` 前缀、`#siteId` 回退、"enabled"/"default" aria/placeholder 未 i18n。
+- lib/api/sites.ts 4 个未用 wrapper；checkin CalendarRange 缺 aria-hidden；endpoints-editor URL 无可见 label。
+
 ## Completed milestone — TS 兼容与迁移收官（2026-08-20 交付）
 
 分析依据：[`../analysis/ts-go-migration-gap.md`](../analysis/ts-go-migration-gap.md)。全部批次已交付合并（#880 计划 / #881 后端 / #882 UI / #883 备份导入 / #884 文档）：

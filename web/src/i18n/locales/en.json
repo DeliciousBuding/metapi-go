@@ -2600,6 +2600,9 @@
       "back": "Back",
       "next": "Next",
       "submit": "Import",
+      "stepper": {
+        "progressLabel": "Import progress"
+      },
       "steps": {
         "source": "Source",
         "identify": "Identify",

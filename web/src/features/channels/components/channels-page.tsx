@@ -184,45 +184,47 @@ export function ChannelsPage() {
         </p>
       </div>
 
-      <QueryErrorBanner
-        error={channelsQuery.error as Error | null}
-        messageKey='channels.page.loadError'
-        onRetry={() => channelsQuery.refetch()}
-        isRetrying={channelsQuery.isFetching}
-      />
-
-      <DataTablePage
-        table={table}
-        columns={columns}
-        isLoading={channelsQuery.isLoading}
-        isFetching={channelsQuery.isFetching}
-        emptyTitle={t('channels.empty.title')}
-        emptyDescription={t('channels.empty.description')}
-        emptyAction={
-          <Button
-            variant='outline'
-            onClick={() => void navigate({ to: '/accounts' })}
-          >
-            <Users className='size-4' />
-            {t('channels.empty.manageAccounts')}
-          </Button>
-        }
-        skeletonKeyPrefix='channel-skeleton'
-        toolbarProps={{
-          searchPlaceholder: t('channels.toolbar.searchPlaceholder'),
-          searchDebounceMs: 400,
-          filters: [
-            {
-              columnId: 'status',
-              title: t('channels.columns.status'),
-              options: CHANNELS_STATUS_FILTER_OPTIONS.map((option) => ({
-                label: t(option.labelKey),
-                value: option.value,
-              })),
-            },
-          ],
-        }}
-      />
+      {channelsQuery.error ? (
+        <QueryErrorBanner
+          error={channelsQuery.error as Error | null}
+          messageKey='channels.page.loadError'
+          onRetry={() => channelsQuery.refetch()}
+          isRetrying={channelsQuery.isFetching}
+        />
+      ) : (
+        <DataTablePage
+          table={table}
+          columns={columns}
+          isLoading={channelsQuery.isLoading}
+          isFetching={channelsQuery.isFetching}
+          emptyTitle={t('channels.empty.title')}
+          emptyDescription={t('channels.empty.description')}
+          emptyAction={
+            <Button
+              variant='outline'
+              onClick={() => void navigate({ to: '/accounts' })}
+            >
+              <Users className='size-4' />
+              {t('channels.empty.manageAccounts')}
+            </Button>
+          }
+          skeletonKeyPrefix='channel-skeleton'
+          toolbarProps={{
+            searchPlaceholder: t('channels.toolbar.searchPlaceholder'),
+            searchDebounceMs: 400,
+            filters: [
+              {
+                columnId: 'status',
+                title: t('channels.columns.status'),
+                options: CHANNELS_STATUS_FILTER_OPTIONS.map((option) => ({
+                  label: t(option.labelKey),
+                  value: option.value,
+                })),
+              },
+            ],
+          }}
+        />
+      )}
 
       <ChannelDetailSheet
         channel={detailChannel}
