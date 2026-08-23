@@ -409,9 +409,38 @@ export function ImportWizardDialog({
     })
   }
 
+  // Mirror the manual site-created modal's exit (site-created-modal.tsx):
+  // land the accounts page with the one-shot `siteId`/`create` deep link so
+  // the create dialog opens with the imported site preselected. Exactly one
+  // imported/merged row with a siteId carries it; any other successful
+  // batch at least opens the create flow; an all-skipped/failed batch keeps
+  // the plain navigation (nothing to preselect).
   function handleGoToAccounts() {
+    const results = result?.results ?? []
+    const successful = results.filter(
+      (item) => item.status === 'imported' || item.status === 'merged'
+    )
+    const withSiteId = successful.filter(
+      (item) => typeof item.siteId === 'number' && item.siteId > 0
+    )
     reset()
     onOpenChange(false)
+    if (successful.length === 1 && withSiteId.length === 1) {
+      navigate({
+        to: '/accounts',
+        search: { siteId: withSiteId[0].siteId, create: true },
+        replace: true,
+      })
+      return
+    }
+    if (successful.length > 0) {
+      navigate({
+        to: '/accounts',
+        search: { create: true },
+        replace: true,
+      })
+      return
+    }
     navigate({ to: '/accounts' })
   }
 

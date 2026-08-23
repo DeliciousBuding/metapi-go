@@ -498,7 +498,8 @@
       },
       "toolbar": {
         "searchPlaceholder": "搜索站点…",
-        "addSite": "添加站点"
+        "addSite": "添加站点",
+        "import": "导入站点"
       },
       "entityName": "站点",
       "bulk": {
@@ -1583,7 +1584,8 @@
         "filterSiteTitle": "站点",
         "deleteTitle": "删除账号",
         "deleteDescription": "确定删除账号「{{name}}」？该操作不可撤销，相关令牌将一并清除。",
-        "emptyImport": "导入站点"
+        "emptyImport": "导入站点",
+        "toolbarImport": "导入站点"
       },
       "bulk": {
         "entityName": "账号",

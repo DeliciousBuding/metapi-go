@@ -196,7 +196,12 @@ export function CheckinPage() {
     updateUrlState,
   } = useCheckinUrlState()
 
-  const { data: accountsSnapshot } = useAccounts()
+  // `isLoading` distinguishes "snapshot still fetching" from "genuinely no
+  // accounts": during the fetch window `accountOptions` is `[]`, and pinning
+  // the manual check-in button / empty CTA to that raw array kept them
+  // flashing disabled-then-enabled (same fix as the accounts page's Add
+  // account button — see the comment there).
+  const { data: accountsSnapshot, isLoading: accountsLoading } = useAccounts()
   const accountOptions = accountsSnapshot?.accounts ?? []
   const { data: sitesData } = useSites()
   const siteOptions = useMemo(
@@ -405,7 +410,7 @@ export function CheckinPage() {
           <Button
             variant='outline'
             onClick={() => setManualOpen(true)}
-            disabled={accountOptions.length === 0}
+            disabled={!accountsLoading && accountOptions.length === 0}
           >
             <Zap />
             {t('checkin.page.manualCheckin')}
@@ -513,20 +518,22 @@ export function CheckinPage() {
         emptyAction={
           // With accounts present the CTA reuses the header's manual
           // check-in flow (same dialog, same mutation) to generate logs;
-          // without accounts there is nothing to check in, so the exit
-          // points to the accounts page instead of a disabled button.
-          accountOptions.length > 0 ? (
-            <Button onClick={() => setManualOpen(true)}>
-              <Zap className='size-4' />
-              {t('checkin.page.manualCheckin')}
-            </Button>
-          ) : (
+          // only a LOADED-AND-EMPTY account library points to the accounts
+          // page instead — while the snapshot is still fetching the CTA
+          // stays manual check-in and picks up the accounts as they land
+          // (otherwise it flashed "Manage accounts" then back).
+          !accountsLoading && accountOptions.length === 0 ? (
             <Button
               variant='outline'
               onClick={() => void navigate({ to: '/accounts' })}
             >
               <Users className='size-4' />
               {t('checkin.page.manageAccounts')}
+            </Button>
+          ) : (
+            <Button onClick={() => setManualOpen(true)}>
+              <Zap className='size-4' />
+              {t('checkin.page.manualCheckin')}
             </Button>
           )
         }
