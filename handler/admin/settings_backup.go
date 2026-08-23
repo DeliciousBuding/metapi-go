@@ -624,9 +624,11 @@ func logImportedDownstreamKeys(db *sqlx.DB, names []string) {
 	}
 	message := fmt.Sprintf("New downstream API keys: %s%s", strings.Join(listed, ", "), suffix)
 	now := time.Now().UTC().Format(time.RFC3339)
+	// "read" is bound as a boolean parameter: a literal 0 is rejected by
+	// PostgreSQL's boolean column type (matches service.CreateEvent).
 	query := db.Rebind(`INSERT INTO events (type, title, message, level, related_type, created_at, "read")
-		VALUES (?, ?, ?, ?, 'backup', ?, 0)`)
-	if _, err := db.Exec(query, "backup", "Backup import added downstream API keys", message, "warning", now); err != nil {
+		VALUES (?, ?, ?, ?, 'backup', ?, ?)`)
+	if _, err := db.Exec(query, "backup", "Backup import added downstream API keys", message, "warning", now, false); err != nil {
 		slog.Warn("backup import: failed to log downstream key event", "error", err)
 	}
 }
