@@ -324,6 +324,11 @@ func dispatchSelectedUpstream(
 	}
 
 	candidatePaths := resolveUpstreamCandidatePaths(upstreamPath, disableCrossProtocolFallback, sitePref)
+	// The shared body pre-scan for the stream rewrite is deferred until a
+	// candidate actually needs it, so surfaces without stream gates (embeddings,
+	// images, ...) keep the zero-body-touch path.
+	var streamHints bodyStreamHints
+	hintsReady := false
 	var lastPending *pendingUpstreamFailure
 	for i, path := range candidatePaths {
 		isLast := i >= len(candidatePaths)-1
@@ -334,11 +339,31 @@ func dispatchSelectedUpstream(
 			observeProxyTerminal(ctx, shared.OutcomeClientError, false, 0)
 			return true, nil
 		}
-		// Force stream=true for responses-only / stream-preferring sites (and codex/sub2api).
-		attemptBody, forcedStream := applyUpstreamStreamPreference(attemptBody, selected.Site.Platform, path, sitePref)
+		// Single-pass stream forcing + include_usage inject (replaces two full
+		// map[string]any decode/re-encode rounds per candidate path).
+		forceStream, injectUsage := upstreamStreamRewriteGates(selected.Site.Platform, path, sitePref)
+		var forcedStream, expectStreamUsage bool
+		if forceStream || injectUsage {
+			if !hintsReady {
+				// Shared pre-scan: all candidate paths reuse one look over the payload.
+				streamHints = scanBodyStreamHints(bodyBytes)
+				hintsReady = true
+			}
+			attemptHints := streamHints
+			if !sameByteSlice(attemptBody, bodyBytes) {
+				// Sanitize rewrote the body for this candidate; rescan it.
+				attemptHints = scanBodyStreamHints(attemptBody)
+			}
+			rewritten, forced, expect, rewriteOK := rewriteUpstreamStreamFlags(attemptBody, attemptHints, forceStream, ctx.IsStream, injectUsage)
+			if rewriteOK {
+				attemptBody, forcedStream, expectStreamUsage = rewritten, forced, expect
+			} else {
+				// Irregular body: keep exact legacy decode semantics.
+				attemptBody, forcedStream = applyUpstreamStreamPreference(attemptBody, selected.Site.Platform, path, sitePref)
+				attemptBody, expectStreamUsage = applyUpstreamStreamIncludeUsage(attemptBody, selected.Site.Platform, path, ctx.IsStream || forcedStream)
+			}
+		}
 		effectiveStream := ctx.IsStream || forcedStream
-		// OpenAI chat stream: ensure final SSE usage chunk via stream_options.include_usage (known limitation).
-		attemptBody, expectStreamUsage := applyUpstreamStreamIncludeUsage(attemptBody, selected.Site.Platform, path, effectiveStream)
 		finished, pending, cont := dispatchEndpointAttemptWithContinue(
 			w, r, ctx, cfg, selected, upstreamModel, proxyConfig,
 			path, contentType, attemptBody, firstByteTimeoutMs,
@@ -932,23 +957,48 @@ func relayBufferedUpstreamResponse(w http.ResponseWriter, resp *http.Response, b
 	_, _ = w.Write(bodyBytes)
 }
 
-// sanitizeUpstreamJSONBody applies Responses continuity/compact/reasoning-input
-// sanitization and official Gemini tool-history thoughtSignature inject for one
-// upstream attempt. Chat/messages candidates strip previous_response_id;
-// Responses platforms forward or strip per SupportsResponsesPreviousResponseID.
-// Multi-turn reasoning items get required content preserved/injected
-//. Native Gemini generateContent bodies (and gemini-cli
-// request envelopes) get NormalizeRequest / OpenAI→Gemini rebuild so functionCall
-// parts carry thoughtSignature.
-//
-// and
-//
+// swapModelInJSON rewrites the top-level "model" field of a JSON request body
+// to upstreamModel for one upstream attempt. The dominant no-mapping case (the
+// selected channel serves the requested model) short-circuits via an
+// allocation-free top-level scan and returns the original bytes untouched; a
+// real model_mapping splices only the model value span, keeping the rest of
+// the payload byte-identical. Irregular bodies fall back to the legacy
+// shallow re-encode (legacySwapModelInJSON).
 func swapModelInJSON(bodyBytes []byte, upstreamModel string) []byte {
 	if len(bodyBytes) == 0 {
 		// Empty body: synthesize a minimal JSON object with only the model field.
 		modelJSON, _ := json.Marshal(upstreamModel)
 		return append(append([]byte(`{"model":`), modelJSON...), '}')
 	}
+	s, found, ok := findTopLevelValue(bodyBytes, "model")
+	if ok {
+		if found {
+			if spanStringEquals(bodyBytes, s, upstreamModel) {
+				// Zero-copy short-circuit: the body already carries the target
+				// model (the no-mapping norm); no rewrite, no allocation.
+				return bodyBytes
+			}
+			// Real model_mapping: splice only the model value, keep the rest of
+			// the payload byte-identical.
+			modelJSON, _ := json.Marshal(upstreamModel)
+			return replaceSpan(bodyBytes, s, string(modelJSON))
+		}
+		// Clean object without a top-level model key (e.g. Gemini path-model
+		// bodies): insert it as the first entry. The scan above proves no
+		// escaped-key "model" hiding at the top level.
+		openIdx, empty, bracesOK := objectBraces(bodyBytes)
+		if bracesOK {
+			modelJSON, _ := json.Marshal(upstreamModel)
+			return insertTopLevelEntry(bodyBytes, openIdx, `"model":`+string(modelJSON), empty)
+		}
+	}
+	// Irregular body: exact legacy shallow re-encode semantics.
+	return legacySwapModelInJSON(bodyBytes, upstreamModel)
+}
+
+// legacySwapModelInJSON is the original shallow re-encode kept for irregular
+// bodies the allocation-free scanner declines to edit.
+func legacySwapModelInJSON(bodyBytes []byte, upstreamModel string) []byte {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(bodyBytes, &raw); err != nil {
 		// Body is already validated in PrepareCtx; fallback to original bytes.
