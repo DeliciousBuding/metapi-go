@@ -108,8 +108,6 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 			admin.RegisterAnnouncementsRoutes(r, db.DB)
 			// K1a: model name redirects.
 			admin.RegisterModelRedirectRoutes(r, db.DB)
-			// K1a: model-governance fix candidates (list + apply).
-			admin.RegisterModelRedirectFixRoutes(r, db.DB)
 			// Read-only multiplier/rate overview.
 			admin.RegisterModelRatesRoutes(r, db.DB)
 			// Model-catalog data source registry + manual/auto sync control.

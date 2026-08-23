@@ -17,7 +17,6 @@ import {
   Settings,
   ShieldCheck,
   Waypoints,
-  Wrench,
 } from 'lucide-react'
 
 import type { SidebarData } from '@/components/layout/types'
@@ -112,11 +111,6 @@ const SIDEBAR_DATA: SidebarData = {
           title: 'sidebar.items.priceCompare',
           url: '/price-compare',
           icon: Scale,
-        },
-        {
-          title: 'sidebar.items.fixCandidates',
-          url: '/fix-candidates',
-          icon: Wrench,
         },
       ],
     },

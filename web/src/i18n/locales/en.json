@@ -131,7 +131,7 @@
       "page": {
         "loadError": "Failed to load models: {{message}}",
         "title": "Models",
-        "description": "Model catalog: brands, API formats, capabilities, latency, and success rate."
+        "description": "Model marketplace: brands, capabilities, latency, and success rate."
       },
       "toast": {
         "refreshSucceeded": "Models refreshed."
@@ -172,9 +172,7 @@
         "priceInput": "Input price",
         "actions": "Actions",
         "rowActions": "Row actions",
-        "priceDetail": "Price detail",
-        "endpointTypes": "API formats",
-        "deprecated": "Deprecated"
+        "priceDetail": "Price detail"
       },
       "actions": {
         "viewDetails": "View details",
@@ -207,9 +205,6 @@
         "viewHistory": "View history",
         "hideHistory": "Hide history",
         "historyLoadFailed": "Failed to load verification history: {{message}}"
-      },
-      "price": {
-        "catalogEstimate": "Official catalog price"
       }
     },
     "modelTester": {
@@ -1261,67 +1256,6 @@
             "rebuildFailed": "Saved, but route rebuild failed — rebuild manually.",
             "brandsSaved": "Brand blocking updated; routes rebuilt.",
             "brandsSaveFailed": "Failed to update brand blocking."
-          }
-        },
-        "catalogSources": {
-          "title": "Model Data Sources",
-          "description": "Model catalog data source registry: fetched in list order, earlier sources override later ones.",
-          "autoSync": "Auto sync",
-          "autoSyncHint": "All enabled sources are fetched automatically every 12 hours (period controlled by PRICING_CATALOG_REFRESH_MIN).",
-          "syncAll": "Sync all",
-          "syncAllPending": "Syncing…",
-          "add": "Add source",
-          "columns": {
-            "source": "Source",
-            "type": "Type",
-            "url": "URL",
-            "enabled": "Enabled",
-            "lastSync": "Last sync",
-            "actions": "Actions"
-          },
-          "typeOfficial": "Official",
-          "typeCustom": "Custom",
-          "neverSynced": "Never synced",
-          "modelCount": "{{count}} models",
-          "syncNow": "Sync now",
-          "syncing": "Syncing…",
-          "moveUp": "Move up",
-          "moveDown": "Move down",
-          "edit": "Edit",
-          "delete": "Delete",
-          "editTitle": "Edit source",
-          "addTitle": "Add source",
-          "nameLabel": "Name",
-          "namePlaceholder": "e.g. llm-metadata mirror",
-          "urlLabel": "URL",
-          "urlPlaceholder": "https://example.com/api/all.json",
-          "urlHint": "Both llm-metadata all.json and models.dev api.json formats are supported (auto-detected).",
-          "typeLabel": "Type",
-          "enabledLabel": "Enabled",
-          "save": "Save",
-          "cancel": "Cancel",
-          "deleteTitle": "Delete source?",
-          "deleteDescription": "The source stops contributing to the catalog merge. This cannot be undone.",
-          "snapshot": {
-            "title": "Current merged snapshot",
-            "source": "Source",
-            "fetchedAt": "Synced at",
-            "models": "Model entries",
-            "never": "Not synced yet"
-          },
-          "toast": {
-            "syncSucceeded": "Sync complete: {{count}} models.",
-            "syncFailed": "Sync failed: {{message}}",
-            "syncBusy": "A sync is already running, try again later.",
-            "created": "Source added.",
-            "updated": "Source updated.",
-            "deleted": "Source deleted.",
-            "autoSyncOn": "Auto sync enabled.",
-            "autoSyncOff": "Auto sync disabled.",
-            "saveFailed": "Save failed: {{message}}",
-            "deleteFailed": "Delete failed: {{message}}",
-            "loadFailed": "Failed to load sources: {{message}}",
-            "disabled": "Pricing catalog is disabled (PRICING_CATALOG_ENABLED=false)."
           }
         }
       },
@@ -2504,12 +2438,11 @@
         "observability": "Observability",
         "tokenRoutes": "Token Routes",
         "oauth": "OAuth",
-        "models": "Model list",
+        "models": "Model List",
         "modelTester": "Model Tester",
         "settings": "Settings",
         "about": "About",
         "priceCompare": "Price Compare",
-        "fixCandidates": "Redirect Fix Candidates",
         "channels": "Channels"
       },
       "backToHome": "Back to Home",
@@ -2609,29 +2542,6 @@
         "actions": "Actions"
       },
       "effectiveCostPrecision": "Sample cost keeps 6 decimals so sub-cent per-call prices stay accurate."
-    },
-    "fixCandidates": {
-      "page": {
-        "title": "Redirect Fix Candidates",
-        "description": "Disabled models that an existing redirect mapping can restore.",
-        "loadError": "Failed to load fix candidates: {{message}}",
-        "emptyDescription": "No disabled models are repairable by an existing redirect."
-      },
-      "apply": "Apply fixes",
-      "confirm": {
-        "title": "Apply redirect fixes?",
-        "description": "This re-enables {{count}} disabled model(s) via their redirect mapping."
-      },
-      "toast": {
-        "applySucceeded": "Applied {{count}} fix(es).",
-        "applyFailed": "Failed to apply fixes: {{message}}"
-      },
-      "columns": {
-        "site": "Site",
-        "model": "Model",
-        "redirect": "Redirect",
-        "account": "Account"
-      }
     },
     "channels": {
       "page": {
