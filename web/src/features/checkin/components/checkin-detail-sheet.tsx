@@ -148,24 +148,41 @@ export function CheckinDetailSheet({
                   </DetailField>
                   <DetailField
                     label={t('checkin.detail.description')}
-                    title={reason.title || undefined}
+                    title={t(
+                      `checkin.failureReason.code.${reason.code}.title`,
+                      {
+                        defaultValue: reason.title || undefined,
+                      }
+                    )}
                   >
-                    {reason.title || '—'}
+                    {t(`checkin.failureReason.code.${reason.code}.title`, {
+                      defaultValue: reason.title || '—',
+                    })}
                   </DetailField>
                   {reason.actionHint && (
                     <DetailField
                       label={t('checkin.detail.actionHint')}
-                      title={reason.actionHint}
+                      title={t(
+                        `checkin.failureReason.code.${reason.code}.action`,
+                        { defaultValue: reason.actionHint }
+                      )}
                     >
-                      {reason.actionHint}
+                      {t(`checkin.failureReason.code.${reason.code}.action`, {
+                        defaultValue: reason.actionHint,
+                      })}
                     </DetailField>
                   )}
                   {reason.detailHint && (
                     <DetailField
                       label={t('checkin.detail.detailHint')}
-                      title={reason.detailHint}
+                      title={t(
+                        `checkin.failureReason.code.${reason.code}.detail`,
+                        { defaultValue: reason.detailHint }
+                      )}
                     >
-                      {reason.detailHint}
+                      {t(`checkin.failureReason.code.${reason.code}.detail`, {
+                        defaultValue: reason.detailHint,
+                      })}
                     </DetailField>
                   )}
                 </dl>

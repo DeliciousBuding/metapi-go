@@ -47,12 +47,11 @@ func (h *settingsHandler) getRuntime(w http.ResponseWriter, r *http.Request) {
 		"checkinWindowEnd":     cfg.CheckinWindowEnd,
 		"checkinSchedule":      scheduleSpecForCheckin(cfg),
 		// Site & Branding
-		"systemName":      cfg.SystemName,
-		"logo":            cfg.Logo,
-		"footer":          cfg.Footer,
-		"about":           cfg.About,
-		"homePageContent": cfg.HomePageContent,
-		"serverAddress":   cfg.ServerAddress,
+		"systemName":    cfg.SystemName,
+		"logo":          cfg.Logo,
+		"footer":        cfg.Footer,
+		"about":         cfg.About,
+		"serverAddress": cfg.ServerAddress,
 		// Balance
 		"balanceRefreshCron":     cfg.BalanceRefreshCron,
 		"balanceRefreshSchedule": scheduler.CronToSchedule(cfg.BalanceRefreshCron),

@@ -278,11 +278,6 @@ export function AllowlistSection() {
                         {model} ×
                       </Badge>
                     ))}
-                    {allowedModels.length === 0 ? (
-                      <span className='text-muted-foreground text-xs'>
-                        {t('settings.models.allowlist.allowAll')}
-                      </span>
-                    ) : null}
                   </div>
                   <div className='flex gap-2'>
                     <FormControl>

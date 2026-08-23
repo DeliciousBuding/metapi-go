@@ -1,7 +1,12 @@
 // metapi-go/features/settings/sections/general/components — site & branding
-// section. Six branding keys (systemName / logo / footer / about /
-// homePageContent / serverAddress) read from and written back through
+// section. Five branding keys (systemName / logo / footer / about /
+// serverAddress) read from and written back through
 // GET/PUT /api/settings/runtime via the shared settings form.
+//
+// homePageContent was removed in Wave 8 Lane D: the field was stored but
+// never rendered anywhere (zero render consumers), so admins wrote landing
+// page content that no one could ever see. Old "home_page_content" rows in
+// the settings store are simply ignored.
 
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
@@ -42,7 +47,6 @@ const siteSchema = z.object({
   logo: z.string().optional(),
   footer: z.string().optional(),
   about: z.string().optional(),
-  homePageContent: z.string().optional(),
   serverAddress: z.string().optional(),
 })
 
@@ -53,7 +57,6 @@ const DEFAULT_VALUES: SiteFormValues = {
   logo: '',
   footer: '',
   about: '',
-  homePageContent: '',
   serverAddress: '',
 }
 
@@ -68,7 +71,6 @@ function deriveServerValues(
     logo: asString(data.logo),
     footer: asString(data.footer),
     about: asString(data.about),
-    homePageContent: asString(data.homePageContent),
     serverAddress: asString(data.serverAddress),
   }
 }
@@ -209,31 +211,6 @@ export function SiteSection() {
                 <FormControl>
                   <Textarea {...field} value={field.value ?? ''} rows={4} />
                 </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name='homePageContent'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  {t('settings.general.site.fields.homePageContent')}
-                </FormLabel>
-                <FormControl>
-                  <Textarea
-                    {...field}
-                    value={field.value ?? ''}
-                    rows={6}
-                    placeholder={t(
-                      'settings.general.site.fields.homePageContentPlaceholder'
-                    )}
-                  />
-                </FormControl>
-                <FormDescription>
-                  {t('settings.general.site.fields.homePageContentHint')}
-                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}

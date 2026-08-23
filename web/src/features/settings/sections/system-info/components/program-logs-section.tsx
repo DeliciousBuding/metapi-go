@@ -3,6 +3,7 @@
 // filters, mark read / mark all read / clear, and a CSV export.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -35,8 +36,12 @@ import {
 } from '../../../components/settings-section-card'
 import { SettingsSectionError } from '../../../components/settings-section-error'
 import {
+  eventTitleKey,
   formatTimestamp,
   normalizeEvent,
+  parseEventMessage,
+  parsePanelPath,
+  splitEnrichmentNames,
   type EventsResponse,
   type ProgramEvent,
 } from '../lib/event-normalize'
@@ -56,6 +61,106 @@ function levelVariant(level?: string): 'default' | 'secondary' | 'destructive' {
     return 'default'
   }
   return 'secondary'
+}
+
+/** Localized event title: known backend titles map to i18n keys, the rest render as-is. */
+function EventTitle({ event }: { event: ProgramEvent }) {
+  const { t } = useTranslation()
+  const key = eventTitleKey(event.title)
+  return key
+    ? t(`settings.systemInfo.programLogs.eventTitles.${key}`)
+    : event.title
+}
+
+/**
+ * Structured rendering of an event message. Enriched alert messages carry
+ * "Affected routes / Alternative sites / Panel" lines appended by the backend;
+ * those render as labeled rows with real SPA links instead of raw text.
+ */
+function EventMessage({ event }: { event: ProgramEvent }) {
+  const { t } = useTranslation()
+  if (!event.message) return null
+  const parts = parseEventMessage(event.message)
+  const routes = parts.routes ? splitEnrichmentNames(parts.routes) : []
+  const sites = parts.sites ? splitEnrichmentNames(parts.sites) : []
+  const panel =
+    parts.panelPath !== null ? parsePanelPath(parts.panelPath) : null
+  return (
+    <span className='text-muted-foreground flex max-w-[360px] flex-col gap-0.5 text-xs'>
+      {parts.base ? (
+        <span className='line-clamp-2 break-all' title={parts.base}>
+          {parts.base}
+        </span>
+      ) : null}
+      {routes.length > 0 ? (
+        <span className='flex flex-wrap items-baseline gap-x-1'>
+          <span className='shrink-0'>
+            {t('settings.systemInfo.programLogs.messageParts.affectedRoutes')}:
+          </span>
+          {routes.map((name, index) => (
+            <span key={name} className='inline-flex items-center gap-1'>
+              <Link
+                to='/token-routes'
+                search={{ q: name }}
+                className='text-primary underline-offset-2 hover:underline'
+              >
+                {name}
+              </Link>
+              {index < routes.length - 1 ? ',' : ''}
+            </span>
+          ))}
+        </span>
+      ) : null}
+      {sites.length > 0 ? (
+        <span className='flex flex-wrap items-baseline gap-x-1'>
+          <span className='shrink-0'>
+            {t('settings.systemInfo.programLogs.messageParts.alternativeSites')}
+            :
+          </span>
+          {sites.map((name, index) => (
+            <span key={name} className='inline-flex items-center gap-1'>
+              <Link
+                to='/sites'
+                search={{ q: name }}
+                className='text-primary underline-offset-2 hover:underline'
+              >
+                {name}
+              </Link>
+              {index < sites.length - 1 ? ',' : ''}
+            </span>
+          ))}
+        </span>
+      ) : null}
+      {panel ? <PanelLink panel={panel} /> : null}
+    </span>
+  )
+}
+
+/** Render a parsed panel path as a typed router link (known targets only). */
+function PanelLink({ panel }: { panel: ReturnType<typeof parsePanelPath> }) {
+  const { t } = useTranslation()
+  if (!panel) return null
+  const className =
+    'text-primary inline-flex items-center gap-1 underline-offset-2 hover:underline'
+  const label = t('settings.systemInfo.programLogs.messageParts.openPanel')
+  switch (panel.to) {
+    case '/observability':
+      return (
+        <Link
+          to='/observability'
+          search={{
+            section: (panel.search.section ?? 'health') as
+              | 'overview'
+              | 'health',
+          }}
+          className={className}
+        >
+          {label}
+        </Link>
+      )
+    default:
+      return null
+  }
 }
 
 export function ProgramLogsSection() {
@@ -290,16 +395,9 @@ export function ProgramLogsSection() {
                         event.read ? 'text-muted-foreground' : 'font-medium'
                       }
                     >
-                      {event.title}
+                      <EventTitle event={event} />
                     </span>
-                    {event.message ? (
-                      <span
-                        className='text-muted-foreground line-clamp-2 max-w-[360px] text-xs break-all'
-                        title={event.message}
-                      >
-                        {event.message}
-                      </span>
-                    ) : null}
+                    <EventMessage event={event} />
                   </div>
                 </TableCell>
                 <TableCell className='text-right'>

@@ -711,9 +711,6 @@ func (h *settingsHandler) applySiteBrandingSettings(body map[string]any) *settin
 	if err := applyStringSetting(h.db, body, "about", &h.cfg.About, "about"); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
-	if err := applyStringSetting(h.db, body, "homePageContent", &h.cfg.HomePageContent, "home_page_content"); err != nil {
-		return failSettings(http.StatusInternalServerError, err.Error())
-	}
 	if err := applyStringSetting(h.db, body, "serverAddress", &h.cfg.ServerAddress, "server_address"); err != nil {
 		return failSettings(http.StatusInternalServerError, err.Error())
 	}
