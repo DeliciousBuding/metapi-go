@@ -28,11 +28,7 @@
 
 ### 需求驱动候选（开放 issue 0，下波按需求立项）
 
-| 项 | 说明 |
-|---|---|
-| 6 项存量 sub-AA 对比度豁免（preset residual） | contrast-gate 豁免表记录在案，逐项收口需设计决策（2 项 dormant sidebar-primary token 已删除） |
-
-> 无 P0/P1 开放项，开放 issue 0。下一波按需求驱动立项（方向见 `../benchmark.md`）。
+> 对比度门禁已全量达标（0 豁免，10 preset × light/dark 全过 WCAG AA 4.5:1）。无 P0/P1 开放项，开放 issue 0。下一波按需求驱动立项（方向见 `../benchmark.md`）。
 
 ## Completed milestone — TS 兼容与迁移收官（2026-08-20 交付）
 
