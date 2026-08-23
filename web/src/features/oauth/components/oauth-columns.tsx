@@ -86,7 +86,7 @@ function TruncatedText({
   const display =
     text.length > maxLength ? `${text.slice(0, maxLength)}…` : text
   return (
-    <span className='block max-w-[18rem] truncate text-sm' title={text}>
+    <span className='block max-w-[9.5rem] truncate text-sm' title={text}>
       {display}
     </span>
   )
@@ -246,7 +246,7 @@ export function useOAuthColumns(
     {
       id: 'provider',
       accessorKey: 'provider',
-      size: 160,
+      size: 100,
       meta: { mobileTitle: true, mobileOrder: 0 },
       header: ({ column }) => (
         <DataTableColumnHeader
@@ -255,13 +255,18 @@ export function useOAuthColumns(
         />
       ),
       cell: ({ row }) => (
-        <span className='font-medium'>{row.original.provider}</span>
+        <span
+          className='block max-w-[5.5rem] truncate font-medium'
+          title={row.original.provider}
+        >
+          {row.original.provider}
+        </span>
       ),
     },
     {
       id: 'username',
       accessorFn: (row) => row.username ?? row.email ?? '',
-      size: 200,
+      size: 170,
       meta: { mobileOrder: 1 },
       header: ({ column }) => (
         <DataTableColumnHeader
@@ -282,7 +287,7 @@ export function useOAuthColumns(
     {
       id: 'site',
       accessorFn: (row) => row.site?.name ?? '',
-      size: 180,
+      size: 100,
       meta: { mobileHidden: true, mobileOrder: 10 },
       header: ({ column }) => (
         <DataTableColumnHeader
@@ -292,17 +297,22 @@ export function useOAuthColumns(
       ),
       cell: ({ row }) => {
         const siteName = row.original.site?.name
-        return (
-          <span className='text-muted-foreground text-sm'>
-            {siteName ?? '—'}
+        return siteName ? (
+          <span
+            className='text-muted-foreground block max-w-[6rem] truncate text-sm'
+            title={siteName}
+          >
+            {siteName}
           </span>
+        ) : (
+          <span className='text-muted-foreground text-sm'>—</span>
         )
       },
     },
     {
       id: 'status',
       accessorKey: 'status',
-      size: 120,
+      size: 100,
       meta: { mobileBadge: true, mobileOrder: 2 },
       header: ({ column }) => (
         <DataTableColumnHeader
@@ -325,7 +335,7 @@ export function useOAuthColumns(
       id: 'planType',
       accessorFn: (row) =>
         row.planType ?? row.quota?.subscription?.planType ?? '',
-      size: 120,
+      size: 85,
       meta: { mobileHidden: true, mobileOrder: 21 },
       header: ({ column }) => (
         <DataTableColumnHeader
@@ -348,7 +358,7 @@ export function useOAuthColumns(
     {
       id: 'quota',
       enableSorting: false,
-      size: 160,
+      size: 100,
       meta: { mobileHidden: true, mobileOrder: 22 },
       header: ({ column }) => (
         <DataTableColumnHeader
@@ -361,7 +371,7 @@ export function useOAuthColumns(
     {
       id: 'modelCount',
       accessorKey: 'modelCount',
-      size: 120,
+      size: 85,
       meta: { mobileOrder: 20 },
       header: ({ column }) => (
         <DataTableColumnHeader
@@ -378,7 +388,7 @@ export function useOAuthColumns(
     {
       id: 'routeChannelCount',
       accessorFn: (row) => row.routeChannelCount ?? -1,
-      size: 130,
+      size: 150,
       meta: { mobileHidden: true, mobileOrder: 23 },
       header: ({ column }) => (
         <DataTableColumnHeader
@@ -395,7 +405,7 @@ export function useOAuthColumns(
     {
       id: 'lastModelSyncAt',
       accessorKey: 'lastModelSyncAt',
-      size: 180,
+      size: 135,
       meta: { mobileHidden: true, mobileOrder: 30 },
       header: ({ column }) => (
         <DataTableColumnHeader
@@ -404,7 +414,10 @@ export function useOAuthColumns(
         />
       ),
       cell: ({ row }) => (
-        <span className='text-muted-foreground text-sm tabular-nums'>
+        <span
+          className='text-muted-foreground block max-w-[7rem] truncate text-sm tabular-nums'
+          title={formatDateTime(row.original.lastModelSyncAt, locale)}
+        >
           {formatDateTime(row.original.lastModelSyncAt, locale)}
         </span>
       ),
@@ -412,7 +425,7 @@ export function useOAuthColumns(
     {
       id: 'lastModelSyncError',
       enableSorting: false,
-      size: 180,
+      size: 135,
       meta: { mobileHidden: true, mobileOrder: 31 },
       header: ({ column }) => (
         <DataTableColumnHeader
@@ -427,7 +440,7 @@ export function useOAuthColumns(
         }
         return (
           <span
-            className='flex max-w-[16rem] items-center gap-1.5 text-sm'
+            className='flex max-w-28 items-center gap-1.5 text-sm'
             title={syncError}
           >
             <TriangleAlertIcon

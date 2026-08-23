@@ -494,7 +494,7 @@ export function ProxyTransportSection() {
             control={form.control}
             name='modelAvailabilityProbeEnabled'
             render={({ field }) => (
-              <FormItem className='border-destructive/40 bg-destructive/5 flex flex-row items-center gap-3 rounded-lg border p-4'>
+              <FormItem className='bg-muted/30 flex flex-row items-center gap-3 rounded-lg border p-4'>
                 <FormControl>
                   <Checkbox
                     checked={Boolean(field.value)}
