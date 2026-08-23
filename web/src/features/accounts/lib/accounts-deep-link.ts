@@ -35,4 +35,3 @@ export function resolveDeepLinkCredentialMode(
   if (segment === 'apikey') return 'apikey'
   return null
 }
-

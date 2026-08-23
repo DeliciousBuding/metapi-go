@@ -209,9 +209,7 @@ describe('AccountFormDialog deep-link credential mode hint', () => {
     renderWithMode(undefined)
 
     await waitFor(() => {
-      expect(
-        screen.getByLabelText('Access Token / Cookie')
-      ).toBeInTheDocument()
+      expect(screen.getByLabelText('Access Token / Cookie')).toBeInTheDocument()
     })
     expect(screen.getByRole('tab', { name: 'Session' })).toHaveAttribute(
       'aria-selected',

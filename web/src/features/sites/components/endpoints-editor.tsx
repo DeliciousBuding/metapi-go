@@ -96,9 +96,7 @@ export function EndpointsEditor({
   liveEndpoints = [],
 }: EndpointsEditorProps) {
   const { t, i18n } = useTranslation()
-  const [rows, setRows] = useState<EndpointRow[]>(() =>
-    rowsFromText(value)
-  )
+  const [rows, setRows] = useState<EndpointRow[]>(() => rowsFromText(value))
   const [advanced, setAdvanced] = useState(false)
   const [parseBlocked, setParseBlocked] = useState<boolean>(false)
   // Tracks the value this component emitted itself so an echoing value update
@@ -205,7 +203,7 @@ export function EndpointsEditor({
             return (
               <div
                 key={row.key}
-                className='bg-muted/30 rounded-md border p-2 space-y-1.5'
+                className='bg-muted/30 space-y-1.5 rounded-md border p-2'
               >
                 <div className='flex items-center gap-2'>
                   <Input

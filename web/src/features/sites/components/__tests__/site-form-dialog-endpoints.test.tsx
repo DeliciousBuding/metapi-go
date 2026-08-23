@@ -100,9 +100,7 @@ function typeField(label: string, value: string) {
 
 /** Opens the collapsed advanced textarea mode. */
 function openAdvanced() {
-  fireEvent.click(
-    screen.getByRole('button', { name: /Advanced/ })
-  )
+  fireEvent.click(screen.getByRole('button', { name: /Advanced/ }))
 }
 
 /** Renders the create dialog with the mandatory fields filled. */
@@ -130,7 +128,11 @@ describe('SiteFormDialog apiEndpoints structured editor interaction', () => {
     })
     await renderCreateDialog()
 
-    expect(screen.getByText('No API endpoints yet; when empty the primary site URL is used.')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'No API endpoints yet; when empty the primary site URL is used.'
+      )
+    ).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /Add API endpoint/ }))
     fireEvent.change(screen.getByLabelText('Endpoint URL 1'), {
@@ -166,7 +168,11 @@ describe('SiteFormDialog apiEndpoints structured editor interaction', () => {
     // Endpoint 1 starts disabled (enabled: false) — enable it, then move
     // it down so the list order flips.
     const switch1 = screen.getByLabelText('Enable endpoint 1')
-    expect(switch1.closest('label')?.getAttribute('aria-checked') ?? switch1.getAttribute('aria-checked') ?? 'false').toBe('false')
+    expect(
+      switch1.closest('label')?.getAttribute('aria-checked') ??
+        switch1.getAttribute('aria-checked') ??
+        'false'
+    ).toBe('false')
     fireEvent.click(switch1)
     fireEvent.click(screen.getByLabelText('Move endpoint 1 down'))
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
@@ -390,7 +396,11 @@ describe('SiteFormDialog apiEndpoints validation errors', () => {
     mockUpdateMutate.mockResolvedValue({ ...siteWithStatus })
 
     render(
-      <SiteFormDialog open onOpenChange={vi.fn()} editingSite={siteWithStatus} />
+      <SiteFormDialog
+        open
+        onOpenChange={vi.fn()}
+        editingSite={siteWithStatus}
+      />
     )
     await waitFor(() => {
       expect(screen.getByLabelText('Endpoint URL 1')).toBeInTheDocument()
@@ -398,10 +408,12 @@ describe('SiteFormDialog apiEndpoints validation errors', () => {
 
     // Row 1 carries the live cooldown + failure signal; row 2 has neither,
     // so row 2 renders no status span at all.
-    const statusText = screen.getByText('Order #1').parentElement?.textContent ?? ''
+    const statusText =
+      screen.getByText('Order #1').parentElement?.textContent ?? ''
     expect(statusText).toContain('Cooling down')
     expect(statusText).toContain('upstream 421 mule_route_not_found')
-    const statusText2 = screen.getByText('Order #2').parentElement?.textContent ?? ''
+    const statusText2 =
+      screen.getByText('Order #2').parentElement?.textContent ?? ''
     expect(statusText2).not.toContain('Fail')
   })
 })

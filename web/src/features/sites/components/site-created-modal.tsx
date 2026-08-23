@@ -90,7 +90,11 @@ export function SiteCreatedModal({
           <Button variant='outline' onClick={() => onOpenChange(false)}>
             {t('sites.created.dismiss')}
           </Button>
-          <Button variant='outline' onClick={handleGoToAddApiKey} disabled={!site}>
+          <Button
+            variant='outline'
+            onClick={handleGoToAddApiKey}
+            disabled={!site}
+          >
             <KeyRoundIcon className='size-4' />
             {t('sites.created.addApiKey')}
           </Button>

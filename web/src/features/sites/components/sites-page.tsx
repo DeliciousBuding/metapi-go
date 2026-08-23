@@ -121,7 +121,9 @@ function buildHref(
   // for its guided-flow `siteId`/`create` params. Reads the router search
   // string (not window.location, which lags until the transition commits —
   // right after the strip an old snapshot would resurrect the params).
-  const searchParams = new URLSearchParams(currentSearch ?? window.location.search)
+  const searchParams = new URLSearchParams(
+    currentSearch ?? window.location.search
+  )
   const guidedCreate = searchParams.get('create')
   if (guidedCreate) params.set('create', guidedCreate)
   const guidedEdit = searchParams.get('edit')

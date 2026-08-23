@@ -30,7 +30,11 @@
 // functions are read through a ref so inline definitions do not break the
 // contract.
 
-import { useLocation, useNavigate, useRouterState } from '@tanstack/react-router'
+import {
+  useLocation,
+  useNavigate,
+  useRouterState,
+} from '@tanstack/react-router'
 import type {
   ColumnFiltersState,
   PaginationState,

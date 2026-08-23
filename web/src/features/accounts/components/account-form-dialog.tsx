@@ -159,7 +159,15 @@ export function AccountFormDialog({
         siteId: initialSiteId ?? baseDefaults.siteId,
       })
     }
-  }, [open, isEdit, account, initializedFor, initialSiteId, initialCredentialMode, form])
+  }, [
+    open,
+    isEdit,
+    account,
+    initializedFor,
+    initialSiteId,
+    initialCredentialMode,
+    form,
+  ])
 
   // Inline credential verification (session / apikey only). Password mode
   // binds through the real login submit path, so it never verifies inline.

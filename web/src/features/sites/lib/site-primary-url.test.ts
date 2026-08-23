@@ -18,14 +18,14 @@ describe('sitePrimaryUrl', () => {
       action: 'unchanged',
       matchedPath: '',
     })
-    expect(
-      analyzePrimarySiteUrl(undefined as unknown as string)
-    ).toMatchObject({
-      canonicalUrl: '',
-      persistedUrl: '',
-      action: 'unchanged',
-      matchedPath: '',
-    })
+    expect(analyzePrimarySiteUrl(undefined as unknown as string)).toMatchObject(
+      {
+        canonicalUrl: '',
+        persistedUrl: '',
+        action: 'unchanged',
+        matchedPath: '',
+      }
+    )
     expect(analyzePrimarySiteUrl(' not a valid url/// ')).toMatchObject({
       canonicalUrl: 'not a valid url',
       persistedUrl: 'not a valid url',
@@ -55,14 +55,14 @@ describe('sitePrimaryUrl', () => {
   })
 
   it('auto-strips a bare /v1 suffix', () => {
-    expect(analyzePrimarySiteUrl('https://openai.example.com/v1')).toMatchObject(
-      {
-        canonicalUrl: 'https://openai.example.com/v1',
-        persistedUrl: 'https://openai.example.com',
-        action: 'auto_strip_known_api_suffix',
-        matchedPath: '/v1',
-      }
-    )
+    expect(
+      analyzePrimarySiteUrl('https://openai.example.com/v1')
+    ).toMatchObject({
+      canonicalUrl: 'https://openai.example.com/v1',
+      persistedUrl: 'https://openai.example.com',
+      action: 'auto_strip_known_api_suffix',
+      matchedPath: '/v1',
+    })
   })
 
   it('preserves api-prefixed paths and marks them as warnings', () => {
