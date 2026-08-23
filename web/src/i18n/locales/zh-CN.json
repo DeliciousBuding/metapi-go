@@ -158,7 +158,6 @@
         "outputPrice": "输出 ${{price}}/M",
         "unknownUser": "未知用户",
         "availableAccounts": "可用账号",
-        "testModel": "测试模型",
         "openTester": "打开测试器"
       },
       "columns": {
