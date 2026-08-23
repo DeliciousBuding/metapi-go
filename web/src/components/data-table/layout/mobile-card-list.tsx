@@ -158,7 +158,7 @@ export function MobileCardList<TData>(props: MobileCardListProps<TData>) {
           >
             <div className='flex items-start gap-1.5'>
               {selectCell && (
-                <div className='pt-0.5 shrink-0'>
+                <div className='shrink-0 pt-0.5'>
                   {renderCellContent(selectCell)}
                 </div>
               )}

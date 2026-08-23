@@ -341,7 +341,7 @@ function renderMobile<TData>(
   // so the OKLCH token system stays the only source of color (see the
   // no-gradients test allowlist note).
   return (
-    <div className='min-h-0 flex-1 overflow-y-auto pb-10 [mask-image:linear-gradient(to_bottom,black_calc(100%_-_2.5rem),transparent)]'>
+    <div className='min-h-0 flex-1 overflow-y-auto [mask-image:linear-gradient(to_bottom,black_calc(100%_-_2.5rem),transparent)] pb-10'>
       {mobileContent}
     </div>
   )
