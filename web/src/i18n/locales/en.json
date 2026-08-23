@@ -158,7 +158,6 @@
         "outputPrice": "out ${{price}}/M",
         "unknownUser": "Unknown user",
         "availableAccounts": "Available accounts",
-        "testModel": "Test model",
         "openTester": "Open tester"
       },
       "columns": {

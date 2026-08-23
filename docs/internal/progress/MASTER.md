@@ -53,8 +53,12 @@
 - import 空响应、manual-checkin schema-parse 失败被 `catch {}` 静默吞。
 - site-form-dialog（EndpointsEditor）自定义组件未透传 id/aria（FormLabel htmlFor 悬空）。
 
+**Batch 4（本 PR）—— 死代码清理**
+- model-detail-sheet 移除从未传入的 `onTest` prop +「Test model」死按钮 + 图标 import + 死 i18n key。
+- token-routes/index.ts 删除空占位注释块（barrel stub 收敛为真实重导出）。
+
 **剩余 P3（后续批）**
-- token-routes/index.ts barrel stub；model-detail-sheet onTest 死代码；test-response-viewer useEffect 缺依赖数组。
+- test-response-viewer useEffect 缺依赖数组。
 - 硬编码 `$` 前缀、`#siteId` 回退、"enabled"/"default" aria/placeholder 未 i18n。
 - lib/api/sites.ts 4 个未用 wrapper；checkin CalendarRange 缺 aria-hidden；endpoints-editor URL 无可见 label。
 

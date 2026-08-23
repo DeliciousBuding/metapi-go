@@ -7,10 +7,7 @@
 // so an operator can probe a model straight from the marketplace.
 
 import { useNavigate } from '@tanstack/react-router'
-import {
-  ArrowRight as ArrowRightIcon,
-  FlaskConical as FlaskConicalIcon,
-} from 'lucide-react'
+import { ArrowRight as ArrowRightIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { BrandIcon } from '@/assets/brand-icons/BrandIcon'
@@ -40,7 +37,6 @@ type ModelDetailSheetProps = {
   model: ModelRow | null
   open: boolean
   onOpenChange: (open: boolean) => void
-  onTest?: (model: ModelRow) => void
 }
 
 function GroupPricingRow({
@@ -72,7 +68,6 @@ export function ModelDetailSheet({
   model,
   open,
   onOpenChange,
-  onTest,
 }: ModelDetailSheetProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -233,12 +228,6 @@ export function ModelDetailSheet({
             <Separator />
 
             <section className='flex flex-col gap-2'>
-              {onTest && (
-                <Button variant='default' onClick={() => onTest(model)}>
-                  <FlaskConicalIcon className='size-4' />
-                  {t('models.detail.testModel')}
-                </Button>
-              )}
               <Button variant='outline' onClick={goToTester}>
                 {t('models.detail.openTester')}
                 <ArrowRightIcon className='size-4' />
