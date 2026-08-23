@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
+import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -142,6 +143,18 @@ export function TestForm({
   return (
     <Form {...form}>
       <form onSubmit={handleSubmit} className='flex flex-col gap-4'>
+        <QueryErrorBanner
+          error={modelsQuery.error as Error | null}
+          messageKey='modelTester.form.modelsLoadError'
+          onRetry={() => modelsQuery.refetch()}
+          isRetrying={modelsQuery.isFetching}
+        />
+        <QueryErrorBanner
+          error={channelsQuery.error as Error | null}
+          messageKey='modelTester.form.channelsLoadError'
+          onRetry={() => channelsQuery.refetch()}
+          isRetrying={channelsQuery.isFetching}
+        />
         <FormItem>
           <FormLabel>{t('modelTester.template.label')}</FormLabel>
           <Select
