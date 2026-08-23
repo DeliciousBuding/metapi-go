@@ -5,6 +5,13 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-08-23 — Wave 7 前端体验波启动（目标 v0.16.9）
+
+- P0：clickability 门禁（`aeda771`，遮挡中心+四角检测 + 24px 命中区，发现 81 条真实硬失败）；种子实例 ×3（4100/4101/4102）；桌面 82 + 移动 28 张预采集截图。
+- 竞品研究：TS 原版 20 条退化清单（disabled-models API 零消费等）+ new-api 25+ 模式目录（同源分叉；go 版超越点：dirtyDialogClose/⌘K 双层等）。
+- P1：12 页组实测审查 + 对抗核实（24 sonnet 多模态 agent）→ **60 条确认**（1 P0：侧边栏「路由」导航静默失败；16 P1；43 P2）/ 3 拒绝 / 6 重复合并 / 2 条撤销（实例未重建 dist 的构建缺陷，SOP 已补）。
+- P2：12 条修复线并行（worktree 隔离，全 sonnet）。
+
 ## 2026-08-23 — Wave 5+6 → v0.16.8
 
 - Wave 5 功能线（#935 #861 编辑器 / #939 #558 探针 / #938 #926 英文化 / #936 审计残留 / #937 测试矩阵 / #951 截图双管道）+ Wave 6 六维深审计线（22 项坐实全修复：#941 P0 备份凭据植入 / #942 全失败告警 / #943 可空列同族 / #944-#947 性能 / #946 后端卫生 / #948 UX 动线 / #949 对比度+守卫 / #950 前端卫生 / #940 api.md 74 条），15 PR 全部 squash 合入，开放 issue 归零；发布 #954 → v0.16.8（Release 12 assets）。

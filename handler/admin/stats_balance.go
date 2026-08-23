@@ -173,11 +173,15 @@ func (h *statsHandler) balanceIncomeOutcome(w http.ResponseWriter, r *http.Reque
 // columns only (runtime health in extra_config JSON is already surfaced via
 // the events table by alert.go, so we read events rather than json_extract).
 type attentionItem struct {
-	Severity  string `json:"severity"`  // critical | warning | info
-	Category  string `json:"category"`  // expired_account | low_balance | disabled_site | event
-	Label     string `json:"label"`     // human-readable
-	Target    string `json:"target"`    // deep-link target (route + query)
-	CreatedAt string `json:"createdAt"` // most recent signal time
+	Severity string `json:"severity"` // critical | warning | info
+	Category string `json:"category"` // expired_account | low_balance | balance_unknown | disabled_site | event
+	Label    string `json:"label"`    // human-readable (English; the SPA re-localizes via category+params)
+	Target   string `json:"target"`   // deep-link target (route + query)
+	// Params carries the structured fields a localized label needs
+	// (username / site name / balance); it is nil for event rows, whose
+	// Label is the DB event title verbatim.
+	Params    map[string]any `json:"params,omitempty"`
+	CreatedAt string         `json:"createdAt"` // most recent signal time
 }
 
 func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
@@ -194,8 +198,11 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 	for _, row := range expired {
 		items = append(items, attentionItem{
 			Severity: "critical", Category: "expired_account",
-			Label:     "Account expired: " + coerceString(row["username"]),
-			Target:    "/accounts?accountId=" + coerceString(row["id"]),
+			Label:  "Account expired: " + coerceString(row["username"]),
+			Target: "/accounts?accountId=" + coerceString(row["id"]),
+			Params: map[string]any{
+				"username": coerceString(row["username"]),
+			},
 			CreatedAt: coerceString(row["updatedAt"]),
 		})
 		if len(items) >= limit {
@@ -204,9 +211,12 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 2. Low-balance accounts (< 1.0) — warning. Matches G1 threshold.
-	low, err := queryRowsErr(h.db, `SELECT id, username, balance, site_id
-		FROM accounts WHERE status = 'active' AND COALESCE(balance, 0) < 1.0
+	// 2. Low-balance accounts (< 1.0, known) — warning. Matches G1 threshold.
+	// NULL balances are explicitly excluded here and surfaced separately below:
+	// NULL means "never fetched / unknown", not "0" — coercing it to zero
+	// flooded the panel with false "Low balance (0.00)" rows.
+	low, err := queryRowsErr(h.db, `SELECT id, username, balance, site_id, updated_at
+		FROM accounts WHERE status = 'active' AND balance IS NOT NULL AND balance < 1.0
 		ORDER BY balance ASC LIMIT ?`, limit)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to load attention items")
@@ -215,8 +225,39 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 	for _, row := range low {
 		items = append(items, attentionItem{
 			Severity: "warning", Category: "low_balance",
-			Label:     fmt.Sprintf("Low balance: %s (%.2f)", coerceString(row["username"]), coerceFloat(row["balance"])),
-			Target:    "/accounts?accountId=" + coerceString(row["id"]),
+			Label:  fmt.Sprintf("Low balance: %s (%.2f)", coerceString(row["username"]), coerceFloat(row["balance"])),
+			Target: "/accounts?accountId=" + coerceString(row["id"]),
+			Params: map[string]any{
+				"username": coerceString(row["username"]),
+				"balance":  coerceFloat(row["balance"]),
+			},
+			CreatedAt: coerceString(row["updatedAt"]),
+		})
+		if len(items) >= limit {
+			writeJSON(w, http.StatusOK, map[string]any{"items": items, "total": len(items)})
+			return
+		}
+	}
+
+	// 2b. Active accounts with an unknown (NULL) balance — warning. The
+	// operator should refresh / investigate the account rather than read it
+	// as a $0.00 balance; the target keeps the account deep link so one
+	// click lands on the account row with a refresh affordance.
+	unknown, err := queryRowsErr(h.db, `SELECT id, username, site_id, updated_at
+		FROM accounts WHERE status = 'active' AND balance IS NULL
+		ORDER BY updated_at DESC LIMIT ?`, limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load attention items")
+		return
+	}
+	for _, row := range unknown {
+		items = append(items, attentionItem{
+			Severity: "warning", Category: "balance_unknown",
+			Label:  "Balance unknown: " + coerceString(row["username"]),
+			Target: "/accounts?accountId=" + coerceString(row["id"]),
+			Params: map[string]any{
+				"username": coerceString(row["username"]),
+			},
 			CreatedAt: coerceString(row["updatedAt"]),
 		})
 		if len(items) >= limit {
@@ -236,6 +277,9 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 		items = append(items, attentionItem{
 			Severity: "warning", Category: "disabled_site",
 			Label: "Site disabled: " + coerceString(row["name"]),
+			Params: map[string]any{
+				"name": coerceString(row["name"]),
+			},
 			// `/sites?edit=N` is the sites page's one-shot edit deep link
 			// (opens the edit dialog for the referenced site then strips
 			// the param); `siteId` is not part of the sites URL contract.

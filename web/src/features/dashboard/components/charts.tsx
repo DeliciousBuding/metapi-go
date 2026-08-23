@@ -41,6 +41,7 @@ import type {
   SiteDistributionSlice,
   SiteTrendPoint,
 } from '../types'
+import { formatChartCurrency } from './charts-currency'
 
 /** Number of ordinal colours exposed by the theme (--chart-1..5). */
 const PALETTE_SIZE = 5
@@ -53,19 +54,6 @@ function chartColor(index: number): string {
 /** Safe, stable dataKey for the i-th dynamic series (keeps CSS-var names valid). */
 function seriesKey(index: number): string {
   return `s${index}`
-}
-
-/**
- * Adaptive currency formatting for chart axes/tooltips — mirrors the legacy
- * VChart tooltip format (sub-cent values keep 6 decimals so tiny per-call
- * costs stay legible).
- */
-function formatChartCurrency(value: number): string {
-  if (!Number.isFinite(value)) return EM_DASH
-  const magnitude = Math.abs(value)
-  if (magnitude >= 1000) return `$${value.toFixed(2)}`
-  if (magnitude >= 1) return `$${value.toFixed(3)}`
-  return `$${value.toFixed(6)}`
 }
 
 /** Percent-of-total string for the donut tooltip share row. */

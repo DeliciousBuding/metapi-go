@@ -124,7 +124,9 @@ export function AccountDetailSheet({
                 account.credentialMode === 'session' ? 'default' : 'secondary'
               }
             >
-              {account.credentialMode === 'session' ? 'Session' : 'API Key'}
+              {account.credentialMode === 'session'
+                ? t('accounts.columns.credentialModeSession')
+                : t('accounts.columns.credentialModeApiKey')}
             </Badge>
           </SheetTitle>
         </SheetHeader>

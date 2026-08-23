@@ -28,6 +28,7 @@ import {
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { useAccounts } from '@/features/accounts/api'
+import { useChannels } from '@/features/channels/api'
 import { useSites } from '@/features/sites/api'
 import { asStringParam } from '@/lib/helpers/searchParams'
 
@@ -207,6 +208,26 @@ export function RoutesPage() {
   const routes = useMemo(() => routesData ?? [], [routesData])
   const candidates = candidatesQuery.data
 
+  // Route ids with at least one channel in an ACTIVE persisted cooldown:
+  // the channels list carries per-channel cooldownUntil, and the summary
+  // rows do not. The row menu's "清除冷却" item is hidden for routes with
+  // nothing to clear — same predicate as the route detail sheet gate
+  // (cooldownUntil > now), so the two surfaces can never disagree.
+  const { data: channelList } = useChannels()
+  const cooldownRouteIds = useMemo(
+    () =>
+      new Set(
+        (channelList ?? [])
+          .filter(
+            (c) =>
+              Boolean(c.cooldownUntil) &&
+              new Date(c.cooldownUntil as string) > new Date()
+          )
+          .map((c) => c.routeId)
+      ),
+    [channelList]
+  )
+
   // Chain context (account/site deep-link) is read from the URL-owned filters;
   // it is preserved across every navigation but never modified by this page.
   const accountId = filters.accountId ? Number(filters.accountId) : undefined
@@ -317,7 +338,8 @@ export function RoutesPage() {
     updateMutation.isPending ? (updateMutation.variables?.id ?? null) : null,
     clearCooldownMutation.isPending
       ? (clearCooldownMutation.variables ?? null)
-      : null
+      : null,
+    cooldownRouteIds
   )
 
   const { table } = useDataTable({
@@ -466,12 +488,21 @@ export function RoutesPage() {
             searchPlaceholder: t('tokenRoutes.page.searchPlaceholder'),
             searchDebounceMs: 300,
             viewToggle: (
-              <label className='text-muted-foreground flex items-center gap-2 text-sm'>
+              // min-w-0 + truncated span so the long "显示零通道模型…" label
+              // can shrink on narrow viewports instead of pushing the View
+              // Options button past the toolbar edge (375px overflow fix).
+              <label
+                className='text-muted-foreground flex min-w-0 items-center gap-1.5 text-sm'
+                title={t('tokenRoutes.page.showZeroChannel')}
+              >
                 <Switch
+                  className='shrink-0'
                   checked={showZeroChannel}
                   onCheckedChange={setShowZeroChannel}
                 />
-                {t('tokenRoutes.page.showZeroChannel')}
+                <span className='max-w-[150px] min-w-0 truncate sm:max-w-[280px]'>
+                  {t('tokenRoutes.page.showZeroChannel')}
+                </span>
               </label>
             ),
             filters: [
@@ -551,14 +582,13 @@ function RoutesBulkActions({ table }: { table: Table<RouteSummaryRow> }) {
   const { t } = useTranslation()
   const batchMutation = useBatchUpdateRoutes()
 
-  const selectedIds = useMemo(
-    () =>
-      table
-        .getFilteredSelectedRowModel()
-        .rows.map((row) => (row.original as RouteSummaryRow).id)
-        .filter((id) => id > 0),
-    [table]
-  )
+  // Derived per render — `table` identity is stable across selection changes
+  // then a `useMemo([table])` would freeze the ids at their mount-time value
+  // and every batch action would silently no-op.
+  const selectedIds = table
+    .getFilteredSelectedRowModel()
+    .rows.map((row) => (row.original as RouteSummaryRow).id)
+    .filter((id) => id > 0)
 
   const runBatch = async (action: BatchRouteAction) => {
     if (selectedIds.length === 0) return

@@ -57,12 +57,18 @@ function InfoRow({
   const display = value && value.trim().length > 0 ? value : fallback
   return (
     <div className='flex items-center justify-between gap-4 py-2'>
-      <span className='text-muted-foreground text-sm'>{label}</span>
+      {/* shrink-0 + nowrap: without them the long description value pushes
+          the 2-char CJK label down to its one-letter width and "描述" wraps
+          into a vertical two-line pile on 375px. The value mirrors this
+          with min-w-0 + break-words so it, not the label, takes the wrap. */}
+      <span className='text-muted-foreground shrink-0 text-sm whitespace-nowrap'>
+        {label}
+      </span>
       <span
         className={
           mono
-            ? 'text-foreground font-mono text-sm tabular-nums'
-            : 'text-foreground text-sm font-medium'
+            ? 'text-foreground min-w-0 font-mono text-sm break-words tabular-nums'
+            : 'text-foreground min-w-0 text-sm font-medium break-words'
         }
       >
         {display}

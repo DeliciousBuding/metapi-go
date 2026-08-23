@@ -41,7 +41,13 @@ export function SettingsOverview() {
                       | LinkProps['to']
                       | (string & {})
                   }
-                  className='group/subarea flex items-center gap-2 font-medium'
+                  // WCAG 2.5.8 best-effort (mirrors settings-page.tsx
+                  // breadcrumb): 20px text link gets `py-0.5` click padding →
+                  // 24px hit height; `-my-0.5` keeps the row exactly as tall as
+                  // before. `hover:bg-accent` gives the row a visible hover
+                  // state (title text is already foreground, so a text-color
+                  // hover alone would be invisible).
+                  className='group/subarea hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring/50 -my-0.5 flex items-center gap-2 rounded-sm py-0.5 font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none'
                 >
                   {Icon ? (
                     <Icon className='text-primary size-4 shrink-0' />
@@ -54,7 +60,11 @@ export function SettingsOverview() {
                     {t(subarea.description)}
                   </p>
                 ) : null}
-                <ul className='mt-auto flex flex-col gap-1 border-t pt-3'>
+                {/* Top-anchored (no mt-auto): the section list sits right below
+                    the tagline with a fixed gap so short cards don't leave an
+                    empty band between tagline and a floating divider; any
+                    leftover space stays at the card bottom. */}
+                <ul className='flex flex-col gap-1 border-t pt-3'>
                   {sections.map((section) => (
                     <li key={String(section.url)}>
                       <Link

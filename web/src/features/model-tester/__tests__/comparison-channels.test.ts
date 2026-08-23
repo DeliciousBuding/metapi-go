@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   filterEnabledComparisonChannels,
+  formatChannelLabel,
   retainEnabledComparisonChannelIds,
 } from '../lib/comparison-channels'
 
@@ -23,5 +24,29 @@ describe('comparison channel eligibility', () => {
     expect(retainEnabledComparisonChannelIds([1, 2, 99, 3], channels)).toEqual([
       1, 3,
     ])
+  })
+})
+
+describe('formatChannelLabel', () => {
+  it('disambiguates same-name channels with model and channel id', () => {
+    expect(
+      formatChannelLabel({
+        id: 1,
+        name: 'svc-batch-01',
+        site: { name: 'NewAPI' },
+        models: 'gpt-4o',
+      })
+    ).toBe('svc-batch-01 · gpt-4o · NewAPI (#1)')
+  })
+
+  it('omits the model segment when the channel has no model list', () => {
+    expect(
+      formatChannelLabel({
+        id: 9,
+        name: 'svc-oneapi-02',
+        site: { name: 'OneAPI' },
+        models: '',
+      })
+    ).toBe('svc-oneapi-02 · OneAPI (#9)')
   })
 })

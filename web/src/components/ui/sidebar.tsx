@@ -189,6 +189,12 @@ function Sidebar({
           data-sidebar='sidebar'
           data-slot='sidebar'
           data-mobile='true'
+          // The 10% light-theme scrim is invisible enough that the page
+          // stays fully readable behind the drawer. The drawer covers the
+          // whole screen edge-to-edge on mobile, so the scrim is the only
+          // cue that the page behind is modal — keep the palette's dark
+          // value for dark mode and darken only the light scrim (0.5).
+          overlayClassName='bg-black/50 dark:bg-overlay'
           className='bg-sidebar text-sidebar-foreground w-(--sidebar-width) p-0 sm:w-(--sidebar-width) [&>button]:hidden'
           style={
             {

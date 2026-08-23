@@ -22,6 +22,7 @@
         "submitting": "登录中…",
         "welcomeBack": "欢迎回来！",
         "tokenChangedNotice": "管理员令牌已更新，请使用新令牌登录。",
+        "sessionExpiredNotice": "会话已过期，请重新登录。",
         "tokenSourceHint": "管理员令牌来自部署本实例时设置的 AUTH_TOKEN 环境变量（或 .env 文件）。",
         "tokenSourceForgot": "如果不清楚令牌内容，请咨询部署管理员。",
         "tokenSourceDocs": "部署文档"
@@ -249,7 +250,9 @@
           "maxTokensMin": "最大令牌数不能小于 0。",
           "maxTokensMax": "最大令牌数不能超过 128000。",
           "compareMinChannels": "请至少选择两个渠道进行对比。"
-        }
+        },
+        "channelNoneForced": "请选择渠道",
+        "channelHintForced": "当前仅支持指定渠道测试：请先选择渠道再发送；默认路由测试通道未启用。"
       },
       "toast": {
         "empty": "响应为空。",
@@ -477,7 +480,8 @@
       "page": {
         "loadError": "加载站点失败：{{message}}",
         "title": "站点",
-        "description": "管理已连接的站点、状态与路由权重。"
+        "description": "管理已连接的站点、状态与路由权重。",
+        "weightFormula": "最终站点倍率 = 站点全局权重 × 路由通道的配置权重（建议 0.5–3）"
       },
       "toast": {
         "statusToggled": "站点「{{name}}」已更新。",
@@ -505,7 +509,9 @@
         "deleteConfirmTitle": "删除选中的站点？",
         "deleteConfirmDescription": "将删除选中的 {{count}} 个站点，此操作不可撤销。",
         "deleteConfirmConfirm": "删除",
-        "deleteConfirmCancel": "取消"
+        "deleteConfirmCancel": "取消",
+        "enableSystemProxy": "开启系统代理",
+        "disableSystemProxy": "关闭系统代理"
       },
       "deleteConfirm": {
         "title": "删除站点",
@@ -525,7 +531,10 @@
         "balance": "余额",
         "globalWeight": "权重",
         "actions": "操作",
-        "rowActions": "行操作"
+        "rowActions": "行操作",
+        "useSystemProxy": "系统代理",
+        "externalCheckinUrl": "外部签到地址",
+        "createdAt": "创建时间"
       },
       "actions": {
         "viewDetails": "查看详情",
@@ -580,6 +589,25 @@
         "utlsForceOff": "强制关闭",
         "apiEndpoints": "API 端点",
         "apiEndpointsHint": "每行一个端点：纯 URL，或含可选 \"enabled\" 与 \"sortOrder\" 的 JSON 对象。空行会被忽略。",
+        "apiEndpointsAdd": "添加 API 地址",
+        "apiEndpointsAdvanced": "高级模式（JSON 编辑）",
+        "apiEndpointsEmpty": "尚未配置 API 地址池；不填时默认跟随主站点 URL。",
+        "apiEndpointsParseBlocked": "高级模式文本暂无法解析，无法切换到结构化编辑。请先在高级模式中修正，或保留高级模式。",
+        "apiEndpointsStructuredBack": "返回结构化编辑",
+        "apiEndpointsStructuredHint": "多条地址按列表顺序参与轮询；禁用的地址不参与调度。",
+        "apiEndpointsTextareaLabel": "API 端点 JSON 文本",
+        "endpointEnabled": "启用",
+        "endpointEnabledLabel": "启用端点 {{index}}",
+        "endpointMoveDown": "下移端点 {{index}}",
+        "endpointMoveUp": "上移端点 {{index}}",
+        "endpointOrder": "顺序 #{{index}}",
+        "endpointRemove": "删除端点 {{index}}",
+        "endpointRemoveLabel": "删除",
+        "endpointUrlLabel": "端点地址",
+        "urlAutoStripInfo": "检测到常见 API 路径后缀，保存时会将主站点 URL 规范化为 {{url}}。",
+        "urlNormalizedToast": "主站点 URL 已规范化为 {{url}}。",
+        "urlPreserveApiPath": "当前 URL 含 /api 路径，将原样保存。请确认这就是准确的主站点 URL；如果这是 API 请求地址，请填入下方的 API 地址池。",
+        "urlPreserveUnknownPath": "当前 URL 含额外路径，将原样保存。请确认这就是准确的主站点 URL；如果这是 API 请求地址，请填入下方的 API 地址池。",
         "customHeaders": "自定义请求头",
         "customHeadersHint": "额外请求头的 JSON 对象。",
         "customHeadersOverrideRequestHeaders": "覆盖请求头",
@@ -653,6 +681,7 @@
         "nextStepLabel": "下一步",
         "nextStepBody": "连接一个账号即可开始通过该站点路由。",
         "dismiss": "知道了",
+        "addApiKey": "添加 API Key",
         "goToAccounts": "前往账号"
       },
       "probe": {
@@ -709,7 +738,8 @@
           "checkinSucceeded": "成功",
           "checkinSkipped": "跳过",
           "proxy24h": "代理 24h",
-          "proxy24hHint": "{{success}} 成功 · {{rpm}}/分"
+          "proxy24hHint": "{{success}} 成功 · {{rpm}}/分",
+          "proxy24hHintRpm": "{{success}} 成功 · {{rpm}} 请求/分（近 60 秒）"
         },
         "snapshot": {
           "title": "今日快照",
@@ -771,6 +801,7 @@
           "title": "站点分布",
           "description": "按站点的余额占比。",
           "empty": "暂无站点分布数据。",
+          "zeroBalance": "站点余额均为 0，暂无分布数据。",
           "tooltip": {
             "balance": "余额",
             "accounts": "账户数",
@@ -784,6 +815,7 @@
           "title": "成本分布",
           "description": "按模型的支出占比（30 天）。",
           "empty": "所选区间暂无模型成本数据。",
+          "zeroCost": "30 天内无成本数据（{{calls}} 次调用）",
           "tooltip": {
             "cost": "成本",
             "calls": "请求",
@@ -830,6 +862,12 @@
           "description": "按严重级别排列、需要运维介入的事项（账号、余额、站点）。",
           "empty": "一切正常——暂无需要关注的事项。",
           "loadError": "加载关注事项失败。",
+          "expiredAccount": "账号已过期：{{name}}",
+          "lowBalance": "余额低：{{name}}（{{amount}}）",
+          "disabledSite": "站点已停用：{{name}}",
+          "balanceUnknown": "余额未知：{{name}}",
+          "eventAllProxiesFailed": "全部代理失败",
+          "mergedCount": "合并 {{count}} 条事件",
           "severity": {
             "critical": "严重",
             "warning": "警告",
@@ -1606,7 +1644,7 @@
         "credentialMode": "凭证模式",
         "modeSession": "Session",
         "modeApiKey": "API Key",
-        "modePassword": "密码登录",
+        "modePassword": "Password",
         "connectionName": "连接名称（可选）",
         "connectionNamePlaceholder": "留空则使用站点用户名",
         "status": "状态",
@@ -1674,7 +1712,11 @@
         "checkinUnsupported": "不支持",
         "checkinOn": "已开启",
         "checkinOff": "未开启",
-        "healthDetail": "健康详情"
+        "healthDetail": "健康详情",
+        "credentialModeSession": "Session",
+        "credentialModeApiKey": "API Key",
+        "checkinTooltipOn": "点击关闭签到，全部签到将忽略此账号",
+        "checkinTooltipOff": "点击开启签到，账号将参与每日签到"
       },
       "detail": {
         "fallbackApiKey": "API Key 连接",
@@ -1853,7 +1895,8 @@
         "exactHint": "当前为精确模型匹配。正则请使用 re: 前缀。",
         "channels": "通道（可选）",
         "channelsHint": "勾选账号作为该路由的通道，创建后将自动绑定。",
-        "channelsEmptyHint": "暂无可选通道——账号在模型扫描时被发现。运行自动重建即可填充此列表。"
+        "channelsEmptyHint": "暂无可选通道——账号在模型扫描时被发现。运行自动重建即可填充此列表。",
+        "channelsEmptyHintEdit": "暂无其他候选账号——账号在模型扫描时被发现。运行自动重建即可填充此列表。"
       },
       "formGroup": {
         "displayName": "对外模型名",
@@ -1962,7 +2005,11 @@
         "channelAddFailed": "添加通道失败",
         "channelAddPartial": "路由已创建，但有 {{failed}} 个通道添加失败（已添加 {{created}} 个）：{{error}}",
         "rebuildFailed": "重建路由失败",
-        "refreshFailed": "刷新决策失败"
+        "refreshFailed": "刷新决策失败",
+        "channelUpdated": "通道已更新",
+        "channelUpdateFailed": "更新通道失败",
+        "channelDeleted": "通道已移除",
+        "channelDeleteFailed": "移除通道失败"
       },
       "strategies": {
         "weighted": "权重随机",
@@ -1981,6 +2028,20 @@
         "displayNameRequired": "请填写对外模型名",
         "sourceRoutesRequired": "至少选择一个来源路由",
         "contextLengthPositive": "上下文长度需为正整数"
+      },
+      "formChannel": {
+        "title": "路由通道",
+        "hint": "调整权重、优先级与启用状态，或移除通道。修改即刻应用。",
+        "loading": "加载通道…",
+        "empty": "该路由暂无通道。可在下方「通道（可选）」勾选账号添加。",
+        "weightLabel": "权重",
+        "priorityLabel": "优先级",
+        "enabledLabel": "启用",
+        "removeLabel": "移除通道",
+        "removeTitle": "移除通道",
+        "removeDescription": "从该路由移除账户 {{name}} 的通道？路由重建不会恢复已移除的通道。",
+        "removeConfirm": "移除",
+        "tokenLabel": "令牌"
       }
     },
     "checkin": {
@@ -2566,7 +2627,9 @@
         "clearRouteCooldown": "清除路由冷却",
         "clearRouteCooldownHint": "重置该通道所属路由下全部通道的冷却与失败计数。",
         "editRoute": "编辑路由",
-        "editRouteHint": "打开所属令牌路由"
+        "editRouteHint": "打开所属令牌路由",
+        "enabledLabel": "启用状态",
+        "manualOverrideSetActive": "已手动设置"
       }
     },
     "connect": {

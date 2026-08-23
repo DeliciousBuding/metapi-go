@@ -22,6 +22,7 @@
         "submitting": "Signing in…",
         "welcomeBack": "Welcome back!",
         "tokenChangedNotice": "The admin token was updated. Sign in with your new token.",
+        "sessionExpiredNotice": "Your session has expired. Please sign in again.",
         "tokenSourceHint": "The admin token comes from the AUTH_TOKEN environment variable (or .env file) set when this instance was deployed.",
         "tokenSourceForgot": "If you don't know it, ask your deployment administrator.",
         "tokenSourceDocs": "Deployment docs"
@@ -249,7 +250,9 @@
           "maxTokensMin": "Max tokens must be at least 0.",
           "maxTokensMax": "Max tokens must be at most 128000.",
           "compareMinChannels": "Select at least two channels to compare."
-        }
+        },
+        "channelNoneForced": "Select a channel",
+        "channelHintForced": "Only channel-specified tests are supported: pick a channel before sending; the default-routing harness is not available."
       },
       "toast": {
         "empty": "The response is empty.",
@@ -477,7 +480,8 @@
       "page": {
         "loadError": "Failed to load sites: {{message}}",
         "title": "Sites",
-        "description": "Manage connected sites, their status, and routing weight."
+        "description": "Manage connected sites, their status, and routing weight.",
+        "weightFormula": "Effective site multiplier = site global weight × the routing channel’s configured weight (recommended 0.5–3)"
       },
       "toast": {
         "statusToggled": "Site \"{{name}}\" updated.",
@@ -505,7 +509,9 @@
         "deleteConfirmTitle": "Delete selected sites?",
         "deleteConfirmDescription": "This will delete the {{count}} selected site(s). This action cannot be undone.",
         "deleteConfirmConfirm": "Delete",
-        "deleteConfirmCancel": "Cancel"
+        "deleteConfirmCancel": "Cancel",
+        "enableSystemProxy": "Enable system proxy",
+        "disableSystemProxy": "Disable system proxy"
       },
       "deleteConfirm": {
         "title": "Delete site",
@@ -525,7 +531,10 @@
         "balance": "Balance",
         "globalWeight": "Weight",
         "actions": "Actions",
-        "rowActions": "Row actions"
+        "rowActions": "Row actions",
+        "useSystemProxy": "System proxy",
+        "externalCheckinUrl": "External check-in URL",
+        "createdAt": "Created at"
       },
       "actions": {
         "viewDetails": "View details",
@@ -580,6 +589,25 @@
         "utlsForceOff": "Force off",
         "apiEndpoints": "API endpoints",
         "apiEndpointsHint": "One per line: a plain URL, or a JSON object with optional \"enabled\" and \"sortOrder\". Empty lines are ignored.",
+        "apiEndpointsAdd": "Add API endpoint",
+        "apiEndpointsAdvanced": "Advanced (JSON editor)",
+        "apiEndpointsEmpty": "No API endpoints yet; when empty the primary site URL is used.",
+        "apiEndpointsParseBlocked": "The advanced-mode text cannot be parsed, so the structured editor cannot be opened. Fix the JSON in advanced mode.",
+        "apiEndpointsStructuredBack": "Back to structured editor",
+        "apiEndpointsStructuredHint": "Multiple endpoints are polled in list order; disabled endpoints do not take part in scheduling.",
+        "apiEndpointsTextareaLabel": "API endpoints JSON text",
+        "endpointEnabled": "Enabled",
+        "endpointEnabledLabel": "Enable endpoint {{index}}",
+        "endpointMoveDown": "Move endpoint {{index}} down",
+        "endpointMoveUp": "Move endpoint {{index}} up",
+        "endpointOrder": "Order #{{index}}",
+        "endpointRemove": "Delete endpoint {{index}}",
+        "endpointRemoveLabel": "Remove",
+        "endpointUrlLabel": "Endpoint URL",
+        "urlAutoStripInfo": "Common API path suffix detected — the primary site URL will be normalized to {{url}} on save.",
+        "urlNormalizedToast": "Primary site URL normalized to {{url}}.",
+        "urlPreserveApiPath": "The URL contains an /api path and will be saved as-is. Confirm this is the exact primary site URL; if this is an API request address, add it to the API endpoint pool below.",
+        "urlPreserveUnknownPath": "The URL contains an extra path and will be saved as-is. Confirm this is the exact primary site URL; if this is an API request address, add it to the API endpoint pool below.",
         "customHeaders": "Custom headers",
         "customHeadersHint": "JSON object of extra request headers.",
         "customHeadersOverrideRequestHeaders": "Override request headers",
@@ -653,7 +681,8 @@
         "nextStepLabel": "Next step",
         "nextStepBody": "Connect an account to start routing through this site.",
         "dismiss": "Dismiss",
-        "goToAccounts": "Go to accounts"
+        "goToAccounts": "Go to accounts",
+        "addApiKey": "Add API Key"
       },
       "probe": {
         "title": "Availability probe",
@@ -709,7 +738,8 @@
           "checkinSucceeded": "succeeded",
           "checkinSkipped": "skipped",
           "proxy24h": "Proxy 24h",
-          "proxy24hHint": "{{success}} ok · {{rpm}}/min"
+          "proxy24hHint": "{{success}} ok · {{rpm}}/min",
+          "proxy24hHintRpm": "{{success}} ok · {{rpm}} req/min (last 60s)"
         },
         "snapshot": {
           "title": "Today snapshot",
@@ -771,6 +801,7 @@
           "title": "Site distribution",
           "description": "Balance share by site.",
           "empty": "No site distribution data yet.",
+          "zeroBalance": "All site balances are $0 — no distribution data.",
           "tooltip": {
             "balance": "Balance",
             "accounts": "Accounts",
@@ -784,6 +815,7 @@
           "title": "Cost distribution",
           "description": "Spend share by model (30d).",
           "empty": "No model cost data for the selected range.",
+          "zeroCost": "No cost data in the last 30 days ({{calls}} calls)",
           "tooltip": {
             "cost": "Cost",
             "calls": "Requests",
@@ -830,6 +862,12 @@
           "description": "Severity-ranked items requiring attention (accounts, balances, sites).",
           "empty": "All clear — nothing needs attention.",
           "loadError": "Failed to load attention items.",
+          "expiredAccount": "Account expired: {{name}}",
+          "lowBalance": "Low balance: {{name}} ({{amount}})",
+          "disabledSite": "Site disabled: {{name}}",
+          "balanceUnknown": "Balance unknown: {{name}}",
+          "eventAllProxiesFailed": "All proxies failed",
+          "mergedCount": "{{count}} merged events",
           "severity": {
             "critical": "critical",
             "warning": "warning",
@@ -1674,7 +1712,11 @@
         "checkinUnsupported": "Not supported",
         "checkinOn": "On",
         "checkinOff": "Off",
-        "healthDetail": "Health detail"
+        "healthDetail": "Health detail",
+        "credentialModeSession": "Session",
+        "credentialModeApiKey": "API Key",
+        "checkinTooltipOn": "Click to turn off check-in; daily check-ins skip this account",
+        "checkinTooltipOff": "Click to turn on check-in; the account joins daily check-ins"
       },
       "detail": {
         "fallbackApiKey": "API Key connection",
@@ -1853,7 +1895,8 @@
         "exactHint": "Currently using exact model match. Use re: prefix for regex.",
         "channels": "Channels (optional)",
         "channelsHint": "Select accounts as channels for this route; they will be auto-bound on creation.",
-        "channelsEmptyHint": "No channel candidates yet — accounts are discovered during the model scan. Run auto-rebuild to populate this list."
+        "channelsEmptyHint": "No channel candidates yet — accounts are discovered during the model scan. Run auto-rebuild to populate this list.",
+        "channelsEmptyHintEdit": "No further candidate accounts — accounts are discovered during the model scan. Run auto-rebuild to populate this list."
       },
       "formGroup": {
         "displayName": "External model name",
@@ -1962,7 +2005,11 @@
         "channelAddFailed": "Failed to add channels",
         "channelAddPartial": "Route created, but {{failed}} channel(s) were not added ({{created}} added): {{error}}",
         "rebuildFailed": "Failed to rebuild routes",
-        "refreshFailed": "Failed to refresh decisions"
+        "refreshFailed": "Failed to refresh decisions",
+        "channelUpdated": "Channel updated",
+        "channelUpdateFailed": "Failed to update channel",
+        "channelDeleted": "Channel removed",
+        "channelDeleteFailed": "Failed to remove channel"
       },
       "strategies": {
         "weighted": "Weighted random",
@@ -1981,6 +2028,20 @@
         "displayNameRequired": "Please enter an external model name",
         "sourceRoutesRequired": "Select at least one source route",
         "contextLengthPositive": "Context length must be a positive integer"
+      },
+      "formChannel": {
+        "title": "Route channels",
+        "hint": "Adjust weight, priority, or enabled state, and remove channels. Changes apply immediately.",
+        "loading": "Loading channels…",
+        "empty": "This route has no channels yet — pick accounts in the channels section below.",
+        "weightLabel": "Weight",
+        "priorityLabel": "Priority",
+        "enabledLabel": "Enable",
+        "removeLabel": "Remove channel",
+        "removeTitle": "Remove channel",
+        "removeDescription": "Remove the channel for account {{name}} from this route? A rebuild will not restore removed channels.",
+        "removeConfirm": "Remove",
+        "tokenLabel": "Token"
       }
     },
     "checkin": {
@@ -2566,7 +2627,9 @@
         "clearRouteCooldown": "Clear route cooldown",
         "clearRouteCooldownHint": "Resets cooldown and failure counts for every channel on this channel's route.",
         "editRoute": "Edit route",
-        "editRouteHint": "Open the parent token route"
+        "editRouteHint": "Open the parent token route",
+        "enabledLabel": "Enabled state",
+        "manualOverrideSetActive": "Manually set"
       }
     },
     "connect": {

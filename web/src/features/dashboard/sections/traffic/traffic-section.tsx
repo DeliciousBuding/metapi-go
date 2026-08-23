@@ -46,7 +46,8 @@ type SiteDistributionResponse = {
     siteId: number
     siteName: string
     platform: string
-    totalBalance: number
+    /** null when the site has accounts but no known balance (never $0). */
+    totalBalance: number | null
     totalSpend: number
     accountCount: number
   }>
@@ -124,11 +125,21 @@ export function TrafficSection() {
     return distribution.map((slice) => ({
       siteName: slice.siteName,
       platform: slice.platform,
-      totalBalance: slice.totalBalance,
+      // The donut renders balance share; an unknown balance contributes 0
+      // to the share instead of NaN.
+      totalBalance: slice.totalBalance ?? 0,
       totalSpend: slice.totalSpend,
       accountCount: slice.accountCount,
     }))
   }, [siteDistributionQuery.data])
+
+  // Same all-zero guard as the model-cost donut: zero total balance leaves
+  // the donut empty, so render an explicit empty state instead.
+  const siteDistributionTotal = useMemo(
+    () =>
+      siteDistributionData.reduce((sum, slice) => sum + slice.totalBalance, 0),
+    [siteDistributionData]
+  )
 
   const siteDistributionLabels = useMemo(
     () => ({
@@ -196,10 +207,16 @@ export function TrafficSection() {
           siteDistributionQuery,
           siteDistributionData.length === 0,
           'dashboard.traffic.siteDistribution.empty',
-          <SiteDistributionChart
-            data={siteDistributionData}
-            labels={siteDistributionLabels}
-          />
+          siteDistributionTotal === 0 ? (
+            <ChartEmpty
+              message={t('dashboard.traffic.siteDistribution.zeroBalance')}
+            />
+          ) : (
+            <SiteDistributionChart
+              data={siteDistributionData}
+              labels={siteDistributionLabels}
+            />
+          )
         )}
       </ChartShell>
     </div>

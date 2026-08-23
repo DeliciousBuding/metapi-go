@@ -43,6 +43,28 @@ function formatBucket(iso: string): string {
   ).padStart(2, '0')} ${String(date.getUTCHours()).padStart(2, '0')}:00 UTC`
 }
 
+/** "HH:00" (UTC) for the compact time-axis tick row above the heatmap. */
+function formatBucketHourUtc(iso: string): string {
+  if (!iso) return ''
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  return `${String(date.getUTCHours()).padStart(2, '0')}:00`
+}
+
+/**
+ * Which buckets get a visible time-axis label above the heatmap, plus the
+ * track index each label aligns to. Labels are spaced ≥ tickEvery*15px and
+ * are ~23px wide, so no two ticks collide; tickEvery targets ≤ 6 labels.
+ */
+function tickSpanValues(bucketCount: number): number[] {
+  const tickEvery = Math.max(2, Math.ceil(bucketCount / 6))
+  const ticks: number[] = []
+  for (let i = 0; i < bucketCount; i += tickEvery) {
+    ticks.push(i)
+  }
+  return ticks
+}
+
 function heatmapLayout(cells: UsageHeatmapCell[]) {
   const buckets = [...new Set(cells.map((cell) => cell.bucket))].sort()
   const totals = new Map<string, number>()
@@ -244,6 +266,21 @@ function renderHeatmapBody(
   return (
     <div className='overflow-x-auto'>
       <div className='min-w-max'>
+        <div className='relative h-3'>
+          {
+            // Ticks align with the grid's bucket tracks: 160px label track +
+            // 1px gap between the 14px tracks (track i starts at 161+i*15px).
+            tickSpanValues(layout.buckets.length).map((index) => (
+              <span
+                key={layout.buckets[index]}
+                className='text-muted-foreground absolute top-0 text-[9px] leading-3 whitespace-nowrap tabular-nums'
+                style={{ left: 161 + index * 15 }}
+              >
+                {formatBucketHourUtc(layout.buckets[index])}
+              </span>
+            ))
+          }
+        </div>
         <div
           className='grid gap-px'
           style={{

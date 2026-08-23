@@ -64,6 +64,17 @@ export function ModelsSection() {
     [costQuery.data]
   )
 
+  // All-zero cost (calls logged but no spend attributed in the 30d window)
+  // leaves the donut with nothing to draw — surface a text summary instead.
+  const costTotal = useMemo(
+    () => costData.reduce((sum, row) => sum + row.cost, 0),
+    [costData]
+  )
+  const costCalls = useMemo(
+    () => costData.reduce((sum, row) => sum + row.calls, 0),
+    [costData]
+  )
+
   const histogramData = useMemo<Array<{ label: string; count: number }>>(
     () =>
       (histogramQuery.data?.buckets ?? []).map((bucket) => ({
@@ -140,7 +151,15 @@ export function ModelsSection() {
           costQuery.isError,
           costData.length === 0,
           'dashboard.models.costDistribution.empty',
-          <ModelCostChart data={costData} labels={costTooltipLabels} />
+          costTotal === 0 ? (
+            <ChartEmpty
+              message={t('dashboard.models.costDistribution.zeroCost', {
+                calls: costCalls,
+              })}
+            />
+          ) : (
+            <ModelCostChart data={costData} labels={costTooltipLabels} />
+          )
         )}
       </ChartShell>
 

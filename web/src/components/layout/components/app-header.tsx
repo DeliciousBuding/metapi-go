@@ -3,6 +3,7 @@
 // language / appearance / color-scheme controls, and the user menu (version,
 // About, documentation, sign-out) on the right.
 
+import { Link } from '@tanstack/react-router'
 import { Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -66,7 +67,13 @@ export function AppHeader({
         // The brand is the only flexible header cell: on narrow viewports it
         // truncates so the right-hand controls (search, attention bell,
         // interface controls, user menu) keep their full hit targets.
-        <div className='flex min-w-0 items-center gap-2'>
+        // It is a home link: `/` redirects to the default dashboard section
+        // (same target as the sidebar "Dashboard" entry).
+        <Link
+          to='/'
+          className='flex min-w-0 items-center gap-2'
+          aria-label={metapiIdentity.name}
+        >
           <img
             src={metapiIdentity.logoPath}
             alt={metapiIdentity.name}
@@ -75,7 +82,7 @@ export function AppHeader({
           <span className='truncate text-sm font-semibold tracking-tight'>
             {metapiIdentity.name}
           </span>
-        </div>
+        </Link>
       )}
 
       {rightContent ?? (

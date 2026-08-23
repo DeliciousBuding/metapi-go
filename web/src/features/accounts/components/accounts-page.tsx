@@ -60,9 +60,17 @@ import {
   useToggleAccountPin,
   useToggleAccountStatus,
 } from '../api'
-import { resolveDeepLinkPreselect } from '../lib/accounts-deep-link'
+import {
+  resolveDeepLinkCredentialMode,
+  resolveDeepLinkPreselect,
+} from '../lib/accounts-deep-link'
 import { resolveAccountDisplayName } from '../lib/accounts-display-name'
-import { type Account, type AccountRowActions, accountSchema } from '../types'
+import {
+  type Account,
+  type AccountRowActions,
+  type CredentialMode,
+  accountSchema,
+} from '../types'
 import { AccountDetailSheet } from './account-detail-sheet'
 import { AccountFormDialog } from './account-form-dialog'
 import { useAccountsColumns } from './accounts-columns'
@@ -111,10 +119,12 @@ function readAccountsSearch(
  *  status / site — stripping them re-triggered the toolbar's debounced
  *  search commit and looped the renderer). */
 function buildAccountsHref(
-  next: UrlTableStateUpdate<AccountsUrlFilters>
+  next: UrlTableStateUpdate<AccountsUrlFilters>,
+  currentSearch?: string
 ): string {
-  const currentParams = new URLSearchParams(window.location.search)
-  const current = readAccountsSearch(window.location.search)
+  const currentSearchString = currentSearch ?? window.location.search
+  const currentParams = new URLSearchParams(currentSearchString)
+  const current = readAccountsSearch(currentSearchString)
   const merged: UrlTableState<AccountsUrlFilters> = {
     ...current,
     ...next,
@@ -133,6 +143,9 @@ function buildAccountsHref(
   // Transient deep-link params are preserved across table-state syncs until
   // the page's one-shot consume effects below have stripped them (a toolbar
   // commit or page clamp firing first would otherwise drop the deep link).
+  // Reads the router search string (not window.location, which lags until the
+  // transition commits — right after the strip, a stale snapshot would
+  // resurrect siteId/create and reopen the dialog on the next reload).
   const guidedSiteId = currentParams.get('siteId')
   const guidedCreate = currentParams.get('create')
   const attentionAccountId = currentParams.get('accountId')
@@ -250,7 +263,11 @@ export function AccountsPage() {
   // re-trigger the render loop). The mutate fn identity itself is stable,
   // so a top-level const keeps both the linter and the memo happy.
   const toggleStatusMutate = statusMutation.mutate
-  const { mutate: toggleAccountCheckin } = useToggleAccountCheckin()
+  // Same shape as statusMutation: keep the full mutation object so the inline
+  // check-in badge button can derive `pendingCheckinId` for a per-row spinner
+  // (mirrors the Power button's pendingStatusId flow).
+  const checkinMutation = useToggleAccountCheckin()
+  const toggleCheckinMutate = checkinMutation.mutate
 
   // --- dialog state ---
   const [formOpen, setFormOpen] = useState(false)
@@ -264,23 +281,46 @@ export function AccountsPage() {
   const [preselectedSiteId, setPreselectedSiteId] = useState<
     number | undefined
   >(undefined)
+  const [preselectedCredentialMode, setPreselectedCredentialMode] = useState<
+    CredentialMode | undefined
+  >(undefined)
 
   const openCreate = () => {
     setFormMode('create')
     setEditAccount(null)
     setPreselectedSiteId(undefined)
+    setPreselectedCredentialMode(undefined)
     setFormOpen(true)
   }
 
   // Consume the one-shot site → account deep link exactly once: resolve the
   // referenced site against the loaded snapshot, open the create dialog with
-  // it preselected, then strip the transient params from the URL so a refetch
-  // or remount never reopens the dialog. Waits for the snapshot so a stale or
-  // unknown `siteId` falls back safely instead of creating data.
+  // it preselected (apikey mode when the CTA passed the segment hint), then
+  // strip the transient params from the URL so a refetch or remount never
+  // reopens the dialog. Waits for the snapshot so a stale or unknown
+  // `siteId` falls back safely instead of creating data. The snapshot query
+  // is shared with the sites page (10s staleTime), so right after a guided
+  // create the cached snapshot may still miss the new site — retry with a
+  // refetch (bounded) before treating the id as unknown.
   const deepLinkConsumed = useRef(false)
+  const deepLinkRefetchAttempts = useRef(0)
   useEffect(() => {
     if (deepLinkConsumed.current || search.create !== true) return
-    if (isLoading) return
+    if (isLoading || !data) return
+
+    const stripDeepLink = () => {
+      deepLinkConsumed.current = true
+      navigate({
+        to: '/accounts',
+        search: {
+          ...search,
+          siteId: undefined,
+          create: undefined,
+          segment: undefined,
+        },
+        replace: true,
+      })
+    }
 
     const resolvedSiteId = resolveDeepLinkPreselect(
       search.create,
@@ -288,19 +328,28 @@ export function AccountsPage() {
       data?.sites ?? []
     )
     if (resolvedSiteId !== null) {
+      const resolvedMode = resolveDeepLinkCredentialMode(search.segment)
       setPreselectedSiteId(resolvedSiteId)
+      setPreselectedCredentialMode(resolvedMode ?? undefined)
       setFormMode('create')
       setEditAccount(null)
       setFormOpen(true)
+      stripDeepLink()
+      return
     }
 
-    deepLinkConsumed.current = true
-    navigate({
-      to: '/accounts',
-      search: { ...search, siteId: undefined, create: undefined },
-      replace: true,
+    // Site missing from the snapshot. Refetch once, a few times max, so a
+    // just-created site resolves; an unknown stays silently consumed.
+    if (deepLinkRefetchAttempts.current >= 3) {
+      stripDeepLink()
+      return
+    }
+    deepLinkRefetchAttempts.current += 1
+    void refetch().catch(() => {
+      // Fetch failures fall through; the next data change re-runs this
+      // effect and eventually the retry bound consumes the link.
     })
-  }, [search, isLoading, data, navigate])
+  }, [search, isLoading, data, refetch, navigate])
 
   // Consume the one-shot attention deep link exactly once (dashboard
   // attention items link `/accounts?accountId=N` for expired / low-balance
@@ -375,7 +424,7 @@ export function AccountsPage() {
           status: account.status === 'active' ? 'disabled' : 'active',
         }),
       onToggleCheckin: (account) =>
-        toggleAccountCheckin(
+        toggleCheckinMutate(
           {
             id: account.id,
             checkinEnabled: !account.checkinEnabled,
@@ -399,7 +448,7 @@ export function AccountsPage() {
       refreshAccount,
       toggleAccountPin,
       toggleStatusMutate,
-      toggleAccountCheckin,
+      toggleCheckinMutate,
       t,
     ]
   )
@@ -413,8 +462,15 @@ export function AccountsPage() {
   const pendingStatusId = statusMutation.isPending
     ? (statusMutation.variables?.id ?? null)
     : null
+  const pendingCheckinId = checkinMutation.isPending
+    ? (checkinMutation.variables?.id ?? null)
+    : null
 
-  const columns = useAccountsColumns(rowActions, pendingStatusId)
+  const columns = useAccountsColumns(
+    rowActions,
+    pendingStatusId,
+    pendingCheckinId
+  )
 
   const { table } = useDataTable({
     data: accounts,
@@ -426,6 +482,8 @@ export function AccountsPage() {
     onColumnFiltersChange: urlState.onColumnFiltersChange,
     pagination: urlState.pagination,
     onPaginationChange: urlState.onPaginationChange,
+    sorting: urlState.sorting,
+    onSortingChange: urlState.onSortingChange,
     ensurePageInRange: urlState.ensurePageInRange,
     globalFilterFn: accountsGlobalFilterFn,
   })
@@ -546,6 +604,7 @@ export function AccountsPage() {
         account={editAccount}
         sites={sites}
         initialSiteId={preselectedSiteId}
+        initialCredentialMode={preselectedCredentialMode}
       />
 
       {/* Detail sheet (embeds the tokens sub-module) */}
@@ -598,11 +657,13 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
   const batchMutation = useBatchUpdateAccounts()
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
 
-  const selectedIds = useMemo(
-    () =>
-      table.getFilteredSelectedRowModel().rows.map((row) => row.original.id),
-    [table]
-  )
+  // Derived per render — `table` identity is stable across selection changes
+  // (TanStack `useReactTable` memoizes the instance), so a `useMemo([table])`
+  // here would freeze the ids at their mount-time (empty) value and every
+  // batch action would silently no-op.
+  const selectedIds = table
+    .getFilteredSelectedRowModel()
+    .rows.map((row) => row.original.id)
 
   const runBatch = async (action: BatchAccountAction) => {
     if (selectedIds.length === 0) return

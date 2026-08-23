@@ -13,6 +13,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import {
   afterEach,
   beforeAll,
@@ -35,6 +36,19 @@ vi.mock('@/lib/api', () => ({
     getAttention: vi.fn().mockResolvedValue({ items: [], total: 0 }),
   },
 }))
+
+// AppHeader's brand is a router Link; this i18n test renders it without a
+// RouterProvider, so degrade Link to a plain anchor while keeping the rest
+// of the module (same pattern as user-menu.test.tsx / status-badge tests).
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tanstack/react-router')>()
+  return {
+    ...actual,
+    Link: ({ to, children }: { to?: unknown; children?: ReactNode }) => (
+      <a href={typeof to === 'string' ? to : '/'}>{children}</a>
+    ),
+  }
+})
 
 // jsdom has no window.matchMedia (ThemeProvider reads prefers-color-scheme)
 // and no ResizeObserver (Base UI positions the dropdown popup with it).

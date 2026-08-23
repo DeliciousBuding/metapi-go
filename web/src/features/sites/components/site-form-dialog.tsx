@@ -6,10 +6,13 @@
 // `SiteCreatedModal`. On edit, the form preserves fields the dialog does
 // not expose (notably `customHeaders` when untouched) by passing the
 // original values through to the payload — editing the name must not wipe
-// the endpoint list. `apiEndpoints` IS exposed: the editor textarea carries
-// one plain URL or compact JSON object per line (see `lib/endpoints.ts`),
-// and the untouched-preserve path still applies — when the textarea is not
-// dirty the original endpoint objects are passed through unparsed.
+// the endpoint list. `apiEndpoints` IS exposed: the structured endpoint row
+// editor (see `components/endpoints-editor.tsx`, free-form JSON textarea
+// remains behind the "advanced" toggle), and the untouched-preserve path
+// still applies — when the editor is not dirty the original endpoint objects
+// are passed through unparsed. The primary site URL is analyzed live; a
+// common API request suffix (`/v1`, `/v1/models`, …) is stripped on save
+// with a notice (port of the TS original's sitePrimaryUrl guidance).
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Search as SearchIcon } from 'lucide-react'
@@ -55,12 +58,14 @@ import {
   serializeEndpointsForEditor,
   type ParsedEndpoint,
 } from '../lib/endpoints'
+import { analyzePrimarySiteUrl } from '../lib/site-primary-url'
 import {
   SITE_FORM_DEFAULT_VALUES,
   siteFormSchema,
   type SiteFormValues,
 } from '../lib/sites-schema'
 import type { Site, SiteFormPayload, SiteProbeScope } from '../types'
+import { EndpointsEditor } from './endpoints-editor'
 
 type SiteFormDialogProps = {
   open: boolean
@@ -132,7 +137,8 @@ function siteToFormValues(site: Site): SiteFormValues {
 function buildPayload(
   values: SiteFormValues,
   editingSite: Site | null,
-  apiEndpointsTouched: boolean
+  apiEndpointsTouched: boolean,
+  primaryUrl: string
 ): SiteFormPayload {
   const preservedEndpoints = (editingSite?.apiEndpoints ?? []).map(
     (endpoint) => ({
@@ -142,8 +148,8 @@ function buildPayload(
     })
   )
   // Untouched preserve: as long as the operator did not edit the endpoints
-  // textarea, the original endpoint objects pass through unparsed (the
-  // textarea-free behaviour for name-only edits). When touched, the schema
+  // editor, the original endpoint objects pass through unparsed (the
+  // row-free behaviour for name-only edits). When touched, the schema
   // has already validated the text, so the parse cannot fail.
   const parsedEndpoints = parseEndpointsEditorText(values.apiEndpointsText)
   let apiEndpoints: ParsedEndpoint[] = preservedEndpoints
@@ -152,7 +158,7 @@ function buildPayload(
   }
   return {
     name: values.name,
-    url: values.url,
+    url: primaryUrl,
     externalCheckinUrl: values.externalCheckinUrl,
     platform: values.platform,
     proxyUrl: values.proxyUrl,
@@ -215,6 +221,8 @@ export function SiteFormDialog({
   const watchedPlatform = form.watch('platform')
   const probeEnabled = form.watch('postRefreshProbeEnabled')
   const isSubmitting = createSite.isPending || updateSite.isPending
+  // Live primary-site URL classification for the normalization alerts.
+  const urlAnalysis = analyzePrimarySiteUrl(watchedUrl)
 
   // Auto-recognize platform when a URL is pasted and no platform has been
   // chosen yet. Unknown sites resolve to an empty result and stay manually
@@ -265,16 +273,36 @@ export function SiteFormDialog({
 
   async function onSubmit(values: SiteFormValues) {
     const endpointsTouched = form.getFieldState('apiEndpointsText').isDirty
-    const payload = buildPayload(values, editingSite, endpointsTouched)
+    // Primary URL normalization guidance: a known API request suffix is
+    // stripped to the site root on save (mirrors the TS original). Other
+    // extra paths are preserved verbatim — the live alerts told the operator.
+    const analysis = analyzePrimarySiteUrl(values.url)
+    const persistedUrl =
+      analysis.action === 'auto_strip_known_api_suffix' && analysis.persistedUrl
+        ? analysis.persistedUrl
+        : values.url
+    const urlWasNormalized = persistedUrl !== values.url.trim()
+    const payload = buildPayload(
+      values,
+      editingSite,
+      endpointsTouched,
+      persistedUrl
+    )
     try {
       if (isEditing && editingSite) {
         await updateSite.mutateAsync({ id: editingSite.id, payload })
         toast.success(t('sites.form.updateSucceeded', { name: values.name }))
+        if (urlWasNormalized) {
+          toast.info(t('sites.form.urlNormalizedToast', { url: persistedUrl }))
+        }
         form.reset()
         onOpenChange(false)
       } else {
         const created = await createSite.mutateAsync(payload)
         toast.success(t('sites.form.createSucceeded', { name: values.name }))
+        if (urlWasNormalized) {
+          toast.info(t('sites.form.urlNormalizedToast', { url: persistedUrl }))
+        }
         form.reset()
         onOpenChange(false)
         onCreated?.(created)
@@ -438,6 +466,26 @@ export function SiteFormDialog({
                       {t('sites.form.detect')}
                     </Button>
                   </div>
+                  {urlAnalysis.action === 'auto_strip_known_api_suffix' &&
+                    urlAnalysis.persistedUrl && (
+                      <div className='border-info/40 bg-info/10 text-info-soft-fg rounded-md border p-2.5 text-xs'>
+                        {t('sites.form.urlAutoStripInfo', {
+                          url: urlAnalysis.persistedUrl,
+                        })}
+                      </div>
+                    )}
+                  {urlAnalysis.action === 'preserve_api_path' &&
+                    urlAnalysis.persistedUrl && (
+                      <div className='border-warning/40 bg-warning/10 text-warning-soft-fg rounded-md border p-2.5 text-xs'>
+                        {t('sites.form.urlPreserveApiPath')}
+                      </div>
+                    )}
+                  {urlAnalysis.action === 'preserve_unknown_path' &&
+                    urlAnalysis.persistedUrl && (
+                      <div className='border-warning/40 bg-warning/10 text-warning-soft-fg rounded-md border p-2.5 text-xs'>
+                        {t('sites.form.urlPreserveUnknownPath')}
+                      </div>
+                    )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -450,16 +498,12 @@ export function SiteFormDialog({
                 <FormItem>
                   <FormLabel>{t('sites.form.apiEndpoints')}</FormLabel>
                   <FormControl>
-                    <Textarea
-                      rows={4}
-                      placeholder='{"url":"https://api.example.com","enabled":true}'
-                      className='font-mono text-xs'
-                      {...field}
+                    <EndpointsEditor
+                      value={field.value}
+                      onChange={field.onChange}
+                      liveEndpoints={editingSite?.apiEndpoints}
                     />
                   </FormControl>
-                  <FormDescription>
-                    {t('sites.form.apiEndpointsHint')}
-                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

@@ -36,10 +36,13 @@ function SheetContent({
   children,
   side = 'right',
   showCloseButton = true,
+  overlayClassName,
   ...props
 }: SheetPrimitive.Popup.Props & {
   side?: 'top' | 'right' | 'bottom' | 'left'
   showCloseButton?: boolean
+  /** Extra classes for the scrim (e.g. to darken a drawer's backdrop). */
+  overlayClassName?: string
 }) {
   const { t } = useTranslation()
   // Side-specific classes are emitted via JS conditionals (rather than
@@ -57,7 +60,7 @@ function SheetContent({
   // overflow the panel. Desktop sizing/behavior is unchanged.
   return (
     <SheetPortal>
-      <SheetOverlay />
+      <SheetOverlay className={overlayClassName} />
       <SheetPrimitive.Popup
         data-slot='sheet-content'
         data-side={side}

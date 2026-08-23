@@ -54,9 +54,9 @@ func NormalizeNullable(s *string) *string {
 
 // accountAgg is used for aggregating account balance/subscription data.
 type accountAgg struct {
-	SiteID      int64   `db:"site_id"`
-	Balance     float64 `db:"balance"`
-	ExtraConfig *string `db:"extra_config"`
+	SiteID      int64           `db:"site_id"`
+	Balance     sql.NullFloat64 `db:"balance"`
+	ExtraConfig *string         `db:"extra_config"`
 }
 
 // ---- API Endpoint management ----
@@ -224,24 +224,38 @@ func ListSites(db *sqlx.DB) ([]map[string]any, error) {
 	// non-sub2api accounts in-memory (GetSub2ApiAuthFromExtraConfig returns nil
 	// for them, so they never allocate a map entry).
 	var accounts []accountAgg
-	// COALESCE(balance, 0): accounts migrated from the TS version (or never
-	// refreshed) may carry a NULL balance, which sqlx cannot scan into float64
-	// and would 500 the whole /api/sites response. Aggregation treats an
-	// unknown balance as 0, matching the stats endpoints' existing convention.
-	if err := db.Select(&accounts, "SELECT site_id, COALESCE(balance, 0) AS balance, extra_config FROM accounts"); err != nil {
+	// Balance is scanned as sql.NullFloat64: accounts migrated from the TS
+	// version (or never refreshed) may carry a NULL balance, which sqlx cannot
+	// scan into float64 and would 500 the whole /api/sites response. A NULL
+	// balance means "unknown" — it must NOT be aggregated as zero, or the list
+	// would show $0.00 for a site whose balance is simply not known.
+	if err := db.Select(&accounts, "SELECT site_id, balance, extra_config FROM accounts"); err != nil {
 		return nil, err
 	}
 
 	balanceBySite := make(map[int64]float64)
+	knownBalanceBySite := make(map[int64]bool)
+	accountCountBySite := make(map[int64]int)
 	summariesBySite := buildSubscriptionSummariesBySite(accounts)
 	for _, a := range accounts {
-		balanceBySite[a.SiteID] += a.Balance
+		accountCountBySite[a.SiteID]++
+		if a.Balance.Valid {
+			balanceBySite[a.SiteID] += a.Balance.Float64
+			knownBalanceBySite[a.SiteID] = true
+		}
 	}
 
 	result := make([]map[string]any, len(sites))
 	for i, s := range sites {
 		siteMap := siteToMap(s, endpointsBySite[s.ID])
-		totalBalance := math.Round(balanceBySite[s.ID]*1_000_000) / 1_000_000
+		// Unknown-balance policy: a site with accounts but no known balance
+		// reports nil (the frontend renders '—'); a site with no accounts at
+		// all reports 0 ($0.00 — there is genuinely nothing to aggregate); a
+		// mix reports the sum of the known balances.
+		var totalBalance any
+		if knownBalanceBySite[s.ID] || accountCountBySite[s.ID] == 0 {
+			totalBalance = math.Round(balanceBySite[s.ID]*1_000_000) / 1_000_000
+		}
 		siteMap["totalBalance"] = totalBalance
 		siteMap["subscriptionSummary"] = summariesBySite[s.ID]
 		result[i] = siteMap

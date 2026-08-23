@@ -97,6 +97,12 @@ export function encodeSorting(sorting: SortingState): string {
     .join(',')
 }
 
+/** The pathname part of an href string (drops search/hash, trailing slash). */
+function pathnameOf(href: string): string {
+  const cut = href.search(/[?#]/)
+  return (cut === -1 ? href : href.slice(0, cut)).replace(/\/+$/, '')
+}
+
 /**
  * Controlled table state whose source of truth is the URL search string.
  * Re-exported fields plug straight into `useDataTable`; `filters` +
@@ -107,8 +113,12 @@ export function useUrlTableState<TFilters>(
   options: UrlTableStateOptions<TFilters>
 ) {
   const navigate = useNavigate()
-  // Subscribe to the router location so search-only navigation re-renders.
+  // Subscribe to the router location so search-only navigation re-renders,
+  // and so the URL-sync guard below can compare against the router-side
+  // *current* pathname. (Separate primitive selectors — a compound object
+  // selector would break useSyncExternalStore snapshot identity.)
   const searchStr = useLocation({ select: (loc) => loc.searchStr })
+  const pathname = useLocation({ select: (loc) => loc.pathname })
   const resetPageIndexOnFilterChange =
     options.resetPageIndexOnFilterChange ?? false
 
@@ -142,13 +152,26 @@ export function useUrlTableState<TFilters>(
   // callback would navigate straight back, hijacking the in-flight
   // navigation — the "clicked a sidebar link but the page snapped back"
   // bug. Only sync when we are still on this page.
+  //
+  // Must compare against the router-side pathname, never
+  // `window.location.pathname`: @tanstack/history coalesces push/replace
+  // calls queued within the same tick (a microtask flush applies only the
+  // last href, keeping the push), so while the browser URL still shows this
+  // page, the router location store has already moved to the target route.
+  // The router pathname is the source of truth for whether a write-back is
+  // still on the page it belongs to.
+  //
+  // Exact path match (not a `startsWith` prefix test): hrefs are always
+  // built on this page's own path, so a match is exactly "still on this
+  // page", and a sibling that merely shares a prefix (e.g. `/channels` vs
+  // `/channels-foo`) can never sneak a write-back through.
   const updateUrlState = React.useCallback(
     (next: UrlTableStateUpdate<TFilters>) => {
       const href = buildHrefRef.current(next)
-      if (!href.startsWith(window.location.pathname)) return
+      if (pathnameOf(href) !== pathname) return
       navigate({ href, replace: true })
     },
-    [navigate]
+    [navigate, pathname]
   )
 
   const onGlobalFilterChange = React.useCallback(

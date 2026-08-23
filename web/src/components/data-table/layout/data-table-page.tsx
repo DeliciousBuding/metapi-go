@@ -257,8 +257,10 @@ export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
       </div>
 
       {/* Bulk actions are typically a fixed-position toolbar; let the consumer
-          handle its own visibility, we just gate it to non-mobile. */}
-      {!showMobile && props.bulkActions}
+          handle its own visibility. Rendered on mobile too — MobileCardList
+          surfaces the row-selection checkbox when the table has a `select`
+          column, so bulk enable/disable/delete are reachable on touch. */}
+      {props.bulkActions}
 
       {paginationNode}
     </>
@@ -332,7 +334,17 @@ function renderMobile<TData>(
     )
   }
 
-  return <div className='min-h-0 flex-1 overflow-y-auto'>{mobileContent}</div>
+  // Bottom-safe scroll edge: the mask fades the final stretch of the mobile
+  // list instead of hard-cutting rows at the container boundary (previously
+  // a 2px sliver of the last row's badge rendered at the edge as a stray
+  // colored bar). The gradient is an ALPHA ramp only — it carries no color,
+  // so the OKLCH token system stays the only source of color (see the
+  // no-gradients test allowlist note).
+  return (
+    <div className='min-h-0 flex-1 overflow-y-auto [mask-image:linear-gradient(to_bottom,black_calc(100%_-_2.5rem),transparent)] pb-10'>
+      {mobileContent}
+    </div>
+  )
 }
 
 function renderDesktop<TData>(

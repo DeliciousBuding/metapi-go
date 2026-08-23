@@ -255,7 +255,11 @@ export function useChannelsColumns(
         enableSorting: false,
         enableHiding: false,
         enableResizing: false,
-        meta: { mobileHidden: false, mobileOrder: 4 },
+        // The only per-row operation (view detail) must stay reachable even
+        // when the 10 columns exceed the content width — routes-columns
+        // already pins its actions column the same way (the sticky right
+        // edge keeps the eye outside the horizontal scroll region).
+        meta: { pinned: 'right', mobileHidden: false, mobileOrder: 4 },
         header: () => (
           <span className='text-muted-foreground text-xs'>
             {t('common.actions')}

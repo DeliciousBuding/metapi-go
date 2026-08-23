@@ -330,3 +330,102 @@ func TestStats_SQLiteProxyLogsChannelIDCombinedWithOtherFilters(t *testing.T) {
 			bodyEmpty.Total, len(bodyEmpty.Items), bodyEmpty.Summary.TotalCount)
 	}
 }
+
+// TestStats_SQLiteProxyLogsSearchAccountUsernameAndKey pins the search
+// contract promised by the page placeholder ("search model / account / token"):
+// the free-text filter must match the account username and the downstream key
+// (value or name) in addition to the model columns, and items / total /
+// summary must agree (shared `where`/`args` slice).
+func TestStats_SQLiteProxyLogsSearchAccountUsernameAndKey(t *testing.T) {
+	db, r := setupStatsSQLiteTest(t)
+	t1, _, _ := seedProxyLogsForFilterTests(t, db)
+
+	// one site-2 account + one downstream key, attached to one proxy_logs row.
+	if _, err := db.Exec(`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
+		VALUES (?, ?, 'one-api', 'active', ?, ?)`, "oneapi site", "https://oneapi.test/v1", t1, t1); err != nil {
+		t.Fatalf("insert site: %v", err)
+	}
+	var siteID int64
+	if err := db.Get(&siteID, "SELECT id FROM sites WHERE name = 'oneapi site'"); err != nil {
+		t.Fatalf("site id: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, balance, checkin_enabled, created_at, updated_at)
+		VALUES (?, ?, 'sk-token', 'active', 1.0, FALSE, ?, ?)`, siteID, "svc-oneapi", t1, t1); err != nil {
+		t.Fatalf("insert account: %v", err)
+	}
+	var accountID int64
+	if err := db.Get(&accountID, "SELECT id FROM accounts WHERE username = 'svc-oneapi'"); err != nil {
+		t.Fatalf("account id: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO downstream_api_keys (name, key, created_at, updated_at)
+		VALUES (?, ?, ?, ?)`, "prod token alpha", "sk-oneapi-01", t1, t1); err != nil {
+		t.Fatalf("insert downstream key: %v", err)
+	}
+	var keyID int64
+	if err := db.Get(&keyID, "SELECT id FROM downstream_api_keys WHERE key = 'sk-oneapi-01'"); err != nil {
+		t.Fatalf("key id: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO proxy_logs (model_requested, model_actual, status, latency_ms, client_family, channel_id, created_at, account_id, downstream_api_key_id)
+		VALUES (?, ?, 'failed', 1500, 'openai-node', 7, ?, ?, ?)`,
+		"gpt-4o", "gpt-4o", t1, accountID, keyID); err != nil {
+		t.Fatalf("insert keyed proxy_logs row: %v", err)
+	}
+
+	// Account username: only the keyed row matches; the three seed rows have
+	// no account and the model "gpt-4o" does not appear in the seed rows.
+	body := fetchProxyLogsFiltered(t, r, "search=svc-oneapi")
+	if body.Total != 1 {
+		t.Fatalf("search=svc-oneapi total=%d, want 1", body.Total)
+	}
+	if len(body.Items) != 1 {
+		t.Fatalf("search=svc-oneapi items=%d, want 1", len(body.Items))
+	}
+	if body.Summary.TotalCount != 1 {
+		t.Fatalf("search=svc-oneapi summary.totalCount=%d, want 1", body.Summary.TotalCount)
+	}
+	got := modelSet(body.Items)
+	if _, ok := got["gpt-4o"]; !ok {
+		t.Fatalf("search=svc-oneapi expected the gpt-4o row, got %v", got)
+	}
+
+	// Key value: sk-oneapi-01 must hit the same row.
+	bodyKey := fetchProxyLogsFiltered(t, r, "search=sk-oneapi-01")
+	if bodyKey.Total != 1 || len(bodyKey.Items) != 1 || bodyKey.Summary.TotalCount != 1 {
+		t.Fatalf("search=sk-oneapi-01 want 1/1/1, got total=%d items=%d summary=%d",
+			bodyKey.Total, len(bodyKey.Items), bodyKey.Summary.TotalCount)
+	}
+
+	// Key name (case-insensitive): "prod token" matches "prod token alpha".
+	bodyName := fetchProxyLogsFiltered(t, r, "search=prod+token")
+	if bodyName.Total != 1 || len(bodyName.Items) != 1 {
+		t.Fatalf("search=prod+token want 1/1, got total=%d items=%d", bodyName.Total, len(bodyName.Items))
+	}
+
+	// Model search keeps working with the extra joins present.
+	bodyModel := fetchProxyLogsFiltered(t, r, "search=slow-a")
+	if bodyModel.Total != 1 || len(bodyModel.Items) != 1 {
+		t.Fatalf("search=slow-a want 1/1, got total=%d items=%d", bodyModel.Total, len(bodyModel.Items))
+	}
+	if bodyModel.Summary.TotalCount != 1 {
+		t.Fatalf("search=slow-a summary.totalCount=%d, want 1", bodyModel.Summary.TotalCount)
+	}
+
+	// No match stays empty (items/total/summary all zero, not the unfiltered 4).
+	bodyNone := fetchProxyLogsFiltered(t, r, "search=no-such-thing")
+	if bodyNone.Total != 0 || len(bodyNone.Items) != 0 || bodyNone.Summary.TotalCount != 0 {
+		t.Fatalf("search=no-such-thing want all-zero, got total=%d items=%d summary=%d",
+			bodyNone.Total, len(bodyNone.Items), bodyNone.Summary.TotalCount)
+	}
+
+	// Search composes with the status filter on the same row (shared where).
+	bodyFailed := fetchProxyLogsFiltered(t, r, "search=svc-oneapi&status=failed")
+	if bodyFailed.Total != 1 || len(bodyFailed.Items) != 1 {
+		t.Fatalf("search=svc-oneapi&status=failed want 1/1, got total=%d items=%d",
+			bodyFailed.Total, len(bodyFailed.Items))
+	}
+	bodySuccess := fetchProxyLogsFiltered(t, r, "search=svc-oneapi&status=success")
+	if bodySuccess.Total != 0 || len(bodySuccess.Items) != 0 {
+		t.Fatalf("search=svc-oneapi&status=success want 0/0, got total=%d items=%d",
+			bodySuccess.Total, len(bodySuccess.Items))
+	}
+}

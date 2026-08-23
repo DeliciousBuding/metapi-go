@@ -15,6 +15,7 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   Eye as EyeIcon,
+  FlaskConical as FlaskConicalIcon,
   MoreHorizontal as MoreHorizontalIcon,
 } from 'lucide-react'
 import { useMemo } from 'react'
@@ -196,7 +197,7 @@ export function useModelsColumns(
         id: 'accountCount',
         accessorKey: 'accountCount',
         size: 110,
-        meta: { mobileOrder: 10 },
+        meta: { mobileOrder: 10, label: t('models.columns.accountCount') },
         header: ({ column }) => (
           <DataTableColumnHeader
             column={column}
@@ -213,7 +214,7 @@ export function useModelsColumns(
         id: 'avgLatency',
         accessorKey: 'avgLatency',
         size: 110,
-        meta: { mobileHidden: true, mobileOrder: 30 },
+        meta: { mobileOrder: 30, label: t('models.columns.latency') },
         header: ({ column }) => (
           <DataTableColumnHeader
             column={column}
@@ -230,7 +231,7 @@ export function useModelsColumns(
         id: 'successRate',
         accessorKey: 'successRate',
         size: 110,
-        meta: { mobileHidden: true, mobileOrder: 40 },
+        meta: { mobileOrder: 40, label: t('models.columns.successRate') },
         header: ({ column }) => (
           <DataTableColumnHeader
             column={column}
@@ -247,7 +248,7 @@ export function useModelsColumns(
         id: 'priceInput',
         accessorFn: (row) => resolveLowestInputPrice(row),
         size: 120,
-        meta: { mobileOrder: 50 },
+        meta: { mobileOrder: 50, label: t('models.columns.priceInput') },
         header: ({ column }) => (
           <DataTableColumnHeader
             column={column}
@@ -326,7 +327,7 @@ export function useModelsColumns(
                     {t('models.actions.viewDetails')}
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => actions.onTest(model)}>
-                    <EyeIcon className='text-muted-foreground/70 size-3.5' />
+                    <FlaskConicalIcon className='text-muted-foreground/70 size-3.5' />
                     {t('models.actions.testModel')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>

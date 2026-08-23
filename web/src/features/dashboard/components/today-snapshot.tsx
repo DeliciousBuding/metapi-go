@@ -27,6 +27,7 @@ import { useRealtimeOps } from '../hooks/use-realtime-ops'
 
 /** Summary-view dashboard snapshot (GET /api/stats/dashboard?view=summary). */
 type DashboardSnapshot = {
+  totalBalance?: number
   todayCheckin?: {
     total: number
     success: number
@@ -60,7 +61,8 @@ type BalanceTrend = {
  * A zero previous total yields no delta — dividing by zero would invent one.
  */
 function computeBalanceTrend(
-  balanceHistory: BalanceHistoryResponse | undefined
+  balanceHistory: BalanceHistoryResponse | undefined,
+  fallbackTotal: number | undefined
 ): BalanceTrend {
   const series = balanceHistory?.series ?? []
   let latestTotal = 0
@@ -75,7 +77,19 @@ function computeBalanceTrend(
     latestTotal += latestPoint ? latestPoint.balance : 0
     previousTotal += earliestPoint ? earliestPoint.balance : 0
   }
-  if (!hasPoints) return { total: undefined, deltaPercent: undefined }
+  if (!hasPoints) {
+    // No captured balance-history points yet (fresh deploy / capture not
+    // running): fall back to the summary API's aggregate balance so the
+    // headline KPI still shows a value. The 7-day delta stays unknown —
+    // deriving one from a single point would invent a trend.
+    return {
+      total:
+        fallbackTotal !== undefined && Number.isFinite(fallbackTotal)
+          ? fallbackTotal
+          : undefined,
+      deltaPercent: undefined,
+    }
+  }
   if (!Number.isFinite(previousTotal) || previousTotal === 0) {
     return { total: latestTotal, deltaPercent: undefined }
   }
@@ -107,14 +121,16 @@ export function TodaySnapshotStrip() {
   const { sample: realtime, lastFrameAt } = useRealtimeOps()
 
   const trend = useMemo(
-    () => computeBalanceTrend(balanceHistory),
-    [balanceHistory]
+    () => computeBalanceTrend(balanceHistory, snapshot?.totalBalance),
+    [balanceHistory, snapshot]
   )
   const checkinSuccess = snapshot?.todayCheckin?.success
   const attentionTotal = attention?.total
 
   const renderBalanceValue = (): ReactNode => {
-    if (balanceLoading) return <Skeleton className='h-7 w-28' />
+    if (balanceLoading || (trend.total === undefined && snapshotLoading)) {
+      return <Skeleton className='h-7 w-28' />
+    }
     return (
       <div className='truncate text-xl font-semibold tabular-nums'>
         {formatCurrency(trend.total)}

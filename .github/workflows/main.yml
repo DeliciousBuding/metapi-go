@@ -753,6 +753,20 @@ jobs:
             echo "no changelog section for $GITHUB_REF_NAME" >&2
             exit 1
           fi
+      - name: Reject internal information in public release notes
+        run: |
+          set -euo pipefail
+          # Public release notes are user-facing change logs, not internal work
+          # reports. Ban internal governance vocabulary, test-coverage numbers
+          # and generic internal path shapes. NOTE: no concrete hostnames or
+          # config keys belong in this file (it is public) — specific leaks are
+          # caught by the draft + human review gate instead.
+          forbidden='真实上游|运行时矩阵|2/16|4/16|1/5|4/5|golden|截图管道|Playwright|vitest|审计波|并行线|0\.0\.0\.0/8|/root/|/home/|/tmp/|C:/|D:\\|Wave [0-9]|Round [0-9]'
+          if grep -nE "$forbidden" release-body.md; then
+            echo "release notes contain internal information (see matches above)" >&2
+            exit 1
+          fi
+          echo "release notes hygiene: clean"
       - name: Create GitHub Release with binaries
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -766,7 +780,10 @@ jobs:
             gh release upload "$tag" dist-bin/* --clobber
             gh release edit "$tag" --notes-file release-body.md
           else
-            gh release create "$tag" dist-bin/* --title "$tag" --notes-file release-body.md --latest
+            # Draft by policy: tag push builds and uploads everything, but the
+            # release stays hidden until a human reviews the notes (internal
+            # information must never auto-publish) and publishes it.
+            gh release create "$tag" dist-bin/* --title "$tag" --notes-file release-body.md --draft
           fi
 
   ui-screenshots:

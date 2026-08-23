@@ -11,6 +11,7 @@
 
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import {
+  Info as InfoIcon,
   Plus as PlusIcon,
   Trash2 as Trash2Icon,
   Upload as UploadIcon,
@@ -50,7 +51,7 @@ import {
   useUpdateSite,
 } from '../api'
 import { sitesSearchSchema } from '../lib/sites-schema'
-import type { Site } from '../types'
+import type { Site, SiteBatchAction } from '../types'
 import { SiteCreatedModal } from './site-created-modal'
 import { SiteDetailSheet } from './site-detail-sheet'
 import { SiteFormDialog } from './site-form-dialog'
@@ -98,8 +99,11 @@ function readSearch(searchString?: string): UrlTableState<SitesUrlFilters> {
   }
 }
 
-function buildHref(next: UrlTableStateUpdate<SitesUrlFilters>): string {
-  const current = readSearch()
+function buildHref(
+  next: UrlTableStateUpdate<SitesUrlFilters>,
+  currentSearch?: string
+): string {
+  const current = readSearch(currentSearch)
   const merged: UrlTableState<SitesUrlFilters> = {
     ...current,
     ...next,
@@ -115,8 +119,12 @@ function buildHref(next: UrlTableStateUpdate<SitesUrlFilters>): string {
   // Preserve the one-shot `create`/`edit` deep-link params across table-state
   // navigations (page-clamp / sort / filter) until the page's consumption
   // effect strips them — mirrors the accounts page's buildAccountsHref guard
-  // for its guided-flow `siteId`/`create` params.
-  const searchParams = new URLSearchParams(window.location.search)
+  // for its guided-flow `siteId`/`create` params. Reads the router search
+  // string (not window.location, which lags until the transition commits —
+  // right after the strip an old snapshot would resurrect the params).
+  const searchParams = new URLSearchParams(
+    currentSearch ?? window.location.search
+  )
   const guidedCreate = searchParams.get('create')
   if (guidedCreate) params.set('create', guidedCreate)
   const guidedEdit = searchParams.get('edit')
@@ -295,6 +303,14 @@ export function SitesPage() {
     columns,
     enableRowSelection: true,
     enableColumnResizing: true,
+    // New optional columns (system proxy / external check-in URL / created
+    // at) start hidden so the default layout keeps its density; they can be
+    // re-enabled via the View column switcher.
+    initialColumnVisibility: {
+      useSystemProxy: false,
+      externalCheckinUrl: false,
+      createdAt: false,
+    },
     columnVisibilityStorageKey: SITES_COLUMN_VISIBILITY_STORAGE_KEY,
     columnSizingStorageKey: SITES_COLUMN_SIZING_STORAGE_KEY,
     globalFilter: urlState.globalFilter,
@@ -331,7 +347,7 @@ export function SitesPage() {
     }
   }
 
-  async function handleBulkAction(action: 'enable' | 'disable' | 'delete') {
+  async function handleBulkAction(action: SiteBatchAction) {
     const selectedRows = table.getFilteredSelectedRowModel().rows
     const ids = selectedRows.map((row) => row.original.id)
     if (ids.length === 0) return
@@ -398,6 +414,10 @@ export function SitesPage() {
         <h1 className='text-lg font-normal'>{t('sites.page.title')}</h1>
         <p className='text-muted-foreground text-sm'>
           {t('sites.page.description')}
+        </p>
+        <p className='text-muted-foreground flex items-center gap-1.5 text-xs'>
+          <InfoIcon className='size-3.5 shrink-0' />
+          <span>{t('sites.page.weightFormula')}</span>
         </p>
       </div>
 
@@ -477,6 +497,22 @@ export function SitesPage() {
                 disabled={batchUpdateSites.isPending}
               >
                 {t('sites.bulk.disable')}
+              </Button>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => handleBulkAction('enableSystemProxy')}
+                disabled={batchUpdateSites.isPending}
+              >
+                {t('sites.bulk.enableSystemProxy')}
+              </Button>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => handleBulkAction('disableSystemProxy')}
+                disabled={batchUpdateSites.isPending}
+              >
+                {t('sites.bulk.disableSystemProxy')}
               </Button>
               <Button
                 variant='destructive'
