@@ -98,8 +98,11 @@ function readSearch(searchString?: string): UrlTableState<SitesUrlFilters> {
   }
 }
 
-function buildHref(next: UrlTableStateUpdate<SitesUrlFilters>): string {
-  const current = readSearch()
+function buildHref(
+  next: UrlTableStateUpdate<SitesUrlFilters>,
+  currentSearch?: string
+): string {
+  const current = readSearch(currentSearch)
   const merged: UrlTableState<SitesUrlFilters> = {
     ...current,
     ...next,
@@ -115,8 +118,10 @@ function buildHref(next: UrlTableStateUpdate<SitesUrlFilters>): string {
   // Preserve the one-shot `create`/`edit` deep-link params across table-state
   // navigations (page-clamp / sort / filter) until the page's consumption
   // effect strips them — mirrors the accounts page's buildAccountsHref guard
-  // for its guided-flow `siteId`/`create` params.
-  const searchParams = new URLSearchParams(window.location.search)
+  // for its guided-flow `siteId`/`create` params. Reads the router search
+  // string (not window.location, which lags until the transition commits —
+  // right after the strip an old snapshot would resurrect the params).
+  const searchParams = new URLSearchParams(currentSearch ?? window.location.search)
   const guidedCreate = searchParams.get('create')
   if (guidedCreate) params.set('create', guidedCreate)
   const guidedEdit = searchParams.get('edit')
