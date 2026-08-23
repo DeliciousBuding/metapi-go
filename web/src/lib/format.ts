@@ -220,31 +220,6 @@ export function formatDateTime(
 }
 
 /**
- * Format a timestamp as a localized absolute date+time at MINUTE precision
- * (seconds dropped, e.g. "2026-08-21 15:04" in zh-CN). Same locale / invalid
- * contract as `formatDateTime`; `timeZone` optionally pins the IANA zone.
- */
-export function formatDateTimeMinute(
-  value: string | number | Date | null | undefined,
-  locale: string,
-  timeZone?: string
-): string {
-  return formatWithParts(
-    value,
-    {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    },
-    locale,
-    timeZone
-  )
-}
-
-/**
  * Format a timestamp as a localized time-of-day with seconds ("15:04:05").
  * Returns "—" for null / empty / invalid input. The `locale` MUST be a
  * BCP-47 tag (pass `i18n.language` through `toBcp47()` first).

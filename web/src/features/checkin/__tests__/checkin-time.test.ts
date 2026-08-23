@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import {
   formatCheckinLogTime,
-  formatDateTimeMinuteLocal,
   localDatetimeInputToEpochMs,
   parseServerUtcDateTime,
   toLocalDatetimeInputValue,
@@ -58,7 +57,7 @@ describe('parseServerUtcDateTime', () => {
 })
 
 // ---------------------------------------------------------------------------
-// formatCheckinLogTime / formatDateTimeMinuteLocal
+// formatCheckinLogTime
 // ---------------------------------------------------------------------------
 
 describe('formatCheckinLogTime', () => {
@@ -109,20 +108,6 @@ describe('formatCheckinLogTime', () => {
   it('returns an em dash placeholder for nullish input', () => {
     expect(formatCheckinLogTime(null, 'en-US')).toBe('—')
     expect(formatCheckinLogTime('', 'en-US')).toBe('—')
-  })
-})
-
-describe('formatDateTimeMinuteLocal', () => {
-  it('formats to minute precision', () => {
-    const formatted = formatDateTimeMinuteLocal(
-      '2026-02-25 03:51:58',
-      'en-US',
-      'UTC'
-    )
-    expect(formatted).toContain('2026')
-    expect(formatted).toContain('03:51')
-    // seconds are dropped at minute precision
-    expect(formatted).not.toContain('03:51:58')
   })
 })
 

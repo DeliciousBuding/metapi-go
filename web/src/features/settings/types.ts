@@ -19,8 +19,6 @@ export type SettingsSection = {
   id: string
   /** Human label shown in the settings sidebar + page header. */
   title: string
-  /** Optional i18n key of a group label that scopes this section in the sidebar. */
-  group?: string
   /** Short description shown under the page header (optional). */
   description?: string
   /** Optional lucide icon for the sidebar (phase 2 may leave unset). */
@@ -41,8 +39,6 @@ export type SettingsSection = {
 export type SettingsSectionNavItem = {
   title: string
   url: LinkProps['to'] | (string & {})
-  /** Optional i18n key of the sidebar group this item belongs to. */
-  group?: string
   /** Read-only / external surface - shown as a badge. */
   readonly?: boolean
 }
@@ -51,13 +47,27 @@ export type SettingsSectionNavItem = {
  * The 5 settings subareas (drill-in workspaces). Each maps to a top-level
  * entry in the main sidebar's Settings nested view
  * (components/layout/config/system-settings.config.ts).
+ *
+ * Wave 9 lane B semantic regroup (settings-ia-plan.md §3.2 方案 A):
+ *   basic        基础            — site, authentication
+ *   proxy-models 代理与模型      — proxy-transport, routing, redirects,
+ *                                 rates, allowlist, catalog-sources
+ *   downstream   下游            — keys, proxy-token
+ *   content      通知与数据      — notifications, announcements,
+ *                                 import-export
+ *   operations   系统与运维      — scheduling, database, data-migration,
+ *                                 maintenance, program-logs, audit-logs,
+ *                                 update-center, danger-zone
+ * Old URLs (`/settings/general/*`, `/settings/models/*`,
+ * `/settings/system-info/*`) are redirected by the legacy route map
+ * (lib/legacy-redirects.ts).
  */
 type SettingsSubareaId =
-  | 'general'
+  | 'basic'
+  | 'proxy-models'
   | 'downstream'
-  | 'models'
   | 'content'
-  | 'system-info'
+  | 'operations'
 
 /**
  * A fully-assembled subarea — the string-typed surface consumed by the

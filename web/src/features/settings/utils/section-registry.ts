@@ -68,7 +68,6 @@ export function createSectionRegistry<TSectionId extends string>(
     return sections.map((section) => ({
       title: section.title,
       url: `${basePath}/${section.id}`,
-      ...(section.group ? { group: section.group } : {}),
       ...(section.readonly ? { readonly: true } : {}),
     }))
   }

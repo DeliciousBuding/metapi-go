@@ -1,9 +1,36 @@
 # log.md — Metapi Go product milestones
 
-**Last updated**: 2026-08-23
+**Last updated**: 2026-08-24
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
+
+## 2026-08-24 — Wave 9 冻结恢复 + 集成
+
+- 恢复 SOP 执行：a rebase 受阻（远端已推）改 merge 到 6f44088 → 重写两个 env-independent 不变式测试 → 375×812 Chromium 连续 5 次侧栏开合无冻结 → push；b 全前端门禁 + 41 desktop/19 mobile smoke + 旧 URL redirect + 拖拽持久实测通过 → push；c 门禁复核发现 models.dev catalog vendor 误标 Claude 为 openai 协议，修 dialect 优先 + 真实实例验证 anthropic → push。
+- integration 分支（wave9/integration）c→b→a 顺序 merge + docs 分支 merge；a11y 15 路由 0 serious/critical、route-smoke clean、vitest 171 文件 1130 用例全绿、go test 全绿（Windows 本机 TSan 内存分配 + store 只读目录两处环境性失败除外，CI Linux 权威）。
+- 前端卫生：删除死代码 formatDateTimeMinuteLocal（生产零消费）。
+- Lane D 移动端深审：dom-audit --hard 全量核验，修 2 处 <24px 行内按钮（checkin 查看原始信息 / rates 行内编辑）→24px（min-h-6，Playwright 实测 20→24px + 点击交互回归）；其余硬信号逐条核验为误报（accounts 卡片按钮为 below-fold 裁剪、Switch/Checkbox 为伪元素扩展命中区、settings 侧栏为时序噪声、列头为负边距角点）。
+- 首屏 bundle 拆分：locale 双份 JSON 静态 import → i18next 自定义 backend 懒加载（按当前语言拆 async chunk，切换时按需加载 sibling）；入口 chunk 303.6→123.5KB（gzip 90.7→33.1KB）；vitest 171 文件 1129 用例全绿 + a11y/route-smoke clean + 实例实测 en/zh 首屏无裸 key、切换正常。
+- 对比度豁免收口：删除 dormant `--sidebar-primary`/`--sidebar-primary-foreground` token（全仓 0 消费，theme.css + 10 preset 共 42 行）→ 豁免表 8→6 项；剩余 6 项为 preset residual（forest-whisper dark secondary 3.12 / ocean-breeze light secondary 4.47 / simple-large+anthropic dark destructive 2.97+2.79 / anthropic light success 3.83+soft 4.48），留待设计决策。
+- 对比度清零：6 项 preset residual 全部按「只降 lightness、保 hue/chroma」最小改色修复——forest-whisper dark secondary 3.12→4.60、ocean-breeze light secondary 4.47→4.60、simple-large dark destructive 2.97→4.60、anthropic dark destructive 2.79→4.60、anthropic light success 3.83→4.60、success-soft 4.48→4.61（新增 anthropic light `--success-soft-fg` override）；contrast-gate 豁免表归零，10 preset × light/dark 全过 AA。
+- 集成交付：开 PR #972（Wave 9，26 commits，93 files，+3769/−2245）；版本号仍未动，待管理员批后 bump+CHANGELOG+tag。
+- PR #972 12-check CI 全绿（vet / frontend / a11y / test-sqlite 4 shard / test-pg / vulncheck / secret-scan / runtime-smoke 3 平台 / docker-build）；待管理员 squash 合入 + 生产滚动部署 + 版本号。
+- 冻结交接文档已消化（恢复 + 集成完成），随 integration PR 删除。
+
+## 2026-08-23 — Wave 8 收官 + Wave 9 冻结交接
+
+- #971（wave8/integration）squash 合并（6f44088）：模型数据源多源注册表（llm-metadata + models.dev，自动/手动同步）+ models 页水合 + fix-candidates 删页合并 + settings IA 重构 + 14 条产品语义修复。
+- 生产实例滚动部署 master 6f44088（digest d75bf354，23:19，免备份直上）；10 分钟 soak 0 错误；生产验证 2235 模型双源合并、水合近半。版本号不动，攒波待批。
+- **Wave 9 三线冻结**（用户指令全员停止）：交接与恢复 SOP 已消化入本文件 + MASTER.md，不再单列 handoff 文档。
+
+## 2026-08-23 — Wave 7 收官：合并 master + 生产滚动部署（未发版）
+
+- #970（wave7/integration）squash 合并（4802ffa）：55 修复 + 2 授权跳过 + 治理改动（Release draft + notes 卫生门禁 + CHANGELOG 19 段公开化重写）。
+- 集成期修复：CI lint/knip/typecheck 三轮、站点移动卡 l3a 合并覆盖回归（四字段标签实测回归）、golden 基线刷新。
+- 检查矩阵（4 agent）：60 条 finding 算术闭合无无归宿；49/49 lane commit 零丢失；仓库卫生清零；发布就绪缺口仅剩 bump+CHANGELOG+tag（均停手待批）。
+- 生产实例滚动部署 master 4802ffa（digest b0e229cf，19:35，免备份直上）；版本号不动，攒波待批。
+- 19 份历史 Release notes 全部改写为公开安全版（P0 漏洞利用细节/内部覆盖率数字/波次术语清除）；Release 流程改 draft + 黑名单门禁（防复发三道闸）。
 
 ## 2026-08-23 — Wave 7 前端体验波启动（目标 v0.16.9）
 

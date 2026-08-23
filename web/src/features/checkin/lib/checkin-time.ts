@@ -1,13 +1,13 @@
 // metapi-go features/checkin/lib — check-in log time helpers.
 //
 // Parsing and formatting are delegated to the shared stack in `@/lib/format`
-// (`toTimestamp` + `formatDateTime` / `formatDateTimeMinute`) so the naive
+// (`toTimestamp` + `formatDateTime`) so the naive
 // UTC `created_at` values ("2026-08-11 12:30:00", no timezone suffix) are
 // interpreted exactly like every other timestamp in the admin console. This
 // module previously carried its own duplicate parse/format stack; it now only
 // keeps the check-in-specific `datetime-local` input helpers.
 
-import { formatDateTime, formatDateTimeMinute, toTimestamp } from '@/lib/format'
+import { formatDateTime, toTimestamp } from '@/lib/format'
 
 export function parseServerUtcDateTime(
   value: string | null | undefined
@@ -28,15 +28,6 @@ export function formatCheckinLogTime(
   timeZone?: string
 ): string {
   return formatDateTime(value, locale, timeZone)
-}
-
-/** Minute-precision variant (seconds dropped). */
-export function formatDateTimeMinuteLocal(
-  value: string | null | undefined,
-  locale: string,
-  timeZone?: string
-): string {
-  return formatDateTimeMinute(value, locale, timeZone)
 }
 
 /**

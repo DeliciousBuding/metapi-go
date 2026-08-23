@@ -102,6 +102,56 @@ type ColumnWithSizing<TData> = ColumnDef<TData, unknown> & {
 
 const COLUMN_SIZING_PERSIST_DELAY_MS = 250
 
+/**
+ * Shared empty column-filters value for tables without filtering.
+ *
+ * The table state must hold a *stable* `columnFilters` reference: a fresh
+ * `[]` per render (e.g. `options.columnFilters ?? []`) makes TanStack's
+ * `getFilteredRowModel` memo recompute on every render, whose invalidation
+ * hook queues `resetPageIndex()` in a microtask. The reset then produces a
+ * new pagination object via `setUncontrolledValue`, which re-renders and
+ * re-queues the reset — an unbounded microtask render loop (the mobile
+ * settings keys-page freeze: the sync sheet-open flush interleaves with the
+ * microtask chain and pegs the main thread). One module-level reference
+ * keeps the memo stable; TanStack never mutates the passed array.
+ */
+const EMPTY_COLUMN_FILTERS: ColumnFiltersState = []
+
+/**
+ * Shallow structural equality (one level, reference-equal leaves) over
+ * plain objects and arrays. Used by `useControllableTableState` to treat
+ * no-op table updates (e.g. a page-index reset to the current value, which
+ * TanStack still emits as a fresh `{ ...old, pageIndex }` object) as
+ * unchanged, so React's eager state bail-out can skip the re-render.
+ */
+function isShallowEqual<TValue>(a: TValue, b: TValue): boolean {
+  if (Object.is(a, b)) {
+    return true
+  }
+  if (
+    typeof a !== 'object' ||
+    a === null ||
+    typeof b !== 'object' ||
+    b === null
+  ) {
+    return false
+  }
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) {
+      return false
+    }
+    return a.every((item, index) => Object.is(item, b[index]))
+  }
+  const aKeys = Object.keys(a)
+  const bKeys = Object.keys(b)
+  if (aKeys.length !== bKeys.length) {
+    return false
+  }
+  const aRecord = a as Record<string, unknown>
+  const bRecord = b as Record<string, unknown>
+  return aKeys.every((key) => Object.is(aRecord[key], bRecord[key]))
+}
+
 function resolveUpdater<TValue>(
   updater: Updater<TValue>,
   previous: TValue
@@ -130,7 +180,15 @@ function useControllableTableState<TValue>(
   const setValue = React.useCallback<OnChangeFn<TValue>>(
     (updater) => {
       if (controlledValue === undefined) {
-        setUncontrolledValue((previous) => resolveUpdater(updater, previous))
+        setUncontrolledValue((previous) => {
+          const next = resolveUpdater(updater, previous)
+          // No-op updates must keep the previous reference: TanStack's
+          // resetPageIndex emits `{ ...old, pageIndex }` even when the page
+          // index is unchanged, and re-rendering on that fresh object is
+          // what re-fuels the auto-reset microtask loop. Returning the same
+          // reference lets React's eager bail-out skip the render entirely.
+          return isShallowEqual(next, previous) ? previous : next
+        })
       }
       onChangeRef.current?.(updater)
     },
@@ -383,7 +441,7 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>) {
       columnSizing,
       rowSelection,
       expanded,
-      columnFilters: options.columnFilters ?? [],
+      columnFilters: options.columnFilters ?? EMPTY_COLUMN_FILTERS,
       globalFilter: options.globalFilter ?? '',
       pagination,
     },

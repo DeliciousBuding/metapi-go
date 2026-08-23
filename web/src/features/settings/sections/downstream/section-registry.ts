@@ -1,6 +1,7 @@
-// metapi-go/features/settings/sections/downstream — Downstream Keys subarea.
-// Scope (plan §5.5.2): downstream API keys + the global PROXY_TOKEN.
-// Sections: keys, proxy-token. Both wired to real forms under ./components.
+// metapi-go/features/settings/sections/downstream — Downstream subarea
+// (wave 9 lane B): API keys issued to downstream sites/accounts + the global
+// PROXY_TOKEN. Unchanged by the semantic regroup (name and scope already
+// object/role-shaped).
 // Each section is React.lazy so its form/table dependencies land in a separate
 // async chunk; the surrounding Suspense boundary lives in settings-page.tsx.
 

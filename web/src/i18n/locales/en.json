@@ -905,16 +905,16 @@
     },
     "settings": {
       "subareas": {
-        "general": "General",
-        "general.description": "Branding, authentication, schedules, proxy transport, and routing strategy.",
+        "basic": "Basics",
+        "basic.description": "Site, branding and administrator authentication.",
+        "proxyModels": "Proxy & Models",
+        "proxyModels.description": "Proxy transport, routing policy, model redirects, rates and model data sources.",
         "downstream": "Downstream",
-        "downstream.description": "Downstream API keys (issued to sites/accounts) and the global proxy token.",
-        "models": "Model Settings",
-        "models.description": "Model name redirects, rates & multipliers, and the global allowlist.",
-        "content": "Data & Messaging",
-        "content.description": "Import/export, notification channels, and risk-banner announcements.",
-        "systemInfo": "System & Maintenance",
-        "systemInfo.description": "Logs, updates, database, and maintenance — including the danger zone."
+        "downstream.description": "API keys issued to downstream sites/accounts and the global proxy token.",
+        "content": "Notify & Data",
+        "content.description": "Import/export, notification channels and risk-banner announcements.",
+        "operations": "System & Ops",
+        "operations.description": "Scheduling, database and migration, maintenance, logs and updates."
       },
       "overview": {
         "title": "Settings",
@@ -962,11 +962,7 @@
         },
         "unlimited": "unlimited"
       },
-      "general": {
-        "groups": {
-          "brandSecurity": "Brand & Security",
-          "runtimeStrategy": "Runtime & Strategy"
-        },
+      "basic": {
         "site": {
           "title": "Site & Branding",
           "description": "System name, logo, footer, about, and server address.",
@@ -1019,43 +1015,151 @@
             "allowlistSaved": "IP allowlist saved.",
             "allowlistSaveFailed": "Failed to save IP allowlist."
           }
-        },
-        "scheduling": {
-          "title": "Scheduled Tasks",
-          "description": "Check-in, balance refresh, and log cleanup schedules.",
-          "triggerCheckin": "Trigger check-in now",
-          "viewProgramLogs": "View logs",
-          "migration": {
-            "title": "Upgrade legacy schedules",
-            "summary": "v{{current}} → v{{target}}: {{pending}} schedule(s) can be migrated to the semantic format.",
-            "customCount": "{{count}} custom cron expression(s) kept verbatim.",
-            "legacyPreserved": "Legacy cron fields are kept; nothing is deleted.",
-            "apply": "Upgrade now",
-            "confirm": "This adds semantic schedule descriptors and keeps all existing cron fields. It is safe and repeatable.",
-            "applied": "Schedules upgraded.",
-            "applyFailed": "Failed to upgrade schedules."
+        }
+      },
+      "proxyModels": {
+        "redirects": {
+          "title": "Model Name Redirects",
+          "description": "Canonical-to-actual model name redirects.",
+          "generate": "Generate",
+          "preview": "Preview",
+          "apply": "Apply",
+          "applyTitle": "Apply redirects?",
+          "applyDescription": "Applying removes stale redirects from routing. This cannot be undone.",
+          "deleteTitle": "Delete redirect",
+          "deleteDescription": "This removes the redirect {{canonical}} → {{actual}}. This cannot be undone.",
+          "promote": "To manual",
+          "empty": "No model redirects. Click Generate to scan accounts.",
+          "columns": {
+            "canonical": "Canonical",
+            "actual": "Actual",
+            "account": "Account",
+            "source": "Source",
+            "actions": "Actions"
           },
-          "triggering": "Triggering…",
-          "fields": {
-            "logCleanupRetentionDays": "Log retention (days)",
-            "logCleanupUsageLogsEnabled": "Purge usage logs",
-            "checkinGroup": "Check-in",
-            "checkinSchedule": "Check-in schedule",
-            "balanceGroup": "Balance refresh",
-            "balanceRefreshSchedule": "Balance refresh schedule",
-            "logCleanupGroup": "Log cleanup",
-            "logCleanupSchedule": "Log cleanup schedule",
-            "logCleanupUsageLogsEnabledHint": "Delete accumulated proxy usage logs on the cleanup schedule.",
-            "logCleanupProgramLogsEnabled": "Purge operational events",
-            "logCleanupProgramLogsEnabledHint": "Delete program events on the cleanup schedule. No-op if both cleanup toggles are off."
+          "source": {
+            "sync": "Auto",
+            "manual": "Manual"
           },
           "toast": {
-            "saved": "Schedule saved.",
-            "saveFailed": "Failed to save schedule.",
-            "checkinTriggered": "Check-in triggered.",
-            "checkinTriggerFailed": "Failed to trigger check-in.",
-            "checkinPartialFailed": "Check-in partially failed"
+            "generated": "Generated {{created}} redirects across {{accounts}} accounts.",
+            "generateFailed": "Failed to generate redirects.",
+            "preview": "{{count}} fixable candidate(s).",
+            "previewEmpty": "No fixable candidates.",
+            "applied": "Applied: removed {{removed}} stale redirect(s).",
+            "applyFailed": "Failed to apply redirects.",
+            "promoted": "Redirect promoted to manual.",
+            "promoteFailed": "Failed to promote redirect.",
+            "deleted": "Redirect deleted.",
+            "deleteFailed": "Failed to delete redirect."
           }
+        },
+        "rates": {
+          "title": "Rates & Multipliers",
+          "description": "Account unit costs and channel route weights.",
+          "summary": "{{accounts}} accounts ({{withCost}} with unit cost) · {{channels}} channels ({{channelsEnabled}} enabled).",
+          "accountTable": "Account unit costs",
+          "channelTable": "Channel weights",
+          "empty": "No rate data available yet.",
+          "columns": {
+            "account": "Account",
+            "site": "Site",
+            "channels": "Channels",
+            "unitCost": "Unit cost",
+            "route": "Route",
+            "model": "Model",
+            "enabled": "Enabled",
+            "weight": "Weight"
+          },
+          "toast": {
+            "updated": "Updated (accounts: {{accounts}}, channels: {{channels}}).",
+            "updateFailed": "Failed to update rates.",
+            "invalidValue": "Enter a valid number."
+          },
+          "editUnitCost": "Edit unit cost for {{account}}",
+          "editWeight": "Edit weight for {{model}}"
+        },
+        "allowlist": {
+          "title": "Allowlist & Brand Blocking",
+          "description": "Global allowed models and globally blocked brands.",
+          "allowAll": "(empty = allow all)",
+          "addPlaceholder": "Add a model name and press Enter",
+          "loadingBrands": "Loading brand list…",
+          "noBrands": "No brands available.",
+          "blockedCount": "{{count}} brand(s) blocked.",
+          "fields": {
+            "globalAllowedModels": "Global allowed models",
+            "globalAllowedModelsHint": "Empty = allow all models. Click a badge to remove.",
+            "globalBlockedBrands": "Global blocked brands",
+            "globalBlockedBrandsHint": "Toggle a brand off to block all of its models globally."
+          },
+          "toast": {
+            "saved": "Allowlist saved; routes rebuilt.",
+            "saveFailed": "Failed to save allowlist.",
+            "rebuildFailed": "Saved, but route rebuild failed — rebuild manually.",
+            "brandsSaved": "Brand blocking updated; routes rebuilt.",
+            "brandsSaveFailed": "Failed to update brand blocking."
+          }
+        },
+        "catalogSources": {
+          "title": "Model Catalog Sources",
+          "description": "Registry of model catalog data sources: fetched in list order, with earlier sources taking precedence.",
+          "autoSync": "Auto-sync",
+          "autoSyncHint": "By default, all enabled sources are fetched automatically every 12 hours (the interval is controlled by PRICING_CATALOG_REFRESH_MIN).",
+          "syncAll": "Sync all",
+          "syncAllPending": "Syncing…",
+          "add": "Add source",
+          "columns": {
+            "source": "Source",
+            "type": "Type",
+            "url": "URL",
+            "enabled": "Enabled",
+            "lastSync": "Last sync",
+            "actions": "Actions"
+          },
+          "typeOfficial": "Official",
+          "typeCustom": "Custom",
+          "neverSynced": "Never synced",
+          "modelCount": "{{count}} models",
+          "syncNow": "Sync now",
+          "syncing": "Syncing…",
+          "edit": "Edit",
+          "delete": "Delete",
+          "editTitle": "Edit source",
+          "addTitle": "Add source",
+          "nameLabel": "Name",
+          "namePlaceholder": "e.g. llm-metadata mirror",
+          "urlLabel": "URL",
+          "urlPlaceholder": "https://example.com/api/all.json",
+          "urlHint": "Supports both the llm-metadata all.json and models.dev api.json formats, detected automatically.",
+          "typeLabel": "Type",
+          "enabledLabel": "Enabled",
+          "save": "Save",
+          "cancel": "Cancel",
+          "deleteTitle": "Delete source?",
+          "deleteDescription": "Once deleted, the source no longer participates in catalog merging. This action cannot be undone.",
+          "snapshot": {
+            "title": "Current merged snapshot",
+            "source": "Source",
+            "fetchedAt": "Synced at",
+            "models": "Model entries",
+            "never": "Not synced yet"
+          },
+          "toast": {
+            "syncSucceeded": "Sync completed: {{count}} models.",
+            "syncFailed": "Sync failed: {{message}}",
+            "syncBusy": "A sync is already in progress. Please try again later.",
+            "created": "Source added.",
+            "updated": "Source updated.",
+            "deleted": "Source deleted.",
+            "autoSyncOn": "Auto-sync turned on.",
+            "autoSyncOff": "Auto-sync turned off.",
+            "saveFailed": "Failed to save source: {{message}}",
+            "deleteFailed": "Failed to delete source: {{message}}",
+            "loadFailed": "Failed to load sources: {{message}}",
+            "disabled": "The pricing catalog is not enabled (PRICING_CATALOG_ENABLED=false)."
+          },
+          "dragToReorder": "Drag to reorder"
         },
         "proxyTransport": {
           "title": "Proxy & Transport",
@@ -1197,157 +1301,7 @@
           }
         }
       },
-      "models": {
-        "redirects": {
-          "title": "Model Name Redirects",
-          "description": "Canonical-to-actual model name redirects.",
-          "generate": "Generate",
-          "preview": "Preview",
-          "apply": "Apply",
-          "applyTitle": "Apply redirects?",
-          "applyDescription": "Applying removes stale redirects from routing. This cannot be undone.",
-          "deleteTitle": "Delete redirect",
-          "deleteDescription": "This removes the redirect {{canonical}} → {{actual}}. This cannot be undone.",
-          "promote": "To manual",
-          "empty": "No model redirects. Click Generate to scan accounts.",
-          "columns": {
-            "canonical": "Canonical",
-            "actual": "Actual",
-            "account": "Account",
-            "source": "Source",
-            "actions": "Actions"
-          },
-          "source": {
-            "sync": "Auto",
-            "manual": "Manual"
-          },
-          "toast": {
-            "generated": "Generated {{created}} redirects across {{accounts}} accounts.",
-            "generateFailed": "Failed to generate redirects.",
-            "preview": "{{count}} fixable candidate(s).",
-            "previewEmpty": "No fixable candidates.",
-            "applied": "Applied: removed {{removed}} stale redirect(s).",
-            "applyFailed": "Failed to apply redirects.",
-            "promoted": "Redirect promoted to manual.",
-            "promoteFailed": "Failed to promote redirect.",
-            "deleted": "Redirect deleted.",
-            "deleteFailed": "Failed to delete redirect."
-          }
-        },
-        "rates": {
-          "title": "Rates & Multipliers",
-          "description": "Account unit costs and channel route weights.",
-          "summary": "{{accounts}} accounts ({{withCost}} with unit cost) · {{channels}} channels ({{channelsEnabled}} enabled).",
-          "accountTable": "Account unit costs",
-          "channelTable": "Channel weights",
-          "empty": "No rate data available yet.",
-          "columns": {
-            "account": "Account",
-            "site": "Site",
-            "channels": "Channels",
-            "unitCost": "Unit cost",
-            "route": "Route",
-            "model": "Model",
-            "enabled": "Enabled",
-            "weight": "Weight"
-          },
-          "toast": {
-            "updated": "Updated (accounts: {{accounts}}, channels: {{channels}}).",
-            "updateFailed": "Failed to update rates.",
-            "invalidValue": "Enter a valid number."
-          },
-          "editUnitCost": "Edit unit cost for {{account}}",
-          "editWeight": "Edit weight for {{model}}"
-        },
-        "allowlist": {
-          "title": "Allowlist & Brand Blocking",
-          "description": "Global allowed models and globally blocked brands.",
-          "allowAll": "(empty = allow all)",
-          "addPlaceholder": "Add a model name and press Enter",
-          "loadingBrands": "Loading brand list…",
-          "noBrands": "No brands available.",
-          "blockedCount": "{{count}} brand(s) blocked.",
-          "fields": {
-            "globalAllowedModels": "Global allowed models",
-            "globalAllowedModelsHint": "Empty = allow all models. Click a badge to remove.",
-            "globalBlockedBrands": "Global blocked brands",
-            "globalBlockedBrandsHint": "Toggle a brand off to block all of its models globally."
-          },
-          "toast": {
-            "saved": "Allowlist saved; routes rebuilt.",
-            "saveFailed": "Failed to save allowlist.",
-            "rebuildFailed": "Saved, but route rebuild failed — rebuild manually.",
-            "brandsSaved": "Brand blocking updated; routes rebuilt.",
-            "brandsSaveFailed": "Failed to update brand blocking."
-          }
-        },
-        "catalogSources": {
-          "title": "Model Catalog Sources",
-          "description": "Registry of model catalog data sources: fetched in list order, with earlier sources taking precedence.",
-          "autoSync": "Auto-sync",
-          "autoSyncHint": "By default, all enabled sources are fetched automatically every 12 hours (the interval is controlled by PRICING_CATALOG_REFRESH_MIN).",
-          "syncAll": "Sync all",
-          "syncAllPending": "Syncing…",
-          "add": "Add source",
-          "columns": {
-            "source": "Source",
-            "type": "Type",
-            "url": "URL",
-            "enabled": "Enabled",
-            "lastSync": "Last sync",
-            "actions": "Actions"
-          },
-          "typeOfficial": "Official",
-          "typeCustom": "Custom",
-          "neverSynced": "Never synced",
-          "modelCount": "{{count}} models",
-          "syncNow": "Sync now",
-          "syncing": "Syncing…",
-          "moveUp": "Move up",
-          "moveDown": "Move down",
-          "edit": "Edit",
-          "delete": "Delete",
-          "editTitle": "Edit source",
-          "addTitle": "Add source",
-          "nameLabel": "Name",
-          "namePlaceholder": "e.g. llm-metadata mirror",
-          "urlLabel": "URL",
-          "urlPlaceholder": "https://example.com/api/all.json",
-          "urlHint": "Supports both the llm-metadata all.json and models.dev api.json formats, detected automatically.",
-          "typeLabel": "Type",
-          "enabledLabel": "Enabled",
-          "save": "Save",
-          "cancel": "Cancel",
-          "deleteTitle": "Delete source?",
-          "deleteDescription": "Once deleted, the source no longer participates in catalog merging. This action cannot be undone.",
-          "snapshot": {
-            "title": "Current merged snapshot",
-            "source": "Source",
-            "fetchedAt": "Synced at",
-            "models": "Model entries",
-            "never": "Not synced yet"
-          },
-          "toast": {
-            "syncSucceeded": "Sync completed: {{count}} models.",
-            "syncFailed": "Sync failed: {{message}}",
-            "syncBusy": "A sync is already in progress. Please try again later.",
-            "created": "Source added.",
-            "updated": "Source updated.",
-            "deleted": "Source deleted.",
-            "autoSyncOn": "Auto-sync turned on.",
-            "autoSyncOff": "Auto-sync turned off.",
-            "saveFailed": "Failed to save source: {{message}}",
-            "deleteFailed": "Failed to delete source: {{message}}",
-            "loadFailed": "Failed to load sources: {{message}}",
-            "disabled": "The pricing catalog is not enabled (PRICING_CATALOG_ENABLED=false)."
-          }
-        }
-      },
       "content": {
-        "groups": {
-          "data": "Data & Backup",
-          "messaging": "Messaging"
-        },
         "importExport": {
           "title": "Import / Export",
           "description": "Backup and restore runtime configuration.",
@@ -1499,11 +1453,43 @@
           }
         }
       },
-      "systemInfo": {
-        "groups": {
-          "logs": "Logs",
-          "system": "System",
-          "dangerZone": "Danger Zone"
+      "operations": {
+        "scheduling": {
+          "title": "Scheduled Tasks",
+          "description": "Check-in, balance refresh, and log cleanup schedules.",
+          "triggerCheckin": "Trigger check-in now",
+          "viewProgramLogs": "View logs",
+          "migration": {
+            "title": "Upgrade legacy schedules",
+            "summary": "v{{current}} → v{{target}}: {{pending}} schedule(s) can be migrated to the semantic format.",
+            "customCount": "{{count}} custom cron expression(s) kept verbatim.",
+            "legacyPreserved": "Legacy cron fields are kept; nothing is deleted.",
+            "apply": "Upgrade now",
+            "confirm": "This adds semantic schedule descriptors and keeps all existing cron fields. It is safe and repeatable.",
+            "applied": "Schedules upgraded.",
+            "applyFailed": "Failed to upgrade schedules."
+          },
+          "triggering": "Triggering…",
+          "fields": {
+            "logCleanupRetentionDays": "Log retention (days)",
+            "logCleanupUsageLogsEnabled": "Purge usage logs",
+            "checkinGroup": "Check-in",
+            "checkinSchedule": "Check-in schedule",
+            "balanceGroup": "Balance refresh",
+            "balanceRefreshSchedule": "Balance refresh schedule",
+            "logCleanupGroup": "Log cleanup",
+            "logCleanupSchedule": "Log cleanup schedule",
+            "logCleanupUsageLogsEnabledHint": "Delete accumulated proxy usage logs on the cleanup schedule.",
+            "logCleanupProgramLogsEnabled": "Purge operational events",
+            "logCleanupProgramLogsEnabledHint": "Delete program events on the cleanup schedule. No-op if both cleanup toggles are off."
+          },
+          "toast": {
+            "saved": "Schedule saved.",
+            "saveFailed": "Failed to save schedule.",
+            "checkinTriggered": "Check-in triggered.",
+            "checkinTriggerFailed": "Failed to trigger check-in.",
+            "checkinPartialFailed": "Check-in partially failed"
+          }
         },
         "programLogs": {
           "title": "Operational Events",
@@ -1668,6 +1654,10 @@
               "sameTarget": "The target database is the same as the live runtime database; migration is not possible."
             }
           }
+        },
+        "dataMigration": {
+          "title": "Data Migration",
+          "description": "Copy the live runtime database to an external SQLite/PostgreSQL target as a background task."
         },
         "maintenance": {
           "title": "Maintenance",

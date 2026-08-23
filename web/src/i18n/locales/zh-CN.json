@@ -905,16 +905,16 @@
     },
     "settings": {
       "subareas": {
-        "general": "通用",
-        "general.description": "品牌、认证、定时任务、代理传输与路由策略。",
+        "basic": "基础",
+        "basic.description": "站点、品牌与管理员认证。",
+        "proxyModels": "代理与模型",
+        "proxyModels.description": "代理传输、路由策略、模型重定向、费率与模型数据源。",
         "downstream": "下游",
         "downstream.description": "为下游站点/账号签发的 API 密钥与全局代理令牌。",
-        "models": "模型配置",
-        "models.description": "模型名称重定向、费率倍率与全局白名单。",
-        "content": "数据与消息",
+        "content": "通知与数据",
         "content.description": "导入导出、通知渠道与风险横幅公告。",
-        "systemInfo": "系统与维护",
-        "systemInfo.description": "日志、更新、数据库与维护，含危险区。"
+        "operations": "系统与运维",
+        "operations.description": "调度任务、数据库与数据迁移、维护、日志与更新。"
       },
       "overview": {
         "title": "设置",
@@ -962,11 +962,7 @@
         },
         "unlimited": "不限"
       },
-      "general": {
-        "groups": {
-          "brandSecurity": "品牌与安全",
-          "runtimeStrategy": "运行与策略"
-        },
+      "basic": {
         "site": {
           "title": "站点与品牌",
           "description": "系统名称、Logo、页脚、关于与服务器地址。",
@@ -1019,43 +1015,151 @@
             "allowlistSaved": "IP 白名单已保存。",
             "allowlistSaveFailed": "保存 IP 白名单失败。"
           }
-        },
-        "scheduling": {
-          "title": "定时任务",
-          "description": "签到、余额刷新与日志清理计划。",
-          "triggerCheckin": "立即签到",
-          "viewProgramLogs": "查看日志",
-          "triggering": "触发中…",
-          "migration": {
-            "title": "升级旧版计划",
-            "summary": "v{{current}} → v{{target}}：{{pending}} 个计划可迁移为语义化格式。",
-            "customCount": "{{count}} 个自定义 Cron 表达式原样保留。",
-            "legacyPreserved": "旧 Cron 字段保留，不删除任何内容。",
-            "apply": "立即升级",
-            "confirm": "本次升级只追加语义化描述键，保留所有现有 Cron 字段，安全且可重复执行。",
-            "applied": "计划已升级。",
-            "applyFailed": "计划升级失败。"
+        }
+      },
+      "proxyModels": {
+        "redirects": {
+          "title": "模型名称重定向",
+          "description": "规范名称到实际模型名的重定向。",
+          "generate": "生成",
+          "preview": "预览",
+          "apply": "应用",
+          "applyTitle": "应用重定向？",
+          "applyDescription": "应用后将从路由中移除失效的重定向。此操作无法撤销。",
+          "deleteTitle": "删除重定向",
+          "deleteDescription": "将删除重定向 {{canonical}} → {{actual}}。此操作无法撤销。",
+          "promote": "转手动",
+          "empty": "暂无模型重定向。点击「生成」扫描账号。",
+          "columns": {
+            "canonical": "标准名",
+            "actual": "实际名",
+            "account": "账号",
+            "source": "来源",
+            "actions": "操作"
           },
-          "fields": {
-            "logCleanupRetentionDays": "保留天数",
-            "logCleanupUsageLogsEnabled": "清理用量日志",
-            "logCleanupUsageLogsEnabledHint": "按计划删除累积的代理用量日志。",
-            "checkinGroup": "签到",
-            "checkinSchedule": "签到计划",
-            "balanceGroup": "余额刷新",
-            "balanceRefreshSchedule": "余额刷新计划",
-            "logCleanupGroup": "日志清理",
-            "logCleanupSchedule": "日志清理计划",
-            "logCleanupProgramLogsEnabled": "清理运行事件",
-            "logCleanupProgramLogsEnabledHint": "按计划删除程序事件。两个清理开关均关闭时不执行删除。"
+          "source": {
+            "sync": "自动",
+            "manual": "手动"
           },
           "toast": {
-            "saved": "计划已保存。",
-            "saveFailed": "保存计划失败。",
-            "checkinTriggered": "已触发签到。",
-            "checkinTriggerFailed": "触发签到失败。",
-            "checkinPartialFailed": "签到部分失败"
+            "generated": "已生成 {{created}} 条重定向，涉及 {{accounts}} 个账号。",
+            "generateFailed": "生成重定向失败。",
+            "preview": "{{count}} 个可修复候选项。",
+            "previewEmpty": "无可修复候选项。",
+            "applied": "已应用：移除 {{removed}} 条过期重定向。",
+            "applyFailed": "应用重定向失败。",
+            "promoted": "已转为手动。",
+            "promoteFailed": "转手动失败。",
+            "deleted": "重定向已删除。",
+            "deleteFailed": "删除重定向失败。"
           }
+        },
+        "rates": {
+          "title": "费率与倍率",
+          "description": "账号单价与渠道路由权重。",
+          "summary": "{{accounts}} 个账号（{{withCost}} 个设单价）· {{channels}} 个通道（{{channelsEnabled}} 个启用）。",
+          "accountTable": "账号单价",
+          "channelTable": "通道权重",
+          "empty": "暂无费率数据。",
+          "columns": {
+            "account": "账号",
+            "site": "站点",
+            "channels": "通道数",
+            "unitCost": "单价",
+            "route": "路由",
+            "model": "模型",
+            "enabled": "状态",
+            "weight": "权重"
+          },
+          "toast": {
+            "updated": "已更新（账号：{{accounts}}，通道：{{channels}}）。",
+            "updateFailed": "更新费率失败。",
+            "invalidValue": "请输入有效数字。"
+          },
+          "editUnitCost": "编辑 {{account}} 的单位成本",
+          "editWeight": "编辑 {{model}} 的权重"
+        },
+        "allowlist": {
+          "title": "白名单与品牌屏蔽",
+          "description": "全局允许的模型与全局屏蔽的品牌。",
+          "allowAll": "（留空 = 允许全部）",
+          "addPlaceholder": "输入模型名并回车添加",
+          "loadingBrands": "加载品牌列表…",
+          "noBrands": "无可用品牌。",
+          "blockedCount": "已屏蔽 {{count}} 个品牌。",
+          "fields": {
+            "globalAllowedModels": "全局允许的模型",
+            "globalAllowedModelsHint": "留空 = 允许全部。点击徽章移除。",
+            "globalBlockedBrands": "全局屏蔽的品牌",
+            "globalBlockedBrandsHint": "关闭某品牌的开关即全局屏蔽其所有模型。"
+          },
+          "toast": {
+            "saved": "白名单已保存；路由已重建。",
+            "saveFailed": "保存白名单失败。",
+            "rebuildFailed": "已保存，但路由重建失败——请手动重建。",
+            "brandsSaved": "品牌屏蔽已更新；路由已重建。",
+            "brandsSaveFailed": "更新品牌屏蔽失败。"
+          }
+        },
+        "catalogSources": {
+          "title": "模型数据源",
+          "description": "模型目录数据源注册表：按列表顺序拉取，靠前的源优先覆盖。",
+          "autoSync": "自动同步",
+          "autoSyncHint": "默认每 12 小时自动拉取一次全部启用的源（周期由 PRICING_CATALOG_REFRESH_MIN 控制）。",
+          "syncAll": "全部同步",
+          "syncAllPending": "同步中…",
+          "add": "添加数据源",
+          "columns": {
+            "source": "数据源",
+            "type": "类型",
+            "url": "URL",
+            "enabled": "启用",
+            "lastSync": "上次同步",
+            "actions": "操作"
+          },
+          "typeOfficial": "官方",
+          "typeCustom": "自定义",
+          "neverSynced": "从未同步",
+          "modelCount": "{{count}} 条模型",
+          "syncNow": "立即同步",
+          "syncing": "同步中…",
+          "edit": "编辑",
+          "delete": "删除",
+          "editTitle": "编辑数据源",
+          "addTitle": "添加数据源",
+          "nameLabel": "名称",
+          "namePlaceholder": "例如 llm-metadata 镜像",
+          "urlLabel": "URL",
+          "urlPlaceholder": "https://example.com/api/all.json",
+          "urlHint": "支持 llm-metadata all.json 或 models.dev api.json 两种格式，自动识别。",
+          "typeLabel": "类型",
+          "enabledLabel": "启用",
+          "save": "保存",
+          "cancel": "取消",
+          "deleteTitle": "删除数据源？",
+          "deleteDescription": "删除后该源不再参与目录合并。此操作不可撤销。",
+          "snapshot": {
+            "title": "当前合并快照",
+            "source": "来源",
+            "fetchedAt": "同步时间",
+            "models": "模型条目",
+            "never": "尚未同步"
+          },
+          "toast": {
+            "syncSucceeded": "同步完成：{{count}} 条模型。",
+            "syncFailed": "同步失败：{{message}}",
+            "syncBusy": "同步正在进行中，请稍后再试。",
+            "created": "数据源已添加。",
+            "updated": "数据源已更新。",
+            "deleted": "数据源已删除。",
+            "autoSyncOn": "自动同步已开启。",
+            "autoSyncOff": "自动同步已关闭。",
+            "saveFailed": "保存失败：{{message}}",
+            "deleteFailed": "删除失败：{{message}}",
+            "loadFailed": "加载数据源失败：{{message}}",
+            "disabled": "价格目录未启用（PRICING_CATALOG_ENABLED=false）。"
+          },
+          "dragToReorder": "拖拽调整顺序"
         },
         "proxyTransport": {
           "title": "代理与传输",
@@ -1197,157 +1301,7 @@
           }
         }
       },
-      "models": {
-        "redirects": {
-          "title": "模型名称重定向",
-          "description": "规范名称到实际模型名的重定向。",
-          "generate": "生成",
-          "preview": "预览",
-          "apply": "应用",
-          "applyTitle": "应用重定向？",
-          "applyDescription": "应用后将从路由中移除失效的重定向。此操作无法撤销。",
-          "deleteTitle": "删除重定向",
-          "deleteDescription": "将删除重定向 {{canonical}} → {{actual}}。此操作无法撤销。",
-          "promote": "转手动",
-          "empty": "暂无模型重定向。点击「生成」扫描账号。",
-          "columns": {
-            "canonical": "标准名",
-            "actual": "实际名",
-            "account": "账号",
-            "source": "来源",
-            "actions": "操作"
-          },
-          "source": {
-            "sync": "自动",
-            "manual": "手动"
-          },
-          "toast": {
-            "generated": "已生成 {{created}} 条重定向，涉及 {{accounts}} 个账号。",
-            "generateFailed": "生成重定向失败。",
-            "preview": "{{count}} 个可修复候选项。",
-            "previewEmpty": "无可修复候选项。",
-            "applied": "已应用：移除 {{removed}} 条过期重定向。",
-            "applyFailed": "应用重定向失败。",
-            "promoted": "已转为手动。",
-            "promoteFailed": "转手动失败。",
-            "deleted": "重定向已删除。",
-            "deleteFailed": "删除重定向失败。"
-          }
-        },
-        "rates": {
-          "title": "费率与倍率",
-          "description": "账号单价与渠道路由权重。",
-          "summary": "{{accounts}} 个账号（{{withCost}} 个设单价）· {{channels}} 个通道（{{channelsEnabled}} 个启用）。",
-          "accountTable": "账号单价",
-          "channelTable": "通道权重",
-          "empty": "暂无费率数据。",
-          "columns": {
-            "account": "账号",
-            "site": "站点",
-            "channels": "通道数",
-            "unitCost": "单价",
-            "route": "路由",
-            "model": "模型",
-            "enabled": "状态",
-            "weight": "权重"
-          },
-          "toast": {
-            "updated": "已更新（账号：{{accounts}}，通道：{{channels}}）。",
-            "updateFailed": "更新费率失败。",
-            "invalidValue": "请输入有效数字。"
-          },
-          "editUnitCost": "编辑 {{account}} 的单位成本",
-          "editWeight": "编辑 {{model}} 的权重"
-        },
-        "allowlist": {
-          "title": "白名单与品牌屏蔽",
-          "description": "全局允许的模型与全局屏蔽的品牌。",
-          "allowAll": "（留空 = 允许全部）",
-          "addPlaceholder": "输入模型名并回车添加",
-          "loadingBrands": "加载品牌列表…",
-          "noBrands": "无可用品牌。",
-          "blockedCount": "已屏蔽 {{count}} 个品牌。",
-          "fields": {
-            "globalAllowedModels": "全局允许的模型",
-            "globalAllowedModelsHint": "留空 = 允许全部。点击徽章移除。",
-            "globalBlockedBrands": "全局屏蔽的品牌",
-            "globalBlockedBrandsHint": "关闭某品牌的开关即全局屏蔽其所有模型。"
-          },
-          "toast": {
-            "saved": "白名单已保存；路由已重建。",
-            "saveFailed": "保存白名单失败。",
-            "rebuildFailed": "已保存，但路由重建失败——请手动重建。",
-            "brandsSaved": "品牌屏蔽已更新；路由已重建。",
-            "brandsSaveFailed": "更新品牌屏蔽失败。"
-          }
-        },
-        "catalogSources": {
-          "title": "模型数据源",
-          "description": "模型目录数据源注册表：按列表顺序拉取，靠前的源优先覆盖。",
-          "autoSync": "自动同步",
-          "autoSyncHint": "默认每 12 小时自动拉取一次全部启用的源（周期由 PRICING_CATALOG_REFRESH_MIN 控制）。",
-          "syncAll": "全部同步",
-          "syncAllPending": "同步中…",
-          "add": "添加数据源",
-          "columns": {
-            "source": "数据源",
-            "type": "类型",
-            "url": "URL",
-            "enabled": "启用",
-            "lastSync": "上次同步",
-            "actions": "操作"
-          },
-          "typeOfficial": "官方",
-          "typeCustom": "自定义",
-          "neverSynced": "从未同步",
-          "modelCount": "{{count}} 条模型",
-          "syncNow": "立即同步",
-          "syncing": "同步中…",
-          "moveUp": "上移",
-          "moveDown": "下移",
-          "edit": "编辑",
-          "delete": "删除",
-          "editTitle": "编辑数据源",
-          "addTitle": "添加数据源",
-          "nameLabel": "名称",
-          "namePlaceholder": "例如 llm-metadata 镜像",
-          "urlLabel": "URL",
-          "urlPlaceholder": "https://example.com/api/all.json",
-          "urlHint": "支持 llm-metadata all.json 或 models.dev api.json 两种格式，自动识别。",
-          "typeLabel": "类型",
-          "enabledLabel": "启用",
-          "save": "保存",
-          "cancel": "取消",
-          "deleteTitle": "删除数据源？",
-          "deleteDescription": "删除后该源不再参与目录合并。此操作不可撤销。",
-          "snapshot": {
-            "title": "当前合并快照",
-            "source": "来源",
-            "fetchedAt": "同步时间",
-            "models": "模型条目",
-            "never": "尚未同步"
-          },
-          "toast": {
-            "syncSucceeded": "同步完成：{{count}} 条模型。",
-            "syncFailed": "同步失败：{{message}}",
-            "syncBusy": "同步正在进行中，请稍后再试。",
-            "created": "数据源已添加。",
-            "updated": "数据源已更新。",
-            "deleted": "数据源已删除。",
-            "autoSyncOn": "自动同步已开启。",
-            "autoSyncOff": "自动同步已关闭。",
-            "saveFailed": "保存失败：{{message}}",
-            "deleteFailed": "删除失败：{{message}}",
-            "loadFailed": "加载数据源失败：{{message}}",
-            "disabled": "价格目录未启用（PRICING_CATALOG_ENABLED=false）。"
-          }
-        }
-      },
       "content": {
-        "groups": {
-          "data": "数据与备份",
-          "messaging": "消息"
-        },
         "importExport": {
           "title": "导入 / 导出",
           "description": "备份与恢复运行时配置。",
@@ -1499,11 +1453,43 @@
           }
         }
       },
-      "systemInfo": {
-        "groups": {
-          "logs": "日志",
-          "system": "系统",
-          "dangerZone": "危险区"
+      "operations": {
+        "scheduling": {
+          "title": "定时任务",
+          "description": "签到、余额刷新与日志清理计划。",
+          "triggerCheckin": "立即签到",
+          "viewProgramLogs": "查看日志",
+          "triggering": "触发中…",
+          "migration": {
+            "title": "升级旧版计划",
+            "summary": "v{{current}} → v{{target}}：{{pending}} 个计划可迁移为语义化格式。",
+            "customCount": "{{count}} 个自定义 Cron 表达式原样保留。",
+            "legacyPreserved": "旧 Cron 字段保留，不删除任何内容。",
+            "apply": "立即升级",
+            "confirm": "本次升级只追加语义化描述键，保留所有现有 Cron 字段，安全且可重复执行。",
+            "applied": "计划已升级。",
+            "applyFailed": "计划升级失败。"
+          },
+          "fields": {
+            "logCleanupRetentionDays": "保留天数",
+            "logCleanupUsageLogsEnabled": "清理用量日志",
+            "logCleanupUsageLogsEnabledHint": "按计划删除累积的代理用量日志。",
+            "checkinGroup": "签到",
+            "checkinSchedule": "签到计划",
+            "balanceGroup": "余额刷新",
+            "balanceRefreshSchedule": "余额刷新计划",
+            "logCleanupGroup": "日志清理",
+            "logCleanupSchedule": "日志清理计划",
+            "logCleanupProgramLogsEnabled": "清理运行事件",
+            "logCleanupProgramLogsEnabledHint": "按计划删除程序事件。两个清理开关均关闭时不执行删除。"
+          },
+          "toast": {
+            "saved": "计划已保存。",
+            "saveFailed": "保存计划失败。",
+            "checkinTriggered": "已触发签到。",
+            "checkinTriggerFailed": "触发签到失败。",
+            "checkinPartialFailed": "签到部分失败"
+          }
         },
         "programLogs": {
           "title": "运行事件",
@@ -1668,6 +1654,10 @@
               "sameTarget": "目标数据库与当前运行库相同，无法迁移。"
             }
           }
+        },
+        "dataMigration": {
+          "title": "数据迁移",
+          "description": "将运行时数据库复制到外部 SQLite/PostgreSQL 目标，作为后台任务执行。"
         },
         "maintenance": {
           "title": "维护",

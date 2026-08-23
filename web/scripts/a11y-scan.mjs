@@ -38,11 +38,11 @@ const ROUTES = [
   ['oauth', '/oauth'],
   ['about', '/about'],
   ['settings-overview', '/settings'],
-  ['settings-general', '/settings/general'],
-  ['settings-downstream', '/settings/downstream'],
-  ['settings-models', '/settings/models'],
-  ['settings-content', '/settings/content'],
-  ['settings-system', '/settings/system-info/program-logs'],
+  ['settings-basic', '/settings/basic/site'],
+  ['settings-proxy-models', '/settings/proxy-models/proxy-transport'],
+  ['settings-downstream', '/settings/downstream/keys'],
+  ['settings-content', '/settings/content/notifications'],
+  ['settings-operations', '/settings/operations/program-logs'],
 ]
 
 const browser = await chromium.launch({ headless: true })

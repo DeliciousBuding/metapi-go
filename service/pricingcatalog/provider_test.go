@@ -142,6 +142,78 @@ func TestProvider_RefreshPublishesAndKeepsSnapshotOnFailure(t *testing.T) {
 	}
 }
 
+const ratioRelayJSON = `{
+  "data": {
+    "completion_ratio": {"gpt-4o": 6, "metadata-ratio-only": 4},
+    "model_ratio": {"gpt-4o": 5, "metadata-ratio-only": 0.5}
+  },
+  "success": true
+}`
+
+func TestProvider_ResolveCatalogPricing_RatioPreference(t *testing.T) {
+	sites := fakeSiteSource{sites: map[int64]SiteSnapshot{
+		1: {Platform: "openai", URL: "https://api.openai.com/v1"},
+		2: {Platform: "openai", URL: "https://relay.example.com/v1"},
+	}}
+	base := mustParse(t, sampleCatalogJSON) // gpt-4o list price 2.5/10
+	ratios, err := ParseNewAPIRatios([]byte(ratioRelayJSON))
+	if err != nil {
+		t.Fatalf("ParseNewAPIRatios: %v", err)
+	}
+	provider := NewProvider(Options{SiteSnapshotSource: sites, Logger: testLogger()})
+	provider.snapshot.Store(MergeSnapshots([]*CatalogSnapshot{base, ratios}))
+
+	// Official vendor site keeps the vendor list price (2.5+10)/1000.
+	cost, source := provider.ResolveCatalogPricing(1, 10, "gpt-4o")
+	if cost == nil || *cost != 0.0125 {
+		t.Fatalf("official cost = %v, want 0.0125 (list price)", cost)
+	}
+	if source != SourceOfficial {
+		t.Errorf("official source = %q, want %q", source, SourceOfficial)
+	}
+
+	// NewAPI-family relay: the ratio set (5×$2 + 5×6×$2)/1000 = 0.07 is the
+	// upstream's actual billing basis, so it beats the list price.
+	cost, source = provider.ResolveCatalogPricing(2, 11, "gpt-4o")
+	if cost == nil || *cost != 0.07 {
+		t.Fatalf("relay cost = %v, want 0.07 (ratio-derived)", cost)
+	}
+	if source != SourceRelayEstimate {
+		t.Errorf("relay source = %q, want %q", source, SourceRelayEstimate)
+	}
+
+	// Ratio-only entry (no USD anywhere): the relay estimate still resolves.
+	cost, source = provider.ResolveCatalogPricing(2, 12, "metadata-ratio-only")
+	if cost == nil || *cost != (0.5*2+0.5*4*2)/1000 {
+		t.Fatalf("ratio-only cost = %v, want %v", cost, (0.5*2+0.5*4*2)/1000)
+	}
+	if source != SourceRelayEstimate {
+		t.Errorf("ratio-only source = %q, want %q", source, SourceRelayEstimate)
+	}
+}
+
+func TestParseSourceData_AutoDetectsNewAPIPayload(t *testing.T) {
+	snapshot, err := parseSourceData(SourceKindAuto, []byte(ratioRelayJSON))
+	if err != nil {
+		t.Fatalf("parseSourceData auto: %v", err)
+	}
+	if snapshot.Len() != 2 {
+		t.Fatalf("snapshot len = %d, want 2", snapshot.Len())
+	}
+	if entry, ok := snapshot.Lookup("gpt-4o"); !ok || entry.ModelRatio == nil || *entry.ModelRatio != 5 {
+		t.Errorf("gpt-4o auto-parse = %+v ok=%v, want ratio 5", entry, ok)
+	}
+
+	// Explicit kind forces the newapi parser even without the envelope.
+	snapshot, err = parseSourceData(SourceKindNewAPIRatios, []byte(`{"data": {"model_ratio": {"only-ratio": 1}}}`))
+	if err != nil {
+		t.Fatalf("parseSourceData newapi: %v", err)
+	}
+	if _, ok := snapshot.Lookup("only-ratio"); !ok {
+		t.Error("explicit newapi kind must parse ratio config without success key")
+	}
+}
+
 func TestProvider_ClassifySiteErrorTreatsAsRelay(t *testing.T) {
 	provider := NewProvider(Options{
 		SiteSnapshotSource: fakeSiteSource{err: errors.New("db down")},

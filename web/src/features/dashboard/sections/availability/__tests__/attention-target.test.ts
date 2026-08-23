@@ -20,12 +20,12 @@ describe('resolveAttentionTarget', () => {
   })
 
   it('maps an event target to the settings section path', () => {
-    expect(
-      resolveAttentionTarget('/settings/system-info/program-logs')
-    ).toEqual({
-      to: '/settings/$subarea/$section',
-      params: { subarea: 'system-info', section: 'program-logs' },
-    })
+    expect(resolveAttentionTarget('/settings/operations/program-logs')).toEqual(
+      {
+        to: '/settings/$subarea/$section',
+        params: { subarea: 'operations', section: 'program-logs' },
+      }
+    )
   })
 
   it('rejects malformed targets instead of emitting a dead link', () => {
@@ -38,8 +38,8 @@ describe('resolveAttentionTarget', () => {
       '/sites?edit=',
       '/sites?edit=-3',
       '/sites',
-      '/settings/system-info',
-      '/settings/system-info/program-logs/',
+      '/settings/operations',
+      '/settings/operations/program-logs/',
       '/unknown/page',
       'https://example.com/accounts?accountId=1',
     ]

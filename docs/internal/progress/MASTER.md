@@ -1,6 +1,6 @@
 # Roadmap
 
-**Last verified**: 2026-08-23
+**Last verified**: 2026-08-24
 
 **Release**: [v0.16.8](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.8) · released on master; production promotion follows the release and soak gate
 
@@ -15,15 +15,20 @@
 - Wave 5：功能闭环 #861（#935 apiEndpoints 编辑器）、#558（#939 探针产品化）、#926（#938 后端消息英文化收官）；测试矩阵（#937 真实上游 4/16 + 运行时矩阵 4/5）；截图证据管道 + golden 门禁（#951）；审计残留 P1（#936）；docs/api.md 74 条补齐（#940）。
 - Wave 6 六维深审计（架构/动线/视觉/性能/安全，22 项坐实全修复）：P0 备份凭据植入（#941）、全失败告警（#942）、可空列同族（#943）、代理零拷贝（#944）、proxy-logs 单遍+缓存（#945）、后端卫生（#946）、路由缓存（#947）、UX 动线 4 项（#948）、对比度 6 项 + 320 对守卫（#949）、前端卫生（#950）。
 
+### Wave 9 集成中（a/b/c/d 已并入 integration，待 PR）
+
+| Lane | 内容 | 状态 |
+|---|---|---|
+| a | keys 页 data-table auto-reset 渲染环修复（EMPTY_COLUMN_FILTERS + shallow-equal 去重） | 已并入 integration，375×812 Chromium 5 次侧栏开合无冻结 |
+| b | settings 语义重组（五子域 + 旧 URL redirect + catalog-sources 拖拽排序） | 已并入 integration，41 desktop/19 mobile smoke + redirect + 拖拽持久全过 |
+| c | catalog ratio 倍率计价 + supportedEndpointTypes 目录推导（含 dialect 修复） | 已并入 integration，真实实例验证 anthropic 方言 |
+| d | 375×812 全站移动端逐页真实交互深审（P0-P2 清单 + 修 P0/P1） | 已并入 integration；修 2 处 <24px 行内按钮（checkin 查看原始信息 / rates 行内编辑）→24px；其余硬信号逐条核验为误报 |
+
+> 交付路径：integration 分支全量门禁 → PR 进 master（12-check）→ squash → 生产滚动部署 + 10 分钟 soak → 版本号问管理员后 bump+CHANGELOG+tag。
+
 ### 需求驱动候选（开放 issue 0，下波按需求立项）
 
-| 项 | 说明 |
-|---|---|
-| 首屏 bundle 拆分 | audit 已坐实：eager 混入业务 API 层 + 双语言 locale 66% 占比；Wave 6 曾开线未完成（agent 中断），修复方案已验证一半 |
-| formatDateTimeMinuteLocal 清理 | fe-cleanup 残留：生产零消费（仅测试引用） |
-| 8 项存量 sub-AA 对比度豁免 | contrast-gate 豁免表记录在案，逐项收口需设计决策 |
-
-> 无 P0/P1 开放项，开放 issue 0。下一波按需求驱动立项（方向见 `../benchmark.md`）。
+> 对比度门禁已全量达标（0 豁免，10 preset × light/dark 全过 WCAG AA 4.5:1）。无 P0/P1 开放项，开放 issue 0。下一波按需求驱动立项（方向见 `../benchmark.md`）。
 
 ## Completed milestone — TS 兼容与迁移收官（2026-08-20 交付）
 

@@ -6,6 +6,8 @@ import type {
 } from 'react-test-renderer'
 import { afterAll, vi } from 'vitest'
 
+import { initI18n } from '@/i18n/config'
+
 // jsdom does not implement window.scrollTo/scrollBy — every call prints
 // "Not implemented: Window's scrollTo() method" to stderr. Stub them so the
 // full-suite output stays clean and failures are easy to spot.
@@ -178,3 +180,7 @@ afterAll(async () => {
   await Promise.resolve()
   await Promise.resolve()
 })
+
+// i18next lazy-loads locale bundles through a backend; initialize it before
+// any component renders so useTranslation()/t() resolve real translations.
+await initI18n()
