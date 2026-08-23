@@ -3,6 +3,7 @@
 // i18n: all user-visible strings migrated to t() calls.
 
 import { useMemo, useState } from 'react'
+import type { Row } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
 
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
@@ -13,6 +14,8 @@ import {
   useDataTable,
   useUrlTableState,
 } from '@/components/data-table'
+import { DataTableRow } from '@/components/data-table/core/data-table-row'
+import type { DataTableRenderRowHelpers } from '@/components/data-table/core/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -224,7 +227,7 @@ export function ProxyLogsPage() {
     }),
     [queryPayload]
   )
-  const { intervalMs } = useProxyLogsAutoRefresh()
+  const { intervalMs, setIntervalMs } = useProxyLogsAutoRefresh()
   const logsQuery = useProxyLogs(queryPayload, {
     refetchInterval: intervalMs === false ? false : intervalMs,
   })
@@ -252,6 +255,35 @@ export function ProxyLogsPage() {
     []
   )
   const columns = useProxyLogsColumns(columnActions)
+
+  // Desktop row click opens the detail sheet directly — the failure reason is
+  // now readable in the row itself, and one click (instead of the two-step
+  // ⋯ → View details) reaches the full detail. Rows are keyboard-accessible
+  // (focusable; Enter/Space opens the sheet). Clicks originating inside
+  // nested interactive elements (the row ⋯ dropdown trigger, links, form
+  // controls) bubble to the row — skip them so a nested control is never
+  // swallowed by the row-level handler.
+  const renderRow = (row: Row<ProxyLog>, helpers: DataTableRenderRowHelpers) => (
+    <DataTableRow
+      row={row}
+      className='cursor-pointer'
+      tabIndex={0}
+      onClick={(event) => {
+        const target = event.target as HTMLElement
+        if (target.closest('button, a, [role="menuitem"], input, select')) {
+          return
+        }
+        columnActions.onView(row.original)
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          columnActions.onView(row.original)
+        }
+      }}
+      getColumnClassName={(columnId) => helpers.getCellClassName(columnId)}
+    />
+  )
 
   const { table } = useDataTable<ProxyLog>({
     data: items,
@@ -339,7 +371,10 @@ export function ProxyLogsPage() {
           </p>
         </div>
         <div className='flex flex-wrap items-center gap-2'>
-          <ProxyLogsAutoRefreshToggle />
+          <ProxyLogsAutoRefreshToggle
+            intervalMs={intervalMs}
+            setIntervalMs={setIntervalMs}
+          />
           <ProxyLogsHeaderActions
             onExport={handleExportCsv}
             isExporting={isExporting}
@@ -387,6 +422,7 @@ export function ProxyLogsPage() {
       <DataTablePage
         table={table}
         columns={columns}
+        renderRow={renderRow}
         isLoading={logsQuery.isLoading}
         isFetching={logsQuery.isFetching}
         emptyTitle={t('proxyLogs.page.emptyTitle')}

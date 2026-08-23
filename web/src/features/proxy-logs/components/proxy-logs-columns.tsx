@@ -51,7 +51,11 @@ export function useProxyLogsColumns(
       id: 'createdAt',
       accessorKey: 'createdAt',
       size: 160,
-      meta: { mobileTitle: true, mobileOrder: 0 },
+      meta: {
+        label: t('proxyLogs.columns.createdAt'),
+        mobileTitle: true,
+        mobileOrder: 0,
+      },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}
@@ -80,7 +84,7 @@ export function useProxyLogsColumns(
       id: 'account',
       accessorFn: (row) => row.username ?? row.accountId ?? null,
       size: 140,
-      meta: { mobileOrder: 5 },
+      meta: { label: t('proxyLogs.columns.account'), mobileOrder: 5 },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}
@@ -101,7 +105,11 @@ export function useProxyLogsColumns(
       id: 'site',
       accessorFn: (row) => row.siteName ?? row.siteId ?? null,
       size: 150,
-      meta: { mobileHidden: true, mobileOrder: 10 },
+      meta: {
+        label: t('proxyLogs.columns.site'),
+        mobileHidden: true,
+        mobileOrder: 10,
+      },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}
@@ -122,7 +130,7 @@ export function useProxyLogsColumns(
       id: 'model',
       accessorKey: 'modelRequested',
       size: 180,
-      meta: { mobileOrder: 2 },
+      meta: { label: t('proxyLogs.columns.model'), mobileOrder: 2 },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}
@@ -144,23 +152,41 @@ export function useProxyLogsColumns(
     {
       id: 'status',
       accessorKey: 'status',
-      size: 110,
-      meta: { mobileBadge: true, mobileOrder: 1 },
+      // 200px: the cell also shows the failure reason (single truncated line),
+      // so the col passed on the 110px status-only sizing left ~8 chars visible.
+      size: 200,
+      meta: { label: t('proxyLogs.columns.status'), mobileBadge: true, mobileOrder: 1 },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}
           title={t('proxyLogs.columns.status')}
         />
       ),
-      cell: ({ row }) => (
-        <StatusBadge status={row.original.status} httpStatus={null} />
-      ),
+      cell: ({ row }) => {
+        const log = row.original
+        return (
+          <div className='flex min-w-0 flex-col items-start gap-1'>
+            <StatusBadge
+              status={log.status}
+              httpStatus={log.httpStatus}
+            />
+            {log.errorMessage ? (
+              <span
+                className='text-destructive-soft-fg block max-w-[16rem] truncate text-[11px] leading-tight'
+                title={log.errorMessage}
+              >
+                {log.errorMessage}
+              </span>
+            ) : null}
+          </div>
+        )
+      },
     },
     {
       id: 'latencyMs',
       accessorKey: 'latencyMs',
       size: 120,
-      meta: { mobileOrder: 3 },
+      meta: { label: t('proxyLogs.columns.latency'), mobileOrder: 3 },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}
@@ -178,7 +204,11 @@ export function useProxyLogsColumns(
       id: 'token',
       accessorFn: (row) => row.downstreamKeyName ?? row.downstreamKeyId ?? null,
       size: 160,
-      meta: { mobileHidden: true, mobileOrder: 20 },
+      meta: {
+        label: t('proxyLogs.columns.token'),
+        mobileHidden: true,
+        mobileOrder: 20,
+      },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}
@@ -207,7 +237,11 @@ export function useProxyLogsColumns(
       id: 'retryCount',
       accessorKey: 'retryCount',
       size: 90,
-      meta: { mobileHidden: true, mobileOrder: 30 },
+      meta: {
+        label: t('proxyLogs.columns.retry'),
+        mobileHidden: true,
+        mobileOrder: 30,
+      },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}

@@ -1,8 +1,13 @@
 // metapi-go/features/proxy-logs/components — header toggle that drives the
 // page-level auto-refresh interval (5s / 15s / 30s / Off). Mirrors the
 // observability auto-refresh segmented control so the cadence is visible at
-// a glance; the interval is persisted to localStorage via
-// `useProxyLogsAutoRefresh` so a bookmarked operator view survives reloads.
+// a glance. The interval is CONTROLLED by the page: `ProxyLogsPage` owns the
+// `useProxyLogsAutoRefresh` hook (the same hook feeds the list/meta query
+// `refetchInterval`), so clicking a preset switches the hook state and
+// polling starts immediately — it also persists via localStorage so a
+// bookmarked operator view survives reloads. (The previous design called the
+// hook inside this component too, so clicking only flipped a second, page-
+// invisible state instance and polling never started.)
 
 import { RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -12,13 +17,19 @@ import { cn } from '@/lib/utils'
 
 import {
   PROXY_LOGS_AUTO_REFRESH_PRESETS,
-  useProxyLogsAutoRefresh,
   type ProxyLogsAutoRefreshInterval,
 } from '../lib/use-proxy-logs-auto-refresh'
 
-export function ProxyLogsAutoRefreshToggle() {
+type ProxyLogsAutoRefreshToggleProps = {
+  intervalMs: ProxyLogsAutoRefreshInterval
+  setIntervalMs: (value: ProxyLogsAutoRefreshInterval) => void
+}
+
+export function ProxyLogsAutoRefreshToggle({
+  intervalMs,
+  setIntervalMs,
+}: ProxyLogsAutoRefreshToggleProps) {
   const { t } = useTranslation()
-  const { intervalMs, setIntervalMs } = useProxyLogsAutoRefresh()
 
   const isMatch = (presetValue: ProxyLogsAutoRefreshInterval): boolean =>
     presetValue === intervalMs
