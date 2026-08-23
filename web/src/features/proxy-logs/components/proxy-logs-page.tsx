@@ -2,8 +2,8 @@
 // metapi-go/features/proxy-logs/components — proxy logs list page.
 // i18n: all user-visible strings migrated to t() calls.
 
-import { useMemo, useState } from 'react'
 import type { Row } from '@tanstack/react-table'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
@@ -263,7 +263,10 @@ export function ProxyLogsPage() {
   // nested interactive elements (the row ⋯ dropdown trigger, links, form
   // controls) bubble to the row — skip them so a nested control is never
   // swallowed by the row-level handler.
-  const renderRow = (row: Row<ProxyLog>, helpers: DataTableRenderRowHelpers) => (
+  const renderRow = (
+    row: Row<ProxyLog>,
+    helpers: DataTableRenderRowHelpers
+  ) => (
     <DataTableRow
       row={row}
       className='cursor-pointer'

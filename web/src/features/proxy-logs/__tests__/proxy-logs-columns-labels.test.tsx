@@ -11,17 +11,17 @@
 
 import type { ColumnDef } from '@tanstack/react-table'
 import { cleanup, render, screen } from '@testing-library/react'
-import { useEffect } from 'react'
 import i18n from 'i18next'
+import { useEffect } from 'react'
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 
 import '@/i18n/config'
 
-import type { ProxyLog } from '../types'
 import {
   useProxyLogsColumns,
   type ProxyLogsColumnActions,
 } from '../components/proxy-logs-columns'
+import type { ProxyLog } from '../types'
 
 const NOOP_ACTIONS: ProxyLogsColumnActions = { onView: () => {} }
 const HIDABLE_COLUMN_IDS = [

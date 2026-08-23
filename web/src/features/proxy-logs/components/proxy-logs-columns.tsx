@@ -155,7 +155,11 @@ export function useProxyLogsColumns(
       // 200px: the cell also shows the failure reason (single truncated line),
       // so the col passed on the 110px status-only sizing left ~8 chars visible.
       size: 200,
-      meta: { label: t('proxyLogs.columns.status'), mobileBadge: true, mobileOrder: 1 },
+      meta: {
+        label: t('proxyLogs.columns.status'),
+        mobileBadge: true,
+        mobileOrder: 1,
+      },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}
@@ -166,10 +170,7 @@ export function useProxyLogsColumns(
         const log = row.original
         return (
           <div className='flex min-w-0 flex-col items-start gap-1'>
-            <StatusBadge
-              status={log.status}
-              httpStatus={log.httpStatus}
-            />
+            <StatusBadge status={log.status} httpStatus={log.httpStatus} />
             {log.errorMessage ? (
               <span
                 className='text-destructive-soft-fg block max-w-[16rem] truncate text-[11px] leading-tight'
