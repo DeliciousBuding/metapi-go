@@ -33,28 +33,65 @@ const DESKTOP_ROUTES = [
   '/site-announcements',
   '/about',
   '/settings',
-  '/settings/general/site',
-  '/settings/general/authentication',
-  '/settings/general/scheduling',
-  '/settings/general/proxy-transport',
-  '/settings/general/routing',
+  '/settings/basic/site',
+  '/settings/basic/authentication',
+  '/settings/proxy-models/proxy-transport',
+  '/settings/proxy-models/routing',
+  '/settings/proxy-models/redirects',
+  '/settings/proxy-models/rates',
+  '/settings/proxy-models/allowlist',
+  '/settings/proxy-models/catalog-sources',
   '/settings/downstream/keys',
   '/settings/downstream/proxy-token',
-  '/settings/models/redirects',
-  '/settings/models/rates',
-  '/settings/models/allowlist',
-  '/settings/content/import-export',
   '/settings/content/notifications',
   '/settings/content/announcements',
-  '/settings/system-info/program-logs',
-  '/settings/system-info/audit-logs',
-  '/settings/system-info/update-center',
-  '/settings/system-info/database',
-  '/settings/system-info/maintenance',
-  '/settings/system-info/danger-zone',
+  '/settings/content/import-export',
+  '/settings/operations/scheduling',
+  '/settings/operations/database',
+  '/settings/operations/data-migration',
+  '/settings/operations/maintenance',
+  '/settings/operations/program-logs',
+  '/settings/operations/audit-logs',
+  '/settings/operations/update-center',
+  '/settings/operations/danger-zone',
+]
+
+// Pre-regroup settings URLs (wave 9 lane B): every old path must land on its
+// new home through the client-side legacy redirect (no 500 / error UI).
+const LEGACY_REDIRECT_ROUTES = [
+  ['/settings/general', '/settings/basic/site'],
+  ['/settings/general/site', '/settings/basic/site'],
+  ['/settings/general/authentication', '/settings/basic/authentication'],
+  ['/settings/general/scheduling', '/settings/operations/scheduling'],
+  [
+    '/settings/general/proxy-transport',
+    '/settings/proxy-models/proxy-transport',
+  ],
+  ['/settings/general/routing', '/settings/proxy-models/routing'],
+  ['/settings/models', '/settings/proxy-models/proxy-transport'],
+  ['/settings/models/redirects', '/settings/proxy-models/redirects'],
+  ['/settings/models/rates', '/settings/proxy-models/rates'],
+  ['/settings/models/allowlist', '/settings/proxy-models/allowlist'],
+  [
+    '/settings/models/catalog-sources',
+    '/settings/proxy-models/catalog-sources',
+  ],
+  ['/settings/system-info', '/settings/operations/program-logs'],
+  ['/settings/system-info/program-logs', '/settings/operations/program-logs'],
+  ['/settings/system-info/audit-logs', '/settings/operations/audit-logs'],
+  ['/settings/system-info/update-center', '/settings/operations/update-center'],
+  ['/settings/system-info/database', '/settings/operations/database'],
+  [
+    '/settings/system-info/data-migration',
+    '/settings/operations/data-migration',
+  ],
+  ['/settings/system-info/maintenance', '/settings/operations/maintenance'],
+  ['/settings/system-info/danger-zone', '/settings/operations/danger-zone'],
 ]
 
 // Main product workspaces get a second pass at the 375px mobile contract.
+// Settings carries one landing route per subarea so every one of the five
+// regrouped groups is reachable and overflow-free at 375px.
 const MOBILE_ROUTES = [
   '/',
   '/sites',
@@ -70,6 +107,11 @@ const MOBILE_ROUTES = [
   '/price-compare',
   '/site-announcements',
   '/settings',
+  '/settings/basic/site',
+  '/settings/proxy-models/proxy-transport',
+  '/settings/downstream/keys',
+  '/settings/content/notifications',
+  '/settings/operations/program-logs',
 ]
 
 const ERROR_TEXT =
@@ -130,6 +172,48 @@ function collectPageFailures(page, failures, label) {
       )
     }
   })
+}
+
+/**
+ * Legacy settings URL gate (wave 9 lane B): each pre-regroup path must
+ * client-side redirect to its new home without error UI. The redirect is
+ * thrown from the route `beforeLoad` guard on SPA boot, so the new URL is
+ * asserted with a wait-for-function on the pathname.
+ */
+async function scanLegacyRedirects(context, redirects, failures) {
+  for (const [fromUrl, toUrl] of redirects) {
+    const toPath = new URL(toUrl, BASE_URL).pathname
+    const label = `legacy ${fromUrl} -> ${toPath}`
+    const page = await context.newPage()
+    collectPageFailures(page, failures, label)
+    try {
+      await page.goto(BASE_URL + fromUrl, {
+        waitUntil: 'domcontentloaded',
+        timeout: 15_000,
+      })
+      await page
+        .waitForFunction(
+          (pathname) => new URL(location.href).pathname === pathname,
+          toPath,
+          { timeout: 8_000 }
+        )
+        .catch(() => {
+          failures.push(
+            `${label}: did not land on ${toPath} (stayed at ${page.url()})`
+          )
+        })
+      await page.waitForTimeout(400)
+      const body = await page.locator('body').innerText({ timeout: 4_000 })
+      const errorText = body.match(ERROR_TEXT)?.[0]
+      if (errorText) failures.push(`${label}: rendered error UI — ${errorText}`)
+    } catch (error) {
+      failures.push(
+        `${label}: smoke exception — ${String(error?.message ?? error).split('\n')[0]}`
+      )
+    } finally {
+      await page.close().catch(() => {})
+    }
+  }
 }
 
 async function scanRoute(context, route, failures, mobile = false) {
@@ -301,6 +385,7 @@ try {
   for (const route of DESKTOP_ROUTES) {
     await scanRoute(desktop, route, failures)
   }
+  await scanLegacyRedirects(desktop, LEGACY_REDIRECT_ROUTES, failures)
   await exerciseAccounts(desktop, failures)
   for (const route of ['/checkin', '/proxy-logs', '/token-routes']) {
     await exerciseUrlOwnedPage(desktop, route, failures)

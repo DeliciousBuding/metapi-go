@@ -74,14 +74,14 @@ describe('getSettingsNavEntries', () => {
   it('deep-links subareas to their default section and sections to their own URL', () => {
     const entries = getSettingsNavEntries()
 
-    const general = entries.find(
-      (entry) => entry.key === 'settings-subarea-general'
+    const basic = entries.find(
+      (entry) => entry.key === 'settings-subarea-basic'
     )
-    expect(general?.url).toBe('/settings/general/site')
+    expect(basic?.url).toBe('/settings/basic/site')
     expect(
       entries.some(
         (entry) =>
-          entry.key === 'settings-section-/settings/system-info/program-logs'
+          entry.key === 'settings-section-/settings/operations/program-logs'
       )
     ).toBe(true)
   })

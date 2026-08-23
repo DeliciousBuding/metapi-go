@@ -14,13 +14,13 @@ import type { SettingsSubarea } from '../types'
 // navigation surface.
 
 const stubSubarea: SettingsSubarea = {
-  id: 'general',
-  title: 'General',
-  basePath: '/settings/general',
+  id: 'basic',
+  title: 'Basic',
+  basePath: '/settings/basic',
   defaultSection: 'authentication',
   sectionIds: ['authentication'],
   getSectionNavItems: () => [
-    { title: 'Authentication', url: '/settings/general/authentication' },
+    { title: 'Authentication', url: '/settings/basic/authentication' },
   ],
   getSectionContent: () => <div data-testid='section-content' />,
   getSectionMeta: () => ({

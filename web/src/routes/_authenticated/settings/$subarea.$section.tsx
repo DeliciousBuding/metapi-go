@@ -1,12 +1,12 @@
 // metapi-go/routes — settings section dispatcher.
 //
-// Leaf route for `/settings/$subarea/$section` (e.g. `/settings/general/site`).
-// `beforeLoad` validates both the subarea id (against the settings manifest)
-// and the section id (against the subarea's `sectionIds` via `isValidSection`),
+// Leaf route for `/settings/$subarea/$section` (e.g. `/settings/basic/site`).
+// `beforeLoad` first resolves legacy URLs (wave 9 lane B regroup:
+// `/settings/general/scheduling` → `/settings/operations/scheduling` …),
+// then validates both the subarea id (against the settings manifest) and the
+// section id (against the subarea's `sectionIds` via `isValidSection`),
 // redirecting to the default section on mismatch. The component renders
-// `SettingsPage` with the resolved subarea config + the active section; the
-// in-page `SettingsSidebar` uses `<Link>` for section navigation, so no
-// `onSectionChange` callback is needed.
+// `SettingsPage` with the resolved subarea config + the active section.
 
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
@@ -16,12 +16,13 @@ import {
   isValidSection,
   resolveDefaultSection,
 } from '@/features/settings'
+import { resolveLegacySectionRedirect } from '@/features/settings/lib/legacy-redirects'
 
 export const Route = createFileRoute(
   '/_authenticated/settings/$subarea/$section'
 )({
   // Document title combines the subarea and section labels
-  // (`General · Site & Branding · Metapi`), resolved from the settings
+  // (`Basic · Site & Branding · Metapi`), resolved from the settings
   // registry so the route file carries no hard-coded key mapping.
   staticData: {
     title: ({ subarea, section }) => {
@@ -31,11 +32,18 @@ export const Route = createFileRoute(
     },
   },
   beforeLoad: ({ params }) => {
+    const legacy = resolveLegacySectionRedirect(params.subarea, params.section)
+    if (legacy) {
+      throw redirect({
+        to: '/settings/$subarea/$section',
+        params: { subarea: legacy[0], section: legacy[1] },
+      })
+    }
     const subareaConfig = getSettingsSubarea(params.subarea)
     if (!subareaConfig) {
       throw redirect({
         to: '/settings/$subarea',
-        params: { subarea: 'general' },
+        params: { subarea: 'basic' },
       })
     }
     if (!isValidSection(params.subarea, params.section)) {

@@ -905,16 +905,16 @@
     },
     "settings": {
       "subareas": {
-        "general": "通用",
-        "general.description": "品牌、认证、定时任务、代理传输与路由策略。",
+        "basic": "基础",
+        "basic.description": "站点、品牌与管理员认证。",
+        "proxyModels": "代理与模型",
+        "proxyModels.description": "代理传输、路由策略、模型重定向、费率与模型数据源。",
         "downstream": "下游",
         "downstream.description": "为下游站点/账号签发的 API 密钥与全局代理令牌。",
-        "models": "模型配置",
-        "models.description": "模型名称重定向、费率倍率与全局白名单。",
-        "content": "数据与消息",
+        "content": "通知与数据",
         "content.description": "导入导出、通知渠道与风险横幅公告。",
-        "systemInfo": "系统与维护",
-        "systemInfo.description": "日志、更新、数据库与维护，含危险区。"
+        "operations": "系统与运维",
+        "operations.description": "调度任务、数据库与数据迁移、维护、日志与更新。"
       },
       "overview": {
         "title": "设置",
@@ -962,11 +962,7 @@
         },
         "unlimited": "不限"
       },
-      "general": {
-        "groups": {
-          "brandSecurity": "品牌与安全",
-          "runtimeStrategy": "运行与策略"
-        },
+      "basic": {
         "site": {
           "title": "站点与品牌",
           "description": "系统名称、Logo、页脚、关于与服务器地址。",
@@ -1019,185 +1015,9 @@
             "allowlistSaved": "IP 白名单已保存。",
             "allowlistSaveFailed": "保存 IP 白名单失败。"
           }
-        },
-        "scheduling": {
-          "title": "定时任务",
-          "description": "签到、余额刷新与日志清理计划。",
-          "triggerCheckin": "立即签到",
-          "viewProgramLogs": "查看日志",
-          "triggering": "触发中…",
-          "migration": {
-            "title": "升级旧版计划",
-            "summary": "v{{current}} → v{{target}}：{{pending}} 个计划可迁移为语义化格式。",
-            "customCount": "{{count}} 个自定义 Cron 表达式原样保留。",
-            "legacyPreserved": "旧 Cron 字段保留，不删除任何内容。",
-            "apply": "立即升级",
-            "confirm": "本次升级只追加语义化描述键，保留所有现有 Cron 字段，安全且可重复执行。",
-            "applied": "计划已升级。",
-            "applyFailed": "计划升级失败。"
-          },
-          "fields": {
-            "logCleanupRetentionDays": "保留天数",
-            "logCleanupUsageLogsEnabled": "清理用量日志",
-            "logCleanupUsageLogsEnabledHint": "按计划删除累积的代理用量日志。",
-            "checkinGroup": "签到",
-            "checkinSchedule": "签到计划",
-            "balanceGroup": "余额刷新",
-            "balanceRefreshSchedule": "余额刷新计划",
-            "logCleanupGroup": "日志清理",
-            "logCleanupSchedule": "日志清理计划",
-            "logCleanupProgramLogsEnabled": "清理运行事件",
-            "logCleanupProgramLogsEnabledHint": "按计划删除程序事件。两个清理开关均关闭时不执行删除。"
-          },
-          "toast": {
-            "saved": "计划已保存。",
-            "saveFailed": "保存计划失败。",
-            "checkinTriggered": "已触发签到。",
-            "checkinTriggerFailed": "触发签到失败。",
-            "checkinPartialFailed": "签到部分失败"
-          }
-        },
-        "proxyTransport": {
-          "title": "代理与传输",
-          "description": "系统代理、负载规则、上游并发与探测。",
-          "testProxy": "测试",
-          "codexUpstreamGroup": "Codex 上游并发",
-          "codexUpstreamGroupHint": "Codex 上游的会话级控制：WebSocket/Compact 行为、每会话通道并发上限与队列等待时间。",
-          "fields": {
-            "systemProxyUrl": "系统代理 URL",
-            "systemProxyUrlHint": "可选出站代理（http:// 或 socks5://）。留空则禁用。",
-            "proxyErrorKeywords": "代理错误关键词",
-            "proxyErrorKeywordsHint": "每行一个关键词；响应命中任一关键词即视为失败。",
-            "proxyEmptyContentFailEnabled": "空 completion 视为失败",
-            "proxyEmptyContentFailEnabledHint": "completion=0 的响应视为失败。",
-            "payloadRules": "负载规则（JSON）",
-            "payloadRulesHint": "按模型重写请求负载的 JSON 对象（键为模型名，值为要覆盖的字段）。",
-            "codexUpstreamWebsocketEnabled": "对 Codex 上游使用 WebSocket",
-            "responsesCompactFallbackEnabled": "Compact 回退到 Responses",
-            "proxySessionChannelConcurrencyLimit": "会话通道并发",
-            "proxySessionChannelQueueWaitMs": "队列等待（毫秒）",
-            "modelAvailabilityProbeEnabled": "启用模型可用性探测",
-            "modelAvailabilityProbeEnabledHint": "定期探测上游模型可用性，并将不可达模型标记为不可用。"
-          },
-          "schema": {
-            "payloadRulesInvalid": "负载规则必须是合法的 JSON 对象。"
-          },
-          "toast": {
-            "saved": "代理与传输设置已保存。",
-            "saveFailed": "保存代理与传输设置失败。",
-            "proxyOk": "代理可达（{{ms}} ms）。",
-            "proxyOkGeneric": "代理可达。",
-            "proxyFailed": "代理测试失败。"
-          }
-        },
-        "routing": {
-          "title": "路由策略",
-          "description": "兜底成本、权重、冷却与超时。",
-          "weightsGroup": "路由权重",
-          "weightsHint": "预设应用典型权重档位；可手动微调。",
-          "fallbackGroup": "价格兜底",
-          "preset": {
-            "balanced": "均衡",
-            "stable": "稳定优先",
-            "cost": "成本优先"
-          },
-          "fields": {
-            "routingFallbackUnitCost": "兜底单价",
-            "routingFallbackUnitCostHint": "无实测/配置值时的默认单价。",
-            "routeFailureCooldown": "失败冷却（秒）",
-            "routeFailureCooldownHint": "普通失败与分级冷却均设上限；429 额度类冷却仍遵循上游重置时间。",
-            "proxyFirstByteTimeout": "首字超时（秒）",
-            "proxyFirstByteTimeoutHint": "0 关闭；无首包/首 token 时中止。",
-            "disableCrossProtocolFallback": "禁用跨协议回退",
-            "disableCrossProtocolFallbackHint": "失败时不重试其他协议。",
-            "baseWeightFactor": "基础权重因子",
-            "baseWeightFactorHint": "每个候选通道的基础权重加数；调高可缩小通道间权重差距、分配更均衡。",
-            "valueScoreFactor": "价值评分因子",
-            "valueScoreFactorHint": "价值评分（成本/余额/用量综合）在路由贡献中的放大系数。",
-            "costWeight": "成本权重",
-            "costWeightHint": "价值评分中单价的权重：单价越低得分越高，通道越优先。",
-            "balanceWeight": "余额权重",
-            "balanceWeightHint": "价值评分中账户余额的权重：余额越充足，通道越优先。",
-            "usageWeight": "用量权重",
-            "usageWeightHint": "价值评分中近期用量的权重：用量越少，通道越优先（负载均衡）。"
-          },
-          "toast": {
-            "saved": "路由策略已保存。",
-            "saveFailed": "保存路由策略失败。"
-          }
         }
       },
-      "downstream": {
-        "keys": {
-          "title": "下游密钥",
-          "description": "下游 API 密钥（按站点/按账号签发令牌）。",
-          "create": "创建密钥",
-          "createTitle": "创建下游密钥",
-          "createDescription": "签发新的下游 API 密钥，含配额与元数据。",
-          "editTitle": "编辑下游密钥",
-          "editDescription": "更新密钥的元数据。密钥值本身不可在此更改。",
-          "generate": "生成",
-          "empty": "暂无下游密钥。创建一个以开始签发令牌。",
-          "requests": "请求：{{used}} / {{max}}",
-          "cost": "成本：{{used}} / {{max}}",
-          "usage24h": "24h：{{requests}} 次 · {{tokens}} tokens · ${{cost}}",
-          "deleteTitle": "删除下游密钥",
-          "deleteDescription": "删除密钥「{{name}}」？此操作不可撤销。",
-          "columns": {
-            "name": "名称",
-            "group": "分组",
-            "enabled": "状态",
-            "enabledAria": "切换 {{name}} 的启用状态",
-            "editAria": "编辑 {{name}}",
-            "usage": "用量",
-            "actions": "操作"
-          },
-          "fields": {
-            "name": "名称",
-            "key": "密钥",
-            "keyHint": "sk- 前缀。点击「生成」获取随机高熵密钥。",
-            "groupName": "分组名",
-            "maxRequests": "最大请求数",
-            "maxCost": "最大成本",
-            "expiresAt": "过期时间",
-            "enabled": "启用",
-            "description": "备注"
-          },
-          "schema": {
-            "nameRequired": "请输入名称。",
-            "keyMinLength": "密钥至少 8 个字符。"
-          },
-          "toast": {
-            "created": "下游密钥已创建。",
-            "createFailed": "创建下游密钥失败。",
-            "updated": "下游密钥已更新。",
-            "updateFailed": "更新下游密钥失败。",
-            "deleted": "下游密钥已删除。",
-            "deleteFailed": "删除下游密钥失败。"
-          },
-          "connect": "接入"
-        },
-        "proxyToken": {
-          "title": "代理令牌",
-          "description": "全局下游 PROXY_TOKEN（sk- 前缀，随机后缀）。",
-          "current": "当前令牌",
-          "notSet": "未设置",
-          "generate": "生成",
-          "save": "更新令牌",
-          "fields": {
-            "suffix": "令牌后缀",
-            "suffixHint": "sk- 前缀固定。生成或输入新后缀。"
-          },
-          "schema": {
-            "suffixMinLength": "后缀至少 8 个字符。"
-          },
-          "toast": {
-            "saved": "代理令牌已更新。",
-            "saveFailed": "更新代理令牌失败。"
-          }
-        }
-      },
-      "models": {
+      "proxyModels": {
         "redirects": {
           "title": "模型名称重定向",
           "description": "规范名称到实际模型名的重定向。",
@@ -1341,13 +1161,148 @@
             "loadFailed": "加载数据源失败：{{message}}",
             "disabled": "价格目录未启用（PRICING_CATALOG_ENABLED=false）。"
           }
+        },
+        "proxyTransport": {
+          "title": "代理与传输",
+          "description": "系统代理、负载规则、上游并发与探测。",
+          "testProxy": "测试",
+          "codexUpstreamGroup": "Codex 上游并发",
+          "codexUpstreamGroupHint": "Codex 上游的会话级控制：WebSocket/Compact 行为、每会话通道并发上限与队列等待时间。",
+          "fields": {
+            "systemProxyUrl": "系统代理 URL",
+            "systemProxyUrlHint": "可选出站代理（http:// 或 socks5://）。留空则禁用。",
+            "proxyErrorKeywords": "代理错误关键词",
+            "proxyErrorKeywordsHint": "每行一个关键词；响应命中任一关键词即视为失败。",
+            "proxyEmptyContentFailEnabled": "空 completion 视为失败",
+            "proxyEmptyContentFailEnabledHint": "completion=0 的响应视为失败。",
+            "payloadRules": "负载规则（JSON）",
+            "payloadRulesHint": "按模型重写请求负载的 JSON 对象（键为模型名，值为要覆盖的字段）。",
+            "codexUpstreamWebsocketEnabled": "对 Codex 上游使用 WebSocket",
+            "responsesCompactFallbackEnabled": "Compact 回退到 Responses",
+            "proxySessionChannelConcurrencyLimit": "会话通道并发",
+            "proxySessionChannelQueueWaitMs": "队列等待（毫秒）",
+            "modelAvailabilityProbeEnabled": "启用模型可用性探测",
+            "modelAvailabilityProbeEnabledHint": "定期探测上游模型可用性，并将不可达模型标记为不可用。"
+          },
+          "schema": {
+            "payloadRulesInvalid": "负载规则必须是合法的 JSON 对象。"
+          },
+          "toast": {
+            "saved": "代理与传输设置已保存。",
+            "saveFailed": "保存代理与传输设置失败。",
+            "proxyOk": "代理可达（{{ms}} ms）。",
+            "proxyOkGeneric": "代理可达。",
+            "proxyFailed": "代理测试失败。"
+          }
+        },
+        "routing": {
+          "title": "路由策略",
+          "description": "兜底成本、权重、冷却与超时。",
+          "weightsGroup": "路由权重",
+          "weightsHint": "预设应用典型权重档位；可手动微调。",
+          "fallbackGroup": "价格兜底",
+          "preset": {
+            "balanced": "均衡",
+            "stable": "稳定优先",
+            "cost": "成本优先"
+          },
+          "fields": {
+            "routingFallbackUnitCost": "兜底单价",
+            "routingFallbackUnitCostHint": "无实测/配置值时的默认单价。",
+            "routeFailureCooldown": "失败冷却（秒）",
+            "routeFailureCooldownHint": "普通失败与分级冷却均设上限；429 额度类冷却仍遵循上游重置时间。",
+            "proxyFirstByteTimeout": "首字超时（秒）",
+            "proxyFirstByteTimeoutHint": "0 关闭；无首包/首 token 时中止。",
+            "disableCrossProtocolFallback": "禁用跨协议回退",
+            "disableCrossProtocolFallbackHint": "失败时不重试其他协议。",
+            "baseWeightFactor": "基础权重因子",
+            "baseWeightFactorHint": "每个候选通道的基础权重加数；调高可缩小通道间权重差距、分配更均衡。",
+            "valueScoreFactor": "价值评分因子",
+            "valueScoreFactorHint": "价值评分（成本/余额/用量综合）在路由贡献中的放大系数。",
+            "costWeight": "成本权重",
+            "costWeightHint": "价值评分中单价的权重：单价越低得分越高，通道越优先。",
+            "balanceWeight": "余额权重",
+            "balanceWeightHint": "价值评分中账户余额的权重：余额越充足，通道越优先。",
+            "usageWeight": "用量权重",
+            "usageWeightHint": "价值评分中近期用量的权重：用量越少，通道越优先（负载均衡）。"
+          },
+          "toast": {
+            "saved": "路由策略已保存。",
+            "saveFailed": "保存路由策略失败。"
+          }
+        }
+      },
+      "downstream": {
+        "keys": {
+          "title": "下游密钥",
+          "description": "下游 API 密钥（按站点/按账号签发令牌）。",
+          "create": "创建密钥",
+          "createTitle": "创建下游密钥",
+          "createDescription": "签发新的下游 API 密钥，含配额与元数据。",
+          "editTitle": "编辑下游密钥",
+          "editDescription": "更新密钥的元数据。密钥值本身不可在此更改。",
+          "generate": "生成",
+          "empty": "暂无下游密钥。创建一个以开始签发令牌。",
+          "requests": "请求：{{used}} / {{max}}",
+          "cost": "成本：{{used}} / {{max}}",
+          "usage24h": "24h：{{requests}} 次 · {{tokens}} tokens · ${{cost}}",
+          "deleteTitle": "删除下游密钥",
+          "deleteDescription": "删除密钥「{{name}}」？此操作不可撤销。",
+          "columns": {
+            "name": "名称",
+            "group": "分组",
+            "enabled": "状态",
+            "enabledAria": "切换 {{name}} 的启用状态",
+            "editAria": "编辑 {{name}}",
+            "usage": "用量",
+            "actions": "操作"
+          },
+          "fields": {
+            "name": "名称",
+            "key": "密钥",
+            "keyHint": "sk- 前缀。点击「生成」获取随机高熵密钥。",
+            "groupName": "分组名",
+            "maxRequests": "最大请求数",
+            "maxCost": "最大成本",
+            "expiresAt": "过期时间",
+            "enabled": "启用",
+            "description": "备注"
+          },
+          "schema": {
+            "nameRequired": "请输入名称。",
+            "keyMinLength": "密钥至少 8 个字符。"
+          },
+          "toast": {
+            "created": "下游密钥已创建。",
+            "createFailed": "创建下游密钥失败。",
+            "updated": "下游密钥已更新。",
+            "updateFailed": "更新下游密钥失败。",
+            "deleted": "下游密钥已删除。",
+            "deleteFailed": "删除下游密钥失败。"
+          },
+          "connect": "接入"
+        },
+        "proxyToken": {
+          "title": "代理令牌",
+          "description": "全局下游 PROXY_TOKEN（sk- 前缀，随机后缀）。",
+          "current": "当前令牌",
+          "notSet": "未设置",
+          "generate": "生成",
+          "save": "更新令牌",
+          "fields": {
+            "suffix": "令牌后缀",
+            "suffixHint": "sk- 前缀固定。生成或输入新后缀。"
+          },
+          "schema": {
+            "suffixMinLength": "后缀至少 8 个字符。"
+          },
+          "toast": {
+            "saved": "代理令牌已更新。",
+            "saveFailed": "更新代理令牌失败。"
+          }
         }
       },
       "content": {
-        "groups": {
-          "data": "数据与备份",
-          "messaging": "消息"
-        },
         "importExport": {
           "title": "导入 / 导出",
           "description": "备份与恢复运行时配置。",
@@ -1499,11 +1454,43 @@
           }
         }
       },
-      "systemInfo": {
-        "groups": {
-          "logs": "日志",
-          "system": "系统",
-          "dangerZone": "危险区"
+      "operations": {
+        "scheduling": {
+          "title": "定时任务",
+          "description": "签到、余额刷新与日志清理计划。",
+          "triggerCheckin": "立即签到",
+          "viewProgramLogs": "查看日志",
+          "triggering": "触发中…",
+          "migration": {
+            "title": "升级旧版计划",
+            "summary": "v{{current}} → v{{target}}：{{pending}} 个计划可迁移为语义化格式。",
+            "customCount": "{{count}} 个自定义 Cron 表达式原样保留。",
+            "legacyPreserved": "旧 Cron 字段保留，不删除任何内容。",
+            "apply": "立即升级",
+            "confirm": "本次升级只追加语义化描述键，保留所有现有 Cron 字段，安全且可重复执行。",
+            "applied": "计划已升级。",
+            "applyFailed": "计划升级失败。"
+          },
+          "fields": {
+            "logCleanupRetentionDays": "保留天数",
+            "logCleanupUsageLogsEnabled": "清理用量日志",
+            "logCleanupUsageLogsEnabledHint": "按计划删除累积的代理用量日志。",
+            "checkinGroup": "签到",
+            "checkinSchedule": "签到计划",
+            "balanceGroup": "余额刷新",
+            "balanceRefreshSchedule": "余额刷新计划",
+            "logCleanupGroup": "日志清理",
+            "logCleanupSchedule": "日志清理计划",
+            "logCleanupProgramLogsEnabled": "清理运行事件",
+            "logCleanupProgramLogsEnabledHint": "按计划删除程序事件。两个清理开关均关闭时不执行删除。"
+          },
+          "toast": {
+            "saved": "计划已保存。",
+            "saveFailed": "保存计划失败。",
+            "checkinTriggered": "已触发签到。",
+            "checkinTriggerFailed": "触发签到失败。",
+            "checkinPartialFailed": "签到部分失败"
+          }
         },
         "programLogs": {
           "title": "运行事件",

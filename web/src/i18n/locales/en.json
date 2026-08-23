@@ -905,16 +905,16 @@
     },
     "settings": {
       "subareas": {
-        "general": "General",
-        "general.description": "Branding, authentication, schedules, proxy transport, and routing strategy.",
+        "basic": "Basics",
+        "basic.description": "Site, branding and administrator authentication.",
+        "proxyModels": "Proxy & Models",
+        "proxyModels.description": "Proxy transport, routing policy, model redirects, rates and model data sources.",
         "downstream": "Downstream",
-        "downstream.description": "Downstream API keys (issued to sites/accounts) and the global proxy token.",
-        "models": "Model Settings",
-        "models.description": "Model name redirects, rates & multipliers, and the global allowlist.",
-        "content": "Data & Messaging",
-        "content.description": "Import/export, notification channels, and risk-banner announcements.",
-        "systemInfo": "System & Maintenance",
-        "systemInfo.description": "Logs, updates, database, and maintenance — including the danger zone."
+        "downstream.description": "API keys issued to downstream sites/accounts and the global proxy token.",
+        "content": "Notify & Data",
+        "content.description": "Import/export, notification channels and risk-banner announcements.",
+        "operations": "System & Ops",
+        "operations.description": "Scheduling, database and migration, maintenance, logs and updates."
       },
       "overview": {
         "title": "Settings",
@@ -962,11 +962,7 @@
         },
         "unlimited": "unlimited"
       },
-      "general": {
-        "groups": {
-          "brandSecurity": "Brand & Security",
-          "runtimeStrategy": "Runtime & Strategy"
-        },
+      "basic": {
         "site": {
           "title": "Site & Branding",
           "description": "System name, logo, footer, about, and server address.",
@@ -1019,185 +1015,9 @@
             "allowlistSaved": "IP allowlist saved.",
             "allowlistSaveFailed": "Failed to save IP allowlist."
           }
-        },
-        "scheduling": {
-          "title": "Scheduled Tasks",
-          "description": "Check-in, balance refresh, and log cleanup schedules.",
-          "triggerCheckin": "Trigger check-in now",
-          "viewProgramLogs": "View logs",
-          "migration": {
-            "title": "Upgrade legacy schedules",
-            "summary": "v{{current}} → v{{target}}: {{pending}} schedule(s) can be migrated to the semantic format.",
-            "customCount": "{{count}} custom cron expression(s) kept verbatim.",
-            "legacyPreserved": "Legacy cron fields are kept; nothing is deleted.",
-            "apply": "Upgrade now",
-            "confirm": "This adds semantic schedule descriptors and keeps all existing cron fields. It is safe and repeatable.",
-            "applied": "Schedules upgraded.",
-            "applyFailed": "Failed to upgrade schedules."
-          },
-          "triggering": "Triggering…",
-          "fields": {
-            "logCleanupRetentionDays": "Log retention (days)",
-            "logCleanupUsageLogsEnabled": "Purge usage logs",
-            "checkinGroup": "Check-in",
-            "checkinSchedule": "Check-in schedule",
-            "balanceGroup": "Balance refresh",
-            "balanceRefreshSchedule": "Balance refresh schedule",
-            "logCleanupGroup": "Log cleanup",
-            "logCleanupSchedule": "Log cleanup schedule",
-            "logCleanupUsageLogsEnabledHint": "Delete accumulated proxy usage logs on the cleanup schedule.",
-            "logCleanupProgramLogsEnabled": "Purge operational events",
-            "logCleanupProgramLogsEnabledHint": "Delete program events on the cleanup schedule. No-op if both cleanup toggles are off."
-          },
-          "toast": {
-            "saved": "Schedule saved.",
-            "saveFailed": "Failed to save schedule.",
-            "checkinTriggered": "Check-in triggered.",
-            "checkinTriggerFailed": "Failed to trigger check-in.",
-            "checkinPartialFailed": "Check-in partially failed"
-          }
-        },
-        "proxyTransport": {
-          "title": "Proxy & Transport",
-          "description": "System proxy, payload rules, upstream concurrency, and probe.",
-          "testProxy": "Test",
-          "codexUpstreamGroup": "Codex upstream concurrency",
-          "codexUpstreamGroupHint": "Session-level controls for Codex upstreams: WebSocket/Compact behavior, per-session channel concurrency cap, and queue wait time.",
-          "fields": {
-            "systemProxyUrl": "System proxy URL",
-            "systemProxyUrlHint": "Optional outbound proxy (http:// or socks5://). Leave empty to disable.",
-            "proxyErrorKeywords": "Proxy error keywords",
-            "proxyErrorKeywordsHint": "One keyword per line; a response matching any keyword is treated as failure.",
-            "proxyEmptyContentFailEnabled": "Treat empty completion as failure",
-            "proxyEmptyContentFailEnabledHint": "A response with zero completion tokens counts as failure.",
-            "payloadRules": "Payload rules (JSON)",
-            "payloadRulesHint": "Per-model payload rewrite rules as a JSON object (model name as key, override fields as value).",
-            "codexUpstreamWebsocketEnabled": "Use WebSocket with Codex upstream",
-            "responsesCompactFallbackEnabled": "Fallback Compact to Responses",
-            "proxySessionChannelConcurrencyLimit": "Session channel concurrency",
-            "proxySessionChannelQueueWaitMs": "Queue wait (ms)",
-            "modelAvailabilityProbeEnabled": "Enable model availability probe",
-            "modelAvailabilityProbeEnabledHint": "Periodically probe upstream model availability and mark unreachable models."
-          },
-          "schema": {
-            "payloadRulesInvalid": "Payload rules must be a valid JSON object."
-          },
-          "toast": {
-            "saved": "Proxy & transport settings saved.",
-            "saveFailed": "Failed to save proxy & transport settings.",
-            "proxyOk": "Proxy reachable ({{ms}} ms).",
-            "proxyOkGeneric": "Proxy reachable.",
-            "proxyFailed": "Proxy test failed."
-          }
-        },
-        "routing": {
-          "title": "Routing Strategy",
-          "description": "Fallback cost, weights, cooldown, and timeouts.",
-          "weightsGroup": "Routing weights",
-          "weightsHint": "Presets apply canonical weight profiles; fine-tune individually as needed.",
-          "fallbackGroup": "Price fallback",
-          "preset": {
-            "balanced": "Balanced",
-            "stable": "Stable-first",
-            "cost": "Cost-first"
-          },
-          "fields": {
-            "routingFallbackUnitCost": "Fallback unit cost",
-            "routingFallbackUnitCostHint": "Default unit cost when no measured/configured value exists.",
-            "routeFailureCooldown": "Failure cooldown (seconds)",
-            "routeFailureCooldownHint": "Caps ordinary failure + tiered cooldown; 429 quota cooldowns still follow upstream reset.",
-            "proxyFirstByteTimeout": "First-byte timeout (seconds)",
-            "proxyFirstByteTimeoutHint": "0 disables; aborts when no first byte/token arrives in time.",
-            "disableCrossProtocolFallback": "Disable cross-protocol fallback",
-            "disableCrossProtocolFallbackHint": "On failure, do not retry with a different protocol.",
-            "baseWeightFactor": "Base weight factor",
-            "baseWeightFactorHint": "Base weight added to every candidate channel; raise it to narrow the gap between channels and balance allocation.",
-            "valueScoreFactor": "Value score factor",
-            "valueScoreFactorHint": "Multiplier applied to the value score (cost/balance/usage composite) in route contribution.",
-            "costWeight": "Cost weight",
-            "costWeightHint": "Weight of unit cost in the value score: cheaper channels score higher and win preference.",
-            "balanceWeight": "Balance weight",
-            "balanceWeightHint": "Weight of account balance in the value score: better-funded accounts win preference.",
-            "usageWeight": "Usage weight",
-            "usageWeightHint": "Weight of recent usage in the value score: lightly used channels win preference (load balancing)."
-          },
-          "toast": {
-            "saved": "Routing strategy saved.",
-            "saveFailed": "Failed to save routing strategy."
-          }
         }
       },
-      "downstream": {
-        "keys": {
-          "title": "Downstream Keys",
-          "description": "Downstream API keys (issue tokens scoped per site or account).",
-          "create": "Create key",
-          "createTitle": "Create downstream key",
-          "createDescription": "Issue a new downstream API key with quotas and metadata.",
-          "editTitle": "Edit downstream key",
-          "editDescription": "Update the key's metadata. The key value cannot be changed here.",
-          "generate": "Generate",
-          "empty": "No downstream keys yet. Create one to start issuing tokens.",
-          "requests": "Requests: {{used}} / {{max}}",
-          "cost": "Cost: {{used}} / {{max}}",
-          "usage24h": "24h: {{requests}} req · {{tokens}} tok · ${{cost}}",
-          "deleteTitle": "Delete downstream key",
-          "deleteDescription": "Delete key \"{{name}}\"? This action cannot be undone.",
-          "columns": {
-            "name": "Name",
-            "group": "Group",
-            "enabled": "Enabled",
-            "enabledAria": "Toggle enabled for {{name}}",
-            "editAria": "Edit {{name}}",
-            "usage": "Usage",
-            "actions": "Actions"
-          },
-          "fields": {
-            "name": "Name",
-            "key": "Key",
-            "keyHint": "sk-prefixed. Click Generate for a random high-entropy key.",
-            "groupName": "Group name",
-            "maxRequests": "Max requests",
-            "maxCost": "Max cost",
-            "expiresAt": "Expires at",
-            "enabled": "Enabled",
-            "description": "Description"
-          },
-          "schema": {
-            "nameRequired": "Name is required.",
-            "keyMinLength": "Key must be at least 8 characters."
-          },
-          "toast": {
-            "created": "Downstream key created.",
-            "createFailed": "Failed to create downstream key.",
-            "updated": "Downstream key updated.",
-            "updateFailed": "Failed to update downstream key.",
-            "deleted": "Downstream key deleted.",
-            "deleteFailed": "Failed to delete downstream key."
-          },
-          "connect": "Connect"
-        },
-        "proxyToken": {
-          "title": "Proxy Token",
-          "description": "Global downstream PROXY_TOKEN (sk- prefix, random suffix).",
-          "current": "Current token",
-          "notSet": "not set",
-          "generate": "Generate",
-          "save": "Update token",
-          "fields": {
-            "suffix": "Token suffix",
-            "suffixHint": "The sk- prefix is fixed. Generate or type a new suffix."
-          },
-          "schema": {
-            "suffixMinLength": "Suffix must be at least 8 characters."
-          },
-          "toast": {
-            "saved": "Proxy token updated.",
-            "saveFailed": "Failed to update proxy token."
-          }
-        }
-      },
-      "models": {
+      "proxyModels": {
         "redirects": {
           "title": "Model Name Redirects",
           "description": "Canonical-to-actual model name redirects.",
@@ -1341,13 +1161,148 @@
             "loadFailed": "Failed to load sources: {{message}}",
             "disabled": "The pricing catalog is not enabled (PRICING_CATALOG_ENABLED=false)."
           }
+        },
+        "proxyTransport": {
+          "title": "Proxy & Transport",
+          "description": "System proxy, payload rules, upstream concurrency, and probe.",
+          "testProxy": "Test",
+          "codexUpstreamGroup": "Codex upstream concurrency",
+          "codexUpstreamGroupHint": "Session-level controls for Codex upstreams: WebSocket/Compact behavior, per-session channel concurrency cap, and queue wait time.",
+          "fields": {
+            "systemProxyUrl": "System proxy URL",
+            "systemProxyUrlHint": "Optional outbound proxy (http:// or socks5://). Leave empty to disable.",
+            "proxyErrorKeywords": "Proxy error keywords",
+            "proxyErrorKeywordsHint": "One keyword per line; a response matching any keyword is treated as failure.",
+            "proxyEmptyContentFailEnabled": "Treat empty completion as failure",
+            "proxyEmptyContentFailEnabledHint": "A response with zero completion tokens counts as failure.",
+            "payloadRules": "Payload rules (JSON)",
+            "payloadRulesHint": "Per-model payload rewrite rules as a JSON object (model name as key, override fields as value).",
+            "codexUpstreamWebsocketEnabled": "Use WebSocket with Codex upstream",
+            "responsesCompactFallbackEnabled": "Fallback Compact to Responses",
+            "proxySessionChannelConcurrencyLimit": "Session channel concurrency",
+            "proxySessionChannelQueueWaitMs": "Queue wait (ms)",
+            "modelAvailabilityProbeEnabled": "Enable model availability probe",
+            "modelAvailabilityProbeEnabledHint": "Periodically probe upstream model availability and mark unreachable models."
+          },
+          "schema": {
+            "payloadRulesInvalid": "Payload rules must be a valid JSON object."
+          },
+          "toast": {
+            "saved": "Proxy & transport settings saved.",
+            "saveFailed": "Failed to save proxy & transport settings.",
+            "proxyOk": "Proxy reachable ({{ms}} ms).",
+            "proxyOkGeneric": "Proxy reachable.",
+            "proxyFailed": "Proxy test failed."
+          }
+        },
+        "routing": {
+          "title": "Routing Strategy",
+          "description": "Fallback cost, weights, cooldown, and timeouts.",
+          "weightsGroup": "Routing weights",
+          "weightsHint": "Presets apply canonical weight profiles; fine-tune individually as needed.",
+          "fallbackGroup": "Price fallback",
+          "preset": {
+            "balanced": "Balanced",
+            "stable": "Stable-first",
+            "cost": "Cost-first"
+          },
+          "fields": {
+            "routingFallbackUnitCost": "Fallback unit cost",
+            "routingFallbackUnitCostHint": "Default unit cost when no measured/configured value exists.",
+            "routeFailureCooldown": "Failure cooldown (seconds)",
+            "routeFailureCooldownHint": "Caps ordinary failure + tiered cooldown; 429 quota cooldowns still follow upstream reset.",
+            "proxyFirstByteTimeout": "First-byte timeout (seconds)",
+            "proxyFirstByteTimeoutHint": "0 disables; aborts when no first byte/token arrives in time.",
+            "disableCrossProtocolFallback": "Disable cross-protocol fallback",
+            "disableCrossProtocolFallbackHint": "On failure, do not retry with a different protocol.",
+            "baseWeightFactor": "Base weight factor",
+            "baseWeightFactorHint": "Base weight added to every candidate channel; raise it to narrow the gap between channels and balance allocation.",
+            "valueScoreFactor": "Value score factor",
+            "valueScoreFactorHint": "Multiplier applied to the value score (cost/balance/usage composite) in route contribution.",
+            "costWeight": "Cost weight",
+            "costWeightHint": "Weight of unit cost in the value score: cheaper channels score higher and win preference.",
+            "balanceWeight": "Balance weight",
+            "balanceWeightHint": "Weight of account balance in the value score: better-funded accounts win preference.",
+            "usageWeight": "Usage weight",
+            "usageWeightHint": "Weight of recent usage in the value score: lightly used channels win preference (load balancing)."
+          },
+          "toast": {
+            "saved": "Routing strategy saved.",
+            "saveFailed": "Failed to save routing strategy."
+          }
+        }
+      },
+      "downstream": {
+        "keys": {
+          "title": "Downstream Keys",
+          "description": "Downstream API keys (issue tokens scoped per site or account).",
+          "create": "Create key",
+          "createTitle": "Create downstream key",
+          "createDescription": "Issue a new downstream API key with quotas and metadata.",
+          "editTitle": "Edit downstream key",
+          "editDescription": "Update the key's metadata. The key value cannot be changed here.",
+          "generate": "Generate",
+          "empty": "No downstream keys yet. Create one to start issuing tokens.",
+          "requests": "Requests: {{used}} / {{max}}",
+          "cost": "Cost: {{used}} / {{max}}",
+          "usage24h": "24h: {{requests}} req · {{tokens}} tok · ${{cost}}",
+          "deleteTitle": "Delete downstream key",
+          "deleteDescription": "Delete key \"{{name}}\"? This action cannot be undone.",
+          "columns": {
+            "name": "Name",
+            "group": "Group",
+            "enabled": "Enabled",
+            "enabledAria": "Toggle enabled for {{name}}",
+            "editAria": "Edit {{name}}",
+            "usage": "Usage",
+            "actions": "Actions"
+          },
+          "fields": {
+            "name": "Name",
+            "key": "Key",
+            "keyHint": "sk-prefixed. Click Generate for a random high-entropy key.",
+            "groupName": "Group name",
+            "maxRequests": "Max requests",
+            "maxCost": "Max cost",
+            "expiresAt": "Expires at",
+            "enabled": "Enabled",
+            "description": "Description"
+          },
+          "schema": {
+            "nameRequired": "Name is required.",
+            "keyMinLength": "Key must be at least 8 characters."
+          },
+          "toast": {
+            "created": "Downstream key created.",
+            "createFailed": "Failed to create downstream key.",
+            "updated": "Downstream key updated.",
+            "updateFailed": "Failed to update downstream key.",
+            "deleted": "Downstream key deleted.",
+            "deleteFailed": "Failed to delete downstream key."
+          },
+          "connect": "Connect"
+        },
+        "proxyToken": {
+          "title": "Proxy Token",
+          "description": "Global downstream PROXY_TOKEN (sk- prefix, random suffix).",
+          "current": "Current token",
+          "notSet": "not set",
+          "generate": "Generate",
+          "save": "Update token",
+          "fields": {
+            "suffix": "Token suffix",
+            "suffixHint": "The sk- prefix is fixed. Generate or type a new suffix."
+          },
+          "schema": {
+            "suffixMinLength": "Suffix must be at least 8 characters."
+          },
+          "toast": {
+            "saved": "Proxy token updated.",
+            "saveFailed": "Failed to update proxy token."
+          }
         }
       },
       "content": {
-        "groups": {
-          "data": "Data & Backup",
-          "messaging": "Messaging"
-        },
         "importExport": {
           "title": "Import / Export",
           "description": "Backup and restore runtime configuration.",
@@ -1499,11 +1454,43 @@
           }
         }
       },
-      "systemInfo": {
-        "groups": {
-          "logs": "Logs",
-          "system": "System",
-          "dangerZone": "Danger Zone"
+      "operations": {
+        "scheduling": {
+          "title": "Scheduled Tasks",
+          "description": "Check-in, balance refresh, and log cleanup schedules.",
+          "triggerCheckin": "Trigger check-in now",
+          "viewProgramLogs": "View logs",
+          "migration": {
+            "title": "Upgrade legacy schedules",
+            "summary": "v{{current}} → v{{target}}: {{pending}} schedule(s) can be migrated to the semantic format.",
+            "customCount": "{{count}} custom cron expression(s) kept verbatim.",
+            "legacyPreserved": "Legacy cron fields are kept; nothing is deleted.",
+            "apply": "Upgrade now",
+            "confirm": "This adds semantic schedule descriptors and keeps all existing cron fields. It is safe and repeatable.",
+            "applied": "Schedules upgraded.",
+            "applyFailed": "Failed to upgrade schedules."
+          },
+          "triggering": "Triggering…",
+          "fields": {
+            "logCleanupRetentionDays": "Log retention (days)",
+            "logCleanupUsageLogsEnabled": "Purge usage logs",
+            "checkinGroup": "Check-in",
+            "checkinSchedule": "Check-in schedule",
+            "balanceGroup": "Balance refresh",
+            "balanceRefreshSchedule": "Balance refresh schedule",
+            "logCleanupGroup": "Log cleanup",
+            "logCleanupSchedule": "Log cleanup schedule",
+            "logCleanupUsageLogsEnabledHint": "Delete accumulated proxy usage logs on the cleanup schedule.",
+            "logCleanupProgramLogsEnabled": "Purge operational events",
+            "logCleanupProgramLogsEnabledHint": "Delete program events on the cleanup schedule. No-op if both cleanup toggles are off."
+          },
+          "toast": {
+            "saved": "Schedule saved.",
+            "saveFailed": "Failed to save schedule.",
+            "checkinTriggered": "Check-in triggered.",
+            "checkinTriggerFailed": "Failed to trigger check-in.",
+            "checkinPartialFailed": "Check-in partially failed"
+          }
         },
         "programLogs": {
           "title": "Operational Events",

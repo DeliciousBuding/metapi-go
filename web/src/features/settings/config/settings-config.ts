@@ -1,20 +1,23 @@
 // metapi-go/features/settings/config — 5-subarea manifest + validation helpers.
 // Assembles each subarea's typed section-registry adapter into a single
 // string-typed list consumed by route guards + the generic SettingsPage.
+//
+// Wave 9 lane B semantic regroup (settings-ia-plan.md §3.2 方案 A):
+// basic / proxy-models / downstream / content(通知与数据) / operations.
 
+import { basicSubarea } from '../sections/basic'
 import { contentSubarea } from '../sections/content'
 import { downstreamSubarea } from '../sections/downstream'
-import { generalSubarea } from '../sections/general'
-import { modelsSubarea } from '../sections/models'
-import { systemInfoSubarea } from '../sections/system-info'
+import { operationsSubarea } from '../sections/operations'
+import { proxyModelsSubarea } from '../sections/proxy-models'
 import type { SettingsSubarea } from '../types'
 
 const SETTINGS_SUBAREAS: readonly SettingsSubarea[] = [
-  generalSubarea,
+  basicSubarea,
+  proxyModelsSubarea,
   downstreamSubarea,
-  modelsSubarea,
   contentSubarea,
-  systemInfoSubarea,
+  operationsSubarea,
 ]
 
 /** Stable id list for route validation. */

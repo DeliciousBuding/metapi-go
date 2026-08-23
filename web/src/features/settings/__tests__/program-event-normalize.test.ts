@@ -13,7 +13,7 @@ import {
   parseEventMessage,
   parsePanelPath,
   splitEnrichmentNames,
-} from '../sections/system-info/lib/event-normalize'
+} from '../sections/operations/lib/event-normalize'
 
 describe('normalizeEvent', () => {
   it('maps created_at to createdAt and integer read to boolean', () => {
@@ -145,8 +145,8 @@ describe('parsePanelPath', () => {
   })
 
   it('accepts a bare path without query', () => {
-    expect(parsePanelPath('/settings/system-info/program-logs')).toEqual({
-      to: '/settings/system-info/program-logs',
+    expect(parsePanelPath('/settings/operations/program-logs')).toEqual({
+      to: '/settings/operations/program-logs',
       search: {},
     })
   })

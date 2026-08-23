@@ -8,18 +8,13 @@
 // `SettingsSubsection` is the full L3 zone: the h3 title plus a `border-t`
 // separator so multiple flat zones inside one card read as distinct sections
 // (e.g. import/export's export / import / WebDAV zones). Boxed zones that
-// already carry their own `rounded-lg border` (e.g. schedule groups) use
-// `SettingsSubsectionTitle` alone — same h3 level, separator comes from the
-// box.
+// already carry their own `rounded-lg border` (e.g. schedule groups) render
+// a plain h3 with the same `text-sm font-medium` styling — same L3 level,
+// separator comes from the box.
 
 import type { ReactNode } from 'react'
 
 import { cn } from '@/lib/utils'
-
-/** L3 title for a card-internal subsection (boxed or flat). */
-export function SettingsSubsectionTitle({ title }: { title: string }) {
-  return <h3 className='text-sm font-medium'>{title}</h3>
-}
 
 type SettingsSubsectionProps = {
   /** Translated L3 title. */
@@ -45,7 +40,7 @@ export function SettingsSubsection({
         className
       )}
     >
-      <SettingsSubsectionTitle title={title} />
+      <h3 className='text-sm font-medium'>{title}</h3>
       {children}
     </section>
   )
