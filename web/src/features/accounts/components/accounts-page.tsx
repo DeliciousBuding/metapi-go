@@ -60,9 +60,17 @@ import {
   useToggleAccountPin,
   useToggleAccountStatus,
 } from '../api'
-import { resolveDeepLinkPreselect } from '../lib/accounts-deep-link'
+import {
+  resolveDeepLinkCredentialMode,
+  resolveDeepLinkPreselect,
+} from '../lib/accounts-deep-link'
 import { resolveAccountDisplayName } from '../lib/accounts-display-name'
-import { type Account, type AccountRowActions, accountSchema } from '../types'
+import {
+  type Account,
+  type AccountRowActions,
+  type CredentialMode,
+  accountSchema,
+} from '../types'
 import { AccountDetailSheet } from './account-detail-sheet'
 import { AccountFormDialog } from './account-form-dialog'
 import { useAccountsColumns } from './accounts-columns'
@@ -264,19 +272,24 @@ export function AccountsPage() {
   const [preselectedSiteId, setPreselectedSiteId] = useState<
     number | undefined
   >(undefined)
+  const [preselectedCredentialMode, setPreselectedCredentialMode] = useState<
+    CredentialMode | undefined
+  >(undefined)
 
   const openCreate = () => {
     setFormMode('create')
     setEditAccount(null)
     setPreselectedSiteId(undefined)
+    setPreselectedCredentialMode(undefined)
     setFormOpen(true)
   }
 
   // Consume the one-shot site → account deep link exactly once: resolve the
   // referenced site against the loaded snapshot, open the create dialog with
-  // it preselected, then strip the transient params from the URL so a refetch
-  // or remount never reopens the dialog. Waits for the snapshot so a stale or
-  // unknown `siteId` falls back safely instead of creating data.
+  // it preselected (apikey mode when the CTA passed the segment hint), then
+  // strip the transient params from the URL so a refetch or remount never
+  // reopens the dialog. Waits for the snapshot so a stale or unknown
+  // `siteId` falls back safely instead of creating data.
   const deepLinkConsumed = useRef(false)
   useEffect(() => {
     if (deepLinkConsumed.current || search.create !== true) return
@@ -287,8 +300,10 @@ export function AccountsPage() {
       search.siteId,
       data?.sites ?? []
     )
+    const resolvedMode = resolveDeepLinkCredentialMode(search.segment)
     if (resolvedSiteId !== null) {
       setPreselectedSiteId(resolvedSiteId)
+      setPreselectedCredentialMode(resolvedMode ?? undefined)
       setFormMode('create')
       setEditAccount(null)
       setFormOpen(true)
@@ -297,7 +312,12 @@ export function AccountsPage() {
     deepLinkConsumed.current = true
     navigate({
       to: '/accounts',
-      search: { ...search, siteId: undefined, create: undefined },
+      search: {
+        ...search,
+        siteId: undefined,
+        create: undefined,
+        segment: undefined,
+      },
       replace: true,
     })
   }, [search, isLoading, data, navigate])
@@ -546,6 +566,7 @@ export function AccountsPage() {
         account={editAccount}
         sites={sites}
         initialSiteId={preselectedSiteId}
+        initialCredentialMode={preselectedCredentialMode}
       />
 
       {/* Detail sheet (embeds the tokens sub-module) */}

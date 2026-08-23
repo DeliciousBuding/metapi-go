@@ -2,15 +2,19 @@
 //
 // This is the FIRST step of the guided "site → account → route" config
 // chain (research §4.2). On successful `addSite`, the form dialog hands the
-// created site to this modal. The primary CTA deep-links into the accounts
-// page with `siteId` so the account form can pre-fill the site binding (and
-// later carry the init preset). "稍后配置" is a ghost secondary so experts
-// can skip — every page stays independently deep-linkable.
+// created site to this modal. Two primary CTAs mirror the TS original's
+// three-branch guidance (minus the codex OAuth branch, which the go version
+// has no handler for): 「添加账号」 opens the account form in session mode
+// with the site preselected, 「添加 API Key」 does the same but defaults the
+// credential mode to `apikey` via the `segment=apikey` deep-link param.
+// "稍后配置" is a ghost secondary so experts can skip — every page stays
+// independently deep-linkable.
 
 import { useNavigate } from '@tanstack/react-router'
 import {
   ArrowRight as ArrowRightIcon,
   CheckCircle2 as CheckCircle2Icon,
+  KeyRound as KeyRoundIcon,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -50,6 +54,16 @@ export function SiteCreatedModal({
     })
   }
 
+  function handleGoToAddApiKey() {
+    if (!site) return
+    onOpenChange(false)
+    navigate({
+      to: '/accounts',
+      search: { siteId: site.id, create: true, segment: 'apikey' },
+      replace: true,
+    })
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -75,6 +89,10 @@ export function SiteCreatedModal({
         <DialogFooter>
           <Button variant='outline' onClick={() => onOpenChange(false)}>
             {t('sites.created.dismiss')}
+          </Button>
+          <Button variant='outline' onClick={handleGoToAddApiKey} disabled={!site}>
+            <KeyRoundIcon className='size-4' />
+            {t('sites.created.addApiKey')}
           </Button>
           <Button onClick={handleGoToAccounts} disabled={!site}>
             {t('sites.created.goToAccounts')}

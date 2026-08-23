@@ -170,6 +170,56 @@ describe('AccountFormDialog credential verification', () => {
   })
 })
 
+describe('AccountFormDialog deep-link credential mode hint', () => {
+  function renderWithMode(initialCredentialMode: 'apikey' | undefined) {
+    return render(
+      <AccountFormDialog
+        open
+        onOpenChange={vi.fn()}
+        mode='create'
+        sites={sites}
+        initialSiteId={7}
+        initialCredentialMode={initialCredentialMode}
+      />
+    )
+  }
+
+  it('opens in apikey mode when the deep link passed segment=apikey', async () => {
+    renderWithMode('apikey')
+
+    // The apikey tab is selected: the session-token field is absent and the
+    // API token field is present.
+    await waitFor(() => {
+      expect(
+        screen.queryByLabelText('Access Token / Cookie')
+      ).not.toBeInTheDocument()
+    })
+    expect(await screen.findByLabelText('API Key')).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'API Key' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+    expect(screen.getByRole('tab', { name: 'Session' })).toHaveAttribute(
+      'aria-selected',
+      'false'
+    )
+  })
+
+  it('keeps the session default when no segment hint is present', async () => {
+    renderWithMode(undefined)
+
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText('Access Token / Cookie')
+      ).toBeInTheDocument()
+    })
+    expect(screen.getByRole('tab', { name: 'Session' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+  })
+})
+
 describe('AccountFormDialog submission contracts', () => {
   it('hands the top-level created account id to the guided route toast', async () => {
     mutations.create.mutateAsync.mockResolvedValue({ id: 42 })
