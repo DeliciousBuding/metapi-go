@@ -36,16 +36,18 @@
 
 > 2026-08-24 三轮只读探索（token-routes/models/model-tester · settings/sites/accounts/channels · dashboard/observability/checkin/oauth/import + 全局横切）产出证据化清单，按优先级分批落地，每批带回归测试与门禁。
 
-**Batch 1（本 PR）—— 错误态一致性 + i18n + 文档漂移**
+**Batch 1（已合入 #975）—— 错误态一致性 + i18n + 文档漂移**
 - accounts/channels 页 load error 时同时渲染 QueryErrorBanner 与 DataTablePage 空态（含误导 CTA）→ 镜像 sites 页三元分支抑制 table（+ 回归测试）。
 - import stepper `aria-label` 硬编码英文 → `t('import.stepper.progressLabel')`（en/zh 词条补齐）。
 - a11y-checklist §7「preset contrast」残留清单过时（Wave 9 已清零）→ 改为 0 豁免现状。
 
+**Batch 2（本 PR）—— token-routes Edit + decision 语义 + stream i18n**
+- token-routes detail sheet footer 增「Edit」（gap-6），routes-page 接线（关 sheet → 开 edit dialog）；decision snapshot selected channel 显示 account 名。
+- transport.ts:151 硬编码中文流式错误 → 英文技术消息。
+
 **剩余 P2（后续批）**
-- token-routes detail sheet footer 缺 Edit（gap-6）；decision snapshot 显示 raw channelId。
 - model-tester 无 error 态（模型/渠道下拉静默为空）。
 - import 空响应、manual-checkin schema-parse 失败被 `catch {}` 静默吞。
-- transport.ts:151 硬编码中文错误串。
 - schedule-editor / site-form-dialog 自定义组件未透传 id/aria（FormLabel htmlFor 悬空）。
 
 **剩余 P3（后续批）**
