@@ -114,11 +114,19 @@ func (h *schedulerStatusHandler) balanceRefreshStatus() schedulerRunStatus {
 	_ = h.db.Get(&refreshed24h, `SELECT COUNT(*) FROM accounts WHERE last_balance_refresh >= ?`, since24h())
 	_ = h.db.Get(&total, `SELECT COUNT(*) FROM accounts WHERE status = 'active'`)
 
+	// The job records no per-run status row, so derive the last-status badge
+	// from its own data sources instead of reporting "never": a non-empty
+	// last_balance_refresh written within the 24h window is the success
+	// signal (the timestamp is only stamped after a successful fetch).
+	status := mapRunStatus("")
+	if latest.RefreshedAt != "" && refreshed24h > 0 {
+		status = "success"
+	}
 	return schedulerRunStatus{
 		Job:        "balance-refresh",
 		Enabled:    true,
 		LastRunAt:  latest.RefreshedAt,
-		LastStatus: mapRunStatus(""),
+		LastStatus: status,
 		Runs24h:    refreshed24h,
 		Success24h: refreshed24h,
 		Note:       "activeAccounts=" + numStr(total),

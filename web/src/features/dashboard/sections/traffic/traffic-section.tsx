@@ -133,6 +133,14 @@ export function TrafficSection() {
     }))
   }, [siteDistributionQuery.data])
 
+  // Same all-zero guard as the model-cost donut: zero total balance leaves
+  // the donut empty, so render an explicit empty state instead.
+  const siteDistributionTotal = useMemo(
+    () =>
+      siteDistributionData.reduce((sum, slice) => sum + slice.totalBalance, 0),
+    [siteDistributionData]
+  )
+
   const siteDistributionLabels = useMemo(
     () => ({
       balance: t('dashboard.traffic.siteDistribution.tooltip.balance'),
@@ -199,10 +207,16 @@ export function TrafficSection() {
           siteDistributionQuery,
           siteDistributionData.length === 0,
           'dashboard.traffic.siteDistribution.empty',
-          <SiteDistributionChart
-            data={siteDistributionData}
-            labels={siteDistributionLabels}
-          />
+          siteDistributionTotal === 0 ? (
+            <ChartEmpty
+              message={t('dashboard.traffic.siteDistribution.zeroBalance')}
+            />
+          ) : (
+            <SiteDistributionChart
+              data={siteDistributionData}
+              labels={siteDistributionLabels}
+            />
+          )
         )}
       </ChartShell>
     </div>

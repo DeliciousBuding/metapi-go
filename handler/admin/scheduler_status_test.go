@@ -96,4 +96,9 @@ func TestSchedulerStatusReportsCheckinAndBalance(t *testing.T) {
 	if balance["runs24h"].(float64) != 1 {
 		t.Fatalf("balance-refresh runs24h = %v, want 1 (last_balance_refresh within 24h)", balance["runs24h"])
 	}
+	// The job records no per-run status row, so the badge derives from its own
+	// data: a last_balance_refresh stamped within the 24h window is success.
+	if balance["lastStatus"] != "success" {
+		t.Fatalf("balance-refresh lastStatus = %v, want success (fresh stamp = successful pass)", balance["lastStatus"])
+	}
 }

@@ -717,7 +717,8 @@
           "checkinSucceeded": "succeeded",
           "checkinSkipped": "skipped",
           "proxy24h": "Proxy 24h",
-          "proxy24hHint": "{{success}} ok · {{rpm}}/min"
+          "proxy24hHint": "{{success}} ok · {{rpm}}/min",
+          "proxy24hHintRpm": "{{success}} ok · {{rpm}} req/min (last 60s)"
         },
         "snapshot": {
           "title": "Today snapshot",
@@ -779,6 +780,7 @@
           "title": "Site distribution",
           "description": "Balance share by site.",
           "empty": "No site distribution data yet.",
+          "zeroBalance": "All site balances are $0 — no distribution data.",
           "tooltip": {
             "balance": "Balance",
             "accounts": "Accounts",
@@ -792,6 +794,7 @@
           "title": "Cost distribution",
           "description": "Spend share by model (30d).",
           "empty": "No model cost data for the selected range.",
+          "zeroCost": "No cost data in the last 30 days ({{calls}} calls)",
           "tooltip": {
             "cost": "Cost",
             "calls": "Requests",
