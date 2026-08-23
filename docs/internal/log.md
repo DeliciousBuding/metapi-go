@@ -10,6 +10,7 @@
 - 恢复 SOP 执行：a rebase 受阻（远端已推）改 merge 到 6f44088 → 重写两个 env-independent 不变式测试 → 375×812 Chromium 连续 5 次侧栏开合无冻结 → push；b 全前端门禁 + 41 desktop/19 mobile smoke + 旧 URL redirect + 拖拽持久实测通过 → push；c 门禁复核发现 models.dev catalog vendor 误标 Claude 为 openai 协议，修 dialect 优先 + 真实实例验证 anthropic → push。
 - integration 分支（wave9/integration）c→b→a 顺序 merge + docs 分支 merge；a11y 15 路由 0 serious/critical、route-smoke clean、vitest 171 文件 1130 用例全绿、go test 全绿（Windows 本机 TSan 内存分配 + store 只读目录两处环境性失败除外，CI Linux 权威）。
 - 前端卫生：删除死代码 formatDateTimeMinuteLocal（生产零消费）。
+- Lane D 移动端深审：dom-audit --hard 全量核验，修 2 处 <24px 行内按钮（checkin 查看原始信息 / rates 行内编辑）→24px（min-h-6，Playwright 实测 20→24px + 点击交互回归）；其余硬信号逐条核验为误报（accounts 卡片按钮为 below-fold 裁剪、Switch/Checkbox 为伪元素扩展命中区、settings 侧栏为时序噪声、列头为负边距角点）。
 - 冻结交接文档已消化（恢复 + 集成完成），随 integration PR 删除。
 
 ## 2026-08-23 — Wave 8 收官 + Wave 9 冻结交接
