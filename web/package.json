@@ -50,6 +50,7 @@
     "acceptance:probe-header-quirk": "node scripts/acceptance-probe-header-quirk.mjs",
     "screenshots": "node scripts/screenshot-scan.mjs",
     "icons:fetch": "node scripts/fetch-brand-icons.mjs && node scripts/generate-brand-icon-index.mjs",
+    "visual:regression": "playwright test --config playwright.visual.config.mjs",
     "icons:verify": "node scripts/verify-brand-icons.mjs"
   },
   "dependencies": {
