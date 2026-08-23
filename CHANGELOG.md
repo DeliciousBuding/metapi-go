@@ -5,6 +5,30 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.16.9] — 2026-08-24
+
+### Added
+
+- **模型数据源多源注册表（#971）**：llm-metadata 与 models.dev 双源合并为统一模型目录，支持自动/手动同步；models 页水合真实目录数据。
+- **设置中心语义重组（#971/#972）**：设置拆分为基础、代理与模型、下游、通知与数据、系统与运维五组，旧 URL 自动重定向；目录源改为指针拖拽排序。
+- **目录倍率计价（#972）**：消费 llm-metadata 的 newapi ratio 倍率用于转发成本估算，并由目录数据推导支持的端点类型。
+
+### Fixed
+
+- **前端体验整修（#970）**：覆盖 12 个域的 55 项交互/视觉/移动端/无障碍修复，含侧边栏「路由」导航静默失败等。
+- **14 条产品语义修复（#971）**：模型、路由、设置等用户可见文案与行为修正。
+- **模型目录方言修复（#972）**：部分 Claude 模型被误标为 openai 协议，优先使用原生 dialect 恢复为 anthropic。
+- **移动端交互审计（#972）**：修复两处小于 24px 的触控目标（签到「查看原始信息」、倍率行内编辑），并逐项核验其余遮挡/命中区信号为误报。
+- **data-table 自动重置渲染环（#972）**：修复 keys 页跨 root flushSync 乒乓导致的冻结。
+
+### Performance
+
+- **首屏 bundle 拆分（#972）**：双语言 locale 改为按需懒加载，入口 chunk 减少约 59%（303.6 → 123.5 KB）。
+
+### Accessibility
+
+- **主题对比度归零（#972）**：清除全部 8 项 sub-AA 对比度豁免（删除 2 个闲置 token + 修复 6 个 preset residual），10 个主题 × 明暗模式全部通过 WCAG AA 4.5:1。
+
 ## [v0.16.8] — 2026-08-23
 
 ### Security
