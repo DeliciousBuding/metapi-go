@@ -141,9 +141,9 @@ describe('search palette navigation layer', () => {
     const input = screen.getByPlaceholderText(
       'Search pages, settings, sites, accounts, logs…'
     )
-    fireEvent.change(input, { target: { value: 'program logs' } })
+    fireEvent.change(input, { target: { value: 'operational events' } })
 
-    const entry = await screen.findByText('Program Logs')
+    const entry = await screen.findByText('Operational Events')
     fireEvent.click(entry)
 
     expect(navigateMock).toHaveBeenCalledWith({
