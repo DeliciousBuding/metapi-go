@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // isRegexPrefix reports whether s starts with the "re:" prefix in any letter
@@ -23,6 +24,8 @@ func IsRegexModelPattern(pattern string) bool {
 }
 
 // ParseRegexModelPattern parses a "re:..." pattern into a compiled regexp.
+// Compiled bodies are cached process-wide (regexCompileCache), so repeated
+// calls with the same pattern reuse one compiled, goroutine-safe instance.
 func ParseRegexModelPattern(pattern string) *regexp.Regexp {
 	raw := strings.TrimSpace(pattern)
 	if !isRegexPrefix(raw) {
@@ -34,10 +37,35 @@ func ParseRegexModelPattern(pattern string) *regexp.Regexp {
 	if reBody == "" {
 		return nil
 	}
-	re, err := regexp.Compile(reBody)
-	if err != nil {
-		return nil
+	return compileRegexCached(reBody)
+}
+
+// regexCompileCache maps regex bodies (the pattern with its "re:" prefix
+// trimmed) to compiled *regexp.Regexp instances so hot routing paths stop
+// recompiling identical patterns on every request/retry. regexp.Regexp values
+// are immutable and safe for concurrent use, so sharing one compiled instance
+// across goroutines is safe. Invalid bodies are cached as nil so a bad
+// operator-authored pattern pays the compile-error cost once, not per request.
+//
+// Capacity: keys are operator-authored pattern bodies (route model patterns,
+// downstream-policy supported models, model-mapping keys); the entry count is
+// bounded by configuration size (roughly the route count), not by traffic, so
+// no eviction is needed.
+var regexCompileCache sync.Map
+
+// compileRegexCached returns the shared compiled regexp for body, compiling
+// and caching it on first use. It returns nil (and caches the failure) for
+// invalid bodies.
+func compileRegexCached(body string) *regexp.Regexp {
+	if v, ok := regexCompileCache.Load(body); ok {
+		re, _ := v.(*regexp.Regexp)
+		return re
 	}
+	re, err := regexp.Compile(body)
+	if err != nil {
+		re = nil
+	}
+	regexCompileCache.Store(body, re)
 	return re
 }
 

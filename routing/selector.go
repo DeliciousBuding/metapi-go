@@ -413,8 +413,38 @@ func softFilterCandidatesStrict(
 	return healthy
 }
 
-func (s *ChannelSelector) findRoute(ctx context.Context, model string, policy DownstreamRoutingPolicy) (*RouteMatch, error) {
+// loadEnabledRoutes returns enabled routes, serving them from the route cache
+// while it is fresh (IsRoutesFresh/GetRoutes) and falling back to the DB only
+// on a miss, then repopulating the cache (SetRoutes). Every route-mutation
+// path (route/channel CRUD, rebuild, account/site changes, failure-state
+// recovery) funnels through routing.InvalidateCache -> InvalidateAll, which
+// clears the cached list; worst-case staleness is therefore bounded by TTL.
+// The returned slice is shared across goroutines and must be treated as
+// read-only (findRoute only copies elements out of it).
+func (s *ChannelSelector) loadEnabledRoutes(ctx context.Context) ([]store.TokenRoute, error) {
+	if s.cache != nil && s.cache.IsRoutesFresh() {
+		if routes := s.cache.GetRoutes(); routes != nil {
+			return routes, nil
+		}
+	}
 	routes, err := s.db.LoadEnabledRoutes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if s.cache != nil {
+		if routes == nil {
+			// Cache empty results too (as a non-nil slice): GetRoutes uses
+			// nil to signal miss/stale, and a deployment with zero enabled
+			// routes must not re-query on every request.
+			routes = []store.TokenRoute{}
+		}
+		s.cache.SetRoutes(routes)
+	}
+	return routes, nil
+}
+
+func (s *ChannelSelector) findRoute(ctx context.Context, model string, policy DownstreamRoutingPolicy) (*RouteMatch, error) {
+	routes, err := s.loadEnabledRoutes(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("findRoute: load routes: %w", err)
 	}
@@ -444,35 +474,42 @@ func (s *ChannelSelector) findRoute(ctx context.Context, model string, policy Do
 	// Match priority: 1) explicit_group displayName exact, 2) exact model pattern,
 	// 3) displayName exact, 4) wildcard. Within the first non-empty bucket,
 	// multi-tier context may re-rank when RequestedContextTokens > 0.
-	collect := func(pred func(*store.TokenRoute) bool) []store.TokenRoute {
-		out := make([]store.TokenRoute, 0)
-		for i := range routes {
-			r := &routes[i]
-			if pred(r) {
-				out = append(out, *r)
+	// Buckets 1-3 share a single pass over routes (cheap predicates); the
+	// wildcard/regex bucket is scanned only when all three cheap buckets came
+	// back empty, preserving the original priority order and early exit while
+	// cutting up to four full scans down to at most two.
+	var explicitGroupBucket, exactPatternBucket, displayNameBucket []store.TokenRoute
+	for i := range routes {
+		r := &routes[i]
+		if IsExplicitGroupRoute(r.RouteMode) {
+			if IsRouteDisplayNameMatch(model, r.DisplayName) {
+				explicitGroupBucket = append(explicitGroupBucket, *r)
 			}
+			continue
 		}
-		return out
+		if IsExactRouteModelPattern(r.ModelPattern) && strings.TrimSpace(r.ModelPattern) == model {
+			exactPatternBucket = append(exactPatternBucket, *r)
+		}
+		if IsRouteDisplayNameMatch(model, r.DisplayName) {
+			displayNameBucket = append(displayNameBucket, *r)
+		}
 	}
 
 	var bucket []store.TokenRoute
-	bucket = collect(func(r *store.TokenRoute) bool {
-		return IsExplicitGroupRoute(r.RouteMode) && IsRouteDisplayNameMatch(model, r.DisplayName)
-	})
-	if len(bucket) == 0 {
-		bucket = collect(func(r *store.TokenRoute) bool {
-			return !IsExplicitGroupRoute(r.RouteMode) && IsExactRouteModelPattern(r.ModelPattern) && strings.TrimSpace(r.ModelPattern) == model
-		})
-	}
-	if len(bucket) == 0 {
-		bucket = collect(func(r *store.TokenRoute) bool {
-			return !IsExplicitGroupRoute(r.RouteMode) && IsRouteDisplayNameMatch(model, r.DisplayName)
-		})
-	}
-	if len(bucket) == 0 {
-		bucket = collect(func(r *store.TokenRoute) bool {
-			return !IsExplicitGroupRoute(r.RouteMode) && MatchesModelPattern(model, r.ModelPattern)
-		})
+	switch {
+	case len(explicitGroupBucket) > 0:
+		bucket = explicitGroupBucket
+	case len(exactPatternBucket) > 0:
+		bucket = exactPatternBucket
+	case len(displayNameBucket) > 0:
+		bucket = displayNameBucket
+	default:
+		for i := range routes {
+			r := &routes[i]
+			if !IsExplicitGroupRoute(r.RouteMode) && MatchesModelPattern(model, r.ModelPattern) {
+				bucket = append(bucket, *r)
+			}
+		}
 	}
 
 	if len(bucket) == 0 {
@@ -607,7 +644,7 @@ func (s *ChannelSelector) loadFallbackSourceModelByRouteID(ctx context.Context, 
 	}
 
 	// Load enabled routes and map model patterns for every source route ID.
-	routes, err := s.db.LoadEnabledRoutes(ctx)
+	routes, err := s.loadEnabledRoutes(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("loadRouteMatch: load source route patterns: %w", err)
 	}
