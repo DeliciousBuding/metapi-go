@@ -12,6 +12,7 @@
 - 前端卫生：删除死代码 formatDateTimeMinuteLocal（生产零消费）。
 - Lane D 移动端深审：dom-audit --hard 全量核验，修 2 处 <24px 行内按钮（checkin 查看原始信息 / rates 行内编辑）→24px（min-h-6，Playwright 实测 20→24px + 点击交互回归）；其余硬信号逐条核验为误报（accounts 卡片按钮为 below-fold 裁剪、Switch/Checkbox 为伪元素扩展命中区、settings 侧栏为时序噪声、列头为负边距角点）。
 - 首屏 bundle 拆分：locale 双份 JSON 静态 import → i18next 自定义 backend 懒加载（按当前语言拆 async chunk，切换时按需加载 sibling）；入口 chunk 303.6→123.5KB（gzip 90.7→33.1KB）；vitest 171 文件 1129 用例全绿 + a11y/route-smoke clean + 实例实测 en/zh 首屏无裸 key、切换正常。
+- 对比度豁免收口：删除 dormant `--sidebar-primary`/`--sidebar-primary-foreground` token（全仓 0 消费，theme.css + 10 preset 共 42 行）→ 豁免表 8→6 项；剩余 6 项为 preset residual（forest-whisper dark secondary 3.12 / ocean-breeze light secondary 4.47 / simple-large+anthropic dark destructive 2.97+2.79 / anthropic light success 3.83+soft 4.48），留待设计决策。
 - 冻结交接文档已消化（恢复 + 集成完成），随 integration PR 删除。
 
 ## 2026-08-23 — Wave 8 收官 + Wave 9 冻结交接

@@ -30,7 +30,7 @@
 
 | 项 | 说明 |
 |---|---|
-| 8 项存量 sub-AA 对比度豁免 | contrast-gate 豁免表记录在案，逐项收口需设计决策 |
+| 6 项存量 sub-AA 对比度豁免（preset residual） | contrast-gate 豁免表记录在案，逐项收口需设计决策（2 项 dormant sidebar-primary token 已删除） |
 
 > 无 P0/P1 开放项，开放 issue 0。下一波按需求驱动立项（方向见 `../benchmark.md`）。
 
