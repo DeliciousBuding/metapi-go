@@ -1,16 +1,15 @@
 // metapi-go/features/settings — settings overview landing.
 //
-// Rendered at bare `/settings`: a card grid of the 5 subareas so the full
-// configuration scope is visible before drilling in. Cards derive their
-// metadata (title / icon / description / section list) from the shared
-// subarea manifest, so the overview stays in sync with the main sidebar and
-// the per-subarea registries without a second copy.
+// Rendered at bare `/settings`: a grid of 5 icon tiles (one per subarea,
+// icon + title + description). The per-subarea section lists were removed
+// (wave 8 lane C) — the sidebar's collapsible tree is now the single
+// navigation surface, and the tiles only carry the "first location +
+// description" duty. Tile metadata derives from the shared subarea
+// manifest, so the overview stays in sync with the main sidebar and the
+// per-subarea registries without a second copy.
 
 import { Link, type LinkProps } from '@tanstack/react-router'
-import { ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-
-import { Card, CardContent } from '@/components/ui/card'
 
 import { getSettingsSubareas } from '../config/settings-config'
 
@@ -21,70 +20,36 @@ export function SettingsOverview() {
   return (
     <div className='flex flex-col gap-6 p-6'>
       <header className='flex flex-col gap-1'>
-        <h1 className='text-2xl font-normal tracking-tight'>
+        <h1 className='text-lg font-bold tracking-tight sm:text-xl'>
           {t('settings.overview.title')}
         </h1>
         <p className='text-muted-foreground text-sm'>
           {t('settings.overview.description')}
         </p>
       </header>
-      <div className='grid gap-4 sm:grid-cols-2 xl:grid-cols-3'>
+      {/* 5 tiles in one row at xl (no 3+2 ragged rows); 2-col from sm;
+          single column on mobile. Each tile is one whole-card link. */}
+      <div className='grid gap-4 sm:grid-cols-2 xl:grid-cols-5'>
         {subareas.map((subarea) => {
           const Icon = subarea.icon
-          const sections = subarea.getSectionNavItems()
           return (
-            <Card key={subarea.id} size='sm' className='h-full'>
-              <CardContent className='flex h-full flex-col gap-3'>
-                <Link
-                  to={
-                    `${subarea.basePath}/${subarea.defaultSection}` as
-                      | LinkProps['to']
-                      | (string & {})
-                  }
-                  // WCAG 2.5.8 best-effort (mirrors settings-page.tsx
-                  // breadcrumb): 20px text link gets `py-0.5` click padding →
-                  // 24px hit height; `-my-0.5` keeps the row exactly as tall as
-                  // before. `hover:bg-accent` gives the row a visible hover
-                  // state (title text is already foreground, so a text-color
-                  // hover alone would be invisible).
-                  className='group/subarea hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring/50 -my-0.5 flex items-center gap-2 rounded-sm py-0.5 font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none'
-                >
-                  {Icon ? (
-                    <Icon className='text-primary size-4 shrink-0' />
-                  ) : null}
-                  <span className='min-w-0 truncate'>{t(subarea.title)}</span>
-                  <ChevronRight className='text-muted-foreground ml-auto size-4 shrink-0 transition-transform group-hover/subarea:translate-x-0.5' />
-                </Link>
-                {subarea.description ? (
-                  <p className='text-muted-foreground text-sm'>
-                    {t(subarea.description)}
-                  </p>
-                ) : null}
-                {/* Top-anchored (no mt-auto): the section list sits right below
-                    the tagline with a fixed gap so short cards don't leave an
-                    empty band between tagline and a floating divider; any
-                    leftover space stays at the card bottom. */}
-                <ul className='flex flex-col gap-1 border-t pt-3'>
-                  {sections.map((section) => (
-                    <li key={String(section.url)}>
-                      <Link
-                        to={section.url}
-                        className='text-muted-foreground hover:text-foreground flex items-center gap-2 rounded-md px-1 py-1.5 text-sm transition-colors'
-                      >
-                        <span className='min-w-0 flex-1 truncate'>
-                          {t(section.title)}
-                        </span>
-                        {section.readonly ? (
-                          <span className='bg-muted text-muted-foreground shrink-0 rounded-sm px-1 py-0.5 text-[10px]'>
-                            {t('settings.common.readonly')}
-                          </span>
-                        ) : null}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
+            <Link
+              key={subarea.id}
+              to={
+                `${subarea.basePath}/${subarea.defaultSection}` as
+                  | LinkProps['to']
+                  | (string & {})
+              }
+              className='focus-visible:ring-ring/50 bg-card text-card-foreground ring-foreground/10 hover:bg-accent hover:text-accent-foreground flex h-full flex-col gap-2 rounded-xl p-4 text-sm ring-1 transition-colors focus-visible:ring-2 focus-visible:outline-none'
+            >
+              {Icon ? <Icon className='text-primary size-5 shrink-0' /> : null}
+              <span className='font-medium'>{t(subarea.title)}</span>
+              {subarea.description ? (
+                <span className='text-muted-foreground text-sm'>
+                  {t(subarea.description)}
+                </span>
+              ) : null}
+            </Link>
           )
         })}
       </div>
