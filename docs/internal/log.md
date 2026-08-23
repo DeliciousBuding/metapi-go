@@ -14,6 +14,7 @@
 - 首屏 bundle 拆分：locale 双份 JSON 静态 import → i18next 自定义 backend 懒加载（按当前语言拆 async chunk，切换时按需加载 sibling）；入口 chunk 303.6→123.5KB（gzip 90.7→33.1KB）；vitest 171 文件 1129 用例全绿 + a11y/route-smoke clean + 实例实测 en/zh 首屏无裸 key、切换正常。
 - 对比度豁免收口：删除 dormant `--sidebar-primary`/`--sidebar-primary-foreground` token（全仓 0 消费，theme.css + 10 preset 共 42 行）→ 豁免表 8→6 项；剩余 6 项为 preset residual（forest-whisper dark secondary 3.12 / ocean-breeze light secondary 4.47 / simple-large+anthropic dark destructive 2.97+2.79 / anthropic light success 3.83+soft 4.48），留待设计决策。
 - 对比度清零：6 项 preset residual 全部按「只降 lightness、保 hue/chroma」最小改色修复——forest-whisper dark secondary 3.12→4.60、ocean-breeze light secondary 4.47→4.60、simple-large dark destructive 2.97→4.60、anthropic dark destructive 2.79→4.60、anthropic light success 3.83→4.60、success-soft 4.48→4.61（新增 anthropic light `--success-soft-fg` override）；contrast-gate 豁免表归零，10 preset × light/dark 全过 AA。
+- 集成交付：开 PR #972（Wave 9，26 commits，93 files，+3769/−2245）；版本号仍未动，待管理员批后 bump+CHANGELOG+tag。
 - 冻结交接文档已消化（恢复 + 集成完成），随 integration PR 删除。
 
 ## 2026-08-23 — Wave 8 收官 + Wave 9 冻结交接
