@@ -21,7 +21,6 @@
         "submit": "Sign in",
         "submitting": "Signing in…",
         "welcomeBack": "Welcome back!",
-        "note": "Only local server access is verified; the token is never sent to a third party.",
         "tokenChangedNotice": "The admin token was updated. Sign in with your new token.",
         "tokenSourceHint": "The admin token comes from the AUTH_TOKEN environment variable (or .env file) set when this instance was deployed.",
         "tokenSourceForgot": "If you don't know it, ask your deployment administrator.",
@@ -70,9 +69,6 @@
         "en": "English",
         "zhCN": "简体中文"
       },
-      "pagination": "Pagination",
-      "previousPage": "Go to previous page",
-      "nextPage": "Go to next page",
       "morePages": "More pages",
       "hideSecret": "Hide secret",
       "revealSecret": "Reveal secret",
@@ -2196,7 +2192,6 @@
     "Toggle columns": "Toggle columns",
     "selected": "selected",
     "No results found.": "No results found.",
-    "No option found.": "No option found.",
     "Press Enter to use \"{{value}}\"": "Press Enter to use \"{{value}}\"",
     "Clear filters": "Clear filters",
     "Clear search": "Clear search",
@@ -2294,8 +2289,7 @@
           "description": "Site/account health plus routing breaker and cooldown state."
         },
         "proxyLogs": {
-          "title": "Proxy Logs",
-          "description": "Full proxy request log workspace."
+          "title": "Proxy Logs"
         }
       },
       "overview": {

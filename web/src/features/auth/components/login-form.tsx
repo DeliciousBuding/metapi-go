@@ -21,10 +21,10 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
+import { sanitizeAuthRedirect } from '@/lib/helpers/sanitize-auth-redirect'
 import { toast } from '@/lib/toast'
 
 import { useLogin } from '../api'
-import { sanitizeAuthRedirect } from '../lib/auth-redirect'
 import { loginFormSchema, type LoginFormValues } from '../lib/login-schema'
 
 type LoginFormProps = {

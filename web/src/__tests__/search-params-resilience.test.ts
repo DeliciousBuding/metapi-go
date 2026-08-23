@@ -1,8 +1,11 @@
-// metapi-go/lib/helpers — regression gate for the URL-entry crash class:
+// metapi-go/src/__tests__ — regression gate for the URL-entry crash class:
 // router-parsed search values (null literals, duplicate-param arrays,
 // numeric/boolean primitives) must never make a route's `validateSearch`
 // throw on URL entry. Every schema/helper touched by the entry-crash sweep
 // is exercised here so this class of crash cannot silently return.
+//
+// Housed at src/__tests__ (not src/lib/helpers/__tests__) because it
+// exercises feature schemas; lib must stay free of @/features imports.
 
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'

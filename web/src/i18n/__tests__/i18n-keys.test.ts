@@ -113,11 +113,9 @@ function extractUsages(): Usage[] {
 // Keys reachable only through runtime-computed variables that a static scan
 // cannot resolve (e.g. `t(emptyText)` where emptyText is a component prop).
 // Each entry is still asserted to exist in BOTH locales below.
-const DYNAMIC_KEY_ALLOWLIST = [
-  // web/src/components/ui/combobox-input.tsx — `t(emptyText)` prop
-  // indirection; the default value is the flat key 'No option found.'.
-  'No option found.',
-]
+// Currently empty: the sole entry ('No option found.') belonged to the
+// removed ui/combobox-input.tsx default prop.
+const DYNAMIC_KEY_ALLOWLIST: string[] = []
 
 /**
  * Normalize a raw key into the form the locales are checked against:

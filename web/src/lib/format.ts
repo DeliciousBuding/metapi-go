@@ -133,8 +133,11 @@ const ABSOLUTE_THRESHOLD_SECONDS = 7 * SECONDS_PER_DAY
  * suffix); those are interpreted as UTC (not browser-local) so rendered
  * times never shift by the viewer's offset. Bare offsets (+0800 / +08) are
  * normalized, and 10/13-digit epoch strings are supported.
+ *
+ * Exported so feature modules (e.g. features/checkin) reuse this exact
+ * parsing stack instead of re-implementing it.
  */
-function toTimestamp(
+export function toTimestamp(
   value: string | number | Date | null | undefined
 ): number | null {
   if (value === null || value === undefined || value === '') return null
@@ -166,27 +169,79 @@ function toTimestamp(
 }
 
 /**
+ * Shared core for the absolute date+time formatters: parse `value` via
+ * `toTimestamp` and render it with `Intl.DateTimeFormat` using `options`,
+ * optionally pinned to an IANA `timeZone` (viewer-local when omitted).
+ * Returns "—" for null / empty / invalid input — raw strings must never
+ * reach the render tree.
+ */
+function formatWithParts(
+  value: string | number | Date | null | undefined,
+  options: Intl.DateTimeFormatOptions,
+  locale: string,
+  timeZone?: string
+): string {
+  const timestamp = toTimestamp(value)
+  if (timestamp === null) return EM_DASH
+  return new Intl.DateTimeFormat(locale, {
+    ...options,
+    ...(timeZone ? { timeZone } : {}),
+  }).format(timestamp)
+}
+
+/**
  * Format a timestamp as a localized absolute date+time WITH seconds
  * (e.g. "2026-08-21 15:04:05" in zh-CN). Returns "—" for null / empty /
  * invalid input — raw ISO strings must never reach the render tree.
  * The `locale` MUST be a BCP-47 tag — pass i18next's `i18n.language`
  * through `toBcp47()` first (`zhCN` would throw `RangeError`).
+ * The optional `timeZone` pins rendering to an IANA zone (e.g. "UTC");
+ * when omitted the viewer's local zone is used.
  */
 export function formatDateTime(
   value: string | number | Date | null | undefined,
-  locale: string
+  locale: string,
+  timeZone?: string
 ): string {
-  const timestamp = toTimestamp(value)
-  if (timestamp === null) return EM_DASH
-  return new Intl.DateTimeFormat(locale, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).format(timestamp)
+  return formatWithParts(
+    value,
+    {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    },
+    locale,
+    timeZone
+  )
+}
+
+/**
+ * Format a timestamp as a localized absolute date+time at MINUTE precision
+ * (seconds dropped, e.g. "2026-08-21 15:04" in zh-CN). Same locale / invalid
+ * contract as `formatDateTime`; `timeZone` optionally pins the IANA zone.
+ */
+export function formatDateTimeMinute(
+  value: string | number | Date | null | undefined,
+  locale: string,
+  timeZone?: string
+): string {
+  return formatWithParts(
+    value,
+    {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    },
+    locale,
+    timeZone
+  )
 }
 
 /**
