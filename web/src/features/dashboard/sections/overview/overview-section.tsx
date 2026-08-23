@@ -62,6 +62,17 @@ import { AnnouncementBanner } from '../../components/announcement-banner'
 import { StatCard } from '../../components/stat-card'
 import { TodaySnapshotStrip } from '../../components/today-snapshot'
 
+/** Icon-badge tone for the today-checkin card — derived from the data, so a
+ * 0% success day no longer reads as success-green. */
+function checkinCardTone(
+  checkin: DashboardSnapshot['todayCheckin'] | undefined
+): 'default' | 'success' | 'warning' {
+  if (!checkin) return 'default'
+  if (checkin.success > 0) return 'success'
+  if (checkin.failed > 0) return 'warning'
+  return 'default'
+}
+
 /** Summary-view dashboard snapshot (GET /api/stats/dashboard?view=summary). */
 type DashboardSnapshot = {
   siteCount?: number
@@ -464,15 +475,7 @@ export function OverviewSection() {
           title={t('dashboard.overview.statCards.todayCheckin')}
           value={!checkin ? '—' : formatRatio(checkin.success, checkin.total)}
           icon={CalendarCheck}
-          tone={
-            !checkin
-              ? 'default'
-              : checkin.success > 0
-                ? 'success'
-                : checkin.failed > 0
-                  ? 'warning'
-                  : 'default'
-          }
+          tone={checkinCardTone(checkin)}
           details={checkinDetails}
           loading={snapshotLoading}
           to='/checkin'
