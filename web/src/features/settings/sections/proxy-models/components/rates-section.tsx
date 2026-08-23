@@ -189,7 +189,7 @@ export function RatesSection() {
                       aria-label={t('settings.proxyModels.rates.editUnitCost', {
                         account: account.username,
                       })}
-                      className='flex items-center gap-1 text-sm'
+                      className='flex min-h-6 items-center gap-1 text-sm'
                       onClick={() =>
                         setDraft({
                           kind: 'account',
@@ -280,7 +280,7 @@ export function RatesSection() {
                       aria-label={t('settings.proxyModels.rates.editWeight', {
                         model: channel.modelName,
                       })}
-                      className='flex items-center gap-1 text-sm'
+                      className='flex min-h-6 items-center gap-1 text-sm'
                       onClick={() =>
                         setDraft({
                           kind: 'channel',

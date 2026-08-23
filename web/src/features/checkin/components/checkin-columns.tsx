@@ -219,7 +219,7 @@ export function useCheckinColumns(
         return (
           <button
             type='button'
-            className='text-muted-foreground hover:text-foreground block max-w-[360px] cursor-pointer truncate text-left text-sm underline-offset-2 hover:underline'
+            className='text-muted-foreground hover:text-foreground block min-h-6 max-w-[360px] cursor-pointer truncate text-left text-sm underline-offset-2 hover:underline'
             title={t('checkin.detail.viewFullMessage')}
             aria-label={t('checkin.detail.viewFullMessage')}
             onClick={() => actions.onViewDetail(log)}
