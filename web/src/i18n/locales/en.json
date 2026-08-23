@@ -477,7 +477,8 @@
       "page": {
         "loadError": "Failed to load sites: {{message}}",
         "title": "Sites",
-        "description": "Manage connected sites, their status, and routing weight."
+        "description": "Manage connected sites, their status, and routing weight.",
+        "weightFormula": "Effective site multiplier = site global weight × the routing channel’s configured weight (recommended 0.5–3)"
       },
       "toast": {
         "statusToggled": "Site \"{{name}}\" updated.",
@@ -505,7 +506,9 @@
         "deleteConfirmTitle": "Delete selected sites?",
         "deleteConfirmDescription": "This will delete the {{count}} selected site(s). This action cannot be undone.",
         "deleteConfirmConfirm": "Delete",
-        "deleteConfirmCancel": "Cancel"
+        "deleteConfirmCancel": "Cancel",
+        "enableSystemProxy": "Enable system proxy",
+        "disableSystemProxy": "Disable system proxy"
       },
       "deleteConfirm": {
         "title": "Delete site",
@@ -525,7 +528,10 @@
         "balance": "Balance",
         "globalWeight": "Weight",
         "actions": "Actions",
-        "rowActions": "Row actions"
+        "rowActions": "Row actions",
+        "useSystemProxy": "System proxy",
+        "externalCheckinUrl": "External check-in URL",
+        "createdAt": "Created at"
       },
       "actions": {
         "viewDetails": "View details",

@@ -6,9 +6,9 @@ import (
 
 // TestListSites_NullBalanceDoesNotError guards the /api/sites 500 regression:
 // an account with a NULL balance (migrated from the TS version, or never
-// refreshed) must not abort ListSites. The site's aggregated totalBalance
-// treats the unknown balance as 0 via COALESCE at the DB layer, matching the
-// stats endpoints' existing convention.
+// refreshed) must not abort ListSites. A site whose accounts all have
+// unknown (NULL) balances reports totalBalance=nil (JSON null) — the
+// frontend renders "—", never "$0.00".
 func TestListSites_NullBalanceDoesNotError(t *testing.T) {
 	db := openTestDB(t)
 
@@ -27,17 +27,13 @@ func TestListSites_NullBalanceDoesNotError(t *testing.T) {
 		t.Fatalf("expected 1 site, got %d", len(sites))
 	}
 
-	tb, ok := sites[0]["totalBalance"].(float64)
-	if !ok {
-		t.Fatalf("totalBalance type = %T, want float64", sites[0]["totalBalance"])
-	}
-	if tb != 0 {
-		t.Errorf("totalBalance = %v, want 0 (NULL balance aggregates as 0)", tb)
+	if sites[0]["totalBalance"] != nil {
+		t.Fatalf("totalBalance = %v (%T), want nil: unknown balance must not render as $0", sites[0]["totalBalance"], sites[0]["totalBalance"])
 	}
 }
 
-// TestListSites_NullBalanceWithSiblingSumsCorrectly ensures COALESCE only
-// neutralizes the NULL account while a sibling account's balance still counts.
+// TestListSites_NullBalanceWithSiblingSumsCorrectly ensures a NULL balance
+// contributes nothing while a sibling account's balance still counts.
 func TestListSites_NullBalanceWithSiblingSumsCorrectly(t *testing.T) {
 	db := openTestDB(t)
 
@@ -65,6 +61,6 @@ func TestListSites_NullBalanceWithSiblingSumsCorrectly(t *testing.T) {
 		t.Fatalf("totalBalance type = %T, want float64", sites[0]["totalBalance"])
 	}
 	if tb != 12.5 {
-		t.Errorf("totalBalance = %v, want 12.5 (NULL neutralized, sibling counted)", tb)
+		t.Errorf("totalBalance = %v, want 12.5 (NULL contributes nothing, sibling counted)", tb)
 	}
 }

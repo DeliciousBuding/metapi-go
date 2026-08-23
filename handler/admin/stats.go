@@ -968,17 +968,21 @@ func (h *statsHandler) siteDistribution(w http.ResponseWriter, r *http.Request) 
 	fromDay := time.Now().UTC().AddDate(0, 0, -(days - 1)).Format("2006-01-02")
 
 	// Prefer projected site_day_usage spend; include live account balances.
+	// total_balance keeps SUM(balance) result ORIGINAL (NULL when no account
+	// balance is known) instead of COALESCE-ing to 0, so the response can
+	// distinguish "balance unknown" (accounts exist, all NULL) from "no
+	// accounts at all" (handled in the loop below).
 	rows, err := queryRowsErr(h.db, `
 		SELECT
 			s.id AS site_id,
 			s.name AS site_name,
 			s.platform AS platform,
-			COALESCE(bal.total_balance, 0) AS total_balance,
+			bal.total_balance AS total_balance,
 			COALESCE(usage.total_spend, 0) AS total_spend,
 			COALESCE(bal.account_count, 0) AS account_count
 		FROM sites s
 		LEFT JOIN (
-			SELECT site_id, COALESCE(SUM(COALESCE(balance, 0)), 0) AS total_balance, COUNT(*) AS account_count
+			SELECT site_id, SUM(balance) AS total_balance, COUNT(*) AS account_count
 			FROM accounts
 			GROUP BY site_id
 		) bal ON bal.site_id = s.id
@@ -997,11 +1001,20 @@ func (h *statsHandler) siteDistribution(w http.ResponseWriter, r *http.Request) 
 
 	distribution := make([]map[string]any, 0, len(rows))
 	for _, row := range rows {
+		// NULL total_balance with accounts present means the site's balance
+		// is unknown, not zero — surface null so clients do not misreport
+		// $0.00. A site without any account is a genuine zero.
+		var totalBalance any
+		if row["totalBalance"] == nil && coerceInt(row["accountCount"]) > 0 {
+			totalBalance = nil
+		} else {
+			totalBalance = coerceFloat(row["totalBalance"])
+		}
 		distribution = append(distribution, map[string]any{
 			"siteId":       row["siteId"],
 			"siteName":     row["siteName"],
 			"platform":     row["platform"],
-			"totalBalance": coerceFloat(row["totalBalance"]),
+			"totalBalance": totalBalance,
 			"totalSpend":   coerceFloat(row["totalSpend"]),
 			"accountCount": coerceInt(row["accountCount"]),
 		})

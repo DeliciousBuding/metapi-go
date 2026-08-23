@@ -31,7 +31,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Spinner } from '@/components/ui/spinner'
-import { formatUsd } from '@/lib/format'
+import {
+  formatAbsoluteDateTime,
+  formatRelativeTime,
+  formatUsd,
+} from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { resolveSiteBalanceUsd } from '../lib/site-balance'
@@ -79,7 +83,7 @@ export function useSitesColumns(
   actions: SitesColumnActions,
   pendingSiteId: number | null = null
 ): ColumnDef<Site>[] {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   const columns: ColumnDef<Site>[] = [
     {
@@ -112,7 +116,11 @@ export function useSitesColumns(
       id: 'name',
       accessorKey: 'name',
       size: 200,
-      meta: { mobileTitle: true, mobileOrder: 0 },
+      meta: {
+        label: t('sites.columns.name'),
+        mobileTitle: true,
+        mobileOrder: 0,
+      },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}
@@ -140,7 +148,11 @@ export function useSitesColumns(
       id: 'url',
       accessorKey: 'url',
       size: 280,
-      meta: { mobileHidden: true, mobileOrder: 10 },
+      meta: {
+        label: t('sites.columns.url'),
+        mobileHidden: true,
+        mobileOrder: 10,
+      },
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('sites.columns.url')} />
       ),
@@ -150,7 +162,11 @@ export function useSitesColumns(
       id: 'status',
       accessorKey: 'status',
       size: 120,
-      meta: { mobileBadge: true, mobileOrder: 1 },
+      meta: {
+        label: t('sites.columns.status'),
+        mobileBadge: true,
+        mobileOrder: 1,
+      },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}
@@ -172,7 +188,11 @@ export function useSitesColumns(
       id: 'platform',
       accessorKey: 'platform',
       size: 140,
-      meta: { mobileOrder: 50, label: t('sites.columns.platform') },
+      meta: {
+        label: t('sites.columns.platform'),
+        mobileHidden: true,
+        mobileOrder: 20,
+      },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}
@@ -192,7 +212,7 @@ export function useSitesColumns(
       id: 'accountCount',
       accessorKey: 'accountCount',
       size: 120,
-      meta: { mobileOrder: 30, label: t('sites.columns.accountCount') },
+      meta: { label: t('sites.columns.accountCount'), mobileOrder: 30 },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}
@@ -220,7 +240,11 @@ export function useSitesColumns(
       id: 'balance',
       accessorFn: (row) => resolveSiteBalanceUsd(row),
       size: 140,
-      meta: { mobileOrder: 35, label: t('sites.columns.balance') },
+      meta: {
+        label: t('sites.columns.balance'),
+        mobileHidden: true,
+        mobileOrder: 35,
+      },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}
@@ -237,7 +261,11 @@ export function useSitesColumns(
       id: 'globalWeight',
       accessorKey: 'globalWeight',
       size: 120,
-      meta: { mobileOrder: 40, label: t('sites.columns.globalWeight') },
+      meta: {
+        label: t('sites.columns.globalWeight'),
+        mobileHidden: true,
+        mobileOrder: 40,
+      },
       header: ({ column }) => (
         <DataTableColumnHeader
           column={column}
@@ -249,6 +277,87 @@ export function useSitesColumns(
           {row.original.globalWeight ?? 1}
         </span>
       ),
+    },
+    {
+      id: 'useSystemProxy',
+      accessorKey: 'useSystemProxy',
+      size: 130,
+      meta: {
+        label: t('sites.columns.useSystemProxy'),
+        mobileHidden: true,
+        mobileOrder: 45,
+      },
+      header: ({ column }) => (
+        <DataTableColumnHeader
+          column={column}
+          title={t('sites.columns.useSystemProxy')}
+        />
+      ),
+      cell: ({ row }) => {
+        const enabled = row.original.useSystemProxy
+        return (
+          <Badge variant={enabled ? 'success' : 'secondary'}>
+            {enabled ? t('sites.detail.yes') : t('sites.detail.no')}
+          </Badge>
+        )
+      },
+    },
+    {
+      id: 'externalCheckinUrl',
+      accessorKey: 'externalCheckinUrl',
+      size: 240,
+      meta: {
+        label: t('sites.columns.externalCheckinUrl'),
+        mobileHidden: true,
+        mobileOrder: 46,
+      },
+      header: ({ column }) => (
+        <DataTableColumnHeader
+          column={column}
+          title={t('sites.columns.externalCheckinUrl')}
+        />
+      ),
+      cell: ({ row }) => {
+        const url = row.original.externalCheckinUrl
+        if (!url) {
+          return <span className='text-muted-foreground text-sm'>—</span>
+        }
+        return (
+          <span className='block max-w-[14rem] truncate text-sm' title={url}>
+            {url}
+          </span>
+        )
+      },
+    },
+    {
+      id: 'createdAt',
+      accessorKey: 'createdAt',
+      size: 170,
+      meta: {
+        label: t('sites.columns.createdAt'),
+        mobileHidden: true,
+        mobileOrder: 47,
+      },
+      header: ({ column }) => (
+        <DataTableColumnHeader
+          column={column}
+          title={t('sites.columns.createdAt')}
+        />
+      ),
+      cell: ({ row }) => {
+        const createdAt = row.original.createdAt
+        if (!createdAt) {
+          return <span className='text-muted-foreground text-sm'>—</span>
+        }
+        return (
+          <span
+            className='text-muted-foreground text-sm whitespace-nowrap'
+            title={formatAbsoluteDateTime(createdAt, i18n.language)}
+          >
+            {formatRelativeTime(createdAt, i18n.language)}
+          </span>
+        )
+      },
     },
     {
       id: 'actions',
