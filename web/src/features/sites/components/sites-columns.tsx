@@ -150,7 +150,6 @@ export function useSitesColumns(
       size: 280,
       meta: {
         label: t('sites.columns.url'),
-        mobileHidden: true,
         mobileOrder: 10,
       },
       header: ({ column }) => (
@@ -190,7 +189,6 @@ export function useSitesColumns(
       size: 140,
       meta: {
         label: t('sites.columns.platform'),
-        mobileHidden: true,
         mobileOrder: 20,
       },
       header: ({ column }) => (
@@ -242,7 +240,6 @@ export function useSitesColumns(
       size: 140,
       meta: {
         label: t('sites.columns.balance'),
-        mobileHidden: true,
         mobileOrder: 35,
       },
       header: ({ column }) => (
@@ -263,7 +260,6 @@ export function useSitesColumns(
       size: 120,
       meta: {
         label: t('sites.columns.globalWeight'),
-        mobileHidden: true,
         mobileOrder: 40,
       },
       header: ({ column }) => (
