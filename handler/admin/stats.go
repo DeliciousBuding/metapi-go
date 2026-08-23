@@ -704,9 +704,14 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 		conditions = append(conditions, "COALESCE(pl.status, '') <> 'success'")
 	}
 	if search != "" {
-		conditions = append(conditions, "(LOWER(COALESCE(pl.model_requested, '')) LIKE ? OR LOWER(COALESCE(pl.model_actual, '')) LIKE ?)")
+		// Search is the only free-text slice across models / account username /
+		// downstream token (value or name). All three columns are joined at the
+		// query level so items, total and summary stay in agreement; the
+		// fingerprint already carries `search` so the summary cache is keyed
+		// per search string exactly like the other filters.
+		conditions = append(conditions, "(LOWER(COALESCE(pl.model_requested, '')) LIKE ? OR LOWER(COALESCE(pl.model_actual, '')) LIKE ? OR LOWER(COALESCE(a.username, '')) LIKE ? OR LOWER(COALESCE(dk.key, '')) LIKE ? OR LOWER(COALESCE(dk.name, '')) LIKE ?)")
 		like := "%" + search + "%"
-		args = append(args, like, like)
+		args = append(args, like, like, like, like, like)
 	}
 	if siteID > 0 {
 		conditions = append(conditions, "s.id = ?")
@@ -776,10 +781,17 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if view == "query" || view == "full" {
+		// The search condition references the downstream key columns, so the
+		// key join is only added when a search is active (LEFT JOIN keeps the
+		// row set unchanged for unsearched rows).
+		keyJoin := ""
+		if search != "" {
+			keyJoin = "\n\t\t\tLEFT JOIN downstream_api_keys dk ON pl.downstream_api_key_id = dk.id"
+		}
 		query := `SELECT pl.*, a.username, s.id as site_id, s.name as site_name, s.url as site_url
 			FROM proxy_logs pl
 			LEFT JOIN accounts a ON pl.account_id = a.id
-			LEFT JOIN sites s ON a.site_id = s.id` + where +
+			LEFT JOIN sites s ON a.site_id = s.id` + keyJoin + where +
 			" ORDER BY pl.created_at DESC LIMIT ? OFFSET ?"
 		qArgs := make([]any, len(args))
 		copy(qArgs, args)
@@ -795,7 +807,7 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 		// The aggregate COUNT runs off the conditional FROM (no accounts/sites
 		// join unless the site filter needs s.id) — at 500k rows the join
 		// roughly doubled the count time on the audit fixture.
-		countQuery := "SELECT COUNT(*) " + proxyLogsAggregateFrom(siteID) + where
+		countQuery := "SELECT COUNT(*) " + proxyLogsAggregateFrom(siteID, search) + where
 		h.db.Get(&total, rebindAdminQuery(h.db, countQuery), args...)
 		queryPayload["total"] = total
 	}
@@ -813,7 +825,7 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 		summary, cacheHit, summaryErr := globalProxyLogsSummaryCache.getOrCompute(fingerprint, func() (proxyLogsSummary, error) {
 			// Use effective token expression so partial logs are not under-counted,
 			// and never sum prompt+completion on top of total_tokens.
-			summaryQuery := proxyLogsSummaryQuerySQL(proxyLogsAggregateFrom(siteID), where)
+			summaryQuery := proxyLogsSummaryQuerySQL(proxyLogsAggregateFrom(siteID, search), where)
 			var s proxyLogsSummary
 			if err := h.db.Get(&s, rebindAdminQuery(h.db, summaryQuery), args...); err != nil {
 				return proxyLogsSummary{}, err
@@ -866,15 +878,16 @@ func (h *statsHandler) proxyLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 // proxyLogsAggregateFrom returns the FROM clause for the proxy-logs COUNT and
-// summary aggregates. The site filter is the only condition that references a
-// joined table (s.id), so without a siteId the aggregates run straight off
-// proxy_logs — at 500k rows the audit measured the LEFT JOINs adding ~90ms to
-// the summary and ~100ms to the COUNT. With a siteId the WHERE needs s.id, so
-// the join stays (and the summary query's CASE/COALESCE never needs the join
-// for row preservation: it is a LEFT JOIN on primary keys).
-func proxyLogsAggregateFrom(siteID int) string {
-	if siteID > 0 {
-		return "FROM proxy_logs pl LEFT JOIN accounts a ON pl.account_id = a.id LEFT JOIN sites s ON a.site_id = s.id"
+// summary aggregates. The only conditions that reference a joined table are
+// the site filter (s.id) and the search filter (a.username / dk.key / dk.name),
+// so without either the aggregates run straight off proxy_logs — at 500k rows
+// the audit measured the LEFT JOINs adding ~90ms to the summary and ~100ms to
+// the COUNT. With either active the joins stay (and the summary query's
+// CASE/COALESCE never needs the join for row preservation: it is a LEFT JOIN
+// on primary keys).
+func proxyLogsAggregateFrom(siteID int, search string) string {
+	if siteID > 0 || search != "" {
+		return "FROM proxy_logs pl LEFT JOIN accounts a ON pl.account_id = a.id LEFT JOIN sites s ON a.site_id = s.id LEFT JOIN downstream_api_keys dk ON pl.downstream_api_key_id = dk.id"
 	}
 	return "FROM proxy_logs pl"
 }
