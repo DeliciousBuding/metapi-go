@@ -35,9 +35,11 @@ export function SettingsSectionCard({
     <Card>
       <CardHeader className='flex flex-row items-start justify-between gap-4'>
         <div className='space-y-1'>
-          <h1 className='text-base leading-snug font-medium group-data-[size=sm]/card:text-sm'>
+          {/* h2: the unique page-level h1 lives in the SettingsPage header
+              (single-h1 discipline, wave 8 lane C); card titles are L2. */}
+          <h2 className='text-base leading-snug font-semibold group-data-[size=sm]/card:text-sm'>
             {title}
-          </h1>
+          </h2>
           {description ? (
             <CardDescription>{description}</CardDescription>
           ) : null}
