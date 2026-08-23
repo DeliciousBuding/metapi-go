@@ -210,9 +210,9 @@ export function RoutingSection() {
           className='space-y-4'
         >
           <div className='space-y-3 rounded-lg border p-4'>
-            <h4 className='text-sm font-medium'>
+            <h3 className='text-sm font-medium'>
               {t('settings.general.routing.fallbackGroup')}
-            </h4>
+            </h3>
             <FormField
               control={form.control}
               name='routingFallbackUnitCost'
@@ -325,9 +325,9 @@ export function RoutingSection() {
 
           <div className='space-y-3 rounded-lg border p-4'>
             <div className='flex items-center justify-between gap-2'>
-              <h4 className='text-sm font-medium'>
+              <h3 className='text-sm font-medium'>
                 {t('settings.general.routing.weightsGroup')}
-              </h4>
+              </h3>
               <div className='flex gap-2'>
                 {ROUTING_PRESETS.map((preset) => (
                   <Button

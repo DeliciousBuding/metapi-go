@@ -31,6 +31,11 @@ const LazyDatabaseSection = lazy(() =>
     default: module.DatabaseSection,
   }))
 )
+const LazyDatabaseMigrationSection = lazy(() =>
+  import('./components/database-migration-section').then((module) => ({
+    default: module.DatabaseMigrationSection,
+  }))
+)
 const LazyMaintenanceSection = lazy(() =>
   import('./components/maintenance-section').then((module) => ({
     default: module.MaintenanceSection,
@@ -72,6 +77,13 @@ const SYSTEM_INFO_SECTIONS = [
     group: 'settings.systemInfo.groups.system',
     description: 'settings.systemInfo.database.description',
     build: () => createElement(LazyDatabaseSection),
+  },
+  {
+    id: 'data-migration',
+    title: 'settings.systemInfo.dataMigration.title',
+    group: 'settings.systemInfo.groups.system',
+    description: 'settings.systemInfo.dataMigration.description',
+    build: () => createElement(LazyDatabaseMigrationSection),
   },
   {
     id: 'maintenance',

@@ -29,27 +29,32 @@ export function SettingsFormActions({
   const label = saveLabel ?? t('settings.common.save')
   const pendingLabel = savingLabel ?? t('settings.common.saving')
   return (
-    <div className='flex items-center gap-2'>
-      <span className='text-muted-foreground text-xs'>
+    // Full-width row with two fixed slots (status left, actions right) so the
+    // "saved / unsaved" text swap never shifts the Reset/Save buttons
+    // (plan §3.4: 状态文案固定占位防跳动).
+    <div className='flex min-w-full items-center justify-between gap-2'>
+      <span className='text-muted-foreground text-xs whitespace-nowrap'>
         {isDirty ? t('settings.common.unsaved') : t('settings.common.saved')}
       </span>
-      <Button
-        type='button'
-        variant='outline'
-        size='sm'
-        disabled={!isDirty || isPending}
-        onClick={onReset}
-      >
-        {t('settings.common.reset')}
-      </Button>
-      <Button
-        type='submit'
-        form={formId}
-        size='sm'
-        disabled={!isDirty || isPending}
-      >
-        {isPending ? pendingLabel : label}
-      </Button>
+      <div className='flex shrink-0 items-center gap-2'>
+        <Button
+          type='button'
+          variant='outline'
+          size='sm'
+          disabled={!isDirty || isPending}
+          onClick={onReset}
+        >
+          {t('settings.common.reset')}
+        </Button>
+        <Button
+          type='submit'
+          form={formId}
+          size='sm'
+          disabled={!isDirty || isPending}
+        >
+          {isPending ? pendingLabel : label}
+        </Button>
+      </div>
     </div>
   )
 }

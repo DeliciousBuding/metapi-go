@@ -1669,6 +1669,10 @@
             }
           }
         },
+        "dataMigration": {
+          "title": "Data Migration",
+          "description": "Copy the live runtime database to an external SQLite/PostgreSQL target as a background task."
+        },
         "maintenance": {
           "title": "Maintenance",
           "description": "Cache rebuild and usage-log purge.",

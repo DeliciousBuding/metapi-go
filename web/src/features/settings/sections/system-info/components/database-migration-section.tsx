@@ -163,9 +163,9 @@ function MigrationResultSummary({
 
   return (
     <div className='space-y-2'>
-      <p className='text-sm font-medium'>
+      <h3 className='text-sm font-medium'>
         {t('settings.systemInfo.database.migration.status.resultTitle')}
-      </p>
+      </h3>
       <dl className='text-muted-foreground grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs'>
         <dt>{t('settings.systemInfo.database.migration.status.target')}</dt>
         <dd className='font-mono break-all'>{result.connection}</dd>

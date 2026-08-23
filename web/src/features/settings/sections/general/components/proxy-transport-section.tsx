@@ -401,9 +401,9 @@ export function ProxyTransportSection() {
 
           <div className='space-y-4 rounded-lg border p-4'>
             <div className='space-y-1'>
-              <h4 className='text-sm font-medium'>
+              <h3 className='text-sm font-medium'>
                 {t('settings.general.proxyTransport.codexUpstreamGroup')}
-              </h4>
+              </h3>
               <p className='text-muted-foreground text-xs'>
                 {t('settings.general.proxyTransport.codexUpstreamGroupHint')}
               </p>

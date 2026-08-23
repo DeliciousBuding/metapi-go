@@ -312,9 +312,9 @@ export function SchedulingSection() {
           className='space-y-4'
         >
           <div className='space-y-3 rounded-lg border p-4'>
-            <h4 className='text-sm font-medium'>
+            <h3 className='text-sm font-medium'>
               {t('settings.general.scheduling.fields.checkinGroup')}
-            </h4>
+            </h3>
             <FormField
               control={form.control}
               name='checkinSchedule'
@@ -337,9 +337,9 @@ export function SchedulingSection() {
           </div>
 
           <div className='space-y-3 rounded-lg border p-4'>
-            <h4 className='text-sm font-medium'>
+            <h3 className='text-sm font-medium'>
               {t('settings.general.scheduling.fields.balanceGroup')}
-            </h4>
+            </h3>
             <FormField
               control={form.control}
               name='balanceRefreshSchedule'
@@ -364,9 +364,9 @@ export function SchedulingSection() {
 
           <div className='space-y-3 rounded-lg border p-4'>
             <div className='flex items-center justify-between gap-2'>
-              <h4 className='text-sm font-medium'>
+              <h3 className='text-sm font-medium'>
                 {t('settings.general.scheduling.fields.logCleanupGroup')}
-              </h4>
+              </h3>
               <Link
                 to={
                   '/settings/system-info/program-logs' as
@@ -510,9 +510,9 @@ function MigrationCard() {
   return (
     <div className='border-primary/30 bg-primary/5 mb-6 space-y-3 rounded-lg border p-4'>
       <div>
-        <h4 className='text-sm font-medium'>
+        <h3 className='text-sm font-medium'>
           {t('settings.general.scheduling.migration.title')}
-        </h4>
+        </h3>
         <p className='text-muted-foreground mt-1 text-xs'>
           {t('settings.general.scheduling.migration.summary', {
             current: preview.currentVersion,

@@ -44,9 +44,9 @@ export function MaintenanceSection() {
       description={t('settings.systemInfo.maintenance.description')}
     >
       <div className='space-y-3 rounded-lg border p-4'>
-        <h4 className='text-sm font-medium'>
+        <h3 className='text-sm font-medium'>
           {t('settings.systemInfo.maintenance.toolsGroup')}
-        </h4>
+        </h3>
         <div className='flex flex-wrap gap-2'>
           <Button
             type='button'

@@ -1669,6 +1669,10 @@
             }
           }
         },
+        "dataMigration": {
+          "title": "数据迁移",
+          "description": "将运行时数据库复制到外部 SQLite/PostgreSQL 目标，作为后台任务执行。"
+        },
         "maintenance": {
           "title": "维护",
           "description": "缓存重建与用量日志清理。",

@@ -338,9 +338,9 @@ export function AllowlistSection() {
 
         <div className='space-y-3 rounded-lg border p-4'>
           <div>
-            <h4 className='text-sm font-medium'>
+            <h3 className='text-sm font-medium'>
               {t('settings.models.allowlist.fields.globalBlockedBrands')}
-            </h4>
+            </h3>
             <p className='text-muted-foreground text-xs'>
               {t('settings.models.allowlist.fields.globalBlockedBrandsHint')}
             </p>
