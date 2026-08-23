@@ -1674,7 +1674,11 @@
         "checkinUnsupported": "不支持",
         "checkinOn": "已开启",
         "checkinOff": "未开启",
-        "healthDetail": "健康详情"
+        "healthDetail": "健康详情",
+          "credentialModeSession": "Session",
+          "credentialModeApiKey": "API Key",
+          "checkinTooltipOn": "点击关闭签到，全部签到将忽略此账号",
+          "checkinTooltipOff": "点击开启签到，账号将参与每日签到"
       },
       "detail": {
         "fallbackApiKey": "API Key 连接",

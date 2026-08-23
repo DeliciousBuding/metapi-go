@@ -267,7 +267,8 @@ export const AccountsRowActions = memo(function AccountsRowActions({
 
 export function useAccountsColumns(
   actions: AccountRowActions,
-  pendingStatusId: number | null = null
+  pendingStatusId: number | null = null,
+  pendingCheckinId: number | null = null
 ): ColumnDef<Account>[] {
   const { t } = useTranslation()
   const resolveHealth = useResolveHealth()
@@ -320,7 +321,9 @@ export function useAccountsColumns(
                       : 'secondary'
                   }
                 >
-                  {account.credentialMode === 'session' ? 'Session' : 'API Key'}
+                  {account.credentialMode === 'session'
+                    ? t('accounts.columns.credentialModeSession')
+                    : t('accounts.columns.credentialModeApiKey')}
                 </Badge>
               </div>
               {account.tags && account.tags.length > 0 && (
@@ -465,12 +468,46 @@ export function useAccountsColumns(
               </span>
             )
           }
+          // The badge reads as clickable, so it must BE clickable (like the
+          // original TS Accounts page): a button that keeps the badge look
+          // (pill, same default/outline colors) and toggles check-in inline.
+          // size='xs' is h-6 = 24px, the WCAG 2.5.8 minimum hit target.
+          const isPending = pendingCheckinId === account.id
+          const label = account.checkinEnabled
+            ? t('accounts.columns.checkinOn')
+            : t('accounts.columns.checkinOff')
+          const actionLabel = account.checkinEnabled
+            ? t('accounts.columns.disableCheckin')
+            : t('accounts.columns.enableCheckin')
           return (
-            <Badge variant={account.checkinEnabled ? 'default' : 'outline'}>
-              {account.checkinEnabled
-                ? t('accounts.columns.checkinOn')
-                : t('accounts.columns.checkinOff')}
-            </Badge>
+            <TooltipProvider delay={200}>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <Button
+                      variant={account.checkinEnabled ? 'default' : 'outline'}
+                      size='xs'
+                      className='rounded-4xl px-2.5 font-medium'
+                      aria-label={actionLabel}
+                      data-hit-area
+                      disabled={isPending}
+                      onClick={() => actions.onToggleCheckin(account)}
+                    >
+                      {isPending ? <Spinner /> : label}
+                    </Button>
+                  }
+                >
+                  {account.checkinEnabled
+                    ? t('accounts.columns.checkinTooltipOn')
+                    : t('accounts.columns.checkinTooltipOff')}
+                </TooltipTrigger>
+                <TooltipContent side='top'>
+                  {account.checkinEnabled
+                    ? t('accounts.columns.checkinTooltipOn')
+                    : t('accounts.columns.checkinTooltipOff')}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )
         },
         meta: { mobileOrder: 3 },
@@ -494,6 +531,6 @@ export function useAccountsColumns(
         meta: { pinned: 'right' },
       },
     ],
-    [actions, pendingStatusId, resolveHealth, resolveDisplayName, t]
+    [actions, pendingStatusId, pendingCheckinId, resolveHealth, resolveDisplayName, t]
   )
 }
