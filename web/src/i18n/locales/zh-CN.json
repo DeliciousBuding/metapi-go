@@ -709,7 +709,8 @@
           "checkinSucceeded": "成功",
           "checkinSkipped": "跳过",
           "proxy24h": "代理 24h",
-          "proxy24hHint": "{{success}} 成功 · {{rpm}}/分"
+          "proxy24hHint": "{{success}} 成功 · {{rpm}}/分",
+          "proxy24hHintRpm": "{{success}} 成功 · {{rpm}} 请求/分（近 60 秒）"
         },
         "snapshot": {
           "title": "今日快照",
@@ -771,6 +772,7 @@
           "title": "站点分布",
           "description": "按站点的余额占比。",
           "empty": "暂无站点分布数据。",
+          "zeroBalance": "站点余额均为 0，暂无分布数据。",
           "tooltip": {
             "balance": "余额",
             "accounts": "账户数",
@@ -784,6 +786,7 @@
           "title": "成本分布",
           "description": "按模型的支出占比（30 天）。",
           "empty": "所选区间暂无模型成本数据。",
+          "zeroCost": "30 天内无成本数据（{{calls}} 次调用）",
           "tooltip": {
             "cost": "成本",
             "calls": "请求",
