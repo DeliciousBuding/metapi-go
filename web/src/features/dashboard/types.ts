@@ -87,6 +87,12 @@ export type ModelCostRow = {
 /** Realtime ops WebSocket frame — one point per second. */
 export type RealtimeOpsFrame = {
   lifetime: number
+  /**
+   * Process wall-clock runtime in seconds (backend v0.16.9+). Distinct from
+   * `lifetime`, which is a monotonic request counter — never a duration.
+   * Absent on frames from older backends, so treat as undefined.
+   */
+  uptimeSeconds?: number
   points: Array<{ ts: number; total: number; success: number }>
 }
 
@@ -107,7 +113,10 @@ export type RealtimeOpsSamplePoint = {
 export type RealtimeOpsSample = {
   qps: number
   successRate: number
+  /** Monotonic request counter (NOT a duration — see uptimeSeconds). */
   lifetime: number
+  /** Wall-clock runtime in seconds; the panel renders this as uptime. */
+  uptimeSeconds: number
   spark: RealtimeOpsSamplePoint[]
   connected: boolean
   gaveUp: boolean

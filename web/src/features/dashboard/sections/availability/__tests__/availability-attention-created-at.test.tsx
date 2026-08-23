@@ -46,6 +46,7 @@ const IDLE_SAMPLE: RealtimeOpsSample = {
   qps: 0,
   successRate: 0,
   lifetime: 0,
+  uptimeSeconds: 0,
   spark: [],
   connected: false,
   gaveUp: false,

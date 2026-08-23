@@ -287,6 +287,7 @@ describe('realtime ops shared connection — reference counting', () => {
     latestSocket().open()
     latestSocket().sendFrame({
       lifetime: 42,
+      uptimeSeconds: 900,
       points: [{ ts: 1, total: 100, success: 99 }],
     })
 
@@ -302,6 +303,7 @@ describe('realtime ops shared connection — reference counting', () => {
     // session instead of flashing empty.
     expect(finalSnapshot.lastFrameAt).toBe(FIXED_NOW)
     expect(finalSnapshot.sample.lifetime).toBe(42)
+    expect(finalSnapshot.sample.uptimeSeconds).toBe(900)
   })
 
   it('reopens a fresh socket when subscribers return after idle', () => {
