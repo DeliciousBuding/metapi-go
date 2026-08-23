@@ -51,6 +51,9 @@ function persistAuthSession(
     return
   }
 
+  // A fresh session is now stored — any previously recorded expiry no
+  // longer applies to the next guard check.
+  lastAuthCheckExpired = false
   const expiresAt = nowMs + Math.max(1, Math.trunc(ttlMs))
   target.setItem(AUTH_TOKEN_STORAGE_KEY, cleanToken)
   target.setItem(AUTH_TOKEN_EXPIRES_AT_STORAGE_KEY, String(expiresAt))
@@ -203,6 +206,28 @@ export function isAuthSessionExpired(
   return !Number.isFinite(expiresAt) || expiresAt <= nowMs
 }
 
+/**
+ * Records whether the most recent top-level auth check (startup bootstrap or
+ * post-401 re-read) ended anonymous because a stored session was expired.
+ *
+ * Both checks call {@link getAuthToken}, which wipes the stale entry as a
+ * side effect — after that "expired" is indistinguishable from "never logged
+ * in", so the fact is stashed here first. The record is set just before the
+ * storage-clearing check runs and cleared whenever a fresh session is
+ * persisted (login), so a later in-app navigation never misreports an
+ * expired session the user already replaced by signing in again.
+ */
+let lastAuthCheckExpired = false
+
+/**
+ * True when the startup bootstrap (or a post-401 re-read) ended anonymous
+ * because the stored session had passed its TTL. Used by the authenticated
+ * route guard to attach `reason=sessionExpired` to the sign-in redirect.
+ */
+export function wasAuthSessionExpiredOnLastBoot(): boolean {
+  return lastAuthCheckExpired
+}
+
 export function hasValidAuthSession(
   storage?: StorageLike | null,
   nowMs: number = Date.now()
@@ -250,6 +275,9 @@ export function clearAuthentication(): void {
  * token the session is cleared and the caller redirects to sign-in.
  */
 export function resolveAuthenticationAfterUnauthorized(): AuthenticationOutcome {
+  // Record expiry before getAuthToken wipes the stale entry (the route
+  // guard reads this to distinguish "session expired" from "never logged in").
+  lastAuthCheckExpired = isAuthSessionExpired()
   const bundle = currentValidAuthBundle()
   if (bundle) {
     return { kind: 'authenticated', bundle }
@@ -260,6 +288,9 @@ export function resolveAuthenticationAfterUnauthorized(): AuthenticationOutcome 
 }
 
 export function bootstrapAuthentication(): AuthenticationOutcome {
+  // Record expiry before getAuthToken wipes the stale entry (the route
+  // guard reads this to distinguish "session expired" from "never logged in").
+  lastAuthCheckExpired = isAuthSessionExpired()
   const bundle = currentValidAuthBundle()
   if (bundle) {
     return { kind: 'authenticated', bundle }

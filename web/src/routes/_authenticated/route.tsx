@@ -21,7 +21,11 @@ import {
   LayoutErrorBoundary,
   NotFoundPage,
 } from '@/components/layout'
-import { hasValidAuthSession, isAuthSessionExpired } from '@/lib/auth-session'
+import {
+  hasValidAuthSession,
+  isAuthSessionExpired,
+  wasAuthSessionExpiredOnLastBoot,
+} from '@/lib/auth-session'
 
 export const Route = createFileRoute('/_authenticated')({
   beforeLoad: ({ location }) => {
@@ -30,10 +34,16 @@ export const Route = createFileRoute('/_authenticated')({
     let authenticated = false
     let sessionExpired = false
     try {
-      // Probe the raw storage BEFORE hasValidAuthSession: the session
-      // check wipes expired entries via clearAuthSession, after which
-      // "was expired" is indistinguishable from "never had a session".
-      sessionExpired = isAuthSessionExpired(localStorage)
+      // Two expiry records must agree on "expired" for the notice to render:
+      // (1) the root bootstrap already ran and cleared the stale entry
+      // (cold load: /accounts deep link after the 12h TTL passed), so its
+      // pre-clear record is the only survivor — `wasAuthSessionExpiredOnLastBoot`.
+      // (2) in-app navigation after the TTL passed without a reload: storage
+      // still holds the expired entry, so the raw probe below catches it.
+      // Either way the probe runs BEFORE hasValidAuthSession, whose
+      // getAuthToken wipes the expired entry via clearAuthSession.
+      sessionExpired =
+        wasAuthSessionExpiredOnLastBoot() || isAuthSessionExpired(localStorage)
       authenticated = hasValidAuthSession(localStorage)
     } catch {
       authenticated = false

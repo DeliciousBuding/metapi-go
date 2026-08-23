@@ -14,8 +14,10 @@ import {
   getAccessToken,
   getAuthToken,
   hasValidAuthSession,
+  isAuthSessionExpired,
   resolveAuthenticationAfterUnauthorized,
   setAuthBundle,
+  wasAuthSessionExpiredOnLastBoot,
   type AuthBundle,
 } from '../auth-session'
 
@@ -191,5 +193,89 @@ describe('bootstrapAuthentication', () => {
     vi.stubGlobal('localStorage', storage as unknown as Storage)
     expect(bootstrapAuthentication()).toEqual({ kind: 'anonymous' })
     expect(storage.has(TOKEN_KEY)).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Session-expired record — the authenticated guard reads this to render the
+// "session expired" sign-in notice after the stale entry has been wiped.
+// ---------------------------------------------------------------------------
+
+describe('wasAuthSessionExpiredOnLastBoot', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('reports false when the storage was never populated', () => {
+    vi.stubGlobal('localStorage', memoryStorage() as unknown as Storage)
+    bootstrapAuthentication()
+    expect(wasAuthSessionExpiredOnLastBoot()).toBe(false)
+  })
+
+  it('reports true when the bootstrap cleared an expired token', () => {
+    const storage = memoryStorage({
+      [TOKEN_KEY]: 'expired-token',
+      [EXPIRES_KEY]: String(Date.now() - 1),
+    })
+    vi.stubGlobal('localStorage', storage as unknown as Storage)
+    expect(bootstrapAuthentication().kind).toBe('anonymous')
+    // The stale entry is gone, but the fact survives for the route guard.
+    expect(storage.has(TOKEN_KEY)).toBe(false)
+    expect(wasAuthSessionExpiredOnLastBoot()).toBe(true)
+  })
+
+  it('stays false when the bootstrap found a live token', () => {
+    vi.stubGlobal(
+      'localStorage',
+      memoryStorage({
+        [TOKEN_KEY]: 'live-token',
+        [EXPIRES_KEY]: String(Date.now() + 60_000),
+      }) as unknown as Storage
+    )
+    expect(bootstrapAuthentication().kind).toBe('authenticated')
+    expect(wasAuthSessionExpiredOnLastBoot()).toBe(false)
+  })
+
+  it('resets to false once a fresh session is persisted (relogin)', () => {
+    vi.stubGlobal(
+      'localStorage',
+      memoryStorage({
+        [TOKEN_KEY]: 'expired-token',
+        [EXPIRES_KEY]: String(Date.now() - 1),
+      }) as unknown as Storage
+    )
+    bootstrapAuthentication()
+    expect(wasAuthSessionExpiredOnLastBoot()).toBe(true)
+
+    // Same storage object simulates the user signing in again on the page
+    // that was just redirected to.
+    setAuthBundle(bundle('fresh-token', Math.floor(Date.now() / 1000) + 3600))
+    expect(wasAuthSessionExpiredOnLastBoot()).toBe(false)
+  })
+
+  it('records expiry from the post-401 re-read path too', () => {
+    const storage = memoryStorage({
+      [TOKEN_KEY]: 'expired-token',
+      [EXPIRES_KEY]: String(Date.now() - 1),
+    })
+    vi.stubGlobal('localStorage', storage as unknown as Storage)
+    expect(resolveAuthenticationAfterUnauthorized()).toEqual({
+      kind: 'anonymous',
+    })
+    expect(wasAuthSessionExpiredOnLastBoot()).toBe(true)
+  })
+
+  it('raw probe distinguishes expired from missing without clearing', () => {
+    const storage = memoryStorage({
+      [TOKEN_KEY]: 'expired-token',
+      [EXPIRES_KEY]: String(Date.now() - 1),
+    })
+    vi.stubGlobal('localStorage', storage as unknown as Storage)
+    expect(isAuthSessionExpired()).toBe(true)
+    expect(storage.has(TOKEN_KEY)).toBe(true)
+
+    const missing = memoryStorage({})
+    expect(isAuthSessionExpired(missing)).toBe(false)
+    expect(missing.has(TOKEN_KEY)).toBe(false)
   })
 })
