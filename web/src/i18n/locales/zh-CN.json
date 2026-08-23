@@ -477,7 +477,8 @@
       "page": {
         "loadError": "加载站点失败：{{message}}",
         "title": "站点",
-        "description": "管理已连接的站点、状态与路由权重。"
+        "description": "管理已连接的站点、状态与路由权重。",
+        "weightFormula": "最终站点倍率 = 站点全局权重 × 路由通道的配置权重（建议 0.5–3）"
       },
       "toast": {
         "statusToggled": "站点「{{name}}」已更新。",
@@ -505,7 +506,9 @@
         "deleteConfirmTitle": "删除选中的站点？",
         "deleteConfirmDescription": "将删除选中的 {{count}} 个站点，此操作不可撤销。",
         "deleteConfirmConfirm": "删除",
-        "deleteConfirmCancel": "取消"
+        "deleteConfirmCancel": "取消",
+        "enableSystemProxy": "开启系统代理",
+        "disableSystemProxy": "关闭系统代理"
       },
       "deleteConfirm": {
         "title": "删除站点",
@@ -525,7 +528,10 @@
         "balance": "余额",
         "globalWeight": "权重",
         "actions": "操作",
-        "rowActions": "行操作"
+        "rowActions": "行操作",
+        "useSystemProxy": "系统代理",
+        "externalCheckinUrl": "外部签到地址",
+        "createdAt": "创建时间"
       },
       "actions": {
         "viewDetails": "查看详情",

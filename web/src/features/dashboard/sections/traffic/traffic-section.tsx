@@ -46,7 +46,8 @@ type SiteDistributionResponse = {
     siteId: number
     siteName: string
     platform: string
-    totalBalance: number
+    /** null when the site has accounts but no known balance (never $0). */
+    totalBalance: number | null
     totalSpend: number
     accountCount: number
   }>
@@ -124,7 +125,9 @@ export function TrafficSection() {
     return distribution.map((slice) => ({
       siteName: slice.siteName,
       platform: slice.platform,
-      totalBalance: slice.totalBalance,
+      // The donut renders balance share; an unknown balance contributes 0
+      // to the share instead of NaN.
+      totalBalance: slice.totalBalance ?? 0,
       totalSpend: slice.totalSpend,
       accountCount: slice.accountCount,
     }))
