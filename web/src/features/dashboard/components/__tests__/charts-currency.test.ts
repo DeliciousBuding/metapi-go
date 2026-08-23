@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { EM_DASH } from '@/lib/format'
+
 import { formatChartCurrency } from '../charts'
 
 describe('formatChartCurrency', () => {
