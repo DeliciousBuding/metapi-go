@@ -9,7 +9,7 @@
 // and the three-way action classification match the TS original so the two
 // frontends behave identically.
 
-export type PrimarySiteUrlAction =
+type PrimarySiteUrlAction =
   | 'unchanged'
   | 'auto_strip_known_api_suffix'
   | 'preserve_api_path'
