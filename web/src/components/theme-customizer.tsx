@@ -198,7 +198,12 @@ function PresetSection() {
       <RadioGroup
         value={customization.preset}
         onValueChange={(value) => setPreset(value as ThemePreset)}
-        className='grid grid-cols-5 gap-2'
+        // 5 columns left long English preset names (Anthropic, Forest
+        // Whisper, Lavender Dream…) ellipsis-truncated at 54px per cell;
+        // 3 columns gives ≈90px per tile so every name fits without
+        // truncation. `title` keeps the full name on hover for the
+        // (rare) two-line wraps.
+        className='grid grid-cols-3 gap-2'
         aria-label={t('theme.colorPreset')}
       >
         {THEME_PRESETS.map((preset) => (
@@ -218,7 +223,10 @@ function PresetSection() {
               />
               <TileCheck />
             </div>
-            <div className='mt-1.5 truncate text-center text-xs'>
+            <div
+              className='mt-1.5 min-w-0 text-center text-xs leading-tight'
+              title={t(`theme.preset.${preset.value}`)}
+            >
               {t(`theme.preset.${preset.value}`)}
             </div>
           </RadioPrimitive.Root>

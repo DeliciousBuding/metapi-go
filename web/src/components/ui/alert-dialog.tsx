@@ -24,8 +24,17 @@ function AlertDialogOverlay({
   return (
     <AlertDialogPrimitive.Backdrop
       data-slot='alert-dialog-overlay'
+      // Base UI suppresses the backdrop of a dialog nested inside another
+      // open dialog (`enabled: forceRender || !nested`) to avoid double
+      // scrims. The dirty-close guard intentionally stacks an AlertDialog
+      // on top of the still-open form Dialog/Sheet — without its own
+      // backdrop the two white panels blend into one card and the form's
+      // buttons stay live underneath. `forceRender` gives the nested alert
+      // its own scrim, and both the overlay and the popup are raised to
+      // z-[60] (above any z-50 dialog) so the alert layer always wins.
+      forceRender
       className={cn(
-        'motion-reduce:animate-none! data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 fixed inset-0 isolate z-50 bg-overlay duration-100 supports-backdrop-filter:backdrop-blur-xs',
+        'motion-reduce:animate-none! data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 fixed inset-0 isolate z-60 bg-overlay duration-100 supports-backdrop-filter:backdrop-blur-xs',
         className
       )}
       {...props}
@@ -47,7 +56,7 @@ function AlertDialogContent({
         data-slot='alert-dialog-content'
         data-size={size}
         className={cn(
-          'group/alert-dialog-content bg-popover text-popover-foreground ring-foreground/10 motion-reduce:animate-none! data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-2rem)] w-full -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-xl p-4 ring-1 duration-100 outline-none data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-sm',
+          'group/alert-dialog-content bg-popover text-popover-foreground ring-foreground/10 motion-reduce:animate-none! data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 fixed top-1/2 left-1/2 z-60 flex max-h-[calc(100dvh-2rem)] w-full -translate-x-1/2 -translate-y-1/2 flex-col gap-4 overflow-y-auto rounded-xl p-4 ring-1 duration-100 outline-none data-[size=default]:max-w-xs data-[size=sm]:max-w-xs data-[size=default]:sm:max-w-sm',
           className
         )}
         {...props}
