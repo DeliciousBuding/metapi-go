@@ -60,7 +60,7 @@ golangci-lint run --timeout=3m        # Lint check
 
 ## Release Workflow
 
-0. 所有改动经 `fix/*` / `feature/*` 等短命分支 → PR → Squash merge 回 master（详见 [`docs/git-workflow.md`](docs/internal/git-workflow.md)；master 受保护，禁止直接 push）
+0. 所有改动经 `fix/*` / `feature/*` 等短命分支 → PR → Squash merge 回 master（详见 [`docs/internal/git-workflow.md`](docs/internal/git-workflow.md)；master 受保护，禁止直接 push）
 1. 确保本地 CI 全部通过（pre-push hook 自动检查）
 2. 更新 `CHANGELOG.md`（按 Keep a Changelog 格式；**必须包含 `## [vX.Y.Z]` 节**，Release 说明从该节提取）；同步 `web/package.json` 的 version 字段
 3. 发布助手：`bash scripts/release.sh X.Y.Z`（校验 CHANGELOG 节、`web/package.json` 版本、master 与远端同步后打 annotated tag 并推送）；或手动 `git tag -a vX.Y.Z` → `git push origin vX.Y.Z`（仅 SemVer tag 触发发布）
@@ -71,7 +71,7 @@ golangci-lint run --timeout=3m        # Lint check
 ## CI Discipline
 
 - **Do not push if local CI fails**: all pushes must pass `go vet ./... && go test ./... -count=1 -race` first
-- The git pre-push hook (`.githooks/pre-push`) automatically blocks pushes that fail local CI
+- The global hook-kit chains `.githooks/pre-push-project` and automatically blocks pushes that fail local CI; `.githooks/pre-push` is only the standalone compatibility entrypoint
 - Emergency skip: `git push --no-verify`
 - GitHub Actions is the final verification gate, not a debug environment
 

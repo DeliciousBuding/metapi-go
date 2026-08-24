@@ -80,6 +80,10 @@ func (h *sitesHandler) createSite(w http.ResponseWriter, r *http.Request) {
 		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid url. Cloud metadata / link-local targets are not allowed.")
 		return
 	}
+	if !service.IsValidHTTPURL(body.URL) {
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid url. Expected a valid http(s) URL.")
+		return
+	}
 
 	// Normalize values
 	normalizedStatus := normalizeSiteStatusString(body.Status)
@@ -326,6 +330,10 @@ func (h *sitesHandler) updateSite(w http.ResponseWriter, r *http.Request) {
 		}
 		if service.IsForbiddenSiteTargetURL(*body.URL) {
 			writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid url. Cloud metadata / link-local targets are not allowed.")
+			return
+		}
+		if !service.IsValidHTTPURL(*body.URL) {
+			writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid url. Expected a valid http(s) URL.")
 			return
 		}
 		updates["url"] = service.CanonicalizeSiteURL(*body.URL)

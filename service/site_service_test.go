@@ -442,7 +442,19 @@ func TestIsValidAPIEndpointURL_HTTP(t *testing.T) {
 }
 
 func TestIsValidAPIEndpointURL_Invalid(t *testing.T) {
-	tests := []string{"", "ftp://example.com", "not-a-url"}
+	tests := []string{
+		"",
+		"ftp://example.com",
+		"not-a-url",
+		"http:///v1",
+		"http:opaque-value",
+		"http://",
+		"http://user@example.com/v1",
+		"https://user:password@example.com/v1",
+		"http://example.com:",
+		"http://example.com:70000",
+		"http://[::1",
+	}
 	for _, url := range tests {
 		t.Run(url, func(t *testing.T) {
 			if IsValidAPIEndpointURL(url) {
@@ -515,6 +527,21 @@ func TestIsValidHTTPURL_Valid(t *testing.T) {
 func TestIsValidHTTPURL_SocksInvalid(t *testing.T) {
 	if IsValidHTTPURL("socks5://proxy:1080") {
 		t.Error("expected socks URL to be invalid for IsValidHTTPURL")
+	}
+}
+
+func TestIsValidHTTPURL_RejectsHostlessOpaqueAndUserinfo(t *testing.T) {
+	invalid := []string{
+		"http:///checkin",
+		"http:opaque-value",
+		"http://user@example.com/checkin",
+		"https://user:password@example.com/checkin",
+		"http://example.com:70000/checkin",
+	}
+	for _, raw := range invalid {
+		if IsValidHTTPURL(raw) {
+			t.Errorf("IsValidHTTPURL(%q) = true, want false", raw)
+		}
 	}
 }
 

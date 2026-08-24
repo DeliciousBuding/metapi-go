@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/internal/ssrf"
 	utls "github.com/refraction-networking/utls"
 )
 
@@ -95,11 +96,8 @@ func transportCacheKey(proxy func(*http.Request) (*url.URL, error), insecureSkip
 // reuse. Called only on cache misses inside getCachedTransport.
 func newPooledTransport(proxy func(*http.Request) (*url.URL, error), insecureSkipTLS bool) *http.Transport {
 	transport := &http.Transport{
-		Proxy: proxy,
-		DialContext: (&net.Dialer{
-			Timeout:   defaultProxyConnectTimeout,
-			KeepAlive: defaultProxyKeepAliveInitial,
-		}).DialContext,
+		Proxy:                 proxy,
+		DialContext:           newSiteDialContext(),
 		TLSHandshakeTimeout:   10 * time.Second,
 		ResponseHeaderTimeout: 30 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
@@ -107,12 +105,20 @@ func newPooledTransport(proxy func(*http.Request) (*url.URL, error), insecureSki
 		// same upstream reuse the same TCP+TLS pair instead of re-dialing.
 		MaxIdleConns:        100,
 		MaxIdleConnsPerHost: 20,
-		IdleConnTimeout:    90 * time.Second,
+		IdleConnTimeout:     90 * time.Second,
 	}
 	if insecureSkipTLS {
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 	return transport
+}
+
+func newSiteDialContext() ssrf.DialContextFunc {
+	dialer := &net.Dialer{
+		Timeout:   defaultProxyConnectTimeout,
+		KeepAlive: defaultProxyKeepAliveInitial,
+	}
+	return ssrf.NewSiteDialContext(net.DefaultResolver, dialer.DialContext)
 }
 
 // newUTLSTransport builds a pooled *http.Transport whose DialTLSContext
@@ -147,12 +153,9 @@ func dialUTLSContext(ctx context.Context, network, addr string, insecureSkipTLS 
 		host = addr
 	}
 
-	dialer := &net.Dialer{
-		Timeout:   defaultProxyConnectTimeout,
-		KeepAlive: defaultProxyKeepAliveInitial,
-	}
+	dialContext := newSiteDialContext()
 
-	rawConn, err := dialer.DialContext(ctx, network, addr)
+	rawConn, err := dialContext(ctx, network, addr)
 	if err != nil {
 		return nil, fmt.Errorf("utls dial: %w", err)
 	}
@@ -166,7 +169,7 @@ func dialUTLSContext(ctx context.Context, network, addr string, insecureSkipTLS 
 		rawConn.Close()
 		// Fallback to standard Go TLS on uTLS failure — don't let a uTLS
 		// incompatibility break the request.
-		fallbackConn, dialErr := dialer.DialContext(ctx, network, addr)
+		fallbackConn, dialErr := dialContext(ctx, network, addr)
 		if dialErr != nil {
 			return nil, fmt.Errorf("utls handshake: %w; fallback dial: %v", err, dialErr)
 		}
@@ -221,11 +224,8 @@ func NewSiteProxy(systemProxyURL string) *SiteProxy {
 
 func (sp *SiteProxy) buildClients() {
 	transport := &http.Transport{
-		Proxy: sp.proxyFunc,
-		DialContext: (&net.Dialer{
-			Timeout:   defaultProxyConnectTimeout,
-			KeepAlive: defaultProxyKeepAliveInitial,
-		}).DialContext,
+		Proxy:                 sp.proxyFunc,
+		DialContext:           newSiteDialContext(),
 		TLSHandshakeTimeout:   10 * time.Second,
 		ResponseHeaderTimeout: 30 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
@@ -238,11 +238,8 @@ func (sp *SiteProxy) buildClients() {
 	}
 
 	transportNoTLS := &http.Transport{
-		Proxy: sp.proxyFunc,
-		DialContext: (&net.Dialer{
-			Timeout:   defaultProxyConnectTimeout,
-			KeepAlive: defaultProxyKeepAliveInitial,
-		}).DialContext,
+		Proxy:                 sp.proxyFunc,
+		DialContext:           newSiteDialContext(),
 		TLSHandshakeTimeout:   10 * time.Second,
 		ResponseHeaderTimeout: 30 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,

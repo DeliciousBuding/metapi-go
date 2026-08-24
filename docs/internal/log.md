@@ -1,9 +1,15 @@
 # log.md — Metapi Go product milestones
 
-**Last updated**: 2026-08-24
+**Last updated**: 2026-08-25
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
+
+## 2026-08-25 — Wave 10 Sites demand batch 发布 v0.16.10
+
+- Batch 分支 `batch/w10-sites-demand` 集成合入：#985 站点快捷跳转（http(s) 校验链接）、#986 `/site-announcements` 独立 SPA + camelCase 契约 + 诚实同步错误、SSRF dial-time 守卫（internal/ssrf）、newapi/donehub 公告信封校验。
+- 配套修复：#991 pre-push 门禁链 + release freshness 门禁；#992 产品公告前端真值（链接策略/加载错误/dismiss 反馈）；高负载抖动的代理首字节计时测试修复；文档卫生门禁不再扫描 .dev-local。
+- 联合验收：Go 全量 -race 全绿（WSL）、web vitest 1165 用例 + typecheck/lint/format/knip/build 全绿；版本随 PR bump 至 v0.16.10。
 
 ## 2026-08-24 — Wave 10 #981 迁移兼容修复
 
