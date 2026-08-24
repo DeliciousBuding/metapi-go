@@ -130,10 +130,10 @@ Changes:
 
 1. `settings/basic/authentication` (`AUTH_TOKEN`) -> title **访问令牌 (AccessToken)**; stays in Settings.
 2. `settings/downstream/proxy-token` -> migrate out; the whole `downstream`
-   subarea then collapses (it only contains proxy-token today).
+   subarea then collapses (at the 2026-08-24 audit snapshot, it only contains proxy-token).
 3. Sidebar `downstreamKeys` -> title **API 密钥**.
 4. The migrated root key becomes a special entry in the API 密钥 page. It is
-   **not exportable** today (`handler/admin/credential_export.go` only exports
+   **not exportable** at the 2026-08-24 audit snapshot (`handler/admin/credential_export.go` only exports
    managed key ids); materialization (Step 4 below) removes this gap by making
    it a real `downstream_api_keys` row.
 

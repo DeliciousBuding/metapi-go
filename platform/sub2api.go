@@ -416,12 +416,12 @@ func (s *Sub2ApiAdapter) GetSiteAnnouncements(ctx context.Context, baseURL, acce
 	headers := authBearerHeaders(accessToken)
 	resp, err := fetchJSON(ctx, normalizeBaseURL(baseURL)+endpoint, "GET", nil, headers, proxy)
 	if err != nil {
-		return []SiteAnnouncement{}, nil
+		return nil, fmt.Errorf("fetch announcements: %w", err)
 	}
 
 	data, err := s.parseSub2ApiEnvelopeRaw(resp, endpoint)
 	if err != nil {
-		return []SiteAnnouncement{}, nil
+		return nil, fmt.Errorf("parse announcements envelope: %w", err)
 	}
 
 	var rawItems []interface{}

@@ -56,7 +56,7 @@
 | —   | 已交付 #659    | attention 上提首页           | `availability-section.tsx`                                          | 首页快照横条提供 attention 直达，原「藏在第 4 个 Tab」已收口                                      |
 | —   | 已交付 #660    | 告警富化                     | `service/alert/alert.go`                                            | 3 条核心告警消息富化（受影响路由 + 替代站点 + 直达链接）                                          |
 | —   | 已交付（代码） | 批量操作反馈                 | `accounts-page.tsx` / `accounts/api.ts`                             | `useBatchUpdateAccounts` 已 toast `bulkPartial`（success/failed/items）；证据见 `accounts/api.ts` |
-| 1   | 已交付（代码） | 徽章配方收敛                 | overview/availability/checkin/accounts/routes/channels 内联状态徽章 | 全量迁移完成：#825 迁移 dashboard 3 个手写 `<span>` 徽章 → `<Badge>` 语义变体；本 PR 收口正态状态 default→success 软徽章（含 routes 通道计数 success/warning/secondary 阶梯、failure-reason network/state→info/success）；23 个 data-variant 回归用例守卫 |
+| 1   | 已交付（代码） | 徽章配方收敛                 | overview/availability/checkin/accounts/routes/channels 内联状态徽章 | 全量迁移完成：#825 迁移 dashboard 3 个手写 `<span>` 徽章 → `<Badge>` 语义变体；#827 收口正态状态 default→success 软徽章（含 routes 通道计数 success/warning/secondary 阶梯、failure-reason network/state→info/success）；23 个 data-variant 回归用例守卫 |
 | 2   | 已交付（代码） | RealtimeSparkline 图表 token | `availability-section.tsx`                                          | 已改 `bg-chart-1/70`；`useChartColors` 已随 VChart 移除                                           |
 | 3   | 已交付（代码） | 行内高频操作免菜单化         | `accounts-columns.tsx`                                              | #824 行内 Enable/Disable 按钮（`Power` + `Loader2` + 每行 pending via mutation `variables`，无全局锁，复用现有 i18n）；refresh/pin/checkin/edit/delete 仍走下拉菜单 |
 

@@ -200,6 +200,8 @@ export const statsApi = {
     request(`/api/announcements/${id}/dismiss`, {
       method: 'POST',
       body: '{}',
+      // The dashboard banner surfaces its own localized dismissFailed toast.
+      skipErrorHandler: true,
     }) as Promise<{ success: boolean }>,
   // K1a: model name redirects.
   getModelRedirects: (params?: { accountId?: number; source?: string }) =>

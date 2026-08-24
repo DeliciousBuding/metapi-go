@@ -895,7 +895,8 @@
       },
       "announcement": {
         "learnMore": "learn more",
-        "dismiss": "Dismiss announcement"
+        "dismiss": "Dismiss announcement",
+        "dismissFailed": "Failed to dismiss announcement. Try again."
       },
       "statCard": {
         "trendLabel": "Trend"
@@ -1429,6 +1430,7 @@
           "deleteTitle": "Delete announcement",
           "deleteDescription": "Delete \"{{title}}\"? This action cannot be undone.",
           "empty": "No announcements. Create one to surface a risk banner.",
+          "loadError": "Failed to load announcements: {{message}}",
           "columns": {
             "severity": "Severity",
             "title": "Title",
@@ -1450,7 +1452,8 @@
           },
           "schema": {
             "titleRequired": "Title is required.",
-            "messageRequired": "Message is required."
+            "messageRequired": "Message is required.",
+            "linkInvalid": "Enter an absolute http:// or https:// URL."
           },
           "toast": {
             "saved": "Announcement saved.",
@@ -2396,6 +2399,88 @@
         "ariaTotal": "Total {{total}}"
       }
     },
+    "siteAnnouncements": {
+      "page": {
+        "title": "Site Announcements",
+        "description": "Notices scraped from your upstream sites by the announcement sync."
+      },
+      "actions": {
+        "sync": "Sync now",
+        "markAllRead": "Mark all read",
+        "clear": "Clear all"
+      },
+      "sync": {
+        "pending": "Sync queued…",
+        "running": "Syncing upstream sites…",
+        "success": "Sync finished: {{inserted}} new, {{updated}} updated.",
+        "successWithFailures": "Sync finished: {{inserted}} new, {{updated}} updated, {{failed}} failed.",
+        "failed": "Announcement sync failed.",
+        "startFailed": "Failed to start the announcement sync."
+      },
+      "filters": {
+        "site": "Site",
+        "allSites": "All sites",
+        "platform": "Platform",
+        "allPlatforms": "All platforms",
+        "read": "Read status",
+        "readAll": "All",
+        "readTrue": "Read",
+        "readFalse": "Unread",
+        "status": "Status",
+        "statusAll": "All",
+        "statusActive": "Active",
+        "statusExpired": "Expired",
+        "statusDismissed": "Dismissed"
+      },
+      "columns": {
+        "announcement": "Announcement",
+        "site": "Site",
+        "level": "Level",
+        "seen": "Seen",
+        "actions": "Actions"
+      },
+      "level": {
+        "info": "Info",
+        "warning": "Warning",
+        "error": "Error",
+        "critical": "Critical",
+        "success": "Success"
+      },
+      "row": {
+        "markRead": "Mark read",
+        "unread": "Unread",
+        "dismissed": "Dismissed",
+        "expired": "Expired",
+        "siteUnknown": "Site #{{id}}"
+      },
+      "empty": {
+        "title": "No announcements yet",
+        "description": "Use Sync now to fetch the latest notices from your upstream sites.",
+        "filteredTitle": "No matching announcements",
+        "filteredDescription": "Try adjusting the filters."
+      },
+      "error": {
+        "load": "Failed to load site announcements: {{message}}"
+      },
+      "pagination": {
+        "previous": "Previous",
+        "next": "Next",
+        "page": "Page {{page}}",
+        "summary": "{{count}} rows on this page"
+      },
+      "clear": {
+        "title": "Clear all announcements?",
+        "description": "This permanently deletes every stored upstream announcement. Upstream sites are not affected.",
+        "confirm": "Clear all"
+      },
+      "toast": {
+        "allMarkedRead": "All announcements marked as read.",
+        "markReadFailed": "Failed to mark the announcement as read.",
+        "markAllFailed": "Failed to mark all announcements as read.",
+        "cleared": "All announcements cleared.",
+        "clearFailed": "Failed to clear announcements."
+      }
+    },
     "No Data": "No Data",
     "No data available": "No data available",
     "No records found. Try adjusting your filters.": "No records found. Try adjusting your filters.",
@@ -2589,6 +2674,7 @@
         "accounts": "Account management",
         "checkin": "Check-in records",
         "proxyLogs": "Proxy Logs",
+        "siteAnnouncements": "Site Announcements",
         "observability": "Observability",
         "tokenRoutes": "Token Routes",
         "oauth": "OAuth",

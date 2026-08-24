@@ -213,6 +213,7 @@ func runBackgroundTask(taskID, title, dedupeKey string, runner func() (any, erro
 	}
 	task.FinishedAt = &finished
 	task.UpdatedAt = finished
+	task.Result = result
 	var errPtr *string
 	var status BackgroundTaskStatus
 	if err != nil {
@@ -225,7 +226,6 @@ func runBackgroundTask(taskID, title, dedupeKey string, runner func() (any, erro
 	} else {
 		task.Status = BackgroundTaskSucceeded
 		task.Error = nil
-		task.Result = result
 		task.Message = title + " completed"
 		status = BackgroundTaskSucceeded
 	}
