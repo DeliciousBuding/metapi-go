@@ -1,51 +1,48 @@
 # Roadmap
 
-**Last verified**: 2026-08-24
+**Last verified**: 2026-08-25
 
-**Release**: [v0.16.9](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.9) · released on master; production promotion follows the release and soak gate
+**Release**: [v0.16.10](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.10) · released on master; production promotion follows the release and soak gate
 
 > This is the only execution plan. It contains open work, order, ownership, and acceptance criteria. Current facts → [`../STATE.md`](../STATE.md) · product positioning → [`../benchmark.md`](../benchmark.md) · timeline → [`../log.md`](../log.md).
 
 ## Current active work — 需求驱动（v0.16.9+）
 
-历史完成冻结：Round 1 #887 → v0.16.3、Round 2 #889 → v0.16.4、#887 补遗 + E2E → v0.16.5、Round 3 修复波 → v0.16.6、Wave 4 综合质量波 → v0.16.7、Wave 5+6 开发 + 深审计波 → v0.16.8、Wave 7+8+9 前端体验/语义/设置/catalog/移动端审计波 → v0.16.9 均已发布。
+历史完成冻结：Round 1 #887 → v0.16.3、Round 2 #889 → v0.16.4、#887 补遗 + E2E → v0.16.5、Round 3 修复波 → v0.16.6、Wave 4 综合质量波 → v0.16.7、Wave 5+6 开发 + 深审计波 → v0.16.8、Wave 7+8+9 前端体验/语义/设置/catalog/移动端审计波 → v0.16.9、Wave 10 Sites demand batch → v0.16.10 均已发布。
 
-### Wave 10 — Sites demand batch（执行中，2026-08-24）
+### Wave 11 — UX 死胡同清扫 + 测试真值（执行中，2026-08-25）
 
-**Tracking**: `GITHUB_STANDARD` · batch branch `batch/w10-sites-demand` · one batch PR closes #985 and #986 only after all lanes pass combined validation.
+**Tracking**: `GITHUB_STANDARD` · 四 lane 基于 v0.16.10 master · 合并顺序 D → A → B → C，每 lane 一个 PR。
 
-| Lane | Issue | Owner / write set | Status | Acceptance |
-|---|---|---|---|---|
-| A | [#985](https://github.com/DeliciousBuding/metapi-go/issues/985) | frontend links: `sites-columns.tsx` + focused test | **in progress** | validated http(s) name + URL links; invalid schemes stay text; keyboard/focus/new-tab semantics |
-| S | #985 | URL safety: admin sites create/update + detail-sheet historical fallback tests | **in progress** | backend rejects non-http(s); legacy dirty URLs never become executable anchors |
-| B | [#986](https://github.com/DeliciousBuding/metapi-go/issues/986) | announcement backend/API truth: handler + focused Go tests | **ready** | camelCase bare-array contract; PG-safe inserted ID/event boolean; counters only reflect successful writes |
-| C | #986 | independent upstream-announcement SPA: new feature module, route, sidebar, API client/types, locales, a11y route | **ready** | `/site-announcements` is a real page using `/api/site-announcements`; untrusted content stays text; read/sync/empty/error states are truthful |
-| I | #985 + #986 | main agent only: integration, MASTER/STATE/log/CHANGELOG/version | **pending** | L2 diff review + L3 lane review; combined frontend + Go gates; one batch PR |
+| Lane | Branch | Scope / write set | Acceptance |
+|---|---|---|---|
+| A | `feature/w11-a-chain-context` | token-routes：chain-context 横幅从 query cache 解析 account/site 名称（无名才回落 `#ID`）；`showZeroChannel` 开关移入 toolbar viewOptions | 横幅不出现可解析的裸 `#ID`；focused tests |
+| B | `feature/w11-b-feedback-loops` | accounts：pin/checkin 切换成功 toast + 行级 pending；model-tester：对比行 re-run 动作 | 两处 fire-and-forget 消除；focused tests |
+| C | `feature/w11-c-oauth-start-flow` | oauth：Start-OAuth 呈现 `result.state`/`instructions`，用既有 `getOAuthSession` 轮询 pending session，`submitOAuthManualCallback` 手动回调 | 流程不再 dead-end；错误/超时态诚实；focused tests |
+| D | `test/w11-d-test-gates` | 移除 vitest `dangerouslyIgnoreUnhandledErrors` + 点名文件最小修复；a11y-scan ROUTES 对齐 route-smoke 单一来源；visual-regression golden +5-6 稳定空库页 | 全套 vitest 无 ignore flag 绿；a11y serious/critical=0（moderate 记 residual）；新 golden 页确定性 |
 
 **Hard boundaries**
 
-- `/api/site-announcements` (upstream notices) and `/api/announcements` (operator risk banners) remain separate types, query keys, and UI.
-- Do not restore the deleted historical `features/site-announcements` implementation: it aliased the wrong product-announcement domain.
-- Announcement body/source are untrusted. MVP renders body as plain text and does not expose `sourceUrl` as a direct external link.
-- No duplicate endpoint, scheduler, site cache, or task-status API. Reuse `SyncSiteAnnouncements`, `useSites`/`sitesKeys`, and `api.getTask()`.
-- Shared write points: locale JSON belongs only to C; project docs and GitHub state belong only to I.
+- 不新增依赖；i18n en/zh-CN 键位对齐（i18n 门禁）；全前端 lane——Lane C 复用既有后端端点，不改 Go。
+- Lane D 只修被暴露错误点名的文件；不得新增全局吞错、不得 skip/todo/删测试。
+- Locale JSON：每 lane 只写自己 feature 命名空间；共享组件可扩展但不改变现有公开行为。
+- 项目文档、CHANGELOG 与 GitHub 状态归 integration 唯一。
 
-**Combined validation**
+**Lane 验收门禁**
 
 ```powershell
-go build ./cmd/server
-go vet ./...
-go test ./... -count=1 -race
 Set-Location web
 bun run test
 bun run typecheck
 bun run lint
 bun run format:check
 bun run knip
-bun run build:check
 ```
 
 ### 已收口（v0.16.9 及以前，勿再当 active）
+
+- Wave 10 Sites demand batch（#985+#986 → v0.16.10）：站点快捷跳转链接、`/site-announcements` 独立 SPA、公告 API camelCase 契约与诚实同步错误、SSRF dial-time 守卫（internal/ssrf）、newapi/donehub 信封校验；配套 #991（pre-push 链 + release freshness 门禁）、#992（产品公告前端真值）。
+
 
 - Wave 5：功能闭环 #861（#935 apiEndpoints 编辑器）、#558（#939 探针产品化）、#926（#938 后端消息英文化收官）；测试矩阵（#937 真实上游 4/16 + 运行时矩阵 4/5）；截图证据管道 + golden 门禁（#951）；审计残留 P1（#936）；docs/api.md 74 条补齐（#940）。
 - Wave 6 六维深审计（架构/动线/视觉/性能/安全，22 项坐实全修复）：P0 备份凭据植入（#941）、全失败告警（#942）、可空列同族（#943）、代理零拷贝（#944）、proxy-logs 单遍+缓存（#945）、后端卫生（#946）、路由缓存（#947）、UX 动线 4 项（#948）、对比度 6 项 + 320 对守卫（#949）、前端卫生（#950）。
