@@ -21,7 +21,7 @@ import (
 
 // RegisterSiteAnnouncementsRoutes registers all /api/site-announcements routes.
 // Also wires the background SiteAnnouncementScheduler to real SyncSiteAnnouncements
-//. Routes register before StartBackgroundServices, so the package-level
+// . Routes register before StartBackgroundServices, so the package-level
 // default is installed for NewSiteAnnouncementScheduler to pick up.
 func RegisterSiteAnnouncementsRoutes(r chi.Router, db *sqlx.DB) {
 	wireSiteAnnouncementSchedulerSync()
@@ -120,14 +120,14 @@ func (h *siteAnnouncementsHandler) listAnnouncements(w http.ResponseWriter, r *h
 		if err := rows.MapScan(row); err != nil {
 			continue
 		}
-		all = append(all, row)
+		all = append(all, mapKeysToCamel(row))
 	}
 
 	// Apply read filter
 	if readFilter == "true" {
 		filtered := make([]map[string]any, 0)
 		for _, row := range all {
-			if hasValue(row["read_at"]) {
+			if hasValue(row["readAt"]) {
 				filtered = append(filtered, row)
 			}
 		}
@@ -135,7 +135,7 @@ func (h *siteAnnouncementsHandler) listAnnouncements(w http.ResponseWriter, r *h
 	} else if readFilter == "false" {
 		filtered := make([]map[string]any, 0)
 		for _, row := range all {
-			if !hasValue(row["read_at"]) {
+			if !hasValue(row["readAt"]) {
 				filtered = append(filtered, row)
 			}
 		}
@@ -147,7 +147,7 @@ func (h *siteAnnouncementsHandler) listAnnouncements(w http.ResponseWriter, r *h
 	if statusFilter == "dismissed" {
 		filtered := make([]map[string]any, 0)
 		for _, row := range all {
-			if hasValue(row["dismissed_at"]) {
+			if hasValue(row["dismissedAt"]) {
 				filtered = append(filtered, row)
 			}
 		}
@@ -155,8 +155,8 @@ func (h *siteAnnouncementsHandler) listAnnouncements(w http.ResponseWriter, r *h
 	} else if statusFilter == "active" {
 		filtered := make([]map[string]any, 0)
 		for _, row := range all {
-			if !hasValue(row["dismissed_at"]) {
-				endsAt := parseTime(row["ends_at"])
+			if !hasValue(row["dismissedAt"]) {
+				endsAt := parseTime(row["endsAt"])
 				if endsAt == nil || !endsAt.Before(now) {
 					filtered = append(filtered, row)
 				}
@@ -166,8 +166,8 @@ func (h *siteAnnouncementsHandler) listAnnouncements(w http.ResponseWriter, r *h
 	} else if statusFilter == "expired" {
 		filtered := make([]map[string]any, 0)
 		for _, row := range all {
-			if !hasValue(row["dismissed_at"]) {
-				endsAt := parseTime(row["ends_at"])
+			if !hasValue(row["dismissedAt"]) {
+				endsAt := parseTime(row["endsAt"])
 				if endsAt != nil && endsAt.Before(now) {
 					filtered = append(filtered, row)
 				}

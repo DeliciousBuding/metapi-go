@@ -125,8 +125,8 @@ func TestDoneHubAdapter_GetSiteAnnouncements(t *testing.T) {
 	ctx := context.Background()
 
 	anns, err := d.GetSiteAnnouncements(ctx, unreachableBaseURL(t), "token", nil, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+	if err == nil {
+		t.Fatal("GetSiteAnnouncements on unreachable URL should return an error")
 	}
 	if len(anns) != 0 {
 		t.Error("GetSiteAnnouncements on unreachable should return empty")

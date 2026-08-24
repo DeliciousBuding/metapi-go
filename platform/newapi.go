@@ -714,7 +714,7 @@ func (n *NewApiAdapter) tryGetGroupsEndpoint(ctx context.Context, baseURL, acces
 func (n *NewApiAdapter) GetSiteAnnouncements(ctx context.Context, baseURL, accessToken string, platformUserId *int, proxy *ProxyConfig) ([]SiteAnnouncement, error) {
 	resp, err := fetchJSON(ctx, baseURL+"/api/notice", "GET", nil, nil, proxy)
 	if err != nil {
-		return []SiteAnnouncement{}, nil
+		return nil, fmt.Errorf("fetch notice: %w", err)
 	}
 
 	content := ""
