@@ -859,8 +859,9 @@ jobs:
           retention-days: 7
 
   visual-regression:
-    # Golden screenshot regression: 4 key pages (dashboard / token-routes /
-    # accounts / sites, light desktop only) compared against committed
+    # Golden screenshot regression: 10 key pages (dashboard / token-routes /
+    # accounts / sites / models / channels / oauth / model-tester / settings
+    # overview / settings basic-site; light desktop only) compared against committed
     # baselines in web/visual-baselines/ via expect(page).toHaveScreenshot().
     # Drift (or a missing baseline) fails the job; on failure the
     # visual-regression-diffs artifact carries actual/baseline/diff images.

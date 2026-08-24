@@ -36,9 +36,11 @@ node scripts/screenshot-scan.mjs   # 默认连 BASE_URL=http://127.0.0.1:4099
 
 ## 2. 黄金基线回归（job: `visual-regression`）
 
-4 个关键页 golden 基线回归，用 Playwright `expect(page).toHaveScreenshot()`：
+10 个关键页 golden 基线回归，用 Playwright `expect(page).toHaveScreenshot()`：
 
-- 页面：`/`（dashboard）、`/token-routes`、`/accounts`、`/sites`。
+- 页面：`/`（dashboard）、`/token-routes`、`/accounts`、`/sites`、`/models`、
+  `/channels`、`/oauth`、`/model-tester`、`/settings`（overview）、
+  `/settings/basic/site`。全部空库、布局稳定、日期无关（契约同前 4 页）。
 - 维度仅 desktop + light（低维度避免每月全量重生成基线；dark/mobile 由证据
   管道覆盖）。
 - spec：`web/scripts/visual-regression.spec.mjs`；
