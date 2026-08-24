@@ -1,9 +1,11 @@
 package service
 
 import (
-	"net"
 	"net/url"
+	"strconv"
 	"strings"
+
+	"github.com/deliciousbuding/metapi-go/internal/ssrf"
 )
 
 // NormalizeSiteAPIEndpointBaseUrl normalizes a site API endpoint URL.
@@ -30,14 +32,8 @@ func IsValidAPIEndpointURL(raw string) bool {
 	if trimmed == "" {
 		return false
 	}
-	parsed, err := url.Parse(trimmed)
-	if err != nil {
-		return false
-	}
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return false
-	}
-	if IsForbiddenSiteTargetURL(trimmed) {
+	parsed, ok := parseSiteHTTPURL(trimmed)
+	if !ok || ssrf.IsForbiddenSiteHostname(parsed.Hostname()) {
 		return false
 	}
 	return true
@@ -69,17 +65,33 @@ func IsValidHTTPURL(raw string) bool {
 	if trimmed == "" {
 		return true
 	}
-	parsed, err := url.Parse(trimmed)
-	if err != nil {
-		return false
-	}
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return false
-	}
-	if IsForbiddenSiteTargetURL(trimmed) {
+	parsed, ok := parseSiteHTTPURL(trimmed)
+	if !ok || ssrf.IsForbiddenSiteHostname(parsed.Hostname()) {
 		return false
 	}
 	return true
+}
+
+func parseSiteHTTPURL(raw string) (*url.URL, bool) {
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Opaque != "" || parsed.User != nil || parsed.Host == "" || parsed.Hostname() == "" {
+		return nil, false
+	}
+	switch strings.ToLower(parsed.Scheme) {
+	case "http", "https":
+	default:
+		return nil, false
+	}
+	if strings.HasSuffix(parsed.Host, ":") {
+		return nil, false
+	}
+	if port := parsed.Port(); port != "" {
+		n, err := strconv.Atoi(port)
+		if err != nil || n < 1 || n > 65535 {
+			return nil, false
+		}
+	}
+	return parsed, true
 }
 
 // IsForbiddenSiteTargetURL reports whether a site/endpoint URL must be rejected
@@ -91,33 +103,8 @@ func IsForbiddenSiteTargetURL(raw string) bool {
 		return false
 	}
 	parsed, err := url.Parse(trimmed)
-	if err != nil {
+	if err != nil || parsed.Hostname() == "" {
 		return false
 	}
-	host := parsed.Hostname()
-	if host == "" {
-		return false
-	}
-	lower := strings.ToLower(host)
-	switch lower {
-	case "metadata.google.internal", "metadata", "instance-data":
-		return true
-	}
-	ip := net.ParseIP(host)
-	if ip == nil {
-		// Hostname: only block well-known metadata names above.
-		return false
-	}
-	// Link-local IPv4 169.254.0.0/16 (includes AWS/GCP/Azure metadata 169.254.169.254).
-	if ip4 := ip.To4(); ip4 != nil {
-		if ip4[0] == 169 && ip4[1] == 254 {
-			return true
-		}
-		return false
-	}
-	// Link-local IPv6 fe80::/10
-	if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
-		return true
-	}
-	return false
+	return ssrf.IsForbiddenSiteHostname(parsed.Hostname())
 }

@@ -31,6 +31,7 @@ import {
   formatRelativeTime,
 } from '@/lib/format'
 
+import { isHttpUrl } from '../lib/endpoints'
 import { resolveSiteBalanceUsd } from '../lib/site-balance'
 import type { Site, SiteApiEndpoint, SiteStatus } from '../types'
 import { SiteProbePanel } from './site-probe-panel'
@@ -69,6 +70,8 @@ export function SiteDetailSheet({
   const endpoints = site.apiEndpoints ?? []
   const tags = site.tags ?? []
   const siteId = site.id
+  const siteURL = site.url.trim()
+  const hasSafeSiteURL = isHttpUrl(siteURL)
 
   function goToAccounts() {
     onOpenChange(false)
@@ -122,15 +125,19 @@ export function SiteDetailSheet({
           <section>
             <dl className='grid grid-cols-2 gap-x-3 gap-y-2 text-sm'>
               <DetailField label={t('sites.detail.url')} full title={site.url}>
-                <a
-                  href={site.url}
-                  target='_blank'
-                  rel='noopener noreferrer'
-                  className='text-primary inline-flex max-w-full items-center gap-1 hover:underline'
-                >
-                  <span className='truncate'>{site.url}</span>
-                  <ExternalLinkIcon className='size-4 shrink-0' />
-                </a>
+                {hasSafeSiteURL ? (
+                  <a
+                    href={siteURL}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='text-primary inline-flex max-w-full items-center gap-1 hover:underline'
+                  >
+                    <span className='truncate'>{site.url}</span>
+                    <ExternalLinkIcon className='size-4 shrink-0' />
+                  </a>
+                ) : (
+                  <span className='block max-w-full truncate'>{site.url}</span>
+                )}
               </DetailField>
               {site.externalCheckinUrl ? (
                 <DetailField

@@ -176,6 +176,17 @@ func runEventsAndAnnouncementsLifecycle(t *testing.T, db *store.DB, r chi.Router
 	if len(announcements) == 0 {
 		t.Fatalf("announcements count = 0, want at least 1; body=%s", annResp.Body.String())
 	}
+	announcement := announcements[0]
+	for _, key := range []string{"siteId", "sourceKey", "firstSeenAt", "lastSeenAt", "readAt"} {
+		if _, ok := announcement[key]; !ok {
+			t.Fatalf("announcement missing camelCase key %q: %#v", key, announcement)
+		}
+	}
+	for _, key := range []string{"site_id", "source_key", "first_seen_at", "last_seen_at", "read_at"} {
+		if _, ok := announcement[key]; ok {
+			t.Fatalf("announcement leaked snake_case key %q: %#v", key, announcement)
+		}
+	}
 
 	annReadResp := doPostJSON(t, r, "/api/site-announcements/"+itoa(announcementID)+"/read", nil)
 	if annReadResp.Code != http.StatusOK {

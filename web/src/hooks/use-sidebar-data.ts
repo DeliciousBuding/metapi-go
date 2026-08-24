@@ -10,6 +10,7 @@ import {
   FlaskConical,
   Info,
   KeyRound,
+  Megaphone,
   LayoutDashboard,
   ScrollText,
   Route,
@@ -65,6 +66,11 @@ const SIDEBAR_DATA: SidebarData = {
           title: 'sidebar.items.proxyLogs',
           url: '/proxy-logs',
           icon: ScrollText,
+        },
+        {
+          title: 'sidebar.items.siteAnnouncements',
+          url: '/site-announcements',
+          icon: Megaphone,
         },
         {
           title: 'sidebar.items.observability',

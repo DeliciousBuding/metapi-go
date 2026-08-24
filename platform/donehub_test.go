@@ -2,6 +2,9 @@ package platform
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -94,9 +97,9 @@ func TestDoneHubAdapter_BalanceFormula(t *testing.T) {
 	quotaRemaining := 400000.0
 	used := 100000.0
 
-	quotaUSD := quotaRemaining / 500000  // 0.8
-	usedUSD := used / 500000              // 0.2
-	totalUSD := quotaUSD + usedUSD         // 1.0
+	quotaUSD := quotaRemaining / 500000 // 0.8
+	usedUSD := used / 500000            // 0.2
+	totalUSD := quotaUSD + usedUSD      // 1.0
 
 	if quotaUSD != 0.8 {
 		t.Errorf("DoneHub quotaUSD: %f, want 0.8", quotaUSD)
@@ -125,10 +128,89 @@ func TestDoneHubAdapter_GetSiteAnnouncements(t *testing.T) {
 	ctx := context.Background()
 
 	anns, err := d.GetSiteAnnouncements(ctx, unreachableBaseURL(t), "token", nil, nil)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+	if err == nil {
+		t.Fatal("GetSiteAnnouncements on unreachable URL should return an error")
 	}
 	if len(anns) != 0 {
 		t.Error("GetSiteAnnouncements on unreachable should return empty")
+	}
+}
+
+func TestDoneHubAdapter_GetSiteAnnouncementsEnvelope(t *testing.T) {
+	tests := []struct {
+		name            string
+		body            string
+		wantErrContains string
+		wantContent     string
+	}{
+		{
+			name:            "failure envelope surfaces upstream message",
+			body:            `{"success":false,"message":"notice access denied"}`,
+			wantErrContains: "notice access denied",
+		},
+		{
+			name: "successful empty envelope returns no announcements",
+			body: `{"success":true}`,
+		},
+		{
+			name:        "valid string notice",
+			body:        `{"success":true,"data":"  Planned upgrade  "}`,
+			wantContent: "Planned upgrade",
+		},
+		{
+			name:            "empty object is not marshaled into an announcement",
+			body:            `{}`,
+			wantErrContains: "missing boolean success",
+		},
+		{
+			name:            "object data is rejected",
+			body:            `{"success":true,"data":{"notice":"must not persist"}}`,
+			wantErrContains: "data must be a string",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/api/notice" {
+					t.Fatalf("path = %q, want /api/notice", r.URL.Path)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(tt.body))
+			}))
+			defer srv.Close()
+
+			d := &DoneHubAdapter{
+				OneHubAdapter: &OneHubAdapter{
+					OneApiAdapter: &OneApiAdapter{BaseAdapter: NewBaseAdapter("done-hub")},
+				},
+			}
+			anns, err := d.GetSiteAnnouncements(context.Background(), srv.URL, "secret-token", nil, nil)
+			if tt.wantErrContains != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErrContains) {
+					t.Fatalf("error = %v, want containing %q", err, tt.wantErrContains)
+				}
+				if len(anns) != 0 {
+					t.Fatalf("announcements = %#v, want empty on error", anns)
+				}
+				if strings.Contains(err.Error(), "secret-token") {
+					t.Fatalf("error leaked access token: %v", err)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("GetSiteAnnouncements() error = %v", err)
+			}
+			if tt.wantContent == "" {
+				if len(anns) != 0 {
+					t.Fatalf("announcements = %#v, want empty", anns)
+				}
+				return
+			}
+			if len(anns) != 1 || anns[0].Content != tt.wantContent {
+				t.Fatalf("announcements = %#v, want one with content %q", anns, tt.wantContent)
+			}
+		})
 	}
 }

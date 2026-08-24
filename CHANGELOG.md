@@ -5,6 +5,25 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.16.10] — 2026-08-25
+
+### Added
+
+- **站点快捷跳转（#985）**：站点列表名称/URL 列提供快捷跳转链接；仅合法 http(s) 地址渲染为链接，非法 scheme 保持纯文本，含键盘/焦点/新标签语义。
+- **站点公告页（#986）**：新增独立 `/site-announcements` SPA，聚合上游站点公告，读/同步/空/错误状态齐备；公告正文按不可信文本渲染，不渲染来源外链。
+
+### Fixed
+
+- **站点公告 API 契约（#986）**：admin API 统一 camelCase；同步按站点诚实报错、计数器只统计成功写入；`siteId` 严格校验（未知站点 404，拒绝重复键/浮点/未知字段）；失败后台任务保留结构化结果供 UI 呈现部分真值。
+- **上游公告信封校验**：newapi/donehub 适配器校验 success 信封与 data 类型，呈现上游失败消息而不是制造内容。
+- **产品公告真值（#992）**：设置/仪表盘公告链接只接受绝对 http(s)；加载失败显示错误横幅与重试；dismiss 失败有本地化 toast 且横幅保留。
+- **门禁稳定**：修复高负载下抖动的代理首字节计时测试；文档卫生门禁不再扫描 gitignored 的本地工作区（.dev-local）。
+
+### Security
+
+- **SSRF 加固**：新增 `internal/ssrf` 主机名策略与 DialContext 守卫，在所有站点代理传输（普通/池化/uTLS）拨号前拒绝云元数据/链路本地目标；RFC1918/localhost 保留给实验环境。站点 URL 校验收紧（拒绝 opaque、内嵌凭据与非法端口）。
+- **工程门禁（#991）**：项目 pre-push CI 门禁重新挂回全局 hook 链；release.sh 在打 tag 前校验 master 与远端同步。
+
 ## [v0.16.9] — 2026-08-24
 
 ### Added

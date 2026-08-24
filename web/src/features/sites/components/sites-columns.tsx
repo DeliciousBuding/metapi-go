@@ -9,6 +9,7 @@
 
 import type { ColumnDef } from '@tanstack/react-table'
 import {
+  ExternalLink as ExternalLinkIcon,
   Eye as EyeIcon,
   MoreHorizontal as MoreHorizontalIcon,
   Pencil as PencilIcon,
@@ -38,6 +39,7 @@ import {
 } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
+import { isValidEndpointUrl } from '../lib/endpoints'
 import { resolveSiteBalanceUsd } from '../lib/site-balance'
 import type { Site, SiteStatus } from '../types'
 
@@ -64,11 +66,56 @@ function StatusBadge({ status }: { status: SiteStatus | undefined }) {
   )
 }
 
+function SiteExternalLink({
+  url,
+  children,
+  className,
+  title,
+}: {
+  url: string
+  children: React.ReactNode
+  className?: string
+  title: string
+}) {
+  const href = url.trim()
+  const content = <span className='min-w-0 truncate'>{children}</span>
+  const isSafeExternalURL =
+    /^https?:\/\//i.test(href) && isValidEndpointUrl(href)
+
+  if (!isSafeExternalURL) {
+    return (
+      <span className={cn('block truncate', className)} title={title}>
+        {children}
+      </span>
+    )
+  }
+
+  return (
+    <a
+      href={href}
+      target='_blank'
+      rel='noopener noreferrer'
+      className={cn(
+        'group inline-flex min-w-0 items-center gap-1 rounded-sm underline-offset-4 hover:text-primary hover:underline focus-visible:text-primary focus-visible:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset focus-visible:outline-none',
+        className
+      )}
+      title={title}
+      onClick={(event) => event.stopPropagation()}
+    >
+      {content}
+      <ExternalLinkIcon
+        aria-hidden='true'
+        className='size-3.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100'
+      />
+    </a>
+  )
+}
+
 function TruncatedUrl({ url }: { url: string }) {
   return (
-    <span className='block max-w-[18rem] truncate text-sm' title={url}>
+    <SiteExternalLink url={url} className='max-w-[18rem] text-sm' title={url}>
       {url}
-    </span>
+    </SiteExternalLink>
   )
 }
 
@@ -134,12 +181,13 @@ export function useSitesColumns(
             {site.isPinned && (
               <PinIcon className='text-muted-foreground size-3.5 shrink-0' />
             )}
-            <span
-              className='max-w-[220px] truncate font-medium'
+            <SiteExternalLink
+              url={site.url}
+              className='max-w-[220px] font-medium'
               title={site.name}
             >
               {site.name}
-            </span>
+            </SiteExternalLink>
           </div>
         )
       },

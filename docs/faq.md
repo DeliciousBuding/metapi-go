@@ -38,7 +38,7 @@ sites.
 **Can I run multiple instances?**
 Yes, with PostgreSQL. Side-effecting schedulers coordinate via PG advisory
 locks; an optional Redis (`REDIS_URL`) shares downstream-key RPM/TPM
-admission counters across instances. What stays per-instance today: sticky
+admission counters across instances. The following remain per-instance: sticky
 sessions and realtime WebSocket panels — put a load balancer in front with
 session pinning if you need stickiness.
 
