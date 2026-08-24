@@ -10,6 +10,14 @@
 
 历史完成冻结：Round 1 #887 → v0.16.3、Round 2 #889 → v0.16.4、#887 补遗 + E2E → v0.16.5、Round 3 修复波 → v0.16.6、Wave 4 综合质量波 → v0.16.7、Wave 5+6 开发 + 深审计波 → v0.16.8、Wave 7+8+9 前端体验/语义/设置/catalog/移动端审计波 → v0.16.9 均已发布。
 
+### Wave 10 — 用户需求队列（2026-08-24）
+
+| Issue | Scope | Status / acceptance |
+|---|---|---|
+| [#981](https://github.com/DeliciousBuding/metapi-go/issues/981) | TS → Go 迁移后，Sub2API `tokenExpiresAt` 毫秒值被按秒转换，导致 `/api/sites` JSON 序列化失败 | **修复 PR #987**：内部统一 epoch milliseconds，同时兼容 legacy seconds；站点摘要可序列化，刷新 lead window 单位一致；focused + WSL full race 通过 |
+| [#985](https://github.com/DeliciousBuding/metapi-go/issues/985) | 站点列表名称/地址提供可发现的快捷跳转 | **候选，未分配 owner**；立项后需定义安全 URL 规则、键盘/accessible name、同窗/新窗行为与组件测试 |
+| [#986](https://github.com/DeliciousBuding/metapi-go/issues/986) | 站点公告的同步状态与入口 | **候选，先审计**；复用现有 `site-announcement` 数据流与管理 API，不新增重复 endpoint；立项前先确认 TS 可见行为与当前前端缺口 |
+
 ### 已收口（v0.16.9 及以前，勿再当 active）
 
 - Wave 5：功能闭环 #861（#935 apiEndpoints 编辑器）、#558（#939 探针产品化）、#926（#938 后端消息英文化收官）；测试矩阵（#937 真实上游 4/16 + 运行时矩阵 4/5）；截图证据管道 + golden 门禁（#951）；审计残留 P1（#936）；docs/api.md 74 条补齐（#940）。
@@ -27,10 +35,6 @@
 | d | 375×812 全站移动端逐页真实交互深审（P0-P2 清单 + 修 P0/P1） | 已并入 integration；修 2 处 <24px 行内按钮（checkin 查看原始信息 / rates 行内编辑）→24px；其余硬信号逐条核验为误报 |
 
 > 已交付：integration → PR #972 squash 合入（12-check 全绿）→ #973 bump CHANGELOG + web/package.json → tag v0.16.9 → Release 发布。生产滚动部署为运维面后续动作。
-
-### 需求驱动候选（开放 issue 0，下波按需求立项）
-
-> 对比度门禁已全量达标（0 豁免，10 preset × light/dark 全过 WCAG AA 4.5:1）。无 P0/P1 开放项，开放 issue 0。下一波按需求驱动立项（方向见 `../benchmark.md`）。
 
 ### UI/UX 深修波（进行中：自行探索 + 整理 + 优化）
 
