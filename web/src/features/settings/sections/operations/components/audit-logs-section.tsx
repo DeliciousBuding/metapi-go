@@ -115,7 +115,10 @@ export function AuditLogsSection() {
             setMethodFilter(value ?? 'all')
           }}
         >
-          <SelectTrigger className='w-full sm:w-32'>
+          <SelectTrigger
+            className='w-full sm:w-32'
+            aria-label={t('settings.operations.auditLogs.columns.method')}
+          >
             <SelectValue>
               {(selected) =>
                 !selected || selected === 'all'

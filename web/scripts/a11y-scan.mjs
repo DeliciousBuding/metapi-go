@@ -16,6 +16,10 @@ import { fileURLToPath } from 'node:url'
 
 import { chromium } from 'playwright'
 
+// Single source of truth: the desktop route inventory lives in
+// route-smoke.mjs; importing it keeps the two gates from drifting.
+import { DESKTOP_ROUTES } from './route-smoke.mjs'
+
 const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3000'
 const AUTH_TOKEN = process.env.AUTH_TOKEN ?? 'dev-admin-token-123'
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
@@ -27,24 +31,12 @@ const AXE_SOURCE = join(
   'axe.min.js'
 )
 
-const ROUTES = [
-  ['dashboard', '/'],
-  ['models', '/models'],
-  ['sites', '/sites'],
-  ['accounts', '/accounts'],
-  ['checkin', '/checkin'],
-  ['token-routes', '/token-routes'],
-  ['proxy-logs', '/proxy-logs'],
-  ['site-announcements', '/site-announcements'],
-  ['oauth', '/oauth'],
-  ['about', '/about'],
-  ['settings-overview', '/settings'],
-  ['settings-basic', '/settings/basic/site'],
-  ['settings-proxy-models', '/settings/proxy-models/proxy-transport'],
-  ['settings-downstream', '/settings/downstream/keys'],
-  ['settings-content', '/settings/content/notifications'],
-  ['settings-operations', '/settings/operations/program-logs'],
-]
+// Route names are derived from the shared inventory so failure output stays
+// readable without a second hand-maintained list.
+const ROUTES = DESKTOP_ROUTES.map((path) => [
+  path === '/' ? 'dashboard' : path.slice(1).replaceAll('/', '-'),
+  path,
+])
 
 const browser = await chromium.launch({ headless: true })
 const context = await browser.newContext({

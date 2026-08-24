@@ -2,45 +2,22 @@
 
 **Last verified**: 2026-08-25
 
-**Release**: [v0.16.10](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.10) · released on master; production promotion follows the release and soak gate
+**Release**: [v0.16.11](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.11) · released on master; production promotion follows the release and soak gate
 
 > This is the only execution plan. It contains open work, order, ownership, and acceptance criteria. Current facts → [`../STATE.md`](../STATE.md) · product positioning → [`../benchmark.md`](../benchmark.md) · timeline → [`../log.md`](../log.md).
 
 ## Current active work — 需求驱动（v0.16.9+）
 
-历史完成冻结：Round 1 #887 → v0.16.3、Round 2 #889 → v0.16.4、#887 补遗 + E2E → v0.16.5、Round 3 修复波 → v0.16.6、Wave 4 综合质量波 → v0.16.7、Wave 5+6 开发 + 深审计波 → v0.16.8、Wave 7+8+9 前端体验/语义/设置/catalog/移动端审计波 → v0.16.9、Wave 10 Sites demand batch → v0.16.10 均已发布。
+历史完成冻结：Round 1 #887 → v0.16.3、Round 2 #889 → v0.16.4、#887 补遗 + E2E → v0.16.5、Round 3 修复波 → v0.16.6、Wave 4 综合质量波 → v0.16.7、Wave 5+6 开发 + 深审计波 → v0.16.8、Wave 7+8+9 前端体验/语义/设置/catalog/移动端审计波 → v0.16.9、Wave 10 Sites demand batch → v0.16.10 、Wave 11 UX 真值波 → v0.16.11 均已发布。
 
-### Wave 11 — UX 死胡同清扫 + 测试真值（执行中，2026-08-25）
+### Wave 11 已收口说明
 
-**Tracking**: `GITHUB_STANDARD` · 四 lane 基于 v0.16.10 master · 合并顺序 D → A → B → C，每 lane 一个 PR。
-
-| Lane | Branch | Scope / write set | Acceptance |
-|---|---|---|---|
-| A | `feature/w11-a-chain-context` | token-routes：chain-context 横幅从 query cache 解析 account/site 名称（无名才回落 `#ID`）；`showZeroChannel` 开关移入 toolbar viewOptions | 横幅不出现可解析的裸 `#ID`；focused tests |
-| B | `feature/w11-b-feedback-loops` | accounts：pin/checkin 切换成功 toast + 行级 pending；model-tester：对比行 re-run 动作 | 两处 fire-and-forget 消除；focused tests |
-| C | `feature/w11-c-oauth-start-flow` | oauth：Start-OAuth 呈现 `result.state`/`instructions`，用既有 `getOAuthSession` 轮询 pending session，`submitOAuthManualCallback` 手动回调 | 流程不再 dead-end；错误/超时态诚实；focused tests |
-| D | `test/w11-d-test-gates` | 移除 vitest `dangerouslyIgnoreUnhandledErrors` + 点名文件最小修复；a11y-scan ROUTES 对齐 route-smoke 单一来源；visual-regression golden +5-6 稳定空库页 | 全套 vitest 无 ignore flag 绿；a11y serious/critical=0（moderate 记 residual）；新 golden 页确定性 |
-
-**Hard boundaries**
-
-- 不新增依赖；i18n en/zh-CN 键位对齐（i18n 门禁）；全前端 lane——Lane C 复用既有后端端点，不改 Go。
-- Lane D 只修被暴露错误点名的文件；不得新增全局吞错、不得 skip/todo/删测试。
-- Locale JSON：每 lane 只写自己 feature 命名空间；共享组件可扩展但不改变现有公开行为。
-- 项目文档、CHANGELOG 与 GitHub 状态归 integration 唯一。
-
-**Lane 验收门禁**
-
-```powershell
-Set-Location web
-bun run test
-bun run typecheck
-bun run lint
-bun run format:check
-bun run knip
-```
+- 四 lane 全部落地（batch 分支 `batch/w11-ux-truth`）：A 路由页视图持久 + 横幅语义测试补齐（#862 行为核验已在基线），B accounts 行级 pending + 对比行 re-run，C OAuth start 流闭环（有界轮询 + 手动回调），D vitest ignore flag 移除 + a11y 41 路由单一来源 + golden 10 页。
+- a11y residual（moderate/minor，不强修）：region / landmark 双 main 布局 / image-redundant-alt / catalog-sources empty-table-header。
 
 ### 已收口（v0.16.9 及以前，勿再当 active）
 
+- Wave 11 UX 真值波（→ v0.16.11）：见上节收口说明。
 - Wave 10 Sites demand batch（#985+#986 → v0.16.10）：站点快捷跳转链接、`/site-announcements` 独立 SPA、公告 API camelCase 契约与诚实同步错误、SSRF dial-time 守卫（internal/ssrf）、newapi/donehub 信封校验；配套 #991（pre-push 链 + release freshness 门禁）、#992（产品公告前端真值）。
 
 

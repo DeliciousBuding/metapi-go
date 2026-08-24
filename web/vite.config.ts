@@ -28,7 +28,6 @@ export default defineConfig({
     exclude: ['**/node_modules/**', '**/dist/**'],
     fileParallelism: false,
     maxWorkers: 1,
-    dangerouslyIgnoreUnhandledErrors: true,
     teardownTimeout: 10_000,
     sequence: { setupFiles: 'list' as const },
   },
