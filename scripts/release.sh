@@ -35,8 +35,12 @@ if [ "$branch" != "master" ]; then
   exit 1
 fi
 git fetch origin master --quiet
-if ! git merge-base --is-ancestor HEAD origin/master; then
-  echo "local master is not up to date with origin/master; pull first" >&2
+local_head="$(git rev-parse HEAD)"
+remote_head="$(git rev-parse origin/master)"
+if [ "$local_head" != "$remote_head" ]; then
+  echo "local master is not exactly synchronized with origin/master; pull first" >&2
+  echo "  local : $local_head" >&2
+  echo "  remote: $remote_head" >&2
   exit 1
 fi
 if [ -n "$(git status --porcelain)" ]; then
