@@ -5,6 +5,12 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-08-24 — Wave 10 #981 迁移兼容修复
+
+- 用户迁移数据中的 Sub2API `sub2apiAuth.tokenExpiresAt` 为 epoch milliseconds；站点摘要误用 `time.Unix` 按秒解释，生成超出 JSON 支持范围的年份，使 `/api/sites` 序列化失败。
+- #987 将 managed token expiry 统一归一为 milliseconds，同时继续接受 legacy seconds；站点摘要改用 `time.UnixMilli`，Sub2API refresh lead window 同步为毫秒。
+- 回归覆盖毫秒时间戳 JSON 序列化、秒级迁移兼容与 account merge；WSL Go 1.26.6 full `-race` 和 GitHub 12-check CI 全绿，squash 合入 `ffbdae1`，#981 自动关闭。
+
 ## 2026-08-24 — 计费货币整理（USD 收口）
 
 - 明确计费货币：全链路 USD（`balance`/`quota`/`used`/`todayIncome`/`unitCost`/`estimatedCost`/每百万价），无 RMB / 多租户钱包路径。上游 NewAPI/OneAPI 族 `quota` 为整数额度（1 USD = 500000 quota；veloera 1 USD = 1000000 quota），platform 适配器在边界 `quota/divisor` 归一为 USD，前端永不接触原始 quota。
