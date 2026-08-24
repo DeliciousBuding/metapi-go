@@ -911,7 +911,7 @@
         "proxyModels": "代理与模型",
         "proxyModels.description": "代理传输、路由策略、模型重定向、费率与模型数据源。",
         "downstream": "下游",
-        "downstream.description": "为下游站点/账号签发的 API 密钥与全局代理令牌。",
+        "downstream.description": "根下游密钥（已弃用的全局兜底密钥）。",
         "content": "通知与数据",
         "content.description": "导入导出、通知渠道与风险横幅公告。",
         "operations": "系统与运维",
@@ -919,7 +919,7 @@
       },
       "overview": {
         "title": "设置",
-        "description": "管理网关配置、下游密钥、模型行为、数据与消息、系统与维护。"
+        "description": "管理网关配置、API 密钥、模型行为、数据与消息、系统与维护。"
       },
       "common": {
         "save": "保存",
@@ -992,9 +992,9 @@
           }
         },
         "authentication": {
-          "title": "认证",
-          "description": "管理员令牌轮换与 IP 白名单。",
-          "currentToken": "当前管理员令牌",
+          "title": "访问令牌",
+          "description": "管理 API 访问令牌（AccessToken）的轮换与 IP 白名单。",
+          "currentToken": "当前访问令牌",
           "notSet": "未设置",
           "changeToken": "更换令牌",
           "cancelChange": "取消",
@@ -1239,19 +1239,19 @@
       },
       "downstream": {
         "keys": {
-          "title": "下游密钥",
-          "description": "下游 API 密钥（按站点/按账号签发令牌）。",
+          "title": "API 密钥",
+          "description": "API 密钥（按站点/按账号签发，用于调用 LLM）。",
           "create": "创建密钥",
-          "createTitle": "创建下游密钥",
-          "createDescription": "签发新的下游 API 密钥，含配额与元数据。",
-          "editTitle": "编辑下游密钥",
+          "createTitle": "创建 API 密钥",
+          "createDescription": "签发新的 API 密钥，含配额与元数据。",
+          "editTitle": "编辑 API 密钥",
           "editDescription": "更新密钥的元数据。密钥值本身不可在此更改。",
           "generate": "生成",
-          "empty": "暂无下游密钥。创建一个以开始签发令牌。",
+          "empty": "暂无 API 密钥。创建一个以开始签发。",
           "requests": "请求：{{used}} / {{max}}",
           "cost": "成本：{{used}} / {{max}}",
           "usage24h": "24h：{{requests}} 次 · {{tokens}} tokens · ${{cost}}",
-          "deleteTitle": "删除下游密钥",
+          "deleteTitle": "删除 API 密钥",
           "deleteDescription": "删除密钥「{{name}}」？此操作不可撤销。",
           "columns": {
             "name": "名称",
@@ -1278,18 +1278,18 @@
             "keyMinLength": "密钥至少 8 个字符。"
           },
           "toast": {
-            "created": "下游密钥已创建。",
-            "createFailed": "创建下游密钥失败。",
-            "updated": "下游密钥已更新。",
-            "updateFailed": "更新下游密钥失败。",
-            "deleted": "下游密钥已删除。",
-            "deleteFailed": "删除下游密钥失败。"
+            "created": "API 密钥已创建。",
+            "createFailed": "创建 API 密钥失败。",
+            "updated": "API 密钥已更新。",
+            "updateFailed": "更新 API 密钥失败。",
+            "deleted": "API 密钥已删除。",
+            "deleteFailed": "删除 API 密钥失败。"
           },
           "connect": "接入"
         },
         "proxyToken": {
-          "title": "代理令牌",
-          "description": "全局下游 PROXY_TOKEN（sk- 前缀，随机后缀）。",
+          "title": "根下游密钥（已弃用）",
+          "description": "全局下游兜底密钥，无 per-key 策略。已弃用，请改用「API 密钥」签发细粒度密钥。",
           "current": "当前令牌",
           "notSet": "未设置",
           "generate": "生成",
@@ -1302,8 +1302,8 @@
             "suffixMinLength": "后缀至少 8 个字符。"
           },
           "toast": {
-            "saved": "代理令牌已更新。",
-            "saveFailed": "更新代理令牌失败。"
+            "saved": "根下游密钥已更新。",
+            "saveFailed": "更新根下游密钥失败。"
           }
         }
       },
@@ -2597,7 +2597,7 @@
         "about": "关于",
         "priceCompare": "价格对比",
         "channels": "通道",
-        "downstreamKeys": "下游密钥"
+        "downstreamKeys": "API 密钥"
       },
       "backToHome": "返回首页",
       "settingsOverview": "设置总览"
@@ -2835,8 +2835,8 @@
     },
     "downstreamKeys": {
       "page": {
-        "title": "下游密钥管理",
-        "description": "签发并管理下游 API 密钥（按站点或账号隔离的令牌）。"
+        "title": "API 密钥",
+        "description": "签发并管理用于调用 LLM 的 API 密钥。"
       }
     }
   }
