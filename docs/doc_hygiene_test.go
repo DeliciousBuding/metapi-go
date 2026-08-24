@@ -44,7 +44,7 @@ func TestPublicMarkdownHygiene(t *testing.T) {
 			// covers published tree paths (CI clones are clean; local worktrees
 			// under .claude/ must not fail public docs gates).
 			if name == ".git" || name == "node_modules" || name == "dist" ||
-				name == ".claude" || name == ".worktrees" {
+				name == ".claude" || name == ".worktrees" || name == ".dev-local" {
 				return filepath.SkipDir
 			}
 			return nil
@@ -260,7 +260,7 @@ func TestRelativeMarkdownLinksResolve(t *testing.T) {
 		if entry.IsDir() {
 			name := entry.Name()
 			if name == ".git" || name == "node_modules" || name == "dist" ||
-				name == ".claude" || name == ".worktrees" {
+				name == ".claude" || name == ".worktrees" || name == ".dev-local" {
 				return filepath.SkipDir
 			}
 			return nil
