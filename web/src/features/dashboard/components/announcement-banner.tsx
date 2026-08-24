@@ -4,8 +4,8 @@
 // while loading or when there are no active announcements (non-critical,
 // silent failure on error — the banner never blocks the dashboard).
 // Dismissal persists server-side via POST /api/announcements/{id}/dismiss;
-// a failed dismiss keeps the banner visible (silent degrade) instead of
-// pretending the announcement was dismissed.
+// a failed dismiss keeps the banner visible and surfaces localized feedback
+// instead of pretending the announcement was dismissed.
 //
 // Data flows through TanStack Query (like every other dashboard widget) so
 // section switches reuse the cached banner instead of refetching on every
@@ -17,9 +17,12 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api, type Announcement } from '@/lib/api'
+import {
+  getSafeProductAnnouncementUrl,
+  productAnnouncementKeys,
+} from '@/lib/product-announcements'
+import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
-
-const ANNOUNCEMENTS_QUERY_KEY = ['dashboard-announcements'] as const
 
 const SEVERITY_TONE: Record<
   Announcement['severity'],
@@ -45,7 +48,7 @@ export function AnnouncementBanner() {
   const [dismissing, setDismissing] = useState<number | null>(null)
 
   const { data: items = [], isLoading } = useQuery({
-    queryKey: ANNOUNCEMENTS_QUERY_KEY,
+    queryKey: productAnnouncementKeys.active(),
     queryFn: async () => {
       const response = await api.getActiveAnnouncements()
       return (response.items ?? []).filter((item) => !item.dismissed)
@@ -62,10 +65,11 @@ export function AnnouncementBanner() {
     try {
       await api.dismissAnnouncement(id)
       queryClient.setQueryData<Announcement[]>(
-        ANNOUNCEMENTS_QUERY_KEY,
+        productAnnouncementKeys.active(),
         (current) => (current ?? []).filter((item) => item.id !== id)
       )
     } catch {
+      toast.error(t('dashboard.announcement.dismissFailed'))
       // Dismissal did not persist — keep the banner visible.
     } finally {
       setDismissing(null)
@@ -77,6 +81,7 @@ export function AnnouncementBanner() {
       {items.map((item) => {
         const tone = SEVERITY_TONE[item.severity] ?? SEVERITY_TONE.info
         const Icon = tone.icon
+        const safeLink = getSafeProductAnnouncementUrl(item.link)
         return (
           <div
             key={item.id}
@@ -95,9 +100,9 @@ export function AnnouncementBanner() {
                 </p>
               ) : null}
             </div>
-            {item.link ? (
+            {safeLink ? (
               <a
-                href={item.link}
+                href={safeLink}
                 target='_blank'
                 rel='noopener noreferrer'
                 className='text-xs underline underline-offset-2'

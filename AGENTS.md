@@ -71,7 +71,7 @@ golangci-lint run --timeout=3m        # Lint check
 ## CI Discipline
 
 - **Do not push if local CI fails**: all pushes must pass `go vet ./... && go test ./... -count=1 -race` first
-- The git pre-push hook (`.githooks/pre-push`) automatically blocks pushes that fail local CI
+- The global hook-kit chains `.githooks/pre-push-project` and automatically blocks pushes that fail local CI; `.githooks/pre-push` is only the standalone compatibility entrypoint
 - Emergency skip: `git push --no-verify`
 - GitHub Actions is the final verification gate, not a debug environment
 
