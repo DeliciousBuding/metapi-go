@@ -5,6 +5,17 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-08-25 — Wave 11 UX 真值波发布 v0.16.11
+
+- 四 lane 并行（captain 编排）后集成 `batch/w11-ux-truth`：
+  - A：核验 #862 已交付 chain-context 名称解析与 toolbar 开关，补 9 个 focused 测试 + `showZeroChannel` localStorage 持久（真实缺口）。
+  - B：accounts pin/check-in 行级 pending（成功 toast 基线已有，未重复加）；model-tester 对比行 re-run（含失败行，复用原 payload）。
+  - C：Start-OAuth 呈现 state/instructions + `getOAuthSession` 有界轮询（30×2s，卸载清理）+ 手动回调 `submitOAuthManualCallback`；超限态诚实。
+  - D：移除 `dangerouslyIgnoreUnhandledErrors`（零暴露）；a11y-scan 对齐 route-smoke 单一来源 41 路由，0 serious/critical，真修 3 处 aria；golden 4→10 页（WSL noto-cjk 基线，对照 10/10 过）。
+- 任务书两处前提过期（#862/#948 已交付部分审计观察），执行者按实际缺口落地并明示——审计文件保留为历史证据，非当前 backlog。
+- a11y residual（moderate/minor）：region / landmark 双 main / image-redundant-alt / catalog-sources empty-table-header，不强修。
+- 集成验收：batch 全套 vitest 185 文件 1230 用例 + typecheck/lint/format/knip 全绿。
+
 ## 2026-08-25 — Wave 10 Sites demand batch 发布 v0.16.10
 
 - Batch 分支 `batch/w10-sites-demand` 集成合入：#985 站点快捷跳转（http(s) 校验链接）、#986 `/site-announcements` 独立 SPA + camelCase 契约 + 诚实同步错误、SSRF dial-time 守卫（internal/ssrf）、newapi/donehub 公告信封校验。

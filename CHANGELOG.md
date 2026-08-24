@@ -5,6 +5,24 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.16.11] — 2026-08-25
+
+### Added
+
+- **OAuth start 流闭环**：Start-OAuth 成功后呈现 state / redirect URI / SSH 隧道命令（均可复制），经 `getOAuthSession` 有界轮询（30 次 × 2s，卸载/取消即清理）；超限显示等待态而非假成功，支持手动粘贴回调 URL（`submitOAuthManualCallback`，输入校验 + 成功/失败明确反馈）。
+- **对比行重跑**：model-tester 批量对比结果支持行级 re-run（含失败/中止行），复用原 payload 与既有探测机制，行级 pending + Stop 可中止。
+- **Golden 回归扩容**：visual-regression 基线由 4 页扩至 10 页（全部空库、布局稳定、日期无关），契约同步入文档。
+
+### Fixed
+
+- **Accounts 行级 pending**：pin / check-in 切换补行级 pending 反馈（Spinner + disabled），与 status 切换互不串台。
+- **路由页视图持久**：`showZeroChannel` 开关持久化到 localStorage，视图选择跨导航与刷新保留。
+- **前端测试真值**：移除 vitest `dangerouslyIgnoreUnhandledErrors`（移除后全套零 unhandled 错误）；a11y-scan 路由对齐 route-smoke 单一来源（15 → 41 路由），41 路由 0 serious/critical。
+
+### Accessibility
+
+- model-tester 双 slider thumb 补 aria-label；observability 热力图 bucket 补 img role 语义；audit-logs method 筛选补 aria-label。
+
 ## [v0.16.10] — 2026-08-25
 
 ### Added
