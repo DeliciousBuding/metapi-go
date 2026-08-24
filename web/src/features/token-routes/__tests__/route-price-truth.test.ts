@@ -12,7 +12,6 @@ import type { PriceCompareItem } from '@/features/models/price-compare/types'
 
 import {
   calculateRouteChannelAllocations,
-  formatRoutePrice,
   formatRouteWeightShare,
   resolveConcreteModelForChannel,
   resolveDistinctConcreteModels,
@@ -211,11 +210,6 @@ describe('resolveRouteChannelPriceTruth', () => {
 })
 
 describe('format helpers', () => {
-  it('formats price to four decimals or an em dash for null', () => {
-    expect(formatRoutePrice(2.5)).toBe('2.5000')
-    expect(formatRoutePrice(null)).toBe('—')
-  })
-
   it('formats weight share as a percentage or an em dash for null', () => {
     expect(formatRouteWeightShare(0.25)).toBe('25.0%')
     expect(formatRouteWeightShare(null)).toBe('—')

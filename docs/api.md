@@ -58,6 +58,16 @@ Admin JSON requests must contain one JSON value. Duplicate object keys and trail
 
 ---
 
+## Billing & Currency
+
+All money fields are denominated in **US dollars (USD)** — `balance`, `quota`, `balanceUsed`, `todayIncome`, `todayQuotaConsumption`, `unitCost`, `estimatedCost`, and the per-million pricing rates. There is no RMB path or multi-tenant wallet; the admin console renders `$` as a fixed currency symbol (not translatable interface copy).
+
+Upstream balance semantics: NewAPI/OneAPI-family platforms expose integer `quota` where **1 USD = 500000 quota**; the `veloera` adapter uses **1 USD = 1000000 quota**. Platform adapters normalize to USD at the boundary (`quota / divisor`), so the API and frontend never carry raw upstream quota.
+
+Pricing is ratio-based: `modelRatio` / `completionRatio` / `groupRatio` are multipliers over a base rate. At ratio 1, input costs **$2 per 1M tokens** (the NewAPI `0.002`/1K convention); output uses `modelRatio × completionRatio`, and prompt-cache tiers use `cacheRatio` / `cacheCreationRatio` (Claude defaults 0.10 / 1.25). Per-million rates and `estimatedCost` are estimates, never account-priced; `unitCost` is a display/planning field.
+
+---
+
 ## Stats & Dashboard
 
 ### GET /api/stats/dashboard

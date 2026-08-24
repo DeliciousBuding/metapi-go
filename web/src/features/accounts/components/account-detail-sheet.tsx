@@ -27,9 +27,9 @@ import { toBcp47 } from '@/i18n/languages'
 import {
   EM_DASH,
   formatAbsoluteDateTime,
+  formatCurrency,
   formatPrice,
   formatRelativeTime,
-  formatUsd,
 } from '@/lib/format'
 
 import { useRefreshAccount } from '../api'
@@ -153,16 +153,18 @@ export function AccountDetailSheet({
               {site?.platform || '—'}
             </DetailField>
             <DetailField label={t('accounts.detail.balance')}>
-              {formatAmount(account.balance)}
+              {formatCurrency(account.balance)}
             </DetailField>
             <DetailField label={t('accounts.detail.used')}>
-              {formatAmount(account.balanceUsed)}
+              {formatCurrency(account.balanceUsed)}
             </DetailField>
             <DetailField label={t('accounts.detail.todayReward')}>
-              {formatAmount(account.todayReward, '+$')}
+              {account.todayReward === null || account.todayReward === undefined
+                ? EM_DASH
+                : `+${formatCurrency(account.todayReward)}`}
             </DetailField>
             <DetailField label={t('accounts.detail.todaySpend')}>
-              {formatAmount(account.todaySpend)}
+              {formatCurrency(account.todaySpend)}
             </DetailField>
             <DetailField label={t('accounts.detail.checkin')}>
               {account.capabilities?.canCheckin
@@ -179,7 +181,9 @@ export function AccountDetailSheet({
             </DetailField>
             <DetailField label={t('accounts.detail.quota')}>
               {(account.quota ?? 0) > 0 ? (
-                <span className='tabular-nums'>{formatUsd(account.quota)}</span>
+                <span className='tabular-nums'>
+                  {formatCurrency(account.quota)}
+                </span>
               ) : (
                 '—'
               )}
@@ -279,16 +283,4 @@ export function AccountDetailSheet({
       </SheetContent>
     </Sheet>
   )
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-// A null amount means "never refreshed", not zero — rendering $0.00 would
-// misreport a missing value. Show a bare em dash (no currency prefix),
-// matching lib/format's null-display convention.
-function formatAmount(value: number | undefined | null, prefix = '$'): string {
-  if (value === undefined || value === null) return EM_DASH
-  return `${prefix}${value.toFixed(2)}`
 }

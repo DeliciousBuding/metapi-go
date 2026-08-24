@@ -16,9 +16,20 @@ export function formatInt(value: number | null | undefined): string {
 }
 
 /**
- * Format a USD amount (balance / cost / spend): "$" + locale grouping +
- * fixed fraction digits (default 2). Returns "—" for null/undefined/NaN so
- * missing money is never rendered as $0.
+ * Currency convention: every money field the backend returns — balance,
+ * quota, used, todayIncome, unitCost, estimatedCost, and the per-million
+ * pricing rates — is denominated in US dollars (USD). NewAPI/OneAPI-family
+ * upstreams expose integer `quota` (1 USD = 500000 quota; Veloera uses
+ * 1 USD = 1000000 quota); the platform adapters normalize to USD at the
+ * boundary, so the frontend never renders raw quota or RMB. `$` is a
+ * currency symbol, not translatable interface copy (see docs/api.md).
+ */
+export const USD_SYMBOL = '$'
+
+/**
+ * Format a USD amount (balance / cost / spend / quota): "$" + locale
+ * grouping + fixed fraction digits (default 2). Returns "—" for
+ * null/undefined/NaN so missing money is never rendered as $0.
  */
 export function formatCurrency(
   value: number | null | undefined,
@@ -32,7 +43,7 @@ export function formatCurrency(
   }
   const fractionDigits = options?.fractionDigits ?? 2
   const sign = value < 0 ? '-' : ''
-  return `${sign}$${Math.abs(value).toLocaleString(undefined, {
+  return `${sign}${USD_SYMBOL}${Math.abs(value).toLocaleString(undefined, {
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
   })}`
@@ -59,25 +70,33 @@ export function formatRatio(
   return formatPercent(numerator / denominator, fractionDigits)
 }
 
-/** Format a US dollar amount: 1234.5 -> "$1234.50"; "—" for null/NaN. */
-export function formatUsd(value: number | null | undefined): string {
-  if (value === null || value === undefined || !Number.isFinite(value)) {
-    return EM_DASH
-  }
-  return '$' + value.toFixed(2)
-}
-
 /**
- * Format a per-million USD price with adaptive precision, currency symbol
- * included so zero prices align with their non-zero neighbours.
+ * Format a per-million USD price/rate. Adaptive precision by default so zero
+ * and sub-cent rates stay readable ($0, $0.0050, $2.50); pass `fractionDigits`
+ * for a fixed decimal count (price-compare / route pricing keep 4 decimals to
+ * preserve tiny cross-site differences).
  */
-export function formatPrice(price: number | null | undefined): string {
+export function formatPrice(
+  price: number | null | undefined,
+  options?: {
+    /** Fixed fraction digits; when omitted, adaptive (4 for <0.01 else 2). */
+    fractionDigits?: number
+  }
+): string {
   if (price === null || price === undefined || !Number.isFinite(price)) {
     return EM_DASH
   }
-  if (price === 0) return '$0'
-  if (price < 0.01) return `$${price.toFixed(4)}`
-  return `$${price.toFixed(2)}`
+  const digits = options?.fractionDigits
+  if (digits !== undefined) {
+    const sign = price < 0 ? '-' : ''
+    return `${sign}${USD_SYMBOL}${Math.abs(price).toLocaleString(undefined, {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    })}`
+  }
+  if (price === 0) return `${USD_SYMBOL}0`
+  if (price < 0.01) return `${USD_SYMBOL}${price.toFixed(4)}`
+  return `${USD_SYMBOL}${price.toFixed(2)}`
 }
 
 /** Format latency in milliseconds. */

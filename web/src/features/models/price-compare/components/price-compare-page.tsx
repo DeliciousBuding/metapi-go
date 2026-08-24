@@ -28,18 +28,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { formatCurrency, formatPrice } from '@/lib/format'
 
 import { usePriceCompare } from '../api'
 import type { PriceCompareItem } from '../types'
 import { PriceGradeBadge } from './price-grade-badge'
-
-function formatPerMillion(value: number): string {
-  return '$' + value.toFixed(4)
-}
-
-function formatSampleCost(value: number): string {
-  return '$' + value.toFixed(6)
-}
 
 type ModelGroup = {
   key: string
@@ -210,10 +203,10 @@ export function PriceRow({ row }: { row: PriceCompareItem }) {
         <PriceGradeBadge grade={row.source} />
       </TableCell>
       <TableCell className='text-right tabular-nums'>
-        {formatPerMillion(row.inputPerMillion)}
+        {formatPrice(row.inputPerMillion, { fractionDigits: 4 })}
       </TableCell>
       <TableCell className='hidden text-right tabular-nums sm:table-cell'>
-        {formatPerMillion(row.outputPerMillion)}
+        {formatPrice(row.outputPerMillion, { fractionDigits: 4 })}
       </TableCell>
       <TableCell
         className='hidden text-right tabular-nums sm:table-cell'
@@ -223,7 +216,9 @@ export function PriceRow({ row }: { row: PriceCompareItem }) {
             : t('priceCompare.effectiveCostPrecision')
         }
       >
-        {row.missingPrice ? '—' : formatSampleCost(row.estimatedCostSample)}
+        {row.missingPrice
+          ? '—'
+          : formatCurrency(row.estimatedCostSample, { fractionDigits: 6 })}
       </TableCell>
       <TableCell>
         <PriceRowStatus row={row} />

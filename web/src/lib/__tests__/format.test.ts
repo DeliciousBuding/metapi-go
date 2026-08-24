@@ -16,7 +16,6 @@ import {
   formatShortDate,
   formatSuccessRate,
   formatTimeOfDay,
-  formatUsd,
 } from '../format'
 
 // Renders the epoch with the same Intl options a formatter under test uses,
@@ -72,6 +71,12 @@ describe('formatPrice', () => {
     expect(formatPrice(0)).toBe('$0')
     expect(formatPrice(0.005)).toBe('$0.0050')
     expect(formatPrice(2.5)).toBe('$2.50')
+  })
+
+  it('supports a fixed decimal count for cross-site price comparison', () => {
+    expect(formatPrice(2.5, { fractionDigits: 4 })).toBe('$2.5000')
+    expect(formatPrice(0.5123, { fractionDigits: 4 })).toBe('$0.5123')
+    expect(formatPrice(1234.5, { fractionDigits: 4 })).toBe('$1,234.5000')
   })
 
   it('renders null / undefined / NaN as an em dash', () => {
@@ -208,24 +213,5 @@ describe('formatRelativeTime', () => {
   it('returns an empty string for missing input', () => {
     expect(formatRelativeTime(null, 'en-US')).toBe('')
     expect(formatRelativeTime('', 'en-US')).toBe('')
-  })
-})
-
-describe('formatUsd', () => {
-  it('formats whole and fractional dollar amounts with two decimals', () => {
-    expect(formatUsd(1234.5)).toBe('$1234.50')
-    expect(formatUsd(0.05)).toBe('$0.05')
-    expect(formatUsd(100)).toBe('$100.00')
-  })
-
-  it('keeps a real zero balance honest instead of hiding it', () => {
-    expect(formatUsd(0)).toBe('$0.00')
-  })
-
-  it('renders an em dash for null, undefined, and non-finite input', () => {
-    expect(formatUsd(null)).toBe('—')
-    expect(formatUsd(undefined)).toBe('—')
-    expect(formatUsd(Number.NaN)).toBe('—')
-    expect(formatUsd(Number.POSITIVE_INFINITY)).toBe('—')
   })
 })
