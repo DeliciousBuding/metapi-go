@@ -156,6 +156,32 @@ func TestDoWithProxy_WithCustomHeaders(t *testing.T) {
 	}
 }
 
+func TestDoWithProxy_RejectsLinkLocalLiteralBeforeNetworkDial(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+		cfg  *ProxyConfig
+	}{
+		{name: "standard-http", url: "http://169.254.169.254/latest/meta-data"},
+		{name: "utls-https", url: "https://[fe80::1]/", cfg: &ProxyConfig{UseUTLS: true, InsecureSkipTLS: true}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, tt.url, nil)
+			if err != nil {
+				t.Fatalf("request: %v", err)
+			}
+			resp, err := DoWithProxy(context.Background(), req, tt.cfg)
+			if resp != nil {
+				_ = resp.Body.Close()
+			}
+			if err == nil || !strings.Contains(err.Error(), "forbidden") {
+				t.Fatalf("error = %v, want forbidden target rejection", err)
+			}
+		})
+	}
+}
+
 func TestDoWithProxy_InvalidProxyURL(t *testing.T) {
 	ctx := context.Background()
 	req, _ := http.NewRequestWithContext(ctx, "GET", unreachableBaseURL(t)+"/test", nil)

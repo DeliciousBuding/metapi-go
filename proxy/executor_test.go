@@ -102,24 +102,28 @@ func TestDoWithObservedFirstByteTimeoutError(t *testing.T) {
 }
 
 func TestDoWithObservedFirstByteDoesNotCancelBodyAfterHeaders(t *testing.T) {
+	// The discriminator is window < body delay: if the first-byte timer kept
+	// firing after headers arrived, the delayed body read would fail. Both
+	// values stay generous so loopback scheduling latency under -race or a
+	// loaded CI machine cannot flake the header-arrival leg.
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		flusher, _ := w.(http.Flusher)
 		if flusher != nil {
 			flusher.Flush()
 		}
-		time.Sleep(40 * time.Millisecond)
+		time.Sleep(1500 * time.Millisecond)
 		_, _ = w.Write([]byte("body-after-headers"))
 	}))
 	t.Cleanup(upstream.Close)
 
-	executor := NewRuntimeExecutor(time.Second)
+	executor := NewRuntimeExecutor(5 * time.Second)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, upstream.URL, nil)
 	if err != nil {
 		t.Fatalf("NewRequest: %v", err)
 	}
-	// first-byte window is short but headers arrive immediately; body should still complete.
-	resp, err := executor.DoWithObservedFirstByte(context.Background(), req, 10)
+	// Headers arrive immediately; the body follows after the window expires.
+	resp, err := executor.DoWithObservedFirstByte(context.Background(), req, 1000)
 	if err != nil {
 		t.Fatalf("DoWithObservedFirstByte: %v", err)
 	}

@@ -20,6 +20,8 @@ import {
 
 import '@/i18n/config'
 import { api } from '@/lib/api'
+import { productAnnouncementKeys } from '@/lib/product-announcements'
+import { toast } from '@/lib/toast'
 
 import { AnnouncementBanner } from '../components/announcement-banner'
 
@@ -30,8 +32,15 @@ vi.mock('@/lib/api', () => ({
   },
 }))
 
+vi.mock('@/lib/toast', () => ({
+  toast: {
+    error: vi.fn(),
+  },
+}))
+
 const mockGetActive = vi.mocked(api.getActiveAnnouncements)
 const mockDismiss = vi.mocked(api.dismissAnnouncement)
+const mockToastError = vi.mocked(toast.error)
 
 const active = {
   id: 1,
@@ -84,6 +93,7 @@ function renderWithClient(ui: ReactNode) {
 beforeEach(() => {
   mockGetActive.mockReset()
   mockDismiss.mockReset()
+  mockToastError.mockReset()
 })
 
 afterEach(() => cleanup())
@@ -101,6 +111,37 @@ describe('AnnouncementBanner', () => {
     })
     expect(screen.getByText('Downtime expected tonight.')).toBeInTheDocument()
     expect(screen.getByRole('alert')).toBeInTheDocument()
+  })
+
+  it('renders only safe absolute http/https announcement links', async () => {
+    mockGetActive.mockResolvedValue({
+      items: [{ ...active, link: '  https://docs.example.com/status  ' }],
+    })
+
+    renderWithClient(<AnnouncementBanner />)
+
+    const link = await screen.findByRole('link', { name: 'learn more' })
+    expect(link).toHaveAttribute('href', 'https://docs.example.com/status')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
+  it.each([
+    'javascript:alert(1)',
+    'data:text/html,boom',
+    'file:///tmp/notice',
+    'ftp://example.com/notice',
+    '//example.com/notice',
+    '/relative/notice',
+    'relative/notice',
+    'not a url',
+  ])('does not render an anchor for unsafe link %s', async (link) => {
+    mockGetActive.mockResolvedValue({ items: [{ ...active, link }] })
+
+    renderWithClient(<AnnouncementBanner />)
+
+    await screen.findByText('Scheduled maintenance')
+    expect(screen.queryByRole('link', { name: 'learn more' })).toBeNull()
   })
 
   it('renders null when there are no active announcements', async () => {
@@ -160,7 +201,9 @@ describe('AnnouncementBanner', () => {
       expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     })
     // The cached list is patched in place so a remount stays dismissed.
-    expect(queryClient.getQueryData(['dashboard-announcements'])).toEqual([])
+    expect(queryClient.getQueryData(productAnnouncementKeys.active())).toEqual(
+      []
+    )
   })
 
   it('keeps the banner visible when dismissal fails', async () => {
@@ -179,8 +222,14 @@ describe('AnnouncementBanner', () => {
 
     await waitFor(() => {
       expect(mockDismiss).toHaveBeenCalledWith(1)
+      expect(mockToastError).toHaveBeenCalledWith(
+        'Failed to dismiss announcement. Try again.'
+      )
     })
     expect(screen.getByRole('alert')).toBeInTheDocument()
     expect(screen.getByText('Scheduled maintenance')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Dismiss announcement' })
+    ).toBeEnabled()
   })
 })

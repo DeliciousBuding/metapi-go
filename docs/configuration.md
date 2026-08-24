@@ -177,4 +177,4 @@ default when `WEBHOOK_URL` is non-empty). Alert cooldown:
 |:---------|:--------|:------------|
 | `LDOH_BASE_URL` | `https://ldoh.105117.xyz` | Upstream dashboard proxied by the monitor surface; point at a self-hosted instance. |
 | `LDOH_PROXY_TIMEOUT_SEC` | `30` | LDOH upstream timeout. |
-| `METAPI_ENABLE_UPDATE_CENTER` | empty | Re-enables the update-center scheduler (log-only no-op today). |
+| `METAPI_ENABLE_UPDATE_CENTER` | empty | Re-enables the update-center scheduler (log-only no-op). |
