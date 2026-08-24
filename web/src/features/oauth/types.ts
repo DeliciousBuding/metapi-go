@@ -49,5 +49,4 @@ export const oauthKeys = {
   all: ['oauth'] as const,
   providers: () => [...oauthKeys.all, 'providers'] as const,
   connections: () => [...oauthKeys.all, 'connections'] as const,
-  session: (state: string) => [...oauthKeys.all, 'session', state] as const,
 }
