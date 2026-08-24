@@ -894,7 +894,8 @@
       },
       "announcement": {
         "learnMore": "了解更多",
-        "dismiss": "关闭公告"
+        "dismiss": "关闭公告",
+        "dismissFailed": "关闭公告失败，请重试。"
       },
       "statCard": {
         "trendLabel": "趋势"
@@ -1428,6 +1429,7 @@
           "deleteTitle": "删除公告",
           "deleteDescription": "删除「{{title}}」？此操作不可撤销。",
           "empty": "暂无公告。创建一条以展示风险横幅。",
+          "loadError": "加载公告失败：{{message}}",
           "columns": {
             "severity": "严重程度",
             "title": "标题",
@@ -1449,7 +1451,8 @@
           },
           "schema": {
             "titleRequired": "请输入标题。",
-            "messageRequired": "请输入内容。"
+            "messageRequired": "请输入内容。",
+            "linkInvalid": "请输入以 http:// 或 https:// 开头的绝对 URL。"
           },
           "toast": {
             "saved": "公告已保存。",

@@ -73,6 +73,9 @@ describe('caller-toasted write ops skip the global error toast', () => {
 
     await statsApi.deleteAnnouncement(1)
     expect(lastRequestConfig()).toMatchObject({ skipErrorHandler: true })
+
+    await statsApi.dismissAnnouncement(1)
+    expect(lastRequestConfig()).toMatchObject({ skipErrorHandler: true })
   })
 
   it('model redirects generate / apply / promote / delete', async () => {

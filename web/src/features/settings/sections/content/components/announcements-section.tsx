@@ -10,6 +10,7 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
+import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -50,16 +51,17 @@ import {
 } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
 import { api, type Announcement, type AnnouncementsResponse } from '@/lib/api'
+import {
+  getSafeProductAnnouncementUrl,
+  isValidProductAnnouncementLink,
+  productAnnouncementKeys,
+} from '@/lib/product-announcements'
 import { toast } from '@/lib/toast'
 
 import {
   SettingsSectionCard,
   SettingsSectionSkeleton,
 } from '../../../components/settings-section-card'
-
-const announcementsQueryKeys = {
-  all: ['announcements'] as const,
-}
 
 const announcementSchema = z.object({
   title: z
@@ -69,7 +71,13 @@ const announcementSchema = z.object({
     .string()
     .min(1, 'settings.content.announcements.schema.messageRequired'),
   severity: z.enum(['info', 'warning', 'critical']),
-  link: z.string().optional(),
+  link: z
+    .string()
+    .refine(
+      isValidProductAnnouncementLink,
+      'settings.content.announcements.schema.linkInvalid'
+    )
+    .optional(),
   enabled: z.boolean().optional(),
 })
 
@@ -89,7 +97,7 @@ export function AnnouncementsSection() {
   const [deleteTarget, setDeleteTarget] = useState<Announcement | null>(null)
 
   const announcementsQuery = useQuery<AnnouncementsResponse>({
-    queryKey: announcementsQueryKeys.all,
+    queryKey: productAnnouncementKeys.list(),
     queryFn: async () => api.getAnnouncements(),
     staleTime: 30 * 1000,
   })
@@ -126,6 +134,16 @@ export function AnnouncementsSection() {
     }
   }, [editMode, form])
 
+  const invalidateAnnouncementQueries = () =>
+    Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: productAnnouncementKeys.list(),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: productAnnouncementKeys.active(),
+      }),
+    ])
+
   const upsertMutation = useMutation({
     mutationFn: async ({
       mode,
@@ -134,12 +152,13 @@ export function AnnouncementsSection() {
       mode: 'create' | 'edit'
       values: AnnouncementFormValues
     }) => {
+      const link = getSafeProductAnnouncementUrl(values.link) ?? undefined
       if (mode === 'create') {
         return api.createAnnouncement({
           title: values.title,
           message: values.message,
           severity: values.severity,
-          link: values.link || undefined,
+          link,
           enabled: Boolean(values.enabled),
         })
       }
@@ -152,14 +171,12 @@ export function AnnouncementsSection() {
         title: values.title,
         message: values.message,
         severity: values.severity,
-        link: values.link || undefined,
+        link,
         enabled: Boolean(values.enabled),
       })
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: announcementsQueryKeys.all,
-      })
+      void invalidateAnnouncementQueries()
       toast.success(t('settings.content.announcements.toast.saved'))
       setEditMode(null)
     },
@@ -170,9 +187,7 @@ export function AnnouncementsSection() {
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => api.deleteAnnouncement(id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: announcementsQueryKeys.all,
-      })
+      void invalidateAnnouncementQueries()
       toast.success(t('settings.content.announcements.toast.deleted'))
       setDeleteTarget(null)
     },
@@ -201,6 +216,7 @@ export function AnnouncementsSection() {
 
   const items = announcementsQuery.data?.items ?? []
   const isLoading = announcementsQuery.isLoading
+  const loadError = announcementsQuery.error as Error | null
 
   return (
     <SettingsSectionCard
@@ -213,7 +229,13 @@ export function AnnouncementsSection() {
       }
     >
       {isLoading ? <SettingsSectionSkeleton /> : null}
-      {!isLoading && items.length === 0 ? (
+      <QueryErrorBanner
+        error={loadError}
+        messageKey='settings.content.announcements.loadError'
+        onRetry={() => void announcementsQuery.refetch()}
+        isRetrying={announcementsQuery.isFetching}
+      />
+      {!isLoading && !loadError && items.length === 0 ? (
         <p className='text-muted-foreground py-8 text-center text-sm'>
           {t('settings.content.announcements.empty')}
         </p>
