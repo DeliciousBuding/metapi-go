@@ -63,7 +63,7 @@
 
 **已知残差（记录，不作为待办）**
 - manual-checkin `catch {}`：用户可见失败均由 http-client 或结果分支覆盖，仅后端 schema 漂移的编程错误会静默；naive 补 toast 会对 `success:false` 二次提示。
-- `$` 前缀：定价固定 USD，`$` 为货币符号非界面文案，不属于 i18n 目录。
+- `$` 前缀：已收口 — `lib/format` 单一 `USD_SYMBOL`，`formatCurrency`/`formatPrice` 统一金额与每百万价，删除 `formatUsd`/`formatAmount`/`formatRoutePrice` 及本地 `$` 拼接；定价固定 USD（见 log 2026-08-24）。
 - `#siteId` 回退：位于纯函数 `resolvePriceDetail`，需透传 `t` 才可本地化，低频残留。
 - test-response-viewer useEffect 无依赖：对话区每次渲染滚到底为流式跟随意图，非缺陷。
 - endpoints-editor URL：已有 `aria-label`，仅 WCAG 3.3.2 可见标签待补。

@@ -24,7 +24,7 @@ import { priceCompareQueryOptions } from '@/features/models/price-compare/api'
 import { PriceGradeBadge } from '@/features/models/price-compare/components/price-grade-badge'
 import type { PriceCompareItem } from '@/features/models/price-compare/types'
 import { toBcp47 } from '@/i18n/languages'
-import { formatDateTime, formatInt } from '@/lib/format'
+import { formatDateTime, formatInt, formatPrice } from '@/lib/format'
 
 import {
   useClearRouteCooldown,
@@ -33,7 +33,6 @@ import {
 } from '../api'
 import {
   calculateRouteChannelAllocations,
-  formatRoutePrice,
   formatRouteWeightShare,
   normalizeModelKey,
   resolveDistinctConcreteModels,
@@ -471,7 +470,7 @@ function ChannelMetric({
 function PriceValue({ value }: { value: number | null }) {
   return (
     <span className='tabular-nums'>
-      {value === null ? '—' : `$${formatRoutePrice(value)}`}
+      {formatPrice(value, { fractionDigits: 4 })}
     </span>
   )
 }

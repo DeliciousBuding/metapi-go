@@ -27,8 +27,8 @@ import {
 import { toBcp47 } from '@/i18n/languages'
 import {
   formatAbsoluteDateTime,
+  formatCurrency,
   formatRelativeTime,
-  formatUsd,
 } from '@/lib/format'
 
 import { resolveSiteBalanceUsd } from '../lib/site-balance'
@@ -276,7 +276,7 @@ function SiteBalanceSection({ site, locale }: { site: Site; locale: string }) {
         <dl className='mt-2 grid grid-cols-2 gap-x-3 gap-y-2 text-sm'>
           {balanceUsd !== null && (
             <DetailField label={t('sites.detail.balance')}>
-              <span className='tabular-nums'>{formatUsd(balanceUsd)}</span>
+              <span className='tabular-nums'>{formatCurrency(balanceUsd)}</span>
             </DetailField>
           )}
           {planNames.length > 0 && (
@@ -293,9 +293,9 @@ function SiteBalanceSection({ site, locale }: { site: Site; locale: string }) {
           {typeof summary?.totalUsedUsd === 'number' && (
             <DetailField label={t('sites.detail.monthlyUsage')}>
               <span className='tabular-nums'>
-                {formatUsd(summary.totalUsedUsd)}
+                {formatCurrency(summary.totalUsedUsd)}
                 {typeof summary.totalMonthlyLimitUsd === 'number'
-                  ? ` / ${formatUsd(summary.totalMonthlyLimitUsd)}`
+                  ? ` / ${formatCurrency(summary.totalMonthlyLimitUsd)}`
                   : ''}
               </span>
             </DetailField>
@@ -303,7 +303,7 @@ function SiteBalanceSection({ site, locale }: { site: Site; locale: string }) {
           {showRemainingRow && (
             <DetailField label={t('sites.detail.remaining')}>
               <span className='tabular-nums'>
-                {formatUsd(summary?.totalRemainingUsd)}
+                {formatCurrency(summary?.totalRemainingUsd)}
               </span>
             </DetailField>
           )}

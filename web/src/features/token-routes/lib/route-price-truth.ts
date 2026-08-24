@@ -174,11 +174,6 @@ export function resolveRouteChannelPriceTruth(
   }
 }
 
-export function formatRoutePrice(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return EM_DASH
-  return value.toFixed(4)
-}
-
 export function formatRouteWeightShare(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return EM_DASH
   return `${(value * 100).toFixed(1)}%`

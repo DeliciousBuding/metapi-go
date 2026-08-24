@@ -33,8 +33,8 @@ import {
 import { Spinner } from '@/components/ui/spinner'
 import {
   formatAbsoluteDateTime,
+  formatCurrency,
   formatRelativeTime,
-  formatUsd,
 } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -250,7 +250,7 @@ export function useSitesColumns(
       ),
       cell: ({ row }) => (
         <span className='text-sm tabular-nums'>
-          {formatUsd(resolveSiteBalanceUsd(row.original))}
+          {formatCurrency(resolveSiteBalanceUsd(row.original))}
         </span>
       ),
     },

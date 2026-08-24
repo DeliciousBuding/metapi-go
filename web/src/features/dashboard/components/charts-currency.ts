@@ -1,4 +1,4 @@
-import { EM_DASH } from '@/lib/format'
+import { EM_DASH, USD_SYMBOL } from '@/lib/format'
 
 /**
  * Adaptive currency formatting for chart axes/tooltips. One precision per
@@ -10,6 +10,6 @@ import { EM_DASH } from '@/lib/format'
 export function formatChartCurrency(value: number): string {
   if (!Number.isFinite(value)) return EM_DASH
   const magnitude = Math.abs(value)
-  if (magnitude >= 1000) return `$${value.toFixed(2)}`
-  return `$${value.toFixed(3)}`
+  if (magnitude >= 1000) return `${USD_SYMBOL}${value.toFixed(2)}`
+  return `${USD_SYMBOL}${value.toFixed(3)}`
 }

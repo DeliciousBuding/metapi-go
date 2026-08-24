@@ -5,6 +5,12 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-08-24 — 计费货币整理（USD 收口）
+
+- 明确计费货币：全链路 USD（`balance`/`quota`/`used`/`todayIncome`/`unitCost`/`estimatedCost`/每百万价），无 RMB / 多租户钱包路径。上游 NewAPI/OneAPI 族 `quota` 为整数额度（1 USD = 500000 quota；veloera 1 USD = 1000000 quota），platform 适配器在边界 `quota/divisor` 归一为 USD，前端永不接触原始 quota。
+- 前端收口：`lib/format` 新增单一 `USD_SYMBOL`，`formatCurrency`（金额，千分位 + 固定小数位）与 `formatPrice`（每百万价，自适应或显式小数位）收敛全部货币渲染；删除重复/分散的 `formatUsd`、accounts `formatAmount`、token-routes `formatRoutePrice`、price-compare 本地 `formatPerMillion`/`formatSampleCost`、charts `$` 拼接。
+- docs/api.md 新增 “Billing & Currency” 约定节，MASTER 已知残差 `$` 项改记为已收口。前端 typecheck/lint/format 全绿，vitest 171 文件 1131 用例通过。
+
 ## 2026-08-24 — Wave 9 发布 v0.16.9
 
 - PR #972（Wave 9，mobile audit + entry-chunk split + contrast zero-exemption）squash 合入 master（9d864bf）。
