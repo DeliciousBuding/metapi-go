@@ -155,8 +155,11 @@ function useResolveDisplayName() {
  * toggle) as a single click, BEFORE the `MoreHorizontal` dropdown trigger. The
  * pending state is per-row: when `pendingStatusId === account.id`, this row's
  * button shows a `Spinner` and is disabled, while every other row's
- * button stays clickable (no global lock). The dropdown menu items are
- * unchanged — refresh/pin/checkin/edit/delete all stay where they were.
+ * button stays clickable (no global lock). The pin / check-in dropdown items
+ * mirror the same pattern with their OWN pending ids (`pendingPinId` /
+ * `pendingCheckinId`): while one of those toggles is in flight for this row,
+ * the matching item is disabled and shows a `Spinner` — no cross-talk between
+ * the three toggles, no global lock.
  *
  * Memoized: the row re-renders on selection/pending-state changes while
  * `account` / `actions` keep the same identity, and this cell (Tooltip +
@@ -167,18 +170,30 @@ export const AccountsRowActions = memo(function AccountsRowActions({
   account,
   actions,
   pendingStatusId = null,
+  pendingCheckinId = null,
+  pendingPinId = null,
 }: {
   account: Account
   actions: AccountRowActions
   pendingStatusId?: number | null
+  pendingCheckinId?: number | null
+  pendingPinId?: number | null
 }) {
   const { t } = useTranslation()
   const canCheckin = account.capabilities?.canCheckin ?? false
   const isThisRowPending = pendingStatusId === account.id
+  const isPinPending = pendingPinId === account.id
+  const isCheckinPending = pendingCheckinId === account.id
   const toggleLabel =
     account.status === 'disabled'
       ? t('accounts.columns.enable')
       : t('accounts.columns.disable')
+  let pinIcon = <Pin />
+  if (isPinPending) {
+    pinIcon = <Spinner />
+  } else if (account.isPinned) {
+    pinIcon = <PinOff />
+  }
   return (
     <div className='flex items-center gap-1'>
       <TooltipProvider delay={200}>
@@ -223,8 +238,11 @@ export const AccountsRowActions = memo(function AccountsRowActions({
             <RefreshCw />
             {t('accounts.columns.refreshBalance')}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => actions.onTogglePin(account)}>
-            {account.isPinned ? <PinOff /> : <Pin />}
+          <DropdownMenuItem
+            disabled={isPinPending}
+            onClick={() => actions.onTogglePin(account)}
+          >
+            {pinIcon}
             {account.isPinned
               ? t('accounts.columns.unpin')
               : t('accounts.columns.pin')}
@@ -236,8 +254,11 @@ export const AccountsRowActions = memo(function AccountsRowActions({
               : t('accounts.columns.disable')}
           </DropdownMenuItem>
           {canCheckin && (
-            <DropdownMenuItem onClick={() => actions.onToggleCheckin(account)}>
-              <CalendarCheck />
+            <DropdownMenuItem
+              disabled={isCheckinPending}
+              onClick={() => actions.onToggleCheckin(account)}
+            >
+              {isCheckinPending ? <Spinner /> : <CalendarCheck />}
               {account.checkinEnabled
                 ? t('accounts.columns.disableCheckin')
                 : t('accounts.columns.enableCheckin')}
@@ -268,7 +289,8 @@ export const AccountsRowActions = memo(function AccountsRowActions({
 export function useAccountsColumns(
   actions: AccountRowActions,
   pendingStatusId: number | null = null,
-  pendingCheckinId: number | null = null
+  pendingCheckinId: number | null = null,
+  pendingPinId: number | null = null
 ): ColumnDef<Account>[] {
   const { t } = useTranslation()
   const resolveHealth = useResolveHealth()
@@ -525,6 +547,8 @@ export function useAccountsColumns(
               account={account}
               actions={actions}
               pendingStatusId={pendingStatusId}
+              pendingCheckinId={pendingCheckinId}
+              pendingPinId={pendingPinId}
             />
           )
         },
@@ -535,6 +559,7 @@ export function useAccountsColumns(
       actions,
       pendingStatusId,
       pendingCheckinId,
+      pendingPinId,
       resolveHealth,
       resolveDisplayName,
       t,

@@ -306,7 +306,8 @@
         "error": "Error",
         "statusSuccess": "Success",
         "statusFailure": "Failed",
-        "statusAborted": "Stopped"
+        "statusAborted": "Stopped",
+        "rerunRow": "Re-run probe for {{channel}}"
       },
       "page": {
         "title": "Model Tester",
