@@ -3,6 +3,7 @@ package platform
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 )
 
@@ -38,7 +39,7 @@ func (d *DoneHubAdapter) GetBalance(ctx context.Context, baseURL, accessToken st
 func (d *DoneHubAdapter) GetSiteAnnouncements(ctx context.Context, baseURL, accessToken string, platformUserId *int, proxy *ProxyConfig) ([]SiteAnnouncement, error) {
 	resp, err := fetchJSON(ctx, baseURL+"/api/notice", "GET", nil, nil, proxy)
 	if err != nil {
-		return []SiteAnnouncement{}, nil
+		return nil, fmt.Errorf("fetch notice: %w", err)
 	}
 
 	content := ""
