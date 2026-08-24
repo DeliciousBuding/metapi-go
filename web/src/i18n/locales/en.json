@@ -911,7 +911,7 @@
         "proxyModels": "Proxy & Models",
         "proxyModels.description": "Proxy transport, routing policy, model redirects, rates and model data sources.",
         "downstream": "Downstream",
-        "downstream.description": "API keys issued to downstream sites/accounts and the global proxy token.",
+        "downstream.description": "Root downstream key (deprecated global fallback).",
         "content": "Notify & Data",
         "content.description": "Import/export, notification channels and risk-banner announcements.",
         "operations": "System & Ops",
@@ -919,7 +919,7 @@
       },
       "overview": {
         "title": "Settings",
-        "description": "Manage gateway configuration, downstream keys, model behavior, data & messaging, and system maintenance."
+        "description": "Manage gateway configuration, API keys, model behavior, data & messaging, and system maintenance."
       },
       "common": {
         "save": "Save",
@@ -992,9 +992,9 @@
           }
         },
         "authentication": {
-          "title": "Authentication",
-          "description": "Admin token rotation and IP allowlist.",
-          "currentToken": "Current admin token",
+          "title": "Access Token",
+          "description": "Management API access token (AccessToken) rotation and IP allowlist.",
+          "currentToken": "Current access token",
           "notSet": "not set",
           "changeToken": "Change token",
           "cancelChange": "Cancel",
@@ -1239,19 +1239,19 @@
       },
       "downstream": {
         "keys": {
-          "title": "Downstream Keys",
-          "description": "Downstream API keys (issue tokens scoped per site or account).",
+          "title": "API Keys",
+          "description": "API keys (issue tokens scoped per site or account for calling the LLM).",
           "create": "Create key",
-          "createTitle": "Create downstream key",
-          "createDescription": "Issue a new downstream API key with quotas and metadata.",
-          "editTitle": "Edit downstream key",
+          "createTitle": "Create API key",
+          "createDescription": "Issue a new API key with quotas and metadata.",
+          "editTitle": "Edit API key",
           "editDescription": "Update the key's metadata. The key value cannot be changed here.",
           "generate": "Generate",
-          "empty": "No downstream keys yet. Create one to start issuing tokens.",
+          "empty": "No API keys yet. Create one to start issuing.",
           "requests": "Requests: {{used}} / {{max}}",
           "cost": "Cost: {{used}} / {{max}}",
           "usage24h": "24h: {{requests}} req · {{tokens}} tok · ${{cost}}",
-          "deleteTitle": "Delete downstream key",
+          "deleteTitle": "Delete API key",
           "deleteDescription": "Delete key \"{{name}}\"? This action cannot be undone.",
           "columns": {
             "name": "Name",
@@ -1278,18 +1278,18 @@
             "keyMinLength": "Key must be at least 8 characters."
           },
           "toast": {
-            "created": "Downstream key created.",
-            "createFailed": "Failed to create downstream key.",
-            "updated": "Downstream key updated.",
-            "updateFailed": "Failed to update downstream key.",
-            "deleted": "Downstream key deleted.",
-            "deleteFailed": "Failed to delete downstream key."
+            "created": "API key created.",
+            "createFailed": "Failed to create API key.",
+            "updated": "API key updated.",
+            "updateFailed": "Failed to update API key.",
+            "deleted": "API key deleted.",
+            "deleteFailed": "Failed to delete API key."
           },
           "connect": "Connect"
         },
         "proxyToken": {
-          "title": "Proxy Token",
-          "description": "Global downstream PROXY_TOKEN (sk- prefix, random suffix).",
+          "title": "Root downstream key (deprecated)",
+          "description": "Global downstream fallback key with no per-key policy. Deprecated; use API Keys to issue scoped keys instead.",
           "current": "Current token",
           "notSet": "not set",
           "generate": "Generate",
@@ -1302,8 +1302,8 @@
             "suffixMinLength": "Suffix must be at least 8 characters."
           },
           "toast": {
-            "saved": "Proxy token updated.",
-            "saveFailed": "Failed to update proxy token."
+            "saved": "Root downstream key updated.",
+            "saveFailed": "Failed to update root downstream key."
           }
         }
       },
@@ -2597,7 +2597,7 @@
         "about": "About",
         "priceCompare": "Price Compare",
         "channels": "Channels",
-        "downstreamKeys": "Downstream Keys"
+        "downstreamKeys": "API Keys"
       },
       "backToHome": "Back to Home",
       "settingsOverview": "Settings Overview"
@@ -2835,8 +2835,8 @@
     },
     "downstreamKeys": {
       "page": {
-        "title": "Downstream Keys",
-        "description": "Issue and manage downstream API keys (tokens scoped per site or account)."
+        "title": "API Keys",
+        "description": "Issue and manage API keys for calling the LLM."
       }
     }
   }
