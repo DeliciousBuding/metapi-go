@@ -45,6 +45,7 @@ import {
   useZeroChannelRoutes,
 } from '../api'
 import { routesSearchSchema } from '../lib/routes-schema'
+import { useShowZeroChannelPreference } from '../lib/use-show-zero-channel'
 import type { RouteRowActions, RouteSummaryRow } from '../types'
 import {
   isExplicitGroupRoute,
@@ -233,7 +234,7 @@ export function RoutesPage() {
   const accountId = filters.accountId ? Number(filters.accountId) : undefined
   const siteId = filters.siteId ? Number(filters.siteId) : undefined
 
-  const [showZeroChannel, setShowZeroChannel] = useState(false)
+  const { showZeroChannel, setShowZeroChannel } = useShowZeroChannelPreference()
   const rows = useZeroChannelRoutes(routes, candidates, showZeroChannel)
 
   const [formOpen, setFormOpen] = useState(false)
