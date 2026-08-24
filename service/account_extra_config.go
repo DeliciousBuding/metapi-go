@@ -94,52 +94,59 @@ func NormalizeManagedRefreshToken(value any) (string, bool) {
 	return trimmed, true
 }
 
-// NormalizeManagedTokenExpiresAt accepts a positive epoch-seconds value
-// (number or numeric string). Returns ok=false when missing/invalid.
+// NormalizeManagedTokenExpiresAt accepts a positive Unix timestamp in
+// milliseconds (number or numeric string). Legacy epoch-seconds values are
+// accepted and normalized to milliseconds for TS/API compatibility.
 func NormalizeManagedTokenExpiresAt(value any) (int64, bool) {
+	const epochMillisThreshold int64 = 10_000_000_000
+
+	normalize := func(raw int64) (int64, bool) {
+		if raw <= 0 {
+			return 0, false
+		}
+		if raw <= epochMillisThreshold {
+			return raw * 1000, true
+		}
+		return raw, true
+	}
+	normalizeFloat := func(raw float64) (int64, bool) {
+		if raw <= 0 || math.IsNaN(raw) || math.IsInf(raw, 0) || raw > math.MaxInt64 {
+			return 0, false
+		}
+		return normalize(int64(raw))
+	}
+
 	if value == nil {
 		return 0, false
 	}
 	switch v := value.(type) {
 	case int64:
-		if v > 0 {
-			return v, true
-		}
+		return normalize(v)
 	case int:
-		if v > 0 {
-			return int64(v), true
-		}
+		return normalize(int64(v))
 	case int32:
-		if v > 0 {
-			return int64(v), true
-		}
+		return normalize(int64(v))
 	case float64:
-		if v > 0 && !math.IsNaN(v) && !math.IsInf(v, 0) {
-			return int64(v), true
-		}
+		return normalizeFloat(v)
 	case float32:
-		if v > 0 && !math.IsNaN(float64(v)) && !math.IsInf(float64(v), 0) {
-			return int64(v), true
-		}
+		return normalizeFloat(float64(v))
 	case json.Number:
-		i, err := v.Int64()
-		if err == nil && i > 0 {
-			return i, true
+		if i, err := v.Int64(); err == nil {
+			return normalize(i)
 		}
-		f, err := v.Float64()
-		if err == nil && f > 0 && !math.IsNaN(f) && !math.IsInf(f, 0) {
-			return int64(f), true
+		if f, err := v.Float64(); err == nil {
+			return normalizeFloat(f)
 		}
 	case string:
 		trimmed := strings.TrimSpace(v)
 		if trimmed == "" {
 			return 0, false
 		}
-		if i, err := strconv.ParseInt(trimmed, 10, 64); err == nil && i > 0 {
-			return i, true
+		if i, err := strconv.ParseInt(trimmed, 10, 64); err == nil {
+			return normalize(i)
 		}
-		if f, err := strconv.ParseFloat(trimmed, 64); err == nil && f > 0 && !math.IsNaN(f) && !math.IsInf(f, 0) {
-			return int64(f), true
+		if f, err := strconv.ParseFloat(trimmed, 64); err == nil {
+			return normalizeFloat(f)
 		}
 	}
 	return 0, false
@@ -235,7 +242,7 @@ func IsSub2ApiPlatform(platform string) bool {
 }
 
 // IsManagedSub2ApiTokenDue checks if a managed Sub2Api token needs refresh.
-// A token is "due" if it expires within sub2apiRefreshLeadSeconds of now.
+// A token is "due" if it expires within the refresh lead window.
 func IsManagedSub2ApiTokenDue(tokenExpiresAt any) bool {
 	if tokenExpiresAt == nil {
 		return false
@@ -244,8 +251,8 @@ func IsManagedSub2ApiTokenDue(tokenExpiresAt any) bool {
 	if !ok || exp <= 0 {
 		return false
 	}
-	now := time.Now().Unix()
-	// Use a 5-minute lead window: refresh if token expires within 300s.
-	const sub2apiRefreshLeadSeconds int64 = 300
-	return exp-now <= sub2apiRefreshLeadSeconds
+	nowMs := time.Now().UnixMilli()
+	// Use a 5-minute lead window.
+	const sub2apiRefreshLeadMs int64 = 5 * 60 * 1000
+	return exp-nowMs <= sub2apiRefreshLeadMs
 }

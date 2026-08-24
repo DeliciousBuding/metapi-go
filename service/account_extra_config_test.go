@@ -34,10 +34,12 @@ func TestNormalizeManagedTokenExpiresAt(t *testing.T) {
 		{"nil", nil, 0, false},
 		{"zero", 0, 0, false},
 		{"negative", -1, 0, false},
-		{"int", 1712345678, 1712345678, true},
-		{"float", float64(1712345678), 1712345678, true},
-		{"string", "1712345678", 1712345678, true},
-		{"jsonNumber", json.Number("1712345678"), 1712345678, true},
+		{"seconds int", 1712345678, 1712345678000, true},
+		{"seconds float", float64(1712345678), 1712345678000, true},
+		{"seconds string", "1712345678", 1712345678000, true},
+		{"seconds jsonNumber", json.Number("1712345678"), 1712345678000, true},
+		{"milliseconds int64", int64(1712345678000), 1712345678000, true},
+		{"milliseconds string", "1712345678000", 1712345678000, true},
 		{"blank", "  ", 0, false},
 	}
 	for _, tc := range cases {
@@ -84,11 +86,11 @@ func TestBuildMergedSub2ApiAuth_TopLevelAndNested(t *testing.T) {
 	t.Parallel()
 	existing := `{"credentialMode":"session","proxyUrl":"http://proxy","sub2apiAuth":{"refreshToken":"rt_old","tokenExpiresAt":100,"custom":"keep-me"}}`
 	rt := "rt_top"
-	exp := int64(200)
+	exp := int64(1_712_345_678_000)
 	patch := map[string]any{
 		"sub2apiAuth": map[string]any{
 			"refreshToken":   "rt_nested",
-			"tokenExpiresAt": int64(150),
+			"tokenExpiresAt": int64(1_712_345_677_000),
 		},
 	}
 
@@ -100,22 +102,23 @@ func TestBuildMergedSub2ApiAuth_TopLevelAndNested(t *testing.T) {
 	if merged["refreshToken"] != "rt_top" {
 		t.Fatalf("refreshToken = %v, want rt_top", merged["refreshToken"])
 	}
-	if merged["tokenExpiresAt"] != int64(200) {
-		t.Fatalf("tokenExpiresAt = %v, want 200", merged["tokenExpiresAt"])
+	if merged["tokenExpiresAt"] != exp {
+		t.Fatalf("tokenExpiresAt = %v, want %d", merged["tokenExpiresAt"], exp)
 	}
 	if merged["custom"] != "keep-me" {
 		t.Fatalf("custom = %v, want keep-me", merged["custom"])
 	}
 
 	// Nested-only partial update preserves other auth fields.
+	nestedExpiry := int64(1_712_345_679_000)
 	merged = BuildMergedSub2ApiAuth(&existing, nil, nil, map[string]any{
-		"sub2apiAuth": map[string]any{"tokenExpiresAt": int64(333)},
+		"sub2apiAuth": map[string]any{"tokenExpiresAt": nestedExpiry},
 	})
 	if merged["refreshToken"] != "rt_old" {
 		t.Fatalf("refreshToken = %v, want rt_old", merged["refreshToken"])
 	}
-	if merged["tokenExpiresAt"] != int64(333) {
-		t.Fatalf("tokenExpiresAt = %v, want 333", merged["tokenExpiresAt"])
+	if merged["tokenExpiresAt"] != nestedExpiry {
+		t.Fatalf("tokenExpiresAt = %v, want %d", merged["tokenExpiresAt"], nestedExpiry)
 	}
 
 	// No incoming fields => nil (leave alone).
@@ -142,7 +145,7 @@ func TestIsSub2ApiPlatform(t *testing.T) {
 
 func TestIsManagedSub2ApiTokenDue(t *testing.T) {
 	t.Parallel()
-	now := time.Now().Unix()
+	nowMs := time.Now().UnixMilli()
 
 	// Nil tokenExpiresAt → not due.
 	if IsManagedSub2ApiTokenDue(nil) {
@@ -150,20 +153,26 @@ func TestIsManagedSub2ApiTokenDue(t *testing.T) {
 	}
 
 	// Already expired → due.
-	expired := now - 60
+	expired := nowMs - 60_000
 	if !IsManagedSub2ApiTokenDue(expired) {
 		t.Fatal("expired token should be due")
 	}
 
 	// Expiring soon (within 300s lead window) → due.
-	dueSoon := now + 120
+	dueSoon := nowMs + 120_000
 	if !IsManagedSub2ApiTokenDue(dueSoon) {
 		t.Fatal("token expiring within lead window should be due")
 	}
 
 	// Expiring far in the future → not due.
-	farFuture := now + 3600
+	farFuture := nowMs + 3_600_000
 	if IsManagedSub2ApiTokenDue(farFuture) {
 		t.Fatal("token far in the future should not be due")
+	}
+
+	// Legacy epoch seconds remain accepted during TS migrations.
+	legacyDueSoon := time.Now().Unix() + 120
+	if !IsManagedSub2ApiTokenDue(legacyDueSoon) {
+		t.Fatal("legacy seconds timestamp within lead window should be due")
 	}
 }

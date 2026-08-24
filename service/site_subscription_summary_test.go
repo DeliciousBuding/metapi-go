@@ -51,7 +51,7 @@ func TestBuildSubscriptionSummary_MalformedExtraConfig(t *testing.T) {
 // account whose token expires in the future — it should be counted active.
 func TestBuildSubscriptionSummary_ActiveToken(t *testing.T) {
 	t.Parallel()
-	future := time.Now().Add(1 * time.Hour).Unix()
+	future := time.Now().Add(1 * time.Hour).UnixMilli()
 	accounts := []accountAgg{
 		{SiteID: 1, ExtraConfig: strPtr(`{"sub2apiAuth":{"group":"pro-tier","tokenExpiresAt":` + itoa64(future) + `}}`)},
 	}
@@ -75,8 +75,12 @@ func TestBuildSubscriptionSummary_ActiveToken(t *testing.T) {
 	if summary.ExpiresAt == nil {
 		t.Fatal("ExpiresAt = nil, want set")
 	}
-	if !summary.ExpiresAt.Equal(time.Unix(future, 0).UTC()) {
-		t.Fatalf("ExpiresAt = %v, want %v", summary.ExpiresAt, time.Unix(future, 0).UTC())
+	wantExpiry := time.UnixMilli(future).UTC()
+	if !summary.ExpiresAt.Equal(wantExpiry) {
+		t.Fatalf("ExpiresAt = %v, want %v", summary.ExpiresAt, wantExpiry)
+	}
+	if _, err := json.Marshal(summary); err != nil {
+		t.Fatalf("marshal millisecond expiry summary: %v", err)
 	}
 }
 
