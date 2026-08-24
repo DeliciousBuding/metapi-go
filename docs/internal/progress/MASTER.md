@@ -10,13 +10,40 @@
 
 历史完成冻结：Round 1 #887 → v0.16.3、Round 2 #889 → v0.16.4、#887 补遗 + E2E → v0.16.5、Round 3 修复波 → v0.16.6、Wave 4 综合质量波 → v0.16.7、Wave 5+6 开发 + 深审计波 → v0.16.8、Wave 7+8+9 前端体验/语义/设置/catalog/移动端审计波 → v0.16.9 均已发布。
 
-### Wave 10 — 用户需求队列（2026-08-24）
+### Wave 10 — Sites demand batch（执行中，2026-08-24）
 
-| Issue | Scope | Status / acceptance |
-|---|---|---|
-| [#981](https://github.com/DeliciousBuding/metapi-go/issues/981) | TS → Go 迁移后，Sub2API `tokenExpiresAt` 毫秒值被按秒转换，导致 `/api/sites` JSON 序列化失败 | **已合入 #987**（`ffbdae1`）：内部统一 epoch milliseconds，同时兼容 legacy seconds；站点摘要可序列化，刷新 lead window 单位一致；focused + WSL full race + 12-check CI 通过；待下一 patch release |
-| [#985](https://github.com/DeliciousBuding/metapi-go/issues/985) | 站点列表名称/地址提供可发现的快捷跳转 | **候选，未分配 owner**；立项后需定义安全 URL 规则、键盘/accessible name、同窗/新窗行为与组件测试 |
-| [#986](https://github.com/DeliciousBuding/metapi-go/issues/986) | 站点公告的同步状态与入口 | **候选，先审计**；复用现有 `site-announcement` 数据流与管理 API，不新增重复 endpoint；立项前先确认 TS 可见行为与当前前端缺口 |
+**Tracking**: `GITHUB_STANDARD` · batch branch `batch/w10-sites-demand` · one batch PR closes #985 and #986 only after all lanes pass combined validation.
+
+| Lane | Issue | Owner / write set | Status | Acceptance |
+|---|---|---|---|---|
+| A | [#985](https://github.com/DeliciousBuding/metapi-go/issues/985) | frontend links: `sites-columns.tsx` + focused test | **in progress** | validated http(s) name + URL links; invalid schemes stay text; keyboard/focus/new-tab semantics |
+| S | #985 | URL safety: admin sites create/update + detail-sheet historical fallback tests | **in progress** | backend rejects non-http(s); legacy dirty URLs never become executable anchors |
+| B | [#986](https://github.com/DeliciousBuding/metapi-go/issues/986) | announcement backend/API truth: handler + focused Go tests | **ready** | camelCase bare-array contract; PG-safe inserted ID/event boolean; counters only reflect successful writes |
+| C | #986 | independent upstream-announcement SPA: new feature module, route, sidebar, API client/types, locales, a11y route | **ready** | `/site-announcements` is a real page using `/api/site-announcements`; untrusted content stays text; read/sync/empty/error states are truthful |
+| I | #985 + #986 | main agent only: integration, MASTER/STATE/log/CHANGELOG/version | **pending** | L2 diff review + L3 lane review; combined frontend + Go gates; one batch PR |
+
+**Hard boundaries**
+
+- `/api/site-announcements` (upstream notices) and `/api/announcements` (operator risk banners) remain separate types, query keys, and UI.
+- Do not restore the deleted historical `features/site-announcements` implementation: it aliased the wrong product-announcement domain.
+- Announcement body/source are untrusted. MVP renders body as plain text and does not expose `sourceUrl` as a direct external link.
+- No duplicate endpoint, scheduler, site cache, or task-status API. Reuse `SyncSiteAnnouncements`, `useSites`/`sitesKeys`, and `api.getTask()`.
+- Shared write points: locale JSON belongs only to C; project docs and GitHub state belong only to I.
+
+**Combined validation**
+
+```powershell
+go build ./cmd/server
+go vet ./...
+go test ./... -count=1 -race
+Set-Location web
+bun run test
+bun run typecheck
+bun run lint
+bun run format:check
+bun run knip
+bun run build:check
+```
 
 ### 已收口（v0.16.9 及以前，勿再当 active）
 
@@ -36,41 +63,9 @@
 
 > 已交付：integration → PR #972 squash 合入（12-check 全绿）→ #973 bump CHANGELOG + web/package.json → tag v0.16.9 → Release 发布。生产滚动部署为运维面后续动作。
 
-### UI/UX 深修波（进行中：自行探索 + 整理 + 优化）
+### 已收口的 UI/UX 深修（#975–#984）
 
-> 2026-08-24 三轮只读探索（token-routes/models/model-tester · settings/sites/accounts/channels · dashboard/observability/checkin/oauth/import + 全局横切）产出证据化清单，按优先级分批落地，每批带回归测试与门禁。
-
-**Batch 1（已合入 #975）—— 错误态一致性 + i18n + 文档漂移**
-- accounts/channels 页 load error 时同时渲染 QueryErrorBanner 与 DataTablePage 空态（含误导 CTA）→ 镜像 sites 页三元分支抑制 table（+ 回归测试）。
-- import stepper `aria-label` 硬编码英文 → `t('import.stepper.progressLabel')`（en/zh 词条补齐）。
-- a11y-checklist §7「preset contrast」残留清单过时（Wave 9 已清零）→ 改为 0 豁免现状。
-
-**Batch 2（本 PR）—— token-routes Edit + decision 语义 + stream i18n**
-- token-routes detail sheet footer 增「Edit」（gap-6），routes-page 接线（关 sheet → 开 edit dialog）；decision snapshot selected channel 显示 account 名。
-- transport.ts:151 硬编码中文流式错误 → 英文技术消息。
-
-**Batch 3（本 PR）—— model-tester 错误态 + schedule-editor 可访问标签**
-- model-tester：models/channels 查询加载失败时静默空下拉 → 接入 QueryErrorBanner + Retry。
-- schedule-editor：daily/window/custom 的 time/cron 输入补 aria-label（en/zh 词条）。
-
-**Batch 4（本 PR）—— 死代码清理**
-- model-detail-sheet 移除从未传入的 `onTest` prop +「Test model」死按钮 + 图标 import + 死 i18n key。
-- token-routes/index.ts 删除空占位注释块（barrel stub 收敛为真实重导出）。
-
-**Batch 5（本 PR）—— i18n 收尾 + 装饰图标 a11y**
-- catalog-sources Switch aria-label、tokens-panel group placeholder 去硬编码 → i18n（`toggleEnabled` / `groupPlaceholder`）。
-- checkin 装饰性 CalendarRange 补 `aria-hidden`。
-
-**Batch 6（本 PR）—— 死 wrapper 清理 + import 静默失败**
-- lib/api/sites.ts 移除 4 个未用 API wrapper + `SiteProbeNowResponse` 类型 + 测试 mock。
-- import wizard：非 axios 失败（如空响应体）补 `toast`（`import.submitFailed`），不再静默吞。
-
-**已知残差（记录，不作为待办）**
-- manual-checkin `catch {}`：用户可见失败均由 http-client 或结果分支覆盖，仅后端 schema 漂移的编程错误会静默；naive 补 toast 会对 `success:false` 二次提示。
-- `$` 前缀：已收口 — `lib/format` 单一 `USD_SYMBOL`，`formatCurrency`/`formatPrice` 统一金额与每百万价，删除 `formatUsd`/`formatAmount`/`formatRoutePrice` 及本地 `$` 拼接；定价固定 USD（见 log 2026-08-24）。
-- `#siteId` 回退：位于纯函数 `resolvePriceDetail`，需透传 `t` 才可本地化，低频残留。
-- test-response-viewer useEffect 无依赖：对话区每次渲染滚到底为流式跟随意图，非缺陷。
-- endpoints-editor URL：已有 `aria-label`，仅 WCAG 3.3.2 可见标签待补。
+2026-08-24 的错误态、i18n、a11y、死代码、USD 格式、pagination/search/navigation 与 credential terminology 批次均已合入；详细时间线见 [`../log.md`](../log.md)，不得再作为 active work 重做。
 
 ## Completed milestone — TS 兼容与迁移收官（2026-08-20 交付）
 
@@ -108,7 +103,7 @@ Metapi Go has **3 delivery mainlines**. CI, dual-dialect support, security, rele
 - **Tester truth**: forced-channel synchronous probes, explicit unsupported streaming behavior, enabled-channel filtering, bounded comparison concurrency, shared abort handling, and stopped-result rendering are implemented and covered by focused tests.
 - **Route truth**: enabled-weight allocation and account/model-specific price provenance use exact concrete-model joins and are covered by focused Go and frontend tests.
 - **URL state stability**: list-page table state has one URL owner, stable callbacks, latest-URL merge semantics, and real Chromium acceptance gates documented in [`../design/state-stability.md`](../design/state-stability.md).
-- **Onboarding polish + team visibility (v0.17)**: platform picker (16-adapter searchable Select with manual-entry fallback), client export breadth (claude-code/codex/openwebui profiles), and downstream-key 24h usage summary (requests/tokens/cost) are implemented and covered by focused Go + frontend tests.
+- **Onboarding polish + team visibility (shipped by v0.16.2)**: platform picker (16-adapter searchable Select with manual-entry fallback), client export breadth (claude-code/codex/openwebui profiles), and downstream-key 24h usage summary (requests/tokens/cost) are implemented and covered by focused Go + frontend tests.
 
 These outcomes are closed. New work enters this plan only with a concrete owner, scope, and acceptance test; completed waves do not remain as open checklists.
 
