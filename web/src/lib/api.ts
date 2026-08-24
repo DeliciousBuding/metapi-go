@@ -13,6 +13,7 @@ import { eventsApi } from './api/events.ts'
 import { oauthApi } from './api/oauth.ts'
 import { searchApi } from './api/search.ts'
 import { settingsApi } from './api/settings.ts'
+import { siteAnnouncementsApi } from './api/site-announcements.ts'
 import { sitesApi } from './api/sites.ts'
 import { statsApi } from './api/stats.ts'
 import { systemApi } from './api/system.ts'
@@ -23,6 +24,7 @@ export * from './api/types'
 
 export const api = {
   ...sitesApi,
+  ...siteAnnouncementsApi,
   ...accountsApi,
   ...tokenRoutesApi,
   ...statsApi,

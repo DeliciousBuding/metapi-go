@@ -35,6 +35,7 @@ const ROUTES = [
   ['checkin', '/checkin'],
   ['token-routes', '/token-routes'],
   ['proxy-logs', '/proxy-logs'],
+  ['site-announcements', '/site-announcements'],
   ['oauth', '/oauth'],
   ['about', '/about'],
   ['settings-overview', '/settings'],
