@@ -391,7 +391,13 @@
         "callbackSubmit": "提交回调",
         "succeeded": "授权完成。",
         "failed": "授权失败：{{error}}",
-        "sshTunnelHint": "如果回调端口无法从浏览器访问，请运行以下 SSH 隧道："
+        "sshTunnelHint": "如果回调端口无法从浏览器访问，请运行以下 SSH 隧道：",
+        "sshTunnelKeyHint": "如果要用你自己的 SSH 密钥，请改用这个命令：",
+        "stateHint": "会话 state —— 排查本次授权时会用到：",
+        "redirectUriHint": "服务商会重定向到这个地址。如果它无法到达你的浏览器，请从地址栏复制完整的重定向 URL 并粘贴到下方：",
+        "pollingExhausted": "已自动检查 {{attempts}} 次，授权仍未完成。自动轮询已暂停 —— 请在下方手动粘贴回调地址。",
+        "callbackSubmitted": "回调已提交，正在校验授权…",
+        "callbackInvalidUrl": "请输入合法的 http(s) 回调地址。"
       },
       "toast": {
         "quotaRefreshed": "已请求刷新 #{{id}} 的额度。",

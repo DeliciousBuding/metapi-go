@@ -1,11 +1,14 @@
 // Behavior tests for the OAuth start-dialog pending-session flow.
 //
 // After `useStartOAuth` resolves, the dialog must NOT close — it switches to
-// a pending panel that polls `useOAuthSession(state)` and exposes a
-// manual-callback fallback. These tests verify: (1) the panel replaces the
-// form after submit, (2) the manual-callback form calls
-// `api.submitOAuthManualCallback`, and (3) a polled `status === 'success'`
-// fires `onOpenChange(false)`.
+// a pending panel that shows the returned `instructions` + `state`
+// (copyable), polls the session via `useOAuthSessionPolling(state)` and
+// exposes a validated manual-callback fallback. These tests verify:
+// (1) the panel replaces the form after submit, (2) the panel surfaces the
+// state + instructions, (3) the manual-callback form validates the URL and
+// reports success/failure explicitly, and (4) a polled
+// `status === 'success'` fires `onOpenChange(false)`.
+// Fake-timer polling behavior lives in oauth-start-dialog-polling.test.tsx.
 
 import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -81,12 +84,17 @@ afterAll(() => {
 
 const TEST_STATE = 'test-session-state'
 
+const TEST_SSH_TUNNEL_COMMAND = 'ssh -L 8080:localhost:8080 user@host'
+const TEST_SSH_TUNNEL_KEY_COMMAND =
+  'ssh -i <path_to_your_key> -L 8080:localhost:8080 user@host'
+
 const TEST_INSTRUCTIONS: OAuthStartInstructions = {
   redirectUri: 'http://localhost:8080/callback',
   callbackPort: 8080,
   callbackPath: '/callback',
   manualCallbackDelayMs: 5000,
-  sshTunnelCommand: 'ssh -L 8080:localhost:8080 user@host',
+  sshTunnelCommand: TEST_SSH_TUNNEL_COMMAND,
+  sshTunnelKeyCommand: TEST_SSH_TUNNEL_KEY_COMMAND,
 }
 
 const TEST_START_RESULT = {
@@ -98,12 +106,7 @@ const TEST_START_RESULT = {
 
 const mockState = vi.hoisted(() => ({
   startMutate: vi.fn(),
-  sessionData: null as null | {
-    provider: string
-    state: string
-    status: 'pending' | 'success' | 'error'
-    error?: string
-  },
+  getSession: vi.fn(),
   callbackMutate: vi.fn(),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
@@ -138,13 +141,16 @@ vi.mock('../../api', () => ({
     mutateAsync: mockState.startMutate,
     isPending: false,
   }),
-  useOAuthSession: (state: string | null) => ({
-    data: state ? mockState.sessionData : null,
-  }),
   useSubmitOAuthManualCallback: () => ({
     mutateAsync: mockState.callbackMutate,
     isPending: false,
   }),
+}))
+
+// The start dialog uses the REAL `useOAuthSessionPolling` hook, which polls
+// `api.getOAuthSession` — stub the transport layer only.
+vi.mock('@/lib/api', () => ({
+  api: { getOAuthSession: mockState.getSession },
 }))
 
 function renderDialog(onOpenChange = vi.fn()) {
@@ -183,11 +189,14 @@ async function submitStartForm() {
 beforeEach(() => {
   mockState.startMutate.mockReset()
   mockState.callbackMutate.mockReset()
-  mockState.sessionData = {
+  mockState.getSession.mockReset()
+  // Default: the polled session stays pending (the polling is bounded and
+  // keeps the dialog open; fake-timer exhaustion lives in the polling file).
+  mockState.getSession.mockResolvedValue({
     provider: 'openai',
     state: TEST_STATE,
     status: 'pending',
-  }
+  })
   // Default: start mutation resolves with the test result.
   mockState.startMutate.mockResolvedValue(TEST_START_RESULT)
   mockState.toastSuccess.mockReset()
@@ -256,26 +265,16 @@ describe('OAuthStartDialog pending session', () => {
   // -------------------------------------------------------------------------
 
   it('closes the dialog when the polled session reports success', async () => {
-    const onOpenChange = vi.fn()
-    const { rerender } = renderDialog(onOpenChange)
-
-    await submitStartForm()
-
-    // Sanity: the pending panel is showing.
-    await waitFor(() => {
-      expect(
-        screen.getAllByText('Waiting for authorization…').length
-      ).toBeGreaterThan(0)
-    })
-
-    // Flip the polled session to success and re-render so the mock
-    // `useOAuthSession` returns the updated status.
-    mockState.sessionData = {
+    // The immediate post-start check already reports success.
+    mockState.getSession.mockResolvedValue({
       provider: 'openai',
       state: TEST_STATE,
       status: 'success',
-    }
-    rerender(<OAuthStartDialog open onOpenChange={onOpenChange} />)
+    })
+    const onOpenChange = vi.fn()
+    renderDialog(onOpenChange)
+
+    await submitStartForm()
 
     await waitFor(() => {
       expect(onOpenChange).toHaveBeenCalledWith(false)
@@ -324,5 +323,129 @@ describe('OAuthStartDialog pending session', () => {
     await waitFor(() => {
       expect(onOpenChange).toHaveBeenCalledWith(false)
     })
+  })
+
+  // -------------------------------------------------------------------------
+  // 5. The pending panel surfaces state + instructions (copyable)
+  // -------------------------------------------------------------------------
+
+  it('shows the session state and instructions with copy affordances', async () => {
+    renderDialog(vi.fn())
+
+    await submitStartForm()
+
+    // Session state + instructions text are rendered (not dropped).
+    expect(await screen.findByText(TEST_STATE)).toBeInTheDocument()
+    expect(screen.getByText(TEST_INSTRUCTIONS.redirectUri)).toBeInTheDocument()
+    expect(screen.getByText(TEST_SSH_TUNNEL_COMMAND)).toBeInTheDocument()
+    expect(screen.getByText(TEST_SSH_TUNNEL_KEY_COMMAND)).toBeInTheDocument()
+
+    // Every surfaced value has a copy button (state, redirect URI, tunnel,
+    // tunnel-key variant).
+    expect(
+      screen.getAllByRole('button', { name: 'Copy' }).length
+    ).toBeGreaterThanOrEqual(4)
+  })
+
+  // -------------------------------------------------------------------------
+  // 6. Manual callback success: explicit feedback + immediate re-check
+  // -------------------------------------------------------------------------
+
+  it('confirms a submitted manual callback and re-checks the session', async () => {
+    renderDialog(vi.fn())
+
+    await submitStartForm()
+
+    const input = await screen.findByPlaceholderText(
+      'Paste the callback URL from the OAuth redirect'
+    )
+    await waitFor(() =>
+      expect(mockState.getSession.mock.calls.length).toBeGreaterThan(0)
+    )
+    const checksBefore = mockState.getSession.mock.calls.length
+
+    fireEvent.change(input, {
+      target: { value: 'http://localhost:8080/callback?code=abc&state=test' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^submit callback$/i }))
+
+    await waitFor(() =>
+      expect(mockState.callbackMutate).toHaveBeenCalledTimes(1)
+    )
+    // Explicit success feedback…
+    await waitFor(() =>
+      expect(mockState.toastSuccess).toHaveBeenCalledWith(
+        'Callback submitted — verifying the authorization…'
+      )
+    )
+    // …the input is cleared…
+    expect((input as HTMLInputElement).value).toBe('')
+    // …and polling kicks an immediate session re-check (no interval wait).
+    await waitFor(() =>
+      expect(mockState.getSession.mock.calls.length).toBeGreaterThan(
+        checksBefore
+      )
+    )
+  })
+
+  // -------------------------------------------------------------------------
+  // 7. Manual callback failure: the backend error is surfaced, input kept
+  // -------------------------------------------------------------------------
+
+  it('surfaces the backend error when the manual callback is rejected', async () => {
+    mockState.callbackMutate.mockRejectedValueOnce(new Error('session expired'))
+    renderDialog(vi.fn())
+
+    await submitStartForm()
+
+    const input = await screen.findByPlaceholderText(
+      'Paste the callback URL from the OAuth redirect'
+    )
+    fireEvent.change(input, {
+      target: { value: 'http://localhost:8080/callback?code=stale' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^submit callback$/i }))
+
+    await waitFor(() =>
+      expect(mockState.toastError).toHaveBeenCalledWith('session expired')
+    )
+    // The pasted URL is kept so the user can correct and resubmit.
+    expect((input as HTMLInputElement).value).toBe(
+      'http://localhost:8080/callback?code=stale'
+    )
+  })
+
+  // -------------------------------------------------------------------------
+  // 8. Manual callback validation: non-http(s) URLs are rejected inline
+  // -------------------------------------------------------------------------
+
+  it('rejects a manual callback that is not a valid http(s) URL', async () => {
+    renderDialog(vi.fn())
+
+    await submitStartForm()
+
+    const input = await screen.findByPlaceholderText(
+      'Paste the callback URL from the OAuth redirect'
+    )
+    const submit = screen.getByRole('button', { name: /^submit callback$/i })
+
+    // Not a URL at all.
+    fireEvent.change(input, { target: { value: 'not a url' } })
+    fireEvent.click(submit)
+    expect(mockState.callbackMutate).not.toHaveBeenCalled()
+    expect(
+      screen.getByText('Enter a valid http(s) callback URL.')
+    ).toBeInTheDocument()
+
+    // A parseable URL with a non-http(s) protocol is rejected too.
+    fireEvent.change(input, { target: { value: 'javascript:alert(1)' } })
+    fireEvent.click(submit)
+    expect(mockState.callbackMutate).not.toHaveBeenCalled()
+
+    // Editing the field clears the inline error.
+    fireEvent.change(input, {
+      target: { value: 'http://localhost:8080/callback?code=ok' },
+    })
+    expect(screen.queryByText('Enter a valid http(s) callback URL.')).toBeNull()
   })
 })

@@ -391,7 +391,13 @@
         "callbackSubmit": "Submit callback",
         "succeeded": "Authorization completed.",
         "failed": "Authorization failed: {{error}}",
-        "sshTunnelHint": "If the callback port is not reachable from your browser, run this SSH tunnel:"
+        "sshTunnelHint": "If the callback port is not reachable from your browser, run this SSH tunnel:",
+        "sshTunnelKeyHint": "Using your own SSH key? Run this variant instead:",
+        "stateHint": "Session state — keep it for troubleshooting this authorization:",
+        "redirectUriHint": "The provider redirects to this URL. If it cannot reach your browser, copy the full redirect URL from the address bar and paste it below:",
+        "pollingExhausted": "Still waiting after {{attempts}} checks. Automatic polling has paused — paste the callback URL manually below.",
+        "callbackSubmitted": "Callback submitted — verifying the authorization…",
+        "callbackInvalidUrl": "Enter a valid http(s) callback URL."
       },
       "toast": {
         "quotaRefreshed": "Quota refresh requested for #{{id}}.",

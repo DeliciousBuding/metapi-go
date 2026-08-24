@@ -6,10 +6,14 @@
 // since the schema cannot see the runtime provider list), and optionally
 // configures a proxy. On submit, `useStartOAuth` calls the backend and the
 // returned `authorizationUrl` is opened in a new tab. The dialog does NOT
-// close: it switches to a pending panel that polls `useOAuthSession(state)`
-// until the backend reports success/error, and offers a manual-callback
-// fallback (paste the redirect URL) for environments where the callback
-// port is not reachable from the browser.
+// close: it switches to a pending panel that shows the returned
+// `instructions` + `state` (both copyable) and polls
+// `useOAuthSessionPolling(state)` with a bounded attempt budget until the
+// backend reports success/error. When the budget runs out the panel says so
+// honestly ("still waiting — paste the callback manually") instead of
+// pretending success, and a manual-callback fallback (paste the redirect
+// URL) stays available for environments where the callback port is not
+// reachable from the browser.
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
@@ -56,7 +60,6 @@ import { toast } from '@/lib/toast'
 
 import {
   useOAuthProviders,
-  useOAuthSession,
   useStartOAuth,
   useSubmitOAuthManualCallback,
 } from '../api'
@@ -65,6 +68,10 @@ import {
   oauthStartSchema,
   type OAuthStartValues,
 } from '../lib/oauth-schema'
+import {
+  OAUTH_SESSION_POLL_MAX_ATTEMPTS,
+  useOAuthSessionPolling,
+} from '../lib/oauth-session-polling'
 import { oauthKeys, type OAuthStartInstructions } from '../types'
 
 type OAuthStartDialogProps = {
@@ -88,13 +95,18 @@ export function OAuthStartDialog({
   const [instructions, setInstructions] =
     useState<OAuthStartInstructions | null>(null)
   const [callbackUrl, setCallbackUrl] = useState('')
-  const [copiedTunnel, setCopiedTunnel] = useState(false)
+  // Which copyable field ('state' | 'redirectUri' | 'sshTunnel' |
+  // 'sshTunnelKey') last copied — drives the transient check icon.
+  const [copiedField, setCopiedField] = useState<string | null>(null)
+  // Inline validation error for the manual-callback input (not a valid
+  // http(s) URL). Cleared as soon as the user edits the field.
+  const [callbackInvalid, setCallbackInvalid] = useState(false)
   // Closing while a session is pending would silently abandon the OAuth wait,
   // so every close affordance (X / Escape / overlay / Cancel) first routes
   // through the abandon confirmation.
   const [confirmAbandonOpen, setConfirmAbandonOpen] = useState(false)
 
-  const sessionQuery = useOAuthSession(pendingState)
+  const { session, exhausted, kick } = useOAuthSessionPolling(pendingState)
   const submitManualCallback = useSubmitOAuthManualCallback()
 
   const enabledProviders = useMemo(
@@ -129,6 +141,7 @@ export function OAuthStartDialog({
       setPendingState(null)
       setInstructions(null)
       setCallbackUrl('')
+      setCallbackInvalid(false)
     }
   }, [open, pendingState])
 
@@ -136,7 +149,7 @@ export function OAuthStartDialog({
   // connections list (a new connection is now created) + close the dialog.
   // On error, the panel surfaces the error string but stays open so the user
   // can paste a corrected callback URL.
-  const sessionStatus = sessionQuery.data?.status
+  const sessionStatus = session?.status
   useEffect(() => {
     if (!pendingState) return
     if (sessionStatus === 'success') {
@@ -147,6 +160,7 @@ export function OAuthStartDialog({
       setPendingState(null)
       setInstructions(null)
       setCallbackUrl('')
+      setCallbackInvalid(false)
       onOpenChange(false)
     }
   }, [pendingState, sessionStatus, t, onOpenChange, queryClient])
@@ -182,22 +196,33 @@ export function OAuthStartDialog({
       // Keep the dialog open and switch to the pending panel: the backend
       // creates the connection only after the OAuth callback completes.
       setInstructions(result.instructions)
+      setCallbackInvalid(false)
       setPendingState(result.state)
     } catch {
       toast.error(t('oauth.form.startFailed'))
     }
   }
 
-  async function handleCopySshTunnel() {
-    const command = instructions?.sshTunnelCommand
-    if (!command) return
+  async function handleCopy(field: string, text: string) {
     try {
-      await navigator.clipboard.writeText(command)
-      setCopiedTunnel(true)
-      setTimeout(() => setCopiedTunnel(false), 1500)
+      await navigator.clipboard.writeText(text)
+      setCopiedField(field)
+      setTimeout(
+        () => setCopiedField((current) => (current === field ? null : current)),
+        1500
+      )
     } catch {
       // Clipboard may be unavailable (non-secure context / permissions).
       toast.error(t('common.copyFailed'))
+    }
+  }
+
+  function isValidCallbackUrl(value: string): boolean {
+    try {
+      const parsed = new URL(value)
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+    } catch {
+      return false
     }
   }
 
@@ -208,19 +233,64 @@ export function OAuthStartDialog({
     if (!pendingState) return
     const url = callbackUrl.trim()
     if (!url) return
+    if (!isValidCallbackUrl(url)) {
+      setCallbackInvalid(true)
+      return
+    }
+    setCallbackInvalid(false)
     try {
       await submitManualCallback.mutateAsync({
         state: pendingState,
         callbackUrl: url,
       })
       setCallbackUrl('')
-    } catch {
-      toast.error(t('common.requestFailed'))
+      toast.success(t('oauth.session.callbackSubmitted'))
+      // The backend settles (or advances) the session on manual callback —
+      // re-check immediately with a fresh budget instead of waiting out the
+      // interval.
+      kick()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      toast.error(message || t('common.requestFailed'))
     }
   }
 
   const isSubmitting = startOAuth.isPending
   const isSubmittingCallback = submitManualCallback.isPending
+
+  // Hoisted so the `string` narrowing survives inside the copy-button
+  // closures (optional-property narrowing does not cross closures).
+  const redirectUri = instructions?.redirectUri
+  const sshTunnelCommand = instructions?.sshTunnelCommand
+  const sshTunnelKeyCommand = instructions?.sshTunnelKeyCommand
+
+  // Pending-panel status row: backend error > honest exhaustion > waiting.
+  let statusPanel: React.ReactNode
+  if (sessionStatus === 'error') {
+    statusPanel = (
+      <div className='text-destructive text-sm'>
+        {t('oauth.session.failed', {
+          error: session?.error ?? '',
+        })}
+      </div>
+    )
+  } else if (exhausted) {
+    // Honest timeout: polling paused, the wait is NOT over.
+    statusPanel = (
+      <div className='text-warning-soft-fg text-sm' role='status'>
+        {t('oauth.session.pollingExhausted', {
+          attempts: OAUTH_SESSION_POLL_MAX_ATTEMPTS,
+        })}
+      </div>
+    )
+  } else {
+    statusPanel = (
+      <div className='text-muted-foreground flex items-center gap-2 text-sm'>
+        <Spinner className='size-3.5' />
+        <span>{t('oauth.session.waiting')}</span>
+      </div>
+    )
+  }
 
   function requestClose() {
     if (pendingState) {
@@ -253,44 +323,110 @@ export function OAuthStartDialog({
               </DialogHeader>
 
               <div className='grid gap-4'>
-                {sessionStatus === 'pending' && (
-                  <div className='text-muted-foreground flex items-center gap-2 text-sm'>
-                    <Spinner className='size-3.5' />
-                    <span>{t('oauth.session.waiting')}</span>
-                  </div>
-                )}
+                {statusPanel}
 
-                {sessionStatus === 'error' && (
-                  <div className='text-destructive text-sm'>
-                    {t('oauth.session.failed', {
-                      error: sessionQuery.data?.error ?? '',
-                    })}
+                <div className='grid gap-2'>
+                  <p className='text-muted-foreground text-sm'>
+                    {t('oauth.session.stateHint')}
+                  </p>
+                  <div className='flex items-center gap-2'>
+                    <code className='bg-muted flex-1 overflow-x-auto rounded px-2 py-1.5 text-xs'>
+                      {pendingState}
+                    </code>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='icon-sm'
+                      onClick={() => handleCopy('state', pendingState)}
+                      aria-label={t('common.copy')}
+                    >
+                      {copiedField === 'state' ? (
+                        <CheckIcon className='size-3.5' />
+                      ) : (
+                        <CopyIcon className='size-3.5' />
+                      )}
+                    </Button>
                   </div>
-                )}
+                </div>
 
-                {instructions?.sshTunnelCommand && (
+                {redirectUri && (
                   <div className='grid gap-2'>
                     <p className='text-muted-foreground text-sm'>
-                      {t('oauth.session.sshTunnelHint')}
+                      {t('oauth.session.redirectUriHint')}
                     </p>
                     <div className='flex items-center gap-2'>
                       <code className='bg-muted flex-1 overflow-x-auto rounded px-2 py-1.5 text-xs'>
-                        {instructions.sshTunnelCommand}
+                        {redirectUri}
                       </code>
                       <Button
                         type='button'
                         variant='outline'
                         size='icon-sm'
-                        onClick={handleCopySshTunnel}
+                        onClick={() => handleCopy('redirectUri', redirectUri)}
                         aria-label={t('common.copy')}
                       >
-                        {copiedTunnel ? (
+                        {copiedField === 'redirectUri' ? (
                           <CheckIcon className='size-3.5' />
                         ) : (
                           <CopyIcon className='size-3.5' />
                         )}
                       </Button>
                     </div>
+                  </div>
+                )}
+
+                {sshTunnelCommand && (
+                  <div className='grid gap-2'>
+                    <p className='text-muted-foreground text-sm'>
+                      {t('oauth.session.sshTunnelHint')}
+                    </p>
+                    <div className='flex items-center gap-2'>
+                      <code className='bg-muted flex-1 overflow-x-auto rounded px-2 py-1.5 text-xs'>
+                        {sshTunnelCommand}
+                      </code>
+                      <Button
+                        type='button'
+                        variant='outline'
+                        size='icon-sm'
+                        onClick={() =>
+                          handleCopy('sshTunnel', sshTunnelCommand)
+                        }
+                        aria-label={t('common.copy')}
+                      >
+                        {copiedField === 'sshTunnel' ? (
+                          <CheckIcon className='size-3.5' />
+                        ) : (
+                          <CopyIcon className='size-3.5' />
+                        )}
+                      </Button>
+                    </div>
+                    {sshTunnelKeyCommand && (
+                      <>
+                        <p className='text-muted-foreground text-sm'>
+                          {t('oauth.session.sshTunnelKeyHint')}
+                        </p>
+                        <div className='flex items-center gap-2'>
+                          <code className='bg-muted flex-1 overflow-x-auto rounded px-2 py-1.5 text-xs'>
+                            {sshTunnelKeyCommand}
+                          </code>
+                          <Button
+                            type='button'
+                            variant='outline'
+                            size='icon-sm'
+                            onClick={() =>
+                              handleCopy('sshTunnelKey', sshTunnelKeyCommand)
+                            }
+                            aria-label={t('common.copy')}
+                          >
+                            {copiedField === 'sshTunnelKey' ? (
+                              <CheckIcon className='size-3.5' />
+                            ) : (
+                              <CopyIcon className='size-3.5' />
+                            )}
+                          </Button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
 
@@ -307,11 +443,20 @@ export function OAuthStartDialog({
                   <Input
                     id='oauth-manual-callback-url'
                     value={callbackUrl}
-                    onChange={(event) => setCallbackUrl(event.target.value)}
+                    onChange={(event) => {
+                      setCallbackUrl(event.target.value)
+                      setCallbackInvalid(false)
+                    }}
                     placeholder={t('oauth.session.callbackPlaceholder')}
                     autoComplete='off'
                     spellCheck={false}
+                    aria-invalid={callbackInvalid || undefined}
                   />
+                  {callbackInvalid && (
+                    <p className='text-destructive text-xs'>
+                      {t('oauth.session.callbackInvalidUrl')}
+                    </p>
+                  )}
                   <Button
                     type='submit'
                     disabled={!callbackUrl.trim() || isSubmittingCallback}
