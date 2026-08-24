@@ -2596,7 +2596,8 @@
         "settings": "Settings",
         "about": "About",
         "priceCompare": "Price Compare",
-        "channels": "Channels"
+        "channels": "Channels",
+        "downstreamKeys": "Downstream Keys"
       },
       "backToHome": "Back to Home",
       "settingsOverview": "Settings Overview"
@@ -2830,6 +2831,12 @@
         "critical": "critical",
         "warning": "warning",
         "info": "info"
+      }
+    },
+    "downstreamKeys": {
+      "page": {
+        "title": "Downstream Keys",
+        "description": "Issue and manage downstream API keys (tokens scoped per site or account)."
       }
     }
   }

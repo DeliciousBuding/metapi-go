@@ -449,7 +449,7 @@ export function useDataTable<TData>(options: UseDataTableOptions<TData>) {
     enableSorting: resolvedEnableSorting,
     getRowId: options.getRowId,
     getSubRows: options.getSubRows,
-    globalFilterFn: options.globalFilterFn,
+    globalFilterFn: options.globalFilterFn ?? 'auto',
     autoResetPageIndex: options.autoResetPageIndex,
     manualFiltering,
     manualPagination,

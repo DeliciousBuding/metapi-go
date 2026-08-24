@@ -52,7 +52,8 @@ export type SettingsSectionNavItem = {
  *   basic        基础            — site, authentication
  *   proxy-models 代理与模型      — proxy-transport, routing, redirects,
  *                                 rates, allowlist, catalog-sources
- *   downstream   下游            — keys, proxy-token
+ *   downstream   下游            — proxy-token (downstream API keys moved
+ *                                 to the top-level /downstream-keys route)
  *   content      通知与数据      — notifications, announcements,
  *                                 import-export
  *   operations   系统与运维      — scheduling, database, data-migration,

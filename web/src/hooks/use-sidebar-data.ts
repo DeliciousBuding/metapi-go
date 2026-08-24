@@ -9,6 +9,7 @@ import {
   CalendarCheck,
   FlaskConical,
   Info,
+  KeyRound,
   LayoutDashboard,
   ScrollText,
   Route,
@@ -85,6 +86,11 @@ const SIDEBAR_DATA: SidebarData = {
           title: 'sidebar.items.channels',
           url: '/channels',
           icon: Waypoints,
+        },
+        {
+          title: 'sidebar.items.downstreamKeys',
+          url: '/downstream-keys',
+          icon: KeyRound,
         },
         {
           title: 'sidebar.items.oauth',
