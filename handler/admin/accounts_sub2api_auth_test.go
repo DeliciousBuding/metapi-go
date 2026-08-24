@@ -93,7 +93,7 @@ func TestAccounts_Update_Sub2ApiAuthMergePreserveAndOverwrite(t *testing.T) {
 	resp = doPutJSON(t, r, "/api/accounts/"+itoa(accountID), map[string]any{
 		"extraConfig": map[string]any{
 			"sub2apiAuth": map[string]any{
-				"tokenExpiresAt": float64(999),
+				"tokenExpiresAt": float64(1_712_345_679_000),
 			},
 			"note": "still-here",
 		},
@@ -115,8 +115,8 @@ func TestAccounts_Update_Sub2ApiAuthMergePreserveAndOverwrite(t *testing.T) {
 	if auth["refreshToken"] != "rt_new" {
 		t.Fatalf("refreshToken = %#v, want preserved rt_new", auth["refreshToken"])
 	}
-	if auth["tokenExpiresAt"] != float64(999) {
-		t.Fatalf("tokenExpiresAt = %#v, want 999", auth["tokenExpiresAt"])
+	if auth["tokenExpiresAt"] != float64(1_712_345_679_000) {
+		t.Fatalf("tokenExpiresAt = %#v, want 1712345679000", auth["tokenExpiresAt"])
 	}
 	if auth["custom"] != "keep-me" {
 		t.Fatalf("custom = %#v, want keep-me", auth["custom"])
@@ -130,11 +130,11 @@ func TestAccounts_Update_Sub2ApiAuthTopLevelWinsOverNested(t *testing.T) {
 
 	resp := doPutJSON(t, r, "/api/accounts/"+itoa(accountID), map[string]any{
 		"refreshToken":   "rt_top",
-		"tokenExpiresAt": int64(777),
+		"tokenExpiresAt": int64(1_712_345_680_000),
 		"extraConfig": map[string]any{
 			"sub2apiAuth": map[string]any{
 				"refreshToken":   "rt_nested",
-				"tokenExpiresAt": float64(555),
+				"tokenExpiresAt": float64(1_712_345_675_000),
 			},
 		},
 	})
@@ -150,8 +150,8 @@ func TestAccounts_Update_Sub2ApiAuthTopLevelWinsOverNested(t *testing.T) {
 	if auth["refreshToken"] != "rt_top" {
 		t.Fatalf("refreshToken = %#v, want top-level rt_top", auth["refreshToken"])
 	}
-	if auth["tokenExpiresAt"] != float64(777) {
-		t.Fatalf("tokenExpiresAt = %#v, want top-level 777", auth["tokenExpiresAt"])
+	if auth["tokenExpiresAt"] != float64(1_712_345_680_000) {
+		t.Fatalf("tokenExpiresAt = %#v, want top-level 1712345680000", auth["tokenExpiresAt"])
 	}
 }
 
@@ -163,7 +163,7 @@ func TestAccounts_RebindSession_Sub2ApiAuthMerge(t *testing.T) {
 	resp := doPostJSON(t, r, "/api/accounts/"+itoa(accountID)+"/rebind-session", map[string]any{
 		"accessToken":    "session-new",
 		"refreshToken":   "rt_rebind",
-		"tokenExpiresAt": int64(12345),
+		"tokenExpiresAt": int64(1_712_345_681_000),
 	})
 	if resp.Code != http.StatusOK {
 		t.Fatalf("rebind: %d %s", resp.Code, resp.Body.String())
@@ -188,8 +188,8 @@ func TestAccounts_RebindSession_Sub2ApiAuthMerge(t *testing.T) {
 	if auth["refreshToken"] != "rt_rebind" {
 		t.Fatalf("refreshToken = %#v, want rt_rebind", auth["refreshToken"])
 	}
-	if auth["tokenExpiresAt"] != float64(12345) {
-		t.Fatalf("tokenExpiresAt = %#v, want 12345", auth["tokenExpiresAt"])
+	if auth["tokenExpiresAt"] != float64(1_712_345_681_000) {
+		t.Fatalf("tokenExpiresAt = %#v, want 1712345681000", auth["tokenExpiresAt"])
 	}
 	if auth["custom"] != "keep-me" {
 		t.Fatalf("custom = %#v, want keep-me", auth["custom"])

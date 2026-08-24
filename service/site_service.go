@@ -309,9 +309,9 @@ func buildSubscriptionSummariesBySite(accounts []accountAgg) map[int64]*subscrip
 			}
 		}
 
-		// tokenExpiresAt is epoch seconds (see NormalizeManagedTokenExpiresAt).
+		// tokenExpiresAt is normalized to epoch milliseconds.
 		if exp, ok := NormalizeManagedTokenExpiresAt(auth["tokenExpiresAt"]); ok && exp > 0 {
-			expiry := time.Unix(exp, 0).UTC()
+			expiry := time.UnixMilli(exp).UTC()
 			if summary.ExpiresAt == nil || expiry.After(*summary.ExpiresAt) {
 				summary.ExpiresAt = &expiry
 			}
