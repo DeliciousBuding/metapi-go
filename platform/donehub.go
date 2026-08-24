@@ -2,7 +2,6 @@ package platform
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -42,16 +41,28 @@ func (d *DoneHubAdapter) GetSiteAnnouncements(ctx context.Context, baseURL, acce
 		return nil, fmt.Errorf("fetch notice: %w", err)
 	}
 
-	content := ""
-	if dataStr, ok := getString(resp, "data"); ok {
-		content = strings.TrimSpace(dataStr)
+	success, hasSuccess := getBool(resp, "success")
+	if !hasSuccess {
+		return nil, fmt.Errorf("fetch notice: invalid response envelope: missing boolean success")
 	}
-	if content == "" {
-		// Try payload as string directly
-		if raw, err := json.Marshal(resp); err == nil {
-			content = strings.TrimSpace(string(raw))
+	if !success {
+		msg, _ := getString(resp, "message")
+		msg = strings.TrimSpace(msg)
+		if msg == "" {
+			msg = "upstream reported failure"
 		}
+		return nil, fmt.Errorf("fetch notice: %s", msg)
 	}
+
+	rawData, hasData := resp["data"]
+	if !hasData || rawData == nil {
+		return []SiteAnnouncement{}, nil
+	}
+	dataStr, ok := rawData.(string)
+	if !ok {
+		return nil, fmt.Errorf("fetch notice: invalid response envelope: data must be a string")
+	}
+	content := strings.TrimSpace(dataStr)
 	if content == "" {
 		return []SiteAnnouncement{}, nil
 	}

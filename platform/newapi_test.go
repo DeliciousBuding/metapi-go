@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -214,6 +215,81 @@ func TestNewApiAdapter_DefaultUnsupportedMethods(t *testing.T) {
 	}
 	if len(anns) != 0 {
 		t.Error("GetSiteAnnouncements on unreachable should return empty")
+	}
+}
+
+func TestNewApiAdapter_GetSiteAnnouncementsEnvelope(t *testing.T) {
+	tests := []struct {
+		name            string
+		body            string
+		wantErrContains string
+		wantContent     string
+	}{
+		{
+			name:            "failure envelope surfaces upstream message",
+			body:            `{"success":false,"message":"notice access denied","data":"must not persist"}`,
+			wantErrContains: "notice access denied",
+		},
+		{
+			name: "successful empty envelope returns no announcements",
+			body: `{"success":true}`,
+		},
+		{
+			name:        "valid string notice",
+			body:        `{"success":true,"data":"  Scheduled maintenance  "}`,
+			wantContent: "Scheduled maintenance",
+		},
+		{
+			name:            "missing success is not a successful envelope",
+			body:            `{}`,
+			wantErrContains: "missing boolean success",
+		},
+		{
+			name:            "object data is rejected",
+			body:            `{"success":true,"data":{"content":"must not persist"}}`,
+			wantErrContains: "data must be a string",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/api/notice" {
+					t.Fatalf("path = %q, want /api/notice", r.URL.Path)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(tt.body))
+			}))
+			defer srv.Close()
+
+			n := &NewApiAdapter{BaseAdapter: NewBaseAdapter("new-api")}
+			anns, err := n.GetSiteAnnouncements(context.Background(), srv.URL, "secret-token", nil, nil)
+			if tt.wantErrContains != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErrContains) {
+					t.Fatalf("error = %v, want containing %q", err, tt.wantErrContains)
+				}
+				if len(anns) != 0 {
+					t.Fatalf("announcements = %#v, want empty on error", anns)
+				}
+				if strings.Contains(err.Error(), "secret-token") {
+					t.Fatalf("error leaked access token: %v", err)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("GetSiteAnnouncements() error = %v", err)
+			}
+			if tt.wantContent == "" {
+				if len(anns) != 0 {
+					t.Fatalf("announcements = %#v, want empty", anns)
+				}
+				return
+			}
+			if len(anns) != 1 || anns[0].Content != tt.wantContent {
+				t.Fatalf("announcements = %#v, want one with content %q", anns, tt.wantContent)
+			}
+		})
 	}
 }
 
