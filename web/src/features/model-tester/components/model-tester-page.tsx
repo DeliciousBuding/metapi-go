@@ -80,8 +80,21 @@ export function ModelTesterPage() {
   const [clearDialogOpen, setClearDialogOpen] = useState(false)
   const [comparison, setComparison] = useState<BatchProbeResult[] | null>(null)
   const [isComparing, setIsComparing] = useState(false)
+  // Channels whose single-row re-run probe is in flight (per-row spinner in
+  // the comparison table; a Set so independent rows never cross-talk).
+  const [rerunningChannelIds, setRerunningChannelIds] = useState<
+    ReadonlySet<number>
+  >(new Set())
 
   const abortControllerRef = useRef<AbortController | null>(null)
+  // One AbortController per in-flight row re-run so the Stop button stops
+  // them too, plus the last comparison's form values + history so a row can
+  // be re-probed with the exact same payload without a new full batch.
+  const rerunControllersRef = useRef(new Map<number, AbortController>())
+  const lastComparisonRef = useRef<{
+    values: TesterFormValues
+    history: ChatMessage[]
+  } | null>(null)
 
   const handleDelta = useCallback((delta: TestStreamDelta) => {
     if (delta.contentDelta) {
@@ -94,6 +107,7 @@ export function ModelTesterPage() {
 
   const handleStop = useCallback(() => {
     abortControllerRef.current?.abort()
+    rerunControllersRef.current.forEach((controller) => controller.abort())
   }, [])
 
   const handleSubmit = useCallback(
@@ -118,6 +132,7 @@ export function ModelTesterPage() {
       abortControllerRef.current = controller
 
       if (values.compareChannels) {
+        lastComparisonRef.current = { values, history }
         setComparison(null)
         setIsComparing(true)
         try {
@@ -217,6 +232,54 @@ export function ModelTesterPage() {
     [channelsQuery.data, handleDelta, testModel, t, messages]
   )
 
+  // Re-run ONE comparison row with the exact payload the batch used. Reuses
+  // the existing batch machinery — runBatchComparison settles the probe like
+  // the original run (success / failure / abort), so no new API path — then
+  // merges the fresh result over that channel's row and re-sorts. Failed and
+  // stopped rows are re-runnable too; the updated row is the feedback.
+  const handleRerunRow = useCallback(
+    async (channelId: number) => {
+      const context = lastComparisonRef.current
+      if (!context || rerunningChannelIds.has(channelId)) return
+      const controller = new AbortController()
+      rerunControllersRef.current.set(channelId, controller)
+      setRerunningChannelIds((prev) => new Set(prev).add(channelId))
+      try {
+        const [result] = await runBatchComparison(
+          [
+            {
+              channelId,
+              run: (signal?: AbortSignal) =>
+                runChatProbe(
+                  buildChatPayload(
+                    { ...context.values, channelId },
+                    context.history
+                  ),
+                  signal
+                ),
+            },
+          ],
+          { signal: controller.signal }
+        )
+        setComparison((prev) =>
+          prev
+            ? sortBatchResults(
+                prev.map((row) => (row.channelId === channelId ? result : row))
+              )
+            : prev
+        )
+      } finally {
+        rerunControllersRef.current.delete(channelId)
+        setRerunningChannelIds((prev) => {
+          const next = new Set(prev)
+          next.delete(channelId)
+          return next
+        })
+      }
+    },
+    [rerunningChannelIds]
+  )
+
   const handleClearSession = useCallback(() => {
     setMessages([])
     setContent('')
@@ -224,11 +287,13 @@ export function ModelTesterPage() {
     setResponse(null)
     setError(undefined)
     setComparison(null)
+    lastComparisonRef.current = null
     setClearDialogOpen(false)
     toast.success(t('modelTester.toast.cleared'))
   }, [t])
 
-  const isRunning = testModel.isPending || isComparing
+  const isRunning =
+    testModel.isPending || isComparing || rerunningChannelIds.size > 0
 
   return (
     <div className='flex h-full flex-col gap-4 p-4'>
@@ -270,6 +335,8 @@ export function ModelTesterPage() {
                 results={comparison ?? []}
                 channels={channelsQuery.data ?? []}
                 isRunning={isComparing}
+                rerunningChannelIds={rerunningChannelIds}
+                onRerunRow={handleRerunRow}
               />
             ) : (
               <TestResponseViewer

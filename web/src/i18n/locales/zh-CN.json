@@ -306,7 +306,8 @@
         "error": "错误",
         "statusSuccess": "成功",
         "statusFailure": "失败",
-        "statusAborted": "已停止"
+        "statusAborted": "已停止",
+        "rerunRow": "重跑「{{channel}}」的探测"
       },
       "page": {
         "title": "模型测试器",

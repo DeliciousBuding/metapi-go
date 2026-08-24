@@ -3,11 +3,17 @@
 // Renders one row per channel with channel/site identity, success/failure
 // status, observed latency, and a concise error. Rows are pre-sorted by the
 // parent (successes by ascending latency, then failures in input order); the
-// summary line reports "N succeeded / M failed".
+// summary line reports "N succeeded / M failed". Every row carries a
+// re-run action (when the parent wires onRerunRow) that re-probes that
+// channel with the comparison's original payload — failed rows included —
+// with a per-row pending spinner while the probe is in flight.
 
 import { Link } from '@tanstack/react-router'
+import { RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import type { ChannelRow } from '@/features/channels'
 import { formatLatency } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -18,6 +24,10 @@ type BatchResultsProps = {
   results: BatchProbeResult[]
   channels: ChannelRow[]
   isRunning: boolean
+  /** Channels whose single-row re-run probe is in flight (row spinner). */
+  rerunningChannelIds?: ReadonlySet<number>
+  /** Re-run one channel's probe with the comparison's original payload. */
+  onRerunRow?: (channelId: number) => void
 }
 
 function statusKeyFor(result: BatchProbeResult): string {
@@ -30,6 +40,8 @@ export function BatchResults({
   results,
   channels,
   isRunning,
+  rerunningChannelIds,
+  onRerunRow,
 }: BatchResultsProps) {
   const { t } = useTranslation()
   const channelById = new Map(channels.map((channel) => [channel.id, channel]))
@@ -83,11 +95,18 @@ export function BatchResults({
                 <th className='px-3 py-2 font-medium'>
                   {t('modelTester.compare.error')}
                 </th>
+                {onRerunRow && (
+                  <th className='px-3 py-2'>
+                    <span className='sr-only'>{t('common.actions')}</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
               {results.map((result) => {
                 const channel = channelById.get(result.channelId)
+                const isRowPending =
+                  rerunningChannelIds?.has(result.channelId) ?? false
                 return (
                   <tr key={result.channelId} className='border-t'>
                     <td className='px-3 py-2'>
@@ -127,6 +146,26 @@ export function BatchResults({
                     <td className='text-muted-foreground max-w-56 px-3 py-2 break-words'>
                       {result.error || '—'}
                     </td>
+                    {onRerunRow && (
+                      <td className='px-3 py-2'>
+                        <Button
+                          variant='ghost'
+                          size='icon-sm'
+                          aria-label={t('modelTester.compare.rerunRow', {
+                            channel: channel?.name ?? String(result.channelId),
+                          })}
+                          data-hit-area
+                          disabled={isRowPending || isRunning}
+                          onClick={() => onRerunRow(result.channelId)}
+                        >
+                          {isRowPending ? (
+                            <Spinner />
+                          ) : (
+                            <RefreshCw className='size-4' />
+                          )}
+                        </Button>
+                      </td>
+                    )}
                   </tr>
                 )
               })}

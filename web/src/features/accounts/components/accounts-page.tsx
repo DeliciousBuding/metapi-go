@@ -251,7 +251,12 @@ export function AccountsPage() {
 
   const { mutate: refreshAccount } = useRefreshAccount()
   const deleteMutation = useDeleteAccount()
-  const { mutate: toggleAccountPin } = useToggleAccountPin()
+  // Same shape as statusMutation: keep the full mutation object so the pin
+  // dropdown item can derive `pendingPinId` for a per-row spinner (mirrors
+  // the Power button's pendingStatusId flow; independent per toggle so
+  // pin/check-in/status never cross-talk).
+  const pinMutation = useToggleAccountPin()
+  const toggleAccountPin = pinMutation.mutate
   // Keep the full mutation object so we can derive `pendingStatusId` from
   // `isPending` + `variables` — the inline enable/disable button in each row
   // uses it to show a per-row spinner without a separate state manager.
@@ -453,23 +458,29 @@ export function AccountsPage() {
     ]
   )
 
-  // Derive the per-row pending id from the TanStack Query mutation's
-  // `variables` (the last mutate input). Passing this as a SEPARATE arg to
-  // useAccountsColumns is safe: useDataTable stabilizes onChange callbacks
-  // via a ref, NOT the columns array ref — so the actions handlers stay
-  // memoized and only the cell render closures capture the new pending state.
-  // The table instance does NOT re-instantiate (no autoResetPageIndex loop).
+  // Derive the per-row pending ids from each TanStack Query mutation's
+  // `variables` (the last mutate input) — one id per toggle so pin,
+  // check-in, and status spinners never cross-talk. Passing these as
+  // SEPARATE args to useAccountsColumns is safe: useDataTable stabilizes
+  // onChange callbacks via a ref, NOT the columns array ref — so the actions
+  // handlers stay memoized and only the cell render closures capture the new
+  // pending state. The table instance does NOT re-instantiate (no
+  // autoResetPageIndex loop).
   const pendingStatusId = statusMutation.isPending
     ? (statusMutation.variables?.id ?? null)
     : null
   const pendingCheckinId = checkinMutation.isPending
     ? (checkinMutation.variables?.id ?? null)
     : null
+  const pendingPinId = pinMutation.isPending
+    ? (pinMutation.variables?.id ?? null)
+    : null
 
   const columns = useAccountsColumns(
     rowActions,
     pendingStatusId,
-    pendingCheckinId
+    pendingCheckinId,
+    pendingPinId
   )
 
   const { table } = useDataTable({
