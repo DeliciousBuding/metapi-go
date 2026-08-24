@@ -16,14 +16,28 @@ import { expect, test } from 'playwright/test'
 const BASE_URL = process.env.BASE_URL ?? 'http://127.0.0.1:4099'
 const AUTH_TOKEN = process.env.AUTH_TOKEN ?? 'dev-admin-token-123'
 
-// Kept deliberately narrow: these four are the highest-traffic admin pages and
-// their layout is date-independent on a fresh (empty) dev DB, so baselines are
-// stable across days and CI runs.
+// Every golden page must be layout-stable and date-independent on a fresh
+// (empty) dev DB so baselines stay valid across days and CI runs.
 const PAGES = [
+  // Highest-traffic admin pages (original four): empty-state charts/tables,
+  // no wall-clock text rendered.
   ['dashboard', '/'],
   ['token-routes', '/token-routes'],
   ['accounts', '/accounts'],
   ['sites', '/sites'],
+  // Wave 11 expansion — same contract, audited on a fresh DB:
+  // models/channels/oauth render empty tables with no timestamp columns when
+  // the DB is empty (date fields only appear on data rows).
+  ['models', '/models'],
+  ['channels', '/channels'],
+  ['oauth', '/oauth'],
+  // settings-overview is a static card grid of section links; no live data.
+  ['settings-overview', '/settings'],
+  // settings-basic-site is a static configuration form (defaults only).
+  ['settings-basic-site', '/settings/basic/site'],
+  // model-tester is a static request form; responses only render after a
+  // manual run, so the rest state carries no timestamps.
+  ['model-tester', '/model-tester'],
 ]
 
 test.beforeEach(async ({ context }) => {

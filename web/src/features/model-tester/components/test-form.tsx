@@ -450,6 +450,7 @@ export function TestForm({
                 </FormLabel>
                 <FormControl>
                   <Slider
+                    aria-label={t('modelTester.form.temperature')}
                     value={[field.value]}
                     min={0}
                     max={2}
@@ -480,6 +481,7 @@ export function TestForm({
                 </FormLabel>
                 <FormControl>
                   <Slider
+                    aria-label={t('modelTester.form.topP')}
                     value={[field.value]}
                     min={0}
                     max={1}

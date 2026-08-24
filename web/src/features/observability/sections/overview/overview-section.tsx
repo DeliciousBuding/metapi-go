@@ -291,6 +291,7 @@ function renderHeatmapBody(
           {layout.buckets.map((bucket) => (
             <div
               key={bucket}
+              role='img'
               className='size-[14px]'
               title={formatBucket(bucket)}
               aria-label={formatBucket(bucket)}

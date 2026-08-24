@@ -7,12 +7,16 @@
 // exercises the account-creation credential tabs because that flow previously
 // admitted a render feedback loop that unit/schema tests did not catch.
 
+import { pathToFileURL } from 'node:url'
+
 import { chromium } from 'playwright'
 
 const BASE_URL = process.env.BASE_URL ?? 'http://localhost:4000'
 const AUTH_TOKEN = process.env.AUTH_TOKEN ?? 'dev-admin-token-123'
 
-const DESKTOP_ROUTES = [
+// Single source of truth for the authenticated desktop route inventory.
+// a11y-scan.mjs imports this so the two gates can never drift apart.
+export const DESKTOP_ROUTES = [
   '/',
   '/dashboard',
   '/dashboard/overview',
@@ -373,45 +377,54 @@ async function exerciseAccounts(context, failures) {
   }
 }
 
-const browser = await chromium.launch({ headless: true })
-const failures = []
-try {
-  const desktop = await browser.newContext({
-    viewport: { width: 1440, height: 900 },
-    locale: 'zh-CN',
-  })
-  await seedAuth(desktop)
-  await seedInteractionData(desktop.request)
-  for (const route of DESKTOP_ROUTES) {
-    await scanRoute(desktop, route, failures)
-  }
-  await scanLegacyRedirects(desktop, LEGACY_REDIRECT_ROUTES, failures)
-  await exerciseAccounts(desktop, failures)
-  for (const route of ['/checkin', '/proxy-logs', '/token-routes']) {
-    await exerciseUrlOwnedPage(desktop, route, failures)
-  }
-  await desktop.close()
+// Executable entrypoint. Guarded so importers (a11y-scan.mjs) can pull
+// DESKTOP_ROUTES without launching the smoke sweep as a side effect.
+async function main() {
+  const browser = await chromium.launch({ headless: true })
+  const failures = []
+  try {
+    const desktop = await browser.newContext({
+      viewport: { width: 1440, height: 900 },
+      locale: 'zh-CN',
+    })
+    await seedAuth(desktop)
+    await seedInteractionData(desktop.request)
+    for (const route of DESKTOP_ROUTES) {
+      await scanRoute(desktop, route, failures)
+    }
+    await scanLegacyRedirects(desktop, LEGACY_REDIRECT_ROUTES, failures)
+    await exerciseAccounts(desktop, failures)
+    for (const route of ['/checkin', '/proxy-logs', '/token-routes']) {
+      await exerciseUrlOwnedPage(desktop, route, failures)
+    }
+    await desktop.close()
 
-  const mobile = await browser.newContext({
-    viewport: { width: 375, height: 812 },
-    locale: 'zh-CN',
-    isMobile: true,
-  })
-  await seedAuth(mobile)
-  for (const route of MOBILE_ROUTES) {
-    await scanRoute(mobile, route, failures, true)
+    const mobile = await browser.newContext({
+      viewport: { width: 375, height: 812 },
+      locale: 'zh-CN',
+      isMobile: true,
+    })
+    await seedAuth(mobile)
+    for (const route of MOBILE_ROUTES) {
+      await scanRoute(mobile, route, failures, true)
+    }
+    await mobile.close()
+  } finally {
+    await browser.close()
   }
-  await mobile.close()
-} finally {
-  await browser.close()
+
+  if (failures.length > 0) {
+    console.error(`[ui-smoke] ${failures.length} failure(s):`)
+    for (const failure of [...new Set(failures)]) console.error(`  ${failure}`)
+    process.exit(1)
+  }
+
+  console.log(
+    `[ui-smoke] clean — ${DESKTOP_ROUTES.length} desktop routes + ${MOBILE_ROUTES.length} mobile routes + accounts interaction + checkin/proxy-logs/token-routes url-state interactions.`
+  )
 }
 
-if (failures.length > 0) {
-  console.error(`[ui-smoke] ${failures.length} failure(s):`)
-  for (const failure of [...new Set(failures)]) console.error(`  ${failure}`)
-  process.exit(1)
-}
-
-console.log(
-  `[ui-smoke] clean — ${DESKTOP_ROUTES.length} desktop routes + ${MOBILE_ROUTES.length} mobile routes + accounts interaction + checkin/proxy-logs/token-routes url-state interactions.`
-)
+const isMainModule =
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+if (isMainModule) await main()
