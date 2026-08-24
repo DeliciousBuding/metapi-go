@@ -101,7 +101,7 @@ export function StatCard(props: StatCardProps) {
   const card = (
     <Card
       className={cn(
-        'overflow-hidden',
+        'overflow-hidden h-full',
         props.to && 'cursor-pointer transition-colors hover:bg-muted/50',
         props.className
       )}
@@ -118,7 +118,7 @@ export function StatCard(props: StatCardProps) {
           </CardTitle>
         </div>
       </CardHeader>
-      <CardContent className='space-y-2'>
+      <CardContent className='flex flex-col gap-2'>
         {props.loading ? (
           <div className='space-y-2'>
             <Skeleton className='h-7 w-20' />
@@ -145,38 +145,40 @@ export function StatCard(props: StatCardProps) {
                 </span>
               ) : null}
             </div>
-            {props.details && props.details.length > 0 ? (
-              <div className='grid grid-cols-2 gap-2'>
-                {props.details.map((detail) => (
-                  <div
-                    key={detail.label}
-                    className='bg-muted/40 rounded-lg border px-2.5 py-2'
-                  >
-                    <div className='text-muted-foreground truncate text-[11px] leading-none font-medium'>
-                      {detail.label}
-                    </div>
+            <div className='flex min-h-0 flex-1 flex-col gap-2'>
+              {props.details && props.details.length > 0 ? (
+                <div className='grid grid-cols-2 gap-2'>
+                  {props.details.map((detail) => (
                     <div
-                      className={cn(
-                        'mt-1.5 truncate text-xs font-semibold tabular-nums',
-                        DETAIL_TONE_CLASSES[detail.tone ?? 'default']
-                      )}
-                      title={detail.value}
+                      key={detail.label}
+                      className='bg-muted/40 rounded-lg border px-2.5 py-2'
                     >
-                      {detail.value}
+                      <div className='text-muted-foreground truncate text-[11px] leading-none font-medium'>
+                        {detail.label}
+                      </div>
+                      <div
+                        className={cn(
+                          'mt-1.5 truncate text-xs font-semibold tabular-nums',
+                          DETAIL_TONE_CLASSES[detail.tone ?? 'default']
+                        )}
+                        title={detail.value}
+                      >
+                        {detail.value}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            {data.length > 1 ? (
-              <Suspense fallback={null}>
-                <LazyStatCardSparkline
-                  data={data}
-                  config={sparkConfig}
-                  accentClassName={props.accentClassName}
-                />
-              </Suspense>
-            ) : null}
+                  ))}
+                </div>
+              ) : null}
+              {data.length > 1 ? (
+                <Suspense fallback={null}>
+                  <LazyStatCardSparkline
+                    data={data}
+                    config={sparkConfig}
+                    accentClassName={props.accentClassName}
+                  />
+                </Suspense>
+              ) : null}
+            </div>
           </>
         )}
       </CardContent>
@@ -187,7 +189,7 @@ export function StatCard(props: StatCardProps) {
     return (
       <Link
         to={props.to}
-        className='focus-visible:ring-ring block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-offset-2'
+        className='focus-visible:ring-ring block h-full rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-offset-2'
       >
         {card}
       </Link>

@@ -139,6 +139,10 @@ function useModelsUrlState() {
     basePath: '/models',
     read: readSearch,
     buildHref,
+    // Filter changes (search / faceted brand / capability / endpoint-type) reset
+    // the page in the same URL transaction; TanStack's own auto-reset is disabled
+    // so a single page update is issued instead of a redundant bounce.
+    resetPageIndexOnFilterChange: true,
     toColumnFilters: (filters) => {
       const columnFilters: ColumnFiltersState = []
       if (filters.brand.length > 0) {
@@ -212,6 +216,11 @@ export function ModelsPage() {
     columnFilters: urlState.columnFilters,
     onColumnFiltersChange: urlState.onColumnFiltersChange,
     ensurePageInRange: urlState.ensurePageInRange,
+    // The URL-synced callbacks already reset the page on every filter change
+    // (resetPageIndexOnFilterChange), so disable TanStack's own auto-reset to
+    // avoid a second redundant page update (the models page bounced back to
+    // page 0 on every pagination click otherwise).
+    autoResetPageIndex: false,
     getRowId: (row) => row.name,
   })
 

@@ -1,7 +1,7 @@
 // metapi-go/features/settings/sections/downstream — Downstream subarea
-// (wave 9 lane B): API keys issued to downstream sites/accounts + the global
-// PROXY_TOKEN. Unchanged by the semantic regroup (name and scope already
-// object/role-shaped).
+// (wave 9 lane B): the global PROXY_TOKEN. The downstream API keys section
+// was promoted to a first-class left-nav route (/downstream-keys) in wave 10,
+// so this subarea now hosts only the proxy-token surface.
 // Each section is React.lazy so its form/table dependencies land in a separate
 // async chunk; the surrounding Suspense boundary lives in settings-page.tsx.
 
@@ -11,11 +11,6 @@ import { createElement, lazy } from 'react'
 import type { SettingsSubarea } from '../../types'
 import { createSectionRegistry } from '../../utils/section-registry'
 
-const LazyKeysSection = lazy(() =>
-  import('./components/keys-section').then((module) => ({
-    default: module.KeysSection,
-  }))
-)
 const LazyProxyTokenSection = lazy(() =>
   import('./components/proxy-token-section').then((module) => ({
     default: module.ProxyTokenSection,
@@ -23,12 +18,6 @@ const LazyProxyTokenSection = lazy(() =>
 )
 
 const DOWNSTREAM_SECTIONS = [
-  {
-    id: 'keys',
-    title: 'settings.downstream.keys.title',
-    description: 'settings.downstream.keys.description',
-    build: () => createElement(LazyKeysSection),
-  },
   {
     id: 'proxy-token',
     title: 'settings.downstream.proxyToken.title',
@@ -41,7 +30,7 @@ type DownstreamSectionId = (typeof DOWNSTREAM_SECTIONS)[number]['id']
 
 const registry = createSectionRegistry<DownstreamSectionId>({
   sections: DOWNSTREAM_SECTIONS,
-  defaultSection: 'keys',
+  defaultSection: 'proxy-token',
   basePath: '/settings/downstream',
 })
 

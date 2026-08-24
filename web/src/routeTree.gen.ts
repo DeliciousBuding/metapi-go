@@ -18,6 +18,7 @@ import { Route as AuthenticatedAccountsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedChannelsRouteImport } from './routes/_authenticated/channels'
 import { Route as AuthenticatedCheckinRouteImport } from './routes/_authenticated/checkin'
 import { Route as AuthenticatedDashboardRouteRouteImport } from './routes/_authenticated/dashboard/route'
+import { Route as AuthenticatedDownstreamKeysRouteImport } from './routes/_authenticated/downstream-keys'
 import { Route as AuthenticatedFixCandidatesRouteImport } from './routes/_authenticated/fix-candidates'
 import { Route as AuthenticatedModelTesterRouteImport } from './routes/_authenticated/model-tester'
 import { Route as AuthenticatedModelsRouteImport } from './routes/_authenticated/models'
@@ -79,6 +80,12 @@ const AuthenticatedDashboardRouteRoute =
   AuthenticatedDashboardRouteRouteImport.update({
     id: '/dashboard',
     path: '/dashboard',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedDownstreamKeysRoute =
+  AuthenticatedDownstreamKeysRouteImport.update({
+    id: '/downstream-keys',
+    path: '/downstream-keys',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedFixCandidatesRoute =
@@ -190,6 +197,7 @@ export interface FileRoutesByFullPath {
   '/accounts': typeof AuthenticatedAccountsRoute
   '/channels': typeof AuthenticatedChannelsRoute
   '/checkin': typeof AuthenticatedCheckinRoute
+  '/downstream-keys': typeof AuthenticatedDownstreamKeysRoute
   '/fix-candidates': typeof AuthenticatedFixCandidatesRoute
   '/model-tester': typeof AuthenticatedModelTesterRoute
   '/models': typeof AuthenticatedModelsRoute
@@ -214,6 +222,7 @@ export interface FileRoutesByTo {
   '/accounts': typeof AuthenticatedAccountsRoute
   '/channels': typeof AuthenticatedChannelsRoute
   '/checkin': typeof AuthenticatedCheckinRoute
+  '/downstream-keys': typeof AuthenticatedDownstreamKeysRoute
   '/fix-candidates': typeof AuthenticatedFixCandidatesRoute
   '/model-tester': typeof AuthenticatedModelTesterRoute
   '/models': typeof AuthenticatedModelsRoute
@@ -242,6 +251,7 @@ export interface FileRoutesById {
   '/_authenticated/accounts': typeof AuthenticatedAccountsRoute
   '/_authenticated/channels': typeof AuthenticatedChannelsRoute
   '/_authenticated/checkin': typeof AuthenticatedCheckinRoute
+  '/_authenticated/downstream-keys': typeof AuthenticatedDownstreamKeysRoute
   '/_authenticated/fix-candidates': typeof AuthenticatedFixCandidatesRoute
   '/_authenticated/model-tester': typeof AuthenticatedModelTesterRoute
   '/_authenticated/models': typeof AuthenticatedModelsRoute
@@ -272,6 +282,7 @@ export interface FileRouteTypes {
     | '/accounts'
     | '/channels'
     | '/checkin'
+    | '/downstream-keys'
     | '/fix-candidates'
     | '/model-tester'
     | '/models'
@@ -296,6 +307,7 @@ export interface FileRouteTypes {
     | '/accounts'
     | '/channels'
     | '/checkin'
+    | '/downstream-keys'
     | '/fix-candidates'
     | '/model-tester'
     | '/models'
@@ -323,6 +335,7 @@ export interface FileRouteTypes {
     | '/_authenticated/accounts'
     | '/_authenticated/channels'
     | '/_authenticated/checkin'
+    | '/_authenticated/downstream-keys'
     | '/_authenticated/fix-candidates'
     | '/_authenticated/model-tester'
     | '/_authenticated/models'
@@ -410,6 +423,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/downstream-keys': {
+      id: '/_authenticated/downstream-keys'
+      path: '/downstream-keys'
+      fullPath: '/downstream-keys'
+      preLoaderRoute: typeof AuthenticatedDownstreamKeysRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/fix-candidates': {
@@ -593,6 +613,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAccountsRoute: typeof AuthenticatedAccountsRoute
   AuthenticatedChannelsRoute: typeof AuthenticatedChannelsRoute
   AuthenticatedCheckinRoute: typeof AuthenticatedCheckinRoute
+  AuthenticatedDownstreamKeysRoute: typeof AuthenticatedDownstreamKeysRoute
   AuthenticatedFixCandidatesRoute: typeof AuthenticatedFixCandidatesRoute
   AuthenticatedModelTesterRoute: typeof AuthenticatedModelTesterRoute
   AuthenticatedModelsRoute: typeof AuthenticatedModelsRoute
@@ -615,6 +636,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAccountsRoute: AuthenticatedAccountsRoute,
   AuthenticatedChannelsRoute: AuthenticatedChannelsRoute,
   AuthenticatedCheckinRoute: AuthenticatedCheckinRoute,
+  AuthenticatedDownstreamKeysRoute: AuthenticatedDownstreamKeysRoute,
   AuthenticatedFixCandidatesRoute: AuthenticatedFixCandidatesRoute,
   AuthenticatedModelTesterRoute: AuthenticatedModelTesterRoute,
   AuthenticatedModelsRoute: AuthenticatedModelsRoute,

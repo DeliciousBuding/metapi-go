@@ -2596,7 +2596,8 @@
         "settings": "设置",
         "about": "关于",
         "priceCompare": "价格对比",
-        "channels": "通道"
+        "channels": "通道",
+        "downstreamKeys": "下游密钥"
       },
       "backToHome": "返回首页",
       "settingsOverview": "设置总览"
@@ -2830,6 +2831,12 @@
         "critical": "严重",
         "warning": "警告",
         "info": "提示"
+      }
+    },
+    "downstreamKeys": {
+      "page": {
+        "title": "下游密钥管理",
+        "description": "签发并管理下游 API 密钥（按站点或账号隔离的令牌）。"
       }
     }
   }

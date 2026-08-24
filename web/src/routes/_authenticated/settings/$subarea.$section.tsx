@@ -32,6 +32,13 @@ export const Route = createFileRoute(
     },
   },
   beforeLoad: ({ params }) => {
+    // Downstream keys were promoted to a first-class left-nav route
+    // (/downstream-keys). Redirect any stale `/settings/downstream/keys`
+    // bookmark / deep link so it lands on the new home instead of bouncing
+    // to the subarea's default section.
+    if (params.subarea === 'downstream' && params.section === 'keys') {
+      throw redirect({ to: '/downstream-keys' })
+    }
     const legacy = resolveLegacySectionRedirect(params.subarea, params.section)
     if (legacy) {
       throw redirect({
