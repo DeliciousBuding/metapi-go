@@ -14,7 +14,7 @@
 
 | Issue | Scope | Status / acceptance |
 |---|---|---|
-| [#981](https://github.com/DeliciousBuding/metapi-go/issues/981) | TS → Go 迁移后，Sub2API `tokenExpiresAt` 毫秒值被按秒转换，导致 `/api/sites` JSON 序列化失败 | **修复 PR #987**：内部统一 epoch milliseconds，同时兼容 legacy seconds；站点摘要可序列化，刷新 lead window 单位一致；focused + WSL full race 通过 |
+| [#981](https://github.com/DeliciousBuding/metapi-go/issues/981) | TS → Go 迁移后，Sub2API `tokenExpiresAt` 毫秒值被按秒转换，导致 `/api/sites` JSON 序列化失败 | **已合入 #987**（`ffbdae1`）：内部统一 epoch milliseconds，同时兼容 legacy seconds；站点摘要可序列化，刷新 lead window 单位一致；focused + WSL full race + 12-check CI 通过；待下一 patch release |
 | [#985](https://github.com/DeliciousBuding/metapi-go/issues/985) | 站点列表名称/地址提供可发现的快捷跳转 | **候选，未分配 owner**；立项后需定义安全 URL 规则、键盘/accessible name、同窗/新窗行为与组件测试 |
 | [#986](https://github.com/DeliciousBuding/metapi-go/issues/986) | 站点公告的同步状态与入口 | **候选，先审计**；复用现有 `site-announcement` 数据流与管理 API，不新增重复 endpoint；立项前先确认 TS 可见行为与当前前端缺口 |
 
