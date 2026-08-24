@@ -40,11 +40,11 @@ func TestPublicMarkdownHygiene(t *testing.T) {
 		}
 		if entry.IsDir() {
 			name := entry.Name()
-			// Skip VCS/build caches and local agent worktrees so hygiene only
-			// covers published tree paths (CI clones are clean; local worktrees
-			// under .claude/ must not fail public docs gates).
+			// Skip VCS/build caches and local evidence/worktrees so hygiene only
+			// covers published tree paths. CI clones are clean, while ignored
+			// .dev-local evidence may contain absolute capture paths by design.
 			if name == ".git" || name == "node_modules" || name == "dist" ||
-				name == ".claude" || name == ".worktrees" {
+				name == ".claude" || name == ".dev-local" || name == ".worktrees" {
 				return filepath.SkipDir
 			}
 			return nil

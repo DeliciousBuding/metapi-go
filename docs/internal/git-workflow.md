@@ -48,7 +48,7 @@ master (唯一长期分支，受保护，随时可发布)
 
 1. 从 master 切分支：`git checkout -b fix/xxx`
 2. 本地门禁全绿后提交（Conventional Commits 风格，见 §5），`git push -u origin fix/xxx`
-   - push 前 `.githooks/pre-push` 自动跑本地 CI（`go build` + `go vet` + 前端门禁 + `-race` 测试）；安装：`git config core.hooksPath .githooks`；紧急跳过 `git push --no-verify`
+   - push 前全局 hook-kit 链式执行 `.githooks/pre-push-project`（`go build` + `go vet` + 完整前端门禁 + WSL-backed `-race`）；`.githooks/pre-push` 仅供未安装 hook-kit 的贡献者作为兼容入口；紧急跳过 `git push --no-verify`
 3. 开 PR（`gh pr create`，模板自动填充），base = master
 4. CI 12 job 全绿（含 PG 集成测试）后 Squash merge
 5. 合并时把 PR 标题改写为最终提交信息（符合 Conventional Commits）
@@ -129,6 +129,6 @@ Dependabot 每周一自动开升级 PR（Go / npm / GitHub Actions / Docker）�
 | master 保护 | 仓库 Settings → Branches | 见 §3 |
 | PR 模板 | `.github/pull_request_template.md` | 自动填充 |
 | CI + CD + Release | `.github/workflows/main.yml` | 单一管道：PR / master push / SemVer tag 全量 12 项检查；master push 推送镜像（latest+sha）；SemVer tag：镜像（amd64+arm64）→ 多平台二进制 + GitHub Release |
-| 本地门禁 | `.githooks/pre-push` | `git config core.hooksPath .githooks` 安装后 push 前自动运行（build + vet + 前端 + race） |
+| 本地门禁 | `.githooks/pre-push-project` | 全局 hook-kit 在 push 前链式运行（build + vet + 完整前端 + WSL-backed race）；`.githooks/pre-push` 是 standalone 兼容入口 |
 
 相关文档：[`deployment.md`](../deployment.md)（部署）· [`STATE.md`](STATE.md)（当前状态）· `AGENTS.md`（工程规则）
