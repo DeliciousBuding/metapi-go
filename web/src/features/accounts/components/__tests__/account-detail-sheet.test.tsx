@@ -19,6 +19,12 @@ vi.mock('../../tokens/components/tokens-panel', () => ({
   TokensPanel: () => null,
 }))
 
+// The models panel (#998) would fire real /api requests under jsdom; stub it
+// so this sheet-level test stays hermetic (the panel has its own suite).
+vi.mock('../../models/components/account-models-panel', () => ({
+  AccountModelsPanel: () => null,
+}))
+
 beforeAll(() => {
   // base-ui Sheet queries matchMedia under jsdom.
   Object.defineProperty(window, 'matchMedia', {
