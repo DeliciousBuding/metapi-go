@@ -1978,7 +1978,13 @@
         "manualFailedInline": "手动模型更新失败：{{message}}",
         "placeholder": "模型名称，如 gpt-4o",
         "inputAria": "新手动模型名称",
-        "add": "添加"
+        "add": "添加",
+        "refreshedToast_one": "模型已刷新（{{count}} 个可用）",
+        "refreshedToast_other": "模型已刷新（{{count}} 个可用）",
+        "removedToast_one": "已移除 {{count}} 个手动模型",
+        "removedToast_other": "已移除 {{count}} 个手动模型",
+        "addedToast_one": "已添加 {{count}} 个手动模型",
+        "addedToast_other": "已添加 {{count}} 个手动模型"
       }
     },
     "tokenRoutes": {

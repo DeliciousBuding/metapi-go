@@ -1978,7 +1978,13 @@
         "manualFailedInline": "Manual models update failed: {{message}}",
         "placeholder": "Model name, e.g. gpt-4o",
         "inputAria": "New manual model name",
-        "add": "Add"
+        "add": "Add",
+        "refreshedToast_one": "Models refreshed ({{count}} available)",
+        "refreshedToast_other": "Models refreshed ({{count}} available)",
+        "removedToast_one": "Removed {{count}} manual model",
+        "removedToast_other": "Removed {{count}} manual models",
+        "addedToast_one": "Added {{count}} manual model",
+        "addedToast_other": "Added {{count}} manual models"
       }
     },
     "tokenRoutes": {

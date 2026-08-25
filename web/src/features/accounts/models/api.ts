@@ -75,7 +75,7 @@ export interface ManualModelsPayload {
 // Query keys: ['account-models', 'list', accountId]
 // ---------------------------------------------------------------------------
 
-export const accountModelQueryKeys = {
+const accountModelQueryKeys = {
   all: ['account-models'] as const,
   list: (accountId?: number) =>
     ['account-models', 'list', accountId ?? 'none'] as const,
