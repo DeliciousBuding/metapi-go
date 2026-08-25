@@ -322,6 +322,9 @@ export function SitesPage() {
     columnFilters: urlState.columnFilters,
     onColumnFiltersChange: urlState.onColumnFiltersChange,
     ensurePageInRange: urlState.ensurePageInRange,
+    // URL state owns pagination. A fresh URL-derived filters array must not
+    // let TanStack bounce an explicit page selection back to page 0.
+    autoResetPageIndex: false,
     getRowId: (row) => String(row.id),
   })
 
