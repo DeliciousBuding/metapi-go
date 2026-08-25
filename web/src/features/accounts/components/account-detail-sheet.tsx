@@ -33,6 +33,7 @@ import {
 } from '@/lib/format'
 
 import { useRefreshAccount } from '../api'
+import { AccountModelsPanel } from '../models/components/account-models-panel'
 import { TokensPanel } from '../tokens/components/tokens-panel'
 import type { Account } from '../types'
 
@@ -247,6 +248,12 @@ export function AccountDetailSheet({
               {t('accounts.detail.refreshBalance')}
             </Button>
           </div>
+
+          <Separator />
+
+          {/* Embedded models sub-module (#998): manual upstream refresh,
+              manual add/remove, honest persisted availability. */}
+          <AccountModelsPanel accountId={account.id} />
 
           <Separator />
 

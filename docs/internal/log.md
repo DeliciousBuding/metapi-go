@@ -5,6 +5,14 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-08-25 — Wave 12B account bootstrap 发布 v0.16.13
+
+- 两 lane 并行（captain 编排，subagent 执行）后按 F → G 顺序集成 `batch/w12-account-bootstrap`：
+  - F（#1002）：session 账号创建/登录后自动同步 token（复用既有 `executeAccountTokenSync`）；四态真值测试（成功持久化 / 空=0 / 失败保留账号+部分初始化+event 行 / API-key 跳过）；移除硬编码 `tokenCount: 1`。
+  - G（#998）：账号详情 Models 面板——上游刷新持久化可用性、手工行显式移除、来源/可用性诚实状态；刷新动作路由重建/缓存失效恰好一次；上游失败无副作用。
+- 集成 lane 补齐 15 个 i18n 键（en + zh-CN 对称）。
+- 发布链：Wave 12A → PR #1003 → v0.16.12；Wave 12B → v0.16.13；v0.16.10/v0.16.11 draft release 已发布。
+
 ## 2026-08-25 — Wave 12A demand truth 发布 v0.16.12
 
 - 五 lane 并行（captain 编排）后集成 `batch/w12-product-truth`：

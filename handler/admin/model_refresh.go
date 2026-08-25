@@ -19,6 +19,13 @@ import (
 // Tests may inject a fake implementation; production uses refreshAccountModels.
 var accountModelRefresher = refreshAccountModels
 
+// Side-effect seams for the refresh path (#998). Production delegates to the
+// real service/routing owners; focused tests swap in counting fakes to assert
+// the "exactly one route rebuild + one routing-cache invalidation per refresh
+// action" contract.
+var rebuildRoutesFromAvailability = service.RebuildTokenRoutesFromAvailability
+var invalidateRoutingCache = routing.InvalidateCache
+
 // refreshAccountModels performs a real platform.GetModels refresh and persists
 // results into model_availability. Returns the operator-facing check payload.
 
@@ -200,8 +207,9 @@ func refreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, all
 		}
 	}
 
-	// Best-effort route rebuild from updated availability.
-	rebuildStats, rebuildErr := service.RebuildTokenRoutesFromAvailability(context.Background(), db)
+	// Best-effort route rebuild from updated availability (exactly once per
+	// refresh action; see the seam vars above).
+	rebuildStats, rebuildErr := rebuildRoutesFromAvailability(context.Background(), db)
 	rebuildPayload := map[string]any{
 		"routesConsidered": rebuildStats.RoutesConsidered,
 		"patternRoutes":    rebuildStats.PatternRoutes,
@@ -216,7 +224,7 @@ func refreshAccountModels(ctx context.Context, db *sqlx.DB, accountID int64, all
 	} else {
 		rebuildPayload["success"] = true
 	}
-	routing.InvalidateCache()
+	invalidateRoutingCache()
 
 	// K1a: best-effort sync generation of model name
 	// redirects (canonical → actual). Never blocks the refresh outcome.

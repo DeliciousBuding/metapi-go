@@ -442,6 +442,10 @@ func (h *accountsHandler) createAccount(w http.ResponseWriter, r *http.Request) 
 	var account store.Account
 	h.db.Get(&account, h.db.Rebind("SELECT * FROM accounts WHERE id = ?"), created.ID)
 
+	// Auto-sync upstream tokens via the existing sync path (#1002). The report
+	// is truth-only: a sync failure never rolls back the persisted account.
+	syncReport := syncTokensAfterAccountCreate(r.Context(), h.db, h.cfg, created.ID)
+
 	caps := service.BuildCapabilitiesForAccount(&account)
 	routing.InvalidateCache()
 	globalAccountsCache.clear()
@@ -458,6 +462,9 @@ func (h *accountsHandler) createAccount(w http.ResponseWriter, r *http.Request) 
 		"apiTokenFound":    created.APITokenFound,
 		"usernameDetected": created.UsernameDetected,
 		"queued":           false,
+		"tokenCount":       syncReport.TokenCount,
+		"tokenSyncStatus":  syncReport.Status,
+		"tokenSyncMessage": syncReport.Message,
 	})
 }
 
@@ -807,14 +814,20 @@ func (h *accountsHandler) loginAccount(w http.ResponseWriter, r *http.Request) {
 		"createdAt":      loginAcct.CreatedAt,
 		"updatedAt":      loginAcct.UpdatedAt,
 	}
+	// Auto-sync upstream tokens for the session-credential account (#1002);
+	// report the real persisted count instead of a fixed tokenCount.
+	syncReport := syncTokensAfterAccountCreate(r.Context(), h.db, h.cfg, loginAcct.ID)
+
 	routing.InvalidateCache()
 	globalAccountsCache.clear()
 	writeJSON(w, http.StatusOK, map[string]any{
-		"success":       true,
-		"account":       loginAcctMap,
-		"apiTokenFound": loginAcct.APIToken != nil,
-		"tokenCount":    1,
-		"reusedAccount": reused,
+		"success":          true,
+		"account":          loginAcctMap,
+		"apiTokenFound":    loginAcct.APIToken != nil,
+		"tokenCount":       syncReport.TokenCount,
+		"tokenSyncStatus":  syncReport.Status,
+		"tokenSyncMessage": syncReport.Message,
+		"reusedAccount":    reused,
 	})
 }
 
