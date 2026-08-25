@@ -17,6 +17,8 @@
 //                  routes; only consulted when mobile is in VIEWPORTS)
 //   DPR            device pixel ratio (default 2)
 //   OUT_DIR        output directory (default: OS temp dir)
+//   EXPECTED_DATA_PROFILE  empty|seeded; fail before capture when runtime data does not match
+//   PROFILE_CHECK_ONLY     1 exits after the profile preflight (test/debug helper)
 //
 // MANIFEST.md (route/theme/viewport/dimensions, always written to OUT_DIR) is
 // the CI evidence list. Any route that fails to capture makes the script exit
@@ -26,11 +28,12 @@ import { mkdirSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 
-import { chromium } from 'playwright'
-import sharp from 'sharp'
+let sharp
 
 const BASE_URL = process.env.BASE_URL ?? 'http://127.0.0.1:4099'
 const AUTH_TOKEN = process.env.AUTH_TOKEN ?? 'dev-admin-token-123'
+const EXPECTED_DATA_PROFILE = (process.env.EXPECTED_DATA_PROFILE ?? '').trim()
+const PROFILE_CHECK_ONLY = process.env.PROFILE_CHECK_ONLY === '1'
 // Portable default: OS temp dir. Override OUT_DIR to keep screenshots
 // somewhere durable (e.g. when collecting README gallery material).
 const OUT_DIR = process.env.OUT_DIR ?? join(tmpdir(), 'metapi-shots')
@@ -108,6 +111,52 @@ const MOBILE_ROUTES = [
 
 const THEMES = (process.env.THEMES ?? 'light,dark').split(',')
 
+function collectionCount(payload, label) {
+  if (Array.isArray(payload)) return payload.length
+  if (typeof payload?.total === 'number') return payload.total
+  if (Array.isArray(payload?.items)) return payload.items.length
+  throw new Error(`[screenshot] ${label} response has no countable collection`)
+}
+
+async function fetchAdminJSON(path) {
+  const response = await fetch(BASE_URL + path, {
+    headers: { Authorization: `Bearer ${AUTH_TOKEN}` },
+  })
+  if (!response.ok) {
+    throw new Error(
+      `[screenshot] profile preflight ${path} returned HTTP ${response.status}`
+    )
+  }
+  return response.json()
+}
+
+async function assertDataProfile() {
+  if (!EXPECTED_DATA_PROFILE) return
+  if (!['empty', 'seeded'].includes(EXPECTED_DATA_PROFILE)) {
+    throw new Error(
+      `[screenshot] EXPECTED_DATA_PROFILE must be empty or seeded, got ${EXPECTED_DATA_PROFILE}`
+    )
+  }
+
+  const [sites, accounts] = await Promise.all([
+    fetchAdminJSON('/api/sites'),
+    fetchAdminJSON('/api/accounts?page=1&pageSize=1'),
+  ])
+  const siteCount = collectionCount(sites, 'sites')
+  const accountCount = collectionCount(accounts, 'accounts')
+  const actual = siteCount === 0 && accountCount === 0 ? 'empty' : 'seeded'
+
+  if (actual !== EXPECTED_DATA_PROFILE) {
+    throw new Error(
+      `[screenshot] data profile mismatch: expected ${EXPECTED_DATA_PROFILE}, ` +
+        `observed ${actual} (sites=${siteCount}, accounts=${accountCount})`
+    )
+  }
+  console.log(
+    `[screenshot] data profile ${actual} verified (sites=${siteCount}, accounts=${accountCount})`
+  )
+}
+
 function slug(route) {
   return route === '/' ? 'root' : route.replace(/^\//, '').replace(/\//g, '_')
 }
@@ -180,96 +229,117 @@ async function writeManifest() {
   writeFileSync(join(OUT_DIR, 'MANIFEST.md'), lines.join('\n') + '\n')
 }
 
-const browser = await chromium.launch({
-  headless: true,
-  args: ['--no-proxy-server', '--disable-dev-shm-usage'],
-})
+async function runCapture() {
+  const [{ chromium }, sharpModule] = await Promise.all([
+    import('playwright'),
+    import('sharp'),
+  ])
+  sharp = sharpModule.default
 
-const themes = THEMES.map((t) => t.trim()).filter(Boolean)
-const wantDesktop = VIEWPORTS.includes('desktop')
-const wantMobile = VIEWPORTS.includes('mobile')
+  const browser = await chromium.launch({
+    headless: true,
+    args: ['--no-proxy-server', '--disable-dev-shm-usage'],
+  })
 
-try {
-  for (const theme of themes) {
-    if (wantDesktop) {
-      const desktopDir = `${OUT_DIR}/${theme}/desktop`
-      mkdirSync(desktopDir, { recursive: true })
+  const themes = THEMES.map((t) => t.trim()).filter(Boolean)
+  const wantDesktop = VIEWPORTS.includes('desktop')
+  const wantMobile = VIEWPORTS.includes('mobile')
 
-      // Sign-in page (no auth token) — the first thing an operator sees.
-      const authless = await browser.newContext({
-        viewport: { width: 1440, height: 900 },
-        deviceScaleFactor: DEVICE_SCALE,
-        locale: 'zh-CN',
-      })
-      await authless.addCookies([
-        { name: 'vite-ui-theme', value: theme, url: BASE_URL },
-      ])
-      await capture(
-        authless,
-        '/sign-in',
-        `${desktopDir}/sign-in.png`,
-        theme,
-        'desktop'
-      )
-      await authless.close()
+  try {
+    for (const theme of themes) {
+      if (wantDesktop) {
+        const desktopDir = `${OUT_DIR}/${theme}/desktop`
+        mkdirSync(desktopDir, { recursive: true })
 
-      // Desktop authenticated routes.
-      const desktop = await browser.newContext({
-        viewport: { width: 1440, height: 900 },
-        deviceScaleFactor: DEVICE_SCALE,
-        locale: 'zh-CN',
-      })
-      await seedAuth(desktop, theme)
-      for (const route of DESKTOP_ROUTES) {
+        // Sign-in page (no auth token) — the first thing an operator sees.
+        const authless = await browser.newContext({
+          viewport: { width: 1440, height: 900 },
+          deviceScaleFactor: DEVICE_SCALE,
+          locale: 'zh-CN',
+        })
+        await authless.addCookies([
+          { name: 'vite-ui-theme', value: theme, url: BASE_URL },
+        ])
         await capture(
-          desktop,
-          route,
-          `${desktopDir}/${slug(route)}.png`,
+          authless,
+          '/sign-in',
+          `${desktopDir}/sign-in.png`,
           theme,
           'desktop'
         )
-      }
-      await desktop.close()
-    }
+        await authless.close()
 
-    if (wantMobile) {
-      const mobileDir = `${OUT_DIR}/${theme}/mobile`
-      mkdirSync(mobileDir, { recursive: true })
-      const routes =
-        MOBILE_SAMPLE.length > 0
-          ? MOBILE_ROUTES.filter((r) => MOBILE_SAMPLE.includes(r))
-          : MOBILE_ROUTES
-
-      // Mobile authenticated routes.
-      const mobile = await browser.newContext({
-        viewport: { width: 375, height: 812 },
-        deviceScaleFactor: DEVICE_SCALE,
-        locale: 'zh-CN',
-        isMobile: true,
-      })
-      await seedAuth(mobile, theme)
-      for (const route of routes) {
-        await capture(
-          mobile,
-          route,
-          `${mobileDir}/${slug(route)}.png`,
-          theme,
-          'mobile'
-        )
+        // Desktop authenticated routes.
+        const desktop = await browser.newContext({
+          viewport: { width: 1440, height: 900 },
+          deviceScaleFactor: DEVICE_SCALE,
+          locale: 'zh-CN',
+        })
+        await seedAuth(desktop, theme)
+        for (const route of DESKTOP_ROUTES) {
+          await capture(
+            desktop,
+            route,
+            `${desktopDir}/${slug(route)}.png`,
+            theme,
+            'desktop'
+          )
+        }
+        await desktop.close()
       }
-      await mobile.close()
+
+      if (wantMobile) {
+        const mobileDir = `${OUT_DIR}/${theme}/mobile`
+        mkdirSync(mobileDir, { recursive: true })
+        const routes =
+          MOBILE_SAMPLE.length > 0
+            ? MOBILE_ROUTES.filter((r) => MOBILE_SAMPLE.includes(r))
+            : MOBILE_ROUTES
+
+        // Mobile authenticated routes.
+        const mobile = await browser.newContext({
+          viewport: { width: 375, height: 812 },
+          deviceScaleFactor: DEVICE_SCALE,
+          locale: 'zh-CN',
+          isMobile: true,
+        })
+        await seedAuth(mobile, theme)
+        for (const route of routes) {
+          await capture(
+            mobile,
+            route,
+            `${mobileDir}/${slug(route)}.png`,
+            theme,
+            'mobile'
+          )
+        }
+        await mobile.close()
+      }
     }
+  } finally {
+    await browser.close()
   }
-} finally {
-  await browser.close()
+
+  await writeManifest()
+  const summary = `[screenshot] captured ${rows.length} screenshots into ${OUT_DIR} (themes: ${themes.join(', ')}, viewports: ${VIEWPORTS.join(', ')})`
+  if (failures.length > 0) {
+    console.error(`[screenshot] ${failures.length} route(s) failed:`)
+    for (const f of failures) console.error('  ' + f)
+    console.error(summary)
+    process.exitCode = 1
+    return
+  }
+  console.log(summary)
 }
 
-await writeManifest()
-const summary = `[screenshot] captured ${rows.length} screenshots into ${OUT_DIR} (themes: ${themes.join(', ')}, viewports: ${VIEWPORTS.join(', ')})`
-if (failures.length > 0) {
-  console.error(`[screenshot] ${failures.length} route(s) failed:`)
-  for (const f of failures) console.error('  ' + f)
-  console.error(summary)
-  process.exit(1)
+try {
+  await assertDataProfile()
+  if (PROFILE_CHECK_ONLY) {
+    console.log('[screenshot] profile check only; capture skipped')
+  } else {
+    await runCapture()
+  }
+} catch (error) {
+  console.error(String(error?.message ?? error))
+  process.exitCode = 1
 }
-console.log(summary)
