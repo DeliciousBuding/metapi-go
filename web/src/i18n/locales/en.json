@@ -890,6 +890,7 @@
           "lowBalance": "Low balance: {{name}} ({{amount}})",
           "disabledSite": "Site disabled: {{name}}",
           "balanceUnknown": "Balance unknown: {{name}}",
+          "siteAnnouncement": "Upstream announcement: {{title}}",
           "eventAllProxiesFailed": "All proxies failed",
           "mergedCount": "{{count}} merged events",
           "severity": {
@@ -1268,7 +1269,25 @@
             "enabledAria": "Toggle enabled for {{name}}",
             "editAria": "Edit {{name}}",
             "usage": "Usage",
-            "actions": "Actions"
+            "actions": "Actions",
+            "models": "Models"
+          },
+          "models": {
+            "fieldLabel": "Model access",
+            "hint": "Empty denies all. Add exact names, glob patterns (*), or re: regex rules. All models requires an explicit *.",
+            "inputPlaceholder": "gpt-4o, gpt-*, or re:^claude-",
+            "suggestions": "Matching models",
+            "allowAll": "Allow all",
+            "denyAll": "Deny all",
+            "removeRuleAria": "Remove model rule {{rule}}",
+            "summary": {
+              "rules_one": "{{count}} rule",
+              "rules_other": "{{count}} rules",
+              "routes_one": "{{count}} route grant",
+              "routes_other": "{{count}} route grants",
+              "all": "All models",
+              "none": "No models authorized"
+            }
           },
           "fields": {
             "name": "Name",
@@ -2454,6 +2473,7 @@
       },
       "row": {
         "markRead": "Mark read",
+        "openUpstream": "Open upstream page",
         "unread": "Unread",
         "dismissed": "Dismissed",
         "expired": "Expired",
@@ -2917,6 +2937,7 @@
       "trigger": "Attention items",
       "triggerWithCount": "Attention items ({{value}} pending)",
       "title": "Attention required",
+      "description": "Unresolved items from account, balance, site, event and announcement conditions. Each item disappears once its condition is resolved.",
       "empty": "Nothing needs attention right now.",
       "loadError": "Failed to load attention items.",
       "viewAll": "View all attention items",

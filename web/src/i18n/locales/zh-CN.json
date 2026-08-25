@@ -890,6 +890,7 @@
           "lowBalance": "余额低：{{name}}（{{amount}}）",
           "disabledSite": "站点已停用：{{name}}",
           "balanceUnknown": "余额未知：{{name}}",
+          "siteAnnouncement": "上游公告：{{title}}",
           "eventAllProxiesFailed": "全部代理失败",
           "mergedCount": "合并 {{count}} 条事件",
           "severity": {
@@ -1268,7 +1269,25 @@
             "enabledAria": "切换 {{name}} 的启用状态",
             "editAria": "编辑 {{name}}",
             "usage": "用量",
-            "actions": "操作"
+            "actions": "操作",
+            "models": "模型"
+          },
+          "models": {
+            "fieldLabel": "模型授权",
+            "hint": "留空即拒绝所有模型。可添加精确名称、通配符（*）或 re: 正则规则；授权全部模型需显式添加 *。",
+            "inputPlaceholder": "gpt-4o、gpt-* 或 re:^claude-",
+            "suggestions": "匹配的模型",
+            "allowAll": "全部允许",
+            "denyAll": "全部拒绝",
+            "removeRuleAria": "移除模型规则 {{rule}}",
+            "summary": {
+              "rules_one": "{{count}} 条规则",
+              "rules_other": "{{count}} 条规则",
+              "routes_one": "{{count}} 条路由授权",
+              "routes_other": "{{count}} 条路由授权",
+              "all": "全部模型",
+              "none": "未授权任何模型"
+            }
           },
           "fields": {
             "name": "名称",
@@ -2454,6 +2473,7 @@
       },
       "row": {
         "markRead": "标记已读",
+        "openUpstream": "打开上游页面",
         "unread": "未读",
         "dismissed": "已忽略",
         "expired": "已过期",
@@ -2917,6 +2937,7 @@
       "trigger": "待关注告警",
       "triggerWithCount": "待关注告警（{{value}} 项待处理）",
       "title": "需要关注",
+      "description": "来自账号、余额、站点、事件与公告状态的未解决项；对应状态解除后条目自动消失。",
       "empty": "暂无待关注项。",
       "loadError": "加载关注事项失败。",
       "viewAll": "查看全部待关注项",
