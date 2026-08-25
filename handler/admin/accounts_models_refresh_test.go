@@ -359,16 +359,16 @@ func TestAccountModels_Postgres(t *testing.T) {
 
 	var siteID int64
 	if err := db.Get(&siteID, db.Rebind(
-		"INSERT INTO sites (name, url, platform, status, use_system_proxy, sort_order, global_weight, post_refresh_probe_enabled, created_at, updated_at) VALUES (?, ?, 'openai', 'active', 0, 0, 0, 0, ?, ?) RETURNING id",
-	), "lane-g-pg-"+suffix, "https://api.example.com", now, now); err != nil {
+		"INSERT INTO sites (name, url, platform, status, use_system_proxy, sort_order, global_weight, post_refresh_probe_enabled, created_at, updated_at) VALUES (?, ?, 'openai', 'active', ?, 0, 0, ?, ?, ?) RETURNING id",
+	), "lane-g-pg-"+suffix, "https://api.example.com", false, false, now, now); err != nil {
 		t.Fatalf("insert site: %v", err)
 	}
 	t.Cleanup(func() { _, _ = db.Exec(db.Rebind("DELETE FROM sites WHERE id = ?"), siteID) })
 
 	var accountID int64
 	if err := db.Get(&accountID, db.Rebind(
-		"INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, sort_order, created_at, updated_at) VALUES (?, ?, ?, 'active', 0, 0, ?, ?) RETURNING id",
-	), siteID, "lane-g-pg-user", "sk-pg", now, now); err != nil {
+		"INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, sort_order, created_at, updated_at) VALUES (?, ?, ?, 'active', ?, 0, ?, ?) RETURNING id",
+	), siteID, "lane-g-pg-user", "sk-pg", false, now, now); err != nil {
 		t.Fatalf("insert account: %v", err)
 	}
 
