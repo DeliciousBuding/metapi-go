@@ -1962,6 +1962,23 @@
           "valueRequired": "请填写令牌值",
           "quotaNonNegative": "额度需为非负数"
         }
+      },
+      "models": {
+        "title": "模型",
+        "refresh": "从上游刷新",
+        "loading": "加载模型中…",
+        "loadFailed": "模型加载失败",
+        "retry": "重试",
+        "empty": "暂无模型——从上游刷新或手动添加。",
+        "manualBadge": "手动",
+        "unavailableBadge": "不可用",
+        "disabledBadge": "已停用",
+        "removeAria": "移除 {{name}}",
+        "refreshFailedInline": "刷新失败：{{message}}",
+        "manualFailedInline": "手动模型更新失败：{{message}}",
+        "placeholder": "模型名称，如 gpt-4o",
+        "inputAria": "新手动模型名称",
+        "add": "添加"
       }
     },
     "tokenRoutes": {

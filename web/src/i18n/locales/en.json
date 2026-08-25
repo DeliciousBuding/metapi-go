@@ -1962,6 +1962,23 @@
           "valueRequired": "Please enter a token value",
           "quotaNonNegative": "Quota must be a non-negative number"
         }
+      },
+      "models": {
+        "title": "Models",
+        "refresh": "Refresh from upstream",
+        "loading": "Loading models…",
+        "loadFailed": "Failed to load models",
+        "retry": "Retry",
+        "empty": "No models yet — refresh from upstream or add one manually.",
+        "manualBadge": "Manual",
+        "unavailableBadge": "Unavailable",
+        "disabledBadge": "Disabled",
+        "removeAria": "Remove {{name}}",
+        "refreshFailedInline": "Refresh failed: {{message}}",
+        "manualFailedInline": "Manual models update failed: {{message}}",
+        "placeholder": "Model name, e.g. gpt-4o",
+        "inputAria": "New manual model name",
+        "add": "Add"
       }
     },
     "tokenRoutes": {

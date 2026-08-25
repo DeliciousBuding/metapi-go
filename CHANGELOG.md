@@ -5,6 +5,13 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.16.13] — 2026-08-25
+
+### Added
+
+- **Session 账号 token 自动同步（#1002）**：账号创建/登录后经既有同步路径自动同步上游 token；响应报告真实持久化的 `tokenCount` 与 `tokenSyncStatus`/`tokenSyncMessage`；同步失败仅发出部分初始化警告并保留已验证账号，绝不回滚；API-key 连接显式跳过；移除硬编码 `tokenCount: 1`。
+- **账号 Models 面板（#998）**：账号详情新增 Models 面板——手工上游刷新、手工添加与显式移除模型、来源/可用性状态诚实呈现；刷新把可用性持久化到既有 owner，路由重建与缓存失效每次刷新动作恰好发生一次；上游失败诚实报告且无副作用。
+
 ## [v0.16.12] — 2026-08-25
 
 ### Added
