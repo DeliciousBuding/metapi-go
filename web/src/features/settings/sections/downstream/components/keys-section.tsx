@@ -7,8 +7,8 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Pencil } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { Pencil, X } from 'lucide-react'
+import { useEffect, useMemo, useState, type ComponentProps } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
@@ -72,6 +72,8 @@ type DownstreamApiKeyItem = {
   usedCost?: number | null
   maxRequests?: number | null
   usedRequests?: number | null
+  supportedModels?: string[] | string | null
+  allowedRouteIds?: number[] | string | null
   usage24h?: DownstreamKeyUsage24h
 }
 
@@ -110,6 +112,7 @@ const createKeySchema = z.object({
   enabled: z.boolean().optional(),
   expiresAt: z.string().optional(),
   description: z.string().optional(),
+  supportedModels: z.array(z.string().trim().min(1)).default([]),
 })
 
 type CreateKeyFormValues = z.infer<typeof createKeySchema>
@@ -132,6 +135,79 @@ function isoToLocalDatetimeInput(iso?: string | null): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
+function normalizeModelRules(value: unknown): string[] {
+  let rawRules: unknown[] = []
+  if (Array.isArray(value)) {
+    rawRules = value
+  } else if (typeof value === 'string' && value.trim()) {
+    try {
+      const parsed = JSON.parse(value) as unknown
+      rawRules = Array.isArray(parsed) ? parsed : [value]
+    } catch {
+      rawRules = [value]
+    }
+  }
+
+  const rules: string[] = []
+  const seen = new Set<string>()
+  for (const rawRule of rawRules) {
+    if (typeof rawRule !== 'string') continue
+    const rule = rawRule.trim()
+    if (!rule || seen.has(rule)) continue
+    if (rule === '*') return ['*']
+    seen.add(rule)
+    rules.push(rule)
+  }
+  return rules
+}
+
+function normalizeRouteIds(value: unknown): number[] {
+  let rawRouteIds: unknown[] = []
+  if (Array.isArray(value)) {
+    rawRouteIds = value
+  } else if (typeof value === 'string' && value.trim()) {
+    try {
+      const parsed = JSON.parse(value) as unknown
+      rawRouteIds = Array.isArray(parsed) ? parsed : []
+    } catch {
+      rawRouteIds = []
+    }
+  }
+
+  return [
+    ...new Set(
+      rawRouteIds.filter(
+        (routeId): routeId is number =>
+          typeof routeId === 'number' &&
+          Number.isInteger(routeId) &&
+          routeId > 0
+      )
+    ),
+  ]
+}
+
+function extractMarketplaceModelNames(result: unknown): string[] {
+  let rows: unknown = []
+  if (Array.isArray(result)) {
+    rows = result
+  } else if (
+    typeof result === 'object' &&
+    result !== null &&
+    'models' in result
+  ) {
+    rows = (result as { models?: unknown }).models
+  }
+  if (!Array.isArray(rows)) return []
+
+  return normalizeModelRules(
+    rows.map((row) =>
+      typeof row === 'object' && row !== null && 'name' in row
+        ? (row as { name?: unknown }).name
+        : undefined
+    )
+  )
+}
+
 function blankKeyFormValues(): CreateKeyFormValues {
   return {
     name: '',
@@ -142,6 +218,7 @@ function blankKeyFormValues(): CreateKeyFormValues {
     enabled: true,
     expiresAt: '',
     description: '',
+    supportedModels: [],
   }
 }
 
@@ -156,7 +233,176 @@ function keyFormValuesFromItem(
     maxCost: item.maxCost ?? undefined,
     enabled: item.enabled,
     expiresAt: isoToLocalDatetimeInput(item.expiresAt),
+    supportedModels: normalizeModelRules(item.supportedModels),
   }
+}
+
+type ModelPolicyEditorProps = {
+  value: string[]
+  onChange: (rules: string[]) => void
+  candidateModels?: string[]
+  routeGrantCount?: number
+} & Omit<
+  ComponentProps<typeof Input>,
+  'value' | 'defaultValue' | 'onChange' | 'onKeyDown'
+>
+
+function ModelPolicyEditor({
+  value,
+  onChange,
+  candidateModels = [],
+  routeGrantCount = 0,
+  ...inputProps
+}: ModelPolicyEditorProps) {
+  const { t } = useTranslation()
+  const [pendingRule, setPendingRule] = useState('')
+  const rules = normalizeModelRules(value)
+  const normalizedPendingRule = pendingRule.trim()
+  const suggestions = useMemo(() => {
+    if (!normalizedPendingRule) return []
+    const query = normalizedPendingRule.toLowerCase()
+    return candidateModels
+      .filter(
+        (model) => model.toLowerCase().includes(query) && !rules.includes(model)
+      )
+      .slice(0, 8)
+  }, [candidateModels, normalizedPendingRule, rules])
+
+  function addRule(rawRule: string) {
+    const rule = rawRule.trim()
+    if (!rule) return
+    onChange(normalizeModelRules([...rules, rule]))
+    setPendingRule('')
+  }
+
+  function removeRule(rule: string) {
+    onChange(rules.filter((candidate) => candidate !== rule))
+  }
+
+  let summary = t('settings.downstream.keys.models.summary.rules', {
+    count: rules.length,
+    defaultValue: '{{count}} rules',
+  })
+  let summaryVariant: 'success' | 'warning' | 'outline' = 'outline'
+  if (rules.includes('*')) {
+    summary = t('settings.downstream.keys.models.summary.all', {
+      defaultValue: 'All models',
+    })
+    summaryVariant = 'success'
+  } else if (rules.length === 0 && routeGrantCount > 0) {
+    summary = t('settings.downstream.keys.models.summary.routes', {
+      count: routeGrantCount,
+      defaultValue: '{{count}} route grants',
+    })
+  } else if (rules.length === 0) {
+    summary = t('settings.downstream.keys.models.summary.none', {
+      defaultValue: 'No models authorized',
+    })
+    summaryVariant = 'warning'
+  }
+
+  return (
+    <div className='space-y-2'>
+      <div className='flex flex-wrap items-center gap-2'>
+        <Badge variant={summaryVariant} data-testid='model-policy-form-summary'>
+          {summary}
+        </Badge>
+        <Button
+          type='button'
+          variant='outline'
+          size='xs'
+          onClick={() => onChange(['*'])}
+        >
+          {t('settings.downstream.keys.models.allowAll', {
+            defaultValue: 'Allow all',
+          })}
+        </Button>
+        <Button
+          type='button'
+          variant='outline'
+          size='xs'
+          onClick={() => onChange([])}
+        >
+          {t('settings.downstream.keys.models.denyAll', {
+            defaultValue: 'Deny all',
+          })}
+        </Button>
+      </div>
+
+      {rules.length > 0 ? (
+        <div className='flex flex-wrap gap-1' data-testid='model-policy-rules'>
+          {rules.map((rule) => (
+            <Badge key={rule} variant='secondary' className='font-mono'>
+              {rule}
+              <button
+                type='button'
+                className='focus-visible:ring-ring rounded-full outline-none focus-visible:ring-2'
+                aria-label={t(
+                  'settings.downstream.keys.models.removeRuleAria',
+                  { rule, defaultValue: 'Remove model rule {{rule}}' }
+                )}
+                onClick={() => removeRule(rule)}
+              >
+                <X aria-hidden='true' />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      ) : null}
+
+      <div className='flex gap-2'>
+        <Input
+          {...inputProps}
+          value={pendingRule}
+          onChange={(event) => setPendingRule(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              addRule(pendingRule)
+            }
+          }}
+          placeholder={t('settings.downstream.keys.models.inputPlaceholder', {
+            defaultValue: 'gpt-4o, gpt-*, or re:^claude-',
+          })}
+          className='font-mono'
+        />
+        <Button
+          type='button'
+          variant='outline'
+          size='sm'
+          disabled={!normalizedPendingRule}
+          onClick={() => addRule(pendingRule)}
+        >
+          {t('settings.common.add')}
+        </Button>
+      </div>
+
+      {suggestions.length > 0 ? (
+        <div
+          className='flex flex-wrap gap-1'
+          role='listbox'
+          aria-label={t('settings.downstream.keys.models.suggestions', {
+            defaultValue: 'Matching models',
+          })}
+        >
+          {suggestions.map((model) => (
+            <Button
+              key={model}
+              type='button'
+              role='option'
+              aria-selected='false'
+              variant='ghost'
+              size='xs'
+              className='font-mono'
+              onClick={() => addRule(model)}
+            >
+              + {model}
+            </Button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 // Exported so the edit-mode behavior test can render it in isolation,
@@ -171,12 +417,14 @@ export function KeySheetForm({
   onDone,
   onCreated,
   onDirtyChange,
+  candidateModels = [],
 }: {
   editingKey: DownstreamApiKeyItem | null
   onDone: () => void
   onCreated?: (target: CredentialExportTarget) => void
   /** Reports RHF dirty state so the hosting Sheet can guard dirty closes. */
   onDirtyChange?: (dirty: boolean) => void
+  candidateModels?: string[]
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -217,6 +465,7 @@ export function KeySheetForm({
         maxCost: values.maxCost,
         enabled: values.enabled,
         expiresAt: values.expiresAt,
+        supportedModels: values.supportedModels,
       })
     },
     onSuccess: (result, values) => {
@@ -335,6 +584,36 @@ export function KeySheetForm({
               )}
             />
           )}
+          <FormField
+            control={form.control}
+            name='supportedModels'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  {t('settings.downstream.keys.models.fieldLabel', {
+                    defaultValue: 'Model access',
+                  })}
+                </FormLabel>
+                <FormDescription>
+                  {t('settings.downstream.keys.models.hint', {
+                    defaultValue:
+                      'Empty denies all. Add exact names, glob patterns (*), or re: regex rules. All models requires an explicit *.',
+                  })}
+                </FormDescription>
+                <FormControl>
+                  <ModelPolicyEditor
+                    value={field.value ?? []}
+                    onChange={field.onChange}
+                    candidateModels={candidateModels}
+                    routeGrantCount={
+                      normalizeRouteIds(editingKey?.allowedRouteIds).length
+                    }
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           <FormField
             control={form.control}
             name='groupName'
@@ -463,6 +742,54 @@ export function KeySheetForm({
   )
 }
 
+export function KeyModelPolicyCell({
+  supportedModels,
+  allowedRouteIds,
+}: {
+  supportedModels?: DownstreamApiKeyItem['supportedModels']
+  allowedRouteIds?: DownstreamApiKeyItem['allowedRouteIds']
+}) {
+  const { t } = useTranslation()
+  const rules = normalizeModelRules(supportedModels)
+  const routeGrantCount = normalizeRouteIds(allowedRouteIds).length
+  if (rules.includes('*')) {
+    return (
+      <Badge variant='success'>
+        {t('settings.downstream.keys.models.summary.all', {
+          defaultValue: 'All models',
+        })}
+      </Badge>
+    )
+  }
+  if (rules.length === 0 && routeGrantCount > 0) {
+    return (
+      <Badge variant='outline'>
+        {t('settings.downstream.keys.models.summary.routes', {
+          count: routeGrantCount,
+          defaultValue: '{{count}} route grants',
+        })}
+      </Badge>
+    )
+  }
+  if (rules.length === 0) {
+    return (
+      <Badge variant='warning'>
+        {t('settings.downstream.keys.models.summary.none', {
+          defaultValue: 'No models authorized',
+        })}
+      </Badge>
+    )
+  }
+  return (
+    <Badge variant='outline'>
+      {t('settings.downstream.keys.models.summary.rules', {
+        count: rules.length,
+        defaultValue: '{{count}} rules',
+      })}
+    </Badge>
+  )
+}
+
 // Exported so the usage-cell test can render it in isolation (same pattern as
 // KeySheetForm). Renders quota usage plus the per-key 24h proxy_logs summary.
 export function KeyUsageCell({ item }: { item: DownstreamApiKeyItem }) {
@@ -509,6 +836,21 @@ export function KeysSection() {
       (await api.getDownstreamApiKeys()) as DownstreamKeysResponse,
     staleTime: 15 * 1000,
   })
+
+  const modelInventoryQuery = useQuery<unknown>({
+    queryKey: [
+      'models',
+      'marketplace',
+      { refresh: false, includePricing: false },
+    ],
+    queryFn: () => api.getModelsMarketplace(),
+    enabled: createOpen,
+    staleTime: 60 * 1000,
+  })
+  const candidateModels = useMemo(
+    () => extractMarketplaceModelNames(modelInventoryQuery.data),
+    [modelInventoryQuery.data]
+  )
 
   const [editingKey, setEditingKey] = useState<DownstreamApiKeyItem | null>(
     null
@@ -610,6 +952,18 @@ export function KeysSection() {
           ) : (
             <span className='text-muted-foreground'>—</span>
           ),
+      },
+      {
+        id: 'models',
+        header: t('settings.downstream.keys.columns.models', {
+          defaultValue: 'Models',
+        }),
+        cell: ({ row }) => (
+          <KeyModelPolicyCell
+            supportedModels={row.original.supportedModels}
+            allowedRouteIds={row.original.allowedRouteIds}
+          />
+        ),
       },
       {
         id: 'enabled',
@@ -729,6 +1083,7 @@ export function KeysSection() {
             onDone={() => onSheetOpenChange(false)}
             onCreated={(target) => setExportTarget(target)}
             onDirtyChange={setFormDirty}
+            candidateModels={candidateModels}
           />
           {sheetDirtyGuard}
         </SheetContent>
