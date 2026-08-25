@@ -430,6 +430,86 @@ func executeSyncAllAccountTokens(ctx context.Context, db *sqlx.DB, cfg *config.C
 	return summary, results
 }
 
+// ---- Post-create token sync (#1002) ----
+
+// Post-create token sync statuses. These are reported truthfully in account
+// create/login responses: never a fixed count, never a fake success.
+const (
+	postCreateSyncStatusSynced  = "synced"
+	postCreateSyncStatusEmpty   = "empty"
+	postCreateSyncStatusFailed  = "failed"
+	postCreateSyncStatusSkipped = "skipped"
+)
+
+// postCreateTokenSyncReport is the truth-only outcome of the automatic token
+// sync that runs after a session-credential account is created or rebound.
+type postCreateTokenSyncReport struct {
+	Status     string
+	TokenCount int
+	Message    string
+}
+
+// syncTokensAfterAccountCreate runs the existing account token sync path for a
+// freshly created or rebound session-credential account (#1002). It never
+// fails the surrounding create/login request: a sync failure is reported as a
+// partial-initialization warning while the already-persisted account is kept.
+func syncTokensAfterAccountCreate(ctx context.Context, db *sqlx.DB, cfg *config.Config, accountID int64) postCreateTokenSyncReport {
+	row, err := service.GetAccountWithSiteByID(db, accountID)
+	if err != nil {
+		return postCreateTokenSyncReport{
+			Status:     postCreateSyncStatusSkipped,
+			TokenCount: countPersistedAccountTokens(db, accountID),
+			Message:    "account row not found after create; token sync skipped",
+		}
+	}
+
+	// Product decision (Wave 12): only session-credential accounts sync
+	// automatically; API-key connections are explicitly skipped.
+	if service.IsAPIKeyConnection(&row.Account) {
+		return postCreateTokenSyncReport{
+			Status:     postCreateSyncStatusSkipped,
+			TokenCount: countPersistedAccountTokens(db, accountID),
+			Message:    "API key connection; token sync skipped",
+		}
+	}
+
+	result, syncErr := executeAccountTokenSync(ctx, db, cfg, row)
+	tokenCount := countPersistedAccountTokens(db, accountID)
+	if syncErr != nil {
+		// Partial initialization: keep the verified, persisted account and
+		// report the failure honestly. Never roll back the account here.
+		slog.Warn("Post-create token sync failed; keeping persisted account",
+			"err", syncErr, "account_id", accountID)
+		return postCreateTokenSyncReport{
+			Status:     postCreateSyncStatusFailed,
+			TokenCount: tokenCount,
+			Message:    "partial initialization: account created, but token sync failed: " + syncErr.Error(),
+		}
+	}
+
+	status, _ := result["status"].(string)
+	message, _ := result["message"].(string)
+	if status == "synced" {
+		return postCreateTokenSyncReport{Status: postCreateSyncStatusSynced, TokenCount: tokenCount, Message: message}
+	}
+	if status == "skipped" {
+		if reason, _ := result["reason"].(string); reason == "no_upstream_tokens" {
+			return postCreateTokenSyncReport{Status: postCreateSyncStatusEmpty, TokenCount: tokenCount, Message: message}
+		}
+	}
+	return postCreateTokenSyncReport{Status: postCreateSyncStatusSkipped, TokenCount: tokenCount, Message: message}
+}
+
+// countPersistedAccountTokens returns the real persisted account_tokens row
+// count for an account. Any read error reports 0: never a fake count.
+func countPersistedAccountTokens(db *sqlx.DB, accountID int64) int {
+	var count int
+	if err := db.Get(&count, db.Rebind("SELECT COUNT(*) FROM account_tokens WHERE account_id = ?"), accountID); err != nil {
+		return 0
+	}
+	return count
+}
+
 // ---- Helper functions ----
 
 // TokenValueStatusReady and MaskedPending

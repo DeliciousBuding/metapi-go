@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -2747,5 +2748,301 @@ func assertStandardErrorShape(t *testing.T, resp *httptest.ResponseRecorder, wan
 	}
 	if _, ok := body["message"]; ok {
 		t.Fatalf("unexpected legacy \"message\" field in error body: %s", resp.Body.String())
+	}
+}
+
+// ---- Post-create token sync (#1002) ----
+
+// newTokenSyncUpstream serves the NewAPI-style endpoints used for session
+// verification, login and token listing in the post-create sync tests.
+// tokenKeys controls the /api/token/ listing; failTokenList makes the listing
+// return HTTP 500.
+func newTokenSyncUpstream(t *testing.T, sessionToken string, tokenKeys []string, failTokenList bool) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/v1/models":
+			// Force the session verification path (not an API key).
+			http.Error(w, `{"error":"not an apikey"}`, http.StatusUnauthorized)
+		case "/api/user/self":
+			if r.Header.Get("Authorization") != "Bearer "+sessionToken {
+				http.Error(w, `{"success":false,"message":"unauthorized"}`, http.StatusUnauthorized)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"success": true,
+				"data": map[string]any{
+					"id":         11,
+					"username":   "sync-user",
+					"quota":      1000000,
+					"used_quota": 0,
+				},
+			})
+		case "/api/token/":
+			if failTokenList {
+				http.Error(w, `{"success":false,"message":"token list unavailable"}`, http.StatusInternalServerError)
+				return
+			}
+			items := make([]map[string]any, 0, len(tokenKeys))
+			for i, key := range tokenKeys {
+				items = append(items, map[string]any{
+					"id":     i + 1,
+					"name":   "upstream-" + strconv.Itoa(i+1),
+					"key":    key,
+					"status": 1,
+				})
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "data": items})
+		case "/api/user/login":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"success": true,
+				"data":    map[string]any{"access_token": sessionToken},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
+
+func createTokenSyncSite(t *testing.T, r chi.Router, name, url string) int64 {
+	t.Helper()
+	siteResp := doPostJSON(t, r, "/api/sites", map[string]any{
+		"name":     name,
+		"url":      url,
+		"platform": "newapi",
+	})
+	if siteResp.Code != http.StatusOK {
+		t.Fatalf("create site: %d %s", siteResp.Code, siteResp.Body.String())
+	}
+	var site map[string]any
+	json.Unmarshal(siteResp.Body.Bytes(), &site)
+	return int64(site["id"].(float64))
+}
+
+func TestAccounts_Create_SessionAutoSync_PersistsRealTokens(t *testing.T) {
+	db, r, _ := setupAccountsTest(t)
+	upstream := newTokenSyncUpstream(t, "session-sync-token", []string{"sk-up-sync-1", "sk-up-sync-2"}, false)
+	siteID := createTokenSyncSite(t, r, "Sync Success Site", upstream.URL)
+
+	resp := doPostJSON(t, r, "/api/accounts", map[string]any{
+		"siteId":      siteID,
+		"accessToken": "session-sync-token",
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("create account: %d %s", resp.Code, resp.Body.String())
+	}
+	var created map[string]any
+	json.Unmarshal(resp.Body.Bytes(), &created)
+	if created["tokenType"] != "session" {
+		t.Fatalf("tokenType = %v, want session", created["tokenType"])
+	}
+	if created["tokenSyncStatus"] != "synced" {
+		t.Fatalf("tokenSyncStatus = %v, want synced (message=%v)", created["tokenSyncStatus"], created["tokenSyncMessage"])
+	}
+	if got := int(created["tokenCount"].(float64)); got != 2 {
+		t.Fatalf("tokenCount = %d, want 2", got)
+	}
+
+	// Real persistence proof, not just response claims.
+	accountID := int64(created["id"].(float64))
+	var count int
+	if err := db.QueryRow("SELECT COUNT(*) FROM account_tokens WHERE account_id = ?", accountID).Scan(&count); err != nil {
+		t.Fatalf("count tokens: %v", err)
+	}
+	if count != 2 {
+		t.Fatalf("persisted tokens = %d, want 2", count)
+	}
+	var firstToken string
+	if err := db.QueryRow("SELECT token FROM account_tokens WHERE account_id = ? ORDER BY id LIMIT 1", accountID).Scan(&firstToken); err != nil {
+		t.Fatalf("read synced token: %v", err)
+	}
+	if firstToken != "sk-up-sync-1" {
+		t.Fatalf("first synced token = %q, want sk-up-sync-1", firstToken)
+	}
+}
+
+func TestAccounts_Create_SessionAutoSync_EmptyUpstreamReportsZero(t *testing.T) {
+	db, r, _ := setupAccountsTest(t)
+	upstream := newTokenSyncUpstream(t, "session-empty-token", nil, false)
+	siteID := createTokenSyncSite(t, r, "Sync Empty Site", upstream.URL)
+
+	resp := doPostJSON(t, r, "/api/accounts", map[string]any{
+		"siteId":      siteID,
+		"accessToken": "session-empty-token",
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("create account: %d %s", resp.Code, resp.Body.String())
+	}
+	var created map[string]any
+	json.Unmarshal(resp.Body.Bytes(), &created)
+	if created["tokenType"] != "session" {
+		t.Fatalf("tokenType = %v, want session", created["tokenType"])
+	}
+	// Honest empty report: status "empty" and count 0, no fake success.
+	if created["tokenSyncStatus"] != "empty" {
+		t.Fatalf("tokenSyncStatus = %v, want empty (message=%v)", created["tokenSyncStatus"], created["tokenSyncMessage"])
+	}
+	if got := int(created["tokenCount"].(float64)); got != 0 {
+		t.Fatalf("tokenCount = %d, want 0", got)
+	}
+
+	accountID := int64(created["id"].(float64))
+	var acctCount int
+	if err := db.QueryRow("SELECT COUNT(*) FROM accounts WHERE id = ?", accountID).Scan(&acctCount); err != nil {
+		t.Fatalf("count accounts: %v", err)
+	}
+	if acctCount != 1 {
+		t.Fatalf("accounts = %d, want 1 (account must persist)", acctCount)
+	}
+	var tokenCount int
+	if err := db.QueryRow("SELECT COUNT(*) FROM account_tokens WHERE account_id = ?", accountID).Scan(&tokenCount); err != nil {
+		t.Fatalf("count tokens: %v", err)
+	}
+	if tokenCount != 0 {
+		t.Fatalf("persisted tokens = %d, want 0", tokenCount)
+	}
+}
+
+func TestAccounts_Create_SessionAutoSync_FailureKeepsAccount(t *testing.T) {
+	db, r, cfg := setupAccountsTest(t)
+	upstream := newTokenSyncUpstream(t, "session-fail-token", []string{"sk-up-fail-1"}, false)
+	siteID := createTokenSyncSite(t, r, "Sync Failure Site", upstream.URL)
+
+	resp := doPostJSON(t, r, "/api/accounts", map[string]any{
+		"siteId":      siteID,
+		"accessToken": "session-fail-token",
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("create account: %d %s", resp.Code, resp.Body.String())
+	}
+	var created map[string]any
+	json.Unmarshal(resp.Body.Bytes(), &created)
+	accountID := int64(created["id"].(float64))
+
+	// Sabotage the token table so the existing sync path fails mid-flight,
+	// then rerun the post-create sync exactly as the handler does.
+	if _, err := db.Exec("DROP TABLE account_tokens"); err != nil {
+		t.Fatalf("drop account_tokens: %v", err)
+	}
+	report := syncTokensAfterAccountCreate(context.Background(), db.DB, cfg, accountID)
+
+	if report.Status != "failed" {
+		t.Fatalf("report.Status = %q, want failed", report.Status)
+	}
+	if !strings.Contains(report.Message, "partial initialization") {
+		t.Fatalf("report.Message = %q, want partial initialization warning", report.Message)
+	}
+	if report.TokenCount != 0 {
+		t.Fatalf("report.TokenCount = %d, want 0", report.TokenCount)
+	}
+
+	// The verified, persisted account must survive the sync failure.
+	var acctCount int
+	if err := db.QueryRow("SELECT COUNT(*) FROM accounts WHERE id = ?", accountID).Scan(&acctCount); err != nil {
+		t.Fatalf("count accounts: %v", err)
+	}
+	if acctCount != 1 {
+		t.Fatalf("accounts = %d, want 1 (sync failure must not roll back the account)", acctCount)
+	}
+
+	// The failure is recorded as an audit event by the existing sync path.
+	var eventCount int
+	if err := db.QueryRow(
+		"SELECT COUNT(*) FROM events WHERE type = ? AND related_id = ? AND related_type = ? AND level = ?",
+		"token_sync", accountID, "account", "error",
+	).Scan(&eventCount); err != nil {
+		t.Fatalf("count events: %v", err)
+	}
+	if eventCount < 1 {
+		t.Fatalf("token_sync error events = %d, want >= 1", eventCount)
+	}
+}
+
+func TestAccounts_Create_APIKey_SkipsAutoSync(t *testing.T) {
+	_, r, _ := setupAccountsTest(t)
+	upstreamCalls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upstreamCalls++
+		http.Error(w, "should not be called", http.StatusInternalServerError)
+	}))
+	t.Cleanup(server.Close)
+
+	siteResp := doPostJSON(t, r, "/api/sites", map[string]any{
+		"name":     "Skip Sync Site",
+		"url":      server.URL,
+		"platform": "openai",
+	})
+	if siteResp.Code != http.StatusOK {
+		t.Fatalf("create site: %d %s", siteResp.Code, siteResp.Body.String())
+	}
+	var site map[string]any
+	json.Unmarshal(siteResp.Body.Bytes(), &site)
+	siteID := int64(site["id"].(float64))
+
+	resp := doPostJSON(t, r, "/api/accounts", map[string]any{
+		"siteId":         siteID,
+		"accessToken":    "sk-no-sync-verify",
+		"credentialMode": "apikey",
+		"skipModelFetch": true,
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("create account: %d %s", resp.Code, resp.Body.String())
+	}
+	var created map[string]any
+	json.Unmarshal(resp.Body.Bytes(), &created)
+	if created["tokenType"] != "apikey" {
+		t.Fatalf("tokenType = %v, want apikey", created["tokenType"])
+	}
+	// API-key connections are explicitly skipped: no sync attempt at all.
+	if upstreamCalls != 0 {
+		t.Fatalf("upstreamCalls = %d, want 0 (no sync attempt for API-key accounts)", upstreamCalls)
+	}
+	if created["tokenSyncStatus"] != "skipped" {
+		t.Fatalf("tokenSyncStatus = %v, want skipped", created["tokenSyncStatus"])
+	}
+	if got := int(created["tokenCount"].(float64)); got != 0 {
+		t.Fatalf("tokenCount = %d, want 0", got)
+	}
+}
+
+func TestAccounts_Login_ReportsRealSyncedTokenCount(t *testing.T) {
+	db, r, _ := setupAccountsTest(t)
+	upstream := newTokenSyncUpstream(t, "session-login-token", []string{"sk-up-login-1", "sk-up-login-2"}, false)
+	siteID := createTokenSyncSite(t, r, "Login Sync Site", upstream.URL)
+
+	resp := doPostJSON(t, r, "/api/accounts/login", map[string]any{
+		"siteId":   siteID,
+		"username": "login-sync-user",
+		"password": "pass123",
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("login: %d %s", resp.Code, resp.Body.String())
+	}
+	var result map[string]any
+	json.Unmarshal(resp.Body.Bytes(), &result)
+	if result["success"] != true {
+		t.Fatalf("success = %v, want true", result["success"])
+	}
+	// The hardcoded tokenCount:1 is gone: report the real persisted count.
+	if got := int(result["tokenCount"].(float64)); got != 2 {
+		t.Fatalf("tokenCount = %d, want 2 (real synced count, not the old fixed 1)", got)
+	}
+	if result["tokenSyncStatus"] != "synced" {
+		t.Fatalf("tokenSyncStatus = %v, want synced (message=%v)", result["tokenSyncStatus"], result["tokenSyncMessage"])
+	}
+
+	var accountID int64
+	if err := db.QueryRow("SELECT id FROM accounts WHERE site_id = ? AND username = ?", siteID, "login-sync-user").Scan(&accountID); err != nil {
+		t.Fatalf("read login account: %v", err)
+	}
+	var tokenCount int
+	if err := db.QueryRow("SELECT COUNT(*) FROM account_tokens WHERE account_id = ?", accountID).Scan(&tokenCount); err != nil {
+		t.Fatalf("count tokens: %v", err)
+	}
+	if tokenCount != 2 {
+		t.Fatalf("persisted tokens = %d, want 2", tokenCount)
 	}
 }
