@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -174,7 +175,7 @@ func (h *statsHandler) balanceIncomeOutcome(w http.ResponseWriter, r *http.Reque
 // the events table by alert.go, so we read events rather than json_extract).
 type attentionItem struct {
 	Severity string `json:"severity"` // critical | warning | info
-	Category string `json:"category"` // expired_account | low_balance | balance_unknown | disabled_site | event
+	Category string `json:"category"` // expired_account | low_balance | balance_unknown | disabled_site | site_announcement | event
 	Label    string `json:"label"`    // human-readable (English; the SPA re-localizes via category+params)
 	Target   string `json:"target"`   // deep-link target (route + query)
 	// Params carries the structured fields a localized label needs
@@ -292,11 +293,53 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// 4. Recent unread warning/error events — info/warning (deep-link to events).
+	// 4. Unread upstream site announcements. Their read state lives only in
+	// site_announcements.read_at; the companion event row is audit history and
+	// is excluded from the generic event query below to avoid duplicate bell
+	// items and two competing read-state owners.
+	nowStr := time.Now().UTC().Format(time.RFC3339)
+	announcementRows, err := queryRowsErr(h.db, `SELECT id, title, level, first_seen_at
+		FROM site_announcements
+		WHERE read_at IS NULL AND dismissed_at IS NULL
+		  AND (starts_at IS NULL OR starts_at = '' OR starts_at <= ?)
+		  AND (ends_at IS NULL OR ends_at = '' OR ends_at >= ?)
+		ORDER BY first_seen_at DESC LIMIT ?`, nowStr, nowStr, limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load attention items")
+		return
+	}
+	for _, row := range announcementRows {
+		severity := strings.ToLower(coerceString(row["level"]))
+		switch severity {
+		case "error", "critical":
+			severity = "critical"
+		case "warning":
+		default:
+			severity = "info"
+		}
+		items = append(items, attentionItem{
+			Severity: severity,
+			Category: "site_announcement",
+			Label:    "Upstream announcement: " + coerceString(row["title"]),
+			Target:   "/site-announcements",
+			Params: map[string]any{
+				"announcementId": row["id"],
+				"title":          coerceString(row["title"]),
+			},
+			CreatedAt: coerceString(row["firstSeenAt"]),
+		})
+		if len(items) >= limit {
+			writeJSON(w, http.StatusOK, map[string]any{"items": items, "total": len(items)})
+			return
+		}
+	}
+
+	// 5. Recent unread warning/error events — info/warning (deep-link to events).
 	since24h := time.Now().UTC().Add(-24 * time.Hour).Format(time.RFC3339)
-	evRows, err := queryRowsErr(h.db, `SELECT type, title, level, related_id, related_type, created_at
-		FROM events WHERE level IN ('warning', 'error') AND created_at >= ?
-		ORDER BY created_at DESC LIMIT ?`, since24h, limit)
+	evRows, err := queryRowsErr(h.db, `SELECT id, type, title, level, related_id, related_type, created_at
+		FROM events WHERE read = ? AND level IN ('warning', 'error') AND created_at >= ?
+		  AND (related_type IS NULL OR related_type <> 'site_announcement')
+		ORDER BY created_at DESC LIMIT ?`, false, since24h, limit)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to load attention items")
 		return
@@ -310,6 +353,9 @@ func (h *statsHandler) attention(w http.ResponseWriter, r *http.Request) {
 			Severity: severity,
 			Category: "event",
 			Label:    coerceString(row["title"]),
+			Params: map[string]any{
+				"eventId": row["id"],
+			},
 			// The event log lives under settings → system-info → program-logs
 			// (/settings/<subarea>/<section>); a bare /settings link landed on
 			// the general section with no events in sight.

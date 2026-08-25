@@ -1,7 +1,7 @@
 // Security tests for the site-announcements page (#986 Lane C): announcement
 // title / content / source are UNTRUSTED upstream data. The body must render
-// as plain text (no HTML injection, no markdown), and sourceUrl must never
-// become a clickable external link.
+// as plain text (no HTML injection, no markdown). External navigation may
+// only use a same-origin URL resolved from the trusted local Site URL.
 
 import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -124,7 +124,7 @@ describe('SiteAnnouncementsPage — untrusted upstream content', () => {
     expect(container.querySelector('b')).toBeNull()
   })
 
-  it('never renders sourceUrl as a clickable external link', async () => {
+  it('rejects a hostile sourceUrl and falls back to the trusted Site home', async () => {
     const { container } = renderPage()
 
     await screen.findByText(HOSTILE_TITLE)
@@ -136,5 +136,11 @@ describe('SiteAnnouncementsPage — untrusted upstream content', () => {
       )
     ).toBe(false)
     expect(container.textContent).not.toContain(HOSTILE_SOURCE_URL)
+    const trusted = anchors.find(
+      (anchor) => anchor.getAttribute('href') === 'https://alpha.example/'
+    )
+    expect(trusted).toBeDefined()
+    expect(trusted).toHaveAttribute('target', '_blank')
+    expect(trusted).toHaveAttribute('rel', 'noopener noreferrer')
   })
 })

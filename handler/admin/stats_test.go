@@ -2,6 +2,7 @@ package admin
 
 import (
 	"encoding/json"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -656,6 +657,111 @@ func TestStats_SQLiteAttentionAggregatesExpiredLowBalanceDisabled(t *testing.T) 
 	for category, wantTarget := range wantTargets {
 		if targets[category] != wantTarget {
 			t.Fatalf("%s target = %q, want %q", category, targets[category], wantTarget)
+		}
+	}
+}
+
+func TestStats_SQLiteAttentionUsesAnnouncementAndEventReadOwners(t *testing.T) {
+	db, r := setupStatsSQLiteTest(t)
+	nowStr := time.Now().UTC().Format(time.RFC3339)
+
+	_, err := db.Exec(`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
+		VALUES (?, ?, ?, 'active', ?, ?)`, "notice-site", "https://notice.example.test", "new-api", nowStr, nowStr)
+	if err != nil {
+		t.Fatalf("insert site: %v", err)
+	}
+	var siteID int64
+	if err := db.Get(&siteID, "SELECT id FROM sites WHERE name = ?", "notice-site"); err != nil {
+		t.Fatalf("site id: %v", err)
+	}
+
+	_, err = db.Exec(`INSERT INTO site_announcements
+		(site_id, platform, source_key, title, content, level, first_seen_at, last_seen_at)
+		VALUES (?, 'new-api', 'notice-1', 'Maintenance window', 'details', 'info', ?, ?)`, siteID, nowStr, nowStr)
+	if err != nil {
+		t.Fatalf("insert announcement: %v", err)
+	}
+	var announcementID int64
+	if err := db.Get(&announcementID, "SELECT id FROM site_announcements WHERE source_key = ?", "notice-1"); err != nil {
+		t.Fatalf("announcement id: %v", err)
+	}
+
+	// The sync path writes a companion audit event. It must not produce a
+	// second attention item or compete with site_announcements.read_at.
+	_, err = db.Exec(`INSERT INTO events
+		(type, title, message, level, read, related_id, related_type, created_at)
+		VALUES ('site_notice', 'Maintenance window', 'details', 'warning', 0, ?, 'site_announcement', ?)`, announcementID, nowStr)
+	if err != nil {
+		t.Fatalf("insert announcement event: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO events (type, title, message, level, read, created_at)
+		VALUES ('runtime', 'Upstream rate limited', 'details', 'warning', 0, ?)`, nowStr)
+	if err != nil {
+		t.Fatalf("insert unread event: %v", err)
+	}
+	var eventID int64
+	if err := db.Get(&eventID, "SELECT id FROM events WHERE title = ?", "Upstream rate limited"); err != nil {
+		t.Fatalf("event id: %v", err)
+	}
+	_, err = db.Exec(`INSERT INTO events (type, title, message, level, read, created_at)
+		VALUES ('runtime', 'Already read', 'details', 'warning', 1, ?)`, nowStr)
+	if err != nil {
+		t.Fatalf("insert read event: %v", err)
+	}
+
+	readAttention := func() []any {
+		t.Helper()
+		resp := doGet(t, r, "/api/stats/attention?limit=20")
+		if resp.Code != http.StatusOK {
+			t.Fatalf("attention returned %d: %s", resp.Code, resp.Body.String())
+		}
+		var body map[string]any
+		if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		items, ok := body["items"].([]any)
+		if !ok {
+			t.Fatalf("items = %#v", body["items"])
+		}
+		return items
+	}
+
+	items := readAttention()
+	categories := map[string][]map[string]any{}
+	for _, raw := range items {
+		item := raw.(map[string]any)
+		category := item["category"].(string)
+		categories[category] = append(categories[category], item)
+	}
+	if len(categories["site_announcement"]) != 1 {
+		t.Fatalf("site announcement items = %#v, want exactly one", categories["site_announcement"])
+	}
+	if len(categories["event"]) != 1 {
+		t.Fatalf("event items = %#v, want only the unread non-announcement event", categories["event"])
+	}
+	announcement := categories["site_announcement"][0]
+	if announcement["target"] != "/site-announcements" {
+		t.Fatalf("announcement target = %v", announcement["target"])
+	}
+	announcementParams := announcement["params"].(map[string]any)
+	if int64(announcementParams["announcementId"].(float64)) != announcementID {
+		t.Fatalf("announcement params = %#v", announcementParams)
+	}
+	eventParams := categories["event"][0]["params"].(map[string]any)
+	if int64(eventParams["eventId"].(float64)) != eventID {
+		t.Fatalf("event params = %#v", eventParams)
+	}
+
+	if _, err := db.Exec("UPDATE site_announcements SET read_at = ? WHERE id = ?", nowStr, announcementID); err != nil {
+		t.Fatalf("mark announcement read: %v", err)
+	}
+	if _, err := db.Exec("UPDATE events SET read = 1 WHERE id = ?", eventID); err != nil {
+		t.Fatalf("mark event read: %v", err)
+	}
+	for _, raw := range readAttention() {
+		category := raw.(map[string]any)["category"].(string)
+		if category == "site_announcement" || category == "event" {
+			t.Fatalf("read notification still appears in attention: %#v", raw)
 		}
 	}
 }

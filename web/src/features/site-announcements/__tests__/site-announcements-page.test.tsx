@@ -56,7 +56,7 @@ function makeAnnouncement(overrides: Record<string, unknown> = {}) {
     content: 'Upstream will be unreachable around midnight.',
     level: 'warning',
     sourceKey: 'notice-1',
-    sourceUrl: 'https://upstream.example/notice/1',
+    sourceUrl: '/notice/1',
     startsAt: null,
     endsAt: null,
     firstSeenAt: '2026-08-20T01:00:00Z',
@@ -160,6 +160,19 @@ describe('SiteAnnouncementsPage — list rendering', () => {
     expect(screen.getByLabelText('Unread')).toBeInTheDocument()
     const markReadButtons = screen.getAllByRole('button', { name: 'Mark read' })
     expect(markReadButtons).toHaveLength(1)
+
+    const upstreamLink = screen
+      .getAllByRole('link')
+      .find(
+        (link) => link.getAttribute('href') === 'https://alpha.example/notice/1'
+      )
+    expect(upstreamLink).toBeDefined()
+    expect(upstreamLink).toHaveAttribute('target', '_blank')
+    expect(upstreamLink).toHaveAttribute('rel', 'noopener noreferrer')
+    fireEvent.click(upstreamLink!)
+    await waitFor(() => {
+      expect(mockApi.markSiteAnnouncementRead).toHaveBeenCalledWith(1)
+    })
   })
 
   it('shows a loading state before the first page resolves', async () => {

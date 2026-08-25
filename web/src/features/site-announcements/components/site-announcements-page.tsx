@@ -8,17 +8,22 @@
 // SECURITY: title / content / source fields are UNTRUSTED upstream data.
 // The body is rendered as plain text only (never dangerouslySetInnerHTML,
 // never markdown), and `sourceUrl` is deliberately NOT rendered as a
-// clickable external link.
+// clickable external link unless it resolves safely against the trusted Site URL.
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  RefreshCw,
+} from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -37,12 +42,14 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useSites } from '@/features/sites/api'
+import type { Site } from '@/features/sites/types'
 import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
 import { formatDateTime } from '@/lib/format'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
+import { resolveAnnouncementSourceURL } from '../announcement-source-url'
 import { useSiteAnnouncements, useSiteAnnouncementSyncTask } from '../api'
 import {
   buildSiteAnnouncementsParams,
@@ -149,10 +156,10 @@ export function SiteAnnouncementsPage() {
   const hasMore = rows.length > SITE_ANNOUNCEMENTS_PAGE_SIZE
   const items = hasMore ? rows.slice(0, SITE_ANNOUNCEMENTS_PAGE_SIZE) : rows
 
-  const siteNameById = useMemo(() => {
-    const map = new Map<number, string>()
+  const siteById = useMemo(() => {
+    const map = new Map<number, Site>()
     for (const site of sitesQuery.data ?? []) {
-      map.set(site.id, site.name)
+      map.set(site.id, site)
     }
     return map
   }, [sitesQuery.data])
@@ -240,6 +247,7 @@ export function SiteAnnouncementsPage() {
       void queryClient.invalidateQueries({
         queryKey: siteAnnouncementsKeys.all,
       })
+      void queryClient.invalidateQueries({ queryKey: ['dashboard-attention'] })
     },
     onError: () => toast.error(t('siteAnnouncements.toast.markReadFailed')),
   })
@@ -250,6 +258,7 @@ export function SiteAnnouncementsPage() {
       void queryClient.invalidateQueries({
         queryKey: siteAnnouncementsKeys.all,
       })
+      void queryClient.invalidateQueries({ queryKey: ['dashboard-attention'] })
       toast.success(t('siteAnnouncements.toast.allMarkedRead'))
     },
     onError: () => toast.error(t('siteAnnouncements.toast.markAllFailed')),
@@ -261,6 +270,7 @@ export function SiteAnnouncementsPage() {
       void queryClient.invalidateQueries({
         queryKey: siteAnnouncementsKeys.all,
       })
+      void queryClient.invalidateQueries({ queryKey: ['dashboard-attention'] })
       toast.success(t('siteAnnouncements.toast.cleared'))
     },
     onError: () => toast.error(t('siteAnnouncements.toast.clearFailed')),
@@ -496,6 +506,10 @@ export function SiteAnnouncementsPage() {
             {items.map((item) => {
               const unread = !item.readAt
               const lifecycle = rowLifecycle(item)
+              const sourceURL = resolveAnnouncementSourceURL(
+                item,
+                siteById.get(item.siteId)
+              )
               return (
                 <TableRow key={item.id} data-unread={unread || undefined}>
                   <TableCell className='max-w-[420px]'>
@@ -539,7 +553,7 @@ export function SiteAnnouncementsPage() {
                   <TableCell>
                     <div className='flex flex-col text-sm'>
                       <span>
-                        {siteNameById.get(item.siteId) ??
+                        {siteById.get(item.siteId)?.name ??
                           t('siteAnnouncements.row.siteUnknown', {
                             id: item.siteId,
                           })}
@@ -556,17 +570,37 @@ export function SiteAnnouncementsPage() {
                     <SeenRange item={item} locale={locale} />
                   </TableCell>
                   <TableCell className='text-right'>
-                    {unread ? (
-                      <Button
-                        type='button'
-                        variant='ghost'
-                        size='sm'
-                        disabled={markReadMutation.isPending}
-                        onClick={() => markReadMutation.mutate(item.id)}
-                      >
-                        {t('siteAnnouncements.row.markRead')}
-                      </Button>
-                    ) : null}
+                    <div className='flex items-center justify-end gap-1'>
+                      {sourceURL ? (
+                        <a
+                          href={sourceURL}
+                          target='_blank'
+                          rel='noopener noreferrer'
+                          aria-label={t('siteAnnouncements.row.openUpstream')}
+                          title={t('siteAnnouncements.row.openUpstream')}
+                          className={buttonVariants({
+                            variant: 'ghost',
+                            size: 'icon-sm',
+                          })}
+                          onClick={() => {
+                            if (unread) markReadMutation.mutate(item.id)
+                          }}
+                        >
+                          <ExternalLink aria-hidden='true' />
+                        </a>
+                      ) : null}
+                      {unread ? (
+                        <Button
+                          type='button'
+                          variant='ghost'
+                          size='sm'
+                          disabled={markReadMutation.isPending}
+                          onClick={() => markReadMutation.mutate(item.id)}
+                        >
+                          {t('siteAnnouncements.row.markRead')}
+                        </Button>
+                      ) : null}
+                    </div>
                   </TableCell>
                 </TableRow>
               )

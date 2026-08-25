@@ -37,6 +37,8 @@ import { AttentionBell } from '../components/attention-bell'
 vi.mock('@/lib/api', () => ({
   api: {
     getAttention: vi.fn(),
+    markEventRead: vi.fn(),
+    markSiteAnnouncementRead: vi.fn(),
   },
 }))
 
@@ -74,6 +76,8 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
 })
 
 const mockGetAttention = vi.mocked(api.getAttention)
+const mockMarkEventRead = vi.mocked(api.markEventRead)
+const mockMarkSiteAnnouncementRead = vi.mocked(api.markSiteAnnouncementRead)
 
 // Base UI positions the popover with browser APIs jsdom does not implement.
 beforeAll(() => {
@@ -104,6 +108,10 @@ beforeAll(() => {
 
 beforeEach(async () => {
   mockGetAttention.mockReset()
+  mockMarkEventRead.mockReset()
+  mockMarkEventRead.mockResolvedValue({ success: true })
+  mockMarkSiteAnnouncementRead.mockReset()
+  mockMarkSiteAnnouncementRead.mockResolvedValue({ success: true })
   navigateMock.mockReset()
   await i18n.changeLanguage('en')
 })
@@ -114,6 +122,8 @@ function attentionItem(overrides: {
   severity: 'critical' | 'warning' | 'info'
   label: string
   target?: string
+  category?: string
+  params?: Record<string, string | number>
 }) {
   return {
     category: 'expired_account',
@@ -246,6 +256,58 @@ describe('attention bell', () => {
     expect(navigateMock).toHaveBeenCalledWith({
       href: '/accounts?accountId=7',
     })
+  })
+
+  it('marks an event read when its bell item is opened', async () => {
+    mockGetAttention.mockResolvedValue({
+      items: [
+        attentionItem({
+          severity: 'warning',
+          category: 'event',
+          label: 'Upstream rate limited',
+          target: '/settings/system-info/program-logs',
+          params: { eventId: 12 },
+        }),
+      ],
+      total: 1,
+    })
+
+    const { container } = await openBell()
+    fireEvent.click(
+      await screen.findByRole('button', { name: /Upstream rate limited/ })
+    )
+
+    expect(mockMarkEventRead).toHaveBeenCalledWith(12)
+    expect(navigateMock).toHaveBeenCalledWith({
+      href: '/settings/system-info/program-logs',
+    })
+    await waitFor(() => expect(indicatorOf(container)).toBeNull())
+  })
+
+  it('marks a site announcement read before navigating to the local notice page', async () => {
+    mockGetAttention.mockResolvedValue({
+      items: [
+        attentionItem({
+          category: 'site_announcement',
+          severity: 'info',
+          label: 'Upstream announcement: Maintenance',
+          target: '/site-announcements',
+          params: { announcementId: 33, title: 'Maintenance' },
+        }),
+      ],
+      total: 1,
+    })
+
+    const { container } = await openBell()
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: /Upstream announcement: Maintenance/,
+      })
+    )
+
+    expect(mockMarkSiteAnnouncementRead).toHaveBeenCalledWith(33)
+    expect(navigateMock).toHaveBeenCalledWith({ href: '/site-announcements' })
+    await waitFor(() => expect(indicatorOf(container)).toBeNull())
   })
 
   it('shows a relative timestamp and links to the availability panel', async () => {
