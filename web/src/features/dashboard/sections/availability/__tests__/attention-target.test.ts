@@ -19,6 +19,12 @@ describe('resolveAttentionTarget', () => {
     })
   })
 
+  it('maps a site-announcement target to its local inbox', () => {
+    expect(resolveAttentionTarget('/site-announcements')).toEqual({
+      to: '/site-announcements',
+    })
+  })
+
   it('maps an event target to the settings section path', () => {
     expect(resolveAttentionTarget('/settings/operations/program-logs')).toEqual(
       {

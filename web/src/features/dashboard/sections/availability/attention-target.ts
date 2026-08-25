@@ -18,6 +18,7 @@
 export type AttentionTargetLocation =
   | { to: '/accounts'; search: { accountId: number } }
   | { to: '/sites'; search: { edit: number } }
+  | { to: '/site-announcements' }
   | {
       to: '/settings/$subarea/$section'
       params: { subarea: string; section: string }
@@ -48,6 +49,8 @@ export function resolveAttentionTarget(
         ? { to: '/accounts', search: { accountId } }
         : null
     }
+    case '/site-announcements':
+      return { to: '/site-announcements' }
     case '/sites': {
       const edit = parsePositiveInt(params.get('edit'))
       return edit !== undefined ? { to: '/sites', search: { edit } } : null
