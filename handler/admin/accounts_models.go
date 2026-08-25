@@ -30,13 +30,13 @@ func (h *accountsHandler) getAccountModels(w http.ResponseWriter, r *http.Reques
 	// observes upstream flip to unavailable instead of silently vanishing.
 	type modelRow struct {
 		ModelName string  `db:"model_name"`
-		Available int     `db:"available"`
+		Available bool    `db:"available"`
 		LatencyMs *int64  `db:"latency_ms"`
-		IsManual  int     `db:"is_manual"`
+		IsManual  bool    `db:"is_manual"`
 		CheckedAt *string `db:"checked_at"`
 	}
 	var modelRows []modelRow
-	if err := h.db.Select(&modelRows, h.db.Rebind("SELECT model_name, CASE WHEN available THEN 1 ELSE 0 END AS available, latency_ms, CASE WHEN is_manual THEN 1 ELSE 0 END AS is_manual, checked_at FROM model_availability WHERE account_id = ? ORDER BY model_name ASC"), id); err != nil {
+	if err := h.db.Select(&modelRows, h.db.Rebind("SELECT model_name, available, latency_ms, is_manual, checked_at FROM model_availability WHERE account_id = ? ORDER BY model_name ASC"), id); err != nil {
 		slog.Error("failed to load account model availability", "account_id", id, "err", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"message": "failed to load model availability"})
 		return
@@ -55,10 +55,10 @@ func (h *accountsHandler) getAccountModels(w http.ResponseWriter, r *http.Reques
 	for _, r := range modelRows {
 		models = append(models, map[string]any{
 			"name":      r.ModelName,
-			"available": r.Available != 0,
+			"available": r.Available,
 			"latencyMs": r.LatencyMs,
 			"disabled":  disabledSet[r.ModelName],
-			"isManual":  r.IsManual == 1,
+			"isManual":  r.IsManual,
 			"checkedAt": r.CheckedAt,
 		})
 	}
