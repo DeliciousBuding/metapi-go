@@ -178,20 +178,18 @@ export function AttentionBell() {
   const handleSelect = (item: AttentionItem) => {
     setOpen(false)
 
-    const idKey =
-      item.category === 'site_announcement'
-        ? 'announcementId'
-        : item.category === 'event'
-          ? 'eventId'
-          : null
+    let idKey: 'announcementId' | 'eventId' | null = null
+    if (item.category === 'site_announcement') idKey = 'announcementId'
+    else if (item.category === 'event') idKey = 'eventId'
     const rawID = idKey ? item.params?.[idKey] : undefined
     const itemID = typeof rawID === 'number' ? rawID : Number(rawID)
-    const acknowledge =
-      idKey === 'announcementId' && Number.isInteger(itemID) && itemID > 0
-        ? () => api.markSiteAnnouncementRead(itemID)
-        : idKey === 'eventId' && Number.isInteger(itemID) && itemID > 0
-          ? () => api.markEventRead(itemID)
-          : null
+    const hasValidID = Number.isInteger(itemID) && itemID > 0
+    let acknowledge: (() => Promise<unknown>) | null = null
+    if (idKey === 'announcementId' && hasValidID) {
+      acknowledge = () => api.markSiteAnnouncementRead(itemID)
+    } else if (idKey === 'eventId' && hasValidID) {
+      acknowledge = () => api.markEventRead(itemID)
+    }
 
     if (acknowledge) {
       // The read owner lives in the announcement/event table. Remove the row

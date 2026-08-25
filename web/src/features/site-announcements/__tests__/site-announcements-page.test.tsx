@@ -169,7 +169,8 @@ describe('SiteAnnouncementsPage — list rendering', () => {
     expect(upstreamLink).toBeDefined()
     expect(upstreamLink).toHaveAttribute('target', '_blank')
     expect(upstreamLink).toHaveAttribute('rel', 'noopener noreferrer')
-    fireEvent.click(upstreamLink!)
+    if (!upstreamLink) throw new Error('expected upstream link')
+    fireEvent.click(upstreamLink)
     await waitFor(() => {
       expect(mockApi.markSiteAnnouncementRead).toHaveBeenCalledWith(1)
     })
