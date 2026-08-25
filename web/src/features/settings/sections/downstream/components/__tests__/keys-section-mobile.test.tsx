@@ -76,12 +76,14 @@ beforeEach(() => {
         maxRequests: 100,
         usedCost: 2,
         maxCost: 50,
+        supportedModels: [],
       },
       {
         id: 2,
         name: 'dev key',
         keyMasked: 'sk-…def',
         enabled: false,
+        supportedModels: ['*'],
       },
     ],
   })
@@ -134,6 +136,8 @@ describe('KeysSection — mobile (375px) rendering', () => {
     ).toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Connect' })).toHaveLength(2)
     expect(screen.getAllByRole('button', { name: 'Delete' })).toHaveLength(2)
+    expect(screen.getByText('No models authorized')).toBeInTheDocument()
+    expect(screen.getByText('All models')).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: 'Edit prod key' })
     ).toBeInTheDocument()
@@ -151,6 +155,9 @@ describe('KeysSection — desktop rendering', () => {
     // Desktop keeps the table with its column headers.
     expect(
       screen.getByRole('columnheader', { name: 'Group' })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('columnheader', { name: 'Models' })
     ).toBeInTheDocument()
     expect(
       screen.getByRole('columnheader', { name: 'Usage' })
