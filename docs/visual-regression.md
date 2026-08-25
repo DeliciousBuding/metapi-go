@@ -26,12 +26,13 @@ runtime DB、`AUTH_TOKEN=dev-admin-token-123` 经 localStorage 注入、启动�
 | `MOBILE_SAMPLE` | 全部 mobile 路由 | mobile 抽查子集（逗号分隔） |
 | `DPR` | `2` | 设备像素比 |
 | `OUT_DIR` | OS 临时目录 | 输出目录 |
+| `EXPECTED_DATA_PROFILE` | 空 | 可选 `empty` / `seeded`；截图前核对站点与账号数据，命名与运行态不符即失败 |
 
 本地运行（起服务见 `web/scripts/a11y-scan.mjs` 头部或 CI a11y job 步骤）：
 
 ```bash
 cd web
-node scripts/screenshot-scan.mjs   # 默认连 BASE_URL=http://127.0.0.1:4099
+EXPECTED_DATA_PROFILE=empty node scripts/screenshot-scan.mjs   # 默认连 BASE_URL=http://127.0.0.1:4099
 ```
 
 ## 2. 黄金基线回归（job: `visual-regression`）

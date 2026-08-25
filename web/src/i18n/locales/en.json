@@ -183,7 +183,7 @@
         "title": "Batch availability probe",
         "description": "Runs a synchronous probe pass over the enabled route channels (up to 50 targets) using the same lightweight checker as the background scheduler, then shows the honest per-target outcome.",
         "modelLabel": "Model filter (optional)",
-        "modelPlaceholder": "gpt-4o, claude-sonnet-4 …",
+        "modelPlaceholder": "gpt-5, claude-opus-4.1 …",
         "modelHint": "Leave empty to probe all enabled route channels; separate multiple models with commas or spaces.",
         "runButton": "Run batch probe",
         "runningLabel": "Probing…",
@@ -890,6 +890,7 @@
           "lowBalance": "Low balance: {{name}} ({{amount}})",
           "disabledSite": "Site disabled: {{name}}",
           "balanceUnknown": "Balance unknown: {{name}}",
+          "siteAnnouncement": "Upstream announcement: {{title}}",
           "eventAllProxiesFailed": "All proxies failed",
           "mergedCount": "{{count}} merged events",
           "severity": {
@@ -1268,7 +1269,25 @@
             "enabledAria": "Toggle enabled for {{name}}",
             "editAria": "Edit {{name}}",
             "usage": "Usage",
-            "actions": "Actions"
+            "actions": "Actions",
+            "models": "Models"
+          },
+          "models": {
+            "fieldLabel": "Model access",
+            "hint": "Empty denies all. Add exact names, glob patterns (*), or re: regex rules. All models requires an explicit *.",
+            "inputPlaceholder": "gpt-4o, gpt-*, or re:^claude-",
+            "suggestions": "Matching models",
+            "allowAll": "Allow all",
+            "denyAll": "Deny all",
+            "removeRuleAria": "Remove model rule {{rule}}",
+            "summary": {
+              "rules_one": "{{count}} rule",
+              "rules_other": "{{count}} rules",
+              "routes_one": "{{count}} route grant",
+              "routes_other": "{{count}} route grants",
+              "all": "All models",
+              "none": "No models authorized"
+            }
           },
           "fields": {
             "name": "Name",
@@ -1991,13 +2010,13 @@
         "routingStrategyHint": "Multi-channel selection strategy: weighted random (default), round-robin, stable-first, least-busy, lowest-latency, lowest-cost.",
         "modelMapping": "Model mapping (optional)",
         "modelMappingHint": "Map the matched model name to an upstream model name (JSON object).",
-        "modelMappingPlaceholder": "{\"gpt-4\":\"gpt-4o\"} or leave empty",
+        "modelMappingPlaceholder": "{\"gpt-5\":\"gpt-5-codex\"} or leave empty",
         "save": "Save changes",
         "create": "Add route"
       },
       "formPattern": {
         "modelRule": "Model match rule",
-        "modelRulePlaceholder": "gpt-4o-mini or re:^claude-.*$",
+        "modelRulePlaceholder": "gpt-5-codex or re:^claude-opus-.*$",
         "regexHint": "Currently using regex match (re: prefix).",
         "exactHint": "Currently using exact model match. Use re: prefix for regex.",
         "channels": "Channels (optional)",
@@ -2454,6 +2473,7 @@
       },
       "row": {
         "markRead": "Mark read",
+        "openUpstream": "Open upstream page",
         "unread": "Unread",
         "dismissed": "Dismissed",
         "expired": "Expired",
@@ -2917,6 +2937,7 @@
       "trigger": "Attention items",
       "triggerWithCount": "Attention items ({{value}} pending)",
       "title": "Attention required",
+      "description": "Unresolved items from account, balance, site, event and announcement conditions. Each item disappears once its condition is resolved.",
       "empty": "Nothing needs attention right now.",
       "loadError": "Failed to load attention items.",
       "viewAll": "View all attention items",

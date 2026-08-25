@@ -2,11 +2,18 @@
 
 **Last verified**: 2026-08-25
 
-**Release**: [v0.16.11](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.11) · released on master; production promotion follows the release and soak gate
+**Release**: [v0.16.12](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.12) · released on master; production promotion follows the release and soak gate
 
 > This is the only execution plan. It contains open work, order, ownership, and acceptance criteria. Current facts → [`../STATE.md`](../STATE.md) · product positioning → [`../benchmark.md`](../benchmark.md) · timeline → [`../log.md`](../log.md).
 
-## Current active work — 需求驱动（v0.16.9+）
+## Current active work — Wave 12 demand truth
+
+权威分析与拆分：[`../analysis/wave12-demand-truth.md`](../analysis/wave12-demand-truth.md)。执行分两次 patch-first 发布：
+
+- **Wave 12A → v0.16.12**：#996 Sites 分页、#999 API key 模型策略 UI、#1001 账号表单站点搜索、#1000 公告进入 attention + #997 待处理语义澄清、截图数据 profile 真值门禁（已合入）。
+- **Wave 12B → v0.16.13**：#1002 session 账号创建后 service-owned token sync（失败不回滚账号）→ #998 上游模型刷新/手工模型管理/创建后持久化；周期 scheduler 延后到明确需求。
+- **共享写点唯一归属**：locale、CHANGELOG、package version、STATE/MASTER/log 仅 integration lane 修改；实现 lane 不并发改共享文件。
+- **当前阶段**：Wave 12A 已合入（→ v0.16.12）；Wave 12B 执行中（#1002 → #998 → integration），完成条件为 focused tests + 全本地门禁 + SQLite/PostgreSQL 双方言安全复核。
 
 历史完成冻结：Round 1 #887 → v0.16.3、Round 2 #889 → v0.16.4、#887 补遗 + E2E → v0.16.5、Round 3 修复波 → v0.16.6、Wave 4 综合质量波 → v0.16.7、Wave 5+6 开发 + 深审计波 → v0.16.8、Wave 7+8+9 前端体验/语义/设置/catalog/移动端审计波 → v0.16.9、Wave 10 Sites demand batch → v0.16.10 、Wave 11 UX 真值波 → v0.16.11 均已发布。
 

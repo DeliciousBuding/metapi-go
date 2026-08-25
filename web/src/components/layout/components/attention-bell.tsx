@@ -12,7 +12,7 @@
 // the same 10s poll as the availability panel — so TanStack Query dedupes the
 // request and shares one cache entry instead of opening a second data source.
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { Bell } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
@@ -49,6 +49,7 @@ type AttentionItem = {
   label: string
   target: string
   createdAt: string
+  params?: Record<string, string | number>
 }
 
 /** Attention response (GET /api/stats/attention?limit=20). */
@@ -104,7 +105,7 @@ function formatBadgeCount(count: number): string {
 type AttentionListProps = {
   items: AttentionItem[]
   locale: string
-  onSelect: (target: string) => void
+  onSelect: (item: AttentionItem) => void
 }
 
 function AttentionList(props: AttentionListProps) {
@@ -128,7 +129,7 @@ function AttentionList(props: AttentionListProps) {
             <Button
               variant='ghost'
               className='h-auto w-full items-start justify-start gap-2 px-2 py-2 text-start font-normal whitespace-normal'
-              onClick={() => props.onSelect(item.target)}
+              onClick={() => props.onSelect(item)}
             >
               <Badge variant={badgeVariant} className='mt-px shrink-0'>
                 <span
@@ -161,6 +162,7 @@ export function AttentionBell() {
   const { t, i18n } = useTranslation()
   const locale = toBcp47(i18n.language || 'en')
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
 
   const { data, isLoading, isError } = useQuery({
@@ -173,11 +175,48 @@ export function AttentionBell() {
   const items = data?.items ?? []
   const highestSeverity = resolveHighestSeverity(items)
 
-  const handleSelect = (target: string) => {
+  const handleSelect = (item: AttentionItem) => {
     setOpen(false)
+
+    let idKey: 'announcementId' | 'eventId' | null = null
+    if (item.category === 'site_announcement') idKey = 'announcementId'
+    else if (item.category === 'event') idKey = 'eventId'
+    const rawID = idKey ? item.params?.[idKey] : undefined
+    const itemID = typeof rawID === 'number' ? rawID : Number(rawID)
+    const hasValidID = Number.isInteger(itemID) && itemID > 0
+    let acknowledge: (() => Promise<unknown>) | null = null
+    if (idKey === 'announcementId' && hasValidID) {
+      acknowledge = () => api.markSiteAnnouncementRead(itemID)
+    } else if (idKey === 'eventId' && hasValidID) {
+      acknowledge = () => api.markEventRead(itemID)
+    }
+
+    if (acknowledge) {
+      // The read owner lives in the announcement/event table. Remove the row
+      // optimistically so the header count reacts to the click, then refetch
+      // to restore it if the write fails. Computed account/site conditions
+      // intentionally stay until their underlying condition is resolved.
+      queryClient.setQueryData<AttentionResponse>(
+        ['dashboard-attention', ATTENTION_LIMIT],
+        (current) =>
+          current
+            ? {
+                ...current,
+                items: current.items.filter((candidate) => candidate !== item),
+                total: Math.max(0, current.total - 1),
+              }
+            : current
+      )
+      void acknowledge().finally(() => {
+        void queryClient.invalidateQueries({
+          queryKey: ['dashboard-attention'],
+        })
+      })
+    }
+
     // `target` is a plain SPA path (possibly with a query string), so it goes
     // through the router's `href` option instead of window.location.
-    if (target) navigate({ href: target })
+    if (item.target) navigate({ href: item.target })
   }
 
   const triggerLabel =
@@ -249,8 +288,13 @@ export function AttentionBell() {
         align='end'
         className='w-80 max-w-(--available-width) gap-0 p-0'
       >
-        <div className='flex items-center justify-between gap-2 px-3 py-2'>
-          <span className='text-sm font-semibold'>{t('attention.title')}</span>
+        <div className='flex items-start justify-between gap-2 px-3 py-2'>
+          <div className='min-w-0'>
+            <p className='text-sm font-semibold'>{t('attention.title')}</p>
+            <p className='text-muted-foreground text-xs'>
+              {t('attention.description')}
+            </p>
+          </div>
           {highestSeverity ? (
             <Badge variant={SEVERITY_BADGE_VARIANT[highestSeverity]}>
               {items.length}

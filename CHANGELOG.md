@@ -5,6 +5,21 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.16.12] — 2026-08-25
+
+### Added
+
+- **下游 key 模型授权 UI（#999）**：密钥表单新增模型授权编辑器——精确模型名、glob 通配（`*`）、`re:` 正则；空即拒绝所有、`*` 为显式全允许，后端既有 fail-closed 过滤保持唯一执行点。
+- **账号表单可搜索站点选择器（#1001）**：账号创建/编辑对话框的站点选择支持名称/URL/平台搜索与键盘选择，写入数字 `siteId`，保留深链预选。
+- **上游公告进入 attention（#1000）**：未读站点公告作为条件派生条目进入 attention bell 与仪表盘待办面板；读状态唯一来源为 `site_announcements.read_at`，审计事件行不再产生重复条目。
+- **截图数据 profile 门禁**：截图扫描必须先声明 `empty` 或 `seeded`；profile 与实际数据不符时在截图前即失败，配套静态测试。
+
+### Fixed
+
+- **Sites 分页 URL 状态保持（#996）**：表格内部页码重置后，页码仍由 URL 参数控制，第 2 页稳定渲染 11-20 行。
+- **公告来源链接安全（#1000）**：公告页外链只接受基于受信本地站点 URL 解析出的 HTTP(S) 地址；不安全或未知的来源地址回退为站点首页且永不渲染为外链。
+- **attention 条目语义显式化（#997）**：attention bell 明确为“未解决条件条目”，条件解除即消失，不提供伪造的客户端清除按钮；事件条目按未读过滤并携带 program-logs 深链参数。
+
 ## [v0.16.11] — 2026-08-25
 
 ### Added

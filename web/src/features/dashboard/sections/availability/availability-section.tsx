@@ -139,6 +139,12 @@ function attentionLabel(
         ? t('dashboard.availability.monitors.balanceUnknown', { name })
         : item.label
     }
+    case 'site_announcement': {
+      const title = item.params?.title
+      return typeof title === 'string' && title !== ''
+        ? t('dashboard.availability.monitors.siteAnnouncement', { title })
+        : item.label
+    }
     case 'event': {
       const key = EVENT_TITLE_KEYS[item.label]
       return key ? t(key) : item.label

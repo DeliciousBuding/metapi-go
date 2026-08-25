@@ -5,6 +5,17 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-08-25 — Wave 12A demand truth 发布 v0.16.12
+
+- 五 lane 并行（captain 编排）后集成 `batch/w12-product-truth`：
+  - A：Sites 分页保持 URL 控制（#996）；页码重置后 page=1 仍渲染 11-20 行。
+  - B：下游 key 模型策略编辑器（#999）——精确/通配/`re:` 正则规则，空即拒绝、`*` 显式全允许；后端过滤保持唯一执行点。
+  - C：账号表单站点选择器可搜索（#1001）——名称/URL/平台搜索、键盘选择、数字 siteId、深链预选保留。
+  - D：公告进 attention（#1000）+ 待办语义澄清（#997）——read_at 唯一读状态、审计事件不重复、外链只信本地站点 URL 解析出的 HTTP(S)。
+  - E：截图扫描数据 profile 门禁——采集前声明 empty/seeded，错配在截图前失败。
+- 集成 lane 补齐 14 个 i18n 键（en + zh-CN 对称，含 `_one`/`_other` 复数形态）。
+- 上一会话 4110/4111 视觉证据被旧进程污染；已在 4120（seeded）/4121（确认 empty）用当前 master 重建，并重扫 112 张×2 矩阵。
+
 ## 2026-08-25 — Wave 11 UX 真值波发布 v0.16.11
 
 - 四 lane 并行（captain 编排）后集成 `batch/w11-ux-truth`：

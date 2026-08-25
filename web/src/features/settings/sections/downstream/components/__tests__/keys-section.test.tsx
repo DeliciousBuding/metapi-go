@@ -37,7 +37,7 @@ import {
 import '@/i18n/config'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 
-import { KeySheetForm, KeyUsageCell } from '../keys-section'
+import { KeyModelPolicyCell, KeySheetForm, KeyUsageCell } from '../keys-section'
 
 // vi.hoisted keeps the mock fn identities stable across the factory's
 // re-evaluation, so the vi.mock below can reference them by closure.
@@ -107,6 +107,7 @@ function renderKeySheetForm(props: {
   onDone?: () => void
   onCreated?: (target: { id: number; name: string; keyMasked?: string }) => void
   onDirtyChange?: (dirty: boolean) => void
+  candidateModels?: string[]
 }) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -129,6 +130,7 @@ function renderKeySheetForm(props: {
                 onDone={onDone}
                 onCreated={onCreated}
                 onDirtyChange={props.onDirtyChange}
+                candidateModels={props.candidateModels}
               />
             </SheetContent>
           </Sheet>
@@ -153,6 +155,7 @@ const knownKey = {
   usedRequests: 10,
   usedCost: 5,
   expiresAt: null,
+  supportedModels: '["gpt-4o","gpt-*","re:^claude-"]',
 } as NonNullable<Parameters<typeof KeySheetForm>[0]['editingKey']>
 
 describe('KeySheetForm — edit mode', () => {
@@ -164,6 +167,12 @@ describe('KeySheetForm — edit mode', () => {
     // Numeric inputs report valueAsNumber; assert against numbers, not strings.
     expect(screen.getByLabelText('Max requests')).toHaveValue(1000)
     expect(screen.getByLabelText('Max cost')).toHaveValue(50)
+    expect(screen.getByText('gpt-4o')).toBeInTheDocument()
+    expect(screen.getByText('gpt-*')).toBeInTheDocument()
+    expect(screen.getByText('re:^claude-')).toBeInTheDocument()
+    expect(screen.getByTestId('model-policy-form-summary')).toHaveTextContent(
+      '3 rules'
+    )
   })
 
   it('hides the secret `key` field (and Generate button) in edit mode', () => {
@@ -201,6 +210,7 @@ describe('KeySheetForm — edit mode', () => {
         maxCost: 50,
         enabled: true,
         expiresAt: '',
+        supportedModels: ['gpt-4o', 'gpt-*', 're:^claude-'],
       })
     )
     const updatePayload = mockUpdateKey.mock.calls[0][1] as Record<
@@ -231,6 +241,10 @@ describe('KeySheetForm — create mode', () => {
     expect(screen.getByLabelText('Key')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Generate' })).toBeInTheDocument()
 
+    expect(screen.getByTestId('model-policy-form-summary')).toHaveTextContent(
+      'No models authorized'
+    )
+
     // Fill the two required fields (name non-empty, key ≥ 8 chars) so the
     // zodResolver passes and the submit reaches the mutation.
     fireEvent.change(screen.getByLabelText('Name'), {
@@ -256,6 +270,7 @@ describe('KeySheetForm — create mode', () => {
       expect.objectContaining({
         name: 'New key',
         key: 'sk-12345678',
+        supportedModels: [],
       })
     )
     const createPayload = mockCreateKey.mock.calls[0][0] as Record<
@@ -269,6 +284,78 @@ describe('KeySheetForm — create mode', () => {
       expect(onDone).toHaveBeenCalledTimes(1)
     })
     expect(mockToastSuccess).toHaveBeenCalledTimes(1)
+  })
+
+  it('persists exact, glob, and regex rules selected from inventory or entered manually', async () => {
+    renderKeySheetForm({
+      editingKey: null,
+      candidateModels: ['gpt-4o', 'gpt-4o-mini', 'claude-sonnet-4'],
+    })
+
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'Pattern key' },
+    })
+    fireEvent.change(screen.getByLabelText('Key'), {
+      target: { value: 'sk-pattern-key' },
+    })
+
+    const modelRuleInput = screen.getByLabelText('Model access')
+    fireEvent.change(modelRuleInput, { target: { value: 'gpt-4o' } })
+    fireEvent.click(screen.getByRole('option', { name: '+ gpt-4o' }))
+
+    fireEvent.change(modelRuleInput, { target: { value: 'claude-*' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+
+    fireEvent.change(modelRuleInput, { target: { value: 're:^deepseek-' } })
+    fireEvent.keyDown(modelRuleInput, { key: 'Enter', code: 'Enter' })
+
+    expect(screen.getByText('gpt-4o')).toBeInTheDocument()
+    expect(screen.getByText('claude-*')).toBeInTheDocument()
+    expect(screen.getByText('re:^deepseek-')).toBeInTheDocument()
+    expect(screen.getByTestId('model-policy-form-summary')).toHaveTextContent(
+      '3 rules'
+    )
+
+    const form = document.querySelector('form')
+    if (!form) throw new Error('KeySheetForm did not render its <form>')
+    fireEvent.submit(form)
+
+    await waitFor(() => {
+      expect(mockCreateKey).toHaveBeenCalledTimes(1)
+    })
+    expect(mockCreateKey).toHaveBeenCalledWith(
+      expect.objectContaining({
+        supportedModels: ['gpt-4o', 'claude-*', 're:^deepseek-'],
+      })
+    )
+  })
+
+  it('requires an explicit wildcard rule to authorize all models', async () => {
+    renderKeySheetForm({ editingKey: null })
+
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'All models key' },
+    })
+    fireEvent.change(screen.getByLabelText('Key'), {
+      target: { value: 'sk-all-models' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Allow all' }))
+
+    expect(screen.getByTestId('model-policy-form-summary')).toHaveTextContent(
+      'All models'
+    )
+    expect(screen.getByText('*')).toBeInTheDocument()
+
+    const form = document.querySelector('form')
+    if (!form) throw new Error('KeySheetForm did not render its <form>')
+    fireEvent.submit(form)
+
+    await waitFor(() => {
+      expect(mockCreateKey).toHaveBeenCalledTimes(1)
+    })
+    expect(mockCreateKey).toHaveBeenCalledWith(
+      expect.objectContaining({ supportedModels: ['*'] })
+    )
   })
 
   it('reports the created key to onCreated so KeysSection can auto-open Connect', async () => {
@@ -386,5 +473,28 @@ describe('KeyUsageCell — 24h usage line', () => {
     render(<KeyUsageCell item={baseItem} />)
 
     expect(screen.getByText('24h: 0 req · 0 tok · $0')).toBeInTheDocument()
+  })
+})
+
+describe('KeyModelPolicyCell — fail-closed summaries', () => {
+  it('does not describe an empty policy as all models', () => {
+    render(<KeyModelPolicyCell supportedModels={[]} />)
+
+    expect(screen.getByText('No models authorized')).toBeInTheDocument()
+    expect(screen.queryByText('All models')).toBeNull()
+  })
+
+  it('distinguishes an explicit wildcard from a finite rule set', () => {
+    render(
+      <div>
+        <KeyModelPolicyCell supportedModels={['*']} />
+        <KeyModelPolicyCell supportedModels={['gpt-4o', 'claude-*']} />
+        <KeyModelPolicyCell supportedModels={[]} allowedRouteIds={[12, 13]} />
+      </div>
+    )
+
+    expect(screen.getByText('All models')).toBeInTheDocument()
+    expect(screen.getByText('2 rules')).toBeInTheDocument()
+    expect(screen.getByText('2 route grants')).toBeInTheDocument()
   })
 })
