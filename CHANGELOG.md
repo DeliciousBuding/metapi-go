@@ -17,7 +17,7 @@ All notable changes to Metapi-Go will be documented in this file.
 
 - **Accounts 行级 pending**：pin / check-in 切换补行级 pending 反馈（Spinner + disabled），与 status 切换互不串台。
 - **路由页视图持久**：`showZeroChannel` 开关持久化到 localStorage，视图选择跨导航与刷新保留。
-- **前端测试真值**：移除 vitest `dangerouslyIgnoreUnhandledErrors`（移除后全套零 unhandled 错误）；a11y-scan 路由对齐 route-smoke 单一来源（15 → 41 路由），41 路由 0 serious/critical。
+- **前端测试真值**：移除前端单元测试中对 unhandled 错误的全局豁免开关（移除后全套零 unhandled 错误）；a11y-scan 路由对齐 route-smoke 单一来源（15 → 41 路由），41 路由 0 serious/critical。
 
 ### Accessibility
 
