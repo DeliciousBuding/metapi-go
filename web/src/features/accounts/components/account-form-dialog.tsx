@@ -10,7 +10,7 @@
 // chain — rather than a plain confirmation.
 
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CheckCircle2, TriangleAlert } from 'lucide-react'
+import { CheckCircle2, ChevronsUpDown, TriangleAlert } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   useForm,
@@ -22,6 +22,14 @@ import { useTranslation } from 'react-i18next'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import {
   Form,
   FormControl,
   FormDescription,
@@ -31,6 +39,11 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -104,6 +117,17 @@ function resolveAxiosErrorMessage(error: unknown): string {
   return ''
 }
 
+function getSiteLabel(site: Site): string {
+  const label = site.name || site.url || `#${site.id}`
+  return site.platform ? `${label} · ${site.platform}` : label
+}
+
+function getSiteSearchValue(site: Site): string {
+  return [site.name, site.url, site.platform, String(site.id)]
+    .filter(Boolean)
+    .join(' ')
+}
+
 export function AccountFormDialog({
   open,
   onOpenChange,
@@ -134,11 +158,13 @@ export function AccountFormDialog({
 
   const credentialMode = form.watch('credentialMode') as CredentialMode
   const [initializedFor, setInitializedFor] = useState<string | null>(null)
+  const [siteSelectorOpen, setSiteSelectorOpen] = useState(false)
   const isInitialized = initializedFor !== null
 
   useEffect(() => {
     if (!open) {
       setInitializedFor(null)
+      setSiteSelectorOpen(false)
       return
     }
     const targetKey = isEdit && account ? `edit:${account.id}` : 'create'
@@ -175,6 +201,16 @@ export function AccountFormDialog({
     status: 'idle',
   })
   const verificationRequestId = useRef(0)
+  const siteSearchInputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (!siteSelectorOpen) return
+
+    const animationFrameId = window.requestAnimationFrame(() => {
+      siteSearchInputRef.current?.focus()
+    })
+    return () => window.cancelAnimationFrame(animationFrameId)
+  }, [siteSelectorOpen])
+
   const watchedSiteId = form.watch('siteId')
   const watchedAccessToken = form.watch('accessToken')
   const watchedApiToken = form.watch('apiToken')
@@ -300,49 +336,116 @@ export function AccountFormDialog({
             <FormField
               control={form.control}
               name='siteId'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('accounts.form.site')}</FormLabel>
-                  <Select
-                    value={field.value ? String(field.value) : ''}
-                    onValueChange={(value) => field.onChange(Number(value))}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue>
-                          {(selected) => {
-                            if (!selected) {
-                              return t('accounts.form.sitePlaceholder')
+              render={({ field }) => {
+                const selectedSite = siteOptions.find(
+                  (site) => site.id === field.value
+                )
+                const hasSelection = field.value > 0
+                let selectedLabel = t('accounts.form.sitePlaceholder')
+                if (selectedSite) {
+                  selectedLabel = getSiteLabel(selectedSite)
+                } else if (hasSelection) {
+                  selectedLabel = `#${field.value}`
+                }
+
+                return (
+                  <FormItem>
+                    <FormLabel>{t('accounts.form.site')}</FormLabel>
+                    <Popover
+                      open={siteSelectorOpen}
+                      onOpenChange={(nextOpen) => {
+                        setSiteSelectorOpen(nextOpen)
+                        if (!nextOpen) field.onBlur()
+                      }}
+                    >
+                      <FormControl>
+                        <PopoverTrigger
+                          render={
+                            <Button
+                              type='button'
+                              variant='outline'
+                              role='combobox'
+                              aria-expanded={siteSelectorOpen}
+                              aria-haspopup='listbox'
+                              className='w-full justify-between font-normal'
+                            />
+                          }
+                        >
+                          <span
+                            className={
+                              hasSelection
+                                ? 'min-w-0 flex-1 truncate text-left'
+                                : 'text-muted-foreground min-w-0 flex-1 truncate text-left'
                             }
-                            const site = siteOptions.find(
-                              (item) => String(item.id) === selected
-                            )
-                            if (!site) return String(selected)
-                            const suffix = site.platform
-                              ? ` · ${site.platform}`
-                              : ''
-                            return `${site.name || site.url || `#${site.id}`}${suffix}`
-                          }}
-                        </SelectValue>
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {siteOptions.length === 0 && (
-                        <SelectItem value='__none' disabled>
-                          {t('accounts.form.siteEmpty')}
-                        </SelectItem>
-                      )}
-                      {siteOptions.map((site) => (
-                        <SelectItem key={site.id} value={String(site.id)}>
-                          {site.name || site.url || `#${site.id}`}
-                          {site.platform ? ` · ${site.platform}` : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+                          >
+                            {selectedLabel}
+                          </span>
+                          <ChevronsUpDown
+                            aria-hidden='true'
+                            className='text-muted-foreground size-4 opacity-50'
+                          />
+                        </PopoverTrigger>
+                      </FormControl>
+                      <PopoverContent
+                        align='start'
+                        initialFocus={siteSearchInputRef}
+                        className='w-(--anchor-width) max-w-[calc(100vw-2rem)] p-0'
+                      >
+                        <Command>
+                          <CommandInput
+                            ref={siteSearchInputRef}
+                            placeholder={t('sites.toolbar.searchPlaceholder')}
+                          />
+                          <CommandList className='max-h-[min(20rem,var(--available-height))]'>
+                            <CommandEmpty>
+                              {siteOptions.length === 0
+                                ? t('accounts.form.siteEmpty')
+                                : t('No results found.')}
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {siteOptions.map((site) => {
+                                const label =
+                                  site.name || site.url || `#${site.id}`
+                                const details = [
+                                  site.platform,
+                                  site.name ? site.url : '',
+                                ]
+                                  .filter(Boolean)
+                                  .join(' · ')
+
+                                return (
+                                  <CommandItem
+                                    key={site.id}
+                                    value={getSiteSearchValue(site)}
+                                    data-checked={field.value === site.id}
+                                    onSelect={() => {
+                                      field.onChange(site.id)
+                                      field.onBlur()
+                                      setSiteSelectorOpen(false)
+                                    }}
+                                  >
+                                    <span className='min-w-0 flex-1'>
+                                      <span className='block truncate'>
+                                        {label}
+                                      </span>
+                                      {details && (
+                                        <span className='text-muted-foreground block truncate text-xs'>
+                                          {details}
+                                        </span>
+                                      )}
+                                    </span>
+                                  </CommandItem>
+                                )
+                              })}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )
+              }}
             />
 
             {/* Credential mode toggle */}
