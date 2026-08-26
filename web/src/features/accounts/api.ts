@@ -66,6 +66,14 @@ export function useAccounts(
 // useCreateAccount — POST /api/accounts
 // ---------------------------------------------------------------------------
 
+/**
+ * Post-create token sync statuses reported truthfully by the backend
+ * (handler/admin/account_tokens_sync.go). `synced`/`empty`/`skipped` are
+ * informational; `failed` means partial initialization — the account row is
+ * persisted but its upstream tokens did not sync.
+ */
+export type TokenSyncStatus = 'synced' | 'empty' | 'failed' | 'skipped'
+
 export interface CreateAccountResult {
   success?: boolean
   message?: string
@@ -74,6 +82,9 @@ export interface CreateAccountResult {
     id?: number
     status?: 'created' | 'failed'
   }>
+  tokenCount?: number
+  tokenSyncStatus?: TokenSyncStatus
+  tokenSyncMessage?: string
 }
 
 export function resolveCreatedAccountId(
@@ -115,6 +126,9 @@ export interface LoginAccountResult {
   message?: string
   account?: { id?: number; username?: string }
   reusedAccount?: boolean
+  tokenCount?: number
+  tokenSyncStatus?: TokenSyncStatus
+  tokenSyncMessage?: string
 }
 
 export function useLoginAccount() {

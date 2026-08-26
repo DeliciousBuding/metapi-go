@@ -1869,6 +1869,14 @@
         "description": "Next step: configure routes for this account to make it usable.",
         "action": "Configure routes"
       },
+      "tokenSync": {
+        "syncedDescription_one": "{{count}} upstream token synced. Next step: configure routes for this account to make it usable.",
+        "syncedDescription_other": "{{count}} upstream tokens synced. Next step: configure routes for this account to make it usable.",
+        "emptyDescription": "No upstream tokens were found for this account yet. Next step: configure routes for this account to make it usable.",
+        "partialTitle": "Account added, but token sync failed",
+        "loginPartialTitle": "Account bound, but token sync failed",
+        "partialDescription": "{{message}} The account is saved; you can retry the sync from its token panel."
+      },
       "toast": {
         "updated": "Account updated",
         "balanceRefreshed": "Balance refreshed",

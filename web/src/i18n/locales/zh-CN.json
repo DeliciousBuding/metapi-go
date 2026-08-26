@@ -1869,6 +1869,14 @@
         "description": "下一步：为这个账号配置路由，让它真正可用。",
         "action": "配置路由"
       },
+      "tokenSync": {
+        "syncedDescription_one": "已从上游同步 {{count}} 个令牌。下一步：为这个账号配置路由，让它真正可用。",
+        "syncedDescription_other": "已从上游同步 {{count}} 个令牌。下一步：为这个账号配置路由，让它真正可用。",
+        "emptyDescription": "暂未发现该账号的上游令牌。下一步：为这个账号配置路由，让它真正可用。",
+        "partialTitle": "账号已添加，但令牌同步失败",
+        "loginPartialTitle": "账号已绑定，但令牌同步失败",
+        "partialDescription": "{{message}} 账号已保存，可在其令牌面板重试同步。"
+      },
       "toast": {
         "updated": "账号已更新",
         "balanceRefreshed": "余额已刷新",

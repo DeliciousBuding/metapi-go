@@ -28,6 +28,15 @@ const mutations = vi.hoisted(() => ({
   verify: { mutateAsync: vi.fn() },
 }))
 const showAccountCreatedToast = vi.hoisted(() => vi.fn())
+const showAccountLoginToast = vi.hoisted(() => vi.fn())
+const toastMocks = vi.hoisted(() => ({
+  success: vi.fn(),
+  warning: vi.fn(),
+  error: vi.fn(),
+  info: vi.fn(),
+}))
+
+vi.mock('@/lib/toast', () => ({ toast: toastMocks }))
 
 vi.mock('../api', () => ({
   resolveCreatedAccountId: (result: { id?: number } | undefined) => result?.id,
@@ -37,7 +46,10 @@ vi.mock('../api', () => ({
   useVerifyAccountToken: () => mutations.verify,
 }))
 
-vi.mock('./account-created-toast', () => ({ showAccountCreatedToast }))
+vi.mock('./account-created-toast', () => ({
+  showAccountCreatedToast,
+  showAccountLoginToast,
+}))
 
 const sites = [
   {
@@ -82,6 +94,11 @@ beforeEach(async () => {
   mutations.update.mutateAsync.mockReset()
   mutations.verify.mutateAsync.mockReset()
   showAccountCreatedToast.mockReset()
+  showAccountLoginToast.mockReset()
+  toastMocks.success.mockReset()
+  toastMocks.warning.mockReset()
+  toastMocks.error.mockReset()
+  toastMocks.info.mockReset()
 })
 
 afterEach(() => cleanup())
@@ -229,7 +246,11 @@ describe('AccountFormDialog submission contracts', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Add account' }))
 
     await waitFor(() => {
-      expect(showAccountCreatedToast).toHaveBeenCalledWith(42, 7)
+      expect(showAccountCreatedToast).toHaveBeenCalledWith(42, 7, {
+        tokenCount: undefined,
+        tokenSyncStatus: undefined,
+        tokenSyncMessage: undefined,
+      })
     })
   })
 
@@ -268,5 +289,91 @@ describe('AccountFormDialog submission contracts', () => {
         }),
       })
     })
+  })
+})
+
+describe('AccountFormDialog token sync truthfulness', () => {
+  it('forwards the create sync report to the guided route toast', async () => {
+    mutations.create.mutateAsync.mockResolvedValue({
+      id: 42,
+      tokenCount: 3,
+      tokenSyncStatus: 'synced',
+      tokenSyncMessage: 'synced 3 tokens',
+    })
+    renderAccountForm()
+
+    fireEvent.change(await screen.findByLabelText('Access Token / Cookie'), {
+      target: { value: 'session-token' },
+    })
+    fireEvent.click(await screen.findByRole('button', { name: 'Add account' }))
+
+    await waitFor(() => {
+      expect(showAccountCreatedToast).toHaveBeenCalledWith(42, 7, {
+        tokenCount: 3,
+        tokenSyncStatus: 'synced',
+        tokenSyncMessage: 'synced 3 tokens',
+      })
+    })
+  })
+
+  it('downgrades a failed login sync to a partial-initialization warning', async () => {
+    mutations.login.mutateAsync.mockResolvedValue({
+      success: true,
+      account: { id: 9 },
+      tokenCount: 0,
+      tokenSyncStatus: 'failed',
+      tokenSyncMessage:
+        'partial initialization: token sync failed: upstream 500',
+    })
+    renderAccountForm()
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Password' }))
+    fireEvent.change(await screen.findByLabelText('Username'), {
+      target: { value: 'site-user' },
+    })
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'site-pass' },
+    })
+    fireEvent.click(await screen.findByRole('button', { name: 'Add account' }))
+
+    await waitFor(() => {
+      expect(showAccountLoginToast).toHaveBeenCalledWith(9, 7, undefined, {
+        tokenCount: 0,
+        tokenSyncStatus: 'failed',
+        tokenSyncMessage:
+          'partial initialization: token sync failed: upstream 500',
+      })
+    })
+    expect(showAccountCreatedToast).not.toHaveBeenCalled()
+  })
+
+  it('keeps the plain success toast when the login sync is healthy', async () => {
+    mutations.login.mutateAsync.mockResolvedValue({
+      success: true,
+      account: { id: 9 },
+      tokenCount: 2,
+      tokenSyncStatus: 'synced',
+      tokenSyncMessage: 'synced 2 tokens',
+    })
+    renderAccountForm()
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Password' }))
+    fireEvent.change(await screen.findByLabelText('Username'), {
+      target: { value: 'site-user' },
+    })
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'site-pass' },
+    })
+    fireEvent.click(await screen.findByRole('button', { name: 'Add account' }))
+
+    await waitFor(() => {
+      expect(showAccountLoginToast).toHaveBeenCalledWith(9, 7, undefined, {
+        tokenCount: 2,
+        tokenSyncStatus: 'synced',
+        tokenSyncMessage: 'synced 2 tokens',
+      })
+    })
+    expect(toastMocks.success).not.toHaveBeenCalled()
+    expect(toastMocks.warning).not.toHaveBeenCalled()
   })
 })
