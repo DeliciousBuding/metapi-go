@@ -2914,6 +2914,17 @@
         "manualOverrideSetActive": "已手动设置"
       }
     },
+    "probeHealth": {
+      "column": "探测健康",
+      "empty": "暂无探测",
+      "ariaSummary": "{{total}} 次探测中 {{success}} 次成功",
+      "tooltip": {
+        "window": "最近 {{total}} 次探测",
+        "successRate": "成功率：{{rate}}%（{{success}}/{{total}}）",
+        "avgLatency": "平均延迟：{{value}}",
+        "noLatency": "无延迟数据"
+      }
+    },
     "connect": {
       "title": "接入 {{name}}",
       "description": "复制网关地址与密钥，或一键导入客户端。",

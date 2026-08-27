@@ -26,6 +26,10 @@ import {
 import { memo, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import {
+  ProbeHealthBar,
+  type ProbeHistoryMap,
+} from '@/components/common/probe-health-bar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -290,7 +294,8 @@ export function useAccountsColumns(
   actions: AccountRowActions,
   pendingStatusId: number | null = null,
   pendingCheckinId: number | null = null,
-  pendingPinId: number | null = null
+  pendingPinId: number | null = null,
+  probeHistory?: ProbeHistoryMap
 ): ColumnDef<Account>[] {
   const { t } = useTranslation()
   const resolveHealth = useResolveHealth()
@@ -440,6 +445,23 @@ export function useAccountsColumns(
         meta: { mobileBadge: true },
       },
       {
+        id: 'probeHealth',
+        accessorFn: (row) => probeHistory?.[row.id]?.length ?? 0,
+        enableSorting: false,
+        header: () => (
+          <span className='text-muted-foreground text-xs'>
+            {t('probeHealth.column')}
+          </span>
+        ),
+        cell: ({ row }) => (
+          <ProbeHealthBar
+            results={probeHistory?.[row.original.id]}
+            pending={probeHistory === undefined}
+          />
+        ),
+        meta: { mobileHidden: true },
+      },
+      {
         accessorKey: 'balance',
         header: t('accounts.columns.balance'),
         cell: ({ row }) => {
@@ -563,6 +585,7 @@ export function useAccountsColumns(
       resolveHealth,
       resolveDisplayName,
       t,
+      probeHistory,
     ]
   )
 }

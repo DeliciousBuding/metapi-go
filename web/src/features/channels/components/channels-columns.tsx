@@ -14,6 +14,10 @@ import {
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import {
+  ProbeHealthBar,
+  type ProbeHistoryMap,
+} from '@/components/common/probe-health-bar'
 import { DataTableColumnHeader } from '@/components/data-table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -71,7 +75,8 @@ export const CHANNELS_STATUS_FILTER_OPTIONS: {
 ).map((status) => ({ value: status, labelKey: STATUS_CONFIG[status].labelKey }))
 
 export function useChannelsColumns(
-  actions?: ChannelsColumnActions
+  actions?: ChannelsColumnActions,
+  probeHistory?: ProbeHistoryMap
 ): ColumnDef<ChannelRow>[] {
   const { t, i18n } = useTranslation()
   const locale = toBcp47(i18n.language || 'en')
@@ -164,6 +169,24 @@ export function useChannelsColumns(
           }
           return filterValue.includes(row.original.status)
         },
+      },
+      {
+        id: 'probeHealth',
+        accessorFn: (row) => probeHistory?.[row.id]?.length ?? 0,
+        size: 120,
+        enableSorting: false,
+        meta: { mobileHidden: true, mobileOrder: 36 },
+        header: () => (
+          <span className='text-muted-foreground text-xs'>
+            {t('probeHealth.column')}
+          </span>
+        ),
+        cell: ({ row }) => (
+          <ProbeHealthBar
+            results={probeHistory?.[row.original.id]}
+            pending={probeHistory === undefined}
+          />
+        ),
       },
       {
         id: 'models',
@@ -284,6 +307,6 @@ export function useChannelsColumns(
         },
       },
     ],
-    [t, locale, actions]
+    [t, locale, actions, probeHistory]
   )
 }

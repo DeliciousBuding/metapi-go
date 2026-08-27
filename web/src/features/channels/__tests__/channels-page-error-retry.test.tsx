@@ -21,6 +21,9 @@ const testState = vi.hoisted(() => ({
   isFetching: false,
 }))
 
+vi.mock('@/components/common/use-probe-history', () => ({
+  useProbeHistory: () => ({ data: undefined }),
+}))
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => testState.navigate,
   useSearch: () => testState.search,
