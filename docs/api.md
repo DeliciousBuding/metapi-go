@@ -180,6 +180,16 @@ Full route-channel list (5-way JOIN) with a 30s snapshot cache; `?refresh=true` 
 
 `type` is `account` | `token` | `oauth_unit`; `status` is `enabled` | `cooldown` | `breaker_open` | `manually_disabled`.
 
+### GET /api/channels/probe-history
+
+Recent background model-probe history per channel — the data behind the row-level probe health bars on the channels page. One bounded query covers every channel that has history (windowed to the newest `limit` results each); channels without probes are omitted from `items`.
+
+**Query params**: `limit` — results per channel, clamped to 1–50 (default 20).
+
+**Response** (200): `{ "limit": 20, "items": [ { "channelId": 12, "results": [ { "id": 401, "status": "success", "latencyMs": 842.5, "httpStatus": 200, "errorText": null, "modelName": "gpt-4o", "createdAt": "2026-08-28T02:00:00Z" } ] } ] }`
+
+`status` shares the probe vocabulary: `success` | `failure` | `inconclusive` | `skipped`. `latencyMs`/`httpStatus`/`errorText` are null when the probe produced no such signal. Results are ordered newest-first within each channel.
+
 ### POST /api/routes
 
 Create a new route.
@@ -490,6 +500,16 @@ List all accounts. Create a new account.
 ### GET /api/accounts/:id, PUT /api/accounts/:id, DELETE /api/accounts/:id
 
 Get, update, delete an account.
+
+### GET /api/accounts/probe-history
+
+Recent background model-probe history per account — the data behind the row-level probe health bars on the accounts page. One bounded query covers every account that has history (windowed to the newest `limit` results each); accounts without probes are omitted from `items`. Rows recorded without a channel (account-level probes) are included here.
+
+**Query params**: `limit` — results per account, clamped to 1–50 (default 20).
+
+**Response** (200): `{ "limit": 20, "items": [ { "accountId": 5, "results": [ { "id": 402, "status": "failure", "latencyMs": null, "httpStatus": 401, "errorText": "unauthorized", "modelName": "gpt-4o", "createdAt": "2026-08-28T02:00:00Z" } ] } ] }`
+
+`status` shares the probe vocabulary: `success` | `failure` | `inconclusive` | `skipped`. Results are ordered newest-first within each account.
 
 ### POST /api/accounts/login
 
