@@ -1,9 +1,15 @@
 # log.md — Metapi Go product milestones
 
-**Last updated**: 2026-08-25
+**Last updated**: 2026-08-27
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
+
+## 2026-08-27 — Wave 13 token sync UI 真值 发布 v0.16.14
+
+- Lane A（#1002 UI 后续）：账号创建/登录 toast 如实报告后端 `tokenSyncStatus` 四态——synced 显示真实持久化计数、empty 提示无上游令牌、failed 降级为部分初始化警告（账号保留、令牌面板可重试）、skipped/旧响应保持原文案；所有状态保留 `/token-routes` CTA。
+- 集成 lane 补齐 7 个 i18n 键（en + zh-CN 对称，含复数）。
+- 证据：focused Vitest 28 例 + 前端全门禁 + 本地 CI（build/vet/WSL race）全绿；PR #1006 squash merge。
 
 ## 2026-08-25 — Wave 12B account bootstrap 发布 v0.16.13
 

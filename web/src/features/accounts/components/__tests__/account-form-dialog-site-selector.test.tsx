@@ -28,6 +28,7 @@ const mutations = vi.hoisted(() => ({
   verify: { mutateAsync: vi.fn() },
 }))
 const showAccountCreatedToast = vi.hoisted(() => vi.fn())
+const showAccountLoginToast = vi.hoisted(() => vi.fn())
 
 vi.mock('../../api', () => ({
   resolveCreatedAccountId: (result: { id?: number } | undefined) => result?.id,
@@ -37,7 +38,10 @@ vi.mock('../../api', () => ({
   useVerifyAccountToken: () => mutations.verify,
 }))
 
-vi.mock('../account-created-toast', () => ({ showAccountCreatedToast }))
+vi.mock('../account-created-toast', () => ({
+  showAccountCreatedToast,
+  showAccountLoginToast,
+}))
 
 const sites: Site[] = [
   ...Array.from({ length: 32 }, (_, index) => ({
@@ -105,6 +109,7 @@ beforeEach(async () => {
   mutations.update.mutateAsync.mockReset()
   mutations.verify.mutateAsync.mockReset()
   showAccountCreatedToast.mockReset()
+  showAccountLoginToast.mockReset()
 })
 
 afterEach(() => cleanup())
@@ -176,7 +181,11 @@ describe('AccountFormDialog searchable site selector', () => {
     })
     const payload = mutations.create.mutateAsync.mock.calls[0]?.[0]
     expect(typeof payload.siteId).toBe('number')
-    expect(showAccountCreatedToast).toHaveBeenCalledWith(77, 102)
+    expect(showAccountCreatedToast).toHaveBeenCalledWith(77, 102, {
+      tokenCount: undefined,
+      tokenSyncStatus: undefined,
+      tokenSyncMessage: undefined,
+    })
   })
 
   it('preserves the initialSiteId deep-link selection', async () => {

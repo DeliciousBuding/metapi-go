@@ -81,7 +81,10 @@ import {
   type AccountFormValues,
 } from '../lib/accounts-schema'
 import type { Account, CredentialMode, Site } from '../types'
-import { showAccountCreatedToast } from './account-created-toast'
+import {
+  showAccountCreatedToast,
+  showAccountLoginToast,
+} from './account-created-toast'
 
 interface AccountFormDialogProps {
   open: boolean
@@ -261,12 +264,15 @@ export function AccountFormDialog({
           username: values.username?.trim() ?? '',
           password: values.password ?? '',
         })
-        toast.success(
-          t(
-            result?.reusedAccount
-              ? 'accounts.toast.loginRelogged'
-              : 'accounts.toast.loginSucceeded'
-          )
+        showAccountLoginToast(
+          result?.account?.id,
+          values.siteId,
+          result?.reusedAccount,
+          {
+            tokenCount: result?.tokenCount,
+            tokenSyncStatus: result?.tokenSyncStatus,
+            tokenSyncMessage: result?.tokenSyncMessage,
+          }
         )
         form.reset()
         onOpenChange(false)
@@ -286,7 +292,11 @@ export function AccountFormDialog({
       } else {
         const result = await createMutation.mutateAsync(payload)
         const newId = resolveCreatedAccountId(result)
-        showAccountCreatedToast(newId, values.siteId)
+        showAccountCreatedToast(newId, values.siteId, {
+          tokenCount: result?.tokenCount,
+          tokenSyncStatus: result?.tokenSyncStatus,
+          tokenSyncMessage: result?.tokenSyncMessage,
+        })
       }
       form.reset()
       onOpenChange(false)

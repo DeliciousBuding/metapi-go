@@ -51,6 +51,7 @@ vi.mock('../api', () => ({
 
 vi.mock('../components/account-created-toast', () => ({
   showAccountCreatedToast: vi.fn(),
+  showAccountLoginToast: vi.fn(),
 }))
 
 const probeSite = {
