@@ -2881,6 +2881,32 @@
         "breakerOpen": "熔断已开",
         "manuallyDisabled": "已手动停用"
       },
+      "reason": {
+        "dialogTitle": "冷却根因",
+        "dialogDescription": "{{name}} 被移出调度的原因。",
+        "fieldLabel": "冷却原因",
+        "openTitle": "查看冷却根因",
+        "openAria": "查看 {{name}} 为什么在冷却",
+        "triggerCode": "触发码",
+        "recordedAt": "记录时间",
+        "remaining": "剩余时间",
+        "remainingExpired": "已到期（等待刷新）",
+        "errorSummary": "错误摘要",
+        "noSummary": "本次失败未记录错误文本。",
+        "notRecorded": "原因未记录（旧数据）",
+        "notRecordedHint": "该冷却发生在结构化原因记录上线之前，只有计数器与时间戳可参考。",
+        "codes": {
+          "usage_limit": "用量达到上限",
+          "rate_limited": "触发限流",
+          "auth_error": "鉴权失败",
+          "upstream_error": "上游服务错误",
+          "client_error": "请求被拒绝",
+          "timeout": "请求超时",
+          "network_error": "网络错误",
+          "probe_failure": "健康探测失败",
+          "unknown": "未知错误"
+        }
+      },
       "type": {
         "account": "账号",
         "token": "令牌",
