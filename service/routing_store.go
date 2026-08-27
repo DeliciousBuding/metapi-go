@@ -111,7 +111,8 @@ func (s *ProxyRoutingStore) LoadRouteChannels(ctx context.Context, routeIDs []in
 			rc.id, rc.route_id, rc.account_id, rc.token_id, rc.oauth_route_unit_id, rc.source_model,
 			rc.priority, rc.weight, rc.enabled, rc.manual_override, rc.success_count, rc.fail_count,
 			rc.total_latency_ms, rc.total_cost, rc.last_used_at, rc.last_selected_at, rc.last_fail_at,
-			rc.consecutive_fail_count, rc.cooldown_level, rc.cooldown_until,`+channelAccountSiteSelect+`,
+			rc.consecutive_fail_count, rc.cooldown_level, rc.cooldown_until,
+			rc.cooldown_reason_code, rc.cooldown_reason, rc.cooldown_reason_at,`+channelAccountSiteSelect+`,
 			at.id, at.account_id, at.name, at.token, at.token_group, at.value_status, at.source,
 			at.enabled, at.is_default, at.created_at, at.updated_at
 		FROM route_channels rc
@@ -174,7 +175,8 @@ func (s *ProxyRoutingStore) LoadOAuthRouteUnitMembers(ctx context.Context, unitI
 		SELECT
 			m.id, m.unit_id, m.account_id, m.sort_order, m.success_count, m.fail_count,
 			m.total_latency_ms, m.total_cost, m.last_used_at, m.last_selected_at, m.last_fail_at,
-			m.consecutive_fail_count, m.cooldown_level, m.cooldown_until, m.created_at, m.updated_at,`+channelAccountSiteSelect+`
+			m.consecutive_fail_count, m.cooldown_level, m.cooldown_until,
+			m.cooldown_reason_code, m.cooldown_reason, m.cooldown_reason_at, m.created_at, m.updated_at,`+channelAccountSiteSelect+`
 		FROM oauth_route_unit_members m
 		JOIN accounts a ON a.id = m.account_id
 		JOIN sites s ON s.id = a.site_id
@@ -309,7 +311,8 @@ func (s *ProxyRoutingStore) LoadRouteUnitMemberWithAccount(ctx context.Context, 
 		SELECT
 			m.id, m.unit_id, m.account_id, m.sort_order, m.success_count, m.fail_count,
 			m.total_latency_ms, m.total_cost, m.last_used_at, m.last_selected_at, m.last_fail_at,
-			m.consecutive_fail_count, m.cooldown_level, m.cooldown_until, m.created_at, m.updated_at,
+			m.consecutive_fail_count, m.cooldown_level, m.cooldown_until,
+			m.cooldown_reason_code, m.cooldown_reason, m.cooldown_reason_at, m.created_at, m.updated_at,
 			a.id, a.site_id, a.username, a.access_token, a.api_token, a.balance, a.balance_used,
 			a.quota, a.unit_cost, a.value_score, a.status, a.is_pinned, a.sort_order,
 			a.checkin_enabled, a.last_checkin_at, a.last_balance_refresh, a.oauth_provider,
@@ -396,7 +399,8 @@ func (s *ProxyRoutingStore) ClearChannelFailureStates(ctx context.Context, chann
 	}
 	query, args, err := sqlx.In(`
 		UPDATE route_channels
-		SET last_fail_at = NULL, consecutive_fail_count = 0, cooldown_level = 0, cooldown_until = NULL
+		SET last_fail_at = NULL, consecutive_fail_count = 0, cooldown_level = 0, cooldown_until = NULL,
+		    cooldown_reason_code = NULL, cooldown_reason = NULL, cooldown_reason_at = NULL
 		WHERE id IN (?)`, channelIDs)
 	if err != nil {
 		return err
@@ -462,6 +466,7 @@ func (s *ProxyRoutingStore) loadChannelAccountRoute(ctx context.Context, channel
 			rc.priority, rc.weight, rc.enabled, rc.manual_override, rc.success_count, rc.fail_count,
 			rc.total_latency_ms, rc.total_cost, rc.last_used_at, rc.last_selected_at, rc.last_fail_at,
 			rc.consecutive_fail_count, rc.cooldown_level, rc.cooldown_until,
+			rc.cooldown_reason_code, rc.cooldown_reason, rc.cooldown_reason_at,
 			a.id, a.site_id, a.username, a.access_token, a.api_token, a.balance, a.balance_used,
 			a.quota, a.unit_cost, a.value_score, a.status, a.is_pinned, a.sort_order,
 			a.checkin_enabled, a.last_checkin_at, a.last_balance_refresh, a.oauth_provider,
@@ -525,6 +530,7 @@ func scanRouteChannelJoin(rows *sqlx.Rows) (struct {
 		&channel.Priority, &channel.Weight, &channel.Enabled, &channel.ManualOverride, &channel.SuccessCount, &channel.FailCount,
 		&channel.TotalLatencyMs, &channel.TotalCost, &channel.LastUsedAt, &channel.LastSelectedAt, &channel.LastFailAt,
 		&channel.ConsecutiveFailCount, &channel.CooldownLevel, &channel.CooldownUntil,
+		&channel.CooldownReasonCode, &channel.CooldownReason, &channel.CooldownReasonAt,
 		&account.ID, &account.SiteID, &account.Username, &account.AccessToken, &account.APIToken, &account.Balance, &account.BalanceUsed,
 		&account.Quota, &account.UnitCost, &account.ValueScore, &account.Status, &account.IsPinned, &account.SortOrder,
 		&account.CheckinEnabled, &account.LastCheckinAt, &account.LastBalanceRefresh, &account.OAuthProvider,
@@ -559,7 +565,9 @@ func scanRouteUnitMemberJoin(rows *sqlx.Rows) (store.OAuthRouteUnitMember, store
 	err := rows.Scan(
 		&member.ID, &member.UnitID, &member.AccountID, &member.SortOrder, &member.SuccessCount, &member.FailCount,
 		&member.TotalLatencyMs, &member.TotalCost, &member.LastUsedAt, &member.LastSelectedAt, &member.LastFailAt,
-		&member.ConsecutiveFailCount, &member.CooldownLevel, &member.CooldownUntil, &member.CreatedAt, &member.UpdatedAt,
+		&member.ConsecutiveFailCount, &member.CooldownLevel, &member.CooldownUntil,
+		&member.CooldownReasonCode, &member.CooldownReason, &member.CooldownReasonAt,
+		&member.CreatedAt, &member.UpdatedAt,
 		&account.ID, &account.SiteID, &account.Username, &account.AccessToken, &account.APIToken, &account.Balance, &account.BalanceUsed,
 		&account.Quota, &account.UnitCost, &account.ValueScore, &account.Status, &account.IsPinned, &account.SortOrder,
 		&account.CheckinEnabled, &account.LastCheckinAt, &account.LastBalanceRefresh, &account.OAuthProvider,
@@ -579,7 +587,9 @@ func scanRouteUnitMemberAccountUnit(rows *sqlx.Rows) (store.OAuthRouteUnitMember
 	err := rows.Scan(
 		&member.ID, &member.UnitID, &member.AccountID, &member.SortOrder, &member.SuccessCount, &member.FailCount,
 		&member.TotalLatencyMs, &member.TotalCost, &member.LastUsedAt, &member.LastSelectedAt, &member.LastFailAt,
-		&member.ConsecutiveFailCount, &member.CooldownLevel, &member.CooldownUntil, &member.CreatedAt, &member.UpdatedAt,
+		&member.ConsecutiveFailCount, &member.CooldownLevel, &member.CooldownUntil,
+		&member.CooldownReasonCode, &member.CooldownReason, &member.CooldownReasonAt,
+		&member.CreatedAt, &member.UpdatedAt,
 		&account.ID, &account.SiteID, &account.Username, &account.AccessToken, &account.APIToken, &account.Balance, &account.BalanceUsed,
 		&account.Quota, &account.UnitCost, &account.ValueScore, &account.Status, &account.IsPinned, &account.SortOrder,
 		&account.CheckinEnabled, &account.LastCheckinAt, &account.LastBalanceRefresh, &account.OAuthProvider,
@@ -598,6 +608,7 @@ func scanChannelAccountRoute(rows *sqlx.Rows) (store.RouteChannel, store.Account
 		&channel.Priority, &channel.Weight, &channel.Enabled, &channel.ManualOverride, &channel.SuccessCount, &channel.FailCount,
 		&channel.TotalLatencyMs, &channel.TotalCost, &channel.LastUsedAt, &channel.LastSelectedAt, &channel.LastFailAt,
 		&channel.ConsecutiveFailCount, &channel.CooldownLevel, &channel.CooldownUntil,
+		&channel.CooldownReasonCode, &channel.CooldownReason, &channel.CooldownReasonAt,
 		&account.ID, &account.SiteID, &account.Username, &account.AccessToken, &account.APIToken, &account.Balance, &account.BalanceUsed,
 		&account.Quota, &account.UnitCost, &account.ValueScore, &account.Status, &account.IsPinned, &account.SortOrder,
 		&account.CheckinEnabled, &account.LastCheckinAt, &account.LastBalanceRefresh, &account.OAuthProvider,
@@ -662,6 +673,9 @@ var routeChannelUpdateColumns = map[string]string{
 	"consecutiveFailCount": "consecutive_fail_count",
 	"cooldownLevel":        "cooldown_level",
 	"cooldownUntil":        "cooldown_until",
+	"cooldownReasonCode":   "cooldown_reason_code",
+	"cooldownReason":       "cooldown_reason",
+	"cooldownReasonAt":     "cooldown_reason_at",
 }
 
 var routeUnitMemberUpdateColumns = map[string]string{
@@ -675,6 +689,9 @@ var routeUnitMemberUpdateColumns = map[string]string{
 	"consecutiveFailCount": "consecutive_fail_count",
 	"cooldownLevel":        "cooldown_level",
 	"cooldownUntil":        "cooldown_until",
+	"cooldownReasonCode":   "cooldown_reason_code",
+	"cooldownReason":       "cooldown_reason",
+	"cooldownReasonAt":     "cooldown_reason_at",
 	"updatedAt":            "updated_at",
 }
 
@@ -702,5 +719,6 @@ const routeChannelSelectSQL = `
 	SELECT id, route_id, account_id, token_id, oauth_route_unit_id, source_model,
 	       priority, weight, enabled, manual_override, success_count, fail_count,
 	       total_latency_ms, total_cost, last_used_at, last_selected_at, last_fail_at,
-	       consecutive_fail_count, cooldown_level, cooldown_until
+	       consecutive_fail_count, cooldown_level, cooldown_until,
+	       cooldown_reason_code, cooldown_reason, cooldown_reason_at
 	FROM route_channels`
