@@ -103,11 +103,11 @@ type SiteDisabledModel struct {
 
 // ---- Table 4: accounts ----
 type Account struct {
-	ID                 int64    `db:"id" json:"id"`
-	SiteID             int64    `db:"site_id" json:"siteId"`
-	Username           *string  `db:"username" json:"username"`
-	AccessToken        string   `db:"access_token" json:"accessToken"`
-	APIToken           *string  `db:"api_token" json:"apiToken"`
+	ID          int64   `db:"id" json:"id"`
+	SiteID      int64   `db:"site_id" json:"siteId"`
+	Username    *string `db:"username" json:"username"`
+	AccessToken string  `db:"access_token" json:"accessToken"`
+	APIToken    *string `db:"api_token" json:"apiToken"`
 	// Balance/BalanceUsed/Quota/ValueScore are nullable in the accounts table
 	// (DEFAULT 0 without NOT NULL): rows migrated from the TS version, or never
 	// refreshed, carry NULL. Keep them as pointers so a NULL column scans to nil
@@ -196,13 +196,13 @@ type AccountToken struct {
 // or unclassified rows. Surfaced to the API as a parsed `failureReason`
 // object by handler/admin/checkin_routes.go getLogs.
 type CheckinLog struct {
-	ID             int64   `db:"id" json:"id"`
-	AccountID      int64   `db:"account_id" json:"accountId"`
-	Status         string  `db:"status" json:"status"`
-	Message        *string `db:"message" json:"message"`
-	Reward         *string `db:"reward" json:"reward"`
-	FailureReason  *string `db:"failure_reason" json:"failureReason"`
-	CreatedAt      string  `db:"created_at" json:"createdAt"`
+	ID            int64   `db:"id" json:"id"`
+	AccountID     int64   `db:"account_id" json:"accountId"`
+	Status        string  `db:"status" json:"status"`
+	Message       *string `db:"message" json:"message"`
+	Reward        *string `db:"reward" json:"reward"`
+	FailureReason *string `db:"failure_reason" json:"failureReason"`
+	CreatedAt     string  `db:"created_at" json:"createdAt"`
 }
 
 // ---- Table 7: model_availability ----
@@ -299,8 +299,12 @@ type OAuthRouteUnitMember struct {
 	ConsecutiveFailCount int64    `db:"consecutive_fail_count" json:"consecutiveFailCount"`
 	CooldownLevel        int64    `db:"cooldown_level" json:"cooldownLevel"`
 	CooldownUntil        *string  `db:"cooldown_until" json:"cooldownUntil"`
-	CreatedAt            string   `db:"created_at" json:"createdAt"`
-	UpdatedAt            string   `db:"updated_at" json:"updatedAt"`
+	// Structured cooldown reason — same contract as RouteChannel (P0-3).
+	CooldownReasonCode *string `db:"cooldown_reason_code" json:"cooldownReasonCode"`
+	CooldownReason     *string `db:"cooldown_reason" json:"cooldownReason"`
+	CooldownReasonAt   *string `db:"cooldown_reason_at" json:"cooldownReasonAt"`
+	CreatedAt          string  `db:"created_at" json:"createdAt"`
+	UpdatedAt          string  `db:"updated_at" json:"updatedAt"`
 }
 
 // OrZero helpers coerce the nullable numeric member columns for callers that
@@ -368,6 +372,13 @@ type RouteChannel struct {
 	ConsecutiveFailCount int64    `db:"consecutive_fail_count" json:"consecutiveFailCount"`
 	CooldownLevel        int64    `db:"cooldown_level" json:"cooldownLevel"`
 	CooldownUntil        *string  `db:"cooldown_until" json:"cooldownUntil"`
+	// Structured reason for the active cooldown (P0-3): classification code,
+	// truncated upstream error summary, and the time the triggering failure was
+	// recorded. All NULL for rows that cooled down before this schema existed
+	// — the UI renders that honestly as "reason not recorded".
+	CooldownReasonCode *string `db:"cooldown_reason_code" json:"cooldownReasonCode"`
+	CooldownReason     *string `db:"cooldown_reason" json:"cooldownReason"`
+	CooldownReasonAt   *string `db:"cooldown_reason_at" json:"cooldownReasonAt"`
 }
 
 // OrZero helpers coerce the nullable numeric channel columns for callers that
@@ -632,41 +643,41 @@ type ModelDayUsage struct {
 type BalanceHistory struct {
 	ID          int64   `db:"id" json:"id"`
 	AccountID   int64   `db:"account_id" json:"accountId"`
-	Balance      float64 `db:"balance" json:"balance"`
-	BalanceUsed  float64 `db:"balance_used" json:"balanceUsed"`
-	Quota        float64 `db:"quota" json:"quota"`
-	LocalDay     string  `db:"local_day" json:"localDay"`
-	CapturedAt   string  `db:"captured_at" json:"capturedAt"`
-	CreatedAt    string  `db:"created_at" json:"createdAt"`
+	Balance     float64 `db:"balance" json:"balance"`
+	BalanceUsed float64 `db:"balance_used" json:"balanceUsed"`
+	Quota       float64 `db:"quota" json:"quota"`
+	LocalDay    string  `db:"local_day" json:"localDay"`
+	CapturedAt  string  `db:"captured_at" json:"capturedAt"`
+	CreatedAt   string  `db:"created_at" json:"createdAt"`
 }
 
 // ---- Table 30: model_verify_history ----
 type ModelVerifyRecord struct {
-	ID          int64    `db:"id" json:"id"`
-	BatchID     string   `db:"batch_id" json:"batchId"`
-	ModelName   string   `db:"model_name" json:"modelName"`
-	ChannelID   *int64   `db:"channel_id" json:"channelId"`
-	AccountID   *int64   `db:"account_id" json:"accountId"`
-	SiteID      *int64   `db:"site_id" json:"siteId"`
-	Status      string   `db:"status" json:"status"`
-	LatencyMs   *float64 `db:"latency_ms" json:"latencyMs"`
-	HTTPStatus  *int64   `db:"http_status" json:"httpStatus"`
-	ErrorText   *string  `db:"error_text" json:"errorText"`
-	CreatedAt   string   `db:"created_at" json:"createdAt"`
+	ID         int64    `db:"id" json:"id"`
+	BatchID    string   `db:"batch_id" json:"batchId"`
+	ModelName  string   `db:"model_name" json:"modelName"`
+	ChannelID  *int64   `db:"channel_id" json:"channelId"`
+	AccountID  *int64   `db:"account_id" json:"accountId"`
+	SiteID     *int64   `db:"site_id" json:"siteId"`
+	Status     string   `db:"status" json:"status"`
+	LatencyMs  *float64 `db:"latency_ms" json:"latencyMs"`
+	HTTPStatus *int64   `db:"http_status" json:"httpStatus"`
+	ErrorText  *string  `db:"error_text" json:"errorText"`
+	CreatedAt  string   `db:"created_at" json:"createdAt"`
 }
 
 // ---- Table 35: model_probe_results ----
 type ModelProbeResult struct {
-	ID          int64    `db:"id" json:"id"`
-	ChannelID   *int64   `db:"channel_id" json:"channelId"`
-	AccountID   int64    `db:"account_id" json:"accountId"`
-	SiteID      int64    `db:"site_id" json:"siteId"`
-	ModelName   string   `db:"model_name" json:"modelName"`
-	Status      string   `db:"status" json:"status"` // success | failure | inconclusive | skipped
-	LatencyMs   *float64 `db:"latency_ms" json:"latencyMs"`
-	HTTPStatus  *int64   `db:"http_status" json:"httpStatus"`
-	ErrorText   *string  `db:"error_text" json:"errorText"`
-	CreatedAt   string   `db:"created_at" json:"createdAt"`
+	ID         int64    `db:"id" json:"id"`
+	ChannelID  *int64   `db:"channel_id" json:"channelId"`
+	AccountID  int64    `db:"account_id" json:"accountId"`
+	SiteID     int64    `db:"site_id" json:"siteId"`
+	ModelName  string   `db:"model_name" json:"modelName"`
+	Status     string   `db:"status" json:"status"` // success | failure | inconclusive | skipped
+	LatencyMs  *float64 `db:"latency_ms" json:"latencyMs"`
+	HTTPStatus *int64   `db:"http_status" json:"httpStatus"`
+	ErrorText  *string  `db:"error_text" json:"errorText"`
+	CreatedAt  string   `db:"created_at" json:"createdAt"`
 }
 
 // ---- Table 31: product_announcements ----
@@ -692,14 +703,14 @@ type AnnouncementDismissal struct {
 // (e.g. claude-3-5-sonnet → claude-3-5-sonnet-20241022). source is sync
 // (auto-generated) or manual (operator-authored, never overwritten).
 type ModelNameRedirect struct {
-	ID          int64    `db:"id" json:"id"`
-	AccountID   int64    `db:"account_id" json:"accountId"`
-	Canonical   string   `db:"canonical" json:"canonical"`
-	Actual      string   `db:"actual" json:"actual"`
-	Source      string   `db:"source" json:"source"` // sync | manual
-	LastSeenAt  *string  `db:"last_seen_at" json:"lastSeenAt"`
-	CreatedAt   string   `db:"created_at" json:"createdAt"`
-	UpdatedAt   string   `db:"updated_at" json:"updatedAt"`
+	ID         int64   `db:"id" json:"id"`
+	AccountID  int64   `db:"account_id" json:"accountId"`
+	Canonical  string  `db:"canonical" json:"canonical"`
+	Actual     string  `db:"actual" json:"actual"`
+	Source     string  `db:"source" json:"source"` // sync | manual
+	LastSeenAt *string `db:"last_seen_at" json:"lastSeenAt"`
+	CreatedAt  string  `db:"created_at" json:"createdAt"`
+	UpdatedAt  string  `db:"updated_at" json:"updatedAt"`
 }
 
 // ---- Table 34: admin_audit_logs ----
@@ -756,9 +767,9 @@ type DownstreamAPIKey struct {
 	CreatedAt  string  `db:"created_at" json:"createdAt"`
 	// IPAllowlist / IPBlocklist: newline/comma-
 	// separated CIDR or exact IPs. Empty/NULL = unrestricted. Blocklist wins.
-	IPAllowlist  *string `db:"ip_allowlist" json:"ipAllowlist"`
-	IPBlocklist  *string `db:"ip_blocklist" json:"ipBlocklist"`
-	UpdatedAt  string  `db:"updated_at" json:"updatedAt"`
+	IPAllowlist *string `db:"ip_allowlist" json:"ipAllowlist"`
+	IPBlocklist *string `db:"ip_blocklist" json:"ipBlocklist"`
+	UpdatedAt   string  `db:"updated_at" json:"updatedAt"`
 }
 
 // ---- Table 26: site_announcements ----

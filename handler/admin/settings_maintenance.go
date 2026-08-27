@@ -130,7 +130,8 @@ func (h *maintenanceHandler) clearUsage(w http.ResponseWriter, r *http.Request) 
 	if _, err := h.db.Exec(h.db.Rebind(`UPDATE route_channels SET
 		success_count = 0, fail_count = 0, total_latency_ms = 0, total_cost = 0,
 		last_used_at = NULL, last_selected_at = NULL, last_fail_at = NULL,
-		consecutive_fail_count = 0, cooldown_level = 0, cooldown_until = NULL`)); err != nil {
+		consecutive_fail_count = 0, cooldown_level = 0, cooldown_until = NULL,
+		cooldown_reason_code = NULL, cooldown_reason = NULL, cooldown_reason_at = NULL`)); err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to clear route_channels stats: %v", err))
 		return
 	}

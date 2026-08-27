@@ -63,6 +63,10 @@ vi.mock('../components/channel-detail-sheet', () => ({
   },
 }))
 
+vi.mock('../components/cooldown-reason-dialog', () => ({
+  CooldownReasonDialog: () => null,
+}))
+
 vi.mock('../components/channels-columns', () => ({
   useChannelsColumns: () => [],
   CHANNELS_STATUS_FILTER_OPTIONS: [],

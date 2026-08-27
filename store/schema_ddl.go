@@ -376,6 +376,9 @@ func buildOAuthRouteUnitMembersDDL(d string) string {
 			consecutive_fail_count INTEGER NOT NULL DEFAULT 0,
 			cooldown_level INTEGER NOT NULL DEFAULT 0,
 			cooldown_until TEXT,
+			cooldown_reason_code TEXT,
+			cooldown_reason TEXT,
+			cooldown_reason_at TEXT,
 			created_at TEXT,
 			updated_at TEXT,
 			CONSTRAINT oauth_route_unit_members_unit_account_unique UNIQUE (unit_id, account_id),
@@ -397,6 +400,9 @@ func buildOAuthRouteUnitMembersDDL(d string) string {
 		consecutive_fail_count INTEGER NOT NULL DEFAULT 0,
 		cooldown_level INTEGER NOT NULL DEFAULT 0,
 		cooldown_until TEXT,
+		cooldown_reason_code TEXT,
+		cooldown_reason TEXT,
+		cooldown_reason_at TEXT,
 		created_at TEXT,
 		updated_at TEXT,
 		CONSTRAINT oauth_route_unit_members_unit_account_unique UNIQUE (unit_id, account_id),
@@ -430,7 +436,10 @@ func buildRouteChannelsDDL(d string) string {
 			last_fail_at TEXT,
 			consecutive_fail_count INTEGER NOT NULL DEFAULT 0,
 			cooldown_level INTEGER NOT NULL DEFAULT 0,
-			cooldown_until TEXT
+			cooldown_until TEXT,
+			cooldown_reason_code TEXT,
+			cooldown_reason TEXT,
+			cooldown_reason_at TEXT
 		)`
 	}
 	return `CREATE TABLE IF NOT EXISTS route_channels (
@@ -454,6 +463,9 @@ func buildRouteChannelsDDL(d string) string {
 		consecutive_fail_count INTEGER NOT NULL DEFAULT 0,
 		cooldown_level INTEGER NOT NULL DEFAULT 0,
 		cooldown_until TEXT,
+		cooldown_reason_code TEXT,
+		cooldown_reason TEXT,
+		cooldown_reason_at TEXT,
 		FOREIGN KEY (route_id) REFERENCES token_routes(id) ON DELETE CASCADE,
 		FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE,
 		FOREIGN KEY (token_id) REFERENCES account_tokens(id) ON DELETE SET NULL
@@ -1336,4 +1348,3 @@ func buildAdminAuditLogsDDL(d string) string {
 		created_at TEXT NOT NULL
 	)`
 }
-

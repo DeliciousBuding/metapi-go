@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/jmoiron/sqlx"
 )
 
 // OAuthRouteUnitStrategy is the strategy for route unit member selection.
@@ -509,11 +509,13 @@ func rollbackInsertMember(db *store.DB, m *store.OAuthRouteUnitMember) error {
 	_, err := db.Exec(
 		`INSERT INTO oauth_route_unit_members (unit_id, account_id, sort_order, success_count, fail_count,
 		 total_latency_ms, total_cost, last_used_at, last_selected_at, last_fail_at,
-		 consecutive_fail_count, cooldown_level, cooldown_until, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 consecutive_fail_count, cooldown_level, cooldown_until,
+		 cooldown_reason_code, cooldown_reason, cooldown_reason_at, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		m.UnitID, m.AccountID, m.SortOrder, m.SuccessCount, m.FailCount,
 		m.TotalLatencyMs, m.TotalCost, m.LastUsedAt, m.LastSelectedAt, m.LastFailAt,
 		m.ConsecutiveFailCount, m.CooldownLevel, m.CooldownUntil,
+		m.CooldownReasonCode, m.CooldownReason, m.CooldownReasonAt,
 		createdAt, updatedAt)
 	return err
 }
@@ -524,12 +526,14 @@ func rollbackInsertChannel(db *store.DB, ch *store.RouteChannel) error {
 		 source_model, priority, weight, enabled, manual_override,
 		 success_count, fail_count, total_latency_ms, total_cost,
 		 last_used_at, last_selected_at, last_fail_at,
-		 consecutive_fail_count, cooldown_level, cooldown_until)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 consecutive_fail_count, cooldown_level, cooldown_until,
+		 cooldown_reason_code, cooldown_reason, cooldown_reason_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		ch.ID, ch.RouteID, ch.AccountID, ch.TokenID, ch.OAuthRouteUnitID,
 		ch.SourceModel, ch.Priority, ch.Weight, ch.Enabled, ch.ManualOverride,
 		ch.SuccessCount, ch.FailCount, ch.TotalLatencyMs, ch.TotalCost,
 		ch.LastUsedAt, ch.LastSelectedAt, ch.LastFailAt,
-		ch.ConsecutiveFailCount, ch.CooldownLevel, ch.CooldownUntil)
+		ch.ConsecutiveFailCount, ch.CooldownLevel, ch.CooldownUntil,
+		ch.CooldownReasonCode, ch.CooldownReason, ch.CooldownReasonAt)
 	return err
 }

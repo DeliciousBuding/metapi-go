@@ -79,7 +79,7 @@ func (h *tokenRoutesHandler) addChannel(w http.ResponseWriter, r *http.Request) 
 		Weight      *int64  `json:"weight"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: " + err.Error())
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
 
@@ -139,7 +139,7 @@ func (h *tokenRoutesHandler) batchAddChannels(w http.ResponseWriter, r *http.Req
 		} `json:"channels"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: " + err.Error())
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
 
@@ -189,7 +189,7 @@ func (h *tokenRoutesHandler) clearCooldown(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	h.db.Exec(h.db.Rebind(`UPDATE route_channels SET cooldown_until = NULL, consecutive_fail_count = 0, cooldown_level = 0 WHERE route_id = ?`), routeID)
+	h.db.Exec(h.db.Rebind(`UPDATE route_channels SET cooldown_until = NULL, consecutive_fail_count = 0, cooldown_level = 0, cooldown_reason_code = NULL, cooldown_reason = NULL, cooldown_reason_at = NULL WHERE route_id = ?`), routeID)
 	routing.InvalidateCache()
 	invalidateChannelsSnapshotCache()
 	writeJSON(w, http.StatusOK, map[string]any{"success": true})
@@ -205,7 +205,7 @@ func (h *tokenRoutesHandler) batchUpdateChannels(w http.ResponseWriter, r *http.
 		} `json:"updates"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: " + err.Error())
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
 
@@ -245,7 +245,7 @@ func (h *tokenRoutesHandler) reorderRoutes(w http.ResponseWriter, r *http.Reques
 		} `json:"items"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "invalid payload: " + err.Error())
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "invalid payload: "+err.Error())
 		return
 	}
 	if len(body.Items) == 0 {
@@ -309,7 +309,7 @@ func (h *tokenRoutesHandler) updateChannel(w http.ResponseWriter, r *http.Reques
 
 	var body map[string]any
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: " + err.Error())
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
 
