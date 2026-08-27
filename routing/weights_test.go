@@ -639,8 +639,25 @@ func TestCalculateWeightedSelection_KeyWeightAmplifiesChannelWeight(t *testing.T
 	if hiP2 <= baseP2 {
 		t.Fatalf("expected keyWeight to increase heavy-channel probability, base=%.6f hi=%.6f", baseP2, hiP2)
 	}
-	if hi.Selected == nil || hi.Selected.Channel.ID != 2 {
-		t.Fatalf("expected channel 2 selected under large keyWeight, got %+v", hi.Selected)
+	// Selection is one weighted-random draw (global RNG, not injectable), so
+	// asserting the single-draw winner is flaky: with p2 ~ 0.91 channel 1 is
+	// drawn on ~9% of CI runs. Draw 200 times instead and require the heavy
+	// channel to win an overwhelming majority — deterministic in practice
+	// (the failure mode needs p2 to collapse far below the expected value)
+	// while still catching any regression where keyWeight stops amplifying.
+	const draws = 200
+	wins := 0
+	for i := 0; i < draws; i++ {
+		d := CalculateWeightedSelection(
+			candidates, staticModel("gpt-4"),
+			cfg,
+			nil, 1000.0, nil, 0, WeightedMode, "", nil, 1.0)
+		if d.Selected != nil && d.Selected.Channel.ID == 2 {
+			wins++
+		}
+	}
+	if wins < draws*3/5 {
+		t.Fatalf("expected channel 2 to win the large majority of %d draws under keyWeight=1000, won %d", draws, wins)
 	}
 	// zero/negative keyWeight treated as 1.0
 	zero := CalculateWeightedSelection(
