@@ -5,6 +5,12 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-08-27 — Wave 14 账号表单与分页修复（PR #1010）
+
+- **#1007**：inline token verification 与账号创建现在使用表单中尚未保存的 `platformUserId` / `proxyUrl`；显式代理覆盖站点、Resin 与系统代理，创建后持久化 `extraConfig.proxyUrl`，并拒绝非法代理 URL。
+- **#1008**：Accounts 表格由 URL 单一控制分页，关闭 TanStack 自动页码重置；新增真实表格回归测试，验证第 2 页渲染 11–20 行。
+- **证据**：后端 NewAPI + HTTP proxy + `New-Api-User` 回归、前端分页回归、本地 frontend 191 文件/1,276 用例与 Go build/vet/WSL race 全部通过；GitHub required CI checks 完成前不合入。
+
 ## 2026-08-27 — Wave 13 token sync UI 真值 发布 v0.16.14
 
 - Lane A（#1002 UI 后续）：账号创建/登录 toast 如实报告后端 `tokenSyncStatus` 四态——synced 显示真实持久化计数、empty 提示无上游令牌、failed 降级为部分初始化警告（账号保留、令牌面板可重试）、skipped/旧响应保持原文案；所有状态保留 `/token-routes` CTA。
