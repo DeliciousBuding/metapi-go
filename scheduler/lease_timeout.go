@@ -18,6 +18,9 @@ const (
 	retentionJobTimeout    = 15 * time.Minute
 	logCleanupJobTimeout   = 15 * time.Minute
 	backupWebdavJobTimeout = 15 * time.Minute
+	// model-sync walks every candidate account sequentially with a 30s
+	// upstream budget each (#1005), so it gets the largest lease budget.
+	modelSyncJobTimeout = 30 * time.Minute
 
 	// Lightweight probe/refresh sweeps.
 	channelRecoveryJobTimeout = 5 * time.Minute

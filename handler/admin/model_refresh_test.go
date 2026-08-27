@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -63,142 +62,6 @@ func seedAccountAndToken(t *testing.T, db *sqlx.DB, tokenValue string) (accountI
 	}
 	tokenID, _ = tokRes.LastInsertId()
 	return accountID, tokenID
-}
-
-func TestPersistTokenModelAvailability_UpsertsAndMarksUnavailable(t *testing.T) {
-	db := openModelRefreshTestDB(t)
-	_, tokenID := seedAccountAndToken(t, db, "sk-backfill")
-	now := time.Now().UTC().Format(time.RFC3339)
-
-	// First refresh: 2 models available.
-	if err := persistTokenModelAvailability(db, tokenID, []string{"gpt-4o", "claude-3"}, now); err != nil {
-		t.Fatalf("first persist: %v", err)
-	}
-
-	var availCount int
-	if err := db.Get(&availCount,
-		`SELECT COUNT(*) FROM token_model_availability WHERE token_id = ? AND available = 1`,
-		tokenID,
-	); err != nil {
-		t.Fatalf("count available: %v", err)
-	}
-	if availCount != 2 {
-		t.Fatalf("expected 2 available, got %d", availCount)
-	}
-
-	// Second refresh: only 1 model — the other should be marked unavailable.
-	if err := persistTokenModelAvailability(db, tokenID, []string{"gpt-4o"}, now); err != nil {
-		t.Fatalf("second persist: %v", err)
-	}
-	if err := db.Get(&availCount,
-		`SELECT COUNT(*) FROM token_model_availability WHERE token_id = ? AND available = 1`,
-		tokenID,
-	); err != nil {
-		t.Fatalf("count after second: %v", err)
-	}
-	if availCount != 1 {
-		t.Fatalf("expected 1 available after shrink, got %d", availCount)
-	}
-	var unavailCount int
-	if err := db.Get(&unavailCount,
-		`SELECT COUNT(*) FROM token_model_availability WHERE token_id = ? AND available = 0`,
-		tokenID,
-	); err != nil {
-		t.Fatalf("count unavailable: %v", err)
-	}
-	if unavailCount != 1 {
-		t.Fatalf("expected 1 unavailable (claude-3), got %d", unavailCount)
-	}
-}
-
-func TestPersistTokenModelAvailability_ReAddsPreviouslyUnavailable(t *testing.T) {
-	db := openModelRefreshTestDB(t)
-	_, tokenID := seedAccountAndToken(t, db, "sk-cycle")
-	now := time.Now().UTC().Format(time.RFC3339)
-
-	// Refresh 1: gpt-4o only.
-	if err := persistTokenModelAvailability(db, tokenID, []string{"gpt-4o"}, now); err != nil {
-		t.Fatalf("persist 1: %v", err)
-	}
-	// Refresh 2: claude-3 only (gpt-4o becomes unavailable).
-	if err := persistTokenModelAvailability(db, tokenID, []string{"claude-3"}, now); err != nil {
-		t.Fatalf("persist 2: %v", err)
-	}
-	// Refresh 3: gpt-4o comes back — should flip available=1, not insert a dupe.
-	if err := persistTokenModelAvailability(db, tokenID, []string{"gpt-4o", "claude-3"}, now); err != nil {
-		t.Fatalf("persist 3: %v", err)
-	}
-
-	var totalCount int
-	if err := db.Get(&totalCount,
-		`SELECT COUNT(*) FROM token_model_availability WHERE token_id = ?`,
-		tokenID,
-	); err != nil {
-		t.Fatalf("count total: %v", err)
-	}
-	if totalCount != 2 {
-		t.Fatalf("expected 2 total rows (no dupes), got %d", totalCount)
-	}
-	var availCount int
-	if err := db.Get(&availCount,
-		`SELECT COUNT(*) FROM token_model_availability WHERE token_id = ? AND available = 1`,
-		tokenID,
-	); err != nil {
-		t.Fatalf("count available: %v", err)
-	}
-	if availCount != 2 {
-		t.Fatalf("expected 2 available after re-add, got %d", availCount)
-	}
-}
-
-func TestResolveAccountTokenID_MatchAndMiss(t *testing.T) {
-	db := openModelRefreshTestDB(t)
-	accountID, tokenID := seedAccountAndToken(t, db, "sk-match")
-
-	gotID, ok := resolveAccountTokenID(db, accountID, "sk-match")
-	if !ok {
-		t.Fatal("expected match for sk-match")
-	}
-	if gotID != tokenID {
-		t.Fatalf("token id = %d, want %d", gotID, tokenID)
-	}
-
-	// Bearer prefix should be stripped.
-	gotID2, ok2 := resolveAccountTokenID(db, accountID, "Bearer sk-match")
-	if !ok2 || gotID2 != tokenID {
-		t.Fatalf("bearer prefix: ok=%v id=%d, want %d", ok2, gotID2, tokenID)
-	}
-
-	// Non-matching token returns false.
-	_, ok3 := resolveAccountTokenID(db, accountID, "sk-nope")
-	if ok3 {
-		t.Fatal("expected false for non-matching token")
-	}
-
-	// Empty token returns false.
-	_, ok4 := resolveAccountTokenID(db, accountID, "")
-	if ok4 {
-		t.Fatal("expected false for empty token")
-	}
-}
-
-func TestResolveAccountTokenID_NoRows(t *testing.T) {
-	db := openModelRefreshTestDB(t)
-	accountID, _ := seedAccountAndToken(t, db, "sk-lone")
-	_, ok := resolveAccountTokenID(db, accountID, "sk-other")
-	if ok {
-		t.Fatal("expected false when no account_tokens row matches")
-	}
-}
-
-func TestResolveAccountTokenID_SQLiteNullScan(t *testing.T) {
-	db := openModelRefreshTestDB(t)
-	// No rows at all — should return false, not panic.
-	var dummyID int64
-	err := db.Get(&dummyID, `SELECT id FROM account_tokens WHERE id = 999`)
-	if err == nil {
-		t.Fatal("expected sql.ErrNoRows for nonexistent token")
-	}
 }
 
 // TestRefreshAccountModels_TokenBackfillEndToEnd verifies the full
@@ -346,5 +209,3 @@ func TestRefreshAccountModels_TokenBackfillSkipsWhenNoTokenMatch(t *testing.T) {
 	}
 }
 
-// Silence unused import warnings for sql/sqlx when tests evolve.
-var _ = sql.ErrNoRows

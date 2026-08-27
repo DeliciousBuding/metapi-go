@@ -18,16 +18,17 @@ var (
 	registry            *scheduler.Registry
 	checkinScheduler    *scheduler.CheckinScheduler
 	balanceScheduler    *scheduler.BalanceScheduler
+	modelSyncScheduler  *scheduler.ModelSyncScheduler
 	logCleanupScheduler *scheduler.LogCleanupScheduler
 	webdavScheduler     *scheduler.BackupWebdavScheduler
 )
 
-// StartBackgroundServices creates and starts all 17 background schedulers.
+// StartBackgroundServices creates and starts all 18 background schedulers.
 func StartBackgroundServices() {
 	slog.Info("starting background schedulers")
 
 	cfg := config.Get()
-	newRegistry, checkin, balance, logCleanup, webdav := buildSchedulers(cfg)
+	newRegistry, checkin, balance, modelSync, logCleanup, webdav := buildSchedulers(cfg)
 
 	// Start all
 	newRegistry.StartAll(context.Background())
@@ -38,6 +39,7 @@ func StartBackgroundServices() {
 	registry = newRegistry
 	checkinScheduler = checkin
 	balanceScheduler = balance
+	modelSyncScheduler = modelSync
 	logCleanupScheduler = logCleanup
 	webdavScheduler = webdav
 	servicesMu.Unlock()
@@ -54,6 +56,7 @@ func buildSchedulers(cfg *config.Config) (
 	*scheduler.Registry,
 	*scheduler.CheckinScheduler,
 	*scheduler.BalanceScheduler,
+	*scheduler.ModelSyncScheduler,
 	*scheduler.LogCleanupScheduler,
 	*scheduler.BackupWebdavScheduler,
 ) {
@@ -70,6 +73,12 @@ func buildSchedulers(cfg *config.Config) (
 	// ---- Scheduler 2: Balance Refresh ----
 	balance := scheduler.NewBalanceScheduler(cfg)
 	newRegistry.Register(balance)
+
+	// ---- Scheduler 2b: Model Sync (#1005) ----
+	// Periodic upstream model-list refresh; cron from MODEL_SYNC_CRON or the
+	// model_sync_cron DB setting.
+	modelSync := scheduler.NewModelSyncScheduler(cfg)
+	newRegistry.Register(modelSync)
 
 	// ---- Scheduler 3: Daily Summary ----
 	newRegistry.Register(scheduler.NewDailySummaryScheduler(cfg))
@@ -129,7 +138,7 @@ func buildSchedulers(cfg *config.Config) (
 	// ---- Scheduler 15: OAuth Token Refresh ----
 	newRegistry.Register(scheduler.NewOAuthRefreshScheduler(cfg))
 
-	return newRegistry, checkin, balance, logCleanup, webdav
+	return newRegistry, checkin, balance, modelSync, logCleanup, webdav
 }
 
 // StopBackgroundServices stops all background schedulers.
@@ -142,6 +151,7 @@ func StopBackgroundServices() {
 	registry = nil
 	checkinScheduler = nil
 	balanceScheduler = nil
+	modelSyncScheduler = nil
 	logCleanupScheduler = nil
 	webdavScheduler = nil
 	servicesMu.Unlock()
@@ -173,6 +183,20 @@ func UpdateBalanceCron(cronExpr string) error {
 	defer updateMu.Unlock()
 	servicesMu.RLock()
 	activeScheduler := balanceScheduler
+	servicesMu.RUnlock()
+	if activeScheduler == nil {
+		return nil
+	}
+	return activeScheduler.UpdateCron(cronExpr)
+}
+
+// UpdateModelSyncCron hot-reloads the running model-sync scheduler with a
+// newly persisted cron. It is a no-op before background services have started.
+func UpdateModelSyncCron(cronExpr string) error {
+	updateMu.Lock()
+	defer updateMu.Unlock()
+	servicesMu.RLock()
+	activeScheduler := modelSyncScheduler
 	servicesMu.RUnlock()
 	if activeScheduler == nil {
 		return nil

@@ -168,6 +168,27 @@ func (h *settingsHandler) applyBalanceScheduleSettings(body map[string]any) *set
 	return nil
 }
 
+// applyModelSyncScheduleSettings applies the periodic model-sync cron (#1005).
+// Plain persistence (no v2 dual schedule mirror — that is legacy migration
+// baggage the new setting never had): validate, persist model_sync_cron,
+// update config, hot-reload the running scheduler.
+func (h *settingsHandler) applyModelSyncScheduleSettings(body map[string]any) *settingsApplyError {
+	if v, ok := body["modelSyncCron"]; ok {
+		cron := normalizeString(v)
+		if !scheduler.ValidateCronExpr(cron) {
+			return failSettings(http.StatusBadRequest, "modelSyncCron is not a valid cron expression")
+		}
+		if err := upsertSettingDB(h.db, "model_sync_cron", cron); err != nil {
+			return failSettings(http.StatusInternalServerError, "failed to save model sync schedule")
+		}
+		h.cfg.ModelSyncCron = cron
+		if err := app.UpdateModelSyncCron(cron); err != nil {
+			slog.Warn("settings: model sync cron hot update failed", "error", err)
+		}
+	}
+	return nil
+}
+
 // applyLogCleanupSettings applies the log cleanup fields and hot-reloads the
 // cleanup task when the cron schedule changed.
 func (h *settingsHandler) applyLogCleanupSettings(body map[string]any) *settingsApplyError {

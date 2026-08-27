@@ -30,19 +30,29 @@ import (
 
 // withRefreshSideEffectCounters swaps the rebuild/invalidate seams for
 // counting fakes and restores the production owners on cleanup.
+// Wave 15 (#1005) moved the refresh core to service.RefreshAccountModels, so
+// the "exactly one route rebuild + one routing-cache invalidation per refresh
+// action" contract is asserted against the service seams; the manual-models
+// endpoint keeps using the handler-level invalidateRoutingCache seam, which is
+// folded into the same invalidate counter.
 func withRefreshSideEffectCounters(t *testing.T) (rebuilds, invalidates *int) {
 	t.Helper()
 	var rebuildCount, invalidateCount int
-	prevRebuild := rebuildRoutesFromAvailability
-	prevInvalidate := invalidateRoutingCache
-	rebuildRoutesFromAvailability = func(ctx context.Context, db *sqlx.DB) (service.RouteRebuildStats, error) {
-		rebuildCount++
-		return service.RouteRebuildStats{}, nil
-	}
+	restore := service.SetModelRefreshSideEffectsForTest(
+		func(ctx context.Context, db *sqlx.DB) (service.RouteRebuildStats, error) {
+			rebuildCount++
+			return service.RouteRebuildStats{}, nil
+		},
+		func() { invalidateCount++ },
+	)
+	// The manual-models endpoint (accounts_models.go) still invalidates the
+	// routing cache through the handler-level seam; route it to the same
+	// counter so per-mutating-action accounting stays exact.
+	prevHandlerInvalidate := invalidateRoutingCache
 	invalidateRoutingCache = func() { invalidateCount++ }
 	t.Cleanup(func() {
-		rebuildRoutesFromAvailability = prevRebuild
-		invalidateRoutingCache = prevInvalidate
+		invalidateRoutingCache = prevHandlerInvalidate
+		restore()
 	})
 	return &rebuildCount, &invalidateCount
 }

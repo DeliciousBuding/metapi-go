@@ -111,6 +111,7 @@ type Config struct {
 	CheckinWindowStart string
 	CheckinWindowEnd   string
 	BalanceRefreshCron string
+	ModelSyncCron      string
 	LogCleanupCron     string
 	// Site & Branding (5 fields) - empty defaults keep the embedded frontend
 	// branding and login-page copy unchanged. homePageContent was removed
@@ -634,6 +635,7 @@ func Load(env map[string]string) *Config {
 		1, 24,
 	)
 	cfg.BalanceRefreshCron = firstNonEmpty(get("BALANCE_REFRESH_CRON"), DefaultBalanceRefreshCron)
+	cfg.ModelSyncCron = firstNonEmpty(get("MODEL_SYNC_CRON"), DefaultModelSyncCron)
 	cfg.LogCleanupCron = firstNonEmpty(get("LOG_CLEANUP_CRON"), DefaultLogCleanupCron)
 
 	// ---- 3.4b Site & Branding ----

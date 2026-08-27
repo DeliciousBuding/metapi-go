@@ -255,6 +255,53 @@ func TestSettingsRuntimeUpdateBalanceCronDualWrite(t *testing.T) {
 	}
 }
 
+func TestSettingsRuntimeUpdateModelSyncCronRejectsInvalid(t *testing.T) {
+	_, r, _ := setupEdgeTest(t)
+	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
+		"modelSyncCron": "bad cron",
+	})
+	if resp.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s, want 400", resp.Code, resp.Body.String())
+	}
+}
+
+// TestSettingsRuntimeUpdateModelSyncCronPersistsPlain covers the #1005 model
+// sync cron: plain persistence (no v2 dual schedule mirror), config update,
+// and GET round-trip.
+func TestSettingsRuntimeUpdateModelSyncCronPersistsPlain(t *testing.T) {
+	db, r, cfg := setupEdgeTest(t)
+	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
+		"modelSyncCron": "0 5 * * 1",
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", resp.Code, resp.Body.String())
+	}
+	if cfg.ModelSyncCron != "0 5 * * 1" {
+		t.Fatalf("cfg.ModelSyncCron = %q", cfg.ModelSyncCron)
+	}
+	var stored string
+	if err := db.Get(&stored, "SELECT value FROM settings WHERE key = ?", "model_sync_cron"); err != nil {
+		t.Fatalf("read model_sync_cron: %v", err)
+	}
+	if stored != `"0 5 * * 1"` {
+		t.Fatalf("stored = %q", stored)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/settings/runtime", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET runtime: %d %s", rec.Code, rec.Body.String())
+	}
+	var got map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode GET: %v", err)
+	}
+	if got["modelSyncCron"] != "0 5 * * 1" {
+		t.Fatalf("GET modelSyncCron = %v", got["modelSyncCron"])
+	}
+}
+
 func TestSettingsRuntimeUpdateLogCleanupCronRejectsInvalid(t *testing.T) {
 	_, r, _ := setupEdgeTest(t)
 	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
@@ -346,7 +393,7 @@ func TestSettingsRuntimeGetIncludesWindowAndScheduleFields(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode GET: %v", err)
 	}
-	for _, key := range []string{"checkinWindowStart", "checkinWindowEnd", "checkinSchedule", "balanceRefreshSchedule", "logCleanupSchedule", "systemName", "logo", "footer", "about", "serverAddress"} {
+	for _, key := range []string{"checkinWindowStart", "checkinWindowEnd", "checkinSchedule", "balanceRefreshSchedule", "modelSyncCron", "logCleanupSchedule", "systemName", "logo", "footer", "about", "serverAddress"} {
 		if _, ok := body[key]; !ok {
 			t.Fatalf("GET runtime missing key %s", key)
 		}
