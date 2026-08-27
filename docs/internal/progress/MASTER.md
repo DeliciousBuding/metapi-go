@@ -1,24 +1,26 @@
 # Roadmap
 
-**Last verified**: 2026-08-27
+**Last verified**: 2026-08-28
 
-**Release**: [v0.16.15](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.15) · released on master; production promotion follows the release and soak gate
+**Release**: [v0.16.16](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.16) · released on master; production promotion follows the release and soak gate
 
 > This is the only execution plan. It contains open work, order, ownership, and acceptance criteria. Current facts → [`../STATE.md`](../STATE.md) · product positioning → [`../benchmark.md`](../benchmark.md) · timeline → [`../log.md`](../log.md).
 
-## Current active work — Wave 15 issue closeout + 综合验收（目标 v0.16.16）
+## Current active work — 无执行中 wave（Wave 16 候选待挑选）
 
-两条独立 lane（两 PR，均 master → squash），收口全部 open issues 后在运维侧 testbed（私有面）做前后端综合验收：
+Wave 15 已收口并发布 v0.16.16（见下方已收口节）。下一波候选来自竞品研究（[`../analysis/competitor-study-2026-08.md`](../analysis/competitor-study-2026-08.md)）的三项 P0，按建议顺序：
 
-| Lane | Issue | 内容 | 分支 |
-|---|---|---|---|
-| A | #1009 | 上游出站代理超时可配置：`PROXY_CONNECT_TIMEOUT_SEC`（默认 2s 不变）/ `PROXY_TLS_HANDSHAKE_TIMEOUT_SEC`（10）/ `PROXY_RESPONSE_HEADER_TIMEOUT_SEC`（30）/ `PROXY_IDLE_CONN_TIMEOUT_SEC`（90）/ `PROXY_REQUEST_TIMEOUT_SEC`（30），接入 pooled/uTLS transport 与 SiteProxy 客户端；reset-by-peer 证据仍待报告者补充，配置项为显式请求，不宣称修复 | `fix/w15-proxy-timeouts` |
-| B | #1005 | 周期性上游模型列表同步：`MODEL_SYNC_CRON`（默认 `0 4 * * *`）+ DB 设置 `model_sync_cron` 覆盖 + settings `modelSyncCron` 热更新；仅刷新非 disabled 且有凭据账号；批量结束只重建一次路由；单账号刷新核心下沉 service 层，handler/admin 委托 | `feature/w15-model-sync` |
+| # | 内容 | 建议验收 |
+|---|---|---|
+| P0-1 | transform/ 协议转换 golden 快照套件（签入 request/response/stream testdata + update 环境变量） | `transform/{openai,gemini}/testdata/golden` + golden test 进 CI；协议改动被快照机械拦截 |
+| P0-2 | 渠道/账号行级探测历史健康条（近 N 次竖条 + tooltip 成功率/延迟，数据层已有 `model_probe_results`） | 行级健康条组件 + tooltip，vitest + 视觉回归基线更新 |
+| P0-3 | cooldown/breaker 记录结构化原因 + 状态徽章可点击→根因弹窗（触发码/错误摘要/剩余时间/一键清除） | schema 加原因列（双方言）+ 徽章弹窗 + 复用既有清除操作 |
 
-验收门槛：两分支各自 `go build ./cmd/server && go vet ./... && go test ./... -count=1 -race` + 前端 `typecheck/lint/knip/build`（Lane B）→ 12-check CI → squash merge → v0.16.16 发布 → 运维侧 testbed 拉新 `:latest` 验收（/ready、settings modelSyncCron 往返、真实上游模型刷新、SPA 资产、新代理超时 env 启动冒烟）；验收原始证据留私有面，公开仓只留脱敏结论。
+挑选条件：需求驱动或维护者确认；选定后按 Wave 15 模式拆分支、定验收门槛（本地全门禁 → 12-check CI → squash merge → 发布 → 私有面 testbed 综合验收）。
 
-### 已收口（Wave 14，勿再当 active）
+### 已收口（Wave 15/14，勿再当 active）
 
+- **Wave 15 → v0.16.16**：PR #1013（#1009 出站代理超时五变量）/ #1014（竞品研究）/ #1015（#1005 定时模型同步）+ #1016（发布节）squash 合入 master；#1005 关闭，#1009 配置已交付、保持 open 等待报告者补充 reset 证据；私有面运维 testbed 综合验收通过（版本注入、调度器启动与热更新、设置往返与 400 校验、真实上游 e2e smoke 13 PASS / 0 FAIL、SPA 资产）；原始证据留私有面。
 - **Wave 14 → v0.16.15**：PR #1010 squash 合入 `master`（`840d930`），#1007/#1008 关闭；发布前 required CI、Docker、a11y、视觉回归、SQLite/PG、E2E 与本地 pre-push 门禁均通过。
 - Wave 12A/12B/13/14 均已合入并发布 v0.16.12 / v0.16.13 / v0.16.14 / v0.16.15。
 

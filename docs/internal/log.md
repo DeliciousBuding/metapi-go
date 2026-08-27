@@ -1,9 +1,17 @@
 # log.md — Metapi Go product milestones
 
-**Last updated**: 2026-08-27
+**Last updated**: 2026-08-28
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
+
+## 2026-08-28 — Wave 15 issue 收口 发布 v0.16.16
+
+- **#1005 定时上游模型同步**：`MODEL_SYNC_CRON`（默认 `0 4 * * *`）+ 设置页 `modelSyncCron` 运行时热更新（非法 cron 400）；单账号失败不中断整批，批量结束后路由重建与缓存失效恰好整体发生一次；手工单账号刷新端点行为不变（PR #1015）。
+- **#1009 出站代理超时可配置**：五个 `PROXY_*_TIMEOUT_SEC` 环境变量（connect 2 / TLS 10 / 响应头 30 / 空闲 90 / 总请求 30），接入 pooled/uTLS transport 与 SiteProxy 客户端；未配置零行为变化；reset-by-peer 根因证据待报告者补充，issue 保持 open（PR #1013）。
+- **竞品研究**：`docs/internal/analysis/competitor-study-2026-08.md`（new-api / axonhub / sub2api），P0×3 成为 Wave 16 候选（PR #1014）。
+- **验收**：私有面运维 testbed 综合验收通过——版本注入、/ready、model-sync/balance 调度器启动与热更新、设置往返与 400 校验、真实上游 e2e smoke 13 PASS / 0 FAIL、模型刷新诚实空态（上游零渠道为独立核实事实）、SPA 资产；原始证据留私有面。附带发现并修复 testbed compose 的 4 字段无效 `BALANCE_REFRESH_CRON`（testbed 侧配置错误；产品按设计 fail-closed 告警）。
+- **发布收口**：tag pipeline run 33109606314 全绿（23 项检查 + 多架构镜像 `:0.16.16`/`:0.16` + 5 平台二进制与 smoke）；GitHub Release 已正式发布，含 12 个资产。
 
 ## 2026-08-27 — Wave 14 账号表单与分页修复 发布 v0.16.15
 
