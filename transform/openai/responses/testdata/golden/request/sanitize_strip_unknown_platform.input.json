@@ -1,0 +1,17 @@
+{
+  "body": {
+    "model": "gpt-5-codex",
+    "input": [
+      {
+        "type": "reasoning",
+        "id": "rs_1",
+        "summary": [{ "type": "summary_text", "text": "Planned the rollout." }],
+        "encrypted_content": "ENC2"
+      },
+      { "type": "message", "role": "user", "content": "Go" }
+    ],
+    "previous_response_id": "resp_def456",
+    "store": true
+  },
+  "policy": { "sitePlatform": "sub2api", "protocol": "responses", "upstreamPath": "/v1/responses", "isCompactRequest": false, "requireContinuity": false }
+}

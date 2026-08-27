@@ -1,0 +1,6 @@
+{
+  "input": [
+    { "type": "message", "role": "user", "content": "hi" },
+    { "type": "reasoning", "id": "rs_x" }
+  ]
+}

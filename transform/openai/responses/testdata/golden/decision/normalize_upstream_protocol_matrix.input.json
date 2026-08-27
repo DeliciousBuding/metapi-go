@@ -1,0 +1,16 @@
+{
+  "cases": [
+    { "protocol": "", "upstreamPath": "/v1/responses" },
+    { "protocol": "", "upstreamPath": "/v1/responses/compact" },
+    { "protocol": "", "upstreamPath": "/responses/compact" },
+    { "protocol": "", "upstreamPath": "/v1/chat/completions" },
+    { "protocol": "", "upstreamPath": "/v1/messages" },
+    { "protocol": "", "upstreamPath": "/v1/embeddings" },
+    { "protocol": "", "upstreamPath": "/responses/resp_123" },
+    { "protocol": "", "upstreamPath": "/v1/responses?stream=true" },
+    { "protocol": "", "upstreamPath": "/V1/Chat/Completions/" },
+    { "protocol": "chat", "upstreamPath": "/v1/responses" },
+    { "protocol": "responses", "upstreamPath": "" },
+    { "protocol": "", "upstreamPath": "" }
+  ]
+}

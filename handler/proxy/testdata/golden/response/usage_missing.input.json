@@ -1,0 +1,5 @@
+{
+  "id": "x",
+  "object": "chat.completion",
+  "choices": [{ "index": 0, "message": { "role": "assistant", "content": "no usage here" } }]
+}

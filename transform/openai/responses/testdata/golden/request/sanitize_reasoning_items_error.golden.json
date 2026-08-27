@@ -1,0 +1,5 @@
+{
+  "error": "input[1] type=reasoning is missing required content: provide non-empty summary text, content, or encrypted_content for multi-turn /v1/responses (Hermes/Codex)",
+  "reason": "reasoning_item_missing_required_content",
+  "index": 1
+}

@@ -1,0 +1,33 @@
+{
+  "body": {
+    "input": [
+      {
+        "content": "Compact turn reasoning.",
+        "encrypted_content": "ENCC",
+        "id": "rs_c",
+        "summary": [
+          {
+            "text": "Compact turn reasoning.",
+            "type": "summary_text"
+          }
+        ],
+        "type": "reasoning"
+      },
+      {
+        "content": "Compact request",
+        "role": "user",
+        "type": "message"
+      }
+    ],
+    "model": "gpt-5-codex",
+    "text": {
+      "verbosity": "medium"
+    }
+  },
+  "decision": {
+    "action": "strip",
+    "reason": "compact_request_strips_previous_response_id",
+    "clientMessage": ""
+  },
+  "error": ""
+}

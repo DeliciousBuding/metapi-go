@@ -1,0 +1,57 @@
+[
+  {
+    "content": "plain string summary",
+    "encrypted_content": "ENC-A",
+    "id": "rs_a",
+    "summary": "plain string summary",
+    "type": "reasoning"
+  },
+  {
+    "content": "part one\npart two",
+    "id": "rs_b",
+    "summary": [
+      {
+        "text": "part one",
+        "type": "summary_text"
+      },
+      {
+        "text": "part two",
+        "type": "summary_text"
+      }
+    ],
+    "type": "reasoning"
+  },
+  {
+    "content": "",
+    "encrypted_content": "ENC-ONLY",
+    "id": "rs_c",
+    "type": "reasoning"
+  },
+  {
+    "content": [
+      {
+        "text": "raw chain",
+        "type": "reasoning_text"
+      }
+    ],
+    "id": "rs_d",
+    "type": "reasoning"
+  },
+  {
+    "content": "",
+    "role": "user",
+    "type": "message"
+  },
+  {
+    "content": "",
+    "role": "assistant",
+    "type": "message"
+  },
+  {
+    "arguments": "{\"city\":\"Paris\"}",
+    "name": "get_weather",
+    "type": "function_call"
+  },
+  "plain string item",
+  42
+]

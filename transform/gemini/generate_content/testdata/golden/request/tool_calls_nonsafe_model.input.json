@@ -1,0 +1,22 @@
+{
+  "modelName": "third-party-gemini-compat",
+  "body": {
+    "model": "third-party-gemini-compat",
+    "messages": [
+      { "role": "user", "content": "Roll a die." },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_3",
+            "type": "function",
+            "function": { "name": "roll_die", "arguments": "{}" }
+          }
+        ]
+      },
+      { "role": "tool", "tool_call_id": "call_3", "content": "4" }
+    ],
+    "reasoning_effort": "high"
+  }
+}

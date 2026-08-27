@@ -1,0 +1,37 @@
+{
+  "contents": [
+    {
+      "parts": [
+        {
+          "text": "Roll a die."
+        }
+      ],
+      "role": "user"
+    },
+    {
+      "parts": [
+        {
+          "functionCall": {
+            "args": {},
+            "id": "call_3",
+            "name": "roll_die"
+          }
+        }
+      ],
+      "role": "model"
+    },
+    {
+      "parts": [
+        {
+          "functionResponse": {
+            "id": "call_3",
+            "name": "roll_die",
+            "response": "4"
+          }
+        }
+      ],
+      "role": "user"
+    }
+  ],
+  "model": "third-party-gemini-compat"
+}

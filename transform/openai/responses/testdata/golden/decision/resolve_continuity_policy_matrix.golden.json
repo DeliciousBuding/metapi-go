@@ -1,0 +1,67 @@
+[
+  {
+    "action": "forward",
+    "reason": "responses_platform_supports_previous_response_id",
+    "clientMessage": ""
+  },
+  {
+    "action": "forward",
+    "reason": "responses_platform_supports_previous_response_id",
+    "clientMessage": ""
+  },
+  {
+    "action": "forward",
+    "reason": "responses_platform_supports_previous_response_id",
+    "clientMessage": ""
+  },
+  {
+    "action": "strip",
+    "reason": "responses_platform_strips_unsupported_previous_response_id",
+    "clientMessage": ""
+  },
+  {
+    "action": "strip",
+    "reason": "responses_platform_strips_unsupported_previous_response_id",
+    "clientMessage": ""
+  },
+  {
+    "action": "strip",
+    "reason": "chat_family_strips_previous_response_id",
+    "clientMessage": ""
+  },
+  {
+    "action": "strip",
+    "reason": "chat_family_strips_previous_response_id",
+    "clientMessage": ""
+  },
+  {
+    "action": "reject",
+    "reason": "chat_family_lacks_previous_response_id",
+    "clientMessage": "previous_response_id is not supported on chat upstreams; use /v1/responses on a Responses-capable platform, or omit previous_response_id"
+  },
+  {
+    "action": "reject",
+    "reason": "responses_platform_rejects_previous_response_id",
+    "clientMessage": "previous_response_id is not supported by platform \"sub2api\"; omit previous_response_id or route to a Responses-capable platform (openai/azure/codex)"
+  },
+  {
+    "action": "strip",
+    "reason": "compact_request_strips_previous_response_id",
+    "clientMessage": ""
+  },
+  {
+    "action": "strip",
+    "reason": "compact_request_strips_previous_response_id",
+    "clientMessage": ""
+  },
+  {
+    "action": "strip",
+    "reason": "unknown_protocol_strips_previous_response_id",
+    "clientMessage": ""
+  },
+  {
+    "action": "reject",
+    "reason": "unknown_protocol_previous_response_id",
+    "clientMessage": "previous_response_id cannot be forwarded on this upstream protocol; use /v1/responses on a supported platform or omit previous_response_id"
+  }
+]

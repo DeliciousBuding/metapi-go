@@ -1,0 +1,14 @@
+{
+  "id": "msg_1",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-sonnet-4-5",
+  "content": [{ "type": "text", "text": "hello" }],
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 25,
+    "output_tokens": 180,
+    "cache_read_input_tokens": 1000,
+    "cache_creation_input_tokens": 50
+  }
+}

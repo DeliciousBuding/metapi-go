@@ -1,0 +1,25 @@
+[
+  {
+    "key": "value",
+    "nested": {
+      "n": 2
+    }
+  },
+  [
+    1,
+    2,
+    3
+  ],
+  "quoted",
+  42,
+  true,
+  null,
+  {},
+  {},
+  {
+    "value": "not json"
+  },
+  {
+    "value": "data: {\"x\":1}"
+  }
+]

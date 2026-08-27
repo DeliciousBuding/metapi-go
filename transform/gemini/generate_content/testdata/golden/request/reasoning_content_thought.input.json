@@ -1,0 +1,11 @@
+{
+  "modelName": "gemini-2.5-flash",
+  "body": {
+    "model": "gemini-2.5-flash",
+    "messages": [
+      { "role": "user", "content": "What is 2+2?" },
+      { "role": "assistant", "reasoning_content": "Let me think step by step.", "content": "The answer is 4." },
+      { "role": "user", "content": "Thanks" }
+    ]
+  }
+}

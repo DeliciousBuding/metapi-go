@@ -1,0 +1,14 @@
+{
+  "cases": [
+    "auto",
+    "required",
+    "any",
+    "none",
+    "weird-value",
+    { "type": "function", "function": { "name": "get_weather" } },
+    { "type": "required" },
+    { "type": "none" },
+    { "type": "mystery" },
+    42
+  ]
+}

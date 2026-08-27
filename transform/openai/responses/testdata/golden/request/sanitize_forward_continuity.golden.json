@@ -1,0 +1,38 @@
+{
+  "body": {
+    "input": [
+      {
+        "content": "Analyzed the repo layout.",
+        "encrypted_content": "ENC1",
+        "id": "rs_1",
+        "summary": [
+          {
+            "text": "Analyzed the repo layout.",
+            "type": "summary_text"
+          }
+        ],
+        "type": "reasoning"
+      },
+      {
+        "content": "Ship it",
+        "role": "user",
+        "type": "message"
+      },
+      {
+        "content": "",
+        "role": "assistant",
+        "type": "message"
+      }
+    ],
+    "model": "gpt-5-codex",
+    "previous_response_id": "resp_abc123",
+    "store": true,
+    "stream": true
+  },
+  "decision": {
+    "action": "forward",
+    "reason": "responses_platform_supports_previous_response_id",
+    "clientMessage": ""
+  },
+  "error": ""
+}

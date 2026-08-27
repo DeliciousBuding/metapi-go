@@ -1,0 +1,31 @@
+{
+  "body": {
+    "input": [
+      {
+        "content": "Planned the rollout.",
+        "encrypted_content": "ENC2",
+        "id": "rs_1",
+        "summary": [
+          {
+            "text": "Planned the rollout.",
+            "type": "summary_text"
+          }
+        ],
+        "type": "reasoning"
+      },
+      {
+        "content": "Go",
+        "role": "user",
+        "type": "message"
+      }
+    ],
+    "model": "gpt-5-codex",
+    "store": true
+  },
+  "decision": {
+    "action": "strip",
+    "reason": "responses_platform_strips_unsupported_previous_response_id",
+    "clientMessage": ""
+  },
+  "error": ""
+}
