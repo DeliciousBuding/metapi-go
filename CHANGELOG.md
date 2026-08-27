@@ -5,6 +5,17 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.16.16] — 2026-08-28
+
+### Added
+
+- **定时上游模型同步（#1005）**：新增 `MODEL_SYNC_CRON`（默认 `0 4 * * *`，每日 04:00）定期批量刷新全部活跃账号的上游模型列表；设置页 `modelSyncCron` 支持运行时热更新（校验拒绝非法 cron）；单账号失败不中断整批，批量完成后路由重建与缓存失效恰好整体发生一次。手工单账号刷新端点行为与响应载荷不变。
+- **上游代理超时可配置（#1009）**：新增五个 `PROXY_*_TIMEOUT_SEC` 环境变量——`PROXY_CONNECT_TIMEOUT_SEC`（默认 2）、`PROXY_TLS_HANDSHAKE_TIMEOUT_SEC`（10）、`PROXY_RESPONSE_HEADER_TIMEOUT_SEC`（30）、`PROXY_IDLE_CONN_TIMEOUT_SEC`（90）、`PROXY_REQUEST_TIMEOUT_SEC`（30）——按部署调优出站站点代理/上游请求超时；`0`/负数/非法值回退默认，未配置时零行为变化。
+
+### Changed
+
+- **竞品研究文档**：新增 `docs/internal/analysis/competitor-study-2026-08.md`（new-api / axonhub / sub2api 对标与可执行建议），为后续波次提供方向输入。
+
 ## [v0.16.15] — 2026-08-27
 
 ### Fixed
