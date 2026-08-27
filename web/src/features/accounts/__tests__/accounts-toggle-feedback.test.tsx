@@ -21,6 +21,9 @@ const testState = vi.hoisted(() => ({
   toastSuccess: vi.fn(),
 }))
 
+vi.mock('@/components/common/use-probe-history', () => ({
+  useProbeHistory: () => ({ data: undefined }),
+}))
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),
   useSearch: () => ({}),

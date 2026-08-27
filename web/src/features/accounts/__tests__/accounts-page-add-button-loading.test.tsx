@@ -29,6 +29,9 @@ const testState = vi.hoisted(() => ({
   formOpen: false,
 }))
 
+vi.mock('@/components/common/use-probe-history', () => ({
+  useProbeHistory: () => ({ data: undefined }),
+}))
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),
   useSearch: () => ({ page: 1, pageSize: 20 }),

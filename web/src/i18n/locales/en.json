@@ -2940,6 +2940,17 @@
         "manualOverrideSetActive": "Manually set"
       }
     },
+    "probeHealth": {
+      "column": "Probe health",
+      "empty": "No probes",
+      "ariaSummary": "{{success}} of {{total}} probes succeeded",
+      "tooltip": {
+        "window": "Last {{total}} probes",
+        "successRate": "Success rate: {{rate}}% ({{success}}/{{total}})",
+        "avgLatency": "Avg latency: {{value}}",
+        "noLatency": "No latency data"
+      }
+    },
     "connect": {
       "title": "Connect {{name}}",
       "description": "Copy the gateway endpoint and key, or import into a client with one click.",

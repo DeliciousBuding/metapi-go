@@ -38,6 +38,7 @@ func RegisterAccountsRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
 	r.Delete("/api/accounts/{id}", handler.deleteAccount)
 	r.Post("/api/accounts/batch", handler.batchAccounts)
 	r.Post("/api/accounts/health/refresh", handler.healthRefresh)
+	r.Get("/api/accounts/probe-history", handler.accountProbeHistory)
 	r.Post("/api/accounts/{id}/balance", handler.refreshBalance)
 	r.Get("/api/accounts/{id}/models", handler.getAccountModels)
 	r.Post("/api/accounts/{id}/models/manual", handler.manualModels)

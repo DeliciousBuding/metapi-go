@@ -27,6 +27,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
+import { useProbeHistory } from '@/components/common/use-probe-history'
 import {
   DataTableBulkActions,
   DataTablePage,
@@ -241,6 +242,7 @@ export function AccountsPage() {
   const navigate = useNavigate()
   const urlState = useAccountsUrlState()
   const { data, isLoading, isFetching, error, refetch } = useAccounts()
+  const probeHistoryQuery = useProbeHistory('accounts')
   // Parse the raw snapshot rows once (WeakMap-cached per raw object) instead
   // of per cell/per accessor/per filter — see parseAccountRow above.
   const accounts = useMemo(
@@ -480,7 +482,10 @@ export function AccountsPage() {
     rowActions,
     pendingStatusId,
     pendingCheckinId,
-    pendingPinId
+    pendingPinId,
+    // Row-level probe history: ONE batch fetch per page render, rendered as
+    // health bars; a failed fetch only hides the bars, never the table.
+    probeHistoryQuery.data
   )
 
   const { table } = useDataTable({

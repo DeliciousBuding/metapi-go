@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
+import { useProbeHistory } from '@/components/common/use-probe-history'
 import {
   DataTablePage,
   encodeSorting,
@@ -122,6 +123,10 @@ export function ChannelsPage() {
   const search = useSearch({ from: '/_authenticated/channels' })
   const navigate = useNavigate()
   const channelsQuery = useChannels()
+  // Row-level probe history is secondary decoration: fetched in ONE batch
+  // (never per row) and rendered as health bars; a failed fetch only hides
+  // the bars, never the channels table.
+  const probeHistoryQuery = useProbeHistory('channels')
   const urlState = useChannelsUrlState()
   const [detailChannel, setDetailChannel] = useState<ChannelRow | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
@@ -162,7 +167,7 @@ export function ChannelsPage() {
       setReasonOpen(true)
     },
   }
-  const columns = useChannelsColumns(columnActions)
+  const columns = useChannelsColumns(columnActions, probeHistoryQuery.data)
 
   const { table } = useDataTable<ChannelRow>({
     data: channelsQuery.data ?? [],

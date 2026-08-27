@@ -11,6 +11,7 @@ import { accountsApi } from './api/accounts.ts'
 import { catalogSourcesApi } from './api/catalog-sources.ts'
 import { eventsApi } from './api/events.ts'
 import { oauthApi } from './api/oauth.ts'
+import { probeHistoryApi } from './api/probe-history.ts'
 import { searchApi } from './api/search.ts'
 import { settingsApi } from './api/settings.ts'
 import { siteAnnouncementsApi } from './api/site-announcements.ts'
@@ -30,6 +31,7 @@ export const api = {
   ...statsApi,
   ...searchApi,
   ...oauthApi,
+  ...probeHistoryApi,
   ...eventsApi,
   ...settingsApi,
   ...systemApi,

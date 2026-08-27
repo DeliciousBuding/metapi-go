@@ -51,6 +51,9 @@ const testState = vi.hoisted(() => ({
   columns: [{ accessorKey: 'username', header: 'Username' }],
 }))
 
+vi.mock('@/components/common/use-probe-history', () => ({
+  useProbeHistory: () => ({ data: undefined }),
+}))
 vi.mock('@tanstack/react-router', async () => {
   const React = await import('react')
 

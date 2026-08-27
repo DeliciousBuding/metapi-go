@@ -68,6 +68,7 @@ func RegisterTokenRoutesWithDeps(r chi.Router, db *sqlx.DB, deps TokenRoutesDeps
 
 	// Channel operations
 	r.Get("/api/channels", handler.listChannels)
+	r.Get("/api/channels/probe-history", handler.channelProbeHistory)
 	r.Put("/api/channels/batch", handler.batchUpdateChannels)
 	r.Put("/api/channels/{channelId}", handler.updateChannel)
 	r.Delete("/api/channels/{channelId}", handler.deleteChannel)
