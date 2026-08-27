@@ -742,3 +742,76 @@ func TestLoadAdminOAuthRateLimitFallsBackOnInvalid(t *testing.T) {
 		t.Fatalf("OAuthRateLimitBurst = %d, want default %d on invalid input", cfg.OAuthRateLimitBurst, DefaultOAuthRateLimitBurst)
 	}
 }
+
+func TestLoadProxyTimeoutsDefaults(t *testing.T) {
+	cfg := Load(map[string]string{})
+	// Pin the defaults: they must equal the timeouts that were hardcoded in
+	// platform/site_proxy.go before #1009 so unset deployments behave
+	// identically.
+	tests := []struct {
+		name string
+		got  int
+		want int
+	}{
+		{"ProxyConnectTimeoutSec", cfg.ProxyConnectTimeoutSec, 2},
+		{"ProxyTLSHandshakeTimeoutSec", cfg.ProxyTLSHandshakeTimeoutSec, 10},
+		{"ProxyResponseHeaderTimeoutSec", cfg.ProxyResponseHeaderTimeoutSec, 30},
+		{"ProxyIdleConnTimeoutSec", cfg.ProxyIdleConnTimeoutSec, 90},
+		{"ProxyRequestTimeoutSec", cfg.ProxyRequestTimeoutSec, 30},
+	}
+	for _, tt := range tests {
+		if tt.got != tt.want {
+			t.Fatalf("%s = %d on empty env, want %d (pre-#1009 hardcoded default)", tt.name, tt.got, tt.want)
+		}
+	}
+}
+
+func TestLoadParsesProxyTimeouts(t *testing.T) {
+	cfg := Load(map[string]string{
+		"PROXY_CONNECT_TIMEOUT_SEC":         "7",
+		"PROXY_TLS_HANDSHAKE_TIMEOUT_SEC":   "11",
+		"PROXY_RESPONSE_HEADER_TIMEOUT_SEC": "45.9", // truncated to 45, same as LDOH
+		"PROXY_IDLE_CONN_TIMEOUT_SEC":       "120",
+		"PROXY_REQUEST_TIMEOUT_SEC":         "60",
+	})
+	if cfg.ProxyConnectTimeoutSec != 7 {
+		t.Fatalf("ProxyConnectTimeoutSec = %d, want 7", cfg.ProxyConnectTimeoutSec)
+	}
+	if cfg.ProxyTLSHandshakeTimeoutSec != 11 {
+		t.Fatalf("ProxyTLSHandshakeTimeoutSec = %d, want 11", cfg.ProxyTLSHandshakeTimeoutSec)
+	}
+	if cfg.ProxyResponseHeaderTimeoutSec != 45 {
+		t.Fatalf("ProxyResponseHeaderTimeoutSec = %d, want 45 (truncated)", cfg.ProxyResponseHeaderTimeoutSec)
+	}
+	if cfg.ProxyIdleConnTimeoutSec != 120 {
+		t.Fatalf("ProxyIdleConnTimeoutSec = %d, want 120", cfg.ProxyIdleConnTimeoutSec)
+	}
+	if cfg.ProxyRequestTimeoutSec != 60 {
+		t.Fatalf("ProxyRequestTimeoutSec = %d, want 60", cfg.ProxyRequestTimeoutSec)
+	}
+}
+
+func TestLoadProxyTimeoutsFallBackOnInvalid(t *testing.T) {
+	cfg := Load(map[string]string{
+		"PROXY_CONNECT_TIMEOUT_SEC":         "0",
+		"PROXY_TLS_HANDSHAKE_TIMEOUT_SEC":   "-5",
+		"PROXY_RESPONSE_HEADER_TIMEOUT_SEC": "soon",
+		"PROXY_IDLE_CONN_TIMEOUT_SEC":       "  ",
+		// PROXY_REQUEST_TIMEOUT_SEC intentionally unset.
+	})
+	if cfg.ProxyConnectTimeoutSec != DefaultProxyConnectTimeoutSec {
+		t.Fatalf("ProxyConnectTimeoutSec = %d on zero, want default %d", cfg.ProxyConnectTimeoutSec, DefaultProxyConnectTimeoutSec)
+	}
+	if cfg.ProxyTLSHandshakeTimeoutSec != DefaultProxyTLSHandshakeTimeoutSec {
+		t.Fatalf("ProxyTLSHandshakeTimeoutSec = %d on negative, want default %d", cfg.ProxyTLSHandshakeTimeoutSec, DefaultProxyTLSHandshakeTimeoutSec)
+	}
+	if cfg.ProxyResponseHeaderTimeoutSec != DefaultProxyResponseHeaderTimeoutSec {
+		t.Fatalf("ProxyResponseHeaderTimeoutSec = %d on invalid, want default %d", cfg.ProxyResponseHeaderTimeoutSec, DefaultProxyResponseHeaderTimeoutSec)
+	}
+	if cfg.ProxyIdleConnTimeoutSec != DefaultProxyIdleConnTimeoutSec {
+		t.Fatalf("ProxyIdleConnTimeoutSec = %d on blank, want default %d", cfg.ProxyIdleConnTimeoutSec, DefaultProxyIdleConnTimeoutSec)
+	}
+	if cfg.ProxyRequestTimeoutSec != DefaultProxyRequestTimeoutSec {
+		t.Fatalf("ProxyRequestTimeoutSec = %d on unset, want default %d", cfg.ProxyRequestTimeoutSec, DefaultProxyRequestTimeoutSec)
+	}
+}

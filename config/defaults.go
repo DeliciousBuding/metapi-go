@@ -148,4 +148,15 @@ const (
 	// this default. Matches the previous hardcoded 30s so existing
 	// deployments are unchanged without an env override.
 	DefaultLDOHProxyTimeoutSec = 30
+
+	// Default outbound proxy / upstream HTTP timeouts in seconds (#1009).
+	// Parsed from the PROXY_*_TIMEOUT_SEC env vars; 0/negative/invalid falls
+	// back to these defaults at Load time. Values match the timeouts that were
+	// hardcoded in platform/site_proxy.go before #1009, so deployments without
+	// env overrides keep identical behavior.
+	DefaultProxyConnectTimeoutSec        = 2  // TCP dial (connect) timeout
+	DefaultProxyTLSHandshakeTimeoutSec   = 10 // TLS handshake timeout
+	DefaultProxyResponseHeaderTimeoutSec = 30 // wait for upstream response headers
+	DefaultProxyIdleConnTimeoutSec       = 90 // idle keep-alive connection TTL
+	DefaultProxyRequestTimeoutSec        = 30 // whole-request http.Client timeout
 )
