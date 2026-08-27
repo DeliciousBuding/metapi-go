@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/internal/ssrf"
 	utls "github.com/refraction-networking/utls"
 )
@@ -20,6 +21,15 @@ const (
 	defaultProxyConnectTimeout   = 2 * time.Second
 	defaultProxyKeepAliveInitial = 60 * time.Second
 	siteProxyCacheTTL            = 3 * time.Second
+
+	// Historical outbound timeout defaults. #1009 made them configurable via
+	// the PROXY_*_TIMEOUT_SEC env vars; effectiveProxyTimeouts resolves the
+	// live values, falling back to these exact constants so unset deployments
+	// keep the pre-#1009 behavior.
+	defaultProxyTLSHandshakeTimeout   = 10 * time.Second
+	defaultProxyResponseHeaderTimeout = 30 * time.Second
+	defaultProxyIdleConnTimeout       = 90 * time.Second
+	defaultProxyRequestTimeout        = 30 * time.Second
 )
 
 var supportedProxySchemes = map[string]bool{
@@ -92,20 +102,67 @@ func transportCacheKey(proxy func(*http.Request) (*url.URL, error), insecureSkip
 	return key
 }
 
+// proxyTimeoutSet holds the effective outbound proxy / upstream HTTP timeout
+// set (#1009).
+type proxyTimeoutSet struct {
+	connect        time.Duration // TCP dial (connect)
+	tlsHandshake   time.Duration // TLS handshake
+	responseHeader time.Duration // wait for upstream response headers
+	idleConn       time.Duration // idle keep-alive connection TTL
+	request        time.Duration // whole-request http.Client timeout
+}
+
+// effectiveProxyTimeouts resolves the outbound timeout set from the loaded
+// config (PROXY_*_TIMEOUT_SEC env vars). When no config is loaded (unit
+// tests) or a field is non-positive, the matching historical default applies,
+// so unset deployments keep the exact pre-#1009 behavior. Config is frozen at
+// startup, so callers resolve once per transport/client construction; cached
+// transports therefore never see a mid-process timeout change.
+func effectiveProxyTimeouts() proxyTimeoutSet {
+	set := proxyTimeoutSet{
+		connect:        defaultProxyConnectTimeout,
+		tlsHandshake:   defaultProxyTLSHandshakeTimeout,
+		responseHeader: defaultProxyResponseHeaderTimeout,
+		idleConn:       defaultProxyIdleConnTimeout,
+		request:        defaultProxyRequestTimeout,
+	}
+	cfg := config.GetSafe()
+	if cfg == nil {
+		return set
+	}
+	if cfg.ProxyConnectTimeoutSec > 0 {
+		set.connect = time.Duration(cfg.ProxyConnectTimeoutSec) * time.Second
+	}
+	if cfg.ProxyTLSHandshakeTimeoutSec > 0 {
+		set.tlsHandshake = time.Duration(cfg.ProxyTLSHandshakeTimeoutSec) * time.Second
+	}
+	if cfg.ProxyResponseHeaderTimeoutSec > 0 {
+		set.responseHeader = time.Duration(cfg.ProxyResponseHeaderTimeoutSec) * time.Second
+	}
+	if cfg.ProxyIdleConnTimeoutSec > 0 {
+		set.idleConn = time.Duration(cfg.ProxyIdleConnTimeoutSec) * time.Second
+	}
+	if cfg.ProxyRequestTimeoutSec > 0 {
+		set.request = time.Duration(cfg.ProxyRequestTimeoutSec) * time.Second
+	}
+	return set
+}
+
 // newPooledTransport builds a fresh *http.Transport configured for connection
 // reuse. Called only on cache misses inside getCachedTransport.
 func newPooledTransport(proxy func(*http.Request) (*url.URL, error), insecureSkipTLS bool) *http.Transport {
+	timeouts := effectiveProxyTimeouts()
 	transport := &http.Transport{
 		Proxy:                 proxy,
 		DialContext:           newSiteDialContext(),
-		TLSHandshakeTimeout:   10 * time.Second,
-		ResponseHeaderTimeout: 30 * time.Second,
+		TLSHandshakeTimeout:   timeouts.tlsHandshake,
+		ResponseHeaderTimeout: timeouts.responseHeader,
 		ExpectContinueTimeout: 1 * time.Second,
 		// Pool sizing: keep idle sockets warm so repeated probes/streams to the
 		// same upstream reuse the same TCP+TLS pair instead of re-dialing.
 		MaxIdleConns:        100,
 		MaxIdleConnsPerHost: 20,
-		IdleConnTimeout:     90 * time.Second,
+		IdleConnTimeout:     timeouts.idleConn,
 	}
 	if insecureSkipTLS {
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
@@ -113,12 +170,18 @@ func newPooledTransport(proxy func(*http.Request) (*url.URL, error), insecureSki
 	return transport
 }
 
-func newSiteDialContext() ssrf.DialContextFunc {
-	dialer := &net.Dialer{
-		Timeout:   defaultProxyConnectTimeout,
+// newSiteDialer builds the shared outbound dialer. The connect timeout is
+// configurable via PROXY_CONNECT_TIMEOUT_SEC (#1009); the keep-alive period
+// stays fixed.
+func newSiteDialer() *net.Dialer {
+	return &net.Dialer{
+		Timeout:   effectiveProxyTimeouts().connect,
 		KeepAlive: defaultProxyKeepAliveInitial,
 	}
-	return ssrf.NewSiteDialContext(net.DefaultResolver, dialer.DialContext)
+}
+
+func newSiteDialContext() ssrf.DialContextFunc {
+	return ssrf.NewSiteDialContext(net.DefaultResolver, newSiteDialer().DialContext)
 }
 
 // newUTLSTransport builds a pooled *http.Transport whose DialTLSContext
@@ -189,10 +252,12 @@ func dialUTLSContext(ctx context.Context, network, addr string, insecureSkipTLS 
 // newProxyClient wraps a (pooled) *http.Transport with the shared timeout and
 // cross-origin redirect policy used by outbound site-proxy traffic. The
 // *http.Client is cheap to construct per request; only the Transport is pooled.
+// The whole-request timeout is configurable via PROXY_REQUEST_TIMEOUT_SEC
+// (#1009).
 func newProxyClient(transport *http.Transport) *http.Client {
 	return &http.Client{
 		Transport:     transport,
-		Timeout:       30 * time.Second,
+		Timeout:       effectiveProxyTimeouts().request,
 		CheckRedirect: RejectCrossOriginRedirect,
 	}
 }
@@ -223,32 +288,33 @@ func NewSiteProxy(systemProxyURL string) *SiteProxy {
 }
 
 func (sp *SiteProxy) buildClients() {
+	timeouts := effectiveProxyTimeouts()
 	transport := &http.Transport{
 		Proxy:                 sp.proxyFunc,
 		DialContext:           newSiteDialContext(),
-		TLSHandshakeTimeout:   10 * time.Second,
-		ResponseHeaderTimeout: 30 * time.Second,
+		TLSHandshakeTimeout:   timeouts.tlsHandshake,
+		ResponseHeaderTimeout: timeouts.responseHeader,
 		ExpectContinueTimeout: 1 * time.Second,
 	}
 
 	sp.httpClient = &http.Client{
 		Transport:     transport,
-		Timeout:       30 * time.Second,
+		Timeout:       timeouts.request,
 		CheckRedirect: RejectCrossOriginRedirect,
 	}
 
 	transportNoTLS := &http.Transport{
 		Proxy:                 sp.proxyFunc,
 		DialContext:           newSiteDialContext(),
-		TLSHandshakeTimeout:   10 * time.Second,
-		ResponseHeaderTimeout: 30 * time.Second,
+		TLSHandshakeTimeout:   timeouts.tlsHandshake,
+		ResponseHeaderTimeout: timeouts.responseHeader,
 		ExpectContinueTimeout: 1 * time.Second,
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
 	}
 
 	sp.httpClientNoTLS = &http.Client{
 		Transport:     transportNoTLS,
-		Timeout:       30 * time.Second,
+		Timeout:       timeouts.request,
 		CheckRedirect: RejectCrossOriginRedirect,
 	}
 }

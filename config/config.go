@@ -197,6 +197,18 @@ type Config struct {
 	// traffic. Per-site use_utls overrides this flag (see service.UTLSEnabled).
 	UTLSEnabled bool
 
+	// Outbound proxy / upstream HTTP timeouts (5 fields, env-only — no DDL).
+	// Integer seconds applied to every outbound site-proxy / upstream request
+	// (platform.SiteProxy, DoWithProxy, pooled transports). Parsed from the
+	// PROXY_*_TIMEOUT_SEC env vars; 0/negative/invalid falls back to the
+	// Default* constants at Load time, which match the pre-#1009 hardcoded
+	// values so unset deployments keep identical behavior.
+	ProxyConnectTimeoutSec        int // dial / TCP connect
+	ProxyTLSHandshakeTimeoutSec   int // TLS handshake
+	ProxyResponseHeaderTimeoutSec int // wait for upstream response headers
+	ProxyIdleConnTimeoutSec       int // idle keep-alive connection TTL
+	ProxyRequestTimeoutSec        int // whole-request http.Client timeout
+
 	// LDOHBaseURL is the upstream LDOH dashboard URL proxied through
 	// /monitor-proxy/ldoh/* (env-only — no DDL). Parsed from LDOH_BASE_URL;
 	// defaults to DefaultLDOHBaseURL so operators can redirect the monitor
@@ -398,6 +410,17 @@ func parseNumber(value string, fallback float64) float64 {
 	parsed, err := strconv.ParseFloat(value, 64)
 	if err != nil || math.IsInf(parsed, 0) || math.IsNaN(parsed) {
 		return fallback
+	}
+	return parsed
+}
+
+// §1.2b parseTimeoutSec: integer-seconds timeout env var. "" / invalid /
+// <=0 → def, so a misconfigured value never disables a timeout (same clamp
+// pattern as LDOH_PROXY_TIMEOUT_SEC).
+func parseTimeoutSec(value string, def int) int {
+	parsed := int(math.Trunc(parseNumber(value, float64(def))))
+	if parsed <= 0 {
+		return def
 	}
 	return parsed
 }
@@ -678,6 +701,16 @@ func Load(env map[string]string) *Config {
 		ldohTimeoutParsed = DefaultLDOHProxyTimeoutSec
 	}
 	cfg.LDOHProxyTimeoutSec = ldohTimeoutParsed
+
+	// ---- §3.11f Outbound proxy / upstream HTTP timeouts (#1009) ----
+	// Integer seconds; 0/negative/invalid falls back to the default so a
+	// misconfigured value never disables a timeout. Defaults match the
+	// pre-#1009 hardcoded values in platform/site_proxy.go.
+	cfg.ProxyConnectTimeoutSec = parseTimeoutSec(get("PROXY_CONNECT_TIMEOUT_SEC"), DefaultProxyConnectTimeoutSec)
+	cfg.ProxyTLSHandshakeTimeoutSec = parseTimeoutSec(get("PROXY_TLS_HANDSHAKE_TIMEOUT_SEC"), DefaultProxyTLSHandshakeTimeoutSec)
+	cfg.ProxyResponseHeaderTimeoutSec = parseTimeoutSec(get("PROXY_RESPONSE_HEADER_TIMEOUT_SEC"), DefaultProxyResponseHeaderTimeoutSec)
+	cfg.ProxyIdleConnTimeoutSec = parseTimeoutSec(get("PROXY_IDLE_CONN_TIMEOUT_SEC"), DefaultProxyIdleConnTimeoutSec)
+	cfg.ProxyRequestTimeoutSec = parseTimeoutSec(get("PROXY_REQUEST_TIMEOUT_SEC"), DefaultProxyRequestTimeoutSec)
 
 	// ---- §3.11d Update Center scheduler gate ----
 	cfg.UpdateCenterEnabled = parseBoolean(get("METAPI_ENABLE_UPDATE_CENTER"), false)
