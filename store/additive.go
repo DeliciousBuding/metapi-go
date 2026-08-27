@@ -343,6 +343,28 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return EnsureColumn(db, "model_availability", "is_manual", "INTEGER", "BOOLEAN", "DEFAULT 0")
 		},
 	},
+	{
+		// P0-3: structured cooldown/breaker reasons. Answers "why is this channel
+		// cooling" without log archaeology: classification code + truncated error
+		// summary + recorded-at. NULL on rows cooled before this step ran — the UI
+		// reports that honestly instead of guessing.
+		Version:     "sc2_025_cooldown_reasons",
+		Description: "route_channels/oauth_route_unit_members cooldown_reason_code/cooldown_reason/cooldown_reason_at TEXT NULL — structured cooldown reason; NULL = not recorded (legacy rows)",
+		Apply: func(db *DB) error {
+			for _, table := range []string{"route_channels", "oauth_route_unit_members"} {
+				if err := EnsureColumn(db, table, "cooldown_reason_code", "TEXT", "TEXT", ""); err != nil {
+					return err
+				}
+				if err := EnsureColumn(db, table, "cooldown_reason", "TEXT", "TEXT", ""); err != nil {
+					return err
+				}
+				if err := EnsureColumn(db, table, "cooldown_reason_at", "TEXT", "TEXT", ""); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.

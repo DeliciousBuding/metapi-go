@@ -1,0 +1,66 @@
+{
+  "cachedContent": "cached-abc",
+  "contents": [
+    {
+      "parts": [
+        {
+          "text": "Hi"
+        }
+      ],
+      "role": "user"
+    },
+    {
+      "parts": [
+        {
+          "functionCall": {
+            "args": {
+              "city": "Paris"
+            },
+            "name": "get_weather"
+          },
+          "thoughtSignature": "c2tpcF90aG91Z2h0X3NpZ25hdHVyZV92YWxpZGF0b3I="
+        }
+      ],
+      "role": "model"
+    }
+  ],
+  "generationConfig": {
+    "maxOutputTokens": 500,
+    "temperature": 0.2,
+    "thinkingConfig": {
+      "thinkingBudget": 100,
+      "thinkingLevel": "low"
+    }
+  },
+  "labels": {
+    "team": "proxy"
+  },
+  "model": "models/gemini-3-pro-preview",
+  "safetySettings": [
+    {
+      "category": "HARM_CATEGORY_HARASSMENT",
+      "threshold": "BLOCK_NONE"
+    }
+  ],
+  "systemInstruction": {
+    "parts": [
+      {
+        "text": "be brief"
+      }
+    ]
+  },
+  "toolConfig": {
+    "functionCallingConfig": {
+      "mode": "AUTO"
+    }
+  },
+  "tools": [
+    {
+      "functionDeclarations": [
+        {
+          "name": "get_weather"
+        }
+      ]
+    }
+  ]
+}

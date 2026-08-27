@@ -1,0 +1,13 @@
+{
+  "input": [
+    { "type": "reasoning", "id": "rs_a", "summary": "plain string summary", "encrypted_content": "ENC-A" },
+    { "type": "reasoning", "id": "rs_b", "summary": [{ "type": "summary_text", "text": "part one" }, { "type": "summary_text", "text": "part two" }] },
+    { "type": "reasoning", "id": "rs_c", "encrypted_content": "ENC-ONLY" },
+    { "type": "reasoning", "id": "rs_d", "content": [{ "type": "reasoning_text", "text": "raw chain" }] },
+    { "type": "message", "role": "user" },
+    { "role": "assistant" },
+    { "type": "function_call", "name": "get_weather", "arguments": "{\"city\":\"Paris\"}" },
+    "plain string item",
+    42
+  ]
+}

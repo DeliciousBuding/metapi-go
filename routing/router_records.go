@@ -44,16 +44,19 @@ func (tr *TokenRouter) RecordSuccess(ctx context.Context, channelID int64, laten
 			memberTotalLatencyMs := max(0, memberRow.Member.TotalLatencyMsOrZero()) + int64(latencyMs)
 			memberTotalCost := math.Max(0, memberRow.Member.TotalCostOrZero()) + cost
 			_ = tr.db.UpdateRouteUnitMemberSuccessFields(ctx, memberRow.Member.ID, map[string]interface{}{
-				"successCount":   memberSuccessCount,
-				"failCount":      max(0, memberRow.Member.FailCountOrZero()) / 2,
-				"totalLatencyMs": memberTotalLatencyMs,
-				"totalCost":      memberTotalCost,
-				"lastUsedAt":     nowISO,
-				"cooldownUntil":  nil,
-				"lastFailAt":     nil,
+				"successCount":         memberSuccessCount,
+				"failCount":            max(0, memberRow.Member.FailCountOrZero()) / 2,
+				"totalLatencyMs":       memberTotalLatencyMs,
+				"totalCost":            memberTotalCost,
+				"lastUsedAt":           nowISO,
+				"cooldownUntil":        nil,
+				"lastFailAt":           nil,
 				"consecutiveFailCount": int64(0),
-				"cooldownLevel":  int64(0),
-				"updatedAt":      nowISO,
+				"cooldownLevel":        int64(0),
+				"cooldownReasonCode":   nil,
+				"cooldownReason":       nil,
+				"cooldownReasonAt":     nil,
+				"updatedAt":            nowISO,
 			})
 			RecordSiteRuntimeSuccess(memberRow.Account.SiteID, latencyMs, modelName)
 		} else {
@@ -65,15 +68,18 @@ func (tr *TokenRouter) RecordSuccess(ctx context.Context, channelID int64, laten
 	}
 
 	_ = tr.db.UpdateChannelSuccessFields(ctx, channelID, map[string]interface{}{
-		"successCount":   nextSuccessCount,
-		"failCount":      nextFailCount,
-		"totalLatencyMs": nextTotalLatencyMs,
-		"totalCost":      nextTotalCost,
-		"lastUsedAt":     nowISO,
-		"cooldownUntil":  nil,
-		"lastFailAt":     nil,
+		"successCount":         nextSuccessCount,
+		"failCount":            nextFailCount,
+		"totalLatencyMs":       nextTotalLatencyMs,
+		"totalCost":            nextTotalCost,
+		"lastUsedAt":           nowISO,
+		"cooldownUntil":        nil,
+		"lastFailAt":           nil,
 		"consecutiveFailCount": int64(0),
-		"cooldownLevel":  int64(0),
+		"cooldownLevel":        int64(0),
+		"cooldownReasonCode":   nil,
+		"cooldownReason":       nil,
+		"cooldownReasonAt":     nil,
 	})
 
 	tr.cache.PatchCachedChannel(channelID, func(ch *store.RouteChannel) {
@@ -86,6 +92,9 @@ func (tr *TokenRouter) RecordSuccess(ctx context.Context, channelID int64, laten
 		ch.LastFailAt = nil
 		ch.ConsecutiveFailCount = 0
 		ch.CooldownLevel = 0
+		ch.CooldownReasonCode = nil
+		ch.CooldownReason = nil
+		ch.CooldownReasonAt = nil
 	})
 
 	return nil
@@ -122,6 +131,9 @@ func (tr *TokenRouter) RecordProbeSuccess(ctx context.Context, channelID int64, 
 				"lastFailAt":           nil,
 				"consecutiveFailCount": int64(0),
 				"cooldownLevel":        int64(0),
+				"cooldownReasonCode":   nil,
+				"cooldownReason":       nil,
+				"cooldownReasonAt":     nil,
 				"updatedAt":            nowISO,
 			})
 			RecordSiteRuntimeSuccess(memberRow.Account.SiteID, latencyMs, modelName)
@@ -136,12 +148,18 @@ func (tr *TokenRouter) RecordProbeSuccess(ctx context.Context, channelID int64, 
 			"lastFailAt":           nil,
 			"consecutiveFailCount": int64(0),
 			"cooldownLevel":        int64(0),
+			"cooldownReasonCode":   nil,
+			"cooldownReason":       nil,
+			"cooldownReasonAt":     nil,
 		})
 		tr.cache.PatchCachedChannel(channelID, func(ch *store.RouteChannel) {
 			ch.CooldownUntil = nil
 			ch.LastFailAt = nil
 			ch.ConsecutiveFailCount = 0
 			ch.CooldownLevel = 0
+			ch.CooldownReasonCode = nil
+			ch.CooldownReason = nil
+			ch.CooldownReasonAt = nil
 		})
 		tr.cache.InvalidateRouteScopedCache(ch.RouteID)
 		return nil
@@ -159,6 +177,9 @@ func (tr *TokenRouter) RecordProbeSuccess(ctx context.Context, channelID int64, 
 			"lastFailAt":           nil,
 			"consecutiveFailCount": int64(0),
 			"cooldownLevel":        int64(0),
+			"cooldownReasonCode":   nil,
+			"cooldownReason":       nil,
+			"cooldownReasonAt":     nil,
 		})
 		for _, id := range affectedChannelIDs {
 			tr.cache.PatchCachedChannel(id, func(ch *store.RouteChannel) {
@@ -166,6 +187,9 @@ func (tr *TokenRouter) RecordProbeSuccess(ctx context.Context, channelID int64, 
 				ch.LastFailAt = nil
 				ch.ConsecutiveFailCount = 0
 				ch.CooldownLevel = 0
+				ch.CooldownReasonCode = nil
+				ch.CooldownReason = nil
+				ch.CooldownReasonAt = nil
 			})
 		}
 	}
@@ -198,6 +222,7 @@ func (tr *TokenRouter) RecordProbeFailure(ctx context.Context, channelID int64, 
 	nowMs := time.Now().UnixMilli()
 	nowISO := time.Now().UTC().Format(time.RFC3339)
 	channelIDCopy := channelID
+	reasonCode, reasonSummary := ClassifyCooldownReason(failureCtx, CooldownTriggerProbe)
 
 	// Normalize model onto failure context for runtime health model-level state.
 	if failureCtx.ModelName == nil || *failureCtx.ModelName == "" {
@@ -238,6 +263,9 @@ func (tr *TokenRouter) RecordProbeFailure(ctx context.Context, channelID int64, 
 				"consecutiveFailCount": consecutiveFailCount,
 				"cooldownLevel":        cooldownLevel,
 				"cooldownUntil":        cooldownUntil,
+				"cooldownReasonCode":   reasonCode,
+				"cooldownReason":       CooldownReasonSummaryArg(reasonSummary),
+				"cooldownReasonAt":     nowISO,
 				"updatedAt":            nowISO,
 			})
 			RecordSiteRuntimeFailure(memberRow.Account.SiteID, failureCtx)
@@ -267,6 +295,9 @@ func (tr *TokenRouter) RecordProbeFailure(ctx context.Context, channelID int64, 
 		"consecutiveFailCount": consecutiveFailCount,
 		"cooldownLevel":        cooldownLevel,
 		"cooldownUntil":        cooldownUntil,
+		"cooldownReasonCode":   reasonCode,
+		"cooldownReason":       CooldownReasonSummaryArg(reasonSummary),
+		"cooldownReasonAt":     nowISO,
 	})
 
 	for _, id := range affectedChannelIDs {
@@ -276,6 +307,9 @@ func (tr *TokenRouter) RecordProbeFailure(ctx context.Context, channelID int64, 
 			ch.ConsecutiveFailCount = consecutiveFailCount
 			ch.CooldownLevel = cooldownLevel
 			ch.CooldownUntil = cooldownUntil
+			ch.CooldownReasonCode = &reasonCode
+			ch.CooldownReason = reasonSummaryPtr(reasonSummary)
+			ch.CooldownReasonAt = &nowISO
 		})
 	}
 
@@ -300,6 +334,7 @@ func (tr *TokenRouter) RecordFailure(ctx context.Context, channelID int64, failu
 	route := row.Route
 	nowMs := time.Now().UnixMilli()
 	nowISO := time.Now().UTC().Format(time.RFC3339)
+	reasonCode, reasonSummary := ClassifyCooldownReason(failureCtx, CooldownTriggerTraffic)
 
 	// Handle OAuth route unit member
 	if ch.OAuthRouteUnitID != nil && *ch.OAuthRouteUnitID > 0 {
@@ -339,12 +374,15 @@ func (tr *TokenRouter) RecordFailure(ctx context.Context, channelID int64, failu
 			}
 
 			_ = tr.db.UpdateRouteUnitMemberCooldownFields(ctx, memberRow.Member.ID, map[string]interface{}{
-				"failCount":          failCount,
-				"lastFailAt":         nowISO,
+				"failCount":            failCount,
+				"lastFailAt":           nowISO,
 				"consecutiveFailCount": consecutiveFailCount,
-				"cooldownLevel":      cooldownLevel,
-				"cooldownUntil":      cooldownUntil,
-				"updatedAt":          nowISO,
+				"cooldownLevel":        cooldownLevel,
+				"cooldownUntil":        cooldownUntil,
+				"cooldownReasonCode":   reasonCode,
+				"cooldownReason":       CooldownReasonSummaryArg(reasonSummary),
+				"cooldownReasonAt":     nowISO,
+				"updatedAt":            nowISO,
 			})
 			RecordSiteRuntimeFailure(memberRow.Account.SiteID, failureCtx)
 			tr.cache.InvalidateRouteScopedCache(route.ID)
@@ -392,11 +430,14 @@ func (tr *TokenRouter) RecordFailure(ctx context.Context, channelID int64, failu
 	}
 
 	_ = tr.db.UpdateChannelCooldownFields(ctx, affectedChannelIDs, map[string]interface{}{
-		"failCount":          failCount,
-		"lastFailAt":         nowISO,
+		"failCount":            failCount,
+		"lastFailAt":           nowISO,
 		"consecutiveFailCount": consecutiveFailCount,
-		"cooldownLevel":      cooldownLevel,
-		"cooldownUntil":      cooldownUntil,
+		"cooldownLevel":        cooldownLevel,
+		"cooldownUntil":        cooldownUntil,
+		"cooldownReasonCode":   reasonCode,
+		"cooldownReason":       CooldownReasonSummaryArg(reasonSummary),
+		"cooldownReasonAt":     nowISO,
 	})
 
 	for _, id := range affectedChannelIDs {
@@ -406,6 +447,9 @@ func (tr *TokenRouter) RecordFailure(ctx context.Context, channelID int64, failu
 			ch.ConsecutiveFailCount = consecutiveFailCount
 			ch.CooldownLevel = cooldownLevel
 			ch.CooldownUntil = cooldownUntil
+			ch.CooldownReasonCode = &reasonCode
+			ch.CooldownReason = reasonSummaryPtr(reasonSummary)
+			ch.CooldownReasonAt = &nowISO
 		})
 	}
 

@@ -1,0 +1,10 @@
+{
+  "created": 1756400000,
+  "data": [
+    {
+      "b64_json": "aGVsbG8=",
+      "revised_prompt": "A watercolor lighthouse at dusk, soft palette"
+    }
+  ],
+  "usage": { "input_tokens": 12, "output_tokens": 1152, "total_tokens": 1164 }
+}

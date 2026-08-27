@@ -70,6 +70,13 @@ func additiveColumns() []additiveColumnSpec {
 		{"account_tokens", "token_group"},
 		{"account_tokens", "value_status"},
 		{"model_availability", "is_manual"},
+		// P0-3 structured cooldown reasons.
+		{"route_channels", "cooldown_reason_code"},
+		{"route_channels", "cooldown_reason"},
+		{"route_channels", "cooldown_reason_at"},
+		{"oauth_route_unit_members", "cooldown_reason_code"},
+		{"oauth_route_unit_members", "cooldown_reason"},
+		{"oauth_route_unit_members", "cooldown_reason_at"},
 	}
 }
 
@@ -85,6 +92,7 @@ var legacySchemaDDL = []string{
 	"CREATE TABLE accounts (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
 	"CREATE TABLE checkin_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER NOT NULL, created_at TEXT NOT NULL)",
 	"CREATE TABLE route_channels (id INTEGER PRIMARY KEY AUTOINCREMENT, route_id INTEGER NOT NULL, account_id INTEGER NOT NULL, created_at TEXT NOT NULL)",
+	"CREATE TABLE oauth_route_unit_members (id INTEGER PRIMARY KEY AUTOINCREMENT, unit_id INTEGER NOT NULL, account_id INTEGER NOT NULL, created_at TEXT NOT NULL)",
 	"CREATE TABLE account_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER NOT NULL, name TEXT NOT NULL, token TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
 	"CREATE TABLE model_availability (id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER NOT NULL, model_name TEXT NOT NULL, available INTEGER, checked_at TEXT)",
 }

@@ -1,0 +1,10 @@
+{
+  "logprobs": 3,
+  "max_tokens": 7,
+  "model": "gpt-3.5-turbo-instruct",
+  "n": 1,
+  "prompt": "Say this is a test",
+  "stop": "\n",
+  "stream": false,
+  "temperature": 0.5
+}

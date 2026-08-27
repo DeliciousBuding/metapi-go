@@ -17,28 +17,33 @@ import (
 // It aggregates route_channels across the account/token/oauth_unit dimensions
 // and joins only the display fields the channels page needs (no credentials).
 type channelListRow struct {
-	ID                int64   `db:"id"`
-	RouteID           int64   `db:"route_id"`
-	AccountID         int64   `db:"account_id"`
-	TokenID           *int64  `db:"token_id"`
-	OAuthRouteUnitID  *int64  `db:"oauth_route_unit_id"`
-	SourceModel       *string `db:"source_model"`
+	ID               int64   `db:"id"`
+	RouteID          int64   `db:"route_id"`
+	AccountID        int64   `db:"account_id"`
+	TokenID          *int64  `db:"token_id"`
+	OAuthRouteUnitID *int64  `db:"oauth_route_unit_id"`
+	SourceModel      *string `db:"source_model"`
 	// Priority/Weight/SuccessCount/TotalLatencyMs are nullable in route_channels
 	// (DEFAULT without NOT NULL): NULL must scan to nil, not crash the list
 	// with "converting NULL to int64" (#933 family).
-	Priority          *int64  `db:"priority"`
-	Weight            *int64  `db:"weight"`
-	Enabled           bool    `db:"enabled"`
-	ManualOverride    bool    `db:"manual_override"`
-	SuccessCount      *int64  `db:"success_count"`
-	TotalLatencyMs    *int64  `db:"total_latency_ms"`
-	CooldownUntil     *string `db:"cooldown_until"`
-	Username          string  `db:"username"`
-	SiteID            int64   `db:"site_id"`
-	SiteName          string  `db:"site_name"`
-	RouteModelPattern string  `db:"route_model_pattern"`
-	OAuthUnitName     string  `db:"oauth_unit_name"`
-	TokenName         string  `db:"token_name"`
+	Priority       *int64  `db:"priority"`
+	Weight         *int64  `db:"weight"`
+	Enabled        bool    `db:"enabled"`
+	ManualOverride bool    `db:"manual_override"`
+	SuccessCount   *int64  `db:"success_count"`
+	TotalLatencyMs *int64  `db:"total_latency_ms"`
+	CooldownUntil  *string `db:"cooldown_until"`
+	// Structured cooldown reason (P0-3): why the channel cooled down. NULL on
+	// rows cooled before the reason columns existed.
+	CooldownReasonCode *string `db:"cooldown_reason_code"`
+	CooldownReason     *string `db:"cooldown_reason"`
+	CooldownReasonAt   *string `db:"cooldown_reason_at"`
+	Username           string  `db:"username"`
+	SiteID             int64   `db:"site_id"`
+	SiteName           string  `db:"site_name"`
+	RouteModelPattern  string  `db:"route_model_pattern"`
+	OAuthUnitName      string  `db:"oauth_unit_name"`
+	TokenName          string  `db:"token_name"`
 	// TotalCount is the COUNT(*) OVER () window result: the total number of
 	// route_channels rows matching the FROM/JOINs ignoring LIMIT/OFFSET, so the
 	// pager can show the true fleet size on every page. Identical across all
@@ -198,6 +203,7 @@ func (h *tokenRoutesHandler) computeChannelsPage(r *http.Request, page, pageSize
 		SELECT rc.id, rc.route_id, rc.account_id, rc.token_id, rc.oauth_route_unit_id,
 		       rc.source_model, rc.priority, rc.weight, rc.enabled, rc.manual_override,
 		       rc.success_count, rc.total_latency_ms, rc.cooldown_until,
+		       rc.cooldown_reason_code, rc.cooldown_reason, rc.cooldown_reason_at,
 		       COALESCE(a.username, '') AS username,
 		       a.site_id,
 		       COALESCE(s.name, '') AS site_name,
@@ -303,18 +309,21 @@ func channelListItem(row channelListRow) map[string]any {
 	}
 
 	return map[string]any{
-		"id":             row.ID,
-		"routeId":        row.RouteID,
-		"name":           name,
-		"site":           map[string]any{"id": row.SiteID, "name": row.SiteName},
-		"type":           chType,
-		"status":         routing.ChannelRuntimeStatus(row.SiteID, sourceModel, row.Enabled, row.CooldownUntil),
-		"models":         models,
-		"priority":       row.Priority,
-		"weight":         row.Weight,
-		"responseMs":     responseMs,
-		"cooldownUntil":  row.CooldownUntil,
-		"enabled":        row.Enabled,
-		"manualOverride": row.ManualOverride,
+		"id":                 row.ID,
+		"routeId":            row.RouteID,
+		"name":               name,
+		"site":               map[string]any{"id": row.SiteID, "name": row.SiteName},
+		"type":               chType,
+		"status":             routing.ChannelRuntimeStatus(row.SiteID, sourceModel, row.Enabled, row.CooldownUntil),
+		"models":             models,
+		"priority":           row.Priority,
+		"weight":             row.Weight,
+		"responseMs":         responseMs,
+		"cooldownUntil":      row.CooldownUntil,
+		"cooldownReasonCode": row.CooldownReasonCode,
+		"cooldownReason":     row.CooldownReason,
+		"cooldownReasonAt":   row.CooldownReasonAt,
+		"enabled":            row.Enabled,
+		"manualOverride":     row.ManualOverride,
 	}
 }

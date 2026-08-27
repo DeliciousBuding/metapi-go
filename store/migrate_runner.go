@@ -885,7 +885,7 @@ func buildTokenRoutes(rows []map[string]interface{}) []insertStmt {
 }
 
 func buildRouteChannels(rows []map[string]interface{}) []insertStmt {
-	cols := []string{"id", "route_id", "account_id", "token_id", "oauth_route_unit_id", "source_model", "priority", "weight", "enabled", "manual_override", "success_count", "fail_count", "total_latency_ms", "total_cost", "last_used_at", "last_selected_at", "last_fail_at", "consecutive_fail_count", "cooldown_level", "cooldown_until"}
+	cols := []string{"id", "route_id", "account_id", "token_id", "oauth_route_unit_id", "source_model", "priority", "weight", "enabled", "manual_override", "success_count", "fail_count", "total_latency_ms", "total_cost", "last_used_at", "last_selected_at", "last_fail_at", "consecutive_fail_count", "cooldown_level", "cooldown_until", "cooldown_reason_code", "cooldown_reason", "cooldown_reason_at"}
 	var stmts []insertStmt
 	for _, row := range rows {
 		stmts = append(stmts, insertStmt{
@@ -911,6 +911,9 @@ func buildRouteChannels(rows []map[string]interface{}) []insertStmt {
 				asNumber(v(row, "consecutive_fail_count"), float64(0)),
 				asNumber(v(row, "cooldown_level"), float64(0)),
 				asNullableString(v(row, "cooldown_until")),
+				asNullableString(v(row, "cooldown_reason_code")),
+				asNullableString(v(row, "cooldown_reason")),
+				asNullableString(v(row, "cooldown_reason_at")),
 			},
 		})
 	}

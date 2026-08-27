@@ -1,0 +1,15 @@
+{
+  "cases": [
+    { "status": 404, "rawErrText": "", "requestPath": "" },
+    { "status": 405, "rawErrText": "", "requestPath": "" },
+    { "status": 501, "rawErrText": "", "requestPath": "" },
+    { "status": 400, "rawErrText": "unknown parameter: 'stream'", "requestPath": "/v1/responses/compact" },
+    { "status": 400, "rawErrText": "unknown parameter: 'stream'", "requestPath": "/v1/chat/completions" },
+    { "status": 400, "rawErrText": "unknown parameter: 'stream' for compact endpoint", "requestPath": "" },
+    { "status": 400, "rawErrText": "Invalid URL: responses/compact unsupported", "requestPath": "" },
+    { "status": 400, "rawErrText": "compact not supported by upstream", "requestPath": "" },
+    { "status": 400, "rawErrText": "some unrelated validation error", "requestPath": "/v1/responses/compact" },
+    { "status": 200, "rawErrText": "compact endpoint unavailable", "requestPath": "" },
+    { "status": 500, "rawErrText": "", "requestPath": "" }
+  ]
+}

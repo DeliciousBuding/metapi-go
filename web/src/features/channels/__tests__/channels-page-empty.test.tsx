@@ -68,6 +68,10 @@ vi.mock('../components/channel-detail-sheet', () => ({
   ChannelDetailSheet: () => null,
 }))
 
+vi.mock('../components/cooldown-reason-dialog', () => ({
+  CooldownReasonDialog: () => null,
+}))
+
 function makeChannel(overrides: Partial<ChannelRow>): ChannelRow {
   return {
     id: 1,

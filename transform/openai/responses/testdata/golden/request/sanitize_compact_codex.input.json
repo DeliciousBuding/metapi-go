@@ -1,0 +1,20 @@
+{
+  "body": {
+    "model": "gpt-5-codex",
+    "input": [
+      {
+        "type": "reasoning",
+        "id": "rs_c",
+        "summary": [{ "type": "summary_text", "text": "Compact turn reasoning." }],
+        "encrypted_content": "ENCC"
+      },
+      { "type": "message", "role": "user", "content": "Compact request" }
+    ],
+    "previous_response_id": "resp_compact1",
+    "stream": true,
+    "stream_options": { "include_usage": true },
+    "store": true,
+    "text": { "verbosity": "medium" }
+  },
+  "policy": { "sitePlatform": "codex", "protocol": "", "upstreamPath": "/v1/responses/compact", "isCompactRequest": true, "requireContinuity": false }
+}

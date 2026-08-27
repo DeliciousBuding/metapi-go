@@ -27,7 +27,11 @@ import { cn } from '@/lib/utils'
 
 import type { ChannelRow, ChannelStatus } from '../types'
 
-export type ChannelsColumnActions = { onView: (channel: ChannelRow) => void }
+export type ChannelsColumnActions = {
+  onView: (channel: ChannelRow) => void
+  /** Opens the cooldown root-cause dialog (P0-3); badge click on failing rows. */
+  onShowReason?: (channel: ChannelRow) => void
+}
 
 const STATUS_CONFIG: Record<
   ChannelStatus,
@@ -150,7 +154,7 @@ export function useChannelsColumns(
           const status = row.original.status
           const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.enabled
           const Icon = config.Icon
-          return (
+          const badge = (
             <Badge variant={config.variant} className='gap-1.5'>
               <span
                 aria-hidden='true'
@@ -159,6 +163,27 @@ export function useChannelsColumns(
               <Icon aria-hidden='true' />
               {t(config.labelKey)}
             </Badge>
+          )
+          // Only failing states are interesting to click, and only when the
+          // page wires the root-cause dialog — enabled rows stay inert.
+          const clickable =
+            (status === 'cooldown' || status === 'breaker_open') &&
+            Boolean(actions?.onShowReason)
+          if (!clickable) {
+            return badge
+          }
+          return (
+            <button
+              type='button'
+              className='data-popup-open:bg-accent focus-visible:ring-ring/50 rounded-full outline-none focus-visible:ring-2'
+              aria-label={t('channels.reason.openAria', {
+                name: row.original.name,
+              })}
+              title={t('channels.reason.openTitle')}
+              onClick={() => actions?.onShowReason?.(row.original)}
+            >
+              {badge}
+            </button>
           )
         },
         // The toolbar status facet is multi-select, so the filter value is an

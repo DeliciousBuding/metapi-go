@@ -1,0 +1,45 @@
+{
+  "contents": [
+    {
+      "parts": [
+        {
+          "text": "What is the weather in Berlin?"
+        }
+      ],
+      "role": "user"
+    },
+    {
+      "parts": [
+        {
+          "functionCall": {
+            "args": {
+              "city": "Berlin"
+            },
+            "id": "call_2",
+            "name": "get_weather"
+          },
+          "thoughtSignature": "c2tpcF90aG91Z2h0X3NpZ25hdHVyZV92YWxpZGF0b3I="
+        }
+      ],
+      "role": "model"
+    },
+    {
+      "parts": [
+        {
+          "functionResponse": {
+            "id": "call_2",
+            "name": "get_weather",
+            "response": "9 degrees"
+          }
+        }
+      ],
+      "role": "user"
+    }
+  ],
+  "generationConfig": {
+    "thinkingConfig": {
+      "thinkingBudget": 0
+    }
+  },
+  "model": "gemini-2.5-flash"
+}

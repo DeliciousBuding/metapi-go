@@ -1,0 +1,22 @@
+{
+  "modelName": "gemini-2.5-flash",
+  "body": {
+    "model": "gemini-2.5-flash",
+    "messages": [
+      { "role": "user", "content": "What is the weather in Berlin?" },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_2",
+            "type": "function",
+            "function": { "name": "get_weather", "arguments": "{\"city\":\"Berlin\"}" }
+          }
+        ]
+      },
+      { "role": "tool", "tool_call_id": "call_2", "name": "get_weather", "content": "9 degrees" }
+    ],
+    "reasoning_effort": "low"
+  }
+}

@@ -1,0 +1,56 @@
+[
+  {
+    "supportsPreviousResponseID": true,
+    "stripCompactStore": false,
+    "forceUpstreamStreamNonCompact": false,
+    "forceUpstreamStreamCompact": false
+  },
+  {
+    "supportsPreviousResponseID": true,
+    "stripCompactStore": false,
+    "forceUpstreamStreamNonCompact": false,
+    "forceUpstreamStreamCompact": false
+  },
+  {
+    "supportsPreviousResponseID": true,
+    "stripCompactStore": false,
+    "forceUpstreamStreamNonCompact": false,
+    "forceUpstreamStreamCompact": false
+  },
+  {
+    "supportsPreviousResponseID": true,
+    "stripCompactStore": false,
+    "forceUpstreamStreamNonCompact": false,
+    "forceUpstreamStreamCompact": false
+  },
+  {
+    "supportsPreviousResponseID": true,
+    "stripCompactStore": true,
+    "forceUpstreamStreamNonCompact": true,
+    "forceUpstreamStreamCompact": false
+  },
+  {
+    "supportsPreviousResponseID": false,
+    "stripCompactStore": true,
+    "forceUpstreamStreamNonCompact": true,
+    "forceUpstreamStreamCompact": false
+  },
+  {
+    "supportsPreviousResponseID": false,
+    "stripCompactStore": false,
+    "forceUpstreamStreamNonCompact": false,
+    "forceUpstreamStreamCompact": false
+  },
+  {
+    "supportsPreviousResponseID": false,
+    "stripCompactStore": false,
+    "forceUpstreamStreamNonCompact": false,
+    "forceUpstreamStreamCompact": false
+  },
+  {
+    "supportsPreviousResponseID": true,
+    "stripCompactStore": false,
+    "forceUpstreamStreamNonCompact": false,
+    "forceUpstreamStreamCompact": false
+  }
+]

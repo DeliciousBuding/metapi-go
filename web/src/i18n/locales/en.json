@@ -2881,6 +2881,32 @@
         "breakerOpen": "Breaker open",
         "manuallyDisabled": "Manually disabled"
       },
+      "reason": {
+        "dialogTitle": "Cooldown root cause",
+        "dialogDescription": "Why {{name}} was pulled out of rotation.",
+        "fieldLabel": "Cooldown reason",
+        "openTitle": "View cooldown root cause",
+        "openAria": "View why {{name}} is in cooldown",
+        "triggerCode": "Trigger",
+        "recordedAt": "Recorded at",
+        "remaining": "Remaining",
+        "remainingExpired": "Expired (waiting for refresh)",
+        "errorSummary": "Error summary",
+        "noSummary": "No error text was recorded for this failure.",
+        "notRecorded": "Reason not recorded (legacy data)",
+        "notRecordedHint": "This cooldown started before structured reasons were recorded; only the counters and timestamps are available.",
+        "codes": {
+          "usage_limit": "Usage limit reached",
+          "rate_limited": "Rate limited",
+          "auth_error": "Authentication error",
+          "upstream_error": "Upstream server error",
+          "client_error": "Request rejected",
+          "timeout": "Request timeout",
+          "network_error": "Network error",
+          "probe_failure": "Health probe failed",
+          "unknown": "Unknown error"
+        }
+      },
       "type": {
         "account": "Account",
         "token": "Token",

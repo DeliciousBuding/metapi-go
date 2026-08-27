@@ -33,6 +33,7 @@ import {
   useChannelsColumns,
   type ChannelsColumnActions,
 } from './channels-columns'
+import { CooldownReasonDialog } from './cooldown-reason-dialog'
 
 const CHANNELS_COLUMN_VISIBILITY_STORAGE_KEY =
   'metapi-go:channels:column-visibility'
@@ -129,6 +130,8 @@ export function ChannelsPage() {
   const urlState = useChannelsUrlState()
   const [detailChannel, setDetailChannel] = useState<ChannelRow | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
+  const [reasonChannel, setReasonChannel] = useState<ChannelRow | null>(null)
+  const [reasonOpen, setReasonOpen] = useState(false)
 
   // One-shot channel drilldown (proxy-log detail -> `?channelId=N`): wait
   // for the list, open the detail sheet for the referenced channel, then
@@ -158,6 +161,10 @@ export function ChannelsPage() {
     onView: (channel) => {
       setDetailChannel(channel)
       setDetailOpen(true)
+    },
+    onShowReason: (channel) => {
+      setReasonChannel(channel)
+      setReasonOpen(true)
     },
   }
   const columns = useChannelsColumns(columnActions, probeHistoryQuery.data)
@@ -230,6 +237,12 @@ export function ChannelsPage() {
           }}
         />
       )}
+
+      <CooldownReasonDialog
+        channel={reasonChannel}
+        open={reasonOpen}
+        onOpenChange={setReasonOpen}
+      />
 
       <ChannelDetailSheet
         channel={detailChannel}

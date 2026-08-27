@@ -1,0 +1,16 @@
+[
+  {
+    "Authorization": "***",
+    "accept": "application/json"
+  },
+  {
+    "Content-Type": "application/json",
+    "accept": "application/json"
+  },
+  {
+    "Accept": "text/event-stream"
+  },
+  {
+    "accept": "application/json"
+  }
+]

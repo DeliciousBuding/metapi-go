@@ -1,0 +1,24 @@
+{
+  "modelName": "gemini-3-pro-preview",
+  "body": {
+    "contents": [
+      { "role": "user", "parts": [{ "text": "Hi" }] },
+      { "role": "model", "parts": [{ "functionCall": { "name": "get_weather", "args": { "city": "Paris" } } }] }
+    ],
+    "systemInstruction": { "parts": [{ "text": "be brief" }] },
+    "generationConfig": {
+      "temperature": 0.2,
+      "thinkingConfig": { "thinkingLevel": "MINIMAL", "thinkingBudget": 100.0 },
+      "maxOutputTokens": 500,
+      "bogusKey": 1
+    },
+    "tools": [{ "functionDeclarations": [{ "name": "get_weather" }], "customToolShape": { "x": 1 } }],
+    "toolConfig": { "functionCallingConfig": { "mode": "AUTO" } },
+    "labels": { "team": "proxy" },
+    "cachedContent": "cached-abc",
+    "safetySettings": [{ "category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE" }],
+    "model": "models/gemini-3-pro-preview",
+    "topLevelJunk": { "drop": "me" },
+    "temperature": 0.9
+  }
+}

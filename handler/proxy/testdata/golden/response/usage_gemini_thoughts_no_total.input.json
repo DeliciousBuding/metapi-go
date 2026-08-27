@@ -1,0 +1,10 @@
+{
+  "candidates": [
+    { "content": { "role": "model", "parts": [{ "text": "thoughtful hello" }] }, "finishReason": "STOP", "index": 0 }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 100,
+    "candidatesTokenCount": 40,
+    "thoughtsTokenCount": 10
+  }
+}

@@ -15,6 +15,49 @@
 | Frontend acceptance       | [`../web/scripts/acceptance-e2e.mjs`](../web/scripts/acceptance-e2e.mjs) (+ [`acceptance-probe-header-quirk.mjs`](../web/scripts/acceptance-probe-header-quirk.mjs) for the fresh-site accounts-page race) | Real-browser user journeys (Playwright) against a live metapi + real upstream; operator-gated, not a PR check |
 | Operator runtime evidence | `scripts/e2e/*.sh` and focused staging procedures                                    | Compatibility that requires real credentials, topology, or upstream behavior |
 
+## Golden snapshot suites (protocol conversion)
+
+Multi-protocol conversion is the most regression-prone surface of the proxy, so
+it is additionally pinned by checked-in golden snapshots (modeled after the
+`relaykit/relayconvert` golden pattern). Every golden case is a pair of files
+under the owning package's `testdata/golden/<category>/` directory:
+
+- `<name>.input.json` (or `.input.sse` for raw stream fixtures) — the fixture,
+  hand-written and never auto-rewritten.
+- `<name>.golden.json` (or `.golden.sse`) — the recorded output snapshot.
+
+Categories follow the surface a package owns: `request`, `response`, `stream`
+fixtures, plus `decision` (policy truth tables) and `unit` (leaf helpers).
+
+| Package | Golden coverage |
+| :--- | :--- |
+| `transform/openai/responses` | Responses request sanitization (continuity `previous_response_id` policy, reasoning input items, compact mode) + decision tables |
+| `transform/gemini/generate_content` | OpenAI→Gemini request conversion (tool calls + thought signatures, multimodal placeholders, thinking config) + Gemini request normalization |
+| `transform/openai/completions`, `transform/openai/embeddings`, `transform/openai/images` | Pass-through identity contract (request/response/stream bytes unchanged) |
+| `transform/shared` | Leaf helper edge cases |
+| `handler/proxy` | Response-body usage extraction and incremental SSE stream parsing (usage/finish/error/done state, chunk-boundary independence). In this codebase the response/stream half of protocol handling lives here: SSE streams are relayed byte-for-byte and only parsed for accounting. |
+
+Run the suite like any other test (it is part of `go test ./...` and therefore
+part of CI):
+
+```bash
+go test ./transform/... ./handler/proxy/... -count=1
+```
+
+To regenerate snapshots after an intentional behavior change, set
+`GOLDEN_UPDATE=1`:
+
+```bash
+GOLDEN_UPDATE=1 go test ./transform/... ./handler/proxy/... -count=1
+```
+
+Regeneration discipline:
+
+- Regenerate only after deliberately deciding the new behavior is correct; the
+  diff of rewritten `*.golden.*` files is the review artifact.
+- Never regenerate to silence a failure you cannot explain.
+- Fixture (`*.input.*`) files are data, not generated output: edit them by
+  hand to add coverage.
 ## Public testbed assets
 
 - [`../testbed/compose.template.yml`](../testbed/compose.template.yml): sanitized loopback-only service template for Metapi, New API, One API, and optional adapter targets.

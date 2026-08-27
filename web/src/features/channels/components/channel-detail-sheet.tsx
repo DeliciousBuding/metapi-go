@@ -200,6 +200,38 @@ export function ChannelDetailSheet({
                 <DetailField label={t('channels.detail.cooldownUntil')}>
                   {formatDateTime(channel.cooldownUntil, locale)}
                 </DetailField>
+                {/* Structured cooldown reason (P0-3): inline summary; the full
+                    root-cause dialog (countdown + clear) opens from the status
+                    badge on the channels table. */}
+                <DetailField label={t('channels.reason.fieldLabel')} full>
+                  {channel.cooldownReasonCode || channel.cooldownReason ? (
+                    <span className='flex flex-col gap-0.5'>
+                      {channel.cooldownReasonCode ? (
+                        <span>
+                          {t(
+                            `channels.reason.codes.${channel.cooldownReasonCode}`,
+                            {
+                              defaultValue: channel.cooldownReasonCode,
+                            }
+                          )}
+                          <code className='bg-muted/60 ml-1.5 rounded px-1 py-0.5 font-mono text-[11px]'>
+                            {channel.cooldownReasonCode}
+                          </code>
+                        </span>
+                      ) : null}
+                      {channel.cooldownReason ? (
+                        <span
+                          className='text-muted-foreground line-clamp-2 font-mono text-xs break-all'
+                          title={channel.cooldownReason}
+                        >
+                          {channel.cooldownReason}
+                        </span>
+                      ) : null}
+                    </span>
+                  ) : (
+                    t('channels.detail.notAvailable')
+                  )}
+                </DetailField>
                 <DetailField label={t('channels.detail.manualOverride')} full>
                   {channel.manualOverride
                     ? // "Set by the operator", not "enabled" — the old

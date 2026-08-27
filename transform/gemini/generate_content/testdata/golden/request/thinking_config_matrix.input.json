@@ -1,0 +1,13 @@
+{
+  "cases": [
+    { "modelName": "gemini-2.5-flash", "body": { "reasoning_effort": "low" } },
+    { "modelName": "gemini-2.5-flash", "body": { "reasoning_effort": "medium" } },
+    { "modelName": "gemini-2.5-flash", "body": { "reasoning_effort": "high" } },
+    { "modelName": "gemini-2.5-flash", "body": { "reasoning_effort": "max" } },
+    { "modelName": "gemini-2.5-flash", "body": { "reasoning_effort": "none" } },
+    { "modelName": "gemini-2.5-flash", "body": { "reasoning_budget": 4096 } },
+    { "modelName": "gemini-2.5-flash", "body": { "reasoning_effort": "high", "reasoning_budget": 1000 } },
+    { "modelName": "gemini-2.5-flash", "body": { "generationConfig": { "thinkingConfig": { "thinkingBudget": 123 } }, "reasoning_effort": "high" } },
+    { "modelName": "gemini-2.5-flash", "body": {} }
+  ]
+}

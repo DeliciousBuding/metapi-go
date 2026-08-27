@@ -1,0 +1,52 @@
+[
+  {
+    "functionCallingConfig": {
+      "mode": "AUTO"
+    }
+  },
+  {
+    "functionCallingConfig": {
+      "mode": "ANY"
+    }
+  },
+  {
+    "functionCallingConfig": {
+      "mode": "ANY"
+    }
+  },
+  {
+    "functionCallingConfig": {
+      "mode": "NONE"
+    }
+  },
+  {
+    "functionCallingConfig": {
+      "mode": "AUTO"
+    }
+  },
+  {
+    "functionCallingConfig": {
+      "mode": "ANY"
+    }
+  },
+  {
+    "functionCallingConfig": {
+      "mode": "ANY"
+    }
+  },
+  {
+    "functionCallingConfig": {
+      "mode": "NONE"
+    }
+  },
+  {
+    "functionCallingConfig": {
+      "mode": "AUTO"
+    }
+  },
+  {
+    "functionCallingConfig": {
+      "mode": "AUTO"
+    }
+  }
+]

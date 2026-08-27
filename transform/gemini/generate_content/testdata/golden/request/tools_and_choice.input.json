@@ -1,0 +1,25 @@
+{
+  "modelName": "gemini-2.5-flash",
+  "body": {
+    "model": "gemini-2.5-flash",
+    "messages": [{ "role": "user", "content": "What is the weather in Tokyo?" }],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_weather",
+          "description": "Get weather by city",
+          "parameters": {
+            "type": "object",
+            "properties": { "city": { "type": "string" } },
+            "required": ["city"]
+          }
+        }
+      },
+      { "type": "function", "function": { "name": "no_params_fn" } },
+      { "type": "web_search" },
+      { "type": "code_interpreter" }
+    ],
+    "tool_choice": { "type": "function", "function": { "name": "get_weather" } }
+  }
+}
