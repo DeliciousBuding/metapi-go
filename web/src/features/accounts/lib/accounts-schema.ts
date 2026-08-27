@@ -221,6 +221,8 @@ function extractProxyUrl(extraConfig: string | null | undefined): string {
 type AccountVerifyPayload = {
   siteId: number
   accessToken: string
+  platformUserId?: number
+  proxyUrl?: string
   credentialMode: 'session' | 'apikey'
 }
 
@@ -247,11 +249,19 @@ export function buildAccountVerifyPayload(
   if (!token || !token.trim()) {
     return { ok: false, error: 'token' }
   }
+  const platformUserId =
+    values.platformUserId && values.platformUserId > 0
+      ? values.platformUserId
+      : undefined
+  const proxyUrl = values.proxyUrl?.trim() || undefined
+
   return {
     ok: true,
     payload: {
       siteId: values.siteId,
       accessToken: token.trim(),
+      ...(platformUserId === undefined ? {} : { platformUserId }),
+      ...(proxyUrl === undefined ? {} : { proxyUrl }),
       credentialMode: values.credentialMode === 'apikey' ? 'apikey' : 'session',
     },
   }

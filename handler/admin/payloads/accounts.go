@@ -8,6 +8,7 @@ type AccountCreatePayload struct {
 	AccessTokens   []string `json:"accessTokens,omitempty"`
 	APIToken       *string  `json:"apiToken,omitempty"`
 	PlatformUserID *int     `json:"platformUserId,omitempty"`
+	ProxyURL       *string  `json:"proxyUrl,omitempty"`
 	CheckinEnabled *bool    `json:"checkinEnabled,omitempty"`
 	CredentialMode *string  `json:"credentialMode,omitempty"`
 	RefreshToken   *string  `json:"refreshToken,omitempty"`
@@ -57,6 +58,7 @@ type AccountVerifyTokenPayload struct {
 	SiteID         int     `json:"siteId"`
 	AccessToken    *string `json:"accessToken,omitempty"`
 	PlatformUserID *int    `json:"platformUserId,omitempty"`
+	ProxyURL       *string `json:"proxyUrl,omitempty"`
 	CredentialMode *string `json:"credentialMode,omitempty"`
 }
 

@@ -312,6 +312,15 @@ func (h *accountsHandler) createAccount(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if body.ProxyURL != nil {
+		normalizedProxyURL := strings.TrimSpace(*body.ProxyURL)
+		if normalizedProxyURL != "" && !service.IsValidProxyURL(normalizedProxyURL) {
+			writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid proxyUrl. Expected a valid http(s)/socks proxy URL.")
+			return
+		}
+		body.ProxyURL = &normalizedProxyURL
+	}
+
 	// Resolve credential mode
 	credentialMode := service.ResolveRequestedCredentialMode(body.CredentialMode)
 	if len(body.AccessTokens) > 0 {
@@ -507,7 +516,11 @@ func (h *accountsHandler) createSingleAccount(ctx context.Context, body payloads
 	}
 
 	skipModelFetch := body.SkipModelFetch != nil && *body.SkipModelFetch
-	proxyCfg := service.BuildPlatformProxyConfigForToken(h.cfg, &site, rawAccessToken)
+	proxyOverride := ""
+	if body.ProxyURL != nil {
+		proxyOverride = *body.ProxyURL
+	}
+	proxyCfg := service.BuildPlatformProxyConfigForTokenWithProxyURL(h.cfg, &site, rawAccessToken, proxyOverride)
 
 	resolvedUsername := strings.TrimSpace(coalescePtr(username, ""))
 	usernameProvided := resolvedUsername != ""
@@ -631,6 +644,9 @@ func (h *accountsHandler) createSingleAccount(ctx context.Context, body payloads
 
 	extraConfig := map[string]any{
 		"credentialMode": string(resolvedCredentialMode),
+	}
+	if body.ProxyURL != nil && strings.TrimSpace(*body.ProxyURL) != "" {
+		extraConfig["proxyUrl"] = strings.TrimSpace(*body.ProxyURL)
 	}
 	if resolvedPlatformUserID != nil {
 		extraConfig["platformUserId"] = *resolvedPlatformUserID
@@ -854,6 +870,15 @@ func (h *accountsHandler) verifyToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if body.ProxyURL != nil {
+		normalizedProxyURL := strings.TrimSpace(*body.ProxyURL)
+		if normalizedProxyURL != "" && !service.IsValidProxyURL(normalizedProxyURL) {
+			writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid proxyUrl. Expected a valid http(s)/socks proxy URL.")
+			return
+		}
+		body.ProxyURL = &normalizedProxyURL
+	}
+
 	// Get site
 	var site store.Site
 	if err := h.db.Get(&site, h.db.Rebind("SELECT "+service.SiteSelectColumns+" FROM sites WHERE id = ?"), body.SiteID); err != nil {
@@ -869,7 +894,7 @@ func (h *accountsHandler) verifyToken(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-	result, err := adp.VerifyToken(ctx, site.URL, accessToken, body.PlatformUserID, service.BuildPlatformProxyConfigForToken(h.cfg, &site, accessToken))
+	result, err := adp.VerifyToken(ctx, site.URL, accessToken, body.PlatformUserID, service.BuildPlatformProxyConfigForTokenWithProxyURL(h.cfg, &site, accessToken, coalescePtr(body.ProxyURL, "")))
 	if err != nil {
 		writeErrorWithRequest(w, r, http.StatusBadRequest, err.Error())
 		return

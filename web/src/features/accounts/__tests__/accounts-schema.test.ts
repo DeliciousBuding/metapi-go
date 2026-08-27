@@ -424,6 +424,24 @@ describe('buildAccountVerifyPayload', () => {
     })
   })
 
+  it('passes unsaved platform user id and proxy values through verification', () => {
+    const result = buildAccountVerifyPayload({
+      ...validSessionForm(),
+      platformUserId: 106,
+      proxyUrl: '  socks5://proxy.example:1080  ',
+    })
+    expect(result).toEqual({
+      ok: true,
+      payload: {
+        siteId: 1,
+        accessToken: 'sk-1',
+        platformUserId: 106,
+        proxyUrl: 'socks5://proxy.example:1080',
+        credentialMode: 'session',
+      },
+    })
+  })
+
   it('returns a site error when siteId is missing or non-positive', () => {
     expect(
       buildAccountVerifyPayload({ ...validSessionForm(), siteId: 0 })
