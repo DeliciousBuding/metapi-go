@@ -10,6 +10,7 @@
 - **#1007**：inline token verification 与账号创建现在使用表单中尚未保存的 `platformUserId` / `proxyUrl`；显式代理覆盖站点、Resin 与系统代理，创建后持久化 `extraConfig.proxyUrl`，并拒绝非法代理 URL。
 - **#1008**：Accounts 表格由 URL 单一控制分页，关闭 TanStack 自动页码重置；新增真实表格回归测试，验证第 2 页渲染 11–20 行。
 - **证据**：后端 NewAPI + HTTP proxy + `New-Api-User` 回归、前端分页回归、本地 frontend 191 文件/1,276 用例与 Go build/vet/WSL race 全部通过；PR #1010 的 required CI run `33068217016` 全绿并 squash 合入 `master`（`840d930`）。
+- **发布收口（2026-08-27）**：tag pipeline run 33072276537 全部成功（含多架构 Docker、5 平台二进制与 smoke）；GitHub Release 已正式发布，含 12 个资产。
 
 ## 2026-08-27 — Wave 13 token sync UI 真值 发布 v0.16.14
 
