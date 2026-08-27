@@ -5,6 +5,12 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.16.14] — 2026-08-27
+
+### Changed
+
+- **账号 token 同步 UI 真值（#1002 后续）**：账号创建/登录后的 toast 如实报告后端 `tokenSyncStatus`/`tokenCount`/`tokenSyncMessage` 四态——synced 显示真实持久化计数、empty 提示暂无上游令牌、failed 降级为部分初始化警告（账号保留、可在令牌面板重试同步）、skipped/旧响应保持原引导文案；`/token-routes` CTA 在所有状态保留。
+
 ## [v0.16.13] — 2026-08-25
 
 ### Added
