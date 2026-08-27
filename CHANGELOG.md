@@ -5,6 +5,13 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.16.15] — 2026-08-27
+
+### Fixed
+
+- **账号表单验证真值（#1007）**：inline token verification 与账号创建现在使用表单中尚未保存的 `platformUserId` / `proxyUrl`；显式表单代理覆盖站点、Resin 与系统代理，校验 `http(s)`/`socks` URL，创建后持久化 `extraConfig.proxyUrl`，非法值 fail-closed。
+- **Accounts 分页（#1008）**：URL 控制的页码选择不再被 TanStack 自动重置；真实表格回归测试确认第 2 页稳定渲染第 11–20 行。
+
 ## [v0.16.14] — 2026-08-27
 
 ### Changed
