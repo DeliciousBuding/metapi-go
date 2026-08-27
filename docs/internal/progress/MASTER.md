@@ -6,10 +6,21 @@
 
 > This is the only execution plan. It contains open work, order, ownership, and acceptance criteria. Current facts → [`../STATE.md`](../STATE.md) · product positioning → [`../benchmark.md`](../benchmark.md) · timeline → [`../log.md`](../log.md).
 
-## Current active work — none; next wave demand-driven
+## Current active work — Wave 15 issue closeout + 综合验收（目标 v0.16.16）
 
-- **Wave 14 → v0.16.15 已收口**：PR #1010 已 squash 合入 `master`（merge commit `840d930`），#1007/#1008 已关闭；发布前 required CI、Docker、a11y、视觉回归、SQLite/PG、E2E 与本地 pre-push 门禁均通过。
-- **当前阶段**：Wave 12A/12B/13/14 均已合入并发布 v0.16.12 / v0.16.13 / v0.16.14 / v0.16.15；无执行中波次，下一波待需求驱动。
+两条独立 lane（两 PR，均 master → squash），收口全部 open issues 后在运维侧 testbed（私有面）做前后端综合验收：
+
+| Lane | Issue | 内容 | 分支 |
+|---|---|---|---|
+| A | #1009 | 上游出站代理超时可配置：`PROXY_CONNECT_TIMEOUT_SEC`（默认 2s 不变）/ `PROXY_TLS_HANDSHAKE_TIMEOUT_SEC`（10）/ `PROXY_RESPONSE_HEADER_TIMEOUT_SEC`（30）/ `PROXY_IDLE_CONN_TIMEOUT_SEC`（90）/ `PROXY_REQUEST_TIMEOUT_SEC`（30），接入 pooled/uTLS transport 与 SiteProxy 客户端；reset-by-peer 证据仍待报告者补充，配置项为显式请求，不宣称修复 | `fix/w15-proxy-timeouts` |
+| B | #1005 | 周期性上游模型列表同步：`MODEL_SYNC_CRON`（默认 `0 4 * * *`）+ DB 设置 `model_sync_cron` 覆盖 + settings `modelSyncCron` 热更新；仅刷新非 disabled 且有凭据账号；批量结束只重建一次路由；单账号刷新核心下沉 service 层，handler/admin 委托 | `feature/w15-model-sync` |
+
+验收门槛：两分支各自 `go build ./cmd/server && go vet ./... && go test ./... -count=1 -race` + 前端 `typecheck/lint/knip/build`（Lane B）→ 12-check CI → squash merge → v0.16.16 发布 → 运维侧 testbed 拉新 `:latest` 验收（/ready、settings modelSyncCron 往返、真实上游模型刷新、SPA 资产、新代理超时 env 启动冒烟）；验收原始证据留私有面，公开仓只留脱敏结论。
+
+### 已收口（Wave 14，勿再当 active）
+
+- **Wave 14 → v0.16.15**：PR #1010 squash 合入 `master`（`840d930`），#1007/#1008 关闭；发布前 required CI、Docker、a11y、视觉回归、SQLite/PG、E2E 与本地 pre-push 门禁均通过。
+- Wave 12A/12B/13/14 均已合入并发布 v0.16.12 / v0.16.13 / v0.16.14 / v0.16.15。
 
 历史完成冻结：Round 1 #887 → v0.16.3、Round 2 #889 → v0.16.4、#887 补遗 + E2E → v0.16.5、Round 3 修复波 → v0.16.6、Wave 4 综合质量波 → v0.16.7、Wave 5+6 开发 + 深审计波 → v0.16.8、Wave 7+8+9 前端体验/语义/设置/catalog/移动端审计波 → v0.16.9、Wave 10 Sites demand batch → v0.16.10 、Wave 11 UX 真值波 → v0.16.11 均已发布。
 
