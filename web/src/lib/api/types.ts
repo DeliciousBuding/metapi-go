@@ -333,6 +333,7 @@ export type RuntimeSettingsPayload = {
   checkinSchedule?: ScheduleSpecV1
   balanceRefreshCron?: string
   balanceRefreshSchedule?: ScheduleSpecV1
+  modelSyncCron?: string
   logCleanupCron?: string
   logCleanupSchedule?: ScheduleSpecV1
   logCleanupUsageLogsEnabled?: boolean

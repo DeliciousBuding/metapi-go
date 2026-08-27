@@ -30,14 +30,20 @@ import { SchedulingSection } from '../scheduling-section'
 
 const testState = vi.hoisted(() => ({
   triggerCheckinAll: vi.fn(),
+  getRuntimeSettings: vi.fn(),
+  updateRuntimeSettings: vi.fn(),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),
   toastWarning: vi.fn(),
+  toastInfo: vi.fn(),
 }))
 
 vi.mock('@/lib/api', () => ({
   api: {
-    getRuntimeSettings: vi.fn().mockResolvedValue({}),
+    getRuntimeSettings: (...args: unknown[]) =>
+      testState.getRuntimeSettings(...args),
+    updateRuntimeSettings: (...args: unknown[]) =>
+      testState.updateRuntimeSettings(...args),
     triggerCheckinAll: (...args: unknown[]) =>
       testState.triggerCheckinAll(...args),
     getSettingsMigrationPreview: vi
@@ -52,7 +58,7 @@ vi.mock('@/lib/toast', () => ({
     success: testState.toastSuccess,
     error: testState.toastError,
     warning: testState.toastWarning,
-    info: vi.fn(),
+    info: testState.toastInfo,
   },
 }))
 
@@ -71,7 +77,11 @@ vi.mock('../../../../components/schedule-editor', () => ({
 }))
 
 vi.mock('../../../../components/settings-form-actions', () => ({
-  SettingsFormActions: () => null,
+  SettingsFormActions: ({ formId }: { formId: string }) => (
+    <button type='submit' form={formId}>
+      save-scheduling
+    </button>
+  ),
 }))
 
 beforeAll(() => {
@@ -93,9 +103,14 @@ beforeAll(() => {
 
 beforeEach(() => {
   testState.triggerCheckinAll.mockReset()
+  testState.getRuntimeSettings.mockReset()
+  testState.getRuntimeSettings.mockResolvedValue({})
+  testState.updateRuntimeSettings.mockReset()
+  testState.updateRuntimeSettings.mockResolvedValue({})
   testState.toastSuccess.mockReset()
   testState.toastError.mockReset()
   testState.toastWarning.mockReset()
+  testState.toastInfo.mockReset()
 })
 
 afterEach(() => cleanup())
@@ -165,5 +180,68 @@ describe('SchedulingSection — trigger check-in honesty', () => {
     })
     expect(testState.toastWarning).not.toHaveBeenCalled()
     expect(testState.toastError).not.toHaveBeenCalled()
+  })
+})
+describe('SchedulingSection — model sync cron (#1005)', () => {
+  it('renders the server-provided model sync cron', async () => {
+    testState.getRuntimeSettings.mockResolvedValue({
+      modelSyncCron: '0 5 * * 1',
+    })
+
+    renderSchedulingSection()
+
+    const input = await screen.findByPlaceholderText('0 4 * * *')
+    expect(input).toHaveValue('0 5 * * 1')
+  })
+
+  it('falls back to the daily 04:00 default when the server has no value', async () => {
+    renderSchedulingSection()
+
+    const input = await screen.findByPlaceholderText('0 4 * * *')
+    expect(input).toHaveValue('0 4 * * *')
+  })
+
+  it('submits only the changed modelSyncCron field', async () => {
+    testState.getRuntimeSettings.mockResolvedValue({
+      modelSyncCron: '0 4 * * *',
+    })
+
+    renderSchedulingSection()
+
+    const input = await screen.findByPlaceholderText('0 4 * * *')
+    fireEvent.change(input, { target: { value: '30 3 * * 0' } })
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'save-scheduling' })
+    )
+
+    await waitFor(() => {
+      expect(testState.updateRuntimeSettings).toHaveBeenCalledTimes(1)
+    })
+    expect(testState.updateRuntimeSettings).toHaveBeenCalledWith({
+      modelSyncCron: '30 3 * * 0',
+    })
+    expect(testState.toastSuccess).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not submit modelSyncCron when it was not changed', async () => {
+    testState.getRuntimeSettings.mockResolvedValue({
+      modelSyncCron: '0 4 * * *',
+      checkinSchedule: { version: 1, kind: 'daily', time: '09:30' },
+    })
+
+    renderSchedulingSection()
+
+    // Touch only the model-sync input, then restore the original value:
+    // the diff against the server baseline must stay empty.
+    const input = await screen.findByPlaceholderText('0 4 * * *')
+    fireEvent.change(input, { target: { value: '0 4 * * *' } })
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'save-scheduling' })
+    )
+
+    await waitFor(() => {
+      expect(testState.toastInfo).toHaveBeenCalledTimes(1)
+    })
+    expect(testState.updateRuntimeSettings).not.toHaveBeenCalled()
   })
 })
