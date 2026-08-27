@@ -171,6 +171,8 @@ export function useVerifyAccountToken() {
     mutationFn: async (payload: {
       siteId: number
       accessToken: string
+      platformUserId?: number
+      proxyUrl?: string
       credentialMode: 'session' | 'apikey'
     }) => {
       const result = await api.verifyToken(payload, { skipErrorHandler: true })

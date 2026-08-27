@@ -168,6 +168,36 @@ func TestBuildPlatformProxyConfigForToken_PropagatesUTLS(t *testing.T) {
 	}
 }
 
+// TestBuildPlatformProxyConfigForTokenWithProxyURL_OverridesSiteProxy verifies
+// that unsaved account-form proxy input is used for pre-account verification
+// instead of the persisted site proxy.
+func TestBuildPlatformProxyConfigForTokenWithProxyURL_OverridesSiteProxy(t *testing.T) {
+	siteProxy := "http://saved-proxy.example:8080"
+	site := &store.Site{
+		ID:       1,
+		Name:     "test",
+		URL:      "https://example.com",
+		Platform: "newapi",
+		ProxyURL: &siteProxy,
+	}
+
+	result := BuildPlatformProxyConfigForTokenWithProxyURL(
+		&config.Config{},
+		site,
+		"raw-token",
+		"  socks5://form-proxy.example:1080  ",
+	)
+	if result == nil {
+		t.Fatal("BuildPlatformProxyConfigForTokenWithProxyURL returned nil")
+	}
+	if result.ProxyURL != "socks5://form-proxy.example:1080" {
+		t.Fatalf("ProxyURL = %q, want form override", result.ProxyURL)
+	}
+	if result.UseSystemProxy {
+		t.Fatal("UseSystemProxy = true, want false for explicit form proxy")
+	}
+}
+
 // TestNormalizePlatformProxyConfig_KeepsUTLS verifies that a ProxyConfig with
 // only UseUTLS=true (no proxy URL, headers, or cookies) is NOT stripped to nil
 // by normalizePlatformProxyConfig — otherwise global uTLS opt-in with no other

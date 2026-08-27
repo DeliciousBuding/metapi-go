@@ -12,7 +12,7 @@ func TestAccountCreatePayload_Decode(t *testing.T) {
 	cases := []sitesRoundTripCase{
 		{
 			name:  "full valid single token",
-			input: `{"siteId":5,"username":"u","accessToken":"tok","apiToken":"sk","platformUserId":9,"checkinEnabled":true,"credentialMode":"session","refreshToken":"rt","tokenExpiresAt":1700000000,"skipModelFetch":true}`,
+			input: `{"siteId":5,"username":"u","accessToken":"tok","apiToken":"sk","platformUserId":9,"proxyUrl":"socks5://proxy:1080","checkinEnabled":true,"credentialMode":"session","refreshToken":"rt","tokenExpiresAt":1700000000,"skipModelFetch":true}`,
 			check: func(t *testing.T, d any) {
 				p := d.(*AccountCreatePayload)
 				if p.SiteID != 5 {
@@ -29,6 +29,9 @@ func TestAccountCreatePayload_Decode(t *testing.T) {
 				}
 				if p.PlatformUserID == nil || *p.PlatformUserID != 9 {
 					t.Fatalf("platformUserId = %#v", p.PlatformUserID)
+				}
+				if p.ProxyURL == nil || *p.ProxyURL != "socks5://proxy:1080" {
+					t.Fatalf("proxyUrl = %#v", p.ProxyURL)
 				}
 				if p.CheckinEnabled == nil || !*p.CheckinEnabled {
 					t.Fatalf("checkinEnabled = %#v", p.CheckinEnabled)
@@ -58,8 +61,8 @@ func TestAccountCreatePayload_Decode(t *testing.T) {
 			},
 		},
 		{
-			name:    "empty object leaves siteId zero",
-			input:   `{}`,
+			name:  "empty object leaves siteId zero",
+			input: `{}`,
 			check: func(t *testing.T, d any) {
 				p := d.(*AccountCreatePayload)
 				if p.SiteID != 0 || len(p.AccessTokens) != 0 {
@@ -120,8 +123,8 @@ func TestAccountUpdatePayload_Decode(t *testing.T) {
 			},
 		},
 		{
-			name:    "empty object",
-			input:   `{}`,
+			name:  "empty object",
+			input: `{}`,
 			check: func(t *testing.T, d any) {
 				p := d.(*AccountUpdatePayload)
 				if p.Status != nil || p.SortOrder != nil {
@@ -166,8 +169,8 @@ func TestAccountBatchPayload_Decode(t *testing.T) {
 			},
 		},
 		{
-			name:    "empty object",
-			input:   `{}`,
+			name:  "empty object",
+			input: `{}`,
 			check: func(t *testing.T, d any) {
 				p := d.(*AccountBatchPayload)
 				if len(p.IDs) != 0 || p.Action != "" {
@@ -204,8 +207,8 @@ func TestAccountLoginPayload_Decode(t *testing.T) {
 			},
 		},
 		{
-			name:    "empty object leaves fields zero",
-			input:   `{}`,
+			name:  "empty object leaves fields zero",
+			input: `{}`,
 			check: func(t *testing.T, d any) {
 				p := d.(*AccountLoginPayload)
 				if p.SiteID != 0 || p.Username != "" || p.Password != "" {
@@ -233,17 +236,20 @@ func TestAccountVerifyTokenPayload_Decode(t *testing.T) {
 	cases := []sitesRoundTripCase{
 		{
 			name:  "valid verify",
-			input: `{"siteId":1,"accessToken":"tok","platformUserId":7,"credentialMode":"api"}`,
+			input: `{"siteId":1,"accessToken":"tok","platformUserId":7,"proxyUrl":"http://proxy:8080","credentialMode":"api"}`,
 			check: func(t *testing.T, d any) {
 				p := d.(*AccountVerifyTokenPayload)
 				if p.SiteID != 1 || *p.AccessToken != "tok" || *p.PlatformUserID != 7 || *p.CredentialMode != "api" {
 					t.Fatalf("verify = %+v", p)
 				}
+				if p.ProxyURL == nil || *p.ProxyURL != "http://proxy:8080" {
+					t.Fatalf("proxyUrl = %#v", p.ProxyURL)
+				}
 			},
 		},
 		{
-			name:    "empty object",
-			input:   `{}`,
+			name:  "empty object",
+			input: `{}`,
 			check: func(t *testing.T, d any) {
 				p := d.(*AccountVerifyTokenPayload)
 				if p.SiteID != 0 || p.AccessToken != nil {
@@ -286,8 +292,8 @@ func TestAccountRebindSessionPayload_Decode(t *testing.T) {
 			},
 		},
 		{
-			name:    "empty object",
-			input:   `{}`,
+			name:  "empty object",
+			input: `{}`,
 			check: func(t *testing.T, d any) {
 				p := d.(*AccountRebindSessionPayload)
 				if p.AccessToken != nil || p.TokenExpiresAt != nil {
@@ -327,8 +333,8 @@ func TestAccountHealthRefreshPayload_Decode(t *testing.T) {
 			},
 		},
 		{
-			name:    "empty object",
-			input:   `{}`,
+			name:  "empty object",
+			input: `{}`,
 			check: func(t *testing.T, d any) {
 				p := d.(*AccountHealthRefreshPayload)
 				if p.AccountID != nil || p.Wait != nil {
@@ -365,8 +371,8 @@ func TestAccountManualModelsPayload_Decode(t *testing.T) {
 			},
 		},
 		{
-			name:    "empty object",
-			input:   `{}`,
+			name:  "empty object",
+			input: `{}`,
 			check: func(t *testing.T, d any) {
 				if len(d.(*AccountManualModelsPayload).Models) != 0 {
 					t.Fatalf("expected empty models")

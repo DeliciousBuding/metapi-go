@@ -1,20 +1,19 @@
 # Roadmap
 
-**Last verified**: 2026-08-25
+**Last verified**: 2026-08-27
 
-**Release**: [v0.16.14](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.14) · released on master; production promotion follows the release and soak gate
+**Release**: [v0.16.14](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.14) · released on master; Wave 14 patch release v0.16.15 follows PR #1010
 
 > This is the only execution plan. It contains open work, order, ownership, and acceptance criteria. Current facts → [`../STATE.md`](../STATE.md) · product positioning → [`../benchmark.md`](../benchmark.md) · timeline → [`../log.md`](../log.md).
 
-## Current active work — Wave 12 demand truth
+## Current active work — Wave 14 account form and pagination fixes
 
-权威分析与拆分：[`../analysis/wave12-demand-truth.md`](../analysis/wave12-demand-truth.md)。执行分两次 patch-first 发布：
+执行分支为 [`PR #1010`](https://github.com/DeliciousBuding/metapi-go/pull/1010)，目标是修复 #1007 与 #1008；全部 required CI checks 通过后 squash merge，再按 patch-first 发布 v0.16.15。
 
-- **Wave 12A → v0.16.12**：#996 Sites 分页、#999 API key 模型策略 UI、#1001 账号表单站点搜索、#1000 公告进入 attention + #997 待处理语义澄清、截图数据 profile 真值门禁（已合入）。
-- **Wave 12B → v0.16.13**：#1002 session 账号创建后 service-owned token sync（失败不回滚账号）→ #998 上游模型刷新/手工模型管理/创建后持久化；周期 scheduler 延后到明确需求（已合入）。
-- **共享写点唯一归属**：locale、CHANGELOG、package version、STATE/MASTER/log 仅 integration lane 修改；实现 lane 不并发改共享文件。
-- **Wave 13 → v0.16.14**：token sync UI 真值——账号创建/登录 toast 报告后端同步报告四态（synced 真实计数 / empty / failed 部分初始化警告 / skipped 原文案），保留 `/token-routes` CTA（已合入）。
-- **当前阶段**：Wave 12A/12B/13 均已合入（→ v0.16.12 / v0.16.13 / v0.16.14）；无执行中波次，下一波待需求驱动。
+- **#1007 站点验证/创建参数真值**：表单未保存的 `platformUserId` 与 `proxyUrl` 贯穿 inline verification 和账号创建；显式表单代理覆盖已保存站点代理、Resin 与系统代理，创建后写入 `extraConfig.proxyUrl`；非法代理 URL fail-closed。
+- **#1008 Accounts 分页**：URL 是分页单一所有者，关闭 TanStack 自动 page reset，并以真实表格回归测试验证第 2 页稳定渲染 11–20 行。
+- **证据**：PR 内含后端 NewAPI + HTTP proxy + `New-Api-User` 端到端回归、前端分页回归；本地 frontend 191 文件/1,276 用例、typecheck/lint/format/knip/build、Go build/vet、WSL race 均已通过；GitHub CI 仍以所有 required checks 为合入门禁。
+- **前序发布**：Wave 12A/12B/13 已分别合入并发布 v0.16.12 / v0.16.13 / v0.16.14；本波合入后将把 Wave 14 移入已收口项，下一波待需求驱动。
 
 历史完成冻结：Round 1 #887 → v0.16.3、Round 2 #889 → v0.16.4、#887 补遗 + E2E → v0.16.5、Round 3 修复波 → v0.16.6、Wave 4 综合质量波 → v0.16.7、Wave 5+6 开发 + 深审计波 → v0.16.8、Wave 7+8+9 前端体验/语义/设置/catalog/移动端审计波 → v0.16.9、Wave 10 Sites demand batch → v0.16.10 、Wave 11 UX 真值波 → v0.16.11 均已发布。
 

@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/jmoiron/sqlx"
 )
 
 // AccountCredentialMode is the credential mode for an account.
@@ -343,6 +343,28 @@ func BuildPlatformProxyConfigForToken(cfg *config.Config, site *store.Site, rawT
 	return normalizePlatformProxyConfig(proxyCfg)
 }
 
+// BuildPlatformProxyConfigForTokenWithProxyURL is the pre-account proxy
+// builder for unsaved account-form values. A non-empty request override must
+// win over the saved site proxy, Resin, and system proxy for the verification
+// or create request; empty input keeps the normal site-level precedence.
+func BuildPlatformProxyConfigForTokenWithProxyURL(cfg *config.Config, site *store.Site, rawToken, proxyURL string) *platform.ProxyConfig {
+	proxyURL = strings.TrimSpace(proxyURL)
+	if proxyURL == "" {
+		return BuildPlatformProxyConfigForToken(cfg, site, rawToken)
+	}
+
+	// Build the site-derived headers/UA/cookie/uTLS settings without resolving
+	// Resin or the saved site proxy, then apply the explicit unsaved override.
+	proxyCfg := BuildPlatformProxyConfig(cfg, nil, site)
+	if proxyCfg == nil {
+		proxyCfg = &platform.ProxyConfig{}
+	}
+	proxyCfg.ProxyURL = proxyURL
+	proxyCfg.UseSystemProxy = false
+	proxyCfg.ResinAccount = ""
+	return normalizePlatformProxyConfig(proxyCfg)
+}
+
 func normalizePlatformProxyConfig(proxyCfg *platform.ProxyConfig) *platform.ProxyConfig {
 	if proxyCfg == nil {
 		return nil
@@ -484,7 +506,7 @@ func getAccountWithSiteBy(q accountQueryExecer, id int64, forUpdate bool) (*Acco
 			ExtraConfig        *string  `db:"extra_config"`
 			CreatedAt          string   `db:"created_at"`
 			UpdatedAt          string   `db:"updated_at"`
-			Remark             *string `db:"remark"`
+			Remark             *string  `db:"remark"`
 		} `db:"accounts"`
 		Sites struct {
 			ID                                  int64   `db:"id"`

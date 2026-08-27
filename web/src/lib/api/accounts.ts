@@ -33,6 +33,7 @@ export const accountsApi = {
       siteId: number
       accessToken: string
       platformUserId?: number
+      proxyUrl?: string
       credentialMode?: 'auto' | 'session' | 'apikey'
     },
     options?: { skipErrorHandler?: boolean }

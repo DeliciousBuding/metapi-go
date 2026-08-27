@@ -217,10 +217,20 @@ export function AccountFormDialog({
   const watchedSiteId = form.watch('siteId')
   const watchedAccessToken = form.watch('accessToken')
   const watchedApiToken = form.watch('apiToken')
+  const watchedPlatformUserId = form.watch('platformUserId')
+  const watchedProxyUrl = form.watch('proxyUrl')
   useEffect(() => {
     verificationRequestId.current += 1
     setVerification({ status: 'idle' })
-  }, [open, watchedSiteId, credentialMode, watchedAccessToken, watchedApiToken])
+  }, [
+    open,
+    watchedSiteId,
+    credentialMode,
+    watchedAccessToken,
+    watchedApiToken,
+    watchedPlatformUserId,
+    watchedProxyUrl,
+  ])
 
   const handleVerify = async () => {
     const resolved = buildAccountVerifyPayload(form.getValues())

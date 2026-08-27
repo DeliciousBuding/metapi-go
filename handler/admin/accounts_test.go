@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1185,6 +1186,106 @@ func TestAccounts_VerifyToken(t *testing.T) {
 	}
 	if result["modelCount"] != float64(2) {
 		t.Errorf("expected modelCount=2, got %v", result["modelCount"])
+	}
+}
+
+func TestAccounts_VerifyToken_UsesFormUserIDAndProxy(t *testing.T) {
+	_, r, _ := setupAccountsTest(t)
+
+	var proxyRequests atomic.Int32
+	var userIDHeaderSeen atomic.Bool
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		proxyRequests.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		switch req.URL.Path {
+		case "/v1/models":
+			// Force the session path instead of the API-key fast path.
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"error":"not an api key"}`))
+		case "/api/user/self":
+			if req.Header.Get("New-Api-User") != "42" {
+				w.WriteHeader(http.StatusUnauthorized)
+				_, _ = w.Write([]byte(`{"success":false,"message":"Unauthorized, New-Api-User header not provided"}`))
+				return
+			}
+			userIDHeaderSeen.Store(true)
+			_, _ = w.Write([]byte(`{"success":true,"data":{"id":42,"username":"proxy-user"}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"success":false}`))
+		}
+	}))
+	t.Cleanup(proxy.Close)
+
+	// The upstream host is intentionally unroutable from the test process. A
+	// successful response therefore proves the unsaved form proxy was used.
+	siteResp := doPostJSON(t, r, "/api/sites", map[string]any{
+		"name":     "Verify NewAPI",
+		"url":      "http://newapi.invalid",
+		"platform": "newapi",
+	})
+	if siteResp.Code != http.StatusOK {
+		t.Fatalf("create site: %d %s", siteResp.Code, siteResp.Body.String())
+	}
+	var site map[string]any
+	if err := json.Unmarshal(siteResp.Body.Bytes(), &site); err != nil {
+		t.Fatalf("decode site: %v", err)
+	}
+	siteID := int64(site["id"].(float64))
+
+	resp := doPostJSON(t, r, "/api/accounts/verify-token", map[string]any{
+		"siteId":         siteID,
+		"accessToken":    "session-token",
+		"credentialMode": "session",
+		"platformUserId": 42,
+		"proxyUrl":       proxy.URL,
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("verify token: %d %s", resp.Code, resp.Body.String())
+	}
+	if proxyRequests.Load() == 0 {
+		t.Fatal("proxy received no verification requests")
+	}
+	if !userIDHeaderSeen.Load() {
+		t.Fatal("verification did not send New-Api-User: 42 from the form")
+	}
+}
+
+func TestAccounts_Create_PersistsFormProxyURL(t *testing.T) {
+	db, r, _ := setupAccountsTest(t)
+	site := newSiteFixture(t, r, "Persist Proxy", "https://api.openai.com")
+	siteID := int64(site["id"].(float64))
+
+	resp := doPostJSON(t, r, "/api/accounts", map[string]any{
+		"siteId":         siteID,
+		"accessToken":    "sk-persist-proxy",
+		"credentialMode": "apikey",
+		"platformUserId": 106,
+		"proxyUrl":       "socks5://proxy.example:1080",
+		"skipModelFetch": true,
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("create account: %d %s", resp.Code, resp.Body.String())
+	}
+	var created map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode create response: %v", err)
+	}
+	accountID := int64(created["id"].(float64))
+
+	var extraConfig string
+	if err := db.QueryRow("SELECT extra_config FROM accounts WHERE id = ?", accountID).Scan(&extraConfig); err != nil {
+		t.Fatalf("load extra_config: %v", err)
+	}
+	var extra map[string]any
+	if err := json.Unmarshal([]byte(extraConfig), &extra); err != nil {
+		t.Fatalf("decode extra_config: %v", err)
+	}
+	if extra["proxyUrl"] != "socks5://proxy.example:1080" {
+		t.Fatalf("proxyUrl = %#v, want form value", extra["proxyUrl"])
+	}
+	if extra["platformUserId"] != float64(106) {
+		t.Fatalf("platformUserId = %#v, want 106", extra["platformUserId"])
 	}
 }
 
