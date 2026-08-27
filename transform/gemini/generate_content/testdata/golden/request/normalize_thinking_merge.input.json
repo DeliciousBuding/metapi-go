@@ -1,0 +1,11 @@
+{
+  "modelName": "gemini-2.5-flash",
+  "body": {
+    "contents": [{ "role": "user", "parts": [{ "text": "think hard" }] }],
+    "generationConfig": {
+      "thinkingConfig": { "thinkingLevel": "MINIMAL", "includeThoughts": true, "thinkingBudget": 50.0 },
+      "temperature": 0.1
+    },
+    "junkTopLevel": true
+  }
+}

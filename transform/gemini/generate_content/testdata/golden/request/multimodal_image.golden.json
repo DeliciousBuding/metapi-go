@@ -1,0 +1,25 @@
+{
+  "contents": [
+    {
+      "parts": [
+        {
+          "text": "What is in this image?"
+        },
+        {
+          "inlineData": {
+            "data": "aGVsbG8=",
+            "mimeType": "image/png"
+          }
+        },
+        {
+          "fileData": {
+            "fileUri": "https://cdn.example.com/photo.jpg",
+            "mimeType": "image/jpeg"
+          }
+        }
+      ],
+      "role": "user"
+    }
+  ],
+  "model": "gemini-2.5-flash"
+}

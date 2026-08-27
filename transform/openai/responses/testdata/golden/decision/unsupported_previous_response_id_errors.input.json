@@ -1,0 +1,13 @@
+{
+  "cases": [
+    "Unsupported parameter: previous_response_id",
+    "unknown parameter 'previous_response_id' given",
+    "previous_response_id is not supported on this endpoint",
+    "unrecognized field previous_response_id",
+    "invalid parameter previous_response_id",
+    "unexpected keyword previous_response_id",
+    "previous_response_id expired or not found",
+    "",
+    "some other upstream error"
+  ]
+}

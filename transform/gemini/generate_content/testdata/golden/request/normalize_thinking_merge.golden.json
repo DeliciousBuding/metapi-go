@@ -1,0 +1,20 @@
+{
+  "contents": [
+    {
+      "parts": [
+        {
+          "text": "think hard"
+        }
+      ],
+      "role": "user"
+    }
+  ],
+  "generationConfig": {
+    "temperature": 0.1,
+    "thinkingConfig": {
+      "includeThoughts": true,
+      "thinkingBudget": 50,
+      "thinkingLevel": "low"
+    }
+  }
+}

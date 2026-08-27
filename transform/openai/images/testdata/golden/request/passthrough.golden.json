@@ -1,0 +1,8 @@
+{
+  "model": "gpt-image-1",
+  "n": 1,
+  "prompt": "A watercolor lighthouse at dusk",
+  "quality": "high",
+  "response_format": "b64_json",
+  "size": "1024x1024"
+}

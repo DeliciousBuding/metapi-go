@@ -1,0 +1,15 @@
+{
+  "modelName": "gemini-2.5-flash",
+  "body": {
+    "model": "gemini-2.5-flash",
+    "messages": [
+      { "role": "system", "content": "You are terse." },
+      { "role": "user", "content": "Hello" },
+      { "role": "assistant", "content": "Hi there" },
+      { "role": "user", "content": [{ "type": "text", "text": "Follow up" }] }
+    ],
+    "temperature": 0.7,
+    "top_p": 0.9,
+    "max_tokens": 1024
+  }
+}

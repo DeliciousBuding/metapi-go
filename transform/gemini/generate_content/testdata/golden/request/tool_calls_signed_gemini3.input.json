@@ -1,0 +1,24 @@
+{
+  "modelName": "gemini-3-pro-preview",
+  "body": {
+    "model": "gemini-3-pro-preview",
+    "messages": [
+      { "role": "user", "content": "What is the weather in Paris?" },
+      {
+        "role": "assistant",
+        "content": "Checking.",
+        "tool_calls": [
+          {
+            "id": "call_1",
+            "type": "function",
+            "function": { "name": "get_weather", "arguments": "{\"city\":\"Paris\"}" },
+            "provider_specific_fields": { "thought_signature": "SIGABC" }
+          }
+        ]
+      },
+      { "role": "tool", "tool_call_id": "call_1", "content": "15 degrees" },
+      { "role": "user", "content": "Summarize." }
+    ],
+    "reasoning_effort": "medium"
+  }
+}

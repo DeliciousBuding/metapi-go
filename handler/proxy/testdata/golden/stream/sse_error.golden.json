@@ -1,0 +1,18 @@
+{
+  "eventCount": 4,
+  "hasDataEvent": true,
+  "hasErrorEvent": true,
+  "hasDoneMarker": false,
+  "droppedOversizedEvent": false,
+  "pendingBytes": 0,
+  "usage": {
+    "found": true,
+    "promptTokens": 1,
+    "completionTokens": 2,
+    "totalTokens": 3,
+    "cacheReadTokens": 0,
+    "cacheCreationTokens": 0,
+    "reasoningTokens": 0,
+    "source": "upstream"
+  }
+}

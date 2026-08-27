@@ -1,0 +1,61 @@
+{
+  "contents": [
+    {
+      "parts": [
+        {
+          "text": "What is the weather in Paris?"
+        }
+      ],
+      "role": "user"
+    },
+    {
+      "parts": [
+        {
+          "text": "Checking."
+        }
+      ],
+      "role": "model"
+    },
+    {
+      "parts": [
+        {
+          "functionCall": {
+            "args": {
+              "city": "Paris"
+            },
+            "id": "call_1",
+            "name": "get_weather"
+          },
+          "thoughtSignature": "SIGABC"
+        }
+      ],
+      "role": "model"
+    },
+    {
+      "parts": [
+        {
+          "functionResponse": {
+            "id": "call_1",
+            "name": "get_weather",
+            "response": "15 degrees"
+          }
+        }
+      ],
+      "role": "user"
+    },
+    {
+      "parts": [
+        {
+          "text": "Summarize."
+        }
+      ],
+      "role": "user"
+    }
+  ],
+  "generationConfig": {
+    "thinkingConfig": {
+      "thinkingBudget": 8192
+    }
+  },
+  "model": "gemini-3-pro-preview"
+}

@@ -1,0 +1,9 @@
+event: error
+data: {"error":{"message":"upstream overloaded","type":"server_error"}}
+
+data: {"type":"error","error":{"message":"bad request shape"}}
+
+data: {"error":{"message":"plain error data event"}}
+
+data: {"id":"chatcmpl-x","object":"chat.completion.chunk","choices":[],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}
+

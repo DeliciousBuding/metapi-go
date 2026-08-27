@@ -1,0 +1,10 @@
+{
+  "found": true,
+  "promptTokens": 50,
+  "completionTokens": 30,
+  "totalTokens": 80,
+  "cacheReadTokens": 12,
+  "cacheCreationTokens": 0,
+  "reasoningTokens": 7,
+  "source": "upstream"
+}

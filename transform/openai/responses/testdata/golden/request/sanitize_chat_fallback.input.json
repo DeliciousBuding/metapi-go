@@ -1,0 +1,15 @@
+{
+  "body": {
+    "model": "gpt-5-codex",
+    "input": [
+      {
+        "type": "reasoning",
+        "id": "rs_9",
+        "encrypted_content": "ENC-ONLY"
+      },
+      { "type": "message", "role": "user", "content": "Fallback question" }
+    ],
+    "previous_response_id": "resp_chat789"
+  },
+  "policy": { "sitePlatform": "openai", "protocol": "chat", "upstreamPath": "/v1/chat/completions", "isCompactRequest": false, "requireContinuity": false }
+}

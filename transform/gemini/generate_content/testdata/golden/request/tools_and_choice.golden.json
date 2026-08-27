@@ -1,0 +1,48 @@
+{
+  "contents": [
+    {
+      "parts": [
+        {
+          "text": "What is the weather in Tokyo?"
+        }
+      ],
+      "role": "user"
+    }
+  ],
+  "model": "gemini-2.5-flash",
+  "toolConfig": {
+    "functionCallingConfig": {
+      "mode": "ANY"
+    }
+  },
+  "tools": [
+    {
+      "functionDeclarations": [
+        {
+          "description": "Get weather by city",
+          "name": "get_weather",
+          "parametersJsonSchema": {
+            "properties": {
+              "city": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "city"
+            ],
+            "type": "object"
+          }
+        },
+        {
+          "name": "no_params_fn"
+        }
+      ]
+    },
+    {
+      "googleSearch": {}
+    },
+    {
+      "codeExecution": {}
+    }
+  ]
+}

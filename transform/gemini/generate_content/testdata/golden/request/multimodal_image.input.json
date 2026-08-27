@@ -1,0 +1,16 @@
+{
+  "modelName": "gemini-2.5-flash",
+  "body": {
+    "model": "gemini-2.5-flash",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          { "type": "text", "text": "What is in this image?" },
+          { "type": "image_url", "image_url": { "url": "data:image/png;base64,aGVsbG8=", "detail": "high" } },
+          { "type": "image_url", "image_url": { "url": "https://cdn.example.com/photo.jpg" } }
+        ]
+      }
+    ]
+  }
+}

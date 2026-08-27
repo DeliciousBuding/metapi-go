@@ -1,0 +1,9 @@
+{
+  "dimensions": 8,
+  "encoding_format": "float",
+  "input": [
+    "hello world",
+    " goodbye"
+  ],
+  "model": "text-embedding-3-small"
+}

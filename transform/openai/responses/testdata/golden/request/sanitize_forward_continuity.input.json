@@ -1,0 +1,19 @@
+{
+  "body": {
+    "model": "gpt-5-codex",
+    "input": [
+      {
+        "type": "reasoning",
+        "id": "rs_1",
+        "summary": [{ "type": "summary_text", "text": "Analyzed the repo layout." }],
+        "encrypted_content": "ENC1"
+      },
+      { "type": "message", "role": "user", "content": "Ship it" },
+      { "role": "assistant", "content": "" }
+    ],
+    "previous_response_id": "resp_abc123",
+    "stream": true,
+    "store": true
+  },
+  "policy": { "sitePlatform": "openai", "protocol": "responses", "upstreamPath": "/v1/responses", "isCompactRequest": false, "requireContinuity": false }
+}

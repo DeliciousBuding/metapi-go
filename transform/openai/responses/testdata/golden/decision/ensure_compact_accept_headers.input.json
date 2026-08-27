@@ -1,0 +1,8 @@
+{
+  "cases": [
+    { "headers": { "Accept": "text/event-stream", "Authorization": "***" }, "platform": "codex" },
+    { "headers": { "accept": "text/event-stream", "Content-Type": "application/json" }, "platform": "sub2api" },
+    { "headers": { "Accept": "text/event-stream" }, "platform": "openai" },
+    { "headers": {}, "platform": "codex" }
+  ]
+}

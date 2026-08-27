@@ -1,0 +1,6 @@
+data: {"id":"cmpl-123","object":"text_completion","choices":[{"text":"\n\nThis","index":0,"logprobs":null,"finish_reason":null}]}
+
+data: {"id":"cmpl-123","object":"text_completion","choices":[{"text":" is","index":0,"logprobs":null,"finish_reason":null}]}
+
+data: [DONE]
+

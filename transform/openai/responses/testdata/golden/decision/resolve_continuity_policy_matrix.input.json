@@ -1,0 +1,17 @@
+{
+  "cases": [
+    { "sitePlatform": "openai", "protocol": "responses", "upstreamPath": "", "isCompactRequest": false, "requireContinuity": false },
+    { "sitePlatform": "codex", "protocol": "responses", "upstreamPath": "", "isCompactRequest": false, "requireContinuity": false },
+    { "sitePlatform": "azure-openai", "protocol": "responses", "upstreamPath": "", "isCompactRequest": false, "requireContinuity": false },
+    { "sitePlatform": "sub2api", "protocol": "responses", "upstreamPath": "", "isCompactRequest": false, "requireContinuity": false },
+    { "sitePlatform": "", "protocol": "responses", "upstreamPath": "", "isCompactRequest": false, "requireContinuity": false },
+    { "sitePlatform": "openai", "protocol": "chat", "upstreamPath": "", "isCompactRequest": false, "requireContinuity": false },
+    { "sitePlatform": "openai", "protocol": "messages", "upstreamPath": "", "isCompactRequest": false, "requireContinuity": false },
+    { "sitePlatform": "openai", "protocol": "chat", "upstreamPath": "", "isCompactRequest": false, "requireContinuity": true },
+    { "sitePlatform": "sub2api", "protocol": "responses", "upstreamPath": "", "isCompactRequest": false, "requireContinuity": true },
+    { "sitePlatform": "openai", "protocol": "", "upstreamPath": "/v1/responses/compact", "isCompactRequest": false, "requireContinuity": true },
+    { "sitePlatform": "openai", "protocol": "", "upstreamPath": "/v1/responses", "isCompactRequest": true, "requireContinuity": true },
+    { "sitePlatform": "openai", "protocol": "", "upstreamPath": "/v1/embeddings", "isCompactRequest": false, "requireContinuity": false },
+    { "sitePlatform": "openai", "protocol": "", "upstreamPath": "/v1/embeddings", "isCompactRequest": false, "requireContinuity": true }
+  ]
+}

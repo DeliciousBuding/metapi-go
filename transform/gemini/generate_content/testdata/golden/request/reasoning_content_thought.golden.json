@@ -1,0 +1,33 @@
+{
+  "contents": [
+    {
+      "parts": [
+        {
+          "text": "What is 2+2?"
+        }
+      ],
+      "role": "user"
+    },
+    {
+      "parts": [
+        {
+          "text": "Let me think step by step.",
+          "thought": true
+        },
+        {
+          "text": "The answer is 4."
+        }
+      ],
+      "role": "model"
+    },
+    {
+      "parts": [
+        {
+          "text": "Thanks"
+        }
+      ],
+      "role": "user"
+    }
+  ],
+  "model": "gemini-2.5-flash"
+}
