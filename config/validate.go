@@ -105,6 +105,14 @@ func (c *Config) Validate() []error {
 			critical: false,
 		})
 	}
+	if !ValidateCronExpr(c.ModelSyncCron) {
+		errs = append(errs, &configError{
+			field:    "model_sync_cron",
+			value:    c.ModelSyncCron,
+			msg:      "invalid cron expression",
+			critical: false,
+		})
+	}
 	if !ValidateCronExpr(c.LogCleanupCron) {
 		errs = append(errs, &configError{
 			field:    "log_cleanup_cron",

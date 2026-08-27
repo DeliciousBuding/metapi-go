@@ -16,13 +16,14 @@ import (
 // TestBuildSchedulers_UpdateCenterGatedByEnv for the opt-in path.
 func TestBuildSchedulersRegistration(t *testing.T) {
 	cfg := &config.Config{}
-	reg, checkin, balance, logCleanup, webdav := buildSchedulers(cfg)
+	reg, checkin, balance, modelSync, logCleanup, webdav := buildSchedulers(cfg)
 
 	got := reg.List()
 	want := []string{
 		"usage-aggregation",
 		"checkin",
 		"balance-refresh",
+		"model-sync",
 		"daily-summary",
 		"log-cleanup",
 		"backup-webdav",
@@ -63,6 +64,7 @@ func TestBuildSchedulersRegistration(t *testing.T) {
 	for name, ptr := range map[string]any{
 		"checkin":    checkin,
 		"balance":    balance,
+		"modelSync":  modelSync,
 		"logCleanup": logCleanup,
 		"webdav":     webdav,
 	} {
@@ -77,7 +79,7 @@ func TestBuildSchedulersRegistration(t *testing.T) {
 func TestBuildSchedulers_UpdateCenterGatedByEnv(t *testing.T) {
 	t.Run("disabled by default", func(t *testing.T) {
 		cfg := &config.Config{} // UpdateCenterEnabled = false
-		reg, _, _, _, _ := buildSchedulers(cfg)
+		reg, _, _, _, _, _ := buildSchedulers(cfg)
 		for _, name := range reg.List() {
 			if name == "update-center" {
 				t.Fatalf("update-center registered while METAPI_ENABLE_UPDATE_CENTER is off: %v", reg.List())
@@ -87,7 +89,7 @@ func TestBuildSchedulers_UpdateCenterGatedByEnv(t *testing.T) {
 
 	t.Run("enabled when flag set", func(t *testing.T) {
 		cfg := &config.Config{UpdateCenterEnabled: true}
-		reg, _, _, _, _ := buildSchedulers(cfg)
+		reg, _, _, _, _, _ := buildSchedulers(cfg)
 		var found bool
 		for _, name := range reg.List() {
 			if name == "update-center" {

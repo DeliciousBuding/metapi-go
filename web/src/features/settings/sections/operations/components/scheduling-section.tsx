@@ -84,6 +84,7 @@ const scheduleSpecSchema = z.discriminatedUnion('kind', [
 const schedulingSchema = z.object({
   checkinSchedule: scheduleSpecSchema,
   balanceRefreshSchedule: scheduleSpecSchema,
+  modelSyncCron: z.string().min(1),
   logCleanupSchedule: scheduleSpecSchema,
   logCleanupRetentionDays: z.coerce.number().int().min(1),
   logCleanupUsageLogsEnabled: z.boolean(),
@@ -95,6 +96,7 @@ type SchedulingFormValues = z.infer<typeof schedulingSchema>
 const DEFAULT_VALUES: SchedulingFormValues = {
   checkinSchedule: { version: 1, kind: 'daily', time: '08:00' },
   balanceRefreshSchedule: { version: 1, kind: 'interval', everyHours: 1 },
+  modelSyncCron: '0 4 * * *',
   logCleanupSchedule: { version: 1, kind: 'daily', time: '06:00' },
   logCleanupRetentionDays: 30,
   logCleanupUsageLogsEnabled: false,
@@ -124,6 +126,7 @@ function deriveServerValues(
   return {
     checkinSchedule,
     balanceRefreshSchedule: balanceSchedule,
+    modelSyncCron: data.modelSyncCron ?? '0 4 * * *',
     logCleanupSchedule,
     logCleanupRetentionDays: data.logCleanupRetentionDays ?? 30,
     logCleanupUsageLogsEnabled: Boolean(data.logCleanupUsageLogsEnabled),
@@ -174,6 +177,9 @@ function schedulingToPayload(
   }
   if (changed.logCleanupSchedule) {
     projectSchedule(payload, 'log', changed.logCleanupSchedule)
+  }
+  if (changed.modelSyncCron !== undefined) {
+    payload.modelSyncCron = changed.modelSyncCron
   }
   if (changed.logCleanupRetentionDays !== undefined) {
     payload.logCleanupRetentionDays = changed.logCleanupRetentionDays
@@ -358,6 +364,32 @@ export function SchedulingSection() {
                       onChange={field.onChange}
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className='space-y-3 rounded-lg border p-4'>
+            <h3 className='text-sm font-medium'>
+              {t('settings.operations.scheduling.fields.modelSyncGroup')}
+            </h3>
+            <FormField
+              control={form.control}
+              name='modelSyncCron'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {t('settings.operations.scheduling.fields.modelSyncCron')}
+                  </FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder='0 4 * * *' />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'settings.operations.scheduling.fields.modelSyncCronHint'
+                    )}
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

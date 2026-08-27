@@ -42,6 +42,7 @@ export type RuntimeSettings = {
   checkinSchedule?: ScheduleSpecV1
   balanceRefreshCron?: string
   balanceRefreshSchedule?: ScheduleSpecV1
+  modelSyncCron?: string
   logCleanupCron?: string
   logCleanupSchedule?: ScheduleSpecV1
   logCleanupRetentionDays?: number

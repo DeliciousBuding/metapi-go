@@ -26,6 +26,7 @@ func validBaseConfig() *Config {
 		CheckinScheduleMode:      "cron",
 		CheckinCron:              "0 8 * * *",
 		BalanceRefreshCron:       "0 * * * *",
+		ModelSyncCron:            "0 4 * * *",
 		LogCleanupCron:           "0 6 * * *",
 		CheckinIntervalHours:     6,
 		CheckinWindowStart:       "00:00",
@@ -269,4 +270,15 @@ func TestLoadProxyMaxStreamResponseBytesDefaultAndOverride(t *testing.T) {
 		t.Fatalf("negative ProxyMaxStreamResponseBytes = %d, want default %d",
 			cfg.ProxyMaxStreamResponseBytes, DefaultProxyMaxStreamResponseBytes)
 	}
+}
+func TestValidateModelSyncCronInvalidIsWarning(t *testing.T) {
+	cfg := validBaseConfig()
+	cfg.ModelSyncCron = "not a cron"
+	assertHasError(t, cfg, "model_sync_cron", false)
+}
+
+func TestValidateModelSyncCronValidIsClean(t *testing.T) {
+	cfg := validBaseConfig()
+	cfg.ModelSyncCron = "0 5 * * 1"
+	assertNoErrorFor(t, cfg, "model_sync_cron")
 }

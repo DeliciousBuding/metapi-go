@@ -815,3 +815,19 @@ func TestLoadProxyTimeoutsFallBackOnInvalid(t *testing.T) {
 		t.Fatalf("ProxyRequestTimeoutSec = %d on unset, want default %d", cfg.ProxyRequestTimeoutSec, DefaultProxyRequestTimeoutSec)
 	}
 }
+
+func TestLoadModelSyncCronDefault(t *testing.T) {
+	cfg := Load(map[string]string{})
+	if cfg.ModelSyncCron != DefaultModelSyncCron {
+		t.Fatalf("ModelSyncCron = %q, want default %q", cfg.ModelSyncCron, DefaultModelSyncCron)
+	}
+}
+
+func TestLoadParsesModelSyncCron(t *testing.T) {
+	cfg := Load(map[string]string{
+		"MODEL_SYNC_CRON": "0 5 * * 1",
+	})
+	if cfg.ModelSyncCron != "0 5 * * 1" {
+		t.Fatalf("ModelSyncCron = %q", cfg.ModelSyncCron)
+	}
+}

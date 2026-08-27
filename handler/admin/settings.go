@@ -55,6 +55,8 @@ func (h *settingsHandler) getRuntime(w http.ResponseWriter, r *http.Request) {
 		// Balance
 		"balanceRefreshCron":     cfg.BalanceRefreshCron,
 		"balanceRefreshSchedule": scheduler.CronToSchedule(cfg.BalanceRefreshCron),
+		// Model sync (#1005) — plain cron, no v2 schedule mirror
+		"modelSyncCron": cfg.ModelSyncCron,
 		// Log cleanup
 		"logCleanupCron":               cfg.LogCleanupCron,
 		"logCleanupSchedule":           scheduler.CronToSchedule(cfg.LogCleanupCron),
@@ -166,6 +168,7 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 		h.applyProxyAccessSettings,
 		h.applyCheckinSettings,
 		h.applyBalanceScheduleSettings,
+		h.applyModelSyncScheduleSettings,
 		h.applyLogCleanupSettings,
 		h.applyFeatureToggleSettings,
 		h.applyProxySessionSettings,

@@ -343,8 +343,13 @@ func TestAccounts_Update_ExpiredAPIKeyRecovery_InjectableRefresh(t *testing.T) {
 			t.Fatalf("accountID = %d, want %d", id, accountID)
 		}
 		sawAllowInactive = allowInactive
-		// Simulate successful model write without upstream.
-		_ = persistAccountModelAvailability(dbx, id, []string{"inject-model"}, time.Now().UTC().Format(time.RFC3339))
+		// Simulate successful model write without upstream (Wave 15 moved
+		// persistAccountModelAvailability into the service package).
+		if _, err := dbx.Exec(dbx.Rebind(
+			"INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at) VALUES (?, ?, 1, 0, ?)",
+		), id, "inject-model", time.Now().UTC().Format(time.RFC3339)); err != nil {
+			t.Fatalf("seed injected availability: %v", err)
+		}
 		return map[string]any{
 			"success": true,
 			"refresh": map[string]any{"id": id, "status": "success", "modelCount": 1, "models": []string{"inject-model"}},
