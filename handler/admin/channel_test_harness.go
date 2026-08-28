@@ -14,13 +14,14 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/service"
 	"github.com/deliciousbuding/metapi-go/store"
+	"github.com/go-chi/chi/v5"
+	"github.com/jmoiron/sqlx"
 )
 
 const (
@@ -484,6 +485,12 @@ func harnessFail(target *channelTestTarget, mode, model, path, host string, stat
 	}
 }
 
+// harnessFallbackTransport bounds the dial/TLS/idle phases for channel-test
+// requests that run without an injected transport or site proxy config. The
+// deadline is owned by the caller context (per-test timeout), so the
+// response-header phase stays unbounded here.
+var harnessFallbackTransport = httpclient.NewTransport(httpclient.Options{})
+
 func (h *channelTestHandler) doRequest(ctx context.Context, req *http.Request, proxyCfg *platform.ProxyConfig) (*http.Response, error) {
 	if h.transport != nil {
 		return h.transport.RoundTrip(req.WithContext(ctx))
@@ -495,6 +502,7 @@ func (h *channelTestHandler) doRequest(ctx context.Context, req *http.Request, p
 	// site URL cannot 302 into metadata/loopback (shared platform policy).
 	client := &http.Client{
 		Timeout:       0,
+		Transport:     harnessFallbackTransport,
 		CheckRedirect: platform.RejectCrossOriginRedirect,
 	}
 	return client.Do(req.WithContext(ctx))

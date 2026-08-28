@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 	"github.com/deliciousbuding/metapi-go/platform"
 )
 
@@ -47,14 +48,16 @@ type ExecutorDispatchResult struct {
 // upstream that accepts but never answers from holding a connection forever.
 const defaultStreamResponseHeaderTimeout = 30 * time.Second
 
-// NewStreamTransport returns a clone of http.DefaultTransport with a
+// NewStreamTransport returns the shared baseline transport with a
 // ResponseHeaderTimeout bound for the SSE header phase. Used by the
 // executor's stream client and by fallback stream clients that must not cap
 // a flowing stream's total duration while still bounding the header wait.
+// Dial/TLS/idle bounds and the idle pool come from the internal/httpclient
+// baseline instead of an unconfigured default transport.
 func NewStreamTransport() *http.Transport {
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.ResponseHeaderTimeout = defaultStreamResponseHeaderTimeout
-	return transport
+	return httpclient.NewTransport(httpclient.Options{
+		ResponseHeaderTimeout: defaultStreamResponseHeaderTimeout,
+	})
 }
 
 // RuntimeExecutor dispatches upstream HTTP requests.
@@ -75,7 +78,12 @@ type RuntimeExecutor struct {
 func NewRuntimeExecutor(requestTimeout time.Duration) *RuntimeExecutor {
 	return &RuntimeExecutor{
 		client: &http.Client{
-			Timeout:       requestTimeout,
+			Timeout: requestTimeout,
+			// The header phase tracks the whole-request timeout
+			// (max(90s, first-byte*2) in app wiring, operator-influenced via
+			// PROXY_FIRST_BYTE_TIMEOUT_SEC) so it never pre-empts a request
+			// that would finish within its own deadline.
+			Transport:     httpclient.NewTransport(httpclient.Options{ResponseHeaderTimeout: requestTimeout}),
 			CheckRedirect: rejectCrossOriginRedirect,
 		},
 		streamClient: &http.Client{

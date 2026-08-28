@@ -17,6 +17,7 @@ import (
 	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/handler/shared"
+	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/routing"
@@ -51,6 +52,7 @@ var unconfiguredUpstreamLogOnce sync.Once
 // SetUpstreamConfig.
 var defaultUpstreamClient = &http.Client{
 	Timeout:       90 * time.Second,
+	Transport:     httpclient.NewTransport(httpclient.Options{ResponseHeaderTimeout: 90 * time.Second}),
 	CheckRedirect: platform.RejectCrossOriginRedirect,
 }
 

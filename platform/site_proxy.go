@@ -308,6 +308,9 @@ func (sp *SiteProxy) buildClients() {
 		TLSHandshakeTimeout:   timeouts.tlsHandshake,
 		ResponseHeaderTimeout: timeouts.responseHeader,
 		ExpectContinueTimeout: 1 * time.Second,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   20,
+		IdleConnTimeout:       timeouts.idleConn,
 	}
 
 	sp.httpClient = &http.Client{
@@ -323,6 +326,9 @@ func (sp *SiteProxy) buildClients() {
 		ResponseHeaderTimeout: timeouts.responseHeader,
 		ExpectContinueTimeout: 1 * time.Second,
 		TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   20,
+		IdleConnTimeout:       timeouts.idleConn,
 	}
 
 	sp.httpClientNoTLS = &http.Client{

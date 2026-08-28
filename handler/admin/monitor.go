@@ -11,9 +11,11 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
@@ -53,6 +55,28 @@ func RegisterMonitorProxyRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
 type monitorHandler struct {
 	db  *sqlx.DB
 	cfg *config.Config
+
+	ldohClientOnce sync.Once
+	ldohHTTPClient *http.Client
+}
+
+// ldohClient returns the shared LDOH proxy client, building it lazily on
+// first use. LDOH_PROXY_TIMEOUT_SEC is parsed once at startup (no runtime
+// retune), so a sync.Once-built client is safe and keeps one pooled,
+// phase-bounded transport instead of a fresh transport-less client per
+// proxied request.
+func (h *monitorHandler) ldohClient() *http.Client {
+	h.ldohClientOnce.Do(func() {
+		timeout := time.Duration(h.cfg.LDOHProxyTimeoutSec) * time.Second
+		h.ldohHTTPClient = &http.Client{
+			Timeout:   timeout,
+			Transport: httpclient.NewTransport(httpclient.Options{ResponseHeaderTimeout: timeout}),
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+	})
+	return h.ldohHTTPClient
 }
 
 const ldohCookieSettingKey = "monitor_ldoh_cookie"
@@ -274,12 +298,7 @@ func (h *monitorHandler) ldohProxy(w http.ResponseWriter, r *http.Request) {
 		upstreamReq.Header.Set("Referer", strings.ReplaceAll(referer, "/monitor-proxy/ldoh", ""))
 	}
 
-	client := &http.Client{
-		Timeout: time.Duration(h.cfg.LDOHProxyTimeoutSec) * time.Second,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
+	client := h.ldohClient()
 	upstreamResp, err := client.Do(upstreamReq)
 	if err != nil {
 		slog.Error("LDOH upstream request failed",

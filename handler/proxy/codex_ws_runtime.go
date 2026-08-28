@@ -12,6 +12,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 	"github.com/deliciousbuding/metapi-go/service"
 )
 
@@ -606,10 +607,10 @@ func SendCodexWebsocketRequest(ctx context.Context, input CodexWebsocketSendInpu
 
 	for {
 		result, err := sendCodexWSSessionAttempt(ctx, session, CodexWebsocketSendInput{
-			SessionID:    sessionID,
-			RequestURL:   input.RequestURL,
-			Headers:      input.Headers,
-			Body:         currentBody,
+			SessionID:     sessionID,
+			RequestURL:    input.RequestURL,
+			Headers:       input.Headers,
+			Body:          currentBody,
 			ResinAccount:  input.ResinAccount,
 			ResinPlatform: input.ResinPlatform,
 		})
@@ -693,6 +694,9 @@ func sendCodexWSSessionAttempt(ctx context.Context, session *codexWSSocketSessio
 		dialCtx, cancel := context.WithTimeout(ctx, codexWSDialTimeout)
 		next, _, err := websocket.Dial(dialCtx, wsURL, &websocket.DialOptions{
 			HTTPHeader: httpHeader,
+			// Bound the upgrade's dial/TLS phases on the pooled baseline
+			// transport; the dial context remains the deadline owner.
+			HTTPClient: &http.Client{Transport: httpclient.SharedTransport()},
 		})
 		cancel()
 		if err != nil {
