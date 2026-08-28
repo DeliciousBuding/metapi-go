@@ -123,7 +123,7 @@ bun run dev            # 本地开发（rsbuild dev，/api /v1 代理到后端�
 bun run typecheck      # tsgo -b，TS 类型检查
 bun run lint           # oxlint，lint 检查
 bun run lint:fix       # oxlint --fix
-bun run test           # vitest run（全量）
+bun run test           # 路由树校验 + vitest run（全量）
 bun run test:watch     # vitest watch
 bun run knip           # 未使用代码检测
 bun run build          # = build:web = desktop:icons && rsbuild build
@@ -189,7 +189,7 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 - **后端契约**：后端默认 `http://localhost:4000`（`PORT` env 可覆盖）。admin REST 在 `/api`（`handler/admin`，端点清单见 `docs/api.md`），OpenAI 兼容代理在 `/v1`（`handler/proxy`）。JSON 字段一律 camelCase，env var 名与 TS 版一致无前缀。
 - **Axios**：用统一 `api` 实例（`src/lib/http-client.ts`），`withCredentials: true`；GET 默认请求去重，特殊请求可配置关闭。后端没有 refresh endpoint，401 按现有契约清理会话并回到登录页，不保留伪刷新流程。
 - **React Query**：`useQuery` 取数、`useMutation` 变更；每个查询配唯一 `queryKey`（数组形式、层级一致）；`onSuccess` 对相关 query `invalidateQueries`。仅在竞态收益明确且可回滚时做乐观更新。
-- **Dev proxy**：`rsbuild.config.ts` 将 `/api`、`/v1` 代理到后端；`DEV_PROXY_TARGET` / `VITE_DEV_PROXY_TARGET` / `PORT` / `VITE_BACKEND_PORT` 可覆盖默认 4000。
+- **Dev proxy**：代理表在 `config/build-shared.ts`（`createDevProxy`，rsbuild dev 消费），将 `/api`、`/v1` 代理到后端；`DEV_PROXY_TARGET` / `VITE_DEV_PROXY_TARGET` / `PORT` / `VITE_BACKEND_PORT` 可覆盖默认 4000。
 
 ### 5.7 表单
 
@@ -240,7 +240,7 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 
 ### 5.14 测试
 
-- **栈**：vitest + @testing-library/react + jsdom（环境见 `vite.config.ts`）；是否全绿以本次运行输出为准。
+- **栈**：vitest + @testing-library/react + jsdom（环境见 `vitest.config.ts`）；是否全绿以本次运行输出为准。`bun run test` 先跑 `scripts/verify-route-tree.mjs` 路由树同步校验，再执行 vitest。
 - **范围**：工具函数与纯逻辑优先单元测试（`*.test.ts`）；组件用 React Testing Library 测交互与行为，避免测实现细节。
 - **位置**：测试必须放模块专属 `__tests__/`（如 `src/features/token-routes/components/__tests__/layout.test.ts`）；禁止与正式代码平铺。
 - **命名与组织**：按被测职责命名（`layout.test.ts`、`validation.test.ts`）；一个文件只覆盖一个明确模块；每用例只保护一个可描述行为，名称含触发条件与预期结果，优先 Arrange/Act/Assert。
@@ -256,7 +256,7 @@ bun run desktop:icons  # 生成桌面图标（sharp native，需 node）
 
 ### 5.16 构建与部署
 
-- 用 Rsbuild，配置见 `rsbuild.config.ts`；脚本以 `package.json` 为准。
+- 用 Rsbuild，配置见 `rsbuild.config.ts`；脚本以 `package.json` 为准。构建期共享常量（dev proxy、`METAPI_WEB_VERSION` define、`@` alias）唯一收口在 `config/build-shared.ts`，由 `rsbuild.config.ts` 与 `vitest.config.ts` 共同消费；路由生成唯一入口是 rsbuild 配置里的 `@tanstack/router-plugin`，产物 `src/routeTree.gen.ts` 随仓库提交。
 - **单二进制嵌入**：构建产物落入 `web/dist/`，经 `web/embed.go` 的 `go:embed dist` 打包进 Go 二进制；生产镜像不含 node/bun。`desktop:icons` 用 `node`（sharp native addon 需独立 node），`build:web = desktop:icons && rsbuild build`，`build = build:web`。
 - 代码分割与懒加载见 [5.4](#54-性能)；环境变量用 `.env` 且以 `VITE_` 前缀，不在代码中硬编码。
 - **发布前**：执行 `bun run build:check`（tsgo + 完整构建）、`bun run lint`、`bun run format:check`，检查产物体积与环境变量配置。

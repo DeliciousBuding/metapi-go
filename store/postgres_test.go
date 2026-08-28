@@ -214,6 +214,12 @@ func TestPostgresIndexesCreated(t *testing.T) {
 		"accounts_site_id_idx",
 		"proxy_logs_created_at_idx",
 		"events_created_at_idx",
+		// Wave 18 admin read-path indexes (additive step sc2_027): asserting
+		// them here proves the step's plain CREATE INDEX form applies on the
+		// PostgreSQL dialect too.
+		"proxy_logs_channel_id_created_at_idx",
+		"proxy_logs_created_at_covering_summary_idx",
+		"checkin_logs_status_created_at_idx",
 	}
 
 	for _, idxName := range sampleIndexes {
