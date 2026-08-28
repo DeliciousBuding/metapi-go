@@ -97,7 +97,7 @@ function SiteExternalLink({
       target='_blank'
       rel='noopener noreferrer'
       className={cn(
-        'group inline-flex min-w-0 items-center gap-1 rounded-sm underline-offset-4 hover:text-primary hover:underline focus-visible:text-primary focus-visible:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset focus-visible:outline-none',
+        'group inline-flex min-w-0 items-center gap-1 rounded-sm underline-offset-4 hover:text-primary hover:underline focus-visible:text-primary focus-visible:underline focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-inset focus-visible:outline-none',
         className
       )}
       title={title}

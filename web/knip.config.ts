@@ -17,12 +17,6 @@ const config: KnipConfig = {
     // docs/internal/analysis/e2e-acceptance-platform.md.
     'scripts/oneoff/**',
   ],
-  ignoreDependencies: [
-    // scripts/a11y-scan.mjs injects node_modules/axe-core/axe.min.js via
-    // Playwright addScriptTag (a file path, not an import) — knip cannot
-    // trace it, so declare it explicitly.
-    'axe-core',
-  ],
 }
 
 export default config

@@ -921,6 +921,14 @@
       "charts": {
         "income": "收入",
         "outcome": "支出"
+      },
+      "chartSummary": {
+        "seriesColumn": "序列",
+        "totalColumn": "合计",
+        "latestColumn": "最近一天",
+        "netRow": "净额",
+        "spendColumn": "花费",
+        "callsColumn": "请求数"
       }
     },
     "settings": {

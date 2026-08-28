@@ -68,6 +68,12 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
                 <Input
                   type='password'
                   placeholder={t('auth.login.tokenPlaceholder')}
+                  // `current-password` marks this as an existing credential so
+                  // password managers offer to fill it (never to overwrite).
+                  // Evaluated against `autoComplete=off` (#1029 batch A): off
+                  // was rejected — UAs may ignore it on password fields and it
+                  // blocks manager autofill; a `username` value does not apply
+                  // because this token-only login flow has no username field.
                   autoComplete='current-password'
                   autoFocus
                   {...field}

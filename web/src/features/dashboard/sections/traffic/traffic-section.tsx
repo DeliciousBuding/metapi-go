@@ -13,13 +13,16 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
+import { formatInt } from '@/lib/format'
 
+import { ChartDataTable } from '../../components/chart-data-table'
 import { ChartShell } from '../../components/chart-shell'
 import {
   IncomeOutcomeChart,
   SiteDistributionChart,
   SiteTrendChart,
 } from '../../components/charts'
+import { formatChartCurrency } from '../../components/charts-currency'
 import type {
   IncomeOutcomePoint,
   SiteDistributionSlice,
@@ -82,6 +85,17 @@ function ChartEmpty({ message }: { message: string }) {
       <p className='text-muted-foreground text-xs'>{message}</p>
     </div>
   )
+}
+
+/** Gate the sr-only summary exactly like the chart body: no summary while
+ * the owning query is loading or failed; the builders themselves return
+ * undefined when the loaded data is empty (S10, #1035). */
+function summaryWhenLoaded(
+  query: { isLoading: boolean; isError: boolean },
+  summaryNode: ReactNode
+): ReactNode {
+  if (query.isLoading || query.isError) return undefined
+  return summaryNode
 }
 
 export function TrafficSection() {
@@ -163,6 +177,105 @@ export function TrafficSection() {
     [t]
   )
 
+  // ---------------------------------------------------------------------
+  // S10 (#1035): sr-only data summary tables. recharts SVG is opaque to
+  // screen readers, so each chart's already-loaded data is re-presented as
+  // a simple series x key-points table. Read-only presentation layer — no
+  // extra requests, no data-semantics changes.
+  // ---------------------------------------------------------------------
+
+  const incomeOutcomeSummary = useMemo(() => {
+    const points = incomeOutcomeQuery.data?.points
+    const totals = incomeOutcomeQuery.data?.summary
+    const last = points?.at(-1)
+    if (!points?.length || !totals || !last) return undefined
+    return (
+      <ChartDataTable
+        caption={t('dashboard.traffic.incomeOutcome.title')}
+        seriesLabel={t('dashboard.chartSummary.seriesColumn')}
+        columns={[
+          t('dashboard.chartSummary.totalColumn'),
+          t('dashboard.chartSummary.latestColumn'),
+        ]}
+        rows={[
+          {
+            name: t('dashboard.charts.income'),
+            values: [
+              formatChartCurrency(totals.totalIncome),
+              formatChartCurrency(last.income),
+            ],
+          },
+          {
+            name: t('dashboard.charts.outcome'),
+            values: [
+              formatChartCurrency(totals.totalOutcome),
+              formatChartCurrency(last.outcome),
+            ],
+          },
+          {
+            name: t('dashboard.chartSummary.netRow'),
+            values: [
+              formatChartCurrency(totals.net),
+              formatChartCurrency(last.net),
+            ],
+          },
+        ]}
+      />
+    )
+  }, [incomeOutcomeQuery.data, t])
+
+  const siteTrendSummary = useMemo(() => {
+    if (siteTrendData.length === 0) return undefined
+    const bySite = new Map<string, { spend: number; calls: number }>()
+    for (const point of siteTrendData) {
+      const acc = bySite.get(point.site) ?? { spend: 0, calls: 0 }
+      acc.spend += point.spend
+      acc.calls += point.calls
+      bySite.set(point.site, acc)
+    }
+    return (
+      <ChartDataTable
+        caption={t('dashboard.traffic.siteTrend.title')}
+        seriesLabel={t('dashboard.chartSummary.seriesColumn')}
+        columns={[
+          t('dashboard.chartSummary.spendColumn'),
+          t('dashboard.chartSummary.callsColumn'),
+        ]}
+        rows={[...bySite.entries()].map(([site, totals]) => ({
+          name: site,
+          values: [formatChartCurrency(totals.spend), formatInt(totals.calls)],
+        }))}
+      />
+    )
+  }, [siteTrendData, t])
+
+  const siteDistributionSummary = useMemo(() => {
+    if (siteDistributionData.length === 0 || siteDistributionTotal === 0) {
+      return undefined
+    }
+    return (
+      <ChartDataTable
+        caption={t('dashboard.traffic.siteDistribution.title')}
+        seriesLabel={t('dashboard.chartSummary.seriesColumn')}
+        columns={[
+          t('dashboard.traffic.siteDistribution.tooltip.balance'),
+          t('dashboard.chartSummary.spendColumn'),
+          t('dashboard.traffic.siteDistribution.tooltip.accounts'),
+          t('dashboard.traffic.siteDistribution.tooltip.share'),
+        ]}
+        rows={siteDistributionData.map((slice) => ({
+          name: slice.siteName,
+          values: [
+            formatChartCurrency(slice.totalBalance),
+            formatChartCurrency(slice.totalSpend),
+            formatInt(slice.accountCount),
+            `${((slice.totalBalance / siteDistributionTotal) * 100).toFixed(1)}%`,
+          ],
+        }))}
+      />
+    )
+  }, [siteDistributionData, siteDistributionTotal, t])
+
   const renderChartBody = (
     query: {
       isLoading: boolean
@@ -195,6 +308,7 @@ export function TrafficSection() {
         description={t('dashboard.traffic.incomeOutcome.description')}
         height={300}
         loading={incomeOutcomeQuery.isLoading}
+        summary={summaryWhenLoaded(incomeOutcomeQuery, incomeOutcomeSummary)}
       >
         {renderChartBody(
           incomeOutcomeQuery,
@@ -209,6 +323,7 @@ export function TrafficSection() {
         description={t('dashboard.traffic.siteTrend.description')}
         height={300}
         loading={siteTrendQuery.isLoading}
+        summary={summaryWhenLoaded(siteTrendQuery, siteTrendSummary)}
       >
         {renderChartBody(
           siteTrendQuery,
@@ -224,6 +339,10 @@ export function TrafficSection() {
         height={300}
         className='lg:col-span-2'
         loading={siteDistributionQuery.isLoading}
+        summary={summaryWhenLoaded(
+          siteDistributionQuery,
+          siteDistributionSummary
+        )}
       >
         {renderChartBody(
           siteDistributionQuery,

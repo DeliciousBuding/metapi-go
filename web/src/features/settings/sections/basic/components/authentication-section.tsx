@@ -320,7 +320,7 @@ export function AuthenticationSection() {
                         value={field.value ?? ''}
                         rows={4}
                         placeholder='127.0.0.1&#10;192.168.1.0/24'
-                        className='border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex field-sizing-content w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]'
+                        className='border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-focus-ring flex field-sizing-content w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]'
                       />
                     </FormControl>
                     <FormDescription>
