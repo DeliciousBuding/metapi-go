@@ -377,10 +377,26 @@ export function useBatchAddChannels() {
 // useRebuildRoutes
 // ---------------------------------------------------------------------------
 
+/**
+ * Truthful contract of POST /api/routes/rebuild (#1024): the endpoint
+ * recomposes channels of EXISTING routes from model availability — it never
+ * creates routes. The legacy `created`/`channelCount` fields were TS-era
+ * phantoms the Go backend never returned, so the toast always reported
+ * "0 routes / 0 channels added" even when channels were rebuilt.
+ */
 export interface RebuildRoutesResult {
+  success?: boolean
   queued?: boolean
-  created?: number
-  channelCount?: number
+  reused?: boolean
+  status?: string
+  message?: string
+  routesConsidered?: number
+  patternRoutes?: number
+  groupRoutes?: number
+  channelsInserted?: number
+  channelsRemoved?: number
+  channelsKept?: number
+  changed?: boolean
 }
 
 export function useRebuildRoutes() {
@@ -403,11 +419,21 @@ export function useRebuildRoutes() {
       void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
       if (data?.queued) {
         toast.info(i18n.t('tokenRoutes.toast.rebuildStarted'))
+        return
+      }
+      const routesConsidered = data?.routesConsidered ?? 0
+      const inserted = data?.channelsInserted ?? 0
+      const removed = data?.channelsRemoved ?? 0
+      if (routesConsidered === 0) {
+        toast.warning(i18n.t('tokenRoutes.toast.rebuildNoRoutes'))
+      } else if (inserted === 0 && removed === 0) {
+        toast.info(i18n.t('tokenRoutes.toast.rebuildNoChanges'))
       } else {
         toast.success(
           i18n.t('tokenRoutes.toast.rebuildComplete', {
-            created: data?.created ?? 0,
-            channels: data?.channelCount ?? 0,
+            routes: routesConsidered,
+            inserted,
+            removed,
           })
         )
       }

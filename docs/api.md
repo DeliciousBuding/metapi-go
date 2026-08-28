@@ -216,7 +216,11 @@ Persist route sort order. Body: `{ "items": [{ "id": 1, "sortOrder": 10 }] }` â€
 
 ### POST /api/routes/rebuild
 
-Trigger route rebuild. Body: `{ "refreshModels": true }`.
+Rebuild the automatic channels of every existing pattern route from current model availability. The endpoint never creates routes; it only recomposes `route_channels` rows for routes that already exist and invalidates the routing cache.
+
+**Body** (both fields optional; defaults shown): `{ "refreshModels": true, "wait": true }`. With `refreshModels: true` the upstream model list of every active account is refreshed first (periodic model-sync batch semantics: per-account failures are counted, never fatal), then channels are rebuilt from the refreshed availability. With `refreshModels: false` the rebuild runs against the availability rows already stored. `wait` is accepted for client compatibility; the handler is synchronous, so `queued` is always `false`.
+
+**Response** (200): `{ "success": true, "queued": false, "reused": false, "status": "completed", "message": "route channels rebuilt and cache refreshed", "routesConsidered": 3, "patternRoutes": 2, "groupRoutes": 1, "channelsInserted": 4, "channelsRemoved": 1, "channelsKept": 2, "changed": true }`. `routesConsidered` counts every route row; explicit-group routes are counted but their membership is not rewritten here. All counts are `0` when nothing matched â€” callers should treat `routesConsidered: 0` as "no routes exist yet" and `changed: false` as "no channel movement" 
 
 ### POST /api/routes/:id/cooldown/clear
 
