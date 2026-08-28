@@ -458,6 +458,9 @@ function SidebarMenuButton({
     props: mergeProps<'button'>(
       {
         className: cn(sidebarMenuButtonVariants({ variant, size }), className),
+        // The active nav item is the current page: announce it so AT users
+        // can locate "you are here" without re-reading the whole menu.
+        'aria-current': isActive ? 'page' : undefined,
       },
       props
     ),

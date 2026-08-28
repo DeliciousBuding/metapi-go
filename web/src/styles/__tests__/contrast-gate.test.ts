@@ -326,6 +326,11 @@ const SOLID_PAIRS: Array<[string, string]> = [
 ]
 const SOFT_TONES = ['destructive', 'info', 'success', 'warning']
 
+/** Focus indicators are non-text UI: WCAG 1.4.11 requires 3:1, not 4.5:1. */
+const FOCUS_RING_MIN = 3
+/** Surfaces a focus ring is drawn on (light: near-white, dark: charcoal). */
+const FOCUS_RING_SURFACES = ['background', 'card']
+
 /** Known residuals outside the 2026-08-23 fix scope (a11y-checklist §7).
  * Key: `${preset}|${mode}|${label}`. */
 const EXEMPTIONS: Record<string, string> = {}
@@ -361,6 +366,31 @@ describe('theme contrast gate (WCAG AA 4.5:1)', () => {
           if (ratio < AA && !(key in EXEMPTIONS)) {
             failures.push(
               `${preset} ${mode}: ${label} = ${ratio.toFixed(2)} (< ${AA})`
+            )
+          }
+        }
+      }
+    }
+    expect(failures).toEqual([])
+  })
+
+  it('focus ring clears 3:1 (WCAG 1.4.11) on background and card across presets and modes', () => {
+    // --focus-ring is defined only in theme.css (no preset overrides), so it
+    // resolves identically for every preset — the loop still pins it
+    // per-preset so a future preset override cannot silently break it.
+    const failures: string[] = []
+    for (const preset of PRESETS) {
+      for (const mode of ['light', 'dark'] as const) {
+        for (const surface of FOCUS_RING_SURFACES) {
+          const label = `focus-ring on ${surface}`
+          const ratio = pairRatio(preset, mode, 'focus-ring', surface)
+          if (ratio === null) {
+            failures.push(`${preset} ${mode}: ${label} could not be resolved`)
+            continue
+          }
+          if (ratio < FOCUS_RING_MIN) {
+            failures.push(
+              `${preset} ${mode}: ${label} = ${ratio.toFixed(2)} (< ${FOCUS_RING_MIN})`
             )
           }
         }

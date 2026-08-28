@@ -58,11 +58,26 @@ function ChartContainer({
   const uniqueId = React.useId()
   const chartId = `chart-${id ?? uniqueId.replace(/:/g, '')}`
 
+  // Charts are landmark-worthy figures: an explicit aria-label (or HTML
+  // title) wins, then the first string series label from the config gives a
+  // single-series chart a sensible fallback name (multi-series configs are
+  // left unnamed — a site/model list is not a chart title).
+  const firstConfigLabel = Object.values(config)
+    .map((itemConfig) => itemConfig.label)
+    .find(
+      (label): label is string => typeof label === 'string' && label.length > 0
+    )
+  const ariaLabel =
+    props['aria-label'] ??
+    (typeof props.title === 'string' ? props.title : firstConfigLabel)
+
   return (
     <ChartContext.Provider value={{ config }}>
       <div
         data-slot='chart'
         data-chart={chartId}
+        role='figure'
+        aria-label={ariaLabel}
         className={cn(
           "[&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-grid_line[stroke='#ccc']]:stroke-border/50 [&_.recharts-curve.recharts-tooltip-cursor]:stroke-border [&_.recharts-polar-grid_[stroke='#ccc']]:stroke-border [&_.recharts-radial-bar-background-sector]:fill-muted [&_.recharts-rectangle.recharts-tooltip-cursor]:fill-muted [&_.recharts-reference-line_[stroke='#ccc']]:stroke-border flex aspect-video justify-center text-xs [&_.recharts-dot[stroke='#fff']]:stroke-transparent [&_.recharts-layer]:outline-hidden [&_.recharts-sector]:outline-hidden [&_.recharts-sector[stroke='#fff']]:stroke-transparent [&_.recharts-surface]:outline-hidden",
           className

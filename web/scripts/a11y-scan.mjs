@@ -38,41 +38,60 @@ const ROUTES = DESKTOP_ROUTES.map((path) => [
   path,
 ])
 
+// Both shipped locales are scanned: translated chrome strings can introduce
+// a11y failures the English pass never sees (label collisions, i18n key
+// fallbacks, copy-level violations).
+const LOCALES = ['en', 'zh-CN']
+
 const browser = await chromium.launch({ headless: true })
-const context = await browser.newContext({
-  viewport: { width: 1440, height: 900 },
-})
-await context.addInitScript(
-  ({ token }) => {
-    localStorage.setItem('auth_token', token)
-    localStorage.setItem(
-      'auth_token_expires_at',
-      String(Date.now() + 12 * 3600 * 1000)
-    )
-    localStorage.setItem('i18nextLng', 'en')
-    document.cookie = 'vite-ui-theme=light; path=/'
-  },
-  { token: AUTH_TOKEN }
-)
+
+async function scanLocale(locale) {
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+  })
+  await context.addInitScript(
+    ({ token, locale }) => {
+      localStorage.setItem('auth_token', token)
+      localStorage.setItem(
+        'auth_token_expires_at',
+        String(Date.now() + 12 * 3600 * 1000)
+      )
+      localStorage.setItem('i18nextLng', locale)
+      document.cookie = 'vite-ui-theme=light; path=/'
+    },
+    { token: AUTH_TOKEN, locale }
+  )
+
+  const failures = []
+  for (const [name, path] of ROUTES) {
+    const page = await context.newPage()
+    await page
+      .goto(BASE_URL + path, { waitUntil: 'networkidle' })
+      .catch(() => {})
+    await page.waitForTimeout(500)
+    await page.addScriptTag({ path: AXE_SOURCE })
+    const violations = await page.evaluate(async () => {
+      const result = await window.axe.run(document, {
+        resultTypes: ['violations'],
+      })
+      return result.violations
+        .filter((v) => v.impact === 'serious' || v.impact === 'critical')
+        .map((v) => ({ id: v.id, nodes: v.nodes.length, help: v.help }))
+    })
+    for (const v of violations) {
+      failures.push(
+        `${locale}/${name}: ${v.id} (${v.nodes} node(s)) — ${v.help}`
+      )
+    }
+    await page.close()
+  }
+  await context.close()
+  return failures
+}
 
 const failures = []
-for (const [name, path] of ROUTES) {
-  const page = await context.newPage()
-  await page.goto(BASE_URL + path, { waitUntil: 'networkidle' }).catch(() => {})
-  await page.waitForTimeout(500)
-  await page.addScriptTag({ path: AXE_SOURCE })
-  const violations = await page.evaluate(async () => {
-    const result = await window.axe.run(document, {
-      resultTypes: ['violations'],
-    })
-    return result.violations
-      .filter((v) => v.impact === 'serious' || v.impact === 'critical')
-      .map((v) => ({ id: v.id, nodes: v.nodes.length, help: v.help }))
-  })
-  for (const v of violations) {
-    failures.push(`${name}: ${v.id} (${v.nodes} node(s)) — ${v.help}`)
-  }
-  await page.close()
+for (const locale of LOCALES) {
+  failures.push(...(await scanLocale(locale)))
 }
 
 await browser.close()
@@ -83,5 +102,5 @@ if (failures.length > 0) {
   process.exit(1)
 }
 console.log(
-  `[a11y] clean — ${ROUTES.length} routes scanned, 0 serious/critical violations.`
+  `[a11y] clean — ${ROUTES.length} routes × ${LOCALES.length} locales scanned, 0 serious/critical violations.`
 )
