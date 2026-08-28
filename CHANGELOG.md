@@ -9,7 +9,7 @@ All notable changes to Metapi-Go will be documented in this file.
 
 ### Added
 
-- **Transform 层 golden 快照套件（#1018）**：46 份手写夹具 + 快照锁死协议转换层——Gemini generateContent 请求转换（thoughtSignature 哨兵/工具调用/多模态占位/thinkingConfig 与 tool_choice 矩阵）、Responses 连续性策略与 reasoning 清洗决策表、响应/SSE usage 提取四形状与增量流解析（含 7 字节分块边界）、completions/embeddings/images 恒等契约；新增 `internal/golden` 测试 harness（`GOLDEN_UPDATE=1` 重写，纪律入 `docs/testing.md`），零生产代码改动。
+- **协议转换快照回归套件（#1018）**：46 份手写夹具 + 快照锁死协议转换层——Gemini generateContent 请求转换（thoughtSignature 哨兵/工具调用/多模态占位/thinkingConfig 与 tool_choice 矩阵）、Responses 连续性策略与 reasoning 清洗决策表、响应/SSE usage 提取四形状与增量流解析（含 7 字节分块边界）、completions/embeddings/images 恒等契约；新增快照测试 harness（`GOLDEN_UPDATE=1` 重写，纪律入 `docs/testing.md`），零生产代码改动。
 - **行级探测健康条（#1020）**：渠道/账号表格新增探测历史健康条——新增只读端点 `GET /api/channels/probe-history` 与 `GET /api/accounts/probe-history`（`limit` 1–50 默认 20，单条窗口查询一次取回全表历史，无 N+1）；竖条按时间着色 success/failure/inconclusive/skipped，tooltip 汇总窗口成功率与平均延迟，键盘可达 + aria 摘要；批量查询未定显示占位、无历史如实标注。
 - **结构化冷却原因（#1019）**：`route_channels` 与 `oauth_route_unit_members` 新增 `cooldown_reason_code`/`cooldown_reason`/`cooldown_reason_at` 三可空列（additive step `sc2_025`，双方言 + 迁移工具携带）；9 码只增词表（`usage_limit`/`rate_limited`/`auth_error`/`upstream_error`/`client_error`/`timeout`/`network_error`/`probe_failure`/`unknown`），错误摘要净化并截断 200 runes；流量与探测失败双路径记录、全部清除点同步清原因；渠道页冷却/熔断徽章可点击，根因弹窗含本地化触发码、错误摘要、记录时间与剩余倒计时，旧数据如实显示「原因未记录」；`GET /api/channels` 新增三个 camelCase 字段（`docs/api.md` 同步）。
 
