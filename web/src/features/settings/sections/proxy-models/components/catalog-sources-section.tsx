@@ -4,10 +4,12 @@
 // later ones), exposes per-source enable/URL edit/drag-reorder/delete +
 // "sync now", a global auto-sync toggle, and the merged-snapshot status.
 // Reorder is a pointer-drag on the row handle (Wave 9 Lane B: the retired
-// up/down arrow buttons); each drop writes the absolute target index through
-// PUT /api/models/catalog-sources/{id} { sortOrder } (the backend repositions
-// and renumbers contiguously). All mutations go through the
-// /api/models/catalog-sources + /api/models/catalog-sync admin endpoints.
+// up/down arrow buttons) with a keyboard alternative (Enter/Space grab, arrow
+// keys move, Space/Enter drop, Escape cancel); each drop writes the absolute
+// target index through PUT /api/models/catalog-sources/{id} { sortOrder }
+// (the backend repositions and renumbers contiguously). All mutations go
+// through the /api/models/catalog-sources + /api/models/catalog-sync admin
+// endpoints.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -17,7 +19,12 @@ import {
   RefreshCw as RefreshCwIcon,
   Trash2 as Trash2Icon,
 } from 'lucide-react'
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import {
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
@@ -113,14 +120,22 @@ export function CatalogSourcesSection() {
   const [deleteTarget, setDeleteTarget] = useState<CatalogSource | null>(null)
   const [syncingId, setSyncingId] = useState<number | 'all' | null>(null)
 
-  // --- pointer-drag reorder state (Wave 9 Lane B) ---
+  // --- reorder state (pointer drag Wave 9 Lane B + keyboard grab) ---
   // Declared with the other hooks — BEFORE the loading/error early returns —
-  // so the hook count stays stable across status states.
+  // so the hook count stays stable across status states. The keyboard path
+  // reuses the same visual/commit state machine: Enter/Space grabs, arrow
+  // keys move the drop highlight, Space/Enter drops, Escape cancels.
   const rowRefs = useRef<Array<HTMLTableRowElement | null>>([])
-  const dragState = useRef<{ index: number } | null>(null)
+  const dragState = useRef<{
+    index: number
+    mode: 'pointer' | 'keyboard'
+  } | null>(null)
   const overIndexRef = useRef<number | null>(null)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   const [overIndex, setOverIndex] = useState<number | null>(null)
+  const [keyboardGrabIndex, setKeyboardGrabIndex] = useState<number | null>(
+    null
+  )
 
   const statusQuery = useQuery<CatalogSyncStatus>({
     queryKey: catalogSyncKeys.status(),
@@ -285,11 +300,16 @@ export function CatalogSourcesSection() {
   const sources = status.sources ?? []
   const busy = syncingId !== null
 
-  // --- pointer-drag reorder helpers (Wave 9 Lane B) ---
-  // The row handle captures the pointer and tracks the row under the cursor;
-  // on release the drop index is committed as an absolute sortOrder. Storing
-  // the live target in a ref keeps the pointerup handler race-free even when
-  // the last pointermove and pointerup land in the same frame.
+  // --- reorder helpers ---
+  // Pointer path (Wave 9 Lane B): the row handle captures the pointer and
+  // tracks the row under the cursor; on release the drop index is committed
+  // as an absolute sortOrder. Storing the live target in a ref keeps the
+  // pointerup handler race-free even when the last pointermove and pointerup
+  // land in the same frame.
+  // Keyboard path (WCAG 2.1.1 alternative, APG keyboard-sortable pattern):
+  // Enter/Space grabs the focused handle, ArrowUp/ArrowDown move the drop
+  // highlight, Space/Enter drops, Escape cancels. The same endDrag() commit
+  // finishes both paths.
   function findRowIndexAt(clientY: number): number {
     const rows = rowRefs.current
     for (let i = 0; i < rows.length; i++) {
@@ -305,7 +325,16 @@ export function CatalogSourcesSection() {
     index: number
   ) {
     if (busy || reorderMutation.isPending) return
-    dragState.current = { index }
+    // A pointer drag takes over from an active keyboard grab; clear the
+    // keyboard-specific visual state so a click-without-move cannot commit
+    // the stale keyboard target.
+    if (dragState.current?.mode === 'keyboard') {
+      setKeyboardGrabIndex(null)
+      setDragIndex(null)
+      setOverIndex(null)
+      overIndexRef.current = null
+    }
+    dragState.current = { index, mode: 'pointer' }
     event.currentTarget.setPointerCapture(event.pointerId)
   }
 
@@ -320,12 +349,60 @@ export function CatalogSourcesSection() {
     overIndexRef.current = next
   }
 
-  function onDragHandlePointerEnd(commit: boolean) {
+  function onDragHandleKeyDown(
+    event: ReactKeyboardEvent<HTMLButtonElement>,
+    index: number
+  ) {
+    const state = dragState.current
+    const inKeyboardGrab = state?.mode === 'keyboard'
+    if (!inKeyboardGrab) {
+      if (event.key === ' ' || event.key === 'Enter') {
+        event.preventDefault()
+        dragState.current = { index, mode: 'keyboard' }
+        setKeyboardGrabIndex(index)
+        setDragIndex(index)
+        setOverIndex(index)
+        overIndexRef.current = index
+      }
+      return
+    }
+    // Grab in progress: the focused handle owns the interaction. Move only
+    // the drop highlight; the row order commits once on drop.
+    const pos = overIndexRef.current
+    if (pos === null) return
+    event.preventDefault()
+    switch (event.key) {
+      case 'ArrowDown': {
+        const next = Math.min(pos + 1, sources.length - 1)
+        overIndexRef.current = next
+        setOverIndex(next)
+        break
+      }
+      case 'ArrowUp': {
+        const next = Math.max(pos - 1, 0)
+        overIndexRef.current = next
+        setOverIndex(next)
+        break
+      }
+      case ' ':
+      case 'Enter':
+        endDrag(true)
+        break
+      case 'Escape':
+        endDrag(false)
+        break
+      default:
+        break
+    }
+  }
+
+  function endDrag(commit: boolean) {
     const state = dragState.current
     if (!state) return
     dragState.current = null
     setDragIndex(null)
     setOverIndex(null)
+    setKeyboardGrabIndex(null)
     const targetIndex = overIndexRef.current
     overIndexRef.current = null
     if (commit && targetIndex !== null && targetIndex !== state.index) {
@@ -425,152 +502,175 @@ export function CatalogSourcesSection() {
               {t('settings.proxyModels.catalogSources.toast.disabled')}
             </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {/* Drag-handle column (reorder, Wave 9 Lane B). */}
-                  <TableHead className='w-7' />
-                  <TableHead>
-                    {t('settings.proxyModels.catalogSources.columns.source')}
-                  </TableHead>
-                  <TableHead>
-                    {t('settings.proxyModels.catalogSources.columns.type')}
-                  </TableHead>
-                  <TableHead>
-                    {t('settings.proxyModels.catalogSources.columns.url')}
-                  </TableHead>
-                  <TableHead>
-                    {t('settings.proxyModels.catalogSources.columns.enabled')}
-                  </TableHead>
-                  <TableHead>
-                    {t('settings.proxyModels.catalogSources.columns.lastSync')}
-                  </TableHead>
-                  <TableHead className='text-right'>
-                    {t('settings.proxyModels.catalogSources.columns.actions')}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sources.map((source, index) => (
-                  <TableRow
-                    key={source.id}
-                    ref={(row) => {
-                      rowRefs.current[index] = row
-                    }}
-                    className={cn(
-                      dragIndex !== null &&
-                        overIndex === index &&
-                        'bg-accent/60',
-                      dragIndex === index && 'opacity-40'
-                    )}
-                  >
-                    <TableCell className='w-7 px-0'>
-                      <Button
-                        type='button'
-                        variant='ghost'
-                        size='icon-sm'
-                        className={cn(
-                          'cursor-grab touch-none select-none',
-                          dragIndex === index && 'cursor-grabbing'
-                        )}
-                        disabled={busy || reorderMutation.isPending}
-                        onPointerDown={(event) =>
-                          onDragHandlePointerDown(event, index)
-                        }
-                        onPointerMove={onDragHandlePointerMove}
-                        onPointerUp={() => onDragHandlePointerEnd(true)}
-                        onPointerCancel={() => onDragHandlePointerEnd(false)}
-                        aria-label={t(
-                          'settings.proxyModels.catalogSources.dragToReorder'
-                        )}
-                        title={t(
-                          'settings.proxyModels.catalogSources.dragToReorder'
-                        )}
-                      >
-                        <GripVerticalIcon className='size-3.5' />
-                      </Button>
-                    </TableCell>
-                    <TableCell className='text-sm font-medium'>
-                      {source.name}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          source.type === 'official' ? 'secondary' : 'outline'
-                        }
-                      >
-                        {source.type === 'official'
-                          ? t(
-                              'settings.proxyModels.catalogSources.typeOfficial'
-                            )
-                          : t('settings.proxyModels.catalogSources.typeCustom')}
-                      </Badge>
-                    </TableCell>
-                    <TableCell
-                      className='text-muted-foreground max-w-[16rem] truncate font-mono text-xs'
-                      title={source.url}
-                    >
-                      {source.url}
-                    </TableCell>
-                    <TableCell>
-                      <Switch
-                        checked={source.enabled}
-                        onCheckedChange={() =>
-                          toggleEnabledMutation.mutate(source)
-                        }
-                        disabled={toggleEnabledMutation.isPending}
-                        aria-label={t(
-                          'settings.proxyModels.catalogSources.toggleEnabled',
-                          {
-                            name: source.name,
-                          }
-                        )}
-                      />
-                    </TableCell>
-                    <TableCell>{<LastSyncCell source={source} />}</TableCell>
-                    <TableCell>
-                      <div className='flex justify-end gap-1'>
-                        <Button
-                          variant='ghost'
-                          size='icon-sm'
-                          disabled={busy}
-                          onClick={() => syncOneMutation.mutate(source.id)}
-                          aria-label={t(
-                            'settings.proxyModels.catalogSources.syncNow'
-                          )}
-                        >
-                          {syncingId === source.id ? (
-                            <Spinner className='size-3.5' />
-                          ) : (
-                            <RefreshCwIcon className='size-3.5' />
-                          )}
-                        </Button>
-                        <Button
-                          variant='ghost'
-                          size='icon-sm'
-                          onClick={() => setDialog({ mode: 'edit', source })}
-                          aria-label={t(
-                            'settings.proxyModels.catalogSources.edit'
-                          )}
-                        >
-                          <PencilIcon className='size-3.5' />
-                        </Button>
-                        <Button
-                          variant='ghost'
-                          size='icon-sm'
-                          onClick={() => setDeleteTarget(source)}
-                          aria-label={t(
-                            'settings.proxyModels.catalogSources.delete'
-                          )}
-                        >
-                          <Trash2Icon className='size-3.5' />
-                        </Button>
-                      </div>
-                    </TableCell>
+            <>
+              <p id='catalog-source-reorder-help' className='sr-only'>
+                {t('settings.proxyModels.catalogSources.reorderInstructions')}
+              </p>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {/* Drag-handle column (reorder, Wave 9 Lane B). */}
+                    <TableHead className='w-7' />
+                    <TableHead>
+                      {t('settings.proxyModels.catalogSources.columns.source')}
+                    </TableHead>
+                    <TableHead>
+                      {t('settings.proxyModels.catalogSources.columns.type')}
+                    </TableHead>
+                    <TableHead>
+                      {t('settings.proxyModels.catalogSources.columns.url')}
+                    </TableHead>
+                    <TableHead>
+                      {t('settings.proxyModels.catalogSources.columns.enabled')}
+                    </TableHead>
+                    <TableHead>
+                      {t(
+                        'settings.proxyModels.catalogSources.columns.lastSync'
+                      )}
+                    </TableHead>
+                    <TableHead className='text-right'>
+                      {t('settings.proxyModels.catalogSources.columns.actions')}
+                    </TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {sources.map((source, index) => (
+                    <TableRow
+                      key={source.id}
+                      ref={(row) => {
+                        rowRefs.current[index] = row
+                      }}
+                      className={cn(
+                        dragIndex !== null &&
+                          overIndex === index &&
+                          'bg-accent/60',
+                        dragIndex === index && 'opacity-40'
+                      )}
+                    >
+                      <TableCell className='w-7 px-0'>
+                        <Button
+                          type='button'
+                          variant='ghost'
+                          size='icon-sm'
+                          className={cn(
+                            'cursor-grab touch-none select-none',
+                            dragIndex === index && 'cursor-grabbing'
+                          )}
+                          disabled={busy || reorderMutation.isPending}
+                          onPointerDown={(event) =>
+                            onDragHandlePointerDown(event, index)
+                          }
+                          onPointerMove={onDragHandlePointerMove}
+                          onPointerUp={() => endDrag(true)}
+                          onPointerCancel={() => endDrag(false)}
+                          onKeyDown={(event) =>
+                            onDragHandleKeyDown(event, index)
+                          }
+                          onBlur={() => {
+                            if (dragState.current?.mode === 'keyboard') {
+                              endDrag(false)
+                            }
+                          }}
+                          aria-label={t(
+                            'settings.proxyModels.catalogSources.reorderRow',
+                            { name: source.name }
+                          )}
+                          aria-keyshortcuts='Enter Space ArrowUp ArrowDown Escape'
+                          aria-pressed={keyboardGrabIndex === index}
+                          aria-describedby='catalog-source-reorder-help'
+                          title={t(
+                            'settings.proxyModels.catalogSources.dragToReorder'
+                          )}
+                        >
+                          <GripVerticalIcon className='size-3.5' />
+                        </Button>
+                      </TableCell>
+                      <TableCell className='text-sm font-medium'>
+                        {source.name}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            source.type === 'official' ? 'secondary' : 'outline'
+                          }
+                        >
+                          {source.type === 'official'
+                            ? t(
+                                'settings.proxyModels.catalogSources.typeOfficial'
+                              )
+                            : t(
+                                'settings.proxyModels.catalogSources.typeCustom'
+                              )}
+                        </Badge>
+                      </TableCell>
+                      <TableCell
+                        className='text-muted-foreground max-w-[16rem] truncate font-mono text-xs'
+                        title={source.url}
+                      >
+                        {source.url}
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          checked={source.enabled}
+                          onCheckedChange={() =>
+                            toggleEnabledMutation.mutate(source)
+                          }
+                          disabled={toggleEnabledMutation.isPending}
+                          aria-label={t(
+                            'settings.proxyModels.catalogSources.toggleEnabled',
+                            {
+                              name: source.name,
+                            }
+                          )}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <LastSyncCell source={source} />
+                      </TableCell>
+                      <TableCell>
+                        <div className='flex justify-end gap-1'>
+                          <Button
+                            variant='ghost'
+                            size='icon-sm'
+                            disabled={busy}
+                            onClick={() => syncOneMutation.mutate(source.id)}
+                            aria-label={t(
+                              'settings.proxyModels.catalogSources.syncNow'
+                            )}
+                          >
+                            {syncingId === source.id ? (
+                              <Spinner className='size-3.5' />
+                            ) : (
+                              <RefreshCwIcon className='size-3.5' />
+                            )}
+                          </Button>
+                          <Button
+                            variant='ghost'
+                            size='icon-sm'
+                            onClick={() => setDialog({ mode: 'edit', source })}
+                            aria-label={t(
+                              'settings.proxyModels.catalogSources.edit'
+                            )}
+                          >
+                            <PencilIcon className='size-3.5' />
+                          </Button>
+                          <Button
+                            variant='ghost'
+                            size='icon-sm'
+                            onClick={() => setDeleteTarget(source)}
+                            aria-label={t(
+                              'settings.proxyModels.catalogSources.delete'
+                            )}
+                          >
+                            <Trash2Icon className='size-3.5' />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </>
           )}
         </div>
       </SettingsSectionCard>

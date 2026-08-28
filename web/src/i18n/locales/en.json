@@ -1174,7 +1174,9 @@
             "loadFailed": "Failed to load sources: {{message}}",
             "disabled": "The pricing catalog is not enabled (PRICING_CATALOG_ENABLED=false)."
           },
-          "dragToReorder": "Drag to reorder"
+          "dragToReorder": "Drag to reorder",
+          "reorderRow": "Reorder {{name}}",
+          "reorderInstructions": "To reorder with the keyboard: focus a row's grab handle, press Enter or Space to grab, move with the Arrow Up/Down keys, press Space to drop, or press Escape to cancel."
         },
         "proxyTransport": {
           "title": "Proxy & Transport",
