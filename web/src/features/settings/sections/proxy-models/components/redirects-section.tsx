@@ -29,6 +29,7 @@ import {
   SettingsSectionCard,
   SettingsSectionSkeleton,
 } from '../../../components/settings-section-card'
+import { SettingsSectionError } from '../../../components/settings-section-error'
 
 const modelRedirectsQueryKeys = {
   all: ['model-redirects'] as const,
@@ -126,6 +127,15 @@ export function RedirectsSection() {
 
   if (isLoading) {
     return <SettingsSectionSkeleton />
+  }
+
+  if (redirectsQuery.isError || !redirectsQuery.data) {
+    return (
+      <SettingsSectionError
+        title={t('settings.proxyModels.redirects.title')}
+        onRetry={() => void redirectsQuery.refetch()}
+      />
+    )
   }
 
   return (
