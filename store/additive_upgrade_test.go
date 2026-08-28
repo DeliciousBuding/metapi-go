@@ -83,14 +83,18 @@ func additiveColumns() []additiveColumnSpec {
 // legacySchemaDDL is the pre-additive shape of the tables touched by
 // enterpriseAdditiveSteps. It intentionally omits every additive column so the
 // test exercises the real ALTER TABLE ADD COLUMN upgrade path against an old
-// database, rather than the fresh-install no-op path.
+// database, rather than the fresh-install no-op path. Base columns that
+// additive steps reference without adding (e.g. the sc2_027 read-path indexes
+// over proxy_logs.channel_id / status / token-cost columns and
+// checkin_logs.status) mirror the real TS drizzle schema, which always
+// carried them (store/testdata/ts-source/hub.db).
 var legacySchemaDDL = []string{
 	"CREATE TABLE downstream_api_keys (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, key TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
 	"CREATE TABLE sites (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, url TEXT NOT NULL, platform TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
 	"CREATE TABLE token_routes (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
-	"CREATE TABLE proxy_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT NOT NULL)",
+	"CREATE TABLE proxy_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, channel_id INTEGER, status TEXT, estimated_cost REAL, total_tokens INTEGER, prompt_tokens INTEGER, completion_tokens INTEGER, created_at TEXT NOT NULL)",
 	"CREATE TABLE accounts (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
-	"CREATE TABLE checkin_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER NOT NULL, created_at TEXT NOT NULL)",
+	"CREATE TABLE checkin_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'success', created_at TEXT NOT NULL)",
 	"CREATE TABLE route_channels (id INTEGER PRIMARY KEY AUTOINCREMENT, route_id INTEGER NOT NULL, account_id INTEGER NOT NULL, created_at TEXT NOT NULL)",
 	"CREATE TABLE oauth_route_unit_members (id INTEGER PRIMARY KEY AUTOINCREMENT, unit_id INTEGER NOT NULL, account_id INTEGER NOT NULL, created_at TEXT NOT NULL)",
 	"CREATE TABLE account_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER NOT NULL, name TEXT NOT NULL, token TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",

@@ -349,3 +349,45 @@ func TestPostgresEnsureColumnAndMigrations(t *testing.T) {
 		t.Errorf("expected 1 bookkeeping row, got %d", cnt)
 	}
 }
+
+// TestSC2027AdminReadPathIndexes verifies the Wave 18 admin read-path indexes
+// land on a fresh SQLite install via AutoMigrate (which runs the additive
+// registry after buildIndexes) and survive a second AutoMigrate run unchanged
+// — the CREATE INDEX IF NOT EXISTS + schema_migrations bookkeeping must make
+// the step idempotent.
+func TestSC2027AdminReadPathIndexes(t *testing.T) {
+	db, err := Open(DialectSQLite, ":memory:", false)
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	defer db.Close()
+
+	if err := AutoMigrate(db); err != nil {
+		t.Fatalf("AutoMigrate failed: %v", err)
+	}
+	// Idempotent re-run (restart simulation).
+	if err := AutoMigrate(db); err != nil {
+		t.Fatalf("second AutoMigrate failed: %v", err)
+	}
+
+	for _, name := range []string{
+		"proxy_logs_channel_id_created_at_idx",
+		"proxy_logs_created_at_covering_summary_idx",
+		"checkin_logs_status_created_at_idx",
+	} {
+		var found string
+		if err := db.QueryRow(`SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?`, name).Scan(&found); err != nil {
+			t.Fatalf("index %s missing after AutoMigrate: %v", name, err)
+		}
+	}
+
+	// The step itself is recorded exactly once in schema_migrations.
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM schema_migrations WHERE version = 'sc2_027_admin_read_path_indexes'`).Scan(&n); err != nil {
+		t.Fatalf("schema_migrations lookup failed: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("sc2_027 recorded %d times, want 1", n)
+	}
+}
+

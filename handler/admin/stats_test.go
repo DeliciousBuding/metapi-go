@@ -1251,6 +1251,91 @@ func TestStats_SQLiteMarketplaceFromAvailability(t *testing.T) {
 		t.Fatalf("bare account %d missing from claude accounts: %#v", accountWithoutToken, claude["accounts"])
 	}
 }
+// TestStats_SQLiteMarketplaceTokensBatchedAcrossModels is the Wave 18 N+1
+// regression: enabled tokens must attach to every model entry of an account
+// from ONE batched account_tokens load (the pre-fix shape fired one token
+// query per model×account availability row). The test pins the exact token
+// set and the legacy ordering (is_default DESC, id ASC), and proves
+// disabled/expired tokens stay out on every model the account serves.
+func TestStats_SQLiteMarketplaceTokensBatchedAcrossModels(t *testing.T) {
+	db, r := setupStatsSQLiteTest(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	mustExec(t, db, `INSERT INTO sites (name, url, platform, status, created_at, updated_at)
+		VALUES (?, ?, ?, 'active', ?, ?)`, "batch-site", "https://batch.example.test", "openai", now, now)
+	var siteID int64
+	if err := db.Get(&siteID, "SELECT id FROM sites WHERE name = ?", "batch-site"); err != nil {
+		t.Fatalf("site id: %v", err)
+	}
+	mustExec(t, db, `INSERT INTO accounts (site_id, username, access_token, status, balance, checkin_enabled, created_at, updated_at)
+		VALUES (?, ?, ?, 'active', 1.0, FALSE, ?, ?)`, siteID, "batch-user", "sk-batch", now, now)
+	var accountID int64
+	if err := db.Get(&accountID, "SELECT id FROM accounts WHERE username = ?", "batch-user"); err != nil {
+		t.Fatalf("account id: %v", err)
+	}
+
+	// Tokens: one default + one plain enabled, plus one disabled and one
+	// expired that must NOT be attached.
+	mustExec(t, db, `INSERT INTO account_tokens (account_id, name, token, enabled, is_default, value_status, created_at, updated_at)
+		VALUES (?, 'tok-default', 'sk-d', 1, 1, 'ready', ?, ?)`, accountID, now, now)
+	mustExec(t, db, `INSERT INTO account_tokens (account_id, name, token, enabled, is_default, value_status, created_at, updated_at)
+		VALUES (?, 'tok-plain', 'sk-p', 1, 0, 'ready', ?, ?)`, accountID, now, now)
+	mustExec(t, db, `INSERT INTO account_tokens (account_id, name, token, enabled, is_default, value_status, created_at, updated_at)
+		VALUES (?, 'tok-disabled', 'sk-x', 0, 0, 'ready', ?, ?)`, accountID, now, now)
+	mustExec(t, db, `INSERT INTO account_tokens (account_id, name, token, enabled, is_default, value_status, created_at, updated_at)
+		VALUES (?, 'tok-expired', 'sk-e', 1, 0, 'expired', ?, ?)`, accountID, now, now)
+
+	// Two models available on the same account — the old N+1 fired the
+	// per-account token query once per row here.
+	for _, model := range []string{"batch-model-1", "batch-model-2"} {
+		mustExec(t, db, `INSERT INTO model_availability (account_id, model_name, available, is_manual, latency_ms, checked_at)
+			VALUES (?, ?, 1, 0, 200, ?)`, accountID, model, now)
+	}
+
+	resp := doGet(t, r, "/api/models/marketplace")
+	if resp.Code != 200 {
+		t.Fatalf("marketplace returned %d: %s", resp.Code, resp.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	models, _ := body["models"].([]any)
+	checked := 0
+	for _, raw := range models {
+		m := raw.(map[string]any)
+		name, _ := m["name"].(string)
+		if name != "batch-model-1" && name != "batch-model-2" {
+			continue
+		}
+		checked++
+		accounts, _ := m["accounts"].([]any)
+		var acc map[string]any
+		for _, araw := range accounts {
+			if am := araw.(map[string]any); int64(am["id"].(float64)) == accountID {
+				acc = am
+			}
+		}
+		if acc == nil {
+			t.Fatalf("%s: account %d missing: %#v", name, accountID, m["accounts"])
+		}
+		tokens, _ := acc["tokens"].([]any)
+		if len(tokens) != 2 {
+			t.Fatalf("%s: tokens = %#v, want exactly the 2 enabled tokens", name, tokens)
+		}
+		first := tokens[0].(map[string]any)
+		second := tokens[1].(map[string]any)
+		if first["name"] != "tok-default" || first["isDefault"] != true {
+			t.Fatalf("%s: first token = %#v, want tok-default isDefault=true", name, first)
+		}
+		if second["name"] != "tok-plain" || second["isDefault"] != false {
+			t.Fatalf("%s: second token = %#v, want tok-plain isDefault=false", name, second)
+		}
+	}
+	if checked != 2 {
+		t.Fatalf("checked %d batch models, want 2 (fixture models missing from marketplace)", checked)
+	}
+}
 
 func TestStats_SQLiteTokenCandidatesMaps(t *testing.T) {
 	db, r := setupStatsSQLiteTest(t)

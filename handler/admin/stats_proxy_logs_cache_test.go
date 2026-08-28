@@ -306,13 +306,24 @@ func TestStats_ProxyLogsAggregateSQL_NoJoinWithoutSiteID(t *testing.T) {
 		}
 	}
 
-	// With a siteId the WHERE references s.id, so the join must stay.
+	// With a siteId the WHERE references s.id, so the accounts/sites joins
+	// must stay — as INNER joins (Wave 18 index audit): s.id = ? already
+	// discards non-matching rows, and INNER lets the planner drive from the
+	// site's accounts into the proxy_logs indexes instead of scanning
+	// proxy_logs first. The dk join stays LEFT because only the search filter
+	// reads it and it must not drop rows.
 	fromSite := proxyLogsAggregateFrom(3, "")
-	if !strings.Contains(fromSite, "LEFT JOIN accounts a ON pl.account_id = a.id") {
-		t.Fatalf("aggregate FROM with siteId must join accounts, got %q", fromSite)
+	if !strings.Contains(fromSite, "INNER JOIN accounts a ON pl.account_id = a.id") {
+		t.Fatalf("aggregate FROM with siteId must inner-join accounts, got %q", fromSite)
 	}
-	if !strings.Contains(fromSite, "LEFT JOIN sites s ON a.site_id = s.id") {
-		t.Fatalf("aggregate FROM with siteId must join sites, got %q", fromSite)
+	if !strings.Contains(fromSite, "INNER JOIN sites s ON a.site_id = s.id") {
+		t.Fatalf("aggregate FROM with siteId must inner-join sites, got %q", fromSite)
+	}
+	if !strings.Contains(fromSite, "LEFT JOIN downstream_api_keys dk ON pl.downstream_api_key_id = dk.id") {
+		t.Fatalf("aggregate FROM with siteId must keep the LEFT downstream_api_keys join, got %q", fromSite)
+	}
+	if strings.Contains(fromSite, "LEFT JOIN accounts") || strings.Contains(fromSite, "LEFT JOIN sites") {
+		t.Fatalf("aggregate FROM with siteId must not LEFT JOIN accounts/sites, got %q", fromSite)
 	}
 	summarySite := proxyLogsSummaryQuerySQL(fromSite, " WHERE s.id = ?")
 	if !strings.Contains(summarySite, "JOIN") {
@@ -366,20 +377,29 @@ func TestStats_SQLiteProxyLogsAggregatePlan_NoJoinWithoutSiteID(t *testing.T) {
 		}
 	}
 
-	// Sanity check the other direction: with a siteId the plan does join
-	// (SQLite reports the joined tables by alias, e.g. "SEARCH s ... LEFT-JOIN").
+	// Sanity check the other direction: with a siteId the plan joins
+	// accounts/sites (INNER since the Wave 18 index audit) and keeps the
+	// LEFT downstream_api_keys join.
 	planRows, err := queryRowsErr(db.DB, "EXPLAIN QUERY PLAN "+proxyLogsSummaryQuerySQL(proxyLogsAggregateFrom(1, ""), " WHERE s.id = 1"))
 	if err != nil {
 		t.Fatalf("explain siteId summary: %v", err)
 	}
 	joined := false
+	touchesAccounts := false
 	for _, row := range planRows {
-		if detail, _ := row["detail"].(string); strings.Contains(detail, "LEFT-JOIN") {
+		detail, _ := row["detail"].(string)
+		if strings.Contains(detail, "LEFT-JOIN") {
 			joined = true
+		}
+		if strings.Contains(detail, "accounts") || strings.HasPrefix(detail, "SEARCH a ") || strings.HasPrefix(detail, "SCAN a ") {
+			touchesAccounts = true
 		}
 	}
 	if !joined {
-		t.Fatalf("siteId summary plan should keep the LEFT JOIN: %v", planRows)
+		t.Fatalf("siteId summary plan should keep the LEFT downstream_api_keys join: %v", planRows)
+	}
+	if !touchesAccounts {
+		t.Fatalf("siteId summary plan should join accounts: %v", planRows)
 	}
 }
 
