@@ -6,7 +6,7 @@
 ;(function () {
   try {
     function readCookie(name) {
-      const match = document.cookie.match('(?:^|; )' + name + '=([^;]*)')
+      const match = document.cookie.match(`(?:^|; )${name}=([^;]*)`)
       return match ? decodeURIComponent(match[1]) : ''
     }
 
@@ -23,7 +23,7 @@
       'ocean-breeze',
       'lavender-dream',
     ]
-    if (presets.indexOf(preset) !== -1) {
+    if (presets.includes(preset)) {
       body.setAttribute('data-theme-preset', preset)
     }
 
@@ -31,12 +31,12 @@
     body.setAttribute('data-theme-font', font === 'serif' ? 'serif' : 'sans')
 
     const radius = readCookie('theme_radius')
-    if (['none', 'sm', 'md', 'lg', 'xl'].indexOf(radius) !== -1) {
+    if (['none', 'sm', 'md', 'lg', 'xl'].includes(radius)) {
       body.setAttribute('data-theme-radius', radius)
     }
 
     const scale = readCookie('theme_scale')
-    if (['sm', 'lg', 'xl'].indexOf(scale) !== -1) {
+    if (['sm', 'lg', 'xl'].includes(scale)) {
       body.setAttribute('data-theme-scale', scale)
     }
 

@@ -39,7 +39,7 @@ describe('FOUC bootstrap ↔ theme constants', () => {
 
   it('radius allowlist matches THEME_RADIUS_VALUES minus default', () => {
     const bootstrapRadii = extractStringList(
-      /\[('none'[^\]]*)\]\.indexOf\(radius\)/
+      /\[('none'[^\]]*)\]\.includes\(radius\)/
     )
     const expected = [...THEME_RADIUS_VALUES].filter(isNotDefault)
     expect(bootstrapRadii).toEqual(expected)
@@ -47,7 +47,7 @@ describe('FOUC bootstrap ↔ theme constants', () => {
 
   it('scale allowlist matches THEME_SCALE_VALUES minus default', () => {
     const bootstrapScales = extractStringList(
-      /\[('sm'[^\]]*)\]\.indexOf\(scale\)/
+      /\[('sm'[^\]]*)\]\.includes\(scale\)/
     )
     const expected = [...THEME_SCALE_VALUES].filter(isNotDefault)
     expect(bootstrapScales).toEqual(expected)

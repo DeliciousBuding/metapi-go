@@ -11,7 +11,7 @@
     const COOKIE_NAME = 'vite-ui-theme'
     let theme = null
     // Read theme from cookie (matches next-themes cookieStorage convention)
-    const match = document.cookie.match('(?:^|; )' + COOKIE_NAME + '=([^;]*)')
+    const match = document.cookie.match(`(?:^|; )${COOKIE_NAME}=([^;]*)`)
     const stored = match ? decodeURIComponent(match[1]) : ''
     if (stored === 'light' || stored === 'dark') {
       theme = stored
