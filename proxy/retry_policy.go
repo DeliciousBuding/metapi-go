@@ -3,6 +3,8 @@ package proxy
 import (
 	"regexp"
 	"strings"
+
+	"github.com/deliciousbuding/metapi-go/routing"
 )
 
 // Retryable patterns from the TS implementation.
@@ -135,22 +137,18 @@ func trimToLower(s string) string {
 // Returns true if the proxy should retry with a different channel or the same channel.
 //
 // Decision matrix:
-// - >= 500: always retryable
-// - 408/409/425/429: always retryable
-// - 401/403: retryable (may be resolved by OAuth token refresh)
+// - Status inside the operator-tunable retry ranges: retryable. The default
+//   ranges (routing.DefaultRetryStatusRangesSpec) reproduce exactly the
+//   historical hardcoded verdicts: >= 500, 408/409/425/429, and 401/403
+//   (auth faults an OAuth token refresh may resolve). Operators can narrow
+//   or widen the set at runtime (proxy_retry_status_ranges setting).
 // - Error text matches model-unsupported patterns: retryable (try another channel)
 // - Error text matches non-retryable request patterns: non-retryable (bad request)
 // - Error text matches retryable channel-local patterns: retryable
 // - 400/404/422: non-retryable (unless error text overrides)
 // - Other: non-retryable
 func ShouldRetryProxyRequest(status int, upstreamErrorText string) bool {
-	if status >= 500 {
-		return true
-	}
-	if status == 408 || status == 409 || status == 425 || status == 429 {
-		return true
-	}
-	if status == 401 || status == 403 {
+	if routing.StatusInRanges(status, routing.ActiveRetryStatusRanges()) {
 		return true
 	}
 	if isModelUnsupportedError(upstreamErrorText) {

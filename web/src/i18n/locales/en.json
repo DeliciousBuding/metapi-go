@@ -1240,11 +1240,19 @@
             "balanceWeight": "Balance weight",
             "balanceWeightHint": "Weight of account balance in the value score: better-funded accounts win preference.",
             "usageWeight": "Usage weight",
-            "usageWeightHint": "Weight of recent usage in the value score: lightly used channels win preference (load balancing)."
+            "usageWeightHint": "Weight of recent usage in the value score: lightly used channels win preference (load balancing).",
+            "proxyRetryStatusRanges": "Retryable statuses",
+            "proxyRetryStatusRangesHint": "Comma-separated codes and ranges that count as retryable channel faults. Empty restores the default (5xx plus 401/403/408/409/425/429).",
+            "proxyDisableStatusRanges": "Auto-disable statuses",
+            "proxyDisableStatusRangesHint": "Statuses that disable the failing channel outright (e.g. 401 — invalid credentials). Empty disables auto-disable; failures then only escalate cooldowns."
           },
           "toast": {
             "saved": "Routing strategy saved.",
             "saveFailed": "Failed to save routing strategy."
+          },
+          "statusCodeGroup": "Status-code verdicts",
+          "schema": {
+            "statusRangesInvalid": "Invalid spec — use codes and ranges, e.g. 401 or 500-599"
           }
         }
       },

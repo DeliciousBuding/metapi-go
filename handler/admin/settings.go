@@ -88,6 +88,8 @@ func (h *settingsHandler) getRuntime(w http.ResponseWriter, r *http.Request) {
 		"routingFallbackUnitCost":          cfg.RoutingFallbackUnitCost,
 		"proxyFirstByteTimeoutSec":         cfg.ProxyFirstByteTimeoutSec,
 		"tokenRouterFailureCooldownMaxSec": cfg.TokenRouterFailureCooldownMaxSec,
+		"proxyRetryStatusRanges":           cfg.ProxyRetryStatusRanges,
+		"proxyDisableStatusRanges":         cfg.ProxyDisableStatusRanges,
 		"routingWeights": map[string]any{
 			"baseWeightFactor": cfg.RoutingWeights.BaseWeightFactor,
 			"valueScoreFactor": cfg.RoutingWeights.ValueScoreFactor,

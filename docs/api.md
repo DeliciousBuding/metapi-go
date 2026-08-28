@@ -738,6 +738,11 @@ Get all runtime settings as a flat JSON object. Sensitive values (proxyToken, to
 
 Update runtime settings. Partial update -- only send fields you want to change. Schedule updates atomically write both the legacy cron key and the corresponding v1 semantic mirror.
 
+**Status-code verdict policy** (P1-2): `proxyRetryStatusRanges` / `proxyDisableStatusRanges` take a comma-separated spec of single codes (`401`) and inclusive ranges (`500-599`); adjacent/overlapping ranges merge. Blank restores the defaults. Malformed specs are rejected with `400` and the config is left untouched.
+
+- `proxyRetryStatusRanges` — upstream statuses that count as retryable channel faults. Default (blank) reproduces the historical hardcoded verdicts: `401,403,408,409,425,429,500-599`.
+- `proxyDisableStatusRanges` — statuses that disable the failing channel outright (enabled=false + manual_override, on top of the cooldown escalation). Default (blank) = no auto-disable, matching historical behavior; the new-api-style preset is `401`.
+
 ### GET /api/settings/migration/preview
 
 Preview the additive settings migration. Returns `currentVersion`, `targetVersion`, `pending`, `customCount`, `legacyFieldsPreserved`, and per-task migration items.

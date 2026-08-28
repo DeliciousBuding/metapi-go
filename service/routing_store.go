@@ -676,6 +676,10 @@ var routeChannelUpdateColumns = map[string]string{
 	"cooldownReasonCode":   "cooldown_reason_code",
 	"cooldownReason":       "cooldown_reason",
 	"cooldownReasonAt":     "cooldown_reason_at",
+	// P1-2: the failure-recording path may disable a channel outright when
+	// its failing status falls in the operator-configured disable ranges.
+	"enabled":        "enabled",
+	"manualOverride": "manual_override",
 }
 
 var routeUnitMemberUpdateColumns = map[string]string{

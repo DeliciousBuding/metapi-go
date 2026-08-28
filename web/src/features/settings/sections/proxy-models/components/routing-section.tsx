@@ -40,10 +40,23 @@ import {
 
 const FORM_ID = 'settings-general-routing-form'
 
+// Loose client-side shape guard: comma-separated codes ("401") and
+// inclusive ranges ("500-599"). Range bounds and order are validated
+// server-side (PUT /api/settings/runtime returns 400 for bad specs).
+const statusRangesSpec = z
+  .string()
+  .refine(
+    (value) =>
+      value === '' || /^(\d{3}(-\d{3})?)(,\s*\d{3}(-\d{3})?)*$/.test(value),
+    { message: 'settings.proxyModels.routing.schema.statusRangesInvalid' }
+  )
+
 const routingSchema = z.object({
   routingFallbackUnitCost: z.coerce.number().min(0),
   tokenRouterFailureCooldownMaxSec: z.coerce.number().int().min(0),
   proxyFirstByteTimeoutSec: z.coerce.number().int().min(0),
+  proxyRetryStatusRanges: statusRangesSpec,
+  proxyDisableStatusRanges: statusRangesSpec,
   disableCrossProtocolFallback: z.boolean(),
   routingWeights: z.object({
     baseWeightFactor: z.coerce.number(),
@@ -100,6 +113,8 @@ const DEFAULT_VALUES: RoutingFormValues = {
   routingFallbackUnitCost: 1,
   tokenRouterFailureCooldownMaxSec: 30 * 24 * 60 * 60,
   proxyFirstByteTimeoutSec: 0,
+  proxyRetryStatusRanges: '',
+  proxyDisableStatusRanges: '',
   disableCrossProtocolFallback: false,
   routingWeights: { ...DEFAULT_WEIGHTS },
 }
@@ -116,6 +131,8 @@ function deriveServerValues(
     tokenRouterFailureCooldownMaxSec:
       asNumber(data.tokenRouterFailureCooldownMaxSec) ?? 30 * 24 * 60 * 60,
     proxyFirstByteTimeoutSec: asNumber(data.proxyFirstByteTimeoutSec) ?? 0,
+    proxyRetryStatusRanges: data.proxyRetryStatusRanges ?? '',
+    proxyDisableStatusRanges: data.proxyDisableStatusRanges ?? '',
     disableCrossProtocolFallback: asBoolean(data.disableCrossProtocolFallback),
     routingWeights: {
       baseWeightFactor:
@@ -242,6 +259,66 @@ export function RoutingSection() {
                 </FormItem>
               )}
             />
+          </div>
+
+          <div className='space-y-3 rounded-lg border p-4'>
+            <h3 className='text-sm font-medium'>
+              {t('settings.proxyModels.routing.statusCodeGroup')}
+            </h3>
+            <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
+              <FormField
+                control={form.control}
+                name='proxyRetryStatusRanges'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {t(
+                        'settings.proxyModels.routing.fields.proxyRetryStatusRanges'
+                      )}
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        placeholder='401,403,408,409,425,429,500-599'
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'settings.proxyModels.routing.fields.proxyRetryStatusRangesHint'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name='proxyDisableStatusRanges'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {t(
+                        'settings.proxyModels.routing.fields.proxyDisableStatusRanges'
+                      )}
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={field.value ?? ''}
+                        placeholder='401'
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'settings.proxyModels.routing.fields.proxyDisableStatusRangesHint'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
           </div>
 
           <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>

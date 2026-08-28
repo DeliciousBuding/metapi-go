@@ -429,7 +429,17 @@ func (tr *TokenRouter) RecordFailure(ctx context.Context, channelID int64, failu
 			consecutiveFailCount, cooldownLevel, failCount, nowMs, tr.configuredMaxSec)
 	}
 
-	_ = tr.db.UpdateChannelCooldownFields(ctx, affectedChannelIDs, map[string]interface{}{
+	// P1-2 operator-tunable auto-disable: when the failing status falls in
+	// the configured disable ranges (default: none — historical behavior),
+	// the channel is disabled outright on top of the cooldown escalation.
+	// manual_override shields it from route rebuilds; the operator
+	// re-enables through the same surface as manual channel edits. Regular
+	// channels only — OAuth route unit members keep their member-level
+	// cooldown path.
+	disableHit := failureCtx.Status != nil &&
+		StatusInRanges(*failureCtx.Status, ActiveDisableStatusRanges())
+
+	updates := map[string]interface{}{
 		"failCount":            failCount,
 		"lastFailAt":           nowISO,
 		"consecutiveFailCount": consecutiveFailCount,
@@ -438,7 +448,12 @@ func (tr *TokenRouter) RecordFailure(ctx context.Context, channelID int64, failu
 		"cooldownReasonCode":   reasonCode,
 		"cooldownReason":       CooldownReasonSummaryArg(reasonSummary),
 		"cooldownReasonAt":     nowISO,
-	})
+	}
+	if disableHit {
+		updates["enabled"] = false
+		updates["manualOverride"] = true
+	}
+	_ = tr.db.UpdateChannelCooldownFields(ctx, affectedChannelIDs, updates)
 
 	for _, id := range affectedChannelIDs {
 		tr.cache.PatchCachedChannel(id, func(ch *store.RouteChannel) {
@@ -450,6 +465,10 @@ func (tr *TokenRouter) RecordFailure(ctx context.Context, channelID int64, failu
 			ch.CooldownReasonCode = &reasonCode
 			ch.CooldownReason = reasonSummaryPtr(reasonSummary)
 			ch.CooldownReasonAt = &nowISO
+			if disableHit {
+				ch.Enabled = false
+				ch.ManualOverride = true
+			}
 		})
 	}
 

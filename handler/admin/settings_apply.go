@@ -430,6 +430,25 @@ func (h *settingsHandler) applyRoutingSettings(body map[string]any) *settingsApp
 		h.cfg.TokenRouterFailureCooldownMaxSec = int(n)
 		upsertSettingDB(h.db, "token_router_failure_cooldown_max_sec", int(n))
 	}
+	// P1-2: operator-tunable status-code range policy. Empty specs are
+	// allowed (they restore the routing defaults at lookup time); anything
+	// non-empty must parse cleanly before it is persisted or applied.
+	if v, ok := body["proxyRetryStatusRanges"]; ok {
+		spec := normalizeString(v)
+		if _, err := routing.ParseStatusRanges(spec); err != nil {
+			return failSettings(http.StatusBadRequest, "proxyRetryStatusRanges: "+err.Error())
+		}
+		h.cfg.ProxyRetryStatusRanges = spec
+		upsertSettingDB(h.db, "proxy_retry_status_ranges", spec)
+	}
+	if v, ok := body["proxyDisableStatusRanges"]; ok {
+		spec := normalizeString(v)
+		if _, err := routing.ParseStatusRanges(spec); err != nil {
+			return failSettings(http.StatusBadRequest, "proxyDisableStatusRanges: "+err.Error())
+		}
+		h.cfg.ProxyDisableStatusRanges = spec
+		upsertSettingDB(h.db, "proxy_disable_status_ranges", spec)
+	}
 
 	// Routing weights
 	if v, ok := body["routingWeights"]; ok {

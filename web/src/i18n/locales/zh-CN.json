@@ -1240,11 +1240,19 @@
             "balanceWeight": "余额权重",
             "balanceWeightHint": "价值评分中账户余额的权重：余额越充足，通道越优先。",
             "usageWeight": "用量权重",
-            "usageWeightHint": "价值评分中近期用量的权重：用量越少，通道越优先（负载均衡）。"
+            "usageWeightHint": "价值评分中近期用量的权重：用量越少，通道越优先（负载均衡）。",
+            "proxyRetryStatusRanges": "可重试状态码",
+            "proxyRetryStatusRangesHint": "视为通道故障可重试的状态码与区间（逗号分隔）。留空恢复默认（5xx 加 401/403/408/409/425/429）。",
+            "proxyDisableStatusRanges": "自动禁用状态码",
+            "proxyDisableStatusRangesHint": "命中即直接禁用该通道的状态码（如 401——凭据失效）。留空则不禁用，失败仅升级冷却。"
           },
           "toast": {
             "saved": "路由策略已保存。",
             "saveFailed": "保存路由策略失败。"
+          },
+          "statusCodeGroup": "状态码判定",
+          "schema": {
+            "statusRangesInvalid": "格式无效——请使用状态码与区间，如 401 或 500-599"
           }
         }
       },

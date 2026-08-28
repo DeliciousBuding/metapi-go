@@ -62,6 +62,8 @@ export type RuntimeSettings = {
   routingFallbackUnitCost?: number
   tokenRouterFailureCooldownMaxSec?: number
   proxyFirstByteTimeoutSec?: number
+  proxyRetryStatusRanges?: string
+  proxyDisableStatusRanges?: string
   disableCrossProtocolFallback?: boolean
   routingWeights?: {
     baseWeightFactor?: number
