@@ -96,7 +96,9 @@ func (s *AdminSnapshotScheduler) runWarm() {
 		wg.Add(1)
 		go func(name string) {
 			defer wg.Done()
-			s.warmTarget(name)
+			// Boundary recovery: these are scheduler-owned goroutines; a
+			// panicking warm must not take the process down.
+			safeJob("admin-snapshot-warm", func() { s.warmTarget(name) })
 		}(target)
 	}
 	wg.Wait()

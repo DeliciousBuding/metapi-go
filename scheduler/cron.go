@@ -124,6 +124,22 @@ func ParseCronExpr(expr string) error {
 	return err
 }
 
+// safeJob runs fn with panic recovery at the scheduler boundary. Every
+// goroutine the scheduler package launches job code in must go through this
+// wrapper (or cronRunner.addJob's equivalent for cron-triggered runs): an
+// unrecovered panic in any of them crashes the entire server process, not
+// just the job. Recovery logs in the same shape as cronRunner.addJob and
+// returns normally so the surrounding runner (tick loop, drain WaitGroup,
+// worker pool) keeps functioning.
+func safeJob(name string, fn func()) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			slog.Error("scheduler job panicked", "name", name, "panic", rec)
+		}
+	}()
+	fn()
+}
+
 // cronRunner wraps a robfig/cron scheduler with panic-safe job execution.
 type cronRunner struct {
 	cron *cron.Cron
@@ -218,6 +234,11 @@ func (r *intervalRunner) start(ctx context.Context, interval time.Duration, imme
 	if r.running {
 		return nil
 	}
+	// Boundary panic recovery: runs execute in bare goroutines (immediate
+	// run and every tick), so a panicking job would otherwise crash the
+	// whole process. Wrap once here so both paths are covered without
+	// per-job ceremony.
+	safeRun := func() { safeJob("interval-runner", run) }
 	r.ticker = time.NewTicker(interval)
 	r.stopCh = make(chan struct{})
 	r.running = true
@@ -240,7 +261,7 @@ func (r *intervalRunner) start(ctx context.Context, interval time.Duration, imme
 					return
 				}
 			}
-			run()
+			safeRun()
 		}()
 	}
 
@@ -248,7 +269,7 @@ func (r *intervalRunner) start(ctx context.Context, interval time.Duration, imme
 		for {
 			select {
 			case <-r.ticker.C:
-				r.launch(run)
+				r.launch(safeRun)
 			case <-r.stopCh:
 				return
 			case <-ctx.Done():

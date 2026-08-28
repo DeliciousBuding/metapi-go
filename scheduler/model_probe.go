@@ -245,10 +245,12 @@ func (s *ModelProbeScheduler) TriggerNow(sync bool) ProbeRunSummary {
 		return ProbeRunSummary{}
 	}
 	if sync {
-		s.runProbe()
+		safeJob("model-probe-now", s.runProbe)
 		return s.LastRunSummary()
 	}
-	go s.runProbe()
+	// Bare goroutine: the boundary wrapper protects the process from a
+	// panicking probe pass (the sync path runs on the caller's stack).
+	go safeJob("model-probe-now", s.runProbe)
 	return s.LastRunSummary()
 }
 
@@ -357,19 +359,24 @@ func (s *ModelProbeScheduler) runProbeLocked(dbw *store.DB) {
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			outcome := s.probeOne(target, timeoutMs, dbw)
-			mu.Lock()
-			switch outcome {
-			case "success":
-				summary.Success++
-			case "failure":
-				summary.Failed++
-			case "inconclusive":
-				summary.Inconclusive++
-			default:
-				summary.Skipped++
-			}
-			mu.Unlock()
+			// Boundary recovery: a panicking probe (e.g. adapter nil
+			// dereference) must not take the process down; the wg/sem
+			// defers above still run, so the pass drains normally.
+			safeJob("model-probe-target", func() {
+				outcome := s.probeOne(target, timeoutMs, dbw)
+				mu.Lock()
+				switch outcome {
+				case "success":
+					summary.Success++
+				case "failure":
+					summary.Failed++
+				case "inconclusive":
+					summary.Inconclusive++
+				default:
+					summary.Skipped++
+				}
+				mu.Unlock()
+			})
 		}()
 	}
 	wg.Wait()

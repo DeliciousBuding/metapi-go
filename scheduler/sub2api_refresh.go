@@ -146,14 +146,18 @@ func (s *Sub2APIRefreshScheduler) runPassLocked(dbw *store.DB) {
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			_, err := balance.RefreshBalance(s.cfg, dbw.DB, c.id)
-			if err != nil {
-				failed.Add(1)
-				slog.Warn("sub2api-refresh: RefreshBalance failed",
-					"account_id", c.id, "error", err)
-				return
-			}
-			refreshed.Add(1)
+			// Boundary recovery: a panicking upstream adapter must not
+			// take the process down; the wg/sem defers above still run.
+			safeJob("sub2api-refresh-account", func() {
+				_, err := balance.RefreshBalance(s.cfg, dbw.DB, c.id)
+				if err != nil {
+					failed.Add(1)
+					slog.Warn("sub2api-refresh: RefreshBalance failed",
+						"account_id", c.id, "error", err)
+					return
+				}
+				refreshed.Add(1)
+			})
 		}()
 	}
 	wg.Wait()
