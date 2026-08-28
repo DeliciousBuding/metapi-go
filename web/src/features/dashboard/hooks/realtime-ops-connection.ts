@@ -17,7 +17,7 @@
 // snapshot keeps the last sample + `lastFrameAt` so panels can render a
 // "data as of HH:mm:ss" freshness marker instead of silently stale numbers.
 
-import { getAuthToken } from '@/lib/auth-session'
+import { request } from '@/lib/api/transport'
 
 import type {
   RealtimeOpsFrame,
@@ -50,10 +50,27 @@ export type RealtimeOpsConnection = {
 }
 
 export type RealtimeOpsConnectionOptions = {
-  /** Token source; no token means no connection (panel hides itself). */
-  getToken?: () => string | null
+  /**
+   * One-time WS ticket source (#1034). Each dial mints a fresh ticket via
+   * POST /api/auth/ws-ticket; returning null means no connection (panel
+   * hides itself). Replaces the legacy master-token-in-query flow.
+   */
+  getTicket?: () => Promise<string | null>
   /** WebSocket factory (tests inject fakes). */
   createWebSocket?: (url: string) => WebSocket
+}
+
+/** Default ticket source: the session-cookie-authenticated mint endpoint. */
+async function defaultGetTicket(): Promise<string | null> {
+  try {
+    const response = await request<{ ticket?: string }>('/api/auth/ws-ticket', {
+      method: 'POST',
+      skipErrorHandler: true,
+    })
+    return response.ticket ?? null
+  } catch {
+    return null
+  }
 }
 
 const IDLE_SAMPLE: RealtimeOpsSample = {
@@ -66,14 +83,14 @@ const IDLE_SAMPLE: RealtimeOpsSample = {
   gaveUp: false,
 }
 
-function buildWebSocketUrl(token: string): string | null {
+function buildWebSocketUrl(ticket: string): string | null {
   if (typeof window === 'undefined' || typeof window.location === 'undefined') {
     return null
   }
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   const host = window.location.host
-  const encoded = encodeURIComponent(token)
-  return `${protocol}//${host}/api/admin/ops/ws?token=${encoded}`
+  const encoded = encodeURIComponent(ticket)
+  return `${protocol}//${host}/api/admin/ops/ws?ticket=${encoded}`
 }
 
 function computeQps(total: number, previousTotal: number | null): number {
@@ -94,7 +111,7 @@ function computeSuccessRate(success: number, total: number): number {
 export function createRealtimeOpsConnection(
   options: RealtimeOpsConnectionOptions = {}
 ): RealtimeOpsConnection {
-  const getToken = options.getToken ?? getAuthToken
+  const getTicket = options.getTicket ?? defaultGetTicket
   const createWebSocket =
     options.createWebSocket ?? ((url: string) => new WebSocket(url))
 
@@ -152,9 +169,30 @@ export function createRealtimeOpsConnection(
     ) {
       return
     }
-    const token = getToken()
-    if (!token) return
-    const url = buildWebSocketUrl(token)
+    void dial()
+  }
+
+  /**
+   * Mint a one-time ticket and dial (#1034). The ticket exchange is async,
+   * so every reconnect path funnels through this fire-and-forget helper;
+   * each guard re-checks session state after the await so a stop during the
+   * exchange never opens a zombie socket.
+   */
+  async function dial() {
+    let ticket: string | null = null
+    try {
+      ticket = await getTicket()
+    } catch {
+      ticket = null
+    }
+    if (!sessionActive || !ticket) return
+    if (
+      typeof document !== 'undefined' &&
+      document.visibilityState === 'hidden'
+    ) {
+      return
+    }
+    const url = buildWebSocketUrl(ticket)
     if (!url) return
 
     let nextSocket: WebSocket

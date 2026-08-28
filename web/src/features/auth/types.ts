@@ -1,14 +1,11 @@
 // metapi-go/features/auth — types.
-// Re-exports the auth-bundle shape from the lib layer (single SSOT) and
-// defines feature-local payloads/errors for the login flow.
-
-export type { AuthBundle } from '@/lib/auth-session'
+// Login payload/error shapes for the token-exchange flow (#1034: the token
+// is presented once at POST /api/auth/login and never stored client-side).
 
 /**
  * Login form payload. metapi-go uses token-based admin auth: the operator
- * pastes an admin token which is validated via GET /api/settings/auth/info
- * with `Authorization: Bearer <token>`. There is no username/password
- * endpoint; this preserves the existing admin-auth contract.
+ * pastes an admin token which the backend exchanges for a server-side
+ * session cookie. There is no username/password endpoint.
  */
 export interface LoginPayload {
   token: string

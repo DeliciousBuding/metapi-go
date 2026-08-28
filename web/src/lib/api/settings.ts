@@ -17,10 +17,14 @@ import type {
 export const settingsApi = {
   // Auth management
   getAuthInfo: () => request('/api/settings/auth/info'),
+  // #1034: rotation is a sensitive op — the current master token is
+  // re-presented in X-Admin-Confirm-Token (the form already collects it as
+  // "old token", so no extra prompt is needed).
   changeAuthToken: (oldToken: string, newToken: string) =>
     request('/api/settings/auth/change', {
       method: 'POST',
       body: JSON.stringify({ oldToken, newToken }),
+      headers: { 'X-Admin-Confirm-Token': oldToken },
       skipErrorHandler: true,
     }),
   getRuntimeSettings: () => request('/api/settings/runtime'),
@@ -152,10 +156,19 @@ export const settingsApi = {
     }),
   resetDownstreamApiKeyUsage: (id: number) =>
     request(`/api/downstream-keys/${id}/reset-usage`, { method: 'POST' }),
+  // #1034: key export is a sensitive op; confirmToken carries the master
+  // token for X-Admin-Confirm-Token re-confirmation.
   getDownstreamKeyExport: (
     id: number,
-    profile: 'all' | 'openai' | 'cherry' | 'generic' = 'all'
-  ) => request(`/api/downstream-keys/${id}/export?profile=${profile}`),
+    profile: 'all' | 'openai' | 'cherry' | 'generic' = 'all',
+    confirmToken?: string
+  ) =>
+    request(`/api/downstream-keys/${id}/export?profile=${profile}`, {
+      headers: confirmToken
+        ? { 'X-Admin-Confirm-Token': confirmToken }
+        : undefined,
+      skipErrorHandler: true,
+    }),
   getDownstreamApiKeysSummary: (params?: {
     range?: '24h' | '7d' | 'all'
     status?: 'all' | 'enabled' | 'disabled'
@@ -170,12 +183,30 @@ export const settingsApi = {
     request<DownstreamApiKeyTrendResponse>(
       `/api/downstream-keys/${id}/trend${buildQueryString(params)}`
     ),
-  exportBackup: (type: 'all' | 'accounts' | 'preferences' = 'all') =>
-    request(`/api/settings/backup/export?type=${encodeURIComponent(type)}`),
+  // #1034: backup export is a sensitive op; confirmToken carries the
+  // master token for X-Admin-Confirm-Token re-confirmation.
+  exportBackup: (
+    type: 'all' | 'accounts' | 'preferences' = 'all',
+    confirmToken?: string
+  ) =>
+    request(`/api/settings/backup/export?type=${encodeURIComponent(type)}`, {
+      headers: confirmToken
+        ? { 'X-Admin-Confirm-Token': confirmToken }
+        : undefined,
+      skipErrorHandler: true,
+    }),
   /** Raw text export for file download; throws on non-OK responses. */
-  exportBackupRaw: async (type: 'all' | 'accounts' | 'preferences' = 'all') => {
+  exportBackupRaw: async (
+    type: 'all' | 'accounts' | 'preferences' = 'all',
+    confirmToken?: string
+  ) => {
     const response = await fetchAuthenticatedResponse(
-      `/api/settings/backup/export?type=${encodeURIComponent(type)}`
+      `/api/settings/backup/export?type=${encodeURIComponent(type)}`,
+      {
+        headers: confirmToken
+          ? { 'X-Admin-Confirm-Token': confirmToken }
+          : undefined,
+      }
     )
     if (!response.ok) {
       throw new Error(await extractResponseErrorMessage(response))
@@ -226,10 +257,17 @@ export const settingsApi = {
       body: JSON.stringify(data),
       skipErrorHandler: true,
     }),
-  exportBackupToWebdav: (type?: BackupWebdavExportType) =>
+  // #1034: sensitive op — master-token re-confirmation via confirmToken.
+  exportBackupToWebdav: (
+    type?: BackupWebdavExportType,
+    confirmToken?: string
+  ) =>
     request<BackupWebdavResponse>('/api/settings/backup/webdav/export', {
       method: 'POST',
       body: JSON.stringify(type ? { type } : {}),
+      headers: confirmToken
+        ? { 'X-Admin-Confirm-Token': confirmToken }
+        : undefined,
       timeoutMs: 60_000,
       skipErrorHandler: true,
     }),

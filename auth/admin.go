@@ -12,23 +12,34 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// AdminAuth — Bearer token + IP CIDR allowlist middleware.
-// Applied to /api/* routes (except public endpoints).
+// AdminAuth — server-side session cookie + Bearer master token + IP CIDR
+// allowlist middleware (#1034 session model). Applied to /api/* routes
+// (except public endpoints).
 //
 // Order of checks (first failure returns immediately):
 // 1. Extract client IP from RemoteAddr + normalize.
 // 2. If allowlist is non-empty and IP is not allowed → 403
-// 3. If Authorization header is missing → 401
-// 4. If Bearer token does not match config.AuthToken → 403
+// 3. Session track: a metapi_session cookie is validated against
+//    admin_sessions (sliding TTL). Valid → authenticated.
+// 4. Bearer track: Authorization: Bearer <master token> still authenticates
+//    (dual-track for external scripts/automation; the UI never stores the
+//    master token client-side anymore).
+// 5. No credentials → 401; stale cookie only → 401 Session expired;
+//    wrong Bearer → 403 Invalid token.
 //
 // Public routes that bypass this middleware:
 // - GET /api/desktop/health
 // - GET /api/oauth/callback/*
+// - POST /api/auth/login, POST /api/auth/logout, GET /api/auth/session
+//   (the session lifecycle surface; login is master-token + rate limited,
+//   logout/session are idempotent/read-only and answer without a session)
 // ---------------------------------------------------------------------------
 
 // AdminAuth returns a chi-compatible middleware that enforces admin
-// authentication using the given configuration.
-func AdminAuth(cfg *config.Config) func(http.Handler) http.Handler {
+// authentication using the given configuration. sessions may be nil (tests,
+// DB-less boot): the cookie track then simply never authenticates and the
+// Bearer track keeps working unchanged.
+func AdminAuth(cfg *config.Config, sessions *SessionManager) func(http.Handler) http.Handler {
 	// Pre-parse the allowlist once at factory creation time so we don't
 	// re-parse string entries on every request. Invalid entries are surfaced
 	// here (startup time) so operators notice a typo'd allowlist instead of
@@ -60,9 +71,27 @@ func AdminAuth(cfg *config.Config) func(http.Handler) http.Handler {
 				return
 			}
 
-			// ---- 2. Check Authorization header ----
+			// ---- 2. Session track: HttpOnly cookie → admin_sessions row ----
+			cookieToken := SessionCookieFromRequest(r)
+			if cookieToken != "" {
+				if sess := sessions.Validate(r.Context(), cookieToken); sess != nil {
+					ctx := WithAdminAuth(r.Context())
+					// Session hash prefix = stable, non-reversible audit actor.
+					ctx = WithAdminSessionID(ctx, sess.TokenHash[:8])
+					next.ServeHTTP(w, r.WithContext(ctx))
+					return
+				}
+			}
+
+			// ---- 3. Bearer track: master token (dual-track, #1034) ----
 			auth := r.Header.Get("Authorization")
 			if auth == "" {
+				if cookieToken != "" {
+					// A cookie was presented but is unknown/expired: the
+					// session ended, say so (the frontend redirects to sign-in).
+					writeJSON(w, http.StatusUnauthorized, jsonError("Session expired"))
+					return
+				}
 				writeJSON(w, http.StatusUnauthorized, jsonError("Missing Authorization header"))
 				return
 			}
@@ -83,7 +112,9 @@ func AdminAuth(cfg *config.Config) func(http.Handler) http.Handler {
 }
 
 // isPublicAPIRoute returns true for routes that do not require admin auth.
-// Whitelist: /api/desktop/health, /api/oauth/callback/*
+// Whitelist: /api/desktop/health, /api/oauth/callback/*, and the session
+// lifecycle surface /api/auth/{login,logout,session} (#1034). ws-ticket is
+// NOT public: minting a WS ticket requires a live session.
 //
 // A ".." path segment anywhere in the URL disqualifies the bypass. chi does
 // not clean request paths, so today traversal strings never reach a
@@ -99,6 +130,10 @@ func isPublicAPIRoute(urlPath string) bool {
 		return true
 	}
 	if strings.HasPrefix(urlPath, "/api/oauth/callback/") {
+		return true
+	}
+	switch urlPath {
+	case "/api/auth/login", "/api/auth/logout", "/api/auth/session":
 		return true
 	}
 	return false

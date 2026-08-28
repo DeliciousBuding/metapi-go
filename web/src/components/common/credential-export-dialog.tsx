@@ -5,14 +5,29 @@
 // and copy-to-clipboard profiles (env vars / generic JSON) fetched from
 // GET /api/downstream-keys/{id}/export.
 //
+// #1034 hardening: the dialog opens LOCKED. The export endpoint is a
+// sensitive op, so the operator must re-enter the master token before any
+// credential material is fetched (X-Admin-Confirm-Token), the key renders
+// masked until explicitly revealed, and deep links — which hand the plain
+// key to an external app — require an explicit confirmation step.
+//
 // Deep links are opened via location.href; when the protocol handler is not
 // installed the navigation is a no-op, so every deep-link action also
 // exposes an adjacent copy fallback.
 
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { Check, Copy, ExternalLink, Link2, Sparkles } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import {
+  Check,
+  Copy,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  Link2,
+  Lock,
+  Sparkles,
+} from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -24,6 +39,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -33,6 +49,7 @@ import {
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api'
+import { isReauthRequired } from '@/lib/http-client'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 
@@ -125,16 +142,51 @@ export function CredentialExportDialog({
   const { t } = useTranslation()
   const [ccApp, setCcApp] = useState<string>('codex')
   const [copiedKey, setCopiedKey] = useState(false)
+  // #1034: locked until the master token is re-entered; the token is held
+  // in component state only (never persisted) and reset on close.
+  const [confirmToken, setConfirmToken] = useState<string | null>(null)
+  const [unlockDraft, setUnlockDraft] = useState('')
+  const [unlockError, setUnlockError] = useState<string | null>(null)
+  // #1034: the key renders masked until explicitly revealed.
+  const [showKey, setShowKey] = useState(false)
+  // #1034: deep links hand the plain key to an external app — they wait for
+  // an explicit confirmation step before navigating.
+  const [pendingDeepLink, setPendingDeepLink] = useState<{
+    url: string
+    fallback: string
+  } | null>(null)
 
   const open = target !== null
 
+  // Fresh lock state every time the dialog opens.
+  useEffect(() => {
+    if (!open) {
+      setConfirmToken(null)
+      setUnlockDraft('')
+      setUnlockError(null)
+      setShowKey(false)
+      setPendingDeepLink(null)
+    }
+  }, [open])
+
   const exportQuery = useQuery<ExportResponse>({
-    queryKey: ['downstream-key-export', target?.id],
+    queryKey: ['downstream-key-export', target?.id, confirmToken !== null],
     queryFn: async () =>
-      (await api.getDownstreamKeyExport(target?.id ?? 0)) as ExportResponse,
-    enabled: open && target?.id != null,
+      (await api.getDownstreamKeyExport(
+        target?.id ?? 0,
+        'all',
+        confirmToken ?? undefined
+      )) as ExportResponse,
+    // Locked dialog never fetches: no credential material is even requested
+    // until the master token is presented.
+    enabled: open && target?.id != null && confirmToken !== null,
     staleTime: 30 * 1000,
+    retry: false,
   })
+
+  const locked = confirmToken === null
+  const reauthRejected =
+    exportQuery.isError && isReauthRequired(exportQuery.error)
 
   const data = exportQuery.data
   const apiBase = useMemo(
@@ -156,22 +208,77 @@ export function CredentialExportDialog({
     ? JSON.stringify(genericProfile.content, null, 2)
     : ''
 
+  function handleUnlock() {
+    const token = unlockDraft.trim()
+    if (!token) return
+    setUnlockError(null)
+    setConfirmToken(token)
+  }
+
   async function handleCopyKey() {
     await copyText(apiKey, 'connect.toast.keyCopied', t)
     setCopiedKey(true)
     setTimeout(() => setCopiedKey(false), 1500)
   }
 
-  function openDeepLink(url: string, fallbackText: string) {
+  function requestDeepLink(url: string, fallbackText: string) {
+    setPendingDeepLink({ url, fallback: fallbackText })
+  }
+
+  function confirmDeepLink() {
+    if (!pendingDeepLink) return
+    const { url, fallback } = pendingDeepLink
+    setPendingDeepLink(null)
     window.location.href = url
     // Deep links are a no-op when the protocol handler is missing; the
     // delayed copy doubles as the manual fallback path.
     setTimeout(() => {
-      void copyText(fallbackText, 'connect.toast.jsonCopied', t)
+      void copyText(fallback, 'connect.toast.jsonCopied', t)
     }, 400)
   }
 
+  function renderLocked() {
+    return (
+      <div className='space-y-3 rounded-lg border border-dashed px-4 py-6'>
+        <div className='flex items-center gap-2'>
+          <Lock className='text-muted-foreground size-4' />
+          <p className='text-sm font-medium'>{t('connect.lockedTitle')}</p>
+        </div>
+        <p className='text-muted-foreground text-xs'>
+          {t('connect.lockedDescription')}
+        </p>
+        <form
+          className='space-y-2'
+          onSubmit={(event) => {
+            event.preventDefault()
+            handleUnlock()
+          }}
+        >
+          <Input
+            type='password'
+            autoComplete='current-password'
+            value={unlockDraft}
+            onChange={(event) => setUnlockDraft(event.target.value)}
+            placeholder={t('reauth.tokenPlaceholder')}
+            aria-label={t('reauth.tokenLabel')}
+          />
+          {(unlockError || reauthRejected) && (
+            <p className='text-destructive text-xs'>
+              {unlockError ?? t('reauth.errorInvalid')}
+            </p>
+          )}
+          <Button type='submit' size='sm' disabled={!unlockDraft.trim()}>
+            {t('connect.unlock')}
+          </Button>
+        </form>
+      </div>
+    )
+  }
+
   function renderBody() {
+    if (locked || reauthRejected) {
+      return renderLocked()
+    }
     if (exportQuery.isLoading) {
       return (
         <div className='space-y-3'>
@@ -219,8 +326,20 @@ export function CredentialExportDialog({
           </div>
           <div className='mt-2 flex items-center gap-2 border-t pt-2'>
             <code className='text-muted-foreground flex-1 truncate font-mono text-xs'>
-              {target?.keyMasked ?? 'sk-…'}
+              {showKey ? apiKey : (target?.keyMasked ?? 'sk-…')}
             </code>
+            <Button
+              variant='outline'
+              size='icon-sm'
+              aria-label={t(showKey ? 'connect.hideKey' : 'connect.showKey')}
+              onClick={() => setShowKey((value) => !value)}
+            >
+              {showKey ? (
+                <EyeOff className='size-3.5' />
+              ) : (
+                <Eye className='size-3.5' />
+              )}
+            </Button>
             <Button
               variant='outline'
               size='icon-sm'
@@ -236,7 +355,7 @@ export function CredentialExportDialog({
           </div>
         </div>
 
-        {/* One-click deep links */}
+        {/* One-click deep links (explicit confirmation, #1034) */}
         <div className='space-y-2'>
           <p className='text-muted-foreground text-xs font-medium'>
             {t('connect.oneClickLabel')}
@@ -246,7 +365,7 @@ export function CredentialExportDialog({
               size='sm'
               disabled={!apiKey}
               onClick={() =>
-                openDeepLink(
+                requestDeepLink(
                   buildCherryStudioLink(
                     target?.id ?? 0,
                     target?.name ?? '',
@@ -293,7 +412,7 @@ export function CredentialExportDialog({
                 variant='outline'
                 disabled={!apiKey}
                 onClick={() =>
-                  openDeepLink(
+                  requestDeepLink(
                     buildCcSwitchLink(ccApp, apiBase, apiKey),
                     `${apiBase} ${apiKey}`
                   )
@@ -304,6 +423,28 @@ export function CredentialExportDialog({
               </Button>
             </div>
           </div>
+          {pendingDeepLink ? (
+            <div className='space-y-2 rounded-lg border border-dashed p-3'>
+              <p className='text-sm font-medium'>
+                {t('connect.deepLinkConfirmTitle')}
+              </p>
+              <p className='text-muted-foreground text-xs'>
+                {t('connect.deepLinkConfirmDescription')}
+              </p>
+              <div className='flex gap-2'>
+                <Button size='sm' onClick={confirmDeepLink}>
+                  {t('connect.deepLinkConfirmContinue')}
+                </Button>
+                <Button
+                  size='sm'
+                  variant='outline'
+                  onClick={() => setPendingDeepLink(null)}
+                >
+                  {t('settings.common.cancel')}
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {/* Copy profiles */}
@@ -317,6 +458,7 @@ export function CredentialExportDialog({
                 title={t('connect.envVars')}
                 description={envProfile.description ?? ''}
                 content={String(envProfile.content)}
+                masked={!showKey}
                 onCopy={(text) =>
                   void copyText(text, 'connect.toast.jsonCopied', t)
                 }
@@ -327,6 +469,7 @@ export function CredentialExportDialog({
                 title={t('connect.genericJson')}
                 description={genericProfile.description ?? ''}
                 content={genericJson}
+                masked={!showKey}
                 onCopy={(text) =>
                   void copyText(text, 'connect.toast.jsonCopied', t)
                 }
@@ -337,6 +480,7 @@ export function CredentialExportDialog({
                 title={claudeCodeProfile.label}
                 description={claudeCodeProfile.description ?? ''}
                 content={stringifyProfileContent(claudeCodeProfile)}
+                masked={!showKey}
                 onCopy={(text) =>
                   void copyText(text, 'connect.toast.jsonCopied', t)
                 }
@@ -347,6 +491,7 @@ export function CredentialExportDialog({
                 title={codexProfile.label}
                 description={codexProfile.description ?? ''}
                 content={stringifyProfileContent(codexProfile)}
+                masked={!showKey}
                 onCopy={(text) =>
                   void copyText(text, 'connect.toast.jsonCopied', t)
                 }
@@ -357,6 +502,7 @@ export function CredentialExportDialog({
                 title={openWebUiProfile.label}
                 description={openWebUiProfile.description ?? ''}
                 content={stringifyProfileContent(openWebUiProfile)}
+                masked={!showKey}
                 onCopy={(text) =>
                   void copyText(text, 'connect.toast.jsonCopied', t)
                 }
@@ -404,11 +550,14 @@ function ProfileRow({
   title,
   description,
   content,
+  masked = false,
   onCopy,
 }: {
   title: string
   description: string
   content: string
+  /** #1034: hide the secret in the preview pane; copy still uses the real text. */
+  masked?: boolean
   onCopy: (text: string) => void
 }) {
   const { t } = useTranslation()
@@ -428,7 +577,8 @@ function ProfileRow({
       </div>
       <pre
         className={cn(
-          'bg-muted/40 max-h-28 overflow-auto rounded-b-lg border-t px-3 py-2 font-mono text-xs'
+          'bg-muted/40 max-h-28 overflow-auto rounded-b-lg border-t px-3 py-2 font-mono text-xs',
+          masked && 'select-none blur-[5px]'
         )}
       >
         {content}

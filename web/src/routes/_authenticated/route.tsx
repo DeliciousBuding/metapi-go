@@ -1,7 +1,8 @@
 // metapi-go/routes — authenticated layout route (auth guard).
-// beforeLoad checks the localStorage session (storage is the source of truth
-// for cold-load guards, avoiding a Zustand hydration race). On failure,
-// redirects to /sign-in with the current href as the redirect target.
+// beforeLoad checks the session state established by the root bootstrap
+// (server-side cookie session, #1034; the stored expiry mirrors it for
+// synchronous cold-load guards). On failure, redirects to /sign-in with the
+// current href as the redirect target.
 //
 // errorComponent mounts LayoutErrorBoundary so a render-time crash in any
 // authenticated page replaces only the page content — the sidebar/nav shell
@@ -36,12 +37,10 @@ export const Route = createFileRoute('/_authenticated')({
     try {
       // Two expiry records must agree on "expired" for the notice to render:
       // (1) the root bootstrap already ran and cleared the stale entry
-      // (cold load: /accounts deep link after the 12h TTL passed), so its
+      // (cold load: /accounts deep link after the sliding TTL passed), so its
       // pre-clear record is the only survivor — `wasAuthSessionExpiredOnLastBoot`.
       // (2) in-app navigation after the TTL passed without a reload: storage
       // still holds the expired entry, so the raw probe below catches it.
-      // Either way the probe runs BEFORE hasValidAuthSession, whose
-      // getAuthToken wipes the expired entry via clearAuthSession.
       sessionExpired =
         wasAuthSessionExpiredOnLastBoot() || isAuthSessionExpired(localStorage)
       authenticated = hasValidAuthSession(localStorage)

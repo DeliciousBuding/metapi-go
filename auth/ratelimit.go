@@ -95,6 +95,32 @@ func AdminRateLimit(rps, burst int) func(http.Handler) http.Handler {
 	}
 }
 
+// AuthRateLimit returns middleware that rate-limits ONLY /api/auth/*
+// requests by IP (#1034). Login is the single surface that accepts the
+// master token, so it gets a strict bucket regardless of the general admin
+// bucket size. All other paths pass through without consuming tokens.
+//
+// Intended to be stacked alongside AdminRateLimit so auth endpoints are
+// subject to both the general /api/ cap and this stricter cap.
+func AuthRateLimit(rps, burst int) func(http.Handler) http.Handler {
+	rl := newIPRateLimiter(rps, burst)
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !strings.HasPrefix(r.URL.Path, "/api/auth/") {
+				next.ServeHTTP(w, r)
+				return
+			}
+			ip := extractClientIP(r)
+			if !rl.allow(ip) {
+				w.Header().Set("Retry-After", "1")
+				writeJSON(w, http.StatusTooManyRequests, jsonError("Too many requests"))
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // OAuthRateLimit returns middleware that rate-limits ONLY /api/oauth/*
 // requests by IP. All other paths pass through without consuming tokens.
 //

@@ -13,6 +13,7 @@ import { eventsApi } from './api/events'
 import { oauthApi } from './api/oauth'
 import { probeHistoryApi } from './api/probe-history'
 import { searchApi } from './api/search'
+import { sessionApi } from './api/session'
 import { settingsApi } from './api/settings'
 import { siteAnnouncementsApi } from './api/site-announcements'
 import { sitesApi } from './api/sites'
@@ -30,6 +31,7 @@ export const api = {
   ...tokenRoutesApi,
   ...statsApi,
   ...searchApi,
+  ...sessionApi,
   ...oauthApi,
   ...probeHistoryApi,
   ...eventsApi,

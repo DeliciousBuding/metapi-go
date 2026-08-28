@@ -1,281 +1,179 @@
-// metapi-go/lib — auth-session regression tests.
-//
-// Protects the simplified auth contract after the refresh/rotation scaffold
-// was removed: a valid persisted bundle authenticates, a missing/expired
-// bundle clears and reports anonymous, and the one-shot post-401 re-read
-// picks up a token written by another tab. No refresh endpoint, broadcast
-// channel, or rotation facade is exercised here — those are gone by design.
+// Tests for the #1034 session model client state (cookie credential,
+// metadata-only localStorage). The module keeps boot-time state, so every
+// test gets a fresh instance via vi.resetModules().
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  AUTH_SESSION_DURATION_MS,
-  bootstrapAuthentication,
-  getAccessToken,
-  getAuthToken,
-  hasValidAuthSession,
-  isAuthSessionExpired,
-  resolveAuthenticationAfterUnauthorized,
-  setAuthBundle,
-  wasAuthSessionExpiredOnLastBoot,
-  type AuthBundle,
-} from '../auth-session'
+import type * as AuthSessionModule from '../auth-session'
 
-const TOKEN_KEY = 'auth_token'
-const EXPIRES_KEY = 'auth_token_expires_at'
-const NOW_MS = 1_750_000_000_000
+type Module = typeof AuthSessionModule
 
-interface MemoryStorage {
-  getItem: (key: string) => string | null
-  setItem: (key: string, value: string) => void
-  removeItem: (key: string) => void
-  has: (key: string) => boolean
-  get: (key: string) => string | null
+const FIXED_NOW = new Date('2026-01-15T12:00:00Z').getTime()
+
+let mod: Module
+
+async function freshModule(): Promise<Module> {
+  vi.resetModules()
+  return import('../auth-session')
 }
 
-function memoryStorage(initial?: Record<string, string>): MemoryStorage {
-  const store = new Map<string, string>(Object.entries(initial ?? {}))
-  return {
-    getItem: (key) => store.get(key) ?? null,
-    setItem: (key, value) => {
-      store.set(key, value)
-    },
-    removeItem: (key) => {
-      store.delete(key)
-    },
-    has: (key) => store.has(key),
-    get: (key) => store.get(key) ?? null,
-  }
+function mockFetchOnce(body: unknown, ok = true, status = 200) {
+  const fetchMock = vi.fn(async () => ({
+    ok,
+    status,
+    json: async () => body,
+  }))
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
 }
 
-function bundle(token: string, expiresAtSec: number): AuthBundle {
-  return {
-    access_token: token,
-    token_type: 'Bearer',
-    access_expires_at: expiresAtSec,
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Token resolution (the interceptor + route guards read through these)
-// ---------------------------------------------------------------------------
-
-describe('getAuthToken — token validity', () => {
-  it('returns the token for a valid unexpired session', () => {
-    const storage = memoryStorage({
-      [TOKEN_KEY]: 'token-a',
-      [EXPIRES_KEY]: String(NOW_MS + 60_000),
-    })
-    expect(getAuthToken(storage, NOW_MS)).toBe('token-a')
-    expect(getAccessToken(storage, NOW_MS)).toBe('token-a')
-    expect(hasValidAuthSession(storage, NOW_MS)).toBe(true)
-  })
-
-  it('returns null when no token is stored', () => {
-    expect(getAuthToken(memoryStorage(), NOW_MS)).toBeNull()
-  })
-
-  it('clears stale keys and returns null for an expired token', () => {
-    const storage = memoryStorage({
-      [TOKEN_KEY]: 'stale-token',
-      [EXPIRES_KEY]: String(NOW_MS - 1),
-    })
-    expect(getAuthToken(storage, NOW_MS)).toBeNull()
-    expect(storage.has(TOKEN_KEY)).toBe(false)
-    expect(storage.has(EXPIRES_KEY)).toBe(false)
-  })
-
-  it('clears and returns null for a non-numeric expiry', () => {
-    const storage = memoryStorage({
-      [TOKEN_KEY]: 'token-a',
-      [EXPIRES_KEY]: 'not-a-number',
-    })
-    expect(getAuthToken(storage, NOW_MS)).toBeNull()
-    expect(storage.has(TOKEN_KEY)).toBe(false)
-  })
-
-  it('re-persists a 12h TTL when expiry is missing (legacy migration)', () => {
-    const storage = memoryStorage({ [TOKEN_KEY]: 'legacy-token' })
-    expect(getAuthToken(storage, NOW_MS)).toBe('legacy-token')
-    expect(storage.get(EXPIRES_KEY)).toBe(
-      String(NOW_MS + AUTH_SESSION_DURATION_MS)
-    )
-  })
+beforeEach(async () => {
+  localStorage.clear()
+  vi.useFakeTimers()
+  vi.setSystemTime(FIXED_NOW)
+  mod = await freshModule()
 })
 
-// ---------------------------------------------------------------------------
-// Persistence
-// ---------------------------------------------------------------------------
-
-describe('setAuthBundle', () => {
-  it('persists the token and converts unix-seconds expiry to ms epoch', () => {
-    const storage = memoryStorage()
-    const expiresAtSec = Math.floor(Date.now() / 1000) + 3600
-    setAuthBundle(bundle('bundled-token', expiresAtSec), storage)
-    expect(storage.get(TOKEN_KEY)).toBe('bundled-token')
-    expect(storage.get(EXPIRES_KEY)).toBe(String(expiresAtSec * 1000))
-  })
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.useRealTimers()
+  localStorage.clear()
 })
 
-// ---------------------------------------------------------------------------
-// Post-401 re-read — the "another tab wrote a new token" one-shot contract
-// ---------------------------------------------------------------------------
+describe('legacy plaintext token cleanup (#1034)', () => {
+  it('wipes auth_token keys on any session access', () => {
+    localStorage.setItem('auth_token', 'leaked-master-token')
+    localStorage.setItem('auth_token_expires_at', String(FIXED_NOW + 60_000))
 
-describe('resolveAuthenticationAfterUnauthorized — one-shot re-read', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
+    mod.readSessionMeta(localStorage)
+
+    expect(localStorage.getItem('auth_token')).toBeNull()
+    expect(localStorage.getItem('auth_token_expires_at')).toBeNull()
   })
 
-  it('returns authenticated when another tab wrote a valid token', () => {
-    const storage = memoryStorage({
-      [TOKEN_KEY]: 'fresh-token',
-      [EXPIRES_KEY]: String(Date.now() + 60_000),
-    })
-    vi.stubGlobal('localStorage', storage as unknown as Storage)
+  it('never stores a credential, only expiry metadata', () => {
+    mod.persistSessionMeta(FIXED_NOW + 3_600_000, localStorage)
 
-    const outcome = resolveAuthenticationAfterUnauthorized()
-    expect(outcome.kind).toBe('authenticated')
-    if (outcome.kind === 'authenticated') {
-      expect(outcome.bundle.access_token).toBe('fresh-token')
-      expect(outcome.bundle.token_type).toBe('Bearer')
-    }
-    // A valid token is kept, not cleared.
-    expect(storage.has(TOKEN_KEY)).toBe(true)
-  })
-
-  it('clears and returns anonymous for an expired token', () => {
-    const storage = memoryStorage({
-      [TOKEN_KEY]: 'expired-token',
-      [EXPIRES_KEY]: String(Date.now() - 1),
-    })
-    vi.stubGlobal('localStorage', storage as unknown as Storage)
-
-    expect(resolveAuthenticationAfterUnauthorized()).toEqual({
-      kind: 'anonymous',
-    })
-    expect(storage.has(TOKEN_KEY)).toBe(false)
-    expect(storage.has(EXPIRES_KEY)).toBe(false)
-  })
-
-  it('returns anonymous when storage is empty', () => {
-    vi.stubGlobal('localStorage', memoryStorage() as unknown as Storage)
-    expect(resolveAuthenticationAfterUnauthorized()).toEqual({
-      kind: 'anonymous',
+    const stored = localStorage.getItem('metapi_session_meta')
+    expect(stored).not.toBeNull()
+    expect(stored).not.toContain('token')
+    expect(JSON.parse(stored as string)).toEqual({
+      expiresAtMs: FIXED_NOW + 3_600_000,
     })
   })
 })
 
-// ---------------------------------------------------------------------------
-// Startup bootstrap — same resolve/clear contract
-// ---------------------------------------------------------------------------
+describe('session metadata', () => {
+  it('reads back persisted expiry', () => {
+    mod.persistSessionMeta(FIXED_NOW + 1_000, localStorage)
+    expect(mod.readSessionMeta(localStorage)).toEqual({
+      expiresAtMs: FIXED_NOW + 1_000,
+    })
+  })
+
+  it('returns null for missing or corrupt metadata', () => {
+    expect(mod.readSessionMeta(localStorage)).toBeNull()
+    localStorage.setItem('metapi_session_meta', '{not json')
+    expect(mod.readSessionMeta(localStorage)).toBeNull()
+    localStorage.setItem('metapi_session_meta', '{"expiresAtMs":"soon"}')
+    expect(mod.readSessionMeta(localStorage)).toBeNull()
+  })
+
+  it('clearAuthSession removes metadata and legacy keys', () => {
+    localStorage.setItem('auth_token', 'legacy')
+    mod.persistSessionMeta(FIXED_NOW + 1_000, localStorage)
+
+    mod.clearAuthSession(localStorage)
+
+    expect(mod.readSessionMeta(localStorage)).toBeNull()
+    expect(localStorage.getItem('auth_token')).toBeNull()
+  })
+
+  it('isAuthSessionExpired only when metadata exists and elapsed', () => {
+    expect(mod.isAuthSessionExpired(localStorage, FIXED_NOW)).toBe(false)
+
+    mod.persistSessionMeta(FIXED_NOW + 1_000, localStorage)
+    expect(mod.isAuthSessionExpired(localStorage, FIXED_NOW)).toBe(false)
+    expect(mod.isAuthSessionExpired(localStorage, FIXED_NOW + 1_000)).toBe(true)
+  })
+})
 
 describe('bootstrapAuthentication', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
-
-  it('returns authenticated for a valid stored token', () => {
-    vi.stubGlobal(
-      'localStorage',
-      memoryStorage({
-        [TOKEN_KEY]: 'boot-token',
-        [EXPIRES_KEY]: String(Date.now() + 60_000),
-      }) as unknown as Storage
-    )
-    expect(bootstrapAuthentication().kind).toBe('authenticated')
-  })
-
-  it('returns anonymous and clears an expired token', () => {
-    const storage = memoryStorage({
-      [TOKEN_KEY]: 'expired-token',
-      [EXPIRES_KEY]: String(Date.now() - 1),
+  it('persists the server expiry when the session is valid', async () => {
+    const expiresAt = new Date(FIXED_NOW + 7_200_000).toISOString()
+    const fetchMock = mockFetchOnce({
+      authenticated: true,
+      source: 'session',
+      expiresAt,
     })
-    vi.stubGlobal('localStorage', storage as unknown as Storage)
-    expect(bootstrapAuthentication()).toEqual({ kind: 'anonymous' })
-    expect(storage.has(TOKEN_KEY)).toBe(false)
+
+    const outcome = await mod.bootstrapAuthentication()
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/auth/session',
+      expect.objectContaining({ method: 'GET' })
+    )
+    expect(outcome).toEqual({
+      kind: 'authenticated',
+      expiresAtMs: Date.parse(expiresAt),
+    })
+    expect(mod.readSessionMeta(localStorage)).toEqual({
+      expiresAtMs: Date.parse(expiresAt),
+    })
+    expect(mod.hasValidAuthSession(localStorage)).toBe(true)
+    expect(mod.wasAuthSessionExpiredOnLastBoot()).toBe(false)
+  })
+
+  it('clears client state and reports expired when the server says no session', async () => {
+    // Local metadata claims a live session; the server disagrees (the row
+    // expired or was revoked) — the bootstrap must record "expired" so the
+    // sign-in redirect can explain why.
+    mod.persistSessionMeta(FIXED_NOW + 60_000, localStorage)
+    mockFetchOnce({ authenticated: false })
+
+    const outcome = await mod.bootstrapAuthentication()
+
+    expect(outcome).toEqual({ kind: 'anonymous', expired: true })
+    expect(mod.readSessionMeta(localStorage)).toBeNull()
+    expect(mod.hasValidAuthSession(localStorage)).toBe(false)
+    expect(mod.wasAuthSessionExpiredOnLastBoot()).toBe(true)
+  })
+
+  it('does not flag expired when there was never a session', async () => {
+    mockFetchOnce({ authenticated: false })
+
+    const outcome = await mod.bootstrapAuthentication()
+
+    expect(outcome).toEqual({ kind: 'anonymous', expired: false })
+    expect(mod.wasAuthSessionExpiredOnLastBoot()).toBe(false)
+  })
+
+  it('treats an unreachable server as anonymous (fail closed for UI)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('network down')
+      })
+    )
+
+    const outcome = await mod.bootstrapAuthentication()
+
+    expect(outcome.kind).toBe('anonymous')
+    expect(mod.hasValidAuthSession(localStorage)).toBe(false)
   })
 })
 
-// ---------------------------------------------------------------------------
-// Session-expired record — the authenticated guard reads this to render the
-// "session expired" sign-in notice after the stale entry has been wiped.
-// ---------------------------------------------------------------------------
+describe('post-401 resolution', () => {
+  it('clears everything and marks the boot anonymous', async () => {
+    const expiresAt = new Date(FIXED_NOW + 7_200_000).toISOString()
+    mockFetchOnce({ authenticated: true, source: 'session', expiresAt })
+    await mod.bootstrapAuthentication()
+    expect(mod.hasValidAuthSession(localStorage)).toBe(true)
 
-describe('wasAuthSessionExpiredOnLastBoot', () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
-  })
+    const outcome = mod.resolveAuthenticationAfterUnauthorized()
 
-  it('reports false when the storage was never populated', () => {
-    vi.stubGlobal('localStorage', memoryStorage() as unknown as Storage)
-    bootstrapAuthentication()
-    expect(wasAuthSessionExpiredOnLastBoot()).toBe(false)
-  })
-
-  it('reports true when the bootstrap cleared an expired token', () => {
-    const storage = memoryStorage({
-      [TOKEN_KEY]: 'expired-token',
-      [EXPIRES_KEY]: String(Date.now() - 1),
-    })
-    vi.stubGlobal('localStorage', storage as unknown as Storage)
-    expect(bootstrapAuthentication().kind).toBe('anonymous')
-    // The stale entry is gone, but the fact survives for the route guard.
-    expect(storage.has(TOKEN_KEY)).toBe(false)
-    expect(wasAuthSessionExpiredOnLastBoot()).toBe(true)
-  })
-
-  it('stays false when the bootstrap found a live token', () => {
-    vi.stubGlobal(
-      'localStorage',
-      memoryStorage({
-        [TOKEN_KEY]: 'live-token',
-        [EXPIRES_KEY]: String(Date.now() + 60_000),
-      }) as unknown as Storage
-    )
-    expect(bootstrapAuthentication().kind).toBe('authenticated')
-    expect(wasAuthSessionExpiredOnLastBoot()).toBe(false)
-  })
-
-  it('resets to false once a fresh session is persisted (relogin)', () => {
-    vi.stubGlobal(
-      'localStorage',
-      memoryStorage({
-        [TOKEN_KEY]: 'expired-token',
-        [EXPIRES_KEY]: String(Date.now() - 1),
-      }) as unknown as Storage
-    )
-    bootstrapAuthentication()
-    expect(wasAuthSessionExpiredOnLastBoot()).toBe(true)
-
-    // Same storage object simulates the user signing in again on the page
-    // that was just redirected to.
-    setAuthBundle(bundle('fresh-token', Math.floor(Date.now() / 1000) + 3600))
-    expect(wasAuthSessionExpiredOnLastBoot()).toBe(false)
-  })
-
-  it('records expiry from the post-401 re-read path too', () => {
-    const storage = memoryStorage({
-      [TOKEN_KEY]: 'expired-token',
-      [EXPIRES_KEY]: String(Date.now() - 1),
-    })
-    vi.stubGlobal('localStorage', storage as unknown as Storage)
-    expect(resolveAuthenticationAfterUnauthorized()).toEqual({
-      kind: 'anonymous',
-    })
-    expect(wasAuthSessionExpiredOnLastBoot()).toBe(true)
-  })
-
-  it('raw probe distinguishes expired from missing without clearing', () => {
-    const storage = memoryStorage({
-      [TOKEN_KEY]: 'expired-token',
-      [EXPIRES_KEY]: String(Date.now() - 1),
-    })
-    vi.stubGlobal('localStorage', storage as unknown as Storage)
-    expect(isAuthSessionExpired()).toBe(true)
-    expect(storage.has(TOKEN_KEY)).toBe(true)
-
-    const missing = memoryStorage({})
-    expect(isAuthSessionExpired(missing)).toBe(false)
-    expect(missing.has(TOKEN_KEY)).toBe(false)
+    expect(outcome.kind).toBe('anonymous')
+    expect(mod.readSessionMeta(localStorage)).toBeNull()
+    expect(mod.hasValidAuthSession(localStorage)).toBe(false)
   })
 })

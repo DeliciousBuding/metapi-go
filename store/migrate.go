@@ -5,7 +5,7 @@ import (
 	"log/slog"
 )
 
-// AutoMigrate creates all 35 tables with indexes, unique constraints, foreign keys,
+// AutoMigrate creates all 37 tables with indexes, unique constraints, foreign keys,
 // and check constraints. Uses CREATE TABLE IF NOT EXISTS for idempotency.
 // After the base bootstrap it runs the additive enterprise steps
 // (schema_migrations bookkeeping + ordered ALTER TABLE upgrades) and logs a
@@ -91,6 +91,8 @@ func AutoMigrate(db *DB) error {
 		{"model_probe_results", buildModelProbeResultsDDL(dialect)},
 		// Table 36: catalog_sources (model-catalog data source registry)
 		{"catalog_sources", buildCatalogSourcesDDL(dialect)},
+		// Table 37: admin_sessions (server-side admin UI sessions, #1034)
+		{"admin_sessions", buildAdminSessionsDDL(dialect)},
 	}
 
 	// Non-UNIQUE indexes are created separately via CREATE INDEX IF NOT EXISTS
@@ -157,7 +159,7 @@ func textPK(d string) string {
 // isPostgres is a short helper.
 func isPG(d string) bool { return d == DialectPostgres }
 
-// AllTableNames returns the 18 application tables transferred between
+// AllTableNames returns the application tables transferred between
 // dialects by cmd/migrate, in canonical schema order (parents before
 // children). This is the single source of truth for the migration table set;
 // cmd/migrate must not maintain its own copy.
@@ -182,10 +184,13 @@ func AllTableNames() []string {
 		"site_announcements",
 		"events",
 		"catalog_sources",
+		// admin_sessions carries across dialect migration so an operator
+		// stays signed in through a SQLite<->PostgreSQL cutover (#1034).
+		"admin_sessions",
 	}
 }
 
-// ClearTableNames returns the 18 application tables in FK-safe delete order
+// ClearTableNames returns the application tables in FK-safe delete order
 // (children before parents) used to wipe a target database before re-insert.
 // A simple reversal of AllTableNames is NOT FK-safe (proxy_logs references
 // downstream_api_keys, which sorts later in schema order), so this curated
@@ -211,6 +216,7 @@ func ClearTableNames() []string {
 		"events",
 		"catalog_sources",
 		"settings",
+		"admin_sessions",
 	}
 }
 

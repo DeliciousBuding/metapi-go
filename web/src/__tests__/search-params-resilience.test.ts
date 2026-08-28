@@ -177,9 +177,12 @@ describe('hasValidAuthSessionSafe', () => {
   })
 
   it('reports a valid stored session as authenticated', () => {
+    // #1034: only non-sensitive session metadata lives in storage now.
     const validStorage = {
       getItem: (key: string) =>
-        key === 'auth_token' ? 'token-1' : '99999999999999',
+        key === 'metapi_session_meta'
+          ? JSON.stringify({ expiresAtMs: 99999999999999 })
+          : null,
       setItem: () => {},
       removeItem: () => {},
     }

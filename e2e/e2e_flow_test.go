@@ -126,7 +126,7 @@ func TestSiteCreateToProxyFlow(t *testing.T) {
 	// Using r.Group (not r.Route) because Register*Routes use full paths
 	// like /api/sites, /api/accounts, etc.
 	r.Group(func(r chi.Router) {
-		r.Use(auth.AdminAuth(cfg))
+		r.Use(auth.AdminAuth(cfg, nil))
 		admin.RegisterSitesRoutes(r, db.DB)
 		admin.RegisterAccountsRoutes(r, db.DB, cfg)
 		admin.RegisterAccountTokensRoutes(r, db.DB)
@@ -380,7 +380,7 @@ func TestSiteCreateToProxyFlow_UnauthorizedAccess(t *testing.T) {
 
 	r := chi.NewRouter()
 	r.Group(func(r chi.Router) {
-		r.Use(auth.AdminAuth(cfg))
+		r.Use(auth.AdminAuth(cfg, nil))
 		admin.RegisterSitesRoutes(r, db.DB)
 	})
 	r.Route("/v1", func(r chi.Router) {
@@ -505,7 +505,7 @@ func TestSiteCreateToProxyFlow_Streaming(t *testing.T) {
 
 	r := chi.NewRouter()
 	r.Group(func(r chi.Router) {
-		r.Use(auth.AdminAuth(cfg))
+		r.Use(auth.AdminAuth(cfg, nil))
 		admin.RegisterSitesRoutes(r, db.DB)
 		admin.RegisterAccountsRoutes(r, db.DB, cfg)
 		admin.RegisterAccountTokensRoutes(r, db.DB)

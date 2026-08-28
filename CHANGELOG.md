@@ -5,6 +5,19 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [Unreleased]
+
+### Security
+
+- **会话模型重构（#1034，体检 P1-1）**：管理员主 token 不再以明文存于浏览器 localStorage（原 12h 窗口）——登录改为 `POST /api/auth/login` 以主 token 换取服务端会话（`admin_sessions` 表，迁移步骤 `sc2_026`），凭证经 HttpOnly + SameSite=Strict 的 `metapi_session` cookie 携带，数据库只存 SHA-256 哈希；会话滑动续期（`ADMIN_SESSION_TTL_MINUTES` 默认 720，零配置安全），登出即服务端吊销，主 token 轮换吊销全部会话。Bearer 主 token 双轨保留（外部脚本兼容），前端不再持久化主 token；旧版 localStorage 明文键首次加载即清除。
+- **WS 一次性 ticket（#1034）**：实时运维 WebSocket 不再接受 `?token=<主 token>` 查询参数——改由会话认证的 `POST /api/auth/ws-ticket` 签发 60s 单次 ticket，主 token 从此不进 URL（访问日志/代理日志/浏览器历史）。
+- **失败认证纳入限速（#1034）**：per-IP 限速中间件移至认证之前，401/403 不再绕过桶约束；`/api/auth/*` 另加严格桶（`AUTH_RATE_LIMIT_RPS`/`AUTH_RATE_LIMIT_BURST` 默认 10/20，登录是唯一接受主 token 的表面）。
+- **敏感操作主 token 重确认（#1034）**：备份导出（下载/WebDAV）、下游密钥导出、主 token 轮换要求 `X-Admin-Confirm-Token` 头重出示主 token（即使持有活跃会话），否则 403 `reauthRequired`；凭证导出对话框默认锁定遮罩（解锁需重输主 token），密钥默认遮罩显示，深链（Cherry Studio/CC Switch）打开前显式确认。
+
+### Added
+
+- **会话配置项（#1034）**：`ADMIN_SESSION_TTL_MINUTES`（默认 720）、`ADMIN_SESSION_COOKIE_SECURE`（默认 auto，按请求协议自适应 Secure）、`AUTH_RATE_LIMIT_RPS`/`AUTH_RATE_LIMIT_BURST`（默认 10/20）；均带安全默认值，零配置行为安全。`cmd/migrate` 方言迁移携带 `admin_sessions`（含 builder 列契约），会话跨 SQLite↔PostgreSQL 切换存活。
+
 ## [v0.16.18] — 2026-08-29
 
 ### Added

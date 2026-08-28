@@ -28,7 +28,7 @@ func setupAuthSettingsTest(t *testing.T) (*store.DB, chi.Router, *config.Config)
 		AuthToken: "admin-auth-settings-token",
 	}
 	r := chi.NewRouter()
-	RegisterAuthSettingsRoutes(r, db.DB, cfg)
+	RegisterAuthSettingsRoutes(r, db.DB, cfg, nil)
 	return db, r, cfg
 }
 
