@@ -89,12 +89,15 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 		perCategory = 10
 	}
 
-	likePattern := "%" + q + "%"
+	// SQLite LIKE is case-insensitive for ASCII but PostgreSQL LIKE is
+	// case-sensitive; normalize both sides with LOWER() so the same query
+	// matches the same rows on both dialects (w18-pg-dialect).
+	likePattern := "%" + strings.ToLower(q) + "%"
 
 	// Search sites. Each query surfaces its error so a DB failure yields an
 	// explicit HTTP 500 instead of an empty 200 (silent swallows from the old
 	// queryRows helper masked real outages as "no results").
-	sites, err := queryRowsErr(h.db, "SELECT "+service.SiteSelectColumns+" FROM sites WHERE name LIKE ? OR url LIKE ? OR platform LIKE ? LIMIT ?",
+	sites, err := queryRowsErr(h.db, "SELECT "+service.SiteSelectColumns+" FROM sites WHERE LOWER(name) LIKE ? OR LOWER(url) LIKE ? OR LOWER(platform) LIKE ? LIMIT ?",
 		likePattern, likePattern, likePattern, perCategory)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "search query failed")
@@ -111,7 +114,7 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 			credentialFragmentsSelect(h.db, "a.api_token", "api_token")+`,
 			s.name as site_name, s.platform as site_platform
 		 FROM accounts a INNER JOIN sites s ON a.site_id = s.id
-		 WHERE a.username LIKE ? OR s.name LIKE ? OR s.platform LIKE ?
+		 WHERE LOWER(a.username) LIKE ? OR LOWER(s.name) LIKE ? OR LOWER(s.platform) LIKE ?
 		 LIMIT ?`,
 		likePattern, likePattern, likePattern, perCategory)
 	if err != nil {
@@ -127,7 +130,7 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 		 FROM account_tokens at
 		 INNER JOIN accounts a ON at.account_id = a.id
 		 INNER JOIN sites s ON a.site_id = s.id
-		 WHERE at.name LIKE ? OR coalesce(at.token_group,'') LIKE ? OR a.username LIKE ? OR s.name LIKE ?
+		 WHERE LOWER(at.name) LIKE ? OR LOWER(coalesce(at.token_group,'')) LIKE ? OR LOWER(a.username) LIKE ? OR LOWER(s.name) LIKE ?
 		 ORDER BY at.updated_at DESC LIMIT ?`,
 		likePattern, likePattern, likePattern, likePattern, perCategory)
 	if err != nil {
@@ -140,7 +143,7 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 		`SELECT cl.*, a.username as account_username
 		 FROM checkin_logs cl
 		 INNER JOIN accounts a ON cl.account_id = a.id
-		 WHERE coalesce(cl.message,'') LIKE ?
+		 WHERE LOWER(coalesce(cl.message,'')) LIKE ?
 		 ORDER BY cl.created_at DESC LIMIT ?`,
 		likePattern, perCategory)
 	if err != nil {
@@ -150,7 +153,7 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 
 	// Search proxy logs
 	proxyLogs, err := queryRowsErr(h.db,
-		"SELECT * FROM proxy_logs WHERE coalesce(model_requested,'') LIKE ? ORDER BY created_at DESC LIMIT ?",
+		"SELECT * FROM proxy_logs WHERE LOWER(coalesce(model_requested,'')) LIKE ? ORDER BY created_at DESC LIMIT ?",
 		likePattern, perCategory)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "search query failed")
@@ -165,7 +168,7 @@ func (h *searchHandler) search(w http.ResponseWriter, r *http.Request) {
 		 INNER JOIN account_tokens at ON tma.token_id = at.id
 		 INNER JOIN accounts a ON at.account_id = a.id
 		 INNER JOIN sites s ON a.site_id = s.id
-		 WHERE tma.model_name LIKE ? AND tma.available = TRUE AND at.enabled = TRUE AND a.status = 'active'
+		 WHERE LOWER(tma.model_name) LIKE ? AND tma.available = TRUE AND at.enabled = TRUE AND a.status = 'active'
 		 GROUP BY tma.model_name
 		 ORDER BY account_count DESC LIMIT ?`,
 		likePattern, perCategory)

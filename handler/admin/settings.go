@@ -449,8 +449,10 @@ func stringSliceOrEmpty(in []string) []string {
 }
 
 func logSettingsEvent(db *sqlx.DB, eventType, title, message, level, createdAt string) {
+	// read is a BOOLEAN column on PostgreSQL: bind FALSE, not the integer
+	// literal 0 (w18-pg-dialect: PG rejects integer literals for booleans).
 	query := db.Rebind(`INSERT INTO events (type, title, message, level, related_type, created_at, "read")
-		VALUES (?, ?, ?, ?, 'settings', ?, 0)`)
+		VALUES (?, ?, ?, ?, 'settings', ?, FALSE)`)
 	if _, err := db.Exec(query, eventType, title, message, level, createdAt); err != nil {
 		slog.Warn("settings: failed to log settings event", "type", eventType, "error", err)
 	}

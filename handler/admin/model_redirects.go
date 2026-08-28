@@ -274,7 +274,7 @@ func recordRedirectEvent(db *sqlx.DB, c service.RedirectFixCandidate) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, err := db.Exec(rebindAdminQuery(db, `
 		INSERT INTO events (type, title, message, level, related_id, related_type, created_at, read)
-		VALUES ('model_redirect_applied', ?, ?, 'info', ?, 'site', ?, 0)`),
+		VALUES ('model_redirect_applied', ?, ?, 'info', ?, 'site', ?, FALSE)`),
 		"Disabled model repaired (mapping auto-restored)",
 		"Disabled model "+c.ModelName+" on site "+c.SiteName+" was restored via mapping "+c.Canonical+" → "+c.Actual+".",
 		c.SiteID, now)
