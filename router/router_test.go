@@ -58,7 +58,7 @@ func assertSecurityHeaders(t *testing.T, rec *httptest.ResponseRecorder) {
 		"X-Frame-Options":         "DENY",
 		"Referrer-Policy":         "strict-origin-when-cross-origin",
 		"Permissions-Policy":      "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
-		"Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' https://api.dicebear.com; connect-src 'self'; frame-src 'self' https://check.linux.do; frame-ancestors 'none'",
+		"Content-Security-Policy": "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' https://api.dicebear.com; connect-src 'self'; frame-src 'self' https://check.linux.do; frame-ancestors 'none'",
 	}
 	for header, want := range expected {
 		if got := rec.Header().Get(header); got != want {
@@ -279,6 +279,8 @@ func TestRootPublicFilesServedBeforeSPAFallback(t *testing.T) {
 		{name: "/favicon-64.png", wantCT: "image/png"},
 		{name: "/logo.svg", wantCT: "image/svg+xml"},
 		{name: "/favicon.svg", wantCT: "image/svg+xml"},
+		{name: "/bootstrap.js", wantCT: "text/javascript; charset=utf-8"},
+		{name: "/theme-init.js", wantCT: "text/javascript; charset=utf-8"},
 	}
 	for _, tc := range cases {
 		rec := httptest.NewRecorder()

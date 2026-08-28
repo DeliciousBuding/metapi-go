@@ -258,6 +258,28 @@ func setupSPAFallback(r chi.Router, distFS fs.FS) {
 		})))
 	}
 
+	// Bootstrap scripts (web/public/bootstrap.js, theme-init.js) copied into
+	// the dist root. They must resolve to a real JS content type — otherwise
+	// the SPA fallback answers 200 text/html and nosniff browsers refuse to
+	// execute them (the same failure mode as rootFiles above). Unlike the
+	// /static/* assets their names are NOT content-hashed, so they must NOT
+	// get the immutable cache header: no-cache keeps deploys propagating to
+	// already-visited clients without a hard refresh.
+	rootScripts := []string{"bootstrap.js", "theme-init.js"}
+	for _, name := range rootScripts {
+		fileName := name
+		r.Get("/"+fileName, withGzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			data, err := fs.ReadFile(distFS, fileName)
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+			w.Header().Set("Cache-Control", "no-cache")
+			w.Write(data)
+		})))
+	}
+
 	// SPA fallback: non-API paths → index.html; API → 404 JSON
 	r.NotFound(withGzip(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/v1/") {
