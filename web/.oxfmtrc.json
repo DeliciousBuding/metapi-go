@@ -20,8 +20,6 @@
     "build",
     "coverage",
     ".tanstack",
-    ".eslintrc.cjs",
-    "**/routeTree.gen.ts",
-    "src/routeTree.gen.ts"
+    "**/routeTree.gen.ts"
   ]
 }

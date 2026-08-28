@@ -1,10 +1,10 @@
 // metapi-go features/accounts — entity types & runtime schemas.
 //
 // The Account/AccountToken shapes mirror the enriched rows returned by
-// GET /api/accounts (snapshot) and GET /api/account-tokens. Backend payloads
-// are loosely typed (`any` in api.ts), so these Zod schemas parse each row
-// defensively before feature code touches it — mirroring the keys feature's
-// `apiKeySchema.parse(row.original)` safety pattern.
+// GET /api/accounts (snapshot) and GET /api/account-tokens. api.ts casts the
+// JSON body to the contract type without runtime checks, so these Zod schemas
+// parse each row defensively before feature code touches it — mirroring the
+// keys feature's `apiKeySchema.parse(row.original)` safety pattern.
 
 import { z } from 'zod'
 

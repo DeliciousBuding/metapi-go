@@ -232,5 +232,5 @@ export const routesSearchSchema = z.object({
   // stripped silently instead of opening a blank dialog.
   edit: z.coerce.number().int().positive().optional().catch(undefined),
   page: z.coerce.number().int().positive().catch(1).default(1),
-  pageSize: z.coerce.number().int().positive().catch(20).default(20),
+  pageSize: z.coerce.number().int().positive().max(200).catch(20).default(20),
 })

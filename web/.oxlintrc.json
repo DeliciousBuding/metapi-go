@@ -16,7 +16,6 @@
     "build",
     "coverage",
     ".tanstack",
-    ".eslintrc.cjs",
     "src/components/ui",
     "src/routeTree.gen.ts",
     "shared",
@@ -118,7 +117,7 @@
       }
     ],
     "react/react-in-jsx-scope": "off",
-    "react/rules-of-hooks": "warn",
+    "react/rules-of-hooks": "error",
     "react/self-closing-comp": "warn",
     "typescript/consistent-type-imports": [
       "error",
