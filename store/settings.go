@@ -105,6 +105,13 @@ func ApplyRuntimeSettings(cfg *config.Config, settingsMap map[string]string) {
 		case "port":
 			cfg.Port = parseInt(value, cfg.Port)
 
+		// Proxy retry/disable status-code range policy (P1-2): blank keeps
+		// the routing defaults (historical behavior).
+		case "proxy_retry_status_ranges":
+			cfg.ProxyRetryStatusRanges = parseJSONSettingString(value)
+		case "proxy_disable_status_ranges":
+			cfg.ProxyDisableStatusRanges = parseJSONSettingString(value)
+
 		// Checkin schedule
 		case "checkin_cron":
 			if v := parseJSONSettingString(value); v != "" {

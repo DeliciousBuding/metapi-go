@@ -381,6 +381,8 @@ export type RuntimeSettingsPayload = {
   routingFallbackUnitCost?: number
   proxyFirstByteTimeoutSec?: number
   tokenRouterFailureCooldownMaxSec?: number
+  proxyRetryStatusRanges?: string
+  proxyDisableStatusRanges?: string
   routingWeights?: RuntimeRoutingWeightsPayload
   proxyErrorKeywords?: string[] | string
   proxyEmptyContentFailEnabled?: boolean

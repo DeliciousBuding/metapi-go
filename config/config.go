@@ -217,6 +217,16 @@ type Config struct {
 	// body phase only — non-streaming responses never see it.
 	ProxyStreamIdleTimeoutSec int
 
+	// ProxyRetryStatusRanges / ProxyDisableStatusRanges carry the
+	// operator-tunable status-code range specs (routing.StatusRange policy,
+	// competitor-study-2026-08 P1-2): retry decides which upstream statuses
+	// count as retryable channel faults; disable decides which auto-disable
+	// the failing channel. Runtime settings only (settings table +
+	// PUT /api/settings/runtime, rehydrated at startup); blank keeps the
+	// defaults, which reproduce the historical behavior exactly.
+	ProxyRetryStatusRanges   string
+	ProxyDisableStatusRanges string
+
 	// LDOHBaseURL is the upstream LDOH dashboard URL proxied through
 	// /monitor-proxy/ldoh/* (env-only — no DDL). Parsed from LDOH_BASE_URL;
 	// defaults to DefaultLDOHBaseURL so operators can redirect the monitor
