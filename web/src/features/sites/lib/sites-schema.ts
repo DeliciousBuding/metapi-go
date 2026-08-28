@@ -21,6 +21,7 @@ import {
   stringSearchParam,
   tableSortingItemSchema,
 } from '@/lib/helpers/searchParams'
+import { isEmptyOrProxyUrl } from '@/lib/helpers/proxyUrl'
 
 import type { SiteProbeScope } from '../types'
 import {
@@ -31,6 +32,7 @@ import {
 
 const HTTP_URL_MESSAGE_KEY = 'sites.form.errors.invalidUrl'
 const HTTP_OR_EMPTY_MESSAGE_KEY = 'sites.form.errors.invalidUrlOrEmpty'
+const PROXY_URL_MESSAGE_KEY = 'sites.form.errors.invalidProxyUrl'
 const JSON_OR_EMPTY_MESSAGE_KEY = 'sites.form.errors.invalidJson'
 
 // apiEndpoints editor: the textarea content (one plain URL or compact JSON
@@ -77,7 +79,7 @@ export const siteFormSchema = z.object({
     .string()
     .refine(isEmptyOrHttpUrl, HTTP_OR_EMPTY_MESSAGE_KEY),
   platform: z.string().trim().max(64, 'sites.form.errors.platformTooLong'),
-  proxyUrl: z.string().refine(isEmptyOrHttpUrl, HTTP_OR_EMPTY_MESSAGE_KEY),
+  proxyUrl: z.string().refine(isEmptyOrProxyUrl, PROXY_URL_MESSAGE_KEY),
   useSystemProxy: z.boolean(),
   customHeaders: z
     .string()

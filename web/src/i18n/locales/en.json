@@ -386,7 +386,7 @@
         "goToSettings": "Go to settings",
         "errors": {
           "projectIdRequired": "Please enter the project ID.",
-          "invalidProxyUrl": "Please enter a valid http or https URL.",
+          "invalidProxyUrl": "Please enter a valid http(s) or socks5 proxy URL.",
           "providerRequired": "Please select a provider."
         }
       },
@@ -657,6 +657,7 @@
           "apiEndpointsInvalidUrl": "Endpoint URLs must be valid http(s) URLs; cloud metadata and link-local targets are not allowed.",
           "invalidUrl": "Please enter a valid URL.",
           "invalidUrlOrEmpty": "Please enter a valid URL, or leave it empty.",
+          "invalidProxyUrl": "Please enter a valid http(s) or socks5 proxy URL, or leave it empty.",
           "invalidJson": "Please enter valid JSON.",
           "nameRequired": "Please enter a name.",
           "nameTooLong": "Name must be at most 120 characters.",
@@ -1929,7 +1930,7 @@
       },
       "schema": {
         "siteRequired": "Please select a site",
-        "invalidProxyUrl": "Proxy URL must be a valid URL",
+        "invalidProxyUrl": "Proxy URL must be a valid http(s) or socks5 URL",
         "accessTokenRequired": "Please enter the Access Token / Cookie",
         "apiKeyRequired": "Please enter the API Key",
         "usernameRequired": "Please enter the site username",

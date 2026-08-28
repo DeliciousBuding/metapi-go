@@ -386,7 +386,7 @@
         "goToSettings": "前往设置",
         "errors": {
           "projectIdRequired": "请输入项目 ID。",
-          "invalidProxyUrl": "请输入有效的 http 或 https 地址。",
+          "invalidProxyUrl": "请输入有效的 http(s) 或 socks5 代理地址。",
           "providerRequired": "请选择提供商。"
         }
       },
@@ -657,6 +657,7 @@
           "apiEndpointsInvalidUrl": "端点地址必须是合法的 http(s) 地址；不允许云元数据或链路本地目标。",
           "invalidUrl": "请输入有效的地址。",
           "invalidUrlOrEmpty": "请输入有效的地址，或留空。",
+          "invalidProxyUrl": "请输入有效的 http(s) 或 socks5 代理地址，或留空。",
           "invalidJson": "请输入有效的 JSON。",
           "nameRequired": "请输入名称。",
           "nameTooLong": "名称不能超过 120 个字符。",
@@ -1929,7 +1930,7 @@
       },
       "schema": {
         "siteRequired": "请选择站点",
-        "invalidProxyUrl": "代理地址需为合法 URL",
+        "invalidProxyUrl": "代理地址需为合法的 http(s) 或 socks5 URL",
         "accessTokenRequired": "请填写 Access Token / Cookie",
         "apiKeyRequired": "请填写 API Key",
         "usernameRequired": "请填写站点用户名",
