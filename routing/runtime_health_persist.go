@@ -259,7 +259,10 @@ func ClearRuntimeHealthStatesForChannels(rows []ChannelRuntimeHealthRow) bool {
 
 // EnsureSiteRuntimeHealthStateLoaded lazy-loads health state from settings.
 func EnsureSiteRuntimeHealthStateLoaded() error {
-	if siteRuntimeHealthLoaded {
+	healthStateMu.RLock()
+	loaded := siteRuntimeHealthLoaded
+	healthStateMu.RUnlock()
+	if loaded {
 		return nil
 	}
 	healthStateMu.Lock()
