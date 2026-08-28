@@ -5,18 +5,41 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
-## [Unreleased]
+## [v0.16.19] — 2026-08-29
 
 ### Security
 
-- **会话模型重构（#1034，体检 P1-1）**：管理员主 token 不再以明文存于浏览器 localStorage（原 12h 窗口）——登录改为 `POST /api/auth/login` 以主 token 换取服务端会话（`admin_sessions` 表，迁移步骤 `sc2_026`），凭证经 HttpOnly + SameSite=Strict 的 `metapi_session` cookie 携带，数据库只存 SHA-256 哈希；会话滑动续期（`ADMIN_SESSION_TTL_MINUTES` 默认 720，零配置安全），登出即服务端吊销，主 token 轮换吊销全部会话。Bearer 主 token 双轨保留（外部脚本兼容），前端不再持久化主 token；旧版 localStorage 明文键首次加载即清除。
-- **WS 一次性 ticket（#1034）**：实时运维 WebSocket 不再接受 `?token=<主 token>` 查询参数——改由会话认证的 `POST /api/auth/ws-ticket` 签发 60s 单次 ticket，主 token 从此不进 URL（访问日志/代理日志/浏览器历史）。
-- **失败认证纳入限速（#1034）**：per-IP 限速中间件移至认证之前，401/403 不再绕过桶约束；`/api/auth/*` 另加严格桶（`AUTH_RATE_LIMIT_RPS`/`AUTH_RATE_LIMIT_BURST` 默认 10/20，登录是唯一接受主 token 的表面）。
-- **敏感操作主 token 重确认（#1034）**：备份导出（下载/WebDAV）、下游密钥导出、主 token 轮换要求 `X-Admin-Confirm-Token` 头重出示主 token（即使持有活跃会话），否则 403 `reauthRequired`；凭证导出对话框默认锁定遮罩（解锁需重输主 token），密钥默认遮罩显示，深链（Cherry Studio/CC Switch）打开前显式确认。
+- **会话模型重构（#1034，#1057）**：管理员主 token 不再以明文存于浏览器 localStorage（原 12h 窗口）——登录改为 `POST /api/auth/login` 以主 token 换取服务端会话（`admin_sessions` 表，迁移步骤 `sc2_026`），凭证经 HttpOnly + SameSite=Strict 的 `metapi_session` cookie 携带，数据库只存 SHA-256 哈希；会话滑动续期（`ADMIN_SESSION_TTL_MINUTES` 默认 720，零配置安全），登出即服务端吊销，主 token 轮换吊销全部会话。Bearer 主 token 双轨保留（外部脚本兼容），前端不再持久化主 token；旧版 localStorage 明文键首次加载即清除。
+- **WS 一次性 ticket（#1034，#1057）**：实时运维 WebSocket 不再接受 `?token=<主 token>` 查询参数——改由会话认证的 `POST /api/auth/ws-ticket` 签发 60s 单次 ticket，主 token 从此不进 URL（访问日志/代理日志/浏览器历史）。
+- **失败认证纳入限速（#1034，#1057）**：per-IP 限速中间件移至认证之前，401/403 不再绕过桶约束；`/api/auth/*` 另加严格桶（`AUTH_RATE_LIMIT_RPS`/`AUTH_RATE_LIMIT_BURST` 默认 10/20，登录是唯一接受主 token 的表面）。
+- **敏感操作主 token 重确认（#1034，#1057）**：备份导出（下载/WebDAV）、下游密钥导出、主 token 轮换要求 `X-Admin-Confirm-Token` 头重出示主 token（即使持有活跃会话），否则 403 `reauthRequired`；凭证导出对话框默认锁定遮罩（解锁需重输主 token），密钥默认遮罩显示，深链（Cherry Studio/CC Switch）打开前显式确认。
 
 ### Added
 
-- **会话配置项（#1034）**：`ADMIN_SESSION_TTL_MINUTES`（默认 720）、`ADMIN_SESSION_COOKIE_SECURE`（默认 auto，按请求协议自适应 Secure）、`AUTH_RATE_LIMIT_RPS`/`AUTH_RATE_LIMIT_BURST`（默认 10/20）；均带安全默认值，零配置行为安全。`cmd/migrate` 方言迁移携带 `admin_sessions`（含 builder 列契约），会话跨 SQLite↔PostgreSQL 切换存活。
+- **会话配置项（#1034，#1057）**：`ADMIN_SESSION_TTL_MINUTES`（默认 720）、`ADMIN_SESSION_COOKIE_SECURE`（默认 auto，按请求协议自适应 Secure）、`AUTH_RATE_LIMIT_RPS`/`AUTH_RATE_LIMIT_BURST`（默认 10/20）；均带安全默认值，零配置行为安全。`cmd/migrate` 方言迁移携带 `admin_sessions`（含 builder 列契约），会话跨 SQLite↔PostgreSQL 切换存活。
+
+- **上游账号健康监测全局开关（#1027，#1056）**：新增运行时设置 `checkinEnabled`/`balanceRefreshEnabled`（热生效、持久化）+ 环境变量 `CHECKIN_ENABLED`/`BALANCE_REFRESH_ENABLED`；模型可用性探测改运行时热停；设置页双语开关 + `docs/deployment.md` FAQ。
+- **账号代理支持 SOCKS5（#1009，#1059）**：账号 `proxyUrl` 接受 `socks5://` / `socks5h://`（后端 Go transport 原生支持，含进程内 RFC 1928 SOCKS5 服务器 E2E 测试）。
+
+### Fixed
+
+- **清空账号代理字段保存即清除（#1009，#1059）**：修复前端清空后载荷省略 + 后端 `MergeExtraConfig` typed-nil 删除缺陷双因，空值显式清除；账号更新路径补 scheme 校验。
+- **路由健康懒加载数据竞态（#1052）**：`EnsureSiteRuntimeHealthStateLoaded` 快速路径无锁读改 `RLock` 读（-race 复现测试先行，行为零变化）。
+- **调度器健壮性（#1061）**：job panic 统一 recover 边界（`safeJob`）；in-flight 标志锁外读竞态修复；`channel_recovery`/`backup_webdav`/`model_probe` 等吞没的 DB 错误经结构化日志显性化。
+- **PG 方言陷阱清扫（#1060）**：约 260 处测试种子 + 3 处生产位点 BOOLEAN 列整数字面量绑定重写（PG 42804/22P02 类）；管理搜索 LIKE 大小写 `LOWER()` 统一；静态方言门禁扩至全包；零迁移。
+
+### Changed
+
+- **构建配置收敛 + vendor 块拆分（审计 S1+S9，#1053）**：`rsbuild.config.ts` 唯一 SSOT（删 `vite.config.ts`），devProxy/版本 define 收口 `web/config/build-shared.ts`，route-tree 前置校验；匿名 6432 块拆为 `vendor-i18n`/`vendor-icons`/`vendor-core`（总 JS −8.5KB gz，初始 +6.3KB gz 已记录）。
+- **UX 残留清扫（审计 #1029/#1035，#1055）**：focus-ring 全库统一 `--focus-ring`（≥3:1 达标）；登录 autoComplete 评估定论；流量/成本图 sr-only 数据摘要表 + axe 组件级门禁。
+
+### Performance
+
+- **管理读路径索引（`sc2_027`，#1054）**：三个高频读路径索引（300k 行实测：渠道日志 channelId 过滤 17.9ms→0.5ms、siteId COUNT/summary 约 10x、range summary 约 3x）；proxy-logs LEFT→INNER、marketplace N+1 批量化；另 4 个候选索引实测无收益不加。
+
+### Internal
+
+- **出站 HTTP 客户端基线（#1058）**：15 处出站调用点统一 `internal/httpclient`（dial 30s/TLS 10s/idle 90s/池 100/20），AST 静态门禁拦截裸客户端。
 
 ## [v0.16.18] — 2026-08-29
 
