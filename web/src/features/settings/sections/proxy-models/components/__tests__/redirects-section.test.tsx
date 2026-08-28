@@ -189,3 +189,23 @@ describe('RedirectsSection dangerous-op confirmations', () => {
     })
   })
 })
+
+describe('RedirectsSection empty-state CTA', () => {
+  it('offers a Generate CTA in the empty state', async () => {
+    mockGetRedirects.mockResolvedValue({ items: [] })
+    renderSection()
+
+    expect(await screen.findByText(/No model redirects/)).toBeInTheDocument()
+
+    // The header actions carry a Generate button too; the empty-state CTA is
+    // the last one in the tree.
+    const generateButtons = screen.getAllByRole('button', { name: 'Generate' })
+    const ctaButton = generateButtons.at(-1)
+    if (!ctaButton) throw new Error('empty-state Generate CTA not rendered')
+    fireEvent.click(ctaButton)
+
+    await waitFor(() => {
+      expect(mockGenerateRedirects).toHaveBeenCalledTimes(1)
+    })
+  })
+})

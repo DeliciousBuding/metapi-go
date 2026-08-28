@@ -26,6 +26,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { useProbeHistory } from '@/components/common/use-probe-history'
 import {
@@ -677,6 +678,7 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
   const { t } = useTranslation()
   const batchMutation = useBatchUpdateAccounts()
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const [confirmDisableOpen, setConfirmDisableOpen] = useState(false)
 
   // Derived per render — `table` identity is stable across selection changes
   // (TanStack `useReactTable` memoizes the instance), so a `useMemo([table])`
@@ -757,7 +759,7 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
         <Button
           size='sm'
           variant='outline'
-          onClick={() => runBatch('disable')}
+          onClick={() => setConfirmDisableOpen(true)}
           disabled={batchMutation.isPending}
         >
           {t('accounts.bulk.disable')}
@@ -802,6 +804,22 @@ function AccountsBulkActions({ table }: { table: Table<Account> }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmDisableOpen}
+        title={t('accounts.bulk.disableConfirmTitle')}
+        description={t('accounts.bulk.disableConfirmDescription', {
+          count: selectedIds.length,
+        })}
+        confirmLabel={t('accounts.bulk.disableConfirmConfirm')}
+        cancelLabel={t('accounts.bulk.deleteConfirmCancel')}
+        destructive
+        onConfirm={() => {
+          setConfirmDisableOpen(false)
+          void runBatch('disable')
+        }}
+        onCancel={() => setConfirmDisableOpen(false)}
+      />
     </>
   )
 }

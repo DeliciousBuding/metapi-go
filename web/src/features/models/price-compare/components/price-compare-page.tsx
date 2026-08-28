@@ -2,7 +2,7 @@
 // Groups the backend's cheaper-first candidate rows by model and surfaces the
 // provenance grade + best-channel recommendation for every source.
 
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { ArrowRight, Search, Star } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -42,6 +42,7 @@ type ModelGroup = {
 
 export function PriceComparePage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [modelParam, setModelParam] = useState('')
 
@@ -119,6 +120,12 @@ export function PriceComparePage() {
               {t('priceCompare.page.emptyDescription')}
             </EmptyDescription>
           </EmptyHeader>
+          <Button
+            variant='outline'
+            onClick={() => void navigate({ to: '/accounts' })}
+          >
+            {t('priceCompare.page.emptyAction')}
+          </Button>
         </Empty>
       )}
 

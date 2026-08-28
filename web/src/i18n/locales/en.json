@@ -1760,7 +1760,10 @@
         "deleteConfirmTitle": "Delete selected accounts?",
         "deleteConfirmDescription": "This will delete the {{count}} selected account(s). This action cannot be undone.",
         "deleteConfirmConfirm": "Delete",
-        "deleteConfirmCancel": "Cancel"
+        "deleteConfirmCancel": "Cancel",
+        "disableConfirmTitle": "Disable selected accounts?",
+        "disableConfirmDescription": "The {{count}} selected account(s) will stop serving requests until re-enabled.",
+        "disableConfirmConfirm": "Disable"
       },
       "form": {
         "invalid": "Please check the highlighted form fields",
@@ -2022,9 +2025,13 @@
         "showZeroChannel": "Show zero-channel models (accounts have models but no routes generated)",
         "deleteTitle": "Delete route",
         "deleteDescription": "Delete route \"{{name}}\"? This action cannot be undone, and associated channels will be removed.",
+        "rebuildConfirmTitle": "Rebuild routes?",
+        "rebuildConfirmDescription": "Channels of existing routes will be recomposed from current model availability. Live routing may change.",
         "bulkEntityName": "route",
         "bulkEnable": "Enable",
-        "bulkDisable": "Disable"
+        "bulkDisable": "Disable",
+        "bulkDisableConfirmTitle": "Disable selected routes?",
+        "bulkDisableConfirmDescription": "The {{count}} selected route(s) will stop serving requests until re-enabled."
       },
       "form": {
         "invalid": "Please check the highlighted form fields",
@@ -2354,8 +2361,10 @@
         "summaryFailed": "Failed",
         "summaryCost": "Total cost (filtered)",
         "loadError": "Failed to load proxy logs: {{message}}",
+        "metaLoadError": "Failed to load log summary: {{message}}",
         "emptyTitle": "No proxy logs",
         "emptyDescription": "Adjust the filter conditions or refresh to view proxy request records.",
+        "emptyAction": "View routes",
         "searchPlaceholder": "Search model / account / token…",
         "filterStatusPlaceholder": "Status",
         "filterSitePlaceholder": "Site",
@@ -2827,7 +2836,8 @@
         "description": "Cross-site effective model pricing with price sources and recommendations (lowest effective cost per model).",
         "searchPlaceholder": "Filter by model…",
         "loadError": "Failed to load price comparison: {{message}}",
-        "emptyDescription": "No price data yet. Connect accounts or run traffic to see effective pricing."
+        "emptyDescription": "No price data yet. Connect accounts or run traffic to see effective pricing.",
+        "emptyAction": "Manage accounts"
       },
       "group": {
         "description": "Effective price per source site, cheapest first. Source priority: billing > observed > configured > fallback (first available wins)."

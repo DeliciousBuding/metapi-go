@@ -9,7 +9,7 @@
 // page works before the `/models` route file lands its own validateSearch.
 // Mobile cards are handled by `DataTablePage` via the column `meta` flags.
 
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import type { ColumnFiltersState } from '@tanstack/react-table'
 import {
@@ -42,7 +42,7 @@ import { toast } from '@/lib/toast'
 
 import { useModels } from '../api'
 import { modelsSearchSchema } from '../lib/models-schema'
-import type { ModelRow } from '../types'
+import { modelsKeys, type ModelRow } from '../types'
 import { ModelDetailSheet } from './model-detail-sheet'
 import { ModelVerifyDialog } from './model-verify-dialog'
 import {
@@ -183,6 +183,7 @@ function useModelsUrlState() {
 
 export function ModelsPage() {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const modelsQuery = useModels({ includePricing: true })
   const navigate = useNavigate()
 
@@ -256,13 +257,14 @@ export function ModelsPage() {
       await api.getModelsMarketplace({ refresh: true, includePricing: true })
     },
     onSuccess: () => {
+      // The refresh call re-aggregates the marketplace server-side. The list
+      // query has a 10s staleTime and would keep serving the pre-refresh
+      // cache during that window, so invalidate the models prefix explicitly
+      // to refetch immediately (list + capability selectors share it).
+      void queryClient.invalidateQueries({ queryKey: modelsKeys.all })
       toast.success(t('models.toast.refreshSucceeded'))
     },
   })
-
-  // The refresh call re-aggregates the marketplace server-side; the next
-  // render re-reads the (now fresh) `useModels` cache via its 10s staleTime,
-  // so no explicit query invalidation is needed for the list to update.
   const models = useMemo(() => modelsQuery.data ?? [], [modelsQuery.data])
   const brandFilterOptions = useMemo(
     () => buildBrandFilterOptions(models),

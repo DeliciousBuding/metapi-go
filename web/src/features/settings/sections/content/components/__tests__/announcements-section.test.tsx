@@ -22,7 +22,7 @@ import {
 } from 'vitest'
 
 import '@/i18n/config'
-import { api, type Announcement } from '@/lib/api'
+import { api, type Announcement, type AnnouncementsResponse } from '@/lib/api'
 import { productAnnouncementKeys } from '@/lib/product-announcements'
 import { toast } from '@/lib/toast'
 
@@ -309,6 +309,35 @@ describe('AnnouncementsSection CRUD cache truth', () => {
     })
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: productAnnouncementKeys.active(),
+    })
+  })
+})
+
+describe('AnnouncementsSection submitting edit dialog', () => {
+  it('disables Cancel while the save is in flight', async () => {
+    // Hold the create mutation pending so the dialog stays in the saving
+    // state after clicking Save.
+    let release: (value: AnnouncementsResponse) => void = () => {}
+    mockCreateAnnouncement.mockReset().mockReturnValue(
+      new Promise((resolve) => {
+        release = resolve
+      })
+    )
+    renderSection()
+    await openCreateDialog()
+    fillRequiredFields()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(mockCreateAnnouncement).toHaveBeenCalledTimes(1)
+    })
+
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+
+    // Resolving the save closes the dialog (setEditMode(null)).
+    release({ items: [] })
+    await waitFor(() => {
+      expect(screen.queryByText('Create announcement')).toBeNull()
     })
   })
 })

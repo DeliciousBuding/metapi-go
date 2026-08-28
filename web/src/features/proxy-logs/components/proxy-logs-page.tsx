@@ -2,6 +2,7 @@
 // metapi-go/features/proxy-logs/components — proxy logs list page.
 // i18n: all user-visible strings migrated to t() calls.
 
+import { useNavigate } from '@tanstack/react-router'
 import type { Row } from '@tanstack/react-table'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -159,6 +160,7 @@ function useProxyLogsUrlState() {
 
 export function ProxyLogsPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const {
     globalFilter,
     pagination,
@@ -415,6 +417,15 @@ export function ProxyLogsPage() {
         </div>
       )}
 
+      {/* The meta query owns the summary strip; surface its failure so the
+          missing strip reads as an error, not as "no data yet". */}
+      <QueryErrorBanner
+        error={metaQuery.error as Error | null}
+        messageKey='proxyLogs.page.metaLoadError'
+        onRetry={() => metaQuery.refetch()}
+        isRetrying={metaQuery.isFetching}
+      />
+
       <QueryErrorBanner
         error={logsQuery.error as Error | null}
         messageKey='proxyLogs.page.loadError'
@@ -430,6 +441,14 @@ export function ProxyLogsPage() {
         isFetching={logsQuery.isFetching}
         emptyTitle={t('proxyLogs.page.emptyTitle')}
         emptyDescription={t('proxyLogs.page.emptyDescription')}
+        emptyAction={
+          <Button
+            variant='outline'
+            onClick={() => void navigate({ to: '/token-routes' })}
+          >
+            {t('proxyLogs.page.emptyAction')}
+          </Button>
+        }
         skeletonKeyPrefix='proxy-log-skeleton'
         toolbarProps={{
           searchPlaceholder: t('proxyLogs.page.searchPlaceholder'),

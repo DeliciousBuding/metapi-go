@@ -1760,7 +1760,10 @@
         "deleteConfirmTitle": "删除选中的账号？",
         "deleteConfirmDescription": "将删除选中的 {{count}} 个账号，此操作不可撤销。",
         "deleteConfirmConfirm": "删除",
-        "deleteConfirmCancel": "取消"
+        "deleteConfirmCancel": "取消",
+        "disableConfirmTitle": "停用选中的账号？",
+        "disableConfirmDescription": "选中的 {{count}} 个账号将停止响应请求，直到重新启用。",
+        "disableConfirmConfirm": "停用"
       },
       "form": {
         "invalid": "请检查表单标红字段",
@@ -2022,9 +2025,13 @@
         "showZeroChannel": "显示零通道模型（账号有模型但未生成路由）",
         "deleteTitle": "删除路由",
         "deleteDescription": "确定删除路由「{{name}}」？该操作不可撤销，相关通道将一并清除。",
+        "rebuildConfirmTitle": "重建路由？",
+        "rebuildConfirmDescription": "将根据当前模型可用性重组现有路由的通道，实时路由可能发生变化。",
         "bulkEntityName": "路由",
         "bulkEnable": "启用",
-        "bulkDisable": "停用"
+        "bulkDisable": "停用",
+        "bulkDisableConfirmTitle": "停用选中的路由？",
+        "bulkDisableConfirmDescription": "选中的 {{count}} 条路由将停止响应请求，直到重新启用。"
       },
       "form": {
         "invalid": "请检查表单标红字段",
@@ -2354,8 +2361,10 @@
         "summaryFailed": "失败",
         "summaryCost": "筛选结果总成本",
         "loadError": "加载代理日志失败：{{message}}",
+        "metaLoadError": "加载日志摘要失败：{{message}}",
         "emptyTitle": "暂无代理日志",
         "emptyDescription": "调整筛选条件或稍后刷新以查看代理请求记录。",
+        "emptyAction": "查看路由",
         "searchPlaceholder": "搜索模型 / 账号 / 令牌…",
         "filterStatusPlaceholder": "状态",
         "filterSitePlaceholder": "站点",
@@ -2827,7 +2836,8 @@
         "description": "跨站点有效模型价格，含价格来源与推荐（同模型最低有效成本）。",
         "searchPlaceholder": "按模型筛选…",
         "loadError": "加载价格对比失败：{{message}}",
-        "emptyDescription": "暂无价格数据。连接账号或产生流量后即可查看有效价格。"
+        "emptyDescription": "暂无价格数据。连接账号或产生流量后即可查看有效价格。",
+        "emptyAction": "管理账号"
       },
       "group": {
         "description": "按来源站点的有效价格从低到高。来源优先级：计费明细 > 观测 > 已配置 > 兜底，取可用且优先级最高者。"
