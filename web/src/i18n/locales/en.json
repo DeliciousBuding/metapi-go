@@ -1758,7 +1758,10 @@
         "deleteConfirmTitle": "Delete selected accounts?",
         "deleteConfirmDescription": "This will delete the {{count}} selected account(s). This action cannot be undone.",
         "deleteConfirmConfirm": "Delete",
-        "deleteConfirmCancel": "Cancel"
+        "deleteConfirmCancel": "Cancel",
+        "disableConfirmTitle": "Disable selected accounts?",
+        "disableConfirmDescription": "The {{count}} selected account(s) will stop serving requests until re-enabled.",
+        "disableConfirmConfirm": "Disable"
       },
       "form": {
         "invalid": "Please check the highlighted form fields",
@@ -2020,9 +2023,13 @@
         "showZeroChannel": "Show zero-channel models (accounts have models but no routes generated)",
         "deleteTitle": "Delete route",
         "deleteDescription": "Delete route \"{{name}}\"? This action cannot be undone, and associated channels will be removed.",
+        "rebuildConfirmTitle": "Rebuild routes?",
+        "rebuildConfirmDescription": "Channels of existing routes will be recomposed from current model availability. Live routing may change.",
         "bulkEntityName": "route",
         "bulkEnable": "Enable",
-        "bulkDisable": "Disable"
+        "bulkDisable": "Disable",
+        "bulkDisableConfirmTitle": "Disable selected routes?",
+        "bulkDisableConfirmDescription": "The {{count}} selected route(s) will stop serving requests until re-enabled."
       },
       "form": {
         "invalid": "Please check the highlighted form fields",

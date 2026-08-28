@@ -8,6 +8,7 @@ import { Plus, Power, RefreshCw, Zap } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import {
   DataTableBulkActions,
   DataTablePage,
@@ -246,6 +247,7 @@ export function RoutesPage() {
   const [deleteRouteState, setDeleteRoute] = useState<RouteSummaryRow | null>(
     null
   )
+  const [rebuildConfirmOpen, setRebuildConfirmOpen] = useState(false)
 
   // One-shot route drilldown (proxy-log detail -> `?routeId=N`): wait for
   // the list, open the detail sheet for the referenced route, then strip
@@ -421,7 +423,7 @@ export function RoutesPage() {
           </p>
         </div>
         <RoutesHeaderActions
-          onRebuild={() => rebuildMutation.mutate({ refreshModels: true })}
+          onRebuild={() => setRebuildConfirmOpen(true)}
           isRebuildPending={rebuildMutation.isPending}
           onRefreshDecisions={() => refreshDecisionsMutation.mutate()}
           isRefreshDecisionsPending={refreshDecisionsMutation.isPending}
@@ -476,7 +478,7 @@ export function RoutesPage() {
               </Button>
               <Button
                 variant='outline'
-                onClick={() => rebuildMutation.mutate({ refreshModels: true })}
+                onClick={() => setRebuildConfirmOpen(true)}
                 disabled={rebuildMutation.isPending}
               >
                 {rebuildMutation.isPending ? <Spinner /> : <Zap />}
@@ -579,6 +581,20 @@ export function RoutesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={rebuildConfirmOpen}
+        title={t('tokenRoutes.page.rebuildConfirmTitle')}
+        description={t('tokenRoutes.page.rebuildConfirmDescription')}
+        confirmLabel={t('tokenRoutes.page.rebuild')}
+        cancelLabel={t('common.cancel')}
+        destructive
+        onConfirm={() => {
+          setRebuildConfirmOpen(false)
+          rebuildMutation.mutate({ refreshModels: true })
+        }}
+        onCancel={() => setRebuildConfirmOpen(false)}
+      />
     </div>
   )
 }
@@ -586,6 +602,7 @@ export function RoutesPage() {
 function RoutesBulkActions({ table }: { table: Table<RouteSummaryRow> }) {
   const { t } = useTranslation()
   const batchMutation = useBatchUpdateRoutes()
+  const [confirmDisableOpen, setConfirmDisableOpen] = useState(false)
 
   // Derived per render — `table` identity is stable across selection changes
   // then a `useMemo([table])` would freeze the ids at their mount-time value
@@ -606,28 +623,46 @@ function RoutesBulkActions({ table }: { table: Table<RouteSummaryRow> }) {
   }
 
   return (
-    <DataTableBulkActions
-      table={table}
-      entityName={t('tokenRoutes.page.bulkEntityName')}
-    >
-      <Button
-        size='sm'
-        variant='outline'
-        onClick={() => runBatch('enable')}
-        disabled={batchMutation.isPending}
+    <>
+      <DataTableBulkActions
+        table={table}
+        entityName={t('tokenRoutes.page.bulkEntityName')}
       >
-        <Power />
-        {t('tokenRoutes.page.bulkEnable')}
-      </Button>
-      <Button
-        size='sm'
-        variant='outline'
-        onClick={() => runBatch('disable')}
-        disabled={batchMutation.isPending}
-      >
-        {t('tokenRoutes.page.bulkDisable')}
-      </Button>
-    </DataTableBulkActions>
+        <Button
+          size='sm'
+          variant='outline'
+          onClick={() => runBatch('enable')}
+          disabled={batchMutation.isPending}
+        >
+          <Power />
+          {t('tokenRoutes.page.bulkEnable')}
+        </Button>
+        <Button
+          size='sm'
+          variant='outline'
+          onClick={() => setConfirmDisableOpen(true)}
+          disabled={batchMutation.isPending}
+        >
+          {t('tokenRoutes.page.bulkDisable')}
+        </Button>
+      </DataTableBulkActions>
+
+      <ConfirmDialog
+        open={confirmDisableOpen}
+        title={t('tokenRoutes.page.bulkDisableConfirmTitle')}
+        description={t('tokenRoutes.page.bulkDisableConfirmDescription', {
+          count: selectedIds.length,
+        })}
+        confirmLabel={t('tokenRoutes.page.bulkDisable')}
+        cancelLabel={t('common.cancel')}
+        destructive
+        onConfirm={() => {
+          setConfirmDisableOpen(false)
+          void runBatch('disable')
+        }}
+        onCancel={() => setConfirmDisableOpen(false)}
+      />
+    </>
   )
 }
 

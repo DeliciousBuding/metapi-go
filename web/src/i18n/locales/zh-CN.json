@@ -1758,7 +1758,10 @@
         "deleteConfirmTitle": "删除选中的账号？",
         "deleteConfirmDescription": "将删除选中的 {{count}} 个账号，此操作不可撤销。",
         "deleteConfirmConfirm": "删除",
-        "deleteConfirmCancel": "取消"
+        "deleteConfirmCancel": "取消",
+        "disableConfirmTitle": "停用选中的账号？",
+        "disableConfirmDescription": "选中的 {{count}} 个账号将停止响应请求，直到重新启用。",
+        "disableConfirmConfirm": "停用"
       },
       "form": {
         "invalid": "请检查表单标红字段",
@@ -2020,9 +2023,13 @@
         "showZeroChannel": "显示零通道模型（账号有模型但未生成路由）",
         "deleteTitle": "删除路由",
         "deleteDescription": "确定删除路由「{{name}}」？该操作不可撤销，相关通道将一并清除。",
+        "rebuildConfirmTitle": "重建路由？",
+        "rebuildConfirmDescription": "将根据当前模型可用性重组现有路由的通道，实时路由可能发生变化。",
         "bulkEntityName": "路由",
         "bulkEnable": "启用",
-        "bulkDisable": "停用"
+        "bulkDisable": "停用",
+        "bulkDisableConfirmTitle": "停用选中的路由？",
+        "bulkDisableConfirmDescription": "选中的 {{count}} 条路由将停止响应请求，直到重新启用。"
       },
       "form": {
         "invalid": "请检查表单标红字段",
