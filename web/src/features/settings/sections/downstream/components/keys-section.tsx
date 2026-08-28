@@ -49,6 +49,7 @@ import {
 } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
+import { useSites } from '@/features/sites'
 import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
 
@@ -74,6 +75,7 @@ type DownstreamApiKeyItem = {
   usedRequests?: number | null
   supportedModels?: string[] | string | null
   allowedRouteIds?: number[] | string | null
+  allowedSiteIds?: number[] | string | null
   usage24h?: DownstreamKeyUsage24h
 }
 
@@ -113,6 +115,7 @@ const createKeySchema = z.object({
   expiresAt: z.string().optional(),
   description: z.string().optional(),
   supportedModels: z.array(z.string().trim().min(1)).default([]),
+  allowedSiteIds: z.array(z.number().int().positive()).default([]),
 })
 
 type CreateKeyFormValues = z.infer<typeof createKeySchema>
@@ -186,6 +189,29 @@ function normalizeRouteIds(value: unknown): number[] {
   ]
 }
 
+function normalizeSiteIds(value: unknown): number[] {
+  let rawSiteIds: unknown[] = []
+  if (Array.isArray(value)) {
+    rawSiteIds = value
+  } else if (typeof value === 'string' && value.trim()) {
+    try {
+      const parsed = JSON.parse(value) as unknown
+      rawSiteIds = Array.isArray(parsed) ? parsed : []
+    } catch {
+      rawSiteIds = []
+    }
+  }
+
+  return [
+    ...new Set(
+      rawSiteIds.filter(
+        (siteId): siteId is number =>
+          typeof siteId === 'number' && Number.isInteger(siteId) && siteId > 0
+      )
+    ),
+  ]
+}
+
 function extractMarketplaceModelNames(result: unknown): string[] {
   let rows: unknown = []
   if (Array.isArray(result)) {
@@ -219,6 +245,7 @@ function blankKeyFormValues(): CreateKeyFormValues {
     expiresAt: '',
     description: '',
     supportedModels: [],
+    allowedSiteIds: [],
   }
 }
 
@@ -234,6 +261,7 @@ function keyFormValuesFromItem(
     enabled: item.enabled,
     expiresAt: isoToLocalDatetimeInput(item.expiresAt),
     supportedModels: normalizeModelRules(item.supportedModels),
+    allowedSiteIds: normalizeSiteIds(item.allowedSiteIds),
   }
 }
 
@@ -405,6 +433,49 @@ function ModelPolicyEditor({
   )
 }
 
+type SiteScopePickerProps = {
+  value: number[]
+  onChange: (siteIds: number[]) => void
+  sites: Array<{ id: number; name: string }>
+}
+
+// Checkbox list over the upstream sites: empty selection means "no site
+// restriction" (the routing selector treats an empty allow-list as
+// unrestricted), mirroring the model-policy empty-means-deny contrast.
+function SiteScopePicker({ value, onChange, sites }: SiteScopePickerProps) {
+  const selected = new Set(value)
+  return (
+    <div
+      className='border-border max-h-40 space-y-1 overflow-y-auto rounded-md border p-2'
+      data-testid='site-scope-picker'
+    >
+      {sites.length === 0
+        ? null
+        : sites.map((site) => (
+            <label
+              key={site.id}
+              className='flex cursor-pointer items-center gap-2 text-sm'
+            >
+              <input
+                type='checkbox'
+                checked={selected.has(site.id)}
+                onChange={(event) => {
+                  const next = new Set(selected)
+                  if (event.target.checked) {
+                    next.add(site.id)
+                  } else {
+                    next.delete(site.id)
+                  }
+                  onChange([...next].sort((left, right) => left - right))
+                }}
+              />
+              {site.name}
+            </label>
+          ))}
+    </div>
+  )
+}
+
 // Exported so the edit-mode behavior test can render it in isolation,
 // mirroring the AccountsRowActions export pattern. The whole KeysSection
 // remains the only public entry in the settings surface.
@@ -429,6 +500,7 @@ export function KeySheetForm({
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const isEdit = editingKey !== null
+  const { data: sites } = useSites()
 
   const form = useForm<CreateKeyFormValues>({
     resolver: zodResolver(
@@ -466,6 +538,7 @@ export function KeySheetForm({
         enabled: values.enabled,
         expiresAt: values.expiresAt,
         supportedModels: values.supportedModels,
+        allowedSiteIds: values.allowedSiteIds,
       })
     },
     onSuccess: (result, values) => {
@@ -608,6 +681,33 @@ export function KeySheetForm({
                     routeGrantCount={
                       normalizeRouteIds(editingKey?.allowedRouteIds).length
                     }
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name='allowedSiteIds'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  {t('settings.downstream.keys.sites.fieldLabel', {
+                    defaultValue: 'Upstream site restriction',
+                  })}
+                </FormLabel>
+                <FormDescription>
+                  {t('settings.downstream.keys.sites.hint', {
+                    defaultValue:
+                      'Leave empty for no site restriction. Selecting sites limits this key to channels of the chosen upstream sites.',
+                  })}
+                </FormDescription>
+                <FormControl>
+                  <SiteScopePicker
+                    value={field.value ?? []}
+                    onChange={field.onChange}
+                    sites={sites ?? []}
                   />
                 </FormControl>
                 <FormMessage />

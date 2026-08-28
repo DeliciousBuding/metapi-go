@@ -34,6 +34,7 @@ vi.mock('@/lib/api', () => ({
     createDownstreamApiKey: vi.fn(),
     updateDownstreamApiKey: vi.fn(),
     deleteDownstreamApiKey: vi.fn(),
+    getSites: () => Promise.resolve([]),
   },
 }))
 

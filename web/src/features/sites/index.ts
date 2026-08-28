@@ -10,3 +10,4 @@ export { sitesSearchSchema } from './lib/sites-schema'
 export { isValidEndpointUrl } from './lib/endpoints'
 
 export { sitesKeys } from './types'
+export { useSites } from './api'

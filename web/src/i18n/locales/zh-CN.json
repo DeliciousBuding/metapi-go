@@ -1332,7 +1332,11 @@
             "deleted": "API 密钥已删除。",
             "deleteFailed": "删除 API 密钥失败。"
           },
-          "connect": "接入"
+          "connect": "接入",
+          "sites": {
+            "fieldLabel": "上游站点限制",
+            "hint": "留空表示不限制站点；勾选后该密钥只能访问所选上游站点的渠道。"
+          }
         },
         "proxyToken": {
           "title": "根下游密钥（已弃用）",

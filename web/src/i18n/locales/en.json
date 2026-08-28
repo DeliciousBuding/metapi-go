@@ -1332,7 +1332,11 @@
             "deleted": "API key deleted.",
             "deleteFailed": "Failed to delete API key."
           },
-          "connect": "Connect"
+          "connect": "Connect",
+          "sites": {
+            "fieldLabel": "Upstream site restriction",
+            "hint": "Leave empty for no site restriction. Selecting sites limits this key to channels of the chosen upstream sites."
+          }
         },
         "proxyToken": {
           "title": "Root downstream key (deprecated)",
