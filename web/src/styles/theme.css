@@ -54,6 +54,7 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-focus-ring: var(--focus-ring);
   --color-overlay: var(--overlay);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -122,6 +123,10 @@
   --border: oklch(0.93 0 0);
   --input: oklch(0.93 0 0);
   --ring: oklch(0.708 0.16 249.003);
+  /* Focus-ring ink: darker than --ring so a focus indicator clears WCAG
+   * 1.4.11 (3:1 non-text) on light surfaces — --ring at 50% alpha only
+   * reached ~2.58:1 on --background. Same hue/chroma as --ring. */
+  --focus-ring: oklch(0.58 0.16 249.003);
   --overlay: oklch(0 0 0 / 0.1);
   --shadow-card-hover: 0 4px 12px oklch(0 0 0 / 0.06);
   --chart-1: oklch(0.72 0.18 250);
@@ -214,6 +219,9 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 17%);
   --ring: oklch(0.554 0.148 250.726);
+  /* Dark focus ring is lifted lighter than --ring so it clears 3:1 on the
+   * dark canvas (--ring at 50% alpha only reached ~1.79:1 on --background). */
+  --focus-ring: oklch(0.62 0.148 250.726);
   --overlay: oklch(0 0 0 / 0.32);
   --shadow-card-hover: 0 4px 12px oklch(0 0 0 / 0.3);
   --chart-1: oklch(0.76 0.14 250);

@@ -7,12 +7,19 @@
 
 export const EM_DASH = '—'
 
-/** Format an integer with locale grouping; returns "—" for null/NaN. */
-export function formatInt(value: number | null | undefined): string {
+/**
+ * Format an integer with locale grouping; returns "—" for null/NaN. Pass a
+ * BCP-47 `locale` for explicit grouping (e.g. the active i18n language);
+ * omitted, the browser default locale applies.
+ */
+export function formatInt(
+  value: number | null | undefined,
+  locale?: string
+): string {
   if (value === null || value === undefined || !Number.isFinite(value)) {
     return EM_DASH
   }
-  return value.toLocaleString()
+  return value.toLocaleString(locale)
 }
 
 /**
@@ -36,6 +43,8 @@ export function formatCurrency(
   options?: {
     /** Fraction digits (default 2; proxy-log costs use 4). */
     fractionDigits?: number
+    /** BCP-47 locale for grouping/decimal separators (default: browser). */
+    locale?: string
   }
 ): string {
   if (value === null || value === undefined || !Number.isFinite(value)) {
@@ -43,10 +52,13 @@ export function formatCurrency(
   }
   const fractionDigits = options?.fractionDigits ?? 2
   const sign = value < 0 ? '-' : ''
-  return `${sign}${USD_SYMBOL}${Math.abs(value).toLocaleString(undefined, {
-    minimumFractionDigits: fractionDigits,
-    maximumFractionDigits: fractionDigits,
-  })}`
+  return `${sign}${USD_SYMBOL}${Math.abs(value).toLocaleString(
+    options?.locale,
+    {
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+    }
+  )}`
 }
 
 /** Format a 0..1 ratio as a percentage: 0.853 → "85.3%". */
@@ -81,6 +93,8 @@ export function formatPrice(
   options?: {
     /** Fixed fraction digits; when omitted, adaptive (4 for <0.01 else 2). */
     fractionDigits?: number
+    /** BCP-47 locale for grouping/decimal separators (default: browser). */
+    locale?: string
   }
 ): string {
   if (price === null || price === undefined || !Number.isFinite(price)) {
@@ -89,10 +103,13 @@ export function formatPrice(
   const digits = options?.fractionDigits
   if (digits !== undefined) {
     const sign = price < 0 ? '-' : ''
-    return `${sign}${USD_SYMBOL}${Math.abs(price).toLocaleString(undefined, {
-      minimumFractionDigits: digits,
-      maximumFractionDigits: digits,
-    })}`
+    return `${sign}${USD_SYMBOL}${Math.abs(price).toLocaleString(
+      options?.locale,
+      {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
+      }
+    )}`
   }
   if (price === 0) return `${USD_SYMBOL}0`
   if (price < 0.01) return `${USD_SYMBOL}${price.toFixed(4)}`

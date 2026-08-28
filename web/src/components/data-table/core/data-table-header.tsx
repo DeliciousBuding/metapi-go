@@ -40,6 +40,7 @@ export function DataTableHeader<TData>({
               key={header.id}
               colSpan={header.colSpan}
               data-column-id={header.column.id}
+              aria-sort={getAriaSort(header)}
               className={cn(
                 'relative',
                 getColumnClassName?.(header.column.id, 'header')
@@ -231,6 +232,17 @@ function shouldRenderColumnResizer<TData>(
     header.column.getCanResize() &&
     !isContentSizedColumn(header.column.id)
   )
+}
+
+/** Sortable columns announce their state on the th (aria-sort) so AT users
+ * hear the direction from the header itself; non-sortable columns stay
+ * silent — aria-sort is meaningless on a th that cannot sort. */
+function getAriaSort<TData>(header: Header<TData, unknown>) {
+  if (!header.column.getCanSort()) return undefined
+  const sorted = header.column.getIsSorted()
+  if (sorted === 'asc') return 'ascending'
+  if (sorted === 'desc') return 'descending'
+  return 'none'
 }
 
 function getHeaderSizeStyle<TData>(
