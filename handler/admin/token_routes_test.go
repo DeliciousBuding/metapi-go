@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"sync"
@@ -1199,18 +1200,18 @@ func TestRouteChannelAccountPublic_OmitsSecrets(t *testing.T) {
 	// first4/last4/length fragments. routeChannelAccountPublic rebuilds the
 	// masked form from those fragments and must never expose plaintext.
 	const accessSecret = "FAKE-access-secret-ABCDEF" // 25 chars
-	const apiSecret = "FAKE-api-secret-XYZ12345"    // 25 chars
+	const apiSecret = "FAKE-api-secret-XYZ12345"     // 25 chars
 	ch := map[string]any{
 		"accountId":         int64(7),
-		"username":           "u",
-		"accessTokenPrefix":  accessSecret[:4],
-		"accessTokenSuffix":  accessSecret[len(accessSecret)-4:],
-		"accessTokenLen":     int64(len(accessSecret)),
-		"apiTokenPrefix":     apiSecret[:4],
-		"apiTokenSuffix":     apiSecret[len(apiSecret)-4:],
-		"apiTokenLen":        int64(len(apiSecret)),
-		"balance":            1.5,
-		"accountStatus":      "active",
+		"username":          "u",
+		"accessTokenPrefix": accessSecret[:4],
+		"accessTokenSuffix": accessSecret[len(accessSecret)-4:],
+		"accessTokenLen":    int64(len(accessSecret)),
+		"apiTokenPrefix":    apiSecret[:4],
+		"apiTokenSuffix":    apiSecret[len(apiSecret)-4:],
+		"apiTokenLen":       int64(len(apiSecret)),
+		"balance":           1.5,
+		"accountStatus":     "active",
 	}
 	got := routeChannelAccountPublic(ch)
 	if _, ok := got["accessToken"]; ok {
@@ -1576,7 +1577,7 @@ func TestRedactSearchSecrets(t *testing.T) {
 		"tokenPrefix": tokSecret[:4],
 		"tokenSuffix": tokSecret[len(tokSecret)-4:],
 		"tokenLen":    int64(len(tokSecret)),
-		"name":         "n",
+		"name":        "n",
 	}
 	redactSearchTokenSecrets(tok)
 	if _, ok := tok["token"]; ok {
@@ -1893,5 +1894,91 @@ func TestTokenRoutes_Summary_PopulatesSiteNames(t *testing.T) {
 	}
 	if len(emptyNames) != 0 {
 		t.Fatalf("empty route siteNames len = %d, want 0; got %v", len(emptyNames), emptyNames)
+	}
+}
+
+// Issue #1024: the UI's auto-rebuild sends {"refreshModels": true}; the Go
+// handler silently ignored the body, so rebuilds ran against stale/empty
+// model lists and the toast contract drifted. These tests pin the truthful
+// envelope the frontend now consumes.
+func TestTokenRoutes_Rebuild_RefreshModelsFalseSkipsSync(t *testing.T) {
+	db, r := setupTokenRoutesTest(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+	routeID, _, tokenID := seedRouteChannelRefs(t, db)
+	if _, err := db.Exec(
+		`INSERT INTO token_model_availability (token_id, model_name, available, checked_at)
+		 VALUES (?, 'gpt-4o', 1, ?)`, tokenID, now); err != nil {
+		t.Fatalf("seed availability: %v", err)
+	}
+
+	resp := doPostJSON(t, r, "/api/routes/rebuild", map[string]any{"refreshModels": false})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("rebuild status = %d, want 200 body=%s", resp.Code, resp.Body.String())
+	}
+	var result map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &result); err != nil {
+		t.Fatalf("decode rebuild response: %v", err)
+	}
+	if result["success"] != true || result["queued"] != false || result["status"] != "completed" {
+		t.Fatalf("unexpected envelope: %v", result)
+	}
+	// The availability row must translate into a rebuilt channel: proof the
+	// legacy rebuild path ran even when the upstream refresh is skipped.
+	var chCount int
+	if err := db.Get(&chCount, `SELECT COUNT(*) FROM route_channels WHERE route_id = ?`, routeID); err != nil {
+		t.Fatalf("count route_channels: %v", err)
+	}
+	if chCount == 0 {
+		t.Fatalf("expected rebuilt channel for seeded availability, got none: %v", result)
+	}
+	if result["channelsInserted"] == nil {
+		t.Fatalf("missing channelsInserted: %v", result)
+	}
+}
+
+func TestTokenRoutes_Rebuild_MalformedBodyFallsBackToDefaults(t *testing.T) {
+	db, r := setupTokenRoutesTest(t)
+	_ = db
+	req := httptest.NewRequest(http.MethodPost, "/api/routes/rebuild", strings.NewReader("{not-json"))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("malformed body status = %d, want 200 (lenient defaults), body=%s", rec.Code, rec.Body.String())
+	}
+	var result map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if result["success"] != true {
+		t.Fatalf("success = %v, want true: %v", result["success"], result)
+	}
+}
+
+func TestTokenRoutes_Rebuild_ZeroRoutesTruthfulEnvelope(t *testing.T) {
+	// No token_routes rows at all: the envelope the frontend uses to show the
+	// "no routes to rebuild" guidance must be truthful, never a fake success
+	// count (#1024).
+	db, r := setupTokenRoutesTest(t)
+	if _, err := db.Exec(`DELETE FROM route_channels`); err != nil {
+		t.Fatalf("clear route_channels: %v", err)
+	}
+	if _, err := db.Exec(`DELETE FROM token_routes`); err != nil {
+		t.Fatalf("clear token_routes: %v", err)
+	}
+
+	resp := doPostJSON(t, r, "/api/routes/rebuild", map[string]any{"refreshModels": false})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("rebuild status = %d, want 200 body=%s", resp.Code, resp.Body.String())
+	}
+	var result map[string]any
+	if err := json.Unmarshal(resp.Body.Bytes(), &result); err != nil {
+		t.Fatalf("decode rebuild response: %v", err)
+	}
+	if result["routesConsidered"] != float64(0) {
+		t.Fatalf("routesConsidered = %v, want 0: %v", result["routesConsidered"], result)
+	}
+	if result["changed"] != false {
+		t.Fatalf("changed = %v, want false: %v", result["changed"], result)
 	}
 }

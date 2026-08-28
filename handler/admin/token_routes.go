@@ -1,8 +1,10 @@
 package admin
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -130,9 +132,9 @@ func (h *tokenRoutesHandler) listSummary(w http.ResponseWriter, r *http.Request)
 	// no channels simply has no row in route_channels, so it falls through to
 	// the zero value of routeChannelCounts — same as the old per-route COUNT.
 	type routeChannelCounts struct {
-		RouteID       int64 `db:"route_id"`
-		Total         int64 `db:"total"`
-		EnabledCount  int64 `db:"enabled_count"`
+		RouteID      int64 `db:"route_id"`
+		Total        int64 `db:"total"`
+		EnabledCount int64 `db:"enabled_count"`
 	}
 	var counts []routeChannelCounts
 	if err := h.db.Select(&counts, `
@@ -402,7 +404,7 @@ func (h *tokenRoutesHandler) createRoute(w http.ResponseWriter, r *http.Request)
 		Enabled       *bool `json:"enabled"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: " + err.Error())
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
 
@@ -507,7 +509,7 @@ func (h *tokenRoutesHandler) updateRoute(w http.ResponseWriter, r *http.Request)
 
 	var body map[string]any
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: " + err.Error())
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
 
@@ -717,7 +719,7 @@ func (h *tokenRoutesHandler) batchRoutes(w http.ResponseWriter, r *http.Request)
 		IDs    []int64 `json:"ids"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: " + err.Error())
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
 
@@ -756,18 +758,61 @@ func (h *tokenRoutesHandler) batchRoutes(w http.ResponseWriter, r *http.Request)
 // Synchronously recomposes pattern-route channels from model availability and
 // invalidates the in-process route cache. Response must stay truthful: do not
 // claim a background job was queued.
+//
+// Request body (both fields optional; the frontend always sends it, curl users
+// may omit it): {"refreshModels": true, "wait": true}. refreshModels defaults
+// to true and first refreshes the upstream model list of every active account
+// (same batch semantics as the periodic model-sync: per-account failures are
+// counted, never fatal), then rebuilds channels from the refreshed
+// availability — this is what the UI's "auto rebuild" promises operators
+// (#1024: previously the field was silently ignored, so rebuilds ran against
+// stale/empty model lists). wait is accepted for TS contract compatibility;
+// this handler has always been synchronous, so queued is always false.
 func (h *tokenRoutesHandler) rebuildRoutes(w http.ResponseWriter, r *http.Request) {
-	stats, err := service.RebuildTokenRoutesFromAvailability(r.Context(), h.db)
-	if err != nil {
-		slog.Error("routes rebuild failed", "error", err)
-		writeJSON(w, http.StatusInternalServerError, map[string]any{
-			"success": false,
-			"queued":  false,
-			"reused":  false,
-			"status":  "failed",
-			"message": "route rebuild failed",
-		})
-		return
+	var req struct {
+		RefreshModels *bool `json:"refreshModels"`
+		Wait          bool  `json:"wait"`
+	}
+	if r.Body != nil {
+		body, readErr := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+		if readErr == nil && len(bytes.TrimSpace(body)) > 0 {
+			if jsonErr := json.Unmarshal(body, &req); jsonErr != nil {
+				slog.Warn("routes rebuild: malformed body, using defaults", "error", jsonErr)
+			}
+		}
+	}
+	refreshModels := true
+	if req.RefreshModels != nil {
+		refreshModels = *req.RefreshModels
+	}
+
+	var stats service.RouteRebuildStats
+	if refreshModels {
+		summary := service.SyncAllAccountModels(r.Context(), h.db)
+		if summary.RebuildRan {
+			stats = summary.Rebuild
+			if summary.RebuildErr != nil {
+				writeRebuildFailure(w, summary.RebuildErr)
+				return
+			}
+		} else {
+			// No account was refreshed (no candidates, or every refresh
+			// failed): still rebuild from whatever availability rows already
+			// exist (manual models, previous syncs) — the pass stays useful.
+			rebuildStats, err := service.RebuildTokenRoutesFromAvailability(r.Context(), h.db)
+			if err != nil {
+				writeRebuildFailure(w, err)
+				return
+			}
+			stats = rebuildStats
+		}
+	} else {
+		rebuildStats, err := service.RebuildTokenRoutesFromAvailability(r.Context(), h.db)
+		if err != nil {
+			writeRebuildFailure(w, err)
+			return
+		}
+		stats = rebuildStats
 	}
 	shared.RecordRouteRebuildCompleted()
 	// Rebuild recomposes route_channels rows; drop the list snapshot so the
@@ -795,6 +840,18 @@ func (h *tokenRoutesHandler) rebuildRoutes(w http.ResponseWriter, r *http.Reques
 		"channelsRemoved":  stats.ChannelsRemoved,
 		"channelsKept":     stats.ChannelsKept,
 		"changed":          stats.Changed,
+	})
+}
+
+// writeRebuildFailure emits the truthful failure envelope for rebuild passes.
+func writeRebuildFailure(w http.ResponseWriter, err error) {
+	slog.Error("routes rebuild failed", "error", err)
+	writeJSON(w, http.StatusInternalServerError, map[string]any{
+		"success": false,
+		"queued":  false,
+		"reused":  false,
+		"status":  "failed",
+		"message": "route rebuild failed",
 	})
 }
 
