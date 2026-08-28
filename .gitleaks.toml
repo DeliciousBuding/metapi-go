@@ -4,6 +4,10 @@
 # default rule set (generic high-entropy detection) already covers admin
 # token leaks; this file only adds the product-specific `sk-` downstream key
 # shape that the defaults do not know about.
+#
+# Go/e2e test fixtures use synthetic `sk-` tokens extensively (see the
+# allowlist below); real keys must never appear there, and the default rule
+# set still scans those files — only this custom rule steps aside.
 
 [[rules]]
 id = "metapi-downstream-api-key"
@@ -11,6 +15,12 @@ description = "Metapi downstream API key (sk- prefixed secret)"
 regex = '''\bsk-[a-zA-Z0-9_-]{20,}\b'''
 entropy = 3.8
 keywords = ["sk-"]
+[rules.allowlist]
+paths = [
+  '''_test\.go$''',
+  '''\.test\.[cm]?[jt]s$''',
+  '''e2e/''',
+]
 
 [allowlist]
 description = "Repository-specific false positives"
