@@ -89,6 +89,16 @@ func (s *CheckinScheduler) Start(ctx context.Context) error {
 	s.cfg.CheckinIntervalHours = activeIntervalHours
 	s.mode = activeMode
 
+	// #1027: global check-in kill switch (env CHECKIN_ENABLED or the
+	// checkin_enabled runtime setting). Default true keeps historical
+	// behavior; when disabled no schedule is armed at all.
+	enabled := resolveBooleanSetting("checkin_enabled", !s.cfg.CheckinDisabled)
+	s.cfg.CheckinDisabled = !enabled
+	if s.cfg.CheckinDisabled {
+		slog.Info("checkin scheduler disabled (checkinEnabled=false)")
+		return nil
+	}
+
 	s.startLocked()
 
 	slog.Info("checkin scheduler started",
@@ -328,8 +338,30 @@ func (s *CheckinScheduler) UpdateCheckinSchedule(mode, cronExpr string, interval
 	}
 	s.cfg.CheckinScheduleMode = mode
 	s.cfg.CheckinIntervalHours = config.ClampInt(intervalHours, 1, 24)
+	// #1027: a schedule update while check-in is globally disabled must
+	// persist the new schedule without silently re-arming the runner.
+	if s.cfg.CheckinDisabled {
+		return nil
+	}
 	s.startLocked()
 	return nil
+}
+
+// SetEnabled hot-toggles the global check-in switch (#1027). Disabling stops
+// the running cron/interval schedule; enabling restarts with the current mode
+// and schedule (same behavior as a fresh Start, including catch-up). Callers
+// serialize this against other scheduler updates via app.updateMu.
+func (s *CheckinScheduler) SetEnabled(enabled bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.cfg.CheckinDisabled = !enabled
+	if !enabled {
+		s.stopLocked()
+		slog.Info("checkin scheduler disabled (checkinEnabled=false)")
+		return
+	}
+	s.startLocked()
+	slog.Info("checkin scheduler enabled", "mode", s.mode)
 }
 
 // ResetAttempts clears the interval attempt map (for tests).

@@ -34,12 +34,14 @@ export type RuntimeSettings = {
   currentAdminIp?: string
   adminIpAllowlist?: string[] | string
   // scheduling
+  checkinEnabled?: boolean
   checkinCron?: string
   checkinScheduleMode?: string
   checkinIntervalHours?: number
   checkinWindowStart?: string
   checkinWindowEnd?: string
   checkinSchedule?: ScheduleSpecV1
+  balanceRefreshEnabled?: boolean
   balanceRefreshCron?: string
   balanceRefreshSchedule?: ScheduleSpecV1
   modelSyncCron?: string

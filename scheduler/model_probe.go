@@ -51,6 +51,10 @@ type ModelProbeScheduler struct {
 	mu            sync.Mutex
 	accountLeases map[int64]bool
 	runner        *intervalRunner
+	// ctx is the lifecycle context captured by Start so SetEnabled can
+	// (re)start the ticker with the same cancellation semantics. Defaults to
+	// context.Background() when SetEnabled runs before any Start.
+	ctx context.Context
 
 	probe    ChannelHealthProbe
 	recorder ChannelHealthRecorder
@@ -104,6 +108,10 @@ func (s *ModelProbeScheduler) Start(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// Capture the lifecycle context so SetEnabled can (re)start the ticker
+	// with the same cancellation semantics as the registry-driven Start.
+	s.ctx = ctx
+
 	// Always register for admin probe-now / recovery paths,
 	// even when the background ticker is disabled.
 	SetGlobalModelProbeScheduler(s)
@@ -129,6 +137,34 @@ func (s *ModelProbeScheduler) Start(ctx context.Context) error {
 
 func (s *ModelProbeScheduler) Stop() error {
 	return s.runner.stop()
+}
+
+// SetEnabled hot-toggles the model availability probe at runtime (#1027).
+// Mirrors the boolean-feature-toggle contract: the caller has already
+// persisted cfg.ModelAvailabilityProbeEnabled + the DB setting; this applies
+// the change to the running ticker without a restart. Disabling stops the
+// background probe loop; enabling restarts it (no immediate first run, same
+// as Start). Admin probe-now paths stay available either way.
+func (s *ModelProbeScheduler) SetEnabled(enabled bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.cfg.ModelAvailabilityProbeEnabled = enabled
+	if !enabled {
+		slog.Info("model-probe: disabled at runtime (probe not enabled)")
+		return s.runner.stop()
+	}
+	intervalMs := int64(config.MaxInt(s.cfg.ModelAvailabilityProbeIntervalMs, 60_000))
+	interval := time.Duration(intervalMs) * time.Millisecond
+	ctx := s.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	slog.Info("model-probe scheduler enabled at runtime",
+		"interval_ms", intervalMs,
+		"timeout_ms", s.cfg.ModelAvailabilityProbeTimeoutMs,
+		"concurrency", s.cfg.ModelAvailabilityProbeConcurrency,
+	)
+	return s.runner.start(ctx, interval, false, s.runProbe)
 }
 
 // TryAcquireAccountLease attempts to acquire a lease for probing a specific account.

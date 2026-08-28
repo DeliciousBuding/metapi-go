@@ -1516,6 +1516,14 @@
         "scheduling": {
           "title": "定时任务",
           "description": "签到、余额刷新与日志清理计划。",
+          "healthMonitoring": {
+            "title": "上游账号健康监测",
+            "description": "会主动访问上游账号的自动任务及其关闭入口：",
+            "checkin": "每日签到——下方「启用每日签到」开关可全局关闭；账号级开关在「账号」页每行。",
+            "balance": "余额定时刷新——下方「启用余额定时刷新」开关可全局关闭。",
+            "probe": "模型可用性主动探测——默认关闭；如已开启，请到 设置 → 代理与模型 → 代理传输 关闭。",
+            "passive": "账号页的状态徽章与探测健康列是历史流量的被动展示，不会向上游发起请求。"
+          },
           "triggerCheckin": "立即签到",
           "viewProgramLogs": "查看日志",
           "triggering": "触发中…",
@@ -1534,8 +1542,12 @@
             "logCleanupUsageLogsEnabled": "清理用量日志",
             "logCleanupUsageLogsEnabledHint": "按计划删除累积的代理用量日志。",
             "checkinGroup": "签到",
+            "checkinEnabled": "启用每日签到",
+            "checkinEnabledHint": "关闭后系统不再自动向上游站点发起签到请求；账号级签到开关仍在「账号」页每行可用。",
             "checkinSchedule": "签到计划",
             "balanceGroup": "余额刷新",
+            "balanceRefreshEnabled": "启用余额定时刷新",
+            "balanceRefreshEnabledHint": "关闭后不再定时查询上游账号余额，页面显示的余额可能逐渐过期。",
             "balanceRefreshSchedule": "余额刷新计划",
             "modelSyncGroup": "模型列表同步",
             "modelSyncCron": "模型同步计划（cron）",

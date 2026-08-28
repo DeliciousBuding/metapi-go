@@ -120,7 +120,9 @@ root; the tables below list only what a deployment needs plus common options.
 | `DATA_DIR`                          | `./data`                      | Data directory (SQLite database and uploaded files). Code default is `./data` relative to the working directory; the container image sets `DATA_DIR=/app/data` via its `ENV`, and compose files pass it through explicitly |
 | `LOG_LEVEL`                         | `info`                        | slog threshold: `debug`/`info`/`warn`/`error`. Raise to `warn` to quiet hot-path logs.                                                                                                                                                                                                                                                                                                              |
 | `CHECKIN_CRON`                      | `0 8 * * *`                   | Daily checkin cron expression                                                                                                                                                                                                                                                                                                                                                                      |
+| `CHECKIN_ENABLED`                   | `true`                        | Global kill switch for the automatic check-in scheduler: `false` stops scheduled check-in requests to upstream sites. Runtime setting `checkinEnabled` wins when set (#1027)                                                                                                                                                                                                                       |
 | `BALANCE_REFRESH_CRON`              | `0 * * * *`                   | Hourly balance refresh cron                                                                                                                                                                                                                                                                                                                                                                        |
+| `BALANCE_REFRESH_ENABLED`           | `true`                        | Global kill switch for the balance-refresh scheduler: `false` stops scheduled upstream balance queries. Runtime setting `balanceRefreshEnabled` wins when set (#1027)                                                                                                                                                                                                                              |
 | `MODEL_SYNC_CRON`                   | `0 4 * * *`                   | Daily upstream model-list sync cron; DB setting `model_sync_cron` overrides                                                                                                                                                                                                                                                                                                                        |
 | `TZ`                                | system local time             | Timezone for cron scheduling. No code-level default; `.env.example` and the compose files preset `Asia/Shanghai`                                                                                                                                                                                                                                                                                   |
 | `DB_TYPE`                           | `sqlite`                      | Database type: `sqlite` or `postgres`; inferred as `postgres` when a PostgreSQL URL is provided                                                                                                                                                                                                                                          |
@@ -320,6 +322,42 @@ pg_dump -Fc 'postgres://<user>:<password>@<host>:5432/metapi?sslmode=require' > 
 - Startup exits before binding the HTTP port when database bootstrap, runtime settings load, or runtime schema migration fails.
 - Admin events are logged in the database `events` table
 - Proxy request logs are stored in `proxy_logs`
+
+## Disabling Upstream Account Health Monitoring
+
+Metapi runs three background jobs that actively contact upstream accounts
+("health monitoring"). Each one can be switched off independently; defaults
+keep the historical always-on behavior for check-in and balance refresh.
+
+| Job | What it does | How to turn it off |
+| --- | --- | --- |
+| Automatic check-in | Sends scheduled check-in requests to upstream accounts (cron or interval mode) | Settings -> Operations -> Scheduled Tasks: uncheck **Enable daily check-in** (global); per-account switches are on the Accounts page; env `CHECKIN_ENABLED=false` |
+| Balance refresh | Queries upstream account balances on a schedule | Settings -> Operations -> Scheduled Tasks: uncheck **Enable scheduled balance refresh**; env `BALANCE_REFRESH_ENABLED=false` |
+| Model availability probe | Actively probes channel models (off by default) | Settings -> Proxy & Models -> Proxy Transport: `modelAvailabilityProbeEnabled`; env `MODEL_AVAILABILITY_PROBE_ENABLED` |
+
+Notes:
+
+- The two global checkboxes apply hot (no container restart required) and are
+  persisted to the database, so they survive restarts and upgrades.
+- Environment variables only set the startup default; a persisted runtime
+  setting wins when present.
+- Status badges and probe-health columns on the Accounts page are passive
+  displays of past traffic; they never issue upstream requests themselves.
+
+Docker Compose example -- stop every automatic upstream request by adding the
+kill switches to your `.env` and recreating the container:
+
+```bash
+CHECKIN_ENABLED=false
+BALANCE_REFRESH_ENABLED=false
+```
+
+```bash
+docker compose -f docker-compose.prod.yml up -d
+```
+
+Flipping the same two checkboxes in the admin UI achieves the identical result
+without any restart.
 
 ## Browser CORS
 

@@ -24,8 +24,17 @@ func NewBalanceScheduler(cfg *config.Config) *BalanceScheduler {
 func (s *BalanceScheduler) Name() string { return "balance-refresh" }
 
 // Start begins periodic balance refresh. Loads the cron expression from DB
-// settings or falls back to config default.
+// settings or falls back to config default. Honors the global kill switch
+// (env BALANCE_REFRESH_ENABLED / runtime setting balanceRefreshEnabled,
+// issue #1027): when disabled, no cron job is scheduled at all.
 func (s *BalanceScheduler) Start(ctx context.Context) error {
+	enabled := resolveBooleanSetting("balance_refresh_enabled", !s.cfg.BalanceRefreshDisabled)
+	s.cfg.BalanceRefreshDisabled = !enabled
+	if s.cfg.BalanceRefreshDisabled {
+		slog.Info("balance scheduler disabled (balanceRefreshEnabled=false)")
+		return nil
+	}
+
 	activeCron := resolveCronSetting("balance_refresh_cron", s.cfg.BalanceRefreshCron)
 	s.cfg.BalanceRefreshCron = activeCron
 
@@ -66,6 +75,34 @@ func (s *BalanceScheduler) UpdateCron(cronExpr string) error {
 	}
 	s.cronRunner.start()
 	slog.Info("balance scheduler updated", "cron", cronExpr)
+	return nil
+}
+
+// SetEnabled hot-toggles the global balance-refresh switch (#1027).
+// Disabling stops the running cron job entirely; enabling (re)resolves the
+// cron from DB settings (same contract as Start) and schedules it. Callers
+// serialize this against other scheduler updates via app.updateMu.
+func (s *BalanceScheduler) SetEnabled(enabled bool) error {
+	s.cfg.BalanceRefreshDisabled = !enabled
+	if !enabled {
+		if s.cronRunner != nil {
+			s.cronRunner.stop()
+			s.cronRunner = nil
+		}
+		slog.Info("balance scheduler disabled (balanceRefreshEnabled=false)")
+		return nil
+	}
+	activeCron := resolveCronSetting("balance_refresh_cron", s.cfg.BalanceRefreshCron)
+	s.cfg.BalanceRefreshCron = activeCron
+	if s.cronRunner != nil {
+		s.cronRunner.stop()
+	}
+	s.cronRunner = newCronRunner()
+	if _, err := s.cronRunner.addJob(activeCron, s.runJob); err != nil {
+		return err
+	}
+	s.cronRunner.start()
+	slog.Info("balance scheduler enabled", "cron", activeCron)
 	return nil
 }
 
