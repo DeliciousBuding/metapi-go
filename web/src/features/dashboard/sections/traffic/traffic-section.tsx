@@ -67,12 +67,7 @@ function ChartError({
       <TriangleAlert className='text-destructive/80 size-5' />
       <p className='text-destructive text-xs'>{message}</p>
       {onRetry ? (
-        <Button
-          type='button'
-          variant='outline'
-          size='sm'
-          onClick={onRetry}
-        >
+        <Button type='button' variant='outline' size='sm' onClick={onRetry}>
           {t('common.retry')}
         </Button>
       ) : null}

@@ -22,7 +22,7 @@ import {
 } from 'vitest'
 
 import '@/i18n/config'
-import { api, type Announcement } from '@/lib/api'
+import { api, type Announcement, type AnnouncementsResponse } from '@/lib/api'
 import { productAnnouncementKeys } from '@/lib/product-announcements'
 import { toast } from '@/lib/toast'
 
@@ -317,7 +317,7 @@ describe('AnnouncementsSection submitting edit dialog', () => {
   it('disables Cancel while the save is in flight', async () => {
     // Hold the create mutation pending so the dialog stays in the saving
     // state after clicking Save.
-    let release: (value: unknown) => void = () => {}
+    let release: (value: AnnouncementsResponse) => void = () => {}
     mockCreateAnnouncement.mockReset().mockReturnValue(
       new Promise((resolve) => {
         release = resolve

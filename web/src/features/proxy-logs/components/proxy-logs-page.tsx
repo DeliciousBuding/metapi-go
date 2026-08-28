@@ -2,8 +2,8 @@
 // metapi-go/features/proxy-logs/components — proxy logs list page.
 // i18n: all user-visible strings migrated to t() calls.
 
-import type { Row } from '@tanstack/react-table'
 import { useNavigate } from '@tanstack/react-router'
+import type { Row } from '@tanstack/react-table'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 

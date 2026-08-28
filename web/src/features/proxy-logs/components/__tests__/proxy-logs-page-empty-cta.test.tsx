@@ -4,7 +4,15 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
 import '@/i18n/config'
 
@@ -68,7 +76,10 @@ vi.mock('../../api', () => ({
 }))
 
 vi.mock('../../lib/use-proxy-logs-auto-refresh', () => ({
-  useProxyLogsAutoRefresh: () => ({ intervalMs: false, setIntervalMs: vi.fn() }),
+  useProxyLogsAutoRefresh: () => ({
+    intervalMs: false,
+    setIntervalMs: vi.fn(),
+  }),
 }))
 
 vi.mock('../proxy-logs-header-actions', () => ({

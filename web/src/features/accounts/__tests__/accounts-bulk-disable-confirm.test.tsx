@@ -2,7 +2,6 @@
 // must now open a confirmation dialog first (audit #1029 batch B) — matching
 // the destructive bulk-delete guard already in place.
 import '@testing-library/jest-dom/vitest'
-import type { ReactNode } from 'react'
 import {
   cleanup,
   fireEvent,
@@ -10,7 +9,16 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { ReactNode } from 'react'
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
 import '@/i18n/config'
 

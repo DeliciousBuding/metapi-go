@@ -10,7 +10,15 @@ import {
   waitFor,
 } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
 import '@/i18n/config'
 
@@ -67,12 +75,20 @@ vi.mock('@/features/channels/api', () => ({
 }))
 
 vi.mock('../../api', () => ({
-  useRoutes: () => ({ data: [], error: null, isLoading: false, isFetching: false }),
+  useRoutes: () => ({
+    data: [],
+    error: null,
+    isLoading: false,
+    isFetching: false,
+  }),
   useModelTokenCandidates: () => ({ data: undefined }),
   useDeleteRoute: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useUpdateRoute: () => ({ mutate: vi.fn(), isPending: false }),
   useClearRouteCooldown: () => ({ mutate: vi.fn(), isPending: false }),
-  useRebuildRoutes: () => ({ mutate: testState.rebuildMutate, isPending: false }),
+  useRebuildRoutes: () => ({
+    mutate: testState.rebuildMutate,
+    isPending: false,
+  }),
   useRefreshRouteDecisions: () => ({ mutate: vi.fn(), isPending: false }),
   useBatchUpdateRoutes: () => ({
     mutateAsync: testState.batchMutateAsync,
@@ -147,7 +163,9 @@ describe('RoutesPage rebuild confirmation', () => {
     await waitFor(() => {
       expect(testState.rebuildMutate).toHaveBeenCalledTimes(1)
     })
-    expect(testState.rebuildMutate).toHaveBeenCalledWith({ refreshModels: true })
+    expect(testState.rebuildMutate).toHaveBeenCalledWith({
+      refreshModels: true,
+    })
   })
 
   it('does not rebuild when the confirmation is cancelled', () => {
