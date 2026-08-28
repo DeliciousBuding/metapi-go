@@ -90,8 +90,8 @@ beforeEach(() => {
         id: 7,
         accountId: 1,
         username: 'ops',
-        canonical: 'gpt-4o',
-        actual: 'gpt-4o-2024-08-06',
+        canonical: 'gpt-5.5',
+        actual: 'gpt-5.4',
         source: 'manual',
         createdAt: '2026-01-01T00:00:00Z',
         updatedAt: '2026-01-01T00:00:00Z',
@@ -156,7 +156,7 @@ describe('RedirectsSection dangerous-op confirmations', () => {
   it('Apply opens a confirmation and only applies after confirm', async () => {
     renderSection()
 
-    await screen.findByText('gpt-4o')
+    await screen.findByText('gpt-5.5')
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
 
     expect(mockApplyRedirects).not.toHaveBeenCalled()
@@ -181,7 +181,7 @@ describe('RedirectsSection dangerous-op confirmations', () => {
     })
     renderSection()
 
-    await screen.findByText('gpt-4o')
+    await screen.findByText('gpt-5.5')
     fireEvent.click(screen.getByRole('button', { name: 'Preview' }))
 
     await waitFor(() => {

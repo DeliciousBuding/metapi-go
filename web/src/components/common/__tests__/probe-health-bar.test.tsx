@@ -28,7 +28,7 @@ function probe(
     latencyMs,
     httpStatus: null,
     errorText: null,
-    modelName: 'gpt-4o',
+    modelName: 'gpt-5.5',
     createdAt: '2026-08-28T02:00:00Z',
   }
 }

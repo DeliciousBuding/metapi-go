@@ -17,19 +17,19 @@ describe('buildRouteMissingTokenIndex', () => {
   it('matches missing-token models by route pattern and deduplicates accounts', () => {
     const routes = [
       { id: 1, modelPattern: 'claude-*' },
-      { id: 2, modelPattern: 'gpt-4o-mini' },
+      { id: 2, modelPattern: 'gpt-5-mini' },
       { id: 3, modelPattern: '' },
     ]
 
     const missingByModel: MissingTokenModelsByName = {
-      'claude-opus-4-6': [
+      'claude-opus-4.7.6': [
         { accountId: 11, username: 'alice', siteId: 1, siteName: 'site-a' },
         { accountId: 11, username: 'alice', siteId: 1, siteName: 'site-a' },
       ],
       'claude-code-4-6': [
         { accountId: 22, username: 'bob', siteId: 2, siteName: 'site-b' },
       ],
-      'gpt-4o-mini': [
+      'gpt-5-mini': [
         { accountId: 33, username: 'charlie', siteId: 3, siteName: 'site-c' },
       ],
     }
@@ -41,12 +41,12 @@ describe('buildRouteMissingTokenIndex', () => {
     )
     expect(index[1].map((item) => item.modelName)).toEqual([
       'claude-code-4-6',
-      'claude-opus-4-6',
+      'claude-opus-4.7.6',
     ])
     expect(index[1][1].accounts).toEqual([
       { accountId: 11, username: 'alice', siteId: 1, siteName: 'site-a' },
     ])
-    expect(index[2].map((item) => item.modelName)).toEqual(['gpt-4o-mini'])
+    expect(index[2].map((item) => item.modelName)).toEqual(['gpt-5-mini'])
     expect(index[3]).toEqual([])
   })
 
@@ -61,13 +61,13 @@ describe('buildRouteMissingTokenIndex', () => {
 
   it('normalizes missing-token map by trimming model name and deduplicating account', () => {
     const merged = normalizeMissingTokenModels({
-      '  claude-opus-4-6  ': [
+      '  claude-opus-4.7.6  ': [
         { accountId: 1, username: 'alice', siteId: 11, siteName: 'site-a' },
         { accountId: 1, username: 'alice', siteId: 11, siteName: 'site-a' },
       ],
     })
 
-    expect(merged['claude-opus-4-6']).toEqual([
+    expect(merged['claude-opus-4.7.6']).toEqual([
       {
         accountId: 1,
         username: 'alice',

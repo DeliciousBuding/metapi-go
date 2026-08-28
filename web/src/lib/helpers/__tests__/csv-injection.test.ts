@@ -36,7 +36,7 @@ describe('neutralizeCsvFormulaCell', () => {
 
   it('leaves benign content untouched', () => {
     expect(neutralizeCsvFormulaCell('')).toBe('')
-    expect(neutralizeCsvFormulaCell('gpt-4o')).toBe('gpt-4o')
+    expect(neutralizeCsvFormulaCell('gpt-5.5')).toBe('gpt-5.5')
     expect(neutralizeCsvFormulaCell('正常模型名🚀')).toBe('正常模型名🚀')
     expect(neutralizeCsvFormulaCell('2026-08-22 12:00:00')).toBe(
       '2026-08-22 12:00:00'

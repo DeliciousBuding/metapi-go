@@ -362,7 +362,7 @@ function ModelPolicyEditor({
             }
           }}
           placeholder={t('settings.downstream.keys.models.inputPlaceholder', {
-            defaultValue: 'gpt-4o, gpt-*, or re:^claude-',
+            defaultValue: 'gpt-5.5, gpt-*, or re:^claude-',
           })}
           className='font-mono'
         />

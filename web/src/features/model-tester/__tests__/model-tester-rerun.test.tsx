@@ -90,7 +90,7 @@ const channelsFixture: ChannelRow[] = [
     site: { id: 20, name: 'Primary site' },
     type: 'account',
     status: 'enabled',
-    models: 'gpt-4o',
+    models: 'gpt-5.5',
     priority: 0,
     weight: 10,
     responseMs: null,
@@ -108,7 +108,7 @@ const channelsFixture: ChannelRow[] = [
     site: { id: 21, name: 'Backup site' },
     type: 'account',
     status: 'enabled',
-    models: 'gpt-4o',
+    models: 'gpt-5.5',
     priority: 0,
     weight: 10,
     responseMs: null,
@@ -122,7 +122,7 @@ const channelsFixture: ChannelRow[] = [
 ]
 
 const comparisonValues: TesterFormValues = {
-  model: 'gpt-4o-mini',
+  model: 'gpt-5-mini',
   compareChannels: true,
   channelIds: [1, 2],
   systemPrompt: '',

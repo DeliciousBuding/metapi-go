@@ -395,7 +395,7 @@ export function ProxyTransportSection() {
                     {...field}
                     value={field.value ?? ''}
                     rows={6}
-                    placeholder='{ "gpt-4o": { "temperature": 0.7 } }'
+                    placeholder='{ "gpt-5.5": { "temperature": 0.7 } }'
                     className='border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex field-sizing-content w-full rounded-md border bg-transparent px-3 py-2 font-mono text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]'
                   />
                 </FormControl>

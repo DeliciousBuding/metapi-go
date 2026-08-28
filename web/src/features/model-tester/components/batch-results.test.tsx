@@ -40,7 +40,7 @@ const channels: ChannelRow[] = [
     site: { id: 20, name: 'Primary site' },
     type: 'account',
     status: 'enabled',
-    models: 'gpt-4o',
+    models: 'gpt-5.5',
     priority: 0,
     weight: 10,
     responseMs: null,

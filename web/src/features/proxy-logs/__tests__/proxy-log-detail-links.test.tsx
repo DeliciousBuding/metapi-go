@@ -72,7 +72,7 @@ function makeLog(): ProxyLog {
     id: 11,
     createdAt: '2026-08-18T00:00:00Z',
     status: 'success',
-    modelRequested: 'gpt-4o',
+    modelRequested: 'gpt-5.5',
   } as unknown as ProxyLog
 }
 

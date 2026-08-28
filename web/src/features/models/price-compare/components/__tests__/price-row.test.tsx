@@ -78,7 +78,7 @@ function buildRow(overrides: Partial<PriceCompareItem> = {}): PriceCompareItem {
     siteId: 1,
     siteName: 'Primary site',
     platform: 'openai',
-    model: 'gpt-4o',
+    model: 'gpt-5.5',
     accountId: 100,
     username: 'smoke-account',
     inputPerMillion: 2.5,
@@ -96,35 +96,37 @@ function buildRow(overrides: Partial<PriceCompareItem> = {}): PriceCompareItem {
 
 describe('PriceRow routes deep-link', () => {
   it('renders a link to /token-routes with the row model as the q search param', () => {
-    render(<PriceRow row={buildRow({ model: 'gpt-4o' })} />)
+    render(<PriceRow row={buildRow({ model: 'gpt-5.5' })} />)
 
     const link = screen.getByTestId('price-row-route-link')
-    expect(link).toHaveAttribute('href', '/token-routes?q=gpt-4o')
+    expect(link).toHaveAttribute('href', '/token-routes?q=gpt-5.5')
   })
 
   it('encodes the model into the aria-label so screen-reader users can distinguish rows', () => {
-    render(<PriceRow row={buildRow({ model: 'claude-3.5-sonnet' })} />)
+    render(<PriceRow row={buildRow({ model: 'claude-4.5-sonnet' })} />)
 
     // The accessible name interpolates the model so a user scanning rows
     // hears which model each deep-link targets.
     const link = screen.getByTestId('price-row-route-link')
-    expect(link).toHaveAccessibleName('Open claude-3.5-sonnet in routes')
+    expect(link).toHaveAccessibleName('Open claude-4.5-sonnet in routes')
   })
 
   it('renders the deep-link even when the row has no price signal (status column stays, action still useful)', () => {
-    render(<PriceRow row={buildRow({ model: 'gpt-4o', missingPrice: true })} />)
+    render(
+      <PriceRow row={buildRow({ model: 'gpt-5.5', missingPrice: true })} />
+    )
 
     const link = screen.getByTestId('price-row-route-link')
-    expect(link).toHaveAttribute('href', '/token-routes?q=gpt-4o')
-    expect(link).toHaveAccessibleName('Open gpt-4o in routes')
+    expect(link).toHaveAttribute('href', '/token-routes?q=gpt-5.5')
+    expect(link).toHaveAccessibleName('Open gpt-5.5 in routes')
   })
 
   it('URL-encodes models with special characters so the deep-link stays valid', () => {
-    render(<PriceRow row={buildRow({ model: 'gpt-4o-mini' })} />)
+    render(<PriceRow row={buildRow({ model: 'gpt-5-mini' })} />)
 
     // Hyphen is safe in a query param value, so the literal round-trips.
     const link = screen.getByTestId('price-row-route-link')
-    expect(link).toHaveAttribute('href', '/token-routes?q=gpt-4o-mini')
+    expect(link).toHaveAttribute('href', '/token-routes?q=gpt-5-mini')
   })
 })
 

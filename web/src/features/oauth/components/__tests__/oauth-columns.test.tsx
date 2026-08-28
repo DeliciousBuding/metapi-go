@@ -74,7 +74,7 @@ const baseClient = {
   email: null,
   accountKey: null,
   modelCount: 3,
-  modelsPreview: ['gpt-4o', 'gpt-4o-mini', 'o1'],
+  modelsPreview: ['gpt-5.5', 'gpt-5-mini', 'o1'],
   status: 'healthy' as const,
 } as unknown as OAuthClient
 

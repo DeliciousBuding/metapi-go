@@ -8,7 +8,7 @@ import {
 
 function validOverrides(): Partial<TesterFormValues> {
   return {
-    model: 'gpt-4o',
+    model: 'gpt-5.5',
     prompt: 'hello',
     targetFormat: 'claude',
     temperature: 0.7,
@@ -32,8 +32,8 @@ describe('testerSchema — happy path', () => {
   })
 
   it('trims and accepts model with surrounding whitespace', () => {
-    const result = testerSchema.parse({ ...validInput(), model: '  gpt-4o  ' })
-    expect(result.model).toBe('gpt-4o')
+    const result = testerSchema.parse({ ...validInput(), model: '  gpt-5.5  ' })
+    expect(result.model).toBe('gpt-5.5')
   })
 
   it('accepts an empty systemPrompt (no min constraint)', () => {

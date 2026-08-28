@@ -16,8 +16,8 @@ function makeLog(overrides: Partial<ProxyLog>): ProxyLog {
   return {
     id: 1,
     createdAt: '2026-08-22 12:00:00',
-    modelRequested: 'gpt-4o',
-    modelActual: 'gpt-4o',
+    modelRequested: 'gpt-5.5',
+    modelActual: 'gpt-5.5',
     status: 'success',
     httpStatus: 200,
     latencyMs: 120,
@@ -94,7 +94,7 @@ describe('proxyLogsToCsv', () => {
     )
     const bodyRow = csv.split('\n')[1]
     expect(bodyRow).toBe(
-      '2026-08-22 12:00:00,200,success,gpt-4o,alice,hub,120,30,0.05'
+      '2026-08-22 12:00:00,200,success,gpt-5.5,alice,hub,120,30,0.05'
     )
   })
 })

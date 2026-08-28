@@ -19,7 +19,7 @@ const testState = vi.hoisted(() => ({
   navigate: vi.fn(),
   models: [
     {
-      name: 'claude-opus-4.7.7',
+      name: 'claude-opus-4.7.7.7',
       accountCount: 3,
       tokenCount: 10,
       avgLatency: null,
@@ -117,14 +117,14 @@ function renderPage(): void {
 
 describe('models page one-shot ?model= deep link', () => {
   it('opens the detail sheet for the referenced model and strips the param', async () => {
-    window.history.replaceState(null, '', '/models?model=claude-opus-4.7.7')
+    window.history.replaceState(null, '', '/models?model=claude-opus-4.7.7.7')
 
     renderPage()
 
     await waitFor(() => {
       expect(testState.detailSheetProps?.open).toBe(true)
     })
-    expect(testState.detailSheetProps?.model?.name).toBe('claude-opus-4.7.7')
+    expect(testState.detailSheetProps?.model?.name).toBe('claude-opus-4.7.7.7')
     // The transient param is stripped from the URL.
     expect(testState.navigate).toHaveBeenCalledWith({
       href: '/models',

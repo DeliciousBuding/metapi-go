@@ -272,16 +272,16 @@ describe('search palette entity deep links', () => {
   it('deep-links model hits with the one-shot model param', async () => {
     searchMock.mockResolvedValue({
       ...EMPTY_RESPONSE,
-      models: [{ modelName: 'claude-opus-4.7', tokenCount: 3 }],
+      models: [{ modelName: 'claude-opus-4.7.7', tokenCount: 3 }],
     })
     renderModal()
     await typeQuery('claude')
 
-    fireEvent.click(await screen.findByText('claude-opus-4.7'))
+    fireEvent.click(await screen.findByText('claude-opus-4.7.7'))
 
     expect(navigateMock).toHaveBeenCalledWith({
       to: '/models',
-      search: { model: 'claude-opus-4.7' },
+      search: { model: 'claude-opus-4.7.7' },
     })
   })
 })

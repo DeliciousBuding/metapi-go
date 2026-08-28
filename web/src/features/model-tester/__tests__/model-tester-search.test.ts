@@ -8,8 +8,8 @@ import { modelTesterSearchSchema } from '@/routes/_authenticated/model-tester'
 
 describe('modelTesterSearchSchema', () => {
   it('accepts a plain model deep-link param', () => {
-    expect(modelTesterSearchSchema.parse({ model: 'gpt-4o' }).model).toBe(
-      'gpt-4o'
+    expect(modelTesterSearchSchema.parse({ model: 'gpt-5.5' }).model).toBe(
+      'gpt-5.5'
     )
   })
 

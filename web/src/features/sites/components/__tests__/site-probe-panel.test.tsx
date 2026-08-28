@@ -63,14 +63,14 @@ afterEach(() => cleanup())
 const successRow: SiteProbeResult = {
   channelId: 1,
   accountId: 10,
-  model: 'gpt-4o',
+  model: 'gpt-5.5',
   status: 'success',
   latencyMs: 320,
 }
 const failureRow: SiteProbeResult = {
   channelId: 2,
   accountId: 11,
-  model: 'gpt-4o-mini',
+  model: 'gpt-5-mini',
   status: 'failure',
   latencyMs: 0,
   error: 'upstream 503',
@@ -78,7 +78,7 @@ const failureRow: SiteProbeResult = {
 const errorRow: SiteProbeResult = {
   channelId: 3,
   accountId: 12,
-  model: 'claude-sonnet-4',
+  model: 'claude-sonnet-4.5',
   status: 'error',
   latencyMs: 0,
   error: 'target load failed',
@@ -110,10 +110,10 @@ describe('SiteProbePanel', () => {
     // Live incremental arrival: one success, then one failure with its
     // honest error text.
     captured?.onResult?.(successRow)
-    expect(await screen.findByText('gpt-4o')).toBeInTheDocument()
+    expect(await screen.findByText('gpt-5.5')).toBeInTheDocument()
     captured?.onResult?.(failureRow)
     await waitFor(() =>
-      expect(screen.getByText('gpt-4o-mini')).toBeInTheDocument()
+      expect(screen.getByText('gpt-5-mini')).toBeInTheDocument()
     )
     expect(screen.getByText('Failed')).toBeInTheDocument()
     expect(screen.getByText('upstream 503')).toBeInTheDocument()

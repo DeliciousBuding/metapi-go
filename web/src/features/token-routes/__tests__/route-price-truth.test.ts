@@ -38,7 +38,7 @@ function makeChannel(overrides: Partial<RouteChannel> = {}): RouteChannel {
 function makeRoute(overrides: Partial<RouteSummaryRow> = {}): RouteSummaryRow {
   return {
     id: 1,
-    modelPattern: 'gpt-4o',
+    modelPattern: 'gpt-5.5',
     displayName: null,
     displayIcon: null,
     routeMode: 'pattern',
@@ -60,7 +60,7 @@ function makePrice(
     siteId: 0,
     siteName: '',
     platform: '',
-    model: 'gpt-4o',
+    model: 'gpt-5.5',
     accountId: 10,
     username: null,
     inputPerMillion: 2.5,
@@ -110,17 +110,17 @@ describe('calculateRouteChannelAllocations', () => {
 
 describe('resolveConcreteModelForChannel', () => {
   it('uses the channel sourceModel when it is a concrete model name', () => {
-    const route = makeRoute({ modelPattern: 'gpt-4o' })
-    const channel = makeChannel({ sourceModel: 'claude-3-5-sonnet' })
+    const route = makeRoute({ modelPattern: 'gpt-5.5' })
+    const channel = makeChannel({ sourceModel: 'claude-4.5-sonnet' })
     expect(resolveConcreteModelForChannel(route, channel)).toBe(
-      'claude-3-5-sonnet'
+      'claude-4.5-sonnet'
     )
   })
 
   it('falls back to the route model pattern for pattern routes', () => {
-    const route = makeRoute({ modelPattern: 'gpt-4o', routeMode: 'pattern' })
+    const route = makeRoute({ modelPattern: 'gpt-5.5', routeMode: 'pattern' })
     const channel = makeChannel({ sourceModel: null })
-    expect(resolveConcreteModelForChannel(route, channel)).toBe('gpt-4o')
+    expect(resolveConcreteModelForChannel(route, channel)).toBe('gpt-5.5')
   })
 
   it('returns null for explicit-group routes without a concrete sourceModel', () => {
@@ -141,68 +141,68 @@ describe('resolveConcreteModelForChannel', () => {
 
 describe('resolveDistinctConcreteModels', () => {
   it('deduplicates models case-insensitively', () => {
-    const route = makeRoute({ modelPattern: 'gpt-4o' })
+    const route = makeRoute({ modelPattern: 'gpt-5.5' })
     const models = resolveDistinctConcreteModels(route, [
-      makeChannel({ sourceModel: 'gpt-4o' }),
-      makeChannel({ sourceModel: 'GPT-4O' }),
+      makeChannel({ sourceModel: 'gpt-5.5' }),
+      makeChannel({ sourceModel: 'GPT-5.5' }),
       makeChannel({ sourceModel: 'claude-3' }),
     ])
-    expect(models).toEqual(['gpt-4o', 'claude-3'])
+    expect(models).toEqual(['gpt-5.5', 'claude-3'])
   })
 })
 
 describe('resolveRouteChannelPriceTruth', () => {
   it('joins price by accountId and concrete model', () => {
-    const route = makeRoute({ modelPattern: 'gpt-4o' })
-    const channel = makeChannel({ accountId: 10, sourceModel: 'gpt-4o' })
+    const route = makeRoute({ modelPattern: 'gpt-5.5' })
+    const channel = makeChannel({ accountId: 10, sourceModel: 'gpt-5.5' })
     const priceRow = makePrice({
       accountId: 10,
-      model: 'gpt-4o',
+      model: 'gpt-5.5',
       inputPerMillion: 2.5,
       outputPerMillion: 10,
     })
-    const map = new Map([['gpt-4o', [priceRow]]])
+    const map = new Map([['gpt-5.5', [priceRow]]])
     const truth = resolveRouteChannelPriceTruth(route, channel, map)
-    expect(truth.concreteModel).toBe('gpt-4o')
+    expect(truth.concreteModel).toBe('gpt-5.5')
     expect(truth.inputPerMillion).toBe(2.5)
     expect(truth.outputPerMillion).toBe(10)
     expect(truth.provenance.source).toBe('observed')
   })
 
   it('exposes null prices for a missing-price row', () => {
-    const route = makeRoute({ modelPattern: 'gpt-4o' })
+    const route = makeRoute({ modelPattern: 'gpt-5.5' })
     const channel = makeChannel({ accountId: 10 })
     const priceRow = makePrice({
       accountId: 10,
-      model: 'gpt-4o',
+      model: 'gpt-5.5',
       missingPrice: true,
     })
-    const map = new Map([['gpt-4o', [priceRow]]])
+    const map = new Map([['gpt-5.5', [priceRow]]])
     const truth = resolveRouteChannelPriceTruth(route, channel, map)
     expect(truth.inputPerMillion).toBeNull()
     expect(truth.outputPerMillion).toBeNull()
   })
 
   it('returns null price when the accountId does not match', () => {
-    const route = makeRoute({ modelPattern: 'gpt-4o' })
+    const route = makeRoute({ modelPattern: 'gpt-5.5' })
     const channel = makeChannel({ accountId: 99 })
-    const priceRow = makePrice({ accountId: 10, model: 'gpt-4o' })
-    const map = new Map([['gpt-4o', [priceRow]]])
+    const priceRow = makePrice({ accountId: 10, model: 'gpt-5.5' })
+    const map = new Map([['gpt-5.5', [priceRow]]])
     const truth = resolveRouteChannelPriceTruth(route, channel, map)
     expect(truth.price).toBeNull()
     expect(truth.inputPerMillion).toBeNull()
   })
 
   it('derives mixed cost/rate provenance from the row', () => {
-    const route = makeRoute({ modelPattern: 'gpt-4o' })
+    const route = makeRoute({ modelPattern: 'gpt-5.5' })
     const channel = makeChannel({ accountId: 10 })
     const priceRow = makePrice({
       accountId: 10,
-      model: 'gpt-4o',
+      model: 'gpt-5.5',
       source: 'configured',
       ratesSource: 'observed',
     })
-    const map = new Map([['gpt-4o', [priceRow]]])
+    const map = new Map([['gpt-5.5', [priceRow]]])
     const truth = resolveRouteChannelPriceTruth(route, channel, map)
     expect(truth.provenance.source).toBe('configured')
     expect(truth.provenance.ratesSource).toBe('observed')

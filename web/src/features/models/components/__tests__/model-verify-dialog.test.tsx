@@ -51,13 +51,13 @@ describe('ModelVerifyDialog', () => {
       summary: { success: 1, failure: 1, inconclusive: 1, skipped: 0 },
       items: [
         {
-          model: 'gpt-4o',
+          model: 'gpt-5.5',
           siteName: 'site-a',
           status: 'success',
           latencyMs: 120,
         },
         {
-          model: 'gpt-4o-mini',
+          model: 'gpt-5-mini',
           siteName: 'site-a',
           status: 'failure',
           latencyMs: 0,
@@ -77,7 +77,7 @@ describe('ModelVerifyDialog', () => {
     expect(screen.getByText('probed 3')).toBeInTheDocument()
     // No success-faking: filtered target list is exactly what came back.
     expect(
-      screen.queryByText('gpt-4o-mini', { selector: 'td' })
+      screen.queryByText('gpt-5-mini', { selector: 'td' })
     ).toBeInTheDocument()
   })
 
@@ -109,7 +109,7 @@ describe('ModelVerifyDialog', () => {
         {
           id: 41,
           batchId: 'vb-1',
-          model: 'claude-sonnet-4',
+          model: 'claude-sonnet-4.5',
           siteName: 'site-b',
           status: 'inconclusive',
           latencyMs: null,
@@ -128,7 +128,7 @@ describe('ModelVerifyDialog', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'View history' }))
     await waitFor(() => expect(mockVerifyHistory).toHaveBeenCalledTimes(1))
-    expect(await screen.findByText('claude-sonnet-4')).toBeInTheDocument()
+    expect(await screen.findByText('claude-sonnet-4.5')).toBeInTheDocument()
     // Inconclusive stays inconclusive — nothing is dressed up as OK.
     expect(screen.getByText('Inconclusive')).toBeInTheDocument()
     expect(screen.queryByText('OK')).not.toBeInTheDocument()

@@ -9,8 +9,8 @@ describe('buildZeroChannelPlaceholderRoutes', () => {
     const routes: RouteSummaryRow[] = [
       {
         id: 1,
-        modelPattern: 'gpt-4o-mini',
-        displayName: 'gpt-4o-mini',
+        modelPattern: 'gpt-5-mini',
+        displayName: 'gpt-5-mini',
         displayIcon: null,
         modelMapping: null,
         routingStrategy: 'weighted',
@@ -24,7 +24,7 @@ describe('buildZeroChannelPlaceholderRoutes', () => {
     ]
 
     const modelsWithoutToken: MissingTokenModelsByName = {
-      'gpt-4o-mini': [
+      'gpt-5-mini': [
         { accountId: 1, username: 'alice', siteId: 11, siteName: 'site-a' },
       ],
       'gpt-5.2-codex': [

@@ -84,7 +84,7 @@ function makeLog(overrides: Partial<ProxyLog> = {}): ProxyLog {
     id: 11,
     createdAt: NAIVE_UTC_CREATED_AT,
     status: 'success',
-    modelRequested: 'gpt-4o',
+    modelRequested: 'gpt-5.5',
     ...overrides,
   } as unknown as ProxyLog
 }
