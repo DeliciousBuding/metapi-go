@@ -40,7 +40,7 @@ export function SettingsOverview() {
                   | LinkProps['to']
                   | (string & {})
               }
-              className='focus-visible:ring-ring/50 bg-card text-card-foreground ring-foreground/10 hover:bg-accent hover:text-accent-foreground flex h-full flex-col gap-2 rounded-xl p-4 text-sm ring-1 transition-colors focus-visible:ring-2 focus-visible:outline-none'
+              className='focus-visible:ring-focus-ring bg-card text-card-foreground ring-foreground/10 hover:bg-accent hover:text-accent-foreground flex h-full flex-col gap-2 rounded-xl p-4 text-sm ring-1 transition-colors focus-visible:ring-2 focus-visible:outline-none'
             >
               {Icon ? <Icon className='text-primary size-5 shrink-0' /> : null}
               <span className='font-medium'>{t(subarea.title)}</span>
