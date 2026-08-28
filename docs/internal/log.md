@@ -5,6 +5,16 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-08-28 — Wave 16 竞品研究 P0×3 发布 v0.16.17
+
+- **三线并行**（3 worktree + 3 subagent，写集无交集）：
+  - **P0-1 协议转换快照回归套件（#1018）**：46 份手写夹具 + 快照锁死 transform 层——Gemini 请求转换矩阵、Responses 连续性/清洗决策表、响应与 SSE usage 提取四形状 + 增量流解析（含 7 字节分块边界）、completions/embeddings/images 恒等契约；新增快照测试 harness（`GOLDEN_UPDATE=1` 重写，纪律入 docs/testing.md）；零生产代码改动。
+  - **P0-2 行级探测健康条（#1020）**：新增只读端点 `GET /api/channels/probe-history` 与 `GET /api/accounts/probe-history`（limit 1–50 默认 20，单条窗口查询无 N+1，实体列白名单防注入）；渠道/账号表行级健康条 + tooltip 成功率/延迟 + 键盘可达与 aria；双语齐全。
+  - **P0-3 结构化冷却原因（#1019）**：`route_channels` 与 `oauth_route_unit_members` 各 +3 可空原因列（additive `sc2_025`，双方言 + 迁移工具携带 + OAuth 回滚恢复）；9 码只增词表与净化摘要（200 runes）；流量/探测双路径记录、全部清除点同步清原因；徽章可点击→根因弹窗（本地化触发码/摘要/记录时间/剩余倒计时/路由级清除），旧数据如实「原因未记录」；`GET /api/channels` 新增三 camelCase 字段，docs/api.md 同步。
+- **附带修复**：#1022 加权选择测试去 flake（单次抽签断言→200 抽统计，与既有 fallback-penalty 测试同款模式；该 flake 在 docs-only 发布 PR 的 test-pg 首次现形）；#1023 发布 notes 卫生守卫命中内部词，CHANGELOG 措辞修订后重建 tag。
+- **验收**：私有面运维 testbed 综合验收通过——版本注入（`metapi --version` = v0.16.17）、/ready、探测历史端点信封与 limit clamp、cooldownReason* camelCase 契约、SPA 资产，新功能 7/7 PASS；既有 smoke 13 PASS / 1 WARN / 0 FAIL（WARN = 上游零渠道、空模型为上游事实）。为使渠道行存在，经账号手工模型端点钉住 `gpt-3.5-turbo` 后重建路由；原始证据留私有面。
+- **发布收口**：tag pipeline run 33133330480 全绿（23 项检查 + 多架构镜像 `:0.16.17`/`:0.16` + 5 平台二进制与 smoke）；GitHub Release 已正式发布，含 12 个资产。
+
 ## 2026-08-28 — Wave 15 issue 收口 发布 v0.16.16
 
 - **#1005 定时上游模型同步**：`MODEL_SYNC_CRON`（默认 `0 4 * * *`）+ 设置页 `modelSyncCron` 运行时热更新（非法 cron 400）；单账号失败不中断整批，批量结束后路由重建与缓存失效恰好整体发生一次；手工单账号刷新端点行为不变（PR #1015）。
