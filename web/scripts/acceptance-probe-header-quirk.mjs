@@ -26,6 +26,8 @@
 
 import { chromium } from 'playwright'
 
+import { loginSession } from './session-auth.mjs'
+
 const BASE_URL = (process.env.BASE_URL ?? 'http://127.0.0.1:4000').replace(
   /\/$/,
   ''
@@ -178,17 +180,10 @@ try {
       viewport: { width: 1440, height: 900 },
       locale: 'en',
     })
-    await context.addInitScript(
-      ({ token }) => {
-        localStorage.setItem('auth_token', token)
-        localStorage.setItem(
-          'auth_token_expires_at',
-          String(Date.now() + 12 * 3600 * 1000)
-        )
-        localStorage.setItem('i18nextLng', 'en')
-      },
-      { token: AUTH_TOKEN }
-    )
+    await loginSession(context, { baseUrl: BASE_URL, token: AUTH_TOKEN })
+    await context.addInitScript(() => {
+      localStorage.setItem('i18nextLng', 'en')
+    })
 
     await wipeState(context.request)
     await createFreshSite(context.request, `quirk-probe-${trial}`)

@@ -11,6 +11,8 @@ import { pathToFileURL } from 'node:url'
 
 import { chromium } from 'playwright'
 
+import { loginSession } from './session-auth.mjs'
+
 const BASE_URL = process.env.BASE_URL ?? 'http://localhost:4000'
 const AUTH_TOKEN = process.env.AUTH_TOKEN ?? 'dev-admin-token-123'
 
@@ -122,18 +124,11 @@ const ERROR_TEXT =
   /(服务器错误|服务器内部错误|internal server error|something went wrong|application error|chunkloaderror)/i
 
 async function seedAuth(context) {
-  await context.addInitScript(
-    ({ token }) => {
-      localStorage.setItem('auth_token', token)
-      localStorage.setItem(
-        'auth_token_expires_at',
-        String(Date.now() + 12 * 3600 * 1000)
-      )
-      localStorage.setItem('i18nextLng', 'zh-CN')
-      document.cookie = 'vite-ui-theme=light; path=/'
-    },
-    { token: AUTH_TOKEN }
-  )
+  await loginSession(context, { baseUrl: BASE_URL, token: AUTH_TOKEN })
+  await context.addInitScript(() => {
+    localStorage.setItem('i18nextLng', 'zh-CN')
+    document.cookie = 'vite-ui-theme=light; path=/'
+  })
 }
 
 async function seedInteractionData(request) {

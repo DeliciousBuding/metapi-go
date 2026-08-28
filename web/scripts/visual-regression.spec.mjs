@@ -1,8 +1,9 @@
 // metapi-go — golden screenshot regression for 4 key authenticated pages.
 //
 // Runs against a real server serving the built SPA (BASE_URL), the same way
-// the a11y/route-smoke gates do: fresh sqlite DATA_DIR, AUTH_TOKEN dev seed
-// via localStorage, zh-CN + light theme, desktop 1440x900 at DPR 1.
+// the a11y/route-smoke gates do: fresh sqlite DATA_DIR, AUTH_TOKEN exchanged
+// for the HttpOnly session cookie via POST /api/auth/login, zh-CN + light
+// theme, desktop 1440x900 at DPR 1.
 //
 // Only light/desktop is golden (the parent regression contract); dark and
 // mobile coverage lives in the evidence pipeline (scripts/screenshot-scan.mjs
@@ -12,6 +13,8 @@
 //   bun run visual:regression                       # compare (CI default)
 //   UPDATE_SNAPSHOTS=all bun run visual:regression  # write new baselines
 import { expect, test } from 'playwright/test'
+
+import { loginSession } from './session-auth.mjs'
 
 const BASE_URL = process.env.BASE_URL ?? 'http://127.0.0.1:4099'
 const AUTH_TOKEN = process.env.AUTH_TOKEN ?? 'dev-admin-token-123'
@@ -41,20 +44,13 @@ const PAGES = [
 ]
 
 test.beforeEach(async ({ context }) => {
-  // Same auth seed as a11y-scan/route-smoke: localStorage token + zh-CN,
-  // light theme via the app's vite-ui-theme cookie.
-  await context.addInitScript(
-    ({ token }) => {
-      localStorage.setItem('auth_token', token)
-      localStorage.setItem(
-        'auth_token_expires_at',
-        String(Date.now() + 12 * 3600 * 1000)
-      )
-      localStorage.setItem('i18nextLng', 'zh-CN')
-      document.cookie = 'vite-ui-theme=light; path=/'
-    },
-    { token: AUTH_TOKEN }
-  )
+  // Same auth seed as a11y-scan/route-smoke: real session login (HttpOnly
+  // metapi_session cookie) + zh-CN, light theme via the vite-ui-theme cookie.
+  await loginSession(context, { baseUrl: BASE_URL, token: AUTH_TOKEN })
+  await context.addInitScript(() => {
+    localStorage.setItem('i18nextLng', 'zh-CN')
+    document.cookie = 'vite-ui-theme=light; path=/'
+  })
 })
 
 for (const [name, route] of PAGES) {

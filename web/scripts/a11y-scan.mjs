@@ -19,6 +19,7 @@ import { chromium } from 'playwright'
 // Single source of truth: the desktop route inventory lives in
 // route-smoke.mjs; importing it keeps the two gates from drifting.
 import { DESKTOP_ROUTES } from './route-smoke.mjs'
+import { loginSession } from './session-auth.mjs'
 
 const BASE_URL = process.env.BASE_URL ?? 'http://localhost:3000'
 const AUTH_TOKEN = process.env.AUTH_TOKEN ?? 'dev-admin-token-123'
@@ -49,17 +50,13 @@ async function scanLocale(locale) {
   const context = await browser.newContext({
     viewport: { width: 1440, height: 900 },
   })
+  await loginSession(context, { baseUrl: BASE_URL, token: AUTH_TOKEN })
   await context.addInitScript(
-    ({ token, locale }) => {
-      localStorage.setItem('auth_token', token)
-      localStorage.setItem(
-        'auth_token_expires_at',
-        String(Date.now() + 12 * 3600 * 1000)
-      )
+    ({ locale }) => {
       localStorage.setItem('i18nextLng', locale)
       document.cookie = 'vite-ui-theme=light; path=/'
     },
-    { token: AUTH_TOKEN, locale }
+    { locale }
   )
 
   const failures = []

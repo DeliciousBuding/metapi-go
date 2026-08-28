@@ -33,6 +33,8 @@
 
 import { chromium } from 'playwright'
 
+import { loginSession } from './session-auth.mjs'
+
 const BASE_URL = (process.env.BASE_URL ?? 'http://127.0.0.1:4000').replace(
   /\/$/,
   ''
@@ -74,18 +76,11 @@ function collectPageFailures(page, label) {
 }
 
 async function seedAuth(context) {
-  await context.addInitScript(
-    ({ token }) => {
-      localStorage.setItem('auth_token', token)
-      localStorage.setItem(
-        'auth_token_expires_at',
-        String(Date.now() + 12 * 3600 * 1000)
-      )
-      localStorage.setItem('i18nextLng', 'en')
-      document.cookie = 'vite-ui-theme=light; path=/'
-    },
-    { token: AUTH_TOKEN }
-  )
+  await loginSession(context, { baseUrl: BASE_URL, token: AUTH_TOKEN })
+  await context.addInitScript(() => {
+    localStorage.setItem('i18nextLng', 'en')
+    document.cookie = 'vite-ui-theme=light; path=/'
+  })
 }
 
 // Wipe all sites and accounts for a deterministic start. This acceptance gate
