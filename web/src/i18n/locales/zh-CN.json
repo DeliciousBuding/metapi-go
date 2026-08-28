@@ -535,6 +535,10 @@
         "deleteConfirmDescription": "将删除选中的 {{count}} 个站点，此操作不可撤销。",
         "deleteConfirmConfirm": "删除",
         "deleteConfirmCancel": "取消",
+        "disableConfirmTitle": "禁用选中的站点？",
+        "disableConfirmDescription": "将禁用选中的 {{count}} 个站点，禁用后将被移出路由，直至重新启用。",
+        "disableConfirmConfirm": "禁用",
+        "disableConfirmCancel": "取消",
         "enableSystemProxy": "开启系统代理",
         "disableSystemProxy": "关闭系统代理"
       },
@@ -2414,6 +2418,8 @@
         "exportCsv": "导出 CSV",
         "exportCsvToast": "已导出 {{count}} 条记录",
         "exportCsvFailed": "导出 CSV 失败：{{message}}",
+        "exportCsvTruncated": "导出已达行数上限",
+        "exportCsvTruncatedHint": "仅导出了前 {{count}} 条记录。请缩小筛选范围以导出完整数据。",
         "exportCsvColumn": {
           "timestamp": "时间戳",
           "httpStatus": "HTTP 状态",

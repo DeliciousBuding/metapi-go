@@ -535,6 +535,10 @@
         "deleteConfirmDescription": "This will delete the {{count}} selected site(s). This action cannot be undone.",
         "deleteConfirmConfirm": "Delete",
         "deleteConfirmCancel": "Cancel",
+        "disableConfirmTitle": "Disable selected sites?",
+        "disableConfirmDescription": "This will disable the {{count}} selected site(s), taking them out of routing until re-enabled.",
+        "disableConfirmConfirm": "Disable",
+        "disableConfirmCancel": "Cancel",
         "enableSystemProxy": "Enable system proxy",
         "disableSystemProxy": "Disable system proxy"
       },
@@ -2414,6 +2418,8 @@
         "exportCsv": "Export CSV",
         "exportCsvToast": "Exported {{count}} rows",
         "exportCsvFailed": "CSV export failed: {{message}}",
+        "exportCsvTruncated": "Export hit the row limit",
+        "exportCsvTruncatedHint": "Only the first {{count}} rows were exported. Narrow the filters to export the full dataset.",
         "exportCsvColumn": {
           "timestamp": "Timestamp",
           "httpStatus": "HTTP status",

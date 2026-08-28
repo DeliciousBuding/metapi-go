@@ -203,6 +203,13 @@ export function SitesPage() {
     ids: number[]
     count: number
   } | null>(null)
+  // Bulk disable takes sites out of rotation — same impact class as the
+  // accounts/routes bulk-disable confirmations, so it gets the same gate
+  // instead of firing directly (W19-T1 P2-m①).
+  const [bulkDisableState, setBulkDisableState] = useState<{
+    ids: number[]
+    count: number
+  } | null>(null)
 
   // Consume the one-shot `?create=1` deep link exactly once: open the create
   // dialog (in create mode — no edit target), then strip the transient
@@ -358,6 +365,10 @@ export function SitesPage() {
       setBulkDeleteState({ ids, count: ids.length })
       return
     }
+    if (action === 'disable') {
+      setBulkDisableState({ ids, count: ids.length })
+      return
+    }
     try {
       const result = await batchUpdateSites.mutateAsync({ ids, action })
       const successCount = result.successIds?.length ?? 0
@@ -403,6 +414,34 @@ export function SitesPage() {
     } catch {
       // http-client toasted
       setBulkDeleteState(null)
+    }
+  }
+
+  async function confirmBulkDisable() {
+    if (!bulkDisableState) return
+    const { ids } = bulkDisableState
+    try {
+      const result = await batchUpdateSites.mutateAsync({
+        ids,
+        action: 'disable',
+      })
+      const successCount = result.successIds?.length ?? 0
+      const failedCount = ids.length - successCount
+      if (failedCount <= 0) {
+        toast.success(t('sites.toast.bulkSucceeded', { count: successCount }))
+      } else {
+        toast.warning(
+          t('sites.toast.bulkPartial', {
+            success: successCount,
+            failed: failedCount,
+          })
+        )
+      }
+      table.resetRowSelection()
+      setBulkDisableState(null)
+    } catch {
+      // http-client toasted
+      setBulkDisableState(null)
     }
   }
 
@@ -626,6 +665,41 @@ export function SitesPage() {
             >
               {batchUpdateSites.isPending && <Spinner className='mr-2' />}
               {t('sites.bulk.deleteConfirmConfirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={bulkDisableState !== null}
+        onOpenChange={(open) => {
+          if (!open) setBulkDisableState(null)
+        }}
+      >
+        <DialogContent className='sm:max-w-sm'>
+          <DialogHeader>
+            <DialogTitle>{t('sites.bulk.disableConfirmTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('sites.bulk.disableConfirmDescription', {
+                count: bulkDisableState?.count ?? 0,
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant='outline'
+              onClick={() => setBulkDisableState(null)}
+              disabled={batchUpdateSites.isPending}
+            >
+              {t('sites.bulk.disableConfirmCancel')}
+            </Button>
+            <Button
+              variant='destructive'
+              onClick={confirmBulkDisable}
+              disabled={batchUpdateSites.isPending}
+            >
+              {batchUpdateSites.isPending && <Spinner className='mr-2' />}
+              {t('sites.bulk.disableConfirmConfirm')}
             </Button>
           </DialogFooter>
         </DialogContent>
