@@ -2952,6 +2952,12 @@
         "editRouteHint": "打开所属令牌路由",
         "enabledLabel": "启用状态",
         "manualOverrideSetActive": "已手动设置"
+      },
+      "errorBanner": {
+        "message": "{{count}} 个渠道处于失败状态（冷却或熔断）。",
+        "filterButton": "只看失败",
+        "errorOnlyMode": "当前仅显示失败渠道。",
+        "exitButton": "显示全部"
       }
     },
     "probeHealth": {

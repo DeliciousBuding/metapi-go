@@ -8,7 +8,7 @@
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import type { ColumnFiltersState } from '@tanstack/react-table'
 import { Users } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
@@ -26,6 +26,11 @@ import { asStringParam, parseSortingParam } from '@/lib/helpers/searchParams'
 
 import { useChannels } from '../api'
 import { channelsSearchSchema } from '../lib/channels-schema'
+import {
+  CHANNELS_ERROR_STATUSES,
+  CHANNELS_ERROR_STATUS_FILTER,
+  isErrorOnlyStatusFilter,
+} from '../lib/error-statuses'
 import type { ChannelRow } from '../types'
 import { ChannelDetailSheet } from './channel-detail-sheet'
 import {
@@ -33,6 +38,7 @@ import {
   useChannelsColumns,
   type ChannelsColumnActions,
 } from './channels-columns'
+import { ChannelsErrorBanner } from './channels-error-banner'
 import { CooldownReasonDialog } from './cooldown-reason-dialog'
 
 const CHANNELS_COLUMN_VISIBILITY_STORAGE_KEY =
@@ -128,6 +134,11 @@ export function ChannelsPage() {
   // the bars, never the channels table.
   const probeHistoryQuery = useProbeHistory('channels')
   const urlState = useChannelsUrlState()
+
+  // P1-4 closure (competitor-study-2026-08): the error banner doubles as
+  // the filter entry. The count derives from the loaded list; the mode
+  // derives from the URL status facet — persistent, shareable state per
+  // state-stability.md R1, never a one-shot param the page strips.
   const [detailChannel, setDetailChannel] = useState<ChannelRow | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [reasonChannel, setReasonChannel] = useState<ChannelRow | null>(null)
@@ -156,6 +167,28 @@ export function ChannelsPage() {
       replace: true,
     })
   }, [search, channelsQuery.isLoading, channelsQuery.data, navigate])
+
+  const allChannels = channelsQuery.data ?? []
+  const errorChannelCount = allChannels.filter((channel) =>
+    CHANNELS_ERROR_STATUSES.includes(channel.status)
+  ).length
+  const showErrorOnly = isErrorOnlyStatusFilter(
+    asStringParam(search.status) ?? ''
+  )
+
+  const handleFilterErrors = useCallback(() => {
+    void navigate({
+      to: '/channels',
+      search: { ...search, status: CHANNELS_ERROR_STATUS_FILTER, page: 0 },
+    })
+  }, [navigate, search])
+
+  const handleExitErrorOnly = useCallback(() => {
+    void navigate({
+      to: '/channels',
+      search: { ...search, status: undefined, page: 0 },
+    })
+  }, [navigate, search])
 
   const columnActions: ChannelsColumnActions = {
     onView: (channel) => {
@@ -204,38 +237,46 @@ export function ChannelsPage() {
           isRetrying={channelsQuery.isFetching}
         />
       ) : (
-        <DataTablePage
-          table={table}
-          columns={columns}
-          isLoading={channelsQuery.isLoading}
-          isFetching={channelsQuery.isFetching}
-          emptyTitle={t('channels.empty.title')}
-          emptyDescription={t('channels.empty.description')}
-          emptyAction={
-            <Button
-              variant='outline'
-              onClick={() => void navigate({ to: '/accounts' })}
-            >
-              <Users className='size-4' />
-              {t('channels.empty.manageAccounts')}
-            </Button>
-          }
-          skeletonKeyPrefix='channel-skeleton'
-          toolbarProps={{
-            searchPlaceholder: t('channels.toolbar.searchPlaceholder'),
-            searchDebounceMs: 400,
-            filters: [
-              {
-                columnId: 'status',
-                title: t('channels.columns.status'),
-                options: CHANNELS_STATUS_FILTER_OPTIONS.map((option) => ({
-                  label: t(option.labelKey),
-                  value: option.value,
-                })),
-              },
-            ],
-          }}
-        />
+        <>
+          <ChannelsErrorBanner
+            errorCount={errorChannelCount}
+            showErrorOnly={showErrorOnly}
+            onFilterErrors={handleFilterErrors}
+            onExitErrorOnly={handleExitErrorOnly}
+          />
+          <DataTablePage
+            table={table}
+            columns={columns}
+            isLoading={channelsQuery.isLoading}
+            isFetching={channelsQuery.isFetching}
+            emptyTitle={t('channels.empty.title')}
+            emptyDescription={t('channels.empty.description')}
+            emptyAction={
+              <Button
+                variant='outline'
+                onClick={() => void navigate({ to: '/accounts' })}
+              >
+                <Users className='size-4' />
+                {t('channels.empty.manageAccounts')}
+              </Button>
+            }
+            skeletonKeyPrefix='channel-skeleton'
+            toolbarProps={{
+              searchPlaceholder: t('channels.toolbar.searchPlaceholder'),
+              searchDebounceMs: 400,
+              filters: [
+                {
+                  columnId: 'status',
+                  title: t('channels.columns.status'),
+                  options: CHANNELS_STATUS_FILTER_OPTIONS.map((option) => ({
+                    label: t(option.labelKey),
+                    value: option.value,
+                  })),
+                },
+              ],
+            }}
+          />
+        </>
       )}
 
       <CooldownReasonDialog
