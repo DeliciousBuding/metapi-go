@@ -111,8 +111,16 @@ type Config struct {
 	CheckinWindowStart string
 	CheckinWindowEnd   string
 	BalanceRefreshCron string
-	ModelSyncCron      string
-	LogCleanupCron     string
+	// Global kill switches for the two always-on periodic jobs that touch
+	// upstream accounts (check-in, balance refresh) — issue #1027. Defaults
+	// preserve historical behavior (both jobs on); operators turn either job
+	// off via env (CHECKIN_ENABLED / BALANCE_REFRESH_ENABLED) or the runtime
+	// settings of the same camelCase names. Stored inverted (zero value =
+	// enabled) so bare config literals keep the default-on behavior.
+	CheckinDisabled        bool
+	BalanceRefreshDisabled bool
+	ModelSyncCron          string
+	LogCleanupCron         string
 	// Site & Branding (5 fields) - empty defaults keep the embedded frontend
 	// branding and login-page copy unchanged. homePageContent was removed
 	// (Wave 8 Lane D): the value was stored but never rendered anywhere.
@@ -652,6 +660,11 @@ func Load(env map[string]string) *Config {
 		1, 24,
 	)
 	cfg.BalanceRefreshCron = firstNonEmpty(get("BALANCE_REFRESH_CRON"), DefaultBalanceRefreshCron)
+	// #1027: global enable switches for the upstream-touching account jobs.
+	// Absent/invalid env vars keep the historical defaults (both enabled).
+	// Stored inverted: zero value = enabled (see Config field comment).
+	cfg.CheckinDisabled = !parseBoolean(get("CHECKIN_ENABLED"), true)
+	cfg.BalanceRefreshDisabled = !parseBoolean(get("BALANCE_REFRESH_ENABLED"), true)
 	cfg.ModelSyncCron = firstNonEmpty(get("MODEL_SYNC_CRON"), DefaultModelSyncCron)
 	cfg.LogCleanupCron = firstNonEmpty(get("LOG_CLEANUP_CRON"), DefaultLogCleanupCron)
 

@@ -82,7 +82,9 @@ const scheduleSpecSchema = z.discriminatedUnion('kind', [
 ])
 
 const schedulingSchema = z.object({
+  checkinEnabled: z.boolean(),
   checkinSchedule: scheduleSpecSchema,
+  balanceRefreshEnabled: z.boolean(),
   balanceRefreshSchedule: scheduleSpecSchema,
   modelSyncCron: z.string().min(1),
   logCleanupSchedule: scheduleSpecSchema,
@@ -94,7 +96,9 @@ const schedulingSchema = z.object({
 type SchedulingFormValues = z.infer<typeof schedulingSchema>
 
 const DEFAULT_VALUES: SchedulingFormValues = {
+  checkinEnabled: true,
   checkinSchedule: { version: 1, kind: 'daily', time: '08:00' },
+  balanceRefreshEnabled: true,
   balanceRefreshSchedule: { version: 1, kind: 'interval', everyHours: 1 },
   modelSyncCron: '0 4 * * *',
   logCleanupSchedule: { version: 1, kind: 'daily', time: '06:00' },
@@ -124,7 +128,9 @@ function deriveServerValues(
   const logCleanupSchedule =
     data.logCleanupSchedule ?? scheduleFromLegacy({ cron: data.logCleanupCron })
   return {
+    checkinEnabled: data.checkinEnabled ?? true,
     checkinSchedule,
+    balanceRefreshEnabled: data.balanceRefreshEnabled ?? true,
     balanceRefreshSchedule: balanceSchedule,
     modelSyncCron: data.modelSyncCron ?? '0 4 * * *',
     logCleanupSchedule,
@@ -169,6 +175,12 @@ function schedulingToPayload(
   changed: Partial<SchedulingFormValues>
 ): RuntimeSettingsPayload {
   const payload: RuntimeSettingsPayload = {}
+  if (changed.checkinEnabled !== undefined) {
+    payload.checkinEnabled = changed.checkinEnabled
+  }
+  if (changed.balanceRefreshEnabled !== undefined) {
+    payload.balanceRefreshEnabled = changed.balanceRefreshEnabled
+  }
   if (changed.checkinSchedule) {
     projectSchedule(payload, 'checkin', changed.checkinSchedule)
   }
@@ -313,6 +325,29 @@ export function SchedulingSection() {
       }
     >
       <MigrationCard />
+      {/* #1027: discoverability — map every upstream-touching monitoring job
+          to its off switch so the "how do I turn health monitoring off"
+          question is answered where users look for scheduling controls. */}
+      <div className='border-primary/30 bg-primary/5 mb-4 space-y-2 rounded-lg border p-4'>
+        <h3 className='text-sm font-medium'>
+          {t('settings.operations.scheduling.healthMonitoring.title')}
+        </h3>
+        <p className='text-muted-foreground mt-1 text-xs'>
+          {t('settings.operations.scheduling.healthMonitoring.description')}
+        </p>
+        <ul className='text-muted-foreground mt-2 list-inside list-disc space-y-1 text-xs'>
+          <li>
+            {t('settings.operations.scheduling.healthMonitoring.checkin')}
+          </li>
+          <li>
+            {t('settings.operations.scheduling.healthMonitoring.balance')}
+          </li>
+          <li>{t('settings.operations.scheduling.healthMonitoring.probe')}</li>
+          <li>
+            {t('settings.operations.scheduling.healthMonitoring.passive')}
+          </li>
+        </ul>
+      </div>
       <Form {...form}>
         <form
           id={FORM_ID}
@@ -323,6 +358,34 @@ export function SchedulingSection() {
             <h3 className='text-sm font-medium'>
               {t('settings.operations.scheduling.fields.checkinGroup')}
             </h3>
+            {/* #1027: global check-in kill switch (per-account switches live
+                on the Accounts page). */}
+            <FormField
+              control={form.control}
+              name='checkinEnabled'
+              render={({ field }) => (
+                <FormItem className='flex flex-row items-center gap-3'>
+                  <FormControl>
+                    <Checkbox
+                      checked={Boolean(field.value)}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className='space-y-1'>
+                    <FormLabel className='cursor-pointer'>
+                      {t(
+                        'settings.operations.scheduling.fields.checkinEnabled'
+                      )}
+                    </FormLabel>
+                    <FormDescription>
+                      {t(
+                        'settings.operations.scheduling.fields.checkinEnabledHint'
+                      )}
+                    </FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name='checkinSchedule'
@@ -348,6 +411,33 @@ export function SchedulingSection() {
             <h3 className='text-sm font-medium'>
               {t('settings.operations.scheduling.fields.balanceGroup')}
             </h3>
+            {/* #1027: global balance-refresh kill switch. */}
+            <FormField
+              control={form.control}
+              name='balanceRefreshEnabled'
+              render={({ field }) => (
+                <FormItem className='flex flex-row items-center gap-3'>
+                  <FormControl>
+                    <Checkbox
+                      checked={Boolean(field.value)}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className='space-y-1'>
+                    <FormLabel className='cursor-pointer'>
+                      {t(
+                        'settings.operations.scheduling.fields.balanceRefreshEnabled'
+                      )}
+                    </FormLabel>
+                    <FormDescription>
+                      {t(
+                        'settings.operations.scheduling.fields.balanceRefreshEnabledHint'
+                      )}
+                    </FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name='balanceRefreshSchedule'

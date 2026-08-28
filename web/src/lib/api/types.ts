@@ -325,12 +325,14 @@ export type RuntimeSettingsPayload = {
   proxyDebugTargetModel?: string
   proxyDebugRetentionHours?: number
   proxyDebugMaxBodyBytes?: number
+  checkinEnabled?: boolean
   checkinCron?: string
   checkinScheduleMode?: 'cron' | 'interval' | 'window'
   checkinIntervalHours?: number
   checkinWindowStart?: string
   checkinWindowEnd?: string
   checkinSchedule?: ScheduleSpecV1
+  balanceRefreshEnabled?: boolean
   balanceRefreshCron?: string
   balanceRefreshSchedule?: ScheduleSpecV1
   modelSyncCron?: string

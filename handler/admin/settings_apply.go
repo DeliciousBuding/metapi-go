@@ -63,6 +63,20 @@ func (h *settingsHandler) applyProxyAccessSettings(body map[string]any) *setting
 
 // applyCheckinSettings applies the checkin schedule fields.
 func (h *settingsHandler) applyCheckinSettings(body map[string]any) *settingsApplyError {
+	// #1027: global check-in kill switch. Persisted to the checkin_enabled
+	// setting and hot-applied to the running scheduler independently of the
+	// schedule fields below.
+	if v, ok := body["checkinEnabled"]; ok {
+		enabled, err := toBoolStrict(v)
+		if err != nil {
+			return failSettings(http.StatusBadRequest, "checkinEnabled must be a boolean (true/false)")
+		}
+		h.cfg.CheckinDisabled = !enabled
+		if err := upsertSettingDB(h.db, "checkin_enabled", enabled); err != nil {
+			return failSettings(http.StatusInternalServerError, "failed to save checkinEnabled")
+		}
+		app.UpdateCheckinEnabled(enabled)
+	}
 	if hasAnyKey(body, "checkinCron", "checkinScheduleMode", "checkinIntervalHours") {
 		patch := checkinSchedulePatch{}
 		if v, ok := body["checkinCron"]; ok {
@@ -128,6 +142,22 @@ func (h *settingsHandler) applyCheckinSettings(body map[string]any) *settingsApp
 
 // applyBalanceScheduleSettings applies the balance refresh cron/schedule.
 func (h *settingsHandler) applyBalanceScheduleSettings(body map[string]any) *settingsApplyError {
+	// #1027: global balance-refresh kill switch. Persisted to the
+	// balance_refresh_enabled setting and hot-applied to the running
+	// scheduler independently of the cron fields below.
+	if v, ok := body["balanceRefreshEnabled"]; ok {
+		enabled, err := toBoolStrict(v)
+		if err != nil {
+			return failSettings(http.StatusBadRequest, "balanceRefreshEnabled must be a boolean (true/false)")
+		}
+		h.cfg.BalanceRefreshDisabled = !enabled
+		if err := upsertSettingDB(h.db, "balance_refresh_enabled", enabled); err != nil {
+			return failSettings(http.StatusInternalServerError, "failed to save balanceRefreshEnabled")
+		}
+		if err := app.UpdateBalanceEnabled(enabled); err != nil {
+			slog.Warn("settings: balance refresh enable hot update failed", "error", err)
+		}
+	}
 	// Balance refresh cron
 	if v, ok := body["balanceRefreshCron"]; ok {
 		cron := normalizeString(v)
@@ -271,6 +301,14 @@ func (h *settingsHandler) applyFeatureToggleSettings(body map[string]any) *setti
 		}
 		h.cfg.ModelAvailabilityProbeEnabled = enabled
 		upsertSettingDB(h.db, "model_availability_probe_enabled", enabled)
+		// #1027: hot-apply the toggle to the running ticker. Before this the
+		// flag was only honored at scheduler Start, so toggling it off from
+		// the settings page kept probing until a restart.
+		if sched := scheduler.GetGlobalModelProbeScheduler(); sched != nil {
+			if err := sched.SetEnabled(enabled); err != nil {
+				slog.Warn("settings: model probe hot toggle failed", "error", err)
+			}
+		}
 	}
 
 	// Codex upstream websocket

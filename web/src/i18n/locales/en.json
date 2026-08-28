@@ -1524,6 +1524,14 @@
         "scheduling": {
           "title": "Scheduled Tasks",
           "description": "Check-in, balance refresh, and log cleanup schedules.",
+          "healthMonitoring": {
+            "title": "Upstream account health monitoring",
+            "description": "Automatic jobs that contact upstream accounts, and where to turn them off:",
+            "checkin": "Daily check-in — the \"Enable daily check-in\" switch below turns it off globally; per-account switches are on the Accounts page.",
+            "balance": "Scheduled balance refresh — the \"Enable scheduled balance refresh\" switch below turns it off globally.",
+            "probe": "Active model availability probing — off by default; if you enabled it, turn it off under Settings → Proxy & Models → Proxy Transport.",
+            "passive": "Status badges and probe-health columns on the Accounts page are passive displays of past traffic; they never contact upstream sites."
+          },
           "triggerCheckin": "Trigger check-in now",
           "viewProgramLogs": "View logs",
           "migration": {
@@ -1541,8 +1549,12 @@
             "logCleanupRetentionDays": "Log retention (days)",
             "logCleanupUsageLogsEnabled": "Purge usage logs",
             "checkinGroup": "Check-in",
+            "checkinEnabled": "Enable daily check-in",
+            "checkinEnabledHint": "When disabled, Metapi stops sending automatic check-in requests to upstream sites. Per-account check-in switches remain available on the Accounts page.",
             "checkinSchedule": "Check-in schedule",
             "balanceGroup": "Balance refresh",
+            "balanceRefreshEnabled": "Enable scheduled balance refresh",
+            "balanceRefreshEnabledHint": "When disabled, upstream account balances are no longer refreshed on schedule; displayed balances may gradually become stale.",
             "balanceRefreshSchedule": "Balance refresh schedule",
             "modelSyncGroup": "Model list sync",
             "modelSyncCron": "Model sync schedule (cron)",

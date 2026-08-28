@@ -190,6 +190,35 @@ func UpdateBalanceCron(cronExpr string) error {
 	return activeScheduler.UpdateCron(cronExpr)
 }
 
+// UpdateCheckinEnabled hot-toggles the global check-in switch (#1027) on the
+// running scheduler. It is a no-op before background services have started.
+func UpdateCheckinEnabled(enabled bool) {
+	updateMu.Lock()
+	defer updateMu.Unlock()
+	servicesMu.RLock()
+	activeScheduler := checkinScheduler
+	servicesMu.RUnlock()
+	if activeScheduler == nil {
+		return
+	}
+	activeScheduler.SetEnabled(enabled)
+}
+
+// UpdateBalanceEnabled hot-toggles the global balance-refresh switch (#1027)
+// on the running scheduler. It is a no-op before background services have
+// started.
+func UpdateBalanceEnabled(enabled bool) error {
+	updateMu.Lock()
+	defer updateMu.Unlock()
+	servicesMu.RLock()
+	activeScheduler := balanceScheduler
+	servicesMu.RUnlock()
+	if activeScheduler == nil {
+		return nil
+	}
+	return activeScheduler.SetEnabled(enabled)
+}
+
 // UpdateModelSyncCron hot-reloads the running model-sync scheduler with a
 // newly persisted cron. It is a no-op before background services have started.
 func UpdateModelSyncCron(cronExpr string) error {

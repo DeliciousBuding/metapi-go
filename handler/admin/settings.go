@@ -46,6 +46,7 @@ func (h *settingsHandler) getRuntime(w http.ResponseWriter, r *http.Request) {
 		"checkinWindowStart":   cfg.CheckinWindowStart,
 		"checkinWindowEnd":     cfg.CheckinWindowEnd,
 		"checkinSchedule":      scheduleSpecForCheckin(cfg),
+		"checkinEnabled":       !cfg.CheckinDisabled,
 		// Site & Branding
 		"systemName":    cfg.SystemName,
 		"logo":          cfg.Logo,
@@ -55,6 +56,7 @@ func (h *settingsHandler) getRuntime(w http.ResponseWriter, r *http.Request) {
 		// Balance
 		"balanceRefreshCron":     cfg.BalanceRefreshCron,
 		"balanceRefreshSchedule": scheduler.CronToSchedule(cfg.BalanceRefreshCron),
+		"balanceRefreshEnabled":  !cfg.BalanceRefreshDisabled,
 		// Model sync (#1005) — plain cron, no v2 schedule mirror
 		"modelSyncCron": cfg.ModelSyncCron,
 		// Log cleanup
