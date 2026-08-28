@@ -2359,6 +2359,7 @@
         "summaryFailed": "Failed",
         "summaryCost": "Total cost (filtered)",
         "loadError": "Failed to load proxy logs: {{message}}",
+        "metaLoadError": "Failed to load log summary: {{message}}",
         "emptyTitle": "No proxy logs",
         "emptyDescription": "Adjust the filter conditions or refresh to view proxy request records.",
         "emptyAction": "View routes",

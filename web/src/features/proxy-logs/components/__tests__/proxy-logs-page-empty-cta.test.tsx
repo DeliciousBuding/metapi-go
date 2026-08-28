@@ -12,14 +12,16 @@ import { ProxyLogsPage } from '../proxy-logs-page'
 
 const testState = vi.hoisted(() => ({
   navigate: vi.fn(),
+  metaQuery: {
+    data: undefined,
+    error: null as Error | null,
+    isFetching: false,
+    refetch: vi.fn(),
+  },
 }))
 
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => testState.navigate,
-}))
-
-vi.mock('@/components/common/query-error-banner', () => ({
-  QueryErrorBanner: () => null,
 }))
 
 vi.mock('@/components/data-table', () => ({
@@ -62,11 +64,7 @@ vi.mock('../../api', () => ({
     isFetching: false,
     refetch: vi.fn(),
   }),
-  useProxyLogsMeta: () => ({
-    data: undefined,
-    isFetching: false,
-    refetch: vi.fn(),
-  }),
+  useProxyLogsMeta: () => testState.metaQuery,
 }))
 
 vi.mock('../../lib/use-proxy-logs-auto-refresh', () => ({
@@ -107,6 +105,10 @@ beforeAll(() => {
 
 beforeEach(() => {
   testState.navigate.mockReset()
+  testState.metaQuery.data = undefined
+  testState.metaQuery.error = null
+  testState.metaQuery.isFetching = false
+  testState.metaQuery.refetch.mockReset()
 })
 
 afterEach(() => cleanup())
@@ -121,5 +123,19 @@ describe('ProxyLogsPage empty-state CTA', () => {
     fireEvent.click(cta)
     expect(testState.navigate).toHaveBeenCalledTimes(1)
     expect(testState.navigate).toHaveBeenCalledWith({ to: '/token-routes' })
+  })
+})
+
+describe('ProxyLogsPage meta error banner', () => {
+  it('surfaces a meta query failure with a Retry action', () => {
+    testState.metaQuery.error = new Error('meta boom')
+    render(<ProxyLogsPage />)
+
+    expect(
+      screen.getByText(/Failed to load log summary: meta boom/)
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(testState.metaQuery.refetch).toHaveBeenCalledTimes(1)
   })
 })

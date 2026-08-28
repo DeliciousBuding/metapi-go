@@ -2359,6 +2359,7 @@
         "summaryFailed": "失败",
         "summaryCost": "筛选结果总成本",
         "loadError": "加载代理日志失败：{{message}}",
+        "metaLoadError": "加载日志摘要失败：{{message}}",
         "emptyTitle": "暂无代理日志",
         "emptyDescription": "调整筛选条件或稍后刷新以查看代理请求记录。",
         "emptyAction": "查看路由",

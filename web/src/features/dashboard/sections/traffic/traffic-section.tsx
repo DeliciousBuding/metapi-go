@@ -11,6 +11,7 @@ import { Inbox, TriangleAlert } from 'lucide-react'
 import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
 
 import { ChartShell } from '../../components/chart-shell'
@@ -53,11 +54,28 @@ type SiteDistributionResponse = {
   }>
 }
 
-function ChartError({ message }: { message: string }) {
+function ChartError({
+  message,
+  onRetry,
+}: {
+  message: string
+  onRetry?: () => void
+}) {
+  const { t } = useTranslation()
   return (
     <div className='flex h-full w-full flex-col items-center justify-center gap-1.5'>
       <TriangleAlert className='text-destructive/80 size-5' />
       <p className='text-destructive text-xs'>{message}</p>
+      {onRetry ? (
+        <Button
+          type='button'
+          variant='outline'
+          size='sm'
+          onClick={onRetry}
+        >
+          {t('common.retry')}
+        </Button>
+      ) : null}
     </div>
   )
 }
@@ -151,14 +169,23 @@ export function TrafficSection() {
   )
 
   const renderChartBody = (
-    query: { isLoading: boolean; isError: boolean },
+    query: {
+      isLoading: boolean
+      isError: boolean
+      refetch: () => void
+    },
     isEmpty: boolean,
     emptyKey: string,
     chart: ReactNode
   ): ReactNode => {
     if (query.isLoading) return null
     if (query.isError) {
-      return <ChartError message={t('dashboard.traffic.loadError')} />
+      return (
+        <ChartError
+          message={t('dashboard.traffic.loadError')}
+          onRetry={() => void query.refetch()}
+        />
+      )
     }
     if (isEmpty) {
       return <ChartEmpty message={t(emptyKey)} />
