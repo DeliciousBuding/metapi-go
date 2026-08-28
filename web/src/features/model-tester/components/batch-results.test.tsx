@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -101,5 +101,63 @@ describe('BatchResults', () => {
     expect(
       screen.getByText('0 succeeded / 0 failed / 1 stopped')
     ).toBeInTheDocument()
+  })
+})
+
+describe('BatchResults bulk disable of failed channels', () => {
+  const failure = {
+    channelId: 1,
+    status: 'failure',
+    latencyMs: 123,
+    error: 'upstream unavailable',
+  } as const
+  const success = {
+    channelId: 1,
+    status: 'success',
+    latencyMs: 123,
+    error: undefined,
+  } as const
+
+  it('offers the action only when at least one row failed', () => {
+    const onDisableFailed = vi.fn()
+    const { rerender } = render(
+      <BatchResults
+        channels={channels}
+        isRunning={false}
+        results={[success]}
+        onDisableFailed={onDisableFailed}
+      />
+    )
+    expect(
+      screen.queryByRole('button', { name: 'Disable failed channels' })
+    ).not.toBeInTheDocument()
+
+    rerender(
+      <BatchResults
+        channels={channels}
+        isRunning={false}
+        results={[failure]}
+        onDisableFailed={onDisableFailed}
+      />
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Disable failed channels' })
+    )
+    expect(onDisableFailed).toHaveBeenCalledTimes(1)
+  })
+
+  it('blocks the action while the bulk disable is in flight or comparing', () => {
+    render(
+      <BatchResults
+        channels={channels}
+        isRunning={false}
+        isDisablingFailed
+        results={[failure]}
+        onDisableFailed={vi.fn()}
+      />
+    )
+    expect(
+      screen.getByRole('button', { name: /Disable failed channels/ })
+    ).toBeDisabled()
   })
 })

@@ -21,15 +21,18 @@
 // resulting `AbortError` is detected and surfaced as a "stopped" state
 // rather than a hard error.
 
+import { useQueryClient } from '@tanstack/react-query'
 import { useSearch } from '@tanstack/react-router'
 import { Trash2 as TrashIcon } from 'lucide-react'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useChannels } from '@/features/channels'
+import { channelsKeys } from '@/features/channels/types'
+import { tokenRoutesApi } from '@/lib/api/token-routes'
 import { asStringParam } from '@/lib/helpers/searchParams'
 import { toast } from '@/lib/toast'
 
@@ -78,6 +81,9 @@ export function ModelTesterPage() {
   const [response, setResponse] = useState<TestResponse | null>(null)
   const [error, setError] = useState<string | undefined>(undefined)
   const [clearDialogOpen, setClearDialogOpen] = useState(false)
+  const [disableFailedDialogOpen, setDisableFailedDialogOpen] = useState(false)
+  const [isDisablingFailed, setIsDisablingFailed] = useState(false)
+  const queryClient = useQueryClient()
   const [comparison, setComparison] = useState<BatchProbeResult[] | null>(null)
   const [isComparing, setIsComparing] = useState(false)
   // Channels whose single-row re-run probe is in flight (per-row spinner in
@@ -292,6 +298,57 @@ export function ModelTesterPage() {
     toast.success(t('modelTester.toast.cleared'))
   }, [t])
 
+  // Channels whose comparison probe failed — the bulk disable action
+  // targets exactly these rows.
+  const failedChannelIds = useMemo(
+    () =>
+      (comparison ?? [])
+        .filter((result) => result.status === 'failure')
+        .map((result) => result.channelId),
+    [comparison]
+  )
+
+  // One-click closure for failed comparison rows: after the operator
+  // confirms, PUT /api/channels/batch disables exactly the failed channels
+  // (marked manual_override server-side so rebuilds keep it). The envelope
+  // reports per-item truth; a partial failure surfaces the precise
+  // breakdown instead of a generic toast. AuditMiddleware records the call.
+  const handleDisableFailedConfirmed = useCallback(async () => {
+    setDisableFailedDialogOpen(false)
+    if (failedChannelIds.length === 0 || isDisablingFailed) return
+    setIsDisablingFailed(true)
+    try {
+      const result = await tokenRoutesApi.batchUpdateChannels(
+        failedChannelIds.map((id) => ({ id, enabled: false }))
+      )
+      const succeededCount = result.successIds?.length ?? 0
+      const failedItems = result.failedItems ?? []
+      if (failedItems.length === 0) {
+        toast.success(
+          t('modelTester.disableFailed.success', { count: succeededCount })
+        )
+      } else {
+        const detail = failedItems
+          .map((item) => `#${item.id}: ${item.message}`)
+          .join('; ')
+        toast.warning(
+          t('modelTester.disableFailed.partial', {
+            succeeded: succeededCount,
+            failed: failedItems.length,
+            detail,
+          })
+        )
+      }
+      if (succeededCount > 0) {
+        queryClient.invalidateQueries({ queryKey: channelsKeys.list() })
+      }
+    } catch {
+      toast.error(t('modelTester.disableFailed.error'))
+    } finally {
+      setIsDisablingFailed(false)
+    }
+  }, [failedChannelIds, isDisablingFailed, queryClient, t])
+
   const isRunning =
     testModel.isPending || isComparing || rerunningChannelIds.size > 0
 
@@ -337,6 +394,8 @@ export function ModelTesterPage() {
                 isRunning={isComparing}
                 rerunningChannelIds={rerunningChannelIds}
                 onRerunRow={handleRerunRow}
+                onDisableFailed={() => setDisableFailedDialogOpen(true)}
+                isDisablingFailed={isDisablingFailed}
               />
             ) : (
               <TestResponseViewer
@@ -360,6 +419,21 @@ export function ModelTesterPage() {
         cancelLabel={t('modelTester.clear.cancel')}
         onConfirm={handleClearSession}
         onCancel={() => setClearDialogOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={disableFailedDialogOpen}
+        title={t('modelTester.disableFailed.title')}
+        description={t('modelTester.disableFailed.description', {
+          count: failedChannelIds.length,
+        })}
+        confirmLabel={t('modelTester.disableFailed.confirm')}
+        cancelLabel={t('modelTester.disableFailed.cancel')}
+        destructive
+        onConfirm={() => {
+          void handleDisableFailedConfirmed()
+        }}
+        onCancel={() => setDisableFailedDialogOpen(false)}
       />
     </div>
   )

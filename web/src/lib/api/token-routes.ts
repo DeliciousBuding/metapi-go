@@ -1,5 +1,13 @@
 import { request, buildQueryString } from './transport'
 
+/** PUT /api/channels/batch response envelope — per-item truth. */
+export type BatchUpdateChannelsResult = {
+  success: boolean
+  successIds: number[]
+  failedItems: Array<{ id: number; message: string }>
+  channels: Array<Record<string, unknown>>
+}
+
 export const tokenRoutesApi = {
   // Account tokens
   getAccountTokens: (accountId?: number) =>
@@ -114,7 +122,7 @@ export const tokenRoutesApi = {
       enabled?: boolean
     }>
   ) =>
-    request('/api/channels/batch', {
+    request<BatchUpdateChannelsResult>('/api/channels/batch', {
       method: 'PUT',
       body: JSON.stringify({ updates }),
       skipBusinessError: true,
