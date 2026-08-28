@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/proxy"
 	"github.com/deliciousbuding/metapi-go/scheduler"
@@ -322,6 +323,12 @@ func (p *ChannelHealthProbeExecutor) executeChatProbe(ctx context.Context, targe
 	}, nil
 }
 
+// probeFallbackTransport bounds the dial/TLS/idle phases for probe requests
+// that run without an injected transport or site proxy config. The deadline
+// is owned by the caller context (probe timeout is operator-tunable with no
+// fixed ceiling), so the response-header phase stays unbounded here.
+var probeFallbackTransport = httpclient.NewTransport(httpclient.Options{})
+
 func (p *ChannelHealthProbeExecutor) doRequest(ctx context.Context, req *http.Request, proxyCfg *platform.ProxyConfig) (*http.Response, error) {
 	if p.transport != nil {
 		return p.transport.RoundTrip(req.WithContext(ctx))
@@ -333,6 +340,7 @@ func (p *ChannelHealthProbeExecutor) doRequest(ctx context.Context, req *http.Re
 	// site URL cannot 302 into metadata/loopback (shared platform policy).
 	client := &http.Client{
 		Timeout:       0,
+		Transport:     probeFallbackTransport,
 		CheckRedirect: platform.RejectCrossOriginRedirect,
 	}
 	return client.Do(req.WithContext(ctx))

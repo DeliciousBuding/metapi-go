@@ -11,6 +11,7 @@ import (
 
 	"github.com/deliciousbuding/metapi-go/app"
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 	"github.com/deliciousbuding/metapi-go/internal/version"
 	"github.com/deliciousbuding/metapi-go/router"
 	"github.com/deliciousbuding/metapi-go/store"
@@ -164,7 +165,7 @@ func runHealthcheck() int {
 		target = "http://127.0.0.1:" + port + path
 	}
 
-	client := http.Client{Timeout: 5 * time.Second}
+	client := http.Client{Timeout: 5 * time.Second, Transport: httpclient.SharedTransport()}
 	resp, err := client.Get(target)
 	if err != nil {
 		return 1

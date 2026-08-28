@@ -11,6 +11,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 )
 
 // maxCatalogPayloadBytes bounds the catalog payload read (the datasets are
@@ -178,7 +180,7 @@ func NewProvider(opts Options) *Provider {
 	}
 	httpClient := opts.HTTPClient
 	if httpClient == nil {
-		httpClient = &http.Client{Timeout: 30 * time.Second}
+		httpClient = &http.Client{Timeout: 30 * time.Second, Transport: httpclient.SharedTransport()}
 	}
 	logger := opts.Logger
 	if logger == nil {

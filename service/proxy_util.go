@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 	"github.com/deliciousbuding/metapi-go/platform"
 )
 
@@ -24,6 +25,9 @@ func ProxyAwareHTTPClient(proxyURL string, timeout time.Duration) *http.Client {
 		}).DialContext,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ResponseHeaderTimeout: timeout,
+		MaxIdleConns:          httpclient.DefaultMaxIdleConns,
+		MaxIdleConnsPerHost:   httpclient.DefaultMaxIdleConnsPerHost,
+		IdleConnTimeout:       httpclient.DefaultIdleConnTimeout,
 	}
 
 	if proxyURL != "" {

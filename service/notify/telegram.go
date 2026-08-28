@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/deliciousbuding/metapi-go/config"
+	"github.com/deliciousbuding/metapi-go/internal/httpclient"
 	"github.com/deliciousbuding/metapi-go/platform"
 	"github.com/deliciousbuding/metapi-go/service"
 )
@@ -52,7 +53,7 @@ func (c *TelegramChannel) Send(cfg *config.Config, title, message, level, timeFo
 	if cfg.TelegramUseSystemProxy && cfg.SystemProxyUrl != "" {
 		client = service.ProxyAwareHTTPClient(cfg.SystemProxyUrl, 30*time.Second)
 	} else {
-		client = &http.Client{Timeout: 30 * time.Second}
+		client = &http.Client{Timeout: 30 * time.Second, Transport: httpclient.SharedTransport()}
 	}
 	client.CheckRedirect = platform.RejectCrossOriginRedirect
 
