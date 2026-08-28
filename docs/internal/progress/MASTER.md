@@ -2,24 +2,26 @@
 
 **Last verified**: 2026-08-28
 
-**Release**: [v0.16.16](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.16) · released on master; production promotion follows the release and soak gate
+**Release**: [v0.16.17](https://github.com/DeliciousBuding/metapi-go/releases/tag/v0.16.17) · released on master; production promotion follows the release and soak gate
 
 > This is the only execution plan. It contains open work, order, ownership, and acceptance criteria. Current facts → [`../STATE.md`](../STATE.md) · product positioning → [`../benchmark.md`](../benchmark.md) · timeline → [`../log.md`](../log.md).
 
-## Current active work — 无执行中 wave（Wave 16 候选待挑选）
+## Current active work — 无执行中 wave（Wave 17 候选待挑选）
 
-Wave 15 已收口并发布 v0.16.16（见下方已收口节）。下一波候选来自竞品研究（[`../analysis/competitor-study-2026-08.md`](../analysis/competitor-study-2026-08.md)）的三项 P0，按建议顺序：
+Wave 16 已收口并发布 v0.16.17（见下方已收口节）。下一波候选来自竞品研究（[`../analysis/competitor-study-2026-08.md`](../analysis/competitor-study-2026-08.md)）的四项 P1，按建议顺序：
 
 | # | 内容 | 建议验收 |
 |---|---|---|
-| P0-1 | transform/ 协议转换 golden 快照套件（签入 request/response/stream testdata + update 环境变量） | `transform/{openai,gemini}/testdata/golden` + golden test 进 CI；协议改动被快照机械拦截 |
-| P0-2 | 渠道/账号行级探测历史健康条（近 N 次竖条 + tooltip 成功率/延迟，数据层已有 `model_probe_results`） | 行级健康条组件 + tooltip，vitest + 视觉回归基线更新 |
-| P0-3 | cooldown/breaker 记录结构化原因 + 状态徽章可点击→根因弹窗（触发码/错误摘要/剩余时间/一键清除） | schema 加原因列（双方言）+ 徽章弹窗 + 复用既有清除操作 |
+| P1-1 | SSE 流 chunk 间隔超时（流卡死检测，每收到一块重置；立项前先确认热路径无既有机制） | `PROXY_STREAM_IDLE_TIMEOUT_SEC` env + 执行器测试；卡死流限时中断 |
+| P1-2 | 重试/禁用判定运营者可调（状态码区间运行时设置），吸收「默认禁用仅 401、504/524 永不重试」语义 | 设置项 + 解析测试；默认行为与现状一致 |
+| P1-3 | 批量测试闭环：失败清单 + 一键禁用（人工确认 + 审计记录） | 批量测试后对失败渠道提供禁用动作 |
+| P1-4 | 错误计数横幅→一键过滤视图（错误态与操作态合一） | channels/accounts 页横幅组件 + 过滤参数 URL 化 |
 
-挑选条件：需求驱动或维护者确认；选定后按 Wave 15 模式拆分支、定验收门槛（本地全门禁 → 12-check CI → squash merge → 发布 → 私有面 testbed 综合验收）。
+挑选条件：需求驱动或维护者确认；选定后按 Wave 16 模式拆分支、定验收门槛（本地全门禁 → 12-check CI → squash merge → 发布 → 私有面 testbed 综合验收）。
 
-### 已收口（Wave 15/14，勿再当 active）
+### 已收口（Wave 16/15/14，勿再当 active）
 
+- **Wave 16 → v0.16.17**：竞品研究 P0×3 三线并行（3 worktree + 3 subagent）全部落地——PR #1018（transform golden 快照 46 份，零生产改动）、#1020（行级探测健康条 + `/api/{channels,accounts}/probe-history` 只读端点）、#1019（结构化冷却原因三列 + 根因弹窗）+ #1021（发布节）+ #1022（加权选择测试去 flake：单次抽签断言改 200 抽统计）squash 合入 master；私有面 testbed 验收见 log；原始证据留私有面。
 - **Wave 15 → v0.16.16**：PR #1013（#1009 出站代理超时五变量）/ #1014（竞品研究）/ #1015（#1005 定时模型同步）+ #1016（发布节）squash 合入 master；#1005 关闭，#1009 配置已交付、保持 open 等待报告者补充 reset 证据；私有面运维 testbed 综合验收通过（版本注入、调度器启动与热更新、设置往返与 400 校验、真实上游 e2e smoke 13 PASS / 0 FAIL、SPA 资产）；原始证据留私有面。
 - **Wave 14 → v0.16.15**：PR #1010 squash 合入 `master`（`840d930`），#1007/#1008 关闭；发布前 required CI、Docker、a11y、视觉回归、SQLite/PG、E2E 与本地 pre-push 门禁均通过。
 - Wave 12A/12B/13/14 均已合入并发布 v0.16.12 / v0.16.13 / v0.16.14 / v0.16.15。
