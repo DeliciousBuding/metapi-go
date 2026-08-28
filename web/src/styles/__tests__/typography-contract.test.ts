@@ -40,10 +40,15 @@ describe('typography design contract', () => {
   })
 
   it('hydrates persisted visual axes before the app mounts', () => {
-    const html = read('index.html')
+    const script = read('public/theme-init.js')
 
-    expect(html).toContain("readCookie('theme_preset')")
-    expect(html).toContain("readCookie('theme_font')")
-    expect(html).toContain("'var(--background, var(--bootstrap-background))'")
+    expect(script).toContain("readCookie('theme_preset')")
+    expect(script).toContain("readCookie('theme_font')")
+  })
+
+  it('paints the boot background through the design token with a fallback', () => {
+    const script = read('public/bootstrap.js')
+
+    expect(script).toContain("'var(--background, var(--bootstrap-background))'")
   })
 })

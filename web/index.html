@@ -19,109 +19,34 @@
 
     <!--
       FOUC bootstrap: resolve theme BEFORE first paint to avoid flash.
-      Cookie-based (vite-ui-theme, 1y) to align with newapi next-themes cookie
-      storage; falls back to system preference. Legacy themeBootstrap.ts removed.
+      The script lives in web/public/bootstrap.js and is loaded synchronously
+      (no defer/async) so it runs before the first frame — the same timing as
+      the former inline script, but as a static asset so the CSP can drop
+      'unsafe-inline' for scripts. Cookie-based (vite-ui-theme, 1y) to align
+      with newapi next-themes cookie storage; falls back to system preference.
+      Legacy themeBootstrap.ts removed.
       Tailwind 4 dark mode is class-based: <html class="dark"> / class="light".
     -->
-    <script>
-      ;(function () {
-        try {
-          var COOKIE_NAME = 'vite-ui-theme'
-          var theme = null
-          // Read theme from cookie (matches next-themes cookieStorage convention)
-          var match = document.cookie.match(
-            '(?:^|; )' + COOKIE_NAME + '=([^;]*)'
-          )
-          var stored = match ? decodeURIComponent(match[1]) : ''
-          if (stored === 'light' || stored === 'dark') {
-            theme = stored
-          } else if (stored === 'system' || !stored) {
-            theme = window.matchMedia('(prefers-color-scheme: dark)').matches
-              ? 'dark'
-              : 'light'
-          }
-          var root = document.documentElement
-          root.classList.remove('light', 'dark')
-          root.classList.add(theme)
-          root.style.colorScheme = theme
-          // Use the design token as soon as CSS is available, with a matching
-          // light/dark fallback before the stylesheet finishes loading.
-          var bg = theme === 'dark' ? '#1d1d1d' : '#ffffff'
-          root.style.setProperty('--bootstrap-background', bg)
-          root.style.backgroundColor =
-            'var(--background, var(--bootstrap-background))'
-          var themeColor = document.querySelector('meta[name="theme-color"]')
-          if (themeColor) themeColor.setAttribute('content', bg)
-        } catch (e) {
-          /* cookie / matchMedia unavailable — leave browser defaults */
-        }
-      })()
-    </script>
-    <!-- Fonts are bundled locally — no Google Fonts CDN. -->
+    <script src="/bootstrap.js"></script>
+    <!-- Fonts are bundled locally — no Google Fonts CDN. Preload the latin
+         Public Sans face (the UI default) so first paint skips the font
+         discovery round-trip. Path matches the content-hashed asset emitted
+         by Rsbuild into /static/font/. -->
+    <link
+      rel="preload"
+      href="/static/font/public-sans-latin-wght-normal.035c7fe496.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
   </head>
 
   <body translate="no" class="notranslate min-h-screen">
-    <script>
-      ;(function () {
-        try {
-          function readCookie(name) {
-            var match = document.cookie.match('(?:^|; )' + name + '=([^;]*)')
-            return match ? decodeURIComponent(match[1]) : ''
-          }
-
-          var body = document.body
-          var preset = readCookie('theme_preset')
-          var presets = [
-            'anthropic',
-            'simple-large',
-            'underground',
-            'rose-garden',
-            'lake-view',
-            'sunset-glow',
-            'forest-whisper',
-            'ocean-breeze',
-            'lavender-dream',
-          ]
-          if (presets.indexOf(preset) !== -1) {
-            body.setAttribute('data-theme-preset', preset)
-          }
-
-          var font = readCookie('theme_font')
-          body.setAttribute(
-            'data-theme-font',
-            font === 'serif' ? 'serif' : 'sans'
-          )
-
-          var radius = readCookie('theme_radius')
-          if (['none', 'sm', 'md', 'lg', 'xl'].indexOf(radius) !== -1) {
-            body.setAttribute('data-theme-radius', radius)
-          }
-
-          var scale = readCookie('theme_scale')
-          if (['sm', 'lg', 'xl'].indexOf(scale) !== -1) {
-            body.setAttribute('data-theme-scale', scale)
-          }
-
-          var contentLayout = readCookie('theme_content_layout')
-          body.setAttribute(
-            'data-theme-content-layout',
-            contentLayout === 'centered' ? 'centered' : 'full'
-          )
-
-          window.requestAnimationFrame(function () {
-            var background = getComputedStyle(body)
-              .getPropertyValue('--background')
-              .trim()
-            var themeColor = document.querySelector('meta[name="theme-color"]')
-            if (background && themeColor) {
-              themeColor.setAttribute('content', background)
-            }
-          })
-        } catch (e) {
-          /* cookie access unavailable — providers apply defaults after boot */
-        }
-      })()
-    </script>
+    <!-- Theme customization bootstrap (web/public/theme-init.js): apply
+         cookie-backed preset/font/radius/scale as body data attributes before
+         React mounts. Synchronous (no defer/async), same timing as the former
+         inline script. -->
+    <script src="/theme-init.js"></script>
     <div id="root"></div>
   </body>
 </html>
