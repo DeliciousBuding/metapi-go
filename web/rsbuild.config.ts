@@ -55,6 +55,37 @@ export default defineConfig(({ envMode }) => {
           priority: 0,
           enforce: true,
         },
+        // Issue #1035 S9: the audit's "vendor-i18n" blob was the unnamed
+        // chunk 6432 — a grab-bag of i18next, icon libraries and small
+        // utilities. Split the coherent families into named chunks so the
+        // i18n runtime is cache-stable on its own.
+        'vendor-i18n': {
+          test: /node_modules[\\/](i18next|react-i18next|i18next-browser-languagedetector|html-parse-stringify)[\\/]/,
+          name: 'vendor-i18n',
+          chunks: 'all',
+          priority: 0,
+          enforce: true,
+        },
+        'vendor-icons': {
+          test: /node_modules[\\/](@hugeicons|lucide-react)[\\/]/,
+          name: 'vendor-icons',
+          chunks: 'all',
+          priority: 0,
+          enforce: true,
+        },
+        // Remainder of the old chunk 6432 (measured via source-map probe):
+        // small always-on utilities. Naming it keeps the synchronous graph
+        // free of unnamed grab-bag chunks; future deps that do not match
+        // fall back to the default split and stay visible in size reports.
+        // @floating-ui intentionally excluded: matching it pulls modules
+        // from async route chunks into the sync graph (+7 kB gz initial).
+        'vendor-core': {
+          test: /node_modules[\\/](zod|axios|tailwind-merge|sonner|zustand|clsx|class-variance-authority|use-sync-external-store)[\\/]/,
+          name: 'vendor-core',
+          chunks: 'all',
+          priority: 0,
+          enforce: true,
+        },
       },
     },
     source: {
