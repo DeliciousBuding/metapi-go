@@ -10,6 +10,8 @@ import { z } from 'zod'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
+import { accountQueryKeys } from '@/features/accounts'
+import { sitesKeys } from '@/features/sites'
 import {
   Form,
   FormControl,
@@ -160,6 +162,19 @@ export function ImportExportSection() {
       toast.error(t('settings.content.importExport.toast.exportFailed')),
   })
 
+  /**
+   * A backup import can replace sites, accounts, preferences, attention
+   * entries and the WebDAV config — invalidate every cached domain so list
+   * pages and dashboard widgets reflect the restored data immediately.
+   */
+  function invalidateAfterImport() {
+    void queryClient.invalidateQueries({ queryKey: sitesKeys.list() })
+    void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
+    void queryClient.invalidateQueries({ queryKey: ['dashboard-attention'] })
+    void queryClient.invalidateQueries({ queryKey: ['settings-auth-info'] })
+    void queryClient.invalidateQueries({ queryKey: webdavQueryKeys.all })
+  }
+
   const previewMutation = useMutation({
     mutationFn: async (raw: string) => {
       const data = JSON.parse(raw) as unknown
@@ -180,6 +195,7 @@ export function ImportExportSection() {
       toast.success(t('settings.content.importExport.toast.imported'))
       setImportText('')
       setImportPlan(null)
+      invalidateAfterImport()
     },
     onError: () =>
       toast.error(t('settings.content.importExport.toast.importFailed')),
@@ -237,8 +253,10 @@ export function ImportExportSection() {
 
   const importWebdavMutation = useMutation({
     mutationFn: async () => api.importBackupFromWebdav(),
-    onSuccess: () =>
-      toast.success(t('settings.content.importExport.toast.webdavImported')),
+    onSuccess: () => {
+      toast.success(t('settings.content.importExport.toast.webdavImported'))
+      invalidateAfterImport()
+    },
     onError: () =>
       toast.error(t('settings.content.importExport.toast.webdavImportFailed')),
   })
