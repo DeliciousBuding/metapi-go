@@ -16,6 +16,8 @@
 
 import { z } from 'zod'
 
+import { isEmptyOrProxyUrl } from '@/lib/helpers/proxyUrl'
+
 import type { Account, AccountPayload, CredentialMode } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -42,7 +44,7 @@ export function getAccountFormSchema(requireCredential = true) {
         .string()
         .trim()
         .optional()
-        .refine((value) => !value || /^https?:\/\/.+/.test(value), {
+        .refine((value) => isEmptyOrProxyUrl(value ?? ''), {
           message: 'accounts.schema.invalidProxyUrl',
         }),
       refreshToken: z.string().trim().optional(),
@@ -142,6 +144,14 @@ export function transformFormToPayload(
   if (values.credentialMode === 'password') return undefined
 
   const tags = parseTagsInput(values.tags)
+  // The backend stores the proxy in extraConfig but reads and clears it via the
+  // top-level proxyUrl field. On UPDATE an empty string must be sent explicitly
+  // so a removed proxy is cleared — the partial-patch handler treats an ABSENT
+  // field as "unchanged" and would otherwise keep the stale value (#1009). On
+  // CREATE an empty value is omitted (no proxy).
+  const trimmedProxyUrl = values.proxyUrl?.trim() ?? ''
+  const proxyUrl =
+    trimmedProxyUrl === '' && operation === 'create' ? undefined : trimmedProxyUrl
   const extraConfig = values.proxyUrl
     ? JSON.stringify({ proxyUrl: values.proxyUrl })
     : undefined
@@ -156,7 +166,7 @@ export function transformFormToPayload(
       status: values.status,
       checkinEnabled: values.checkinEnabled,
       unitCost: values.unitCost,
-      proxyUrl: values.proxyUrl || undefined,
+      proxyUrl,
       refreshToken: values.refreshToken || undefined,
       tokenExpiresAt: values.tokenExpiresAt,
       tags,
@@ -175,6 +185,7 @@ export function transformFormToPayload(
     status: values.status,
     checkinEnabled: values.checkinEnabled,
     unitCost: values.unitCost,
+    proxyUrl,
     skipModelFetch: values.skipModelFetch,
     tags,
     extraConfig,
