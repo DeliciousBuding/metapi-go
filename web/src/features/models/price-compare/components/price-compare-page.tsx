@@ -2,7 +2,7 @@
 // Groups the backend's cheaper-first candidate rows by model and surfaces the
 // provenance grade + best-channel recommendation for every source.
 
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { ArrowRight, Search, Star } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -29,6 +29,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { formatCurrency, formatPrice } from '@/lib/format'
+import { asStringParam } from '@/lib/helpers/searchParams'
 
 import { usePriceCompare } from '../api'
 import type { PriceCompareItem } from '../types'
@@ -43,15 +44,25 @@ type ModelGroup = {
 export function PriceComparePage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const [search, setSearch] = useState('')
-  const [modelParam, setModelParam] = useState('')
+  // The model filter lives in the URL (?model=) so a refresh or shared link
+  // restores the filtered view (W19-T1 P2-l). The route's validateSearch types
+  // the param; the input debounces its edits back into the URL and the query
+  // reads the URL value as the single source of truth.
+  const { model } = useSearch({ from: '/_authenticated/price-compare' })
+  const modelParam = asStringParam(model)?.trim() ?? ''
+  const [search, setSearch] = useState(modelParam)
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setModelParam(search.trim())
+      const next = search.trim()
+      if (next === modelParam) return
+      const href = next
+        ? `/price-compare?${new URLSearchParams({ model: next }).toString()}`
+        : '/price-compare'
+      void navigate({ href, replace: true })
     }, 350)
     return () => window.clearTimeout(timer)
-  }, [search])
+  }, [search, modelParam, navigate])
 
   const query = usePriceCompare({
     model: modelParam || undefined,

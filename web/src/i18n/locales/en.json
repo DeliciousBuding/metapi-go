@@ -386,13 +386,15 @@
         "goToSettings": "Go to settings",
         "errors": {
           "projectIdRequired": "Please enter the project ID.",
-          "invalidProxyUrl": "Please enter a valid http or https URL.",
+          "invalidProxyUrl": "Please enter a valid http(s) or socks5 proxy URL.",
           "providerRequired": "Please select a provider."
         }
       },
       "session": {
         "waiting": "Waiting for authorization…",
         "waitingDescription": "Complete the authorization in the opened tab, or paste the callback URL manually.",
+        "openAuthorization": "Open authorization page",
+        "popupBlockedHint": "If a new tab did not open, your browser may have blocked the pop-up — use this link to open the authorization page manually.",
         "abandonTitle": "Abort authorization?",
         "abandonDescription": "Authorization is still in progress. Closing now stops waiting, and the connection will not be added.",
         "abandonConfirm": "Abort",
@@ -533,6 +535,10 @@
         "deleteConfirmDescription": "This will delete the {{count}} selected site(s). This action cannot be undone.",
         "deleteConfirmConfirm": "Delete",
         "deleteConfirmCancel": "Cancel",
+        "disableConfirmTitle": "Disable selected sites?",
+        "disableConfirmDescription": "This will disable the {{count}} selected site(s), taking them out of routing until re-enabled.",
+        "disableConfirmConfirm": "Disable",
+        "disableConfirmCancel": "Cancel",
         "enableSystemProxy": "Enable system proxy",
         "disableSystemProxy": "Disable system proxy"
       },
@@ -657,6 +663,7 @@
           "apiEndpointsInvalidUrl": "Endpoint URLs must be valid http(s) URLs; cloud metadata and link-local targets are not allowed.",
           "invalidUrl": "Please enter a valid URL.",
           "invalidUrlOrEmpty": "Please enter a valid URL, or leave it empty.",
+          "invalidProxyUrl": "Please enter a valid http(s) or socks5 proxy URL, or leave it empty.",
           "invalidJson": "Please enter valid JSON.",
           "nameRequired": "Please enter a name.",
           "nameTooLong": "Name must be at most 120 characters.",
@@ -1766,6 +1773,7 @@
           "factoryReset": "Factory reset",
           "factoryResetTitle": "Factory reset",
           "factoryResetDescription": "This wipes ALL data and reverts to defaults. The admin token will reset to the default. You will be signed out.",
+          "factoryResetTypeHint": "Type \"{{word}}\" below to confirm. This cannot be undone.",
           "factoryResetCountdown": "Wait {{seconds}}s…",
           "factoryResetConfirm": "Wipe everything",
           "toast": {
@@ -1950,7 +1958,7 @@
       },
       "schema": {
         "siteRequired": "Please select a site",
-        "invalidProxyUrl": "Proxy URL must start with http://, https://, socks5:// or socks5h://",
+        "invalidProxyUrl": "Proxy URL must be a valid http(s) or socks5 URL",
         "accessTokenRequired": "Please enter the Access Token / Cookie",
         "apiKeyRequired": "Please enter the API Key",
         "usernameRequired": "Please enter the site username",
@@ -2432,6 +2440,8 @@
         "exportCsv": "Export CSV",
         "exportCsvToast": "Exported {{count}} rows",
         "exportCsvFailed": "CSV export failed: {{message}}",
+        "exportCsvTruncated": "Export hit the row limit",
+        "exportCsvTruncatedHint": "Only the first {{count}} rows were exported. Narrow the filters to export the full dataset.",
         "exportCsvColumn": {
           "timestamp": "Timestamp",
           "httpStatus": "HTTP status",

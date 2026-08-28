@@ -386,13 +386,15 @@
         "goToSettings": "前往设置",
         "errors": {
           "projectIdRequired": "请输入项目 ID。",
-          "invalidProxyUrl": "请输入有效的 http 或 https 地址。",
+          "invalidProxyUrl": "请输入有效的 http(s) 或 socks5 代理地址。",
           "providerRequired": "请选择提供商。"
         }
       },
       "session": {
         "waiting": "等待授权完成…",
         "waitingDescription": "请在打开的标签页中完成授权，或手动粘贴回调地址。",
+        "openAuthorization": "打开授权页面",
+        "popupBlockedHint": "如果新标签页没有自动打开，可能是浏览器拦截了弹窗——请点击此链接手动打开授权页面。",
         "abandonTitle": "中止授权？",
         "abandonDescription": "授权仍在进行中。现在关闭将停止等待，且不会添加该连接。",
         "abandonConfirm": "中止",
@@ -533,6 +535,10 @@
         "deleteConfirmDescription": "将删除选中的 {{count}} 个站点，此操作不可撤销。",
         "deleteConfirmConfirm": "删除",
         "deleteConfirmCancel": "取消",
+        "disableConfirmTitle": "禁用选中的站点？",
+        "disableConfirmDescription": "将禁用选中的 {{count}} 个站点，禁用后将被移出路由，直至重新启用。",
+        "disableConfirmConfirm": "禁用",
+        "disableConfirmCancel": "取消",
         "enableSystemProxy": "开启系统代理",
         "disableSystemProxy": "关闭系统代理"
       },
@@ -657,6 +663,7 @@
           "apiEndpointsInvalidUrl": "端点地址必须是合法的 http(s) 地址；不允许云元数据或链路本地目标。",
           "invalidUrl": "请输入有效的地址。",
           "invalidUrlOrEmpty": "请输入有效的地址，或留空。",
+          "invalidProxyUrl": "请输入有效的 http(s) 或 socks5 代理地址，或留空。",
           "invalidJson": "请输入有效的 JSON。",
           "nameRequired": "请输入名称。",
           "nameTooLong": "名称不能超过 120 个字符。",
@@ -1766,6 +1773,7 @@
           "factoryReset": "恢复出厂设置",
           "factoryResetTitle": "恢复出厂设置",
           "factoryResetDescription": "将清空所有数据并回退默认值。管理员令牌将重置为默认值。您将被登出。",
+          "factoryResetTypeHint": "请在下方输入「{{word}}」以确认。此操作无法撤销。",
           "factoryResetCountdown": "等待 {{seconds}} 秒…",
           "factoryResetConfirm": "全部清空",
           "toast": {
@@ -1950,7 +1958,7 @@
       },
       "schema": {
         "siteRequired": "请选择站点",
-        "invalidProxyUrl": "代理地址需以 http://、https://、socks5:// 或 socks5h:// 开头",
+        "invalidProxyUrl": "代理地址需为合法的 http(s) 或 socks5 URL",
         "accessTokenRequired": "请填写 Access Token / Cookie",
         "apiKeyRequired": "请填写 API Key",
         "usernameRequired": "请填写站点用户名",
@@ -2432,6 +2440,8 @@
         "exportCsv": "导出 CSV",
         "exportCsvToast": "已导出 {{count}} 条记录",
         "exportCsvFailed": "导出 CSV 失败：{{message}}",
+        "exportCsvTruncated": "导出已达行数上限",
+        "exportCsvTruncatedHint": "仅导出了前 {{count}} 条记录。请缩小筛选范围以导出完整数据。",
         "exportCsvColumn": {
           "timestamp": "时间戳",
           "httpStatus": "HTTP 状态",
