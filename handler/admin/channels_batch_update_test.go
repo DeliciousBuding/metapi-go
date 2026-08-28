@@ -27,7 +27,7 @@ func seedBatchUpdateChannels(t *testing.T, db *store.DB, routeID, accountID, tok
 		id, err := execInsertID(db.DB,
 			`INSERT INTO route_channels
 				(route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override)
-			 VALUES (?, ?, ?, ?, 3, 15, 1, 0)`,
+			 VALUES (?, ?, ?, ?, 3, 15, true, false)`,
 			routeID, accountID, tokenID, sourceModel,
 		)
 		if err != nil {
