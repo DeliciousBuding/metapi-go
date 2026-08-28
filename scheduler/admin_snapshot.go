@@ -50,10 +50,11 @@ func (s *AdminSnapshotScheduler) Stop() error {
 }
 
 // WarmOnce performs a single warm pass. Safe to call externally.
+// De-duplication happens under the mutex inside runWarm: reading inFlight
+// here without the lock raced the ticker path's writes (observed under
+// -race). Returns immediately when a pass is already in flight, same as
+// before.
 func (s *AdminSnapshotScheduler) WarmOnce() {
-	if s.inFlight {
-		return
-	}
 	s.runWarm()
 }
 
@@ -96,7 +97,9 @@ func (s *AdminSnapshotScheduler) runWarm() {
 		wg.Add(1)
 		go func(name string) {
 			defer wg.Done()
-			s.warmTarget(name)
+			// Boundary recovery: these are scheduler-owned goroutines; a
+			// panicking warm must not take the process down.
+			safeJob("admin-snapshot-warm", func() { s.warmTarget(name) })
 		}(target)
 	}
 	wg.Wait()

@@ -127,18 +127,22 @@ loop:
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			outcome := s.probeOne(target, timeoutMs)
-			// Don't stream to a cancelled caller — the client is gone and
-			// writing would just block / error downstream. The probe still
-			// ran to completion and any health mutation already happened.
-			if ctx.Err() != nil {
-				return
-			}
-			onResult(ProbeSiteResult{
-				ChannelID: target.ChannelID,
-				AccountID: target.AccountID,
-				Model:     target.ModelName,
-				Status:    outcome,
+			// Boundary recovery: a panicking probe must not take the
+			// process down; the wg/sem defers above still run.
+			safeJob("site-probe-target", func() {
+				outcome := s.probeOne(target, timeoutMs)
+				// Don't stream to a cancelled caller — the client is gone and
+				// writing would just block / error downstream. The probe still
+				// ran to completion and any health mutation already happened.
+				if ctx.Err() != nil {
+					return
+				}
+				onResult(ProbeSiteResult{
+					ChannelID: target.ChannelID,
+					AccountID: target.AccountID,
+					Model:     target.ModelName,
+					Status:    outcome,
+				})
 			})
 		}()
 	}

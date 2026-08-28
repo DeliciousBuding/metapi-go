@@ -107,10 +107,14 @@ func (s *Sub2APIRefreshScheduler) runPassLocked(dbw *store.DB) {
 
 	var scanned int
 	var eligible []candidate
+	var scanErr error
 	for rows.Next() {
 		var id int64
 		var extraConfig *string
 		if err := rows.Scan(&id, &extraConfig); err != nil {
+			if scanErr == nil {
+				scanErr = err
+			}
 			continue
 		}
 		scanned++
@@ -118,6 +122,12 @@ func (s *Sub2APIRefreshScheduler) runPassLocked(dbw *store.DB) {
 			continue
 		}
 		eligible = append(eligible, candidate{id: id})
+	}
+	if err := rows.Err(); err != nil && scanErr == nil {
+		scanErr = err
+	}
+	if scanErr != nil {
+		slog.Warn("sub2api-refresh: account rows degraded", "error", scanErr)
 	}
 
 	if len(eligible) == 0 {
@@ -146,14 +156,18 @@ func (s *Sub2APIRefreshScheduler) runPassLocked(dbw *store.DB) {
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			_, err := balance.RefreshBalance(s.cfg, dbw.DB, c.id)
-			if err != nil {
-				failed.Add(1)
-				slog.Warn("sub2api-refresh: RefreshBalance failed",
-					"account_id", c.id, "error", err)
-				return
-			}
-			refreshed.Add(1)
+			// Boundary recovery: a panicking upstream adapter must not
+			// take the process down; the wg/sem defers above still run.
+			safeJob("sub2api-refresh-account", func() {
+				_, err := balance.RefreshBalance(s.cfg, dbw.DB, c.id)
+				if err != nil {
+					failed.Add(1)
+					slog.Warn("sub2api-refresh: RefreshBalance failed",
+						"account_id", c.id, "error", err)
+					return
+				}
+				refreshed.Add(1)
+			})
 		}()
 	}
 	wg.Wait()

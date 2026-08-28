@@ -134,7 +134,10 @@ func (s *CheckinScheduler) startLocked() {
 			for {
 				select {
 				case <-s.intervalTimer.C:
-					s.runIntervalPass()
+					// Boundary panic recovery: this goroutine is not
+					// covered by cronRunner's wrapper; an unrecovered
+					// panic here would crash the process.
+					safeJob("checkin-interval", s.runIntervalPass)
 				case <-s.intervalStop:
 					return
 				}
@@ -212,13 +215,15 @@ func (s *CheckinScheduler) maybeCatchUpCheckin() {
 
 	if shouldCatchUpCheckin(now, s.cfg.CheckinCron, ranToday > 0, enabled) {
 		slog.Info("checkin: missed today's scheduled time, compensating with immediate run", "spec", s.cfg.CheckinCron)
-		go s.runCronJob()
+		// Bare goroutine: cronRunner's recover only covers cron-fired
+		// runs, so the boundary wrapper must protect this one too.
+		go safeJob("checkin-catchup", s.runCronJob)
 		return
 	}
 
 	// Per-account catch-up (issue #669). Runs in a goroutine so startup is
 	// not blocked; pacing and the per-account lease are reused via CheckinAll.
-	go s.runStaleAccountCatchUp(dbw)
+	go safeJob("checkin-stale-catchup", func() { s.runStaleAccountCatchUp(dbw) })
 }
 
 // runStaleAccountCatchUp enqueues an immediate checkin for every enabled,
@@ -426,12 +431,22 @@ func (s *CheckinScheduler) runIntervalPassLocked(dbw *store.DB) {
 	defer rows.Close()
 
 	var candidates []intervalCandidate
+	var scanErr error
 	for rows.Next() {
 		var c intervalCandidate
 		if err := rows.Scan(&c.id, &c.lastCheckinAt); err != nil {
+			if scanErr == nil {
+				scanErr = err
+			}
 			continue
 		}
 		candidates = append(candidates, c)
+	}
+	if err := rows.Err(); err != nil && scanErr == nil {
+		scanErr = err
+	}
+	if scanErr != nil {
+		slog.Warn("checkin interval: candidate rows degraded", "error", scanErr)
 	}
 
 	dueIDs := s.filterDue(candidates, now)

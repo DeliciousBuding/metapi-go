@@ -66,12 +66,11 @@ type ProjectionPassResult struct {
 }
 
 // RunProjectionPass executes a single projection pass.
-// Safe to call externally (e.g., from admin snapshot).
+// Safe to call externally (e.g., from admin snapshot). De-duplication
+// happens under the mutex inside runPass: reading projectionInFlight here
+// without the lock raced the ticker path's writes (observed under -race).
+// Returns nil when a pass is already in flight, same as before.
 func (s *UsageAggregationScheduler) RunProjectionPass() *ProjectionPassResult {
-	if s.projectionInFlight {
-		// De-duplicate: return nil to signal in-flight
-		return nil
-	}
 	return s.runPass(context.Background())
 }
 
