@@ -87,29 +87,37 @@ function parseDayLabel(value: string | number): Date | null {
 function useDateTickFormatter(): (value: string | number) => string {
   const { i18n } = useTranslation()
   const locale = toBcp47(i18n.language || 'en')
-  return (value) => {
-    const date = parseDayLabel(value)
-    if (!date) return String(value)
-    return new Intl.DateTimeFormat(locale, {
+  // Intl.DateTimeFormat construction is expensive; memoize per locale so the
+  // axis re-render only reuses the formatter instead of re-parsing options.
+  return useMemo(() => {
+    const formatter = new Intl.DateTimeFormat(locale, {
       month: 'short',
       day: 'numeric',
-    }).format(date)
-  }
+    })
+    return (value: string | number): string => {
+      const date = parseDayLabel(value)
+      if (!date) return String(value)
+      return formatter.format(date)
+    }
+  }, [locale])
 }
 
 /** Hook returning a locale-aware "Aug 21, 2026" formatter for tooltip headers. */
 function useDateTooltipFormatter(): (value: string | number) => string {
   const { i18n } = useTranslation()
   const locale = toBcp47(i18n.language || 'en')
-  return (value) => {
-    const date = parseDayLabel(value)
-    if (!date) return String(value)
-    return new Intl.DateTimeFormat(locale, {
+  return useMemo(() => {
+    const formatter = new Intl.DateTimeFormat(locale, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
-    }).format(date)
-  }
+    })
+    return (value: string | number): string => {
+      const date = parseDayLabel(value)
+      if (!date) return String(value)
+      return formatter.format(date)
+    }
+  }, [locale])
 }
 
 // ---------------------------------------------------------------------------

@@ -8,9 +8,11 @@
 // page that resolves it.
 //
 // The data source is the dashboard's existing attention query — same
-// `['dashboard-attention', 20]` key, same `api.getAttention(20)` wrapper and
-// the same 10s poll as the availability panel — so TanStack Query dedupes the
-// request and shares one cache entry instead of opening a second data source.
+// `['dashboard-attention', 20]` key, same `api.getAttention(20)` wrapper —
+// so TanStack Query dedupes the request and shares one cache entry instead of
+// opening a second data source. The poll is slower than the availability
+// panel's (15s vs 10s): the header badge tolerates lag, and while the panel is
+// open its 10s poll keeps the shared entry fresh anyway.
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
@@ -34,8 +36,8 @@ import { cn } from '@/lib/utils'
 
 /** Matches the dashboard attention query so the cache entry is shared. */
 const ATTENTION_LIMIT = 20
-/** Same cadence as the availability panel — no more aggressive polling. */
-const ATTENTION_REFETCH_INTERVAL_MS = 10 * 1000
+/** Slower than the availability panel's 10s poll — the badge tolerates lag. */
+const ATTENTION_REFETCH_INTERVAL_MS = 15 * 1000
 /** Counts above this render as "9+" so the badge never widens the trigger. */
 const BADGE_COUNT_CEILING = 9
 /** The popover is a peek surface; "view all" leads to the full panel. */
