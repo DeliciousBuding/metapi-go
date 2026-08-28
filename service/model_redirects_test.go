@@ -33,7 +33,7 @@ func TestReloadRedirectRegistry_LoadsFromDB(t *testing.T) {
 	siteID, _ := res.LastInsertId()
 
 	res, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at)
-		VALUES (?, ?, 'tok', 'active', 1, ?, ?)`, siteID, "redirect-user", now, now)
+		VALUES (?, ?, 'tok', 'active', TRUE, ?, ?)`, siteID, "redirect-user", now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}

@@ -55,21 +55,21 @@ func insertHarnessFixtures(t *testing.T, db *store.DB) (siteID, accountID, route
 
 	apiTok := "sk-harness-api-token-xyz"
 	res, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, created_at, updated_at)
-		VALUES (?, ?, ?, ?, 'active', 0, ?, ?)`, siteID, "harness-user", "session-token", apiTok, now, now)
+		VALUES (?, ?, ?, ?, 'active', FALSE, ?, ?)`, siteID, "harness-user", "session-token", apiTok, now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}
 	accountID, _ = res.LastInsertId()
 
 	res, err = db.Exec(`INSERT INTO token_routes (model_pattern, display_name, route_mode, routing_strategy, enabled, created_at, updated_at)
-		VALUES (?, ?, 'standard', 'weighted', 1, ?, ?)`, "gpt-*", "Harness Route", now, now)
+		VALUES (?, ?, 'standard', 'weighted', TRUE, ?, ?)`, "gpt-*", "Harness Route", now, now)
 	if err != nil {
 		t.Fatalf("insert route: %v", err)
 	}
 	routeID, _ = res.LastInsertId()
 
 	res, err = db.Exec(`INSERT INTO route_channels (route_id, account_id, source_model, priority, weight, enabled)
-		VALUES (?, ?, ?, 10, 10, 1)`, routeID, accountID, "gpt-4o-mini")
+		VALUES (?, ?, ?, 10, 10, TRUE)`, routeID, accountID, "gpt-4o-mini")
 	if err != nil {
 		t.Fatalf("insert channel: %v", err)
 	}
@@ -396,21 +396,21 @@ func insertHarnessFixturesAtURL(t *testing.T, db *store.DB, siteURL string) (sit
 
 	apiTok := "sk-harness-api-token-xyz"
 	res, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, created_at, updated_at)
-		VALUES (?, ?, ?, ?, 'active', 0, ?, ?)`, siteID, "harness-user", "session-token", apiTok, now, now)
+		VALUES (?, ?, ?, ?, 'active', FALSE, ?, ?)`, siteID, "harness-user", "session-token", apiTok, now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}
 	accountID, _ = res.LastInsertId()
 
 	res, err = db.Exec(`INSERT INTO token_routes (model_pattern, display_name, route_mode, routing_strategy, enabled, created_at, updated_at)
-		VALUES (?, ?, 'standard', 'weighted', 1, ?, ?)`, "gpt-*", "Harness Redirect Route", now, now)
+		VALUES (?, ?, 'standard', 'weighted', TRUE, ?, ?)`, "gpt-*", "Harness Redirect Route", now, now)
 	if err != nil {
 		t.Fatalf("insert route: %v", err)
 	}
 	routeID, _ = res.LastInsertId()
 
 	res, err = db.Exec(`INSERT INTO route_channels (route_id, account_id, source_model, priority, weight, enabled)
-		VALUES (?, ?, ?, 10, 10, 1)`, routeID, accountID, "gpt-4o-mini")
+		VALUES (?, ?, ?, 10, 10, TRUE)`, routeID, accountID, "gpt-4o-mini")
 	if err != nil {
 		t.Fatalf("insert channel: %v", err)
 	}

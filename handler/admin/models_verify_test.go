@@ -46,14 +46,14 @@ func setupVerifyHarness(t *testing.T) (chi.Router, *store.DB, int64) {
 	siteID, _ := res.LastInsertId()
 
 	res, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, created_at, updated_at)
-		VALUES (?, ?, ?, ?, 'active', 0, ?, ?)`, siteID, "verify-user", "sess", "sk-verify", now, now)
+		VALUES (?, ?, ?, ?, 'active', FALSE, ?, ?)`, siteID, "verify-user", "sess", "sk-verify", now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}
 	accountID, _ := res.LastInsertId()
 
 	res, err = db.Exec(`INSERT INTO token_routes (model_pattern, display_name, route_mode, routing_strategy, enabled, created_at, updated_at)
-		VALUES (?, ?, 'standard', 'weighted', 1, ?, ?)`, "verify-*", "Verify Route", now, now)
+		VALUES (?, ?, 'standard', 'weighted', TRUE, ?, ?)`, "verify-*", "Verify Route", now, now)
 	if err != nil {
 		t.Fatalf("insert route: %v", err)
 	}
@@ -62,7 +62,7 @@ func setupVerifyHarness(t *testing.T) (chi.Router, *store.DB, int64) {
 	// Two channels with different models on the same account.
 	for _, m := range []string{"verify-model-a", "verify-model-b"} {
 		_, err = db.Exec(`INSERT INTO route_channels (route_id, account_id, source_model, priority, weight, enabled)
-			VALUES (?, ?, ?, 10, 10, 1)`, routeID, accountID, m)
+			VALUES (?, ?, ?, 10, 10, TRUE)`, routeID, accountID, m)
 		if err != nil {
 			t.Fatalf("insert channel %s: %v", m, err)
 		}

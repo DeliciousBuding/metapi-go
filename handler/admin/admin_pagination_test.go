@@ -103,7 +103,7 @@ func TestListRoutes_PaginationScopesChannelBatchLoad(t *testing.T) {
 	// enriched on the page that contains it.
 	if _, err := db.Exec(
 		`INSERT INTO route_channels (route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override)
-		 VALUES (?, ?, ?, 'gpt-4o', 1, 10, 1, 0)`,
+		 VALUES (?, ?, ?, 'gpt-4o', 1, 10, TRUE, FALSE)`,
 		routeID, accountID, tokenID,
 	); err != nil {
 		t.Fatalf("insert channel: %v", err)
@@ -139,7 +139,7 @@ func seedRoutes(t *testing.T, db *store.DB, count int, now string) {
 	for i := 0; i < count; i++ {
 		if _, err := db.Exec(
 			`INSERT INTO token_routes (model_pattern, enabled, sort_order, created_at, updated_at)
-			 VALUES (?, 1, ?, ?, ?)`,
+			 VALUES (?, TRUE, ?, ?, ?)`,
 			"model-"+strconv.Itoa(i)+"-*", i, now, now,
 		); err != nil {
 			t.Fatalf("seed route %d: %v", i, err)
@@ -167,7 +167,7 @@ func setupAccountsPaginationTest(t *testing.T) (*store.DB, chi.Router) {
 	for i := 0; i < 3; i++ {
 		if _, err := db.Exec(
 			`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at)
-			 VALUES (?, ?, ?, 'active', 1, ?, ?)`,
+			 VALUES (?, ?, ?, 'active', TRUE, ?, ?)`,
 			siteID, "user-"+strconv.Itoa(i), "token-"+strconv.Itoa(i), now, now,
 		); err != nil {
 			t.Fatalf("seed account %d: %v", i, err)
@@ -268,7 +268,7 @@ func setupDownstreamKeysPaginationTest(t *testing.T) (*store.DB, chi.Router) {
 	for i := 0; i < 3; i++ {
 		if _, err := db.Exec(
 			`INSERT INTO downstream_api_keys (name, key, enabled, created_at, updated_at)
-			 VALUES (?, ?, 1, ?, ?)`,
+			 VALUES (?, ?, TRUE, ?, ?)`,
 			"key-"+strconv.Itoa(i), "sk-key-"+strconv.Itoa(i), now, now,
 		); err != nil {
 			t.Fatalf("seed key %d: %v", i, err)

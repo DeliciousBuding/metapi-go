@@ -145,7 +145,7 @@ func setupAccountFixtureWithSite(t *testing.T, db *store.DB, r chi.Router, siteN
 	siteID := int64(site["id"].(float64))
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	res, _ := db.Exec(
-		"INSERT INTO accounts (site_id, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, 'sk-fixture', 'active', 1, ?, ?)",
+		"INSERT INTO accounts (site_id, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, 'sk-fixture', 'active', TRUE, ?, ?)",
 		siteID, now, now,
 	)
 	accID, _ := res.LastInsertId()
@@ -173,7 +173,7 @@ func setupAnyRouterBalanceAccount(t *testing.T, db *store.DB, siteURL string) (i
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	siteID := insertAnyRouterBalanceSite(t, db, siteURL, now)
 	accRes, err := db.Exec(
-		"INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, ?, ?, 'active', 1, ?, ?)",
+		"INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, ?, ?, 'active', TRUE, ?, ?)",
 		siteID, "anyrouter-user", "session-token", now, now,
 	)
 	if err != nil {
@@ -191,7 +191,7 @@ func setupAnyRouterAPIKeyAccount(t *testing.T, db *store.DB, siteURL string) (in
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	siteID := insertAnyRouterBalanceSite(t, db, siteURL, now)
 	accRes, err := db.Exec(
-		"INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, ?, ?, ?, 'active', 0, ?, ?, ?)",
+		"INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, ?, ?, ?, 'active', FALSE, ?, ?, ?)",
 		siteID, nil, "anyrouter-api-key-token", "anyrouter-api-key-token", `{"credentialMode":"apikey"}`, now, now,
 	)
 	if err != nil {
@@ -2026,7 +2026,7 @@ func TestAccounts_HealthRefresh_Sync(t *testing.T) {
 
 	// Session-capable account (balance probe path).
 	accRes, err := db.Exec(
-		"INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, ?, ?, 'active', 1, ?, ?)",
+		"INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, ?, ?, 'active', TRUE, ?, ?)",
 		siteID, "anyrouter-user", "session-token", now, now,
 	)
 	if err != nil {
@@ -2039,7 +2039,7 @@ func TestAccounts_HealthRefresh_Sync(t *testing.T) {
 
 	// proxy-only apikey on same site should be skipped honestly
 	apiKeyRes, err := db.Exec(
-		"INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, ?, ?, ?, 'active', 0, ?, ?, ?)",
+		"INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, ?, ?, ?, 'active', FALSE, ?, ?, ?)",
 		siteID, nil, "anyrouter-api-key-token", "anyrouter-api-key-token", `{"credentialMode":"apikey"}`, now, now,
 	)
 	if err != nil {
@@ -2129,7 +2129,7 @@ func TestAccounts_HealthRefresh_SingleAccountID(t *testing.T) {
 	siteID := insertAnyRouterBalanceSite(t, db, server.URL, now)
 
 	accRes, err := db.Exec(
-		"INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, ?, ?, 'active', 1, ?, ?)",
+		"INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, ?, ?, 'active', TRUE, ?, ?)",
 		siteID, "anyrouter-user", "session-token", now, now,
 	)
 	if err != nil {
@@ -2141,7 +2141,7 @@ func TestAccounts_HealthRefresh_SingleAccountID(t *testing.T) {
 	}
 	// Second account on same site is intentionally not targeted by accountId.
 	if _, err := db.Exec(
-		"INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, ?, ?, ?, 'active', 0, ?, ?, ?)",
+		"INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, ?, ?, ?, 'active', FALSE, ?, ?, ?)",
 		siteID, nil, "anyrouter-api-key-token", "anyrouter-api-key-token", `{"credentialMode":"apikey"}`, now, now,
 	); err != nil {
 		t.Fatalf("insert other apikey account: %v", err)
@@ -2387,8 +2387,8 @@ func TestAccounts_GetModels(t *testing.T) {
 	_, accountID := setupAccountFixtureWithSite(t, db, r, "ModelSite", "https://api.openai.com")
 
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
-	db.Exec("INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at) VALUES (?, 'gpt-4', 1, 0, ?)", accountID, now)
-	db.Exec("INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at) VALUES (?, 'gpt-3.5', 1, 0, ?)", accountID, now)
+	db.Exec("INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at) VALUES (?, 'gpt-4', TRUE, FALSE, ?)", accountID, now)
+	db.Exec("INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at) VALUES (?, 'gpt-3.5', TRUE, FALSE, ?)", accountID, now)
 
 	resp := doGet(t, r, "/api/accounts/"+itoa(accountID)+"/models")
 	if resp.Code != http.StatusOK {
@@ -2442,7 +2442,7 @@ func TestAccounts_ManualModels(t *testing.T) {
 
 	// Verify models exist
 	var count int
-	db.QueryRow("SELECT COUNT(*) FROM model_availability WHERE account_id = ? AND is_manual = 1", accountID).Scan(&count)
+	db.QueryRow("SELECT COUNT(*) FROM model_availability WHERE account_id = ? AND is_manual = TRUE", accountID).Scan(&count)
 	if count != 2 {
 		t.Errorf("expected 2 manual models, got %d", count)
 	}
@@ -2470,7 +2470,7 @@ func TestAccounts_ManualModels_Deduplication(t *testing.T) {
 	}
 
 	var count int
-	db.QueryRow("SELECT COUNT(*) FROM model_availability WHERE account_id = ? AND is_manual = 1", accountID).Scan(&count)
+	db.QueryRow("SELECT COUNT(*) FROM model_availability WHERE account_id = ? AND is_manual = TRUE", accountID).Scan(&count)
 	if count != 1 {
 		t.Errorf("expected 1 model after dedup, got %d", count)
 	}
@@ -2757,7 +2757,7 @@ func TestListAccounts_RedactsAccessTokenAndAPIToken(t *testing.T) {
 	apiTok := "sk-api-token-XYZ12345"
 	res, err := db.Exec(
 		`INSERT INTO accounts (site_id, username, access_token, api_token, balance, balance_used, quota, value_score, status, is_pinned, sort_order, checkin_enabled, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, 0, 0, 0, 0, 'active', 0, 0, 0, ?, ?)`,
+		 VALUES (?, ?, ?, ?, 0, 0, 0, 0, 'active', FALSE, 0, FALSE, ?, ?)`,
 		siteID, "redact-user", secret, apiTok, now, now,
 	)
 	if err != nil {
@@ -2806,7 +2806,7 @@ func TestAccounts_List_IncludesPerAccountTodayMetrics(t *testing.T) {
 	// Second account on the same active site, no rows today (real zero).
 	nowInsert := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	res, err := db.Exec(
-		"INSERT INTO accounts (site_id, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, 'sk-clean', 'active', 1, ?, ?)",
+		"INSERT INTO accounts (site_id, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, 'sk-clean', 'active', TRUE, ?, ?)",
 		siteID, nowInsert, nowInsert,
 	)
 	if err != nil {

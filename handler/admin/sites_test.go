@@ -504,8 +504,8 @@ func TestSites_DeleteCascade(t *testing.T) {
 
 	// Create accounts under this site
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
-	db.Exec("INSERT INTO accounts (site_id, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, 'sk1', 'active', 1, ?, ?)", siteID, now, now)
-	db.Exec("INSERT INTO accounts (site_id, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, 'sk2', 'active', 1, ?, ?)", siteID, now, now)
+	db.Exec("INSERT INTO accounts (site_id, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, 'sk1', 'active', TRUE, ?, ?)", siteID, now, now)
+	db.Exec("INSERT INTO accounts (site_id, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, 'sk2', 'active', TRUE, ?, ?)", siteID, now, now)
 
 	// Delete site
 	resp := doDelete(t, r, "/api/sites/"+itoa(siteID))
@@ -680,13 +680,13 @@ func TestSites_AvailableModels_WithData(t *testing.T) {
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 
 	// Create an account
-	res, _ := db.Exec("INSERT INTO accounts (site_id, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, 'sk1', 'active', 1, ?, ?)", siteID, now, now)
+	res, _ := db.Exec("INSERT INTO accounts (site_id, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, 'sk1', 'active', TRUE, ?, ?)", siteID, now, now)
 	accountID, _ := res.LastInsertId()
 
 	// Add model availability
-	db.Exec("INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at) VALUES (?, ?, 1, 0, ?)", accountID, "gpt-4", now)
-	db.Exec("INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at) VALUES (?, ?, 1, 0, ?)", accountID, "gpt-3.5-turbo", now)
-	db.Exec("INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at) VALUES (?, ?, 0, 0, ?)", accountID, "unavailable-model", now)
+	db.Exec("INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at) VALUES (?, ?, TRUE, FALSE, ?)", accountID, "gpt-4", now)
+	db.Exec("INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at) VALUES (?, ?, TRUE, FALSE, ?)", accountID, "gpt-3.5-turbo", now)
+	db.Exec("INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at) VALUES (?, ?, FALSE, FALSE, ?)", accountID, "unavailable-model", now)
 
 	resp := doGet(t, r, "/api/sites/"+itoa(siteID)+"/available-models")
 	if resp.Code != http.StatusOK {
@@ -895,7 +895,7 @@ func TestSites_StatusSideEffects_Disable(t *testing.T) {
 	siteID := int64(site["id"].(float64))
 
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
-	db.Exec("INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, 'acc1', 'sk1', 'active', 1, ?, ?)", siteID, now, now)
+	db.Exec("INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, 'acc1', 'sk1', 'active', TRUE, ?, ?)", siteID, now, now)
 
 	// Disable site via update
 	body := map[string]any{"status": "disabled"}
@@ -925,7 +925,7 @@ func TestSites_StatusSideEffects_Enable(t *testing.T) {
 	siteID := int64(site["id"].(float64))
 
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
-	db.Exec("INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, 'acc1', 'sk1', 'disabled', 1, ?, ?)", siteID, now, now)
+	db.Exec("INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, 'acc1', 'sk1', 'disabled', TRUE, ?, ?)", siteID, now, now)
 
 	// Enable site via update
 	body := map[string]any{"status": "active"}
@@ -957,7 +957,7 @@ func TestSites_BatchDisable_WithStatusSideEffects(t *testing.T) {
 	siteID := int64(site["id"].(float64))
 
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
-	db.Exec("INSERT INTO accounts (site_id, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, 'sk1', 'active', 1, ?, ?)", siteID, now, now)
+	db.Exec("INSERT INTO accounts (site_id, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, 'sk1', 'active', TRUE, ?, ?)", siteID, now, now)
 
 	body := map[string]any{"ids": []int{int(siteID)}, "action": "disable"}
 	resp := doPostJSON(t, r, "/api/sites/batch", body)

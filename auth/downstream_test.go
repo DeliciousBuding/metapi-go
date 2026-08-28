@@ -62,7 +62,7 @@ func TestGetManagedKeyByToken_Found(t *testing.T) {
 		 (name, key, enabled, expires_at, max_cost, used_cost, max_requests, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, NULL, NULL, 0, NULL, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, NULL, NULL, 0, NULL, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"test-found", "sk-crud-found", now, now,
 	)
 	if err != nil {
@@ -123,7 +123,7 @@ func TestDownstreamKeyCRUD_Insert(t *testing.T) {
 		 (name, key, enabled, max_cost, used_cost, max_requests, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, ?, ?, ?, ?, '["gpt-4"]', '[1,2]', '{"1":1.5}', '[3]', '[{"kind":"account_token","site_id":1,"account_id":2,"token_id":3}]', ?, ?)`,
+		 VALUES (?, ?, TRUE, ?, ?, ?, ?, '["gpt-4"]', '[1,2]', '{"1":1.5}', '[3]', '[{"kind":"account_token","site_id":1,"account_id":2,"token_id":3}]', ?, ?)`,
 		"crud-insert", "sk-crud-insert", 100.0, 0.0, int64(1000), int64(0), now, now,
 	)
 	if err != nil {
@@ -179,7 +179,7 @@ func TestDownstreamKeyCRUD_Update(t *testing.T) {
 		 (name, key, enabled, used_cost, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, 0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, 0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"crud-update", "sk-crud-update", now, now,
 	)
 	if err != nil {
@@ -188,7 +188,7 @@ func TestDownstreamKeyCRUD_Update(t *testing.T) {
 
 	// Update name and enabled
 	_, err = db.Exec(
-		`UPDATE downstream_api_keys SET name = ?, enabled = 0, updated_at = ? WHERE key = ?`,
+		`UPDATE downstream_api_keys SET name = ?, enabled = FALSE, updated_at = ? WHERE key = ?`,
 		"crud-updated", now, "sk-crud-update",
 	)
 	if err != nil {
@@ -221,7 +221,7 @@ func TestDownstreamKeyCRUD_Delete(t *testing.T) {
 		 (name, key, enabled, used_cost, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, 0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, 0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"crud-delete", "sk-crud-delete", now, now,
 	)
 	if err != nil {
@@ -263,7 +263,7 @@ func TestDownstreamKeyCRUD_UniqueConstraint(t *testing.T) {
 		 (name, key, enabled, used_cost, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, 0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, 0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"crud-dup", "sk-crud-dup", now, now,
 	)
 	if err != nil {
@@ -276,7 +276,7 @@ func TestDownstreamKeyCRUD_UniqueConstraint(t *testing.T) {
 		 (name, key, enabled, used_cost, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, 0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, 0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"crud-dup2", "sk-crud-dup", now, now,
 	)
 	if err == nil {
@@ -299,7 +299,7 @@ func TestExpiration_PastDate(t *testing.T) {
 		 (name, key, enabled, expires_at, used_cost, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, ?, 0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, ?, 0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"exp-past", "sk-exp-past", expiredAt, now, now,
 	)
 	if err != nil {
@@ -326,7 +326,7 @@ func TestExpiration_FutureDate(t *testing.T) {
 		 (name, key, enabled, expires_at, used_cost, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, ?, 0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, ?, 0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"exp-future", "sk-exp-future", futureExpiry, now, now,
 	)
 	if err != nil {
@@ -352,7 +352,7 @@ func TestExpiration_NilExpiresAt(t *testing.T) {
 		 (name, key, enabled, expires_at, used_cost, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, NULL, 0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, NULL, 0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"exp-null", "sk-exp-null", now, now,
 	)
 	if err != nil {
@@ -376,7 +376,7 @@ func TestExpiration_InvalidDateFormat(t *testing.T) {
 		 (name, key, enabled, expires_at, used_cost, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, ?, 0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, ?, 0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"exp-invalid", "sk-exp-invalid", invalidDate, now, now,
 	)
 	if err != nil {
@@ -405,7 +405,7 @@ func TestCostQuota_UnderLimit(t *testing.T) {
 		 (name, key, enabled, max_cost, used_cost, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, ?, 50.0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, ?, 50.0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"cost-under", "sk-cost-under", maxCost, now, now,
 	)
 	if err != nil {
@@ -429,7 +429,7 @@ func TestCostQuota_AtLimit(t *testing.T) {
 		 (name, key, enabled, max_cost, used_cost, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, ?, 50.0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, ?, 50.0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"cost-at", "sk-cost-at", maxCost, now, now,
 	)
 	if err != nil {
@@ -456,7 +456,7 @@ func TestCostQuota_OverLimit(t *testing.T) {
 		 (name, key, enabled, max_cost, used_cost, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, ?, 100.0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, ?, 100.0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"cost-over", "sk-cost-over", maxCost, now, now,
 	)
 	if err != nil {
@@ -482,7 +482,7 @@ func TestCostQuota_NilMaxCost(t *testing.T) {
 		 (name, key, enabled, max_cost, used_cost, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, NULL, 999999.0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, NULL, 999999.0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"cost-nil", "sk-cost-nil", now, now,
 	)
 	if err != nil {
@@ -511,7 +511,7 @@ func TestRequestQuota_UnderLimit(t *testing.T) {
 		 (name, key, enabled, used_cost, max_requests, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, 0, ?, 500, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, 0, ?, 500, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"req-under", "sk-req-under", maxReqs, now, now,
 	)
 	if err != nil {
@@ -535,7 +535,7 @@ func TestRequestQuota_AtLimit(t *testing.T) {
 		 (name, key, enabled, used_cost, max_requests, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, 0, ?, 500, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, 0, ?, 500, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"req-at", "sk-req-at", maxReqs, now, now,
 	)
 	if err != nil {
@@ -562,7 +562,7 @@ func TestRequestQuota_OverLimit(t *testing.T) {
 		 (name, key, enabled, used_cost, max_requests, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, 0, ?, 200, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, 0, ?, 200, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"req-over", "sk-req-over", maxReqs, now, now,
 	)
 	if err != nil {
@@ -592,7 +592,7 @@ func TestConsumeManagedKeyRequest_AtomicIncrement(t *testing.T) {
 		 (name, key, enabled, used_cost, max_requests, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, 0, NULL, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, 0, NULL, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"incr-req", "sk-incr-req", now, now,
 	)
 	if err != nil {
@@ -636,7 +636,7 @@ func TestConsumeManagedKeyRequest_RespectsMaxRequests(t *testing.T) {
 		 (name, key, enabled, used_cost, max_requests, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, 0, 1, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, 0, 1, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"incr-limited", "sk-incr-limited", now, now,
 	)
 	if err != nil {
@@ -673,7 +673,7 @@ func TestConsumeManagedKeyRequest_FromNull(t *testing.T) {
 		 (name, key, enabled, used_cost, max_requests, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, 0, NULL, NULL, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, 0, NULL, NULL, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"incr-null", "sk-incr-null", now, now,
 	)
 	if err != nil {
@@ -703,7 +703,7 @@ func TestRecordManagedKeyCostUsage_PositiveCost(t *testing.T) {
 		 (name, key, enabled, used_cost, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, 10.0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, 10.0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"cost-incr", "sk-cost-incr", now, now,
 	)
 	if err != nil {
@@ -734,7 +734,7 @@ func TestRecordManagedKeyCostUsage_ZeroCost(t *testing.T) {
 		 (name, key, enabled, used_cost, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, 10.0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, 10.0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"cost-zero", "sk-cost-zero", now, now,
 	)
 	if err != nil {
@@ -764,7 +764,7 @@ func TestRecordManagedKeyCostUsage_NegativeCost(t *testing.T) {
 		 (name, key, enabled, used_cost, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, 10.0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, 10.0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"cost-neg", "sk-cost-neg", now, now,
 	)
 	if err != nil {
@@ -794,7 +794,7 @@ func TestRecordManagedKeyCostUsage_NaN(t *testing.T) {
 		 (name, key, enabled, used_cost, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, 10.0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, 10.0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"cost-nan", "sk-cost-nan", now, now,
 	)
 	if err != nil {
@@ -825,7 +825,7 @@ func TestRecordManagedKeyCostUsage_Inf(t *testing.T) {
 		 (name, key, enabled, used_cost, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, 10.0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, 10.0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"cost-inf", "sk-cost-inf", now, now,
 	)
 	if err != nil {
@@ -862,7 +862,7 @@ func TestDisabledKey_Rejected(t *testing.T) {
 		 (name, key, enabled, used_cost, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 0, 0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, FALSE, 0, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"disabled-key", "sk-disabled", now, now,
 	)
 	if err != nil {

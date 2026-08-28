@@ -49,7 +49,7 @@ func seedProbeHistoryFixtures(t *testing.T, db *store.DB) (account1, account2, c
 
 	insertAccount := func(username string) int64 {
 		res, err := db.Exec(`INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, created_at, updated_at)
-			VALUES (?, ?, 'session-token', 'sk-probe-api-token', 'active', 0, ?, ?)`, siteID, username, now, now)
+			VALUES (?, ?, 'session-token', 'sk-probe-api-token', 'active', FALSE, ?, ?)`, siteID, username, now, now)
 		if err != nil {
 			t.Fatalf("insert account: %v", err)
 		}
@@ -60,7 +60,7 @@ func seedProbeHistoryFixtures(t *testing.T, db *store.DB) (account1, account2, c
 	account2 = insertAccount("probe-user-2")
 
 	res, err = db.Exec(`INSERT INTO token_routes (model_pattern, display_name, route_mode, routing_strategy, enabled, created_at, updated_at)
-		VALUES ('gpt-*', 'Probe Route', 'standard', 'weighted', 1, ?, ?)`, now, now)
+		VALUES ('gpt-*', 'Probe Route', 'standard', 'weighted', TRUE, ?, ?)`, now, now)
 	if err != nil {
 		t.Fatalf("insert route: %v", err)
 	}
@@ -68,7 +68,7 @@ func seedProbeHistoryFixtures(t *testing.T, db *store.DB) (account1, account2, c
 
 	insertChannel := func(accountID int64, model string) int64 {
 		res, err := db.Exec(`INSERT INTO route_channels (route_id, account_id, source_model, priority, weight, enabled)
-			VALUES (?, ?, ?, 10, 10, 1)`, routeID, accountID, model)
+			VALUES (?, ?, ?, 10, 10, TRUE)`, routeID, accountID, model)
 		if err != nil {
 			t.Fatalf("insert channel: %v", err)
 		}

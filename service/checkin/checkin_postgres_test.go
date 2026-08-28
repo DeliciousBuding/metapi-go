@@ -164,11 +164,7 @@ func insertCheckinAccount(t *testing.T, db *store.DB, siteID int64, suffix, now 
 	t.Helper()
 	query := `INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at)
 		VALUES (?, ?, ?, 'active', ?, ?, ?)`
-	checkinEnabled := any(1)
-	if db.Dialect == store.DialectPostgres {
-		checkinEnabled = true
-	}
-	args := []any{siteID, "checkin-" + suffix, "sk-checkin-" + suffix, checkinEnabled, now, now}
+	args := []any{siteID, "checkin-" + suffix, "sk-checkin-" + suffix, true, now, now}
 	if db.Dialect == store.DialectPostgres {
 		var id int64
 		if err := db.QueryRow(query+" RETURNING id", args...).Scan(&id); err != nil {

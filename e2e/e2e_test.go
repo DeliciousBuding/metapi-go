@@ -500,7 +500,7 @@ func TestDownstreamAuth(t *testing.T) {
 
 	// Valid key: enabled, not expired, unlimited.
 	_, err := db.Exec(`INSERT INTO downstream_api_keys (name, key, enabled, expires_at, max_cost, used_cost, max_requests, used_requests, supported_models, created_at, updated_at)
-		VALUES (?, ?, 1, ?, NULL, 0, NULL, 0, '["gpt-4","gpt-3.5"]', ?, ?)`,
+		VALUES (?, ?, TRUE, ?, NULL, 0, NULL, 0, '["gpt-4","gpt-3.5"]', ?, ?)`,
 		"test-valid-key", validToken, future, now, now)
 	if err != nil {
 		t.Fatalf("failed to insert valid key: %v", err)
@@ -508,7 +508,7 @@ func TestDownstreamAuth(t *testing.T) {
 
 	// Expired key.
 	_, err = db.Exec(`INSERT INTO downstream_api_keys (name, key, enabled, expires_at, max_cost, used_cost, max_requests, used_requests, supported_models, created_at, updated_at)
-		VALUES (?, ?, 1, ?, NULL, 0, NULL, 0, '["gpt-4"]', ?, ?)`,
+		VALUES (?, ?, TRUE, ?, NULL, 0, NULL, 0, '["gpt-4"]', ?, ?)`,
 		"test-expired-key", expiredToken, past, now, now)
 	if err != nil {
 		t.Fatalf("failed to insert expired key: %v", err)
@@ -516,7 +516,7 @@ func TestDownstreamAuth(t *testing.T) {
 
 	// Disabled key.
 	_, err = db.Exec(`INSERT INTO downstream_api_keys (name, key, enabled, expires_at, max_cost, used_cost, max_requests, used_requests, supported_models, created_at, updated_at)
-		VALUES (?, ?, 0, NULL, NULL, 0, NULL, 0, '["gpt-4"]', ?, ?)`,
+		VALUES (?, ?, FALSE, NULL, NULL, 0, NULL, 0, '["gpt-4"]', ?, ?)`,
 		"test-disabled-key", disabledToken, now, now)
 	if err != nil {
 		t.Fatalf("failed to insert disabled key: %v", err)

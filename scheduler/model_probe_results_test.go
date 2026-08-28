@@ -15,7 +15,7 @@ func seedProbeAccount(t *testing.T, db *store.DB, siteName, username string) (si
 		t.Fatalf("insert site: %v", err)
 	}
 	siteID, _ = res.LastInsertId()
-	res, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, ?, 'tok', 'active', 1, ?, ?)`, siteID, username, now, now)
+	res, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, ?, 'tok', 'active', TRUE, ?, ?)`, siteID, username, now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}

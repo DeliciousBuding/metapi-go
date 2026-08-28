@@ -609,7 +609,7 @@ func TestStats_SQLiteAttentionAggregatesExpiredLowBalanceDisabled(t *testing.T) 
 	}
 	// recent warning event
 	_, err = db.Exec(`INSERT INTO events (type, title, message, level, read, created_at)
-		VALUES (?, ?, ?, 'warning', 0, ?)`, "balance", "余额不足", "x", nowStr)
+		VALUES (?, ?, ?, 'warning', FALSE, ?)`, "balance", "余额不足", "x", nowStr)
 	if err != nil {
 		t.Fatalf("insert event: %v", err)
 	}
@@ -690,12 +690,12 @@ func TestStats_SQLiteAttentionUsesAnnouncementAndEventReadOwners(t *testing.T) {
 	// second attention item or compete with site_announcements.read_at.
 	_, err = db.Exec(`INSERT INTO events
 		(type, title, message, level, read, related_id, related_type, created_at)
-		VALUES ('site_notice', 'Maintenance window', 'details', 'warning', 0, ?, 'site_announcement', ?)`, announcementID, nowStr)
+		VALUES ('site_notice', 'Maintenance window', 'details', 'warning', FALSE, ?, 'site_announcement', ?)`, announcementID, nowStr)
 	if err != nil {
 		t.Fatalf("insert announcement event: %v", err)
 	}
 	_, err = db.Exec(`INSERT INTO events (type, title, message, level, read, created_at)
-		VALUES ('runtime', 'Upstream rate limited', 'details', 'warning', 0, ?)`, nowStr)
+		VALUES ('runtime', 'Upstream rate limited', 'details', 'warning', FALSE, ?)`, nowStr)
 	if err != nil {
 		t.Fatalf("insert unread event: %v", err)
 	}
@@ -704,7 +704,7 @@ func TestStats_SQLiteAttentionUsesAnnouncementAndEventReadOwners(t *testing.T) {
 		t.Fatalf("event id: %v", err)
 	}
 	_, err = db.Exec(`INSERT INTO events (type, title, message, level, read, created_at)
-		VALUES ('runtime', 'Already read', 'details', 'warning', 1, ?)`, nowStr)
+		VALUES ('runtime', 'Already read', 'details', 'warning', TRUE, ?)`, nowStr)
 	if err != nil {
 		t.Fatalf("insert read event: %v", err)
 	}
@@ -755,7 +755,7 @@ func TestStats_SQLiteAttentionUsesAnnouncementAndEventReadOwners(t *testing.T) {
 	if _, err := db.Exec("UPDATE site_announcements SET read_at = ? WHERE id = ?", nowStr, announcementID); err != nil {
 		t.Fatalf("mark announcement read: %v", err)
 	}
-	if _, err := db.Exec("UPDATE events SET read = 1 WHERE id = ?", eventID); err != nil {
+	if _, err := db.Exec("UPDATE events SET read = TRUE WHERE id = ?", eventID); err != nil {
 		t.Fatalf("mark event read: %v", err)
 	}
 	for _, raw := range readAttention() {
@@ -1116,7 +1116,7 @@ func seedModelsSurfacesFixture(t *testing.T, db *store.DB) (siteID, accountWithT
 	}
 
 	_, err = db.Exec(`INSERT INTO account_tokens (account_id, name, token, token_group, value_status, source, enabled, is_default, created_at, updated_at)
-		VALUES (?, ?, ?, NULL, 'ready', 'manual', 1, 1, ?, ?)`, accountWithToken, "default", "sk-ms-default", now, now)
+		VALUES (?, ?, ?, NULL, 'ready', 'manual', TRUE, TRUE, ?, ?)`, accountWithToken, "default", "sk-ms-default", now, now)
 	if err != nil {
 		t.Fatalf("insert account token: %v", err)
 	}
@@ -1126,28 +1126,28 @@ func seedModelsSurfacesFixture(t *testing.T, db *store.DB) (siteID, accountWithT
 
 	// Token-scoped availability for gpt-4o.
 	_, err = db.Exec(`INSERT INTO token_model_availability (token_id, model_name, available, latency_ms, checked_at)
-		VALUES (?, ?, 1, ?, ?)`, tokenID, "gpt-4o", 320, now)
+		VALUES (?, ?, TRUE, ?, ?)`, tokenID, "gpt-4o", 320, now)
 	if err != nil {
 		t.Fatalf("insert token model availability: %v", err)
 	}
 
 	// Account-level availability on bare account (no managed tokens).
 	_, err = db.Exec(`INSERT INTO model_availability (account_id, model_name, available, is_manual, latency_ms, checked_at)
-		VALUES (?, ?, 1, 0, ?, ?)`, accountWithoutToken, "claude-3-5-sonnet", 410, now)
+		VALUES (?, ?, TRUE, FALSE, ?, ?)`, accountWithoutToken, "claude-3-5-sonnet", 410, now)
 	if err != nil {
 		t.Fatalf("insert bare model availability: %v", err)
 	}
 
 	// Account-level availability on token account whose tokens lack group labels.
 	_, err = db.Exec(`INSERT INTO model_availability (account_id, model_name, available, is_manual, latency_ms, checked_at)
-		VALUES (?, ?, 1, 0, ?, ?)`, accountWithToken, "gpt-4o-mini", 280, now)
+		VALUES (?, ?, TRUE, FALSE, ?, ?)`, accountWithToken, "gpt-4o-mini", 280, now)
 	if err != nil {
 		t.Fatalf("insert grouped model availability: %v", err)
 	}
 
 	// Exact route so marketplace still lists a route-only model name.
 	_, err = db.Exec(`INSERT INTO token_routes (model_pattern, route_mode, routing_strategy, enabled, created_at, updated_at)
-		VALUES ('route-only-model', 'exact', 'weighted', 1, ?, ?)`, now, now)
+		VALUES ('route-only-model', 'exact', 'weighted', TRUE, ?, ?)`, now, now)
 	if err != nil {
 		t.Fatalf("insert exact route: %v", err)
 	}

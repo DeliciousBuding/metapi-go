@@ -16,7 +16,7 @@ func TestChannels_ListProjection(t *testing.T) {
 	if _, err := db.Exec(
 		`INSERT INTO route_channels
 			(route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override, success_count, total_latency_ms)
-		 VALUES (?, ?, ?, 'gpt-4o', 5, 20, 1, 0, 2, 300)`,
+		 VALUES (?, ?, ?, 'gpt-4o', 5, 20, TRUE, FALSE, 2, 300)`,
 		routeID, accountID, tokenID,
 	); err != nil {
 		t.Fatalf("insert channel: %v", err)
@@ -85,7 +85,7 @@ func TestChannels_ManuallyDisabledStatus(t *testing.T) {
 	if _, err := db.Exec(
 		`INSERT INTO route_channels
 			(route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override)
-		 VALUES (?, ?, ?, 'gpt-4o', 0, 10, 0, 1)`,
+		 VALUES (?, ?, ?, 'gpt-4o', 0, 10, FALSE, TRUE)`,
 		routeID, accountID, tokenID,
 	); err != nil {
 		t.Fatalf("insert channel: %v", err)
@@ -126,7 +126,7 @@ func TestChannels_List_UnboundedReturnsAllRows(t *testing.T) {
 		if _, err := db.Exec(
 			`INSERT INTO route_channels
 				(route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override)
-			 VALUES (?, ?, ?, ?, 0, 10, 1, 0)`,
+			 VALUES (?, ?, ?, ?, 0, 10, TRUE, FALSE)`,
 			routeID, accountID, tokenID, "gpt-unbounded-"+itoa(int64(i))); err != nil {
 			t.Fatalf("insert channel %d: %v", i, err)
 		}

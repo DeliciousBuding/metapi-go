@@ -34,7 +34,7 @@ func seedAccountAndToken(t *testing.T, db *sqlx.DB, tokenValue string) (accountI
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	res, err := db.Exec(
 		`INSERT INTO sites (name, url, platform, status, use_system_proxy, sort_order, global_weight, post_refresh_probe_enabled, created_at, updated_at)
-		 VALUES (?, ?, 'openai', 'active', 0, 0, 0, 0, ?, ?)`,
+		 VALUES (?, ?, 'openai', 'active', FALSE, 0, 0, FALSE, ?, ?)`,
 		"TokenBackfillSite", "https://api.example.com", now, now,
 	)
 	if err != nil {
@@ -44,7 +44,7 @@ func seedAccountAndToken(t *testing.T, db *sqlx.DB, tokenValue string) (accountI
 
 	accRes, err := db.Exec(
 		`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, sort_order, created_at, updated_at)
-		 VALUES (?, 'tester', ?, 'active', 1, 0, ?, ?)`,
+		 VALUES (?, 'tester', ?, 'active', TRUE, 0, ?, ?)`,
 		siteID, tokenValue, now, now,
 	)
 	if err != nil {
@@ -54,7 +54,7 @@ func seedAccountAndToken(t *testing.T, db *sqlx.DB, tokenValue string) (accountI
 
 	tokRes, err := db.Exec(
 		`INSERT INTO account_tokens (account_id, name, token, value_status, source, enabled, is_default, created_at, updated_at)
-		 VALUES (?, 'default', ?, 'ready', 'manual', 1, 1, ?, ?)`,
+		 VALUES (?, 'default', ?, 'ready', 'manual', TRUE, TRUE, ?, ?)`,
 		accountID, tokenValue, now, now,
 	)
 	if err != nil {
@@ -102,7 +102,7 @@ func TestRefreshAccountModels_TokenBackfillEndToEnd(t *testing.T) {
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	res, err := dbConn.Exec(
 		`INSERT INTO account_tokens (account_id, name, token, value_status, source, enabled, is_default, created_at, updated_at)
-		 VALUES (?, 'default', 'sk-backfill-token', 'ready', 'manual', 1, 1, ?, ?)`,
+		 VALUES (?, 'default', 'sk-backfill-token', 'ready', 'manual', TRUE, TRUE, ?, ?)`,
 		accountID, now, now,
 	)
 	if err != nil {
@@ -122,7 +122,7 @@ func TestRefreshAccountModels_TokenBackfillEndToEnd(t *testing.T) {
 	// Verify token_model_availability rows were written.
 	var availCount int
 	if err := dbConn.Get(&availCount,
-		`SELECT COUNT(*) FROM token_model_availability WHERE token_id = ? AND available = 1`,
+		`SELECT COUNT(*) FROM token_model_availability WHERE token_id = ? AND available = TRUE`,
 		tokenID,
 	); err != nil {
 		t.Fatalf("count token models: %v", err)
@@ -134,7 +134,7 @@ func TestRefreshAccountModels_TokenBackfillEndToEnd(t *testing.T) {
 	// Also verify account-level model_availability was written.
 	var accountModelCount int
 	if err := dbConn.Get(&accountModelCount,
-		`SELECT COUNT(*) FROM model_availability WHERE account_id = ? AND available = 1`,
+		`SELECT COUNT(*) FROM model_availability WHERE account_id = ? AND available = TRUE`,
 		accountID,
 	); err != nil {
 		t.Fatalf("count account models: %v", err)
@@ -188,7 +188,7 @@ func TestRefreshAccountModels_TokenBackfillSkipsWhenNoTokenMatch(t *testing.T) {
 	// Account-level should still be written.
 	var accountModelCount int
 	if err := dbConn.Get(&accountModelCount,
-		`SELECT COUNT(*) FROM model_availability WHERE account_id = ? AND available = 1`,
+		`SELECT COUNT(*) FROM model_availability WHERE account_id = ? AND available = TRUE`,
 		accountID,
 	); err != nil {
 		t.Fatalf("count account models: %v", err)

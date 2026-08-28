@@ -24,7 +24,7 @@ func setupTagsTest(t *testing.T) (*store.DB, chi.Router, int64, int64) {
 	siteID, _ := res.LastInsertId()
 
 	res, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, created_at, updated_at)
-		VALUES (?, ?, ?, ?, 'active', 0, ?, ?)`, siteID, "tag-user", "sess", "sk-tag", now, now)
+		VALUES (?, ?, ?, ?, 'active', FALSE, ?, ?)`, siteID, "tag-user", "sess", "sk-tag", now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}

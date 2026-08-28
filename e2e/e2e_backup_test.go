@@ -51,13 +51,13 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 	db.Exec(`INSERT INTO sites (id, name, url, platform, status, created_at, updated_at)
 		VALUES (1, 'Test Site A', 'https://api.openai.com', 'openai', 'active', ?, ?)`, now, now)
 	db.Exec(`INSERT INTO sites (id, name, url, platform, status, is_pinned, created_at, updated_at)
-		VALUES (2, 'Test Site B', 'https://api.anthropic.com', 'anthropic', 'active', 1, ?, ?)`, now, now)
+		VALUES (2, 'Test Site B', 'https://api.anthropic.com', 'anthropic', 'active', TRUE, ?, ?)`, now, now)
 
 	// Table 2: site_api_endpoints (2 rows, FK sites)
 	db.Exec(`INSERT INTO site_api_endpoints (id, site_id, url, enabled, created_at, updated_at)
-		VALUES (1, 1, 'https://api.openai.com/v1', 1, ?, ?)`, now, now)
+		VALUES (1, 1, 'https://api.openai.com/v1', TRUE, ?, ?)`, now, now)
 	db.Exec(`INSERT INTO site_api_endpoints (id, site_id, url, enabled, created_at, updated_at)
-		VALUES (2, 2, 'https://api.anthropic.com/v1', 1, ?, ?)`, now, now)
+		VALUES (2, 2, 'https://api.anthropic.com/v1', TRUE, ?, ?)`, now, now)
 
 	// Table 3: site_disabled_models (1 row, FK sites)
 	db.Exec(`INSERT INTO site_disabled_models (id, site_id, model_name, created_at)
@@ -71,11 +71,11 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 
 	// Table 5: account_tokens (3 rows, FK accounts)
 	db.Exec(`INSERT INTO account_tokens (id, account_id, name, token, value_status, source, enabled, is_default, created_at, updated_at)
-		VALUES (1, 1, 'default', 'tk-a-default', 'ready', 'manual', 1, 1, ?, ?)`, now, now)
+		VALUES (1, 1, 'default', 'tk-a-default', 'ready', 'manual', TRUE, TRUE, ?, ?)`, now, now)
 	db.Exec(`INSERT INTO account_tokens (id, account_id, name, token, value_status, source, enabled, created_at, updated_at)
-		VALUES (2, 1, 'backup', 'tk-a-backup', 'ready', 'manual', 1, ?, ?)`, now, now)
+		VALUES (2, 1, 'backup', 'tk-a-backup', 'ready', 'manual', TRUE, ?, ?)`, now, now)
 	db.Exec(`INSERT INTO account_tokens (id, account_id, name, token, value_status, source, enabled, is_default, created_at, updated_at)
-		VALUES (3, 2, 'default', 'tk-b-default', 'ready', 'manual', 1, 1, ?, ?)`, now, now)
+		VALUES (3, 2, 'default', 'tk-b-default', 'ready', 'manual', TRUE, TRUE, ?, ?)`, now, now)
 
 	// Table 6: checkin_logs (2 rows, FK accounts)
 	db.Exec(`INSERT INTO checkin_logs (id, account_id, status, message, reward, created_at)
@@ -85,21 +85,21 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 
 	// Table 7: model_availability (2 rows, FK accounts)
 	db.Exec(`INSERT INTO model_availability (id, account_id, model_name, available, is_manual, checked_at)
-		VALUES (1, 1, 'gpt-4', 1, 1, ?)`, now)
+		VALUES (1, 1, 'gpt-4', TRUE, TRUE, ?)`, now)
 	db.Exec(`INSERT INTO model_availability (id, account_id, model_name, available, is_manual, checked_at)
-		VALUES (2, 2, 'claude-3-opus', 1, 0, ?)`, now)
+		VALUES (2, 2, 'claude-3-opus', TRUE, FALSE, ?)`, now)
 
 	// Table 8: token_model_availability (2 rows, FK account_tokens)
 	db.Exec(`INSERT INTO token_model_availability (id, token_id, model_name, available, checked_at)
-		VALUES (1, 1, 'gpt-4', 1, ?)`, now)
+		VALUES (1, 1, 'gpt-4', TRUE, ?)`, now)
 	db.Exec(`INSERT INTO token_model_availability (id, token_id, model_name, available, checked_at)
-		VALUES (2, 3, 'claude-3-opus', 1, ?)`, now)
+		VALUES (2, 3, 'claude-3-opus', TRUE, ?)`, now)
 
 	// Table 9: token_routes (2 rows)
 	db.Exec(`INSERT INTO token_routes (id, model_pattern, display_name, route_mode, routing_strategy, enabled, created_at, updated_at)
-		VALUES (1, 'gpt-4', 'GPT-4 Route', 'pattern', 'weighted', 1, ?, ?)`, now, now)
+		VALUES (1, 'gpt-4', 'GPT-4 Route', 'pattern', 'weighted', TRUE, ?, ?)`, now, now)
 	db.Exec(`INSERT INTO token_routes (id, model_pattern, display_name, route_mode, routing_strategy, enabled, created_at, updated_at)
-		VALUES (2, 'claude-*', 'Claude Route', 'pattern', 'weighted', 1, ?, ?)`, now, now)
+		VALUES (2, 'claude-*', 'Claude Route', 'pattern', 'weighted', TRUE, ?, ?)`, now, now)
 
 	// Table 10: route_group_sources (2 rows, FK token_routes x2)
 	db.Exec(`INSERT INTO route_group_sources (id, group_route_id, source_route_id)
@@ -109,9 +109,9 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 
 	// Table 11: oauth_route_units (2 rows, FK sites)
 	db.Exec(`INSERT INTO oauth_route_units (id, site_id, provider, name, strategy, enabled, created_at, updated_at)
-		VALUES (1, 1, 'google', 'Google Unit', 'round_robin', 1, ?, ?)`, now, now)
+		VALUES (1, 1, 'google', 'Google Unit', 'round_robin', TRUE, ?, ?)`, now, now)
 	db.Exec(`INSERT INTO oauth_route_units (id, site_id, provider, name, strategy, enabled, created_at, updated_at)
-		VALUES (2, 2, 'github', 'GitHub Unit', 'round_robin', 1, ?, ?)`, now, now)
+		VALUES (2, 2, 'github', 'GitHub Unit', 'round_robin', TRUE, ?, ?)`, now, now)
 
 	// Table 12: oauth_route_unit_members (2 rows, FK oauth_route_units + accounts, UNIQUE account_id)
 	// Each account can only be in one unit, so distribute across units.
@@ -123,9 +123,9 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 	// Table 13: route_channels (2 rows, FK token_routes + accounts + account_tokens SET NULL)
 	// NOTE: route_channels has NO created_at/updated_at columns.
 	db.Exec(`INSERT INTO route_channels (id, route_id, account_id, token_id, weight, enabled)
-		VALUES (1, 1, 1, 1, 10, 1)`)
+		VALUES (1, 1, 1, 1, 10, TRUE)`)
 	db.Exec(`INSERT INTO route_channels (id, route_id, account_id, weight, enabled)
-		VALUES (2, 2, 2, 10, 1)`)
+		VALUES (2, 2, 2, 10, TRUE)`)
 
 	// Table 14: proxy_logs (2 rows)
 	db.Exec(`INSERT INTO proxy_logs (id, route_id, channel_id, account_id, model_requested, model_actual, status, created_at)
@@ -189,9 +189,9 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 
 	// Table 25: downstream_api_keys (2 rows)
 	db.Exec(`INSERT INTO downstream_api_keys (id, name, key, enabled, used_cost, used_requests, created_at, updated_at)
-		VALUES (1, 'Test Key A', 'sk-downstream-key-a', 1, 0, 0, ?, ?)`, now, now)
+		VALUES (1, 'Test Key A', 'sk-downstream-key-a', TRUE, 0, 0, ?, ?)`, now, now)
 	db.Exec(`INSERT INTO downstream_api_keys (id, name, key, expires_at, enabled, used_cost, used_requests, created_at, updated_at)
-		VALUES (2, 'Test Key B', 'sk-downstream-key-b', ?, 1, 0, 0, ?, ?)`, future, now, now)
+		VALUES (2, 'Test Key B', 'sk-downstream-key-b', ?, TRUE, 0, 0, ?, ?)`, future, now, now)
 
 	// Table 26: site_announcements (2 rows, FK sites)
 	db.Exec(`INSERT INTO site_announcements (id, site_id, platform, source_key, title, content, level, first_seen_at, last_seen_at)
@@ -203,7 +203,7 @@ func TestBackupExportImportRoundtrip(t *testing.T) {
 	db.Exec(`INSERT INTO events (id, type, title, message, level, created_at)
 		VALUES (1, 'info', 'System started', 'Metapi started successfully', 'info', ?)`, now)
 	db.Exec(`INSERT INTO events (id, type, title, message, level, read, created_at)
-		VALUES (2, 'warn', 'High latency', 'Proxy latency above threshold', 'warn', 0, ?)`, now)
+		VALUES (2, 'warn', 'High latency', 'Proxy latency above threshold', 'warn', FALSE, ?)`, now)
 
 	// ──────────────────────────────────────────────────────────────────────────
 	// Verify seed: check row counts for all 28 tables
@@ -714,7 +714,7 @@ func TestBackupSettingsJSONFidelity(t *testing.T) {
 
 	// Insert a downstream_api_key with JSON array fields.
 	db.Exec(`INSERT INTO downstream_api_keys (id, name, key, enabled, used_cost, used_requests, supported_models, allowed_route_ids, created_at, updated_at)
-		VALUES (1, 'Key With JSON', 'sk-json-fields', 1, 0, 0, '["gpt-4","gpt-3.5","claude-3-opus"]', '[1,2,3]', ?, ?)`, now, now)
+		VALUES (1, 'Key With JSON', 'sk-json-fields', TRUE, 0, 0, '["gpt-4","gpt-3.5","claude-3-opus"]', '[1,2,3]', ?, ?)`, now, now)
 
 	// Insert a site with nullable fields set.
 	db.Exec(`INSERT INTO sites (id, name, url, platform, status, custom_headers, created_at, updated_at)
@@ -786,11 +786,11 @@ func TestBackupRouteChannelTokenNullFK(t *testing.T) {
 	db.Exec(`INSERT INTO account_tokens (id, account_id, name, token, value_status, source, created_at, updated_at)
 		VALUES (1, 1, 'tk', 'val', 'ready', 'manual', ?, ?)`, now, now)
 	db.Exec(`INSERT INTO token_routes (id, model_pattern, routing_strategy, enabled, created_at, updated_at)
-		VALUES (1, 'gpt-4', 'weighted', 1, ?, ?)`, now, now)
+		VALUES (1, 'gpt-4', 'weighted', TRUE, ?, ?)`, now, now)
 
 	// Create route_channel WITH token_id set (no created_at column).
 	db.Exec(`INSERT INTO route_channels (id, route_id, account_id, token_id, weight, enabled)
-		VALUES (1, 1, 1, 1, 10, 1)`)
+		VALUES (1, 1, 1, 1, 10, TRUE)`)
 
 	// Export.
 	exportRec := doGet(t, r, "/api/settings/backup/export?type=all")

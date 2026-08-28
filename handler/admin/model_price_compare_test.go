@@ -31,12 +31,12 @@ func TestStats_SQLiteModelPriceCompare_ObservedAndConfigured(t *testing.T) {
 	}
 
 	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, balance, unit_cost, checkin_enabled, created_at, updated_at)
-		VALUES (?, ?, ?, 'active', ?, NULL, 0, ?, ?)`, cheapSiteID, "cheap-user", "sk-cheap", 10.0, now, now)
+		VALUES (?, ?, ?, 'active', ?, NULL, FALSE, ?, ?)`, cheapSiteID, "cheap-user", "sk-cheap", 10.0, now, now)
 	if err != nil {
 		t.Fatalf("insert account1: %v", err)
 	}
 	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, balance, unit_cost, checkin_enabled, created_at, updated_at)
-		VALUES (?, ?, ?, 'active', ?, ?, 0, ?, ?)`, cfgSiteID, "cfg-user", "sk-cfg", 10.0, 0.55, now, now)
+		VALUES (?, ?, ?, 'active', ?, ?, FALSE, ?, ?)`, cfgSiteID, "cfg-user", "sk-cfg", 10.0, 0.55, now, now)
 	if err != nil {
 		t.Fatalf("insert account2: %v", err)
 	}
@@ -51,12 +51,12 @@ func TestStats_SQLiteModelPriceCompare_ObservedAndConfigured(t *testing.T) {
 
 	// Availability for both accounts.
 	_, err = db.Exec(`INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at)
-		VALUES (?, ?, 1, 0, ?)`, cheapAccID, "gpt-price-compare", now)
+		VALUES (?, ?, TRUE, FALSE, ?)`, cheapAccID, "gpt-price-compare", now)
 	if err != nil {
 		t.Fatalf("avail1: %v", err)
 	}
 	_, err = db.Exec(`INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at)
-		VALUES (?, ?, 1, 0, ?)`, cfgAccID, "gpt-price-compare", now)
+		VALUES (?, ?, TRUE, FALSE, ?)`, cfgAccID, "gpt-price-compare", now)
 	if err != nil {
 		t.Fatalf("avail2: %v", err)
 	}
@@ -146,7 +146,7 @@ func TestStats_SQLiteModelPriceCompare_EmptyModelUsesTopTraffic(t *testing.T) {
 		t.Fatalf("site id: %v", err)
 	}
 	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, balance, checkin_enabled, created_at, updated_at)
-		VALUES (?, ?, ?, 'active', ?, 0, ?, ?)`, siteID, "top-user", "sk-top", 1.0, now, now)
+		VALUES (?, ?, ?, 'active', ?, FALSE, ?, ?)`, siteID, "top-user", "sk-top", 1.0, now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestStats_SQLiteModelPriceCompare_FallbackLabeledMissing(t *testing.T) {
 		t.Fatalf("site id: %v", err)
 	}
 	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, balance, checkin_enabled, created_at, updated_at)
-		VALUES (?, ?, ?, 'active', ?, 0, ?, ?)`, siteID, "empty-user", "sk-empty", 1.0, now, now)
+		VALUES (?, ?, ?, 'active', ?, FALSE, ?, ?)`, siteID, "empty-user", "sk-empty", 1.0, now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}
@@ -238,7 +238,7 @@ func TestStats_SQLiteModelPriceCompare_ExactModelExcludesFamilyMatches(t *testin
 		t.Fatalf("site id: %v", err)
 	}
 	_, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, balance, checkin_enabled, created_at, updated_at)
-		VALUES (?, ?, ?, 'active', ?, 0, ?, ?)`, siteID, "exact-user", "sk-exact", 1.0, now, now)
+		VALUES (?, ?, ?, 'active', ?, FALSE, ?, ?)`, siteID, "exact-user", "sk-exact", 1.0, now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}
@@ -248,7 +248,7 @@ func TestStats_SQLiteModelPriceCompare_ExactModelExcludesFamilyMatches(t *testin
 	}
 	for _, model := range []string{"gpt-4o", "gpt-4o-mini"} {
 		_, err = db.Exec(`INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at)
-			VALUES (?, ?, 1, 0, ?)`, accountID, model, now)
+			VALUES (?, ?, TRUE, FALSE, ?)`, accountID, model, now)
 		if err != nil {
 			t.Fatalf("insert availability %q: %v", model, err)
 		}

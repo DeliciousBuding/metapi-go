@@ -52,7 +52,7 @@ func TestProbe_RefreshBalance_Sub2ApiUpstreamFailureMustNotZeroBalance(t *testin
 	// Account with a known stored balance and an expired status — both must
 	// survive a failed refresh untouched.
 	accountRes, err := db.Exec(
-		"INSERT INTO accounts (site_id, username, access_token, balance, quota, status, checkin_enabled, created_at, updated_at) VALUES (?, ?, ?, 88.5, 100.0, 'expired', 0, ?, ?)",
+		"INSERT INTO accounts (site_id, username, access_token, balance, quota, status, checkin_enabled, created_at, updated_at) VALUES (?, ?, ?, 88.5, 100.0, 'expired', FALSE, ?, ?)",
 		siteID, "sub2api-user", "session-token", now, now,
 	)
 	if err != nil {

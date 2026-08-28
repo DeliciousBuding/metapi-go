@@ -148,7 +148,7 @@ func TestEnvelope_ChannelsList_PagedEnvelope(t *testing.T) {
 	if _, err := db.Exec(
 		`INSERT INTO route_channels
 			(route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override)
-		 VALUES (?, ?, ?, 'gpt-4o', 0, 10, 1, 0)`,
+		 VALUES (?, ?, ?, 'gpt-4o', 0, 10, TRUE, FALSE)`,
 		routeID, accountID, tokenID,
 	); err != nil {
 		t.Fatalf("insert channel: %v", err)

@@ -51,7 +51,7 @@ func insertOAuthAccountUnique(t *testing.T, db *store.DB, provider, suffix strin
 	siteURL := "https://chatgpt.com/backend-api/" + suffix
 	res, err := db.Exec(
 		`INSERT INTO sites (name, url, platform, status, use_system_proxy, is_pinned, global_weight, sort_order, created_at, updated_at)
-		 VALUES (?, ?, ?, 'active', 0, 0, 1, 0, ?, ?)`,
+		 VALUES (?, ?, ?, 'active', FALSE, FALSE, 1, 0, ?, ?)`,
 		"Codex OAuth Test "+suffix, siteURL, provider, now, now,
 	)
 	if err != nil {
@@ -67,7 +67,7 @@ func insertOAuthAccountUnique(t *testing.T, db *store.DB, provider, suffix strin
 	extra := `{"oauth":{"provider":"` + provider + `","accountId":"` + accountKey + `","accountKey":"` + accountKey + `","email":"` + email + `","refreshToken":"rt-test"}}`
 	res, err = db.Exec(
 		`INSERT INTO accounts (site_id, username, access_token, checkin_enabled, status, oauth_provider, oauth_account_key, extra_config, is_pinned, sort_order, balance, balance_used, quota, value_score, created_at, updated_at)
-		 VALUES (?, ?, ?, 0, 'active', ?, ?, ?, 0, 0, 0, 0, 0, 0, ?, ?)`,
+		 VALUES (?, ?, ?, FALSE, 'active', ?, ?, ?, FALSE, 0, 0, 0, 0, 0, ?, ?)`,
 		siteID, email, "at-test", provider, accountKey, extra, now, now,
 	)
 	if err != nil {

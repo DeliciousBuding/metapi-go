@@ -51,7 +51,7 @@ func seedCredentialedAccount(t *testing.T, db *store.DB) (accessSecret, apiSecre
 
 	res, err = db.Exec(
 		`INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, created_at, updated_at)
-		 VALUES (?, 'cred-user', ?, ?, 'active', 1, ?, ?)`,
+		 VALUES (?, 'cred-user', ?, ?, 'active', TRUE, ?, ?)`,
 		siteID, accessSecret, apiSecret, now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
@@ -60,7 +60,7 @@ func seedCredentialedAccount(t *testing.T, db *store.DB) (accessSecret, apiSecre
 
 	res, err = db.Exec(
 		`INSERT INTO account_tokens (account_id, name, token, value_status, source, enabled, is_default, created_at, updated_at)
-		 VALUES (?, 'cred-token', ?, 'ready', 'manual', 1, 1, ?, ?)`,
+		 VALUES (?, 'cred-token', ?, 'ready', 'manual', TRUE, TRUE, ?, ?)`,
 		accountID, tokenSecret, now, now)
 	if err != nil {
 		t.Fatalf("insert account_token: %v", err)
@@ -68,7 +68,7 @@ func seedCredentialedAccount(t *testing.T, db *store.DB) (accessSecret, apiSecre
 	tokenID, _ = res.LastInsertId()
 
 	res, err = db.Exec(
-		`INSERT INTO token_routes (model_pattern, enabled, created_at, updated_at) VALUES ('gpt-*', 1, ?, ?)`, now, now)
+		`INSERT INTO token_routes (model_pattern, enabled, created_at, updated_at) VALUES ('gpt-*', TRUE, ?, ?)`, now, now)
 	if err != nil {
 		t.Fatalf("insert route: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestListRoutes_ResponseOmitsPlaintextCredentials(t *testing.T) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	if _, err := db.Exec(
 		`INSERT INTO route_channels (route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override)
-		 VALUES (?, ?, ?, 'gpt-4o', 1, 10, 1, 0)`, routeID, accountID, tokenID); err != nil {
+		 VALUES (?, ?, ?, 'gpt-4o', 1, 10, TRUE, FALSE)`, routeID, accountID, tokenID); err != nil {
 		t.Fatalf("insert channel: %v", err)
 	}
 	_ = now
@@ -138,7 +138,7 @@ func TestGetRouteChannels_ResponseOmitsPlaintextCredentials(t *testing.T) {
 	accessSecret, apiSecret, _, routeID, accountID, tokenID := seedCredentialedAccount(t, db)
 	if _, err := db.Exec(
 		`INSERT INTO route_channels (route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override)
-		 VALUES (?, ?, ?, 'gpt-4o', 1, 10, 1, 0)`, routeID, accountID, tokenID); err != nil {
+		 VALUES (?, ?, ?, 'gpt-4o', 1, 10, TRUE, FALSE)`, routeID, accountID, tokenID); err != nil {
 		t.Fatalf("insert channel: %v", err)
 	}
 
@@ -241,7 +241,7 @@ func TestChannels_PaginationReturnsCorrectTotal(t *testing.T) {
 		model := "gpt-pg-" + itoa(int64(i+1))
 		if _, err := db.Exec(
 			`INSERT INTO route_channels (route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override)
-			 VALUES (?, ?, ?, ?, 0, 10, 1, 0)`, routeID, accountID, tokenID, model); err != nil {
+			 VALUES (?, ?, ?, ?, 0, 10, TRUE, FALSE)`, routeID, accountID, tokenID, model); err != nil {
 			t.Fatalf("insert channel %d: %v", i, err)
 		}
 	}

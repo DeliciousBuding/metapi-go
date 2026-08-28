@@ -30,14 +30,10 @@ import (
 func seedDownstreamKeyFixture(t *testing.T, db *store.DB, name string, enabled bool) int64 {
 	t.Helper()
 	now := time.Now().UTC().Format(time.RFC3339)
-	enabledInt := 0
-	if enabled {
-		enabledInt = 1
-	}
 	res, err := db.Exec(
 		`INSERT INTO downstream_api_keys (name, key, enabled, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?)`,
-		name, "sk-test-"+name+"-secret-value", enabledInt, now, now,
+		name, "sk-test-"+name+"-secret-value", enabled, now, now,
 	)
 	if err != nil {
 		t.Fatalf("insert downstream key %s: %v", name, err)
@@ -60,7 +56,7 @@ func TestFilters_AccountTokens_AccountIDScopesList(t *testing.T) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	res, err := db.Exec(
 		`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at)
-		 VALUES (?, 'tokuser-b', 'sk-session-b', 'active', 1, ?, ?)`,
+		 VALUES (?, 'tokuser-b', 'sk-session-b', 'active', TRUE, ?, ?)`,
 		siteID, now, now,
 	)
 	if err != nil {

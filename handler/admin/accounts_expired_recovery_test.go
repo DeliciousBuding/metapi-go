@@ -133,7 +133,7 @@ func TestAccounts_Update_ExpiredAPIKeyRecovery_Success(t *testing.T) {
 
 	var modelCount int
 	if err := db.QueryRow(
-		"SELECT COUNT(*) FROM model_availability WHERE account_id = ? AND available = 1",
+		"SELECT COUNT(*) FROM model_availability WHERE account_id = ? AND available = TRUE",
 		accountID,
 	).Scan(&modelCount); err != nil {
 		t.Fatalf("count models: %v", err)
@@ -346,7 +346,7 @@ func TestAccounts_Update_ExpiredAPIKeyRecovery_InjectableRefresh(t *testing.T) {
 		// Simulate successful model write without upstream (Wave 15 moved
 		// persistAccountModelAvailability into the service package).
 		if _, err := dbx.Exec(dbx.Rebind(
-			"INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at) VALUES (?, ?, 1, 0, ?)",
+			"INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at) VALUES (?, ?, TRUE, FALSE, ?)",
 		), id, "inject-model", time.Now().UTC().Format(time.RFC3339)); err != nil {
 			t.Fatalf("seed injected availability: %v", err)
 		}

@@ -457,7 +457,7 @@ func TestEdge_SQLiteConcurrentWrites_Accounts(t *testing.T) {
 			now := time.Now().UTC().Format(time.RFC3339)
 			_, err := db.Exec(
 				`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at)
-				 VALUES (?, ?, ?, 'active', 1, ?, ?)`,
+				 VALUES (?, ?, ?, 'active', TRUE, ?, ?)`,
 				siteID, "user-"+itoa(int64(gid)), "concurrent-token-"+itoa(int64(gid)), now, now,
 			)
 			if err != nil {
@@ -602,7 +602,7 @@ func TestEdge_NULLOptionalFieldsInAccount(t *testing.T) {
 		 balance_used, quota, unit_cost, value_score, status, is_pinned, sort_order,
 		 checkin_enabled, oauth_provider, oauth_account_key, oauth_project_id,
 		 extra_config, created_at, updated_at)
-		 VALUES (?, NULL, 'null-token', NULL, 0, 0, 0, NULL, 0, 'active', 0, 0, 1,
+		 VALUES (?, NULL, 'null-token', NULL, 0, 0, 0, NULL, 0, 'active', FALSE, 0, TRUE,
 		 NULL, NULL, NULL, NULL, ?, ?)`,
 		siteID, now, now,
 	)
