@@ -334,7 +334,10 @@ export function SearchModal(props: SearchModalProps) {
         key: `site-${site.id}`,
         label: firstNonEmpty(site.name) ?? unknownLabel,
         description: firstNonEmpty(site.url),
-        onSelect: () => navigateToQueryPage('/sites'),
+        // Deep-link straight to the entity: the sites page consumes the
+        // one-shot `?edit=<id>` param (same channel as its row action).
+        onSelect: () =>
+          closeAndNavigate({ to: '/sites', search: { edit: site.id } }),
       }))
 
     const accountItems: SearchItem[] = (results.accounts ?? [])
@@ -343,7 +346,13 @@ export function SearchModal(props: SearchModalProps) {
         key: `account-${account.id}`,
         label: firstNonEmpty(account.username) ?? unknownLabel,
         description: firstNonEmpty(account.siteName),
-        onSelect: () => navigateToQueryPage('/accounts'),
+        // The accounts page consumes the one-shot `?accountId=<id>` param
+        // (same channel as the dashboard attention deep link).
+        onSelect: () =>
+          closeAndNavigate({
+            to: '/accounts',
+            search: { accountId: account.id },
+          }),
       }))
 
     const tokenItems: SearchItem[] = (results.accountTokens ?? [])
@@ -352,7 +361,16 @@ export function SearchModal(props: SearchModalProps) {
         key: `token-${token.id}`,
         label: firstNonEmpty(token.name) ?? unknownLabel,
         description: firstNonEmpty(token.accountUsername),
-        onSelect: () => navigateToQueryPage('/accounts'),
+        // Jump to the owning account's detail sheet when the backend
+        // returned its id; fall back to the q-filtered list for legacy
+        // payloads without it.
+        onSelect: () =>
+          token.accountId != null
+            ? closeAndNavigate({
+                to: '/accounts',
+                search: { accountId: token.accountId },
+              })
+            : navigateToQueryPage('/accounts'),
       }))
 
     const checkinItems: SearchItem[] = (results.checkinLogs ?? [])
@@ -384,7 +402,13 @@ export function SearchModal(props: SearchModalProps) {
           model.tokenCount != null
             ? t('search.modelTokens', { count: model.tokenCount })
             : null,
-        onSelect: () => navigateToQueryPage('/models'),
+        // The models page consumes the one-shot `?model=<name>` param and
+        // opens the detail sheet.
+        onSelect: () =>
+          closeAndNavigate({
+            to: '/models',
+            search: { model: model.modelName },
+          }),
       }))
 
     const builtGroups: SearchGroup[] = [
@@ -427,7 +451,14 @@ export function SearchModal(props: SearchModalProps) {
     ]
 
     return builtGroups.filter((group) => group.items.length > 0)
-  }, [results, t, navigateToCheckin, navigateToProxyLogs, navigateToQueryPage])
+  }, [
+    results,
+    t,
+    closeAndNavigate,
+    navigateToCheckin,
+    navigateToProxyLogs,
+    navigateToQueryPage,
+  ])
 
   const groups = [...navigationGroups, ...entityGroups]
   const showEmpty = hasQuery && !isSearching && groups.length === 0
