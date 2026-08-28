@@ -163,4 +163,9 @@ const (
 	DefaultProxyResponseHeaderTimeoutSec = 30 // wait for upstream response headers
 	DefaultProxyIdleConnTimeoutSec       = 90 // idle keep-alive connection TTL
 	DefaultProxyRequestTimeoutSec        = 30 // whole-request http.Client timeout
+	// DefaultProxyStreamIdleTimeoutSec bounds the gap between SSE chunks on a
+	// flowing stream (each relayed chunk resets the window). 300 aligns with
+	// new-api's STREAMING_TIMEOUT; the timeout distinguishes a stalled stream
+	// from a long-but-healthy one, which the whole-request timeout cannot.
+	DefaultProxyStreamIdleTimeoutSec = 300
 )

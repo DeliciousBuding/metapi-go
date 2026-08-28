@@ -39,9 +39,34 @@ type ExecutorDispatchResult struct {
 	BodyReader io.ReadCloser
 }
 
+// defaultStreamResponseHeaderTimeout bounds the SSE header phase on the
+// executor stream client. Mirrors platform.defaultProxyResponseHeaderTimeout
+// (the PROXY_RESPONSE_HEADER_TIMEOUT_SEC default): the executor historically
+// relied on the whole-request timeout for this bound, and the stream client
+// no longer carries one, so the header wait needs its own ceiling to keep an
+// upstream that accepts but never answers from holding a connection forever.
+const defaultStreamResponseHeaderTimeout = 30 * time.Second
+
+// NewStreamTransport returns a clone of http.DefaultTransport with a
+// ResponseHeaderTimeout bound for the SSE header phase. Used by the
+// executor's stream client and by fallback stream clients that must not cap
+// a flowing stream's total duration while still bounding the header wait.
+func NewStreamTransport() *http.Transport {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.ResponseHeaderTimeout = defaultStreamResponseHeaderTimeout
+	return transport
+}
+
 // RuntimeExecutor dispatches upstream HTTP requests.
 type RuntimeExecutor struct {
 	client *http.Client
+	// streamClient relays SSE responses. Unlike client it carries no
+	// whole-request timeout — a healthy stream may keep running while chunks
+	// flow; liveness is enforced per chunk by the relay's idle guard
+	// (PROXY_STREAM_IDLE_TIMEOUT_SEC). The header phase stays bounded by the
+	// transport's ResponseHeaderTimeout (plus optional first-byte
+	// observation), so a silent upstream cannot hold a connection forever.
+	streamClient *http.Client
 }
 
 // NewRuntimeExecutor creates a new RuntimeExecutor with the given timeout.
@@ -51,6 +76,10 @@ func NewRuntimeExecutor(requestTimeout time.Duration) *RuntimeExecutor {
 	return &RuntimeExecutor{
 		client: &http.Client{
 			Timeout:       requestTimeout,
+			CheckRedirect: rejectCrossOriginRedirect,
+		},
+		streamClient: &http.Client{
+			Transport:     NewStreamTransport(),
 			CheckRedirect: rejectCrossOriginRedirect,
 		},
 	}
@@ -137,11 +166,34 @@ func (e *RuntimeExecutor) DoWithObservedFirstByte(
 	req *http.Request,
 	firstByteTimeoutMs int64,
 ) (*http.Response, error) {
-	if e == nil || e.client == nil {
+	return e.doWithObservedFirstByte(e.client, ctx, req, firstByteTimeoutMs)
+}
+
+// DoStreamWithObservedFirstByte is the SSE variant of DoWithObservedFirstByte:
+// identical first-byte observation, but dispatched through the stream client,
+// which carries no whole-request timeout. A healthy stream may therefore keep
+// running while chunks flow; a stalled stream is aborted by the relay's idle
+// guard (PROXY_STREAM_IDLE_TIMEOUT_SEC) instead of the blunt whole-request
+// cap that would also kill long-but-healthy streams.
+func (e *RuntimeExecutor) DoStreamWithObservedFirstByte(
+	ctx context.Context,
+	req *http.Request,
+	firstByteTimeoutMs int64,
+) (*http.Response, error) {
+	return e.doWithObservedFirstByte(e.streamClient, ctx, req, firstByteTimeoutMs)
+}
+
+func (e *RuntimeExecutor) doWithObservedFirstByte(
+	client *http.Client,
+	ctx context.Context,
+	req *http.Request,
+	firstByteTimeoutMs int64,
+) (*http.Response, error) {
+	if e == nil || client == nil {
 		return nil, fmt.Errorf("dispatch: executor is not configured")
 	}
 	if firstByteTimeoutMs <= 0 {
-		return e.client.Do(req)
+		return client.Do(req)
 	}
 
 	reqCtx, cancelReq := context.WithCancel(ctx)
@@ -153,7 +205,7 @@ func (e *RuntimeExecutor) DoWithObservedFirstByte(
 		cancelReq()
 	})
 
-	resp, err := e.client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		_ = timer.Stop()
 		cancelReq()

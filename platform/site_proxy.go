@@ -262,6 +262,19 @@ func newProxyClient(transport *http.Transport) *http.Client {
 	}
 }
 
+// newStreamProxyClient wraps a (pooled) *http.Transport for SSE stream
+// dispatch: identical to newProxyClient but without the whole-request
+// timeout, so PROXY_REQUEST_TIMEOUT_SEC does not cap a healthy stream's
+// total duration while chunks keep flowing. The header phase stays bounded
+// by the transport's ResponseHeaderTimeout; body-phase liveness is enforced
+// per chunk by the relay's idle guard (PROXY_STREAM_IDLE_TIMEOUT_SEC).
+func newStreamProxyClient(transport *http.Transport) *http.Client {
+	return &http.Client{
+		Transport:     transport,
+		CheckRedirect: RejectCrossOriginRedirect,
+	}
+}
+
 // SiteProxyConfig holds proxy configuration for a site.
 type SiteProxyConfig struct {
 	ProxyURL       string
@@ -372,12 +385,31 @@ func (sp *SiteProxy) doWithExplicitProxy(ctx context.Context, req *http.Request,
 
 // DoWithProxy is a convenience function that works without a SiteProxy instance.
 func DoWithProxy(ctx context.Context, req *http.Request, proxyConfig *ProxyConfig) (*http.Response, error) {
+	return doWithProxy(ctx, req, proxyConfig, false)
+}
+
+// DoWithProxyStream is the SSE variant of DoWithProxy: the dispatched client
+// carries no whole-request timeout so a healthy stream is not capped by
+// PROXY_REQUEST_TIMEOUT_SEC while chunks keep flowing. Header wait remains
+// bounded by the pooled transport's ResponseHeaderTimeout; body-phase
+// liveness is enforced by the relay's idle guard. Non-streaming callers must
+// keep using DoWithProxy.
+func DoWithProxyStream(ctx context.Context, req *http.Request, proxyConfig *ProxyConfig) (*http.Response, error) {
+	return doWithProxy(ctx, req, proxyConfig, true)
+}
+
+func doWithProxy(ctx context.Context, req *http.Request, proxyConfig *ProxyConfig, stream bool) (*http.Response, error) {
 	if proxyConfig != nil {
 		// Deny-list sensitive / hop-by-hop / metapi-control headers.
 		// Honor CustomHeadersOverrideRequest (default request-wins).
 		ApplyCustomHeadersWithOptions(req, proxyConfig.CustomHeaders, ApplyCustomHeadersOptions{
 			OverrideRequest: proxyConfig.CustomHeadersOverrideRequest,
 		})
+	}
+
+	newClient := newProxyClient
+	if stream {
+		newClient = newStreamProxyClient
 	}
 
 	insecureSkipTLS := proxyConfig != nil && proxyConfig.InsecureSkipTLS
@@ -391,12 +423,12 @@ func DoWithProxy(ctx context.Context, req *http.Request, proxyConfig *ProxyConfi
 			return nil, fmt.Errorf("unsupported proxy scheme: %s", scheme)
 		}
 
-		client := newProxyClient(getCachedTransport(http.ProxyURL(proxyURL), insecureSkipTLS, proxyConfig.UseUTLS))
+		client := newClient(getCachedTransport(http.ProxyURL(proxyURL), insecureSkipTLS, proxyConfig.UseUTLS))
 		return client.Do(req.WithContext(ctx))
 	}
 
 	useUTLS := proxyConfig != nil && proxyConfig.UseUTLS
-	client := newProxyClient(getCachedTransport(nil, insecureSkipTLS, useUTLS))
+	client := newClient(getCachedTransport(nil, insecureSkipTLS, useUTLS))
 	return client.Do(req.WithContext(ctx))
 }
 

@@ -209,6 +209,13 @@ type Config struct {
 	ProxyResponseHeaderTimeoutSec int // wait for upstream response headers
 	ProxyIdleConnTimeoutSec       int // idle keep-alive connection TTL
 	ProxyRequestTimeoutSec        int // whole-request http.Client timeout
+	// ProxyStreamIdleTimeoutSec bounds the gap between SSE chunks once a
+	// stream is flowing: each relayed chunk resets the window, and expiry
+	// aborts the stalled stream. Parsed from PROXY_STREAM_IDLE_TIMEOUT_SEC;
+	// 0/negative/invalid falls back to DefaultProxyStreamIdleTimeoutSec.
+	// Unlike the five transport timeouts above this applies to the relayed
+	// body phase only — non-streaming responses never see it.
+	ProxyStreamIdleTimeoutSec int
 
 	// LDOHBaseURL is the upstream LDOH dashboard URL proxied through
 	// /monitor-proxy/ldoh/* (env-only — no DDL). Parsed from LDOH_BASE_URL;
@@ -713,6 +720,7 @@ func Load(env map[string]string) *Config {
 	cfg.ProxyResponseHeaderTimeoutSec = parseTimeoutSec(get("PROXY_RESPONSE_HEADER_TIMEOUT_SEC"), DefaultProxyResponseHeaderTimeoutSec)
 	cfg.ProxyIdleConnTimeoutSec = parseTimeoutSec(get("PROXY_IDLE_CONN_TIMEOUT_SEC"), DefaultProxyIdleConnTimeoutSec)
 	cfg.ProxyRequestTimeoutSec = parseTimeoutSec(get("PROXY_REQUEST_TIMEOUT_SEC"), DefaultProxyRequestTimeoutSec)
+	cfg.ProxyStreamIdleTimeoutSec = parseTimeoutSec(get("PROXY_STREAM_IDLE_TIMEOUT_SEC"), DefaultProxyStreamIdleTimeoutSec)
 
 	// ---- §3.11d Update Center scheduler gate ----
 	cfg.UpdateCenterEnabled = parseBoolean(get("METAPI_ENABLE_UPDATE_CENTER"), false)
