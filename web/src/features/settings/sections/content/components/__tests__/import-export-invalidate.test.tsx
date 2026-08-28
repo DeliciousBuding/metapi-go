@@ -1,8 +1,9 @@
-// Regression test: backup imports must invalidate every cached domain
-// (sites / accounts / attention / settings / webdav) so list pages and
-// dashboard widgets refresh after the import lands (audit #1029 batch B).
-// Previously the success toast fired but stale queries kept showing
-// pre-import data until a manual refresh.
+// Regression test: backup imports must invalidate the whole query cache so
+// every list page / dashboard widget / settings section refreshes after the
+// import lands. An import merges rows across the entire schema (~30 tables —
+// sites, accounts, tokens, routes, channels, check-in, OAuth, settings, …),
+// so the handler invalidates everything instead of a hand-maintained key list
+// that kept missing domains (audit #1029 batch B → W19-T1 N1).
 import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
@@ -141,18 +142,10 @@ function clickLastButtonNamed(name: string) {
   fireEvent.click(button)
 }
 
-const EXPECTED_KEYS = [
-  ['sites', 'list'],
-  ['accounts'],
-  ['dashboard-attention'],
-  ['settings-auth-info'],
-  ['backup-webdav'],
-]
-
 function expectInvalidated(invalidateSpy: ReturnType<typeof vi.spyOn>) {
-  for (const key of EXPECTED_KEYS) {
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: key })
-  }
+  // Blanket invalidation — a call with no filter argument invalidates the
+  // entire query cache, which is the required behaviour after an import.
+  expect(invalidateSpy).toHaveBeenCalledWith()
 }
 
 describe('ImportExportSection — cache invalidation after import', () => {

@@ -134,7 +134,10 @@ apiClient.interceptors.response.use(
     ) {
       const message =
         resolveResponseMessage(response.data) || i18n.t('common.requestFailed')
-      toast.error(message)
+      // Stable id keyed on the message: when the backend is down, N parallel
+      // queries each fail with the identical message and collapse into one
+      // toast instead of stacking N duplicates (W19-T1 N4).
+      toast.error(message, { id: `api-error:${message}` })
     }
     return response
   },
@@ -183,7 +186,8 @@ apiClient.interceptors.response.use(
         resolveResponseMessage(error?.response?.data) ||
         error?.message ||
         i18n.t('common.requestFailed')
-      toast.error(message)
+      // Same message-keyed dedupe as the business-error path (W19-T1 N4).
+      toast.error(message, { id: `api-error:${message}` })
     }
     throw error
   }
