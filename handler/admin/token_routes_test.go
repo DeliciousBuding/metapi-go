@@ -47,7 +47,11 @@ func setupTokenRoutesPostgresTest(t *testing.T) (*store.DB, chi.Router) {
 func seedRouteChannelRefs(t *testing.T, db *store.DB) (routeID, accountID, tokenID int64) {
 	t.Helper()
 	now := time.Now().UTC().Format(time.RFC3339)
-	res, err := db.Exec(
+	// execInsertID keeps the helper dialect-safe: pgx does not support
+	// LastInsertId (it silently yields 0, breaking the FK chain), and the
+	// boolean literals keep PostgreSQL's strict BOOLEAN columns happy while
+	// SQLite accepts them too.
+	siteID, err := execInsertID(db.DB,
 		`INSERT INTO sites (name, url, platform, status, created_at, updated_at)
 		 VALUES ('Route Site', 'https://route.example.com', 'openai', 'active', ?, ?)`,
 		now, now,
@@ -55,37 +59,33 @@ func seedRouteChannelRefs(t *testing.T, db *store.DB) (routeID, accountID, token
 	if err != nil {
 		t.Fatalf("insert site: %v", err)
 	}
-	siteID, _ := res.LastInsertId()
 
-	res, err = db.Exec(
+	accountID, err = execInsertID(db.DB,
 		`INSERT INTO accounts (site_id, access_token, status, checkin_enabled, created_at, updated_at)
-		 VALUES (?, 'session-token', 'active', 1, ?, ?)`,
+		 VALUES (?, 'session-token', 'active', true, ?, ?)`,
 		siteID, now, now,
 	)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}
-	accountID, _ = res.LastInsertId()
 
-	res, err = db.Exec(
+	tokenID, err = execInsertID(db.DB,
 		`INSERT INTO account_tokens (account_id, name, token, value_status, source, enabled, is_default, created_at, updated_at)
-		 VALUES (?, 'route-token', 'sk-route-token', 'ready', 'manual', 1, 0, ?, ?)`,
+		 VALUES (?, 'route-token', 'sk-route-token', 'ready', 'manual', true, false, ?, ?)`,
 		accountID, now, now,
 	)
 	if err != nil {
 		t.Fatalf("insert token: %v", err)
 	}
-	tokenID, _ = res.LastInsertId()
 
-	res, err = db.Exec(
+	routeID, err = execInsertID(db.DB,
 		`INSERT INTO token_routes (model_pattern, enabled, created_at, updated_at)
-		 VALUES ('gpt-*', 1, ?, ?)`,
+		 VALUES ('gpt-*', true, ?, ?)`,
 		now, now,
 	)
 	if err != nil {
 		t.Fatalf("insert route: %v", err)
 	}
-	routeID, _ = res.LastInsertId()
 	return routeID, accountID, tokenID
 }
 

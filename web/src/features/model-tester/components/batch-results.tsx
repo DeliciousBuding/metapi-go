@@ -9,7 +9,7 @@
 // with a per-row pending spinner while the probe is in flight.
 
 import { Link } from '@tanstack/react-router'
-import { RefreshCw } from 'lucide-react'
+import { Ban, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -28,6 +28,10 @@ type BatchResultsProps = {
   rerunningChannelIds?: ReadonlySet<number>
   /** Re-run one channel's probe with the comparison's original payload. */
   onRerunRow?: (channelId: number) => void
+  /** One-click disable of every failed channel (opens a confirmation). */
+  onDisableFailed?: () => void
+  /** The bulk disable request is in flight (button pending/disabled). */
+  isDisablingFailed?: boolean
 }
 
 function statusKeyFor(result: BatchProbeResult): string {
@@ -42,6 +46,8 @@ export function BatchResults({
   isRunning,
   rerunningChannelIds,
   onRerunRow,
+  onDisableFailed,
+  isDisablingFailed = false,
 }: BatchResultsProps) {
   const { t } = useTranslation()
   const channelById = new Map(channels.map((channel) => [channel.id, channel]))
@@ -57,13 +63,27 @@ export function BatchResults({
 
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
-      <div>
-        <h2 className='text-base font-normal'>
-          {t('modelTester.compare.title')}
-        </h2>
-        <p className='text-muted-foreground text-sm' aria-live='polite'>
-          {t(summaryKey, { succeeded, failed, aborted })}
-        </p>
+      <div className='flex items-start justify-between gap-3'>
+        <div>
+          <h2 className='text-base font-normal'>
+            {t('modelTester.compare.title')}
+          </h2>
+          <p className='text-muted-foreground text-sm' aria-live='polite'>
+            {t(summaryKey, { succeeded, failed, aborted })}
+          </p>
+        </div>
+        {failed > 0 && onDisableFailed && (
+          <Button
+            type='button'
+            variant='destructive'
+            size='sm'
+            onClick={onDisableFailed}
+            disabled={isRunning || isDisablingFailed}
+          >
+            {isDisablingFailed ? <Spinner /> : <Ban className='size-3.5' />}
+            {t('modelTester.compare.disableFailed')}
+          </Button>
+        )}
       </div>
 
       {results.length === 0 ? (

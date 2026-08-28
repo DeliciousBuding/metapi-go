@@ -307,7 +307,8 @@
         "statusSuccess": "Success",
         "statusFailure": "Failed",
         "statusAborted": "Stopped",
-        "rerunRow": "Re-run probe for {{channel}}"
+        "rerunRow": "Re-run probe for {{channel}}",
+        "disableFailed": "Disable failed channels"
       },
       "page": {
         "title": "Model Tester",
@@ -346,6 +347,15 @@
         "description": "This removes all previous rounds from the conversation. The current model and parameter settings are kept.",
         "confirm": "Clear",
         "cancel": "Cancel"
+      },
+      "disableFailed": {
+        "title": "Disable failed channels?",
+        "description": "This disables {{count}} channels that failed the comparison and marks them manual override, so route rebuilds keep the change.",
+        "confirm": "Disable",
+        "cancel": "Cancel",
+        "success": "Disabled {{count}} channels.",
+        "partial": "Disabled {{succeeded}} channels; {{failed}} failed: {{detail}}",
+        "error": "Could not disable the failed channels."
       }
     },
     "oauth": {

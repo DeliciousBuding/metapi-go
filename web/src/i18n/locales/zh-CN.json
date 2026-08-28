@@ -307,7 +307,8 @@
         "statusSuccess": "成功",
         "statusFailure": "失败",
         "statusAborted": "已停止",
-        "rerunRow": "重跑「{{channel}}」的探测"
+        "rerunRow": "重跑「{{channel}}」的探测",
+        "disableFailed": "禁用失败渠道"
       },
       "page": {
         "title": "模型测试器",
@@ -346,6 +347,15 @@
         "description": "将删除对话中之前的所有轮次，当前模型与参数设置会保留。",
         "confirm": "清空",
         "cancel": "取消"
+      },
+      "disableFailed": {
+        "title": "禁用失败渠道？",
+        "description": "将禁用 {{count}} 个测试失败的渠道，并标记为人工覆盖，路由重建不会撤销该变更。",
+        "confirm": "禁用",
+        "cancel": "取消",
+        "success": "已禁用 {{count}} 个渠道。",
+        "partial": "已禁用 {{succeeded}} 个渠道，{{failed}} 个失败：{{detail}}",
+        "error": "禁用失败渠道时出错。"
       }
     },
     "oauth": {
