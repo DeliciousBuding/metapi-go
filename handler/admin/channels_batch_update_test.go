@@ -75,13 +75,13 @@ func TestBatchUpdateChannels_DisablesChannelsTruthfully(t *testing.T) {
 	// DB truth: both rows disabled and marked manual_override so a route
 	// rebuild cannot silently re-enable them.
 	var enabledCount, overrideCount int
-	if err := db.Get(&enabledCount, "SELECT COUNT(*) FROM route_channels WHERE id IN (?, ?) AND enabled = 1", ids[0], ids[1]); err != nil {
+	if err := db.Get(&enabledCount, "SELECT COUNT(*) FROM route_channels WHERE id IN (?, ?) AND enabled = TRUE", ids[0], ids[1]); err != nil {
 		t.Fatalf("count enabled: %v", err)
 	}
 	if enabledCount != 0 {
 		t.Fatalf("enabled rows = %d, want 0", enabledCount)
 	}
-	if err := db.Get(&overrideCount, "SELECT COUNT(*) FROM route_channels WHERE id IN (?, ?) AND manual_override = 1", ids[0], ids[1]); err != nil {
+	if err := db.Get(&overrideCount, "SELECT COUNT(*) FROM route_channels WHERE id IN (?, ?) AND manual_override = TRUE", ids[0], ids[1]); err != nil {
 		t.Fatalf("count manual_override: %v", err)
 	}
 	if overrideCount != 2 {

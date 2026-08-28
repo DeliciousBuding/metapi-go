@@ -45,19 +45,19 @@ func TestSchedulerStatusModelProbeRecentRuns(t *testing.T) {
 	}
 	siteID, _ := res.LastInsertId()
 	res, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at)
-		VALUES (?, 'p-user', 'tok', 'active', 1, ?, ?)`, siteID, now, now)
+		VALUES (?, 'p-user', 'tok', 'active', TRUE, ?, ?)`, siteID, now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}
 	accountID, _ := res.LastInsertId()
 	res, err = db.Exec(`INSERT INTO token_routes (model_pattern, route_mode, routing_strategy, enabled, created_at, updated_at)
-		VALUES ('all', 'pattern', 'weighted', 1, ?, ?)`, now, now)
+		VALUES ('all', 'pattern', 'weighted', TRUE, ?, ?)`, now, now)
 	if err != nil {
 		t.Fatalf("insert route: %v", err)
 	}
 	routeID, _ := res.LastInsertId()
 	_, err = db.Exec(`INSERT INTO route_channels (route_id, account_id, source_model, priority, weight, enabled, cooldown_until)
-		VALUES (?, ?, 'gpt-4o', 0, 10, 1, NULL)`, routeID, accountID)
+		VALUES (?, ?, 'gpt-4o', 0, 10, TRUE, NULL)`, routeID, accountID)
 	if err != nil {
 		t.Fatalf("insert channel: %v", err)
 	}

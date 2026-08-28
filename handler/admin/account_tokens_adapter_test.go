@@ -147,7 +147,7 @@ func tokenFixtureWithPlatform(t *testing.T, db *store.DB, name, siteURL, platfor
 	res, err = db.Exec(
 		`INSERT INTO accounts (site_id, username, access_token, status, is_pinned, sort_order,
 		 checkin_enabled, extra_config, created_at, updated_at)
-		 VALUES (?, ?, 'session-access-token', 'active', 0, 0, 1, ?, ?, ?)`,
+		 VALUES (?, ?, 'session-access-token', 'active', FALSE, 0, TRUE, ?, ?, ?)`,
 		siteID, &username, &extraConfig, now, now,
 	)
 	if err != nil {
@@ -323,7 +323,7 @@ func TestTokens_CreateUpstream_MissingAdapter(t *testing.T) {
 	extra := `{"credentialMode":"session"}`
 	res, _ = db.Exec(
 		`INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at)
-		 VALUES (?, 'session-token', 'active', 1, ?, ?, ?)`,
+		 VALUES (?, 'session-token', 'active', TRUE, ?, ?, ?)`,
 		siteID, &extra, now, now,
 	)
 	accountID, _ := res.LastInsertId()
@@ -385,7 +385,7 @@ func TestTokens_GetGroups_LocalFallbackWhenUpstreamMissing(t *testing.T) {
 	extra := `{"credentialMode":"session"}`
 	res, err = db.Exec(
 		`INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at)
-		 VALUES (?, 'session-token', 'active', 1, ?, ?, ?)`,
+		 VALUES (?, 'session-token', 'active', TRUE, ?, ?, ?)`,
 		siteID, &extra, now, now,
 	)
 	if err != nil {

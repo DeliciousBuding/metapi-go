@@ -120,10 +120,10 @@ func TestRefreshAccountModels_PersistsAvailability_RebuildAndInvalidateOnce(t *t
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	// Prior state: an operator-pinned manual row and a stale auto row.
-	if _, err := db.Exec(db.Rebind("INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at) VALUES (?, 'manual-pin', 1, 1, ?)"), accountID, now); err != nil {
+	if _, err := db.Exec(db.Rebind("INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at) VALUES (?, 'manual-pin', TRUE, TRUE, ?)"), accountID, now); err != nil {
 		t.Fatalf("seed manual row: %v", err)
 	}
-	if _, err := db.Exec(db.Rebind("INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at) VALUES (?, 'stale-auto', 1, 0, ?)"), accountID, now); err != nil {
+	if _, err := db.Exec(db.Rebind("INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at) VALUES (?, 'stale-auto', TRUE, FALSE, ?)"), accountID, now); err != nil {
 		t.Fatalf("seed stale row: %v", err)
 	}
 
@@ -179,7 +179,7 @@ func TestRefreshAccountModels_UpstreamFailure_NoFakeSuccessNoSideEffects(t *test
 	pointAccountSiteAt(t, db, accountID, upstream.URL)
 
 	now := time.Now().UTC().Format(time.RFC3339)
-	if _, err := db.Exec(db.Rebind("INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at) VALUES (?, 'keep-me', 1, 0, ?)"), accountID, now); err != nil {
+	if _, err := db.Exec(db.Rebind("INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at) VALUES (?, 'keep-me', TRUE, FALSE, ?)"), accountID, now); err != nil {
 		t.Fatalf("seed row: %v", err)
 	}
 
@@ -227,7 +227,7 @@ func TestManualModels_AddRemove_ReadBack(t *testing.T) {
 
 	// Seed an auto row that a remove attempt must never touch.
 	now := time.Now().UTC().Format(time.RFC3339)
-	if _, err := db.Exec(db.Rebind("INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at) VALUES (?, 'auto-keep', 1, 0, ?)"), accountID, now); err != nil {
+	if _, err := db.Exec(db.Rebind("INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at) VALUES (?, 'auto-keep', TRUE, FALSE, ?)"), accountID, now); err != nil {
 		t.Fatalf("seed auto row: %v", err)
 	}
 
@@ -277,12 +277,12 @@ func TestGetAccountModels_HonestSourceAndAvailability(t *testing.T) {
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	seeds := []struct {
 		name      string
-		available int
-		isManual  int
+		available bool
+		isManual  bool
 	}{
-		{"auto-up", 1, 0},
-		{"auto-down", 0, 0},
-		{"manual-up", 1, 1},
+		{"auto-up", true, false},
+		{"auto-down", false, false},
+		{"manual-up", true, true},
 	}
 	for _, s := range seeds {
 		if _, err := db.Exec(db.Rebind("INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at) VALUES (?, ?, ?, ?, ?)"), accountID, s.name, s.available, s.isManual, now); err != nil {
@@ -332,7 +332,7 @@ func TestGetAccountModels_HonestSourceAndAvailability(t *testing.T) {
 
 	// Empty account: models must be [] not null. Seed a second account on the
 	// same site directly (the fixture enforces one site per URL).
-	emptyRes, err := db.Exec(db.Rebind("INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, sort_order, created_at, updated_at) VALUES (?, 'lane-g-empty', 'sk-empty', 'active', 0, 0, ?, ?)"), siteID, now, now)
+	emptyRes, err := db.Exec(db.Rebind("INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, sort_order, created_at, updated_at) VALUES (?, 'lane-g-empty', 'sk-empty', 'active', FALSE, 0, ?, ?)"), siteID, now, now)
 	if err != nil {
 		t.Fatalf("seed empty account: %v", err)
 	}

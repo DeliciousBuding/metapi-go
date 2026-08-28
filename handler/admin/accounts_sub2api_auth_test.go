@@ -29,7 +29,7 @@ func setupSub2ApiAccountFixture(t *testing.T, db *store.DB, r chi.Router, extraC
 	siteID := int64(site["id"].(float64))
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	res, err := db.Exec(
-		"INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, ?, ?, 'active', 1, ?, ?, ?)",
+		"INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, ?, ?, 'active', TRUE, ?, ?, ?)",
 		siteID, "sub2api-user", "session-old", extraConfig, now, now,
 	)
 	if err != nil {

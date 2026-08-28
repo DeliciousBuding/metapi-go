@@ -47,7 +47,7 @@ func TestMaintenanceClearCache_RealInvalidationAndRealJob(t *testing.T) {
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	if _, err := db.Exec(`INSERT INTO token_routes (model_pattern, enabled, created_at, updated_at)
-		VALUES ('gpt-*', 1, ?, ?)`, now, now); err != nil {
+		VALUES ('gpt-*', TRUE, ?, ?)`, now, now); err != nil {
 		t.Fatalf("seed token_routes: %v", err)
 	}
 

@@ -40,7 +40,7 @@ func insertManagedKeyWithCost(t *testing.T, db *store.DB, name, key string, used
 		 (name, key, enabled, used_cost, used_requests,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, ?, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, ?, 0, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		name, key, usedCost, now, now,
 	)
 	if err != nil {

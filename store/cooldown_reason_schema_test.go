@@ -50,12 +50,12 @@ func TestCooldownReasonColumnsRoundTripSQLite(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO accounts (id, site_id, username, access_token, status) VALUES (1, 1, 'u', 'tok', 'active')`); err != nil {
 		t.Fatalf("seed account: %v", err)
 	}
-	if _, err := db.Exec(`INSERT INTO token_routes (id, model_pattern, route_mode, enabled) VALUES (1, 'gpt-*', 'pattern', 1)`); err != nil {
+	if _, err := db.Exec(`INSERT INTO token_routes (id, model_pattern, route_mode, enabled) VALUES (1, 'gpt-*', 'pattern', TRUE)`); err != nil {
 		t.Fatalf("seed route: %v", err)
 	}
 	if _, err := db.Exec(`INSERT INTO route_channels
 		(id, route_id, account_id, enabled, cooldown_until, cooldown_reason_code, cooldown_reason, cooldown_reason_at)
-		VALUES (1, 1, 1, 1, '2026-08-28T10:00:00Z', 'upstream_error', 'boom', '2026-08-28T09:00:00Z')`); err != nil {
+		VALUES (1, 1, 1, TRUE, '2026-08-28T10:00:00Z', 'upstream_error', 'boom', '2026-08-28T09:00:00Z')`); err != nil {
 		t.Fatalf("insert channel with reason: %v", err)
 	}
 

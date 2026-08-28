@@ -25,7 +25,7 @@ func seedEnrichSite(t *testing.T, db *store.DB, siteName, accountName string) (s
 	siteID, _ = res.LastInsertId()
 	res, err = db.Exec(
 		`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at)
-		 VALUES (?, ?, 'tok', 'active', 1, ?, ?)`,
+		 VALUES (?, ?, 'tok', 'active', TRUE, ?, ?)`,
 		siteID, accountName, now, now,
 	)
 	if err != nil {
@@ -40,7 +40,7 @@ func seedEnrichAccount(t *testing.T, db *store.DB, siteID int64, accountName str
 	now := time.Now().UTC().Format(time.RFC3339)
 	res, err := db.Exec(
 		`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at)
-		 VALUES (?, ?, 'tok', 'active', 1, ?, ?)`,
+		 VALUES (?, ?, 'tok', 'active', TRUE, ?, ?)`,
 		siteID, accountName, now, now,
 	)
 	if err != nil {
@@ -53,14 +53,10 @@ func seedEnrichAccount(t *testing.T, db *store.DB, siteID int64, accountName str
 func seedEnrichRoute(t *testing.T, db *store.DB, pattern string, enabled bool) int64 {
 	t.Helper()
 	now := time.Now().UTC().Format(time.RFC3339)
-	enabledFlag := 0
-	if enabled {
-		enabledFlag = 1
-	}
 	res, err := db.Exec(
 		`INSERT INTO token_routes (model_pattern, route_mode, routing_strategy, enabled, created_at, updated_at)
 		 VALUES (?, 'pattern', 'weighted', ?, ?, ?)`,
-		pattern, enabledFlag, now, now,
+		pattern, enabled, now, now,
 	)
 	if err != nil {
 		t.Fatalf("insert route %s: %v", pattern, err)
@@ -71,14 +67,10 @@ func seedEnrichRoute(t *testing.T, db *store.DB, pattern string, enabled bool) i
 
 func seedEnrichChannel(t *testing.T, db *store.DB, routeID, accountID int64, enabled bool) {
 	t.Helper()
-	enabledFlag := 0
-	if enabled {
-		enabledFlag = 1
-	}
 	_, err := db.Exec(
 		`INSERT INTO route_channels (route_id, account_id, priority, weight, enabled, manual_override)
-		 VALUES (?, ?, 0, 10, ?, 0)`,
-		routeID, accountID, enabledFlag,
+		 VALUES (?, ?, 0, 10, ?, FALSE)`,
+		routeID, accountID, enabled,
 	)
 	if err != nil {
 		t.Fatalf("insert channel route %d account %d: %v", routeID, accountID, err)

@@ -150,14 +150,14 @@ func TestGetTokenGroups_FallbackOnErrorEmptyNilAdapter(t *testing.T) {
 	accountID := createTestAccount(t, db, siteID, strPtr("u1"), "session-token")
 	if _, err := db.Exec(
 		`INSERT INTO account_tokens (account_id, name, token, token_group, value_status, source, enabled, is_default, created_at, updated_at)
-		 VALUES (?, 'a', 'sk-a', 'group-a', 'ready', 'manual', 1, 1, datetime('now'), datetime('now'))`,
+		 VALUES (?, 'a', 'sk-a', 'group-a', 'ready', 'manual', TRUE, TRUE, datetime('now'), datetime('now'))`,
 		accountID,
 	); err != nil {
 		t.Fatalf("insert local token: %v", err)
 	}
 	if _, err := db.Exec(
 		`INSERT INTO account_tokens (account_id, name, token, token_group, value_status, source, enabled, is_default, created_at, updated_at)
-		 VALUES (?, 'b', 'sk-b', 'group-b', 'ready', 'manual', 1, 0, datetime('now'), datetime('now'))`,
+		 VALUES (?, 'b', 'sk-b', 'group-b', 'ready', 'manual', TRUE, FALSE, datetime('now'), datetime('now'))`,
 		accountID,
 	); err != nil {
 		t.Fatalf("insert local token b: %v", err)

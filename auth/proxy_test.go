@@ -624,7 +624,7 @@ func TestAuthorizeDownstreamToken_ManagedKeyProxyURL(t *testing.T) {
 		 (name, key, enabled, expires_at, max_cost, used_cost, max_requests, used_requests, proxy_url,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, NULL, NULL, 0, NULL, 0, ?, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, NULL, NULL, 0, NULL, 0, ?, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"proxy-key", "sk-with-proxy", proxyURL, now, now,
 	)
 	if err != nil {
@@ -649,7 +649,7 @@ func TestAuthorizeDownstreamToken_ManagedKeyProxyURLWhitespaceInherits(t *testin
 		 (name, key, enabled, expires_at, max_cost, used_cost, max_requests, used_requests, proxy_url,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, NULL, NULL, 0, NULL, 0, '   ', '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, NULL, NULL, 0, NULL, 0, '   ', '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"proxy-blank", "sk-blank-proxy", now, now,
 	)
 	if err != nil {
@@ -678,7 +678,7 @@ func TestProxyAuthMiddleware_PropagatesKeyProxyURL(t *testing.T) {
 		 (name, key, enabled, expires_at, max_cost, used_cost, max_requests, used_requests, proxy_url,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, NULL, NULL, 0, NULL, 0, ?, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, NULL, NULL, 0, NULL, 0, ?, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"mw-proxy", "sk-mw-proxy", proxyURL, now, now,
 	)
 	if err != nil {
@@ -719,7 +719,7 @@ func insertTestKeyWithRPM(t *testing.T, key string, maxRequests *int64, usedRequ
 		  max_rpm, max_tpm,
 		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		  created_at, updated_at)
-		 VALUES (?, ?, 1, NULL, NULL, 0, ?, ?, ?, ?, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
+		 VALUES (?, ?, TRUE, NULL, NULL, 0, ?, ?, ?, ?, '[]', '[]', '{}', '[]', '[]', ?, ?)`,
 		"test-key-"+key, key, maxRequests, usedRequests, maxRPM, maxTPM, now, now,
 	)
 	if err != nil {

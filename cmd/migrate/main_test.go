@@ -165,7 +165,7 @@ func TestRunMigration_SQLiteToSQLite_PreservesData(t *testing.T) {
 	}
 	if _, err := srcDB.Exec(
 		`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		1, "testuser", "sk-test", "active", 1, now, now,
+		1, "testuser", "sk-test", "active", true, now, now,
 	); err != nil {
 		t.Fatalf("insert account: %v", err)
 	}

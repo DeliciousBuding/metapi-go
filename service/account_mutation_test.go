@@ -46,7 +46,7 @@ func createTestAccount(t *testing.T, db *store.DB, siteID int64, username *strin
 	res, err := db.Exec(
 		`INSERT INTO accounts (site_id, username, access_token, status, is_pinned, sort_order,
 		 checkin_enabled, created_at, updated_at)
-		 VALUES (?, ?, ?, 'active', 0, 0, 1, ?, ?)`,
+		 VALUES (?, ?, ?, 'active', FALSE, 0, TRUE, ?, ?)`,
 		siteID, username, accessToken, now, now,
 	)
 	if err != nil {

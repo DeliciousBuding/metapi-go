@@ -25,7 +25,7 @@ func insertNullSortOrderRoute(t *testing.T, db *store.DB, pattern string) int64 
 	now := nowISO()
 	res, err := db.Exec(
 		`INSERT INTO token_routes (model_pattern, route_mode, routing_strategy, enabled, created_at, updated_at)
-		 VALUES (?, 'pattern', 'weighted', 1, ?, ?)`, pattern, now, now)
+		 VALUES (?, 'pattern', 'weighted', TRUE, ?, ?)`, pattern, now, now)
 	if err != nil {
 		t.Fatalf("INSERT token_routes failed: %v", err)
 	}
@@ -39,7 +39,7 @@ func insertNullSortOrderRoute(t *testing.T, db *store.DB, pattern string) int64 
 func insertNullStatsRouteChannel(t *testing.T, db *store.DB, routeID, accountID int64) int64 {
 	t.Helper()
 	res, err := db.Exec(
-		`INSERT INTO route_channels (route_id, account_id, enabled) VALUES (?, ?, 1)`,
+		`INSERT INTO route_channels (route_id, account_id, enabled) VALUES (?, ?, TRUE)`,
 		routeID, accountID)
 	if err != nil {
 		t.Fatalf("INSERT route_channels failed: %v", err)
@@ -140,7 +140,7 @@ func TestLoadOAuthRouteUnitMembers_NullStatsDoNotError(t *testing.T) {
 	now := nowISO()
 	res, err := db.Exec(
 		`INSERT INTO oauth_route_units (site_id, provider, name, strategy, enabled, created_at, updated_at)
-		 VALUES (?, 'google', 'null-member-unit', 'round_robin', 1, ?, ?)`, siteID, now, now)
+		 VALUES (?, 'google', 'null-member-unit', 'round_robin', TRUE, ?, ?)`, siteID, now, now)
 	if err != nil {
 		t.Fatalf("INSERT oauth_route_units failed: %v", err)
 	}

@@ -95,7 +95,7 @@ func TestTokenRoutes_Rebuild_InvalidatesCacheTruthfully(t *testing.T) {
 	routeID, accountID, tokenID := seedRouteChannelRefs(t, db)
 	if _, err := db.Exec(
 		`INSERT INTO token_model_availability (token_id, model_name, available, checked_at)
-		 VALUES (?, 'gpt-4o', 1, ?)`, tokenID, now); err != nil {
+		 VALUES (?, 'gpt-4o', TRUE, ?)`, tokenID, now); err != nil {
 		t.Fatalf("seed availability: %v", err)
 	}
 	// Ensure pattern route exists (seed creates gpt-*)
@@ -316,7 +316,7 @@ func TestTokenRoutes_ManualChannelSurvivesRebuild(t *testing.T) {
 	// Availability for a different model so rebuild still has auto work to do.
 	if _, err := db.Exec(
 		`INSERT INTO token_model_availability (token_id, model_name, available, checked_at)
-		 VALUES (?, 'gpt-4o', 1, ?)`, tokenID, now); err != nil {
+		 VALUES (?, 'gpt-4o', TRUE, ?)`, tokenID, now); err != nil {
 		t.Fatalf("seed availability: %v", err)
 	}
 
@@ -349,7 +349,7 @@ func TestTokenRoutes_ManualChannelSurvivesRebuild(t *testing.T) {
 	var manualCount int
 	if err := db.Get(&manualCount,
 		`SELECT COUNT(*) FROM route_channels
-		 WHERE id = ? AND source_model = 'Qwen/Qwen3-Embedding-8B' AND manual_override = 1
+		 WHERE id = ? AND source_model = 'Qwen/Qwen3-Embedding-8B' AND manual_override = TRUE
 		   AND priority = 7 AND weight = 3`, channelID); err != nil {
 		t.Fatalf("count manual: %v", err)
 	}
@@ -576,7 +576,7 @@ func TestTokenRoutes_PartialUpdatePreservesModelMapping(t *testing.T) {
 	// Manual channel still present.
 	var manualCount int
 	if err := db.Get(&manualCount,
-		`SELECT COUNT(*) FROM route_channels WHERE route_id = ? AND source_model = 'manual-model-x' AND manual_override = 1`,
+		`SELECT COUNT(*) FROM route_channels WHERE route_id = ? AND source_model = 'manual-model-x' AND manual_override = TRUE`,
 		routeID); err != nil {
 		t.Fatalf("count manual: %v", err)
 	}
@@ -966,25 +966,25 @@ func TestRouteDecision_WithSQLiteRouterFixture(t *testing.T) {
 	}
 	siteID, _ := siteRes.LastInsertId()
 	accRes, err := db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at)
-		VALUES (?, 'dec-user', 'sk-dec', 'active', 1, ?, ?)`, siteID, now, now)
+		VALUES (?, 'dec-user', 'sk-dec', 'active', TRUE, ?, ?)`, siteID, now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}
 	accountID, _ := accRes.LastInsertId()
 	tokRes, err := db.Exec(`INSERT INTO account_tokens (account_id, name, token, value_status, source, enabled, is_default, created_at, updated_at)
-		VALUES (?, 'dec-token', 'sk-dec-token', 'ready', 'manual', 1, 1, ?, ?)`, accountID, now, now)
+		VALUES (?, 'dec-token', 'sk-dec-token', 'ready', 'manual', TRUE, TRUE, ?, ?)`, accountID, now, now)
 	if err != nil {
 		t.Fatalf("insert token: %v", err)
 	}
 	tokenID, _ := tokRes.LastInsertId()
 	routeRes, err := db.Exec(`INSERT INTO token_routes (model_pattern, routing_strategy, enabled, created_at, updated_at)
-		VALUES ('gpt-4o', 'weighted', 1, ?, ?)`, now, now)
+		VALUES ('gpt-4o', 'weighted', TRUE, ?, ?)`, now, now)
 	if err != nil {
 		t.Fatalf("insert route: %v", err)
 	}
 	routeID, _ := routeRes.LastInsertId()
 	if _, err := db.Exec(`INSERT INTO route_channels (route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override)
-		VALUES (?, ?, ?, 'gpt-4o', 0, 10, 1, 0)`, routeID, accountID, tokenID); err != nil {
+		VALUES (?, ?, ?, 'gpt-4o', 0, 10, TRUE, FALSE)`, routeID, accountID, tokenID); err != nil {
 		t.Fatalf("insert channel: %v", err)
 	}
 
@@ -1068,7 +1068,7 @@ func TestTokenRoutes_ChannelUpdatePreservesIntentionalConfig(t *testing.T) {
 	// Start as an auto-looking channel (simulate insert without override), then edit.
 	res, err := db.Exec(
 		`INSERT INTO route_channels (route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override)
-		 VALUES (?, ?, ?, 'gpt-4o', 0, 10, 1, 0)`, routeID, accountID, tokenID)
+		 VALUES (?, ?, ?, 'gpt-4o', 0, 10, TRUE, FALSE)`, routeID, accountID, tokenID)
 	if err != nil {
 		t.Fatalf("seed auto channel: %v", err)
 	}
@@ -1097,7 +1097,7 @@ func TestTokenRoutes_ChannelUpdatePreservesIntentionalConfig(t *testing.T) {
 	// Availability for gpt-4o (original auto model) - rebuild would prefer this if override ignored.
 	if _, err := db.Exec(
 		`INSERT INTO token_model_availability (token_id, model_name, available, checked_at)
-		 VALUES (?, 'gpt-4o', 1, ?)`, tokenID, now); err != nil {
+		 VALUES (?, 'gpt-4o', TRUE, ?)`, tokenID, now); err != nil {
 		t.Fatalf("seed avail: %v", err)
 	}
 
@@ -1109,7 +1109,7 @@ func TestTokenRoutes_ChannelUpdatePreservesIntentionalConfig(t *testing.T) {
 	var kept int
 	if err := db.Get(&kept,
 		`SELECT COUNT(*) FROM route_channels
-		 WHERE id = ? AND source_model = 'MiMo-V2-Flash-Free' AND manual_override = 1
+		 WHERE id = ? AND source_model = 'MiMo-V2-Flash-Free' AND manual_override = TRUE
 		   AND priority = 9 AND weight = 4`, channelID); err != nil {
 		t.Fatalf("count kept: %v", err)
 	}
@@ -1272,7 +1272,7 @@ func TestListRoutes_MultiRouteBatchChannelLoadAndRedaction(t *testing.T) {
 
 	accA, err := db.Exec(
 		`INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, created_at, updated_at)
-		 VALUES (?, 'user-a', ?, ?, 'active', 1, ?, ?)`,
+		 VALUES (?, 'user-a', ?, ?, 'active', TRUE, ?, ?)`,
 		siteAID, secretA, apiA, now, now,
 	)
 	if err != nil {
@@ -1281,7 +1281,7 @@ func TestListRoutes_MultiRouteBatchChannelLoadAndRedaction(t *testing.T) {
 	accountAID, _ := accA.LastInsertId()
 	accB, err := db.Exec(
 		`INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, created_at, updated_at)
-		 VALUES (?, 'user-b', ?, ?, 'active', 1, ?, ?)`,
+		 VALUES (?, 'user-b', ?, ?, 'active', TRUE, ?, ?)`,
 		siteBID, secretB, apiB, now, now,
 	)
 	if err != nil {
@@ -1291,7 +1291,7 @@ func TestListRoutes_MultiRouteBatchChannelLoadAndRedaction(t *testing.T) {
 
 	tokA, err := db.Exec(
 		`INSERT INTO account_tokens (account_id, name, token, value_status, source, enabled, is_default, created_at, updated_at)
-		 VALUES (?, 'token-a', 'sk-token-a', 'ready', 'manual', 1, 1, ?, ?)`,
+		 VALUES (?, 'token-a', 'sk-token-a', 'ready', 'manual', TRUE, TRUE, ?, ?)`,
 		accountAID, now, now,
 	)
 	if err != nil {
@@ -1300,7 +1300,7 @@ func TestListRoutes_MultiRouteBatchChannelLoadAndRedaction(t *testing.T) {
 	tokenAID, _ := tokA.LastInsertId()
 	tokB, err := db.Exec(
 		`INSERT INTO account_tokens (account_id, name, token, value_status, source, enabled, is_default, created_at, updated_at)
-		 VALUES (?, 'token-b', 'sk-token-b', 'ready', 'manual', 1, 1, ?, ?)`,
+		 VALUES (?, 'token-b', 'sk-token-b', 'ready', 'manual', TRUE, TRUE, ?, ?)`,
 		accountBID, now, now,
 	)
 	if err != nil {
@@ -1602,7 +1602,7 @@ func TestRouteChannels_IncludeRuntimeCounters(t *testing.T) {
 		`INSERT INTO route_channels
 			(route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override,
 			 success_count, fail_count, cooldown_until)
-		 VALUES (?, ?, ?, 'gpt-4o', 5, 20, 1, 0, 42, 7, ?)`,
+		 VALUES (?, ?, ?, 'gpt-4o', 5, 20, TRUE, FALSE, 42, 7, ?)`,
 		routeID, accountID, tokenID, cooldownUntil); err != nil {
 		t.Fatalf("insert channel: %v", err)
 	}
@@ -1737,7 +1737,7 @@ func TestTokenRoutes_SummaryBatchedCounts(t *testing.T) {
 	// Second route ('claude-*') and a third route ('empty-*') with no channels.
 	res, err := db.Exec(
 		`INSERT INTO token_routes (model_pattern, enabled, created_at, updated_at)
-		 VALUES ('claude-*', 1, ?, ?)`, now, now)
+		 VALUES ('claude-*', TRUE, ?, ?)`, now, now)
 	if err != nil {
 		t.Fatalf("insert claude route: %v", err)
 	}
@@ -1745,17 +1745,17 @@ func TestTokenRoutes_SummaryBatchedCounts(t *testing.T) {
 
 	res, err = db.Exec(
 		`INSERT INTO token_routes (model_pattern, enabled, created_at, updated_at)
-		 VALUES ('empty-*', 1, ?, ?)`, now, now)
+		 VALUES ('empty-*', TRUE, ?, ?)`, now, now)
 	if err != nil {
 		t.Fatalf("insert empty route: %v", err)
 	}
 	route3ID, _ := res.LastInsertId()
 
 	// Route 1: 3 channels (2 enabled, 1 disabled).
-	for _, enabled := range []int{1, 1, 0} {
+	for _, enabled := range []bool{true, true, false} {
 		if _, err := db.Exec(
 			`INSERT INTO route_channels (route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override)
-			 VALUES (?, ?, ?, 'gpt-4o', 0, 10, ?, 0)`,
+			 VALUES (?, ?, ?, 'gpt-4o', 0, 10, ?, FALSE)`,
 			route1ID, accountID, tokenID, enabled); err != nil {
 			t.Fatalf("insert route1 channel: %v", err)
 		}
@@ -1765,7 +1765,7 @@ func TestTokenRoutes_SummaryBatchedCounts(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		if _, err := db.Exec(
 			`INSERT INTO route_channels (route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override)
-			 VALUES (?, ?, ?, 'claude-3', 0, 10, 1, 0)`,
+			 VALUES (?, ?, ?, 'claude-3', 0, 10, TRUE, FALSE)`,
 			route2ID, accountID, tokenID); err != nil {
 			t.Fatalf("insert route2 channel: %v", err)
 		}
@@ -1831,7 +1831,7 @@ func TestTokenRoutes_Summary_PopulatesSiteNames(t *testing.T) {
 	// auto-populate side effect (deterministic, no model-availability seed).
 	res, err := db.Exec(
 		`INSERT INTO token_routes (model_pattern, enabled, created_at, updated_at)
-		 VALUES ('no-channel-*', 1, ?, ?)`, now, now)
+		 VALUES ('no-channel-*', TRUE, ?, ?)`, now, now)
 	if err != nil {
 		t.Fatalf("insert empty route: %v", err)
 	}
@@ -1843,7 +1843,7 @@ func TestTokenRoutes_Summary_PopulatesSiteNames(t *testing.T) {
 	for _, sourceModel := range []string{"gpt-4o", "gpt-4o-mini", "gpt-4.1"} {
 		if _, err := db.Exec(
 			`INSERT INTO route_channels (route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override)
-			 VALUES (?, ?, ?, ?, 0, 10, 1, 0)`,
+			 VALUES (?, ?, ?, ?, 0, 10, TRUE, FALSE)`,
 			linkedRouteID, accountID, tokenID, sourceModel); err != nil {
 			t.Fatalf("insert linked route channel %s: %v", sourceModel, err)
 		}
@@ -1907,7 +1907,7 @@ func TestTokenRoutes_Rebuild_RefreshModelsFalseSkipsSync(t *testing.T) {
 	routeID, _, tokenID := seedRouteChannelRefs(t, db)
 	if _, err := db.Exec(
 		`INSERT INTO token_model_availability (token_id, model_name, available, checked_at)
-		 VALUES (?, 'gpt-4o', 1, ?)`, tokenID, now); err != nil {
+		 VALUES (?, 'gpt-4o', TRUE, ?)`, tokenID, now); err != nil {
 		t.Fatalf("seed availability: %v", err)
 	}
 

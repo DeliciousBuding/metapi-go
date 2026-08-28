@@ -467,7 +467,7 @@ func insertEdgeAccount(t *testing.T, db *store.DB, siteID int64, accessToken, ex
 	t.Helper()
 	now := time.Now().UTC().Format(time.RFC3339)
 	result, err := db.Exec(
-		"INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, ?, ?, 'active', 1, ?, ?, ?)",
+		"INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, ?, ?, 'active', TRUE, ?, ?, ?)",
 		siteID, "edge-user", accessToken, extraConfig, now, now,
 	)
 	if err != nil {

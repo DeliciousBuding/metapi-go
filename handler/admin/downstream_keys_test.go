@@ -139,7 +139,7 @@ func TestDownstreamKeysUpdatePartialPreservesPolicyFields(t *testing.T) {
 		(name, key, description, group_name, tags, enabled, expires_at, max_cost, used_cost, max_requests, used_requests,
 		 supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids, excluded_credential_refs,
 		 created_at, updated_at)
-		VALUES ('client-a', 'sk-client-a', 'desc', 'vip', '["alpha"]', 1, '2099-01-01T00:00:00Z',
+		VALUES ('client-a', 'sk-client-a', 'desc', 'vip', '["alpha"]', TRUE, '2099-01-01T00:00:00Z',
 		 12.5, 2.25, 99, 3, ?, ?, ?, ?, ?, ?, ?)`,
 		supportedModels, allowedRouteIds, siteWeightMultipliers, excludedSiteIds, excludedCredentialRefs, now, now,
 	)
@@ -991,7 +991,7 @@ func TestDownstreamKeysListUsage24hAggregatesProxyLogs(t *testing.T) {
 	insertKey := func(name, key string) int64 {
 		res, err := db.Exec(
 			`INSERT INTO downstream_api_keys (name, key, enabled, created_at, updated_at)
-			 VALUES (?, ?, 1, ?, ?)`,
+			 VALUES (?, ?, TRUE, ?, ?)`,
 			name, key, nowStr, nowStr,
 		)
 		if err != nil {

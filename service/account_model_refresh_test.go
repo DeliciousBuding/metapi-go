@@ -35,7 +35,7 @@ func seedAccountAndToken(t *testing.T, db *sqlx.DB, tokenValue string) (accountI
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	res, err := db.Exec(
 		`INSERT INTO sites (name, url, platform, status, use_system_proxy, sort_order, global_weight, post_refresh_probe_enabled, created_at, updated_at)
-		 VALUES (?, ?, 'openai', 'active', 0, 0, 0, 0, ?, ?)`,
+		 VALUES (?, ?, 'openai', 'active', FALSE, 0, 0, FALSE, ?, ?)`,
 		"ModelRefreshSite-"+tokenValue, "https://api.example.com", now, now,
 	)
 	if err != nil {
@@ -53,7 +53,7 @@ func seedAccountOnSite(t *testing.T, db *sqlx.DB, siteID int64, username, tokenV
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	res, err := db.Exec(
 		`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, sort_order, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, 1, 0, ?, ?)`,
+		 VALUES (?, ?, ?, ?, TRUE, 0, ?, ?)`,
 		siteID, username, tokenValue, status, now, now,
 	)
 	if err != nil {
@@ -65,7 +65,7 @@ func seedAccountOnSite(t *testing.T, db *sqlx.DB, siteID int64, username, tokenV
 	}
 	tokRes, err := db.Exec(
 		`INSERT INTO account_tokens (account_id, name, token, value_status, source, enabled, is_default, created_at, updated_at)
-		 VALUES (?, 'default', ?, 'ready', 'manual', 1, 1, ?, ?)`,
+		 VALUES (?, 'default', ?, 'ready', 'manual', TRUE, TRUE, ?, ?)`,
 		accountID, tokenValue, now, now,
 	)
 	if err != nil {
@@ -81,7 +81,7 @@ func seedOpenAISite(t *testing.T, db *sqlx.DB, name, url string) int64 {
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	res, err := db.Exec(
 		`INSERT INTO sites (name, url, platform, status, use_system_proxy, sort_order, global_weight, post_refresh_probe_enabled, created_at, updated_at)
-		 VALUES (?, ?, 'openai', 'active', 0, 0, 0, 0, ?, ?)`,
+		 VALUES (?, ?, 'openai', 'active', FALSE, 0, 0, FALSE, ?, ?)`,
 		name, url, now, now,
 	)
 	if err != nil {
@@ -141,7 +141,7 @@ func TestPersistTokenModelAvailability_UpsertsAndMarksUnavailable(t *testing.T) 
 
 	var availCount int
 	if err := db.Get(&availCount,
-		`SELECT COUNT(*) FROM token_model_availability WHERE token_id = ? AND available = 1`,
+		`SELECT COUNT(*) FROM token_model_availability WHERE token_id = ? AND available = TRUE`,
 		tokenID,
 	); err != nil {
 		t.Fatalf("count available: %v", err)
@@ -155,7 +155,7 @@ func TestPersistTokenModelAvailability_UpsertsAndMarksUnavailable(t *testing.T) 
 		t.Fatalf("second persist: %v", err)
 	}
 	if err := db.Get(&availCount,
-		`SELECT COUNT(*) FROM token_model_availability WHERE token_id = ? AND available = 1`,
+		`SELECT COUNT(*) FROM token_model_availability WHERE token_id = ? AND available = TRUE`,
 		tokenID,
 	); err != nil {
 		t.Fatalf("count after second: %v", err)
@@ -165,7 +165,7 @@ func TestPersistTokenModelAvailability_UpsertsAndMarksUnavailable(t *testing.T) 
 	}
 	var unavailCount int
 	if err := db.Get(&unavailCount,
-		`SELECT COUNT(*) FROM token_model_availability WHERE token_id = ? AND available = 0`,
+		`SELECT COUNT(*) FROM token_model_availability WHERE token_id = ? AND available = FALSE`,
 		tokenID,
 	); err != nil {
 		t.Fatalf("count unavailable: %v", err)
@@ -205,7 +205,7 @@ func TestPersistTokenModelAvailability_ReAddsPreviouslyUnavailable(t *testing.T)
 	}
 	var availCount int
 	if err := db.Get(&availCount,
-		`SELECT COUNT(*) FROM token_model_availability WHERE token_id = ? AND available = 1`,
+		`SELECT COUNT(*) FROM token_model_availability WHERE token_id = ? AND available = TRUE`,
 		tokenID,
 	); err != nil {
 		t.Fatalf("count available: %v", err)
@@ -287,7 +287,7 @@ func TestSyncAllAccountModels_BatchSemantics(t *testing.T) {
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	if res, err := db.Exec(
 		`INSERT INTO sites (name, url, platform, status, use_system_proxy, sort_order, global_weight, post_refresh_probe_enabled, created_at, updated_at)
-		 VALUES ('batch-no-adapter', 'https://nope.example.com', 'no-such-platform', 'active', 0, 0, 0, 0, ?, ?)`,
+		 VALUES ('batch-no-adapter', 'https://nope.example.com', 'no-such-platform', 'active', FALSE, 0, 0, FALSE, ?, ?)`,
 		now, now,
 	); err != nil {
 		t.Fatalf("insert no-adapter site: %v", err)
@@ -322,7 +322,7 @@ func TestSyncAllAccountModels_BatchSemantics(t *testing.T) {
 	// Availability for the successful accounts really landed in the store.
 	var availCount int
 	if err := db.Get(&availCount,
-		`SELECT COUNT(*) FROM model_availability WHERE account_id = ? AND available = 1`,
+		`SELECT COUNT(*) FROM model_availability WHERE account_id = ? AND available = TRUE`,
 		okAccount,
 	); err != nil {
 		t.Fatalf("count availability: %v", err)
@@ -381,7 +381,7 @@ func TestRefreshAccountModels_SkipRebuildPersistsWithoutSideEffects(t *testing.T
 
 	var availCount int
 	if err := db.Get(&availCount,
-		`SELECT COUNT(*) FROM model_availability WHERE account_id = ? AND available = 1`,
+		`SELECT COUNT(*) FROM model_availability WHERE account_id = ? AND available = TRUE`,
 		accountID,
 	); err != nil {
 		t.Fatalf("count availability: %v", err)

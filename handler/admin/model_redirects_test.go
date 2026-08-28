@@ -24,7 +24,7 @@ func setupRedirectTest(t *testing.T) (*store.DB, chi.Router, int64, int64) {
 	}
 	siteID, _ := res.LastInsertId()
 	res, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, api_token, status, checkin_enabled, created_at, updated_at)
-		VALUES (?, ?, ?, ?, 'active', 0, ?, ?)`, siteID, "redirect-user", "sess", "sk-redirect", now, now)
+		VALUES (?, ?, ?, ?, 'active', FALSE, ?, ?)`, siteID, "redirect-user", "sess", "sk-redirect", now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}
@@ -34,11 +34,11 @@ func setupRedirectTest(t *testing.T) (*store.DB, chi.Router, int64, int64) {
 	_, _ = db.Exec(`INSERT INTO settings (key, value) VALUES ('global_allowed_models', ?)`,
 		`["claude-3-5-sonnet","claude-3-5-haiku","gpt-4o"]`)
 	_, _ = db.Exec(`INSERT INTO token_routes (model_pattern, display_name, route_mode, routing_strategy, enabled, created_at, updated_at)
-		VALUES (?, ?, 'standard', 'weighted', 1, ?, ?)`, "claude-3-5-sonnet", "Sonnet Route", now, now)
+		VALUES (?, ?, 'standard', 'weighted', TRUE, ?, ?)`, "claude-3-5-sonnet", "Sonnet Route", now, now)
 
 	// Available actual models (date-suffixed names).
 	_, _ = db.Exec(`INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at)
-		VALUES (?, ?, 1, 0, ?)`, accountID, "claude-3-5-sonnet-20241022", now)
+		VALUES (?, ?, TRUE, FALSE, ?)`, accountID, "claude-3-5-sonnet-20241022", now)
 
 	r := chi.NewRouter()
 	RegisterModelRedirectRoutes(r, db.DB)
@@ -175,7 +175,7 @@ func TestRedirects_GenerationRules(t *testing.T) {
 		"CLAUDE-3-5-SONNET-20250101",    // case-folded date suffix
 	} {
 		_, err := db.Exec(`INSERT INTO model_availability (account_id, model_name, available, is_manual, checked_at)
-			VALUES (?, ?, 1, 0, ?)`, accountID, m, now)
+			VALUES (?, ?, TRUE, FALSE, ?)`, accountID, m, now)
 		if err != nil {
 			t.Fatalf("insert availability %s: %v", m, err)
 		}

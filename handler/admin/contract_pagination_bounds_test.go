@@ -156,7 +156,7 @@ func TestPaginationBounds_Channels_ExplicitPagingClampsAndCounts(t *testing.T) {
 		if _, err := db.Exec(
 			`INSERT INTO route_channels
 				(route_id, account_id, token_id, source_model, priority, weight, enabled, manual_override)
-			 VALUES (?, ?, ?, ?, 0, 10, 1, 0)`,
+			 VALUES (?, ?, ?, ?, 0, 10, TRUE, FALSE)`,
 			routeID, accountID, tokenID, "gpt-bound-"+itoa(int64(i)),
 		); err != nil {
 			t.Fatalf("insert channel %d: %v", i, err)

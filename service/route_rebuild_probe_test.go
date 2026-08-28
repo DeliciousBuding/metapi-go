@@ -26,7 +26,7 @@ func seedPatternRoute(t *testing.T, db *store.DB, pattern string) int64 {
 	now := time.Now().UTC().Format(time.RFC3339)
 	res, err := db.Exec(
 		`INSERT INTO token_routes (model_pattern, route_mode, routing_strategy, enabled, created_at, updated_at)
-		 VALUES (?, 'pattern', 'weighted', 1, ?, ?)`, pattern, now, now,
+		 VALUES (?, 'pattern', 'weighted', TRUE, ?, ?)`, pattern, now, now,
 	)
 	if err != nil {
 		t.Fatalf("insert route: %v", err)
@@ -42,7 +42,7 @@ func TestRebuild_ProbeFailureExcludesChannel(t *testing.T) {
 	siteID := siteIDForAccount(t, db, accountID)
 	if _, err := db.Exec(
 		`INSERT INTO token_model_availability (token_id, model_name, available, checked_at)
-		 VALUES (?, 'gpt-4o', 1, ?)`, tokenID, now); err != nil {
+		 VALUES (?, 'gpt-4o', TRUE, ?)`, tokenID, now); err != nil {
 		t.Fatalf("avail: %v", err)
 	}
 	routeID := seedPatternRoute(t, db, "gpt-*")
@@ -73,7 +73,7 @@ func TestRebuild_ProbeFilterDisabledKeepsProbeFailedChannel(t *testing.T) {
 	siteID := siteIDForAccount(t, db, accountID)
 	if _, err := db.Exec(
 		`INSERT INTO token_model_availability (token_id, model_name, available, checked_at)
-		 VALUES (?, 'gpt-4o', 1, ?)`, tokenID, now); err != nil {
+		 VALUES (?, 'gpt-4o', TRUE, ?)`, tokenID, now); err != nil {
 		t.Fatalf("avail: %v", err)
 	}
 	seedPatternRoute(t, db, "gpt-*")
@@ -95,7 +95,7 @@ func TestRebuild_ProbeLatestSuccessWinsOverEarlierFailure(t *testing.T) {
 	siteID := siteIDForAccount(t, db, accountID)
 	if _, err := db.Exec(
 		`INSERT INTO token_model_availability (token_id, model_name, available, checked_at)
-		 VALUES (?, 'gpt-4o', 1, ?)`, tokenID, now); err != nil {
+		 VALUES (?, 'gpt-4o', TRUE, ?)`, tokenID, now); err != nil {
 		t.Fatalf("avail: %v", err)
 	}
 	seedPatternRoute(t, db, "gpt-*")
@@ -119,7 +119,7 @@ func TestRebuild_ExcludeModelListFiltersChannel(t *testing.T) {
 	_, _, tokenID := seedSiteAccountToken(t, db, "exclude")
 	if _, err := db.Exec(
 		`INSERT INTO token_model_availability (token_id, model_name, available, checked_at)
-		 VALUES (?, 'claude-3', 1, ?)`, tokenID, now); err != nil {
+		 VALUES (?, 'claude-3', TRUE, ?)`, tokenID, now); err != nil {
 		t.Fatalf("avail: %v", err)
 	}
 	routeID := seedPatternRoute(t, db, "*")
@@ -147,7 +147,7 @@ func TestRebuild_NoChangeShortCircuitSkipsCacheInvalidation(t *testing.T) {
 	_, _, tokenID := seedSiteAccountToken(t, db, "short")
 	if _, err := db.Exec(
 		`INSERT INTO token_model_availability (token_id, model_name, available, checked_at)
-		 VALUES (?, 'gpt-4o', 1, ?)`, tokenID, now); err != nil {
+		 VALUES (?, 'gpt-4o', TRUE, ?)`, tokenID, now); err != nil {
 		t.Fatalf("avail: %v", err)
 	}
 	seedPatternRoute(t, db, "gpt-*")

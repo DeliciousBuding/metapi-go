@@ -45,7 +45,7 @@ func insertHealthSiteRow(t *testing.T, db *store.DB, name, url, platform string)
 func insertHealthAccountRow(t *testing.T, db *store.DB, siteID int64, status, extraConfigJSON string) int64 {
 	t.Helper()
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
-	res, err := db.Exec(db.Rebind(`INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, 'sk-fixture', ?, 1, ?, ?, ?)`), siteID, status, extraConfigJSON, now, now)
+	res, err := db.Exec(db.Rebind(`INSERT INTO accounts (site_id, access_token, status, checkin_enabled, extra_config, created_at, updated_at) VALUES (?, 'sk-fixture', ?, TRUE, ?, ?, ?)`), siteID, status, extraConfigJSON, now, now)
 	if err != nil {
 		t.Fatalf("insert account row: %v", err)
 	}

@@ -17,12 +17,12 @@ func seedRouteChannel(t *testing.T, db *store.DB, suffix, model string, enabled 
 		t.Fatalf("insert site: %v", err)
 	}
 	siteID, _ := res.LastInsertId()
-	res, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, ?, 'tok', 'active', 1, ?, ?)`, siteID, "u-"+suffix, now, now)
+	res, err = db.Exec(`INSERT INTO accounts (site_id, username, access_token, status, checkin_enabled, created_at, updated_at) VALUES (?, ?, 'tok', 'active', TRUE, ?, ?)`, siteID, "u-"+suffix, now, now)
 	if err != nil {
 		t.Fatalf("insert account: %v", err)
 	}
 	accountID, _ := res.LastInsertId()
-	res, err = db.Exec(`INSERT INTO token_routes (model_pattern, route_mode, routing_strategy, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`, "all", "pattern", "weighted", 1, now, now)
+	res, err = db.Exec(`INSERT INTO token_routes (model_pattern, route_mode, routing_strategy, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`, "all", "pattern", "weighted", true, now, now)
 	if err != nil {
 		t.Fatalf("insert route: %v", err)
 	}
