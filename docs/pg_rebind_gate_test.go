@@ -49,7 +49,7 @@ func TestPgRebindGateNoBareQuestionMarks(t *testing.T) {
 		t.Fatal("runtime.Caller failed")
 	}
 	repoRoot := filepath.Dir(filepath.Dir(thisFile)) // docs/ → repo root
-	dirs := []string{"handler", "service", "scheduler"}
+	dirs := []string{"app", "auth", "cmd", "config", "e2e", "handler", "platform", "proxy", "routing", "scheduler", "service", "store", "transform"}
 	var violations []string
 
 	for _, dir := range dirs {
