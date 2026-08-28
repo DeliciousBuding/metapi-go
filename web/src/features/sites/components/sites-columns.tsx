@@ -32,6 +32,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Spinner } from '@/components/ui/spinner'
+import { toBcp47 } from '@/i18n/languages'
 import {
   formatAbsoluteDateTime,
   formatCurrency,
@@ -396,9 +397,12 @@ export function useSitesColumns(
         return (
           <span
             className='text-muted-foreground text-sm whitespace-nowrap'
-            title={formatAbsoluteDateTime(createdAt, i18n.language)}
+            title={formatAbsoluteDateTime(
+              createdAt,
+              toBcp47(i18n.language || 'en')
+            )}
           >
-            {formatRelativeTime(createdAt, i18n.language)}
+            {formatRelativeTime(createdAt, toBcp47(i18n.language || 'en'))}
           </span>
         )
       },
