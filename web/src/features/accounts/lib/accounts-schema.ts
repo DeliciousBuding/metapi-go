@@ -42,7 +42,7 @@ export function getAccountFormSchema(requireCredential = true) {
         .string()
         .trim()
         .optional()
-        .refine((value) => !value || /^https?:\/\/.+/.test(value), {
+        .refine((value) => !value || /^(https?|socks5h?):\/\/.+/.test(value), {
           message: 'accounts.schema.invalidProxyUrl',
         }),
       refreshToken: z.string().trim().optional(),
@@ -142,9 +142,15 @@ export function transformFormToPayload(
   if (values.credentialMode === 'password') return undefined
 
   const tags = parseTagsInput(values.tags)
-  const extraConfig = values.proxyUrl
-    ? JSON.stringify({ proxyUrl: values.proxyUrl })
-    : undefined
+  // proxyUrl is the single carrier for extraConfig.proxyUrl: the backend
+  // merges the top-level field into extraConfig on both create and update.
+  // On update the field is sent unconditionally — an explicit empty string
+  // deletes the stored proxy, while an omitted field would keep it (issue
+  // #1009 residual: clearing the form field and saving kept the old value).
+  const proxyUrl =
+    operation === 'update'
+      ? (values.proxyUrl ?? '')
+      : values.proxyUrl || undefined
 
   if (values.credentialMode === 'session') {
     return {
@@ -156,11 +162,10 @@ export function transformFormToPayload(
       status: values.status,
       checkinEnabled: values.checkinEnabled,
       unitCost: values.unitCost,
-      proxyUrl: values.proxyUrl || undefined,
+      proxyUrl,
       refreshToken: values.refreshToken || undefined,
       tokenExpiresAt: values.tokenExpiresAt,
       tags,
-      extraConfig,
     }
   }
 
@@ -175,9 +180,9 @@ export function transformFormToPayload(
     status: values.status,
     checkinEnabled: values.checkinEnabled,
     unitCost: values.unitCost,
+    proxyUrl,
     skipModelFetch: values.skipModelFetch,
     tags,
-    extraConfig,
   }
 }
 

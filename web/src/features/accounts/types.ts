@@ -160,7 +160,6 @@ export interface AccountPayload {
   tokenExpiresAt?: number
   skipModelFetch?: boolean
   tags?: string[]
-  extraConfig?: string
 }
 
 // ---------------------------------------------------------------------------
