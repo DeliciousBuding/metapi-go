@@ -59,7 +59,7 @@ func seedRouteChannelRefs(t *testing.T, db *store.DB) (routeID, accountID, token
 
 	res, err = db.Exec(
 		`INSERT INTO accounts (site_id, access_token, status, checkin_enabled, created_at, updated_at)
-		 VALUES (?, 'session-token', 'active', 1, ?, ?)`,
+		 VALUES (?, 'session-token', 'active', true, ?, ?)`,
 		siteID, now, now,
 	)
 	if err != nil {
