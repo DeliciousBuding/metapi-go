@@ -5,6 +5,31 @@ All notable changes to Metapi-Go will be documented in this file.
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/spec/v2.0.0.html)。
 
+## [v0.16.18] — 2026-08-29
+
+### Added
+
+- **SSE 流 chunk 间隔空闲超时（#1046）**：新增 `PROXY_STREAM_IDLE_TIMEOUT_SEC`（默认 300）——流式（SSE）响应每转发一个 chunk 重置计时窗，窗口内无新 chunk 即中断卡死的流并按上游超时故障记录（渠道健康、失败日志、终态一致）；只约束 chunk 间隔、不约束流总时长；`0`/负数/非法值回退默认。
+- **重试/禁用状态码策略运营者可调（#1049）**：新增运行时设置 `proxyRetryStatusRanges` / `proxyDisableStatusRanges`（设置页代理与模型区块可编辑，`PUT /api/settings/runtime` 同契约）：retry 决定哪些上游状态码计为可重试的渠道故障，disable 决定哪些状态码在冷却升级之外直接禁用故障渠道（`enabled=false` + 人工覆盖标记）；默认值完全复刻既有判定，未配置零行为变化；区间表达式（`401`、`500-599`、逗号分隔）严格校验，非法值 400 拒绝。
+- **批量测试闭环（#1047）**：模型测试台批量对比出现失败行时提供「禁用失败渠道」动作（人工确认对话框列明数量与人工覆盖后果），调用升级后的 `PUT /api/channels/batch`——部分更新语义（enabled/weight/priority 仅写字段出现的）、载荷校验（空批/超 1000/重复 id/无可更新字段）、逐项真值（`successIds` + `failedItems`）、整批成功 `success` 才为 true；写入经审计中间件记录。
+- **渠道失败横幅一键过滤（#1048）**：渠道页存在冷却/熔断渠道时显示失败横幅（人工停用属运营意图、不计入），「只看失败」经可分享的 `?status=` 过滤参数进入仅失败视图；URL 已处于失败过滤时横幅切换为可清除指示。
+- **下游密钥上游站点限制 UI（#1026）**：下游密钥创建/编辑表单新增「上游站点限制」多选（留空=不限制），把路由选择器既有的 `allowedSiteIds` 允许清单暴露到管理界面并完整往返；凭证（账号/令牌）维度仍可经 API 配置，另行立项。
+- **搜索面板实体深链（#1039）**：CmdK 搜索面板的站点/账号/令牌/模型命中一键深链到实体本身（`/sites?edit`、`/accounts?accountId`、`/models?model`），参数一次性消费后清除，深链可分享。
+
+### Fixed
+
+- **路由自动重建真值（#1024）**：`POST /api/routes/rebuild` 现在消费 `refreshModels`（默认 true：先批量刷新全部活跃账号的上游模型、单账号失败不中断整批，再重建通道）；完成提示读取真实统计并区分三态——成功（真实路由/通道数）、无路由可重建（引导先创建路由）、通道无变化（引导核对账号模型与路由匹配）；docs/api.md 登记完整契约。
+- **zh-CN 语言下站点表崩溃（#1036）**：`createdAt` 列对无效 Intl locale 的防护回退。
+
+### Security
+
+- **CSP 收紧（#1041）**：内联 bootstrap 脚本外部化，移除 `unsafe-inline`。
+- **前端安全快赢批（#1037）**：体检安全批次修复。
+
+### Changed
+
+- **前端体检快赢批**：构建（#1040）、可访问性（#1042、#1043）、卫生（#1044）、UX（#1045）五批修复。
+
 ## [v0.16.17] — 2026-08-28
 
 ### Added
