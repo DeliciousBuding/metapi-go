@@ -101,10 +101,23 @@ export const tokenRoutesApi = {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
-  batchUpdateChannels: (updates: Array<{ id: number; priority: number }>) =>
+  // Partial-update semantics: each item applies only the fields present
+  // (priority / weight / enabled). The 200 envelope carries per-item truth
+  // (successIds + failedItems); skipBusinessError keeps a partial failure
+  // (success:false) from tripping the generic interceptor toast so the
+  // caller renders the precise per-item breakdown instead.
+  batchUpdateChannels: (
+    updates: Array<{
+      id: number
+      priority?: number
+      weight?: number
+      enabled?: boolean
+    }>
+  ) =>
     request('/api/channels/batch', {
       method: 'PUT',
       body: JSON.stringify({ updates }),
+      skipBusinessError: true,
     }),
   deleteChannel: (id: number) =>
     request(`/api/channels/${id}`, { method: 'DELETE' }),

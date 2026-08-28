@@ -197,26 +197,97 @@ func (h *tokenRoutesHandler) clearCooldown(w http.ResponseWriter, r *http.Reques
 
 // ---- Batch Update Channels ----
 // PUT /api/channels/batch
+// Body: { "updates": [ { "id": 12, "enabled": false, "priority": 5, "weight": 20 } ] }
+//
+// Applies only the fields present on each item — the same partial-update
+// semantics as PUT /api/channels/:channelId, including manual_override=true
+// on any intentional edit. The response reports per-item truth: successIds
+// for applied rows and failedItems (id + message) for rejected or missing
+// ones, so a partial failure is never swallowed. `success` is true only when
+// the batch is non-empty and every item applied. `channels` echoes the
+// updated rows. The model-tester batch comparison's "disable failed
+// channels" action uses this endpoint with `enabled:false` items; the admin
+// AuditMiddleware records each call.
 func (h *tokenRoutesHandler) batchUpdateChannels(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Updates []struct {
-			ID       int64 `json:"id"`
-			Priority int64 `json:"priority"`
+			ID       int64  `json:"id"`
+			Priority *int64 `json:"priority"`
+			Weight   *int64 `json:"weight"`
+			Enabled  *bool  `json:"enabled"`
 		} `json:"updates"`
 	}
 	if err := decodeJSONRequest(r, &body); err != nil {
 		writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid request body: "+err.Error())
 		return
 	}
-
-	var updatedIDs []int64
-	for _, update := range body.Updates {
-		h.db.Exec(h.db.Rebind("UPDATE route_channels SET priority = ?, manual_override = ? WHERE id = ?"), update.Priority, true, update.ID)
-		updatedIDs = append(updatedIDs, update.ID)
+	if len(body.Updates) == 0 {
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "updates is required")
+		return
+	}
+	if len(body.Updates) > 1000 {
+		writeErrorWithRequest(w, r, http.StatusBadRequest, "too many items (max 1000)")
+		return
 	}
 
-	var updatedChannels []map[string]any
-	for _, cid := range updatedIDs {
+	successIDs := []int64{}
+	failedItems := []map[string]any{}
+	seen := map[int64]bool{}
+
+	for _, update := range body.Updates {
+		if update.ID <= 0 {
+			failedItems = append(failedItems, map[string]any{"id": update.ID, "message": "invalid id"})
+			continue
+		}
+
+		// Shape validation runs before the duplicate check: an item carrying
+		// no updatable fields is rejected on shape alone and must not consume
+		// the id, so a well-formed item for the same id can still apply.
+		sets := []string{}
+		args := []any{}
+		if update.Priority != nil {
+			sets = append(sets, "priority = ?")
+			args = append(args, *update.Priority)
+		}
+		if update.Weight != nil {
+			sets = append(sets, "weight = ?")
+			args = append(args, *update.Weight)
+		}
+		if update.Enabled != nil {
+			sets = append(sets, "enabled = ?")
+			args = append(args, *update.Enabled)
+		}
+		if len(sets) == 0 {
+			failedItems = append(failedItems, map[string]any{"id": update.ID, "message": "no updatable fields (priority, weight or enabled required)"})
+			continue
+		}
+		if seen[update.ID] {
+			failedItems = append(failedItems, map[string]any{"id": update.ID, "message": "duplicate id in payload"})
+			continue
+		}
+		seen[update.ID] = true
+		// Any intentional channel edit marks manual_override so a route
+		// rebuild cannot wipe operator tuning (mirrors the single-channel
+		// update path).
+		sets = append(sets, "manual_override = ?")
+		args = append(args, true)
+		args = append(args, update.ID)
+
+		res, err := h.db.Exec(h.db.Rebind("UPDATE route_channels SET "+strings.Join(sets, ", ")+" WHERE id = ?"), args...)
+		if err != nil {
+			failedItems = append(failedItems, map[string]any{"id": update.ID, "message": err.Error()})
+			continue
+		}
+		n, _ := res.RowsAffected()
+		if n == 0 {
+			failedItems = append(failedItems, map[string]any{"id": update.ID, "message": "channel not found"})
+			continue
+		}
+		successIDs = append(successIDs, update.ID)
+	}
+
+	updatedChannels := []map[string]any{}
+	for _, cid := range successIDs {
 		ch := queryRow(h.db, "SELECT * FROM route_channels WHERE id = ?", cid)
 		if ch != nil {
 			updatedChannels = append(updatedChannels, ch)
@@ -226,8 +297,10 @@ func (h *tokenRoutesHandler) batchUpdateChannels(w http.ResponseWriter, r *http.
 	routing.InvalidateCache()
 	invalidateChannelsSnapshotCache()
 	writeJSON(w, http.StatusOK, map[string]any{
-		"success":  true,
-		"channels": normalizeSlice(updatedChannels),
+		"success":     len(failedItems) == 0,
+		"successIds":  successIDs,
+		"failedItems": failedItems,
+		"channels":    normalizeSlice(updatedChannels),
 	})
 }
 
