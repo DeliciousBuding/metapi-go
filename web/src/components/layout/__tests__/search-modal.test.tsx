@@ -182,7 +182,7 @@ describe('search palette entity deep links', () => {
       proxyLogs: [
         {
           id: 21,
-          modelRequested: 'gpt-4o',
+          modelRequested: 'gpt-5.5',
           status: 'failed',
         },
       ],
@@ -190,11 +190,98 @@ describe('search palette entity deep links', () => {
     renderModal()
     await typeQuery('gpt')
 
-    fireEvent.click(await screen.findByText('gpt-4o'))
+    fireEvent.click(await screen.findByText('gpt-5.5'))
 
     expect(navigateMock).toHaveBeenCalledWith({
       to: '/proxy-logs',
-      search: { q: 'gpt-4o', status: 'failed' },
+      search: { q: 'gpt-5.5', status: 'failed' },
+    })
+  })
+
+  it('deep-links site hits with the one-shot edit param', async () => {
+    searchMock.mockResolvedValue({
+      ...EMPTY_RESPONSE,
+      sites: [{ id: 3, name: 'NewAPI hub', url: 'https://newapi.example' }],
+    })
+    renderModal()
+    await typeQuery('newapi')
+
+    fireEvent.click(await screen.findByText('NewAPI hub'))
+
+    expect(navigateMock).toHaveBeenCalledWith({
+      to: '/sites',
+      search: { edit: 3 },
+    })
+  })
+
+  it('deep-links account hits with the one-shot accountId param', async () => {
+    searchMock.mockResolvedValue({
+      ...EMPTY_RESPONSE,
+      accounts: [{ id: 9, username: 'alice', siteName: 'NewAPI hub' }],
+    })
+    renderModal()
+    await typeQuery('alice')
+
+    fireEvent.click(await screen.findByText('alice'))
+
+    expect(navigateMock).toHaveBeenCalledWith({
+      to: '/accounts',
+      search: { accountId: 9 },
+    })
+  })
+
+  it('deep-links token hits to the owning account when accountId is present', async () => {
+    searchMock.mockResolvedValue({
+      ...EMPTY_RESPONSE,
+      accountTokens: [
+        {
+          id: 5,
+          name: 'relay-key',
+          accountId: 9,
+          accountUsername: 'alice',
+        },
+      ],
+    })
+    renderModal()
+    await typeQuery('relay')
+
+    fireEvent.click(await screen.findByText('relay-key'))
+
+    expect(navigateMock).toHaveBeenCalledWith({
+      to: '/accounts',
+      search: { accountId: 9 },
+    })
+  })
+
+  it('falls back to the q-filtered accounts list for token hits without accountId', async () => {
+    searchMock.mockResolvedValue({
+      ...EMPTY_RESPONSE,
+      accountTokens: [{ id: 6, name: 'legacy-key', accountUsername: 'bob' }],
+    })
+    renderModal()
+    await typeQuery('legacy')
+
+    fireEvent.click(await screen.findByText('legacy-key'))
+
+    expect(navigateMock).toHaveBeenCalledWith({
+      to: '/accounts',
+      search: { q: 'legacy' },
+    })
+  })
+
+  it('deep-links model hits with the one-shot model param', async () => {
+    searchMock.mockResolvedValue({
+      ...EMPTY_RESPONSE,
+      models: [{ modelName: 'claude-opus-4.7.7', tokenCount: 3 }],
+    })
+    renderModal()
+    await typeQuery('claude')
+
+    fireEvent.click(await screen.findByText('claude-opus-4.7.7'))
+
+    expect(navigateMock).toHaveBeenCalledWith({
+      to: '/models',
+      search: { model: 'claude-opus-4.7.7' },
     })
   })
 })

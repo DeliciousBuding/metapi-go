@@ -121,14 +121,14 @@ describe('AccountModelsPanel', () => {
       siteName: 'OpenAI',
       totalCount: 3,
       models: [
-        entry({ name: 'gpt-4o', checkedAt: '2026-08-25T00:00:00.000Z' }),
+        entry({ name: 'gpt-5.5', checkedAt: '2026-08-25T00:00:00.000Z' }),
         entry({ name: 'manual-x', isManual: true }),
         entry({ name: 'stale-y', available: false }),
       ],
     }
     render(<AccountModelsPanel accountId={1} />)
 
-    expect(screen.getByText('gpt-4o')).toBeInTheDocument()
+    expect(screen.getByText('gpt-5.5')).toBeInTheDocument()
     expect(screen.getByText('manual-x')).toBeInTheDocument()
     expect(screen.getByText('stale-y')).toBeInTheDocument()
     // Source + availability badges appear exactly once each.
@@ -139,7 +139,7 @@ describe('AccountModelsPanel', () => {
       screen.getByRole('button', { name: 'Remove manual-x' })
     ).toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: 'Remove gpt-4o' })
+      screen.queryByRole('button', { name: 'Remove gpt-5.5' })
     ).not.toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Remove stale-y' })
@@ -197,7 +197,7 @@ describe('AccountModelsPanel', () => {
     mockState.query.data = {
       totalCount: 2,
       models: [
-        entry({ name: 'gpt-4o' }),
+        entry({ name: 'gpt-5.5' }),
         entry({ name: 'manual-x', isManual: true }),
       ],
     }

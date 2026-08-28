@@ -47,19 +47,19 @@ afterEach(() => {
 
 describe('StatusBadge copy feedback', () => {
   it('copies the label, renders the copied check and reverts after 1.5s', async () => {
-    render((<StatusBadge label='gpt-4o' />) as ReactElement)
+    render((<StatusBadge label='gpt-5.5' />) as ReactElement)
 
     const badge = screen
-      .getByText('gpt-4o')
+      .getByText('gpt-5.5')
       .closest('[data-slot="status-badge"]')
     if (!badge) throw new Error('badge root not rendered')
 
     // Before the click the hint title embeds the value (i18n, not hardcoded).
-    expect(badge).toHaveAttribute('title', 'Click to copy: gpt-4o')
+    expect(badge).toHaveAttribute('title', 'Click to copy: gpt-5.5')
 
     fireEvent.click(badge)
 
-    expect(writeTextMock).toHaveBeenCalledWith('gpt-4o')
+    expect(writeTextMock).toHaveBeenCalledWith('gpt-5.5')
     // The copied state surfaces: check icon + "Copied" title.
     await act(async () => {})
     expect(badge).toHaveAttribute('title', 'Copied')
@@ -69,7 +69,7 @@ describe('StatusBadge copy feedback', () => {
     act(() => {
       vi.advanceTimersByTime(1600)
     })
-    expect(badge).toHaveAttribute('title', 'Click to copy: gpt-4o')
+    expect(badge).toHaveAttribute('title', 'Click to copy: gpt-5.5')
   })
 
   it('toasts when the clipboard write is rejected', async () => {

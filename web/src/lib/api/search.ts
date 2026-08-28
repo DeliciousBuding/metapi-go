@@ -19,6 +19,9 @@ export type SearchAccountToken = {
   id: number
   name: string
   tokenMasked?: string | null
+  /** Owning account id — already returned by the backend (`at.account_id`),
+   * lets the palette deep-link straight to the account detail sheet. */
+  accountId?: number | null
   accountUsername?: string | null
   siteName?: string | null
 }

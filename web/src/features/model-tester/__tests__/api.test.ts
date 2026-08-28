@@ -27,7 +27,7 @@ beforeEach(() => {
 
 function formValues(overrides: Partial<TestFormValues> = {}): TestFormValues {
   return {
-    model: 'gpt-4o',
+    model: 'gpt-5.5',
     systemPrompt: '',
     prompt: 'current question',
     targetFormat: 'openai',

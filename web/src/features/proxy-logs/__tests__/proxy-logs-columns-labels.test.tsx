@@ -106,8 +106,8 @@ describe('proxy-logs status cell failure visibility', () => {
   const failedLog: ProxyLog = {
     id: 7,
     createdAt: '2026-08-23T13:01:15+08:00',
-    modelRequested: 'gpt-4o',
-    modelActual: 'gpt-4o',
+    modelRequested: 'gpt-5.5',
+    modelActual: 'gpt-5.5',
     status: 'failed',
     httpStatus: 502,
     latencyMs: 114,

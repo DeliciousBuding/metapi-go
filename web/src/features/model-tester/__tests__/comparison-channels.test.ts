@@ -34,9 +34,9 @@ describe('formatChannelLabel', () => {
         id: 1,
         name: 'svc-batch-01',
         site: { name: 'NewAPI' },
-        models: 'gpt-4o',
+        models: 'gpt-5.5',
       })
-    ).toBe('svc-batch-01 · gpt-4o · NewAPI (#1)')
+    ).toBe('svc-batch-01 · gpt-5.5 · NewAPI (#1)')
   })
 
   it('omits the model segment when the channel has no model list', () => {

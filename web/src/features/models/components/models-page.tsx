@@ -17,7 +17,7 @@ import {
   RefreshCw as RefreshCwIcon,
   Users as UsersIcon,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { QueryErrorBanner } from '@/components/common/query-error-banner'
@@ -188,6 +188,33 @@ export function ModelsPage() {
 
   const [viewingModel, setViewingModel] = useState<ModelRow | null>(null)
   const [verifyOpen, setVerifyOpen] = useState(false)
+
+  // Consume the one-shot `?model=<name>` deep link exactly once (the search
+  // palette passes it when a model hit is selected): resolve the name against
+  // the loaded marketplace, open the detail sheet with the same state the row
+  // "view" action uses, then strip the transient param so a refetch or remount
+  // never reopens the sheet. Mirrors the accounts page's `accountId` deep
+  // link (ref guard survives strict-mode double-invoke).
+  const modelDeepLinkConsumed = useRef(false)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const modelName = params.get('model')
+    if (modelDeepLinkConsumed.current || !modelName) return
+    modelDeepLinkConsumed.current = true
+
+    const targetModel = (modelsQuery.data ?? []).find(
+      (model) => model.name === modelName
+    )
+    if (targetModel) {
+      setViewingModel(targetModel)
+    }
+    params.delete('model')
+    const queryString = params.toString()
+    navigate({
+      href: queryString ? `/models?${queryString}` : '/models',
+      replace: true,
+    })
+  }, [modelsQuery.data, navigate])
 
   const urlState = useModelsUrlState()
 

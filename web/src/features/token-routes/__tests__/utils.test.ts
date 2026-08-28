@@ -50,7 +50,7 @@ describe('isRegexModelPattern', () => {
   })
 
   it('returns false for plain names and empty input', () => {
-    expect(isRegexModelPattern('gpt-4o')).toBe(false)
+    expect(isRegexModelPattern('gpt-5.5')).toBe(false)
     expect(isRegexModelPattern('')).toBe(false)
     expect(isRegexModelPattern('   ')).toBe(false)
   })
@@ -58,9 +58,9 @@ describe('isRegexModelPattern', () => {
 
 describe('isExactModelPattern', () => {
   it('treats plain names as exact', () => {
-    expect(isExactModelPattern('gpt-4o')).toBe(true)
-    expect(isExactModelPattern('  gpt-4o  ')).toBe(true)
-    expect(isExactModelPattern('claude-3-5-sonnet')).toBe(true)
+    expect(isExactModelPattern('gpt-5.5')).toBe(true)
+    expect(isExactModelPattern('  gpt-5.5  ')).toBe(true)
+    expect(isExactModelPattern('claude-4.5-sonnet')).toBe(true)
   })
 
   it('rejects empty and regex patterns', () => {
@@ -78,8 +78,8 @@ describe('isExactModelPattern', () => {
     ['brace open', 'gpt{2}'],
     ['brace close', 'gpt}2'],
     ['alternation', 'gpt|claude'],
-    ['anchor start', '^gpt-4o'],
-    ['anchor end', 'gpt-4o$'],
+    ['anchor start', '^gpt-5.5'],
+    ['anchor end', 'gpt-5.5$'],
     ['escape', 'gpt\\d'],
   ])('rejects a string containing the %s metacharacter', (_label, value) => {
     expect(isExactModelPattern(value)).toBe(false)
@@ -88,7 +88,7 @@ describe('isExactModelPattern', () => {
 
 describe('parseRegexModelPattern', () => {
   it('returns null regex + null error for non-regex patterns', () => {
-    expect(parseRegexModelPattern('gpt-4o')).toEqual({
+    expect(parseRegexModelPattern('gpt-5.5')).toEqual({
       regex: null,
       error: null,
     })
@@ -106,10 +106,10 @@ describe('parseRegexModelPattern', () => {
   })
 
   it('compiles a valid regex body and exposes its test() result', () => {
-    const parsed = parseRegexModelPattern('re:^gpt-4')
+    const parsed = parseRegexModelPattern('re:^gpt-5')
     expect(parsed.error).toBeNull()
     expect(parsed.regex).not.toBeNull()
-    expect(parsed.regex?.test('gpt-4o-mini')).toBe(true)
+    expect(parsed.regex?.test('gpt-5-mini')).toBe(true)
     expect(parsed.regex?.test('claude-3')).toBe(false)
   })
 
@@ -124,35 +124,35 @@ describe('parseRegexModelPattern', () => {
 
 describe('matchesModelPattern', () => {
   it('matches exact names case-sensitively', () => {
-    expect(matchesModelPattern('gpt-4o', 'gpt-4o')).toBe(true)
-    expect(matchesModelPattern('gpt-4o', 'gpt-4o-mini')).toBe(false)
-    expect(matchesModelPattern('GPT-4O', 'gpt-4o')).toBe(false)
+    expect(matchesModelPattern('gpt-5.5', 'gpt-5.5')).toBe(true)
+    expect(matchesModelPattern('gpt-5.5', 'gpt-5-mini')).toBe(false)
+    expect(matchesModelPattern('GPT-4O', 'gpt-5.5')).toBe(false)
   })
 
   it('trims both arguments before matching', () => {
-    expect(matchesModelPattern('  gpt-4o ', ' gpt-4o')).toBe(true)
+    expect(matchesModelPattern('  gpt-5.5 ', ' gpt-5.5')).toBe(true)
   })
 
   it('uses regex test() for re: patterns', () => {
-    expect(matchesModelPattern('gpt-4o', 're:^gpt-4')).toBe(true)
-    expect(matchesModelPattern('claude-3', 're:^gpt-4')).toBe(false)
+    expect(matchesModelPattern('gpt-5.5', 're:^gpt-5')).toBe(true)
+    expect(matchesModelPattern('claude-3', 're:^gpt-5')).toBe(false)
   })
 
   it('returns false when the regex body is invalid', () => {
-    expect(matchesModelPattern('gpt-4o', 're:(')).toBe(false)
+    expect(matchesModelPattern('gpt-5.5', 're:(')).toBe(false)
   })
 
   it('returns false when either argument is empty', () => {
-    expect(matchesModelPattern('', 'gpt-4o')).toBe(false)
-    expect(matchesModelPattern('gpt-4o', '')).toBe(false)
-    expect(matchesModelPattern('gpt-4o', '   ')).toBe(false)
+    expect(matchesModelPattern('', 'gpt-5.5')).toBe(false)
+    expect(matchesModelPattern('gpt-5.5', '')).toBe(false)
+    expect(matchesModelPattern('gpt-5.5', '   ')).toBe(false)
   })
 })
 
 describe('getModelPatternError', () => {
   it('returns null for empty and exact patterns', () => {
     expect(getModelPatternError('')).toBeNull()
-    expect(getModelPatternError('gpt-4o')).toBeNull()
+    expect(getModelPatternError('gpt-5.5')).toBeNull()
   })
 
   it('returns null for a valid regex pattern', () => {
@@ -261,20 +261,20 @@ describe('routingStrategyLabel', () => {
 describe('resolveRouteTitle', () => {
   it('uses the trimmed displayName when present', () => {
     expect(
-      resolveRouteTitle({ displayName: 'My Route', modelPattern: 'gpt-4o' })
+      resolveRouteTitle({ displayName: 'My Route', modelPattern: 'gpt-5.5' })
     ).toBe('My Route')
     expect(
-      resolveRouteTitle({ displayName: '  Spaced  ', modelPattern: 'gpt-4o' })
+      resolveRouteTitle({ displayName: '  Spaced  ', modelPattern: 'gpt-5.5' })
     ).toBe('Spaced')
   })
 
   it('falls back to modelPattern when displayName is blank', () => {
-    expect(resolveRouteTitle({ displayName: '', modelPattern: 'gpt-4o' })).toBe(
-      'gpt-4o'
-    )
     expect(
-      resolveRouteTitle({ displayName: '   ', modelPattern: 'gpt-4o' })
-    ).toBe('gpt-4o')
+      resolveRouteTitle({ displayName: '', modelPattern: 'gpt-5.5' })
+    ).toBe('gpt-5.5')
+    expect(
+      resolveRouteTitle({ displayName: '   ', modelPattern: 'gpt-5.5' })
+    ).toBe('gpt-5.5')
   })
 })
 
@@ -312,9 +312,9 @@ describe('resolveRouteIcon', () => {
   })
 
   it('returns kind text for any other literal value', () => {
-    expect(resolveRouteIcon('gpt-4o')).toEqual({
+    expect(resolveRouteIcon('gpt-5.5')).toEqual({
       kind: 'text',
-      value: 'gpt-4o',
+      value: 'gpt-5.5',
     })
   })
 })
@@ -330,7 +330,7 @@ describe('normalizeRouteDisplayIconValue', () => {
   })
 
   it('returns the trimmed value for plain strings', () => {
-    expect(normalizeRouteDisplayIconValue('  gpt-4o ')).toBe('gpt-4o')
+    expect(normalizeRouteDisplayIconValue('  gpt-5.5 ')).toBe('gpt-5.5')
   })
 
   it('returns an empty string for nullish input', () => {
@@ -346,19 +346,19 @@ describe('normalizeRouteDisplayIconValue', () => {
 describe('dedupeChannelDrafts', () => {
   it('collapses drafts sharing accountId + tokenId + sourceModel', () => {
     const drafts = [
-      { accountId: 1, tokenId: 10, sourceModel: 'gpt-4o' },
-      { accountId: 1, tokenId: 10, sourceModel: 'gpt-4o' },
-      { accountId: 1, tokenId: 11, sourceModel: 'gpt-4o' },
+      { accountId: 1, tokenId: 10, sourceModel: 'gpt-5.5' },
+      { accountId: 1, tokenId: 10, sourceModel: 'gpt-5.5' },
+      { accountId: 1, tokenId: 11, sourceModel: 'gpt-5.5' },
     ]
     expect(dedupeChannelDrafts(drafts)).toEqual([
-      { accountId: 1, tokenId: 10, sourceModel: 'gpt-4o' },
-      { accountId: 1, tokenId: 11, sourceModel: 'gpt-4o' },
+      { accountId: 1, tokenId: 10, sourceModel: 'gpt-5.5' },
+      { accountId: 1, tokenId: 11, sourceModel: 'gpt-5.5' },
     ])
   })
 
   it('keeps drafts that differ only by sourceModel', () => {
     const drafts = [
-      { accountId: 2, tokenId: 1, sourceModel: 'gpt-4o' },
+      { accountId: 2, tokenId: 1, sourceModel: 'gpt-5.5' },
       { accountId: 2, tokenId: 1, sourceModel: 'claude-3' },
     ]
     expect(dedupeChannelDrafts(drafts)).toHaveLength(2)

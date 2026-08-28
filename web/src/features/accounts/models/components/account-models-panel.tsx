@@ -220,7 +220,7 @@ export function AccountModelsPanel({ accountId }: AccountModelsPanelProps) {
           value={newModel}
           onChange={(event) => setNewModel(event.target.value)}
           placeholder={t('accounts.models.placeholder', {
-            defaultValue: 'Model name, e.g. gpt-4o',
+            defaultValue: 'Model name, e.g. gpt-5.5',
           })}
           aria-label={t('accounts.models.inputAria', {
             defaultValue: 'New manual model name',

@@ -86,14 +86,14 @@ describe('eventTitleKey', () => {
 
 describe('parseEventMessage', () => {
   const enriched =
-    'model=gpt-4o, reason=Upstream request failed\n' +
+    'model=gpt-5.5, reason=Upstream request failed\n' +
     'Affected routes: GPT-4o 主路由, GPT-4o 全量通配\n' +
     'Alternative sites: NewAPI 公益站(3), OneAPI 聚合(1)\n' +
     'Panel: /observability?section=health'
 
   it('splits enriched alert messages into base + structured parts', () => {
     const parts = parseEventMessage(enriched)
-    expect(parts.base).toBe('model=gpt-4o, reason=Upstream request failed')
+    expect(parts.base).toBe('model=gpt-5.5, reason=Upstream request failed')
     expect(parts.routes).toBe('GPT-4o 主路由, GPT-4o 全量通配')
     expect(parts.sites).toBe('NewAPI 公益站(3), OneAPI 聚合(1)')
     expect(parts.panelPath).toBe('/observability?section=health')

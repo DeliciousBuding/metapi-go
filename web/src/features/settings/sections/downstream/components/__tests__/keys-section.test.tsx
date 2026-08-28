@@ -155,7 +155,7 @@ const knownKey = {
   usedRequests: 10,
   usedCost: 5,
   expiresAt: null,
-  supportedModels: '["gpt-4o","gpt-*","re:^claude-"]',
+  supportedModels: '["gpt-5.5","gpt-*","re:^claude-"]',
 } as NonNullable<Parameters<typeof KeySheetForm>[0]['editingKey']>
 
 describe('KeySheetForm — edit mode', () => {
@@ -167,7 +167,7 @@ describe('KeySheetForm — edit mode', () => {
     // Numeric inputs report valueAsNumber; assert against numbers, not strings.
     expect(screen.getByLabelText('Max requests')).toHaveValue(1000)
     expect(screen.getByLabelText('Max cost')).toHaveValue(50)
-    expect(screen.getByText('gpt-4o')).toBeInTheDocument()
+    expect(screen.getByText('gpt-5.5')).toBeInTheDocument()
     expect(screen.getByText('gpt-*')).toBeInTheDocument()
     expect(screen.getByText('re:^claude-')).toBeInTheDocument()
     expect(screen.getByTestId('model-policy-form-summary')).toHaveTextContent(
@@ -210,7 +210,7 @@ describe('KeySheetForm — edit mode', () => {
         maxCost: 50,
         enabled: true,
         expiresAt: '',
-        supportedModels: ['gpt-4o', 'gpt-*', 're:^claude-'],
+        supportedModels: ['gpt-5.5', 'gpt-*', 're:^claude-'],
       })
     )
     const updatePayload = mockUpdateKey.mock.calls[0][1] as Record<
@@ -289,7 +289,7 @@ describe('KeySheetForm — create mode', () => {
   it('persists exact, glob, and regex rules selected from inventory or entered manually', async () => {
     renderKeySheetForm({
       editingKey: null,
-      candidateModels: ['gpt-4o', 'gpt-4o-mini', 'claude-sonnet-4'],
+      candidateModels: ['gpt-5.5', 'gpt-5-mini', 'claude-sonnet-4.5'],
     })
 
     fireEvent.change(screen.getByLabelText('Name'), {
@@ -300,8 +300,8 @@ describe('KeySheetForm — create mode', () => {
     })
 
     const modelRuleInput = screen.getByLabelText('Model access')
-    fireEvent.change(modelRuleInput, { target: { value: 'gpt-4o' } })
-    fireEvent.click(screen.getByRole('option', { name: '+ gpt-4o' }))
+    fireEvent.change(modelRuleInput, { target: { value: 'gpt-5.5' } })
+    fireEvent.click(screen.getByRole('option', { name: '+ gpt-5.5' }))
 
     fireEvent.change(modelRuleInput, { target: { value: 'claude-*' } })
     fireEvent.click(screen.getByRole('button', { name: 'Add' }))
@@ -309,7 +309,7 @@ describe('KeySheetForm — create mode', () => {
     fireEvent.change(modelRuleInput, { target: { value: 're:^deepseek-' } })
     fireEvent.keyDown(modelRuleInput, { key: 'Enter', code: 'Enter' })
 
-    expect(screen.getByText('gpt-4o')).toBeInTheDocument()
+    expect(screen.getByText('gpt-5.5')).toBeInTheDocument()
     expect(screen.getByText('claude-*')).toBeInTheDocument()
     expect(screen.getByText('re:^deepseek-')).toBeInTheDocument()
     expect(screen.getByTestId('model-policy-form-summary')).toHaveTextContent(
@@ -325,7 +325,7 @@ describe('KeySheetForm — create mode', () => {
     })
     expect(mockCreateKey).toHaveBeenCalledWith(
       expect.objectContaining({
-        supportedModels: ['gpt-4o', 'claude-*', 're:^deepseek-'],
+        supportedModels: ['gpt-5.5', 'claude-*', 're:^deepseek-'],
       })
     )
   })
@@ -488,7 +488,7 @@ describe('KeyModelPolicyCell — fail-closed summaries', () => {
     render(
       <div>
         <KeyModelPolicyCell supportedModels={['*']} />
-        <KeyModelPolicyCell supportedModels={['gpt-4o', 'claude-*']} />
+        <KeyModelPolicyCell supportedModels={['gpt-5.5', 'claude-*']} />
         <KeyModelPolicyCell supportedModels={[]} allowedRouteIds={[12, 13]} />
       </div>
     )
