@@ -293,7 +293,7 @@ function ErrorSection({ errorMessage }: { errorMessage: string }) {
         <h3 className='text-destructive mb-2 text-sm font-medium'>
           {t('proxyLogs.detail.sectionError')}
         </h3>
-        <pre className='border-destructive/30 bg-destructive/5 text-destructive max-h-60 overflow-auto rounded border p-2 text-xs break-all whitespace-pre-wrap'>
+        <pre className='border-destructive/30 bg-destructive/5 text-destructive-soft-fg max-h-60 overflow-auto rounded border p-2 text-xs break-all whitespace-pre-wrap'>
           {errorMessage}
         </pre>
       </section>
