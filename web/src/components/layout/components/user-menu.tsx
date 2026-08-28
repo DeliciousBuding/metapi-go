@@ -31,10 +31,11 @@ export function UserMenu() {
   const navigate = useNavigate()
 
   const handleSignOut = () => {
-    // Clear the HttpOnly `meta_monitor_auth` cookie server-side while the
-    // Bearer token is still valid — the JS cookie clear inside
-    // clearAuthSession cannot touch HttpOnly cookies. Fire-and-forget: a
-    // failed monitor cleanup must not block sign-out.
+    // Clear the HttpOnly cookies server-side — JS cannot touch them.
+    // logout() revokes the admin session row behind the metapi_session
+    // cookie (#1034); the monitor cleanup keeps the embed honest. Both are
+    // fire-and-forget: a failed cleanup must not block sign-out.
+    void api.logout().catch(() => {})
     void api.clearMonitorSession().catch(() => {})
     clearAuthSession()
     useAuthStore.getState().auth.reset()

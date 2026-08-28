@@ -1,12 +1,14 @@
 // metapi-go/lib — http-client auth interceptor regression tests.
 //
-// Protects the session contract:
-//   • on a 401 the interceptor re-reads storage once (another tab may have
-//     replaced the token), replays at most once, then clears the session and
-//     redirects to sign-in when no valid token remains;
+// Protects the #1034 session contract:
+//   • on a 401 the interceptor clears the client-side session metadata and
+//     redirects to sign-in (the credential itself is an HttpOnly cookie —
+//     there is nothing to replay);
 //   • the redirect preserves the interrupted path via ?redirect=…;
 //   • a 403 with the backend's "Invalid token" body is treated like a 401,
-//     while an IP-allowlist 403 keeps the session intact.
+//     while an IP-allowlist 403 keeps the session intact;
+//   • a 403 reauthRequired body (sensitive op) surfaces to the caller
+//     WITHOUT clearing the session or redirecting.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -30,6 +32,7 @@ vi.mock('@/lib/toast', () => ({
 
 const TOKEN_KEY = 'auth_token'
 const EXPIRES_KEY = 'auth_token_expires_at'
+const SESSION_META_KEY = 'metapi_session_meta'
 
 interface MemoryStorage {
   getItem: (key: string) => string | null
@@ -113,10 +116,11 @@ describe('apiClient auth interceptor', () => {
     }
   }
 
-  it('replays exactly once with a re-read token, then clears and redirects', async () => {
+  it('clears the session metadata and redirects on 401 (no replay)', async () => {
     const storage = memoryStorage({
-      [TOKEN_KEY]: 'fresh-token',
-      [EXPIRES_KEY]: String(Date.now() + 60_000),
+      [SESSION_META_KEY]: JSON.stringify({
+        expiresAtMs: Date.now() + 60_000,
+      }),
     })
     vi.stubGlobal('localStorage', storage as unknown as Storage)
 
@@ -125,12 +129,12 @@ describe('apiClient auth interceptor', () => {
 
     await expect(apiClient.get('/api/protected')).rejects.toThrow()
 
-    // Initial request + exactly one replay — never an infinite retry loop.
-    expect(adapterCalls).toHaveLength(2)
+    // The server ended the session; exactly one request, no retry loop.
+    expect(adapterCalls).toHaveLength(1)
     // The interrupted path is preserved so sign-in can send the user back.
     expect(replaceMock).toHaveBeenCalledWith('/sign-in?redirect=%2Faccounts')
-    // The exhausted retry clears the persisted token.
-    expect(storage.has(TOKEN_KEY)).toBe(false)
+    // Client-side session metadata is cleared.
+    expect(storage.has(SESSION_META_KEY)).toBe(false)
   })
 
   it('redirects without replay when no valid token remains', async () => {
@@ -160,8 +164,9 @@ describe('apiClient auth interceptor', () => {
 
   it('treats a 403 "Invalid token" like an expired session', async () => {
     const storage = memoryStorage({
-      [TOKEN_KEY]: 'rotated-away-token',
-      [EXPIRES_KEY]: String(Date.now() + 60_000),
+      [SESSION_META_KEY]: JSON.stringify({
+        expiresAtMs: Date.now() + 60_000,
+      }),
     })
     vi.stubGlobal('localStorage', storage as unknown as Storage)
 
@@ -170,10 +175,33 @@ describe('apiClient auth interceptor', () => {
 
     await expect(apiClient.get('/api/protected')).rejects.toThrow()
 
-    // One replay with the re-read token, then the session is cleared.
-    expect(adapterCalls).toHaveLength(2)
-    expect(storage.has(TOKEN_KEY)).toBe(false)
+    // No replay: one request, then the session is cleared + redirect.
+    expect(adapterCalls).toHaveLength(1)
+    expect(storage.has(SESSION_META_KEY)).toBe(false)
     expect(replaceMock).toHaveBeenCalledWith('/sign-in?redirect=%2Faccounts')
+  })
+
+  it('surfaces a 403 reauthRequired without clearing or redirecting', async () => {
+    const storage = memoryStorage({
+      [SESSION_META_KEY]: JSON.stringify({
+        expiresAtMs: Date.now() + 60_000,
+      }),
+    })
+    vi.stubGlobal('localStorage', storage as unknown as Storage)
+
+    const adapterCalls: unknown[] = []
+    installStatusAdapter(adapterCalls, 403, {
+      error: 'Sensitive operation requires master token confirmation',
+      reauthRequired: true,
+    })
+
+    await expect(apiClient.get('/api/settings/backup/export')).rejects.toThrow()
+
+    // The session is fine — the master token must be re-presented. No clear,
+    // no redirect; the caller opens the reauth prompt.
+    expect(adapterCalls).toHaveLength(1)
+    expect(storage.has(SESSION_META_KEY)).toBe(true)
+    expect(replaceMock).not.toHaveBeenCalled()
   })
 
   it('keeps the session for an IP-allowlist 403', async () => {

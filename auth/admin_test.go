@@ -442,7 +442,7 @@ func newTestConfig(authToken string, allowlist []string) *config.Config {
 // adminTestHelper runs the AdminAuth middleware against a request and returns the response.
 func adminTestHelper(t *testing.T, cfg *config.Config, method, path, authHeader, remoteAddr, xff string) *httptest.ResponseRecorder {
 	t.Helper()
-	middleware := AdminAuth(cfg)
+	middleware := AdminAuth(cfg, nil)
 
 	nextCalled := false
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -480,7 +480,7 @@ func TestAdminAuth_ValidToken(t *testing.T) {
 func TestAdminAuth_ContextSetOnSuccess(t *testing.T) {
 	// Verify that IsAdmin is set in the request context after successful auth.
 	cfg := newTestConfig("my-secret-token", nil)
-	middleware := AdminAuth(cfg)
+	middleware := AdminAuth(cfg, nil)
 
 	handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !IsAdmin(r.Context()) {

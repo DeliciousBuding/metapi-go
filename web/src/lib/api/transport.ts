@@ -23,6 +23,10 @@ export type RequestOptions = {
   headers?: Record<string, string>
   skipErrorHandler?: boolean
   skipBusinessError?: boolean
+  /** Skip the 401 -> sign-in redirect flow (login probe owns its errors). */
+  skipAuthRetry?: boolean
+  /** Skip GET dedup (login must never ride a cached in-flight request). */
+  disableDuplicate?: boolean
 }
 
 /**
@@ -42,6 +46,8 @@ export async function request<T = unknown>(
     headers,
     skipErrorHandler = false,
     skipBusinessError = false,
+    skipAuthRetry = false,
+    disableDuplicate = false,
   } = options
 
   const requestHeaders: Record<string, string> | undefined = body
@@ -54,6 +60,8 @@ export async function request<T = unknown>(
     headers: requestHeaders,
     skipErrorHandler,
     skipBusinessError,
+    skipAuthRetry,
+    disableDuplicate,
   }
 
   const response =

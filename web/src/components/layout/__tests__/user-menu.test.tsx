@@ -21,14 +21,18 @@ import i18n from '@/i18n/config'
 
 import { UserMenu } from '../components/user-menu'
 
-const { navigateMock, clearMonitorSessionMock } = vi.hoisted(() => ({
-  navigateMock: vi.fn(),
-  clearMonitorSessionMock: vi.fn().mockResolvedValue(undefined),
-}))
+const { navigateMock, clearMonitorSessionMock, logoutMock } = vi.hoisted(
+  () => ({
+    navigateMock: vi.fn(),
+    clearMonitorSessionMock: vi.fn().mockResolvedValue(undefined),
+    logoutMock: vi.fn().mockResolvedValue(undefined),
+  })
+)
 
-// user-menu only consumes the monitor-session clearer from the api barrel.
+// user-menu consumes the session logout (#1034) and the monitor-session
+// clearer from the api barrel.
 vi.mock('@/lib/api', () => ({
-  api: { clearMonitorSession: clearMonitorSessionMock },
+  api: { logout: logoutMock, clearMonitorSession: clearMonitorSessionMock },
 }))
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
@@ -84,6 +88,7 @@ afterAll(() => {
 beforeEach(async () => {
   navigateMock.mockReset()
   clearMonitorSessionMock.mockClear()
+  logoutMock.mockClear()
   localStorage.clear()
   await i18n.changeLanguage('en')
 })

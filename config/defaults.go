@@ -70,6 +70,19 @@ const (
 	DefaultAdminRateLimitBurst = 200
 	DefaultOAuthRateLimitRPS   = 10
 	DefaultOAuthRateLimitBurst = 20
+	// /api/auth/* (login/logout/session/ws-ticket) gets the same strict
+	// defaults as OAuth: it is the only surface that accepts the master
+	// token (#1034 session model).
+	DefaultAuthRateLimitRPS   = 10
+	DefaultAuthRateLimitBurst = 20
+
+	// Admin UI session defaults (#1034). 720 minutes = 12h sliding TTL,
+	// matching the legacy client-side session window; the credential now
+	// lives server-side (HttpOnly cookie) instead of localStorage.
+	DefaultAdminSessionTTLMinutes = 720
+	// "auto" sets the Secure flag based on the request protocol so local
+	// plain-HTTP dev works while HTTPS deployments stay protected.
+	DefaultAdminSessionCookieSecure = "auto"
 
 	TokenRouterFailureCooldownMaxSecCeiling = 30 * 24 * 60 * 60 // 30 days
 

@@ -71,14 +71,15 @@ function RootComponent() {
   useDocumentTitle()
 
   // Clear the query cache when the auth session changes (login/logout/tab
-  // sync) so stale user-scoped data never leaks across sessions. The token
-  // model has no server-side session (`auth.session` stays null), so key the
-  // reset on the access token itself: login sets it, logout clears it, and a
-  // token rotation replaces it.
+  // sync) so stale user-scoped data never leaks across sessions. The session
+  // model keys the reset on the sliding session expiry (#1034): login sets
+  // it, logout clears it, and a re-login produces a fresh value.
   useEffect(
     () =>
       useAuthStore.subscribe((state, previousState) => {
-        if (state.auth.accessToken !== previousState.auth.accessToken) {
+        if (
+          state.auth.sessionExpiresAt !== previousState.auth.sessionExpiresAt
+        ) {
           queryClient.clear()
         }
       }),
@@ -106,10 +107,10 @@ export const Route = createRootRouteWithContext<{
     if (authBootstrapped) return
     try {
       const outcome = await bootstrapAuthentication()
-      if (outcome.kind === 'authenticated' && outcome.bundle) {
+      if (outcome.kind === 'authenticated') {
         const { auth } = useAuthStore.getState()
-        if (!auth.accessToken) {
-          auth.setBundle(outcome.bundle)
+        if (!auth.sessionExpiresAt) {
+          auth.setSession(outcome.expiresAtMs)
         }
       }
     } catch {

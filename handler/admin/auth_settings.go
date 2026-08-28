@@ -7,22 +7,25 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 )
 
 // RegisterAuthSettingsRoutes registers all /api/settings/auth routes.
-func RegisterAuthSettingsRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
-	handler := &authSettingsHandler{db: db, cfg: cfg}
+// sessions may be nil (tests): rotation then skips session revocation.
+func RegisterAuthSettingsRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config, sessions *auth.SessionManager) {
+	handler := &authSettingsHandler{db: db, cfg: cfg, sessions: sessions}
 
 	r.Get("/api/settings/auth/info", handler.getInfo)
 	r.Post("/api/settings/auth/change", handler.changeToken)
 }
 
 type authSettingsHandler struct {
-	db  *sqlx.DB
-	cfg *config.Config
+	db       *sqlx.DB
+	cfg      *config.Config
+	sessions *auth.SessionManager
 }
 
 // GET /api/settings/auth/info
@@ -81,6 +84,11 @@ func (h *authSettingsHandler) changeToken(w http.ResponseWriter, r *http.Request
 
 	// Update runtime config
 	h.cfg.AuthToken = body.NewToken
+
+	// #1034: every session was minted against the OLD master token. Revoke
+	// them all — rotation must end every live admin session, full stop.
+	// (nil-safe when sessions are unavailable.)
+	h.sessions.RevokeAll(r.Context())
 
 	// Defense-in-depth: expire HttpOnly meta_monitor_auth so browsers drop the
 	// dead cookie after AuthToken rotation (HMAC already invalidates server-side).

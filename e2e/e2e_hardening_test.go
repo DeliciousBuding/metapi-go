@@ -64,7 +64,7 @@ func TestAuthTokenConstantTime(t *testing.T) {
 	cfg := &config.Config{AuthToken: "real-secret-token", ProxyToken: "real-proxy-token"}
 	config.Set(cfg)
 
-	handler := auth.AdminAuth(cfg)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := auth.AdminAuth(cfg, nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 	}))
 
@@ -99,7 +99,7 @@ func TestAuthTokenConstantTime(t *testing.T) {
 // TestRateLimitRejection validates rate limiting middleware blocks excess.
 func TestRateLimitRejection(t *testing.T) {
 	cfg := &config.Config{AuthToken: "test-token"}
-	handler := auth.AdminAuth(cfg)(
+	handler := auth.AdminAuth(cfg, nil)(
 		auth.AdminRateLimit(1, 1)(
 			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(200)

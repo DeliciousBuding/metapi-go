@@ -65,7 +65,7 @@ func TestIsPublicAPIRoute_TraversalVariantsRejected(t *testing.T) {
 func TestAdminAuth_PublicBypassDoesNotLeakAdminContext(t *testing.T) {
 	cfg := &config.Config{AuthToken: "unit-admin-token"}
 	var sawAdmin bool
-	handler := AdminAuth(cfg)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := AdminAuth(cfg, nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sawAdmin = IsAdmin(r.Context())
 		w.WriteHeader(http.StatusOK)
 	}))

@@ -4,7 +4,7 @@
 
 Metapi 有两个协作的截图管道，都跑在 CI 的 `frontend` job 产物（`web-dist`
 artifact）之上，模式与 a11y job 一致：Go server 嵌入 dist、fresh sqlite
-runtime DB、`AUTH_TOKEN=dev-admin-token-123` 经 localStorage 注入、启动后
+runtime DB、`AUTH_TOKEN=dev-admin-token-123` 经 POST /api/auth/login 换取 HttpOnly session cookie、启动后
 等 `/ready` 再执行浏览器步骤。
 
 ## 1. 截图证据管道（job: `ui-screenshots`）

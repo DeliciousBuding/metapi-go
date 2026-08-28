@@ -1348,3 +1348,20 @@ func buildAdminAuditLogsDDL(d string) string {
 		created_at TEXT NOT NULL
 	)`
 }
+
+// buildAdminSessionsDDL creates the admin_sessions table (#1034 session
+// model): server-side admin UI sessions. The cookie credential is stored only
+// as a SHA-256 hash, so a database leak exposes no usable session token.
+// Timestamps are fixed-precision RFC3339-UTC TEXT (lexicographic order ==
+// chronological order, which the expiry sweep relies on). TEXT PK + TEXT
+// timestamps + no booleans: the DDL is byte-identical across both dialects.
+func buildAdminSessionsDDL(d string) string {
+	return `CREATE TABLE IF NOT EXISTS admin_sessions (
+		token_hash TEXT PRIMARY KEY,
+		created_at TEXT NOT NULL,
+		last_seen_at TEXT NOT NULL,
+		expires_at TEXT NOT NULL,
+		client_ip TEXT,
+		user_agent TEXT
+	)`
+}

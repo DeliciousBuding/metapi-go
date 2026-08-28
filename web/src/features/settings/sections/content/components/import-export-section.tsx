@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { ReauthDialog } from '@/components/common/reauth-dialog'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -36,6 +37,7 @@ import {
   type BackupWebdavExportType,
   type BackupWebdavResponse,
 } from '@/lib/api'
+import { isReauthRequired } from '@/lib/http-client'
 import { toast } from '@/lib/toast'
 
 import { FormNavigationGuard } from '../../../components/form-navigation-guard'
@@ -123,6 +125,14 @@ export function ImportExportSection() {
   const [importPlan, setImportPlan] = useState<BackupImportPlan | null>(null)
   const [confirmImportOpen, setConfirmImportOpen] = useState(false)
   const [confirmWebdavImportOpen, setConfirmWebdavImportOpen] = useState(false)
+  // #1034: backup export is a sensitive op — the operator must re-present
+  // the master token before the export request is sent.
+  const [reauthTarget, setReauthTarget] = useState<
+    | { kind: 'download'; type: 'all' | 'accounts' | 'preferences' }
+    | { kind: 'webdav' }
+    | null
+  >(null)
+  const [reauthError, setReauthError] = useState<string | null>(null)
 
   const webdavQuery = useQuery<BackupWebdavResponse>({
     queryKey: webdavQueryKeys.all,
@@ -149,17 +159,32 @@ export function ImportExportSection() {
   })
 
   const exportMutation = useMutation({
-    mutationFn: async (type: BackupWebdavExportType) => {
-      const text = await api.exportBackupRaw(type)
+    mutationFn: async ({
+      type,
+      confirmToken,
+    }: {
+      type: BackupWebdavExportType
+      confirmToken: string
+    }) => {
+      const text = await api.exportBackupRaw(type, confirmToken)
       return { type, text }
     },
     onSuccess: ({ type, text }) => {
+      setReauthTarget(null)
+      setReauthError(null)
       const today = new Date().toISOString().slice(0, 10)
       downloadTextFile(`metapi-${type}-${today}.json`, text)
       toast.success(t('settings.content.importExport.toast.exported'))
     },
-    onError: () =>
-      toast.error(t('settings.content.importExport.toast.exportFailed')),
+    onError: (error: unknown) => {
+      if (isReauthRequired(error)) {
+        setReauthError(t('reauth.errorInvalid'))
+        return
+      }
+      setReauthTarget(null)
+      setReauthError(null)
+      toast.error(t('settings.content.importExport.toast.exportFailed'))
+    },
   })
 
   /**
@@ -243,12 +268,27 @@ export function ImportExportSection() {
   })
 
   const exportWebdavMutation = useMutation({
-    mutationFn: async (type?: BackupWebdavExportType) =>
-      api.exportBackupToWebdav(type),
-    onSuccess: () =>
-      toast.success(t('settings.content.importExport.toast.webdavExported')),
-    onError: () =>
-      toast.error(t('settings.content.importExport.toast.webdavExportFailed')),
+    mutationFn: async ({
+      type,
+      confirmToken,
+    }: {
+      type?: BackupWebdavExportType
+      confirmToken: string
+    }) => api.exportBackupToWebdav(type, confirmToken),
+    onSuccess: () => {
+      setReauthTarget(null)
+      setReauthError(null)
+      toast.success(t('settings.content.importExport.toast.webdavExported'))
+    },
+    onError: (error: unknown) => {
+      if (isReauthRequired(error)) {
+        setReauthError(t('reauth.errorInvalid'))
+        return
+      }
+      setReauthTarget(null)
+      setReauthError(null)
+      toast.error(t('settings.content.importExport.toast.webdavExportFailed'))
+    },
   })
 
   const importWebdavMutation = useMutation({
@@ -291,7 +331,10 @@ export function ImportExportSection() {
               variant='outline'
               size='sm'
               disabled={exportMutation.isPending}
-              onClick={() => exportMutation.mutate('all')}
+              onClick={() => {
+                setReauthError(null)
+                setReauthTarget({ kind: 'download', type: 'all' })
+              }}
             >
               {t('settings.content.importExport.exportAll')}
             </Button>
@@ -300,7 +343,10 @@ export function ImportExportSection() {
               variant='outline'
               size='sm'
               disabled={exportMutation.isPending}
-              onClick={() => exportMutation.mutate('accounts')}
+              onClick={() => {
+                setReauthError(null)
+                setReauthTarget({ kind: 'download', type: 'accounts' })
+              }}
             >
               {t('settings.content.importExport.exportAccounts')}
             </Button>
@@ -309,7 +355,10 @@ export function ImportExportSection() {
               variant='outline'
               size='sm'
               disabled={exportMutation.isPending}
-              onClick={() => exportMutation.mutate('preferences')}
+              onClick={() => {
+                setReauthError(null)
+                setReauthTarget({ kind: 'download', type: 'preferences' })
+              }}
             >
               {t('settings.content.importExport.exportPreferences')}
             </Button>
@@ -566,7 +615,10 @@ export function ImportExportSection() {
                   variant='outline'
                   size='sm'
                   disabled={exportWebdavMutation.isPending}
-                  onClick={() => exportWebdavMutation.mutate(undefined)}
+                  onClick={() => {
+                    setReauthError(null)
+                    setReauthTarget({ kind: 'webdav' })
+                  }}
                 >
                   {t('settings.content.importExport.exportToWebdav')}
                 </Button>
@@ -598,6 +650,28 @@ export function ImportExportSection() {
           </Form>
         ) : null}
       </div>
+      <ReauthDialog
+        open={reauthTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReauthTarget(null)
+            setReauthError(null)
+          }
+        }}
+        description={t('settings.content.importExport.reauthDescription')}
+        errorMessage={reauthError}
+        isPending={exportMutation.isPending || exportWebdavMutation.isPending}
+        onSubmit={(confirmToken) => {
+          if (reauthTarget?.kind === 'download') {
+            exportMutation.mutate({
+              type: reauthTarget.type,
+              confirmToken,
+            })
+          } else if (reauthTarget?.kind === 'webdav') {
+            exportWebdavMutation.mutate({ type: undefined, confirmToken })
+          }
+        }}
+      />
       <FormNavigationGuard enabled={isWebdavDirty} />
       <ConfirmDialog
         open={confirmImportOpen}

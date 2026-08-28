@@ -5,11 +5,36 @@
 
 Base URL: `http://localhost:4000/api`
 
-All admin endpoints require authentication via Bearer token:
+All admin endpoints authenticate via the **#1034 session model** (dual track):
+
+1. **Session track (UI)**: `POST /api/auth/login` exchanges the master token
+   for a server-side session carried in the HttpOnly `metapi_session` cookie
+   (SameSite=Strict; Secure follows the request protocol unless
+   `ADMIN_SESSION_COOKIE_SECURE` overrides). Sessions slide on activity
+   (`ADMIN_SESSION_TTL_MINUTES`, default 720), die on logout, and are all
+   revoked when the master token rotates.
+2. **Bearer track (automation)**: `Authorization: Bearer <AUTH_TOKEN>` keeps
+   working for external scripts, exactly as before:
 
 ```
 Authorization: Bearer <AUTH_TOKEN>
 ```
+
+Failed authentication (401/403) is rate limited — the per-IP limiter runs
+**before** auth, and `/api/auth/*` additionally sits behind a strict bucket
+(`AUTH_RATE_LIMIT_RPS`/`AUTH_RATE_LIMIT_BURST`, default 10/20).
+
+### Sensitive operations (master-token re-confirmation)
+
+Backup export, downstream-key export and master-token rotation additionally
+require the master token in the `X-Admin-Confirm-Token` header, even with a
+live session. Without it they answer `403 {"error":"...","reauthRequired":true}`
+and the UI prompts for the token:
+
+- `GET /api/settings/backup/export`
+- `POST /api/settings/backup/webdav/export`
+- `GET /api/downstream-keys/:id/export`
+- `POST /api/settings/auth/change`
 
 ## Response Format
 
@@ -1083,7 +1108,7 @@ Runtime debug snapshot (Go memory/goroutine stats, `/debug/vars` parity for the 
 
 ### GET /api/admin/ops/ws
 
-Live ops WebSocket (B2): one JSON frame per second over the current proxy-traffic window. **Auth**: `?token=<admin token>` — browser WebSocket cannot set the Authorization header, and the endpoint is mounted outside the header-auth group; the token is compared in constant time. CORS origins follow the `ADMIN_CORS_ALLOWED_ORIGINS` configuration (same-origin when unset).
+Live ops WebSocket (B2): one JSON frame per second over the current proxy-traffic window. **Auth**: one-time ticket (#1034) — the SPA mints a 60s single-use ticket via `POST /api/auth/ws-ticket` (session-authenticated) and dials with `?ticket=<one-time ticket>`. The legacy `?token=<master token>` query path is removed: the master token never appears in URLs (server logs, proxy logs, browser history). The endpoint is mounted outside the header-auth group; CORS origins follow the `ADMIN_CORS_ALLOWED_ORIGINS` configuration (same-origin when unset).
 
 **Frame**: `{ lifetime, points: [{ ts, total, success }] }` — points cover the last 300s (zero-filled), this instance's traffic only; no cross-instance aggregation. Invalid token: `403 {"message":"invalid token"}`.
 
@@ -1127,6 +1152,41 @@ Stream and async-job test surfaces — honest residuals (see `handler/admin/test
 ### POST /api/debug/channel-probe
 
 Alias of `POST /api/admin/test-channel` (same handler).
+
+---
+
+## Admin Session (#1034 session model)
+
+Server-side admin sessions. `login`/`logout`/`session` are public (login is
+the place the master token is presented and is strictly rate limited;
+logout/session are idempotent and never 401); `ws-ticket` requires a live
+session or Bearer master token.
+
+### POST /api/auth/login
+
+Exchange the master token for a session cookie.
+
+**Request**: `{ "token": "<AUTH_TOKEN>" }`.
+**Response (200)**: `{ "authenticated": true, "expiresAt": "<RFC3339 UTC>", "ttlMinutes": N }` + `Set-Cookie: metapi_session=...; HttpOnly; SameSite=Strict; Path=/`.
+**Errors**: `400` empty body/token, `403 {"error":"Invalid token"}` wrong token, `503` session store unavailable.
+
+### GET /api/auth/session
+
+Bootstrap probe for the SPA; always answers 200.
+
+**Response**: `{ "authenticated": true, "source": "session"|"token", "expiresAt"?: "<RFC3339 UTC>" }` or `{ "authenticated": false }`.
+
+### POST /api/auth/logout
+
+Revoke the session behind the cookie and clear it. Idempotent.
+
+**Response**: `{ "success": true }`.
+
+### POST /api/auth/ws-ticket
+
+Mint a one-time WebSocket ticket (requires a live session or Bearer token).
+
+**Response**: `{ "ticket": "<one-time>", "expiresInSeconds": 60 }`. The ticket is single-use; the ops WebSocket consumes it on upgrade.
 
 ---
 
@@ -1335,6 +1395,7 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/admin/resin/status`
 - `/api/announcements`
 - `/api/announcements/active`
+- `/api/auth/session`
 - `/api/channels`
 - `/api/checkin/logs`
 - `/api/debug/vars`
@@ -1402,6 +1463,9 @@ Complete list of registered `/api` admin routes (generated from the router regis
 - `/api/update-center/tasks/:id/stream`
 
 ### POST
+- `/api/auth/login`
+- `/api/auth/logout`
+- `/api/auth/ws-ticket`
 - `/api/account-tokens`
 - `/api/account-tokens/:id/default`
 - `/api/account-tokens/batch`

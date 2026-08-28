@@ -28,6 +28,8 @@ import { mkdirSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 
+import { loginSession } from './session-auth.mjs'
+
 let sharp
 
 const BASE_URL = process.env.BASE_URL ?? 'http://127.0.0.1:4099'
@@ -162,20 +164,13 @@ function slug(route) {
 }
 
 async function seedAuth(context, theme) {
+  await loginSession(context, { baseUrl: BASE_URL, token: AUTH_TOKEN })
   await context.addCookies([
     { name: 'vite-ui-theme', value: theme, url: BASE_URL },
   ])
-  await context.addInitScript(
-    ({ token }) => {
-      localStorage.setItem('auth_token', token)
-      localStorage.setItem(
-        'auth_token_expires_at',
-        String(Date.now() + 12 * 3600 * 1000)
-      )
-      localStorage.setItem('i18nextLng', 'zh-CN')
-    },
-    { token: AUTH_TOKEN }
-  )
+  await context.addInitScript(() => {
+    localStorage.setItem('i18nextLng', 'zh-CN')
+  })
 }
 
 async function settle(page) {

@@ -190,12 +190,13 @@ var runtimeDBSettingKeys = map[string]bool{
 // store.ClearTableNames) so a future store DDL change can never silently
 // drift cmd/migrate again.
 
-// sequenceTableNames returns every migrated table with a serial id column
-// (settings has a text PK and is excluded, matching TS).
+// sequenceTableNames returns every migrated table with a serial id column.
+// Text-PK tables are excluded (settings: TS parity; admin_sessions: session
+// tokens are hashed text keys, #1034).
 func sequenceTableNames() []string {
 	var out []string
 	for _, table := range AllTableNames() {
-		if table == "settings" {
+		if table == "settings" || table == "admin_sessions" {
 			continue
 		}
 		out = append(out, table)
@@ -590,6 +591,7 @@ func buildStatements(snapshot map[string][]map[string]interface{}) []insertStmt 
 	stmts = append(stmts, buildEvents(snapshot["events"])...)
 	stmts = append(stmts, buildSettings(snapshot["settings"])...)
 	stmts = append(stmts, buildCatalogSources(snapshot["catalog_sources"])...)
+	stmts = append(stmts, buildAdminSessions(snapshot["admin_sessions"])...)
 
 	return stmts
 }
@@ -646,6 +648,28 @@ func buildSites(rows []map[string]interface{}) []insertStmt {
 				// use_utls is a nullable boolean override; preserve source value
 				// verbatim (NULL stays NULL so per-site inherits global UTLS_ENABLED).
 				asNullableBool(v(row, "use_utls")),
+			},
+		})
+	}
+	return stmts
+}
+
+func buildAdminSessions(rows []map[string]interface{}) []insertStmt {
+	// #1034 session model: sessions carry across a dialect cutover so an
+	// operator stays signed in. token_hash is the text PK; timestamps are
+	// RFC3339-UTC TEXT on both dialects.
+	cols := []string{"token_hash", "created_at", "last_seen_at", "expires_at", "client_ip", "user_agent"}
+	var stmts []insertStmt
+	for _, row := range rows {
+		stmts = append(stmts, insertStmt{
+			table: "admin_sessions", columns: cols,
+			values: []interface{}{
+				coalesceNullString(asNullableString(v(row, "token_hash")), ""),
+				coalesceNullString(asNullableString(v(row, "created_at")), ""),
+				coalesceNullString(asNullableString(v(row, "last_seen_at")), ""),
+				coalesceNullString(asNullableString(v(row, "expires_at")), ""),
+				asNullableString(v(row, "client_ip")),
+				asNullableString(v(row, "user_agent")),
 			},
 		})
 	}

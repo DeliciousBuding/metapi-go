@@ -1374,6 +1374,7 @@
           "exportAll": "Export all",
           "exportAccounts": "Export connections",
           "exportPreferences": "Export preferences",
+          "reauthDescription": "The backup contains all stored configuration and credentials. Re-enter the admin token to confirm the export.",
           "importGroup": "Import data",
           "import": "Import",
           "webdavGroup": "WebDAV auto-backup",
@@ -3013,12 +3014,29 @@
         "noLatency": "No latency data"
       }
     },
+    "reauth": {
+      "title": "Confirm with master token",
+      "description": "This operation is sensitive. Re-enter the admin token to continue.",
+      "tokenLabel": "Admin token",
+      "tokenPlaceholder": "Paste the admin token",
+      "submit": "Confirm",
+      "cancel": "Cancel",
+      "errorInvalid": "Token rejected. Check the value and try again."
+    },
     "connect": {
       "title": "Connect {{name}}",
       "description": "Copy the gateway endpoint and key, or import into a client with one click.",
       "endpointLabel": "Gateway endpoint",
       "copyEndpoint": "Copy endpoint",
       "copyKey": "Copy API key",
+      "showKey": "Reveal API key",
+      "hideKey": "Hide API key",
+      "lockedTitle": "Master token required",
+      "lockedDescription": "Credential export is a sensitive operation. Re-enter the admin token to unlock. The key stays masked until you reveal it, and deep links ask before opening.",
+      "unlock": "Unlock",
+      "deepLinkConfirmTitle": "Open deep link?",
+      "deepLinkConfirmDescription": "The link contains the plain API key and is handed to the external app. A copy of the configuration is also placed on your clipboard as a fallback.",
+      "deepLinkConfirmContinue": "Open link",
       "oneClickLabel": "One-click import",
       "cherryStudio": "Cherry Studio",
       "ccSwitch": "CC Switch",

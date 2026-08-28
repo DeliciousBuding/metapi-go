@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 
+	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/proxy"
 )
 
@@ -107,10 +108,16 @@ func recordAuditLog(db *sqlx.DB, r *http.Request, status int) {
 	if path == "" {
 		path = "/"
 	}
+	// Cookie-authenticated requests (#1034) carry a session hash prefix in
+	// context; Bearer-track requests fall back to the token-hash actor.
+	actor := auth.GetAdminSessionID(r.Context())
+	if actor == "" {
+		actor = actorFromToken(r)
+	}
 	_, err := db.Exec(
 		db.Rebind(`INSERT INTO admin_audit_logs (actor, method, path, status, request_id, remote_ip, created_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`),
-		actorFromToken(r), r.Method, path, status,
+		actor, r.Method, path, status,
 		proxy.RequestIDFromContext(r.Context()), remoteIPFrom(r), now,
 	)
 	if err != nil {

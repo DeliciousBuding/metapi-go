@@ -1,6 +1,6 @@
 // Behavior tests for the shared realtime ops WebSocket connection.
 //
-// Covers issue #889 (perf & stability):
+// Covers issue #889 (perf & stability) plus the #1034 session model:
 //   (a) self-healing — the connection never gives up permanently. After
 //       MAX_FAILS=5 consecutive failures it keeps retrying on a slow 30s
 //       cadence, and visibilitychange(visible) / online events reset the
@@ -11,10 +11,14 @@
 //   (c) hidden-tab pause — while the tab is hidden no socket is held open,
 //       and becoming visible re-dials immediately;
 //   (d) freshness — lastFrameAt records the last frame so panels can render
-//       a "data as of" marker during gaps.
+//       a "data as of" marker during gaps;
+//   (e) one-time-ticket dialing (#1034) — every dial first mints a ticket;
+//       the master token never appears in the WS URL.
 //
 // The WebSocket is a controllable fake injected through the factory; timers
-// are faked so backoff delays are advanced deterministically.
+// are faked so backoff delays are advanced deterministically. Dialing is now
+// async (ticket exchange first), so each dial trigger is followed by a
+// microtask flush before socket assertions.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -69,9 +73,16 @@ const NOOP_LISTENER = () => {}
 
 const FIXED_NOW = new Date('2026-01-15T12:00:00Z').getTime()
 
+/** Flush the async ticket exchange so dial side effects become visible. */
+async function flushDial() {
+  for (let i = 0; i < 8; i += 1) {
+    await Promise.resolve()
+  }
+}
+
 function createConnection(): RealtimeOpsConnection {
   return createRealtimeOpsConnection({
-    getToken: () => 'test-token',
+    getTicket: async () => 'test-ticket',
     createWebSocket: (url) => new FakeWebSocket(url) as unknown as WebSocket,
   })
 }
@@ -101,38 +112,83 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-describe('realtime ops shared connection — self-healing', () => {
-  it('retries with escalating backoff after failures', () => {
+describe('realtime ops shared connection — one-time ticket (#1034)', () => {
+  it('dials with a ticket query parameter, never the master token', async () => {
     const connection = createConnection()
     const unsubscribe = connection.subscribe(NOOP_LISTENER)
+    await flushDial()
+
+    expect(FakeWebSocket.instances).toHaveLength(1)
+    const url = latestSocket().url
+    expect(url).toContain('/api/admin/ops/ws?ticket=test-ticket')
+    expect(url).not.toContain('token=')
+
+    unsubscribe()
+  })
+
+  it('mints a fresh ticket for every dial attempt', async () => {
+    let issued = 0
+    const connection = createRealtimeOpsConnection({
+      getTicket: async () => {
+        issued += 1
+        return `ticket-${issued}`
+      },
+      createWebSocket: (url) => new FakeWebSocket(url) as unknown as WebSocket,
+    })
+    const unsubscribe = connection.subscribe(NOOP_LISTENER)
+    await flushDial()
+    expect(FakeWebSocket.instances).toHaveLength(1)
+    expect(latestSocket().url).toContain('ticket=ticket-1')
+
+    latestSocket().fail()
+    await vi.advanceTimersByTimeAsync(2_000)
+    await flushDial()
+    expect(FakeWebSocket.instances).toHaveLength(2)
+    expect(latestSocket().url).toContain('ticket=ticket-2')
+
+    unsubscribe()
+  })
+})
+
+describe('realtime ops shared connection — self-healing', () => {
+  it('retries with escalating backoff after failures', async () => {
+    const connection = createConnection()
+    const unsubscribe = connection.subscribe(NOOP_LISTENER)
+    await flushDial()
 
     expect(FakeWebSocket.instances).toHaveLength(1)
 
     latestSocket().fail()
     expect(FakeWebSocket.instances).toHaveLength(1)
 
-    vi.advanceTimersByTime(1_999)
+    await vi.advanceTimersByTimeAsync(1_999)
+    await flushDial()
     expect(FakeWebSocket.instances).toHaveLength(1)
-    vi.advanceTimersByTime(1)
+    await vi.advanceTimersByTimeAsync(1)
+    await flushDial()
     expect(FakeWebSocket.instances).toHaveLength(2)
 
     latestSocket().fail()
-    vi.advanceTimersByTime(3_999)
+    await vi.advanceTimersByTimeAsync(3_999)
+    await flushDial()
     expect(FakeWebSocket.instances).toHaveLength(2)
-    vi.advanceTimersByTime(1)
+    await vi.advanceTimersByTimeAsync(1)
+    await flushDial()
     expect(FakeWebSocket.instances).toHaveLength(3)
 
     unsubscribe()
   })
 
-  it('never gives up permanently: slow retries continue after MAX_FAILS', () => {
+  it('never gives up permanently: slow retries continue after MAX_FAILS', async () => {
     const connection = createConnection()
     const unsubscribe = connection.subscribe(NOOP_LISTENER)
+    await flushDial()
 
     // Fail attempts 1-4 (backoffs 2s, 4s, 8s, 15s) — still escalating.
     for (const delayMs of [2_000, 4_000, 8_000, 15_000]) {
       latestSocket().fail()
-      vi.advanceTimersByTime(delayMs)
+      await vi.advanceTimersByTimeAsync(delayMs)
+      await flushDial()
     }
     expect(FakeWebSocket.instances).toHaveLength(5)
 
@@ -141,15 +197,18 @@ describe('realtime ops shared connection — self-healing', () => {
     latestSocket().fail()
     expect(connection.getSnapshot().sample.gaveUp).toBe(true)
 
-    vi.advanceTimersByTime(29_999)
+    await vi.advanceTimersByTimeAsync(29_999)
+    await flushDial()
     expect(FakeWebSocket.instances).toHaveLength(5)
-    vi.advanceTimersByTime(1)
+    await vi.advanceTimersByTimeAsync(1)
+    await flushDial()
     expect(FakeWebSocket.instances).toHaveLength(6)
 
     // The slow cadence repeats indefinitely…
     latestSocket().fail()
     expect(connection.getSnapshot().sample.gaveUp).toBe(true)
-    vi.advanceTimersByTime(30_000)
+    await vi.advanceTimersByTimeAsync(30_000)
+    await flushDial()
     expect(FakeWebSocket.instances).toHaveLength(7)
 
     // …and a successful reconnect clears the gave-up state.
@@ -161,9 +220,10 @@ describe('realtime ops shared connection — self-healing', () => {
     unsubscribe()
   })
 
-  it('re-dials immediately when the tab becomes visible after failures', () => {
+  it('re-dials immediately when the tab becomes visible after failures', async () => {
     const connection = createConnection()
     const unsubscribe = connection.subscribe(NOOP_LISTENER)
+    await flushDial()
 
     latestSocket().fail()
     latestSocket() // still attempt #1
@@ -172,6 +232,7 @@ describe('realtime ops shared connection — self-healing', () => {
     // Visible again → failure accounting resets and a new attempt fires
     // without waiting out the backoff.
     setVisibility('visible')
+    await flushDial()
     expect(FakeWebSocket.instances).toHaveLength(2)
 
     latestSocket().open()
@@ -180,14 +241,16 @@ describe('realtime ops shared connection — self-healing', () => {
     unsubscribe()
   })
 
-  it('re-dials immediately on the online event after failures', () => {
+  it('re-dials immediately on the online event after failures', async () => {
     const connection = createConnection()
     const unsubscribe = connection.subscribe(NOOP_LISTENER)
+    await flushDial()
 
     latestSocket().fail()
     expect(FakeWebSocket.instances).toHaveLength(1)
 
     window.dispatchEvent(new Event('online'))
+    await flushDial()
     expect(FakeWebSocket.instances).toHaveLength(2)
 
     unsubscribe()
@@ -195,9 +258,10 @@ describe('realtime ops shared connection — self-healing', () => {
 })
 
 describe('realtime ops shared connection — hidden-tab pause', () => {
-  it('closes the socket while hidden and re-dials on visible', () => {
+  it('closes the socket while hidden and re-dials on visible', async () => {
     const connection = createConnection()
     const unsubscribe = connection.subscribe(NOOP_LISTENER)
+    await flushDial()
     latestSocket().open()
     expect(connection.getSnapshot().sample.connected).toBe(true)
 
@@ -212,10 +276,12 @@ describe('realtime ops shared connection — hidden-tab pause', () => {
     expect(connection.getSnapshot().sample.connected).toBe(false)
 
     // No reconnect churn while hidden.
-    vi.advanceTimersByTime(60_000)
+    await vi.advanceTimersByTimeAsync(60_000)
+    await flushDial()
     expect(FakeWebSocket.instances).toHaveLength(1)
 
     setVisibility('visible')
+    await flushDial()
     expect(FakeWebSocket.instances).toHaveLength(2)
     latestSocket().open()
     expect(connection.getSnapshot().sample.connected).toBe(true)
@@ -223,7 +289,7 @@ describe('realtime ops shared connection — hidden-tab pause', () => {
     unsubscribe()
   })
 
-  it('does not dial at all while subscribed in a hidden tab', () => {
+  it('does not dial at all while subscribed in a hidden tab', async () => {
     Object.defineProperty(document, 'visibilityState', {
       configurable: true,
       get: () => 'hidden',
@@ -231,17 +297,20 @@ describe('realtime ops shared connection — hidden-tab pause', () => {
 
     const connection = createConnection()
     const unsubscribe = connection.subscribe(NOOP_LISTENER)
+    await flushDial()
     expect(FakeWebSocket.instances).toHaveLength(0)
 
     setVisibility('visible')
+    await flushDial()
     expect(FakeWebSocket.instances).toHaveLength(1)
 
     unsubscribe()
   })
 
-  it('does not count a hidden-pause close as a failure', () => {
+  it('does not count a hidden-pause close as a failure', async () => {
     const connection = createConnection()
     const unsubscribe = connection.subscribe(NOOP_LISTENER)
+    await flushDial()
     latestSocket().open()
 
     Object.defineProperty(document, 'visibilityState', {
@@ -251,12 +320,15 @@ describe('realtime ops shared connection — hidden-tab pause', () => {
     document.dispatchEvent(new Event('visibilitychange'))
 
     setVisibility('visible')
+    await flushDial()
     // If the pause had counted as a failure the next backoff would be 4s;
     // a clean slate means the first failure still schedules 2s.
     latestSocket().fail()
-    vi.advanceTimersByTime(1_999)
+    await vi.advanceTimersByTimeAsync(1_999)
+    await flushDial()
     expect(FakeWebSocket.instances).toHaveLength(2)
-    vi.advanceTimersByTime(1)
+    await vi.advanceTimersByTimeAsync(1)
+    await flushDial()
     expect(FakeWebSocket.instances).toHaveLength(3)
 
     unsubscribe()
@@ -264,13 +336,14 @@ describe('realtime ops shared connection — hidden-tab pause', () => {
 })
 
 describe('realtime ops shared connection — reference counting', () => {
-  it('opens one socket for many subscribers and closes on the last unsubscribe', () => {
+  it('opens one socket for many subscribers and closes on the last unsubscribe', async () => {
     const connection = createConnection()
 
     // Distinct listener identities: a Set dedupes identical references.
     const unsubscribeFirst = connection.subscribe(() => {})
     const unsubscribeSecond = connection.subscribe(() => {})
     const unsubscribeThird = connection.subscribe(() => {})
+    await flushDial()
     expect(FakeWebSocket.instances).toHaveLength(1)
 
     unsubscribeFirst()
@@ -281,9 +354,10 @@ describe('realtime ops shared connection — reference counting', () => {
     expect(latestSocket().close).toHaveBeenCalledTimes(1)
   })
 
-  it('keeps the last sample + freshness after the last subscriber leaves', () => {
+  it('keeps the last sample + freshness after the last subscriber leaves', async () => {
     const connection = createConnection()
     const unsubscribe = connection.subscribe(NOOP_LISTENER)
+    await flushDial()
     latestSocket().open()
     latestSocket().sendFrame({
       lifetime: 42,
@@ -306,23 +380,26 @@ describe('realtime ops shared connection — reference counting', () => {
     expect(finalSnapshot.sample.uptimeSeconds).toBe(900)
   })
 
-  it('reopens a fresh socket when subscribers return after idle', () => {
+  it('reopens a fresh socket when subscribers return after idle', async () => {
     const connection = createConnection()
 
     const unsubscribeFirst = connection.subscribe(NOOP_LISTENER)
+    await flushDial()
     unsubscribeFirst()
     expect(latestSocket().close).toHaveBeenCalledTimes(1)
 
     const unsubscribeSecond = connection.subscribe(NOOP_LISTENER)
+    await flushDial()
     expect(FakeWebSocket.instances).toHaveLength(2)
     unsubscribeSecond()
   })
 })
 
 describe('realtime ops shared connection — frames & freshness', () => {
-  it('derives qps deltas, success rate and lastFrameAt from frames', () => {
+  it('derives qps deltas, success rate and lastFrameAt from frames', async () => {
     const connection = createConnection()
     const unsubscribe = connection.subscribe(NOOP_LISTENER)
+    await flushDial()
     latestSocket().open()
 
     latestSocket().sendFrame({
@@ -333,7 +410,7 @@ describe('realtime ops shared connection — frames & freshness', () => {
     expect(connection.getSnapshot().sample.qps).toBe(0)
     expect(connection.getSnapshot().lastFrameAt).toBe(FIXED_NOW)
 
-    vi.advanceTimersByTime(1_000)
+    await vi.advanceTimersByTimeAsync(1_000)
     latestSocket().sendFrame({
       lifetime: 11,
       points: [{ ts: 2, total: 107, success: 105 }],
@@ -347,9 +424,10 @@ describe('realtime ops shared connection — frames & freshness', () => {
     unsubscribe()
   })
 
-  it('manual reconnect resets backoff and dials immediately', () => {
+  it('manual reconnect resets backoff and dials immediately', async () => {
     const connection = createConnection()
     const unsubscribe = connection.subscribe(NOOP_LISTENER)
+    await flushDial()
 
     // One failure leaves a backoff timer pending; manual reconnect must
     // bypass it and dial right away.
@@ -357,18 +435,20 @@ describe('realtime ops shared connection — frames & freshness', () => {
     expect(FakeWebSocket.instances).toHaveLength(1)
 
     connection.reconnect()
+    await flushDial()
     expect(FakeWebSocket.instances).toHaveLength(2)
     expect(connection.getSnapshot().sample.gaveUp).toBe(false)
 
     unsubscribe()
   })
 
-  it('does not dial without an auth token', () => {
+  it('does not dial without a ticket source', async () => {
     const connection = createRealtimeOpsConnection({
-      getToken: () => null,
+      getTicket: async () => null,
       createWebSocket: (url) => new FakeWebSocket(url) as unknown as WebSocket,
     })
     const unsubscribe = connection.subscribe(NOOP_LISTENER)
+    await flushDial()
 
     expect(FakeWebSocket.instances).toHaveLength(0)
     expect(connection.getSnapshot().sample.connected).toBe(false)

@@ -1374,6 +1374,7 @@
           "exportAll": "导出全部",
           "exportAccounts": "导出连接",
           "exportPreferences": "导出偏好",
+          "reauthDescription": "备份包含全部已存配置与凭证。重新输入管理员 Token 以确认导出。",
           "importGroup": "导入数据",
           "import": "导入",
           "webdavGroup": "WebDAV 自动备份",
@@ -3013,12 +3014,29 @@
         "noLatency": "无延迟数据"
       }
     },
+    "reauth": {
+      "title": "主 Token 确认",
+      "description": "该操作属敏感操作，请重新输入管理员 Token 以继续。",
+      "tokenLabel": "管理员 Token",
+      "tokenPlaceholder": "粘贴管理员 Token",
+      "submit": "确认",
+      "cancel": "取消",
+      "errorInvalid": "Token 校验失败，请检查后重试。"
+    },
     "connect": {
       "title": "接入 {{name}}",
       "description": "复制网关地址与密钥，或一键导入客户端。",
       "endpointLabel": "网关接入地址",
       "copyEndpoint": "复制地址",
       "copyKey": "复制 API Key",
+      "showKey": "显示 API Key",
+      "hideKey": "隐藏 API Key",
+      "lockedTitle": "需要主 Token 确认",
+      "lockedDescription": "凭证导出属敏感操作。重新输入管理员 Token 解锁。密钥默认遮罩、需手动显示，深链打开前会再次确认。",
+      "unlock": "解锁",
+      "deepLinkConfirmTitle": "打开深链？",
+      "deepLinkConfirmDescription": "深链包含明文 API Key，将交给外部应用；同时会把配置复制到剪贴板作为后备。",
+      "deepLinkConfirmContinue": "打开链接",
       "oneClickLabel": "一键导入",
       "cherryStudio": "Cherry Studio",
       "ccSwitch": "CC Switch",

@@ -366,6 +366,22 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 		},
 	},
 	{
+		// #1034 session model: server-side admin UI sessions. New table (not
+		// column convergence), so CREATE TABLE IF NOT EXISTS is the idempotent
+		// form. The raw cookie token is never stored -- only its SHA-256 hash.
+		// expires_at is a fixed-precision RFC3339-UTC string so the expiry
+		// sweep can compare lexicographically in both dialects.
+		Version:     "sc2_026_admin_sessions",
+		Description: "admin_sessions table -- server-side admin UI sessions (token_hash PK, sliding expires_at); #1034 session model",
+		Apply: func(db *DB) error {
+			if _, err := db.Exec(buildAdminSessionsDDL(db.Dialect)); err != nil {
+				return err
+			}
+			return EnsureIndex(db, "admin_sessions_expires_at_idx",
+				`CREATE INDEX IF NOT EXISTS admin_sessions_expires_at_idx ON admin_sessions (expires_at)`)
+		},
+	},
+	{
 		// Wave 18 index audit (admin high-frequency read paths). Pure additive
 		// indexes on base-schema columns, measured on a 300k-proxy_logs audit
 		// fixture before adoption (SQLite EXPLAIN QUERY PLAN + timing):

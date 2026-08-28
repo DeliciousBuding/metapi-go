@@ -280,6 +280,24 @@ type Config struct {
 	// OAUTH_RATE_LIMIT_RPS (default 10) and OAUTH_RATE_LIMIT_BURST (default 20).
 	OAuthRateLimitRPS   int
 	OAuthRateLimitBurst int
+	// AuthRateLimitRPS / AuthRateLimitBurst control the stricter per-IP
+	// token bucket applied to /api/auth/* routes (login is the only place
+	// the master token is presented, so brute-force protection matters).
+	// Parsed from AUTH_RATE_LIMIT_RPS (default 10) and AUTH_RATE_LIMIT_BURST
+	// (default 20).
+	AuthRateLimitRPS   int
+	AuthRateLimitBurst int
+	// AdminSessionTTLMinutes is the sliding lifetime of a server-side admin
+	// UI session (#1034). Every authenticated request refreshes the expiry;
+	// the raw master token never reaches the browser. Parsed from
+	// ADMIN_SESSION_TTL_MINUTES (default 720 = 12h, matching the legacy
+	// client-side session window). Values < 1 clamp to 1.
+	AdminSessionTTLMinutes int
+	// AdminSessionCookieSecure controls the Secure flag of the session
+	// cookie: "auto" (default; Secure when the request is HTTPS), "true"
+	// (always Secure -- use behind a TLS terminator), or "false" (never
+	// Secure -- plain-HTTP dev only). Parsed from ADMIN_SESSION_COOKIE_SECURE.
+	AdminSessionCookieSecure string
 
 	// Proxy: Core (5 fields)
 	RequestBodyLimit int
@@ -774,6 +792,16 @@ func Load(env map[string]string) *Config {
 	cfg.AdminRateLimitBurst = maxInt(0, int(math.Trunc(parseNumber(get("ADMIN_RATE_LIMIT_BURST"), float64(DefaultAdminRateLimitBurst)))))
 	cfg.OAuthRateLimitRPS = maxInt(0, int(math.Trunc(parseNumber(get("OAUTH_RATE_LIMIT_RPS"), float64(DefaultOAuthRateLimitRPS)))))
 	cfg.OAuthRateLimitBurst = maxInt(0, int(math.Trunc(parseNumber(get("OAUTH_RATE_LIMIT_BURST"), float64(DefaultOAuthRateLimitBurst)))))
+	// /api/auth/* brute-force cap (#1034): login is the only surface that
+	// accepts the master token, so it gets the strict bucket regardless of
+	// the general admin bucket size.
+	cfg.AuthRateLimitRPS = maxInt(0, int(math.Trunc(parseNumber(get("AUTH_RATE_LIMIT_RPS"), float64(DefaultAuthRateLimitRPS)))))
+	cfg.AuthRateLimitBurst = maxInt(0, int(math.Trunc(parseNumber(get("AUTH_RATE_LIMIT_BURST"), float64(DefaultAuthRateLimitBurst)))))
+	// Server-side admin session (#1034): sliding TTL + cookie Secure policy.
+	// Zero-config defaults must stay safe (12h sliding session, Secure
+	// auto-adapting to the request protocol).
+	cfg.AdminSessionTTLMinutes = maxInt(1, int(math.Trunc(parseNumber(get("ADMIN_SESSION_TTL_MINUTES"), float64(DefaultAdminSessionTTLMinutes)))))
+	cfg.AdminSessionCookieSecure = normalizeSessionCookieSecure(get("ADMIN_SESSION_COOKIE_SECURE"))
 
 	// ---- §3.13 Proxy: Core ----
 	// REQUEST_BODY_LIMIT_MB controls the general body limit (default 20 MB,
@@ -1019,6 +1047,20 @@ func ClampInt(v, lo, hi int) int {
 }
 
 // maxInt returns the larger of a and b.
+// normalizeSessionCookieSecure maps ADMIN_SESSION_COOKIE_SECURE to one of
+// "auto", "true" or "false". Unset/unrecognized values fall back to the
+// zero-config safe default "auto" (Secure follows the request protocol).
+func normalizeSessionCookieSecure(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "true", "1", "yes":
+		return "true"
+	case "false", "0", "no":
+		return "false"
+	default:
+		return DefaultAdminSessionCookieSecure
+	}
+}
+
 func maxInt(a, b int) int {
 	if a > b {
 		return a

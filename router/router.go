@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/deliciousbuding/metapi-go/app"
 	"github.com/deliciousbuding/metapi-go/auth"
@@ -44,11 +45,19 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 	// Admin route registrars use absolute /api/... paths so they can also be
 	// tested on standalone routers. Keep this as a middleware group rather
 	// than Route("/api"), otherwise production paths become /api/api/....
+	// Server-side admin sessions (#1034): the UI authenticates with an
+	// HttpOnly cookie minted at POST /api/auth/login; the master token stays
+	// server-side. nil when the database is unavailable (handlers fail closed).
+	sessions := auth.NewSessionManager(store.GetDB(),
+		time.Duration(cfg.AdminSessionTTLMinutes)*time.Minute)
+
 	r.Group(func(r chi.Router) {
 		r.Use(AdminCORS(cfg))
-		r.Use(auth.AdminAuth(cfg))
-		// Rate limiting: per-IP token bucket (configurable via ADMIN_RATE_LIMIT_*).
-		// Fall back to defaults when unset (e.g. tests building Config{} directly).
+		// Rate limiting runs BEFORE auth (#1034): failed authentication
+		// (401/403/reauth-rejected) consumes the per-IP bucket instead of
+		// bypassing it, so credential brute force is capped like any other
+		// admin traffic. Fall back to defaults when unset (tests building
+		// Config{} directly).
 		adminRps := cfg.AdminRateLimitRPS
 		if adminRps <= 0 {
 			adminRps = config.DefaultAdminRateLimitRPS
@@ -58,6 +67,17 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 			adminBurst = config.DefaultAdminRateLimitBurst
 		}
 		r.Use(auth.AdminRateLimit(adminRps, adminBurst))
+		// Stricter bucket for /api/auth/* (configurable via AUTH_RATE_LIMIT_*):
+		// login is the only surface accepting the master token (#1034).
+		authRps := cfg.AuthRateLimitRPS
+		if authRps <= 0 {
+			authRps = config.DefaultAuthRateLimitRPS
+		}
+		authBurst := cfg.AuthRateLimitBurst
+		if authBurst <= 0 {
+			authBurst = config.DefaultAuthRateLimitBurst
+		}
+		r.Use(auth.AuthRateLimit(authRps, authBurst))
 		// Stricter OAuth rate limit (configurable via OAUTH_RATE_LIMIT_*), only /api/oauth/*.
 		oauthRps := cfg.OAuthRateLimitRPS
 		if oauthRps <= 0 {
@@ -68,6 +88,12 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 			oauthBurst = config.DefaultOAuthRateLimitBurst
 		}
 		r.Use(auth.OAuthRateLimit(oauthRps, oauthBurst))
+		// Dual-track admin auth: session cookie (UI) or Bearer master token
+		// (external scripts) — see auth.AdminAuth (#1034).
+		r.Use(auth.AdminAuth(cfg, sessions))
+		// Sensitive operations (backup/key export, token rotation) require the
+		// master token re-presented in X-Admin-Confirm-Token (#1034).
+		r.Use(auth.RequireReauth(cfg))
 		// B1: audit admin write operations.
 		if db := store.GetDB(); db != nil {
 			r.Use(admin.AuditMiddleware(db.DB))
@@ -80,6 +106,12 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		// db != nil block because every field comes from the linker or the
 		// Go runtime, never the database.
 		admin.RegisterAboutRoutes(r)
+
+		// Session lifecycle (#1034): login/session/logout live on the public
+		// AdminAuth allowlist; ws-ticket requires a live session. Registered
+		// outside the db != nil block because the handlers fail closed (503)
+		// when sessions is nil.
+		admin.RegisterSessionRoutes(r, cfg, sessions)
 
 		// Sites + Accounts + AccountTokens CRUD API
 		db := store.GetDB()
@@ -118,7 +150,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 			admin.RegisterSchedulerStatusRoutes(r, db.DB)
 			admin.RegisterTestRoutes(r, db.DB, cfg)
 			admin.RegisterSiteAnnouncementsRoutes(r, db.DB)
-			admin.RegisterAuthSettingsRoutes(r, db.DB, cfg)
+			admin.RegisterAuthSettingsRoutes(r, db.DB, cfg, sessions)
 			admin.RegisterCheckinRoutes(r, db.DB, cfg)
 			admin.RegisterTokenRoutesWithDeps(r, db.DB, tokenRoutesDeps())
 			admin.RegisterChannelTestRoutes(r, db.DB, cfg)
@@ -189,10 +221,11 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 	// ---- SPA static file fallback ----
 	setupSPAFallback(r, webFS)
 
-	// B2: live ops WebSocket. Mounted after the
-	// admin auth group because browser WS cannot send the Authorization
-	// header — the endpoint verifies the token via ?token= itself.
-	admin.RegisterOpsWSRoutes(r, cfg)
+	// B2: live ops WebSocket. Mounted after the admin auth group because
+	// browser WS cannot send headers — the endpoint redeems a one-time
+	// ticket minted at POST /api/auth/ws-ticket (#1034) instead of ever
+	// seeing the master token.
+	admin.RegisterOpsWSRoutes(r, cfg, sessions)
 
 	return r
 }

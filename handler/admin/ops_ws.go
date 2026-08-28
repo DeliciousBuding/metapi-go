@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/deliciousbuding/metapi-go/auth"
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/handler/shared"
 	"github.com/go-chi/chi/v5"
@@ -16,11 +17,14 @@ import (
 
 // ---- B2: live ops WebSocket ----
 
-// GET /api/admin/ops/ws?token=<admin token> — realtime traffic push.
-// Browser WebSocket API cannot set the Authorization header, so the admin
-// token travels as a query parameter and is verified here (constant-time)
-// against the same config.AuthToken the AdminAuth middleware uses. The
-// endpoint is intentionally mounted OUTSIDE the header-auth admin group.
+// GET /api/admin/ops/ws?ticket=<one-time ticket> — realtime traffic push.
+// Browser WebSocket API cannot set headers, and the master token must never
+// ride a URL (server/proxy logs, browser history), so the SPA first mints a
+// one-time 60s ticket via POST /api/auth/ws-ticket (cookie-authenticated,
+// #1034 session model) and dials with that ticket instead. The legacy
+// ?token=<master token> query path is gone for good. The endpoint stays
+// mounted OUTSIDE the header-auth admin group; ticket validation happens
+// here against the same SessionManager AdminAuth trusts.
 
 // Server pushes one JSON frame per second:
 
@@ -31,26 +35,26 @@ import (
 // frontend renders the latter as the panel's uptime metric. This instance's
 // own traffic only (multi-instance honesty: no cross-instance aggregation).
 
-// RegisterOpsWSRoutes mounts the live ops WebSocket endpoint.
-func RegisterOpsWSRoutes(r chi.Router, cfg *config.Config) {
-	h := &opsWSHandler{cfg: cfg}
+// RegisterOpsWSRoutes mounts the live ops WebSocket endpoint. sessions may
+// be nil (DB-less boot): the endpoint then fails closed.
+func RegisterOpsWSRoutes(r chi.Router, cfg *config.Config, sessions *auth.SessionManager) {
+	h := &opsWSHandler{cfg: cfg, sessions: sessions}
 	r.Get("/api/admin/ops/ws", h.serve)
 }
 
 type opsWSHandler struct {
-	cfg *config.Config
+	cfg      *config.Config
+	sessions *auth.SessionManager
 }
 
 func (h *opsWSHandler) serve(w http.ResponseWriter, r *http.Request) {
-	// Verify admin token from query param (constant-time, same value as
-	// AdminAuth middleware uses for the header).
-	want := ""
-	if h.cfg != nil {
-		want = h.cfg.AuthToken
-	}
-	got := strings.TrimSpace(r.URL.Query().Get("token"))
-	if want == "" || !constantTimeEqual(want, got) {
-		writeJSON(w, http.StatusForbidden, map[string]string{"message": "invalid token"})
+	// Redeem a one-time ticket (#1034). The ticket was minted for a live
+	// admin session via POST /api/auth/ws-ticket; it is single-use and
+	// 60s-lived, so a leaked URL dies almost immediately and never reveals
+	// the master token or the session cookie.
+	got := strings.TrimSpace(r.URL.Query().Get("ticket"))
+	if h.sessions == nil || got == "" || !h.sessions.ConsumeWSTicket(got) {
+		writeJSON(w, http.StatusForbidden, map[string]string{"message": "invalid ticket"})
 		return
 	}
 

@@ -1,111 +1,39 @@
-const MONITOR_AUTH_COOKIE_NAME = 'meta_monitor_auth'
-const MONITOR_AUTH_COOKIE_PATH = '/monitor-proxy/'
-
-function clearMonitorAuthCookie(
-  doc: CookieWriter | null | undefined = typeof document !== 'undefined'
-    ? document
-    : null
-): void {
-  if (!doc) return
-  try {
-    const expire = 'Max-Age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT'
-    doc.cookie = `${MONITOR_AUTH_COOKIE_NAME}=; Path=${MONITOR_AUTH_COOKIE_PATH}; ${expire}`
-    doc.cookie = `${MONITOR_AUTH_COOKIE_NAME}=; Path=/; ${expire}`
-  } catch {
-    // document may be restricted (sandboxed); ignore.
-  }
-}
-
-function currentValidAuthBundle(
-  storage?: StorageLike | null,
-  nowMs: number = Date.now()
-): AuthBundle | null {
-  const token = getAuthToken(storage, nowMs)
-  if (!token) return null
-  const target = resolveStorage(storage)
-  const expiresAtMs = Number(
-    target?.getItem(AUTH_TOKEN_EXPIRES_AT_STORAGE_KEY) ?? 0
-  )
-  if (!Number.isFinite(expiresAtMs) || expiresAtMs <= nowMs) return null
-  return {
-    access_token: token,
-    token_type: 'Bearer',
-    access_expires_at: Math.floor(expiresAtMs / 1000),
-    user: null,
-    session: null,
-  }
-}
-
-function persistAuthSession(
-  storage: StorageLike | null | undefined,
-  token: string,
-  ttlMs: number = AUTH_SESSION_DURATION_MS,
-  nowMs: number = Date.now()
-): void {
-  const target = resolveStorage(storage)
-  if (!target) return
-
-  const cleanToken = (token || '').trim()
-  if (!cleanToken) {
-    clearAuthSession(target)
-    return
-  }
-
-  // A fresh session is now stored — any previously recorded expiry no
-  // longer applies to the next guard check.
-  lastAuthCheckExpired = false
-  const expiresAt = nowMs + Math.max(1, Math.trunc(ttlMs))
-  target.setItem(AUTH_TOKEN_STORAGE_KEY, cleanToken)
-  target.setItem(AUTH_TOKEN_EXPIRES_AT_STORAGE_KEY, String(expiresAt))
-}
-
 /**
- * Authentication session module for metapi-go.
+ * Authentication session module for metapi-go (#1034 session model).
  *
- * Bound to metapi-go's existing auth contract: a Bearer access token
- * persisted to localStorage (`auth_token` + `auth_token_expires_at`, ms
- * epoch) and the HttpOnly `meta_monitor_auth` cookie used by the monitor
- * embed.
+ * The credential is an HttpOnly, SameSite=Strict cookie (`metapi_session`)
+ * minted by POST /api/auth/login and managed entirely by the Go backend
+ * (sliding TTL, logout revocation). JavaScript never sees the credential:
+ * localStorage only carries NON-sensitive metadata — the session expiry —
+ * so cold-load route guards and the "session expired" notice work without a
+ * network round trip.
  *
- * The token storage keys are kept byte-for-byte compatible with the legacy
- * `authSession.ts` so existing sessions survive the frontend rewrite
- * (seamless-migration hard constraint).
+ * Legacy plaintext keys (`auth_token` / `auth_token_expires_at` from the
+ * token-in-localStorage era) are wiped on every session access, so existing
+ * browsers drop the master token the first time this build loads.
  */
 
-const AUTH_TOKEN_STORAGE_KEY = 'auth_token'
-const AUTH_TOKEN_EXPIRES_AT_STORAGE_KEY = 'auth_token_expires_at'
-export const AUTH_SESSION_DURATION_MS = 12 * 60 * 60 * 1000
+const LEGACY_TOKEN_STORAGE_KEY = 'auth_token'
+const LEGACY_TOKEN_EXPIRES_AT_STORAGE_KEY = 'auth_token_expires_at'
+const SESSION_META_STORAGE_KEY = 'metapi_session_meta'
 
-/** Must match handler/admin/monitor.go monitorAuthCookie. */
-export interface AuthUser {
-  id: number
-  username: string
-  role: number
+export interface SessionMeta {
+  /** Sliding session expiry, ms epoch (server is authoritative). */
+  expiresAtMs: number
 }
 
-export interface LoginSession {
-  sid: string
-  current: boolean
-  login_method: string
-  ip: string
-  user_agent: string
-  created_at: number
-  last_active_at: number
-  expires_at: number
-}
-
-export interface AuthBundle {
-  access_token: string
-  token_type: string
-  /** Unix seconds — newapi contract. Stored to localStorage as ms epoch. */
-  access_expires_at: number
-  user?: AuthUser | null
-  session?: LoginSession | null
+/** Server answer for GET /api/auth/session. */
+export interface SessionStatus {
+  authenticated: boolean
+  /** "session" = cookie track, "token" = Bearer master token track. */
+  source?: 'session' | 'token'
+  /** RFC3339 UTC — present on the session track. */
+  expiresAt?: string
 }
 
 export type AuthenticationOutcome =
-  | { kind: 'authenticated'; bundle: AuthBundle }
-  | { kind: 'anonymous' }
+  | { kind: 'authenticated'; expiresAtMs: number }
+  | { kind: 'anonymous'; expired: boolean }
 
 export type AuthBootstrapState = 'idle' | 'checking' | 'complete'
 
@@ -113,10 +41,6 @@ type StorageLike = {
   getItem: (key: string) => string | null
   setItem: (key: string, value: string) => void
   removeItem: (key: string) => void
-}
-
-type CookieWriter = {
-  cookie?: string
 }
 
 function resolveStorage(storage?: StorageLike | null): StorageLike | null {
@@ -130,116 +54,134 @@ function resolveStorage(storage?: StorageLike | null): StorageLike | null {
   return null
 }
 
-/**
- * Best-effort document.cookie clear for meta_monitor_auth.
- * Path must match createSession (/monitor-proxy/) or the browser ignores it.
- * Also clears legacy Path=/ in case an older mint used it.
- * Prefer DELETE /api/monitor/session for the HttpOnly cookie.
- */
+/** Result of the one-time startup probe (root route beforeLoad). */
+let bootOutcome: AuthenticationOutcome | null = null
 
+/**
+ * Delete the legacy plaintext master-token keys. Any browser that used the
+ * pre-#1034 frontend still carries the token here; the first session access
+ * under this build removes it.
+ */
+function wipeLegacyPlaintextToken(target: StorageLike | null): void {
+  if (!target) return
+  try {
+    target.removeItem(LEGACY_TOKEN_STORAGE_KEY)
+    target.removeItem(LEGACY_TOKEN_EXPIRES_AT_STORAGE_KEY)
+  } catch {
+    // Storage access can throw in sandboxed contexts; the wipe is best-effort.
+  }
+}
+
+export function persistSessionMeta(
+  expiresAtMs: number,
+  storage?: StorageLike | null
+): void {
+  const target = resolveStorage(storage)
+  if (!target) return
+  wipeLegacyPlaintextToken(target)
+  try {
+    target.setItem(
+      SESSION_META_STORAGE_KEY,
+      JSON.stringify({ expiresAtMs } satisfies SessionMeta)
+    )
+  } catch {
+    // Full/blocked storage degrades to in-memory boot state only.
+  }
+}
+
+export function readSessionMeta(
+  storage?: StorageLike | null
+): SessionMeta | null {
+  const target = resolveStorage(storage)
+  if (!target) return null
+  wipeLegacyPlaintextToken(target)
+  try {
+    const raw = target.getItem(SESSION_META_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { expiresAtMs?: unknown }
+    if (typeof parsed.expiresAtMs !== 'number') return null
+    return { expiresAtMs: parsed.expiresAtMs }
+  } catch {
+    return null
+  }
+}
+
+/** Clear all client-side session state (metadata + legacy plaintext keys). */
 export function clearAuthSession(storage?: StorageLike | null): void {
   const target = resolveStorage(storage)
   if (!target) return
-  target.removeItem(AUTH_TOKEN_STORAGE_KEY)
-  target.removeItem(AUTH_TOKEN_EXPIRES_AT_STORAGE_KEY)
-  clearMonitorAuthCookie()
+  wipeLegacyPlaintextToken(target)
+  try {
+    target.removeItem(SESSION_META_STORAGE_KEY)
+  } catch {
+    // best-effort
+  }
+}
+
+export function clearAuthentication(): void {
+  clearAuthSession()
+  bootOutcome = { kind: 'anonymous', expired: false }
 }
 
 /**
- * Read the access token from storage, validating ms-based expiry.
- * Returns null when missing or expired (and clears stale state).
+ * Probe the server once at startup. The cookie travels automatically; on
+ * success the (non-sensitive) expiry is mirrored to localStorage for
+ * synchronous cold-load guards. On failure/unreachable the local state is
+ * cleared so the sign-in page shows.
  */
-export function getAuthToken(
-  storage?: StorageLike | null,
-  nowMs: number = Date.now()
-): string | null {
-  const target = resolveStorage(storage)
-  if (!target) return null
+export async function bootstrapAuthentication(): Promise<AuthenticationOutcome> {
+  const localMeta = readSessionMeta()
+  // "Expired" covers both the TTL elapsing AND the server ending a session
+  // that the client still considered live (logout elsewhere, revocation on
+  // token rotation): either way the user had a session that is now over.
+  const expiredLocally = localMeta !== null
 
-  const token = (target.getItem(AUTH_TOKEN_STORAGE_KEY) || '').trim()
-  if (!token) return null
-
-  const expiresAtRaw = target.getItem(AUTH_TOKEN_EXPIRES_AT_STORAGE_KEY)
-  if (!expiresAtRaw) {
-    persistAuthSession(target, token, AUTH_SESSION_DURATION_MS, nowMs)
-    return token
+  try {
+    const res = await fetch('/api/auth/session', {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    })
+    if (res.ok) {
+      const status = (await res.json()) as SessionStatus
+      if (status.authenticated && status.expiresAt) {
+        const expiresAtMs = Date.parse(status.expiresAt)
+        if (Number.isFinite(expiresAtMs)) {
+          persistSessionMeta(expiresAtMs)
+          bootOutcome = { kind: 'authenticated', expiresAtMs }
+          return bootOutcome
+        }
+      }
+    }
+  } catch {
+    // Server unreachable during boot: fall through to the anonymous path.
+    // An authenticated cookie would still work once requests resume; the
+    // 401 interceptor reconciles if the server actually rejects us later.
   }
 
-  const expiresAt = Number(expiresAtRaw)
-  if (!Number.isFinite(expiresAt) || expiresAt <= nowMs) {
-    clearAuthSession(target)
-    return null
-  }
-
-  return token
-}
-
-/** Convenience: just the token string, for interceptor + fetch wrappers. */
-export function getAccessToken(
-  storage?: StorageLike | null,
-  nowMs: number = Date.now()
-): string | null {
-  return getAuthToken(storage, nowMs)
+  clearAuthSession()
+  bootOutcome = { kind: 'anonymous', expired: expiredLocally }
+  return bootOutcome
 }
 
 /**
- * True only when a token exists and its expiry has already passed (or the
- * expiry value is corrupt). Missing token and live token both return false,
- * so a caller can distinguish "no session at all" from "session expired" —
- * {@link getAuthToken} collapses both to null and cannot tell them apart
- * ({@link clearAuthSession} already wiped the stale entry by then).
+ * Synchronous guard for route beforeLoad. Runs AFTER
+ * {@link bootstrapAuthentication} (root route), so the boot outcome is the
+ * source of truth; the stored meta covers the window before bootstrap
+ * resolves (e.g. tests exercising the guard directly).
  */
-export function isAuthSessionExpired(
-  storage?: StorageLike | null,
-  nowMs: number = Date.now()
-): boolean {
-  const target = resolveStorage(storage)
-  if (!target) return false
-
-  const token = (target.getItem(AUTH_TOKEN_STORAGE_KEY) || '').trim()
-  if (!token) return false
-
-  const expiresAtRaw = target.getItem(AUTH_TOKEN_EXPIRES_AT_STORAGE_KEY)
-  if (!expiresAtRaw) return false
-
-  const expiresAt = Number(expiresAtRaw)
-  return !Number.isFinite(expiresAt) || expiresAt <= nowMs
-}
-
-/**
- * Records whether the most recent top-level auth check (startup bootstrap or
- * post-401 re-read) ended anonymous because a stored session was expired.
- *
- * Both checks call {@link getAuthToken}, which wipes the stale entry as a
- * side effect — after that "expired" is indistinguishable from "never logged
- * in", so the fact is stashed here first. The record is set just before the
- * storage-clearing check runs and cleared whenever a fresh session is
- * persisted (login), so a later in-app navigation never misreports an
- * expired session the user already replaced by signing in again.
- */
-let lastAuthCheckExpired = false
-
-/**
- * True when the startup bootstrap (or a post-401 re-read) ended anonymous
- * because the stored session had passed its TTL. Used by the authenticated
- * route guard to attach `reason=sessionExpired` to the sign-in redirect.
- */
-export function wasAuthSessionExpiredOnLastBoot(): boolean {
-  return lastAuthCheckExpired
-}
-
 export function hasValidAuthSession(
   storage?: StorageLike | null,
   nowMs: number = Date.now()
 ): boolean {
-  return Boolean(getAuthToken(storage, nowMs))
+  if (bootOutcome) return bootOutcome.kind === 'authenticated'
+  const meta = readSessionMeta(storage)
+  return meta !== null && meta.expiresAtMs > nowMs
 }
 
 /**
  * Guarded variant of {@link hasValidAuthSession}: storage access can throw
  * (SecurityError) in sandboxed/blocked-storage contexts. Treat that as
- * unauthenticated so route guards (sign-in beforeLoad, authenticated
- * layout) never crash on a hostile localStorage.
+ * unauthenticated so route guards never crash on a hostile localStorage.
  */
 export function hasValidAuthSessionSafe(
   storage?: StorageLike | null,
@@ -252,50 +194,41 @@ export function hasValidAuthSessionSafe(
   }
 }
 
+/** True when stored session metadata exists but its expiry has passed. */
+export function isAuthSessionExpired(
+  storage?: StorageLike | null,
+  nowMs: number = Date.now()
+): boolean {
+  try {
+    const meta = readSessionMeta(storage)
+    return meta !== null && meta.expiresAtMs <= nowMs
+  } catch {
+    return false
+  }
+}
+
 /**
- * Persist an AuthBundle to storage. Converts the bundle's
- * access_expires_at (unix seconds) to the ms epoch the legacy keys expect.
+ * True when the startup bootstrap (or a post-401 re-read) ended anonymous
+ * because a stored session had passed its TTL. Used by the authenticated
+ * route guard to attach `reason=sessionExpired` to the sign-in redirect.
  */
-export function setAuthBundle(
-  bundle: AuthBundle,
-  storage?: StorageLike | null
-): void {
-  const nowMs = Date.now()
-  const ttlMs = Math.max(1, Math.trunc(bundle.access_expires_at * 1000) - nowMs)
-  persistAuthSession(storage, bundle.access_token, ttlMs, nowMs)
-}
-
-export function clearAuthentication(): void {
-  clearAuthSession()
+export function wasAuthSessionExpiredOnLastBoot(): boolean {
+  return (
+    bootOutcome !== null &&
+    bootOutcome.kind === 'anonymous' &&
+    bootOutcome.expired
+  )
 }
 
 /**
- * Re-read storage after a 401 so a token replaced by another tab can be used
- * for one retry. The backend has no refresh endpoint; without a newer valid
- * token the session is cleared and the caller redirects to sign-in.
+ * Called by the HTTP layer after a 401: the server-side session is gone, so
+ * every client-side trace is cleared and the caller redirects to sign-in.
+ * Kept as a named export for the http-client contract.
  */
 export function resolveAuthenticationAfterUnauthorized(): AuthenticationOutcome {
-  // Record expiry before getAuthToken wipes the stale entry (the route
-  // guard reads this to distinguish "session expired" from "never logged in").
-  lastAuthCheckExpired = isAuthSessionExpired()
-  const bundle = currentValidAuthBundle()
-  if (bundle) {
-    return { kind: 'authenticated', bundle }
-  }
-
-  clearAuthentication()
-  return { kind: 'anonymous' }
-}
-
-export function bootstrapAuthentication(): AuthenticationOutcome {
-  // Record expiry before getAuthToken wipes the stale entry (the route
-  // guard reads this to distinguish "session expired" from "never logged in").
-  lastAuthCheckExpired = isAuthSessionExpired()
-  const bundle = currentValidAuthBundle()
-  if (bundle) {
-    return { kind: 'authenticated', bundle }
-  }
-
-  clearAuthentication()
-  return { kind: 'anonymous' }
+  const expired =
+    isAuthSessionExpired() || bootOutcome?.kind === 'authenticated'
+  clearAuthSession()
+  bootOutcome = { kind: 'anonymous', expired: Boolean(expired) }
+  return bootOutcome
 }
