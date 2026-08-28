@@ -69,7 +69,12 @@ async function scanLocale(locale) {
       .goto(BASE_URL + path, { waitUntil: 'networkidle' })
       .catch(() => {})
     await page.waitForTimeout(500)
-    await page.addScriptTag({ path: AXE_SOURCE })
+    // CSP script-src is 'self' (no 'unsafe-inline') since #1033, so an inline
+    // <script> injection via addScriptTag is blocked by the browser. Execute
+    // the axe bundle through page.evaluate instead — CDP Runtime.evaluate is
+    // not subject to the page CSP — which leaves window.axe available
+    // regardless.
+    await page.evaluate(readFileSync(AXE_SOURCE, 'utf-8'))
     const violations = await page.evaluate(async () => {
       const result = await window.axe.run(document, {
         resultTypes: ['violations'],
