@@ -1081,7 +1081,7 @@ func TestHandleStreamUpstreamClientDisconnectPreservesUsage(t *testing.T) {
 
 	rec := &disconnectAfterNWriter{ResponseRecorder: httptest.NewRecorder(), n: 2}
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
-	usage := handleStreamUpstream(rec, req, resp, 12)
+	usage, _ := handleStreamUpstream(rec, req, resp, 12)
 	if !usage.Found {
 		t.Fatal("expected usage retained after client disconnect on usage chunk")
 	}
@@ -1121,7 +1121,7 @@ func TestHandleStreamUpstreamContextCancelPreservesPartialUsage(t *testing.T) {
 	resp.Header.Set("Content-Type", "text/event-stream")
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil).WithContext(ctx)
-	usage := handleStreamUpstream(rec, req, resp, 1)
+	usage, _ := handleStreamUpstream(rec, req, resp, 1)
 	// Pre-canceled before any read: must not invent usage.
 	if usage.Found {
 		// If runtime read wins the race and extracts, that is also correct — accept either.
@@ -1591,7 +1591,7 @@ func TestDefaultUpstreamClientRejectsCrossOriginRedirect(t *testing.T) {
 	// Executor nil → sendUpstreamRequest falls back to defaultUpstreamClient.
 	// net/http returns the last redirect Response (Body closed) together with
 	// CheckRedirect's error; treat any non-nil err as rejection and never follow.
-	resp, err := sendUpstreamRequest(&UpstreamConfig{}, req, nil, 0)
+	resp, err := sendUpstreamRequest(&UpstreamConfig{}, req, nil, 0, false)
 	if err == nil {
 		if resp != nil {
 			body, _ := io.ReadAll(io.LimitReader(resp.Body, 64))

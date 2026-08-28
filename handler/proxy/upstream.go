@@ -54,6 +54,17 @@ var defaultUpstreamClient = &http.Client{
 	CheckRedirect: platform.RejectCrossOriginRedirect,
 }
 
+// defaultStreamUpstreamClient mirrors defaultUpstreamClient for SSE streams
+// on the fallback path (Executor unwired, e.g. tests): no whole-request
+// timeout, so a flowing stream is governed per chunk by the relay's idle
+// guard (PROXY_STREAM_IDLE_TIMEOUT_SEC) instead of total elapsed time. The
+// cloned transport keeps a ResponseHeaderTimeout so an upstream that accepts
+// but never sends headers still cannot hold a connection forever.
+var defaultStreamUpstreamClient = &http.Client{
+	Transport:     proxy.NewStreamTransport(),
+	CheckRedirect: platform.RejectCrossOriginRedirect,
+}
+
 // SetUpstreamConfig sets the package-level upstream forwarding dependencies.
 // Called during server startup to wire in the routing engine and HTTP executor.
 func SetUpstreamConfig(cfg *UpstreamConfig) {
@@ -498,7 +509,7 @@ func dispatchEndpointAttemptWithContinue(
 		req.Header.Set("Authorization", "Bearer "+selected.TokenValue)
 	}
 
-	resp, err := sendUpstreamRequest(cfg, req, proxyConfig, firstByteTimeoutMs)
+	resp, err := sendUpstreamRequest(cfg, req, proxyConfig, firstByteTimeoutMs, effectiveStream)
 	latencyMs := time.Since(startedAt).Milliseconds()
 
 	if err != nil {
@@ -584,10 +595,25 @@ func dispatchEndpointAttemptWithContinue(
 		}
 		// Always close the upstream body, including early client disconnects.
 		var streamUsage ParsedUsage
+		var streamEnd streamOutcome
 		func() {
 			defer resp.Body.Close()
-			streamUsage = handleStreamUpstream(w, r, resp, latencyMs)
+			streamUsage, streamEnd = handleStreamUpstream(w, r, resp, latencyMs)
 		}()
+		if streamEnd == streamEndedIdleTimeout {
+			// Upstream stopped sending chunks mid-stream. The client already
+			// received the relayed prefix plus a final SSE idle-timeout error
+			// event, so the response is terminal (no retry once streaming has
+			// begun). Record via the failure path — channel health, failure
+			// proxy_log and the timeout terminal outcome — with the full
+			// attempt duration, not just the header latency.
+			totalLatencyMs := time.Since(startedAt).Milliseconds()
+			errText := fmt.Sprintf("SSE stream idle timeout: no upstream chunk within %ds", int(streamIdleTimeout().Seconds()))
+			recordUpstreamFailure(r.Context(), cfg, selected, upstreamModel, http.StatusRequestTimeout, errText)
+			writeFailureProxyLog(r.Context(), cfg, selected, ctx, upstreamModel, upstreamPath, totalLatencyMs, http.StatusRequestTimeout, true, streamUsage, retry, requestID, truncateErrText(errText))
+			observeProxyTerminal(ctx, shared.OutcomeTimeout, true, time.Since(startedAt))
+			return true, nil, false
+		}
 		// Observability only: include_usage was on the outbound body but SSE had no usable tokens.
 		// Still record zeros / unknown — never invent tokens.
 		if expectStreamUsage {
@@ -772,16 +798,34 @@ func applyProxyCustomHeaders(req *http.Request, proxyConfig *platform.ProxyConfi
 // sendUpstreamRequest dispatches an upstream HTTP request with optional observed
 // first-byte timeout. firstByteTimeoutMs is milliseconds (0 disables observation).
 // Config PROXY_FIRST_BYTE_TIMEOUT_SEC is seconds; convert via proxy.FirstByteTimeoutMs.
-func sendUpstreamRequest(cfg *UpstreamConfig, req *http.Request, proxyConfig *platform.ProxyConfig, firstByteTimeoutMs int64) (*http.Response, error) {
+//
+// isStream selects the SSE dispatch variants, which carry no whole-request
+// timeout: a flowing stream must not be capped by total elapsed time
+// (PROXY_REQUEST_TIMEOUT_SEC / executor ceiling), because that would also
+// kill long-but-healthy streams. Body-phase liveness is instead enforced per
+// chunk by the relay's idle guard (PROXY_STREAM_IDLE_TIMEOUT_SEC); the
+// header phase stays bounded by first-byte observation and/or the
+// transport's ResponseHeaderTimeout.
+func sendUpstreamRequest(cfg *UpstreamConfig, req *http.Request, proxyConfig *platform.ProxyConfig, firstByteTimeoutMs int64, isStream bool) (*http.Response, error) {
+	hasProxyCfg := proxyConfig != nil && (proxyConfig.ProxyURL != "" || proxyConfig.InsecureSkipTLS)
 	// Executor path: DoWithObservedFirstByte owns the first-byte deadline and
 	// does not cancel the body after headers arrive.
-	if (proxyConfig == nil || (proxyConfig.ProxyURL == "" && !proxyConfig.InsecureSkipTLS)) && cfg != nil && cfg.Executor != nil {
+	if !hasProxyCfg && cfg != nil && cfg.Executor != nil {
+		if isStream {
+			return cfg.Executor.DoStreamWithObservedFirstByte(req.Context(), req, firstByteTimeoutMs)
+		}
 		return cfg.Executor.DoWithObservedFirstByte(req.Context(), req, firstByteTimeoutMs)
 	}
 
 	if firstByteTimeoutMs <= 0 {
-		if proxyConfig != nil && (proxyConfig.ProxyURL != "" || proxyConfig.InsecureSkipTLS) {
+		if hasProxyCfg {
+			if isStream {
+				return platform.DoWithProxyStream(req.Context(), req, proxyConfig)
+			}
 			return platform.DoWithProxy(req.Context(), req, proxyConfig)
+		}
+		if isStream {
+			return defaultStreamUpstreamClient.Do(req)
 		}
 		return defaultUpstreamClient.Do(req)
 	}
@@ -800,8 +844,14 @@ func sendUpstreamRequest(cfg *UpstreamConfig, req *http.Request, proxyConfig *pl
 		resp *http.Response
 		err  error
 	)
-	if proxyConfig != nil && (proxyConfig.ProxyURL != "" || proxyConfig.InsecureSkipTLS) {
-		resp, err = platform.DoWithProxy(reqCtx, req, proxyConfig)
+	if hasProxyCfg {
+		if isStream {
+			resp, err = platform.DoWithProxyStream(reqCtx, req, proxyConfig)
+		} else {
+			resp, err = platform.DoWithProxy(reqCtx, req, proxyConfig)
+		}
+	} else if isStream {
+		resp, err = defaultStreamUpstreamClient.Do(req)
 	} else {
 		resp, err = defaultUpstreamClient.Do(req)
 	}
