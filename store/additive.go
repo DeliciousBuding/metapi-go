@@ -365,6 +365,47 @@ var enterpriseAdditiveSteps = []AdditiveStep{
 			return nil
 		},
 	},
+	{
+		// Wave 18 index audit (admin high-frequency read paths). Pure additive
+		// indexes on base-schema columns, measured on a 300k-proxy_logs audit
+		// fixture before adoption (SQLite EXPLAIN QUERY PLAN + timing):
+		//   - proxy_logs_channel_id_created_at_idx: the proxy-logs page
+		//     "channelId" filter ("why is this channel failing") degraded from
+		//     an ORDER BY created_at scan-until-match into a direct SEARCH
+		//     (~18ms median / >1s tail on sparse channels -> <1ms).
+		//   - proxy_logs_created_at_covering_summary_idx: covering index for
+		//     the range-filtered proxy-logs summary aggregate (COUNT + five
+		//     SUMs); created_at leads so range filters SEARCH, and the
+		//     aggregate columns are satisfied from the index alone instead of
+		//     heap lookups (~3x faster at 300k rows).
+		//   - checkin_logs_status_created_at_idx: the checkin-history status
+		//     filter previously matched on status then re-sorted all matches
+		//     by created_at (temp B-tree); the composite index serves the
+		//     ORDER BY ... DESC LIMIT page directly.
+		// Fresh installs also receive these via this step (AutoMigrate runs
+		// the additive registry after buildIndexes); EnsureIndex uses CREATE
+		// INDEX IF NOT EXISTS so re-runs are no-ops on both dialects.
+		Version:     "sc2_027_admin_read_path_indexes",
+		Description: "indexes for admin read paths: proxy_logs (channel_id, created_at), proxy_logs covering (created_at, status, estimated_cost, total_tokens, prompt_tokens, completion_tokens), checkin_logs (status, created_at)",
+		Apply: func(db *DB) error {
+			for _, idx := range []struct {
+				name string
+				sql  string
+			}{
+				{"proxy_logs_channel_id_created_at_idx",
+					`CREATE INDEX IF NOT EXISTS proxy_logs_channel_id_created_at_idx ON proxy_logs (channel_id, created_at)`},
+				{"proxy_logs_created_at_covering_summary_idx",
+					`CREATE INDEX IF NOT EXISTS proxy_logs_created_at_covering_summary_idx ON proxy_logs (created_at, status, estimated_cost, total_tokens, prompt_tokens, completion_tokens)`},
+				{"checkin_logs_status_created_at_idx",
+					`CREATE INDEX IF NOT EXISTS checkin_logs_status_created_at_idx ON checkin_logs (status, created_at)`},
+			} {
+				if err := EnsureIndex(db, idx.name, idx.sql); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	},
 }
 
 // schemaMigrationsDDL creates the version bookkeeping table.

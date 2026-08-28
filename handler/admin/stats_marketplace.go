@@ -76,6 +76,38 @@ func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 		return acc
 	}
 
+	// Enabled, non-expired tokens for every account in ONE query (Wave 18
+	// N+1 fix): the previous shape re-ran the per-account token query inside
+	// the accountRows loop below — once per model×account availability row,
+	// i.e. hundreds of identical-round-trip queries per marketplace render.
+	// account_tokens is fleet-bounded (a handful of tokens per account), so a
+	// single scan grouped in Go is safe on both dialects. Rows arrive ordered
+	// (account_id, is_default DESC, id ASC), so each account's slice keeps
+	// exactly the ordering the legacy per-account query produced.
+	enabledTokensByAccount := make(map[int64][]map[string]any)
+	enabledTokenRows, err := queryRowsErr(h.db, `
+		SELECT id, account_id, name, is_default
+		FROM account_tokens
+		WHERE enabled = true
+			AND (value_status IS NULL OR value_status <> 'expired')
+		ORDER BY account_id ASC, is_default DESC, id ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	for _, tr := range enabledTokenRows {
+		tid := coerceInt64(tr["id"])
+		if tid <= 0 {
+			continue
+		}
+		accountID := coerceInt64(tr["accountId"])
+		enabledTokensByAccount[accountID] = append(enabledTokensByAccount[accountID], map[string]any{
+			"id":        tid,
+			"name":      coerceString(tr["name"]),
+			"isDefault": coerceInt(tr["isDefault"]) == 1 || coerceString(tr["isDefault"]) == "true" || coerceString(tr["isDefault"]) == "1",
+		})
+	}
+
 	// Account-level availability.
 	accountRows, err := queryRowsErr(h.db, `
 		SELECT
@@ -115,32 +147,15 @@ func (h *statsHandler) buildMarketplaceModels() ([]map[string]any, error) {
 			coerceFloat(row["balance"]),
 			latency,
 		)
-		// Attach enabled tokens for this account (may also appear via token availability).
-		tokenRows, err := queryRowsErr(h.db, `
-			SELECT id, name, is_default
-			FROM account_tokens
-			WHERE account_id = ?
-				AND enabled = true
-				AND (value_status IS NULL OR value_status <> 'expired')
-			ORDER BY is_default DESC, id ASC
-		`, acc.ID)
-		if err != nil {
-			return nil, err
-		}
-		for _, tr := range tokenRows {
-			tid := coerceInt64(tr["id"])
-			if tid <= 0 {
-				continue
-			}
+		// Attach enabled tokens for this account (may also appear via token
+		// availability) from the single pre-loaded batch above.
+		for _, token := range enabledTokensByAccount[acc.ID] {
+			tid := coerceInt64(token["id"])
 			if _, exists := acc.tokenIDs[tid]; exists {
 				continue
 			}
 			acc.tokenIDs[tid] = struct{}{}
-			acc.Tokens = append(acc.Tokens, map[string]any{
-				"id":        tid,
-				"name":      coerceString(tr["name"]),
-				"isDefault": coerceInt(tr["isDefault"]) == 1 || coerceString(tr["isDefault"]) == "true" || coerceString(tr["isDefault"]) == "1",
-			})
+			acc.Tokens = append(acc.Tokens, token)
 		}
 	}
 
