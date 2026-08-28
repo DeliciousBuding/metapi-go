@@ -207,6 +207,22 @@ describe('SiteAnnouncementsPage — list rendering', () => {
     ).toBeInTheDocument()
   })
 
+  it('empty state offers a Sync now CTA that triggers the sync', async () => {
+    mockApi.getSiteAnnouncements.mockResolvedValue([])
+    mockApi.syncSiteAnnouncements.mockResolvedValue({ taskId: 5 })
+    renderPage()
+
+    expect(await screen.findByText('No announcements yet')).toBeInTheDocument()
+    // The header carries a Sync now button too; the empty-state CTA is the
+    // last one in the tree.
+    const syncButtons = screen.getAllByRole('button', { name: 'Sync now' })
+    fireEvent.click(syncButtons.at(-1) as HTMLElement)
+
+    await waitFor(() => {
+      expect(mockApi.syncSiteAnnouncements).toHaveBeenCalledTimes(1)
+    })
+  })
+
   it('surfaces API failures in an error banner with a working Retry', async () => {
     mockApi.getSiteAnnouncements
       .mockRejectedValueOnce(new Error('boom'))

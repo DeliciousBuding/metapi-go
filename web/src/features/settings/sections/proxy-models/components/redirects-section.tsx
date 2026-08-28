@@ -171,9 +171,19 @@ export function RedirectsSection() {
       }
     >
       {items.length === 0 ? (
-        <p className='text-muted-foreground py-8 text-center text-sm'>
-          {t('settings.proxyModels.redirects.empty')}
-        </p>
+        <div className='flex flex-col items-center gap-3 py-8 text-center'>
+          <p className='text-muted-foreground text-sm'>
+            {t('settings.proxyModels.redirects.empty')}
+          </p>
+          <Button
+            size='sm'
+            variant='outline'
+            disabled={generateMutation.isPending}
+            onClick={() => generateMutation.mutate()}
+          >
+            {t('settings.proxyModels.redirects.generate')}
+          </Button>
+        </div>
       ) : (
         <Table>
           <TableHeader>

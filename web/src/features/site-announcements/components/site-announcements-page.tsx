@@ -484,6 +484,22 @@ export function SiteAnnouncementsPage() {
               ? t('siteAnnouncements.empty.filteredDescription')
               : t('siteAnnouncements.empty.description')}
           </p>
+          {!isFiltered ? (
+            <Button
+              variant='outline'
+              size='sm'
+              className='mt-2'
+              disabled={syncMutation.isPending || syncIsActive}
+              onClick={() => syncMutation.mutate()}
+            >
+              {syncMutation.isPending || syncIsActive ? (
+                <Spinner />
+              ) : (
+                <RefreshCw className='size-3.5' />
+              )}
+              {t('siteAnnouncements.actions.sync')}
+            </Button>
+          ) : null}
         </div>
       ) : null}
 

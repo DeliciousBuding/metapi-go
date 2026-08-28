@@ -2361,6 +2361,7 @@
         "loadError": "Failed to load proxy logs: {{message}}",
         "emptyTitle": "No proxy logs",
         "emptyDescription": "Adjust the filter conditions or refresh to view proxy request records.",
+        "emptyAction": "View routes",
         "searchPlaceholder": "Search model / account / token…",
         "filterStatusPlaceholder": "Status",
         "filterSitePlaceholder": "Site",
@@ -2832,7 +2833,8 @@
         "description": "Cross-site effective model pricing with price sources and recommendations (lowest effective cost per model).",
         "searchPlaceholder": "Filter by model…",
         "loadError": "Failed to load price comparison: {{message}}",
-        "emptyDescription": "No price data yet. Connect accounts or run traffic to see effective pricing."
+        "emptyDescription": "No price data yet. Connect accounts or run traffic to see effective pricing.",
+        "emptyAction": "Manage accounts"
       },
       "group": {
         "description": "Effective price per source site, cheapest first. Source priority: billing > observed > configured > fallback (first available wins)."

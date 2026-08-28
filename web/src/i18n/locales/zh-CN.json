@@ -2361,6 +2361,7 @@
         "loadError": "加载代理日志失败：{{message}}",
         "emptyTitle": "暂无代理日志",
         "emptyDescription": "调整筛选条件或稍后刷新以查看代理请求记录。",
+        "emptyAction": "查看路由",
         "searchPlaceholder": "搜索模型 / 账号 / 令牌…",
         "filterStatusPlaceholder": "状态",
         "filterSitePlaceholder": "站点",
@@ -2832,7 +2833,8 @@
         "description": "跨站点有效模型价格，含价格来源与推荐（同模型最低有效成本）。",
         "searchPlaceholder": "按模型筛选…",
         "loadError": "加载价格对比失败：{{message}}",
-        "emptyDescription": "暂无价格数据。连接账号或产生流量后即可查看有效价格。"
+        "emptyDescription": "暂无价格数据。连接账号或产生流量后即可查看有效价格。",
+        "emptyAction": "管理账号"
       },
       "group": {
         "description": "按来源站点的有效价格从低到高。来源优先级：计费明细 > 观测 > 已配置 > 兜底，取可用且优先级最高者。"

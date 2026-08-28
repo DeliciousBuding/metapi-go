@@ -3,6 +3,7 @@
 // i18n: all user-visible strings migrated to t() calls.
 
 import type { Row } from '@tanstack/react-table'
+import { useNavigate } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -159,6 +160,7 @@ function useProxyLogsUrlState() {
 
 export function ProxyLogsPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const {
     globalFilter,
     pagination,
@@ -430,6 +432,14 @@ export function ProxyLogsPage() {
         isFetching={logsQuery.isFetching}
         emptyTitle={t('proxyLogs.page.emptyTitle')}
         emptyDescription={t('proxyLogs.page.emptyDescription')}
+        emptyAction={
+          <Button
+            variant='outline'
+            onClick={() => void navigate({ to: '/token-routes' })}
+          >
+            {t('proxyLogs.page.emptyAction')}
+          </Button>
+        }
         skeletonKeyPrefix='proxy-log-skeleton'
         toolbarProps={{
           searchPlaceholder: t('proxyLogs.page.searchPlaceholder'),
