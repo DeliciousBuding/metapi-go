@@ -192,6 +192,9 @@ describe('apiClient auth interceptor', () => {
     expect(adapterCalls).toHaveLength(1)
     expect(storage.has(TOKEN_KEY)).toBe(true)
     expect(replaceMock).not.toHaveBeenCalled()
-    expect(toastErrorMock).toHaveBeenCalledWith('IP not allowed')
+    // Error toasts carry a message-keyed dedupe id (W19-T1 N4).
+    expect(toastErrorMock).toHaveBeenCalledWith('IP not allowed', {
+      id: 'api-error:IP not allowed',
+    })
   })
 })
