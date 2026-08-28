@@ -189,7 +189,7 @@ export function EndpointsEditor({
   return (
     <div className='space-y-2'>
       {parseBlocked ? (
-        <div className='bg-destructive/10 text-destructive rounded-md border p-3 text-xs'>
+        <div className='bg-destructive/10 text-destructive-soft-fg rounded-md border p-3 text-xs'>
           {t('sites.form.apiEndpointsParseBlocked')}
         </div>
       ) : (

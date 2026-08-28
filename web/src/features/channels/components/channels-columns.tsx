@@ -175,7 +175,7 @@ export function useChannelsColumns(
           return (
             <button
               type='button'
-              className='data-popup-open:bg-accent focus-visible:ring-ring/50 rounded-full outline-none focus-visible:ring-2'
+              className='data-popup-open:bg-accent focus-visible:ring-focus-ring rounded-full outline-none focus-visible:ring-2'
               aria-label={t('channels.reason.openAria', {
                 name: row.original.name,
               })}

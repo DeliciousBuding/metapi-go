@@ -178,7 +178,7 @@ export function SiteProbePanel({ siteId }: { siteId: number }) {
       {phase === 'error' && (
         <div
           role='alert'
-          className='border-destructive/40 bg-destructive/10 text-destructive rounded-md border p-2 text-xs'
+          className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-md border p-2 text-xs'
         >
           <p>
             {t('sites.probe.errorMessage', {

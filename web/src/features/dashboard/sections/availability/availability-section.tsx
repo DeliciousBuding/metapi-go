@@ -340,7 +340,7 @@ function RealtimeOpsPanel() {
             <EmptyHeader>
               <EmptyMedia
                 variant='icon'
-                className='bg-destructive/10 text-destructive'
+                className='bg-destructive/10 text-destructive-soft-fg'
               >
                 <TriangleAlert />
               </EmptyMedia>
@@ -479,7 +479,7 @@ function AttentionPanel() {
             <EmptyHeader>
               <EmptyMedia
                 variant='icon'
-                className='bg-destructive/10 text-destructive'
+                className='bg-destructive/10 text-destructive-soft-fg'
               >
                 <TriangleAlert />
               </EmptyMedia>

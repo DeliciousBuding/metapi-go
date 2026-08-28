@@ -208,7 +208,7 @@ export function TodaySnapshotStrip() {
             to='/dashboard/$section'
             params={{ section: 'availability' }}
             aria-label={t('dashboard.overview.snapshot.attentionOpen')}
-            className='group focus-visible:ring-ring/50 flex min-w-0 flex-col gap-1 rounded-lg outline-none focus-visible:ring-3'
+            className='group focus-visible:ring-focus-ring flex min-w-0 flex-col gap-1 rounded-lg outline-none focus-visible:ring-3'
           >
             <span className='text-muted-foreground truncate text-xs'>
               {t('dashboard.overview.snapshot.attention')}
