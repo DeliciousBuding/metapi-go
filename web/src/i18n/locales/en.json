@@ -393,6 +393,8 @@
       "session": {
         "waiting": "Waiting for authorization…",
         "waitingDescription": "Complete the authorization in the opened tab, or paste the callback URL manually.",
+        "openAuthorization": "Open authorization page",
+        "popupBlockedHint": "If a new tab did not open, your browser may have blocked the pop-up — use this link to open the authorization page manually.",
         "abandonTitle": "Abort authorization?",
         "abandonDescription": "Authorization is still in progress. Closing now stops waiting, and the connection will not be added.",
         "abandonConfirm": "Abort",

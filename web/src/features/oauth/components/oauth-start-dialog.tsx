@@ -29,7 +29,7 @@ import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -58,6 +58,7 @@ import {
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { toast } from '@/lib/toast'
+import { cn } from '@/lib/utils'
 
 import {
   useOAuthProviders,
@@ -95,6 +96,13 @@ export function OAuthStartDialog({
   const [pendingState, setPendingState] = useState<string | null>(null)
   const [instructions, setInstructions] =
     useState<OAuthStartInstructions | null>(null)
+  // The authorization URL returned by the backend. It is opened in a new tab
+  // on submit, but that window.open fires AFTER the startOAuth network
+  // round-trip — outside the browser's transient-activation window — so a
+  // popup blocker can silently swallow it. The URL is therefore kept in
+  // state and rendered as a link in the pending panel so the user can always
+  // open it manually (W19-T1 N3).
+  const [authorizationUrl, setAuthorizationUrl] = useState<string | null>(null)
   const [callbackUrl, setCallbackUrl] = useState('')
   // Which copyable field ('state' | 'redirectUri' | 'sshTunnel' |
   // 'sshTunnelKey') last copied — drives the transient check icon.
@@ -150,6 +158,7 @@ export function OAuthStartDialog({
     if (!open && pendingState) {
       setPendingState(null)
       setInstructions(null)
+      setAuthorizationUrl(null)
       setCallbackUrl('')
       setCallbackInvalid(false)
     }
@@ -169,6 +178,7 @@ export function OAuthStartDialog({
       })
       setPendingState(null)
       setInstructions(null)
+      setAuthorizationUrl(null)
       setCallbackUrl('')
       setCallbackInvalid(false)
       onOpenChange(false)
@@ -201,6 +211,7 @@ export function OAuthStartDialog({
         useSystemProxy: values.useSystemProxy,
       })
       if (result.authorizationUrl) {
+        setAuthorizationUrl(result.authorizationUrl)
         window.open(result.authorizationUrl, '_blank', 'noopener,noreferrer')
       }
       // Keep the dialog open and switch to the pending panel: the backend
@@ -334,6 +345,26 @@ export function OAuthStartDialog({
 
               <div className='grid gap-4'>
                 {statusPanel}
+
+                {authorizationUrl && (
+                  <div className='grid gap-2'>
+                    <a
+                      href={authorizationUrl}
+                      target='_blank'
+                      rel='noopener noreferrer'
+                      className={cn(
+                        buttonVariants({ variant: 'outline', size: 'sm' }),
+                        'w-fit'
+                      )}
+                    >
+                      <ExternalLinkIcon className='size-3.5' />
+                      {t('oauth.session.openAuthorization')}
+                    </a>
+                    <p className='text-muted-foreground text-xs'>
+                      {t('oauth.session.popupBlockedHint')}
+                    </p>
+                  </div>
+                )}
 
                 <div className='grid gap-2'>
                   <p className='text-muted-foreground text-sm'>

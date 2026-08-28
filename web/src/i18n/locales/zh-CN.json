@@ -393,6 +393,8 @@
       "session": {
         "waiting": "等待授权完成…",
         "waitingDescription": "请在打开的标签页中完成授权，或手动粘贴回调地址。",
+        "openAuthorization": "打开授权页面",
+        "popupBlockedHint": "如果新标签页没有自动打开，可能是浏览器拦截了弹窗——请点击此链接手动打开授权页面。",
         "abandonTitle": "中止授权？",
         "abandonDescription": "授权仍在进行中。现在关闭将停止等待，且不会添加该连接。",
         "abandonConfirm": "中止",

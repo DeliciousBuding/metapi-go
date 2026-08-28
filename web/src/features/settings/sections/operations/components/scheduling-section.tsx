@@ -4,7 +4,7 @@
 // cleanup retention/toggles, and the one-click legacy-cron migration card.
 // The legacy "test checkin" button is preserved (POST /api/checkin/trigger).
 
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, type LinkProps } from '@tanstack/react-router'
 import { ScrollText } from 'lucide-react'
 import { useState } from 'react'
@@ -24,6 +24,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { checkinQueryKeys } from '@/features/checkin'
 import {
   api,
   type RuntimeSettingsPayload,
@@ -195,6 +196,7 @@ function schedulingToPayload(
 
 export function SchedulingSection() {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const { data, isLoading, isError, refetch } = useRuntimeSettings()
   const updateMutation = useUpdateRuntimeSettings()
 
@@ -223,6 +225,10 @@ export function SchedulingSection() {
         } | null
       }>,
     onSuccess: (result) => {
+      // The triggered runs land in the /checkin log list — invalidate it so the
+      // new entries surface instead of waiting for the stale window to pass
+      // (W19-T1 N2).
+      void queryClient.invalidateQueries({ queryKey: checkinQueryKeys.logs() })
       const summary = result?.summary
       if (summary && summary.failed > 0) {
         toast.warning(
