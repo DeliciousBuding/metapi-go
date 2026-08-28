@@ -1174,7 +1174,9 @@
             "loadFailed": "加载数据源失败：{{message}}",
             "disabled": "价格目录未启用（PRICING_CATALOG_ENABLED=false）。"
           },
-          "dragToReorder": "拖拽调整顺序"
+          "dragToReorder": "拖拽调整顺序",
+          "reorderRow": "调整 {{name}} 顺序",
+          "reorderInstructions": "键盘调整顺序：聚焦某行的拖拽手柄，按 Enter 或空格键抓起，用上下方向键移动，按空格键放下，按 Esc 取消。"
         },
         "proxyTransport": {
           "title": "代理与传输",
