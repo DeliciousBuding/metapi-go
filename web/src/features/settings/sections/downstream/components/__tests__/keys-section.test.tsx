@@ -41,13 +41,19 @@ import { KeyModelPolicyCell, KeySheetForm, KeyUsageCell } from '../keys-section'
 
 // vi.hoisted keeps the mock fn identities stable across the factory's
 // re-evaluation, so the vi.mock below can reference them by closure.
-const { mockCreateKey, mockUpdateKey, mockToastSuccess, mockToastError } =
-  vi.hoisted(() => ({
-    mockCreateKey: vi.fn(),
-    mockUpdateKey: vi.fn(),
-    mockToastSuccess: vi.fn(),
-    mockToastError: vi.fn(),
-  }))
+const {
+  mockCreateKey,
+  mockUpdateKey,
+  mockGetSites,
+  mockToastSuccess,
+  mockToastError,
+} = vi.hoisted(() => ({
+  mockCreateKey: vi.fn(),
+  mockUpdateKey: vi.fn(),
+  mockGetSites: vi.fn(),
+  mockToastSuccess: vi.fn(),
+  mockToastError: vi.fn(),
+}))
 
 // Mock only the two API methods KeySheetForm actually calls. The rest of the
 // `api` barrel stays absent because the form touches nothing else.
@@ -55,6 +61,7 @@ vi.mock('@/lib/api', () => ({
   api: {
     createDownstreamApiKey: mockCreateKey,
     updateDownstreamApiKey: mockUpdateKey,
+    getSites: mockGetSites,
   },
 }))
 
@@ -87,6 +94,8 @@ beforeAll(() => {
 beforeEach(() => {
   mockCreateKey.mockReset()
   mockUpdateKey.mockReset()
+  mockGetSites.mockReset()
+  mockGetSites.mockResolvedValue([])
   mockToastSuccess.mockReset()
   mockToastError.mockReset()
   // Both mutations resolve successfully so onSuccess → onDone fires.
