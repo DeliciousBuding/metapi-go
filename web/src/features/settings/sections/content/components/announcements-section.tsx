@@ -446,6 +446,7 @@ export function AnnouncementsSection() {
             <Button
               variant='outline'
               onClick={() => guardedEditOpenChange(false)}
+              disabled={upsertMutation.isPending}
             >
               {t('settings.common.cancel')}
             </Button>

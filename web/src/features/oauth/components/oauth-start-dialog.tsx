@@ -28,6 +28,7 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -114,6 +115,20 @@ export function OAuthStartDialog({
     [providersQuery.data]
   )
 
+  const form = useForm<OAuthStartValues>({
+    resolver: zodResolver(oauthStartSchema),
+    defaultValues: OAUTH_START_DEFAULT_VALUES,
+  })
+
+  // The form view closes silently on dirty edits otherwise; intercept the
+  // close and offer the shared discard confirmation (the pending panel has
+  // its own abandon flow, so the guard only applies to the form view).
+  const { handleOpenChange, guard: dirtyGuard } = useDirtyDialogClose({
+    enabled: !pendingState && form.formState.isDirty,
+    onDiscard: () => form.reset(),
+    onOpenChange,
+  })
+
   // The provider <Select> collapses three distinct non-ready states into an
   // empty dropdown otherwise. Branch on the query state so the user sees
   // why there is nothing to pick and how to recover, instead of clicking
@@ -123,11 +138,6 @@ export function OAuthStartDialog({
   const hasEnabledProviders = enabledProviders.length > 0
   const providersReady =
     !providersLoading && !providersError && hasEnabledProviders
-
-  const form = useForm<OAuthStartValues>({
-    resolver: zodResolver(oauthStartSchema),
-    defaultValues: OAUTH_START_DEFAULT_VALUES,
-  })
 
   useEffect(() => {
     if (!open) return
@@ -297,7 +307,7 @@ export function OAuthStartDialog({
       setConfirmAbandonOpen(true)
       return
     }
-    onOpenChange(false)
+    handleOpenChange(false)
   }
 
   return (
@@ -634,7 +644,7 @@ export function OAuthStartDialog({
                     <Button
                       type='button'
                       variant='outline'
-                      onClick={() => onOpenChange(false)}
+                      onClick={requestClose}
                       disabled={isSubmitting}
                     >
                       {t('oauth.form.cancel')}
@@ -671,6 +681,8 @@ export function OAuthStartDialog({
         }}
         onCancel={() => setConfirmAbandonOpen(false)}
       />
+
+      {dirtyGuard}
     </>
   )
 }

@@ -312,3 +312,32 @@ describe('AnnouncementsSection CRUD cache truth', () => {
     })
   })
 })
+
+describe('AnnouncementsSection submitting edit dialog', () => {
+  it('disables Cancel while the save is in flight', async () => {
+    // Hold the create mutation pending so the dialog stays in the saving
+    // state after clicking Save.
+    let release: (value: unknown) => void = () => {}
+    mockCreateAnnouncement.mockReset().mockReturnValue(
+      new Promise((resolve) => {
+        release = resolve
+      })
+    )
+    renderSection()
+    await openCreateDialog()
+    fillRequiredFields()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => {
+      expect(mockCreateAnnouncement).toHaveBeenCalledTimes(1)
+    })
+
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+
+    // Resolving the save closes the dialog (setEditMode(null)).
+    release({ items: [] })
+    await waitFor(() => {
+      expect(screen.queryByText('Create announcement')).toBeNull()
+    })
+  })
+})
