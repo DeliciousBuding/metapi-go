@@ -35,6 +35,10 @@ export default defineConfig(({ envMode }) => {
   ) as Record<string, { target: string; changeOrigin: boolean }>
 
   return {
+    // optimize stays false: rsbuild's default minifier already runs
+    // lightningcss, and enabling pluginTailwindcss `optimize` re-runs it on
+    // the Tailwind output — measured +3.1 kB raw / +0.8 kB gzip on the CSS
+    // bundle (179,325 → 182,456 B raw), so it buys nothing.
     plugins: [pluginReact(), pluginTailwindcss({ optimize: false })],
     // Rsbuild 2: replaces deprecated `performance.chunkSplit` (RSPack 2 aligned)
     splitChunks: {
@@ -57,6 +61,13 @@ export default defineConfig(({ envMode }) => {
         'vendor-tanstack': {
           test: /node_modules[\\/]@tanstack[\\/]/,
           name: 'vendor-tanstack',
+          chunks: 'all',
+          priority: 0,
+          enforce: true,
+        },
+        'vendor-recharts': {
+          test: /node_modules[\\/](recharts|d3-.*|victory-vendor)[\\/]/,
+          name: 'vendor-recharts',
           chunks: 'all',
           priority: 0,
           enforce: true,
@@ -106,7 +117,10 @@ export default defineConfig(({ envMode }) => {
     performance: {
       // Remove console.log in production (keep warn/error for diagnostics)
       removeConsole: isProd ? ['log'] : false,
-      buildCache: false,
+      // Persistent module cache (node_modules/.cache/rspack). Speeds up
+      // incremental rebuilds; output bytes stay identical between a cold and
+      // a warm build (verified by hashing dist/ twice).
+      buildCache: true,
     },
     tools: {
       rspack: {
