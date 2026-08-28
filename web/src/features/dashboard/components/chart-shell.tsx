@@ -29,6 +29,11 @@ type ChartShellProps = {
   loading?: boolean
   /** The chart (recharts SVG or lightweight DOM chart). */
   children: ReactNode
+  /**
+   * Optional screen-reader-only data summary rendered next to the chart
+   * viewport (S10, #1035). Hidden until loading finishes, same as the chart.
+   */
+  summary?: ReactNode
   className?: string
 }
 
@@ -39,6 +44,7 @@ export function ChartShell({
   actions,
   loading = false,
   children,
+  summary,
   className,
 }: ChartShellProps) {
   return (
@@ -58,9 +64,12 @@ export function ChartShell({
         {loading ? (
           <Skeleton className='w-full rounded-md' style={{ height }} />
         ) : (
-          <div className='w-full' style={{ height }}>
-            {children}
-          </div>
+          <>
+            <div className='w-full' style={{ height }}>
+              {children}
+            </div>
+            {summary}
+          </>
         )}
       </CardContent>
     </Card>

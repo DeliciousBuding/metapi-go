@@ -921,6 +921,14 @@
       "charts": {
         "income": "Income",
         "outcome": "Outcome"
+      },
+      "chartSummary": {
+        "seriesColumn": "Series",
+        "totalColumn": "Total",
+        "latestColumn": "Latest day",
+        "netRow": "Net",
+        "spendColumn": "Spend",
+        "callsColumn": "Calls"
       }
     },
     "settings": {

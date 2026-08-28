@@ -14,13 +14,16 @@ import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { api } from '@/lib/api'
+import { formatInt } from '@/lib/format'
 
+import { ChartDataTable } from '../../components/chart-data-table'
 import { ChartShell } from '../../components/chart-shell'
 import {
   LatencyHistogramChart,
   LatencyTrendChart,
   ModelCostChart,
 } from '../../components/charts'
+import { formatChartCurrency } from '../../components/charts-currency'
 import type { ModelCostRow } from '../../types'
 
 function ChartError({ message }: { message: string }) {
@@ -39,6 +42,17 @@ function ChartEmpty({ message }: { message: string }) {
       <p className='text-muted-foreground text-xs'>{message}</p>
     </div>
   )
+}
+
+/** Gate the sr-only summary exactly like the chart body: no summary while
+ * the owning query is loading or failed; the builder itself returns
+ * undefined when the loaded data is empty (S10, #1035). */
+function summaryWhenLoaded(
+  query: { isLoading: boolean; isError: boolean },
+  summaryNode: ReactNode
+): ReactNode {
+  if (query.isLoading || query.isError) return undefined
+  return summaryNode
 }
 
 export function ModelsSection() {
@@ -74,6 +88,35 @@ export function ModelsSection() {
     () => costData.reduce((sum, row) => sum + row.calls, 0),
     [costData]
   )
+
+  // S10 (#1035): sr-only data summary table for the cost donut — recharts
+  // SVG is opaque to screen readers, so the already-loaded per-model rows
+  // are re-presented as a simple series x key-points table. Read-only
+  // presentation layer; no extra requests.
+  const costSummary = useMemo(() => {
+    if (costData.length === 0 || costTotal === 0) return undefined
+    return (
+      <ChartDataTable
+        caption={t('dashboard.models.costDistribution.title')}
+        seriesLabel={t('dashboard.chartSummary.seriesColumn')}
+        columns={[
+          t('dashboard.models.costDistribution.tooltip.cost'),
+          t('dashboard.models.costDistribution.tooltip.calls'),
+          t('dashboard.models.costDistribution.tooltip.tokens'),
+          t('dashboard.models.costDistribution.tooltip.share'),
+        ]}
+        rows={costData.map((row) => ({
+          name: row.label || row.model,
+          values: [
+            formatChartCurrency(row.cost),
+            formatInt(row.calls),
+            Number(row.tokens).toLocaleString(),
+            `${((row.cost / costTotal) * 100).toFixed(1)}%`,
+          ],
+        }))}
+      />
+    )
+  }, [costData, costTotal, t])
 
   const histogramData = useMemo<Array<{ label: string; count: number }>>(
     () =>
@@ -145,6 +188,7 @@ export function ModelsSection() {
         description={t('dashboard.models.costDistribution.description')}
         height={300}
         loading={costQuery.isLoading}
+        summary={summaryWhenLoaded(costQuery, costSummary)}
       >
         {renderChartBody(
           costQuery.isLoading,
