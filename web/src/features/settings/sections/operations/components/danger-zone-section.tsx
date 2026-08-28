@@ -16,21 +16,28 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
 
 import { SettingsSectionCard } from '../../../components/settings-section-card'
 
 const FACTORY_RESET_COUNTDOWN_SECONDS = 3
+// Type-to-confirm word: the countdown stops misclicks but not "read it yet
+// didn't absorb it"; requiring the operator to type the word proves attention
+// (W19-T3 N2 / T1 §0.2, GitHub-style hard gate).
+const FACTORY_RESET_CONFIRM_WORD = 'RESET'
 
 export function DangerZoneSection() {
   const { t } = useTranslation()
   const [factoryResetOpen, setFactoryResetOpen] = useState(false)
   const [countdown, setCountdown] = useState(FACTORY_RESET_COUNTDOWN_SECONDS)
+  const [confirmText, setConfirmText] = useState('')
 
   useEffect(() => {
     if (!factoryResetOpen) {
       setCountdown(FACTORY_RESET_COUNTDOWN_SECONDS)
+      setConfirmText('')
       return
     }
     if (countdown <= 0) {
@@ -89,6 +96,26 @@ export function DangerZoneSection() {
               {t('settings.operations.dangerZone.factoryResetDescription')}
             </DialogDescription>
           </DialogHeader>
+
+          <div className='grid gap-2'>
+            <label
+              htmlFor='factory-reset-confirm-word'
+              className='text-muted-foreground text-sm'
+            >
+              {t('settings.operations.dangerZone.factoryResetTypeHint', {
+                word: FACTORY_RESET_CONFIRM_WORD,
+              })}
+            </label>
+            <Input
+              id='factory-reset-confirm-word'
+              value={confirmText}
+              onChange={(event) => setConfirmText(event.target.value)}
+              placeholder={FACTORY_RESET_CONFIRM_WORD}
+              autoComplete='off'
+              spellCheck={false}
+            />
+          </div>
+
           <DialogFooter>
             <Button
               variant='outline'
@@ -98,7 +125,11 @@ export function DangerZoneSection() {
             </Button>
             <Button
               variant='destructive'
-              disabled={countdown > 0 || factoryResetMutation.isPending}
+              disabled={
+                countdown > 0 ||
+                factoryResetMutation.isPending ||
+                confirmText.trim() !== FACTORY_RESET_CONFIRM_WORD
+              }
               onClick={() => factoryResetMutation.mutate()}
             >
               {countdown > 0

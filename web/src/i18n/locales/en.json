@@ -1752,6 +1752,7 @@
           "factoryReset": "Factory reset",
           "factoryResetTitle": "Factory reset",
           "factoryResetDescription": "This wipes ALL data and reverts to defaults. The admin token will reset to the default. You will be signed out.",
+          "factoryResetTypeHint": "Type \"{{word}}\" below to confirm. This cannot be undone.",
           "factoryResetCountdown": "Wait {{seconds}}s…",
           "factoryResetConfirm": "Wipe everything",
           "toast": {

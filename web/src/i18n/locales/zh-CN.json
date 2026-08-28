@@ -1752,6 +1752,7 @@
           "factoryReset": "恢复出厂设置",
           "factoryResetTitle": "恢复出厂设置",
           "factoryResetDescription": "将清空所有数据并回退默认值。管理员令牌将重置为默认值。您将被登出。",
+          "factoryResetTypeHint": "请在下方输入「{{word}}」以确认。此操作无法撤销。",
           "factoryResetCountdown": "等待 {{seconds}} 秒…",
           "factoryResetConfirm": "全部清空",
           "toast": {
