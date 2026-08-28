@@ -1253,9 +1253,20 @@ func (h *accountsHandler) updateAccount(w http.ResponseWriter, r *http.Request) 
 		updates["sortOrder"] = int64(*so)
 	}
 	if body.ProxyURL != nil {
-		mergeExtraConfigUpdate(map[string]any{
-			"proxyUrl": service.NormalizeNullable(body.ProxyURL),
-		})
+		normalizedProxyURL := strings.TrimSpace(*body.ProxyURL)
+		if normalizedProxyURL != "" && !service.IsValidProxyURL(normalizedProxyURL) {
+			writeErrorWithRequest(w, r, http.StatusBadRequest, "Invalid proxyUrl. Expected a valid http(s)/socks proxy URL.")
+			return
+		}
+		// An explicitly cleared proxyUrl must persist as a deletion (issue
+		// #1009 residual). MergeExtraConfig deletes keys whose patch value is
+		// an untyped nil, so build the patch with a nil interface rather than
+		// a typed (*string)(nil), which would marshal to "proxyUrl": null.
+		var proxyPatch any
+		if normalizedProxyURL != "" {
+			proxyPatch = normalizedProxyURL
+		}
+		mergeExtraConfigUpdate(map[string]any{"proxyUrl": proxyPatch})
 	}
 	// PlatformUserID and skipModelFetch live in extraConfig (same storage as
 	// the create path); merge instead of dropping the form fields.
