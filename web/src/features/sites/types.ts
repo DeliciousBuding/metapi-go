@@ -1,7 +1,7 @@
 // metapi-go/features/sites — domain types for the Sites feature.
 //
-// The backend `/api/sites` surface is untyped in `lib/api.ts` (legacy
-// signatures preserved as `any` during the rewrite). These types are the
+// The backend `/api/sites` surface is typed in `lib/api.ts` (the rewrite
+// replaced the legacy `any` signatures). These types are the
 // feature-level contract: `api.ts` casts responses to `Site` and the
 // components consume them. Field set is derived from the legacy `SiteRow`
 // shape plus `accountCount` (enriched later from the accounts snapshot) so

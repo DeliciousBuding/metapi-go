@@ -70,9 +70,6 @@ function resolveChannelAllocation(
   // hasn't been computed yet. Throwing in the render path would surface to
   // the layout error boundary and blank the whole page, so fall back to a
   // zero-share allocation derived from the channel's own weight instead.
-  if (import.meta.env.DEV) {
-    console.warn(`Missing allocation for route channel ${channel.id}`)
-  }
   return {
     channelId: channel.id,
     configuredWeight: channel.weight,
@@ -154,13 +151,19 @@ export function RouteDetailSheet({
     if (!route) return
     try {
       await clearCooldownMutation.mutateAsync(route.id)
-    } catch {}
+    } catch {
+      // Failure is already toasted by the http-client response interceptor;
+      // nothing to add here.
+    }
   }
 
   const handleRebuild = async () => {
     try {
       await rebuildMutation.mutateAsync({ refreshModels: true })
-    } catch {}
+    } catch {
+      // Failure is already toasted by the http-client response interceptor;
+      // nothing to add here.
+    }
   }
 
   return (

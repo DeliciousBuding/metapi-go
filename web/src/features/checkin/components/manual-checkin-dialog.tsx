@@ -67,7 +67,10 @@ export function ManualCheckinDialog({
       }
       onOpenChange(false)
       setSelectedId(NO_SELECTION)
-    } catch {}
+    } catch {
+      // Failure is already toasted by the http-client response interceptor;
+      // swallowing here keeps the dialog open so the user can retry.
+    }
   }
 
   const isSubmitting = triggerMutation.isPending

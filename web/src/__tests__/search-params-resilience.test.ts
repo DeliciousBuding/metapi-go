@@ -102,7 +102,7 @@ describe('routesSearchSchema', () => {
   it('falls back instead of throwing for page 0 / oversized pageSize', () => {
     const result = routesSearchSchema.parse({ page: 0, pageSize: 9999 })
     expect(result.page).toBe(1)
-    expect(result.pageSize).toBe(9999)
+    expect(result.pageSize).toBe(20)
   })
 })
 

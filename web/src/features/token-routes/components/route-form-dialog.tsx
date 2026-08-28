@@ -171,7 +171,11 @@ export function RouteFormDialog({
       }
       form.reset()
       onOpenChange(false)
-    } catch {}
+    } catch {
+      // Mutation failures (non-2xx and business errors) are already toasted
+      // by the http-client response interceptor; swallowing here keeps the
+      // sheet open with the user's edits intact so they can retry.
+    }
   }
 
   const onInvalid: SubmitErrorHandler<RouteFormValues> = () => {

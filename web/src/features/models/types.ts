@@ -1,7 +1,7 @@
 // metapi-go/features/models — domain types for the Models marketplace feature.
 //
-// The backend `/api/models/marketplace` surface is untyped in `lib/api.ts`
-// (legacy signatures preserved as `any` during the rewrite). These types are
+// The backend `/api/models/marketplace` surface is typed in `lib/api.ts`
+// (the rewrite replaced the legacy `any` signatures). These types are
 // the feature-level contract: `api.ts` casts the response to
 // `ModelsMarketplaceResponse` and the components consume `ModelRow`. Field
 // set is ported verbatim from the legacy `pages/Models.tsx` interfaces so
