@@ -179,10 +179,14 @@ func (s *ChannelRecoveryScheduler) loadCoolingCandidates(dbw *store.DB) []recove
 	}
 	defer rows.Close()
 
+	var scanErr error
 	for rows.Next() {
 		var c recoveryCandidate
 		c.source = "cooldown"
 		if err := rows.Scan(&c.channelID, &c.modelName); err != nil {
+			if scanErr == nil {
+				scanErr = err
+			}
 			continue
 		}
 		// Skip provider-directed cooldown (failCount<=0 && consecutiveFailCount<=0 && cooldownLevel<=0)
@@ -190,6 +194,12 @@ func (s *ChannelRecoveryScheduler) loadCoolingCandidates(dbw *store.DB) []recove
 		if c.modelName != "" {
 			candidates = append(candidates, c)
 		}
+	}
+	if err := rows.Err(); err != nil && scanErr == nil {
+		scanErr = err
+	}
+	if scanErr != nil {
+		slog.Warn("channel-recovery: cooling candidate rows degraded", "error", scanErr)
 	}
 	return candidates
 }
@@ -220,19 +230,30 @@ func (s *ChannelRecoveryScheduler) loadActiveCandidates(dbw *store.DB) []recover
 		LIMIT 50
 	`)
 	if err != nil {
+		slog.Error("channel-recovery: failed to load active candidates", "error", err)
 		return nil
 	}
 	defer rows.Close()
 
+	var scanErr error
 	for rows.Next() {
 		var c recoveryCandidate
 		c.source = "active"
 		if err := rows.Scan(&c.channelID, &c.modelName); err != nil {
+			if scanErr == nil {
+				scanErr = err
+			}
 			continue
 		}
 		if c.modelName != "" {
 			candidates = append(candidates, c)
 		}
+	}
+	if err := rows.Err(); err != nil && scanErr == nil {
+		scanErr = err
+	}
+	if scanErr != nil {
+		slog.Warn("channel-recovery: active candidate rows degraded", "error", scanErr)
 	}
 	return candidates
 }
@@ -273,16 +294,26 @@ func (s *ChannelRecoveryScheduler) loadActiveCandidatesFromIDs(dbw *store.DB, id
 
 	// Preserve provider order where possible.
 	byID := make(map[int64]recoveryCandidate, len(ids))
+	var scanErr error
 	for rows.Next() {
 		var c recoveryCandidate
 		c.source = "active"
 		if err := rows.Scan(&c.channelID, &c.modelName); err != nil {
+			if scanErr == nil {
+				scanErr = err
+			}
 			continue
 		}
 		c.modelName = strings.TrimSpace(c.modelName)
 		if c.modelName != "" {
 			byID[c.channelID] = c
 		}
+	}
+	if err := rows.Err(); err != nil && scanErr == nil {
+		scanErr = err
+	}
+	if scanErr != nil {
+		slog.Warn("channel-recovery: active candidate rows degraded (provider IDs)", "error", scanErr)
 	}
 
 	candidates := make([]recoveryCandidate, 0, len(byID))

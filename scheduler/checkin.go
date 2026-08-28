@@ -399,12 +399,22 @@ func (s *CheckinScheduler) runIntervalPassLocked(dbw *store.DB) {
 	defer rows.Close()
 
 	var candidates []intervalCandidate
+	var scanErr error
 	for rows.Next() {
 		var c intervalCandidate
 		if err := rows.Scan(&c.id, &c.lastCheckinAt); err != nil {
+			if scanErr == nil {
+				scanErr = err
+			}
 			continue
 		}
 		candidates = append(candidates, c)
+	}
+	if err := rows.Err(); err != nil && scanErr == nil {
+		scanErr = err
+	}
+	if scanErr != nil {
+		slog.Warn("checkin interval: candidate rows degraded", "error", scanErr)
 	}
 
 	dueIDs := s.filterDue(candidates, now)

@@ -223,7 +223,9 @@ func newBackupWebdavHTTPTransport() *http.Transport {
 func (s *BackupWebdavScheduler) updateState(store *store.SettingsStore, err error) {
 	previous := map[string]any{}
 	if raw, getErr := store.Get(backupWebdavStateSettingKey); getErr == nil && strings.TrimSpace(raw) != "" {
-		_ = json.Unmarshal([]byte(raw), &previous)
+		if unmarshalErr := json.Unmarshal([]byte(raw), &previous); unmarshalErr != nil {
+			slog.Warn("backup-webdav: previous state is corrupt, resetting", "error", unmarshalErr)
+		}
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
 	state := map[string]any{
@@ -236,8 +238,14 @@ func (s *BackupWebdavScheduler) updateState(store *store.SettingsStore, err erro
 	} else {
 		state["lastSyncAt"] = now
 	}
-	data, _ := json.Marshal(state)
-	store.Set(backupWebdavStateSettingKey, string(data))
+	data, marshalErr := json.Marshal(state)
+	if marshalErr != nil {
+		slog.Warn("backup-webdav: failed to marshal state", "error", marshalErr)
+		return
+	}
+	if setErr := store.Set(backupWebdavStateSettingKey, string(data)); setErr != nil {
+		slog.Warn("backup-webdav: failed to persist state", "error", setErr)
+	}
 }
 
 // loadBackupWebdavConfig reads and normalizes the WebDAV config from DB settings.
@@ -249,6 +257,9 @@ func loadBackupWebdavConfig(s *store.SettingsStore) (*BackupWebdavConfig, error)
 
 	var cfg BackupWebdavConfig
 	if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
+		// The empty return below silently disables WebDAV backup; make the
+		// corrupt setting visible so operators can fix it.
+		slog.Warn("backup-webdav: stored config is corrupt, backup disabled until fixed", "error", err)
 		return &BackupWebdavConfig{}, nil
 	}
 

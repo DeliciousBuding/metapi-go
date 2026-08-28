@@ -154,10 +154,14 @@ func (s *SiteAnnouncementScheduler) runResidualScan(dbw *store.DB) {
 	defer rows.Close()
 
 	count := 0
+	var scanErr error
 	for rows.Next() {
 		var id int64
 		var platform, url string
 		if err := rows.Scan(&id, &platform, &url); err != nil {
+			if scanErr == nil {
+				scanErr = err
+			}
 			continue
 		}
 		_ = id
@@ -165,6 +169,12 @@ func (s *SiteAnnouncementScheduler) runResidualScan(dbw *store.DB) {
 		_ = url
 		// Known limitation: site row is counted only. No adapter / DB write.
 		count++
+	}
+	if err := rows.Err(); err != nil && scanErr == nil {
+		scanErr = err
+	}
+	if scanErr != nil {
+		slog.Warn("site-announcement: residual scan rows degraded", "error", scanErr)
 	}
 
 	slog.Info("site-announcement: residual scan complete (no announcements written)", "sites", count)

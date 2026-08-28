@@ -510,12 +510,18 @@ func (s *ModelProbeScheduler) persistProbeResult(dbw *store.DB, target ProbeTarg
 		errPtr = &e
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
-	_, _ = dbw.Exec(
+	if _, err := dbw.Exec(
 		`INSERT INTO model_probe_results
 			(channel_id, account_id, site_id, model_name, status, latency_ms, http_status, error_text, created_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		target.ChannelID, target.AccountID, target.SiteID, target.ModelName, status, latencyPtr, httpPtr, errPtr, now,
-	)
+	); err != nil {
+		// Best-effort history persistence: probing must continue regardless,
+		// but the write failure must not be invisible. Debug level because
+		// probe runs are high-frequency and the row is non-critical.
+		slog.Debug("model-probe: failed to persist probe result",
+			"channel_id", target.ChannelID, "model", target.ModelName, "error", err)
+	}
 }
 
 // loadProbeTargets selects a budgeted set of active route channels for probing.
