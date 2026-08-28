@@ -2952,6 +2952,12 @@
         "editRouteHint": "Open the parent token route",
         "enabledLabel": "Enabled state",
         "manualOverrideSetActive": "Manually set"
+      },
+      "errorBanner": {
+        "message": "{{count}} channels are failing (cooldown or circuit breaker).",
+        "filterButton": "Show failing",
+        "errorOnlyMode": "Showing failing channels only.",
+        "exitButton": "Show all"
       }
     },
     "probeHealth": {
