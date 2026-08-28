@@ -1,3 +1,17 @@
+# Repository-specific gitleaks rules on top of the default rule set.
+# Keep this conservative: the docs ship placeholder tokens like
+# `AUTH_TOKEN=your-admin-token`, so literal-name rules false-positive. The
+# default rule set (generic high-entropy detection) already covers admin
+# token leaks; this file only adds the product-specific `sk-` downstream key
+# shape that the defaults do not know about.
+
+[[rules]]
+id = "metapi-downstream-api-key"
+description = "Metapi downstream API key (sk- prefixed secret)"
+regex = '''\bsk-[a-zA-Z0-9_-]{20,}\b'''
+entropy = 3.8
+keywords = ["sk-"]
+
 [allowlist]
 description = "Repository-specific false positives"
 paths = [

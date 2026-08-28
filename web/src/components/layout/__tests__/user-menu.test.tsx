@@ -21,7 +21,15 @@ import i18n from '@/i18n/config'
 
 import { UserMenu } from '../components/user-menu'
 
-const { navigateMock } = vi.hoisted(() => ({ navigateMock: vi.fn() }))
+const { navigateMock, clearMonitorSessionMock } = vi.hoisted(() => ({
+  navigateMock: vi.fn(),
+  clearMonitorSessionMock: vi.fn().mockResolvedValue(undefined),
+}))
+
+// user-menu only consumes the monitor-session clearer from the api barrel.
+vi.mock('@/lib/api', () => ({
+  api: { clearMonitorSession: clearMonitorSessionMock },
+}))
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@tanstack/react-router')>()
@@ -75,6 +83,7 @@ afterAll(() => {
 
 beforeEach(async () => {
   navigateMock.mockReset()
+  clearMonitorSessionMock.mockClear()
   localStorage.clear()
   await i18n.changeLanguage('en')
 })
@@ -118,8 +127,22 @@ describe('user menu', () => {
     await openMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: /Sign out/ }))
 
+    // The HttpOnly monitor cookie is cleared server-side while the Bearer
+    // token is still valid; local storage is cleared afterwards.
+    expect(clearMonitorSessionMock).toHaveBeenCalledTimes(1)
     expect(localStorage.getItem('auth_token')).toBeNull()
     expect(localStorage.getItem('auth_token_expires_at')).toBeNull()
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/sign-in' })
+  })
+
+  it('still signs out when the monitor session cleanup fails', async () => {
+    clearMonitorSessionMock.mockRejectedValueOnce(new Error('network down'))
+    localStorage.setItem('auth_token', 'test-token')
+
+    await openMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: /Sign out/ }))
+
+    expect(localStorage.getItem('auth_token')).toBeNull()
     expect(navigateMock).toHaveBeenCalledWith({ to: '/sign-in' })
   })
 })

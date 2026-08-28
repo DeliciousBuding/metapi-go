@@ -437,6 +437,8 @@ function AccountTokenForm({
                 <FormLabel>{t('accounts.tokens.form.value')}</FormLabel>
                 <FormControl>
                   <Input
+                    type='password'
+                    autoComplete='new-password'
                     className='font-mono text-xs'
                     placeholder={
                       isEdit

@@ -16,7 +16,6 @@ export const systemApi = {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
-  initMonitorSession: () => request('/api/monitor/session', { method: 'POST' }),
   // Clears the HttpOnly `meta_monitor_auth` cookie (Path=/monitor-proxy/);
   // must be called while Bearer auth is still valid.
   clearMonitorSession: () =>

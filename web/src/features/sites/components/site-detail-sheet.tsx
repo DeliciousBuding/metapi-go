@@ -31,7 +31,7 @@ import {
   formatRelativeTime,
 } from '@/lib/format'
 
-import { isHttpUrl } from '../lib/endpoints'
+import { isHttpUrl, isValidEndpointUrl } from '../lib/endpoints'
 import { resolveSiteBalanceUsd } from '../lib/site-balance'
 import type { Site, SiteApiEndpoint, SiteStatus } from '../types'
 import { SiteProbePanel } from './site-probe-panel'
@@ -145,15 +145,24 @@ export function SiteDetailSheet({
                   full
                   title={site.externalCheckinUrl}
                 >
-                  <a
-                    href={site.externalCheckinUrl}
-                    target='_blank'
-                    rel='noopener noreferrer'
-                    className='text-primary inline-flex max-w-full items-center gap-1 hover:underline'
-                  >
-                    <span className='truncate'>{site.externalCheckinUrl}</span>
-                    <ExternalLinkIcon className='size-4 shrink-0' />
-                  </a>
+                  {/^https?:\/\//i.test(site.externalCheckinUrl) &&
+                  isValidEndpointUrl(site.externalCheckinUrl) ? (
+                    <a
+                      href={site.externalCheckinUrl}
+                      target='_blank'
+                      rel='noopener noreferrer'
+                      className='text-primary inline-flex max-w-full items-center gap-1 hover:underline'
+                    >
+                      <span className='truncate'>
+                        {site.externalCheckinUrl}
+                      </span>
+                      <ExternalLinkIcon className='size-4 shrink-0' />
+                    </a>
+                  ) : (
+                    <span className='text-muted-foreground truncate'>
+                      {site.externalCheckinUrl}
+                    </span>
+                  )}
                 </DetailField>
               ) : null}
               {site.platform ? (

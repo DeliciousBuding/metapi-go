@@ -16,6 +16,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { isValidEndpointUrl } from '@/features/sites'
 import { toBcp47 } from '@/i18n/languages'
 
 import { formatCheckinLogTime } from '../lib/checkin-time'
@@ -99,14 +100,21 @@ export function CheckinDetailSheet({
             </DetailField>
             {site?.url && (
               <DetailField label={t('checkin.detail.siteUrl')}>
-                <a
-                  href={site.url}
-                  target='_blank'
-                  rel='noopener noreferrer'
-                  className='text-primary underline-offset-4 hover:underline'
-                >
-                  {site.url}
-                </a>
+                {/^https?:\/\//i.test(site.url) &&
+                isValidEndpointUrl(site.url) ? (
+                  <a
+                    href={site.url}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='text-primary underline-offset-4 hover:underline'
+                  >
+                    {site.url}
+                  </a>
+                ) : (
+                  <span className='text-muted-foreground break-all'>
+                    {site.url}
+                  </span>
+                )}
               </DetailField>
             )}
             <DetailField
