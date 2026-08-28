@@ -66,16 +66,12 @@
   },
   "overrides": {
     "brace-expansion": "2.1.1",
-    "dompurify": "3.4.11",
     "fast-uri": "3.1.2",
     "hono": "4.12.22",
     "ip-address": "10.2.0",
-    "js-cookie": "3.0.7",
-    "mermaid": "11.15.0",
     "minimist": "1.2.8",
     "postcss": "8.5.15",
     "qs": "6.15.2",
-    "uuid": "14.0.0",
   },
   "packages": {
     "@adobe/css-tools": ["@adobe/css-tools@4.5.0", "https://registry.npmmirror.com/@adobe/css-tools/-/css-tools-4.5.0.tgz", {}, "sha512-6OzddxPio9UiWTCemp4N8cYLV2ZN1ncRnV1cVGtve7dhPOtRkleRyx32GQCYSwDYgaHU3USMm84tNsvKzRCa1Q=="],

@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ABOUT_INFO } from '@/features/about/api'
+import { api } from '@/lib/api'
 import { clearAuthSession } from '@/lib/auth-session'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -30,6 +31,11 @@ export function UserMenu() {
   const navigate = useNavigate()
 
   const handleSignOut = () => {
+    // Clear the HttpOnly `meta_monitor_auth` cookie server-side while the
+    // Bearer token is still valid — the JS cookie clear inside
+    // clearAuthSession cannot touch HttpOnly cookies. Fire-and-forget: a
+    // failed monitor cleanup must not block sign-out.
+    void api.clearMonitorSession().catch(() => {})
     clearAuthSession()
     useAuthStore.getState().auth.reset()
     navigate({ to: '/sign-in' })

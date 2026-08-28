@@ -71,11 +71,14 @@ function RootComponent() {
   useDocumentTitle()
 
   // Clear the query cache when the auth session changes (login/logout/tab
-  // sync) so stale user-scoped data never leaks across sessions.
+  // sync) so stale user-scoped data never leaks across sessions. The token
+  // model has no server-side session (`auth.session` stays null), so key the
+  // reset on the access token itself: login sets it, logout clears it, and a
+  // token rotation replaces it.
   useEffect(
     () =>
       useAuthStore.subscribe((state, previousState) => {
-        if (state.auth.session?.sid !== previousState.auth.session?.sid) {
+        if (state.auth.accessToken !== previousState.auth.accessToken) {
           queryClient.clear()
         }
       }),
