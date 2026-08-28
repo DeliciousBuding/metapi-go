@@ -633,7 +633,7 @@ export function AccountFormDialog({
                   <FormLabel>{t('accounts.form.proxyUrl')}</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder='https://proxy.example.com'
+                      placeholder='https://proxy.example.com or socks5://proxy.example.com:1080'
                       {...field}
                       value={field.value ?? ''}
                     />

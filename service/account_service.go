@@ -150,6 +150,8 @@ func DecryptPassword(cfg *config.Config, cipherText string) string {
 // ---- ExtraConfig helpers ----
 
 // MergeExtraConfig merges a patch into an existing extraConfig JSON string.
+// A nil patch value (untyped nil) deletes the key; callers must not pass a
+// typed nil pointer, which would marshal to JSON null instead of deleting.
 func MergeExtraConfig(existing *string, patch map[string]any) *string {
 	base := ParseExtraConfig(existing)
 	if base == nil {

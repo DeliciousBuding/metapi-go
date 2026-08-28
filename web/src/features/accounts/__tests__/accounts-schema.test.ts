@@ -216,21 +216,17 @@ describe('getAccountFormSchema — siteId', () => {
 // ---------------------------------------------------------------------------
 
 describe('getAccountFormSchema — proxyUrl', () => {
-  it('accepts an empty / http / https proxyUrl', () => {
-    expect(
-      getAccountFormSchema().safeParse({ ...validSessionForm(), proxyUrl: '' })
-        .success
-    ).toBe(true)
-    expect(
-      getAccountFormSchema().safeParse({
-        ...validSessionForm(),
-        proxyUrl: 'http://p',
-      }).success
-    ).toBe(true)
+  it.each([
+    ['empty', ''],
+    ['http', 'http://p'],
+    ['https', 'https://p'],
+    ['socks5', 'socks5://proxy.example:1080'],
+    ['socks5h', 'socks5h://proxy.example:1080'],
+  ])('accepts a %s proxyUrl', (_label, proxyUrl) => {
     expect(
       getAccountFormSchema().safeParse({
         ...validSessionForm(),
-        proxyUrl: 'https://p',
+        proxyUrl,
       }).success
     ).toBe(true)
   })
@@ -238,6 +234,7 @@ describe('getAccountFormSchema — proxyUrl', () => {
   it.each([
     ['ftp scheme', 'ftp://x'],
     ['bare protocol with no host', 'https://'],
+    ['socks5 with no host', 'socks5://'],
     ['plain string', 'not a url'],
   ])('rejects %s with the dedicated message', (_label, proxyUrl) => {
     const result = getAccountFormSchema().safeParse({
@@ -246,7 +243,10 @@ describe('getAccountFormSchema — proxyUrl', () => {
     })
     expect(result.success).toBe(false)
     if (result.success) return
-    expectLocalized(result.error.issues[0]?.message, '代理地址需为合法 URL')
+    expectLocalized(
+      result.error.issues[0]?.message,
+      '代理地址需以 http://、https://、socks5:// 或 socks5h:// 开头'
+    )
   })
 })
 
@@ -264,15 +264,52 @@ describe('transformFormToPayload', () => {
     return payload as AccountPayload
   }
 
-  it('folds proxyUrl into extraConfig for session mode', () => {
+  it('sends proxyUrl as the single top-level field for session mode', () => {
     const payload = expectPayload({
       ...validSessionForm(),
       proxyUrl: 'http://p',
     })
-    expect(payload.extraConfig).toBe('{"proxyUrl":"http://p"}')
+    expect(payload.proxyUrl).toBe('http://p')
     expect(payload.credentialMode).toBe('session')
     expect(payload.accessToken).toBe('sk-1')
     expect(payload.skipModelFetch).toBeUndefined()
+  })
+
+  it('sends proxyUrl for apikey mode', () => {
+    const payload = transformFormToPayload(
+      {
+        ...validApikeyForm(),
+        proxyUrl: 'socks5://proxy.example:1080',
+      },
+      'create'
+    )
+    expect(payload?.proxyUrl).toBe('socks5://proxy.example:1080')
+  })
+
+  it('omits proxyUrl on create when the field is empty', () => {
+    const payload = expectPayload({ ...validSessionForm(), proxyUrl: '' })
+    expect(payload.proxyUrl).toBeUndefined()
+  })
+
+  it('sends an explicit empty proxyUrl on update so the backend clears it', () => {
+    const session = transformFormToPayload(
+      { ...validSessionForm(), proxyUrl: '' },
+      'update'
+    )
+    expect(session?.proxyUrl).toBe('')
+    const apikey = transformFormToPayload(
+      { ...validApikeyForm(), proxyUrl: '' },
+      'update'
+    )
+    expect(apikey?.proxyUrl).toBe('')
+  })
+
+  it('keeps sending the proxy value on update', () => {
+    const payload = transformFormToPayload(
+      { ...validSessionForm(), proxyUrl: 'socks5h://proxy.example:1080' },
+      'update'
+    )
+    expect(payload?.proxyUrl).toBe('socks5h://proxy.example:1080')
   })
 
   it('sends a single-entry accessTokens array for apikey mode', () => {

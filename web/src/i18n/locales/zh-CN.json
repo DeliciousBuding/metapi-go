@@ -1949,7 +1949,7 @@
       },
       "schema": {
         "siteRequired": "请选择站点",
-        "invalidProxyUrl": "代理地址需为合法 URL",
+        "invalidProxyUrl": "代理地址需以 http://、https://、socks5:// 或 socks5h:// 开头",
         "accessTokenRequired": "请填写 Access Token / Cookie",
         "apiKeyRequired": "请填写 API Key",
         "usernameRequired": "请填写站点用户名",

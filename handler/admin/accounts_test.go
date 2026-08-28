@@ -2654,6 +2654,93 @@ func TestAccounts_Update_ExtraConfigAndProxyURLMergeTogether(t *testing.T) {
 	}
 }
 
+func readAccountExtraConfig(t *testing.T, db *store.DB, accountID int64) map[string]any {
+	t.Helper()
+	var extraConfig *string
+	if err := db.QueryRow("SELECT extra_config FROM accounts WHERE id = ?", accountID).Scan(&extraConfig); err != nil {
+		t.Fatalf("read extra_config: %v", err)
+	}
+	cfg := map[string]any{}
+	if extraConfig != nil && strings.TrimSpace(*extraConfig) != "" {
+		if err := json.Unmarshal([]byte(*extraConfig), &cfg); err != nil {
+			t.Fatalf("decode extra_config %q: %v", *extraConfig, err)
+		}
+	}
+	return cfg
+}
+
+// Issue #1009 residual: clearing the account proxy field and saving must
+// persist the clear. The update contract is: proxyUrl omitted -> keep the
+// stored value; present with a value -> replace; present empty -> delete
+// extraConfig.proxyUrl.
+func TestAccounts_Update_ProxyURL_ClearWithEmptyString(t *testing.T) {
+	db, r, _ := setupAccountsTest(t)
+	_, accountID := setupAccountFixtureWithSite(t, db, r, "ProxyClearSite", "https://api.openai.com")
+	url := "/api/accounts/" + itoa(accountID)
+
+	// Seed: set a socks5 proxy plus an unrelated extraConfig key.
+	resp := doPutJSON(t, r, url, map[string]any{
+		"extraConfig": map[string]any{"useSystemProxy": true},
+		"proxyUrl":    "socks5://proxy.example:1080",
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("seed proxy: %d %s", resp.Code, resp.Body.String())
+	}
+	if got := readAccountExtraConfig(t, db, accountID)["proxyUrl"]; got != "socks5://proxy.example:1080" {
+		t.Fatalf("seeded proxyUrl = %#v, want socks5://proxy.example:1080", got)
+	}
+
+	// Clear with an explicit empty string.
+	resp = doPutJSON(t, r, url, map[string]any{"proxyUrl": ""})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("clear proxy: %d %s", resp.Code, resp.Body.String())
+	}
+	cfg := readAccountExtraConfig(t, db, accountID)
+	if _, stillSet := cfg["proxyUrl"]; stillSet {
+		t.Fatalf("proxyUrl = %#v after clear, want deleted from extraConfig", cfg["proxyUrl"])
+	}
+	if cfg["useSystemProxy"] != true {
+		t.Fatalf("useSystemProxy = %#v, want unrelated extraConfig keys preserved on clear", cfg["useSystemProxy"])
+	}
+
+	// Omitting proxyUrl entirely keeps the stored value.
+	resp = doPutJSON(t, r, url, map[string]any{"proxyUrl": "http://kept-proxy:8080"})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("reset proxy: %d %s", resp.Code, resp.Body.String())
+	}
+	resp = doPutJSON(t, r, url, map[string]any{"checkinEnabled": true})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("unrelated update: %d %s", resp.Code, resp.Body.String())
+	}
+	if got := readAccountExtraConfig(t, db, accountID)["proxyUrl"]; got != "http://kept-proxy:8080" {
+		t.Fatalf("proxyUrl = %#v after omitted-field update, want preserved", got)
+	}
+}
+
+func TestAccounts_Update_ProxyURL_SchemeValidation(t *testing.T) {
+	db, r, _ := setupAccountsTest(t)
+	_, accountID := setupAccountFixtureWithSite(t, db, r, "ProxySchemeSite", "https://api.openai.com")
+	url := "/api/accounts/" + itoa(accountID)
+
+	for _, valid := range []string{"socks5://proxy.example:1080", "socks5h://proxy.example:1080", "https://proxy.example:8443"} {
+		resp := doPutJSON(t, r, url, map[string]any{"proxyUrl": valid})
+		if resp.Code != http.StatusOK {
+			t.Fatalf("update %q: %d %s", valid, resp.Code, resp.Body.String())
+		}
+		if got := readAccountExtraConfig(t, db, accountID)["proxyUrl"]; got != valid {
+			t.Fatalf("proxyUrl = %#v, want %q", got, valid)
+		}
+	}
+
+	resp := doPutJSON(t, r, url, map[string]any{"proxyUrl": "ftp://not-supported"})
+	if resp.Code != http.StatusBadRequest {
+		t.Fatalf("invalid scheme: %d %s, want 400", resp.Code, resp.Body.String())
+	}
+	if got := readAccountExtraConfig(t, db, accountID)["proxyUrl"]; got != "https://proxy.example:8443" {
+		t.Fatalf("proxyUrl = %#v after rejected update, want previous value kept", got)
+	}
+}
+
 func TestListAccounts_RedactsAccessTokenAndAPIToken(t *testing.T) {
 	db, _, _ := setupAccountsTest(t)
 	now := time.Now().UTC().Format(time.RFC3339)

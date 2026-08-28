@@ -503,9 +503,13 @@ Global tag system: per-row writes and the aggregated index driving the Accounts/
 
 List all accounts. Create a new account.
 
+**Body** (create, optional): `proxyUrl` — per-account egress proxy stored in `extraConfig.proxyUrl`; accepted schemes are `http://`, `https://`, `socks5://`, `socks5h://` (SOCKS5 runs natively on Go's `net/http` transport). Invalid schemes return `400`.
+
 ### GET /api/accounts/:id, PUT /api/accounts/:id, DELETE /api/accounts/:id
 
 Get, update, delete an account.
+
+**`proxyUrl` update semantics**: field omitted → keep the stored proxy; present with a value → replace (same scheme validation as create); present empty (`""`) → delete `extraConfig.proxyUrl`.
 
 ### GET /api/accounts/probe-history
 

@@ -1949,7 +1949,7 @@
       },
       "schema": {
         "siteRequired": "Please select a site",
-        "invalidProxyUrl": "Proxy URL must be a valid URL",
+        "invalidProxyUrl": "Proxy URL must start with http://, https://, socks5:// or socks5h://",
         "accessTokenRequired": "Please enter the Access Token / Cookie",
         "apiKeyRequired": "Please enter the API Key",
         "usernameRequired": "Please enter the site username",
