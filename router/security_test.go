@@ -39,9 +39,12 @@ func extractCSPNonce(t *testing.T, csp string) string {
 // gets a fresh, full-entropy nonce — reusing one across requests would let an
 // injected element from page load N pass the policy of page load N+1.
 func TestCSPNonceRandomPerRequest(t *testing.T) {
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:  "admin-token",
+		ProxyToken: "proxy-token",
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	cfg := &config.Config{
-		AuthToken:        "admin-token",
-		ProxyToken:       "proxy-token",
 		RequestBodyLimit: config.DefaultRequestBodyLimit,
 	}
 	r := New(cfg, web.Dist)
@@ -76,9 +79,12 @@ func TestCSPNonceRandomPerRequest(t *testing.T) {
 // <style> injectors (chart colors, dialog scroll lock) can stamp their
 // elements. Asserted on the real embedded dist.
 func TestSPAFallbackInjectsNonceMetaMatchingHeader(t *testing.T) {
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:  "admin-token",
+		ProxyToken: "proxy-token",
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	cfg := &config.Config{
-		AuthToken:        "admin-token",
-		ProxyToken:       "proxy-token",
 		RequestBodyLimit: config.DefaultRequestBodyLimit,
 	}
 	r := New(cfg, web.Dist)
