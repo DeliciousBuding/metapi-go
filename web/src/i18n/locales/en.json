@@ -944,6 +944,8 @@
         "seriesColumn": "Series",
         "totalColumn": "Total",
         "latestColumn": "Latest day",
+        "bucketColumn": "Latency bucket",
+        "averageColumn": "Average",
         "netRow": "Net",
         "spendColumn": "Spend",
         "callsColumn": "Calls"
