@@ -1,6 +1,6 @@
 # Testing Strategy and Real-Platform Testbed
 
-**Last verified**: 2026-08-16
+**Last verified**: 2026-08-29
 
 > Public, environment-agnostic test guidance. Product state lives in [`STATE.md`](internal/STATE.md); open outcomes live in [`progress/MASTER.md`](internal/progress/MASTER.md).
 
@@ -14,6 +14,38 @@
 | Real-service CI           | `.github/workflows/main.yml`                                                         | New API, One API, Sub2API and CLIProxyAPI detect/login/route/proxy chains in service containers, plus cross-OS binary runtime smoke (`runtime-smoke-matrix`) |
 | Frontend acceptance       | [`../web/scripts/acceptance-e2e.mjs`](../web/scripts/acceptance-e2e.mjs) (+ [`acceptance-probe-header-quirk.mjs`](../web/scripts/acceptance-probe-header-quirk.mjs) for the fresh-site accounts-page race) | Real-browser user journeys (Playwright) against a live metapi + real upstream; operator-gated, not a PR check |
 | Operator runtime evidence | `scripts/e2e/*.sh` and focused staging procedures                                    | Compatibility that requires real credentials, topology, or upstream behavior |
+
+## Race-detector budget (local push gate)
+
+The pre-push gate (`scripts/go-race.sh`, chained from
+`.githooks/pre-push-project`) runs the full suite under `-race` with a
+per-package timeout. The default is **900s**; override it with
+`METAPI_RACE_TIMEOUT_SECONDS=<seconds>` when a host needs more headroom.
+
+Why 900s (measured, August 2026):
+
+- Six independent development lanes hit the old 300s default on
+  `handler/admin` while parallel lanes contended for an 8GB WSL VM on a slow
+  `/mnt/d` 9p mount. Isolated measurements of `handler/admin` under
+  `-race` range **217-364s** depending on host load; the master baseline is
+  equally critical.
+- CI gives each package ~10 minutes (Go's default `go test` timeout) inside
+  30-minute shard jobs, so 900s matches both CI headroom and the measured
+  worst cases.
+
+Operational guidance:
+
+- Stagger push gates: keep race lanes to **4 or fewer concurrent** on one dev
+  host. Beyond that, per-package times inflate and gates time out for
+  environmental reasons, not code regressions.
+- On a timeout the gate prints a one-line hint; raise the knob (for example
+  `METAPI_RACE_TIMEOUT_SECONDS=1500`) rather than skipping the gate.
+  `git push --no-verify` is emergency-only.
+
+CI is unaffected by this default: `.github/workflows/main.yml` never calls
+`go-race.sh`. It shards packages across four runners and runs `go test
+-race` with Go's default 10-minute per-package timeout, so raising the local
+gate default cannot weaken CI.
 
 ## Golden snapshot suites (protocol conversion)
 
