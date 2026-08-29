@@ -238,67 +238,64 @@ export function ChannelsPage() {
         </p>
       </div>
 
-      {channelsPageQuery.error ? (
-        <QueryErrorBanner
-          error={channelsPageQuery.error as Error | null}
-          messageKey='channels.page.loadError'
-          onRetry={() => {
-            void channelsPageQuery.refetch()
-            void errorSummaryQuery.refetch()
-          }}
-          isRetrying={channelsPageQuery.isFetching}
-        />
-      ) : (
-        <>
-          {errorSummaryQuery.error && !errorSummaryQuery.data ? (
-            <QueryErrorBanner
-              error={errorSummaryQuery.error as Error | null}
-              messageKey='channels.page.loadError'
-              onRetry={() => errorSummaryQuery.refetch()}
-              isRetrying={errorSummaryQuery.isFetching}
-            />
-          ) : (
-            <ChannelsErrorBanner
-              errorCount={errorChannelCount}
-              showErrorOnly={showErrorOnly}
-              onFilterErrors={handleFilterErrors}
-              onExitErrorOnly={handleExitErrorOnly}
-            />
-          )}
-          <DataTablePage
-            table={table}
-            columns={columns}
-            isLoading={channelsPageQuery.isLoading}
-            isFetching={channelsPageQuery.isFetching}
-            emptyTitle={t('channels.empty.title')}
-            emptyDescription={t('channels.empty.description')}
-            emptyAction={
-              <Button
-                variant='outline'
-                onClick={() => void navigate({ to: '/accounts' })}
-              >
-                <Users className='size-4' />
-                {t('channels.empty.manageAccounts')}
-              </Button>
-            }
-            skeletonKeyPrefix='channel-skeleton'
-            toolbarProps={{
-              searchPlaceholder: t('channels.toolbar.searchPlaceholder'),
-              searchDebounceMs: 400,
-              filters: [
-                {
-                  columnId: 'status',
-                  title: t('channels.columns.status'),
-                  options: CHANNELS_STATUS_FILTER_OPTIONS.map((option) => ({
-                    label: t(option.labelKey),
-                    value: option.value,
-                  })),
-                },
-              ],
-            }}
+      {/* S7: the main list-query error is owned by DataTablePage (replace
+          placement); the error-summary strip only shows when the list itself
+          loaded, matching the pre-S7 else-branch behavior. */}
+      {!channelsPageQuery.error &&
+        (errorSummaryQuery.error && !errorSummaryQuery.data ? (
+          <QueryErrorBanner
+            error={errorSummaryQuery.error as Error | null}
+            messageKey='channels.page.loadError'
+            onRetry={() => errorSummaryQuery.refetch()}
+            isRetrying={errorSummaryQuery.isFetching}
           />
-        </>
-      )}
+        ) : (
+          <ChannelsErrorBanner
+            errorCount={errorChannelCount}
+            showErrorOnly={showErrorOnly}
+            onFilterErrors={handleFilterErrors}
+            onExitErrorOnly={handleExitErrorOnly}
+          />
+        ))}
+      <DataTablePage
+        table={table}
+        columns={columns}
+        isLoading={channelsPageQuery.isLoading}
+        isFetching={channelsPageQuery.isFetching}
+        error={channelsPageQuery.error as Error | null}
+        errorMessageKey='channels.page.loadError'
+        onErrorRetry={() => {
+          void channelsPageQuery.refetch()
+          void errorSummaryQuery.refetch()
+        }}
+        isErrorRetrying={channelsPageQuery.isFetching}
+        emptyTitle={t('channels.empty.title')}
+        emptyDescription={t('channels.empty.description')}
+        emptyAction={
+          <Button
+            variant='outline'
+            onClick={() => void navigate({ to: '/accounts' })}
+          >
+            <Users className='size-4' />
+            {t('channels.empty.manageAccounts')}
+          </Button>
+        }
+        skeletonKeyPrefix='channel-skeleton'
+        toolbarProps={{
+          searchPlaceholder: t('channels.toolbar.searchPlaceholder'),
+          searchDebounceMs: 400,
+          filters: [
+            {
+              columnId: 'status',
+              title: t('channels.columns.status'),
+              options: CHANNELS_STATUS_FILTER_OPTIONS.map((option) => ({
+                label: t(option.labelKey),
+                value: option.value,
+              })),
+            },
+          ],
+        }}
+      />
 
       <CooldownReasonDialog
         channel={reasonChannel}

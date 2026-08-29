@@ -8,7 +8,7 @@ import {
   useReactTable,
   type ColumnDef,
 } from '@tanstack/react-table'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import '@/i18n/config'
@@ -86,5 +86,56 @@ describe('DataTablePage background refetch indicator', () => {
     expect(screen.getByText('alpha')).toBeInTheDocument()
     expect(container.querySelector('.pointer-events-none')).toBeNull()
     expect(container.querySelector('.opacity-80')).toBeNull()
+  })
+})
+
+describe('DataTablePage error contract (S7)', () => {
+  function renderWithError(options: {
+    placement?: 'replace' | 'inline'
+    onRetry?: () => void
+  }) {
+    function Harness() {
+      const table = useReactTable({
+        data: probeRows,
+        columns: probeColumns,
+        getCoreRowModel: getCoreRowModel(),
+      })
+      return (
+        <DataTablePage
+          table={table}
+          columns={probeColumns}
+          error={new Error('boom')}
+          errorMessageKey='sites.page.loadError'
+          onErrorRetry={options.onRetry}
+          errorPlacement={options.placement}
+          toolbarProps={null}
+          showPagination={false}
+        />
+      )
+    }
+    return render(<Harness />)
+  }
+
+  it('replace placement swaps the whole table region for the banner', () => {
+    renderWithError({})
+
+    expect(screen.getByRole('alert')).toHaveTextContent('boom')
+    // Stale rows must not read as current data.
+    expect(screen.queryByText('alpha')).not.toBeInTheDocument()
+  })
+
+  it('inline placement keeps the rows visible under the banner', () => {
+    renderWithError({ placement: 'inline' })
+
+    expect(screen.getByRole('alert')).toHaveTextContent('boom')
+    expect(screen.getByText('alpha')).toBeInTheDocument()
+  })
+
+  it('banner Retry invokes onErrorRetry', () => {
+    const onRetry = vi.fn()
+    renderWithError({ onRetry })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    expect(onRetry).toHaveBeenCalledTimes(1)
   })
 })

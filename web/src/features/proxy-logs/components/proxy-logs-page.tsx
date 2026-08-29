@@ -439,19 +439,17 @@ export function ProxyLogsPage() {
         isRetrying={metaQuery.isFetching}
       />
 
-      <QueryErrorBanner
-        error={logsQuery.error as Error | null}
-        messageKey='proxyLogs.page.loadError'
-        onRetry={() => logsQuery.refetch()}
-        isRetrying={logsQuery.isFetching}
-      />
-
       <DataTablePage
         table={table}
         columns={columns}
         renderRow={renderRow}
         isLoading={logsQuery.isLoading}
         isFetching={logsQuery.isFetching}
+        error={logsQuery.error as Error | null}
+        errorMessageKey='proxyLogs.page.loadError'
+        onErrorRetry={() => logsQuery.refetch()}
+        isErrorRetrying={logsQuery.isFetching}
+        errorPlacement='inline'
         emptyTitle={t('proxyLogs.page.emptyTitle')}
         emptyDescription={t('proxyLogs.page.emptyDescription')}
         emptyAction={

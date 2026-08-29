@@ -39,33 +39,54 @@ vi.mock('@tanstack/react-router', () => ({
   useSearch: () => testState.search,
 }))
 
-vi.mock('@/components/data-table', () => ({
-  DataTableBulkActions: () => null,
-  // Sentinel component so the error-state test can assert the table page is
-  // NOT rendered (and therefore the empty-state CTA inside it is absent).
-  DataTablePage: () => {
-    testState.dataTableRendered = true
-    return null
-  },
-  useUrlTableState: () => ({
-    globalFilter: '',
-    onGlobalFilterChange: vi.fn(),
-    columnFilters: [],
-    onColumnFiltersChange: vi.fn(),
-    pagination: { pageIndex: 0, pageSize: 20 },
-    onPaginationChange: vi.fn(),
-    sorting: [],
-    onSortingChange: vi.fn(),
-    ensurePageInRange: vi.fn(),
-  }),
-  useDataTable: () => ({
-    table: {
-      getFilteredSelectedRowModel: () => ({ rows: [] }),
-      resetRowSelection: vi.fn(),
+vi.mock('@/components/data-table', async () => {
+  const { QueryErrorBanner } =
+    await import('@/components/common/query-error-banner')
+  return {
+    DataTableBulkActions: () => null,
+    // Sentinel component so the error-state test can assert the table page is
+    // NOT rendered (and therefore the empty-state CTA inside it is absent).
+    // The S7 error contract lives in the real DataTablePage; the stub honors
+    // it so the page-level test verifies the error/refetch wiring.
+    DataTablePage: (props: {
+      error?: Error | null
+      errorMessageKey?: string
+      onErrorRetry?: () => void
+      isErrorRetrying?: boolean
+    }) => {
+      if (props.error) {
+        return (
+          <QueryErrorBanner
+            error={props.error}
+            messageKey={props.errorMessageKey ?? ''}
+            onRetry={props.onErrorRetry}
+            isRetrying={props.isErrorRetrying}
+          />
+        )
+      }
+      testState.dataTableRendered = true
+      return null
     },
-  }),
-  encodeSorting: () => '',
-}))
+    useUrlTableState: () => ({
+      globalFilter: '',
+      onGlobalFilterChange: vi.fn(),
+      columnFilters: [],
+      onColumnFiltersChange: vi.fn(),
+      pagination: { pageIndex: 0, pageSize: 20 },
+      onPaginationChange: vi.fn(),
+      sorting: [],
+      onSortingChange: vi.fn(),
+      ensurePageInRange: vi.fn(),
+    }),
+    useDataTable: () => ({
+      table: {
+        getFilteredSelectedRowModel: () => ({ rows: [] }),
+        resetRowSelection: vi.fn(),
+      },
+    }),
+    encodeSorting: () => '',
+  }
+})
 
 vi.mock('@/features/accounts', () => ({
   useAccounts: () => ({ data: { accounts: [] }, isLoading: false }),

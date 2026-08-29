@@ -9,7 +9,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
-import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import {
   DataTableBulkActions,
   DataTablePage,
@@ -445,80 +444,75 @@ export function RoutesPage() {
         </div>
       )}
 
-      {error ? (
-        <QueryErrorBanner
-          error={error as Error | null}
-          messageKey='tokenRoutes.page.loadError'
-          onRetry={() => refetch()}
-          isRetrying={isFetching}
-        />
-      ) : (
-        <DataTablePage
-          table={table}
-          columns={columns}
-          isLoading={isLoading}
-          isFetching={isFetching}
-          emptyTitle={t('tokenRoutes.page.emptyTitle')}
-          emptyDescription={t('tokenRoutes.page.emptyDescription')}
-          emptyAction={
-            <div className='flex items-center gap-2'>
-              <Button onClick={openCreate}>
-                <Plus />
-                {t('tokenRoutes.page.addButton')}
-              </Button>
-              <Button
-                variant='outline'
-                onClick={() => setRebuildConfirmOpen(true)}
-                disabled={rebuildMutation.isPending}
-              >
-                {rebuildMutation.isPending ? <Spinner /> : <Zap />}
-                {t('tokenRoutes.page.rebuild')}
-              </Button>
-            </div>
-          }
-          skeletonKeyPrefix='routes-skeleton'
-          toolbarProps={{
-            searchPlaceholder: t('tokenRoutes.page.searchPlaceholder'),
-            searchDebounceMs: 300,
-            viewToggle: (
-              // min-w-0 + truncated span so the long "显示零通道模型…" label
-              // can shrink on narrow viewports instead of pushing the View
-              // Options button past the toolbar edge (375px overflow fix).
-              <label
-                className='text-muted-foreground flex min-w-0 items-center gap-1.5 text-sm'
-                title={t('tokenRoutes.page.showZeroChannel')}
-              >
-                <Switch
-                  className='shrink-0'
-                  checked={showZeroChannel}
-                  onCheckedChange={setShowZeroChannel}
-                />
-                <span className='max-w-[150px] min-w-0 truncate sm:max-w-[280px]'>
-                  {t('tokenRoutes.page.showZeroChannel')}
-                </span>
-              </label>
-            ),
-            filters: [
-              {
-                columnId: 'enabled',
-                title: t('tokenRoutes.page.filterStatusTitle'),
-                singleSelect: true,
-                options: [
-                  {
-                    label: t('tokenRoutes.page.filterStatusEnabled'),
-                    value: 'enabled',
-                  },
-                  {
-                    label: t('tokenRoutes.page.filterStatusDisabled'),
-                    value: 'disabled',
-                  },
-                ],
-              },
-            ],
-          }}
-          bulkActions={<RoutesBulkActions table={table} />}
-        />
-      )}
+      <DataTablePage
+        table={table}
+        columns={columns}
+        isLoading={isLoading}
+        isFetching={isFetching}
+        error={error as Error | null}
+        errorMessageKey='tokenRoutes.page.loadError'
+        onErrorRetry={() => refetch()}
+        isErrorRetrying={isFetching}
+        emptyTitle={t('tokenRoutes.page.emptyTitle')}
+        emptyDescription={t('tokenRoutes.page.emptyDescription')}
+        emptyAction={
+          <div className='flex items-center gap-2'>
+            <Button onClick={openCreate}>
+              <Plus />
+              {t('tokenRoutes.page.addButton')}
+            </Button>
+            <Button
+              variant='outline'
+              onClick={() => setRebuildConfirmOpen(true)}
+              disabled={rebuildMutation.isPending}
+            >
+              {rebuildMutation.isPending ? <Spinner /> : <Zap />}
+              {t('tokenRoutes.page.rebuild')}
+            </Button>
+          </div>
+        }
+        skeletonKeyPrefix='routes-skeleton'
+        toolbarProps={{
+          searchPlaceholder: t('tokenRoutes.page.searchPlaceholder'),
+          searchDebounceMs: 300,
+          viewToggle: (
+            // min-w-0 + truncated span so the long "显示零通道模型…" label
+            // can shrink on narrow viewports instead of pushing the View
+            // Options button past the toolbar edge (375px overflow fix).
+            <label
+              className='text-muted-foreground flex min-w-0 items-center gap-1.5 text-sm'
+              title={t('tokenRoutes.page.showZeroChannel')}
+            >
+              <Switch
+                className='shrink-0'
+                checked={showZeroChannel}
+                onCheckedChange={setShowZeroChannel}
+              />
+              <span className='max-w-[150px] min-w-0 truncate sm:max-w-[280px]'>
+                {t('tokenRoutes.page.showZeroChannel')}
+              </span>
+            </label>
+          ),
+          filters: [
+            {
+              columnId: 'enabled',
+              title: t('tokenRoutes.page.filterStatusTitle'),
+              singleSelect: true,
+              options: [
+                {
+                  label: t('tokenRoutes.page.filterStatusEnabled'),
+                  value: 'enabled',
+                },
+                {
+                  label: t('tokenRoutes.page.filterStatusDisabled'),
+                  value: 'disabled',
+                },
+              ],
+            },
+          ],
+        }}
+        bulkActions={<RoutesBulkActions table={table} />}
+      />
 
       <RouteFormDialog
         open={formOpen}
