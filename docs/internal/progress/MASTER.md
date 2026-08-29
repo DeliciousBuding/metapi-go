@@ -14,11 +14,10 @@
 
 | # | 内容 | 建议验收 |
 |---|---|---|
-| F2 | **site-form 抽屉迁移**（原 W19 D2）：919 行居中 Dialog → 右侧 Sheet（对齐 accounts-form 既有形态；宽度保持 sm:max-w-2xl，dirty 守卫语义不变） | 双视口截图 + 契约测试回归 |
 | F3 | **后端告警文案 i18n**（P3）：`stats_balance.go` `Low balance: %s` 等硬编码英文，事件持久化 + 后端无 locale 上下文，需 key 映射架构改动 | 双语告警事件端到端 |
 | C4 | **#1035 剩余专题**：S7/S8、S10 双语 CI（S2 CSP / S4 errorCode / S5 边界 / S6 cmdk actions 已交付；S9 大表服务端分页主体已交付：accounts/models/channels/checkin/oauth/proxy-logs/audit-logs） | 按各专题验收 |
 
-F4（docs/api.md 超预算拆分）已交付（2026-08-30）：`docs/api.md` 保留为索引，按域拆为 `docs/api/*.md` 17 个文件，全部原有 H2/H3 标题以 stub 承接、旧 anchor 落位。
+F2（site-form 抽屉迁移）已交付（#1082）：居中 Dialog → 右侧 Sheet。F4（docs/api.md 超预算拆分）已交付（2026-08-30）：`docs/api.md` 保留为索引，按域拆为 `docs/api/*.md` 17 个文件，全部原有 H2/H3 标题以 stub 承接、旧 anchor 落位。
 
 挑选条件：需求驱动或维护者确认；选定后按既有模式开短命分支、定验收门槛（本地全门禁 → 12-check CI → squash merge）。**并行推送教训**：8+ lane 并发 pre-push 时 `handler/admin` -race 曾撞 300s 默认预算（已升至 900s，#1063），建议错峰推送或 ≤4 并发。
 
