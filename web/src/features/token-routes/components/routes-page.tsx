@@ -26,6 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Notice } from '@/components/ui/notice'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { useAccounts } from '@/features/accounts/api'
@@ -446,11 +447,11 @@ export function RoutesPage() {
 
       {error ? (
         <div className='flex flex-col gap-3'>
-          <div className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg rounded-lg border p-3 text-sm'>
+          <Notice tone='destructive'>
             {t('tokenRoutes.page.loadError', {
               message: (error as Error).message,
             })}
-          </div>
+          </Notice>
           <div>
             <Button
               variant='secondary'

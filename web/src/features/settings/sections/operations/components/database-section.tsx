@@ -21,6 +21,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Notice } from '@/components/ui/notice'
 import {
   Select,
   SelectContent,
@@ -211,9 +212,9 @@ export function DatabaseSection() {
           </div>
         ) : null}
         {configQuery.data.restartRequired ? (
-          <div className='border-warning/35 bg-warning/10 text-warning-soft-fg rounded-lg border px-3 py-2 text-sm'>
+          <Notice tone='warning'>
             {t('settings.operations.database.restartRequired')}
-          </div>
+          </Notice>
         ) : null}
 
         <Form {...form}>

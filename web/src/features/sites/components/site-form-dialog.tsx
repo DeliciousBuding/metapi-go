@@ -40,6 +40,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Notice } from '@/components/ui/notice'
 import {
   Select,
   SelectContent,
@@ -468,23 +469,23 @@ export function SiteFormDialog({
                   </div>
                   {urlAnalysis.action === 'auto_strip_known_api_suffix' &&
                     urlAnalysis.persistedUrl && (
-                      <div className='border-info/40 bg-info/10 text-info-soft-fg rounded-md border p-2.5 text-xs'>
+                      <Notice tone='info' size='compact'>
                         {t('sites.form.urlAutoStripInfo', {
                           url: urlAnalysis.persistedUrl,
                         })}
-                      </div>
+                      </Notice>
                     )}
                   {urlAnalysis.action === 'preserve_api_path' &&
                     urlAnalysis.persistedUrl && (
-                      <div className='border-warning/40 bg-warning/10 text-warning-soft-fg rounded-md border p-2.5 text-xs'>
+                      <Notice tone='warning' size='compact'>
                         {t('sites.form.urlPreserveApiPath')}
-                      </div>
+                      </Notice>
                     )}
                   {urlAnalysis.action === 'preserve_unknown_path' &&
                     urlAnalysis.persistedUrl && (
-                      <div className='border-warning/40 bg-warning/10 text-warning-soft-fg rounded-md border p-2.5 text-xs'>
+                      <Notice tone='warning' size='compact'>
                         {t('sites.form.urlPreserveUnknownPath')}
-                      </div>
+                      </Notice>
                     )}
                   <FormMessage />
                 </FormItem>

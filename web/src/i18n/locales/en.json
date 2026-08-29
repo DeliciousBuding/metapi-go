@@ -931,7 +931,13 @@
       },
       "charts": {
         "income": "Income",
-        "outcome": "Outcome"
+        "outcome": "Outcome",
+        "incomeOutcomeTitle": "Daily income vs spend",
+        "siteTrendTitle": "Daily requests by site",
+        "siteDistributionTitle": "Balance distribution by site",
+        "latencyHistogramTitle": "Requests by latency bucket",
+        "latencyTrendTitle": "Latency trend (avg and p95)",
+        "modelCostTitle": "Cost share by model"
       },
       "chartSummary": {
         "seriesColumn": "Series",

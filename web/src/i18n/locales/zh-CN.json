@@ -931,7 +931,13 @@
       },
       "charts": {
         "income": "收入",
-        "outcome": "支出"
+        "outcome": "支出",
+        "incomeOutcomeTitle": "每日收支对比",
+        "siteTrendTitle": "各站点每日请求趋势",
+        "siteDistributionTitle": "各站点余额分布",
+        "latencyHistogramTitle": "按延迟分桶的请求数",
+        "latencyTrendTitle": "延迟趋势（均值与 p95）",
+        "modelCostTitle": "各模型成本占比"
       },
       "chartSummary": {
         "seriesColumn": "序列",

@@ -26,6 +26,7 @@ import { useTranslation } from 'react-i18next'
 import { DetailField } from '@/components/common/detail-field'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Notice } from '@/components/ui/notice'
 import { Separator } from '@/components/ui/separator'
 import {
   Sheet,
@@ -190,7 +191,7 @@ function OAuthSyncSection(props: { connection: OAuthClient; locale: string }) {
         </DetailField>
       </dl>
       {syncError && (
-        <div className='border-warning/40 bg-warning/10 text-warning-soft-fg mt-2 flex items-start gap-2 rounded-lg border p-2 text-xs'>
+        <Notice tone='warning' size='compact' className='mt-2'>
           <TriangleAlertIcon aria-hidden='true' className='mt-0.5 size-3.5' />
           <div className='min-w-0'>
             <p className='font-medium'>
@@ -198,7 +199,7 @@ function OAuthSyncSection(props: { connection: OAuthClient; locale: string }) {
             </p>
             <p className='mt-0.5 break-words'>{syncError}</p>
           </div>
-        </div>
+        </Notice>
       )}
     </section>
   )

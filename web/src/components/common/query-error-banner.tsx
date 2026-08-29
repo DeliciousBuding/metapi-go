@@ -9,6 +9,7 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
+import { Notice } from '@/components/ui/notice'
 import { Spinner } from '@/components/ui/spinner'
 
 type QueryErrorBannerProps = {
@@ -41,13 +42,10 @@ export function QueryErrorBanner({
 
   return (
     <div className={`flex flex-col gap-3 ${className ?? ''}`}>
-      <div
-        role='alert'
-        className='border-destructive/40 bg-destructive/10 text-destructive-soft-fg flex items-start gap-2 rounded-lg border p-3 text-sm'
-      >
+      <Notice tone='destructive' role='alert'>
         <TriangleAlert className='mt-0.5 size-4 shrink-0' />
         <span>{t(messageKey, { message: error.message })}</span>
-      </div>
+      </Notice>
       {(onRetry || children) && (
         <div className='flex items-center gap-2'>
           {onRetry && (
