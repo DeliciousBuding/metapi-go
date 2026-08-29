@@ -18,6 +18,17 @@
     <meta name="theme-color" content="#ffffff" />
 
     <!--
+      CSP nonce contract (#1035 S2): the Go server serves this file through
+      its SPA fallback and injects a csp-nonce meta element (name followed by
+      a per-request content nonce) right after the head opening tag on every
+      response (router/security.go + router/router.go). The React app reads
+      that meta tag to stamp runtime style injections (chart color variables,
+      dialog/command-palette scroll lock) with the per-request nonce required
+      by the style-src directive. Do not add inline script or style blocks
+      here: the policy carries no 'unsafe-inline' for either.
+    -->
+
+    <!--
       FOUC bootstrap: resolve theme BEFORE first paint to avoid flash.
       The script lives in web/public/bootstrap.js and is loaded synchronously
       (no defer/async) so it runs before the first frame — the same timing as

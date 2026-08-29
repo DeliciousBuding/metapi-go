@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -54,15 +55,77 @@ func assertSecurityHeaders(t *testing.T, rec *httptest.ResponseRecorder) {
 	t.Helper()
 
 	expected := map[string]string{
-		"X-Content-Type-Options":  "nosniff",
-		"X-Frame-Options":         "DENY",
-		"Referrer-Policy":         "strict-origin-when-cross-origin",
-		"Permissions-Policy":      "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
-		"Content-Security-Policy": "default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' https://api.dicebear.com; connect-src 'self'; frame-src 'self' https://check.linux.do; frame-ancestors 'none'",
+		"X-Content-Type-Options": "nosniff",
+		"X-Frame-Options":        "DENY",
+		"Referrer-Policy":        "strict-origin-when-cross-origin",
+		"Permissions-Policy":     "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
 	}
 	for header, want := range expected {
 		if got := rec.Header().Get(header); got != want {
 			t.Fatalf("%s = %q, want %q", header, got, want)
+		}
+	}
+	assertCSPPolicy(t, rec.Header().Get("Content-Security-Policy"))
+}
+
+// parseCSPDirectives splits a CSP header value into directive → source list.
+func parseCSPDirectives(t *testing.T, csp string) map[string][]string {
+	t.Helper()
+	dirs := map[string][]string{}
+	for _, part := range strings.Split(csp, ";") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		fields := strings.Fields(part)
+		dirs[fields[0]] = fields[1:]
+	}
+	return dirs
+}
+
+// assertCSPPolicy pins the directive-level shape of the Content-Security-Policy
+// header (#1035 S2): the static directives keep their exact source lists, and
+// style-src carries 'self' + exactly one per-request nonce + the sonner toast
+// hash — with 'unsafe-inline' gone from every directive.
+func assertCSPPolicy(t *testing.T, csp string) {
+	t.Helper()
+	if csp == "" {
+		t.Fatal("Content-Security-Policy header is empty")
+	}
+	dirs := parseCSPDirectives(t, csp)
+
+	wantStatic := map[string][]string{
+		"default-src":     {"'self'"},
+		"script-src":      {"'self'", "https://static.cloudflareinsights.com"},
+		"img-src":         {"'self'", "https://api.dicebear.com"},
+		"connect-src":     {"'self'"},
+		"frame-src":       {"'self'", "https://check.linux.do"},
+		"frame-ancestors": {"'none'"},
+	}
+	for name, want := range wantStatic {
+		if got := dirs[name]; !slices.Equal(got, want) {
+			t.Fatalf("CSP directive %s = %q, want %q", name, strings.Join(got, " "), strings.Join(want, " "))
+		}
+	}
+
+	style := dirs["style-src"]
+	if len(style) != 3 {
+		t.Fatalf("style-src = %q, want exactly 3 sources ('self', one nonce, sonner hash)", strings.Join(style, " "))
+	}
+	if style[0] != "'self'" {
+		t.Fatalf("style-src[0] = %q, want 'self'", style[0])
+	}
+	if !cspNonceSourceRe.MatchString(style[1]) {
+		t.Fatalf("style-src[1] = %q, want a 'nonce-<base64>' source", style[1])
+	}
+	if style[2] != sonnerToastStyleHash {
+		t.Fatalf("style-src[2] = %q, want the sonner toast hash %s", style[2], sonnerToastStyleHash)
+	}
+	for name, sources := range dirs {
+		for _, s := range sources {
+			if s == "'unsafe-inline'" {
+				t.Fatalf("CSP directive %s still contains 'unsafe-inline'", name)
+			}
 		}
 	}
 }
