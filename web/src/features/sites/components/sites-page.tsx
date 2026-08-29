@@ -54,7 +54,7 @@ import { sitesSearchSchema } from '../lib/sites-schema'
 import type { Site, SiteBatchAction } from '../types'
 import { SiteCreatedModal } from './site-created-modal'
 import { SiteDetailSheet } from './site-detail-sheet'
-import { SiteFormDialog } from './site-form-dialog'
+import { SiteFormSheet } from './site-form-sheet'
 import { SITES_STATUS_FILTER_OPTIONS, useSitesColumns } from './sites-columns'
 
 const SITES_COLUMN_VISIBILITY_STORAGE_KEY = 'metapi-go:sites:column-visibility'
@@ -570,7 +570,7 @@ export function SitesPage() {
         />
       )}
 
-      <SiteFormDialog
+      <SiteFormSheet
         open={formOpen}
         onOpenChange={setFormOpen}
         editingSite={editingSite}

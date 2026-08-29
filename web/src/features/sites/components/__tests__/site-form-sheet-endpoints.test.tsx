@@ -3,7 +3,7 @@
 // toggle), advanced-mode textarea compatibility, untouched-preserve
 // semantics and validation-error rendering. Mocks only the sites api +
 // toast; keeps the real RHF + Zod + dirty-close-guard + i18n code paths
-// under test (same pattern as site-form-dialog.test.tsx).
+// under test (same pattern as site-form-sheet.test.tsx).
 import '@testing-library/jest-dom/vitest'
 import {
   cleanup,
@@ -25,7 +25,7 @@ import {
 import '@/i18n/config'
 
 import type { Site, SiteFormPayload } from '../../types'
-import { SiteFormDialog } from '../site-form-dialog'
+import { SiteFormSheet } from '../site-form-sheet'
 
 const { mockCreateMutate, mockUpdateMutate, mockDetectMutate, mockToastError } =
   vi.hoisted(() => ({
@@ -105,7 +105,7 @@ function openAdvanced() {
 
 /** Renders the create dialog with the mandatory fields filled. */
 async function renderCreateDialog(): Promise<void> {
-  render(<SiteFormDialog open onOpenChange={vi.fn()} editingSite={null} />)
+  render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
   await waitFor(() => {
     expect(screen.getByLabelText('Name')).toBeInTheDocument()
   })
@@ -117,7 +117,7 @@ function lastCreatePayload(): SiteFormPayload {
   return mockCreateMutate.mock.calls[0]?.[0] as SiteFormPayload
 }
 
-describe('SiteFormDialog apiEndpoints structured editor interaction', () => {
+describe('SiteFormSheet apiEndpoints structured editor interaction', () => {
   it('adds rows and sends url/enabled/positional sortOrder on create', async () => {
     mockCreateMutate.mockResolvedValue({
       id: 42,
@@ -159,7 +159,7 @@ describe('SiteFormDialog apiEndpoints structured editor interaction', () => {
     mockUpdateMutate.mockResolvedValue({ ...EDITING_SITE, name: 'Renamed' })
 
     render(
-      <SiteFormDialog open onOpenChange={vi.fn()} editingSite={EDITING_SITE} />
+      <SiteFormSheet open onOpenChange={vi.fn()} editingSite={EDITING_SITE} />
     )
     await waitFor(() => {
       expect(screen.getByLabelText('Endpoint URL 1')).toBeInTheDocument()
@@ -195,7 +195,7 @@ describe('SiteFormDialog apiEndpoints structured editor interaction', () => {
     mockUpdateMutate.mockResolvedValue({ ...EDITING_SITE })
 
     render(
-      <SiteFormDialog open onOpenChange={vi.fn()} editingSite={EDITING_SITE} />
+      <SiteFormSheet open onOpenChange={vi.fn()} editingSite={EDITING_SITE} />
     )
     await waitFor(() => {
       expect(screen.getByLabelText('Endpoint URL 1')).toBeInTheDocument()
@@ -244,12 +244,12 @@ describe('SiteFormDialog apiEndpoints structured editor interaction', () => {
   })
 })
 
-describe('SiteFormDialog apiEndpoints untouched-preserve semantics', () => {
+describe('SiteFormSheet apiEndpoints untouched-preserve semantics', () => {
   it('passes the original endpoints through on name-only edits', async () => {
     mockUpdateMutate.mockResolvedValue({ ...EDITING_SITE, name: 'Renamed' })
 
     render(
-      <SiteFormDialog open onOpenChange={vi.fn()} editingSite={EDITING_SITE} />
+      <SiteFormSheet open onOpenChange={vi.fn()} editingSite={EDITING_SITE} />
     )
     await waitFor(() => {
       expect(screen.getByLabelText('Name')).toBeInTheDocument()
@@ -276,7 +276,7 @@ describe('SiteFormDialog apiEndpoints untouched-preserve semantics', () => {
   it('marks the form dirty for the dirty-close guard when only the editor changes', async () => {
     const onOpenChange = vi.fn()
     render(
-      <SiteFormDialog
+      <SiteFormSheet
         open
         onOpenChange={onOpenChange}
         editingSite={EDITING_SITE}
@@ -296,7 +296,7 @@ describe('SiteFormDialog apiEndpoints untouched-preserve semantics', () => {
   })
 })
 
-describe('SiteFormDialog apiEndpoints validation errors', () => {
+describe('SiteFormSheet apiEndpoints validation errors', () => {
   it('renders the invalid-URL error and short-circuits the create mutation', async () => {
     mockCreateMutate.mockResolvedValue({
       id: 45,
@@ -396,11 +396,7 @@ describe('SiteFormDialog apiEndpoints validation errors', () => {
     mockUpdateMutate.mockResolvedValue({ ...siteWithStatus })
 
     render(
-      <SiteFormDialog
-        open
-        onOpenChange={vi.fn()}
-        editingSite={siteWithStatus}
-      />
+      <SiteFormSheet open onOpenChange={vi.fn()} editingSite={siteWithStatus} />
     )
     await waitFor(() => {
       expect(screen.getByLabelText('Endpoint URL 1')).toBeInTheDocument()

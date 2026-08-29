@@ -87,8 +87,8 @@ vi.mock('../api', () => ({
   useBatchUpdateSites: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }))
 
-vi.mock('../components/site-form-dialog', () => ({
-  SiteFormDialog: () => null,
+vi.mock('../components/site-form-sheet', () => ({
+  SiteFormSheet: () => null,
 }))
 
 vi.mock('../components/site-detail-sheet', () => ({

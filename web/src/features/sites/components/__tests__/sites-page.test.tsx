@@ -91,8 +91,8 @@ vi.mock('../site-detail-sheet', () => ({
   SiteDetailSheet: () => null,
 }))
 
-vi.mock('../site-form-dialog', () => ({
-  SiteFormDialog: (props: {
+vi.mock('../site-form-sheet', () => ({
+  SiteFormSheet: (props: {
     open: boolean
     editingSite?: { id: number } | null
   }) => {
