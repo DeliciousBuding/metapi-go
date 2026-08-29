@@ -52,6 +52,20 @@ bun run build:web
 EXPECTED_DATA_PROFILE=empty node scripts/screenshot-scan.mjs   # 默认连 BASE_URL=http://127.0.0.1:4099
 ```
 
+### 1.1 交互弹层扫描（`web/scripts/shot-interactions.mjs`，本地工具）
+
+静态路由扫描到不了的区域——对话框、Sheet、Popover、表单校验态、顶栏
+chrome（cmdk / 待关注告警 / 外观定制 / 用户菜单）——用交互扫描补齐：
+
+```bash
+# 同样的先决条件：build:web + 重启 server；另需 seed 站点/账号让列表有行
+OUT_DIR=<输出目录> node scripts/shot-interactions.mjs
+```
+
+26 个场景（桌面+移动双视口），逐场景失败收集不中断。选择器教训已写进
+脚本头注释（告警铃 aria-label 是动态「待关注告警」、Select trigger 是
+combobox role 且在 FormControl 内会丢 data-slot、mobile 列表无 tbody）。
+
 ## 2. 黄金基线回归（job: `visual-regression`）
 
 10 个关键页 golden 基线回归，用 Playwright `expect(page).toHaveScreenshot()`：
