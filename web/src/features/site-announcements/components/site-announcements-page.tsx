@@ -360,9 +360,18 @@ export function SiteAnnouncementsPage() {
             aria-label={t('siteAnnouncements.filters.site')}
             className='w-44'
           >
-            <SelectValue
-              placeholder={t('siteAnnouncements.filters.allSites')}
-            />
+            {/* base-ui only resolves the item label while the popup is
+                mounted; map the value explicitly so the closed trigger
+                never falls back to the raw "all" sentinel. */}
+            <SelectValue>
+              {(value: string) =>
+                value === 'all'
+                  ? t('siteAnnouncements.filters.allSites')
+                  : ((sitesQuery.data ?? []).find(
+                      (site) => String(site.id) === value
+                    )?.name ?? value)
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value='all'>
@@ -386,9 +395,13 @@ export function SiteAnnouncementsPage() {
             aria-label={t('siteAnnouncements.filters.platform')}
             className='w-40'
           >
-            <SelectValue
-              placeholder={t('siteAnnouncements.filters.allPlatforms')}
-            />
+            <SelectValue>
+              {(value: string) =>
+                value === 'all'
+                  ? t('siteAnnouncements.filters.allPlatforms')
+                  : value
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value='all'>
@@ -416,7 +429,13 @@ export function SiteAnnouncementsPage() {
             aria-label={t('siteAnnouncements.filters.read')}
             className='w-36'
           >
-            <SelectValue placeholder={t('siteAnnouncements.filters.readAll')} />
+            <SelectValue>
+              {(value: string) => {
+                if (value === 'true') return t('siteAnnouncements.filters.readTrue')
+                if (value === 'false') return t('siteAnnouncements.filters.readFalse')
+                return t('siteAnnouncements.filters.readAll')
+              }}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value='all'>
@@ -447,9 +466,20 @@ export function SiteAnnouncementsPage() {
             aria-label={t('siteAnnouncements.filters.status')}
             className='w-36'
           >
-            <SelectValue
-              placeholder={t('siteAnnouncements.filters.statusAll')}
-            />
+            <SelectValue>
+              {(value: string) => {
+                if (value === 'active') {
+                  return t('siteAnnouncements.filters.statusActive')
+                }
+                if (value === 'expired') {
+                  return t('siteAnnouncements.filters.statusExpired')
+                }
+                if (value === 'dismissed') {
+                  return t('siteAnnouncements.filters.statusDismissed')
+                }
+                return t('siteAnnouncements.filters.statusAll')
+              }}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value='all'>
