@@ -50,11 +50,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Spinner } from '@/components/ui/spinner'
-import { useManualCheckin } from '@/features/checkin'
-import {
-  useRebuildRoutes,
-  useRefreshRouteDecisions,
-} from '@/features/token-routes'
+import { useSearchActions } from '@/hooks/use-search-actions'
 import { useSidebarData } from '@/hooks/use-sidebar-data'
 import {
   searchApi,
@@ -265,9 +261,8 @@ export function SearchModal(props: SearchModalProps) {
   // consumes (same path the dashboard onboarding CTA writes), and the
   // operational entries fire the same mutation hooks the page buttons use.
 
-  const triggerAllCheckin = useManualCheckin()
-  const rebuildRoutes = useRebuildRoutes()
-  const refreshRouteDecisions = useRefreshRouteDecisions()
+  const { triggerAllCheckin, rebuildRoutes, refreshRouteDecisions } =
+    useSearchActions()
   const [rebuildConfirmOpen, setRebuildConfirmOpen] = React.useState(false)
 
   // Mirrors the checkin page's "Run all check-ins" handler: same mutation,
