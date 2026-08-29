@@ -555,7 +555,10 @@ export function AccountsPage() {
 
   return (
     <div className='flex h-full flex-col gap-3 p-4'>
-      <div className='flex items-center justify-between'>
+      {/* flex-wrap + gap-3: on narrow viewports the action button wraps
+          below the title block instead of squeezing the description column
+          (aligns with the checkin/routes page-header pattern). */}
+      <div className='flex flex-wrap items-center justify-between gap-3'>
         <div>
           <h1 className='text-lg font-normal'>{t('accounts.page.title')}</h1>
           <p className='text-muted-foreground text-sm'>
