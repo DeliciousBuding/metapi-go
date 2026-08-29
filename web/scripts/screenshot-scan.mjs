@@ -6,6 +6,15 @@
 // themes across desktop and mobile viewports. Mirrors route-smoke.mjs auth
 // seeding so the exact shipped bundle is exercised.
 //
+// Prerequisite: the served SPA must be a FRESH build. `web/dist` is not in
+// git — the Go server embeds whatever sits on disk when you start it, so a
+// stale dist serves a pre-session-model SPA whose auth guard silently
+// redirects every authenticated route to /sign-in (the harness ugl says
+// "112 screenshots, all login pages, exit 0"). Always rebuild before serving:
+//
+//   (cd web && bun run build:web)   # or: bun run build:check
+//   # restart the Go server afterwards so the new dist is embedded
+//
 // Usage:
 //   BASE_URL=http://127.0.0.1:4099 AUTH_TOKEN=dev-admin-token-123 \
 //     OUT_DIR=<output-dir> node scripts/screenshot-scan.mjs
@@ -173,6 +182,37 @@ async function seedAuth(context, theme) {
   })
 }
 
+/**
+ * Fail-fast guard against the stale-dist trap: navigate one authenticated
+ * route and assert the SPA did NOT bounce to /sign-in. When web/dist predates
+ * the session model the embedded auth guard never probes /api/auth/session
+ * and redirects everything — without this check the sweep "succeeds" with a
+ * full set of login-page PNGs (exit 0, evidence worthless). Throws with a
+ * diagnosis naming the rebuild/restart fix.
+ */
+async function assertAuthPageReachable(context) {
+  const page = await context.newPage()
+  try {
+    await page.goto(BASE_URL + '/sites', {
+      waitUntil: 'domcontentloaded',
+      timeout: 20_000,
+    })
+    await settle(page)
+    const pathname = new URL(page.url()).pathname
+    if (pathname.startsWith('/sign-in')) {
+      throw new Error(
+        '[screenshot] PREFLIGHT FAILED: authenticated route redirected to /sign-in — ' +
+          'the served SPA likely embeds a stale web/dist (built before the session model). ' +
+          'Rebuild and restart: (cd web && bun run build:web), then restart the Go server ' +
+          'so the new dist is embedded. If it persists, verify BASE_URL and AUTH_TOKEN ' +
+          `(cookie track for ${BASE_URL}).`
+      )
+    }
+  } finally {
+    await page.close().catch(() => {})
+  }
+}
+
 async function settle(page) {
   await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {})
   await page.waitForTimeout(400)
@@ -239,6 +279,7 @@ async function runCapture() {
   const themes = THEMES.map((t) => t.trim()).filter(Boolean)
   const wantDesktop = VIEWPORTS.includes('desktop')
   const wantMobile = VIEWPORTS.includes('mobile')
+  const assertAuthPageReachableMobileOnly = !wantDesktop && wantMobile
 
   try {
     for (const theme of themes) {
@@ -271,6 +312,7 @@ async function runCapture() {
           locale: 'zh-CN',
         })
         await seedAuth(desktop, theme)
+        await assertAuthPageReachable(desktop)
         for (const route of DESKTOP_ROUTES) {
           await capture(
             desktop,
@@ -299,6 +341,11 @@ async function runCapture() {
           isMobile: true,
         })
         await seedAuth(mobile, theme)
+        // Desktop already ran the auth preflight when present; mobile-only
+        // sweeps (VIEWPORTS=mobile) need it on this context instead.
+        if (assertAuthPageReachableMobileOnly) {
+          await assertAuthPageReachable(mobile)
+        }
         for (const route of routes) {
           await capture(
             mobile,

@@ -1,11 +1,26 @@
 # UI screenshot evidence + golden visual regression
 
-**Last updated**: 2026-08-23
+**Last updated**: 2026-08-29
 
 Metapi 有两个协作的截图管道，都跑在 CI 的 `frontend` job 产物（`web-dist`
 artifact）之上，模式与 a11y job 一致：Go server 嵌入 dist、fresh sqlite
 runtime DB、`AUTH_TOKEN=dev-admin-token-123` 经 POST /api/auth/login 换取 HttpOnly session cookie、启动后
 等 `/ready` 再执行浏览器步骤。
+
+> **本地先决条件（`web/dist` 不入 git，踩坑点在此）**：Go server 用 `go:embed`
+> 固化**启动时磁盘上的 dist**。`web/dist` 是构建产物（gitignore），CI 用
+> artifact 注入新鲜构建所以永远正确；本地直接 `go run` 时若 dist 陈旧，
+> 服务的是旧版 SPA（如 #1034 会话模型之前的认证守卫），登录页截图会
+> "成功"产出 112 张而实际全是登录页。本地 SOP：
+>
+> ```bash
+> cd web && bun run build:web   # 或 bun run build:check
+> # 重启 Go server（go run ./cmd/server 或运行既有二进制），务必让新 dist 被重新嵌入
+> ```
+>
+> `screenshot-scan.mjs` 内置 **auth preflight**（登录后导航一次 `/sites`，
+> 断言未被弹回 `/sign-in`）：命中陈旧 dist 会立即报错并给出上述修复指引，
+> 而不是静默产出全登登录页证据。
 
 ## 1. 截图证据管道（job: `ui-screenshots`）
 
@@ -28,10 +43,12 @@ runtime DB、`AUTH_TOKEN=dev-admin-token-123` 经 POST /api/auth/login 换取 Ht
 | `OUT_DIR` | OS 临时目录 | 输出目录 |
 | `EXPECTED_DATA_PROFILE` | 空 | 可选 `empty` / `seeded`；截图前核对站点与账号数据，命名与运行态不符即失败 |
 
-本地运行（起服务见 `web/scripts/a11y-scan.mjs` 头部或 CI a11y job 步骤）：
+本地运行（**先 build:web 并重启 server**，见上方先决条件）：
 
 ```bash
 cd web
+bun run build:web
+# 重启 Go server 使新 dist 被嵌入，然后：
 EXPECTED_DATA_PROFILE=empty node scripts/screenshot-scan.mjs   # 默认连 BASE_URL=http://127.0.0.1:4099
 ```
 
