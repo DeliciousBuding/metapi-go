@@ -21,9 +21,18 @@ import (
 // goroutines indefinitely. The baseline adopted for this repo mirrors the
 // axonhub HTTP client baseline (docs/internal/analysis/competitor-study-2026-08.md
 // section 3.2): dial 30s, TLS handshake 10s, MaxIdleConns 100,
-// IdleConnTimeout 90s. Transports are constructed in exactly one place:
-// this package, or the pooled transport cache in platform/site_proxy.go for
-// platform adapter traffic.
+// IdleConnTimeout 90s. Control-plane transports are constructed in
+// internal/httpclient, with named exceptions that keep their own literals
+// by design (all still satisfy R3/R4):
+//
+//   - platform/site_proxy.go — pooled transport cache for platform adapter
+//     traffic, operator-tunable via PROXY_*_TIMEOUT_SEC;
+//   - SSRF-hardened clients whose DialContext enforces dial-level target
+//     guards internal/httpclient does not model: notifyHTTPClient
+//     (service/notify, all webhook-style channels) and the WebDAV backup
+//     clients in handler/admin and scheduler;
+//   - proxy.NewStreamTransport — SSE data-plane stream relay; header phase
+//     bounded, whole-request timeout owned by the relay's idle guard.
 //
 // Rules enforced on every non-test .go file in the repository:
 //
