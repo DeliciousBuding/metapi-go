@@ -21,6 +21,7 @@ All notable changes to Metapi-Go will be documented in this file.
 
 ### Changed
 
+- **`docs/api.md` 按域拆分**：超 1500 行预算的 API 参考按域拆为 `docs/api/*.md`（17 个文件，按域自含「返回索引」标题）；`docs/api.md` 保留为索引，全部原有 H2/H3/H4 标题以 stub 承接并一一指向新家，旧 `api.md#<anchor>` 深链继续解析（F4）。
 - **凭证引用畸形条目改为显式 400 拒绝（#1026 残留）**：创建/更新下游密钥时，`excludedCredentialRefs`/`allowedCredentialRefs` 中的畸形条目（非对象、未知/缺失 `kind`、非正 `siteId`/`accountId`、`account_token` 缺 `tokenId`）原被静默丢弃——对允许列表而言等于静默放宽访问（fail-open）；现以 400 显式拒绝并提示具体条目。合法引用行为不变。
 - **统一 400 错误体携带机器可读 `errorCode`（#1065，#1035 S4）**：需要客户端分支处理的失败类别逐步登记错误码，客户端应基于 `errorCode` 而非错误文本判断（详见 `docs/api.md`）。
 - **管理端大表服务端分页（#1075，#1077）**：账号、模型市场、渠道（含状态过滤）列表改为服务端分页，大数据量下首屏与翻页显著提速；`GET /api/channels` 新增 `status` 过滤参数，`GET /api/channels/error-summary` 新增聚合端点（渠道失败横幅一键过滤的数据源）。

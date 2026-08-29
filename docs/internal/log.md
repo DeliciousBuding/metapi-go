@@ -1,9 +1,14 @@
 # log.md — Metapi Go product milestones
 
-**Last updated**: 2026-08-29
+**Last updated**: 2026-08-30
 
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
+
+## 2026-08-30 — F4 api.md 按域拆分
+
+- **文档拆分（F4 收口）**：`docs/api.md`（1739 行 > 1500 预算）按域拆为 `docs/api/*.md` 17 个文件（conventions/stats/routes/models/sites/accounts/announcements/downstream-keys/settings/checkin/monitor/diagnostics/auth/oauth/health/routes-inventory/proxy，各 23–213 行）；`docs/api.md` 保留为索引 + 全部 213 个原有 H2/H3/H4 标题 stub 指针（标题原文不动，锚点 id 逐条对照 GitHub 渲染产物核对），旧深链 `api.md#<anchor>` 全部继续落位；误置于 Trusted Client IPs 节下的 `GET /api/downstream-keys/:id/export` 顺带归位。
+- **引用同步**：`docs/README.md` 布局树与文档地图加 `api/` 目录行；`progress/MASTER.md` F4 行移除并标注已交付；`STATE.md` Open work 剔除 F4；`CHANGELOG.md` Unreleased Changed 登记。
 
 ## 2026-08-29 — 后端收口波 + C1 config 竞态 + 双线融合（#1063–#1080）
 
