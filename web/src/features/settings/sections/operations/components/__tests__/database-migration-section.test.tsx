@@ -5,8 +5,10 @@
 // migrating, the start button opens the destructive confirm dialog, and after
 // the backend accepts the job (202 + taskId) the task is polled through
 // api.getTask until a terminal status surfaces (success toast + row summary,
-// or error toast). The same-target 400 rejection is asserted to surface the
-// localized error instead of the raw server message.
+// or error toast). The same-target 400 rejection is asserted through the
+// #1065 errorCode contract: `sameMigrationTarget` surfaces the localized
+// error, bodies without a code (or with a different code) fall back to the
+// raw server message.
 
 import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -266,9 +268,17 @@ describe('DatabaseMigrationSection — form and confirm flow', () => {
     })
   })
 
-  it('surfaces the localized same-target rejection instead of the raw server message', async () => {
+  it('surfaces the localized same-target rejection via the sameMigrationTarget errorCode', async () => {
+    // Unified 400 envelope (#1065): the code, not the message text, pins
+    // the rejection class; the message stays the display fallback.
     mockStartMigration.mockRejectedValueOnce({
-      response: { data: { error: '目标数据库与当前运行库相同，无法迁移' } },
+      response: {
+        data: {
+          error:
+            'target database is the same as the running database; migration aborted',
+          errorCode: 'sameMigrationTarget',
+        },
+      },
     })
     renderMigrationSection()
 
@@ -280,6 +290,53 @@ describe('DatabaseMigrationSection — form and confirm flow', () => {
     await waitFor(() => {
       expect(mockToastError).toHaveBeenCalledWith(
         'The target database is the same as the live runtime database; migration is not possible.'
+      )
+    })
+  })
+
+  it('falls back to the raw server message when the body carries no errorCode', async () => {
+    // Byte-compatible pre-#1065 body: no errorCode key at all.
+    mockStartMigration.mockRejectedValueOnce({
+      response: {
+        data: {
+          error:
+            'target database is the same as the running database; migration aborted',
+        },
+      },
+    })
+    renderMigrationSection()
+
+    await fillConnection('./data/metapi.db')
+    fireEvent.click(screen.getByRole('button', { name: 'Start migration' }))
+    await screen.findByText('Confirm data migration')
+    clickConfirmAction()
+
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith(
+        'target database is the same as the running database; migration aborted'
+      )
+    })
+  })
+
+  it('does not localize rejections carrying a different errorCode', async () => {
+    mockStartMigration.mockRejectedValueOnce({
+      response: {
+        data: {
+          error: 'unsupported database dialect',
+          errorCode: 'invalidDatabaseType',
+        },
+      },
+    })
+    renderMigrationSection()
+
+    await fillConnection('./data/metapi.db')
+    fireEvent.click(screen.getByRole('button', { name: 'Start migration' }))
+    await screen.findByText('Confirm data migration')
+    clickConfirmAction()
+
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith(
+        'unsupported database dialect'
       )
     })
   })
