@@ -5,6 +5,15 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-08-29 — W19-W21 前端审计三波（本地 master，未 push 未 bump）
+
+> 全部交付在本地 master（头部 `41cf02f`），与 origin 分叉待融合决策。明细与裁决表：`.dev-local/progress/W19-backlog.md`（gitignored）。全量回归 1470 测试绿。
+
+- **W19 三路审计 + 修复波 A-M**：交互/视觉/对标 newapi 三路并行审计 → 13 波修复。主线：错误 toast 单 owner 收口（http-client，删 router 500 双弹，5xx 无 body 走 status 专用文案）；列表页错误契约统一（QueryErrorBanner 失败替换 + 内置重试）；URL 态收口（price-compare/site-announcements 过滤器进 URL）；`ui/notice.tsx` 横幅原语（四色配方单一出处，收编 10+ 手写点）；chart-1..5 全 preset 对 card AA 4.5:1（contrast-gate 新增 chart 门禁）；focus-ring ≥3:1 贯穿 19+5 处；移动端 sheet 底部粘性关闭条（W19-J）；危险区 type-to-confirm（RESET + 倒计时双闸）；批量禁用/重建确认；OAuth 弹窗拦截恢复；invalidate 漏刷 7 处；Workflow 22-agent 对抗复检修 12 处真实体验 bug（password 模式字段隐藏、status 切换 disabled/toast、掩码真占位符等）。
+- **W20 seeded 视觉审图波**：112 张 seeded 截图全审 → 9 commits。标题字重 calm-titles 对齐（settings/site-announcements/batch-results）；observability 热力图轴标签 9px→10px + DESIGN.md 补「可见轴刻度/正文最小 10px」红线；`ui/kpi-value.tsx` KPI 数字三档组件收编七处；screenshot-scan 加 auth preflight（陈旧 dist 静默全登录页陷阱 fail-fast）。**乱码虚惊教训**：截图批次乱码根因是「截图早于重 seed 生效」时序乌龙（三层码点取证证清白）——seed 后必先 curl 验证再截图。
+- **W21 交互弹层审计波**：新建交互截图管道 `shot-interactions.mjs`（26 场景 × desktop/mobile × light/dark 全绿，补静态扫描到不了的弹层/校验态/chrome 菜单盲区）。修复：site-announcements 四筛选 SelectValue 裸显 `all`（base-ui 弹层关闭时 Item 未挂载，Value 回退原始 value；函数 children 显式映射，对齐既有模式）+ 文案自解释化；路由表单 displayIcon 哨兵 `__route_icon_none__` 泄漏 → input 边界双向映射友好 token `none`；表单 Sheet 豁免移动端底部关闭条（`showMobileCloseBar` prop，消除「取消+关闭」同义重复）；`theme.toggle` aria-label i18n 化。选择器教训（通知铃动态 aria-label / Select role=combobox / mobile 无 tbody）入脚本注释 + docs/visual-regression.md。
+- **遗留**：本地/origin 融合决策（用户拍板）；D2 site-form 抽屉迁移（产品决策）；后端告警文案 i18n（P3，需 key 映射架构改动）。
+
 ## 2026-08-29 — Wave 18 十线并行（安全/并发/网络/数据库/性能/构建/UX/CX）发布 v0.16.19
 
 - **组织**：10 worktree + 10 subagent（qwen3.8-max）并行；本地推送门禁在 8 并发 race 套件下出现 `handler/admin` 300s 预算临界（环境性，各 lane 用 `METAPI_RACE_TIMEOUT_SECONDS` 官方旋钮），建议后续波次错峰推送或上调默认值。
