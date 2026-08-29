@@ -1176,7 +1176,7 @@ export function KeysSection() {
             below `sm` + flex-column layout. The form body is the scroll
             region (flex-1), so the submit footer (SheetFooter `mt-auto`)
             stays pinned at the bottom instead of scrolling out of reach. */}
-        <SheetContent>
+        <SheetContent showMobileCloseBar={false}>
           <KeySheetForm
             key={editingKey?.id ?? 'create'}
             editingKey={editingKey}

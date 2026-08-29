@@ -36,11 +36,18 @@ function SheetContent({
   children,
   side = 'right',
   showCloseButton = true,
+  showMobileCloseBar = true,
   overlayClassName,
   ...props
 }: SheetPrimitive.Popup.Props & {
   side?: 'top' | 'right' | 'bottom' | 'left'
   showCloseButton?: boolean
+  /**
+   * Mobile-only bottom close bar (W19-T1 N5). Set false on form sheets that
+   * already render their own Cancel/Submit footer — otherwise the user sees
+   * both "取消" and "关闭" stacked, two synonyms for the same exit.
+   */
+  showMobileCloseBar?: boolean
   /** Extra classes for the scrim (e.g. to darken a drawer's backdrop). */
   overlayClassName?: string
 }) {
@@ -99,19 +106,23 @@ function SheetContent({
                 top-right X is the only exit — poor thumb reach for a detail
                 or form sheet. The bar is a second SheetPrimitive.Close that
                 sticks to the bottom of the scroll container on small screens
-                only; desktop keeps the X-only contract. */}
-            <SheetPrimitive.Close
-              data-slot='sheet-close-bar'
-              render={
-                <Button
-                  variant='secondary'
-                  size='sm'
-                  className='sticky bottom-0 mx-4 mb-4 shrink-0 sm:hidden'
-                />
-              }
-            >
-              {t('common.close')}
-            </SheetPrimitive.Close>
+                only; desktop keeps the X-only contract. Form sheets with
+                their own Cancel/Submit footer pass showMobileCloseBar={false}
+                to avoid the duplicate 取消/关闭 exit pair. */}
+            {showMobileCloseBar && (
+              <SheetPrimitive.Close
+                data-slot='sheet-close-bar'
+                render={
+                  <Button
+                    variant='secondary'
+                    size='sm'
+                    className='sticky bottom-0 mx-4 mb-4 shrink-0 sm:hidden'
+                  />
+                }
+              >
+                {t('common.close')}
+              </SheetPrimitive.Close>
+            )}
           </>
         )}
       </SheetPrimitive.Popup>

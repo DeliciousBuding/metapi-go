@@ -330,6 +330,7 @@ export function AccountFormDialog({
       <SheetContent
         side='right'
         className='flex w-full flex-col gap-0 sm:max-w-lg'
+        showMobileCloseBar={false}
       >
         <SheetHeader>
           <SheetTitle>
