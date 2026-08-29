@@ -309,6 +309,23 @@ function softRatio(
   return contrastRatio(oklchToSrgb(fg), fill)
 }
 
+/** The legacy recipe the T2-§3.1 batch replaced: text-<tone> (the base color
+ * itself) on bg-<tone>/10. Kept under gate so a reintroduction cannot drift
+ * below where it ships today without a documented exemption. */
+function baseOnSoftRatio(
+  preset: string,
+  mode: 'light' | 'dark',
+  tone: string
+): number | null {
+  const tokens = effectiveTokens(preset, mode)
+  const base = resolveValue(tokens[`--${tone}`], tokens)
+  const card = resolveValue(tokens['--card'], tokens)
+  if (!base || !card) return null
+  const alpha = tone === 'destructive' && mode === 'dark' ? 0.2 : 0.1
+  const fill = composite(oklchToSrgb(base), alpha, oklchToSrgb(card))
+  return contrastRatio(oklchToSrgb(base), fill)
+}
+
 // ---------- audit surface ----------
 
 const SOLID_PAIRS: Array<[string, string]> = [
@@ -366,6 +383,40 @@ describe('theme contrast gate (WCAG AA 4.5:1)', () => {
           if (ratio < AA && !(key in EXEMPTIONS)) {
             failures.push(
               `${preset} ${mode}: ${label} = ${ratio.toFixed(2)} (< ${AA})`
+            )
+          }
+        }
+      }
+    }
+    expect(failures).toEqual([])
+  })
+
+  it('the retired base-on-soft recipe stays above the quarantine floor', () => {
+    // W19-T2 B2 blind spot: the gate previously only tracked
+    // `<tone>-soft-fg on <tone>/10`. The base-on-soft recipe
+    // (text-<tone> on bg-<tone>/10) was retired from the shipped UI by the
+    // T2-§3.1 batch because it measures sub-AA almost everywhere (55 of 80
+    // preset×mode×tone pairs). Nobody ships it anymore, so per-pair AA here
+    // would just be a 55-entry exemption wall. The floor instead pins the
+    // worst measured residual (anthropic light warning on warning/10 =
+    // 1.65:1) so any further catastrophic tone drift fails loudly — and a
+    // reintroduction of the recipe in a component is caught in review
+    // against this documented quarantine.
+    const QUARANTINE_MIN = 1.6
+    const failures: string[] = []
+    for (const preset of PRESETS) {
+      for (const mode of ['light', 'dark'] as const) {
+        for (const tone of SOFT_TONES) {
+          const alpha = tone === 'destructive' && mode === 'dark' ? 20 : 10
+          const label = `${tone} on ${tone}/${alpha}`
+          const ratio = baseOnSoftRatio(preset, mode, tone)
+          if (ratio === null) {
+            failures.push(`${preset} ${mode}: ${label} could not be resolved`)
+            continue
+          }
+          if (ratio < QUARANTINE_MIN) {
+            failures.push(
+              `${preset} ${mode}: ${label} = ${ratio.toFixed(2)} (< ${QUARANTINE_MIN})`
             )
           }
         }

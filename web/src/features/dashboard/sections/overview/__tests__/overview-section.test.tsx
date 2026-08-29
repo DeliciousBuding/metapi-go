@@ -164,6 +164,43 @@ describe('OverviewSection onboarding banner', () => {
   })
 })
 
+describe('OverviewSection load-error branch', () => {
+  it('surfaces a snapshot failure with an error banner and a working Retry', async () => {
+    mockGetDashboardSnapshot
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValue({ siteCount: 3 })
+
+    renderWithClient(<OverviewSection />)
+
+    // The failure is no longer silent (W19-T1 A4#11): a banner replaces the
+    // old "—" stat cards until Retry recovers the query.
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Failed to load the dashboard overview: boom'
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+    await waitFor(() => {
+      expect(mockGetDashboardSnapshot).toHaveBeenCalledTimes(2)
+    })
+    await waitFor(() => {
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+  })
+
+  it('surfaces a balance-history failure even when the snapshot succeeds', async () => {
+    mockGetDashboardSnapshot.mockResolvedValue({ siteCount: 3 })
+    mockGetBalanceHistory.mockRejectedValue(new Error('spark down'))
+
+    renderWithClient(<OverviewSection />)
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(
+      'Failed to load the balance history: spark down'
+    )
+  })
+})
+
 describe('OverviewSection model-probe scheduler card', () => {
   it('offers a manual trigger for the model-probe job and queues it', async () => {
     mockGetDashboardSnapshot.mockResolvedValue({ siteCount: 3 })

@@ -771,6 +771,10 @@
           "proxy24hHint": "{{success}} 成功 · {{rpm}}/分",
           "proxy24hHintRpm": "{{success}} 成功 · {{rpm}} 请求/分（近 60 秒）"
         },
+        "error": {
+          "snapshotLoad": "仪表盘概览加载失败：{{message}}",
+          "balanceLoad": "余额历史加载失败：{{message}}"
+        },
         "snapshot": {
           "title": "今日快照",
           "totalBalance": "总余额",

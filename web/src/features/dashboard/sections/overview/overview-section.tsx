@@ -25,6 +25,7 @@ import {
 import { Fragment, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
@@ -188,14 +189,25 @@ export function OverviewSection() {
   const locale = toBcp47(i18n.language || 'en')
   const [expandedJob, setExpandedJob] = useState<string | null>(null)
 
-  const { data: snapshot, isLoading: snapshotLoading } = useQuery({
+  const {
+    data: snapshot,
+    isLoading: snapshotLoading,
+    error: snapshotError,
+    refetch: refetchSnapshot,
+    isRefetching: snapshotRefetching,
+  } = useQuery({
     queryKey: ['dashboard-snapshot'],
     queryFn: () => api.getDashboardSnapshot() as Promise<DashboardSnapshot>,
     // Keep the QPS / 24h-proxy stat cards fresh without a manual refresh.
     refetchInterval: 10 * 1000,
   })
 
-  const { data: balanceHistory } = useQuery({
+  const {
+    data: balanceHistory,
+    error: balanceError,
+    refetch: refetchBalance,
+    isRefetching: balanceRefetching,
+  } = useQuery({
     queryKey: ['dashboard-balance-spark', 0, 8],
     queryFn: () =>
       api.getBalanceHistory(0, 8) as Promise<BalanceHistoryResponse>,
@@ -470,6 +482,22 @@ export function OverviewSection() {
           </CardContent>
         </Card>
       )}
+
+      {/* Snapshot / balance failures used to render silent "—" cards
+          (W19-T1 A4#11): surface them with a retry instead. */}
+      <QueryErrorBanner
+        error={snapshotError ?? balanceError}
+        messageKey={
+          snapshotError
+            ? 'dashboard.overview.error.snapshotLoad'
+            : 'dashboard.overview.error.balanceLoad'
+        }
+        onRetry={() => {
+          void refetchSnapshot()
+          void refetchBalance()
+        }}
+        isRetrying={snapshotRefetching || balanceRefetching}
+      />
 
       <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4'>
         <StatCard

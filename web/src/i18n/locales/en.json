@@ -771,6 +771,10 @@
           "proxy24hHint": "{{success}} ok · {{rpm}}/min",
           "proxy24hHintRpm": "{{success}} ok · {{rpm}} req/min (last 60s)"
         },
+        "error": {
+          "snapshotLoad": "Failed to load the dashboard overview: {{message}}",
+          "balanceLoad": "Failed to load the balance history: {{message}}"
+        },
         "snapshot": {
           "title": "Today snapshot",
           "totalBalance": "Total balance",
