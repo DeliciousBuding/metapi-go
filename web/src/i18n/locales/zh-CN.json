@@ -3057,9 +3057,9 @@
     },
     "search": {
       "trigger": "搜索…",
-      "placeholder": "搜索页面、设置、站点、账号、日志…",
+      "placeholder": "搜索页面、设置、操作、站点、账号、日志…",
       "title": "全局搜索",
-      "description": "搜索页面与设置，或查找站点、账号、令牌、模型、签到与代理日志。",
+      "description": "搜索页面与设置、执行常用操作，或查找站点、账号、令牌、模型、签到与代理日志。",
       "searching": "搜索中…",
       "unknown": "未知",
       "modelTokens": "{{count}} 个令牌",
@@ -3070,12 +3070,19 @@
       "groups": {
         "pages": "页面",
         "settings": "设置",
+        "actions": "操作",
         "sites": "站点",
         "accounts": "账号",
         "tokens": "令牌",
         "checkinLogs": "签到日志",
         "proxyLogs": "代理日志",
         "models": "模型"
+      },
+      "actions": {
+        "addSite": "添加站点",
+        "runCheckinAll": "运行所有签到",
+        "rebuildRoutes": "自动重建路由",
+        "refreshRouteDecisions": "刷新路由决策"
       }
     },
     "userMenu": {

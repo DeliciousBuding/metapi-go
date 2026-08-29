@@ -1,8 +1,10 @@
 // metapi-go/layout — command palette tests.
-// Covers the local navigation layer (quick entries + settings matching)
-// and the filtered deep links for check-in / proxy-log entity results.
+// Covers the local navigation layer (quick entries + settings matching),
+// the actions layer (registry rendering, keyboard execution, confirmation
+// gate, mutation feedback) and the filtered deep links for entity results.
 
 import '@testing-library/jest-dom/vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import {
   afterAll,
@@ -19,9 +21,24 @@ import i18n from '@/i18n/config'
 
 import { SearchModal } from '../search-modal'
 
-const { navigateMock, searchMock } = vi.hoisted(() => ({
+const {
+  navigateMock,
+  searchMock,
+  onOpenChangeMock,
+  checkinAllMock,
+  rebuildMock,
+  refreshDecisionsMock,
+  toastSuccessMock,
+  toastErrorMock,
+} = vi.hoisted(() => ({
   navigateMock: vi.fn(),
   searchMock: vi.fn(),
+  onOpenChangeMock: vi.fn(),
+  checkinAllMock: vi.fn(),
+  rebuildMock: vi.fn(),
+  refreshDecisionsMock: vi.fn(),
+  toastSuccessMock: vi.fn(),
+  toastErrorMock: vi.fn(),
 }))
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
@@ -34,6 +51,29 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
 
 vi.mock('@/lib/api/search', () => ({
   searchApi: { search: searchMock },
+}))
+
+// The actions layer reuses the feature mutation hooks; the tests drive them
+// through the public barrels so the palette's execution paths run for real.
+vi.mock('@/features/checkin', () => ({
+  useManualCheckin: () => ({ mutateAsync: checkinAllMock }),
+}))
+
+vi.mock('@/features/token-routes', () => ({
+  useRebuildRoutes: () => ({ mutate: rebuildMock, isPending: false }),
+  useRefreshRouteDecisions: () => ({
+    mutate: refreshDecisionsMock,
+    isPending: false,
+  }),
+}))
+
+vi.mock('@/lib/toast', () => ({
+  toast: {
+    success: toastSuccessMock,
+    error: toastErrorMock,
+    info: vi.fn(),
+    warning: vi.fn(),
+  },
 }))
 
 // The dialog primitive probes browser APIs jsdom does not implement; cmdk
@@ -79,14 +119,21 @@ const EMPTY_RESPONSE = {
   models: [],
 }
 
+const PLACEHOLDER = 'Search pages, settings, actions, sites, accounts, logs…'
+
 function renderModal() {
-  return render(<SearchModal open onOpenChange={vi.fn()} />)
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <SearchModal open onOpenChange={onOpenChangeMock} />
+    </QueryClientProvider>
+  )
 }
 
 async function typeQuery(value: string) {
-  const input = screen.getByPlaceholderText(
-    'Search pages, settings, sites, accounts, logs…'
-  )
+  const input = screen.getByPlaceholderText(PLACEHOLDER)
   fireEvent.change(input, { target: { value } })
   // Wait for the ~250 ms debounce + mocked backend round-trip to settle.
   await vi.waitFor(() => {
@@ -96,6 +143,15 @@ async function typeQuery(value: string) {
 
 beforeEach(async () => {
   navigateMock.mockReset()
+  onOpenChangeMock.mockReset()
+  rebuildMock.mockReset()
+  refreshDecisionsMock.mockReset()
+  toastSuccessMock.mockReset()
+  toastErrorMock.mockReset()
+  checkinAllMock.mockReset().mockResolvedValue({
+    success: true,
+    summary: { total: 2, success: 2, failed: 0, skipped: 0 },
+  })
   searchMock.mockReset().mockResolvedValue(EMPTY_RESPONSE)
   await i18n.changeLanguage('en')
 })
@@ -123,9 +179,7 @@ describe('search palette navigation layer', () => {
   it('matches settings sections locally while typing', async () => {
     renderModal()
 
-    const input = screen.getByPlaceholderText(
-      'Search pages, settings, sites, accounts, logs…'
-    )
+    const input = screen.getByPlaceholderText(PLACEHOLDER)
     fireEvent.change(input, { target: { value: 'schedul' } })
 
     await vi.waitFor(() => {
@@ -138,9 +192,7 @@ describe('search palette navigation layer', () => {
   it('navigates to the matched settings section on select', async () => {
     renderModal()
 
-    const input = screen.getByPlaceholderText(
-      'Search pages, settings, sites, accounts, logs…'
-    )
+    const input = screen.getByPlaceholderText(PLACEHOLDER)
     fireEvent.change(input, { target: { value: 'operational events' } })
 
     const entry = await screen.findByText('Operational Events')
@@ -149,6 +201,142 @@ describe('search palette navigation layer', () => {
     expect(navigateMock).toHaveBeenCalledWith({
       to: '/settings/operations/program-logs',
     })
+  })
+})
+
+describe('search palette actions layer', () => {
+  it('lists every registered action under the Actions heading on an empty query', () => {
+    renderModal()
+
+    expect(screen.getByText('Actions')).toBeInTheDocument()
+    expect(screen.getByText('Add site')).toBeInTheDocument()
+    expect(screen.getByText('Run all check-ins')).toBeInTheDocument()
+    expect(screen.getByText('Auto-rebuild routes')).toBeInTheDocument()
+    expect(screen.getByText('Refresh route decisions')).toBeInTheDocument()
+    // Navigation quick entries keep rendering alongside the actions layer.
+    expect(screen.getByText('Pages')).toBeInTheDocument()
+  })
+
+  it('renders bilingual action titles in zh-CN', async () => {
+    // i18next resources are keyed by the interface code `zhCN`.
+    await i18n.changeLanguage('zhCN')
+    renderModal()
+
+    expect(screen.getByText('操作')).toBeInTheDocument()
+    expect(screen.getByText('添加站点')).toBeInTheDocument()
+    expect(screen.getByText('运行所有签到')).toBeInTheDocument()
+    expect(screen.getByText('自动重建路由')).toBeInTheDocument()
+    expect(screen.getByText('刷新路由决策')).toBeInTheDocument()
+  })
+
+  it('deep-links the add-site action through the one-shot create param via keyboard', async () => {
+    renderModal()
+
+    const input = screen.getByPlaceholderText(PLACEHOLDER)
+    fireEvent.change(input, { target: { value: 'add site' } })
+    await screen.findByText('Add site')
+
+    // Keyboard flow: the matched action is the selected item, Enter runs it.
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    expect(navigateMock).toHaveBeenCalledWith({
+      to: '/sites',
+      search: { create: true },
+    })
+    expect(onOpenChangeMock).toHaveBeenCalledWith(false)
+  })
+
+  it('matches actions by bilingual keywords the English label lacks', async () => {
+    renderModal()
+
+    const input = screen.getByPlaceholderText(PLACEHOLDER)
+    fireEvent.change(input, { target: { value: '签到' } })
+
+    const entry = await screen.findByText('Run all check-ins')
+    fireEvent.click(entry)
+
+    await vi.waitFor(() => {
+      expect(checkinAllMock).toHaveBeenCalledTimes(1)
+    })
+    expect(onOpenChangeMock).toHaveBeenCalledWith(false)
+    expect(toastSuccessMock).toHaveBeenCalledWith(
+      'Check-in execution complete',
+      expect.objectContaining({
+        description: 'Total 2 accounts: 2 succeeded, 0 failed, 0 skipped',
+      })
+    )
+  })
+
+  it('reports a partial check-in failure as an error toast with the summary', async () => {
+    checkinAllMock.mockResolvedValue({
+      success: false,
+      summary: { total: 3, success: 2, failed: 1, skipped: 0 },
+    })
+    renderModal()
+
+    const input = screen.getByPlaceholderText(PLACEHOLDER)
+    fireEvent.change(input, { target: { value: 'checkin' } })
+
+    const entry = await screen.findByText('Run all check-ins')
+    fireEvent.click(entry)
+
+    await vi.waitFor(() => {
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        'Check-in partially failed',
+        expect.objectContaining({
+          description: 'Total 3 accounts: 2 succeeded, 1 failed, 0 skipped',
+        })
+      )
+    })
+  })
+
+  it('opens the rebuild confirmation before mutating (keyboard path)', async () => {
+    renderModal()
+
+    const input = screen.getByPlaceholderText(PLACEHOLDER)
+    fireEvent.change(input, { target: { value: 'rebuild' } })
+    await screen.findByText('Auto-rebuild routes')
+
+    fireEvent.keyDown(input, { key: 'Enter' })
+
+    // The palette closes and the same confirmation the routes page uses
+    // takes over — the mutation must NOT have fired yet.
+    await screen.findByText('Rebuild routes?')
+    expect(onOpenChangeMock).toHaveBeenCalledWith(false)
+    expect(rebuildMock).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Auto-rebuild' }))
+
+    expect(rebuildMock).toHaveBeenCalledWith({ refreshModels: true })
+  })
+
+  it('cancelling the rebuild confirmation never mutates', async () => {
+    renderModal()
+
+    const input = screen.getByPlaceholderText(PLACEHOLDER)
+    fireEvent.change(input, { target: { value: 'rebuild' } })
+    const entry = await screen.findByText('Auto-rebuild routes')
+    fireEvent.click(entry)
+
+    await screen.findByText('Rebuild routes?')
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(rebuildMock).not.toHaveBeenCalled()
+    expect(screen.queryByText('Rebuild routes?')).not.toBeInTheDocument()
+  })
+
+  it('fires refresh-route-decisions directly, without a confirmation', async () => {
+    renderModal()
+
+    const input = screen.getByPlaceholderText(PLACEHOLDER)
+    fireEvent.change(input, { target: { value: 'decisions' } })
+
+    const entry = await screen.findByText('Refresh route decisions')
+    fireEvent.click(entry)
+
+    expect(refreshDecisionsMock).toHaveBeenCalledTimes(1)
+    expect(onOpenChangeMock).toHaveBeenCalledWith(false)
+    expect(screen.queryByText('Rebuild routes?')).not.toBeInTheDocument()
   })
 })
 
