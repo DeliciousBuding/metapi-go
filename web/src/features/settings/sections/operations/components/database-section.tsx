@@ -272,6 +272,10 @@ export function DatabaseSection() {
                       {...field}
                       value={field.value ?? ''}
                       className='font-mono'
+                      // Infrastructure DSN, not a user credential — WCAG 1.3.5
+                      // input purposes do not apply, and 'off' keeps password
+                      // managers from capturing or autofilling connection
+                      // strings (#1029 batch A evaluation).
                       autoComplete='off'
                       spellCheck={false}
                       placeholder={connectionPlaceholder}

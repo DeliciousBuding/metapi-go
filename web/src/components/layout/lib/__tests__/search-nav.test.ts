@@ -2,8 +2,12 @@
 // Covers the page/settings entry builders and the local matcher used by
 // the ⌘K palette's navigation layer.
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
+// The layout-owned settings registry needs a feature provider at runtime.
+// In this isolated lib test we seed a five-subarea fixture so the palette
+// navigation tests exercise the same declarative projection without creating
+// a components -> features edge.
 import {
   getSettingsNavEntries,
   matchNavEntries,
@@ -11,6 +15,79 @@ import {
   type SearchNavEntry,
 } from '../search-nav'
 
+vi.mock('../settings-nav-registry', () => ({
+  getSettingsSubareas: () => [
+    {
+      id: 'basic',
+      title: 'Basic',
+      basePath: '/settings/basic',
+      defaultSection: 'site',
+      getSectionNavItems: () => [
+        { title: 'Site', url: '/settings/basic/site' },
+        { title: 'Proxy', url: '/settings/basic/proxy' },
+        { title: 'Models', url: '/settings/basic/models' },
+        { title: 'Account', url: '/settings/basic/account' },
+      ],
+    },
+    {
+      id: 'downstream',
+      title: 'Downstream',
+      basePath: '/settings/downstream',
+      defaultSection: 'keys',
+      getSectionNavItems: () => [
+        { title: 'Keys', url: '/settings/downstream/keys' },
+        { title: 'Routes', url: '/settings/downstream/routes' },
+        {
+          title: 'Credential scope',
+          url: '/settings/downstream/credential-scope',
+        },
+        { title: 'Calls', url: '/settings/downstream/calls' },
+      ],
+    },
+    {
+      id: 'operations',
+      title: 'Operations',
+      basePath: '/settings/operations',
+      defaultSection: 'overview',
+      getSectionNavItems: () => [
+        { title: 'Overview', url: '/settings/operations/overview' },
+        { title: 'Audit', url: '/settings/operations/audit' },
+        {
+          title: 'Scheduled Tasks',
+          url: '/settings/operations/scheduled-tasks',
+        },
+        {
+          title: 'Operational Events',
+          url: '/settings/operations/program-logs',
+        },
+      ],
+    },
+    {
+      id: 'content',
+      title: 'Content',
+      basePath: '/settings/content',
+      defaultSection: 'import-export',
+      getSectionNavItems: () => [
+        { title: 'Import/export', url: '/settings/content/import-export' },
+        { title: 'Backup', url: '/settings/content/backup' },
+        { title: 'Branding', url: '/settings/content/branding' },
+        { title: 'Announcements', url: '/settings/content/announcements' },
+      ],
+    },
+    {
+      id: 'system',
+      title: 'System & Ops',
+      basePath: '/settings/system',
+      defaultSection: 'general',
+      getSectionNavItems: () => [
+        { title: 'General', url: '/settings/system/general' },
+        { title: 'Security', url: '/settings/system/security' },
+        { title: 'Database', url: '/settings/system/database' },
+        { title: 'Notify', url: '/settings/system/notify' },
+      ],
+    },
+  ],
+}))
 describe('pageEntriesFromNavGroups', () => {
   it('flattens link items across groups, keeping icons', () => {
     const icon = () => null

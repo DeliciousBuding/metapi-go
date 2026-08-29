@@ -7,6 +7,39 @@
 // storage; falls back to system preference. Legacy themeBootstrap.ts removed.
 // Tailwind 4 dark mode is class-based: <html class="dark"> / class="light".
 ;(function () {
+  // CSP runtime-style handshake (#1035 S2): the Go SPA fallback injects a
+  // per-request nonce into <meta name="csp-nonce"> in <head> before this
+  // script runs. Hand it to every subsequently-created <style> element so
+  // runtime style injectors (sonner's stylesheet, chart color variables,
+  // dialog/command-palette scroll lock) carry the required nonce attribute
+  // from the moment they are inserted — including libraries that append an
+  // empty <style> before filling it. Also publish __webpack_nonce__ for
+  // get-nonce/style-singleton consumers. Does nothing when served without a
+  // CSP (dev server), preserving the no-nonce behavior there.
+  try {
+    const nonceMeta = document.querySelector('meta[name="csp-nonce"]')
+    const cspNonce = nonceMeta ? nonceMeta.content : ''
+    if (cspNonce) {
+      try {
+        window.__webpack_nonce__ = cspNonce
+      } catch {
+        /* frozen global in exotic embeds — style tag patch below still works */
+      }
+      const originalCreateElement = document.createElement.bind(document)
+      document.createElement = function (tagName, options) {
+        const el = originalCreateElement(tagName, options)
+        if (
+          String(tagName).toLowerCase() === 'style' &&
+          !el.hasAttribute('nonce')
+        ) {
+          el.setAttribute('nonce', cspNonce)
+        }
+        return el
+      }
+    }
+  } catch {
+    /* nonce unavailable — leave runtime style behavior unchanged */
+  }
   try {
     const COOKIE_NAME = 'vite-ui-theme'
     let theme = null

@@ -9,10 +9,10 @@
 //     PROXY_*_TIMEOUT_SEC env vars.
 //   - Every other outbound path (proxy executor, channel health probes,
 //     admin channel test harness, monitor LDOH proxy, notifications, pricing
-//     catalog fetch, Codex websocket dial, server healthcheck) builds its
-//     transport here so each client carries explicit dial / TLS-handshake /
-//     idle bounds and a sized connection pool instead of riding
-//     http.DefaultTransport.
+//     catalog fetch, OAuth token/session exchange, Codex websocket dial,
+//     server healthcheck) builds its transport here so each client carries
+//     explicit dial / TLS-handshake / idle bounds and a sized connection
+//     pool instead of riding http.DefaultTransport.
 //
 // Baseline values mirror the axonhub HTTP client baseline
 // (docs/internal/analysis/competitor-study-2026-08.md): dial 30s,
@@ -22,6 +22,7 @@ package httpclient
 import (
 	"net"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 )
@@ -54,7 +55,19 @@ type Options struct {
 	IdleConnTimeout       time.Duration
 	MaxIdleConns          int
 	MaxIdleConnsPerHost   int
+	// Proxy overrides the transport's proxy resolution. Nil keeps
+	// http.ProxyFromEnvironment, the behavior these paths historically
+	// inherited from http.DefaultTransport. Set NoProxy on paths that must
+	// never ride an operator-configured HTTP_PROXY (e.g. OAuth token
+	// exchange).
+	Proxy func(*http.Request) (*url.URL, error)
 }
+
+// NoProxy is an Options.Proxy value that disables proxy resolution
+// entirely: HTTP_PROXY/HTTPS_PROXY/NO_PROXY environment variables are
+// ignored and every request dials its target directly. It is equivalent to
+// a nil Transport.Proxy but can be passed explicitly through Options.
+func NoProxy(*http.Request) (*url.URL, error) { return nil, nil }
 
 // NewTransport builds an *http.Transport with explicit phase timeouts and a
 // sized idle pool. Proxy resolution keeps http.ProxyFromEnvironment, the
@@ -80,8 +93,12 @@ func NewTransport(opts Options) *http.Transport {
 	if maxIdleConnsPerHost <= 0 {
 		maxIdleConnsPerHost = DefaultMaxIdleConnsPerHost
 	}
+	proxy := opts.Proxy
+	if proxy == nil {
+		proxy = http.ProxyFromEnvironment
+	}
 	return &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
+		Proxy: proxy,
 		DialContext: (&net.Dialer{
 			Timeout:   dialTimeout,
 			KeepAlive: DefaultKeepAlive,

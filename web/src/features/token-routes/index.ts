@@ -5,5 +5,9 @@
 //
 // `export type` is used for all type-only re-exports (isolatedModules-safe).
 
-export { routeQueryKeys } from './api'
+export {
+  routeQueryKeys,
+  useRebuildRoutes,
+  useRefreshRouteDecisions,
+} from './api'
 export { routesSearchSchema } from './lib/routes-schema'

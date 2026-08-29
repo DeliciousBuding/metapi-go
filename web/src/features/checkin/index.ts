@@ -8,7 +8,7 @@
 // --- page + components ---
 
 // --- checkin hooks + query keys ---
-export { checkinQueryKeys, fetchCheckinLogs } from './api'
+export { checkinQueryKeys, fetchCheckinLogs, useManualCheckin } from './api'
 
 // --- URL search schema + helpers ---
 export {

@@ -9,5 +9,5 @@ export { sitesSearchSchema } from './lib/sites-schema'
 // cross-feature detail sheets that render site-provided URLs as links.
 export { isValidEndpointUrl } from './lib/endpoints'
 
-export { sitesKeys } from './types'
+export { sitesKeys, type Site } from './types'
 export { useSites } from './api'

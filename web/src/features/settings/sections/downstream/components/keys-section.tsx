@@ -49,12 +49,22 @@ import {
 } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
+import { useAccounts, useAllAccountTokens } from '@/features/accounts'
 import { useSites } from '@/features/sites'
 import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
 
 import { SettingsSectionCard } from '../../../components/settings-section-card'
 import { SettingsSectionError } from '../../../components/settings-section-error'
+import { accountDisplayName, tokenDisplayName } from '../lib/credential-display'
+import {
+  credentialRefSchema,
+  parseCredentialRefs,
+  parseIdArray,
+  serializeCredentialRefs,
+} from '../lib/credential-refs'
+import { CredentialRefPicker } from './credential-ref-picker'
+import { KeyScopeCell, type ScopeNameMaps } from './key-scope-cell'
 
 type DownstreamKeyUsage24h = {
   requests?: number
@@ -76,6 +86,11 @@ type DownstreamApiKeyItem = {
   supportedModels?: string[] | string | null
   allowedRouteIds?: number[] | string | null
   allowedSiteIds?: number[] | string | null
+  excludedSiteIds?: number[] | string | null
+  // Credential-ref columns: GET returns the stored columns verbatim — a raw
+  // JSON string (or null); parsed with parseCredentialRefs before use.
+  allowedCredentialRefs?: string | unknown[] | null
+  excludedCredentialRefs?: string | unknown[] | null
   usage24h?: DownstreamKeyUsage24h
 }
 
@@ -97,6 +112,22 @@ const downstreamKeysQueryKeys = {
 
 const CREATE_FORM_ID = 'settings-downstream-keys-create-form'
 
+// Extract the backend error message from an axios rejection. Admin API
+// errors serialize as { error: "..." } (handler/shared/errors.go APIError);
+// .message is checked too, mirroring the http-client resolveResponseMessage
+// order. Returns undefined for shapes without a usable string.
+function resolveApiErrorMessage(error: unknown): string | undefined {
+  const data = (error as { response?: { data?: unknown } } | null)?.response
+    ?.data
+  if (data && typeof data === 'object') {
+    const message = (data as { message?: unknown }).message
+    if (typeof message === 'string' && message.trim()) return message
+    const errorField = (data as { error?: unknown }).error
+    if (typeof errorField === 'string' && errorField.trim()) return errorField
+  }
+  return undefined
+}
+
 function generateDownstreamSkSuffix(): string {
   const bytes = new Uint8Array(48)
   crypto.getRandomValues(bytes)
@@ -116,6 +147,8 @@ const createKeySchema = z.object({
   description: z.string().optional(),
   supportedModels: z.array(z.string().trim().min(1)).default([]),
   allowedSiteIds: z.array(z.number().int().positive()).default([]),
+  allowedCredentialRefs: z.array(credentialRefSchema).default([]),
+  excludedCredentialRefs: z.array(credentialRefSchema).default([]),
 })
 
 type CreateKeyFormValues = z.infer<typeof createKeySchema>
@@ -164,54 +197,6 @@ function normalizeModelRules(value: unknown): string[] {
   return rules
 }
 
-function normalizeRouteIds(value: unknown): number[] {
-  let rawRouteIds: unknown[] = []
-  if (Array.isArray(value)) {
-    rawRouteIds = value
-  } else if (typeof value === 'string' && value.trim()) {
-    try {
-      const parsed = JSON.parse(value) as unknown
-      rawRouteIds = Array.isArray(parsed) ? parsed : []
-    } catch {
-      rawRouteIds = []
-    }
-  }
-
-  return [
-    ...new Set(
-      rawRouteIds.filter(
-        (routeId): routeId is number =>
-          typeof routeId === 'number' &&
-          Number.isInteger(routeId) &&
-          routeId > 0
-      )
-    ),
-  ]
-}
-
-function normalizeSiteIds(value: unknown): number[] {
-  let rawSiteIds: unknown[] = []
-  if (Array.isArray(value)) {
-    rawSiteIds = value
-  } else if (typeof value === 'string' && value.trim()) {
-    try {
-      const parsed = JSON.parse(value) as unknown
-      rawSiteIds = Array.isArray(parsed) ? parsed : []
-    } catch {
-      rawSiteIds = []
-    }
-  }
-
-  return [
-    ...new Set(
-      rawSiteIds.filter(
-        (siteId): siteId is number =>
-          typeof siteId === 'number' && Number.isInteger(siteId) && siteId > 0
-      )
-    ),
-  ]
-}
-
 function extractMarketplaceModelNames(result: unknown): string[] {
   let rows: unknown = []
   if (Array.isArray(result)) {
@@ -246,6 +231,8 @@ function blankKeyFormValues(): CreateKeyFormValues {
     description: '',
     supportedModels: [],
     allowedSiteIds: [],
+    allowedCredentialRefs: [],
+    excludedCredentialRefs: [],
   }
 }
 
@@ -261,7 +248,11 @@ function keyFormValuesFromItem(
     enabled: item.enabled,
     expiresAt: isoToLocalDatetimeInput(item.expiresAt),
     supportedModels: normalizeModelRules(item.supportedModels),
-    allowedSiteIds: normalizeSiteIds(item.allowedSiteIds),
+    allowedSiteIds: parseIdArray(item.allowedSiteIds),
+    // GET returns the stored ref columns as raw JSON strings — parse them
+    // back into typed refs for the tree pickers (round-trip contract).
+    allowedCredentialRefs: parseCredentialRefs(item.allowedCredentialRefs),
+    excludedCredentialRefs: parseCredentialRefs(item.excludedCredentialRefs),
   }
 }
 
@@ -364,7 +355,7 @@ function ModelPolicyEditor({
               {rule}
               <button
                 type='button'
-                className='focus-visible:ring-ring rounded-full outline-none focus-visible:ring-2'
+                className='focus-visible:ring-focus-ring rounded-full outline-none focus-visible:ring-2'
                 aria-label={t(
                   'settings.downstream.keys.models.removeRuleAria',
                   { rule, defaultValue: 'Remove model rule {{rule}}' }
@@ -527,8 +518,18 @@ export function KeySheetForm({
 
   const submitMutation = useMutation({
     mutationFn: async (values: CreateKeyFormValues) => {
+      // Canonical wire format for the credential-ref dimensions: real arrays
+      // (create/update bodies never carry the stored JSON-string form).
+      const policy = {
+        allowedCredentialRefs: serializeCredentialRefs(
+          values.allowedCredentialRefs
+        ),
+        excludedCredentialRefs: serializeCredentialRefs(
+          values.excludedCredentialRefs
+        ),
+      }
       if (!editingKey) {
-        return api.createDownstreamApiKey(values)
+        return api.createDownstreamApiKey({ ...values, ...policy })
       }
       return api.updateDownstreamApiKey(editingKey.id, {
         name: values.name,
@@ -539,6 +540,7 @@ export function KeySheetForm({
         expiresAt: values.expiresAt,
         supportedModels: values.supportedModels,
         allowedSiteIds: values.allowedSiteIds,
+        ...policy,
       })
     },
     onSuccess: (result, values) => {
@@ -569,12 +571,18 @@ export function KeySheetForm({
       }
       onDone()
     },
-    onError: () =>
+    onError: (error) => {
+      // skipErrorHandler owns this call's feedback: surface the backend's
+      // own message when present (400s carry the offending credentialRefs
+      // entry index / unknown id), fall back to the generic toast.
+      const serverMessage = resolveApiErrorMessage(error)
       toast.error(
-        isEdit
-          ? t('settings.downstream.keys.toast.updateFailed')
-          : t('settings.downstream.keys.toast.createFailed')
-      ),
+        serverMessage ??
+          (isEdit
+            ? t('settings.downstream.keys.toast.updateFailed')
+            : t('settings.downstream.keys.toast.createFailed'))
+      )
+    },
   })
 
   function onSubmit(values: CreateKeyFormValues) {
@@ -679,7 +687,7 @@ export function KeySheetForm({
                     onChange={field.onChange}
                     candidateModels={candidateModels}
                     routeGrantCount={
-                      normalizeRouteIds(editingKey?.allowedRouteIds).length
+                      parseIdArray(editingKey?.allowedRouteIds).length
                     }
                   />
                 </FormControl>
@@ -708,6 +716,48 @@ export function KeySheetForm({
                     value={field.value ?? []}
                     onChange={field.onChange}
                     sites={sites ?? []}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name='allowedCredentialRefs'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  {t('settings.downstream.keys.credentials.fieldLabelAllow')}
+                </FormLabel>
+                <FormDescription>
+                  {t('settings.downstream.keys.credentials.hintAllow')}
+                </FormDescription>
+                <FormControl>
+                  <CredentialRefPicker
+                    value={field.value ?? []}
+                    onChange={field.onChange}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name='excludedCredentialRefs'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  {t('settings.downstream.keys.credentials.fieldLabelExclude')}
+                </FormLabel>
+                <FormDescription>
+                  {t('settings.downstream.keys.credentials.hintExclude')}
+                </FormDescription>
+                <FormControl>
+                  <CredentialRefPicker
+                    value={field.value ?? []}
+                    onChange={field.onChange}
                   />
                 </FormControl>
                 <FormMessage />
@@ -851,7 +901,7 @@ export function KeyModelPolicyCell({
 }) {
   const { t } = useTranslation()
   const rules = normalizeModelRules(supportedModels)
-  const routeGrantCount = normalizeRouteIds(allowedRouteIds).length
+  const routeGrantCount = parseIdArray(allowedRouteIds).length
   if (rules.includes('*')) {
     return (
       <Badge variant='success'>
@@ -950,6 +1000,34 @@ export function KeysSection() {
   const candidateModels = useMemo(
     () => extractMarketplaceModelNames(modelInventoryQuery.data),
     [modelInventoryQuery.data]
+  )
+
+  // Routing-scope display resolves raw site/account/token IDs to names.
+  // These share their query keys with the sites/accounts/tokens surfaces
+  // (and with the credential pickers inside the edit sheet), so the list
+  // pays at most one extra fetch per inventory dimension.
+  const scopeSitesQuery = useSites()
+  const scopeAccountsQuery = useAccounts()
+  const scopeTokensQuery = useAllAccountTokens()
+  const scopeNames = useMemo<ScopeNameMaps>(
+    () => ({
+      sites: new Map(
+        (scopeSitesQuery.data ?? []).map((site) => [site.id, site.name])
+      ),
+      accounts: new Map(
+        (scopeAccountsQuery.data?.accounts ?? []).map((account) => [
+          account.id,
+          accountDisplayName(account),
+        ])
+      ),
+      tokens: new Map(
+        (scopeTokensQuery.data ?? []).map((token) => [
+          token.id,
+          tokenDisplayName(token),
+        ])
+      ),
+    }),
+    [scopeSitesQuery.data, scopeAccountsQuery.data, scopeTokensQuery.data]
   )
 
   const [editingKey, setEditingKey] = useState<DownstreamApiKeyItem | null>(
@@ -1066,6 +1144,13 @@ export function KeysSection() {
         ),
       },
       {
+        id: 'scope',
+        header: t('settings.downstream.keys.columns.scope'),
+        cell: ({ row }) => (
+          <KeyScopeCell item={row.original} names={scopeNames} />
+        ),
+      },
+      {
         id: 'enabled',
         header: t('settings.downstream.keys.columns.enabled'),
         meta: { mobileBadge: true },
@@ -1127,7 +1212,7 @@ export function KeysSection() {
         ),
       },
     ],
-    [t, toggleKeyPending, toggleKeyMutate]
+    [t, toggleKeyPending, toggleKeyMutate, scopeNames]
   )
 
   const { table } = useDataTable<DownstreamApiKeyItem>({

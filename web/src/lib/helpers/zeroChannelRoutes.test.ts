@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import type { RouteSummaryRow } from '../../features/token-routes/types.js'
 import type { MissingTokenModelsByName } from './routeMissingTokenHints.js'
+import type { RouteSummaryRow } from './token-route-contract.js'
 import { buildZeroChannelPlaceholderRoutes } from './zeroChannelRoutes.js'
 
 describe('buildZeroChannelPlaceholderRoutes', () => {

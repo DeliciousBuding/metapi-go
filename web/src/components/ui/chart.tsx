@@ -3,6 +3,7 @@ import * as React from 'react'
 import * as RechartsPrimitive from 'recharts'
 import type { TooltipValueType } from 'recharts'
 
+import { getCspNonce } from '@/lib/csp-nonce'
 import { cn } from '@/lib/utils'
 
 // Format: { THEME_NAME: CSS_SELECTOR }
@@ -105,7 +106,10 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   }
 
   return (
+    // nonce: per-request CSP style-src nonce injected by the Go server as
+    // <meta name="csp-nonce"> (#1035 S2); '' (no CSP / dev server) omits it.
     <style
+      nonce={getCspNonce() || undefined}
       dangerouslySetInnerHTML={{
         __html: Object.entries(THEMES)
           .map(
