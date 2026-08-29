@@ -29,7 +29,7 @@ defects unless registered as an exception below.
    edges are a pre-existing residual tracked separately.
 2. **`src/components/` does not import from `features/` or `routes/`.** Shared
    UI must stay renderable without any feature context. The boundary gate
-   enforces this; the one remaining shell exception is registered below.
+   enforces this; any exception requires an explicit in-script registry entry.
 3. **Features may import lib, shared components, stores, i18n, and other
    features' public barrels** — feature-to-feature coupling is tolerated but
    should stay shallow (prefer a shared lib helper when logic is reusable).
@@ -48,21 +48,14 @@ Exceptions are an explicit in-script registry with a required reason; a stale
 exception (no matching import) also fails, so whitelists cannot accumulate
 silently. Run directly with `bun run check:boundaries`.
 
-## Registered exceptions (components/layout → features)
+## Registered exceptions
 
-After the Wave 21 S5 inversion, only one shell edge remains. It is **not**
-covered yet because the `⌘K` palette files (`search-modal.tsx` and
-`search-nav.ts`) are owned by parallel Wave 21 Lane P. The layout-owned
-settings nav registry already exists, so the edge is mechanical to flip once
-Lane P lands:
-
-| File | Imports | Why |
-|:---|:---|:---|
-| `src/components/layout/lib/search-nav.ts` | `getSettingsSubareas` from `@/features/settings` | Feeds the ⌘K palette's local Settings entries from the feature's registry; Lane P owns this file |
-
-**Exit criterion**: when Lane P flips `search-nav.ts` to
-`../lib/settings-nav-registry`, delete the entry above in that change;
- the registered-exception list should then be empty.
+None. Wave 21 S5 shell inversion is complete: `layout/lib/settings-nav-registry.ts`
+is the sole settings-nav provider and is registered from the authenticated route
+composition root; `search-nav.ts` and `system-settings.config.ts` consume the
+layout registry instead of importing `features/settings`. New cross-layer edges
+require an explicit reviewed exception in `web/scripts/check-boundaries.mjs`; a
+stale entry is rejected by the gate.
 
 ## Precedent log
 

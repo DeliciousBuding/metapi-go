@@ -32,14 +32,7 @@ const SRC = join(WEB_ROOT, 'src')
 const DOC = 'docs/internal/web-package-boundaries.md'
 
 // --- exceptions registry -----------------------------------------------------
-const EXCEPTIONS = [
-  {
-    file: 'src/components/layout/lib/search-nav.ts',
-    specifier: '@/features/settings',
-    reason:
-      'Wave 21 Lane P owns the ⌘K palette files (search-modal.tsx + search-nav.ts); flipping this import to ../lib/settings-nav-registry touches Lane P territory. Tracked in the S5 PR conflict-handoff list; delete this entry when flipped.',
-  },
-]
+const EXCEPTIONS = []
 
 // --- layer rules ----------------------------------------------------------------
 // layer of the importing file -> layers it must not import from.

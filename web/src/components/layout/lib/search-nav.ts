@@ -8,7 +8,7 @@
 
 import type { ElementType } from 'react'
 
-import { getSettingsSubareas } from '@/features/settings'
+import { getSettingsSubareas } from './settings-nav-registry'
 
 type SearchNavScope = 'page' | 'settings'
 

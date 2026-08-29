@@ -53,17 +53,53 @@ vi.mock('@/lib/api/search', () => ({
   searchApi: { search: searchMock },
 }))
 
-// The actions layer reuses the feature mutation hooks; the tests drive them
-// through the public barrels so the palette's execution paths run for real.
-vi.mock('@/features/checkin', () => ({
-  useManualCheckin: () => ({ mutateAsync: checkinAllMock }),
+// The layout-owned settings-nav registry must be seeded in isolation; the
+// authenticated route composition root normally registers the real feature
+// provider. Returning a small fixture exercises the palette's local settings
+// navigation without creating a components -> features edge in the test.
+vi.mock('../lib/settings-nav-registry', () => ({
+  getSettingsSubareas: () => [
+    {
+      id: 'basics',
+      title: 'Basics',
+      basePath: '/settings/basics',
+      defaultSection: 'overview',
+      getSectionNavItems: () => [],
+    },
+    {
+      id: 'downstream',
+      title: 'Downstream',
+      basePath: '/settings/downstream',
+      defaultSection: 'keys',
+      getSectionNavItems: () => [],
+    },
+    {
+      id: 'operations',
+      title: 'System & Ops',
+      basePath: '/settings/operations',
+      defaultSection: 'overview',
+      getSectionNavItems: () => [
+        {
+          title: 'Scheduled Tasks',
+          url: '/settings/operations/scheduled-tasks',
+        },
+        {
+          title: 'Operational Events',
+          url: '/settings/operations/program-logs',
+        },
+      ],
+    },
+  ],
 }))
 
-vi.mock('@/features/token-routes', () => ({
-  useRebuildRoutes: () => ({ mutate: rebuildMock, isPending: false }),
-  useRefreshRouteDecisions: () => ({
-    mutate: refreshDecisionsMock,
-    isPending: false,
+// The palette consumes the feature-facing action adapter (#1075 boundary
+// inversion); mocking the adapter boundary keeps SearchModal's own execution
+// paths real while stubbing only the mutation surface.
+vi.mock('@/hooks/use-search-actions', () => ({
+  useSearchActions: () => ({
+    triggerAllCheckin: { mutateAsync: checkinAllMock },
+    rebuildRoutes: { mutate: rebuildMock, isPending: false },
+    refreshRouteDecisions: { mutate: refreshDecisionsMock, isPending: false },
   }),
 }))
 
