@@ -1,8 +1,0 @@
-src = open('store/settings.go', encoding='utf-8').read()
-src = src.replace('cfg.ModelAvailabilityProbeEnabled', 'rt.ModelAvailabilityProbeEnabled')
-open('store/settings.go','w',encoding='utf-8').write(src)
-src = open('app/services.go', encoding='utf-8').read()
-src = src.replace('scheduler.NewDailySummaryScheduler(cfg)', 'scheduler.NewDailySummaryScheduler()')
-src = src.replace('scheduler.NewModelSyncScheduler(cfg)', 'scheduler.NewModelSyncScheduler()')
-open('app/services.go','w',encoding='utf-8').write(src)
-print("ok")
