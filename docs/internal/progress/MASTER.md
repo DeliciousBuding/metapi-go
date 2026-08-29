@@ -14,10 +14,9 @@
 
 | # | 内容 | 建议验收 |
 |---|---|---|
-| F3 | **后端告警文案 i18n**（P3）：`stats_balance.go` `Low balance: %s` 等硬编码英文，事件持久化 + 后端无 locale 上下文，需 key 映射架构改动；通知弹层英文告警裸奔已有截图证据 | 双语告警事件端到端 |
-| C4 | **#1035 剩余专题**：S7 四档分级 + undo（三态集中化已交付 #1084）、S8 settings 巨型文件拆解、S10 双语 CI（图表 sr-only 摘要层已全量交付 #1087；S2 CSP / S4 errorCode / S5 边界 / S6 cmdk actions / S9 大表分页主体已交付） | 按各专题验收 |
+| C4 | **#1035 剩余专题**：S7 四档分级 + undo（三态集中化已交付 #1084）、S8 settings 巨型文件拆解、S10 双语 CI（图表 sr-only 摘要层已全量交付 #1087；键 parity + 占位符 parity 已入 i18n-keys 测试随 CI 跑；S2 CSP / S4 errorCode / S5 边界 / S6 cmdk actions / S9 大表分页主体已交付） | 按各专题验收 |
 
-F2（site-form 抽屉迁移）已交付（#1082）：居中 Dialog → 右侧 Sheet。F4（docs/api.md 超预算拆分）已交付（2026-08-30）：`docs/api.md` 保留为索引，按域拆为 `docs/api/*.md` 17 个文件，全部原有 H2/H3 标题以 stub 承接、旧 anchor 落位。
+F3（后端告警文案 i18n）已交付（#1091，2026-08-30）：新增共享模块 `web/src/lib/attention-label.ts`（AttentionItem/AttentionResponse 类型 + 8 事件标题键映射 + attentionLabel），attention-bell 与 availability-section 共用、删两份本地副本；en/zh-CN 补 7 事件标题键；params 缺失/未知类别回退裸 label（诚实残留）。双语端到端截图验证通过（铃铛弹层 + availability 面板 zh-CN/en）。F2（site-form 抽屉迁移）已交付（#1082）：居中 Dialog → 右侧 Sheet。F4（docs/api.md 超预算拆分）已交付（2026-08-30）：`docs/api.md` 保留为索引，按域拆为 `docs/api/*.md` 17 个文件，全部原有 H2/H3 标题以 stub 承接、旧 anchor 落位。
 
 挑选条件：需求驱动或维护者确认；选定后按既有模式开短命分支、定验收门槛（本地全门禁 → 12-check CI → squash merge）。**并行推送教训**：8+ lane 并发 pre-push 时 `handler/admin` -race 曾撞 300s 默认预算（已升至 900s，#1063），建议错峰推送或 ≤4 并发。
 

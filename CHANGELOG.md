@@ -14,6 +14,8 @@ All notable changes to Metapi-Go will be documented in this file.
 
 ### Fixed
 
+- **通知铃铛弹层告警文案未本地化（F3，#1091）**：后端 attention API 为兼容保留英文 `label` 并下发结构化 `params`，dashboard 可用性面板已做再本地化，但顶栏铃铛弹层裸渲染英文——中文界面下出现「Balance unknown: svc-onea…」等英文告警。两处现共用新共享模块 `web/src/lib/attention-label.ts`（含 8 个持久化事件标题的 i18n 映射）；en/zh-CN 补齐 7 个事件标题键；参数缺失或未知类别回退原文，绝不半翻译。
+- **channels 页「响应延迟」列默认掉出首屏**：表格默认总宽 1430px 超出 1440px 视口下约 1166px 的滚动口，该列表头在滚动口右缘被裁成「响应延…」；列宽修正（响应延迟 110→130，名称 200→170，冷却至 180→160）后该列回到首屏，残余轻微横滚由已固定的操作列与列设置承接（用户已持久化的列宽不受影响）。
 - **移动端账号页头动作挤压修复（#1086）**：375px 窄视口下「添加账号」按钮与描述同 flex 行挤压、截断描述首行；页头对齐 checkin/路由页的 flex-wrap 模式，按钮窄屏独立成行。
 - **今日快照 delta 不可用态去重（#1088）**：余额 7 天对比无数据时 Minus 图标与「—」占位符同形连读作「— —」；不可用态只留 em-dash 占位（零 delta 仍用 Minus 图标）。
 - **下游密钥凭证维度（`allowedCredentialRefs`/`excludedCredentialRefs`）端到端修复（#1026 残留）**：`auth.ExcludedCredentialRef` 的 JSON 标签原为 snake_case（`site_id`/`account_id`/`token_id`），而管理端持久化形状为 camelCase（`siteId`/`accountId`/`tokenId`）——导致代理路径解析出的引用 ID 全为 0：允许列表密钥无法路由任何渠道、排除列表静默失效。标签统一为 camelCase 并新增 DB→策略解析往返回归测试。
@@ -33,6 +35,7 @@ All notable changes to Metapi-Go will be documented in this file.
 
 ### Added
 
+- **i18n 插值占位符 parity 门禁（#1035 S10）**：i18n-keys 测试新增断言——每个双语键在 en 与 zh-CN 中的 `{{变量}}` 集合必须一致（此前键集合 parity 抓不到译文丢失插值变量导致的「半翻译」渲染）；现状 2493 键 0 失配，随 frontend CI 锁定。
 - **延迟图表无障碍数据摘要（#1087，#1035 S10）**：仪表盘延迟直方图与延迟趋势补 sr-only 数据表（直方图：区间×调用数；趋势：平均/p95 × 最新日/窗口均值）——至此仪表盘全部六个主图均有屏幕阅读器替代层。
 - **凭证维度契约测试与文档（#1026 残留）**：路由选择器执行测试（两种 kind、跨 kind 不互匹配、空列表不限制、排除优先于允许、TS 遗留空 kind 语义）、管理端验证拒绝用例、悬空引用行为钉住（删号/删令牌不级联清理，悬空允许引用失败关闭）、auth→routing 映射测试；`docs/api.md` 下游密钥节新增完整契约（字段形状、空=不限制、验证规则、选择器行为、只读响应为 JSON 字符串、UI 待定说明）。
 - **下游密钥凭证树形选择器（#1026，#1072）**：`allowedCredentialRefs`/`excludedCredentialRefs` 配置 UI——按站点 → 账号 → 密钥三级树勾选，与 API 契约一致。

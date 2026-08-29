@@ -5,6 +5,12 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-08-30 — F3 告警 i18n 端到端 + i18n 占位符 parity 门禁 + channels 列宽
+
+- **F3 告警文案 i18n（#1091）**：新增共享模块 `web/src/lib/attention-label.ts`（AttentionItem/AttentionResponse 类型 + 8 个持久化事件标题 → i18n 键映射 + attentionLabel）；attention-bell 弹层与 availability 面板共用并删除两份本地副本（bell 此前裸渲染英文 label——中文 UI 里「Balance unknown: svc-onea…」裸奔的截图证据销项）；en/zh-CN 补 7 个事件标题键；params 缺失/未知类别一律回退裸 label（诚实残留）。lib 级 6 测试 + bell 中文渲染钉；seeded 实例双语截图端到端验证。
+- **S10 双语 CI 补强**：i18n-keys 测试新增插值占位符 parity 断言（每个双语键的 `{{var}}` 集合必须一致——键集合 parity 抓不到「译文丢了 {{amount}}」这类半翻译）；现状 2493 键 0 失配，测试锁死回归。
+- **channels 列宽修正（P4 微瑕销项）**：探测发现「响应延迟」列头截断实为表格总宽 1430px 超出 ~1166px 滚动口的右缘裁剪（表头本身未截断）；response 110→130（双语表头+排序图标实测需求 125px）、name 200→170、cooldown 180→160，响应延迟列回到 1440px 首屏；操作列本已 sticky  pinned-right，残余轻微横滚属宽表既定模式。
+
 ## 2026-08-30 — S7 三态收敛 + S10 图表摘要 + 页头/快照 polish
 
 - **S7-B 列表页三态契约集中化（#1084）**：DataTablePage 内建 error 契约（判别联合：传 error 必传 errorMessageKey；replace/inline 两种放置），8 个列表页删掉手写 `{error ? banner : table}` 分支；页级错误契约测试的 stub 改为兑现委托契约，组件级新增 replace/inline/retry 三钉；retry-icon 静态守卫改断言委托链。全量 1541 测试绿 + 8 页双视口截图复核无回归。
