@@ -62,13 +62,13 @@ func TestLoadParsesTrustedProxyCidrs(t *testing.T) {
 
 func TestLoadInfersPostgresFromDatabaseURLAlias(t *testing.T) {
 	_, rt := Load(map[string]string{
-		"DATABASE_URL": "postgres://user:pass@example.com:5432/metapi?sslmode=require",
+		"DATABASE_URL": "postgres://db.example.com:5432/metapi?sslmode=require",
 	})
 
 	if rt.DbType != "postgres" {
 		t.Fatalf("DbType = %q, want postgres", rt.DbType)
 	}
-	if rt.DbUrl != "postgres://user:pass@example.com:5432/metapi?sslmode=require" {
+	if rt.DbUrl != "postgres://db.example.com:5432/metapi?sslmode=require" {
 		t.Fatalf("DbUrl = %q, want DATABASE_URL value", rt.DbUrl)
 	}
 }
@@ -169,7 +169,7 @@ func TestLoadParsesUpdateCenterEnabled(t *testing.T) {
 func TestLoadPrefersDBURLOverDatabaseURLAlias(t *testing.T) {
 	_, rt := Load(map[string]string{
 		"DB_URL":       "sqlite://local.db",
-		"DATABASE_URL": "postgres://user:pass@example.com:5432/metapi",
+		"DATABASE_URL": "postgres://db.example.com:5432/metapi",
 	})
 
 	if rt.DbType != "sqlite" {
