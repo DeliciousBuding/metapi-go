@@ -609,8 +609,10 @@ func TestBuildPlatformProxyConfigPriority(t *testing.T) {
 	siteProxy := "http://site-proxy:8080"
 	siteHeaders := `{"X-Metapi-Site":"site-header"}`
 
+	config.SetRuntime(&config.RuntimeSettings{SystemProxyUrl: "http://system-proxy:8080"})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	proxyCfg := BuildPlatformProxyConfig(
-		&config.Config{SystemProxyUrl: "http://system-proxy:8080"},
+		&config.Config{},
 		&store.Account{ExtraConfig: &accountProxy},
 		&store.Site{ProxyURL: &siteProxy, UseSystemProxy: true, CustomHeaders: &siteHeaders},
 	)
@@ -627,8 +629,10 @@ func TestBuildPlatformProxyConfigPriority(t *testing.T) {
 }
 
 func TestBuildPlatformProxyConfigUsesSiteSystemProxy(t *testing.T) {
+	config.SetRuntime(&config.RuntimeSettings{SystemProxyUrl: "http://system-proxy:8080"})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	proxyCfg := BuildPlatformProxyConfig(
-		&config.Config{SystemProxyUrl: "http://system-proxy:8080"},
+		&config.Config{},
 		&store.Account{},
 		&store.Site{UseSystemProxy: true},
 	)

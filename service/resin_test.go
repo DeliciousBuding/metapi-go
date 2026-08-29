@@ -484,9 +484,11 @@ func TestBuildPlatformProxyConfigSiteProxyURLBeatsResin(t *testing.T) {
 }
 
 func TestBuildPlatformProxyConfigResinBeatsSystemProxy(t *testing.T) {
-	t.Parallel()
+	// Not t.Parallel(): the system proxy URL lives on the shared atomic
+	// runtime snapshot (publish + cleanup below).
 	cfg := resinCfg("http://resin.local:2260/my-token", "Default")
-	cfg.SystemProxyUrl = "http://system-proxy:8080"
+	config.SetRuntime(&config.RuntimeSettings{SystemProxyUrl: "http://system-proxy:8080"})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	account := &store.Account{ID: 5}
 	site := &store.Site{ID: 1, Platform: "openai", UseSystemProxy: true}
 
@@ -507,11 +509,11 @@ func TestBuildPlatformProxyConfigResinBeatsSystemProxy(t *testing.T) {
 }
 
 func TestBuildPlatformProxyConfigResinDisabledFallsBackToSystemProxy(t *testing.T) {
-	t.Parallel()
-	cfg := &config.Config{
-		ResinEnabled: false,
-		SystemProxyUrl: "http://system-proxy:8080",
-	}
+	// Not t.Parallel(): the system proxy URL lives on the shared atomic
+	// runtime snapshot (publish + cleanup below).
+	cfg := &config.Config{ResinEnabled: false}
+	config.SetRuntime(&config.RuntimeSettings{SystemProxyUrl: "http://system-proxy:8080"})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	account := &store.Account{ID: 5}
 	site := &store.Site{ID: 1, Platform: "openai", UseSystemProxy: true}
 
@@ -598,9 +600,11 @@ func TestBuildPlatformProxyConfigForTokenSiteProxyURLWins(t *testing.T) {
 }
 
 func TestBuildPlatformProxyConfigForTokenResinBeatsSystemProxy(t *testing.T) {
-	t.Parallel()
+	// Not t.Parallel(): the system proxy URL lives on the shared atomic
+	// runtime snapshot (publish + cleanup below).
 	cfg := resinCfg("http://resin.local:2260/my-token", "Default")
-	cfg.SystemProxyUrl = "http://system-proxy:8080"
+	config.SetRuntime(&config.RuntimeSettings{SystemProxyUrl: "http://system-proxy:8080"})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	site := &store.Site{ID: 7, Platform: "openai", UseSystemProxy: true}
 
 	proxyCfg := BuildPlatformProxyConfigForToken(cfg, site, "sk-test-token")
@@ -617,11 +621,11 @@ func TestBuildPlatformProxyConfigForTokenResinBeatsSystemProxy(t *testing.T) {
 }
 
 func TestBuildPlatformProxyConfigForTokenResinDisabled(t *testing.T) {
-	t.Parallel()
-	cfg := &config.Config{
-		ResinEnabled:  false,
-		SystemProxyUrl: "http://system-proxy:8080",
-	}
+	// Not t.Parallel(): the system proxy URL lives on the shared atomic
+	// runtime snapshot (publish + cleanup below).
+	cfg := &config.Config{ResinEnabled: false}
+	config.SetRuntime(&config.RuntimeSettings{SystemProxyUrl: "http://system-proxy:8080"})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	site := &store.Site{ID: 7, Platform: "openai", UseSystemProxy: true}
 
 	proxyCfg := BuildPlatformProxyConfigForToken(cfg, site, "sk-test-token")

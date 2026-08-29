@@ -20,12 +20,9 @@ func setupTestDB(t *testing.T) (*store.DB, func()) {
 	store.CloseDatabase()
 
 	// Use EnsureRuntimeDatabase with in-memory SQLite.
-	cfg := &config.Config{
-		DbType:  store.DialectSQLite,
-		DbUrl:   ":memory:",
-		DataDir: ".",
-	}
-	if err := store.EnsureRuntimeDatabase(cfg); err != nil {
+	cfg := &config.Config{DataDir: "."}
+	rt := &config.RuntimeSettings{DbType: store.DialectSQLite, DbUrl: ":memory:"}
+	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
 		t.Fatalf("failed to initialize test database: %v", err)
 	}
 
@@ -49,12 +46,9 @@ func setupPostgresRouteUnitDB(t *testing.T) (*store.DB, func()) {
 	}
 
 	store.CloseDatabase()
-	cfg := &config.Config{
-		DbType:  store.DialectPostgres,
-		DbUrl:   dsn,
-		DataDir: ".",
-	}
-	if err := store.EnsureRuntimeDatabase(cfg); err != nil {
+	cfg := &config.Config{DataDir: "."}
+	rt := &config.RuntimeSettings{DbType: store.DialectPostgres, DbUrl: dsn}
+	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
 		t.Fatalf("failed to initialize PostgreSQL test database: %v", err)
 	}
 

@@ -410,13 +410,13 @@ func TestSendNotification_TaskTagAggregatesAcrossMessages(t *testing.T) {
 		}),
 	}
 
-	cfg := &config.Config{
+	rt := &config.RuntimeSettings{
 		BarkEnabled:       true,
 		BarkUrl:           "https://bark.example",
 		NotifyCooldownSec: 300,
 	}
 
-	res1, err := SendNotification(cfg, "账号 A token 失效", "msg A", "error", &SendNotificationOptions{TaskTag: "token_expired"})
+	res1, err := SendNotification(rt, "账号 A token 失效", "msg A", "error", &SendNotificationOptions{TaskTag: "token_expired"})
 	if err != nil {
 		t.Fatalf("first send: %v", err)
 	}
@@ -424,7 +424,7 @@ func TestSendNotification_TaskTagAggregatesAcrossMessages(t *testing.T) {
 		t.Fatalf("first send = %+v, want delivered 1/1", res1)
 	}
 
-	res2, err := SendNotification(cfg, "账号 B token 失效", "msg B", "error", &SendNotificationOptions{TaskTag: "token_expired"})
+	res2, err := SendNotification(rt, "账号 B token 失效", "msg B", "error", &SendNotificationOptions{TaskTag: "token_expired"})
 	if err != nil {
 		t.Fatalf("second send: %v", err)
 	}
@@ -435,7 +435,7 @@ func TestSendNotification_TaskTagAggregatesAcrossMessages(t *testing.T) {
 		t.Fatalf("bark hits = %d, want 1 (aggregated)", hits.Load())
 	}
 
-	res3, err := SendNotification(cfg, "账号 C token 失效", "msg C", "warning", &SendNotificationOptions{TaskTag: "token_expired"})
+	res3, err := SendNotification(rt, "账号 C token 失效", "msg C", "warning", &SendNotificationOptions{TaskTag: "token_expired"})
 	if err != nil {
 		t.Fatalf("third send: %v", err)
 	}
@@ -444,7 +444,7 @@ func TestSendNotification_TaskTagAggregatesAcrossMessages(t *testing.T) {
 	}
 
 	// Without TaskTag the full message still participates in the signature.
-	res4, err := SendNotification(cfg, "自由标题", "msg D", "error", nil)
+	res4, err := SendNotification(rt, "自由标题", "msg D", "error", nil)
 	if err != nil {
 		t.Fatalf("untagged send: %v", err)
 	}

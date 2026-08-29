@@ -22,8 +22,8 @@ func setupAlertTestDB(t *testing.T) *store.DB {
 
 func TestReportLowBalance_NoOpAboveThreshold(t *testing.T) {
 	db := setupAlertTestDB(t)
-	cfg := &config.Config{AuthToken: "a", ProxyToken: "p"}
-	ReportLowBalance(cfg, db.DB, LowBalanceParams{
+	rt := &config.RuntimeSettings{AuthToken: "a", ProxyToken: "p"}
+	ReportLowBalance(rt, db.DB, LowBalanceParams{
 		AccountID: 1, Balance: 5.0, Threshold: 1.0,
 	})
 	var n int
@@ -37,12 +37,12 @@ func TestReportLowBalance_NoOpAboveThreshold(t *testing.T) {
 
 func TestReportLowBalance_FiresOnceThenDedups(t *testing.T) {
 	db := setupAlertTestDB(t)
-	cfg := &config.Config{AuthToken: "a", ProxyToken: "p"}
+	rt := &config.RuntimeSettings{AuthToken: "a", ProxyToken: "p"}
 	uname := "alice"
 	site := "acme"
 
 	call := func() {
-		ReportLowBalance(cfg, db.DB, LowBalanceParams{
+		ReportLowBalance(rt, db.DB, LowBalanceParams{
 			AccountID: 7, Username: &uname, SiteName: &site,
 			Balance: 0.42, Threshold: 1.0,
 		})

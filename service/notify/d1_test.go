@@ -66,13 +66,13 @@ func TestNtfyChannelSendHeadersAndBody(t *testing.T) {
 	var reqs []*http.Request
 	newTestClient(t, &reqs, `{"ok":true}`, http.StatusOK)
 
-	cfg := &config.Config{
+	rt := &config.RuntimeSettings{
 		NtfyEnabled: true,
 		NtfyUrl:     "https://ntfy.example.test",
 		NtfyTopic:   "metapi-alerts",
 		NtfyToken:   "tok123",
 	}
-	if err := (&NtfyChannel{}).Send(cfg, "余额不足", " acct-x balance 0.3", "warning", "footnote"); err != nil {
+	if err := (&NtfyChannel{}).Send(rt, "余额不足", " acct-x balance 0.3", "warning", "footnote"); err != nil {
 		t.Fatalf("ntfy Send: %v", err)
 	}
 	if len(reqs) != 1 {
@@ -96,8 +96,8 @@ func TestNtfyChannelSendHeadersAndBody(t *testing.T) {
 func TestNtfyChannelSkipsWhenDisabled(t *testing.T) {
 	var reqs []*http.Request
 	newTestClient(t, &reqs, `{"ok":true}`, http.StatusOK)
-	cfg := &config.Config{NtfyEnabled: false}
-	err := (&NtfyChannel{}).Send(cfg, "t", "m", "info", "f")
+	rt := &config.RuntimeSettings{NtfyEnabled: false}
+	err := (&NtfyChannel{}).Send(rt, "t", "m", "info", "f")
 	if err == nil {
 		t.Fatal("disabled ntfy should error")
 	}
@@ -111,12 +111,12 @@ func TestNtfyChannelSkipsWhenDisabled(t *testing.T) {
 func TestFeishuChannelSendsWithSign(t *testing.T) {
 	var reqs []*http.Request
 	newTestClient(t, &reqs, `{"code":0,"msg":"ok"}`, http.StatusOK)
-	cfg := &config.Config{
+	rt := &config.RuntimeSettings{
 		FeishuEnabled: true,
 		FeishuWebhook: "https://open.feishu.cn/open-apis/bot/v2/hook/test",
 		FeishuSecret:  "sec",
 	}
-	if err := (&FeishuChannel{}).Send(cfg, "T", "M", "warning", "F"); err != nil {
+	if err := (&FeishuChannel{}).Send(rt, "T", "M", "warning", "F"); err != nil {
 		t.Fatalf("feishu Send: %v", err)
 	}
 	if len(reqs) != 1 {
@@ -134,12 +134,12 @@ func TestFeishuChannelSendsWithSign(t *testing.T) {
 func TestDingtalkChannelSendsWithSignQuery(t *testing.T) {
 	var reqs []*http.Request
 	newTestClient(t, &reqs, `{"errcode":0,"errmsg":"ok"}`, http.StatusOK)
-	cfg := &config.Config{
+	rt := &config.RuntimeSettings{
 		DingtalkEnabled: true,
 		DingtalkWebhook: "https://oapi.dingtalk.com/robot/send?access_token=abc",
 		DingtalkSecret:  "sec",
 	}
-	if err := (&DingtalkChannel{}).Send(cfg, "T", "M", "error", "F"); err != nil {
+	if err := (&DingtalkChannel{}).Send(rt, "T", "M", "error", "F"); err != nil {
 		t.Fatalf("dingtalk Send: %v", err)
 	}
 	if len(reqs) != 1 {
@@ -156,11 +156,11 @@ func TestDingtalkChannelSendsWithSignQuery(t *testing.T) {
 func TestWecomChannelSend(t *testing.T) {
 	var reqs []*http.Request
 	newTestClient(t, &reqs, `{"errcode":0,"errmsg":"ok"}`, http.StatusOK)
-	cfg := &config.Config{
+	rt := &config.RuntimeSettings{
 		WecomEnabled: true,
 		WecomWebhook: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=x",
 	}
-	if err := (&WecomChannel{}).Send(cfg, "T", "M", "info", "F"); err != nil {
+	if err := (&WecomChannel{}).Send(rt, "T", "M", "info", "F"); err != nil {
 		t.Fatalf("wecom Send: %v", err)
 	}
 	if len(reqs) != 1 {
@@ -174,12 +174,12 @@ func TestSendNotificationTaskMuteGateSkipsMutedTask(t *testing.T) {
 	var reqs []*http.Request
 	newTestClient(t, &reqs, `{"errcode":0}`, http.StatusOK)
 
-	cfg := &config.Config{
+	rt := &config.RuntimeSettings{
 		BarkEnabled:         true,
 		BarkUrl:             "https://bark.example/test",
 		NotifyTaskToggles:   map[string]bool{"low_balance": false},
 	}
-	res, err := SendNotification(cfg, "余额不足", "m", "warning",
+	res, err := SendNotification(rt, "余额不足", "m", "warning",
 		&SendNotificationOptions{TaskTag: "low_balance"})
 	if err != nil {
 		t.Fatalf("SendNotification: %v", err)
@@ -196,12 +196,12 @@ func TestSendNotificationTaskMuteGateAllowsUnmutedTask(t *testing.T) {
 	var reqs []*http.Request
 	newTestClient(t, &reqs, `{"errcode":0}`, http.StatusOK)
 
-	cfg := &config.Config{
+	rt := &config.RuntimeSettings{
 		BarkEnabled:       true,
 		BarkUrl:           "https://bark.example/test",
 		NotifyTaskToggles: map[string]bool{"low_balance": false},
 	}
-	res, err := SendNotification(cfg, "Token 已失效", "m", "error",
+	res, err := SendNotification(rt, "Token 已失效", "m", "error",
 		&SendNotificationOptions{TaskTag: "token_expired"})
 	if err != nil {
 		t.Fatalf("SendNotification: %v", err)
@@ -218,12 +218,12 @@ func TestSendNotificationNoGateWhenTaskTagEmpty(t *testing.T) {
 	// Empty TaskTag = no gating (backward-compatible), even if toggles map has entries.
 	var reqs []*http.Request
 	newTestClient(t, &reqs, `{"errcode":0}`, http.StatusOK)
-	cfg := &config.Config{
+	rt := &config.RuntimeSettings{
 		BarkEnabled:       true,
 		BarkUrl:           "https://bark.example/test",
 		NotifyTaskToggles: map[string]bool{"low_balance": false},
 	}
-	res, err := SendNotification(cfg, "t", "m", "info", &SendNotificationOptions{})
+	res, err := SendNotification(rt, "t", "m", "info", &SendNotificationOptions{})
 	if err != nil {
 		t.Fatalf("SendNotification: %v", err)
 	}
