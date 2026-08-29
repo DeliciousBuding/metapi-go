@@ -82,10 +82,10 @@ func TestStatusInRanges(t *testing.T) {
 }
 
 func TestActiveRetryStatusRanges_FallsBackToDefaults(t *testing.T) {
-	prev := config.GetSafe()
-	defer config.Set(prev)
+	prev := config.RuntimeSafe()
+	defer config.SetRuntime(prev)
 
-	config.Set(nil)
+	config.SetRuntime(nil)
 	got := ActiveRetryStatusRanges()
 	want, err := ParseStatusRanges(DefaultRetryStatusRangesSpec)
 	if err != nil || len(got) != len(want) {
@@ -98,14 +98,14 @@ func TestActiveRetryStatusRanges_FallsBackToDefaults(t *testing.T) {
 	}
 
 	// Blank config field also falls back to the historical default.
-	config.Set(&config.Config{})
+	config.SetRuntime(&config.RuntimeSettings{})
 	got = ActiveRetryStatusRanges()
 	if len(got) == 0 || got[0] != (StatusRange{Lo: 401, Hi: 401}) {
 		t.Fatalf("blank config: got %v, want default ranges", got)
 	}
 
 	// Invalid persisted value must not poison the hot path: fall back.
-	config.Set(&config.Config{ProxyRetryStatusRanges: "not-a-range"})
+	config.SetRuntime(&config.RuntimeSettings{ProxyRetryStatusRanges: "not-a-range"})
 	got = ActiveRetryStatusRanges()
 	if len(got) == 0 {
 		t.Fatal("invalid spec: got empty ranges, want default fallback")
@@ -113,10 +113,10 @@ func TestActiveRetryStatusRanges_FallsBackToDefaults(t *testing.T) {
 }
 
 func TestActiveRetryStatusRanges_OperatorOverride(t *testing.T) {
-	prev := config.GetSafe()
-	defer config.Set(prev)
+	prev := config.RuntimeSafe()
+	defer config.SetRuntime(prev)
 
-	config.Set(&config.Config{ProxyRetryStatusRanges: "502,504"})
+	config.SetRuntime(&config.RuntimeSettings{ProxyRetryStatusRanges: "502,504"})
 	got := ActiveRetryStatusRanges()
 	if len(got) != 2 {
 		t.Fatalf("override: got %v, want two single-code ranges", got)
@@ -130,14 +130,14 @@ func TestActiveRetryStatusRanges_OperatorOverride(t *testing.T) {
 }
 
 func TestActiveDisableStatusRanges_DefaultNone(t *testing.T) {
-	prev := config.GetSafe()
-	defer config.Set(prev)
+	prev := config.RuntimeSafe()
+	defer config.SetRuntime(prev)
 
-	config.Set(nil)
+	config.SetRuntime(nil)
 	if got := ActiveDisableStatusRanges(); len(got) != 0 {
 		t.Fatalf("default disable ranges = %v, want none", got)
 	}
-	config.Set(&config.Config{ProxyDisableStatusRanges: "401"})
+	config.SetRuntime(&config.RuntimeSettings{ProxyDisableStatusRanges: "401"})
 	got := ActiveDisableStatusRanges()
 	if len(got) != 1 || got[0] != (StatusRange{Lo: 401, Hi: 401}) {
 		t.Fatalf("disable override = %v, want [401]", got)

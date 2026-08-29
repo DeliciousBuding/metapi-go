@@ -8,11 +8,22 @@ package routing
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 
 	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/store"
 )
+
+// TestMain publishes a baseline runtime snapshot for the whole package:
+// NewTokenRouter snapshots runtime tunables (failure-cooldown max, fallback
+// unit cost, routing weights) via config.Runtime(), which panics before
+// publication. The empty snapshot keeps the production defaults that the
+// router tests below assert against.
+func TestMain(m *testing.M) {
+	config.SetRuntime(&config.RuntimeSettings{})
+	os.Exit(m.Run())
+}
 
 // routerTestDB is a minimal ChannelSelectorDB: FindAllEnabledRoutes and
 // LoadEnabledRoutes serve the configured route list; every other method is a
