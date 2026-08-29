@@ -143,12 +143,13 @@ export function TodaySnapshotStrip() {
     if (balanceLoading) return null
     const delta = trend.deltaPercent
     if (delta === undefined || !Number.isFinite(delta)) {
+      // Unavailable: the em-dash alone is the value placeholder — the Minus
+      // icon next to it read as a doubled "— —" glyph run.
       return (
         <div
           className='text-muted-foreground flex items-center gap-1 text-xs'
           title={t('dashboard.overview.snapshot.vs7dUnavailable')}
         >
-          <Minus className='size-3' />
           <span className='tabular-nums'>—</span>
           <span>{t('dashboard.overview.snapshot.vs7d')}</span>
         </div>
