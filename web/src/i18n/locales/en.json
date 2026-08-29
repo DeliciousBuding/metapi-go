@@ -2076,7 +2076,6 @@
         "chainContextSite": "site \"{{name}}\"",
         "chainContextSuffix": "— add a route to complete the configuration flow.",
         "loadError": "Failed to load routes: {{message}}",
-        "retry": "Retry",
         "emptyTitle": "No routes",
         "emptyDescription": "Add a route to start configuring, or click \"Auto-rebuild\" to let the system generate routes from account models.",
         "searchPlaceholder": "Search model / name…",

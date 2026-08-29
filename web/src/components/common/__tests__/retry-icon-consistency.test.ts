@@ -51,12 +51,17 @@ describe('retry button icon vocabulary', () => {
     expect(source).not.toMatch(/<RotateCcw/)
   })
 
-  it('the routes page load-error retry button uses RefreshCw', () => {
+  it('the routes page load-error retry is delegated to QueryErrorBanner', () => {
+    // W19-T1 P2-o unification: the page no longer hand-rolls its own retry
+    // button; the glyph vocabulary is pinned on QueryErrorBanner itself (see
+    // the first test), so the page only needs to delegate, never regress to
+    // a reset-style icon.
     const source = readSource(
       'src/features/token-routes/components/routes-page.tsx'
     )
 
+    expect(source).toMatch(/<QueryErrorBanner/)
+    expect(source).not.toMatch(/<RotateCw/)
     expect(source).not.toMatch(/<RotateCcw/)
-    expect(source).toMatch(/<RefreshCw/)
   })
 })

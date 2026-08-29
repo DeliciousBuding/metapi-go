@@ -4,11 +4,12 @@
 
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import type { ColumnFiltersState, Table } from '@tanstack/react-table'
-import { Plus, Power, RefreshCw, Zap } from 'lucide-react'
+import { Plus, Power, Zap } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { QueryErrorBanner } from '@/components/common/query-error-banner'
 import {
   DataTableBulkActions,
   DataTablePage,
@@ -26,7 +27,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Notice } from '@/components/ui/notice'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { useAccounts } from '@/features/accounts/api'
@@ -446,23 +446,12 @@ export function RoutesPage() {
       )}
 
       {error ? (
-        <div className='flex flex-col gap-3'>
-          <Notice tone='destructive'>
-            {t('tokenRoutes.page.loadError', {
-              message: (error as Error).message,
-            })}
-          </Notice>
-          <div>
-            <Button
-              variant='secondary'
-              onClick={() => refetch()}
-              disabled={isFetching}
-            >
-              {isFetching ? <Spinner /> : <RefreshCw className='size-4' />}
-              {t('tokenRoutes.page.retry')}
-            </Button>
-          </div>
-        </div>
+        <QueryErrorBanner
+          error={error as Error | null}
+          messageKey='tokenRoutes.page.loadError'
+          onRetry={() => refetch()}
+          isRetrying={isFetching}
+        />
       ) : (
         <DataTablePage
           table={table}
