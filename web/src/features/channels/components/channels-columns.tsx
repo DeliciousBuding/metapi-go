@@ -90,7 +90,7 @@ export function useChannelsColumns(
       {
         id: 'name',
         accessorKey: 'name',
-        size: 200,
+        size: 170,
         meta: { mobileTitle: true, mobileOrder: 0 },
         header: ({ column }) => (
           <DataTableColumnHeader
@@ -266,7 +266,10 @@ export function useChannelsColumns(
       {
         id: 'response',
         accessorFn: (row) => row.responseMs,
-        size: 110,
+        // 110px truncated the zh-CN header 响应延迟 to 响应延… once the sort
+        // icon claimed its space; 130 fits the title in both locales. Users
+        // with a persisted size keep their choice (columnSizingStorageKey).
+        size: 130,
         meta: { mobileHidden: true, mobileOrder: 34 },
         header: ({ column }) => (
           <DataTableColumnHeader
@@ -283,7 +286,7 @@ export function useChannelsColumns(
       {
         id: 'cooldown',
         accessorFn: (row) => row.cooldownUntil,
-        size: 180,
+        size: 160,
         meta: { mobileHidden: true, mobileOrder: 35 },
         header: ({ column }) => (
           <DataTableColumnHeader
