@@ -1298,7 +1298,8 @@
             "editAria": "Edit {{name}}",
             "usage": "Usage",
             "actions": "Actions",
-            "models": "Models"
+            "models": "Models",
+            "scope": "Scope"
           },
           "models": {
             "fieldLabel": "Model access",
@@ -1344,6 +1345,34 @@
           "sites": {
             "fieldLabel": "Upstream site restriction",
             "hint": "Leave empty for no site restriction. Selecting sites limits this key to channels of the chosen upstream sites."
+          },
+          "credentials": {
+            "fieldLabelAllow": "Allowed credentials",
+            "hintAllow": "Leave empty for no credential restriction. When set, only the selected site/account credentials may serve this key.",
+            "fieldLabelExclude": "Excluded credentials",
+            "hintExclude": "Excluded credentials never serve this key. Exclusion wins when the same credential is also allowed.",
+            "loading": "Loading sites, accounts and tokens…",
+            "loadFailed": "Failed to load the upstream inventory (sites/accounts/tokens).",
+            "noSites": "No upstream sites configured.",
+            "noAccounts": "No accounts on this site.",
+            "expandSiteAria": "Toggle accounts of {{site}}",
+            "expandTokensAria": "Toggle tokens of {{account}}",
+            "defaultApiKey": "Default API key",
+            "noDefaultKey": "no default key",
+            "tokenPrefix": "Token",
+            "selectedCount_one": "{{count}} selected",
+            "selectedCount_other": "{{count}} selected",
+            "unresolvedTitle": "Unresolved references (upstream object no longer exists)",
+            "unresolvedRemoveAria": "Remove unresolved reference"
+          },
+          "scope": {
+            "unrestricted": "Unrestricted",
+            "sitesAllow": "Allowed sites",
+            "sitesExclude": "Excluded sites",
+            "credsAllow": "Allowed credentials",
+            "credsExclude": "Excluded credentials",
+            "defaultKey": "default key",
+            "unknownId": "ID {{id}} (unresolved)"
           }
         },
         "proxyToken": {
