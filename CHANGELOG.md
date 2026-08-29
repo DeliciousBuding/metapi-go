@@ -10,18 +10,30 @@ All notable changes to Metapi-Go will be documented in this file.
 ### Security
 
 - **SPA CSP 去 `style-src 'unsafe-inline'`（#1035 S2）**：CSP `style-src` 从 `'self' 'unsafe-inline'` 收紧为 `'self' 'nonce-<per-request>' 'sha256-<sonner-toast-css>'`，并保留其余 directive 不变；Go SPA fallback 在每个响应中生成 16 字节随机 nonce，注入 `<meta name="csp-nonce">` 并在 `Content-Security-Policy` 头中表达，前端静态 `bootstrap.js` 在 bundle 前把手动创建的 `<style>` 元素（sonner/chart/dialog scroll-lock 注入路径）统一标注该 nonce。sonner 的运行时样式表同时静态打包（`sonner/dist/styles.css`），即使 hash 漂移也不影响 toast 视觉；新增 CSP directive 级断言、nonce 随机性/meta 匹配测试、sonner hash 漂移守卫和 ChartStyle nonce 单测。残留：sonner 库仍会尝试注入样式（被 hash 允许），静态 fallback 保证功能；其他 directive 未放宽。
+- **凭证导出遮罩改真占位符（#1080）**：遮罩态密钥不再以「CSS blur 伪掩码」渲染（明文此前仍留在 DOM 与无障碍树中，读屏可读出），改为渲染 `••••••••` 占位符 + `aria-hidden`，与顶层真掩码语义一致。
 
 ### Fixed
 
 - **下游密钥凭证维度（`allowedCredentialRefs`/`excludedCredentialRefs`）端到端修复（#1026 残留）**：`auth.ExcludedCredentialRef` 的 JSON 标签原为 snake_case（`site_id`/`account_id`/`token_id`），而管理端持久化形状为 camelCase（`siteId`/`accountId`/`tokenId`）——导致代理路径解析出的引用 ID 全为 0：允许列表密钥无法路由任何渠道、排除列表静默失效。标签统一为 camelCase 并新增 DB→策略解析往返回归测试。
+- **运行时设置的并发撕裂读修复（#1079）**：`RuntimeSettings` 迁移为不可变快照交换——此前约 25 个运行时写字段与热路径无锁读并存，并发下可能读到半更新状态（如代理 token 校验瞬时 401 抖动）；快照迁移后读侧无锁且始终自洽。
+- **W19–W21 前端审计修复批（#1080）**：错误提示去重单 owner 化（修复 HTTP 500 无 body 时双弹 toast，且 502–504 不再泄漏 axios 原始英文报错，改为状态感知的本地化文案）；列表页加载失败改为整块替换 + 内置重试（不再叠加在陈旧数据上）；站点公告四个筛选下拉关闭态不再裸显内部值 `all`；路由表单图标字段不再泄漏内部哨兵值 `__route_icon_none__`（以友好 token `none` 双向映射）；账号状态切换增加进行中禁用与成功反馈；OAuth 授权弹窗被浏览器拦截时提供常驻恢复入口；站点批量禁用与路由重建增加前置确认；多处操作后缓存失效遗漏补齐（签到后账号快照、目录源同步后模型清单、路由重建后渠道列表等）。
+- **浅色主题图表与焦点环对比度（#1080）**：chart-1..5 全部预设在浅色卡片底上达 WCAG AA 4.5:1（对比度门禁固化）；焦点环统一为 ≥3:1 对比度 token。
 
 ### Changed
 
 - **凭证引用畸形条目改为显式 400 拒绝（#1026 残留）**：创建/更新下游密钥时，`excludedCredentialRefs`/`allowedCredentialRefs` 中的畸形条目（非对象、未知/缺失 `kind`、非正 `siteId`/`accountId`、`account_token` 缺 `tokenId`）原被静默丢弃——对允许列表而言等于静默放宽访问（fail-open）；现以 400 显式拒绝并提示具体条目。合法引用行为不变。
+- **统一 400 错误体携带机器可读 `errorCode`（#1065，#1035 S4）**：需要客户端分支处理的失败类别逐步登记错误码，客户端应基于 `errorCode` 而非错误文本判断（详见 `docs/api.md`）。
+- **管理端大表服务端分页（#1075，#1077）**：账号、模型市场、渠道（含状态过滤）列表改为服务端分页，大数据量下首屏与翻页显著提速；`GET /api/channels` 新增 `status` 过滤参数，`GET /api/channels/error-summary` 新增聚合端点（渠道失败横幅一键过滤的数据源）。
+- **站点表单迁移为右侧抽屉（#1082）**：添加/编辑站点从居中弹窗改为右侧滑出抽屉，与账号表单形态统一；长表单滚动时底部「取消/创建」常驻可达，未保存修改的关闭确认行为不变。
+- **列表筛选状态入 URL（#1080）**：价格对比的模型过滤、站点公告的站点/平台/阅读/状态筛选与页码写入 URL——刷新、后退/前进、分享链接均保持视图。
 
 ### Added
 
 - **凭证维度契约测试与文档（#1026 残留）**：路由选择器执行测试（两种 kind、跨 kind 不互匹配、空列表不限制、排除优先于允许、TS 遗留空 kind 语义）、管理端验证拒绝用例、悬空引用行为钉住（删号/删令牌不级联清理，悬空允许引用失败关闭）、auth→routing 映射测试；`docs/api.md` 下游密钥节新增完整契约（字段形状、空=不限制、验证规则、选择器行为、只读响应为 JSON 字符串、UI 待定说明）。
+- **下游密钥凭证树形选择器（#1026，#1072）**：`allowedCredentialRefs`/`excludedCredentialRefs` 配置 UI——按站点 → 账号 → 密钥三级树勾选，与 API 契约一致。
+- **命令面板动作层（#1073，#1035 S6）**：Ctrl/⌘+K 面板在页面/实体导航之外支持直接执行动作。
+- **移动端表单与详情抽屉底部关闭条（#1080）**：≤640px 全宽抽屉新增拇指可达的底部关闭条（自带取消/提交的表单抽屉除外，避免同义双出口）。
+- **恢复出厂设置 type-to-confirm（#1080）**：需输入 `RESET` 且倒计时结束后才可执行，防止误触清空全部数据。
 
 
 ## [v0.16.19] — 2026-08-29
