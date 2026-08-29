@@ -15,6 +15,8 @@ import (
 // (default false) and is therefore absent from the default set — see
 // TestBuildSchedulers_UpdateCenterGatedByEnv for the opt-in path.
 func TestBuildSchedulersRegistration(t *testing.T) {
+	config.SetRuntime(&config.RuntimeSettings{})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	cfg := &config.Config{}
 	reg, checkin, balance, modelSync, logCleanup, webdav := buildSchedulers(cfg)
 
@@ -77,6 +79,8 @@ func TestBuildSchedulersRegistration(t *testing.T) {
 // TestBuildSchedulers_UpdateCenterGatedByEnv asserts the update-center
 // scheduler is registered only when cfg.UpdateCenterEnabled is true.
 func TestBuildSchedulers_UpdateCenterGatedByEnv(t *testing.T) {
+	config.SetRuntime(&config.RuntimeSettings{})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	t.Run("disabled by default", func(t *testing.T) {
 		cfg := &config.Config{} // UpdateCenterEnabled = false
 		reg, _, _, _, _, _ := buildSchedulers(cfg)

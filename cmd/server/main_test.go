@@ -42,13 +42,13 @@ func TestBootstrapRuntimeFailsOnUnavailablePostgres(t *testing.T) {
 	_ = store.CloseDatabase()
 	t.Cleanup(func() { _ = store.CloseDatabase() })
 
-	cfg := config.Load(map[string]string{
+	cfg, rt := config.Load(map[string]string{
 		"DB_TYPE":      "postgres",
 		"DATABASE_URL": "postgres://user:pass@127.0.0.1:1/metapi?sslmode=disable",
 		"DATA_DIR":     t.TempDir(),
 	})
 
-	err := bootstrapRuntime(cfg)
+	err := bootstrapRuntime(cfg, rt)
 	if err == nil {
 		t.Fatal("bootstrapRuntime succeeded with unavailable PostgreSQL")
 	}
@@ -58,10 +58,12 @@ func TestBootstrapRuntimeFailsOnUnavailablePostgres(t *testing.T) {
 }
 
 func TestStartupValidationRejectsDefaultTokens(t *testing.T) {
-	cfg := config.Load(map[string]string{})
+	cfg, rt := config.Load(map[string]string{})
 
+	// auth/proxy token checks live on the runtime snapshot now; startup
+	// validation covers both halves.
 	var critical []string
-	for _, err := range cfg.Validate() {
+	for _, err := range append(cfg.Validate(), rt.Validate()...) {
 		if config.IsCritical(err) {
 			critical = append(critical, err.Error())
 		}
@@ -80,13 +82,13 @@ func TestBootstrapRuntimeInitializesSQLite(t *testing.T) {
 
 	dataDir := t.TempDir()
 	t.Cleanup(func() { _ = store.CloseDatabase() })
-	cfg := config.Load(map[string]string{
+	cfg, rt := config.Load(map[string]string{
 		"DB_TYPE":  "sqlite",
 		"DB_URL":   filepath.Join(dataDir, "bootstrap.db"),
 		"DATA_DIR": dataDir,
 	})
 
-	if err := bootstrapRuntime(cfg); err != nil {
+	if err := bootstrapRuntime(cfg, rt); err != nil {
 		t.Fatalf("bootstrapRuntime sqlite: %v", err)
 	}
 	if db := store.GetDB(); db == nil {

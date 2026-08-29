@@ -14,11 +14,14 @@ import (
 func TestReadyReportsDrainingWhenShutdownStarts(t *testing.T) {
 	dataDir := t.TempDir()
 	cfg := &config.Config{
-		DbType:  store.DialectSQLite,
-		DbUrl:   filepath.Join(dataDir, "draining.db"),
 		DataDir: dataDir,
 	}
-	if err := store.EnsureRuntimeDatabase(cfg); err != nil {
+	config.SetRuntime(&config.RuntimeSettings{
+		DbType:  store.DialectSQLite,
+		DbUrl:   filepath.Join(dataDir, "draining.db"),
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	if err := store.EnsureRuntimeDatabase(cfg, config.RuntimeSafe()); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase: %v", err)
 	}
 	t.Cleanup(func() {

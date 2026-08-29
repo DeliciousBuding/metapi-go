@@ -42,7 +42,7 @@ func TestConfigureProxyUpstreamWiresPricingCatalogResolver(t *testing.T) {
 	t.Cleanup(catalogServer.Close)
 
 	config.Set(cfg)
-	if err := store.EnsureRuntimeDatabase(cfg); err != nil {
+	if err := store.EnsureRuntimeDatabase(cfg, config.RuntimeSafe()); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase: %v", err)
 	}
 	db := store.GetDB()

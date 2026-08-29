@@ -40,19 +40,22 @@ func TestWireModelProbeScheduler_ProbeMutatesHealth(t *testing.T) {
 	t.Cleanup(upstream.Close)
 
 	cfg := &config.Config{
-		AuthToken:                        "admin-token",
-		ProxyToken:                       "downstream-token",
 		DataDir:                          dataDir,
-		DbType:                           store.DialectSQLite,
-		DbUrl:                            filepath.Join(dataDir, "metapi.db"),
 		RequestBodyLimit:                 1 << 20,
 		ProxyMaxChannelAttempts:          3,
-		ProxyFirstByteTimeoutSec:         90,
 		TokenRouterCacheTtlMs:            60_000,
+		// ticker off; manual probe still works
+		ModelAvailabilityProbeTimeoutMs:  5000,
+	}
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:                        "admin-token",
+		ProxyToken:                       "downstream-token",
+		DbType:                           store.DialectSQLite,
+		DbUrl:                            filepath.Join(dataDir, "metapi.db"),
+		ProxyFirstByteTimeoutSec:         90,
 		RoutingFallbackUnitCost:          1,
 		TokenRouterFailureCooldownMaxSec: 3600,
-		ModelAvailabilityProbeEnabled:    false, // ticker off; manual probe still works
-		ModelAvailabilityProbeTimeoutMs:  5000,
+		ModelAvailabilityProbeEnabled:    false,
 		RoutingWeights: config.RoutingWeights{
 			BaseWeightFactor: 1,
 			ValueScoreFactor: 1,
@@ -60,10 +63,11 @@ func TestWireModelProbeScheduler_ProbeMutatesHealth(t *testing.T) {
 			BalanceWeight:    1,
 			UsageWeight:      1,
 		},
-	}
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	config.Set(cfg)
 
-	if err := store.EnsureRuntimeDatabase(cfg); err != nil {
+	if err := store.EnsureRuntimeDatabase(cfg, config.RuntimeSafe()); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase: %v", err)
 	}
 	db := store.GetDB()

@@ -49,7 +49,7 @@ func newGeminiTraversalEnv(t *testing.T) *geminiTraversalEnv {
 		_ = store.CloseDatabase()
 	})
 	config.Set(cfg)
-	if err := store.EnsureRuntimeDatabase(cfg); err != nil {
+	if err := store.EnsureRuntimeDatabase(cfg, config.RuntimeSafe()); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase: %v", err)
 	}
 	// Model requested in the body; the route pattern makes channel selection
@@ -62,7 +62,7 @@ func newGeminiTraversalEnv(t *testing.T) *geminiTraversalEnv {
 
 	r := chi.NewRouter()
 	r.Group(func(r chi.Router) {
-		r.Use(auth.ProxyAuth(cfg))
+		r.Use(auth.ProxyAuth())
 		proxyhandler.RegisterNonV1ProxyRoutes(r)
 	})
 	env.router = r
@@ -74,7 +74,7 @@ func (env *geminiTraversalEnv) postGemini(t *testing.T, target string) *httptest
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, target, strings.NewReader(`{"model":"gemini-trav","contents":[]}`))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+env.cfg.ProxyToken)
+	req.Header.Set("Authorization", "Bearer "+config.Runtime().ProxyToken)
 	rec := httptest.NewRecorder()
 	env.router.ServeHTTP(rec, req)
 	return rec
