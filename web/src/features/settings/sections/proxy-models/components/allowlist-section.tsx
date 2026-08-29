@@ -151,6 +151,10 @@ export function AllowlistSection() {
       void queryClient.invalidateQueries({
         queryKey: runtimeSettingsQueryKeys.all,
       })
+      // Rebuilding routes rewrites the route set and channel bindings; refresh
+      // those domains so token-routes / channels do not keep the old set.
+      void queryClient.invalidateQueries({ queryKey: ['routes'] })
+      void queryClient.invalidateQueries({ queryKey: ['channels'] })
       toast.success(t('settings.proxyModels.allowlist.toast.brandsSaved'))
     },
     onError: () => {

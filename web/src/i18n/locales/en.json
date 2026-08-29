@@ -1959,6 +1959,7 @@
         "bulkPartial": "{{success}} succeeded, {{failed}} failed: {{items}}",
         "pinFailed": "Failed to update pin",
         "pinToggled": "Pin for \"{{name}}\" updated.",
+        "statusToggled": "Status updated for \"{{name}}\".",
         "statusFailed": "Failed to update status",
         "checkinFailed": "Failed to update check-in",
         "checkinToggled": "Check-in for \"{{name}}\" updated.",

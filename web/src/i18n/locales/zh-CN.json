@@ -1959,6 +1959,7 @@
         "bulkPartial": "{{success}} 个成功，{{failed}} 个失败：{{items}}",
         "pinFailed": "更新置顶失败",
         "pinToggled": "「{{name}}」的置顶已更新。",
+        "statusToggled": "「{{name}}」的状态已更新。",
         "statusFailed": "更新状态失败",
         "checkinFailed": "更新签到失败",
         "checkinToggled": "「{{name}}」的自动签到已更新。",

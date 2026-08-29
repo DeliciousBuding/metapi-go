@@ -251,7 +251,10 @@ export const AccountsRowActions = memo(function AccountsRowActions({
               ? t('accounts.columns.unpin')
               : t('accounts.columns.pin')}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => actions.onToggleStatus(account)}>
+          <DropdownMenuItem
+            disabled={isThisRowPending}
+            onClick={() => actions.onToggleStatus(account)}
+          >
             <Power />
             {account.status === 'disabled'
               ? t('accounts.columns.enable')

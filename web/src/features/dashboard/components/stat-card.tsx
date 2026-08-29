@@ -189,7 +189,7 @@ export function StatCard(props: StatCardProps) {
     return (
       <Link
         to={props.to}
-        className='focus-visible:ring-ring block h-full rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-offset-2'
+        className='focus-visible:ring-focus-ring block h-full rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-offset-2'
       >
         {card}
       </Link>

@@ -427,10 +427,24 @@ export function AccountsPage() {
           }
         ),
       onToggleStatus: (account) =>
-        toggleStatusMutate({
-          id: account.id,
-          status: account.status === 'active' ? 'disabled' : 'active',
-        }),
+        toggleStatusMutate(
+          {
+            id: account.id,
+            status: account.status === 'active' ? 'disabled' : 'active',
+          },
+          {
+            onSuccess: () =>
+              toast.success(
+                t('accounts.toast.statusToggled', {
+                  name: resolveAccountDisplayName(
+                    account,
+                    t('accounts.columns.fallbackApiKey'),
+                    t('accounts.columns.fallbackUnnamed')
+                  ),
+                })
+              ),
+          }
+        ),
       onToggleCheckin: (account) =>
         toggleCheckinMutate(
           {

@@ -129,7 +129,7 @@ export function ProbeHealthBar({
             <span
               tabIndex={0}
               aria-label={ariaLabel}
-              className='focus-visible:ring-ring flex h-4 items-stretch gap-[2px] rounded-sm outline-none focus-visible:ring-2'
+              className='focus-visible:ring-focus-ring flex h-4 items-stretch gap-[2px] rounded-sm outline-none focus-visible:ring-2'
             />
           }
         >
