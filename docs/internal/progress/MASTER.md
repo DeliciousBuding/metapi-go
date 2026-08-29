@@ -6,31 +6,20 @@
 
 > This is the only execution plan. It contains open work, order, ownership, and acceptance criteria. Current facts → [`../STATE.md`](../STATE.md) · product positioning → [`../benchmark.md`](../benchmark.md) · timeline → [`../log.md`](../log.md).
 
-## Current active work — W19-W21 前端审计三波已交付本地（未 push，融合待决策）
+## Current active work — 无执行中 wave（2026-08-29 双线融合收官）
 
-**本地 master 领先 origin/master 13+ commits 且已分叉**（并行会话将 origin 推至另一线）：W19 三路审计（交互/视觉/对标 newapi）+ 修复波 A-M、W20 seeded 视觉审图波、W21 交互弹层审计波（26 场景 × desktop/mobile × light/dark 全绿）。全量回归 1470 测试绿。**未 push 未 bump——融合与版本决策待用户拍板**。明细与裁决表：`.dev-local/progress/W19-backlog.md`（gitignored）；时间线：[`../log.md`](../log.md)。
+后端波次（#1063–#1079：S5 边界反转、凭证树选择器、cmdk actions、CSP nonce、S9 分页、渠道错误汇总、settings 泛型、C1 config 快照）与前端 W19–W21 审计三波（#1080 squash 融合）已全部合入 master。**未 bump 版本——攒批发布**。时间线：[`../log.md`](../log.md)。
 
-W19-W21 已交付主线（均本地 master）：错误 toast 单 owner 收口 + 5xx 兜底文案、列表页错误契约统一（QueryErrorBanner）、URL 态收口（price-compare/site-announcements）、`ui/notice.tsx` 横幅原语、chart-1..5 AA 4.5:1 对比度门禁、`ui/kpi-value.tsx` KPI 三档、移动端 sheet 底部关闭条（表单 sheet 可豁免）、focus-ring ≥3:1 贯穿、type-to-confirm 危险区、标题字重 calm-titles 对齐、10px 最小字号红线、SelectValue 函数 children 修复裸 value/哨兵泄漏、交互弹层截图管道 `shot-interactions.mjs`（26 场景双视口双主题）。
-
-**W19-W21 剩余项**（均不阻塞，按优先级择机）：
+**开放项**（均不阻塞，按优先级择机）：
 
 | # | 内容 | 建议验收 |
 |---|---|---|
-| F1 | **本地/origin 融合决策**：本地 13+ 前端 commits 与 origin 后端线分叉，需 rebase/merge 策略 + 全量门禁 | 融合后 12-check CI 全绿 |
-| F2 | **D2 site-form 抽屉迁移**（产品决策项）：918 行 Dialog → Drawer，需回归 dirty-close/focus-first-invalid + 视觉验收 | 双视口截图 + 契约测试 |
-| F3 | **后端告警文案 i18n**（P3）：`stats_balance.go` `Low balance: %s` 硬编码英文，事件持久化 + 后端无 locale 上下文，需 key 映射架构改动 | 双语告警事件端到端 |
-| F4 | **docs/api.md 超尺寸预算**（卫生项）：1590 行 > 1500 预算；公开仓有外部深链风险，拆分需按域设计（api/*.md + 索引 + 指针迁移），属专门文档波次，不在前端波次顺手做 | 拆分后 docs/README.md 指针同步、旧 anchor 有承接 |
+| F2 | **site-form 抽屉迁移**（原 W19 D2）：919 行居中 Dialog → 右侧 Sheet（对齐 accounts-form 既有形态；宽度保持 sm:max-w-2xl，dirty 守卫语义不变） | 双视口截图 + 契约测试回归 |
+| F3 | **后端告警文案 i18n**（P3）：`stats_balance.go` `Low balance: %s` 等硬编码英文，事件持久化 + 后端无 locale 上下文，需 key 映射架构改动 | 双语告警事件端到端 |
+| F4 | **docs/api.md 超尺寸预算**（卫生项）：1590 行 > 1500 预算；公开仓有外部深链风险，拆分需按域设计（api/*.md + 索引 + 指针迁移），属专门文档波次 | 拆分后 docs/README.md 指针同步、旧 anchor 有承接 |
+| C4 | **#1035 剩余专题**：S7/S8、S10 双语 CI（S2 CSP / S4 errorCode / S5 边界 / S6 cmdk actions 已交付；S9 大表服务端分页主体已交付：accounts/models/channels/checkin/oauth/proxy-logs/audit-logs） | 按各专题验收 |
 
-后端候选（原 Wave 19 候选，不变）：
-
-| # | 内容 | 建议验收 |
-|---|---|---|
-| C1 | **config 单例运行时竞态里程碑**（#1052 审计升级项 D2）：约 25 个运行时写字段（含数据面 `ProxyToken`/`ProxyRetryStatusRanges`）× 热路径无锁读，撕裂读可致 401 抖动；快照交换或守卫访问器重设计 | -race 全绿 + 并发读改写测试；热更新语义不变 |
-| C2 | **#1026 凭证维度 UI 树形选择器**：后端契约已在 W20 加固（解析往返 snake/camel 修复、畸形引用显式 400、选择器/验证/悬空引用契约测试、`docs/api.md` 契约文档；API-only，PR 待合）；剩余仅 `allowedCredentialRefs` UI 树形选择器 | UI 选择器与 API 往返一致，复用 #1050 allowedSiteIds 选择器模式 |
-| C3 | **race 门禁预算**：`handler/admin` -race 实测 250-360s 临界于默认 300s（本波 6 lane 撞线，均用 `METAPI_RACE_TIMEOUT_SECONDS` 官方旋钮）；上调默认或拆包 | 门禁默认预算下全绿 |
-| C4 | **#1035 剩余专题**：S2 CSP（独立 sub-issue，已交付 PR 待合）、S4 API 契约层（后端 400 加 errorCode）、S5-S8、S9 后半（六张大表服务端分页）、S10 双语 CI | 按各专题验收 |
-
-挑选条件：需求驱动或维护者确认；选定后按 Wave 18 模式拆 worktree 分支、定验收门槛（本地全门禁 → 12-check CI → squash merge → 发布）。**并行推送教训**：本波 8+ lane 并发 pre-push 门禁时 `handler/admin` -race 频繁超 300s 包超时（环境性），建议错峰推送或 ≤4 并发。
+挑选条件：需求驱动或维护者确认；选定后按既有模式开短命分支、定验收门槛（本地全门禁 → 12-check CI → squash merge）。**并行推送教训**：8+ lane 并发 pre-push 时 `handler/admin` -race 曾撞 300s 默认预算（已升至 900s，#1063），建议错峰推送或 ≤4 并发。
 
 ### 已收口（Wave 18/17，勿再当 active）
 

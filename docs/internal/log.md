@@ -5,6 +5,17 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-08-29 — 后端收口波 + C1 config 竞态 + 双线融合（#1063–#1080）
+
+- **#1080 双线融合**：前端 W19–W21 审计三波（40 commits 本地线）经集成分支语义合并后端线后 squash 合入——http-client 双函数族并集（errorCode 提取 × 5xx 文案）、models 页 S9 分页 × 错误契约合并、log 波次编号消歧；leak-guard 拦本地绝对路径已修（shot-interactions 默认改 OS temp dir）。
+- **#1079 C1 config 竞态收口**：`RuntimeSettings` 不可变快照迁移（#1052 审计升级项落地），消除约 25 个运行时写字段 × 热路径无锁读的撕裂风险；app/cmd/server/router 测试迁移完毕。
+- **#1077 渠道错误汇总**：`GET /api/channels/error-summary` + `/api/channels` 状态过滤与服务端分页。
+- **#1078 settings 泛型收口**：`collectChangedFields` 泛型化去 11 处调用点 cast；顺带修 auth 滑动会话测试 race flake。
+- **#1075 S9 服务端分页**：accounts + models marketplace 大表（#1076 cmdk 边界修正随行）；至此 accounts/models/channels/checkin/oauth/proxy-logs/audit-logs 全部服务端分页。
+- **#1071–#1073 前端架构项**：S5 shell 边界反转 + 可执行 layer gate；#1026 凭证维度 UI 树形选择器（credential-ref picker，#1026 全维收官）；cmdk actions 层（S6）。
+- **#1065 S4 errorCode**：统一 400 错误体带机器可读 errorCode（前端 `resolveResponseErrorCode`/`extractApiErrorBody` 消费）。
+- **#1063 race 门禁**：每包超时默认 300s→900s（6 lane 撞线实测驱动；CI 侧 4 分片 + Go 默认 10m 独立成立，无需改动）。
+
 ## 2026-08-29 — W21 CSP 去 `style-src 'unsafe-inline'`（#1035 S2）
 
 - **安全**：SPA `style-src` 改为 `'self' 'nonce-<per-request>' 'sha256-<sonner-toast-css>'`；Go 每响应生成 16B CSP nonce 并通过 `<meta name="csp-nonce">` + 响应头传递，`bootstrap.js` 在 bundle 前给运行时创建的 `<style>` 自动标 nonce；其余 directive 不变。
