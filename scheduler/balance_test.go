@@ -77,7 +77,8 @@ func TestBalanceScheduler_runJob_NilDB(t *testing.T) {
 // The cron expression is short enough that no tick fires during the test.
 func TestBalanceScheduler_StartStop_Lifecycle(t *testing.T) {
 	cfg := testConfig()
-	cfg.BalanceRefreshCron = "0 0 0 * * *" // midnight daily — won't fire during test
+	// Midnight daily — won't fire during the test.
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.BalanceRefreshCron = "0 0 0 * * *" })
 	s := NewBalanceScheduler(cfg)
 
 	if err := s.Start(context.Background()); err != nil {
@@ -96,10 +97,11 @@ func TestBalanceScheduler_StartStop_Lifecycle(t *testing.T) {
 
 // TestBalanceScheduler_UpdateCron_InvalidAndValid exercises the UpdateCron
 // path. An invalid expression must return an error; a valid expression must
-// update cfg.BalanceRefreshCron and restart the cron runner without error.
+// update the runtime BalanceRefreshCron snapshot and restart the cron runner without error.
 func TestBalanceScheduler_UpdateCron_InvalidAndValid(t *testing.T) {
-	cfg := &config.Config{BalanceRefreshCron: "0 0 0 * * *"}
-	s := NewBalanceScheduler(cfg)
+	config.SetRuntime(&config.RuntimeSettings{BalanceRefreshCron: "0 0 0 * * *"})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	s := NewBalanceScheduler(&config.Config{})
 
 	if err := s.UpdateCron("not-a-cron"); err == nil {
 		t.Error("expected error for invalid cron expression")
@@ -109,8 +111,8 @@ func TestBalanceScheduler_UpdateCron_InvalidAndValid(t *testing.T) {
 	if err := s.UpdateCron(valid); err != nil {
 		t.Errorf("UpdateCron with valid expression failed: %v", err)
 	}
-	if cfg.BalanceRefreshCron != valid {
-		t.Errorf("cfg.BalanceRefreshCron = %q, want %q", cfg.BalanceRefreshCron, valid)
+	if config.Runtime().BalanceRefreshCron != valid {
+		t.Errorf("config.Runtime().BalanceRefreshCron = %q, want %q", config.Runtime().BalanceRefreshCron, valid)
 	}
 
 	// Clean up the started cron runner.

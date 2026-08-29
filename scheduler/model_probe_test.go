@@ -126,11 +126,12 @@ func TestApplyProbeOutcome_SuccessAndFailureTransitions(t *testing.T) {
 
 func TestModelProbeScheduler_ProbeOne_RecordsSuccessAndFailure(t *testing.T) {
 	cfg := &config.Config{
-		ModelAvailabilityProbeEnabled:     true,
 		ModelAvailabilityProbeIntervalMs:  60_000,
 		ModelAvailabilityProbeTimeoutMs:   5000,
 		ModelAvailabilityProbeConcurrency: 2,
 	}
+	config.SetRuntime(&config.RuntimeSettings{ModelAvailabilityProbeEnabled: true})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	s := NewModelProbeScheduler(cfg)
 	probe := &fakeProbe{outcomes: map[int64]ProbeOutcome{
 		1: {Status: "success", LatencyMs: 11},
@@ -177,7 +178,7 @@ func TestModelProbeScheduler_ProbeOne_MissingDepsSkipped(t *testing.T) {
 
 func TestModelProbeScheduler_DisabledDoesNotStartTicker(t *testing.T) {
 	cfg := testConfig()
-	cfg.ModelAvailabilityProbeEnabled = false
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ModelAvailabilityProbeEnabled = false })
 	s := NewModelProbeScheduler(cfg)
 	if err := s.Start(context.Background()); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -194,7 +195,7 @@ func TestModelProbeScheduler_DisabledDoesNotStartTicker(t *testing.T) {
 
 func TestModelProbeScheduler_StartStopWithDeps(t *testing.T) {
 	cfg := testConfig()
-	cfg.ModelAvailabilityProbeEnabled = true
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ModelAvailabilityProbeEnabled = true })
 	cfg.ModelAvailabilityProbeIntervalMs = 60_000
 	s := NewModelProbeScheduler(cfg)
 	s.SetProbeExecutor(&fakeProbe{outcomes: map[int64]ProbeOutcome{}})

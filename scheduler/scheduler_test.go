@@ -480,14 +480,14 @@ func TestNewCheckinScheduler(t *testing.T) {
 	if s.Name() != "checkin" {
 		t.Errorf("Name() = %q, want %q", s.Name(), "checkin")
 	}
-	if s.mode != cfg.CheckinScheduleMode {
-		t.Errorf("mode = %q, want %q", s.mode, cfg.CheckinScheduleMode)
+	if s.mode != config.Runtime().CheckinScheduleMode {
+		t.Errorf("mode = %q, want %q", s.mode, config.Runtime().CheckinScheduleMode)
 	}
 }
 
 func TestCheckinScheduler_UpdateCheckinSchedule(t *testing.T) {
 	cfg := testConfig()
-	cfg.CheckinScheduleMode = "interval"
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.CheckinScheduleMode = "interval" })
 	s := NewCheckinScheduler(cfg)
 
 	t.Run("invalid mode", func(t *testing.T) {
@@ -526,8 +526,8 @@ func TestCheckinScheduler_UpdateCheckinSchedule(t *testing.T) {
 		if s.mode != "cron" {
 			t.Errorf("mode = %q, want cron", s.mode)
 		}
-		if cfg.CheckinCron != "0 0 */6 * * *" {
-			t.Errorf("cron = %q, want 0 0 */6 * * *", cfg.CheckinCron)
+		if config.Runtime().CheckinCron != "0 0 */6 * * *" {
+			t.Errorf("cron = %q, want 0 0 */6 * * *", config.Runtime().CheckinCron)
 		}
 	})
 
@@ -556,24 +556,24 @@ func TestCheckinScheduler_UpdateCheckinSchedule(t *testing.T) {
 		if s.mode != "window" {
 			t.Fatalf("mode = %q, want window", s.mode)
 		}
-		if !ValidateCronExpr(cfg.CheckinCron) {
-			t.Fatalf("window rolled cron %q is not a valid cron expression", cfg.CheckinCron)
+		if !ValidateCronExpr(config.Runtime().CheckinCron) {
+			t.Fatalf("window rolled cron %q is not a valid cron expression", config.Runtime().CheckinCron)
 		}
 		// "m h * * *" → minutes since midnight must be in [120, 210].
 		var h, m int
-		if _, err := fmt.Sscanf(cfg.CheckinCron, "%d %d", &m, &h); err != nil {
-			t.Fatalf("unexpected cron shape %q: %v", cfg.CheckinCron, err)
+		if _, err := fmt.Sscanf(config.Runtime().CheckinCron, "%d %d", &m, &h); err != nil {
+			t.Fatalf("unexpected cron shape %q: %v", config.Runtime().CheckinCron, err)
 		}
 		rolled := h*60 + m
 		if rolled < 120 || rolled > 210 {
-			t.Fatalf("rolled %d minutes (cron %q), want inside [02:00, 03:30]", rolled, cfg.CheckinCron)
+			t.Fatalf("rolled %d minutes (cron %q), want inside [02:00, 03:30]", rolled, config.Runtime().CheckinCron)
 		}
 	})
 }
 
 func TestCheckinScheduler_FilterDue(t *testing.T) {
 	cfg := testConfig()
-	cfg.CheckinIntervalHours = 6
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.CheckinIntervalHours = 6 })
 	s := NewCheckinScheduler(cfg)
 
 	now := time.Date(2026, 7, 4, 12, 0, 0, 0, time.UTC)
@@ -679,7 +679,7 @@ func TestCheckinScheduler_ResetAttempts(t *testing.T) {
 
 func TestCheckinScheduler_Stop(t *testing.T) {
 	cfg := testConfig()
-	cfg.CheckinScheduleMode = "interval"
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.CheckinScheduleMode = "interval" })
 	s := NewCheckinScheduler(cfg)
 	_ = s.Start(context.Background())
 	time.Sleep(50 * time.Millisecond)
@@ -755,7 +755,7 @@ func TestNewBalanceScheduler(t *testing.T) {
 
 func TestBalanceScheduler_UpdateCron(t *testing.T) {
 	cfg := testConfig()
-	cfg.BalanceRefreshCron = "0 0 0 * * *"
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.BalanceRefreshCron = "0 0 0 * * *" })
 	s := NewBalanceScheduler(cfg)
 
 	t.Run("invalid cron", func(t *testing.T) {
@@ -770,15 +770,15 @@ func TestBalanceScheduler_UpdateCron(t *testing.T) {
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
-		if cfg.BalanceRefreshCron != "30 0 */2 * * *" {
-			t.Errorf("cron not updated, got %q", cfg.BalanceRefreshCron)
+		if config.Runtime().BalanceRefreshCron != "30 0 */2 * * *" {
+			t.Errorf("cron not updated, got %q", config.Runtime().BalanceRefreshCron)
 		}
 	})
 }
 
 func TestBalanceScheduler_Stop(t *testing.T) {
 	cfg := testConfig()
-	cfg.BalanceRefreshCron = "0 0 0 * * *"
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.BalanceRefreshCron = "0 0 0 * * *" })
 	s := NewBalanceScheduler(cfg)
 	_ = s.Start(context.Background())
 	time.Sleep(50 * time.Millisecond)
@@ -1125,7 +1125,7 @@ func TestModelProbeScheduler_ResetLeases(t *testing.T) {
 
 func TestModelProbeScheduler_Stop(t *testing.T) {
 	cfg := testConfig()
-	cfg.ModelAvailabilityProbeEnabled = true
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.ModelAvailabilityProbeEnabled = true })
 	cfg.ModelAvailabilityProbeIntervalMs = 60_000
 	s := NewModelProbeScheduler(cfg)
 	_ = s.Start(context.Background())
@@ -1147,7 +1147,7 @@ func TestModelProbeScheduler_Stop(t *testing.T) {
 
 func TestNewLogCleanupScheduler(t *testing.T) {
 	cfg := testConfig()
-	cfg.LogCleanupCron = "0 0 6 * * *"
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupCron = "0 0 6 * * *" })
 	s := NewLogCleanupScheduler(cfg)
 	if s == nil {
 		t.Fatal("NewLogCleanupScheduler returned nil")
@@ -1159,7 +1159,7 @@ func TestNewLogCleanupScheduler(t *testing.T) {
 
 func TestLogCleanupScheduler_UpdateSettings(t *testing.T) {
 	cfg := testConfig()
-	cfg.LogCleanupCron = "0 0 6 * * *"
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.LogCleanupCron = "0 0 6 * * *" })
 	s := NewLogCleanupScheduler(cfg)
 
 	t.Run("invalid cron", func(t *testing.T) {
@@ -1174,31 +1174,31 @@ func TestLogCleanupScheduler_UpdateSettings(t *testing.T) {
 		if err != nil {
 			t.Errorf("unexpected error: %v", err)
 		}
-		if cfg.LogCleanupCron != "0 0 3 * * *" {
-			t.Errorf("cron not updated, got %q", cfg.LogCleanupCron)
+		if config.Runtime().LogCleanupCron != "0 0 3 * * *" {
+			t.Errorf("cron not updated, got %q", config.Runtime().LogCleanupCron)
 		}
-		if !cfg.LogCleanupUsageLogsEnabled {
+		if !config.Runtime().LogCleanupUsageLogsEnabled {
 			t.Error("usage logs should be enabled")
 		}
-		if cfg.LogCleanupProgramLogsEnabled {
+		if config.Runtime().LogCleanupProgramLogsEnabled {
 			t.Error("program logs should be disabled")
 		}
-		if cfg.LogCleanupRetentionDays != 90 {
-			t.Errorf("retention_days = %d, want 90", cfg.LogCleanupRetentionDays)
+		if config.Runtime().LogCleanupRetentionDays != 90 {
+			t.Errorf("retention_days = %d, want 90", config.Runtime().LogCleanupRetentionDays)
 		}
 	})
 
 	t.Run("clamp retention days low", func(t *testing.T) {
 		s.UpdateSettings("0 0 3 * * *", true, true, 0)
-		if cfg.LogCleanupRetentionDays != 1 {
-			t.Errorf("retention_days should be clamped to 1, got %d", cfg.LogCleanupRetentionDays)
+		if config.Runtime().LogCleanupRetentionDays != 1 {
+			t.Errorf("retention_days should be clamped to 1, got %d", config.Runtime().LogCleanupRetentionDays)
 		}
 	})
 
 	t.Run("clamp retention days high", func(t *testing.T) {
 		s.UpdateSettings("0 0 3 * * *", true, true, 5000)
-		if cfg.LogCleanupRetentionDays != 3650 {
-			t.Errorf("retention_days should be clamped to 3650, got %d", cfg.LogCleanupRetentionDays)
+		if config.Runtime().LogCleanupRetentionDays != 3650 {
+			t.Errorf("retention_days should be clamped to 3650, got %d", config.Runtime().LogCleanupRetentionDays)
 		}
 	})
 }
@@ -1208,8 +1208,8 @@ func TestLogCleanupScheduler_UpdateSettings(t *testing.T) {
 // =============================================================================
 
 func TestNewDailySummaryScheduler(t *testing.T) {
-	cfg := testConfig()
-	s := NewDailySummaryScheduler(cfg)
+	testConfig() // publishes the runtime baseline
+	s := NewDailySummaryScheduler()
 	if s == nil {
 		t.Fatal("NewDailySummaryScheduler returned nil")
 	}
@@ -1219,8 +1219,8 @@ func TestNewDailySummaryScheduler(t *testing.T) {
 }
 
 func TestDailySummaryScheduler_Stop(t *testing.T) {
-	cfg := testConfig()
-	s := NewDailySummaryScheduler(cfg)
+	testConfig() // publishes the runtime baseline
+	s := NewDailySummaryScheduler()
 	err := s.Stop()
 	if err != nil {
 		t.Errorf("Stop on empty cronRunner returned error: %v", err)
@@ -1937,7 +1937,7 @@ func TestAllSchedulersImplementInterface(t *testing.T) {
 		NewChannelRecoveryScheduler(cfg),
 		NewModelProbeScheduler(cfg),
 		NewLogCleanupScheduler(cfg),
-		NewDailySummaryScheduler(cfg),
+		NewDailySummaryScheduler(),
 		NewUsageAggregationScheduler(cfg),
 		NewAdminSnapshotScheduler(cfg, usage),
 		NewBackupWebdavScheduler(cfg),
@@ -1980,26 +1980,32 @@ func TestAllSchedulersImplementInterface(t *testing.T) {
 // §20 Mock Helpers
 // =============================================================================
 
-// testConfig returns a Config with safe defaults for testing.
+// testConfig returns a static Config with safe defaults for testing and
+// publishes the matching runtime-mutable baseline through the global atomic
+// snapshot (schedulers read cron / kill-switch / probe settings there).
+// Tests that mutate runtime settings republish through this helper or
+// config.SetRuntime(nil) on cleanup.
 func testConfig() *config.Config {
+	config.SetRuntime(&config.RuntimeSettings{
+		CheckinCron:                   "0 0 */6 * * *",
+		CheckinScheduleMode:           "cron",
+		CheckinIntervalHours:          6,
+		BalanceRefreshCron:            "0 0 0 * * *",
+		LogCleanupCron:                "0 0 6 * * *",
+		LogCleanupRetentionDays:       90,
+		LogCleanupUsageLogsEnabled:    true,
+		LogCleanupProgramLogsEnabled:  true,
+		ModelAvailabilityProbeEnabled: false,
+		ProxyFirstByteTimeoutSec:      30,
+	})
 	return &config.Config{
-		CheckinCron:                            "0 0 */6 * * *",
-		CheckinScheduleMode:                    "cron",
-		CheckinIntervalHours:                   6,
-		BalanceRefreshCron:                     "0 0 0 * * *",
-		LogCleanupCron:                         "0 0 6 * * *",
-		LogCleanupRetentionDays:                90,
 		LogCleanupConfigured:                   false,
-		LogCleanupUsageLogsEnabled:             true,
-		LogCleanupProgramLogsEnabled:           true,
-		ModelAvailabilityProbeEnabled:          false,
 		ModelAvailabilityProbeIntervalMs:       120_000,
 		ModelAvailabilityProbeConcurrency:      4,
 		ProxyLogRetentionDays:                  90,
 		ProxyLogRetentionPruneIntervalMinutes:  30,
 		ProxyFileRetentionDays:                 90,
 		ProxyFileRetentionPruneIntervalMinutes: 60,
-		ProxyFirstByteTimeoutSec:               30,
 	}
 }
 
