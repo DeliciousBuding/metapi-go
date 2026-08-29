@@ -17,14 +17,17 @@ import (
 func TestHealthAndReadyBypassAuthAndIncludeSecurityHeaders(t *testing.T) {
 	dataDir := t.TempDir()
 	cfg := &config.Config{
-		AuthToken:        "admin-token",
-		ProxyToken:       "proxy-token",
 		RequestBodyLimit: config.DefaultRequestBodyLimit,
-		DbType:           store.DialectSQLite,
-		DbUrl:            filepath.Join(dataDir, "router-ready.db"),
 		DataDir:          dataDir,
 	}
-	if err := store.EnsureRuntimeDatabase(cfg); err != nil {
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:        "admin-token",
+		ProxyToken:       "proxy-token",
+		DbType:           store.DialectSQLite,
+		DbUrl:            filepath.Join(dataDir, "router-ready.db"),
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	if err := store.EnsureRuntimeDatabase(cfg, config.RuntimeSafe()); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase: %v", err)
 	}
 	t.Cleanup(func() {
@@ -69,10 +72,13 @@ func assertSecurityHeaders(t *testing.T, rec *httptest.ResponseRecorder) {
 
 func TestAdminRouteStillRequiresAuth(t *testing.T) {
 	cfg := &config.Config{
-		AuthToken:        "admin-token",
-		ProxyToken:       "proxy-token",
 		RequestBodyLimit: config.DefaultRequestBodyLimit,
 	}
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:        "admin-token",
+		ProxyToken:       "proxy-token",
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
 
 	rec := httptest.NewRecorder()
@@ -95,10 +101,13 @@ func TestAboutRouteRequiresAuthAndServesBuildInfoWithoutDatabase(t *testing.T) {
 		t.Fatalf("CloseDatabase: %v", err)
 	}
 	cfg := &config.Config{
-		AuthToken:        "admin-token",
-		ProxyToken:       "proxy-token",
 		RequestBodyLimit: config.DefaultRequestBodyLimit,
 	}
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:        "admin-token",
+		ProxyToken:       "proxy-token",
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
 
 	rec := httptest.NewRecorder()
@@ -130,14 +139,17 @@ func TestAboutRouteRequiresAuthAndServesBuildInfoWithoutDatabase(t *testing.T) {
 func TestAdminRoutesAreMountedWithoutDoubleAPIPrefix(t *testing.T) {
 	dataDir := t.TempDir()
 	cfg := &config.Config{
-		AuthToken:        "admin-token",
-		ProxyToken:       "proxy-token",
 		RequestBodyLimit: config.DefaultRequestBodyLimit,
-		DbType:           store.DialectSQLite,
-		DbUrl:            filepath.Join(dataDir, "router-admin.db"),
 		DataDir:          dataDir,
 	}
-	if err := store.EnsureRuntimeDatabase(cfg); err != nil {
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:        "admin-token",
+		ProxyToken:       "proxy-token",
+		DbType:           store.DialectSQLite,
+		DbUrl:            filepath.Join(dataDir, "router-admin.db"),
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
+	if err := store.EnsureRuntimeDatabase(cfg, config.RuntimeSafe()); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase: %v", err)
 	}
 	t.Cleanup(func() {
@@ -173,10 +185,13 @@ func TestAdminRoutesAreMountedWithoutDoubleAPIPrefix(t *testing.T) {
 
 func TestAdminCORSDefaultDoesNotAllowCrossOrigin(t *testing.T) {
 	cfg := &config.Config{
-		AuthToken:        "admin-token",
-		ProxyToken:       "proxy-token",
 		RequestBodyLimit: config.DefaultRequestBodyLimit,
 	}
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:        "admin-token",
+		ProxyToken:       "proxy-token",
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
 
 	rec := httptest.NewRecorder()
@@ -191,11 +206,14 @@ func TestAdminCORSDefaultDoesNotAllowCrossOrigin(t *testing.T) {
 
 func TestAdminCORSAllowsConfiguredOriginsOnly(t *testing.T) {
 	cfg := &config.Config{
-		AuthToken:               "admin-token",
-		ProxyToken:              "proxy-token",
 		RequestBodyLimit:        config.DefaultRequestBodyLimit,
 		AdminCorsAllowedOrigins: []string{"https://admin.example.com"},
 	}
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:               "admin-token",
+		ProxyToken:              "proxy-token",
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
 
 	rec := httptest.NewRecorder()
@@ -217,10 +235,13 @@ func TestAdminCORSAllowsConfiguredOriginsOnly(t *testing.T) {
 
 func TestProxyCORSRemainsWildcard(t *testing.T) {
 	cfg := &config.Config{
-		AuthToken:        "admin-token",
-		ProxyToken:       "proxy-token",
 		RequestBodyLimit: config.DefaultRequestBodyLimit,
 	}
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:        "admin-token",
+		ProxyToken:       "proxy-token",
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
 
 	rec := httptest.NewRecorder()
@@ -235,10 +256,13 @@ func TestProxyCORSRemainsWildcard(t *testing.T) {
 
 func TestSPAFallbackRootBypassesProxyAuth(t *testing.T) {
 	cfg := &config.Config{
-		AuthToken:        "admin-token",
-		ProxyToken:       "proxy-token",
 		RequestBodyLimit: config.DefaultRequestBodyLimit,
 	}
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:        "admin-token",
+		ProxyToken:       "proxy-token",
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
 
 	rec := httptest.NewRecorder()
@@ -264,10 +288,13 @@ func TestSPAFallbackRootBypassesProxyAuth(t *testing.T) {
 // root (logo, favicons) must be served as their real content type.
 func TestRootPublicFilesServedBeforeSPAFallback(t *testing.T) {
 	cfg := &config.Config{
-		AuthToken:        "admin-token",
-		ProxyToken:       "proxy-token",
 		RequestBodyLimit: config.DefaultRequestBodyLimit,
 	}
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:        "admin-token",
+		ProxyToken:       "proxy-token",
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
 
 	cases := []struct {
@@ -301,10 +328,13 @@ func TestRootPublicFilesServedBeforeSPAFallback(t *testing.T) {
 
 func TestNonV1ProxyAliasStillRequiresProxyAuth(t *testing.T) {
 	cfg := &config.Config{
-		AuthToken:        "admin-token",
-		ProxyToken:       "proxy-token",
 		RequestBodyLimit: config.DefaultRequestBodyLimit,
 	}
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:        "admin-token",
+		ProxyToken:       "proxy-token",
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
 
 	rec := httptest.NewRecorder()
@@ -318,10 +348,13 @@ func TestNonV1ProxyAliasStillRequiresProxyAuth(t *testing.T) {
 
 func TestHealthCORSRemainsWildcard(t *testing.T) {
 	cfg := &config.Config{
-		AuthToken:        "admin-token",
-		ProxyToken:       "proxy-token",
 		RequestBodyLimit: config.DefaultRequestBodyLimit,
 	}
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:        "admin-token",
+		ProxyToken:       "proxy-token",
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
 
 	rec := httptest.NewRecorder()
@@ -336,10 +369,13 @@ func TestHealthCORSRemainsWildcard(t *testing.T) {
 
 func TestDownstreamPricingRequiresProxyAuth(t *testing.T) {
 	cfg := &config.Config{
-		AuthToken:        "admin-token",
-		ProxyToken:       "proxy-token",
 		RequestBodyLimit: config.DefaultRequestBodyLimit,
 	}
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:        "admin-token",
+		ProxyToken:       "proxy-token",
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
 
 	// No Authorization header → must be rejected at the proxy-auth edge
@@ -382,10 +418,13 @@ func findDistAsset(t *testing.T, dir string, suffix string) string {
 // refused them and the embedded single-binary UI stayed blank.
 func TestStaticAssetsServedWithRealContentType(t *testing.T) {
 	cfg := &config.Config{
-		AuthToken:        "admin-token",
-		ProxyToken:       "proxy-token",
 		RequestBodyLimit: config.DefaultRequestBodyLimit,
 	}
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:        "admin-token",
+		ProxyToken:       "proxy-token",
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
 
 	jsName := findDistAsset(t, "dist/static/js", ".js")
@@ -433,10 +472,13 @@ func TestStaticAssetsServedWithRealContentType(t *testing.T) {
 // of being answered by the SPA fallback with 200 text/html.
 func TestStaticAssetMissingReturns404NotSPAFallback(t *testing.T) {
 	cfg := &config.Config{
-		AuthToken:        "admin-token",
-		ProxyToken:       "proxy-token",
 		RequestBodyLimit: config.DefaultRequestBodyLimit,
 	}
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:        "admin-token",
+		ProxyToken:       "proxy-token",
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
 
 	rec := httptest.NewRecorder()
@@ -454,10 +496,13 @@ func TestStaticAssetMissingReturns404NotSPAFallback(t *testing.T) {
 // index.html.
 func TestSPAFallbackServesClientRoutesAfterStaticMount(t *testing.T) {
 	cfg := &config.Config{
-		AuthToken:        "admin-token",
-		ProxyToken:       "proxy-token",
 		RequestBodyLimit: config.DefaultRequestBodyLimit,
 	}
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:        "admin-token",
+		ProxyToken:       "proxy-token",
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
 
 	rec := httptest.NewRecorder()

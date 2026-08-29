@@ -17,12 +17,15 @@ import (
 // so the test is deterministic without sleeping.
 func TestFailedAuthIsRateLimited(t *testing.T) {
 	cfg := &config.Config{
-		AuthToken:           "admin-token",
-		ProxyToken:          "proxy-token",
 		RequestBodyLimit:    config.DefaultRequestBodyLimit,
 		AdminRateLimitRPS:   1,
 		AdminRateLimitBurst: 1,
 	}
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:           "admin-token",
+		ProxyToken:          "proxy-token",
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := New(cfg, web.Dist)
 
 	sawTooMany := false
@@ -58,19 +61,22 @@ func TestFailedAuthIsRateLimited(t *testing.T) {
 func TestLoginEndpointIsRateLimited(t *testing.T) {
 	dataDir := t.TempDir()
 	cfg := &config.Config{
-		AuthToken:           "admin-token",
-		ProxyToken:          "proxy-token",
 		RequestBodyLimit:    config.DefaultRequestBodyLimit,
 		AuthRateLimitRPS:    1,
 		AuthRateLimitBurst:  1,
 		AdminRateLimitRPS:   100,
 		AdminRateLimitBurst: 100,
-		DbType:              store.DialectSQLite,
-		DbUrl:               filepath.Join(dataDir, "login-ratelimit.db"),
 		DataDir:             dataDir,
 	}
+	config.SetRuntime(&config.RuntimeSettings{
+		AuthToken:           "admin-token",
+		ProxyToken:          "proxy-token",
+		DbType:              store.DialectSQLite,
+		DbUrl:               filepath.Join(dataDir, "login-ratelimit.db"),
+	})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	// Login needs the session store (503 without one, fail-closed).
-	if err := store.EnsureRuntimeDatabase(cfg); err != nil {
+	if err := store.EnsureRuntimeDatabase(cfg, config.RuntimeSafe()); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase: %v", err)
 	}
 	t.Cleanup(func() { _ = store.CloseDatabase() })
