@@ -20,7 +20,7 @@ export function SettingsOverview() {
   return (
     <div className='flex flex-col gap-6 p-6'>
       <header className='flex flex-col gap-1'>
-        <h1 className='text-lg font-bold tracking-tight sm:text-xl'>
+        <h1 className='text-2xl font-normal tracking-tight'>
           {t('settings.overview.title')}
         </h1>
         <p className='text-muted-foreground text-sm'>
