@@ -122,8 +122,8 @@ func sanitizeConnectionError(err error, connectionString string) string {
 	return message
 }
 
-func activeRuntimeDatabaseConfig(cfg *config.Config) map[string]any {
-	if cfg == nil {
+func activeRuntimeDatabaseConfig(cfg *config.Config, rt *config.RuntimeSettings) map[string]any {
+	if rt == nil {
 		return map[string]any{
 			"dialect":    store.DialectSQLite,
 			"connection": "(default sqlite path)",
@@ -131,12 +131,12 @@ func activeRuntimeDatabaseConfig(cfg *config.Config) map[string]any {
 		}
 	}
 
-	dialect, ok := normalizeRuntimeDatabaseDialect(cfg.DbType)
+	dialect, ok := normalizeRuntimeDatabaseDialect(rt.DbType)
 	if !ok {
 		dialect = store.DialectSQLite
 	}
 
-	connection := strings.TrimSpace(cfg.DbUrl)
+	connection := strings.TrimSpace(rt.DbUrl)
 	if dialect == store.DialectSQLite {
 		if connection == "" {
 			connection = "(default sqlite path)"
@@ -145,10 +145,19 @@ func activeRuntimeDatabaseConfig(cfg *config.Config) map[string]any {
 		connection = maskConnectionString(connection)
 	}
 
+	// SSL mode combines the static DB_SSLMODE env (on Config) with the
+	// runtime-mutable DB_SSL flag (on the snapshot).
+	ssl := false
+	if cfg != nil {
+		ssl = cfg.PostgresSSLMode(rt.DbSsl) != ""
+	} else if rt.DbSsl {
+		ssl = true
+	}
+
 	return map[string]any{
 		"dialect":    dialect,
 		"connection": connection,
-		"ssl":        cfg.PostgresSSLMode() != "",
+		"ssl":        ssl,
 	}
 }
 
@@ -158,9 +167,9 @@ func (h *databaseHandler) getRuntime(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success":         true,
-		"active":          activeRuntimeDatabaseConfig(h.cfg),
+		"active":          activeRuntimeDatabaseConfig(h.cfg, config.Runtime()),
 		"saved":           saved,
-		"restartRequired": savedDatabaseRequiresRestart(saved, h.cfg),
+		"restartRequired": savedDatabaseRequiresRestart(saved, h.cfg, config.Runtime()),
 	})
 }
 
@@ -197,9 +206,9 @@ func (h *databaseHandler) saveRuntime(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success":         true,
 		"message":         "database runtime configuration saved",
-		"active":          activeRuntimeDatabaseConfig(h.cfg),
+		"active":          activeRuntimeDatabaseConfig(h.cfg, config.Runtime()),
 		"saved":           saved,
-		"restartRequired": savedDatabaseRequiresRestart(saved, h.cfg),
+		"restartRequired": savedDatabaseRequiresRestart(saved, h.cfg, config.Runtime()),
 	})
 }
 
@@ -279,7 +288,7 @@ func (h *databaseHandler) migrate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sourceURL, sourceDialect, err := resolveMigrationSource(h.cfg)
+	sourceURL, sourceDialect, err := resolveMigrationSource(h.cfg, config.Runtime())
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -344,17 +353,20 @@ const (
 // source. A saved runtime override (settings table) only takes effect after a
 // restart, so the active cfg is the authoritative source for a migration
 // triggered from the admin UI.
-func resolveMigrationSource(cfg *config.Config) (connection, dialect string, err error) {
-	if cfg == nil {
+func resolveMigrationSource(cfg *config.Config, rt *config.RuntimeSettings) (connection, dialect string, err error) {
+	if rt == nil {
 		return "", "", fmt.Errorf("runtime config not loaded; unable to determine migration source")
 	}
-	resolved, ok := normalizeRuntimeDatabaseDialect(cfg.DbType)
+	resolved, ok := normalizeRuntimeDatabaseDialect(rt.DbType)
 	if !ok {
 		resolved = store.DialectSQLite
 	}
-	conn := strings.TrimSpace(cfg.DbUrl)
+	conn := strings.TrimSpace(rt.DbUrl)
 	if resolved == store.DialectSQLite {
-		dataDir := cfg.DataDir
+		dataDir := ""
+		if cfg != nil {
+			dataDir = cfg.DataDir
+		}
 		if dataDir == "" {
 			dataDir = config.DefaultDataDir
 		}
@@ -446,11 +458,11 @@ func loadSavedDatabaseConfig(db *sqlx.DB) (*savedDatabaseConfig, error) {
 	}, nil
 }
 
-func savedDatabaseRequiresRestart(saved *savedDatabaseConfig, cfg *config.Config) bool {
-	if saved == nil || cfg == nil {
+func savedDatabaseRequiresRestart(saved *savedDatabaseConfig, cfg *config.Config, rt *config.RuntimeSettings) bool {
+	if saved == nil || rt == nil {
 		return false
 	}
-	activeDialect, ok := normalizeRuntimeDatabaseDialect(cfg.DbType)
+	activeDialect, ok := normalizeRuntimeDatabaseDialect(rt.DbType)
 	if !ok {
 		activeDialect = store.DialectSQLite
 	}
@@ -461,17 +473,24 @@ func savedDatabaseRequiresRestart(saved *savedDatabaseConfig, cfg *config.Config
 		// SQLite connection strings appear in several equivalent spellings
 		// (sqlite://, file://, bare path, default hub.db). Normalize both
 		// sides so the same database does not demand a pointless restart.
-		dataDir := cfg.DataDir
+		dataDir := ""
+		if cfg != nil {
+			dataDir = cfg.DataDir
+		}
 		if dataDir == "" {
 			dataDir = config.DefaultDataDir
 		}
 		return store.ResolveSQLitePath(saved.rawConnectionString, dataDir) !=
-			store.ResolveSQLitePath(cfg.DbUrl, dataDir)
+			store.ResolveSQLitePath(rt.DbUrl, dataDir)
 	}
-	if strings.TrimSpace(saved.rawConnectionString) != strings.TrimSpace(cfg.DbUrl) {
+	if strings.TrimSpace(saved.rawConnectionString) != strings.TrimSpace(rt.DbUrl) {
 		return true
 	}
-	return saved.Ssl != (cfg.PostgresSSLMode() != "")
+	ssl := rt.DbSsl
+	if cfg != nil {
+		ssl = cfg.PostgresSSLMode(rt.DbSsl) != ""
+	}
+	return saved.Ssl != ssl
 }
 
 // parseRuntimeDatabaseSsl tolerates legacy string-encoded values ("true"/"1")

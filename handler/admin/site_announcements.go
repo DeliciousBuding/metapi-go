@@ -497,9 +497,9 @@ func SyncSiteAnnouncements(db *sqlx.DB, siteID *int64) SiteAnnouncementSyncResul
 
 			// Notification delivery is best-effort and counted only when at least
 			// one configured channel actually succeeds.
-			cfg := safeConfig()
-			if cfg != nil {
-				dispatch, notifyErr := notify.SendNotification(cfg, title, message, defaultLevel(announcement.Level), nil)
+			rt := safeRuntimeSettings()
+			if rt != nil {
+				dispatch, notifyErr := notify.SendNotification(rt, title, message, defaultLevel(announcement.Level), nil)
 				if notifyErr != nil {
 					slog.Warn("site-announcement sync: notification failed", "siteId", site.ID, "sourceKey", sourceKey, "error", notifyErr)
 				} else if dispatch != nil && dispatch.Succeeded > 0 {
@@ -578,9 +578,11 @@ func stringPtrValue(v *string) string {
 	return *v
 }
 
-func safeConfig() *config.Config {
-	defer func() { _ = recover() }()
-	return config.Get()
+// safeRuntimeSettings returns the current runtime-settings snapshot, or nil
+// before boot publication. Notification channels read only runtime-mutable
+// values, so the static Config is not needed here.
+func safeRuntimeSettings() *config.RuntimeSettings {
+	return config.RuntimeSafe()
 }
 
 func hasValue(v any) bool {

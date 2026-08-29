@@ -90,10 +90,10 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 		r.Use(auth.OAuthRateLimit(oauthRps, oauthBurst))
 		// Dual-track admin auth: session cookie (UI) or Bearer master token
 		// (external scripts) — see auth.AdminAuth (#1034).
-		r.Use(auth.AdminAuth(cfg, sessions))
+		r.Use(auth.AdminAuth(sessions))
 		// Sensitive operations (backup/key export, token rotation) require the
 		// master token re-presented in X-Admin-Confirm-Token (#1034).
-		r.Use(auth.RequireReauth(cfg))
+		r.Use(auth.RequireReauth())
 		// B1: audit admin write operations.
 		if db := store.GetDB(); db != nil {
 			r.Use(admin.AuditMiddleware(db.DB))
@@ -150,7 +150,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 			admin.RegisterSchedulerStatusRoutes(r, db.DB)
 			admin.RegisterTestRoutes(r, db.DB, cfg)
 			admin.RegisterSiteAnnouncementsRoutes(r, db.DB)
-			admin.RegisterAuthSettingsRoutes(r, db.DB, cfg, sessions)
+			admin.RegisterAuthSettingsRoutes(r, db.DB, sessions)
 			admin.RegisterCheckinRoutes(r, db.DB, cfg)
 			admin.RegisterTokenRoutesWithDeps(r, db.DB, tokenRoutesDeps())
 			admin.RegisterChannelTestRoutes(r, db.DB, cfg)
@@ -195,7 +195,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 	r.Route("/v1", func(r chi.Router) {
 		r.Use(CORS())
 		r.Use(auth.ProxyRateLimit(cfg.ProxyRateLimitRPM))
-		r.Use(auth.ProxyAuth(cfg))
+		r.Use(auth.ProxyAuth())
 		r.Use(auth.ProxyGlobalTokenRateLimit(cfg.ProxyGlobalTokenRPM))
 		proxyhandler.RegisterProxyRoutes(r)
 		// N2: downstream-key-visible cross-site price catalog (not admin auth).
@@ -213,7 +213,7 @@ func New(cfg *config.Config, webFS embed.FS) chi.Router {
 	r.Group(func(r chi.Router) {
 		r.Use(CORS())
 		r.Use(auth.ProxyRateLimit(cfg.ProxyRateLimitRPM))
-		r.Use(auth.ProxyAuth(cfg))
+		r.Use(auth.ProxyAuth())
 		r.Use(auth.ProxyGlobalTokenRateLimit(cfg.ProxyGlobalTokenRPM))
 		proxyhandler.RegisterNonV1ProxyRoutes(r)
 	})

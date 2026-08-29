@@ -194,11 +194,13 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	now := time.Now().UTC().Format(time.RFC3339)
 	logSettingsEvent(h.db, "status", "Runtime settings updated", "Runtime settings updated", "info", now)
 
+	// One snapshot for the whole response body.
+	rt := config.Runtime()
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success":             true,
 		"message":             "Runtime settings updated",
-		"globalAllowedModels": stringSliceOrEmpty(h.rt.GlobalAllowedModels),
-		"globalBlockedBrands": stringSliceOrEmpty(h.rt.GlobalBlockedBrands),
+		"globalAllowedModels": stringSliceOrEmpty(rt.GlobalAllowedModels),
+		"globalBlockedBrands": stringSliceOrEmpty(rt.GlobalBlockedBrands),
 	})
 }
 
@@ -236,7 +238,7 @@ func (h *settingsHandler) testSystemProxy(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	proxyURL := h.rt.SystemProxyUrl
+	proxyURL := config.Runtime().SystemProxyUrl
 	if body.ProxyUrl != nil {
 		proxyURL = strings.TrimSpace(*body.ProxyUrl)
 	}

@@ -58,7 +58,7 @@ func (h *sessionRoutesHandler) login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "token is required")
 		return
 	}
-	if !constantTimeEqual(h.cfg.AuthToken, body.Token) {
+	if !constantTimeEqual(config.Runtime().AuthToken, body.Token) {
 		// Same status/message shape as AdminAuth's Bearer rejection so the
 		// sign-in form keeps its existing error classification.
 		writeJSON(w, http.StatusForbidden, map[string]string{"error": "Invalid token"})
@@ -95,7 +95,7 @@ func (h *sessionRoutesHandler) status(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if bearer := bearerTokenFromRequest(r); bearer != "" &&
-		constantTimeEqual(h.cfg.AuthToken, bearer) {
+		constantTimeEqual(config.Runtime().AuthToken, bearer) {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"authenticated": true,
 			"source":        "token",

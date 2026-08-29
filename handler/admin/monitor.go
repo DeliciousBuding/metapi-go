@@ -29,7 +29,7 @@ func RegisterMonitorRoutes(r chi.Router, db *sqlx.DB, cfg *config.Config) {
 	handler := &monitorHandler{db: db, cfg: cfg}
 
 	r.Get("/api/monitor/config", handler.getConfig)
-	RegisterMonitorHealthRoute(r, db, cfg) // GET /api/monitor/health (observability projection)
+	RegisterMonitorHealthRoute(r, db) // GET /api/monitor/health (observability projection)
 	r.Put("/api/monitor/config", handler.saveConfig)
 	r.Post("/api/monitor/session", handler.createSession)
 	// DELETE clears the HttpOnly meta_monitor_auth cookie on admin logout.
@@ -184,7 +184,7 @@ func (h *monitorHandler) saveConfig(w http.ResponseWriter, r *http.Request) {
 // The raw AUTH_TOKEN is never written into the cookie value: cookie theft
 // must not yield a usable admin Bearer credential for /api/*.
 func (h *monitorHandler) createSession(w http.ResponseWriter, r *http.Request) {
-	session := deriveMonitorSessionToken(h.cfg.AuthToken)
+	session := deriveMonitorSessionToken(config.Runtime().AuthToken)
 	http.SetCookie(w, newMonitorAuthCookie(session, monitorSessionMaxAge, isMonitorHTTPS(r)))
 	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
@@ -344,11 +344,15 @@ func (h *monitorHandler) ensureMonitorAuth(r *http.Request) bool {
 	if got == "" {
 		return false
 	}
+	// AuthToken is runtime-mutable (rotation hot-applies via UpdateRuntime):
+	// take one snapshot so the raw-token rejection and the derived-session
+	// check agree on the same value.
+	authToken := config.Runtime().AuthToken
 	// Never accept the raw AuthToken as a monitor session.
-	if subtle.ConstantTimeCompare([]byte(got), []byte(h.cfg.AuthToken)) == 1 {
+	if subtle.ConstantTimeCompare([]byte(got), []byte(authToken)) == 1 {
 		return false
 	}
-	expected := deriveMonitorSessionToken(h.cfg.AuthToken)
+	expected := deriveMonitorSessionToken(authToken)
 	if len(got) != len(expected) {
 		// Length mismatch: still run a dummy compare to keep timing flat-ish,
 		// then deny.
