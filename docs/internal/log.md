@@ -5,6 +5,14 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-08-29 — W20 凭证维度后端加固（#1026 残留，API-only）
+
+- **修复（关键）**：`auth.ExcludedCredentialRef` JSON 标签 snake_case 与管理员端持久化 camelCase 不一致 → 代理路径解析引用 ID 全为 0：`allowedCredentialRefs` 密钥无法路由任何渠道（允许列表永不匹配）、`excludedCredentialRefs` 静默失效。标签统一 camelCase；DB→策略解析往返回归测试钉住。
+- **收紧**：畸形引用条目（非对象/未知 kind/缺 ID）由静默丢弃改为显式 400——允许列表场景静默丢弃等于 fail-open。
+- **契约测试**：路由选择器执行（两种 kind、跨 kind 隔离、空=不限制、排除优先、TS 遗留空 kind）、管理端验证拒绝矩阵、悬空引用不级联清理（失败关闭）、auth→routing 映射钉住。
+- **文档**：`docs/api.md` 下游密钥节补完整契约；明确 UI 树形选择器待定（API-only）。
+
+
 ## 2026-08-29 — Wave 18 十线并行（安全/并发/网络/数据库/性能/构建/UX/CX）发布 v0.16.19
 
 - **组织**：10 worktree + 10 subagent（qwen3.8-max）并行；本地推送门禁在 8 并发 race 套件下出现 `handler/admin` 300s 预算临界（环境性，各 lane 用 `METAPI_RACE_TIMEOUT_SECONDS` 官方旋钮），建议后续波次错峰推送或上调默认值。

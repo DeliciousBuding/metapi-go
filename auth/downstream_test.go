@@ -1250,7 +1250,7 @@ func TestParseInt64Array_Nil(t *testing.T) {
 }
 
 func TestParseExcludedCredentialRefs_Valid(t *testing.T) {
-	raw := `[{"kind":"account_token","site_id":1,"account_id":2,"token_id":3}]`
+	raw := `[{"kind":"account_token","siteId":1,"accountId":2,"tokenId":3}]`
 	result := parseExcludedCredentialRefs(&raw)
 	if len(result) != 1 {
 		t.Fatalf("expected 1 item, got %d", len(result))
@@ -1267,7 +1267,7 @@ func TestParseExcludedCredentialRefs_Valid(t *testing.T) {
 }
 
 func TestParseExcludedCredentialRefs_DefaultApiKey(t *testing.T) {
-	raw := `[{"kind":"default_api_key","site_id":5,"account_id":10}]`
+	raw := `[{"kind":"default_api_key","siteId":5,"accountId":10}]`
 	result := parseExcludedCredentialRefs(&raw)
 	if len(result) != 1 {
 		t.Fatalf("expected 1 item, got %d", len(result))
@@ -1277,6 +1277,64 @@ func TestParseExcludedCredentialRefs_DefaultApiKey(t *testing.T) {
 	}
 	if result[0].TokenID != nil {
 		t.Errorf("expected token_id=nil for default_api_key, got %v", result[0].TokenID)
+	}
+}
+
+// TestGetManagedKeyByToken_CredentialRefsRoundtrip pins the end-to-end decode
+// of credential-ref JSON in the exact shape the admin API persists
+// (camelCase objects produced by handler/admin normalizeExcludedCredentialRefsInput).
+// A tag mismatch between the persisted shape and auth.ExcludedCredentialRef
+// decodes every ID as 0, silently disabling both dimensions: exclude refs
+// match nothing and allow refs reject every candidate. Regression guard for
+// the #1026 credential dimension.
+func TestGetManagedKeyByToken_CredentialRefsRoundtrip(t *testing.T) {
+	setupTestDB(t)
+	db := testDB(t)
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	excluded := `[{"kind":"account_token","siteId":11,"accountId":12,"tokenId":13}]`
+	allowed := `[{"kind":"account_token","siteId":21,"accountId":22,"tokenId":23},{"kind":"default_api_key","siteId":21,"accountId":24}]`
+	_, err := db.Exec(
+		`INSERT INTO downstream_api_keys
+		 (name, key, enabled, expires_at, max_cost, used_cost, max_requests, used_requests,
+		  supported_models, allowed_route_ids, site_weight_multipliers, excluded_site_ids,
+		  excluded_credential_refs, allowed_site_ids, allowed_credential_refs,
+		  created_at, updated_at)
+		 VALUES (?, ?, TRUE, NULL, NULL, 0, NULL, 0, '[]', '[]', '{}', '[]', ?, '[]', ?, ?, ?)`,
+		"cred-roundtrip", "sk-cred-roundtrip", excluded, allowed, now, now,
+	)
+	if err != nil {
+		t.Fatalf("insert key: %v", err)
+	}
+
+	view, err := getManagedKeyByToken("sk-cred-roundtrip")
+	if err != nil {
+		t.Fatalf("getManagedKeyByToken: %v", err)
+	}
+	if view == nil {
+		t.Fatal("expected view to be non-nil")
+	}
+
+	policy := toPolicyFromView(view)
+
+	if len(policy.ExcludedCredentialRefs) != 1 {
+		t.Fatalf("expected 1 excluded ref, got %d", len(policy.ExcludedCredentialRefs))
+	}
+	got := policy.ExcludedCredentialRefs[0]
+	if got.Kind != CredentialRefAccountToken || got.SiteID != 11 || got.AccountID != 12 || got.TokenID == nil || *got.TokenID != 13 {
+		t.Fatalf("excluded ref decoded wrong: %+v", got)
+	}
+
+	if len(policy.AllowedCredentialRefs) != 2 {
+		t.Fatalf("expected 2 allowed refs, got %d", len(policy.AllowedCredentialRefs))
+	}
+	tok := policy.AllowedCredentialRefs[0]
+	if tok.Kind != CredentialRefAccountToken || tok.SiteID != 21 || tok.AccountID != 22 || tok.TokenID == nil || *tok.TokenID != 23 {
+		t.Fatalf("allowed account_token ref decoded wrong: %+v", tok)
+	}
+	def := policy.AllowedCredentialRefs[1]
+	if def.Kind != CredentialRefDefaultApiKey || def.SiteID != 21 || def.AccountID != 24 || def.TokenID != nil {
+		t.Fatalf("allowed default_api_key ref decoded wrong: %+v", def)
 	}
 }
 
