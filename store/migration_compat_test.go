@@ -172,11 +172,9 @@ func TestTSTakeoverAutoMigrate(t *testing.T) {
 	fixture := copyTSFixture(t)
 	t.Cleanup(func() { _ = CloseDatabase() })
 
-	cfg := &config.Config{
-		DbType:  DialectSQLite,
-		DataDir: filepath.Dir(fixture),
-	}
-	if err := EnsureRuntimeDatabase(cfg); err != nil {
+	cfg := &config.Config{DataDir: filepath.Dir(fixture)}
+	rt := &config.RuntimeSettings{DbType: DialectSQLite}
+	if err := EnsureRuntimeDatabase(cfg, rt); err != nil {
 		t.Fatalf("EnsureRuntimeDatabase on TS fixture failed: %v", err)
 	}
 
