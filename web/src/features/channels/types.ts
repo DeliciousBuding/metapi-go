@@ -36,10 +36,30 @@ export type ChannelRow = {
 }
 
 /**
- * TanStack Query key factory. The channels list is a single full-list query
- * (no server-side pagination), so one stable key is enough for invalidation.
+ * One server-side channels page returned by GET /api/channels when page/pageSize
+ * are present.
+ */
+export type ChannelsPageData = {
+  items: ChannelRow[]
+  total: number
+}
+
+/** Fleet-wide runtime status counts from GET /api/channels/error-summary. */
+export type ChannelsErrorSummary = {
+  total: number
+  errorCount: number
+  byStatus: Record<ChannelStatus, number>
+}
+
+/**
+ * TanStack Query key factory. The channels page now uses a server-paginated
+ * key (page/pageSize/status), while the legacy full-list key remains for the
+ * one-shot channel drilldown and any non-page consumers.
  */
 export const channelsKeys = {
   all: ['channels'] as const,
   list: () => [...channelsKeys.all, 'list'] as const,
+  page: (pageIndex: number, pageSize: number, status?: string) =>
+    [...channelsKeys.all, 'page', { pageIndex, pageSize, status }] as const,
+  errorSummary: () => [...channelsKeys.all, 'error-summary'] as const,
 }
