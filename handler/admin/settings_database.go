@@ -180,7 +180,7 @@ func (h *databaseHandler) saveRuntime(w http.ResponseWriter, r *http.Request) {
 	if body.Dialect != nil {
 		dialect, ok := normalizeRuntimeDatabaseDialect(*body.Dialect)
 		if !ok {
-			writeError(w, http.StatusBadRequest, "database type must be sqlite or postgres")
+			writeErrorCode(w, http.StatusBadRequest, ErrorCodeInvalidDatabaseType, "database type must be sqlite or postgres")
 			return
 		}
 		upsertSettingDB(h.db, "db_type", dialect)
@@ -217,7 +217,7 @@ func (h *databaseHandler) testConnection(w http.ResponseWriter, r *http.Request)
 
 	dialect, ok := normalizeRuntimeDatabaseDialect(body.Dialect)
 	if !ok {
-		writeError(w, http.StatusBadRequest, "database type must be sqlite or postgres")
+		writeErrorCode(w, http.StatusBadRequest, ErrorCodeInvalidDatabaseType, "database type must be sqlite or postgres")
 		return
 	}
 
@@ -269,13 +269,13 @@ func (h *databaseHandler) migrate(w http.ResponseWriter, r *http.Request) {
 
 	targetDialect, ok := normalizeRuntimeDatabaseDialect(body.Dialect)
 	if !ok {
-		writeError(w, http.StatusBadRequest, "database type must be sqlite or postgres")
+		writeErrorCode(w, http.StatusBadRequest, ErrorCodeInvalidDatabaseType, "database type must be sqlite or postgres")
 		return
 	}
 
 	targetURL := strings.TrimSpace(body.ConnectionString)
 	if targetURL == "" {
-		writeError(w, http.StatusBadRequest, "target database connection string must not be empty")
+		writeErrorCode(w, http.StatusBadRequest, ErrorCodeEmptyMigrationTarget, "target database connection string must not be empty")
 		return
 	}
 
@@ -287,8 +287,10 @@ func (h *databaseHandler) migrate(w http.ResponseWriter, r *http.Request) {
 
 	// Refuse to migrate onto the live runtime database: overwriting the DB
 	// the server is currently using would be destructive mid-request.
+	// errorCode pins the rejection for clients (the admin UI historically
+	// substring-matched the message text; see docs/api.md registry).
 	if sameMigrationTarget(sourceURL, sourceDialect, targetURL, targetDialect) {
-		writeError(w, http.StatusBadRequest, "target database is the same as the running database; migration aborted")
+		writeErrorCode(w, http.StatusBadRequest, ErrorCodeSameMigrationTarget, "target database is the same as the running database; migration aborted")
 		return
 	}
 

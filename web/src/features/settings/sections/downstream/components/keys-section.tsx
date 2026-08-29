@@ -364,7 +364,7 @@ function ModelPolicyEditor({
               {rule}
               <button
                 type='button'
-                className='focus-visible:ring-ring rounded-full outline-none focus-visible:ring-2'
+                className='focus-visible:ring-focus-ring rounded-full outline-none focus-visible:ring-2'
                 aria-label={t(
                   'settings.downstream.keys.models.removeRuleAria',
                   { rule, defaultValue: 'Remove model rule {{rule}}' }

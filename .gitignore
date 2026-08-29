@@ -1,7 +1,6 @@
 # Frontend source dependencies (not needed for Go build)
 web/node_modules/
 web/build/
-web/docs/.vitepress/dist/
 
 # Frontend build output (built in CI/Docker, embedded via go:embed)
 web/dist/
