@@ -94,6 +94,13 @@ src/
 | `checkin` / `proxy-logs`                     | 签到记录与使用日志                            |
 | `settings` / `about`                         | 设置中心与项目信息                            |
 
+### 分层边界
+
+- `src/components/` 禁止 import `src/features/` 或 `src/routes/`；`src/lib/`
+  禁止 import `src/features/` 或 `src/routes/`。分层规则、例外与退出条件见
+  `docs/internal/web-package-boundaries.md`；`bun run lint` 会通过
+  `scripts/check-boundaries.mjs` 自动执行该门禁。
+
 ### data-table 四层
 
 - `core/`：TanStack table 渲染原语、header/row/pagination、loading/empty、pinned-column。

@@ -1,7 +1,10 @@
 # Web package boundaries — frontend layering rules
 
-**Status**: enforced by review + spot greps (no CI lint yet)
-**Date**: 2026-08-23
+**Status**: machine-enforced since 2026-08-29 by `web/scripts/check-boundaries.mjs`
+**Date**: 2026-08-23 (updated 2026-08-29)
+**Gate**: `bun run lint` chains `oxlint && bun run check:boundaries`; pre-push
+and the CI `frontend` job both run `bun run lint`, so violations are caught
+locally and in CI.
 
 The admin SPA under `web/src/` is layered. Imports are allowed to point
 **downward** through these layers; upward or sideways-into-core imports are
@@ -19,46 +22,47 @@ defects unless registered as an exception below.
 
 ## Rules
 
-1. **`src/lib/` never imports from `features/`, `components/`, or `routes/`.**
-   Lib is the bottom layer: everything may depend on it, it depends on nothing
-   app-specific. Verify with `grep -rn "@/features\|@/components\|@/routes" web/src/lib/`
-   (must return nothing).
+1. **`src/lib/` never imports from `features/` or `routes/`.** Lib is the
+   bottom layer: everything may depend on it, it depends on nothing
+   app-specific. The boundary gate enforces these two edges; the remaining
+   `lib → components` edges (`lib/router.ts` fallback pages) and `lib → i18n`
+   edges are a pre-existing residual tracked separately.
 2. **`src/components/` does not import from `features/` or `routes/`.** Shared
-   UI must stay renderable without any feature context. The registered
-   exceptions for the `layout/` shell are listed below.
+   UI must stay renderable without any feature context. The boundary gate
+   enforces this; the one remaining shell exception is registered below.
 3. **Features may import lib, shared components, stores, i18n, and other
    features' public barrels** — feature-to-feature coupling is tolerated but
    should stay shallow (prefer a shared lib helper when logic is reusable).
 4. **Routes may import everything**; they are the composition root.
 5. A **pure helper that two layers both need belongs in `src/lib/`**, not in a
    feature. `sanitizeAuthRedirect` was moved from `features/auth/lib/` to
-   `src/lib/helpers/` (2026-08-23) exactly because the lib-level
-   `http-client.ts` needed it — a lib → feature import is never allowed, even
-   for a single pure function.
+   `src/lib/helpers/` (2026-08-23); Wave 21 S5 extended the same rule to
+   `ABOUT_INFO`, token-route summary types, and the model-pattern predicates.
+
+## Gate mechanics
+
+`web/scripts/check-boundaries.mjs` statically scans all `.ts`/`.tsx` under
+`web/src/`, resolves `@/` and relative specifiers to their layer, and fails
+with file:line when a component or lib file imports `features/` or `routes/`.
+Exceptions are an explicit in-script registry with a required reason; a stale
+exception (no matching import) also fails, so whitelists cannot accumulate
+silently. Run directly with `bun run check:boundaries`.
 
 ## Registered exceptions (components/layout → features)
 
-The layout shell renders navigation *about* feature workspaces, so it needs
-each workspace's nav metadata. Inverting this (features registering their own
-sidebar views into a layout-owned registry) is the intended long-term fix but
-touches too many call sites right now. Until then these four edges are the
-**complete, closed** exception list — new ones require review sign-off:
+After the Wave 21 S5 inversion, only one shell edge remains. It is **not**
+covered yet because the `⌘K` palette files (`search-modal.tsx` and
+`search-nav.ts`) are owned by parallel Wave 21 Lane P. The layout-owned
+settings nav registry already exists, so the edge is mechanical to flip once
+Lane P lands:
 
 | File | Imports | Why |
 |:---|:---|:---|
-| `src/components/layout/config/system-settings.config.ts:9` | `getSettingsSubareas` from `@/features/settings` | Builds the Settings drill-in sidebar groups from the feature's subarea registry |
-| `src/components/layout/components/user-menu.tsx:24` | `ABOUT_INFO` from `@/features/about/api` | Shows curated project metadata (name/repo links) in the user menu About entry |
-| `src/components/layout/lib/sidebar-view-registry.ts:4` | `OBSERVABILITY_VIEW` from `@/features/observability` | Registers the Observability drill-in view for sidebar resolution |
-| `src/components/layout/lib/search-nav.ts:11` | `getSettingsSubareas` from `@/features/settings` | Feeds the ⌘K palette's local Settings entries from the same registry |
+| `src/components/layout/lib/search-nav.ts` | `getSettingsSubareas` from `@/features/settings` | Feeds the ⌘K palette's local Settings entries from the feature's registry; Lane P owns this file |
 
-All four pull **declarative nav/config metadata** (plain objects and a pure
-registry function), never feature behavior, stores, or API hooks. The test-only
-mirror of the user-menu edge (`layout/__tests__/user-menu.test.tsx`) inherits
-the same exception.
-
-**Exit criterion**: when a layout-owned `SidebarView`/nav registry with
-feature-side registration exists, all four edges flip to feature → layout and
-this section is deleted.
+**Exit criterion**: when Lane P flips `search-nav.ts` to
+`../lib/settings-nav-registry`, delete the entry above in that change;
+ the registered-exception list should then be empty.
 
 ## Precedent log
 
@@ -67,3 +71,21 @@ this section is deleted.
   in `http-client.ts`; `search-params-resilience.test.ts` moved
   `src/lib/helpers/__tests__/ → src/__tests__/` for the same reason (it
   exercises feature schemas).
+- **2026-08-29 (Wave 21 S5)** — shell boundary inversion:
+  - `ABOUT_INFO` moved `features/about/api.ts → src/lib/about-info.ts` to break
+    `components/layout/user-menu.tsx → features/about/api`.
+  - Settings nav metadata now flows feature → layout: layout owns
+    `lib/settings-nav-registry.ts`, the authenticated route composition root
+    registers `features/settings`' `getSettingsSubareas`, and
+    `system-settings.config.ts` / `search-nav.ts` consume the layout registry.
+  - `OBSERVABILITY_VIEW` now registers through
+    `sidebar-view-registry.registerSidebarView()` from the same composition
+    root instead of `components → features/observability`.
+  - `RouteSummaryRow` / `RouteMode` / `RouteRoutingStrategy` /
+    `RouteDecision` moved to `src/lib/helpers/token-route-contract.ts`; pure
+    model-pattern predicates moved to `src/lib/helpers/model-pattern.ts` and
+    are re-exported from the feature for compatibility. This fixes the
+    pre-existing `lib/helpers/zeroChannelRoutes → features/token-routes` edge
+    that the new gate exposed.
+  - Added `web/scripts/check-boundaries.mjs` and chained it into `bun run
+    lint` (pre-push + CI frontend gate).
