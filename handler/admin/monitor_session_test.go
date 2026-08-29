@@ -6,10 +6,12 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/deliciousbuding/metapi-go/config"
 )
 
 func TestMonitorSession_CookieIsOpaqueNotAuthToken(t *testing.T) {
-	_, r, cfg := setupOpsAdminStubsTest(t)
+	_, r, _ := setupOpsAdminStubsTest(t)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/monitor/session", nil)
 	rec := httptest.NewRecorder()
@@ -40,7 +42,7 @@ func TestMonitorSession_CookieIsOpaqueNotAuthToken(t *testing.T) {
 	if sessionCookie.Value == "" {
 		t.Fatal("monitor session cookie value is empty")
 	}
-	if sessionCookie.Value == cfg.AuthToken {
+	if sessionCookie.Value == config.Runtime().AuthToken {
 		t.Fatalf("cookie value must not equal AuthToken (cookie theft must not yield admin bearer)")
 	}
 	if !sessionCookie.HttpOnly {
@@ -55,7 +57,7 @@ func TestMonitorSession_CookieIsOpaqueNotAuthToken(t *testing.T) {
 	if sessionCookie.SameSite != http.SameSiteLaxMode {
 		t.Fatalf("cookie SameSite = %v, want Lax", sessionCookie.SameSite)
 	}
-	expected := deriveMonitorSessionToken(cfg.AuthToken)
+	expected := deriveMonitorSessionToken(config.Runtime().AuthToken)
 	if sessionCookie.Value != expected {
 		t.Fatalf("cookie value = %q, want derived session %q", sessionCookie.Value, expected)
 	}
@@ -85,12 +87,12 @@ func TestMonitorSession_CookieSecureWhenHTTPS(t *testing.T) {
 }
 
 func TestMonitorAuth_ValidOpaqueCookieAccepted(t *testing.T) {
-	_, r, cfg := setupOpsAdminStubsTest(t)
+	_, r, _ := setupOpsAdminStubsTest(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/monitor-proxy/ldoh/", nil)
 	req.AddCookie(&http.Cookie{
 		Name:  monitorAuthCookie,
-		Value: deriveMonitorSessionToken(cfg.AuthToken),
+		Value: deriveMonitorSessionToken(config.Runtime().AuthToken),
 	})
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
@@ -105,7 +107,7 @@ func TestMonitorAuth_ValidOpaqueCookieAccepted(t *testing.T) {
 }
 
 func TestMonitorAuth_InvalidCookieDenied(t *testing.T) {
-	_, r, cfg := setupOpsAdminStubsTest(t)
+	_, r, _ := setupOpsAdminStubsTest(t)
 
 	cases := []struct {
 		name  string
@@ -113,9 +115,9 @@ func TestMonitorAuth_InvalidCookieDenied(t *testing.T) {
 	}{
 		{name: "empty", value: ""},
 		{name: "garbage", value: "not-a-valid-session"},
-		{name: "raw-auth-token", value: cfg.AuthToken},
-		{name: "wrong-hmac", value: deriveMonitorSessionToken(cfg.AuthToken + "-other")},
-		{name: "truncated", value: deriveMonitorSessionToken(cfg.AuthToken)[:8]},
+		{name: "raw-auth-token", value: config.Runtime().AuthToken},
+		{name: "wrong-hmac", value: deriveMonitorSessionToken(config.Runtime().AuthToken + "-other")},
+		{name: "truncated", value: deriveMonitorSessionToken(config.Runtime().AuthToken)[:8]},
 	}
 
 	for _, tc := range cases {
@@ -137,7 +139,7 @@ func TestMonitorAuth_InvalidCookieDenied(t *testing.T) {
 }
 
 func TestMonitorAuth_AuthTokenRotationInvalidatesCookie(t *testing.T) {
-	_, r, cfg := setupOpsAdminStubsTest(t)
+	_, r, _ := setupOpsAdminStubsTest(t)
 
 	oldToken := "old-admin-token"
 	newToken := "new-admin-token"
@@ -145,8 +147,8 @@ func TestMonitorAuth_AuthTokenRotationInvalidatesCookie(t *testing.T) {
 		t.Fatal("session must change when AuthToken rotates")
 	}
 
-	cfg.AuthToken = oldToken
-	minted := deriveMonitorSessionToken(cfg.AuthToken)
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.AuthToken = oldToken })
+	minted := deriveMonitorSessionToken(config.Runtime().AuthToken)
 
 	// Valid under current token.
 	reqOK := httptest.NewRequest(http.MethodGet, "/monitor-proxy/ldoh/", nil)
@@ -158,7 +160,7 @@ func TestMonitorAuth_AuthTokenRotationInvalidatesCookie(t *testing.T) {
 	}
 
 	// Rotate AuthToken: previous cookie must be rejected.
-	cfg.AuthToken = newToken
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.AuthToken = newToken })
 	reqDenied := httptest.NewRequest(http.MethodGet, "/monitor-proxy/ldoh/", nil)
 	reqDenied.AddCookie(&http.Cookie{Name: monitorAuthCookie, Value: minted})
 	recDenied := httptest.NewRecorder()

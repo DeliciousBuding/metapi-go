@@ -11,7 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func setupAuthSettingsTest(t *testing.T) (*store.DB, chi.Router, *config.Config) {
+func setupAuthSettingsTest(t *testing.T) (*store.DB, chi.Router) {
 	t.Helper()
 	db, err := store.Open(store.DialectSQLite, ":memory:", false)
 	if err != nil {
@@ -24,16 +24,15 @@ func setupAuthSettingsTest(t *testing.T) (*store.DB, chi.Router, *config.Config)
 		t.Fatalf("AutoMigrate: %v", err)
 	}
 
-	cfg := &config.Config{
-		AuthToken: "admin-auth-settings-token",
-	}
+	config.SetRuntime(&config.RuntimeSettings{AuthToken: "admin-auth-settings-token"})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	r := chi.NewRouter()
-	RegisterAuthSettingsRoutes(r, db.DB, cfg, nil)
-	return db, r, cfg
+	RegisterAuthSettingsRoutes(r, db.DB, nil)
+	return db, r
 }
 
 func TestAuthSettingsChange_WrongOldTokenForbidden(t *testing.T) {
-	_, r, cfg := setupAuthSettingsTest(t)
+	_, r := setupAuthSettingsTest(t)
 
 	resp := doPostJSON(t, r, "/api/settings/auth/change", map[string]any{
 		"oldToken": "wrong-old-token-value",
@@ -50,13 +49,13 @@ func TestAuthSettingsChange_WrongOldTokenForbidden(t *testing.T) {
 	if body["error"] != "Old token verification failed" {
 		t.Fatalf("error = %v, want Old token verification failed", body["error"])
 	}
-	if cfg.AuthToken != "admin-auth-settings-token" {
-		t.Fatalf("AuthToken mutated to %q", cfg.AuthToken)
+	if config.Runtime().AuthToken != "admin-auth-settings-token" {
+		t.Fatalf("AuthToken mutated to %q", config.Runtime().AuthToken)
 	}
 }
 
 func TestAuthSettingsChange_WrongOldTokenDifferentLengthForbidden(t *testing.T) {
-	_, r, cfg := setupAuthSettingsTest(t)
+	_, r := setupAuthSettingsTest(t)
 
 	resp := doPostJSON(t, r, "/api/settings/auth/change", map[string]any{
 		"oldToken": "short",
@@ -65,13 +64,13 @@ func TestAuthSettingsChange_WrongOldTokenDifferentLengthForbidden(t *testing.T) 
 	if resp.Code != http.StatusForbidden {
 		t.Fatalf("status = %d body=%s, want 403", resp.Code, resp.Body.String())
 	}
-	if cfg.AuthToken != "admin-auth-settings-token" {
-		t.Fatalf("AuthToken mutated to %q", cfg.AuthToken)
+	if config.Runtime().AuthToken != "admin-auth-settings-token" {
+		t.Fatalf("AuthToken mutated to %q", config.Runtime().AuthToken)
 	}
 }
 
 func TestAuthSettingsChange_SuccessUpdatesToken(t *testing.T) {
-	db, r, cfg := setupAuthSettingsTest(t)
+	db, r := setupAuthSettingsTest(t)
 
 	resp := doPostJSON(t, r, "/api/settings/auth/change", map[string]any{
 		"oldToken": "admin-auth-settings-token",
@@ -80,8 +79,8 @@ func TestAuthSettingsChange_SuccessUpdatesToken(t *testing.T) {
 	if resp.Code != http.StatusOK {
 		t.Fatalf("status = %d body=%s, want 200", resp.Code, resp.Body.String())
 	}
-	if cfg.AuthToken != "rotated-admin-token" {
-		t.Fatalf("AuthToken = %q, want rotated-admin-token", cfg.AuthToken)
+	if config.Runtime().AuthToken != "rotated-admin-token" {
+		t.Fatalf("AuthToken = %q, want rotated-admin-token", config.Runtime().AuthToken)
 	}
 
 	var stored string
@@ -94,7 +93,7 @@ func TestAuthSettingsChange_SuccessUpdatesToken(t *testing.T) {
 }
 
 func TestAuthSettingsChange_SuccessClearsMonitorAuthCookies(t *testing.T) {
-	_, r, _ := setupAuthSettingsTest(t)
+	_, r := setupAuthSettingsTest(t)
 
 	resp := doPostJSON(t, r, "/api/settings/auth/change", map[string]any{
 		"oldToken": "admin-auth-settings-token",
@@ -151,7 +150,7 @@ func TestAuthSettingsChange_SuccessClearsMonitorAuthCookies(t *testing.T) {
 }
 
 func TestAuthSettingsChange_WrongOldTokenDoesNotClearMonitorAuthCookies(t *testing.T) {
-	_, r, cfg := setupAuthSettingsTest(t)
+	_, r := setupAuthSettingsTest(t)
 
 	resp := doPostJSON(t, r, "/api/settings/auth/change", map[string]any{
 		"oldToken": "wrong-old-token-value",
@@ -160,14 +159,14 @@ func TestAuthSettingsChange_WrongOldTokenDoesNotClearMonitorAuthCookies(t *testi
 	if resp.Code != http.StatusForbidden {
 		t.Fatalf("status = %d body=%s, want 403", resp.Code, resp.Body.String())
 	}
-	if cfg.AuthToken != "admin-auth-settings-token" {
-		t.Fatalf("AuthToken mutated to %q", cfg.AuthToken)
+	if config.Runtime().AuthToken != "admin-auth-settings-token" {
+		t.Fatalf("AuthToken mutated to %q", config.Runtime().AuthToken)
 	}
 	assertNoMonitorAuthClearCookies(t, resp)
 }
 
 func TestAuthSettingsChange_ShortNewTokenDoesNotClearMonitorAuthCookies(t *testing.T) {
-	_, r, cfg := setupAuthSettingsTest(t)
+	_, r := setupAuthSettingsTest(t)
 
 	resp := doPostJSON(t, r, "/api/settings/auth/change", map[string]any{
 		"oldToken": "admin-auth-settings-token",
@@ -176,8 +175,8 @@ func TestAuthSettingsChange_ShortNewTokenDoesNotClearMonitorAuthCookies(t *testi
 	if resp.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d body=%s, want 400", resp.Code, resp.Body.String())
 	}
-	if cfg.AuthToken != "admin-auth-settings-token" {
-		t.Fatalf("AuthToken mutated to %q", cfg.AuthToken)
+	if config.Runtime().AuthToken != "admin-auth-settings-token" {
+		t.Fatalf("AuthToken mutated to %q", config.Runtime().AuthToken)
 	}
 	assertNoMonitorAuthClearCookies(t, resp)
 }

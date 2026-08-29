@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/deliciousbuding/metapi-go/auth"
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/routing"
 )
 
@@ -16,11 +17,11 @@ import (
 // (settings_apply.go) runs concurrently with the hot-path readers that
 // dereference the same config fields lock-free:
 //
-//   - auth.AuthorizeDownstreamToken — reads cfg.ProxyToken on every proxy
-//     request (auth/downstream.go:161)
+//   - auth.AuthorizeDownstreamToken — reads the runtime snapshot
+//     ProxyToken on every proxy request (auth/downstream.go)
 //   - routing.ActiveRetryStatusRanges / ActiveDisableStatusRanges — reads
-//     cfg.ProxyRetryStatusRanges / ProxyDisableStatusRanges on every
-//     upstream verdict (routing/status_ranges.go)
+//     the snapshot ProxyRetryStatusRanges / ProxyDisableStatusRanges on
+//     every upstream verdict (routing/status_ranges.go)
 //   - GET /api/settings/runtime — reads ~45 fields at once (settings.go)
 //
 // Before the fix this FAILS under -race (DATA RACE). After the atomic
@@ -28,7 +29,7 @@ import (
 // prove hot-update semantics survive: a freshly applied proxyToken
 // authenticates immediately (no restart) and the old token stops working.
 func TestSettingsRuntime_ConcurrentApplyVsHotReaders(t *testing.T) {
-	db, r, cfg := setupEdgeTest(t)
+	db, r, _ := setupEdgeTest(t)
 
 	const readers = 4
 	const writerIters = 15
@@ -73,7 +74,7 @@ func TestSettingsRuntime_ConcurrentApplyVsHotReaders(t *testing.T) {
 					return
 				default:
 				}
-				_ = auth.AuthorizeDownstreamToken("sk-race-probe", cfg)
+				_ = auth.AuthorizeDownstreamToken("sk-race-probe", config.Runtime())
 				_ = routing.ActiveRetryStatusRanges()
 				_ = routing.ActiveDisableStatusRanges()
 			}
@@ -114,11 +115,11 @@ func TestSettingsRuntime_ConcurrentApplyVsHotReaders(t *testing.T) {
 		t.Fatalf("final apply: status = %d body=%s", resp.Code, resp.Body.String())
 	}
 
-	got := auth.AuthorizeDownstreamToken(finalToken, cfg)
+	got := auth.AuthorizeDownstreamToken(finalToken, config.Runtime())
 	if !got.OK || got.Source != "global" {
 		t.Fatalf("hot-updated proxy token rejected: ok=%v source=%q reason=%q (hot update lost)", got.OK, got.Source, got.Reason)
 	}
-	if stale := auth.AuthorizeDownstreamToken("sk-race-000000", cfg); stale.OK && stale.Source == "global" {
+	if stale := auth.AuthorizeDownstreamToken("sk-race-000000", config.Runtime()); stale.OK && stale.Source == "global" {
 		t.Fatalf("superseded proxy token still authenticates as global")
 	}
 	if ranges := routing.ActiveRetryStatusRanges(); len(ranges) != 2 {

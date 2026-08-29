@@ -27,10 +27,10 @@ func setupOpsAdminStubsTest(t *testing.T) (*store.DB, chi.Router, *config.Config
 		t.Fatalf("migrate: %v", err)
 	}
 
-	cfg := &config.Config{
-		AuthToken: "ops-admin-test-token",
-	}
+	cfg := &config.Config{}
 	config.Set(cfg)
+	config.SetRuntime(&config.RuntimeSettings{AuthToken: "ops-admin-test-token"})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 
 	r := chi.NewRouter()
 	RegisterNotifyRoutes(r)
@@ -125,7 +125,7 @@ func TestMonitorConfig_RejectsInvalidCookie(t *testing.T) {
 }
 
 func TestMonitorLdohProxy_RequiresSessionAndCookie(t *testing.T) {
-	_, r, cfg := setupOpsAdminStubsTest(t)
+	_, r, _ := setupOpsAdminStubsTest(t)
 
 	// No session cookie → 401
 	req := httptest.NewRequest(http.MethodGet, "/monitor-proxy/ldoh/", nil)
@@ -140,7 +140,7 @@ func TestMonitorLdohProxy_RequiresSessionAndCookie(t *testing.T) {
 
 	// Session present but LDOH cookie not configured → 400 plain text
 	req2 := httptest.NewRequest(http.MethodGet, "/monitor-proxy/ldoh/", nil)
-	req2.AddCookie(&http.Cookie{Name: monitorAuthCookie, Value: deriveMonitorSessionToken(cfg.AuthToken)})
+	req2.AddCookie(&http.Cookie{Name: monitorAuthCookie, Value: deriveMonitorSessionToken(config.Runtime().AuthToken)})
 	rec2 := httptest.NewRecorder()
 	r.ServeHTTP(rec2, req2)
 	if rec2.Code != http.StatusBadRequest {

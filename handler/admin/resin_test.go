@@ -27,8 +27,10 @@ func setupResinStatusTest(t *testing.T) (*store.DB, chi.Router, *config.Config) 
 		t.Fatalf("migrate: %v", err)
 	}
 
-	cfg := &config.Config{AuthToken: "resin-admin-test-token"}
+	cfg := &config.Config{}
 	config.Set(cfg)
+	config.SetRuntime(&config.RuntimeSettings{AuthToken: "resin-admin-test-token"})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 
 	r := chi.NewRouter()
 	RegisterResinRoutes(r, db.DB, cfg)

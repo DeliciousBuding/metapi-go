@@ -25,7 +25,9 @@ func setupTestRoutes(t *testing.T) (*store.DB, *channelTestHandler, chi.Router) 
 		t.Fatalf("migrate: %v", err)
 	}
 
-	cfg := &config.Config{AuthToken: "test-routes-token"}
+	cfg := &config.Config{}
+	config.SetRuntime(&config.RuntimeSettings{AuthToken: "test-routes-token"})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	channel := &channelTestHandler{db: db.DB, cfg: cfg}
 	r := chi.NewRouter()
 	// Register via the public registrar, then re-bind the shared channel instance

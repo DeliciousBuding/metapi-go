@@ -3,10 +3,12 @@ package admin
 import (
 	"net/http"
 	"testing"
+
+	"github.com/deliciousbuding/metapi-go/config"
 )
 
 func TestSettingsRuntimeStatusRangesPersistAndApply(t *testing.T) {
-	db, r, cfg := setupEdgeTest(t)
+	db, r, _ := setupEdgeTest(t)
 
 	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
 		"proxyRetryStatusRanges":   "401,500-599",
@@ -15,11 +17,11 @@ func TestSettingsRuntimeStatusRangesPersistAndApply(t *testing.T) {
 	if resp.Code != http.StatusOK {
 		t.Fatalf("update runtime: %d %s", resp.Code, resp.Body.String())
 	}
-	if cfg.ProxyRetryStatusRanges != "401,500-599" {
-		t.Fatalf("cfg.ProxyRetryStatusRanges = %q, want 401,500-599", cfg.ProxyRetryStatusRanges)
+	if config.Runtime().ProxyRetryStatusRanges != "401,500-599" {
+		t.Fatalf("config.Runtime().ProxyRetryStatusRanges = %q, want 401,500-599", config.Runtime().ProxyRetryStatusRanges)
 	}
-	if cfg.ProxyDisableStatusRanges != "401" {
-		t.Fatalf("cfg.ProxyDisableStatusRanges = %q, want 401", cfg.ProxyDisableStatusRanges)
+	if config.Runtime().ProxyDisableStatusRanges != "401" {
+		t.Fatalf("config.Runtime().ProxyDisableStatusRanges = %q, want 401", config.Runtime().ProxyDisableStatusRanges)
 	}
 
 	for key, want := range map[string]string{
@@ -37,7 +39,7 @@ func TestSettingsRuntimeStatusRangesPersistAndApply(t *testing.T) {
 }
 
 func TestSettingsRuntimeStatusRangesRejectInvalidSpec(t *testing.T) {
-	_, r, cfg := setupEdgeTest(t)
+	_, r, _ := setupEdgeTest(t)
 
 	for _, spec := range []any{"not-a-range", "500-400", "600"} {
 		resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
@@ -46,8 +48,8 @@ func TestSettingsRuntimeStatusRangesRejectInvalidSpec(t *testing.T) {
 		if resp.Code != http.StatusBadRequest {
 			t.Fatalf("spec %v: status = %d body=%s, want 400", spec, resp.Code, resp.Body.String())
 		}
-		if cfg.ProxyRetryStatusRanges != "" {
-			t.Fatalf("spec %v: cfg mutated to %q, want untouched", spec, cfg.ProxyRetryStatusRanges)
+		if config.Runtime().ProxyRetryStatusRanges != "" {
+			t.Fatalf("spec %v: cfg mutated to %q, want untouched", spec, config.Runtime().ProxyRetryStatusRanges)
 		}
 	}
 
@@ -59,13 +61,13 @@ func TestSettingsRuntimeStatusRangesRejectInvalidSpec(t *testing.T) {
 	if resp.Code != http.StatusOK {
 		t.Fatalf("numeric spec: status = %d body=%s, want 200 (normalize to empty)", resp.Code, resp.Body.String())
 	}
-	if cfg.ProxyRetryStatusRanges != "" {
-		t.Fatalf("numeric spec: cfg mutated to %q, want empty", cfg.ProxyRetryStatusRanges)
+	if config.Runtime().ProxyRetryStatusRanges != "" {
+		t.Fatalf("numeric spec: cfg mutated to %q, want empty", config.Runtime().ProxyRetryStatusRanges)
 	}
 }
 
 func TestSettingsRuntimeStatusRangesEmptyClearsToDefault(t *testing.T) {
-	_, r, cfg := setupEdgeTest(t)
+	_, r, _ := setupEdgeTest(t)
 
 	// Set a custom value first, then clear it: the apply path accepts the
 	// empty spec and the routing layer falls back to the historical default.
@@ -82,7 +84,7 @@ func TestSettingsRuntimeStatusRangesEmptyClearsToDefault(t *testing.T) {
 	if resp.Code != http.StatusOK {
 		t.Fatalf("clear disable: %d %s", resp.Code, resp.Body.String())
 	}
-	if cfg.ProxyDisableStatusRanges != "" {
-		t.Fatalf("cfg.ProxyDisableStatusRanges = %q after clear, want empty", cfg.ProxyDisableStatusRanges)
+	if config.Runtime().ProxyDisableStatusRanges != "" {
+		t.Fatalf("config.Runtime().ProxyDisableStatusRanges = %q after clear, want empty", config.Runtime().ProxyDisableStatusRanges)
 	}
 }

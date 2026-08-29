@@ -45,12 +45,12 @@ func newMonitorProxyEnv(t *testing.T, upstreamHandler http.HandlerFunc) monitorP
 }
 
 // monitorProxyRequest builds a request against the proxy surface carrying a
-// valid monitor session cookie derived from cfg.AuthToken.
-func monitorProxyRequest(method, target string, cfg *config.Config) *http.Request {
+// valid monitor session cookie derived from the runtime AuthToken.
+func monitorProxyRequest(method, target string) *http.Request {
 	req := httptest.NewRequest(method, target, nil)
 	req.AddCookie(&http.Cookie{
 		Name:  monitorAuthCookie,
-		Value: deriveMonitorSessionToken(cfg.AuthToken),
+		Value: deriveMonitorSessionToken(config.Runtime().AuthToken),
 	})
 	return req
 }
@@ -376,7 +376,7 @@ func TestLdohProxy_SuccessfulPassthrough(t *testing.T) {
 		_, _ = w.Write([]byte(`{"ok":true,"service":"ldoh"}`))
 	})
 
-	req := monitorProxyRequest(http.MethodGet, "/monitor-proxy/ldoh/api/me", env.cfg)
+	req := monitorProxyRequest(http.MethodGet, "/monitor-proxy/ldoh/api/me")
 	rec := httptest.NewRecorder()
 	env.router.ServeHTTP(rec, req)
 
@@ -428,7 +428,7 @@ func TestLdohProxy_AuthRejection(t *testing.T) {
 
 	t.Run("raw auth token rejected as session", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/monitor-proxy/ldoh/", nil)
-		req.AddCookie(&http.Cookie{Name: monitorAuthCookie, Value: env.cfg.AuthToken})
+		req.AddCookie(&http.Cookie{Name: monitorAuthCookie, Value: config.Runtime().AuthToken})
 		rec := httptest.NewRecorder()
 		env.router.ServeHTTP(rec, req)
 		if rec.Code != http.StatusUnauthorized {
@@ -444,7 +444,7 @@ func TestLdohProxy_NoCookieConfiguredReturns400PlainText(t *testing.T) {
 	cfg.LDOHBaseURL = "" // no upstream needed; guard fires first
 	// Deliberately do NOT seed the ldoh cookie.
 
-	req := monitorProxyRequest(http.MethodGet, "/monitor-proxy/ldoh/", cfg)
+	req := monitorProxyRequest(http.MethodGet, "/monitor-proxy/ldoh/")
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
@@ -467,7 +467,7 @@ func TestLdohProxy_QueryParamsForwardedToUpstream(t *testing.T) {
 		_, _ = w.Write([]byte(`{}`))
 	})
 
-	req := monitorProxyRequest(http.MethodGet, "/monitor-proxy/ldoh/api/list?foo=bar&page=2&foo=baz", env.cfg)
+	req := monitorProxyRequest(http.MethodGet, "/monitor-proxy/ldoh/api/list?foo=bar&page=2&foo=baz")
 	rec := httptest.NewRecorder()
 	env.router.ServeHTTP(rec, req)
 
@@ -498,7 +498,7 @@ func TestLdohProxy_RedirectNotFollowed(t *testing.T) {
 		http.Redirect(w, r, env.cfg.LDOHBaseURL+loginPath, http.StatusFound)
 	})
 
-	req := monitorProxyRequest(http.MethodGet, "/monitor-proxy/ldoh/protected", env.cfg)
+	req := monitorProxyRequest(http.MethodGet, "/monitor-proxy/ldoh/protected")
 	rec := httptest.NewRecorder()
 	env.router.ServeHTTP(rec, req)
 
@@ -529,7 +529,7 @@ func TestLdohProxy_HtmlBodyFromUpstreamIsRewritten(t *testing.T) {
 			`</body></html>`))
 	})
 
-	req := monitorProxyRequest(http.MethodGet, "/monitor-proxy/ldoh/panel", env.cfg)
+	req := monitorProxyRequest(http.MethodGet, "/monitor-proxy/ldoh/panel")
 	rec := httptest.NewRecorder()
 	env.router.ServeHTTP(rec, req)
 
@@ -559,7 +559,7 @@ func TestLdohProxy_NonRewritableContentTypePassedThrough(t *testing.T) {
 		_, _ = w.Write(payload)
 	})
 
-	req := monitorProxyRequest(http.MethodGet, "/monitor-proxy/ldoh/logo.png", env.cfg)
+	req := monitorProxyRequest(http.MethodGet, "/monitor-proxy/ldoh/logo.png")
 	rec := httptest.NewRecorder()
 	env.router.ServeHTTP(rec, req)
 

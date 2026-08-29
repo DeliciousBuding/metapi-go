@@ -41,13 +41,14 @@ func setupOAuthRoutesTest(t *testing.T) (*store.DB, chi.Router) {
 	// Clear loopback callback failure state for codex so StartFlow succeeds.
 	// StartFlow only fails when Attempted && !Ready; absence is fine.
 	config.Set(&config.Config{
-		SystemProxyUrl: "",
 		// Provider client IDs are required by BuildAuthorizationURL for some providers.
 		// Codex/Claude may panic if missing; tests use codex which needs CODEX_CLIENT_ID.
-		// Provide a non-empty placeholder so URL construction can proceed.
+		// Provide a non-empty placeholder so URL construction can proceeds.
 		CodexClientId:  "test-codex-client",
 		ClaudeClientId: "test-claude-client",
 	})
+	config.SetRuntime(&config.RuntimeSettings{SystemProxyUrl: ""})
+	t.Cleanup(func() { config.SetRuntime(nil) })
 
 	r := chi.NewRouter()
 	RegisterOauthRoutes(r, db.DB)

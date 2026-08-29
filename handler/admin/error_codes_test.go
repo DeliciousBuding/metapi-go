@@ -73,10 +73,12 @@ func TestErrorCodeRegistry_StableIdentifiers(t *testing.T) {
 func newMigrationHandlerForTest(t *testing.T, sourcePath string) *databaseHandler {
 	t.Helper()
 	settingsDB := setupBackupTestDB(t)
-	cfg := config.Load(map[string]string{
+	cfg, rt := config.Load(map[string]string{
 		"DB_TYPE": "sqlite",
 		"DB_URL":  sourcePath,
 	})
+	config.SetRuntime(rt)
+	t.Cleanup(func() { config.SetRuntime(nil) })
 	return &databaseHandler{db: settingsDB.DB, cfg: cfg}
 }
 

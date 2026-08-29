@@ -6,10 +6,12 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/deliciousbuding/metapi-go/config"
 )
 
 func TestSettingsRuntimeUpdateCheckinSchedulePersistsSettings(t *testing.T) {
-	db, r, cfg := setupEdgeTest(t)
+	db, r, _ := setupEdgeTest(t)
 
 	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
 		"checkinScheduleMode":  "interval",
@@ -19,9 +21,9 @@ func TestSettingsRuntimeUpdateCheckinSchedulePersistsSettings(t *testing.T) {
 	if resp.Code != http.StatusOK {
 		t.Fatalf("update runtime: %d %s", resp.Code, resp.Body.String())
 	}
-	if cfg.CheckinScheduleMode != "interval" || cfg.CheckinCron != "15 9 * * *" || cfg.CheckinIntervalHours != 6 {
+	if config.Runtime().CheckinScheduleMode != "interval" || config.Runtime().CheckinCron != "15 9 * * *" || config.Runtime().CheckinIntervalHours != 6 {
 		t.Fatalf("cfg schedule = (%q, %q, %d), want (interval, 15 9 * * *, 6)",
-			cfg.CheckinScheduleMode, cfg.CheckinCron, cfg.CheckinIntervalHours)
+			config.Runtime().CheckinScheduleMode, config.Runtime().CheckinCron, config.Runtime().CheckinIntervalHours)
 	}
 
 	settings := map[string]string{}
@@ -75,7 +77,7 @@ func TestSettingsRuntimeUpdateCheckinScheduleRejectsFractionalInterval(t *testin
 }
 
 func TestSettingsRuntimeGlobalAllowedModelsPersistsAndNormalizes(t *testing.T) {
-	db, r, cfg := setupEdgeTest(t)
+	db, r, _ := setupEdgeTest(t)
 
 	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
 		"globalAllowedModels": []any{"gpt-4o", " claude-3.7-sonnet ", "gpt-4o", "", "gemini-pro"},
@@ -85,12 +87,12 @@ func TestSettingsRuntimeGlobalAllowedModelsPersistsAndNormalizes(t *testing.T) {
 	}
 
 	want := []string{"gpt-4o", "claude-3.7-sonnet", "gemini-pro"}
-	if len(cfg.GlobalAllowedModels) != len(want) {
-		t.Fatalf("cfg.GlobalAllowedModels = %#v, want %#v", cfg.GlobalAllowedModels, want)
+	if len(config.Runtime().GlobalAllowedModels) != len(want) {
+		t.Fatalf("config.Runtime().GlobalAllowedModels = %#v, want %#v", config.Runtime().GlobalAllowedModels, want)
 	}
 	for i := range want {
-		if cfg.GlobalAllowedModels[i] != want[i] {
-			t.Fatalf("cfg.GlobalAllowedModels = %#v, want %#v", cfg.GlobalAllowedModels, want)
+		if config.Runtime().GlobalAllowedModels[i] != want[i] {
+			t.Fatalf("config.Runtime().GlobalAllowedModels = %#v, want %#v", config.Runtime().GlobalAllowedModels, want)
 		}
 	}
 
@@ -116,7 +118,7 @@ func TestSettingsRuntimeGlobalAllowedModelsPersistsAndNormalizes(t *testing.T) {
 }
 
 func TestSettingsRuntimeGlobalAllowedModelsExplicitEmptyClears(t *testing.T) {
-	db, r, cfg := setupEdgeTest(t)
+	db, r, _ := setupEdgeTest(t)
 
 	if resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
 		"globalAllowedModels": []any{"keep-me", "also-keep"},
@@ -130,8 +132,8 @@ func TestSettingsRuntimeGlobalAllowedModelsExplicitEmptyClears(t *testing.T) {
 	if resp.Code != http.StatusOK {
 		t.Fatalf("clear whitelist: %d %s", resp.Code, resp.Body.String())
 	}
-	if len(cfg.GlobalAllowedModels) != 0 {
-		t.Fatalf("cfg.GlobalAllowedModels = %#v, want empty after explicit clear", cfg.GlobalAllowedModels)
+	if len(config.Runtime().GlobalAllowedModels) != 0 {
+		t.Fatalf("config.Runtime().GlobalAllowedModels = %#v, want empty after explicit clear", config.Runtime().GlobalAllowedModels)
 	}
 	var stored string
 	if err := db.Get(&stored, "SELECT value FROM settings WHERE key = ?", "global_allowed_models"); err != nil {
@@ -143,8 +145,8 @@ func TestSettingsRuntimeGlobalAllowedModelsExplicitEmptyClears(t *testing.T) {
 }
 
 func TestSettingsRuntimeGlobalAllowedModelsRejectsNullAndNonArray(t *testing.T) {
-	db, r, cfg := setupEdgeTest(t)
-	cfg.GlobalAllowedModels = []string{"must-survive"}
+	db, r, _ := setupEdgeTest(t)
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.GlobalAllowedModels = []string{"must-survive"} })
 	if _, err := db.Exec(`INSERT INTO settings (key, value) VALUES (?, ?)`,
 		"global_allowed_models", `["must-survive"]`); err != nil {
 		t.Fatalf("seed db: %v", err)
@@ -162,8 +164,8 @@ func TestSettingsRuntimeGlobalAllowedModelsRejectsNullAndNonArray(t *testing.T) 
 		}
 	}
 
-	if len(cfg.GlobalAllowedModels) != 1 || cfg.GlobalAllowedModels[0] != "must-survive" {
-		t.Fatalf("cfg.GlobalAllowedModels clobbered to %#v", cfg.GlobalAllowedModels)
+	if len(config.Runtime().GlobalAllowedModels) != 1 || config.Runtime().GlobalAllowedModels[0] != "must-survive" {
+		t.Fatalf("config.Runtime().GlobalAllowedModels clobbered to %#v", config.Runtime().GlobalAllowedModels)
 	}
 	var stored string
 	if err := db.Get(&stored, "SELECT value FROM settings WHERE key = ?", "global_allowed_models"); err != nil {
@@ -175,8 +177,8 @@ func TestSettingsRuntimeGlobalAllowedModelsRejectsNullAndNonArray(t *testing.T) 
 }
 
 func TestSettingsRuntimePartialUpdateDoesNotClobberWhitelist(t *testing.T) {
-	db, r, cfg := setupEdgeTest(t)
-	cfg.GlobalAllowedModels = []string{"alpha", "beta"}
+	db, r, _ := setupEdgeTest(t)
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.GlobalAllowedModels = []string{"alpha", "beta"} })
 	if _, err := db.Exec(`INSERT INTO settings (key, value) VALUES (?, ?)`,
 		"global_allowed_models", `["alpha","beta"]`); err != nil {
 		t.Fatalf("seed db: %v", err)
@@ -188,8 +190,8 @@ func TestSettingsRuntimePartialUpdateDoesNotClobberWhitelist(t *testing.T) {
 	if resp.Code != http.StatusOK {
 		t.Fatalf("partial update: %d %s", resp.Code, resp.Body.String())
 	}
-	if len(cfg.GlobalAllowedModels) != 2 || cfg.GlobalAllowedModels[0] != "alpha" || cfg.GlobalAllowedModels[1] != "beta" {
-		t.Fatalf("whitelist clobbered by partial update: %#v", cfg.GlobalAllowedModels)
+	if len(config.Runtime().GlobalAllowedModels) != 2 || config.Runtime().GlobalAllowedModels[0] != "alpha" || config.Runtime().GlobalAllowedModels[1] != "beta" {
+		t.Fatalf("whitelist clobbered by partial update: %#v", config.Runtime().GlobalAllowedModels)
 	}
 	var stored string
 	if err := db.Get(&stored, "SELECT value FROM settings WHERE key = ?", "global_allowed_models"); err != nil {
@@ -226,15 +228,15 @@ func TestSettingsRuntimeUpdateBalanceCronRejectsInvalid(t *testing.T) {
 }
 
 func TestSettingsRuntimeUpdateBalanceCronDualWrite(t *testing.T) {
-	db, r, cfg := setupEdgeTest(t)
+	db, r, _ := setupEdgeTest(t)
 	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
 		"balanceRefreshCron": "0 9 * * *",
 	})
 	if resp.Code != http.StatusOK {
 		t.Fatalf("status = %d body=%s", resp.Code, resp.Body.String())
 	}
-	if cfg.BalanceRefreshCron != "0 9 * * *" {
-		t.Fatalf("cfg.BalanceRefreshCron = %q", cfg.BalanceRefreshCron)
+	if config.Runtime().BalanceRefreshCron != "0 9 * * *" {
+		t.Fatalf("config.Runtime().BalanceRefreshCron = %q", config.Runtime().BalanceRefreshCron)
 	}
 	var legacy, v2 string
 	if err := db.Get(&legacy, "SELECT value FROM settings WHERE key = ?", "balance_refresh_cron"); err != nil {
@@ -269,15 +271,15 @@ func TestSettingsRuntimeUpdateModelSyncCronRejectsInvalid(t *testing.T) {
 // sync cron: plain persistence (no v2 dual schedule mirror), config update,
 // and GET round-trip.
 func TestSettingsRuntimeUpdateModelSyncCronPersistsPlain(t *testing.T) {
-	db, r, cfg := setupEdgeTest(t)
+	db, r, _ := setupEdgeTest(t)
 	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
 		"modelSyncCron": "0 5 * * 1",
 	})
 	if resp.Code != http.StatusOK {
 		t.Fatalf("status = %d body=%s", resp.Code, resp.Body.String())
 	}
-	if cfg.ModelSyncCron != "0 5 * * 1" {
-		t.Fatalf("cfg.ModelSyncCron = %q", cfg.ModelSyncCron)
+	if config.Runtime().ModelSyncCron != "0 5 * * 1" {
+		t.Fatalf("config.Runtime().ModelSyncCron = %q", config.Runtime().ModelSyncCron)
 	}
 	var stored string
 	if err := db.Get(&stored, "SELECT value FROM settings WHERE key = ?", "model_sync_cron"); err != nil {
@@ -313,7 +315,7 @@ func TestSettingsRuntimeUpdateLogCleanupCronRejectsInvalid(t *testing.T) {
 }
 
 func TestSettingsRuntimeUpdateCheckinScheduleObject(t *testing.T) {
-	db, r, cfg := setupEdgeTest(t)
+	db, r, _ := setupEdgeTest(t)
 	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
 		"checkinSchedule": map[string]any{
 			"version": 1,
@@ -325,8 +327,8 @@ func TestSettingsRuntimeUpdateCheckinScheduleObject(t *testing.T) {
 	if resp.Code != http.StatusOK {
 		t.Fatalf("status = %d body=%s", resp.Code, resp.Body.String())
 	}
-	if cfg.CheckinScheduleMode != "cron" || cfg.CheckinCron != "30 7 * * *" {
-		t.Fatalf("checkin cfg = (%q, %q)", cfg.CheckinScheduleMode, cfg.CheckinCron)
+	if config.Runtime().CheckinScheduleMode != "cron" || config.Runtime().CheckinCron != "30 7 * * *" {
+		t.Fatalf("checkin cfg = (%q, %q)", config.Runtime().CheckinScheduleMode, config.Runtime().CheckinCron)
 	}
 	var v2 string
 	if err := db.Get(&v2, "SELECT value FROM settings WHERE key = ?", "checkin_schedule_v2"); err != nil {
@@ -356,7 +358,7 @@ func TestSettingsRuntimeUpdateCheckinScheduleObjectRejectsBadVersion(t *testing.
 }
 
 func TestSettingsRuntimeUpdateBrandingPersists(t *testing.T) {
-	db, r, cfg := setupEdgeTest(t)
+	db, r, _ := setupEdgeTest(t)
 	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
 		"systemName":    "My Gateway",
 		"logo":          "https://example.com/logo.png",
@@ -367,8 +369,8 @@ func TestSettingsRuntimeUpdateBrandingPersists(t *testing.T) {
 	if resp.Code != http.StatusOK {
 		t.Fatalf("status = %d body=%s", resp.Code, resp.Body.String())
 	}
-	if cfg.SystemName != "My Gateway" || cfg.Logo != "https://example.com/logo.png" || cfg.ServerAddress != "https://gw.example.com" {
-		t.Fatalf("cfg branding = %+v", cfg)
+	if config.Runtime().SystemName != "My Gateway" || config.Runtime().Logo != "https://example.com/logo.png" || config.Runtime().ServerAddress != "https://gw.example.com" {
+		t.Fatalf("runtime branding = %+v", config.Runtime())
 	}
 	var stored string
 	if err := db.Get(&stored, "SELECT value FROM settings WHERE key = ?", "system_name"); err != nil {
@@ -380,9 +382,9 @@ func TestSettingsRuntimeUpdateBrandingPersists(t *testing.T) {
 }
 
 func TestSettingsRuntimeGetIncludesWindowAndScheduleFields(t *testing.T) {
-	_, r, cfg := setupEdgeTest(t)
-	cfg.CheckinWindowStart = "02:00"
-	cfg.CheckinWindowEnd = "03:30"
+	_, r, _ := setupEdgeTest(t)
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.CheckinWindowStart = "02:00" })
+	config.UpdateRuntime(func(r *config.RuntimeSettings) { r.CheckinWindowEnd = "03:30" })
 	req := httptest.NewRequest("GET", "/api/settings/runtime", nil)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)

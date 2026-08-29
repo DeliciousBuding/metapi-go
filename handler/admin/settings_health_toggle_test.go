@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/deliciousbuding/metapi-go/config"
 	"github.com/deliciousbuding/metapi-go/store"
 )
 
@@ -21,9 +22,9 @@ func getRuntimeSettingJSON(t *testing.T, db *store.DB, key string) string {
 }
 
 func TestSettingsRuntimeCheckinEnabledKillSwitch(t *testing.T) {
-	db, r, cfg := setupEdgeTest(t)
+	db, r, _ := setupEdgeTest(t)
 
-	if cfg.CheckinDisabled {
+	if config.Runtime().CheckinDisabled {
 		t.Fatalf("fixture must start with check-in enabled")
 	}
 
@@ -34,8 +35,8 @@ func TestSettingsRuntimeCheckinEnabledKillSwitch(t *testing.T) {
 	if resp.Code != http.StatusOK {
 		t.Fatalf("disable: %d %s", resp.Code, resp.Body.String())
 	}
-	if !cfg.CheckinDisabled {
-		t.Fatalf("PUT checkinEnabled=false must set cfg.CheckinDisabled")
+	if !config.Runtime().CheckinDisabled {
+		t.Fatalf("PUT checkinEnabled=false must set config.Runtime().CheckinDisabled")
 	}
 	if got := getRuntimeSettingJSON(t, db, "checkin_enabled"); got != "false" {
 		t.Fatalf("stored checkin_enabled = %q, want JSON false", got)
@@ -64,8 +65,8 @@ func TestSettingsRuntimeCheckinEnabledKillSwitch(t *testing.T) {
 	if resp.Code != http.StatusOK {
 		t.Fatalf("re-enable: %d %s", resp.Code, resp.Body.String())
 	}
-	if cfg.CheckinDisabled {
-		t.Fatalf("PUT checkinEnabled=true must clear cfg.CheckinDisabled")
+	if config.Runtime().CheckinDisabled {
+		t.Fatalf("PUT checkinEnabled=true must clear config.Runtime().CheckinDisabled")
 	}
 	if got := getRuntimeSettingJSON(t, db, "checkin_enabled"); got != "true" {
 		t.Fatalf("stored checkin_enabled = %q, want JSON true", got)
@@ -73,7 +74,7 @@ func TestSettingsRuntimeCheckinEnabledKillSwitch(t *testing.T) {
 }
 
 func TestSettingsRuntimeBalanceRefreshEnabledKillSwitch(t *testing.T) {
-	db, r, cfg := setupEdgeTest(t)
+	db, r, _ := setupEdgeTest(t)
 
 	resp := doPutJSON(t, r, "/api/settings/runtime", map[string]any{
 		"balanceRefreshEnabled": false,
@@ -81,8 +82,8 @@ func TestSettingsRuntimeBalanceRefreshEnabledKillSwitch(t *testing.T) {
 	if resp.Code != http.StatusOK {
 		t.Fatalf("disable: %d %s", resp.Code, resp.Body.String())
 	}
-	if !cfg.BalanceRefreshDisabled {
-		t.Fatalf("PUT balanceRefreshEnabled=false must set cfg.BalanceRefreshDisabled")
+	if !config.Runtime().BalanceRefreshDisabled {
+		t.Fatalf("PUT balanceRefreshEnabled=false must set config.Runtime().BalanceRefreshDisabled")
 	}
 	if got := getRuntimeSettingJSON(t, db, "balance_refresh_enabled"); got != "false" {
 		t.Fatalf("stored balance_refresh_enabled = %q, want JSON false", got)
