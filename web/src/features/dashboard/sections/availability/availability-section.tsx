@@ -21,6 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { KpiValue } from '@/components/ui/kpi-value'
 import {
   Empty,
   EmptyContent,
@@ -361,25 +362,25 @@ function RealtimeOpsPanel() {
                 <div className='text-muted-foreground text-xs'>
                   {t('dashboard.availability.realtime.metricQps')}
                 </div>
-                <div className='text-2xl font-semibold tabular-nums'>
+                <KpiValue size='lg'>
                   {sample.qps}
-                </div>
+                </KpiValue>
               </div>
               <div>
                 <div className='text-muted-foreground text-xs'>
                   {t('dashboard.availability.realtime.metricSuccess')}
                 </div>
-                <div className='text-2xl font-semibold tabular-nums'>
+                <KpiValue size='lg'>
                   {formatRate(sample.successRate)}
-                </div>
+                </KpiValue>
               </div>
               <div>
                 <div className='text-muted-foreground text-xs'>
                   {t('dashboard.availability.realtime.metricUptime')}
                 </div>
-                <div className='text-2xl font-semibold tabular-nums'>
+                <KpiValue size='lg'>
                   {formatUptime(sample.uptimeSeconds, t)}
-                </div>
+                </KpiValue>
               </div>
             </div>
             <RealtimeSparkline points={sample.spark} />
