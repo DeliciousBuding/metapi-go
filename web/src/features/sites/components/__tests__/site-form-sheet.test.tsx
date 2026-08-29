@@ -24,7 +24,7 @@ import {
 import '@/i18n/config'
 
 import type { Site } from '../../types'
-import { SiteFormDialog } from '../site-form-dialog'
+import { SiteFormSheet } from '../site-form-sheet'
 
 const { mockCreateMutate, mockUpdateMutate, mockDetectMutate, mockToastError } =
   vi.hoisted(() => ({
@@ -81,9 +81,9 @@ function typeField(label: string, value: string) {
   fireEvent.change(screen.getByLabelText(label), { target: { value } })
 }
 
-describe('SiteFormDialog Zod submission errors', () => {
+describe('SiteFormSheet Zod submission errors', () => {
   it('renders the nameRequired error when submitting with an empty name', async () => {
-    render(<SiteFormDialog open onOpenChange={vi.fn()} editingSite={null} />)
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
 
     await waitFor(() => {
       expect(screen.getByLabelText('Name')).toBeInTheDocument()
@@ -100,7 +100,7 @@ describe('SiteFormDialog Zod submission errors', () => {
   })
 })
 
-describe('SiteFormDialog create payload', () => {
+describe('SiteFormSheet create payload', () => {
   it('calls onCreated with the created site after a valid submit', async () => {
     const createdSite: Site = {
       id: 42,
@@ -113,7 +113,7 @@ describe('SiteFormDialog create payload', () => {
     const onCreated = vi.fn()
 
     render(
-      <SiteFormDialog
+      <SiteFormSheet
         open
         onOpenChange={vi.fn()}
         editingSite={null}
@@ -147,7 +147,7 @@ describe('SiteFormDialog create payload', () => {
   })
 })
 
-describe('SiteFormDialog platform picker', () => {
+describe('SiteFormSheet platform picker', () => {
   // Canonical adapter platforms from platform/registry.go `orderedPlatformNames`.
   const CANONICAL_PLATFORMS = [
     'openai',
@@ -169,7 +169,7 @@ describe('SiteFormDialog platform picker', () => {
   ]
 
   it('lists the 16 canonical platforms in the platform select', async () => {
-    render(<SiteFormDialog open onOpenChange={vi.fn()} editingSite={null} />)
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
 
     const platformSelect = await screen.findByRole('combobox', {
       name: 'Platform',
@@ -193,7 +193,7 @@ describe('SiteFormDialog platform picker', () => {
       status: 'active',
     })
 
-    render(<SiteFormDialog open onOpenChange={vi.fn()} editingSite={null} />)
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
 
     await waitFor(() => {
       expect(screen.getByLabelText('Name')).toBeInTheDocument()
@@ -235,7 +235,7 @@ describe('SiteFormDialog platform picker', () => {
       status: 'active',
     })
 
-    render(<SiteFormDialog open onOpenChange={vi.fn()} editingSite={null} />)
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
 
     await waitFor(() => {
       expect(screen.getByLabelText('Name')).toBeInTheDocument()
@@ -263,7 +263,7 @@ describe('SiteFormDialog platform picker', () => {
   })
 })
 
-describe('SiteFormDialog post-refresh probe latency threshold (gap-11)', () => {
+describe('SiteFormSheet post-refresh probe latency threshold (gap-11)', () => {
   it('renders the latency threshold field when probe is enabled and round-trips the value into the payload', async () => {
     // A successful create resolves with a minimal site object; only the
     // payload contract is asserted, not the created echo.
@@ -275,7 +275,7 @@ describe('SiteFormDialog post-refresh probe latency threshold (gap-11)', () => {
       status: 'active',
     })
 
-    render(<SiteFormDialog open onOpenChange={vi.fn()} editingSite={null} />)
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
 
     await waitFor(() => {
       expect(screen.getByLabelText('Name')).toBeInTheDocument()
@@ -319,7 +319,7 @@ describe('SiteFormDialog post-refresh probe latency threshold (gap-11)', () => {
   })
 })
 
-describe('SiteFormDialog edit round-trip (gap-1)', () => {
+describe('SiteFormSheet edit round-trip (gap-1)', () => {
   it('checks the override-headers switch when editing a site with it enabled', async () => {
     const editingSite: Site = {
       id: 7,
@@ -332,7 +332,7 @@ describe('SiteFormDialog edit round-trip (gap-1)', () => {
     }
 
     render(
-      <SiteFormDialog open onOpenChange={vi.fn()} editingSite={editingSite} />
+      <SiteFormSheet open onOpenChange={vi.fn()} editingSite={editingSite} />
     )
 
     const overrideSwitch = await screen.findByRole('switch', {
@@ -345,9 +345,9 @@ describe('SiteFormDialog edit round-trip (gap-1)', () => {
   })
 })
 
-describe('SiteFormDialog dirty-close guard', () => {
+describe('SiteFormSheet dirty-close guard', () => {
   it('opens the discard confirm when closing with unsaved edits', async () => {
-    render(<SiteFormDialog open onOpenChange={vi.fn()} editingSite={null} />)
+    render(<SiteFormSheet open onOpenChange={vi.fn()} editingSite={null} />)
 
     await waitFor(() => {
       expect(screen.getByLabelText('Name')).toBeInTheDocument()
@@ -367,7 +367,7 @@ describe('SiteFormDialog dirty-close guard', () => {
   it('opens the discard confirm when Cancel is clicked with unsaved edits', async () => {
     const onOpenChange = vi.fn()
     render(
-      <SiteFormDialog open onOpenChange={onOpenChange} editingSite={null} />
+      <SiteFormSheet open onOpenChange={onOpenChange} editingSite={null} />
     )
 
     await waitFor(() => {

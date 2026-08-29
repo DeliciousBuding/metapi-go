@@ -23,7 +23,7 @@ import {
 
 import '@/i18n/config'
 
-import { SiteFormDialog } from '../components/site-form-dialog'
+import { SiteFormSheet } from '../components/site-form-sheet'
 
 const { mockToastError } = vi.hoisted(() => ({ mockToastError: vi.fn() }))
 
@@ -72,9 +72,9 @@ beforeEach(() => {
 
 afterEach(() => cleanup())
 
-describe('SiteFormDialog focus-first-invalid', () => {
+describe('SiteFormSheet focus-first-invalid', () => {
   it('focuses the first invalid field when submitting an empty form', async () => {
-    render(<SiteFormDialog open onOpenChange={() => {}} editingSite={null} />)
+    render(<SiteFormSheet open onOpenChange={() => {}} editingSite={null} />)
 
     const submitButton = await screen.findByRole('button', { name: 'Create' })
     fireEvent.click(submitButton)

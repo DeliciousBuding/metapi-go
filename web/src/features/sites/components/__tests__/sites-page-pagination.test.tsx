@@ -106,8 +106,8 @@ vi.mock('../site-detail-sheet', () => ({
   SiteDetailSheet: () => null,
 }))
 
-vi.mock('../site-form-dialog', () => ({
-  SiteFormDialog: () => null,
+vi.mock('../site-form-sheet', () => ({
+  SiteFormSheet: () => null,
 }))
 
 vi.mock('../sites-columns', () => ({

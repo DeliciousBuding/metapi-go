@@ -1,9 +1,9 @@
-// metapi-go/features/sites — add/edit site form dialog (RHF + Zod + shadcn).
+// metapi-go/features/sites — add/edit site form sheet (RHF + Zod + shadcn).
 //
-// One dialog serves both create and edit. The `editingSite` prop selects the
-// mode; when null the dialog is in "add" mode and a successful submit
+// One sheet serves both create and edit. The `editingSite` prop selects the
+// mode; when null the sheet is in "add" mode and a successful submit
 // triggers `onCreated(createdSite)` so the page can open the guided
-// `SiteCreatedModal`. On edit, the form preserves fields the dialog does
+// `SiteCreatedModal`. On edit, the form preserves fields the sheet does
 // not expose (notably `customHeaders` when untouched) by passing the
 // original values through to the payload — editing the name must not wipe
 // the endpoint list. `apiEndpoints` IS exposed: the structured endpoint row
@@ -23,14 +23,6 @@ import { useTranslation } from 'react-i18next'
 import { useDirtyDialogClose } from '@/components/form/dirty-dialog-close'
 import { Button } from '@/components/ui/button'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import {
   Form,
   FormControl,
   FormDescription,
@@ -48,6 +40,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
@@ -68,7 +68,7 @@ import {
 import type { Site, SiteFormPayload, SiteProbeScope } from '../types'
 import { EndpointsEditor } from './endpoints-editor'
 
-type SiteFormDialogProps = {
+type SiteFormSheetProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   editingSite: Site | null
@@ -180,12 +180,12 @@ function buildPayload(
   }
 }
 
-export function SiteFormDialog({
+export function SiteFormSheet({
   open,
   onOpenChange,
   editingSite,
   onCreated,
-}: SiteFormDialogProps) {
+}: SiteFormSheetProps) {
   const { t } = useTranslation()
   const isEditing = editingSite !== null
 
@@ -314,25 +314,25 @@ export function SiteFormDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className='sm:max-w-2xl'>
-        <DialogHeader>
-          <DialogTitle>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
+      <SheetContent className='gap-0 sm:max-w-2xl' showMobileCloseBar={false}>
+        <SheetHeader>
+          <SheetTitle>
             {isEditing ? t('sites.form.editTitle') : t('sites.form.addTitle')}
-          </DialogTitle>
-          <DialogDescription>
+          </SheetTitle>
+          <SheetDescription>
             {isEditing
               ? t('sites.form.editDescription')
               : t('sites.form.addDescription')}
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit(onSubmit, () =>
               toast.error(t('sites.form.invalid'))
             )}
-            className='grid gap-4'
+            className='grid gap-4 px-4'
           >
             <div className='grid gap-4 sm:grid-cols-2'>
               <FormField
@@ -896,7 +896,7 @@ export function SiteFormDialog({
               )}
             </div>
 
-            <DialogFooter showCloseButton={false}>
+            <SheetFooter className='bg-background sticky bottom-0 -mx-4 mt-4 flex-row justify-end gap-2 border-t px-4 py-3'>
               <Button
                 type='button'
                 variant='outline'
@@ -909,11 +909,11 @@ export function SiteFormDialog({
                 {isSubmitting && <Spinner />}
                 {isEditing ? t('sites.form.save') : t('sites.form.create')}
               </Button>
-            </DialogFooter>
+            </SheetFooter>
           </form>
         </Form>
-      </DialogContent>
+      </SheetContent>
       {guard}
-    </Dialog>
+    </Sheet>
   )
 }
