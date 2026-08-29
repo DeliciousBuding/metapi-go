@@ -2107,8 +2107,8 @@
         "modeGroupHint": "Group: expose one model name externally, aggregating multiple exact routes as sources.",
         "modePatternHint": "Match: match upstream requests by model name or re: regex.",
         "displayIcon": "Display icon (optional)",
-        "displayIconHint": "Supports brand:<key> brand icons, or __route_icon_none__ to disable the icon.",
-        "displayIconPlaceholder": "Empty=auto brand; brand:openai; __route_icon_none__=none",
+        "displayIconHint": "Supports brand:<key> brand icons; enter none to hide the icon.",
+        "displayIconPlaceholder": "Empty=auto brand; brand:openai; none=no icon",
         "contextLength": "Context length (optional)",
         "contextLengthHint": "Route context window (tokens). Empty or 0 = unknown, not enforced.",
         "routingStrategy": "Routing strategy",
@@ -2701,7 +2701,8 @@
         "forest-whisper": "Forest Whisper",
         "ocean-breeze": "Ocean Breeze",
         "lavender-dream": "Lavender Dream"
-      }
+      },
+      "toggle": "Toggle theme"
     },
     "observability": {
       "title": "Observability",

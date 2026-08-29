@@ -2107,8 +2107,8 @@
         "modeGroupHint": "分组：对外暴露一个模型名，聚合多个精确路由作为来源。",
         "modePatternHint": "匹配：按模型名或 re: 正则匹配上游请求。",
         "displayIcon": "显示图标（可选）",
-        "displayIconHint": "支持 `brand:<key>` 品牌图标，或 `__route_icon_none__` 禁用图标。",
-        "displayIconPlaceholder": "留空=自动品牌；brand:openai；__route_icon_none__=无",
+        "displayIconHint": "支持 brand:<key> 品牌图标；填 none 关闭图标。",
+        "displayIconPlaceholder": "留空=自动品牌；brand:openai；none=无图标",
         "contextLength": "上下文长度（可选）",
         "contextLengthHint": "路由上下文窗口（tokens）。留空或 0 = 未知，不强制。",
         "routingStrategy": "路由策略",
@@ -2701,7 +2701,8 @@
         "forest-whisper": "森林低语",
         "ocean-breeze": "海风",
         "lavender-dream": "薰衣草梦"
-      }
+      },
+      "toggle": "切换主题"
     },
     "observability": {
       "title": "可观测性",
