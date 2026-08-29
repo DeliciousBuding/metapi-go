@@ -10,8 +10,11 @@ package admin
 //     {items,total,page,pageSize} (/api/channels),
 //     and {success,...} envelopes (/api/downstream-keys).
 //  2. Error responses: non-2xx with the unified camelCase {"error":"..."}
-//     body (shared.WriteError). A few TS-era paths still answer non-2xx with
-//     a legacy {"message":"..."} body; the frontend http-client reads both
+//     body (shared.WriteError). Endpoints with a registered machine-readable
+//     class add an additive optional "errorCode" (registry: docs/api.md;
+//     pins: error_codes_test.go); unregistered sites keep the exact legacy
+//     body. A few TS-era paths still answer non-2xx with a legacy
+//     {"message":"..."} body; the frontend http-client reads both
 //     (resolveResponseMessage), so that shape is pinned as-is rather than
 //     changed.
 //

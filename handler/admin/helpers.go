@@ -224,11 +224,13 @@ func clampInt(v, lo, hi int) int {
 
 // pathID parses the chi "id" URL param as a positive int64 and writes a
 // unified 400 error when invalid. Callers must return when ok is false.
+// The rejection carries ErrorCodeInvalidID so clients can distinguish a
+// malformed path ID from payload validation failures.
 func pathID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	idStr := strings.TrimSpace(chi.URLParam(r, "id"))
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil || id <= 0 {
-		writeErrorWithRequest(w, r, http.StatusBadRequest, "invalid ID")
+		writeErrorCodeWithRequest(w, r, http.StatusBadRequest, ErrorCodeInvalidID, "invalid ID")
 		return 0, false
 	}
 	return id, true

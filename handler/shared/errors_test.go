@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -30,6 +31,51 @@ func TestWriteError_StatusAndCamelCaseJSON(t *testing.T) {
 	}
 	if _, ok := body["success"]; ok {
 		t.Fatalf("unexpected success field in unified error body: %#v", body)
+	}
+	if _, ok := body["errorCode"]; ok {
+		t.Fatalf("errorCode must be omitted when unset (additive contract): %#v", body)
+	}
+}
+
+func TestWriteAPIError_IncludesErrorCode(t *testing.T) {
+	rec := httptest.NewRecorder()
+	WriteErrorCode(rec, http.StatusBadRequest, "sameMigrationTarget", "target database is the same as the running database; migration aborted")
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal: %v body=%s", err, rec.Body.String())
+	}
+	// camelCase key is the contract; clients match on this, never on "error".
+	if body["errorCode"] != "sameMigrationTarget" {
+		t.Fatalf("errorCode = %v, want sameMigrationTarget", body["errorCode"])
+	}
+	// Human-readable message stays present and untouched (non-breaking).
+	if body["error"] != "target database is the same as the running database; migration aborted" {
+		t.Fatalf("error = %v", body["error"])
+	}
+	if _, ok := body["message"]; ok {
+		t.Fatalf("unexpected message field in unified error body: %#v", body)
+	}
+}
+
+func TestWriteAPIError_OmitsEmptyErrorCode(t *testing.T) {
+	rec := httptest.NewRecorder()
+	WriteAPIError(rec, &APIError{Code: http.StatusBadRequest, Message: "plain rejection"})
+
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("unmarshal: %v body=%s", err, rec.Body.String())
+	}
+	// Sites without a registered code must serialize the pre-existing body
+	// byte-for-byte (no errorCode:null, no errorCode:"").
+	if raw := rec.Body.String(); strings.Contains(raw, "errorCode") {
+		t.Fatalf("errorCode key must be absent when empty, got body %s", raw)
+	}
+	if body["error"] != "plain rejection" {
+		t.Fatalf("error = %v", body["error"])
 	}
 }
 

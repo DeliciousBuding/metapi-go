@@ -1,6 +1,6 @@
 # Admin API Reference
 
-**Last updated**: 2026-08-23
+**Last updated**: 2026-08-29
 **Coverage note**: every `/api` route registered by the Go server gets a `### METHOD /path` detail section — the authoritative route list is the [Admin Route Inventory](#admin-route-inventory) at the bottom. Backward-compat aliases (e.g. `GET /api/stats/model-prices`) are documented as aliases rather than duplicating the canonical handler.
 
 Base URL: `http://localhost:4000/api`
@@ -64,16 +64,44 @@ body). The unified error body is:
 ```json
 {
   "error": "Error description",
+  "errorCode": "optional machine-readable identifier",
   "request_id": "optional correlation id"
 }
 ```
 
-`request_id` is additive and omitted when no request ID is present. A few
-legacy endpoints (some batch/500 paths under `/api/accounts`, sites import)
-still answer with the TS-era `{ "message": "Error description" }` shape; the
-frontend reads both keys, so both forms surface identically.
+- `error` is the human-readable message. It is for display only — clients
+  must never branch on its text when a registered `errorCode` exists.
+- `errorCode` is an **optional, additive** machine-readable identifier for
+  the failure class (see the registry below). It is present only on
+  endpoints that have registered a code; every other error body is
+  byte-identical to the pre-existing shape (no `errorCode` key at all).
+  Clients that ignore `errorCode` observe no change.
+- `request_id` is additive and omitted when no request ID is present.
+
+A few legacy endpoints (some batch/500 paths under `/api/accounts`, sites
+import) still answer with the TS-era `{ "message": "Error description" }`
+shape; the frontend reads both keys, so both forms surface identically.
 
 HTTP status codes: 200 (OK), 201 (Created), 202 (Accepted), 400 (Bad Request), 401 (Unauthorized), 404 (Not Found), 500 (Internal Server Error).
+
+#### errorCode convention and registry
+
+`errorCode` values are stable **camelCase** identifiers (matching the
+project-wide camelCase JSON rule). Codes are only introduced for real call
+sites; this table is the registry and grows deliberately. Constants live in
+`handler/admin/error_codes.go` and are pinned by
+`handler/admin/error_codes_test.go`.
+
+| errorCode              | Status | Where                                          | Meaning                                                        |
+| ---------------------- | ------ | ---------------------------------------------- | -------------------------------------------------------------- |
+| `invalidId`            | 400    | any `/api/.../{id}` route (pathID helper)      | path ID missing, non-numeric or non-positive                   |
+| `invalidDatabaseType`  | 400    | `/api/settings/database/*`                     | runtime-database dialect is neither `sqlite` nor `postgres`    |
+| `emptyMigrationTarget` | 400    | `POST /api/settings/database/migrate`          | target connection string is blank                              |
+| `sameMigrationTarget`  | 400    | `POST /api/settings/database/migrate`          | target resolves to the currently-running database (rejected)   |
+
+Frontend note: the admin UI historically detected the same-target migration
+rejection by substring-matching the message text; it should migrate to
+`errorCode === "sameMigrationTarget"`.
 
 ## Request Body Rules
 
