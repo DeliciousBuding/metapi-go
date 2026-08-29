@@ -9,15 +9,22 @@ const (
 )
 
 // ExcludedCredentialRef represents a credential that a downstream policy
-// explicitly excludes from routing.
+// explicitly excludes from routing. The same shape is reused for allow-lists
+// (AllowedCredentialRefs).
 //
-// - account_token variant: excludes a specific account's specific token.
-// - default_api_key variant: excludes a specific account's default API key (no TokenID).
+// - account_token variant: references a specific account's specific token.
+// - default_api_key variant: references a specific account's default API key (no TokenID).
+//
+// JSON contract: the field tags below MUST match the shape persisted by the
+// admin API into downstream_api_keys.excluded_credential_refs /
+// allowed_credential_refs (camelCase: kind/siteId/accountId/tokenId — see
+// handler/admin normalizeExcludedCredentialRefsInput). A tag mismatch decodes
+// every ID as 0 and silently disables the dimension.
 type ExcludedCredentialRef struct {
 	Kind      CredentialRefKind `json:"kind"`
-	SiteID    int64             `json:"site_id"`
-	AccountID int64             `json:"account_id"`
-	TokenID   *int64            `json:"token_id,omitempty"` // only account_token
+	SiteID    int64             `json:"siteId"`
+	AccountID int64             `json:"accountId"`
+	TokenID   *int64            `json:"tokenId,omitempty"` // only account_token
 }
 
 // DownstreamRoutingPolicy holds the routing constraints attached to a
@@ -37,9 +44,9 @@ type DownstreamRoutingPolicy struct {
 	ExcludedCredentialRefs []ExcludedCredentialRef `json:"excluded_credential_refs"`
 	// AllowedSiteIDs / AllowedCredentialRefs are optional allow-lists.
 	// Empty = unrestricted; non-empty = only listed sites/credentials eligible.
-	AllowedSiteIDs         []int64                 `json:"allowed_site_ids"`
-	AllowedCredentialRefs  []ExcludedCredentialRef `json:"allowed_credential_refs"`
-	DenyAllWhenEmpty       bool                    `json:"deny_all_when_empty"`
+	AllowedSiteIDs        []int64                 `json:"allowed_site_ids"`
+	AllowedCredentialRefs []ExcludedCredentialRef `json:"allowed_credential_refs"`
+	DenyAllWhenEmpty      bool                    `json:"deny_all_when_empty"`
 }
 
 // EmptyDownstreamRoutingPolicy is the zero-value policy used as the default
