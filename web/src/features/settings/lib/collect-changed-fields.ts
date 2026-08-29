@@ -39,17 +39,19 @@ export function isDeepEqual(a: unknown, b: unknown): boolean {
  * `baseline`. When there is no baseline (load failed / first render) the
  * whole object is treated as changed so the first save still works.
  */
-export function collectChangedFields<T extends Record<string, unknown>>(
+export function collectChangedFields<T extends object>(
   values: T,
   baseline: T | null | undefined
 ): Partial<T> {
+  const valuesRecord = values as unknown as Record<string, unknown>
   if (!baseline) {
-    return { ...values }
+    return { ...values } as Partial<T>
   }
+  const baselineRecord = baseline as unknown as Record<string, unknown>
   const changed: Record<string, unknown> = {}
-  for (const key of Object.keys(values)) {
-    if (!isDeepEqual(values[key], baseline[key])) {
-      changed[key] = values[key]
+  for (const key of Object.keys(valuesRecord)) {
+    if (!isDeepEqual(valuesRecord[key], baselineRecord[key])) {
+      changed[key] = valuesRecord[key]
     }
   }
   return changed as Partial<T>

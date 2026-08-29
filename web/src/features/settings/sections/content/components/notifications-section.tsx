@@ -244,10 +244,7 @@ export function NotificationsSection() {
   })
 
   function onSubmit(values: NotifyFormValues) {
-    const changed = collectChangedFields(
-      values as unknown as Record<string, unknown>,
-      baseline as unknown as Record<string, unknown> | null
-    ) as Partial<NotifyFormValues>
+    const changed = collectChangedFields(values, baseline)
     if (!hasChanges(changed)) {
       toast.info(t('settings.common.noChanges'))
       return

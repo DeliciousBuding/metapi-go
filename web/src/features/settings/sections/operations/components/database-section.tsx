@@ -146,10 +146,7 @@ export function DatabaseSection() {
   }
 
   function onSave(values: DatabaseFormValues) {
-    const changed = collectChangedFields(
-      values as unknown as Record<string, unknown>,
-      baseline as unknown as Record<string, unknown> | null
-    ) as Partial<DatabaseFormValues>
+    const changed = collectChangedFields(values, baseline)
     const connection = values.connectionString.trim()
     const requiresConnection =
       !savedConfig?.hasConnectionString || changed.dialect !== undefined

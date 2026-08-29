@@ -176,10 +176,7 @@ export function RoutingSection() {
   }
 
   function onSubmit(values: RoutingFormValues) {
-    const changed = collectChangedFields(
-      values as unknown as Record<string, unknown>,
-      baseline as unknown as Record<string, unknown> | null
-    ) as Partial<RoutingFormValues>
+    const changed = collectChangedFields(values, baseline)
     if (!hasChanges(changed)) {
       toast.info(t('settings.common.noChanges'))
       return
