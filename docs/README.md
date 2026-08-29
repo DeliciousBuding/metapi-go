@@ -1,6 +1,6 @@
 # docs/ — Metapi Go documentation map
 
-**Last updated**: 2026-08-23
+**Last updated**: 2026-08-30
 **Purpose**: one-screen orientation for users and contributors.
 
 This directory is split into **public docs** (written for users and
@@ -18,7 +18,7 @@ documents never deep-link into `internal/` — they state the fact directly.
 | Environment variable reference      | [`configuration.md`](configuration.md)                                                   |
 | Client wiring (Cursor etc.)         | [`client-integration.md`](client-integration.md)                                         |
 | Common questions                    | [`faq.md`](faq.md)                                                                       |
-| HTTP API surface                    | [`api.md`](api.md)                                                                       |
+| HTTP API surface (index + by-domain) | [`api.md`](api.md) · [`api/`](api/)                                                        |
 | Package architecture & request path | [`architecture.md`](architecture.md)                                                     |
 | TS→Go migration (SQLite / PG / MySQL) | [`migration.md`](migration.md)                                                           |
 | Test layers / real-platform testbed | [`testing.md`](testing.md) |
@@ -45,7 +45,8 @@ documents never deep-link into `internal/` — they state the fact directly.
 docs/
   README.md                 ← this map
   getting-started.md        ← tutorial: install → first proxied request
-  api.md                    ← public API notes
+  api.md                    ← public API notes (index + anchor stubs)
+  api/                      ← by-domain API files (stats / sites / settings / ...)
   architecture.md           ← as-built package & request path
   client-integration.md     ← client wiring (Cursor / Claude Code / Codex / Open WebUI)
   configuration.md          ← environment variable reference
