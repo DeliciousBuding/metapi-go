@@ -74,16 +74,15 @@ describe('OverviewSection heatmap time axis', () => {
     } as never)
     render(<OverviewSection />)
 
-    // tickEvery = max(2, ceil(6/6)) = 2 → ticks at tracks 0, 2, 4
+    // tickEvery = max(3, ceil(6/6)) = 3 → ticks at tracks 0, 3
     const tick05 = screen.getByText('05:00')
-    const tick07 = screen.getByText('07:00')
-    const tick09 = screen.getByText('09:00')
+    const tick08 = screen.getByText('08:00')
     expect(tick05).toBeInTheDocument()
-    expect(tick07).toBeInTheDocument()
-    expect(tick09).toBeInTheDocument()
+    expect(tick08).toBeInTheDocument()
     // unlabeled tracks must not leak to the axis row
     expect(screen.queryByText('06:00')).not.toBeInTheDocument()
-    expect(screen.queryByText('08:00')).not.toBeInTheDocument()
+    expect(screen.queryByText('07:00')).not.toBeInTheDocument()
+    expect(screen.queryByText('09:00')).not.toBeInTheDocument()
     expect(screen.queryByText('10:00')).not.toBeInTheDocument()
   })
 
