@@ -162,7 +162,7 @@ NOT reproduced at load time: every interception sample occurred AFTER the probe'
 - 页面加载 2s 内 `[data-slot="sheet-content"]` popup 0 次挂载（100ms 采样 ×20）。
 - 曾观察到的拦截元素 `form.flex-1.space-y-5.overflow-y-auto.p-4` = AccountFormDialog 表单体（`features/accounts/components/account-form-dialog.tsx:280`，右侧 Sheet、fixed、z-50），经祖先链确认属于**点击成功后打开的 Sheet 本体**（`role="dialog" data-open data-slot="sheet-content"`），非加载期覆盖物。
 
-结论：**§6 所述「页头盖住工具栏」未在 v0.16.6 复现**（文档所述，2026-08-20 记录；本轮实测未见）。可复现的真实竞态是：全新站点后立即进入 /accounts，按钮要 ~0.4–2.3s 才可操作，且 `disabled={sites.length===0}`（`features/accounts/components/accounts-page.tsx:453`）在快照未含站点时钉住按钮——旅程脚本的 `waitForSiteInSnapshot` 正是为此而设，工作正常。详见移交清单。
+结论：**§6 所述「页头盖住工具栏」未在 v0.16.6 复现**（文档所述，2026-08-20 记录；本轮实测未见）。可复现的真实竞态是：全新站点后立即进入 /accounts，按钮要 ~0.4–2.3s 才可操作，且 `disabled={sites.length===0}`（`features/accounts/components/accounts-page.tsx:453`）在快照未含站点时钉住按钮——旅程脚本的 `waitForSiteInSnapshot` 正是为此而设，工作正常。
 
 ## E9 · 环境诚实记录（未跑/不允许）
 

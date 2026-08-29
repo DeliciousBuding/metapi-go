@@ -19,6 +19,7 @@ W19-W21 已交付主线（均本地 master）：错误 toast 单 owner 收口 + 
 | F1 | **本地/origin 融合决策**：本地 13+ 前端 commits 与 origin 后端线分叉，需 rebase/merge 策略 + 全量门禁 | 融合后 12-check CI 全绿 |
 | F2 | **D2 site-form 抽屉迁移**（产品决策项）：918 行 Dialog → Drawer，需回归 dirty-close/focus-first-invalid + 视觉验收 | 双视口截图 + 契约测试 |
 | F3 | **后端告警文案 i18n**（P3）：`stats_balance.go` `Low balance: %s` 硬编码英文，事件持久化 + 后端无 locale 上下文，需 key 映射架构改动 | 双语告警事件端到端 |
+| F4 | **docs/api.md 超尺寸预算**（卫生项）：1590 行 > 1500 预算；公开仓有外部深链风险，拆分需按域设计（api/*.md + 索引 + 指针迁移），属专门文档波次，不在前端波次顺手做 | 拆分后 docs/README.md 指针同步、旧 anchor 有承接 |
 
 后端候选（原 Wave 19 候选，不变）：
 
