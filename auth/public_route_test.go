@@ -5,7 +5,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/deliciousbuding/metapi-go/config"
 )
 
 // TestIsPublicAPIRoute_LegitimatePaths pins the two intended public surfaces:
@@ -63,9 +62,9 @@ func TestIsPublicAPIRoute_TraversalVariantsRejected(t *testing.T) {
 // admitted through the public bypass carries no admin auth marker, so a
 // downstream handler can never mistake it for an authenticated admin call.
 func TestAdminAuth_PublicBypassDoesNotLeakAdminContext(t *testing.T) {
-	cfg := &config.Config{AuthToken: "unit-admin-token"}
+	publishRuntimeAuthToken(t, "unit-admin-token")
 	var sawAdmin bool
-	handler := AdminAuth(cfg, nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := AdminAuth(nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sawAdmin = IsAdmin(r.Context())
 		w.WriteHeader(http.StatusOK)
 	}))

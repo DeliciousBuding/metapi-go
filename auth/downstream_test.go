@@ -23,12 +23,9 @@ func setupTestDB(t *testing.T) {
 	// If already initialized from a previous subtest, close first.
 	_ = store.CloseDatabase()
 
-	cfg := &config.Config{
-		DbType:  "sqlite",
-		DbUrl:   ":memory:",
-		DataDir: t.TempDir(),
-	}
-	if err := store.EnsureRuntimeDatabase(cfg); err != nil {
+	cfg := &config.Config{DataDir: t.TempDir()}
+	rt := &config.RuntimeSettings{DbType: "sqlite", DbUrl: ":memory:"}
+	if err := store.EnsureRuntimeDatabase(cfg, rt); err != nil {
 		t.Fatalf("failed to init test DB: %v", err)
 	}
 	t.Cleanup(func() { _ = store.CloseDatabase() })
@@ -306,7 +303,7 @@ func TestExpiration_PastDate(t *testing.T) {
 		t.Fatalf("INSERT: %v", err)
 	}
 
-	result := AuthorizeDownstreamToken("sk-exp-past", &config.Config{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken("sk-exp-past", &config.RuntimeSettings{ProxyToken: "global"})
 	if result.OK {
 		t.Error("expected OK=false for past expiration")
 	}
@@ -333,7 +330,7 @@ func TestExpiration_FutureDate(t *testing.T) {
 		t.Fatalf("INSERT: %v", err)
 	}
 
-	result := AuthorizeDownstreamToken("sk-exp-future", &config.Config{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken("sk-exp-future", &config.RuntimeSettings{ProxyToken: "global"})
 	if !result.OK {
 		t.Fatalf("expected OK=true for future expiration, got: %s", result.Error)
 	}
@@ -359,7 +356,7 @@ func TestExpiration_NilExpiresAt(t *testing.T) {
 		t.Fatalf("INSERT: %v", err)
 	}
 
-	result := AuthorizeDownstreamToken("sk-exp-null", &config.Config{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken("sk-exp-null", &config.RuntimeSettings{ProxyToken: "global"})
 	if !result.OK {
 		t.Fatalf("expected OK=true for nil expires_at, got: %s", result.Error)
 	}
@@ -384,7 +381,7 @@ func TestExpiration_InvalidDateFormat(t *testing.T) {
 	}
 
 	// Invalid date → parse error → expiration check is skipped → key passes
-	result := AuthorizeDownstreamToken("sk-exp-invalid", &config.Config{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken("sk-exp-invalid", &config.RuntimeSettings{ProxyToken: "global"})
 	if !result.OK {
 		t.Fatalf("expected OK=true when expires_at is unparseable (TS: parseErr → skip), got: %s", result.Error)
 	}
@@ -412,7 +409,7 @@ func TestCostQuota_UnderLimit(t *testing.T) {
 		t.Fatalf("INSERT: %v", err)
 	}
 
-	result := AuthorizeDownstreamToken("sk-cost-under", &config.Config{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken("sk-cost-under", &config.RuntimeSettings{ProxyToken: "global"})
 	if !result.OK {
 		t.Fatalf("expected OK=true for under cost limit, got: %s", result.Error)
 	}
@@ -436,7 +433,7 @@ func TestCostQuota_AtLimit(t *testing.T) {
 		t.Fatalf("INSERT: %v", err)
 	}
 
-	result := AuthorizeDownstreamToken("sk-cost-at", &config.Config{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken("sk-cost-at", &config.RuntimeSettings{ProxyToken: "global"})
 	if result.OK {
 		t.Error("expected OK=false when usedCost == maxCost")
 	}
@@ -463,7 +460,7 @@ func TestCostQuota_OverLimit(t *testing.T) {
 		t.Fatalf("INSERT: %v", err)
 	}
 
-	result := AuthorizeDownstreamToken("sk-cost-over", &config.Config{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken("sk-cost-over", &config.RuntimeSettings{ProxyToken: "global"})
 	if result.OK {
 		t.Error("expected OK=false for over cost limit")
 	}
@@ -490,7 +487,7 @@ func TestCostQuota_NilMaxCost(t *testing.T) {
 	}
 
 	// nil max_cost means unlimited — should pass even with high used_cost
-	result := AuthorizeDownstreamToken("sk-cost-nil", &config.Config{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken("sk-cost-nil", &config.RuntimeSettings{ProxyToken: "global"})
 	if !result.OK {
 		t.Fatalf("expected OK=true for nil max_cost (unlimited), got: %s", result.Error)
 	}
@@ -518,7 +515,7 @@ func TestRequestQuota_UnderLimit(t *testing.T) {
 		t.Fatalf("INSERT: %v", err)
 	}
 
-	result := AuthorizeDownstreamToken("sk-req-under", &config.Config{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken("sk-req-under", &config.RuntimeSettings{ProxyToken: "global"})
 	if !result.OK {
 		t.Fatalf("expected OK=true for under request limit, got: %s", result.Error)
 	}
@@ -542,7 +539,7 @@ func TestRequestQuota_AtLimit(t *testing.T) {
 		t.Fatalf("INSERT: %v", err)
 	}
 
-	result := AuthorizeDownstreamToken("sk-req-at", &config.Config{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken("sk-req-at", &config.RuntimeSettings{ProxyToken: "global"})
 	if result.OK {
 		t.Error("expected OK=false when usedRequests == maxRequests")
 	}
@@ -569,7 +566,7 @@ func TestRequestQuota_OverLimit(t *testing.T) {
 		t.Fatalf("INSERT: %v", err)
 	}
 
-	result := AuthorizeDownstreamToken("sk-req-over", &config.Config{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken("sk-req-over", &config.RuntimeSettings{ProxyToken: "global"})
 	if result.OK {
 		t.Error("expected OK=false for over request limit")
 	}
@@ -869,7 +866,7 @@ func TestDisabledKey_Rejected(t *testing.T) {
 		t.Fatalf("INSERT: %v", err)
 	}
 
-	result := AuthorizeDownstreamToken("sk-disabled", &config.Config{ProxyToken: "global"})
+	result := AuthorizeDownstreamToken("sk-disabled", &config.RuntimeSettings{ProxyToken: "global"})
 	if result.OK {
 		t.Error("expected OK=false for disabled key")
 	}

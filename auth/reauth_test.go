@@ -5,7 +5,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/deliciousbuding/metapi-go/config"
 )
 
 // ---- RequireReauth gate (#1034) ----
@@ -44,11 +43,11 @@ func TestSensitiveAdminPathMatching(t *testing.T) {
 }
 
 func TestRequireReauthGate(t *testing.T) {
-	cfg := &config.Config{AuthToken: "master-token"}
+	publishRuntimeAuthToken(t, "master-token")
 	inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	h := RequireReauth(cfg)(inner)
+	h := RequireReauth()(inner)
 
 	do := func(path, confirm string) int {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
