@@ -211,7 +211,7 @@ describe('i18n key coverage', () => {
   it('keeps interpolation placeholders identical between en and zh-CN', () => {
     const PLACEHOLDER_RE = /\{\{\s*([^}]+?)\s*\}\}/g
     const placeholders = (value: string): string[] =>
-      [...value.matchAll(PLACEHOLDER_RE)].map((m) => m[1]!.trim()).sort()
+      [...value.matchAll(PLACEHOLDER_RE)].map((m) => (m[1] ?? '').trim()).sort()
     const leafValue = (root: TranslationNode, key: string): string | null => {
       const value = resolveSegments(root, key)
       return typeof value === 'string' ? value : null
