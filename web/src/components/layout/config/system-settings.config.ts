@@ -15,8 +15,7 @@
 
 import { LayoutGrid } from 'lucide-react'
 
-import { getSettingsSubareas } from '@/features/settings'
-
+import { getSettingsSubareas } from '../lib/settings-nav-registry'
 import type { NavCollapsible, NavGroup, SidebarView } from '../types'
 
 /**
