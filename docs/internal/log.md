@@ -5,6 +5,13 @@
 > Product milestone timeline (grouped by version). Not the current-state source of truth.
 > Current state → [`STATE.md`](STATE.md) · open items → [`progress/MASTER.md`](progress/MASTER.md) · detailed version narrative → root [`CHANGELOG.md`](../../CHANGELOG.md)
 
+## 2026-08-30 — S7 三态收敛 + S10 图表摘要 + 页头/快照 polish
+
+- **S7-B 列表页三态契约集中化（#1084）**：DataTablePage 内建 error 契约（判别联合：传 error 必传 errorMessageKey；replace/inline 两种放置），8 个列表页删掉手写 `{error ? banner : table}` 分支；页级错误契约测试的 stub 改为兑现委托契约，组件级新增 replace/inline/retry 三钉；retry-icon 静态守卫改断言委托链。全量 1541 测试绿 + 8 页双视口截图复核无回归。
+- **S10 图表无障碍替代层补齐（#1087）**：延迟直方图/延迟趋势接入既有 ChartDataTable（bucket×count、series×最新/窗口均值），新增 chartSummary.bucketColumn/averageColumn 双语键；dashboard 六图替代层全齐。
+- **视觉 polish 两件**：accounts 页头 375px 挤压修复（#1086，flex-wrap 对齐 checkin/routes 模式）；今日快照 delta 不可用态去重（#1088，Minus 图标与 em-dash 同形连读）。
+- **工程教训**：gh pr merge --delete-branch 会连删本地分支——后台 pre-push 中的同分支推送被抽空（refspec 失配）；推送门禁运行期间切换工作区分支会让门禁测到中间态（i18n-keys 测试曾抓到半完成的键引用）。
+
 ## 2026-08-30 — F4 api.md 按域拆分
 
 - **文档拆分（F4 收口）**：`docs/api.md`（1739 行 > 1500 预算）按域拆为 `docs/api/*.md` 17 个文件（conventions/stats/routes/models/sites/accounts/announcements/downstream-keys/settings/checkin/monitor/diagnostics/auth/oauth/health/routes-inventory/proxy，各 23–213 行）；`docs/api.md` 保留为索引 + 全部 213 个原有 H2/H3/H4 标题 stub 指针（标题原文不动，锚点 id 逐条对照 GitHub 渲染产物核对），旧深链 `api.md#<anchor>` 全部继续落位；误置于 Trusted Client IPs 节下的 `GET /api/downstream-keys/:id/export` 顺带归位。
