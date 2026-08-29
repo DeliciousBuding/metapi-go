@@ -310,6 +310,32 @@ describe('attention bell', () => {
     await waitFor(() => expect(indicatorOf(container)).toBeNull())
   })
 
+  it('re-localizes labels through attention params in the active language', async () => {
+    // F3: the backend keeps an English label for API compat and ships params
+    // so the bell renders the same item in the operator's language.
+    mockGetAttention.mockResolvedValue({
+      items: [
+        attentionItem({
+          severity: 'warning',
+          category: 'balance_unknown',
+          label: 'Balance unknown: svc-onea',
+          target: '/accounts?accountId=9',
+          params: { username: 'svc-onea' },
+        }),
+      ],
+      total: 1,
+    })
+    // Open while the UI is still English (openBell finds the trigger by its
+    // English accessible name), then switch — the open popover re-renders.
+    await openBell()
+    await i18n.changeLanguage('zhCN')
+
+    expect(
+      await screen.findByRole('button', { name: /余额未知：svc-onea/ })
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/Balance unknown/)).not.toBeInTheDocument()
+  })
+
   it('shows a relative timestamp and links to the availability panel', async () => {
     mockGetAttention.mockResolvedValue({
       items: [

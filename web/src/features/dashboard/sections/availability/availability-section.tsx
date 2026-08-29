@@ -33,6 +33,11 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
 import {
+  attentionLabel,
+  type AttentionItem,
+  type AttentionResponse,
+} from '@/lib/attention-label'
+import {
   formatAbsoluteDateTime,
   formatRelativeTime,
   formatTimeOfDay,
@@ -47,27 +52,6 @@ import {
 } from './attention-target'
 
 const SPARK_BARS = 60
-
-/** One attention item from GET /api/stats/attention. */
-type AttentionItem = {
-  severity: 'critical' | 'warning' | 'info'
-  category: string
-  label: string
-  target: string
-  createdAt: string
-  /**
-   * Structured label params from the backend (username / site name /
-   * numeric balance) so the label can be rendered through i18n. Absent on
-   * items from old backends → raw `label` is rendered instead.
-   */
-  params?: Record<string, string | number>
-}
-
-/** Attention response (GET /api/stats/attention). */
-type AttentionResponse = {
-  items: AttentionItem[]
-  total: number
-}
 
 const SEVERITY_TONE: Record<
   'critical' | 'warning' | 'info',
@@ -89,70 +73,6 @@ const SEVERITY_TONE: Record<
 
 function formatRate(rate: number): string {
   return `${(rate * 100).toFixed(1)}%`
-}
-
-/**
- * Backend event titles are English strings taken verbatim from the events
- * table (alert.go writes "All proxies failed"). Known titles map to
- * localized keys so the panel reads in the active language; unknown titles
- * fall through as-is.
- */
-const EVENT_TITLE_KEYS: Record<string, string> = {
-  'All proxies failed': 'dashboard.availability.monitors.eventAllProxiesFailed',
-}
-
-/**
- * Localized label for an attention item. The backend keeps an English
- * `label` for API compat and sends structured `params` alongside; when the
- * params a category needs are missing (old backend, malformed payload) the
- * raw label is used instead of a string with empty placeholders.
- */
-function attentionLabel(
-  item: AttentionItem,
-  t: (key: string, options?: Record<string, unknown>) => string
-): string {
-  switch (item.category) {
-    case 'expired_account': {
-      const name = item.params?.username
-      return typeof name === 'string' && name !== ''
-        ? t('dashboard.availability.monitors.expiredAccount', { name })
-        : item.label
-    }
-    case 'low_balance': {
-      const name = item.params?.username
-      const balance = item.params?.balance
-      return typeof name === 'string' && name !== '' && balance != null
-        ? t('dashboard.availability.monitors.lowBalance', {
-            name,
-            amount: Number(balance).toFixed(2),
-          })
-        : item.label
-    }
-    case 'disabled_site': {
-      const name = item.params?.name
-      return typeof name === 'string' && name !== ''
-        ? t('dashboard.availability.monitors.disabledSite', { name })
-        : item.label
-    }
-    case 'balance_unknown': {
-      const name = item.params?.username
-      return typeof name === 'string' && name !== ''
-        ? t('dashboard.availability.monitors.balanceUnknown', { name })
-        : item.label
-    }
-    case 'site_announcement': {
-      const title = item.params?.title
-      return typeof title === 'string' && title !== ''
-        ? t('dashboard.availability.monitors.siteAnnouncement', { title })
-        : item.label
-    }
-    case 'event': {
-      const key = EVENT_TITLE_KEYS[item.label]
-      return key ? t(key) : item.label
-    }
-    default:
-      return item.label
-  }
 }
 
 /**
