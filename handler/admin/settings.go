@@ -37,123 +37,126 @@ type settingsHandler struct {
 
 // GET /api/settings/runtime
 func (h *settingsHandler) getRuntime(w http.ResponseWriter, r *http.Request) {
+	// One atomic snapshot for the whole response: the admin UI can never
+	// observe a half-applied settings update.
+	rt := config.Runtime()
 	cfg := h.cfg
 	writeJSON(w, http.StatusOK, map[string]any{
 		// Checkin
-		"checkinCron":          cfg.CheckinCron,
-		"checkinScheduleMode":  cfg.CheckinScheduleMode,
-		"checkinIntervalHours": cfg.CheckinIntervalHours,
-		"checkinWindowStart":   cfg.CheckinWindowStart,
-		"checkinWindowEnd":     cfg.CheckinWindowEnd,
-		"checkinSchedule":      scheduleSpecForCheckin(cfg),
-		"checkinEnabled":       !cfg.CheckinDisabled,
+		"checkinCron":          rt.CheckinCron,
+		"checkinScheduleMode":  rt.CheckinScheduleMode,
+		"checkinIntervalHours": rt.CheckinIntervalHours,
+		"checkinWindowStart":   rt.CheckinWindowStart,
+		"checkinWindowEnd":     rt.CheckinWindowEnd,
+		"checkinSchedule":      scheduleSpecForCheckin(rt),
+		"checkinEnabled":       !rt.CheckinDisabled,
 		// Site & Branding
-		"systemName":    cfg.SystemName,
-		"logo":          cfg.Logo,
-		"footer":        cfg.Footer,
-		"about":         cfg.About,
-		"serverAddress": cfg.ServerAddress,
+		"systemName":    rt.SystemName,
+		"logo":          rt.Logo,
+		"footer":        rt.Footer,
+		"about":         rt.About,
+		"serverAddress": rt.ServerAddress,
 		// Balance
-		"balanceRefreshCron":     cfg.BalanceRefreshCron,
-		"balanceRefreshSchedule": scheduler.CronToSchedule(cfg.BalanceRefreshCron),
-		"balanceRefreshEnabled":  !cfg.BalanceRefreshDisabled,
+		"balanceRefreshCron":     rt.BalanceRefreshCron,
+		"balanceRefreshSchedule": scheduler.CronToSchedule(rt.BalanceRefreshCron),
+		"balanceRefreshEnabled":  !rt.BalanceRefreshDisabled,
 		// Model sync (#1005) — plain cron, no v2 schedule mirror
-		"modelSyncCron": cfg.ModelSyncCron,
+		"modelSyncCron": rt.ModelSyncCron,
 		// Log cleanup
-		"logCleanupCron":               cfg.LogCleanupCron,
-		"logCleanupSchedule":           scheduler.CronToSchedule(cfg.LogCleanupCron),
-		"logCleanupUsageLogsEnabled":   cfg.LogCleanupUsageLogsEnabled,
-		"logCleanupProgramLogsEnabled": cfg.LogCleanupProgramLogsEnabled,
-		"logCleanupRetentionDays":      cfg.LogCleanupRetentionDays,
+		"logCleanupCron":               rt.LogCleanupCron,
+		"logCleanupSchedule":           scheduler.CronToSchedule(rt.LogCleanupCron),
+		"logCleanupUsageLogsEnabled":   rt.LogCleanupUsageLogsEnabled,
+		"logCleanupProgramLogsEnabled": rt.LogCleanupProgramLogsEnabled,
+		"logCleanupRetentionDays":      rt.LogCleanupRetentionDays,
 		// Model probe
-		"modelAvailabilityProbeEnabled": cfg.ModelAvailabilityProbeEnabled,
+		"modelAvailabilityProbeEnabled": rt.ModelAvailabilityProbeEnabled,
 		// Codex
-		"codexUpstreamWebsocketEnabled": cfg.CodexUpstreamWebsocketEnabled,
+		"codexUpstreamWebsocketEnabled": rt.CodexUpstreamWebsocketEnabled,
 		// Responses
-		"responsesCompactFallbackToResponsesEnabled": cfg.ResponsesCompactFallbackToResponsesEnabled,
+		"responsesCompactFallbackToResponsesEnabled": rt.ResponsesCompactFallbackToResponsesEnabled,
 		// Cross-protocol
-		"disableCrossProtocolFallback": cfg.DisableCrossProtocolFallback,
+		"disableCrossProtocolFallback": rt.DisableCrossProtocolFallback,
 		// Proxy session
-		"proxySessionChannelConcurrencyLimit": cfg.ProxySessionChannelConcurrencyLimit,
-		"proxySessionChannelQueueWaitMs":      cfg.ProxySessionChannelQueueWaitMs,
+		"proxySessionChannelConcurrencyLimit": rt.ProxySessionChannelConcurrencyLimit,
+		"proxySessionChannelQueueWaitMs":      rt.ProxySessionChannelQueueWaitMs,
 		// Debug trace
-		"proxyDebugTraceEnabled":        cfg.ProxyDebugTraceEnabled,
-		"proxyDebugCaptureHeaders":      cfg.ProxyDebugCaptureHeaders,
-		"proxyDebugCaptureBodies":       cfg.ProxyDebugCaptureBodies,
-		"proxyDebugCaptureStreamChunks": cfg.ProxyDebugCaptureStreamChunks,
-		"proxyDebugTargetSessionId":     cfg.ProxyDebugTargetSessionId,
-		"proxyDebugTargetClientKind":    cfg.ProxyDebugTargetClientKind,
-		"proxyDebugTargetModel":         cfg.ProxyDebugTargetModel,
-		"proxyDebugRetentionHours":      cfg.ProxyDebugRetentionHours,
-		"proxyDebugMaxBodyBytes":        cfg.ProxyDebugMaxBodyBytes,
+		"proxyDebugTraceEnabled":        rt.ProxyDebugTraceEnabled,
+		"proxyDebugCaptureHeaders":      rt.ProxyDebugCaptureHeaders,
+		"proxyDebugCaptureBodies":       rt.ProxyDebugCaptureBodies,
+		"proxyDebugCaptureStreamChunks": rt.ProxyDebugCaptureStreamChunks,
+		"proxyDebugTargetSessionId":     rt.ProxyDebugTargetSessionId,
+		"proxyDebugTargetClientKind":    rt.ProxyDebugTargetClientKind,
+		"proxyDebugTargetModel":         rt.ProxyDebugTargetModel,
+		"proxyDebugRetentionHours":      rt.ProxyDebugRetentionHours,
+		"proxyDebugMaxBodyBytes":        rt.ProxyDebugMaxBodyBytes,
 		// Routing
-		"routingFallbackUnitCost":          cfg.RoutingFallbackUnitCost,
-		"proxyFirstByteTimeoutSec":         cfg.ProxyFirstByteTimeoutSec,
-		"tokenRouterFailureCooldownMaxSec": cfg.TokenRouterFailureCooldownMaxSec,
-		"proxyRetryStatusRanges":           cfg.ProxyRetryStatusRanges,
-		"proxyDisableStatusRanges":         cfg.ProxyDisableStatusRanges,
+		"routingFallbackUnitCost":          rt.RoutingFallbackUnitCost,
+		"proxyFirstByteTimeoutSec":         rt.ProxyFirstByteTimeoutSec,
+		"tokenRouterFailureCooldownMaxSec": rt.TokenRouterFailureCooldownMaxSec,
+		"proxyRetryStatusRanges":           rt.ProxyRetryStatusRanges,
+		"proxyDisableStatusRanges":         rt.ProxyDisableStatusRanges,
 		"routingWeights": map[string]any{
-			"baseWeightFactor": cfg.RoutingWeights.BaseWeightFactor,
-			"valueScoreFactor": cfg.RoutingWeights.ValueScoreFactor,
-			"costWeight":       cfg.RoutingWeights.CostWeight,
-			"balanceWeight":    cfg.RoutingWeights.BalanceWeight,
-			"usageWeight":      cfg.RoutingWeights.UsageWeight,
+			"baseWeightFactor": rt.RoutingWeights.BaseWeightFactor,
+			"valueScoreFactor": rt.RoutingWeights.ValueScoreFactor,
+			"costWeight":       rt.RoutingWeights.CostWeight,
+			"balanceWeight":    rt.RoutingWeights.BalanceWeight,
+			"usageWeight":      rt.RoutingWeights.UsageWeight,
 		},
 		// Notify: Webhook
-		"webhookUrl":     cfg.WebhookUrl,
-		"webhookEnabled": cfg.WebhookEnabled,
+		"webhookUrl":     rt.WebhookUrl,
+		"webhookEnabled": rt.WebhookEnabled,
 		// Notify: Bark
-		"barkUrl":     cfg.BarkUrl,
-		"barkEnabled": cfg.BarkEnabled,
+		"barkUrl":     rt.BarkUrl,
+		"barkEnabled": rt.BarkEnabled,
 		// Notify: ServerChan
-		"serverChanEnabled":   cfg.ServerChanEnabled,
-		"serverChanKeyMasked": maskValue(cfg.ServerChanKey),
+		"serverChanEnabled":   rt.ServerChanEnabled,
+		"serverChanKeyMasked": maskValue(rt.ServerChanKey),
 		// Notify: Telegram
-		"telegramEnabled":         cfg.TelegramEnabled,
-		"telegramApiBaseUrl":      cfg.TelegramApiBaseUrl,
-		"telegramBotTokenMasked":  maskValue(cfg.TelegramBotToken),
-		"telegramChatId":          cfg.TelegramChatId,
-		"telegramUseSystemProxy":  cfg.TelegramUseSystemProxy,
-		"telegramMessageThreadId": cfg.TelegramMessageThreadId,
+		"telegramEnabled":         rt.TelegramEnabled,
+		"telegramApiBaseUrl":      rt.TelegramApiBaseUrl,
+		"telegramBotTokenMasked":  maskValue(rt.TelegramBotToken),
+		"telegramChatId":          rt.TelegramChatId,
+		"telegramUseSystemProxy":  rt.TelegramUseSystemProxy,
+		"telegramMessageThreadId": rt.TelegramMessageThreadId,
 		// Notify: SMTP
-		"smtpEnabled":    cfg.SmtpEnabled,
-		"smtpHost":       cfg.SmtpHost,
-		"smtpPort":       cfg.SmtpPort,
-		"smtpSecure":     cfg.SmtpSecure,
-		"smtpUser":       cfg.SmtpUser,
-		"smtpPassMasked": maskValue(cfg.SmtpPass),
-		"smtpFrom":       cfg.SmtpFrom,
-		"smtpTo":         cfg.SmtpTo,
+		"smtpEnabled":    rt.SmtpEnabled,
+		"smtpHost":       rt.SmtpHost,
+		"smtpPort":       rt.SmtpPort,
+		"smtpSecure":     rt.SmtpSecure,
+		"smtpUser":       rt.SmtpUser,
+		"smtpPassMasked": maskValue(rt.SmtpPass),
+		"smtpFrom":       rt.SmtpFrom,
+		"smtpTo":         rt.SmtpTo,
 		// Notify: Feishu / DingTalk / WeCom / Ntfy
-		"feishuEnabled":        cfg.FeishuEnabled,
-		"feishuWebhook":        cfg.FeishuWebhook,
-		"feishuSecretMasked":   maskValue(cfg.FeishuSecret),
-		"dingtalkEnabled":      cfg.DingtalkEnabled,
-		"dingtalkWebhook":      cfg.DingtalkWebhook,
-		"dingtalkSecretMasked": maskValue(cfg.DingtalkSecret),
-		"wecomEnabled":         cfg.WecomEnabled,
-		"wecomWebhook":         cfg.WecomWebhook,
-		"ntfyEnabled":          cfg.NtfyEnabled,
-		"ntfyUrl":              cfg.NtfyUrl,
-		"ntfyTopic":            cfg.NtfyTopic,
-		"ntfyTokenMasked":      maskValue(cfg.NtfyToken),
-		"notifyTaskToggles":    cfg.NotifyTaskToggles,
+		"feishuEnabled":        rt.FeishuEnabled,
+		"feishuWebhook":        rt.FeishuWebhook,
+		"feishuSecretMasked":   maskValue(rt.FeishuSecret),
+		"dingtalkEnabled":      rt.DingtalkEnabled,
+		"dingtalkWebhook":      rt.DingtalkWebhook,
+		"dingtalkSecretMasked": maskValue(rt.DingtalkSecret),
+		"wecomEnabled":         rt.WecomEnabled,
+		"wecomWebhook":         rt.WecomWebhook,
+		"ntfyEnabled":          rt.NtfyEnabled,
+		"ntfyUrl":              rt.NtfyUrl,
+		"ntfyTopic":            rt.NtfyTopic,
+		"ntfyTokenMasked":      maskValue(rt.NtfyToken),
+		"notifyTaskToggles":    rt.NotifyTaskToggles,
 		// Notify: cooldown
-		"notifyCooldownSec": cfg.NotifyCooldownSec,
+		"notifyCooldownSec": rt.NotifyCooldownSec,
 		// Admin
-		"adminIpAllowlist": cfg.AdminIpAllowlist,
+		"adminIpAllowlist": rt.AdminIpAllowlist,
 		"currentAdminIp":   extractClientIP(r),
 		"serverTimeZone":   cfg.Tz,
 		// System
-		"systemProxyUrl":   cfg.SystemProxyUrl,
-		"proxyTokenMasked": maskValue(cfg.ProxyToken),
+		"systemProxyUrl":   rt.SystemProxyUrl,
+		"proxyTokenMasked": maskValue(rt.ProxyToken),
 		// Proxy
-		"payloadRules":                 cfg.PayloadRules,
-		"proxyErrorKeywords":           cfg.ProxyErrorKeywords,
-		"proxyEmptyContentFailEnabled": cfg.ProxyEmptyContentFailEnabled,
+		"payloadRules":                 rt.PayloadRules,
+		"proxyErrorKeywords":           rt.ProxyErrorKeywords,
+		"proxyEmptyContentFailEnabled": rt.ProxyEmptyContentFailEnabled,
 		// Global filters (always JSON arrays; never null)
-		"globalBlockedBrands": stringSliceOrEmpty(cfg.GlobalBlockedBrands),
-		"globalAllowedModels": stringSliceOrEmpty(cfg.GlobalAllowedModels),
+		"globalBlockedBrands": stringSliceOrEmpty(rt.GlobalBlockedBrands),
+		"globalAllowedModels": stringSliceOrEmpty(rt.GlobalAllowedModels),
 		// N7: effective prompt-cache ratio fallbacks (reflect overrides).
 		"cacheRatioDefault": routing.DefaultCacheRatioForModel("gpt-4o"),
 		"cacheRatioClaude":  routing.DefaultCacheRatioForModel("claude-3-5-sonnet"),
@@ -194,8 +197,8 @@ func (h *settingsHandler) updateRuntime(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"success":             true,
 		"message":             "Runtime settings updated",
-		"globalAllowedModels": stringSliceOrEmpty(h.cfg.GlobalAllowedModels),
-		"globalBlockedBrands": stringSliceOrEmpty(h.cfg.GlobalBlockedBrands),
+		"globalAllowedModels": stringSliceOrEmpty(h.rt.GlobalAllowedModels),
+		"globalBlockedBrands": stringSliceOrEmpty(h.rt.GlobalBlockedBrands),
 	})
 }
 
@@ -233,7 +236,7 @@ func (h *settingsHandler) testSystemProxy(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	proxyURL := h.cfg.SystemProxyUrl
+	proxyURL := h.rt.SystemProxyUrl
 	if body.ProxyUrl != nil {
 		proxyURL = strings.TrimSpace(*body.ProxyUrl)
 	}
@@ -380,14 +383,14 @@ func toBoolStrict(v any) (bool, error) {
 	return false, fmt.Errorf("expected a boolean (true/false), got %T", v)
 }
 
-func applyBoolSettingDB(db *sqlx.DB, body map[string]any, key string, target *bool, dbKey string) error {
+func applyBoolSettingDB(db *sqlx.DB, body map[string]any, key string, dbKey string, set func(*config.RuntimeSettings, bool)) error {
 	if v, ok := body[key]; ok {
 		val, err := toBoolStrict(v)
 		if err != nil {
 			return fmt.Errorf("%s: %w", key, err)
 		}
-		*target = val
-		if err := upsertSettingDB(db, dbKey, *target); err != nil {
+		config.UpdateRuntime(func(r *config.RuntimeSettings) { set(r, val) })
+		if err := upsertSettingDB(db, dbKey, val); err != nil {
 			return err
 		}
 	}
