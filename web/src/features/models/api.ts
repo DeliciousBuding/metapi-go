@@ -23,6 +23,71 @@ import {
  * to request a fresh aggregation (longer timeout), `includePricing: true`
  * to hydrate per-account pricing.
  */
+/** One server-side page of the pricing-hydrated marketplace. */
+export type ModelsPageData = {
+  items: ModelRow[]
+  total: number
+}
+
+/** Query key for one server-side models marketplace page. */
+export function modelsPageQueryKey(params: {
+  pageIndex: number
+  pageSize: number
+  includePricing: boolean
+}) {
+  return [
+    ...modelsKeys.all,
+    'marketplace',
+    'page',
+    {
+      pageIndex: params.pageIndex,
+      pageSize: params.pageSize,
+      includePricing: params.includePricing,
+    },
+  ] as const
+}
+
+/**
+ * Fetch + shape one server-side models marketplace page. Without ?page the
+ * backend keeps the legacy response; this fetcher always sends page/pageSize
+ * and therefore always receives the paged envelope. A missing/malformed
+ * total degrades to the returned page length.
+ */
+export async function fetchModelsPage(params: {
+  pageIndex: number
+  pageSize: number
+  includePricing: boolean
+}): Promise<ModelsPageData> {
+  const response = await api.getModelsMarketplace({
+    page: params.pageIndex + 1,
+    pageSize: params.pageSize,
+    includePricing: params.includePricing,
+  })
+  const envelope = !Array.isArray(response)
+    ? (response as { items?: unknown[]; total?: number })
+    : null
+  const items = envelope?.items ?? []
+  const total =
+    envelope && typeof envelope.total === "number" && Number.isFinite(envelope.total)
+      ? envelope.total
+      : items.length
+  return { items: items as ModelRow[], total }
+}
+
+/** Fetch one server-side marketplace page by URL-owned table state. */
+export function useModelsPage(
+  params: { pageIndex: number; pageSize: number; includePricing: boolean },
+  options?: Omit<UseQueryOptions<ModelsPageData>, 'queryKey' | 'queryFn'>
+) {
+  return useQuery<ModelsPageData>({
+    queryKey: modelsPageQueryKey(params),
+    queryFn: () => fetchModelsPage(params),
+    placeholderData: (previous) => previous,
+    staleTime: 10 * 1000,
+    ...options,
+  })
+}
+
 export function useModels(
   options?: { refresh?: boolean; includePricing?: boolean },
   queryOptions?: Omit<

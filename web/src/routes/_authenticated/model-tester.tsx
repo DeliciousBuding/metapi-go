@@ -38,7 +38,7 @@ export const Route = createFileRoute('/_authenticated/model-tester')({
         const result = await api.getModelsMarketplace({
           refresh: false,
           includePricing: false,
-        })
+        }) as { models?: unknown[] } | unknown[]
         return Array.isArray(result) ? result : (result?.models ?? [])
       },
     })

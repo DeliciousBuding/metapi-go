@@ -25,12 +25,26 @@ export const systemApi = {
   getModelsMarketplace: (options?: {
     refresh?: boolean
     includePricing?: boolean
+    page?: number
+    pageSize?: number
   }) => {
     const params = new URLSearchParams()
     if (options?.refresh) params.set('refresh', '1')
     if (options?.includePricing) params.set('includePricing', '1')
+    if (options?.page != null) params.set('page', String(options.page))
+    if (options?.pageSize != null) params.set('pageSize', String(options.pageSize))
     const query = params.toString()
-    return request<{ models?: unknown[] } | unknown[]>(
+    return request<
+      | { models?: unknown[]; meta?: unknown }
+      | {
+          items?: unknown[]
+          total?: number
+          page?: number
+          pageSize?: number
+          meta?: unknown
+        }
+      | unknown[]
+    >(
       `/api/models/marketplace${query ? `?${query}` : ''}`,
       {
         timeoutMs: options?.refresh ? 45_000 : 15_000,

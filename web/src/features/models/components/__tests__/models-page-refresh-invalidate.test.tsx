@@ -61,7 +61,7 @@ vi.mock('@/lib/toast', () => ({
 }))
 
 vi.mock('../../api', () => ({
-  useModels: () => ({ data: [], isLoading: false, isFetching: false }),
+  useModelsPage: () => ({ data: { items: [], total: 0 }, isLoading: false, isFetching: false }),
 }))
 
 vi.mock('../model-detail-sheet', () => ({

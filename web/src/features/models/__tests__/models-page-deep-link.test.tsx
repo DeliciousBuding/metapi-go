@@ -70,8 +70,8 @@ vi.mock('@/components/data-table', () => ({
 }))
 
 vi.mock('../api', () => ({
-  useModels: () => ({
-    data: testState.models,
+  useModelsPage: () => ({
+    data: { items: testState.models, total: testState.models.length },
     isLoading: false,
     isFetching: false,
     error: null,
