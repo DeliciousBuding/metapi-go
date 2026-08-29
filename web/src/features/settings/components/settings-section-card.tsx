@@ -37,7 +37,7 @@ export function SettingsSectionCard({
         <div className='space-y-1'>
           {/* h2: the unique page-level h1 lives in the SettingsPage header
               (single-h1 discipline, wave 8 lane C); card titles are L2. */}
-          <h2 className='text-base leading-snug font-semibold group-data-[size=sm]/card:text-sm'>
+          <h2 className='text-base leading-snug font-medium group-data-[size=sm]/card:text-sm'>
             {title}
           </h2>
           {description ? (

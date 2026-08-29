@@ -18,6 +18,7 @@ import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { KpiValue } from '@/components/ui/kpi-value'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
@@ -132,9 +133,9 @@ export function TodaySnapshotStrip() {
       return <Skeleton className='h-7 w-28' />
     }
     return (
-      <div className='truncate text-xl font-semibold tabular-nums'>
+      <KpiValue size='md' className='truncate'>
         {formatCurrency(trend.total)}
-      </div>
+      </KpiValue>
     )
   }
 
@@ -216,14 +217,15 @@ export function TodaySnapshotStrip() {
             {attentionLoading ? (
               <Skeleton className='h-7 w-12' />
             ) : (
-              <span
+              <KpiValue
+                size='md'
                 className={cn(
-                  'text-xl font-semibold tabular-nums group-hover:underline',
+                  'group-hover:underline',
                   attentionTotal === 0 ? 'text-success' : 'text-foreground'
                 )}
               >
                 {formatInt(attentionTotal ?? null)}
-              </span>
+              </KpiValue>
             )}
           </Link>
 

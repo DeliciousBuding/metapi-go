@@ -65,7 +65,7 @@ export function BatchResults({
     <div className='flex h-full flex-col gap-3 p-4'>
       <div className='flex items-start justify-between gap-3'>
         <div>
-          <h2 className='text-base font-normal'>
+          <h2 className='text-base font-medium'>
             {t('modelTester.compare.title')}
           </h2>
           <p className='text-muted-foreground text-sm' aria-live='polite'>

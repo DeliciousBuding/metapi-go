@@ -37,6 +37,7 @@
         "failed": "登录失败，请检查服务状态。"
       },
       "internalServerError": "服务器内部错误！",
+      "serverError": "服务器错误（{{status}}），请稍后重试。",
       "notFoundTitle": "页面不存在",
       "notFoundDescription": "地址可能写错了，或页面已被移动。",
       "backHome": "返回首页",
@@ -386,13 +387,15 @@
         "goToSettings": "前往设置",
         "errors": {
           "projectIdRequired": "请输入项目 ID。",
-          "invalidProxyUrl": "请输入有效的 http 或 https 地址。",
+          "invalidProxyUrl": "请输入有效的 http(s) 或 socks5 代理地址。",
           "providerRequired": "请选择提供商。"
         }
       },
       "session": {
         "waiting": "等待授权完成…",
         "waitingDescription": "请在打开的标签页中完成授权，或手动粘贴回调地址。",
+        "openAuthorization": "打开授权页面",
+        "popupBlockedHint": "如果新标签页没有自动打开，可能是浏览器拦截了弹窗——请点击此链接手动打开授权页面。",
         "abandonTitle": "中止授权？",
         "abandonDescription": "授权仍在进行中。现在关闭将停止等待，且不会添加该连接。",
         "abandonConfirm": "中止",
@@ -533,6 +536,10 @@
         "deleteConfirmDescription": "将删除选中的 {{count}} 个站点，此操作不可撤销。",
         "deleteConfirmConfirm": "删除",
         "deleteConfirmCancel": "取消",
+        "disableConfirmTitle": "禁用选中的站点？",
+        "disableConfirmDescription": "将禁用选中的 {{count}} 个站点，禁用后将被移出路由，直至重新启用。",
+        "disableConfirmConfirm": "禁用",
+        "disableConfirmCancel": "取消",
         "enableSystemProxy": "开启系统代理",
         "disableSystemProxy": "关闭系统代理"
       },
@@ -657,6 +664,7 @@
           "apiEndpointsInvalidUrl": "端点地址必须是合法的 http(s) 地址；不允许云元数据或链路本地目标。",
           "invalidUrl": "请输入有效的地址。",
           "invalidUrlOrEmpty": "请输入有效的地址，或留空。",
+          "invalidProxyUrl": "请输入有效的 http(s) 或 socks5 代理地址，或留空。",
           "invalidJson": "请输入有效的 JSON。",
           "nameRequired": "请输入名称。",
           "nameTooLong": "名称不能超过 120 个字符。",
@@ -763,6 +771,10 @@
           "proxy24h": "代理 24h",
           "proxy24hHint": "{{success}} 成功 · {{rpm}}/分",
           "proxy24hHintRpm": "{{success}} 成功 · {{rpm}} 请求/分（近 60 秒）"
+        },
+        "error": {
+          "snapshotLoad": "仪表盘概览加载失败：{{message}}",
+          "balanceLoad": "余额历史加载失败：{{message}}"
         },
         "snapshot": {
           "title": "今日快照",
@@ -920,7 +932,13 @@
       },
       "charts": {
         "income": "收入",
-        "outcome": "支出"
+        "outcome": "支出",
+        "incomeOutcomeTitle": "每日收支对比",
+        "siteTrendTitle": "各站点每日请求趋势",
+        "siteDistributionTitle": "各站点余额分布",
+        "latencyHistogramTitle": "按延迟分桶的请求数",
+        "latencyTrendTitle": "延迟趋势（均值与 p95）",
+        "modelCostTitle": "各模型成本占比"
       },
       "chartSummary": {
         "seriesColumn": "序列",
@@ -1795,6 +1813,7 @@
           "factoryReset": "恢复出厂设置",
           "factoryResetTitle": "恢复出厂设置",
           "factoryResetDescription": "将清空所有数据并回退默认值。管理员令牌将重置为默认值。您将被登出。",
+          "factoryResetTypeHint": "请在下方输入「{{word}}」以确认。此操作无法撤销。",
           "factoryResetCountdown": "等待 {{seconds}} 秒…",
           "factoryResetConfirm": "全部清空",
           "toast": {
@@ -1970,6 +1989,7 @@
         "bulkPartial": "{{success}} 个成功，{{failed}} 个失败：{{items}}",
         "pinFailed": "更新置顶失败",
         "pinToggled": "「{{name}}」的置顶已更新。",
+        "statusToggled": "「{{name}}」的状态已更新。",
         "statusFailed": "更新状态失败",
         "checkinFailed": "更新签到失败",
         "checkinToggled": "「{{name}}」的自动签到已更新。",
@@ -1979,7 +1999,7 @@
       },
       "schema": {
         "siteRequired": "请选择站点",
-        "invalidProxyUrl": "代理地址需以 http://、https://、socks5:// 或 socks5h:// 开头",
+        "invalidProxyUrl": "代理地址需为合法的 http(s) 或 socks5 URL",
         "accessTokenRequired": "请填写 Access Token / Cookie",
         "apiKeyRequired": "请填写 API Key",
         "usernameRequired": "请填写站点用户名",
@@ -2087,7 +2107,6 @@
         "chainContextSite": "站点「{{name}}」",
         "chainContextSuffix": "配置路由。添加一条路由即可完成配置动线。",
         "loadError": "加载路由失败：{{message}}",
-        "retry": "重试",
         "emptyTitle": "暂无路由",
         "emptyDescription": "添加一条路由开始配置，或点击「自动重建」让系统按账号模型生成路由。",
         "searchPlaceholder": "搜索模型 / 名称…",
@@ -2117,8 +2136,8 @@
         "modeGroupHint": "分组：对外暴露一个模型名，聚合多个精确路由作为来源。",
         "modePatternHint": "匹配：按模型名或 re: 正则匹配上游请求。",
         "displayIcon": "显示图标（可选）",
-        "displayIconHint": "支持 `brand:<key>` 品牌图标，或 `__route_icon_none__` 禁用图标。",
-        "displayIconPlaceholder": "留空=自动品牌；brand:openai；__route_icon_none__=无",
+        "displayIconHint": "支持 brand:<key> 品牌图标；填 none 关闭图标。",
+        "displayIconPlaceholder": "留空=自动品牌；brand:openai；none=无图标",
         "contextLength": "上下文长度（可选）",
         "contextLengthHint": "路由上下文窗口（tokens）。留空或 0 = 未知，不强制。",
         "routingStrategy": "路由策略",
@@ -2461,6 +2480,8 @@
         "exportCsv": "导出 CSV",
         "exportCsvToast": "已导出 {{count}} 条记录",
         "exportCsvFailed": "导出 CSV 失败：{{message}}",
+        "exportCsvTruncated": "导出已达行数上限",
+        "exportCsvTruncatedHint": "仅导出了前 {{count}} 条记录。请缩小筛选范围以导出完整数据。",
         "exportCsvColumn": {
           "timestamp": "时间戳",
           "httpStatus": "HTTP 状态",
@@ -2567,11 +2588,11 @@
         "platform": "平台",
         "allPlatforms": "全部平台",
         "read": "阅读状态",
-        "readAll": "全部",
+        "readAll": "阅读：全部",
         "readTrue": "已读",
         "readFalse": "未读",
         "status": "状态",
-        "statusAll": "全部",
+        "statusAll": "状态：全部",
         "statusActive": "生效中",
         "statusExpired": "已过期",
         "statusDismissed": "已忽略"
@@ -2709,7 +2730,8 @@
         "forest-whisper": "森林低语",
         "ocean-breeze": "海风",
         "lavender-dream": "薰衣草梦"
-      }
+      },
+      "toggle": "切换主题"
     },
     "observability": {
       "title": "可观测性",

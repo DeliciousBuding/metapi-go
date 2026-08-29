@@ -19,6 +19,7 @@ import {
   EmptyHeader,
   EmptyMedia,
 } from '@/components/ui/empty'
+import { KpiValue } from '@/components/ui/kpi-value'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
@@ -55,11 +56,9 @@ function StatCell({
   return (
     <div className='bg-card rounded-lg border p-3'>
       <p className='text-muted-foreground text-xs'>{label}</p>
-      <p
-        className={`text-2xl font-semibold tabular-nums ${resolveToneClass(tone)}`}
-      >
+      <KpiValue size='lg' className={resolveToneClass(tone)}>
         {value}
-      </p>
+      </KpiValue>
     </div>
   )
 }
@@ -432,9 +431,9 @@ function InventoryMetric({
   return (
     <div>
       <p className='text-muted-foreground text-xs'>{label}</p>
-      <p className={`text-lg font-semibold tabular-nums ${className}`}>
+      <KpiValue size='sm' className={className}>
         {value}
-      </p>
+      </KpiValue>
     </div>
   )
 }

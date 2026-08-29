@@ -216,23 +216,26 @@ describe('getAccountFormSchema — siteId', () => {
 // ---------------------------------------------------------------------------
 
 describe('getAccountFormSchema — proxyUrl', () => {
-  it.each([
-    ['empty', ''],
-    ['http', 'http://p'],
-    ['https', 'https://p'],
-    ['socks5', 'socks5://proxy.example:1080'],
-    ['socks5h', 'socks5h://proxy.example:1080'],
-  ])('accepts a %s proxyUrl', (_label, proxyUrl) => {
-    expect(
-      getAccountFormSchema().safeParse({
-        ...validSessionForm(),
-        proxyUrl,
-      }).success
-    ).toBe(true)
+  it('accepts an empty / http(s) / socks proxyUrl (#1009)', () => {
+    for (const proxyUrl of [
+      '',
+      'http://p',
+      'https://p',
+      'socks://p:1080',
+      'socks5://p:1080',
+      'socks5h://p:1080',
+    ]) {
+      expect(
+        getAccountFormSchema().safeParse({ ...validSessionForm(), proxyUrl })
+          .success,
+        `expected ${JSON.stringify(proxyUrl)} to be accepted`
+      ).toBe(true)
+    }
   })
 
   it.each([
     ['ftp scheme', 'ftp://x'],
+    ['socks4 (not backend-supported)', 'socks4://x:1080'],
     ['bare protocol with no host', 'https://'],
     ['socks5 with no host', 'socks5://'],
     ['plain string', 'not a url'],
@@ -245,7 +248,7 @@ describe('getAccountFormSchema — proxyUrl', () => {
     if (result.success) return
     expectLocalized(
       result.error.issues[0]?.message,
-      '代理地址需以 http://、https://、socks5:// 或 socks5h:// 开头'
+      '代理地址需为合法的 http(s) 或 socks5 URL'
     )
   })
 })

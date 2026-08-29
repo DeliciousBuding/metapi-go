@@ -9,6 +9,7 @@ web/dist/
 /node_modules/
 /package.json
 /package-lock.json
+/bun.lock
 /test-results/
 
 # Binaries

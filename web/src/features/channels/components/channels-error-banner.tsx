@@ -18,6 +18,7 @@ import { Filter, TriangleAlert, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
+import { Notice } from '@/components/ui/notice'
 
 type ChannelsErrorBannerProps = {
   /** Number of failing channels in the loaded list; renders nothing at 0. */
@@ -40,9 +41,10 @@ export function ChannelsErrorBanner({
   if (errorCount === 0) return null
 
   return (
-    <div
+    <Notice
+      tone='warning'
       role='alert'
-      className='border-warning/40 bg-warning/10 text-warning-soft-fg flex items-center justify-between gap-3 rounded-lg border p-3 text-sm'
+      className='items-center justify-between gap-3'
     >
       <div className='flex items-start gap-2'>
         <TriangleAlert className='mt-0.5 size-4 shrink-0' />
@@ -63,6 +65,6 @@ export function ChannelsErrorBanner({
           {t('channels.errorBanner.filterButton')}
         </Button>
       )}
-    </div>
+    </Notice>
   )
 }

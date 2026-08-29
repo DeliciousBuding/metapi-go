@@ -27,6 +27,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Notice } from '@/components/ui/notice'
 import { Spinner } from '@/components/ui/spinner'
 import { api } from '@/lib/api'
 import type {
@@ -221,12 +222,9 @@ export function ModelVerifyDialog({
           </div>
 
           {phase === 'error' && (
-            <div
-              role='alert'
-              className='border-destructive/40 bg-destructive/10 text-destructive rounded-md border p-2 text-xs'
-            >
+            <Notice tone='destructive' size='compact' role='alert'>
               {t('models.verify.errorMessage', { message: errorMessage })}
-            </div>
+            </Notice>
           )}
 
           {phase === 'done' && result && (

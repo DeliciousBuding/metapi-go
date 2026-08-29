@@ -24,6 +24,7 @@ const testState = vi.hoisted(() => ({
 
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => testState.navigate,
+  useSearch: () => ({}),
   Link: ({ children }: { children?: ReactNode }) => <a>{children}</a>,
 }))
 

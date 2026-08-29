@@ -11,6 +11,7 @@
 // clickable external link unless it resolves safely against the trusted Site URL.
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import {
   ChevronLeft,
   ChevronRight,
@@ -53,7 +54,6 @@ import { resolveAnnouncementSourceURL } from '../announcement-source-url'
 import { useSiteAnnouncements, useSiteAnnouncementSyncTask } from '../api'
 import {
   buildSiteAnnouncementsParams,
-  DEFAULT_SITE_ANNOUNCEMENTS_FILTERS,
   SITE_ANNOUNCEMENTS_PAGE_SIZE,
   siteAnnouncementsKeys,
   TERMINAL_SYNC_TASK_STATUSES,
@@ -61,6 +61,10 @@ import {
   type SiteAnnouncementFilters,
   type SiteAnnouncementSyncTask,
 } from '../types'
+import {
+  buildSiteAnnouncementsHref,
+  parseSiteAnnouncementsSearch,
+} from '../url-state'
 
 type BadgeVariant =
   | 'default'
@@ -140,9 +144,13 @@ export function SiteAnnouncementsPage() {
   const { t, i18n } = useTranslation()
   const locale = toBcp47(i18n.language || 'en')
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
 
-  const [filters, setFilters] = useState(DEFAULT_SITE_ANNOUNCEMENTS_FILTERS)
-  const [page, setPage] = useState(0)
+  const search = useSearch({ from: '/_authenticated/site-announcements' })
+  const { filters, page } = useMemo(
+    () => parseSiteAnnouncementsSearch(search),
+    [search]
+  )
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
 
   const params = useMemo(
@@ -176,11 +184,14 @@ export function SiteAnnouncementsPage() {
     filters.siteId !== null ||
     filters.platform !== '' ||
     filters.read !== 'all' ||
-    filters.status !== 'all'
+    filters.status !== 'all' ||
+    // A deep-linked stale page cursor behaves like a filter: the "no matches"
+    // variant is less misleading than "nothing synced yet" + the Sync CTA.
+    page > 0
 
   function updateFilters(patch: Partial<SiteAnnouncementFilters>) {
-    setFilters((current) => ({ ...current, ...patch }))
-    setPage(0)
+    const next = { ...filters, ...patch }
+    void navigate({ href: buildSiteAnnouncementsHref(next, 0), replace: true })
   }
 
   // --- Background sync (POST /sync → poll api.getTask) ---------------------
@@ -284,7 +295,7 @@ export function SiteAnnouncementsPage() {
     <div className='flex flex-col gap-4 p-4 md:p-6'>
       <header className='flex flex-wrap items-start justify-between gap-3'>
         <div>
-          <h1 className='text-lg font-semibold tracking-tight'>
+          <h1 className='text-lg font-normal tracking-tight'>
             {t('siteAnnouncements.page.title')}
           </h1>
           <p className='text-muted-foreground text-sm'>
@@ -349,9 +360,18 @@ export function SiteAnnouncementsPage() {
             aria-label={t('siteAnnouncements.filters.site')}
             className='w-44'
           >
-            <SelectValue
-              placeholder={t('siteAnnouncements.filters.allSites')}
-            />
+            {/* base-ui only resolves the item label while the popup is
+                mounted; map the value explicitly so the closed trigger
+                never falls back to the raw "all" sentinel. */}
+            <SelectValue>
+              {(value: string) =>
+                value === 'all'
+                  ? t('siteAnnouncements.filters.allSites')
+                  : ((sitesQuery.data ?? []).find(
+                      (site) => String(site.id) === value
+                    )?.name ?? value)
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value='all'>
@@ -375,9 +395,13 @@ export function SiteAnnouncementsPage() {
             aria-label={t('siteAnnouncements.filters.platform')}
             className='w-40'
           >
-            <SelectValue
-              placeholder={t('siteAnnouncements.filters.allPlatforms')}
-            />
+            <SelectValue>
+              {(value: string) =>
+                value === 'all'
+                  ? t('siteAnnouncements.filters.allPlatforms')
+                  : value
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value='all'>
@@ -405,7 +429,17 @@ export function SiteAnnouncementsPage() {
             aria-label={t('siteAnnouncements.filters.read')}
             className='w-36'
           >
-            <SelectValue placeholder={t('siteAnnouncements.filters.readAll')} />
+            <SelectValue>
+              {(value: string) => {
+                if (value === 'true') {
+                  return t('siteAnnouncements.filters.readTrue')
+                }
+                if (value === 'false') {
+                  return t('siteAnnouncements.filters.readFalse')
+                }
+                return t('siteAnnouncements.filters.readAll')
+              }}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value='all'>
@@ -436,9 +470,20 @@ export function SiteAnnouncementsPage() {
             aria-label={t('siteAnnouncements.filters.status')}
             className='w-36'
           >
-            <SelectValue
-              placeholder={t('siteAnnouncements.filters.statusAll')}
-            />
+            <SelectValue>
+              {(value: string) => {
+                if (value === 'active') {
+                  return t('siteAnnouncements.filters.statusActive')
+                }
+                if (value === 'expired') {
+                  return t('siteAnnouncements.filters.statusExpired')
+                }
+                if (value === 'dismissed') {
+                  return t('siteAnnouncements.filters.statusDismissed')
+                }
+                return t('siteAnnouncements.filters.statusAll')
+              }}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value='all'>
@@ -638,7 +683,15 @@ export function SiteAnnouncementsPage() {
               variant='outline'
               size='sm'
               disabled={page === 0}
-              onClick={() => setPage((current) => Math.max(0, current - 1))}
+              onClick={() =>
+                void navigate({
+                  href: buildSiteAnnouncementsHref(
+                    filters,
+                    Math.max(0, page - 1)
+                  ),
+                  replace: true,
+                })
+              }
             >
               <ChevronLeft className='size-3.5' />
               {t('siteAnnouncements.pagination.previous')}
@@ -651,7 +704,12 @@ export function SiteAnnouncementsPage() {
               variant='outline'
               size='sm'
               disabled={!hasMore}
-              onClick={() => setPage((current) => current + 1)}
+              onClick={() =>
+                void navigate({
+                  href: buildSiteAnnouncementsHref(filters, page + 1),
+                  replace: true,
+                })
+              }
             >
               {t('siteAnnouncements.pagination.next')}
               <ChevronRight className='size-3.5' />

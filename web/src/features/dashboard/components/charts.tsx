@@ -305,7 +305,11 @@ export function IncomeOutcomeChart({ data }: { data: IncomeOutcomePoint[] }) {
     [t]
   )
   return (
-    <ChartContainer config={config} className='h-full w-full'>
+    <ChartContainer
+      config={config}
+      className='h-full w-full'
+      aria-label={t('dashboard.charts.incomeOutcomeTitle')}
+    >
       <BarChart data={rows} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
         <CartesianGrid vertical={false} strokeDasharray='4 4' />
         <XAxis
@@ -353,6 +357,7 @@ export function IncomeOutcomeChart({ data }: { data: IncomeOutcomePoint[] }) {
 
 /** Per-site spend over time — one line per site. */
 export function SiteTrendChart({ data }: { data: SiteTrendPoint[] }) {
+  const { t } = useTranslation()
   const { rows, sites } = useMemo(() => pivotSiteTrend(data), [data])
   const formatTick = useDateTickFormatter()
   const formatTooltipDate = useDateTooltipFormatter()
@@ -364,7 +369,11 @@ export function SiteTrendChart({ data }: { data: SiteTrendPoint[] }) {
     return cfg
   }, [sites])
   return (
-    <ChartContainer config={config} className='h-full w-full'>
+    <ChartContainer
+      config={config}
+      className='h-full w-full'
+      aria-label={t('dashboard.charts.siteTrendTitle')}
+    >
       <LineChart data={rows} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
         <CartesianGrid vertical={false} strokeDasharray='4 4' />
         <XAxis
@@ -420,6 +429,7 @@ export function SiteDistributionChart({
   data: SiteDistributionSlice[]
   labels: { balance: string; accounts: string; share: string }
 }) {
+  const { t } = useTranslation()
   const pieData = useMemo(
     () =>
       data.map((slice, index) => ({
@@ -451,7 +461,11 @@ export function SiteDistributionChart({
     ],
   })
   return (
-    <ChartContainer config={config} className='h-full w-full'>
+    <ChartContainer
+      config={config}
+      className='h-full w-full'
+      aria-label={t('dashboard.charts.siteDistributionTitle')}
+    >
       <PieChart>
         <ChartLegend
           content={<DonutLegend />}
@@ -489,8 +503,13 @@ export function LatencyHistogramChart({
 }: {
   data: Array<{ label: string; count: number }>
 }) {
+  const { t } = useTranslation()
   return (
-    <ChartContainer config={LATENCY_HISTOGRAM_CONFIG} className='h-full w-full'>
+    <ChartContainer
+      config={LATENCY_HISTOGRAM_CONFIG}
+      className='h-full w-full'
+      aria-label={t('dashboard.charts.latencyHistogramTitle')}
+    >
       <BarChart data={data} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
         <CartesianGrid vertical={false} strokeDasharray='4 4' />
         <XAxis dataKey='label' tickMargin={8} minTickGap={12} />
@@ -523,6 +542,7 @@ export function LatencyTrendChart({
   avgLabel: string
   p95Label: string
 }) {
+  const { t } = useTranslation()
   const rows = useMemo(
     () => pivotLatencyTrend(data, avgLabel, p95Label),
     [data, avgLabel, p95Label]
@@ -537,7 +557,11 @@ export function LatencyTrendChart({
     [avgLabel, p95Label]
   )
   return (
-    <ChartContainer config={config} className='h-full w-full'>
+    <ChartContainer
+      config={config}
+      className='h-full w-full'
+      aria-label={t('dashboard.charts.latencyTrendTitle')}
+    >
       <LineChart data={rows} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
         <CartesianGrid vertical={false} strokeDasharray='4 4' />
         <XAxis
@@ -588,6 +612,7 @@ export function ModelCostChart({
   data: ModelCostRow[]
   labels: { cost: string; calls: string; tokens: string; share: string }
 }) {
+  const { t } = useTranslation()
   const pieData = useMemo(
     () =>
       data.map((row, index) => ({
@@ -623,7 +648,11 @@ export function ModelCostChart({
     ],
   })
   return (
-    <ChartContainer config={config} className='h-full w-full'>
+    <ChartContainer
+      config={config}
+      className='h-full w-full'
+      aria-label={t('dashboard.charts.modelCostTitle')}
+    >
       <PieChart>
         <ChartLegend
           content={<DonutLegend />}

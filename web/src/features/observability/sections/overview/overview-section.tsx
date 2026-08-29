@@ -57,7 +57,7 @@ function formatBucketHourUtc(iso: string): string {
  * are ~23px wide, so no two ticks collide; tickEvery targets ≤ 6 labels.
  */
 function tickSpanValues(bucketCount: number): number[] {
-  const tickEvery = Math.max(2, Math.ceil(bucketCount / 6))
+  const tickEvery = Math.max(3, Math.ceil(bucketCount / 6))
   const ticks: number[] = []
   for (let i = 0; i < bucketCount; i += tickEvery) {
     ticks.push(i)
@@ -273,8 +273,9 @@ function renderHeatmapBody(
             tickSpanValues(layout.buckets.length).map((index) => (
               <span
                 key={layout.buckets[index]}
-                className='text-muted-foreground absolute top-0 text-[9px] leading-3 whitespace-nowrap tabular-nums'
+                className='text-muted-foreground absolute top-0 text-[10px] leading-3 whitespace-nowrap tabular-nums'
                 style={{ left: 161 + index * 15 }}
+                title={formatBucket(layout.buckets[index])}
               >
                 {formatBucketHourUtc(layout.buckets[index])}
               </span>

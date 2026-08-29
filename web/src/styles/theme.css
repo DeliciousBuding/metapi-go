@@ -129,11 +129,11 @@
   --focus-ring: oklch(0.58 0.16 249.003);
   --overlay: oklch(0 0 0 / 0.1);
   --shadow-card-hover: 0 4px 12px oklch(0 0 0 / 0.06);
-  --chart-1: oklch(0.72 0.18 250);
-  --chart-2: oklch(0.65 0.15 200);
-  --chart-3: oklch(0.7 0.12 280);
-  --chart-4: oklch(0.68 0.19 325);
-  --chart-5: oklch(0.68 0.16 155);
+  --chart-1: oklch(0.56 0.18 250);
+  --chart-2: oklch(0.5263 0.15 200);
+  --chart-3: oklch(0.5701 0.12 280);
+  --chart-4: oklch(0.587 0.19 325);
+  --chart-5: oklch(0.538 0.16 155);
   --sidebar: color-mix(in oklch, var(--foreground) 0.5%, var(--background));
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-accent: color-mix(in oklch, var(--primary) 12%, var(--background));

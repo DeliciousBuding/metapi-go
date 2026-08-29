@@ -20,6 +20,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { api } from '@/lib/api'
 import { toast } from '@/lib/toast'
 
@@ -337,11 +338,11 @@ export function ProxyTransportSection() {
                   )}
                 </FormLabel>
                 <FormControl>
-                  <textarea
+                  <Textarea
                     {...field}
                     value={field.value ?? ''}
                     rows={4}
-                    className='border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-focus-ring flex field-sizing-content w-full rounded-md border bg-transparent px-3 py-2 font-mono text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]'
+                    className='font-mono'
                   />
                 </FormControl>
                 <FormDescription>
@@ -388,12 +389,12 @@ export function ProxyTransportSection() {
                   {t('settings.proxyModels.proxyTransport.fields.payloadRules')}
                 </FormLabel>
                 <FormControl>
-                  <textarea
+                  <Textarea
                     {...field}
                     value={field.value ?? ''}
                     rows={6}
                     placeholder='{ "gpt-5.5": { "temperature": 0.7 } }'
-                    className='border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-focus-ring flex field-sizing-content w-full rounded-md border bg-transparent px-3 py-2 font-mono text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]'
+                    className='font-mono'
                   />
                 </FormControl>
                 <FormDescription>

@@ -17,6 +17,10 @@
 //   5. light --destructive-soft-fg + dark --info-soft-fg soft badges
 //   6. default light --sidebar-accent-foreground + the removed pure-black
 //      lake-view dark override (were 3.95 / 1.75:1)
+//   7. W19-T2 B1: chart-1..5 across presets — light values darkened and dark
+//      values lightened so every chart color clears AA text contrast on its
+//      card surface (chart colors double as StatusBadge text-chart-N
+//      foregrounds, so text AA 4.5:1 — not the 3:1 non-text floor — applies)
 
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -309,6 +313,23 @@ function softRatio(
   return contrastRatio(oklchToSrgb(fg), fill)
 }
 
+/** The legacy recipe the T2-§3.1 batch replaced: text-<tone> (the base color
+ * itself) on bg-<tone>/10. Kept under gate so a reintroduction cannot drift
+ * below where it ships today without a documented exemption. */
+function baseOnSoftRatio(
+  preset: string,
+  mode: 'light' | 'dark',
+  tone: string
+): number | null {
+  const tokens = effectiveTokens(preset, mode)
+  const base = resolveValue(tokens[`--${tone}`], tokens)
+  const card = resolveValue(tokens['--card'], tokens)
+  if (!base || !card) return null
+  const alpha = tone === 'destructive' && mode === 'dark' ? 0.2 : 0.1
+  const fill = composite(oklchToSrgb(base), alpha, oklchToSrgb(card))
+  return contrastRatio(oklchToSrgb(base), fill)
+}
+
 // ---------- audit surface ----------
 
 const SOLID_PAIRS: Array<[string, string]> = [
@@ -325,6 +346,7 @@ const SOLID_PAIRS: Array<[string, string]> = [
   ['sidebar-accent-foreground', 'sidebar-accent'],
 ]
 const SOFT_TONES = ['destructive', 'info', 'success', 'warning']
+const CHART_TOKENS = ['chart-1', 'chart-2', 'chart-3', 'chart-4', 'chart-5']
 
 /** Focus indicators are non-text UI: WCAG 1.4.11 requires 3:1, not 4.5:1. */
 const FOCUS_RING_MIN = 3
@@ -364,6 +386,70 @@ describe('theme contrast gate (WCAG AA 4.5:1)', () => {
           }
           const key = `${preset}|${mode}|${label}`
           if (ratio < AA && !(key in EXEMPTIONS)) {
+            failures.push(
+              `${preset} ${mode}: ${label} = ${ratio.toFixed(2)} (< ${AA})`
+            )
+          }
+        }
+      }
+    }
+    expect(failures).toEqual([])
+  })
+
+  it('the retired base-on-soft recipe stays above the quarantine floor', () => {
+    // W19-T2 B2 blind spot: the gate previously only tracked
+    // `<tone>-soft-fg on <tone>/10`. The base-on-soft recipe
+    // (text-<tone> on bg-<tone>/10) was retired from the shipped UI by the
+    // T2-§3.1 batch because it measures sub-AA almost everywhere (55 of 80
+    // preset×mode×tone pairs). Nobody ships it anymore, so per-pair AA here
+    // would just be a 55-entry exemption wall. The floor instead pins the
+    // worst measured residual (anthropic light warning on warning/10 =
+    // 1.65:1) so any further catastrophic tone drift fails loudly — and a
+    // reintroduction of the recipe in a component is caught in review
+    // against this documented quarantine.
+    const QUARANTINE_MIN = 1.6
+    const failures: string[] = []
+    for (const preset of PRESETS) {
+      for (const mode of ['light', 'dark'] as const) {
+        for (const tone of SOFT_TONES) {
+          const alpha = tone === 'destructive' && mode === 'dark' ? 20 : 10
+          const label = `${tone} on ${tone}/${alpha}`
+          const ratio = baseOnSoftRatio(preset, mode, tone)
+          if (ratio === null) {
+            failures.push(`${preset} ${mode}: ${label} could not be resolved`)
+            continue
+          }
+          if (ratio < QUARANTINE_MIN) {
+            failures.push(
+              `${preset} ${mode}: ${label} = ${ratio.toFixed(2)} (< ${QUARANTINE_MIN})`
+            )
+          }
+        }
+      }
+    }
+    expect(failures).toEqual([])
+  })
+
+  it('chart colors clear AA text contrast on the card surface across presets and modes', () => {
+    // W19-T2 B1: chart series colors are also StatusBadge text foregrounds
+    // (text-chart-N in status-badge.tsx), so text AA applies, not the 3:1
+    // non-text floor. The 2026-08-29 batch darkened 40 light values (worst
+    // 1.08:1 lavender-dream-family near-whites) and lightened 8 dark values
+    // that had inherited darkened primary tones (~3.2-4.3:1).
+    const failures: string[] = []
+    for (const preset of PRESETS) {
+      for (const mode of ['light', 'dark'] as const) {
+        const tokens = effectiveTokens(preset, mode)
+        const card = resolveValue(tokens['--card'], tokens)
+        for (const chart of CHART_TOKENS) {
+          const label = `${chart} on card`
+          const color = resolveValue(tokens[`--${chart}`], tokens)
+          if (!color || !card) {
+            failures.push(`${preset} ${mode}: ${label} could not be resolved`)
+            continue
+          }
+          const ratio = contrastRatio(oklchToSrgb(color), oklchToSrgb(card))
+          if (ratio < AA) {
             failures.push(
               `${preset} ${mode}: ${label} = ${ratio.toFixed(2)} (< ${AA})`
             )

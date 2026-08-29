@@ -16,6 +16,8 @@
 
 import { z } from 'zod'
 
+import { isEmptyOrProxyUrl } from '@/lib/helpers/proxyUrl'
+
 import type { Account, AccountPayload, CredentialMode } from '../types'
 
 // ---------------------------------------------------------------------------
@@ -42,7 +44,7 @@ export function getAccountFormSchema(requireCredential = true) {
         .string()
         .trim()
         .optional()
-        .refine((value) => !value || /^(https?|socks5h?):\/\/.+/.test(value), {
+        .refine((value) => isEmptyOrProxyUrl(value ?? ''), {
           message: 'accounts.schema.invalidProxyUrl',
         }),
       refreshToken: z.string().trim().optional(),

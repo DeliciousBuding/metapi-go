@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Notice } from '@/components/ui/notice'
 import { Spinner } from '@/components/ui/spinner'
 import { toBcp47 } from '@/i18n/languages'
 import { sitesApi, type SiteProbeResult } from '@/lib/api/sites'
@@ -176,16 +177,13 @@ export function SiteProbePanel({ siteId }: { siteId: number }) {
       )}
 
       {phase === 'error' && (
-        <div
-          role='alert'
-          className='border-destructive/40 bg-destructive/10 text-destructive rounded-md border p-2 text-xs'
-        >
+        <Notice tone='destructive' size='compact' role='alert'>
           <p>
             {t('sites.probe.errorMessage', {
               message: errorMessage ?? '',
             })}
           </p>
-        </div>
+        </Notice>
       )}
 
       {summary && (

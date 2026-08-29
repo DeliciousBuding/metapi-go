@@ -37,6 +37,7 @@
         "failed": "Login failed, please check the service status."
       },
       "internalServerError": "Internal Server Error!",
+      "serverError": "Server error ({{status}}). Please try again later.",
       "notFoundTitle": "Page not found",
       "notFoundDescription": "The address may be wrong or the page has been moved.",
       "backHome": "Back to dashboard",
@@ -386,13 +387,15 @@
         "goToSettings": "Go to settings",
         "errors": {
           "projectIdRequired": "Please enter the project ID.",
-          "invalidProxyUrl": "Please enter a valid http or https URL.",
+          "invalidProxyUrl": "Please enter a valid http(s) or socks5 proxy URL.",
           "providerRequired": "Please select a provider."
         }
       },
       "session": {
         "waiting": "Waiting for authorization…",
         "waitingDescription": "Complete the authorization in the opened tab, or paste the callback URL manually.",
+        "openAuthorization": "Open authorization page",
+        "popupBlockedHint": "If a new tab did not open, your browser may have blocked the pop-up — use this link to open the authorization page manually.",
         "abandonTitle": "Abort authorization?",
         "abandonDescription": "Authorization is still in progress. Closing now stops waiting, and the connection will not be added.",
         "abandonConfirm": "Abort",
@@ -533,6 +536,10 @@
         "deleteConfirmDescription": "This will delete the {{count}} selected site(s). This action cannot be undone.",
         "deleteConfirmConfirm": "Delete",
         "deleteConfirmCancel": "Cancel",
+        "disableConfirmTitle": "Disable selected sites?",
+        "disableConfirmDescription": "This will disable the {{count}} selected site(s), taking them out of routing until re-enabled.",
+        "disableConfirmConfirm": "Disable",
+        "disableConfirmCancel": "Cancel",
         "enableSystemProxy": "Enable system proxy",
         "disableSystemProxy": "Disable system proxy"
       },
@@ -657,6 +664,7 @@
           "apiEndpointsInvalidUrl": "Endpoint URLs must be valid http(s) URLs; cloud metadata and link-local targets are not allowed.",
           "invalidUrl": "Please enter a valid URL.",
           "invalidUrlOrEmpty": "Please enter a valid URL, or leave it empty.",
+          "invalidProxyUrl": "Please enter a valid http(s) or socks5 proxy URL, or leave it empty.",
           "invalidJson": "Please enter valid JSON.",
           "nameRequired": "Please enter a name.",
           "nameTooLong": "Name must be at most 120 characters.",
@@ -763,6 +771,10 @@
           "proxy24h": "Proxy 24h",
           "proxy24hHint": "{{success}} ok · {{rpm}}/min",
           "proxy24hHintRpm": "{{success}} ok · {{rpm}} req/min (last 60s)"
+        },
+        "error": {
+          "snapshotLoad": "Failed to load the dashboard overview: {{message}}",
+          "balanceLoad": "Failed to load the balance history: {{message}}"
         },
         "snapshot": {
           "title": "Today snapshot",
@@ -920,7 +932,13 @@
       },
       "charts": {
         "income": "Income",
-        "outcome": "Outcome"
+        "outcome": "Outcome",
+        "incomeOutcomeTitle": "Daily income vs spend",
+        "siteTrendTitle": "Daily requests by site",
+        "siteDistributionTitle": "Balance distribution by site",
+        "latencyHistogramTitle": "Requests by latency bucket",
+        "latencyTrendTitle": "Latency trend (avg and p95)",
+        "modelCostTitle": "Cost share by model"
       },
       "chartSummary": {
         "seriesColumn": "Series",
@@ -1795,6 +1813,7 @@
           "factoryReset": "Factory reset",
           "factoryResetTitle": "Factory reset",
           "factoryResetDescription": "This wipes ALL data and reverts to defaults. The admin token will reset to the default. You will be signed out.",
+          "factoryResetTypeHint": "Type \"{{word}}\" below to confirm. This cannot be undone.",
           "factoryResetCountdown": "Wait {{seconds}}s…",
           "factoryResetConfirm": "Wipe everything",
           "toast": {
@@ -1970,6 +1989,7 @@
         "bulkPartial": "{{success}} succeeded, {{failed}} failed: {{items}}",
         "pinFailed": "Failed to update pin",
         "pinToggled": "Pin for \"{{name}}\" updated.",
+        "statusToggled": "Status updated for \"{{name}}\".",
         "statusFailed": "Failed to update status",
         "checkinFailed": "Failed to update check-in",
         "checkinToggled": "Check-in for \"{{name}}\" updated.",
@@ -1979,7 +1999,7 @@
       },
       "schema": {
         "siteRequired": "Please select a site",
-        "invalidProxyUrl": "Proxy URL must start with http://, https://, socks5:// or socks5h://",
+        "invalidProxyUrl": "Proxy URL must be a valid http(s) or socks5 URL",
         "accessTokenRequired": "Please enter the Access Token / Cookie",
         "apiKeyRequired": "Please enter the API Key",
         "usernameRequired": "Please enter the site username",
@@ -2087,7 +2107,6 @@
         "chainContextSite": "site \"{{name}}\"",
         "chainContextSuffix": "— add a route to complete the configuration flow.",
         "loadError": "Failed to load routes: {{message}}",
-        "retry": "Retry",
         "emptyTitle": "No routes",
         "emptyDescription": "Add a route to start configuring, or click \"Auto-rebuild\" to let the system generate routes from account models.",
         "searchPlaceholder": "Search model / name…",
@@ -2117,8 +2136,8 @@
         "modeGroupHint": "Group: expose one model name externally, aggregating multiple exact routes as sources.",
         "modePatternHint": "Match: match upstream requests by model name or re: regex.",
         "displayIcon": "Display icon (optional)",
-        "displayIconHint": "Supports brand:<key> brand icons, or __route_icon_none__ to disable the icon.",
-        "displayIconPlaceholder": "Empty=auto brand; brand:openai; __route_icon_none__=none",
+        "displayIconHint": "Supports brand:<key> brand icons; enter none to hide the icon.",
+        "displayIconPlaceholder": "Empty=auto brand; brand:openai; none=no icon",
         "contextLength": "Context length (optional)",
         "contextLengthHint": "Route context window (tokens). Empty or 0 = unknown, not enforced.",
         "routingStrategy": "Routing strategy",
@@ -2461,6 +2480,8 @@
         "exportCsv": "Export CSV",
         "exportCsvToast": "Exported {{count}} rows",
         "exportCsvFailed": "CSV export failed: {{message}}",
+        "exportCsvTruncated": "Export hit the row limit",
+        "exportCsvTruncatedHint": "Only the first {{count}} rows were exported. Narrow the filters to export the full dataset.",
         "exportCsvColumn": {
           "timestamp": "Timestamp",
           "httpStatus": "HTTP status",
@@ -2567,11 +2588,11 @@
         "platform": "Platform",
         "allPlatforms": "All platforms",
         "read": "Read status",
-        "readAll": "All",
+        "readAll": "Read: All",
         "readTrue": "Read",
         "readFalse": "Unread",
         "status": "Status",
-        "statusAll": "All",
+        "statusAll": "Status: All",
         "statusActive": "Active",
         "statusExpired": "Expired",
         "statusDismissed": "Dismissed"
@@ -2709,7 +2730,8 @@
         "forest-whisper": "Forest Whisper",
         "ocean-breeze": "Ocean Breeze",
         "lavender-dream": "Lavender Dream"
-      }
+      },
+      "toggle": "Toggle theme"
     },
     "observability": {
       "title": "Observability",

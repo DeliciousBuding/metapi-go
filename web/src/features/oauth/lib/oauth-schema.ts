@@ -14,6 +14,7 @@
 
 import { z } from 'zod'
 
+import { isEmptyOrProxyUrl } from '@/lib/helpers/proxyUrl'
 import {
   encodeSortingParam,
   stringSearchParam,
@@ -22,21 +23,10 @@ import {
 
 const HTTP_OR_EMPTY_MESSAGE_KEY = 'oauth.form.errors.invalidProxyUrl'
 
-function isEmptyOrHttpUrl(value: string): boolean {
-  const trimmed = value.trim()
-  if (trimmed.length === 0) return true
-  try {
-    const parsed = new URL(trimmed)
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
-  } catch {
-    return false
-  }
-}
-
 export const oauthStartSchema = z.object({
   provider: z.string().trim().min(1, 'oauth.form.errors.providerRequired'),
   projectId: z.string().trim(),
-  proxyUrl: z.string().refine(isEmptyOrHttpUrl, HTTP_OR_EMPTY_MESSAGE_KEY),
+  proxyUrl: z.string().refine(isEmptyOrProxyUrl, HTTP_OR_EMPTY_MESSAGE_KEY),
   useSystemProxy: z.boolean(),
 })
 

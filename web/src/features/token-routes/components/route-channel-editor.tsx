@@ -22,7 +22,7 @@ import { useDeleteChannel, useRouteChannels, useUpdateChannel } from '../api'
 import type { RouteChannel } from '../types'
 
 const GRID_CLASS =
-  'grid grid-cols-[minmax(0,1fr)_64px_64px_40px_40px] items-center gap-2'
+  'grid grid-cols-[minmax(140px,1fr)_64px_64px_40px_40px] items-center gap-2'
 
 type NumberFieldProps = {
   value: number | null | undefined
@@ -254,7 +254,7 @@ export function RouteChannelEditor({ routeId }: { routeId: number }) {
         </p>
       )}
       {!channelsQuery.isLoading && channels.length > 0 && (
-        <div className='rounded-lg border'>
+        <div className='overflow-x-auto rounded-lg border'>
           <div
             className={`${GRID_CLASS} text-muted-foreground border-b px-2 py-1 text-[11px]`}
           >

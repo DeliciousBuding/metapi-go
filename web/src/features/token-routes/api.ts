@@ -417,6 +417,9 @@ export function useRebuildRoutes() {
     },
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: routeQueryKeys.all })
+      // Rebuild rewrites channel bindings; refresh the channels domain so the
+      // Channels page reflects inserted/removed channels too.
+      void queryClient.invalidateQueries({ queryKey: channelsKeys.all })
       if (data?.queued) {
         toast.info(i18n.t('tokenRoutes.toast.rebuildStarted'))
         return

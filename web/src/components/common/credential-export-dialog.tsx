@@ -578,10 +578,15 @@ function ProfileRow({
       <pre
         className={cn(
           'bg-muted/40 max-h-28 overflow-auto rounded-b-lg border-t px-3 py-2 font-mono text-xs',
-          masked && 'select-none blur-[5px]'
+          masked && 'select-none'
         )}
+        aria-hidden={masked || undefined}
       >
-        {content}
+        {/* Masked profile must not keep the plaintext in the DOM/accessibility
+            tree — blur is visual-only and screen readers would read the key
+            (W19-T2 flow). Render a placeholder instead, matching the top-level
+            key row's real string mask; the copy button still uses the value. */}
+        {masked ? '••••••••' : content}
       </pre>
     </div>
   )

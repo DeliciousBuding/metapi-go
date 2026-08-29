@@ -350,7 +350,20 @@ export function ProxyLogsPage() {
       anchor.download = `metapi-proxy-logs-${formatExportStamp()}.csv`
       anchor.click()
       URL.revokeObjectURL(url)
-      toast.success(t('proxyLogs.page.exportCsvToast', { count: rows.length }))
+      if (rows.length >= PROXY_LOGS_CSV_EXPORT_LIMIT) {
+        // Hitting the cap is indistinguishable from "exactly N rows" otherwise;
+        // warn so the operator does not analyze a silently truncated dataset
+        // (W19-T1 N6).
+        toast.warning(t('proxyLogs.page.exportCsvTruncated'), {
+          description: t('proxyLogs.page.exportCsvTruncatedHint', {
+            count: rows.length,
+          }),
+        })
+      } else {
+        toast.success(
+          t('proxyLogs.page.exportCsvToast', { count: rows.length })
+        )
+      }
     } catch (exportError) {
       toast.error(
         t('proxyLogs.page.exportCsvFailed', {

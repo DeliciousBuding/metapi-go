@@ -32,8 +32,17 @@ export function MaintenanceSection() {
 
   const clearUsageMutation = useMutation({
     mutationFn: async () => api.clearUsageData(),
-    onSuccess: () =>
-      toast.success(t('settings.operations.maintenance.toast.usageCleared')),
+    onSuccess: () => {
+      // Usage logs feed every dashboard-* widget (snapshot, cost distribution,
+      // latency, income/outcome) — invalidate the whole key family so the
+      // cleared numbers show up instead of waiting for the 10s poll (W19-T1 N2).
+      void queryClient.invalidateQueries({
+        predicate: (query) =>
+          typeof query.queryKey[0] === 'string' &&
+          query.queryKey[0].startsWith('dashboard-'),
+      })
+      toast.success(t('settings.operations.maintenance.toast.usageCleared'))
+    },
     onError: () =>
       toast.error(t('settings.operations.maintenance.toast.usageClearFailed')),
   })

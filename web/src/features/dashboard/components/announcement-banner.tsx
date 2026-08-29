@@ -16,30 +16,21 @@ import { Info, Megaphone, X } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Notice, type NoticeTone } from '@/components/ui/notice'
 import { api, type Announcement } from '@/lib/api'
 import {
   getSafeProductAnnouncementUrl,
   productAnnouncementKeys,
 } from '@/lib/product-announcements'
 import { toast } from '@/lib/toast'
-import { cn } from '@/lib/utils'
 
 const SEVERITY_TONE: Record<
   Announcement['severity'],
-  { wrapper: string; icon: typeof Info }
+  { tone: NoticeTone; icon: typeof Info }
 > = {
-  critical: {
-    wrapper: 'border-destructive/40 bg-destructive/10 text-destructive-soft-fg',
-    icon: Megaphone,
-  },
-  warning: {
-    wrapper: 'border-warning/40 bg-warning/10 text-warning-soft-fg',
-    icon: Megaphone,
-  },
-  info: {
-    wrapper: 'border-info/40 bg-info/10 text-info-soft-fg',
-    icon: Info,
-  },
+  critical: { tone: 'destructive', icon: Megaphone },
+  warning: { tone: 'warning', icon: Megaphone },
+  info: { tone: 'info', icon: Info },
 }
 
 export function AnnouncementBanner() {
@@ -83,13 +74,11 @@ export function AnnouncementBanner() {
         const Icon = tone.icon
         const safeLink = getSafeProductAnnouncementUrl(item.link)
         return (
-          <div
+          <Notice
             key={item.id}
+            tone={tone.tone}
             role='alert'
-            className={cn(
-              'flex items-start gap-3 rounded-lg border px-4 py-3 text-sm',
-              tone.wrapper
-            )}
+            className='gap-3 px-4 py-3'
           >
             <Icon className='mt-0.5 size-4 shrink-0' />
             <div className='min-w-0 flex-1'>
@@ -119,7 +108,7 @@ export function AnnouncementBanner() {
             >
               <X className='size-3.5' />
             </button>
-          </div>
+          </Notice>
         )
       })}
     </div>

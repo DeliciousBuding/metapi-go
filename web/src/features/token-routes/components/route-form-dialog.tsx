@@ -58,7 +58,11 @@ import {
   type RouteFormValues,
 } from '../lib/routes-schema'
 import type { RouteMode, RouteRoutingStrategy, RouteSummaryRow } from '../types'
-import { getModelPatternError, isRegexModelPattern } from '../utils'
+import {
+  getModelPatternError,
+  isRegexModelPattern,
+  ROUTE_ICON_NONE_VALUE,
+} from '../utils'
 import { RouteChannelEditor } from './route-channel-editor'
 import { showRouteCompletionToast } from './route-completion-toast'
 
@@ -191,6 +195,7 @@ export function RouteFormDialog({
       <SheetContent
         side='right'
         className='flex w-full flex-col gap-0 sm:max-w-lg'
+        showMobileCloseBar={false}
       >
         <SheetHeader>
           <SheetTitle>
@@ -257,10 +262,27 @@ export function RouteFormDialog({
                 <FormItem>
                   <FormLabel>{t('tokenRoutes.form.displayIcon')}</FormLabel>
                   <FormControl>
+                    {/* The storage protocol sentinel ROUTE_ICON_NONE_VALUE is
+                        mapped to a friendly "none" token at the input
+                        boundary so users never see the internal value. */}
                     <Input
                       placeholder={t('tokenRoutes.form.displayIconPlaceholder')}
-                      {...field}
-                      value={field.value ?? ''}
+                      name={field.name}
+                      ref={field.ref}
+                      onBlur={field.onBlur}
+                      value={
+                        field.value === ROUTE_ICON_NONE_VALUE
+                          ? 'none'
+                          : (field.value ?? '')
+                      }
+                      onChange={(event) => {
+                        const raw = event.target.value
+                        field.onChange(
+                          raw.trim().toLowerCase() === 'none'
+                            ? ROUTE_ICON_NONE_VALUE
+                            : raw
+                        )
+                      }}
                     />
                   </FormControl>
                   <FormDescription>

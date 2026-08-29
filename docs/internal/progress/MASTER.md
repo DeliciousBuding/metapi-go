@@ -6,9 +6,22 @@
 
 > This is the only execution plan. It contains open work, order, ownership, and acceptance criteria. Current facts → [`../STATE.md`](../STATE.md) · product positioning → [`../benchmark.md`](../benchmark.md) · timeline → [`../log.md`](../log.md).
 
-## Current active work — 无执行中 wave（Wave 19 候选待挑选）
+## Current active work — W19-W21 前端审计三波已交付本地（未 push，融合待决策）
 
-Wave 18 已收口并发布 v0.16.19（见下方已收口节）。下一波候选（后端优先）：
+**本地 master 领先 origin/master 13+ commits 且已分叉**（并行会话将 origin 推至另一线）：W19 三路审计（交互/视觉/对标 newapi）+ 修复波 A-M、W20 seeded 视觉审图波、W21 交互弹层审计波（26 场景 × desktop/mobile × light/dark 全绿）。全量回归 1470 测试绿。**未 push 未 bump——融合与版本决策待用户拍板**。明细与裁决表：`.dev-local/progress/W19-backlog.md`（gitignored）；时间线：[`../log.md`](../log.md)。
+
+W19-W21 已交付主线（均本地 master）：错误 toast 单 owner 收口 + 5xx 兜底文案、列表页错误契约统一（QueryErrorBanner）、URL 态收口（price-compare/site-announcements）、`ui/notice.tsx` 横幅原语、chart-1..5 AA 4.5:1 对比度门禁、`ui/kpi-value.tsx` KPI 三档、移动端 sheet 底部关闭条（表单 sheet 可豁免）、focus-ring ≥3:1 贯穿、type-to-confirm 危险区、标题字重 calm-titles 对齐、10px 最小字号红线、SelectValue 函数 children 修复裸 value/哨兵泄漏、交互弹层截图管道 `shot-interactions.mjs`（26 场景双视口双主题）。
+
+**W19-W21 剩余项**（均不阻塞，按优先级择机）：
+
+| # | 内容 | 建议验收 |
+|---|---|---|
+| F1 | **本地/origin 融合决策**：本地 13+ 前端 commits 与 origin 后端线分叉，需 rebase/merge 策略 + 全量门禁 | 融合后 12-check CI 全绿 |
+| F2 | **D2 site-form 抽屉迁移**（产品决策项）：918 行 Dialog → Drawer，需回归 dirty-close/focus-first-invalid + 视觉验收 | 双视口截图 + 契约测试 |
+| F3 | **后端告警文案 i18n**（P3）：`stats_balance.go` `Low balance: %s` 硬编码英文，事件持久化 + 后端无 locale 上下文，需 key 映射架构改动 | 双语告警事件端到端 |
+| F4 | **docs/api.md 超尺寸预算**（卫生项）：1590 行 > 1500 预算；公开仓有外部深链风险，拆分需按域设计（api/*.md + 索引 + 指针迁移），属专门文档波次，不在前端波次顺手做 | 拆分后 docs/README.md 指针同步、旧 anchor 有承接 |
+
+后端候选（原 Wave 19 候选，不变）：
 
 | # | 内容 | 建议验收 |
 |---|---|---|

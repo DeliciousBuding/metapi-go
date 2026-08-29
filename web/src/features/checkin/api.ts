@@ -125,6 +125,9 @@ export function useManualCheckin() {
     },
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: checkinQueryKeys.logs() })
+      // Check-in rewrites account balance / last-check-in time; refresh the
+      // accounts snapshot so the account page does not keep stale totals.
+      void queryClient.invalidateQueries({ queryKey: ['accounts'] })
       return result
     },
   })
@@ -141,6 +144,9 @@ export function useCheckinAccount() {
     },
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: checkinQueryKeys.logs() })
+      // Check-in rewrites account balance / last-check-in time; refresh the
+      // accounts snapshot so the account page does not keep stale totals.
+      void queryClient.invalidateQueries({ queryKey: ['accounts'] })
       return result
     },
   })

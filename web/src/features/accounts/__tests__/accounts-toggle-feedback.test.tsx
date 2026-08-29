@@ -18,6 +18,7 @@ const testState = vi.hoisted(() => ({
   rowActions: null as AccountRowActions | null,
   pinMutate: vi.fn(),
   checkinMutate: vi.fn(),
+  statusMutate: vi.fn(),
   toastSuccess: vi.fn(),
 }))
 
@@ -84,7 +85,7 @@ vi.mock('../api', () => ({
     isPending: false,
   }),
   useToggleAccountStatus: () => ({
-    mutate: vi.fn(),
+    mutate: testState.statusMutate,
     isPending: false,
     variables: undefined,
   }),
@@ -122,6 +123,7 @@ beforeEach(() => {
   testState.rowActions = null
   testState.pinMutate.mockReset()
   testState.checkinMutate.mockReset()
+  testState.statusMutate.mockReset()
   testState.toastSuccess.mockReset()
   // Default stubs: succeed synchronously and invoke the caller's callback.
   testState.pinMutate.mockImplementation(
@@ -130,6 +132,11 @@ beforeEach(() => {
     }
   )
   testState.checkinMutate.mockImplementation(
+    (_variables: unknown, options?: { onSuccess?: () => void }) => {
+      options?.onSuccess?.()
+    }
+  )
+  testState.statusMutate.mockImplementation(
     (_variables: unknown, options?: { onSuccess?: () => void }) => {
       options?.onSuccess?.()
     }
@@ -163,6 +170,20 @@ describe('AccountsPage toggle feedback', () => {
 
     expect(testState.checkinMutate).toHaveBeenCalledWith(
       { id: 9, checkinEnabled: true },
+      expect.objectContaining({ onSuccess: expect.any(Function) })
+    )
+    expect(testState.toastSuccess).toHaveBeenCalledTimes(1)
+    expect(testState.toastSuccess.mock.calls[0][0]).toContain('alpha-account')
+  })
+
+  it('confirms a successful status toggle with the account name', async () => {
+    render(<AccountsPage />)
+
+    await waitFor(() => expect(testState.rowActions).not.toBeNull())
+    testState.rowActions?.onToggleStatus(makeAccount({ status: 'active' }))
+
+    expect(testState.statusMutate).toHaveBeenCalledWith(
+      { id: 9, status: 'disabled' },
       expect.objectContaining({ onSuccess: expect.any(Function) })
     )
     expect(testState.toastSuccess).toHaveBeenCalledTimes(1)

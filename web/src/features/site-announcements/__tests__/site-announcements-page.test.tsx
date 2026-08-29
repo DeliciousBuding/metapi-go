@@ -26,7 +26,7 @@ import '@/i18n/config'
 
 import { SiteAnnouncementsPage } from '../components/site-announcements-page'
 
-const { mockApi, mockToast } = vi.hoisted(() => ({
+const { mockApi, mockToast, mockRouter } = vi.hoisted(() => ({
   mockApi: {
     getSiteAnnouncements: vi.fn(),
     getSites: vi.fn(),
@@ -42,10 +42,17 @@ const { mockApi, mockToast } = vi.hoisted(() => ({
     info: vi.fn(),
     warning: vi.fn(),
   },
+  mockRouter: { navigate: vi.fn() },
 }))
 
 vi.mock('@/lib/api', () => ({ api: mockApi }))
 vi.mock('@/lib/toast', () => ({ toast: mockToast }))
+// The page reads its filters/page cursor from the URL (W19-T1 P2-l); the
+// tests mount it bare, so stub the router hooks with a default search.
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => mockRouter.navigate,
+  useSearch: () => ({}),
+}))
 
 function makeAnnouncement(overrides: Record<string, unknown> = {}) {
   return {

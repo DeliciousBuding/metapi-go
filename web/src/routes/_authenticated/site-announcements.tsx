@@ -10,8 +10,14 @@
 // names join + filter facets) so the page renders with data on first paint.
 // Params are built through the same helper the page uses, so the prefetched
 // cache key matches the page's first fetch exactly.
+//
+// `validateSearch` syncs the filters + page cursor to the URL so a refresh or
+// shared link restores the exact view (W19-T1 P2-l residual). The router
+// JSON-parses search values, so every param uses the resilient
+// stringSearchParam union and the page normalizes to its own defaults.
 
 import { createFileRoute } from '@tanstack/react-router'
+import { z } from 'zod'
 
 import {
   buildSiteAnnouncementsParams,
@@ -21,14 +27,24 @@ import {
 import { SiteAnnouncementsPage } from '@/features/site-announcements/components/site-announcements-page'
 import { sitesKeys } from '@/features/sites'
 import { api } from '@/lib/api'
+import { stringSearchParam } from '@/lib/helpers/searchParams'
 
 const firstPageParams = buildSiteAnnouncementsParams(
   0,
   DEFAULT_SITE_ANNOUNCEMENTS_FILTERS
 )
 
+const siteAnnouncementsSearchSchema = z.object({
+  siteId: stringSearchParam,
+  platform: stringSearchParam,
+  read: stringSearchParam,
+  status: stringSearchParam,
+  page: stringSearchParam,
+})
+
 export const Route = createFileRoute('/_authenticated/site-announcements')({
   staticData: { title: 'siteAnnouncements.page.title' },
+  validateSearch: siteAnnouncementsSearchSchema,
   loader: async ({ context }) => {
     await Promise.all([
       context.queryClient.prefetchQuery({

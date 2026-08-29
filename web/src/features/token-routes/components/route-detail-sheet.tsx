@@ -5,9 +5,10 @@
 
 import { useQueries } from '@tanstack/react-query'
 import { Pencil, RefreshCw, Snowflake } from 'lucide-react'
-import { useMemo, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { DetailField } from '@/components/common/detail-field'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -88,6 +89,10 @@ export function RouteDetailSheet({
   const channelsQuery = useRouteChannels(route?.id ?? null)
   const clearCooldownMutation = useClearRouteCooldown()
   const rebuildMutation = useRebuildRoutes()
+  // Rebuild recomposes the route's channels from current model availability —
+  // the same impact as the page-level rebuild, which already confirms. The
+  // sheet button got no gate, so mirror the confirmation here (W19-T1 P2-m②).
+  const [rebuildConfirmOpen, setRebuildConfirmOpen] = useState(false)
   const channels = useMemo(() => channelsQuery.data ?? [], [channelsQuery.data])
   const concreteModels = useMemo(
     () => (route ? resolveDistinctConcreteModels(route, channels) : []),
@@ -329,7 +334,7 @@ export function RouteDetailSheet({
               {t('common.edit')}
             </Button>
           ) : null}
-          <Button onClick={handleRebuild} variant='default'>
+          <Button onClick={() => setRebuildConfirmOpen(true)} variant='default'>
             <RefreshCw
               className={rebuildMutation.isPending ? 'animate-spin' : undefined}
             />
@@ -338,6 +343,20 @@ export function RouteDetailSheet({
               : t('tokenRoutes.detail.rebuild')}
           </Button>
         </SheetFooter>
+
+        <ConfirmDialog
+          open={rebuildConfirmOpen}
+          title={t('tokenRoutes.page.rebuildConfirmTitle')}
+          description={t('tokenRoutes.page.rebuildConfirmDescription')}
+          confirmLabel={t('tokenRoutes.page.rebuild')}
+          cancelLabel={t('common.cancel')}
+          destructive
+          onConfirm={() => {
+            setRebuildConfirmOpen(false)
+            void handleRebuild()
+          }}
+          onCancel={() => setRebuildConfirmOpen(false)}
+        />
       </SheetContent>
     </Sheet>
   )

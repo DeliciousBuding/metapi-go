@@ -53,6 +53,7 @@ docs/
   faq.md                    ← common questions
   migration.md              ← TS→Go takeover paths (SQLite / PG / MySQL) + version pinning
   testing.md                ← test layers + public real-platform testbed SOP
+  visual-regression.md      ← screenshot evidence + golden visual regression SOP
   assets/                   ← public images (hero, screenshots)
   internal/                 ← maintainer process docs (never linked from README)
     STATE.md                  现状 source of truth (keep slim)

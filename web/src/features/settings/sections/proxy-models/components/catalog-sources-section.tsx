@@ -153,6 +153,9 @@ export function CatalogSourcesSection() {
     onSettled: () => setSyncingId(null),
     onSuccess: (status) => {
       refreshStatus(status)
+      // Syncing catalog sources adds/updates marketplace models + pricing;
+      // refresh the models marketplace so the Models page is not stale.
+      void queryClient.invalidateQueries({ queryKey: ['models'] })
       toast.success(
         t('settings.proxyModels.catalogSources.toast.syncSucceeded', {
           count: status.snapshot.models,
@@ -173,6 +176,9 @@ export function CatalogSourcesSection() {
     onSettled: () => setSyncingId(null),
     onSuccess: (status) => {
       refreshStatus(status)
+      // Syncing catalog sources adds/updates marketplace models + pricing;
+      // refresh the models marketplace so the Models page is not stale.
+      void queryClient.invalidateQueries({ queryKey: ['models'] })
       toast.success(
         t('settings.proxyModels.catalogSources.toast.syncSucceeded', {
           count: status.snapshot.models,

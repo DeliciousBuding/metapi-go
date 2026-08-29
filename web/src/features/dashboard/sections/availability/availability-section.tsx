@@ -28,6 +28,7 @@ import {
   EmptyHeader,
   EmptyMedia,
 } from '@/components/ui/empty'
+import { KpiValue } from '@/components/ui/kpi-value'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toBcp47 } from '@/i18n/languages'
 import { api } from '@/lib/api'
@@ -340,7 +341,7 @@ function RealtimeOpsPanel() {
             <EmptyHeader>
               <EmptyMedia
                 variant='icon'
-                className='bg-destructive/10 text-destructive'
+                className='bg-destructive/10 text-destructive-soft-fg'
               >
                 <TriangleAlert />
               </EmptyMedia>
@@ -361,25 +362,21 @@ function RealtimeOpsPanel() {
                 <div className='text-muted-foreground text-xs'>
                   {t('dashboard.availability.realtime.metricQps')}
                 </div>
-                <div className='text-2xl font-semibold tabular-nums'>
-                  {sample.qps}
-                </div>
+                <KpiValue size='lg'>{sample.qps}</KpiValue>
               </div>
               <div>
                 <div className='text-muted-foreground text-xs'>
                   {t('dashboard.availability.realtime.metricSuccess')}
                 </div>
-                <div className='text-2xl font-semibold tabular-nums'>
-                  {formatRate(sample.successRate)}
-                </div>
+                <KpiValue size='lg'>{formatRate(sample.successRate)}</KpiValue>
               </div>
               <div>
                 <div className='text-muted-foreground text-xs'>
                   {t('dashboard.availability.realtime.metricUptime')}
                 </div>
-                <div className='text-2xl font-semibold tabular-nums'>
+                <KpiValue size='lg'>
                   {formatUptime(sample.uptimeSeconds, t)}
-                </div>
+                </KpiValue>
               </div>
             </div>
             <RealtimeSparkline points={sample.spark} />
@@ -479,7 +476,7 @@ function AttentionPanel() {
             <EmptyHeader>
               <EmptyMedia
                 variant='icon'
-                className='bg-destructive/10 text-destructive'
+                className='bg-destructive/10 text-destructive-soft-fg'
               >
                 <TriangleAlert />
               </EmptyMedia>

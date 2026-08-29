@@ -30,8 +30,6 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { accountQueryKeys } from '@/features/accounts'
-import { sitesKeys } from '@/features/sites'
 import {
   api,
   type BackupWebdavExportType,
@@ -188,16 +186,17 @@ export function ImportExportSection() {
   })
 
   /**
-   * A backup import can replace sites, accounts, preferences, attention
-   * entries and the WebDAV config — invalidate every cached domain so list
-   * pages and dashboard widgets reflect the restored data immediately.
+   * A backup import merges rows across the whole schema — the backend's
+   * `AllTables` (service/backup/export.go) spans ~30 tables (sites, accounts,
+   * account tokens, routes, channels, check-in logs, model availability,
+   * OAuth route units, settings, …), far beyond any hand-maintained key list.
+   * Invalidate the entire query cache so every list page, dashboard widget and
+   * settings section refetches the restored data instead of serving stale rows
+   * (the previous targeted list missed routes/channels/check-in/oauth and the
+   * shared runtime-settings key — W19-T1 N1).
    */
   function invalidateAfterImport() {
-    void queryClient.invalidateQueries({ queryKey: sitesKeys.list() })
-    void queryClient.invalidateQueries({ queryKey: accountQueryKeys.all })
-    void queryClient.invalidateQueries({ queryKey: ['dashboard-attention'] })
-    void queryClient.invalidateQueries({ queryKey: ['settings-auth-info'] })
-    void queryClient.invalidateQueries({ queryKey: webdavQueryKeys.all })
+    void queryClient.invalidateQueries()
   }
 
   const previewMutation = useMutation({
