@@ -13,7 +13,7 @@ Wave 18 已收口并发布 v0.16.19（见下方已收口节）。下一波候选
 | # | 内容 | 建议验收 |
 |---|---|---|
 | C1 | **config 单例运行时竞态里程碑**（#1052 审计升级项 D2）：约 25 个运行时写字段（含数据面 `ProxyToken`/`ProxyRetryStatusRanges`）× 热路径无锁读，撕裂读可致 401 抖动；快照交换或守卫访问器重设计 | -race 全绿 + 并发读改写测试；热更新语义不变 |
-| C2 | **#1026 凭证维度**：`allowedCredentialRefs`（site+account+token 三元组）UI 树形选择器 + API 契约文档 | 选择器往返 + 路由选择器生效测试 |
+| C2 | **#1026 凭证维度 UI 树形选择器**：后端契约已在 W20 加固（解析往返 snake/camel 修复、畸形引用显式 400、选择器/验证/悬空引用契约测试、`docs/api.md` 契约文档；API-only，PR 待合）；剩余仅 `allowedCredentialRefs` UI 树形选择器 | UI 选择器与 API 往返一致，复用 #1050 allowedSiteIds 选择器模式 |
 | C3 | **race 门禁预算**：`handler/admin` -race 实测 250-360s 临界于默认 300s（本波 6 lane 撞线，均用 `METAPI_RACE_TIMEOUT_SECONDS` 官方旋钮）；上调默认或拆包 | 门禁默认预算下全绿 |
 | C4 | **#1035 剩余专题**：S2 CSP（独立 sub-issue）、S4 API 契约层（后端 400 加 errorCode）、S5-S8、S9 后半（六张大表服务端分页）、S10 双语 CI | 按各专题验收 |
 
