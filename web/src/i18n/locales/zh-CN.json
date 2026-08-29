@@ -2559,11 +2559,11 @@
         "platform": "平台",
         "allPlatforms": "全部平台",
         "read": "阅读状态",
-        "readAll": "全部",
+        "readAll": "阅读：全部",
         "readTrue": "已读",
         "readFalse": "未读",
         "status": "状态",
-        "statusAll": "全部",
+        "statusAll": "状态：全部",
         "statusActive": "生效中",
         "statusExpired": "已过期",
         "statusDismissed": "已忽略"

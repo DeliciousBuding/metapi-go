@@ -2559,11 +2559,11 @@
         "platform": "Platform",
         "allPlatforms": "All platforms",
         "read": "Read status",
-        "readAll": "All",
+        "readAll": "Read: All",
         "readTrue": "Read",
         "readFalse": "Unread",
         "status": "Status",
-        "statusAll": "All",
+        "statusAll": "Status: All",
         "statusActive": "Active",
         "statusExpired": "Expired",
         "statusDismissed": "Dismissed"
