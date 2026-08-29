@@ -107,6 +107,37 @@ function resolveResponseMessage(data: unknown): string | undefined {
   return undefined
 }
 
+/**
+ * Resolve a user-facing message for a failed request. Precedence: the backend
+ * body message, then a status-aware 5xx message (so a bare 502/503/504 no
+ * longer leaks the raw "Request failed with status code 502"), then the
+ * axios error message, then a generic fallback.
+ */
+function resolveErrorMessage(
+  data: unknown,
+  error: unknown,
+  status: number | undefined
+): string {
+  const dataMessage = resolveResponseMessage(data)
+  if (dataMessage) return dataMessage
+  if (status !== undefined && status >= 500) {
+    return resolveServerErrorMessage(status)
+  }
+  const axiosMessage = (error as { message?: unknown } | null)?.message
+  return (
+    (typeof axiosMessage === 'string' && axiosMessage) ||
+    i18n.t('common.requestFailed')
+  )
+}
+
+/** Status-specific copy for server errors with no backend body message. */
+function resolveServerErrorMessage(status: number): string {
+  if (status === 500) {
+    return i18n.t('errors.internalServerError')
+  }
+  return i18n.t('errors.serverError', { status })
+}
+
 /** True when a response body asks for master-token re-confirmation. */
 function isReauthRequiredBody(data: unknown): boolean {
   return (
@@ -190,10 +221,7 @@ apiClient.interceptors.response.use(
       if (!skipErrorHandler) toast.error(i18n.t(sessionInvalidMessageKey))
       redirectToSignIn()
     } else if (!skipErrorHandler) {
-      const message =
-        resolveResponseMessage(data) ||
-        error?.message ||
-        i18n.t('common.requestFailed')
+      const message = resolveErrorMessage(data, error, status)
       // Same message-keyed dedupe as the business-error path (W19-T1 N4).
       toast.error(message, { id: `api-error:${message}` })
     }

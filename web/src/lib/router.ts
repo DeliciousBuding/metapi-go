@@ -6,19 +6,21 @@
 // imports both instances for the provider stack; nothing here depends on
 // main.tsx.
 
-import { QueryCache, QueryClient } from '@tanstack/react-query'
+import { QueryClient } from '@tanstack/react-query'
 import { createRouter } from '@tanstack/react-router'
 import { AxiosError } from 'axios'
-import i18next from 'i18next'
 
 import { ErrorPage } from '@/components/layout/error-page'
 import { NotFoundPage } from '@/components/layout/not-found-page'
 import { RoutePending } from '@/components/layout/route-pending'
 import type { RouteTitleSpec } from '@/lib/helpers/document-title'
-import { toast } from '@/lib/toast'
 // Generated route tree (TanStack Router plugin overwrites on dev/build)
 import { routeTree } from '@/routeTree.gen'
 
+// Error toasts are owned by the axios interceptor in http-client.ts (single
+// owner, message-keyed dedupe). A QueryCache.onError toast here would double
+// up on 500s (the interceptor already toasts it) and leak a second, undeduped
+// copy — so none is registered on the query cache.
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -38,13 +40,6 @@ export const queryClient = new QueryClient({
       staleTime: 10 * 1000, // 10s
     },
   },
-  queryCache: new QueryCache({
-    onError: (error) => {
-      if (error instanceof AxiosError && error.response?.status === 500) {
-        toast.error(i18next.t('errors.internalServerError'))
-      }
-    },
-  }),
 })
 
 export const router = createRouter({

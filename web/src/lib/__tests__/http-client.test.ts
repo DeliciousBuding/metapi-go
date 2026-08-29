@@ -12,6 +12,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import i18n from '@/i18n/config'
+
 import { apiClient } from '../http-client'
 
 const toastErrorMock = vi.fn()
@@ -223,6 +225,36 @@ describe('apiClient auth interceptor', () => {
     // Error toasts carry a message-keyed dedupe id (W19-T1 N4).
     expect(toastErrorMock).toHaveBeenCalledWith('IP not allowed', {
       id: 'api-error:IP not allowed',
+    })
+  })
+
+  it('falls back to the server-error copy, not the raw axios message, on a bare 500', async () => {
+    const adapterCalls: unknown[] = []
+    // No body message — the exact case that used to leak
+    // "Request failed with status code 500" to the user.
+    installStatusAdapter(adapterCalls, 500, undefined)
+
+    await expect(apiClient.get('/api/protected')).rejects.toThrow()
+
+    // The interceptor swallows the axios wording; the toast carries the
+    // dedicated `errors.internalServerError` copy plus the dedupe id.
+    const expected = i18n.t('errors.internalServerError')
+    expect(toastErrorMock).toHaveBeenCalledWith(expected, {
+      id: `api-error:${expected}`,
+    })
+  })
+
+  it('extends the 5xx fallback to gateway errors like 502/503/504', async () => {
+    const adapterCalls: unknown[] = []
+    installStatusAdapter(adapterCalls, 502, undefined)
+
+    await expect(apiClient.get('/api/protected')).rejects.toThrow()
+
+    // A non-500 5xx (bad gateway, unavailable, timeout) maps to a status-
+    // aware server-error copy rather than the axios tech message (W19-M).
+    const expected = i18n.t('errors.serverError', { status: 502 })
+    expect(toastErrorMock).toHaveBeenCalledWith(expected, {
+      id: `api-error:${expected}`,
     })
   })
 })

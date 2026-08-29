@@ -37,6 +37,7 @@
         "failed": "Login failed, please check the service status."
       },
       "internalServerError": "Internal Server Error!",
+      "serverError": "Server error ({{status}}). Please try again later.",
       "notFoundTitle": "Page not found",
       "notFoundDescription": "The address may be wrong or the page has been moved.",
       "backHome": "Back to dashboard",
