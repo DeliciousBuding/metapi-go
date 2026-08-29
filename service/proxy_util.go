@@ -1,7 +1,6 @@
 package service
 
 import (
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -11,36 +10,29 @@ import (
 	"github.com/deliciousbuding/metapi-go/platform"
 )
 
-// ProxyAwareHTTPClient creates an *http.Client that optionally routes through a proxy.
-// If proxyURL is empty, returns a standard client.
+// ProxyAwareHTTPClient creates an *http.Client that optionally routes through
+// a proxy. If proxyURL is empty or fails to parse, the client dials directly
+// and never consults HTTP_PROXY/HTTPS_PROXY environment variables.
 //
 // The client always wires platform.RejectCrossOriginRedirect so callers
 // (notably notify/telegram) cannot follow a public-origin 302 onto a
-// different host.
+// different host. Phase bounds keep this helper's historical values (dial
+// 10s, TLS 10s, response-header phase = timeout) on the shared httpclient
+// baseline; the whole-request timeout is the caller's value.
 func ProxyAwareHTTPClient(proxyURL string, timeout time.Duration) *http.Client {
-	transport := &http.Transport{
-		DialContext: (&net.Dialer{
-			Timeout:   10 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).DialContext,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ResponseHeaderTimeout: timeout,
-		MaxIdleConns:          httpclient.DefaultMaxIdleConns,
-		MaxIdleConnsPerHost:   httpclient.DefaultMaxIdleConnsPerHost,
-		IdleConnTimeout:       httpclient.DefaultIdleConnTimeout,
-	}
-
+	proxy := httpclient.NoProxy
 	if proxyURL != "" {
-		proxyURL = strings.TrimSpace(proxyURL)
-		parsed, err := url.Parse(proxyURL)
-		if err == nil {
-			transport.Proxy = http.ProxyURL(parsed)
+		// Invalid proxy URLs fall back to direct requests, the historical
+		// behavior of this helper.
+		if parsed, err := url.Parse(strings.TrimSpace(proxyURL)); err == nil {
+			proxy = http.ProxyURL(parsed)
 		}
 	}
-
-	return &http.Client{
-		Transport:     transport,
-		Timeout:       timeout,
-		CheckRedirect: platform.RejectCrossOriginRedirect,
-	}
+	transport := httpclient.NewTransport(httpclient.Options{
+		DialTimeout:           10 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: timeout,
+		Proxy:                 proxy,
+	})
+	return httpclient.NewClient(transport, timeout, platform.RejectCrossOriginRedirect)
 }
