@@ -361,27 +361,35 @@ func normalizeInt64Set(input []int64) []int64 {
 	return result
 }
 
-func normalizeExcludedCredentialRefsInput(input []any) []any {
+// normalizeExcludedCredentialRefsInput dedupes and canonicalizes credential
+// refs shared by excludedCredentialRefs and allowedCredentialRefs. Malformed
+// entries are rejected (non-empty reason) instead of silently dropped:
+// dropping an allow-list entry would silently widen access (fail-open), and
+// dropping an exclude entry would hide the operator's intent.
+// Accepted shapes:
+//   - {"kind":"account_token","siteId":>0,"accountId":>0,"tokenId":>0}
+//   - {"kind":"default_api_key","siteId":>0,"accountId":>0}
+func normalizeExcludedCredentialRefsInput(input []any) ([]any, string) {
 	seen := make(map[string]bool)
 	result := make([]any, 0, len(input))
-	for _, item := range input {
+	for i, item := range input {
 		obj, ok := item.(map[string]any)
 		if !ok {
-			continue
+			return nil, fmt.Sprintf("credentialRefs[%d] must be an object with kind/siteId/accountId", i)
 		}
 		kind, _ := obj["kind"].(string)
 		kind = strings.TrimSpace(kind)
 		siteId := coerceInt64(obj["siteId"])
 		accountId := coerceInt64(obj["accountId"])
 		if siteId <= 0 || accountId <= 0 {
-			continue
+			return nil, fmt.Sprintf("credentialRefs[%d] requires positive siteId and accountId", i)
 		}
 
 		var dedupeKey string
 		if kind == "account_token" {
 			tokenId := coerceInt64(obj["tokenId"])
 			if tokenId <= 0 {
-				continue
+				return nil, fmt.Sprintf("credentialRefs[%d] (account_token) requires a positive tokenId", i)
 			}
 			dedupeKey = fmt.Sprintf("account_token:%d:%d:%d", siteId, accountId, tokenId)
 			if seen[dedupeKey] {
@@ -405,13 +413,14 @@ func normalizeExcludedCredentialRefsInput(input []any) []any {
 				"siteId":    siteId,
 				"accountId": accountId,
 			})
+		} else {
+			return nil, fmt.Sprintf("credentialRefs[%d] has unknown kind %q (expected account_token or default_api_key)", i, kind)
 		}
-		// Unknown kinds are silently skipped
 		if len(result) >= 1000 {
 			break
 		}
 	}
-	return result
+	return result, ""
 }
 
 // normalizeDownstreamProxyURL trims proxyUrl for create/update.

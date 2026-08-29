@@ -729,15 +729,107 @@ Create a new downstream API key.
   "tags": "tag1,tag2",
   "supportedModels": ["gpt-4o", "claude-sonnet-4-20250514"],
   "allowedRouteIds": [1, 2],
+  "excludedSiteIds": [3],
+  "excludedCredentialRefs": [
+    { "kind": "account_token", "siteId": 1, "accountId": 2, "tokenId": 7 }
+  ],
+  "allowedSiteIds": [1],
+  "allowedCredentialRefs": [
+    { "kind": "account_token", "siteId": 1, "accountId": 2, "tokenId": 7 },
+    { "kind": "default_api_key", "siteId": 1, "accountId": 2 }
+  ],
   "maxCost": 100.0,
   "maxRequests": 10000,
   "expiresAt": "2026-12-31T23:59:59Z"
 }
 ```
 
+Routing-policy fields (`excludedSiteIds`, `excludedCredentialRefs`, `allowedSiteIds`, `allowedCredentialRefs`, `siteWeightMultipliers`, `keyWeight`) are accepted on both create and update; their full contract is documented under **Credential & site scope** below.
+
+### Credential & site scope (downstream keys)
+
+Optional per-key routing dimensions. All four fields are independent; each is
+evaluated during channel selection for every proxied request.
+
+| Field | Stored column | Type |
+| --- | --- | --- |
+| `allowedSiteIds` | `allowed_site_ids` | JSON array of site IDs |
+| `excludedSiteIds` | `excluded_site_ids` | JSON array of site IDs |
+| `allowedCredentialRefs` | `allowed_credential_refs` | JSON array of credential refs |
+| `excludedCredentialRefs` | `excluded_credential_refs` | JSON array of credential refs |
+
+**Semantics.** Omitted, `null`, or empty (`[]`) means **unrestricted** for that
+dimension (the column stores `NULL`). A non-empty list activates the gate:
+
+- `allowedSiteIds` / `allowedCredentialRefs` (allow-lists): only candidates
+  matching **at least one** entry are eligible; everything else is rejected.
+- `excludedSiteIds` / `excludedCredentialRefs` (exclude lists): candidates
+  matching any entry are rejected.
+- When the same target appears in both lists, **exclude wins** (deny).
+- Site and credential dimensions are independent gates — a candidate must pass
+  both.
+
+> **UI status:** the credential-ref dimensions are **API-only**. The admin UI
+> has no tree picker for them yet (issue #1026 follow-up); manage these fields
+> via the API. `allowedSiteIds` has a UI picker (#1050).
+
+**Credential ref shape.** Each ref is one of two kinds:
+
+```json
+{ "kind": "account_token",   "siteId": 1, "accountId": 2, "tokenId": 7 }
+{ "kind": "default_api_key", "siteId": 1, "accountId": 2 }
+```
+
+- `account_token` — a specific token of a specific account
+  (`siteId` + `accountId` + `tokenId`, all required and > 0). Matches only
+  channels bound to that exact token.
+- `default_api_key` — the account's own default API key (`siteId` +
+  `accountId`; no `tokenId`). Matches only channels that use the account's
+  `apiToken` (no explicit token binding).
+- The two kinds never match each other's channel class.
+- Refs persisted by the legacy TS version without a `kind` are treated with
+  `default_api_key` semantics at selection time (read-only compatibility; new
+  writes must carry an explicit kind).
+
+**Validation (create and update).** Requests with invalid refs are rejected
+with `400` and nothing is persisted:
+
+- malformed entries (non-object, unknown/missing `kind`, non-positive
+  `siteId`/`accountId`, `account_token` without positive `tokenId`) — rejected
+  rather than silently dropped, so an allow-list can never be quietly widened;
+- `account_token` refs must reference an existing token whose
+  `accountId`/`siteId` match the token's actual account/site;
+- `default_api_key` refs must reference an existing account on the given site
+  that has a non-empty default API key;
+- `allowedSiteIds`/`excludedSiteIds`/`siteWeightMultipliers` site IDs must
+  exist; `allowedRouteIds` route IDs must exist.
+
+**Selector behavior.** During channel selection (`routing.ChannelSelector`):
+
+- non-empty `allowedCredentialRefs` → candidates not matching any ref are
+  rejected (decision reason: `API Key/令牌不在下游密钥允许列表中`);
+- matching `excludedCredentialRefs` → rejected
+  (`API Key/令牌已被下游密钥排除`);
+- equivalent site-dimension reasons: `站点不在下游密钥允许列表中` /
+  `站点已被下游密钥排除`.
+
+**Dangling refs.** Refs are validated only at write time. Deleting an account
+or token afterwards does **not** cascade-clean stored refs; a dangling ref
+simply never matches a candidate — a dangling allow ref makes that credential
+slot permanently ineligible (fail-closed), a dangling exclude ref is a no-op.
+
+**Read responses.** `GET /api/downstream-keys`, `/summary`, and
+`/:id/overview` return the stored columns verbatim: each of the four fields is
+either `null` or a **JSON string** containing the array above (clients must
+`JSON.parse` the value). Create/update request bodies use real arrays.
+
 ### PUT /api/downstream-keys/:id
 
-Update a downstream API key.
+Update a downstream API key. Partial-update semantics: omitted fields keep
+their current value; a field present in the body replaces the stored value
+(`null`/empty clears it back to the unrestricted default). The same
+credential/site-scope validation rules as create apply; a rejected update
+leaves the stored policy untouched.
 
 ### DELETE /api/downstream-keys/:id
 
