@@ -62,7 +62,7 @@ vi.mock('@/features/import', () => ({
 }))
 
 vi.mock('../api', () => ({
-  useAccounts: () => testState.accountsQuery,
+  useAccountsPage: () => testState.accountsQuery,
   useBatchUpdateAccounts: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useDeleteAccount: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useRefreshAccount: () => ({ mutate: vi.fn(), isPending: false }),

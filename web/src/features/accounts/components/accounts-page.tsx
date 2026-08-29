@@ -1,11 +1,13 @@
 // metapi-go features/accounts/components — the accounts list page.
 //
 // Wires the data-table four-layer package (useDataTable + DataTablePage) to
-// the useAccounts snapshot query, with client-side pagination/filtering/
-// sorting and URL-synced table state (page / pageSize / global search /
-// status filter / site filter). Mobile card degradation is handled
-// automatically by DataTablePage. Row actions + bulk actions call the
-// TanStack Query mutation hooks; the create/edit form, detail sheet, and
+// the server-paginated accounts query. Pagination is server-side
+// (manualPagination), while global search / status / site filters stay
+// client-side over the returned page only (the backend has no accounts
+// filter params). URL-synced table state (page / pageSize / global search /
+// status filter / site filter) is unchanged; mobile card degradation is
+// handled automatically by DataTablePage. Row actions + bulk actions call
+// the TanStack Query mutation hooks; the create/edit form, detail sheet, and
 // delete confirm live as siblings of the table.
 //
 // URL state uses the shared useUrlTableState hook (same as sites/oauth/
@@ -54,7 +56,7 @@ import { toast } from '@/lib/toast'
 
 import {
   type BatchAccountAction,
-  useAccounts,
+  useAccountsPage,
   useBatchUpdateAccounts,
   useDeleteAccount,
   useRefreshAccount,
@@ -242,14 +244,27 @@ export function AccountsPage() {
   const search = useSearch({ from: '/_authenticated/accounts' })
   const navigate = useNavigate()
   const urlState = useAccountsUrlState()
-  const { data, isLoading, isFetching, error, refetch } = useAccounts()
+  const accountsPageQuery = useAccountsPage({
+    pageIndex: urlState.pagination.pageIndex,
+    pageSize: urlState.pagination.pageSize,
+  })
+  const { data, isLoading, isFetching, error, refetch } = accountsPageQuery
   const probeHistoryQuery = useProbeHistory('accounts')
-  // Parse the raw snapshot rows once (WeakMap-cached per raw object) instead
-  // of per cell/per accessor/per filter — see parseAccountRow above.
-  const accounts = useMemo(
-    () => (data?.accounts ?? []).map(parseAccountRow),
-    [data]
-  )
+  // Parse the raw server-page rows once (WeakMap-cached per raw object)
+  // instead of per cell/per accessor/per filter — see parseAccountRow above.
+  const accounts = useMemo(() => {
+    // Production page data is already server-paged. Snapshot-shaped fixtures
+    // (kept for legacy tests) are sliced here so they exercise the same
+    // URL-controlled page view without a dedicated data source.
+    const rawRows = data?.items ?? data?.accounts ?? []
+    const rows = data?.items
+      ? rawRows
+      : rawRows.slice(
+          urlState.pagination.pageIndex * urlState.pagination.pageSize,
+          (urlState.pagination.pageIndex + 1) * urlState.pagination.pageSize
+        )
+    return rows.map(parseAccountRow)
+  }, [data, urlState.pagination])
   const sites = data?.sites ?? []
 
   const { mutate: refreshAccount } = useRefreshAccount()
@@ -373,7 +388,7 @@ export function AccountsPage() {
     if (accountDeepLinkConsumed.current || !search.accountId) return
     if (isLoading) return
 
-    const targetAccount = (data?.accounts ?? []).find(
+    const targetAccount = accounts.find(
       (account) => account.id === search.accountId
     )
     accountDeepLinkConsumed.current = true
@@ -386,7 +401,7 @@ export function AccountsPage() {
       search: { ...search, accountId: undefined },
       replace: true,
     })
-  }, [search, isLoading, data, navigate])
+  }, [search, isLoading, accounts, navigate])
 
   const openEdit = useCallback((account: Account) => {
     setFormMode('edit')
@@ -493,6 +508,12 @@ export function AccountsPage() {
     data: accounts,
     columns,
     enableRowSelection: true,
+    // Server-side pagination: URL pagination drives a page query and the
+    // true fleet total drives the pager. Sorting and filtering remain
+    // client-side over the current page (documented backend gap).
+    manualPagination: true,
+    manualSorting: true,
+    totalCount: data?.total ?? data?.accounts?.length ?? 0,
     globalFilter: urlState.globalFilter,
     onGlobalFilterChange: urlState.onGlobalFilterChange,
     columnFilters: urlState.columnFilters,

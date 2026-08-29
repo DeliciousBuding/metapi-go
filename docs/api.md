@@ -370,6 +370,16 @@ Trigger decision snapshot refresh.
 
 Available models by site.
 
+**Query params**: `page`/`pageSize` — when `page` is present the endpoint
+returns `{ items, total, page, pageSize, meta }` where `total` is the full
+marketplace row count and `pageSize` clamps to 1–200 (default 50); when
+`page` is absent it keeps the legacy `{ models, meta }` shape. Filtering and
+sorting are not server-side today, so the frontend applies them over the
+returned page only.
+
+**Response (page-gated)**: `{ "items": [...], "total": 240, "page": 2,
+"pageSize": 50, "meta": { "refreshRequested": false, "includePricing": true } }`.
+
 ### GET /api/models/price-compare
 
 Cross-site effective model price comparison for operators.
@@ -554,7 +564,16 @@ Global tag system: per-row writes and the aggregated index driving the Accounts/
 
 ### GET /api/accounts, POST /api/accounts
 
-List all accounts. Create a new account.
+List accounts. Create a new account.
+
+**Query params** (GET): `page`/`pageSize` — when `page` is present the
+endpoint returns the shared `{ items, total, page, pageSize, generatedAt,
+ sites }` envelope (`page` is 1-based, `pageSize` clamps to 1–200; the
+snapshot cache is bypassed so each page uses a bounded query); when `page` is
+absent it keeps the legacy `{ generatedAt, accounts, sites }` snapshot shape.
+
+The `sites` array is still returned on paged responses so the page's site
+filter and create form keep working without a second full-fleet request.
 
 **Body** (create, optional): `proxyUrl` — per-account egress proxy stored in `extraConfig.proxyUrl`; accepted schemes are `http://`, `https://`, `socks5://`, `socks5h://` (SOCKS5 runs natively on Go's `net/http` transport). Invalid schemes return `400`.
 

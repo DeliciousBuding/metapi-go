@@ -83,7 +83,7 @@ vi.mock('@/features/import', () => ({
 }))
 
 vi.mock('../api', () => ({
-  useAccounts: () => ({
+  useAccountsPage: () => ({
     data: testState.snapshot,
     isLoading: false,
     isFetching: false,
